@@ -1,0 +1,33 @@
+{
+  "name": "@workspace/db",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "lint": "oxlint .",
+    "format": "oxfmt --write .",
+    "typecheck": "tsgo --noEmit"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.2",
+    "postgres": "^3.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^25.1.0",
+    "@typescript/native-preview": "*",
+    "dotenv": "^17.2.3",
+    "drizzle-kit": "^0.31.5",
+    "oxfmt": "*",
+    "oxlint": "*",
+    "typescript": "^5.9.3"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts",
+    "./auth-schema": "./src/auth-schema.ts"
+  }
+}
