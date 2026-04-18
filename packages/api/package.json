@@ -1,0 +1,29 @@
+{
+  "name": "@workspace/api",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "lint": "oxlint .",
+    "format": "oxfmt --write .",
+    "typecheck": "tsgo --noEmit"
+  },
+  "dependencies": {
+    "@workspace/server": "workspace:*",
+    "better-auth": "^1.3.8",
+    "hono": "^4.9.10",
+    "react": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^25.1.0",
+    "@types/react": "^19.2.10",
+    "@typescript/native-preview": "*",
+    "oxfmt": "*",
+    "oxlint": "*",
+    "typescript": "^5.9.3"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./auth": "./src/auth.ts"
+  }
+}
