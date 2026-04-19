@@ -1,114 +1,119 @@
-import * as React from "react";
+import * as React from "react"
 import {
   Link,
   createFileRoute,
   redirect,
   useNavigate,
   useRouter,
-} from "@tanstack/react-router";
-import {
-  ArrowRightIcon,
-  EyeIcon,
-  EyeOffIcon,
-  LockIcon,
-  MailIcon,
-} from "lucide-react";
+} from "@tanstack/react-router"
+import { EyeIcon, EyeOffIcon, LockIcon, MailIcon } from "lucide-react"
 
-import { AlloyLogo } from "@workspace/ui/components/alloy-logo";
-import { Button } from "@workspace/ui/components/button";
-import { Checkbox } from "@workspace/ui/components/checkbox";
+import { AlloyLogo } from "@workspace/ui/components/alloy-logo"
+import { Button } from "@workspace/ui/components/button"
+import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
   Field,
   FieldLabel,
   FieldSeparator,
-} from "@workspace/ui/components/field";
+} from "@workspace/ui/components/field"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-} from "@workspace/ui/components/input-group";
-import { toast } from "@workspace/ui/components/sonner";
+} from "@workspace/ui/components/input-group"
+import { toast } from "@workspace/ui/components/sonner"
 
-import { LoginArtwork } from "../components/login-artwork";
-import { OAuthButton } from "../components/oauth-button";
-import { authClient } from "../lib/auth-client";
-import { fetchAuthConfig } from "../lib/auth-config";
-import { fetchPublicClips } from "../lib/public-clips";
-import { redirectIfAuthed } from "../lib/route-guards";
+import { LoginArtwork } from "../components/login-artwork"
+import { OAuthButton } from "../components/oauth-button"
+import { authClient } from "../lib/auth-client"
+import { fetchAuthConfig } from "../lib/auth-config"
+import { useRedirectIfAuthed } from "../lib/auth-hooks"
+import { fetchPublicClips } from "../lib/public-clips"
 
 /**
  * Sign-in page. Redirects to /setup on a fresh install (no users yet);
  * otherwise shows the email/password form plus the configured OAuth button.
+ *
+ * The `useRedirectIfAuthed` hook bounces already-signed-in visitors home
+ * once the session atom has settled — no server-only cookie forwarding.
  */
 export const Route = createFileRoute("/login")({
-  // Signed-in users have no business on the sign-in page — bounce them home
-  // before the loader runs so we don't flash the form.
-  beforeLoad: () => redirectIfAuthed("/"),
   loader: async () => {
     // `fetchPublicClips` is soft-failing, so this Promise.all can't reject
     // on its behalf.
     const [config, clips] = await Promise.all([
       fetchAuthConfig(),
       fetchPublicClips(),
-    ]);
+    ])
     if (config.setupRequired) {
-      throw redirect({ to: "/setup" });
+      throw redirect({ to: "/setup" })
     }
-    return { config, clips };
+    return { config, clips }
   },
   component: LoginPage,
-});
+})
 
 function LoginPage() {
-  const { config, clips } = Route.useLoaderData();
-  const router = useRouter();
-  const navigate = useNavigate();
+  return (
+    <React.Suspense fallback={null}>
+      <LoginPageInner />
+    </React.Suspense>
+  )
+}
 
-  const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState("");
-  const [showPassword, setShowPassword] = React.useState(false);
-  const [rememberMe, setRememberMe] = React.useState(true);
-  const [pending, setPending] = React.useState(false);
-  const [oauthPending, setOauthPending] = React.useState(false);
+function LoginPageInner() {
+  const canRender = useRedirectIfAuthed("/")
+  const { config, clips } = Route.useLoaderData()
+  const router = useRouter()
+  const navigate = useNavigate()
 
-  const provider = config.provider;
-  const emailPasswordEnabled = config.emailPasswordEnabled;
+  const [email, setEmail] = React.useState("")
+  const [password, setPassword] = React.useState("")
+  const [showPassword, setShowPassword] = React.useState(false)
+  const [rememberMe, setRememberMe] = React.useState(true)
+  const [pending, setPending] = React.useState(false)
+  const [oauthPending, setOauthPending] = React.useState(false)
+
+  const provider = config.provider
+  const emailPasswordEnabled = config.emailPasswordEnabled
+
+  if (!canRender) return null
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (pending) return;
-    setPending(true);
+    e.preventDefault()
+    if (pending) return
+    setPending(true)
     try {
       const { error: err } = await authClient.signIn.email({
         email,
         password,
         rememberMe,
-      });
+      })
       if (err) {
         toast.error("Couldn't sign in", {
           description:
             err.message ?? "Check your email and password and try again.",
-        });
-        return;
+        })
+        return
       }
-      await router.invalidate();
-      await navigate({ to: "/" });
+      await router.invalidate()
+      await navigate({ to: "/" })
     } catch (cause) {
       toast.error("Unexpected sign-in error", {
         description:
           cause instanceof Error
             ? cause.message
             : "Something went wrong. Please try again.",
-      });
+      })
     } finally {
-      setPending(false);
+      setPending(false)
     }
   }
 
   async function onOAuth() {
-    if (oauthPending || !provider) return;
-    setOauthPending(true);
+    if (oauthPending || !provider) return
+    setOauthPending(true)
     try {
       await authClient.signIn.oauth2({
         providerId: provider.providerId,
@@ -117,7 +122,7 @@ function LoginPage() {
         // successful OAuth lands the user on http://<api>/ instead of the
         // web app. The web origin must be in the server's `trustedOrigins`.
         callbackURL: `${window.location.origin}/`,
-      });
+      })
       // The call redirects on success; this line only runs if something
       // short-circuited server-side.
     } catch (cause) {
@@ -126,8 +131,8 @@ function LoginPage() {
           cause instanceof Error
             ? cause.message
             : "We couldn't complete the redirect. Please try again.",
-      });
-      setOauthPending(false);
+      })
+      setOauthPending(false)
     }
   }
 
@@ -263,5 +268,5 @@ function LoginPage() {
         </div>
       </div>
     </div>
-  );
+  )
 }

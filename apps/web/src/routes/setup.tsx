@@ -15,7 +15,6 @@ import {
 } from "lucide-react"
 
 import { AlloyLogo } from "@workspace/ui/components/alloy-logo"
-import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { Field, FieldLabel } from "@workspace/ui/components/field"
 import {
@@ -48,7 +47,7 @@ function SetupPage() {
   const router = useRouter()
   const navigate = useNavigate()
 
-  const [name, setName] = React.useState("")
+  const [username, setUsername] = React.useState("")
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
   const [showPassword, setShowPassword] = React.useState(false)
@@ -59,8 +58,10 @@ function SetupPage() {
     if (pending) return
     setPending(true)
     try {
+      // better-auth's `name` field is mapped to our `username` column via
+      // `user.fields.name` — the create hook slugifies before insert.
       const { error: err } = await authClient.signUp.email({
-        name,
+        name: username,
         email,
         password,
       })
@@ -76,7 +77,7 @@ function SetupPage() {
         description: "Welcome — you can configure OAuth from here.",
       })
       await router.invalidate()
-      await navigate({ to: "/admin" })
+      await navigate({ to: "/admin-settings" })
     } catch (cause) {
       toast.error("Unexpected error", {
         description:
@@ -94,34 +95,32 @@ function SetupPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
           <AlloyLogo showText size={32} />
-          <Badge variant="accent">First-run setup</Badge>
           <div className="space-y-1.5">
             <h1 className="text-2xl font-semibold tracking-[-0.02em]">
               Create the admin account
             </h1>
             <p className="text-sm text-foreground-muted">
-              This is the only user that can be created from the public
-              surface. All further accounts come in through OAuth once you've
-              configured a provider.
+              You are the first user, create your admin account. This allows you
+              to configure Oauth providers, enable sign-up and seed new users.
             </p>
           </div>
         </div>
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <Field>
-            <FieldLabel htmlFor="setup-name">Display name</FieldLabel>
+            <FieldLabel htmlFor="setup-username">Username</FieldLabel>
             <InputGroup>
               <InputGroupAddon>
                 <UserIcon />
               </InputGroupAddon>
               <InputGroupInput
-                id="setup-name"
+                id="setup-username"
                 type="text"
-                autoComplete="name"
-                placeholder="Alice Admin"
+                autoComplete="username"
+                placeholder="alice"
                 required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 disabled={pending}
               />
             </InputGroup>
@@ -187,11 +186,6 @@ function SetupPage() {
             <ArrowRightIcon className="size-4" />
           </Button>
         </form>
-
-        <p className="mt-8 text-center text-xs text-foreground-muted">
-          After this, sign-up is disabled — the only way to add users is by
-          configuring an OAuth provider in the admin console.
-        </p>
       </div>
     </div>
   )
