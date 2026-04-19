@@ -8,18 +8,18 @@ import {
 } from "@workspace/ui/components/app-header"
 import { DividerV } from "@workspace/ui/components/app-shell"
 import { Button } from "@workspace/ui/components/button"
-import { UserChip } from "@workspace/ui/components/user-chip"
 
-import { useSession } from "../lib/auth-client"
-import { userChipData } from "../lib/user-display"
+import { UserMenu } from "./user-menu"
 
-export function HomeHeader() {
-  // `requireAuth` in the route's `beforeLoad` guarantees a session by the time
-  // this component mounts, but we still subscribe via `useSession` so the chip
-  // updates live if the user signs out or switches accounts in another tab.
-  const { data: session } = useSession()
-  const chip = userChipData(session?.user)
+type SeedUser = {
+  id?: string
+  name?: string | null
+  email?: string | null
+  image?: string | null
+  role?: string
+} | null | undefined
 
+export function HomeHeader({ seedUser }: { seedUser?: SeedUser } = {}) {
   return (
     <AppHeader>
       <AppHeaderBrand />
@@ -29,7 +29,7 @@ export function HomeHeader() {
           <BellIcon />
         </Button>
         <DividerV h={20} className="mx-1" />
-        <UserChip name={chip.name} avatar={chip.avatar} />
+        <UserMenu seedUser={seedUser} />
       </AppHeaderActions>
     </AppHeader>
   )

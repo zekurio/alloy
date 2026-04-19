@@ -80,11 +80,17 @@ function hueFor(clip: { title: string; game: string | null }): number {
 
 type Tile = { key: string; title: string; hue: number }
 
+// Tile width scales with the viewport so the artwork reads the same whether
+// we're on a 1280px laptop or a 2560px monitor. At fixed 360px, tiles looked
+// huge on small panes and tiny on large ones — clamp() keeps the visual
+// density (tiles-per-row, text size relative to tile) stable across sizes.
+// Tile text and inset padding use the same clamp approach so proportions hold.
 function Tile({ title, hue }: { title: string; hue: number }) {
   return (
     <div
       className={cn(
-        "relative aspect-[16/10] w-[360px] shrink-0 overflow-hidden rounded-lg",
+        "relative aspect-[16/10] shrink-0 overflow-hidden rounded-lg",
+        "w-[clamp(240px,22vw,420px)]",
         "ring-1 ring-inset ring-white/5",
         "shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
       )}
@@ -95,7 +101,7 @@ function Tile({ title, hue }: { title: string; hue: number }) {
         `,
       }}
     >
-      <div className="absolute inset-x-4 bottom-3 text-[15px] font-semibold tracking-[-0.01em] text-white/85 drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
+      <div className="absolute inset-x-[6%] bottom-[4%] text-[clamp(12px,1vw,16px)] font-semibold tracking-[-0.01em] text-white/85 drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
         {title}
       </div>
     </div>
@@ -117,9 +123,9 @@ function MarqueeRow({
   durationSeconds: number
 }) {
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative shrink-0 overflow-hidden">
       <div
-        className="flex w-max gap-4 animate-marquee-x"
+        className="flex w-max gap-[clamp(8px,0.9vw,18px)] animate-marquee-x"
         style={
           {
             "--marquee-duration": `${durationSeconds}s`,
@@ -128,7 +134,11 @@ function MarqueeRow({
         }
       >
         {[0, 1].map((copy) => (
-          <div key={copy} className="flex gap-4" aria-hidden={copy === 1}>
+          <div
+            key={copy}
+            className="flex gap-[clamp(8px,0.9vw,18px)]"
+            aria-hidden={copy === 1}
+          >
             {tiles.map((t) => (
               <Tile key={`${copy}-${t.key}`} title={t.title} hue={t.hue} />
             ))}
@@ -200,7 +210,7 @@ export function LoginArtwork({ clips }: { clips: PublicClip[] }) {
       {/* Rotated 2D stage — rows fill the pane vertically. We over-scale so
           the rotated rectangle still covers all four corners of the pane. */}
       <div
-        className="absolute inset-0 flex flex-col justify-center gap-4"
+        className="absolute inset-0 flex flex-col justify-center gap-[clamp(8px,0.9vw,18px)]"
         style={{
           transform: "rotate(-8deg) scale(1.25)",
           transformOrigin: "center",
