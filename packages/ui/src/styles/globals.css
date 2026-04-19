@@ -430,12 +430,12 @@
 
 .alloy-toast {
   position: relative;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: flex-start;
-  gap: 10px;
+  display: grid !important;
+  grid-template-columns: auto 1fr auto !important;
+  align-items: flex-start !important;
+  gap: 10px !important;
   width: 100%;
-  padding: 12px 14px 12px 16px;
+  padding: 12px 14px 12px 16px !important;
   background: var(--surface-raised);
   color: var(--foreground);
   border: 1px solid var(--border);
@@ -467,6 +467,7 @@
 }
 
 .alloy-toast-icon {
+  order: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -475,6 +476,11 @@
   height: 16px;
   margin-top: 2px;
   color: var(--foreground-muted);
+}
+
+.alloy-toast > [data-content] {
+  order: 2;
+  min-width: 0;
 }
 
 .alloy-toast[data-type="success"] .alloy-toast-icon {
@@ -508,8 +514,14 @@
 
 /* Close button — sits top-right, mono-coloured, brightens on hover. */
 .alloy-toast-close {
+  order: 3;
   position: static !important;
   align-self: flex-start;
+  transform: none !important;
+  inset: auto !important;
+  right: auto !important;
+  left: auto !important;
+  top: auto !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
