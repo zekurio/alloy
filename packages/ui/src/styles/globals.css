@@ -11,7 +11,6 @@
 @source "../../../components/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 
-/* ─── Tailwind theme bridge ─────────────────────────────────────────────── */
 /* Maps Alloy design tokens to Tailwind utilities so every component can   */
 /* use `bg-surface`, `text-foreground-muted`, `border-accent-border` etc.   */
 
@@ -141,8 +140,6 @@
   --shadow-lg: var(--shadow-lg);
 }
 
-/* ─── Alloy tokens ──────────────────────────────────────────────────────── */
-
 :root {
   /* Fonts */
   --font-sans:
@@ -211,7 +208,6 @@
   --sidebar-expanded: 220px;
   --header-h: 52px;
 
-  /* ── Semantic surfaces / foreground / border ─────────────────────────── */
   --background: var(--neutral-0);
   --surface: var(--neutral-50);
   --surface-raised: var(--neutral-100);
@@ -220,13 +216,17 @@
   --foreground: var(--neutral-900);
   --foreground-muted: var(--neutral-700);
   --foreground-dim: var(--neutral-600);
-  --foreground-faint: var(--neutral-500);
+  /* Decoupled from --neutral-500 (0.6) — that was the right step on the
+     neutral scale but too low-contrast for UI copy. 0.65 stays visibly
+     subordinate to --foreground-dim (0.7) while remaining readable
+     against --background (0.19) for meta labels, timestamps, and
+     separators across the app. */
+  --foreground-faint: oklch(0.65 0 0);
 
   --border: var(--neutral-200);
   --border-strong: var(--neutral-300);
   --border-emphasis: var(--neutral-400);
 
-  /* ── shadcn aliases (dark-first — no .dark class needed) ─────────────── */
   --card: var(--surface);
   --card-foreground: var(--foreground);
 
@@ -309,8 +309,6 @@
   --surface-sunken: oklch(0.19 0 0);
 }
 
-/* ─── Base layer ────────────────────────────────────────────────────────── */
-
 @layer base {
   *,
   *::before,
@@ -330,9 +328,7 @@
     font-family: var(--font-sans);
     font-size: var(--text-base);
     line-height: var(--leading-normal);
-    font-feature-settings:
-      "ss01",
-      "cv11";
+    font-feature-settings: "ss01", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -369,8 +365,6 @@
     background-clip: padding-box;
   }
 }
-
-/* ─── Utilities: Alloy-specific helpers ─────────────────────────────────── */
 
 @layer utilities {
   /* "eyebrow" / mono label — used for nav labels, section eyebrows, etc. */
@@ -423,7 +417,6 @@
   }
 }
 
-/* ─── Sonner / Alloy toasts ─────────────────────────────────────────────── */
 /* Base card — raised surface, thin border, 3px colored rail on the left    */
 /* keyed by type. The rail is painted via ::before so sonner's own layout   */
 /* (icon + content grid) doesn't have to know about it.                     */

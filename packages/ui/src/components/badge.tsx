@@ -1,9 +1,8 @@
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
-import {  cva } from "class-variance-authority"
+import { cva } from "class-variance-authority"
 import { cn } from "@workspace/ui/lib/utils"
-import type {VariantProps} from "class-variance-authority";
-
+import type { VariantProps } from "class-variance-authority"
 
 /**
  * Alloy Badge — short monospaced pill used to label state.
@@ -21,37 +20,37 @@ import type {VariantProps} from "class-variance-authority";
  */
 const badgeVariants = cva(
   cn(
-    "group/badge inline-flex items-center gap-1.5 h-[18px] px-2",
-    "rounded-md border whitespace-nowrap overflow-hidden",
-    "font-mono text-2xs font-medium uppercase tracking-[0.06em]",
+    "group/badge inline-flex h-[18px] items-center gap-1.5 px-2",
+    "overflow-hidden rounded-md border whitespace-nowrap",
+    "font-mono text-2xs font-medium tracking-[0.06em] uppercase",
     "transition-colors",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:outline-none",
     "[&>svg]:pointer-events-none [&>svg]:size-2.5"
   ),
   {
     variants: {
       variant: {
-        default: "bg-surface-raised text-foreground-muted border-border",
-        accent: "bg-accent-soft text-accent border-accent-border",
+        default: "border-border bg-surface-raised text-foreground-muted",
+        accent: "border-accent-border bg-accent-soft text-accent",
         success:
-          "bg-[oklch(0.72_0.19_145/0.1)] text-success border-[oklch(0.72_0.19_145/0.35)]",
+          "border-[oklch(0.72_0.19_145/0.35)] bg-[oklch(0.72_0.19_145/0.1)] text-success",
         warning:
-          "bg-[oklch(0.82_0.18_90/0.1)] text-warning border-[oklch(0.82_0.18_90/0.35)]",
+          "border-[oklch(0.82_0.18_90/0.35)] bg-[oklch(0.82_0.18_90/0.1)] text-warning",
         danger:
-          "bg-[oklch(0.65_0.24_25/0.12)] text-danger border-[oklch(0.65_0.24_25/0.4)]",
+          "border-[oklch(0.65_0.24_25/0.4)] bg-[oklch(0.65_0.24_25/0.12)] text-danger",
         live: cn(
-          "bg-[oklch(0.65_0.25_25/0.12)] text-live border-[oklch(0.65_0.25_25/0.4)]",
+          "border-[oklch(0.65_0.25_25/0.4)] bg-[oklch(0.65_0.25_25/0.12)] text-live",
           // pulsing dot — leading pseudo
-          "before:content-[''] before:size-[5px] before:rounded-full before:bg-live",
-          "before:shadow-[0_0_6px_var(--live)] before:animate-pulse-dot"
+          "before:size-[5px] before:rounded-full before:bg-live before:content-['']",
+          "before:animate-pulse-dot before:shadow-[0_0_6px_var(--live)]"
         ),
         // shadcn aliases
-        secondary: "bg-surface-raised text-foreground-muted border-border",
+        secondary: "border-border bg-surface-raised text-foreground-muted",
         destructive:
-          "bg-[oklch(0.65_0.24_25/0.12)] text-danger border-[oklch(0.65_0.24_25/0.4)]",
-        outline: "bg-transparent text-foreground border-border-strong",
-        ghost: "bg-transparent text-foreground-muted border-transparent",
-        link: "bg-transparent text-accent border-transparent underline-offset-4 hover:underline",
+          "border-[oklch(0.65_0.24_25/0.4)] bg-[oklch(0.65_0.24_25/0.12)] text-danger",
+        outline: "border-border-strong bg-transparent text-foreground",
+        ghost: "border-transparent bg-transparent text-foreground-muted",
+        link: "border-transparent bg-transparent text-accent underline-offset-4 hover:underline",
       },
     },
     defaultVariants: {

@@ -49,7 +49,7 @@ function DropdownMenuContent({
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-content"
           className={cn(
-            "z-50 min-w-[200px] max-h-(--available-height) w-(--anchor-width)",
+            "z-50 max-h-(--available-height) w-(--anchor-width) min-w-[200px]",
             "overflow-x-hidden overflow-y-auto rounded-md bg-surface-raised p-1 text-foreground",
             "border border-border-strong shadow-md",
             "duration-100 outline-none",
@@ -82,7 +82,7 @@ function DropdownMenuLabel({
       data-slot="dropdown-menu-label"
       data-inset={inset}
       className={cn(
-        "px-3 py-1.5 font-mono text-2xs uppercase tracking-[0.1em] text-foreground-faint",
+        "px-3 py-1.5 font-mono text-2xs tracking-[0.1em] text-foreground-faint uppercase",
         "data-inset:pl-7",
         className
       )}
@@ -107,13 +107,13 @@ function DropdownMenuItem({
       data-variant={variant}
       className={cn(
         "group/dropdown-menu-item relative flex h-7 items-center gap-3 rounded-md px-3",
-        "text-sm text-foreground-muted select-none outline-none cursor-default",
+        "cursor-default text-sm text-foreground-muted outline-none select-none",
         "transition-colors",
         "focus:bg-neutral-150 focus:text-foreground",
         "data-inset:pl-7",
         "data-disabled:pointer-events-none data-disabled:opacity-50",
         "data-[variant=destructive]:text-danger data-[variant=destructive]:focus:bg-[oklch(0.65_0.24_25/0.14)] data-[variant=destructive]:focus:text-danger",
-        "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:size-3.5 [&_svg]:text-foreground-dim",
+        "[&_svg]:pointer-events-none [&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:text-foreground-dim",
         "data-[variant=destructive]:[&_svg]:text-danger",
         className
       )}
@@ -139,11 +139,11 @@ function DropdownMenuSubTrigger({
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
       className={cn(
-        "flex h-7 items-center gap-3 rounded-md px-3 text-sm text-foreground-muted select-none outline-none cursor-default",
+        "flex h-7 cursor-default items-center gap-3 rounded-md px-3 text-sm text-foreground-muted outline-none select-none",
         "focus:bg-neutral-150 focus:text-foreground",
         "data-popup-open:bg-neutral-150 data-popup-open:text-foreground data-open:bg-neutral-150 data-open:text-foreground",
         "data-inset:pl-7",
-        "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:size-3.5",
+        "[&_svg]:pointer-events-none [&_svg]:size-3.5 [&_svg]:shrink-0",
         className
       )}
       {...props}
@@ -189,7 +189,7 @@ function DropdownMenuCheckboxItem({
       data-slot="dropdown-menu-checkbox-item"
       data-inset={inset}
       className={cn(
-        "relative flex h-7 items-center gap-3 rounded-md pr-8 pl-3 text-sm text-foreground-muted select-none outline-none cursor-default",
+        "relative flex h-7 cursor-default items-center gap-3 rounded-md pr-8 pl-3 text-sm text-foreground-muted outline-none select-none",
         "focus:bg-neutral-150 focus:text-foreground",
         "data-inset:pl-7",
         "data-disabled:pointer-events-none data-disabled:opacity-50",
@@ -234,7 +234,7 @@ function DropdownMenuRadioItem({
       data-slot="dropdown-menu-radio-item"
       data-inset={inset}
       className={cn(
-        "relative flex h-7 items-center gap-3 rounded-md pr-8 pl-3 text-sm text-foreground-muted select-none outline-none cursor-default",
+        "relative flex h-7 cursor-default items-center gap-3 rounded-md pr-8 pl-3 text-sm text-foreground-muted outline-none select-none",
         "focus:bg-neutral-150 focus:text-foreground",
         "data-inset:pl-7",
         "data-disabled:pointer-events-none data-disabled:opacity-50",
@@ -277,7 +277,7 @@ function DropdownMenuShortcut({
     <span
       data-slot="dropdown-menu-shortcut"
       className={cn(
-        "ml-auto font-mono text-2xs uppercase tracking-[0.06em] text-foreground-faint",
+        "ml-auto font-mono text-2xs tracking-[0.06em] text-foreground-faint uppercase",
         "group-focus/dropdown-menu-item:text-foreground-muted",
         className
       )}

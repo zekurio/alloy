@@ -1,7 +1,11 @@
 import * as React from "react"
 import { DayPicker, getDefaultClassNames } from "react-day-picker"
 
-import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
+import {
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
 import { Button, buttonVariants } from "@workspace/ui/components/button"
 import type { DayButton, Locale } from "react-day-picker"

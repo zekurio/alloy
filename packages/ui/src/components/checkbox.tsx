@@ -27,7 +27,7 @@ function Checkbox({ className, ...props }: CheckboxPrimitive.Root.Props) {
       <CheckboxPrimitive.Indicator
         data-slot="checkbox-indicator"
         className={cn(
-          "block size-2 rotate-[-45deg] translate-x-[0.5px] translate-y-[-1px]",
+          "block size-2 translate-x-[0.5px] translate-y-[-1px] rotate-[-45deg]",
           "border-b-[1.5px] border-l-[1.5px] border-accent-foreground"
         )}
       />
