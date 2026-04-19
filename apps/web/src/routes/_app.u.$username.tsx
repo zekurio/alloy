@@ -573,8 +573,7 @@ function ClipsSection({
                 streamUrl={card.streamUrl}
                 thumbnail={card.thumbnail}
                 authorHandle={card.author}
-                /* Author name is already the page title — skip on cards. */
-                author=""
+                author={card.author}
                 authorImage={card.authorImage}
                 title={card.title}
                 game={card.game}

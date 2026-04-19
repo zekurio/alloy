@@ -75,10 +75,18 @@ function ClipMeta({
 
   return (
     <section className="flex flex-col gap-3">
-      {/* ── Title ───────────────────────────────────────────── */}
-      <h1 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
-        {title}
-      </h1>
+      {/* ── Title + category chip ───────────────────────────── */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <Badge variant="accent">{game}</Badge>
+          <span className="font-mono text-2xs tracking-[0.12em] text-foreground-faint uppercase">
+            {postedAt}
+          </span>
+        </div>
+        <h1 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
+          {title}
+        </h1>
+      </div>
 
       {/* ── YouTube-style row: uploader on left, actions on right ─ */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
@@ -109,7 +117,7 @@ function ClipMeta({
               to="/u/$username"
               params={{ username: uploader.handle }}
               className={cn(
-                "inline-flex items-center gap-1.5 text-md font-semibold tracking-[-0.005em] text-foreground",
+                "inline-flex items-center gap-1.5 text-lg font-semibold tracking-[-0.01em] text-foreground",
                 "hover:text-accent",
                 "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
                 "focus-visible:text-accent focus-visible:outline-none",
@@ -117,16 +125,8 @@ function ClipMeta({
             >
               <span className="truncate">@{uploader.name}</span>
             </Link>
-            <span className="mt-1 flex flex-wrap items-center gap-2 font-mono text-2xs tracking-[0.06em] text-foreground-faint uppercase">
-              <Badge variant="accent">{game}</Badge>
-              <span>
-                <span className="text-foreground-muted normal-case">
-                  {views}
-                </span>{" "}
-                views
-              </span>
-              <span aria-hidden>·</span>
-              <span>{postedAt}</span>
+            <span className="mt-1 text-xs text-foreground-faint">
+              <span className="text-foreground-muted">{views}</span> views
             </span>
           </div>
         </div>

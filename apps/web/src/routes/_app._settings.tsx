@@ -1,16 +1,16 @@
-import * as React from "react"
-import { Link, Outlet, createFileRoute } from "@tanstack/react-router"
-import { ArrowLeftIcon } from "lucide-react"
+import * as React from "react";
+import { Link, Outlet, createFileRoute } from "@tanstack/react-router";
+import { ArrowLeftIcon } from "lucide-react";
 
 import {
   AppHeader,
   AppHeaderActions,
   AppHeaderBrand,
-} from "@workspace/ui/components/app-header"
-import { AppMain } from "@workspace/ui/components/app-shell"
+} from "@workspace/ui/components/app-header";
+import { AppMain } from "@workspace/ui/components/app-shell";
 
-import { UserMenu } from "../components/user-menu"
-import { useRequireAuth } from "../lib/auth-hooks"
+import { UserMenu } from "../components/user-menu";
+import { useRequireAuth } from "../lib/auth-hooks";
 
 /**
  * Shared layout for the settings cluster (`/user-settings`, `/admin-settings`).
@@ -27,19 +27,19 @@ import { useRequireAuth } from "../lib/auth-hooks"
  */
 export const Route = createFileRoute("/_app/_settings")({
   component: SettingsLayout,
-})
+});
 
 function SettingsLayout() {
   return (
     <React.Suspense fallback={null}>
       <SettingsLayoutInner />
     </React.Suspense>
-  )
+  );
 }
 
 function SettingsLayoutInner() {
-  const session = useRequireAuth()
-  if (!session) return null
+  const session = useRequireAuth();
+  if (!session) return null;
 
   return (
     <>
@@ -51,15 +51,9 @@ function SettingsLayoutInner() {
       </AppHeader>
       <AppMain>
         <div className="mx-auto flex max-w-4xl flex-col gap-6">
-          <Link
-            to="/"
-            className="inline-flex w-fit items-center gap-1.5 text-sm text-foreground-muted hover:text-foreground"
-          >
-            <ArrowLeftIcon className="size-4" /> Back
-          </Link>
           <Outlet />
         </div>
       </AppMain>
     </>
-  )
+  );
 }
