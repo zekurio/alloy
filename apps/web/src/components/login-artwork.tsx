@@ -1,3 +1,4 @@
+import * as React from "react"
 import type { CSSProperties } from "react"
 
 import { cn } from "@workspace/ui/lib/utils"
@@ -91,8 +92,8 @@ function Tile({ title, hue }: { title: string; hue: number }) {
       className={cn(
         "relative aspect-[16/10] shrink-0 overflow-hidden rounded-lg",
         "w-[clamp(240px,22vw,420px)]",
-        "ring-1 ring-inset ring-white/5",
-        "shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
+        "ring-1 ring-white/5 ring-inset",
+        "shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
       )}
       style={{
         background: `
@@ -125,7 +126,7 @@ function MarqueeRow({
   return (
     <div className="relative shrink-0 overflow-hidden">
       <div
-        className="flex w-max gap-[clamp(8px,0.9vw,18px)] animate-marquee-x"
+        className="animate-marquee-x flex w-max gap-[clamp(8px,0.9vw,18px)]"
         style={
           {
             "--marquee-duration": `${durationSeconds}s`,
@@ -171,36 +172,43 @@ function buildRows(source: Tile[], rowCount: number): Tile[][] {
   return rows
 }
 
-export function LoginArtwork({ clips }: { clips: PublicClip[] }) {
-  const ROW_COUNT = 5
+// Hoisted so we're not reallocating the array on every render — the login
+// page re-renders on every keystroke in the email/password fields, and this
+// component's tile tree is heavy (~80+ DOM nodes). Combined with React.memo
+// below, keystrokes don't touch this subtree at all.
+const ROW_COUNT = 5
+const ROW_SETTINGS = [
+  { durationSeconds: 80, reverse: false },
+  { durationSeconds: 95, reverse: true },
+  { durationSeconds: 70, reverse: false },
+  { durationSeconds: 105, reverse: true },
+  { durationSeconds: 85, reverse: false },
+] as const
 
+export const LoginArtwork = React.memo(function LoginArtwork({
+  clips,
+}: {
+  clips: PublicClip[]
+}) {
   // Build the tile source: real public clips first, otherwise the fallback
   // title list. We don't mix the two — if the server returned anything at all
-  // we show only real data.
-  const source: Tile[] =
-    clips.length > 0
-      ? clips.map((c, i) => ({
-          key: c.id || `clip-${i}`,
-          title: c.title,
-          hue: hueFor(c),
-        }))
-      : FALLBACK_TITLES.map((title, i) => ({
-          key: `fallback-${i}`,
-          title,
-          hue: hashHue(title),
-        }))
-
-  const rows = buildRows(source, ROW_COUNT)
-
-  // Per-row durations — slightly different so rows don't scroll in lockstep,
-  // which would otherwise feel mechanical. Rows alternate direction.
-  const rowSettings = [
-    { durationSeconds: 80, reverse: false },
-    { durationSeconds: 95, reverse: true },
-    { durationSeconds: 70, reverse: false },
-    { durationSeconds: 105, reverse: true },
-    { durationSeconds: 85, reverse: false },
-  ]
+  // we show only real data. Memoed on `clips` identity so the expensive
+  // `buildRows` fan-out only runs when the loader data actually changes.
+  const rows = React.useMemo(() => {
+    const source: Tile[] =
+      clips.length > 0
+        ? clips.map((c, i) => ({
+            key: c.id || `clip-${i}`,
+            title: c.title,
+            hue: hueFor(c),
+          }))
+        : FALLBACK_TITLES.map((title, i) => ({
+            key: `fallback-${i}`,
+            title,
+            hue: hashHue(title),
+          }))
+    return buildRows(source, ROW_COUNT)
+  }, [clips])
 
   return (
     <div
@@ -220,8 +228,8 @@ export function LoginArtwork({ clips }: { clips: PublicClip[] }) {
           <MarqueeRow
             key={i}
             tiles={rowTiles}
-            reverse={rowSettings[i].reverse}
-            durationSeconds={rowSettings[i].durationSeconds}
+            reverse={ROW_SETTINGS[i].reverse}
+            durationSeconds={ROW_SETTINGS[i].durationSeconds}
           />
         ))}
       </div>
@@ -232,4 +240,4 @@ export function LoginArtwork({ clips }: { clips: PublicClip[] }) {
       <div className="absolute inset-0 bg-background/30" />
     </div>
   )
-}
+})

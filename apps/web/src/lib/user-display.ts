@@ -7,7 +7,13 @@
 
 type AuthUser = {
   id?: string
+  /**
+   * Better-auth sessions still expose the handle under `name` (the model
+   * field); the public users API exposes the same value under `username`.
+   * Accept either so this helper works in both contexts.
+   */
   name?: string | null
+  username?: string | null
   email?: string | null
   image?: string | null
 }
@@ -15,6 +21,7 @@ type AuthUser = {
 /** Pulls a stable display name, falling back through sensible options. */
 export function displayName(user: AuthUser | null | undefined): string {
   if (!user) return "user"
+  if (user.username && user.username.trim()) return user.username.trim()
   if (user.name && user.name.trim()) return user.name.trim()
   if (user.email) return user.email.split("@")[0] ?? "user"
   return "user"

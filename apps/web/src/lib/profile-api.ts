@@ -20,9 +20,9 @@ export interface SyncOAuthImageResponse {
  */
 export async function syncOAuthImage(): Promise<SyncOAuthImageResponse> {
   const res = await api.api.profile["sync-oauth-image"].$post()
-  const body = (await res.json().catch(() => null)) as
-    | SyncOAuthImageResponse
-    | null
+  const body = (await res
+    .json()
+    .catch(() => null)) as SyncOAuthImageResponse | null
   if (!res.ok) {
     throw new Error(body?.message ?? `${res.status} ${res.statusText}`)
   }

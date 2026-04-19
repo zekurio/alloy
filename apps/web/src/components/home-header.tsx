@@ -11,15 +11,7 @@ import { Button } from "@workspace/ui/components/button"
 
 import { UserMenu } from "./user-menu"
 
-type SeedUser = {
-  id?: string
-  name?: string | null
-  email?: string | null
-  image?: string | null
-  role?: string
-} | null | undefined
-
-export function HomeHeader({ seedUser }: { seedUser?: SeedUser } = {}) {
+export function HomeHeader() {
   return (
     <AppHeader>
       <AppHeaderBrand />
@@ -29,7 +21,7 @@ export function HomeHeader({ seedUser }: { seedUser?: SeedUser } = {}) {
           <BellIcon />
         </Button>
         <DividerV h={20} className="mx-1" />
-        <UserMenu seedUser={seedUser} />
+        <UserMenu />
       </AppHeaderActions>
     </AppHeader>
   )
