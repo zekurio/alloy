@@ -35,12 +35,16 @@ import { OAuthButton } from "../components/oauth-button";
 import { authClient } from "../lib/auth-client";
 import { fetchAuthConfig } from "../lib/auth-config";
 import { fetchPublicClips } from "../lib/public-clips";
+import { redirectIfAuthed } from "../lib/route-guards";
 
 /**
  * Sign-in page. Redirects to /setup on a fresh install (no users yet);
  * otherwise shows the email/password form plus the configured OAuth button.
  */
 export const Route = createFileRoute("/login")({
+  // Signed-in users have no business on the sign-in page — bounce them home
+  // before the loader runs so we don't flash the form.
+  beforeLoad: () => redirectIfAuthed("/"),
   loader: async () => {
     // `fetchPublicClips` is soft-failing, so this Promise.all can't reject
     // on its behalf.
@@ -69,6 +73,7 @@ function LoginPage() {
   const [oauthPending, setOauthPending] = React.useState(false);
 
   const provider = config.provider;
+  const emailPasswordEnabled = config.emailPasswordEnabled;
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -106,7 +111,11 @@ function LoginPage() {
     try {
       await authClient.signIn.oauth2({
         providerId: provider.providerId,
-        callbackURL: "/",
+        // Absolute URL on the web origin — otherwise better-auth resolves
+        // the callback relative to its own baseURL (the API server), and
+        // successful OAuth lands the user on http://<api>/ instead of the
+        // web app. The web origin must be in the server's `trustedOrigins`.
+        callbackURL: `${window.location.origin}/`,
       });
       // The call redirects on success; this line only runs if something
       // short-circuited server-side.
@@ -145,6 +154,7 @@ function LoginPage() {
               </p>
             </div>
 
+            {emailPasswordEnabled ? (
             <form onSubmit={onSubmit} className="flex flex-col gap-4">
               <Field>
                 <FieldLabel htmlFor="login-email">Email</FieldLabel>
@@ -224,12 +234,15 @@ function LoginPage() {
                 <ArrowRightIcon className="size-4" />
               </Button>
             </form>
+            ) : null}
 
             {provider ? (
               <>
-                <div className="my-6">
-                  <FieldSeparator>OR</FieldSeparator>
-                </div>
+                {emailPasswordEnabled ? (
+                  <div className="my-6">
+                    <FieldSeparator>OR</FieldSeparator>
+                  </div>
+                ) : null}
                 <OAuthButton
                   providerId={provider.providerId}
                   buttonText={provider.buttonText}
@@ -238,6 +251,13 @@ function LoginPage() {
                   onClick={onOAuth}
                 />
               </>
+            ) : null}
+
+            {!emailPasswordEnabled && !provider ? (
+              <p className="mt-6 text-sm text-foreground-muted">
+                Sign-in is currently unavailable. Ask an administrator to
+                enable a login method.
+              </p>
             ) : null}
           </div>
         </div>
