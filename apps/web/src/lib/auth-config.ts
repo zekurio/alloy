@@ -8,6 +8,7 @@ export interface PublicAuthProvider {
 export interface PublicAuthConfig {
   setupRequired: boolean
   openRegistrations: boolean
+  emailPasswordEnabled: boolean
   provider: PublicAuthProvider | null
 }
 
