@@ -1,3 +1,5 @@
+import { and, eq, ne } from "drizzle-orm"
+
 import { user } from "../db/auth-schema"
 import { db } from "../db"
 import { configStore } from "./config-store"
@@ -5,6 +7,21 @@ import { configStore } from "./config-store"
 /** LIMIT 1 — cheaper than COUNT(*) when all we need is "any row?". */
 export async function hasAnyUser(): Promise<boolean> {
   const rows = await db.select({ id: user.id }).from(user).limit(1)
+  return rows.length > 0
+}
+
+/**
+ * True when at least one other user with role "admin" exists besides
+ * `excludeUserId`. Used to gate destructive self-service actions (e.g.
+ * account deletion) so the instance can never be orphaned without an admin.
+ * LIMIT 1 for the same reason as `hasAnyUser`.
+ */
+export async function hasOtherAdmin(excludeUserId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(and(eq(user.role, "admin"), ne(user.id, excludeUserId)))
+    .limit(1)
   return rows.length > 0
 }
 
