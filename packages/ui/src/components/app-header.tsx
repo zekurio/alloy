@@ -47,7 +47,7 @@ function AppHeaderBrand({
     <div
       data-slot="app-header-brand"
       className={cn(
-        "flex items-center gap-2 font-mono text-sm font-medium uppercase tracking-[0.12em]",
+        "flex items-center gap-2 font-mono text-sm font-medium tracking-[0.12em] uppercase",
         className
       )}
       {...props}
@@ -65,8 +65,10 @@ function AppHeaderBrand({
  *
  * The outer container is `max-w-[420px] flex-1 ml-5` to match the handoff.
  */
-interface AppHeaderSearchProps
-  extends Omit<React.ComponentProps<"input">, "size"> {
+interface AppHeaderSearchProps extends Omit<
+  React.ComponentProps<"input">,
+  "size"
+> {
   hint?: React.ReactNode
   icon?: React.ReactNode
   containerClassName?: string
@@ -89,7 +91,7 @@ function AppHeaderSearch({
         <span
           aria-hidden
           className={cn(
-            "pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2",
+            "pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2",
             "text-foreground-faint [&_svg]:size-3.5"
           )}
         >
@@ -108,7 +110,7 @@ function AppHeaderSearch({
           {...props}
         />
         {hint ? (
-          <Kbd className="absolute right-2 top-1/2 -translate-y-1/2">
+          <Kbd className="absolute top-1/2 right-2 -translate-y-1/2">
             {hint}
           </Kbd>
         ) : null}

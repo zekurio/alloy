@@ -44,10 +44,7 @@ function AppMain({ className, ...props }: React.ComponentProps<"main">) {
   return (
     <main
       data-slot="app-main"
-      className={cn(
-        "overflow-y-auto overflow-x-hidden px-8 py-6",
-        className
-      )}
+      className={cn("overflow-x-hidden overflow-y-auto px-8 py-6", className)}
       {...props}
     />
   )
