@@ -9,6 +9,8 @@ import { authConfigRoute } from "./routes/auth-config"
 import { clips } from "./routes/clips"
 import { profileRoute } from "./routes/profile"
 import { setupRoute } from "./routes/setup"
+import { usersRoute } from "./routes/users"
+import { storageRoute } from "./storage/fs-upload-route"
 
 // Chain the route calls so the inferred type includes every route — the
 // @workspace/api package consumes `AppType` via hono/client for RPC.
@@ -19,7 +21,7 @@ export const app = new Hono()
     cors({
       origin: env.TRUSTED_ORIGINS,
       credentials: true,
-    }),
+    })
   )
   .get("/health", (c) => c.json({ status: "ok" }))
   // Resolve per-request so the admin UI can swap auth at runtime when the
@@ -30,5 +32,10 @@ export const app = new Hono()
   .route("/api/admin", adminRoute)
   .route("/api/profile", profileRoute)
   .route("/api/clips", clips)
+  .route("/api/users", usersRoute)
+  // `/storage/upload/:token` is the fs driver's companion route — kept
+  // out of `/api/*` because it has no analog under the s3 driver (the
+  // browser would PUT straight at the bucket there).
+  .route("/storage", storageRoute)
 
 export type AppType = typeof app

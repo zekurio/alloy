@@ -1,7 +1,8 @@
 import { and, eq } from "drizzle-orm"
 
+import { account, user } from "@workspace/db/auth-schema"
+
 import { db } from "../db"
-import { account, user } from "../db/auth-schema"
 import { configStore } from "./config-store"
 
 /**
@@ -68,7 +69,7 @@ async function resolveUserInfoUrl(): Promise<string | null> {
 
 export async function syncOAuthImage(
   userId: string,
-  opts: { overwrite?: boolean } = {},
+  opts: { overwrite?: boolean } = {}
 ): Promise<SyncResult> {
   const provider = configStore.get("oauthProvider")
   if (!provider) {
@@ -81,8 +82,8 @@ export async function syncOAuthImage(
     .where(
       and(
         eq(account.userId, userId),
-        eq(account.providerId, provider.providerId),
-      ),
+        eq(account.providerId, provider.providerId)
+      )
     )
     .limit(1)
   if (!oauthAccount) return { status: "no-linked-account", image: null }

@@ -1,8 +1,12 @@
 {
   "name": "@workspace/server",
   "version": "0.0.1",
-  "type": "module",
   "private": true,
+  "type": "module",
+  "exports": {
+    "./app": "./src/app.ts",
+    "./auth": "./src/auth.ts"
+  },
   "scripts": {
     "dev": "PORT=3000 BETTER_AUTH_URL=http://localhost:3000 TRUSTED_ORIGINS=http://localhost:5173 tsx watch src/index.ts",
     "start": "PORT=3000 BETTER_AUTH_URL=http://localhost:3000 TRUSTED_ORIGINS=http://localhost:5173 tsx src/index.ts",
@@ -23,18 +27,18 @@
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.9.10",
+    "nanoid": "^5.1.9",
+    "pg": "^8.20.0",
+    "pg-boss": "^12.15.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^25.1.0",
+    "@types/pg": "^8.20.0",
     "@typescript/native-preview": "*",
     "oxfmt": "*",
     "oxlint": "*",
     "tsx": "^4.20.3",
     "typescript": "^6.0.3"
-  },
-  "exports": {
-    "./app": "./src/app.ts",
-    "./auth": "./src/auth.ts"
   }
 }

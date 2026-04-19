@@ -1,6 +1,7 @@
 import { and, eq, ne } from "drizzle-orm"
 
-import { user } from "../db/auth-schema"
+import { user } from "@workspace/db/auth-schema"
+
 import { db } from "../db"
 import { configStore } from "./config-store"
 
