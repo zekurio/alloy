@@ -1,13 +1,13 @@
 "use client"
 
 import * as React from "react"
-import {  cva } from "class-variance-authority"
+import { cva } from "class-variance-authority"
 
 import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Textarea } from "@workspace/ui/components/textarea"
-import type {VariantProps} from "class-variance-authority";
+import type { VariantProps } from "class-variance-authority"
 
 function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
@@ -125,7 +125,7 @@ function InputGroupInput({
     <Input
       data-slot="input-group-control"
       className={cn(
-        "flex-1 rounded-none border-0 bg-transparent shadow-none ring-0 focus-visible:ring-0 focus-visible:bg-transparent disabled:bg-transparent aria-invalid:ring-0 dark:bg-transparent dark:focus-visible:bg-transparent dark:disabled:bg-transparent",
+        "flex-1 rounded-none border-0 bg-transparent shadow-none ring-0 focus-visible:bg-transparent focus-visible:ring-0 disabled:bg-transparent aria-invalid:ring-0 dark:bg-transparent dark:focus-visible:bg-transparent dark:disabled:bg-transparent",
         className
       )}
       {...props}
@@ -141,7 +141,7 @@ function InputGroupTextarea({
     <Textarea
       data-slot="input-group-control"
       className={cn(
-        "flex-1 resize-none rounded-none border-0 bg-transparent py-2 shadow-none ring-0 focus-visible:ring-0 focus-visible:bg-transparent disabled:bg-transparent aria-invalid:ring-0 dark:bg-transparent dark:focus-visible:bg-transparent dark:disabled:bg-transparent",
+        "flex-1 resize-none rounded-none border-0 bg-transparent py-2 shadow-none ring-0 focus-visible:bg-transparent focus-visible:ring-0 disabled:bg-transparent aria-invalid:ring-0 dark:bg-transparent dark:focus-visible:bg-transparent dark:disabled:bg-transparent",
         className
       )}
       {...props}

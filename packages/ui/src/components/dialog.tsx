@@ -48,13 +48,22 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  showOverlay = true,
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
+  /**
+   * Render the built-in `DialogOverlay` (the dimmed backdrop). Set to
+   * false when a parent owns a shared overlay across multiple dialogs —
+   * otherwise the per-modal overlay fades out between hand-offs and the
+   * backdrop visibly flashes. See `upload-flow.tsx` for the shared
+   * pattern.
+   */
+  showOverlay?: boolean
 }) {
   return (
     <DialogPortal>
-      <DialogOverlay />
+      {showOverlay ? <DialogOverlay /> : null}
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
@@ -143,7 +152,7 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
     <DialogPrimitive.Title
       data-slot="dialog-title"
       className={cn(
-        "text-lg font-semibold tracking-[var(--tracking-tight)] leading-tight text-foreground",
+        "text-lg leading-tight font-semibold tracking-[var(--tracking-tight)] text-foreground",
         className
       )}
       {...props}

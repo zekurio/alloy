@@ -1,4 +1,6 @@
 import * as React from "react"
+import { mergeProps } from "@base-ui/react/merge-props"
+import { useRender } from "@base-ui/react/use-render"
 
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -34,39 +36,53 @@ function AppSidebarGroup({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/**
+ * Single rail item. Defaults to `<button>` but accepts `render` so callers
+ * can pass a router `<Link />` and get real navigation while keeping the
+ * sidebar's icon-only rail styling + active-state glow.
+ */
 function AppSidebarItem({
   className,
   active,
   title,
-  children,
+  render,
   ...props
-}: React.ComponentProps<"button"> & { active?: boolean }) {
-  return (
-    <button
-      type="button"
-      data-slot="app-sidebar-item"
-      data-active={active ? "true" : undefined}
-      title={title}
-      className={cn(
-        "group/app-sidebar-item relative flex h-[34px] w-full items-center justify-center rounded-md",
-        "text-foreground-muted",
-        "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-        "hover:bg-surface-raised hover:text-foreground",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        "data-active:bg-accent-soft data-active:text-accent",
-        // active bar indicator
-        "data-active:before:absolute data-active:before:-left-1.5 data-active:before:top-1/2",
-        "data-active:before:-translate-y-1/2 data-active:before:h-4 data-active:before:w-[2px]",
-        "data-active:before:bg-accent data-active:before:shadow-[0_0_6px_var(--accent-glow)]",
-        "data-active:before:content-['']",
-        "[&_svg]:size-[18px] [&_svg]:shrink-0",
-        className
-      )}
-      {...props}
-    >
-      {children}
-    </button>
-  )
+}: useRender.ComponentProps<"button"> & { active?: boolean }) {
+  // `data-slot` + `data-active` get emitted by Base UI's default style-hook
+  // mapping off the `state` object below (truthy keys → `data-<key>`). That
+  // lets us keep mergeProps typed as plain button attrs — passing a literal
+  // `"data-slot"` here would be rejected by React's button props type.
+  return useRender({
+    defaultTagName: "button",
+    props: mergeProps<"button">(
+      {
+        type: "button",
+        title,
+        className: cn(
+          "group/app-sidebar-item relative flex h-[34px] w-full items-center justify-center rounded-md",
+          "text-foreground-muted",
+          "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+          // Hover styles are gated on `not-data-active` so they don't clobber
+          // the accent colours when the pointer is still over an item the
+          // user just selected (hover → click → hover lingers; without the
+          // gate the active item briefly flashes back to the muted hover bg).
+          "not-data-active:hover:bg-surface-raised not-data-active:hover:text-foreground",
+          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+          "data-active:bg-accent-soft data-active:text-accent",
+          // active bar indicator
+          "data-active:before:absolute data-active:before:top-1/2 data-active:before:-left-1.5",
+          "data-active:before:h-4 data-active:before:w-[2px] data-active:before:-translate-y-1/2",
+          "data-active:before:bg-accent data-active:before:shadow-[0_0_6px_var(--accent-glow)]",
+          "data-active:before:content-['']",
+          "[&_svg]:size-[18px] [&_svg]:shrink-0",
+          className
+        ),
+      },
+      props
+    ),
+    render,
+    state: { slot: "app-sidebar-item", active: active ?? false },
+  })
 }
 
 function AppSidebarFooter({
@@ -85,9 +101,4 @@ function AppSidebarFooter({
   )
 }
 
-export {
-  AppSidebar,
-  AppSidebarGroup,
-  AppSidebarItem,
-  AppSidebarFooter,
-}
+export { AppSidebar, AppSidebarGroup, AppSidebarItem, AppSidebarFooter }

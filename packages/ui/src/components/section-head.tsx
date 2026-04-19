@@ -23,24 +23,18 @@ function SectionHead({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="section-head"
-      className={cn(
-        "mb-4 flex items-end justify-between gap-4",
-        className
-      )}
+      className={cn("mb-4 flex items-end justify-between gap-4", className)}
       {...props}
     />
   )
 }
 
-function SectionEyebrow({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+function SectionEyebrow({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="section-eyebrow"
       className={cn(
-        "mb-1 font-mono text-2xs uppercase tracking-[0.12em] text-foreground-faint",
+        "mb-1 font-mono text-2xs tracking-[0.12em] text-foreground-faint uppercase",
         className
       )}
       {...props}
@@ -48,10 +42,7 @@ function SectionEyebrow({
   )
 }
 
-function SectionTitle({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+function SectionTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="section-title"
@@ -75,10 +66,7 @@ function SectionSub({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function SectionActions({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+function SectionActions({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="section-actions"
@@ -88,10 +76,4 @@ function SectionActions({
   )
 }
 
-export {
-  SectionHead,
-  SectionEyebrow,
-  SectionTitle,
-  SectionSub,
-  SectionActions,
-}
+export { SectionHead, SectionEyebrow, SectionTitle, SectionSub, SectionActions }

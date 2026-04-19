@@ -59,7 +59,7 @@ function Slider({
               "transition-[box-shadow] select-none",
               "after:absolute after:-inset-2",
               "hover:ring-4 hover:ring-accent-soft",
-              "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent-soft",
+              "focus-visible:ring-4 focus-visible:ring-accent-soft focus-visible:outline-none",
               "active:ring-4 active:ring-accent-soft",
               "disabled:pointer-events-none disabled:opacity-50"
             )}
