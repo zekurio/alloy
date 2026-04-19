@@ -15,7 +15,9 @@ export interface PublicClip {
  */
 export async function fetchPublicClips(): Promise<PublicClip[]> {
   try {
-    const res = await api.api.clips.$get()
+    // Empty query — takes the server's defaults (recent, 50, no cursor,
+    // no window). The carousel only needs the top of the feed.
+    const res = await api.api.clips.$get({ query: {} })
     if (!res.ok) return []
     const rows = (await res.json()) as Array<{
       id: string
