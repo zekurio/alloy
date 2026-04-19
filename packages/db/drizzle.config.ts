@@ -1,7 +1,9 @@
 import { config } from "dotenv"
 import { defineConfig } from "drizzle-kit"
 
-config({ path: new URL("../../apps/server/.env.example", import.meta.url).pathname })
+config({
+  path: new URL("../../apps/server/.env.example", import.meta.url).pathname,
+})
 config({
   path: new URL("../../apps/server/.env", import.meta.url).pathname,
   override: true,
