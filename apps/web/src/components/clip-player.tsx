@@ -83,7 +83,7 @@ function ClipPlayer({
       </div>
 
       {/* Big centre play button — only when paused */}
-      {!playing && (
+      {!playing ? (
         <button
           type="button"
           aria-label="Play"
@@ -106,7 +106,7 @@ function ClipPlayer({
             <PlayIcon className="size-5 translate-x-[1px]" />
           </span>
         </button>
-      )}
+      ) : null}
 
       {/* Bottom gradient + controls */}
       <div
