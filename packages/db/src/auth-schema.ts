@@ -1,16 +1,21 @@
-import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core"
+import { boolean, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core"
 
-// Tables consumed by better-auth's drizzle adapter. Column names match the
-// adapter's defaults so no additional field mapping is required. Re-generate
-// with `npx @better-auth/cli generate` if you add plugins that extend these.
+// Tables consumed by better-auth's drizzle adapter. All ids and FKs are real
+// pg `uuid` columns — `auth.ts` sets `advanced.database.generateId: "uuid"`
+// so better-auth mints UUIDs for every row. Re-generate with
+// `npx @better-auth/cli generate` if you add plugins that extend these.
 //
-// The `role`/`banned`/`banReason`/`banExpires` user columns and
-// `impersonated_by` session column come from the `admin` plugin. Keep them in
-// sync if you add or remove plugins that extend these tables.
+// There is no separate `name` column: better-auth's required `name` field is
+// mapped onto `username` via `user.fields` in `auth.ts`, so the app has a
+// single handle per user. The `role`/`banned`/`banReason`/`banExpires` user
+// columns and `impersonated_by` session column come from the `admin` plugin.
 
 export const user = pgTable("user", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
+  id: uuid("id").primaryKey().defaultRandom(),
+  // Single canonical handle, written via better-auth's `name` field (mapped
+  // through `user.fields.name = "username"`). Populated for every user by the
+  // `create.before` hook; DB-enforced unique.
+  username: text("username").notNull().unique(),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
@@ -23,24 +28,24 @@ export const user = pgTable("user", {
 })
 
 export const session = pgTable("session", {
-  id: text("id").primaryKey(),
+  id: uuid("id").primaryKey().defaultRandom(),
   expiresAt: timestamp("expires_at").notNull(),
   token: text("token").notNull().unique(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
-  userId: text("user_id")
+  userId: uuid("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
-  impersonatedBy: text("impersonated_by"),
+  impersonatedBy: uuid("impersonated_by"),
 })
 
 export const account = pgTable("account", {
-  id: text("id").primaryKey(),
+  id: uuid("id").primaryKey().defaultRandom(),
   accountId: text("account_id").notNull(),
   providerId: text("provider_id").notNull(),
-  userId: text("user_id")
+  userId: uuid("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
   accessToken: text("access_token"),
@@ -55,7 +60,7 @@ export const account = pgTable("account", {
 })
 
 export const verification = pgTable("verification", {
-  id: text("id").primaryKey(),
+  id: uuid("id").primaryKey().defaultRandom(),
   identifier: text("identifier").notNull(),
   value: text("value").notNull(),
   expiresAt: timestamp("expires_at").notNull(),
