@@ -7,6 +7,7 @@ import { env } from "./env"
 import { adminRoute } from "./routes/admin"
 import { authConfigRoute } from "./routes/auth-config"
 import { clips } from "./routes/clips"
+import { profileRoute } from "./routes/profile"
 import { setupRoute } from "./routes/setup"
 
 // Chain the route calls so the inferred type includes every route — the
@@ -27,6 +28,7 @@ export const app = new Hono()
   .route("/api/auth-config", authConfigRoute)
   .route("/api/setup", setupRoute)
   .route("/api/admin", adminRoute)
+  .route("/api/profile", profileRoute)
   .route("/api/clips", clips)
 
 export type AppType = typeof app

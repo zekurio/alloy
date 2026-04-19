@@ -12,6 +12,7 @@ export const authConfigRoute = new Hono().get("/", async (c) => {
   return c.json({
     setupRequired: await isSetupRequired(),
     openRegistrations: configStore.get("openRegistrations"),
+    emailPasswordEnabled: configStore.get("emailPasswordEnabled"),
     provider: getPublicProvider(),
   })
 })
