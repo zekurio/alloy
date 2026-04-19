@@ -13,43 +13,71 @@ import { env } from "../env"
 
 const ProviderIdPattern = /^[a-z0-9-]+$/
 
-export const OAuthProviderSchema = z
-  .object({
-    /**
-     * URL-safe slug used as better-auth's `providerId` — ends up in the
-     * callback URL. Changing it after users have linked accounts breaks
-     * those links, so pick something durable (e.g. "sso", "keycloak").
-     */
-    providerId: z
-      .string()
-      .min(1)
-      .max(64)
-      .regex(ProviderIdPattern, "lowercase letters, digits, and dashes only"),
-    buttonText: z.string().min(1).max(128),
-    clientId: z.string().min(1),
-    clientSecret: z.string().min(1),
-    scopes: z.array(z.string().min(1)).optional(),
-    discoveryUrl: z.string().url().optional(),
-    authorizationUrl: z.string().url().optional(),
-    tokenUrl: z.string().url().optional(),
-    userInfoUrl: z.string().url().optional(),
-    pkce: z.boolean().default(true),
-  })
-  .refine(
-    (p) =>
-      Boolean(p.discoveryUrl) ||
-      (p.authorizationUrl && p.tokenUrl && p.userInfoUrl),
-    {
-      message:
-        "Provide discoveryUrl, or all three of authorizationUrl, tokenUrl, userInfoUrl.",
-    },
-  )
+const OAuthProviderBaseSchema = z.object({
+  /**
+   * URL-safe slug used as better-auth's `providerId` — ends up in the
+   * callback URL. Changing it after users have linked accounts breaks
+   * those links, so pick something durable (e.g. "sso", "keycloak").
+   */
+  providerId: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(ProviderIdPattern, "lowercase letters, digits, and dashes only"),
+  buttonText: z.string().min(1).max(128),
+  clientId: z.string().min(1),
+  clientSecret: z.string(),
+  scopes: z.array(z.string().min(1)).optional(),
+  discoveryUrl: z.string().url().optional(),
+  authorizationUrl: z.string().url().optional(),
+  tokenUrl: z.string().url().optional(),
+  userInfoUrl: z.string().url().optional(),
+  pkce: z.boolean().default(true),
+})
+
+const hasEndpoints = (p: z.infer<typeof OAuthProviderBaseSchema>) =>
+  Boolean(p.discoveryUrl) ||
+  (p.authorizationUrl && p.tokenUrl && p.userInfoUrl)
+
+const endpointsMessage =
+  "Provide discoveryUrl, or all three of authorizationUrl, tokenUrl, userInfoUrl."
+
+/**
+ * Storage schema — what we persist and hand to better-auth. A stored
+ * provider must always carry a real client secret; empty is never valid
+ * on disk.
+ */
+export const OAuthProviderSchema = OAuthProviderBaseSchema.extend({
+  clientSecret: z.string().min(1),
+}).refine(hasEndpoints, { message: endpointsMessage })
+
+/**
+ * Admin-submission schema — accepts an empty `clientSecret`, which the
+ * route handler interprets as "keep the currently stored secret". Most
+ * IdPs rotate secrets only occasionally, so re-entering one on every
+ * settings change is a papercut.
+ */
+export const OAuthProviderSubmissionSchema = OAuthProviderBaseSchema.refine(
+  hasEndpoints,
+  { message: endpointsMessage },
+)
 
 export type OAuthProviderConfig = z.infer<typeof OAuthProviderSchema>
+export type OAuthProviderSubmission = z.infer<
+  typeof OAuthProviderSubmissionSchema
+>
 
 const RuntimeConfigSchema = z.object({
   openRegistrations: z.boolean().default(false),
   setupComplete: z.boolean().default(false),
+  /**
+   * Master switch for the email/password sign-in surface. When false the
+   * login page hides the form and better-auth rejects both `/sign-in/email`
+   * and `/sign-up/email`. Defaults to true so first-run setup keeps working
+   * — admins can disable it once an OAuth provider is wired up and they
+   * have themselves a linked OAuth account.
+   */
+  emailPasswordEnabled: z.boolean().default(true),
   oauthProvider: OAuthProviderSchema.nullable().default(null),
 })
 
