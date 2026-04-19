@@ -6,17 +6,31 @@ import {
   SmileIcon,
 } from "lucide-react"
 
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@workspace/ui/components/avatar"
 import { Button } from "@workspace/ui/components/button"
 import { Chip } from "@workspace/ui/components/chip"
 import { cn } from "@workspace/ui/lib/utils"
+
+import { useSession } from "../lib/auth-client"
+import { userChipData } from "../lib/user-display"
+import { EmptyState } from "./empty-state"
 
 /**
  * Comments sidebar — rendered alongside the clip player.
  *
  * Layout is a simple flex column with a sticky header, a scrollable list
  * in the middle, and a composer pinned to the bottom. Each comment is a
- * flat row (no cards) to match the ClipCard aesthetic — avatar, author,
- * body, then a muted action row beneath.
+ * flat row (no cards) to match the ClipCard aesthetic.
+ *
+ * Comments aren't wired up server-side yet — the `clip.commentCount`
+ * column exists but there's no `/api/clips/:id/comments` endpoint. For
+ * now the list is always empty and the composer is disabled with a
+ * kaomoji empty state taking its place. Once the endpoint lands we'll
+ * fetch on open, seeding `comments` with real data.
  */
 interface Comment {
   id: string
@@ -29,109 +43,31 @@ interface Comment {
   replies?: number
 }
 
-const MOCK_COMMENTS: Array<Comment> = [
-  {
-    id: "c1",
-    author: "shroud_v2",
-    body: "the wall bang at 0:22 — how did you even know he was there?? teach me sensei 🙏",
-    postedAt: "2h",
-    likes: 214,
-    pinned: true,
-    replies: 12,
-    avatar: {
-      initials: "SH",
-      bg: "oklch(0.32 0.18 300)",
-      fg: "oklch(0.92 0.1 300)",
-    },
-  },
-  {
-    id: "c2",
-    author: "valkyrie",
-    body: "ok but the flick at 0:34 is actually unreal. frame-perfect.",
-    postedAt: "1h",
-    likes: 87,
-    replies: 3,
-    avatar: {
-      initials: "VK",
-      bg: "oklch(0.34 0.16 30)",
-      fg: "oklch(0.95 0.08 30)",
-    },
-  },
-  {
-    id: "c3",
-    author: "nightmare",
-    body: "thought you were dead on the second peek lol",
-    postedAt: "56m",
-    likes: 42,
-    avatar: {
-      initials: "NM",
-      bg: "oklch(0.3 0.14 145)",
-      fg: "oklch(0.95 0.1 145)",
-    },
-  },
-  {
-    id: "c4",
-    author: "phoenix.rise",
-    body: "crosshair placement is chef's kiss. anyone know what sens they run?",
-    postedAt: "44m",
-    likes: 29,
-    replies: 2,
-    avatar: {
-      initials: "PH",
-      bg: "oklch(0.32 0.16 220)",
-      fg: "oklch(0.95 0.08 220)",
-    },
-  },
-  {
-    id: "c5",
-    author: "jettpack",
-    body: "the econ round management leading up to this is the real story",
-    postedAt: "31m",
-    likes: 18,
-    avatar: {
-      initials: "JP",
-      bg: "oklch(0.34 0.14 45)",
-      fg: "oklch(0.95 0.08 45)",
-    },
-  },
-  {
-    id: "c6",
-    author: "mintcake",
-    body: "clipped and saved for later 📎",
-    postedAt: "17m",
-    likes: 6,
-    avatar: {
-      initials: "MC",
-      bg: "oklch(0.34 0.14 160)",
-      fg: "oklch(0.95 0.08 160)",
-    },
-  },
-  {
-    id: "c7",
-    author: "longpostluna",
-    body: "ok i'm going to write the entire breakdown because people keep asking — first off, the setup on A main only works because the smoke timing forces the defender to commit to a crossing angle, which is why the wallbang lands: you're not aiming at a player, you're aiming at the path their head HAS to travel through. second, the econ on the previous round matters more than anyone credits; if they full-save you can afford the op and the flex utility, and without it this exact play genuinely does not happen. third — and this is the part nobody talks about — the crosshair placement in the 4 seconds BEFORE the wallbang is already pre-aimed at the pixel, so by the time the info comes in from the teammate, it's literally just a click. https://example.com/very/long/url/that/should/also/wrap/without/blowing/out/the/layout-because-it-has-no-hyphens-anywhere-in-it",
-    postedAt: "9m",
-    likes: 3,
-    replies: 1,
-    avatar: {
-      initials: "LL",
-      bg: "oklch(0.32 0.16 280)",
-      fg: "oklch(0.95 0.08 280)",
-    },
-  },
-]
-
 // Bodies longer than this get a "Show more" toggle so one megapost
 // doesn't push the rest of the conversation off the screen.
 const LONG_COMMENT_CHARS = 260
 
 interface ClipCommentsProps extends React.ComponentProps<"aside"> {
-  total: number
+  /** Seeds the kaomoji so it stays stable across re-renders of this dialog. */
+  clipId: string
 }
 
-function ClipComments({ className, total, ...props }: ClipCommentsProps) {
+function ClipComments({ className, clipId, ...props }: ClipCommentsProps) {
   const [draft, setDraft] = React.useState("")
   const [sort, setSort] = React.useState<"top" | "new">("top")
+  const { data: session } = useSession()
+  const me = userChipData(session?.user)
+  const meAvatarStyle = {
+    background: me.avatar.bg,
+    color: me.avatar.fg,
+  } as const
+
+  // Placeholder for a future `/api/clips/:id/comments` fetch. Kept as
+  // component state so the empty branch is shaped the same way the
+  // populated one will be.
+  const comments: ReadonlyArray<Comment> = React.useMemo(() => [], [])
+
+  const isEmpty = comments.length === 0
 
   return (
     <aside
@@ -148,11 +84,11 @@ function ClipComments({ className, total, ...props }: ClipCommentsProps) {
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3 pr-12">
         <div className="flex items-center gap-2">
           <MessageSquareIcon className="size-4 text-accent" />
-          <h2 className="text-md font-semibold leading-none tracking-[-0.005em] text-foreground">
+          <h2 className="text-md leading-none font-semibold tracking-[-0.005em] text-foreground">
             Comments
           </h2>
           <span className="font-mono text-2xs leading-none tracking-[0.06em] text-foreground-faint">
-            {total}
+            {comments.length}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -173,11 +109,24 @@ function ClipComments({ className, total, ...props }: ClipCommentsProps) {
 
       {/* ── Scroll list ────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto">
-        <ul className="flex flex-col">
-          {MOCK_COMMENTS.map((c, i) => (
-            <CommentRow key={c.id} comment={c} first={i === 0} />
-          ))}
-        </ul>
+        {isEmpty ? (
+          <div className="flex h-full items-center justify-center p-6">
+            <EmptyState
+              // Seed keeps the kaomoji stable between tab switches inside
+              // the same dialog instance. Different clip ids reroll the face.
+              seed={`comments-${clipId}`}
+              size="lg"
+              title="No comments yet"
+              hint="Be the first — the composer's below."
+            />
+          </div>
+        ) : (
+          <ul className="flex flex-col">
+            {comments.map((c, i) => (
+              <CommentRow key={c.id} comment={c} first={i === 0} />
+            ))}
+          </ul>
+        )}
       </div>
 
       {/* ── Composer ───────────────────────────────────────── */}
@@ -190,17 +139,16 @@ function ClipComments({ className, total, ...props }: ClipCommentsProps) {
           )}
         >
           <div className="flex items-start gap-2">
-            {/* "you" avatar */}
-            <span
-              aria-hidden
-              className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md text-[11px] font-semibold"
-              style={{
-                background: "oklch(0.3 0.14 220)",
-                color: "oklch(0.95 0.08 220)",
-              }}
-            >
-              YO
-            </span>
+            {/* Current viewer's avatar — falls back to tinted initials
+                when they haven't uploaded an image yet. */}
+            <Avatar size="md" className="mt-0.5" style={meAvatarStyle}>
+              {me.avatar.src ? (
+                <AvatarImage src={me.avatar.src} alt={me.name} />
+              ) : null}
+              <AvatarFallback style={meAvatarStyle}>
+                {me.avatar.initials}
+              </AvatarFallback>
+            </Avatar>
 
             <textarea
               data-slot="comment-input"
@@ -224,11 +172,7 @@ function ClipComments({ className, total, ...props }: ClipCommentsProps) {
 
             <div className="flex items-center gap-1.5">
               {draft.length > 0 ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setDraft("")}
-                >
+                <Button variant="ghost" size="sm" onClick={() => setDraft("")}>
                   Cancel
                 </Button>
               ) : null}
@@ -248,13 +192,7 @@ function ClipComments({ className, total, ...props }: ClipCommentsProps) {
   )
 }
 
-function CommentRow({
-  comment,
-  first,
-}: {
-  comment: Comment
-  first?: boolean
-}) {
+function CommentRow({ comment, first }: { comment: Comment; first?: boolean }) {
   const [liked, setLiked] = React.useState(false)
   const [expanded, setExpanded] = React.useState(false)
   const likeCount = comment.likes + (liked ? 1 : 0)
@@ -286,7 +224,7 @@ function CommentRow({
         <div className="flex items-center gap-2 leading-none">
           <button
             type="button"
-            className="text-sm font-semibold text-foreground hover:text-accent transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]"
+            className="text-sm font-semibold text-foreground transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:text-accent"
           >
             {comment.author}
           </button>
@@ -294,7 +232,7 @@ function CommentRow({
             {comment.postedAt}
           </span>
           {comment.pinned ? (
-            <span className="ml-auto font-mono text-2xs uppercase tracking-[0.12em] text-accent">
+            <span className="ml-auto font-mono text-2xs tracking-[0.12em] text-accent uppercase">
               Pinned
             </span>
           ) : null}
@@ -304,7 +242,7 @@ function CommentRow({
         <p
           className={cn(
             "text-sm leading-[1.5] text-foreground-muted",
-            "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+            "[overflow-wrap:anywhere] break-words whitespace-pre-wrap",
             isLong && !expanded && "line-clamp-4"
           )}
         >
@@ -319,7 +257,7 @@ function CommentRow({
               "font-mono text-2xs tracking-[0.04em] text-accent",
               "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
               "hover:bg-accent-soft",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
             )}
           >
             {expanded ? "Show less" : "Show more"}
@@ -340,12 +278,10 @@ function CommentRow({
                 ? "text-accent"
                 : "text-foreground-faint hover:text-foreground",
               "hover:bg-surface-raised",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
             )}
           >
-            <HeartIcon
-              className={cn("size-3", liked && "fill-current")}
-            />
+            <HeartIcon className={cn("size-3", liked && "fill-current")} />
             {likeCount}
           </button>
           <button
@@ -354,7 +290,7 @@ function CommentRow({
               "rounded-md px-1.5 py-0.5 font-mono text-2xs tracking-[0.04em]",
               "text-foreground-faint transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
               "hover:bg-surface-raised hover:text-foreground",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
             )}
           >
             Reply
@@ -366,7 +302,7 @@ function CommentRow({
                 "rounded-md px-1.5 py-0.5 font-mono text-2xs tracking-[0.04em]",
                 "text-accent transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
                 "hover:bg-accent-soft",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
               )}
             >
               View {comment.replies} replies

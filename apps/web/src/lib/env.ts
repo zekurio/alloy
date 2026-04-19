@@ -21,10 +21,10 @@ if (!parsed.success) {
   // eslint-disable-next-line no-console
   console.error(
     "[web/env] Invalid VITE_* environment variables:\n" +
-      JSON.stringify(fieldErrors, null, 2),
+      JSON.stringify(fieldErrors, null, 2)
   )
   throw new Error(
-    "Invalid web environment variables — see console for field-level errors.",
+    "Invalid web environment variables — see console for field-level errors."
   )
 }
 
