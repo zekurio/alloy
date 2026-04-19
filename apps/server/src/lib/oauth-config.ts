@@ -10,6 +10,7 @@ import { configStore } from "./config-store"
 export function buildGenericOAuthConfig(): GenericOAuthConfig[] {
   const { oauthProvider: p, openRegistrations } = configStore.getAll()
   if (!p) return []
+  const claim = p.usernameClaim
   return [
     {
       providerId: p.providerId,
@@ -23,6 +24,20 @@ export function buildGenericOAuthConfig(): GenericOAuthConfig[] {
       pkce: p.pkce,
       // Static first-line filter; the live gate is in auth.ts's hook.
       disableSignUp: !openRegistrations,
+      /**
+       * Pull the admin-configured claim into better-auth's `name` field.
+       * That field is mapped to the `username` column (see auth.ts'
+       * `user.fields.name`), and the `create.before` hook slugifies it, so
+       * whatever shape the claim comes in — "Michael Schwieger", an email,
+       * a free-form nickname — ends up URL-safe and unique.
+       */
+      mapProfileToUser: (profile) => {
+        const raw = (profile as Record<string, unknown>)[claim]
+        if (typeof raw === "string" && raw.length > 0) {
+          return { name: raw }
+        }
+        return {}
+      },
     },
   ]
 }
