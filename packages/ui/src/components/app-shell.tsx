@@ -5,10 +5,10 @@ import { cn } from "@workspace/ui/lib/utils"
 /**
  * Alloy AppShell — the top-level app layout. Two-column / two-row grid:
  *
- *   ┌────────┬─────────────────┐
- *   │        │     header      │
- *   │sidebar ├─────────────────┤
- *   │        │      main       │
+ *   ┌──────────────────────────┐
+ *   │          header          │
+ *   ├────────┬─────────────────┤
+ *   │sidebar │      main       │
  *   └────────┴─────────────────┘
  *
  * Children are placed by `data-slot` — drop in `AppSidebar`, `AppHeader`,
@@ -25,7 +25,7 @@ function AppShell({ className, ...props }: React.ComponentProps<"div">) {
         "relative grid h-dvh w-full overflow-hidden bg-background",
         "[grid-template-columns:var(--sidebar-rail)_1fr]",
         "[grid-template-rows:var(--header-h)_1fr]",
-        "[grid-template-areas:'sidebar_header''sidebar_main']",
+        "[grid-template-areas:'header_header''sidebar_main']",
         "[&_[data-slot=app-sidebar]]:[grid-area:sidebar]",
         "[&_[data-slot=app-header]]:[grid-area:header]",
         "[&_[data-slot=app-main]]:[grid-area:main]",
