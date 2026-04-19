@@ -18,6 +18,7 @@ export interface AdminOAuthProvider {
 export interface AdminRuntimeConfig {
   openRegistrations: boolean
   setupComplete: boolean
+  emailPasswordEnabled: boolean
   oauthProvider: AdminOAuthProvider | null
 }
 
@@ -35,7 +36,7 @@ export async function fetchRuntimeConfig(): Promise<AdminRuntimeConfig> {
 }
 
 export async function updateRuntimeConfig(
-  input: { openRegistrations?: boolean },
+  input: { openRegistrations?: boolean; emailPasswordEnabled?: boolean },
 ): Promise<AdminRuntimeConfig> {
   const res = await api.api.admin["runtime-config"].$patch({ json: input })
   return readJson<AdminRuntimeConfig>(res)
