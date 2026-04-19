@@ -5,12 +5,13 @@ import { admin } from "better-auth/plugins/admin"
 import { genericOAuth } from "better-auth/plugins/generic-oauth"
 
 import { db } from "./db"
-import * as authSchema from "./db/auth-schema"
+import * as authSchema from "@workspace/db/auth-schema"
 import { env } from "./env"
 import { configStore } from "./lib/config-store"
 import { buildGenericOAuthConfig } from "./lib/oauth-config"
 import { syncOAuthImage } from "./lib/oauth-sync"
 import { hasAnyUser, hasOtherAdmin } from "./lib/user-bootstrap"
+import { generateUniqueUsername } from "./lib/username"
 
 // better-auth reads plugin config at init time, so when the OAuth provider
 // changes at runtime we rebuild the instance and swap it in. Callers must
@@ -39,6 +40,12 @@ function buildAuth() {
       provider: "pg",
       schema: authSchema,
     }),
+    advanced: {
+      // Primary keys are pg `uuid` columns with `.defaultRandom()` — let
+      // Postgres mint the ids so better-auth issues `values (default, ...)`
+      // rather than fabricating one itself.
+      database: { generateId: false },
+    },
     emailAndPassword: {
       // Admin-controlled toggle. When false better-auth refuses both
       // `/sign-in/email` and `/sign-up/email` outright. The user-create
@@ -58,6 +65,15 @@ function buildAuth() {
       },
     },
     user: {
+      // Single handle per user: better-auth's required `name` field is
+      // stored in our `username` DB column. The `create.before` hook below
+      // slugifies whatever name/OAuth claim comes in, so the value that
+      // lands in the column is always URL-safe. On the session side this
+      // still surfaces as `user.name` (better-auth's type) — UI copy calls
+      // it "username".
+      fields: {
+        name: "username",
+      },
       // Self-service account deletion from the profile page. The client
       // calls `authClient.deleteUser()`; better-auth signs the user out and
       // removes their rows. No email verification step — we rely on the
@@ -99,7 +115,13 @@ function buildAuth() {
                 configStore.set("setupComplete", true)
                 return false
               }
-              return { data: { ...user, role: "admin" } }
+              const username = await generateUniqueUsername({
+                name: user.name,
+                email: user.email,
+              })
+              // `name` here is better-auth's field name — it writes through
+              // to the `username` DB column via `user.fields.name`.
+              return { data: { ...user, role: "admin", name: username } }
             }
 
             // The live gate. `disableSignUp` on the provider is a static
@@ -112,15 +134,22 @@ function buildAuth() {
               return false
             }
 
-            return { data: user }
+            // Mint a handle for any allowed create path — OAuth callbacks,
+            // admin-seeded users via the admin plugin, anything else that
+            // reaches here. For OAuth the incoming `user.name` is already
+            // the admin-configured claim (see buildGenericOAuthConfig's
+            // mapProfileToUser); we still slugify to guarantee URL safety
+            // and uniqueness.
+            const username = await generateUniqueUsername({
+              name: user.name,
+              email: user.email,
+            })
+            return { data: { ...user, name: username } }
           },
           after: async (_user, ctx) => {
             // Flip the flag in `after` so a failed create doesn't lock the
             // setup page forever.
-            if (
-              isEmailSignUp(ctx?.path) &&
-              !configStore.get("setupComplete")
-            ) {
+            if (isEmailSignUp(ctx?.path) && !configStore.get("setupComplete")) {
               configStore.set("setupComplete", true)
             }
           },
@@ -143,7 +172,7 @@ function buildAuth() {
               // never block sign-in.
               console.warn(
                 "[auth] post-signin OAuth image sync failed:",
-                err instanceof Error ? err.message : err,
+                err instanceof Error ? err.message : err
               )
             }
           },
