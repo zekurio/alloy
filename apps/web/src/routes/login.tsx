@@ -87,7 +87,8 @@ function LoginPage() {
       });
       if (err) {
         toast.error("Couldn't sign in", {
-          description: err.message ?? "Check your email and password and try again.",
+          description:
+            err.message ?? "Check your email and password and try again.",
         });
         return;
       }
@@ -155,85 +156,84 @@ function LoginPage() {
             </div>
 
             {emailPasswordEnabled ? (
-            <form onSubmit={onSubmit} className="flex flex-col gap-4">
-              <Field>
-                <FieldLabel htmlFor="login-email">Email</FieldLabel>
-                <InputGroup>
-                  <InputGroupAddon>
-                    <MailIcon />
-                  </InputGroupAddon>
-                  <InputGroupInput
-                    id="login-email"
-                    type="email"
-                    autoComplete="email"
-                    placeholder="you@example.com"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    disabled={pending}
-                  />
-                </InputGroup>
-              </Field>
-
-              <Field>
-                <div className="flex items-center justify-between">
-                  <FieldLabel htmlFor="login-password">Password</FieldLabel>
-                  <a
-                    href="#"
-                    className="text-xs text-foreground-muted underline-offset-4 hover:text-accent hover:underline"
-                  >
-                    Forgot?
-                  </a>
-                </div>
-                <InputGroup>
-                  <InputGroupAddon>
-                    <LockIcon />
-                  </InputGroupAddon>
-                  <InputGroupInput
-                    id="login-password"
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="current-password"
-                    placeholder="••••••••"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={pending}
-                  />
-                  <InputGroupAddon align="inline-end">
-                    <InputGroupButton
-                      size="icon-xs"
-                      aria-label={
-                        showPassword ? "Hide password" : "Show password"
-                      }
-                      onClick={() => setShowPassword((v) => !v)}
+              <form onSubmit={onSubmit} className="flex flex-col gap-4">
+                <Field>
+                  <FieldLabel htmlFor="login-email">Email</FieldLabel>
+                  <InputGroup>
+                    <InputGroupAddon>
+                      <MailIcon />
+                    </InputGroupAddon>
+                    <InputGroupInput
+                      id="login-email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="you@example.com"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       disabled={pending}
+                    />
+                  </InputGroup>
+                </Field>
+
+                <Field>
+                  <div className="flex items-center justify-between">
+                    <FieldLabel htmlFor="login-password">Password</FieldLabel>
+                    <a
+                      href="#"
+                      className="text-xs text-foreground-muted underline-offset-4 hover:text-accent hover:underline"
                     >
-                      {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                    </InputGroupButton>
-                  </InputGroupAddon>
-                </InputGroup>
-              </Field>
+                      Forgot?
+                    </a>
+                  </div>
+                  <InputGroup>
+                    <InputGroupAddon>
+                      <LockIcon />
+                    </InputGroupAddon>
+                    <InputGroupInput
+                      id="login-password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
+                      placeholder="••••••••"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={pending}
+                    />
+                    <InputGroupAddon align="inline-end">
+                      <InputGroupButton
+                        size="icon-xs"
+                        aria-label={
+                          showPassword ? "Hide password" : "Show password"
+                        }
+                        onClick={() => setShowPassword((v) => !v)}
+                        disabled={pending}
+                      >
+                        {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                      </InputGroupButton>
+                    </InputGroupAddon>
+                  </InputGroup>
+                </Field>
 
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground-muted select-none">
-                <Checkbox
-                  checked={rememberMe}
-                  onCheckedChange={(value) => setRememberMe(value === true)}
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground-muted select-none">
+                  <Checkbox
+                    checked={rememberMe}
+                    onCheckedChange={(value) => setRememberMe(value === true)}
+                    disabled={pending}
+                  />
+                  Keep me signed in
+                </label>
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="lg"
+                  className="w-full"
                   disabled={pending}
-                />
-                Keep me signed in
-              </label>
-
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                className="w-full"
-                disabled={pending}
-              >
-                {pending ? "Signing in…" : "Sign in"}
-                <ArrowRightIcon className="size-4" />
-              </Button>
-            </form>
+                >
+                  {pending ? "Signing in…" : "Sign in"}
+                </Button>
+              </form>
             ) : null}
 
             {provider ? (
@@ -255,8 +255,8 @@ function LoginPage() {
 
             {!emailPasswordEnabled && !provider ? (
               <p className="mt-6 text-sm text-foreground-muted">
-                Sign-in is currently unavailable. Ask an administrator to
-                enable a login method.
+                Sign-in is currently unavailable. Ask an administrator to enable
+                a login method.
               </p>
             ) : null}
           </div>

@@ -12,7 +12,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@workspace/ui/components/alert-dialog";
-import { Avatar, AvatarFallback, AvatarImage } from "@workspace/ui/components/avatar";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@workspace/ui/components/avatar";
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -131,7 +135,9 @@ export function AdminUsersCard({ currentUserId }: AdminUsersCardProps) {
     const current = normalizeRole(user.role);
     if (current === nextRole) return;
     if (user.id === currentUserId && nextRole !== "admin") {
-      toast.error("Demote yourself from the profile page after promoting another admin first.");
+      toast.error(
+        "Demote yourself from the profile page after promoting another admin first.",
+      );
       return;
     }
     setBusyId(user.id);
@@ -161,9 +167,7 @@ export function AdminUsersCard({ currentUserId }: AdminUsersCardProps) {
         <div>
           <CardTitle>Users</CardTitle>
           <CardDescription>
-            List, seed, and manage every account on this instance. Seeded
-            users have no password — they sign in via the configured OAuth
-            provider, which links onto their email.
+            List, seed, and manage every account on this instance.
           </CardDescription>
         </div>
         <Dialog open={seedOpen} onOpenChange={setSeedOpen}>
@@ -270,8 +274,8 @@ export function AdminUsersCard({ currentUserId }: AdminUsersCardProps) {
                               Delete {u.email}?
                             </AlertDialogTitle>
                             <AlertDialogDescription>
-                              This removes their sessions and clips. It can't
-                              be undone.
+                              This removes their sessions and clips. It can't be
+                              undone.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -306,7 +310,11 @@ function normalizeRole(role: string | string[] | null | undefined): string {
   return "user";
 }
 
-function SeedUserDialog({ onCreated }: { onCreated: () => void | Promise<void> }) {
+function SeedUserDialog({
+  onCreated,
+}: {
+  onCreated: () => void | Promise<void>;
+}) {
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [role, setRole] = React.useState<"user" | "admin">("user");
@@ -326,7 +334,8 @@ function SeedUserDialog({ onCreated }: { onCreated: () => void | Promise<void> }
       });
       if (error) throw new Error(error.message ?? "Create failed");
       toast.success("User seeded", {
-        description: "Share the OAuth login URL — they'll be linked on sign-in.",
+        description:
+          "Share the OAuth login URL — they'll be linked on sign-in.",
       });
       setName("");
       setEmail("");
@@ -349,8 +358,8 @@ function SeedUserDialog({ onCreated }: { onCreated: () => void | Promise<void> }
           <DialogTitle>Seed a user</DialogTitle>
           <DialogDescription>
             Creates an account with no password. The user signs in via the
-            configured OAuth provider; their identity gets linked to this
-            email automatically.
+            configured OAuth provider; their identity gets linked to this email
+            automatically.
           </DialogDescription>
         </DialogHeader>
         <DialogBody className="flex flex-col gap-4">
@@ -375,8 +384,8 @@ function SeedUserDialog({ onCreated }: { onCreated: () => void | Promise<void> }
               disabled={pending}
             />
             <FieldDescription>
-              Must match the email returned by the OAuth provider for linking
-              to succeed.
+              Must match the email returned by the OAuth provider for linking to
+              succeed.
             </FieldDescription>
           </Field>
           <Field>
@@ -399,7 +408,12 @@ function SeedUserDialog({ onCreated }: { onCreated: () => void | Promise<void> }
         <DialogFooter>
           <DialogClose
             render={
-              <Button type="button" variant="ghost" size="sm" disabled={pending} />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={pending}
+              />
             }
           >
             Cancel

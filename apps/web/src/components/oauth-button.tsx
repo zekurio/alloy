@@ -24,6 +24,7 @@ export function OAuthButton({
     <Button
       type="button"
       variant="secondary"
+      size="lg"
       className={cn(className)}
       data-provider={providerId}
       {...props}

@@ -73,9 +73,7 @@ function AdminPage() {
       );
     } catch (cause) {
       setConfig((prev) => ({ ...prev, openRegistrations: !nextEnabled }));
-      toast.error(
-        cause instanceof Error ? cause.message : "Update failed",
-      );
+      toast.error(cause instanceof Error ? cause.message : "Update failed");
     }
   }
 
@@ -91,9 +89,7 @@ function AdminPage() {
       );
     } catch (cause) {
       setConfig((prev) => ({ ...prev, emailPasswordEnabled: !nextEnabled }));
-      toast.error(
-        cause instanceof Error ? cause.message : "Update failed",
-      );
+      toast.error(cause instanceof Error ? cause.message : "Update failed");
     }
   }
 
@@ -129,7 +125,8 @@ function AdminPage() {
               <div>
                 <CardTitle>Email &amp; password login</CardTitle>
                 <CardDescription>
-                  Off = OAuth-only. Make sure a provider is linked first.
+                  Disable login with email and password. Make sure an OAuth
+                  provider is set up first.
                 </CardDescription>
               </div>
               <Switch
@@ -259,9 +256,7 @@ function OAuthProviderCard({
                 required
                 onChange={(e) => set("providerId", e.target.value)}
               />
-              <FieldDescription>
-                URL-safe slug.
-              </FieldDescription>
+              <FieldDescription>URL-safe slug.</FieldDescription>
             </Field>
 
             <Field>
