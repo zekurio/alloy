@@ -1,8 +1,12 @@
 {
   "name": "@workspace/api",
   "version": "0.0.1",
-  "type": "module",
   "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./auth": "./src/auth.ts"
+  },
   "scripts": {
     "lint": "oxlint .",
     "format": "oxfmt --write .",
@@ -21,9 +25,5 @@
     "oxfmt": "*",
     "oxlint": "*",
     "typescript": "^5.9.3"
-  },
-  "exports": {
-    ".": "./src/index.ts",
-    "./auth": "./src/auth.ts"
   }
 }

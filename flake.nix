@@ -30,6 +30,10 @@
             #         createdb -h 127.0.0.1 -U postgres alloy
             # Stop:   pg_ctl -D .pg/data stop
             postgresql_16
+            # ffmpeg + ffprobe drive the encode queue (`apps/server/src/queue/`).
+            # `ffmpeg-headless` is the trimmed build — no GUI deps — which is
+            # all the server needs.
+            ffmpeg-headless
           ];
         };
       }

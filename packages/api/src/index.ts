@@ -11,7 +11,10 @@ export type ApiClient = ReturnType<typeof hc<AppType>>
  * `credentials: "include"` is forced so better-auth's cookie-based session
  * travels on every request without the consumer having to remember it.
  */
-export function createApiClient(baseURL: string, init?: RequestInit): ApiClient {
+export function createApiClient(
+  baseURL: string,
+  init?: RequestInit
+): ApiClient {
   return hc<AppType>(baseURL, {
     init: {
       credentials: "include",
