@@ -20,7 +20,7 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
         "transition-[border-color,background-color] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
         "placeholder:text-foreground-faint",
         "hover:border-border-strong",
-        "focus-visible:outline-none focus-visible:border-accent-border focus-visible:bg-surface-raised",
+        "focus-visible:border-accent-border focus-visible:bg-surface-raised focus-visible:outline-none",
         "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
         "aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20",
         "file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground",

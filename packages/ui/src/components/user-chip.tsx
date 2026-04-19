@@ -37,7 +37,7 @@ function UserChip({
         "rounded-md border border-border bg-surface-raised text-foreground",
         "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
         "hover:border-border-strong",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
         className
       )}
       {...props}
@@ -59,7 +59,7 @@ function UserChip({
           avatar.initials
         )}
       </span>
-      <span className="text-xs font-semibold leading-none">{name}</span>
+      <span className="text-xs leading-none font-semibold">{name}</span>
       {children ?? (
         <ChevronRightIcon className="ml-1 size-3 rotate-90 text-foreground-faint" />
       )}

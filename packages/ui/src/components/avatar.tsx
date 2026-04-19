@@ -4,9 +4,12 @@ import { Avatar as AvatarPrimitive } from "@base-ui/react/avatar"
 import { cn } from "@workspace/ui/lib/utils"
 
 /**
- * Alloy Avatar — square-with-rounded-corner, sizes sm/md/lg/xl.
+ * Alloy Avatar — square-with-rounded-corner, sizes sm/md/lg/xl/2xl.
  * The handoff uses rounded squares (var(--radius)) rather than full circles
  * to pair nicely with the monospaced numerical identity tags.
+ *
+ * `2xl` is the profile-page overlap variant — 96px tall, sized to hang off a
+ * banner strip. Use sparingly; `xl` is the right call for dialogs and cards.
  */
 function Avatar({
   className,
@@ -14,7 +17,7 @@ function Avatar({
   ring = false,
   ...props
 }: AvatarPrimitive.Root.Props & {
-  size?: "sm" | "md" | "lg" | "xl"
+  size?: "sm" | "md" | "lg" | "xl" | "2xl"
   ring?: boolean
 }) {
   return (
@@ -23,12 +26,13 @@ function Avatar({
       data-size={size}
       data-ring={ring || undefined}
       className={cn(
-        "group/avatar relative inline-flex shrink-0 select-none overflow-hidden",
-        "items-center justify-center rounded-md bg-neutral-200 text-foreground font-semibold",
+        "group/avatar relative inline-flex shrink-0 overflow-hidden select-none",
+        "items-center justify-center rounded-md bg-neutral-200 font-semibold text-foreground",
         "data-[size=sm]:size-5 data-[size=sm]:text-[9px]",
         "data-[size=md]:size-7 data-[size=md]:text-[11px]",
         "data-[size=lg]:size-9 data-[size=lg]:text-[13px]",
         "data-[size=xl]:size-12 data-[size=xl]:text-[16px]",
+        "data-[size=2xl]:size-24 data-[size=2xl]:rounded-lg data-[size=2xl]:text-[28px]",
         "data-[ring=true]:shadow-[0_0_0_1.5px_var(--background),0_0_0_3px_var(--accent)]",
         className
       )}
@@ -73,6 +77,7 @@ function AvatarBadge({ className, ...props }: React.ComponentProps<"span">) {
         "group-data-[size=md]/avatar:size-2.5",
         "group-data-[size=lg]/avatar:size-3",
         "group-data-[size=xl]/avatar:size-3.5",
+        "group-data-[size=2xl]/avatar:size-5",
         className
       )}
       {...props}

@@ -1,8 +1,7 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
-import {  cva } from "class-variance-authority"
+import { cva } from "class-variance-authority"
 import { cn } from "@workspace/ui/lib/utils"
-import type {VariantProps} from "class-variance-authority";
-
+import type { VariantProps } from "class-variance-authority"
 
 /**
  * Alloy Button — flat, dark, accent-driven. No gradients, no shadows.
@@ -25,7 +24,7 @@ const buttonVariants = cva(
     "font-semibold tracking-[-0.005em]",
     "transition-[background,border-color,color,box-shadow]",
     "duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
     "disabled:pointer-events-none disabled:opacity-40",
     "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5"
   ),
@@ -33,23 +32,23 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          "bg-accent text-accent-foreground border-accent hover:bg-accent-hover hover:border-accent-hover active:bg-accent-active",
+          "border-accent bg-accent text-accent-foreground hover:border-accent-hover hover:bg-accent-hover active:bg-accent-active",
         secondary:
-          "bg-surface-raised text-foreground border-border hover:bg-neutral-150 hover:border-border-strong",
+          "border-border bg-surface-raised text-foreground hover:border-border-strong hover:bg-neutral-150",
         outline:
-          "bg-transparent text-foreground border-border-strong hover:border-accent-border hover:text-accent",
+          "border-border-strong bg-transparent text-foreground hover:border-accent-border hover:text-accent",
         ghost:
           "bg-transparent text-foreground-muted hover:bg-surface-raised hover:text-foreground",
         "accent-outline":
-          "bg-accent-soft text-accent border-accent-border hover:bg-[color-mix(in_oklab,var(--accent)_22%,transparent)]",
+          "border-accent-border bg-accent-soft text-accent hover:bg-[color-mix(in_oklab,var(--accent)_22%,transparent)]",
         danger:
-          "bg-transparent text-danger border-[color-mix(in_oklab,var(--danger)_40%,transparent)] hover:bg-[color-mix(in_oklab,var(--danger)_14%,transparent)]",
-        link: "text-accent underline-offset-4 hover:underline border-transparent",
+          "border-[color-mix(in_oklab,var(--danger)_40%,transparent)] bg-transparent text-danger hover:bg-[color-mix(in_oklab,var(--danger)_14%,transparent)]",
+        link: "border-transparent text-accent underline-offset-4 hover:underline",
         // shadcn aliases
         default:
-          "bg-accent text-accent-foreground border-accent hover:bg-accent-hover hover:border-accent-hover active:bg-accent-active",
+          "border-accent bg-accent text-accent-foreground hover:border-accent-hover hover:bg-accent-hover active:bg-accent-active",
         destructive:
-          "bg-transparent text-danger border-[color-mix(in_oklab,var(--danger)_40%,transparent)] hover:bg-[color-mix(in_oklab,var(--danger)_14%,transparent)]",
+          "border-[color-mix(in_oklab,var(--danger)_40%,transparent)] bg-transparent text-danger hover:bg-[color-mix(in_oklab,var(--danger)_14%,transparent)]",
       },
       size: {
         default: "h-[30px] px-4 text-sm",

@@ -1,8 +1,7 @@
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs"
-import {  cva } from "class-variance-authority"
+import { cva } from "class-variance-authority"
 import { cn } from "@workspace/ui/lib/utils"
-import type {VariantProps} from "class-variance-authority";
-
+import type { VariantProps } from "class-variance-authority"
 
 /**
  * Alloy Tabs — defaults to an underlined "line" variant with an accent
@@ -74,7 +73,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
         "disabled:pointer-events-none disabled:opacity-50",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
         // Accent underline — only on `line` list variant
-        "in-data-[variant=line]:after:content-[''] in-data-[variant=line]:after:absolute in-data-[variant=line]:after:left-0 in-data-[variant=line]:after:right-0 in-data-[variant=line]:after:-bottom-px in-data-[variant=line]:after:h-px",
+        "in-data-[variant=line]:after:absolute in-data-[variant=line]:after:right-0 in-data-[variant=line]:after:-bottom-px in-data-[variant=line]:after:left-0 in-data-[variant=line]:after:h-px in-data-[variant=line]:after:content-['']",
         "in-data-[variant=line]:after:bg-accent in-data-[variant=line]:after:opacity-0",
         "in-data-[variant=line]:after:shadow-[0_0_8px_var(--accent-glow)]",
         "in-data-[variant=line]:data-active:after:opacity-100",
