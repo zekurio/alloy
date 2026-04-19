@@ -1,10 +1,14 @@
-import * as React from "react"
-import { Link, createFileRoute } from "@tanstack/react-router"
-import { ArrowLeftIcon, Trash2Icon } from "lucide-react"
+import * as React from "react";
+import { Link, createFileRoute } from "@tanstack/react-router";
+import { ArrowLeftIcon, Trash2Icon } from "lucide-react";
 
-import { AlloyLogo } from "@workspace/ui/components/alloy-logo"
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
+import {
+  AppHeader,
+  AppHeaderActions,
+  AppHeaderBrand,
+} from "@workspace/ui/components/app-header";
+import { AppMain, AppShell } from "@workspace/ui/components/app-shell";
+import { Button } from "@workspace/ui/components/button";
 import {
   Card,
   CardContent,
@@ -12,12 +16,18 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@workspace/ui/components/card"
-import { Field, FieldLabel } from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
-import { toast } from "@workspace/ui/components/sonner"
-import { Switch } from "@workspace/ui/components/switch"
+} from "@workspace/ui/components/card";
+import {
+  Field,
+  FieldDescription,
+  FieldLabel,
+} from "@workspace/ui/components/field";
+import { Input } from "@workspace/ui/components/input";
+import { toast } from "@workspace/ui/components/sonner";
+import { Switch } from "@workspace/ui/components/switch";
 
+import { AdminUsersCard } from "../components/admin-users-card";
+import { UserMenu } from "../components/user-menu";
 import {
   type AdminOAuthProvider,
   type AdminRuntimeConfig,
@@ -25,106 +35,138 @@ import {
   fetchRuntimeConfig,
   saveOAuthProvider,
   updateRuntimeConfig,
-} from "../lib/admin-api"
-import { requireAdmin } from "../lib/route-guards"
+} from "../lib/admin-api";
+import { requireAdmin } from "../lib/route-guards";
 
 /**
  * Admin console. `beforeLoad` redirects non-admins as a UX shortcut; every
  * admin endpoint still re-verifies server-side.
  */
 export const Route = createFileRoute("/admin")({
-  beforeLoad: () => requireAdmin(),
+  // See the note in `/` — exposing the session on the context lets
+  // `UserMenu` render the correct identity on first paint instead of
+  // flashing the "user" fallback while `useSession` fetches.
+  beforeLoad: async () => ({ session: await requireAdmin() }),
   loader: async () => {
-    const config = await fetchRuntimeConfig()
-    return { config }
+    const config = await fetchRuntimeConfig();
+    return { config };
   },
   component: AdminPage,
-})
+});
 
 function AdminPage() {
-  const initial = Route.useLoaderData()
-  const [config, setConfig] = React.useState<AdminRuntimeConfig>(initial.config)
+  const initial = Route.useLoaderData();
+  const { session } = Route.useRouteContext();
+  const [config, setConfig] = React.useState<AdminRuntimeConfig>(
+    initial.config,
+  );
 
   async function onToggleOpenRegistrations(nextEnabled: boolean) {
-    const previous = config
-    setConfig({ ...config, openRegistrations: nextEnabled })
+    setConfig((prev) => ({ ...prev, openRegistrations: nextEnabled }));
     try {
-      const next = await updateRuntimeConfig({ openRegistrations: nextEnabled })
-      setConfig(next)
+      const next = await updateRuntimeConfig({
+        openRegistrations: nextEnabled,
+      });
+      setConfig(next);
       toast.success(
-        nextEnabled ? "Open registrations on" : "Registrations closed",
-        {
-          description: nextEnabled
-            ? "OAuth will auto-create new user accounts."
-            : "OAuth will only sign in existing users.",
-        },
-      )
+        nextEnabled ? "Registrations open" : "Registrations closed",
+      );
     } catch (cause) {
-      setConfig(previous)
-      toast.error("Update failed", {
-        description:
-          cause instanceof Error
-            ? cause.message
-            : "Couldn't save the change. Please try again.",
-      })
+      setConfig((prev) => ({ ...prev, openRegistrations: !nextEnabled }));
+      toast.error(
+        cause instanceof Error ? cause.message : "Update failed",
+      );
+    }
+  }
+
+  async function onToggleEmailPassword(nextEnabled: boolean) {
+    setConfig((prev) => ({ ...prev, emailPasswordEnabled: nextEnabled }));
+    try {
+      const next = await updateRuntimeConfig({
+        emailPasswordEnabled: nextEnabled,
+      });
+      setConfig(next);
+      toast.success(
+        nextEnabled ? "Password login enabled" : "Password login disabled",
+      );
+    } catch (cause) {
+      setConfig((prev) => ({ ...prev, emailPasswordEnabled: !nextEnabled }));
+      toast.error(
+        cause instanceof Error ? cause.message : "Update failed",
+      );
     }
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-border">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-4">
+    <AppShell>
+      <AppHeader>
+        <AppHeaderBrand />
+        <AppHeaderActions>
+          <UserMenu seedUser={session?.user} />
+        </AppHeaderActions>
+      </AppHeader>
+      <AppMain>
+        <div className="mx-auto flex max-w-4xl flex-col gap-6">
+          <div className="flex flex-col gap-3">
             <Link
               to="/"
-              className="inline-flex items-center gap-2 text-sm text-foreground-muted hover:text-foreground"
+              className="inline-flex w-fit items-center gap-1.5 text-sm text-foreground-muted hover:text-foreground"
             >
               <ArrowLeftIcon className="size-4" /> Back
             </Link>
-            <div className="h-4 w-px bg-border" />
-            <Link to="/admin" className="inline-flex items-center gap-2">
-              <AlloyLogo showText size={20} />
-              <Badge variant="accent">Admin</Badge>
-            </Link>
+            <h1 className="text-2xl font-semibold tracking-[-0.02em]">
+              Authentication
+            </h1>
           </div>
+
+          <OAuthProviderCard
+            provider={config.oauthProvider}
+            onChange={(next) => setConfig(next)}
+          />
+
+          <Card>
+            <CardHeader>
+              <div>
+                <CardTitle>Email &amp; password login</CardTitle>
+                <CardDescription>
+                  Off = OAuth-only. Make sure a provider is linked first.
+                </CardDescription>
+              </div>
+              <Switch
+                checked={config.emailPasswordEnabled}
+                onCheckedChange={onToggleEmailPassword}
+                disabled={
+                  // Mirrors the server-side guard: refuse to disable the only
+                  // remaining sign-in surface.
+                  config.emailPasswordEnabled && config.oauthProvider === null
+                }
+              />
+            </CardHeader>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div>
+                <CardTitle>Open registrations</CardTitle>
+                <CardDescription>
+                  Auto-create accounts on OAuth sign-in.
+                </CardDescription>
+              </div>
+              <Switch
+                checked={config.openRegistrations}
+                onCheckedChange={onToggleOpenRegistrations}
+              />
+            </CardHeader>
+          </Card>
+
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.02em]">
+            Users
+          </h2>
+          <AdminUsersCard currentUserId={session?.user.id ?? ""} />
         </div>
-      </header>
-
-      <main className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-8">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-[-0.02em]">
-            Authentication
-          </h1>
-          <p className="mt-1 text-sm text-foreground-muted">
-            Configure the OAuth provider and registration behaviour. All
-            changes apply immediately — no restart required.
-          </p>
-        </div>
-
-        <OAuthProviderCard
-          provider={config.oauthProvider}
-          onChange={(next) => setConfig(next)}
-        />
-
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle>Open registrations</CardTitle>
-              <CardDescription>
-                When on, a successful OAuth sign-in for a new external
-                identity creates an account automatically. When off, OAuth
-                only lets existing users sign in.
-              </CardDescription>
-            </div>
-            <Switch
-              checked={config.openRegistrations}
-              onCheckedChange={onToggleOpenRegistrations}
-            />
-          </CardHeader>
-        </Card>
-      </main>
-    </div>
-  )
+      </AppMain>
+    </AppShell>
+  );
 }
 
 /**
@@ -135,25 +177,25 @@ function OAuthProviderCard({
   provider,
   onChange,
 }: {
-  provider: AdminOAuthProvider | null
-  onChange: (next: AdminRuntimeConfig) => void
+  provider: AdminOAuthProvider | null;
+  onChange: (next: AdminRuntimeConfig) => void;
 }) {
   const [form, setForm] = React.useState<AdminOAuthProvider>(
     provider ?? emptyProvider(),
-  )
-  const [pending, setPending] = React.useState<"save" | "delete" | null>(null)
+  );
+  const [pending, setPending] = React.useState<"save" | "delete" | null>(null);
 
   function set<K extends keyof AdminOAuthProvider>(
     key: K,
     value: AdminOAuthProvider[K],
   ) {
-    setForm((f) => ({ ...f, [key]: value }))
+    setForm((f) => ({ ...f, [key]: value }));
   }
 
   async function onSave(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (pending) return
-    setPending("save")
+    e.preventDefault();
+    if (pending) return;
+    setPending("save");
     try {
       const next = await saveOAuthProvider({
         ...form,
@@ -163,42 +205,32 @@ function OAuthProviderCard({
         authorizationUrl: emptyToUndefined(form.authorizationUrl),
         tokenUrl: emptyToUndefined(form.tokenUrl),
         userInfoUrl: emptyToUndefined(form.userInfoUrl),
-      })
-      onChange(next)
-      toast.success("OAuth provider saved", {
-        description: "Login page now offers the new provider.",
-      })
+      });
+      onChange(next);
+      toast.success("Provider saved");
     } catch (cause) {
-      toast.error("Couldn't save the provider", {
-        description:
-          cause instanceof Error
-            ? cause.message
-            : "Please review the form and try again.",
-      })
+      toast.error(
+        cause instanceof Error ? cause.message : "Couldn't save provider",
+      );
     } finally {
-      setPending(null)
+      setPending(null);
     }
   }
 
   async function onDelete() {
-    if (pending || !provider) return
-    setPending("delete")
+    if (pending || !provider) return;
+    setPending("delete");
     try {
-      const next = await deleteOAuthProvider()
-      onChange(next)
-      setForm(emptyProvider())
-      toast.success("OAuth provider removed", {
-        description: "Only email/password login is available now.",
-      })
+      const next = await deleteOAuthProvider();
+      onChange(next);
+      setForm(emptyProvider());
+      toast.success("Provider removed");
     } catch (cause) {
-      toast.error("Couldn't remove the provider", {
-        description:
-          cause instanceof Error
-            ? cause.message
-            : "Please try again.",
-      })
+      toast.error(
+        cause instanceof Error ? cause.message : "Couldn't remove provider",
+      );
     } finally {
-      setPending(null)
+      setPending(null);
     }
   }
 
@@ -209,14 +241,9 @@ function OAuthProviderCard({
           <div>
             <CardTitle>OAuth provider</CardTitle>
             <CardDescription>
-              One OIDC- or OAuth2-compatible identity provider. Provide a
-              discovery URL when the provider supports it — we'll read the
-              auth, token, and userinfo endpoints from there. For classic
-              OAuth2 services without discovery, fill the three URLs below
-              manually.
+              One OIDC/OAuth2 provider. Use discovery or manual endpoints.
             </CardDescription>
           </div>
-          {provider ? <Badge variant="accent">Configured</Badge> : null}
         </CardHeader>
 
         <CardContent className="flex flex-col gap-4">
@@ -232,10 +259,9 @@ function OAuthProviderCard({
                 required
                 onChange={(e) => set("providerId", e.target.value)}
               />
-              <p className="mt-1 text-xs text-foreground-faint">
-                URL-safe slug used in the OAuth callback path. Changing this
-                invalidates linked accounts.
-              </p>
+              <FieldDescription>
+                URL-safe slug.
+              </FieldDescription>
             </Field>
 
             <Field>
@@ -248,9 +274,6 @@ function OAuthProviderCard({
                 maxLength={128}
                 onChange={(e) => set("buttonText", e.target.value)}
               />
-              <p className="mt-1 text-xs text-foreground-faint">
-                Rendered verbatim on the login page's OAuth button.
-              </p>
             </Field>
           </div>
 
@@ -274,16 +297,12 @@ function OAuthProviderCard({
                 type="password"
                 autoComplete="new-password"
                 value={form.clientSecret}
-                required
+                required={!provider}
                 placeholder={
-                  provider ? "Re-enter to save changes" : "Client secret"
+                  provider ? "Leave blank to keep current" : "Client secret"
                 }
                 onChange={(e) => set("clientSecret", e.target.value)}
               />
-              <p className="mt-1 text-xs text-foreground-faint">
-                Stored on disk in the runtime config. Never returned to the
-                browser — re-enter every time you save.
-              </p>
             </Field>
           </div>
 
@@ -296,15 +315,16 @@ function OAuthProviderCard({
               placeholder="https://sso.example.com/realms/main/.well-known/openid-configuration"
               onChange={(e) => set("discoveryUrl", e.target.value)}
             />
-            <p className="mt-1 text-xs text-foreground-faint">
-              Preferred for OIDC providers. Leave blank and fill the three
-              URLs below for providers without discovery (GitHub, Discord, …).
-            </p>
+            <FieldDescription>
+              Preferred for OIDC; otherwise fill endpoints below.
+            </FieldDescription>
           </Field>
 
           <div className="grid gap-4 sm:grid-cols-3">
             <Field>
-              <FieldLabel htmlFor="oauth-auth-url">Authorization URL</FieldLabel>
+              <FieldLabel htmlFor="oauth-auth-url">
+                Authorization URL
+              </FieldLabel>
               <Input
                 id="oauth-auth-url"
                 type="url"
@@ -350,13 +370,7 @@ function OAuthProviderCard({
                 )
               }
             />
-            <p className="mt-1 text-xs text-foreground-faint">
-              Space-separated. OIDC usually wants{" "}
-              <code className="rounded bg-surface-raised px-1 py-0.5">
-                openid profile email
-              </code>
-              .
-            </p>
+            <FieldDescription>Space-separated.</FieldDescription>
           </Field>
         </CardContent>
 
@@ -388,7 +402,7 @@ function OAuthProviderCard({
         </CardFooter>
       </Card>
     </form>
-  )
+  );
 }
 
 function emptyProvider(): AdminOAuthProvider {
@@ -403,11 +417,11 @@ function emptyProvider(): AdminOAuthProvider {
     tokenUrl: "",
     userInfoUrl: "",
     pkce: true,
-  }
+  };
 }
 
 function emptyToUndefined(value: string | undefined): string | undefined {
-  if (value === undefined) return undefined
-  const trimmed = value.trim()
-  return trimmed.length === 0 ? undefined : trimmed
+  if (value === undefined) return undefined;
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? undefined : trimmed;
 }

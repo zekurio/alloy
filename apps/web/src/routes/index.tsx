@@ -18,7 +18,10 @@ import { UploadFlow } from "../components/upload-flow"
 import { requireAuth } from "../lib/route-guards"
 
 export const Route = createFileRoute("/")({
-  beforeLoad: () => requireAuth(),
+  // Expose the session on the route context so child components can seed
+  // `UserMenu` synchronously — avoids the "user" fallback flash while
+  // `useSession`'s own nanostore atom fires its first fetch.
+  beforeLoad: async () => ({ session: await requireAuth() }),
   component: HomePreview,
 })
 
@@ -122,10 +125,11 @@ const FILTER_CHIPS = [
 ] as const
 
 function HomePreview() {
+  const { session } = Route.useRouteContext()
   return (
     <AppShell>
       <HomeSidebar />
-      <HomeHeader />
+      <HomeHeader seedUser={session?.user} />
       <AppMain>
         <SectionHead>
           <div>
