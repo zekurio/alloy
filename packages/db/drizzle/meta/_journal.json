@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1776683068160,
+      "tag": "0000_aromatic_randall",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776684599482,
+      "tag": "0001_conscious_kinsey_walden",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776693512035,
+      "tag": "0002_curved_night_nurse",
+      "breakpoints": true
+    }
+  ]
+}
