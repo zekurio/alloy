@@ -1,16 +1,21 @@
 import * as React from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { UploadIcon } from "lucide-react"
 
 import { cn } from "@workspace/ui/lib/utils"
 
+import { useSession } from "../lib/auth-client"
+import {
+  clipKeys,
+  useInvalidateClips,
+  useUploadQueueQuery,
+} from "../lib/clip-queries"
 import {
   clipThumbnailUrl,
   deleteClip,
-  fetchUploadQueue,
   finalizeClip,
   initiateClip,
   uploadToTicket,
-  type AcceptedContentType,
   type QueueClip,
 } from "../lib/clips-api"
 import type { PublishPayload } from "./upload-new-clip-modal"
@@ -19,11 +24,13 @@ import type { QueueItem, QueueItemStatus } from "./upload-queue-modal"
 // The upload modals pull in heavy form/timeline/dialog machinery that isn't
 // needed until the FAB is opened. Splitting them into their own chunks keeps
 // the initial home-route bundle smaller.
+const loadUploadQueueModal = () => import("./upload-queue-modal")
 const UploadQueueModal = React.lazy(() =>
-  import("./upload-queue-modal").then((m) => ({ default: m.UploadQueueModal }))
+  loadUploadQueueModal().then((m) => ({ default: m.UploadQueueModal }))
 )
+const loadUploadNewClipModal = () => import("./upload-new-clip-modal")
 const UploadNewClipModal = React.lazy(() =>
-  import("./upload-new-clip-modal").then((m) => ({
+  loadUploadNewClipModal().then((m) => ({
     default: m.UploadNewClipModal,
   }))
 )
@@ -91,12 +98,19 @@ function formatBytes(bytes: number): string {
  * the hook for them.
  */
 export function UploadFlow() {
+  const { data: session } = useSession()
+  if (!session) return null
+
+  return <AuthedUploadFlow />
+}
+
+function AuthedUploadFlow() {
   const [queueOpen, setQueueOpen] = React.useState(false)
   const [newClipOpen, setNewClipOpen] = React.useState(false)
-  // Defer mounting the lazy modal chunks until the user touches the FAB
-  // — otherwise an always-closed <Dialog> would still pull them in on
-  // the initial render.
-  const [modalsMounted, setModalsMounted] = React.useState(false)
+  // Mount each lazy modal independently so the first queue open doesn't
+  // also pay to download + initialise the heavier new-clip editor chunk.
+  const [queueModalMounted, setQueueModalMounted] = React.useState(false)
+  const [newClipModalMounted, setNewClipModalMounted] = React.useState(false)
 
   // Local in-flight uploads. We use a ref + a force-render counter
   // because the XHR `onProgress` fires often and we want updates to be
@@ -104,43 +118,18 @@ export function UploadFlow() {
   const activeRef = React.useRef<Map<string, ActiveUpload>>(new Map())
   const [, bump] = React.useReducer((n: number) => n + 1, 0)
 
-  const [serverQueue, setServerQueue] = React.useState<QueueClip[]>([])
-
-  // Poll the server queue every 2s while the modal is open. SSE buys
-  // nothing at this scale (encoding takes minutes; queue is small) and
-  // would cost an extra connection per tab.
-  React.useEffect(() => {
-    if (!queueOpen) return
-    let cancelled = false
-    const tick = async () => {
-      try {
-        const rows = await fetchUploadQueue()
-        if (!cancelled) setServerQueue(rows)
-      } catch {
-        // Network blip — keep showing the previous snapshot rather than
-        // wiping the modal. The next tick will recover.
-      }
-    }
-    void tick()
-    const interval = window.setInterval(tick, 2000)
-    return () => {
-      cancelled = true
-      window.clearInterval(interval)
-    }
-  }, [queueOpen])
-
-  // Refetch on focus — covers the case where the user tabbed away
-  // during an encode and the modal is still open.
-  React.useEffect(() => {
-    if (!queueOpen) return
-    const onFocus = () => {
-      void fetchUploadQueue()
-        .then(setServerQueue)
-        .catch(() => undefined)
-    }
-    window.addEventListener("focus", onFocus)
-    return () => window.removeEventListener("focus", onFocus)
-  }, [queueOpen])
+  // Server-side queue rows come from TanStack Query: the hook polls
+  // every 2s while the modal is open (matching the old setInterval),
+  // retries on focus, and is disabled once the modal closes so background
+  // tabs go quiet. `clipKeys.queue()` is the same cache entry the upload
+  // path invalidates on cancel — see `cancelRow` below.
+  const queryClient = useQueryClient()
+  const invalidateClips = useInvalidateClips()
+  const { data: serverQueueData } = useUploadQueueQuery({ enabled: queueOpen })
+  const serverQueue = React.useMemo<QueueClip[]>(
+    () => serverQueueData ?? [],
+    [serverQueueData]
+  )
 
   // Once a finalize completes, the server row will replace the local
   // entry on the next poll. Drop the local entry as soon as we see the
@@ -151,7 +140,11 @@ export function UploadFlow() {
     const seen = new Set(serverQueue.map((r) => r.id))
     let changed = false
     for (const [localId, active] of activeRef.current) {
-      if (active.clipId && seen.has(active.clipId) && active.status !== "uploading") {
+      if (
+        active.clipId &&
+        seen.has(active.clipId) &&
+        active.status !== "uploading"
+      ) {
         URL.revokeObjectURL(active.thumbUrl)
         activeRef.current.delete(localId)
         changed = true
@@ -167,14 +160,35 @@ export function UploadFlow() {
   // longer compete because only one is mounted-and-open at a time
   // (queue is closing, new-clip is opening).
   const handleNewClip = React.useCallback(() => {
+    setNewClipModalMounted(true)
     setQueueOpen(false)
     setNewClipOpen(true)
   }, [])
 
-  const handleFabClick = React.useCallback(() => {
-    setModalsMounted(true)
-    setQueueOpen(true)
+  const warmQueueModal = React.useCallback(() => {
+    setQueueModalMounted(true)
+    void loadUploadQueueModal()
   }, [])
+
+  const handleFabClick = React.useCallback(() => {
+    warmQueueModal()
+    setQueueOpen(true)
+  }, [warmQueueModal])
+
+  React.useEffect(() => {
+    if (!queueOpen) return
+    const warmEditor = () => {
+      setNewClipModalMounted(true)
+      void loadUploadNewClipModal()
+    }
+    if (typeof window === "undefined") return
+    if ("requestIdleCallback" in window) {
+      const id = window.requestIdleCallback(warmEditor, { timeout: 1200 })
+      return () => window.cancelIdleCallback(id)
+    }
+    const timeout = globalThis.setTimeout(warmEditor, 250)
+    return () => globalThis.clearTimeout(timeout)
+  }, [queueOpen])
 
   /**
    * Run one initiate→upload→finalize cycle for a published payload.
@@ -209,13 +223,15 @@ export function UploadFlow() {
         const { clipId, ticket, thumbTicket, thumbSmallTicket } =
           await initiateClip({
             filename: payload.file.name,
-            // The modal already validated `file.type` against the same
-            // whitelist the server enforces, so the cast is safe.
-            contentType: payload.file.type as AcceptedContentType,
+            // The modal normalises the browser-reported MIME (e.g.
+            // Firefox's `video/matroska` → `video/x-matroska`) before
+            // we get here, so `payload.contentType` is already one of
+            // the server's canonical values.
+            contentType: payload.contentType,
             sizeBytes: payload.sizeBytes,
             title: payload.title,
             description: payload.description ?? undefined,
-            game: payload.game ?? undefined,
+            gameId: payload.gameId ?? undefined,
             privacy: payload.privacy,
             // Only forward trim when the modal narrowed it — otherwise
             // we'd have the server store the full extent as a no-op trim.
@@ -267,6 +283,13 @@ export function UploadFlow() {
         // Don't drop the entry here — the server-poll effect handles
         // hand-off to avoid a flicker between local-finalized and
         // server-uploaded.
+        //
+        // The clip isn't ready to play yet (encoder still has to run),
+        // but `/api/clips` surfaces rows once status advances past
+        // `pending`, so invalidating the clips caches now means the
+        // next poll (or the home feed on return) sees the new row
+        // without waiting for a page reload.
+        void invalidateClips()
       } catch (err) {
         if ((err as Error).name === "AbortError") {
           URL.revokeObjectURL(entry.thumbUrl)
@@ -286,7 +309,7 @@ export function UploadFlow() {
         throw err
       }
     },
-    []
+    [invalidateClips]
   )
 
   /** Cancel a row — local in-flight upload OR a server-side row. */
@@ -310,12 +333,18 @@ export function UploadFlow() {
       }
       if (clipId) {
         // Optimistically drop from the server snapshot so the row
-        // disappears immediately; the next poll confirms.
-        setServerQueue((prev) => prev.filter((r) => r.id !== clipId))
-        void deleteClip(clipId).catch(() => undefined)
+        // disappears immediately; the next poll confirms. We patch the
+        // cache directly (rather than invalidating) so there's no
+        // flicker-while-refetching between here and the next 2s tick.
+        queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), (old) =>
+          old ? old.filter((r) => r.id !== clipId) : old
+        )
+        void deleteClip(clipId)
+          .then(() => invalidateClips())
+          .catch(() => undefined)
       }
     },
-    []
+    [invalidateClips, queryClient]
   )
 
   const handleNewClipOpenChange = React.useCallback((next: boolean) => {
@@ -454,8 +483,9 @@ export function UploadFlow() {
       <FloatingUploadButton
         onClick={handleFabClick}
         activeCount={activeCount}
+        onWarm={warmQueueModal}
       />
-      {modalsMounted ? (
+      {queueModalMounted || newClipModalMounted ? (
         <>
           {/*
            * Shared backdrop across both upload modals. Always-mounted
@@ -468,19 +498,23 @@ export function UploadFlow() {
            */}
           <SharedBackdrop visible={queueOpen || newClipOpen} />
           <React.Suspense fallback={null}>
-            <UploadQueueModal
-              open={queueOpen}
-              onOpenChange={setQueueOpen}
-              queue={queue}
-              onNewClip={handleNewClip}
-              sharedOverlay
-            />
-            <UploadNewClipModal
-              open={newClipOpen}
-              onOpenChange={handleNewClipOpenChange}
-              onPublish={handlePublish}
-              sharedOverlay
-            />
+            {queueModalMounted ? (
+              <UploadQueueModal
+                open={queueOpen}
+                onOpenChange={setQueueOpen}
+                queue={queue}
+                onNewClip={handleNewClip}
+                sharedOverlay
+              />
+            ) : null}
+            {newClipModalMounted ? (
+              <UploadNewClipModal
+                open={newClipOpen}
+                onOpenChange={handleNewClipOpenChange}
+                onPublish={handlePublish}
+                sharedOverlay
+              />
+            ) : null}
           </React.Suspense>
         </>
       ) : null}
@@ -521,15 +555,19 @@ function SharedBackdrop({ visible }: { visible: boolean }) {
  */
 function FloatingUploadButton({
   onClick,
+  onWarm,
   activeCount,
 }: {
   onClick: () => void
+  onWarm: () => void
   activeCount: number
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      onMouseEnter={onWarm}
+      onFocus={onWarm}
       aria-label={
         activeCount > 0
           ? `Open uploads — ${activeCount} in progress`

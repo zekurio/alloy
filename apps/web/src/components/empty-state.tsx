@@ -2,6 +2,8 @@ import * as React from "react"
 
 import { cn } from "@workspace/ui/lib/utils"
 
+import { EMPTY_STATE_KAOMOJI } from "../lib/kaomoji"
+
 /**
  * Empty-state block used by any surface that might come up with no rows —
  * comments, a recent-clips feed before the first upload, the search
@@ -13,8 +15,6 @@ import { cn } from "@workspace/ui/lib/utils"
  * (e.g. the clip id or section name) pins a given mount to one face so
  * it doesn't flicker between re-renders.
  */
-
-const KAOMOJI = ["(◞‸◟；)", "( • ᴖ • ｡)", "( ;´ - `;)"] as const
 
 function hashSeed(seed: string | number): number {
   const s = typeof seed === "number" ? String(seed) : seed
@@ -31,9 +31,9 @@ export function pickKaomoji(seed?: string | number): string {
   // don't rotate the face.
   const idx =
     seed === undefined
-      ? Math.floor(Math.random() * KAOMOJI.length)
-      : hashSeed(seed) % KAOMOJI.length
-  return KAOMOJI[idx]!
+      ? Math.floor(Math.random() * EMPTY_STATE_KAOMOJI.length)
+      : hashSeed(seed) % EMPTY_STATE_KAOMOJI.length
+  return EMPTY_STATE_KAOMOJI[idx]!
 }
 
 interface EmptyStateProps extends React.ComponentProps<"div"> {
@@ -87,7 +87,7 @@ export function EmptyState({
       data-slot="empty-state"
       className={cn(
         "flex flex-col items-center justify-center gap-3 rounded-md",
-        "border border-dashed border-border text-center",
+        "text-center",
         sizeClasses[size],
         className
       )}
@@ -96,7 +96,7 @@ export function EmptyState({
       <span
         aria-hidden
         className={cn(
-          "select-none font-mono leading-none text-foreground-faint",
+          "font-mono leading-none text-foreground-faint select-none",
           faceSizeClasses[size]
         )}
       >
@@ -104,9 +104,7 @@ export function EmptyState({
       </span>
       <div className="flex flex-col gap-1 px-6">
         <p className="text-sm font-medium text-foreground">{title}</p>
-        {hint ? (
-          <p className="text-sm text-foreground-dim">{hint}</p>
-        ) : null}
+        {hint ? <p className="text-sm text-foreground-dim">{hint}</p> : null}
       </div>
       {action ? <div className="mt-1">{action}</div> : null}
     </div>
