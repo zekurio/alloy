@@ -1,16 +1,14 @@
-import * as React from "react";
-import { Link, Outlet, createFileRoute } from "@tanstack/react-router";
-import { ArrowLeftIcon } from "lucide-react";
+import * as React from "react"
+import { createFileRoute } from "@tanstack/react-router"
 
 import {
   AppHeader,
   AppHeaderActions,
   AppHeaderBrand,
-} from "@workspace/ui/components/app-header";
-import { AppMain } from "@workspace/ui/components/app-shell";
+} from "@workspace/ui/components/app-header"
 
-import { UserMenu } from "../components/user-menu";
-import { useRequireAuth } from "../lib/auth-hooks";
+import { UserMenu } from "../components/user-menu"
+import { SettingsLayoutInner } from "../components/routes/settings/settings-layout-inner"
 
 /**
  * Shared layout for the settings cluster (`/user-settings`, `/admin-settings`).
@@ -21,26 +19,15 @@ import { useRequireAuth } from "../lib/auth-hooks";
  * and admin only re-renders the per-page card stack — header, sidebar
  * (from `_app`), and the auth-guard suspense boundary all stay mounted.
  *
- * The auth guard (`useRequireAuth`) lives at this layer instead of the
- * leaves so we don't double-suspend when navigating profile ↔ admin —
- * the suspense boundary higher up never tears down.
+ * The auth guard still lives at this layer, but only gates `AppMain` now;
+ * the slim header stays mounted with the sidebar so the chrome doesn't
+ * stream in separately from the settings content.
  */
 export const Route = createFileRoute("/_app/_settings")({
   component: SettingsLayout,
-});
+})
 
 function SettingsLayout() {
-  return (
-    <React.Suspense fallback={null}>
-      <SettingsLayoutInner />
-    </React.Suspense>
-  );
-}
-
-function SettingsLayoutInner() {
-  const session = useRequireAuth();
-  if (!session) return null;
-
   return (
     <>
       <AppHeader>
@@ -49,11 +36,9 @@ function SettingsLayoutInner() {
           <UserMenu />
         </AppHeaderActions>
       </AppHeader>
-      <AppMain>
-        <div className="mx-auto flex max-w-4xl flex-col gap-6">
-          <Outlet />
-        </div>
-      </AppMain>
+      <React.Suspense fallback={null}>
+        <SettingsLayoutInner />
+      </React.Suspense>
     </>
-  );
+  )
 }

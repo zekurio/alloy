@@ -1,8 +1,11 @@
-import { Outlet, createFileRoute } from "@tanstack/react-router"
+import { Outlet, createFileRoute, useRouterState } from "@tanstack/react-router"
 
 import { AppShell } from "@workspace/ui/components/app-shell"
 
+import { AppSearchProvider } from "../components/app-search"
+import { HomeHeader } from "../components/home-header"
 import { HomeSidebar } from "../components/home-sidebar"
+import { UploadFlow } from "../components/upload-flow"
 
 /**
  * Pathless layout that owns the persistent app chrome — `AppShell` + the
@@ -17,21 +20,37 @@ import { HomeSidebar } from "../components/home-sidebar"
  * hoisting the shell here once, the sidebar mounts a single time per page
  * load and only the inner `<Outlet/>` content swaps.
  *
- * Headers stay inside child routes because they vary per surface (the home
- * feed gets `<HomeHeader>` with search; settings pages share a slim header
- * via the `_app._settings` layout). The grid in `AppShell` is data-slot
- * driven, so the child-rendered `<AppHeader>` and `<AppMain>` still land in
- * the right cells.
+ * The default top header now lives here too so the sidebar + header stream
+ * as one stable chrome chunk; route-level suspense boundaries only swap the
+ * main pane. The settings cluster still renders its own slim header, so this
+ * layout skips the shared header on `/user-settings` and `/admin-settings`.
  */
 export const Route = createFileRoute("/_app")({
   component: AppLayout,
 })
 
 function AppLayout() {
+  const showSharedHeader = useRouterState({
+    select: (s) => !isSettingsPath(s.location.pathname),
+  })
+
   return (
-    <AppShell>
-      <HomeSidebar />
-      <Outlet />
-    </AppShell>
+    <AppSearchProvider>
+      <AppShell>
+        <HomeSidebar />
+        {showSharedHeader ? <HomeHeader /> : null}
+        <Outlet />
+        <UploadFlow />
+      </AppShell>
+    </AppSearchProvider>
+  )
+}
+
+function isSettingsPath(pathname: string): boolean {
+  return (
+    pathname === "/user-settings" ||
+    pathname.startsWith("/user-settings/") ||
+    pathname === "/admin-settings" ||
+    pathname.startsWith("/admin-settings/")
   )
 }
