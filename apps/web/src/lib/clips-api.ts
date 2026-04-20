@@ -1,5 +1,6 @@
 import { api } from "./api"
 import { env } from "./env"
+import { readJsonOrThrow } from "./http-error"
 
 /**
  * Client wrappers for the /api/clips/* surface and the /storage/upload/*
@@ -16,7 +17,12 @@ import { env } from "./env"
 
 // ─── Response shapes ───────────────────────────────────────────────────
 
-export type ClipStatus = "pending" | "uploaded" | "encoding" | "ready" | "failed"
+export type ClipStatus =
+  | "pending"
+  | "uploaded"
+  | "encoding"
+  | "ready"
+  | "failed"
 export type ClipPrivacy = "public" | "unlisted" | "private"
 
 export interface UploadTicket {
@@ -44,7 +50,13 @@ export interface InitiateClipInput {
   sizeBytes: number
   title: string
   description?: string
-  game?: string
+  /**
+   * SteamGridDB-mapped game id. The upload modal resolves the user's
+   * autocomplete pick via `/api/games/resolve` before hitting initiate,
+   * so this is an FK into our own `game` table — never a free-form
+   * string. Omit to leave the clip uncategorised.
+   */
+  gameId?: string
   privacy?: ClipPrivacy
   /**
    * Optional trim window in ms against the source file. Both fields
@@ -70,13 +82,54 @@ export interface InitiateClipResponse {
   thumbSmallTicket: UploadTicket
 }
 
+/**
+ * SteamGridDB-mapped game attached to a clip. Null when the uploader
+ * didn't pick one, or when the clip is a pre-integration legacy row
+ * (those still carry a free-form `game` text label on `ClipRow`).
+ */
+export interface ClipGameRef {
+  id: string
+  /**
+   * SGDB id for the row. Used by editable surfaces (the game combobox
+   * in `ClipMeta`) to seed their initial value so the picker's item-
+   * match logic can reconcile the currently-selected game with fresh
+   * autocomplete results.
+   */
+  steamgriddbId: number
+  slug: string
+  name: string
+  heroUrl: string | null
+  logoUrl: string | null
+}
+
+export interface ClipEncodedVariant {
+  id: string
+  label: string
+  storageKey: string
+  contentType: string
+  width: number
+  height: number
+  sizeBytes: number
+  isDefault: boolean
+}
+
 export interface ClipRow {
   id: string
   slug: string
   authorId: string
   title: string
   description: string | null
+  /**
+   * Legacy free-form game label from pre-SteamGridDB rows. New uploads
+   * always set `gameId`/`gameRef` instead and leave this null, but
+   * existing rows keep their text until a future backfill migrates
+   * them. Treat it as the lowest-priority display string when
+   * `gameRef` is null.
+   */
   game: string | null
+  gameId: string | null
+  /** Mapped game metadata joined from `game`. Prefer this for labels + links. */
+  gameRef: ClipGameRef | null
   privacy: ClipPrivacy
   storageKey: string
   contentType: string
@@ -86,6 +139,7 @@ export interface ClipRow {
   height: number | null
   trimStartMs: number | null
   trimEndMs: number | null
+  variants: ClipEncodedVariant[]
   thumbKey: string | null
   thumbSmallKey: string | null
   viewCount: number
@@ -133,16 +187,6 @@ export interface QueueClip {
 
 // ─── Helpers ───────────────────────────────────────────────────────────
 
-async function readJson<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as {
-      error?: string
-    } | null
-    throw new Error(body?.error ?? `${res.status} ${res.statusText}`)
-  }
-  return (await res.json()) as T
-}
-
 // ─── API wrappers ──────────────────────────────────────────────────────
 
 /**
@@ -153,7 +197,9 @@ async function readJson<T>(res: Response): Promise<T> {
  * The server caps `limit` at 100 — we leave it undefined here so the
  * default of 50 applies unless the caller explicitly bumps it.
  */
-export async function fetchClips(params: ClipFeedParams = {}): Promise<ClipRow[]> {
+export async function fetchClips(
+  params: ClipFeedParams = {}
+): Promise<ClipRow[]> {
   // Stringify each param the server expects as a string — zod coerces
   // `limit` back to a number via `z.coerce`. Skipping undefineds keeps
   // the URL clean when the caller doesn't narrow a dimension.
@@ -164,31 +210,108 @@ export async function fetchClips(params: ClipFeedParams = {}): Promise<ClipRow[]
   if (params.cursor) query.cursor = params.cursor
 
   const res = await api.api.clips.$get({ query })
-  return readJson<ClipRow[]>(res)
+  return readJsonOrThrow<ClipRow[]>(res)
 }
 
 export async function initiateClip(
   input: InitiateClipInput
 ): Promise<InitiateClipResponse> {
   const res = await api.api.clips.initiate.$post({ json: input })
-  return readJson<InitiateClipResponse>(res)
+  return readJsonOrThrow<InitiateClipResponse>(res)
 }
 
 export async function finalizeClip(clipId: string): Promise<ClipRow> {
   const res = await api.api.clips[":id"].finalize.$post({
     param: { id: clipId },
   })
-  return readJson<ClipRow>(res)
+  return readJsonOrThrow<ClipRow>(res)
 }
 
 export async function deleteClip(clipId: string): Promise<void> {
   const res = await api.api.clips[":id"].$delete({ param: { id: clipId } })
-  await readJson<{ deleted: true }>(res)
+  await readJsonOrThrow<{ deleted: true }>(res)
+}
+
+/**
+ * Post-publish metadata edits. Mirror of the server's `UpdateBody`: all
+ * fields optional, absent keys are ignored, empty strings on
+ * description clear the column. `title` can't be emptied (server
+ * rejects zero-length titles the same way initiate does). `gameId`
+ * expects either a uuid from `/api/games/resolve` or `null` to clear
+ * the mapping.
+ */
+export interface UpdateClipInput {
+  title?: string
+  description?: string
+  gameId?: string | null
+  privacy?: ClipPrivacy
+}
+
+export async function updateClip(
+  clipId: string,
+  input: UpdateClipInput
+): Promise<ClipRow> {
+  const res = await api.api.clips[":id"].$patch({
+    param: { id: clipId },
+    json: input,
+  })
+  return readJsonOrThrow<ClipRow>(res)
 }
 
 export async function fetchUploadQueue(): Promise<QueueClip[]> {
   const res = await api.api.clips.queue.$get()
-  return readJson<QueueClip[]>(res)
+  return readJsonOrThrow<QueueClip[]>(res)
+}
+
+// ─── Likes ─────────────────────────────────────────────────────────────
+
+/**
+ * Shape returned by the like/unlike endpoints. The server hands back the
+ * server-canonical `likeCount` so the mutation can land the true number
+ * after its optimistic `+1`/`-1` patch, covering the case where another
+ * viewer's like arrived between our read and our write.
+ */
+export interface ClipLikeState {
+  liked: boolean
+  likeCount: number
+}
+
+export async function fetchLikeState(
+  clipId: string
+): Promise<{ liked: boolean }> {
+  const res = await api.api.clips[":id"].like.$get({ param: { id: clipId } })
+  return readJsonOrThrow<{ liked: boolean }>(res)
+}
+
+export async function likeClip(clipId: string): Promise<ClipLikeState> {
+  const res = await api.api.clips[":id"].like.$post({
+    param: { id: clipId },
+  })
+  return readJsonOrThrow<ClipLikeState>(res)
+}
+
+export async function unlikeClip(clipId: string): Promise<ClipLikeState> {
+  const res = await api.api.clips[":id"].like.$delete({
+    param: { id: clipId },
+  })
+  return readJsonOrThrow<ClipLikeState>(res)
+}
+
+// ─── Views ─────────────────────────────────────────────────────────────
+
+/**
+ * Record a qualifying view. Fire-and-forget from the caller's point of
+ * view — the server returns 204, does its own dedup inside a 24h window,
+ * and the UI doesn't wait for the result. Swallows network errors on
+ * purpose: view tracking is best-effort, a dropped POST is not worth
+ * surfacing to the viewer.
+ */
+export async function recordView(clipId: string): Promise<void> {
+  try {
+    await api.api.clips[":id"].view.$post({ param: { id: clipId } })
+  } catch {
+    // View tracking is best-effort — never surface.
+  }
 }
 
 /**
@@ -255,8 +378,10 @@ export function uploadToTicket(
  * same origin policy and the browser sends credentials for media when
  * the element opts in (`crossOrigin="use-credentials"`).
  */
-export function clipStreamUrl(clipId: string): string {
-  return `${env.VITE_API_URL}/api/clips/${clipId}/stream`
+export function clipStreamUrl(clipId: string, variantId?: string): string {
+  const url = new URL(`${env.VITE_API_URL}/api/clips/${clipId}/stream`)
+  if (variantId) url.searchParams.set("variant", variantId)
+  return url.toString()
 }
 
 export function clipThumbnailUrl(
@@ -264,4 +389,10 @@ export function clipThumbnailUrl(
   size: "small" | "full" = "full"
 ): string {
   return `${env.VITE_API_URL}/api/clips/${clipId}/thumbnail?size=${size}`
+}
+
+export function clipDownloadUrl(clipId: string, variantId: string): string {
+  const url = new URL(`${env.VITE_API_URL}/api/clips/${clipId}/download`)
+  url.searchParams.set("variant", variantId)
+  return url.toString()
 }

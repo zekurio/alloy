@@ -1,4 +1,9 @@
-import type { ClipRow } from "./clips-api"
+import type {
+  ClipEncodedVariant,
+  ClipGameRef,
+  ClipPrivacy,
+  ClipRow,
+} from "./clips-api"
 import { clipStreamUrl, clipThumbnailUrl } from "./clips-api"
 
 /**
@@ -28,7 +33,10 @@ export function formatCount(n: number): string {
  * week". Future dates are clamped to "just now" — clock skew between
  * client and server shouldn't surface as "in 3m".
  */
-export function formatRelativeTime(iso: string, now: number = Date.now()): string {
+export function formatRelativeTime(
+  iso: string,
+  now: number = Date.now()
+): string {
   const then = new Date(iso).getTime()
   if (!Number.isFinite(then)) return ""
   const delta = Math.max(0, now - then)
@@ -65,9 +73,35 @@ export interface ClipCardData {
   clipId: string
   slug: string
   title: string
+  /**
+   * Human label for the game badge. Resolved in priority order:
+   * `gameRef.name` (the mapped SteamGridDB game), then the legacy
+   * free-text `game` column for pre-integration rows, then
+   * "Uncategorised" for unlabeled clips.
+   */
   game: string
+  /**
+   * Slug for the `/g/:slug` link, `null` when the clip isn't mapped
+   * to a SteamGridDB game. Cards branch on this to render the badge
+   * as a link vs. plain text — legacy text-only rows don't have a
+   * destination yet (a future backfill would mint them).
+   */
+  gameSlug: string | null
+  /**
+   * Full mapped-game reference when present. Threaded into the player
+   * dialog so the inline game editor can seed its combobox with the
+   * current pick without a fresh `/api/games/:slug` round trip. `null`
+   * for legacy text-only rows and for clips with no game set.
+   */
+  gameRef: ClipGameRef | null
   /** Display handle for the author (maps onto `user.username`). */
   author: string
+  /**
+   * Uploader's user id. Surfaces here so the card call sites can compare
+   * against the viewer's session and decide whether to show owner-only
+   * affordances (e.g. the privacy indicator).
+   */
+  authorId: string
   /** Uploader's avatar image URL when set — `null` when they have no upload. */
   authorImage: string | null
   views: string
@@ -78,7 +112,28 @@ export interface ClipCardData {
   thumbnail?: string
   /** Stream URL used for the hover-to-play preview. */
   streamUrl: string
+  /** Encoded playback/download variants exposed in the player settings menu. */
+  variants: ClipEncodedVariant[]
   accentHue: number
+  /** Stored privacy setting — whether the card surfaces it is up to the caller. */
+  privacy: ClipPrivacy
+  /**
+   * Author-supplied description. `null` when unset. Surfaced below the
+   * player in `ClipMeta` for every viewer, and is the target of inline
+   * editing for owners — threaded here so the dialog doesn't need a
+   * second fetch once the viewer opens the player.
+   */
+  description: string | null
+}
+
+/**
+ * Resolve the human game label for a clip in one place. Priority:
+ * mapped game → legacy text → "Uncategorised". Keeping this in a
+ * helper stops the fallback chain from drifting between the card,
+ * the player dialog, and the meta row.
+ */
+export function clipGameLabel(row: Pick<ClipRow, "gameRef" | "game">): string {
+  return row.gameRef?.name ?? row.game ?? "Uncategorised"
 }
 
 /**
@@ -87,14 +142,16 @@ export interface ClipCardData {
  * same payload can feed `ClipPlayerDialog` without a second pass.
  */
 export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
+  const game = clipGameLabel(row)
   return {
     clipId: row.id,
     slug: row.slug,
     title: row.title,
-    // "Uncategorised" echoes the profile page's fallback so unlabeled
-    // clips don't read as a bug.
-    game: row.game ?? "Uncategorised",
+    game,
+    gameSlug: row.gameRef?.slug ?? null,
+    gameRef: row.gameRef,
     author: row.authorUsername,
+    authorId: row.authorId,
     authorImage: row.authorImage,
     views: formatCount(row.viewCount),
     likes: formatCount(row.likeCount),
@@ -102,6 +159,9 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
     postedAt: formatRelativeTime(row.createdAt, now),
     thumbnail: row.thumbKey ? clipThumbnailUrl(row.id, "full") : undefined,
     streamUrl: clipStreamUrl(row.id),
-    accentHue: hueForGame(row.game),
+    variants: row.variants,
+    accentHue: hueForGame(game),
+    privacy: row.privacy,
+    description: row.description,
   }
 }

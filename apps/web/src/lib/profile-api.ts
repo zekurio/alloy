@@ -1,4 +1,5 @@
 import { api } from "./api"
+import { readJsonOrThrow } from "./http-error"
 
 /**
  * Response shape for the manual OAuth image sync endpoint. Mirrors
@@ -20,12 +21,7 @@ export interface SyncOAuthImageResponse {
  */
 export async function syncOAuthImage(): Promise<SyncOAuthImageResponse> {
   const res = await api.api.profile["sync-oauth-image"].$post()
-  const body = (await res
-    .json()
-    .catch(() => null)) as SyncOAuthImageResponse | null
-  if (!res.ok) {
-    throw new Error(body?.message ?? `${res.status} ${res.statusText}`)
-  }
+  const body = await readJsonOrThrow<SyncOAuthImageResponse | null>(res)
   if (!body) {
     throw new Error("Unexpected empty response from sync endpoint.")
   }
