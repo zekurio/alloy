@@ -61,11 +61,7 @@ const OAuthProviderBaseSchema = z.object({
    * first sign-in. Defaults to `preferred_username` (most common). The
    * selected claim is slugified server-side before being written.
    */
-  usernameClaim: z
-    .string()
-    .min(1)
-    .max(128)
-    .default("preferred_username"),
+  usernameClaim: z.string().min(1).max(128).default("preferred_username"),
 })
 
 const hasEndpoints = (p: z.infer<typeof OAuthProviderBaseSchema>) =>
@@ -135,9 +131,7 @@ export type EncoderCodec = (typeof ENCODER_CODECS)[number]
  * dropdown (not a free-form number) and so encode args never end up
  * with weird oddly-divisible values that some hwaccel encoders refuse.
  */
-export const ENCODER_TARGET_HEIGHTS = [
-  360, 480, 720, 1080, 1440, 2160,
-] as const
+export const ENCODER_TARGET_HEIGHTS = [360, 480, 720, 1080, 1440, 2160] as const
 export type EncoderTargetHeight = (typeof ENCODER_TARGET_HEIGHTS)[number]
 
 /**
@@ -211,6 +205,28 @@ const LimitsConfigSchema = z.object({
 
 export type LimitsConfig = z.infer<typeof LimitsConfigSchema>
 
+/**
+ * Third-party service credentials. Kept as its own section so we can grow
+ * this over time (extra IGDB key, custom CDN tokens) without reshuffling
+ * the top-level schema. Empty strings mean "not configured" — the
+ * consuming clients (e.g. `lib/steamgriddb.ts`) throw a
+ * NotConfiguredError when asked to make a call in that state, so the UI
+ * can surface a clean "integration disabled" fallback instead of a
+ * cryptic 401 from the upstream API.
+ */
+const IntegrationsConfigSchema = z.object({
+  /**
+   * SteamGridDB API v2 bearer token. Minted at
+   * https://www.steamgriddb.com/profile/preferences/api — one per admin
+   * account. Stored verbatim, sent as `Authorization: Bearer <key>`.
+   * Rotations take effect on the next outgoing request (we read the
+   * key per-call, never cache it).
+   */
+  steamgriddbApiKey: z.string().default(""),
+})
+
+export type IntegrationsConfig = z.infer<typeof IntegrationsConfigSchema>
+
 const RuntimeConfigSchema = z.object({
   openRegistrations: z.boolean().default(false),
   setupComplete: z.boolean().default(false),
@@ -224,14 +240,18 @@ const RuntimeConfigSchema = z.object({
   emailPasswordEnabled: z.boolean().default(true),
   oauthProvider: OAuthProviderSchema.nullable().default(null),
   // Defaulting via `.parse({})` populates the nested objects so existing
-  // installs without an `encoder`/`limits` block in their config file
-  // pick up sensible values on the next read.
+  // installs without an `encoder`/`limits`/`integrations` block in their
+  // config file pick up sensible values on the next read.
   encoder: EncoderConfigSchema.default(EncoderConfigSchema.parse({})),
   limits: LimitsConfigSchema.default(LimitsConfigSchema.parse({})),
+  integrations: IntegrationsConfigSchema.default(
+    IntegrationsConfigSchema.parse({})
+  ),
 })
 
 export const EncoderConfigPatchSchema = EncoderConfigSchema.partial()
 export const LimitsConfigPatchSchema = LimitsConfigSchema.partial()
+export const IntegrationsConfigPatchSchema = IntegrationsConfigSchema.partial()
 
 export type RuntimeConfig = z.infer<typeof RuntimeConfigSchema>
 

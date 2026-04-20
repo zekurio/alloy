@@ -53,6 +53,14 @@ const EnvSchema = z.object({
   // deploy-time concern.
   FFMPEG_BIN: z.string().default("ffmpeg"),
   FFPROBE_BIN: z.string().default("ffprobe"),
+
+  // Cache driver — backs the view-dedup window (see apps/server/src/cache).
+  // `memory` is a single-process in-house Map; `redis` will slot in here
+  // later without changing call sites because everything goes through the
+  // `Cache` interface. The moment the server runs more than one instance,
+  // flip to redis — memory dedup is per-process and would let the same
+  // viewer get counted once per instance.
+  CACHE_DRIVER: z.enum(["memory"]).default("memory"),
 })
 
 // Upload limits (max bytes, ticket TTL), encoder settings (codec, hwaccel,
