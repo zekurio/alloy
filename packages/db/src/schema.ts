@@ -1,8 +1,10 @@
+import { sql } from "drizzle-orm"
 import {
   bigint,
   foreignKey,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   text,
@@ -23,6 +25,17 @@ import { user } from "./auth-schema"
 export const CLIP_PRIVACY = ["public", "unlisted", "private"] as const
 export type ClipPrivacy = (typeof CLIP_PRIVACY)[number]
 
+export interface ClipEncodedVariant {
+  id: string
+  label: string
+  storageKey: string
+  contentType: string
+  width: number
+  height: number
+  sizeBytes: number
+  isDefault: boolean
+}
+
 // Lifecycle of a clip row from reservation through playback. The row is
 // created in `pending` by `/api/clips/initiate`, flips to `uploaded` once
 // bytes land via `/api/clips/:id/finalize`, then the encode worker takes it
@@ -39,6 +52,56 @@ export const CLIP_STATUS = [
 export type ClipStatus = (typeof CLIP_STATUS)[number]
 
 /**
+ * A SteamGridDB-mapped game. Populated lazily: when an uploader picks a
+ * game in the autocomplete, the server calls SteamGridDB's `games/id/:id`
+ * + `heroes/game/:id` + `logos/game/:id` endpoints and upserts a row here
+ * keyed by `steamgriddbId`. Subsequent clips for the same game reuse this
+ * row via `clip.gameId`.
+ *
+ * `heroUrl` and `logoUrl` point at the SteamGridDB CDN — we don't
+ * self-host the assets in v1. If SGDB ever goes down or rotates URLs
+ * we can introduce a background job that downloads to the storage
+ * driver and flips these columns behind the same field names.
+ *
+ * `slug` is our own lowercase-dashed derivation of `name` with `-2`/`-3`
+ * dedupe suffixes on collision — it's what populates `/g/:slug`, so
+ * we can't borrow SGDB's slug directly without coupling our URLs to
+ * their naming conventions.
+ */
+export const game = pgTable(
+  "game",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // External identity. The SGDB API is the source of truth for
+    // `name` + assets; we dedupe on this column on upsert so a second
+    // uploader picking the same game reuses the existing row.
+    steamgriddbId: integer("steamgriddb_id").notNull().unique(),
+    name: text("name").notNull(),
+    // URL-safe, unique. Dedupe happens on insert — if `slugify(name)`
+    // collides with an existing row we append `-2`, `-3`, … and retry.
+    slug: text("slug").notNull().unique(),
+    // SGDB ships `release_date` as a Unix timestamp (seconds). We
+    // store it as a timestamp for display purposes; nullable because
+    // not every game has a release date.
+    releaseDate: timestamp("release_date"),
+    // Landscape banner — 1920×620 or 3840×1240. Nullable when the
+    // game has no heroes uploaded on SGDB; the /g/:slug page falls
+    // back to a name-derived gradient in that case.
+    heroUrl: text("hero_url"),
+    // Transparent logo — overlaid on top of the hero on /g/:slug.
+    // Nullable for the same reason.
+    logoUrl: text("logo_url"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    // Lookup by name for the admin UI / debugging; the production read
+    // path hits `steamgriddbId` (upsert) or `slug` (routes).
+    index("game_name_idx").on(t.name),
+  ]
+)
+
+/**
  * A user-authored video clip.
  *
  * Rows are written in two phases so we own the id before bytes land:
@@ -53,9 +116,12 @@ export type ClipStatus = (typeof CLIP_STATUS)[number]
  * both a row and an object. `'failed'` is the terminal state the reaper
  * picks up when probing or thumbnailing errors out in a non-retryable way.
  *
- * Counters (`viewCount`, `likeCount`, `commentCount`) are denormalized caches
- * of the corresponding join tables. They're maintained transactionally by
- * the write endpoints so list views don't have to COUNT() per row.
+ * Counters (`likeCount`, `commentCount`) are denormalized caches of the
+ * corresponding join tables, maintained transactionally by the write
+ * endpoints so list views don't have to COUNT() per row. `viewCount`
+ * follows the same pattern but has no join table — dedup is delegated to
+ * the `Cache` driver (see `apps/server/src/cache`) so a popular clip
+ * doesn't generate one pg row per qualifying viewer.
  */
 export const clip = pgTable(
   "clip",
@@ -72,9 +138,20 @@ export const clip = pgTable(
 
     title: text("title").notNull(),
     description: text("description"),
-    // Free-text for v1; a future SteamGridDB integration promotes this to
-    // an fk on a `game` table with cover art and app id.
+    // Legacy free-text label. Pre-SteamGridDB uploads land here with a
+    // null `gameId`. New uploads require a mapped game — the initiate /
+    // update routes reject free-form strings now. We keep reading this
+    // column as a fallback display label so old rows don't read as
+    // "Uncategorised" overnight; a future backfill can migrate them.
     game: text("game"),
+    // SteamGridDB-mapped game. Set when an uploader picks a game from
+    // the autocomplete; falls back to the legacy `game` text on older
+    // rows where it's null. `ON DELETE SET NULL` so dropping a game
+    // row leaves its clips intact — we'd rather show "Uncategorised"
+    // than cascade-delete user content on a metadata wipe.
+    gameId: uuid("game_id").references(() => game.id, {
+      onDelete: "set null",
+    }),
 
     // One of `CLIP_PRIVACY`. Stored as text (matching better-auth's `role`
     // convention) and validated via zod on write paths.
@@ -100,6 +177,15 @@ export const clip = pgTable(
     // output `durationMs` reflects the trimmed length, not the source.
     trimStartMs: integer("trim_start_ms"),
     trimEndMs: integer("trim_end_ms"),
+
+    // Encoded playback ladder. The worker always writes the current
+    // default playback asset plus any extra lower-resolution renditions
+    // it produced so the player settings menu and download surface can
+    // address them by id without reverse-engineering storage keys.
+    variants: jsonb("variants")
+      .$type<ClipEncodedVariant[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
 
     // Server-generated on finalize. A thumbnail failure leaves these null
     // rather than failing the whole clip — the UI falls back to a placeholder.
@@ -130,6 +216,10 @@ export const clip = pgTable(
     // Filter on privacy, sort by createdAt — composite supports both.
     index("clip_privacy_created_idx").on(t.privacy, t.createdAt),
     index("clip_status_idx").on(t.status),
+    // /g/:slug read path: "clips for this game, ready + public/unlisted,
+    // newest first". The composite lets the game page list + top-clips
+    // query plan the privacy filter with a single index scan.
+    index("clip_game_created_idx").on(t.gameId, t.createdAt),
   ]
 )
 
@@ -153,33 +243,6 @@ export const clipLike = pgTable(
     primaryKey({ columns: [t.clipId, t.userId] }),
     // Inverse lookup: "clips this user liked" for a future liked-feed.
     index("clip_like_user_idx").on(t.userId),
-  ]
-)
-
-/**
- * Dedup ledger for view counting. One row per (clip, viewer) pair; the
- * stream endpoint upserts it. On insert we bump `clip.viewCount`; on conflict
- * we just refresh `lastAt`. `viewerKey` is `user.id` when signed in and a
- * random id from a signed anon cookie otherwise — a cookie-less bot never
- * counts.
- *
- * Rows get pruned on a 90-day window by a background task. The prune keeps
- * the table bounded and makes the counter mean "unique viewers in the last
- * 90 days" instead of "total requests" — closer to what users expect.
- */
-export const clipView = pgTable(
-  "clip_view",
-  {
-    clipId: uuid("clip_id")
-      .notNull()
-      .references(() => clip.id, { onDelete: "cascade" }),
-    viewerKey: text("viewer_key").notNull(),
-    lastAt: timestamp("last_at").notNull().defaultNow(),
-  },
-  (t) => [
-    primaryKey({ columns: [t.clipId, t.viewerKey] }),
-    // For the prune cron's range scan.
-    index("clip_view_last_at_idx").on(t.lastAt),
   ]
 )
 
@@ -291,10 +354,11 @@ export const block = pgTable(
   (t) => [uniqueIndex("block_pair_idx").on(t.blockerId, t.blockedId)]
 )
 
+export type Game = typeof game.$inferSelect
+export type NewGame = typeof game.$inferInsert
 export type Clip = typeof clip.$inferSelect
 export type NewClip = typeof clip.$inferInsert
 export type ClipLike = typeof clipLike.$inferSelect
-export type ClipView = typeof clipView.$inferSelect
 export type ClipComment = typeof clipComment.$inferSelect
 export type NewClipComment = typeof clipComment.$inferInsert
 export type ClipMention = typeof clipMention.$inferSelect
