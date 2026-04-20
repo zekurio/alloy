@@ -52,7 +52,10 @@ async function reapPending(): Promise<void> {
     .where(
       and(
         eq(clip.status, "pending"),
-        lt(clip.createdAt, sql`now() - interval '${sql.raw(PENDING_MAX_AGE_INTERVAL)}'`)
+        lt(
+          clip.createdAt,
+          sql`now() - interval '${sql.raw(PENDING_MAX_AGE_INTERVAL)}'`
+        )
       )
     )
 
@@ -78,7 +81,10 @@ async function reuploadStuck(boss: PgBoss): Promise<void> {
     .where(
       and(
         eq(clip.status, "uploaded"),
-        lt(clip.createdAt, sql`now() - interval '${sql.raw(UPLOADED_MAX_AGE_INTERVAL)}'`)
+        lt(
+          clip.createdAt,
+          sql`now() - interval '${sql.raw(UPLOADED_MAX_AGE_INTERVAL)}'`
+        )
       )
     )
 
