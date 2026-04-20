@@ -10,6 +10,7 @@
     "db:push": "pnpm --filter @workspace/db db:push",
     "db:studio": "pnpm --filter @workspace/db db:studio",
     "lint": "turbo lint",
+    "lint:ci": "turbo lint -- --deny-warnings",
     "format": "turbo format",
     "typecheck": "turbo typecheck"
   },
