@@ -1,7 +1,12 @@
 import * as React from "react"
 import { Link, useRouterState } from "@tanstack/react-router"
-import { RiAdminLine } from "@remixicon/react"
-import { CogIcon, GamepadIcon, HomeIcon, LibraryIcon } from "lucide-react"
+import {
+  CogIcon,
+  GamepadIcon,
+  HomeIcon,
+  LibraryIcon,
+  ShieldIcon,
+} from "lucide-react"
 
 import {
   AppSidebar,
@@ -45,10 +50,13 @@ function TopItems() {
   // `useRouterState` with a structural selector skips re-renders when the
   // pathname changes *but* the active flags don't (e.g. navigating between
   // two settings subpages doesn't re-render the top nav).
-  const { isHome, isLibrary } = useRouterState({
+  const { isHome, isLibrary, isGames } = useRouterState({
     select: (s) => ({
       isHome: s.location.pathname === "/",
       isLibrary: s.location.pathname.startsWith("/u/"),
+      isGames:
+        s.location.pathname === "/games" ||
+        s.location.pathname.startsWith("/g/"),
     }),
     structuralSharing: true,
   })
@@ -83,9 +91,24 @@ function TopItems() {
           <LibraryIcon />
         </AppSidebarItem>
       )}
-      <AppSidebarItem title="Games" aria-disabled tabIndex={-1}>
-        <GamepadIcon />
-      </AppSidebarItem>
+      {profileHandle ? (
+        <AppSidebarItem
+          active={isGames}
+          title="Games"
+          render={<Link to="/games" />}
+        >
+          <GamepadIcon />
+        </AppSidebarItem>
+      ) : (
+        <AppSidebarItem
+          title="Games"
+          aria-disabled
+          tabIndex={-1}
+          className="pointer-events-none opacity-60"
+        >
+          <GamepadIcon />
+        </AppSidebarItem>
+      )}
     </>
   )
 }
@@ -125,7 +148,7 @@ function BottomItems() {
           title="Admin"
           render={<Link to="/admin-settings" />}
         >
-          <RiAdminLine />
+          <ShieldIcon />
         </AppSidebarItem>
       ) : null}
     </AppSidebarFooter>

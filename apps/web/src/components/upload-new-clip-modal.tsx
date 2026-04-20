@@ -1,4 +1,4 @@
-import * as React from "react";
+import * as React from "react"
 import {
   FolderOpenIcon,
   GlobeIcon,
@@ -10,11 +10,11 @@ import {
   SkipBackIcon,
   SkipForwardIcon,
   UploadIcon,
-  UsersIcon,
   XIcon,
-} from "lucide-react";
+} from "lucide-react"
 
-import { Button } from "@workspace/ui/components/button";
+import { Button } from "@workspace/ui/components/button"
+import { toast } from "@workspace/ui/components/sonner"
 import {
   Dialog,
   DialogBody,
@@ -23,12 +23,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@workspace/ui/components/dialog";
-import { Input } from "@workspace/ui/components/input";
-import { Label } from "@workspace/ui/components/label";
-import { cn } from "@workspace/ui/lib/utils";
+} from "@workspace/ui/components/dialog"
+import { Input } from "@workspace/ui/components/input"
+import { Label } from "@workspace/ui/components/label"
+import { cn } from "@workspace/ui/lib/utils"
 
-import { VideoPlayer, VolumeControl } from "./video-player";
+import type { GameRow } from "../lib/games-api"
+
+import { GameCombobox } from "./game-combobox"
+import { VideoPlayer, VolumeControl } from "./video-player"
 
 /**
  * Upload modal for a single new clip. Owns the file selection (file
@@ -47,46 +50,58 @@ import { VideoPlayer, VolumeControl } from "./video-player";
 /** Metadata derived from a real File for display in the modal header. */
 export interface SelectedFile {
   /** The actual File the parent will upload. */
-  file: File;
-  name: string;
-  size: string;
-  resolution: string;
-  fps: string;
-  duration: string;
+  file: File
+  /**
+   * Canonical content type after browser-MIME normalisation. Use this
+   * on the wire — `file.type` may be `video/matroska` or empty and
+   * would fail the server's strict enum.
+   */
+  contentType: AcceptedContentType
+  name: string
+  size: string
+  resolution: string
+  fps: string
+  duration: string
   /** ms — for the server's `/initiate` body and the trim UI. */
-  durationMs: number;
-  width: number;
-  height: number;
-  sizeBytes: number;
+  durationMs: number
+  width: number
+  height: number
+  sizeBytes: number
 }
 
-export type Visibility = "public" | "unlisted" | "friends" | "private";
+// Visibility the picker emits — 1:1 with the server-supported
+// `ClipPrivacy`. Until the follow-graph lands we don't surface a
+// "friends" option; when it does, add the extra label here and coerce
+// to `"private"` on the wire.
+export type Visibility = "public" | "unlisted" | "private"
 
 export interface PublishPayload {
-  file: File;
-  title: string;
-  description: string | null;
-  game: string | null;
+  file: File
+  /** Canonical server-accepted MIME — see `SelectedFile.contentType`. */
+  contentType: AcceptedContentType
+  title: string
+  description: string | null
   /**
-   * Server-supported privacy. The modal still exposes "friends" but the
-   * parent coerces it to "private" until the follow-graph join lands —
-   * see the cut line in the implementation plan.
+   * FK into our own `game` table. The modal's picker calls
+   * `/api/games/resolve` internally and hands the resolved row up, so
+   * this is always a uuid (or null when the uploader left it blank).
+   * Free-form text isn't supported — the SGDB mapping is how we link
+   * clips to the `/g/:slug` landing pages.
    */
-  privacy: "public" | "unlisted" | "private";
-  /** Pre-coercion visibility, kept around in case the parent wants it. */
-  rawVisibility: Visibility;
-  width: number;
-  height: number;
-  durationMs: number;
-  sizeBytes: number;
+  gameId: string | null
+  privacy: Visibility
+  width: number
+  height: number
+  durationMs: number
+  sizeBytes: number
   /**
    * Trim window in ms against the source. Both set together when the
    * user narrowed the range; both null when the full source should
    * encode. The modal only emits these when the range differs from the
    * full extent (so an untouched timeline doesn't waste a column write).
    */
-  trimStartMs: number | null;
-  trimEndMs: number | null;
+  trimStartMs: number | null
+  trimEndMs: number | null
   /**
    * Client-captured thumbnails. Both are required — publishing fails if
    * the canvas couldn't produce them (e.g. tainted source). The 640px
@@ -94,30 +109,77 @@ export interface PublishPayload {
    * Both are JPEG blobs ready to PUT at the storage tickets the server
    * hands back from /initiate.
    */
-  thumbBlob: Blob;
-  thumbSmallBlob: Blob;
+  thumbBlob: Blob
+  thumbSmallBlob: Blob
 }
 
 interface UploadNewClipModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  open: boolean
+  onOpenChange: (open: boolean) => void
   /**
    * Fired when the user hits Publish. The parent is responsible for
    * closing the modal (or it stays open while `publishing` is true if
    * the parent wants to keep it visible). Throwing surfaces an error
    * back into the modal's internal state.
    */
-  onPublish: (payload: PublishPayload) => Promise<void> | void;
+  onPublish: (payload: PublishPayload) => Promise<void> | void
   /**
    * When true the dialog skips its built-in overlay — the parent
    * (`upload-flow.tsx`) renders a single shared backdrop across both
    * upload modals so the handoff doesn't flash.
    */
-  sharedOverlay?: boolean;
+  sharedOverlay?: boolean
 }
 
-// File picker MIME types — match the server's ACCEPTED_CONTENT_TYPES.
-const ACCEPT_LIST = "video/mp4,video/quicktime,video/x-matroska,video/webm";
+// The canonical content types the server accepts. The encode worker
+// re-probes and re-encodes regardless, so this list is about keeping
+// clearly-non-video bodies out of storage — not about gatekeeping codec
+// compatibility (ffmpeg handles that).
+const ACCEPTED_CONTENT_TYPES = [
+  "video/mp4",
+  "video/quicktime",
+  "video/x-matroska",
+  "video/webm",
+] as const
+type AcceptedContentType = (typeof ACCEPTED_CONTENT_TYPES)[number]
+
+// Browsers disagree on MKV's MIME: Chrome on Linux reports `video/x-matroska`,
+// Firefox reports `video/matroska`, and some OSes leave `file.type` empty.
+// Map both reported variants onto the canonical form, and fall back to the
+// extension when the browser gave us nothing.
+const CONTENT_TYPE_ALIASES: Record<string, AcceptedContentType> = {
+  "video/mp4": "video/mp4",
+  "video/quicktime": "video/quicktime",
+  "video/x-matroska": "video/x-matroska",
+  "video/matroska": "video/x-matroska",
+  "video/webm": "video/webm",
+}
+
+const EXTENSION_TO_CONTENT_TYPE: Record<string, AcceptedContentType> = {
+  mp4: "video/mp4",
+  m4v: "video/mp4",
+  mov: "video/quicktime",
+  mkv: "video/x-matroska",
+  webm: "video/webm",
+}
+
+// Hidden-input `accept` — MIMEs *and* extensions. `video/x-matroska` alone
+// won't make a file picker un-grey .mkv files on every OS; the extensions
+// fill that gap without forcing us to open the door to `video/*`.
+const ACCEPT_LIST =
+  "video/mp4,video/quicktime,video/x-matroska,video/webm,.mp4,.m4v,.mov,.mkv,.webm"
+
+/**
+ * Normalise a browser-reported file into one of our four canonical
+ * content types. Returns `null` when the file is something we really
+ * can't support (picture, zip, unknown binary with no video extension).
+ */
+function resolveContentType(file: File): AcceptedContentType | null {
+  const byMime = CONTENT_TYPE_ALIASES[file.type]
+  if (byMime) return byMime
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? ""
+  return EXTENSION_TO_CONTENT_TYPE[ext] ?? null
+}
 
 export function UploadNewClipModal({
   open,
@@ -125,12 +187,11 @@ export function UploadNewClipModal({
   onPublish,
   sharedOverlay = false,
 }: UploadNewClipModalProps) {
+  const inputRef = React.useRef<HTMLInputElement>(null)
   const [selectedFile, setSelectedFile] = React.useState<SelectedFile | null>(
-    null,
-  );
-  const [probeError, setProbeError] = React.useState<string | null>(null);
-  const [publishError, setPublishError] = React.useState<string | null>(null);
-  const [publishing, setPublishing] = React.useState(false);
+    null
+  )
+  const [publishing, setPublishing] = React.useState(false)
 
   // Reset everything *after* the close animation finishes — otherwise a
   // second open would still hold the previous file. Doing this from a
@@ -144,57 +205,76 @@ export function UploadNewClipModal({
   // invisible.
   const handleOpenChangeComplete = React.useCallback((nextOpen: boolean) => {
     if (!nextOpen) {
-      setSelectedFile(null);
-      setProbeError(null);
-      setPublishError(null);
-      setPublishing(false);
+      setSelectedFile(null)
+      setPublishing(false)
     }
-  }, []);
+  }, [])
 
   const handleFileChosen = React.useCallback(async (file: File) => {
-    setProbeError(null);
-    setPublishError(null);
-    if (!ACCEPT_LIST.split(",").includes(file.type)) {
-      setProbeError(`Unsupported file type: ${file.type || "unknown"}`);
-      return;
+    const contentType = resolveContentType(file)
+    if (!contentType) {
+      toast.error("Unsupported file type", {
+        description:
+          file.type || file.name.split(".").pop()?.toLowerCase() || "unknown",
+      })
+      return
     }
     try {
-      const meta = await probeFile(file);
-      setSelectedFile(meta);
+      const meta = await probeFile(file)
+      setSelectedFile({ ...meta, contentType })
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to read file";
-      setProbeError(message);
+      const message = err instanceof Error ? err.message : "Failed to read file"
+      toast.error("Couldn't read video metadata", { description: message })
     }
-  }, []);
+  }, [])
 
   const handleClearFile = React.useCallback(() => {
-    setSelectedFile(null);
-    setProbeError(null);
-    setPublishError(null);
-  }, []);
+    setSelectedFile(null)
+  }, [])
+
+  const handleChooseFileClick = React.useCallback(() => {
+    inputRef.current?.click()
+  }, [])
+
+  const handleInputChange = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      // Reset immediately so re-selecting the same file still fires `change`
+      // and so the input's value no longer owns the File object once we
+      // transition into the loaded state.
+      e.target.value = ""
+      if (!file) return
+      // Defer the heavy probe + state swap until after the browser finishes
+      // unwinding the picker event. Swapping the empty state out synchronously
+      // here can race the native file-input cleanup and trigger
+      // `Node.removeChild(...)` in some browsers.
+      requestAnimationFrame(() => {
+        void handleFileChosen(file)
+      })
+    },
+    [handleFileChosen]
+  )
 
   const handlePublish = React.useCallback(
     async (payload: PublishPayload) => {
-      setPublishing(true);
-      setPublishError(null);
+      setPublishing(true)
       try {
-        await onPublish(payload);
+        await onPublish(payload)
         // Parent will typically close the modal; if not, reset for the
         // next clip.
-        setSelectedFile(null);
+        setSelectedFile(null)
       } catch (err) {
         const message =
-          err instanceof Error ? err.message : "Failed to upload clip";
-        setPublishError(message);
+          err instanceof Error ? err.message : "Failed to upload clip"
+        toast.error("Couldn't publish clip", { description: message })
       } finally {
-        setPublishing(false);
+        setPublishing(false)
       }
     },
-    [onPublish],
-  );
+    [onPublish]
+  )
 
-  const hasFile = selectedFile !== null;
+  const hasFile = selectedFile !== null
 
   return (
     <Dialog
@@ -216,6 +296,13 @@ export function UploadNewClipModal({
         className={hasFile ? "max-w-[960px]" : "max-w-[640px]"}
         aria-describedby={undefined}
       >
+        <input
+          ref={inputRef}
+          type="file"
+          accept={ACCEPT_LIST}
+          className="hidden"
+          onChange={handleInputChange}
+        />
         <DialogHeader>
           <DialogTitle>New clip</DialogTitle>
         </DialogHeader>
@@ -224,55 +311,51 @@ export function UploadNewClipModal({
           <LoadedState
             file={selectedFile}
             publishing={publishing}
-            publishError={publishError}
             onPublish={handlePublish}
             onReplace={handleClearFile}
           />
         ) : (
           <EmptyState
-            probeError={probeError}
             onFileChosen={handleFileChosen}
+            onChooseFileClick={handleChooseFileClick}
           />
         )}
       </DialogContent>
     </Dialog>
-  );
+  )
 }
 
 function EmptyState({
-  probeError,
   onFileChosen,
+  onChooseFileClick,
 }: {
-  probeError: string | null;
-  onFileChosen: (file: File) => void;
+  onFileChosen: (file: File) => void
+  onChooseFileClick: () => void
 }) {
-  const inputRef = React.useRef<HTMLInputElement>(null);
-  const [dragOver, setDragOver] = React.useState(false);
-
-  const handleClick = () => inputRef.current?.click();
+  const [dragOver, setDragOver] = React.useState(false)
 
   return (
     <>
       <DialogBody className="px-6 py-5">
         <button
           type="button"
-          onClick={handleClick}
+          onClick={onChooseFileClick}
           // Drag-and-drop. preventDefault() on dragover is the key step
           // — without it the browser refuses to fire the drop event.
           onDragEnter={(e) => {
-            e.preventDefault();
-            setDragOver(true);
+            e.preventDefault()
+            setDragOver(true)
           }}
           onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
+            e.preventDefault()
+            setDragOver(true)
           }}
           onDragLeave={() => setDragOver(false)}
           onDrop={(e) => {
-            e.preventDefault();
-            setDragOver(false);
-            const file = e.dataTransfer.files?.[0];
-            if (file) onFileChosen(file);
+            e.preventDefault()
+            setDragOver(false)
+            const file = e.dataTransfer.files?.[0]
+            if (file) onFileChosen(file)
           }}
           className={cn(
             "flex w-full flex-col items-center justify-center gap-4 rounded-lg",
@@ -281,14 +364,14 @@ function EmptyState({
             "duration-[var(--duration-fast)] ease-[var(--ease-out)]",
             "hover:border-accent-border hover:bg-surface-raised",
             "focus-visible:border-accent-border focus-visible:bg-surface-raised focus-visible:outline-none",
-            dragOver && "border-accent-border bg-surface-raised",
+            dragOver && "border-accent-border bg-surface-raised"
           )}
         >
           <div
             aria-hidden
             className={cn(
               "flex size-14 items-center justify-center rounded-md",
-              "border border-border bg-surface-raised text-foreground-muted",
+              "border border-border bg-surface-raised text-foreground-muted"
             )}
           >
             <UploadIcon className="size-5" />
@@ -303,32 +386,14 @@ function EmptyState({
           <div className="mt-1 flex items-center gap-2">
             <span
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground",
+                "inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground"
               )}
             >
               <FolderOpenIcon className="size-4" />
               Choose file
             </span>
           </div>
-
-          {probeError ? (
-            <p className="font-mono text-xs text-destructive">{probeError}</p>
-          ) : null}
         </button>
-
-        {/* Hidden file input the dropzone forwards clicks to. */}
-        <input
-          ref={inputRef}
-          type="file"
-          accept={ACCEPT_LIST}
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) onFileChosen(file);
-            // Reset so re-selecting the same file still fires onChange.
-            e.target.value = "";
-          }}
-        />
       </DialogBody>
 
       <DialogFooter>
@@ -341,83 +406,82 @@ function EmptyState({
         </DialogClose>
       </DialogFooter>
     </>
-  );
+  )
 }
 
 function LoadedState({
   file,
   publishing,
-  publishError,
   onPublish,
   onReplace,
 }: {
-  file: SelectedFile;
-  publishing: boolean;
-  publishError: string | null;
-  onPublish: (payload: PublishPayload) => void;
-  onReplace: () => void;
+  file: SelectedFile
+  publishing: boolean
+  onPublish: (payload: PublishPayload) => void
+  onReplace: () => void
 }) {
-  const [title, setTitle] = React.useState(stripExtension(file.name));
-  const [description, setDescription] = React.useState("");
-  const [game, setGame] = React.useState<string>("");
-  const [tags, setTags] = React.useState<Array<string>>([]);
-  const [tagDraft, setTagDraft] = React.useState("");
-  const [visibility, setVisibility] = React.useState<Visibility>("unlisted");
+  const [title, setTitle] = React.useState(stripExtension(file.name))
+  const [description, setDescription] = React.useState("")
+  // Resolved game row from the picker. The combobox owns the SGDB
+  // round-trip; we only see the fully upserted row (or null when the
+  // uploader left it blank).
+  const [game, setGame] = React.useState<GameRow | null>(null)
+  const [tags, setTags] = React.useState<Array<string>>([])
+  const [tagDraft, setTagDraft] = React.useState("")
+  const [visibility, setVisibility] = React.useState<Visibility>("unlisted")
 
   // Trim window in ms against the source. Initial range = full clip; we
   // only emit the trim columns to the server when the user narrowed it.
-  const [trimStartMs, setTrimStartMs] = React.useState(0);
-  const [trimEndMs, setTrimEndMs] = React.useState(file.durationMs);
-  const [currentMs, setCurrentMs] = React.useState(0);
-  const [isPlaying, setIsPlaying] = React.useState(false);
-  const [playbackRate, setPlaybackRate] = React.useState<0.5 | 1 | 2>(1);
+  const [trimStartMs, setTrimStartMs] = React.useState(0)
+  const [trimEndMs, setTrimEndMs] = React.useState(file.durationMs)
+  const [currentMs, setCurrentMs] = React.useState(0)
+  const [isPlaying, setIsPlaying] = React.useState(false)
+  const [playbackRate, setPlaybackRate] = React.useState<0.5 | 1 | 2>(1)
   // Volume is 0–1 mirrored onto the <video> element. `muted` is tracked
   // separately so unmuting restores the prior level instead of jumping
   // to whatever the slider last sat at while muted.
-  const [volume, setVolume] = React.useState(1);
-  const [muted, setMuted] = React.useState(false);
+  const [volume, setVolume] = React.useState(1)
+  const [muted, setMuted] = React.useState(false)
 
   const addTag = (raw: string) => {
-    const tag = raw.trim().replace(/^#/, "").toLowerCase();
-    if (!tag) return;
-    setTags((prev) => (prev.includes(tag) ? prev : [...prev, tag]));
-  };
+    const tag = raw.trim().replace(/^#/, "").toLowerCase()
+    if (!tag) return
+    setTags((prev) => (prev.includes(tag) ? prev : [...prev, tag]))
+  }
 
-  const trimChanged = trimStartMs > 0 || trimEndMs < file.durationMs;
+  const trimChanged = trimStartMs > 0 || trimEndMs < file.durationMs
 
-  const [capturing, setCapturing] = React.useState(false);
+  const [capturing, setCapturing] = React.useState(false)
 
   const handlePublishClick = async () => {
-    if (!title.trim()) return;
-    if (trimEndMs <= trimStartMs) return;
-    setCapturing(true);
-    let thumbs: { full: Blob; small: Blob };
+    if (!title.trim()) return
+    if (trimEndMs <= trimStartMs) return
+    setCapturing(true)
+    let thumbs: { full: Blob; small: Blob }
     try {
       // Grab the poster frame one second into the trim window — matches
       // the server-side fallback's logic so client- and server-produced
       // posters look interchangeable.
       const posterAtMs = Math.min(
         trimStartMs + 1000,
-        Math.max(trimStartMs, trimEndMs - 100),
-      );
-      thumbs = await captureThumbnails(file.file, posterAtMs);
+        Math.max(trimStartMs, trimEndMs - 100)
+      )
+      thumbs = await captureThumbnails(file.file, posterAtMs)
     } catch (err) {
-      setCapturing(false);
+      setCapturing(false)
       throw err instanceof Error
         ? err
-        : new Error("Could not capture thumbnail");
+        : new Error("Could not capture thumbnail")
     } finally {
-      setCapturing(false);
+      setCapturing(false)
     }
     onPublish({
       file: file.file,
+      contentType: file.contentType,
       title: title.trim(),
       description: description.trim() || null,
-      game: game.trim() || null,
-      // "friends" coerces to "private" until the follow graph joins are
-      // wired into the read side. The plan calls this out explicitly.
-      privacy: visibility === "friends" ? "private" : visibility,
-      rawVisibility: visibility,
+      gameId: game?.id ?? null,
+      privacy: visibility,
       width: file.width,
       height: file.height,
       // Reflect the trimmed length so the queue row shows the playable
@@ -429,8 +493,8 @@ function LoadedState({
       trimEndMs: trimChanged ? trimEndMs : null,
       thumbBlob: thumbs.full,
       thumbSmallBlob: thumbs.small,
-    });
-  };
+    })
+  }
 
   return (
     <>
@@ -522,11 +586,11 @@ function LoadedState({
             trimEndMs={trimEndMs}
             currentMs={currentMs}
             onTrimChange={(start, end) => {
-              setTrimStartMs(start);
-              setTrimEndMs(end);
+              setTrimStartMs(start)
+              setTrimEndMs(end)
               // Clamp the playhead into the new window so it doesn't sit
               // off-range when the user drags the start past it.
-              setCurrentMs((prev) => Math.min(Math.max(prev, start), end));
+              setCurrentMs((prev) => Math.min(Math.max(prev, start), end))
             }}
             onSeek={(ms) => setCurrentMs(ms)}
           />
@@ -546,11 +610,11 @@ function LoadedState({
         {/* Right column — metadata form */}
         <section className="flex flex-col gap-4">
           <Field label="Game">
-            <Input
+            <GameCombobox
               value={game}
-              onChange={(e) => setGame(e.target.value)}
-              placeholder="Optional"
-              maxLength={120}
+              onChange={setGame}
+              disabled={publishing || capturing}
+              placeholder="Search SteamGridDB…"
             />
           </Field>
 
@@ -584,7 +648,7 @@ function LoadedState({
                 "transition-[border-color,background-color] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
                 "placeholder:text-foreground-faint",
                 "hover:border-border-strong",
-                "focus-visible:border-accent-border focus-visible:bg-surface-raised focus-visible:outline-none",
+                "focus-visible:border-accent-border focus-visible:bg-surface-raised focus-visible:outline-none"
               )}
             />
           </Field>
@@ -593,7 +657,7 @@ function LoadedState({
             <div
               className={cn(
                 "flex min-h-[30px] flex-wrap items-center gap-1.5 rounded-md border border-border bg-input px-2 py-1.5",
-                "focus-within:border-accent-border focus-within:bg-surface-raised",
+                "focus-within:border-accent-border focus-within:bg-surface-raised"
               )}
             >
               {tags.map((tag) => (
@@ -601,7 +665,7 @@ function LoadedState({
                   key={tag}
                   className={cn(
                     "inline-flex h-5 items-center gap-1 rounded-sm bg-accent-soft px-1.5",
-                    "font-mono text-2xs text-accent",
+                    "font-mono text-2xs text-accent"
                   )}
                 >
                   #{tag}
@@ -622,19 +686,19 @@ function LoadedState({
                 onChange={(e) => setTagDraft(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === ",") {
-                    e.preventDefault();
-                    addTag(tagDraft);
-                    setTagDraft("");
+                    e.preventDefault()
+                    addTag(tagDraft)
+                    setTagDraft("")
                   } else if (e.key === "Backspace" && tagDraft === "") {
                     setTags((prev) =>
-                      prev.length > 0 ? prev.slice(0, -1) : prev,
-                    );
+                      prev.length > 0 ? prev.slice(0, -1) : prev
+                    )
                   }
                 }}
                 placeholder="add tag…"
                 className={cn(
                   "min-w-[80px] flex-1 bg-transparent text-xs text-foreground",
-                  "outline-none placeholder:text-foreground-faint",
+                  "outline-none placeholder:text-foreground-faint"
                 )}
               />
             </div>
@@ -647,9 +711,6 @@ function LoadedState({
       </DialogBody>
 
       <DialogFooter>
-        <span className="mr-auto font-mono text-2xs text-destructive">
-          {publishError ?? ""}
-        </span>
         <Button
           variant="ghost"
           size="default"
@@ -673,55 +734,50 @@ function LoadedState({
           onClick={handlePublishClick}
         >
           <UploadIcon />
-          {capturing
-            ? "Preparing…"
-            : publishing
-              ? "Uploading…"
-              : "Upload clip"}
+          {capturing ? "Preparing…" : publishing ? "Uploading…" : "Upload clip"}
         </Button>
       </DialogFooter>
     </>
-  );
+  )
 }
 
-function Field({
+export function Field({
   label,
   children,
 }: {
-  label: React.ReactNode;
-  children: React.ReactNode;
+  label: React.ReactNode
+  children: React.ReactNode
 }) {
   return (
     <div className="flex flex-col gap-1.5">
       <Label>{label}</Label>
       {children}
     </div>
-  );
+  )
 }
 
 const VISIBILITY_OPTIONS: Array<{
-  value: Visibility;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
+  value: Visibility
+  label: string
+  icon: React.ComponentType<{ className?: string }>
 }> = [
   { value: "public", label: "Public", icon: GlobeIcon },
   { value: "unlisted", label: "Unlisted", icon: Link2Icon },
-  { value: "friends", label: "Friends", icon: UsersIcon },
   { value: "private", label: "Private", icon: LockIcon },
-];
+]
 
-function VisibilityPicker({
+export function VisibilityPicker({
   value,
   onChange,
 }: {
-  value: Visibility;
-  onChange: (v: Visibility) => void;
+  value: Visibility
+  onChange: (v: Visibility) => void
 }) {
   return (
     <div className="flex items-stretch rounded-md border border-border bg-input p-0.5">
       {VISIBILITY_OPTIONS.map((opt) => {
-        const Icon = opt.icon;
-        const active = opt.value === value;
+        const Icon = opt.icon
+        const active = opt.value === value
         return (
           <button
             key={opt.value}
@@ -733,16 +789,16 @@ function VisibilityPicker({
               "h-[26px] text-xs transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
               active
                 ? "bg-surface-raised text-foreground"
-                : "text-foreground-dim hover:text-foreground",
+                : "text-foreground-dim hover:text-foreground"
             )}
           >
             <Icon className="size-3" />
             {opt.label}
           </button>
-        );
+        )
       })}
     </div>
-  );
+  )
 }
 
 function SpeedButton({
@@ -750,9 +806,9 @@ function SpeedButton({
   onClick,
   children,
 }: {
-  active: boolean;
-  onClick?: () => void;
-  children: React.ReactNode;
+  active: boolean
+  onClick?: () => void
+  children: React.ReactNode
 }) {
   return (
     <button
@@ -763,12 +819,12 @@ function SpeedButton({
         "font-mono text-2xs transition-colors",
         active
           ? "bg-accent text-accent-foreground"
-          : "text-foreground-muted hover:text-foreground",
+          : "text-foreground-muted hover:text-foreground"
       )}
     >
       {children}
     </button>
-  );
+  )
 }
 
 /**
@@ -800,79 +856,79 @@ function VideoPreview({
   onTimeUpdate,
   onPlayingChange,
 }: {
-  file: File;
-  durationMs: number;
-  trimStartMs: number;
-  trimEndMs: number;
-  playbackRate: number;
-  isPlaying: boolean;
-  currentMs: number;
-  volume: number;
-  muted: boolean;
-  onTimeUpdate: (ms: number) => void;
-  onPlayingChange: (playing: boolean) => void;
+  file: File
+  durationMs: number
+  trimStartMs: number
+  trimEndMs: number
+  playbackRate: number
+  isPlaying: boolean
+  currentMs: number
+  volume: number
+  muted: boolean
+  onTimeUpdate: (ms: number) => void
+  onPlayingChange: (playing: boolean) => void
 }) {
-  const videoRef = React.useRef<HTMLVideoElement>(null);
-  const [src, setSrc] = React.useState<string | null>(null);
+  const videoRef = React.useRef<HTMLVideoElement>(null)
+  const [src, setSrc] = React.useState<string | null>(null)
 
   // Mint the object URL when a file lands; revoke it on unmount or file
   // swap so we don't leak blob handles. Browsers eventually GC these but
   // explicit revoke keeps DevTools' memory tab honest.
   React.useEffect(() => {
-    const url = URL.createObjectURL(file);
-    setSrc(url);
+    const url = URL.createObjectURL(file)
+    setSrc(url)
     return () => {
-      URL.revokeObjectURL(url);
-      setSrc(null);
-    };
-  }, [file]);
+      URL.revokeObjectURL(url)
+      setSrc(null)
+    }
+  }, [file])
 
   // Drive play/pause from the parent's `isPlaying`. We swallow the
   // `play()` rejection that fires when the element is paused before the
   // promise resolves — that's a normal race, not a real error.
   React.useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
+    const v = videoRef.current
+    if (!v) return
     if (isPlaying) {
       // If we're sitting at/past the trim end, rewind to the start so
       // the play button restarts the trim window instead of being a no-op.
       if (v.currentTime * 1000 >= trimEndMs - 30) {
-        v.currentTime = trimStartMs / 1000;
+        v.currentTime = trimStartMs / 1000
       }
-      v.play().catch(() => undefined);
+      v.play().catch(() => undefined)
     } else {
-      v.pause();
+      v.pause()
     }
-  }, [isPlaying, trimStartMs, trimEndMs]);
+  }, [isPlaying, trimStartMs, trimEndMs])
 
   // Mirror playbackRate onto the element. Cheap to apply unconditionally.
   React.useEffect(() => {
-    const v = videoRef.current;
-    if (v) v.playbackRate = playbackRate;
-  }, [playbackRate]);
+    const v = videoRef.current
+    if (v) v.playbackRate = playbackRate
+  }, [playbackRate])
 
   // Mirror volume + muted onto the element. Same shape as playbackRate
   // — single source of truth lives in parent state, the element just
   // reflects it.
   React.useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    v.volume = volume;
-    v.muted = muted;
-  }, [volume, muted]);
+    const v = videoRef.current
+    if (!v) return
+    v.volume = volume
+    v.muted = muted
+  }, [volume, muted])
 
   // Parent → element seek. Only nudge the element when the parent's
   // currentMs has moved meaningfully — otherwise our own `timeupdate`
   // handler would create a feedback loop (set state → effect fires →
   // seeks element → fires timeupdate → set state...).
   React.useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    const elementMs = v.currentTime * 1000;
+    const v = videoRef.current
+    if (!v) return
+    const elementMs = v.currentTime * 1000
     if (Math.abs(elementMs - currentMs) > 50) {
-      v.currentTime = currentMs / 1000;
+      v.currentTime = currentMs / 1000
     }
-  }, [currentMs]);
+  }, [currentMs])
 
   return (
     <div className="relative">
@@ -904,7 +960,7 @@ function VideoPreview({
         <div
           className={cn(
             "aspect-video overflow-hidden rounded-md",
-            "border border-border bg-black",
+            "border border-border bg-black"
           )}
         />
       )}
@@ -912,7 +968,7 @@ function VideoPreview({
       <span
         className={cn(
           "pointer-events-none absolute bottom-2 left-2 inline-flex items-center rounded-sm bg-background/80 px-1.5 py-0.5",
-          "font-mono text-2xs text-foreground-muted tabular-nums backdrop-blur-sm",
+          "font-mono text-2xs text-foreground-muted tabular-nums backdrop-blur-sm"
         )}
       >
         {formatTimecode(currentMs)}{" "}
@@ -920,7 +976,7 @@ function VideoPreview({
         {formatTimecode(durationMs)}
       </span>
     </div>
-  );
+  )
 }
 
 /**
@@ -938,7 +994,7 @@ function VideoPreview({
  * Minimum trim width is 100ms — anything smaller and the handles
  * overlap visually and the encoder'd produce a single-frame output.
  */
-const MIN_TRIM_MS = 100;
+const MIN_TRIM_MS = 100
 
 function TrimTimeline({
   durationMs,
@@ -948,78 +1004,78 @@ function TrimTimeline({
   onTrimChange,
   onSeek,
 }: {
-  durationMs: number;
-  trimStartMs: number;
-  trimEndMs: number;
-  currentMs: number;
-  onTrimChange: (start: number, end: number) => void;
-  onSeek: (ms: number) => void;
+  durationMs: number
+  trimStartMs: number
+  trimEndMs: number
+  currentMs: number
+  onTrimChange: (start: number, end: number) => void
+  onSeek: (ms: number) => void
 }) {
-  const trackRef = React.useRef<HTMLDivElement>(null);
+  const trackRef = React.useRef<HTMLDivElement>(null)
   // We need a ref alongside React state so the global pointermove
   // handler always reads the current trim values without re-attaching
   // listeners on every drag tick.
   const dragStateRef = React.useRef<{
-    kind: "start" | "end" | "playhead";
-    pointerId: number;
-  } | null>(null);
+    kind: "start" | "end" | "playhead"
+    pointerId: number
+  } | null>(null)
 
   const pctOf = (ms: number) =>
-    durationMs > 0 ? Math.min(100, Math.max(0, (ms / durationMs) * 100)) : 0;
+    durationMs > 0 ? Math.min(100, Math.max(0, (ms / durationMs) * 100)) : 0
 
   const msFromClient = React.useCallback(
     (clientX: number): number => {
-      const track = trackRef.current;
-      if (!track) return 0;
-      const rect = track.getBoundingClientRect();
-      const x = clientX - rect.left;
-      const pct = Math.min(1, Math.max(0, x / rect.width));
-      return Math.round(pct * durationMs);
+      const track = trackRef.current
+      if (!track) return 0
+      const rect = track.getBoundingClientRect()
+      const x = clientX - rect.left
+      const pct = Math.min(1, Math.max(0, x / rect.width))
+      return Math.round(pct * durationMs)
     },
-    [durationMs],
-  );
+    [durationMs]
+  )
 
   const startDrag = (
     kind: "start" | "end" | "playhead",
-    e: React.PointerEvent,
+    e: React.PointerEvent
   ) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const target = e.currentTarget;
-    target.setPointerCapture(e.pointerId);
-    dragStateRef.current = { kind, pointerId: e.pointerId };
-  };
+    e.preventDefault()
+    e.stopPropagation()
+    const target = e.currentTarget
+    target.setPointerCapture(e.pointerId)
+    dragStateRef.current = { kind, pointerId: e.pointerId }
+  }
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    const drag = dragStateRef.current;
-    if (!drag || drag.pointerId !== e.pointerId) return;
-    const ms = msFromClient(e.clientX);
+    const drag = dragStateRef.current
+    if (!drag || drag.pointerId !== e.pointerId) return
+    const ms = msFromClient(e.clientX)
     if (drag.kind === "start") {
-      const next = Math.min(ms, trimEndMs - MIN_TRIM_MS);
-      onTrimChange(Math.max(0, next), trimEndMs);
+      const next = Math.min(ms, trimEndMs - MIN_TRIM_MS)
+      onTrimChange(Math.max(0, next), trimEndMs)
     } else if (drag.kind === "end") {
-      const next = Math.max(ms, trimStartMs + MIN_TRIM_MS);
-      onTrimChange(trimStartMs, Math.min(durationMs, next));
+      const next = Math.max(ms, trimStartMs + MIN_TRIM_MS)
+      onTrimChange(trimStartMs, Math.min(durationMs, next))
     } else {
       // playhead: stay inside the trim window so the player doesn't
       // drift outside the soon-to-be-encoded range.
-      onSeek(Math.min(Math.max(ms, trimStartMs), trimEndMs));
+      onSeek(Math.min(Math.max(ms, trimStartMs), trimEndMs))
     }
-  };
+  }
 
   const handlePointerUp = (e: React.PointerEvent) => {
-    const drag = dragStateRef.current;
-    if (!drag || drag.pointerId !== e.pointerId) return;
-    e.currentTarget.releasePointerCapture(e.pointerId);
-    dragStateRef.current = null;
-  };
+    const drag = dragStateRef.current
+    if (!drag || drag.pointerId !== e.pointerId) return
+    e.currentTarget.releasePointerCapture(e.pointerId)
+    dragStateRef.current = null
+  }
 
   // Click on the track (away from the handles) seeks the playhead.
   const handleTrackClick = (e: React.MouseEvent) => {
-    if (dragStateRef.current) return;
-    const ms = msFromClient(e.clientX);
-    onSeek(Math.min(Math.max(ms, trimStartMs), trimEndMs));
-  };
+    if (dragStateRef.current) return
+    const ms = msFromClient(e.clientX)
+    onSeek(Math.min(Math.max(ms, trimStartMs), trimEndMs))
+  }
 
   return (
     <div
@@ -1035,7 +1091,7 @@ function TrimTimeline({
         // -8px margin so it straddles the 0% edge, and clipping it
         // chops off the left half. Fill rail and handles are already
         // rounded, so nothing else needs the clip.
-        "select-none",
+        "select-none"
       )}
     >
       {/* Base rail — dim track spanning the full duration. */}
@@ -1063,7 +1119,7 @@ function TrimTimeline({
           "absolute top-0 bottom-0 z-10 -ml-2 flex w-4 cursor-ew-resize items-center justify-center",
           "rounded-l-sm bg-accent text-accent-foreground",
           "hover:bg-accent-hover focus-visible:outline-none",
-          "touch-none",
+          "touch-none"
         )}
         style={{ left: `${pctOf(trimStartMs)}%` }}
       >
@@ -1079,7 +1135,7 @@ function TrimTimeline({
           "absolute top-0 bottom-0 z-10 -mr-2 flex w-4 cursor-ew-resize items-center justify-center",
           "rounded-r-sm bg-accent text-accent-foreground",
           "hover:bg-accent-hover focus-visible:outline-none",
-          "touch-none",
+          "touch-none"
         )}
         style={{ left: `calc(${pctOf(trimEndMs)}% - 16px)` }}
       >
@@ -1096,35 +1152,35 @@ function TrimTimeline({
           className={cn(
             "absolute top-0 bottom-0 z-20 -ml-[1px] w-[2px] cursor-ew-resize bg-foreground",
             "shadow-[0_0_0_1px_rgba(0,0,0,0.4)]",
-            "touch-none focus-visible:outline-none",
+            "touch-none focus-visible:outline-none"
           )}
           style={{ left: `${pctOf(currentMs)}%` }}
         />
       ) : null}
     </div>
-  );
+  )
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────
 
 function stripExtension(filename: string): string {
-  const idx = filename.lastIndexOf(".");
-  return idx > 0 ? filename.slice(0, idx) : filename;
+  const idx = filename.lastIndexOf(".")
+  return idx > 0 ? filename.slice(0, idx) : filename
 }
 
 function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   if (bytes < 1024 * 1024 * 1024)
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
 }
 
 function formatDuration(ms: number): string {
-  const totalSec = Math.round(ms / 1000);
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
+  const totalSec = Math.round(ms / 1000)
+  const m = Math.floor(totalSec / 60)
+  const s = totalSec % 60
+  return `${m}:${s.toString().padStart(2, "0")}`
 }
 
 /**
@@ -1132,12 +1188,12 @@ function formatDuration(ms: number): string {
  * precision to land on a specific moment without flooding the display.
  */
 function formatTimecode(ms: number): string {
-  const safe = Math.max(0, Math.round(ms));
-  const totalSec = Math.floor(safe / 1000);
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  const cs = Math.floor((safe % 1000) / 10);
-  return `${m}:${s.toString().padStart(2, "0")}.${cs.toString().padStart(2, "0")}`;
+  const safe = Math.max(0, Math.round(ms))
+  const totalSec = Math.floor(safe / 1000)
+  const m = Math.floor(totalSec / 60)
+  const s = totalSec % 60
+  const cs = Math.floor((safe % 1000) / 10)
+  return `${m}:${s.toString().padStart(2, "0")}.${cs.toString().padStart(2, "0")}`
 }
 
 /**
@@ -1153,87 +1209,87 @@ function formatTimecode(ms: number): string {
  */
 async function captureThumbnails(
   file: File,
-  atMs: number,
+  atMs: number
 ): Promise<{ full: Blob; small: Blob }> {
-  const url = URL.createObjectURL(file);
-  const video = document.createElement("video");
-  video.preload = "auto";
-  video.muted = true;
-  video.playsInline = true;
+  const url = URL.createObjectURL(file)
+  const video = document.createElement("video")
+  video.preload = "auto"
+  video.muted = true
+  video.playsInline = true
   // Without `crossOrigin` the element treats blob: as same-origin, which
   // is what we want — canvas reads stay non-tainted.
-  video.src = url;
+  video.src = url
 
   const cleanup = () => {
-    URL.revokeObjectURL(url);
-    video.removeAttribute("src");
-    video.load();
-  };
+    URL.revokeObjectURL(url)
+    video.removeAttribute("src")
+    video.load()
+  }
 
   try {
     await new Promise<void>((resolve, reject) => {
       const onLoaded = () => {
-        video.removeEventListener("loadeddata", onLoaded);
-        video.removeEventListener("error", onError);
-        resolve();
-      };
+        video.removeEventListener("loadeddata", onLoaded)
+        video.removeEventListener("error", onError)
+        resolve()
+      }
       const onError = () => {
-        video.removeEventListener("loadeddata", onLoaded);
-        video.removeEventListener("error", onError);
-        reject(new Error("Could not load video for thumbnail capture"));
-      };
-      video.addEventListener("loadeddata", onLoaded);
-      video.addEventListener("error", onError);
-    });
+        video.removeEventListener("loadeddata", onLoaded)
+        video.removeEventListener("error", onError)
+        reject(new Error("Could not load video for thumbnail capture"))
+      }
+      video.addEventListener("loadeddata", onLoaded)
+      video.addEventListener("error", onError)
+    })
 
     await new Promise<void>((resolve, reject) => {
       const onSeeked = () => {
-        video.removeEventListener("seeked", onSeeked);
-        video.removeEventListener("error", onError);
-        resolve();
-      };
+        video.removeEventListener("seeked", onSeeked)
+        video.removeEventListener("error", onError)
+        resolve()
+      }
       const onError = () => {
-        video.removeEventListener("seeked", onSeeked);
-        video.removeEventListener("error", onError);
-        reject(new Error("Seek failed during thumbnail capture"));
-      };
-      video.addEventListener("seeked", onSeeked);
-      video.addEventListener("error", onError);
-      video.currentTime = Math.max(0, atMs / 1000);
-    });
+        video.removeEventListener("seeked", onSeeked)
+        video.removeEventListener("error", onError)
+        reject(new Error("Seek failed during thumbnail capture"))
+      }
+      video.addEventListener("seeked", onSeeked)
+      video.addEventListener("error", onError)
+      video.currentTime = Math.max(0, atMs / 1000)
+    })
 
-    const srcW = video.videoWidth;
-    const srcH = video.videoHeight;
+    const srcW = video.videoWidth
+    const srcH = video.videoHeight
     if (!srcW || !srcH) {
-      throw new Error("Video dimensions unavailable for thumbnail");
+      throw new Error("Video dimensions unavailable for thumbnail")
     }
 
     const drawToBlob = async (targetWidth: number): Promise<Blob> => {
-      const width = Math.min(targetWidth, srcW);
-      const height = Math.max(1, Math.round((width * srcH) / srcW));
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("2D canvas context unavailable");
-      ctx.drawImage(video, 0, 0, width, height);
+      const width = Math.min(targetWidth, srcW)
+      const height = Math.max(1, Math.round((width * srcH) / srcW))
+      const canvas = document.createElement("canvas")
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext("2d")
+      if (!ctx) throw new Error("2D canvas context unavailable")
+      ctx.drawImage(video, 0, 0, width, height)
       return await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob(
           (blob) => {
-            if (blob) resolve(blob);
-            else reject(new Error("canvas.toBlob returned null"));
+            if (blob) resolve(blob)
+            else reject(new Error("canvas.toBlob returned null"))
           },
           "image/jpeg",
-          0.85,
-        );
-      });
-    };
+          0.85
+        )
+      })
+    }
 
-    const full = await drawToBlob(640);
-    const small = await drawToBlob(160);
-    return { full, small };
+    const full = await drawToBlob(640)
+    const small = await drawToBlob(160)
+    return { full, small }
   } finally {
-    cleanup();
+    cleanup()
   }
 }
 
@@ -1242,30 +1298,35 @@ async function captureThumbnails(
  * `<video>` and reading the resulting properties. We don't get fps from
  * the HTML media API — display "—FPS" rather than guess.
  */
-function probeFile(file: File): Promise<SelectedFile> {
-  return new Promise<SelectedFile>((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const video = document.createElement("video");
-    video.preload = "metadata";
+// `contentType` is resolved separately (browser MIME is unreliable for
+// MKV) and merged in at the call site, so the probe only produces the
+// dimensions/duration slice.
+type ProbedFile = Omit<SelectedFile, "contentType">
+
+function probeFile(file: File): Promise<ProbedFile> {
+  return new Promise<ProbedFile>((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const video = document.createElement("video")
+    video.preload = "metadata"
     // Muted + playsInline avoids autoplay quirks on some browsers when
     // metadata loads kick the element into a playing state.
-    video.muted = true;
-    video.playsInline = true;
+    video.muted = true
+    video.playsInline = true
 
     const cleanup = () => {
-      URL.revokeObjectURL(url);
-      video.removeAttribute("src");
-      video.load();
-    };
+      URL.revokeObjectURL(url)
+      video.removeAttribute("src")
+      video.load()
+    }
 
     video.onloadedmetadata = () => {
-      const width = video.videoWidth;
-      const height = video.videoHeight;
-      const durationMs = Math.round((video.duration || 0) * 1000);
-      cleanup();
+      const width = video.videoWidth
+      const height = video.videoHeight
+      const durationMs = Math.round((video.duration || 0) * 1000)
+      cleanup()
       if (!width || !height || !durationMs) {
-        reject(new Error("Could not read video metadata"));
-        return;
+        reject(new Error("Could not read video metadata"))
+        return
       }
       resolve({
         file,
@@ -1278,12 +1339,12 @@ function probeFile(file: File): Promise<SelectedFile> {
         width,
         height,
         sizeBytes: file.size,
-      });
-    };
+      })
+    }
     video.onerror = () => {
-      cleanup();
-      reject(new Error("Could not read video metadata"));
-    };
-    video.src = url;
-  });
+      cleanup()
+      reject(new Error("Could not read video metadata"))
+    }
+    video.src = url
+  })
 }

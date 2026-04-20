@@ -117,7 +117,7 @@ function ClipComments({ className, clipId, ...props }: ClipCommentsProps) {
               seed={`comments-${clipId}`}
               size="lg"
               title="No comments yet"
-              hint="Be the first — the composer's below."
+              hint="Be the first to leave your thoughts!"
             />
           </div>
         ) : (

@@ -1,5 +1,6 @@
 import * as React from "react"
 import {
+  DownloadIcon,
   MaximizeIcon,
   PauseIcon,
   PictureInPicture2Icon,
@@ -11,6 +12,19 @@ import {
 } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu"
 import { cn } from "@workspace/ui/lib/utils"
 
 /**
@@ -41,6 +55,12 @@ type VideoRef = React.Ref<HTMLVideoElement> | undefined
 interface VideoPlayerProps {
   src: string
   poster?: string
+  /**
+   * Stable identity for the media item. Pass a clip id when `src` can
+   * change between qualities for the same clip so resume/view tracking
+   * treat that as one playback session instead of a full remount.
+   */
+  sourceIdentity?: string
   /** Default true — set false to hide the Alloy chrome. */
   controls?: boolean
   autoPlay?: boolean
@@ -63,11 +83,36 @@ interface VideoPlayerProps {
   onPlayingChange?: (playing: boolean) => void
   /** Proxies to the `<video>` element's click. */
   onVideoClick?: React.MouseEventHandler<HTMLVideoElement>
+  /**
+   * Fires exactly once per mount when the viewer has accumulated
+   * `min(10s, duration * 0.5)` of real playback — "real" meaning
+   * cumulative wall-clock time while `playing`, not `currentTime`
+   * position. Scrubbing to the end adds zero; background-tab pauses
+   * add zero. This is what drives view counting.
+   *
+   * The threshold is intentionally computed inside the player rather
+   * than passed in so the policy is in one place and every surface
+   * (dialog, profile page, future embed) gets the same definition of
+   * "viewed".
+   */
+  onPlayThreshold?: () => void
+  qualityOptions?: Array<{ id: string; label: string }>
+  selectedQualityId?: string
+  onSelectQuality?: (qualityId: string) => void
+  downloadOptions?: Array<{ id: string; label: string; url: string }>
 }
+
+// The "viewed" threshold, matching the server's 24h dedup window. Short
+// clips get the halfway-point rule so a 3s highlight still counts at
+// 1.5s; longer clips cap at 10s so a 20-minute stream doesn't require
+// 10 minutes of watch to count. Aligned with what users call "watched".
+const PLAY_THRESHOLD_CAP_SEC = 10
+const PLAY_THRESHOLD_FRACTION = 0.5
 
 export function VideoPlayer({
   src,
   poster,
+  sourceIdentity,
   controls = true,
   autoPlay = false,
   loop = false,
@@ -80,6 +125,11 @@ export function VideoPlayer({
   onTimeUpdate,
   onPlayingChange,
   onVideoClick,
+  onPlayThreshold,
+  qualityOptions,
+  selectedQualityId,
+  onSelectQuality,
+  downloadOptions,
 }: VideoPlayerProps) {
   const internalRef = React.useRef<HTMLVideoElement | null>(null)
 
@@ -97,6 +147,18 @@ export function VideoPlayer({
     },
     [videoRef]
   )
+
+  // Threshold tracker — accumulates wall time while `playing` and fires
+  // `onPlayThreshold` exactly once when the accumulator crosses the
+  // computed threshold. Reset on `src` change so navigating between
+  // clips in the same player instance starts a fresh window. Attaches
+  // listeners via addEventListener so it composes cleanly with the
+  // synthetic handlers the chrome mode already puts on the element.
+  usePlayThreshold({
+    videoRef: internalRef,
+    identity: sourceIdentity ?? src,
+    onPlayThreshold,
+  })
 
   const sharedVideoProps = {
     ref: setVideoNode,
@@ -141,6 +203,11 @@ export function VideoPlayer({
     <VideoPlayerWithChrome
       sharedVideoProps={sharedVideoProps}
       videoRefInternal={internalRef}
+      sourceIdentity={sourceIdentity ?? src}
+      selectedQualityId={selectedQualityId}
+      qualityOptions={qualityOptions}
+      onSelectQuality={onSelectQuality}
+      downloadOptions={downloadOptions}
       className={className}
     />
   )
@@ -159,13 +226,32 @@ type SharedProps = React.VideoHTMLAttributes<HTMLVideoElement> & {
 function VideoPlayerWithChrome({
   sharedVideoProps,
   videoRefInternal,
+  sourceIdentity,
+  selectedQualityId,
+  qualityOptions,
+  onSelectQuality,
+  downloadOptions,
   className,
 }: {
   sharedVideoProps: SharedProps
   videoRefInternal: React.MutableRefObject<HTMLVideoElement | null>
+  sourceIdentity: string
+  selectedQualityId?: string
+  qualityOptions?: Array<{ id: string; label: string }>
+  onSelectQuality?: (qualityId: string) => void
+  downloadOptions?: Array<{ id: string; label: string; url: string }>
   className?: string
 }) {
   const containerRef = React.useRef<HTMLDivElement>(null)
+  const resumePlaybackRef = React.useRef<{
+    time: number
+    shouldPlay: boolean
+    sourceIdentity: string
+  } | null>(null)
+  const prevSourceRef = React.useRef({
+    src: String(sharedVideoProps.src ?? ""),
+    sourceIdentity,
+  })
 
   // Element-state mirrors. These are driven by the <video>'s own events
   // (never the other way around) so we stay in sync even if someone
@@ -198,6 +284,28 @@ function VideoPlayerWithChrome({
     document.addEventListener("fullscreenchange", onChange)
     return () => document.removeEventListener("fullscreenchange", onChange)
   }, [])
+
+  React.useEffect(() => {
+    const previous = prevSourceRef.current
+    const nextSrc = String(sharedVideoProps.src ?? "")
+    if (
+      previous.src === nextSrc &&
+      previous.sourceIdentity === sourceIdentity
+    ) {
+      return
+    }
+    const video = videoRefInternal.current
+    if (video && previous.sourceIdentity === sourceIdentity) {
+      resumePlaybackRef.current = {
+        time: video.currentTime,
+        shouldPlay: !video.paused && !video.ended,
+        sourceIdentity,
+      }
+    } else {
+      resumePlaybackRef.current = null
+    }
+    prevSourceRef.current = { src: nextSrc, sourceIdentity }
+  }, [sharedVideoProps.src, sourceIdentity, videoRefInternal])
 
   const togglePlay = React.useCallback(() => {
     const v = videoRefInternal.current
@@ -301,13 +409,7 @@ function VideoPlayerWithChrome({
         void toggleFullscreen()
       }
     },
-    [
-      togglePlay,
-      toggleMute,
-      toggleFullscreen,
-      seekTo,
-      videoRefInternal,
-    ]
+    [togglePlay, toggleMute, toggleFullscreen, seekTo, videoRefInternal]
   )
 
   // Wire element events onto our state mirrors. React's synthetic
@@ -321,7 +423,23 @@ function VideoPlayerWithChrome({
     setDuration(v.duration || 0)
     setVolume(v.volume)
     setMuted(v.muted)
-  }, [videoRefInternal])
+    const resume = resumePlaybackRef.current
+    if (!resume || resume.sourceIdentity !== sourceIdentity) return
+    const maxSeek = Math.max(0, (v.duration || 0) - 0.1)
+    const target = Math.min(resume.time, maxSeek)
+    if (target > 0) {
+      if (typeof v.fastSeek === "function") {
+        v.fastSeek(target)
+      } else {
+        v.currentTime = target
+      }
+      setCurrentTime(target)
+    }
+    if (resume.shouldPlay) {
+      void v.play().catch(() => undefined)
+    }
+    resumePlaybackRef.current = null
+  }, [sourceIdentity, videoRefInternal])
   const onTimeEvent = React.useCallback(() => {
     const v = videoRefInternal.current
     if (!v) return
@@ -356,7 +474,7 @@ function VideoPlayerWithChrome({
       tabIndex={-1}
       onKeyDown={onKeyDown}
       className={cn(
-        "group/video relative aspect-video w-full select-none overflow-hidden rounded-md",
+        "group/video relative aspect-video w-full overflow-hidden rounded-md select-none",
         "bg-black shadow-[0_0_0_1px_var(--border)]",
         "focus:outline-none",
         className
@@ -438,18 +556,18 @@ function VideoPlayerWithChrome({
           <span className="ml-1 font-mono text-2xs tracking-[0.06em] text-foreground">
             <span className="text-accent">{formatTime(currentTime)}</span>
             <span className="mx-1 text-foreground-faint">/</span>
-            <span className="text-foreground-muted">{formatTime(duration)}</span>
+            <span className="text-foreground-muted">
+              {formatTime(duration)}
+            </span>
           </span>
 
           <div className="ml-auto flex items-center gap-0.5">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Settings"
-              className="text-foreground hover:bg-[color-mix(in_oklab,var(--neutral-900)_10%,transparent)]"
-            >
-              <SettingsIcon />
-            </Button>
+            <SettingsMenu
+              qualityOptions={qualityOptions}
+              selectedQualityId={selectedQualityId}
+              onSelectQuality={onSelectQuality}
+              downloadOptions={downloadOptions}
+            />
             {pipSupported ? (
               <Button
                 variant="ghost"
@@ -476,6 +594,78 @@ function VideoPlayerWithChrome({
         </div>
       </div>
     </div>
+  )
+}
+
+function SettingsMenu({
+  qualityOptions = [],
+  selectedQualityId,
+  onSelectQuality,
+  downloadOptions = [],
+}: {
+  qualityOptions?: Array<{ id: string; label: string }>
+  selectedQualityId?: string
+  onSelectQuality?: (qualityId: string) => void
+  downloadOptions?: Array<{ id: string; label: string; url: string }>
+}) {
+  const hasQualityChoices =
+    qualityOptions.length > 1 && Boolean(onSelectQuality)
+  const hasDownloads = downloadOptions.length > 0
+  if (!hasQualityChoices && !hasDownloads) return null
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Settings"
+            className="text-foreground hover:bg-[color-mix(in_oklab,var(--neutral-900)_10%,transparent)]"
+          >
+            <SettingsIcon />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end" sideOffset={8}>
+        {hasQualityChoices ? (
+          <>
+            <DropdownMenuLabel>Quality</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={selectedQualityId}
+              onValueChange={onSelectQuality}
+            >
+              {qualityOptions.map((quality) => (
+                <DropdownMenuRadioItem key={quality.id} value={quality.id}>
+                  {quality.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </>
+        ) : null}
+
+        {hasQualityChoices && hasDownloads ? <DropdownMenuSeparator /> : null}
+
+        {hasDownloads ? (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <DownloadIcon />
+              Download
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {downloadOptions.map((download) => (
+                <DropdownMenuItem
+                  key={download.id}
+                  onClick={() => startDownload(download.url)}
+                >
+                  {download.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -511,10 +701,7 @@ function Scrubber({
       const rail = railRef.current
       if (!rail || duration <= 0) return 0
       const rect = rail.getBoundingClientRect()
-      const pct = Math.min(
-        1,
-        Math.max(0, (clientX - rect.left) / rect.width)
-      )
+      const pct = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
       return pct * duration
     },
     [duration]
@@ -621,7 +808,12 @@ export function VolumeControl({
   const draggingIdRef = React.useRef<number | null>(null)
 
   const effective = muted ? 0 : volume
-  const Icon = muted || volume === 0 ? VolumeXIcon : volume < 0.5 ? Volume1Icon : Volume2Icon
+  const Icon =
+    muted || volume === 0
+      ? VolumeXIcon
+      : volume < 0.5
+        ? Volume1Icon
+        : Volume2Icon
 
   const computeVolume = React.useCallback((clientX: number): number => {
     const rail = railRef.current
@@ -698,6 +890,118 @@ export function VolumeControl({
       </div>
     </div>
   )
+}
+
+/**
+ * Subscribe to a `<video>` element and fire `onPlayThreshold` exactly
+ * once when cumulative-while-playing wall time crosses the viewed
+ * threshold. "Wall time" — not `currentTime` — so scrubbing to the end
+ * counts for zero and a pause in the middle of the clip doesn't pad
+ * the accumulator while no frames are playing.
+ *
+ * The implementation is deliberately DOM-level (addEventListener on
+ * the ref'd node) so it composes cleanly with the synthetic handlers
+ * both bare and chrome modes have already wired onto the element.
+ *
+ * `src` is a dep so navigating between clips in the same player
+ * instance resets the accumulator and re-arms the one-shot callback.
+ */
+function usePlayThreshold({
+  videoRef,
+  identity,
+  onPlayThreshold,
+}: {
+  videoRef: React.MutableRefObject<HTMLVideoElement | null>
+  identity: string
+  onPlayThreshold: (() => void) | undefined
+}): void {
+  // Latest callback in a ref so resubscribing on every render-prop-
+  // identity change isn't needed. Callers passing an inline arrow still
+  // see the newest closure fire on the threshold crossing.
+  const callbackRef = React.useRef(onPlayThreshold)
+  React.useEffect(() => {
+    callbackRef.current = onPlayThreshold
+  }, [onPlayThreshold])
+
+  React.useEffect(() => {
+    const el = videoRef.current
+    if (!el) return
+    if (!callbackRef.current) return
+
+    // Per-mount accumulator. Reset on every `src` change (dep) so a
+    // single player instance navigating through multiple clips re-arms
+    // correctly.
+    let accumulatedMs = 0
+    let lastTickAt: number | null = null
+    let fired = false
+
+    const threshold = () => {
+      const durSec = el.duration
+      // When duration is unknown (metadata not loaded yet) assume a
+      // long clip — caps at 10s. Once metadata arrives the next tick
+      // recomputes with the real value. Clamping at duration keeps the
+      // math sensible for sub-second clips.
+      const base = Number.isFinite(durSec) && durSec > 0 ? durSec : 60
+      return Math.min(PLAY_THRESHOLD_CAP_SEC, base * PLAY_THRESHOLD_FRACTION)
+    }
+
+    const tick = () => {
+      if (fired || lastTickAt === null) return
+      const now = performance.now()
+      accumulatedMs += now - lastTickAt
+      lastTickAt = now
+      if (accumulatedMs / 1000 >= threshold()) {
+        fired = true
+        callbackRef.current?.()
+      }
+    }
+
+    const onPlay = () => {
+      if (fired) return
+      lastTickAt = performance.now()
+    }
+    const onPause = () => {
+      tick()
+      lastTickAt = null
+    }
+    const onTime = () => {
+      if (lastTickAt === null) return
+      tick()
+    }
+
+    el.addEventListener("play", onPlay)
+    el.addEventListener("playing", onPlay)
+    el.addEventListener("pause", onPause)
+    el.addEventListener("ended", onPause)
+    el.addEventListener("timeupdate", onTime)
+
+    // If the element is already playing when we attach (e.g. autoPlay
+    // kicked off before this effect ran), seed lastTickAt immediately
+    // so we start accumulating from now.
+    if (!el.paused && !el.ended) {
+      lastTickAt = performance.now()
+    }
+
+    return () => {
+      el.removeEventListener("play", onPlay)
+      el.removeEventListener("playing", onPlay)
+      el.removeEventListener("pause", onPause)
+      el.removeEventListener("ended", onPause)
+      el.removeEventListener("timeupdate", onTime)
+    }
+    // videoRef is a stable ref object; src reset is the semantic trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [identity])
+}
+
+function startDownload(url: string): void {
+  const anchor = document.createElement("a")
+  anchor.href = url
+  anchor.rel = "noopener"
+  anchor.style.display = "none"
+  document.body.append(anchor)
+  anchor.click()
+  anchor.remove()
 }
 
 function formatTime(totalSec: number): string {

@@ -1,4 +1,11 @@
-import { clipStreamUrl, clipThumbnailUrl } from "../lib/clips-api"
+import * as React from "react"
+
+import {
+  clipDownloadUrl,
+  clipStreamUrl,
+  clipThumbnailUrl,
+  type ClipEncodedVariant,
+} from "../lib/clips-api"
 import { VideoPlayer } from "./video-player"
 
 /**
@@ -24,16 +31,86 @@ interface ClipPlayerProps {
    * round trip.
    */
   thumbnail?: string
+  /**
+   * Encoded renditions advertised by the server. Empty on legacy clips,
+   * in which case the player falls back to the default playback MP4 and
+   * only surfaces downloads.
+   */
+  variants?: ClipEncodedVariant[]
+  /**
+   * Fires once when the viewer has accumulated enough playback to count
+   * as a real view (see `VideoPlayer` for the threshold rule). Typically
+   * wired to `recordView(clipId)`; callers skip it for contexts where
+   * playback doesn't count (admin previews, upload-queue previews).
+   */
+  onPlayThreshold?: () => void
   className?: string
 }
 
-function ClipPlayer({ clipId, thumbnail, className }: ClipPlayerProps) {
+function ClipPlayer({
+  clipId,
+  thumbnail,
+  variants = [],
+  onPlayThreshold,
+  className,
+}: ClipPlayerProps) {
   const poster = thumbnail ?? clipThumbnailUrl(clipId)
+  const sortedVariants = React.useMemo(
+    () => [...variants].sort((a, b) => b.height - a.height),
+    [variants]
+  )
+  const defaultVariantId =
+    variants.find((variant) => variant.isDefault)?.id ?? variants[0]?.id ?? null
+  const [selectedVariantId, setSelectedVariantId] = React.useState<
+    string | null
+  >(defaultVariantId)
+
+  React.useEffect(() => {
+    setSelectedVariantId(defaultVariantId)
+  }, [clipId, defaultVariantId])
+
+  const qualityOptions = sortedVariants.map((variant) => ({
+    id: variant.id,
+    label: variant.label,
+  }))
+
+  const downloadOptions = [
+    {
+      id: "source",
+      label: "Original source",
+      url: clipDownloadUrl(clipId, "source"),
+    },
+    ...(sortedVariants.length > 0
+      ? sortedVariants.map((variant) => ({
+          id: variant.id,
+          label: variant.label,
+          url: clipDownloadUrl(clipId, variant.id),
+        }))
+      : [
+          {
+            id: "encoded",
+            label: "Playback MP4",
+            url: clipDownloadUrl(clipId, "encoded"),
+          },
+        ]),
+  ]
+
+  const src =
+    selectedVariantId != null
+      ? clipStreamUrl(clipId, selectedVariantId)
+      : clipStreamUrl(clipId)
+
   return (
     <VideoPlayer
-      src={clipStreamUrl(clipId)}
+      src={src}
       poster={poster}
       className={className}
+      sourceIdentity={clipId}
+      qualityOptions={qualityOptions}
+      selectedQualityId={selectedVariantId ?? undefined}
+      onSelectQuality={setSelectedVariantId}
+      downloadOptions={downloadOptions}
+      onPlayThreshold={onPlayThreshold}
     />
   )
 }
