@@ -10,6 +10,7 @@ import { env } from "../env"
 import {
   EncoderConfigPatchSchema,
   HWACCEL_KINDS,
+  IntegrationsConfigPatchSchema,
   LimitsConfigPatchSchema,
   OAuthProviderSubmissionSchema,
   configStore,
@@ -37,23 +38,44 @@ const RuntimeConfigPatch = z.object({
 })
 
 /**
- * Strip the client secret before handing the config to the admin UI.
- * Admins re-enter it on every save — same pattern as GitHub Actions secrets.
+ * Placeholder returned to the admin UI in place of a live secret.
+ * PATCH routes that receive this value back treat it as "keep current"
+ * so the UI can round-trip a redacted GET through a form submit
+ * without accidentally rotating a key. Never occurs as a real key —
+ * SGDB keys are long UUID-like strings.
  */
-function redactOAuthProvider(
+const REDACTED_SENTINEL = "***"
+
+/**
+ * Strip high-sensitivity credentials before handing the config to the
+ * admin UI. Admins re-enter them on every save — same pattern as GitHub
+ * Actions secrets. Integration keys use the `REDACTED_SENTINEL` so the
+ * UI can render a "configured" hint without seeing the value; OAuth's
+ * client secret follows the pre-existing empty-string convention (its
+ * submission schema treats empty as "keep current" on PUT).
+ */
+function redactSecrets(
   config: Readonly<RuntimeConfig>
 ): Readonly<RuntimeConfig> {
-  if (!config.oauthProvider) return config
-  return {
+  const next: RuntimeConfig = {
     ...config,
-    oauthProvider: { ...config.oauthProvider, clientSecret: "" },
+    integrations: {
+      ...config.integrations,
+      steamgriddbApiKey: config.integrations.steamgriddbApiKey
+        ? REDACTED_SENTINEL
+        : "",
+    },
   }
+  if (next.oauthProvider) {
+    next.oauthProvider = { ...next.oauthProvider, clientSecret: "" }
+  }
+  return next
 }
 
 export const adminRoute = new Hono()
   .use("*", requireAdmin)
   .get("/runtime-config", (c) => {
-    return c.json(redactOAuthProvider(configStore.getAll()))
+    return c.json(redactSecrets(configStore.getAll()))
   })
   .patch("/runtime-config", zValidator("json", RuntimeConfigPatch), (c) => {
     const body = c.req.valid("json")
@@ -83,7 +105,7 @@ export const adminRoute = new Hono()
       patch.emailPasswordEnabled = body.emailPasswordEnabled
     }
     if (Object.keys(patch).length > 0) configStore.patch(patch)
-    return c.json(redactOAuthProvider(configStore.getAll()))
+    return c.json(redactSecrets(configStore.getAll()))
   })
   // PUT replaces the provider wholesale; DELETE clears it. An empty
   // `clientSecret` in the submission means "keep the existing secret" —
@@ -105,7 +127,7 @@ export const adminRoute = new Hono()
         )
       }
       configStore.set("oauthProvider", { ...submission, clientSecret })
-      return c.json(redactOAuthProvider(configStore.getAll()))
+      return c.json(redactSecrets(configStore.getAll()))
     }
   )
   .delete("/oauth-provider", (c) => {
@@ -121,7 +143,7 @@ export const adminRoute = new Hono()
       )
     }
     configStore.set("oauthProvider", null)
-    return c.json(redactOAuthProvider(configStore.getAll()))
+    return c.json(redactSecrets(configStore.getAll()))
   })
 
   /**
@@ -130,16 +152,12 @@ export const adminRoute = new Hono()
    * usually flip one knob at a time. Changes apply to the *next* encode
    * job; jobs already running finish on the previous config.
    */
-  .patch(
-    "/encoder",
-    zValidator("json", EncoderConfigPatchSchema),
-    (c) => {
-      const patch = c.req.valid("json")
-      const next = { ...configStore.get("encoder"), ...patch }
-      configStore.set("encoder", next)
-      return c.json(redactOAuthProvider(configStore.getAll()))
-    }
-  )
+  .patch("/encoder", zValidator("json", EncoderConfigPatchSchema), (c) => {
+    const patch = c.req.valid("json")
+    const next = { ...configStore.get("encoder"), ...patch }
+    configStore.set("encoder", next)
+    return c.json(redactSecrets(configStore.getAll()))
+  })
 
   /**
    * PATCH /limits — update upload + queue limits. `maxUploadBytes` and
@@ -147,14 +165,38 @@ export const adminRoute = new Hono()
    * `queueConcurrency` is registered with pg-boss at boot and needs a
    * server restart to take effect (the UI surfaces this as a hint).
    */
+  .patch("/limits", zValidator("json", LimitsConfigPatchSchema), (c) => {
+    const patch = c.req.valid("json")
+    const next = { ...configStore.get("limits"), ...patch }
+    configStore.set("limits", next)
+    return c.json(redactSecrets(configStore.getAll()))
+  })
+
+  /**
+   * PATCH /integrations — update third-party credentials. The payload
+   * uses the same shape as GET returns, with the `"***"` sentinel
+   * standing in for a currently-set secret — submitting it back means
+   * "keep the stored value", so the UI can safely echo the redacted
+   * response into a form without rotating a key by accident. An
+   * explicit empty string clears the integration; any other non-sentinel
+   * value replaces the stored key. Omitting the field altogether
+   * (since the schema is `.partial()`) is also a no-op.
+   */
   .patch(
-    "/limits",
-    zValidator("json", LimitsConfigPatchSchema),
+    "/integrations",
+    zValidator("json", IntegrationsConfigPatchSchema),
     (c) => {
       const patch = c.req.valid("json")
-      const next = { ...configStore.get("limits"), ...patch }
-      configStore.set("limits", next)
-      return c.json(redactOAuthProvider(configStore.getAll()))
+      const current = configStore.get("integrations")
+      const next: typeof current = { ...current }
+      if (patch.steamgriddbApiKey !== undefined) {
+        next.steamgriddbApiKey =
+          patch.steamgriddbApiKey === REDACTED_SENTINEL
+            ? current.steamgriddbApiKey
+            : patch.steamgriddbApiKey
+      }
+      configStore.set("integrations", next)
+      return c.json(redactSecrets(configStore.getAll()))
     }
   )
 

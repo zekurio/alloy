@@ -4,9 +4,10 @@ import { Hono } from "hono"
 import { z } from "zod"
 
 import { getAuth } from "../auth"
-import { block, clip, follow, user } from "@workspace/db/schema"
+import { block, clip, follow, game, user } from "@workspace/db/schema"
 
 import { db } from "../db"
+import { clipSelectShape } from "../lib/clip-select"
 import { requireSession } from "../lib/require-session"
 
 /**
@@ -217,37 +218,10 @@ export const usersRoute = new Hono()
     const row = await resolveTarget(username)
     if (!row) return c.json({ error: "Not found" }, 404)
     const rows = await db
-      .select({
-        id: clip.id,
-        slug: clip.slug,
-        authorId: clip.authorId,
-        title: clip.title,
-        description: clip.description,
-        game: clip.game,
-        privacy: clip.privacy,
-        storageKey: clip.storageKey,
-        contentType: clip.contentType,
-        sizeBytes: clip.sizeBytes,
-        durationMs: clip.durationMs,
-        width: clip.width,
-        height: clip.height,
-        trimStartMs: clip.trimStartMs,
-        trimEndMs: clip.trimEndMs,
-        thumbKey: clip.thumbKey,
-        thumbSmallKey: clip.thumbSmallKey,
-        viewCount: clip.viewCount,
-        likeCount: clip.likeCount,
-        commentCount: clip.commentCount,
-        status: clip.status,
-        encodeProgress: clip.encodeProgress,
-        failureReason: clip.failureReason,
-        createdAt: clip.createdAt,
-        updatedAt: clip.updatedAt,
-        authorUsername: user.username,
-        authorImage: user.image,
-      })
+      .select(clipSelectShape)
       .from(clip)
       .innerJoin(user, eq(clip.authorId, user.id))
+      .leftJoin(game, eq(clip.gameId, game.id))
       .where(eq(clip.authorId, row.id))
       .orderBy(desc(clip.createdAt))
       .limit(50)
