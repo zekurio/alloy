@@ -1,13 +1,13 @@
-import * as React from "react";
+import * as React from "react"
 import {
   AlertCircleIcon,
   EyeIcon,
   PauseIcon,
   Trash2Icon,
   UploadIcon,
-} from "lucide-react";
+} from "lucide-react"
 
-import { Button } from "@workspace/ui/components/button";
+import { Button } from "@workspace/ui/components/button"
 import {
   Dialog,
   DialogBody,
@@ -16,51 +16,52 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@workspace/ui/components/dialog";
-import { cn } from "@workspace/ui/lib/utils";
+} from "@workspace/ui/components/dialog"
+import { Progress } from "@workspace/ui/components/progress"
+import { cn } from "@workspace/ui/lib/utils"
 
 export type QueueItemStatus =
   | "uploading"
   | "encoding"
   | "queued"
   | "published"
-  | "failed";
+  | "failed"
 
 export interface QueueItem {
-  id: string;
-  title: string;
-  status: QueueItemStatus;
+  id: string
+  title: string
+  status: QueueItemStatus
   /** 0–100. `queued` items should pass 0. */
-  progress: number;
+  progress: number
   /** Second line of the row: "0:41 remaining", "H.264 1080p", etc. */
-  detail: string;
+  detail: string
   /** Hue 0–360 — drives the thumbnail gradient placeholder. */
-  hue: number;
+  hue: number
   /**
    * Real thumbnail URL when we have one — a blob: object URL for
    * in-flight uploads (captured client-side) or the server's thumbnail
    * endpoint for rows that already exist server-side. Falls back to the
    * hue gradient when null/undefined.
    */
-  thumbUrl?: string | null;
+  thumbUrl?: string | null
   /** Optional callbacks the FlowController wires per row. */
-  onCancel?: () => void;
-  onRetry?: () => void;
-  onView?: () => void;
+  onCancel?: () => void
+  onRetry?: () => void
+  onView?: () => void
 }
 
 interface UploadQueueModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  queue: Array<QueueItem>;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  queue: Array<QueueItem>
   /** Opens the "new clip" modal — triggered by the footer Upload button. */
-  onNewClip: () => void;
+  onNewClip: () => void
   /**
    * When true the dialog skips its built-in overlay — the parent
    * (`upload-flow.tsx`) renders a single shared backdrop across both
    * upload modals so the handoff doesn't flash.
    */
-  sharedOverlay?: boolean;
+  sharedOverlay?: boolean
 }
 
 /**
@@ -116,11 +117,11 @@ export function UploadQueueModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
 
 function QueueRow({ item }: { item: QueueItem }) {
-  const tone = STATUS_TONES[item.status];
+  const tone = STATUS_TONES[item.status]
 
   return (
     <article
@@ -129,7 +130,7 @@ function QueueRow({ item }: { item: QueueItem }) {
         "group/row relative flex items-center gap-3",
         "rounded-md border border-border bg-surface px-3 py-2.5",
         "transition-[border-color] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-        "hover:border-border-strong",
+        "hover:border-border-strong"
       )}
     >
       {/* Thumbnail — the hue gradient is always the background so a
@@ -151,23 +152,16 @@ function QueueRow({ item }: { item: QueueItem }) {
           <span className="text-foreground-faint">·</span>
           <span className="truncate">{item.detail}</span>
         </div>
-        <div
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={item.progress}
-          className="relative h-[3px] w-full overflow-hidden rounded-full bg-neutral-200"
-        >
-          {item.status !== "queued" && item.status !== "failed" ? (
-            <div
-              className={cn(
-                "absolute inset-y-0 left-0 rounded-full transition-[width] duration-500 ease-[var(--ease-out)]",
-                tone.bar,
-              )}
-              style={{ width: `${item.progress}%` }}
-            />
-          ) : null}
-        </div>
+        <Progress
+          value={item.progress}
+          indicatorClassName={cn(
+            "duration-500 ease-[var(--ease-out)]",
+            // `queued` / `failed` rows don't get a coloured fill — leave
+            // the indicator transparent so the track reads as empty even
+            // if base-ui paints a zero-width sliver.
+            tone.bar || "bg-transparent"
+          )}
+        />
       </div>
 
       {/* Percent + action */}
@@ -175,7 +169,7 @@ function QueueRow({ item }: { item: QueueItem }) {
         <span
           className={cn(
             "w-10 text-right font-mono text-xs font-medium tabular-nums",
-            tone.label,
+            tone.label
           )}
         >
           {item.status === "queued" ? (
@@ -189,23 +183,23 @@ function QueueRow({ item }: { item: QueueItem }) {
         <RowAction item={item} />
       </div>
     </article>
-  );
+  )
 }
 
 function QueueThumb({
   thumbUrl,
   hue,
 }: {
-  thumbUrl: string | null;
-  hue: number;
+  thumbUrl: string | null
+  hue: number
 }) {
   // Reset the error gate when the URL changes — lets a freshly-finalized
   // row swap from local blob: URL to the server endpoint without getting
   // stuck on the prior error.
-  const [errored, setErrored] = React.useState(false);
+  const [errored, setErrored] = React.useState(false)
   React.useEffect(() => {
-    setErrored(false);
-  }, [thumbUrl]);
+    setErrored(false)
+  }, [thumbUrl])
 
   return (
     <div
@@ -226,11 +220,11 @@ function QueueThumb({
         />
       ) : null}
     </div>
-  );
+  )
 }
 
 function RowAction({ item }: { item: QueueItem }) {
-  const { status, title } = item;
+  const { status, title } = item
   if (status === "uploading") {
     return (
       <Button
@@ -241,7 +235,7 @@ function RowAction({ item }: { item: QueueItem }) {
       >
         <PauseIcon />
       </Button>
-    );
+    )
   }
   if (status === "encoding" || status === "queued") {
     return (
@@ -253,7 +247,7 @@ function RowAction({ item }: { item: QueueItem }) {
       >
         <Trash2Icon />
       </Button>
-    );
+    )
   }
   if (status === "failed") {
     return (
@@ -265,7 +259,7 @@ function RowAction({ item }: { item: QueueItem }) {
       >
         <Trash2Icon />
       </Button>
-    );
+    )
   }
   // published
   return (
@@ -277,7 +271,7 @@ function RowAction({ item }: { item: QueueItem }) {
     >
       <EyeIcon />
     </Button>
-  );
+  )
 }
 
 const STATUS_LABELS: Record<QueueItemStatus, string> = {
@@ -286,7 +280,7 @@ const STATUS_LABELS: Record<QueueItemStatus, string> = {
   queued: "Queued",
   published: "Published",
   failed: "Failed",
-};
+}
 
 const STATUS_TONES: Record<QueueItemStatus, { label: string; bar: string }> = {
   uploading: { label: "text-accent", bar: "bg-accent" },
@@ -294,4 +288,4 @@ const STATUS_TONES: Record<QueueItemStatus, { label: string; bar: string }> = {
   queued: { label: "text-foreground-faint", bar: "" },
   published: { label: "text-success", bar: "bg-success" },
   failed: { label: "text-destructive", bar: "bg-destructive" },
-};
+}

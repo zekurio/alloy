@@ -15,10 +15,7 @@ import { cn } from "@workspace/ui/lib/utils"
  * space without actually rendering the card. This is the Vercel rules
  * `rendering-content-visibility` hit.
  */
-export function ClipGrid({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+export function ClipGrid({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="clip-grid"
@@ -26,7 +23,7 @@ export function ClipGrid({
         "grid gap-6",
         "[grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]",
         "xl:[grid-template-columns:repeat(5,minmax(0,1fr))]",
-        "[&>*]:[content-visibility:auto] [&>*]:[contain-intrinsic-size:260px]",
+        "[&>*]:[contain-intrinsic-size:260px] [&>*]:[content-visibility:auto]",
         className
       )}
       {...props}

@@ -6,11 +6,20 @@ import {
   DialogTrigger,
 } from "@workspace/ui/components/dialog"
 import { ClipCard } from "@workspace/ui/components/clip-card"
+import { Spinner } from "@workspace/ui/components/spinner"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { ClipComments } from "./clip-comments"
-import { ClipMeta } from "./clip-meta"
-import { ClipPlayer } from "./clip-player"
+import {
+  type ClipEncodedVariant,
+  type ClipGameRef,
+  type ClipPrivacy,
+} from "../lib/clips-api"
+
+const ClipPlayerDialogContent = React.lazy(() =>
+  import("./clip-player-dialog-content").then((m) => ({
+    default: m.ClipPlayerDialogContent,
+  }))
+)
 
 /**
  * Clickable `ClipCard` that pops open a focused player overlay.
@@ -29,19 +38,67 @@ export interface ClipCardTriggerProps {
   streamUrl: string
   /** Optional poster. Omit to let `ClipPlayer` point at the thumbnail endpoint. */
   thumbnail?: string
+  /** Encoded playback ladder available for quality switching/downloads. */
+  variants: ClipEncodedVariant[]
   /** Uploader's handle — links to `/u/:handle` on the avatar and name. */
   authorHandle: string
+  /**
+   * Uploader's stable user id. Threaded through so the meta row can
+   * compare against the viewer's session and surface owner-only
+   * affordances (edit / delete) in the action dropdown. Separate from
+   * `authorHandle` because the handle is a display string that can be
+   * renamed; the id can't.
+   */
+  authorId: string
   /** Display name shown on the card + meta row. */
   author: string
   /** Uploader avatar URL (from `user.image`); null when not uploaded yet. */
   authorImage?: string | null
   title: string
   game: string
+  /**
+   * Mapped SGDB game row for the clip, or `null` when the uploader
+   * didn't pick one / the row is a legacy text-only entry. Threaded into
+   * `ClipMeta` so the owner's game editor can seed its combobox with
+   * the current pick. Non-owners never see the editor, so the null case
+   * is just a no-op.
+   */
+  gameRef: ClipGameRef | null
+  /**
+   * Pre-built href for the game badge on the card. Kept as a plain
+   * string so `@workspace/ui`'s `ClipCard` doesn't need to know about
+   * the app's router; the caller (route component) resolves the slug
+   * into `/g/:slug` before handing it down. `null` when the clip isn't
+   * mapped to an SGDB game — the card then renders the label as a
+   * plain span.
+   */
+  gameHref: string | null
   views: string
   likes: string
   comments: string
   postedAt: string
   accentHue: number
+  /**
+   * Gate for the card's lock/link badge. Only set by callers that have
+   * verified the viewer owns the clip — the card uses its presence as
+   * the gate so non-owners don't see an "Unlisted" marker on clips they
+   * reached via the feed. Separate from `clipPrivacy` on purpose: this
+   * prop drives a visibility policy, `clipPrivacy` is the real value.
+   */
+  privacy?: ClipPrivacy
+  /**
+   * Stored privacy, always the real value. Threaded into `ClipMeta` so
+   * the owner's inline edit form can seed its dirty state. Unlike
+   * `privacy`, this is never hidden from non-owners — `ClipMeta` itself
+   * gates the privacy pill + picker on owner-ness.
+   */
+  clipPrivacy: ClipPrivacy
+  /**
+   * Author-supplied description, already threaded from the feed payload
+   * so the dialog doesn't need a second fetch. Rendered by `ClipMeta`
+   * below the action bar.
+   */
+  description: string | null
   className?: string
 }
 
@@ -50,30 +107,39 @@ export function ClipCardTrigger({
   clipId,
   streamUrl,
   thumbnail,
+  variants,
   authorHandle,
+  authorId,
   author,
   authorImage,
   title,
   game,
+  gameRef,
+  gameHref,
   views,
   likes,
   comments,
   postedAt,
   accentHue,
+  privacy,
+  clipPrivacy,
+  description,
 }: ClipCardTriggerProps) {
+  const [open, setOpen] = React.useState(false)
   const triggerRef = React.useRef<HTMLButtonElement | null>(null)
   // Base UI restores focus to the trigger on close. For pointer-driven
   // opens that lights up `:focus-visible` and wraps the whole card in a
   // ring — the "silly border" after closing the player. Drop focus on
   // close so only genuine keyboard nav leaves the ring behind.
-  const handleOpenChange = (open: boolean) => {
-    if (!open) {
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen)
+    if (!nextOpen) {
       // Defer past Base UI's own focus restore.
       requestAnimationFrame(() => triggerRef.current?.blur())
     }
   }
   return (
-    <Dialog onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
         render={
           <button
@@ -90,7 +156,9 @@ export function ClipCardTrigger({
         <ClipCard
           title={title}
           author={author}
+          authorImage={authorImage}
           game={game}
+          gameHref={gameHref}
           views={views}
           likes={likes}
           comments={comments}
@@ -98,97 +166,51 @@ export function ClipCardTrigger({
           thumbnail={thumbnail}
           accentHue={accentHue}
           streamUrl={streamUrl}
+          privacy={privacy}
         />
       </DialogTrigger>
 
-      <ClipPlayerDialogContent
-        clipId={clipId}
-        thumbnail={thumbnail}
-        authorHandle={authorHandle}
-        author={author}
-        authorImage={authorImage}
-        title={title}
-        game={game}
-        views={views}
-        likes={likes}
-        comments={comments}
-        postedAt={postedAt}
-        accentHue={accentHue}
-      />
+      {open ? (
+        <React.Suspense fallback={<ClipPlayerDialogFallback />}>
+          <ClipPlayerDialogContent
+            clipId={clipId}
+            thumbnail={thumbnail}
+            variants={variants}
+            authorHandle={authorHandle}
+            authorId={authorId}
+            author={author}
+            authorImage={authorImage}
+            title={title}
+            game={game}
+            gameRef={gameRef}
+            views={views}
+            likes={likes}
+            comments={comments}
+            postedAt={postedAt}
+            accentHue={accentHue}
+            clipPrivacy={clipPrivacy}
+            description={description}
+          />
+        </React.Suspense>
+      ) : null}
     </Dialog>
   )
 }
 
-/**
- * The popup itself — wide, two-column, player on the left and comments
- * flush on the right. Built on top of `DialogContent` so the Alloy
- * backdrop, close X, and animations come for free.
- */
-function ClipPlayerDialogContent({
-  clipId,
-  thumbnail,
-  authorHandle,
-  author,
-  authorImage,
-  title,
-  game,
-  views,
-  likes,
-  comments,
-  postedAt,
-  accentHue,
-}: Omit<ClipCardTriggerProps, "streamUrl" | "className">) {
-  const initials = author.slice(0, 2).toUpperCase()
-  const likesN = parseCount(likes)
-  const commentsN = parseCount(comments)
-
+function ClipPlayerDialogFallback() {
   return (
     <DialogContent
       className={cn(
-        // override DialogContent's default 440px cap
         "h-[96vh] max-h-[1200px] w-[95vw] max-w-[1480px] max-w-none",
-        "grid p-0",
-        "[grid-template-columns:1fr_400px] xl:[grid-template-columns:1fr_480px]",
-        "overflow-hidden"
+        "grid place-items-center overflow-hidden p-0"
       )}
     >
-      {/* ── Left: player + metadata ─────────────────────────── */}
-      <div className="flex min-h-0 min-w-0 flex-col gap-6 overflow-y-auto p-6">
-        <ClipPlayer clipId={clipId} thumbnail={thumbnail} />
-        <ClipMeta
-          title={title}
-          game={game}
-          views={views}
-          postedAt={postedAt}
-          likes={likesN}
-          comments={commentsN}
-          uploader={{
-            handle: authorHandle,
-            name: author,
-            avatar: {
-              initials,
-              src: authorImage ?? undefined,
-              bg: `oklch(0.32 0.18 ${accentHue})`,
-              fg: `oklch(0.95 0.1 ${accentHue})`,
-            },
-          }}
-        />
+      <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-surface">
+        <Spinner className="size-5" />
+        <span className="font-mono text-2xs tracking-[0.08em] text-foreground-faint uppercase">
+          Loading clip
+        </span>
       </div>
-
-      {/* ── Right: comments rail ────────────────────────────── */}
-      <ClipComments clipId={clipId} className="min-h-0" />
     </DialogContent>
   )
-}
-
-// "12.4k" / "1.3k" / "842" → number. Used to round-trip the card's
-// pre-formatted strings into the integer counts ClipMeta expects.
-function parseCount(s: string): number {
-  const trimmed = s.trim().toLowerCase()
-  if (trimmed === "—" || trimmed === "-") return 0
-  const num = Number.parseFloat(trimmed)
-  if (Number.isNaN(num)) return 0
-  if (trimmed.endsWith("k")) return Math.round(num * 1_000)
-  if (trimmed.endsWith("m")) return Math.round(num * 1_000_000)
-  return Math.round(num)
 }
