@@ -24,6 +24,14 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
         "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
         "aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20",
         "file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground",
+        // Override browser autofill chrome (yellow/blue bgs) with our theme tokens.
+        // box-shadow inset is the only reliable way to paint over the forced autofill bg.
+        "[&:-webkit-autofill]:[box-shadow:0_0_0_1000px_var(--input)_inset]",
+        "[&:-webkit-autofill]:[-webkit-text-fill-color:var(--foreground)]",
+        "[&:-webkit-autofill]:[caret-color:var(--foreground)]",
+        "[&:-webkit-autofill:hover]:[box-shadow:0_0_0_1000px_var(--input)_inset]",
+        "[&:-webkit-autofill:focus]:[box-shadow:0_0_0_1000px_var(--surface-raised)_inset]",
+        "[&:-webkit-autofill:focus]:[-webkit-text-fill-color:var(--foreground)]",
         className
       )}
       {...props}

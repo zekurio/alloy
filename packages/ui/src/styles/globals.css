@@ -417,9 +417,8 @@
   }
 }
 
-/* Base card — raised surface, thin border, 3px colored rail on the left    */
-/* keyed by type. The rail is painted via ::before so sonner's own layout   */
-/* (icon + content grid) doesn't have to know about it.                     */
+/* Base card — raised surface, thin border. Type is conveyed by the icon    */
+/* color alone (no colored rail on the left edge).                          */
 
 .alloy-toast {
   position: relative;
@@ -428,35 +427,13 @@
   align-items: flex-start !important;
   gap: 10px !important;
   width: 100%;
-  padding: 12px 14px 12px 16px !important;
+  padding: 12px 14px !important;
   background: var(--surface-raised);
   color: var(--foreground);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
   overflow: hidden;
-}
-
-.alloy-toast::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 3px;
-  background: var(--border-strong);
-}
-
-.alloy-toast[data-type="success"]::before {
-  background: var(--success);
-}
-.alloy-toast[data-type="info"]::before,
-.alloy-toast[data-type="loading"]::before {
-  background: var(--accent);
-}
-.alloy-toast[data-type="warning"]::before {
-  background: var(--warning);
-}
-.alloy-toast[data-type="error"]::before {
-  background: var(--danger);
 }
 
 .alloy-toast-icon {
