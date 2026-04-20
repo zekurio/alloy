@@ -83,10 +83,6 @@ interface AdminUsersCardProps {
  * (`listUsers` / `createUser` / `removeUser` / `setRole`) — every call
  * is server-validated by the plugin's own role check, this UI is the
  * convenience surface.
- *
- * "Seed user" creates an account with no password set; the user can then
- * sign in only via the configured OAuth provider, which links onto the
- * existing email (see `accountLinking` in apps/server/src/auth.ts).
  */
 export function AdminUsersCard({ currentUserId }: AdminUsersCardProps) {
   const [users, setUsers] = React.useState<AdminUserRow[] | null>(null)
@@ -352,7 +348,7 @@ function SeedUserDialog({
   }
 
   return (
-    <DialogContent>
+    <DialogContent showCloseButton={false}>
       <form onSubmit={onSubmit}>
         <DialogHeader>
           <DialogTitle>Seed a user</DialogTitle>
