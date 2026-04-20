@@ -13,10 +13,10 @@ import type { ToasterProps } from "sonner"
 /**
  * Alloy-flavoured Sonner wrapper.
  *
- * Matches the mock in `@alloy/ui > toast.tsx`: a raised card with a 3px
- * colored rail down the left edge keyed by type (success / info /
- * warning / error / loading). Description sits on a muted second line,
- * an inline-end close button takes the place of sonner's default cross.
+ * Matches the mock in `@alloy/ui > toast.tsx`: a raised card where the
+ * type (success / info / warning / error / loading) is conveyed by the
+ * icon color. Description sits on a muted second line, an inline-end
+ * close button takes the place of sonner's default cross.
  *
  * The app is dark-only for now, so `theme` is pinned to `dark` — no
  * `next-themes` dependency required. Visuals are driven by CSS custom
