@@ -51,9 +51,7 @@ export type EncoderHwaccel = (typeof ENCODER_HWACCELS)[number]
 export const ENCODER_CODECS = ["h264", "hevc"] as const
 export type EncoderCodec = (typeof ENCODER_CODECS)[number]
 
-export const ENCODER_TARGET_HEIGHTS = [
-  360, 480, 720, 1080, 1440, 2160,
-] as const
+export const ENCODER_TARGET_HEIGHTS = [360, 480, 720, 1080, 1440, 2160] as const
 export type EncoderTargetHeight = (typeof ENCODER_TARGET_HEIGHTS)[number]
 
 export interface AdminEncoderConfig {
@@ -82,6 +80,20 @@ export interface AdminLimitsConfig {
 }
 
 /**
+ * Third-party credentials. The server redacts set keys to the
+ * `INTEGRATIONS_REDACTED` sentinel on read and treats that sentinel as
+ * "keep current" on write — so the admin form can echo the GET response
+ * back into a PATCH without accidentally rotating a key. Empty string
+ * clears the integration.
+ */
+export const INTEGRATIONS_REDACTED = "***"
+
+export interface AdminIntegrationsConfig {
+  /** Empty = unset, `INTEGRATIONS_REDACTED` = set (value hidden). */
+  steamgriddbApiKey: string
+}
+
+/**
  * Encoder capability matrix returned by
  * `GET /api/admin/encoder/capabilities`. The admin UI uses this to grey
  * out backends the host's ffmpeg wasn't compiled with.
@@ -99,6 +111,7 @@ export interface AdminRuntimeConfig {
   oauthProvider: AdminOAuthProvider | null
   encoder: AdminEncoderConfig
   limits: AdminLimitsConfig
+  integrations: AdminIntegrationsConfig
 }
 
 async function readJson<T>(res: Response): Promise<T> {
@@ -145,6 +158,13 @@ export async function updateLimitsConfig(
   patch: Partial<AdminLimitsConfig>
 ): Promise<AdminRuntimeConfig> {
   const res = await api.api.admin.limits.$patch({ json: patch })
+  return readJson<AdminRuntimeConfig>(res)
+}
+
+export async function updateIntegrationsConfig(
+  patch: Partial<AdminIntegrationsConfig>
+): Promise<AdminRuntimeConfig> {
+  const res = await api.api.admin.integrations.$patch({ json: patch })
   return readJson<AdminRuntimeConfig>(res)
 }
 

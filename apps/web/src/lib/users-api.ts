@@ -1,5 +1,6 @@
 import { api } from "./api"
 import type { ClipRow } from "./clips-api"
+import { readJsonOrThrow } from "./http-error"
 
 /**
  * Client-side wrappers for the /api/users/* endpoints. All functions throw
@@ -58,54 +59,44 @@ export interface UserProfile {
  */
 export type UserClip = ClipRow
 
-async function readJson<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as {
-      error?: string
-    } | null
-    throw new Error(body?.error ?? `${res.status} ${res.statusText}`)
-  }
-  return (await res.json()) as T
-}
-
 export async function fetchUserProfile(handle: string): Promise<UserProfile> {
   const res = await api.api.users[":username"].$get({
     param: { username: handle },
   })
-  return readJson<UserProfile>(res)
+  return readJsonOrThrow<UserProfile>(res)
 }
 
 export async function fetchUserClips(handle: string): Promise<UserClip[]> {
   const res = await api.api.users[":username"].clips.$get({
     param: { username: handle },
   })
-  return readJson<UserClip[]>(res)
+  return readJsonOrThrow<UserClip[]>(res)
 }
 
 export async function followUser(handle: string): Promise<void> {
   const res = await api.api.users[":username"].follow.$post({
     param: { username: handle },
   })
-  await readJson<{ following: true }>(res)
+  await readJsonOrThrow<{ following: true }>(res)
 }
 
 export async function unfollowUser(handle: string): Promise<void> {
   const res = await api.api.users[":username"].follow.$delete({
     param: { username: handle },
   })
-  await readJson<{ following: false }>(res)
+  await readJsonOrThrow<{ following: false }>(res)
 }
 
 export async function blockUser(handle: string): Promise<void> {
   const res = await api.api.users[":username"].block.$post({
     param: { username: handle },
   })
-  await readJson<{ blocked: true }>(res)
+  await readJsonOrThrow<{ blocked: true }>(res)
 }
 
 export async function unblockUser(handle: string): Promise<void> {
   const res = await api.api.users[":username"].block.$delete({
     param: { username: handle },
   })
-  await readJson<{ blocked: false }>(res)
+  await readJsonOrThrow<{ blocked: false }>(res)
 }
