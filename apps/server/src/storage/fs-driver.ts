@@ -1,10 +1,6 @@
 import { Buffer } from "node:buffer"
 import { createHmac, timingSafeEqual } from "node:crypto"
-import {
-  createReadStream,
-  createWriteStream,
-  promises as fsp,
-} from "node:fs"
+import { createReadStream, createWriteStream, promises as fsp } from "node:fs"
 import path from "node:path"
 import type { Readable } from "node:stream"
 import { pipeline } from "node:stream/promises"
@@ -123,7 +119,13 @@ export class FsStorageDriver implements StorageDriver {
     return {
       uploadUrl: `${baseUrl}/storage/upload/${token}`,
       method: "POST",
-      headers: {},
+      // Pin Content-Type to the value baked into the HMAC payload. The
+      // upload route compares these and 400s on mismatch, so we can't let
+      // the browser fall back to `Blob.type` — MKVs in particular come
+      // through as `video/matroska` in Firefox while we normalise to
+      // `video/x-matroska` at the client. Handing the client the exact
+      // string to echo keeps the two in lockstep.
+      headers: { "Content-Type": input.contentType },
       expiresAt,
     }
   }
@@ -135,6 +137,39 @@ export class FsStorageDriver implements StorageDriver {
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === "ENOENT") return
       throw err
+    }
+    // Sweep empty ancestor directories so deleting the last file in a
+    // clip's shard (`clips/aa/bb/<clipId>/`) doesn't leave the folder
+    // tree behind. Stops at the storage root or the first non-empty
+    // dir — shard dirs shared with other clips stay put.
+    await this.pruneEmptyAncestors(path.dirname(full))
+  }
+
+  /**
+   * Walk upward from `startDir`, `rmdir`-ing each directory while it's
+   * empty. Stops on `ENOTEMPTY`, when we reach the configured storage
+   * root, or if the computed relative path ever escapes root (defensive
+   * — shouldn't happen with well-formed keys, but keeps an out-of-tree
+   * rmdir from being possible even if one did).
+   */
+  private async pruneEmptyAncestors(startDir: string): Promise<void> {
+    const root = path.resolve(this.opts.root)
+    let current = path.resolve(startDir)
+    while (true) {
+      const rel = path.relative(root, current)
+      if (rel === "" || rel.startsWith("..")) return
+      try {
+        await fsp.rmdir(current)
+      } catch (err) {
+        const code = (err as NodeJS.ErrnoException).code
+        // Non-empty = done (sibling clips still occupy this shard).
+        // Missing = someone else already cleaned it — also done.
+        if (code === "ENOTEMPTY" || code === "ENOENT" || code === "EEXIST") {
+          return
+        }
+        throw err
+      }
+      current = path.dirname(current)
     }
   }
 }
@@ -149,10 +184,7 @@ export class FsStorageDriver implements StorageDriver {
  * stable. `decodeUploadToken` recomputes the HMAC over the same bytes
  * after base64url-decoding the payload.
  */
-export function signToken(
-  payload: UploadTokenPayload,
-  secret: string
-): string {
+export function signToken(payload: UploadTokenPayload, secret: string): string {
   const json = Buffer.from(JSON.stringify(payload), "utf8")
   const sig = createHmac("sha256", secret).update(json).digest()
   return `${json.toString("base64url")}.${sig.toString("base64url")}`
@@ -168,10 +200,7 @@ export type DecodedToken =
  * token never reaches the HMAC compare path with mismatched lengths,
  * which would throw rather than fail).
  */
-export function decodeUploadToken(
-  token: string,
-  secret: string
-): DecodedToken {
+export function decodeUploadToken(token: string, secret: string): DecodedToken {
   const dot = token.indexOf(".")
   if (dot <= 0 || dot === token.length - 1) {
     return { ok: false, reason: "malformed" }

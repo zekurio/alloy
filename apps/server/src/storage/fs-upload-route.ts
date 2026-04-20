@@ -106,7 +106,9 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
   try {
     await pipeline(nodeBody, counter, createWriteStream(tmpFile))
   } catch (err) {
-    await fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
+    await fsp
+      .rm(tmpDir, { recursive: true, force: true })
+      .catch(() => undefined)
     if (limitTripped) {
       return c.json({ error: "Upload exceeded maximum size" }, 413)
     }
@@ -122,7 +124,9 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
   try {
     await fsp.link(tmpFile, fullDst)
   } catch (err) {
-    await fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
+    await fsp
+      .rm(tmpDir, { recursive: true, force: true })
+      .catch(() => undefined)
     if ((err as NodeJS.ErrnoException).code === "EEXIST") {
       return c.json({ error: "Upload ticket has already been used" }, 409)
     }
@@ -130,7 +134,7 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
     console.error("[storage/upload] publish failed:", err)
     return c.json({ error: "Upload publish failed" }, 500)
   }
-  await fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
+  await fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => undefined)
 
   return c.body(null, 204)
 })

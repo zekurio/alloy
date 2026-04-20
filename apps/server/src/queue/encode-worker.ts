@@ -4,11 +4,11 @@ import path from "node:path"
 import { eq } from "drizzle-orm"
 import type { PgBoss } from "pg-boss"
 
-import { clip } from "@workspace/db/schema"
+import { clip, type ClipEncodedVariant } from "@workspace/db/schema"
 
 import { db } from "../db"
 import { configStore } from "../lib/config-store"
-import { clipAssetKey } from "../storage"
+import { clipAssetKey, clipVideoVariantKey } from "../storage"
 import { FsStorageDriver } from "../storage/fs-driver"
 import { storage } from "../storage"
 import { encode, probe, thumbnail } from "./ffmpeg"
@@ -44,6 +44,34 @@ const RETRY_LIMIT = 2
 
 interface EncodeJobData {
   clipId: string
+}
+
+/**
+ * Map of clipIds currently being worked on in this process. Entries are
+ * registered at the top of `runEncode` and removed in `finally`. The
+ * `done` promise lets `cancelEncode` wait for the handler to actually
+ * unwind (ffmpeg killed, storage FDs closed) before the HTTP delete
+ * route proceeds to unlink bytes — otherwise there's a race where
+ * ffmpeg writes to the output path after we've rm'd it.
+ */
+const activeEncodes = new Map<
+  string,
+  { abort: AbortController; done: Promise<void> }
+>()
+
+/**
+ * Abort the in-flight encode for `clipId` (if any) and wait for the
+ * handler to release its ffmpeg subprocess and DB updates. No-op
+ * (resolves immediately) when nothing's running for that clipId —
+ * callers can fire this unconditionally. Always resolves, never throws:
+ * the handler's own failure path is already responsible for DB
+ * bookkeeping.
+ */
+export async function cancelEncode(clipId: string): Promise<void> {
+  const entry = activeEncodes.get(clipId)
+  if (!entry) return
+  entry.abort.abort()
+  await entry.done
 }
 
 export async function registerEncodeWorker(boss: PgBoss): Promise<void> {
@@ -85,6 +113,11 @@ export async function registerEncodeWorker(boss: PgBoss): Promise<void> {
       try {
         await runEncode(clipId)
       } catch (err) {
+        // User-initiated cancel (via `cancelEncode`) — the row is being
+        // deleted out from under us by the HTTP delete route. Nothing
+        // to record and nothing to retry; let pg-boss mark the job
+        // complete and move on.
+        if ((err as Error).name === "AbortError") return
         const reason = err instanceof Error ? err.message : "Encode failed"
         // Always record the latest reason so the UI has something to
         // show during retries; only flip status='failed' when this was
@@ -116,8 +149,36 @@ async function runEncode(clipId: string): Promise<void> {
     return
   }
 
+  // Register for cancellation. Anything from here on needs `finally` to
+  // clear the map so a crash doesn't leave a phantom entry that
+  // `cancelEncode` would wait on forever.
+  const abort = new AbortController()
+  let resolveDone: () => void = () => undefined
+  const done = new Promise<void>((r) => {
+    resolveDone = r
+  })
+  activeEncodes.set(clipId, { abort, done })
+
+  try {
+    await runEncodeInner(clipId, row, abort.signal)
+  } finally {
+    activeEncodes.delete(clipId)
+    resolveDone()
+  }
+}
+
+/**
+ * The actual encode pipeline. Split out so `runEncode` can wrap it in
+ * the `activeEncodes` register/deregister without an enormous try-block
+ * inline. Takes the already-fetched row so we don't re-query between
+ * the status check and the state transitions.
+ */
+async function runEncodeInner(
+  clipId: string,
+  row: typeof clip.$inferSelect,
+  signal: AbortSignal
+): Promise<void> {
   const sourceKey = row.storageKey
-  const videoKey = clipAssetKey(clipId, "video")
   const thumbKey = clipAssetKey(clipId, "thumb")
   const thumbSmallKey = clipAssetKey(clipId, "thumb-small")
 
@@ -126,11 +187,8 @@ async function runEncode(clipId: string): Promise<void> {
   // download into a tmp dir first. Encapsulating the call site here
   // (`localPathFor`) keeps the worker driver-agnostic up to that swap.
   const sourcePath = localPathFor(sourceKey)
-  const videoPath = localPathFor(videoKey)
   const thumbPath = localPathFor(thumbKey)
   const thumbSmallPath = localPathFor(thumbSmallKey)
-
-  await fsp.mkdir(path.dirname(videoPath), { recursive: true })
 
   await db
     .update(clip)
@@ -165,9 +223,10 @@ async function runEncode(clipId: string): Promise<void> {
   await db
     .update(clip)
     .set({
-      // The probe gives us the source's metadata. Width/height carry
-      // straight through; durationMs reflects the *output* (trim-aware)
-      // so the queue/feed shows the playable length, not the upload's.
+      // The probe gives us the source metadata up front. Duration is
+      // trim-aware because that's what the viewer can actually play;
+      // width/height are overwritten again once the default rendition
+      // lands so read surfaces reflect the primary encoded output.
       durationMs: outputDurationMs,
       width: probed.width,
       height: probed.height,
@@ -185,10 +244,20 @@ async function runEncode(clipId: string): Promise<void> {
     if (now - lastWriteAt < 2000 && pct < 99) return
     lastWrittenPct = pct
     lastWriteAt = now
-    void db
-      .update(clip)
+    // Fire-and-forget, but keep the rejection visible — the previous
+    // `void db.update(...)` swallowed any pool/serialisation failure and
+    // the bar would mysteriously freeze. A failed progress write isn't
+    // worth failing the job over; a log line is enough to catch it.
+    db.update(clip)
       .set({ encodeProgress: pct, updatedAt: new Date() })
       .where(eq(clip.id, clipId))
+      .catch((err: unknown) => {
+        // eslint-disable-next-line no-console
+        console.error(
+          `[encode-worker] progress update failed for ${clipId}:`,
+          err
+        )
+      })
   }
 
   // Encoder config (codec, hwaccel, quality, etc.) is admin-tunable
@@ -196,17 +265,56 @@ async function runEncode(clipId: string): Promise<void> {
   // job without a restart. Jobs already in flight finish on the config
   // they were dispatched with; that's by design.
   const encoderConfig = configStore.get("encoder")
+  const variantSpecs = buildVariantSpecs(
+    clipId,
+    probed.height,
+    encoderConfig.targetHeight
+  )
+  const encodedVariants: ClipEncodedVariant[] = []
 
-  await encode(sourcePath, videoPath, {
-    config: encoderConfig,
-    // Pass the trimmed length so the progress percentage tracks the
-    // right denominator — without it the bar would crawl to ~30% and
-    // jump to "done" on a heavily trimmed source.
-    durationMs: outputDurationMs,
-    onProgress: writeProgress,
-    trimStartMs: effectiveTrimStart,
-    trimEndMs: effectiveTrimEnd,
-  })
+  for (const [index, variant] of variantSpecs.entries()) {
+    const variantPath = localPathFor(variant.storageKey)
+    await fsp.mkdir(path.dirname(variantPath), { recursive: true })
+    await encode(sourcePath, variantPath, {
+      config: encoderConfig,
+      targetHeight: variant.height,
+      // Pass the trimmed length so the progress percentage tracks the
+      // right denominator — without it the bar would crawl to ~30% and
+      // jump to "done" on a heavily trimmed source.
+      durationMs: outputDurationMs,
+      onProgress: (pct) => {
+        const overallPct = Math.floor(
+          ((index + pct / 100) / variantSpecs.length) * 100
+        )
+        writeProgress(overallPct)
+      },
+      trimStartMs: effectiveTrimStart,
+      trimEndMs: effectiveTrimEnd,
+      signal,
+    })
+
+    const [variantProbe, variantStat] = await Promise.all([
+      probe(variantPath),
+      fsp.stat(variantPath),
+    ])
+
+    encodedVariants.push({
+      id: variant.id,
+      label: variant.label,
+      storageKey: variant.storageKey,
+      contentType: "video/mp4",
+      width: variantProbe.width,
+      height: variantProbe.height,
+      sizeBytes: variantStat.size,
+      isDefault: variant.isDefault,
+    })
+  }
+
+  const defaultVariant =
+    encodedVariants.find((variant) => variant.isDefault) ?? encodedVariants[0]
+  if (!defaultVariant) {
+    throw new Error(`No encoded variants were produced for clip ${clipId}`)
+  }
 
   // Thumbnails are produced client-side now (captured from a canvas in
   // the upload modal) and uploaded alongside the source. /finalize
@@ -240,10 +348,16 @@ async function runEncode(clipId: string): Promise<void> {
         Math.max(0, (effectiveTrimEnd ?? probed.durationMs) / 1000 - 0.1)
       )
       if (!thumbHit) {
-        await thumbnail(sourcePath, thumbPath, { width: 640, atSeconds: thumbAt })
+        await thumbnail(sourcePath, thumbPath, {
+          width: 640,
+          atSeconds: thumbAt,
+        })
       }
       if (!thumbSmallHit) {
-        await thumbnail(sourcePath, thumbSmallPath, { width: 160, atSeconds: thumbAt })
+        await thumbnail(sourcePath, thumbSmallPath, {
+          width: 160,
+          atSeconds: thumbAt,
+        })
       }
       thumbStored = true
     }
@@ -252,16 +366,15 @@ async function runEncode(clipId: string): Promise<void> {
     console.warn(`[queue] thumbnail generation failed for ${clipId}:`, err)
   }
 
-  // Stat the encoded output so sizeBytes reflects what's actually on
-  // disk after encoding (the source size landed during finalize).
-  const videoStat = await fsp.stat(videoPath)
-
   await db
     .update(clip)
     .set({
       status: "ready",
       encodeProgress: 100,
-      sizeBytes: videoStat.size,
+      sizeBytes: defaultVariant.sizeBytes,
+      width: defaultVariant.width,
+      height: defaultVariant.height,
+      variants: encodedVariants,
       thumbKey: thumbStored ? thumbKey : null,
       thumbSmallKey: thumbStored ? thumbSmallKey : null,
       updatedAt: new Date(),
@@ -291,7 +404,10 @@ async function markFailed(clipId: string, reason: string): Promise<void> {
  * reflects the latest error while the row itself stays in `encoding`
  * pending the next attempt.
  */
-async function recordFailureReason(clipId: string, reason: string): Promise<void> {
+async function recordFailureReason(
+  clipId: string,
+  reason: string
+): Promise<void> {
   try {
     await db
       .update(clip)
@@ -319,4 +435,49 @@ function localPathFor(key: string): string {
   throw new Error(
     "Encoder needs a local source; S3 driver requires a download step that isn't implemented yet"
   )
+}
+
+function buildVariantSpecs(
+  clipId: string,
+  sourceHeight: number,
+  defaultTargetHeight: number
+): Array<{
+  id: string
+  label: string
+  height: number
+  storageKey: string
+  isDefault: boolean
+}> {
+  const cappedHeights = [
+    Math.min(defaultTargetHeight, sourceHeight),
+    Math.min(720, sourceHeight),
+    Math.min(480, sourceHeight),
+  ].filter((height) => height > 0)
+
+  const seenHeights = new Set<number>()
+  const variants: Array<{
+    id: string
+    label: string
+    height: number
+    storageKey: string
+    isDefault: boolean
+  }> = []
+
+  for (const height of cappedHeights) {
+    if (seenHeights.has(height)) continue
+    seenHeights.add(height)
+    const id = `${height}p`
+    const isDefault = variants.length === 0
+    variants.push({
+      id,
+      label: `${height}p`,
+      height,
+      storageKey: isDefault
+        ? clipAssetKey(clipId, "video")
+        : clipVideoVariantKey(clipId, id),
+      isDefault,
+    })
+  }
+
+  return variants
 }
