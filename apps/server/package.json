@@ -35,7 +35,7 @@
   "devDependencies": {
     "@types/node": "^25.1.0",
     "@types/pg": "^8.20.0",
-    "@typescript/native-preview": "*",
+    "@typescript/native-preview": "7.0.0-dev.20260420.1",
     "oxfmt": "*",
     "oxlint": "*",
     "tsx": "^4.20.3",
