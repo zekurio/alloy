@@ -119,6 +119,7 @@ export async function encode(
   outPath: string,
   opts: {
     config: EncoderConfig
+    targetHeight?: number
     durationMs: number
     onProgress: (pct: number) => void
     /**
@@ -133,22 +134,39 @@ export async function encode(
      */
     trimStartMs?: number | null
     trimEndMs?: number | null
+    /**
+     * Cancellation — aborting the signal SIGTERMs ffmpeg and rejects the
+     * returned promise with an `AbortError`. The caller (the encode
+     * worker) uses this to bail out of a clip that's been deleted
+     * mid-flight so ffmpeg isn't still writing bytes to disk after the
+     * DB row and source file are gone.
+     */
+    signal?: AbortSignal
   }
 ): Promise<void> {
   const args = buildEncodeArgs(srcPath, outPath, opts)
 
-  await runWithProgress(env.FFMPEG_BIN, args, (line) => {
-    // `out_time_us` is microseconds (newer ffmpeg); `out_time_ms` is the
-    // legacy alias and is *also* microseconds despite the name. Either
-    // works — divide by 1000 → ms, then by the trimmed duration → pct.
-    const m = /^out_time_us=(-?\d+)/m.exec(line) ?? /^out_time_ms=(-?\d+)/m.exec(line)
-    if (!m) return
-    const microseconds = Number.parseInt(m[1] ?? "0", 10)
-    if (!Number.isFinite(microseconds) || microseconds < 0) return
-    const ms = microseconds / 1000
-    const pct = Math.min(99, Math.max(0, Math.floor((ms / opts.durationMs) * 100)))
-    opts.onProgress(pct)
-  })
+  await runWithProgress(
+    env.FFMPEG_BIN,
+    args,
+    (line) => {
+      // `out_time_us` is microseconds (newer ffmpeg); `out_time_ms` is the
+      // legacy alias and is *also* microseconds despite the name. Either
+      // works — divide by 1000 → ms, then by the trimmed duration → pct.
+      const m =
+        /^out_time_us=(-?\d+)/m.exec(line) ?? /^out_time_ms=(-?\d+)/m.exec(line)
+      if (!m) return
+      const microseconds = Number.parseInt(m[1] ?? "0", 10)
+      if (!Number.isFinite(microseconds) || microseconds < 0) return
+      const ms = microseconds / 1000
+      const pct = Math.min(
+        99,
+        Math.max(0, Math.floor((ms / opts.durationMs) * 100))
+      )
+      opts.onProgress(pct)
+    },
+    opts.signal
+  )
 }
 
 /**
@@ -166,6 +184,7 @@ export function buildEncodeArgs(
   outPath: string,
   opts: {
     config: EncoderConfig
+    targetHeight?: number
     trimStartMs?: number | null
     trimEndMs?: number | null
   }
@@ -179,7 +198,10 @@ export function buildEncodeArgs(
     ? ["-ss", msToFfmpegTimestamp(opts.trimStartMs ?? 0)]
     : []
   const trimDuration: string[] = hasTrim
-    ? ["-t", msToFfmpegTimestamp((opts.trimEndMs ?? 0) - (opts.trimStartMs ?? 0))]
+    ? [
+        "-t",
+        msToFfmpegTimestamp((opts.trimEndMs ?? 0) - (opts.trimStartMs ?? 0)),
+      ]
     : []
 
   // Input-side device init for hwaccels that need it. VAAPI binds the
@@ -196,7 +218,7 @@ export function buildEncodeArgs(
     }
   })()
 
-  const filterChain = buildFilterChain(config)
+  const filterChain = buildFilterChain(config, opts.targetHeight)
   const codecArgs = buildCodecArgs(config)
   const audioArgs = [
     "-c:a",
@@ -238,12 +260,15 @@ export function buildEncodeArgs(
  * vertical sources stay small instead of being upscaled to fill the
  * target height.
  */
-function buildFilterChain(config: EncoderConfig): string {
-  const scale = `scale=-2:${config.targetHeight}:force_original_aspect_ratio=decrease`
+function buildFilterChain(
+  config: EncoderConfig,
+  targetHeight: number = config.targetHeight
+): string {
+  const scale = `scale=-2:${targetHeight}:force_original_aspect_ratio=decrease`
   switch (config.hwaccel) {
     case "vaapi":
       // VAAPI scaler runs on the GPU once frames are uploaded in nv12.
-      return `format=nv12,hwupload,scale_vaapi=-2:${config.targetHeight}`
+      return `format=nv12,hwupload,scale_vaapi=-2:${targetHeight}`
     case "qsv":
       // The QSV scaler runs on the iGPU; uploading first lets us scale
       // and encode without round-tripping back through system memory.
@@ -397,7 +422,10 @@ interface CaptureResult {
   stderr: string
 }
 
-function runCapture(bin: string, args: ReadonlyArray<string>): Promise<CaptureResult> {
+function runCapture(
+  bin: string,
+  args: ReadonlyArray<string>
+): Promise<CaptureResult> {
   return new Promise((resolve, reject) => {
     const proc = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"] })
     let stdout = ""
@@ -427,16 +455,28 @@ function runCapture(bin: string, args: ReadonlyArray<string>): Promise<CaptureRe
  * Run `bin` and feed each stderr line into `onLine`. Resolves on clean
  * exit; rejects with the tail of stderr on non-zero exit (so the caller
  * can surface a useful failure reason).
+ *
+ * When `signal` is provided, aborting it SIGTERMs the child and the
+ * returned promise rejects with a tagged `AbortError` — callers
+ * distinguish that from a genuine ffmpeg failure so a user-initiated
+ * cancel doesn't churn pg-boss retries or get recorded as a failure
+ * reason on a row that's being deleted.
  */
 function runWithProgress(
   bin: string,
   args: ReadonlyArray<string>,
-  onLine: (line: string) => void
+  onLine: (line: string) => void,
+  signal?: AbortSignal
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(abortError())
+      return
+    }
     const proc = spawn(bin, args, { stdio: ["ignore", "ignore", "pipe"] })
     let stderrTail = ""
     let buf = ""
+    let aborted = false
     proc.stderr.on("data", (chunk) => {
       const text = String(chunk)
       stderrTail = (stderrTail + text).slice(-2000)
@@ -448,14 +488,40 @@ function runWithProgress(
         if (line) onLine(line)
       }
     })
-    proc.on("error", reject)
+    // Deliver SIGTERM on abort; the `close` handler resolves the
+    // promise as AbortError because `aborted` is set.
+    const onAbort = () => {
+      aborted = true
+      // `kill` returns false if the child already exited — harmless.
+      proc.kill("SIGTERM")
+    }
+    signal?.addEventListener("abort", onAbort, { once: true })
+
+    proc.on("error", (err) => {
+      signal?.removeEventListener("abort", onAbort)
+      reject(err)
+    })
     proc.on("close", (code) => {
+      signal?.removeEventListener("abort", onAbort)
+      if (aborted) {
+        reject(abortError())
+        return
+      }
       if (code === 0) {
         if (buf) onLine(buf)
         resolve()
       } else {
-        reject(new Error(`${bin} exited ${code}: ${stderrTail.trim().slice(-500)}`))
+        reject(
+          new Error(`${bin} exited ${code}: ${stderrTail.trim().slice(-500)}`)
+        )
       }
     })
   })
+}
+
+function abortError(): Error {
+  // DOMException is available in Node ≥17 and gives a properly-tagged
+  // `.name === "AbortError"` that downstream `instanceof`-free checks
+  // can key off without importing anything.
+  return new DOMException("Encode cancelled", "AbortError")
 }
