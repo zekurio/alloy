@@ -21,7 +21,7 @@
   "devDependencies": {
     "@types/node": "^25.1.0",
     "@types/react": "^19.2.10",
-    "@typescript/native-preview": "*",
+    "@typescript/native-preview": "7.0.0-dev.20260420.1",
     "oxfmt": "*",
     "oxlint": "*",
     "typescript": "^5.9.3"
