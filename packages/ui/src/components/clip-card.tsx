@@ -1,5 +1,11 @@
 import * as React from "react"
-import { EyeIcon, HeartIcon, MessageSquareIcon } from "lucide-react"
+import {
+  EyeIcon,
+  HeartIcon,
+  LinkIcon,
+  LockIcon,
+  MessageSquareIcon,
+} from "lucide-react"
 
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -29,7 +35,22 @@ import { cn } from "@workspace/ui/lib/utils"
 interface ClipCardProps extends React.ComponentProps<"article"> {
   title: string
   author: string
+  /**
+   * Uploader avatar URL. When omitted (or null), a tinted monogram square
+   * stands in so the row still reads as an identity. The card keeps the
+   * avatar small (20px) — it's an aside to the title, not the subject.
+   */
+  authorImage?: string | null
   game: string
+  /**
+   * Destination for the game label when the clip is mapped to a SGDB
+   * game. When set, the label becomes an anchor that opens `/g/:slug`;
+   * when null/omitted (legacy text-only rows) the label stays a plain
+   * span so viewers don't see a broken link. The card keeps this as a
+   * plain string so `@workspace/ui` doesn't reach into the app's
+   * router; the caller supplies the already-built href.
+   */
+  gameHref?: string | null
   views: string
   likes: string
   comments?: string | number
@@ -42,6 +63,14 @@ interface ClipCardProps extends React.ComponentProps<"article"> {
    * and still-encoding clips where no stream is ready yet).
    */
   streamUrl?: string
+  /**
+   * Privacy setting to surface on the card. Only passed by the clip's
+   * owner — public viewers never see this. A `"public"` value renders
+   * nothing (public is the default state and doesn't need a marker);
+   * `"unlisted"` and `"private"` render a small, low-contrast icon next
+   * to `postedAt` as a quiet reminder of the clip's visibility.
+   */
+  privacy?: "public" | "unlisted" | "private"
 }
 
 // Delay before hover-to-play kicks in. Short enough to feel responsive
@@ -53,7 +82,9 @@ function ClipCard({
   className,
   title,
   author,
+  authorImage,
   game,
+  gameHref,
   views,
   likes,
   comments,
@@ -61,10 +92,13 @@ function ClipCard({
   thumbnail,
   accentHue,
   streamUrl,
+  privacy,
   ...props
 }: ClipCardProps) {
   const commentCount =
     comments ?? Math.max(0, Math.floor((Number.parseFloat(likes) || 0) / 8))
+
+  const privacyBadge = renderPrivacyBadge(privacy)
 
   return (
     <article
@@ -86,15 +120,23 @@ function ClipCard({
           {title}
         </div>
         {author ? (
-          <div className="flex min-w-0 items-center gap-1.5 text-md text-foreground-dim">
-            <span className="truncate font-medium text-foreground-muted">
-              {author}
+          <div className="flex min-w-0 items-center gap-2 text-md leading-none text-foreground-dim">
+            <ClipCardAvatar author={author} authorImage={authorImage} />
+            {/* Optical nudge: apply a single -1px lift to the entire text
+                cluster so author, separator, and game label share the
+                exact same baseline shift relative to the avatar. */}
+            <span className="flex min-w-0 -translate-y-px items-center gap-2">
+              <span className="truncate leading-none font-medium text-foreground-muted">
+                {author}
+              </span>
+              <span className="shrink-0 text-foreground-faint">·</span>
+              <GameLabel game={game} href={gameHref} />
             </span>
-            <span className="text-foreground-faint">·</span>
-            <span className="truncate text-accent">{game}</span>
           </div>
         ) : (
-          <div className="text-md text-accent">{game}</div>
+          <div className="text-md text-accent">
+            <GameLabel game={game} href={gameHref} />
+          </div>
         )}
         <div className="flex items-center gap-3.5 font-mono text-sm tracking-[0.04em] text-foreground-faint">
           <span className="inline-flex items-center gap-1.5">
@@ -109,7 +151,10 @@ function ClipCard({
             <MessageSquareIcon className="size-3.5" />
             {commentCount}
           </span>
-          <span className="ml-auto">{postedAt}</span>
+          <span className="ml-auto inline-flex items-center gap-1.5">
+            {privacyBadge}
+            {postedAt}
+          </span>
         </div>
       </div>
     </article>
@@ -249,6 +294,113 @@ function ClipCardThumb({
         />
       ) : null}
     </div>
+  )
+}
+
+/**
+ * 20px identity square next to the author name. Mirrors the tinted-fallback
+ * approach from `UserChip` so every author reads as a distinct face even
+ * when `user.image` is null. Kept local to the card so the UI package
+ * stays free of a user-display helper dependency — the tint comes from a
+ * cheap hash of the handle itself.
+ */
+function ClipCardAvatar({
+  author,
+  authorImage,
+}: {
+  author: string
+  authorImage: string | null | undefined
+}) {
+  const initials = author.slice(0, 2).toUpperCase() || "?"
+  // Deterministic hue per handle so the same user always gets the same
+  // tint across the grid. Matches the spirit of `avatarTint` in the app
+  // without pulling it across the package boundary.
+  let hash = 0
+  for (let i = 0; i < author.length; i++) {
+    hash = (hash * 31 + author.charCodeAt(i)) >>> 0
+  }
+  const hue = hash % 360
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "inline-flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-[3px]",
+        "text-[9px] leading-none font-semibold"
+      )}
+      style={{
+        background: `oklch(0.32 0.18 ${hue})`,
+        color: `oklch(0.92 0.1 ${hue})`,
+      }}
+    >
+      {authorImage ? (
+        <img
+          src={authorImage}
+          alt=""
+          className="size-full object-cover"
+          loading="lazy"
+          decoding="async"
+        />
+      ) : (
+        initials
+      )}
+    </span>
+  )
+}
+
+/**
+ * Game badge in the card's meta row. When the caller supplies `href` —
+ * i.e. the clip is mapped to a real SGDB game row — the label becomes an
+ * anchor pointing at `/g/:slug`; otherwise it stays a plain span so legacy
+ * text-only rows don't flash a "link but nowhere to go" underline on hover.
+ *
+ * We stop click propagation so the anchor's navigation doesn't also fire
+ * the parent `ClipCardTrigger`'s dialog-open handler — a click on the
+ * game label should take the viewer to the game page, not cascade into
+ * opening the clip player.
+ */
+function GameLabel({
+  game,
+  href,
+}: {
+  game: string
+  href: string | null | undefined
+}) {
+  const className = cn(
+    "truncate leading-none text-accent",
+    href && "hover:underline focus-visible:underline focus-visible:outline-none"
+  )
+  if (href) {
+    return (
+      <a href={href} onClick={(e) => e.stopPropagation()} className={className}>
+        {game}
+      </a>
+    )
+  }
+  return <span className={className}>{game}</span>
+}
+
+/**
+ * Subtle visibility indicator the owner sees on their own clips. Public
+ * clips render nothing — the absence of a badge reads as "public" without
+ * adding an extra glyph to every card in the feed. Unlisted gets a link
+ * icon (shareable-by-URL), private gets a lock. Both inherit the stats
+ * row's muted colour so they whisper rather than shout.
+ */
+function renderPrivacyBadge(
+  privacy: ClipCardProps["privacy"]
+): React.ReactNode {
+  if (!privacy || privacy === "public") return null
+  const Icon = privacy === "private" ? LockIcon : LinkIcon
+  const label =
+    privacy === "private" ? "Private — only you" : "Unlisted — only via link"
+  return (
+    <span
+      className="inline-flex items-center text-foreground-faint"
+      title={label}
+      aria-label={label}
+    >
+      <Icon className="size-3.5" aria-hidden />
+    </span>
   )
 }
 
