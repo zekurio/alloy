@@ -16,4 +16,8 @@ With `flake.nix` present, assume you are running on a NixOS system, or a system 
 
 ## Workflow
 
-Talk through details of implementations with the user. Don't make too many assumptions as you are more often than not wrong. After each code pass, run a lint and typecheck command to check for code quality. Do not ask the user if you should fix issues.
+Talk through details of implementations with the user. Don't make too many assumptions as you are more often than not wrong. After each code pass, run a lint and typecheck command to check for code quality. Do not ask the user if you should fix issues. If both pass, follow these up with a `pnpm dlx aislop scan --json`, if issues can be auto-fixed, run `pnpm dlx aislop fix`. Fix the rest of the remaining issues.
+
+## Code Quality
+
+You should try to stick to best practices,

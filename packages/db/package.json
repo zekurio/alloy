@@ -23,7 +23,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.1.0",
-    "@typescript/native-preview": "*",
+    "@typescript/native-preview": "7.0.0-dev.20260420.1",
     "dotenv": "^17.2.3",
     "drizzle-kit": "^0.31.5",
     "oxfmt": "*",
