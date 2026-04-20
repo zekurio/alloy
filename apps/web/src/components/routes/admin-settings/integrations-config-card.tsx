@@ -1,0 +1,165 @@
+import * as React from "react"
+import { Trash2Icon } from "lucide-react"
+
+import { Button } from "@workspace/ui/components/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
+import {
+  Field,
+  FieldDescription,
+  FieldLabel,
+} from "@workspace/ui/components/field"
+import { Input } from "@workspace/ui/components/input"
+import { toast } from "@workspace/ui/components/sonner"
+
+import {
+  type AdminIntegrationsConfig,
+  type AdminRuntimeConfig,
+  INTEGRATIONS_REDACTED,
+  updateIntegrationsConfig,
+} from "../../../lib/admin-api"
+
+type IntegrationsConfigCardProps = {
+  integrations: AdminIntegrationsConfig
+  onChange: (next: AdminRuntimeConfig) => void
+}
+
+export function IntegrationsConfigCard({
+  integrations,
+  onChange,
+}: IntegrationsConfigCardProps) {
+  const blankForm = (
+    src: AdminIntegrationsConfig
+  ): AdminIntegrationsConfig => ({
+    ...src,
+    steamgriddbApiKey:
+      src.steamgriddbApiKey === INTEGRATIONS_REDACTED
+        ? ""
+        : src.steamgriddbApiKey,
+  })
+
+  const [form, setForm] = React.useState<AdminIntegrationsConfig>(() =>
+    blankForm(integrations)
+  )
+  const [pending, setPending] = React.useState(false)
+
+  React.useEffect(() => {
+    setForm(blankForm(integrations))
+  }, [integrations])
+
+  const steamgriddbConfigured =
+    integrations.steamgriddbApiKey === INTEGRATIONS_REDACTED
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (pending) return
+    setPending(true)
+    try {
+      const patch: Partial<AdminIntegrationsConfig> = {}
+      if (form.steamgriddbApiKey !== "") {
+        patch.steamgriddbApiKey = form.steamgriddbApiKey
+      }
+      if (Object.keys(patch).length === 0) {
+        toast.info("No changes to save")
+        return
+      }
+      const next = await updateIntegrationsConfig(patch)
+      onChange(next)
+      toast.success("Integrations updated")
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "Couldn't update integrations"
+      )
+    } finally {
+      setPending(false)
+    }
+  }
+
+  async function onClearSteamGridDB() {
+    if (pending) return
+    setPending(true)
+    try {
+      const next = await updateIntegrationsConfig({ steamgriddbApiKey: "" })
+      onChange(next)
+      toast.success("SteamGridDB key removed")
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "Couldn't remove key"
+      )
+    } finally {
+      setPending(false)
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit}>
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>SteamGridDB</CardTitle>
+            <CardDescription>
+              API key for SteamGridDB. Unlocks the game picker on upload and the
+              /games pages. Get a key at{" "}
+              <a
+                href="https://www.steamgriddb.com/profile/preferences/api"
+                target="_blank"
+                rel="noreferrer"
+                className="underline"
+              >
+                steamgriddb.com
+              </a>
+              .
+            </CardDescription>
+          </div>
+        </CardHeader>
+
+        <CardContent className="flex flex-col gap-4">
+          <Field>
+            <FieldLabel htmlFor="sgdb-api-key">API key</FieldLabel>
+            <Input
+              id="sgdb-api-key"
+              type="password"
+              autoComplete="new-password"
+              value={form.steamgriddbApiKey}
+              placeholder={
+                steamgriddbConfigured ? "Leave blank to keep current" : ""
+              }
+              onChange={(e) =>
+                setForm((f) => ({ ...f, steamgriddbApiKey: e.target.value }))
+              }
+            />
+            <FieldDescription>
+              {steamgriddbConfigured
+                ? "A key is configured. Type a new value to rotate, or remove it to disable the integration."
+                : "Not configured — game picker and hero fetching are disabled."}
+            </FieldDescription>
+          </Field>
+        </CardContent>
+
+        <CardFooter>
+          {steamgriddbConfigured ? (
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={onClearSteamGridDB}
+              disabled={pending}
+            >
+              <Trash2Icon className="size-4" />
+              Remove key
+            </Button>
+          ) : null}
+          <Button type="submit" variant="primary" size="sm" disabled={pending}>
+            {pending ? "Saving…" : "Save changes"}
+          </Button>
+        </CardFooter>
+      </Card>
+    </form>
+  )
+}
