@@ -3,15 +3,6 @@ import { Link, useLocation } from "@tanstack/react-router"
 import { TabsCount } from "@workspace/ui/components/tabs"
 import { cn } from "@workspace/ui/lib/utils"
 
-/**
- * Link-based tab nav for the profile surface. Each tab is a sibling route
- * (`/u/$username/{feed,all,tagged}`), so the nav is purely visual: it just
- * marks the segment that matches the current pathname as active. This keeps
- * deep links intact — tab state lives in the URL, not in component state.
- *
- * Styled to match `TabsList` + `TabsTrigger` (the `line` variant) so the
- * look is identical to the old base-ui Tabs implementation.
- */
 type ProfileTabsNavProps = {
   username: string
   clipsCount: number | null
