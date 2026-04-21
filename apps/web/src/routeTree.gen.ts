@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ApiSplatRouteImport } from './routes/api/$'
 import { Route as authSignUpRouteImport } from './routes/(auth)/sign-up'
 import { Route as authSetupRouteImport } from './routes/(auth)/setup'
 import { Route as authLoginRouteImport } from './routes/(auth)/login'
@@ -26,6 +27,11 @@ import { Route as appAppUUsernameFeedRouteImport } from './routes/(app)/_app.u.$
 import { Route as appAppUUsernameAllRouteImport } from './routes/(app)/_app.u.$username.all'
 import { Route as appAppGSlugCClipIdRouteImport } from './routes/(app)/_app.g.$slug.c.$clipId'
 
+const ApiSplatRoute = ApiSplatRouteImport.update({
+  id: '/api/$',
+  path: '/api/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const authSignUpRoute = authSignUpRouteImport.update({
   id: '/(auth)/sign-up',
   path: '/sign-up',
@@ -111,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof authLoginRoute
   '/setup': typeof authSetupRoute
   '/sign-up': typeof authSignUpRoute
+  '/api/$': typeof ApiSplatRoute
   '/games': typeof appAppGamesRoute
   '/': typeof appAppIndexRoute
   '/admin-settings': typeof appAppSettingsAdminSettingsRoute
@@ -127,6 +134,7 @@ export interface FileRoutesByTo {
   '/login': typeof authLoginRoute
   '/setup': typeof authSetupRoute
   '/sign-up': typeof authSignUpRoute
+  '/api/$': typeof ApiSplatRoute
   '/games': typeof appAppGamesRoute
   '/': typeof appAppIndexRoute
   '/admin-settings': typeof appAppSettingsAdminSettingsRoute
@@ -144,6 +152,7 @@ export interface FileRoutesById {
   '/(auth)/login': typeof authLoginRoute
   '/(auth)/setup': typeof authSetupRoute
   '/(auth)/sign-up': typeof authSignUpRoute
+  '/api/$': typeof ApiSplatRoute
   '/(app)/_app/_settings': typeof appAppSettingsRouteWithChildren
   '/(app)/_app/games': typeof appAppGamesRoute
   '/(app)/_app/': typeof appAppIndexRoute
@@ -163,6 +172,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/setup'
     | '/sign-up'
+    | '/api/$'
     | '/games'
     | '/'
     | '/admin-settings'
@@ -179,6 +189,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/setup'
     | '/sign-up'
+    | '/api/$'
     | '/games'
     | '/'
     | '/admin-settings'
@@ -195,6 +206,7 @@ export interface FileRouteTypes {
     | '/(auth)/login'
     | '/(auth)/setup'
     | '/(auth)/sign-up'
+    | '/api/$'
     | '/(app)/_app/_settings'
     | '/(app)/_app/games'
     | '/(app)/_app/'
@@ -214,10 +226,18 @@ export interface RootRouteChildren {
   authLoginRoute: typeof authLoginRoute
   authSetupRoute: typeof authSetupRoute
   authSignUpRoute: typeof authSignUpRoute
+  ApiSplatRoute: typeof ApiSplatRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/api/$': {
+      id: '/api/$'
+      path: '/api/$'
+      fullPath: '/api/$'
+      preLoaderRoute: typeof ApiSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/(auth)/sign-up': {
       id: '/(auth)/sign-up'
       path: '/sign-up'
@@ -401,6 +421,7 @@ const rootRouteChildren: RootRouteChildren = {
   authLoginRoute: authLoginRoute,
   authSetupRoute: authSetupRoute,
   authSignUpRoute: authSignUpRoute,
+  ApiSplatRoute: ApiSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

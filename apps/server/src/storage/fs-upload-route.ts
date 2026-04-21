@@ -22,7 +22,7 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
   }
 
   const token = c.req.param("token")
-  const decoded = decodeUploadToken(token, env.STORAGE_HMAC_SECRET)
+  const decoded = decodeUploadToken(token, env.STORAGE_HMAC_SECRET!)
   if (!decoded.ok) {
     // Don't tell the caller *why* — a debug-friendly 401 leaks just
     // enough to help an attacker grind. The structured `code` is for
