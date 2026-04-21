@@ -115,9 +115,6 @@ export class FsStorageDriver implements StorageDriver {
   async downloadToFile(key: string, destPath: string): Promise<void> {
     const src = this.fullPath(key)
     await fsp.mkdir(path.dirname(destPath), { recursive: true })
-    // Hardlink is a constant-time materialisation when src and dest share
-    // a filesystem — falls back to a stream copy when they don't (e.g.
-    // ENCODE_SCRATCH_DIR on a different mount).
     try {
       await fsp.rm(destPath, { force: true })
       await fsp.link(src, destPath)
@@ -165,10 +162,6 @@ export class FsStorageDriver implements StorageDriver {
       if ((err as NodeJS.ErrnoException).code === "ENOENT") return
       throw err
     }
-    // Sweep empty ancestor directories so deleting the last file in a
-    // clip's shard (`clips/aa/bb/<clipId>/`) doesn't leave the folder
-    // tree behind. Stops at the storage root or the first non-empty
-    // dir — shard dirs shared with other clips stay put.
     await this.pruneEmptyAncestors(path.dirname(full))
   }
 

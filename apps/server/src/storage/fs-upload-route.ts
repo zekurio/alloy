@@ -24,9 +24,6 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
   const token = c.req.param("token")
   const decoded = decodeUploadToken(token, env.STORAGE_HMAC_SECRET!)
   if (!decoded.ok) {
-    // Don't tell the caller *why* — a debug-friendly 401 leaks just
-    // enough to help an attacker grind. The structured `code` is for
-    // our own logs.
     return c.json({ error: "Invalid upload ticket" }, 401)
   }
   const { k: key, ct: expectedContentType, mb: maxBytes } = decoded.payload
@@ -81,10 +78,6 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
     return c.json({ error: "Upload write failed" }, 500)
   }
 
-  // Atomic publish. `wx` flag → `rename` would clobber an existing file,
-  // which we don't want; we go through a copy+unlink dance via link()
-  // then rm() to enforce the single-use property without renaming over
-  // an existing file.
   try {
     await fsp.link(tmpFile, fullDst)
   } catch (err) {

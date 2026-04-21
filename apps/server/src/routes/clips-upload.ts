@@ -8,6 +8,10 @@ import { clip, clipMention, game } from "@workspace/db/schema"
 
 import { getAuth } from "../auth"
 import { db } from "../db"
+import {
+  publishClipRemove,
+  publishClipUpsert,
+} from "../lib/clip-events"
 import { selectClipById } from "../lib/clip-select"
 import { configStore } from "../lib/config-store"
 import { requireSession } from "../lib/require-session"
@@ -87,6 +91,9 @@ export const clipsUploadRoutes = new Hono()
         )
       }
 
+      // Fire-and-forget: the clip is now visible in the queue as pending.
+      void publishClipUpsert(viewerId, clipId)
+
       const expiresInSec = configStore.get("limits").uploadTtlSec
       const [ticket, thumbTicket] = await Promise.all([
         storage.mintUploadUrl({
@@ -160,6 +167,8 @@ export const clipsUploadRoutes = new Hono()
         })
         .where(eq(clip.id, id))
 
+      void publishClipUpsert(viewerId, id)
+
       const boss = await getBoss()
       await boss.send(ENCODE_JOB, { clipId: id })
 
@@ -232,6 +241,10 @@ export const clipsUploadRoutes = new Hono()
         }
       }
 
+      // Publish to the clip's owner, not `viewerId` — admins editing
+      // another user's clip shouldn't emit on the admin's queue channel.
+      void publishClipUpsert(row.authorId, id)
+
       const updated = await selectClipById(id)
       return c.json(updated)
     }
@@ -271,5 +284,6 @@ export const clipsUploadRoutes = new Hono()
     }
 
     await db.delete(clip).where(eq(clip.id, id))
+    publishClipRemove(row.authorId, id)
     return c.json({ deleted: true })
   })

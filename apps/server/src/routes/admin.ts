@@ -16,8 +16,10 @@ import {
   HWACCEL_KINDS,
   IntegrationsConfigPatchSchema,
   LimitsConfigPatchSchema,
+  OAuthProviderSchema,
   OAuthProviderSubmissionSchema,
   configStore,
+  type OAuthProviderConfig,
   type HwaccelKind,
   type RuntimeConfig,
 } from "../lib/config-store"
@@ -43,12 +45,26 @@ const RuntimeConfigPatch = z.object({
   requireAuthToBrowse: z.boolean().optional(),
 })
 
+const OAuthProviderAdminSubmissionSchema = z
+  .object({
+    providerId: z.string().optional(),
+  })
+  .passthrough()
+
+const OAuthConfigSubmissionSchema = z.object({
+  oauthProvider: OAuthProviderAdminSubmissionSchema.nullable(),
+})
+
+type OAuthProviderAdminSubmission = Record<string, unknown> & {
+  providerId?: string
+}
+
 const REDACTED_SENTINEL = "***"
 
 function redactSecrets(
   config: Readonly<RuntimeConfig>
 ): Readonly<RuntimeConfig> {
-  const next: RuntimeConfig = {
+  return {
     ...config,
     integrations: {
       ...config.integrations,
@@ -56,31 +72,84 @@ function redactSecrets(
         ? REDACTED_SENTINEL
         : "",
     },
+    oauthProvider: config.oauthProvider
+      ? { ...config.oauthProvider, clientSecret: "" }
+      : null,
   }
-  if (next.oauthProvider) {
-    next.oauthProvider = { ...next.oauthProvider, clientSecret: "" }
+}
+
+function adminRuntimeConfigResponse(config: Readonly<RuntimeConfig>) {
+  return {
+    ...redactSecrets(config),
+    authBaseURL: env.BETTER_AUTH_URL,
   }
-  return next
+}
+
+function hasEnabledOAuthProvider(config: {
+  oauthProvider: { enabled: boolean } | null
+}): boolean {
+  return config.oauthProvider?.enabled === true
+}
+
+function sanitizeScopes(scopes: string[] | undefined): string[] | undefined {
+  const next = scopes?.map((scope) => scope.trim()).filter(Boolean)
+  return next && next.length > 0 ? next : undefined
+}
+
+function finalizeOAuthProviderSubmission(
+  provider: OAuthProviderAdminSubmission,
+  existing: OAuthProviderConfig | null
+): OAuthProviderConfig {
+  const parsedProvider = OAuthProviderSubmissionSchema.parse({
+    ...provider,
+    clientId:
+      typeof provider.clientId === "string"
+        ? provider.clientId.trim()
+        : provider.clientId,
+    clientSecret:
+      typeof provider.clientSecret === "string"
+        ? provider.clientSecret.trim()
+        : provider.clientSecret,
+    scopes: sanitizeScopes(
+      Array.isArray(provider.scopes)
+        ? provider.scopes.filter(
+            (scope): scope is string => typeof scope === "string"
+          )
+        : undefined
+    ),
+  })
+  const clientSecret =
+    parsedProvider.clientSecret.length > 0
+      ? parsedProvider.clientSecret
+      : existing?.providerId === parsedProvider.providerId
+        ? existing.clientSecret
+        : ""
+  if (clientSecret.length === 0) {
+    throw new Error(
+      `Client secret is required for ${parsedProvider.displayName}.`
+    )
+  }
+  return OAuthProviderSchema.parse({
+    ...parsedProvider,
+    clientSecret,
+  }) as OAuthProviderConfig
 }
 
 export const adminRoute = new Hono()
   .use("*", requireAdmin)
   .get("/runtime-config", (c) => {
-    return c.json(redactSecrets(configStore.getAll()))
+    return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
   .patch("/runtime-config", zValidator("json", RuntimeConfigPatch), (c) => {
     const body = c.req.valid("json")
-    // Refuse to disable the only remaining sign-in surface — without an
-    // OAuth provider configured, turning email/password off would lock
-    // every existing user (admins included) out of the app.
     if (
       body.emailPasswordEnabled === false &&
-      configStore.get("oauthProvider") === null
+      !hasEnabledOAuthProvider(configStore.getAll())
     ) {
       return c.json(
         {
           error:
-            "Configure an OAuth provider before disabling email/password — otherwise no one can sign in.",
+            "Configure and enable an OAuth provider before disabling email/password — otherwise no one can sign in.",
         },
         400
       )
@@ -100,42 +169,45 @@ export const adminRoute = new Hono()
       patch.requireAuthToBrowse = body.requireAuthToBrowse
     }
     if (Object.keys(patch).length > 0) configStore.patch(patch)
-    return c.json(redactSecrets(configStore.getAll()))
+    return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
   .put(
-    "/oauth-provider",
-    zValidator("json", OAuthProviderSubmissionSchema),
+    "/oauth-config",
+    zValidator("json", OAuthConfigSubmissionSchema),
     (c) => {
       const submission = c.req.valid("json")
       const existing = configStore.get("oauthProvider")
-      const clientSecret =
-        submission.clientSecret.length > 0
-          ? submission.clientSecret
-          : (existing?.clientSecret ?? "")
-      if (clientSecret.length === 0) {
+      try {
+        const nextProvider = submission.oauthProvider
+          ? finalizeOAuthProviderSubmission(submission.oauthProvider, existing)
+          : null
+        if (
+          !configStore.get("emailPasswordEnabled") &&
+          !hasEnabledOAuthProvider({ oauthProvider: nextProvider })
+        ) {
+          return c.json(
+            {
+              error:
+                "Keep the OAuth provider enabled while email/password login is disabled.",
+            },
+            400
+          )
+        }
+        configStore.patch({ oauthProvider: nextProvider })
+      } catch (cause) {
         return c.json(
-          { error: "clientSecret is required when no provider is configured." },
+          {
+            error:
+              cause instanceof Error
+                ? cause.message
+                : "Couldn't save OAuth configuration.",
+          },
           400
         )
       }
-      configStore.set("oauthProvider", { ...submission, clientSecret })
-      return c.json(redactSecrets(configStore.getAll()))
+      return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     }
   )
-  .delete("/oauth-provider", (c) => {
-    // Same lockout guard as the runtime-config patch: don't let the admin
-    if (!configStore.get("emailPasswordEnabled")) {
-      return c.json(
-        {
-          error:
-            "Re-enable email/password login before removing the OAuth provider — otherwise no one can sign in.",
-        },
-        400
-      )
-    }
-    configStore.set("oauthProvider", null)
-    return c.json(redactSecrets(configStore.getAll()))
-  })
 
   /**
    * PATCH /encoder — update the encoder profile (hwaccel/codec/quality/
@@ -147,7 +219,7 @@ export const adminRoute = new Hono()
     const patch = c.req.valid("json")
     const next = { ...configStore.get("encoder"), ...patch }
     configStore.set("encoder", next)
-    return c.json(redactSecrets(configStore.getAll()))
+    return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
 
   /**
@@ -160,7 +232,7 @@ export const adminRoute = new Hono()
     const patch = c.req.valid("json")
     const next = { ...configStore.get("limits"), ...patch }
     configStore.set("limits", next)
-    return c.json(redactSecrets(configStore.getAll()))
+    return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
 
   .patch(
@@ -177,7 +249,7 @@ export const adminRoute = new Hono()
             : patch.steamgriddbApiKey
       }
       configStore.set("integrations", next)
-      return c.json(redactSecrets(configStore.getAll()))
+      return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     }
   )
 
@@ -205,10 +277,6 @@ export const adminRoute = new Hono()
       .where(inArray(clip.id, ids))
 
     const boss = await getBoss()
-    // pg-boss doesn't have a bulk-send that honours the same retry
-    // policy; sequentially `send()`-ing keeps each job's metadata
-    // independent (retryCount, expireInSeconds) without bouncing through
-    // a different insert path.
     for (const id of ids) {
       await boss.send(ENCODE_JOB, { clipId: id })
     }

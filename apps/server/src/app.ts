@@ -7,9 +7,9 @@ import { env } from "./env"
 import { adminRoute } from "./routes/admin"
 import { authConfigRoute } from "./routes/auth-config"
 import { clips } from "./routes/clips"
+import { eventsRoute } from "./routes/events"
 import { feedRoute } from "./routes/feed"
 import { gamesRoute } from "./routes/games"
-import { profileRoute } from "./routes/profile"
 import { searchRoute } from "./routes/search"
 import { setupRoute } from "./routes/setup"
 import { usersRoute } from "./routes/users"
@@ -33,12 +33,12 @@ export const app = new Hono()
   .route("/api/auth-config", authConfigRoute)
   .route("/api/setup", setupRoute)
   .route("/api/admin", adminRoute)
-  .route("/api/profile", profileRoute)
   .route("/api/clips", clips)
   .route("/api/feed", feedRoute)
   .route("/api/games", gamesRoute)
   .route("/api/search", searchRoute)
   .route("/api/users", usersRoute)
+  .route("/events", eventsRoute)
   // `/storage/upload/:token` is the fs driver's companion route — kept
   // out of `/api/*` because it has no analog under the s3 driver (the
   // browser would PUT straight at the bucket there).

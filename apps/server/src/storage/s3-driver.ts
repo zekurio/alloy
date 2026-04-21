@@ -55,6 +55,9 @@ export class S3StorageDriver implements StorageDriver {
       endpoint: opts.endpoint,
       forcePathStyle: opts.forcePathStyle,
       credentials,
+      // R2 rejects the SDK's default CRC32 on presigned PUTs.
+      requestChecksumCalculation: "WHEN_REQUIRED",
+      responseChecksumValidation: "WHEN_REQUIRED",
     })
   }
 
