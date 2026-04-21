@@ -1,6 +1,5 @@
 import * as React from "react"
 import {
-  AlertCircleIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   CopyIcon,
@@ -145,6 +144,7 @@ export function UploadQueueContent({
 
 function QueueRow({ item }: { item: QueueItem }) {
   const tone = STATUS_TONES[item.status]
+  const showPct = item.status === "uploading" || item.status === "encoding"
 
   return (
     <article
@@ -165,33 +165,29 @@ function QueueRow({ item }: { item: QueueItem }) {
               {item.title}
             </span>
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-foreground-faint">
+          <div className="flex min-w-0 items-center gap-1.5 text-xs text-foreground-faint">
             <span className={cn("font-medium uppercase", tone.label)}>
               {STATUS_LABELS[item.status]}
             </span>
-            <span className="text-foreground-faint">·</span>
+            {showPct ? (
+              <span
+                className={cn(
+                  "font-mono font-medium tabular-nums",
+                  tone.label
+                )}
+              >
+                {item.progress}%
+              </span>
+            ) : null}
+            <span aria-hidden className="text-foreground-faint">
+              ·
+            </span>
             <span className="truncate">{item.detail}</span>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-          <span
-            className={cn(
-              "w-10 text-right font-mono text-xs font-medium tabular-nums",
-              tone.label
-            )}
-          >
-            {item.status === "queued" ? (
-              "—"
-            ) : item.status === "failed" ? (
-              <AlertCircleIcon className="ml-auto size-4" aria-hidden />
-            ) : item.status === "published" ? null : (
-              `${item.progress}%`
-            )}
-          </span>
-          <div className="flex min-w-[88px] items-center justify-end gap-2">
-            <RowAction item={item} />
-          </div>
+        <div className="flex shrink-0 items-center justify-end gap-0.5">
+          <RowAction item={item} />
         </div>
       </div>
 
@@ -254,24 +250,16 @@ function RowAction({ item }: { item: QueueItem }) {
       </Button>
     )
   }
-  if (status === "encoding" || status === "queued") {
+  if (status === "encoding" || status === "queued" || status === "failed") {
+    const label =
+      status === "failed"
+        ? `Remove failed clip ${title}`
+        : `Remove ${title} from queue`
     return (
       <Button
         variant="ghost"
         size="icon-sm"
-        aria-label={`Remove ${title} from queue`}
-        onClick={item.onCancel}
-      >
-        <Trash2Icon />
-      </Button>
-    )
-  }
-  if (status === "failed") {
-    return (
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label={`Remove failed clip ${title}`}
+        aria-label={label}
         onClick={item.onCancel}
       >
         <Trash2Icon />

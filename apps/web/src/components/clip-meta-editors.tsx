@@ -28,6 +28,23 @@ export {
   PrivacyBadgeMenu,
 } from "./clip-visibility-and-mentions"
 
+const editPencilVariants = {
+  title: cn(
+    "ml-2 size-4 shrink-0",
+    "text-foreground-faint opacity-0 transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+    "group-hover/title:opacity-100 group-focus-visible/title:opacity-100"
+  ),
+  description: cn(
+    "pointer-events-none absolute top-1.5 right-2 size-3.5",
+    "text-foreground-faint opacity-0 transition-opacity",
+    "group-hover/desc:opacity-100 group-focus-visible/desc:opacity-100"
+  ),
+} as const
+
+function EditPencil({ variant }: { variant: keyof typeof editPencilVariants }) {
+  return <PencilIcon aria-hidden className={editPencilVariants[variant]} />
+}
+
 export function EditableTitle({
   clipId,
   value,
@@ -171,14 +188,7 @@ export function EditableTitle({
       <h1 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
         {displayValue}
       </h1>
-      <PencilIcon
-        aria-hidden
-        className={cn(
-          "ml-2 size-4 shrink-0",
-          "text-foreground-faint opacity-0 transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-          "group-hover/title:opacity-100 group-focus-visible/title:opacity-100"
-        )}
-      />
+      <EditPencil variant="title" />
     </button>
   )
 }
@@ -199,9 +209,6 @@ export function EditableGame({
   const mutation = useUpdateClipMutation()
   const saving = mutation.isPending
 
-  // Drop the pending row once the mutation finishes — by then the prop
-  // reflects the server-canonical state. Watching `isPending` covers
-  // retry + rollback paths uniformly.
   React.useEffect(() => {
     if (!mutation.isPending) setPendingRow(null)
   }, [mutation.isPending])
@@ -239,9 +246,6 @@ export function EditableGame({
 
   const commit = React.useCallback(
     (row: GameRow | null) => {
-      // Game is a required field — ignore attempts to clear it. The
-      // combobox is also configured with `allowClear={false}`, so this
-      // guards the remaining keyboard-only paths.
       if (!row) {
         setOpen(false)
         return
@@ -487,14 +491,7 @@ export function EditableDescription({
       <p className="text-base leading-relaxed whitespace-pre-wrap text-foreground-muted">
         {renderDescriptionTokens(displayValue, { linkHashtags: false })}
       </p>
-      <PencilIcon
-        aria-hidden
-        className={cn(
-          "pointer-events-none absolute top-1.5 right-2 size-3.5",
-          "text-foreground-faint opacity-0 transition-opacity",
-          "group-hover/desc:opacity-100 group-focus-visible/desc:opacity-100"
-        )}
-      />
+      <EditPencil variant="description" />
     </button>
   )
 }
