@@ -1,5 +1,6 @@
 import * as React from "react"
 import { useRouter } from "@tanstack/react-router"
+import { RefreshCwIcon } from "lucide-react"
 
 import {
   Avatar,
@@ -8,20 +9,31 @@ import {
 } from "@workspace/ui/components/avatar"
 import { Button } from "@workspace/ui/components/button"
 import { Card, CardContent, CardFooter } from "@workspace/ui/components/card"
-import { Field, FieldLabel } from "@workspace/ui/components/field"
+import {
+  Field,
+  FieldDescription,
+  FieldLabel,
+} from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/components/sonner"
 
+import { api } from "../../../lib/api"
 import { authClient } from "../../../lib/auth-client"
+import { readJsonOrThrow } from "../../../lib/http-error"
 import {
   avatarTint,
   displayInitials,
   displayName,
 } from "../../../lib/user-display"
 
+const USERNAME_MIN_LEN = 1
+const USERNAME_MAX_LEN = 24
+const USERNAME_RE = /^[a-z0-9_-]+$/
+
 type ProfileCardProps = {
   userId: string
   initialName: string
+  initialUsername: string
   image: string
   email: string
 }
@@ -29,15 +41,26 @@ type ProfileCardProps = {
 export function ProfileCard({
   userId,
   initialName,
+  initialUsername,
   image,
   email,
 }: ProfileCardProps) {
   const router = useRouter()
   const [name, setName] = React.useState(initialName)
+  const [username, setUsername] = React.useState(initialUsername)
   const [pending, setPending] = React.useState(false)
+  const [syncing, setSyncing] = React.useState(false)
 
   const trimmedName = name.trim()
-  const dirty = trimmedName !== initialName.trim()
+  const trimmedUsername = username.trim()
+
+  const nameDirty = trimmedName !== initialName.trim()
+  const usernameDirty = trimmedUsername !== initialUsername.trim()
+  const dirty = nameDirty || usernameDirty
+
+  const usernameError = usernameDirty
+    ? validateUsername(trimmedUsername)
+    : null
 
   const preview = {
     name: displayName({
@@ -54,14 +77,27 @@ export function ProfileCard({
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (pending || !dirty) return
+    if (usernameError) {
+      toast.error(usernameError)
+      return
+    }
     setPending(true)
     try {
-      const { error } = await authClient.updateUser({
-        name: trimmedName,
-      })
-      if (error) {
-        toast.error(error.message ?? "Couldn't save")
-        return
+      if (nameDirty) {
+        const { error } = await authClient.updateUser({ name: trimmedName })
+        if (error) {
+          toast.error(error.message ?? "Couldn't save")
+          return
+        }
+      }
+      if (usernameDirty) {
+        const { error } = await authClient.updateUser({
+          username: trimmedUsername,
+        })
+        if (error) {
+          toast.error(error.message ?? "Couldn't update username")
+          return
+        }
       }
       toast.success("Saved")
       await router.invalidate()
@@ -71,6 +107,31 @@ export function ProfileCard({
       )
     } finally {
       setPending(false)
+    }
+  }
+
+  async function onSyncAvatar() {
+    if (syncing) return
+    setSyncing(true)
+    try {
+      const res = await api.api.profile["sync-oauth-image"].$post()
+      const body = await readJsonOrThrow<{
+        status: string
+        image: string | null
+        message: string
+      }>(res)
+      if (body.image) {
+        toast.success("Avatar synced from provider")
+      } else {
+        toast.info(body.message || "No avatar found from provider")
+      }
+      await router.invalidate()
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "Couldn't sync avatar"
+      )
+    } finally {
+      setSyncing(false)
     }
   }
 
@@ -94,6 +155,17 @@ export function ProfileCard({
               <span className="font-mono text-2xs text-foreground-faint">
                 {email}
               </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="mt-1 w-fit"
+                disabled={syncing}
+                onClick={onSyncAvatar}
+              >
+                <RefreshCwIcon className="size-3.5" />
+                {syncing ? "Syncing…" : "Sync avatar from provider"}
+              </Button>
             </div>
           </div>
 
@@ -110,6 +182,26 @@ export function ProfileCard({
               disabled={pending}
             />
           </Field>
+
+          <Field>
+            <FieldLabel htmlFor="profile-username">Username</FieldLabel>
+            <Input
+              id="profile-username"
+              type="text"
+              autoComplete="username"
+              value={username}
+              required
+              minLength={USERNAME_MIN_LEN}
+              maxLength={USERNAME_MAX_LEN}
+              onChange={(e) => setUsername(e.target.value.toLowerCase())}
+              disabled={pending}
+              aria-invalid={usernameError ? true : undefined}
+            />
+            <FieldDescription>
+              {usernameError ??
+                "Lowercase letters, numbers, underscores and hyphens. Used in your profile URL."}
+            </FieldDescription>
+          </Field>
         </CardContent>
 
         <CardFooter>
@@ -117,7 +209,7 @@ export function ProfileCard({
             type="submit"
             variant="primary"
             size="sm"
-            disabled={pending || !dirty}
+            disabled={pending || !dirty || Boolean(usernameError)}
           >
             {pending ? "Saving…" : "Save changes"}
           </Button>
@@ -125,4 +217,13 @@ export function ProfileCard({
       </Card>
     </form>
   )
+}
+
+function validateUsername(value: string): string | null {
+  if (value.length < USERNAME_MIN_LEN) return "Username can't be empty"
+  if (value.length > USERNAME_MAX_LEN)
+    return `Username can be at most ${USERNAME_MAX_LEN} characters`
+  if (!USERNAME_RE.test(value))
+    return "Only lowercase letters, numbers, underscores and hyphens"
+  return null
 }

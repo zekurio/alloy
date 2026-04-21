@@ -1,9 +1,13 @@
-import type { AdminOAuthProvider, EncoderHwaccel } from "../../../lib/admin-api"
+import type {
+  AdminOAuthProvider,
+  EncoderCodec,
+  EncoderHwaccel,
+} from "../../../lib/admin-api"
 
 export function emptyProvider(): AdminOAuthProvider {
   return {
     providerId: "",
-    buttonText: "",
+    displayName: "",
     clientId: "",
     clientSecret: "",
     scopes: [],
@@ -51,6 +55,24 @@ export const PRESET_SUGGESTIONS: Record<
   qsv: ["veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"],
   amf: ["speed", "balanced", "quality"],
   vaapi: [],
+}
+
+const SVT_AV1_PRESETS: ReadonlyArray<string> = [
+  "0",
+  "2",
+  "4",
+  "6",
+  "8",
+  "10",
+  "12",
+]
+
+export function presetSuggestionsFor(
+  hwaccel: EncoderHwaccel,
+  codec: EncoderCodec
+): ReadonlyArray<string> {
+  if (hwaccel === "software" && codec === "av1") return SVT_AV1_PRESETS
+  return PRESET_SUGGESTIONS[hwaccel]
 }
 
 export const QUALITY_LABEL: Record<EncoderHwaccel, string> = {
