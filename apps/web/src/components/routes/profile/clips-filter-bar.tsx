@@ -8,32 +8,23 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
+import { GameIcon } from "@workspace/ui/components/game-icon"
 
-import type { ProfileAllSort } from "../../../routes/_app.u.$username.all"
+import type { ProfileAllSort } from "../../../routes/(app)/_app.u.$username.all"
 
-/**
- * Sort + game filter bar for `/u/:username/all`. Every control mutates the
- * URL search params — there is no local state — so reloads and shares
- * preserve the exact view.
- *
- *   ?sort=recent | oldest | top | views   (default `recent` is encoded as absent)
- *   ?game=<slug>                          (absent = no game filter)
- *
- * Sort chips render as `<Link>`s (no onClick) so they get native
- * middle-click / cmd-click / focus semantics. The game picker opens a menu
- * of only the games present in the user's clip list — no extra fetch.
- */
 type GameOption = {
   slug: string
   name: string
   count: number
+  iconUrl: string | null
+  logoUrl: string | null
 }
 
 type ClipsFilterBarProps = {
   username: string
   sort: ProfileAllSort
   gameSlug: string | null
-  selectedGameName: string | null
+  selectedGame: GameOption | null
   gameOptions: GameOption[]
 }
 
@@ -51,7 +42,7 @@ export function ClipsFilterBar({
   username,
   sort,
   gameSlug,
-  selectedGameName,
+  selectedGame,
   gameOptions,
 }: ClipsFilterBarProps) {
   const navigate = useNavigate()
@@ -78,7 +69,7 @@ export function ClipsFilterBar({
     <div className="mb-6 flex flex-wrap items-center gap-3">
       {/* Sort group */}
       <div className="flex items-center gap-1.5">
-        <span className="pr-1 font-mono text-2xs tracking-[0.1em] text-foreground-faint uppercase">
+        <span className="pr-1 text-xs font-medium text-foreground-faint uppercase tracking-wide">
           Sort
         </span>
         {SORT_OPTIONS.map((opt) => (
@@ -106,16 +97,21 @@ export function ClipsFilterBar({
       {/* Game filter */}
       {gameOptions.length > 0 ? (
         <div className="flex items-center gap-1.5">
-          <span className="pr-1 font-mono text-2xs tracking-[0.1em] text-foreground-faint uppercase">
+          <span className="pr-1 text-xs font-medium text-foreground-faint uppercase tracking-wide">
             Game
           </span>
-          {gameSlug && selectedGameName ? (
+          {gameSlug && selectedGame ? (
             <Chip
               data-active="true"
               onClick={clearGame}
-              aria-label={`Clear game filter: ${selectedGameName}`}
+              aria-label={`Clear game filter: ${selectedGame.name}`}
+              title={selectedGame.name}
             >
-              {selectedGameName}
+              <GameIcon
+                src={selectedGame.iconUrl ?? selectedGame.logoUrl}
+                name={selectedGame.name}
+              />
+              {selectedGame.name}
               <XIcon />
             </Chip>
           ) : (
@@ -140,8 +136,13 @@ export function ClipsFilterBar({
                       />
                     }
                   >
+                    <GameIcon
+                      src={g.iconUrl ?? g.logoUrl}
+                      name={g.name}
+                      size="sm"
+                    />
                     <span className="truncate">{g.name}</span>
-                    <span className="ml-auto font-mono text-2xs text-foreground-faint">
+                    <span className="ml-auto text-xs text-foreground-faint tabular-nums">
                       {g.count}
                     </span>
                   </DropdownMenuItem>

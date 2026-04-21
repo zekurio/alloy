@@ -1,25 +1,64 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 
 import {
+  fetchTaggedClips,
+  fetchUserFollowers,
+  fetchUserFollowing,
   fetchUserProfile,
+  searchUsers,
   type ProfileViewer,
   type UserProfile,
 } from "./users-api"
 
-/**
- * User-profile queries and cache helpers.
- *
- * Scope is intentionally narrow for this pass — it covers the `/u/:handle`
- * page header (profile + counts + viewer state). Follow/unfollow/block
- * mutations still route through `profile-actions.tsx` with optimistic
- * local updates; this module just exposes the cache surface so those
- * callbacks can write through to TanStack Query instead of component
- * state.
- */
-
 export const userKeys = {
   all: ["user"] as const,
   profile: (handle: string) => [...userKeys.all, "profile", handle] as const,
+  search: (q: string) => [...userKeys.all, "search", q] as const,
+  tagged: (handle: string) => [...userKeys.all, "tagged", handle] as const,
+  followers: (handle: string) => [...userKeys.all, "followers", handle] as const,
+  following: (handle: string) => [...userKeys.all, "following", handle] as const,
+}
+
+export function useUserSearchQuery(q: string) {
+  const trimmed = q.trim()
+  return useQuery({
+    queryKey: userKeys.search(trimmed),
+    queryFn: () => searchUsers(trimmed),
+    enabled: trimmed.length > 0,
+    staleTime: 30_000,
+  })
+}
+
+export function useTaggedClipsQuery(handle: string) {
+  return useQuery({
+    queryKey: userKeys.tagged(handle),
+    queryFn: () => fetchTaggedClips(handle),
+    enabled: handle.length > 0,
+  })
+}
+
+export function useUserFollowersQuery(
+  handle: string,
+  { enabled }: { enabled: boolean }
+) {
+  return useQuery({
+    queryKey: userKeys.followers(handle),
+    queryFn: () => fetchUserFollowers(handle),
+    enabled: enabled && handle.length > 0,
+    staleTime: 30_000,
+  })
+}
+
+export function useUserFollowingQuery(
+  handle: string,
+  { enabled }: { enabled: boolean }
+) {
+  return useQuery({
+    queryKey: userKeys.following(handle),
+    queryFn: () => fetchUserFollowing(handle),
+    enabled: enabled && handle.length > 0,
+    staleTime: 30_000,
+  })
 }
 
 export function useUserProfileQuery(handle: string) {
@@ -30,12 +69,6 @@ export function useUserProfileQuery(handle: string) {
   })
 }
 
-/**
- * Returns helpers for the profile-header view to apply optimistic viewer
- * and follower-count updates directly to the cache. Pull into the page
- * instead of prop-drilling `setProfile` callbacks so the profile-actions
- * component can stay unaware of the query layer.
- */
 export function useProfileCachePatchers(handle: string) {
   const qc = useQueryClient()
   const key = userKeys.profile(handle)
