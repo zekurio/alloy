@@ -42,7 +42,6 @@ export const clipsUploadRoutes = new Hono()
       const slug = nanoid(10)
       const storageKey = clipAssetKey(clipId, "source")
       const thumbKey = clipAssetKey(clipId, "thumb")
-      const thumbSmallKey = clipAssetKey(clipId, "thumb-small")
 
       const privacy = body.privacy === "private" ? "private" : body.privacy
 
@@ -74,7 +73,6 @@ export const clipsUploadRoutes = new Hono()
         contentType: body.contentType,
         sizeBytes: body.sizeBytes,
         thumbKey,
-        thumbSmallKey,
         trimStartMs: body.trimStartMs ?? null,
         trimEndMs: body.trimEndMs ?? null,
         status: "pending",
@@ -90,7 +88,7 @@ export const clipsUploadRoutes = new Hono()
       }
 
       const expiresInSec = configStore.get("limits").uploadTtlSec
-      const [ticket, thumbTicket, thumbSmallTicket] = await Promise.all([
+      const [ticket, thumbTicket] = await Promise.all([
         storage.mintUploadUrl({
           key: storageKey,
           contentType: body.contentType,
@@ -107,17 +105,9 @@ export const clipsUploadRoutes = new Hono()
           userId: viewerId,
           clipId,
         }),
-        storage.mintUploadUrl({
-          key: thumbSmallKey,
-          contentType: "image/jpeg",
-          maxBytes: body.thumbSmallSizeBytes,
-          expiresInSec,
-          userId: viewerId,
-          clipId,
-        }),
       ])
 
-      return c.json({ clipId, slug, ticket, thumbTicket, thumbSmallTicket })
+      return c.json({ clipId, slug, ticket, thumbTicket })
     }
   )
 
@@ -149,12 +139,6 @@ export const clipsUploadRoutes = new Hono()
         const thumbResolved = await storage.resolve(row.thumbKey)
         if (!thumbResolved) {
           return c.json({ error: "Thumbnail bytes are missing" }, 400)
-        }
-      }
-      if (row.thumbSmallKey) {
-        const thumbSmallResolved = await storage.resolve(row.thumbSmallKey)
-        if (!thumbSmallResolved) {
-          return c.json({ error: "Small thumbnail bytes are missing" }, 400)
         }
       }
 
@@ -267,7 +251,6 @@ export const clipsUploadRoutes = new Hono()
       clipAssetKey(id, "video"),
       ...row.variants.map((variant) => variant.storageKey),
       row.thumbKey ?? clipAssetKey(id, "thumb"),
-      row.thumbSmallKey ?? clipAssetKey(id, "thumb-small"),
     ]
     for (const key of keys) {
       try {

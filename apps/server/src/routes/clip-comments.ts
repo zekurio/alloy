@@ -123,7 +123,6 @@ export const clipCommentsRoutes = new Hono()
           displayUsername: authorRow?.displayUsername ?? null,
           name: authorRow?.name ?? "",
           image: authorRow?.image ?? null,
-          imageKey: authorRow?.imageKey ?? null,
         },
         replies: [],
       }

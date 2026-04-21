@@ -61,7 +61,6 @@ export const InitiateBody = z
     trimStartMs: z.number().int().min(0).optional(),
     trimEndMs: z.number().int().positive().optional(),
     thumbSizeBytes: z.number().int().positive().max(MAX_THUMB_BYTES),
-    thumbSmallSizeBytes: z.number().int().positive().max(MAX_THUMB_BYTES),
     mentionedUserIds: z.array(z.uuid()).optional(),
   })
   .refine((b) => b.sizeBytes <= configStore.get("limits").maxUploadBytes, {
