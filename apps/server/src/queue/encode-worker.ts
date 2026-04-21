@@ -4,6 +4,7 @@ import type { PgBoss } from "pg-boss"
 import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
+import { publishClipUpsertById } from "../lib/clip-events"
 import { configStore } from "../lib/config-store"
 import { runEncodeInner } from "./encode-run"
 
@@ -95,6 +96,9 @@ async function markFailed(clipId: string, reason: string): Promise<void> {
         updatedAt: new Date(),
       })
       .where(eq(clip.id, clipId))
+    // Terminal transition — cheap path, one extra lookup for the
+    // authorId is fine. Fire-and-forget; the write already landed.
+    void publishClipUpsertById(clipId)
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error(`[queue] failed to mark clip ${clipId} as failed:`, err)
