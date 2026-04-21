@@ -95,7 +95,7 @@ export function OAuthProviderCard({
           <div>
             <CardTitle>OAuth provider</CardTitle>
             <CardDescription>
-              One OIDC/OAuth2 provider. Use discovery or manual endpoints.
+              One OIDC or OAuth2 provider, via discovery or manual endpoints.
             </CardDescription>
           </div>
         </CardHeader>
@@ -117,15 +117,18 @@ export function OAuthProviderCard({
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="oauth-button-text">Button label</FieldLabel>
+              <FieldLabel htmlFor="oauth-display-name">Display name</FieldLabel>
               <Input
-                id="oauth-button-text"
-                value={form.buttonText}
-                placeholder="Log in with Company SSO"
+                id="oauth-display-name"
+                value={form.displayName}
+                placeholder="Company SSO"
                 required
-                maxLength={128}
-                onChange={(e) => set("buttonText", e.target.value)}
+                maxLength={64}
+                onChange={(e) => set("displayName", e.target.value)}
               />
+              <FieldDescription>
+                Shown as "Continue with {form.displayName || "…"}".
+              </FieldDescription>
             </Field>
           </div>
 
@@ -168,7 +171,7 @@ export function OAuthProviderCard({
               onChange={(e) => set("discoveryUrl", e.target.value)}
             />
             <FieldDescription>
-              Preferred for OIDC; otherwise fill endpoints below.
+              Preferred for OIDC. Leave blank to use manual endpoints.
             </FieldDescription>
           </Field>
 
@@ -252,8 +255,7 @@ export function OAuthProviderCard({
                 ))}
               </datalist>
               <FieldDescription>
-                Any claim on the OIDC userinfo response. Suggestions cover the
-                common cases; type anything your provider emits.
+                Any claim on the userinfo response.
               </FieldDescription>
             </Field>
           </div>
@@ -268,7 +270,7 @@ export function OAuthProviderCard({
               onClick={onDelete}
               disabled={pending !== null}
             >
-              <Trash2Icon className="size-4" />
+              <Trash2Icon />
               {pending === "delete" ? "Removing…" : "Remove provider"}
             </Button>
           ) : null}

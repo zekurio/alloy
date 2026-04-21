@@ -104,8 +104,7 @@ export function IntegrationsConfigCard({
           <div>
             <CardTitle>SteamGridDB</CardTitle>
             <CardDescription>
-              API key for SteamGridDB. Unlocks the game picker on upload and the
-              /games pages. Get a key at{" "}
+              Unlocks the game picker and cover art. Get a key at{" "}
               <a
                 href="https://www.steamgriddb.com/profile/preferences/api"
                 target="_blank"
@@ -136,8 +135,8 @@ export function IntegrationsConfigCard({
             />
             <FieldDescription>
               {steamgriddbConfigured
-                ? "A key is configured. Type a new value to rotate, or remove it to disable the integration."
-                : "Not configured — game picker and hero fetching are disabled."}
+                ? "Configured. Type a new value to rotate."
+                : "Not configured — game picker is disabled."}
             </FieldDescription>
           </Field>
         </CardContent>
@@ -151,7 +150,7 @@ export function IntegrationsConfigCard({
               onClick={onClearSteamGridDB}
               disabled={pending}
             >
-              <Trash2Icon className="size-4" />
+              <Trash2Icon />
               Remove key
             </Button>
           ) : null}
