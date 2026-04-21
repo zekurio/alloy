@@ -4,29 +4,10 @@ import { game } from "@workspace/db/schema"
 
 import { db } from "../db"
 
-/**
- * Slug generation for the `game` table. Game slugs show up in
- * `/g/:slug` URLs, so they need to be URL-safe, stable across
- * upserts of the same SGDB id, and human-recognisable.
- *
- * The generator is one-shot and lives server-side: the upsert path
- * calls `generateUniqueGameSlug(name)` exactly once when a new SGDB
- * id lands, then the result gets pinned into the row and never
- * re-derived. That keeps `/g/:old-slug` links from breaking when
- * SGDB later ships a rename — the DB row carries the canonical slug,
- * not the name.
- */
-
 const MAX_LEN = 48
 const MIN_LEN = 1
 const MAX_SUFFIX = 200
 
-/**
- * Produce a URL-safe slug from a raw game name. Strips diacritics,
- * lowercases, collapses runs of non-alphanumeric characters to a
- * single hyphen, and caps the length. Idempotent: `slugifyGame(s)`
- * equals `slugifyGame(slugifyGame(s))` for any `s`.
- */
 export function slugifyGame(input: string): string {
   return input
     .normalize("NFKD")
@@ -38,18 +19,6 @@ export function slugifyGame(input: string): string {
     .slice(0, MAX_LEN)
 }
 
-/**
- * Produce a unique slug for a game name, probing the DB for
- * collisions. Tries the base slug first, then `-2`, `-3`, … up to
- * `MAX_SUFFIX`, then falls back to a random hex suffix — the unique
- * index on `game.slug` is the final safety net.
- *
- * Called only at upsert time (when a new SGDB id first shows up). If
- * two uploaders resolve the same never-before-seen game in parallel,
- * one of them will lose the INSERT race and retry with a fresh
- * suffix; both end up pointing at the same row because the probe
- * below runs inside the retry loop.
- */
 export async function generateUniqueGameSlug(name: string): Promise<string> {
   const base = slugifyGame(name)
   // Fall back to "game" if slugifying stripped the whole string

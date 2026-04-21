@@ -1,1 +1,0 @@
-ALTER TABLE "clip" ADD COLUMN "variants" jsonb DEFAULT '[]'::jsonb NOT NULL;

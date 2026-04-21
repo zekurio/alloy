@@ -3,41 +3,21 @@ import { and, desc, eq, inArray, lt, sql, type SQL } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
-import { clip, game, user } from "@workspace/db/schema"
+import { getAuth } from "../auth"
+import { user } from "@workspace/db/auth-schema"
+import { clip, game, gameFollow } from "@workspace/db/schema"
 
 import { db } from "../db"
 import { clipSelectShape } from "../lib/clip-select"
 import { generateUniqueGameSlug } from "../lib/game-slug"
 import { requireSession } from "../lib/require-session"
 import {
-  SteamGridDBError,
-  SteamGridDBNotConfiguredError,
   getGameAssets,
   getGameById,
   isConfigured,
   searchGames,
 } from "../lib/steamgriddb"
-
-/**
- * Games read + write surface.
- *
- * Two classes of endpoint:
- *   - SGDB-backed (`/search`, `/resolve`) — requires the admin to have
- *     configured a SteamGridDB API key. Returns 503 when unconfigured
- *     so the upload UI can fall back to a disabled picker.
- *   - DB-backed (`/`, `/:slug`, `/:slug/clips`, `/:slug/top-clips`) —
- *     read-only, uses only our own `game` + `clip` tables. Works even
- *     when SGDB is down or unconfigured, because we cache
- *     name/hero/logo into the row at resolve time.
- *
- * Resolve is where the coupling happens: on upload the client picks
- * an SGDB id from the autocomplete, then hits `/resolve` to upsert a
- * row (fetching hero+logo inline). Subsequent clips for the same
- * game skip the SGDB round trip entirely — the `steamgriddb_id`
- * unique index short-circuits back to the existing row.
- */
-
-// ─── Validation ────────────────────────────────────────────────────────
+import { serialiseGame, sgdbErrorResponse } from "./games-helpers"
 
 const SlugParam = z.object({
   slug: z
@@ -68,50 +48,6 @@ const TopQuery = z.object({
   limit: z.coerce.number().int().positive().max(20).default(5),
 })
 
-// ─── Helpers ───────────────────────────────────────────────────────────
-
-/**
- * Format a stored `game` row into the wire shape the web client expects.
- * Kept in one place so the `/resolve`, `/`, and `/:slug` endpoints all
- * serialise identically — any field added to `game` lands here once.
- */
-function serialiseGame(row: typeof game.$inferSelect) {
-  return {
-    id: row.id,
-    steamgriddbId: row.steamgriddbId,
-    name: row.name,
-    slug: row.slug,
-    releaseDate: row.releaseDate ? row.releaseDate.toISOString() : null,
-    heroUrl: row.heroUrl,
-    logoUrl: row.logoUrl,
-  }
-}
-
-/**
- * Translate a SGDB client error into an appropriate HTTP status. Keeps
- * route handlers clean of nested try/catch — they just re-throw and
- * this helper picks the code.
- */
-function sgdbErrorResponse(
-  err: unknown
-):
-  | { status: 503; error: string }
-  | { status: 502; error: string }
-  | { status: 500; error: string } {
-  if (err instanceof SteamGridDBNotConfiguredError) {
-    return { status: 503, error: err.message }
-  }
-  if (err instanceof SteamGridDBError) {
-    return { status: 502, error: err.message }
-  }
-  return {
-    status: 500,
-    error: err instanceof Error ? err.message : "Unknown error",
-  }
-}
-
-// ─── Routes ────────────────────────────────────────────────────────────
-
 export const gamesRoute = new Hono()
   /**
    * GET /api/games/status — integration configuration flag, cheap call.
@@ -123,13 +59,6 @@ export const gamesRoute = new Hono()
     return c.json({ steamgriddbConfigured: isConfigured() })
   })
 
-  /**
-   * GET /api/games/search?q=... — SGDB autocomplete proxy. Forwards the
-   * query through our server (so the API key stays hidden) and returns
-   * SGDB's raw search results. The upload modal uses this to populate
-   * its game picker; the user's pick becomes the `steamgriddbId` it
-   * later posts to /resolve.
-   */
   .get(
     "/search",
     requireSession,
@@ -146,16 +75,6 @@ export const gamesRoute = new Hono()
     }
   )
 
-  /**
-   * POST /api/games/resolve — upsert a `game` row for an SGDB id. If
-   * the row already exists, returns it as-is (no SGDB round trip — the
-   * upload path must stay fast). Otherwise fetches game detail plus
-   * hero+logo from SGDB in parallel, generates a unique slug, and
-   * inserts.
-   *
-   * Returns the full row so the client can show the hero preview in
-   * the upload modal without a follow-up GET.
-   */
   .post(
     "/resolve",
     requireSession,
@@ -193,9 +112,6 @@ export const gamesRoute = new Hono()
           ? new Date(detail.release_date * 1000)
           : null
 
-      // `onConflictDoNothing` handles the race where two uploaders
-      // resolve the same never-before-seen game id at the same time —
-      // one wins the insert, the other re-reads on the fallback.
       const [inserted] = await db
         .insert(game)
         .values({
@@ -205,6 +121,7 @@ export const gamesRoute = new Hono()
           releaseDate,
           heroUrl: assets.heroUrl,
           logoUrl: assets.logoUrl,
+          iconUrl: assets.iconUrl,
         })
         .onConflictDoNothing({ target: game.steamgriddbId })
         .returning()
@@ -225,14 +142,6 @@ export const gamesRoute = new Hono()
     }
   )
 
-  /**
-   * GET /api/games — every game that has at least one ready,
-   * non-private clip. Returns one row per game with aggregated
-   * `clipCount` so the /games page can render the landscape grid
-   * sorted by popularity. Games with no visible clips are filtered
-   * out — a resolved-but-never-uploaded row would otherwise leak
-   * empty cards into the listing.
-   */
   .get("/", async (c) => {
     const rows = await db
       .select({
@@ -243,6 +152,7 @@ export const gamesRoute = new Hono()
         releaseDate: game.releaseDate,
         heroUrl: game.heroUrl,
         logoUrl: game.logoUrl,
+        iconUrl: game.iconUrl,
         clipCount: sql<number>`count(${clip.id})::int`,
       })
       .from(game)
@@ -266,6 +176,7 @@ export const gamesRoute = new Hono()
         releaseDate: row.releaseDate ? row.releaseDate.toISOString() : null,
         heroUrl: row.heroUrl,
         logoUrl: row.logoUrl,
+        iconUrl: row.iconUrl,
         clipCount: row.clipCount,
       }))
     )
@@ -284,8 +195,103 @@ export const gamesRoute = new Hono()
       .where(eq(game.slug, slug))
       .limit(1)
     if (!row) return c.json({ error: "Not found" }, 404)
-    return c.json(serialiseGame(row))
+
+    const session = await getAuth().api.getSession({
+      headers: c.req.raw.headers,
+    })
+    let viewer: { isFollowing: boolean } | null = null
+    if (session) {
+      const [followRow] = await db
+        .select({ id: gameFollow.id })
+        .from(gameFollow)
+        .where(
+          and(
+            eq(gameFollow.userId, session.user.id),
+            eq(gameFollow.gameId, row.id)
+          )
+        )
+        .limit(1)
+      viewer = { isFollowing: followRow !== undefined }
+    }
+
+    return c.json({ ...serialiseGame(row), viewer })
   })
+
+  .get("/:slug/hero", zValidator("param", SlugParam), async (c) => {
+    const { slug } = c.req.valid("param")
+    const [row] = await db
+      .select({ heroUrl: game.heroUrl })
+      .from(game)
+      .where(eq(game.slug, slug))
+      .limit(1)
+    if (!row || !row.heroUrl) return c.json({ error: "Not found" }, 404)
+
+    const upstream = await fetch(row.heroUrl)
+    if (!upstream.ok || !upstream.body) {
+      return c.json({ error: "Upstream hero unavailable" }, 502)
+    }
+
+    return new Response(upstream.body, {
+      headers: {
+        "content-type": upstream.headers.get("content-type") ?? "image/*",
+        "cache-control": "public, max-age=86400",
+      },
+    })
+  })
+
+  .post(
+    "/:slug/follow",
+    requireSession,
+    zValidator("param", SlugParam),
+    async (c) => {
+      const { slug } = c.req.valid("param")
+      const viewerId = c.var.viewerId
+
+      const [gameRow] = await db
+        .select({ id: game.id })
+        .from(game)
+        .where(eq(game.slug, slug))
+        .limit(1)
+      if (!gameRow) return c.json({ error: "Not found" }, 404)
+
+      // Unique index on (userId, gameId) keeps this idempotent — a
+      // second POST collapses to the existing edge.
+      await db
+        .insert(gameFollow)
+        .values({ userId: viewerId, gameId: gameRow.id })
+        .onConflictDoNothing()
+
+      return c.json({ following: true })
+    }
+  )
+
+  .delete(
+    "/:slug/follow",
+    requireSession,
+    zValidator("param", SlugParam),
+    async (c) => {
+      const { slug } = c.req.valid("param")
+      const viewerId = c.var.viewerId
+
+      const [gameRow] = await db
+        .select({ id: game.id })
+        .from(game)
+        .where(eq(game.slug, slug))
+        .limit(1)
+      if (!gameRow) return c.json({ error: "Not found" }, 404)
+
+      await db
+        .delete(gameFollow)
+        .where(
+          and(
+            eq(gameFollow.userId, viewerId),
+            eq(gameFollow.gameId, gameRow.id)
+          )
+        )
+
+      return c.json({ following: false })
+    }
+  )
 
   /**
    * GET /api/games/:slug/clips — paginated clip list for the game
@@ -334,14 +340,6 @@ export const gamesRoute = new Hono()
     }
   )
 
-  /**
-   * GET /api/games/:slug/top-clips?limit=5 — weighted "best of" for the
-   * banner strip. Ranking is HN-style: views + likes×3 as the raw
-   * signal, divided by (ageInDays + 2)^1.5 for gravity. Multiplier on
-   * likes reflects that likes are scarcer than views; the gravity
-   * factor keeps a year-old mega-hit from permanently camping the top
-   * slot. Done in SQL so we never pull the full clip set into node.
-   */
   .get(
     "/:slug/top-clips",
     zValidator("param", SlugParam),

@@ -2,15 +2,6 @@ import { env } from "../env"
 import type { StorageDriver } from "./driver"
 import { FsStorageDriver } from "./fs-driver"
 
-/**
- * Singleton storage driver, selected at module load via `env.STORAGE_DRIVER`.
- * Mirrors the `db` singleton in `apps/server/src/db/index.ts` — one
- * long-lived instance for the lifetime of the process.
- *
- * To add a new driver, branch on the env value and instantiate the new
- * class here. Call sites only ever import `storage` and lean on the
- * `StorageDriver` interface.
- */
 function buildStorage(): StorageDriver {
   switch (env.STORAGE_DRIVER) {
     case "fs":

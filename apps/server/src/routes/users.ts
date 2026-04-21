@@ -1,87 +1,107 @@
 import { zValidator } from "@hono/zod-validator"
-import { and, count, desc, eq, or } from "drizzle-orm"
+import {
+  and,
+  count,
+  eq,
+  ilike,
+  inArray,
+  ne,
+  notInArray,
+  or,
+  type SQL,
+} from "drizzle-orm"
 import { Hono } from "hono"
-import { z } from "zod"
 
 import { getAuth } from "../auth"
-import { block, clip, follow, game, user } from "@workspace/db/schema"
+import { user } from "@workspace/db/auth-schema"
+import { block, clip, follow } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { clipSelectShape } from "../lib/clip-select"
 import { requireSession } from "../lib/require-session"
-
-/**
- * Public-ish user endpoints. These back the profile pages: reading any user's
- * public card (name, avatar, clip count, follower/following counts) and
- * managing the viewer's own follow/block edges to them.
- *
- * Design choices worth calling out:
- *   - Profile reads are unauthenticated so a signed-out visitor can still
- *     browse public profiles. The `viewer` block (isFollowing / isBlocked /
- *     isSelf) only populates once a session resolves.
- *   - Blocks take priority over follows: when A blocks B we drop any existing
- *     follow in either direction. That's policy, not a DB constraint, so the
- *     rule lives here where it's grep-able.
- *   - Self-edges are rejected (can't follow or block yourself) so the UI
- *     doesn't need to guard those states.
- *   - The `:username` segment is strictly a handle — `user.username` is
- *     `notNull` and unique, so every user has one and raw ids never appear in
- *     these URLs.
- */
-
-const UsernameParam = z.object({ username: z.string().min(1) })
-
-type UserRow = typeof user.$inferSelect
-
-/**
- * Public projection of a user — everything the profile card renders. We
- * deliberately omit admin/ban fields so this route can't leak moderation
- * state to other users. If a user is banned we still return their row; a
- * viewer policy around ban visibility belongs elsewhere.
- */
-interface PublicUser {
-  id: string
-  username: string
-  image: string | null
-  createdAt: string
-}
-
-function toPublicUser(row: UserRow): PublicUser {
-  return {
-    id: row.id,
-    username: row.username,
-    image: row.image,
-    createdAt: row.createdAt.toISOString(),
-  }
-}
-
-/**
- * Resolve the `:username` path segment to a full user row via the unique
- * `user.username` index. Returns `null` when no row matches.
- */
-async function resolveTarget(segment: string): Promise<UserRow | null> {
-  const [row] = await db
-    .select()
-    .from(user)
-    .where(eq(user.username, segment))
-    .limit(1)
-  return row ?? null
-}
+import {
+  SearchQuery,
+  UsernameParam,
+  listFollowers,
+  listFollowing,
+  listTaggedClips,
+  listUserClips,
+  resolveTarget,
+  storedImageResponse,
+  toLikePattern,
+  toPublicUser,
+} from "./users-helpers"
 
 export const usersRoute = new Hono()
-  /**
-   * GET /api/users/:username — full profile payload (user row + counts +
-   * viewer relationship). Unauthenticated; the `viewer` block is null for
-   * signed-out requests.
-   */
+  .get("/search", zValidator("query", SearchQuery), async (c) => {
+    const { q, limit } = c.req.valid("query")
+    const pattern = toLikePattern(q.trim())
+
+    const session = await getAuth().api.getSession({
+      headers: c.req.raw.headers,
+    })
+    const viewerId = session?.user.id ?? null
+
+    const conditions: SQL[] = [
+      or(
+        ilike(user.name, pattern),
+        ilike(user.displayUsername, pattern),
+        ilike(user.username, pattern)
+      )!,
+    ]
+    if (viewerId) {
+      conditions.push(ne(user.id, viewerId))
+      const blockRows = await db
+        .select({
+          blockerId: block.blockerId,
+          blockedId: block.blockedId,
+        })
+        .from(block)
+        .where(or(eq(block.blockerId, viewerId), eq(block.blockedId, viewerId)))
+      const excluded = new Set<string>()
+      for (const row of blockRows) {
+        excluded.add(row.blockerId === viewerId ? row.blockedId : row.blockerId)
+      }
+      if (excluded.size > 0) {
+        conditions.push(notInArray(user.id, [...excluded]))
+      }
+    }
+
+    const rows = await db
+      .select({
+        id: user.id,
+        username: user.username,
+        displayUsername: user.displayUsername,
+        name: user.name,
+        image: user.image,
+      })
+      .from(user)
+      .where(and(...conditions))
+      .orderBy(user.username)
+      .limit(limit)
+    return c.json(rows)
+  })
+
   .get("/:username", zValidator("param", UsernameParam), async (c) => {
     const { username } = c.req.valid("param")
     const row = await resolveTarget(username)
     if (!row) return c.json({ error: "Not found" }, 404)
     const targetId = row.id
 
-    // Pull the three aggregates in parallel — they're independent reads and
-    // the profile card always needs all three.
+    const session = await getAuth().api.getSession({
+      headers: c.req.raw.headers,
+    })
+    const isOwner = session?.user.id === targetId
+    const isAdmin =
+      (session?.user as { role?: string | null } | undefined)?.role === "admin"
+
+    const clipConditions: SQL[] = [
+      eq(clip.authorId, targetId),
+      eq(clip.status, "ready"),
+    ]
+    if (!isOwner && !isAdmin) {
+      clipConditions.push(inArray(clip.privacy, ["public", "unlisted"]))
+    }
+
     const [
       [{ value: clipCount }],
       [{ value: followerCount }],
@@ -90,7 +110,7 @@ export const usersRoute = new Hono()
       db
         .select({ value: count() })
         .from(clip)
-        .where(eq(clip.authorId, targetId)),
+        .where(and(...clipConditions)),
       db
         .select({ value: count() })
         .from(follow)
@@ -101,12 +121,6 @@ export const usersRoute = new Hono()
         .where(eq(follow.followerId, targetId)),
     ])
 
-    // Viewer-relative fields. Peeking at the session here (rather than
-    // requiring a session) keeps profile pages visible to signed-out
-    // visitors while still letting signed-in viewers see their own edges.
-    const session = await getAuth().api.getSession({
-      headers: c.req.raw.headers,
-    })
     let viewer: {
       isSelf: boolean
       isFollowing: boolean
@@ -136,9 +150,6 @@ export const usersRoute = new Hono()
               )
             )
             .limit(1),
-          // One query for both directions of the block edge — we need both
-          // to decide whether the viewer can follow (isBlockedBy hides the
-          // follow button) and whether to show the "Blocked" badge.
           db
             .select({
               blockerId: block.blockerId,
@@ -179,26 +190,19 @@ export const usersRoute = new Hono()
     })
   })
 
-  /**
-   * GET /api/users/:username/avatar — CORS-friendly proxy for the stored
-   * avatar URL. OAuth providers (Discord/Google/GitHub) don't send
-   * `Access-Control-Allow-Origin` on their CDN images, which taints any
-   * client-side canvas that draws them. Re-emitting the bytes through our
-   * own origin lets the profile page's banner sample pixel colors from the
-   * avatar. A short cache header keeps the hot path cheap.
-   */
   .get("/:username/avatar", zValidator("param", UsernameParam), async (c) => {
     const { username } = c.req.valid("param")
     const row = await resolveTarget(username)
-    if (!row || !row.image) return c.json({ error: "Not found" }, 404)
+    if (!row) return c.json({ error: "Not found" }, 404)
 
+    const storedAvatar = await storedImageResponse(row.imageKey)
+    if (storedAvatar) return storedAvatar
+
+    if (!row.image) return c.json({ error: "Not found" }, 404)
     const upstream = await fetch(row.image)
     if (!upstream.ok || !upstream.body) {
       return c.json({ error: "Upstream avatar unavailable" }, 502)
     }
-
-    // Stream the body straight through — we don't need to buffer the whole
-    // image in memory. The global CORS middleware adds the ACAO header.
     return new Response(upstream.body, {
       headers: {
         "content-type": upstream.headers.get("content-type") ?? "image/*",
@@ -207,32 +211,56 @@ export const usersRoute = new Hono()
     })
   })
 
-  /**
-   * GET /api/users/:username/clips — the clips grid on the profile page.
-   * Newest first; capped at 50 to match the home feed limit. Shape mirrors
-   * the home-feed `/api/clips` response (including joined author handle /
-   * image) so both surfaces can share a single client-side mapper.
-   */
+  .get("/:username/banner", zValidator("param", UsernameParam), async (c) => {
+    const { username } = c.req.valid("param")
+    const row = await resolveTarget(username)
+    if (!row?.bannerKey) return c.json({ error: "Not found" }, 404)
+
+    const storedBanner = await storedImageResponse(row.bannerKey)
+    if (!storedBanner) return c.json({ error: "Not found" }, 404)
+    return storedBanner
+  })
+
   .get("/:username/clips", zValidator("param", UsernameParam), async (c) => {
     const { username } = c.req.valid("param")
     const row = await resolveTarget(username)
     if (!row) return c.json({ error: "Not found" }, 404)
-    const rows = await db
-      .select(clipSelectShape)
-      .from(clip)
-      .innerJoin(user, eq(clip.authorId, user.id))
-      .leftJoin(game, eq(clip.gameId, game.id))
-      .where(eq(clip.authorId, row.id))
-      .orderBy(desc(clip.createdAt))
-      .limit(50)
-    return c.json(rows)
+
+    return c.json(await listUserClips(row, c.req.raw.headers))
   })
 
-  /**
-   * POST /api/users/:username/follow — viewer follows :username. Idempotent:
-   * duplicate calls return the existing edge. Rejects self-follow and
-   * refuses when either party has blocked the other.
-   */
+  .get("/:username/tagged", zValidator("param", UsernameParam), async (c) => {
+    const { username } = c.req.valid("param")
+    const row = await resolveTarget(username)
+    if (!row) return c.json({ error: "Not found" }, 404)
+
+    return c.json(await listTaggedClips(row, c.req.raw.headers))
+  })
+
+  .get(
+    "/:username/followers",
+    zValidator("param", UsernameParam),
+    async (c) => {
+      const { username } = c.req.valid("param")
+      const row = await resolveTarget(username)
+      if (!row) return c.json({ error: "Not found" }, 404)
+
+      return c.json(await listFollowers(row))
+    }
+  )
+
+  .get(
+    "/:username/following",
+    zValidator("param", UsernameParam),
+    async (c) => {
+      const { username } = c.req.valid("param")
+      const row = await resolveTarget(username)
+      if (!row) return c.json({ error: "Not found" }, 404)
+
+      return c.json(await listFollowing(row))
+    }
+  )
+
   .post(
     "/:username/follow",
     requireSession,
@@ -249,9 +277,6 @@ export const usersRoute = new Hono()
         return c.json({ error: "You can't follow yourself." }, 400)
       }
 
-      // Either direction of a block torpedoes the follow — the blocker
-      // shouldn't leak updates to the blocked user, and the blocked user
-      // shouldn't be able to re-establish a relationship the blocker severed.
       const blockRows = await db
         .select({ id: block.id })
         .from(block)
@@ -266,8 +291,6 @@ export const usersRoute = new Hono()
         return c.json({ error: "Can't follow a blocked user." }, 403)
       }
 
-      // `onConflictDoNothing` keeps this endpoint idempotent — the unique
-      // index on (follower, following) guarantees at most one row per pair.
       await db
         .insert(follow)
         .values({
@@ -281,10 +304,6 @@ export const usersRoute = new Hono()
     }
   )
 
-  /**
-   * DELETE /api/users/:username/follow — viewer unfollows :username.
-   * Idempotent.
-   */
   .delete(
     "/:username/follow",
     requireSession,
@@ -308,11 +327,6 @@ export const usersRoute = new Hono()
     }
   )
 
-  /**
-   * POST /api/users/:username/block — viewer blocks :username. Idempotent;
-   * also drops any existing follow edge in either direction so we don't
-   * leave a zombie subscription behind.
-   */
   .post(
     "/:username/block",
     requireSession,
@@ -338,8 +352,6 @@ export const usersRoute = new Hono()
         })
         .onConflictDoNothing()
 
-      // Sever follows in both directions. Do this after the block insert so
-      // the viewer's UI flips to "Blocked" even if the follow delete races.
       await db
         .delete(follow)
         .where(
@@ -359,11 +371,6 @@ export const usersRoute = new Hono()
     }
   )
 
-  /**
-   * DELETE /api/users/:username/block — viewer unblocks :username. The
-   * blocked user doesn't automatically get re-followed; they have to hit
-   * follow again.
-   */
   .delete(
     "/:username/block",
     requireSession,

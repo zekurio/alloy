@@ -12,14 +12,6 @@ import type {
   UploadTicket,
 } from "./driver"
 
-/**
- * Filesystem implementation of `StorageDriver`. Files live under a single
- * `root` directory; `storageKey` is the relative path inside that root.
- *
- * Uploads are served by `fs-upload-route.ts` — `mintUploadUrl()` returns
- * a token-bearing URL there and the route validates the token using the
- * same `decodeUploadToken()` exported below.
- */
 export interface FsDriverOptions {
   root: string
   publicBaseUrl: string
@@ -93,12 +85,6 @@ export class FsStorageDriver implements StorageDriver {
           end: opts?.end,
         }),
       size: stat.size,
-      // The fs driver doesn't carry Content-Type metadata sidecar — that
-      // lives on `clip.contentType` in the DB. Callers always have the
-      // row in hand by the time they call `resolve`, so they can override
-      // this. We do an extension-based best guess so callers that don't
-      // have the row (e.g. dev tools poking the file directly) get
-      // something sensible.
       contentType: contentTypeForExt(path.extname(full)),
       lastModified: stat.mtime,
     }
@@ -119,12 +105,6 @@ export class FsStorageDriver implements StorageDriver {
     return {
       uploadUrl: `${baseUrl}/storage/upload/${token}`,
       method: "POST",
-      // Pin Content-Type to the value baked into the HMAC payload. The
-      // upload route compares these and 400s on mismatch, so we can't let
-      // the browser fall back to `Blob.type` — MKVs in particular come
-      // through as `video/matroska` in Firefox while we normalise to
-      // `video/x-matroska` at the client. Handing the client the exact
-      // string to echo keeps the two in lockstep.
       headers: { "Content-Type": input.contentType },
       expiresAt,
     }
@@ -145,13 +125,6 @@ export class FsStorageDriver implements StorageDriver {
     await this.pruneEmptyAncestors(path.dirname(full))
   }
 
-  /**
-   * Walk upward from `startDir`, `rmdir`-ing each directory while it's
-   * empty. Stops on `ENOTEMPTY`, when we reach the configured storage
-   * root, or if the computed relative path ever escapes root (defensive
-   * — shouldn't happen with well-formed keys, but keeps an out-of-tree
-   * rmdir from being possible even if one did).
-   */
   private async pruneEmptyAncestors(startDir: string): Promise<void> {
     const root = path.resolve(this.opts.root)
     let current = path.resolve(startDir)
@@ -174,16 +147,6 @@ export class FsStorageDriver implements StorageDriver {
   }
 }
 
-// ─── HMAC token helpers ────────────────────────────────────────────────
-
-/**
- * Sign and serialise a token. Format: `base64url(payload).<hmac>`.
- *
- * The HMAC is over the raw payload bytes (not the base64url string) so
- * we don't rely on the encoder being canonical for the signature to be
- * stable. `decodeUploadToken` recomputes the HMAC over the same bytes
- * after base64url-decoding the payload.
- */
 export function signToken(payload: UploadTokenPayload, secret: string): string {
   const json = Buffer.from(JSON.stringify(payload), "utf8")
   const sig = createHmac("sha256", secret).update(json).digest()
@@ -194,12 +157,6 @@ export type DecodedToken =
   | { ok: true; payload: UploadTokenPayload }
   | { ok: false; reason: "malformed" | "bad-signature" | "expired" }
 
-/**
- * Verify a token and return the decoded payload. The check is in three
- * steps so the upload route can attribute failures (and so a malformed
- * token never reaches the HMAC compare path with mismatched lengths,
- * which would throw rather than fail).
- */
 export function decodeUploadToken(token: string, secret: string): DecodedToken {
   const dot = token.indexOf(".")
   if (dot <= 0 || dot === token.length - 1) {
@@ -248,8 +205,6 @@ export function decodeUploadToken(token: string, secret: string): DecodedToken {
   }
   return { ok: true, payload }
 }
-
-// ─── Misc ──────────────────────────────────────────────────────────────
 
 function contentTypeForExt(ext: string): string {
   switch (ext.toLowerCase()) {

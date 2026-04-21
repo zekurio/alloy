@@ -9,32 +9,6 @@ import { env } from "../env"
 import { decodeUploadToken, FsStorageDriver } from "./fs-driver"
 import { storage } from "./index"
 
-/**
- * Fs-driver companion route. Mounted in `app.ts` at `/storage` so the
- * full path is `POST /storage/upload/:token`. The token is the HMAC-
- * signed payload `{ k, ct, mb, exp, uid, cid }` that `mintUploadUrl()`
- * issued during `/api/clips/initiate`.
- *
- * Why not under `/api/clips/*`: this is driver-internal. An S3 driver
- * has no analog — the browser PUTs straight at the bucket. Keeping it
- * under `/storage` makes that distinction obvious and makes it trivial
- * to omit (or no-op) when we add the S3 driver.
- *
- * Auth model: token-only. The HMAC binds (clipId, userId, key, contentType,
- * maxBytes, expiry); a stolen ticket can only overwrite the source for
- * one specific reserved clip belonging to one specific user, and
- * `/finalize` then refuses to act on it because `authorId` mismatches
- * the requesting session. Browsers send large bodies more reliably
- * without cookies in flight, hence no session check here.
- *
- * Atomicity: bytes stream into `.tmp/<token>` and `fs.rename` into the
- * final key on success. A partial upload never becomes visible to the
- * encoder — the worker is allowed to assume `clip.storageKey` either
- * exists in full or doesn't exist at all. Single-use is enforced by
- * `wx` write flag on the rename target — a second upload with the same
- * token races into a `EEXIST` and is rejected.
- */
-
 export const storageRoute = new Hono().post("/upload/:token", async (c) => {
   // The driver factory always returns a concrete class; only the fs
   // driver makes sense behind this route. Bail loudly if the env was
@@ -57,10 +31,6 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
   }
   const { k: key, ct: expectedContentType, mb: maxBytes } = decoded.payload
 
-  // Defence-in-depth Content-Type check: the browser ought to send the
-  // type baked into the ticket; if it doesn't, refuse rather than write
-  // mismatched bytes. (We don't strictly need this — the encoder probes
-  // the file regardless — but failing fast keeps debugging sane.)
   const contentType = c.req.header("content-type")
   if (contentType && contentType !== expectedContentType) {
     return c.json(
@@ -73,9 +43,6 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
     return c.json({ error: "Empty upload body" }, 400)
   }
 
-  // Stage under .tmp/ so the final key only appears once the upload has
-  // fully landed. Per-token directory keeps concurrent retries from
-  // colliding on the same temp file.
   const fullDst = storage.fullPath(key)
   const tmpDir = path.join(storage.fullPath(".tmp"), token.slice(-32))
   await fsp.mkdir(tmpDir, { recursive: true })
@@ -84,9 +51,6 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
 
   let bytesWritten = 0
   let limitTripped = false
-  // Web ReadableStream → Node Readable so we can pipe() it. Counter
-  // gates the byte budget — once we cross `maxBytes` we kill the stream
-  // and respond 413 instead of letting the disk fill up.
   const nodeBody = Readable.fromWeb(
     c.req.raw.body as Parameters<typeof Readable.fromWeb>[0]
   )

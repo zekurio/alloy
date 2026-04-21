@@ -1,22 +1,10 @@
-import { spawn } from "node:child_process"
-
-import type { EncoderConfig, HwaccelKind } from "../lib/config-store"
+import type {
+  EncoderCodec,
+  EncoderConfig,
+  HwaccelKind,
+} from "../lib/config-store"
 import { env } from "../env"
-
-/**
- * Thin shell-out wrappers around ffmpeg / ffprobe. Three exports:
- *
- *   - `probe`      → ffprobe → { durationMs, width, height, contentType }
- *   - `encode`     → transcode the source into a single H.264/AAC mp4
- *   - `thumbnail`  → grab a single frame at a given offset, scaled
- *
- * No `fluent-ffmpeg` — it's unmaintained and the wrappers we'd use are
- * 5-line shell commands. Direct `spawn` keeps stderr handling explicit
- * (the encode pipe needs it to drive progress reporting).
- *
- * All commands assume `ffmpeg` and `ffprobe` resolve via the env-set
- * binary names; flake.nix's `ffmpeg-headless` provides both.
- */
+import { runCapture, runWithProgress } from "./ffmpeg-process"
 
 export interface ProbeResult {
   durationMs: number
@@ -25,6 +13,8 @@ export interface ProbeResult {
   /** Best-effort MIME from the container. Caller should still trust the
    * stored Content-Type when present. */
   contentType: string
+  videoCodec: string
+  audioCodec: string | null
 }
 
 /**
@@ -32,10 +22,6 @@ export interface ProbeResult {
  * content type. Throws on non-zero exit or unparsable output.
  */
 export async function probe(srcPath: string): Promise<ProbeResult> {
-  // -v error          → only emit fatal errors (we want a clean stdout)
-  // -print_format json → machine-readable
-  // -show_streams      → per-stream entries (we pick the video stream)
-  // -show_format       → container-level duration + format_name
   const { stdout } = await runCapture(env.FFPROBE_BIN, [
     "-v",
     "error",
@@ -55,6 +41,7 @@ export async function probe(srcPath: string): Promise<ProbeResult> {
 
   const videoStream = parsed.streams?.find((s) => s.codec_type === "video")
   if (!videoStream) throw new Error("No video stream found")
+  const audioStream = parsed.streams?.find((s) => s.codec_type === "audio")
 
   // Duration sometimes only appears at the format level (mkv/mp4 with
   // unknown stream duration). Fall back through both.
@@ -74,12 +61,17 @@ export async function probe(srcPath: string): Promise<ProbeResult> {
     width,
     height,
     contentType: contentTypeForFormatName(parsed.format?.format_name ?? ""),
+    videoCodec: String(videoStream.codec_name ?? "").toLowerCase(),
+    audioCodec: audioStream?.codec_name
+      ? String(audioStream.codec_name).toLowerCase()
+      : null,
   }
 }
 
 interface ProbeJson {
   streams?: Array<{
     codec_type?: string
+    codec_name?: string
     width?: number | string
     height?: number | string
     duration?: string
@@ -99,48 +91,16 @@ function contentTypeForFormatName(name: string): string {
   return "application/octet-stream"
 }
 
-/**
- * Encode the source into a single web-friendly mp4 rendition. The
- * encoder backend is driven by `opts.config.hwaccel`:
- *
- *   - `software` → libx264/libx265 with CRF
- *   - `nvenc`    → h264_nvenc/hevc_nvenc with VBR + CQ
- *   - `qsv`      → h264_qsv/hevc_qsv with global_quality
- *   - `amf`      → h264_amf/hevc_amf with constant-QP
- *   - `vaapi`    → h264_vaapi/hevc_vaapi on the configured render node
- *
- * `onProgress` receives 0–100 integers as ffmpeg's stderr-progress
- * stream advances. The caller throttles writes; we just emit every
- * parseable line. Output is mp4 with `+faststart` regardless of codec
- * so the browser can begin playback before the full file lands.
- */
 export async function encode(
   srcPath: string,
   outPath: string,
   opts: {
     config: EncoderConfig
-    targetHeight?: number
+    targetHeight: number
     durationMs: number
     onProgress: (pct: number) => void
-    /**
-     * Optional trim window in milliseconds. When set, ffmpeg seeks to
-     * `trimStartMs` before opening the input (`-ss` *before* `-i`, fast
-     * keyframe seek) and limits output to `trimEndMs - trimStartMs`
-     * (`-t` after `-i`). The output's duration becomes the trim length,
-     * not the source length — the caller should record that.
-     *
-     * `durationMs` above must already reflect the trimmed length so the
-     * progress percentage tracks the right denominator.
-     */
     trimStartMs?: number | null
     trimEndMs?: number | null
-    /**
-     * Cancellation — aborting the signal SIGTERMs ffmpeg and rejects the
-     * returned promise with an `AbortError`. The caller (the encode
-     * worker) uses this to bail out of a clip that's been deleted
-     * mid-flight so ffmpeg isn't still writing bytes to disk after the
-     * DB row and source file are gone.
-     */
     signal?: AbortSignal
   }
 ): Promise<void> {
@@ -150,9 +110,6 @@ export async function encode(
     env.FFMPEG_BIN,
     args,
     (line) => {
-      // `out_time_us` is microseconds (newer ffmpeg); `out_time_ms` is the
-      // legacy alias and is *also* microseconds despite the name. Either
-      // works — divide by 1000 → ms, then by the trimmed duration → pct.
       const m =
         /^out_time_us=(-?\d+)/m.exec(line) ?? /^out_time_ms=(-?\d+)/m.exec(line)
       if (!m) return
@@ -169,22 +126,12 @@ export async function encode(
   )
 }
 
-/**
- * Construct the ffmpeg command for one encode pass. Split out from
- * `encode()` so it can be unit-tested without spawning ffmpeg, and so
- * the per-hwaccel branching reads as a single switch instead of being
- * tangled into the runner.
- *
- * Argument order matters: input options (hwaccel init, `-ss`) precede
- * `-i`; output options follow it; the codec block sits between the
- * filter chain and the output path.
- */
 export function buildEncodeArgs(
   srcPath: string,
   outPath: string,
   opts: {
     config: EncoderConfig
-    targetHeight?: number
+    targetHeight: number
     trimStartMs?: number | null
     trimEndMs?: number | null
   }
@@ -204,9 +151,6 @@ export function buildEncodeArgs(
       ]
     : []
 
-  // Input-side device init for hwaccels that need it. VAAPI binds the
-  // render node to the input; QSV pre-initialises the device so the
-  // hwupload filter has somewhere to copy frames into.
   const deviceInit: string[] = (() => {
     switch (config.hwaccel) {
       case "vaapi":
@@ -227,6 +171,8 @@ export function buildEncodeArgs(
     `${config.audioBitrateKbps}k`,
     "-ac",
     "2",
+    "-ar",
+    "48000",
   ]
 
   return [
@@ -250,20 +196,7 @@ export function buildEncodeArgs(
   ]
 }
 
-/**
- * Build the `-vf` chain. Software/NVENC/AMF do CPU-side scale + a
- * pixel-format conversion; QSV uses an upload filter so frames cross
- * onto the iGPU; VAAPI does the same with format=nv12 first.
- *
- * `force_original_aspect_ratio=decrease` plus the `-2` width keeps the
- * source's aspect ratio while constraining the long side — small
- * vertical sources stay small instead of being upscaled to fill the
- * target height.
- */
-function buildFilterChain(
-  config: EncoderConfig,
-  targetHeight: number = config.targetHeight
-): string {
+function buildFilterChain(config: EncoderConfig, targetHeight: number): string {
   const scale = `scale=-2:${targetHeight}:force_original_aspect_ratio=decrease`
   switch (config.hwaccel) {
     case "vaapi":
@@ -282,17 +215,6 @@ function buildFilterChain(
   }
 }
 
-/**
- * Codec/quality flags. The "quality" knob in the config maps onto
- * different rate-control parameters per backend — see the docstring on
- * `EncoderConfigSchema.quality` in `lib/config-store.ts` for the
- * rationale of a unified scale.
- *
- * Profile/level are pinned to "high"/"4.1" for h264 (the most widely
- * decodable browser-friendly tier); hevc uses "main" implicitly which
- * covers all 8-bit 4:2:0 content. Lower profiles save a tiny amount of
- * bytes at the cost of decoder compatibility — not worth it.
- */
 function buildCodecArgs(config: EncoderConfig): string[] {
   const q = String(config.quality)
   const preset = config.preset
@@ -307,9 +229,7 @@ function buildCodecArgs(config: EncoderConfig): string[] {
         preset,
         "-crf",
         q,
-        ...(config.codec === "h264"
-          ? ["-profile:v", "high", "-level", "4.1", "-pix_fmt", "yuv420p"]
-          : ["-pix_fmt", "yuv420p"]),
+        ...softwareCodecTail(config.codec),
       ]
     case "nvenc":
       // VBR + CQ gives a quality-targeted encode without a hard bitrate
@@ -353,26 +273,35 @@ function buildCodecArgs(config: EncoderConfig): string[] {
   }
 }
 
-/**
- * Resolve the ffmpeg encoder name for a (hwaccel, codec) pair. Centralised
- * so capability detection in admin.ts can reuse the same table when
- * reporting which backends are available on the host.
- */
+function softwareCodecTail(codec: EncoderCodec): string[] {
+  switch (codec) {
+    case "h264":
+      return ["-profile:v", "high", "-level", "4.1", "-pix_fmt", "yuv420p"]
+    case "hevc":
+    case "av1":
+      return ["-pix_fmt", "yuv420p"]
+  }
+}
+
 export function codecNameFor(
   hwaccel: HwaccelKind,
-  codec: "h264" | "hevc"
+  codec: EncoderCodec
 ): string {
   if (hwaccel === "software") {
-    return codec === "h264" ? "libx264" : "libx265"
+    switch (codec) {
+      case "h264":
+        return "libx264"
+      case "hevc":
+        return "libx265"
+      case "av1":
+        // SVT-AV1 is the only sane software AV1 option for server
+        // transcodes — libaom is ~10–50× slower for equivalent output.
+        return "libsvtav1"
+    }
   }
   return `${codec}_${hwaccel}`
 }
 
-/**
- * Extract a single frame at `atSeconds` and scale it to `width` pixels
- * wide (height auto-computed to preserve aspect). The container is
- * derived from `outPath`'s extension; .jpg is fine for posters.
- */
 export async function thumbnail(
   srcPath: string,
   outPath: string,
@@ -396,11 +325,6 @@ export async function thumbnail(
   await runCapture(env.FFMPEG_BIN, args)
 }
 
-/**
- * Format a millisecond count as ffmpeg's `HH:MM:SS.mmm` timestamp. Three
- * decimal places of seconds are enough for clip-level trim — anything
- * finer than a frame would just be jitter against keyframe boundaries.
- */
 function msToFfmpegTimestamp(ms: number): string {
   const totalMs = Math.max(0, Math.round(ms))
   const hours = Math.floor(totalMs / 3_600_000)
@@ -413,115 +337,4 @@ function msToFfmpegTimestamp(ms: number): string {
     `${seconds.toString().padStart(2, "0")}.` +
     `${millis.toString().padStart(3, "0")}`
   )
-}
-
-// ─── Process helpers ───────────────────────────────────────────────────
-
-interface CaptureResult {
-  stdout: string
-  stderr: string
-}
-
-function runCapture(
-  bin: string,
-  args: ReadonlyArray<string>
-): Promise<CaptureResult> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"] })
-    let stdout = ""
-    let stderr = ""
-    proc.stdout.on("data", (chunk) => {
-      stdout += String(chunk)
-    })
-    proc.stderr.on("data", (chunk) => {
-      stderr += String(chunk)
-    })
-    proc.on("error", reject)
-    proc.on("close", (code) => {
-      if (code === 0) {
-        resolve({ stdout, stderr })
-      } else {
-        reject(
-          new Error(
-            `${bin} exited ${code}: ${stderr.trim().slice(-500) || "(no stderr)"}`
-          )
-        )
-      }
-    })
-  })
-}
-
-/**
- * Run `bin` and feed each stderr line into `onLine`. Resolves on clean
- * exit; rejects with the tail of stderr on non-zero exit (so the caller
- * can surface a useful failure reason).
- *
- * When `signal` is provided, aborting it SIGTERMs the child and the
- * returned promise rejects with a tagged `AbortError` — callers
- * distinguish that from a genuine ffmpeg failure so a user-initiated
- * cancel doesn't churn pg-boss retries or get recorded as a failure
- * reason on a row that's being deleted.
- */
-function runWithProgress(
-  bin: string,
-  args: ReadonlyArray<string>,
-  onLine: (line: string) => void,
-  signal?: AbortSignal
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(abortError())
-      return
-    }
-    const proc = spawn(bin, args, { stdio: ["ignore", "ignore", "pipe"] })
-    let stderrTail = ""
-    let buf = ""
-    let aborted = false
-    proc.stderr.on("data", (chunk) => {
-      const text = String(chunk)
-      stderrTail = (stderrTail + text).slice(-2000)
-      buf += text
-      let idx: number
-      while ((idx = buf.indexOf("\n")) !== -1) {
-        const line = buf.slice(0, idx)
-        buf = buf.slice(idx + 1)
-        if (line) onLine(line)
-      }
-    })
-    // Deliver SIGTERM on abort; the `close` handler resolves the
-    // promise as AbortError because `aborted` is set.
-    const onAbort = () => {
-      aborted = true
-      // `kill` returns false if the child already exited — harmless.
-      proc.kill("SIGTERM")
-    }
-    signal?.addEventListener("abort", onAbort, { once: true })
-
-    proc.on("error", (err) => {
-      signal?.removeEventListener("abort", onAbort)
-      reject(err)
-    })
-    proc.on("close", (code) => {
-      signal?.removeEventListener("abort", onAbort)
-      if (aborted) {
-        reject(abortError())
-        return
-      }
-      if (code === 0) {
-        if (buf) onLine(buf)
-        resolve()
-      } else {
-        reject(
-          new Error(`${bin} exited ${code}: ${stderrTail.trim().slice(-500)}`)
-        )
-      }
-    })
-  })
-}
-
-function abortError(): Error {
-  // DOMException is available in Node ≥17 and gives a properly-tagged
-  // `.name === "AbortError"` that downstream `instanceof`-free checks
-  // can key off without importing anything.
-  return new DOMException("Encode cancelled", "AbortError")
 }
