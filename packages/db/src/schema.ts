@@ -118,10 +118,9 @@ export const clip = pgTable(
       .notNull()
       .default(sql`'[]'::jsonb`),
 
-    // Server-generated on finalize. A thumbnail failure leaves these null
+    // Server-generated on finalize. A thumbnail failure leaves this null
     // rather than failing the whole clip — the UI falls back to a placeholder.
     thumbKey: text("thumb_key"),
-    thumbSmallKey: text("thumb_small_key"),
 
     viewCount: integer("view_count").notNull().default(0),
     likeCount: integer("like_count").notNull().default(0),
