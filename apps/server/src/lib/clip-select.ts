@@ -24,7 +24,6 @@ export const clipSelectShape = {
   trimEndMs: clip.trimEndMs,
   variants: clip.variants,
   thumbKey: clip.thumbKey,
-  thumbSmallKey: clip.thumbSmallKey,
   viewCount: clip.viewCount,
   likeCount: clip.likeCount,
   commentCount: clip.commentCount,
@@ -36,12 +35,12 @@ export const clipSelectShape = {
   authorUsername: user.username,
   authorName: user.name,
   authorImage: user.image,
-  authorImageKey: user.imageKey,
   gameRef: {
     id: game.id,
     steamgriddbId: game.steamgriddbId,
     slug: game.slug,
     name: game.name,
+    releaseDate: game.releaseDate,
     heroUrl: game.heroUrl,
     logoUrl: game.logoUrl,
     iconUrl: game.iconUrl,
@@ -53,6 +52,7 @@ export type ClipGameRef = {
   steamgriddbId: number
   slug: string
   name: string
+  releaseDate: Date | null
   heroUrl: string | null
   logoUrl: string | null
   iconUrl: string | null
