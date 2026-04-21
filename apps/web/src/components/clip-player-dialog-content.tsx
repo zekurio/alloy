@@ -1,5 +1,3 @@
-import * as React from "react"
-
 import { DialogContent } from "@workspace/ui/components/dialog"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -33,10 +31,9 @@ function ClipPlayerDialogContent({
   const thumbnail = row.thumbKey ? clipThumbnailUrl(row.id) : undefined
   const avatarSrc = row.authorImage ?? undefined
 
-  const [aspectRatio, setAspectRatio] = React.useState<number | null>(null)
-
-  const ratioForLayout = aspectRatio ?? 16 / 9
-  const modalWidth = `min(97vw, calc(70vh * ${ratioForLayout} + 480px))`
+  // Player locks to 16:9 and letterboxes off-ratio clips, so the modal width
+  // can be pre-computed from that same ratio instead of waiting on metadata.
+  const modalWidth = `min(97vw, calc(70vh * 16 / 9 + 480px))`
 
   return (
     <DialogContent
@@ -54,7 +51,6 @@ function ClipPlayerDialogContent({
           thumbnail={thumbnail}
           variants={row.variants}
           onPlayThreshold={() => void recordView(row.id)}
-          onAspectRatio={setAspectRatio}
         />
         <ClipMeta
           clipId={row.id}
