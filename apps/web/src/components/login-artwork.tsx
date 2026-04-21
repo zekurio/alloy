@@ -5,28 +5,6 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import type { PublicClip } from "../lib/public-clips"
 
-/**
- * Decorative left-pane carousel for the login page.
- *
- * Rows of public clips scrolling horizontally, with every other row moving in
- * the opposite direction — gives the pane a living, feed-like feel without
- * pulling in the real home grid (which requires auth anyway). The whole stack
- * is rotated a few degrees (2D only, no perspective) so the grid reads as
- * editorial backdrop rather than a literal product surface. The stage is
- * over-scaled so the rotation doesn't reveal empty corners.
- *
- * Server data comes in through the `clips` prop (populated by the route
- * loader). If the server returned nothing — offline, empty DB, cold start —
- * we fall back to a hand-picked tile set so the pane is never blank.
- *
- * Each row duplicates its tile list so the CSS marquee can wrap seamlessly
- * via `translateX(-50%)`. Pure CSS animation — no JS tick, no rAF, so this
- * stays cheap even while the form above is doing real work.
- */
-
-// Evergreen fallback used when the clips API returns nothing. Titles are
-// deliberately game-agnostic "highlight" vibes so the pane still looks alive
-// even on a fresh install.
 const FALLBACK_TITLES = [
   "Clutch 1v3 on Ascent",
   "Last-second defuse",
@@ -50,9 +28,6 @@ const FALLBACK_TITLES = [
   "Operator 1-tap spam",
 ] as const
 
-// Known games get curated hues so their tiles read as consistent colour
-// families across the carousel. Anything unrecognised falls through to a
-// stable hash of the title.
 const GAME_HUE: Record<string, number> = {
   Valorant: 300,
   "Counter-Strike 2": 45,
@@ -79,14 +54,22 @@ function hueFor(clip: { title: string; game: string | null }): number {
   return hashHue(clip.title)
 }
 
-type Tile = { key: string; title: string; hue: number }
+type Tile = {
+  key: string
+  title: string
+  hue: number
+  thumbUrl: string | null
+}
 
-// Tile width scales with the viewport so the artwork reads the same whether
-// we're on a 1280px laptop or a 2560px monitor. At fixed 360px, tiles looked
-// huge on small panes and tiny on large ones — clamp() keeps the visual
-// density (tiles-per-row, text size relative to tile) stable across sizes.
-// Tile text and inset padding use the same clamp approach so proportions hold.
-function Tile({ title, hue }: { title: string; hue: number }) {
+function Tile({
+  title,
+  hue,
+  thumbUrl,
+}: {
+  title: string
+  hue: number
+  thumbUrl: string | null
+}) {
   return (
     <div
       className={cn(
@@ -102,6 +85,19 @@ function Tile({ title, hue }: { title: string; hue: number }) {
         `,
       }}
     >
+      {thumbUrl ? (
+        <img
+          src={thumbUrl}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : null}
+      {thumbUrl ? (
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+      ) : null}
       <div className="absolute inset-x-[6%] bottom-[4%] text-[clamp(12px,1vw,16px)] font-semibold tracking-[-0.01em] text-white/85 drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
         {title}
       </div>
@@ -109,11 +105,6 @@ function Tile({ title, hue }: { title: string; hue: number }) {
   )
 }
 
-/**
- * One scrolling row. The track holds the tile list twice so the marquee
- * wraps seamlessly — once the first copy scrolls out of view, the second
- * copy is right where the first started.
- */
 function MarqueeRow({
   tiles,
   reverse,
@@ -141,7 +132,12 @@ function MarqueeRow({
             aria-hidden={copy === 1}
           >
             {tiles.map((t) => (
-              <Tile key={`${copy}-${t.key}`} title={t.title} hue={t.hue} />
+              <Tile
+                key={`${copy}-${t.key}`}
+                title={t.title}
+                hue={t.hue}
+                thumbUrl={t.thumbUrl}
+              />
             ))}
           </div>
         ))}
@@ -150,12 +146,6 @@ function MarqueeRow({
   )
 }
 
-/**
- * Split a list of tiles into `rowCount` roughly-equal rows, cycling through
- * the source so each row gets a distinct slice. If we have fewer clips than
- * rows (or tiles per row feel sparse), we repeat the pool to keep every row
- * dense — a short row would show the seam between the two marquee copies.
- */
 function buildRows(source: Tile[], rowCount: number): Tile[][] {
   const MIN_PER_ROW = 8
   const pool: Tile[] = []
@@ -172,10 +162,6 @@ function buildRows(source: Tile[], rowCount: number): Tile[][] {
   return rows
 }
 
-// Hoisted so we're not reallocating the array on every render — the login
-// page re-renders on every keystroke in the email/password fields, and this
-// component's tile tree is heavy (~80+ DOM nodes). Combined with React.memo
-// below, keystrokes don't touch this subtree at all.
 const ROW_COUNT = 5
 const ROW_SETTINGS = [
   { durationSeconds: 80, reverse: false },
@@ -190,10 +176,6 @@ export const LoginArtwork = React.memo(function LoginArtwork({
 }: {
   clips: PublicClip[]
 }) {
-  // Build the tile source: real public clips first, otherwise the fallback
-  // title list. We don't mix the two — if the server returned anything at all
-  // we show only real data. Memoed on `clips` identity so the expensive
-  // `buildRows` fan-out only runs when the loader data actually changes.
   const rows = React.useMemo(() => {
     const source: Tile[] =
       clips.length > 0
@@ -201,11 +183,13 @@ export const LoginArtwork = React.memo(function LoginArtwork({
             key: c.id || `clip-${i}`,
             title: c.title,
             hue: hueFor(c),
+            thumbUrl: c.thumbUrl,
           }))
         : FALLBACK_TITLES.map((title, i) => ({
             key: `fallback-${i}`,
             title,
             hue: hashHue(title),
+            thumbUrl: null,
           }))
     return buildRows(source, ROW_COUNT)
   }, [clips])

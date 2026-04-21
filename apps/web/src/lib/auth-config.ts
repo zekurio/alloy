@@ -2,13 +2,14 @@ import { api } from "./api"
 
 export interface PublicAuthProvider {
   providerId: string
-  buttonText: string
+  displayName: string
 }
 
 export interface PublicAuthConfig {
   setupRequired: boolean
   openRegistrations: boolean
   emailPasswordEnabled: boolean
+  requireAuthToBrowse: boolean
   provider: PublicAuthProvider | null
 }
 
