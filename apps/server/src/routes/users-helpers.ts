@@ -7,8 +7,6 @@ import { clip, clipMention, follow, game } from "@workspace/db/schema"
 import { getAuth } from "../auth"
 import { db } from "../db"
 import { clipSelectShape } from "../lib/clip-select"
-import { storage } from "../storage"
-import { readAll } from "./clips-helpers"
 
 export const UsernameParam = z.object({ username: z.string().min(1) })
 
@@ -32,8 +30,6 @@ interface PublicUser {
   username: string
   name: string
   image: string | null
-  hasUploadedImage: boolean
-  hasBanner: boolean
   createdAt: string
   updatedAt: string
 }
@@ -44,8 +40,6 @@ export function toPublicUser(row: UserRow): PublicUser {
     username: row.username,
     name: row.name ?? "",
     image: row.image,
-    hasUploadedImage: Boolean(row.imageKey),
-    hasBanner: Boolean(row.bannerKey),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   }
@@ -58,29 +52,6 @@ export async function resolveTarget(segment: string): Promise<UserRow | null> {
     .where(eq(user.username, segment.toLowerCase()))
     .limit(1)
   return row ?? null
-}
-
-export async function storedImageResponse(
-  key: string | null
-): Promise<Response | null> {
-  if (!key) return null
-  const resolved = await storage.resolve(key)
-  if (!resolved) return null
-
-  const buf = await readAll(resolved.stream())
-  return new Response(
-    buf.buffer.slice(
-      buf.byteOffset,
-      buf.byteOffset + buf.byteLength
-    ) as ArrayBuffer,
-    {
-      status: 200,
-      headers: {
-        "content-type": resolved.contentType,
-        "cache-control": "public, max-age=300",
-      },
-    }
-  )
 }
 
 export async function listUserClips(row: UserRow, headers: Headers) {

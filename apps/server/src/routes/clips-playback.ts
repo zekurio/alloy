@@ -2,7 +2,6 @@ import { zValidator } from "@hono/zod-validator"
 import { eq } from "drizzle-orm"
 import { Hono } from "hono"
 import { stream } from "hono/streaming"
-import { z } from "zod"
 
 import { clip } from "@workspace/db/schema"
 
@@ -113,21 +112,16 @@ export const clipsPlaybackRoutes = new Hono()
   )
 
   /**
-   * GET /api/clips/:id/thumbnail?size=small — poster image for the
-   * player and the queue/grid cards. Returns 404 when the encoder
-   * couldn't produce one (intentional — the UI falls back to a
-   * gradient placeholder, which it does for unencoded clips too).
+   * GET /api/clips/:id/thumbnail — poster image for the player and
+   * queue/grid cards. Returns 404 when the encoder couldn't produce
+   * one (intentional — the UI falls back to a gradient placeholder,
+   * which it does for unencoded clips too).
    */
   .get(
     "/:id/thumbnail",
     zValidator("param", IdParam),
-    zValidator(
-      "query",
-      z.object({ size: z.enum(["small", "full"]).default("full") })
-    ),
     async (c) => {
       const { id } = c.req.valid("param")
-      const { size } = c.req.valid("query")
 
       const [row] = await db.select().from(clip).where(eq(clip.id, id)).limit(1)
       if (!row) return c.json({ error: "Not found" }, 404)
@@ -144,7 +138,7 @@ export const clipsPlaybackRoutes = new Hono()
         return c.json({ error: "Not found" }, 404)
       }
 
-      const key = size === "small" ? row.thumbSmallKey : row.thumbKey
+      const key = row.thumbKey
       if (!key) return c.json({ error: "No thumbnail" }, 404)
 
       const resolved = await storage.resolve(key)
