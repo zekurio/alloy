@@ -47,6 +47,8 @@ interface UploadQueueContentProps {
   onNewClip: () => void
   /** Dismisses every finished (published) row in one go. */
   onClearCompleted?: () => void
+  /** Closes the surrounding queue surface. */
+  onClose?: () => void
 }
 
 const PAGE_SIZE = 6
@@ -55,6 +57,7 @@ export function UploadQueueContent({
   queue,
   onNewClip,
   onClearCompleted,
+  onClose,
 }: UploadQueueContentProps) {
   const [page, setPage] = React.useState(0)
   const pageCount = Math.max(1, Math.ceil(queue.length / PAGE_SIZE))
@@ -78,16 +81,27 @@ export function UploadQueueContent({
               variant="ghost"
               size="sm"
               onClick={onClearCompleted}
-              className="h-6 px-2 text-xs text-foreground-faint"
+              className="h-6 px-2 text-xs font-semibold text-foreground-muted"
             >
               Clear completed
             </Button>
           ) : null}
-          <span className="text-xs text-foreground-faint tabular-nums">
+          <span className="text-xs font-semibold text-foreground-muted tabular-nums">
             {queue.length === 0
               ? "empty"
               : `${queue.length} ${queue.length === 1 ? "item" : "items"}`}
           </span>
+          {onClose ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Close uploads"
+              onClick={onClose}
+              className="text-foreground-muted"
+            >
+              <XIcon />
+            </Button>
+          ) : null}
         </div>
       </header>
 
@@ -97,7 +111,7 @@ export function UploadQueueContent({
             <p className="text-sm font-medium text-foreground">
               Nothing in the queue
             </p>
-            <p className="text-xs text-foreground-dim">
+            <p className="text-xs font-semibold text-foreground-muted">
               Uploaded clips will show up here.
             </p>
           </div>
@@ -107,7 +121,7 @@ export function UploadQueueContent({
       </div>
 
       {pageCount > 1 ? (
-        <div className="flex items-center justify-between gap-2 px-1 text-xs text-foreground-faint">
+        <div className="flex items-center justify-between gap-2 px-1 text-xs font-semibold text-foreground-muted">
           <Button
             variant="ghost"
             size="icon-sm"
@@ -150,11 +164,17 @@ function QueueRow({ item }: { item: QueueItem }) {
     <article
       data-slot="queue-row"
       className={cn(
-        "group/row relative flex flex-col gap-2",
-        "rounded-md border border-border bg-surface px-3 py-2.5",
+        "group/row alloy-glass relative flex flex-col gap-2",
+        "rounded-md border px-3 py-2.5",
         "transition-[border-color] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
         "hover:border-border-strong"
       )}
+      style={
+        {
+          "--alloy-glass-bg": "var(--queue-row-glass-bg)",
+          "--alloy-glass-shadow": "0 12px 32px -28px rgb(0 0 0 / 0.48)",
+        } as React.CSSProperties
+      }
     >
       <div className="flex items-center gap-3">
         <QueueThumb thumbUrl={item.thumbUrl ?? null} hue={item.hue} />
@@ -165,24 +185,26 @@ function QueueRow({ item }: { item: QueueItem }) {
               {item.title}
             </span>
           </div>
-          <div className="flex min-w-0 items-center gap-1.5 text-xs text-foreground-faint">
-            <span className={cn("font-medium uppercase", tone.label)}>
+          <div className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-foreground-muted">
+            <span className={cn("font-semibold uppercase", tone.label)}>
               {STATUS_LABELS[item.status]}
             </span>
             {showPct ? (
               <span
                 className={cn(
-                  "font-mono font-medium tabular-nums",
+                  "font-mono font-semibold tabular-nums",
                   tone.label
                 )}
               >
                 {item.progress}%
               </span>
             ) : null}
-            <span aria-hidden className="text-foreground-faint">
+            <span aria-hidden className="text-foreground-muted">
               ·
             </span>
-            <span className="truncate">{item.detail}</span>
+            <span className="truncate font-semibold text-foreground-muted">
+              {item.detail}
+            </span>
           </div>
         </div>
 
