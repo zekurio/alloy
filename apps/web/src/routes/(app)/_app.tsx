@@ -1,3 +1,4 @@
+import * as React from "react"
 import {
   Outlet,
   createFileRoute,
@@ -40,6 +41,25 @@ function AppLayout() {
     })
   }
 
+  const handleNavigateClip = React.useCallback(
+    (entry: { id: string; gameSlug: string | null }) => {
+      void navigate({
+        to: ".",
+        search: (prev: AppSearch) => ({ ...prev, clip: entry.id }),
+        ...(entry.gameSlug
+          ? {
+              mask: {
+                to: "/g/$slug/c/$clipId",
+                params: { slug: entry.gameSlug, clipId: entry.id },
+              },
+            }
+          : {}),
+        replace: true,
+      })
+    },
+    [navigate]
+  )
+
   return (
     <AppSearchProvider>
       <AppShell>
@@ -51,6 +71,7 @@ function AppLayout() {
       <ClipPlayerModal
         clipId={clip ?? null}
         onClose={handleCloseClipModal}
+        onNavigate={handleNavigateClip}
       />
     </AppSearchProvider>
   )

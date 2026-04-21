@@ -90,7 +90,7 @@ function ClipCard({
               authorSeed={authorSeed}
               authorImage={authorImage}
             />
-            <span className="flex min-w-0 -translate-y-px items-center gap-2">
+            <span className="flex min-w-0 -translate-y-0.5 items-center gap-2">
               <AuthorLabel author={author} href={authorHref} />
               <span className="shrink-0 text-foreground-faint">·</span>
               <GameLabel game={game} icon={gameIcon} href={gameHref} />
@@ -143,6 +143,9 @@ function ClipCardThumb({
 }) {
   const videoRef = React.useRef<HTMLVideoElement | null>(null)
   const timerRef = React.useRef<number | null>(null)
+  const hoveredRef = React.useRef(false)
+  const shouldPreviewRef = React.useRef(false)
+  const primedRef = React.useRef(false)
   const [previewing, setPreviewing] = React.useState(false)
 
   // Clear any pending hover timer when the component unmounts — stray
@@ -158,23 +161,36 @@ function ClipCardThumb({
 
   const canPreview = Boolean(streamUrl)
 
+  const primePreview = React.useCallback(() => {
+    const v = videoRef.current
+    if (!v || primedRef.current) return
+    primedRef.current = true
+    v.load()
+  }, [])
+
+  const startPreview = React.useCallback(() => {
+    const v = videoRef.current
+    if (!v || !hoveredRef.current || !shouldPreviewRef.current) return
+    if (v.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return
+    setPreviewing(true)
+    v.currentTime = 0
+    void v.play().catch(() => undefined)
+  }, [])
+
   const schedulePreview = () => {
     if (!canPreview) return
+    hoveredRef.current = true
+    primePreview()
     if (timerRef.current !== null) window.clearTimeout(timerRef.current)
     timerRef.current = window.setTimeout(() => {
-      setPreviewing(true)
-      const v = videoRef.current
-      if (v) {
-        v.currentTime = 0
-        // `play()` rejects when the tab is backgrounded or the user
-        // navigates mid-hover. Swallow — we'll never show the preview
-        // and the thumbnail stays visible.
-        void v.play().catch(() => undefined)
-      }
+      shouldPreviewRef.current = true
+      startPreview()
     }, HOVER_PREVIEW_DELAY_MS)
   }
 
   const cancelPreview = () => {
+    hoveredRef.current = false
+    shouldPreviewRef.current = false
     if (timerRef.current !== null) {
       window.clearTimeout(timerRef.current)
       timerRef.current = null
@@ -200,6 +216,10 @@ function ClipCardThumb({
       schedulePreview()
     },
     onPointerLeave: cancelPreview,
+    onFocus: () => {
+      schedulePreview()
+    },
+    onBlur: cancelPreview,
   }
 
   const body = (
@@ -240,8 +260,10 @@ function ClipCardThumb({
 
       {/* Hover preview overlay. Mounted only when we actually have a
           stream URL — keeps the DOM light for mock decks and
-          still-encoding rows. `use-credentials` so private clips
-          carry better-auth's cookie for the range GET. */}
+          still-encoding rows. We intentionally avoid `crossOrigin`
+          here: the request starts same-origin so cookies still reach
+          the auth gate, and S3-backed redirects then remain compatible
+          with buckets that do not allow credentialed CORS media loads. */}
       {canPreview ? (
         <video
           ref={videoRef}
@@ -249,8 +271,8 @@ function ClipCardThumb({
           muted
           loop
           playsInline
-          preload="none"
-          crossOrigin="use-credentials"
+          preload="metadata"
+          onLoadedData={startPreview}
           aria-hidden
           className={cn(
             "absolute inset-0 size-full bg-black object-cover",
@@ -293,16 +315,11 @@ function AuthorLabel({
 }) {
   const className = cn(
     "truncate leading-none font-medium text-foreground-muted",
-    href &&
-      "hover:underline focus-visible:underline focus-visible:outline-none"
+    href && "hover:underline focus-visible:underline focus-visible:outline-none"
   )
   if (href) {
     return (
-      <a
-        href={href}
-        onClick={(e) => e.stopPropagation()}
-        className={className}
-      >
+      <a href={href} onClick={(e) => e.stopPropagation()} className={className}>
         {author}
       </a>
     )

@@ -1,6 +1,17 @@
 import * as React from "react"
 import { Trash2Icon } from "lucide-react"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,
@@ -143,16 +154,39 @@ export function IntegrationsConfigCard({
 
         <CardFooter>
           {steamgriddbConfigured ? (
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              onClick={onClearSteamGridDB}
-              disabled={pending}
-            >
-              <Trash2Icon />
-              Remove key
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    disabled={pending}
+                  >
+                    <Trash2Icon />
+                    Remove key
+                  </Button>
+                }
+              />
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Remove SteamGridDB key?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This disables the game picker and cover art integration until a new key is added.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    variant="destructive"
+                    onClick={onClearSteamGridDB}
+                    disabled={pending}
+                  >
+                    {pending ? "Removing…" : "Remove key"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           ) : null}
           <Button type="submit" variant="primary" size="sm" disabled={pending}>
             {pending ? "Saving…" : "Save changes"}

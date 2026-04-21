@@ -37,6 +37,38 @@ type IdentityStatsProps = {
   counts: ProfileCounts
 }
 
+function StatSeparator() {
+  return (
+    <span aria-hidden className="text-foreground-muted/80">
+      ·
+    </span>
+  )
+}
+
+function FollowStatButton({
+  value,
+  label,
+  onClick,
+}: {
+  value: number
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-sm",
+        "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+        "hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      )}
+    >
+      <StatInline value={value} label={label} />
+    </button>
+  )
+}
+
 export function IdentityStats({ handle, counts }: IdentityStatsProps) {
   const [open, setOpen] = React.useState<FollowModal>(null)
   const viewRef = React.useRef<Exclude<FollowModal, null>>("followers")
@@ -56,36 +88,20 @@ export function IdentityStats({ handle, counts }: IdentityStatsProps) {
 
   return (
     <>
-      <div className="flex items-center gap-4 text-sm text-foreground-dim">
+      <div className="flex items-center gap-4 text-sm font-medium text-foreground-muted">
         <StatInline value={counts.clips} label="clips" />
-        <span aria-hidden className="text-foreground-faint">
-          ·
-        </span>
-        <button
-          type="button"
+        <StatSeparator />
+        <FollowStatButton
+          value={counts.followers}
+          label="followers"
           onClick={() => setOpen("followers")}
-          className={cn(
-            "rounded-sm",
-            "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-            "hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          )}
-        >
-          <StatInline value={counts.followers} label="followers" />
-        </button>
-        <span aria-hidden className="text-foreground-faint">
-          ·
-        </span>
-        <button
-          type="button"
+        />
+        <StatSeparator />
+        <FollowStatButton
+          value={counts.following}
+          label="following"
           onClick={() => setOpen("following")}
-          className={cn(
-            "rounded-sm",
-            "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-            "hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          )}
-        >
-          <StatInline value={counts.following} label="following" />
-        </button>
+        />
       </div>
 
       <Dialog open={open !== null} onOpenChange={(v) => !v && setOpen(null)}>

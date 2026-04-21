@@ -15,8 +15,10 @@ export const userKeys = {
   profile: (handle: string) => [...userKeys.all, "profile", handle] as const,
   search: (q: string) => [...userKeys.all, "search", q] as const,
   tagged: (handle: string) => [...userKeys.all, "tagged", handle] as const,
-  followers: (handle: string) => [...userKeys.all, "followers", handle] as const,
-  following: (handle: string) => [...userKeys.all, "following", handle] as const,
+  followers: (handle: string) =>
+    [...userKeys.all, "followers", handle] as const,
+  following: (handle: string) =>
+    [...userKeys.all, "following", handle] as const,
 }
 
 export function useUserSearchQuery(q: string) {

@@ -1,40 +1,51 @@
-import * as React from "react";
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import * as React from "react"
+import { createFileRoute, useRouter } from "@tanstack/react-router"
+import { createServerFn } from "@tanstack/react-start"
+import { getRequest } from "@tanstack/react-start/server"
 
-import { ClipPlayerModal } from "../../components/clip-player-modal";
+import { ClipPlayerModal } from "../../components/clip-player-modal"
 import {
   clipStreamUrl,
   clipThumbnailUrl,
   fetchClipById,
   type ClipEncodedVariant,
   type ClipRow,
-} from "../../lib/clips-api";
+} from "../../lib/clips-api"
+
+const getPublicOrigin = createServerFn({ method: "GET" }).handler(async () => {
+  return process.env.PUBLIC_APP_URL ?? new URL(getRequest().url).origin
+})
 
 export const Route = createFileRoute("/(app)/_app/g/$slug/c/$clipId")({
   loader: async ({ params }) => {
     try {
-      return { clip: await fetchClipById(params.clipId) };
+      const [clip, origin] = await Promise.all([
+        fetchClipById(params.clipId),
+        getPublicOrigin(),
+      ])
+      return { clip, publicOrigin: origin }
     } catch {
-      return { clip: null };
+      return { clip: null, publicOrigin: await getPublicOrigin() }
     }
   },
-  head: ({ loaderData }) => clipHead(loaderData?.clip ?? null),
+  head: ({ loaderData }) =>
+    clipHead(loaderData?.clip ?? null, loaderData?.publicOrigin),
   component: ClipModalRoute,
-});
+})
 
-function clipHead(row: ClipRow | null) {
+function clipHead(row: ClipRow | null, origin?: string) {
   if (!row) {
-    return { meta: [{ title: "alloy" }] };
+    return { meta: [{ title: "alloy" }] }
   }
 
   const description =
     row.description?.trim() ||
-    `${row.authorUsername} shared a ${row.gameRef?.name ?? row.game ?? "game"} clip on alloy.`;
-  const poster = row.thumbKey ? clipThumbnailUrl(row.id) : null;
-  const ogVariant = selectOpenGraphVariant(row);
-  const videoUrl = clipStreamUrl(row.id, ogVariant?.id ?? "encoded");
-  const width = ogVariant?.width ?? row.width;
-  const height = ogVariant?.height ?? row.height;
+    `${row.authorUsername} shared a ${row.gameRef?.name ?? row.game ?? "game"} clip on alloy.`
+  const poster = row.thumbKey ? clipThumbnailUrl(row.id, origin) : null
+  const ogVariant = selectOpenGraphVariant(row)
+  const videoUrl = clipStreamUrl(row.id, ogVariant?.id ?? "encoded", origin)
+  const width = ogVariant?.width ?? row.width
+  const height = ogVariant?.height ?? row.height
 
   return {
     meta: [
@@ -62,37 +73,61 @@ function clipHead(row: ClipRow | null) {
       { name: "twitter:description", content: description },
       ...(poster ? [{ name: "twitter:image", content: poster }] : []),
     ],
-  };
+  }
 }
 
 function selectOpenGraphVariant(row: ClipRow): ClipEncodedVariant | null {
   const mp4Variants = row.variants.filter(
-    (variant) => variant.id !== "source" && variant.contentType === "video/mp4",
-  );
+    (variant) => variant.id !== "source" && variant.contentType === "video/mp4"
+  )
   return (
     mp4Variants.find((variant) => variant.isDefault) ?? mp4Variants[0] ?? null
-  );
+  )
 }
 
 function ClipModalRoute() {
-  const { slug, clipId } = Route.useParams();
-  const router = useRouter();
-  const [modalClipId, setModalClipId] = React.useState<string | null>(clipId);
+  const { slug, clipId } = Route.useParams()
+  const router = useRouter()
+  const [modalClipId, setModalClipId] = React.useState<string | null>(clipId)
+
+  React.useEffect(() => {
+    setModalClipId(clipId)
+  }, [clipId])
 
   const handleClose = React.useCallback(() => {
-    setModalClipId(null);
+    setModalClipId(null)
     // Prefer browser back so the previous screen (if any) is preserved
     // verbatim. Cold loads fall through to the game page.
     if (router.history.length > 1) {
-      router.history.back();
+      router.history.back()
     } else {
       void router.navigate({
         to: "/g/$slug",
         params: { slug },
         replace: true,
-      });
+      })
     }
-  }, [router, slug]);
+  }, [router, slug])
 
-  return <ClipPlayerModal clipId={modalClipId} onClose={handleClose} />;
+  const handleNavigate = React.useCallback(
+    (entry: { id: string; gameSlug: string | null }) => {
+      setModalClipId(entry.id)
+      // Match the URL to the new clip so refreshes land on the right
+      // page — fall back to the current slug when the entry is missing one.
+      void router.navigate({
+        to: "/g/$slug/c/$clipId",
+        params: { slug: entry.gameSlug ?? slug, clipId: entry.id },
+        replace: true,
+      })
+    },
+    [router, slug]
+  )
+
+  return (
+    <ClipPlayerModal
+      clipId={modalClipId}
+      onClose={handleClose}
+      onNavigate={handleNavigate}
+    />
+  )
 }

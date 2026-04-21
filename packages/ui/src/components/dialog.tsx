@@ -1,9 +1,7 @@
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 
-import { XIcon } from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
-import { Button } from "@workspace/ui/components/button"
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
@@ -41,68 +39,57 @@ function DialogOverlay({
 
 function DialogContent({
   className,
-  children,
-  showCloseButton,
   showOverlay = true,
+  disableZoom = false,
+  centered = true,
   ...props
 }: DialogPrimitive.Popup.Props & {
-  showCloseButton?: boolean
   showOverlay?: boolean
+  disableZoom?: boolean
+  centered?: boolean
 }) {
-  const renderCloseButton =
-    showCloseButton ?? !hasDialogFooterChild(children)
   return (
     <DialogPortal>
       {showOverlay ? <DialogOverlay /> : null}
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 w-full max-w-[440px] -translate-x-1/2 -translate-y-1/2",
-          "overflow-hidden rounded-lg border border-border bg-surface text-foreground shadow-lg",
+          "fixed z-50 overflow-hidden rounded-lg border border-border bg-surface text-foreground shadow-lg",
           "duration-100 outline-none",
-          "data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95",
-          "data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          centered && "top-1/2 left-1/2 w-full max-w-[440px] -translate-x-1/2 -translate-y-1/2",
+          disableZoom
+            ? "data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
+            : "data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}
         {...props}
-      >
-        {children}
-        {renderCloseButton ? (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            render={
-              <Button
-                variant="ghost"
-                className="absolute top-3 right-3"
-                size="icon-sm"
-              />
-            }
-          >
-            <XIcon />
-            <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
-        ) : null}
-      </DialogPrimitive.Popup>
+      />
     </DialogPortal>
   )
 }
 
-function hasDialogFooterChild(children: React.ReactNode): boolean {
-  let found = false
-  React.Children.forEach(children, (child) => {
-    if (React.isValidElement(child) && child.type === DialogFooter) found = true
-  })
-  return found
+function DialogViewportContent({
+  className,
+  ...props
+}: React.ComponentProps<typeof DialogContent>) {
+  return (
+    <DialogContent
+      disableZoom
+      className={cn(
+        "h-[calc(100vh-32px)] w-[calc(100vw-32px)] max-w-none overflow-hidden rounded-[28px] p-0",
+        "lg:h-[calc(100vh-48px)] lg:w-[calc(100vw-200px)]",
+        className
+      )}
+      {...props}
+    />
+  )
 }
 
 function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn(
-        "flex flex-col gap-1.5 border-b border-border px-6 pt-5 pb-4",
-        className
-      )}
+      className={cn("flex flex-col gap-1.5 px-6 pt-5", className)}
       {...props}
     />
   )
@@ -112,7 +99,7 @@ function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-body"
-      className={cn("px-6 py-5", className)}
+      className={cn("px-6 py-4", className)}
       {...props}
     />
   )
@@ -120,28 +107,14 @@ function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
 
 function DialogFooter({
   className,
-  showCloseButton = false,
-  children,
   ...props
-}: React.ComponentProps<"div"> & {
-  showCloseButton?: boolean
-}) {
+}: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-footer"
-      className={cn(
-        "flex items-center justify-end gap-2 border-t border-border bg-background px-6 py-4",
-        className
-      )}
+      className={cn("flex items-center justify-end gap-2 px-6 pb-5", className)}
       {...props}
-    >
-      {children}
-      {showCloseButton ? (
-        <DialogPrimitive.Close render={<Button variant="ghost" />}>
-          Close
-        </DialogPrimitive.Close>
-      ) : null}
-    </div>
+    />
   )
 }
 
@@ -187,4 +160,5 @@ export {
   DialogPortal,
   DialogTitle,
   DialogTrigger,
+  DialogViewportContent,
 }

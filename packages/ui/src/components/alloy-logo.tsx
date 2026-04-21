@@ -30,7 +30,7 @@ function AlloyLogo({
       <AlloyLogoMark size={size} />
       <span
         className={cn(
-          "font-semibold tracking-[-0.02em] text-foreground",
+          "font-mono font-medium tracking-[0.04em] text-foreground",
           textClassName
         )}
         style={{ fontSize: Math.round(size * 0.48) }}
@@ -51,7 +51,7 @@ function AlloyLogoMark({
       src="/alloy-logo.png"
       width={size}
       height={size}
-      alt="Alloy"
+      alt="alloy"
       className={cn("shrink-0 select-none", className)}
       draggable={false}
       {...props}

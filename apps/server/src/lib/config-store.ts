@@ -27,6 +27,7 @@ const OAuthProviderBaseSchema = z.object({
   clientId: z.string().min(1),
   clientSecret: z.string(),
   scopes: z.array(z.string().min(1)).optional(),
+  enabled: z.boolean().default(true),
   discoveryUrl: z.string().url().optional(),
   authorizationUrl: z.string().url().optional(),
   tokenUrl: z.string().url().optional(),
@@ -41,13 +42,43 @@ const hasEndpoints = (p: z.infer<typeof OAuthProviderBaseSchema>) =>
 const endpointsMessage =
   "Provide discoveryUrl, or all three of authorizationUrl, tokenUrl, userInfoUrl."
 
-export const OAuthProviderSchema = OAuthProviderBaseSchema.extend({
-  clientSecret: z.string().min(1),
-}).refine(hasEndpoints, { message: endpointsMessage })
+function validateOAuthProvider(
+  provider: z.infer<typeof OAuthProviderBaseSchema>,
+  ctx: z.RefinementCtx,
+  requireSecret: boolean
+): void {
+  if (requireSecret && provider.clientSecret.length === 0) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["clientSecret"],
+      message: "Client secret is required",
+    })
+  }
 
-export const OAuthProviderSubmissionSchema = OAuthProviderBaseSchema.refine(
-  hasEndpoints,
-  { message: endpointsMessage }
+  if (!hasEndpoints(provider)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["discoveryUrl"],
+      message: endpointsMessage,
+    })
+  }
+  if (!provider.usernameClaim || provider.usernameClaim.trim().length === 0) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["usernameClaim"],
+      message: "Username claim is required for custom providers.",
+    })
+  }
+}
+
+const OAuthProviderSchemaBase = OAuthProviderBaseSchema
+
+export const OAuthProviderSchema = OAuthProviderSchemaBase.superRefine(
+  (provider, ctx) => validateOAuthProvider(provider, ctx, true)
+)
+
+export const OAuthProviderSubmissionSchema = OAuthProviderSchemaBase.superRefine(
+  (provider, ctx) => validateOAuthProvider(provider, ctx, false)
 )
 
 export type OAuthProviderConfig = z.infer<typeof OAuthProviderSchema>
@@ -191,16 +222,40 @@ const CONFIG_PATH = resolveConfigPath()
 
 function migrateLegacyFields(raw: unknown): unknown {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw
-  const r = raw as Record<string, unknown>
-  const provider = r.oauthProvider
-  if (provider && typeof provider === "object" && !Array.isArray(provider)) {
-    const p = provider as Record<string, unknown>
-    if (p.displayName === undefined && typeof p.buttonText === "string") {
-      p.displayName = p.buttonText
-    }
-    if ("buttonText" in p) delete p.buttonText
+  const r = { ...(raw as Record<string, unknown>) }
+  if (Array.isArray(r.oauthProviders) && r.oauthProvider === undefined) {
+    const first = r.oauthProviders.find(
+      (p): p is Record<string, unknown> =>
+        !!p && typeof p === "object" && !Array.isArray(p)
+    )
+    if (first) r.oauthProvider = stripLegacyProviderFields(first)
   }
+  if (
+    r.oauthProvider &&
+    typeof r.oauthProvider === "object" &&
+    !Array.isArray(r.oauthProvider)
+  ) {
+    r.oauthProvider = stripLegacyProviderFields(
+      r.oauthProvider as Record<string, unknown>
+    )
+  }
+  if ("oauthProviders" in r) delete r.oauthProviders
+  if ("oauthDiscord" in r) delete r.oauthDiscord
+  if ("oauthTwitch" in r) delete r.oauthTwitch
   return r
+}
+
+function stripLegacyProviderFields(
+  p: Record<string, unknown>
+): Record<string, unknown> {
+  const next = { ...p }
+  if (next.displayName === undefined && typeof next.buttonText === "string") {
+    next.displayName = next.buttonText
+  }
+  for (const key of ["kind", "buttonColor", "textColor", "icon", "buttonText"]) {
+    if (key in next) delete next[key]
+  }
+  return next
 }
 
 function loadFromDisk(): RuntimeConfig {

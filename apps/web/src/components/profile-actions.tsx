@@ -1,10 +1,6 @@
 import * as React from "react"
 import { useNavigate } from "@tanstack/react-router"
-import {
-  ShieldOffIcon,
-  UserMinusIcon,
-  UserPlusIcon,
-} from "lucide-react"
+import { ShieldOffIcon, UserMinusIcon, UserPlusIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/components/sonner"
@@ -30,9 +26,6 @@ export function ProfileActions({
   const navigate = useNavigate()
   const [pending, setPending] = React.useState(false)
 
-  // Signed-out visitors get a single "Sign in to follow" CTA. We deliberately
-  // don't render the whole row as disabled — that reads as "you can't do
-  // this" rather than "you're not signed in yet".
   if (!session) {
     return (
       <Button

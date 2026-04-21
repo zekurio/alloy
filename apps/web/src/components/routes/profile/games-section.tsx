@@ -11,6 +11,7 @@ import {
 import {
   SectionActions,
   SectionHead,
+  SectionMeta,
   SectionTitle,
 } from "@workspace/ui/components/section-head"
 import { Skeleton } from "@workspace/ui/components/skeleton"
@@ -89,9 +90,9 @@ export function GamesSection({ clips, username }: GamesSectionProps) {
         </div>
         <SectionActions>
           {games && games.length > 0 ? (
-            <span className="text-xs text-foreground-faint tabular-nums">
+            <SectionMeta>
               {games.length} {games.length === 1 ? "game" : "games"}
-            </span>
+            </SectionMeta>
           ) : null}
         </SectionActions>
       </SectionHead>
@@ -101,9 +102,7 @@ export function GamesSection({ clips, username }: GamesSectionProps) {
           <CarouselContent>
             {Array.from({ length: 5 }).map((_, i) => (
               <CarouselItem key={i} className={ITEM_CLASS}>
-                <Skeleton
-                  className={`aspect-video ${CARD_CLASS} rounded-md`}
-                />
+                <Skeleton className={`aspect-video ${CARD_CLASS} rounded-md`} />
               </CarouselItem>
             ))}
           </CarouselContent>

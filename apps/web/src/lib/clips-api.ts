@@ -267,18 +267,29 @@ export function uploadToTicket(
   })
 }
 
-export function clipStreamUrl(clipId: string, variantId?: string): string {
-  const url = new URL(`${publicOrigin()}/api/clips/${clipId}/stream`)
+export function clipStreamUrl(
+  clipId: string,
+  variantId?: string,
+  origin = publicOrigin()
+): string {
+  const url = new URL(`${origin}/api/clips/${clipId}/stream`)
   if (variantId) url.searchParams.set("variant", variantId)
   return url.toString()
 }
 
-export function clipThumbnailUrl(clipId: string): string {
-  return `${publicOrigin()}/api/clips/${clipId}/thumbnail`
+export function clipThumbnailUrl(
+  clipId: string,
+  origin = publicOrigin()
+): string {
+  return `${origin}/api/clips/${clipId}/thumbnail`
 }
 
-export function clipDownloadUrl(clipId: string, variantId: string): string {
-  const url = new URL(`${publicOrigin()}/api/clips/${clipId}/download`)
+export function clipDownloadUrl(
+  clipId: string,
+  variantId: string,
+  origin = publicOrigin()
+): string {
+  const url = new URL(`${origin}/api/clips/${clipId}/download`)
   url.searchParams.set("variant", variantId)
   return url.toString()
 }

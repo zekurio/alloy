@@ -4,6 +4,7 @@ import { FilmIcon } from "lucide-react"
 import {
   SectionActions,
   SectionHead,
+  SectionMeta,
   SectionTitle,
 } from "@workspace/ui/components/section-head"
 import { Skeleton } from "@workspace/ui/components/skeleton"
@@ -91,9 +92,9 @@ export function AllClipsSection({
         </div>
         <SectionActions>
           {visible ? (
-            <span className="text-xs text-foreground-faint tabular-nums">
+            <SectionMeta>
               {visible.length} {visible.length === 1 ? "clip" : "clips"}
-            </span>
+            </SectionMeta>
           ) : null}
         </SectionActions>
       </SectionHead>
@@ -134,7 +135,11 @@ export function AllClipsSection({
           }
         />
       ) : (
-        <ClipCardList rows={visible} isOwnedByViewer={() => isSelf} />
+        <ClipCardList
+          rows={visible}
+          isOwnedByViewer={() => isSelf}
+          listKey={`profile:${username}:all:${sort}:${gameSlug ?? ""}`}
+        />
       )}
     </section>
   )

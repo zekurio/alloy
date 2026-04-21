@@ -1,10 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
 
-/* Fonts are loaded via <link> in the TanStack Start root head
-   (apps/web/src/routes/__root.tsx) — not via @import here — so the
-   stylesheet never blocks on a remote font request. */
+/* Typography ships with the UI package so the app can keep font loading
+   local and predictable. */
 
 @custom-variant dark (&:is(.dark *));
 @source "../../../apps/**/*.{ts,tsx}";
@@ -20,26 +20,26 @@
   --font-mono: var(--font-mono);
   --font-heading: var(--font-sans);
 
-  /* Alloy type scale — overrides Tailwind defaults so `text-sm` is Alloy's 12px */
-  --text-2xs: 10px;
-  --text-xs: 11px;
-  --text-sm: 12px;
-  --text-base: 13px;
-  --text-md: 14px;
-  --text-lg: 16px;
-  --text-xl: 20px;
-  --text-2xl: 26px;
-  --text-3xl: 34px;
-  --text-4xl: 44px;
+  /* Alloy type scale — tuned for readable sans-first UI copy. */
+  --text-2xs: 11px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --text-2xl: 30px;
+  --text-3xl: 38px;
+  --text-4xl: 48px;
 
   --tracking-tight: -0.02em;
   --tracking-normal: 0em;
-  --tracking-wide: 0.04em;
+  --tracking-wide: 0.03em;
   --tracking-mono: -0.01em;
 
-  --leading-tight: 1.15;
-  --leading-normal: 1.45;
-  --leading-relaxed: 1.6;
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
 
   /* Core semantics — shadcn compatibility */
   --color-background: var(--background);
@@ -143,10 +143,9 @@
 :root {
   /* Fonts */
   --font-sans:
-    "Satoshi", ui-sans-serif, system-ui, -apple-system, Segoe UI, Helvetica,
-    Arial, sans-serif;
-  --font-mono:
-    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    "Geist Variable", ui-sans-serif, system-ui, -apple-system, Segoe UI,
+    Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* Radius */
   --radius: 6px;
@@ -207,6 +206,7 @@
   --sidebar-rail: 52px;
   --sidebar-expanded: 220px;
   --header-h: 52px;
+  --bottomnav-h: 60px;
 
   --background: var(--neutral-0);
   --surface: var(--neutral-50);
@@ -234,7 +234,7 @@
   --popover-foreground: var(--foreground);
 
   /* primary = steel */
-  --primary: #b4bdc5;
+  --primary: #d6dee6;
   --primary-foreground: #0b0d0f;
 
   /* secondary = raised neutral */
@@ -245,14 +245,14 @@
   --muted-foreground: var(--foreground-dim);
 
   /* accent variants — steel, sampled from the alloy logo shard */
-  --accent: #b4bdc5;
-  --accent-hover: #c9d0d7;
-  --accent-active: #96a0a9;
+  --accent: #d6dee6;
+  --accent-hover: #eaeff3;
+  --accent-active: #b8c2ca;
   --accent-foreground: #0b0d0f;
-  --accent-soft: rgba(180, 189, 197, 0.14);
-  --accent-border: rgba(180, 189, 197, 0.42);
-  --accent-glow: rgba(180, 189, 197, 0.28);
-  --accent-dim: #4c545c;
+  --accent-soft: rgba(214, 222, 230, 0.22);
+  --accent-border: rgba(214, 222, 230, 0.55);
+  --accent-glow: rgba(214, 222, 230, 0.38);
+  --accent-dim: #5c6670;
 
   --destructive: oklch(0.65 0.24 25);
 
@@ -380,6 +380,29 @@
   .mono {
     font-family: var(--font-mono);
     letter-spacing: var(--tracking-mono);
+  }
+
+  /* Shared frosted-glass surface. Tint can vary per surface via CSS vars,
+     but blur, saturation, border, and base depth stay consistent. */
+  .alloy-glass {
+    --alloy-glass-hue: var(--popover);
+    --alloy-glass-opacity: 72%;
+    --alloy-glass-bg: color-mix(
+      in oklab,
+      var(--alloy-glass-hue) var(--alloy-glass-opacity),
+      transparent
+    );
+    --alloy-glass-border: rgb(255 255 255 / 0.14);
+    --alloy-glass-shadow: 0 18px 48px -30px rgb(0 0 0 / 0.72);
+    --alloy-glass-blur: 20px;
+    --alloy-glass-saturate: 1.5;
+    background-color: var(--alloy-glass-bg);
+    border-color: var(--alloy-glass-border);
+    box-shadow: var(--alloy-glass-shadow);
+    -webkit-backdrop-filter: blur(var(--alloy-glass-blur))
+      saturate(var(--alloy-glass-saturate));
+    backdrop-filter: blur(var(--alloy-glass-blur))
+      saturate(var(--alloy-glass-saturate));
   }
 
   /* Live-dot pulse — used by badge[data-variant="live"] */

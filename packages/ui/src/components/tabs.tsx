@@ -57,7 +57,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
       data-slot="tabs-trigger"
       className={cn(
         "group/tabs-trigger relative inline-flex h-8 items-center gap-2 px-0.5",
-        "text-sm font-medium whitespace-nowrap text-foreground-dim",
+        "text-sm font-semibold whitespace-nowrap text-foreground-muted",
         "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
         "outline-none focus-visible:text-foreground",
         "hover:text-foreground",
@@ -96,7 +96,7 @@ function TabsCount({ className, ...props }: React.ComponentProps<"span">) {
       data-slot="tabs-count"
       className={cn(
         "inline-flex items-center justify-center rounded-sm px-1.5 py-px",
-        "bg-surface-raised font-mono text-2xs text-foreground-faint",
+        "bg-surface-raised font-mono text-2xs font-semibold text-foreground-muted",
         className
       )}
       {...props}

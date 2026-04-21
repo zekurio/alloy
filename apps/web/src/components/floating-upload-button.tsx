@@ -27,7 +27,7 @@ export function FloatingUploadButton({
       tabIndex={isOpen ? -1 : undefined}
       style={{ transformOrigin: "bottom right" }}
       className={cn(
-        "group/fab fixed right-6 bottom-6 z-40",
+        "group/fab fixed right-6 z-40 bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+0.75rem)] md:bottom-6",
         "flex size-12 items-center justify-center rounded-full",
         "bg-accent text-accent-foreground",
         "border border-accent",
@@ -39,9 +39,6 @@ export function FloatingUploadButton({
         "hover:bg-accent-hover hover:shadow-xl",
         "active:bg-accent-active",
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
-        // While the popover is open, collapse the FAB into its bottom-
-        // right corner so the popover morphing out of that same corner
-        // reads as one continuous element.
         isOpen
           ? "pointer-events-none scale-0 rotate-[-12deg] opacity-0 duration-[160ms] ease-[cubic-bezier(0.36,0,0.66,-0.2)]"
           : "scale-100 rotate-0 opacity-100",
@@ -59,8 +56,8 @@ export function FloatingUploadButton({
           className={cn(
             "absolute size-5 transition-[transform,opacity] duration-[var(--duration-base)] ease-[var(--ease-out)]",
             isOpen
-              ? "rotate-90 scale-50 opacity-0"
-              : "rotate-0 scale-100 opacity-100"
+              ? "scale-50 rotate-90 opacity-0"
+              : "scale-100 rotate-0 opacity-100"
           )}
         />
         <ChevronDownIcon
@@ -68,8 +65,8 @@ export function FloatingUploadButton({
           className={cn(
             "absolute size-5 transition-[transform,opacity] duration-[var(--duration-base)] ease-[var(--ease-out)]",
             isOpen
-              ? "rotate-0 scale-100 opacity-100"
-              : "-rotate-90 scale-50 opacity-0"
+              ? "scale-100 rotate-0 opacity-100"
+              : "scale-50 -rotate-90 opacity-0"
           )}
         />
       </span>
@@ -81,9 +78,6 @@ export function FloatingUploadButton({
             "rounded-full border-2 border-background bg-surface-raised",
             "text-xs font-semibold text-foreground tabular-nums",
             "transition-[transform,opacity] duration-[var(--duration-base)] ease-[var(--ease-out)]",
-            // Tuck the badge away while the popover is open — the count
-            // now lives in the popover header, so showing it on both
-            // reads as duplicated information.
             isOpen && "scale-75 opacity-0"
           )}
         >

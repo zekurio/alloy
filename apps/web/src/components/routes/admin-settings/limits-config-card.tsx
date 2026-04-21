@@ -48,7 +48,7 @@ function LimitsFields({
     <CardContent className="flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field>
-          <FieldLabel htmlFor="limits-max-upload">
+          <FieldLabel htmlFor="limits-max-upload" required>
             Max upload size (MiB)
           </FieldLabel>
           <Input
@@ -67,7 +67,9 @@ function LimitsFields({
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="limits-ttl">Upload ticket TTL (seconds)</FieldLabel>
+          <FieldLabel htmlFor="limits-ttl" required>
+            Upload ticket TTL (seconds)
+          </FieldLabel>
           <Input
             id="limits-ttl"
             type="number"
@@ -90,7 +92,9 @@ function LimitsFields({
       </div>
 
       <Field>
-        <FieldLabel htmlFor="limits-concurrency">Queue concurrency</FieldLabel>
+        <FieldLabel htmlFor="limits-concurrency" required>
+          Queue concurrency
+        </FieldLabel>
         <Input
           id="limits-concurrency"
           type="number"
@@ -108,9 +112,7 @@ function LimitsFields({
         />
         <FieldDescription className="flex items-start gap-1.5">
           <AlertCircleIcon className="mt-0.5 size-3.5 shrink-0" />
-          <span>
-            Parallel encode jobs. Requires a server restart to apply.
-          </span>
+          <span>Parallel encode jobs. Requires a server restart to apply.</span>
         </FieldDescription>
       </Field>
     </CardContent>

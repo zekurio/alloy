@@ -67,7 +67,7 @@ function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
           className={cn(
             "rounded-md",
             "transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-            "hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            "hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           )}
           aria-label="View tagged users"
         >
@@ -102,11 +102,7 @@ function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
           <DialogBody className="max-h-[60vh] overflow-y-auto px-2 py-2">
             <ul className="flex flex-col">
               {mentions.map((u) => (
-                <MentionRow
-                  key={u.id}
-                  user={u}
-                  onOpen={() => setOpen(false)}
-                />
+                <MentionRow key={u.id} user={u} onOpen={() => setOpen(false)} />
               ))}
             </ul>
           </DialogBody>

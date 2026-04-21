@@ -237,10 +237,7 @@ export function VariantRow({
                 value={variant.codec ?? ""}
                 onChange={(e) => {
                   const raw = e.target.value
-                  set(
-                    "codec",
-                    raw === "" ? undefined : (raw as EncoderCodec)
-                  )
+                  set("codec", raw === "" ? undefined : (raw as EncoderCodec))
                 }}
               >
                 <option value="">
