@@ -4,14 +4,6 @@ import * as React from "react"
 
 import { cn } from "@workspace/ui/lib/utils"
 
-/**
- * Alloy Label — monospaced, uppercase "eyebrow" style used above every input.
- * Matches the `.label` rule in components.css.
- *
- * Example:
- *   <Label htmlFor="name">Display Name</Label>
- *   <Input id="name" defaultValue="shroud_v2" />
- */
 function Label({ className, ...props }: React.ComponentProps<"label">) {
   return (
     <label

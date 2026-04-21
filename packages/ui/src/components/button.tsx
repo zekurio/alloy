@@ -3,20 +3,6 @@ import { cva } from "class-variance-authority"
 import { cn } from "@workspace/ui/lib/utils"
 import type { VariantProps } from "class-variance-authority"
 
-/**
- * Alloy Button — flat, dark, accent-driven. No gradients, no shadows.
- *
- * Variants mirror the Alloy design system:
- *   primary        — filled accent blue
- *   secondary      — raised neutral surface
- *   outline        — transparent + border, accent on hover
- *   ghost          — transparent, tinted bg on hover
- *   danger         — red-tinted outline
- *   accent-outline — soft-blue fill + accent border (e.g. "New clip")
- *
- * `default` and `destructive` are shadcn aliases (→ primary / danger) so
- * existing shadcn call-sites keep working.
- */
 const buttonVariants = cva(
   cn(
     "group/button inline-flex shrink-0 items-center justify-center gap-2",
