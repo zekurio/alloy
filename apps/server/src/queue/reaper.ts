@@ -35,7 +35,6 @@ async function reapPending(): Promise<void> {
       id: clip.id,
       storageKey: clip.storageKey,
       thumbKey: clip.thumbKey,
-      thumbSmallKey: clip.thumbSmallKey,
     })
     .from(clip)
     .where(
@@ -52,7 +51,6 @@ async function reapPending(): Promise<void> {
     const keys = [
       row.storageKey,
       row.thumbKey ?? clipAssetKey(row.id, "thumb"),
-      row.thumbSmallKey ?? clipAssetKey(row.id, "thumb-small"),
     ]
     for (const key of keys) {
       try {
