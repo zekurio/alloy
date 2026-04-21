@@ -1,4 +1,5 @@
 import { promises as fsp } from "node:fs"
+import os from "node:os"
 import path from "node:path"
 
 import { eq } from "drizzle-orm"
@@ -10,9 +11,9 @@ import {
 } from "@workspace/db/schema"
 
 import { db } from "../db"
+import { env } from "../env"
 import { configStore, type EncoderConfig } from "../lib/config-store"
 import { storage } from "../storage"
-import { FsStorageDriver } from "../storage/fs-driver"
 import { encode, probe } from "./ffmpeg"
 import { buildVariantSpecs, type VariantSpec } from "./variant-specs"
 
@@ -22,7 +23,26 @@ export async function runEncodeInner(
   signal: AbortSignal
 ): Promise<void> {
   const sourceKey = row.storageKey
-  const sourcePath = localPathFor(sourceKey)
+  const scratchDir = await makeScratchDir(clipId)
+  try {
+    await runEncodeInScratch(clipId, row, sourceKey, scratchDir, signal)
+  } finally {
+    await fsp.rm(scratchDir, { recursive: true, force: true }).catch(() => {
+      // Best-effort — a stray scratch dir is a capacity hit, not a
+      // correctness issue. The OS will reclaim /tmp eventually.
+    })
+  }
+}
+
+async function runEncodeInScratch(
+  clipId: string,
+  row: typeof clip.$inferSelect,
+  sourceKey: string,
+  scratchDir: string,
+  signal: AbortSignal
+): Promise<void> {
+  const sourcePath = path.join(scratchDir, "source")
+  await storage.downloadToFile(sourceKey, sourcePath)
 
   await db
     .update(clip)
@@ -98,6 +118,7 @@ export async function runEncodeInner(
     targetSettings,
     reusedBySpecIndex,
     sourcePath,
+    scratchDir,
     encoderConfig,
     outputDurationMs,
     effectiveTrimStart,
@@ -199,6 +220,7 @@ async function encodeVariants({
   targetSettings,
   reusedBySpecIndex,
   sourcePath,
+  scratchDir,
   encoderConfig,
   outputDurationMs,
   effectiveTrimStart,
@@ -210,6 +232,7 @@ async function encodeVariants({
   targetSettings: ClipVariantSettings[]
   reusedBySpecIndex: Map<number, ClipEncodedVariant>
   sourcePath: string
+  scratchDir: string
   encoderConfig: EncoderConfig
   outputDurationMs: number
   effectiveTrimStart: number | null
@@ -240,8 +263,7 @@ async function encodeVariants({
       continue
     }
 
-    const variantPath = localPathFor(variant.storageKey)
-    await fsp.mkdir(path.dirname(variantPath), { recursive: true })
+    const variantPath = path.join(scratchDir, `${variant.id}.mp4`)
 
     const rungConfig: EncoderConfig = {
       ...encoderConfig,
@@ -267,10 +289,13 @@ async function encodeVariants({
       signal,
     })
 
-    const [variantProbe, variantStat] = await Promise.all([
-      probe(variantPath),
-      fsp.stat(variantPath),
-    ])
+    const variantProbe = await probe(variantPath)
+    const { size: uploadedSize } = await storage.uploadFromFile(
+      variantPath,
+      variant.storageKey,
+      "video/mp4"
+    )
+    await fsp.rm(variantPath, { force: true }).catch(() => undefined)
 
     encodedVariants.push({
       id: variant.id,
@@ -279,7 +304,7 @@ async function encodeVariants({
       contentType: "video/mp4",
       width: variantProbe.width,
       height: variantProbe.height,
-      sizeBytes: variantStat.size,
+      sizeBytes: uploadedSize,
       isDefault: variant.isDefault,
       settings: targetSettings[index],
     })
@@ -289,13 +314,11 @@ async function encodeVariants({
   return encodedVariants
 }
 
-function localPathFor(key: string): string {
-  if (storage instanceof FsStorageDriver) {
-    return storage.fullPath(key)
-  }
-  throw new Error(
-    "Encoder needs a local source; S3 driver requires a download step that isn't implemented yet"
-  )
+async function makeScratchDir(clipId: string): Promise<string> {
+  const base = env.ENCODE_SCRATCH_DIR ?? path.join(os.tmpdir(), "alloy-encode")
+  const dir = path.join(base, clipId)
+  await fsp.mkdir(dir, { recursive: true })
+  return dir
 }
 
 function resolveVariantSettings(

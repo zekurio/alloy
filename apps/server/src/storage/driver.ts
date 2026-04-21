@@ -35,6 +35,21 @@ export interface MintUploadUrlInput {
   clipId: string
 }
 
+export interface DownloadUrl {
+  url: string
+  expiresAt: number
+}
+
+export interface MintDownloadUrlInput {
+  expiresInSec: number
+  /** Overrides the `Content-Type` the object would otherwise serve with. */
+  responseContentType?: string
+  /** Attachment filename override (Content-Disposition). */
+  responseContentDisposition?: string
+  /** Cache-Control header to send with the signed response. */
+  responseCacheControl?: string
+}
+
 export interface StorageDriver {
   /**
    * Server-side write. Returns the byte length actually written so the
@@ -57,6 +72,33 @@ export interface StorageDriver {
 
   /** Best-effort delete; missing keys must not throw. */
   delete(key: string): Promise<void>
+
+  /**
+   * Materialize a stored object as a local file — the encoder needs a
+   * filesystem path it can hand to ffmpeg. Fs driver hardlinks; remote
+   * drivers download. The destination's parent dir must exist.
+   */
+  downloadToFile(key: string, destPath: string): Promise<void>
+
+  /**
+   * Publish a local file under a storage key. Fs driver hardlinks;
+   * remote drivers stream-upload. Returns the size committed.
+   */
+  uploadFromFile(
+    localPath: string,
+    key: string,
+    contentType: string
+  ): Promise<{ size: number }>
+
+  /**
+   * Return a short-lived URL the browser can GET to read the object,
+   * or `null` when the driver wants callers to stream through the
+   * server instead. Playback/download routes 302 when non-null.
+   */
+  mintDownloadUrl(
+    key: string,
+    input: MintDownloadUrlInput
+  ): Promise<DownloadUrl | null>
 }
 
 function clipAssetDir(clipId: string): string {
