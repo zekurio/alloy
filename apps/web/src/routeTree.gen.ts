@@ -9,142 +9,162 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SetupRouteImport } from './routes/setup'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as AppRouteImport } from './routes/_app'
-import { Route as AppIndexRouteImport } from './routes/_app.index'
-import { Route as AppGamesRouteImport } from './routes/_app.games'
-import { Route as AppSettingsRouteImport } from './routes/_app._settings'
-import { Route as AppUUsernameRouteImport } from './routes/_app.u.$username'
-import { Route as AppGSlugRouteImport } from './routes/_app.g.$slug'
-import { Route as AppSettingsUserSettingsRouteImport } from './routes/_app._settings.user-settings'
-import { Route as AppSettingsAdminSettingsRouteImport } from './routes/_app._settings.admin-settings'
-import { Route as AppUUsernameIndexRouteImport } from './routes/_app.u.$username.index'
-import { Route as AppUUsernameTaggedRouteImport } from './routes/_app.u.$username.tagged'
-import { Route as AppUUsernameFeedRouteImport } from './routes/_app.u.$username.feed'
-import { Route as AppUUsernameAllRouteImport } from './routes/_app.u.$username.all'
+import { Route as authSignUpRouteImport } from './routes/(auth)/sign-up'
+import { Route as authSetupRouteImport } from './routes/(auth)/setup'
+import { Route as authLoginRouteImport } from './routes/(auth)/login'
+import { Route as appAppRouteImport } from './routes/(app)/_app'
+import { Route as appAppIndexRouteImport } from './routes/(app)/_app.index'
+import { Route as appAppGamesRouteImport } from './routes/(app)/_app.games'
+import { Route as appAppSettingsRouteImport } from './routes/(app)/_app._settings'
+import { Route as appAppUUsernameRouteImport } from './routes/(app)/_app.u.$username'
+import { Route as appAppGSlugRouteImport } from './routes/(app)/_app.g.$slug'
+import { Route as appAppSettingsUserSettingsRouteImport } from './routes/(app)/_app._settings.user-settings'
+import { Route as appAppSettingsAdminSettingsRouteImport } from './routes/(app)/_app._settings.admin-settings'
+import { Route as appAppUUsernameIndexRouteImport } from './routes/(app)/_app.u.$username.index'
+import { Route as appAppUUsernameTaggedRouteImport } from './routes/(app)/_app.u.$username.tagged'
+import { Route as appAppUUsernameFeedRouteImport } from './routes/(app)/_app.u.$username.feed'
+import { Route as appAppUUsernameAllRouteImport } from './routes/(app)/_app.u.$username.all'
+import { Route as appAppGSlugCClipIdRouteImport } from './routes/(app)/_app.g.$slug.c.$clipId'
 
-const SetupRoute = SetupRouteImport.update({
-  id: '/setup',
+const authSignUpRoute = authSignUpRouteImport.update({
+  id: '/(auth)/sign-up',
+  path: '/sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const authSetupRoute = authSetupRouteImport.update({
+  id: '/(auth)/setup',
   path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
+const authLoginRoute = authLoginRouteImport.update({
+  id: '/(auth)/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppRoute = AppRouteImport.update({
-  id: '/_app',
+const appAppRoute = appAppRouteImport.update({
+  id: '/(app)/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppIndexRoute = AppIndexRouteImport.update({
+const appAppIndexRoute = appAppIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => appAppRoute,
 } as any)
-const AppGamesRoute = AppGamesRouteImport.update({
+const appAppGamesRoute = appAppGamesRouteImport.update({
   id: '/games',
   path: '/games',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => appAppRoute,
 } as any)
-const AppSettingsRoute = AppSettingsRouteImport.update({
+const appAppSettingsRoute = appAppSettingsRouteImport.update({
   id: '/_settings',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => appAppRoute,
 } as any)
-const AppUUsernameRoute = AppUUsernameRouteImport.update({
+const appAppUUsernameRoute = appAppUUsernameRouteImport.update({
   id: '/u/$username',
   path: '/u/$username',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => appAppRoute,
 } as any)
-const AppGSlugRoute = AppGSlugRouteImport.update({
+const appAppGSlugRoute = appAppGSlugRouteImport.update({
   id: '/g/$slug',
   path: '/g/$slug',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => appAppRoute,
 } as any)
-const AppSettingsUserSettingsRoute = AppSettingsUserSettingsRouteImport.update({
-  id: '/user-settings',
-  path: '/user-settings',
-  getParentRoute: () => AppSettingsRoute,
-} as any)
-const AppSettingsAdminSettingsRoute =
-  AppSettingsAdminSettingsRouteImport.update({
+const appAppSettingsUserSettingsRoute =
+  appAppSettingsUserSettingsRouteImport.update({
+    id: '/user-settings',
+    path: '/user-settings',
+    getParentRoute: () => appAppSettingsRoute,
+  } as any)
+const appAppSettingsAdminSettingsRoute =
+  appAppSettingsAdminSettingsRouteImport.update({
     id: '/admin-settings',
     path: '/admin-settings',
-    getParentRoute: () => AppSettingsRoute,
+    getParentRoute: () => appAppSettingsRoute,
   } as any)
-const AppUUsernameIndexRoute = AppUUsernameIndexRouteImport.update({
+const appAppUUsernameIndexRoute = appAppUUsernameIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AppUUsernameRoute,
+  getParentRoute: () => appAppUUsernameRoute,
 } as any)
-const AppUUsernameTaggedRoute = AppUUsernameTaggedRouteImport.update({
+const appAppUUsernameTaggedRoute = appAppUUsernameTaggedRouteImport.update({
   id: '/tagged',
   path: '/tagged',
-  getParentRoute: () => AppUUsernameRoute,
+  getParentRoute: () => appAppUUsernameRoute,
 } as any)
-const AppUUsernameFeedRoute = AppUUsernameFeedRouteImport.update({
+const appAppUUsernameFeedRoute = appAppUUsernameFeedRouteImport.update({
   id: '/feed',
   path: '/feed',
-  getParentRoute: () => AppUUsernameRoute,
+  getParentRoute: () => appAppUUsernameRoute,
 } as any)
-const AppUUsernameAllRoute = AppUUsernameAllRouteImport.update({
+const appAppUUsernameAllRoute = appAppUUsernameAllRouteImport.update({
   id: '/all',
   path: '/all',
-  getParentRoute: () => AppUUsernameRoute,
+  getParentRoute: () => appAppUUsernameRoute,
+} as any)
+const appAppGSlugCClipIdRoute = appAppGSlugCClipIdRouteImport.update({
+  id: '/c/$clipId',
+  path: '/c/$clipId',
+  getParentRoute: () => appAppGSlugRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AppIndexRoute
-  '/login': typeof LoginRoute
-  '/setup': typeof SetupRoute
-  '/games': typeof AppGamesRoute
-  '/admin-settings': typeof AppSettingsAdminSettingsRoute
-  '/user-settings': typeof AppSettingsUserSettingsRoute
-  '/g/$slug': typeof AppGSlugRoute
-  '/u/$username': typeof AppUUsernameRouteWithChildren
-  '/u/$username/all': typeof AppUUsernameAllRoute
-  '/u/$username/feed': typeof AppUUsernameFeedRoute
-  '/u/$username/tagged': typeof AppUUsernameTaggedRoute
-  '/u/$username/': typeof AppUUsernameIndexRoute
+  '/login': typeof authLoginRoute
+  '/setup': typeof authSetupRoute
+  '/sign-up': typeof authSignUpRoute
+  '/games': typeof appAppGamesRoute
+  '/': typeof appAppIndexRoute
+  '/admin-settings': typeof appAppSettingsAdminSettingsRoute
+  '/user-settings': typeof appAppSettingsUserSettingsRoute
+  '/g/$slug': typeof appAppGSlugRouteWithChildren
+  '/u/$username': typeof appAppUUsernameRouteWithChildren
+  '/u/$username/all': typeof appAppUUsernameAllRoute
+  '/u/$username/feed': typeof appAppUUsernameFeedRoute
+  '/u/$username/tagged': typeof appAppUUsernameTaggedRoute
+  '/u/$username/': typeof appAppUUsernameIndexRoute
+  '/g/$slug/c/$clipId': typeof appAppGSlugCClipIdRoute
 }
 export interface FileRoutesByTo {
-  '/login': typeof LoginRoute
-  '/setup': typeof SetupRoute
-  '/': typeof AppIndexRoute
-  '/games': typeof AppGamesRoute
-  '/admin-settings': typeof AppSettingsAdminSettingsRoute
-  '/user-settings': typeof AppSettingsUserSettingsRoute
-  '/g/$slug': typeof AppGSlugRoute
-  '/u/$username/all': typeof AppUUsernameAllRoute
-  '/u/$username/feed': typeof AppUUsernameFeedRoute
-  '/u/$username/tagged': typeof AppUUsernameTaggedRoute
-  '/u/$username': typeof AppUUsernameIndexRoute
+  '/login': typeof authLoginRoute
+  '/setup': typeof authSetupRoute
+  '/sign-up': typeof authSignUpRoute
+  '/games': typeof appAppGamesRoute
+  '/': typeof appAppIndexRoute
+  '/admin-settings': typeof appAppSettingsAdminSettingsRoute
+  '/user-settings': typeof appAppSettingsUserSettingsRoute
+  '/g/$slug': typeof appAppGSlugRouteWithChildren
+  '/u/$username/all': typeof appAppUUsernameAllRoute
+  '/u/$username/feed': typeof appAppUUsernameFeedRoute
+  '/u/$username/tagged': typeof appAppUUsernameTaggedRoute
+  '/u/$username': typeof appAppUUsernameIndexRoute
+  '/g/$slug/c/$clipId': typeof appAppGSlugCClipIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/_app': typeof AppRouteWithChildren
-  '/login': typeof LoginRoute
-  '/setup': typeof SetupRoute
-  '/_app/_settings': typeof AppSettingsRouteWithChildren
-  '/_app/games': typeof AppGamesRoute
-  '/_app/': typeof AppIndexRoute
-  '/_app/_settings/admin-settings': typeof AppSettingsAdminSettingsRoute
-  '/_app/_settings/user-settings': typeof AppSettingsUserSettingsRoute
-  '/_app/g/$slug': typeof AppGSlugRoute
-  '/_app/u/$username': typeof AppUUsernameRouteWithChildren
-  '/_app/u/$username/all': typeof AppUUsernameAllRoute
-  '/_app/u/$username/feed': typeof AppUUsernameFeedRoute
-  '/_app/u/$username/tagged': typeof AppUUsernameTaggedRoute
-  '/_app/u/$username/': typeof AppUUsernameIndexRoute
+  '/(app)/_app': typeof appAppRouteWithChildren
+  '/(auth)/login': typeof authLoginRoute
+  '/(auth)/setup': typeof authSetupRoute
+  '/(auth)/sign-up': typeof authSignUpRoute
+  '/(app)/_app/_settings': typeof appAppSettingsRouteWithChildren
+  '/(app)/_app/games': typeof appAppGamesRoute
+  '/(app)/_app/': typeof appAppIndexRoute
+  '/(app)/_app/_settings/admin-settings': typeof appAppSettingsAdminSettingsRoute
+  '/(app)/_app/_settings/user-settings': typeof appAppSettingsUserSettingsRoute
+  '/(app)/_app/g/$slug': typeof appAppGSlugRouteWithChildren
+  '/(app)/_app/u/$username': typeof appAppUUsernameRouteWithChildren
+  '/(app)/_app/u/$username/all': typeof appAppUUsernameAllRoute
+  '/(app)/_app/u/$username/feed': typeof appAppUUsernameFeedRoute
+  '/(app)/_app/u/$username/tagged': typeof appAppUUsernameTaggedRoute
+  '/(app)/_app/u/$username/': typeof appAppUUsernameIndexRoute
+  '/(app)/_app/g/$slug/c/$clipId': typeof appAppGSlugCClipIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
     | '/login'
     | '/setup'
+    | '/sign-up'
     | '/games'
+    | '/'
     | '/admin-settings'
     | '/user-settings'
     | '/g/$slug'
@@ -153,12 +173,14 @@ export interface FileRouteTypes {
     | '/u/$username/feed'
     | '/u/$username/tagged'
     | '/u/$username/'
+    | '/g/$slug/c/$clipId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
     | '/setup'
-    | '/'
+    | '/sign-up'
     | '/games'
+    | '/'
     | '/admin-settings'
     | '/user-settings'
     | '/g/$slug'
@@ -166,187 +188,219 @@ export interface FileRouteTypes {
     | '/u/$username/feed'
     | '/u/$username/tagged'
     | '/u/$username'
+    | '/g/$slug/c/$clipId'
   id:
     | '__root__'
-    | '/_app'
-    | '/login'
-    | '/setup'
-    | '/_app/_settings'
-    | '/_app/games'
-    | '/_app/'
-    | '/_app/_settings/admin-settings'
-    | '/_app/_settings/user-settings'
-    | '/_app/g/$slug'
-    | '/_app/u/$username'
-    | '/_app/u/$username/all'
-    | '/_app/u/$username/feed'
-    | '/_app/u/$username/tagged'
-    | '/_app/u/$username/'
+    | '/(app)/_app'
+    | '/(auth)/login'
+    | '/(auth)/setup'
+    | '/(auth)/sign-up'
+    | '/(app)/_app/_settings'
+    | '/(app)/_app/games'
+    | '/(app)/_app/'
+    | '/(app)/_app/_settings/admin-settings'
+    | '/(app)/_app/_settings/user-settings'
+    | '/(app)/_app/g/$slug'
+    | '/(app)/_app/u/$username'
+    | '/(app)/_app/u/$username/all'
+    | '/(app)/_app/u/$username/feed'
+    | '/(app)/_app/u/$username/tagged'
+    | '/(app)/_app/u/$username/'
+    | '/(app)/_app/g/$slug/c/$clipId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  AppRoute: typeof AppRouteWithChildren
-  LoginRoute: typeof LoginRoute
-  SetupRoute: typeof SetupRoute
+  appAppRoute: typeof appAppRouteWithChildren
+  authLoginRoute: typeof authLoginRoute
+  authSetupRoute: typeof authSetupRoute
+  authSignUpRoute: typeof authSignUpRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/setup': {
-      id: '/setup'
+    '/(auth)/sign-up': {
+      id: '/(auth)/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
+      preLoaderRoute: typeof authSignUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(auth)/setup': {
+      id: '/(auth)/setup'
       path: '/setup'
       fullPath: '/setup'
-      preLoaderRoute: typeof SetupRouteImport
+      preLoaderRoute: typeof authSetupRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/login': {
-      id: '/login'
+    '/(auth)/login': {
+      id: '/(auth)/login'
       path: '/login'
       fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
+      preLoaderRoute: typeof authLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app': {
-      id: '/_app'
+    '/(app)/_app': {
+      id: '/(app)/_app'
       path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AppRouteImport
+      fullPath: ''
+      preLoaderRoute: typeof appAppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/': {
-      id: '/_app/'
+    '/(app)/_app/': {
+      id: '/(app)/_app/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof AppIndexRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof appAppIndexRouteImport
+      parentRoute: typeof appAppRoute
     }
-    '/_app/games': {
-      id: '/_app/games'
+    '/(app)/_app/games': {
+      id: '/(app)/_app/games'
       path: '/games'
       fullPath: '/games'
-      preLoaderRoute: typeof AppGamesRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof appAppGamesRouteImport
+      parentRoute: typeof appAppRoute
     }
-    '/_app/_settings': {
-      id: '/_app/_settings'
+    '/(app)/_app/_settings': {
+      id: '/(app)/_app/_settings'
       path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AppSettingsRouteImport
-      parentRoute: typeof AppRoute
+      fullPath: ''
+      preLoaderRoute: typeof appAppSettingsRouteImport
+      parentRoute: typeof appAppRoute
     }
-    '/_app/u/$username': {
-      id: '/_app/u/$username'
+    '/(app)/_app/u/$username': {
+      id: '/(app)/_app/u/$username'
       path: '/u/$username'
       fullPath: '/u/$username'
-      preLoaderRoute: typeof AppUUsernameRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof appAppUUsernameRouteImport
+      parentRoute: typeof appAppRoute
     }
-    '/_app/g/$slug': {
-      id: '/_app/g/$slug'
+    '/(app)/_app/g/$slug': {
+      id: '/(app)/_app/g/$slug'
       path: '/g/$slug'
       fullPath: '/g/$slug'
-      preLoaderRoute: typeof AppGSlugRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof appAppGSlugRouteImport
+      parentRoute: typeof appAppRoute
     }
-    '/_app/_settings/user-settings': {
-      id: '/_app/_settings/user-settings'
+    '/(app)/_app/_settings/user-settings': {
+      id: '/(app)/_app/_settings/user-settings'
       path: '/user-settings'
       fullPath: '/user-settings'
-      preLoaderRoute: typeof AppSettingsUserSettingsRouteImport
-      parentRoute: typeof AppSettingsRoute
+      preLoaderRoute: typeof appAppSettingsUserSettingsRouteImport
+      parentRoute: typeof appAppSettingsRoute
     }
-    '/_app/_settings/admin-settings': {
-      id: '/_app/_settings/admin-settings'
+    '/(app)/_app/_settings/admin-settings': {
+      id: '/(app)/_app/_settings/admin-settings'
       path: '/admin-settings'
       fullPath: '/admin-settings'
-      preLoaderRoute: typeof AppSettingsAdminSettingsRouteImport
-      parentRoute: typeof AppSettingsRoute
+      preLoaderRoute: typeof appAppSettingsAdminSettingsRouteImport
+      parentRoute: typeof appAppSettingsRoute
     }
-    '/_app/u/$username/': {
-      id: '/_app/u/$username/'
+    '/(app)/_app/u/$username/': {
+      id: '/(app)/_app/u/$username/'
       path: '/'
       fullPath: '/u/$username/'
-      preLoaderRoute: typeof AppUUsernameIndexRouteImport
-      parentRoute: typeof AppUUsernameRoute
+      preLoaderRoute: typeof appAppUUsernameIndexRouteImport
+      parentRoute: typeof appAppUUsernameRoute
     }
-    '/_app/u/$username/tagged': {
-      id: '/_app/u/$username/tagged'
+    '/(app)/_app/u/$username/tagged': {
+      id: '/(app)/_app/u/$username/tagged'
       path: '/tagged'
       fullPath: '/u/$username/tagged'
-      preLoaderRoute: typeof AppUUsernameTaggedRouteImport
-      parentRoute: typeof AppUUsernameRoute
+      preLoaderRoute: typeof appAppUUsernameTaggedRouteImport
+      parentRoute: typeof appAppUUsernameRoute
     }
-    '/_app/u/$username/feed': {
-      id: '/_app/u/$username/feed'
+    '/(app)/_app/u/$username/feed': {
+      id: '/(app)/_app/u/$username/feed'
       path: '/feed'
       fullPath: '/u/$username/feed'
-      preLoaderRoute: typeof AppUUsernameFeedRouteImport
-      parentRoute: typeof AppUUsernameRoute
+      preLoaderRoute: typeof appAppUUsernameFeedRouteImport
+      parentRoute: typeof appAppUUsernameRoute
     }
-    '/_app/u/$username/all': {
-      id: '/_app/u/$username/all'
+    '/(app)/_app/u/$username/all': {
+      id: '/(app)/_app/u/$username/all'
       path: '/all'
       fullPath: '/u/$username/all'
-      preLoaderRoute: typeof AppUUsernameAllRouteImport
-      parentRoute: typeof AppUUsernameRoute
+      preLoaderRoute: typeof appAppUUsernameAllRouteImport
+      parentRoute: typeof appAppUUsernameRoute
+    }
+    '/(app)/_app/g/$slug/c/$clipId': {
+      id: '/(app)/_app/g/$slug/c/$clipId'
+      path: '/c/$clipId'
+      fullPath: '/g/$slug/c/$clipId'
+      preLoaderRoute: typeof appAppGSlugCClipIdRouteImport
+      parentRoute: typeof appAppGSlugRoute
     }
   }
 }
 
-interface AppSettingsRouteChildren {
-  AppSettingsAdminSettingsRoute: typeof AppSettingsAdminSettingsRoute
-  AppSettingsUserSettingsRoute: typeof AppSettingsUserSettingsRoute
+interface appAppSettingsRouteChildren {
+  appAppSettingsAdminSettingsRoute: typeof appAppSettingsAdminSettingsRoute
+  appAppSettingsUserSettingsRoute: typeof appAppSettingsUserSettingsRoute
 }
 
-const AppSettingsRouteChildren: AppSettingsRouteChildren = {
-  AppSettingsAdminSettingsRoute: AppSettingsAdminSettingsRoute,
-  AppSettingsUserSettingsRoute: AppSettingsUserSettingsRoute,
+const appAppSettingsRouteChildren: appAppSettingsRouteChildren = {
+  appAppSettingsAdminSettingsRoute: appAppSettingsAdminSettingsRoute,
+  appAppSettingsUserSettingsRoute: appAppSettingsUserSettingsRoute,
 }
 
-const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
-  AppSettingsRouteChildren,
+const appAppSettingsRouteWithChildren = appAppSettingsRoute._addFileChildren(
+  appAppSettingsRouteChildren,
 )
 
-interface AppUUsernameRouteChildren {
-  AppUUsernameAllRoute: typeof AppUUsernameAllRoute
-  AppUUsernameFeedRoute: typeof AppUUsernameFeedRoute
-  AppUUsernameTaggedRoute: typeof AppUUsernameTaggedRoute
-  AppUUsernameIndexRoute: typeof AppUUsernameIndexRoute
+interface appAppGSlugRouteChildren {
+  appAppGSlugCClipIdRoute: typeof appAppGSlugCClipIdRoute
 }
 
-const AppUUsernameRouteChildren: AppUUsernameRouteChildren = {
-  AppUUsernameAllRoute: AppUUsernameAllRoute,
-  AppUUsernameFeedRoute: AppUUsernameFeedRoute,
-  AppUUsernameTaggedRoute: AppUUsernameTaggedRoute,
-  AppUUsernameIndexRoute: AppUUsernameIndexRoute,
+const appAppGSlugRouteChildren: appAppGSlugRouteChildren = {
+  appAppGSlugCClipIdRoute: appAppGSlugCClipIdRoute,
 }
 
-const AppUUsernameRouteWithChildren = AppUUsernameRoute._addFileChildren(
-  AppUUsernameRouteChildren,
+const appAppGSlugRouteWithChildren = appAppGSlugRoute._addFileChildren(
+  appAppGSlugRouteChildren,
 )
 
-interface AppRouteChildren {
-  AppSettingsRoute: typeof AppSettingsRouteWithChildren
-  AppGamesRoute: typeof AppGamesRoute
-  AppIndexRoute: typeof AppIndexRoute
-  AppGSlugRoute: typeof AppGSlugRoute
-  AppUUsernameRoute: typeof AppUUsernameRouteWithChildren
+interface appAppUUsernameRouteChildren {
+  appAppUUsernameAllRoute: typeof appAppUUsernameAllRoute
+  appAppUUsernameFeedRoute: typeof appAppUUsernameFeedRoute
+  appAppUUsernameTaggedRoute: typeof appAppUUsernameTaggedRoute
+  appAppUUsernameIndexRoute: typeof appAppUUsernameIndexRoute
 }
 
-const AppRouteChildren: AppRouteChildren = {
-  AppSettingsRoute: AppSettingsRouteWithChildren,
-  AppGamesRoute: AppGamesRoute,
-  AppIndexRoute: AppIndexRoute,
-  AppGSlugRoute: AppGSlugRoute,
-  AppUUsernameRoute: AppUUsernameRouteWithChildren,
+const appAppUUsernameRouteChildren: appAppUUsernameRouteChildren = {
+  appAppUUsernameAllRoute: appAppUUsernameAllRoute,
+  appAppUUsernameFeedRoute: appAppUUsernameFeedRoute,
+  appAppUUsernameTaggedRoute: appAppUUsernameTaggedRoute,
+  appAppUUsernameIndexRoute: appAppUUsernameIndexRoute,
 }
 
-const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+const appAppUUsernameRouteWithChildren = appAppUUsernameRoute._addFileChildren(
+  appAppUUsernameRouteChildren,
+)
+
+interface appAppRouteChildren {
+  appAppSettingsRoute: typeof appAppSettingsRouteWithChildren
+  appAppGamesRoute: typeof appAppGamesRoute
+  appAppIndexRoute: typeof appAppIndexRoute
+  appAppGSlugRoute: typeof appAppGSlugRouteWithChildren
+  appAppUUsernameRoute: typeof appAppUUsernameRouteWithChildren
+}
+
+const appAppRouteChildren: appAppRouteChildren = {
+  appAppSettingsRoute: appAppSettingsRouteWithChildren,
+  appAppGamesRoute: appAppGamesRoute,
+  appAppIndexRoute: appAppIndexRoute,
+  appAppGSlugRoute: appAppGSlugRouteWithChildren,
+  appAppUUsernameRoute: appAppUUsernameRouteWithChildren,
+}
+
+const appAppRouteWithChildren =
+  appAppRoute._addFileChildren(appAppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  AppRoute: AppRouteWithChildren,
-  LoginRoute: LoginRoute,
-  SetupRoute: SetupRoute,
+  appAppRoute: appAppRouteWithChildren,
+  authLoginRoute: authLoginRoute,
+  authSetupRoute: authSetupRoute,
+  authSignUpRoute: authSignUpRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
