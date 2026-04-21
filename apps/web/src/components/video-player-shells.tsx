@@ -16,12 +16,10 @@ export type LoadStatus =
 
 export function BareShell({
   className,
-  aspectRatio,
   status,
   children,
 }: {
   className?: string
-  aspectRatio: number | null
   status: LoadStatus
   children: React.ReactNode
 }) {
@@ -29,8 +27,10 @@ export function BareShell({
     <div
       data-slot="video-player"
       data-mode="bare"
-      style={{ aspectRatio: aspectRatio ?? 16 / 9 }}
-      className={cn("relative w-full overflow-hidden bg-black", className)}
+      className={cn(
+        "relative aspect-video w-full overflow-hidden bg-black",
+        className
+      )}
     >
       {children}
       <LoadOverlay status={status} />
@@ -122,7 +122,7 @@ export function ChromeShell({
         cursor: chromeVisible ? undefined : "none",
       }}
       className={cn(
-        "group/video relative w-full overflow-hidden bg-black select-none",
+        "group/video relative aspect-video w-full overflow-hidden bg-black select-none",
         "focus:outline-none",
         className
       )}
@@ -186,8 +186,8 @@ export function ChromeBar({
     <div
       aria-hidden={false}
       className={cn(
-        "pointer-events-auto absolute inset-x-0 bottom-0 isolate z-20 flex flex-col gap-1 overflow-hidden",
-        "bg-gradient-to-t from-[oklch(0_0_0/0.75)] via-[oklch(0_0_0/0.45)] to-transparent px-4 pt-6 pb-2",
+        "pointer-events-auto absolute inset-x-0 bottom-0 isolate z-20 flex flex-col gap-1",
+        "bg-gradient-to-t from-[oklch(0_0_0/0.55)] via-[oklch(0_0_0/0.3)] to-transparent px-4 pt-8 pb-2",
         "transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
         "group-data-[chrome=hidden]/video:pointer-events-none group-data-[chrome=hidden]/video:opacity-0"
       )}
