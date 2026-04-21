@@ -29,7 +29,6 @@ export const authorShape = {
   displayUsername: user.displayUsername,
   name: user.name,
   image: user.image,
-  imageKey: user.imageKey,
 } as const
 
 export interface CommentOut {
@@ -50,7 +49,6 @@ export interface CommentOut {
     displayUsername: string | null
     name: string
     image: string | null
-    imageKey: string | null
   }
   replies: CommentOut[]
 }
@@ -137,7 +135,6 @@ export async function listClipComments({
         displayUsername: r.author.displayUsername,
         name: r.author.name,
         image: r.author.image,
-        imageKey: r.author.imageKey,
       },
       replies: [],
     })
