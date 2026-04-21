@@ -3,14 +3,6 @@ import { Avatar as AvatarPrimitive } from "@base-ui/react/avatar"
 
 import { cn } from "@workspace/ui/lib/utils"
 
-/**
- * Alloy Avatar — square-with-rounded-corner, sizes sm/md/lg/xl/2xl.
- * The handoff uses rounded squares (var(--radius)) rather than full circles
- * to pair nicely with the monospaced numerical identity tags.
- *
- * `2xl` is the profile-page overlap variant — 96px tall, sized to hang off a
- * banner strip. Use sparingly; `xl` is the right call for dialogs and cards.
- */
 function Avatar({
   className,
   size = "md",

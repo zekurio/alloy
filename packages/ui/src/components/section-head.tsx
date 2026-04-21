@@ -2,23 +2,6 @@ import * as React from "react"
 
 import { cn } from "@workspace/ui/lib/utils"
 
-/**
- * Alloy SectionHead — the title / eyebrow / actions trio that sits above
- * each content block (clip grid, game row, etc.).
- *
- *   <SectionHead>
- *     <div>
- *       <SectionEyebrow>Trending · Updated hourly</SectionEyebrow>
- *       <SectionTitle>
- *         <FireIcon /> Top Clips Today
- *       </SectionTitle>
- *     </div>
- *     <SectionActions>
- *       <Chip data-active>Today</Chip>
- *       <Chip>Week</Chip>
- *     </SectionActions>
- *   </SectionHead>
- */
 function SectionHead({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div

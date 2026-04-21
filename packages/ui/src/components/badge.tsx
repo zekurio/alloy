@@ -4,20 +4,6 @@ import { cva } from "class-variance-authority"
 import { cn } from "@workspace/ui/lib/utils"
 import type { VariantProps } from "class-variance-authority"
 
-/**
- * Alloy Badge — short monospaced pill used to label state.
- *
- * Variants:
- *   default  — neutral 100 + border
- *   accent   — soft blue fill, accent fg
- *   success  — green
- *   warning  — amber
- *   danger   — red
- *   live     — red with a pulsing dot (live recordings)
- *
- * shadcn aliases: `secondary` → default, `destructive` → danger, `outline` →
- * transparent outline (kept for parity with existing call-sites).
- */
 const badgeVariants = cva(
   cn(
     "group/badge inline-flex h-[18px] items-center gap-1.5 px-2",

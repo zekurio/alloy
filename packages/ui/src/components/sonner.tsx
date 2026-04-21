@@ -10,19 +10,6 @@ import {
 import { Toaster as Sonner, toast } from "sonner"
 import type { ToasterProps } from "sonner"
 
-/**
- * Alloy-flavoured Sonner wrapper.
- *
- * Matches the mock in `@alloy/ui > toast.tsx`: a raised card where the
- * type (success / info / warning / error / loading) is conveyed by the
- * icon color. Description sits on a muted second line, an inline-end
- * close button takes the place of sonner's default cross.
- *
- * The app is dark-only for now, so `theme` is pinned to `dark` — no
- * `next-themes` dependency required. Visuals are driven by CSS custom
- * properties in `globals.css` (search `Sonner / Alloy toasts`) so the
- * component stays a thin pass-through.
- */
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner

@@ -3,14 +3,6 @@ import { cva } from "class-variance-authority"
 import { cn } from "@workspace/ui/lib/utils"
 import type { VariantProps } from "class-variance-authority"
 
-/**
- * Alloy Tabs — defaults to an underlined "line" variant with an accent
- * indicator that glows subtly on the active tab.
- *
- * Variants:
- *   line      — bottom-border tabs with glowing accent indicator (default)
- *   default   — shadcn-compatible segmented control
- */
 function Tabs({
   className,
   orientation = "horizontal",
