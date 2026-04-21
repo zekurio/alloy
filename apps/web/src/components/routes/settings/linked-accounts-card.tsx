@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useRouter } from "@tanstack/react-router"
-import { LinkIcon, Link2OffIcon } from "lucide-react"
+import { Link2OffIcon, LinkIcon, UserKeyIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import { Card, CardContent } from "@workspace/ui/components/card"
@@ -17,7 +17,7 @@ type Account = {
   createdAt: string | Date
 }
 
-type Provider = PublicAuthConfig["provider"]
+type Provider = NonNullable<PublicAuthConfig["provider"]>
 
 function useAccounts() {
   const [accounts, setAccounts] = React.useState<Account[] | null>(null)
@@ -44,16 +44,76 @@ function useAccounts() {
 export function LinkedAccountsCard() {
   const router = useRouter()
   const config = useSuspenseAuthConfig()
-  const provider = config.provider
   const { accounts, loading, refresh } = useAccounts()
-  const [linking, setLinking] = React.useState(false)
+  const actions = useLinkedAccountActions({
+    accounts: accounts ?? [],
+    config,
+    refresh,
+    router,
+  })
+
+  if (shouldHideLinkedAccountsCard(config, accounts, loading)) {
+    return null
+  }
+
+  return (
+    <Card>
+      <CardContent className="flex flex-col gap-3 py-4">
+        <div>
+          <div className="text-sm font-medium">Linked accounts</div>
+          <p className="mt-0.5 text-xs text-foreground-dim">
+            Connect additional sign-in methods to your account.
+          </p>
+        </div>
+        {loading ? (
+          <p className="text-sm text-foreground-muted">Loading…</p>
+        ) : (
+          <AccountsList
+            accounts={accounts ?? []}
+            config={config}
+            linkingProviderId={actions.linkingProviderId}
+            unlinkingId={actions.unlinkingId}
+            onLink={actions.onLink}
+            onUnlink={actions.onUnlink}
+          />
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function shouldHideLinkedAccountsCard(
+  config: PublicAuthConfig,
+  accounts: Account[] | null,
+  loading: boolean
+): boolean {
+  return (
+    config.provider === null &&
+    !loading &&
+    (accounts?.filter((account) => account.providerId !== "credential").length ?? 0) ===
+      0
+  )
+}
+
+function useLinkedAccountActions({
+  accounts,
+  config,
+  refresh,
+  router,
+}: {
+  accounts: Account[]
+  config: PublicAuthConfig
+  refresh: () => Promise<void>
+  router: ReturnType<typeof useRouter>
+}) {
+  const [linkingProviderId, setLinkingProviderId] = React.useState<string | null>(
+    null
+  )
   const [unlinkingId, setUnlinkingId] = React.useState<string | null>(null)
 
-  if (!provider && !loading && (accounts?.length ?? 0) <= 1) return null
-
-  async function onLink() {
-    if (!provider || linking) return
-    setLinking(true)
+  const onLink = React.useCallback(async (provider: Provider) => {
+    if (linkingProviderId) return
+    setLinkingProviderId(provider.providerId)
     try {
       const { error } = await authClient.oauth2.link({
         providerId: provider.providerId,
@@ -61,21 +121,21 @@ export function LinkedAccountsCard() {
       })
       if (error) {
         toast.error(error.message ?? "Couldn't start link flow")
-        setLinking(false)
+        setLinkingProviderId(null)
       }
     } catch (cause) {
       toast.error(
         cause instanceof Error ? cause.message : "Couldn't start link flow"
       )
-      setLinking(false)
+      setLinkingProviderId(null)
     }
-  }
+  }, [linkingProviderId])
 
-  async function onUnlink(account: Account) {
+  const onUnlink = React.useCallback(async (account: Account) => {
     if (unlinkingId) return
-    if ((accounts?.length ?? 0) <= 1) {
+    if (!canRemoveAccount(account, accounts, config)) {
       toast.error(
-        "This is your only sign-in method. Link another before removing it."
+        "This is your last enabled sign-in method. Link another before removing it."
       )
       return
     }
@@ -97,87 +157,94 @@ export function LinkedAccountsCard() {
     } finally {
       setUnlinkingId(null)
     }
-  }
+  }, [accounts, config, refresh, router, unlinkingId])
 
-  return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 py-4">
-        <div>
-          <div className="text-sm font-medium">Linked accounts</div>
-          <p className="mt-0.5 text-xs text-foreground-dim">
-            Connect additional sign-in methods to your account.
-          </p>
-        </div>
-        {loading ? (
-          <p className="text-sm text-foreground-muted">Loading…</p>
-        ) : (
-          <AccountsList
-            accounts={accounts ?? []}
-            provider={provider}
-            linking={linking}
-            unlinkingId={unlinkingId}
-            onLink={onLink}
-            onUnlink={onUnlink}
-          />
-        )}
-      </CardContent>
-    </Card>
-  )
+  return {
+    linkingProviderId,
+    unlinkingId,
+    onLink,
+    onUnlink,
+  }
 }
 
 type AccountsListProps = {
   accounts: Account[]
-  provider: Provider
-  linking: boolean
+  config: PublicAuthConfig
+  linkingProviderId: string | null
   unlinkingId: string | null
-  onLink: () => void
+  onLink: (provider: Provider) => void
   onUnlink: (account: Account) => void
 }
 
 function AccountsList({
   accounts,
-  provider,
-  linking,
+  config,
+  linkingProviderId,
   unlinkingId,
   onLink,
   onUnlink,
 }: AccountsListProps) {
-  const canUnlink = accounts.length > 1
-  const credentialAccount = accounts.find((a) => a.providerId === "credential")
-  const oauthAccount = provider
-    ? accounts.find((a) => a.providerId === provider.providerId)
+  const credentialAccount = accounts.find((account) => account.providerId === "credential")
+  const providerAccount = config.provider
+    ? accounts.find((account) => account.providerId === config.provider?.providerId)
     : undefined
+  const staleOAuthAccounts = accounts.filter(
+    (account) =>
+      account.providerId !== "credential" &&
+      account.providerId !== config.provider?.providerId
+  )
 
   return (
     <ul className="flex flex-col divide-y divide-border">
       {credentialAccount ? (
         <AccountRow
+          key={credentialAccount.id}
           label="Email and password"
-          sublabel="Sign in with your password"
-          actionLabel="Remove password"
+          sublabel={
+            config.emailPasswordEnabled
+              ? "Connected"
+              : "Configured account, but password login is currently disabled"
+          }
           busy={unlinkingId === credentialAccount.id}
+          canUnlink={canRemoveAccount(credentialAccount, accounts, config)}
           onAction={() => onUnlink(credentialAccount)}
-          canUnlink={canUnlink}
         />
       ) : null}
-      {provider ? (
-        oauthAccount ? (
+
+      {config.provider ? (
+        providerAccount ? (
           <AccountRow
-            label={provider.displayName}
+            key={providerAccount.id}
+            label={config.provider.displayName}
             sublabel="Connected"
-            actionLabel="Unlink"
-            busy={unlinkingId === oauthAccount.id}
-            onAction={() => onUnlink(oauthAccount)}
-            canUnlink={canUnlink}
+            busy={unlinkingId === providerAccount.id}
+            canUnlink={canRemoveAccount(providerAccount, accounts, config)}
+            onAction={() => onUnlink(providerAccount)}
+            showIcon
           />
         ) : (
           <LinkRow
-            label={provider.displayName}
-            busy={linking}
-            onLink={onLink}
+            key={config.provider.providerId}
+            label={config.provider.displayName}
+            busy={linkingProviderId === config.provider.providerId}
+            onLink={() =>
+              config.provider ? onLink(config.provider) : undefined
+            }
           />
         )
       ) : null}
+
+      {staleOAuthAccounts.map((account) => (
+        <AccountRow
+          key={account.id}
+          label={account.providerId}
+          sublabel="Linked, but no longer configured on this server"
+          busy={unlinkingId === account.id}
+          canUnlink={canRemoveAccount(account, accounts, config)}
+          onAction={() => onUnlink(account)}
+          showIcon
+        />
+      ))}
     </ul>
   )
 }
@@ -185,9 +252,14 @@ function AccountsList({
 function LinkRow(props: { label: string; busy: boolean; onLink: () => void }) {
   return (
     <li className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
-      <div className="min-w-0">
-        <div className="text-sm font-medium">{props.label}</div>
-        <p className="text-xs text-foreground-dim">Not linked</p>
+      <div className="min-w-0 flex items-center gap-3">
+        <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border">
+          <UserKeyIcon className="size-4" />
+        </span>
+        <div className="min-w-0">
+          <div className="text-sm font-medium">{props.label}</div>
+          <p className="text-xs text-foreground-dim">Not linked</p>
+        </div>
       </div>
       <Button
         type="button"
@@ -206,18 +278,25 @@ function LinkRow(props: { label: string; busy: boolean; onLink: () => void }) {
 type AccountRowProps = {
   label: string
   sublabel: string
-  actionLabel: string
   busy: boolean
   canUnlink: boolean
   onAction: () => void
+  showIcon?: boolean
 }
 
 function AccountRow(props: AccountRowProps) {
   return (
     <li className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
-      <div className="min-w-0">
-        <div className="text-sm font-medium">{props.label}</div>
-        <p className="text-xs text-foreground-dim">{props.sublabel}</p>
+      <div className="min-w-0 flex items-center gap-3">
+        {props.showIcon ? (
+          <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border">
+            <UserKeyIcon className="size-4" />
+          </span>
+        ) : null}
+        <div className="min-w-0">
+          <div className="text-sm font-medium">{props.label}</div>
+          <p className="text-xs text-foreground-dim">{props.sublabel}</p>
+        </div>
       </div>
       <Button
         type="button"
@@ -228,12 +307,29 @@ function AccountRow(props: AccountRowProps) {
         title={
           props.canUnlink
             ? undefined
-            : "Link another sign-in method before removing this one"
+            : "Link another enabled sign-in method before removing this one"
         }
       >
         <Link2OffIcon />
-        {props.busy ? "Removing…" : props.actionLabel}
+        {props.busy ? "Removing…" : "Unlink"}
       </Button>
     </li>
   )
+}
+
+function canRemoveAccount(
+  target: Account,
+  accounts: Account[],
+  config: PublicAuthConfig
+): boolean {
+  const remaining = accounts.filter((account) => account.id !== target.id)
+  return remaining.some((account) => accountSupportsSignIn(account, config))
+}
+
+function accountSupportsSignIn(
+  account: Account,
+  config: PublicAuthConfig
+): boolean {
+  if (account.providerId === "credential") return config.emailPasswordEnabled
+  return config.provider?.providerId === account.providerId
 }
