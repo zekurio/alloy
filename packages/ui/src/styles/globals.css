@@ -233,8 +233,8 @@
   --popover: var(--surface-raised);
   --popover-foreground: var(--foreground);
 
-  /* primary = brand blue */
-  --primary: #0091ff;
+  /* primary = steel */
+  --primary: #b4bdc5;
   --primary-foreground: #0b0d0f;
 
   /* secondary = raised neutral */
@@ -244,15 +244,15 @@
   --muted: var(--surface-raised);
   --muted-foreground: var(--foreground-dim);
 
-  /* accent variants */
-  --accent: #0091ff;
-  --accent-hover: #2aa5ff;
-  --accent-active: #007ad9;
+  /* accent variants — steel, sampled from the alloy logo shard */
+  --accent: #b4bdc5;
+  --accent-hover: #c9d0d7;
+  --accent-active: #96a0a9;
   --accent-foreground: #0b0d0f;
-  --accent-soft: rgba(0, 145, 255, 0.14);
-  --accent-border: rgba(0, 145, 255, 0.42);
-  --accent-glow: rgba(0, 145, 255, 0.28);
-  --accent-dim: #003b8f;
+  --accent-soft: rgba(180, 189, 197, 0.14);
+  --accent-border: rgba(180, 189, 197, 0.42);
+  --accent-glow: rgba(180, 189, 197, 0.28);
+  --accent-dim: #4c545c;
 
   --destructive: oklch(0.65 0.24 25);
 
