@@ -1,73 +1,99 @@
 import * as React from "react"
-import {
-  HeartIcon,
-  MessageSquareIcon,
-  SendHorizontalIcon,
-  SmileIcon,
-} from "lucide-react"
+import { PinIcon } from "lucide-react"
 
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
 } from "@workspace/ui/components/avatar"
-import { Button } from "@workspace/ui/components/button"
-import { Chip } from "@workspace/ui/components/chip"
+import { toast } from "@workspace/ui/components/sonner"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { useSession } from "../lib/auth-client"
-import { userChipData } from "../lib/user-display"
+import { formatRelativeTime } from "../lib/clip-format"
+import {
+  useCommentsQuery,
+  useCreateCommentMutation,
+  useDeleteCommentMutation,
+  useToggleCommentLikeMutation,
+  useTogglePinCommentMutation,
+} from "../lib/comment-queries"
+import type { CommentRow } from "../lib/comments-api"
+import {
+  avatarTint,
+  displayInitials,
+  displayName,
+  useUserChipData,
+  type UserChipData,
+} from "../lib/user-display"
+import {
+  AuthorLikeBadge,
+  CommentActions,
+  CommentBody,
+  CommentComposer,
+  CommentLikeButton,
+  CommentMenu,
+  CommentsHeader,
+} from "./clip-comments-parts"
 import { EmptyState } from "./empty-state"
 
-/**
- * Comments sidebar — rendered alongside the clip player.
- *
- * Layout is a simple flex column with a sticky header, a scrollable list
- * in the middle, and a composer pinned to the bottom. Each comment is a
- * flat row (no cards) to match the ClipCard aesthetic.
- *
- * Comments aren't wired up server-side yet — the `clip.commentCount`
- * column exists but there's no `/api/clips/:id/comments` endpoint. For
- * now the list is always empty and the composer is disabled with a
- * kaomoji empty state taking its place. Once the endpoint lands we'll
- * fetch on open, seeding `comments` with real data.
- */
-interface Comment {
-  id: string
-  author: string
-  body: string
-  postedAt: string
-  likes: number
-  pinned?: boolean
-  avatar: { initials: string; bg: string; fg: string }
-  replies?: number
-}
-
-// Bodies longer than this get a "Show more" toggle so one megapost
-// doesn't push the rest of the conversation off the screen.
 const LONG_COMMENT_CHARS = 260
 
 interface ClipCommentsProps extends React.ComponentProps<"aside"> {
-  /** Seeds the kaomoji so it stays stable across re-renders of this dialog. */
   clipId: string
+  clipAuthorId: string
 }
 
-function ClipComments({ className, clipId, ...props }: ClipCommentsProps) {
+type Sort = "top" | "new"
+
+function authorAvatarStyle(comment: CommentRow) {
+  const { bg, fg } = avatarTint(comment.author.id || comment.author.name)
+  return { background: bg, color: fg }
+}
+
+function useAuthorAvatarSrc(
+  author: CommentRow["author"]
+): string | undefined {
+  return author.image ?? undefined
+}
+
+function ClipComments({
+  className,
+  clipId,
+  clipAuthorId,
+  ...props
+}: ClipCommentsProps) {
   const [draft, setDraft] = React.useState("")
-  const [sort, setSort] = React.useState<"top" | "new">("top")
+  const [sort, setSort] = React.useState<Sort>("top")
   const { data: session } = useSession()
-  const me = userChipData(session?.user)
+  const me = useUserChipData(session?.user)
+  const viewerId = session?.user?.id ?? null
   const meAvatarStyle = {
     background: me.avatar.bg,
     color: me.avatar.fg,
   } as const
 
-  // Placeholder for a future `/api/clips/:id/comments` fetch. Kept as
-  // component state so the empty branch is shaped the same way the
-  // populated one will be.
-  const comments: ReadonlyArray<Comment> = React.useMemo(() => [], [])
+  const { data: comments = [], isLoading } = useCommentsQuery(clipId, sort)
+  const create = useCreateCommentMutation(clipId)
 
-  const isEmpty = comments.length === 0
+  const totalCount = React.useMemo(
+    () => comments.reduce((n, c) => n + 1 + c.replies.length, 0),
+    [comments]
+  )
+
+  const isSignedIn = viewerId !== null
+  const canSubmit = draft.trim().length > 0 && isSignedIn
+
+  async function submitTopLevel() {
+    const body = draft.trim()
+    if (!body || !isSignedIn) return
+    try {
+      await create.mutateAsync({ body })
+      setDraft("")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't post comment")
+    }
+  }
 
   return (
     <aside
@@ -78,42 +104,22 @@ function ClipComments({ className, clipId, ...props }: ClipCommentsProps) {
       )}
       {...props}
     >
-      {/* ── Header ───────────────────────────────────────────
-          Right padding leaves room for the dialog's close X so it
-          doesn't collide with the sort chips on smaller viewports. */}
-      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3 pr-12">
-        <div className="flex items-center gap-2">
-          <MessageSquareIcon className="size-4 text-accent" />
-          <h2 className="text-md leading-none font-semibold tracking-[-0.005em] text-foreground">
-            Comments
-          </h2>
-          <span className="font-mono text-2xs leading-none tracking-[0.06em] text-foreground-faint">
-            {comments.length}
-          </span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Chip
-            data-active={sort === "top" ? "true" : undefined}
-            onClick={() => setSort("top")}
-          >
-            Top
-          </Chip>
-          <Chip
-            data-active={sort === "new" ? "true" : undefined}
-            onClick={() => setSort("new")}
-          >
-            New
-          </Chip>
-        </div>
-      </div>
+      <CommentsHeader
+        count={totalCount}
+        sort={sort}
+        onSortChange={setSort}
+      />
 
-      {/* ── Scroll list ────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto">
-        {isEmpty ? (
+        {isLoading ? (
+          <div className="flex h-full items-center justify-center p-6">
+            <span className="text-xs text-foreground-faint">
+              Loading…
+            </span>
+          </div>
+        ) : comments.length === 0 ? (
           <div className="flex h-full items-center justify-center p-6">
             <EmptyState
-              // Seed keeps the kaomoji stable between tab switches inside
-              // the same dialog instance. Different clip ids reroll the face.
               seed={`comments-${clipId}`}
               size="lg"
               title="No comments yet"
@@ -122,81 +128,124 @@ function ClipComments({ className, clipId, ...props }: ClipCommentsProps) {
           </div>
         ) : (
           <ul className="flex flex-col">
-            {comments.map((c, i) => (
-              <CommentRow key={c.id} comment={c} first={i === 0} />
+            {comments.map((comment, index) => (
+              <CommentRowView
+                key={comment.id}
+                comment={comment}
+                first={index === 0}
+                clipId={clipId}
+                clipAuthorId={clipAuthorId}
+                viewerId={viewerId}
+                me={me}
+                meAvatarStyle={meAvatarStyle}
+              />
             ))}
           </ul>
         )}
       </div>
 
-      {/* ── Composer ───────────────────────────────────────── */}
       <div className="border-t border-border bg-surface-sunken p-3">
-        <div
-          className={cn(
-            "flex flex-col gap-2 rounded-md border border-border bg-input p-2",
-            "transition-[border-color,background-color] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-            "focus-within:border-accent-border focus-within:bg-surface-raised"
-          )}
-        >
-          <div className="flex items-start gap-2">
-            {/* Current viewer's avatar — falls back to tinted initials
-                when they haven't uploaded an image yet. */}
-            <Avatar size="md" className="mt-0.5" style={meAvatarStyle}>
-              {me.avatar.src ? (
-                <AvatarImage src={me.avatar.src} alt={me.name} />
-              ) : null}
-              <AvatarFallback style={meAvatarStyle}>
-                {me.avatar.initials}
-              </AvatarFallback>
-            </Avatar>
-
-            <textarea
-              data-slot="comment-input"
-              placeholder="Add a comment…"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              rows={2}
-              className={cn(
-                "min-h-[32px] flex-1 resize-none bg-transparent text-sm text-foreground outline-none",
-                "placeholder:text-foreground-faint"
-              )}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon-sm" aria-label="Emoji">
-                <SmileIcon />
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              {draft.length > 0 ? (
-                <Button variant="ghost" size="sm" onClick={() => setDraft("")}>
-                  Cancel
-                </Button>
-              ) : null}
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={draft.trim().length === 0}
-              >
-                <SendHorizontalIcon />
-                Post
-              </Button>
-            </div>
-          </div>
-        </div>
+        <CommentComposer
+          draft={draft}
+          me={me}
+          meAvatarStyle={meAvatarStyle}
+          placeholder={isSignedIn ? "Add a comment…" : "Sign in to comment"}
+          submitting={create.isPending}
+          canSubmit={canSubmit}
+          onDraftChange={setDraft}
+          onClear={() => setDraft("")}
+          onSubmit={submitTopLevel}
+        />
       </div>
     </aside>
   )
 }
 
-function CommentRow({ comment, first }: { comment: Comment; first?: boolean }) {
-  const [liked, setLiked] = React.useState(false)
+function CommentRowView({
+  comment,
+  first,
+  clipId,
+  clipAuthorId,
+  viewerId,
+  me,
+  meAvatarStyle,
+}: {
+  comment: CommentRow
+  first?: boolean
+  clipId: string
+  clipAuthorId: string
+  viewerId: string | null
+  me: UserChipData
+  meAvatarStyle: { background: string; color: string }
+}) {
   const [expanded, setExpanded] = React.useState(false)
-  const likeCount = comment.likes + (liked ? 1 : 0)
+  const [replyOpen, setReplyOpen] = React.useState(false)
+  const [repliesOpen, setRepliesOpen] = React.useState(false)
+  const [replyDraft, setReplyDraft] = React.useState("")
   const isLong = comment.body.length > LONG_COMMENT_CHARS
+
+  const toggleLike = useToggleCommentLikeMutation(clipId)
+  const togglePin = useTogglePinCommentMutation(clipId)
+  const del = useDeleteCommentMutation(clipId)
+  const create = useCreateCommentMutation(clipId)
+
+  const isViewerClipAuthor = viewerId !== null && viewerId === clipAuthorId
+  const isCommentAuthor = viewerId !== null && viewerId === comment.author.id
+  const canReply = viewerId !== null
+  const canPin = isViewerClipAuthor && comment.parentId === null
+  const canDelete = isCommentAuthor || isViewerClipAuthor
+
+  function onToggleLike() {
+    if (!viewerId) {
+      toast.error("Sign in to like comments")
+      return
+    }
+    toggleLike.mutate({
+      commentId: comment.id,
+      nextLiked: !comment.likedByViewer,
+    })
+  }
+
+  function onPinToggle() {
+    togglePin.mutate(
+      { commentId: comment.id, nextPinned: !comment.pinned },
+      {
+        onError: (err) => {
+          toast.error(err instanceof Error ? err.message : "Couldn't pin")
+        },
+      }
+    )
+  }
+
+  function onDelete() {
+    if (!window.confirm("Delete this comment?")) return
+    del.mutate(
+      { commentId: comment.id },
+      {
+        onError: (err) => {
+          toast.error(err instanceof Error ? err.message : "Couldn't delete")
+        },
+      }
+    )
+  }
+
+  async function submitReply() {
+    const body = replyDraft.trim()
+    if (!body) return
+    try {
+      await create.mutateAsync({ body, parentId: comment.id })
+      setReplyDraft("")
+      setReplyOpen(false)
+      setRepliesOpen(true)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't post reply")
+    }
+  }
+
+  const authorName = displayName(comment.author)
+  const avatarStyle = authorAvatarStyle(comment)
+  const initials = displayInitials(authorName)
+  const authorAvatarSrc = useAuthorAvatarSrc(comment.author)
 
   return (
     <li
@@ -207,106 +256,193 @@ function CommentRow({ comment, first }: { comment: Comment; first?: boolean }) {
           "bg-[color-mix(in_oklab,var(--accent)_4%,transparent)]"
       )}
     >
-      {/* Avatar */}
-      <span
-        aria-hidden
-        className="grid size-8 shrink-0 place-items-center rounded-md text-[11px] font-semibold"
-        style={{
-          background: comment.avatar.bg,
-          color: comment.avatar.fg,
-        }}
-      >
-        {comment.avatar.initials}
-      </span>
+      <Avatar size="md" className="shrink-0" style={avatarStyle}>
+        {authorAvatarSrc ? (
+          <AvatarImage src={authorAvatarSrc} alt={authorName} />
+        ) : null}
+        <AvatarFallback style={avatarStyle}>{initials}</AvatarFallback>
+      </Avatar>
 
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        {/* Author row */}
+        {comment.pinned ? (
+          <div className="inline-flex items-center gap-1 text-xs text-foreground-faint">
+            <PinIcon className="size-3" />
+            Pinned
+          </div>
+        ) : null}
         <div className="flex items-center gap-2 leading-none">
-          <button
-            type="button"
-            className="text-sm font-semibold text-foreground transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:text-accent"
-          >
-            {comment.author}
-          </button>
-          <span className="font-mono text-2xs tracking-[0.06em] text-foreground-faint">
-            {comment.postedAt}
+          <span className="text-[0.9375rem] font-semibold text-foreground">
+            {authorName}
           </span>
-          {comment.pinned ? (
-            <span className="ml-auto font-mono text-2xs tracking-[0.12em] text-accent uppercase">
-              Pinned
+          {comment.author.id === clipAuthorId ? (
+            <span className="rounded-sm bg-accent-soft px-1.5 py-0.5 text-[0.6875rem] font-semibold tracking-wide text-accent uppercase">
+              Author
             </span>
           ) : null}
+          <span className="text-xs text-foreground-faint">
+            {formatRelativeTime(comment.createdAt)}
+          </span>
+          <CommentMenu
+            canPin={canPin}
+            canDelete={canDelete}
+            pinned={comment.pinned}
+            onPinToggle={onPinToggle}
+            onDelete={onDelete}
+          />
         </div>
 
-        {/* Body — wraps long words/URLs and clamps very long posts */}
-        <p
-          className={cn(
-            "text-sm leading-[1.5] text-foreground-muted",
-            "[overflow-wrap:anywhere] break-words whitespace-pre-wrap",
-            isLong && !expanded && "line-clamp-4"
-          )}
-        >
-          {comment.body}
-        </p>
-        {isLong ? (
-          <button
-            type="button"
-            onClick={() => setExpanded((e) => !e)}
-            className={cn(
-              "-mt-0.5 self-start rounded-md px-1.5 py-0.5",
-              "font-mono text-2xs tracking-[0.04em] text-accent",
-              "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-              "hover:bg-accent-soft",
-              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
-            )}
-          >
-            {expanded ? "Show less" : "Show more"}
-          </button>
+        <CommentBody
+          body={comment.body}
+          expanded={expanded}
+          isLong={isLong}
+          edited={comment.editedAt !== null}
+          onToggle={() => setExpanded((value) => !value)}
+        />
+        <CommentActions
+          liked={comment.likedByViewer}
+          likeCount={comment.likeCount}
+          likedByAuthor={
+            comment.likedByAuthor && comment.author.id !== clipAuthorId
+          }
+          replyCount={comment.replies.length}
+          repliesOpen={repliesOpen}
+          canReply={canReply}
+          onToggleLike={onToggleLike}
+          onToggleReplies={() => setRepliesOpen((v) => !v)}
+          onStartReply={() => setReplyOpen(true)}
+        />
+
+        {replyOpen ? (
+          <div className="mt-2">
+            <CommentComposer
+              draft={replyDraft}
+              me={me}
+              meAvatarStyle={meAvatarStyle}
+              placeholder={`Reply to ${authorName}…`}
+              submitting={create.isPending}
+              canSubmit={replyDraft.trim().length > 0}
+              onDraftChange={setReplyDraft}
+              onClear={() => {
+                setReplyDraft("")
+                setReplyOpen(false)
+              }}
+              onSubmit={submitReply}
+            />
+          </div>
         ) : null}
 
-        {/* Actions */}
+        {repliesOpen && comment.replies.length > 0 ? (
+          <ul className="mt-2 flex flex-col gap-3 border-l border-border pl-3">
+            {comment.replies.map((reply) => (
+              <ReplyRow
+                key={reply.id}
+                reply={reply}
+                clipId={clipId}
+                clipAuthorId={clipAuthorId}
+                viewerId={viewerId}
+              />
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </li>
+  )
+}
+
+function ReplyRow({
+  reply,
+  clipId,
+  clipAuthorId,
+  viewerId,
+}: {
+  reply: CommentRow
+  clipId: string
+  clipAuthorId: string
+  viewerId: string | null
+}) {
+  const [expanded, setExpanded] = React.useState(false)
+  const isLong = reply.body.length > LONG_COMMENT_CHARS
+  const toggleLike = useToggleCommentLikeMutation(clipId)
+  const del = useDeleteCommentMutation(clipId)
+
+  const isViewerClipAuthor = viewerId !== null && viewerId === clipAuthorId
+  const isCommentAuthor = viewerId !== null && viewerId === reply.author.id
+  const canDelete = isCommentAuthor || isViewerClipAuthor
+
+  const authorName = displayName(reply.author)
+  const avatarStyle = authorAvatarStyle(reply)
+  const initials = displayInitials(authorName)
+  const authorAvatarSrc = useAuthorAvatarSrc(reply.author)
+
+  function onToggleLike() {
+    if (!viewerId) {
+      toast.error("Sign in to like comments")
+      return
+    }
+    toggleLike.mutate({
+      commentId: reply.id,
+      nextLiked: !reply.likedByViewer,
+    })
+  }
+
+  function onDelete() {
+    if (!window.confirm("Delete this reply?")) return
+    del.mutate(
+      { commentId: reply.id },
+      {
+        onError: (err) => {
+          toast.error(err instanceof Error ? err.message : "Couldn't delete")
+        },
+      }
+    )
+  }
+
+  return (
+    <li className="flex gap-2">
+      <Avatar size="sm" className="shrink-0" style={avatarStyle}>
+        {authorAvatarSrc ? (
+          <AvatarImage src={authorAvatarSrc} alt={authorName} />
+        ) : null}
+        <AvatarFallback style={avatarStyle}>{initials}</AvatarFallback>
+      </Avatar>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex items-center gap-2 leading-none">
+          <span className="text-[0.9375rem] font-semibold text-foreground">
+            {authorName}
+          </span>
+          {reply.author.id === clipAuthorId ? (
+            <span className="rounded-sm bg-accent-soft px-1.5 py-0.5 text-[0.6875rem] font-semibold tracking-wide text-accent uppercase">
+              Author
+            </span>
+          ) : null}
+          <span className="text-xs text-foreground-faint">
+            {formatRelativeTime(reply.createdAt)}
+          </span>
+          {canDelete ? (
+            <CommentMenu
+              canPin={false}
+              canDelete={canDelete}
+              pinned={false}
+              onPinToggle={() => {}}
+              onDelete={onDelete}
+            />
+          ) : null}
+        </div>
+        <CommentBody
+          body={reply.body}
+          expanded={expanded}
+          isLong={isLong}
+          edited={reply.editedAt !== null}
+          onToggle={() => setExpanded((value) => !value)}
+        />
         <div className="mt-0.5 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setLiked((l) => !l)}
-            aria-pressed={liked}
-            className={cn(
-              "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5",
-              "font-mono text-2xs tracking-[0.04em]",
-              "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-              liked
-                ? "text-accent"
-                : "text-foreground-faint hover:text-foreground",
-              "hover:bg-surface-raised",
-              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
-            )}
-          >
-            <HeartIcon className={cn("size-3", liked && "fill-current")} />
-            {likeCount}
-          </button>
-          <button
-            type="button"
-            className={cn(
-              "rounded-md px-1.5 py-0.5 font-mono text-2xs tracking-[0.04em]",
-              "text-foreground-faint transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-              "hover:bg-surface-raised hover:text-foreground",
-              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
-            )}
-          >
-            Reply
-          </button>
-          {comment.replies ? (
-            <button
-              type="button"
-              className={cn(
-                "rounded-md px-1.5 py-0.5 font-mono text-2xs tracking-[0.04em]",
-                "text-accent transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-                "hover:bg-accent-soft",
-                "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
-              )}
-            >
-              View {comment.replies} replies
-            </button>
+          <CommentLikeButton
+            liked={reply.likedByViewer}
+            likeCount={reply.likeCount}
+            onClick={onToggleLike}
+          />
+          {reply.likedByAuthor && reply.author.id !== clipAuthorId ? (
+            <AuthorLikeBadge />
           ) : null}
         </div>
       </div>
