@@ -232,9 +232,6 @@ function buildCodecArgs(config: EncoderConfig): string[] {
         ...softwareCodecTail(config.codec),
       ]
     case "nvenc":
-      // VBR + CQ gives a quality-targeted encode without a hard bitrate
-      // cap; `-b:v 0` lets CQ steer the stream rather than collide with
-      // a target bitrate of zero.
       return [
         "-c:v",
         codecName,
@@ -250,9 +247,6 @@ function buildCodecArgs(config: EncoderConfig): string[] {
     case "qsv":
       return ["-c:v", codecName, "-preset", preset, "-global_quality", q]
     case "amf":
-      // AMF uses a "quality" knob (speed/balanced/quality) alongside
-      // constant-QP rate control; the user's `preset` populates the
-      // former and `quality` the latter.
       return [
         "-c:v",
         codecName,
