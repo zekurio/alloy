@@ -3,6 +3,7 @@ import { FilmIcon } from "lucide-react"
 import {
   SectionActions,
   SectionHead,
+  SectionMeta,
   SectionTitle,
 } from "@workspace/ui/components/section-head"
 import { Skeleton } from "@workspace/ui/components/skeleton"
@@ -14,6 +15,7 @@ import { useQueryErrorToast } from "../../../lib/use-query-error-toast"
 import type { UserClip } from "../../../lib/users-api"
 
 type ClipsSectionProps = {
+  username: string
   clips: UserClip[] | null
   error: Error | null
   variant: "recent" | "all"
@@ -21,6 +23,7 @@ type ClipsSectionProps = {
 }
 
 export function ClipsSection({
+  username,
   clips,
   error,
   variant,
@@ -44,10 +47,10 @@ export function ClipsSection({
         </div>
         <SectionActions>
           {visibleClips ? (
-            <span className="text-xs text-foreground-faint tabular-nums">
+            <SectionMeta>
               {visibleClips.length}{" "}
               {visibleClips.length === 1 ? "clip" : "clips"}
-            </span>
+            </SectionMeta>
           ) : null}
         </SectionActions>
       </SectionHead>
@@ -72,7 +75,11 @@ export function ClipsSection({
           hint="Clips from this user will show up here once they upload."
         />
       ) : (
-        <ClipCardList rows={visibleClips} isOwnedByViewer={() => isSelf} />
+        <ClipCardList
+          rows={visibleClips}
+          isOwnedByViewer={() => isSelf}
+          listKey={`profile:${username}:${variant}`}
+        />
       )}
     </section>
   )

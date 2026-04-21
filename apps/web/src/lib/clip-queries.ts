@@ -31,6 +31,9 @@ export function useClipQuery(clipId: string) {
     queryKey: clipKeys.detail(clipId),
     queryFn: () => fetchClipById(clipId),
     enabled: clipId.length > 0,
+    // Keep the previous clip visible while the next one loads so
+    // route-driven modal navigation feels continuous.
+    placeholderData: (previous) => previous,
   })
 }
 
@@ -299,9 +302,8 @@ function patchClipCounts(
         pages: old.pages.map((page) => page.map(apply)),
       }
   )
-  qc.setQueryData<ClipRow | undefined>(
-    clipKeys.detail(clipId),
-    (old) => (old ? apply(old) : old)
+  qc.setQueryData<ClipRow | undefined>(clipKeys.detail(clipId), (old) =>
+    old ? apply(old) : old
   )
 }
 

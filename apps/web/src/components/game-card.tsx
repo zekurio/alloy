@@ -4,7 +4,7 @@ import * as React from "react"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { hueForGame } from "../lib/clip-format"
-import { apiOrigin } from "../lib/env"
+import { publicOrigin } from "../lib/env"
 
 export type GameCardData = {
   name: string
@@ -66,7 +66,10 @@ function sampleDominant(img: HTMLImageElement): Rgb | null {
   ctx.drawImage(img, 0, 0, size, size)
   const { data } = ctx.getImageData(0, 0, size, size)
 
-  const buckets = new Map<number, { r: number; g: number; b: number; n: number }>()
+  const buckets = new Map<
+    number,
+    { r: number; g: number; b: number; n: number }
+  >()
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i] ?? 0
     const g = data[i + 1] ?? 0
@@ -101,7 +104,7 @@ function GameCardBody({ game }: { game: GameCardData }) {
   const hue = hueForGame(game.name)
   const heroSrc =
     game.heroUrl && game.slug
-      ? `${apiOrigin()}/api/games/${encodeURIComponent(game.slug)}/hero`
+      ? `${publicOrigin()}/api/games/${encodeURIComponent(game.slug)}/hero`
       : null
   const dominant = useDominantColor(heroSrc)
   const labelBg = dominant
@@ -139,17 +142,16 @@ function GameCardBody({ game }: { game: GameCardData }) {
         style={{ padding: "clamp(0.5rem, 3.5cqi, 1rem)" }}
       >
         <div
-          className={cn(
-            "flex max-w-full items-center",
-            "backdrop-blur-xl backdrop-saturate-150",
-            "ring-1 ring-white/15",
-            "shadow-[0_4px_16px_-4px_rgb(0_0_0_/_0.5)]"
-          )}
-          style={{
-            backgroundColor: labelBg,
-            padding: "clamp(0.375rem, 2cqi, 0.625rem) clamp(0.5rem, 3cqi, 0.875rem)",
-            borderRadius: "clamp(0.25rem, 1.5cqi, 0.5rem)",
-          }}
+          className={cn("flex max-w-full items-center", "alloy-glass border")}
+          style={
+            {
+              "--alloy-glass-bg": labelBg,
+              "--alloy-glass-shadow": "0 4px 16px -4px rgb(0 0 0 / 0.5)",
+              padding:
+                "clamp(0.375rem, 2cqi, 0.625rem) clamp(0.5rem, 3cqi, 0.875rem)",
+              borderRadius: "clamp(0.25rem, 1.5cqi, 0.5rem)",
+            } as React.CSSProperties
+          }
         >
           <span
             className="truncate font-semibold text-white drop-shadow-sm"
@@ -165,8 +167,8 @@ function GameCardBody({ game }: { game: GameCardData }) {
 
 export function GameCard({ game, link, className }: GameCardProps) {
   const surface = cn(
-    "group/game-card relative flex aspect-video flex-col overflow-hidden rounded-md isolate [container-type:inline-size]",
-    "bg-neutral-900 [transform:translateZ(0)]",
+    "group/game-card [container-type:inline-size] relative isolate flex aspect-video flex-col overflow-hidden rounded-md",
+    "[transform:translateZ(0)] bg-neutral-900",
     "transition-[box-shadow,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
     className

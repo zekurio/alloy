@@ -38,9 +38,6 @@ export async function generateUniqueGameSlug(name: string): Promise<string> {
     if (await isSlugAvailable(candidate)) return candidate
   }
 
-  // Past the linear probe — random suffix. Extremely unlikely in
-  // practice; the DB's unique constraint catches anything that
-  // slips through a race.
   for (let attempt = 0; attempt < 10; attempt++) {
     const suffix = Math.random().toString(36).slice(2, 8)
     const candidate = `${trimSeed(MAX_LEN - suffix.length - 1)}-${suffix}`

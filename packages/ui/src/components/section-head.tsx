@@ -59,4 +59,24 @@ function SectionActions({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-export { SectionHead, SectionEyebrow, SectionTitle, SectionSub, SectionActions }
+function SectionMeta({ className, ...props }: React.ComponentProps<"span">) {
+  return (
+    <span
+      data-slot="section-meta"
+      className={cn(
+        "text-xs font-semibold text-foreground-muted tabular-nums",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+export {
+  SectionHead,
+  SectionEyebrow,
+  SectionTitle,
+  SectionSub,
+  SectionActions,
+  SectionMeta,
+}

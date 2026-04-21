@@ -22,7 +22,8 @@ const gameIconVariants = cva(
 )
 
 interface GameIconProps
-  extends Omit<React.ComponentProps<"span">, "children">,
+  extends
+    Omit<React.ComponentProps<"span">, "children">,
     VariantProps<typeof gameIconVariants> {
   src: string | null | undefined
   name: string

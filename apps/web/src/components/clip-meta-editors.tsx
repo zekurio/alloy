@@ -13,13 +13,8 @@ import { toast } from "@workspace/ui/components/sonner"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { useUpdateClipMutation } from "../lib/clip-queries"
-import {
-  CLIP_DESCRIPTION_MAX,
-  CLIP_TITLE_MAX,
-} from "../lib/clip-fields"
-import type {
-  ClipGameRef,
-} from "../lib/clips-api"
+import { CLIP_DESCRIPTION_MAX, CLIP_TITLE_MAX } from "../lib/clip-fields"
+import type { ClipGameRef } from "../lib/clips-api"
 import type { GameRow } from "../lib/games-api"
 
 import { GameCombobox } from "./game-combobox"
@@ -163,10 +158,7 @@ export function EditableTitle({
           )}
         />
         {error ? (
-          <span
-            className="text-xs text-destructive"
-            aria-live="polite"
-          >
+          <span className="text-xs text-destructive" aria-live="polite">
             {error}
           </span>
         ) : null}
@@ -214,20 +206,10 @@ export function EditableGame({
   }, [mutation.isPending])
 
   const effectiveLabel = pendingRow ? pendingRow.name : displayName
-  const effectiveSlug = pendingRow
-    ? pendingRow.slug
-    : (gameRef?.slug ?? null)
+  const effectiveSlug = pendingRow ? pendingRow.slug : (gameRef?.slug ?? null)
   const effectiveIcon = pendingRow
     ? (pendingRow.iconUrl ?? pendingRow.logoUrl ?? null)
     : (gameRef?.iconUrl ?? gameRef?.logoUrl ?? null)
-  const effectiveReleaseDate = pendingRow
-    ? pendingRow.releaseDate
-    : (gameRef?.releaseDate ?? null)
-  const effectiveYear = React.useMemo(() => {
-    if (!effectiveReleaseDate) return null
-    const y = new Date(effectiveReleaseDate).getUTCFullYear()
-    return Number.isFinite(y) ? y : null
-  }, [effectiveReleaseDate])
 
   const initialValue: GameRow | null =
     pendingRow ??
@@ -276,11 +258,6 @@ export function EditableGame({
     <>
       <GameIcon src={effectiveIcon} name={effectiveLabel} />
       <span className="truncate">{effectiveLabel}</span>
-      {effectiveYear ? (
-        <span className="shrink-0 text-xs text-foreground-faint">
-          {effectiveYear}
-        </span>
-      ) : null}
     </>
   )
 
@@ -496,7 +473,7 @@ export function EditableDescription({
   )
 }
 
-function renderDescriptionTokens(
+export function renderDescriptionTokens(
   raw: string,
   { linkHashtags }: { linkHashtags: boolean }
 ): React.ReactNode[] {

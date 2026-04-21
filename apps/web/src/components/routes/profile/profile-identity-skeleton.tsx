@@ -21,7 +21,7 @@ export function ProfileIdentitySkeleton() {
           </div>
         </section>
       </div>
-      <div className="mb-8 mt-4">
+      <div className="mt-4 mb-8">
         <Skeleton className="h-4 w-64" />
       </div>
     </>
