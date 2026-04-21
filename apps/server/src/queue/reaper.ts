@@ -4,6 +4,7 @@ import type { PgBoss } from "pg-boss"
 import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
+import { publishClipRemove } from "../lib/clip-events"
 import { clipAssetKey, storage } from "../storage"
 import { ENCODE_JOB } from "./encode-worker"
 
@@ -33,6 +34,7 @@ async function reapPending(): Promise<void> {
   const stale = await db
     .select({
       id: clip.id,
+      authorId: clip.authorId,
       storageKey: clip.storageKey,
       thumbKey: clip.thumbKey,
     })
@@ -61,6 +63,7 @@ async function reapPending(): Promise<void> {
       }
     }
     await db.delete(clip).where(eq(clip.id, row.id))
+    publishClipRemove(row.authorId, row.id)
   }
   if (stale.length > 0) {
     // eslint-disable-next-line no-console

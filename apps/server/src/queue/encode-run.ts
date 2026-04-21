@@ -12,6 +12,10 @@ import {
 
 import { db } from "../db"
 import { env } from "../env"
+import {
+  publishClipProgress,
+  publishClipUpsert,
+} from "../lib/clip-events"
 import { configStore, type EncoderConfig } from "../lib/config-store"
 import { storage } from "../storage"
 import { encode, probe } from "./ffmpeg"
@@ -54,6 +58,8 @@ async function runEncodeInScratch(
     })
     .where(eq(clip.id, clipId))
 
+  void publishClipUpsert(row.authorId, clipId)
+
   const probed = await probe(sourcePath)
 
   const trimRequested =
@@ -80,7 +86,7 @@ async function runEncodeInScratch(
     })
     .where(eq(clip.id, clipId))
 
-  const writeProgress = makeProgressWriter(clipId)
+  const writeProgress = makeProgressWriter(clipId, row.authorId)
   const encoderConfig = configStore.get("encoder")
 
   const sourceVariant: ClipEncodedVariant | null = encoderConfig.keepSource
@@ -114,15 +120,13 @@ async function runEncodeInScratch(
   await pruneStaleVariants(row, reusedBySpecIndex, sourceVariant)
 
   const encodedVariants = await encodeVariants({
-    variantSpecs,
-    targetSettings,
-    reusedBySpecIndex,
-    sourcePath,
-    scratchDir,
-    encoderConfig,
-    outputDurationMs,
-    effectiveTrimStart,
-    effectiveTrimEnd,
+    reuse: reusedBySpecIndex,
+    paths: { sourcePath, scratchDir },
+    specs: variantSpecs,
+    settings: targetSettings,
+    config: encoderConfig,
+    duration: outputDurationMs,
+    trim: { startMs: effectiveTrimStart, endMs: effectiveTrimEnd },
     signal,
     writeProgress,
   })
@@ -149,9 +153,14 @@ async function runEncodeInScratch(
       updatedAt: new Date(),
     })
     .where(eq(clip.id, clipId))
+
+  void publishClipUpsert(row.authorId, clipId)
 }
 
-function makeProgressWriter(clipId: string): (pct: number) => void {
+function makeProgressWriter(
+  clipId: string,
+  authorId: string
+): (pct: number) => void {
   let lastWrittenPct = 0
   let lastWriteAt = 0
   return (pct: number) => {
@@ -170,6 +179,7 @@ function makeProgressWriter(clipId: string): (pct: number) => void {
           err
         )
       })
+    publishClipProgress(authorId, clipId, pct)
   }
 }
 
@@ -215,78 +225,76 @@ async function pruneStaleVariants(
   }
 }
 
-async function encodeVariants({
-  variantSpecs,
-  targetSettings,
-  reusedBySpecIndex,
-  sourcePath,
-  scratchDir,
-  encoderConfig,
-  outputDurationMs,
-  effectiveTrimStart,
-  effectiveTrimEnd,
-  signal,
-  writeProgress,
-}: {
-  variantSpecs: VariantSpec[]
-  targetSettings: ClipVariantSettings[]
-  reusedBySpecIndex: Map<number, ClipEncodedVariant>
-  sourcePath: string
-  scratchDir: string
-  encoderConfig: EncoderConfig
-  outputDurationMs: number
-  effectiveTrimStart: number | null
-  effectiveTrimEnd: number | null
+type EncodeVariantsOpts = {
+  specs: VariantSpec[]
+  settings: ClipVariantSettings[]
+  reuse: Map<number, ClipEncodedVariant>
+  paths: { sourcePath: string; scratchDir: string }
+  config: EncoderConfig
+  duration: number
+  trim: { startMs: number | null; endMs: number | null }
   signal: AbortSignal
   writeProgress: (pct: number) => void
-}): Promise<ClipEncodedVariant[]> {
+}
+
+async function encodeVariants(
+  opts: EncodeVariantsOpts
+): Promise<ClipEncodedVariant[]> {
   const encodedVariants: ClipEncodedVariant[] = []
   let completedWork = 0
-  const totalWork = variantSpecs.length
+  const totalWork = opts.specs.length
 
-  for (const [index, variant] of variantSpecs.entries()) {
-    const reuse = reusedBySpecIndex.get(index)
+  const pushVariant = (
+    spec: VariantSpec,
+    index: number,
+    dims: { width: number; height: number; sizeBytes: number }
+  ): void => {
+    encodedVariants.push({
+      id: spec.id,
+      label: spec.label,
+      storageKey: spec.storageKey,
+      contentType: "video/mp4",
+      width: dims.width,
+      height: dims.height,
+      sizeBytes: dims.sizeBytes,
+      isDefault: spec.isDefault,
+      settings: opts.settings[index],
+    })
+  }
+
+  for (const [index, variant] of opts.specs.entries()) {
+    const reuse = opts.reuse.get(index)
     if (reuse) {
-      encodedVariants.push({
-        id: variant.id,
-        label: variant.label,
-        storageKey: variant.storageKey,
-        contentType: "video/mp4",
-        width: reuse.width,
-        height: reuse.height,
-        sizeBytes: reuse.sizeBytes,
-        isDefault: variant.isDefault,
-        settings: targetSettings[index],
-      })
+      pushVariant(variant, index, reuse)
       completedWork += 1
-      writeProgress(Math.floor((completedWork / totalWork) * 100))
+      opts.writeProgress(Math.floor((completedWork / totalWork) * 100))
       continue
     }
 
-    const variantPath = path.join(scratchDir, `${variant.id}.mp4`)
+    const variantPath = path.join(opts.paths.scratchDir, `${variant.id}.mp4`)
 
     const rungConfig: EncoderConfig = {
-      ...encoderConfig,
-      codec: variant.override.codec ?? encoderConfig.codec,
-      quality: variant.override.quality ?? encoderConfig.quality,
-      preset: variant.override.preset ?? encoderConfig.preset,
+      ...opts.config,
+      codec: variant.override.codec ?? opts.config.codec,
+      quality: variant.override.quality ?? opts.config.quality,
+      preset: variant.override.preset ?? opts.config.preset,
       audioBitrateKbps:
-        variant.override.audioBitrateKbps ?? encoderConfig.audioBitrateKbps,
+        variant.override.audioBitrateKbps ?? opts.config.audioBitrateKbps,
     }
 
-    await encode(sourcePath, variantPath, {
+    await encode(opts.paths.sourcePath, variantPath, {
       config: rungConfig,
       targetHeight: variant.height,
-      durationMs: outputDurationMs,
+      durationMs: opts.duration,
       onProgress: (pct) => {
         const overallPct = Math.floor(
           ((completedWork + pct / 100) / totalWork) * 100
         )
-        writeProgress(overallPct)
+        opts.writeProgress(overallPct)
       },
-      trimStartMs: effectiveTrimStart,
-      trimEndMs: effectiveTrimEnd,
-      signal,
+      trimStartMs: opts.trim.startMs,
+      trimEndMs: opts.trim.endMs,
+      signal: opts.signal,
     })
 
     const variantProbe = await probe(variantPath)
@@ -297,16 +305,10 @@ async function encodeVariants({
     )
     await fsp.rm(variantPath, { force: true }).catch(() => undefined)
 
-    encodedVariants.push({
-      id: variant.id,
-      label: variant.label,
-      storageKey: variant.storageKey,
-      contentType: "video/mp4",
+    pushVariant(variant, index, {
       width: variantProbe.width,
       height: variantProbe.height,
       sizeBytes: uploadedSize,
-      isDefault: variant.isDefault,
-      settings: targetSettings[index],
     })
     completedWork += 1
   }

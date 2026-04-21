@@ -11,10 +11,6 @@ export function getBoss(): Promise<PgBoss> {
     const boss = new PgBoss({
       connectionString: env.DATABASE_URL,
     })
-    // Surface boss's own errors at the process level — without this an
-    // ECONNREFUSED on the boss pool dies silently inside its EventEmitter.
-    // Attach before start() so any error emitted during connect lands
-    // here instead of an unhandled 'error' event on the EventEmitter.
     boss.on("error", (err: Error) => {
       // eslint-disable-next-line no-console
       console.error("[queue] pg-boss error:", err)
