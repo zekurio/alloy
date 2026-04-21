@@ -2,19 +2,6 @@ import * as React from "react"
 
 import { cn } from "@workspace/ui/lib/utils"
 
-/**
- * Grid container for `ClipCard` rows.
- *
- * Five columns at xl, auto-fill below with a 240px minimum so cards
- * reflow cleanly on narrower viewports without shrinking past the
- * point where the title + stats stop reading as a card.
- *
- * `content-visibility: auto` skips layout/paint for grid rows that are
- * off-screen — the recent-clips feed can get long, and each cell's
- * 240px intrinsic-size estimate lets the browser still reserve vertical
- * space without actually rendering the card. This is the Vercel rules
- * `rendering-content-visibility` hit.
- */
 export function ClipGrid({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
