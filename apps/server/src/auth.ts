@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { APIError } from "better-auth/api"
 import { admin } from "better-auth/plugins/admin"
 import { genericOAuth } from "better-auth/plugins/generic-oauth"
+import { username as usernamePlugin } from "better-auth/plugins/username"
 
 import { db } from "./db"
 import * as authSchema from "@workspace/db/auth-schema"
@@ -11,11 +12,12 @@ import { configStore } from "./lib/config-store"
 import { buildGenericOAuthConfig } from "./lib/oauth-config"
 import { syncOAuthImage } from "./lib/oauth-sync"
 import { hasAnyUser, hasOtherAdmin } from "./lib/user-bootstrap"
-import { generateUniqueUsername } from "./lib/username"
-
-// better-auth reads plugin config at init time, so when the OAuth provider
-// changes at runtime we rebuild the instance and swap it in. Callers must
-// resolve through `getAuth()` to always see the latest build.
+import {
+  generateUniqueUsername,
+  slugifyUsername,
+  USERNAME_MAX_LEN,
+  USERNAME_MIN_LEN,
+} from "./lib/username"
 
 const OAUTH_CALLBACK_PREFIXES = ["/callback/", "/oauth2/callback/"] as const
 const EMAIL_SIGNUP_PATH = "/sign-up/email"
@@ -27,6 +29,87 @@ function isOAuthCallback(path: string | undefined): boolean {
 
 function isEmailSignUp(path: string | undefined): boolean {
   return path === EMAIL_SIGNUP_PATH
+}
+
+type IncomingUser = {
+  name: string
+  email: string
+} & Record<string, unknown>
+
+async function populateIdentityFields(
+  user: IncomingUser
+): Promise<{ name: string; username: string }> {
+  const slug = await generateUniqueUsername({
+    name: user.name,
+    email: user.email,
+  })
+  return {
+    name: (user.name ?? "").trim(),
+    username: slug,
+  }
+}
+
+function buildUserHooks() {
+  return {
+    create: {
+      before: async (
+        user: IncomingUser,
+        ctx: { path?: string } | null
+      ) => {
+        if (isEmailSignUp(ctx?.path)) {
+          if (!configStore.get("setupComplete")) {
+            if (await hasAnyUser()) {
+              configStore.set("setupComplete", true)
+              return false
+            }
+            const identity = await populateIdentityFields(user)
+            return { data: { ...user, ...identity, role: "admin" } }
+          }
+          if (
+            !configStore.get("openRegistrations") ||
+            !configStore.get("emailPasswordEnabled")
+          ) {
+            return false
+          }
+          const identity = await populateIdentityFields(user)
+          return { data: { ...user, ...identity } }
+        }
+
+        if (isOAuthCallback(ctx?.path) && !configStore.get("openRegistrations")) {
+          return false
+        }
+
+        const identity = await populateIdentityFields(user)
+        return { data: { ...user, ...identity } }
+      },
+      after: async (_user: unknown, ctx: { path?: string } | null) => {
+        if (isEmailSignUp(ctx?.path) && !configStore.get("setupComplete")) {
+          configStore.set("setupComplete", true)
+        }
+      },
+    },
+  }
+}
+
+function buildSessionHooks() {
+  return {
+    create: {
+      after: async (
+        session: { userId: string } & Record<string, unknown>,
+        ctx: { path?: string } | null
+      ) => {
+        if (!isOAuthCallback(ctx?.path)) return
+        try {
+          await syncOAuthImage(session.userId, { overwrite: false })
+        } catch (err) {
+          console.warn(
+            "[auth] post-signin OAuth image sync failed:",
+            err instanceof Error ? err.message : err
+          )
+        }
+      },
+    },
+  }
 }
 
 function buildAuth() {
@@ -41,49 +124,20 @@ function buildAuth() {
       schema: authSchema,
     }),
     advanced: {
-      // Primary keys are pg `uuid` columns with `.defaultRandom()` — let
-      // Postgres mint the ids so better-auth issues `values (default, ...)`
-      // rather than fabricating one itself.
       database: { generateId: false },
     },
     emailAndPassword: {
-      // Admin-controlled toggle. When false better-auth refuses both
-      // `/sign-in/email` and `/sign-up/email` outright. The user-create
-      // hook below still gates the first-run setup case (one-shot signup)
-      // independently of this flag.
       enabled: emailPasswordEnabled,
     },
     account: {
-      // Lets an OAuth callback for an email that already has a local user
-      // attach the new identity onto that user instead of erroring out.
-      // This is what makes "admin seeds a user, user logs in via OAuth"
-      // work end-to-end. Scoped to the configured provider only — we
-      // don't want arbitrary unverified providers claiming local accounts.
       accountLinking: {
         enabled: true,
         trustedProviders: provider ? [provider.providerId] : [],
       },
     },
     user: {
-      // Single handle per user: better-auth's required `name` field is
-      // stored in our `username` DB column. The `create.before` hook below
-      // slugifies whatever name/OAuth claim comes in, so the value that
-      // lands in the column is always URL-safe. On the session side this
-      // still surfaces as `user.name` (better-auth's type) — UI copy calls
-      // it "username".
-      fields: {
-        name: "username",
-      },
-      // Self-service account deletion from the profile page. The client
-      // calls `authClient.deleteUser()`; better-auth signs the user out and
-      // removes their rows. No email verification step — we rely on the
-      // fresh session + a confirm dialog on the client.
       deleteUser: {
         enabled: true,
-        // Guard against orphaning the instance: an admin deleting their own
-        // account is fine as long as someone else still holds the role. If
-        // they're the last one, refuse — they need to promote a replacement
-        // first. Non-admin users are unaffected.
         beforeDelete: async (u) => {
           // `role` is contributed by the admin() plugin and isn't in the
           // base user type for this hook's callback signature — assert it.
@@ -98,86 +152,20 @@ function buildAuth() {
     },
     plugins: [
       admin(),
+      // Accepts the same character set our slugifier produces so handles
+      // minted at signup round-trip cleanly through user-driven updates.
+      usernamePlugin({
+        minUsernameLength: USERNAME_MIN_LEN,
+        maxUsernameLength: USERNAME_MAX_LEN,
+        usernameValidator: (value) => /^[a-z0-9_-]+$/.test(value),
+      }),
       // Mounted unconditionally so admins can add a provider later without
       // a restart. `buildGenericOAuthConfig()` returns [] when none.
       genericOAuth({ config: buildGenericOAuthConfig() }),
     ],
     databaseHooks: {
-      user: {
-        create: {
-          before: async (user, ctx) => {
-            if (isEmailSignUp(ctx?.path)) {
-              if (configStore.get("setupComplete")) return false
-              // Race defence: an admin may have seeded a user out-of-band.
-              // Reconcile the flag so future attempts short-circuit on the
-              // config-store read instead of hitting the DB.
-              if (await hasAnyUser()) {
-                configStore.set("setupComplete", true)
-                return false
-              }
-              const username = await generateUniqueUsername({
-                name: user.name,
-                email: user.email,
-              })
-              // `name` here is better-auth's field name — it writes through
-              // to the `username` DB column via `user.fields.name`.
-              return { data: { ...user, role: "admin", name: username } }
-            }
-
-            // The live gate. `disableSignUp` on the provider is a static
-            // first-line filter set when the auth instance was built;
-            // this reads the toggle fresh on every callback.
-            if (
-              isOAuthCallback(ctx?.path) &&
-              !configStore.get("openRegistrations")
-            ) {
-              return false
-            }
-
-            // Mint a handle for any allowed create path — OAuth callbacks,
-            // admin-seeded users via the admin plugin, anything else that
-            // reaches here. For OAuth the incoming `user.name` is already
-            // the admin-configured claim (see buildGenericOAuthConfig's
-            // mapProfileToUser); we still slugify to guarantee URL safety
-            // and uniqueness.
-            const username = await generateUniqueUsername({
-              name: user.name,
-              email: user.email,
-            })
-            return { data: { ...user, name: username } }
-          },
-          after: async (_user, ctx) => {
-            // Flip the flag in `after` so a failed create doesn't lock the
-            // setup page forever.
-            if (isEmailSignUp(ctx?.path) && !configStore.get("setupComplete")) {
-              configStore.set("setupComplete", true)
-            }
-          },
-        },
-      },
-      session: {
-        create: {
-          after: async (session, ctx) => {
-            // Opportunistic avatar sync: when a session is minted from an
-            // OAuth callback, top up `user.image` from the provider's
-            // userinfo if it's currently empty. Conservative on purpose —
-            // we never overwrite an image the user set by hand. The manual
-            // "Sync" button on the profile page passes `overwrite: true`
-            // for a hard refresh.
-            if (!isOAuthCallback(ctx?.path)) return
-            try {
-              await syncOAuthImage(session.userId, { overwrite: false })
-            } catch (err) {
-              // Profile sync is best-effort; a bad provider response must
-              // never block sign-in.
-              console.warn(
-                "[auth] post-signin OAuth image sync failed:",
-                err instanceof Error ? err.message : err
-              )
-            }
-          },
-        },
-      },
+      user: buildUserHooks(),
+      session: buildSessionHooks(),
     },
     trustedOrigins: env.TRUSTED_ORIGINS,
   })
@@ -186,12 +174,6 @@ function buildAuth() {
 let currentAuth = buildAuth()
 
 configStore.subscribe((next, prev) => {
-  // Rebuild when anything baked into the plugin config at init time
-  // changes. `openRegistrations` feeds `disableSignUp` on the genericOAuth
-  // provider (see buildGenericOAuthConfig) — without this branch the
-  // static flag goes stale and better-auth returns `signup_disabled` even
-  // after the admin flips the toggle on. Stringify because the store
-  // re-parses through Zod on every write, so reference equality misses.
   const providerChanged =
     JSON.stringify(next.oauthProvider) !== JSON.stringify(prev.oauthProvider)
   const openRegistrationsChanged =
@@ -211,6 +193,9 @@ configStore.subscribe((next, prev) => {
 export function getAuth(): ReturnType<typeof buildAuth> {
   return currentAuth
 }
+
+/** Re-exported so other modules don't need to import the username lib directly. */
+export { slugifyUsername }
 
 export type Auth = ReturnType<typeof buildAuth>
 export type Session = Auth["$Infer"]["Session"]

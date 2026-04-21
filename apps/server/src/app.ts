@@ -7,6 +7,7 @@ import { env } from "./env"
 import { adminRoute } from "./routes/admin"
 import { authConfigRoute } from "./routes/auth-config"
 import { clips } from "./routes/clips"
+import { feedRoute } from "./routes/feed"
 import { gamesRoute } from "./routes/games"
 import { profileRoute } from "./routes/profile"
 import { searchRoute } from "./routes/search"
@@ -34,6 +35,7 @@ export const app = new Hono()
   .route("/api/admin", adminRoute)
   .route("/api/profile", profileRoute)
   .route("/api/clips", clips)
+  .route("/api/feed", feedRoute)
   .route("/api/games", gamesRoute)
   .route("/api/search", searchRoute)
   .route("/api/users", usersRoute)
