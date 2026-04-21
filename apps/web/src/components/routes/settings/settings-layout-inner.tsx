@@ -2,10 +2,10 @@ import { Outlet } from "@tanstack/react-router"
 
 import { AppMain } from "@workspace/ui/components/app-shell"
 
-import { useRequireAuth } from "../../../lib/auth-hooks"
+import { useRequireAuthStrict } from "../../../lib/auth-hooks"
 
 export function SettingsLayoutInner() {
-  const session = useRequireAuth()
+  const session = useRequireAuthStrict()
   if (!session) return null
 
   return (
