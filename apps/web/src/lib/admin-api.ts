@@ -11,7 +11,6 @@ export const USERNAME_CLAIM_SUGGESTIONS = [
 ] as const
 export type UsernameClaim = string
 
-/** Mirror of `OAuthProviderConfig` on the server (see lib/config-store.ts). */
 export interface AdminOAuthProvider {
   providerId: string
   displayName: string
@@ -19,6 +18,7 @@ export interface AdminOAuthProvider {
   /** Always empty on read; admins re-enter on every save. */
   clientSecret: string
   scopes?: string[]
+  enabled: boolean
   discoveryUrl?: string
   authorizationUrl?: string
   tokenUrl?: string
@@ -96,6 +96,7 @@ export interface AdminEncoderCapabilities {
 }
 
 export interface AdminRuntimeConfig {
+  authBaseURL: string
   openRegistrations: boolean
   setupComplete: boolean
   emailPasswordEnabled: boolean
@@ -128,15 +129,14 @@ export async function updateRuntimeConfig(input: {
   return readJson<AdminRuntimeConfig>(res)
 }
 
-export async function saveOAuthProvider(
-  provider: AdminOAuthProvider
-): Promise<AdminRuntimeConfig> {
-  const res = await api.api.admin["oauth-provider"].$put({ json: provider })
-  return readJson<AdminRuntimeConfig>(res)
-}
-
-export async function deleteOAuthProvider(): Promise<AdminRuntimeConfig> {
-  const res = await api.api.admin["oauth-provider"].$delete()
+export async function saveOAuthConfig(input: {
+  oauthProvider: AdminOAuthProvider | null
+}): Promise<AdminRuntimeConfig> {
+  const res = await api.api.admin["oauth-config"].$put({
+    json: {
+      oauthProvider: input.oauthProvider ? { ...input.oauthProvider } : null,
+    },
+  })
   return readJson<AdminRuntimeConfig>(res)
 }
 
