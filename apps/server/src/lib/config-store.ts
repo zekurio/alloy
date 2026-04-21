@@ -4,27 +4,8 @@ import { z } from "zod"
 
 import { env } from "../env"
 
-/**
- * JSON-backed runtime config. Admin UI writes here; the on-disk file
- * survives restarts; subscribers are notified after each successful write
- * so `auth.ts` can rebuild the better-auth instance when the OAuth provider
- * changes without requiring a server restart.
- */
-
 const ProviderIdPattern = /^[a-z0-9-]+$/
 
-/**
- * OIDC/OAuth userinfo claims we know how to pull a username from. Not an
- * exhaustive list of everything providers emit — just the ones that make
- * sense as a human-facing handle. The generated slug is always sanitised
- * through `slugifyUsername` on the server side, so even `email` (which
- * contains `@` and a domain) ends up safe.
- */
-/**
- * Common claims shown as autocomplete hints in the admin UI. Not a
- * whitelist — we accept any non-empty string so unusual OIDC providers
- * with custom claims still work.
- */
 export const USERNAME_CLAIM_SUGGESTIONS = [
   "preferred_username",
   "username",
@@ -37,17 +18,12 @@ export const USERNAME_CLAIM_SUGGESTIONS = [
 export type UsernameClaim = string
 
 const OAuthProviderBaseSchema = z.object({
-  /**
-   * URL-safe slug used as better-auth's `providerId` — ends up in the
-   * callback URL. Changing it after users have linked accounts breaks
-   * those links, so pick something durable (e.g. "sso", "keycloak").
-   */
   providerId: z
     .string()
     .min(1)
     .max(64)
     .regex(ProviderIdPattern, "lowercase letters, digits, and dashes only"),
-  buttonText: z.string().min(1).max(128),
+  displayName: z.string().min(1).max(64),
   clientId: z.string().min(1),
   clientSecret: z.string(),
   scopes: z.array(z.string().min(1)).optional(),
@@ -56,11 +32,6 @@ const OAuthProviderBaseSchema = z.object({
   tokenUrl: z.string().url().optional(),
   userInfoUrl: z.string().url().optional(),
   pkce: z.boolean().default(true),
-  /**
-   * Which OIDC/userinfo claim should be mapped onto the user's handle on
-   * first sign-in. Defaults to `preferred_username` (most common). The
-   * selected claim is slugified server-side before being written.
-   */
   usernameClaim: z.string().min(1).max(128).default("preferred_username"),
 })
 
@@ -70,21 +41,10 @@ const hasEndpoints = (p: z.infer<typeof OAuthProviderBaseSchema>) =>
 const endpointsMessage =
   "Provide discoveryUrl, or all three of authorizationUrl, tokenUrl, userInfoUrl."
 
-/**
- * Storage schema — what we persist and hand to better-auth. A stored
- * provider must always carry a real client secret; empty is never valid
- * on disk.
- */
 export const OAuthProviderSchema = OAuthProviderBaseSchema.extend({
   clientSecret: z.string().min(1),
 }).refine(hasEndpoints, { message: endpointsMessage })
 
-/**
- * Admin-submission schema — accepts an empty `clientSecret`, which the
- * route handler interprets as "keep the currently stored secret". Most
- * IdPs rotate secrets only occasionally, so re-entering one on every
- * settings change is a papercut.
- */
 export const OAuthProviderSubmissionSchema = OAuthProviderBaseSchema.refine(
   hasEndpoints,
   { message: endpointsMessage }
@@ -95,25 +55,6 @@ export type OAuthProviderSubmission = z.infer<
   typeof OAuthProviderSubmissionSchema
 >
 
-/**
- * Hardware-acceleration backend ffmpeg should use for the encode pass.
- * Each value selects a different codec family + flag set:
- *
- *   - `software` → libx264/libx265, CRF-based, runs on any host. Slowest
- *     but the most portable; the safe default for unknown hardware.
- *   - `nvenc`    → NVIDIA. h264_nvenc / hevc_nvenc, CQ-based VBR. Needs
- *     the NVIDIA driver + CUDA in the container.
- *   - `qsv`      → Intel Quick Sync. Needs `/dev/dri/renderD128` and
- *     iHD/i965 driver. Maps quality onto `global_quality`.
- *   - `amf`      → AMD AMF. Windows-first; on Linux requires AMDGPU-PRO.
- *     Maps quality onto a constant-QP rate-control.
- *   - `vaapi`    → VA-API on `/dev/dri/renderD128`. Cross-vendor (Intel,
- *     AMD on amdgpu, sometimes NVIDIA via nouveau). Maps quality onto qp.
- *
- * Capability detection at `/api/admin/encoder/capabilities` runs
- * `ffmpeg -encoders` so the admin UI can grey out backends the host
- * binary wasn't compiled with.
- */
 export const HWACCEL_KINDS = [
   "software",
   "nvenc",
@@ -123,69 +64,76 @@ export const HWACCEL_KINDS = [
 ] as const
 export type HwaccelKind = (typeof HWACCEL_KINDS)[number]
 
-export const ENCODER_CODECS = ["h264", "hevc"] as const
+export const ENCODER_CODECS = ["h264", "hevc", "av1"] as const
 export type EncoderCodec = (typeof ENCODER_CODECS)[number]
 
-/**
- * Allowed output heights. We snap to common ladder steps so the UI is a
- * dropdown (not a free-form number) and so encode args never end up
- * with weird oddly-divisible values that some hwaccel encoders refuse.
- */
-export const ENCODER_TARGET_HEIGHTS = [360, 480, 720, 1080, 1440, 2160] as const
-export type EncoderTargetHeight = (typeof ENCODER_TARGET_HEIGHTS)[number]
+export const ENCODER_HEIGHT_SUGGESTIONS = [
+  360, 480, 720, 1080, 1440, 2160,
+] as const
 
-/**
- * Encode pipeline knobs. Lives in runtime config (not env) because admins
- * routinely retune these — quality vs size, target rendition, swap
- * software/hwaccel after installing a GPU. Changes apply to the *next*
- * encode job; jobs already in flight finish on whatever config they
- * were dispatched with (the worker reads config once per job).
- */
-const EncoderConfigSchema = z.object({
+export const ENCODER_HEIGHT_MIN = 144
+export const ENCODER_HEIGHT_MAX = 4320
+
+const EncoderVariantSchema = z.object({
+  height: z
+    .number()
+    .int()
+    .min(ENCODER_HEIGHT_MIN)
+    .max(ENCODER_HEIGHT_MAX)
+    .multipleOf(2),
+  codec: z.enum(ENCODER_CODECS).optional(),
+  quality: z.number().int().min(0).max(51).optional(),
+  preset: z.string().min(1).max(64).optional(),
+  audioBitrateKbps: z.number().int().min(64).max(256).optional(),
+})
+
+export type EncoderVariant = z.infer<typeof EncoderVariantSchema>
+
+const EncoderConfigInnerSchema = z.object({
   hwaccel: z.enum(HWACCEL_KINDS).default("software"),
   codec: z.enum(ENCODER_CODECS).default("h264"),
-  /**
-   * Unified quality scale 0–51. Each encoder maps it onto its native
-   * knob: libx264/x265 CRF, NVENC CQ, QSV global_quality, AMF qp_i/qp_p,
-   * VAAPI qp. 23 is a sane "visually lossless-ish" default across all
-   * of them.
-   */
   quality: z.number().int().min(0).max(51).default(23),
-  /**
-   * Encoder-specific preset name. We accept any string and let ffmpeg
-   * fail loudly with `failureReason` populated so admins can recover —
-   * the alternative is per-encoder enums that drift out of sync as
-   * codec versions change. Suggestions in the admin UI cover the
-   * common names per backend.
-   */
   preset: z.string().min(1).max(64).default("medium"),
-  targetHeight: z
-    .union([
-      z.literal(360),
-      z.literal(480),
-      z.literal(720),
-      z.literal(1080),
-      z.literal(1440),
-      z.literal(2160),
-    ])
-    .default(1080),
-  audioBitrateKbps: z.number().int().min(64).max(320).default(128),
-  /**
-   * Path to the VA-API render node. Only consulted when `hwaccel = vaapi`.
-   * Defaults to the conventional first-GPU node; admins with multiple
-   * GPUs can point at /dev/dri/renderD129 etc.
-   */
+  audioBitrateKbps: z.number().int().min(64).max(256).default(128),
   vaapiDevice: z.string().min(1).max(128).default("/dev/dri/renderD128"),
+  keepSource: z.boolean().default(true),
+  variants: z
+    .array(EncoderVariantSchema)
+    .min(1)
+    .max(6)
+    .refine(
+      (list) => new Set(list.map((v) => v.height)).size === list.length,
+      "Variants must have unique heights"
+    )
+    .default([{ height: 1080 }, { height: 720 }, { height: 480 }]),
 })
+
+const EncoderConfigSchema = z.preprocess((raw) => {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw
+  const r = raw as Record<string, unknown>
+  if (r.variants === undefined && r.targetHeight !== undefined) {
+    const legacyTarget = Number(r.targetHeight)
+    const ladder = [legacyTarget, 720, 480].filter(
+      (h) => Number.isFinite(h) && h > 0
+    )
+    const seen = new Set<number>()
+    const heights: number[] = []
+    for (const h of ladder) {
+      if (!seen.has(h)) {
+        seen.add(h)
+        heights.push(h)
+      }
+    }
+    if (heights.length > 0) r.variants = heights.map((h) => ({ height: h }))
+  }
+  // `targetHeight` is no longer part of the schema; drop it so the next
+  // disk write doesn't carry the stale field forever.
+  if ("targetHeight" in r) delete r.targetHeight
+  return r
+}, EncoderConfigInnerSchema)
 
 export type EncoderConfig = z.infer<typeof EncoderConfigSchema>
 
-/**
- * Upload + queue limits. Same hot-reload semantics as `encoder` —
- * `maxUploadBytes` and `uploadTtlSec` apply to the next `/initiate`
- * call; `queueConcurrency` is registered with pg-boss at boot and
- * needs a server restart to change (the admin UI calls this out).
- */
 const LimitsConfigSchema = z.object({
   maxUploadBytes: z
     .number()
@@ -205,23 +153,7 @@ const LimitsConfigSchema = z.object({
 
 export type LimitsConfig = z.infer<typeof LimitsConfigSchema>
 
-/**
- * Third-party service credentials. Kept as its own section so we can grow
- * this over time (extra IGDB key, custom CDN tokens) without reshuffling
- * the top-level schema. Empty strings mean "not configured" — the
- * consuming clients (e.g. `lib/steamgriddb.ts`) throw a
- * NotConfiguredError when asked to make a call in that state, so the UI
- * can surface a clean "integration disabled" fallback instead of a
- * cryptic 401 from the upstream API.
- */
 const IntegrationsConfigSchema = z.object({
-  /**
-   * SteamGridDB API v2 bearer token. Minted at
-   * https://www.steamgriddb.com/profile/preferences/api — one per admin
-   * account. Stored verbatim, sent as `Authorization: Bearer <key>`.
-   * Rotations take effect on the next outgoing request (we read the
-   * key per-call, never cache it).
-   */
   steamgriddbApiKey: z.string().default(""),
 })
 
@@ -230,26 +162,17 @@ export type IntegrationsConfig = z.infer<typeof IntegrationsConfigSchema>
 const RuntimeConfigSchema = z.object({
   openRegistrations: z.boolean().default(false),
   setupComplete: z.boolean().default(false),
-  /**
-   * Master switch for the email/password sign-in surface. When false the
-   * login page hides the form and better-auth rejects both `/sign-in/email`
-   * and `/sign-up/email`. Defaults to true so first-run setup keeps working
-   * — admins can disable it once an OAuth provider is wired up and they
-   * have themselves a linked OAuth account.
-   */
   emailPasswordEnabled: z.boolean().default(true),
+  requireAuthToBrowse: z.boolean().default(true),
   oauthProvider: OAuthProviderSchema.nullable().default(null),
-  // Defaulting via `.parse({})` populates the nested objects so existing
-  // installs without an `encoder`/`limits`/`integrations` block in their
-  // config file pick up sensible values on the next read.
-  encoder: EncoderConfigSchema.default(EncoderConfigSchema.parse({})),
+  encoder: EncoderConfigSchema.default(EncoderConfigInnerSchema.parse({})),
   limits: LimitsConfigSchema.default(LimitsConfigSchema.parse({})),
   integrations: IntegrationsConfigSchema.default(
     IntegrationsConfigSchema.parse({})
   ),
 })
 
-export const EncoderConfigPatchSchema = EncoderConfigSchema.partial()
+export const EncoderConfigPatchSchema = EncoderConfigInnerSchema.partial()
 export const LimitsConfigPatchSchema = LimitsConfigSchema.partial()
 export const IntegrationsConfigPatchSchema = IntegrationsConfigSchema.partial()
 
@@ -266,13 +189,27 @@ function resolveConfigPath(): string {
 
 const CONFIG_PATH = resolveConfigPath()
 
+function migrateLegacyFields(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw
+  const r = raw as Record<string, unknown>
+  const provider = r.oauthProvider
+  if (provider && typeof provider === "object" && !Array.isArray(provider)) {
+    const p = provider as Record<string, unknown>
+    if (p.displayName === undefined && typeof p.buttonText === "string") {
+      p.displayName = p.buttonText
+    }
+    if ("buttonText" in p) delete p.buttonText
+  }
+  return r
+}
+
 function loadFromDisk(): RuntimeConfig {
   if (!fs.existsSync(CONFIG_PATH)) {
     return { ...DEFAULT_CONFIG }
   }
   try {
     const raw = fs.readFileSync(CONFIG_PATH, "utf-8")
-    const json = JSON.parse(raw) as unknown
+    const json = migrateLegacyFields(JSON.parse(raw))
     const result = RuntimeConfigSchema.safeParse(json)
     if (!result.success) {
       // eslint-disable-next-line no-console

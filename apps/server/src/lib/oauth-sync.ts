@@ -5,19 +5,6 @@ import { account, user } from "@workspace/db/auth-schema"
 import { db } from "../db"
 import { configStore } from "./config-store"
 
-/**
- * Pulls the current userinfo from the configured OAuth provider and writes
- * the avatar back onto the local `user.image` column.
- *
- * Better-auth's generic-oauth plugin only copies `picture -> image` when it
- * *creates* a user; when an OAuth identity later links onto a pre-existing
- * credential account the avatar stays whatever the user first set. This
- * helper closes that gap — it's invoked both from the manual "sync" button
- * on the profile page and (opportunistically) from a session-create hook so
- * that the image gets populated on first OAuth sign-in without clobbering
- * anything the user set by hand.
- */
-
 type UserInfoResponse = Record<string, unknown>
 
 export type SyncStatus =
@@ -36,6 +23,7 @@ export interface SyncResult {
 }
 
 const IMAGE_CLAIMS = ["picture", "image", "avatar_url", "avatar"] as const
+const OAUTH_FETCH_TIMEOUT_MS = 10_000
 
 function pickImage(data: UserInfoResponse): string | null {
   for (const key of IMAGE_CLAIMS) {
@@ -45,18 +33,15 @@ function pickImage(data: UserInfoResponse): string | null {
   return null
 }
 
-/**
- * Discovery documents advertise the userinfo endpoint under
- * `userinfo_endpoint`. For providers without discovery we fall back to the
- * explicit URL in the runtime config.
- */
 async function resolveUserInfoUrl(): Promise<string | null> {
   const provider = configStore.get("oauthProvider")
   if (!provider) return null
   if (provider.userInfoUrl) return provider.userInfoUrl
   if (provider.discoveryUrl) {
     try {
-      const res = await fetch(provider.discoveryUrl)
+      const res = await fetch(provider.discoveryUrl, {
+        signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
+      })
       if (!res.ok) return null
       const doc = (await res.json()) as { userinfo_endpoint?: string }
       return doc.userinfo_endpoint ?? null
@@ -98,6 +83,7 @@ export async function syncOAuthImage(
   try {
     const res = await fetch(userInfoUrl, {
       headers: { Authorization: `Bearer ${oauthAccount.accessToken}` },
+      signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     })
     if (!res.ok) {
       return {
@@ -132,7 +118,7 @@ export async function syncOAuthImage(
     return { status: "ok", image: existing.image }
   }
 
-  if (existing.image !== image) {
+  if (opts.overwrite || existing.image !== image) {
     await db
       .update(user)
       .set({ image, updatedAt: new Date() })

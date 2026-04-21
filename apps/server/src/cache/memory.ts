@@ -1,26 +1,5 @@
 import type { Cache } from "./driver"
 
-/**
- * In-process `Cache` implementation backed by a `Map` of key → expiry
- * epoch ms. No external dependency, no ops surface — the trade-off is
- * that state is per-process. Horizontal scale-out needs a shared driver
- * (redis) because each instance's Map is invisible to the others; a
- * viewer who lands on two different instances within the dedup window
- * would be counted twice.
- *
- * Expiry is handled two ways:
- *   - Lazy: `setIfAbsent` treats an expired entry as absent and
- *     overwrites it. This is what keeps the dedup correct for hot keys
- *     that actually get re-read.
- *   - Sweep: a background `setInterval` walks the map every
- *     `SWEEP_INTERVAL_MS` and deletes entries past their expiry so cold
- *     keys don't pin memory forever. `.unref()`'d so the interval doesn't
- *     hold the process open during tests or graceful shutdown.
- *
- * The sweep runs in O(n) over the map. At expected self-hosted volumes
- * (tens of thousands of live keys) this is microseconds; if we ever saw
- * the map grow into the millions we'd already be on redis anyway.
- */
 const SWEEP_INTERVAL_MS = 5 * 60 * 1000
 
 export class MemoryCache implements Cache {

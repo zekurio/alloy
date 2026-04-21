@@ -3,43 +3,17 @@ import { and, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
-import { clip, game, user } from "@workspace/db/schema"
+import { user } from "@workspace/db/auth-schema"
+import { clip, game } from "@workspace/db/schema"
 
 import { db } from "../db"
 import { clipSelectShape } from "../lib/clip-select"
 
-/**
- * Global search surface. Backs the header search dropdown on the web
- * client — fans a single query string out to clips, games, and users so
- * the UI can render one mixed results list without making three round
- * trips per keystroke.
- *
- * The match is case-insensitive substring (`ILIKE %q%`) across a few
- * columns per entity. Nothing fancy (no FTS, no trigram) — the data
- * set this runs against is small enough that a seq scan is cheap, and
- * we avoid an index/extension dependency.
- *
- * Privacy + readiness filters mirror the public feed: only
- * `status='ready'` clips with `privacy in (public,unlisted)` show up,
- * and only games that still have at least one visible clip appear in
- * the games list. Banned users are hidden. So a query for a private
- * title or suspended creator never leaks through the dropdown.
- */
-
 const SearchQuery = z.object({
   q: z.string().min(1).max(120),
-  // Caps per-bucket so a long query doesn't burst the JSON payload. The
-  // UI only paints 6-ish rows per group; 8 leaves a little slack for
-  // future UX tweaks without letting a client request hundreds.
   limit: z.coerce.number().int().positive().max(20).default(8),
 })
 
-/**
- * Turn a user-entered query into a safe ILIKE pattern. Escapes the
- * three special chars (`\`, `%`, `_`) so a literal `%` in the input
- * doesn't silently widen the match into "everything". `%q%` is the
- * substring-anywhere semantics the UI expects.
- */
 function toLikePattern(raw: string): string {
   const escaped = raw
     .replace(/\\/g, "\\\\")
@@ -49,28 +23,15 @@ function toLikePattern(raw: string): string {
 }
 
 export const searchRoute = new Hono()
-  /**
-   * GET /api/search?q=&limit= — returns `{ clips, games, users }`. Each
-   * array follows the same shape the feed/list endpoints already hand
-   * back so the client can reuse its existing row types without branching.
-   *
-   * Runs the three reads in parallel — they don't depend on each other,
-   * and the connection pool is more than wide enough for a few extra
-   * concurrent queries per search keystroke.
-   */
   .get("/", zValidator("query", SearchQuery), async (c) => {
     const { q, limit } = c.req.valid("query")
     const pattern = toLikePattern(q.trim())
 
-    // Rank clips by how "directly" the query matched. A clip whose title
-    // literally contains the query outranks one that only matched because
-    // its *game* has the query in its name — otherwise a search for
-    // "valorant" floods the Clips section with every Valorant highlight
-    // before the actual Valorant game row gets a look-in. Lower number =
-    // higher rank; ties broken by recency via `desc(createdAt)`.
     const matchRank = sql<number>`CASE
       WHEN ${clip.title} ILIKE ${pattern} THEN 0
-      WHEN ${user.username} ILIKE ${pattern} THEN 1
+      WHEN ${user.name} ILIKE ${pattern}
+        OR ${user.displayUsername} ILIKE ${pattern}
+        OR ${user.username} ILIKE ${pattern} THEN 1
       WHEN ${clip.description} ILIKE ${pattern} THEN 2
       ELSE 3
     END`
@@ -91,6 +52,8 @@ export const searchRoute = new Hono()
             or(
               ilike(clip.title, pattern),
               ilike(clip.description, pattern),
+              ilike(user.name, pattern),
+              ilike(user.displayUsername, pattern),
               ilike(user.username, pattern),
               ilike(game.name, pattern),
               ilike(clip.game, pattern)
@@ -113,6 +76,7 @@ export const searchRoute = new Hono()
           releaseDate: game.releaseDate,
           heroUrl: game.heroUrl,
           logoUrl: game.logoUrl,
+          iconUrl: game.iconUrl,
           clipCount: sql<number>`count(${clip.id})::int`,
         })
         .from(game)
@@ -129,17 +93,14 @@ export const searchRoute = new Hono()
         .orderBy(sql`count(${clip.id}) desc`, game.name)
         .limit(limit),
 
-      // Users: match username; exclude banned accounts. We don't gate on
-      // "has visible clips" — a freshly-signed-up creator still matters
-      // for follow discovery, and the profile page handles the empty-
-      // clip state cleanly. `banned` is a nullable bool; treat null as
-      // "not banned". We left-join clips to attach a visible clip count
-      // for the row subtitle (same privacy filter as everywhere else).
       db
         .select({
           id: user.id,
           username: user.username,
+          displayUsername: user.displayUsername,
+          name: user.name,
           image: user.image,
+          imageKey: user.imageKey,
           createdAt: user.createdAt,
           clipCount: sql<number>`count(${clip.id})::int`,
         })
@@ -154,7 +115,11 @@ export const searchRoute = new Hono()
         )
         .where(
           and(
-            ilike(user.username, pattern),
+            or(
+              ilike(user.name, pattern),
+              ilike(user.displayUsername, pattern),
+              ilike(user.username, pattern)
+            ),
             or(isNull(user.banned), eq(user.banned, false))
           )
         )
@@ -176,12 +141,16 @@ export const searchRoute = new Hono()
         releaseDate: row.releaseDate ? row.releaseDate.toISOString() : null,
         heroUrl: row.heroUrl,
         logoUrl: row.logoUrl,
+        iconUrl: row.iconUrl,
         clipCount: row.clipCount,
       })),
       users: users.map((row) => ({
         id: row.id,
         username: row.username,
+        displayUsername: row.displayUsername,
+        name: row.name,
         image: row.image,
+        imageKey: row.imageKey,
         createdAt: row.createdAt.toISOString(),
         clipCount: row.clipCount,
       })),

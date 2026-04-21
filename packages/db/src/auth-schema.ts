@@ -1,24 +1,19 @@
 import { boolean, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core"
 
-// Tables consumed by better-auth's drizzle adapter. All ids and FKs are real
-// pg `uuid` columns — `auth.ts` sets `advanced.database.generateId: "uuid"`
-// so better-auth mints UUIDs for every row. Re-generate with
-// `npx @better-auth/cli generate` if you add plugins that extend these.
-//
-// There is no separate `name` column: better-auth's required `name` field is
-// mapped onto `username` via `user.fields` in `auth.ts`, so the app has a
-// single handle per user. The `role`/`banned`/`banReason`/`banExpires` user
-// columns and `impersonated_by` session column come from the `admin` plugin.
-
 export const user = pgTable("user", {
   id: uuid("id").primaryKey().defaultRandom(),
-  // Single canonical handle, written via better-auth's `name` field (mapped
-  // through `user.fields.name = "username"`). Populated for every user by the
-  // `create.before` hook; DB-enforced unique.
+  // Display name — free text, possibly from the OIDC `name` claim. Separate
+  // from the handle so users can pick one without touching the other.
+  name: text("name").notNull().default(""),
   username: text("username").notNull().unique(),
+  displayUsername: text("display_username").notNull().default(""),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
+  // External avatar URL (typically from the OIDC `picture` claim). Preferred
+  // order at serve time: imageKey → image → generated fallback.
   image: text("image"),
+  imageKey: text("image_key"),
+  bannerKey: text("banner_key"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   role: text("role"),
@@ -67,3 +62,10 @@ export const verification = pgTable("verification", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 })
+
+export const authSchema = {
+  user,
+  session,
+  account,
+  verification,
+} as const
