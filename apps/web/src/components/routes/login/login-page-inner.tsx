@@ -10,6 +10,7 @@ import type { fetchPublicClips } from "../../../lib/public-clips";
 
 import { EmailPasswordForm } from "./email-password-form";
 import { OAuthSignIn } from "./oauth-sign-in";
+import { PasskeySignIn } from "./passkey-sign-in";
 
 type LoginConfig = Awaited<ReturnType<typeof fetchAuthConfig>>;
 type PublicClips = Awaited<ReturnType<typeof fetchPublicClips>>;
@@ -49,26 +50,21 @@ export function LoginPageInner({ config, clips }: LoginPageInnerProps) {
 
             {emailPasswordEnabled ? <EmailPasswordForm /> : null}
 
-            {provider ? (
-              <>
-                {emailPasswordEnabled ? (
-                  <div className="my-6">
-                    <FieldSeparator>OR</FieldSeparator>
-                  </div>
-                ) : null}
+            {emailPasswordEnabled ? (
+              <div className="my-6">
+                <FieldSeparator>OR</FieldSeparator>
+              </div>
+            ) : null}
+
+            <div className="flex flex-col gap-3">
+              <PasskeySignIn />
+              {provider ? (
                 <OAuthSignIn
                   providerId={provider.providerId}
                   displayName={provider.displayName}
                 />
-              </>
-            ) : null}
-
-            {!emailPasswordEnabled && !provider ? (
-              <p className="mt-6 text-sm text-foreground-muted">
-                Sign-in is currently unavailable. Ask an administrator to enable
-                a login method.
-              </p>
-            ) : null}
+              ) : null}
+            </div>
 
             {canSignUp ? (
               <p className="mt-6 text-center text-sm text-foreground-muted">

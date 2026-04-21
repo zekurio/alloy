@@ -1,293 +1,173 @@
 import * as React from "react"
-import { Trash2Icon } from "lucide-react"
+import { PencilIcon, PlusIcon, Trash2Icon, UserKeyIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
-import {
-  Field,
-  FieldDescription,
-  FieldLabel,
-} from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
+import { Card, CardContent } from "@workspace/ui/components/card"
+import { Switch } from "@workspace/ui/components/switch"
 import { toast } from "@workspace/ui/components/sonner"
 
 import {
-  deleteOAuthProvider,
-  saveOAuthProvider,
+  saveOAuthConfig,
   type AdminOAuthProvider,
   type AdminRuntimeConfig,
-  USERNAME_CLAIM_SUGGESTIONS,
 } from "../../../lib/admin-api"
-import { emptyProvider, emptyToUndefined } from "./shared"
+import { OAuthCustomProviderDialog } from "./oauth-custom-provider-dialog"
+import { emptyProvider, toSubmissionProvider } from "./shared"
 
 type OAuthProviderCardProps = {
-  provider: AdminOAuthProvider | null
+  config: AdminRuntimeConfig
   onChange: (next: AdminRuntimeConfig) => void
 }
 
 export function OAuthProviderCard({
-  provider,
+  config,
   onChange,
 }: OAuthProviderCardProps) {
-  const [form, setForm] = React.useState<AdminOAuthProvider>(
-    provider ?? emptyProvider()
-  )
-  const [pending, setPending] = React.useState<"save" | "delete" | null>(null)
+  const [draft, setDraft] = React.useState<AdminOAuthProvider | null>(null)
+  const [editing, setEditing] = React.useState(false)
+  const [pendingAction, setPendingAction] = React.useState<string | null>(null)
 
-  function set<K extends keyof AdminOAuthProvider>(
+  const provider = config.oauthProvider
+
+  async function persistProvider(
+    next: AdminOAuthProvider | null,
+    successMessage: string
+  ) {
+    setPendingAction(successMessage)
+    try {
+      const updated = await saveOAuthConfig({ oauthProvider: next })
+      onChange(updated)
+      toast.success(successMessage)
+      return true
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "Couldn't save OAuth settings"
+      )
+      return false
+    } finally {
+      setPendingAction(null)
+    }
+  }
+
+  function openCreate() {
+    setEditing(false)
+    setDraft(emptyProvider())
+  }
+
+  function openEdit() {
+    if (!provider) return
+    setEditing(true)
+    setDraft({ ...provider })
+  }
+
+  function closeDialog() {
+    if (pendingAction) return
+    setDraft(null)
+    setEditing(false)
+  }
+
+  async function toggleEnabled(enabled: boolean) {
+    if (pendingAction || !provider) return
+    await persistProvider(
+      { ...provider, enabled },
+      enabled ? "Provider enabled" : "Provider disabled"
+    )
+  }
+
+  async function removeProvider() {
+    if (pendingAction) return
+    await persistProvider(null, "Provider removed")
+  }
+
+  async function saveProvider(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!draft || pendingAction) return
+    const ok = await persistProvider(
+      toSubmissionProvider(draft),
+      editing ? "Provider updated" : "Provider added"
+    )
+    if (ok) closeDialog()
+  }
+
+  function setDraftField<K extends keyof AdminOAuthProvider>(
     key: K,
     value: AdminOAuthProvider[K]
   ) {
-    setForm((f) => ({ ...f, [key]: value }))
+    setDraft((current) => (current ? { ...current, [key]: value } : current))
   }
 
-  async function onSave(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (pending) return
-    setPending("save")
-    try {
-      const next = await saveOAuthProvider({
-        ...form,
-        discoveryUrl: emptyToUndefined(form.discoveryUrl),
-        authorizationUrl: emptyToUndefined(form.authorizationUrl),
-        tokenUrl: emptyToUndefined(form.tokenUrl),
-        userInfoUrl: emptyToUndefined(form.userInfoUrl),
-      })
-      onChange(next)
-      toast.success("Provider saved")
-    } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't save provider"
-      )
-    } finally {
-      setPending(null)
-    }
-  }
-
-  async function onDelete() {
-    if (pending || !provider) return
-    setPending("delete")
-    try {
-      const next = await deleteOAuthProvider()
-      onChange(next)
-      setForm(emptyProvider())
-      toast.success("Provider removed")
-    } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't remove provider"
-      )
-    } finally {
-      setPending(null)
-    }
-  }
+  const disabled = pendingAction !== null
 
   return (
-    <form onSubmit={onSave}>
+    <>
       <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>OAuth provider</CardTitle>
-            <CardDescription>
-              One OIDC or OAuth2 provider, via discovery or manual endpoints.
-            </CardDescription>
-          </div>
-        </CardHeader>
-
-        <CardContent className="flex flex-col gap-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="oauth-provider-id">Provider ID</FieldLabel>
-              <Input
-                id="oauth-provider-id"
-                value={form.providerId}
-                placeholder="sso"
-                pattern="^[a-z0-9-]+$"
-                title="lowercase letters, digits, dashes"
-                required
-                onChange={(e) => set("providerId", e.target.value)}
-              />
-              <FieldDescription>URL-safe slug.</FieldDescription>
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="oauth-display-name">Display name</FieldLabel>
-              <Input
-                id="oauth-display-name"
-                value={form.displayName}
-                placeholder="Company SSO"
-                required
-                maxLength={64}
-                onChange={(e) => set("displayName", e.target.value)}
-              />
-              <FieldDescription>
-                Shown as "Continue with {form.displayName || "…"}".
-              </FieldDescription>
-            </Field>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="oauth-client-id">Client ID</FieldLabel>
-              <Input
-                id="oauth-client-id"
-                value={form.clientId}
-                required
-                onChange={(e) => set("clientId", e.target.value)}
-              />
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="oauth-client-secret">
-                Client secret
-              </FieldLabel>
-              <Input
-                id="oauth-client-secret"
-                type="password"
-                autoComplete="new-password"
-                value={form.clientSecret}
-                required={!provider}
-                placeholder={
-                  provider ? "Leave blank to keep current" : "Client secret"
-                }
-                onChange={(e) => set("clientSecret", e.target.value)}
-              />
-            </Field>
-          </div>
-
-          <Field>
-            <FieldLabel htmlFor="oauth-discovery">Discovery URL</FieldLabel>
-            <Input
-              id="oauth-discovery"
-              type="url"
-              value={form.discoveryUrl ?? ""}
-              placeholder="https://sso.example.com/realms/main/.well-known/openid-configuration"
-              onChange={(e) => set("discoveryUrl", e.target.value)}
-            />
-            <FieldDescription>
-              Preferred for OIDC. Leave blank to use manual endpoints.
-            </FieldDescription>
-          </Field>
-
-          {(() => {
-            const manualEndpointsRequired = !emptyToUndefined(form.discoveryUrl)
-            return (
-              <div className="grid gap-4 sm:grid-cols-3">
-                <Field>
-                  <FieldLabel htmlFor="oauth-auth-url">
-                    Authorization URL
-                  </FieldLabel>
-                  <Input
-                    id="oauth-auth-url"
-                    type="url"
-                    value={form.authorizationUrl ?? ""}
-                    required={manualEndpointsRequired}
-                    onChange={(e) => set("authorizationUrl", e.target.value)}
-                  />
-                </Field>
-
-                <Field>
-                  <FieldLabel htmlFor="oauth-token-url">Token URL</FieldLabel>
-                  <Input
-                    id="oauth-token-url"
-                    type="url"
-                    value={form.tokenUrl ?? ""}
-                    required={manualEndpointsRequired}
-                    onChange={(e) => set("tokenUrl", e.target.value)}
-                  />
-                </Field>
-
-                <Field>
-                  <FieldLabel htmlFor="oauth-userinfo-url">
-                    Userinfo URL
-                  </FieldLabel>
-                  <Input
-                    id="oauth-userinfo-url"
-                    type="url"
-                    value={form.userInfoUrl ?? ""}
-                    required={manualEndpointsRequired}
-                    onChange={(e) => set("userInfoUrl", e.target.value)}
-                  />
-                </Field>
+        <CardContent className="flex items-center justify-between gap-4 py-4">
+          <div className="min-w-0 flex items-center gap-3">
+            <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-border">
+              <UserKeyIcon className="size-4" />
+            </span>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-medium">
+                {provider ? provider.displayName : "OAuth provider"}
               </div>
-            )
-          })()}
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="oauth-scopes">Scopes</FieldLabel>
-              <Input
-                id="oauth-scopes"
-                value={(form.scopes ?? []).join(" ")}
-                placeholder="openid profile email"
-                onChange={(e) =>
-                  set(
-                    "scopes",
-                    e.target.value
-                      .split(/\s+/)
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                  )
-                }
-              />
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="oauth-username-claim">
-                Username claim
-              </FieldLabel>
-              <Input
-                id="oauth-username-claim"
-                list="oauth-username-claim-suggestions"
-                value={form.usernameClaim ?? ""}
-                placeholder="preferred_username"
-                onChange={(e) => set("usernameClaim", e.target.value)}
-              />
-              <datalist id="oauth-username-claim-suggestions">
-                {USERNAME_CLAIM_SUGGESTIONS.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
-              <FieldDescription>
-                Any claim on the userinfo response.
-              </FieldDescription>
-            </Field>
+              <p className="truncate text-xs text-foreground-dim">
+                {provider
+                  ? provider.providerId
+                  : "Configure a generic OIDC/OAuth2 provider (e.g. PocketID)."}
+              </p>
+            </div>
           </div>
-        </CardContent>
 
-        <CardFooter>
           {provider ? (
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={provider.enabled}
+                disabled={disabled}
+                onCheckedChange={toggleEnabled}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                disabled={disabled}
+                onClick={openEdit}
+              >
+                <PencilIcon />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                disabled={disabled}
+                onClick={removeProvider}
+              >
+                <Trash2Icon />
+              </Button>
+            </div>
+          ) : (
             <Button
               type="button"
-              variant="destructive"
+              variant="primary"
               size="sm"
-              onClick={onDelete}
-              disabled={pending !== null}
+              disabled={disabled}
+              onClick={openCreate}
             >
-              <Trash2Icon />
-              {pending === "delete" ? "Removing…" : "Remove provider"}
+              <PlusIcon />
+              Add provider
             </Button>
-          ) : null}
-          <Button
-            type="submit"
-            variant="primary"
-            size="sm"
-            disabled={pending !== null}
-          >
-            {pending === "save"
-              ? "Saving…"
-              : provider
-                ? "Save changes"
-                : "Save provider"}
-          </Button>
-        </CardFooter>
+          )}
+        </CardContent>
       </Card>
-    </form>
+
+      <OAuthCustomProviderDialog
+        authBaseURL={config.authBaseURL}
+        draft={draft}
+        editing={editing}
+        pendingAction={pendingAction}
+        onOpenChange={(open) => !open && closeDialog()}
+        onSubmit={saveProvider}
+        onChange={setDraftField}
+      />
+    </>
   )
 }

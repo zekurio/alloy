@@ -1,6 +1,5 @@
 import * as React from "react"
 import { useRouter } from "@tanstack/react-router"
-import { RefreshCwIcon } from "lucide-react"
 
 import {
   Avatar,
@@ -17,9 +16,7 @@ import {
 import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/components/sonner"
 
-import { api } from "../../../lib/api"
 import { authClient } from "../../../lib/auth-client"
-import { readJsonOrThrow } from "../../../lib/http-error"
 import {
   avatarTint,
   displayInitials,
@@ -49,7 +46,6 @@ export function ProfileCard({
   const [name, setName] = React.useState(initialName)
   const [username, setUsername] = React.useState(initialUsername)
   const [pending, setPending] = React.useState(false)
-  const [syncing, setSyncing] = React.useState(false)
 
   const trimmedName = name.trim()
   const trimmedUsername = username.trim()
@@ -110,31 +106,6 @@ export function ProfileCard({
     }
   }
 
-  async function onSyncAvatar() {
-    if (syncing) return
-    setSyncing(true)
-    try {
-      const res = await api.api.profile["sync-oauth-image"].$post()
-      const body = await readJsonOrThrow<{
-        status: string
-        image: string | null
-        message: string
-      }>(res)
-      if (body.image) {
-        toast.success("Avatar synced from provider")
-      } else {
-        toast.info(body.message || "No avatar found from provider")
-      }
-      await router.invalidate()
-    } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't sync avatar"
-      )
-    } finally {
-      setSyncing(false)
-    }
-  }
-
   return (
     <form onSubmit={onSubmit}>
       <Card>
@@ -155,17 +126,6 @@ export function ProfileCard({
               <span className="font-mono text-2xs text-foreground-faint">
                 {email}
               </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="mt-1 w-fit"
-                disabled={syncing}
-                onClick={onSyncAvatar}
-              >
-                <RefreshCwIcon className="size-3.5" />
-                {syncing ? "Syncing…" : "Sync avatar from provider"}
-              </Button>
             </div>
           </div>
 
