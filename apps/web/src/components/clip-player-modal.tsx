@@ -1,41 +1,41 @@
-import * as React from "react"
+import * as React from "react";
 
-import { Dialog, DialogContent } from "@workspace/ui/components/dialog"
-import { Spinner } from "@workspace/ui/components/spinner"
-import { cn } from "@workspace/ui/lib/utils"
+import { Dialog, DialogContent } from "@workspace/ui/components/dialog";
+import { Spinner } from "@workspace/ui/components/spinner";
+import { cn } from "@workspace/ui/lib/utils";
 
-import { useClipQuery } from "../lib/clip-queries"
+import { useClipQuery } from "../lib/clip-queries";
 
-import { ClipPlayerDialogContent } from "./clip-player-dialog-content"
+import { ClipPlayerDialogContent } from "./clip-player-dialog-content";
 
 interface ClipPlayerModalProps {
   /** Current modal target. `null` keeps the modal closed. */
-  clipId: string | null
+  clipId: string | null;
   /** How to dismiss — typically clears the search param or navigates back. */
-  onClose: () => void
+  onClose: () => void;
 }
 
 export function ClipPlayerModal({ clipId, onClose }: ClipPlayerModalProps) {
-  const open = clipId !== null
-  const query = useClipQuery(clipId ?? "")
+  const open = clipId !== null;
+  const query = useClipQuery(clipId ?? "");
 
   React.useEffect(() => {
-    if (!open) return
+    if (!open) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return
-      if (event.defaultPrevented) return
-      event.preventDefault()
-      onClose()
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [open, onClose])
+      if (event.key !== "Escape") return;
+      if (event.defaultPrevented) return;
+      event.preventDefault();
+      onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
 
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) onClose()
+        if (!next) onClose();
       }}
     >
       {open ? (
@@ -46,7 +46,7 @@ export function ClipPlayerModal({ clipId, onClose }: ClipPlayerModalProps) {
         )
       ) : null}
     </Dialog>
-  )
+  );
 }
 
 function ClipPlayerModalFallback() {
@@ -54,7 +54,7 @@ function ClipPlayerModalFallback() {
     <DialogContent
       className={cn(
         "h-[96vh] max-w-none",
-        "grid place-items-center overflow-hidden p-0"
+        "grid place-items-center overflow-hidden p-0",
       )}
       style={{ width: `min(97vw, calc(70vh * ${16 / 9} + 480px))` }}
     >
@@ -65,6 +65,5 @@ function ClipPlayerModalFallback() {
         </span>
       </div>
     </DialogContent>
-  )
+  );
 }
-
