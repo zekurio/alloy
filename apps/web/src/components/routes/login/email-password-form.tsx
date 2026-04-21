@@ -1,19 +1,21 @@
 import * as React from "react"
+import { useForm } from "@tanstack/react-form"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import { AtSignIcon, EyeIcon, EyeOffIcon, LockIcon } from "lucide-react"
+import { AtSignIcon, LockIcon } from "lucide-react"
 
-import { Button } from "@workspace/ui/components/button"
 import { Checkbox } from "@workspace/ui/components/checkbox"
-import { Field, FieldLabel } from "@workspace/ui/components/field"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@workspace/ui/components/input-group"
 import { toast } from "@workspace/ui/components/sonner"
 
 import { authClient } from "../../../lib/auth-client"
+import {
+  AuthSubmitButton,
+  FormInputField,
+  PasswordInputField,
+} from "../auth/auth-form-fields"
+import {
+  validatePassword,
+  validateRequiredString,
+} from "../../../lib/form-validators"
 
 type LoginCredentials = {
   identifier: string
@@ -24,175 +26,166 @@ type LoginCredentials = {
 function useEmailPasswordSubmit() {
   const router = useRouter()
   const navigate = useNavigate()
-  const [pending, setPending] = React.useState(false)
 
-  const submit = async (creds: LoginCredentials) => {
-    if (pending) return
-    setPending(true)
-    try {
-      const isEmail = creds.identifier.includes("@")
-      const { error: err } = isEmail
-        ? await authClient.signIn.email({
-            email: creds.identifier,
-            password: creds.password,
-            rememberMe: creds.rememberMe,
+  return React.useCallback(
+    async (creds: LoginCredentials) => {
+      try {
+        const identifier = creds.identifier.trim()
+        const isEmail = identifier.includes("@")
+        const { error: err } = isEmail
+          ? await authClient.signIn.email({
+              email: identifier,
+              password: creds.password,
+              rememberMe: creds.rememberMe,
+            })
+          : await authClient.signIn.username({
+              username: identifier,
+              password: creds.password,
+              rememberMe: creds.rememberMe,
+            })
+        if (err) {
+          toast.error("Couldn't sign in", {
+            description: err.message ?? "Check your details and try again.",
           })
-        : await authClient.signIn.username({
-            username: creds.identifier,
-            password: creds.password,
-            rememberMe: creds.rememberMe,
-          })
-      if (err) {
-        toast.error("Couldn't sign in", {
+          return
+        }
+        await router.invalidate()
+        await navigate({ to: "/" })
+      } catch (cause) {
+        toast.error("Unexpected sign-in error", {
           description:
-            err.message ?? "Check your details and try again.",
+            cause instanceof Error
+              ? cause.message
+              : "Something went wrong. Please try again.",
         })
-        return
       }
-      await router.invalidate()
-      await navigate({ to: "/" })
-    } catch (cause) {
-      toast.error("Unexpected sign-in error", {
-        description:
-          cause instanceof Error
-            ? cause.message
-            : "Something went wrong. Please try again.",
-      })
-    } finally {
-      setPending(false)
-    }
-  }
-
-  return { pending, submit }
-}
-
-function IdentifierField({
-  value,
-  onChange,
-  disabled,
-}: {
-  value: string
-  onChange: (value: string) => void
-  disabled: boolean
-}) {
-  return (
-    <Field>
-      <FieldLabel htmlFor="login-identifier">Email or username</FieldLabel>
-      <InputGroup>
-        <InputGroupAddon>
-          <AtSignIcon />
-        </InputGroupAddon>
-        <InputGroupInput
-          id="login-identifier"
-          type="text"
-          autoComplete="username"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          placeholder="you@example.com or yourhandle"
-          required
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={disabled}
-        />
-      </InputGroup>
-    </Field>
-  )
-}
-
-function PasswordField({
-  password,
-  onChange,
-  disabled,
-}: {
-  password: string
-  onChange: (value: string) => void
-  disabled: boolean
-}) {
-  const [showPassword, setShowPassword] = React.useState(false)
-  return (
-    <Field>
-      <div className="flex items-center justify-between">
-        <FieldLabel htmlFor="login-password">Password</FieldLabel>
-        <a
-          href="#"
-          className="text-xs text-foreground-muted underline-offset-4 hover:text-accent hover:underline"
-        >
-          Forgot?
-        </a>
-      </div>
-      <InputGroup>
-        <InputGroupAddon>
-          <LockIcon />
-        </InputGroupAddon>
-        <InputGroupInput
-          id="login-password"
-          type={showPassword ? "text" : "password"}
-          autoComplete="current-password"
-          placeholder="••••••••"
-          required
-          value={password}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={disabled}
-        />
-        <InputGroupAddon align="inline-end">
-          <InputGroupButton
-            size="icon-xs"
-            aria-label={showPassword ? "Hide password" : "Show password"}
-            onClick={() => setShowPassword((v) => !v)}
-            disabled={disabled}
-          >
-            {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-          </InputGroupButton>
-        </InputGroupAddon>
-      </InputGroup>
-    </Field>
+    },
+    [navigate, router]
   )
 }
 
 export function EmailPasswordForm() {
-  const { pending, submit } = useEmailPasswordSubmit()
-  const [identifier, setIdentifier] = React.useState("")
-  const [password, setPassword] = React.useState("")
-  const [rememberMe, setRememberMe] = React.useState(true)
+  const submit = useEmailPasswordSubmit()
+  const form = useForm({
+    defaultValues: {
+      identifier: "",
+      password: "",
+      rememberMe: true,
+    } as LoginCredentials,
+    onSubmit: async ({ value }) => {
+      await submit(value)
+    },
+  })
+  const [showPassword, setShowPassword] = React.useState(false)
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault()
-        submit({ identifier, password, rememberMe })
+        e.stopPropagation()
+        void form.handleSubmit()
       }}
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-5"
     >
-      <IdentifierField
-        value={identifier}
-        onChange={setIdentifier}
-        disabled={pending}
-      />
-      <PasswordField
-        password={password}
-        onChange={setPassword}
-        disabled={pending}
-      />
-
-      <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground-muted select-none">
-        <Checkbox
-          checked={rememberMe}
-          onCheckedChange={(value) => setRememberMe(value === true)}
-          disabled={pending}
-        />
-        Keep me signed in
-      </label>
-
-      <Button
-        type="submit"
-        variant="primary"
-        size="lg"
-        className="w-full"
-        disabled={pending}
+      <form.Field
+        name="identifier"
+        validators={{
+          onChange: ({ value }) =>
+            validateRequiredString(value, "Email or username"),
+        }}
       >
-        {pending ? "Signing in…" : "Sign in"}
-      </Button>
+        {(field) => {
+          const showError =
+            field.state.meta.isTouched || form.state.submissionAttempts > 0
+          const invalid = showError && !field.state.meta.isValid
+
+          return (
+            <FormInputField
+              id={field.name}
+              label="Email or username"
+              icon={<AtSignIcon />}
+              autoCapitalize="none"
+              autoComplete="username"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="you@example.com or yourhandle"
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={field.handleChange}
+              invalid={invalid}
+              errors={showError ? field.state.meta.errors : undefined}
+              required
+            />
+          )
+        }}
+      </form.Field>
+
+      <form.Field
+        name="password"
+        validators={{
+          onChange: ({ value }) => validatePassword(value, 1),
+        }}
+      >
+        {(field) => {
+          const showError =
+            field.state.meta.isTouched || form.state.submissionAttempts > 0
+          const invalid = showError && !field.state.meta.isValid
+
+          return (
+            <PasswordInputField
+              id={field.name}
+              label="Password"
+              icon={<LockIcon />}
+              autoComplete="current-password"
+              placeholder="••••••••"
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={field.handleChange}
+              invalid={invalid}
+              errors={showError ? field.state.meta.errors : undefined}
+              disabled={form.state.isSubmitting}
+              showPassword={showPassword}
+              togglePassword={() => setShowPassword((value) => !value)}
+              headerAction={
+                <a
+                  href="#"
+                  className="text-sm text-foreground-muted underline-offset-4 hover:text-accent hover:underline"
+                >
+                  Forgot?
+                </a>
+              }
+              required
+            />
+          )
+        }}
+      </form.Field>
+
+      <form.Field name="rememberMe">
+        {(field) => (
+          <label className="flex cursor-pointer items-center gap-2.5 text-sm text-foreground-muted select-none">
+            <Checkbox
+              checked={field.state.value}
+              onCheckedChange={(value) => field.handleChange(value === true)}
+              disabled={form.state.isSubmitting}
+            />
+            Keep me signed in
+          </label>
+        )}
+      </form.Field>
+
+      <form.Subscribe
+        selector={(state) => [state.canSubmit, state.isSubmitting] as const}
+      >
+        {([canSubmit, isSubmitting]) => (
+          <AuthSubmitButton
+            canSubmit={canSubmit}
+            isSubmitting={isSubmitting}
+            pendingLabel="Signing in…"
+          >
+            Sign in
+          </AuthSubmitButton>
+        )}
+      </form.Subscribe>
     </form>
   )
 }

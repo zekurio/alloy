@@ -95,6 +95,7 @@ export function TopClipsSection({ viewerId }: TopClipsSectionProps) {
         <ClipCardList
           rows={rows}
           isOwnedByViewer={(row) => row.authorId === viewerId}
+          listKey={`home:top:${window}`}
         />
       )}
     </section>

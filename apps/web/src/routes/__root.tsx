@@ -10,39 +10,11 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Alloy" },
+      { title: "alloy" },
     ],
     links: [
-      // Font hosts — preconnect to shave the TLS handshake off the first request.
-      // Kept in <head> (rather than @import in CSS) so fetching fonts doesn't
-      // block CSS parsing on server-rendered TanStack Start pages.
-      { rel: "preconnect", href: "https://api.fontshare.com" },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      {
-        rel: "preconnect",
-        href: "https://fonts.gstatic.com",
-        crossOrigin: "anonymous",
-      },
-      // Preload the stylesheets so the browser kicks off the fetch in parallel
-      // with HTML parsing instead of waiting until it hits each <link rel="stylesheet">.
-      {
-        rel: "preload",
-        as: "style",
-        href: "https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700,900&display=swap",
-      },
-      {
-        rel: "preload",
-        as: "style",
-        href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap",
-      },
-      {
-        rel: "stylesheet",
-        href: "https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700,900&display=swap",
-      },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap",
-      },
+      { rel: "icon", type: "image/png", href: "/alloy-logo.png" },
+      { rel: "apple-touch-icon", href: "/alloy-logo.png" },
       { rel: "stylesheet", href: appCss },
     ],
   }),

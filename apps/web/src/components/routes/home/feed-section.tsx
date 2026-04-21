@@ -1,74 +1,74 @@
-import * as React from "react";
-import { Loader2Icon } from "lucide-react";
+import * as React from "react"
+import { Loader2Icon } from "lucide-react"
 
-import { cn } from "@workspace/ui/lib/utils";
+import { cn } from "@workspace/ui/lib/utils"
 
-import { ClipCardList } from "../../../components/clip-card-list";
-import { ClipCardSkeleton } from "../../../components/clip-card-skeleton";
-import { ClipGrid } from "../../../components/clip-grid";
-import { EmptyState } from "../../../components/empty-state";
-import type { FeedFilter } from "../../../lib/feed-api";
-import { useFeedInfiniteQuery } from "../../../lib/feed-queries";
-import { useQueryErrorToast } from "../../../lib/use-query-error-toast";
+import { ClipCardList } from "../../../components/clip-card-list"
+import { ClipCardSkeleton } from "../../../components/clip-card-skeleton"
+import { ClipGrid } from "../../../components/clip-grid"
+import { EmptyState } from "../../../components/empty-state"
+import type { FeedFilter } from "../../../lib/feed-api"
+import { useFeedInfiniteQuery } from "../../../lib/feed-queries"
+import { useQueryErrorToast } from "../../../lib/use-query-error-toast"
 
 type FeedSectionProps = {
-  filter: FeedFilter;
-  viewerId: string | undefined;
-};
+  filter: FeedFilter
+  viewerId: string | undefined
+}
 
-const FEED_PAGE_LIMIT = 20;
+const FEED_PAGE_LIMIT = 20
 
 function useInfiniteScrollSentinel(
   fetchNextPage: () => Promise<unknown>,
   hasNextPage: boolean,
-  isFetchingNextPage: boolean,
+  isFetchingNextPage: boolean
 ) {
-  const fetchNextRef = React.useRef(fetchNextPage);
-  fetchNextRef.current = fetchNextPage;
-  const hasNextRef = React.useRef(hasNextPage);
-  hasNextRef.current = hasNextPage;
-  const isFetchingNextRef = React.useRef(isFetchingNextPage);
-  isFetchingNextRef.current = isFetchingNextPage;
+  const fetchNextRef = React.useRef(fetchNextPage)
+  fetchNextRef.current = fetchNextPage
+  const hasNextRef = React.useRef(hasNextPage)
+  hasNextRef.current = hasNextPage
+  const isFetchingNextRef = React.useRef(isFetchingNextPage)
+  isFetchingNextRef.current = isFetchingNextPage
 
-  const sentinelRef = React.useRef<HTMLDivElement | null>(null);
+  const sentinelRef = React.useRef<HTMLDivElement | null>(null)
   React.useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") return;
+    const el = sentinelRef.current
+    if (!el || typeof IntersectionObserver === "undefined") return
     const observer = new IntersectionObserver(
       (entries) => {
-        const entry = entries[0];
-        if (!entry?.isIntersecting) return;
-        if (isFetchingNextRef.current || !hasNextRef.current) return;
-        void fetchNextRef.current();
+        const entry = entries[0]
+        if (!entry?.isIntersecting) return
+        if (isFetchingNextRef.current || !hasNextRef.current) return
+        void fetchNextRef.current()
       },
-      { rootMargin: "800px" },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+      { rootMargin: "800px" }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
-  return sentinelRef;
+  return sentinelRef
 }
 
 function emptyTitle(filter: FeedFilter): string {
   switch (filter.kind) {
     case "foryou":
-      return "Nothing to show yet";
+      return "Nothing to show yet"
     case "following":
-      return "Your following feed is empty";
+      return "Your following feed is empty"
     case "game":
-      return "No clips in this game yet";
+      return "No clips in this game yet"
   }
 }
 
 function emptyHint(filter: FeedFilter): string {
   switch (filter.kind) {
     case "foryou":
-      return "Come back when others have uploaded some clips.";
+      return "Come back when others have uploaded some clips."
     case "following":
-      return "Follow creators or games to populate this tab.";
+      return "Follow creators or games to populate this tab."
     case "game":
-      return "Be the first to post one.";
+      return "Be the first to post one."
   }
 }
 
@@ -79,24 +79,24 @@ function FeedSentinelStatus({
   hasNextPage,
   onRetry,
 }: {
-  isFetchingNextPage: boolean;
-  hasRows: boolean;
-  error: unknown;
-  hasNextPage: boolean;
-  onRetry: () => void;
+  isFetchingNextPage: boolean
+  hasRows: boolean
+  error: unknown
+  hasNextPage: boolean
+  onRetry: () => void
 }) {
   if (isFetchingNextPage && hasRows) {
     return (
       <span
         className={cn(
           "inline-flex items-center gap-2 text-xs",
-          "text-foreground-faint uppercase tracking-wide",
+          "tracking-wide text-foreground-faint uppercase"
         )}
       >
         <Loader2Icon className="size-3 animate-spin" />
         Loading more
       </span>
-    );
+    )
   }
   if (error && hasRows) {
     return (
@@ -104,23 +104,23 @@ function FeedSentinelStatus({
         type="button"
         onClick={onRetry}
         className={cn(
-          "rounded-md px-2 py-1 text-xs font-medium text-accent uppercase tracking-wide",
+          "rounded-md px-2 py-1 text-xs font-medium tracking-wide text-accent uppercase",
           "hover:bg-accent-soft",
-          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         )}
       >
         Retry
       </button>
-    );
+    )
   }
   if (!hasNextPage && hasRows) {
     return (
-      <span className="text-xs text-foreground-faint uppercase tracking-wide">
+      <span className="text-xs tracking-wide text-foreground-faint uppercase">
         End of feed
       </span>
-    );
+    )
   }
-  return null;
+  return null
 }
 
 export function FeedSection({ filter, viewerId }: FeedSectionProps) {
@@ -132,23 +132,23 @@ export function FeedSection({ filter, viewerId }: FeedSectionProps) {
     isFetchingNextPage,
     isPending,
     refetch,
-  } = useFeedInfiniteQuery(filter, { limit: FEED_PAGE_LIMIT });
+  } = useFeedInfiniteQuery(filter, { limit: FEED_PAGE_LIMIT })
   useQueryErrorToast(error, {
     title: "Couldn't load feed",
     // Keying the toast on filter avoids stacked toasts when tabs switch.
     toastId: `feed-${filter.kind}-${filter.kind === "game" ? filter.gameId : ""}-error`,
-  });
+  })
 
-  const rows = React.useMemo(() => (data ? data.pages.flat() : []), [data]);
+  const rows = React.useMemo(() => (data ? data.pages.flat() : []), [data])
 
   const sentinelRef = useInfiniteScrollSentinel(
     fetchNextPage,
     Boolean(hasNextPage),
-    isFetchingNextPage,
-  );
+    isFetchingNextPage
+  )
 
-  const initialLoad = isPending && rows.length === 0;
-  const hasRows = rows.length > 0;
+  const initialLoad = isPending && rows.length === 0
+  const hasRows = rows.length > 0
 
   return (
     <section>
@@ -175,6 +175,7 @@ export function FeedSection({ filter, viewerId }: FeedSectionProps) {
         <ClipCardList
           rows={rows}
           isOwnedByViewer={(row) => row.authorId === viewerId}
+          listKey={`home:feed:${filter}`}
         />
       )}
 
@@ -192,5 +193,5 @@ export function FeedSection({ filter, viewerId }: FeedSectionProps) {
         />
       </div>
     </section>
-  );
+  )
 }

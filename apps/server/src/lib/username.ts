@@ -61,9 +61,6 @@ export async function generateUniqueUsername(hints: {
     if (await isUsernameAvailable(candidate)) return candidate
   }
 
-  // Hit the probe limit — fall through to random suffix. Six hex chars
-  // gives ~16M possibilities per base, which is well past anything the
-  // linear probe could reasonably cover.
   for (let attempt = 0; attempt < 10; attempt++) {
     const suffix = Math.random().toString(36).slice(2, 8)
     const candidate = `${trimBase(MAX_LEN - suffix.length - 1)}-${suffix}`

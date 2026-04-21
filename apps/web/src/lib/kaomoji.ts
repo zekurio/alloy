@@ -4,4 +4,4 @@ export const EMPTY_STATE_KAOMOJI = [
   "( ;´ - `;)",
   "┐(´～｀)┌",
   "(｡•́︿•̀｡)",
-] as const;
+] as const

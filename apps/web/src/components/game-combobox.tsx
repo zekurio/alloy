@@ -26,13 +26,6 @@ import { useDebouncedValue } from "../lib/use-debounced-value"
 type GameComboboxItem = SteamGridDBSearchResult & {
   iconUrl?: string | null
   logoUrl?: string | null
-  year?: number | null
-}
-
-function yearFromIsoDate(iso: string | null | undefined): number | null {
-  if (!iso) return null
-  const y = new Date(iso).getUTCFullYear()
-  return Number.isFinite(y) ? y : null
 }
 
 const PAGE_SIZE = 6
@@ -90,8 +83,9 @@ export function GameCombobox({
 
   const resolveMutation = useResolveGameMutation()
 
-  const [pendingItem, setPendingItem] =
-    React.useState<GameComboboxItem | null>(null)
+  const [pendingItem, setPendingItem] = React.useState<GameComboboxItem | null>(
+    null
+  )
 
   const [cleared, setCleared] = React.useState(false)
 
@@ -125,9 +119,6 @@ export function GameCombobox({
         {
           onSuccess: (row) => {
             setPendingItem(null)
-            // Align our mirror ref with the now-committed value so the
-            // external-value effect above doesn't immediately overwrite
-            // the same text with an identical value (wasted render).
             lastExternalNameRef.current = row.name
             onChange(row)
           },
@@ -162,7 +153,6 @@ export function GameCombobox({
               name: g.name,
               iconUrl: g.iconUrl,
               logoUrl: g.logoUrl,
-              year: yearFromIsoDate(g.releaseDate),
             }))
         : []
 
@@ -186,11 +176,6 @@ export function GameCombobox({
     if (merged.some((r) => r.id === value.steamgriddbId)) return merged
     return [pickedAsItem, ...merged]
   }, [searchQuery.data, gamesListQuery.data, debouncedQuery, value])
-
-  const pickedYear = React.useMemo(
-    () => yearFromIsoDate(value?.releaseDate),
-    [value?.releaseDate]
-  )
 
   const controlledValue: GameComboboxItem | null = cleared
     ? null
@@ -265,13 +250,6 @@ export function GameCombobox({
             {effectiveItems.length === 0
               ? null
               : effectiveItems.slice(0, visibleCount).map((item) => {
-                  const year =
-                    item.year ??
-                    (item.release_date
-                      ? new Date(item.release_date * 1000).getFullYear()
-                      : value && item.id === value.steamgriddbId
-                        ? pickedYear
-                        : null)
                   return (
                     <ComboboxItem key={item.id} value={item} className="py-2">
                       <div className="flex min-w-0 items-center gap-2">
@@ -280,15 +258,10 @@ export function GameCombobox({
                           name={item.name}
                           size="lg"
                         />
-                        <div className="flex min-w-0 items-center gap-1.5">
+                        <div className="min-w-0">
                           <span className="truncate text-sm text-foreground">
                             {item.name}
                           </span>
-                          {year ? (
-                            <span className="shrink-0 text-xs text-foreground-faint">
-                              {year}
-                            </span>
-                          ) : null}
                         </div>
                       </div>
                     </ComboboxItem>

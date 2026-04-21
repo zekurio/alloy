@@ -16,10 +16,10 @@ function Switch({
       data-slot="switch"
       data-size={size}
       className={cn(
-        "peer group/switch relative inline-flex shrink-0 items-center rounded-full border border-transparent",
+        "peer group/switch relative inline-flex shrink-0 items-center rounded-full",
         "bg-neutral-200 transition-colors duration-[var(--duration-base)] ease-[var(--ease-out)]",
         "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-        "aria-invalid:border-destructive",
+        "aria-invalid:ring-2 aria-invalid:ring-destructive",
         "data-checked:bg-accent",
         "data-disabled:cursor-not-allowed data-disabled:opacity-50",
         "data-[size=default]:h-4 data-[size=default]:w-7",

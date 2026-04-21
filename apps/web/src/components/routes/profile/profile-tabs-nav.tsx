@@ -45,7 +45,7 @@ export function ProfileTabsNav({ username, clipsCount }: ProfileTabsNavProps) {
             data-active={isActive ? "true" : undefined}
             className={cn(
               "group/tabs-trigger relative inline-flex h-8 items-center gap-2 px-0.5",
-              "text-sm font-medium whitespace-nowrap text-foreground-dim",
+              "text-sm font-semibold whitespace-nowrap text-foreground-muted",
               "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
               "outline-none focus-visible:text-foreground",
               "hover:text-foreground",

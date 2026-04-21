@@ -1,4 +1,5 @@
 import { DownloadIcon, SettingsIcon } from "lucide-react"
+import * as React from "react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -15,17 +16,22 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
+import { cn } from "@workspace/ui/lib/utils"
 
 export function SettingsMenu({
   qualityOptions = [],
   selectedQualityId,
   onSelectQuality,
   downloadOptions = [],
+  triggerClassName,
+  triggerStyle,
 }: {
   qualityOptions?: Array<{ id: string; label: string }>
   selectedQualityId?: string
   onSelectQuality?: (qualityId: string) => void
   downloadOptions?: Array<{ id: string; label: string; url: string }>
+  triggerClassName?: string
+  triggerStyle?: React.CSSProperties
 }) {
   const hasQualityChoices =
     qualityOptions.length > 1 && Boolean(onSelectQuality)
@@ -40,7 +46,11 @@ export function SettingsMenu({
             variant="ghost"
             size="icon-sm"
             aria-label="Settings"
-            className="text-foreground hover:bg-[color-mix(in_oklab,var(--neutral-900)_10%,transparent)]"
+            className={cn(
+              "rounded-full text-white/82 hover:bg-white/10 hover:text-white",
+              triggerClassName
+            )}
+            style={triggerStyle}
           >
             <SettingsIcon />
           </Button>

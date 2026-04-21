@@ -9,7 +9,7 @@ export function StatInline({ value, label }: StatInlineProps) {
       <span className="text-sm font-semibold text-foreground tabular-nums">
         {value.toLocaleString()}
       </span>
-      <span className="text-xs text-foreground-faint uppercase tracking-wide">
+      <span className="text-xs font-semibold tracking-wide text-foreground-muted uppercase">
         {label}
       </span>
     </span>

@@ -8,10 +8,16 @@ function AppShell({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="app-shell"
       className={cn(
         "relative grid h-dvh w-full overflow-hidden bg-background",
-        "[grid-template-columns:var(--sidebar-rail)_1fr]",
-        "[grid-template-rows:var(--header-h)_1fr]",
-        "[grid-template-areas:'header_header''sidebar_main']",
+        // Mobile: single column with bottom nav row (safe-area aware).
+        "[grid-template-columns:1fr]",
+        "[grid-template-rows:var(--header-h)_1fr_calc(var(--bottomnav-h)_+_env(safe-area-inset-bottom,0px))]",
+        "[grid-template-areas:'header''main''bottomnav']",
+        // Desktop (md+): classic sidebar rail + main, header spans both.
+        "md:[grid-template-columns:var(--sidebar-rail)_1fr]",
+        "md:[grid-template-rows:var(--header-h)_1fr]",
+        "md:[grid-template-areas:'header_header''sidebar_main']",
         "[&_[data-slot=app-sidebar]]:[grid-area:sidebar]",
+        "[&_[data-slot=app-bottom-nav]]:[grid-area:bottomnav]",
         "[&_[data-slot=app-header]]:[grid-area:header]",
         "[&_[data-slot=app-main]]:[grid-area:main]",
         className

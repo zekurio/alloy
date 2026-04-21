@@ -13,15 +13,30 @@ interface ClipPlayerProps {
   clipId: string
   /** MIME type of the uploaded source, used to decide if native playback can start on source quality. */
   sourceContentType?: string
-  thumbnail?: string
+  width?: number | null
+  height?: number | null
+  thumbnail?: string | null
   variants?: ClipEncodedVariant[]
   onPlayThreshold?: () => void
   className?: string
+  /** Override the aspect ratio derived from source dimensions. */
+  aspectRatio?: number
 }
 
 const FALLBACK_ENCODED_OPTION = {
   id: "encoded",
   label: "Playback MP4",
+}
+const DEFAULT_ASPECT_RATIO = 16 / 9
+
+function aspectRatioFromDimensions(
+  width: number | null | undefined,
+  height: number | null | undefined
+): number {
+  if (!width || !height || width <= 0 || height <= 0) {
+    return DEFAULT_ASPECT_RATIO
+  }
+  return width / height
 }
 
 function canPlayNativeVideo(contentType: string | undefined): boolean {
@@ -33,12 +48,18 @@ function canPlayNativeVideo(contentType: string | undefined): boolean {
 function ClipPlayer({
   clipId,
   sourceContentType,
+  width,
+  height,
   thumbnail,
   variants = [],
   onPlayThreshold,
   className,
+  aspectRatio: aspectRatioProp,
 }: ClipPlayerProps) {
-  const poster = thumbnail ?? clipThumbnailUrl(clipId)
+  const poster =
+    thumbnail === undefined
+      ? clipThumbnailUrl(clipId)
+      : (thumbnail ?? undefined)
   const sortedVariants = React.useMemo(
     () =>
       variants
@@ -98,11 +119,23 @@ function ClipPlayer({
   ]
 
   const src = clipStreamUrl(clipId, selectedQualityId)
+  const selectedVariant =
+    selectedQualityId === "source"
+      ? null
+      : (sortedVariants.find((variant) => variant.id === selectedQualityId) ??
+        null)
+  const aspectRatio =
+    aspectRatioProp ??
+    aspectRatioFromDimensions(
+      selectedVariant?.width ?? width,
+      selectedVariant?.height ?? height
+    )
 
   return (
     <VideoPlayer
       src={src}
       poster={poster}
+      aspectRatio={aspectRatio}
       className={className}
       sourceIdentity={`${clipId}:${selectedQualityId}`}
       qualityOptions={qualityOptions}

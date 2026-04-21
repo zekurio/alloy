@@ -22,7 +22,7 @@ export function MobileWarningBanner() {
     >
       <TriangleAlertIcon className="mt-0.5 size-4 flex-none text-warning" />
       <p className="min-w-0 flex-1 leading-normal">
-        Alloy isn't optimized for mobile yet — some layouts may look off. For
+        alloy isn't optimized for mobile yet — some layouts may look off. For
         the best experience, use a desktop browser.
       </p>
       <button

@@ -13,6 +13,7 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
+    "@better-auth/passkey": "^1.6.6",
     "@workspace/server": "workspace:*",
     "better-auth": "^1.6.6",
     "hono": "^4.12.14",

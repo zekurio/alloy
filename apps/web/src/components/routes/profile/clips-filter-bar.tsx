@@ -69,7 +69,7 @@ export function ClipsFilterBar({
     <div className="mb-6 flex flex-wrap items-center gap-3">
       {/* Sort group */}
       <div className="flex items-center gap-1.5">
-        <span className="pr-1 text-xs font-medium text-foreground-faint uppercase tracking-wide">
+        <span className="pr-1 text-xs font-semibold tracking-wide text-foreground-muted uppercase">
           Sort
         </span>
         {SORT_OPTIONS.map((opt) => (
@@ -97,7 +97,7 @@ export function ClipsFilterBar({
       {/* Game filter */}
       {gameOptions.length > 0 ? (
         <div className="flex items-center gap-1.5">
-          <span className="pr-1 text-xs font-medium text-foreground-faint uppercase tracking-wide">
+          <span className="pr-1 text-xs font-semibold tracking-wide text-foreground-muted uppercase">
             Game
           </span>
           {gameSlug && selectedGame ? (
@@ -142,7 +142,7 @@ export function ClipsFilterBar({
                       size="sm"
                     />
                     <span className="truncate">{g.name}</span>
-                    <span className="ml-auto text-xs text-foreground-faint tabular-nums">
+                    <span className="ml-auto text-xs font-semibold text-foreground-muted tabular-nums">
                       {g.count}
                     </span>
                   </DropdownMenuItem>

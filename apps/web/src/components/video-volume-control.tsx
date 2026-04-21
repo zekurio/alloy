@@ -58,7 +58,7 @@ export function VolumeControl({
         size="icon-sm"
         aria-label={muted ? "Unmute" : "Mute"}
         onClick={onToggleMute}
-        className="text-foreground hover:bg-[color-mix(in_oklab,var(--neutral-900)_10%,transparent)]"
+        className="rounded-full text-white/82 hover:bg-white/10 hover:text-white"
       >
         <Icon />
       </Button>
@@ -86,7 +86,7 @@ export function VolumeControl({
         }}
         className={cn(
           "relative h-1 cursor-pointer touch-none overflow-hidden rounded-full",
-          "bg-[color-mix(in_oklab,var(--neutral-900)_18%,transparent)]",
+          "bg-white/16",
           "w-0 opacity-0 transition-[width,opacity] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
           "group-hover/vol:ml-1 group-hover/vol:w-16 group-hover/vol:opacity-100",
           "focus-within:ml-1 focus-within:w-16 focus-within:opacity-100",

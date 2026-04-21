@@ -41,8 +41,10 @@ type SharedPlayerProps = {
 
 interface VideoPlayerProps extends SharedPlayerProps {
   src: string | File
-  /** Thumbnail rendered by the native video element until the first frame. */
+  /** Thumbnail shown in a controlled overlay until a decoded frame is ready. */
   poster?: string
+  /** Stable box ratio. When omitted, the player falls back to 16:9. */
+  aspectRatio?: number
   sourceIdentity?: string
   /** Default true. Set false to hide the Alloy chrome. */
   controls?: boolean
@@ -52,9 +54,7 @@ interface VideoPlayerProps extends SharedPlayerProps {
   playbackRate?: number
 }
 
-type SourceSpec =
-  | { kind: "url"; url: string }
-  | { kind: "file"; file: File }
+type SourceSpec = { kind: "url"; url: string } | { kind: "file"; file: File }
 
 function toSourceSpec(src: string | File): SourceSpec {
   return typeof src === "string"
@@ -88,6 +88,7 @@ function useMediaUrl(spec: SourceSpec): string | null {
 export function VideoPlayer({
   src,
   sourceIdentity,
+  aspectRatio,
   controls = true,
   autoPlay = false,
   loop = false,
@@ -104,6 +105,7 @@ export function VideoPlayer({
       key={specKey}
       spec={spec}
       identity={identity}
+      aspectRatio={aspectRatio}
       controls={controls}
       autoPlay={autoPlay}
       loop={loop}
@@ -118,6 +120,7 @@ type PlayerCoreProps = SharedPlayerProps & {
   spec: SourceSpec
   identity: string
   poster?: string
+  aspectRatio?: number
   controls: boolean
   autoPlay: boolean
   loop: boolean
@@ -129,6 +132,7 @@ function PlayerCore({
   spec,
   identity,
   poster,
+  aspectRatio,
   controls,
   autoPlay,
   loop,
@@ -160,6 +164,7 @@ function PlayerCore({
   const [playing, setPlaying] = React.useState(false)
   const [volume, setVolumeState] = React.useState(1)
   const [muted, setMutedState] = React.useState(initialMuted)
+  const [hasRenderedFrame, setHasRenderedFrame] = React.useState(false)
 
   const onTimeUpdateRef = React.useRef(onTimeUpdate)
   const onPlayingChangeRef = React.useRef(onPlayingChange)
@@ -195,6 +200,15 @@ function PlayerCore({
     setPlaying(next)
     onPlayingChangeRef.current?.(next)
   }, [])
+
+  React.useEffect(() => {
+    setStatus({ kind: "loading" })
+    setDuration(0)
+    setCurrentTime(0)
+    setBufferedEnd(0)
+    setHasRenderedFrame(false)
+    setPlayingState(false)
+  }, [identity, mediaUrl, setPlayingState])
 
   const reportError = React.useCallback(() => {
     const video = videoRef.current
@@ -350,57 +364,87 @@ function PlayerCore({
     onPlayThreshold,
   })
 
-  const video = (
-    <video
-      ref={videoRef}
-      src={mediaUrl ?? undefined}
-      poster={poster}
-      autoPlay={autoPlay}
-      loop={loop}
-      muted={muted}
-      playsInline
-      preload="metadata"
-      controls={false}
-      onClick={controls ? undefined : onVideoClick}
-      onLoadedMetadata={() => {
-        const element = videoRef.current
-        if (!element) return
-        const nextDuration = Number.isFinite(element.duration)
-          ? element.duration
-          : 0
-        setDuration(nextDuration)
-        setCurrentTime(element.currentTime || 0)
-        setBufferedEnd(0)
-        element.volume = volumeRef.current
-        element.muted = mutedRef.current
-        element.playbackRate = playbackRate
-        setStatus({ kind: "ready" })
-        syncBuffered()
-        if (autoPlay) void playInternal()
-      }}
-      onDurationChange={syncTime}
-      onTimeUpdate={() => {
-        syncTime()
-        syncBuffered()
-      }}
-      onProgress={syncBuffered}
-      onPlay={() => setPlayingState(true)}
-      onPause={() => setPlayingState(false)}
-      onEnded={() => {
-        setPlayingState(false)
-        syncTime()
-      }}
-      onError={reportError}
-      // Bleeds 1px past every edge; the shell's overflow-hidden clips it.
-      // Stops Chromium's sub-pixel seam when an ancestor has a transform.
-      className="absolute -inset-px block bg-black object-contain"
-    />
+  const handleLoadedMetadata = React.useCallback(() => {
+    const element = videoRef.current
+    if (!element) return
+    const nextDuration = Number.isFinite(element.duration)
+      ? element.duration
+      : 0
+    setDuration(nextDuration)
+    setCurrentTime(element.currentTime || 0)
+    setBufferedEnd(0)
+    element.volume = volumeRef.current
+    element.muted = mutedRef.current
+    element.playbackRate = playbackRate
+    setStatus({ kind: "ready" })
+    syncBuffered()
+    if (autoPlay) void playInternal()
+  }, [autoPlay, playbackRate, playInternal, syncBuffered])
+
+  const handleLoadedData = React.useCallback(() => {
+    setHasRenderedFrame(true)
+  }, [])
+
+  const posterVisible = Boolean(poster) && !hasRenderedFrame
+
+  const handleTimeUpdate = React.useCallback(() => {
+    syncTime()
+    syncBuffered()
+  }, [syncBuffered, syncTime])
+
+  const renderVideo = (
+    clickHandler?: React.MouseEventHandler<HTMLVideoElement>
+  ) => (
+    <>
+      <div aria-hidden className="absolute inset-0 bg-black" />
+      {posterVisible ? (
+        <img
+          src={poster}
+          alt=""
+          aria-hidden
+          className={cn(
+            "absolute inset-0 size-full object-contain object-center",
+            "transition-opacity duration-200 ease-out"
+          )}
+          decoding="async"
+          fetchPriority="high"
+        />
+      ) : null}
+      <video
+        ref={videoRef}
+        src={mediaUrl ?? undefined}
+        autoPlay={autoPlay}
+        loop={loop}
+        muted={muted}
+        playsInline
+        preload="metadata"
+        controls={false}
+        onClick={clickHandler}
+        onLoadedMetadata={handleLoadedMetadata}
+        onLoadedData={handleLoadedData}
+        onDurationChange={syncTime}
+        onTimeUpdate={handleTimeUpdate}
+        onProgress={syncBuffered}
+        onPlay={() => setPlayingState(true)}
+        onPause={() => setPlayingState(false)}
+        onEnded={() => {
+          setPlayingState(false)
+          syncTime()
+        }}
+        onError={reportError}
+        className="absolute inset-0 block h-full w-full object-contain object-center"
+      />
+    </>
   )
 
   if (!controls) {
     return (
-      <BareShell className={className} status={status}>
-        {video}
+      <BareShell
+        className={className}
+        status={status}
+        aspectRatio={aspectRatio}
+      >
+        {renderVideo(onVideoClick)}
       </BareShell>
     )
   }
@@ -409,6 +453,7 @@ function PlayerCore({
     <ChromeShell
       containerRef={containerRef}
       className={className}
+      aspectRatio={aspectRatio}
       playing={playing}
       onKeyCommand={{
         togglePlay,
@@ -425,35 +470,48 @@ function PlayerCore({
         },
       }}
     >
-      {React.cloneElement(video, {
-        onClick: (e: React.MouseEvent<HTMLVideoElement>) => {
-          onVideoClick?.(e)
-          togglePlay()
-        },
+      {renderVideo((e: React.MouseEvent<HTMLVideoElement>) => {
+        onVideoClick?.(e)
+        togglePlay()
       })}
 
       {status.kind !== "ready" ? null : !playing ? (
-        <button
-          type="button"
-          aria-label="Play"
-          onClick={togglePlay}
+        <div
           className={cn(
-            "absolute inset-0 grid place-items-center",
-            "bg-[color-mix(in_oklab,var(--neutral-0)_40%,transparent)]",
+            "pointer-events-none absolute inset-0 grid place-items-center",
             "transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]"
           )}
         >
-          <span
+          <div
+            aria-hidden
             className={cn(
-              "grid size-14 place-items-center rounded-full",
-              "bg-accent text-accent-foreground",
-              "transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-              "group-hover/video:scale-105"
+              "absolute inset-0 transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+              posterVisible
+                ? "bg-gradient-to-t from-black/40 via-black/10 to-transparent"
+                : "bg-black/12"
             )}
+          />
+          <button
+            type="button"
+            aria-label="Play"
+            onClick={togglePlay}
+            className={cn(
+              "pointer-events-auto relative z-10 grid size-16 place-items-center rounded-full border",
+              "alloy-glass text-white",
+              "transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+              "hover:scale-[1.03]"
+            )}
+            style={
+              {
+                "--alloy-glass-hue": "var(--surface)",
+                "--alloy-glass-opacity": "60%",
+                "--alloy-glass-shadow": "0 18px 50px -24px rgb(0 0 0 / 0.9)",
+              } as React.CSSProperties
+            }
           >
             <PlayIcon className="size-5 translate-x-[1px]" />
-          </span>
-        </button>
+          </button>
+        </div>
       ) : null}
 
       <LoadOverlay status={status} />

@@ -21,6 +21,7 @@ function ProfileFeedTab() {
     <>
       <GamesSection clips={clips} username={username} />
       <ClipsSection
+        username={username}
         clips={clips}
         error={clipsError}
         variant="recent"

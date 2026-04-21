@@ -28,48 +28,72 @@ function AppSidebarGroup({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function AppSidebarItem({
-  className,
-  active,
-  title,
-  render,
-  ...props
-}: useRender.ComponentProps<"button"> & { active?: boolean }) {
-  // `data-slot` + `data-active` get emitted by Base UI's default style-hook
-  // mapping off the `state` object below (truthy keys → `data-<key>`). That
-  // lets us keep mergeProps typed as plain button attrs — passing a literal
-  // `"data-slot"` here would be rejected by React's button props type.
+interface NavItemStyle {
+  slot: string
+  className: string
+}
+
+type NavItemProps = useRender.ComponentProps<"button"> & { active?: boolean }
+
+function useNavItem(
+  style: NavItemStyle,
+  { className, active, title, render, ...props }: NavItemProps
+) {
   return useRender({
     defaultTagName: "button",
     props: mergeProps<"button">(
       {
         type: "button",
         title,
-        className: cn(
-          "group/app-sidebar-item relative flex h-[34px] w-full items-center justify-center rounded-md",
-          "text-foreground-muted",
-          "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-          // Hover styles are gated on `not-data-active` so they don't clobber
-          // the accent colours when the pointer is still over an item the
-          // user just selected (hover → click → hover lingers; without the
-          // gate the active item briefly flashes back to the muted hover bg).
-          "not-data-active:hover:bg-surface-raised not-data-active:hover:text-foreground",
-          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-          "data-active:bg-accent-soft data-active:text-accent",
-          // active bar indicator
-          "data-active:before:absolute data-active:before:top-1/2 data-active:before:-left-1.5",
-          "data-active:before:h-4 data-active:before:w-[2px] data-active:before:-translate-y-1/2",
-          "data-active:before:bg-accent data-active:before:shadow-[0_0_6px_var(--accent-glow)]",
-          "data-active:before:content-['']",
-          "[&_svg]:size-[18px] [&_svg]:shrink-0",
-          className
-        ),
+        "aria-label": title,
+        className: cn(style.className, className),
       },
       props
     ),
     render,
-    state: { slot: "app-sidebar-item", active: active ?? false },
+    state: { slot: style.slot, active: active ?? false },
   })
+}
+
+const SIDEBAR_ITEM_STYLE: NavItemStyle = {
+  slot: "app-sidebar-item",
+  className: cn(
+    "group/app-sidebar-item relative flex h-[34px] w-full items-center justify-center rounded-md",
+    "text-foreground-muted",
+    "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+    "not-data-active:hover:bg-surface-raised not-data-active:hover:text-foreground",
+    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+    "data-active:bg-accent-soft data-active:text-accent",
+    // active bar indicator
+    "data-active:before:absolute data-active:before:top-1/2 data-active:before:-left-1.5",
+    "data-active:before:h-4 data-active:before:w-[2px] data-active:before:-translate-y-1/2",
+    "data-active:before:bg-accent data-active:before:shadow-[0_0_6px_var(--accent-glow)]",
+    "data-active:before:content-['']",
+    "[&_svg]:size-[18px] [&_svg]:shrink-0"
+  ),
+}
+
+const BOTTOM_NAV_ITEM_STYLE: NavItemStyle = {
+  slot: "app-bottom-nav-item",
+  className: cn(
+    "group/app-bottom-nav-item relative flex flex-1 items-center justify-center",
+    "min-h-[48px] rounded-md text-foreground-muted",
+    "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+    "not-data-active:hover:text-foreground",
+    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+    "data-active:text-accent",
+    // Active dot indicator at the top of the item.
+    "data-active:before:absolute data-active:before:top-1 data-active:before:left-1/2",
+    "data-active:before:h-[3px] data-active:before:w-6 data-active:before:-translate-x-1/2",
+    "data-active:before:rounded-full data-active:before:bg-accent",
+    "data-active:before:shadow-[0_0_8px_var(--accent-glow)]",
+    "data-active:before:content-['']",
+    "[&_svg]:size-6 [&_svg]:shrink-0"
+  ),
+}
+
+function AppSidebarItem(props: NavItemProps) {
+  return useNavItem(SIDEBAR_ITEM_STYLE, props)
 }
 
 function AppSidebarFooter({
@@ -88,4 +112,30 @@ function AppSidebarFooter({
   )
 }
 
-export { AppSidebar, AppSidebarGroup, AppSidebarItem, AppSidebarFooter }
+function AppBottomNav({ className, ...props }: React.ComponentProps<"nav">) {
+  return (
+    <nav
+      data-slot="app-bottom-nav"
+      className={cn(
+        "relative z-10 flex items-stretch justify-around gap-1",
+        "h-full border-t border-border bg-surface-sunken",
+        "px-2 pb-[env(safe-area-inset-bottom,0px)]",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+function AppBottomNavItem(props: NavItemProps) {
+  return useNavItem(BOTTOM_NAV_ITEM_STYLE, props)
+}
+
+export {
+  AppSidebar,
+  AppSidebarGroup,
+  AppSidebarItem,
+  AppSidebarFooter,
+  AppBottomNav,
+  AppBottomNavItem,
+}

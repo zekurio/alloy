@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useForm } from "@tanstack/react-form"
 import { useRouter } from "@tanstack/react-router"
 
 import {
@@ -11,6 +12,7 @@ import { Card, CardContent, CardFooter } from "@workspace/ui/components/card"
 import {
   Field,
   FieldDescription,
+  FieldError,
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
@@ -18,14 +20,14 @@ import { toast } from "@workspace/ui/components/sonner"
 
 import { authClient } from "../../../lib/auth-client"
 import {
+  validateRequiredString,
+  validateUsername,
+} from "../../../lib/form-validators"
+import {
   avatarTint,
   displayInitials,
   displayName,
 } from "../../../lib/user-display"
-
-const USERNAME_MIN_LEN = 1
-const USERNAME_MAX_LEN = 24
-const USERNAME_RE = /^[a-z0-9_-]+$/
 
 type ProfileCardProps = {
   userId: string
@@ -43,147 +45,219 @@ export function ProfileCard({
   email,
 }: ProfileCardProps) {
   const router = useRouter()
-  const [name, setName] = React.useState(initialName)
-  const [username, setUsername] = React.useState(initialUsername)
-  const [pending, setPending] = React.useState(false)
+  const form = useForm({
+    defaultValues: {
+      name: initialName,
+      username: initialUsername,
+    } as { name: string; username: string },
+    onSubmit: async ({ value }) => {
+      const trimmedName = value.name.trim()
+      const trimmedUsername = value.username.trim()
+      const nameDirty = trimmedName !== initialName.trim()
+      const usernameDirty = trimmedUsername !== initialUsername.trim()
 
-  const trimmedName = name.trim()
-  const trimmedUsername = username.trim()
-
-  const nameDirty = trimmedName !== initialName.trim()
-  const usernameDirty = trimmedUsername !== initialUsername.trim()
-  const dirty = nameDirty || usernameDirty
-
-  const usernameError = usernameDirty
-    ? validateUsername(trimmedUsername)
-    : null
-
-  const preview = {
-    name: displayName({
-      id: userId,
-      name: trimmedName || null,
-      email,
-      image: image || null,
-    }),
-    image: image || undefined,
-  }
-  const initials = displayInitials(preview.name)
-  const { bg, fg } = avatarTint(userId || preview.name)
-
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (pending || !dirty) return
-    if (usernameError) {
-      toast.error(usernameError)
-      return
-    }
-    setPending(true)
-    try {
-      if (nameDirty) {
-        const { error } = await authClient.updateUser({ name: trimmedName })
-        if (error) {
-          toast.error(error.message ?? "Couldn't save")
-          return
-        }
+      if (!nameDirty && !usernameDirty) {
+        return
       }
-      if (usernameDirty) {
-        const { error } = await authClient.updateUser({
-          username: trimmedUsername,
-        })
-        if (error) {
-          toast.error(error.message ?? "Couldn't update username")
-          return
+
+      try {
+        if (nameDirty) {
+          const { error } = await authClient.updateUser({ name: trimmedName })
+          if (error) {
+            toast.error(error.message ?? "Couldn't save")
+            return
+          }
         }
+
+        if (usernameDirty) {
+          const { error } = await authClient.updateUser({
+            username: trimmedUsername,
+          })
+          if (error) {
+            toast.error(error.message ?? "Couldn't update username")
+            return
+          }
+        }
+
+        toast.success("Saved")
+        await router.invalidate()
+      } catch (cause) {
+        toast.error(
+          cause instanceof Error ? cause.message : "Something went wrong"
+        )
       }
-      toast.success("Saved")
-      await router.invalidate()
-    } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Something went wrong"
-      )
-    } finally {
-      setPending(false)
-    }
-  }
+    },
+  })
+
+  React.useEffect(() => {
+    form.reset({
+      name: initialName,
+      username: initialUsername,
+    })
+  }, [form, initialName, initialUsername])
 
   return (
-    <form onSubmit={onSubmit}>
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        void form.handleSubmit()
+      }}
+    >
       <Card>
         <CardContent className="flex flex-col gap-4">
-          <div className="flex items-center gap-4">
-            <Avatar size="xl" style={{ background: bg, color: fg }}>
-              {preview.image ? (
-                <AvatarImage src={preview.image} alt={preview.name} />
-              ) : null}
-              <AvatarFallback style={{ background: bg, color: fg }}>
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-medium text-foreground">
-                {preview.name}
-              </span>
-              <span className="font-mono text-2xs text-foreground-faint">
-                {email}
-              </span>
-            </div>
-          </div>
+          <form.Subscribe selector={(state) => state.values.name}>
+            {(currentName) => {
+              const previewName = displayName({
+                id: userId,
+                name: currentName.trim() || null,
+                email,
+                image: image || null,
+              })
+              const initials = displayInitials(previewName)
+              const { bg, fg } = avatarTint(userId || previewName)
 
-          <Field>
-            <FieldLabel htmlFor="profile-name">Display name</FieldLabel>
-            <Input
-              id="profile-name"
-              type="text"
-              autoComplete="name"
-              value={name}
-              required
-              maxLength={128}
-              onChange={(e) => setName(e.target.value)}
-              disabled={pending}
-            />
-          </Field>
+              return (
+                <div className="flex items-center gap-4">
+                  <Avatar size="xl" style={{ background: bg, color: fg }}>
+                    {image ? (
+                      <AvatarImage src={image} alt={previewName} />
+                    ) : null}
+                    <AvatarFallback style={{ background: bg, color: fg }}>
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-medium text-foreground">
+                      {previewName}
+                    </span>
+                    <span className="text-sm text-foreground-faint">
+                      {email}
+                    </span>
+                  </div>
+                </div>
+              )
+            }}
+          </form.Subscribe>
 
-          <Field>
-            <FieldLabel htmlFor="profile-username">Username</FieldLabel>
-            <Input
-              id="profile-username"
-              type="text"
-              autoComplete="username"
-              value={username}
-              required
-              minLength={USERNAME_MIN_LEN}
-              maxLength={USERNAME_MAX_LEN}
-              onChange={(e) => setUsername(e.target.value.toLowerCase())}
-              disabled={pending}
-              aria-invalid={usernameError ? true : undefined}
-            />
-            <FieldDescription>
-              {usernameError ??
-                "Lowercase letters, numbers, underscores and hyphens. Used in your profile URL."}
-            </FieldDescription>
-          </Field>
+          <form.Field
+            name="name"
+            validators={{
+              onChange: ({ value }) =>
+                validateRequiredString(value, "Display name"),
+            }}
+          >
+            {(field) => {
+              const showError =
+                field.state.meta.isTouched || form.state.submissionAttempts > 0
+              const invalid = showError && !field.state.meta.isValid
+
+              return (
+                <Field>
+                  <FieldLabel htmlFor={field.name} required>
+                    Display name
+                  </FieldLabel>
+                  <Input
+                    id={field.name}
+                    type="text"
+                    autoComplete="name"
+                    value={field.state.value}
+                    maxLength={128}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    disabled={form.state.isSubmitting}
+                    aria-invalid={invalid || undefined}
+                    aria-describedby={
+                      invalid ? `${field.name}-error` : undefined
+                    }
+                  />
+                  <FieldError
+                    id={`${field.name}-error`}
+                    errors={showError ? field.state.meta.errors : undefined}
+                  />
+                </Field>
+              )
+            }}
+          </form.Field>
+
+          <form.Field
+            name="username"
+            validators={{
+              onChange: ({ value }) => validateUsername(value.trim()),
+            }}
+          >
+            {(field) => {
+              const showError =
+                field.state.meta.isTouched || form.state.submissionAttempts > 0
+              const invalid = showError && !field.state.meta.isValid
+
+              return (
+                <Field>
+                  <FieldLabel htmlFor={field.name} required>
+                    Username
+                  </FieldLabel>
+                  <Input
+                    id={field.name}
+                    type="text"
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) =>
+                      field.handleChange(e.target.value.toLowerCase())
+                    }
+                    disabled={form.state.isSubmitting}
+                    aria-invalid={invalid || undefined}
+                    aria-describedby={
+                      invalid ? `${field.name}-error` : undefined
+                    }
+                  />
+                  <FieldDescription>
+                    Lowercase letters, numbers, underscores and hyphens. Used in
+                    your profile URL.
+                  </FieldDescription>
+                  <FieldError
+                    id={`${field.name}-error`}
+                    errors={showError ? field.state.meta.errors : undefined}
+                  />
+                </Field>
+              )
+            }}
+          </form.Field>
         </CardContent>
 
         <CardFooter>
-          <Button
-            type="submit"
-            variant="primary"
-            size="sm"
-            disabled={pending || !dirty || Boolean(usernameError)}
+          <form.Subscribe
+            selector={(state) =>
+              [
+                state.values.name,
+                state.values.username,
+                state.canSubmit,
+                state.isSubmitting,
+              ] as const
+            }
           >
-            {pending ? "Saving…" : "Save changes"}
-          </Button>
+            {([currentName, currentUsername, canSubmit, isSubmitting]) => {
+              const dirty =
+                currentName.trim() !== initialName.trim() ||
+                currentUsername.trim() !== initialUsername.trim()
+
+              return (
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  disabled={!dirty || !canSubmit}
+                >
+                  {isSubmitting ? "Saving…" : "Save changes"}
+                </Button>
+              )
+            }}
+          </form.Subscribe>
         </CardFooter>
       </Card>
     </form>
   )
-}
-
-function validateUsername(value: string): string | null {
-  if (value.length < USERNAME_MIN_LEN) return "Username can't be empty"
-  if (value.length > USERNAME_MAX_LEN)
-    return `Username can be at most ${USERNAME_MAX_LEN} characters`
-  if (!USERNAME_RE.test(value))
-    return "Only lowercase letters, numbers, underscores and hyphens"
-  return null
 }

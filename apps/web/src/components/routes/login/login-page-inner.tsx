@@ -1,31 +1,31 @@
-import { Link } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router"
 
-import { AlloyLogo } from "@workspace/ui/components/alloy-logo";
-import { FieldSeparator } from "@workspace/ui/components/field";
+import { AlloyLogo } from "@workspace/ui/components/alloy-logo"
+import { FieldSeparator } from "@workspace/ui/components/field"
 
-import { LoginArtwork } from "../../../components/login-artwork";
-import { useRedirectIfAuthed } from "../../../lib/auth-hooks";
-import type { fetchAuthConfig } from "../../../lib/auth-config";
-import type { fetchPublicClips } from "../../../lib/public-clips";
+import { LoginArtwork } from "../../../components/login-artwork"
+import { useRedirectIfAuthed } from "../../../lib/auth-hooks"
+import type { fetchAuthConfig } from "../../../lib/auth-config"
+import type { fetchPublicClips } from "../../../lib/public-clips"
 
-import { EmailPasswordForm } from "./email-password-form";
-import { OAuthSignIn } from "./oauth-sign-in";
-import { PasskeySignIn } from "./passkey-sign-in";
+import { EmailPasswordForm } from "./email-password-form"
+import { OAuthSignIn } from "./oauth-sign-in"
+import { PasskeySignIn } from "./passkey-sign-in"
 
-type LoginConfig = Awaited<ReturnType<typeof fetchAuthConfig>>;
-type PublicClips = Awaited<ReturnType<typeof fetchPublicClips>>;
+type LoginConfig = Awaited<ReturnType<typeof fetchAuthConfig>>
+type PublicClips = Awaited<ReturnType<typeof fetchPublicClips>>
 
 type LoginPageInnerProps = {
-  config: LoginConfig;
-  clips: PublicClips;
-};
+  config: LoginConfig
+  clips: PublicClips
+}
 
 export function LoginPageInner({ config, clips }: LoginPageInnerProps) {
-  const canRender = useRedirectIfAuthed("/");
-  if (!canRender) return null;
+  const canRender = useRedirectIfAuthed("/")
+  if (!canRender) return null
 
-  const { provider, emailPasswordEnabled, openRegistrations } = config;
-  const canSignUp = emailPasswordEnabled && openRegistrations;
+  const { provider, emailPasswordEnabled, openRegistrations } = config
+  const canSignUp = emailPasswordEnabled && openRegistrations
 
   return (
     <div className="relative grid min-h-screen w-full bg-background text-foreground lg:grid-cols-[1fr_minmax(480px,0.7fr)]">
@@ -81,5 +81,5 @@ export function LoginPageInner({ config, clips }: LoginPageInnerProps) {
         </div>
       </div>
     </div>
-  );
+  )
 }

@@ -4,6 +4,7 @@ import { TagIcon } from "lucide-react"
 import {
   SectionActions,
   SectionHead,
+  SectionMeta,
   SectionTitle,
 } from "@workspace/ui/components/section-head"
 import { Skeleton } from "@workspace/ui/components/skeleton"
@@ -11,7 +12,10 @@ import { Skeleton } from "@workspace/ui/components/skeleton"
 import { ClipCardList } from "../../components/clip-card-list"
 import { ClipGrid } from "../../components/clip-grid"
 import { EmptyState } from "../../components/empty-state"
-import { useTaggedClipsQuery, useUserProfileQuery } from "../../lib/user-queries"
+import {
+  useTaggedClipsQuery,
+  useUserProfileQuery,
+} from "../../lib/user-queries"
 import { useQueryErrorToast } from "../../lib/use-query-error-toast"
 
 export const Route = createFileRoute("/(app)/_app/u/$username/tagged")({
@@ -42,9 +46,9 @@ function ProfileTaggedTab() {
         </div>
         <SectionActions>
           {clips ? (
-            <span className="text-xs text-foreground-faint tabular-nums">
+            <SectionMeta>
               {clips.length} {clips.length === 1 ? "clip" : "clips"}
-            </span>
+            </SectionMeta>
           ) : null}
         </SectionActions>
       </SectionHead>
@@ -69,7 +73,11 @@ function ProfileTaggedTab() {
           hint="Clips where this user is tagged will show up here."
         />
       ) : (
-        <ClipCardList rows={clips} isOwnedByViewer={() => isSelf} />
+        <ClipCardList
+          rows={clips}
+          isOwnedByViewer={() => isSelf}
+          listKey={`profile:${username}:tagged`}
+        />
       )}
     </section>
   )

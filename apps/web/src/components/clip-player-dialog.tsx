@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router"
 
 import { ClipCard } from "@workspace/ui/components/clip-card"
 
+import { setActiveClipList, useClipList } from "./clip-list-context"
 import type { ClipCardData } from "../lib/clip-format"
 
 export interface ClipCardTriggerProps {
@@ -18,6 +19,7 @@ export function ClipCardTrigger({
   className,
 }: ClipCardTriggerProps) {
   const navigate = useNavigate()
+  const list = useClipList()
 
   const gameSlug = card.gameRef?.slug ?? null
   const gameHref = gameSlug ? `/g/${gameSlug}` : null
@@ -25,6 +27,7 @@ export function ClipCardTrigger({
 
   const handleThumbnailClick = React.useCallback(() => {
     if (!gameSlug) return
+    setActiveClipList(list)
     void navigate({
       to: ".",
       search: (prev) => ({ ...prev, clip: card.clipId }),
@@ -33,7 +36,7 @@ export function ClipCardTrigger({
         params: { slug: gameSlug, clipId: card.clipId },
       },
     })
-  }, [navigate, gameSlug, card.clipId])
+  }, [navigate, gameSlug, card.clipId, list])
 
   return (
     <ClipCard

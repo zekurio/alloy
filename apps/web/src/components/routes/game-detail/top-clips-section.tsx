@@ -65,6 +65,7 @@ export function TopClipsSection({ slug, viewerId }: TopClipsSectionProps) {
         <ClipCardList
           rows={visibleRows ?? []}
           isOwnedByViewer={(row) => row.authorId === viewerId}
+          listKey={`game:${slug}:top`}
         />
       )}
     </section>

@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@workspace/ui/components/dialog"
+import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 import { cn } from "@workspace/ui/lib/utils"
@@ -44,11 +45,7 @@ import {
   type SelectedFile,
   type Visibility,
 } from "./upload-new-clip-helpers"
-import {
-  SpeedButton,
-  TrimTimeline,
-  VideoPreview,
-} from "./upload-trim-preview"
+import { SpeedButton, TrimTimeline, VideoPreview } from "./upload-trim-preview"
 import { VolumeControl } from "./video-player"
 
 // Re-export public API consumed by upload-flow.tsx so the import surface
@@ -77,6 +74,7 @@ export function UploadNewClipModal({
   onPublish,
   initialFile,
 }: UploadNewClipModalProps) {
+  const isMobile = useIsMobile()
   // File input kept for the Replace button in LoadedState.
   const inputRef = React.useRef<HTMLInputElement>(null)
   const [selectedFile, setSelectedFile] = React.useState<SelectedFile | null>(
@@ -163,8 +161,14 @@ export function UploadNewClipModal({
       onOpenChangeComplete={handleOpenChangeComplete}
     >
       <DialogContent
-        showCloseButton={false}
-        className="max-w-[960px]"
+        disableZoom
+        centered={!isMobile}
+        className={cn(
+          "flex flex-col overflow-hidden",
+          isMobile
+            ? "left-4 right-4 bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+1rem)] top-auto max-h-[calc(100dvh-var(--header-h)-var(--bottomnav-h)-env(safe-area-inset-bottom)-2.5rem)] max-w-none w-auto rounded-xl"
+            : "max-h-[min(94vh,900px)] max-w-[960px]"
+        )}
         aria-describedby={undefined}
       >
         {/* Hidden input used only for the Replace button in LoadedState. */}
@@ -175,7 +179,7 @@ export function UploadNewClipModal({
           className="hidden"
           onChange={handleInputChange}
         />
-        <DialogHeader>
+        <DialogHeader className="shrink-0 border-b border-border/60 pb-3">
           <DialogTitle>New clip</DialogTitle>
         </DialogHeader>
 
@@ -203,6 +207,7 @@ function LoadedState({
   onPublish: (payload: PublishPayload) => void
   onReplace: () => void
 }) {
+  const isMobile = useIsMobile()
   const [title, setTitle] = React.useState(stripExtension(file.name))
   const [description, setDescription] = React.useState("")
   const [game, setGame] = React.useState<GameRow | null>(null)
@@ -263,9 +268,15 @@ function LoadedState({
 
   return (
     <>
-      <DialogBody className="grid grid-cols-[minmax(0,1.4fr)_minmax(260px,1fr)] gap-6 px-6 py-5">
+      <DialogBody
+        className={cn(
+          "flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5",
+          "grid gap-6",
+          "grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(260px,1fr)]"
+        )}
+      >
         {/* Left column — trim / player */}
-        <section className="flex flex-col gap-3">
+        <section className="flex min-w-0 flex-col gap-3">
           <Label>Trim</Label>
 
           <VideoPreview
@@ -282,7 +293,7 @@ function LoadedState({
             onPlayingChange={setIsPlaying}
           />
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="ghost"
               size="icon-sm"
@@ -309,9 +320,9 @@ function LoadedState({
             >
               <SkipForwardIcon />
             </Button>
-            <span className="ml-2 text-xs text-foreground-dim tabular-nums">
+            <span className="ml-2 text-xs font-semibold text-foreground-muted tabular-nums">
               {formatTimecode(currentMs)}{" "}
-              <span className="text-foreground-faint">/</span>{" "}
+              <span className="text-foreground-muted">/</span>{" "}
               {formatTimecode(file.durationMs)}
             </span>
 
@@ -360,7 +371,7 @@ function LoadedState({
             onSeek={(ms) => setCurrentMs(ms)}
           />
 
-          <div className="flex items-center justify-between text-xs text-foreground-faint tabular-nums">
+          <div className="flex items-center justify-between text-xs font-semibold text-foreground-muted tabular-nums">
             <span>In {formatTimecode(trimStartMs)}</span>
             <span>
               Length {formatTimecode(trimEndMs - trimStartMs)}
@@ -373,7 +384,7 @@ function LoadedState({
         </section>
 
         {/* Right column — metadata form */}
-        <section className="flex flex-col gap-4">
+        <section className="flex min-w-0 flex-col gap-4">
           <Field
             label={
               <>
@@ -403,7 +414,7 @@ function LoadedState({
               onChange={(e) => setTitle(e.target.value)}
               maxLength={CLIP_TITLE_MAX}
             />
-            <div className="mt-1 text-right text-xs text-foreground-faint tabular-nums">
+            <div className="mt-1 text-right text-xs font-semibold text-foreground-muted tabular-nums">
               {title.length}/{CLIP_TITLE_MAX}
             </div>
           </Field>
@@ -435,7 +446,14 @@ function LoadedState({
         </section>
       </DialogBody>
 
-      <DialogFooter>
+      <DialogFooter
+        className={cn(
+          "shrink-0 flex-wrap border-t border-border/60 bg-surface pt-3 sm:pt-4",
+          isMobile
+            ? "pb-5"
+            : "pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
+        )}
+      >
         <Button
           variant="ghost"
           size="default"

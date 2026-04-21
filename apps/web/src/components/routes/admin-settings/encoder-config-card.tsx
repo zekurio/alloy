@@ -1,7 +1,7 @@
-import * as React from "react";
-import { AlertCircleIcon, PlusIcon } from "lucide-react";
+import * as React from "react"
+import { AlertCircleIcon, PlusIcon } from "lucide-react"
 
-import { Button } from "@workspace/ui/components/button";
+import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardContent,
@@ -9,17 +9,17 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@workspace/ui/components/card";
+} from "@workspace/ui/components/card"
 import {
   Field,
   FieldDescription,
   FieldLabel,
-} from "@workspace/ui/components/field";
-import { Input } from "@workspace/ui/components/input";
-import { NativeSelect } from "@workspace/ui/components/native-select";
-import { Separator } from "@workspace/ui/components/separator";
-import { toast } from "@workspace/ui/components/sonner";
-import { Switch } from "@workspace/ui/components/switch";
+} from "@workspace/ui/components/field"
+import { Input } from "@workspace/ui/components/input"
+import { NativeSelect } from "@workspace/ui/components/native-select"
+import { Separator } from "@workspace/ui/components/separator"
+import { toast } from "@workspace/ui/components/sonner"
+import { Switch } from "@workspace/ui/components/switch"
 
 import {
   type AdminEncoderCapabilities,
@@ -35,113 +35,113 @@ import {
   updateEncoderConfig,
   type EncoderCodec,
   type EncoderHwaccel,
-} from "../../../lib/admin-api";
-import { IntInput, VariantRow } from "./encoder-variant-row";
-import { HWACCEL_LABEL, presetSuggestionsFor, QUALITY_LABEL } from "./shared";
+} from "../../../lib/admin-api"
+import { IntInput, VariantRow } from "./encoder-variant-row"
+import { HWACCEL_LABEL, presetSuggestionsFor, QUALITY_LABEL } from "./shared"
 
 type EncoderConfigCardProps = {
-  encoder: AdminEncoderConfig;
-  onChange: (next: AdminRuntimeConfig) => void;
-};
+  encoder: AdminEncoderConfig
+  onChange: (next: AdminRuntimeConfig) => void
+}
 
 export function EncoderConfigCard({
   encoder,
   onChange,
 }: EncoderConfigCardProps) {
-  const [form, setForm] = React.useState<AdminEncoderConfig>(encoder);
-  const [pending, setPending] = React.useState(false);
-  const [caps, setCaps] = React.useState<AdminEncoderCapabilities | null>(null);
-  const [capsError, setCapsError] = React.useState<string | null>(null);
+  const [form, setForm] = React.useState<AdminEncoderConfig>(encoder)
+  const [pending, setPending] = React.useState(false)
+  const [caps, setCaps] = React.useState<AdminEncoderCapabilities | null>(null)
+  const [capsError, setCapsError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
-    setForm(encoder);
-  }, [encoder]);
+    setForm(encoder)
+  }, [encoder])
 
   React.useEffect(() => {
-    let cancelled = false;
+    let cancelled = false
     fetchEncoderCapabilities()
       .then((next) => {
-        if (!cancelled) setCaps(next);
+        if (!cancelled) setCaps(next)
       })
       .catch((cause: unknown) => {
-        if (cancelled) return;
+        if (cancelled) return
         setCapsError(
           cause instanceof Error
             ? cause.message
-            : "Couldn't probe ffmpeg capabilities",
-        );
-      });
+            : "Couldn't probe ffmpeg capabilities"
+        )
+      })
     return () => {
-      cancelled = true;
-    };
-  }, []);
+      cancelled = true
+    }
+  }, [])
 
   function set<K extends keyof AdminEncoderConfig>(
     key: K,
-    value: AdminEncoderConfig[K],
+    value: AdminEncoderConfig[K]
   ) {
-    setForm((f) => ({ ...f, [key]: value }));
+    setForm((f) => ({ ...f, [key]: value }))
   }
 
   function updateVariant(index: number, next: AdminEncoderVariant) {
     setForm((f) => ({
       ...f,
       variants: f.variants.map((v, i) => (i === index ? next : v)),
-    }));
+    }))
   }
 
   function removeVariant(index: number) {
     setForm((f) => ({
       ...f,
       variants: f.variants.filter((_, i) => i !== index),
-    }));
+    }))
   }
 
   function moveVariant(index: number, direction: -1 | 1) {
     setForm((f) => {
-      const target = index + direction;
-      if (target < 0 || target >= f.variants.length) return f;
-      const next = [...f.variants];
-      const [moved] = next.splice(index, 1);
-      if (!moved) return f;
-      next.splice(target, 0, moved);
-      return { ...f, variants: next };
-    });
+      const target = index + direction
+      if (target < 0 || target >= f.variants.length) return f
+      const next = [...f.variants]
+      const [moved] = next.splice(index, 1)
+      if (!moved) return f
+      next.splice(target, 0, moved)
+      return { ...f, variants: next }
+    })
   }
 
   function addVariant() {
     setForm((f) => {
-      const used = new Set(f.variants.map((v) => v.height));
+      const used = new Set(f.variants.map((v) => v.height))
       const suggestion = [...ENCODER_HEIGHT_SUGGESTIONS]
         .reverse()
-        .find((h) => !used.has(h));
-      let next: number;
+        .find((h) => !used.has(h))
+      let next: number
       if (suggestion !== undefined) {
-        next = suggestion;
+        next = suggestion
       } else if (f.variants.length === 0) {
-        next = 1080;
+        next = 1080
       } else {
-        const smallest = Math.min(...f.variants.map((v) => v.height));
-        next = Math.max(ENCODER_HEIGHT_MIN, Math.floor(smallest / 2 / 2) * 2);
+        const smallest = Math.min(...f.variants.map((v) => v.height))
+        next = Math.max(ENCODER_HEIGHT_MIN, Math.floor(smallest / 2 / 2) * 2)
       }
       return {
         ...f,
         variants: [...f.variants, { height: next }],
-      };
-    });
+      }
+    })
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (pending) return;
+    e.preventDefault()
+    if (pending) return
     if (form.variants.length === 0) {
-      toast.error("Add at least one variant.");
-      return;
+      toast.error("Add at least one variant.")
+      return
     }
-    const heights = form.variants.map((v) => v.height);
+    const heights = form.variants.map((v) => v.height)
     if (new Set(heights).size !== heights.length) {
-      toast.error("Variants must have unique heights.");
-      return;
+      toast.error("Variants must have unique heights.")
+      return
     }
     for (const h of heights) {
       if (
@@ -151,44 +151,44 @@ export function EncoderConfigCard({
         h % 2 !== 0
       ) {
         toast.error(
-          `Variant heights must be even integers between ${ENCODER_HEIGHT_MIN} and ${ENCODER_HEIGHT_MAX}.`,
-        );
-        return;
+          `Variant heights must be even integers between ${ENCODER_HEIGHT_MIN} and ${ENCODER_HEIGHT_MAX}.`
+        )
+        return
       }
     }
-    setPending(true);
+    setPending(true)
     try {
-      const next = await updateEncoderConfig(form);
-      onChange(next);
-      toast.success("Encoder updated");
+      const next = await updateEncoderConfig(form)
+      onChange(next)
+      toast.success("Encoder updated")
     } catch (cause) {
       toast.error(
-        cause instanceof Error ? cause.message : "Couldn't update encoder",
-      );
+        cause instanceof Error ? cause.message : "Couldn't update encoder"
+      )
     } finally {
-      setPending(false);
+      setPending(false)
     }
   }
 
-  const currentCombo = caps?.available[form.hwaccel];
+  const currentCombo = caps?.available[form.hwaccel]
   const currentComboMissing =
-    caps !== null && currentCombo !== undefined && !currentCombo[form.codec];
+    caps !== null && currentCombo !== undefined && !currentCombo[form.codec]
   // Heights that appear in more than one rung — surfaced inline on each
   // offending row so the admin sees the clash without hitting submit.
   const duplicateHeights = React.useMemo(() => {
-    const counts = new Map<number, number>();
+    const counts = new Map<number, number>()
     for (const v of form.variants) {
-      counts.set(v.height, (counts.get(v.height) ?? 0) + 1);
+      counts.set(v.height, (counts.get(v.height) ?? 0) + 1)
     }
-    const dupes = new Set<number>();
+    const dupes = new Set<number>()
     for (const [h, count] of counts) {
-      if (count > 1) dupes.add(h);
+      if (count > 1) dupes.add(h)
     }
-    return dupes;
-  }, [form.variants]);
+    return dupes
+  }, [form.variants])
   // Ladder is capped at six rungs on the server; mirror that here so the
   // add button disables at the same boundary (no silent server rejection).
-  const canAddVariant = form.variants.length < 6;
+  const canAddVariant = form.variants.length < 6
 
   return (
     <form onSubmit={onSubmit}>
@@ -239,14 +239,14 @@ export function EncoderConfigCard({
                 }
               >
                 {ENCODER_HWACCELS.map((hw) => {
-                  const row = caps?.available[hw];
-                  const anyCodec = row ? row.h264 || row.hevc : true;
+                  const row = caps?.available[hw]
+                  const anyCodec = row ? row.h264 || row.hevc : true
                   return (
                     <option key={hw} value={hw} disabled={!anyCodec}>
                       {HWACCEL_LABEL[hw]}
                       {row && !anyCodec ? " — unavailable" : ""}
                     </option>
-                  );
+                  )
                 })}
               </NativeSelect>
               <FieldDescription>
@@ -264,13 +264,13 @@ export function EncoderConfigCard({
                 onChange={(e) => set("codec", e.target.value as EncoderCodec)}
               >
                 {ENCODER_CODECS.map((codec) => {
-                  const ok = currentCombo ? currentCombo[codec] : true;
+                  const ok = currentCombo ? currentCombo[codec] : true
                   return (
                     <option key={codec} value={codec} disabled={!ok}>
                       {codec.toUpperCase()}
                       {currentCombo && !ok ? " — unavailable" : ""}
                     </option>
-                  );
+                  )
                 })}
               </NativeSelect>
               {currentComboMissing ? (
@@ -302,7 +302,9 @@ export function EncoderConfigCard({
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="encoder-preset">Preset</FieldLabel>
+              <FieldLabel htmlFor="encoder-preset" required>
+                Preset
+              </FieldLabel>
               <Input
                 id="encoder-preset"
                 list="encoder-preset-suggestions"
@@ -345,7 +347,7 @@ export function EncoderConfigCard({
 
           {form.hwaccel === "vaapi" ? (
             <Field>
-              <FieldLabel htmlFor="encoder-vaapi-device">
+              <FieldLabel htmlFor="encoder-vaapi-device" required>
                 VA-API device
               </FieldLabel>
               <Input
@@ -427,5 +429,5 @@ export function EncoderConfigCard({
         </CardFooter>
       </Card>
     </form>
-  );
+  )
 }

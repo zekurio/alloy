@@ -34,6 +34,7 @@ import {
   CommentLikeButton,
   CommentMenu,
   CommentsHeader,
+  CommentsSortDropdown,
 } from "./clip-comments-parts"
 import { EmptyState } from "./empty-state"
 
@@ -51,9 +52,7 @@ function authorAvatarStyle(comment: CommentRow) {
   return { background: bg, color: fg }
 }
 
-function useAuthorAvatarSrc(
-  author: CommentRow["author"]
-): string | undefined {
+function useAuthorAvatarSrc(author: CommentRow["author"]): string | undefined {
   return author.image ?? undefined
 }
 
@@ -104,18 +103,12 @@ function ClipComments({
       )}
       {...props}
     >
-      <CommentsHeader
-        count={totalCount}
-        sort={sort}
-        onSortChange={setSort}
-      />
+      <CommentsHeader count={totalCount} />
 
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="flex h-full items-center justify-center p-6">
-            <span className="text-xs text-foreground-faint">
-              Loading…
-            </span>
+            <span className="text-xs text-foreground-faint">Loading…</span>
           </div>
         ) : comments.length === 0 ? (
           <div className="flex h-full items-center justify-center p-6">
@@ -144,7 +137,10 @@ function ClipComments({
         )}
       </div>
 
-      <div className="border-t border-border bg-surface-sunken p-3">
+      <div className="border-t border-border bg-surface p-3">
+        <div className="mb-1.5">
+          <CommentsSortDropdown sort={sort} onSortChange={setSort} />
+        </div>
         <CommentComposer
           draft={draft}
           me={me}
@@ -218,7 +214,6 @@ function CommentRowView({
   }
 
   function onDelete() {
-    if (!window.confirm("Delete this comment?")) return
     del.mutate(
       { commentId: comment.id },
       {
@@ -282,12 +277,16 @@ function CommentRowView({
           <span className="text-xs text-foreground-faint">
             {formatRelativeTime(comment.createdAt)}
           </span>
-          <CommentMenu
-            canPin={canPin}
-            canDelete={canDelete}
-            pinned={comment.pinned}
-            onPinToggle={onPinToggle}
-            onDelete={onDelete}
+            <CommentMenu
+              canPin={canPin}
+              canDelete={canDelete}
+              deletePending={del.isPending}
+              deleteTitle="Delete this comment?"
+              deleteDescription="This can't be undone."
+              deleteActionLabel="Delete comment"
+              pinned={comment.pinned}
+              onPinToggle={onPinToggle}
+              onDelete={onDelete}
           />
         </div>
 
@@ -386,7 +385,6 @@ function ReplyRow({
   }
 
   function onDelete() {
-    if (!window.confirm("Delete this reply?")) return
     del.mutate(
       { commentId: reply.id },
       {
@@ -422,6 +420,10 @@ function ReplyRow({
             <CommentMenu
               canPin={false}
               canDelete={canDelete}
+              deletePending={del.isPending}
+              deleteTitle="Delete this reply?"
+              deleteDescription="This can't be undone."
+              deleteActionLabel="Delete reply"
               pinned={false}
               onPinToggle={() => {}}
               onDelete={onDelete}
