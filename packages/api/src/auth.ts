@@ -1,3 +1,4 @@
+import { passkeyClient } from "@better-auth/passkey/client"
 import {
   adminClient,
   genericOAuthClient,
@@ -17,6 +18,7 @@ export function createAuth(baseURL: string) {
       adminClient(),
       usernameClient(),
       genericOAuthClient(),
+      passkeyClient(),
     ],
   })
 }
