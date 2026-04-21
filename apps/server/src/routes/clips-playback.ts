@@ -61,6 +61,21 @@ export const clipsPlaybackRoutes = new Hono()
         return c.json({ error: "Unknown quality" }, 404)
       }
 
+      const cacheControl =
+        row.privacy === "public"
+          ? "public, max-age=300"
+          : "private, max-age=300"
+
+      const direct = await storage.mintDownloadUrl(selected.key, {
+        expiresInSec: 900,
+        responseContentType: selected.contentType || undefined,
+        responseCacheControl: cacheControl,
+      })
+      if (direct) {
+        c.header("Cache-Control", "private, max-age=60")
+        return c.redirect(direct.url, 302)
+      }
+
       const resolved = await storage.resolve(selected.key)
       if (!resolved) {
         // eslint-disable-next-line no-console
@@ -72,10 +87,6 @@ export const clipsPlaybackRoutes = new Hono()
 
       const range = parseRange(c.req.header("range"), resolved.size)
       const contentType = selected.contentType || resolved.contentType
-      const cacheControl =
-        row.privacy === "public"
-          ? "public, max-age=300"
-          : "private, max-age=300"
 
       if (range) {
         const length = range.end - range.start + 1
@@ -141,18 +152,27 @@ export const clipsPlaybackRoutes = new Hono()
       const key = row.thumbKey
       if (!key) return c.json({ error: "No thumbnail" }, 404)
 
+      const thumbCacheControl =
+        row.privacy === "public" && row.status === "ready"
+          ? "public, max-age=86400"
+          : "private, max-age=86400"
+
+      const direct = await storage.mintDownloadUrl(key, {
+        expiresInSec: 900,
+        responseCacheControl: thumbCacheControl,
+      })
+      if (direct) {
+        c.header("Cache-Control", "private, max-age=60")
+        return c.redirect(direct.url, 302)
+      }
+
       const resolved = await storage.resolve(key)
       if (!resolved) return c.json({ error: "No thumbnail" }, 404)
 
       const buf = await readAll(resolved.stream())
       c.header("Content-Type", resolved.contentType)
       c.header("Content-Length", String(buf.byteLength))
-      c.header(
-        "Cache-Control",
-        row.privacy === "public" && row.status === "ready"
-          ? "public, max-age=86400"
-          : "private, max-age=86400"
-      )
+      c.header("Cache-Control", thumbCacheControl)
       return c.body(
         buf.buffer.slice(
           buf.byteOffset,
@@ -208,6 +228,22 @@ export const clipsPlaybackRoutes = new Hono()
         return c.json({ error: "Unknown download variant" }, 404)
       }
 
+      const dlCacheControl =
+        row.privacy === "public"
+          ? "public, max-age=300"
+          : "private, max-age=300"
+
+      const direct = await storage.mintDownloadUrl(selected.key, {
+        expiresInSec: 900,
+        responseContentType: selected.contentType || undefined,
+        responseContentDisposition: contentDisposition(selected.filename),
+        responseCacheControl: dlCacheControl,
+      })
+      if (direct) {
+        c.header("Cache-Control", "private, max-age=60")
+        return c.redirect(direct.url, 302)
+      }
+
       const resolved = await storage.resolve(selected.key)
       if (!resolved) {
         return c.json({ error: "Download unavailable" }, 404)
@@ -216,12 +252,7 @@ export const clipsPlaybackRoutes = new Hono()
       c.header("Content-Type", selected.contentType || resolved.contentType)
       c.header("Content-Length", String(resolved.size))
       c.header("Content-Disposition", contentDisposition(selected.filename))
-      c.header(
-        "Cache-Control",
-        row.privacy === "public"
-          ? "public, max-age=300"
-          : "private, max-age=300"
-      )
+      c.header("Cache-Control", dlCacheControl)
 
       const node = resolved.stream()
       return stream(c, async (s) => {
