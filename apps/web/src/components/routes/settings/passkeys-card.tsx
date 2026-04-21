@@ -4,6 +4,17 @@ import { KeyRoundIcon, PlusIcon, Trash2Icon } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Card, CardContent } from "@workspace/ui/components/card"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@workspace/ui/components/alert-dialog"
+import {
   Dialog,
   DialogBody,
   DialogContent,
@@ -183,12 +194,7 @@ function AddPasskeyDialog({ onAdded }: { onAdded: () => Promise<void> }) {
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              size="sm"
-              disabled={adding}
-            >
+            <Button type="submit" variant="primary" size="sm" disabled={adding}>
               {adding ? "Waiting for authenticator…" : "Register"}
             </Button>
           </DialogFooter>
@@ -209,29 +215,45 @@ function PasskeyRow({
 }) {
   return (
     <li className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
-      <div className="min-w-0 flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border">
           <KeyRoundIcon className="size-4" />
         </span>
         <div className="min-w-0">
-          <div className="text-sm font-medium">
-            {passkey.name || "Passkey"}
-          </div>
+          <div className="text-sm font-medium">{passkey.name || "Passkey"}</div>
           <p className="text-xs text-foreground-dim">
             Added {formatDate(passkey.createdAt)}
           </p>
         </div>
       </div>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={removing}
-        onClick={onDelete}
-      >
-        <Trash2Icon />
-        {removing ? "Removing…" : "Remove"}
-      </Button>
+      <AlertDialog>
+        <AlertDialogTrigger
+          render={
+            <Button type="button" variant="outline" size="sm" disabled={removing}>
+              <Trash2Icon />
+              Remove
+            </Button>
+          }
+        />
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this passkey?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You may need another sign-in method to access your account.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={onDelete}
+              disabled={removing}
+            >
+              {removing ? "Removing…" : "Remove passkey"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </li>
   )
 }

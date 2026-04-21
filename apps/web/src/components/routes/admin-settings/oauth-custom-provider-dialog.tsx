@@ -27,7 +27,11 @@ import {
   type AdminOAuthProvider,
   USERNAME_CLAIM_SUGGESTIONS,
 } from "../../../lib/admin-api"
-import { OAuthCallbackField, parseScopes, scopeInputValue } from "./oauth-provider-fields"
+import {
+  OAuthCallbackField,
+  parseScopes,
+  scopeInputValue,
+} from "./oauth-provider-fields"
 import { callbackURLForProvider } from "./shared"
 
 export function OAuthCustomProviderDialog({
@@ -68,7 +72,9 @@ export function OAuthCustomProviderDialog({
             <DialogBody className="flex flex-col gap-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="oauth-display-name">Display name</FieldLabel>
+                  <FieldLabel htmlFor="oauth-display-name" required>
+                    Display name
+                  </FieldLabel>
                   <Input
                     id="oauth-display-name"
                     value={draft.displayName}
@@ -80,7 +86,9 @@ export function OAuthCustomProviderDialog({
                 </Field>
 
                 <Field>
-                  <FieldLabel htmlFor="oauth-provider-id">Provider ID</FieldLabel>
+                  <FieldLabel htmlFor="oauth-provider-id" required>
+                    Provider ID
+                  </FieldLabel>
                   <Input
                     id="oauth-provider-id"
                     value={draft.providerId}
@@ -101,7 +109,9 @@ export function OAuthCustomProviderDialog({
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="oauth-client-id">Client ID</FieldLabel>
+                  <FieldLabel htmlFor="oauth-client-id" required>
+                    Client ID
+                  </FieldLabel>
                   <Input
                     id="oauth-client-id"
                     value={draft.clientId}
@@ -112,7 +122,9 @@ export function OAuthCustomProviderDialog({
                 </Field>
 
                 <Field>
-                  <FieldLabel htmlFor="oauth-client-secret">Client secret</FieldLabel>
+                  <FieldLabel htmlFor="oauth-client-secret">
+                    Client secret
+                  </FieldLabel>
                   <Input
                     id="oauth-client-secret"
                     type="password"
@@ -134,7 +146,9 @@ export function OAuthCustomProviderDialog({
                     value={scopeInputValue(draft.scopes)}
                     placeholder="openid, profile, email"
                     disabled={pendingAction !== null}
-                    onChange={(e) => onChange("scopes", parseScopes(e.target.value))}
+                    onChange={(e) =>
+                      onChange("scopes", parseScopes(e.target.value))
+                    }
                   />
                   <FieldDescription>
                     Comma-separated. Leave blank to use provider defaults.
@@ -162,7 +176,9 @@ export function OAuthCustomProviderDialog({
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="oauth-discovery-url">Discovery URL</FieldLabel>
+                  <FieldLabel htmlFor="oauth-discovery-url">
+                    Discovery URL
+                  </FieldLabel>
                   <Input
                     id="oauth-discovery-url"
                     value={draft.discoveryUrl ?? ""}
@@ -181,7 +197,9 @@ export function OAuthCustomProviderDialog({
                     value={draft.authorizationUrl ?? ""}
                     placeholder="https://issuer/oauth/authorize"
                     disabled={pendingAction !== null}
-                    onChange={(e) => onChange("authorizationUrl", e.target.value)}
+                    onChange={(e) =>
+                      onChange("authorizationUrl", e.target.value)
+                    }
                   />
                 </Field>
               </div>
@@ -199,7 +217,9 @@ export function OAuthCustomProviderDialog({
                 </Field>
 
                 <Field>
-                  <FieldLabel htmlFor="oauth-userinfo-url">User info URL</FieldLabel>
+                  <FieldLabel htmlFor="oauth-userinfo-url">
+                    User info URL
+                  </FieldLabel>
                   <Input
                     id="oauth-userinfo-url"
                     value={draft.userInfoUrl ?? ""}

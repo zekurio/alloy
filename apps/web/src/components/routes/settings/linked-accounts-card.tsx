@@ -90,8 +90,8 @@ function shouldHideLinkedAccountsCard(
   return (
     config.provider === null &&
     !loading &&
-    (accounts?.filter((account) => account.providerId !== "credential").length ?? 0) ===
-      0
+    (accounts?.filter((account) => account.providerId !== "credential")
+      .length ?? 0) === 0
   )
 }
 
@@ -106,58 +106,64 @@ function useLinkedAccountActions({
   refresh: () => Promise<void>
   router: ReturnType<typeof useRouter>
 }) {
-  const [linkingProviderId, setLinkingProviderId] = React.useState<string | null>(
-    null
-  )
+  const [linkingProviderId, setLinkingProviderId] = React.useState<
+    string | null
+  >(null)
   const [unlinkingId, setUnlinkingId] = React.useState<string | null>(null)
 
-  const onLink = React.useCallback(async (provider: Provider) => {
-    if (linkingProviderId) return
-    setLinkingProviderId(provider.providerId)
-    try {
-      const { error } = await authClient.oauth2.link({
-        providerId: provider.providerId,
-        callbackURL: `${window.location.origin}/user-settings`,
-      })
-      if (error) {
-        toast.error(error.message ?? "Couldn't start link flow")
+  const onLink = React.useCallback(
+    async (provider: Provider) => {
+      if (linkingProviderId) return
+      setLinkingProviderId(provider.providerId)
+      try {
+        const { error } = await authClient.oauth2.link({
+          providerId: provider.providerId,
+          callbackURL: `${window.location.origin}/user-settings`,
+        })
+        if (error) {
+          toast.error(error.message ?? "Couldn't start link flow")
+          setLinkingProviderId(null)
+        }
+      } catch (cause) {
+        toast.error(
+          cause instanceof Error ? cause.message : "Couldn't start link flow"
+        )
         setLinkingProviderId(null)
       }
-    } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't start link flow"
-      )
-      setLinkingProviderId(null)
-    }
-  }, [linkingProviderId])
+    },
+    [linkingProviderId]
+  )
 
-  const onUnlink = React.useCallback(async (account: Account) => {
-    if (unlinkingId) return
-    if (!canRemoveAccount(account, accounts, config)) {
-      toast.error(
-        "This is your last enabled sign-in method. Link another before removing it."
-      )
-      return
-    }
-    setUnlinkingId(account.id)
-    try {
-      const { error } = await authClient.unlinkAccount({
-        providerId: account.providerId,
-        accountId: account.accountId,
-      })
-      if (error) {
-        toast.error(error.message ?? "Couldn't unlink")
+  const onUnlink = React.useCallback(
+    async (account: Account) => {
+      if (unlinkingId) return
+      if (!canRemoveAccount(account, accounts, config)) {
+        toast.error(
+          "This is your last enabled sign-in method. Link another before removing it."
+        )
         return
       }
-      toast.success("Account unlinked")
-      await refresh()
-      await router.invalidate()
-    } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : "Couldn't unlink")
-    } finally {
-      setUnlinkingId(null)
-    }
-  }, [accounts, config, refresh, router, unlinkingId])
+      setUnlinkingId(account.id)
+      try {
+        const { error } = await authClient.unlinkAccount({
+          providerId: account.providerId,
+          accountId: account.accountId,
+        })
+        if (error) {
+          toast.error(error.message ?? "Couldn't unlink")
+          return
+        }
+        toast.success("Account unlinked")
+        await refresh()
+        await router.invalidate()
+      } catch (cause) {
+        toast.error(cause instanceof Error ? cause.message : "Couldn't unlink")
+      } finally {
+        setUnlinkingId(null)
+      }
+    },
+    [accounts, config, refresh, router, unlinkingId]
+  )
 
   return {
     linkingProviderId,
@@ -184,9 +190,13 @@ function AccountsList({
   onLink,
   onUnlink,
 }: AccountsListProps) {
-  const credentialAccount = accounts.find((account) => account.providerId === "credential")
+  const credentialAccount = accounts.find(
+    (account) => account.providerId === "credential"
+  )
   const providerAccount = config.provider
-    ? accounts.find((account) => account.providerId === config.provider?.providerId)
+    ? accounts.find(
+        (account) => account.providerId === config.provider?.providerId
+      )
     : undefined
   const staleOAuthAccounts = accounts.filter(
     (account) =>
@@ -252,7 +262,7 @@ function AccountsList({
 function LinkRow(props: { label: string; busy: boolean; onLink: () => void }) {
   return (
     <li className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
-      <div className="min-w-0 flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border">
           <UserKeyIcon className="size-4" />
         </span>
@@ -287,7 +297,7 @@ type AccountRowProps = {
 function AccountRow(props: AccountRowProps) {
   return (
     <li className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
-      <div className="min-w-0 flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         {props.showIcon ? (
           <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border">
             <UserKeyIcon className="size-4" />

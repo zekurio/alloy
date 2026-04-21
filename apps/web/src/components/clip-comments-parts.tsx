@@ -1,3 +1,4 @@
+import * as React from "react"
 import {
   HeartIcon,
   MessageSquareIcon,
@@ -10,12 +11,21 @@ import {
 } from "lucide-react"
 
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@workspace/ui/components/alert-dialog"
+import {
   Avatar,
   AvatarFallback,
   AvatarImage,
 } from "@workspace/ui/components/avatar"
 import { Button } from "@workspace/ui/components/button"
-import { Chip } from "@workspace/ui/components/chip"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,41 +38,55 @@ import type { UserChipData } from "../lib/user-display"
 
 type Sort = "top" | "new"
 
-export function CommentsHeader({
-  count,
+export function CommentsHeader({ count }: { count: number }) {
+  return (
+    <div className="flex items-center gap-2 border-b border-border px-4 py-3 pr-12">
+      <MessageSquareIcon className="size-4 text-accent" />
+      <h2 className="text-md leading-none font-semibold tracking-[-0.005em] text-foreground">
+        Comments
+      </h2>
+      <span className="rounded-full bg-surface-raised px-1.5 py-0.5 text-xs leading-none text-foreground-faint">
+        {count}
+      </span>
+    </div>
+  )
+}
+
+export function CommentsSortDropdown({
   sort,
   onSortChange,
 }: {
-  count: number
   sort: Sort
   onSortChange: (next: Sort) => void
 }) {
   return (
-    <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3 pr-12">
-      <div className="flex items-center gap-2">
-        <MessageSquareIcon className="size-4 text-accent" />
-        <h2 className="text-md leading-none font-semibold tracking-[-0.005em] text-foreground">
-          Comments
-        </h2>
-        <span className="rounded-full bg-surface-raised px-1.5 py-0.5 text-xs leading-none text-foreground-faint">
-          {count}
-        </span>
-      </div>
-      <div className="flex items-center gap-1">
-        <Chip
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Sort comments"
+          >
+            Sort by: {sort === "top" ? "Top" : "New"}
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="start" sideOffset={6}>
+        <DropdownMenuItem
           data-active={sort === "top" ? "true" : undefined}
           onClick={() => onSortChange("top")}
         >
           Top
-        </Chip>
-        <Chip
+        </DropdownMenuItem>
+        <DropdownMenuItem
           data-active={sort === "new" ? "true" : undefined}
           onClick={() => onSortChange("new")}
         >
           New
-        </Chip>
-      </div>
-    </div>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -97,7 +121,9 @@ export function CommentComposer({
     >
       <div className="flex items-start gap-2">
         <Avatar size="md" className="mt-0.5" style={meAvatarStyle}>
-          {me.avatar.src ? <AvatarImage src={me.avatar.src} alt={me.name} /> : null}
+          {me.avatar.src ? (
+            <AvatarImage src={me.avatar.src} alt={me.name} />
+          ) : null}
           <AvatarFallback style={meAvatarStyle}>
             {me.avatar.initials}
           </AvatarFallback>
@@ -118,7 +144,12 @@ export function CommentComposer({
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon-sm" aria-label="Emoji" type="button">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Emoji"
+            type="button"
+          >
             <SmileIcon />
           </Button>
         </div>
@@ -175,9 +206,7 @@ export function CommentBody({
       >
         {body}
         {edited ? (
-          <span className="ml-1 text-xs text-foreground-faint">
-            (edited)
-          </span>
+          <span className="ml-1 text-xs text-foreground-faint">(edited)</span>
         ) : null}
       </p>
       {isLong ? (
@@ -222,7 +251,11 @@ export function CommentActions({
 }) {
   return (
     <div className="mt-0.5 flex items-center gap-2">
-      <CommentLikeButton liked={liked} likeCount={likeCount} onClick={onToggleLike} />
+      <CommentLikeButton
+        liked={liked}
+        likeCount={likeCount}
+        onClick={onToggleLike}
+      />
 
       {likedByAuthor ? <AuthorLikeBadge /> : null}
 
@@ -305,52 +338,86 @@ export function AuthorLikeBadge() {
 export function CommentMenu({
   canPin,
   canDelete,
+  deletePending,
+  deleteTitle,
+  deleteDescription,
+  deleteActionLabel,
   pinned,
   onPinToggle,
   onDelete,
 }: {
   canPin: boolean
   canDelete: boolean
+  deletePending: boolean
+  deleteTitle: string
+  deleteDescription: string
+  deleteActionLabel: string
   pinned: boolean
   onPinToggle: () => void
   onDelete: () => void
 }) {
+  const [alertOpen, setAlertOpen] = React.useState(false)
+
   if (!canPin && !canDelete) return null
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Comment actions"
-            className="-mr-1 ml-auto"
-          >
-            <MoreHorizontalIcon className="size-4" />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end" sideOffset={6}>
-        {canPin ? (
-          <DropdownMenuItem onClick={onPinToggle}>
-            {pinned ? (
-              <>
-                <PinOffIcon /> Unpin
-              </>
-            ) : (
-              <>
-                <PinIcon /> Pin
-              </>
-            )}
-          </DropdownMenuItem>
-        ) : null}
-        {canDelete ? (
-          <DropdownMenuItem variant="destructive" onClick={onDelete}>
-            <Trash2Icon /> Delete
-          </DropdownMenuItem>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Comment actions"
+              className="-mr-1 ml-auto"
+            >
+              <MoreHorizontalIcon className="size-4" />
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="end" sideOffset={6}>
+          {canPin ? (
+            <DropdownMenuItem onClick={onPinToggle}>
+              {pinned ? (
+                <>
+                  <PinOffIcon /> Unpin
+                </>
+              ) : (
+                <>
+                  <PinIcon /> Pin
+                </>
+              )}
+            </DropdownMenuItem>
+          ) : null}
+          {canDelete ? (
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => setAlertOpen(true)}
+            >
+              <Trash2Icon /> Delete
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <AlertDialog open={alertOpen} onOpenChange={setAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{deleteTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{deleteDescription}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletePending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={onDelete}
+              disabled={deletePending}
+            >
+              {deletePending ? "Deleting…" : deleteActionLabel}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }

@@ -1,23 +1,20 @@
-import { CalendarIcon } from "lucide-react";
+import { cn } from "@workspace/ui/lib/utils"
 
-import { cn } from "@workspace/ui/lib/utils";
-
-import { hueForGame } from "../../../lib/clip-format";
-import type { GameRow } from "../../../lib/games-api";
+import { hueForGame } from "../../../lib/clip-format"
+import type { GameRow } from "../../../lib/games-api"
 
 type GameHeaderBannerProps = {
-  game: GameRow;
-};
+  game: GameRow
+}
 
 export function GameHeaderBanner({ game }: GameHeaderBannerProps) {
-  const hue = hueForGame(game.name);
-  const released = formatReleaseDate(game.releaseDate);
+  const hue = hueForGame(game.name)
 
   return (
     <section
       className={cn(
         "relative -mx-8 -mt-6 overflow-hidden",
-        "aspect-[16/4] max-h-[280px] min-h-[160px]",
+        "aspect-[16/4] max-h-[280px] min-h-[160px]"
       )}
     >
       {game.heroUrl ? (
@@ -48,7 +45,7 @@ export function GameHeaderBanner({ game }: GameHeaderBannerProps) {
             alt={game.name}
             className={cn(
               "h-16 w-auto max-w-[min(560px,70%)] object-contain object-left",
-              "drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)] sm:h-20",
+              "drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)] sm:h-20"
             )}
             decoding="async"
           />
@@ -56,31 +53,13 @@ export function GameHeaderBanner({ game }: GameHeaderBannerProps) {
           <h1
             className={cn(
               "text-2xl font-semibold tracking-[-0.02em] text-foreground sm:text-3xl",
-              "drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)]",
+              "drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)]"
             )}
           >
             {game.name}
           </h1>
         )}
-        {released ? (
-          <div className="flex items-center gap-3 text-sm text-foreground-dim tracking-wide sm:text-base">
-            <span className="inline-flex items-center gap-2 leading-none">
-              <CalendarIcon className="size-4 shrink-0 sm:size-5" aria-hidden />
-              <span>released {released}</span>
-            </span>
-          </div>
-        ) : null}
       </div>
     </section>
-  );
-}
-
-function formatReleaseDate(iso: string | null): string | null {
-  if (!iso) return null;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-  });
+  )
 }

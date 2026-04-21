@@ -6,6 +6,35 @@ import { Label } from "@workspace/ui/components/label"
 import { Separator } from "@workspace/ui/components/separator"
 import type { VariantProps } from "class-variance-authority"
 
+function FieldStateMarker({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      data-slot="field-state-marker"
+      className="inline-flex items-center rounded-full bg-surface-raised px-1.5 py-0.5 text-2xs font-medium tracking-[0.06em] text-foreground-muted uppercase"
+    >
+      {children}
+    </span>
+  )
+}
+
+function FieldHeaderContent({
+  children,
+  optional,
+  required,
+}: {
+  children: React.ReactNode
+  optional?: boolean
+  required?: boolean
+}) {
+  return (
+    <>
+      <span className="min-w-0">{children}</span>
+      {required ? <FieldStateMarker>Required</FieldStateMarker> : null}
+      {optional ? <FieldStateMarker>Optional</FieldStateMarker> : null}
+    </>
+  )
+}
+
 function FieldSet({ className, ...props }: React.ComponentProps<"fieldset">) {
   return (
     <fieldset
@@ -22,18 +51,29 @@ function FieldSet({ className, ...props }: React.ComponentProps<"fieldset">) {
 function FieldLegend({
   className,
   variant = "legend",
+  children,
+  required,
+  optional,
   ...props
-}: React.ComponentProps<"legend"> & { variant?: "legend" | "label" }) {
+}: React.ComponentProps<"legend"> & {
+  variant?: "legend" | "label"
+  required?: boolean
+  optional?: boolean
+}) {
   return (
     <legend
       data-slot="field-legend"
       data-variant={variant}
       className={cn(
-        "mb-1.5 font-medium data-[variant=label]:text-sm data-[variant=legend]:text-base",
+        "mb-1.5 flex items-center gap-2.5 font-semibold tracking-[-0.01em] text-foreground data-[variant=label]:text-sm data-[variant=legend]:text-base",
         className
       )}
       {...props}
-    />
+    >
+      <FieldHeaderContent required={required} optional={optional}>
+        {children}
+      </FieldHeaderContent>
+    </legend>
   )
 }
 
@@ -89,7 +129,7 @@ function FieldContent({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="field-content"
       className={cn(
-        "group/field-content flex flex-1 flex-col gap-0.5 leading-snug",
+        "group/field-content flex flex-1 flex-col gap-1.5 leading-snug",
         className
       )}
       {...props}
@@ -99,31 +139,54 @@ function FieldContent({ className, ...props }: React.ComponentProps<"div">) {
 
 function FieldLabel({
   className,
+  children,
+  required,
+  optional,
   ...props
-}: React.ComponentProps<typeof Label>) {
+}: React.ComponentProps<typeof Label> & {
+  required?: boolean
+  optional?: boolean
+}) {
   return (
     <Label
       data-slot="field-label"
       className={cn(
-        "group/field-label peer/field-label flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50 has-data-checked:border-primary/30 has-data-checked:bg-primary/5 has-[>[data-slot=field]]:rounded-lg has-[>[data-slot=field]]:border *:data-[slot=field]:p-2.5 dark:has-data-checked:border-primary/20 dark:has-data-checked:bg-primary/10",
+        "group/field-label peer/field-label flex w-fit items-center gap-2.5 leading-snug group-data-[disabled=true]/field:opacity-50 has-data-checked:border-primary/30 has-data-checked:bg-primary/5 has-[>[data-slot=field]]:rounded-lg has-[>[data-slot=field]]:border has-[>[data-slot=field]]:border-border *:data-[slot=field]:p-3 dark:has-data-checked:border-primary/20 dark:has-data-checked:bg-primary/10",
         "has-[>[data-slot=field]]:w-full has-[>[data-slot=field]]:flex-col",
         className
       )}
       {...props}
-    />
+    >
+      <FieldHeaderContent required={required} optional={optional}>
+        {children}
+      </FieldHeaderContent>
+    </Label>
   )
 }
 
-function FieldTitle({ className, ...props }: React.ComponentProps<"div">) {
+function FieldTitle({
+  className,
+  children,
+  required,
+  optional,
+  ...props
+}: React.ComponentProps<"div"> & {
+  required?: boolean
+  optional?: boolean
+}) {
   return (
     <div
       data-slot="field-label"
       className={cn(
-        "flex w-fit items-center gap-2 text-sm font-medium group-data-[disabled=true]/field:opacity-50",
+        "flex w-fit items-center gap-2.5 text-sm font-semibold tracking-[-0.01em] text-foreground group-data-[disabled=true]/field:opacity-50",
         className
       )}
       {...props}
-    />
+    >
+      <FieldHeaderContent required={required} optional={optional}>
+        {children}
+      </FieldHeaderContent>
+    </div>
   )
 }
 
@@ -132,7 +195,7 @@ function FieldDescription({ className, ...props }: React.ComponentProps<"p">) {
     <p
       data-slot="field-description"
       className={cn(
-        "text-left text-sm leading-normal font-normal text-muted-foreground group-has-data-horizontal/field:text-balance [[data-variant=legend]+&]:-mt-1.5",
+        "text-left text-sm leading-relaxed font-normal text-foreground-muted group-has-data-horizontal/field:text-balance [[data-variant=legend]+&]:-mt-1.5",
         "last:mt-0 nth-last-2:-mt-1",
         "[&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
         className
@@ -178,7 +241,7 @@ function FieldError({
   errors,
   ...props
 }: React.ComponentProps<"div"> & {
-  errors?: Array<{ message?: string } | undefined>
+  errors?: Array<unknown>
 }) {
   const content = useMemo(() => {
     if (children) {
@@ -189,8 +252,31 @@ function FieldError({
       return null
     }
 
+    const normalizedErrors = errors.flatMap((error) => {
+      if (typeof error === "string") {
+        return [{ message: error }]
+      }
+
+      if (error instanceof Error) {
+        return [{ message: error.message }]
+      }
+
+      if (
+        error &&
+        typeof error === "object" &&
+        "message" in error &&
+        typeof error.message === "string"
+      ) {
+        return [{ message: error.message }]
+      }
+
+      return []
+    })
+
     const uniqueErrors = [
-      ...new Map(errors.map((error) => [error?.message, error])).values(),
+      ...new Map(
+        normalizedErrors.map((error) => [error.message ?? "", error])
+      ).values(),
     ]
 
     if (uniqueErrors.length === 1) {
@@ -215,7 +301,10 @@ function FieldError({
     <div
       role="alert"
       data-slot="field-error"
-      className={cn("text-sm font-normal text-destructive", className)}
+      className={cn(
+        "text-sm leading-normal font-medium text-destructive",
+        className
+      )}
       {...props}
     >
       {content}

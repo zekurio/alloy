@@ -77,29 +77,29 @@ export function Scrubber({
       onPointerCancel={onPointerUp}
       onKeyDown={onKeyDown}
       className={cn(
-        "group/scrub relative h-1 w-full cursor-pointer touch-none rounded-full",
-        "bg-[color-mix(in_oklab,var(--neutral-900)_18%,transparent)]",
+        "group/scrub relative h-1.5 w-full cursor-pointer touch-none rounded-full",
+        "bg-white/14",
         "transition-[height] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-        "hover:h-[5px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        "hover:h-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       )}
     >
       <div
         aria-hidden
-        className="absolute inset-y-0 left-0 rounded-full bg-[color-mix(in_oklab,var(--neutral-900)_32%,transparent)]"
+        className="absolute inset-y-0 left-0 rounded-full bg-white/24"
         style={{ width: `${buffered}%` }}
       />
       <div
         aria-hidden
-        className="absolute inset-y-0 left-0 rounded-full bg-accent shadow-[0_0_6px_var(--accent-glow)]"
+        className="absolute inset-y-0 left-0 rounded-full bg-accent shadow-[0_0_10px_var(--accent-glow)]"
         style={{ width: `${progress}%` }}
       />
       <div
         aria-hidden
         className={cn(
-          "absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full",
-          "bg-accent shadow-[0_0_0_3px_var(--accent-soft)]",
+          "absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full",
+          "border border-white/30 bg-accent shadow-[0_0_0_4px_color-mix(in_oklab,var(--accent)_18%,transparent)]",
           "opacity-0 transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-          "group-hover/scrub:opacity-100"
+          "group-hover/scrub:opacity-100 group-focus-visible/scrub:opacity-100"
         )}
         style={{ left: `${progress}%` }}
       />

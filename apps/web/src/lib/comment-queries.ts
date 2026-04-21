@@ -44,25 +44,18 @@ function invalidateComments(qc: QueryClient, clipId: string) {
         payload && typeof payload === "object" && "clipId" in payload
           ? payload.clipId
           : undefined
-      return (
-        root === "comments" && kind === "list" && queryClipId === clipId
-      )
+      return root === "comments" && kind === "list" && queryClipId === clipId
     },
   })
 }
 
-function bumpClipCommentCount(
-  qc: QueryClient,
-  clipId: string,
-  delta: number
-) {
+function bumpClipCommentCount(qc: QueryClient, clipId: string, delta: number) {
   const apply = (row: ClipRow): ClipRow =>
     row.id === clipId
       ? { ...row, commentCount: Math.max(0, row.commentCount + delta) }
       : row
-  qc.setQueryData<ClipRow | undefined>(
-    clipKeys.detail(clipId),
-    (old) => (old ? apply(old) : old)
+  qc.setQueryData<ClipRow | undefined>(clipKeys.detail(clipId), (old) =>
+    old ? apply(old) : old
   )
   qc.setQueriesData<ClipRow[] | undefined>(
     { queryKey: clipKeys.lists() },
@@ -158,10 +151,7 @@ export function useToggleCommentLikeMutation(clipId: string) {
             ? {
                 ...c,
                 likedByViewer: nextLiked,
-                likeCount: Math.max(
-                  0,
-                  c.likeCount + (nextLiked ? 1 : -1)
-                ),
+                likeCount: Math.max(0, c.likeCount + (nextLiked ? 1 : -1)),
               }
             : c
         )

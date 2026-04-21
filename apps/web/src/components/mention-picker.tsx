@@ -1,7 +1,11 @@
 import * as React from "react"
 import { XIcon } from "lucide-react"
 
-import { Avatar, AvatarFallback, AvatarImage } from "@workspace/ui/components/avatar"
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@workspace/ui/components/avatar"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { useSession } from "../lib/auth-client"
@@ -40,9 +44,7 @@ export function MentionPicker({
 
   const candidates = React.useMemo(() => {
     const rows = searchQuery.data ?? []
-    return rows.filter(
-      (row) => !selectedIds.has(row.id) && row.id !== viewerId
-    )
+    return rows.filter((row) => !selectedIds.has(row.id) && row.id !== viewerId)
   }, [searchQuery.data, selectedIds, viewerId])
 
   React.useEffect(() => {
@@ -93,11 +95,7 @@ export function MentionPicker({
   const isSearching = searchQuery.isFetching && trimmed.length > 0
 
   return (
-    <div
-      ref={containerRef}
-      className="relative"
-      onBlur={handleBlur}
-    >
+    <div ref={containerRef} className="relative" onBlur={handleBlur}>
       <div
         className={cn(
           "flex min-h-[30px] flex-wrap items-center gap-1.5 rounded-md border border-border bg-input px-2 py-1.5",
@@ -113,7 +111,7 @@ export function MentionPicker({
               key={u.id}
               className={cn(
                 "inline-flex h-5 items-center gap-1 rounded-sm bg-accent px-1.5",
-                "text-xs text-accent-foreground font-medium"
+                "text-xs font-medium text-accent-foreground"
               )}
             >
               @{handle}
