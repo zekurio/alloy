@@ -5,11 +5,6 @@ import { XIcon } from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
 
-/**
- * Alloy Dialog — darker backdrop, `radius-lg` rounded panel, header &
- * footer sections matched to the handoff (.dialog / .dialog-backdrop in
- * components.css).
- */
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
 }
@@ -47,20 +42,15 @@ function DialogOverlay({
 function DialogContent({
   className,
   children,
-  showCloseButton = true,
+  showCloseButton,
   showOverlay = true,
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
-  /**
-   * Render the built-in `DialogOverlay` (the dimmed backdrop). Set to
-   * false when a parent owns a shared overlay across multiple dialogs —
-   * otherwise the per-modal overlay fades out between hand-offs and the
-   * backdrop visibly flashes. See `upload-flow.tsx` for the shared
-   * pattern.
-   */
   showOverlay?: boolean
 }) {
+  const renderCloseButton =
+    showCloseButton ?? !hasDialogFooterChild(children)
   return (
     <DialogPortal>
       {showOverlay ? <DialogOverlay /> : null}
@@ -77,7 +67,7 @@ function DialogContent({
         {...props}
       >
         {children}
-        {showCloseButton ? (
+        {renderCloseButton ? (
           <DialogPrimitive.Close
             data-slot="dialog-close"
             render={
@@ -95,6 +85,14 @@ function DialogContent({
       </DialogPrimitive.Popup>
     </DialogPortal>
   )
+}
+
+function hasDialogFooterChild(children: React.ReactNode): boolean {
+  let found = false
+  React.Children.forEach(children, (child) => {
+    if (React.isValidElement(child) && child.type === DialogFooter) found = true
+  })
+  return found
 }
 
 function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {

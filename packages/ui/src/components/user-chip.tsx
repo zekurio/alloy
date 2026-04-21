@@ -3,14 +3,6 @@ import { ChevronRightIcon } from "lucide-react"
 
 import { cn } from "@workspace/ui/lib/utils"
 
-/**
- * User chip — the compact identity pill used in the app header
- * (avatar · name · chevron). 30px tall, border that lifts on hover.
- *
- * `avatar` lets callers control the avatar's background / foreground via
- * inline style so different users can be tinted differently without needing
- * an image.
- */
 interface UserChipProps extends React.ComponentProps<"button"> {
   name: string
   avatar: {
@@ -28,12 +20,23 @@ function UserChip({
   children,
   ...props
 }: UserChipProps) {
+  // Each src gets its own load attempt — reset `failed` when the URL
+  // changes so a cache-bust after upload gets another chance.
+  const [failed, setFailed] = React.useState(false)
+  React.useEffect(() => {
+    setFailed(false)
+  }, [avatar.src])
+  const [loaded, setLoaded] = React.useState(false)
+  React.useEffect(() => {
+    setLoaded(false)
+  }, [avatar.src])
+  const hasImage = Boolean(avatar.src) && !failed
   return (
     <button
       type="button"
       data-slot="user-chip"
       className={cn(
-        "group inline-flex h-[30px] items-center gap-2 py-[3px] pr-3 pl-[3px]",
+        "group inline-flex h-[30px] items-center gap-2 py-[2px] pr-3 pl-[2px]",
         "rounded-md border border-border bg-surface-raised text-foreground",
         "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
         "hover:border-border-strong",
@@ -43,21 +46,25 @@ function UserChip({
       {...props}
     >
       <span
-        className="inline-flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-[3px] text-[10px] font-semibold"
+        className="relative inline-flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-[4px] text-[10px] leading-none font-semibold"
         style={{
           background: avatar.bg ?? "var(--neutral-200)",
           color: avatar.fg ?? "var(--foreground)",
         }}
       >
-        {avatar.src ? (
+        <span aria-hidden>{avatar.initials}</span>
+        {hasImage ? (
           <img
             src={avatar.src}
-            alt={avatar.initials}
-            className="size-full object-cover"
+            alt=""
+            className={cn(
+              "absolute inset-0 size-full object-cover",
+              loaded ? "opacity-100" : "opacity-0"
+            )}
+            onLoad={() => setLoaded(true)}
+            onError={() => setFailed(true)}
           />
-        ) : (
-          avatar.initials
-        )}
+        ) : null}
       </span>
       <span className="text-xs leading-none font-semibold">{name}</span>
       {children ?? (

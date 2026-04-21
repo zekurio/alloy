@@ -3,12 +3,6 @@ import { Input as InputPrimitive } from "@base-ui/react/input"
 
 import { cn } from "@workspace/ui/lib/utils"
 
-/**
- * Alloy Input — 30px, neutral-150 bg, sharpens to accent border on focus.
- *
- * Pair with `InputGroup` (input-group.tsx) for leading icons / trailing
- * keyboard hints.
- */
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   return (
     <InputPrimitive

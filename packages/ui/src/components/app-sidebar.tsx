@@ -4,14 +4,6 @@ import { useRender } from "@base-ui/react/use-render"
 
 import { cn } from "@workspace/ui/lib/utils"
 
-/**
- * Alloy AppSidebar — fixed-width icon-only rail.
- *
- * Always `--sidebar-rail` (52px) wide. No hover expansion.
- * Compose via `AppSidebarGroup` + `AppSidebarItem`, with an optional
- * `AppSidebarFooter`. Active items glow in Alloy's accent.
- */
-
 function AppSidebar({ className, ...props }: React.ComponentProps<"aside">) {
   return (
     <aside
@@ -36,11 +28,6 @@ function AppSidebarGroup({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-/**
- * Single rail item. Defaults to `<button>` but accepts `render` so callers
- * can pass a router `<Link />` and get real navigation while keeping the
- * sidebar's icon-only rail styling + active-state glow.
- */
 function AppSidebarItem({
   className,
   active,
