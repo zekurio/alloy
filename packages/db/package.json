@@ -13,6 +13,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "migrate:deploy": "node src/migrate.ts",
     "lint": "oxlint .",
     "format": "oxfmt --write .",
     "typecheck": "tsgo --noEmit"
