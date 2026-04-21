@@ -8,6 +8,13 @@
       "when": 1776801277828,
       "tag": "0000_loud_ben_grimm",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776809897057,
+      "tag": "0001_closed_vindicator",
+      "breakpoints": true
     }
   ]
 }

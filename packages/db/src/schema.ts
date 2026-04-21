@@ -139,9 +139,6 @@ export const clip = pgTable(
     // Filter on privacy, sort by createdAt — composite supports both.
     index("clip_privacy_created_idx").on(t.privacy, t.createdAt),
     index("clip_status_idx").on(t.status),
-    // /g/:slug read path: "clips for this game, ready + public/unlisted,
-    // newest first". The composite lets the game page list + top-clips
-    // query plan the privacy filter with a single index scan.
     index("clip_game_created_idx").on(t.gameId, t.createdAt),
   ]
 )
