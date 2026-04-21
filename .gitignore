@@ -6,9 +6,7 @@ node_modules
 # Local env files
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.prod
 
 # Testing
 coverage
@@ -39,4 +37,3 @@ npm-debug.log*
 
 # Runtime config store (JSON-backed, mutable via admin UI)
 data/
-
