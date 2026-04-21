@@ -5,6 +5,34 @@ import { cn } from "@workspace/ui/lib/utils"
 import { formatTimecode } from "./upload-new-clip-helpers"
 import { VideoPlayer, type VideoPlayerHandle } from "./video-player"
 
+function TrimHandle({
+  side,
+  onPointerDown,
+  style,
+}: {
+  side: "start" | "end"
+  onPointerDown: (e: React.PointerEvent) => void
+  style: React.CSSProperties
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={side === "start" ? "Trim start" : "Trim end"}
+      onPointerDown={onPointerDown}
+      className={cn(
+        "absolute top-0 bottom-0 z-10 flex w-4 cursor-ew-resize items-center justify-center",
+        side === "start" ? "-ml-2 rounded-l-sm" : "-mr-2 rounded-r-sm",
+        "bg-accent text-accent-foreground",
+        "hover:bg-accent-hover focus-visible:outline-none",
+        "touch-none"
+      )}
+      style={style}
+    >
+      <span className="h-4 w-[2px] rounded-full bg-accent-foreground/80" />
+    </button>
+  )
+}
+
 export function SpeedButton({
   active,
   onClick,
@@ -104,7 +132,6 @@ export function VideoPreview({
         onPlayingChange={onPlayingChange}
         onTimeUpdate={(t) => {
           onTimeUpdate(t * 1000)
-          // Stop at the trim end. Pause rather than loop so the user's
           // next interaction is scrubbing, not watching the window spin.
           if (t * 1000 >= trimEndMs && isPlaying) {
             playerRef.current?.pause()
@@ -217,10 +244,6 @@ export function TrimTimeline({
       className={cn(
         "relative h-10 w-full",
         "rounded-md border border-border bg-surface-sunken",
-        // No `overflow-hidden`: the start handle is positioned with a
-        // -8px margin so it straddles the 0% edge, and clipping it
-        // chops off the left half. Fill rail and handles are already
-        // rounded, so nothing else needs the clip.
         "select-none"
       )}
     >
@@ -240,37 +263,16 @@ export function TrimTimeline({
         }}
       />
 
-      {/* Start handle */}
-      <button
-        type="button"
-        aria-label="Trim start"
+      <TrimHandle
+        side="start"
         onPointerDown={(e) => startDrag("start", e)}
-        className={cn(
-          "absolute top-0 bottom-0 z-10 -ml-2 flex w-4 cursor-ew-resize items-center justify-center",
-          "rounded-l-sm bg-accent text-accent-foreground",
-          "hover:bg-accent-hover focus-visible:outline-none",
-          "touch-none"
-        )}
         style={{ left: `${pctOf(trimStartMs)}%` }}
-      >
-        <span className="h-4 w-[2px] rounded-full bg-accent-foreground/80" />
-      </button>
-
-      {/* End handle */}
-      <button
-        type="button"
-        aria-label="Trim end"
+      />
+      <TrimHandle
+        side="end"
         onPointerDown={(e) => startDrag("end", e)}
-        className={cn(
-          "absolute top-0 bottom-0 z-10 -mr-2 flex w-4 cursor-ew-resize items-center justify-center",
-          "rounded-r-sm bg-accent text-accent-foreground",
-          "hover:bg-accent-hover focus-visible:outline-none",
-          "touch-none"
-        )}
         style={{ left: `calc(${pctOf(trimEndMs)}% - 16px)` }}
-      >
-        <span className="h-4 w-[2px] rounded-full bg-accent-foreground/80" />
-      </button>
+      />
 
       {/* Playhead — only render when it's inside the trim window so it
           doesn't visually escape the highlighted range */}

@@ -16,7 +16,6 @@ interface ClipPlayerProps {
   thumbnail?: string
   variants?: ClipEncodedVariant[]
   onPlayThreshold?: () => void
-  onAspectRatio?: (ratio: number) => void
   className?: string
 }
 
@@ -37,7 +36,6 @@ function ClipPlayer({
   thumbnail,
   variants = [],
   onPlayThreshold,
-  onAspectRatio,
   className,
 }: ClipPlayerProps) {
   const poster = thumbnail ?? clipThumbnailUrl(clipId)
@@ -118,7 +116,6 @@ function ClipPlayer({
         }
       }}
       onPlayThreshold={onPlayThreshold}
-      onAspectRatio={onAspectRatio}
     />
   )
 }

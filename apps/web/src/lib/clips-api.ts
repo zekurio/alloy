@@ -1,5 +1,5 @@
 import { api } from "./api"
-import { apiOrigin } from "./env"
+import { publicOrigin } from "./env"
 import { readJsonOrThrow } from "./http-error"
 
 export type ClipStatus =
@@ -187,11 +187,6 @@ export async function updateClip(
   return readJsonOrThrow<ClipRow>(res)
 }
 
-export async function fetchUploadQueue(): Promise<QueueClip[]> {
-  const res = await api.api.clips.queue.$get()
-  return readJsonOrThrow<QueueClip[]>(res)
-}
-
 export interface ClipLikeState {
   liked: boolean
   likeCount: number
@@ -273,17 +268,17 @@ export function uploadToTicket(
 }
 
 export function clipStreamUrl(clipId: string, variantId?: string): string {
-  const url = new URL(`${apiOrigin()}/api/clips/${clipId}/stream`)
+  const url = new URL(`${publicOrigin()}/api/clips/${clipId}/stream`)
   if (variantId) url.searchParams.set("variant", variantId)
   return url.toString()
 }
 
 export function clipThumbnailUrl(clipId: string): string {
-  return `${apiOrigin()}/api/clips/${clipId}/thumbnail`
+  return `${publicOrigin()}/api/clips/${clipId}/thumbnail`
 }
 
 export function clipDownloadUrl(clipId: string, variantId: string): string {
-  const url = new URL(`${apiOrigin()}/api/clips/${clipId}/download`)
+  const url = new URL(`${publicOrigin()}/api/clips/${clipId}/download`)
   url.searchParams.set("variant", variantId)
   return url.toString()
 }
