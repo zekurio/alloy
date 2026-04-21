@@ -3,14 +3,6 @@ import { EyeIcon, FilmIcon } from "lucide-react"
 
 import { cn } from "@workspace/ui/lib/utils"
 
-/**
- * Alloy GameTile — rounded 3:4 cover with the metadata floating directly
- * beneath (no card container). Cover is either a real image or a radial
- * gradient tinted to the game's signature `hue`.
- *
- * Stats mirror `ClipCard`'s pattern: `clips` (number of user clips for
- * this game) and `views` (total views across those clips).
- */
 interface GameTileProps extends React.ComponentProps<"article"> {
   name: string
   clips?: string | number

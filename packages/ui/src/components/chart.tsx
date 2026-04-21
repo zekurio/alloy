@@ -82,17 +82,11 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   const colorConfig = Object.entries(config).filter(
     ([, itemConfig]) => itemConfig.theme ?? itemConfig.color
   )
-
-  if (!colorConfig.length) {
-    return null
-  }
-
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
+  const cssText = React.useMemo(
+    () =>
+      Object.entries(THEMES)
+        .map(
+          ([theme, prefix]) => `
 ${prefix} [data-chart=${id}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
@@ -104,11 +98,16 @@ ${colorConfig
   .join("\n")}
 }
 `
-          )
-          .join("\n"),
-      }}
-    />
+        )
+        .join("\n"),
+    [colorConfig, id]
   )
+
+  if (!colorConfig.length) {
+    return null
+  }
+
+  return <style>{cssText}</style>
 }
 
 const ChartTooltip = RechartsPrimitive.Tooltip

@@ -2,21 +2,6 @@ import * as React from "react"
 
 import { cn } from "@workspace/ui/lib/utils"
 
-/**
- * Alloy AppShell — the top-level app layout. Two-column / two-row grid:
- *
- *   ┌──────────────────────────┐
- *   │          header          │
- *   ├────────┬─────────────────┤
- *   │sidebar │      main       │
- *   └────────┴─────────────────┘
- *
- * Children are placed by `data-slot` — drop in `AppSidebar`, `AppHeader`,
- * and `AppMain` in any order and they land in the right cell.
- *
- * Defaults to filling the viewport (`h-dvh`). Override `className` with
- * a fixed height (e.g. `h-[680px] border rounded-lg`) for a demo embed.
- */
 function AppShell({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
