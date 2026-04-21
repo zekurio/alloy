@@ -466,7 +466,6 @@
 /* color alone (no colored rail on the left edge).                          */
 
 .alloy-toast {
-  position: relative;
   display: grid !important;
   grid-template-columns: auto 1fr auto !important;
   align-items: flex-start !important;
