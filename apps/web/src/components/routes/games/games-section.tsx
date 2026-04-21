@@ -1,25 +1,25 @@
-import { GamepadIcon } from "lucide-react"
+import { GamepadIcon } from "lucide-react";
 
 import {
   SectionActions,
   SectionHead,
   SectionTitle,
-} from "@workspace/ui/components/section-head"
-import { Skeleton } from "@workspace/ui/components/skeleton"
+} from "@workspace/ui/components/section-head";
+import { Skeleton } from "@workspace/ui/components/skeleton";
 
-import { EmptyState } from "../../../components/empty-state"
-import { useGamesListQuery } from "../../../lib/game-queries"
-import { useQueryErrorToast } from "../../../lib/use-query-error-toast"
-import { GameCard } from "./game-card"
-import { GamesGrid } from "./games-grid"
+import { EmptyState } from "../../../components/empty-state";
+import { GameCard } from "../../../components/game-card";
+import { useGamesListQuery } from "../../../lib/game-queries";
+import { useQueryErrorToast } from "../../../lib/use-query-error-toast";
+import { GamesGrid } from "./games-grid";
 
 export function GamesSection() {
-  const { data: games, error, isPending } = useGamesListQuery()
+  const { data: games, error, isPending } = useGamesListQuery();
   useQueryErrorToast(error, {
     title: "Couldn't load games",
     toastId: "games-list-error",
-  })
-  const visibleGames = games ?? null
+  });
+  const visibleGames = games ?? null;
 
   return (
     <section>
@@ -32,7 +32,7 @@ export function GamesSection() {
         </div>
         <SectionActions>
           {visibleGames && visibleGames.length > 0 ? (
-            <span className="font-mono text-2xs text-foreground-faint">
+            <span className="text-xs text-foreground-faint tabular-nums">
               {visibleGames.length}{" "}
               {visibleGames.length === 1 ? "game" : "games"}
             </span>
@@ -58,10 +58,14 @@ export function GamesSection() {
       ) : (
         <GamesGrid>
           {games.map((g) => (
-            <GameCard key={g.id} game={g} />
+            <GameCard
+              key={g.id}
+              game={g}
+              link={{ kind: "game", slug: g.slug }}
+            />
           ))}
         </GamesGrid>
       )}
     </section>
-  )
+  );
 }

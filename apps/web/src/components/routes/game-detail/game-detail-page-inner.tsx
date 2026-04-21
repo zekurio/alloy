@@ -11,15 +11,14 @@ type GameDetailPageInnerProps = {
 
 export function GameDetailPageInner({ slug }: GameDetailPageInnerProps) {
   const session = useRequireAuth()
-
-  if (!session) return null
+  const viewerId = session?.user.id
 
   return (
     <AppMain>
       <div className="flex w-full flex-col gap-8">
         <GameHeader slug={slug} />
-        <TopClipsSection slug={slug} viewerId={session.user.id} />
-        <RecentClipsSection slug={slug} viewerId={session.user.id} />
+        <TopClipsSection slug={slug} viewerId={viewerId} />
+        <RecentClipsSection slug={slug} viewerId={viewerId} />
       </div>
     </AppMain>
   )

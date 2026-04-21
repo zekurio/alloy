@@ -6,17 +6,16 @@ import {
   SectionTitle,
 } from "@workspace/ui/components/section-head"
 
-import { ClipCardTrigger } from "../../../components/clip-player-dialog"
+import { ClipCardList } from "../../../components/clip-card-list"
+import { ClipCardSkeleton } from "../../../components/clip-card-skeleton"
 import { ClipGrid } from "../../../components/clip-grid"
 import { EmptyState } from "../../../components/empty-state"
-import { toClipCardData } from "../../../lib/clip-format"
 import { useGameClipsQuery } from "../../../lib/game-queries"
 import { useQueryErrorToast } from "../../../lib/use-query-error-toast"
-import { ClipCardSkeleton } from "./clip-card-skeleton"
 
 type RecentClipsSectionProps = {
   slug: string
-  viewerId: string
+  viewerId: string | undefined
 }
 
 const RECENT_LIMIT = 60
@@ -50,7 +49,7 @@ export function RecentClipsSection({
         </div>
         <SectionActions>
           {visibleRows && visibleRows.length > 0 ? (
-            <span className="font-mono text-2xs text-foreground-faint">
+            <span className="text-xs text-foreground-faint tabular-nums">
               {visibleRows.length} {visibleRows.length === 1 ? "clip" : "clips"}
             </span>
           ) : null}
@@ -77,36 +76,10 @@ export function RecentClipsSection({
           hint="Upload one to get the grid started."
         />
       ) : (
-        <ClipGrid>
-          {(visibleRows ?? []).map((row) => {
-            const card = toClipCardData(row)
-            return (
-              <ClipCardTrigger
-                key={row.id}
-                clipId={card.clipId}
-                streamUrl={card.streamUrl}
-                thumbnail={card.thumbnail}
-                variants={card.variants}
-                authorHandle={card.author}
-                authorId={card.authorId}
-                author={card.author}
-                authorImage={card.authorImage}
-                title={card.title}
-                game={card.game}
-                gameRef={card.gameRef}
-                gameHref={card.gameRef ? `/g/${card.gameRef.slug}` : null}
-                views={card.views}
-                likes={card.likes}
-                comments={card.comments}
-                postedAt={card.postedAt}
-                accentHue={card.accentHue}
-                privacy={card.authorId === viewerId ? card.privacy : undefined}
-                clipPrivacy={card.privacy}
-                description={card.description}
-              />
-            )
-          })}
-        </ClipGrid>
+        <ClipCardList
+          rows={visibleRows ?? []}
+          isOwnedByViewer={(row) => row.authorId === viewerId}
+        />
       )}
     </section>
   )

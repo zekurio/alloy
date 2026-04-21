@@ -2,6 +2,6 @@ import { Skeleton } from "@workspace/ui/components/skeleton"
 
 export function GameHeaderSkeleton() {
   return (
-    <Skeleton className="aspect-[16/6] max-h-[420px] min-h-[220px] w-full rounded-lg" />
+    <Skeleton className="-mx-8 -mt-6 aspect-[16/4] max-h-[280px] min-h-[160px] w-auto rounded-none" />
   )
 }

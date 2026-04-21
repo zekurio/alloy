@@ -10,6 +10,8 @@ import {
   ComboboxList,
 } from "@workspace/ui/components/combobox"
 import { Button } from "@workspace/ui/components/button"
+import { GameIcon } from "@workspace/ui/components/game-icon"
+import { InputGroupAddon } from "@workspace/ui/components/input-group"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type { GameRow, SteamGridDBSearchResult } from "../lib/games-api"
@@ -21,41 +23,30 @@ import {
 } from "../lib/game-queries"
 import { useDebouncedValue } from "../lib/use-debounced-value"
 
-/**
- * Async game picker backed by SteamGridDB's autocomplete. Internal flow:
- *
- *   type → debounce 200ms → local filter of known games (instant)
- *                         + `useSearchGamesQuery` → SGDB results appended
- *   pick → `resolveGame(steamgriddbId)` upserts our `game` row → parent
- *     callback fires with the full `GameRow`
- *
- * Local games from the `/games` list cache are filtered client-side first
- * so already-used titles appear immediately without a network round trip.
- * SGDB results that aren't already in the local list are appended once they
- * settle, covering games not yet in the library.
- *
- * The callers only need to know about `GameRow` — the SGDB handshake
- * stays inside. When SGDB isn't configured on the instance the picker
- * renders a read-only disabled placeholder so uploaders aren't nagged
- * by a non-functional input.
- *
- * Debounce sits in front of the query hook (not inside it) so react-query's
- * cache keys line up with settled queries — a fresh keystroke doesn't
- * mint a cache entry that will never be hit again.
- */
+type GameComboboxItem = SteamGridDBSearchResult & {
+  iconUrl?: string | null
+  logoUrl?: string | null
+  year?: number | null
+}
+
+function yearFromIsoDate(iso: string | null | undefined): number | null {
+  if (!iso) return null
+  const y = new Date(iso).getUTCFullYear()
+  return Number.isFinite(y) ? y : null
+}
+
+const PAGE_SIZE = 6
+
 export interface GameComboboxProps {
   /** Currently picked game, or null when unset. */
   value: GameRow | null
-  /**
-   * Fires on pick and on clear. `null` means the caller should remove any
-   * existing game mapping; a `GameRow` is the freshly resolved row from
-   * `/api/games/resolve`. Not fired on intermediate keystrokes.
-   */
   onChange: (next: GameRow | null) => void
   /** Visually dim + block interaction. Used while the parent is saving. */
   disabled?: boolean
   /** Optional placeholder for the unpicked state. */
   placeholder?: string
+  allowClear?: boolean
+  side?: "top" | "bottom"
   /**
    * Extra classes on the wrapping element so callers can size the input
    * to match their form layout without overriding the combobox internals.
@@ -68,6 +59,8 @@ export function GameCombobox({
   onChange,
   disabled = false,
   placeholder = "Search SteamGridDB…",
+  allowClear = true,
+  side = "bottom",
   className,
 }: GameComboboxProps) {
   const statusQuery = useSteamGridDBStatusQuery()
@@ -78,9 +71,6 @@ export function GameCombobox({
   const [inputValue, setInputValue] = React.useState(value?.name ?? "")
   const debouncedQuery = useDebouncedValue(inputValue, 200)
 
-  // Mirror the parent's picked value into the input when it changes from
-  // the outside — e.g. after a save round-trip or a form reset. Skip when
-  // the user is actively typing (their draft would otherwise get clobbered).
   const lastExternalNameRef = React.useRef<string | null>(value?.name ?? null)
   React.useEffect(() => {
     const nextName = value?.name ?? ""
@@ -90,9 +80,6 @@ export function GameCombobox({
     }
   }, [value?.name])
 
-  // Already-known games — populated from the /games page cache or fetched
-  // on first combobox mount. Used for instant local filtering before SGDB
-  // responds, so common picks feel snappy even on a slow connection.
   const gamesListQuery = useGamesListQuery()
 
   const searchQuery = useSearchGamesQuery(debouncedQuery, {
@@ -103,24 +90,41 @@ export function GameCombobox({
 
   const resolveMutation = useResolveGameMutation()
 
-  // We track the SGDB pick separately from the parent's `GameRow` so
-  // react-query's `isPending` on `resolveMutation` can gate the picker
-  // without the UI dropping back to "no selection" mid-resolve.
+  const [pendingItem, setPendingItem] =
+    React.useState<GameComboboxItem | null>(null)
+
+  const [cleared, setCleared] = React.useState(false)
+
+  const [visibleCount, setVisibleCount] = React.useState(PAGE_SIZE)
+  React.useEffect(() => {
+    setVisibleCount(PAGE_SIZE)
+  }, [debouncedQuery])
+
+  React.useEffect(() => {
+    if (value) setCleared(false)
+  }, [value])
+
   const handlePick = React.useCallback(
-    (picked: SteamGridDBSearchResult | null) => {
+    (picked: GameComboboxItem | null) => {
       if (picked === null) {
+        if (!allowClear) {
+          setCleared(true)
+          setInputValue("")
+          return
+        }
+        setPendingItem(null)
         setInputValue("")
         onChange(null)
         return
       }
-      // Eagerly reflect the pick in the input — the resolve round trip
-      // takes a beat, and leaving the field blank until it returns
-      // reads as "nothing happened".
+      setCleared(false)
+      setPendingItem(picked)
       setInputValue(picked.name)
       resolveMutation.mutate(
         { steamgriddbId: picked.id },
         {
           onSuccess: (row) => {
+            setPendingItem(null)
             // Align our mirror ref with the now-committed value so the
             // external-value effect above doesn't immediately overwrite
             // the same text with an identical value (wasted render).
@@ -128,6 +132,7 @@ export function GameCombobox({
             onChange(row)
           },
           onError: () => {
+            setPendingItem(null)
             // Roll the input back to whatever the parent still thinks is
             // selected — we couldn't finish the handshake.
             setInputValue(value?.name ?? "")
@@ -135,12 +140,68 @@ export function GameCombobox({
         }
       )
     },
-    [onChange, resolveMutation, value?.name]
+    [allowClear, onChange, resolveMutation, value?.name]
   )
 
   // Base UI's `filter` prop runs on every items change; we want zero
   // client-side filtering because the server already narrowed the list.
   const noopFilter = React.useCallback(() => true, [])
+
+  const effectiveItems = React.useMemo<GameComboboxItem[]>(() => {
+    const sgdbResults = searchQuery.data ?? []
+    const localGames = gamesListQuery.data ?? []
+    const q = debouncedQuery.trim().toLowerCase()
+
+    // Filter already-known games by the current query — zero network cost.
+    const localMatches: GameComboboxItem[] =
+      q.length > 0
+        ? localGames
+            .filter((g) => g.name.toLowerCase().includes(q))
+            .map((g) => ({
+              id: g.steamgriddbId,
+              name: g.name,
+              iconUrl: g.iconUrl,
+              logoUrl: g.logoUrl,
+              year: yearFromIsoDate(g.releaseDate),
+            }))
+        : []
+
+    // Append SGDB results that aren't already covered by a local match
+    // so the list never contains duplicates.
+    const sgdbOnly = sgdbResults.filter(
+      (r) => !localMatches.some((l) => l.id === r.id)
+    )
+
+    const merged: GameComboboxItem[] = [...localMatches, ...sgdbOnly]
+
+    // Ghost item: keeps the controlled selection visible when neither the
+    // local list nor the current SGDB page contains the picked game.
+    if (!value) return merged
+    const pickedAsItem: GameComboboxItem = {
+      id: value.steamgriddbId,
+      name: value.name,
+      iconUrl: value.iconUrl,
+      logoUrl: value.logoUrl,
+    }
+    if (merged.some((r) => r.id === value.steamgriddbId)) return merged
+    return [pickedAsItem, ...merged]
+  }, [searchQuery.data, gamesListQuery.data, debouncedQuery, value])
+
+  const pickedYear = React.useMemo(
+    () => yearFromIsoDate(value?.releaseDate),
+    [value?.releaseDate]
+  )
+
+  const controlledValue: GameComboboxItem | null = cleared
+    ? null
+    : value
+      ? {
+          id: value.steamgriddbId,
+          name: value.name,
+          iconUrl: value.iconUrl,
+          logoUrl: value.logoUrl,
+        }
+      : (pendingItem ?? null)
 
   if (configured === false) {
     return (
@@ -168,49 +229,9 @@ export function GameCombobox({
   const resolving = resolveMutation.isPending
   const isDisabled = disabled || resolving || configured === null
 
-  // Build the picker list: local matches first (instant), then any SGDB
-  // results that aren't already represented (appended once they settle).
-  // Ghost-item logic ensures base-ui's controlled `value` always has
-  // something to match against even before a search has fired.
-  const effectiveItems = React.useMemo<SteamGridDBSearchResult[]>(() => {
-    const sgdbResults = searchQuery.data ?? []
-    const localGames = gamesListQuery.data ?? []
-    const q = debouncedQuery.trim().toLowerCase()
-
-    // Filter already-known games by the current query — zero network cost.
-    const localMatches: SteamGridDBSearchResult[] =
-      q.length > 0
-        ? localGames
-            .filter((g) => g.name.toLowerCase().includes(q))
-            .map((g) => ({ id: g.steamgriddbId, name: g.name }))
-        : []
-
-    // Append SGDB results that aren't already covered by a local match
-    // so the list never contains duplicates.
-    const sgdbOnly = sgdbResults.filter(
-      (r) => !localMatches.some((l) => l.id === r.id)
-    )
-
-    const merged = [...localMatches, ...sgdbOnly]
-
-    // Ghost item: keeps the controlled selection visible when neither the
-    // local list nor the current SGDB page contains the picked game.
-    if (!value) return merged
-    const pickedAsItem: SteamGridDBSearchResult = {
-      id: value.steamgriddbId,
-      name: value.name,
-    }
-    if (merged.some((r) => r.id === value.steamgriddbId)) return merged
-    return [pickedAsItem, ...merged]
-  }, [searchQuery.data, gamesListQuery.data, debouncedQuery, value])
-
-  const controlledValue: SteamGridDBSearchResult | null = value
-    ? { id: value.steamgriddbId, name: value.name }
-    : null
-
   return (
     <div className={cn("relative", className)}>
-      <Combobox<SteamGridDBSearchResult>
+      <Combobox<GameComboboxItem>
         items={effectiveItems}
         value={controlledValue}
         onValueChange={handlePick}
@@ -226,28 +247,75 @@ export function GameCombobox({
         <ComboboxInput
           placeholder={placeholder}
           showTrigger={false}
-          showClear={value !== null}
+          showClear={allowClear && value !== null}
           aria-label="Game"
           aria-busy={isSearching || resolving || undefined}
-        />
-        <ComboboxContent className="min-w-[320px]">
+        >
+          {value ? (
+            <InputGroupAddon align="inline-start">
+              <GameIcon
+                src={value.iconUrl ?? value.logoUrl}
+                name={value.name}
+              />
+            </InputGroupAddon>
+          ) : null}
+        </ComboboxInput>
+        <ComboboxContent side={side} className="min-w-[320px]">
           <ComboboxList>
             {effectiveItems.length === 0
               ? null
-              : effectiveItems.map((item) => (
-                  <ComboboxItem key={item.id} value={item} className="py-2">
-                    <div className="flex min-w-0 flex-col">
-                      <span className="truncate text-sm text-foreground">
-                        {item.name}
-                      </span>
-                      {item.release_date ? (
-                        <span className="text-2xs text-foreground-faint">
-                          {new Date(item.release_date * 1000).getFullYear()}
-                        </span>
-                      ) : null}
-                    </div>
-                  </ComboboxItem>
-                ))}
+              : effectiveItems.slice(0, visibleCount).map((item) => {
+                  const year =
+                    item.year ??
+                    (item.release_date
+                      ? new Date(item.release_date * 1000).getFullYear()
+                      : value && item.id === value.steamgriddbId
+                        ? pickedYear
+                        : null)
+                  return (
+                    <ComboboxItem key={item.id} value={item} className="py-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <GameIcon
+                          src={item.iconUrl ?? item.logoUrl}
+                          name={item.name}
+                          size="lg"
+                        />
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate text-sm text-foreground">
+                            {item.name}
+                          </span>
+                          {year ? (
+                            <span className="shrink-0 text-xs text-foreground-faint">
+                              {year}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </ComboboxItem>
+                  )
+                })}
+            {effectiveItems.length > visibleCount ? (
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  // Keep the input focused so the list doesn't close
+                  // before our state update flushes.
+                  e.preventDefault()
+                }}
+                onClick={() => {
+                  setVisibleCount((n) =>
+                    Math.min(n + PAGE_SIZE, effectiveItems.length)
+                  )
+                }}
+                className={cn(
+                  "flex w-full items-center justify-center rounded-md py-2 text-xs",
+                  "text-foreground-muted hover:bg-accent hover:text-accent-foreground"
+                )}
+              >
+                Show {Math.min(PAGE_SIZE, effectiveItems.length - visibleCount)}{" "}
+                more
+              </button>
+            ) : null}
             <ComboboxEmpty>
               {hasError
                 ? "Couldn’t reach SteamGridDB"
@@ -261,7 +329,7 @@ export function GameCombobox({
         </ComboboxContent>
       </Combobox>
 
-      {value !== null && !disabled ? (
+      {allowClear && value !== null && !disabled ? (
         <ClearPickedButton
           onClick={() => handlePick(null)}
           disabled={resolving}
@@ -271,12 +339,6 @@ export function GameCombobox({
   )
 }
 
-/**
- * Compact "×" button stacked on the right edge of the combobox input.
- * base-ui's own `ComboboxClear` drops the selection but leaves the input
- * text — we want both cleared, so we wire a manual one that delegates
- * to the same pick handler used for list selections.
- */
 function ClearPickedButton({
   onClick,
   disabled,

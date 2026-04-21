@@ -4,8 +4,7 @@ import { useRequireAuth } from "../../../lib/auth-hooks"
 import { GamesSection } from "./games-section"
 
 export function GamesPageInner() {
-  const session = useRequireAuth()
-  if (!session) return null
+  useRequireAuth()
 
   return (
     <AppMain>
