@@ -1,4 +1,5 @@
 import * as React from "react"
+import { UserKeyIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
@@ -20,10 +21,11 @@ export function OAuthButton({
       type="button"
       variant="secondary"
       size="lg"
-      className={cn(className)}
+      className={cn("justify-start gap-3", className)}
       data-provider={providerId}
       {...props}
     >
+      <UserKeyIcon className="size-4" />
       <span className="truncate">Continue with {displayName}</span>
     </Button>
   )

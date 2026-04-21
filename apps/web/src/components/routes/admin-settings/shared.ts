@@ -7,16 +7,48 @@ import type {
 export function emptyProvider(): AdminOAuthProvider {
   return {
     providerId: "",
-    displayName: "",
+    displayName: "Custom OIDC",
     clientId: "",
     clientSecret: "",
-    scopes: [],
+    scopes: ["openid", "profile", "email"],
+    enabled: true,
     discoveryUrl: "",
     authorizationUrl: "",
     tokenUrl: "",
     userInfoUrl: "",
     pkce: true,
     usernameClaim: "preferred_username",
+  }
+}
+
+function normalizeAuthBaseURL(authBaseURL: string): string {
+  return authBaseURL.endsWith("/") ? authBaseURL.slice(0, -1) : authBaseURL
+}
+
+export function callbackURLForProvider(
+  authBaseURL: string,
+  providerId: string
+): string {
+  return `${normalizeAuthBaseURL(authBaseURL)}/api/auth/oauth2/callback/${
+    providerId || "{providerId}"
+  }`
+}
+
+export function toSubmissionProvider(
+  provider: AdminOAuthProvider
+): AdminOAuthProvider {
+  return {
+    ...provider,
+    providerId: provider.providerId.trim(),
+    displayName: provider.displayName.trim(),
+    clientId: provider.clientId.trim(),
+    clientSecret: provider.clientSecret.trim(),
+    scopes: provider.scopes?.map((scope) => scope.trim()).filter(Boolean),
+    discoveryUrl: emptyToUndefined(provider.discoveryUrl),
+    authorizationUrl: emptyToUndefined(provider.authorizationUrl),
+    tokenUrl: emptyToUndefined(provider.tokenUrl),
+    userInfoUrl: emptyToUndefined(provider.userInfoUrl),
+    usernameClaim: emptyToUndefined(provider.usernameClaim),
   }
 }
 

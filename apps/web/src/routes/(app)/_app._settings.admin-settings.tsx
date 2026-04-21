@@ -96,10 +96,7 @@ function AdminAuthTab({
 }) {
   return (
     <TabsContent value="auth" className="flex flex-col gap-4">
-      <OAuthProviderCard
-        provider={config.oauthProvider}
-        onChange={onConfigChange}
-      />
+      <OAuthProviderCard config={config} onChange={onConfigChange} />
 
       <Card>
         <CardContent className="flex flex-col">
@@ -109,7 +106,8 @@ function AdminAuthTab({
             checked={config.emailPasswordEnabled}
             onCheckedChange={onToggleEmailPassword}
             disabled={
-              config.emailPasswordEnabled && config.oauthProvider === null
+              config.emailPasswordEnabled &&
+              !hasEnabledOAuthProvider(config)
             }
           />
           <ToggleRow
@@ -128,6 +126,10 @@ function AdminAuthTab({
       </Card>
     </TabsContent>
   );
+}
+
+function hasEnabledOAuthProvider(config: AdminRuntimeConfig): boolean {
+  return config.oauthProvider?.enabled === true;
 }
 
 type BoolToggleKey =
