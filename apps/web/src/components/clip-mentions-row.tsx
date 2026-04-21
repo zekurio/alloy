@@ -23,6 +23,28 @@ import type { ClipMentionRef } from "../lib/clips-api"
 import { userChipData } from "../lib/user-display"
 import { followUser, unfollowUser } from "../lib/users-api"
 
+function UserAvatar({
+  user,
+  size,
+}: {
+  user: ClipMentionRef
+  size: "sm" | "md"
+}) {
+  const chip = userChipData(user)
+  return (
+    <Avatar size={size}>
+      {chip.avatar.src ? (
+        <AvatarImage src={chip.avatar.src} alt={chip.name} />
+      ) : null}
+      <AvatarFallback
+        style={{ backgroundColor: chip.avatar.bg, color: chip.avatar.fg }}
+      >
+        {chip.avatar.initials}
+      </AvatarFallback>
+    </Avatar>
+  )
+}
+
 interface ClipMentionsRowProps {
   mentions: ClipMentionRef[]
 }
@@ -50,24 +72,9 @@ function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
           aria-label="View tagged users"
         >
           <AvatarGroup>
-            {preview.map((u) => {
-              const chip = userChipData(u)
-              return (
-                <Avatar key={u.id} size="sm">
-                  {chip.avatar.src ? (
-                    <AvatarImage src={chip.avatar.src} alt={chip.name} />
-                  ) : null}
-                  <AvatarFallback
-                    style={{
-                      backgroundColor: chip.avatar.bg,
-                      color: chip.avatar.fg,
-                    }}
-                  >
-                    {chip.avatar.initials}
-                  </AvatarFallback>
-                </Avatar>
-              )
-            })}
+            {preview.map((u) => (
+              <UserAvatar key={u.id} user={u} size="sm" />
+            ))}
           </AvatarGroup>
         </button>
         <span className="text-xs text-foreground-muted">
@@ -146,19 +153,7 @@ function MentionRow({
         onClick={onOpen}
         className="flex min-w-0 flex-1 items-center gap-3"
       >
-        <Avatar size="md">
-          {chip.avatar.src ? (
-            <AvatarImage src={chip.avatar.src} alt={chip.name} />
-          ) : null}
-          <AvatarFallback
-            style={{
-              backgroundColor: chip.avatar.bg,
-              color: chip.avatar.fg,
-            }}
-          >
-            {chip.avatar.initials}
-          </AvatarFallback>
-        </Avatar>
+        <UserAvatar user={user} size="md" />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm text-foreground">
             {chip.name}
