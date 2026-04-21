@@ -1,7 +1,7 @@
 import { createAuth } from "@workspace/api/auth"
 
-import { env } from "./env"
+import { apiOrigin } from "./env"
 
-export const authClient = createAuth(env.VITE_API_URL)
+export const authClient = createAuth(apiOrigin())
 
 export const { useSession, signIn, signUp, signOut, getSession } = authClient

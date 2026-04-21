@@ -4,7 +4,7 @@ import * as React from "react"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { hueForGame } from "../lib/clip-format"
-import { env } from "../lib/env"
+import { apiOrigin } from "../lib/env"
 
 export type GameCardData = {
   name: string
@@ -101,7 +101,7 @@ function GameCardBody({ game }: { game: GameCardData }) {
   const hue = hueForGame(game.name)
   const heroSrc =
     game.heroUrl && game.slug
-      ? `${env.VITE_API_URL}/api/games/${encodeURIComponent(game.slug)}/hero`
+      ? `${apiOrigin()}/api/games/${encodeURIComponent(game.slug)}/hero`
       : null
   const dominant = useDominantColor(heroSrc)
   const labelBg = dominant
