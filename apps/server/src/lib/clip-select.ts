@@ -1,23 +1,9 @@
 import { eq } from "drizzle-orm"
 
-import { clip, game, user } from "@workspace/db/schema"
+import { user } from "@workspace/db/auth-schema"
+import { clip, clipMention, game } from "@workspace/db/schema"
 
 import { db } from "../db"
-
-/**
- * Shared clip read projection. Every endpoint that emits a clip row
- * selects this exact shape — so the home feed, single-clip GET, game
- * page, and queue detail all surface matching `ClipRow` shapes on the
- * client. Adding a column to a clip response means touching this file
- * and nothing else.
- *
- * We keep the legacy free-text `clip.game` column selectable so old
- * rows render their label, and add the `gameRef` nested projection
- * for the new FK'd metadata. Drizzle's left join already collapses
- * `gameRef` to `null` when the clip has no mapped game, so callers
- * can branch on a single nullish check. The UI prefers `gameRef`
- * when present and falls back to `game` text otherwise.
- */
 
 export const clipSelectShape = {
   id: clip.id,
@@ -48,7 +34,9 @@ export const clipSelectShape = {
   createdAt: clip.createdAt,
   updatedAt: clip.updatedAt,
   authorUsername: user.username,
+  authorName: user.name,
   authorImage: user.image,
+  authorImageKey: user.imageKey,
   gameRef: {
     id: game.id,
     steamgriddbId: game.steamgriddbId,
@@ -56,6 +44,7 @@ export const clipSelectShape = {
     name: game.name,
     heroUrl: game.heroUrl,
     logoUrl: game.logoUrl,
+    iconUrl: game.iconUrl,
   },
 } as const
 
@@ -66,13 +55,34 @@ export type ClipGameRef = {
   name: string
   heroUrl: string | null
   logoUrl: string | null
+  iconUrl: string | null
 }
 
-/**
- * Single-row lookup shared between `/:id`, `/finalize`, and PATCH.
- * Returns `null` when the clip doesn't exist so callers can branch
- * cleanly on the 404 path.
- */
+export type ClipMentionRef = {
+  id: string
+  username: string
+  displayUsername: string
+  name: string
+  image: string | null
+}
+
+export async function selectClipMentions(
+  clipId: string
+): Promise<ClipMentionRef[]> {
+  return db
+    .select({
+      id: user.id,
+      username: user.username,
+      displayUsername: user.displayUsername,
+      name: user.name,
+      image: user.image,
+    })
+    .from(clipMention)
+    .innerJoin(user, eq(clipMention.mentionedUserId, user.id))
+    .where(eq(clipMention.clipId, clipId))
+    .orderBy(user.username)
+}
+
 export async function selectClipById(id: string) {
   const [row] = await db
     .select(clipSelectShape)
@@ -81,5 +91,7 @@ export async function selectClipById(id: string) {
     .leftJoin(game, eq(clip.gameId, game.id))
     .where(eq(clip.id, id))
     .limit(1)
-  return row ?? null
+  if (!row) return null
+  const mentions = await selectClipMentions(id)
+  return { ...row, mentions }
 }

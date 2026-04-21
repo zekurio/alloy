@@ -1,11 +1,15 @@
 import { spawn } from "node:child_process"
 
 import { zValidator } from "@hono/zod-validator"
+import { inArray } from "drizzle-orm"
 import { Hono } from "hono"
 import { createMiddleware } from "hono/factory"
 import { z } from "zod"
 
+import { clip } from "@workspace/db/schema"
+
 import { getAuth } from "../auth"
+import { db } from "../db"
 import { env } from "../env"
 import {
   EncoderConfigPatchSchema,
@@ -17,6 +21,7 @@ import {
   type HwaccelKind,
   type RuntimeConfig,
 } from "../lib/config-store"
+import { ENCODE_JOB, getBoss } from "../queue"
 import { codecNameFor } from "../queue/ffmpeg"
 
 const requireAdmin = createMiddleware<{
@@ -35,25 +40,11 @@ const requireAdmin = createMiddleware<{
 const RuntimeConfigPatch = z.object({
   openRegistrations: z.boolean().optional(),
   emailPasswordEnabled: z.boolean().optional(),
+  requireAuthToBrowse: z.boolean().optional(),
 })
 
-/**
- * Placeholder returned to the admin UI in place of a live secret.
- * PATCH routes that receive this value back treat it as "keep current"
- * so the UI can round-trip a redacted GET through a form submit
- * without accidentally rotating a key. Never occurs as a real key —
- * SGDB keys are long UUID-like strings.
- */
 const REDACTED_SENTINEL = "***"
 
-/**
- * Strip high-sensitivity credentials before handing the config to the
- * admin UI. Admins re-enter them on every save — same pattern as GitHub
- * Actions secrets. Integration keys use the `REDACTED_SENTINEL` so the
- * UI can render a "configured" hint without seeing the value; OAuth's
- * client secret follows the pre-existing empty-string convention (its
- * submission schema treats empty as "keep current" on PUT).
- */
 function redactSecrets(
   config: Readonly<RuntimeConfig>
 ): Readonly<RuntimeConfig> {
@@ -97,6 +88,7 @@ export const adminRoute = new Hono()
     const patch: Partial<{
       openRegistrations: boolean
       emailPasswordEnabled: boolean
+      requireAuthToBrowse: boolean
     }> = {}
     if (body.openRegistrations !== undefined) {
       patch.openRegistrations = body.openRegistrations
@@ -104,12 +96,12 @@ export const adminRoute = new Hono()
     if (body.emailPasswordEnabled !== undefined) {
       patch.emailPasswordEnabled = body.emailPasswordEnabled
     }
+    if (body.requireAuthToBrowse !== undefined) {
+      patch.requireAuthToBrowse = body.requireAuthToBrowse
+    }
     if (Object.keys(patch).length > 0) configStore.patch(patch)
     return c.json(redactSecrets(configStore.getAll()))
   })
-  // PUT replaces the provider wholesale; DELETE clears it. An empty
-  // `clientSecret` in the submission means "keep the existing secret" —
-  // lets admins tweak settings without re-entering a rotated secret.
   .put(
     "/oauth-provider",
     zValidator("json", OAuthProviderSubmissionSchema),
@@ -132,7 +124,6 @@ export const adminRoute = new Hono()
   )
   .delete("/oauth-provider", (c) => {
     // Same lockout guard as the runtime-config patch: don't let the admin
-    // remove the only remaining sign-in surface.
     if (!configStore.get("emailPasswordEnabled")) {
       return c.json(
         {
@@ -172,16 +163,6 @@ export const adminRoute = new Hono()
     return c.json(redactSecrets(configStore.getAll()))
   })
 
-  /**
-   * PATCH /integrations — update third-party credentials. The payload
-   * uses the same shape as GET returns, with the `"***"` sentinel
-   * standing in for a currently-set secret — submitting it back means
-   * "keep the stored value", so the UI can safely echo the redacted
-   * response into a form without rotating a key by accident. An
-   * explicit empty string clears the integration; any other non-sentinel
-   * value replaces the stored key. Omitting the field altogether
-   * (since the schema is `.partial()`) is also a no-op.
-   */
   .patch(
     "/integrations",
     zValidator("json", IntegrationsConfigPatchSchema),
@@ -200,19 +181,38 @@ export const adminRoute = new Hono()
     }
   )
 
-  /**
-   * GET /encoder/capabilities — probe ffmpeg for which encoder names
-   * it knows about. Lets the admin UI grey out backends the binary
-   * wasn't compiled with (no `h264_nvenc` if there's no NVENC support,
-   * etc.) instead of letting admins pick one and watch every encode
-   * fail with the same cryptic "Unknown encoder" error.
-   *
-   * Result is cached for 5 minutes so flipping between encoder backends
-   * in the UI doesn't shell out on every keystroke. Cache busts on
-   * server restart, which is when binary changes happen anyway.
-   */
   .get("/encoder/capabilities", async (c) => {
     return c.json(await getEncoderCapabilities())
+  })
+
+  .post("/clips/re-encode", async (c) => {
+    const rows = await db
+      .select({ id: clip.id })
+      .from(clip)
+      .where(inArray(clip.status, ["ready", "failed"]))
+    if (rows.length === 0) {
+      return c.json({ enqueued: 0 })
+    }
+    const ids = rows.map((r) => r.id)
+    await db
+      .update(clip)
+      .set({
+        status: "uploaded",
+        encodeProgress: 0,
+        failureReason: null,
+        updatedAt: new Date(),
+      })
+      .where(inArray(clip.id, ids))
+
+    const boss = await getBoss()
+    // pg-boss doesn't have a bulk-send that honours the same retry
+    // policy; sequentially `send()`-ing keeps each job's metadata
+    // independent (retryCount, expireInSeconds) without bouncing through
+    // a different insert path.
+    for (const id of ids) {
+      await boss.send(ENCODE_JOB, { clipId: id })
+    }
+    return c.json({ enqueued: ids.length })
   })
 
 let capabilityCache: {
@@ -224,13 +224,7 @@ interface EncoderCapabilities {
   ffmpegOk: boolean
   /** ffmpeg's `-version` first line, or null if the probe failed. */
   ffmpegVersion: string | null
-  /**
-   * Per-(hwaccel, codec) availability. `available[kind][codec]` is true
-   * when the corresponding ffmpeg encoder name shows up in `-encoders`.
-   * Software always reports true if ffmpeg is present (libx264/x265 are
-   * compiled into virtually every modern build).
-   */
-  available: Record<HwaccelKind, { h264: boolean; hevc: boolean }>
+  available: Record<HwaccelKind, { h264: boolean; hevc: boolean; av1: boolean }>
 }
 
 async function getEncoderCapabilities(): Promise<EncoderCapabilities> {
@@ -242,19 +236,13 @@ async function getEncoderCapabilities(): Promise<EncoderCapabilities> {
   return value
 }
 
-/**
- * Run `ffmpeg -hide_banner -encoders` and grep the output for the names
- * `codecNameFor()` would emit per (hwaccel, codec) pair. Resolves with
- * an all-false matrix (and `ffmpegOk = false`) on any spawn failure so
- * the admin UI degrades gracefully when ffmpeg is missing.
- */
 async function probeEncoderCapabilities(): Promise<EncoderCapabilities> {
   const empty: EncoderCapabilities["available"] = {
-    software: { h264: false, hevc: false },
-    nvenc: { h264: false, hevc: false },
-    qsv: { h264: false, hevc: false },
-    amf: { h264: false, hevc: false },
-    vaapi: { h264: false, hevc: false },
+    software: { h264: false, hevc: false, av1: false },
+    nvenc: { h264: false, hevc: false, av1: false },
+    qsv: { h264: false, hevc: false, av1: false },
+    amf: { h264: false, hevc: false, av1: false },
+    vaapi: { h264: false, hevc: false, av1: false },
   }
 
   const stdout = await runCapture(env.FFMPEG_BIN, [
@@ -263,9 +251,6 @@ async function probeEncoderCapabilities(): Promise<EncoderCapabilities> {
   ]).catch(() => null)
   if (!stdout) return { ffmpegOk: false, ffmpegVersion: null, available: empty }
 
-  // `-encoders` lists one encoder per line; the name is the second
-  // whitespace-separated token. We don't need to parse the flags column —
-  // presence in the list is enough.
   const names = new Set<string>()
   for (const line of stdout.split("\n")) {
     const m = /^\s[A-Z.]{6}\s+(\S+)/.exec(line)
@@ -277,6 +262,7 @@ async function probeEncoderCapabilities(): Promise<EncoderCapabilities> {
     available[hw] = {
       h264: names.has(codecNameFor(hw, "h264")),
       hevc: names.has(codecNameFor(hw, "hevc")),
+      av1: names.has(codecNameFor(hw, "av1")),
     }
   }
 

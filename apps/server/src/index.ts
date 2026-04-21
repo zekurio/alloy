@@ -9,9 +9,8 @@ const server = serve(
     fetch: app.fetch,
     port: env.PORT,
   },
-  (info) => {
+  (_info) => {
     // eslint-disable-next-line no-console
-    console.log(`→ api listening on http://localhost:${info.port}`)
   }
 )
 
@@ -25,11 +24,10 @@ void startQueue().catch((err) => {
 })
 
 let shuttingDown = false
-const shutdown = (signal: NodeJS.Signals) => {
+const shutdown = (_signal: NodeJS.Signals) => {
   if (shuttingDown) return
   shuttingDown = true
   // eslint-disable-next-line no-console
-  console.log(`→ ${signal} received, draining…`)
   // Stop the queue first so in-flight encodes get a chance to finish
   // (or at least to flush their progress) before the HTTP server goes
   // away. pg-boss's graceful stop waits for the workers to clear.

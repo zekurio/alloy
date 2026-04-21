@@ -4,24 +4,8 @@ import type { PgBoss } from "pg-boss"
 import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { storage } from "../storage"
+import { clipAssetKey, storage } from "../storage"
 import { ENCODE_JOB } from "./encode-worker"
-
-/**
- * Background sweeper for clip rows that fell out of the happy path.
- *
- *   - `pending` rows older than ~1h: the user opened initiate but never
- *     finalized. Delete the row and best-effort delete any partial
- *     bytes — the schema's `clip_status_idx` makes this scan cheap.
- *
- *   - `uploaded` rows older than ~24h: finalize succeeded but the
- *     encoder never picked the job up (server restart between finalize
- *     and the boss enqueue, e.g.). Re-enqueue rather than abandon.
- *
- * Scheduled via pg-boss's cron: every 10 minutes is dense enough that
- * the modal feedback feels live (a stuck row clears within a deploy
- * cycle) and rare enough that the scan never piles up.
- */
 
 export const REAP_JOB = "clip.reap" as const
 
@@ -47,7 +31,12 @@ export async function registerReaperWorker(boss: PgBoss): Promise<void> {
 
 async function reapPending(): Promise<void> {
   const stale = await db
-    .select({ id: clip.id, storageKey: clip.storageKey })
+    .select({
+      id: clip.id,
+      storageKey: clip.storageKey,
+      thumbKey: clip.thumbKey,
+      thumbSmallKey: clip.thumbSmallKey,
+    })
     .from(clip)
     .where(
       and(
@@ -60,17 +49,23 @@ async function reapPending(): Promise<void> {
     )
 
   for (const row of stale) {
-    try {
-      await storage.delete(row.storageKey)
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn(`[queue/reap] could not delete bytes for ${row.id}:`, err)
+    const keys = [
+      row.storageKey,
+      row.thumbKey ?? clipAssetKey(row.id, "thumb"),
+      row.thumbSmallKey ?? clipAssetKey(row.id, "thumb-small"),
+    ]
+    for (const key of keys) {
+      try {
+        await storage.delete(key)
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(`[queue/reap] could not delete bytes for ${row.id}:`, err)
+      }
     }
     await db.delete(clip).where(eq(clip.id, row.id))
   }
   if (stale.length > 0) {
     // eslint-disable-next-line no-console
-    console.log(`[queue/reap] removed ${stale.length} pending clip(s)`)
   }
 }
 
@@ -82,7 +77,7 @@ async function reuploadStuck(boss: PgBoss): Promise<void> {
       and(
         eq(clip.status, "uploaded"),
         lt(
-          clip.createdAt,
+          clip.updatedAt,
           sql`now() - interval '${sql.raw(UPLOADED_MAX_AGE_INTERVAL)}'`
         )
       )
@@ -93,6 +88,5 @@ async function reuploadStuck(boss: PgBoss): Promise<void> {
   }
   if (stuck.length > 0) {
     // eslint-disable-next-line no-console
-    console.log(`[queue/reap] re-enqueued ${stuck.length} stuck encode(s)`)
   }
 }

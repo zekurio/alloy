@@ -1,17 +1,22 @@
 import { drizzle } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
 
-import * as authSchema from "./auth-schema"
-import * as schema from "./schema"
+import { authSchema } from "./auth-schema"
+import { domainSchema } from "./schema"
 
-export { authSchema, schema }
+export { authSchema, domainSchema }
 export * from "./auth-schema"
 export * from "./schema"
+
+export const dbSchema = {
+  ...authSchema,
+  ...domainSchema,
+} as const
 
 export function createDb(databaseUrl: string) {
   const client = postgres(databaseUrl, { max: 10 })
   const db = drizzle(client, {
-    schema: { ...authSchema, ...schema },
+    schema: dbSchema,
   })
 
   return { client, db }
