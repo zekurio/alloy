@@ -1,18 +1,13 @@
 import { api } from "./api"
+import { clipThumbnailUrl } from "./clips-api"
 
 export interface PublicClip {
   id: string
   title: string
   game: string | null
+  thumbUrl: string | null
 }
 
-/**
- * Fetch the most recent public clips for decorative use on the login page.
- *
- * Soft-failing by design: the call is purely cosmetic (it backs the login-page
- * carousel), so a network hiccup or cold server should never block sign-in.
- * Callers get `[]` and the UI falls back to a static tile set.
- */
 export async function fetchPublicClips(): Promise<PublicClip[]> {
   try {
     // Empty query — takes the server's defaults (recent, 50, no cursor,
@@ -23,8 +18,14 @@ export async function fetchPublicClips(): Promise<PublicClip[]> {
       id: string
       title: string
       game: string | null
+      thumbKey: string | null
     }>
-    return rows.map((r) => ({ id: r.id, title: r.title, game: r.game }))
+    return rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      game: r.game,
+      thumbUrl: r.thumbKey ? clipThumbnailUrl(r.id) : null,
+    }))
   } catch {
     return []
   }
