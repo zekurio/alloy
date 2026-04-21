@@ -405,6 +405,51 @@
       transform: translate3d(-50%, 0, 0);
     }
   }
+  /* Upload FAB ↔ queue popover morph. Origin is bottom-right so the
+     popover grows out of the FAB's corner with a little spring overshoot
+     and a cheeky tilt that settles back to zero. */
+  @keyframes alloy-fab-morph-in {
+    0% {
+      opacity: 0;
+      transform: scale(0.18) rotate(-6deg);
+    }
+    55% {
+      opacity: 1;
+      transform: scale(1.06) rotate(1.5deg);
+    }
+    78% {
+      transform: scale(0.97) rotate(-0.75deg);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) rotate(0);
+    }
+  }
+  @keyframes alloy-fab-morph-out {
+    0% {
+      opacity: 1;
+      transform: scale(1) rotate(0);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(0.18) rotate(-6deg);
+    }
+  }
+  @keyframes alloy-fab-button-in {
+    0% {
+      opacity: 0;
+      transform: scale(0.2) rotate(-12deg);
+    }
+    65% {
+      opacity: 1;
+      transform: scale(1.08) rotate(3deg);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) rotate(0);
+    }
+  }
+
   .animate-marquee-x {
     animation: alloy-marquee-x var(--marquee-duration, 60s) linear infinite;
     animation-direction: var(--marquee-direction, normal);

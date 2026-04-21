@@ -2,16 +2,6 @@ import * as React from "react"
 
 import { cn } from "@workspace/ui/lib/utils"
 
-/**
- * Alloy logo mark — the "damascus ribbon A".
- * Three triangular segments in the brand palette:
- *   1. light grey  — `--brand-grey-light`
- *   2. brand blue  — `--brand-blue`
- *   3. deep blue   — `--brand-blue-deep`
- *
- * Colors are intentionally hardcoded to the brand palette (not themeable).
- * Use `showText` for the wordmark next to the ribbon.
- */
 interface AlloyLogoProps extends React.SVGAttributes<SVGSVGElement> {
   size?: number
   showText?: boolean
