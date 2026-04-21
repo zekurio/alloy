@@ -6,6 +6,8 @@ import type { Readable } from "node:stream"
 import { pipeline } from "node:stream/promises"
 
 import type {
+  DownloadUrl,
+  MintDownloadUrlInput,
   MintUploadUrlInput,
   ResolvedObject,
   StorageDriver,
@@ -108,6 +110,51 @@ export class FsStorageDriver implements StorageDriver {
       headers: { "Content-Type": input.contentType },
       expiresAt,
     }
+  }
+
+  async downloadToFile(key: string, destPath: string): Promise<void> {
+    const src = this.fullPath(key)
+    await fsp.mkdir(path.dirname(destPath), { recursive: true })
+    // Hardlink is a constant-time materialisation when src and dest share
+    // a filesystem — falls back to a stream copy when they don't (e.g.
+    // ENCODE_SCRATCH_DIR on a different mount).
+    try {
+      await fsp.rm(destPath, { force: true })
+      await fsp.link(src, destPath)
+      return
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code
+      if (code !== "EXDEV" && code !== "EPERM" && code !== "ENOSYS") throw err
+    }
+    await fsp.copyFile(src, destPath)
+  }
+
+  async uploadFromFile(
+    localPath: string,
+    key: string,
+    _contentType: string
+  ): Promise<{ size: number }> {
+    const dst = this.fullPath(key)
+    await fsp.mkdir(path.dirname(dst), { recursive: true })
+    await fsp.rm(dst, { force: true })
+    try {
+      await fsp.link(localPath, dst)
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code
+      if (code !== "EXDEV" && code !== "EPERM" && code !== "ENOSYS") throw err
+      await fsp.copyFile(localPath, dst)
+    }
+    const stat = await fsp.stat(dst)
+    return { size: stat.size }
+  }
+
+  async mintDownloadUrl(
+    _key: string,
+    _input: MintDownloadUrlInput
+  ): Promise<DownloadUrl | null> {
+    // Fs driver has no presigned-URL concept — callers fall back to
+    // streaming through resolve().
+    return null
   }
 
   async delete(key: string): Promise<void> {

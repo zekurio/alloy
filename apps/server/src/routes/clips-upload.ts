@@ -133,6 +133,15 @@ export const clipsUploadRoutes = new Hono()
         return c.json({ error: "Upload bytes are missing" }, 400)
       }
 
+      const declaredSize = row.sizeBytes ?? 0
+      if (declaredSize > 0 && resolved.size > declaredSize * 1.05) {
+        await storage.delete(row.storageKey).catch(() => undefined)
+        if (row.thumbKey) {
+          await storage.delete(row.thumbKey).catch(() => undefined)
+        }
+        return c.json({ error: "Upload exceeded declared size" }, 413)
+      }
+
       // Client-captured thumbnails are required — the encode worker
       // reuses the existing keys instead of shelling out to ffmpeg.
       if (row.thumbKey) {
