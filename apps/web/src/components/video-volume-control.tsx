@@ -88,9 +88,6 @@ export function VolumeControl({
           "relative h-1 cursor-pointer touch-none overflow-hidden rounded-full",
           "bg-[color-mix(in_oklab,var(--neutral-900)_18%,transparent)]",
           "w-0 opacity-0 transition-[width,opacity] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-          // Reveal the rail when the mute button or the rail itself is
-          // hovered/focused. The extra `focus-within` covers keyboard
-          // users landing on the rail via Tab.
           "group-hover/vol:ml-1 group-hover/vol:w-16 group-hover/vol:opacity-100",
           "focus-within:ml-1 focus-within:w-16 focus-within:opacity-100",
           "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
