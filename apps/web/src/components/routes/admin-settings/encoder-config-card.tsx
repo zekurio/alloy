@@ -1,5 +1,5 @@
 import * as React from "react"
-import { AlertCircleIcon } from "lucide-react"
+import { AlertCircleIcon, PlusIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -17,27 +17,27 @@ import {
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 import { NativeSelect } from "@workspace/ui/components/native-select"
+import { Separator } from "@workspace/ui/components/separator"
 import { toast } from "@workspace/ui/components/sonner"
+import { Switch } from "@workspace/ui/components/switch"
 
 import {
   type AdminEncoderCapabilities,
   type AdminEncoderConfig,
+  type AdminEncoderVariant,
   type AdminRuntimeConfig,
   ENCODER_CODECS,
+  ENCODER_HEIGHT_MAX,
+  ENCODER_HEIGHT_MIN,
+  ENCODER_HEIGHT_SUGGESTIONS,
   ENCODER_HWACCELS,
-  ENCODER_TARGET_HEIGHTS,
   fetchEncoderCapabilities,
   updateEncoderConfig,
   type EncoderCodec,
   type EncoderHwaccel,
-  type EncoderTargetHeight,
 } from "../../../lib/admin-api"
-import {
-  clampInt,
-  HWACCEL_LABEL,
-  PRESET_SUGGESTIONS,
-  QUALITY_LABEL,
-} from "./shared"
+import { IntInput, VariantRow } from "./encoder-variant-row"
+import { HWACCEL_LABEL, presetSuggestionsFor, QUALITY_LABEL } from "./shared"
 
 type EncoderConfigCardProps = {
   encoder: AdminEncoderConfig
@@ -83,9 +83,82 @@ export function EncoderConfigCard({
     setForm((f) => ({ ...f, [key]: value }))
   }
 
+  function updateVariant(index: number, next: AdminEncoderVariant) {
+    setForm((f) => ({
+      ...f,
+      variants: f.variants.map((v, i) => (i === index ? next : v)),
+    }))
+  }
+
+  function removeVariant(index: number) {
+    setForm((f) => ({
+      ...f,
+      variants: f.variants.filter((_, i) => i !== index),
+    }))
+  }
+
+  function moveVariant(index: number, direction: -1 | 1) {
+    setForm((f) => {
+      const target = index + direction
+      if (target < 0 || target >= f.variants.length) return f
+      const next = [...f.variants]
+      const [moved] = next.splice(index, 1)
+      if (!moved) return f
+      next.splice(target, 0, moved)
+      return { ...f, variants: next }
+    })
+  }
+
+  function addVariant() {
+    setForm((f) => {
+      const used = new Set(f.variants.map((v) => v.height))
+      const suggestion = [...ENCODER_HEIGHT_SUGGESTIONS]
+        .reverse()
+        .find((h) => !used.has(h))
+      let next: number
+      if (suggestion !== undefined) {
+        next = suggestion
+      } else if (f.variants.length === 0) {
+        next = 1080
+      } else {
+        const smallest = Math.min(...f.variants.map((v) => v.height))
+        next = Math.max(
+          ENCODER_HEIGHT_MIN,
+          Math.floor(smallest / 2 / 2) * 2
+        )
+      }
+      return {
+        ...f,
+        variants: [...f.variants, { height: next }],
+      }
+    })
+  }
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (pending) return
+    if (form.variants.length === 0) {
+      toast.error("Add at least one variant.")
+      return
+    }
+    const heights = form.variants.map((v) => v.height)
+    if (new Set(heights).size !== heights.length) {
+      toast.error("Variants must have unique heights.")
+      return
+    }
+    for (const h of heights) {
+      if (
+        !Number.isInteger(h) ||
+        h < ENCODER_HEIGHT_MIN ||
+        h > ENCODER_HEIGHT_MAX ||
+        h % 2 !== 0
+      ) {
+        toast.error(
+          `Variant heights must be even integers between ${ENCODER_HEIGHT_MIN} and ${ENCODER_HEIGHT_MAX}.`
+        )
+        return
+      }
+    }
     setPending(true)
     try {
       const next = await updateEncoderConfig(form)
@@ -103,6 +176,22 @@ export function EncoderConfigCard({
   const currentCombo = caps?.available[form.hwaccel]
   const currentComboMissing =
     caps !== null && currentCombo !== undefined && !currentCombo[form.codec]
+  // Heights that appear in more than one rung — surfaced inline on each
+  // offending row so the admin sees the clash without hitting submit.
+  const duplicateHeights = React.useMemo(() => {
+    const counts = new Map<number, number>()
+    for (const v of form.variants) {
+      counts.set(v.height, (counts.get(v.height) ?? 0) + 1)
+    }
+    const dupes = new Set<number>()
+    for (const [h, count] of counts) {
+      if (count > 1) dupes.add(h)
+    }
+    return dupes
+  }, [form.variants])
+  // Ladder is capped at six rungs on the server; mirror that here so the
+  // add button disables at the same boundary (no silent server rejection).
+  const canAddVariant = form.variants.length < 6
 
   return (
     <form onSubmit={onSubmit}>
@@ -111,9 +200,7 @@ export function EncoderConfigCard({
           <div>
             <CardTitle>Encoder</CardTitle>
             <CardDescription>
-              Hardware backend, codec, and quality used for new encode jobs.
-              Changes apply to the next job; in-flight encodes finish on the
-              previous settings.
+              Backend, codec, and variant ladder for new encode jobs.
             </CardDescription>
           </div>
         </CardHeader>
@@ -166,9 +253,8 @@ export function EncoderConfigCard({
                 })}
               </NativeSelect>
               <FieldDescription>
-                Software is the safe default. Hardware backends require a
-                compatible GPU and an ffmpeg build with the matching encoder
-                compiled in.
+                Software is the safe default. Hardware backends need a
+                compatible GPU and matching ffmpeg build.
               </FieldDescription>
             </Field>
 
@@ -204,22 +290,17 @@ export function EncoderConfigCard({
               <FieldLabel htmlFor="encoder-quality">
                 Quality ({QUALITY_LABEL[form.hwaccel]})
               </FieldLabel>
-              <Input
+              <IntInput
                 id="encoder-quality"
-                type="number"
                 min={0}
                 max={51}
-                step={1}
-                required
                 value={form.quality}
-                onChange={(e) =>
-                  set("quality", clampInt(e.target.value, 0, 51, form.quality))
-                }
+                onCommit={(next) => set("quality", next)}
               />
               <FieldDescription>
-                0–51, lower = higher quality. 23 is a reasonable default for
-                H.264/H.265 software encoding; hardware backends usually want
-                slightly higher numbers for the same visual quality.
+                0–51, lower = higher quality. 23 is a good default for
+                H.264/H.265; AV1 sits around 20–28. Hardware backends
+                typically need slightly higher values.
               </FieldDescription>
             </Field>
 
@@ -237,7 +318,7 @@ export function EncoderConfigCard({
                 }
               />
               <datalist id="encoder-preset-suggestions">
-                {PRESET_SUGGESTIONS[form.hwaccel].map((p) => (
+                {presetSuggestionsFor(form.hwaccel, form.codec).map((p) => (
                   <option key={p} value={p} />
                 ))}
               </datalist>
@@ -247,59 +328,23 @@ export function EncoderConfigCard({
             </Field>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="encoder-target-height">
-                Target height
-              </FieldLabel>
-              <NativeSelect
-                id="encoder-target-height"
-                className="w-full"
-                value={String(form.targetHeight)}
-                onChange={(e) =>
-                  set(
-                    "targetHeight",
-                    Number(e.target.value) as EncoderTargetHeight
-                  )
-                }
-              >
-                {ENCODER_TARGET_HEIGHTS.map((h) => (
-                  <option key={h} value={h}>
-                    {h}p
-                  </option>
-                ))}
-              </NativeSelect>
-              <FieldDescription>
-                Source clips taller than this are downscaled; shorter clips are
-                left at their original height.
-              </FieldDescription>
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="encoder-audio-bitrate">
-                Audio bitrate (kbps)
-              </FieldLabel>
-              <Input
-                id="encoder-audio-bitrate"
-                type="number"
-                min={32}
-                max={384}
-                step={8}
-                required
-                value={form.audioBitrateKbps}
-                onChange={(e) =>
-                  set(
-                    "audioBitrateKbps",
-                    clampInt(e.target.value, 32, 384, form.audioBitrateKbps)
-                  )
-                }
-              />
-              <FieldDescription>
-                AAC stereo. 128 kbps is fine for game/voice clips; bump to 192+
-                for music-heavy content.
-              </FieldDescription>
-            </Field>
-          </div>
+          <Field>
+            <FieldLabel htmlFor="encoder-audio-bitrate">
+              Audio bitrate (kbps)
+            </FieldLabel>
+            <IntInput
+              id="encoder-audio-bitrate"
+              min={64}
+              max={256}
+              step={8}
+              value={form.audioBitrateKbps}
+              onCommit={(next) => set("audioBitrateKbps", next)}
+            />
+            <FieldDescription>
+              Opus stereo. 128 is fine for game/voice; ~160 for music-heavy
+              content. Higher is wasted bits.
+            </FieldDescription>
+          </Field>
 
           {form.hwaccel === "vaapi" ? (
             <Field>
@@ -320,6 +365,62 @@ export function EncoderConfigCard({
               </FieldDescription>
             </Field>
           ) : null}
+
+          <Separator />
+
+          <div className="flex flex-col gap-3">
+            <div>
+              <h3 className="text-sm font-medium">Variant ladder</h3>
+              <p className="text-xs text-muted-foreground">
+                First rung is the default playback rendition. Heights above
+                source are clamped. Per-rung fields override the values above.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2.5">
+              <div className="min-w-0">
+                <div className="text-sm font-medium">Expose source</div>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Offer the original upload as an opt-in "Source" quality
+                  (no re-encode).
+                </p>
+              </div>
+              <Switch
+                checked={form.keepSource}
+                onCheckedChange={(next) => set("keepSource", next)}
+                aria-label="Keep source"
+              />
+            </div>
+
+            {form.variants.map((variant, index) => (
+              <VariantRow
+                key={`${index}-${variant.height}`}
+                variant={variant}
+                index={index}
+                globalConfig={form}
+                isDuplicate={duplicateHeights.has(variant.height)}
+                canMoveUp={index > 0}
+                canMoveDown={index < form.variants.length - 1}
+                canDelete={form.variants.length > 1}
+                onChange={(next) => updateVariant(index, next)}
+                onMoveUp={() => moveVariant(index, -1)}
+                onMoveDown={() => moveVariant(index, 1)}
+                onDelete={() => removeVariant(index)}
+              />
+            ))}
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addVariant}
+              disabled={!canAddVariant}
+              className="self-start"
+            >
+              <PlusIcon />
+              Add variant
+            </Button>
+          </div>
         </CardContent>
 
         <CardFooter>
@@ -331,3 +432,4 @@ export function EncoderConfigCard({
     </form>
   )
 }
+

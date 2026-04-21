@@ -1,12 +1,5 @@
 import { api } from "./api"
 
-/**
- * Common userinfo/OIDC claims surfaced as suggestions in the admin UI.
- * The field itself accepts any non-empty string — weird providers exist
- * and the server just reads `profile[claim]` — so this is autocomplete
- * hints, not a whitelist. Kept loosely in sync with
- * `USERNAME_CLAIM_SUGGESTIONS` in `apps/server/src/lib/config-store.ts`.
- */
 export const USERNAME_CLAIM_SUGGESTIONS = [
   "preferred_username",
   "username",
@@ -21,7 +14,7 @@ export type UsernameClaim = string
 /** Mirror of `OAuthProviderConfig` on the server (see lib/config-store.ts). */
 export interface AdminOAuthProvider {
   providerId: string
-  buttonText: string
+  displayName: string
   clientId: string
   /** Always empty on read; admins re-enter on every save. */
   clientSecret: string
@@ -34,11 +27,6 @@ export interface AdminOAuthProvider {
   usernameClaim?: UsernameClaim
 }
 
-/**
- * Encoder backend choices. Mirrors `HWACCEL_KINDS` in
- * `apps/server/src/lib/config-store.ts`. Use the schema docstring there
- * for the per-backend flag rationale; this file just types the wire.
- */
 export const ENCODER_HWACCELS = [
   "software",
   "nvenc",
@@ -48,11 +36,22 @@ export const ENCODER_HWACCELS = [
 ] as const
 export type EncoderHwaccel = (typeof ENCODER_HWACCELS)[number]
 
-export const ENCODER_CODECS = ["h264", "hevc"] as const
+export const ENCODER_CODECS = ["h264", "hevc", "av1"] as const
 export type EncoderCodec = (typeof ENCODER_CODECS)[number]
 
-export const ENCODER_TARGET_HEIGHTS = [360, 480, 720, 1080, 1440, 2160] as const
-export type EncoderTargetHeight = (typeof ENCODER_TARGET_HEIGHTS)[number]
+export const ENCODER_HEIGHT_SUGGESTIONS = [
+  360, 480, 720, 1080, 1440, 2160,
+] as const
+export const ENCODER_HEIGHT_MIN = 144
+export const ENCODER_HEIGHT_MAX = 4320
+
+export interface AdminEncoderVariant {
+  height: number
+  codec?: EncoderCodec
+  quality?: number
+  preset?: string
+  audioBitrateKbps?: number
+}
 
 export interface AdminEncoderConfig {
   hwaccel: EncoderHwaccel
@@ -61,10 +60,11 @@ export interface AdminEncoderConfig {
   quality: number
   /** Encoder-specific preset name. Suggestions per backend in the UI. */
   preset: string
-  targetHeight: EncoderTargetHeight
   audioBitrateKbps: number
   /** VA-API render node path. Only used when `hwaccel === "vaapi"`. */
   vaapiDevice: string
+  keepSource: boolean
+  variants: AdminEncoderVariant[]
 }
 
 export interface AdminLimitsConfig {
@@ -79,13 +79,6 @@ export interface AdminLimitsConfig {
   queueConcurrency: number
 }
 
-/**
- * Third-party credentials. The server redacts set keys to the
- * `INTEGRATIONS_REDACTED` sentinel on read and treats that sentinel as
- * "keep current" on write — so the admin form can echo the GET response
- * back into a PATCH without accidentally rotating a key. Empty string
- * clears the integration.
- */
 export const INTEGRATIONS_REDACTED = "***"
 
 export interface AdminIntegrationsConfig {
@@ -93,21 +86,20 @@ export interface AdminIntegrationsConfig {
   steamgriddbApiKey: string
 }
 
-/**
- * Encoder capability matrix returned by
- * `GET /api/admin/encoder/capabilities`. The admin UI uses this to grey
- * out backends the host's ffmpeg wasn't compiled with.
- */
 export interface AdminEncoderCapabilities {
   ffmpegOk: boolean
   ffmpegVersion: string | null
-  available: Record<EncoderHwaccel, { h264: boolean; hevc: boolean }>
+  available: Record<
+    EncoderHwaccel,
+    { h264: boolean; hevc: boolean; av1: boolean }
+  >
 }
 
 export interface AdminRuntimeConfig {
   openRegistrations: boolean
   setupComplete: boolean
   emailPasswordEnabled: boolean
+  requireAuthToBrowse: boolean
   oauthProvider: AdminOAuthProvider | null
   encoder: AdminEncoderConfig
   limits: AdminLimitsConfig
@@ -130,6 +122,7 @@ export async function fetchRuntimeConfig(): Promise<AdminRuntimeConfig> {
 export async function updateRuntimeConfig(input: {
   openRegistrations?: boolean
   emailPasswordEnabled?: boolean
+  requireAuthToBrowse?: boolean
 }): Promise<AdminRuntimeConfig> {
   const res = await api.api.admin["runtime-config"].$patch({ json: input })
   return readJson<AdminRuntimeConfig>(res)
@@ -171,4 +164,9 @@ export async function updateIntegrationsConfig(
 export async function fetchEncoderCapabilities(): Promise<AdminEncoderCapabilities> {
   const res = await api.api.admin.encoder.capabilities.$get()
   return readJson<AdminEncoderCapabilities>(res)
+}
+
+export async function reEncodeAllClips(): Promise<{ enqueued: number }> {
+  const res = await api.api.admin.clips["re-encode"].$post()
+  return readJson<{ enqueued: number }>(res)
 }

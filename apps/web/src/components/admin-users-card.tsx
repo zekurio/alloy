@@ -62,10 +62,12 @@ import {
 } from "@workspace/ui/components/table"
 
 import { authClient } from "../lib/auth-client"
+import { avatarTint, displayInitials, displayName } from "../lib/user-display"
 
 interface AdminUserRow {
   id: string
   name: string
+  username: string
   email: string
   image?: string | null
   role?: string | string[] | null
@@ -74,21 +76,52 @@ interface AdminUserRow {
 }
 
 interface AdminUsersCardProps {
-  /** Current admin's user id — guarded against self-deletion in the UI. */
   currentUserId: string
 }
 
-/**
- * Admin user-management card. Wraps better-auth's admin plugin endpoints
- * (`listUsers` / `createUser` / `removeUser` / `setRole`) — every call
- * is server-validated by the plugin's own role check, this UI is the
- * convenience surface.
- */
-export function AdminUsersCard({ currentUserId }: AdminUsersCardProps) {
+function asAdminUserRows(input: unknown): AdminUserRow[] {
+  if (!Array.isArray(input)) return []
+  return input.flatMap((value) => {
+    if (!value || typeof value !== "object") return []
+    const row = value as Record<string, unknown>
+    const createdAt = row.createdAt
+    if (
+      typeof row.id !== "string" ||
+      typeof row.email !== "string" ||
+      (typeof createdAt !== "string" && !(createdAt instanceof Date))
+    ) {
+      return []
+    }
+    return [
+      {
+        id: row.id,
+        name: typeof row.name === "string" ? row.name : "",
+        username: typeof row.username === "string" ? row.username : "",
+        email: row.email,
+        image:
+          typeof row.image === "string" || row.image === null
+            ? row.image
+            : null,
+        role:
+          typeof row.role === "string" ||
+          row.role === null ||
+          Array.isArray(row.role)
+            ? (row.role as AdminUserRow["role"])
+            : null,
+        banned:
+          typeof row.banned === "boolean" || row.banned === null
+            ? row.banned
+            : null,
+        createdAt,
+      },
+    ]
+  })
+}
+
+function useAdminUsers(currentUserId: string) {
   const [users, setUsers] = React.useState<AdminUserRow[] | null>(null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [busyId, setBusyId] = React.useState<string | null>(null)
-  const [seedOpen, setSeedOpen] = React.useState(false)
 
   const refresh = React.useCallback(async () => {
     try {
@@ -96,7 +129,7 @@ export function AdminUsersCard({ currentUserId }: AdminUsersCardProps) {
         query: { limit: 100 },
       })
       if (error) throw new Error(error.message ?? "Failed to load users")
-      setUsers((data?.users ?? []) as unknown as AdminUserRow[])
+      setUsers(asAdminUserRows(data?.users))
       setLoadError(null)
     } catch (cause) {
       setLoadError(
@@ -109,7 +142,7 @@ export function AdminUsersCard({ currentUserId }: AdminUsersCardProps) {
     void refresh()
   }, [refresh])
 
-  async function onDelete(user: AdminUserRow) {
+  const onDelete = async (user: AdminUserRow) => {
     if (busyId) return
     setBusyId(user.id)
     try {
@@ -127,7 +160,10 @@ export function AdminUsersCard({ currentUserId }: AdminUsersCardProps) {
     }
   }
 
-  async function onChangeRole(user: AdminUserRow, nextRole: "admin" | "user") {
+  const onChangeRole = async (
+    user: AdminUserRow,
+    nextRole: "admin" | "user"
+  ) => {
     const current = normalizeRole(user.role)
     if (current === nextRole) return
     if (user.id === currentUserId && nextRole !== "admin") {
@@ -157,18 +193,24 @@ export function AdminUsersCard({ currentUserId }: AdminUsersCardProps) {
     }
   }
 
+  return { users, loadError, busyId, refresh, onDelete, onChangeRole }
+}
+
+export function AdminUsersCard({ currentUserId }: AdminUsersCardProps) {
+  const { users, loadError, busyId, refresh, onDelete, onChangeRole } =
+    useAdminUsers(currentUserId)
+  const [seedOpen, setSeedOpen] = React.useState(false)
+
   return (
     <Card>
       <CardHeader>
         <div>
           <CardTitle>Users</CardTitle>
-          <CardDescription>
-            List, seed, and manage every account on this instance.
-          </CardDescription>
+          <CardDescription>Manage accounts on this instance.</CardDescription>
         </div>
         <Dialog open={seedOpen} onOpenChange={setSeedOpen}>
           <DialogTrigger render={<Button variant="primary" size="sm" />}>
-            <UserPlusIcon className="size-4" />
+            <UserPlusIcon />
             Seed user
           </DialogTrigger>
           <SeedUserDialog
@@ -192,111 +234,152 @@ export function AdminUsersCard({ currentUserId }: AdminUsersCardProps) {
         ) : users.length === 0 ? (
           <p className="text-sm text-foreground-muted">No users yet.</p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead className="w-[160px]">Role</TableHead>
-                <TableHead className="w-[80px]" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((u) => {
-                const role = normalizeRole(u.role)
-                const isSelf = u.id === currentUserId
-                return (
-                  <TableRow key={u.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="size-7">
-                          {u.image ? <AvatarImage src={u.image} /> : null}
-                          <AvatarFallback>
-                            {(u.name || u.email).slice(0, 1).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{u.name || "—"}</span>
-                          {isSelf ? (
-                            <Badge variant="outline" className="text-xs">
-                              You
-                            </Badge>
-                          ) : null}
-                          {u.banned ? (
-                            <Badge variant="destructive" className="text-xs">
-                              Banned
-                            </Badge>
-                          ) : null}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-foreground-muted">
-                      {u.email}
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={role}
-                        onValueChange={(v) =>
-                          onChangeRole(u, v as "admin" | "user")
-                        }
-                        disabled={busyId === u.id}
-                      >
-                        <SelectTrigger size="sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="user">User</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <AlertDialog>
-                        <AlertDialogTrigger
-                          render={
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label="Delete user"
-                              disabled={busyId === u.id || isSelf}
-                            >
-                              <Trash2Icon className="size-4" />
-                            </Button>
-                          }
-                        />
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>
-                              Delete {u.email}?
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This removes their sessions and clips. It can't be
-                              undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel disabled={busyId === u.id}>
-                              Cancel
-                            </AlertDialogCancel>
-                            <AlertDialogAction
-                              variant="destructive"
-                              onClick={() => onDelete(u)}
-                              disabled={busyId === u.id}
-                            >
-                              {busyId === u.id ? "Deleting…" : "Delete"}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+          <UsersTable
+            users={users}
+            currentUserId={currentUserId}
+            busyId={busyId}
+            onChangeRole={onChangeRole}
+            onDelete={onDelete}
+          />
         )}
       </CardContent>
     </Card>
+  )
+}
+
+function UsersTable({
+  users,
+  currentUserId,
+  busyId,
+  onChangeRole,
+  onDelete,
+}: {
+  users: AdminUserRow[]
+  currentUserId: string
+  busyId: string | null
+  onChangeRole: (user: AdminUserRow, nextRole: "admin" | "user") => void
+  onDelete: (user: AdminUserRow) => void
+}) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>User</TableHead>
+          <TableHead>Email</TableHead>
+          <TableHead className="w-[160px]">Role</TableHead>
+          <TableHead className="w-[80px]" />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {users.map((user) => (
+          <UserTableRow
+            key={user.id}
+            user={user}
+            currentUserId={currentUserId}
+            busy={busyId === user.id}
+            onChangeRole={onChangeRole}
+            onDelete={onDelete}
+          />
+        ))}
+      </TableBody>
+    </Table>
+  )
+}
+
+function UserTableRow({
+  user,
+  currentUserId,
+  busy,
+  onChangeRole,
+  onDelete,
+}: {
+  user: AdminUserRow
+  currentUserId: string
+  busy: boolean
+  onChangeRole: (user: AdminUserRow, nextRole: "admin" | "user") => void
+  onDelete: (user: AdminUserRow) => void
+}) {
+  const role = normalizeRole(user.role)
+  const isSelf = user.id === currentUserId
+  const name = displayName(user)
+  const { bg, fg } = avatarTint(user.id || name)
+
+  return (
+    <TableRow>
+      <TableCell>
+        <div className="flex items-center gap-2">
+          <Avatar className="size-7">
+            <AvatarImage src={user.image ?? undefined} />
+            <AvatarFallback style={{ background: bg, color: fg }}>
+              {displayInitials(name)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{name}</span>
+            {isSelf ? (
+              <Badge variant="outline" className="text-xs">
+                You
+              </Badge>
+            ) : null}
+            {user.banned ? (
+              <Badge variant="destructive" className="text-xs">
+                Banned
+              </Badge>
+            ) : null}
+          </div>
+        </div>
+      </TableCell>
+      <TableCell className="text-foreground-muted">{user.email}</TableCell>
+      <TableCell>
+        <Select
+          value={role}
+          onValueChange={(value) => onChangeRole(user, value as "admin" | "user")}
+          disabled={busy}
+        >
+          <SelectTrigger size="sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="user">User</SelectItem>
+            <SelectItem value="admin">Admin</SelectItem>
+          </SelectContent>
+        </Select>
+      </TableCell>
+      <TableCell className="text-right">
+        <AlertDialog>
+          <AlertDialogTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Delete user"
+                disabled={busy || isSelf}
+              >
+                <Trash2Icon className="size-4" />
+              </Button>
+            }
+          />
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete {user.email}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This removes their sessions and clips. It can't be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                onClick={() => onDelete(user)}
+                disabled={busy}
+              >
+                {busy ? "Deleting…" : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </TableCell>
+    </TableRow>
   )
 }
 
@@ -321,8 +404,6 @@ function SeedUserDialog({
     if (pending) return
     setPending(true)
     try {
-      // No password — better-auth's admin plugin allows this. The user can
-      // only sign in via OAuth, which links onto the email we just seeded.
       const { error } = await authClient.admin.createUser({
         name: name.trim(),
         email: email.trim(),
@@ -353,9 +434,8 @@ function SeedUserDialog({
         <DialogHeader>
           <DialogTitle>Seed a user</DialogTitle>
           <DialogDescription>
-            Creates an account with no password. The user signs in via the
-            configured OAuth provider; their identity gets linked to this email
-            automatically.
+            Creates a passwordless account. The user signs in via OAuth and
+            their identity links to this email.
           </DialogDescription>
         </DialogHeader>
         <DialogBody className="flex flex-col gap-4">
@@ -380,15 +460,14 @@ function SeedUserDialog({
               disabled={pending}
             />
             <FieldDescription>
-              Must match the email returned by the OAuth provider for linking to
-              succeed.
+              Must match the email returned by the OAuth provider.
             </FieldDescription>
           </Field>
           <Field>
             <FieldLabel htmlFor="seed-role">Role</FieldLabel>
             <Select
               value={role}
-              onValueChange={(v) => setRole(v as "user" | "admin")}
+              onValueChange={(value) => setRole(value as "user" | "admin")}
               disabled={pending}
             >
               <SelectTrigger id="seed-role">

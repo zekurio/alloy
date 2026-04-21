@@ -14,13 +14,7 @@ import {
   AlertDialogTrigger,
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
-import {
-  Card,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
+import { Card, CardContent } from "@workspace/ui/components/card"
 import { toast } from "@workspace/ui/components/sonner"
 
 import { authClient } from "../../../lib/auth-client"
@@ -53,19 +47,19 @@ export function DangerZoneCard() {
 
   return (
     <Card>
-      <CardHeader>
-        <div>
-          <CardTitle>Delete account</CardTitle>
-          <CardDescription>This can't be undone.</CardDescription>
+      <CardContent className="flex items-center justify-between gap-4 py-4">
+        <div className="min-w-0">
+          <div className="text-sm font-medium">Delete account</div>
+          <p className="mt-0.5 text-xs text-foreground-dim">
+            Permanently removes your account and clips. Can't be undone.
+          </p>
         </div>
-      </CardHeader>
-      <CardFooter>
         <AlertDialog>
           <AlertDialogTrigger
             render={
               <Button type="button" variant="destructive" size="sm">
-                <Trash2Icon className="size-4" />
-                Delete my account
+                <Trash2Icon />
+                Delete account
               </Button>
             }
           />
@@ -88,7 +82,7 @@ export function DangerZoneCard() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </CardFooter>
+      </CardContent>
     </Card>
   )
 }
