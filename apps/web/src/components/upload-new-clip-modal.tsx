@@ -84,10 +84,6 @@ export function UploadNewClipModal({
   )
   const [publishing, setPublishing] = React.useState(false)
 
-  // Sync the parent-supplied initial file into local state each time the
-  // modal opens. Using `open` as the trigger means a second upload
-  // session always starts with a fresh file, even if the component stays
-  // mounted between sessions.
   React.useEffect(() => {
     if (open && initialFile) {
       setSelectedFile(initialFile)
