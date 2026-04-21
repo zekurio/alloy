@@ -10,12 +10,18 @@ function AppHeader({ className, ...props }: React.ComponentProps<"header">) {
     <header
       data-slot="app-header"
       className={cn(
-        "grid min-w-0 items-center gap-4 px-5",
-        "[grid-template-columns:minmax(0,1fr)_minmax(12rem,26rem)_minmax(0,1fr)]",
-        "sm:[grid-template-columns:minmax(0,1fr)_minmax(16rem,28rem)_minmax(0,1fr)]",
+        "relative grid min-w-0 items-center gap-2 px-4 sm:gap-3 sm:px-5",
+        "[grid-template-columns:auto_minmax(9rem,16rem)_auto]",
+        "max-sm:[&:has([data-slot=app-header-search]:focus-within)]:[grid-template-columns:0_minmax(0,1fr)_0]",
+        "sm:[grid-template-columns:auto_minmax(12rem,22rem)_auto]",
+        "lg:[grid-template-columns:auto_minmax(16rem,28rem)_auto]",
         "[&_[data-slot=app-header-brand]]:col-start-1",
         "[&_[data-slot=app-header-search]]:col-start-2",
         "[&_[data-slot=app-header-actions]]:col-start-3",
+        "max-sm:[&:has([data-slot=app-header-search]:focus-within)_[data-slot=app-header-brand]]:opacity-0",
+        "max-sm:[&:has([data-slot=app-header-search]:focus-within)_[data-slot=app-header-actions]]:opacity-0",
+        "max-sm:[&:has([data-slot=app-header-search]:focus-within)_[data-slot=app-header-brand]]:pointer-events-none",
+        "max-sm:[&:has([data-slot=app-header-search]:focus-within)_[data-slot=app-header-actions]]:pointer-events-none",
         "h-[var(--header-h)] border-b border-border bg-surface",
         className
       )}
@@ -26,15 +32,15 @@ function AppHeader({ className, ...props }: React.ComponentProps<"header">) {
 
 function AppHeaderBrand({
   className,
-  size = 22,
-  children = "Alloy",
+  size = 32,
+  children,
   ...props
 }: React.ComponentProps<"div"> & { size?: number }) {
   return (
     <div
       data-slot="app-header-brand"
       className={cn(
-        "flex min-w-0 items-center gap-2 justify-self-start font-mono text-sm font-medium tracking-[0.12em] uppercase",
+        "flex min-w-0 items-center gap-2 justify-self-start font-mono text-md font-medium tracking-[0.04em]",
         className
       )}
       {...props}
@@ -84,6 +90,7 @@ const AppHeaderSearch = React.forwardRef<
       data-slot="app-header-search"
       className={cn(
         "relative w-full min-w-0 justify-self-center",
+        "max-sm:focus-within:z-30 max-sm:focus-within:justify-self-stretch",
         containerClassName
       )}
     >
@@ -109,12 +116,8 @@ const AppHeaderSearch = React.forwardRef<
           className={cn(
             "h-full w-full min-w-0 rounded-md border border-border bg-input pr-11 pl-8",
             "text-sm text-foreground placeholder:text-foreground-faint",
-            "transition-[border-color,background-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+            "transition-[border-color,background-color,box-shadow,border-radius] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
             "outline-none",
-            // Stronger focus signalling: full accent border (not the soft
-            // 0.42-alpha variant), a lifted background, and a tinted glow
-            // ring so the input clearly reads as active even with the
-            // dense header chrome around it.
             "focus:border-accent focus:bg-surface-raised",
             "focus:shadow-[0_0_0_3px_var(--accent-soft)]",
             className
@@ -163,7 +166,7 @@ function AppHeaderActions({
   return (
     <div
       data-slot="app-header-actions"
-      className={cn("flex items-center gap-1.5 justify-self-end", className)}
+      className={cn("flex items-center gap-1 justify-self-end", className)}
       {...props}
     />
   )
