@@ -6,18 +6,6 @@ import type {
 } from "./clips-api"
 import { clipStreamUrl, clipThumbnailUrl } from "./clips-api"
 
-/**
- * Pure formatting helpers that turn a raw `ClipRow` into the display
- * strings and URLs the card / player / meta components need. Kept in one
- * place so the home feed, profile page, and any future surface (explore,
- * search) share the same presentation.
- *
- * These are all synchronous: no network, no side effects. `ClipCard`
- * already renders a gradient placeholder when `thumbnail` is missing, so
- * we only hand it a URL when the row has a `thumbKey` — otherwise the
- * placeholder handles empty/encoding clips without an extra 404 round trip.
- */
-
 /** 12.4k / 1.3k / 842 — mirrors the number style used across the UI. */
 export function formatCount(n: number): string {
   if (n < 1_000) return String(n)
@@ -26,13 +14,6 @@ export function formatCount(n: number): string {
   return `${(n / 1_000_000).toFixed(1)}m`
 }
 
-/**
- * "2h ago" / "3d ago" / "Mar 14". The feed clusters around recent
- * activity so minutes/hours/days cover most cases; anything beyond a
- * week is a date so viewers can tell a one-off old clip from "this
- * week". Future dates are clamped to "just now" — clock skew between
- * client and server shouldn't surface as "in 3m".
- */
 export function formatRelativeTime(
   iso: string,
   now: number = Date.now()
@@ -55,11 +36,6 @@ export function formatRelativeTime(
   })
 }
 
-/**
- * Deterministic hue per game name (same mapping the profile page uses)
- * so a given game always gets the same placeholder color across surfaces.
- * Null games fall back to the accent-blue family.
- */
 export function hueForGame(game: string | null | undefined): number {
   if (!game) return 220
   let h = 0
@@ -73,36 +49,15 @@ export interface ClipCardData {
   clipId: string
   slug: string
   title: string
-  /**
-   * Human label for the game badge. Resolved in priority order:
-   * `gameRef.name` (the mapped SteamGridDB game), then the legacy
-   * free-text `game` column for pre-integration rows, then
-   * "Uncategorised" for unlabeled clips.
-   */
   game: string
-  /**
-   * Slug for the `/g/:slug` link, `null` when the clip isn't mapped
-   * to a SteamGridDB game. Cards branch on this to render the badge
-   * as a link vs. plain text — legacy text-only rows don't have a
-   * destination yet (a future backfill would mint them).
-   */
   gameSlug: string | null
-  /**
-   * Full mapped-game reference when present. Threaded into the player
-   * dialog so the inline game editor can seed its combobox with the
-   * current pick without a fresh `/api/games/:slug` round trip. `null`
-   * for legacy text-only rows and for clips with no game set.
-   */
   gameRef: ClipGameRef | null
-  /** Display handle for the author (maps onto `user.username`). */
+  /** Display label for the author — name or handle, chosen for readability. */
   author: string
-  /**
-   * Uploader's user id. Surfaces here so the card call sites can compare
-   * against the viewer's session and decide whether to show owner-only
-   * affordances (e.g. the privacy indicator).
-   */
+  /** Lowercase handle (`user.username`) — always use this for profile links. */
+  authorUsername: string
   authorId: string
-  /** Uploader's avatar image URL when set — `null` when they have no upload. */
+  /** Uploader's avatar image URL when set — `null` when none is available. */
   authorImage: string | null
   views: string
   likes: string
@@ -117,30 +72,13 @@ export interface ClipCardData {
   accentHue: number
   /** Stored privacy setting — whether the card surfaces it is up to the caller. */
   privacy: ClipPrivacy
-  /**
-   * Author-supplied description. `null` when unset. Surfaced below the
-   * player in `ClipMeta` for every viewer, and is the target of inline
-   * editing for owners — threaded here so the dialog doesn't need a
-   * second fetch once the viewer opens the player.
-   */
   description: string | null
 }
 
-/**
- * Resolve the human game label for a clip in one place. Priority:
- * mapped game → legacy text → "Uncategorised". Keeping this in a
- * helper stops the fallback chain from drifting between the card,
- * the player dialog, and the meta row.
- */
 export function clipGameLabel(row: Pick<ClipRow, "gameRef" | "game">): string {
   return row.gameRef?.name ?? row.game ?? "Uncategorised"
 }
 
-/**
- * Map a raw clip row to the string-shaped props `ClipCard` expects.
- * Everything is pre-formatted so the card stays presentational and the
- * same payload can feed `ClipPlayerDialog` without a second pass.
- */
 export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
   const game = clipGameLabel(row)
   return {
@@ -150,14 +88,15 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
     game,
     gameSlug: row.gameRef?.slug ?? null,
     gameRef: row.gameRef,
-    author: row.authorUsername,
+    author: row.authorName || row.authorUsername,
+    authorUsername: row.authorUsername,
     authorId: row.authorId,
     authorImage: row.authorImage,
     views: formatCount(row.viewCount),
     likes: formatCount(row.likeCount),
     comments: formatCount(row.commentCount),
     postedAt: formatRelativeTime(row.createdAt, now),
-    thumbnail: row.thumbKey ? clipThumbnailUrl(row.id, "full") : undefined,
+    thumbnail: row.thumbKey ? clipThumbnailUrl(row.id) : undefined,
     streamUrl: clipStreamUrl(row.id),
     variants: row.variants,
     accentHue: hueForGame(game),

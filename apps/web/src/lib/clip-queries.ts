@@ -9,6 +9,7 @@ import {
 
 import {
   deleteClip,
+  fetchClipById,
   fetchClips,
   fetchLikeState,
   fetchUploadQueue,
@@ -22,28 +23,6 @@ import {
 } from "./clips-api"
 import { fetchUserClips, type UserClip } from "./users-api"
 
-/**
- * Centralised query keys + hooks for the clip surface. One source of
- * truth for "which cache entries represent clip data" means a mutation
- * can invalidate them all with a single prefix without chasing down
- * every caller.
- *
- * Key shape is always a tuple starting with `"clips"` so the broadest
- * invalidation (`["clips"]`) wipes every list/infinite/user cache in
- * one call. The mutations below favour patching caches in place over
- * an invalidate-and-refetch because refetching a 50-row feed just to
- * flip one title is wasteful — but we still schedule a background
- * invalidate so derived values (view counts, other viewers' edits)
- * catch up on the next tick.
- */
-
-// ─── Query keys ─────────────────────────────────────────────────────────
-
-/**
- * Hierarchical key factory. Keep to the convention
- *   `[root, kind, ...args]`
- * so partial matches work reliably — TanStack Query matches by prefix.
- */
 export const clipKeys = {
   all: ["clips"] as const,
   /** Every finite list query (top-by-window, user-by-handle). */
@@ -61,9 +40,16 @@ export const clipKeys = {
   queue: () => [...clipKeys.all, "queue"] as const,
   /** Per-viewer like state for a single clip. */
   like: (clipId: string) => [...clipKeys.all, "like", { clipId }] as const,
+  detail: (clipId: string) => [...clipKeys.all, "detail", { clipId }] as const,
 }
 
-// ─── Feed queries ───────────────────────────────────────────────────────
+export function useClipQuery(clipId: string) {
+  return useQuery({
+    queryKey: clipKeys.detail(clipId),
+    queryFn: () => fetchClipById(clipId),
+    enabled: clipId.length > 0,
+  })
+}
 
 export function useTopClipsQuery(
   window: ClipFeedWindow,
@@ -87,9 +73,6 @@ export function useRecentClipsInfiniteQuery({
         cursor: pageParam ?? undefined,
       }),
     initialPageParam: null as string | null,
-    // The server returns rows newest-first; a short batch is our
-    // "no more" signal (matches the old hand-rolled pager). Cursor is
-    // the last row's createdAt.
     getNextPageParam: (last) => {
       if (last.length < limit) return undefined
       const tail = last[last.length - 1]
@@ -106,15 +89,6 @@ export function useUserClipsQuery(handle: string) {
   })
 }
 
-// ─── Upload queue ───────────────────────────────────────────────────────
-
-/**
- * Polling query for the upload queue. `enabled` gates the whole query
- * so the network goes quiet when the queue modal is closed. 2s matches
- * the previous hand-rolled `setInterval` — fast enough that encode
- * progress feels live, slow enough that an always-open tab isn't
- * hammering the server.
- */
 export function useUploadQueueQuery({ enabled }: { enabled: boolean }) {
   return useQuery({
     queryKey: clipKeys.queue(),
@@ -129,18 +103,6 @@ export function useUploadQueueQuery({ enabled }: { enabled: boolean }) {
   })
 }
 
-// ─── Cache helpers (shared by mutations) ────────────────────────────────
-
-/**
- * Apply a partial patch to `clipId` everywhere it appears — finite
- * lists, infinite lists, user lists. Called from `onMutate` (optimistic)
- * and `onSuccess` (canonical) so the visible row updates before the
- * network round-trip completes.
- *
- * Uses `setQueriesData` with the shared `clips/list` and `clips/infinite`
- * prefixes so we don't need to know every active filter (window, limit,
- * handle) at mutation time.
- */
 function patchClipInCaches(
   qc: QueryClient,
   clipId: string,
@@ -160,6 +122,10 @@ function patchClipInCaches(
         ),
       }
   )
+  qc.setQueryData<ClipRow | undefined>(
+    clipKeys.detail(clipId),
+    (old) => old && { ...old, ...patch }
+  )
 }
 
 function removeClipFromCaches(qc: QueryClient, clipId: string) {
@@ -175,6 +141,7 @@ function removeClipFromCaches(qc: QueryClient, clipId: string) {
         pages: old.pages.map((page) => page.filter((r) => r.id !== clipId)),
       }
   )
+  qc.removeQueries({ queryKey: clipKeys.detail(clipId) })
 }
 
 /** Snapshot shape captured on `onMutate` so `onError` can roll back. */
@@ -183,6 +150,7 @@ interface ClipsSnapshot {
   infinite: Array<
     [readonly unknown[], InfiniteData<ClipRow[], string | null> | undefined]
   >
+  details: Array<[readonly unknown[], ClipRow | undefined]>
 }
 
 function snapshotClips(qc: QueryClient): ClipsSnapshot {
@@ -191,22 +159,18 @@ function snapshotClips(qc: QueryClient): ClipsSnapshot {
     infinite: qc.getQueriesData<InfiniteData<ClipRow[], string | null>>({
       queryKey: clipKeys.infinite(),
     }),
+    details: qc.getQueriesData<ClipRow>({
+      queryKey: [...clipKeys.all, "detail"],
+    }),
   }
 }
 
 function restoreClips(qc: QueryClient, snap: ClipsSnapshot) {
   for (const [key, data] of snap.lists) qc.setQueryData(key, data)
   for (const [key, data] of snap.infinite) qc.setQueryData(key, data)
+  for (const [key, data] of snap.details) qc.setQueryData(key, data)
 }
 
-// ─── Mutations ──────────────────────────────────────────────────────────
-
-/**
- * PATCH /api/clips/:id. Optimistic: we patch visible caches from
- * `onMutate` so the edit feels instant. `onError` rolls back, `onSuccess`
- * writes the server-canonical row (in case the server massaged values —
- * e.g. trimmed title whitespace — differently than we did).
- */
 export function useUpdateClipMutation() {
   const qc = useQueryClient()
 
@@ -241,12 +205,6 @@ export function useUpdateClipMutation() {
   })
 }
 
-/**
- * DELETE /api/clips/:id. Optimistic removal so the card vanishes from
- * the feed immediately; rollback restores the pre-delete snapshot.
- * Upload queue invalidates alongside in case the deleted clip was
- * still encoding.
- */
 export function useDeleteClipMutation() {
   const qc = useQueryClient()
 
@@ -267,16 +225,6 @@ export function useDeleteClipMutation() {
   })
 }
 
-// ─── Likes ──────────────────────────────────────────────────────────────
-
-/**
- * Per-viewer like state. The feed's `ClipRow` only carries the
- * aggregated `likeCount`, not a `liked` boolean — that's per-viewer and
- * separate so a new viewer's first page load doesn't blow a big JOIN
- * onto every feed query. This hook fetches just the boolean on demand
- * (when a clip detail mounts), and is `enabled` only for signed-in
- * viewers since the server 401s anon callers.
- */
 export function useLikeStateQuery(
   clipId: string,
   { enabled = true }: { enabled?: boolean } = {}
@@ -291,17 +239,6 @@ export function useLikeStateQuery(
   })
 }
 
-/**
- * Toggle like. Optimistic on both fronts: we flip `liked` in the per-
- * viewer cache and nudge the aggregated `likeCount` in every feed cache
- * by ±1, so the UI updates before the network round-trip. `onSuccess`
- * lands the server-canonical `likeCount` — covers the case where
- * another viewer liked/unliked between our read and our write.
- *
- * `onError` rolls back both the like flag and the count nudge. The
- * feed-cache patch reuses `patchClipInCaches` to keep the code flow
- * identical to the update/delete paths above.
- */
 export function useToggleLikeMutation() {
   const qc = useQueryClient()
 
@@ -333,9 +270,6 @@ export function useToggleLikeMutation() {
         liked: nextLiked,
       })
 
-      // Nudge the aggregated count in every cached feed row. The server
-      // will return the true number on success; this keeps the number
-      // moving the right way in the meantime.
       const delta = nextLiked ? 1 : -1
       patchClipCounts(qc, clipId, { likeCount: delta })
 
@@ -362,12 +296,6 @@ export function useToggleLikeMutation() {
   })
 }
 
-/**
- * Apply a +1/-1 delta to a numeric counter on `clipId` in every cached
- * feed. Used by the optimistic-like path since it only knows the
- * direction, not the target value. `patchClipInCaches` above takes an
- * absolute patch and is the canonical landing in `onSuccess`.
- */
 function patchClipCounts(
   qc: QueryClient,
   clipId: string,
@@ -393,22 +321,15 @@ function patchClipCounts(
         pages: old.pages.map((page) => page.map(apply)),
       }
   )
+  qc.setQueryData<ClipRow | undefined>(
+    clipKeys.detail(clipId),
+    (old) => (old ? apply(old) : old)
+  )
 }
 
-// ─── Cross-module invalidation hooks ────────────────────────────────────
-
-/**
- * Handle for code paths that mutate clip data without going through the
- * mutation hooks above — currently the upload flow, which runs its own
- * XHR-driven initiate→upload→finalize cycle. Calling this on upload
- * completion nudges every feed to refetch so the new clip shows up
- * without a reload.
- */
 export function useInvalidateClips() {
   const qc = useQueryClient()
   return () => qc.invalidateQueries({ queryKey: clipKeys.all })
 }
-
-// ─── Types re-exports for consumers ─────────────────────────────────────
 
 export type { ClipRow, QueueClip, UpdateClipInput, UserClip }

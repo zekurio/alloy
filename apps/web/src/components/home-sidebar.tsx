@@ -17,19 +17,6 @@ import {
 
 import { useSuspenseSession } from "../lib/session-suspense"
 
-/**
- * App rail shown on every authed surface (home, library, profile, admin).
- *
- * Top group carries the main sections (Home / Library / Games); the footer
- * pins Settings and — for admins — Admin to the bottom edge so the two
- * settings surfaces are always one click away regardless of which page the
- * viewer is on. Active state is derived from the current pathname so callers
- * can drop `<HomeSidebar />` in without threading props through every page.
- *
- * The rail renders on public routes too (e.g. `/u/$username`), so each
- * section guards for the signed-out case: Library falls back to an inert
- * stub, and the footer is skipped entirely when there's no session.
- */
 export function HomeSidebar() {
   return (
     <AppSidebar>
@@ -46,10 +33,6 @@ export function HomeSidebar() {
 }
 
 function TopItems() {
-  // Subscribe only to the derived booleans we actually render with —
-  // `useRouterState` with a structural selector skips re-renders when the
-  // pathname changes *but* the active flags don't (e.g. navigating between
-  // two settings subpages doesn't re-render the top nav).
   const { isHome, isLibrary, isGames } = useRouterState({
     select: (s) => ({
       isHome: s.location.pathname === "/",
@@ -61,10 +44,7 @@ function TopItems() {
     structuralSharing: true,
   })
   const session = useSuspenseSession()
-  // Better-auth maps `name` → the `username` DB column, so the handle shows
-  // up as `user.name` on the session. Null when signed out, in which case we
-  // render an inert Library item below.
-  const profileHandle = session?.user.name ?? null
+  const profileHandle = session?.user.username ?? null
 
   return (
     <>
@@ -91,33 +71,17 @@ function TopItems() {
           <LibraryIcon />
         </AppSidebarItem>
       )}
-      {profileHandle ? (
-        <AppSidebarItem
-          active={isGames}
-          title="Games"
-          render={<Link to="/games" />}
-        >
-          <GamepadIcon />
-        </AppSidebarItem>
-      ) : (
-        <AppSidebarItem
-          title="Games"
-          aria-disabled
-          tabIndex={-1}
-          className="pointer-events-none opacity-60"
-        >
-          <GamepadIcon />
-        </AppSidebarItem>
-      )}
+      <AppSidebarItem
+        active={isGames}
+        title="Games"
+        render={<Link to="/games" />}
+      >
+        <GamepadIcon />
+      </AppSidebarItem>
     </>
   )
 }
 
-/**
- * Settings + Admin pinned to the bottom edge. Hidden for signed-out
- * visitors (public `/u/:username` etc.) so we don't dangle dead links;
- * Admin is further gated on the `admin` role.
- */
 function BottomItems() {
   const session = useSuspenseSession()
   // Same narrowing as `TopItems` — only re-render when the active surface
@@ -155,11 +119,6 @@ function BottomItems() {
   )
 }
 
-/**
- * Non-suspending skeleton for the rail. Rendering the icons without any
- * active state keeps the layout stable while the session atom settles —
- * once it resolves we swap in the real (possibly Link-backed) items.
- */
 function TopItemsFallback() {
   return (
     <>
