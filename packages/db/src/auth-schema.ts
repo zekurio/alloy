@@ -9,11 +9,7 @@ export const user = pgTable("user", {
   displayUsername: text("display_username").notNull().default(""),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
-  // External avatar URL (typically from the OIDC `picture` claim). Preferred
-  // order at serve time: imageKey → image → generated fallback.
   image: text("image"),
-  imageKey: text("image_key"),
-  bannerKey: text("banner_key"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   role: text("role"),
