@@ -25,7 +25,21 @@ export interface VideoPlayerHandle {
   setPlaybackRate(rate: number): void
 }
 
-interface VideoPlayerProps {
+type SharedPlayerProps = {
+  className?: string
+  playerRef?: React.Ref<VideoPlayerHandle>
+  onTimeUpdate?: (seconds: number) => void
+  onPlayingChange?: (playing: boolean) => void
+  onVideoClick?: React.MouseEventHandler<HTMLVideoElement>
+  onPlaybackError?: (message: string) => void
+  onPlayThreshold?: () => void
+  qualityOptions?: Array<{ id: string; label: string }>
+  selectedQualityId?: string
+  onSelectQuality?: (qualityId: string) => void
+  downloadOptions?: Array<{ id: string; label: string; url: string }>
+}
+
+interface VideoPlayerProps extends SharedPlayerProps {
   src: string | File
   /** Thumbnail rendered by the native video element until the first frame. */
   poster?: string
@@ -35,39 +49,22 @@ interface VideoPlayerProps {
   autoPlay?: boolean
   loop?: boolean
   muted?: boolean
-  /** Send cookies with cross-origin video requests. No effect for File sources. */
-  withCredentials?: boolean
-  className?: string
-  playerRef?: React.Ref<VideoPlayerHandle>
-  onTimeUpdate?: (seconds: number) => void
-  onPlayingChange?: (playing: boolean) => void
-  onVideoClick?: React.MouseEventHandler<HTMLVideoElement>
-  onPlaybackError?: (message: string) => void
-  onPlayThreshold?: () => void
-  onAspectRatio?: (ratio: number) => void
-  qualityOptions?: Array<{ id: string; label: string }>
-  selectedQualityId?: string
-  onSelectQuality?: (qualityId: string) => void
-  downloadOptions?: Array<{ id: string; label: string; url: string }>
   playbackRate?: number
 }
 
 type SourceSpec =
-  | { kind: "url"; url: string; withCredentials: boolean }
+  | { kind: "url"; url: string }
   | { kind: "file"; file: File }
 
-function toSourceSpec(
-  src: string | File,
-  withCredentials: boolean
-): SourceSpec {
+function toSourceSpec(src: string | File): SourceSpec {
   return typeof src === "string"
-    ? { kind: "url", url: src, withCredentials }
+    ? { kind: "url", url: src }
     : { kind: "file", file: src }
 }
 
 function sourceSpecKey(spec: SourceSpec): string {
   return spec.kind === "url"
-    ? `url:${spec.withCredentials ? "1" : "0"}:${spec.url}`
+    ? `url:${spec.url}`
     : `file:${spec.file.name}:${spec.file.size}:${spec.file.lastModified}`
 }
 
@@ -90,31 +87,15 @@ function useMediaUrl(spec: SourceSpec): string | null {
 
 export function VideoPlayer({
   src,
-  poster,
   sourceIdentity,
   controls = true,
   autoPlay = false,
   loop = false,
   muted = false,
-  withCredentials = true,
-  className,
-  playerRef,
-  onTimeUpdate,
-  onPlayingChange,
-  onVideoClick,
-  onPlaybackError,
-  onPlayThreshold,
-  onAspectRatio,
-  qualityOptions,
-  selectedQualityId,
-  onSelectQuality,
-  downloadOptions,
   playbackRate = 1,
+  ...rest
 }: VideoPlayerProps) {
-  const spec = React.useMemo(
-    () => toSourceSpec(src, withCredentials),
-    [src, withCredentials]
-  )
+  const spec = React.useMemo(() => toSourceSpec(src), [src])
   const specKey = sourceSpecKey(spec)
   const identity = sourceIdentity ?? specKey
 
@@ -123,29 +104,17 @@ export function VideoPlayer({
       key={specKey}
       spec={spec}
       identity={identity}
-      poster={poster}
       controls={controls}
       autoPlay={autoPlay}
       loop={loop}
       initialMuted={muted}
-      className={className}
-      playerRef={playerRef}
-      onTimeUpdate={onTimeUpdate}
-      onPlayingChange={onPlayingChange}
-      onVideoClick={onVideoClick}
-      onPlaybackError={onPlaybackError}
-      onPlayThreshold={onPlayThreshold}
-      onAspectRatio={onAspectRatio}
-      qualityOptions={qualityOptions}
-      selectedQualityId={selectedQualityId}
-      onSelectQuality={onSelectQuality}
-      downloadOptions={downloadOptions}
       playbackRate={playbackRate}
+      {...rest}
     />
   )
 }
 
-type PlayerCoreProps = {
+type PlayerCoreProps = SharedPlayerProps & {
   spec: SourceSpec
   identity: string
   poster?: string
@@ -153,18 +122,6 @@ type PlayerCoreProps = {
   autoPlay: boolean
   loop: boolean
   initialMuted: boolean
-  className?: string
-  playerRef?: React.Ref<VideoPlayerHandle>
-  onTimeUpdate?: (seconds: number) => void
-  onPlayingChange?: (playing: boolean) => void
-  onVideoClick?: React.MouseEventHandler<HTMLVideoElement>
-  onPlaybackError?: (message: string) => void
-  onPlayThreshold?: () => void
-  onAspectRatio?: (ratio: number) => void
-  qualityOptions?: Array<{ id: string; label: string }>
-  selectedQualityId?: string
-  onSelectQuality?: (qualityId: string) => void
-  downloadOptions?: Array<{ id: string; label: string; url: string }>
   playbackRate: number
 }
 
@@ -183,7 +140,6 @@ function PlayerCore({
   onVideoClick,
   onPlaybackError,
   onPlayThreshold,
-  onAspectRatio,
   qualityOptions,
   selectedQualityId,
   onSelectQuality,
@@ -201,7 +157,6 @@ function PlayerCore({
   const [duration, setDuration] = React.useState(0)
   const [currentTime, setCurrentTime] = React.useState(0)
   const [bufferedEnd, setBufferedEnd] = React.useState(0)
-  const [aspectRatio, setAspectRatio] = React.useState<number | null>(null)
   const [playing, setPlaying] = React.useState(false)
   const [volume, setVolumeState] = React.useState(1)
   const [muted, setMutedState] = React.useState(initialMuted)
@@ -405,11 +360,6 @@ function PlayerCore({
       muted={muted}
       playsInline
       preload="metadata"
-      crossOrigin={
-        spec.kind === "url" && spec.withCredentials
-          ? "use-credentials"
-          : undefined
-      }
       controls={false}
       onClick={controls ? undefined : onVideoClick}
       onLoadedMetadata={() => {
@@ -421,11 +371,6 @@ function PlayerCore({
         setDuration(nextDuration)
         setCurrentTime(element.currentTime || 0)
         setBufferedEnd(0)
-        if (element.videoWidth > 0 && element.videoHeight > 0) {
-          const ratio = element.videoWidth / element.videoHeight
-          setAspectRatio(ratio)
-          onAspectRatio?.(ratio)
-        }
         element.volume = volumeRef.current
         element.muted = mutedRef.current
         element.playbackRate = playbackRate
@@ -446,17 +391,15 @@ function PlayerCore({
         syncTime()
       }}
       onError={reportError}
-      className="absolute inset-0 block size-full bg-black object-contain"
+      // Bleeds 1px past every edge; the shell's overflow-hidden clips it.
+      // Stops Chromium's sub-pixel seam when an ancestor has a transform.
+      className="absolute -inset-px block bg-black object-contain"
     />
   )
 
   if (!controls) {
     return (
-      <BareShell
-        className={className}
-        aspectRatio={aspectRatio}
-        status={status}
-      >
+      <BareShell className={className} status={status}>
         {video}
       </BareShell>
     )
@@ -482,43 +425,38 @@ function PlayerCore({
         },
       }}
     >
-      <div
-        className="relative w-full overflow-hidden bg-black"
-        style={{ aspectRatio: aspectRatio ?? 16 / 9 }}
-      >
-        {React.cloneElement(video, {
-          onClick: (e: React.MouseEvent<HTMLVideoElement>) => {
-            onVideoClick?.(e)
-            togglePlay()
-          },
-        })}
+      {React.cloneElement(video, {
+        onClick: (e: React.MouseEvent<HTMLVideoElement>) => {
+          onVideoClick?.(e)
+          togglePlay()
+        },
+      })}
 
-        {status.kind !== "ready" ? null : !playing ? (
-          <button
-            type="button"
-            aria-label="Play"
-            onClick={togglePlay}
+      {status.kind !== "ready" ? null : !playing ? (
+        <button
+          type="button"
+          aria-label="Play"
+          onClick={togglePlay}
+          className={cn(
+            "absolute inset-0 grid place-items-center",
+            "bg-[color-mix(in_oklab,var(--neutral-0)_40%,transparent)]",
+            "transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]"
+          )}
+        >
+          <span
             className={cn(
-              "absolute inset-0 grid place-items-center",
-              "bg-[color-mix(in_oklab,var(--neutral-0)_40%,transparent)]",
-              "transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]"
+              "grid size-14 place-items-center rounded-full",
+              "bg-accent text-accent-foreground",
+              "transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+              "group-hover/video:scale-105"
             )}
           >
-            <span
-              className={cn(
-                "grid size-14 place-items-center rounded-full",
-                "bg-accent text-accent-foreground",
-                "transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-                "group-hover/video:scale-105"
-              )}
-            >
-              <PlayIcon className="size-5 translate-x-[1px]" />
-            </span>
-          </button>
-        ) : null}
+            <PlayIcon className="size-5 translate-x-[1px]" />
+          </span>
+        </button>
+      ) : null}
 
-        <LoadOverlay status={status} />
-      </div>
+      <LoadOverlay status={status} />
 
       <ChromeBar
         playing={playing}
