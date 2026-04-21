@@ -192,14 +192,19 @@ export function SearchResultsPopover() {
           role="listbox"
           aria-label="Search results"
           className={cn(
-            "absolute top-full right-0 left-0 z-50 mt-1.5",
-            "overflow-hidden rounded-lg border border-border bg-popover",
-            "shadow-lg ring-1 ring-foreground/10",
+            "absolute top-full right-0 left-0 z-50",
+            "alloy-glass overflow-hidden border",
+            // Desktop: flush against the input — square top, no top border.
+            "sm:rounded-t-none sm:rounded-b-md sm:border-t-0",
+            "max-sm:top-[calc(100%+0.5rem)] max-sm:rounded-md",
             "animate-in duration-100 fade-in-0 zoom-in-95"
           )}
-          // Keep focus on the input when the user clicks a result — the
-          // row handlers do their own commit, we just prevent the
-          // wrapper's mousedown from stealing focus first.
+          style={
+            {
+              "--alloy-glass-opacity": "78%",
+              "--alloy-glass-shadow": "0 24px 60px -28px rgb(0 0 0 / 0.78)",
+            } as React.CSSProperties
+          }
           onMouseDown={(event) => event.preventDefault()}
         >
           <SearchResultsBody
@@ -215,7 +220,6 @@ export function SearchResultsPopover() {
           />
         </div>
       ) : null}
-
     </>
   )
 }
@@ -255,7 +259,7 @@ function SearchResultsBody({
   }
   if (!hasResults && isFetching) {
     return (
-      <div className="flex items-center gap-2.5 px-3 py-4 text-sm text-foreground-faint">
+      <div className="flex items-center gap-2.5 px-3 py-4 text-sm font-semibold text-foreground-muted">
         <Spinner className="size-3.5" />
         Searching for {quote(query)}…
       </div>
@@ -286,7 +290,7 @@ function SearchResultsBody({
   return (
     <div
       className={cn(
-        "flex max-h-[70vh] flex-col overflow-y-auto py-1.5",
+        "flex max-h-[70vh] flex-col overflow-y-auto pt-0.5",
         // Subtle header-row typographic style used across the app.
         "font-sans"
       )}
@@ -352,7 +356,7 @@ function SearchResultsBody({
         </section>
       ) : null}
       {isFetching ? (
-        <div className="flex items-center gap-2 px-3 py-2 text-xs text-foreground-faint">
+        <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-foreground-muted">
           <Loader2Icon className="size-3 animate-spin" />
           Updating…
         </div>

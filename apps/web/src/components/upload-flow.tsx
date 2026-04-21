@@ -3,11 +3,17 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 
 import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+} from "@workspace/ui/components/dialog"
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
 import { toast } from "@workspace/ui/components/sonner"
+import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { useSession } from "../lib/auth-client"
@@ -46,7 +52,6 @@ const UploadNewClipModal = React.lazy(() =>
     default: m.UploadNewClipModal,
   }))
 )
-
 
 async function performUpload(
   payload: PublishPayload,
@@ -248,8 +253,7 @@ function useUploadQueueState(
           onOpen: row.status === "ready" ? () => onOpenClip(row) : undefined,
           onCopyLink:
             row.status === "ready" ? () => copyClipLink(row) : undefined,
-          onDismiss:
-            row.status === "ready" ? () => dismiss(row.id) : undefined,
+          onDismiss: row.status === "ready" ? () => dismiss(row.id) : undefined,
         })
       )
     return [...fromLocal, ...fromServer]
@@ -361,6 +365,52 @@ function UploadQueuePopover({
   onNewClip: () => void
   onClearCompleted: () => void
 }) {
+  const isMobile = useIsMobile()
+  const queueGlassStyle = {
+    "--queue-glass-opacity": "68%",
+    "--queue-glass-bg":
+      "color-mix(in oklab, var(--popover) var(--queue-glass-opacity), transparent)",
+    "--queue-row-glass-bg":
+      "color-mix(in oklab, var(--popover) 18%, transparent)",
+    "--alloy-glass-bg": "var(--queue-glass-bg)",
+    "--alloy-glass-shadow": "0 30px 80px -32px rgb(0 0 0 / 0.78)",
+  } as React.CSSProperties
+  const content = (
+    <UploadQueueContent
+      queue={queue}
+      onNewClip={onNewClip}
+      onClearCompleted={onClearCompleted}
+      onClose={() => setQueueOpen(false)}
+    />
+  )
+
+  if (isMobile) {
+    return (
+      <Dialog open={queueOpen} onOpenChange={setQueueOpen}>
+        <DialogTrigger
+          render={
+            <FloatingUploadButton activeCount={activeCount} isOpen={queueOpen} />
+          }
+        />
+        <DialogContent
+          showOverlay={false}
+          disableZoom
+          centered={false}
+          className={cn(
+            "left-4 right-4 top-auto z-50 w-auto max-w-none rounded-2xl border p-3",
+            "bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+1rem)]",
+            "max-h-[calc(100dvh-var(--header-h)-var(--bottomnav-h)-env(safe-area-inset-bottom)-2rem)]",
+            "alloy-glass"
+          )}
+          style={queueGlassStyle}
+          aria-describedby={undefined}
+        >
+          {content}
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
   return (
     <Popover open={queueOpen} onOpenChange={setQueueOpen}>
       <PopoverTrigger
@@ -373,27 +423,28 @@ function UploadQueuePopover({
         align="end"
         sideOffset={0}
         alignOffset={0}
-        style={{
-          position: "fixed",
-          right: "0.75rem",
-          bottom: "0.75rem",
-          top: "auto",
-          left: "auto",
-          transformOrigin: "bottom right",
-        }}
         className={cn(
-          "w-[420px] max-w-[calc(100vw-3rem)] p-3",
-          "bg-popover shadow-xl shadow-black/40",
+          "w-[420px] max-w-[calc(100vw-1.5rem)] border p-3 ring-0",
+          "alloy-glass",
           "data-open:animate-[alloy-fab-morph-in_320ms_cubic-bezier(0.34,1.56,0.64,1)_forwards]",
           "data-closed:animate-[alloy-fab-morph-out_180ms_cubic-bezier(0.36,0,0.66,-0.4)_forwards]"
         )}
+        style={
+          {
+            position: "fixed",
+            right: "0.75rem",
+            bottom: isMobile
+              ? "calc(var(--bottomnav-h) + env(safe-area-inset-bottom) + 0.75rem)"
+              : "0.75rem",
+            top: "auto",
+            left: isMobile ? "0.75rem" : "auto",
+            transformOrigin: isMobile ? "bottom center" : "bottom right",
+            ...queueGlassStyle,
+          } as React.CSSProperties
+        }
         aria-describedby={undefined}
       >
-        <UploadQueueContent
-          queue={queue}
-          onNewClip={onNewClip}
-          onClearCompleted={onClearCompleted}
-        />
+        {content}
       </PopoverContent>
     </Popover>
   )
@@ -431,8 +482,10 @@ function AuthedUploadFlow() {
     },
     [navigate]
   )
-  const { runUpload, queue, activeCount, clearCompleted } =
-    useUploadQueueState(queueOpen, handleOpenClip)
+  const { runUpload, queue, activeCount, clearCompleted } = useUploadQueueState(
+    queueOpen,
+    handleOpenClip
+  )
   const {
     newClipOpen,
     setNewClipOpen,
