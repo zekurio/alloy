@@ -1,6 +1,17 @@
 import * as React from "react"
 import { PencilIcon, PlusIcon, Trash2Icon, UserKeyIcon } from "lucide-react"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
 import { Card, CardContent } from "@workspace/ui/components/card"
 import { Switch } from "@workspace/ui/components/switch"
@@ -102,7 +113,7 @@ export function OAuthProviderCard({
     <>
       <Card>
         <CardContent className="flex items-center justify-between gap-4 py-4">
-          <div className="min-w-0 flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-border">
               <UserKeyIcon className="size-4" />
             </span>
@@ -134,15 +145,33 @@ export function OAuthProviderCard({
               >
                 <PencilIcon />
               </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                disabled={disabled}
-                onClick={removeProvider}
-              >
-                <Trash2Icon />
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger
+                  render={
+                    <Button type="button" variant="ghost" size="icon-sm" disabled={disabled}>
+                      <Trash2Icon />
+                    </Button>
+                  }
+                />
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Remove OAuth provider?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This disables sign-in through {provider.displayName}. You can add it back later.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={disabled}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      variant="destructive"
+                      onClick={removeProvider}
+                      disabled={disabled}
+                    >
+                      {disabled ? "Removing…" : "Remove provider"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           ) : (
             <Button

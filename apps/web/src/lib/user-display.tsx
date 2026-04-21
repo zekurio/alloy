@@ -78,9 +78,7 @@ export type UserChipData = {
   avatar: UserAvatar
 }
 
-export function userChipData(
-  user: AuthUser | null | undefined
-): UserChipData {
+export function userChipData(user: AuthUser | null | undefined): UserChipData {
   return { name: displayName(user), avatar: userAvatar(user) }
 }
 
@@ -112,7 +110,7 @@ export function UserBanner({
           alt=""
           aria-hidden
           decoding="async"
-          className="absolute inset-0 size-full scale-150 object-cover blur-3xl saturate-150 brightness-75"
+          className="absolute inset-0 size-full scale-150 object-cover blur-3xl brightness-75 saturate-150"
         />
       ) : null}
     </div>

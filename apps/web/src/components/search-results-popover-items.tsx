@@ -12,11 +12,7 @@ import {
   type ClipGameRef,
   type ClipRow,
 } from "../lib/clips-api"
-import {
-  clipGameLabel,
-  formatCount,
-  hueForGame,
-} from "../lib/clip-format"
+import { clipGameLabel, formatCount, hueForGame } from "../lib/clip-format"
 import type { GameListRow } from "../lib/games-api"
 import type { UserListRow } from "../lib/search-api"
 import { userChipData } from "../lib/user-display"
@@ -32,7 +28,7 @@ export function GroupLabel({
     <div
       className={cn(
         "flex items-center gap-1.5 px-3 pt-2 pb-1",
-        "text-xs font-medium text-foreground-faint uppercase tracking-wide",
+        "text-xs font-semibold tracking-wide text-foreground-muted uppercase",
         "[&_svg]:size-3"
       )}
     >
@@ -42,19 +38,17 @@ export function GroupLabel({
   )
 }
 
-export function ClipRowItem({
-  row,
+function RowButton({
   active,
   onHover,
   onSelect,
+  children,
 }: {
-  row: ClipRow
   active: boolean
   onHover: () => void
   onSelect: () => void
+  children: React.ReactNode
 }) {
-  const thumb = row.thumbKey ? clipThumbnailUrl(row.id) : null
-  const label = clipGameLabel(row)
   return (
     <button
       type="button"
@@ -72,6 +66,26 @@ export function ClipRowItem({
         "focus-visible:outline-none"
       )}
     >
+      {children}
+    </button>
+  )
+}
+
+export function ClipRowItem({
+  row,
+  active,
+  onHover,
+  onSelect,
+}: {
+  row: ClipRow
+  active: boolean
+  onHover: () => void
+  onSelect: () => void
+}) {
+  const thumb = row.thumbKey ? clipThumbnailUrl(row.id) : null
+  const label = clipGameLabel(row)
+  return (
+    <RowButton active={active} onHover={onHover} onSelect={onSelect}>
       <div className="relative aspect-video w-16 shrink-0 overflow-hidden rounded-sm bg-surface-sunken">
         {thumb ? (
           <img
@@ -93,15 +107,19 @@ export function ClipRowItem({
         >
           {row.title}
         </div>
-        <div className="truncate text-xs text-foreground-faint">
-          <span className="text-foreground-dim">{label}</span>
-          <span className="mx-1.5 text-foreground-faint/60">·</span>
+        <div className="truncate text-xs font-semibold text-foreground-muted">
+          <span>{label}</span>
+          <span aria-hidden className="mx-1.5 text-foreground-muted/70">
+            ·
+          </span>
           <span>@{row.authorUsername}</span>
-          <span className="mx-1.5 text-foreground-faint/60">·</span>
+          <span aria-hidden className="mx-1.5 text-foreground-muted/70">
+            ·
+          </span>
           <span>{formatCount(row.viewCount)} views</span>
         </div>
       </div>
-    </button>
+    </RowButton>
   )
 }
 
@@ -117,22 +135,7 @@ export function GameRowItem({
   onSelect: () => void
 }) {
   return (
-    <button
-      type="button"
-      role="option"
-      aria-selected={active}
-      onMouseEnter={onHover}
-      onFocus={onHover}
-      onMouseDown={(event) => event.preventDefault()}
-      onClick={onSelect}
-      className={cn(
-        "group flex w-full items-center gap-3 px-3 py-2 text-left",
-        "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-        active ? "bg-accent-soft" : "bg-transparent",
-        "hover:bg-accent-soft focus-visible:bg-accent-soft",
-        "focus-visible:outline-none"
-      )}
-    >
+    <RowButton active={active} onHover={onHover} onSelect={onSelect}>
       <div className="relative aspect-video w-16 shrink-0 overflow-hidden rounded-sm bg-surface-sunken">
         {row.heroUrl ? (
           <img
@@ -154,11 +157,11 @@ export function GameRowItem({
         >
           {row.name}
         </div>
-        <div className="truncate text-xs text-foreground-faint">
+        <div className="truncate text-xs font-semibold text-foreground-muted">
           {row.clipCount} {row.clipCount === 1 ? "clip" : "clips"}
         </div>
       </div>
-    </button>
+    </RowButton>
   )
 }
 
@@ -176,22 +179,7 @@ export function UserRowItem({
   const chip = userChipData(row)
   const handle = row.displayUsername || row.username
   return (
-    <button
-      type="button"
-      role="option"
-      aria-selected={active}
-      onMouseEnter={onHover}
-      onFocus={onHover}
-      onMouseDown={(event) => event.preventDefault()}
-      onClick={onSelect}
-      className={cn(
-        "group flex w-full items-center gap-3 px-3 py-2 text-left",
-        "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-        active ? "bg-accent-soft" : "bg-transparent",
-        "hover:bg-accent-soft focus-visible:bg-accent-soft",
-        "focus-visible:outline-none"
-      )}
-    >
+    <RowButton active={active} onHover={onHover} onSelect={onSelect}>
       <Avatar size="lg" className="rounded-[3px]">
         {chip.avatar.src ? <AvatarImage src={chip.avatar.src} alt="" /> : null}
         <AvatarFallback
@@ -212,15 +200,17 @@ export function UserRowItem({
         >
           {chip.name}
         </div>
-        <div className="truncate text-xs text-foreground-faint">
-          <span className="text-foreground-dim">
-            @{handle}
+        <div className="truncate text-xs font-semibold text-foreground-muted">
+          <span>@{handle}</span>
+          <span aria-hidden className="mx-1.5 text-foreground-muted/70">
+            ·
           </span>
-          <span className="mx-1.5 text-foreground-faint/60">·</span>
-          <span>{row.clipCount} {row.clipCount === 1 ? "clip" : "clips"}</span>
+          <span>
+            {row.clipCount} {row.clipCount === 1 ? "clip" : "clips"}
+          </span>
         </div>
       </div>
-    </button>
+    </RowButton>
   )
 }
 
@@ -275,12 +265,14 @@ export function EmptyBlock({
 }) {
   return (
     <div className="flex items-start gap-3 px-3 py-4">
-      <span className="mt-0.5 text-foreground-faint [&_svg]:size-4">
+      <span className="mt-0.5 text-foreground-muted [&_svg]:size-4">
         {icon}
       </span>
       <div className="flex flex-col gap-0.5">
-        <span className="text-sm font-medium text-foreground">{title}</span>
-        <span className="text-xs text-foreground-faint">{hint}</span>
+        <span className="text-sm font-semibold text-foreground">{title}</span>
+        <span className="text-xs font-semibold text-foreground-muted">
+          {hint}
+        </span>
       </div>
     </div>
   )

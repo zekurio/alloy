@@ -61,10 +61,6 @@ function sessionInitializedPromise(): Promise<void> {
 
 function configPromise(): Promise<PublicAuthConfig> {
   if (typeof window === "undefined") {
-    // Same reasoning as `sessionInitializedPromise` above: don't hang the
-    // SSR stream waiting for a browser-side fetch. The fallback shape
-    // treats the instance as "no provider, not in setup" — good enough
-    // for server-rendered chrome; the client re-fetches on hydration.
     return Promise.resolve(FALLBACK_CONFIG)
   }
   if (!configPromiseCache) {

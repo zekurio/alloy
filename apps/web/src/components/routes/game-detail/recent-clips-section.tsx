@@ -3,6 +3,7 @@ import { FilmIcon } from "lucide-react"
 import {
   SectionActions,
   SectionHead,
+  SectionMeta,
   SectionTitle,
 } from "@workspace/ui/components/section-head"
 
@@ -49,9 +50,9 @@ export function RecentClipsSection({
         </div>
         <SectionActions>
           {visibleRows && visibleRows.length > 0 ? (
-            <span className="text-xs text-foreground-faint tabular-nums">
+            <SectionMeta>
               {visibleRows.length} {visibleRows.length === 1 ? "clip" : "clips"}
-            </span>
+            </SectionMeta>
           ) : null}
         </SectionActions>
       </SectionHead>
@@ -79,6 +80,7 @@ export function RecentClipsSection({
         <ClipCardList
           rows={visibleRows ?? []}
           isOwnedByViewer={(row) => row.authorId === viewerId}
+          listKey={`game:${slug}:recent`}
         />
       )}
     </section>
