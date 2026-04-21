@@ -89,9 +89,6 @@ export const feedRoute = new Hono()
       eq(clip.privacy, "public"),
     ]
 
-    // Hide the viewer's own uploads — the feed is for discovering other
-    // people's clips, not an author dashboard. Own-clip surfaces live
-    // on /u/:username and the upload queue.
     if (viewerId) {
       conditions.push(ne(clip.authorId, viewerId))
     }
