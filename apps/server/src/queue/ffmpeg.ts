@@ -302,29 +302,6 @@ export function codecNameFor(
   return `${codec}_${hwaccel}`
 }
 
-export async function thumbnail(
-  srcPath: string,
-  outPath: string,
-  opts: { width: number; atSeconds: number }
-): Promise<void> {
-  const args = [
-    "-hide_banner",
-    "-y",
-    // -ss before -i is fast (input seek) but slightly less accurate.
-    // For poster frames around 1s in we don't care.
-    "-ss",
-    String(opts.atSeconds),
-    "-i",
-    srcPath,
-    "-frames:v",
-    "1",
-    "-vf",
-    `scale=${opts.width}:-2`,
-    outPath,
-  ]
-  await runCapture(env.FFMPEG_BIN, args)
-}
-
 function msToFfmpegTimestamp(ms: number): string {
   const totalMs = Math.max(0, Math.round(ms))
   const hours = Math.floor(totalMs / 3_600_000)
