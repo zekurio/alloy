@@ -11,10 +11,9 @@ import {
 
 import { db } from "../db"
 import { configStore, type EncoderConfig } from "../lib/config-store"
-import { clipAssetKey, storage } from "../storage"
+import { storage } from "../storage"
 import { FsStorageDriver } from "../storage/fs-driver"
 import { encode, probe } from "./ffmpeg"
-import { ensureThumbnails } from "./encode-thumbnails"
 import { buildVariantSpecs, type VariantSpec } from "./variant-specs"
 
 export async function runEncodeInner(
@@ -23,12 +22,7 @@ export async function runEncodeInner(
   signal: AbortSignal
 ): Promise<void> {
   const sourceKey = row.storageKey
-  const thumbKey = clipAssetKey(clipId, "thumb")
-  const thumbSmallKey = clipAssetKey(clipId, "thumb-small")
-
   const sourcePath = localPathFor(sourceKey)
-  const thumbPath = localPathFor(thumbKey)
-  const thumbSmallPath = localPathFor(thumbSmallKey)
 
   await db
     .update(clip)
@@ -99,17 +93,6 @@ export async function runEncodeInner(
   const reusedBySpecIndex = await planReuse(row, variantSpecs, targetSettings)
   await pruneStaleVariants(row, reusedBySpecIndex, sourceVariant)
 
-  const trimChanged = row.variants.some(
-    (prev) =>
-      prev.settings !== undefined &&
-      (prev.settings.trimStartMs !== effectiveTrimStart ||
-        prev.settings.trimEndMs !== effectiveTrimEnd)
-  )
-  if (trimChanged) {
-    await storage.delete(thumbKey).catch(() => undefined)
-    await storage.delete(thumbSmallKey).catch(() => undefined)
-  }
-
   const encodedVariants = await encodeVariants({
     variantSpecs,
     targetSettings,
@@ -131,18 +114,8 @@ export async function runEncodeInner(
 
   if (sourceVariant) encodedVariants.push(sourceVariant)
 
-  const thumbStored = await ensureThumbnails({
-    clipId,
-    sourcePath,
-    thumbPath,
-    thumbSmallPath,
-    thumbKey,
-    thumbSmallKey,
-    effectiveTrimStart,
-    effectiveTrimEnd,
-    durationMs: probed.durationMs,
-  })
-
+  // Thumbnail is uploaded by the client during finalize — nothing to do
+  // server-side, the `thumbKey` column is already populated.
   await db
     .update(clip)
     .set({
@@ -152,8 +125,6 @@ export async function runEncodeInner(
       width: defaultVariant.width,
       height: defaultVariant.height,
       variants: encodedVariants,
-      thumbKey: thumbStored ? thumbKey : null,
-      thumbSmallKey: thumbStored ? thumbSmallKey : null,
       updatedAt: new Date(),
     })
     .where(eq(clip.id, clipId))

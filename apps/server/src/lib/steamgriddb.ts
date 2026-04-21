@@ -148,6 +148,49 @@ export async function searchGames(
   return data ?? []
 }
 
+const ICON_CACHE_MAX = 512
+const iconUrlCache = new Map<number, string | null>()
+
+function cacheGet(id: number): string | null | undefined {
+  if (!iconUrlCache.has(id)) return undefined
+  const value = iconUrlCache.get(id)
+  // Touch LRU order: delete + re-insert puts it at the tail.
+  iconUrlCache.delete(id)
+  iconUrlCache.set(id, value ?? null)
+  return value ?? null
+}
+
+function cacheSet(id: number, url: string | null) {
+  if (iconUrlCache.has(id)) iconUrlCache.delete(id)
+  iconUrlCache.set(id, url)
+  if (iconUrlCache.size > ICON_CACHE_MAX) {
+    const oldest = iconUrlCache.keys().next().value
+    if (oldest !== undefined) iconUrlCache.delete(oldest)
+  }
+}
+
+async function resolveIconUrl(id: number): Promise<string | null> {
+  const cached = cacheGet(id)
+  if (cached !== undefined) return cached
+  const asset = await getFirstIcon(id).catch(() => null)
+  const url = asset?.url ?? null
+  cacheSet(id, url)
+  return url
+}
+
+export async function enrichSearchResultsWithIcons(
+  results: SteamGridDBSearchResult[],
+  topN: number
+): Promise<Array<SteamGridDBSearchResult & { iconUrl: string | null }>> {
+  const head = results.slice(0, topN)
+  const tail = results.slice(topN)
+  const icons = await Promise.all(head.map((r) => resolveIconUrl(r.id)))
+  return [
+    ...head.map((r, i) => ({ ...r, iconUrl: icons[i] ?? null })),
+    ...tail.map((r) => ({ ...r, iconUrl: null })),
+  ]
+}
+
 export async function getGameById(
   steamgriddbId: number
 ): Promise<SteamGridDBGameDetail | null> {
