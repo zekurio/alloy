@@ -14,10 +14,6 @@ const server = serve(
   }
 )
 
-// Bring the queue up *after* the HTTP server is bound. If pg-boss can't
-// reach Postgres we still want `/health` to answer (the queue logs its
-// own error and the reaper retry will eventually catch up); a hard
-// startup failure here would leave the API dark for a transient DB blip.
 void startQueue().catch((err) => {
   // eslint-disable-next-line no-console
   console.error("[queue] failed to start:", err)

@@ -37,9 +37,6 @@ export const searchRoute = new Hono()
     END`
 
     const [clips, games, users] = await Promise.all([
-      // Clips: match title/description/authorUsername/gameRef.name.
-      // `ready` + non-private filter mirrors the public feed exactly so
-      // the search surface never leaks a clip the feed wouldn't show.
       db
         .select(clipSelectShape)
         .from(clip)
@@ -63,10 +60,6 @@ export const searchRoute = new Hono()
         .orderBy(matchRank, desc(clip.createdAt))
         .limit(limit),
 
-      // Games: match name/slug. Filtered to rows with at least one
-      // visible ready clip so an "abandoned" resolved-but-empty row
-      // doesn't clutter the dropdown — same rule the /api/games grid
-      // uses, just with the text filter layered on top.
       db
         .select({
           id: game.id,
@@ -123,9 +116,6 @@ export const searchRoute = new Hono()
           )
         )
         .groupBy(user.id)
-        // Users with visible clips rank above empty accounts, then
-        // alphabetical within each band so results are stable across
-        // refetches.
         .orderBy(sql`count(${clip.id}) desc`, user.username)
         .limit(limit),
     ])

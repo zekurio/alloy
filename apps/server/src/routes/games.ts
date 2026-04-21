@@ -25,9 +25,6 @@ const SlugParam = z.object({
     .string()
     .min(1)
     .max(64)
-    // Same shape produced by `slugifyGame()` — lowercase letters,
-    // digits, hyphens. Rejecting everything else up-front saves a DB
-    // roundtrip on bots probing `/g/../../admin` style URLs.
     .regex(/^[a-z0-9-]+$/),
 })
 

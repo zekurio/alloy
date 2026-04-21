@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator"
-import { and, eq, sql } from "drizzle-orm"
+import { and, eq, sql, type SQL } from "drizzle-orm"
 import { Hono } from "hono"
 
 import { clip, clipLike, clipView } from "@workspace/db/schema"
@@ -14,6 +14,35 @@ import {
   resolveEngagementTarget,
   VIEW_THROTTLE_TTL_SEC,
 } from "./clips-helpers"
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+async function applyLikeCountDelta(
+  tx: Tx,
+  clipId: string,
+  delta: SQL,
+  fallback: number
+): Promise<number> {
+  const [row] = await tx
+    .update(clip)
+    .set({ likeCount: delta })
+    .where(eq(clip.id, clipId))
+    .returning({ likeCount: clip.likeCount })
+  return row?.likeCount ?? fallback
+}
+
+async function readLikeCount(
+  tx: Tx,
+  clipId: string,
+  fallback: number
+): Promise<number> {
+  const [row] = await tx
+    .select({ likeCount: clip.likeCount })
+    .from(clip)
+    .where(eq(clip.id, clipId))
+    .limit(1)
+  return row?.likeCount ?? fallback
+}
 
 export const clipsEngagementRoutes = new Hono()
   .get("/:id/like", requireSession, zValidator("param", IdParam), async (c) => {
@@ -45,19 +74,9 @@ export const clipsEngagementRoutes = new Hono()
           .onConflictDoNothing()
           .returning({ clipId: clipLike.clipId })
         if (inserted.length > 0) {
-          const [row] = await tx
-            .update(clip)
-            .set({ likeCount: sql`${clip.likeCount} + 1` })
-            .where(eq(clip.id, id))
-            .returning({ likeCount: clip.likeCount })
-          return row?.likeCount ?? 0
+          return applyLikeCountDelta(tx, id, sql`${clip.likeCount} + 1`, 0)
         }
-        const [row] = await tx
-          .select({ likeCount: clip.likeCount })
-          .from(clip)
-          .where(eq(clip.id, id))
-          .limit(1)
-        return row?.likeCount ?? 0
+        return readLikeCount(tx, id, 0)
       })
 
       return c.json({ liked: true, likeCount })
@@ -80,19 +99,14 @@ export const clipsEngagementRoutes = new Hono()
           .where(and(eq(clipLike.clipId, id), eq(clipLike.userId, viewerId)))
           .returning({ clipId: clipLike.clipId })
         if (removed.length > 0) {
-          const [row] = await tx
-            .update(clip)
-            .set({ likeCount: sql`GREATEST(0, ${clip.likeCount} - 1)` })
-            .where(eq(clip.id, id))
-            .returning({ likeCount: clip.likeCount })
-          return row?.likeCount ?? 0
+          return applyLikeCountDelta(
+            tx,
+            id,
+            sql`GREATEST(0, ${clip.likeCount} - 1)`,
+            0
+          )
         }
-        const [row] = await tx
-          .select({ likeCount: clip.likeCount })
-          .from(clip)
-          .where(eq(clip.id, id))
-          .limit(1)
-        return row?.likeCount ?? target.likeCount
+        return readLikeCount(tx, id, target.likeCount)
       })
 
       return c.json({ liked: false, likeCount })

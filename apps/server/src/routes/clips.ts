@@ -7,6 +7,7 @@ import { clip, game } from "@workspace/db/schema"
 
 import { db } from "../db"
 import { clipSelectShape, selectClipById } from "../lib/clip-select"
+import { selectQueueRowsForAuthor } from "../lib/clip-queue-select"
 import { requireSession } from "../lib/require-session"
 import { clipCommentsRoutes } from "./clip-comments"
 import { clipsEngagementRoutes } from "./clips-engagement"
@@ -51,21 +52,7 @@ export const clips = new Hono()
 
   .get("/queue", requireSession, async (c) => {
     const viewerId = c.var.viewerId
-    const rows = await db
-      .select({
-        id: clip.id,
-        gameSlug: game.slug,
-        title: clip.title,
-        status: clip.status,
-        encodeProgress: clip.encodeProgress,
-        failureReason: clip.failureReason,
-        createdAt: clip.createdAt,
-      })
-      .from(clip)
-      .innerJoin(game, eq(clip.gameId, game.id))
-      .where(eq(clip.authorId, viewerId))
-      .orderBy(desc(clip.createdAt))
-      .limit(50)
+    const rows = await selectQueueRowsForAuthor(viewerId)
     return c.json(rows)
   })
 
