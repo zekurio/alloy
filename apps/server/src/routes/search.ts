@@ -100,7 +100,6 @@ export const searchRoute = new Hono()
           displayUsername: user.displayUsername,
           name: user.name,
           image: user.image,
-          imageKey: user.imageKey,
           createdAt: user.createdAt,
           clipCount: sql<number>`count(${clip.id})::int`,
         })
@@ -150,7 +149,6 @@ export const searchRoute = new Hono()
         displayUsername: row.displayUsername,
         name: row.name,
         image: row.image,
-        imageKey: row.imageKey,
         createdAt: row.createdAt.toISOString(),
         clipCount: row.clipCount,
       })),

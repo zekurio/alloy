@@ -12,6 +12,7 @@ import { clipSelectShape } from "../lib/clip-select"
 import { generateUniqueGameSlug } from "../lib/game-slug"
 import { requireSession } from "../lib/require-session"
 import {
+  enrichSearchResultsWithIcons,
   getGameAssets,
   getGameById,
   isConfigured,
@@ -67,7 +68,11 @@ export const gamesRoute = new Hono()
       const { q } = c.req.valid("query")
       try {
         const results = await searchGames(q)
-        return c.json(results)
+        const enriched = await enrichSearchResultsWithIcons(
+          results,
+          results.length
+        )
+        return c.json(enriched)
       } catch (err) {
         const { status, error } = sgdbErrorResponse(err)
         return c.json({ error }, status)

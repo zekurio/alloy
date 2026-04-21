@@ -26,7 +26,6 @@ import {
   listTaggedClips,
   listUserClips,
   resolveTarget,
-  storedImageResponse,
   toLikePattern,
   toPublicUser,
 } from "./users-helpers"
@@ -188,37 +187,6 @@ export const usersRoute = new Hono()
       },
       viewer,
     })
-  })
-
-  .get("/:username/avatar", zValidator("param", UsernameParam), async (c) => {
-    const { username } = c.req.valid("param")
-    const row = await resolveTarget(username)
-    if (!row) return c.json({ error: "Not found" }, 404)
-
-    const storedAvatar = await storedImageResponse(row.imageKey)
-    if (storedAvatar) return storedAvatar
-
-    if (!row.image) return c.json({ error: "Not found" }, 404)
-    const upstream = await fetch(row.image)
-    if (!upstream.ok || !upstream.body) {
-      return c.json({ error: "Upstream avatar unavailable" }, 502)
-    }
-    return new Response(upstream.body, {
-      headers: {
-        "content-type": upstream.headers.get("content-type") ?? "image/*",
-        "cache-control": "public, max-age=3600",
-      },
-    })
-  })
-
-  .get("/:username/banner", zValidator("param", UsernameParam), async (c) => {
-    const { username } = c.req.valid("param")
-    const row = await resolveTarget(username)
-    if (!row?.bannerKey) return c.json({ error: "Not found" }, 404)
-
-    const storedBanner = await storedImageResponse(row.bannerKey)
-    if (!storedBanner) return c.json({ error: "Not found" }, 404)
-    return storedBanner
   })
 
   .get("/:username/clips", zValidator("param", UsernameParam), async (c) => {
