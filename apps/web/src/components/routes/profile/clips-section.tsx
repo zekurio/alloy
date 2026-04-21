@@ -7,10 +7,9 @@ import {
 } from "@workspace/ui/components/section-head"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 
-import { ClipCardTrigger } from "../../../components/clip-player-dialog"
+import { ClipCardList } from "../../../components/clip-card-list"
 import { ClipGrid } from "../../../components/clip-grid"
 import { EmptyState } from "../../../components/empty-state"
-import { toClipCardData } from "../../../lib/clip-format"
 import { useQueryErrorToast } from "../../../lib/use-query-error-toast"
 import type { UserClip } from "../../../lib/users-api"
 
@@ -31,7 +30,8 @@ export function ClipsSection({
     title: "Couldn't load clips",
     toastId: `profile-${variant}-clips-error`,
   })
-  const visibleClips = clips
+  const visibleClips =
+    variant === "recent" && clips ? clips.slice(0, 12) : clips
 
   return (
     <section>
@@ -44,7 +44,7 @@ export function ClipsSection({
         </div>
         <SectionActions>
           {visibleClips ? (
-            <span className="font-mono text-2xs text-foreground-faint">
+            <span className="text-xs text-foreground-faint tabular-nums">
               {visibleClips.length}{" "}
               {visibleClips.length === 1 ? "clip" : "clips"}
             </span>
@@ -64,7 +64,7 @@ export function ClipsSection({
             <Skeleton key={i} className="aspect-video rounded-md" />
           ))}
         </ClipGrid>
-      ) : clips.length === 0 ? (
+      ) : !visibleClips || visibleClips.length === 0 ? (
         <EmptyState
           seed={`profile-${variant}-empty`}
           size="lg"
@@ -72,36 +72,7 @@ export function ClipsSection({
           hint="Clips from this user will show up here once they upload."
         />
       ) : (
-        <ClipGrid>
-          {clips.map((row) => {
-            const card = toClipCardData(row)
-            return (
-              <ClipCardTrigger
-                key={row.id}
-                clipId={card.clipId}
-                streamUrl={card.streamUrl}
-                thumbnail={card.thumbnail}
-                variants={card.variants}
-                authorHandle={card.author}
-                authorId={card.authorId}
-                author={card.author}
-                authorImage={card.authorImage}
-                title={card.title}
-                game={card.game}
-                gameRef={card.gameRef}
-                gameHref={card.gameRef ? `/g/${card.gameRef.slug}` : null}
-                views={card.views}
-                likes={card.likes}
-                comments={card.comments}
-                postedAt={card.postedAt}
-                accentHue={card.accentHue}
-                privacy={isSelf ? card.privacy : undefined}
-                clipPrivacy={card.privacy}
-                description={card.description}
-              />
-            )
-          })}
-        </ClipGrid>
+        <ClipCardList rows={visibleClips} isOwnedByViewer={() => isSelf} />
       )}
     </section>
   )

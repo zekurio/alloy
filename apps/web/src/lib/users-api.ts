@@ -2,28 +2,17 @@ import { api } from "./api"
 import type { ClipRow } from "./clips-api"
 import { readJsonOrThrow } from "./http-error"
 
-/**
- * Client-side wrappers for the /api/users/* endpoints. All functions throw
- * on non-2xx so callers can surface the error message in a toast — the
- * profile page and follow/block buttons rely on that contract.
- *
- * The response shapes mirror `apps/server/src/routes/users.ts`. If either
- * side changes, update both — the Hono RPC types will catch most mismatches
- * but we keep explicit interfaces here so consumers don't pull response
- * types through deeply generic RPC plumbing.
- *
- * Every function takes a `handle` string — either the user's username or a
- * raw user id. The server resolves both so older links (which used ids)
- * keep working.
- */
-
 export interface PublicUser {
   id: string
-  /** URL-safe handle — the single user-facing name. */
+  /** URL-safe handle (lowercase) — used in URLs and mentions. */
   username: string
+  /** Free-form display name. Empty string when not set. */
+  name: string
   image: string | null
   /** ISO-8601 string — parse with `new Date(user.createdAt)` when needed. */
   createdAt: string
+  /** ISO-8601 string. */
+  updatedAt: string
 }
 
 export interface ProfileCounts {
@@ -32,11 +21,6 @@ export interface ProfileCounts {
   following: number
 }
 
-/**
- * Viewer-relative state for a profile. Null when the request is made by a
- * signed-out visitor — callers should treat that as "no actions available"
- * rather than "default all to false".
- */
 export interface ProfileViewer {
   isSelf: boolean
   isFollowing: boolean
@@ -52,11 +36,6 @@ export interface UserProfile {
   viewer: ProfileViewer | null
 }
 
-/**
- * Same shape as the home-feed `ClipRow` — the server joins the author on
- * both routes so the two surfaces can share a single mapper
- * (`toClipCardData`).
- */
 export type UserClip = ClipRow
 
 export async function fetchUserProfile(handle: string): Promise<UserProfile> {
@@ -71,6 +50,49 @@ export async function fetchUserClips(handle: string): Promise<UserClip[]> {
     param: { username: handle },
   })
   return readJsonOrThrow<UserClip[]>(res)
+}
+
+export async function fetchTaggedClips(handle: string): Promise<UserClip[]> {
+  const res = await api.api.users[":username"].tagged.$get({
+    param: { username: handle },
+  })
+  return readJsonOrThrow<UserClip[]>(res)
+}
+
+export interface UserSearchResult {
+  id: string
+  username: string
+  displayUsername: string
+  name: string
+  image: string | null
+}
+
+export async function searchUsers(
+  q: string,
+  limit = 8
+): Promise<UserSearchResult[]> {
+  const res = await api.api.users.search.$get({
+    query: { q, limit: String(limit) },
+  })
+  return readJsonOrThrow<UserSearchResult[]>(res)
+}
+
+export async function fetchUserFollowers(
+  handle: string
+): Promise<UserSearchResult[]> {
+  const res = await api.api.users[":username"].followers.$get({
+    param: { username: handle },
+  })
+  return readJsonOrThrow<UserSearchResult[]>(res)
+}
+
+export async function fetchUserFollowing(
+  handle: string
+): Promise<UserSearchResult[]> {
+  const res = await api.api.users[":username"].following.$get({
+    param: { username: handle },
+  })
+  return readJsonOrThrow<UserSearchResult[]>(res)
 }
 
 export async function followUser(handle: string): Promise<void> {

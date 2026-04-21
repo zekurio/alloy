@@ -5,16 +5,16 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@workspace/ui/components/avatar"
+import { cn } from "@workspace/ui/lib/utils"
 
 import { ProfileActions } from "../../../components/profile-actions"
-import { avatarTint, displayInitials } from "../../../lib/user-display"
+import { UserBanner, userAvatar } from "../../../lib/user-display"
 import type {
   ProfileCounts,
   ProfileViewer,
   PublicUser,
 } from "../../../lib/users-api"
 import { IdentityStats } from "./identity-stats"
-import { useBannerGradient } from "./profile-banner-gradient"
 
 type ProfileData = {
   user: PublicUser
@@ -35,66 +35,81 @@ export function ProfileIdentity({
 }: ProfileIdentityProps) {
   const { user, counts, viewer } = profile
   const handle = user.username
-  const initials = displayInitials(handle)
-  const { bg, fg } = avatarTint(user.id)
+  const avatar = userAvatar(user)
   const joined = formatJoined(user.createdAt)
-  const bannerStyle = useBannerGradient(user.image, handle, user.id)
 
   return (
-    <section className="mb-8">
-      <div
-        aria-hidden
-        className="h-32 w-full rounded-lg sm:h-40"
-        style={bannerStyle}
-      />
+    <>
+      <div className="flex w-full flex-col">
+      <section
+        className={cn(
+          "relative -mx-8 -mt-6 overflow-hidden",
+          "aspect-[3/1] max-h-[240px] min-h-[140px]"
+        )}
+      >
+        <UserBanner user={user} />
+        <div
+          aria-hidden
+          className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/95 via-black/60 to-transparent"
+        />
 
-      <div className="-mt-10 flex flex-col gap-5 px-1 sm:-mt-12 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
-        <div className="flex items-end gap-5">
+        <div className="absolute inset-x-0 bottom-0 flex items-end gap-4 p-4 sm:p-6">
           <Avatar
             size="2xl"
-            ring
-            style={{ background: bg, color: fg }}
-            className="shadow-[0_8px_24px_oklch(0_0_0_/_0.45)]"
+            style={{ background: avatar.bg, color: avatar.fg }}
+            className="shrink-0 shadow-[0_8px_24px_oklch(0_0_0_/_0.45)]"
           >
-            {user.image ? <AvatarImage src={user.image} alt={handle} /> : null}
-            <AvatarFallback style={{ background: bg, color: fg }}>
-              {initials}
+            {avatar.src ? (
+              <AvatarImage src={avatar.src} alt={handle} />
+            ) : null}
+            <AvatarFallback
+              style={{ background: avatar.bg, color: avatar.fg }}
+            >
+              {avatar.initials}
             </AvatarFallback>
           </Avatar>
 
-          <div className="flex min-w-0 flex-col gap-1.5 pb-1">
-            <h1 className="truncate text-2xl font-semibold tracking-[-0.02em]">
-              @{handle}
-            </h1>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-2xs leading-none text-foreground-faint">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5 pb-1">
+            <div className="flex min-w-0 items-center gap-3">
+              <h1
+                className={cn(
+                  "truncate text-2xl font-semibold tracking-[-0.02em] text-foreground",
+                  "drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)] sm:text-3xl"
+                )}
+              >
+                {user.name || `@${handle}`}
+              </h1>
+              <ProfileActions
+                targetHandle={handle}
+                viewer={viewer}
+                onChange={(next) => {
+                  const wasFollowing = viewer?.isFollowing ?? false
+                  const willFollow = next.isFollowing
+                  if (wasFollowing !== willFollow) {
+                    onFollowerDelta(willFollow ? 1 : -1)
+                  }
+                  onViewerChange(next)
+                }}
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-none text-foreground-dim">
+              {user.name ? (
+                <span className="truncate leading-none">@{handle}</span>
+              ) : null}
               <span className="inline-flex items-center gap-1.5 leading-none">
                 <CalendarIcon className="size-3 shrink-0" aria-hidden />
                 <span>joined {joined}</span>
               </span>
             </div>
-            <IdentityStats counts={counts} />
           </div>
         </div>
-
-        <div className="flex shrink-0 items-center sm:pb-1">
-          <ProfileActions
-            targetHandle={handle}
-            viewer={viewer}
-            onChange={(next) => {
-              const wasFollowing = viewer?.isFollowing ?? false
-              const willFollow = next.isFollowing
-              if (wasFollowing !== willFollow) {
-                onFollowerDelta(willFollow ? 1 : -1)
-              }
-              if (!viewer?.isBlocked && next.isBlocked && wasFollowing) {
-                onFollowerDelta(-1)
-              }
-              onViewerChange(next)
-            }}
-          />
-        </div>
+      </section>
       </div>
-    </section>
+
+      <div className="mb-4 mt-3">
+        <IdentityStats handle={handle} counts={counts} />
+      </div>
+    </>
   )
 }
 

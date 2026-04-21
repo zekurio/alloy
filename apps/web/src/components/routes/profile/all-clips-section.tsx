@@ -8,25 +8,14 @@ import {
 } from "@workspace/ui/components/section-head"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 
-import { ClipCardTrigger } from "../../../components/clip-player-dialog"
+import { ClipCardList } from "../../../components/clip-card-list"
 import { ClipGrid } from "../../../components/clip-grid"
 import { EmptyState } from "../../../components/empty-state"
-import { toClipCardData } from "../../../lib/clip-format"
 import { useQueryErrorToast } from "../../../lib/use-query-error-toast"
 import type { UserClip } from "../../../lib/users-api"
-import type { ProfileAllSort } from "../../../routes/_app.u.$username.all"
+import type { ProfileAllSort } from "../../../routes/(app)/_app.u.$username.all"
 import { ClipsFilterBar } from "./clips-filter-bar"
 
-/**
- * The full-grid "All clips" view for `/u/$username/all`. Owns the filter
- * bar and applies the active sort + game filter to the clip list (both read
- * from search params on the route — this component is pure render).
- *
- * Filtering/sorting happens client-side over the list we already fetched
- * via `useUserClipsQuery`. No backend changes needed for the MVP; if the
- * list ever grows past "fits in memory" we'd push sort/game down to the
- * server endpoint.
- */
 type AllClipsSectionProps = {
   username: string
   clips: UserClip[] | null
@@ -48,28 +37,40 @@ export function AllClipsSection({
     title: "Couldn't load clips",
     toastId: "profile-all-clips-error",
   })
-  // Derive the set of games present in this user's clips — powers the
-  // game-filter dropdown. We only surface games with a resolved `gameRef`
-  // (slug is mandatory for URL filtering); legacy free-form `game` strings
-  // without a SteamGridDB match fall through to "All games".
   const gameOptions = React.useMemo(() => {
     if (!clips) return []
-    const map = new Map<string, { slug: string; name: string; count: number }>()
+    const map = new Map<
+      string,
+      {
+        slug: string
+        name: string
+        count: number
+        iconUrl: string | null
+        logoUrl: string | null
+      }
+    >()
     for (const clip of clips) {
       const ref = clip.gameRef
       if (!ref) continue
       const existing = map.get(ref.slug)
       if (existing) existing.count += 1
-      else map.set(ref.slug, { slug: ref.slug, name: ref.name, count: 1 })
+      else
+        map.set(ref.slug, {
+          slug: ref.slug,
+          name: ref.name,
+          count: 1,
+          iconUrl: ref.iconUrl,
+          logoUrl: ref.logoUrl,
+        })
     }
-    // Alphabetised — the same game won't jump positions as counts change.
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name))
   }, [clips])
 
-  const selectedGameName = React.useMemo(() => {
+  const selectedGame = React.useMemo(() => {
     if (!gameSlug) return null
-    return gameOptions.find((g) => g.slug === gameSlug)?.name ?? null
+    return gameOptions.find((g) => g.slug === gameSlug) ?? null
   }, [gameOptions, gameSlug])
+  const selectedGameName = selectedGame?.name ?? null
 
   const visible = React.useMemo(() => {
     if (!clips) return null
@@ -90,7 +91,7 @@ export function AllClipsSection({
         </div>
         <SectionActions>
           {visible ? (
-            <span className="font-mono text-2xs text-foreground-faint">
+            <span className="text-xs text-foreground-faint tabular-nums">
               {visible.length} {visible.length === 1 ? "clip" : "clips"}
             </span>
           ) : null}
@@ -101,7 +102,7 @@ export function AllClipsSection({
         username={username}
         sort={sort}
         gameSlug={gameSlug}
-        selectedGameName={selectedGameName}
+        selectedGame={selectedGame}
         gameOptions={gameOptions}
       />
 
@@ -133,46 +134,13 @@ export function AllClipsSection({
           }
         />
       ) : (
-        <ClipGrid>
-          {visible.map((row) => {
-            const card = toClipCardData(row)
-            return (
-              <ClipCardTrigger
-                key={row.id}
-                clipId={card.clipId}
-                streamUrl={card.streamUrl}
-                thumbnail={card.thumbnail}
-                variants={card.variants}
-                authorHandle={card.author}
-                authorId={card.authorId}
-                author={card.author}
-                authorImage={card.authorImage}
-                title={card.title}
-                game={card.game}
-                gameRef={card.gameRef}
-                gameHref={card.gameRef ? `/g/${card.gameRef.slug}` : null}
-                views={card.views}
-                likes={card.likes}
-                comments={card.comments}
-                postedAt={card.postedAt}
-                accentHue={card.accentHue}
-                privacy={isSelf ? card.privacy : undefined}
-                clipPrivacy={card.privacy}
-                description={card.description}
-              />
-            )
-          })}
-        </ClipGrid>
+        <ClipCardList rows={visible} isOwnedByViewer={() => isSelf} />
       )}
     </section>
   )
 }
 
 function sortClips(clips: UserClip[], sort: ProfileAllSort): UserClip[] {
-  // Clone before sorting — React Query shares the query array by reference
-  // across subscribers, so an in-place sort would mutate cached data and
-  // silently reorder siblings rendered elsewhere (the feed tab reads the
-  // same key).
   const copy = clips.slice()
   switch (sort) {
     case "recent":
