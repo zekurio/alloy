@@ -3,6 +3,22 @@ import { Avatar as AvatarPrimitive } from "@base-ui/react/avatar"
 
 import { cn } from "@workspace/ui/lib/utils"
 
+const avatarRootSizeClasses = [
+  "data-[size=sm]:size-5 data-[size=sm]:text-[9px]",
+  "data-[size=md]:size-7 data-[size=md]:text-[11px]",
+  "data-[size=lg]:size-9 data-[size=lg]:text-[13px]",
+  "data-[size=xl]:size-12 data-[size=xl]:text-[16px]",
+  "data-[size=2xl]:size-24 data-[size=2xl]:rounded-lg data-[size=2xl]:text-[28px]",
+]
+
+const avatarBadgeSizeClasses = [
+  "group-data-[size=sm]/avatar:size-2",
+  "group-data-[size=md]/avatar:size-2.5",
+  "group-data-[size=lg]/avatar:size-3",
+  "group-data-[size=xl]/avatar:size-3.5",
+  "group-data-[size=2xl]/avatar:size-5",
+]
+
 function Avatar({
   className,
   size = "md",
@@ -20,11 +36,7 @@ function Avatar({
       className={cn(
         "group/avatar relative inline-flex shrink-0 overflow-hidden select-none",
         "items-center justify-center rounded-md bg-neutral-200 font-semibold text-foreground",
-        "data-[size=sm]:size-5 data-[size=sm]:text-[9px]",
-        "data-[size=md]:size-7 data-[size=md]:text-[11px]",
-        "data-[size=lg]:size-9 data-[size=lg]:text-[13px]",
-        "data-[size=xl]:size-12 data-[size=xl]:text-[16px]",
-        "data-[size=2xl]:size-24 data-[size=2xl]:rounded-lg data-[size=2xl]:text-[28px]",
+        ...avatarRootSizeClasses,
         "data-[ring=true]:shadow-[0_0_0_1.5px_var(--background),0_0_0_3px_var(--accent)]",
         className
       )}
@@ -65,11 +77,7 @@ function AvatarBadge({ className, ...props }: React.ComponentProps<"span">) {
       data-slot="avatar-badge"
       className={cn(
         "absolute right-0 bottom-0 z-10 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-background select-none",
-        "group-data-[size=sm]/avatar:size-2",
-        "group-data-[size=md]/avatar:size-2.5",
-        "group-data-[size=lg]/avatar:size-3",
-        "group-data-[size=xl]/avatar:size-3.5",
-        "group-data-[size=2xl]/avatar:size-5",
+        ...avatarBadgeSizeClasses,
         className
       )}
       {...props}
