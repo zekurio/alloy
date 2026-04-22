@@ -17,6 +17,7 @@ import { user } from "@workspace/db/auth-schema"
 import { block, clip, follow } from "@workspace/db/schema"
 
 import { db } from "../db"
+import { syncLinkedOAuthImage } from "../lib/oauth-profile-sync"
 import { requireSession } from "../lib/require-session"
 import {
   SearchQuery,
@@ -78,6 +79,10 @@ export const usersRoute = new Hono()
       .orderBy(user.username)
       .limit(limit)
     return c.json(rows)
+  })
+
+  .post("/me/sync-oauth-profile", requireSession, async (c) => {
+    return c.json(await syncLinkedOAuthImage(c.var.viewerId))
   })
 
   .get("/:username", zValidator("param", UsernameParam), async (c) => {
