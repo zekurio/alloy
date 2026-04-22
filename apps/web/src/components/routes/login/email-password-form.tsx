@@ -6,16 +6,13 @@ import { AtSignIcon, LockIcon } from "lucide-react"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import { toast } from "@workspace/ui/components/sonner"
 
-import { authClient } from "../../../lib/auth-client"
+import { authClient } from "@/lib/auth-client"
 import {
   AuthSubmitButton,
   FormInputField,
   PasswordInputField,
 } from "../auth/auth-form-fields"
-import {
-  validatePassword,
-  validateRequiredString,
-} from "../../../lib/form-validators"
+import { validatePassword, validateRequiredString } from "@/lib/form-validators"
 
 type LoginCredentials = {
   identifier: string

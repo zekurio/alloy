@@ -2,8 +2,8 @@ import * as React from "react"
 
 import { toast } from "@workspace/ui/components/sonner"
 
-import { OAuthButton } from "../../../components/oauth-button"
-import { authClient } from "../../../lib/auth-client"
+import { OAuthButton } from "@/components/auth/oauth-button"
+import { authClient } from "@/lib/auth-client"
 
 type OAuthSignInProps = {
   providerId: string

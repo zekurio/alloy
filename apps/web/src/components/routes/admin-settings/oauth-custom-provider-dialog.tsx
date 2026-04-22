@@ -26,7 +26,7 @@ import { Switch } from "@workspace/ui/components/switch"
 import {
   type AdminOAuthProvider,
   USERNAME_CLAIM_SUGGESTIONS,
-} from "../../../lib/admin-api"
+} from "@/lib/admin-api"
 import {
   OAuthCallbackField,
   parseScopes,

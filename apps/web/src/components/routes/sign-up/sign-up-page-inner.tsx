@@ -2,9 +2,9 @@ import { Link } from "@tanstack/react-router"
 
 import { AlloyLogo } from "@workspace/ui/components/alloy-logo"
 
-import { LoginArtwork } from "../../../components/login-artwork"
-import { useRedirectIfAuthed } from "../../../lib/auth-hooks"
-import type { fetchPublicClips } from "../../../lib/public-clips"
+import { LoginArtwork } from "@/components/auth/login-artwork"
+import { useRedirectIfAuthed } from "@/lib/auth-hooks"
+import type { fetchPublicClips } from "@/lib/public-clips"
 
 import { SignUpForm } from "./sign-up-form"
 

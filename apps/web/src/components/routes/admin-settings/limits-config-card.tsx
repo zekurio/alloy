@@ -22,7 +22,7 @@ import {
   type AdminLimitsConfig,
   type AdminRuntimeConfig,
   updateLimitsConfig,
-} from "../../../lib/admin-api"
+} from "@/lib/admin-api"
 import { clampInt } from "./shared"
 
 type LimitsConfigCardProps = {

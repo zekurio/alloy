@@ -2,15 +2,15 @@ import * as React from "react"
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router"
 import { createMiddleware, createServerFn } from "@tanstack/react-start"
 
-import { ClipViewerDialog } from "../../components/clip-viewer-dialog"
+import { ClipViewerDialog } from "@/components/clip/clip-viewer-dialog"
 import {
   clipStreamUrl,
   clipThumbnailUrl,
   fetchClipById,
   type ClipEncodedVariant,
   type ClipRow,
-} from "../../lib/clips-api"
-import { HttpError } from "../../lib/http-error"
+} from "@/lib/clips-api"
+import { HttpError } from "@/lib/http-error"
 
 const requestContextMiddleware = createMiddleware().server(
   ({ next, request }) => {
@@ -30,11 +30,8 @@ const fetchRouteClipById = createServerFn({ method: "GET" })
   .handler(async ({ data: clipId, context }) => {
     const cookie = context.request.headers.get("cookie")
 
-    return fetchClipById(
-      clipId,
-      cookie ? { headers: { cookie } } : undefined
-    )
-})
+    return fetchClipById(clipId, cookie ? { headers: { cookie } } : undefined)
+  })
 
 export const Route = createFileRoute("/(app)/_app/g/$slug/c/$clipId")({
   loader: async ({ params }) => {

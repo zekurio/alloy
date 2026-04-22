@@ -35,7 +35,7 @@ import {
   updateEncoderConfig,
   type EncoderCodec,
   type EncoderHwaccel,
-} from "../../../lib/admin-api"
+} from "@/lib/admin-api"
 import { IntInput, VariantRow } from "./encoder-variant-row"
 import { HWACCEL_LABEL, presetSuggestionsFor, QUALITY_LABEL } from "./shared"
 

@@ -6,9 +6,9 @@ import { Button } from "@workspace/ui/components/button"
 import { Card, CardContent } from "@workspace/ui/components/card"
 import { toast } from "@workspace/ui/components/sonner"
 
-import { authClient } from "../../../lib/auth-client"
-import { type PublicAuthConfig } from "../../../lib/auth-config"
-import { useSuspenseAuthConfig } from "../../../lib/session-suspense"
+import { authClient } from "@/lib/auth-client"
+import { type PublicAuthConfig } from "@/lib/auth-config"
+import { useSuspenseAuthConfig } from "@/lib/session-suspense"
 
 type Account = {
   id: string

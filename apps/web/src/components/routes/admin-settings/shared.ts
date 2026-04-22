@@ -2,7 +2,7 @@ import type {
   AdminOAuthProvider,
   EncoderCodec,
   EncoderHwaccel,
-} from "../../../lib/admin-api"
+} from "@/lib/admin-api"
 
 export function emptyProvider(): AdminOAuthProvider {
   return {
