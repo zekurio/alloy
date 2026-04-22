@@ -23,7 +23,7 @@ function FieldRequiredMarker() {
       <span
         aria-hidden="true"
         data-slot="field-required-marker"
-        className="text-base leading-none font-semibold text-foreground-muted transition-colors group-data-[invalid=true]/field:text-destructive group-has-[[aria-invalid=true]]/field:text-destructive group-has-[:user-invalid]/field:text-destructive"
+        className="text-base leading-none font-semibold text-foreground-muted transition-colors group-has-[:user-invalid]/field:text-destructive group-has-[[aria-invalid=true]]/field:text-destructive group-data-[invalid=true]/field:text-destructive"
       >
         *
       </span>
@@ -82,7 +82,7 @@ function FieldLegend({
       data-slot="field-legend"
       data-variant={variant}
       className={cn(
-        "mb-1.5 flex items-center gap-2.5 font-semibold tracking-[-0.01em] text-foreground data-[variant=label]:text-sm data-[variant=legend]:text-base group-data-[invalid=true]/field:text-destructive group-has-[[aria-invalid=true]]/field:text-destructive group-has-[:user-invalid]/field:text-destructive",
+        "mb-1.5 flex items-center gap-2.5 font-semibold tracking-[-0.01em] text-foreground group-has-[:user-invalid]/field:text-destructive group-has-[[aria-invalid=true]]/field:text-destructive group-data-[invalid=true]/field:text-destructive data-[variant=label]:text-sm data-[variant=legend]:text-base",
         className
       )}
       {...props}
@@ -101,13 +101,7 @@ function FieldSection({
 }: React.ComponentProps<"div"> & {
   slot: string
 }) {
-  return (
-    <div
-      data-slot={slot}
-      className={cn(className)}
-      {...props}
-    />
-  )
+  return <div data-slot={slot} className={cn(className)} {...props} />
 }
 
 function renderFieldSection(
@@ -188,7 +182,7 @@ function FieldLabel({
     <Label
       data-slot="field-label"
       className={cn(
-        "group/field-label peer/field-label flex w-fit items-center gap-2.5 leading-snug group-data-[disabled=true]/field:opacity-50 group-data-[invalid=true]/field:text-destructive group-has-[[aria-invalid=true]]/field:text-destructive group-has-[:user-invalid]/field:text-destructive has-data-checked:border-primary/30 has-data-checked:bg-primary/5 has-[>[data-slot=field]]:rounded-lg has-[>[data-slot=field]]:border has-[>[data-slot=field]]:border-border *:data-[slot=field]:p-3 dark:has-data-checked:border-primary/20 dark:has-data-checked:bg-primary/10",
+        "group/field-label peer/field-label flex w-fit items-center gap-2.5 leading-snug group-has-[:user-invalid]/field:text-destructive group-has-[[aria-invalid=true]]/field:text-destructive group-data-[disabled=true]/field:opacity-50 group-data-[invalid=true]/field:text-destructive has-data-checked:border-primary/30 has-data-checked:bg-primary/5 has-[>[data-slot=field]]:rounded-lg has-[>[data-slot=field]]:border has-[>[data-slot=field]]:border-border *:data-[slot=field]:p-3 dark:has-data-checked:border-primary/20 dark:has-data-checked:bg-primary/10",
         "has-[>[data-slot=field]]:w-full has-[>[data-slot=field]]:flex-col",
         className
       )}
@@ -215,7 +209,7 @@ function FieldTitle({
     <div
       data-slot="field-label"
       className={cn(
-        "flex w-fit items-center gap-2.5 text-sm font-semibold tracking-[-0.01em] text-foreground group-data-[disabled=true]/field:opacity-50 group-data-[invalid=true]/field:text-destructive group-has-[[aria-invalid=true]]/field:text-destructive group-has-[:user-invalid]/field:text-destructive",
+        "flex w-fit items-center gap-2.5 text-sm font-semibold tracking-[-0.01em] text-foreground group-has-[:user-invalid]/field:text-destructive group-has-[[aria-invalid=true]]/field:text-destructive group-data-[disabled=true]/field:opacity-50 group-data-[invalid=true]/field:text-destructive",
         className
       )}
       {...props}
