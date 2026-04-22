@@ -161,7 +161,7 @@ function AddPasskeyDialog({ onAdded }: { onAdded: () => Promise<void> }) {
           </Button>
         }
       />
-      <DialogContent>
+      <DialogContent variant="secondary">
         <form onSubmit={onSubmit}>
           <DialogHeader>
             <DialogTitle>Add a passkey</DialogTitle>
