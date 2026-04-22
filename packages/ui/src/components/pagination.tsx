@@ -66,21 +66,44 @@ function PaginationLink({
   )
 }
 
+function PaginationDirectionLink({
+  children,
+  className,
+  iconPosition,
+  text,
+  ...props
+}: React.ComponentProps<typeof PaginationLink> & {
+  children: React.ReactNode
+  iconPosition: "start" | "end"
+  text: string
+}) {
+  return (
+    <PaginationLink
+      size="default"
+      className={cn(iconPosition === "start" ? "pl-1.5!" : "pr-1.5!", className)}
+      {...props}
+    >
+      {children}
+      <span className="hidden sm:block">{text}</span>
+    </PaginationLink>
+  )
+}
+
 function PaginationPrevious({
   className,
   text = "Previous",
   ...props
 }: React.ComponentProps<typeof PaginationLink> & { text?: string }) {
   return (
-    <PaginationLink
+    <PaginationDirectionLink
       aria-label="Go to previous page"
-      size="default"
-      className={cn("pl-1.5!", className)}
+      className={className}
+      iconPosition="start"
+      text={text}
       {...props}
     >
       <ChevronLeftIcon data-icon="inline-start" />
-      <span className="hidden sm:block">{text}</span>
-    </PaginationLink>
+    </PaginationDirectionLink>
   )
 }
 
@@ -90,15 +113,15 @@ function PaginationNext({
   ...props
 }: React.ComponentProps<typeof PaginationLink> & { text?: string }) {
   return (
-    <PaginationLink
+    <PaginationDirectionLink
       aria-label="Go to next page"
-      size="default"
-      className={cn("pr-1.5!", className)}
+      className={className}
+      iconPosition="end"
+      text={text}
       {...props}
     >
-      <span className="hidden sm:block">{text}</span>
       <ChevronRightIcon data-icon="inline-end" />
-    </PaginationLink>
+    </PaginationDirectionLink>
   )
 }
 

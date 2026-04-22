@@ -34,16 +34,25 @@ function Alert({
   )
 }
 
-function AlertTitle({ className, ...props }: React.ComponentProps<"div">) {
+function renderAlertSection(
+  slot: string,
+  defaultClassName: string,
+  { className, ...props }: React.ComponentProps<"div">
+) {
   return (
     <div
-      data-slot="alert-title"
-      className={cn(
-        "font-medium group-has-[>svg]/alert:col-start-2 [&_a]:underline [&_a]:underline-offset-3 [&_a]:hover:text-foreground",
-        className
-      )}
+      data-slot={slot}
+      className={cn(defaultClassName, className)}
       {...props}
     />
+  )
+}
+
+function AlertTitle({ className, ...props }: React.ComponentProps<"div">) {
+  return renderAlertSection(
+    "alert-title",
+    "font-medium group-has-[>svg]/alert:col-start-2 [&_a]:underline [&_a]:underline-offset-3 [&_a]:hover:text-foreground",
+    { className, ...props }
   )
 }
 
@@ -51,15 +60,10 @@ function AlertDescription({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="alert-description"
-      className={cn(
-        "text-sm text-balance text-muted-foreground md:text-pretty [&_a]:underline [&_a]:underline-offset-3 [&_a]:hover:text-foreground [&_p:not(:last-child)]:mb-4",
-        className
-      )}
-      {...props}
-    />
+  return renderAlertSection(
+    "alert-description",
+    "text-sm text-balance text-muted-foreground md:text-pretty [&_a]:underline [&_a]:underline-offset-3 [&_a]:hover:text-foreground [&_p:not(:last-child)]:mb-4",
+    { className, ...props }
   )
 }
 

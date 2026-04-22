@@ -126,16 +126,25 @@ function ItemContent({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function ItemTitle({ className, ...props }: React.ComponentProps<"div">) {
+function renderItemSection(
+  slot: string,
+  defaultClassName: string,
+  { className, ...props }: React.ComponentProps<"div">
+) {
   return (
     <div
-      data-slot="item-title"
-      className={cn(
-        "line-clamp-1 flex w-fit items-center gap-2 text-sm leading-snug font-medium underline-offset-4",
-        className
-      )}
+      data-slot={slot}
+      className={cn(defaultClassName, className)}
       {...props}
     />
+  )
+}
+
+function ItemTitle({ className, ...props }: React.ComponentProps<"div">) {
+  return renderItemSection(
+    "item-title",
+    "line-clamp-1 flex w-fit items-center gap-2 text-sm leading-snug font-medium underline-offset-4",
+    { className, ...props }
   )
 }
 
@@ -163,28 +172,18 @@ function ItemActions({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function ItemHeader({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="item-header"
-      className={cn(
-        "flex basis-full items-center justify-between gap-2",
-        className
-      )}
-      {...props}
-    />
+  return renderItemSection(
+    "item-header",
+    "flex basis-full items-center justify-between gap-2",
+    { className, ...props }
   )
 }
 
 function ItemFooter({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="item-footer"
-      className={cn(
-        "flex basis-full items-center justify-between gap-2",
-        className
-      )}
-      {...props}
-    />
+  return renderItemSection(
+    "item-footer",
+    "flex basis-full items-center justify-between gap-2",
+    { className, ...props }
   )
 }
 
