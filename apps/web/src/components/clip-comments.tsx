@@ -103,9 +103,8 @@ function ClipComments({
       )}
       {...props}
     >
-      <CommentsHeader count={totalCount} />
-
       <div className="flex-1 overflow-y-auto">
+        {comments.length > 0 ? <CommentsHeader count={totalCount} /> : null}
         {isLoading ? (
           <div className="flex h-full items-center justify-center p-6">
             <span className="text-xs text-foreground-faint">Loading…</span>
