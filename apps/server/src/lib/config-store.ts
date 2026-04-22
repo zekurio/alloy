@@ -126,6 +126,7 @@ const EncoderConfigInnerSchema = z.object({
   quality: z.number().int().min(0).max(51).default(23),
   preset: z.string().min(1).max(64).default("medium"),
   audioBitrateKbps: z.number().int().min(64).max(256).default(128),
+  qsvDevice: z.string().min(1).max(128).default("/dev/dri/renderD128"),
   vaapiDevice: z.string().min(1).max(128).default("/dev/dri/renderD128"),
   keepSource: z.boolean().default(true),
   variants: z
