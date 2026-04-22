@@ -1,9 +1,9 @@
 import * as React from "react"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
-import { LoginPageInner } from "../../components/routes/login/login-page-inner"
-import { fetchAuthConfig } from "../../lib/auth-config"
-import { fetchPublicClips } from "../../lib/public-clips"
+import { LoginPageInner } from "@/components/routes/login/login-page-inner"
+import { fetchAuthConfig } from "@/lib/auth-config"
+import { fetchPublicClips } from "@/lib/public-clips"
 
 export const Route = createFileRoute("/(auth)/login")({
   loader: async () => {

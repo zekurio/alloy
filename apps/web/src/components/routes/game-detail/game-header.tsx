@@ -1,6 +1,6 @@
-import { EmptyState } from "../../../components/empty-state"
-import { useGameQuery } from "../../../lib/game-queries"
-import { useQueryErrorToast } from "../../../lib/use-query-error-toast"
+import { EmptyState } from "@/components/feedback/empty-state"
+import { useGameQuery } from "@/lib/game-queries"
+import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import { GameHeaderBanner } from "./game-header-banner"
 import { GameHeaderSkeleton } from "./game-header-skeleton"
 

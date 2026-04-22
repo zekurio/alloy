@@ -8,10 +8,10 @@ import {
 } from "@workspace/ui/components/section-head"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 
-import { EmptyState } from "../../../components/empty-state"
-import { GameCard } from "../../../components/game-card"
-import { useGamesListQuery } from "../../../lib/game-queries"
-import { useQueryErrorToast } from "../../../lib/use-query-error-toast"
+import { EmptyState } from "@/components/feedback/empty-state"
+import { GameCard } from "@/components/game/game-card"
+import { useGamesListQuery } from "@/lib/game-queries"
+import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import { GamesGrid } from "./games-grid"
 
 export function GamesSection() {

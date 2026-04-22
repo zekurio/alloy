@@ -11,18 +11,18 @@ import {
   TabsTrigger,
 } from "@workspace/ui/components/tabs"
 
-import { AdminUsersCard } from "../../components/admin-users-card"
-import { EncoderConfigCard } from "../../components/routes/admin-settings/encoder-config-card"
-import { IntegrationsConfigCard } from "../../components/routes/admin-settings/integrations-config-card"
-import { LimitsConfigCard } from "../../components/routes/admin-settings/limits-config-card"
-import { OAuthProviderCard } from "../../components/routes/admin-settings/oauth-provider-card"
-import { ReEncodeClipsCard } from "../../components/routes/admin-settings/re-encode-clips-card"
+import { AdminUsersCard } from "@/components/admin/admin-users-card"
+import { EncoderConfigCard } from "@/components/routes/admin-settings/encoder-config-card"
+import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integrations-config-card"
+import { LimitsConfigCard } from "@/components/routes/admin-settings/limits-config-card"
+import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-provider-card"
+import { ReEncodeClipsCard } from "@/components/routes/admin-settings/re-encode-clips-card"
 import {
   type AdminRuntimeConfig,
   fetchRuntimeConfig,
   updateRuntimeConfig,
-} from "../../lib/admin-api"
-import { useRequireAdmin } from "../../lib/auth-hooks"
+} from "@/lib/admin-api"
+import { useRequireAdmin } from "@/lib/auth-hooks"
 
 export const Route = createFileRoute("/(app)/_app/_settings/admin-settings")({
   component: AdminPage,

@@ -16,7 +16,7 @@ import { Button } from "@workspace/ui/components/button"
 import { Card, CardContent } from "@workspace/ui/components/card"
 import { toast } from "@workspace/ui/components/sonner"
 
-import { reEncodeAllClips } from "../../../lib/admin-api"
+import { reEncodeAllClips } from "@/lib/admin-api"
 
 export function ReEncodeClipsCard() {
   const [pending, setPending] = React.useState(false)

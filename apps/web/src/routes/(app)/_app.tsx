@@ -8,11 +8,11 @@ import {
 
 import { AppShell } from "@workspace/ui/components/app-shell"
 
-import { AppSearchProvider } from "../../components/app-search"
-import { ClipViewerDialog } from "../../components/clip-viewer-dialog"
-import { HomeHeader } from "../../components/home-header"
-import { HomeSidebar } from "../../components/home-sidebar"
-import { UploadFlow } from "../../components/upload-flow"
+import { AppSearchProvider } from "@/components/search/app-search"
+import { ClipViewerDialog } from "@/components/clip/clip-viewer-dialog"
+import { HomeHeader } from "@/components/layout/home-header"
+import { HomeSidebar } from "@/components/layout/home-sidebar"
+import { UploadFlow } from "@/components/upload/upload-flow"
 
 interface AppSearch {
   clip?: string

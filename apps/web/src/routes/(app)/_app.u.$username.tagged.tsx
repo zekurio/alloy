@@ -9,14 +9,11 @@ import {
 } from "@workspace/ui/components/section-head"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 
-import { ClipCardList } from "../../components/clip-card-list"
-import { ClipGrid } from "../../components/clip-grid"
-import { EmptyState } from "../../components/empty-state"
-import {
-  useTaggedClipsQuery,
-  useUserProfileQuery,
-} from "../../lib/user-queries"
-import { useQueryErrorToast } from "../../lib/use-query-error-toast"
+import { ClipCardList } from "@/components/clip/clip-card-list"
+import { ClipGrid } from "@/components/clip/clip-grid"
+import { EmptyState } from "@/components/feedback/empty-state"
+import { useTaggedClipsQuery, useUserProfileQuery } from "@/lib/user-queries"
+import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 export const Route = createFileRoute("/(app)/_app/u/$username/tagged")({
   component: ProfileTaggedTab,

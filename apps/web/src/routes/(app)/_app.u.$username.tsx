@@ -3,17 +3,17 @@ import { Outlet, createFileRoute, useNavigate } from "@tanstack/react-router"
 
 import { AppMain } from "@workspace/ui/components/app-shell"
 
-import { BlockedGate } from "../../components/routes/profile/blocked-gate"
-import { ProfileIdentity } from "../../components/routes/profile/profile-identity"
-import { ProfileIdentitySkeleton } from "../../components/routes/profile/profile-identity-skeleton"
-import { ProfileTabsNav } from "../../components/routes/profile/profile-tabs-nav"
-import { EmptyState } from "../../components/empty-state"
-import { useUserClipsQuery } from "../../lib/clip-queries"
-import { useQueryErrorToast } from "../../lib/use-query-error-toast"
+import { BlockedGate } from "@/components/routes/profile/blocked-gate"
+import { ProfileIdentity } from "@/components/routes/profile/profile-identity"
+import { ProfileIdentitySkeleton } from "@/components/routes/profile/profile-identity-skeleton"
+import { ProfileTabsNav } from "@/components/routes/profile/profile-tabs-nav"
+import { EmptyState } from "@/components/feedback/empty-state"
+import { useUserClipsQuery } from "@/lib/clip-queries"
+import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import {
   useProfileCachePatchers,
   useUserProfileQuery,
-} from "../../lib/user-queries"
+} from "@/lib/user-queries"
 
 export const Route = createFileRoute("/(app)/_app/u/$username")({
   component: UserProfileLayout,

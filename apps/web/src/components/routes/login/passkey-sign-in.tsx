@@ -4,7 +4,7 @@ import { KeyRoundIcon } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/components/sonner"
 
-import { authClient } from "../../../lib/auth-client"
+import { authClient } from "@/lib/auth-client"
 
 export function PasskeySignIn() {
   const [pending, setPending] = React.useState(false)

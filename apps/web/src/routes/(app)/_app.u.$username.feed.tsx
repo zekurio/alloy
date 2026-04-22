@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { ClipsSection } from "../../components/routes/profile/clips-section"
-import { GamesSection } from "../../components/routes/profile/games-section"
-import { useUserClipsQuery } from "../../lib/clip-queries"
-import { useUserProfileQuery } from "../../lib/user-queries"
+import { ClipsSection } from "@/components/routes/profile/clips-section"
+import { GamesSection } from "@/components/routes/profile/games-section"
+import { useUserClipsQuery } from "@/lib/clip-queries"
+import { useUserProfileQuery } from "@/lib/user-queries"
 
 export const Route = createFileRoute("/(app)/_app/u/$username/feed")({
   component: ProfileFeedTab,

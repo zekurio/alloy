@@ -28,7 +28,7 @@ import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/components/sonner"
 
-import { authClient } from "../../../lib/auth-client"
+import { authClient } from "@/lib/auth-client"
 
 type Passkey = {
   id: string
@@ -229,7 +229,12 @@ function PasskeyRow({
       <AlertDialog>
         <AlertDialogTrigger
           render={
-            <Button type="button" variant="outline" size="sm" disabled={removing}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={removing}
+            >
               <Trash2Icon />
               Remove
             </Button>
