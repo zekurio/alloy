@@ -382,7 +382,7 @@ function ClipMeta({
   )
 }
 
-function ClipGameChip({
+function ClipGameBadge({
   game,
   gameRef,
 }: {
@@ -390,30 +390,56 @@ function ClipGameChip({
   gameRef: ClipGameRef | null
 }) {
   const icon = gameRef?.iconUrl ?? gameRef?.logoUrl ?? null
-  const body = (
+  const gameBody = (
     <>
       <GameIcon src={icon} name={game} />
       <span className="truncate">{game}</span>
     </>
   )
 
+  const base = cn(
+    "inline-flex h-9 items-center overflow-hidden rounded-lg border border-border bg-surface-raised"
+  )
+
+  const starBtn = (
+    <button
+      type="button"
+      disabled
+      title="TODO: add game follow"
+      aria-label="Follow game (coming soon)"
+      className="inline-flex h-full items-center justify-center px-2.5 text-foreground-faint transition-colors hover:bg-white/5 disabled:opacity-50"
+    >
+      <StarIcon className="size-4" />
+    </button>
+  )
+
+  const separator = <div className="h-4 w-px bg-border" />
+
   if (gameRef) {
     return (
-      <Link
-        to="/g/$slug"
-        params={{ slug: gameRef.slug }}
-        className={chipVariants({ size: "xl" })}
-        title={game}
-      >
-        {body}
-      </Link>
+      <div className={base}>
+        {starBtn}
+        {separator}
+        <Link
+          to="/g/$slug"
+          params={{ slug: gameRef.slug }}
+          className="inline-flex h-full items-center gap-2 px-4 text-sm text-foreground-muted transition-colors hover:text-foreground"
+          title={game}
+        >
+          {gameBody}
+        </Link>
+      </div>
     )
   }
 
   return (
-    <Chip size="xl" render={<span />} title={game}>
-      {body}
-    </Chip>
+    <div className={base}>
+      {starBtn}
+      {separator}
+      <span className="inline-flex h-full items-center gap-2 px-4 text-sm text-foreground-muted">
+        {gameBody}
+      </span>
+    </div>
   )
 }
 
