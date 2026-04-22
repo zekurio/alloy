@@ -71,6 +71,38 @@ function FieldHeader({
   )
 }
 
+function AuthFieldFrame({
+  children,
+  description,
+  errors,
+  headerAction,
+  id,
+  label,
+  required,
+}: {
+  children: React.ReactNode
+  description?: React.ReactNode
+  errors?: Array<unknown>
+  headerAction?: React.ReactNode
+  id: string
+  label: string
+  required?: boolean
+}) {
+  return (
+    <Field>
+      <FieldHeader
+        action={headerAction}
+        id={id}
+        label={label}
+        required={required}
+      />
+      {children}
+      {description ? <FieldDescription>{description}</FieldDescription> : null}
+      <FieldError id={`${id}-error`} errors={errors} />
+    </Field>
+  )
+}
+
 export function FormInputField({
   autoCapitalize,
   autoComplete,
@@ -93,13 +125,14 @@ export function FormInputField({
   value,
 }: TextFieldProps) {
   return (
-    <Field>
-      <FieldHeader
-        action={headerAction}
-        id={id}
-        label={label}
-        required={required}
-      />
+    <AuthFieldFrame
+      description={description}
+      errors={errors}
+      headerAction={headerAction}
+      id={id}
+      label={label}
+      required={required}
+    >
       <InputGroup>
         <InputGroupAddon>{icon}</InputGroupAddon>
         <InputGroupInput
@@ -119,9 +152,7 @@ export function FormInputField({
           disabled={disabled}
         />
       </InputGroup>
-      {description ? <FieldDescription>{description}</FieldDescription> : null}
-      <FieldError id={`${id}-error`} errors={errors} />
-    </Field>
+    </AuthFieldFrame>
   )
 }
 
@@ -150,13 +181,14 @@ export function PasswordInputField({
   value,
 }: PasswordFieldProps) {
   return (
-    <Field>
-      <FieldHeader
-        action={headerAction}
-        id={id}
-        label={label}
-        required={required}
-      />
+    <AuthFieldFrame
+      description={description}
+      errors={errors}
+      headerAction={headerAction}
+      id={id}
+      label={label}
+      required={required}
+    >
       <InputGroup>
         <InputGroupAddon>{icon}</InputGroupAddon>
         <InputGroupInput
@@ -182,9 +214,7 @@ export function PasswordInputField({
           </InputGroupButton>
         </InputGroupAddon>
       </InputGroup>
-      {description ? <FieldDescription>{description}</FieldDescription> : null}
-      <FieldError id={`${id}-error`} errors={errors} />
-    </Field>
+    </AuthFieldFrame>
   )
 }
 
