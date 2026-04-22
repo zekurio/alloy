@@ -1,10 +1,11 @@
 import * as React from "react"
 
-import { ClipListProvider, type ClipListEntry } from "./clip-list-context"
-import { ClipGrid } from "./clip-grid"
-import { ClipCardTrigger } from "./clip-player-dialog"
 import { toClipCardData } from "../lib/clip-format"
 import type { ClipRow } from "../lib/clips-api"
+
+import { ClipCardTrigger } from "./clip-card-trigger"
+import { ClipListProvider, type ClipListEntry } from "./clip-list-context"
+import { ClipGrid } from "./clip-grid"
 
 type ClipCardListProps = {
   rows: readonly ClipRow[]
