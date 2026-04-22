@@ -1,8 +1,13 @@
 import * as React from "react"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
+import { useQueryClient } from "@tanstack/react-query"
 
 import { Button } from "@workspace/ui/components/button"
-import { DialogViewportContent } from "@workspace/ui/components/dialog"
+import {
+  Dialog,
+  DialogViewportContent,
+} from "@workspace/ui/components/dialog"
+import { Spinner } from "@workspace/ui/components/spinner"
 import { cn } from "@workspace/ui/lib/utils"
 
 import {
@@ -10,31 +15,135 @@ import {
   formatCount,
   formatRelativeTime,
 } from "../lib/clip-format"
-import { clipThumbnailUrl, recordView, type ClipRow } from "../lib/clips-api"
+import {
+  fetchClipById,
+  clipThumbnailUrl,
+  recordView,
+  type ClipRow,
+} from "../lib/clips-api"
+import { clipKeys, useClipQuery } from "../lib/clip-queries"
 import { avatarTint, displayInitials } from "../lib/user-display"
 
-import { ClipEditDialog } from "./clip-edit-sheet"
-import type { ClipListEntry } from "./clip-list-context"
 import { ClipComments } from "./clip-comments"
+import { ClipEditDialog } from "./clip-edit-sheet"
+import {
+  setActiveClipList,
+  useActiveClipList,
+  type ClipListEntry,
+} from "./clip-list-context"
 import { ClipMeta } from "./clip-meta"
 import { ClipPlayer } from "./clip-player"
 
-interface ClipPlayerDialogContentProps {
+interface ClipViewerDialogProps {
+  /** Current dialog target. `null` keeps the viewer closed. */
+  clipId: string | null
+  /** How to dismiss — typically clears the search param or navigates back. */
+  onClose: () => void
+  onNavigate?: (entry: ClipListEntry) => void
+}
+
+export function ClipViewerDialog({
+  clipId,
+  onClose,
+  onNavigate,
+}: ClipViewerDialogProps) {
+  const queryClient = useQueryClient()
+  const open = clipId !== null
+  const query = useClipQuery(clipId ?? "")
+  const list = useActiveClipList()
+
+  const prev = React.useMemo(() => {
+    if (!list || !clipId) return null
+    return list.prevOf(clipId)
+  }, [list, clipId])
+  const next = React.useMemo(() => {
+    if (!list || !clipId) return null
+    return list.nextOf(clipId)
+  }, [list, clipId])
+
+  const navigateTo = React.useCallback(
+    (entry: ClipListEntry) => {
+      if (!onNavigate) return
+      onNavigate(entry)
+    },
+    [onNavigate]
+  )
+
+  // Clear the active list when the dialog closes so stale neighbours
+  // don't leak into a later viewer open.
+  React.useEffect(() => {
+    if (!open) setActiveClipList(null)
+  }, [open])
+
+  React.useEffect(() => {
+    if (!open) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return
+      if (event.key === "ArrowLeft" && prev) {
+        event.preventDefault()
+        navigateTo(prev)
+      } else if (event.key === "ArrowRight" && next) {
+        event.preventDefault()
+        navigateTo(next)
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [open, prev, next, navigateTo])
+
+  React.useEffect(() => {
+    if (!open) return
+    const neighbours = [prev, next].filter((entry): entry is ClipListEntry =>
+      Boolean(entry)
+    )
+    for (const entry of neighbours) {
+      void queryClient.prefetchQuery({
+        queryKey: clipKeys.detail(entry.id),
+        queryFn: () => fetchClipById(entry.id),
+      })
+    }
+  }, [open, prev, next, queryClient])
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose()
+      }}
+    >
+      {open ? (
+        query.data ? (
+          <ClipViewerDialogBody
+            row={query.data}
+            onDeleted={onClose}
+            prev={prev}
+            next={next}
+            onNavigate={onNavigate ? navigateTo : null}
+          />
+        ) : (
+          <ClipViewerDialogFallback />
+        )
+      ) : null}
+    </Dialog>
+  )
+}
+
+interface ClipViewerDialogBodyProps {
   row: ClipRow
-  /** Fires after the clip is deleted — used to dismiss the modal. */
+  /** Fires after the clip is deleted — used to dismiss the dialog. */
   onDeleted?: () => void
   prev?: ClipListEntry | null
   next?: ClipListEntry | null
   onNavigate?: ((entry: ClipListEntry) => void) | null
 }
 
-function ClipPlayerDialogContent({
+function ClipViewerDialogBody({
   row,
   onDeleted,
   prev,
   next,
   onNavigate,
-}: ClipPlayerDialogContentProps) {
+}: ClipViewerDialogBodyProps) {
   const [editOpen, setEditOpen] = React.useState(false)
   const handle = row.authorUsername
   const author = row.authorName || handle
@@ -149,4 +258,15 @@ function ClipPlayerDialogContent({
   )
 }
 
-export { ClipPlayerDialogContent }
+function ClipViewerDialogFallback() {
+  return (
+    <DialogViewportContent className="grid place-items-center">
+      <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-surface">
+        <Spinner className="size-5" />
+        <span className="text-xs tracking-wide text-foreground-faint uppercase">
+          Loading clip
+        </span>
+      </div>
+    </DialogViewportContent>
+  )
+}
