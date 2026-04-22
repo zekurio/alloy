@@ -1,8 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { mergeProps } from "@base-ui/react/merge-props"
-import { useRender } from "@base-ui/react/use-render"
 
 import { PanelLeftIcon } from "lucide-react"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
@@ -23,6 +21,8 @@ import {
   type SidebarContextProps,
   useSidebar,
 } from "./sidebar-context"
+import { createSidebarGroupButtonComponent } from "./sidebar-group-button"
+import { createSidebarGroupDivComponent } from "./sidebar-group-div"
 import {
   SidebarMenu,
   SidebarMenuAction,
@@ -372,27 +372,21 @@ function SidebarGroup({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function SidebarGroupLabel({
-  className,
-  render,
-  ...props
-}: useRender.ComponentProps<"div"> & React.ComponentProps<"div">) {
-  return renderSidebarGroupElement("div", render, "sidebar-group-label", "group-label", "flex h-8 shrink-0 items-center rounded-md px-2 text-xs font-medium text-sidebar-foreground/70 ring-sidebar-ring outline-hidden transition-[margin,opacity] duration-200 ease-linear group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0 focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0", {
-    className,
-    ...props,
-  })
-}
+const SidebarGroupLabel = createSidebarGroupDivComponent(
+  {
+    slot: "sidebar-group-label",
+    sidebar: "group-label",
+  },
+  "flex h-8 shrink-0 items-center rounded-md px-2 text-xs font-medium text-sidebar-foreground/70 ring-sidebar-ring outline-hidden transition-[margin,opacity] duration-200 ease-linear group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0 focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0"
+)
 
-function SidebarGroupAction({
-  className,
-  render,
-  ...props
-}: useRender.ComponentProps<"button"> & React.ComponentProps<"button">) {
-  return renderSidebarGroupElement("button", render, "sidebar-group-action", "group-action", "absolute top-3.5 right-3 flex aspect-square w-5 items-center justify-center rounded-md p-0 text-sidebar-foreground ring-sidebar-ring outline-hidden transition-transform group-data-[collapsible=icon]:hidden after:absolute after:-inset-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 md:after:hidden [&>svg]:size-4 [&>svg]:shrink-0", {
-    className,
-    ...props,
-  })
-}
+const SidebarGroupAction = createSidebarGroupButtonComponent(
+  {
+    slot: "sidebar-group-action",
+    sidebar: "group-action",
+  },
+  "absolute top-3.5 right-3 flex aspect-square w-5 items-center justify-center rounded-md p-0 text-sidebar-foreground ring-sidebar-ring outline-hidden transition-transform group-data-[collapsible=icon]:hidden after:absolute after:-inset-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 md:after:hidden [&>svg]:size-4 [&>svg]:shrink-0"
+)
 
 function SidebarGroupContent({
   className,
@@ -406,32 +400,6 @@ function SidebarGroupContent({
       {...props}
     />
   )
-}
-
-function renderSidebarGroupElement<
-  TTag extends "button" | "div",
->(
-  defaultTagName: TTag,
-  render: useRender.ComponentProps<TTag>["render"],
-  slot: string,
-  sidebar: string,
-  defaultClassName: string,
-  { className, ...props }: React.ComponentProps<TTag>
-) {
-  return useRender({
-    defaultTagName,
-    props: mergeProps<TTag>(
-      {
-        className: cn(defaultClassName, className),
-      },
-      props
-    ),
-    render,
-    state: {
-      slot,
-      sidebar,
-    },
-  })
 }
 
 export {

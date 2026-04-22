@@ -1,21 +1,13 @@
 import * as React from "react"
 import { useForm } from "@tanstack/react-form"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import { ArrowRightIcon, LockIcon, MailIcon, UserIcon } from "lucide-react"
+import { ArrowRightIcon } from "lucide-react"
 
 import { toast } from "@workspace/ui/components/sonner"
 
 import { authClient } from "../../../lib/auth-client"
-import {
-  AuthSubmitButton,
-  FormInputField,
-  PasswordInputField,
-} from "../auth/auth-form-fields"
-import {
-  validateEmail,
-  validatePassword,
-  validateUsername,
-} from "../../../lib/form-validators"
+import { AuthSubmitButton } from "../auth/auth-form-fields"
+import { AccountCreationFields } from "../auth/account-creation-fields"
 
 type SignUpFormState = {
   username: string
@@ -69,6 +61,8 @@ export function SignUpForm() {
     },
   })
   const [showPassword, setShowPassword] = React.useState(false)
+  const submissionAttempts = form.state.submissionAttempts
+  const isSubmitting = form.state.isSubmitting
 
   return (
     <form
@@ -79,103 +73,13 @@ export function SignUpForm() {
       }}
       className="flex flex-col gap-5"
     >
-      <form.Field
-        name="username"
-        validators={{
-          onChange: ({ value }) => validateUsername(value.trim()),
-        }}
-      >
-        {(field) => {
-          const showError =
-            field.state.meta.isTouched || form.state.submissionAttempts > 0
-          const invalid = showError && !field.state.meta.isValid
-
-          return (
-            <FormInputField
-              id={field.name}
-              label="Username"
-              icon={<UserIcon />}
-              autoCapitalize="none"
-              autoComplete="username"
-              autoCorrect="off"
-              spellCheck={false}
-              placeholder="alice"
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={(value) => field.handleChange(value.toLowerCase())}
-              invalid={invalid}
-              errors={showError ? field.state.meta.errors : undefined}
-              description="Lowercase letters, numbers, underscores and hyphens."
-              disabled={form.state.isSubmitting}
-              required
-            />
-          )
-        }}
-      </form.Field>
-
-      <form.Field
-        name="email"
-        validators={{
-          onChange: ({ value }) => validateEmail(value),
-        }}
-      >
-        {(field) => {
-          const showError =
-            field.state.meta.isTouched || form.state.submissionAttempts > 0
-          const invalid = showError && !field.state.meta.isValid
-
-          return (
-            <FormInputField
-              id={field.name}
-              label="Email"
-              icon={<MailIcon />}
-              type="email"
-              autoComplete="email"
-              placeholder="you@example.com"
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={field.handleChange}
-              invalid={invalid}
-              errors={showError ? field.state.meta.errors : undefined}
-              disabled={form.state.isSubmitting}
-              required
-            />
-          )
-        }}
-      </form.Field>
-
-      <form.Field
-        name="password"
-        validators={{
-          onChange: ({ value }) => validatePassword(value),
-        }}
-      >
-        {(field) => {
-          const showError =
-            field.state.meta.isTouched || form.state.submissionAttempts > 0
-          const invalid = showError && !field.state.meta.isValid
-
-          return (
-            <PasswordInputField
-              id={field.name}
-              label="Password"
-              icon={<LockIcon />}
-              autoComplete="new-password"
-              placeholder="At least 8 characters"
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={field.handleChange}
-              invalid={invalid}
-              errors={showError ? field.state.meta.errors : undefined}
-              description="Use at least 8 characters."
-              disabled={form.state.isSubmitting}
-              showPassword={showPassword}
-              togglePassword={() => setShowPassword((value) => !value)}
-              required
-            />
-          )
-        }}
-      </form.Field>
+      <AccountCreationFields
+        Field={form.Field}
+        disabled={isSubmitting}
+        showPassword={showPassword}
+        submissionAttempts={submissionAttempts}
+        togglePassword={() => setShowPassword((value) => !value)}
+      />
       <form.Subscribe
         selector={(state) => [state.canSubmit, state.isSubmitting] as const}
       >

@@ -23,6 +23,41 @@ type LoginCredentials = {
   rememberMe: boolean
 }
 
+type FieldMetaState = {
+  errors: Array<unknown>
+  isTouched: boolean
+  isValid: boolean
+}
+
+type StringFieldController = {
+  handleBlur: () => void
+  handleChange: (value: string) => void
+  name: string
+  state: {
+    meta: FieldMetaState
+    value: string
+  }
+}
+
+type BooleanFieldController = {
+  handleChange: (value: boolean) => void
+  state: {
+    value: boolean
+  }
+}
+
+function getFieldValidationState(
+  meta: FieldMetaState,
+  submissionAttempts: number
+) {
+  const showError = meta.isTouched || submissionAttempts > 0
+
+  return {
+    errors: showError ? meta.errors : undefined,
+    invalid: showError && !meta.isValid,
+  }
+}
+
 function useEmailPasswordSubmit() {
   const router = useRouter()
   const navigate = useNavigate()
@@ -64,6 +99,103 @@ function useEmailPasswordSubmit() {
   )
 }
 
+function LoginIdentifierField({
+  field,
+  submissionAttempts,
+}: {
+  field: StringFieldController
+  submissionAttempts: number
+}) {
+  const { errors, invalid } = getFieldValidationState(
+    field.state.meta,
+    submissionAttempts
+  )
+
+  return (
+    <FormInputField
+      id={field.name}
+      label="Email or username"
+      icon={<AtSignIcon />}
+      autoCapitalize="none"
+      autoComplete="username"
+      autoCorrect="off"
+      spellCheck={false}
+      placeholder="you@example.com or yourhandle"
+      value={field.state.value}
+      onBlur={field.handleBlur}
+      onChange={field.handleChange}
+      invalid={invalid}
+      errors={errors}
+      required
+    />
+  )
+}
+
+function LoginPasswordField({
+  disabled,
+  field,
+  showPassword,
+  submissionAttempts,
+  togglePassword,
+}: {
+  disabled: boolean
+  field: StringFieldController
+  showPassword: boolean
+  submissionAttempts: number
+  togglePassword: () => void
+}) {
+  const { errors, invalid } = getFieldValidationState(
+    field.state.meta,
+    submissionAttempts
+  )
+
+  return (
+    <PasswordInputField
+      id={field.name}
+      label="Password"
+      icon={<LockIcon />}
+      autoComplete="current-password"
+      placeholder="••••••••"
+      value={field.state.value}
+      onBlur={field.handleBlur}
+      onChange={field.handleChange}
+      invalid={invalid}
+      errors={errors}
+      disabled={disabled}
+      showPassword={showPassword}
+      togglePassword={togglePassword}
+      headerAction={
+        <a
+          href="#"
+          className="text-sm text-foreground-muted underline-offset-4 hover:text-accent hover:underline"
+        >
+          Forgot?
+        </a>
+      }
+      required
+    />
+  )
+}
+
+function RememberMeField({
+  disabled,
+  field,
+}: {
+  disabled: boolean
+  field: BooleanFieldController
+}) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2.5 text-sm text-foreground-muted select-none">
+      <Checkbox
+        checked={field.state.value}
+        onCheckedChange={(value) => field.handleChange(value === true)}
+        disabled={disabled}
+      />
+      Keep me signed in
+    </label>
+  )
+}
+
 export function EmailPasswordForm() {
   const submit = useEmailPasswordSubmit()
   const form = useForm({
@@ -77,6 +209,8 @@ export function EmailPasswordForm() {
     },
   })
   const [showPassword, setShowPassword] = React.useState(false)
+  const submissionAttempts = form.state.submissionAttempts
+  const isSubmitting = form.state.isSubmitting
 
   return (
     <form
@@ -94,30 +228,12 @@ export function EmailPasswordForm() {
             validateRequiredString(value, "Email or username"),
         }}
       >
-        {(field) => {
-          const showError =
-            field.state.meta.isTouched || form.state.submissionAttempts > 0
-          const invalid = showError && !field.state.meta.isValid
-
-          return (
-            <FormInputField
-              id={field.name}
-              label="Email or username"
-              icon={<AtSignIcon />}
-              autoCapitalize="none"
-              autoComplete="username"
-              autoCorrect="off"
-              spellCheck={false}
-              placeholder="you@example.com or yourhandle"
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={field.handleChange}
-              invalid={invalid}
-              errors={showError ? field.state.meta.errors : undefined}
-              required
-            />
-          )
-        }}
+        {(field) => (
+          <LoginIdentifierField
+            field={field}
+            submissionAttempts={submissionAttempts}
+          />
+        )}
       </form.Field>
 
       <form.Field
@@ -126,51 +242,19 @@ export function EmailPasswordForm() {
           onChange: ({ value }) => validatePassword(value, 1),
         }}
       >
-        {(field) => {
-          const showError =
-            field.state.meta.isTouched || form.state.submissionAttempts > 0
-          const invalid = showError && !field.state.meta.isValid
-
-          return (
-            <PasswordInputField
-              id={field.name}
-              label="Password"
-              icon={<LockIcon />}
-              autoComplete="current-password"
-              placeholder="••••••••"
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={field.handleChange}
-              invalid={invalid}
-              errors={showError ? field.state.meta.errors : undefined}
-              disabled={form.state.isSubmitting}
-              showPassword={showPassword}
-              togglePassword={() => setShowPassword((value) => !value)}
-              headerAction={
-                <a
-                  href="#"
-                  className="text-sm text-foreground-muted underline-offset-4 hover:text-accent hover:underline"
-                >
-                  Forgot?
-                </a>
-              }
-              required
-            />
-          )
-        }}
+        {(field) => (
+          <LoginPasswordField
+            disabled={isSubmitting}
+            field={field}
+            showPassword={showPassword}
+            submissionAttempts={submissionAttempts}
+            togglePassword={() => setShowPassword((value) => !value)}
+          />
+        )}
       </form.Field>
 
       <form.Field name="rememberMe">
-        {(field) => (
-          <label className="flex cursor-pointer items-center gap-2.5 text-sm text-foreground-muted select-none">
-            <Checkbox
-              checked={field.state.value}
-              onCheckedChange={(value) => field.handleChange(value === true)}
-              disabled={form.state.isSubmitting}
-            />
-            Keep me signed in
-          </label>
-        )}
+        {(field) => <RememberMeField disabled={isSubmitting} field={field} />}
       </form.Field>
 
       <form.Subscribe

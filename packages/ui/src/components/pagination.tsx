@@ -89,41 +89,70 @@ function PaginationDirectionLink({
   )
 }
 
-function PaginationPrevious({
-  className,
-  text = "Previous",
-  ...props
-}: React.ComponentProps<typeof PaginationLink> & { text?: string }) {
+function renderPaginationDirectionLink(
+  ariaLabel: string,
+  iconPosition: "start" | "end",
+  text: string,
+  className: string | undefined,
+  props: Omit<
+    React.ComponentProps<typeof PaginationLink>,
+    "children" | "className"
+  >,
+  icon: React.ReactNode
+) {
   return (
     <PaginationDirectionLink
-      aria-label="Go to previous page"
+      aria-label={ariaLabel}
       className={className}
-      iconPosition="start"
+      iconPosition={iconPosition}
       text={text}
       {...props}
     >
-      <ChevronLeftIcon data-icon="inline-start" />
+      {icon}
     </PaginationDirectionLink>
   )
 }
 
-function PaginationNext({
-  className,
-  text = "Next",
-  ...props
-}: React.ComponentProps<typeof PaginationLink> & { text?: string }) {
-  return (
-    <PaginationDirectionLink
-      aria-label="Go to next page"
-      className={className}
-      iconPosition="end"
-      text={text}
-      {...props}
-    >
-      <ChevronRightIcon data-icon="inline-end" />
-    </PaginationDirectionLink>
-  )
+function createPaginationDirectionComponent({
+  ariaLabel,
+  defaultText,
+  icon,
+  iconPosition,
+}: {
+  ariaLabel: string
+  defaultText: string
+  icon: React.ReactNode
+  iconPosition: "start" | "end"
+}) {
+  return function PaginationDirection({
+    className,
+    text = defaultText,
+    ...props
+  }: React.ComponentProps<typeof PaginationLink> & { text?: string }) {
+    return renderPaginationDirectionLink(
+      ariaLabel,
+      iconPosition,
+      text,
+      className,
+      props,
+      icon
+    )
+  }
 }
+
+const PaginationPrevious = createPaginationDirectionComponent({
+  ariaLabel: "Go to previous page",
+  defaultText: "Previous",
+  icon: <ChevronLeftIcon data-icon="inline-start" />,
+  iconPosition: "start",
+})
+
+const PaginationNext = createPaginationDirectionComponent({
+  ariaLabel: "Go to next page",
+  defaultText: "Next",
+  icon: <ChevronRightIcon data-icon="inline-end" />,
+  iconPosition: "end",
+})
 
 function PaginationEllipsis({
   className,
