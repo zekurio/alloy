@@ -9,7 +9,7 @@ export function createSidebarGroupButtonComponent(
     sidebar: string
     slot: string
   },
-  defaultClassName: string,
+  defaultClassName: string
 ) {
   return function SidebarGroupButtonComponent({
     className,
