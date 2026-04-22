@@ -11,10 +11,18 @@ function EmptySection({
   as?: "div" | "p"
   slot: string
 }) {
+  return <Component data-slot={slot} className={cn(className)} {...props} />
+}
+
+function renderEmptySection(
+  slot: string,
+  defaultClassName: string,
+  props: React.ComponentProps<"div">
+) {
   return (
-    <Component
-      data-slot={slot}
-      className={cn(className)}
+    <EmptySection
+      slot={slot}
+      className={cn(defaultClassName, props.className)}
       {...props}
     />
   )
@@ -34,7 +42,14 @@ function Empty({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function EmptyHeader({ className, ...props }: React.ComponentProps<"div">) {
-  return <EmptySection slot="empty-header" className={cn("flex max-w-sm flex-col items-center gap-2", className)} {...props} />
+  return renderEmptySection(
+    "empty-header",
+    "flex max-w-sm flex-col items-center gap-2",
+    {
+      className,
+      ...props,
+    }
+  )
 }
 
 const emptyMediaVariants = cva(
@@ -68,12 +83,13 @@ function EmptyMedia({
 }
 
 function EmptyTitle({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <EmptySection
-      slot="empty-title"
-      className={cn("font-heading text-sm font-medium tracking-tight", className)}
-      {...props}
-    />
+  return renderEmptySection(
+    "empty-title",
+    "font-heading text-sm font-medium tracking-tight",
+    {
+      className,
+      ...props,
+    }
   )
 }
 
@@ -92,15 +108,13 @@ function EmptyDescription({ className, ...props }: React.ComponentProps<"p">) {
 }
 
 function EmptyContent({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <EmptySection
-      slot="empty-content"
-      className={cn(
-        "flex w-full max-w-sm min-w-0 flex-col items-center gap-2.5 text-sm text-balance",
-        className
-      )}
-      {...props}
-    />
+  return renderEmptySection(
+    "empty-content",
+    "flex w-full max-w-sm min-w-0 flex-col items-center gap-2.5 text-sm text-balance",
+    {
+      className,
+      ...props,
+    }
   )
 }
 

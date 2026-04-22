@@ -80,7 +80,10 @@ function PaginationDirectionLink({
   return (
     <PaginationLink
       size="default"
-      className={cn(iconPosition === "start" ? "pl-1.5!" : "pr-1.5!", className)}
+      className={cn(
+        iconPosition === "start" ? "pl-1.5!" : "pr-1.5!",
+        className
+      )}
       {...props}
     >
       {children}
