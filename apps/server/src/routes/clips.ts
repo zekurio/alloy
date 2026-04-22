@@ -64,8 +64,13 @@ export const clips = new Hono()
     const viewer = await peekViewer(c.req.raw.headers)
     const isOwner = viewer?.id === row.authorId
     const isAdmin = viewer?.role === "admin"
+    const isPrivate = row.privacy === "private"
 
-    if (row.privacy === "private" && !isOwner && !isAdmin) {
+    if (isPrivate) {
+      c.header("Cache-Control", "no-store")
+    }
+
+    if (isPrivate && !isOwner && !isAdmin) {
       return c.json({ error: "Not found" }, 404)
     }
     if (row.status !== "ready" && !isOwner && !isAdmin) {
