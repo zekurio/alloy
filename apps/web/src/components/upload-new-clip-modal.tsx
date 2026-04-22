@@ -1,4 +1,4 @@
-import * as React from "react"
+import * as React from "react";
 import {
   PauseIcon,
   PlayIcon,
@@ -6,10 +6,10 @@ import {
   SkipBackIcon,
   SkipForwardIcon,
   UploadIcon,
-} from "lucide-react"
+} from "lucide-react";
 
-import { Button } from "@workspace/ui/components/button"
-import { toast } from "@workspace/ui/components/sonner"
+import { Button } from "@workspace/ui/components/button";
+import { toast } from "@workspace/ui/components/sonner";
 import {
   Dialog,
   DialogBody,
@@ -18,22 +18,23 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@workspace/ui/components/dialog"
-import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
-import { Input } from "@workspace/ui/components/input"
-import { Label } from "@workspace/ui/components/label"
-import { cn } from "@workspace/ui/lib/utils"
+} from "@workspace/ui/components/dialog";
+import { Field, FieldLabel } from "@workspace/ui/components/field";
+import { useIsMobile } from "@workspace/ui/hooks/use-mobile";
+import { Input } from "@workspace/ui/components/input";
+import { Label } from "@workspace/ui/components/label";
+import { cn } from "@workspace/ui/lib/utils";
 
 import {
   CLIP_DESCRIPTION_MAX,
   CLIP_TITLE_MAX,
   PRIVACY_OPTIONS,
-} from "../lib/clip-fields"
-import type { GameRow } from "../lib/games-api"
-import type { UserSearchResult } from "../lib/users-api"
+} from "../lib/clip-fields";
+import type { GameRow } from "../lib/games-api";
+import type { UserSearchResult } from "../lib/users-api";
 
-import { GameCombobox } from "./game-combobox"
-import { MentionPicker } from "./mention-picker"
+import { GameCombobox } from "./game-combobox";
+import { MentionPicker } from "./mention-picker";
 import {
   ACCEPT_LIST,
   captureThumbnail,
@@ -44,9 +45,9 @@ import {
   type PublishPayload,
   type SelectedFile,
   type Visibility,
-} from "./upload-new-clip-helpers"
-import { SpeedButton, TrimTimeline, VideoPreview } from "./upload-trim-preview"
-import { VolumeControl } from "./video-player"
+} from "./upload-new-clip-helpers";
+import { SpeedButton, TrimTimeline, VideoPreview } from "./upload-trim-preview";
+import { VolumeControl } from "./video-player";
 
 // Re-export public API consumed by upload-flow.tsx so the import surface
 // stays stable across the split.
@@ -54,18 +55,18 @@ export {
   ACCEPT_LIST,
   probeFile,
   resolveContentType,
-} from "./upload-new-clip-helpers"
+} from "./upload-new-clip-helpers";
 export type {
   PublishPayload,
   SelectedFile,
   Visibility,
-} from "./upload-new-clip-helpers"
+} from "./upload-new-clip-helpers";
 
 interface UploadNewClipModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onPublish: (payload: PublishPayload) => Promise<void> | void
-  initialFile?: SelectedFile
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onPublish: (payload: PublishPayload) => Promise<void> | void;
+  initialFile?: SelectedFile;
 }
 
 export function UploadNewClipModal({
@@ -74,85 +75,86 @@ export function UploadNewClipModal({
   onPublish,
   initialFile,
 }: UploadNewClipModalProps) {
-  const isMobile = useIsMobile()
+  const isMobile = useIsMobile();
   // File input kept for the Replace button in LoadedState.
-  const inputRef = React.useRef<HTMLInputElement>(null)
+  const inputRef = React.useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = React.useState<SelectedFile | null>(
-    null
-  )
-  const [publishing, setPublishing] = React.useState(false)
+    null,
+  );
+  const [publishing, setPublishing] = React.useState(false);
 
   React.useEffect(() => {
     if (open && initialFile) {
-      setSelectedFile(initialFile)
+      setSelectedFile(initialFile);
     }
-  }, [open, initialFile])
+  }, [open, initialFile]);
 
   // Reset everything *after* the close animation finishes so the reset
   // doesn't bleed through the dialog's ~100ms fade/zoom-out.
   const handleOpenChangeComplete = React.useCallback((nextOpen: boolean) => {
     if (!nextOpen) {
-      setSelectedFile(null)
-      setPublishing(false)
+      setSelectedFile(null);
+      setPublishing(false);
     }
-  }, [])
+  }, []);
 
   // Called by the Replace button — let the user swap the file in-place
   // without leaving the modal.
   const handleFileChosen = React.useCallback(async (file: File) => {
-    const contentType = resolveContentType(file)
+    const contentType = resolveContentType(file);
     if (!contentType) {
       toast.error("Unsupported file type", {
         description:
           file.type || file.name.split(".").pop()?.toLowerCase() || "unknown",
-      })
-      return
+      });
+      return;
     }
     try {
-      const meta = await probeFile(file)
-      setSelectedFile({ ...meta, contentType })
+      const meta = await probeFile(file);
+      setSelectedFile({ ...meta, contentType });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to read file"
-      toast.error("Couldn't read video metadata", { description: message })
+      const message =
+        err instanceof Error ? err.message : "Failed to read file";
+      toast.error("Couldn't read video metadata", { description: message });
     }
-  }, [])
+  }, []);
 
   const handleReplaceClick = React.useCallback(() => {
-    inputRef.current?.click()
-  }, [])
+    inputRef.current?.click();
+  }, []);
 
   const handleInputChange = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0]
+      const file = e.target.files?.[0];
       // Reset immediately so re-selecting the same file still fires `change`.
-      e.target.value = ""
-      if (!file) return
+      e.target.value = "";
+      if (!file) return;
       requestAnimationFrame(() => {
-        void handleFileChosen(file)
-      })
+        void handleFileChosen(file);
+      });
     },
-    [handleFileChosen]
-  )
+    [handleFileChosen],
+  );
 
   const handlePublish = React.useCallback(
     async (payload: PublishPayload) => {
-      setPublishing(true)
+      setPublishing(true);
       try {
-        await onPublish(payload)
+        await onPublish(payload);
       } catch (err) {
         const message =
-          err instanceof Error ? err.message : "Failed to upload clip"
-        toast.error("Couldn't publish clip", { description: message })
+          err instanceof Error ? err.message : "Failed to upload clip";
+        toast.error("Couldn't publish clip", { description: message });
       } finally {
-        setPublishing(false)
+        setPublishing(false);
       }
     },
-    [onPublish]
-  )
+    [onPublish],
+  );
 
   // Use the initial file as a synchronous fallback so the modal renders
   // LoadedState immediately on first open without waiting for the effect.
-  const activeFile = selectedFile ?? (open ? (initialFile ?? null) : null)
+  const activeFile = selectedFile ?? (open ? (initialFile ?? null) : null);
 
   return (
     <Dialog
@@ -167,7 +169,7 @@ export function UploadNewClipModal({
           "flex flex-col overflow-hidden",
           isMobile
             ? "left-4 right-4 bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+1rem)] top-auto max-h-[calc(100dvh-var(--header-h)-var(--bottomnav-h)-env(safe-area-inset-bottom)-2.5rem)] max-w-none w-auto rounded-xl"
-            : "max-h-[min(94vh,900px)] max-w-[960px]"
+            : "max-h-[min(94vh,900px)] max-w-[960px]",
         )}
         aria-describedby={undefined}
       >
@@ -193,7 +195,7 @@ export function UploadNewClipModal({
         ) : null}
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 function LoadedState({
@@ -202,56 +204,65 @@ function LoadedState({
   onPublish,
   onReplace,
 }: {
-  file: SelectedFile
-  publishing: boolean
-  onPublish: (payload: PublishPayload) => void
-  onReplace: () => void
+  file: SelectedFile;
+  publishing: boolean;
+  onPublish: (payload: PublishPayload) => void;
+  onReplace: () => void;
 }) {
-  const isMobile = useIsMobile()
-  const [title, setTitle] = React.useState(stripExtension(file.name))
-  const [description, setDescription] = React.useState("")
-  const [game, setGame] = React.useState<GameRow | null>(null)
-  const [mentions, setMentions] = React.useState<Array<UserSearchResult>>([])
-  const [visibility, setVisibility] = React.useState<Visibility>("unlisted")
+  const isMobile = useIsMobile();
+  const [title, setTitle] = React.useState(stripExtension(file.name));
+  const [description, setDescription] = React.useState("");
+  const [game, setGame] = React.useState<GameRow | null>(null);
+  const [mentions, setMentions] = React.useState<Array<UserSearchResult>>([]);
+  const [visibility, setVisibility] = React.useState<Visibility>("unlisted");
 
   // Trim window in ms against the source. Initial range = full clip; we
   // only emit the trim columns to the server when the user narrowed it.
-  const [trimStartMs, setTrimStartMs] = React.useState(0)
-  const [trimEndMs, setTrimEndMs] = React.useState(file.durationMs)
-  const [currentMs, setCurrentMs] = React.useState(0)
-  const [isPlaying, setIsPlaying] = React.useState(false)
-  const [playbackRate, setPlaybackRate] = React.useState<0.5 | 1 | 2>(1)
-  const [volume, setVolume] = React.useState(1)
-  const [muted, setMuted] = React.useState(false)
+  const [trimStartMs, setTrimStartMs] = React.useState(0);
+  const [trimEndMs, setTrimEndMs] = React.useState(file.durationMs);
+  const [currentMs, setCurrentMs] = React.useState(0);
+  const [isPlaying, setIsPlaying] = React.useState(false);
+  const [playbackRate, setPlaybackRate] = React.useState<0.5 | 1 | 2>(1);
+  const [volume, setVolume] = React.useState(1);
+  const [muted, setMuted] = React.useState(false);
 
-  const trimChanged = trimStartMs > 0 || trimEndMs < file.durationMs
+  const trimChanged = trimStartMs > 0 || trimEndMs < file.durationMs;
 
-  const [capturing, setCapturing] = React.useState(false)
+  const [capturing, setCapturing] = React.useState(false);
+  const [submissionAttempts, setSubmissionAttempts] = React.useState(0);
+
+  const titleInvalid = submissionAttempts > 0 && title.trim().length === 0;
+  const gameInvalid = submissionAttempts > 0 && game === null;
 
   const handlePublishClick = async () => {
-    if (!title.trim()) return
-    if (!game) return
-    if (trimEndMs <= trimStartMs) return
-    setCapturing(true)
-    let thumbBlob: Blob
+    const trimmedTitle = title.trim();
+    const missingTitle = trimmedTitle.length === 0;
+    const missingGame = game === null;
+
+    setSubmissionAttempts((attempts) => attempts + 1);
+
+    if (missingTitle || missingGame) return;
+    if (trimEndMs <= trimStartMs) return;
+    setCapturing(true);
+    let thumbBlob: Blob;
     try {
       const posterAtMs = Math.min(
         trimStartMs + 1000,
-        Math.max(trimStartMs, trimEndMs - 100)
-      )
-      thumbBlob = await captureThumbnail(file.file, posterAtMs)
+        Math.max(trimStartMs, trimEndMs - 100),
+      );
+      thumbBlob = await captureThumbnail(file.file, posterAtMs);
     } catch (err) {
-      setCapturing(false)
+      setCapturing(false);
       throw err instanceof Error
         ? err
-        : new Error("Could not capture thumbnail")
+        : new Error("Could not capture thumbnail");
     } finally {
-      setCapturing(false)
+      setCapturing(false);
     }
     onPublish({
       file: file.file,
       contentType: file.contentType,
-      title: title.trim(),
+      title: trimmedTitle,
       description: description.trim() || null,
       gameId: game.id,
       privacy: visibility,
@@ -263,8 +274,8 @@ function LoadedState({
       trimEndMs: trimChanged ? trimEndMs : null,
       thumbBlob,
       mentionedUserIds: mentions.map((u) => u.id),
-    })
-  }
+    });
+  };
 
   return (
     <>
@@ -272,7 +283,7 @@ function LoadedState({
         className={cn(
           "flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5",
           "grid gap-6",
-          "grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(260px,1fr)]"
+          "grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(260px,1fr)]",
         )}
       >
         {/* Left column — trim / player */}
@@ -362,11 +373,11 @@ function LoadedState({
             trimEndMs={trimEndMs}
             currentMs={currentMs}
             onTrimChange={(start, end) => {
-              setTrimStartMs(start)
-              setTrimEndMs(end)
+              setTrimStartMs(start);
+              setTrimEndMs(end);
               // Clamp the playhead into the new window so it doesn't sit
               // off-range when the user drags the start past it.
-              setCurrentMs((prev) => Math.min(Math.max(prev, start), end))
+              setCurrentMs((prev) => Math.min(Math.max(prev, start), end));
             }}
             onSeek={(ms) => setCurrentMs(ms)}
           />
@@ -385,62 +396,64 @@ function LoadedState({
 
         {/* Right column — metadata form */}
         <section className="flex min-w-0 flex-col gap-4">
-          <Field
-            label={
-              <>
-                Game
-                <span className="text-accent"> · Required</span>
-              </>
-            }
-          >
+          <Field>
+            <FieldLabel htmlFor="clip-game" required>
+              Game
+            </FieldLabel>
             <GameCombobox
+              id="clip-game"
               value={game}
               onChange={setGame}
               disabled={publishing || capturing}
               placeholder="Search SteamGridDB…"
+              invalid={gameInvalid}
+              required
             />
           </Field>
 
-          <Field
-            label={
-              <>
-                Title
-                <span className="text-accent"> · Required</span>
-              </>
-            }
-          >
+          <Field>
+            <FieldLabel htmlFor="clip-title" required>
+              Title
+            </FieldLabel>
             <Input
+              id="clip-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={CLIP_TITLE_MAX}
+              aria-invalid={titleInvalid || undefined}
+              aria-required={true}
             />
             <div className="mt-1 text-right text-xs font-semibold text-foreground-muted tabular-nums">
               {title.length}/{CLIP_TITLE_MAX}
             </div>
           </Field>
 
-          <Field label="Description">
+          <Field>
+            <FieldLabel htmlFor="clip-description">Description</FieldLabel>
             <textarea
+              id="clip-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               maxLength={CLIP_DESCRIPTION_MAX}
-              placeholder="Add context — optional."
+              placeholder="Add context"
               className={cn(
                 "w-full resize-none rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground",
                 "transition-[border-color,background-color] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
                 "placeholder:text-foreground-faint",
                 "hover:border-border-strong",
-                "focus-visible:border-accent-border focus-visible:bg-surface-raised focus-visible:outline-none"
+                "focus-visible:border-accent-border focus-visible:bg-surface-raised focus-visible:outline-none",
               )}
             />
           </Field>
 
-          <Field label="Tag users">
+          <Field>
+            <FieldLabel>Tag users</FieldLabel>
             <MentionPicker value={mentions} onChange={setMentions} />
           </Field>
 
-          <Field label="Visibility">
+          <Field>
+            <FieldLabel>Visibility</FieldLabel>
             <VisibilityPicker value={visibility} onChange={setVisibility} />
           </Field>
         </section>
@@ -449,9 +462,7 @@ function LoadedState({
       <DialogFooter
         className={cn(
           "shrink-0 flex-wrap border-t border-border/60 bg-surface pt-3 sm:pt-4",
-          isMobile
-            ? "pb-5"
-            : "pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
+          isMobile ? "pb-5" : "pb-[calc(1.25rem+env(safe-area-inset-bottom))]",
         )}
       >
         <Button
@@ -473,7 +484,7 @@ function LoadedState({
         <Button
           variant="primary"
           size="default"
-          disabled={publishing || capturing || !title.trim() || !game}
+          disabled={publishing || capturing}
           onClick={handlePublishClick}
         >
           <UploadIcon />
@@ -481,36 +492,21 @@ function LoadedState({
         </Button>
       </DialogFooter>
     </>
-  )
-}
-
-export function Field({
-  label,
-  children,
-}: {
-  label: React.ReactNode
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Label>{label}</Label>
-      {children}
-    </div>
-  )
+  );
 }
 
 export function VisibilityPicker({
   value,
   onChange,
 }: {
-  value: Visibility
-  onChange: (v: Visibility) => void
+  value: Visibility;
+  onChange: (v: Visibility) => void;
 }) {
   return (
     <div className="flex items-stretch rounded-md border border-border bg-input p-0.5">
       {PRIVACY_OPTIONS.map((opt) => {
-        const Icon = opt.icon
-        const active = opt.value === value
+        const Icon = opt.icon;
+        const active = opt.value === value;
         return (
           <button
             key={opt.value}
@@ -522,14 +518,14 @@ export function VisibilityPicker({
               "h-[26px] text-xs transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
               active
                 ? "bg-surface-raised text-foreground"
-                : "text-foreground-dim hover:text-foreground"
+                : "text-foreground-dim hover:text-foreground",
             )}
           >
             <Icon className="size-3" />
             {opt.label}
           </button>
-        )
+        );
       })}
     </div>
-  )
+  );
 }
