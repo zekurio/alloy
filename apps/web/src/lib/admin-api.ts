@@ -61,6 +61,8 @@ export interface AdminEncoderConfig {
   /** Encoder-specific preset name. Suggestions per backend in the UI. */
   preset: string
   audioBitrateKbps: number
+  /** QSV child device: DRM render node on Linux or adapter index on Windows. */
+  qsvDevice: string
   /** VA-API render node path. Only used when `hwaccel === "vaapi"`. */
   vaapiDevice: string
   keepSource: boolean

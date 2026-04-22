@@ -345,6 +345,25 @@ export function EncoderConfigCard({
             </FieldDescription>
           </Field>
 
+          {form.hwaccel === "qsv" ? (
+            <Field>
+              <FieldLabel htmlFor="encoder-qsv-device" required>
+                QSV device
+              </FieldLabel>
+              <Input
+                id="encoder-qsv-device"
+                value={form.qsvDevice}
+                required
+                onChange={(e) => set("qsvDevice", e.target.value)}
+                placeholder="/dev/dri/renderD128"
+              />
+              <FieldDescription>
+                Passed to ffmpeg as QSV&rsquo;s <code>child_device</code>. Use a
+                DRM render node on Linux or an adapter index on Windows.
+              </FieldDescription>
+            </Field>
+          ) : null}
+
           {form.hwaccel === "vaapi" ? (
             <Field>
               <FieldLabel htmlFor="encoder-vaapi-device" required>

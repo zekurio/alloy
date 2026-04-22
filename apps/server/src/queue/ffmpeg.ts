@@ -156,7 +156,12 @@ export function buildEncodeArgs(
       case "vaapi":
         return ["-vaapi_device", config.vaapiDevice]
       case "qsv":
-        return ["-init_hw_device", "qsv=qsv:hw", "-filter_hw_device", "qsv"]
+        return [
+          "-init_hw_device",
+          `qsv=qsv:hw,child_device=${config.qsvDevice}`,
+          "-filter_hw_device",
+          "qsv",
+        ]
       default:
         return []
     }

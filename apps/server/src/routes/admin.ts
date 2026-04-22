@@ -211,7 +211,7 @@ export const adminRoute = new Hono()
 
   /**
    * PATCH /encoder — update the encoder profile (hwaccel/codec/quality/
-   * preset/targetHeight/audioBitrate/vaapiDevice). Partial — admins
+   * preset/targetHeight/audioBitrate/qsvDevice/vaapiDevice). Partial — admins
    * usually flip one knob at a time. Changes apply to the *next* encode
    * job; jobs already running finish on the previous config.
    */
