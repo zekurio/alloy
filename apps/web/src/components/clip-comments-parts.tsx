@@ -1,5 +1,6 @@
-import * as React from "react"
+import * as React from "react";
 import {
+  ArrowUpDownIcon,
   HeartIcon,
   MessageSquareIcon,
   MoreHorizontalIcon,
@@ -8,7 +9,7 @@ import {
   SendHorizontalIcon,
   SmileIcon,
   Trash2Icon,
-} from "lucide-react"
+} from "lucide-react";
 
 import {
   AlertDialog,
@@ -19,55 +20,49 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@workspace/ui/components/alert-dialog"
+} from "@workspace/ui/components/alert-dialog";
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
-} from "@workspace/ui/components/avatar"
-import { Button } from "@workspace/ui/components/button"
+} from "@workspace/ui/components/avatar";
+import { Button } from "@workspace/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu"
-import { cn } from "@workspace/ui/lib/utils"
+} from "@workspace/ui/components/dropdown-menu";
+import { cn } from "@workspace/ui/lib/utils";
 
-import type { UserChipData } from "../lib/user-display"
+import type { UserChipData } from "../lib/user-display";
 
-type Sort = "top" | "new"
+type Sort = "top" | "new";
 
 export function CommentsHeader({ count }: { count: number }) {
   return (
-    <div className="flex items-center gap-2 border-b border-border px-4 py-3 pr-12">
-      <MessageSquareIcon className="size-4 text-accent" />
-      <h2 className="text-md leading-none font-semibold tracking-[-0.005em] text-foreground">
-        Comments
-      </h2>
-      <span className="rounded-full bg-surface-raised px-1.5 py-0.5 text-xs leading-none text-foreground-faint">
-        {count}
-      </span>
+    <div className="flex items-center justify-center pt-4 pb-1">
+      <div className="inline-flex items-center gap-1.5 rounded-full bg-surface-raised px-3 py-1 text-xs font-medium text-foreground-faint">
+        <MessageSquareIcon className="size-3.5" />
+        {count} {count === 1 ? "comment" : "comments"}
+      </div>
     </div>
-  )
+  );
 }
 
 export function CommentsSortDropdown({
   sort,
   onSortChange,
 }: {
-  sort: Sort
-  onSortChange: (next: Sort) => void
+  sort: Sort;
+  onSortChange: (next: Sort) => void;
 }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label="Sort comments"
-          >
+          <Button variant="ghost" size="sm" aria-label="Sort comments">
+            <ArrowUpDownIcon className="size-4" />
             Sort by: {sort === "top" ? "Top" : "New"}
           </Button>
         }
@@ -87,7 +82,7 @@ export function CommentsSortDropdown({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  )
+  );
 }
 
 export function CommentComposer({
@@ -101,22 +96,22 @@ export function CommentComposer({
   onClear,
   onSubmit,
 }: {
-  draft: string
-  me: UserChipData
-  meAvatarStyle: { background: string; color: string }
-  placeholder?: string
-  submitting: boolean
-  canSubmit: boolean
-  onDraftChange: (value: string) => void
-  onClear: () => void
-  onSubmit: () => void
+  draft: string;
+  me: UserChipData;
+  meAvatarStyle: { background: string; color: string };
+  placeholder?: string;
+  submitting: boolean;
+  canSubmit: boolean;
+  onDraftChange: (value: string) => void;
+  onClear: () => void;
+  onSubmit: () => void;
 }) {
   return (
     <div
       className={cn(
         "flex flex-col gap-2 rounded-md border border-border bg-input p-2",
         "transition-[border-color,background-color] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-        "focus-within:border-accent-border focus-within:bg-surface-raised"
+        "focus-within:border-accent-border focus-within:bg-surface-raised",
       )}
     >
       <div className="flex items-start gap-2">
@@ -137,7 +132,7 @@ export function CommentComposer({
           rows={2}
           className={cn(
             "min-h-[32px] flex-1 resize-none bg-transparent text-sm text-foreground outline-none",
-            "placeholder:text-foreground-faint"
+            "placeholder:text-foreground-faint",
           )}
         />
       </div>
@@ -179,7 +174,7 @@ export function CommentComposer({
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 export function CommentBody({
@@ -189,11 +184,11 @@ export function CommentBody({
   edited,
   onToggle,
 }: {
-  body: string
-  expanded: boolean
-  isLong: boolean
-  edited: boolean
-  onToggle: () => void
+  body: string;
+  expanded: boolean;
+  isLong: boolean;
+  edited: boolean;
+  onToggle: () => void;
 }) {
   return (
     <>
@@ -201,7 +196,7 @@ export function CommentBody({
         className={cn(
           "text-[0.9375rem] leading-[1.55] text-foreground-muted",
           "[overflow-wrap:anywhere] break-words whitespace-pre-wrap",
-          isLong && !expanded && "line-clamp-4"
+          isLong && !expanded && "line-clamp-4",
         )}
       >
         {body}
@@ -218,14 +213,14 @@ export function CommentBody({
             "text-xs font-medium text-accent",
             "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
             "hover:bg-accent-soft",
-            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
+            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
           )}
         >
           {expanded ? "Show less" : "Show more"}
         </button>
       ) : null}
     </>
-  )
+  );
 }
 
 export function CommentActions({
@@ -239,15 +234,15 @@ export function CommentActions({
   onToggleReplies,
   onStartReply,
 }: {
-  liked: boolean
-  likeCount: number
-  likedByAuthor: boolean
-  replyCount: number
-  repliesOpen: boolean
-  canReply: boolean
-  onToggleLike: () => void
-  onToggleReplies: () => void
-  onStartReply: () => void
+  liked: boolean;
+  likeCount: number;
+  likedByAuthor: boolean;
+  replyCount: number;
+  repliesOpen: boolean;
+  canReply: boolean;
+  onToggleLike: () => void;
+  onToggleReplies: () => void;
+  onStartReply: () => void;
 }) {
   return (
     <div className="mt-0.5 flex items-center gap-2">
@@ -267,7 +262,7 @@ export function CommentActions({
             "rounded-md px-1.5 py-0.5 text-xs font-medium",
             "text-foreground-faint transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
             "hover:bg-surface-raised hover:text-foreground",
-            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
+            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
           )}
         >
           Reply
@@ -282,7 +277,7 @@ export function CommentActions({
             "rounded-md px-1.5 py-0.5 text-xs font-medium",
             "text-accent transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
             "hover:bg-accent-soft",
-            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
+            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
           )}
         >
           {repliesOpen
@@ -291,7 +286,7 @@ export function CommentActions({
         </button>
       ) : null}
     </div>
-  )
+  );
 }
 
 export function CommentLikeButton({
@@ -299,9 +294,9 @@ export function CommentLikeButton({
   likeCount,
   onClick,
 }: {
-  liked: boolean
-  likeCount: number
-  onClick: () => void
+  liked: boolean;
+  likeCount: number;
+  onClick: () => void;
 }) {
   return (
     <button
@@ -314,13 +309,13 @@ export function CommentLikeButton({
         "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
         liked ? "text-accent" : "text-foreground-faint hover:text-foreground",
         "hover:bg-surface-raised",
-        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
+        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
       )}
     >
       <HeartIcon className={cn("size-3", liked && "fill-current")} />
       {likeCount}
     </button>
-  )
+  );
 }
 
 export function AuthorLikeBadge() {
@@ -332,7 +327,7 @@ export function AuthorLikeBadge() {
       <HeartIcon className="size-3 fill-current" />
       Author
     </span>
-  )
+  );
 }
 
 export function CommentMenu({
@@ -346,19 +341,19 @@ export function CommentMenu({
   onPinToggle,
   onDelete,
 }: {
-  canPin: boolean
-  canDelete: boolean
-  deletePending: boolean
-  deleteTitle: string
-  deleteDescription: string
-  deleteActionLabel: string
-  pinned: boolean
-  onPinToggle: () => void
-  onDelete: () => void
+  canPin: boolean;
+  canDelete: boolean;
+  deletePending: boolean;
+  deleteTitle: string;
+  deleteDescription: string;
+  deleteActionLabel: string;
+  pinned: boolean;
+  onPinToggle: () => void;
+  onDelete: () => void;
 }) {
-  const [alertOpen, setAlertOpen] = React.useState(false)
+  const [alertOpen, setAlertOpen] = React.useState(false);
 
-  if (!canPin && !canDelete) return null
+  if (!canPin && !canDelete) return null;
   return (
     <>
       <DropdownMenu>
@@ -407,7 +402,9 @@ export function CommentMenu({
             <AlertDialogDescription>{deleteDescription}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletePending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deletePending}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={onDelete}
@@ -419,5 +416,5 @@ export function CommentMenu({
         </AlertDialogContent>
       </AlertDialog>
     </>
-  )
+  );
 }

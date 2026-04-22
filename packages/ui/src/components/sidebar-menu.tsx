@@ -79,6 +79,65 @@ function renderSidebarMenuList(
   )
 }
 
+function mergeSidebarMenuControlProps(
+  config:
+    | {
+        defaultTagName: "a"
+        props: React.ComponentProps<"a">
+      }
+    | {
+        defaultTagName: "button"
+        props: React.ComponentProps<"button">
+      }
+) {
+  if (config.defaultTagName === "button") {
+    return mergeProps<"button">(
+      {
+        className: cn(config.props.className),
+      },
+      config.props
+    )
+  }
+
+  return mergeProps<"a">(
+    {
+      className: cn(config.props.className),
+    },
+    config.props
+  )
+}
+
+function renderSidebarMenuControl(
+  config:
+    | {
+        defaultTagName: "a"
+        props: React.ComponentProps<"a">
+        render: useRender.ComponentProps<"a">["render"]
+        state: {
+          active: boolean
+          sidebar: string
+          size: "md" | "sm"
+          slot: string
+        }
+      }
+    | {
+        defaultTagName: "button"
+        props: React.ComponentProps<"button">
+        render: useRender.ComponentProps<"button">["render"]
+        state: {
+          sidebar: string
+          slot: string
+        }
+      }
+) {
+  return useRender({
+    defaultTagName: config.defaultTagName,
+    props: mergeSidebarMenuControlProps(config),
+    render: config.render,
+    state: config.state,
+  })
+}
+
 function SidebarMenuButton({
   render,
   isActive = false,
@@ -142,19 +201,17 @@ function SidebarMenuAction({
   React.ComponentProps<"button"> & {
     showOnHover?: boolean
   }) {
-  return useRender({
+  return renderSidebarMenuControl({
     defaultTagName: "button",
-    props: mergeProps<"button">(
-      {
-        className: cn(
-          "absolute top-1.5 right-1 flex aspect-square w-5 items-center justify-center rounded-md p-0 text-sidebar-foreground ring-sidebar-ring outline-hidden transition-transform group-data-[collapsible=icon]:hidden peer-hover/menu-button:text-sidebar-accent-foreground peer-data-[size=default]/menu-button:top-1.5 peer-data-[size=lg]/menu-button:top-2.5 peer-data-[size=sm]/menu-button:top-1 after:absolute after:-inset-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 md:after:hidden [&>svg]:size-4 [&>svg]:shrink-0",
-          showOnHover &&
-            "group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 peer-data-active/menu-button:text-sidebar-accent-foreground aria-expanded:opacity-100 md:opacity-0",
-          className
-        ),
-      },
-      props
-    ),
+    props: {
+      ...props,
+      className: cn(
+        "absolute top-1.5 right-1 flex aspect-square w-5 items-center justify-center rounded-md p-0 text-sidebar-foreground ring-sidebar-ring outline-hidden transition-transform group-data-[collapsible=icon]:hidden peer-hover/menu-button:text-sidebar-accent-foreground peer-data-[size=default]/menu-button:top-1.5 peer-data-[size=lg]/menu-button:top-2.5 peer-data-[size=sm]/menu-button:top-1 after:absolute after:-inset-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 md:after:hidden [&>svg]:size-4 [&>svg]:shrink-0",
+        showOnHover &&
+          "group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 peer-data-active/menu-button:text-sidebar-accent-foreground aria-expanded:opacity-100 md:opacity-0",
+        className
+      ),
+    },
     render,
     state: {
       slot: "sidebar-menu-action",
@@ -251,17 +308,15 @@ function SidebarMenuSubButton({
     size?: "sm" | "md"
     isActive?: boolean
   }) {
-  return useRender({
+  return renderSidebarMenuControl({
     defaultTagName: "a",
-    props: mergeProps<"a">(
-      {
-        className: cn(
-          `flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sidebar-foreground ring-sidebar-ring outline-hidden group-data-[collapsible=icon]:hidden ${sidebarMenuButtonFocusClasses} data-[size=md]:text-sm data-[size=sm]:text-xs data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground`,
-          className
-        ),
-      },
-      props
-    ),
+    props: {
+      ...props,
+      className: cn(
+        `flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sidebar-foreground ring-sidebar-ring outline-hidden group-data-[collapsible=icon]:hidden ${sidebarMenuButtonFocusClasses} data-[size=md]:text-sm data-[size=sm]:text-xs data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground`,
+        className
+      ),
+    },
     render,
     state: {
       slot: "sidebar-menu-sub-button",
