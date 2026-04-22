@@ -34,7 +34,7 @@ import {
   type AdminRuntimeConfig,
   INTEGRATIONS_REDACTED,
   updateIntegrationsConfig,
-} from "../../../lib/admin-api"
+} from "@/lib/admin-api"
 
 type IntegrationsConfigCardProps = {
   integrations: AdminIntegrationsConfig
@@ -172,11 +172,14 @@ export function IntegrationsConfigCard({
                 <AlertDialogHeader>
                   <AlertDialogTitle>Remove SteamGridDB key?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This disables the game picker and cover art integration until a new key is added.
+                    This disables the game picker and cover art integration
+                    until a new key is added.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel disabled={pending}>
+                    Cancel
+                  </AlertDialogCancel>
                   <AlertDialogAction
                     variant="destructive"
                     onClick={onClearSteamGridDB}

@@ -16,9 +16,9 @@ import {
 } from "@workspace/ui/components/section-head"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 
-import { EmptyState } from "../../../components/empty-state"
-import { GameCard, type GameCardData } from "../../../components/game-card"
-import type { UserClip } from "../../../lib/users-api"
+import { EmptyState } from "@/components/feedback/empty-state"
+import { GameCard, type GameCardData } from "@/components/game/game-card"
+import type { UserClip } from "@/lib/users-api"
 
 type GameEntry = GameCardData & { count: number }
 

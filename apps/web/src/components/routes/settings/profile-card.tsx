@@ -18,16 +18,9 @@ import {
 import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/components/sonner"
 
-import { authClient } from "../../../lib/auth-client"
-import {
-  validateRequiredString,
-  validateUsername,
-} from "../../../lib/form-validators"
-import {
-  avatarTint,
-  displayInitials,
-  displayName,
-} from "../../../lib/user-display"
+import { authClient } from "@/lib/auth-client"
+import { validateRequiredString, validateUsername } from "@/lib/form-validators"
+import { avatarTint, displayInitials, displayName } from "@/lib/user-display"
 
 type ProfileCardProps = {
   userId: string

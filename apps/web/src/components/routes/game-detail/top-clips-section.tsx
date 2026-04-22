@@ -5,12 +5,12 @@ import {
   SectionTitle,
 } from "@workspace/ui/components/section-head"
 
-import { ClipCardList } from "../../../components/clip-card-list"
-import { ClipCardSkeleton } from "../../../components/clip-card-skeleton"
-import { ClipGrid } from "../../../components/clip-grid"
-import { EmptyState } from "../../../components/empty-state"
-import { useGameTopClipsQuery } from "../../../lib/game-queries"
-import { useQueryErrorToast } from "../../../lib/use-query-error-toast"
+import { ClipCardList } from "@/components/clip/clip-card-list"
+import { ClipCardSkeleton } from "@/components/clip/clip-card-skeleton"
+import { ClipGrid } from "@/components/clip/clip-grid"
+import { EmptyState } from "@/components/feedback/empty-state"
+import { useGameTopClipsQuery } from "@/lib/game-queries"
+import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 type TopClipsSectionProps = {
   slug: string

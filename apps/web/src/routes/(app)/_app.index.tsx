@@ -1,7 +1,7 @@
 import * as React from "react"
 import { createFileRoute } from "@tanstack/react-router"
 
-import { HomePageInner } from "../../components/routes/home/home-page-inner"
+import { HomePageInner } from "@/components/routes/home/home-page-inner"
 
 export const Route = createFileRoute("/(app)/_app/")({
   component: HomePage,

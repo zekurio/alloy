@@ -3,7 +3,7 @@ import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
 import { Toaster } from "@workspace/ui/components/sonner"
 import appCss from "@workspace/ui/globals.css?url"
 
-import { MobileWarningBanner } from "../components/mobile-warning-banner"
+import { MobileWarningBanner } from "@/components/layout/mobile-warning-banner"
 
 export const Route = createRootRoute({
   head: () => ({

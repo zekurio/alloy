@@ -2,8 +2,8 @@ import * as React from "react"
 
 import { AppMain } from "@workspace/ui/components/app-shell"
 
-import { useRequireAuth } from "../../../lib/auth-hooks"
-import type { FeedFilter } from "../../../lib/feed-api"
+import { useRequireAuth } from "@/lib/auth-hooks"
+import type { FeedFilter } from "@/lib/feed-api"
 import { FeedChipBar } from "./feed-chip-bar"
 import { FeedSection } from "./feed-section"
 import { TopClipsSection } from "./top-clips-section"

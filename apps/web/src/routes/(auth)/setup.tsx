@@ -11,11 +11,11 @@ import { ArrowRightIcon } from "lucide-react"
 import { AlloyLogo } from "@workspace/ui/components/alloy-logo"
 import { toast } from "@workspace/ui/components/sonner"
 
-import { AccountCreationFields } from "../../components/routes/auth/account-creation-fields"
-import { authClient } from "../../lib/auth-client"
-import { fetchAuthConfig } from "../../lib/auth-config"
-import { AuthSubmitButton } from "../../components/routes/auth/auth-form-fields"
-import { invalidateAuthConfig } from "../../lib/session-suspense"
+import { AccountCreationFields } from "@/components/routes/auth/account-creation-fields"
+import { authClient } from "@/lib/auth-client"
+import { fetchAuthConfig } from "@/lib/auth-config"
+import { AuthSubmitButton } from "@/components/routes/auth/auth-form-fields"
+import { invalidateAuthConfig } from "@/lib/session-suspense"
 
 /**
  * First-admin bootstrap — the only public sign-up surface. The server's
