@@ -41,12 +41,12 @@ export function OAuthCallbackField({
 }
 
 export function scopeInputValue(scopes: string[] | undefined): string {
-  return scopes?.join(", ") ?? ""
+  return scopes?.join(" ") ?? ""
 }
 
 export function parseScopes(raw: string): string[] | undefined {
   const scopes = raw
-    .split(",")
+    .split(/[\s,]+/)
     .map((scope) => scope.trim())
     .filter(Boolean)
   return scopes.length > 0 ? scopes : undefined
