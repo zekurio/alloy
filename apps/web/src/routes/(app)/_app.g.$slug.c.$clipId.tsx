@@ -2,7 +2,7 @@ import * as React from "react"
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router"
 import { createMiddleware, createServerFn } from "@tanstack/react-start"
 
-import { ClipPlayerModal } from "../../components/clip-player-modal"
+import { ClipViewerDialog } from "../../components/clip-viewer-dialog"
 import {
   clipStreamUrl,
   clipThumbnailUrl,
@@ -154,7 +154,7 @@ function ClipModalRoute() {
   )
 
   return (
-    <ClipPlayerModal
+    <ClipViewerDialog
       clipId={modalClipId}
       onClose={handleClose}
       onNavigate={handleNavigate}
