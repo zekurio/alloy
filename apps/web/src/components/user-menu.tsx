@@ -15,6 +15,7 @@ import { toast } from "@workspace/ui/components/sonner"
 import { UserAvatarButton } from "@workspace/ui/components/user-avatar-button"
 
 import { signOut } from "../lib/auth-client"
+import { getQueryClient } from "../lib/query-client"
 import { useSuspenseSession } from "../lib/session-suspense"
 import { useUserChipData } from "../lib/user-display"
 
@@ -52,6 +53,7 @@ function UserMenuInner() {
   async function onSignOut() {
     try {
       await signOut()
+      getQueryClient().clear()
       await router.invalidate()
       await navigate({ to: "/login" })
     } catch (cause) {

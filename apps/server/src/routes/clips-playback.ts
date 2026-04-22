@@ -34,8 +34,13 @@ export const clipsPlaybackRoutes = new Hono()
       const viewer = await peekViewer(c.req.raw.headers)
       const isOwner = viewer?.id === row.authorId
       const isAdmin = viewer?.role === "admin"
+      const isPrivate = row.privacy === "private"
 
-      if (row.privacy === "private" && !isOwner && !isAdmin) {
+      if (isPrivate) {
+        c.header("Cache-Control", "no-store")
+      }
+
+      if (isPrivate && !isOwner && !isAdmin) {
         return viewer
           ? c.json({ error: "Forbidden" }, 403)
           : c.json({ error: "Unauthorized" }, 401)
@@ -64,7 +69,9 @@ export const clipsPlaybackRoutes = new Hono()
       const cacheControl =
         row.privacy === "public"
           ? "public, max-age=300"
-          : "private, max-age=300"
+          : row.privacy === "private"
+            ? "no-store"
+            : "private, max-age=300"
 
       const direct = await storage.mintDownloadUrl(selected.key, {
         expiresInSec: 900,
@@ -72,7 +79,10 @@ export const clipsPlaybackRoutes = new Hono()
         responseCacheControl: cacheControl,
       })
       if (direct) {
-        c.header("Cache-Control", "private, max-age=60")
+        c.header(
+          "Cache-Control",
+          isPrivate ? "no-store" : "private, max-age=60"
+        )
         return c.redirect(direct.url, 302)
       }
 
@@ -140,7 +150,13 @@ export const clipsPlaybackRoutes = new Hono()
       const viewer = await peekViewer(c.req.raw.headers)
       const isOwner = viewer?.id === row.authorId
       const isAdmin = viewer?.role === "admin"
-      if (row.privacy === "private" && !isOwner && !isAdmin) {
+      const isPrivate = row.privacy === "private"
+
+      if (isPrivate) {
+        c.header("Cache-Control", "no-store")
+      }
+
+      if (isPrivate && !isOwner && !isAdmin) {
         return viewer
           ? c.json({ error: "Forbidden" }, 403)
           : c.json({ error: "Unauthorized" }, 401)
@@ -155,14 +171,19 @@ export const clipsPlaybackRoutes = new Hono()
       const thumbCacheControl =
         row.privacy === "public" && row.status === "ready"
           ? "public, max-age=86400"
-          : "private, max-age=86400"
+          : row.privacy === "private"
+            ? "no-store"
+            : "private, max-age=86400"
 
       const direct = await storage.mintDownloadUrl(key, {
         expiresInSec: 900,
         responseCacheControl: thumbCacheControl,
       })
       if (direct) {
-        c.header("Cache-Control", "private, max-age=60")
+        c.header(
+          "Cache-Control",
+          isPrivate ? "no-store" : "private, max-age=60"
+        )
         return c.redirect(direct.url, 302)
       }
 
@@ -196,8 +217,13 @@ export const clipsPlaybackRoutes = new Hono()
       const viewer = await peekViewer(c.req.raw.headers)
       const isOwner = viewer?.id === row.authorId
       const isAdmin = viewer?.role === "admin"
+      const isPrivate = row.privacy === "private"
 
-      if (row.privacy === "private" && !isOwner && !isAdmin) {
+      if (isPrivate) {
+        c.header("Cache-Control", "no-store")
+      }
+
+      if (isPrivate && !isOwner && !isAdmin) {
         return viewer
           ? c.json({ error: "Forbidden" }, 403)
           : c.json({ error: "Unauthorized" }, 401)
@@ -231,7 +257,9 @@ export const clipsPlaybackRoutes = new Hono()
       const dlCacheControl =
         row.privacy === "public"
           ? "public, max-age=300"
-          : "private, max-age=300"
+          : row.privacy === "private"
+            ? "no-store"
+            : "private, max-age=300"
 
       const direct = await storage.mintDownloadUrl(selected.key, {
         expiresInSec: 900,
@@ -240,7 +268,10 @@ export const clipsPlaybackRoutes = new Hono()
         responseCacheControl: dlCacheControl,
       })
       if (direct) {
-        c.header("Cache-Control", "private, max-age=60")
+        c.header(
+          "Cache-Control",
+          isPrivate ? "no-store" : "private, max-age=60"
+        )
         return c.redirect(direct.url, 302)
       }
 
