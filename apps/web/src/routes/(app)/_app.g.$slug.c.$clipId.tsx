@@ -1,5 +1,5 @@
 import * as React from "react"
-import { createFileRoute, useRouter } from "@tanstack/react-router"
+import { createFileRoute, redirect, useRouter } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
 import { getRequest } from "@tanstack/react-start/server"
 
@@ -11,21 +11,44 @@ import {
   type ClipEncodedVariant,
   type ClipRow,
 } from "../../lib/clips-api"
+import { HttpError } from "../../lib/http-error"
 
 const getPublicOrigin = createServerFn({ method: "GET" }).handler(async () => {
   return process.env.PUBLIC_APP_URL ?? new URL(getRequest().url).origin
 })
 
+async function fetchRouteClipById(clipId: string): Promise<ClipRow> {
+  if (typeof document !== "undefined") {
+    return fetchClipById(clipId)
+  }
+
+  const cookie = getRequest().headers.get("cookie")
+  return fetchClipById(
+    clipId,
+    cookie ? { headers: { cookie } } : undefined
+  )
+}
+
 export const Route = createFileRoute("/(app)/_app/g/$slug/c/$clipId")({
   loader: async ({ params }) => {
     try {
       const [clip, origin] = await Promise.all([
-        fetchClipById(params.clipId),
+        fetchRouteClipById(params.clipId),
         getPublicOrigin(),
       ])
       return { clip, publicOrigin: origin }
-    } catch {
-      return { clip: null, publicOrigin: await getPublicOrigin() }
+    } catch (error) {
+      if (
+        error instanceof HttpError &&
+        (error.status === 401 || error.status === 403 || error.status === 404)
+      ) {
+        throw redirect({
+          to: "/g/$slug",
+          params: { slug: params.slug },
+          replace: true,
+        })
+      }
+      throw error
     }
   },
   head: ({ loaderData }) =>
@@ -34,7 +57,7 @@ export const Route = createFileRoute("/(app)/_app/g/$slug/c/$clipId")({
 })
 
 function clipHead(row: ClipRow | null, origin?: string) {
-  if (!row) {
+  if (!row || row.privacy === "private") {
     return { meta: [{ title: "alloy" }] }
   }
 

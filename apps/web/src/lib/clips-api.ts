@@ -1,5 +1,7 @@
+import { createApiClient } from "@workspace/api"
+
 import { api } from "./api"
-import { publicOrigin } from "./env"
+import { apiOrigin, publicOrigin } from "./env"
 import { readJsonOrThrow } from "./http-error"
 
 export type ClipStatus =
@@ -144,8 +146,12 @@ export async function fetchClips(
   return readJsonOrThrow<ClipRow[]>(res)
 }
 
-export async function fetchClipById(clipId: string): Promise<ClipRow> {
-  const res = await api.api.clips[":id"].$get({ param: { id: clipId } })
+export async function fetchClipById(
+  clipId: string,
+  init?: RequestInit
+): Promise<ClipRow> {
+  const client = init ? createApiClient(apiOrigin(), init) : api
+  const res = await client.api.clips[":id"].$get({ param: { id: clipId } })
   return readJsonOrThrow<ClipRow>(res)
 }
 
