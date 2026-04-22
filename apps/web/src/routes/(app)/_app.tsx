@@ -9,7 +9,7 @@ import {
 import { AppShell } from "@workspace/ui/components/app-shell"
 
 import { AppSearchProvider } from "../../components/app-search"
-import { ClipPlayerModal } from "../../components/clip-player-modal"
+import { ClipViewerDialog } from "../../components/clip-viewer-dialog"
 import { HomeHeader } from "../../components/home-header"
 import { HomeSidebar } from "../../components/home-sidebar"
 import { UploadFlow } from "../../components/upload-flow"
@@ -68,7 +68,7 @@ function AppLayout() {
         <Outlet />
         <UploadFlow />
       </AppShell>
-      <ClipPlayerModal
+      <ClipViewerDialog
         clipId={clip ?? null}
         onClose={handleCloseClipModal}
         onNavigate={handleNavigateClip}

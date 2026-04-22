@@ -3,8 +3,9 @@ import { useNavigate } from "@tanstack/react-router"
 
 import { ClipCard } from "@workspace/ui/components/clip-card"
 
-import { setActiveClipList, useClipList } from "./clip-list-context"
 import type { ClipCardData } from "../lib/clip-format"
+
+import { setActiveClipList, useClipList } from "./clip-list-context"
 
 export interface ClipCardTriggerProps {
   card: ClipCardData
