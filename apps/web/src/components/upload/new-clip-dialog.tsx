@@ -5,7 +5,6 @@ import {
   RotateCcwIcon,
   SkipBackIcon,
   SkipForwardIcon,
-  UploadIcon,
 } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
@@ -156,6 +155,7 @@ export function NewClipDialog({
       onOpenChangeComplete={handleOpenChangeComplete}
     >
       <DialogContent
+        variant="secondary"
         disableZoom
         centered={!isMobile}
         className={cn(
@@ -174,7 +174,7 @@ export function NewClipDialog({
           className="hidden"
           onChange={handleInputChange}
         />
-        <DialogHeader className="shrink-0 border-b border-border/60 pb-3">
+        <DialogHeader className="shrink-0">
           <DialogTitle>New clip</DialogTitle>
         </DialogHeader>
 
@@ -448,12 +448,12 @@ function LoadedState({
 
       <DialogFooter
         className={cn(
-          "shrink-0 flex-wrap border-t border-border/60 bg-surface pt-3 sm:pt-4",
+          "shrink-0 flex-wrap pt-3 sm:pt-4",
           isMobile ? "pb-5" : "pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
         )}
       >
         <Button
-          variant="ghost"
+          variant="secondary"
           size="default"
           disabled={publishing}
           onClick={onReplace}
@@ -463,7 +463,7 @@ function LoadedState({
         </Button>
         <DialogClose
           render={
-            <Button variant="ghost" size="default" disabled={publishing} />
+            <Button variant="outline" size="default" disabled={publishing} />
           }
         >
           Cancel
@@ -474,7 +474,6 @@ function LoadedState({
           disabled={publishing || capturing}
           onClick={handlePublishClick}
         >
-          <UploadIcon />
           {capturing ? "Preparing…" : publishing ? "Uploading…" : "Upload clip"}
         </Button>
       </DialogFooter>

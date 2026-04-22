@@ -429,7 +429,7 @@ function SeedUserDialog({
   })
 
   return (
-    <DialogContent>
+    <DialogContent variant="secondary">
       <form
         onSubmit={(e) => {
           e.preventDefault()
@@ -556,7 +556,7 @@ function SeedUserDialog({
             render={
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 disabled={form.state.isSubmitting}
               />
