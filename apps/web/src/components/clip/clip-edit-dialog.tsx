@@ -158,21 +158,19 @@ export function ClipEditDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        variant="secondary"
         className={cn(
           "flex max-h-[min(90dvh,820px)] max-w-2xl flex-col gap-0 bg-surface p-0"
         )}
       >
-        <DialogHeader className="border-b border-border/70 pb-3">
+        <DialogHeader>
           <DialogTitle>Edit clip</DialogTitle>
         </DialogHeader>
 
         <DialogBody className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
           <div className="flex flex-col gap-5">
             <Field className="gap-1.5">
-              <FieldLabel
-                htmlFor="clip-edit-title"
-                className="text-xs font-medium tracking-wide text-foreground-faint uppercase"
-              >
+              <FieldLabel htmlFor="clip-edit-title">
                 Title
               </FieldLabel>
               <Input
@@ -182,7 +180,6 @@ export function ClipEditDialog({
                 maxLength={CLIP_TITLE_MAX}
                 disabled={saving}
                 aria-invalid={titleInvalid}
-                className="h-9 rounded-md px-3 py-2 text-sm"
               />
               {titleInvalid ? (
                 <span className="text-xs text-destructive">
@@ -192,10 +189,7 @@ export function ClipEditDialog({
             </Field>
 
             <Field className="gap-1.5">
-              <FieldLabel
-                htmlFor="clip-edit-description"
-                className="text-xs font-medium tracking-wide text-foreground-faint uppercase"
-              >
+              <FieldLabel htmlFor="clip-edit-description">
                 Description
               </FieldLabel>
               <Textarea
@@ -206,14 +200,12 @@ export function ClipEditDialog({
                 maxLength={CLIP_DESCRIPTION_MAX}
                 disabled={saving}
                 placeholder="Add a description…"
-                className="min-h-0 rounded-md px-3 py-2 text-sm"
+                className="min-h-0 rounded-md"
               />
             </Field>
 
             <Field className="gap-1.5">
-              <FieldLabel className="text-xs font-medium tracking-wide text-foreground-faint uppercase">
-                Game
-              </FieldLabel>
+              <FieldLabel>Game</FieldLabel>
               <GameCombobox
                 value={game}
                 onChange={setGame}
@@ -224,9 +216,7 @@ export function ClipEditDialog({
             </Field>
 
             <Field className="gap-1.5">
-              <FieldLabel className="text-xs font-medium tracking-wide text-foreground-faint uppercase">
-                Visibility
-              </FieldLabel>
+              <FieldLabel>Visibility</FieldLabel>
               <ClipPrivacyPicker
                 value={privacy}
                 onChange={setPrivacy}
@@ -236,9 +226,7 @@ export function ClipEditDialog({
             </Field>
 
             <Field className="gap-1.5">
-              <FieldLabel className="text-xs font-medium tracking-wide text-foreground-faint uppercase">
-                Tagged users
-              </FieldLabel>
+              <FieldLabel>Tagged users</FieldLabel>
               <MentionPicker
                 value={mentions}
                 onChange={setMentions}
@@ -250,17 +238,16 @@ export function ClipEditDialog({
 
         <DialogFooter
           className={cn(
-            "border-t border-border/70 bg-surface px-4 pt-3 sm:px-6",
+            "px-4 pt-3 sm:px-6",
             "pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
           )}
         >
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             size="default"
             onClick={() => onOpenChange(false)}
             disabled={saving}
-            className="flex-1"
           >
             Cancel
           </Button>

@@ -42,21 +42,26 @@ function DialogContent({
   showOverlay = true,
   disableZoom = false,
   centered = true,
+  variant = "default",
   ...props
 }: DialogPrimitive.Popup.Props & {
   showOverlay?: boolean
   disableZoom?: boolean
   centered?: boolean
+  variant?: "default" | "secondary"
 }) {
   return (
     <DialogPortal>
       {showOverlay ? <DialogOverlay /> : null}
       <DialogPrimitive.Popup
         data-slot="dialog-content"
+        data-variant={variant}
         className={cn(
-          "fixed z-50 overflow-hidden rounded-lg border border-border bg-surface text-foreground shadow-lg",
+          "group/dialog-content fixed z-50 overflow-hidden rounded-lg border border-border bg-surface text-foreground shadow-lg",
+          "data-[variant=secondary]:rounded-xl data-[variant=secondary]:border-border/80 data-[variant=secondary]:shadow-[0_28px_90px_-38px_rgba(0,0,0,0.82)]",
           "duration-100 outline-none",
-          centered && "top-1/2 left-1/2 w-full max-w-[440px] -translate-x-1/2 -translate-y-1/2",
+          centered &&
+            "top-1/2 left-1/2 w-full max-w-[440px] -translate-x-1/2 -translate-y-1/2",
           disableZoom
             ? "data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
             : "data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
@@ -85,36 +90,41 @@ function DialogViewportContent({
   )
 }
 
-function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
+function renderDialogSection(
+  slot: string,
+  defaultClassName: string,
+  { className, ...props }: React.ComponentProps<"div">
+) {
   return (
     <div
-      data-slot="dialog-header"
-      className={cn("flex flex-col gap-1.5 px-6 pt-5", className)}
+      data-slot={slot}
+      className={cn(defaultClassName, className)}
       {...props}
     />
+  )
+}
+
+function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
+  return renderDialogSection(
+    "dialog-header",
+    "flex flex-col gap-1.5 px-6 pt-5 group-data-[variant=secondary]/dialog-content:px-5 group-data-[variant=secondary]/dialog-content:pt-4 sm:group-data-[variant=secondary]/dialog-content:px-6",
+    { className, ...props }
   )
 }
 
 function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="dialog-body"
-      className={cn("px-6 py-4", className)}
-      {...props}
-    />
+  return renderDialogSection(
+    "dialog-body",
+    "px-6 py-4 group-data-[variant=secondary]/dialog-content:px-5 sm:group-data-[variant=secondary]/dialog-content:px-6",
+    { className, ...props }
   )
 }
 
-function DialogFooter({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="dialog-footer"
-      className={cn("flex items-center justify-end gap-2 px-6 pb-5", className)}
-      {...props}
-    />
+function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
+  return renderDialogSection(
+    "dialog-footer",
+    "flex items-center justify-end gap-2 px-6 pb-5 group-data-[variant=secondary]/dialog-content:px-5 group-data-[variant=secondary]/dialog-content:pb-4 sm:group-data-[variant=secondary]/dialog-content:px-6",
+    { className, ...props }
   )
 }
 
