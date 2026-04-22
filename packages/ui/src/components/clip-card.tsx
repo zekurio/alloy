@@ -29,6 +29,8 @@ interface ClipCardProps extends React.ComponentProps<"article"> {
   privacy?: "public" | "unlisted" | "private"
   /** When set, the thumbnail becomes a button that fires this handler. */
   onThumbnailClick?: () => void
+  /** Fires on hover/focus/press so callers can warm data before open. */
+  onThumbnailIntent?: () => void
   /** Accessible label for the thumbnail button. */
   thumbnailLabel?: string
   thumbnailRef?: React.Ref<HTMLButtonElement>
@@ -55,6 +57,7 @@ function ClipCard({
   streamUrl,
   privacy,
   onThumbnailClick,
+  onThumbnailIntent,
   thumbnailLabel,
   thumbnailRef,
   ...props
@@ -76,6 +79,7 @@ function ClipCard({
         accentHue={accentHue}
         streamUrl={streamUrl}
         onClick={onThumbnailClick}
+        onIntent={onThumbnailIntent}
         label={thumbnailLabel ?? title}
         buttonRef={thumbnailRef}
       />
@@ -130,6 +134,7 @@ function ClipCardThumb({
   accentHue,
   streamUrl,
   onClick,
+  onIntent,
   label,
   buttonRef,
 }: {
@@ -138,6 +143,7 @@ function ClipCardThumb({
   accentHue: number | undefined
   streamUrl: string | undefined
   onClick?: () => void
+  onIntent?: () => void
   label?: string
   buttonRef?: React.Ref<HTMLButtonElement>
 }) {
@@ -212,11 +218,16 @@ function ClipCardThumb({
   )
   const hoverHandlers = {
     onPointerEnter: (e: React.PointerEvent) => {
+      onIntent?.()
       if (e.pointerType === "touch") return
       schedulePreview()
     },
+    onPointerDown: () => {
+      onIntent?.()
+    },
     onPointerLeave: cancelPreview,
     onFocus: () => {
+      onIntent?.()
       schedulePreview()
     },
     onBlur: cancelPreview,

@@ -1,4 +1,5 @@
 import {
+  keepPreviousData,
   useInfiniteQuery,
   useMutation,
   useQuery,
@@ -38,6 +39,7 @@ export function useFeedInfiniteQuery(
       if (last.length < limit) return undefined
       return (lastPageParam as number) + last.length
     },
+    placeholderData: keepPreviousData,
   })
 }
 
