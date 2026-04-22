@@ -8,11 +8,11 @@ import {
 } from "@workspace/ui/components/section-head"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 
-import { ClipCardList } from "../../../components/clip-card-list"
-import { ClipGrid } from "../../../components/clip-grid"
-import { EmptyState } from "../../../components/empty-state"
-import { useQueryErrorToast } from "../../../lib/use-query-error-toast"
-import type { UserClip } from "../../../lib/users-api"
+import { ClipCardList } from "@/components/clip/clip-card-list"
+import { ClipGrid } from "@/components/clip/clip-grid"
+import { EmptyState } from "@/components/feedback/empty-state"
+import { useQueryErrorToast } from "@/lib/use-query-error-toast"
+import type { UserClip } from "@/lib/users-api"
 
 type ClipsSectionProps = {
   username: string

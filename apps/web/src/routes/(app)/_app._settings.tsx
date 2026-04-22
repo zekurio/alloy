@@ -7,8 +7,8 @@ import {
   AppHeaderBrand,
 } from "@workspace/ui/components/app-header"
 
-import { UserMenu } from "../../components/user-menu"
-import { SettingsLayoutInner } from "../../components/routes/settings/settings-layout-inner"
+import { UserMenu } from "@/components/layout/user-menu"
+import { SettingsLayoutInner } from "@/components/routes/settings/settings-layout-inner"
 
 export const Route = createFileRoute("/(app)/_app/_settings")({
   component: SettingsLayout,

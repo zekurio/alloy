@@ -3,13 +3,13 @@ import { Loader2Icon } from "lucide-react"
 
 import { cn } from "@workspace/ui/lib/utils"
 
-import { ClipCardList } from "../../../components/clip-card-list"
-import { ClipCardSkeleton } from "../../../components/clip-card-skeleton"
-import { ClipGrid } from "../../../components/clip-grid"
-import { EmptyState } from "../../../components/empty-state"
-import type { FeedFilter } from "../../../lib/feed-api"
-import { useFeedInfiniteQuery } from "../../../lib/feed-queries"
-import { useQueryErrorToast } from "../../../lib/use-query-error-toast"
+import { ClipCardList } from "@/components/clip/clip-card-list"
+import { ClipCardSkeleton } from "@/components/clip/clip-card-skeleton"
+import { ClipGrid } from "@/components/clip/clip-grid"
+import { EmptyState } from "@/components/feedback/empty-state"
+import type { FeedFilter } from "@/lib/feed-api"
+import { useFeedInfiniteQuery } from "@/lib/feed-queries"
+import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 type FeedSectionProps = {
   filter: FeedFilter

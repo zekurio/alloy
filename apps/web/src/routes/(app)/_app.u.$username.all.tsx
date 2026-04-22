@@ -2,9 +2,9 @@ import * as React from "react"
 import { createFileRoute } from "@tanstack/react-router"
 import { z } from "zod"
 
-import { AllClipsSection } from "../../components/routes/profile/all-clips-section"
-import { useUserClipsQuery } from "../../lib/clip-queries"
-import { useUserProfileQuery } from "../../lib/user-queries"
+import { AllClipsSection } from "@/components/routes/profile/all-clips-section"
+import { useUserClipsQuery } from "@/lib/clip-queries"
+import { useUserProfileQuery } from "@/lib/user-queries"
 
 const SORT_KEYS = ["recent", "oldest", "top", "views"] as const
 export type ProfileAllSort = (typeof SORT_KEYS)[number]

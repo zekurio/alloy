@@ -10,7 +10,7 @@ import {
   validateEmail,
   validatePassword,
   validateUsername,
-} from "../../../lib/form-validators"
+} from "@/lib/form-validators"
 
 type AccountCreationFieldProps = {
   disabled: boolean
