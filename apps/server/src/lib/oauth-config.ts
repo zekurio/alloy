@@ -10,7 +10,7 @@ export type PublicOAuthProvider = {
   displayName: string
 }
 
-function getEnabledProvider(): OAuthProviderConfig | null {
+export function getEnabledProviderConfig(): OAuthProviderConfig | null {
   const provider = configStore.get("oauthProvider")
   return provider && provider.enabled ? provider : null
 }
@@ -25,7 +25,9 @@ function isImageUrl(value: unknown): value is string {
   }
 }
 
-function imageFromProfile(profile: Record<string, unknown>): string | undefined {
+export function imageFromProfile(
+  profile: Record<string, unknown>
+): string | undefined {
   for (const key of ["picture", "image", "avatar_url"] as const) {
     const candidate = profile[key]
     if (isImageUrl(candidate)) return candidate
@@ -34,7 +36,7 @@ function imageFromProfile(profile: Record<string, unknown>): string | undefined 
 }
 
 export function buildGenericOAuthConfig(): GenericOAuthConfig[] {
-  const provider = getEnabledProvider()
+  const provider = getEnabledProviderConfig()
   if (!provider) return []
   const { openRegistrations } = configStore.getAll()
   const claim = provider.usernameClaim
@@ -66,12 +68,12 @@ export function buildGenericOAuthConfig(): GenericOAuthConfig[] {
 }
 
 export function buildTrustedProviders(): string[] {
-  const provider = getEnabledProvider()
+  const provider = getEnabledProviderConfig()
   return provider ? [provider.providerId] : []
 }
 
 export function getPublicProvider(): PublicOAuthProvider | null {
-  const provider = getEnabledProvider()
+  const provider = getEnabledProviderConfig()
   return provider
     ? {
         providerId: provider.providerId,
