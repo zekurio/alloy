@@ -1,6 +1,5 @@
 import * as React from "react"
 
-import { toClipCardData } from "@/lib/clip-format"
 import type { ClipRow } from "@/lib/clips-api"
 
 import { ClipCardTrigger } from "./clip-card-trigger"
@@ -30,11 +29,7 @@ export function ClipCardList({
   const grid = (
     <ClipGrid>
       {rows.map((row) => (
-        <ClipCardTrigger
-          key={row.id}
-          card={toClipCardData(row)}
-          owned={isOwnedByViewer(row)}
-        />
+        <ClipCardTrigger key={row.id} row={row} owned={isOwnedByViewer(row)} />
       ))}
     </ClipGrid>
   )

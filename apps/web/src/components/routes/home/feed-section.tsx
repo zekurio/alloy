@@ -72,13 +72,20 @@ function emptyHint(filter: FeedFilter): string {
   }
 }
 
+function filterId(filter: FeedFilter): string {
+  if (filter.kind === "game") return `game:${filter.gameId}`
+  return filter.kind
+}
+
 function FeedSentinelStatus({
+  isRefreshing,
   isFetchingNextPage,
   hasRows,
   error,
   hasNextPage,
   onRetry,
 }: {
+  isRefreshing: boolean
   isFetchingNextPage: boolean
   hasRows: boolean
   error: unknown
@@ -95,6 +102,19 @@ function FeedSentinelStatus({
       >
         <Loader2Icon className="size-3 animate-spin" />
         Loading more
+      </span>
+    )
+  }
+  if (isRefreshing && hasRows) {
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center gap-2 text-xs",
+          "tracking-wide text-foreground-faint uppercase"
+        )}
+      >
+        <Loader2Icon className="size-3 animate-spin" />
+        Updating feed
       </span>
     )
   }
@@ -124,19 +144,22 @@ function FeedSentinelStatus({
 }
 
 export function FeedSection({ filter, viewerId }: FeedSectionProps) {
+  const feedId = filterId(filter)
   const {
     data,
     error,
     fetchNextPage,
     hasNextPage,
+    isFetching,
     isFetchingNextPage,
+    isPlaceholderData,
     isPending,
     refetch,
   } = useFeedInfiniteQuery(filter, { limit: FEED_PAGE_LIMIT })
   useQueryErrorToast(error, {
     title: "Couldn't load feed",
     // Keying the toast on filter avoids stacked toasts when tabs switch.
-    toastId: `feed-${filter.kind}-${filter.kind === "game" ? filter.gameId : ""}-error`,
+    toastId: `feed-${feedId}-error`,
   })
 
   const rows = React.useMemo(() => (data ? data.pages.flat() : []), [data])
@@ -149,35 +172,44 @@ export function FeedSection({ filter, viewerId }: FeedSectionProps) {
 
   const initialLoad = isPending && rows.length === 0
   const hasRows = rows.length > 0
+  const isRefreshing =
+    hasRows && (isFetching || isPlaceholderData) && !isFetchingNextPage
 
   return (
-    <section>
-      {initialLoad ? (
-        <ClipGrid>
-          {Array.from({ length: 10 }).map((_, i) => (
-            <ClipCardSkeleton key={i} />
-          ))}
-        </ClipGrid>
-      ) : !hasRows && error ? (
-        <EmptyState
-          seed={`feed-${filter.kind}-error`}
-          size="lg"
-          title="Couldn't load feed"
-        />
-      ) : !hasRows ? (
-        <EmptyState
-          seed={`feed-${filter.kind}-empty`}
-          size="lg"
-          title={emptyTitle(filter)}
-          hint={emptyHint(filter)}
-        />
-      ) : (
-        <ClipCardList
-          rows={rows}
-          isOwnedByViewer={(row) => row.authorId === viewerId}
-          listKey={`home:feed:${filter}`}
-        />
-      )}
+    <section aria-busy={isRefreshing ? true : undefined}>
+      <div
+        className={cn(
+          "transition-opacity duration-150",
+          isRefreshing && "opacity-70"
+        )}
+      >
+        {initialLoad ? (
+          <ClipGrid>
+            {Array.from({ length: 10 }).map((_, i) => (
+              <ClipCardSkeleton key={i} />
+            ))}
+          </ClipGrid>
+        ) : !hasRows && error ? (
+          <EmptyState
+            seed={`feed-${feedId}-error`}
+            size="lg"
+            title="Couldn't load feed"
+          />
+        ) : !hasRows ? (
+          <EmptyState
+            seed={`feed-${feedId}-empty`}
+            size="lg"
+            title={emptyTitle(filter)}
+            hint={emptyHint(filter)}
+          />
+        ) : (
+          <ClipCardList
+            rows={rows}
+            isOwnedByViewer={(row) => row.authorId === viewerId}
+            listKey={`home:feed:${feedId}`}
+          />
+        )}
+      </div>
 
       <div
         ref={sentinelRef}
@@ -185,6 +217,7 @@ export function FeedSection({ filter, viewerId }: FeedSectionProps) {
         className="mt-6 flex min-h-6 items-center justify-center"
       >
         <FeedSentinelStatus
+          isRefreshing={isRefreshing}
           isFetchingNextPage={isFetchingNextPage}
           hasRows={hasRows}
           error={error}
