@@ -1,12 +1,18 @@
 import * as React from "react"
-import { MaximizeIcon, PauseIcon, PlayIcon } from "lucide-react"
+import { DownloadIcon, MaximizeIcon, PauseIcon, PlayIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@workspace/ui/components/select"
 
 import { formatTime } from "./video-player-hooks"
 import { VideoScrubber } from "./video-scrubber"
-import { VideoSettingsMenu } from "./video-settings-menu"
 import { VolumeControl } from "./video-volume-control"
 
 export type LoadStatus =
@@ -181,6 +187,10 @@ export function ChromeBar({
     "--alloy-glass-shadow": "0 16px 36px -28px rgb(0 0 0 / 0.72)",
   } as React.CSSProperties
 
+  const hasQualityChoices =
+    (qualityOptions?.length ?? 0) > 1 && Boolean(onSelectQuality)
+  const hasDownloads = (downloadOptions?.length ?? 0) > 0
+
   React.useEffect(() => {
     if (typeof document === "undefined") return
     setFullscreenSupported(Boolean(document.fullscreenEnabled))
@@ -194,6 +204,18 @@ export function ChromeBar({
     document.addEventListener("fullscreenchange", onChange)
     return () => document.removeEventListener("fullscreenchange", onChange)
   }, [])
+
+  const handleDownload = React.useCallback(() => {
+    if (!downloadOptions?.length) return
+    const url = downloadOptions[0].url
+    const anchor = document.createElement("a")
+    anchor.href = url
+    anchor.rel = "noopener"
+    anchor.style.display = "none"
+    document.body.append(anchor)
+    anchor.click()
+    anchor.remove()
+  }, [downloadOptions])
 
   return (
     <div
@@ -221,7 +243,7 @@ export function ChromeBar({
 
         <div className="flex flex-wrap items-center gap-2 text-white">
           <div
-            className="alloy-glass inline-flex items-center gap-1 rounded-full border px-1.5 py-1"
+            className="alloy-glass inline-flex h-8 items-center gap-0.5 rounded-full border px-1.5"
             style={glassStyle}
           >
             <Button
@@ -229,7 +251,7 @@ export function ChromeBar({
               size="icon-sm"
               aria-label={playing ? "Pause" : "Play"}
               onClick={onTogglePlay}
-              className="rounded-full text-white/82 hover:bg-white/10 hover:text-white"
+              className="rounded-full text-white/45 hover:bg-white/10 hover:text-white/85"
             >
               {playing ? <PauseIcon /> : <PlayIcon />}
             </Button>
@@ -243,39 +265,70 @@ export function ChromeBar({
           </div>
 
           <div
-            className="alloy-glass inline-flex h-10 items-center rounded-full border px-4 text-sm text-white/88 tabular-nums"
+            className="alloy-glass inline-flex h-8 items-center rounded-full border px-3 text-xs text-white/45 tabular-nums"
             style={glassStyle}
           >
-            <span>{formatTime(currentTime)}</span>
-            <span className="mx-1 text-white/35">/</span>
-            <span className="text-white/55">{formatTime(duration)}</span>
+            <span className="text-white/85">{formatTime(currentTime)}</span>
+            <span className="mx-1 text-white/25">/</span>
+            <span>{formatTime(duration)}</span>
           </div>
 
-          <div className="ml-auto flex items-center gap-2">
-            <VideoSettingsMenu
-              qualityOptions={qualityOptions}
-              selectedQualityId={selectedQualityId}
-              onSelectQuality={onSelectQuality}
-              downloadOptions={downloadOptions}
-              triggerClassName="alloy-glass rounded-full border p-1"
-              triggerStyle={glassStyle}
-            />
-            {fullscreenSupported ? (
-              <div
-                className="alloy-glass rounded-full border p-1"
-                style={glassStyle}
-              >
+          <div className="ml-auto inline-flex items-center gap-2">
+            <div
+              className="alloy-glass inline-flex h-8 items-center rounded-full border px-1.5"
+              style={glassStyle}
+            >
+              {hasQualityChoices ? (
+                <Select
+                  value={selectedQualityId}
+                  onValueChange={(value) => {
+                    if (value) onSelectQuality?.(value)
+                  }}
+                >
+                  <SelectTrigger
+                    size="sm"
+                    className="h-8 gap-1 rounded-full border-0 bg-transparent pr-2 pl-2 text-xs text-white/45 hover:border-0 hover:bg-transparent hover:text-white/85 focus:ring-0 focus:ring-offset-0 focus-visible:border-0 focus-visible:bg-transparent focus-visible:ring-0 [&_svg]:text-white/45 hover:[&_svg]:text-white/85"
+                  >
+                    <SelectValue placeholder="Quality" />
+                  </SelectTrigger>
+                  <SelectContent align="end" sideOffset={4}>
+                    {qualityOptions?.map((quality) => (
+                      <SelectItem
+                        key={quality.id}
+                        value={quality.id}
+                        className="text-xs"
+                      >
+                        {quality.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : null}
+
+              {hasDownloads ? (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Download"
+                  onClick={handleDownload}
+                  className="rounded-full text-white/45 hover:bg-white/10 hover:text-white/85"
+                >
+                  <DownloadIcon />
+                </Button>
+              ) : null}
+
+              {fullscreenSupported ? (
                 <Button
                   variant="ghost"
                   size="icon-sm"
                   aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
                   onClick={onToggleFullscreen}
-                  className="rounded-full text-white/82 hover:bg-white/10 hover:text-white"
+                  className="rounded-full text-white/45 hover:bg-white/10 hover:text-white/85"
                 >
                   <MaximizeIcon />
                 </Button>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
