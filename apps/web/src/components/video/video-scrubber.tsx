@@ -77,7 +77,7 @@ export function VideoScrubber({
       onPointerCancel={onPointerUp}
       onKeyDown={onKeyDown}
       className={cn(
-        "group/scrub relative h-1.5 w-full cursor-pointer touch-none rounded-full",
+        "group/scrub relative h-0.5 w-full cursor-pointer touch-none rounded-full",
         "bg-white/14",
         "transition-[height] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
         "hover:h-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
