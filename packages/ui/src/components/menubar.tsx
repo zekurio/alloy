@@ -243,11 +243,7 @@ function MenubarSubTrigger({
     <DropdownMenuSubTrigger
       data-slot="menubar-sub-trigger"
       data-inset={inset}
-      className={cn(
-        menubarSubTriggerClasses,
-        menubarInsetClasses,
-        className
-      )}
+      className={cn(menubarSubTriggerClasses, menubarInsetClasses, className)}
       {...props}
     />
   )
