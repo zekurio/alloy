@@ -1,5 +1,5 @@
 import * as React from "react"
-import { AlertCircleIcon, XIcon } from "lucide-react"
+import { AlertCircleIcon } from "lucide-react"
 
 import {
   Combobox,
@@ -9,7 +9,6 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@workspace/ui/components/combobox"
-import { Button } from "@workspace/ui/components/button"
 import { GameIcon } from "@workspace/ui/components/game-icon"
 import { InputGroupAddon } from "@workspace/ui/components/input-group"
 import { cn } from "@workspace/ui/lib/utils"
@@ -36,9 +35,12 @@ export interface GameComboboxProps {
   onChange: (next: GameRow | null) => void
   /** Visually dim + block interaction. Used while the parent is saving. */
   disabled?: boolean
+  id?: string
   /** Optional placeholder for the unpicked state. */
   placeholder?: string
   allowClear?: boolean
+  invalid?: boolean
+  required?: boolean
   side?: "top" | "bottom"
   /**
    * Extra classes on the wrapping element so callers can size the input
@@ -51,8 +53,11 @@ export function GameCombobox({
   value,
   onChange,
   disabled = false,
+  id,
   placeholder = "Search SteamGridDB…",
   allowClear = true,
+  invalid = false,
+  required = false,
   side = "bottom",
   className,
 }: GameComboboxProps) {
@@ -226,15 +231,17 @@ export function GameCombobox({
         isItemEqualToValue={(a, b) => a?.id === b?.id}
         filter={noopFilter}
         disabled={isDisabled}
-        openOnInputClick={false}
         autoHighlight
       >
         <ComboboxInput
+          id={id}
           placeholder={placeholder}
           showTrigger={false}
           showClear={allowClear && value !== null}
           aria-label="Game"
           aria-busy={isSearching || resolving || undefined}
+          aria-invalid={invalid || undefined}
+          aria-required={required || undefined}
         >
           {value ? (
             <InputGroupAddon align="inline-start">
@@ -302,37 +309,6 @@ export function GameCombobox({
         </ComboboxContent>
       </Combobox>
 
-      {allowClear && value !== null && !disabled ? (
-        <ClearPickedButton
-          onClick={() => handlePick(null)}
-          disabled={resolving}
-        />
-      ) : null}
     </div>
-  )
-}
-
-function ClearPickedButton({
-  onClick,
-  disabled,
-}: {
-  onClick: () => void
-  disabled: boolean
-}) {
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon-xs"
-      aria-label="Clear game"
-      onClick={onClick}
-      disabled={disabled}
-      className={cn(
-        "absolute top-1/2 right-1 -translate-y-1/2",
-        "text-foreground-faint hover:text-foreground"
-      )}
-    >
-      <XIcon className="size-3.5" />
-    </Button>
   )
 }

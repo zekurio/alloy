@@ -31,6 +31,22 @@ type BaseFieldProps = {
   value: string
 }
 
+export type AuthFieldMetaState = {
+  errors: Array<unknown>
+  isTouched: boolean
+  isValid: boolean
+}
+
+export type AuthStringFieldController = {
+  handleBlur: () => void
+  handleChange: (value: string) => void
+  name: string
+  state: {
+    meta: AuthFieldMetaState
+    value: string
+  }
+}
+
 type TextFieldProps = BaseFieldProps &
   Pick<
     React.ComponentProps<typeof InputGroupInput>,
@@ -41,6 +57,29 @@ type TextFieldProps = BaseFieldProps &
     | "spellCheck"
     | "type"
   >
+
+type PasswordFieldProps = BaseFieldProps & {
+  autoComplete: string
+  showPassword: boolean
+  togglePassword: () => void
+}
+
+type SharedAuthTextFieldProps = Pick<
+  TextFieldProps,
+  | "description"
+  | "disabled"
+  | "errors"
+  | "headerAction"
+  | "icon"
+  | "id"
+  | "invalid"
+  | "label"
+  | "onBlur"
+  | "onChange"
+  | "placeholder"
+  | "required"
+  | "value"
+>
 
 function FieldHeader({
   action,
@@ -103,27 +142,82 @@ function AuthFieldFrame({
   )
 }
 
-export function FormInputField({
+function AuthInputGroupField({
   autoCapitalize,
   autoComplete,
   autoCorrect,
-  description,
   disabled,
-  errors,
-  headerAction,
   icon,
   id,
   inputMode,
   invalid,
-  label,
   onBlur,
   onChange,
   placeholder,
   required,
   spellCheck,
-  type = "text",
+  trailingAddon,
+  type,
   value,
-}: TextFieldProps) {
+}: Pick<
+  TextFieldProps,
+  | "autoCapitalize"
+  | "autoComplete"
+  | "autoCorrect"
+  | "disabled"
+  | "icon"
+  | "id"
+  | "inputMode"
+    | "invalid"
+    | "onBlur"
+    | "onChange"
+    | "placeholder"
+    | "required"
+    | "spellCheck"
+    | "type"
+    | "value"
+> & {
+  trailingAddon?: React.ReactNode
+}) {
+  return (
+    <InputGroup>
+      <InputGroupAddon>{icon}</InputGroupAddon>
+      <InputGroupInput
+        id={id}
+        type={type}
+        autoCapitalize={autoCapitalize}
+        autoComplete={autoComplete}
+        autoCorrect={autoCorrect}
+        inputMode={inputMode}
+        spellCheck={spellCheck}
+        placeholder={placeholder}
+        value={value}
+        onBlur={onBlur}
+        onChange={(e) => onChange(e.target.value)}
+        aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? `${id}-error` : undefined}
+        aria-required={required || undefined}
+        disabled={disabled}
+      />
+      {trailingAddon}
+    </InputGroup>
+  )
+}
+
+function renderAuthInputFieldFrame(
+  {
+    description,
+    errors,
+    headerAction,
+    id,
+    label,
+    required,
+  }: Pick<
+    TextFieldProps,
+    "description" | "errors" | "headerAction" | "id" | "label" | "required"
+  >,
+  children: React.ReactNode
+) {
   return (
     <AuthFieldFrame
       description={description}
@@ -133,37 +227,60 @@ export function FormInputField({
       label={label}
       required={required}
     >
-      <InputGroup>
-        <InputGroupAddon>{icon}</InputGroupAddon>
-        <InputGroupInput
-          id={id}
-          type={type}
-          autoCapitalize={autoCapitalize}
-          autoComplete={autoComplete}
-          autoCorrect={autoCorrect}
-          inputMode={inputMode}
-          spellCheck={spellCheck}
-          placeholder={placeholder}
-          value={value}
-          onBlur={onBlur}
-          onChange={(e) => onChange(e.target.value)}
-          aria-invalid={invalid || undefined}
-          aria-describedby={invalid ? `${id}-error` : undefined}
-          disabled={disabled}
-        />
-      </InputGroup>
+      {children}
     </AuthFieldFrame>
   )
 }
 
-type PasswordFieldProps = BaseFieldProps & {
-  autoComplete: string
-  showPassword: boolean
-  togglePassword: () => void
+function renderAuthTextLikeField(
+  frameProps: Pick<
+    TextFieldProps,
+    "description" | "errors" | "headerAction" | "id" | "label" | "required"
+  >,
+  inputProps: React.ComponentProps<typeof AuthInputGroupField>
+) {
+  return renderAuthInputFieldFrame(
+    frameProps,
+    <AuthInputGroupField {...inputProps} />
+  )
 }
 
-export function PasswordInputField({
-  autoComplete,
+function createAuthInputGroupBaseProps({
+  disabled,
+  icon,
+  id,
+  invalid,
+  onBlur,
+  onChange,
+  placeholder,
+  required,
+  value,
+}: Pick<
+  React.ComponentProps<typeof AuthInputGroupField>,
+  | "disabled"
+  | "icon"
+  | "id"
+  | "invalid"
+  | "onBlur"
+  | "onChange"
+  | "placeholder"
+  | "required"
+  | "value"
+>) {
+  return {
+    disabled,
+    icon,
+    id,
+    invalid,
+    onBlur,
+    onChange,
+    placeholder,
+    required,
+    value,
+  }
+}
+
+function createAuthTextFieldProps({
   description,
   disabled,
   errors,
@@ -176,33 +293,90 @@ export function PasswordInputField({
   onChange,
   placeholder,
   required,
-  showPassword,
-  togglePassword,
   value,
-}: PasswordFieldProps) {
-  return (
-    <AuthFieldFrame
-      description={description}
-      errors={errors}
-      headerAction={headerAction}
-      id={id}
-      label={label}
-      required={required}
-    >
-      <InputGroup>
-        <InputGroupAddon>{icon}</InputGroupAddon>
-        <InputGroupInput
-          id={id}
-          type={showPassword ? "text" : "password"}
-          autoComplete={autoComplete}
-          placeholder={placeholder}
-          value={value}
-          onBlur={onBlur}
-          onChange={(e) => onChange(e.target.value)}
-          aria-invalid={invalid || undefined}
-          aria-describedby={invalid ? `${id}-error` : undefined}
-          disabled={disabled}
-        />
+}: SharedAuthTextFieldProps) {
+  return {
+    frameProps: {
+      description,
+      errors,
+      headerAction,
+      id,
+      label,
+      required,
+    },
+    baseInputProps: createAuthInputGroupBaseProps({
+      disabled,
+      icon,
+      id,
+      invalid,
+      onBlur,
+      onChange,
+      placeholder,
+      required,
+      value,
+    }),
+  }
+}
+
+function renderAuthTextField(
+  frameProps: Pick<
+    TextFieldProps,
+    "description" | "errors" | "headerAction" | "id" | "label" | "required"
+  >,
+  baseInputProps: ReturnType<typeof createAuthInputGroupBaseProps>,
+  extraInputProps: Omit<
+    React.ComponentProps<typeof AuthInputGroupField>,
+    keyof ReturnType<typeof createAuthInputGroupBaseProps>
+  >
+) {
+  return renderAuthTextLikeField(frameProps, {
+    ...baseInputProps,
+    ...extraInputProps,
+  })
+}
+
+function createAuthInputField<TProps extends TextFieldProps | PasswordFieldProps>(
+  buildExtraInputProps: (
+    props: TProps
+  ) => Omit<
+    React.ComponentProps<typeof AuthInputGroupField>,
+    keyof ReturnType<typeof createAuthInputGroupBaseProps>
+  >
+) {
+  return function AuthInputField(props: TProps) {
+    const { baseInputProps, frameProps } = createAuthTextFieldProps(props)
+
+    return renderAuthTextField(
+      frameProps,
+      baseInputProps,
+      buildExtraInputProps(props)
+    )
+  }
+}
+
+export const FormInputField = createAuthInputField<TextFieldProps>(
+  ({
+    autoCapitalize,
+    autoComplete,
+    autoCorrect,
+    inputMode,
+    spellCheck,
+    type = "text",
+  }) => ({
+    autoCapitalize,
+    autoComplete,
+    autoCorrect,
+    inputMode,
+    spellCheck,
+    type,
+  })
+)
+
+export const PasswordInputField = createAuthInputField<PasswordFieldProps>(
+  ({ autoComplete, disabled, showPassword, togglePassword }) => ({
+      autoComplete,
+      type: showPassword ? "text" : "password",
+      trailingAddon: (
         <InputGroupAddon align="inline-end">
           <InputGroupButton
             size="icon-xs"
@@ -213,10 +387,9 @@ export function PasswordInputField({
             {showPassword ? <EyeOffIcon /> : <EyeIcon />}
           </InputGroupButton>
         </InputGroupAddon>
-      </InputGroup>
-    </AuthFieldFrame>
-  )
-}
+      ),
+    })
+)
 
 export function AuthSubmitButton({
   canSubmit,

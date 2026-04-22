@@ -18,6 +18,7 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
         "focus-visible:ring-2 focus-visible:ring-accent-border/20 focus-visible:ring-inset",
         "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
         "aria-invalid:border-destructive aria-invalid:bg-destructive/5 aria-invalid:ring-2 aria-invalid:ring-destructive/15",
+        "user-invalid:border-destructive user-invalid:bg-destructive/5 user-invalid:ring-2 user-invalid:ring-destructive/15",
         "file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground",
         // Override browser autofill chrome (yellow/blue bgs) with our theme tokens.
         // box-shadow inset is the only reliable way to paint over the forced autofill bg.
