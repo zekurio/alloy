@@ -21,13 +21,13 @@ import { cn } from "@workspace/ui/lib/utils"
 import {
   useUserFollowersQuery,
   useUserFollowingQuery,
-} from "../../../lib/user-queries"
+} from "@/lib/user-queries"
 import {
   followUser,
   unfollowUser,
   type ProfileCounts,
   type UserSearchResult,
-} from "../../../lib/users-api"
+} from "@/lib/users-api"
 import { StatInline } from "./stat-inline"
 
 type FollowModal = "followers" | "following" | null

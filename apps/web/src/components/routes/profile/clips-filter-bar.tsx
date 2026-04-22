@@ -10,7 +10,7 @@ import {
 } from "@workspace/ui/components/dropdown-menu"
 import { GameIcon } from "@workspace/ui/components/game-icon"
 
-import type { ProfileAllSort } from "../../../routes/(app)/_app.u.$username.all"
+import type { ProfileAllSort } from "@/routes/(app)/_app.u.$username.all"
 
 type GameOption = {
   slug: string

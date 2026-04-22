@@ -5,7 +5,7 @@ import { ArrowRightIcon } from "lucide-react"
 
 import { toast } from "@workspace/ui/components/sonner"
 
-import { authClient } from "../../../lib/auth-client"
+import { authClient } from "@/lib/auth-client"
 import { AuthSubmitButton } from "../auth/auth-form-fields"
 import { AccountCreationFields } from "../auth/account-creation-fields"
 

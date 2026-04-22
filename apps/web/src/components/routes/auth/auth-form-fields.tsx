@@ -168,14 +168,14 @@ function AuthInputGroupField({
   | "icon"
   | "id"
   | "inputMode"
-    | "invalid"
-    | "onBlur"
-    | "onChange"
-    | "placeholder"
-    | "required"
-    | "spellCheck"
-    | "type"
-    | "value"
+  | "invalid"
+  | "onBlur"
+  | "onChange"
+  | "placeholder"
+  | "required"
+  | "spellCheck"
+  | "type"
+  | "value"
 > & {
   trailingAddon?: React.ReactNode
 }) {
@@ -335,7 +335,9 @@ function renderAuthTextField(
   })
 }
 
-function createAuthInputField<TProps extends TextFieldProps | PasswordFieldProps>(
+function createAuthInputField<
+  TProps extends TextFieldProps | PasswordFieldProps,
+>(
   buildExtraInputProps: (
     props: TProps
   ) => Omit<
@@ -374,21 +376,21 @@ export const FormInputField = createAuthInputField<TextFieldProps>(
 
 export const PasswordInputField = createAuthInputField<PasswordFieldProps>(
   ({ autoComplete, disabled, showPassword, togglePassword }) => ({
-      autoComplete,
-      type: showPassword ? "text" : "password",
-      trailingAddon: (
-        <InputGroupAddon align="inline-end">
-          <InputGroupButton
-            size="icon-xs"
-            aria-label={showPassword ? "Hide password" : "Show password"}
-            onClick={togglePassword}
-            disabled={disabled}
-          >
-            {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-          </InputGroupButton>
-        </InputGroupAddon>
-      ),
-    })
+    autoComplete,
+    type: showPassword ? "text" : "password",
+    trailingAddon: (
+      <InputGroupAddon align="inline-end">
+        <InputGroupButton
+          size="icon-xs"
+          aria-label={showPassword ? "Hide password" : "Show password"}
+          onClick={togglePassword}
+          disabled={disabled}
+        >
+          {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+        </InputGroupButton>
+      </InputGroupAddon>
+    ),
+  })
 )
 
 export function AuthSubmitButton({

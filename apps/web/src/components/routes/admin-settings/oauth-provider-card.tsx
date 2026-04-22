@@ -21,7 +21,7 @@ import {
   saveOAuthConfig,
   type AdminOAuthProvider,
   type AdminRuntimeConfig,
-} from "../../../lib/admin-api"
+} from "@/lib/admin-api"
 import { OAuthCustomProviderDialog } from "./oauth-custom-provider-dialog"
 import { emptyProvider, toSubmissionProvider } from "./shared"
 
@@ -148,7 +148,12 @@ export function OAuthProviderCard({
               <AlertDialog>
                 <AlertDialogTrigger
                   render={
-                    <Button type="button" variant="ghost" size="icon-sm" disabled={disabled}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      disabled={disabled}
+                    >
                       <Trash2Icon />
                     </Button>
                   }
@@ -157,11 +162,14 @@ export function OAuthProviderCard({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Remove OAuth provider?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This disables sign-in through {provider.displayName}. You can add it back later.
+                      This disables sign-in through {provider.displayName}. You
+                      can add it back later.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel disabled={disabled}>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel disabled={disabled}>
+                      Cancel
+                    </AlertDialogCancel>
                     <AlertDialogAction
                       variant="destructive"
                       onClick={removeProvider}

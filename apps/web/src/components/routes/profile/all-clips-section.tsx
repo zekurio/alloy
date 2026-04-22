@@ -9,12 +9,12 @@ import {
 } from "@workspace/ui/components/section-head"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 
-import { ClipCardList } from "../../../components/clip-card-list"
-import { ClipGrid } from "../../../components/clip-grid"
-import { EmptyState } from "../../../components/empty-state"
-import { useQueryErrorToast } from "../../../lib/use-query-error-toast"
-import type { UserClip } from "../../../lib/users-api"
-import type { ProfileAllSort } from "../../../routes/(app)/_app.u.$username.all"
+import { ClipCardList } from "@/components/clip/clip-card-list"
+import { ClipGrid } from "@/components/clip/clip-grid"
+import { EmptyState } from "@/components/feedback/empty-state"
+import { useQueryErrorToast } from "@/lib/use-query-error-toast"
+import type { UserClip } from "@/lib/users-api"
+import type { ProfileAllSort } from "@/routes/(app)/_app.u.$username.all"
 import { ClipsFilterBar } from "./clips-filter-bar"
 
 type AllClipsSectionProps = {
