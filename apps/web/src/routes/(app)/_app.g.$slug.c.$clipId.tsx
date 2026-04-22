@@ -1,7 +1,6 @@
 import * as React from "react"
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router"
-import { createServerFn } from "@tanstack/react-start"
-import { getRequest } from "@tanstack/react-start/server"
+import { createMiddleware, createServerFn } from "@tanstack/react-start"
 
 import { ClipPlayerModal } from "../../components/clip-player-modal"
 import {
@@ -13,27 +12,35 @@ import {
 } from "../../lib/clips-api"
 import { HttpError } from "../../lib/http-error"
 
-const getPublicOrigin = createServerFn({ method: "GET" }).handler(async () => {
-  return process.env.PUBLIC_APP_URL ?? new URL(getRequest().url).origin
-})
-
-async function fetchRouteClipById(clipId: string): Promise<ClipRow> {
-  if (typeof document !== "undefined") {
-    return fetchClipById(clipId)
+const requestContextMiddleware = createMiddleware().server(
+  ({ next, request }) => {
+    return next({ context: { request } })
   }
+)
 
-  const cookie = getRequest().headers.get("cookie")
-  return fetchClipById(
-    clipId,
-    cookie ? { headers: { cookie } } : undefined
-  )
-}
+const getPublicOrigin = createServerFn({ method: "GET" })
+  .middleware([requestContextMiddleware])
+  .handler(async ({ context }) => {
+    return process.env.PUBLIC_APP_URL ?? new URL(context.request.url).origin
+  })
+
+const fetchRouteClipById = createServerFn({ method: "GET" })
+  .middleware([requestContextMiddleware])
+  .inputValidator((clipId: string) => clipId)
+  .handler(async ({ data: clipId, context }) => {
+    const cookie = context.request.headers.get("cookie")
+
+    return fetchClipById(
+      clipId,
+      cookie ? { headers: { cookie } } : undefined
+    )
+})
 
 export const Route = createFileRoute("/(app)/_app/g/$slug/c/$clipId")({
   loader: async ({ params }) => {
     try {
       const [clip, origin] = await Promise.all([
-        fetchRouteClipById(params.clipId),
+        fetchRouteClipById({ data: params.clipId }),
         getPublicOrigin(),
       ])
       return { clip, publicOrigin: origin }
