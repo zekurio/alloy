@@ -1,5 +1,4 @@
 import * as React from "react"
-import { SaveIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -54,9 +53,23 @@ export function OAuthCustomProviderDialog({
     value: AdminOAuthProvider[K]
   ) => void
 }) {
+  const [scopeText, setScopeText] = React.useState("")
+  const wasOpenRef = React.useRef(false)
+
+  React.useEffect(() => {
+    const isOpen = draft !== null
+    if (isOpen && !wasOpenRef.current) {
+      setScopeText(scopeInputValue(draft.scopes))
+    }
+    if (!isOpen) {
+      setScopeText("")
+    }
+    wasOpenRef.current = isOpen
+  }, [draft])
+
   return (
     <Dialog open={draft !== null} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent variant="secondary" className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>
             {editing ? "Edit OAuth provider" : "Add OAuth provider"}
@@ -143,15 +156,20 @@ export function OAuthCustomProviderDialog({
                   <FieldLabel htmlFor="oauth-scopes">Scopes</FieldLabel>
                   <Input
                     id="oauth-scopes"
-                    value={scopeInputValue(draft.scopes)}
-                    placeholder="openid, profile, email"
+                    value={scopeText}
+                    placeholder="openid profile email"
                     disabled={pendingAction !== null}
-                    onChange={(e) =>
-                      onChange("scopes", parseScopes(e.target.value))
+                    onChange={(e) => {
+                      const next = e.target.value
+                      setScopeText(next)
+                      onChange("scopes", parseScopes(next))
+                    }}
+                    onBlur={() =>
+                      setScopeText(scopeInputValue(parseScopes(scopeText)))
                     }
                   />
                   <FieldDescription>
-                    Comma-separated. Leave blank to use provider defaults.
+                    Space-separated. Leave blank to use provider defaults.
                   </FieldDescription>
                 </Field>
 
@@ -276,7 +294,6 @@ export function OAuthCustomProviderDialog({
                 variant="primary"
                 disabled={pendingAction !== null}
               >
-                <SaveIcon />
                 {editing ? "Save changes" : "Add provider"}
               </Button>
             </DialogFooter>
