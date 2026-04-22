@@ -6,8 +6,9 @@ import { Button } from "@workspace/ui/components/button"
 import { Card, CardContent } from "@workspace/ui/components/card"
 import { toast } from "@workspace/ui/components/sonner"
 
-import { authClient } from "@/lib/auth-client"
+import { authClient, useSession } from "@/lib/auth-client"
 import { type PublicAuthConfig } from "@/lib/auth-config"
+import { api } from "@/lib/api"
 import { useSuspenseAuthConfig } from "@/lib/session-suspense"
 
 type Account = {
@@ -18,6 +19,7 @@ type Account = {
 }
 
 type Provider = NonNullable<PublicAuthConfig["provider"]>
+const OAUTH_LINKED_QUERY_KEY = "oauthLinked"
 
 function useAccounts() {
   const [accounts, setAccounts] = React.useState<Account[] | null>(null)
@@ -106,10 +108,56 @@ function useLinkedAccountActions({
   refresh: () => Promise<void>
   router: ReturnType<typeof useRouter>
 }) {
+  const { refetch: refetchSession } = useSession()
   const [linkingProviderId, setLinkingProviderId] = React.useState<
     string | null
   >(null)
   const [unlinkingId, setUnlinkingId] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const url = new URL(window.location.href)
+    if (url.searchParams.get(OAUTH_LINKED_QUERY_KEY) !== "1") return
+
+    let active = true
+
+    const clearMarker = () => {
+      url.searchParams.delete(OAUTH_LINKED_QUERY_KEY)
+      window.history.replaceState(
+        null,
+        "",
+        `${url.pathname}${url.search}${url.hash}`
+      )
+    }
+
+    void (async () => {
+      try {
+        const res = await api.api.users.me["sync-oauth-profile"].$post()
+        if (!res.ok) {
+          throw new Error(`sync request failed: ${res.status}`)
+        }
+
+        await refresh()
+        await refetchSession({ query: { disableCookieCache: true } })
+        await router.invalidate()
+      } catch (cause) {
+        if (active) {
+          toast.error(
+            cause instanceof Error
+              ? cause.message
+              : "Couldn't sync linked account profile"
+          )
+        }
+      } finally {
+        if (active) clearMarker()
+      }
+    })()
+
+    return () => {
+      active = false
+    }
+  }, [refetchSession, refresh, router])
 
   const onLink = React.useCallback(
     async (provider: Provider) => {
@@ -118,7 +166,7 @@ function useLinkedAccountActions({
       try {
         const { error } = await authClient.oauth2.link({
           providerId: provider.providerId,
-          callbackURL: `${window.location.origin}/user-settings`,
+          callbackURL: `${window.location.origin}/user-settings?${OAUTH_LINKED_QUERY_KEY}=1`,
         })
         if (error) {
           toast.error(error.message ?? "Couldn't start link flow")
