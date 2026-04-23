@@ -1,8 +1,16 @@
 import * as React from "react"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { z } from "zod"
 import { ShieldCheckIcon } from "lucide-react"
 
 import { Card, CardContent } from "@workspace/ui/components/card"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@workspace/ui/components/select"
 import { toast } from "@workspace/ui/components/sonner"
 import { Switch } from "@workspace/ui/components/switch"
 import {
@@ -21,9 +29,26 @@ import { ReEncodeClipsCard } from "@/components/routes/admin-settings/re-encode-
 import { type AdminRuntimeConfig } from "@workspace/api"
 
 import { api } from "@/lib/api"
+import { requireAdminBeforeLoad } from "@/lib/auth-guards"
 import { useRequireAdmin } from "@/lib/auth-hooks"
 
+const ADMIN_TABS = ["auth", "uploads", "integrations", "users"] as const
+type AdminTab = (typeof ADMIN_TABS)[number]
+
+const TAB_LABELS: Record<AdminTab, string> = {
+  auth: "Authentication",
+  uploads: "Uploads & encoding",
+  integrations: "Integrations",
+  users: "Users",
+}
+
+const searchSchema = z.object({
+  tab: z.enum(ADMIN_TABS).optional(),
+})
+
 export const Route = createFileRoute("/(app)/_app/_settings/admin-settings")({
+  beforeLoad: requireAdminBeforeLoad,
+  validateSearch: searchSchema,
   component: AdminPage,
 })
 
@@ -97,7 +122,7 @@ function AdminAuthTab({
   onToggleRequireAuthToBrowse: (nextEnabled: boolean) => void
 }) {
   return (
-    <TabsContent value="auth" className="flex flex-col gap-4">
+    <TabsContent value="auth" className="flex flex-col gap-3">
       <Card>
         <CardContent className="flex flex-col gap-1 py-4">
           <div className="flex items-center gap-2 text-sm font-medium">
@@ -226,8 +251,94 @@ function useAdminToggles(
   }
 }
 
+function AdminTabSelectors({
+  activeTab,
+  onTabChange,
+}: {
+  activeTab: AdminTab
+  onTabChange: (value: string | number | null) => void
+}) {
+  return (
+    <>
+      <div className="mb-3 hidden md:block">
+        <TabsList className="w-max min-w-full flex-nowrap">
+          {ADMIN_TABS.map((t) => (
+            <TabsTrigger key={t} value={t}>
+              {TAB_LABELS[t]}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </div>
+
+      <div className="mb-3 md:hidden">
+        <Select value={activeTab} onValueChange={onTabChange}>
+          <SelectTrigger className="w-full">
+            <SelectValue>{TAB_LABELS[activeTab]}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {ADMIN_TABS.map((t) => (
+              <SelectItem key={t} value={t}>
+                {TAB_LABELS[t]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </>
+  )
+}
+
+function AdminUploadsTab({
+  config,
+  onConfigChange,
+}: {
+  config: AdminRuntimeConfig
+  onConfigChange: (next: AdminRuntimeConfig) => void
+}) {
+  return (
+    <TabsContent value="uploads" className="flex flex-col gap-3">
+      <EncoderConfigCard
+        encoder={config.encoder}
+        onChange={(next) => onConfigChange(next)}
+      />
+      <LimitsConfigCard
+        limits={config.limits}
+        onChange={(next) => onConfigChange(next)}
+      />
+      <ReEncodeClipsCard />
+    </TabsContent>
+  )
+}
+
+function AdminIntegrationsTab({
+  config,
+  onConfigChange,
+}: {
+  config: AdminRuntimeConfig
+  onConfigChange: (next: AdminRuntimeConfig) => void
+}) {
+  return (
+    <TabsContent value="integrations" className="flex flex-col gap-3">
+      <IntegrationsConfigCard
+        integrations={config.integrations}
+        onChange={(next) => onConfigChange(next)}
+      />
+    </TabsContent>
+  )
+}
+
+function AdminUsersTab({ currentUserId }: { currentUserId: string }) {
+  return (
+    <TabsContent value="users">
+      <AdminUsersCard currentUserId={currentUserId} />
+    </TabsContent>
+  )
+}
+
 function AdminPage() {
   const session = useRequireAdmin()
+  const { tab: activeTab = "auth" } = Route.useSearch()
+  const navigate = useNavigate()
   const { config, setConfig, loadError } = useAdminConfig(session)
   const {
     onToggleOpenRegistrations,
@@ -235,6 +346,17 @@ function AdminPage() {
     onTogglePasskey,
     onToggleRequireAuthToBrowse,
   } = useAdminToggles(setConfig)
+
+  const setTab = React.useCallback(
+    (value: string | number | null) => {
+      void navigate({
+        to: ".",
+        search: { tab: value === "auth" ? undefined : (value as AdminTab) },
+        replace: true,
+      })
+    },
+    [navigate]
+  )
 
   if (!session) return null
   if (loadError) {
@@ -247,20 +369,14 @@ function AdminPage() {
   if (!config) return null
 
   return (
-    <Tabs defaultValue="auth">
-      <div className="mb-4 flex items-end justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-[-0.02em]">
+    <Tabs value={activeTab} onValueChange={setTab}>
+      <div className="mb-3 flex items-end justify-between gap-4">
+        <h1 className="text-xl font-semibold tracking-[-0.02em]">
           Admin settings
         </h1>
       </div>
-      <div className="-mx-1 mb-4 overflow-x-auto px-1">
-        <TabsList className="w-max min-w-full flex-nowrap">
-          <TabsTrigger value="auth">Authentication</TabsTrigger>
-          <TabsTrigger value="uploads">Uploads &amp; encoding</TabsTrigger>
-          <TabsTrigger value="integrations">Integrations</TabsTrigger>
-          <TabsTrigger value="users">Users</TabsTrigger>
-        </TabsList>
-      </div>
+
+      <AdminTabSelectors activeTab={activeTab} onTabChange={setTab} />
 
       <AdminAuthTab
         config={config}
@@ -271,28 +387,11 @@ function AdminPage() {
         onToggleRequireAuthToBrowse={onToggleRequireAuthToBrowse}
       />
 
-      <TabsContent value="uploads" className="flex flex-col gap-4">
-        <EncoderConfigCard
-          encoder={config.encoder}
-          onChange={(next) => setConfig(next)}
-        />
-        <LimitsConfigCard
-          limits={config.limits}
-          onChange={(next) => setConfig(next)}
-        />
-        <ReEncodeClipsCard />
-      </TabsContent>
+      <AdminUploadsTab config={config} onConfigChange={setConfig} />
 
-      <TabsContent value="integrations" className="flex flex-col gap-4">
-        <IntegrationsConfigCard
-          integrations={config.integrations}
-          onChange={(next) => setConfig(next)}
-        />
-      </TabsContent>
+      <AdminIntegrationsTab config={config} onConfigChange={setConfig} />
 
-      <TabsContent value="users">
-        <AdminUsersCard currentUserId={session.user.id} />
-      </TabsContent>
+      <AdminUsersTab currentUserId={session.user.id} />
     </Tabs>
   )
 }
