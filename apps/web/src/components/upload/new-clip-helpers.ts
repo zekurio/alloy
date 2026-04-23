@@ -15,7 +15,11 @@ export interface SelectedFile {
   sizeBytes: number
 }
 
-import type { ClipPrivacy } from "@workspace/api"
+import {
+  ACCEPTED_CLIP_CONTENT_TYPES,
+  type AcceptedContentType,
+  type ClipPrivacy,
+} from "@workspace/api"
 
 export type Visibility = ClipPrivacy
 
@@ -37,14 +41,6 @@ export interface PublishPayload {
   mentionedUserIds: string[]
 }
 
-const ACCEPTED_CONTENT_TYPES = [
-  "video/mp4",
-  "video/quicktime",
-  "video/x-matroska",
-  "video/webm",
-] as const
-export type AcceptedContentType = (typeof ACCEPTED_CONTENT_TYPES)[number]
-
 const CONTENT_TYPE_ALIASES: Record<string, AcceptedContentType> = {
   "video/mp4": "video/mp4",
   "video/quicktime": "video/quicktime",
@@ -62,7 +58,7 @@ const EXTENSION_TO_CONTENT_TYPE: Record<string, AcceptedContentType> = {
 }
 
 export const ACCEPT_LIST =
-  "video/mp4,video/quicktime,video/x-matroska,video/webm,.mp4,.m4v,.mov,.mkv,.webm"
+  `${ACCEPTED_CLIP_CONTENT_TYPES.join(",")},.mp4,.m4v,.mov,.mkv,.webm`
 
 export function resolveContentType(file: File): AcceptedContentType | null {
   const byMime = CONTENT_TYPE_ALIASES[file.type]

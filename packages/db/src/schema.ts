@@ -99,7 +99,7 @@ export const clip = pgTable(
 
     // One of `CLIP_PRIVACY`. Stored as text (matching better-auth's `role`
     // convention) and validated via zod on write paths.
-    privacy: text("privacy").notNull().default("public"),
+    privacy: text("privacy").$type<ClipPrivacy>().notNull().default("public"),
 
     storageKey: text("storage_key").notNull(),
     contentType: text("content_type").notNull(),
@@ -126,7 +126,7 @@ export const clip = pgTable(
     likeCount: integer("like_count").notNull().default(0),
     commentCount: integer("comment_count").notNull().default(0),
 
-    status: text("status").notNull().default("pending"),
+    status: text("status").$type<ClipStatus>().notNull().default("pending"),
     encodeProgress: integer("encode_progress").notNull().default(0),
     failureReason: text("failure_reason"),
 
