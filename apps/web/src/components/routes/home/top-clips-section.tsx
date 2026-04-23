@@ -79,7 +79,7 @@ export function TopClipsSection({ viewerId }: TopClipsSectionProps) {
 
   return (
     <section>
-      <SectionHead className="items-start sm:items-end">
+      <SectionHead className="items-center">
         <div>
           <SectionTitle>
             <FlameIcon className="text-accent" />
@@ -101,8 +101,10 @@ export function TopClipsSection({ viewerId }: TopClipsSectionProps) {
             <TopClipsCarousel>
               {Array.from({ length: 3 }).map((_, i) => (
                 <CarouselItem key={i} className="basis-full pl-0">
-                  <div className="mx-auto w-full max-w-3xl">
-                    <ClipCardSkeleton />
+                  <div className="px-2">
+                    <div className="mx-auto w-full max-w-3xl">
+                      <ClipCardSkeleton />
+                    </div>
                   </div>
                 </CarouselItem>
               ))}
@@ -129,14 +131,16 @@ export function TopClipsSection({ viewerId }: TopClipsSectionProps) {
             <TopClipsCarousel>
               {rows.map((row) => (
                 <CarouselItem key={row.id} className="basis-full pl-0">
-                <ClipCardTrigger
-                  row={row}
-                  owned={row.authorId === viewerId}
-                  className="mx-auto w-full max-w-3xl"
-                  metaVariant="showcase"
-                />
-              </CarouselItem>
-            ))}
+                  <div className="px-2">
+                    <ClipCardTrigger
+                      row={row}
+                      owned={row.authorId === viewerId}
+                      className="mx-auto w-full max-w-3xl"
+                      metaVariant="showcase"
+                    />
+                  </div>
+                </CarouselItem>
+              ))}
             </TopClipsCarousel>
           </div>
           <div className="hidden sm:block">
