@@ -96,7 +96,7 @@ function TabsCount({ className, ...props }: React.ComponentProps<"span">) {
       data-slot="tabs-count"
       className={cn(
         "inline-flex items-center justify-center rounded-sm px-1.5 py-px",
-        "bg-surface-raised font-mono text-2xs font-semibold text-foreground-muted",
+        "bg-surface-raised text-2xs font-semibold text-foreground-muted",
         className
       )}
       {...props}
