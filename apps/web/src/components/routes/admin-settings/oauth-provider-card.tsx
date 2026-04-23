@@ -116,7 +116,7 @@ export function OAuthProviderCard({
   return (
     <>
       <Card>
-        <CardHeader className="pb-0">
+        <CardHeader className="border-b-0 pb-0">
           <div>
             <CardTitle>OIDC / OAuth provider</CardTitle>
             <CardDescription>
