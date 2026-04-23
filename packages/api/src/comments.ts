@@ -1,31 +1,8 @@
 import type { ApiContext } from "./client"
+import type { CommentRow, CommentSort } from "@workspace/db/contracts"
 import { readJsonOrThrow } from "./http"
 
-export interface CommentAuthor {
-  id: string
-  username: string | null
-  displayUsername: string | null
-  name: string
-  image: string | null
-}
-
-export interface CommentRow {
-  id: string
-  clipId: string
-  parentId: string | null
-  body: string
-  likeCount: number
-  pinned: boolean
-  pinnedAt: string | null
-  likedByViewer: boolean
-  likedByAuthor: boolean
-  createdAt: string
-  editedAt: string | null
-  author: CommentAuthor
-  replies: CommentRow[]
-}
-
-export type CommentSort = "top" | "new"
+export type { CommentAuthor, CommentRow, CommentSort } from "@workspace/db/contracts"
 
 export function createCommentsApi(context: ApiContext) {
   return {
