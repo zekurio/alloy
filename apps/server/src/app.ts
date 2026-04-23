@@ -13,6 +13,7 @@ import { gamesRoute } from "./routes/games"
 import { searchRoute } from "./routes/search"
 import { setupRoute } from "./routes/setup"
 import { usersRoute } from "./routes/users"
+import { usersUploadRoute, userAssetsRoute } from "./routes/users-upload"
 import { storageRoute } from "./storage/fs-upload-route"
 
 // Chain the route calls so the inferred type includes every route — the
@@ -38,10 +39,12 @@ export const app = new Hono()
   .route("/api/games", gamesRoute)
   .route("/api/search", searchRoute)
   .route("/api/users", usersRoute)
+  .route("/api/users", usersUploadRoute)
   .route("/events", eventsRoute)
   // `/storage/upload/:token` is the fs driver's companion route — kept
   // out of `/api/*` because it has no analog under the s3 driver (the
   // browser would PUT straight at the bucket there).
   .route("/storage", storageRoute)
+  .route("/storage/user-assets", userAssetsRoute)
 
 export type AppType = typeof app

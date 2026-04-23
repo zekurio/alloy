@@ -139,7 +139,7 @@ function buildPasskeyPlugin() {
       resolveUser: async ({ context }) => {
         const identity = await createPasskeyRegistrationUser(context);
         return {
-          id: `passkey-sign-up:${identity.email}`,
+          id: crypto.randomUUID(),
           name: identity.email,
           displayName: identity.name,
         };
@@ -200,6 +200,12 @@ function buildAuth() {
       },
     },
     user: {
+      additionalFields: {
+        banner: {
+          type: "string",
+          required: false,
+        },
+      },
       deleteUser: {
         enabled: true,
         beforeDelete: async (u) => {
