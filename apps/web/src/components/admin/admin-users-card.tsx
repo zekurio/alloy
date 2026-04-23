@@ -65,7 +65,12 @@ import {
 
 import { authClient } from "@/lib/auth-client"
 import { validateEmail, validateUsername } from "@/lib/form-validators"
-import { avatarTint, displayInitials, displayName } from "@/lib/user-display"
+import {
+  avatarTint,
+  displayInitials,
+  displayName,
+  userImageSrc,
+} from "@/lib/user-display"
 
 interface AdminUserRow {
   id: string
@@ -306,7 +311,7 @@ function UserTableRow({
       <TableCell>
         <div className="flex items-center gap-2">
           <Avatar className="size-7">
-            <AvatarImage src={user.image ?? undefined} />
+            <AvatarImage src={userImageSrc(user.image)} />
             <AvatarFallback style={{ background: bg, color: fg }}>
               {displayInitials(name)}
             </AvatarFallback>
