@@ -1,6 +1,13 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript"],
+  "plugins": [
+    "react",
+    "typescript",
+    "import",
+    "unicorn",
+    "react-hooks",
+    "jsx-a11y"
+  ],
   "env": {
     "browser": true,
     "es2022": true
@@ -19,17 +26,22 @@
     "no-unreachable": "error",
     "no-unused-vars": "warn",
     "no-warning-comments": "warn",
+    "no-undef": "error",
+    "no-constant-condition": "warn",
+    "no-control-regex": "off",
+    "no-debugger": "warn",
+    "no-empty": "warn",
+    "no-extra-boolean-cast": "warn",
+    "no-irregular-whitespace": "warn",
+    "no-loss-of-precision": "error",
+    "import/no-duplicates": "warn",
+    "unicorn/no-unnecessary-await": "warn",
     "react/no-multi-comp": "error",
+    "react/no-direct-mutation-state": "error",
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
     "typescript/ban-ts-comment": "warn",
     "typescript/consistent-type-assertions": "warn",
     "typescript/no-explicit-any": "warn"
-  },
-  "overrides": [
-    {
-      "files": ["packages/ui/src/components/**/*.tsx"],
-      "rules": {
-        "react/no-multi-comp": "off"
-      }
-    }
-  ]
+  }
 }

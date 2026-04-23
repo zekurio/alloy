@@ -67,9 +67,9 @@ const MOCK_NOTIFICATIONS: MockNotification[] = [
 const NOTIFICATION_GLASS_STYLE = {
   "--notification-glass-opacity": "72%",
   "--notification-glass-bg":
-    "color-mix(in oklab, var(--popover) var(--notification-glass-opacity), transparent)",
+    "color-mix(in oklab, var(--popover) var(--notification-glass-opacity), var(--background))",
   "--notification-row-glass-bg":
-    "color-mix(in oklab, var(--popover) 16%, transparent)",
+    "color-mix(in oklab, var(--popover) 16%, var(--background))",
   "--alloy-glass-bg": "var(--notification-glass-bg)",
   "--alloy-glass-shadow": "0 30px 80px -32px rgb(0 0 0 / 0.78)",
 } as React.CSSProperties
@@ -100,7 +100,6 @@ export function NotificationCenter() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger render={trigger} />
         <DialogContent
-          showOverlay={false}
           disableZoom
           centered={false}
           className={cn(

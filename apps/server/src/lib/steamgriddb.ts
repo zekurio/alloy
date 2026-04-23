@@ -10,6 +10,7 @@ import { configStore } from "./config-store"
 const BASE_URL = "https://www.steamgriddb.com/api/v2"
 
 const HERO_DIMENSIONS = "1920x620,3840x1240"
+const GRID_DIMENSIONS = "600x900,342x482,660x930"
 
 const REQUEST_TIMEOUT_MS = 10_000
 
@@ -207,6 +208,17 @@ export async function getFirstHero(
   return data?.[0] ?? null
 }
 
+export async function getFirstGrid(
+  steamgriddbId: number
+): Promise<SteamGridDBAsset | null> {
+  const data = await sgdbFetch(
+    `/grids/game/${steamgriddbId}`,
+    AssetListEnvelope,
+    { dimensions: GRID_DIMENSIONS }
+  )
+  return data?.[0] ?? null
+}
+
 export async function getFirstLogo(
   steamgriddbId: number
 ): Promise<SteamGridDBAsset | null> {
@@ -231,16 +243,19 @@ export async function getGameAssets(
   steamgriddbId: number
 ): Promise<{
   heroUrl: string | null
+  gridUrl: string | null
   logoUrl: string | null
   iconUrl: string | null
 }> {
-  const [hero, logo, icon] = await Promise.all([
+  const [hero, grid, logo, icon] = await Promise.all([
     getFirstHero(steamgriddbId).catch(() => null),
+    getFirstGrid(steamgriddbId).catch(() => null),
     getFirstLogo(steamgriddbId).catch(() => null),
     getFirstIcon(steamgriddbId).catch(() => null),
   ])
   return {
     heroUrl: hero?.url ?? null,
+    gridUrl: grid?.url ?? null,
     logoUrl: logo?.url ?? null,
     iconUrl: icon?.url ?? null,
   }
