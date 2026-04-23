@@ -12,7 +12,7 @@ import { AppSearchProvider } from "@/components/search/app-search"
 import { ClipViewerDialog } from "@/components/clip/clip-viewer-dialog"
 import { HomeHeader } from "@/components/layout/home-header"
 import { HomeSidebar } from "@/components/layout/home-sidebar"
-import { UploadFlow } from "@/components/upload/upload-flow"
+import { UploadFlow, UploadFlowProvider } from "@/components/upload/upload-flow"
 
 interface AppSearch {
   clip?: string
@@ -62,12 +62,14 @@ function AppLayout() {
 
   return (
     <AppSearchProvider>
-      <AppShell>
-        <HomeSidebar />
-        {showSharedHeader ? <HomeHeader /> : null}
-        <Outlet />
-        <UploadFlow />
-      </AppShell>
+      <UploadFlowProvider>
+        <AppShell>
+          <HomeSidebar />
+          {showSharedHeader ? <HomeHeader /> : null}
+          <Outlet />
+          <UploadFlow />
+        </AppShell>
+      </UploadFlowProvider>
       <ClipViewerDialog
         clipId={clip ?? null}
         onClose={handleCloseClipModal}

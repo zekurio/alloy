@@ -76,32 +76,11 @@ export function UploadQueueContent({
       <header className="flex items-center justify-between px-1">
         <h2 className="text-sm font-semibold text-foreground">Uploads</h2>
         <div className="flex items-center gap-2">
-          {completedCount > 0 && onClearCompleted ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClearCompleted}
-              className="h-6 px-2 text-xs font-semibold text-foreground-muted"
-            >
-              Clear completed
-            </Button>
-          ) : null}
           <span className="text-xs font-semibold text-foreground-muted tabular-nums">
             {queue.length === 0
               ? "empty"
               : `${queue.length} ${queue.length === 1 ? "item" : "items"}`}
           </span>
-          {onClose ? (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Close uploads"
-              onClick={onClose}
-              className="text-foreground-muted"
-            >
-              <XIcon />
-            </Button>
-          ) : null}
         </div>
       </header>
 
@@ -147,10 +126,33 @@ export function UploadQueueContent({
       ) : null}
 
       <div className="flex justify-end border-t border-border pt-2.5">
-        <Button variant="primary" size="sm" onClick={onNewClip}>
-          <UploadIcon />
-          Upload clip
-        </Button>
+        <div className="flex items-center gap-2">
+          {completedCount > 0 && onClearCompleted ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClearCompleted}
+              className="text-foreground-muted"
+            >
+              Clear completed
+            </Button>
+          ) : null}
+          {onClose ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Close uploads"
+              onClick={onClose}
+              className="text-foreground-muted"
+            >
+              Close
+            </Button>
+          ) : null}
+          <Button variant="primary" size="sm" onClick={onNewClip}>
+            <UploadIcon />
+            Upload clip
+          </Button>
+        </div>
       </div>
     </div>
   )

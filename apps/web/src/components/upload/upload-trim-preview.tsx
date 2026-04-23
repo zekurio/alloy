@@ -24,41 +24,15 @@ function TrimHandle({
       aria-label={side === "start" ? "Trim start" : "Trim end"}
       onPointerDown={onPointerDown}
       className={cn(
-        "absolute top-0 bottom-0 z-10 flex w-4 cursor-ew-resize items-center justify-center",
-        side === "start" ? "-ml-2 rounded-l-sm" : "-mr-2 rounded-r-sm",
-        "bg-accent text-accent-foreground",
+        "absolute top-1 bottom-1 z-10 flex w-3 cursor-ew-resize items-center justify-center rounded-full",
+        side === "start" ? "-ml-1.5" : "-mr-1.5",
+        "bg-accent text-accent-foreground shadow-[0_0_0_1px_rgba(0,0,0,0.35)]",
         "hover:bg-accent-hover focus-visible:outline-none",
         "touch-none"
       )}
       style={style}
     >
-      <span className="h-4 w-[2px] rounded-full bg-accent-foreground/80" />
-    </button>
-  )
-}
-
-export function SpeedButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean
-  onClick?: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex h-5 items-center justify-center rounded-sm px-1.5",
-        "text-xs transition-colors",
-        active
-          ? "bg-accent text-accent-foreground"
-          : "text-foreground-muted hover:text-foreground"
-      )}
-    >
-      {children}
+      <span className="h-3.5 w-px rounded-full bg-accent-foreground/80" />
     </button>
   )
 }
@@ -68,7 +42,6 @@ export function VideoPreview({
   durationMs,
   trimStartMs,
   trimEndMs,
-  playbackRate,
   isPlaying,
   currentMs,
   volume,
@@ -80,7 +53,6 @@ export function VideoPreview({
   durationMs: number
   trimStartMs: number
   trimEndMs: number
-  playbackRate: number
   isPlaying: boolean
   currentMs: number
   volume: number
@@ -131,7 +103,6 @@ export function VideoPreview({
         src={file}
         controls={false}
         playerRef={playerRef}
-        playbackRate={playbackRate}
         onVideoClick={() => onPlayingChange(!isPlaying)}
         onPlayingChange={onPlayingChange}
         onTimeUpdate={(t) => {
@@ -146,8 +117,8 @@ export function VideoPreview({
 
       <span
         className={cn(
-          "pointer-events-none absolute bottom-2 left-2 inline-flex items-center rounded-sm bg-background/80 px-1.5 py-0.5",
-          "text-xs text-foreground-muted tabular-nums backdrop-blur-sm"
+          "pointer-events-none absolute bottom-2 left-2 inline-flex items-center rounded-sm bg-background px-1.5 py-0.5",
+          "text-xs text-foreground-muted tabular-nums"
         )}
       >
         {formatTimecode(currentMs)}{" "}
@@ -246,21 +217,21 @@ export function TrimTimeline({
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       className={cn(
-        "relative h-10 w-full",
-        "rounded-md border border-border bg-surface-sunken",
+        "relative h-8 w-full",
+        "rounded-lg bg-surface-sunken/70",
         "select-none"
       )}
     >
       {/* Base rail — dim track spanning the full duration. */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-foreground-faint/20"
+        className="pointer-events-none absolute inset-x-1 top-1/2 h-2 -translate-y-1/2 rounded-full bg-foreground-faint/15"
       />
 
       {/* Selected-range fill — accent rail inside the trim window. */}
       <span
         aria-hidden
-        className="pointer-events-none absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-accent"
+        className="pointer-events-none absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-accent"
         style={{
           left: `${pctOf(trimStartMs)}%`,
           right: `${100 - pctOf(trimEndMs)}%`,
@@ -275,7 +246,7 @@ export function TrimTimeline({
       <TrimHandle
         side="end"
         onPointerDown={(e) => startDrag("end", e)}
-        style={{ left: `calc(${pctOf(trimEndMs)}% - 16px)` }}
+        style={{ left: `calc(${pctOf(trimEndMs)}% - 12px)` }}
       />
 
       {/* Playhead — only render when it's inside the trim window so it
@@ -287,7 +258,7 @@ export function TrimTimeline({
           onPointerDown={(e) => startDrag("playhead", e)}
           className={cn(
             "absolute top-0 bottom-0 z-20 -ml-[1px] w-[2px] cursor-ew-resize bg-foreground",
-            "shadow-[0_0_0_1px_rgba(0,0,0,0.4)]",
+            "shadow-[0_0_0_1px_rgba(0,0,0,0.3)]",
             "touch-none focus-visible:outline-none"
           )}
           style={{ left: `${pctOf(currentMs)}%` }}

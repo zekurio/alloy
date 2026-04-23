@@ -382,27 +382,21 @@
     letter-spacing: var(--tracking-mono);
   }
 
-  /* Shared frosted-glass surface. Tint can vary per surface via CSS vars,
-     but blur, saturation, border, and base depth stay consistent. */
+  /* Shared tinted-glass surface. Tint can vary per surface via CSS vars,
+     while border and base depth stay consistent. */
   .alloy-glass {
     --alloy-glass-hue: var(--popover);
     --alloy-glass-opacity: 72%;
     --alloy-glass-bg: color-mix(
       in oklab,
       var(--alloy-glass-hue) var(--alloy-glass-opacity),
-      transparent
+      var(--background)
     );
     --alloy-glass-border: rgb(255 255 255 / 0.14);
     --alloy-glass-shadow: 0 18px 48px -30px rgb(0 0 0 / 0.72);
-    --alloy-glass-blur: 20px;
-    --alloy-glass-saturate: 1.5;
     background-color: var(--alloy-glass-bg);
     border-color: var(--alloy-glass-border);
     box-shadow: var(--alloy-glass-shadow);
-    -webkit-backdrop-filter: blur(var(--alloy-glass-blur))
-      saturate(var(--alloy-glass-saturate));
-    backdrop-filter: blur(var(--alloy-glass-blur))
-      saturate(var(--alloy-glass-saturate));
   }
 
   /* Live-dot pulse — used by badge[data-variant="live"] */

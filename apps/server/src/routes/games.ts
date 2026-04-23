@@ -122,6 +122,7 @@ export const gamesRoute = new Hono()
           slug,
           releaseDate,
           heroUrl: assets.heroUrl,
+          gridUrl: assets.gridUrl,
           logoUrl: assets.logoUrl,
           iconUrl: assets.iconUrl,
         })
@@ -153,6 +154,7 @@ export const gamesRoute = new Hono()
         slug: game.slug,
         releaseDate: game.releaseDate,
         heroUrl: game.heroUrl,
+        gridUrl: game.gridUrl,
         logoUrl: game.logoUrl,
         iconUrl: game.iconUrl,
         clipCount: sql<number>`count(${clip.id})::int`,
@@ -177,6 +179,7 @@ export const gamesRoute = new Hono()
         slug: row.slug,
         releaseDate: row.releaseDate ? row.releaseDate.toISOString() : null,
         heroUrl: row.heroUrl,
+        gridUrl: row.gridUrl,
         logoUrl: row.logoUrl,
         iconUrl: row.iconUrl,
         clipCount: row.clipCount,
@@ -231,6 +234,28 @@ export const gamesRoute = new Hono()
     const upstream = await fetch(row.heroUrl)
     if (!upstream.ok || !upstream.body) {
       return c.json({ error: "Upstream hero unavailable" }, 502)
+    }
+
+    return new Response(upstream.body, {
+      headers: {
+        "content-type": upstream.headers.get("content-type") ?? "image/*",
+        "cache-control": "public, max-age=86400",
+      },
+    })
+  })
+
+  .get("/:slug/grid", zValidator("param", SlugParam), async (c) => {
+    const { slug } = c.req.valid("param")
+    const [row] = await db
+      .select({ gridUrl: game.gridUrl })
+      .from(game)
+      .where(eq(game.slug, slug))
+      .limit(1)
+    if (!row || !row.gridUrl) return c.json({ error: "Not found" }, 404)
+
+    const upstream = await fetch(row.gridUrl)
+    if (!upstream.ok || !upstream.body) {
+      return c.json({ error: "Upstream grid unavailable" }, 502)
     }
 
     return new Response(upstream.body, {

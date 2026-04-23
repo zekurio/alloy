@@ -40,15 +40,6 @@ Talk through details of implementations with the user. Do not make assumptions.
 After each code pass:
 1. Run lint and typecheck.
 2. Fix all issues without asking.
-3. If both pass, run:
-   ```bash
-   pnpm dlx aislop scan --json
-   ```
-4. If issues can be auto-fixed, run:
-   ```bash
-   pnpm dlx aislop fix
-   ```
-5. Fix any remaining issues.
 
 ## Code Quality
 

@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Link, useNavigate, useRouter } from "@tanstack/react-router"
-import { LogInIcon, LogOutIcon } from "lucide-react"
+import { CogIcon, LogInIcon, LogOutIcon, ShieldIcon } from "lucide-react"
 
 import { buttonVariants } from "@workspace/ui/components/button"
 import {
@@ -49,6 +49,7 @@ function UserMenuInner() {
   const handle = user.username ?? user.displayUsername ?? null
   const email = user.email ?? null
   const primaryLabel = handle ? `@${handle}` : chip.name
+  const isAdmin = (user as { role?: string }).role === "admin"
 
   async function onSignOut() {
     try {
@@ -83,6 +84,17 @@ function UserMenuInner() {
             </span>
           ) : null}
         </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => void navigate({ to: "/user-settings" })}>
+          <CogIcon />
+          Settings
+        </DropdownMenuItem>
+        {isAdmin ? (
+          <DropdownMenuItem onClick={() => void navigate({ to: "/admin-settings" })}>
+            <ShieldIcon />
+            Admin settings
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onClick={onSignOut}>
           <LogOutIcon />

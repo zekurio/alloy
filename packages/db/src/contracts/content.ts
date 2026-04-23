@@ -15,7 +15,7 @@ import type {
 export type ClipGameRef = SerializeDates<
   Pick<
     Game,
-    "id" | "steamgriddbId" | "slug" | "name" | "releaseDate" | "heroUrl" | "logoUrl" | "iconUrl"
+    "id" | "steamgriddbId" | "slug" | "name" | "releaseDate" | "heroUrl" | "gridUrl" | "logoUrl" | "iconUrl"
   >
 >
 
@@ -203,7 +203,7 @@ export interface SteamGridDBAsset {
 export type GameRow = SerializeDates<
   Pick<
     Game,
-    "id" | "steamgriddbId" | "name" | "slug" | "releaseDate" | "heroUrl" | "logoUrl" | "iconUrl"
+    "id" | "steamgriddbId" | "name" | "slug" | "releaseDate" | "heroUrl" | "gridUrl" | "logoUrl" | "iconUrl"
   >
 >
 
@@ -214,6 +214,7 @@ export interface GameListRow extends GameRow {
 export interface GameDetail extends GameRow {
   viewer: { isFollowing: boolean } | null
 }
+
 
 export interface GameClipsParams {
   sort?: "top" | "recent"

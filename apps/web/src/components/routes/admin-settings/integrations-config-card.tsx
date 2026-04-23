@@ -60,13 +60,19 @@ export function IntegrationsConfigCard({
     blankForm(integrations)
   )
   const [pending, setPending] = React.useState(false)
+  const initialForm = React.useMemo(() => blankForm(integrations), [integrations])
 
   React.useEffect(() => {
-    setForm(blankForm(integrations))
-  }, [integrations])
+    setForm(initialForm)
+  }, [initialForm])
 
   const steamgriddbConfigured =
     integrations.steamgriddbApiKey === INTEGRATIONS_REDACTED
+  const isDirty = form.steamgriddbApiKey !== initialForm.steamgriddbApiKey
+
+  function resetForm() {
+    setForm(initialForm)
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -132,30 +138,31 @@ export function IntegrationsConfigCard({
           </div>
         </CardHeader>
 
-        <CardContent className="flex flex-col gap-4">
-          <Field>
-            <FieldLabel htmlFor="sgdb-api-key">API key</FieldLabel>
-            <Input
-              id="sgdb-api-key"
-              type="password"
-              autoComplete="new-password"
-              value={form.steamgriddbApiKey}
-              placeholder={
-                steamgriddbConfigured ? "Leave blank to keep current" : ""
-              }
-              onChange={(e) =>
-                setForm((f) => ({ ...f, steamgriddbApiKey: e.target.value }))
-              }
-            />
-            <FieldDescription>
-              {steamgriddbConfigured
-                ? "Configured. Type a new value to rotate."
-                : "Not configured — game picker is disabled."}
-            </FieldDescription>
-          </Field>
-        </CardContent>
+        <fieldset disabled={pending} className="contents">
+          <CardContent className="flex flex-col gap-4">
+            <Field>
+              <FieldLabel htmlFor="sgdb-api-key">API key</FieldLabel>
+              <Input
+                id="sgdb-api-key"
+                type="password"
+                autoComplete="new-password"
+                value={form.steamgriddbApiKey}
+                placeholder={
+                  steamgriddbConfigured ? "Leave blank to keep current" : ""
+                }
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, steamgriddbApiKey: e.target.value }))
+                }
+              />
+              <FieldDescription>
+                {steamgriddbConfigured
+                  ? "Configured. Type a new value to rotate."
+                  : "Not configured — game picker is disabled."}
+              </FieldDescription>
+            </Field>
+          </CardContent>
 
-        <CardFooter>
+          <CardFooter className="justify-between">
           {steamgriddbConfigured ? (
             <AlertDialog>
               <AlertDialogTrigger
@@ -164,7 +171,7 @@ export function IntegrationsConfigCard({
                     type="button"
                     variant="destructive"
                     size="sm"
-                    disabled={pending}
+                    disabled={pending || isDirty}
                   >
                     <Trash2Icon />
                     Remove key
@@ -193,11 +200,31 @@ export function IntegrationsConfigCard({
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-          ) : null}
-          <Button type="submit" variant="primary" size="sm" disabled={pending}>
-            {pending ? "Saving…" : "Save changes"}
-          </Button>
-        </CardFooter>
+          ) : (
+            <div />
+          )}
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={resetForm}
+                disabled={pending || !isDirty}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                size="sm"
+                disabled={pending || !isDirty}
+              >
+                {pending ? "Saving…" : "Save changes"}
+              </Button>
+            </div>
+          </CardFooter>
+        </fieldset>
       </Card>
     </form>
   )

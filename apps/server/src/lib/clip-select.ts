@@ -43,6 +43,7 @@ export const clipSelectShape = {
     name: game.name,
     releaseDate: game.releaseDate,
     heroUrl: game.heroUrl,
+    gridUrl: game.gridUrl,
     logoUrl: game.logoUrl,
     iconUrl: game.iconUrl,
   },
