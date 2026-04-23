@@ -6,7 +6,7 @@ function SectionHead({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="section-head"
-      className={cn("mb-4 flex items-end justify-between gap-4", className)}
+      className={cn("mb-4 flex items-center justify-between gap-4", className)}
       {...props}
     />
   )

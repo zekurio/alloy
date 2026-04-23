@@ -22,7 +22,7 @@ const chipVariants = cva(
         default: "h-6 px-2.5 text-xs [&_svg:not([class*='size-'])]:size-3.5",
         sm: "h-5 px-2 text-2xs [&_svg:not([class*='size-'])]:size-3",
         lg: "h-7 px-3 text-sm [&_svg:not([class*='size-'])]:size-4",
-        xl: "h-9 rounded-lg px-3.5 text-sm [&_svg:not([class*='size-'])]:size-4",
+        xl: "h-8 rounded-lg px-2.5 text-sm font-semibold [&_svg:not([class*='size-'])]:size-4",
       },
     },
     defaultVariants: {
