@@ -36,7 +36,7 @@ function GameCardBody({ game }: { game: GameCardData }) {
         src={gridSrc}
         alt=""
         crossOrigin="anonymous"
-        className="block h-full w-full rounded-[inherit] object-cover [backface-visibility:hidden]"
+        className="absolute inset-0 size-full object-cover"
         loading="lazy"
         decoding="async"
       />
@@ -46,7 +46,7 @@ function GameCardBody({ game }: { game: GameCardData }) {
   return (
     <div
       aria-hidden
-      className="h-full w-full rounded-[inherit]"
+      className="absolute inset-0"
       style={{
         background: `radial-gradient(120% 80% at 30% 20%, oklch(0.32 0.14 ${hue}), oklch(0.08 0.04 ${hue}))`,
       }}
@@ -56,7 +56,7 @@ function GameCardBody({ game }: { game: GameCardData }) {
 
 export function GameCard({ game, link, className }: GameCardProps) {
   const surface = cn(
-    "group/game-card block [container-type:inline-size] relative isolate flex aspect-[2/3] flex-col overflow-hidden rounded-md border-2 border-neutral-900 [backface-visibility:hidden] [contain:paint] [transform:translateZ(0)]",
+    "group/game-card block relative aspect-[2/3] overflow-hidden rounded-lg [mask-image:linear-gradient(black,black)]",
     "bg-neutral-900",
     "transition-[box-shadow,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
