@@ -21,6 +21,14 @@
     ".turbo/**",
     "coverage/**"
   ],
+  "overrides": [
+    {
+      "files": ["apps/server/src/**/*.{ts,tsx}"],
+      "env": {
+        "node": true
+      }
+    }
+  ],
   "rules": {
     "no-empty-function": "error",
     "no-unreachable": "error",

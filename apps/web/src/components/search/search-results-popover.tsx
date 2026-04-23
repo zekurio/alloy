@@ -3,7 +3,6 @@ import { useNavigate } from "@tanstack/react-router"
 import {
   FilmIcon,
   GamepadIcon,
-  Loader2Icon,
   SearchIcon,
   UserIcon,
 } from "lucide-react"
@@ -192,11 +191,8 @@ export function SearchResultsPopover() {
           role="listbox"
           aria-label="Search results"
           className={cn(
-            "absolute top-full right-0 left-0 z-50",
-            "alloy-glass overflow-hidden border",
-            // Desktop: flush against the input — square top, no top border.
-            "sm:rounded-t-none sm:rounded-b-md sm:border-t-0",
-            "max-sm:top-[calc(100%+0.5rem)] max-sm:rounded-md",
+            "absolute top-[calc(100%+0.5rem)] right-0 left-0 z-50",
+            "alloy-glass overflow-hidden border rounded-md",
             "animate-in duration-100 fade-in-0 zoom-in-95"
           )}
           style={
@@ -355,12 +351,7 @@ function SearchResultsBody({
           </ul>
         </section>
       ) : null}
-      {isFetching ? (
-        <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-foreground-muted">
-          <Loader2Icon className="size-3 animate-spin" />
-          Updating…
-        </div>
-      ) : null}
+      
     </div>
   )
 }

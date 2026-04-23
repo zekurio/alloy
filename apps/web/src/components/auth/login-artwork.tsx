@@ -28,6 +28,8 @@ const FALLBACK_TITLES = [
   "Operator 1-tap spam",
 ] as const
 
+const MAX_SOURCE_TILES = 12
+
 const GAME_HUE: Record<string, number> = {
   Valorant: 300,
   "Counter-Strike 2": 45,
@@ -92,6 +94,7 @@ function Tile({
           loading="lazy"
           decoding="async"
           draggable={false}
+          sizes="(min-width: 1024px) 22vw, 0px"
           className="absolute inset-0 h-full w-full object-cover"
         />
       ) : null}
@@ -179,7 +182,7 @@ export const LoginArtwork = React.memo(function LoginArtwork({
   const rows = React.useMemo(() => {
     const source: Tile[] =
       clips.length > 0
-        ? clips.map((c, i) => ({
+        ? clips.slice(0, MAX_SOURCE_TILES).map((c, i) => ({
             key: c.id || `clip-${i}`,
             title: c.title,
             hue: hueFor(c),

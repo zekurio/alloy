@@ -62,7 +62,7 @@ export type ClipRow = SerializeDates<
   mentions?: ClipMentionRef[]
 }
 
-export type ClipFeedWindow = "today" | "week" | "month"
+export type ClipFeedWindow = "today" | "week" | "month" | "year" | "all"
 export type ClipFeedSort = "top" | "recent"
 
 export interface ClipFeedParams {

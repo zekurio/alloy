@@ -20,17 +20,6 @@ function UserChip({
   children,
   ...props
 }: UserChipProps) {
-  // Each src gets its own load attempt — reset `failed` when the URL
-  // changes so a cache-bust after upload gets another chance.
-  const [failed, setFailed] = React.useState(false)
-  React.useEffect(() => {
-    setFailed(false)
-  }, [avatar.src])
-  const [loaded, setLoaded] = React.useState(false)
-  React.useEffect(() => {
-    setLoaded(false)
-  }, [avatar.src])
-  const hasImage = Boolean(avatar.src) && !failed
   return (
     <button
       type="button"
@@ -53,17 +42,8 @@ function UserChip({
         }}
       >
         <span aria-hidden>{avatar.initials}</span>
-        {hasImage ? (
-          <img
-            src={avatar.src}
-            alt=""
-            className={cn(
-              "absolute inset-0 size-full object-cover",
-              loaded ? "opacity-100" : "opacity-0"
-            )}
-            onLoad={() => setLoaded(true)}
-            onError={() => setFailed(true)}
-          />
+        {avatar.src ? (
+          <UserChipImage key={avatar.src} src={avatar.src} />
         ) : null}
       </span>
       <span className="text-xs leading-none font-semibold">{name}</span>
@@ -71,6 +51,26 @@ function UserChip({
         <ChevronRightIcon className="ml-1 size-3 rotate-90 text-foreground-faint" />
       )}
     </button>
+  )
+}
+
+function UserChipImage({ src }: { src: string }) {
+  const [loaded, setLoaded] = React.useState(false)
+  const [failed, setFailed] = React.useState(false)
+
+  if (failed) return null
+
+  return (
+    <img
+      src={src}
+      alt=""
+      className={cn(
+        "absolute inset-0 size-full object-cover",
+        loaded ? "opacity-100" : "opacity-0"
+      )}
+      onLoad={() => setLoaded(true)}
+      onError={() => setFailed(true)}
+    />
   )
 }
 
