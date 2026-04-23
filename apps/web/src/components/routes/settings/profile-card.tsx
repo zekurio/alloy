@@ -253,51 +253,49 @@ export function ProfileCard({
             <div className="relative -mx-6 -mt-6 overflow-hidden rounded-t-lg">
               <div className="relative aspect-[4/1] min-h-[80px]">
                 <UserBanner user={bannerUser} />
-                <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 transition-opacity hover:opacity-100">
-                  {hasBanner ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            disabled={uploading}
-                          />
-                        }
-                      >
-                        <Camera className="mr-1.5 size-3.5" />
-                        Edit banner
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        <DropdownMenuItem
-                          onClick={() => openFilePicker("banner")}
-                        >
-                          <ImageIcon />
-                          Upload new banner
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={handleRemoveBanner}
-                        >
-                          <Trash2 />
-                          Remove banner
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
+                {hasBanner ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
                       disabled={uploading}
-                      onClick={() => openFilePicker("banner")}
+                      render={
+                        <button
+                          type="button"
+                          className="group absolute inset-0 rounded-t-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                        />
+                      }
                     >
-                      <Camera className="mr-1.5 size-3.5" />
-                      Upload banner
-                    </Button>
-                  )}
-                </div>
+                      <div className="absolute inset-0 flex items-center justify-center rounded-t-lg bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                        <Pencil className="size-4 text-white" />
+                      </div>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem
+                        onClick={() => openFilePicker("banner")}
+                      >
+                        <ImageIcon />
+                        Upload new banner
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={handleRemoveBanner}
+                      >
+                        <Trash2 />
+                        Remove banner
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={uploading}
+                    onClick={() => openFilePicker("banner")}
+                    className="group absolute inset-0 rounded-t-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  >
+                    <div className="absolute inset-0 flex items-center justify-center rounded-t-lg bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                      <Camera className="size-4 text-white" />
+                    </div>
+                  </button>
+                )}
               </div>
             </div>
 

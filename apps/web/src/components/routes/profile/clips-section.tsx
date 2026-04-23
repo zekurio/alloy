@@ -6,11 +6,8 @@ import {
   SectionMeta,
   SectionTitle,
 } from "@workspace/ui/components/section-head"
-import { Skeleton } from "@workspace/ui/components/skeleton"
 
-import { ClipCardList } from "@/components/clip/clip-card-list"
-import { ClipGrid } from "@/components/clip/clip-grid"
-import { EmptyState } from "@/components/feedback/empty-state"
+import { ClipSectionContent } from "@/components/clip/clip-section-content"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import type { UserClip } from "@workspace/api"
 
@@ -55,32 +52,18 @@ export function ClipsSection({
         </SectionActions>
       </SectionHead>
 
-      {error ? (
-        <EmptyState
-          seed={`profile-${variant}-error`}
-          size="md"
-          title="Couldn't load clips"
-        />
-      ) : clips === null ? (
-        <ClipGrid>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="aspect-video rounded-md" />
-          ))}
-        </ClipGrid>
-      ) : !visibleClips || visibleClips.length === 0 ? (
-        <EmptyState
-          seed={`profile-${variant}-empty`}
-          size="lg"
-          title="No clips uploaded yet"
-          hint="Clips from this user will show up here once they upload."
-        />
-      ) : (
-        <ClipCardList
-          rows={visibleClips}
-          isOwnedByViewer={() => isSelf}
-          listKey={`profile:${username}:${variant}`}
-        />
-      )}
+      <ClipSectionContent
+        rows={visibleClips}
+        loading={clips === null}
+        error={error}
+        errorSeed={`profile-${variant}-error`}
+        errorTitle="Couldn't load clips"
+        emptySeed={`profile-${variant}-empty`}
+        emptyTitle="No clips uploaded yet"
+        emptyHint="Clips from this user will show up here once they upload."
+        listKey={`profile:${username}:${variant}`}
+        isOwnedByViewer={() => isSelf}
+      />
     </section>
   )
 }

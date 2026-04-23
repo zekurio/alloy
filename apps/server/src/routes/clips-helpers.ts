@@ -23,7 +23,7 @@ export const DownloadQuery = z.object({
 })
 
 export const ListQuery = z.object({
-  window: z.enum(["today", "week", "month"]).optional(),
+  window: z.enum(["today", "week", "month", "year", "all"]).optional(),
   sort: z.enum(["top", "recent"]).default("recent"),
   limit: z.coerce.number().int().positive().max(100).default(50),
   cursor: z.iso.datetime().optional(),
@@ -31,10 +31,11 @@ export const ListQuery = z.object({
 
 // Epoch offsets for the window filter. Kept in one place so both the feed
 // read and any future analytics rollups agree on what "today" means.
-export const WINDOW_MS: Record<"today" | "week" | "month", number> = {
+export const WINDOW_MS: Record<"today" | "week" | "month" | "year", number> = {
   today: 24 * 60 * 60 * 1000,
   week: 7 * 24 * 60 * 60 * 1000,
   month: 30 * 24 * 60 * 60 * 1000,
+  year: 365 * 24 * 60 * 60 * 1000,
 }
 
 export const MAX_THUMB_BYTES = 2 * 1024 * 1024

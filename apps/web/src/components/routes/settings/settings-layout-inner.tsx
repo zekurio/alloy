@@ -10,7 +10,7 @@ export function SettingsLayoutInner() {
 
   return (
     <AppMain>
-      <div className="mx-auto flex max-w-4xl flex-col gap-6">
+      <div className="mx-auto flex max-w-4xl flex-col gap-4">
         <Outlet />
       </div>
     </AppMain>

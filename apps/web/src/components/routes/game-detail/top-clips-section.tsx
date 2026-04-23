@@ -5,10 +5,7 @@ import {
   SectionTitle,
 } from "@workspace/ui/components/section-head"
 
-import { ClipCardList } from "@/components/clip/clip-card-list"
-import { ClipCardSkeleton } from "@/components/clip/clip-card-skeleton"
-import { ClipGrid } from "@/components/clip/clip-grid"
-import { EmptyState } from "@/components/feedback/empty-state"
+import { ClipSectionContent } from "@/components/clip/clip-section-content"
 import { useGameTopClipsQuery } from "@/lib/game-queries"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
@@ -29,7 +26,6 @@ export function TopClipsSection({ slug, viewerId }: TopClipsSectionProps) {
     title: "Couldn't load top clips",
     toastId: `game-${slug}-top-clips-error`,
   })
-  const visibleRows = rows ?? null
 
   return (
     <section>
@@ -42,32 +38,20 @@ export function TopClipsSection({ slug, viewerId }: TopClipsSectionProps) {
         </div>
       </SectionHead>
 
-      {error ? (
-        <EmptyState
-          seed={`game-${slug}-top-error`}
-          size="md"
-          title="Couldn't load top clips"
-        />
-      ) : isPending || !rows ? (
-        <ClipGrid>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <ClipCardSkeleton key={i} />
-          ))}
-        </ClipGrid>
-      ) : rows.length === 0 ? (
-        <EmptyState
-          seed={`game-${slug}-top-empty`}
-          size="md"
-          title="No top clips for this game yet"
-          hint="Upload something or check back later."
-        />
-      ) : (
-        <ClipCardList
-          rows={visibleRows ?? []}
-          isOwnedByViewer={(row) => row.authorId === viewerId}
-          listKey={`game:${slug}:top`}
-        />
-      )}
+      <ClipSectionContent
+        rows={rows ?? null}
+        loading={isPending}
+        error={error}
+        errorSeed={`game-${slug}-top-error`}
+        errorTitle="Couldn't load top clips"
+        errorSize="md"
+        emptySeed={`game-${slug}-top-empty`}
+        emptyTitle="No top clips for this game yet"
+        emptyHint="Upload something or check back later."
+        emptySize="md"
+        listKey={`game:${slug}:top`}
+        isOwnedByViewer={(row) => row.authorId === viewerId}
+      />
     </section>
   )
 }

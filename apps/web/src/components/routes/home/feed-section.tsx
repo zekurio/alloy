@@ -4,8 +4,7 @@ import { Loader2Icon } from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
-import { ClipCardSkeleton } from "@/components/clip/clip-card-skeleton"
-import { ClipGrid } from "@/components/clip/clip-grid"
+import { ClipGridSkeleton } from "@/components/clip/clip-grid"
 import { EmptyState } from "@/components/feedback/empty-state"
 import type { FeedFilter } from "@workspace/api"
 import { useFeedInfiniteQuery } from "@/lib/feed-queries"
@@ -184,11 +183,7 @@ export function FeedSection({ filter, viewerId }: FeedSectionProps) {
         )}
       >
         {initialLoad ? (
-          <ClipGrid>
-            {Array.from({ length: 10 }).map((_, i) => (
-              <ClipCardSkeleton key={i} />
-            ))}
-          </ClipGrid>
+          <ClipGridSkeleton count={10} />
         ) : !hasRows && error ? (
           <EmptyState
             seed={`feed-${feedId}-error`}

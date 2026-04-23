@@ -20,7 +20,7 @@ export interface ClipCardTriggerProps {
   metaVariant?: "default" | "showcase"
 }
 
-export function ClipCardTrigger({
+export const ClipCardTrigger = React.memo(function ClipCardTrigger({
   row,
   owned = false,
   className,
@@ -85,4 +85,4 @@ export function ClipCardTrigger({
       thumbnailLabel={`Play clip: ${card.title}`}
     />
   )
-}
+})

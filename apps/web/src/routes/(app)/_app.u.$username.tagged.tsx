@@ -7,11 +7,8 @@ import {
   SectionMeta,
   SectionTitle,
 } from "@workspace/ui/components/section-head"
-import { Skeleton } from "@workspace/ui/components/skeleton"
 
-import { ClipCardList } from "@/components/clip/clip-card-list"
-import { ClipGrid } from "@/components/clip/clip-grid"
-import { EmptyState } from "@/components/feedback/empty-state"
+import { ClipSectionContent } from "@/components/clip/clip-section-content"
 import { useTaggedClipsQuery, useUserProfileQuery } from "@/lib/user-queries"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
@@ -50,32 +47,18 @@ function ProfileTaggedTab() {
         </SectionActions>
       </SectionHead>
 
-      {error ? (
-        <EmptyState
-          seed="profile-tagged-error"
-          size="md"
-          title="Couldn't load tagged clips"
-        />
-      ) : clips === null ? (
-        <ClipGrid>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="aspect-video rounded-md" />
-          ))}
-        </ClipGrid>
-      ) : clips.length === 0 ? (
-        <EmptyState
-          seed="profile-tagged-empty"
-          size="lg"
-          title="No tagged clips yet"
-          hint="Clips where this user is tagged will show up here."
-        />
-      ) : (
-        <ClipCardList
-          rows={clips}
-          isOwnedByViewer={() => isSelf}
-          listKey={`profile:${username}:tagged`}
-        />
-      )}
+      <ClipSectionContent
+        rows={clips}
+        loading={clips === null}
+        error={error}
+        errorSeed="profile-tagged-error"
+        errorTitle="Couldn't load tagged clips"
+        emptySeed="profile-tagged-empty"
+        emptyTitle="No tagged clips yet"
+        emptyHint="Clips where this user is tagged will show up here."
+        listKey={`profile:${username}:tagged`}
+        isOwnedByViewer={() => isSelf}
+      />
     </section>
   )
 }
