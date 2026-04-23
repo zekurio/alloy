@@ -267,11 +267,14 @@ export function ProfileCard({
               <div className="relative aspect-[4/1] min-h-[80px]">
                 <UserBanner user={bannerUser} />
                 {hasBanner ? (
-                  <DropdownMenu>
+                  <DropdownMenu
+                    open={bannerAnchor.open}
+                    onOpenChange={bannerAnchor.onOpenChange}
+                  >
                     <DropdownMenuTrigger
                       disabled={uploading}
                       className="group absolute inset-0 rounded-t-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                      onClick={bannerAnchor.onTriggerClick}
+                      onPointerDown={bannerAnchor.onTriggerPointerDown}
                     >
                       <div className="absolute inset-0 flex items-center justify-center rounded-t-lg bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
                         <Pencil className="size-4 text-white" />
@@ -331,11 +334,14 @@ export function ProfileCard({
                 return (
                   <div className="flex items-center gap-4">
                     {hasAvatar ? (
-                      <DropdownMenu>
+                      <DropdownMenu
+                        open={avatarAnchor.open}
+                        onOpenChange={avatarAnchor.onOpenChange}
+                      >
                         <DropdownMenuTrigger
                           disabled={uploading}
-                          className="group relative inline-flex shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                          onClick={avatarAnchor.onTriggerClick}
+                          className="group relative inline-flex size-12 shrink-0 overflow-hidden rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                          onPointerDown={avatarAnchor.onTriggerPointerDown}
                         >
                           <Avatar
                             size="xl"
@@ -351,7 +357,7 @@ export function ProfileCard({
                               {avatar.initials}
                             </AvatarFallback>
                           </Avatar>
-                          <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                          <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
                             <Pencil className="size-4 text-white" />
                           </div>
                         </DropdownMenuTrigger>
@@ -379,7 +385,7 @@ export function ProfileCard({
                         type="button"
                         disabled={uploading}
                         onClick={() => openFilePicker("avatar")}
-                        className="group relative shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                        className="group relative size-12 shrink-0 overflow-hidden rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                       >
                         <Avatar
                           size="xl"
@@ -391,7 +397,7 @@ export function ProfileCard({
                             {avatar.initials}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                        <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
                           <Camera className="size-4 text-white" />
                         </div>
                       </button>
