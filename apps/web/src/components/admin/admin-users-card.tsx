@@ -153,11 +153,8 @@ function useAdminUsers(currentUserId: string) {
       if (error) throw new Error(error.message ?? "Delete failed")
       toast.success("User removed")
       await refresh()
-    } catch (cause) {
-      toast.error("Couldn't remove user", {
-        description:
-          cause instanceof Error ? cause.message : "Please try again.",
-      })
+    } catch {
+      toast.error("Couldn't remove user")
     } finally {
       setBusyId(null)
     }
@@ -186,11 +183,8 @@ function useAdminUsers(currentUserId: string) {
         nextRole === "admin" ? "Promoted to admin" : "Reverted to user"
       )
       await refresh()
-    } catch (cause) {
-      toast.error("Couldn't update role", {
-        description:
-          cause instanceof Error ? cause.message : "Please try again.",
-      })
+    } catch {
+      toast.error("Couldn't update role")
     } finally {
       setBusyId(null)
     }
@@ -413,17 +407,11 @@ function SeedUserDialog({
           role: value.role,
         })
         if (error) throw new Error(error.message ?? "Create failed")
-        toast.success("User seeded", {
-          description:
-            "Share the OAuth login URL — they'll be linked on sign-in.",
-        })
+        toast.success("User seeded")
         form.reset()
         await onCreated()
-      } catch (cause) {
-        toast.error("Couldn't seed user", {
-          description:
-            cause instanceof Error ? cause.message : "Please try again.",
-        })
+      } catch {
+        toast.error("Couldn't seed user")
       }
     },
   })

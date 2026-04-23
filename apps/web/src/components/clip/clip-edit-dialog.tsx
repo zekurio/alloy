@@ -134,11 +134,7 @@ export function ClipEditDialog({
           toast.success("Clip updated")
           onOpenChange(false)
         },
-        onError: (err) =>
-          toast.error("Couldn't save changes", {
-            description:
-              err instanceof Error ? err.message : "Please try again.",
-          }),
+        onError: () => toast.error("Couldn't save changes"),
       }
     )
   }, [
@@ -175,9 +171,7 @@ export function ClipEditDialog({
         <DialogBody className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
           <div className="flex flex-col gap-5">
             <Field className="gap-1.5">
-              <FieldLabel htmlFor="clip-edit-title">
-                Title
-              </FieldLabel>
+              <FieldLabel htmlFor="clip-edit-title">Title</FieldLabel>
               <Input
                 id="clip-edit-title"
                 value={title}

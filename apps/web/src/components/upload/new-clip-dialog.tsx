@@ -95,18 +95,14 @@ export function NewClipDialog({
   const handleFileChosen = React.useCallback(async (file: File) => {
     const contentType = resolveContentType(file)
     if (!contentType) {
-      toast.error("Unsupported file type", {
-        description:
-          file.type || file.name.split(".").pop()?.toLowerCase() || "unknown",
-      })
+      toast.error("Unsupported file type")
       return
     }
     try {
       const meta = await probeFile(file)
       setSelectedFile({ ...meta, contentType })
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to read file"
-      toast.error("Couldn't read video metadata", { description: message })
+    } catch {
+      toast.error("Couldn't read video metadata")
     }
   }, [])
 
@@ -132,10 +128,8 @@ export function NewClipDialog({
       setPublishing(true)
       try {
         await onPublish(payload)
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Failed to upload clip"
-        toast.error("Couldn't publish clip", { description: message })
+      } catch {
+        toast.error("Couldn't publish clip")
       } finally {
         setPublishing(false)
       }

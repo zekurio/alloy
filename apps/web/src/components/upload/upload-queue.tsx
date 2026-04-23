@@ -185,8 +185,8 @@ function QueueRow({ item }: { item: QueueItem }) {
               {item.title}
             </span>
           </div>
-          <div className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-foreground-muted">
-            <span className={cn("font-semibold uppercase", tone.label)}>
+          <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-foreground-muted">
+            <span className={cn("font-medium uppercase", tone.label)}>
               {STATUS_LABELS[item.status]}
             </span>
             {showPct ? (
@@ -202,7 +202,7 @@ function QueueRow({ item }: { item: QueueItem }) {
             <span aria-hidden className="text-foreground-muted">
               ·
             </span>
-            <span className="truncate font-semibold text-foreground-muted">
+            <span className="truncate font-medium text-foreground-muted">
               {item.detail}
             </span>
           </div>

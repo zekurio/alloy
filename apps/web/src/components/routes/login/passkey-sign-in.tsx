@@ -19,10 +19,8 @@ export function PasskeySignIn() {
         setPending(false)
         return
       }
-    } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Passkey sign-in failed"
-      )
+    } catch {
+      toast.error("Passkey sign-in failed")
       setPending(false)
     }
   }

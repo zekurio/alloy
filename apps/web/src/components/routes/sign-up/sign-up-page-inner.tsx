@@ -1,22 +1,38 @@
 import { Link } from "@tanstack/react-router"
+import { FieldSeparator } from "@workspace/ui/components/field"
+
+import type { PublicAuthConfig } from "@workspace/api"
 
 import { AlloyLogo } from "@workspace/ui/components/alloy-logo"
 
 import { LoginArtwork } from "@/components/auth/login-artwork"
 import { useRedirectIfAuthed } from "@/lib/auth-hooks"
+import { usePasskeySupport } from "@/lib/passkey-support"
 import type { fetchPublicClips } from "@/lib/public-clips"
+import { OAuthSignIn } from "../login/oauth-sign-in"
 
+import { PasskeySignUpForm } from "./passkey-sign-up-form"
 import { SignUpForm } from "./sign-up-form"
 
 type PublicClips = Awaited<ReturnType<typeof fetchPublicClips>>
 
 type SignUpPageInnerProps = {
   clips: PublicClips
+  config: PublicAuthConfig
 }
 
-export function SignUpPageInner({ clips }: SignUpPageInnerProps) {
+export function SignUpPageInner({ clips, config }: SignUpPageInnerProps) {
   const canRender = useRedirectIfAuthed("/")
+  const { supported: passkeySupported, ready: passkeyReady } =
+    usePasskeySupport()
   if (!canRender) return null
+  const canEmailSignUp = config.openRegistrations && config.emailPasswordEnabled
+  const canPasskeySignUp = config.openRegistrations && config.passkeyEnabled
+  const showPasskeySignUp = canPasskeySignUp && passkeySupported
+  const oauthProvider = config.openRegistrations ? config.provider : null
+  const canOAuthSignUp = oauthProvider !== null
+  const needsSeparatorAfterEmail =
+    canEmailSignUp && (showPasskeySignUp || canOAuthSignUp)
 
   return (
     <div className="relative grid min-h-screen w-full bg-background text-foreground lg:grid-cols-[1fr_minmax(480px,0.7fr)]">
@@ -38,11 +54,33 @@ export function SignUpPageInner({ clips }: SignUpPageInnerProps) {
                 Create your account
               </h2>
               <p className="text-sm text-foreground-muted">
-                Sign up with an email and password.
+                Choose an enabled sign-up method.
               </p>
             </div>
 
-            <SignUpForm />
+            <div className="flex flex-col gap-6">
+              {canEmailSignUp ? <SignUpForm /> : null}
+
+              {needsSeparatorAfterEmail ? (
+                <FieldSeparator>OR</FieldSeparator>
+              ) : null}
+
+              {showPasskeySignUp ? <PasskeySignUpForm /> : null}
+
+              {canPasskeySignUp && passkeyReady && !passkeySupported ? (
+                <p className="text-sm text-foreground-muted">
+                  Passkey sign-up is enabled, but this browser does not support
+                  passkeys.
+                </p>
+              ) : null}
+
+              {canOAuthSignUp ? (
+                <OAuthSignIn
+                  providerId={oauthProvider.providerId}
+                  displayName={oauthProvider.displayName}
+                />
+              ) : null}
+            </div>
 
             <p className="mt-6 text-center text-sm text-foreground-muted">
               Already have an account?{" "}

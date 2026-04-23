@@ -32,6 +32,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 import { GameIcon } from "@workspace/ui/components/game-icon"
@@ -146,11 +147,7 @@ function ClipMeta({
     likeMutation.mutate(
       { clipId, nextLiked: !liked },
       {
-        onError: (err) =>
-          toast.error("Couldn't update like", {
-            description:
-              err instanceof Error ? err.message : "Please try again.",
-          }),
+        onError: () => toast.error("Couldn't update like"),
       }
     )
   }, [canLike, clipId, liked, likeMutation])
@@ -163,11 +160,7 @@ function ClipMeta({
           toast.success("Clip deleted")
           onDeleted?.()
         },
-        onError: (err) =>
-          toast.error("Couldn't delete clip", {
-            description:
-              err instanceof Error ? err.message : "Please try again.",
-          }),
+        onError: () => toast.error("Couldn't delete clip"),
       }
     )
   }, [clipId, deleteMutation, onDeleted])
@@ -180,10 +173,8 @@ function ClipMeta({
     try {
       await navigator.clipboard.writeText(url.toString())
       toast.success("Clip link copied")
-    } catch (err) {
-      toast.error("Couldn't copy link", {
-        description: err instanceof Error ? err.message : "Please try again.",
-      })
+    } catch {
+      toast.error("Couldn't copy link")
     }
   }, [])
 
@@ -254,6 +245,7 @@ function ClipMeta({
                 <DropdownMenuItem onClick={onEdit}>
                   <PencilIcon /> Edit
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   variant="destructive"
                   disabled={deleting}

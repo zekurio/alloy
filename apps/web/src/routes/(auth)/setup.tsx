@@ -51,24 +51,15 @@ function useSetupSubmit() {
           password: form.password,
         })
         if (err) {
-          toast.error("Couldn't create the admin account", {
-            description: err.message ?? "Please review the form and try again.",
-          })
+          toast.error("Couldn't create the admin account")
           return
         }
-        toast.success("Admin account ready", {
-          description: "Welcome — you can configure OAuth from here.",
-        })
+        toast.success("Admin account ready")
         invalidateAuthConfig()
         await navigate({ to: "/admin-settings" })
         await router.invalidate()
-      } catch (cause) {
-        toast.error("Unexpected error", {
-          description:
-            cause instanceof Error
-              ? cause.message
-              : "Something went wrong. Please try again.",
-        })
+      } catch {
+        toast.error("Unexpected error")
       }
     },
     [navigate, router]

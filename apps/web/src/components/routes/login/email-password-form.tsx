@@ -1,72 +1,70 @@
-import * as React from "react";
-import { useForm } from "@tanstack/react-form";
-import { useNavigate, useRouter } from "@tanstack/react-router";
-import { AtSignIcon, LockIcon } from "lucide-react";
+import * as React from "react"
+import { useForm } from "@tanstack/react-form"
+import { useNavigate, useRouter } from "@tanstack/react-router"
+import { AtSignIcon, LockIcon } from "lucide-react"
 
-import { Checkbox } from "@workspace/ui/components/checkbox";
-import { toast } from "@workspace/ui/components/sonner";
+import { Checkbox } from "@workspace/ui/components/checkbox"
+import { Label } from "@workspace/ui/components/label"
+import { toast } from "@workspace/ui/components/sonner"
 
-import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/lib/auth-client"
 import {
   AuthSubmitButton,
   FormInputField,
   PasswordInputField,
-} from "../auth/auth-form-fields";
-import {
-  validatePassword,
-  validateRequiredString,
-} from "@/lib/form-validators";
+} from "../auth/auth-form-fields"
+import { validatePassword, validateRequiredString } from "@/lib/form-validators"
 
 type LoginCredentials = {
-  identifier: string;
-  password: string;
-  rememberMe: boolean;
-};
+  identifier: string
+  password: string
+  rememberMe: boolean
+}
 
 type FieldMetaState = {
-  errors: Array<unknown>;
-  isTouched: boolean;
-  isValid: boolean;
-};
+  errors: Array<unknown>
+  isTouched: boolean
+  isValid: boolean
+}
 
 type StringFieldController = {
-  handleBlur: () => void;
-  handleChange: (value: string) => void;
-  name: string;
+  handleBlur: () => void
+  handleChange: (value: string) => void
+  name: string
   state: {
-    meta: FieldMetaState;
-    value: string;
-  };
-};
+    meta: FieldMetaState
+    value: string
+  }
+}
 
 type BooleanFieldController = {
-  handleChange: (value: boolean) => void;
+  handleChange: (value: boolean) => void
   state: {
-    value: boolean;
-  };
-};
+    value: boolean
+  }
+}
 
 function getFieldValidationState(
   meta: FieldMetaState,
-  submissionAttempts: number,
+  submissionAttempts: number
 ) {
-  const showError = meta.isTouched || submissionAttempts > 0;
+  const showError = meta.isTouched || submissionAttempts > 0
 
   return {
     errors: showError ? meta.errors : undefined,
     invalid: showError && !meta.isValid,
-  };
+  }
 }
 
 function useEmailPasswordSubmit() {
-  const router = useRouter();
-  const navigate = useNavigate();
+  const router = useRouter()
+  const navigate = useNavigate()
 
   return React.useCallback(
     async (creds: LoginCredentials) => {
       try {
-        const identifier = creds.identifier.trim();
-        const isEmail = identifier.includes("@");
+        const identifier = creds.identifier.trim()
+        const isEmail = identifier.includes("@")
         const { error: err } = isEmail
           ? await authClient.signIn.email({
               email: identifier,
@@ -77,39 +75,32 @@ function useEmailPasswordSubmit() {
               username: identifier,
               password: creds.password,
               rememberMe: creds.rememberMe,
-            });
+            })
         if (err) {
-          toast.error("Couldn't sign in", {
-            description: err.message ?? "Check your details and try again.",
-          });
-          return;
+          toast.error("Couldn't sign in")
+          return
         }
-        await router.invalidate();
-        await navigate({ to: "/" });
-      } catch (cause) {
-        toast.error("Unexpected sign-in error", {
-          description:
-            cause instanceof Error
-              ? cause.message
-              : "Something went wrong. Please try again.",
-        });
+        await router.invalidate()
+        await navigate({ to: "/" })
+      } catch {
+        toast.error("Unexpected sign-in error")
       }
     },
-    [navigate, router],
-  );
+    [navigate, router]
+  )
 }
 
 function LoginIdentifierField({
   field,
   submissionAttempts,
 }: {
-  field: StringFieldController;
-  submissionAttempts: number;
+  field: StringFieldController
+  submissionAttempts: number
 }) {
   const { errors, invalid } = getFieldValidationState(
     field.state.meta,
-    submissionAttempts,
-  );
+    submissionAttempts
+  )
 
   return (
     <FormInputField
@@ -128,7 +119,7 @@ function LoginIdentifierField({
       errors={errors}
       required
     />
-  );
+  )
 }
 
 function LoginPasswordField({
@@ -138,16 +129,16 @@ function LoginPasswordField({
   submissionAttempts,
   togglePassword,
 }: {
-  disabled: boolean;
-  field: StringFieldController;
-  showPassword: boolean;
-  submissionAttempts: number;
-  togglePassword: () => void;
+  disabled: boolean
+  field: StringFieldController
+  showPassword: boolean
+  submissionAttempts: number
+  togglePassword: () => void
 }) {
   const { errors, invalid } = getFieldValidationState(
     field.state.meta,
-    submissionAttempts,
-  );
+    submissionAttempts
+  )
 
   return (
     <PasswordInputField
@@ -166,30 +157,36 @@ function LoginPasswordField({
       togglePassword={togglePassword}
       required
     />
-  );
+  )
 }
 
 function RememberMeField({
   disabled,
   field,
 }: {
-  disabled: boolean;
-  field: BooleanFieldController;
+  disabled: boolean
+  field: BooleanFieldController
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2.5 text-sm text-foreground-muted select-none">
+    <div className="flex items-center gap-2.5">
       <Checkbox
+        id="remember-me"
         checked={field.state.value}
         onCheckedChange={(value) => field.handleChange(value === true)}
         disabled={disabled}
       />
-      Keep me signed in
-    </label>
-  );
+      <Label
+        htmlFor="remember-me"
+        className="cursor-pointer text-sm font-normal text-foreground-muted"
+      >
+        Keep me signed in
+      </Label>
+    </div>
+  )
 }
 
 export function EmailPasswordForm() {
-  const submit = useEmailPasswordSubmit();
+  const submit = useEmailPasswordSubmit()
   const form = useForm({
     defaultValues: {
       identifier: "",
@@ -197,19 +194,19 @@ export function EmailPasswordForm() {
       rememberMe: true,
     } as LoginCredentials,
     onSubmit: async ({ value }) => {
-      await submit(value);
+      await submit(value)
     },
-  });
-  const [showPassword, setShowPassword] = React.useState(false);
-  const submissionAttempts = form.state.submissionAttempts;
-  const isSubmitting = form.state.isSubmitting;
+  })
+  const [showPassword, setShowPassword] = React.useState(false)
+  const submissionAttempts = form.state.submissionAttempts
+  const isSubmitting = form.state.isSubmitting
 
   return (
     <form
       onSubmit={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        void form.handleSubmit();
+        e.preventDefault()
+        e.stopPropagation()
+        void form.handleSubmit()
       }}
       className="flex flex-col gap-5"
     >
@@ -263,5 +260,5 @@ export function EmailPasswordForm() {
         )}
       </form.Subscribe>
     </form>
-  );
+  )
 }

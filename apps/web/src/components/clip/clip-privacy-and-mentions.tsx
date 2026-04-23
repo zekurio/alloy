@@ -50,11 +50,7 @@ export function PrivacyBadgeMenu({
     mutation.mutate(
       { clipId, input: { privacy: next } },
       {
-        onError: (err) =>
-          toast.error("Couldn't update visibility", {
-            description:
-              err instanceof Error ? err.message : "Please try again.",
-          }),
+        onError: () => toast.error("Couldn't update visibility"),
       }
     )
   }
@@ -144,11 +140,7 @@ export function EditableMentions({
     mutation.mutate(
       { clipId, input: { mentionedUserIds: nextIds } },
       {
-        onError: (err) =>
-          toast.error("Couldn't update tagged users", {
-            description:
-              err instanceof Error ? err.message : "Please try again.",
-          }),
+        onError: () => toast.error("Couldn't update tagged users"),
       }
     )
     setOpen(false)

@@ -24,10 +24,7 @@ import {
   useInvalidateClips,
   useUploadQueueQuery,
 } from "@/lib/clip-queries"
-import {
-  uploadToTicket,
-  type QueueClip,
-} from "@workspace/api"
+import { uploadToTicket, type QueueClip } from "@workspace/api"
 import {
   hueFor,
   localToQueueItem,
@@ -293,10 +290,7 @@ function useNewClipPicker(onPicked: () => void) {
       if (!file) return
       const contentType = resolveContentType(file)
       if (!contentType) {
-        toast.error("Unsupported file type", {
-          description:
-            file.type || file.name.split(".").pop()?.toLowerCase() || "unknown",
-        })
+        toast.error("Unsupported file type")
         return
       }
       try {
@@ -304,10 +298,8 @@ function useNewClipPicker(onPicked: () => void) {
         setInitialFile({ ...meta, contentType })
         onPicked()
         setNewClipOpen(true)
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Failed to read file"
-        toast.error("Couldn't read video metadata", { description: message })
+      } catch {
+        toast.error("Couldn't read video metadata")
       }
     },
     [onPicked]
@@ -460,10 +452,8 @@ async function copyClipLink(row: QueueClip): Promise<void> {
   try {
     await navigator.clipboard.writeText(clipLinkFor(row))
     toast.success("Clip link copied")
-  } catch (err) {
-    toast.error("Couldn't copy link", {
-      description: err instanceof Error ? err.message : "Please try again.",
-    })
+  } catch {
+    toast.error("Couldn't copy link")
   }
 }
 
