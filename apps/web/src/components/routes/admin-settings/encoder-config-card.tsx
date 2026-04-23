@@ -16,8 +16,14 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import { NativeSelect } from "@workspace/ui/components/native-select"
 import { Separator } from "@workspace/ui/components/separator"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@workspace/ui/components/select"
 import { toast } from "@workspace/ui/components/sonner"
 import { Switch } from "@workspace/ui/components/switch"
 
@@ -36,8 +42,14 @@ import {
 } from "@workspace/api"
 
 import { api } from "@/lib/api"
+import { EncoderPresetField } from "./encoder-preset-field"
 import { IntInput, VariantRow } from "./encoder-variant-row"
-import { HWACCEL_LABEL, presetSuggestionsFor, QUALITY_LABEL } from "./shared"
+import {
+  HWACCEL_LABEL,
+  QUALITY_LABEL,
+  normalizeGlobalPreset,
+  normalizeVariantPreset,
+} from "./shared"
 
 type EncoderConfigCardProps = {
   encoder: AdminEncoderConfig
@@ -82,6 +94,26 @@ export function EncoderConfigCard({
     value: AdminEncoderConfig[K]
   ) {
     setForm((f) => ({ ...f, [key]: value }))
+  }
+
+  function setEncoderCombo(
+    nextHwaccel: EncoderHwaccel,
+    nextCodec: EncoderCodec
+  ) {
+    setForm((f) => ({
+      ...f,
+      hwaccel: nextHwaccel,
+      codec: nextCodec,
+      preset: normalizeGlobalPreset(nextHwaccel, nextCodec, f.preset),
+      variants: f.variants.map((variant) => ({
+        ...variant,
+        preset: normalizeVariantPreset(
+          nextHwaccel,
+          variant.codec ?? nextCodec,
+          variant.preset
+        ),
+      })),
+    }))
   }
 
   function updateVariant(index: number, next: AdminEncoderVariant) {
@@ -198,7 +230,7 @@ export function EncoderConfigCard({
           <div>
             <CardTitle>Encoder</CardTitle>
             <CardDescription>
-              Backend, codec, and variant ladder for new encode jobs.
+              Encoder, codec, and variant ladder for new encode jobs.
             </CardDescription>
           </div>
         </CardHeader>
@@ -230,50 +262,58 @@ export function EncoderConfigCard({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
-              <FieldLabel htmlFor="encoder-hwaccel">Backend</FieldLabel>
-              <NativeSelect
-                id="encoder-hwaccel"
-                className="w-full"
+              <FieldLabel htmlFor="encoder-hwaccel">Encoder</FieldLabel>
+              <Select
                 value={form.hwaccel}
-                onChange={(e) =>
-                  set("hwaccel", e.target.value as EncoderHwaccel)
+                onValueChange={(value) =>
+                  setEncoderCombo(value as EncoderHwaccel, form.codec)
                 }
               >
-                {ENCODER_HWACCELS.map((hw) => {
-                  const row = caps?.available[hw]
-                  const anyCodec = row ? row.h264 || row.hevc : true
-                  return (
-                    <option key={hw} value={hw} disabled={!anyCodec}>
-                      {HWACCEL_LABEL[hw]}
-                      {row && !anyCodec ? " — unavailable" : ""}
-                    </option>
-                  )
-                })}
-              </NativeSelect>
+                <SelectTrigger id="encoder-hwaccel" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="start" alignItemWithTrigger={false}>
+                  {ENCODER_HWACCELS.map((hw) => {
+                    const row = caps?.available[hw]
+                    const anyCodec = row ? row.h264 || row.hevc : true
+                    return (
+                      <SelectItem key={hw} value={hw} disabled={!anyCodec}>
+                        {HWACCEL_LABEL[hw]}
+                        {row && !anyCodec ? " — unavailable" : ""}
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
               <FieldDescription>
-                Software is the safe default. Hardware backends need a
-                compatible GPU and matching ffmpeg build.
+                Pick your desired encoder. Make sure your GPU and ffmpeg build
+                support the selected codec. If not, pick a software encoder.
               </FieldDescription>
             </Field>
 
             <Field>
               <FieldLabel htmlFor="encoder-codec">Codec</FieldLabel>
-              <NativeSelect
-                id="encoder-codec"
-                className="w-full"
+              <Select
                 value={form.codec}
-                onChange={(e) => set("codec", e.target.value as EncoderCodec)}
+                onValueChange={(value) =>
+                  setEncoderCombo(form.hwaccel, value as EncoderCodec)
+                }
               >
-                {ENCODER_CODECS.map((codec) => {
-                  const ok = currentCombo ? currentCombo[codec] : true
-                  return (
-                    <option key={codec} value={codec} disabled={!ok}>
-                      {codec.toUpperCase()}
-                      {currentCombo && !ok ? " — unavailable" : ""}
-                    </option>
-                  )
-                })}
-              </NativeSelect>
+                <SelectTrigger id="encoder-codec" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="start" alignItemWithTrigger={false}>
+                  {ENCODER_CODECS.map((codec) => {
+                    const ok = currentCombo ? currentCombo[codec] : true
+                    return (
+                      <SelectItem key={codec} value={codec} disabled={!ok}>
+                        {codec.toUpperCase()}
+                        {currentCombo && !ok ? " — unavailable" : ""}
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
               {currentComboMissing ? (
                 <FieldDescription className="text-destructive">
                   This combination isn&rsquo;t available in the host&rsquo;s
@@ -306,25 +346,14 @@ export function EncoderConfigCard({
               <FieldLabel htmlFor="encoder-preset" required>
                 Preset
               </FieldLabel>
-              <Input
+              <EncoderPresetField
                 id="encoder-preset"
-                list="encoder-preset-suggestions"
                 value={form.preset}
+                hwaccel={form.hwaccel}
+                codec={form.codec}
                 required
-                onChange={(e) => set("preset", e.target.value)}
-                disabled={form.hwaccel === "vaapi"}
-                placeholder={
-                  form.hwaccel === "vaapi" ? "Ignored by VA-API" : ""
-                }
+                onChange={(next) => set("preset", next ?? "")}
               />
-              <datalist id="encoder-preset-suggestions">
-                {presetSuggestionsFor(form.hwaccel, form.codec).map((p) => (
-                  <option key={p} value={p} />
-                ))}
-              </datalist>
-              <FieldDescription>
-                Speed/quality knob. Suggestions reflect the current backend.
-              </FieldDescription>
             </Field>
           </div>
 
