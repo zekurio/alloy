@@ -191,9 +191,6 @@ export function GameCombobox({
       }
     : null
 
-  // Keep the latest user pick visible while we resolve it into a local row.
-  // Otherwise the combobox snaps back to the previously committed game until
-  // the mutation settles, which is what both dialogs were showing.
   const controlledValue: GameComboboxItem | null = cleared
     ? null
     : (pendingItem ?? committedValue)
