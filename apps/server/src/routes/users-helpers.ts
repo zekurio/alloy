@@ -32,6 +32,7 @@ export function toPublicUser(row: UserRow): PublicUser {
     username: row.username,
     name: row.name ?? "",
     image: row.image,
+    banner: row.banner,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   }
