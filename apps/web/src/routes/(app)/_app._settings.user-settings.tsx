@@ -19,7 +19,7 @@ function ProfilePage() {
 
   return (
     <>
-      <h1 className="text-2xl font-semibold tracking-[-0.02em]">
+      <h1 className="text-xl font-semibold tracking-[-0.02em]">
         Profile settings
       </h1>
       <ProfileCard
@@ -28,6 +28,7 @@ function ProfilePage() {
         initialName={user.name ?? ""}
         initialUsername={user.username ?? ""}
         image={user.image ?? ""}
+        banner={(user as { banner?: string | null }).banner ?? ""}
         email={user.email ?? ""}
       />
       <LinkedAccountsCard />

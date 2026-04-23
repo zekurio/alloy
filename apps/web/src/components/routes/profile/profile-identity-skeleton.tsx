@@ -7,7 +7,7 @@ export function ProfileIdentitySkeleton() {
       <div className="flex w-full flex-col">
         <section
           className={cn(
-            "relative -mx-8 -mt-6 overflow-hidden",
+            "relative -mx-4 -mt-6 overflow-hidden md:-mx-8",
             "aspect-[3/1] max-h-[320px] min-h-[180px]"
           )}
         >
