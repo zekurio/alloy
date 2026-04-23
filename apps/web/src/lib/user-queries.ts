@@ -1,14 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 
-import {
-  fetchTaggedClips,
-  fetchUserFollowers,
-  fetchUserFollowing,
-  fetchUserProfile,
-  searchUsers,
-  type ProfileViewer,
-  type UserProfile,
-} from "./users-api"
+import type { ProfileViewer, UserProfile } from "@workspace/api"
+
+import { api } from "./api"
 
 export const userKeys = {
   all: ["user"] as const,
@@ -25,7 +19,7 @@ export function useUserSearchQuery(q: string) {
   const trimmed = q.trim()
   return useQuery({
     queryKey: userKeys.search(trimmed),
-    queryFn: () => searchUsers(trimmed),
+    queryFn: () => api.users.search(trimmed),
     enabled: trimmed.length > 0,
     staleTime: 30_000,
   })
@@ -34,7 +28,7 @@ export function useUserSearchQuery(q: string) {
 export function useTaggedClipsQuery(handle: string) {
   return useQuery({
     queryKey: userKeys.tagged(handle),
-    queryFn: () => fetchTaggedClips(handle),
+    queryFn: () => api.users.fetchTaggedClips(handle),
     enabled: handle.length > 0,
   })
 }
@@ -45,7 +39,7 @@ export function useUserFollowersQuery(
 ) {
   return useQuery({
     queryKey: userKeys.followers(handle),
-    queryFn: () => fetchUserFollowers(handle),
+    queryFn: () => api.users.fetchFollowers(handle),
     enabled: enabled && handle.length > 0,
     staleTime: 30_000,
   })
@@ -57,7 +51,7 @@ export function useUserFollowingQuery(
 ) {
   return useQuery({
     queryKey: userKeys.following(handle),
-    queryFn: () => fetchUserFollowing(handle),
+    queryFn: () => api.users.fetchFollowing(handle),
     enabled: enabled && handle.length > 0,
     staleTime: 30_000,
   })
@@ -66,7 +60,7 @@ export function useUserFollowingQuery(
 export function useUserProfileQuery(handle: string) {
   return useQuery({
     queryKey: userKeys.profile(handle),
-    queryFn: () => fetchUserProfile(handle),
+    queryFn: () => api.users.fetchProfile(handle),
     enabled: handle.length > 0,
   })
 }

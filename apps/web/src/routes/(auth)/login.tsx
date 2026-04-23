@@ -2,7 +2,7 @@ import * as React from "react"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
 import { LoginPageInner } from "@/components/routes/login/login-page-inner"
-import { fetchAuthConfig } from "@/lib/auth-config"
+import { api } from "@/lib/api"
 import { fetchPublicClips } from "@/lib/public-clips"
 
 export const Route = createFileRoute("/(auth)/login")({
@@ -10,7 +10,7 @@ export const Route = createFileRoute("/(auth)/login")({
     // `fetchPublicClips` is soft-failing, so this Promise.all can't reject
     // on its behalf.
     const [config, clips] = await Promise.all([
-      fetchAuthConfig(),
+      api.authConfig.fetch(),
       fetchPublicClips(),
     ])
     if (config.setupRequired) {

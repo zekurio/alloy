@@ -11,10 +11,14 @@ import {
 import { toast } from "@workspace/ui/components/sonner"
 import { cn } from "@workspace/ui/lib/utils"
 
+import type {
+  ClipMentionRef,
+  ClipPrivacy,
+  UserSearchResult,
+} from "@workspace/api"
+
 import { useUpdateClipMutation } from "@/lib/clip-queries"
-import type { ClipMentionRef, ClipPrivacy } from "@/lib/clips-api"
 import { PRIVACY_BY_VALUE, PRIVACY_OPTIONS } from "@/lib/clip-fields"
-import type { UserSearchResult } from "@/lib/users-api"
 
 import { MentionPicker } from "@/components/search/mention-picker"
 

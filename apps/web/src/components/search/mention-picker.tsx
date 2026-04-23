@@ -12,7 +12,7 @@ import { useSession } from "@/lib/auth-client"
 import { userChipData } from "@/lib/user-display"
 import { useUserSearchQuery } from "@/lib/user-queries"
 import { useDebouncedValue } from "@/lib/use-debounced-value"
-import type { UserSearchResult } from "@/lib/users-api"
+import type { UserSearchResult } from "@workspace/api"
 
 export interface MentionPickerProps {
   value: UserSearchResult[]

@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query"
 
 import { clipKeys } from "./clip-query-keys"
 import { apiOrigin } from "./env"
-import type { QueueClip } from "./clips-api"
+import type { QueueClip } from "@workspace/api"
 
 const STREAM_URL = "/events/clips/queue"
 
