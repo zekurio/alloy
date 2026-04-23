@@ -1,9 +1,11 @@
-import { use } from "react"
+import { cache, use } from "react"
+import { createMiddleware, createServerFn } from "@tanstack/react-start"
 
 import type { PublicAuthConfig } from "@workspace/api"
 
 import { api } from "./api"
 import { authClient, useSession } from "./auth-client"
+import { apiOrigin } from "./env"
 
 type SessionData = ReturnType<typeof useSession>["data"]
 
@@ -26,6 +28,44 @@ const FALLBACK_CONFIG: PublicAuthConfig = {
 let sessionInitialPromise: Promise<void> | null = null
 let configPromiseCache: Promise<PublicAuthConfig> | null = null
 
+const requestContextMiddleware = createMiddleware().server(
+  ({ next, request }) => {
+    return next({ context: { request } })
+  }
+)
+
+async function fetchSession(cookie: string | null): Promise<SessionData> {
+  try {
+    const response = await fetch(new URL("/api/auth/get-session", apiOrigin()), {
+      headers: cookie ? { cookie } : undefined,
+    })
+
+    if (!response.ok) return null
+
+    return (await response.json()) as SessionData
+  } catch {
+    return null
+  }
+}
+
+const fetchServerSession = createServerFn({ method: "GET" })
+  .middleware([requestContextMiddleware])
+  .handler(async ({ context }) => {
+    return fetchSession(context.request.headers.get("cookie"))
+  })
+
+const loadServerSession = cache(() => fetchServerSession())
+
+function sessionAtom():
+  | { get(): AtomValue; listen(cb: (v: AtomValue) => void): () => void }
+  | undefined {
+  const atom = authClient.$store.atoms.session as
+    | { get(): AtomValue; listen(cb: (v: AtomValue) => void): () => void }
+    | undefined
+
+  return atom
+}
+
 function sessionInitializedPromise(): Promise<void> {
   if (sessionInitialPromise) return sessionInitialPromise
 
@@ -34,9 +74,7 @@ function sessionInitializedPromise(): Promise<void> {
     return sessionInitialPromise
   }
 
-  const atom = authClient.$store.atoms.session as
-    | { get(): AtomValue; listen(cb: (v: AtomValue) => void): () => void }
-    | undefined
+  const atom = sessionAtom()
 
   if (!atom) {
     // Shouldn't happen with our client config, but fail open rather than
@@ -62,10 +100,21 @@ function sessionInitializedPromise(): Promise<void> {
   return sessionInitialPromise
 }
 
-function configPromise(): Promise<PublicAuthConfig> {
-  if (typeof window === "undefined") {
-    return Promise.resolve(FALLBACK_CONFIG)
+export async function loadSession(): Promise<SessionData> {
+  if (typeof window === "undefined") return loadServerSession()
+
+  const current = sessionAtom()?.get()
+  if (current && !current.isPending) return current.data
+
+  try {
+    const { data } = await authClient.getSession()
+    return data ?? null
+  } catch {
+    return null
   }
+}
+
+export function loadAuthConfig(): Promise<PublicAuthConfig> {
   if (!configPromiseCache) {
     configPromiseCache = api.authConfig.fetch().catch(() => FALLBACK_CONFIG)
   }
@@ -77,6 +126,10 @@ export function invalidateAuthConfig(): void {
 }
 
 export function useSuspenseSession(): SessionData {
+  if (typeof window === "undefined") {
+    return use(loadServerSession())
+  }
+
   use(sessionInitializedPromise())
   const { data } = useSession()
   return data
@@ -87,5 +140,5 @@ export function useSuspenseSession(): SessionData {
  * across routes — cheap to call from multiple components on the same page.
  */
 export function useSuspenseAuthConfig(): PublicAuthConfig {
-  return use(configPromise())
+  return use(loadAuthConfig())
 }
