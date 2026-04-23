@@ -117,7 +117,7 @@ export function GameCarouselSection({
           <CarouselContent>
             {Array.from({ length: skeletonSeedCount }).map((_, i) => (
               <CarouselItem key={i} className={ITEM_CLASS}>
-                <Skeleton className={`aspect-[2/3] ${CARD_CLASS} rounded-md`} />
+                <Skeleton className={`aspect-[2/3] ${CARD_CLASS} rounded-lg`} />
               </CarouselItem>
             ))}
           </CarouselContent>
@@ -147,13 +147,13 @@ export function GameCarouselSection({
           </CarouselContent>
           <CarouselPrevious
             variant="ghost"
-            size="icon-lg"
-            className="left-2 z-10 rounded-none border-transparent bg-transparent text-white shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]"
+            size="icon"
+            className="left-2 z-10 rounded-none border-transparent bg-transparent text-white shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-9 [&_svg]:stroke-[2.5]"
           />
           <CarouselNext
             variant="ghost"
-            size="icon-lg"
-            className="right-2 z-10 rounded-none border-transparent bg-transparent text-white shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]"
+            size="icon"
+            className="right-2 z-10 rounded-none border-transparent bg-transparent text-white shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-9 [&_svg]:stroke-[2.5]"
           />
         </Carousel>
       )}

@@ -46,7 +46,7 @@ export function GamesSection() {
       ) : isPending || !games ? (
         <GamesGrid>
           {Array.from({ length: 10 }).map((_, i) => (
-            <Skeleton key={i} className="aspect-[2/3] rounded-md" />
+            <Skeleton key={i} className="aspect-[2/3] rounded-lg" />
           ))}
         </GamesGrid>
       ) : games.length === 0 ? (
