@@ -58,7 +58,7 @@ export function VolumeControl({
         size="icon-sm"
         aria-label={muted ? "Unmute" : "Mute"}
         onClick={onToggleMute}
-        className="rounded-full text-white/90 [&_svg]:fill-current [&_svg]:stroke-current hover:bg-white/10 hover:text-white focus-visible:ring-white/30"
+        className="rounded-full text-white/90 hover:bg-white/10 hover:text-white focus-visible:ring-white/30"
       >
         <Icon />
       </Button>

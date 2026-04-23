@@ -14,10 +14,22 @@ import { formatTime } from "./video-player-hooks"
 import { VideoScrubber } from "./video-scrubber"
 import { VolumeControl } from "./video-volume-control"
 
+const KEYBOARD_SEEK_SECONDS = 5
+const KEYBOARD_VOLUME_STEP = 0.1
+
 export type LoadStatus =
   | { kind: "loading" }
   | { kind: "ready" }
   | { kind: "error"; message: string }
+
+type VideoKeyCommand = {
+  togglePlay: () => void
+  toggleMute: () => void
+  seekBy: (delta: number) => void
+  seekTo: (seconds: number) => void
+  volumeBy: (delta: number) => void
+  toggleFullscreen: () => void
+}
 
 function withVideoBackdrop(style: React.CSSProperties): React.CSSProperties {
   return {
@@ -67,12 +79,7 @@ export function ChromeShell({
   className?: string
   aspectRatio?: number
   playing: boolean
-  onKeyCommand: {
-    togglePlay: () => void
-    toggleMute: () => void
-    seekBy: (delta: number) => void
-    toggleFullscreen: () => void
-  }
+  onKeyCommand: VideoKeyCommand
   children: React.ReactNode
 }) {
   const [chromeVisible, setChromeVisible] = React.useState(true)
@@ -103,20 +110,34 @@ export function ChromeShell({
 
   const onKeyDown = React.useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.target !== e.currentTarget) return
-      if (e.key === " " || e.code === "Space") {
+      if (!shouldHandleVideoShortcut(e.target, e.currentTarget)) return
+      const key = e.key.toLowerCase()
+
+      if (e.key === " " || e.code === "Space" || key === "k") {
         e.preventDefault()
         onKeyCommand.togglePlay()
       } else if (e.key === "ArrowLeft") {
         e.preventDefault()
-        onKeyCommand.seekBy(-5)
+        onKeyCommand.seekBy(-KEYBOARD_SEEK_SECONDS)
       } else if (e.key === "ArrowRight") {
         e.preventDefault()
-        onKeyCommand.seekBy(5)
-      } else if (e.key.toLowerCase() === "m") {
+        onKeyCommand.seekBy(KEYBOARD_SEEK_SECONDS)
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault()
+        onKeyCommand.volumeBy(KEYBOARD_VOLUME_STEP)
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault()
+        onKeyCommand.volumeBy(-KEYBOARD_VOLUME_STEP)
+      } else if (e.key === "Home") {
+        e.preventDefault()
+        onKeyCommand.seekTo(0)
+      } else if (e.key === "End") {
+        e.preventDefault()
+        onKeyCommand.seekTo(Number.POSITIVE_INFINITY)
+      } else if (key === "m") {
         e.preventDefault()
         onKeyCommand.toggleMute()
-      } else if (e.key.toLowerCase() === "f") {
+      } else if (key === "f") {
         e.preventDefault()
         onKeyCommand.toggleFullscreen()
       }
@@ -153,6 +174,29 @@ export function ChromeShell({
   )
 }
 
+function shouldHandleVideoShortcut(
+  target: EventTarget,
+  currentTarget: HTMLDivElement
+): boolean {
+  if (target === currentTarget) return true
+  if (!(target instanceof HTMLElement)) return false
+  if (target.closest("[data-video-shortcut-scope='ignore']")) return false
+  if (target.isContentEditable) return false
+
+  const tag = target.tagName
+  if (
+    tag === "BUTTON" ||
+    tag === "INPUT" ||
+    tag === "SELECT" ||
+    tag === "TEXTAREA"
+  ) {
+    return false
+  }
+
+  const role = target.getAttribute("role")
+  return role !== "slider" && role !== "button" && role !== "combobox"
+}
+
 export function ChromeBar({
   playing,
   duration,
@@ -169,6 +213,7 @@ export function ChromeBar({
   onSelectQuality,
   downloadOptions,
   onToggleFullscreen,
+  flush = false,
 }: {
   playing: boolean
   duration: number
@@ -185,6 +230,8 @@ export function ChromeBar({
   onSelectQuality?: (qualityId: string) => void
   downloadOptions?: Array<{ id: string; label: string; url: string }>
   onToggleFullscreen: () => void
+  /** Sit flush against the video frame — no padding / rounded corners. */
+  flush?: boolean
 }) {
   const [fullscreenSupported, setFullscreenSupported] = React.useState(false)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
@@ -196,9 +243,9 @@ export function ChromeBar({
     "--alloy-glass-shadow": "0 18px 42px -28px rgb(0 0 0 / 0.82)",
   } as React.CSSProperties
   const iconButtonClass =
-    "rounded-full text-white/90 [&_svg]:fill-current [&_svg]:stroke-current hover:bg-white/10 hover:text-white focus-visible:ring-white/30"
+    "rounded-full text-white/90 hover:bg-white/10 hover:text-white focus-visible:ring-white/30"
   const selectTriggerClass =
-    "h-8 gap-1 rounded-full border-0 bg-transparent pr-2 pl-2 text-xs text-white/90 hover:border-0 hover:bg-white/10 hover:text-white focus:ring-0 focus:ring-offset-0 focus-visible:border-0 focus-visible:bg-white/10 focus-visible:ring-0 [&_svg]:fill-current [&_svg]:stroke-current [&_svg]:text-white/90 hover:[&_svg]:text-white [&_span]:text-white/90 hover:[&_span]:text-white"
+    "h-8 gap-1 rounded-full border-0 bg-transparent pr-2 pl-2 text-xs text-white/90 hover:border-0 hover:bg-white/10 hover:text-white focus:ring-0 focus:ring-offset-0 focus-visible:border-0 focus-visible:bg-white/10 focus-visible:ring-0 [&_svg]:text-white/90 hover:[&_svg]:text-white [&_span]:text-white/90 hover:[&_span]:text-white"
 
   const hasQualityChoices =
     (qualityOptions?.length ?? 0) > 1 && Boolean(onSelectQuality)
@@ -242,46 +289,70 @@ export function ChromeBar({
         "group-data-[chrome=hidden]/video:pointer-events-none group-data-[chrome=hidden]/video:opacity-0"
       )}
     >
-      <div className="relative flex flex-col gap-2 px-3 pb-3 sm:px-4 sm:pb-4">
-        <div className="px-1 text-white">
-          <VideoScrubber
-            currentTime={currentTime}
-            duration={duration}
-            bufferedEnd={bufferedEnd}
-            onSeek={onSeek}
-          />
-        </div>
-
-        <div
-          className="alloy-glass flex items-center gap-1.5 rounded-2xl border px-1.5 py-1 text-white"
-          style={withVideoBackdrop(glassStyle)}
-        >
-          <div className="inline-flex h-8 items-center gap-0.5">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={playing ? "Pause" : "Play"}
-              onClick={onTogglePlay}
-              className={iconButtonClass}
-            >
-              {playing ? <PauseIcon /> : <PlayIcon />}
-            </Button>
-
-            <VolumeControl
-              muted={muted}
-              volume={volume}
-              onToggleMute={onToggleMute}
-              onVolumeChange={onVolumeChange}
+      <div
+        className={cn(
+          "relative flex flex-col",
+          flush ? "px-0 pb-0" : "gap-2 px-3 pb-3 sm:px-4 sm:pb-4"
+        )}
+      >
+        {flush ? null : (
+          <div className="px-1 text-white">
+            <VideoScrubber
+              currentTime={currentTime}
+              duration={duration}
+              bufferedEnd={bufferedEnd}
+              onSeek={onSeek}
             />
           </div>
+        )}
 
-          <div className="inline-flex h-8 items-center px-2 text-xs text-white/65 tabular-nums">
-            <span className="text-white/95">{formatTime(currentTime)}</span>
-            <span className="mx-1 text-white/35">/</span>
-            <span>{formatTime(duration)}</span>
-          </div>
+        <div
+          className={cn(
+            "alloy-glass flex flex-col gap-1.5 px-1.5 text-white",
+            flush
+              ? "rounded-none border-x-0 border-b-0 border-t pt-1.5 pb-1"
+              : "flex-row items-center rounded-2xl border py-1"
+          )}
+          style={withVideoBackdrop(glassStyle)}
+        >
+          {flush ? (
+            <div className="px-0.5 text-white">
+              <VideoScrubber
+                currentTime={currentTime}
+                duration={duration}
+                bufferedEnd={bufferedEnd}
+                onSeek={onSeek}
+              />
+            </div>
+          ) : null}
 
-          <div className="ml-auto inline-flex h-8 items-center gap-0.5">
+          <div className="flex w-full items-center gap-1.5">
+            <div className="inline-flex h-8 items-center gap-0.5">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={playing ? "Pause" : "Play"}
+                onClick={onTogglePlay}
+                className={iconButtonClass}
+              >
+                {playing ? <PauseIcon /> : <PlayIcon />}
+              </Button>
+
+              <VolumeControl
+                muted={muted}
+                volume={volume}
+                onToggleMute={onToggleMute}
+                onVolumeChange={onVolumeChange}
+              />
+            </div>
+
+            <div className="inline-flex h-8 items-center px-2 text-xs text-white/65 tabular-nums">
+              <span className="text-white/95">{formatTime(currentTime)}</span>
+              <span className="mx-1 text-white/35">/</span>
+              <span>{formatTime(duration)}</span>
+            </div>
+
+            <div className="ml-auto inline-flex h-8 items-center gap-0.5">
               {hasQualityChoices ? (
                 <Select
                   value={selectedQualityId}
@@ -338,6 +409,7 @@ export function ChromeBar({
                   <MaximizeIcon />
                 </Button>
               ) : null}
+            </div>
           </div>
         </div>
       </div>
