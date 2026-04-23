@@ -16,7 +16,6 @@ import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
@@ -117,14 +116,7 @@ export function OAuthProviderCard({
     <>
       <Card>
         <CardHeader className="border-b-0 pb-0">
-          <div>
-            <CardTitle>OIDC / OAuth provider</CardTitle>
-            <CardDescription>
-              Existing users can sign in with this provider when it is enabled.
-              If open registrations is on, first-time users can create accounts
-              through the same button.
-            </CardDescription>
-          </div>
+          <CardTitle>OIDC / OAuth provider</CardTitle>
         </CardHeader>
         <CardContent className="flex items-center justify-between gap-4 py-4">
           <div className="flex min-w-0 items-center gap-3">

@@ -5,7 +5,6 @@ import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -277,14 +276,9 @@ export function EncoderConfigCard({
 
   return (
     <form onSubmit={onSubmit}>
-      <Card size="sm">
+      <Card>
         <CardHeader>
-          <div>
-            <CardTitle>Encoder</CardTitle>
-            <CardDescription>
-              Encoder, codec, and variant ladder for new encode jobs.
-            </CardDescription>
-          </div>
+          <CardTitle>Encoder</CardTitle>
         </CardHeader>
 
         <fieldset disabled={pending} className="contents">
