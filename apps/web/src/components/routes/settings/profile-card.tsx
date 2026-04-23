@@ -1,7 +1,9 @@
 import * as React from "react"
 import { useForm } from "@tanstack/react-form"
+import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import { Camera, ImageIcon, Pencil, Trash2 } from "lucide-react"
+import { useClickAnchor } from "@/hooks/use-click-anchor"
 
 import {
   Avatar,
@@ -31,13 +33,18 @@ import {
 } from "@/components/profile/image-crop-dialog"
 import { api } from "@/lib/api"
 import { authClient } from "@/lib/auth-client"
+import { clipKeys } from "@/lib/clip-queries"
+import { feedKeys } from "@/lib/feed-queries"
 import { validateRequiredString, validateUsername } from "@/lib/form-validators"
+import { gameKeys } from "@/lib/game-queries"
+import { searchKeys } from "@/lib/search-api"
 import {
   UserBanner,
   displayName,
   userAvatar,
   userImageSrc,
 } from "@/lib/user-display"
+import { userKeys } from "@/lib/user-queries"
 
 type ProfileCardProps = {
   userId: string
@@ -57,6 +64,7 @@ export function ProfileCard({
   email,
 }: ProfileCardProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [profileImage, setProfileImage] = React.useState(image)
   const [profileBanner, setProfileBanner] = React.useState(banner)
   const bannerUser = {
@@ -130,9 +138,18 @@ export function ProfileCard({
 
   const avatarInputRef = React.useRef<HTMLInputElement>(null)
   const bannerInputRef = React.useRef<HTMLInputElement>(null)
+  const bannerAnchor = useClickAnchor()
+  const avatarAnchor = useClickAnchor()
 
   async function refreshProfile() {
     await authClient.getSession()
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: userKeys.all }),
+      queryClient.invalidateQueries({ queryKey: clipKeys.all }),
+      queryClient.invalidateQueries({ queryKey: feedKeys.all }),
+      queryClient.invalidateQueries({ queryKey: gameKeys.all }),
+      queryClient.invalidateQueries({ queryKey: searchKeys.all }),
+    ])
     await router.invalidate()
   }
 
@@ -165,14 +182,10 @@ export function ProfileCard({
         nextUser = await api.users.uploadBanner(blob)
         setProfileBanner(nextUser.banner ?? "")
       }
-      toast.success(
-        cropMode === "avatar" ? "Avatar updated" : "Banner updated"
-      )
+      toast.success(cropMode === "avatar" ? "Avatar updated" : "Banner updated")
       await refreshProfile()
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Upload failed"
-      )
+      toast.error(cause instanceof Error ? cause.message : "Upload failed")
     } finally {
       setUploading(false)
     }
@@ -257,18 +270,17 @@ export function ProfileCard({
                   <DropdownMenu>
                     <DropdownMenuTrigger
                       disabled={uploading}
-                      render={
-                        <button
-                          type="button"
-                          className="group absolute inset-0 rounded-t-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                        />
-                      }
+                      className="group absolute inset-0 rounded-t-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                      onClick={bannerAnchor.onTriggerClick}
                     >
                       <div className="absolute inset-0 flex items-center justify-center rounded-t-lg bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
                         <Pencil className="size-4 text-white" />
                       </div>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent>
+                    <DropdownMenuContent
+                      anchor={bannerAnchor.anchor ?? undefined}
+                      className="w-auto"
+                    >
                       <DropdownMenuItem
                         onClick={() => openFilePicker("banner")}
                       >
@@ -322,12 +334,8 @@ export function ProfileCard({
                       <DropdownMenu>
                         <DropdownMenuTrigger
                           disabled={uploading}
-                          render={
-                            <button
-                              type="button"
-                              className="group relative shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                            />
-                          }
+                          className="group relative inline-flex shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                          onClick={avatarAnchor.onTriggerClick}
                         >
                           <Avatar
                             size="xl"
@@ -335,7 +343,10 @@ export function ProfileCard({
                           >
                             <AvatarImage src={avatar.src} alt={previewName} />
                             <AvatarFallback
-                              style={{ background: avatar.bg, color: avatar.fg }}
+                              style={{
+                                background: avatar.bg,
+                                color: avatar.fg,
+                              }}
                             >
                               {avatar.initials}
                             </AvatarFallback>
@@ -344,7 +355,10 @@ export function ProfileCard({
                             <Pencil className="size-4 text-white" />
                           </div>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent>
+                        <DropdownMenuContent
+                          anchor={avatarAnchor.anchor ?? undefined}
+                          className="w-auto"
+                        >
                           <DropdownMenuItem
                             onClick={() => openFilePicker("avatar")}
                           >
@@ -404,7 +418,8 @@ export function ProfileCard({
             >
               {(field) => {
                 const showError =
-                  field.state.meta.isTouched || form.state.submissionAttempts > 0
+                  field.state.meta.isTouched ||
+                  form.state.submissionAttempts > 0
                 const invalid = showError && !field.state.meta.isValid
 
                 return (
@@ -443,7 +458,8 @@ export function ProfileCard({
             >
               {(field) => {
                 const showError =
-                  field.state.meta.isTouched || form.state.submissionAttempts > 0
+                  field.state.meta.isTouched ||
+                  form.state.submissionAttempts > 0
                 const invalid = showError && !field.state.meta.isValid
 
                 return (
@@ -470,8 +486,8 @@ export function ProfileCard({
                       }
                     />
                     <FieldDescription>
-                      Lowercase letters, numbers, underscores and hyphens. Used in
-                      your profile URL.
+                      Lowercase letters, numbers, underscores and hyphens. Used
+                      in your profile URL.
                     </FieldDescription>
                     <FieldError
                       id={`${field.name}-error`}
