@@ -7,17 +7,14 @@ import { Dialog, DialogViewportContent } from "@workspace/ui/components/dialog"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { clipThumbnailUrl, type ClipRow } from "@workspace/api"
+
+import { api } from "@/lib/api"
 import {
   clipGameLabel,
   formatCount,
   formatRelativeTime,
 } from "@/lib/clip-format"
-import {
-  fetchClipById,
-  clipThumbnailUrl,
-  recordView,
-  type ClipRow,
-} from "@/lib/clips-api"
 import { clipKeys, useClipQuery } from "@/lib/clip-queries"
 import { avatarTint, displayInitials } from "@/lib/user-display"
 
@@ -96,7 +93,7 @@ export function ClipViewerDialog({
     for (const entry of neighbours) {
       void queryClient.prefetchQuery({
         queryKey: clipKeys.detail(entry.id),
-        queryFn: () => fetchClipById(entry.id),
+        queryFn: () => api.clips.fetchById(entry.id),
       })
     }
   }, [open, prev, next, queryClient])
@@ -209,7 +206,7 @@ function ClipViewerDialogBody({
                 variants={row.variants}
                 aspectRatio={16 / 9}
                 className="overflow-hidden rounded-[14px] border border-white/10 shadow-[0_30px_90px_-42px_rgba(0,0,0,0.92)] lg:rounded-none lg:border-t-0 lg:border-r-0 lg:border-l-0 lg:shadow-[0_30px_90px_-42px_rgba(0,0,0,0.7)] [&_img]:object-cover [&_video]:object-cover"
-                onPlayThreshold={() => void recordView(row.id)}
+                onPlayThreshold={() => void api.clips.recordView(row.id)}
               />
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-1 pt-4 sm:pt-6 lg:px-6 lg:pt-4 lg:pb-4 xl:px-8 xl:pb-6">

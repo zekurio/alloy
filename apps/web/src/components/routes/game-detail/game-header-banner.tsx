@@ -1,7 +1,7 @@
 import { cn } from "@workspace/ui/lib/utils"
 
 import { hueForGame } from "@/lib/clip-format"
-import type { GameRow } from "@/lib/games-api"
+import type { GameRow } from "@workspace/api"
 
 type GameHeaderBannerProps = {
   game: GameRow

@@ -6,8 +6,9 @@ import { Button } from "@workspace/ui/components/button"
 import { Card, CardContent } from "@workspace/ui/components/card"
 import { toast } from "@workspace/ui/components/sonner"
 
+import type { PublicAuthConfig } from "@workspace/api"
+
 import { authClient, useSession } from "@/lib/auth-client"
-import { type PublicAuthConfig } from "@/lib/auth-config"
 import { api } from "@/lib/api"
 import { useSuspenseAuthConfig } from "@/lib/session-suspense"
 
@@ -133,11 +134,7 @@ function useLinkedAccountActions({
 
     void (async () => {
       try {
-        const res = await api.api.users.me["sync-oauth-profile"].$post()
-        if (!res.ok) {
-          throw new Error(`sync request failed: ${res.status}`)
-        }
-
+        await api.users.syncOAuthProfile()
         await refresh()
         await refetchSession({ query: { disableCookieCache: true } })
         await router.invalidate()

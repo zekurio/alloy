@@ -5,20 +5,10 @@ import {
   type QueryClient,
 } from "@tanstack/react-query"
 
+import type { ClipRow, CommentRow, CommentSort } from "@workspace/api"
+
+import { api } from "./api"
 import { clipKeys } from "./clip-queries"
-import type { ClipRow } from "./clips-api"
-import {
-  createComment,
-  deleteComment,
-  fetchComments,
-  likeComment,
-  pinComment,
-  unlikeComment,
-  unpinComment,
-  updateComment,
-  type CommentRow,
-  type CommentSort,
-} from "./comments-api"
 
 export const commentKeys = {
   all: ["comments"] as const,
@@ -31,7 +21,7 @@ export const commentKeys = {
 export function useCommentsQuery(clipId: string, sort: CommentSort = "top") {
   return useQuery({
     queryKey: commentKeys.list(clipId, sort),
-    queryFn: () => fetchComments(clipId, sort),
+    queryFn: () => api.comments.fetch(clipId, sort),
     enabled: clipId.length > 0,
   })
 }
@@ -94,7 +84,11 @@ export function useCreateCommentMutation(clipId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (input: { body: string; parentId?: string }) =>
-      createComment({ clipId, body: input.body, parentId: input.parentId }),
+      api.comments.create({
+        clipId,
+        body: input.body,
+        parentId: input.parentId,
+      }),
     onSuccess: () => {
       bumpClipCommentCount(qc, clipId, 1)
       invalidateComments(qc, clipId)
@@ -106,7 +100,7 @@ export function useUpdateCommentMutation(clipId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (input: { commentId: string; body: string }) =>
-      updateComment(input.commentId, input.body),
+      api.comments.update(input.commentId, input.body),
     onSuccess: (res, { commentId }) => {
       forEachCommentsQuery(qc, clipId, (old) =>
         mapComments(old, (c) =>
@@ -123,7 +117,7 @@ export function useDeleteCommentMutation(clipId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (input: { commentId: string }) =>
-      deleteComment(input.commentId).then(() => input),
+      api.comments.delete(input.commentId).then(() => input),
     onSuccess: () => {
       invalidateComments(qc, clipId)
       // Decrement is approximate (may include replies) — rely on refetch
@@ -138,8 +132,10 @@ export function useToggleCommentLikeMutation(clipId: string) {
   return useMutation({
     mutationFn: (input: { commentId: string; nextLiked: boolean }) =>
       input.nextLiked
-        ? likeComment(input.commentId).then((r) => ({ ...r, ...input }))
-        : unlikeComment(input.commentId).then((r) => ({ ...r, ...input })),
+        ? api.comments.like(input.commentId).then((r) => ({ ...r, ...input }))
+        : api.comments
+            .unlike(input.commentId)
+            .then((r) => ({ ...r, ...input })),
     onMutate: async ({ commentId, nextLiked }) => {
       await qc.cancelQueries({ queryKey: commentKeys.clipLists(clipId) })
       const snapshot = qc.getQueriesData<CommentListData>({
@@ -179,8 +175,8 @@ export function useTogglePinCommentMutation(clipId: string) {
   return useMutation({
     mutationFn: (input: { commentId: string; nextPinned: boolean }) =>
       input.nextPinned
-        ? pinComment(input.commentId).then(() => input)
-        : unpinComment(input.commentId).then(() => input),
+        ? api.comments.pin(input.commentId).then(() => input)
+        : api.comments.unpin(input.commentId).then(() => input),
     onSuccess: () => {
       // Pinning can affect ordering + unpin a sibling, so invalidate.
       invalidateComments(qc, clipId)

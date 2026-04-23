@@ -7,7 +7,7 @@ import { ClipCardList } from "@/components/clip/clip-card-list"
 import { ClipCardSkeleton } from "@/components/clip/clip-card-skeleton"
 import { ClipGrid } from "@/components/clip/clip-grid"
 import { EmptyState } from "@/components/feedback/empty-state"
-import type { FeedFilter } from "@/lib/feed-api"
+import type { FeedFilter } from "@workspace/api"
 import { useFeedInfiniteQuery } from "@/lib/feed-queries"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 

@@ -17,6 +17,7 @@ import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { useSession } from "@/lib/auth-client"
+import { api } from "@/lib/api"
 import { FloatingUploadButton } from "./floating-upload-button"
 import {
   clipKeys,
@@ -24,12 +25,9 @@ import {
   useUploadQueueQuery,
 } from "@/lib/clip-queries"
 import {
-  deleteClip,
-  finalizeClip,
-  initiateClip,
   uploadToTicket,
   type QueueClip,
-} from "@/lib/clips-api"
+} from "@workspace/api"
 import {
   hueFor,
   localToQueueItem,
@@ -59,7 +57,7 @@ async function performUpload(
   bump: () => void,
   invalidateClips: () => void
 ): Promise<void> {
-  const { clipId, ticket, thumbTicket } = await initiateClip({
+  const { clipId, ticket, thumbTicket } = await api.clips.initiate({
     filename: payload.file.name,
     contentType: payload.contentType,
     sizeBytes: payload.sizeBytes,
@@ -101,7 +99,7 @@ async function performUpload(
   entry.status = "finalizing"
   bump()
 
-  await finalizeClip(clipId)
+  await api.clips.finalize(clipId)
   void invalidateClips()
 }
 
@@ -157,7 +155,7 @@ function useCancelRow(
             activeRef.current.delete(localId)
             bump()
             if (entry.clipId) {
-              void deleteClip(entry.clipId).catch(() => undefined)
+              void api.clips.delete(entry.clipId).catch(() => undefined)
             }
           }
         }
@@ -166,7 +164,8 @@ function useCancelRow(
         queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), (old) =>
           old ? old.filter((r) => r.id !== clipId) : old
         )
-        void deleteClip(clipId)
+        void api.clips
+          .delete(clipId)
           .then(() => invalidateClips())
           .catch(() => undefined)
       }
@@ -204,7 +203,7 @@ function useRunUpload(
           activeRef.current.delete(localId)
           bump()
           if (entry.clipId) {
-            void deleteClip(entry.clipId).catch(() => undefined)
+            void api.clips.delete(entry.clipId).catch(() => undefined)
           }
           return
         }

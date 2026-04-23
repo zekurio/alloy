@@ -1,6 +1,6 @@
 import { GlobeIcon, Link2Icon, LockIcon } from "lucide-react"
 
-import type { ClipPrivacy } from "./clips-api"
+import type { ClipPrivacy } from "@workspace/api"
 
 export const CLIP_TITLE_MAX = 100
 export const CLIP_DESCRIPTION_MAX = 2000

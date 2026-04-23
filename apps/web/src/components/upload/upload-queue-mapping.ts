@@ -1,5 +1,5 @@
-import type { QueueClip } from "@/lib/clips-api"
-import { clipThumbnailUrl } from "@/lib/clips-api"
+import type { QueueClip } from "@workspace/api"
+import { clipThumbnailUrl } from "@workspace/api"
 import type { QueueItem, QueueItemStatus } from "./upload-queue"
 
 export interface ActiveUpload {

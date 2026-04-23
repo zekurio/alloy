@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import type { ClipRow } from "@/lib/clips-api"
+import type { ClipRow } from "@workspace/api"
 
 import { ClipCardTrigger } from "./clip-card-trigger"
 import { ClipListProvider, type ClipListEntry } from "./clip-list-context"

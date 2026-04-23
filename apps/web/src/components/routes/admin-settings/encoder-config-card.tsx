@@ -22,20 +22,20 @@ import { toast } from "@workspace/ui/components/sonner"
 import { Switch } from "@workspace/ui/components/switch"
 
 import {
-  type AdminEncoderCapabilities,
-  type AdminEncoderConfig,
-  type AdminEncoderVariant,
-  type AdminRuntimeConfig,
   ENCODER_CODECS,
   ENCODER_HEIGHT_MAX,
   ENCODER_HEIGHT_MIN,
   ENCODER_HEIGHT_SUGGESTIONS,
   ENCODER_HWACCELS,
-  fetchEncoderCapabilities,
-  updateEncoderConfig,
+  type AdminEncoderCapabilities,
+  type AdminEncoderConfig,
+  type AdminEncoderVariant,
+  type AdminRuntimeConfig,
   type EncoderCodec,
   type EncoderHwaccel,
-} from "@/lib/admin-api"
+} from "@workspace/api"
+
+import { api } from "@/lib/api"
 import { IntInput, VariantRow } from "./encoder-variant-row"
 import { HWACCEL_LABEL, presetSuggestionsFor, QUALITY_LABEL } from "./shared"
 
@@ -59,7 +59,8 @@ export function EncoderConfigCard({
 
   React.useEffect(() => {
     let cancelled = false
-    fetchEncoderCapabilities()
+    api.admin
+      .fetchEncoderCapabilities()
       .then((next) => {
         if (!cancelled) setCaps(next)
       })
@@ -158,7 +159,7 @@ export function EncoderConfigCard({
     }
     setPending(true)
     try {
-      const next = await updateEncoderConfig(form)
+      const next = await api.admin.updateEncoderConfig(form)
       onChange(next)
       toast.success("Encoder updated")
     } catch (cause) {

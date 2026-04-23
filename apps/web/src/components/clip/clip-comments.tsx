@@ -18,7 +18,7 @@ import {
   useToggleCommentLikeMutation,
   useTogglePinCommentMutation,
 } from "@/lib/comment-queries"
-import type { CommentRow } from "@/lib/comments-api"
+import type { CommentRow } from "@workspace/api"
 import {
   avatarTint,
   displayInitials,

@@ -24,7 +24,7 @@ import {
   ENCODER_HEIGHT_MIN,
   ENCODER_HEIGHT_SUGGESTIONS,
   type EncoderCodec,
-} from "@/lib/admin-api"
+} from "@workspace/api"
 import { clampInt, presetSuggestionsFor, QUALITY_LABEL } from "./shared"
 
 type IntInputProps = {

@@ -16,7 +16,7 @@ import { Button } from "@workspace/ui/components/button"
 import { Card, CardContent } from "@workspace/ui/components/card"
 import { toast } from "@workspace/ui/components/sonner"
 
-import { reEncodeAllClips } from "@/lib/admin-api"
+import { api } from "@/lib/api"
 
 export function ReEncodeClipsCard() {
   const [pending, setPending] = React.useState(false)
@@ -26,7 +26,7 @@ export function ReEncodeClipsCard() {
     if (pending) return
     setPending(true)
     try {
-      const { enqueued } = await reEncodeAllClips()
+      const { enqueued } = await api.admin.reEncodeAllClips()
       if (enqueued === 0) {
         toast.info("No clips to re-encode")
       } else {

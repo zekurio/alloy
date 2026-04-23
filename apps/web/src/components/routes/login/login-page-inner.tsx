@@ -1,22 +1,22 @@
 import { Link } from "@tanstack/react-router"
 
+import type { PublicAuthConfig } from "@workspace/api"
+
 import { AlloyLogo } from "@workspace/ui/components/alloy-logo"
 import { FieldSeparator } from "@workspace/ui/components/field"
 
 import { LoginArtwork } from "@/components/auth/login-artwork"
 import { useRedirectIfAuthed } from "@/lib/auth-hooks"
-import type { fetchAuthConfig } from "@/lib/auth-config"
 import type { fetchPublicClips } from "@/lib/public-clips"
 
 import { EmailPasswordForm } from "./email-password-form"
 import { OAuthSignIn } from "./oauth-sign-in"
 import { PasskeySignIn } from "./passkey-sign-in"
 
-type LoginConfig = Awaited<ReturnType<typeof fetchAuthConfig>>
 type PublicClips = Awaited<ReturnType<typeof fetchPublicClips>>
 
 type LoginPageInnerProps = {
-  config: LoginConfig
+  config: PublicAuthConfig
   clips: PublicClips
 }
 

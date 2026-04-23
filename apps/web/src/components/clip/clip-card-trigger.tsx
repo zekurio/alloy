@@ -2,10 +2,12 @@ import * as React from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 
+import type { ClipRow } from "@workspace/api"
+
 import { ClipCard } from "@workspace/ui/components/clip-card"
 
+import { api } from "@/lib/api"
 import { toClipCardData } from "@/lib/clip-format"
-import { fetchClipById, type ClipRow } from "@/lib/clips-api"
 import { clipKeys } from "@/lib/clip-queries"
 
 import { setActiveClipList, useClipList } from "./clip-list-context"
@@ -38,7 +40,7 @@ export function ClipCardTrigger({
     )
     void queryClient.prefetchQuery({
       queryKey: clipKeys.detail(row.id),
-      queryFn: () => fetchClipById(row.id),
+      queryFn: () => api.clips.fetchById(row.id),
     })
   }, [queryClient, row])
 

@@ -1,8 +1,6 @@
-import { createApiClient } from "@workspace/api"
-
-import { api } from "./api"
-import { apiOrigin, publicOrigin } from "./env"
-import { readJsonOrThrow } from "./http-error"
+import type { ApiContext } from "./client"
+import { createApiClient } from "./client"
+import { readJsonOrThrow } from "./http"
 
 export type ClipStatus =
   | "pending"
@@ -84,7 +82,6 @@ export interface ClipRow {
   description: string | null
   game: string | null
   gameId: string | null
-  /** Mapped game metadata joined from `game`. Prefer this for labels + links. */
   gameRef: ClipGameRef | null
   privacy: ClipPrivacy
   storageKey: string
@@ -108,7 +105,6 @@ export interface ClipRow {
   authorUsername: string
   authorName: string
   authorImage: string | null
-  /** Only populated by the clip-detail endpoint; list shapes omit this. */
   mentions?: ClipMentionRef[]
 }
 
@@ -119,7 +115,6 @@ export interface ClipFeedParams {
   window?: ClipFeedWindow
   sort?: ClipFeedSort
   limit?: number
-  /** ISO timestamp — server returns rows with createdAt < cursor. */
   cursor?: string
 }
 
@@ -133,47 +128,6 @@ export interface QueueClip {
   createdAt: string
 }
 
-export async function fetchClips(
-  params: ClipFeedParams = {}
-): Promise<ClipRow[]> {
-  const query: Record<string, string> = {}
-  if (params.window) query.window = params.window
-  if (params.sort) query.sort = params.sort
-  if (params.limit !== undefined) query.limit = String(params.limit)
-  if (params.cursor) query.cursor = params.cursor
-
-  const res = await api.api.clips.$get({ query })
-  return readJsonOrThrow<ClipRow[]>(res)
-}
-
-export async function fetchClipById(
-  clipId: string,
-  init?: RequestInit
-): Promise<ClipRow> {
-  const client = init ? createApiClient(apiOrigin(), init) : api
-  const res = await client.api.clips[":id"].$get({ param: { id: clipId } })
-  return readJsonOrThrow<ClipRow>(res)
-}
-
-export async function initiateClip(
-  input: InitiateClipInput
-): Promise<InitiateClipResponse> {
-  const res = await api.api.clips.initiate.$post({ json: input })
-  return readJsonOrThrow<InitiateClipResponse>(res)
-}
-
-export async function finalizeClip(clipId: string): Promise<ClipRow> {
-  const res = await api.api.clips[":id"].finalize.$post({
-    param: { id: clipId },
-  })
-  return readJsonOrThrow<ClipRow>(res)
-}
-
-export async function deleteClip(clipId: string): Promise<void> {
-  const res = await api.api.clips[":id"].$delete({ param: { id: clipId } })
-  await readJsonOrThrow<{ deleted: true }>(res)
-}
-
 export interface UpdateClipInput {
   title?: string
   description?: string
@@ -182,49 +136,39 @@ export interface UpdateClipInput {
   mentionedUserIds?: string[]
 }
 
-export async function updateClip(
-  clipId: string,
-  input: UpdateClipInput
-): Promise<ClipRow> {
-  const res = await api.api.clips[":id"].$patch({
-    param: { id: clipId },
-    json: input,
-  })
-  return readJsonOrThrow<ClipRow>(res)
-}
-
 export interface ClipLikeState {
   liked: boolean
   likeCount: number
 }
 
-export async function fetchLikeState(
-  clipId: string
-): Promise<{ liked: boolean }> {
-  const res = await api.api.clips[":id"].like.$get({ param: { id: clipId } })
-  return readJsonOrThrow<{ liked: boolean }>(res)
+function withOrigin(path: string, origin?: string): string {
+  if (!origin) return path
+  return new URL(path, origin).toString()
 }
 
-export async function likeClip(clipId: string): Promise<ClipLikeState> {
-  const res = await api.api.clips[":id"].like.$post({
-    param: { id: clipId },
-  })
-  return readJsonOrThrow<ClipLikeState>(res)
+export function clipStreamUrl(
+  clipId: string,
+  variantId?: string,
+  origin?: string
+): string {
+  const path = `/api/clips/${clipId}/stream`
+  if (!variantId) return withOrigin(path, origin)
+
+  const search = new URLSearchParams({ variant: variantId }).toString()
+  return withOrigin(`${path}?${search}`, origin)
 }
 
-export async function unlikeClip(clipId: string): Promise<ClipLikeState> {
-  const res = await api.api.clips[":id"].like.$delete({
-    param: { id: clipId },
-  })
-  return readJsonOrThrow<ClipLikeState>(res)
+export function clipThumbnailUrl(clipId: string, origin?: string): string {
+  return withOrigin(`/api/clips/${clipId}/thumbnail`, origin)
 }
 
-export async function recordView(clipId: string): Promise<void> {
-  try {
-    await api.api.clips[":id"].view.$post({ param: { id: clipId } })
-  } catch {
-    // View tracking is best-effort — never surface.
-  }
+export function clipDownloadUrl(
+  clipId: string,
+  variantId: string,
+  origin?: string
+): string {
+  const search = new URLSearchParams({ variant: variantId }).toString()
+  return withOrigin(`/api/clips/${clipId}/download?${search}`, origin)
 }
 
 export function uploadToTicket(
@@ -252,10 +196,10 @@ export function uploadToTicket(
       } else {
         let message = `${xhr.status} ${xhr.statusText}`
         try {
-          const body = JSON.parse(xhr.responseText) as { error?: string }
-          if (body.error) message = body.error
+          const payload = JSON.parse(xhr.responseText) as { error?: string }
+          if (payload.error) message = payload.error
         } catch {
-          // Non-JSON body — keep the status line.
+          // Keep the status line when the upstream body isn't JSON.
         }
         reject(new Error(message))
       }
@@ -273,29 +217,81 @@ export function uploadToTicket(
   })
 }
 
-export function clipStreamUrl(
-  clipId: string,
-  variantId?: string,
-  origin = publicOrigin()
-): string {
-  const url = new URL(`${origin}/api/clips/${clipId}/stream`)
-  if (variantId) url.searchParams.set("variant", variantId)
-  return url.toString()
-}
+export function createClipsApi(context: ApiContext) {
+  return {
+    async fetch(params: ClipFeedParams = {}): Promise<ClipRow[]> {
+      const query: Record<string, string> = {}
+      if (params.window) query.window = params.window
+      if (params.sort) query.sort = params.sort
+      if (params.limit !== undefined) query.limit = String(params.limit)
+      if (params.cursor) query.cursor = params.cursor
 
-export function clipThumbnailUrl(
-  clipId: string,
-  origin = publicOrigin()
-): string {
-  return `${origin}/api/clips/${clipId}/thumbnail`
-}
+      const res = await context.client.api.clips.$get({ query })
+      return readJsonOrThrow<ClipRow[]>(res)
+    },
 
-export function clipDownloadUrl(
-  clipId: string,
-  variantId: string,
-  origin = publicOrigin()
-): string {
-  const url = new URL(`${origin}/api/clips/${clipId}/download`)
-  url.searchParams.set("variant", variantId)
-  return url.toString()
+    async fetchById(clipId: string, init?: RequestInit): Promise<ClipRow> {
+      const client = init ? createApiClient(context.baseURL, init) : context.client
+      const res = await client.api.clips[":id"].$get({ param: { id: clipId } })
+      return readJsonOrThrow<ClipRow>(res)
+    },
+
+    async initiate(input: InitiateClipInput): Promise<InitiateClipResponse> {
+      const res = await context.client.api.clips.initiate.$post({ json: input })
+      return readJsonOrThrow<InitiateClipResponse>(res)
+    },
+
+    async finalize(clipId: string): Promise<ClipRow> {
+      const res = await context.client.api.clips[":id"].finalize.$post({
+        param: { id: clipId },
+      })
+      return readJsonOrThrow<ClipRow>(res)
+    },
+
+    async delete(clipId: string): Promise<void> {
+      const res = await context.client.api.clips[":id"].$delete({
+        param: { id: clipId },
+      })
+      await readJsonOrThrow<{ deleted: true }>(res)
+    },
+
+    async update(clipId: string, input: UpdateClipInput): Promise<ClipRow> {
+      const res = await context.client.api.clips[":id"].$patch({
+        param: { id: clipId },
+        json: input,
+      })
+      return readJsonOrThrow<ClipRow>(res)
+    },
+
+    async fetchLikeState(clipId: string): Promise<{ liked: boolean }> {
+      const res = await context.client.api.clips[":id"].like.$get({
+        param: { id: clipId },
+      })
+      return readJsonOrThrow<{ liked: boolean }>(res)
+    },
+
+    async like(clipId: string): Promise<ClipLikeState> {
+      const res = await context.client.api.clips[":id"].like.$post({
+        param: { id: clipId },
+      })
+      return readJsonOrThrow<ClipLikeState>(res)
+    },
+
+    async unlike(clipId: string): Promise<ClipLikeState> {
+      const res = await context.client.api.clips[":id"].like.$delete({
+        param: { id: clipId },
+      })
+      return readJsonOrThrow<ClipLikeState>(res)
+    },
+
+    async recordView(clipId: string): Promise<void> {
+      try {
+        await context.client.api.clips[":id"].view.$post({
+          param: { id: clipId },
+        })
+      } catch {
+        // View tracking is best-effort.
+      }
+    },
+  }
 }
