@@ -13,7 +13,7 @@ export function GameHeaderBanner({ game }: GameHeaderBannerProps) {
   return (
     <section
       className={cn(
-        "relative -mx-8 -mt-6 overflow-hidden",
+        "relative -mx-4 -mt-6 overflow-hidden md:-mx-8",
         "aspect-[16/4] max-h-[280px] min-h-[160px]"
       )}
     >
