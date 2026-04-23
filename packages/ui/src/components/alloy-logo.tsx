@@ -30,10 +30,10 @@ function AlloyLogo({
       <AlloyLogoMark size={size} />
       <span
         className={cn(
-          "font-mono font-medium tracking-[0.04em] text-foreground",
+          "font-mono leading-none font-bold tracking-normal text-foreground",
           textClassName
         )}
-        style={{ fontSize: Math.round(size * 0.48) }}
+        style={{ fontSize: Math.round(size * 0.56) }}
       >
         alloy
       </span>

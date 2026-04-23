@@ -195,6 +195,7 @@ function CarouselControl({
       size={size}
       className={cn(
         "absolute touch-manipulation rounded-full",
+        "disabled:pointer-events-none disabled:hidden",
         orientation === "horizontal"
           ? position === "previous"
             ? "top-1/2 -left-12 -translate-y-1/2"

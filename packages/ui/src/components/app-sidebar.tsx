@@ -63,9 +63,9 @@ const SIDEBAR_ITEM_STYLE: NavItemStyle = {
     "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
     "not-data-active:hover:bg-surface-raised not-data-active:hover:text-foreground",
     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-    "data-active:bg-accent-soft data-active:text-accent",
+    "data-active:text-accent",
     // active bar indicator
-    "data-active:before:absolute data-active:before:top-1/2 data-active:before:-left-1.5",
+    "data-active:before:absolute data-active:before:top-1/2 data-active:before:-right-1.5",
     "data-active:before:h-4 data-active:before:w-[2px] data-active:before:-translate-y-1/2",
     "data-active:before:bg-accent data-active:before:shadow-[0_0_6px_var(--accent-glow)]",
     "data-active:before:content-['']",
