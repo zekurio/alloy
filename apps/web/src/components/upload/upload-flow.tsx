@@ -3,15 +3,11 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 
 import {
-  Dialog,
-  DialogContent,
-  DialogTrigger,
-} from "@workspace/ui/components/dialog"
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
+import { Sheet, SheetContent } from "@workspace/ui/components/sheet"
 import { toast } from "@workspace/ui/components/sonner"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { cn } from "@workspace/ui/lib/utils"
@@ -47,6 +43,43 @@ const NewClipDialog = React.lazy(() =>
     default: m.NewClipDialog,
   }))
 )
+
+interface UploadFlowControls {
+  queueOpen: boolean
+  setQueueOpen: React.Dispatch<React.SetStateAction<boolean>>
+  activeCount: number
+  setActiveCount: React.Dispatch<React.SetStateAction<number>>
+}
+
+const UploadFlowContext = React.createContext<UploadFlowControls | null>(null)
+
+export function UploadFlowProvider({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const [queueOpen, setQueueOpen] = React.useState(false)
+  const [activeCount, setActiveCount] = React.useState(0)
+
+  const value = React.useMemo(
+    () => ({ queueOpen, setQueueOpen, activeCount, setActiveCount }),
+    [queueOpen, activeCount]
+  )
+
+  return (
+    <UploadFlowContext.Provider value={value}>
+      {children}
+    </UploadFlowContext.Provider>
+  )
+}
+
+export function useUploadFlowControls(): UploadFlowControls {
+  const value = React.useContext(UploadFlowContext)
+  if (!value) {
+    throw new Error("useUploadFlowControls must be used within UploadFlowProvider")
+  }
+  return value
+}
 
 async function performUpload(
   payload: PublishPayload,
@@ -360,9 +393,9 @@ function UploadQueuePopover({
   const queueGlassStyle = {
     "--queue-glass-opacity": "68%",
     "--queue-glass-bg":
-      "color-mix(in oklab, var(--popover) var(--queue-glass-opacity), transparent)",
+      "color-mix(in oklab, var(--popover) var(--queue-glass-opacity), var(--background))",
     "--queue-row-glass-bg":
-      "color-mix(in oklab, var(--popover) 18%, transparent)",
+      "color-mix(in oklab, var(--popover) 18%, var(--background))",
     "--alloy-glass-bg": "var(--queue-glass-bg)",
     "--alloy-glass-shadow": "0 30px 80px -32px rgb(0 0 0 / 0.78)",
   } as React.CSSProperties
@@ -377,31 +410,22 @@ function UploadQueuePopover({
 
   if (isMobile) {
     return (
-      <Dialog open={queueOpen} onOpenChange={setQueueOpen}>
-        <DialogTrigger
-          render={
-            <FloatingUploadButton
-              activeCount={activeCount}
-              isOpen={queueOpen}
-            />
-          }
-        />
-        <DialogContent
-          showOverlay={false}
-          disableZoom
-          centered={false}
+      <Sheet open={queueOpen} onOpenChange={setQueueOpen}>
+        <SheetContent
+          side="bottom"
+          showCloseButton={false}
           className={cn(
-            "top-auto right-4 left-4 z-50 w-auto max-w-none rounded-2xl border p-3",
-            "bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+1rem)]",
-            "max-h-[calc(100dvh-var(--header-h)-var(--bottomnav-h)-env(safe-area-inset-bottom)-2rem)]",
+            "right-4 bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+1rem)] left-4",
+            "h-auto max-h-[calc(100dvh-var(--header-h)-var(--bottomnav-h)-env(safe-area-inset-bottom)-2rem)]",
+            "rounded-2xl border p-3",
             "alloy-glass"
           )}
           style={queueGlassStyle}
           aria-describedby={undefined}
         >
           {content}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     )
   }
 
@@ -409,7 +433,11 @@ function UploadQueuePopover({
     <Popover open={queueOpen} onOpenChange={setQueueOpen}>
       <PopoverTrigger
         render={
-          <FloatingUploadButton activeCount={activeCount} isOpen={queueOpen} />
+          <FloatingUploadButton
+            activeCount={activeCount}
+            isOpen={queueOpen}
+            className="hidden md:flex"
+          />
         }
       />
       <PopoverContent
@@ -458,7 +486,7 @@ async function copyClipLink(row: QueueClip): Promise<void> {
 }
 
 function AuthedUploadFlow() {
-  const [queueOpen, setQueueOpen] = React.useState(false)
+  const { queueOpen, setQueueOpen, setActiveCount } = useUploadFlowControls()
   const navigate = useNavigate()
   const handleOpenClip = React.useCallback(
     (row: QueueClip) => {
@@ -489,6 +517,11 @@ function AuthedUploadFlow() {
     onFileChange: handleNewClipFileInputChange,
   } = useNewClipPicker(() => setQueueOpen(false))
   useWarmEditor(queueOpen, setNewClipModalMounted)
+
+  React.useEffect(() => {
+    setActiveCount(activeCount)
+    return () => setActiveCount(0)
+  }, [activeCount, setActiveCount])
 
   const handlePublish = React.useCallback(
     async (payload: PublishPayload) => {

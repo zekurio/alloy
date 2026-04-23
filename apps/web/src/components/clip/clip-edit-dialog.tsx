@@ -46,6 +46,7 @@ function gameRowFromRef(row: ClipRow): GameRow | null {
     slug: ref.slug,
     releaseDate: ref.releaseDate,
     heroUrl: ref.heroUrl,
+    gridUrl: ref.gridUrl,
     logoUrl: ref.logoUrl,
     iconUrl: ref.iconUrl,
   }
@@ -220,7 +221,6 @@ export function ClipEditDialog({
                 value={privacy}
                 onChange={setPrivacy}
                 disabled={saving}
-                layout="stacked"
               />
             </Field>
 

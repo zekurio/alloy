@@ -14,6 +14,7 @@ export function serialiseGame(row: typeof game.$inferSelect) {
     slug: row.slug,
     releaseDate: row.releaseDate ? row.releaseDate.toISOString() : null,
     heroUrl: row.heroUrl,
+    gridUrl: row.gridUrl,
     logoUrl: row.logoUrl,
     iconUrl: row.iconUrl,
   } satisfies GameRow

@@ -34,6 +34,7 @@ interface ClipCardProps extends React.ComponentProps<"article"> {
   /** Accessible label for the thumbnail button. */
   thumbnailLabel?: string
   thumbnailRef?: React.Ref<HTMLButtonElement>
+  metaVariant?: "default" | "showcase"
 }
 
 const HOVER_PREVIEW_DELAY_MS = 250
@@ -60,6 +61,7 @@ function ClipCard({
   onThumbnailIntent,
   thumbnailLabel,
   thumbnailRef,
+  metaVariant = "default",
   ...props
 }: ClipCardProps) {
   const commentCount =
@@ -84,7 +86,7 @@ function ClipCard({
         buttonRef={thumbnailRef}
       />
       <div className="flex flex-col gap-2">
-        <div className="truncate text-lg font-semibold tracking-[-0.015em] text-foreground">
+        <div className="truncate text-base font-semibold tracking-[-0.015em] text-foreground sm:text-lg">
           {title}
         </div>
         {author ? (
@@ -105,24 +107,26 @@ function ClipCard({
             <GameLabel game={game} icon={gameIcon} href={gameHref} />
           </div>
         )}
-        <div className="flex items-center gap-3.5 font-mono text-sm tracking-[0.04em] text-foreground-faint">
-          <span className="inline-flex items-center gap-1.5">
-            <EyeIcon className="size-3.5" />
-            {views}
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <HeartIcon className="size-3.5" />
-            {likes}
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <MessageSquareIcon className="size-3.5" />
-            {commentCount}
-          </span>
-          <span className="ml-auto inline-flex items-center gap-1.5">
-            {privacyBadge}
-            {postedAt}
-          </span>
-        </div>
+        {metaVariant === "showcase" ? null : (
+          <div className="flex items-center gap-3.5 font-mono text-sm tracking-[0.04em] text-foreground-faint">
+            <span className="inline-flex items-center gap-1.5">
+              <EyeIcon className="size-3.5" />
+              {views}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <HeartIcon className="size-3.5" />
+              {likes}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <MessageSquareIcon className="size-3.5" />
+              {commentCount}
+            </span>
+            <span className="ml-auto inline-flex items-center gap-1.5">
+              {privacyBadge}
+              {postedAt}
+            </span>
+          </div>
+        )}
       </div>
     </article>
   )
