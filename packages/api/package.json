@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@better-auth/passkey": "^1.6.6",
+    "@workspace/db": "workspace:*",
     "@workspace/server": "workspace:*",
     "better-auth": "^1.6.6",
     "hono": "^4.12.14",

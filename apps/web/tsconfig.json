@@ -25,7 +25,9 @@
       "@/*": ["./src/*"],
       "@workspace/ui/*": ["../../packages/ui/src/*"],
       "@workspace/api": ["../../packages/api/src/index.ts"],
-      "@workspace/api/*": ["../../packages/api/src/*"]
+      "@workspace/api/*": ["../../packages/api/src/*"],
+      "@workspace/db": ["../../packages/db/src/index.ts"],
+      "@workspace/db/*": ["../../packages/db/src/*"]
     }
   }
 }
