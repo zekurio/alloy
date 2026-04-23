@@ -12,6 +12,11 @@ type AuthUser = {
 
 const USER_ASSET_PATH_PREFIX = "/storage/user-assets/"
 
+function displayUsername(username: string): string {
+  const value = username.trim()
+  return value.startsWith("@") ? value : `@${value}`
+}
+
 export function userImageSrc(src: string | null | undefined): string | undefined {
   const value = src?.trim()
   if (!value) return undefined
@@ -39,9 +44,9 @@ export function displayName(user: AuthUser | null | undefined): string {
   if (!user) return "user"
   if (user.name && user.name.trim()) return user.name.trim()
   if (user.displayUsername && user.displayUsername.trim()) {
-    return user.displayUsername.trim()
+    return displayUsername(user.displayUsername)
   }
-  if (user.username && user.username.trim()) return user.username.trim()
+  if (user.username && user.username.trim()) return displayUsername(user.username)
   if (user.email) return user.email.split("@")[0] ?? "user"
   return "user"
 }

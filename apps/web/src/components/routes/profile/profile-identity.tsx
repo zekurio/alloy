@@ -88,7 +88,7 @@ export function ProfileIdentity({
                   }}
                 />
               </div>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-none font-medium text-foreground-muted">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm leading-none font-medium text-foreground-muted">
                 {user.name ? (
                   <span className="truncate leading-none font-semibold">
                     @{handle}
