@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
 import { Dialog, DialogViewportContent } from "@workspace/ui/components/dialog"
 import { Spinner } from "@workspace/ui/components/spinner"
+import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { clipThumbnailUrl, type ClipRow } from "@workspace/api"
@@ -16,7 +17,8 @@ import {
   formatRelativeTime,
 } from "@/lib/clip-format"
 import { clipKeys, useClipQuery } from "@/lib/clip-queries"
-import { avatarTint, displayInitials } from "@/lib/user-display"
+import { commentKeys } from "@/lib/comment-queries"
+import { avatarTint, displayInitials, userImageSrc } from "@/lib/user-display"
 
 import { ClipComments } from "./clip-comments"
 import { ClipEditDialog } from "./clip-edit-dialog"
@@ -27,6 +29,7 @@ import {
 } from "./clip-list-context"
 import { ClipMeta } from "./clip-meta"
 import { ClipPlayer } from "./clip-player"
+import { MobileClipViewerBody } from "./clip-viewer-mobile"
 
 interface ClipViewerDialogProps {
   /** Current dialog target. `null` keeps the viewer closed. */
@@ -42,6 +45,7 @@ export function ClipViewerDialog({
   onNavigate,
 }: ClipViewerDialogProps) {
   const queryClient = useQueryClient()
+  const isMobile = useIsMobile()
   const open = clipId !== null
   const query = useClipQuery(clipId ?? "")
   const list = useActiveClipList()
@@ -58,9 +62,10 @@ export function ClipViewerDialog({
   const navigateTo = React.useCallback(
     (entry: ClipListEntry) => {
       if (!onNavigate) return
+      seedClipDetail(queryClient, entry)
       onNavigate(entry)
     },
-    [onNavigate]
+    [onNavigate, queryClient]
   )
 
   // Clear the active list when the dialog closes so stale neighbours
@@ -91,9 +96,14 @@ export function ClipViewerDialog({
       Boolean(entry)
     )
     for (const entry of neighbours) {
+      seedClipDetail(queryClient, entry)
       void queryClient.prefetchQuery({
         queryKey: clipKeys.detail(entry.id),
         queryFn: () => api.clips.fetchById(entry.id),
+      })
+      void queryClient.prefetchQuery({
+        queryKey: commentKeys.list(entry.id, "top"),
+        queryFn: () => api.comments.fetch(entry.id, "top"),
       })
     }
   }, [open, prev, next, queryClient])
@@ -107,18 +117,40 @@ export function ClipViewerDialog({
     >
       {open ? (
         query.data ? (
-          <ClipViewerDialogBody
-            row={query.data}
-            onDeleted={onClose}
-            prev={prev}
-            next={next}
-            onNavigate={onNavigate ? navigateTo : null}
-          />
+          isMobile ? (
+            <MobileClipViewerBody
+              row={query.data}
+              onDeleted={onClose}
+              prev={prev}
+              next={next}
+              onNavigate={onNavigate ? navigateTo : null}
+            />
+          ) : (
+            <ClipViewerDialogBody
+              row={query.data}
+              onDeleted={onClose}
+              prev={prev}
+              next={next}
+              onNavigate={onNavigate ? navigateTo : null}
+            />
+          )
         ) : (
           <ClipViewerDialogFallback />
         )
       ) : null}
     </Dialog>
+  )
+}
+
+function seedClipDetail(
+  queryClient: ReturnType<typeof useQueryClient>,
+  entry: ClipListEntry
+) {
+  const row = entry.row
+  if (!row) return
+  queryClient.setQueryData<ClipRow>(
+    clipKeys.detail(entry.id),
+    (current) => current ?? row
   )
 }
 
@@ -145,7 +177,7 @@ function ClipViewerDialogBody({
   const { bg, fg } = avatarTint(row.authorId || handle)
   const gameLabel = clipGameLabel(row)
   const thumbnail = row.thumbKey ? clipThumbnailUrl(row.id) : null
-  const avatarSrc = row.authorImage ?? undefined
+  const avatarSrc = userImageSrc(row.authorImage)
 
   const canNavigate = Boolean(onNavigate)
   const showPrev = canNavigate && Boolean(prev)
@@ -161,12 +193,12 @@ function ClipViewerDialogBody({
         {showPrev ? (
           <Button
             type="button"
-            variant="outline"
-            size="icon-lg"
+            variant="ghost"
+            size="icon"
             onClick={() => (prev && onNavigate ? onNavigate(prev) : undefined)}
             aria-label="Previous clip"
             className={cn(
-              "absolute top-1/2 z-20 -translate-y-1/2 rounded-full border-white/12 bg-black/80 text-white shadow-[0_24px_80px_-32px_rgba(0,0,0,0.95)]",
+              "absolute top-1/2 z-20 -translate-y-1/2 rounded-none border-transparent bg-transparent text-white shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-9 [&_svg]:stroke-[2.5]",
               gutterOffsetLeftClass,
               "hidden lg:inline-flex"
             )}
@@ -177,12 +209,12 @@ function ClipViewerDialogBody({
         {showNext ? (
           <Button
             type="button"
-            variant="outline"
-            size="icon-lg"
+            variant="ghost"
+            size="icon"
             onClick={() => (next && onNavigate ? onNavigate(next) : undefined)}
             aria-label="Next clip"
             className={cn(
-              "absolute top-1/2 z-20 -translate-y-1/2 rounded-full border-white/12 bg-black/80 text-white shadow-[0_24px_80px_-32px_rgba(0,0,0,0.95)]",
+              "absolute top-1/2 z-20 -translate-y-1/2 rounded-none border-transparent bg-transparent text-white shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-9 [&_svg]:stroke-[2.5]",
               gutterOffsetRightClass,
               "hidden lg:inline-flex"
             )}

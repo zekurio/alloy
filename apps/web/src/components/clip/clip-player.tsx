@@ -21,6 +21,8 @@ interface ClipPlayerProps {
   className?: string
   /** Override the aspect ratio derived from source dimensions. */
   aspectRatio?: number
+  /** Flush the chrome bar against the video frame edge (no padding / rounding). */
+  chromeFlush?: boolean
 }
 
 const FALLBACK_ENCODED_OPTION = {
@@ -55,6 +57,7 @@ function ClipPlayer({
   onPlayThreshold,
   className,
   aspectRatio: aspectRatioProp,
+  chromeFlush,
 }: ClipPlayerProps) {
   const poster =
     thumbnail === undefined
@@ -149,6 +152,7 @@ function ClipPlayer({
         }
       }}
       onPlayThreshold={onPlayThreshold}
+      chromeFlush={chromeFlush}
     />
   )
 }

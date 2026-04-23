@@ -23,6 +23,7 @@ import {
   avatarTint,
   displayInitials,
   displayName,
+  userImageSrc,
   useUserChipData,
   type UserChipData,
 } from "@/lib/user-display"
@@ -53,7 +54,7 @@ function authorAvatarStyle(comment: CommentRow) {
 }
 
 function useAuthorAvatarSrc(author: CommentRow["author"]): string | undefined {
-  return author.image ?? undefined
+  return userImageSrc(author.image)
 }
 
 function ClipComments({

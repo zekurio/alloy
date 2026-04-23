@@ -1,4 +1,5 @@
 import {
+  keepPreviousData,
   useMutation,
   useQuery,
   useQueryClient,
@@ -23,6 +24,7 @@ export function useCommentsQuery(clipId: string, sort: CommentSort = "top") {
     queryKey: commentKeys.list(clipId, sort),
     queryFn: () => api.comments.fetch(clipId, sort),
     enabled: clipId.length > 0,
+    placeholderData: keepPreviousData,
   })
 }
 
