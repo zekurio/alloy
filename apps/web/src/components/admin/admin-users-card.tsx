@@ -23,7 +23,6 @@ import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
@@ -206,10 +205,7 @@ export function AdminUsersCard({ currentUserId }: AdminUsersCardProps) {
   return (
     <Card>
       <CardHeader>
-        <div>
-          <CardTitle>Users</CardTitle>
-          <CardDescription>Manage accounts on this instance.</CardDescription>
-        </div>
+        <CardTitle>Users</CardTitle>
         <Dialog open={seedOpen} onOpenChange={setSeedOpen}>
           <DialogTrigger render={<Button variant="primary" size="sm" />}>
             <UserPlusIcon />
