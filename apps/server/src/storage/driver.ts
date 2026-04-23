@@ -120,4 +120,21 @@ export function clipVideoVariantKey(clipId: string, variantId: string): string {
   return `${clipAssetDir(clipId)}/video-${safeVariantId}.mp4`
 }
 
+function userAssetDir(userId: string): string {
+  const hex = userId.replace(/-/g, "")
+  const aa = hex.slice(0, 2)
+  const bb = hex.slice(2, 4)
+  return `users/${aa}/${bb}/${userId}`
+}
+
+export type UserAssetRole = "avatar" | "banner"
+
+export function userAssetKey(
+  userId: string,
+  role: UserAssetRole,
+  ext: string
+): string {
+  return `${userAssetDir(userId)}/${role}${ext}`
+}
+
 export type { UploadTicket } from "@workspace/db/contracts"
