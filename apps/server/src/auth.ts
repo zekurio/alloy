@@ -5,15 +5,18 @@ import { APIError } from "better-auth/api";
 import { admin } from "better-auth/plugins/admin";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import { username as usernamePlugin } from "better-auth/plugins/username";
+import { eq } from "drizzle-orm";
 
 import { db } from "./db";
 import * as authSchema from "@workspace/db/auth-schema";
+import { user } from "@workspace/db/auth-schema";
 import { env } from "./env";
 import { configStore } from "./lib/config-store";
 import {
   buildGenericOAuthConfig,
   buildTrustedProviders,
 } from "./lib/oauth-config";
+import { verifyPasskeySignUpContext } from "./routes/auth-config";
 import { hasAnyUser, hasOtherAdmin } from "./lib/user-bootstrap";
 import {
   generateUniqueUsername,
@@ -94,8 +97,85 @@ function buildUserHooks() {
   };
 }
 
+async function createPasskeyRegistrationUser(context: string | null | undefined) {
+  let payload: ReturnType<typeof verifyPasskeySignUpContext>;
+  try {
+    payload = verifyPasskeySignUpContext(context);
+  } catch (cause) {
+    throw new APIError("BAD_REQUEST", {
+      message:
+        cause instanceof Error
+          ? cause.message
+          : "Invalid registration request.",
+    });
+  }
+  const existing = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, payload.email))
+    .limit(1);
+  if (existing.length > 0) {
+    throw new APIError("BAD_REQUEST", {
+      message: "An account already exists for that email address.",
+    });
+  }
+  const identity = await populateIdentityFields({
+    name: payload.username,
+    email: payload.email,
+  });
+  return {
+    email: payload.email,
+    ...identity,
+  };
+}
+
+function buildPasskeyPlugin() {
+  return passkeyPlugin({
+    rpName: "alloy",
+    rpID: new URL(env.BETTER_AUTH_URL).hostname,
+    origin: env.TRUSTED_ORIGINS,
+    registration: {
+      requireSession: false,
+      resolveUser: async ({ context }) => {
+        const identity = await createPasskeyRegistrationUser(context);
+        return {
+          id: `passkey-sign-up:${identity.email}`,
+          name: identity.email,
+          displayName: identity.name,
+        };
+      },
+      afterVerification: async ({ context, ctx }) => {
+        const identity = await createPasskeyRegistrationUser(context);
+        const user = await ctx.context.internalAdapter.createUser({
+          email: identity.email,
+          name: identity.name,
+          username: identity.username,
+        });
+        const session = await ctx.context.internalAdapter.createSession(user.id);
+        ctx.context.setNewSession({ session, user });
+        return { userId: user.id };
+      },
+    },
+  });
+}
+
 function buildAuth() {
   const emailPasswordEnabled = configStore.get("emailPasswordEnabled");
+  const passkeyEnabled = configStore.get("passkeyEnabled");
+  const plugins = [
+    admin(),
+    // Accepts the same character set our slugifier produces so handles
+    // minted at signup round-trip cleanly through user-driven updates.
+    usernamePlugin({
+      minUsernameLength: USERNAME_MIN_LEN,
+      maxUsernameLength: USERNAME_MAX_LEN,
+      usernameValidator: (value) => /^[a-z0-9_-]+$/.test(value),
+    }),
+    // Mounted unconditionally so admins can add a provider later without
+    // a restart. `buildGenericOAuthConfig()` returns [] when none.
+    genericOAuth({ config: buildGenericOAuthConfig() }),
+    ...(passkeyEnabled ? [buildPasskeyPlugin()] : []),
+  ];
   return betterAuth({
     appName: "alloy",
     baseURL: env.BETTER_AUTH_URL,
@@ -134,24 +214,7 @@ function buildAuth() {
         },
       },
     },
-    plugins: [
-      admin(),
-      // Accepts the same character set our slugifier produces so handles
-      // minted at signup round-trip cleanly through user-driven updates.
-      usernamePlugin({
-        minUsernameLength: USERNAME_MIN_LEN,
-        maxUsernameLength: USERNAME_MAX_LEN,
-        usernameValidator: (value) => /^[a-z0-9_-]+$/.test(value),
-      }),
-      // Mounted unconditionally so admins can add a provider later without
-      // a restart. `buildGenericOAuthConfig()` returns [] when none.
-      genericOAuth({ config: buildGenericOAuthConfig() }),
-      passkeyPlugin({
-        rpName: "alloy",
-        rpID: new URL(env.BETTER_AUTH_URL).hostname,
-        origin: env.TRUSTED_ORIGINS,
-      }),
-    ],
+    plugins,
     databaseHooks: {
       user: buildUserHooks(),
     },
@@ -168,7 +231,13 @@ configStore.subscribe((next, prev) => {
     next.openRegistrations !== prev.openRegistrations;
   const emailPasswordChanged =
     next.emailPasswordEnabled !== prev.emailPasswordEnabled;
-  if (!providerChanged && !openRegistrationsChanged && !emailPasswordChanged) {
+  const passkeyChanged = next.passkeyEnabled !== prev.passkeyEnabled;
+  if (
+    !providerChanged &&
+    !openRegistrationsChanged &&
+    !emailPasswordChanged &&
+    !passkeyChanged
+  ) {
     return;
   }
   currentAuth = buildAuth();

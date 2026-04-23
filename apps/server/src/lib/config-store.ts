@@ -195,6 +195,7 @@ const RuntimeConfigSchema = z.object({
   openRegistrations: z.boolean().default(false),
   setupComplete: z.boolean().default(false),
   emailPasswordEnabled: z.boolean().default(true),
+  passkeyEnabled: z.boolean().default(true),
   requireAuthToBrowse: z.boolean().default(true),
   oauthProvider: OAuthProviderSchema.nullable().default(null),
   encoder: EncoderConfigSchema.default(EncoderConfigInnerSchema.parse({})),

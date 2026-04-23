@@ -131,12 +131,14 @@ function AccountCreationPasswordField({
 export function AccountCreationFields({
   Field,
   disabled,
+  includePassword = true,
   showPassword,
   submissionAttempts,
   togglePassword,
 }: {
   Field: AccountCreationFieldComponent
   disabled: boolean
+  includePassword?: boolean
   showPassword: boolean
   submissionAttempts: number
   togglePassword: () => void
@@ -173,22 +175,24 @@ export function AccountCreationFields({
         )}
       </Field>
 
-      <Field
-        name="password"
-        validators={{
-          onChange: ({ value }) => validatePassword(value),
-        }}
-      >
-        {(field) => (
-          <AccountCreationPasswordField
-            disabled={disabled}
-            field={field}
-            showPassword={showPassword}
-            submissionAttempts={submissionAttempts}
-            togglePassword={togglePassword}
-          />
-        )}
-      </Field>
+      {includePassword ? (
+        <Field
+          name="password"
+          validators={{
+            onChange: ({ value }) => validatePassword(value),
+          }}
+        >
+          {(field) => (
+            <AccountCreationPasswordField
+              disabled={disabled}
+              field={field}
+              showPassword={showPassword}
+              submissionAttempts={submissionAttempts}
+              togglePassword={togglePassword}
+            />
+          )}
+        </Field>
+      ) : null}
     </>
   )
 }

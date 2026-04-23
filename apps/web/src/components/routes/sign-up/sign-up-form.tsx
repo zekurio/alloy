@@ -28,20 +28,13 @@ function useSignUpSubmit() {
           password: form.password,
         })
         if (err) {
-          toast.error("Couldn't create your account", {
-            description: err.message ?? "Please review the form and try again.",
-          })
+          toast.error("Couldn't create your account")
           return
         }
         await router.invalidate()
         await navigate({ to: "/" })
-      } catch (cause) {
-        toast.error("Unexpected error", {
-          description:
-            cause instanceof Error
-              ? cause.message
-              : "Something went wrong. Please try again.",
-        })
+      } catch {
+        toast.error("Unexpected error")
       }
     },
     [navigate, router]
