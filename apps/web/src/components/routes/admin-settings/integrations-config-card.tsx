@@ -16,7 +16,6 @@ import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -26,7 +25,12 @@ import {
   FieldDescription,
   FieldLabel,
 } from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@workspace/ui/components/input-group"
 import { toast } from "@workspace/ui/components/sonner"
 
 import {
@@ -121,39 +125,75 @@ export function IntegrationsConfigCard({
     <form onSubmit={onSubmit}>
       <Card>
         <CardHeader>
-          <div>
-            <CardTitle>SteamGridDB</CardTitle>
-            <CardDescription>
-              Unlocks the game picker and cover art. Get a key at{" "}
-              <a
-                href="https://www.steamgriddb.com/profile/preferences/api"
-                target="_blank"
-                rel="noreferrer"
-                className="underline"
-              >
-                steamgriddb.com
-              </a>
-              .
-            </CardDescription>
-          </div>
+          <CardTitle>SteamGridDB</CardTitle>
         </CardHeader>
 
         <fieldset disabled={pending} className="contents">
           <CardContent className="flex flex-col gap-4">
             <Field>
               <FieldLabel htmlFor="sgdb-api-key">API key</FieldLabel>
-              <Input
-                id="sgdb-api-key"
-                type="password"
-                autoComplete="new-password"
-                value={form.steamgriddbApiKey}
-                placeholder={
-                  steamgriddbConfigured ? "Leave blank to keep current" : ""
-                }
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, steamgriddbApiKey: e.target.value }))
-                }
-              />
+              <InputGroup>
+                <InputGroupInput
+                  id="sgdb-api-key"
+                  type="password"
+                  className="pl-3.5"
+                  autoComplete="new-password"
+                  value={form.steamgriddbApiKey}
+                  placeholder={
+                    steamgriddbConfigured ? "Leave blank to keep current" : ""
+                  }
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      steamgriddbApiKey: e.target.value,
+                    }))
+                  }
+                />
+                {steamgriddbConfigured ? (
+                  <InputGroupAddon align="inline-end">
+                    <AlertDialog>
+                      <AlertDialogTrigger
+                        render={
+                          <InputGroupButton
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            className="text-danger hover:text-danger"
+                            aria-label="Remove SteamGridDB key"
+                            title="Remove key"
+                            disabled={pending || isDirty}
+                          />
+                        }
+                      >
+                        <Trash2Icon />
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            Remove SteamGridDB key?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This disables the game picker and cover art
+                            integration until a new key is added.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel disabled={pending}>
+                            Cancel
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            variant="destructive"
+                            onClick={onClearSteamGridDB}
+                            disabled={pending}
+                          >
+                            {pending ? "Removing…" : "Remove key"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </InputGroupAddon>
+                ) : null}
+              </InputGroup>
               <FieldDescription>
                 {steamgriddbConfigured
                   ? "Configured. Type a new value to rotate."
@@ -162,48 +202,7 @@ export function IntegrationsConfigCard({
             </Field>
           </CardContent>
 
-          <CardFooter className="justify-between">
-          {steamgriddbConfigured ? (
-            <AlertDialog>
-              <AlertDialogTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    disabled={pending || isDirty}
-                  >
-                    <Trash2Icon />
-                    Remove key
-                  </Button>
-                }
-              />
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Remove SteamGridDB key?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This disables the game picker and cover art integration
-                    until a new key is added.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel disabled={pending}>
-                    Cancel
-                  </AlertDialogCancel>
-                  <AlertDialogAction
-                    variant="destructive"
-                    onClick={onClearSteamGridDB}
-                    disabled={pending}
-                  >
-                    {pending ? "Removing…" : "Remove key"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          ) : (
-            <div />
-          )}
-
+          <CardFooter className="justify-end">
             <div className="flex items-center gap-2">
               <Button
                 type="button"

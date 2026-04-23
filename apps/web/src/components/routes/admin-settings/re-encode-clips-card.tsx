@@ -49,9 +49,6 @@ export function ReEncodeClipsCard() {
       <CardContent className="flex items-center justify-between gap-4 py-4">
         <div className="min-w-0">
           <div className="text-sm font-medium">Re-encode all clips</div>
-          <p className="mt-0.5 text-xs text-foreground-dim">
-            Regenerate variants to match the current ladder.
-          </p>
         </div>
         <AlertDialog open={open} onOpenChange={setOpen}>
           <AlertDialogTrigger
