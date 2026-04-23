@@ -11,6 +11,7 @@ import type {
   GameListRow,
   GameRow,
   SteamGridDBSearchResult,
+  SteamGridDBStatus,
 } from "@workspace/api"
 
 import { api } from "./api"
@@ -32,9 +33,7 @@ export const gameKeys = {
     [...gameKeys.all, "topClips", slug, { limit }] as const,
 }
 
-export function useSteamGridDBStatusQuery(): UseQueryResult<{
-  steamgriddbConfigured: boolean
-}> {
+export function useSteamGridDBStatusQuery(): UseQueryResult<SteamGridDBStatus> {
   return useQuery({
     queryKey: gameKeys.status(),
     queryFn: () => api.games.fetchSteamGridDBStatus(),

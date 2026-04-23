@@ -1,145 +1,36 @@
 import type { ApiContext } from "./client"
 import { createApiClient } from "./client"
+import type {
+  ClipFeedParams,
+  ClipLikeState,
+  ClipRow,
+  InitiateClipInput,
+  InitiateClipResponse,
+  UpdateClipInput,
+  UploadTicket,
+} from "@workspace/db/contracts"
 import { readJsonOrThrow } from "./http"
 
-export type ClipStatus =
-  | "pending"
-  | "uploaded"
-  | "encoding"
-  | "ready"
-  | "failed"
-export type ClipPrivacy = "public" | "unlisted" | "private"
-
-export interface UploadTicket {
-  uploadUrl: string
-  method: "PUT" | "POST"
-  headers: Record<string, string>
-  expiresAt: number
-}
-
-export type AcceptedContentType =
-  | "video/mp4"
-  | "video/quicktime"
-  | "video/x-matroska"
-  | "video/webm"
-
-export interface InitiateClipInput {
-  filename: string
-  contentType: AcceptedContentType
-  sizeBytes: number
-  title: string
-  description?: string
-  gameId: string
-  privacy?: ClipPrivacy
-  trimStartMs?: number
-  trimEndMs?: number
-  thumbSizeBytes: number
-  mentionedUserIds?: string[]
-}
-
-export interface ClipMentionRef {
-  id: string
-  username: string
-  displayUsername: string
-  name: string
-  image: string | null
-}
-
-export interface InitiateClipResponse {
-  clipId: string
-  slug: string
-  ticket: UploadTicket
-  thumbTicket: UploadTicket
-}
-
-export interface ClipGameRef {
-  id: string
-  steamgriddbId: number
-  slug: string
-  name: string
-  releaseDate: string | null
-  heroUrl: string | null
-  logoUrl: string | null
-  iconUrl: string | null
-}
-
-export interface ClipEncodedVariant {
-  id: string
-  label: string
-  storageKey: string
-  contentType: string
-  width: number
-  height: number
-  sizeBytes: number
-  isDefault: boolean
-}
-
-export interface ClipRow {
-  id: string
-  slug: string
-  authorId: string
-  title: string
-  description: string | null
-  game: string | null
-  gameId: string | null
-  gameRef: ClipGameRef | null
-  privacy: ClipPrivacy
-  storageKey: string
-  contentType: string
-  sizeBytes: number | null
-  durationMs: number | null
-  width: number | null
-  height: number | null
-  trimStartMs: number | null
-  trimEndMs: number | null
-  variants: ClipEncodedVariant[]
-  thumbKey: string | null
-  viewCount: number
-  likeCount: number
-  commentCount: number
-  status: ClipStatus
-  encodeProgress: number
-  failureReason: string | null
-  createdAt: string
-  updatedAt: string
-  authorUsername: string
-  authorName: string
-  authorImage: string | null
-  mentions?: ClipMentionRef[]
-}
-
-export type ClipFeedWindow = "today" | "week" | "month"
-export type ClipFeedSort = "top" | "recent"
-
-export interface ClipFeedParams {
-  window?: ClipFeedWindow
-  sort?: ClipFeedSort
-  limit?: number
-  cursor?: string
-}
-
-export interface QueueClip {
-  id: string
-  gameSlug: string
-  title: string
-  status: ClipStatus
-  encodeProgress: number
-  failureReason: string | null
-  createdAt: string
-}
-
-export interface UpdateClipInput {
-  title?: string
-  description?: string
-  gameId?: string
-  privacy?: ClipPrivacy
-  mentionedUserIds?: string[]
-}
-
-export interface ClipLikeState {
-  liked: boolean
-  likeCount: number
-}
+export { ACCEPTED_CLIP_CONTENT_TYPES } from "@workspace/db/contracts"
+export type {
+  AcceptedContentType,
+  ClipEncodedVariant,
+  ClipFeedParams,
+  ClipFeedSort,
+  ClipFeedWindow,
+  ClipGameRef,
+  ClipLikeState,
+  ClipMentionRef,
+  ClipPrivacy,
+  ClipRow,
+  ClipStatus,
+  InitiateClipInput,
+  InitiateClipResponse,
+  QueueClip,
+  QueueEvent,
+  UpdateClipInput,
+  UploadTicket,
+} from "@workspace/db/contracts"
 
 function withOrigin(path: string, origin?: string): string {
   if (!origin) return path

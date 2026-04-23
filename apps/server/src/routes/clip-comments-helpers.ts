@@ -1,6 +1,7 @@
 import { eq, inArray } from "drizzle-orm"
 import { z } from "zod"
 
+import type { CommentRow } from "@workspace/db/contracts"
 import { user } from "@workspace/db/auth-schema"
 import { clip, clipComment, clipCommentLike } from "@workspace/db/schema"
 
@@ -31,28 +32,6 @@ export const authorShape = {
   image: user.image,
 } as const
 
-export interface CommentOut {
-  id: string
-  clipId: string
-  parentId: string | null
-  body: string
-  likeCount: number
-  pinned: boolean
-  pinnedAt: string | null
-  likedByViewer: boolean
-  likedByAuthor: boolean
-  createdAt: string
-  editedAt: string | null
-  author: {
-    id: string
-    username: string | null
-    displayUsername: string | null
-    name: string
-    image: string | null
-  }
-  replies: CommentOut[]
-}
-
 export async function selectClipAccess(clipId: string) {
   const [row] = await db
     .select({
@@ -77,7 +56,7 @@ export async function listClipComments({
   sort: "top" | "new"
   viewerId: string | null
   clipAuthorId: string
-}): Promise<CommentOut[]> {
+}): Promise<CommentRow[]> {
   const rows = await db
     .select({
       id: clipComment.id,
@@ -111,8 +90,8 @@ export async function listClipComments({
     }
   }
 
-  const byId = new Map<string, CommentOut>()
-  const tops: CommentOut[] = []
+  const byId = new Map<string, CommentRow>()
+  const tops: CommentRow[] = []
   for (const r of rows) {
     byId.set(r.id, {
       id: r.id,

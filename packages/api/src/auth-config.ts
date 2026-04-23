@@ -1,19 +1,17 @@
 import type { ApiContext } from "./client"
+import type {
+  PasskeySignUpRequest,
+  PasskeySignUpResponse,
+  PublicAuthConfig,
+} from "@workspace/db/contracts"
 import { readJsonOrThrow } from "./http"
 
-export interface PublicAuthProvider {
-  providerId: string
-  displayName: string
-}
-
-export interface PublicAuthConfig {
-  setupRequired: boolean
-  openRegistrations: boolean
-  emailPasswordEnabled: boolean
-  passkeyEnabled: boolean
-  requireAuthToBrowse: boolean
-  provider: PublicAuthProvider | null
-}
+export type {
+  PasskeySignUpRequest,
+  PasskeySignUpResponse,
+  PublicAuthConfig,
+  PublicAuthProvider,
+} from "@workspace/db/contracts"
 
 export function createAuthConfigApi(context: ApiContext) {
   return {
@@ -22,16 +20,15 @@ export function createAuthConfigApi(context: ApiContext) {
       return readJsonOrThrow<PublicAuthConfig>(res)
     },
 
-    async createPasskeySignUp(input: {
-      email: string
-      username: string
-    }): Promise<{ context: string }> {
+    async createPasskeySignUp(
+      input: PasskeySignUpRequest
+    ): Promise<PasskeySignUpResponse> {
       const res = await context.client.api["auth-config"]["passkey-sign-up"].$post(
         {
           json: input,
         }
       )
-      return readJsonOrThrow<{ context: string }>(res)
+      return readJsonOrThrow<PasskeySignUpResponse>(res)
     },
   }
 }

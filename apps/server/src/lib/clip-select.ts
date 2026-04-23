@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm"
 
+import type { ClipMentionRef } from "@workspace/db/contracts"
 import { user } from "@workspace/db/auth-schema"
 import { clip, clipMention, game } from "@workspace/db/schema"
 
@@ -46,25 +47,6 @@ export const clipSelectShape = {
     iconUrl: game.iconUrl,
   },
 } as const
-
-export type ClipGameRef = {
-  id: string
-  steamgriddbId: number
-  slug: string
-  name: string
-  releaseDate: Date | null
-  heroUrl: string | null
-  logoUrl: string | null
-  iconUrl: string | null
-}
-
-export type ClipMentionRef = {
-  id: string
-  username: string
-  displayUsername: string
-  name: string
-  image: string | null
-}
 
 export async function selectClipMentions(
   clipId: string

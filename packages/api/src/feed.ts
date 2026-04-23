@@ -1,31 +1,17 @@
 import type { ApiContext } from "./client"
-import type { ClipRow } from "./clips"
+import type {
+  ClipRow,
+  FeedChipsResponse,
+  FeedPageParams,
+} from "@workspace/db/contracts"
 import { readJsonOrThrow } from "./http"
 
-export type FeedFilter =
-  | { kind: "foryou" }
-  | { kind: "following" }
-  | { kind: "game"; gameId: string }
-
-export interface FeedPageParams {
-  filter: FeedFilter
-  limit?: number
-  offset?: number
-}
-
-export interface FeedChipGame {
-  id: string
-  slug: string
-  name: string
-  iconUrl: string | null
-  logoUrl: string | null
-  interaction: number
-  clipCount: number
-}
-
-export interface FeedChipsResponse {
-  games: FeedChipGame[]
-}
+export type {
+  FeedChipGame,
+  FeedChipsResponse,
+  FeedFilter,
+  FeedPageParams,
+} from "@workspace/db/contracts"
 
 export function createFeedApi(context: ApiContext) {
   return {

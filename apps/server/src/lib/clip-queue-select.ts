@@ -1,18 +1,9 @@
 import { desc, eq } from "drizzle-orm"
 
+import type { QueueClip } from "@workspace/db/contracts"
 import { clip, game } from "@workspace/db/schema"
 
 import { db } from "../db"
-
-export interface QueueClipRow {
-  id: string
-  gameSlug: string
-  title: string
-  status: (typeof clip.$inferSelect)["status"]
-  encodeProgress: number
-  failureReason: string | null
-  createdAt: string
-}
 
 const queueSelectShape = {
   id: clip.id,
@@ -34,7 +25,7 @@ function serialize(
     failureReason: string | null
     createdAt: Date
   } | null
-): QueueClipRow | null {
+): QueueClip | null {
   if (!row) return null
   return { ...row, createdAt: row.createdAt.toISOString() }
 }
@@ -43,7 +34,7 @@ function serialize(
  *  SSE (re)connects. Single source of truth for the queue shape. */
 export async function selectQueueRowsForAuthor(
   authorId: string
-): Promise<QueueClipRow[]> {
+): Promise<QueueClip[]> {
   const rows = await db
     .select(queueSelectShape)
     .from(clip)
@@ -56,7 +47,7 @@ export async function selectQueueRowsForAuthor(
 
 export async function selectQueueRowById(
   clipId: string
-): Promise<QueueClipRow | null> {
+): Promise<QueueClip | null> {
   const [row] = await db
     .select(queueSelectShape)
     .from(clip)

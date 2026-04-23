@@ -1,3 +1,4 @@
+import type { GameRow } from "@workspace/db/contracts"
 import { game } from "@workspace/db/schema"
 
 import {
@@ -15,7 +16,7 @@ export function serialiseGame(row: typeof game.$inferSelect) {
     heroUrl: row.heroUrl,
     logoUrl: row.logoUrl,
     iconUrl: row.iconUrl,
-  }
+  } satisfies GameRow
 }
 
 export function sgdbErrorResponse(

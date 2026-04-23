@@ -11,7 +11,9 @@
     "verbatimModuleSyntax": true,
     "noEmit": true,
     "paths": {
-      "@workspace/api/*": ["./src/*"]
+      "@workspace/api/*": ["./src/*"],
+      "@workspace/db": ["../db/src/index.ts"],
+      "@workspace/db/*": ["../db/src/*"]
     }
   },
   "include": ["src"],

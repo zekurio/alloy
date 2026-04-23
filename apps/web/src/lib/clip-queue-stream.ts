@@ -3,18 +3,13 @@ import { useQueryClient } from "@tanstack/react-query"
 
 import { clipKeys } from "./clip-query-keys"
 import { apiOrigin } from "./env"
-import type { QueueClip } from "@workspace/api"
+import type { QueueClip, QueueEvent } from "@workspace/api"
 
 const STREAM_URL = "/events/clips/queue"
 
-type QueueStreamEvent =
-  | { type: "upsert"; clip: QueueClip }
-  | { type: "progress"; id: string; encodeProgress: number }
-  | { type: "remove"; id: string }
-
 function applyEvent(
   prev: QueueClip[] | undefined,
-  event: QueueStreamEvent
+  event: QueueEvent
 ): QueueClip[] | undefined {
   if (!prev) {
     return event.type === "upsert" ? [event.clip] : prev
@@ -62,7 +57,7 @@ export function useUploadQueueStream({ enabled }: { enabled: boolean }) {
     }
 
     const handleDelta = (ev: MessageEvent<string>) => {
-      const event = JSON.parse(ev.data) as QueueStreamEvent
+      const event = JSON.parse(ev.data) as QueueEvent
       queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), (prev) =>
         applyEvent(prev, event)
       )

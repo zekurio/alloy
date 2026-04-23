@@ -6,6 +6,7 @@ import { Hono } from "hono"
 import { createMiddleware } from "hono/factory"
 import { z } from "zod"
 
+import type { AdminEncoderCapabilities as EncoderCapabilities } from "@workspace/db/contracts"
 import { clip } from "@workspace/db/schema"
 
 import { getAuth } from "../auth"
@@ -20,7 +21,6 @@ import {
   OAuthProviderSubmissionSchema,
   configStore,
   type OAuthProviderConfig,
-  type HwaccelKind,
   type RuntimeConfig,
 } from "../lib/config-store"
 import { ENCODE_JOB, getBoss } from "../queue"
@@ -307,13 +307,6 @@ let capabilityCache: {
   expiresAt: number
   value: EncoderCapabilities
 } | null = null
-
-interface EncoderCapabilities {
-  ffmpegOk: boolean
-  /** ffmpeg's `-version` first line, or null if the probe failed. */
-  ffmpegVersion: string | null
-  available: Record<HwaccelKind, { h264: boolean; hevc: boolean; av1: boolean }>
-}
 
 async function getEncoderCapabilities(): Promise<EncoderCapabilities> {
   if (capabilityCache && capabilityCache.expiresAt > Date.now()) {

@@ -4,6 +4,7 @@ import { Readable } from "node:stream"
 import { eq } from "drizzle-orm"
 import { z } from "zod"
 
+import { ACCEPTED_CLIP_CONTENT_TYPES } from "@workspace/db/contracts"
 import { getAuth } from "../auth"
 import {
   CLIP_PRIVACY,
@@ -36,13 +37,6 @@ export const WINDOW_MS: Record<"today" | "week" | "month", number> = {
   month: 30 * 24 * 60 * 60 * 1000,
 }
 
-export const ACCEPTED_CONTENT_TYPES = [
-  "video/mp4",
-  "video/quicktime",
-  "video/x-matroska",
-  "video/webm",
-] as const
-
 export const MAX_THUMB_BYTES = 2 * 1024 * 1024
 
 // Short-window cache throttle — the `clip_view` PK does the real dedup,
@@ -52,7 +46,7 @@ export const VIEW_THROTTLE_TTL_SEC = 60
 export const InitiateBody = z
   .object({
     filename: z.string().min(1).max(255),
-    contentType: z.enum(ACCEPTED_CONTENT_TYPES),
+    contentType: z.enum(ACCEPTED_CLIP_CONTENT_TYPES),
     sizeBytes: z.number().int().positive(),
     title: z.string().min(1).max(100),
     description: z.string().max(2000).optional(),

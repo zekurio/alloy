@@ -1,5 +1,10 @@
 import { z } from "zod"
 
+import type {
+  SteamGridDBAsset,
+  SteamGridDBGameDetail,
+  SteamGridDBSearchResult,
+} from "@workspace/db/contracts"
 import { configStore } from "./config-store"
 
 const BASE_URL = "https://www.steamgriddb.com/api/v2"
@@ -34,7 +39,7 @@ const EnvelopeSchema = <T extends z.ZodTypeAny>(inner: T) =>
 
 // Autocomplete row. `release_date` is a Unix timestamp in seconds when
 // present; SGDB omits it for some games (mods, unknown releases).
-const SearchResultSchema = z.object({
+const SearchResultSchema: z.ZodType<SteamGridDBSearchResult> = z.object({
   id: z.number().int(),
   name: z.string(),
   release_date: z.number().int().optional(),
@@ -42,9 +47,7 @@ const SearchResultSchema = z.object({
   verified: z.boolean().optional(),
 })
 
-export type SteamGridDBSearchResult = z.infer<typeof SearchResultSchema>
-
-const GameDetailSchema = z.object({
+const GameDetailSchema: z.ZodType<SteamGridDBGameDetail> = z.object({
   id: z.number().int(),
   name: z.string(),
   release_date: z.number().int().optional().nullable(),
@@ -52,9 +55,7 @@ const GameDetailSchema = z.object({
   verified: z.boolean().optional(),
 })
 
-export type SteamGridDBGameDetail = z.infer<typeof GameDetailSchema>
-
-const AssetSchema = z.object({
+const AssetSchema: z.ZodType<SteamGridDBAsset> = z.object({
   id: z.number().int(),
   url: z.string().url(),
   thumb: z.string().url().optional(),
@@ -64,8 +65,6 @@ const AssetSchema = z.object({
   nsfw: z.boolean().optional(),
   humor: z.boolean().optional(),
 })
-
-export type SteamGridDBAsset = z.infer<typeof AssetSchema>
 
 const SearchEnvelope = EnvelopeSchema(z.array(SearchResultSchema))
 const GameDetailEnvelope = EnvelopeSchema(GameDetailSchema)

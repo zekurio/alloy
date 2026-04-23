@@ -2,18 +2,13 @@ import { EventEmitter } from "node:events"
 
 import { eq } from "drizzle-orm"
 
+import type { QueueEvent } from "@workspace/db/contracts"
 import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
 import {
   selectQueueRowById,
-  type QueueClipRow,
 } from "./clip-queue-select"
-
-export type QueueEvent =
-  | { type: "upsert"; clip: QueueClipRow }
-  | { type: "progress"; id: string; encodeProgress: number }
-  | { type: "remove"; id: string }
 
 const emitter = new EventEmitter()
 // Subscribers are one per open SSE connection — cap removed so we don't
@@ -75,3 +70,5 @@ export function subscribeToAuthorQueue(
   emitter.on(ch, handler)
   return () => emitter.off(ch, handler)
 }
+
+export type { QueueEvent } from "@workspace/db/contracts"
