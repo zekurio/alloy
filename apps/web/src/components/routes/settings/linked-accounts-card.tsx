@@ -90,9 +90,10 @@ function shouldHideLinkedAccountsCard(
   accounts: Account[] | null,
   loading: boolean
 ): boolean {
+  if (config.provider !== null) return false
+  if (loading) return true
+
   return (
-    config.provider === null &&
-    !loading &&
     (accounts?.filter((account) => account.providerId !== "credential")
       .length ?? 0) === 0
   )
