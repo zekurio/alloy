@@ -40,8 +40,8 @@ async function readAll(node: Readable): Promise<Uint8Array> {
   return Buffer.concat(chunks)
 }
 
-function assetUrl(key: string): string {
-  return `/storage/user-assets/${key}`
+function assetUrl(key: string, updatedAt: Date): string {
+  return `/storage/user-assets/${key}?v=${updatedAt.getTime().toString(36)}`
 }
 
 async function fetchRow(userId: string): Promise<UserRow | null> {
@@ -91,10 +91,11 @@ export const usersUploadRoute = new Hono<{
       await deleteOldAssets(viewerId, "avatar")
       await storage.put(key, buf, contentType)
 
-      const url = assetUrl(key)
+      const updatedAt = new Date()
+      const url = assetUrl(key, updatedAt)
       await db
         .update(user)
-        .set({ image: url, updatedAt: new Date() })
+        .set({ image: url, updatedAt })
         .where(eq(user.id, viewerId))
 
       const row = await fetchRow(viewerId)
@@ -127,10 +128,11 @@ export const usersUploadRoute = new Hono<{
       await deleteOldAssets(viewerId, "banner")
       await storage.put(key, buf, contentType)
 
-      const url = assetUrl(key)
+      const updatedAt = new Date()
+      const url = assetUrl(key, updatedAt)
       await db
         .update(user)
-        .set({ banner: url, updatedAt: new Date() })
+        .set({ banner: url, updatedAt })
         .where(eq(user.id, viewerId))
 
       const row = await fetchRow(viewerId)
