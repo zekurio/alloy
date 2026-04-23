@@ -145,6 +145,8 @@ function buildPasskeyPlugin() {
         };
       },
       afterVerification: async ({ context, ctx }) => {
+        if (!context) return;
+
         const identity = await createPasskeyRegistrationUser(context);
         const user = await ctx.context.internalAdapter.createUser({
           email: identity.email,
