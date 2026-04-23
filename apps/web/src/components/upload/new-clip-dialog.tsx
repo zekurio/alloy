@@ -1,10 +1,4 @@
 import * as React from "react"
-import {
-  PauseIcon,
-  PlayIcon,
-  SkipBackIcon,
-} from "lucide-react"
-
 import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/components/sonner"
 import {
@@ -344,7 +338,6 @@ function LoadedState({
 
           <VideoPreview
             file={file.file}
-            durationMs={file.durationMs}
             trimStartMs={trimStartMs}
             trimEndMs={trimEndMs}
             isPlaying={isPlaying}
@@ -354,39 +347,6 @@ function LoadedState({
             onTimeUpdate={setCurrentMs}
             onPlayingChange={setIsPlaying}
           />
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Jump to trim start"
-              onClick={() => setCurrentMs(trimStartMs)}
-            >
-              <SkipBackIcon />
-            </Button>
-            <Button
-              variant="primary"
-              size="icon-sm"
-              aria-label={isPlaying ? "Pause" : "Play"}
-              onClick={() => setIsPlaying((p) => !p)}
-            >
-              {isPlaying ? <PauseIcon /> : <PlayIcon />}
-            </Button>
-            <span className="ml-2 text-xs font-semibold text-foreground-muted tabular-nums">
-              {formatTimecode(currentMs)}{" "}
-              <span className="text-foreground-muted">/</span>{" "}
-              {formatTimecode(file.durationMs)}
-            </span>
-
-            <VolumeControl
-              className="ml-auto"
-              volume={volume}
-              muted={muted}
-              onVolumeChange={setVolume}
-              onToggleMute={() => setMuted((m) => !m)}
-            />
-
-          </div>
 
           <TrimTimeline
             durationMs={file.durationMs}
@@ -403,15 +363,25 @@ function LoadedState({
             onSeek={(ms) => setCurrentMs(ms)}
           />
 
-          <div className="flex items-center justify-between text-xs font-semibold text-foreground-muted tabular-nums">
+          <div className="flex items-center gap-2 text-xs font-semibold text-foreground-muted tabular-nums">
             <span>In {formatTimecode(trimStartMs)}</span>
+            <span className="text-foreground-faint">·</span>
             <span>
-              Length {formatTimecode(trimEndMs - trimStartMs)}
+              {formatTimecode(trimEndMs - trimStartMs)}
               {trimChanged ? (
-                <span className="ml-1.5 text-accent">· trimmed</span>
+                <span className="ml-1 text-accent">trimmed</span>
               ) : null}
             </span>
+            <span className="text-foreground-faint">·</span>
             <span>Out {formatTimecode(trimEndMs)}</span>
+
+            <VolumeControl
+              className="ml-auto"
+              volume={volume}
+              muted={muted}
+              onVolumeChange={setVolume}
+              onToggleMute={() => setMuted((m) => !m)}
+            />
           </div>
         </section>
 
