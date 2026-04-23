@@ -2,15 +2,15 @@ import * as React from "react"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
 import { SignUpPageInner } from "@/components/routes/sign-up/sign-up-page-inner"
-import { api } from "@/lib/api"
+import { redirectAuthedBeforeLoad } from "@/lib/auth-guards"
 import { fetchPublicClips } from "@/lib/public-clips"
+import { loadAuthConfig } from "@/lib/session-suspense"
 
 export const Route = createFileRoute("/(auth)/sign-up")({
+  beforeLoad: redirectAuthedBeforeLoad,
   loader: async () => {
-    const [config, clips] = await Promise.all([
-      api.authConfig.fetch(),
-      fetchPublicClips(),
-    ])
+    const clips = fetchPublicClips()
+    const config = await loadAuthConfig()
     if (config.setupRequired) {
       throw redirect({ to: "/setup" })
     }
