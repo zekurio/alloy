@@ -42,6 +42,7 @@ const requireAdmin = createMiddleware<{
 const RuntimeConfigPatch = z.object({
   openRegistrations: z.boolean().optional(),
   emailPasswordEnabled: z.boolean().optional(),
+  passkeyEnabled: z.boolean().optional(),
   requireAuthToBrowse: z.boolean().optional(),
 })
 
@@ -89,6 +90,18 @@ function hasEnabledOAuthProvider(config: {
   oauthProvider: { enabled: boolean } | null
 }): boolean {
   return config.oauthProvider?.enabled === true
+}
+
+function hasEnabledSignInMethod(config: {
+  emailPasswordEnabled: boolean
+  passkeyEnabled: boolean
+  oauthProvider: { enabled: boolean } | null
+}): boolean {
+  return (
+    config.emailPasswordEnabled ||
+    config.passkeyEnabled ||
+    hasEnabledOAuthProvider(config)
+  )
 }
 
 function sanitizeScopes(scopes: string[] | undefined): string[] | undefined {
@@ -142,14 +155,15 @@ export const adminRoute = new Hono()
   })
   .patch("/runtime-config", zValidator("json", RuntimeConfigPatch), (c) => {
     const body = c.req.valid("json")
-    if (
-      body.emailPasswordEnabled === false &&
-      !hasEnabledOAuthProvider(configStore.getAll())
-    ) {
+    const current = configStore.getAll()
+    const next = {
+      ...current,
+      ...body,
+    }
+    if (!hasEnabledSignInMethod(next)) {
       return c.json(
         {
-          error:
-            "Configure and enable an OAuth provider before disabling email/password — otherwise no one can sign in.",
+          error: "Keep at least one sign-in method enabled.",
         },
         400
       )
@@ -157,6 +171,7 @@ export const adminRoute = new Hono()
     const patch: Partial<{
       openRegistrations: boolean
       emailPasswordEnabled: boolean
+      passkeyEnabled: boolean
       requireAuthToBrowse: boolean
     }> = {}
     if (body.openRegistrations !== undefined) {
@@ -164,6 +179,9 @@ export const adminRoute = new Hono()
     }
     if (body.emailPasswordEnabled !== undefined) {
       patch.emailPasswordEnabled = body.emailPasswordEnabled
+    }
+    if (body.passkeyEnabled !== undefined) {
+      patch.passkeyEnabled = body.passkeyEnabled
     }
     if (body.requireAuthToBrowse !== undefined) {
       patch.requireAuthToBrowse = body.requireAuthToBrowse
@@ -182,13 +200,15 @@ export const adminRoute = new Hono()
           ? finalizeOAuthProviderSubmission(submission.oauthProvider, existing)
           : null
         if (
-          !configStore.get("emailPasswordEnabled") &&
-          !hasEnabledOAuthProvider({ oauthProvider: nextProvider })
+          !hasEnabledSignInMethod({
+            emailPasswordEnabled: configStore.get("emailPasswordEnabled"),
+            passkeyEnabled: configStore.get("passkeyEnabled"),
+            oauthProvider: nextProvider,
+          })
         ) {
           return c.json(
             {
-              error:
-                "Keep the OAuth provider enabled while email/password login is disabled.",
+              error: "Keep at least one sign-in method enabled.",
             },
             400
           )

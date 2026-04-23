@@ -5,6 +5,7 @@ import { LinkedAccountsCard } from "@/components/routes/settings/linked-accounts
 import { PasskeysCard } from "@/components/routes/settings/passkeys-card"
 import { ProfileCard } from "@/components/routes/settings/profile-card"
 import { useRequireAuthStrict } from "@/lib/auth-hooks"
+import { useSuspenseAuthConfig } from "@/lib/session-suspense"
 
 export const Route = createFileRoute("/(app)/_app/_settings/user-settings")({
   component: ProfilePage,
@@ -12,6 +13,7 @@ export const Route = createFileRoute("/(app)/_app/_settings/user-settings")({
 
 function ProfilePage() {
   const session = useRequireAuthStrict()
+  const config = useSuspenseAuthConfig()
   const user = session?.user
   if (!session || !user) return null
 
@@ -29,7 +31,7 @@ function ProfilePage() {
         email={user.email ?? ""}
       />
       <LinkedAccountsCard />
-      <PasskeysCard />
+      {config.passkeyEnabled ? <PasskeysCard /> : null}
       <DangerZoneCard />
     </>
   )

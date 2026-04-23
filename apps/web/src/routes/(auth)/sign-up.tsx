@@ -14,20 +14,25 @@ export const Route = createFileRoute("/(auth)/sign-up")({
     if (config.setupRequired) {
       throw redirect({ to: "/setup" })
     }
-    if (!config.openRegistrations || !config.emailPasswordEnabled) {
+    const canSignUp =
+      config.openRegistrations &&
+      (config.emailPasswordEnabled ||
+        config.passkeyEnabled ||
+        config.provider !== null)
+    if (!canSignUp) {
       throw redirect({ to: "/login" })
     }
-    return { clips }
+    return { clips, config }
   },
   component: SignUpPage,
 })
 
 function SignUpPage() {
-  const { clips } = Route.useLoaderData()
+  const { clips, config } = Route.useLoaderData()
 
   return (
     <React.Suspense fallback={null}>
-      <SignUpPageInner clips={clips} />
+      <SignUpPageInner clips={clips} config={config} />
     </React.Suspense>
   )
 }

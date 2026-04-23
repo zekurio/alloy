@@ -485,16 +485,15 @@
   }
 }
 
-/* Base card — raised surface, thin border. Type is conveyed by the icon    */
-/* color alone (no colored rail on the left edge).                          */
+/* Base card — single-line, vertically centred, no description.             */
+/* Close button matches Button variant="outline" size="icon".           */
 
 .alloy-toast {
-  display: grid !important;
-  grid-template-columns: auto 1fr auto !important;
-  align-items: flex-start !important;
+  display: flex !important;
+  align-items: center !important;
   gap: 10px !important;
   width: 100%;
-  padding: 12px 14px !important;
+  padding: 8px 10px !important;
   background: var(--surface-raised);
   color: var(--foreground);
   border: 1px solid var(--border);
@@ -505,18 +504,18 @@
 
 .alloy-toast-icon {
   order: 1;
+  flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: none;
   width: 16px;
   height: 16px;
-  margin-top: 2px;
   color: var(--foreground-muted);
 }
 
 .alloy-toast > [data-content] {
   order: 2;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -543,50 +542,53 @@
 }
 
 .alloy-toast-description {
-  margin-top: 2px;
-  font-size: var(--text-xs);
-  line-height: var(--leading-normal);
-  color: var(--foreground-muted);
+  display: none;
 }
 
-/* Close button — sits top-right, mono-coloured, brightens on hover. */
+/* Close button — exact visual match for Button variant="outline" size="icon". */
 .alloy-toast-close {
-  order: 3;
+  order: 4;
   position: static !important;
-  align-self: flex-start;
   transform: none !important;
   inset: auto !important;
   right: auto !important;
   left: auto !important;
   top: auto !important;
+  flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 30px;
+  height: 30px;
   padding: 0;
-  margin-left: 4px;
-  border: 0 !important;
-  border-radius: var(--radius-sm);
+  margin-left: auto;
+  border: 1px solid var(--border-strong) !important;
+  border-radius: var(--radius-md);
   background: transparent !important;
-  color: var(--foreground-faint) !important;
-  opacity: 0.8;
+  color: var(--foreground) !important;
+  opacity: 1;
   transition:
     background var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out),
-    opacity var(--duration-fast) var(--ease-out);
+    border-color var(--duration-fast) var(--ease-out);
 }
 .alloy-toast-close:hover {
-  background: var(--surface) !important;
-  color: var(--foreground) !important;
-  opacity: 1;
+  background: transparent !important;
+  color: var(--accent) !important;
+  border-color: var(--accent-border) !important;
 }
 .alloy-toast-close svg {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
 }
 
 /* Action / cancel buttons — keep them aligned with Alloy's button look. */
+.alloy-toast-action,
+.alloy-toast-cancel {
+  order: 3;
+  flex: none;
+}
+
 .alloy-toast-action {
   background: var(--accent) !important;
   color: var(--accent-foreground) !important;
