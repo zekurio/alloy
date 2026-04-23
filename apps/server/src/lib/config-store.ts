@@ -2,20 +2,28 @@ import fs from "node:fs"
 import path from "node:path"
 import { z } from "zod"
 
+import {
+  ENCODER_CODECS,
+  ENCODER_HEIGHT_MAX,
+  ENCODER_HEIGHT_MIN,
+  ENCODER_HWACCELS,
+  type EncoderHwaccel,
+  type RuntimeConfig,
+} from "@workspace/db/contracts"
 import { env } from "../env"
 
 const ProviderIdPattern = /^[a-z0-9-]+$/
 
-export const USERNAME_CLAIM_SUGGESTIONS = [
-  "preferred_username",
-  "username",
-  "nickname",
-  "name",
-  "display_name",
-  "given_name",
-  "email",
-] as const
-export type UsernameClaim = string
+export {
+  ENCODER_CODECS,
+  ENCODER_HEIGHT_MAX,
+  ENCODER_HEIGHT_MIN,
+  ENCODER_HEIGHT_SUGGESTIONS,
+  USERNAME_CLAIM_SUGGESTIONS,
+} from "@workspace/db/contracts"
+export const HWACCEL_KINDS = ENCODER_HWACCELS
+export type HwaccelKind = EncoderHwaccel
+export type { UsernameClaim } from "@workspace/db/contracts"
 
 const OAuthProviderBaseSchema = z.object({
   providerId: z
@@ -81,29 +89,9 @@ export const OAuthProviderSubmissionSchema = OAuthProviderSchemaBase.superRefine
   (provider, ctx) => validateOAuthProvider(provider, ctx, false)
 )
 
-export type OAuthProviderConfig = z.infer<typeof OAuthProviderSchema>
 export type OAuthProviderSubmission = z.infer<
   typeof OAuthProviderSubmissionSchema
 >
-
-export const HWACCEL_KINDS = [
-  "software",
-  "nvenc",
-  "qsv",
-  "amf",
-  "vaapi",
-] as const
-export type HwaccelKind = (typeof HWACCEL_KINDS)[number]
-
-export const ENCODER_CODECS = ["h264", "hevc", "av1"] as const
-export type EncoderCodec = (typeof ENCODER_CODECS)[number]
-
-export const ENCODER_HEIGHT_SUGGESTIONS = [
-  360, 480, 720, 1080, 1440, 2160,
-] as const
-
-export const ENCODER_HEIGHT_MIN = 144
-export const ENCODER_HEIGHT_MAX = 4320
 
 const EncoderVariantSchema = z.object({
   height: z
@@ -117,8 +105,6 @@ const EncoderVariantSchema = z.object({
   preset: z.string().min(1).max(64).optional(),
   audioBitrateKbps: z.number().int().min(64).max(256).optional(),
 })
-
-export type EncoderVariant = z.infer<typeof EncoderVariantSchema>
 
 const EncoderConfigInnerSchema = z.object({
   hwaccel: z.enum(HWACCEL_KINDS).default("software"),
@@ -164,8 +150,6 @@ const EncoderConfigSchema = z.preprocess((raw) => {
   return r
 }, EncoderConfigInnerSchema)
 
-export type EncoderConfig = z.infer<typeof EncoderConfigSchema>
-
 const LimitsConfigSchema = z.object({
   maxUploadBytes: z
     .number()
@@ -183,13 +167,9 @@ const LimitsConfigSchema = z.object({
   queueConcurrency: z.number().int().min(1).max(16).default(1),
 })
 
-export type LimitsConfig = z.infer<typeof LimitsConfigSchema>
-
 const IntegrationsConfigSchema = z.object({
   steamgriddbApiKey: z.string().default(""),
 })
-
-export type IntegrationsConfig = z.infer<typeof IntegrationsConfigSchema>
 
 const RuntimeConfigSchema = z.object({
   openRegistrations: z.boolean().default(false),
@@ -209,7 +189,7 @@ export const EncoderConfigPatchSchema = EncoderConfigInnerSchema.partial()
 export const LimitsConfigPatchSchema = LimitsConfigSchema.partial()
 export const IntegrationsConfigPatchSchema = IntegrationsConfigSchema.partial()
 
-export type RuntimeConfig = z.infer<typeof RuntimeConfigSchema>
+export type { EncoderCodec, EncoderConfig, EncoderVariant, IntegrationsConfig, LimitsConfig, OAuthProviderConfig, RuntimeConfig } from "@workspace/db/contracts"
 
 const DEFAULT_CONFIG: RuntimeConfig = RuntimeConfigSchema.parse({})
 

@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, type SQL } from "drizzle-orm"
 import { z } from "zod"
 
+import type { PublicUser } from "@workspace/db/contracts"
 import { user } from "@workspace/db/auth-schema"
 import { clip, clipMention, follow, game } from "@workspace/db/schema"
 
@@ -24,15 +25,6 @@ export function toLikePattern(raw: string): string {
 }
 
 export type UserRow = typeof user.$inferSelect
-
-interface PublicUser {
-  id: string
-  username: string
-  name: string
-  image: string | null
-  createdAt: string
-  updatedAt: string
-}
 
 export function toPublicUser(row: UserRow): PublicUser {
   return {

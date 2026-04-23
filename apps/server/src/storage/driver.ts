@@ -1,14 +1,5 @@
 import type { Readable } from "node:stream"
-
-export interface UploadTicket {
-  /** Absolute URL the browser PUTs/POSTs the file to. */
-  uploadUrl: string
-  /** HTTP method the browser must use (`PUT` for S3, `POST` for fs). */
-  method: "PUT" | "POST"
-  headers: Record<string, string>
-  /** Unix-seconds expiry. UI greys out the publish button past this. */
-  expiresAt: number
-}
+import type { UploadTicket } from "@workspace/db/contracts"
 
 export interface ResolvedObject {
   stream: (opts?: { start?: number; end?: number }) => Readable
@@ -128,3 +119,5 @@ export function clipVideoVariantKey(clipId: string, variantId: string): string {
   }
   return `${clipAssetDir(clipId)}/video-${safeVariantId}.mp4`
 }
+
+export type { UploadTicket } from "@workspace/db/contracts"

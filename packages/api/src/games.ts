@@ -1,46 +1,27 @@
 import type { ApiContext } from "./client"
-import type { ClipRow } from "./clips"
+import type {
+  ClipRow,
+  GameClipsParams,
+  GameDetail,
+  GameListRow,
+  GameRow,
+  SteamGridDBSearchResult,
+  SteamGridDBStatus,
+} from "@workspace/db/contracts"
 import { readJsonOrThrow } from "./http"
 
-export interface SteamGridDBSearchResult {
-  id: number
-  name: string
-  release_date?: number
-  types?: string[]
-  verified?: boolean
-  iconUrl?: string | null
-}
-
-export interface GameRow {
-  id: string
-  steamgriddbId: number
-  name: string
-  slug: string
-  releaseDate: string | null
-  heroUrl: string | null
-  logoUrl: string | null
-  iconUrl: string | null
-}
-
-export interface GameListRow extends GameRow {
-  clipCount: number
-}
-
-export interface GameDetail extends GameRow {
-  viewer: { isFollowing: boolean } | null
-}
-
-export interface GameClipsParams {
-  sort?: "top" | "recent"
-  limit?: number
-  cursor?: string
-}
+export type {
+  GameClipsParams,
+  GameDetail,
+  GameListRow,
+  GameRow,
+  SteamGridDBSearchResult,
+  SteamGridDBStatus,
+} from "@workspace/db/contracts"
 
 export function createGamesApi(context: ApiContext) {
   return {
-    async fetchSteamGridDBStatus(): Promise<{
-      steamgriddbConfigured: boolean
-    }> {
+    async fetchSteamGridDBStatus(): Promise<SteamGridDBStatus> {
       const res = await context.client.api.games.status.$get()
       return readJsonOrThrow(res)
     },

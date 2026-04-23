@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema.ts",
-    "./auth-schema": "./src/auth-schema.ts"
+    "./auth-schema": "./src/auth-schema.ts",
+    "./contracts": "./src/contracts.ts"
   },
   "scripts": {
     "db:generate": "drizzle-kit generate",

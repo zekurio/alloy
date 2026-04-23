@@ -1,14 +1,10 @@
 import type { GenericOAuthConfig } from "better-auth/plugins/generic-oauth"
+import type { PublicAuthProvider } from "@workspace/db/contracts"
 
 import {
   configStore,
   type OAuthProviderConfig,
 } from "./config-store"
-
-export type PublicOAuthProvider = {
-  providerId: string
-  displayName: string
-}
 
 export function getEnabledProviderConfig(): OAuthProviderConfig | null {
   const provider = configStore.get("oauthProvider")
@@ -39,7 +35,7 @@ export function buildGenericOAuthConfig(): GenericOAuthConfig[] {
   const provider = getEnabledProviderConfig()
   if (!provider) return []
   const { openRegistrations } = configStore.getAll()
-  const claim = provider.usernameClaim
+  const claim = provider.usernameClaim ?? "preferred_username"
   return [
     {
       providerId: provider.providerId,
@@ -72,7 +68,7 @@ export function buildTrustedProviders(): string[] {
   return provider ? [provider.providerId] : []
 }
 
-export function getPublicProvider(): PublicOAuthProvider | null {
+export function getPublicProvider(): PublicAuthProvider | null {
   const provider = getEnabledProviderConfig()
   return provider
     ? {

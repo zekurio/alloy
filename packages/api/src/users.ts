@@ -1,44 +1,19 @@
 import type { ApiContext } from "./client"
-import type { ClipRow } from "./clips"
+import type {
+  UserClip,
+  UserProfile,
+  UserSearchResult,
+} from "@workspace/db/contracts"
 import { readJsonOrThrow } from "./http"
 
-export interface PublicUser {
-  id: string
-  username: string
-  name: string
-  image: string | null
-  createdAt: string
-  updatedAt: string
-}
-
-export interface ProfileCounts {
-  clips: number
-  followers: number
-  following: number
-}
-
-export interface ProfileViewer {
-  isSelf: boolean
-  isFollowing: boolean
-  isBlocked: boolean
-  isBlockedBy: boolean
-}
-
-export interface UserProfile {
-  user: PublicUser
-  counts: ProfileCounts
-  viewer: ProfileViewer | null
-}
-
-export type UserClip = ClipRow
-
-export interface UserSearchResult {
-  id: string
-  username: string
-  displayUsername: string
-  name: string
-  image: string | null
-}
+export type {
+  ProfileCounts,
+  ProfileViewer,
+  PublicUser,
+  UserClip,
+  UserProfile,
+  UserSearchResult,
+} from "@workspace/db/contracts"
 
 export function createUsersApi(context: ApiContext) {
   return {

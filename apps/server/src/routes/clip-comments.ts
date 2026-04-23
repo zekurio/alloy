@@ -2,6 +2,7 @@ import { zValidator } from "@hono/zod-validator"
 import { and, eq, sql } from "drizzle-orm"
 import { Hono } from "hono"
 
+import type { CommentRow } from "@workspace/db/contracts"
 import { user } from "@workspace/db/auth-schema"
 import { clip, clipComment, clipCommentLike } from "@workspace/db/schema"
 
@@ -17,7 +18,6 @@ import {
   authorShape,
   listClipComments,
   selectClipAccess,
-  type CommentOut,
 } from "./clip-comments-helpers"
 
 export const clipCommentsRoutes = new Hono()
@@ -105,7 +105,7 @@ export const clipCommentsRoutes = new Hono()
         .where(eq(user.id, viewerId))
         .limit(1)
 
-      const out: CommentOut = {
+      const out: CommentRow = {
         id: inserted.id,
         clipId: inserted.clipId,
         parentId: inserted.parentId,
@@ -119,8 +119,8 @@ export const clipCommentsRoutes = new Hono()
         editedAt: null,
         author: {
           id: authorRow?.id ?? viewerId,
-          username: authorRow?.username ?? null,
-          displayUsername: authorRow?.displayUsername ?? null,
+          username: authorRow?.username ?? "",
+          displayUsername: authorRow?.displayUsername ?? "",
           name: authorRow?.name ?? "",
           image: authorRow?.image ?? null,
         },
@@ -386,5 +386,3 @@ export const clipCommentsRoutes = new Hono()
       return c.json({ pinned: false })
     }
   )
-
-export type { CommentOut }

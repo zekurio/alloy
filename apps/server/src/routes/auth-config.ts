@@ -5,6 +5,11 @@ import { Hono } from "hono"
 import { z } from "zod"
 import { eq } from "drizzle-orm"
 
+import type {
+  PasskeySignUpRequest,
+  PasskeySignUpResponse,
+  PublicAuthConfig,
+} from "@workspace/db/contracts"
 import { user } from "@workspace/db/auth-schema"
 
 import { db } from "../db"
@@ -23,6 +28,7 @@ const PasskeySignUpRequestSchema = z.object({
     .max(USERNAME_MAX_LEN)
     .regex(/^[a-z0-9_-]+$/),
 })
+PasskeySignUpRequestSchema satisfies z.ZodType<PasskeySignUpRequest>
 
 type PasskeySignUpPayload = {
   email: string
@@ -91,7 +97,7 @@ export const authConfigRoute = new Hono()
       passkeyEnabled: configStore.get("passkeyEnabled"),
       requireAuthToBrowse: configStore.get("requireAuthToBrowse"),
       provider: getPublicProvider(),
-    })
+    } satisfies PublicAuthConfig)
   })
   .post(
     "/passkey-sign-up",
@@ -126,6 +132,6 @@ export const authConfigRoute = new Hono()
         username: body.username,
       })
 
-      return c.json({ context })
+      return c.json({ context } satisfies PasskeySignUpResponse)
     }
   )

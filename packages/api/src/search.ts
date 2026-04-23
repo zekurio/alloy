@@ -1,22 +1,8 @@
 import type { ApiContext } from "./client"
-import type { ClipRow } from "./clips"
-import type { GameListRow } from "./games"
+import type { SearchResults } from "@workspace/db/contracts"
 import { readJsonOrThrow } from "./http"
 
-export interface UserListRow {
-  id: string
-  username: string
-  displayUsername: string
-  name: string
-  image: string | null
-  clipCount: number
-}
-
-export interface SearchResults {
-  clips: ClipRow[]
-  games: GameListRow[]
-  users: UserListRow[]
-}
+export type { SearchResults, UserListRow } from "@workspace/db/contracts"
 
 export function createSearchApi(context: ApiContext) {
   return {
