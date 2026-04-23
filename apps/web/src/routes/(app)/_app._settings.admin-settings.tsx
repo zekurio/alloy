@@ -1,9 +1,13 @@
 import * as React from "react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { z } from "zod"
-import { ShieldCheckIcon } from "lucide-react"
 
-import { Card, CardContent } from "@workspace/ui/components/card"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
 import {
   Select,
   SelectContent,
@@ -123,21 +127,12 @@ function AdminAuthTab({
 }) {
   return (
     <TabsContent value="auth" className="flex flex-col gap-3">
-      <Card>
-        <CardContent className="flex flex-col gap-1 py-4">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <ShieldCheckIcon className="size-4" />
-            Authentication policy
-          </div>
-          <p className="text-sm text-foreground-dim">
-            Sign-in methods control what returning users can use. When open
-            registrations is enabled, the same methods become available for new
-            accounts where supported.
-          </p>
-        </CardContent>
-      </Card>
+      <OAuthProviderCard config={config} onChange={onConfigChange} />
 
       <Card>
+        <CardHeader>
+          <CardTitle>Access controls</CardTitle>
+        </CardHeader>
         <CardContent className="flex flex-col">
           <ToggleRow
             title="Email and password"
@@ -159,13 +154,6 @@ function AdminAuthTab({
               !hasAnotherSignInMethod(config, "passkey")
             }
           />
-        </CardContent>
-      </Card>
-
-      <OAuthProviderCard config={config} onChange={onConfigChange} />
-
-      <Card>
-        <CardContent className="flex flex-col">
           <ToggleRow
             title="Open registrations"
             description="Allow new accounts through enabled sign-up methods. OAuth uses this to auto-create accounts on first sign-in."
