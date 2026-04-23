@@ -40,7 +40,7 @@ function AppHeaderBrand({
     <div
       data-slot="app-header-brand"
       className={cn(
-        "flex min-w-0 items-center gap-2 justify-self-start font-mono text-md font-medium tracking-[0.04em]",
+        "flex min-w-0 items-center gap-2 justify-self-start font-sans text-md font-bold tracking-normal",
         className
       )}
       {...props}

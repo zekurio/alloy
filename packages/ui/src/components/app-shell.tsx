@@ -28,14 +28,14 @@ function AppShell({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 /**
- * Main content region. Scrolls vertically; generous side padding matches
- * the handoff (`--space-9` / 32px).
+ * Main content region. Scrolls vertically; responsive side padding
+ * (16px mobile → 32px desktop).
  */
 function AppMain({ className, ...props }: React.ComponentProps<"main">) {
   return (
     <main
       data-slot="app-main"
-      className={cn("overflow-x-hidden overflow-y-auto px-8 py-6", className)}
+      className={cn("overflow-x-hidden overflow-y-auto px-4 py-4 md:px-8 md:py-6", className)}
       {...props}
     />
   )
