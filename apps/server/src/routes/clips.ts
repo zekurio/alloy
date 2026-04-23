@@ -23,7 +23,7 @@ export const clips = new Hono()
       eq(clip.status, "ready"),
       inArray(clip.privacy, ["public", "unlisted"]),
     ]
-    if (window) {
+    if (window && window !== "all") {
       conditions.push(
         gte(clip.createdAt, new Date(Date.now() - WINDOW_MS[window]))
       )

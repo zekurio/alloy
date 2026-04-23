@@ -8,12 +8,18 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@workspace/ui/components/carousel"
-import { Chip } from "@workspace/ui/components/chip"
 import {
   SectionActions,
   SectionHead,
   SectionTitle,
 } from "@workspace/ui/components/section-head"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@workspace/ui/components/select"
 
 import { ClipCardTrigger } from "@/components/clip/clip-card-trigger"
 import { ClipCardSkeleton } from "@/components/clip/clip-card-skeleton"
@@ -40,6 +46,8 @@ const TOP_WINDOWS: ReadonlyArray<{ key: ClipFeedWindow; label: string }> = [
   { key: "today", label: "Today" },
   { key: "week", label: "Week" },
   { key: "month", label: "Month" },
+  { key: "year", label: "Year" },
+  { key: "all", label: "All time" },
 ]
 
 function TopWindowPicker({
@@ -49,17 +57,34 @@ function TopWindowPicker({
   window: ClipFeedWindow
   onChange: (next: ClipFeedWindow) => void
 }) {
+  const selectedLabel =
+    TOP_WINDOWS.find((item) => item.key === window)?.label ?? "Today"
+
   return (
     <SectionActions>
-      {TOP_WINDOWS.map((item) => (
-        <Chip
-          key={item.key}
-          data-active={window === item.key ? "true" : undefined}
-          onClick={() => onChange(item.key)}
+      <Select
+        value={window}
+        onValueChange={(next) => {
+          if (typeof next === "string" && isClipFeedWindow(next)) {
+            onChange(next)
+          }
+        }}
+      >
+        <SelectTrigger
+          aria-label="Top clips time range"
+          size="sm"
+          className="min-w-32 rounded-full border-border/80 bg-surface-raised/80 px-3.5 shadow-sm"
         >
-          {item.label}
-        </Chip>
-      ))}
+          <SelectValue>{selectedLabel}</SelectValue>
+        </SelectTrigger>
+        <SelectContent align="end" alignItemWithTrigger={false}>
+          {TOP_WINDOWS.map((item) => (
+            <SelectItem key={item.key} value={item.key}>
+              {item.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </SectionActions>
   )
 }
@@ -149,12 +174,12 @@ function TopClipsBody({
 function TopClipsSkeletons() {
   return (
     <>
-      <div className="sm:hidden">
+      <div className="xl:hidden">
         <TopClipsCarousel>
-          {Array.from({ length: 3 }).map((_, i) => (
-            <CarouselItem key={i} className="basis-full pl-0">
-              <div className="px-2">
-                <div className="mx-auto w-full max-w-3xl">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <CarouselItem key={i} className="basis-full pl-0 md:basis-1/3 md:pl-4">
+              <div className="px-2 md:px-0">
+                <div className="mx-auto w-full max-w-3xl md:max-w-none">
                   <ClipCardSkeleton />
                 </div>
               </div>
@@ -162,7 +187,7 @@ function TopClipsSkeletons() {
           ))}
         </TopClipsCarousel>
       </div>
-      <div className="hidden sm:block">
+      <div className="hidden xl:block">
         <ClipGrid>
           {Array.from({ length: 5 }).map((_, i) => (
             <ClipCardSkeleton key={i} />
@@ -182,15 +207,15 @@ function TopClipsRows({
 }) {
   return (
     <>
-      <div className="sm:hidden">
+      <div className="xl:hidden">
         <TopClipsCarousel>
           {rows.map((row) => (
-            <CarouselItem key={row.id} className="basis-full pl-0">
-              <div className="px-2">
+            <CarouselItem key={row.id} className="basis-full pl-0 md:basis-1/3 md:pl-4">
+              <div className="px-2 md:px-0">
                 <ClipCardTrigger
                   row={row}
                   owned={row.authorId === viewerId}
-                  className="mx-auto w-full max-w-3xl"
+                  className="mx-auto w-full max-w-3xl md:max-w-none"
                   metaVariant="showcase"
                 />
               </div>
@@ -198,7 +223,7 @@ function TopClipsRows({
           ))}
         </TopClipsCarousel>
       </div>
-      <div className="hidden sm:block">
+      <div className="hidden xl:block">
         <ClipGrid>
           {rows.map((row) => (
             <ClipCardTrigger
@@ -216,7 +241,7 @@ function TopClipsRows({
 function TopClipsCarousel({ children }: { children: React.ReactNode }) {
   return (
     <Carousel className="group" opts={{ align: "start" }}>
-      <CarouselContent className="-ml-0">{children}</CarouselContent>
+      <CarouselContent className="-ml-0 md:-ml-4">{children}</CarouselContent>
       <CarouselPrevious
         variant="ghost"
         size="icon"
@@ -239,5 +264,13 @@ function emptyTopTitle(window: ClipFeedWindow): string {
       return "No top clips this week yet"
     case "month":
       return "No top clips this month yet"
+    case "year":
+      return "No top clips this year yet"
+    case "all":
+      return "No top clips yet"
   }
+}
+
+function isClipFeedWindow(value: string): value is ClipFeedWindow {
+  return TOP_WINDOWS.some((item) => item.key === value)
 }

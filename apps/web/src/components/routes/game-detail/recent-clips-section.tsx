@@ -7,10 +7,7 @@ import {
   SectionTitle,
 } from "@workspace/ui/components/section-head"
 
-import { ClipCardList } from "@/components/clip/clip-card-list"
-import { ClipCardSkeleton } from "@/components/clip/clip-card-skeleton"
-import { ClipGrid } from "@/components/clip/clip-grid"
-import { EmptyState } from "@/components/feedback/empty-state"
+import { ClipSectionContent } from "@/components/clip/clip-section-content"
 import { useGameClipsQuery } from "@/lib/game-queries"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
@@ -57,32 +54,20 @@ export function RecentClipsSection({
         </SectionActions>
       </SectionHead>
 
-      {error ? (
-        <EmptyState
-          seed={`game-${slug}-recent-error`}
-          size="lg"
-          title="Couldn't load clips"
-        />
-      ) : isPending || !rows ? (
-        <ClipGrid>
-          {Array.from({ length: 10 }).map((_, i) => (
-            <ClipCardSkeleton key={i} />
-          ))}
-        </ClipGrid>
-      ) : rows.length === 0 ? (
-        <EmptyState
-          seed={`game-${slug}-recent-empty`}
-          size="lg"
-          title="No clips for this game yet"
-          hint="Upload one to get the grid started."
-        />
-      ) : (
-        <ClipCardList
-          rows={visibleRows ?? []}
-          isOwnedByViewer={(row) => row.authorId === viewerId}
-          listKey={`game:${slug}:recent`}
-        />
-      )}
+      <ClipSectionContent
+        rows={visibleRows}
+        loading={isPending}
+        error={error}
+        skeletonCount={10}
+        errorSeed={`game-${slug}-recent-error`}
+        errorTitle="Couldn't load clips"
+        errorSize="lg"
+        emptySeed={`game-${slug}-recent-empty`}
+        emptyTitle="No clips for this game yet"
+        emptyHint="Upload one to get the grid started."
+        listKey={`game:${slug}:recent`}
+        isOwnedByViewer={(row) => row.authorId === viewerId}
+      />
     </section>
   )
 }

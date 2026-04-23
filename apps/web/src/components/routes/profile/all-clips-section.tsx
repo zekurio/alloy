@@ -7,11 +7,8 @@ import {
   SectionMeta,
   SectionTitle,
 } from "@workspace/ui/components/section-head"
-import { Skeleton } from "@workspace/ui/components/skeleton"
 
-import { ClipCardList } from "@/components/clip/clip-card-list"
-import { ClipGrid } from "@/components/clip/clip-grid"
-import { EmptyState } from "@/components/feedback/empty-state"
+import { ClipSectionContent } from "@/components/clip/clip-section-content"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import type { UserClip } from "@workspace/api"
 import type { ProfileAllSort } from "@/routes/(app)/_app.u.$username.all"
@@ -107,40 +104,26 @@ export function AllClipsSection({
         gameOptions={gameOptions}
       />
 
-      {error ? (
-        <EmptyState
-          seed="profile-all-error"
-          size="md"
-          title="Couldn't load clips"
-        />
-      ) : visible === null ? (
-        <ClipGrid>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="aspect-video rounded-md" />
-          ))}
-        </ClipGrid>
-      ) : visible.length === 0 ? (
-        <EmptyState
-          seed={`profile-all-empty-${gameSlug ?? "none"}`}
-          size="lg"
-          title={
-            gameSlug
-              ? `No clips for ${selectedGameName ?? "this game"} yet`
-              : "No clips uploaded yet"
-          }
-          hint={
-            gameSlug
-              ? "Try a different game or clear the filter."
-              : "Clips from this user will show up here once they upload."
-          }
-        />
-      ) : (
-        <ClipCardList
-          rows={visible}
-          isOwnedByViewer={() => isSelf}
-          listKey={`profile:${username}:all:${sort}:${gameSlug ?? ""}`}
-        />
-      )}
+      <ClipSectionContent
+        rows={visible}
+        loading={visible === null}
+        error={error}
+        errorSeed="profile-all-error"
+        errorTitle="Couldn't load clips"
+        emptySeed={`profile-all-empty-${gameSlug ?? "none"}`}
+        emptyTitle={
+          gameSlug
+            ? `No clips for ${selectedGameName ?? "this game"} yet`
+            : "No clips uploaded yet"
+        }
+        emptyHint={
+          gameSlug
+            ? "Try a different game or clear the filter."
+            : "Clips from this user will show up here once they upload."
+        }
+        listKey={`profile:${username}:all:${sort}:${gameSlug ?? ""}`}
+        isOwnedByViewer={() => isSelf}
+      />
     </section>
   )
 }
