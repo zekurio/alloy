@@ -12,8 +12,8 @@ import { toast } from "@workspace/ui/components/sonner"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { useSession } from "@/lib/auth-client"
 import { api } from "@/lib/api"
+import { useSuspenseSession } from "@/lib/session-suspense"
 import { FloatingUploadButton } from "./floating-upload-button"
 import {
   clipKeys,
@@ -368,7 +368,15 @@ function useWarmEditor(queueOpen: boolean, setMounted: (m: boolean) => void) {
 }
 
 export function UploadFlow() {
-  const { data: session } = useSession()
+  return (
+    <React.Suspense fallback={null}>
+      <UploadFlowInner />
+    </React.Suspense>
+  )
+}
+
+function UploadFlowInner() {
+  const session = useSuspenseSession()
   if (!session) return null
 
   return <AuthedUploadFlow />
