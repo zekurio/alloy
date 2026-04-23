@@ -5,7 +5,6 @@ import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -217,12 +216,7 @@ export function LimitsConfigCard({ limits, onChange }: LimitsConfigCardProps) {
     <form onSubmit={onSubmit}>
       <Card>
         <CardHeader>
-          <div>
-            <CardTitle>Limits</CardTitle>
-            <CardDescription>
-              Upload caps, ticket TTL, and encode concurrency.
-            </CardDescription>
-          </div>
+          <CardTitle>Limits</CardTitle>
         </CardHeader>
         <fieldset disabled={pending} className="contents">
           <LimitsFields
