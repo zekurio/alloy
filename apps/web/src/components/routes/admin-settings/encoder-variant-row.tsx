@@ -34,7 +34,7 @@ import {
 } from "@workspace/api"
 import { EncoderHeightField } from "./encoder-height-field"
 import { EncoderPresetField } from "./encoder-preset-field"
-import { clampInt, normalizeVariantPreset, QUALITY_LABEL } from "./shared"
+import { clampInt, QUALITY_LABEL } from "./shared"
 
 type IntInputProps = {
   id: string
@@ -149,11 +149,6 @@ export function VariantRow({
     onChange({
       ...variant,
       codec: nextCodec,
-      preset: normalizeVariantPreset(
-        globalConfig.hwaccel,
-        nextCodec ?? globalConfig.codec,
-        variant.preset
-      ),
     })
   }
 

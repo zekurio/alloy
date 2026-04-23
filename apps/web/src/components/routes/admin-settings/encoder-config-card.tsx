@@ -44,16 +44,18 @@ import {
 import { api } from "@/lib/api"
 import { EncoderPresetField } from "./encoder-preset-field"
 import { IntInput, VariantRow } from "./encoder-variant-row"
-import {
-  HWACCEL_LABEL,
-  QUALITY_LABEL,
-  normalizeGlobalPreset,
-  normalizeVariantPreset,
-} from "./shared"
+import { HWACCEL_LABEL, QUALITY_LABEL } from "./shared"
 
 type EncoderConfigCardProps = {
   encoder: AdminEncoderConfig
   onChange: (next: AdminRuntimeConfig) => void
+}
+
+let nextVariantRowKey = 0
+
+function createVariantRowKey() {
+  nextVariantRowKey += 1
+  return `variant-row-${nextVariantRowKey}`
 }
 
 export function EncoderConfigCard({
@@ -61,16 +63,21 @@ export function EncoderConfigCard({
   onChange,
 }: EncoderConfigCardProps) {
   const [form, setForm] = React.useState<AdminEncoderConfig>(encoder)
+  const [variantRowKeys, setVariantRowKeys] = React.useState(() =>
+    encoder.variants.map(() => createVariantRowKey())
+  )
   const [pending, setPending] = React.useState(false)
   const [caps, setCaps] = React.useState<AdminEncoderCapabilities | null>(null)
   const [capsError, setCapsError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     setForm(encoder)
+    setVariantRowKeys(encoder.variants.map(() => createVariantRowKey()))
   }, [encoder])
 
   function resetForm() {
     setForm(encoder)
+    setVariantRowKeys(encoder.variants.map(() => createVariantRowKey()))
   }
 
   React.useEffect(() => {
@@ -108,15 +115,6 @@ export function EncoderConfigCard({
       ...f,
       hwaccel: nextHwaccel,
       codec: nextCodec,
-      preset: normalizeGlobalPreset(nextHwaccel, nextCodec, f.preset),
-      variants: f.variants.map((variant) => ({
-        ...variant,
-        preset: normalizeVariantPreset(
-          nextHwaccel,
-          variant.codec ?? nextCodec,
-          variant.preset
-        ),
-      })),
     }))
   }
 
@@ -132,6 +130,7 @@ export function EncoderConfigCard({
       ...f,
       variants: f.variants.filter((_, i) => i !== index),
     }))
+    setVariantRowKeys((keys) => keys.filter((_, i) => i !== index))
   }
 
   function moveVariant(index: number, direction: -1 | 1) {
@@ -144,6 +143,15 @@ export function EncoderConfigCard({
       next.splice(target, 0, moved)
       return { ...f, variants: next }
     })
+    setVariantRowKeys((keys) => {
+      const target = index + direction
+      if (target < 0 || target >= keys.length) return keys
+      const next = [...keys]
+      const [moved] = next.splice(index, 1)
+      if (!moved) return keys
+      next.splice(target, 0, moved)
+      return next
+    })
   }
 
   function setDefaultVariant(index: number) {
@@ -155,9 +163,18 @@ export function EncoderConfigCard({
       next.unshift(selected)
       return { ...f, variants: next }
     })
+    setVariantRowKeys((keys) => {
+      if (index <= 0 || index >= keys.length) return keys
+      const next = [...keys]
+      const [selected] = next.splice(index, 1)
+      if (!selected) return keys
+      next.unshift(selected)
+      return next
+    })
   }
 
   function addVariant() {
+    const rowKey = createVariantRowKey()
     setForm((f) => {
       const used = new Set(f.variants.map((v) => v.height))
       const suggestion = [...ENCODER_HEIGHT_SUGGESTIONS]
@@ -177,6 +194,7 @@ export function EncoderConfigCard({
         variants: [...f.variants, { height: next }],
       }
     })
+    setVariantRowKeys((keys) => [...keys, rowKey])
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -488,7 +506,10 @@ export function EncoderConfigCard({
 
             <div className="divide-y">
               {form.variants.map((variant, index) => (
-                <div key={`${index}-${variant.height}`} className="py-3 first:pt-0 last:pb-0">
+                <div
+                  key={variantRowKeys[index] ?? `variant-row-fallback-${index}`}
+                  className="py-3 first:pt-0 last:pb-0"
+                >
                   <VariantRow
                     variant={variant}
                     index={index}

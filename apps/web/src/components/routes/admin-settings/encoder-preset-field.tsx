@@ -9,29 +9,12 @@ import {
   InputGroupInput,
 } from "@workspace/ui/components/input-group";
 import { Input } from "@workspace/ui/components/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select";
 
 import type { EncoderCodec, EncoderHwaccel } from "@workspace/api";
-import { presetSuggestionsFor } from "./shared";
+import { defaultPresetFor } from "./shared";
 
-const CUSTOM_PRESET_VALUE = "__custom_preset__";
-const INHERIT_PRESET_VALUE = "__inherit_preset__";
-
-function formatPresetLabel(value: string | undefined, inheritedValue?: string) {
-  if (value === undefined) {
-    return inheritedValue !== undefined
-      ? formatInheritedPresetLabel(inheritedValue)
-      : "Preset";
-  }
-  return value;
-}
+const INVALID_INPUT_GROUP_BUTTON_CLASS =
+  "group-has-[[data-slot=input-group-control][aria-invalid=true]]/input-group:bg-destructive/5 group-has-[[data-slot=input-group-control][aria-invalid=true]]/input-group:hover:bg-destructive/10";
 
 function formatInheritedPresetLabel(inheritedValue: string) {
   return inheritedValue === ""
@@ -58,29 +41,12 @@ export function EncoderPresetField({
   showDescription?: boolean;
   onChange: (next: string | undefined) => void;
 }) {
-  const suggestions = React.useMemo(
-    () => presetSuggestionsFor(hwaccel, codec),
-    [codec, hwaccel],
-  );
   const isVaapi = hwaccel === "vaapi";
-  const isStoredCustom =
-    value !== undefined && !suggestions.some((preset) => preset === value);
-
-  const [customMode, setCustomMode] = React.useState(isStoredCustom);
-  const [customDraft, setCustomDraft] = React.useState(
-    isStoredCustom ? (value ?? "") : "",
-  );
+  const [draft, setDraft] = React.useState(value ?? "");
 
   React.useEffect(() => {
-    if (isStoredCustom) {
-      setCustomMode(true);
-      setCustomDraft(value ?? "");
-      return;
-    }
-    if (!customMode) {
-      setCustomDraft(value ?? "");
-    }
-  }, [customMode, isStoredCustom, value]);
+    setDraft(value ?? "");
+  }, [value]);
 
   if (isVaapi) {
     return (
@@ -96,108 +62,63 @@ export function EncoderPresetField({
     );
   }
 
-  const selectValue = customMode
-    ? CUSTOM_PRESET_VALUE
-    : value === undefined && inheritedValue !== undefined
-      ? INHERIT_PRESET_VALUE
-      : (value ?? CUSTOM_PRESET_VALUE);
-  const selectLabel = customMode
-    ? "Custom preset"
-    : formatPresetLabel(value, inheritedValue);
-  const customInvalid = customMode && customDraft.trim() === "";
+  const invalid = required && draft.trim() === "";
+  const fallbackPreset =
+    inheritedValue !== undefined ? undefined : defaultPresetFor(hwaccel, codec);
 
   return (
     <>
-      {customMode ? (
-        <InputGroup>
-          <InputGroupInput
-            id={id}
-            value={customDraft}
-            required={required || customMode}
-            placeholder="Raw ffmpeg preset"
-            className="pl-3"
-            aria-invalid={customInvalid || undefined}
-            onChange={(e) => {
-              const next = e.target.value;
-              setCustomDraft(next);
-              onChange(next);
-            }}
-          />
-          <InputGroupAddon align="inline-end">
-            <InputGroupButton
-              size="icon-xs"
-              aria-label="Use preset list"
-              onClick={() => {
-                setCustomMode(false);
-                setCustomDraft("");
-                onChange(
-                  inheritedValue !== undefined
-                    ? undefined
-                    : (suggestions[0] ?? ""),
-                );
-              }}
-            >
-              <RotateCcwIcon />
-            </InputGroupButton>
-          </InputGroupAddon>
-        </InputGroup>
-      ) : (
-        <Select
-          value={selectValue}
-          onValueChange={(next) => {
-            if (next == null) return;
-            if (next === INHERIT_PRESET_VALUE) {
-              setCustomMode(false);
-              setCustomDraft("");
-              onChange(undefined);
-              return;
-            }
-            if (next === CUSTOM_PRESET_VALUE) {
-              setCustomMode(true);
-              if (isStoredCustom) {
-                setCustomDraft(value ?? "");
-              } else {
-                setCustomDraft("");
-                onChange("");
-              }
-              return;
-            }
-            setCustomMode(false);
-            setCustomDraft(next);
-            onChange(next);
+      <InputGroup>
+        <InputGroupInput
+          id={id}
+          value={draft}
+          required={required}
+          placeholder={
+            inheritedValue !== undefined
+              ? formatInheritedPresetLabel(inheritedValue)
+              : "Raw ffmpeg preset"
+          }
+          className="pl-3"
+          aria-invalid={invalid || undefined}
+          onChange={(e) => {
+            const next = e.target.value;
+            setDraft(next);
+            onChange(
+              next.trim() === "" && inheritedValue !== undefined
+                ? undefined
+                : next,
+            );
           }}
-        >
-          <SelectTrigger
-            id={customMode ? undefined : id}
-            className={customMode ? "w-48 shrink-0" : "w-full"}
+        />
+        <InputGroupAddon align="inline-end">
+          <InputGroupButton
+            size="icon-xs"
+            className={INVALID_INPUT_GROUP_BUTTON_CLASS}
+            aria-label={
+              inheritedValue !== undefined
+                ? "Inherit global preset"
+                : "Reset preset"
+            }
+            title={
+              inheritedValue !== undefined
+                ? "Inherit global preset"
+                : "Reset preset"
+            }
+            onClick={() => {
+              setDraft(fallbackPreset ?? "");
+              onChange(fallbackPreset);
+            }}
           >
-            <SelectValue placeholder="Select a preset">
-              {selectLabel}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent align="start" alignItemWithTrigger={false}>
-            {inheritedValue !== undefined ? (
-              <SelectItem value={INHERIT_PRESET_VALUE}>
-                {formatInheritedPresetLabel(inheritedValue)}
-              </SelectItem>
-            ) : null}
-            {suggestions.map((preset) => (
-              <SelectItem key={preset} value={preset}>
-                {preset}
-              </SelectItem>
-            ))}
-            <SelectSeparator />
-            <SelectItem value={CUSTOM_PRESET_VALUE}>Custom…</SelectItem>
-          </SelectContent>
-        </Select>
-      )}
+            <RotateCcwIcon />
+          </InputGroupButton>
+        </InputGroupAddon>
+      </InputGroup>
 
       {showDescription ? (
         <FieldDescription>
           {inheritedValue !== undefined
-            ? "Leave this on Inherit to use the global preset. Listed options are app-provided for the selected backend and codec, not probed from ffmpeg."
-            : "Listed options are app-provided for the selected backend and codec, not probed from ffmpeg."}{" "}
-          Use Custom for a raw ffmpeg value.
+            ? "Leave empty to inherit the global preset."
+            : "Raw ffmpeg preset value for the selected backend and codec."}
         </FieldDescription>
       ) : null}
     </>
