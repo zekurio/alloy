@@ -18,11 +18,9 @@ import {
 import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/components/sonner"
 
-import {
-  type AdminLimitsConfig,
-  type AdminRuntimeConfig,
-  updateLimitsConfig,
-} from "@/lib/admin-api"
+import type { AdminLimitsConfig, AdminRuntimeConfig } from "@workspace/api"
+
+import { api } from "@/lib/api"
 import { clampInt } from "./shared"
 
 type LimitsConfigCardProps = {
@@ -148,7 +146,7 @@ export function LimitsConfigCard({ limits, onChange }: LimitsConfigCardProps) {
     }
     setPending(true)
     try {
-      const next = await updateLimitsConfig({
+      const next = await api.admin.updateLimitsConfig({
         ...form,
         maxUploadBytes: Math.round(parsedMiB * 1024 * 1024),
       })

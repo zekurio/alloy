@@ -18,16 +18,13 @@ import {
 import { toast } from "@workspace/ui/components/sonner"
 import { cn } from "@workspace/ui/lib/utils"
 
+import type { ProfileCounts, UserSearchResult } from "@workspace/api"
+
+import { api } from "@/lib/api"
 import {
   useUserFollowersQuery,
   useUserFollowingQuery,
 } from "@/lib/user-queries"
-import {
-  followUser,
-  unfollowUser,
-  type ProfileCounts,
-  type UserSearchResult,
-} from "@/lib/users-api"
 import { StatInline } from "./stat-inline"
 
 type FollowModal = "followers" | "following" | null
@@ -158,8 +155,8 @@ function FollowRow({
     const next = !following
     setFollowing(next)
     try {
-      if (next) await followUser(user.username)
-      else await unfollowUser(user.username)
+      if (next) await api.users.follow(user.username)
+      else await api.users.unfollow(user.username)
     } catch (err) {
       setFollowing(!next)
       toast.error(err instanceof Error ? err.message : "Something went wrong")

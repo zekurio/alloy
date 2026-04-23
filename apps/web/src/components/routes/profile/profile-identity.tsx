@@ -7,7 +7,7 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import { ProfileActions } from "@/components/profile/profile-actions"
 import { UserBanner, userAvatar } from "@/lib/user-display"
-import type { ProfileCounts, ProfileViewer, PublicUser } from "@/lib/users-api"
+import type { ProfileCounts, ProfileViewer, PublicUser } from "@workspace/api"
 import { IdentityStats } from "./identity-stats"
 
 type ProfileData = {

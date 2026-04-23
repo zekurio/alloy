@@ -26,8 +26,7 @@ import { Textarea } from "@workspace/ui/components/textarea"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { CLIP_DESCRIPTION_MAX, CLIP_TITLE_MAX } from "@/lib/clip-fields"
-import type { GameRow } from "@/lib/games-api"
-import type { UserSearchResult } from "@/lib/users-api"
+import type { GameRow, UserSearchResult } from "@workspace/api"
 
 import { ClipPrivacyPicker } from "@/components/clip/clip-privacy-picker"
 import { GameCombobox } from "@/components/game/game-combobox"

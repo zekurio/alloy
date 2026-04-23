@@ -38,6 +38,9 @@ import { GameIcon } from "@workspace/ui/components/game-icon"
 import { toast } from "@workspace/ui/components/sonner"
 import { cn } from "@workspace/ui/lib/utils"
 
+import type { ClipGameRef, ClipMentionRef, ClipPrivacy } from "@workspace/api"
+
+import { api } from "@/lib/api"
 import { useSession } from "@/lib/auth-client"
 import { PRIVACY_BY_VALUE } from "@/lib/clip-fields"
 import {
@@ -45,13 +48,11 @@ import {
   useLikeStateQuery,
   useToggleLikeMutation,
 } from "@/lib/clip-queries"
-import type { ClipGameRef, ClipMentionRef, ClipPrivacy } from "@/lib/clips-api"
 import { formatCount } from "@/lib/clip-format"
 import {
   useUserProfileQuery,
   useProfileCachePatchers,
 } from "@/lib/user-queries"
-import { followUser, unfollowUser } from "@/lib/users-api"
 
 import { ClipMentionsRow } from "./clip-mentions-row"
 import { renderDescriptionTokens } from "./clip-meta-editors"
@@ -194,8 +195,8 @@ function ClipMeta({
     setViewer(optimistic)
     bumpFollowers(isFollowing ? -1 : 1)
     try {
-      if (isFollowing) await unfollowUser(uploader.handle)
-      else await followUser(uploader.handle)
+      if (isFollowing) await api.users.unfollow(uploader.handle)
+      else await api.users.follow(uploader.handle)
     } catch (cause) {
       setViewer(prev)
       bumpFollowers(isFollowing ? 1 : -1)

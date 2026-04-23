@@ -12,8 +12,8 @@ import { AlloyLogo } from "@workspace/ui/components/alloy-logo"
 import { toast } from "@workspace/ui/components/sonner"
 
 import { AccountCreationFields } from "@/components/routes/auth/account-creation-fields"
+import { api } from "@/lib/api"
 import { authClient } from "@/lib/auth-client"
-import { fetchAuthConfig } from "@/lib/auth-config"
 import { AuthSubmitButton } from "@/components/routes/auth/auth-form-fields"
 import { invalidateAuthConfig } from "@/lib/session-suspense"
 
@@ -23,7 +23,7 @@ import { invalidateAuthConfig } from "@/lib/session-suspense"
  */
 export const Route = createFileRoute("/(auth)/setup")({
   loader: async () => {
-    const config = await fetchAuthConfig()
+    const config = await api.authConfig.fetch()
     if (!config.setupRequired) {
       throw redirect({ to: "/login" })
     }

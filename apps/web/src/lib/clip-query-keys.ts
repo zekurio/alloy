@@ -1,4 +1,4 @@
-import type { ClipFeedWindow } from "./clips-api"
+import type { ClipFeedWindow } from "@workspace/api"
 
 export const clipKeys = {
   all: ["clips"] as const,

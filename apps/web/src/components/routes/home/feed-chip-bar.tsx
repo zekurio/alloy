@@ -4,7 +4,7 @@ import { Chip } from "@workspace/ui/components/chip"
 import { GameIcon } from "@workspace/ui/components/game-icon"
 import { cn } from "@workspace/ui/lib/utils"
 
-import type { FeedFilter } from "@/lib/feed-api"
+import type { FeedFilter } from "@workspace/api"
 import { useFeedChipsQuery } from "@/lib/feed-queries"
 
 type FeedChipBarProps = {

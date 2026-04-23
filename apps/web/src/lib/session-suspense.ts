@@ -1,7 +1,9 @@
 import { use } from "react"
 
+import type { PublicAuthConfig } from "@workspace/api"
+
+import { api } from "./api"
 import { authClient, useSession } from "./auth-client"
-import { fetchAuthConfig, type PublicAuthConfig } from "./auth-config"
 
 type SessionData = ReturnType<typeof useSession>["data"]
 
@@ -64,7 +66,7 @@ function configPromise(): Promise<PublicAuthConfig> {
     return Promise.resolve(FALLBACK_CONFIG)
   }
   if (!configPromiseCache) {
-    configPromiseCache = fetchAuthConfig().catch(() => FALLBACK_CONFIG)
+    configPromiseCache = api.authConfig.fetch().catch(() => FALLBACK_CONFIG)
   }
   return configPromiseCache
 }
