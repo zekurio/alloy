@@ -1,5 +1,6 @@
 import { config } from "dotenv"
 import { defineConfig } from "drizzle-kit"
+import process from "node:process"
 
 config({
   path: new URL("../../apps/server/.env.example", import.meta.url).pathname,
