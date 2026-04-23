@@ -35,16 +35,14 @@ type SharedPlayerProps = {
   selectedQualityId?: string
   onSelectQuality?: (qualityId: string) => void
   downloadOptions?: Array<{ id: string; label: string; url: string }>
+  chromeFlush?: boolean
 }
 
 interface VideoPlayerProps extends SharedPlayerProps {
   src: string | File
-  /** Thumbnail shown in a controlled overlay until a decoded frame is ready. */
   poster?: string
-  /** Stable box ratio. When omitted, the player falls back to 16:9. */
   aspectRatio?: number
   sourceIdentity?: string
-  /** Default true. Set false to hide the Alloy chrome. */
   controls?: boolean
   autoPlay?: boolean
   loop?: boolean
@@ -147,6 +145,7 @@ function PlayerCore({
   onSelectQuality,
   downloadOptions,
   playbackRate,
+  chromeFlush,
 }: PlayerCoreProps) {
   const mediaUrl = useMediaUrl(spec)
   const videoRef = React.useRef<HTMLVideoElement | null>(null)
@@ -346,6 +345,13 @@ function PlayerCore({
     })
   }, [])
 
+  const volumeBy = React.useCallback(
+    (delta: number) => {
+      setVolume(volumeRef.current + delta)
+    },
+    [setVolume]
+  )
+
   const seekBy = React.useCallback(
     (deltaSec: number) => {
       const video = videoRef.current
@@ -354,6 +360,20 @@ function PlayerCore({
     },
     [seekInternal]
   )
+
+  const toggleFullscreen = React.useCallback(() => {
+    const el = containerRef.current
+    if (!el) return
+    if (document.fullscreenElement === el) {
+      void document.exitFullscreen().catch(() => undefined)
+    } else {
+      void el.requestFullscreen().catch(() => undefined)
+    }
+  }, [])
+
+  const focusPlayerContainer = React.useCallback(() => {
+    containerRef.current?.focus({ preventScroll: true })
+  }, [])
 
   usePlayThreshold({
     playing,
@@ -417,6 +437,7 @@ function PlayerCore({
         playsInline
         preload="metadata"
         controls={false}
+        onPointerDown={focusPlayerContainer}
         onClick={clickHandler}
         onLoadedMetadata={handleLoadedMetadata}
         onLoadedData={handleLoadedData}
@@ -457,15 +478,10 @@ function PlayerCore({
         togglePlay,
         toggleMute,
         seekBy,
-        toggleFullscreen: () => {
-          const el = containerRef.current
-          if (!el) return
-          if (document.fullscreenElement === el) {
-            void document.exitFullscreen().catch(() => undefined)
-          } else {
-            void el.requestFullscreen().catch(() => undefined)
-          }
-        },
+        seekTo: (seconds) =>
+          seekInternal(Number.isFinite(seconds) ? seconds : duration),
+        volumeBy,
+        toggleFullscreen,
       }}
     >
       {renderVideo((e: React.MouseEvent<HTMLVideoElement>) => {
@@ -490,15 +506,8 @@ function PlayerCore({
         selectedQualityId={selectedQualityId}
         onSelectQuality={onSelectQuality}
         downloadOptions={downloadOptions}
-        onToggleFullscreen={() => {
-          const el = containerRef.current
-          if (!el) return
-          if (document.fullscreenElement === el) {
-            void document.exitFullscreen().catch(() => undefined)
-          } else {
-            void el.requestFullscreen().catch(() => undefined)
-          }
-        }}
+        flush={chromeFlush}
+        onToggleFullscreen={toggleFullscreen}
       />
     </ChromeShell>
   )

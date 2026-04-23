@@ -327,9 +327,9 @@ function ClipMeta({
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-col items-end gap-0.5">
+        <div className="flex shrink-0 flex-col items-end gap-1">
           <ClipGameBadge game={game} gameRef={gameRef} />
-          <div className="flex items-center gap-1.5 text-xs text-foreground-faint">
+          <div className="flex items-center gap-1.5 pt-0.5 text-xs text-foreground-faint">
             {privacy !== "public" ? (
               <>
                 <ClipPrivacyBadge privacy={privacy} />
@@ -391,7 +391,7 @@ function ClipGameBadge({
   )
 
   const base = cn(
-    "inline-flex h-9 items-center overflow-hidden rounded-lg border border-border bg-surface-raised"
+    "inline-flex h-8 items-center overflow-hidden rounded-lg border border-border bg-surface-raised"
   )
 
   const starBtn = (
@@ -416,7 +416,7 @@ function ClipGameBadge({
         <Link
           to="/g/$slug"
           params={{ slug: gameRef.slug }}
-          className="inline-flex h-full items-center gap-2 px-4 text-sm text-foreground-muted transition-colors hover:text-foreground"
+          className="inline-flex h-full items-center gap-2 px-2.5 text-sm font-semibold text-foreground-muted transition-colors hover:text-foreground"
           title={game}
         >
           {gameBody}
@@ -429,7 +429,7 @@ function ClipGameBadge({
     <div className={base}>
       {starBtn}
       {separator}
-      <span className="inline-flex h-full items-center gap-2 px-4 text-sm text-foreground-muted">
+      <span className="inline-flex h-full items-center gap-2 px-2.5 text-sm font-semibold text-foreground-muted">
         {gameBody}
       </span>
     </div>

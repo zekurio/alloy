@@ -5,6 +5,7 @@ import type {
   ClipRow,
 } from "@workspace/api"
 import { clipStreamUrl, clipThumbnailUrl } from "@workspace/api"
+import { userImageSrc } from "./user-display"
 
 /** 12.4k / 1.3k / 842 — mirrors the number style used across the UI. */
 export function formatCount(n: number): string {
@@ -91,7 +92,7 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
     author: row.authorName || row.authorUsername,
     authorUsername: row.authorUsername,
     authorId: row.authorId,
-    authorImage: row.authorImage,
+    authorImage: userImageSrc(row.authorImage) ?? null,
     views: formatCount(row.viewCount),
     likes: formatCount(row.likeCount),
     comments: formatCount(row.commentCount),

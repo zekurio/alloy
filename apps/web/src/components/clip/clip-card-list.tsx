@@ -23,6 +23,7 @@ export function ClipCardList({
       rows.map((row) => ({
         id: row.id,
         gameSlug: row.gameRef?.slug ?? null,
+        row,
       })),
     [rows]
   )
