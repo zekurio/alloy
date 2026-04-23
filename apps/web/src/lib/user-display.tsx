@@ -110,7 +110,7 @@ export function UserBanner({
           alt=""
           aria-hidden
           decoding="async"
-          className="absolute inset-0 size-full scale-150 object-cover blur-3xl brightness-75 saturate-150"
+          className="absolute inset-0 size-full scale-150 object-cover brightness-75 saturate-150"
         />
       ) : null}
     </div>

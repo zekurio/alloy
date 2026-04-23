@@ -182,16 +182,21 @@ export function GameCombobox({
     return [pickedAsItem, ...merged]
   }, [searchQuery.data, gamesListQuery.data, debouncedQuery, value])
 
+  const committedValue: GameComboboxItem | null = value
+    ? {
+        id: value.steamgriddbId,
+        name: value.name,
+        iconUrl: value.iconUrl,
+        logoUrl: value.logoUrl,
+      }
+    : null
+
+  // Keep the latest user pick visible while we resolve it into a local row.
+  // Otherwise the combobox snaps back to the previously committed game until
+  // the mutation settles, which is what both dialogs were showing.
   const controlledValue: GameComboboxItem | null = cleared
     ? null
-    : value
-      ? {
-          id: value.steamgriddbId,
-          name: value.name,
-          iconUrl: value.iconUrl,
-          logoUrl: value.logoUrl,
-        }
-      : (pendingItem ?? null)
+    : (pendingItem ?? committedValue)
 
   if (configured === false) {
     return (
@@ -211,10 +216,6 @@ export function GameCombobox({
     )
   }
 
-  const isSearching =
-    configured === true &&
-    debouncedQuery.trim().length > 0 &&
-    searchQuery.isFetching
   const hasError = searchQuery.isError
   const resolving = resolveMutation.isPending
   const isDisabled = disabled || resolving || configured === null
@@ -237,17 +238,17 @@ export function GameCombobox({
           id={id}
           placeholder={placeholder}
           showTrigger={false}
-          showClear={allowClear && value !== null}
+          showClear={allowClear && controlledValue !== null}
           aria-label="Game"
-          aria-busy={isSearching || resolving || undefined}
+          aria-busy={searchQuery.isFetching || resolving || undefined}
           aria-invalid={invalid || undefined}
           aria-required={required || undefined}
         >
-          {value ? (
+          {controlledValue ? (
             <InputGroupAddon align="inline-start">
               <GameIcon
-                src={value.iconUrl ?? value.logoUrl}
-                name={value.name}
+                src={controlledValue.iconUrl ?? controlledValue.logoUrl}
+                name={controlledValue.name}
               />
             </InputGroupAddon>
           ) : (
@@ -303,9 +304,7 @@ export function GameCombobox({
             <ComboboxEmpty>
               {hasError
                 ? "Couldn’t reach SteamGridDB"
-                : isSearching
-                  ? "Searching…"
-                  : debouncedQuery.trim().length === 0
+                : debouncedQuery.trim().length === 0
                     ? "Start typing to search"
                     : "No matches"}
             </ComboboxEmpty>

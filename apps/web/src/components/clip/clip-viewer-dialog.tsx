@@ -155,7 +155,9 @@ function ClipViewerDialogBody({
 
   return (
     <>
-      <DialogViewportContent className="overflow-visible rounded-[20px]">
+      <DialogViewportContent
+        className="overflow-visible rounded-[20px] transition-[filter,opacity,transform] duration-100"
+      >
         {showPrev ? (
           <Button
             type="button"
@@ -164,7 +166,7 @@ function ClipViewerDialogBody({
             onClick={() => (prev && onNavigate ? onNavigate(prev) : undefined)}
             aria-label="Previous clip"
             className={cn(
-              "absolute top-1/2 z-20 -translate-y-1/2 rounded-full border-white/12 bg-black/55 text-white shadow-[0_24px_80px_-32px_rgba(0,0,0,0.95)] backdrop-blur-md",
+              "absolute top-1/2 z-20 -translate-y-1/2 rounded-full border-white/12 bg-black/80 text-white shadow-[0_24px_80px_-32px_rgba(0,0,0,0.95)]",
               gutterOffsetLeftClass,
               "hidden lg:inline-flex"
             )}
@@ -180,7 +182,7 @@ function ClipViewerDialogBody({
             onClick={() => (next && onNavigate ? onNavigate(next) : undefined)}
             aria-label="Next clip"
             className={cn(
-              "absolute top-1/2 z-20 -translate-y-1/2 rounded-full border-white/12 bg-black/55 text-white shadow-[0_24px_80px_-32px_rgba(0,0,0,0.95)] backdrop-blur-md",
+              "absolute top-1/2 z-20 -translate-y-1/2 rounded-full border-white/12 bg-black/80 text-white shadow-[0_24px_80px_-32px_rgba(0,0,0,0.95)]",
               gutterOffsetRightClass,
               "hidden lg:inline-flex"
             )}
