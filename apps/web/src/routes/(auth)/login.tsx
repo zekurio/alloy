@@ -2,17 +2,15 @@ import * as React from "react"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
 import { LoginPageInner } from "@/components/routes/login/login-page-inner"
-import { api } from "@/lib/api"
+import { redirectAuthedBeforeLoad } from "@/lib/auth-guards"
 import { fetchPublicClips } from "@/lib/public-clips"
+import { loadAuthConfig } from "@/lib/session-suspense"
 
 export const Route = createFileRoute("/(auth)/login")({
+  beforeLoad: redirectAuthedBeforeLoad,
   loader: async () => {
-    // `fetchPublicClips` is soft-failing, so this Promise.all can't reject
-    // on its behalf.
-    const [config, clips] = await Promise.all([
-      api.authConfig.fetch(),
-      fetchPublicClips(),
-    ])
+    const clips = fetchPublicClips()
+    const config = await loadAuthConfig()
     if (config.setupRequired) {
       throw redirect({ to: "/setup" })
     }

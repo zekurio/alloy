@@ -11,6 +11,15 @@ function isAdmin(session: Session | null): boolean {
   return (session?.user as { role?: string } | undefined)?.role === "admin"
 }
 
+function browseAuthTarget(
+  session: Session | null,
+  config: ReturnType<typeof useSuspenseAuthConfig>
+): "/setup" | "/login" | null {
+  if (config.setupRequired) return "/setup"
+  if (!session && config.requireAuthToBrowse) return "/login"
+  return null
+}
+
 export function useAuth(): Session | null {
   return useSuspenseSession()
 }
@@ -21,21 +30,25 @@ export function useIsAdmin(): boolean {
 }
 
 export function useRequireAuth(): Session | null {
+  const { allowed, session } = useBrowseAuthGate()
+  return allowed ? session : null
+}
+
+export function useBrowseAuthGate(): {
+  allowed: boolean
+  session: Session | null
+} {
   const session = useSuspenseSession()
   const config = useSuspenseAuthConfig()
   const navigate = useNavigate()
 
-  const target = config.setupRequired
-    ? "/setup"
-    : session || !config.requireAuthToBrowse
-      ? null
-      : "/login"
+  const target = browseAuthTarget(session, config)
 
   React.useEffect(() => {
     if (target) void navigate({ to: target, replace: true })
   }, [target, navigate])
 
-  return target ? null : session
+  return { allowed: target === null, session }
 }
 
 export function useRequireAuthStrict(): Session | null {
