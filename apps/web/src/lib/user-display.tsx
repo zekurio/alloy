@@ -7,6 +7,28 @@ type AuthUser = {
   displayUsername?: string | null
   email?: string | null
   image?: string | null
+  banner?: string | null
+}
+
+const USER_ASSET_PATH_PREFIX = "/storage/user-assets/"
+
+export function userImageSrc(src: string | null | undefined): string | undefined {
+  const value = src?.trim()
+  if (!value) return undefined
+
+  if (value.startsWith(USER_ASSET_PATH_PREFIX)) return value
+  if (value.startsWith("/")) return value
+
+  try {
+    const url = new URL(value)
+    if (url.pathname.startsWith(USER_ASSET_PATH_PREFIX)) {
+      return `${url.pathname}${url.search}${url.hash}`
+    }
+  } catch {
+    // Non-URL values fall through unchanged so upstream data can still render.
+  }
+
+  return value
 }
 
 /**
@@ -58,6 +80,12 @@ export type UserAvatar = {
   fg: string
 }
 
+export function userAvatarSrc(
+  user: AuthUser | null | undefined
+): string | undefined {
+  return userImageSrc(user?.image)
+}
+
 /**
  * Everything needed to render an avatar for a user. `src` may be undefined
  * (show `initials` in an `AvatarFallback` with the `bg`/`fg` tint).
@@ -66,10 +94,26 @@ export function userAvatar(user: AuthUser | null | undefined): UserAvatar {
   const name = displayName(user)
   const { bg, fg } = avatarTint(user?.id ?? name)
   return {
-    src: user?.image ?? undefined,
+    src: userAvatarSrc(user),
     initials: displayInitials(name),
     bg,
     fg,
+  }
+}
+
+export type UserBannerData = {
+  src?: string
+  bg: string
+}
+
+export function userBanner(
+  user: AuthUser | null | undefined
+): UserBannerData {
+  const name = displayName(user)
+  const { bg } = avatarTint(user?.id ?? name)
+  return {
+    src: userImageSrc(user?.banner) ?? userAvatarSrc(user),
+    bg,
   }
 }
 
@@ -95,22 +139,28 @@ export function UserBanner({
   user: AuthUser | null | undefined
   className?: string
 }) {
-  const name = displayName(user)
-  const { bg } = avatarTint(user?.id ?? name)
-  const image = user?.image ?? null
+  const banner = userBanner(user)
+  // When using a dedicated banner image, render it clean. When falling back
+  // to the avatar image, zoom & desaturate it so it reads as a backdrop.
+  const hasDedicatedBanner = !!userImageSrc(user?.banner)
   return (
     <div
       aria-hidden
       className={cn("absolute inset-0 overflow-hidden", className)}
-      style={{ backgroundColor: bg }}
+      style={{ backgroundColor: banner.bg }}
     >
-      {image ? (
+      {banner.src ? (
         <img
-          src={image}
+          src={banner.src}
           alt=""
           aria-hidden
           decoding="async"
-          className="absolute inset-0 size-full scale-150 object-cover brightness-75 saturate-150"
+          className={cn(
+            "absolute inset-0 size-full object-cover",
+            hasDedicatedBanner
+              ? "brightness-90"
+              : "scale-150 brightness-75 saturate-150"
+          )}
         />
       ) : null}
     </div>
