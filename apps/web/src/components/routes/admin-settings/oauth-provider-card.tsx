@@ -17,11 +17,9 @@ import { Card, CardContent } from "@workspace/ui/components/card"
 import { Switch } from "@workspace/ui/components/switch"
 import { toast } from "@workspace/ui/components/sonner"
 
-import {
-  saveOAuthConfig,
-  type AdminOAuthProvider,
-  type AdminRuntimeConfig,
-} from "@/lib/admin-api"
+import type { AdminOAuthProvider, AdminRuntimeConfig } from "@workspace/api"
+
+import { api } from "@/lib/api"
 import { OAuthCustomProviderDialog } from "./oauth-custom-provider-dialog"
 import { emptyProvider, toSubmissionProvider } from "./shared"
 
@@ -46,7 +44,7 @@ export function OAuthProviderCard({
   ) {
     setPendingAction(successMessage)
     try {
-      const updated = await saveOAuthConfig({ oauthProvider: next })
+      const updated = await api.admin.saveOAuthConfig({ oauthProvider: next })
       onChange(updated)
       toast.success(successMessage)
       return true

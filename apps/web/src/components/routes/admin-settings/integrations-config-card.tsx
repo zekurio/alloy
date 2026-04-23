@@ -30,11 +30,12 @@ import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/components/sonner"
 
 import {
+  INTEGRATIONS_REDACTED,
   type AdminIntegrationsConfig,
   type AdminRuntimeConfig,
-  INTEGRATIONS_REDACTED,
-  updateIntegrationsConfig,
-} from "@/lib/admin-api"
+} from "@workspace/api"
+
+import { api } from "@/lib/api"
 
 type IntegrationsConfigCardProps = {
   integrations: AdminIntegrationsConfig
@@ -80,7 +81,7 @@ export function IntegrationsConfigCard({
         toast.info("No changes to save")
         return
       }
-      const next = await updateIntegrationsConfig(patch)
+      const next = await api.admin.updateIntegrationsConfig(patch)
       onChange(next)
       toast.success("Integrations updated")
     } catch (cause) {
@@ -96,7 +97,9 @@ export function IntegrationsConfigCard({
     if (pending) return
     setPending(true)
     try {
-      const next = await updateIntegrationsConfig({ steamgriddbApiKey: "" })
+      const next = await api.admin.updateIntegrationsConfig({
+        steamgriddbApiKey: "",
+      })
       onChange(next)
       toast.success("SteamGridDB key removed")
     } catch (cause) {

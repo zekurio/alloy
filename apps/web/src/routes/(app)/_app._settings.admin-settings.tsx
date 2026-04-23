@@ -19,9 +19,9 @@ import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-prov
 import { ReEncodeClipsCard } from "@/components/routes/admin-settings/re-encode-clips-card"
 import {
   type AdminRuntimeConfig,
-  fetchRuntimeConfig,
-  updateRuntimeConfig,
-} from "@/lib/admin-api"
+} from "@workspace/api"
+
+import { api } from "@/lib/api"
 import { useRequireAdmin } from "@/lib/auth-hooks"
 
 export const Route = createFileRoute("/(app)/_app/_settings/admin-settings")({
@@ -63,7 +63,8 @@ function useAdminConfig(session: ReturnType<typeof useRequireAdmin>) {
   React.useEffect(() => {
     if (!session) return
     let cancelled = false
-    fetchRuntimeConfig()
+    api.admin
+      .fetchRuntimeConfig()
       .then((next) => {
         if (!cancelled) setConfig(next)
       })
@@ -146,7 +147,7 @@ function useAdminToggles(
   ) => {
     setConfig((prev) => (prev ? { ...prev, [key]: next } : prev))
     try {
-      const updated = await updateRuntimeConfig({ [key]: next })
+      const updated = await api.admin.updateRuntimeConfig({ [key]: next })
       setConfig(updated)
       toast.success(successMsg)
     } catch (cause) {

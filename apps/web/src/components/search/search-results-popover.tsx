@@ -11,9 +11,9 @@ import {
 import { Spinner } from "@workspace/ui/components/spinner"
 import { cn } from "@workspace/ui/lib/utils"
 
+import type { ClipRow, GameListRow } from "@workspace/api"
+
 import { useAppSearch } from "./app-search"
-import type { ClipRow } from "@/lib/clips-api"
-import type { GameListRow } from "@/lib/games-api"
 import { useSearchQuery, type UserListRow } from "@/lib/search-api"
 import {
   ClipRowItem,

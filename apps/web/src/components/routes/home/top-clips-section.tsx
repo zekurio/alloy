@@ -13,7 +13,7 @@ import { ClipCardSkeleton } from "@/components/clip/clip-card-skeleton"
 import { ClipGrid } from "@/components/clip/clip-grid"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { useTopClipsQuery } from "@/lib/clip-queries"
-import type { ClipFeedWindow } from "@/lib/clips-api"
+import type { ClipFeedWindow } from "@workspace/api"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 type TopClipsSectionProps = {

@@ -1,8 +1,7 @@
 import * as React from "react"
 
+import { isServerHttpError } from "@workspace/api"
 import { toast } from "@workspace/ui/components/sonner"
-
-import { isServerHttpError } from "./http-error"
 
 type UseQueryErrorToastOptions = {
   title: string

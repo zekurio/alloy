@@ -15,7 +15,7 @@ export interface SelectedFile {
   sizeBytes: number
 }
 
-import type { ClipPrivacy } from "@/lib/clips-api"
+import type { ClipPrivacy } from "@workspace/api"
 
 export type Visibility = ClipPrivacy
 

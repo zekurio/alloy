@@ -1,7 +1,8 @@
-import { createApiClient } from "@workspace/api"
+import { createApi } from "@workspace/api"
 
-import { apiOrigin } from "./env"
+import { apiOrigin, publicOrigin } from "./env"
 
-// Typed Hono RPC client — call like `await api.api.clips.$get()`.
-// Resolved per-call so it works with `window.location.origin` in the browser.
-export const api = createApiClient(apiOrigin())
+export const api = createApi({
+  baseURL: apiOrigin(),
+  publicURL: publicOrigin(),
+})

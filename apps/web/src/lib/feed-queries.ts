@@ -6,13 +6,9 @@ import {
   useQueryClient,
 } from "@tanstack/react-query"
 
-import { followGame, unfollowGame } from "./games-api"
-import {
-  fetchFeed,
-  fetchFeedChips,
-  type FeedFilter,
-  type FeedPageParams,
-} from "./feed-api"
+import type { FeedFilter, FeedPageParams } from "@workspace/api"
+
+import { api } from "./api"
 
 function filterKey(filter: FeedFilter): readonly unknown[] {
   if (filter.kind === "game") return ["game", filter.gameId] as const
@@ -33,7 +29,11 @@ export function useFeedInfiniteQuery(
   return useInfiniteQuery({
     queryKey: feedKeys.list(filter, limit),
     queryFn: ({ pageParam }) =>
-      fetchFeed({ filter, limit, offset: pageParam } satisfies FeedPageParams),
+      api.feed.fetch({
+        filter,
+        limit,
+        offset: pageParam,
+      } satisfies FeedPageParams),
     initialPageParam: 0,
     getNextPageParam: (last, _pages, lastPageParam) => {
       if (last.length < limit) return undefined
@@ -46,7 +46,7 @@ export function useFeedInfiniteQuery(
 export function useFeedChipsQuery() {
   return useQuery({
     queryKey: feedKeys.chips(),
-    queryFn: fetchFeedChips,
+    queryFn: () => api.feed.fetchChips(),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   })
@@ -61,7 +61,7 @@ export function useToggleGameFollowMutation() {
     { slug: string; next: boolean }
   >({
     mutationFn: ({ slug, next }) =>
-      next ? followGame(slug) : unfollowGame(slug),
+      next ? api.games.follow(slug) : api.games.unfollow(slug),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: feedKeys.all })
     },

@@ -5,13 +5,10 @@ import { ShieldOffIcon, UserMinusIcon, UserPlusIcon } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/components/sonner"
 
+import type { ProfileViewer } from "@workspace/api"
+
+import { api } from "@/lib/api"
 import { useSession } from "@/lib/auth-client"
-import {
-  followUser,
-  unblockUser,
-  unfollowUser,
-  type ProfileViewer,
-} from "@/lib/users-api"
 
 export function ProfileActions({
   targetHandle,
@@ -55,9 +52,9 @@ export function ProfileActions({
     onChange(optimistic)
     try {
       if (isFollowing) {
-        await unfollowUser(targetHandle)
+        await api.users.unfollow(targetHandle)
       } else {
-        await followUser(targetHandle)
+        await api.users.follow(targetHandle)
       }
     } catch (cause) {
       onChange(prev) // roll back
@@ -75,7 +72,7 @@ export function ProfileActions({
     const prev = viewer!
     onChange({ ...prev, isBlocked: false })
     try {
-      await unblockUser(targetHandle)
+      await api.users.unblock(targetHandle)
       toast.success("User unblocked")
     } catch (cause) {
       onChange(prev)

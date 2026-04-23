@@ -18,7 +18,7 @@ import { Skeleton } from "@workspace/ui/components/skeleton"
 
 import { EmptyState } from "@/components/feedback/empty-state"
 import { GameCard, type GameCardData } from "@/components/game/game-card"
-import type { UserClip } from "@/lib/users-api"
+import type { UserClip } from "@workspace/api"
 
 type GameEntry = GameCardData & { count: number }
 

@@ -5,7 +5,7 @@ import {
   clipStreamUrl,
   clipThumbnailUrl,
   type ClipEncodedVariant,
-} from "@/lib/clips-api"
+} from "@workspace/api"
 import { VideoPlayer } from "@/components/video/video-player"
 
 interface ClipPlayerProps {

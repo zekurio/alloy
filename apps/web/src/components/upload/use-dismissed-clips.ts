@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import type { QueueClip } from "@/lib/clips-api"
+import type { QueueClip } from "@workspace/api"
 
 const DISMISSED_KEY = "alloy:queue-dismissed"
 

@@ -1,21 +1,90 @@
-# shadcn/ui monorepo template
+# alloy
 
-This is a TanStack Start monorepo template with shadcn/ui.
+Alloy is an open-source alternative to medal.tv.
 
-## Adding components
+It is still a work in progress. Self-hosting is not polished yet, and Docker support exists but will be improved.
 
-To add components to your app, run the following command at the root of your `web` app:
+> **AI Disclaimer & Warning:** This is a personal project developed in my free time. I use AI to assist with development. I do my best to follow best practices and keep the code maintainable.
+
+## Quick dev setup
+
+If you use Nix, the fastest way to get started is with the flake:
 
 ```bash
-pnpm dlx shadcn@latest add button -c apps/web
+nix develop
 ```
 
-This will place the ui components in the `packages/ui/src/components` directory.
+This shell provides `node`, `pnpm`, `psql`, PostgreSQL 17, and `ffmpeg`.
 
-## Using components
+Then install dependencies:
 
-To use the components in your app, import them from the `ui` package.
-
-```tsx
-import { Button } from "@workspace/ui/components/button";
+```bash
+pnpm install
 ```
+
+## Local database
+
+By default, `nix develop` handles most of the setup:
+
+- Initializes a local PostgreSQL 17 cluster in `.pg`
+- Starts it on `127.0.0.1:5432` if it is not already running
+- Creates the `alloy` database
+- Exports `DATABASE_URL`, `PGHOST`, `PGPORT`, `PGUSER`, and `PGDATABASE`
+
+`.pg` is already gitignored in this repository.
+
+Open a shell with:
+
+```bash
+psql "$DATABASE_URL"
+```
+
+Stop the local database started from the flake shell with:
+
+```bash
+alloy_pg_stop
+```
+
+If you prefer Docker for just the database, `compose.yaml` starts a PostgreSQL 17 instance with matching defaults:
+
+```bash
+docker compose up -d
+psql postgresql://postgres:postgres@localhost:5432/alloy
+```
+
+## Environment
+
+Copy the example environment files:
+
+```bash
+cp apps/server/.env.example apps/server/.env
+cp apps/web/.env.example apps/web/.env
+```
+
+For the local setup above, use:
+
+```bash
+DATABASE_URL=postgres://postgres@localhost:5432/alloy
+```
+
+The example file uses `postgres:postgres`. If you want to use the flake-managed local database, update `apps/server/.env` to match the value above.
+
+## Run the app
+
+Apply the database schema:
+
+```bash
+pnpm db:push
+```
+
+Start everything:
+
+```bash
+pnpm dev
+```
+
+This runs the web app on http://localhost:5173 and the server on http://localhost:3000.
+
+## Contributing
+
+Contributions are not being accepted at this time.

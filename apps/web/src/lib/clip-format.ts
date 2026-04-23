@@ -3,8 +3,8 @@ import type {
   ClipGameRef,
   ClipPrivacy,
   ClipRow,
-} from "./clips-api"
-import { clipStreamUrl, clipThumbnailUrl } from "./clips-api"
+} from "@workspace/api"
+import { clipStreamUrl, clipThumbnailUrl } from "@workspace/api"
 
 /** 12.4k / 1.3k / 842 — mirrors the number style used across the UI. */
 export function formatCount(n: number): string {

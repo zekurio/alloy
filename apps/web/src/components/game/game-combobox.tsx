@@ -13,7 +13,7 @@ import { GameIcon } from "@workspace/ui/components/game-icon"
 import { InputGroupAddon } from "@workspace/ui/components/input-group"
 import { cn } from "@workspace/ui/lib/utils"
 
-import type { GameRow, SteamGridDBSearchResult } from "@/lib/games-api"
+import type { GameRow, SteamGridDBSearchResult } from "@workspace/api"
 import {
   useGamesListQuery,
   useResolveGameMutation,

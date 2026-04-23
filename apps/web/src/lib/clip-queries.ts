@@ -7,29 +7,24 @@ import {
   type QueryClient,
 } from "@tanstack/react-query"
 
-import {
-  deleteClip,
-  fetchClipById,
-  fetchClips,
-  fetchLikeState,
-  likeClip,
-  unlikeClip,
-  updateClip,
-  type ClipFeedWindow,
-  type ClipRow,
-  type QueueClip,
-  type UpdateClipInput,
-} from "./clips-api"
+import type {
+  ClipFeedWindow,
+  ClipRow,
+  QueueClip,
+  UpdateClipInput,
+  UserClip,
+} from "@workspace/api"
+
+import { api } from "./api"
 import { clipKeys } from "./clip-query-keys"
 import { useUploadQueueStream } from "./clip-queue-stream"
-import { fetchUserClips, type UserClip } from "./users-api"
 
 export { clipKeys }
 
 export function useClipQuery(clipId: string) {
   return useQuery({
     queryKey: clipKeys.detail(clipId),
-    queryFn: () => fetchClipById(clipId),
+    queryFn: () => api.clips.fetchById(clipId),
     enabled: clipId.length > 0,
     // Keep the previous clip visible while the next one loads so
     // route-driven modal navigation feels continuous.
@@ -43,7 +38,7 @@ export function useTopClipsQuery(
 ) {
   return useQuery({
     queryKey: clipKeys.topList(window, limit),
-    queryFn: () => fetchClips({ window, sort: "top", limit }),
+    queryFn: () => api.clips.fetch({ window, sort: "top", limit }),
   })
 }
 
@@ -53,7 +48,7 @@ export function useRecentClipsInfiniteQuery({
   return useInfiniteQuery({
     queryKey: clipKeys.recentInfinite(limit),
     queryFn: ({ pageParam }) =>
-      fetchClips({
+      api.clips.fetch({
         sort: "recent",
         limit,
         cursor: pageParam ?? undefined,
@@ -70,7 +65,7 @@ export function useRecentClipsInfiniteQuery({
 export function useUserClipsQuery(handle: string) {
   return useQuery({
     queryKey: clipKeys.userList(handle),
-    queryFn: () => fetchUserClips(handle),
+    queryFn: () => api.users.fetchClips(handle),
     enabled: handle.length > 0,
   })
 }
@@ -164,7 +159,7 @@ export function useUpdateClipMutation() {
     { clipId: string; input: UpdateClipInput },
     ClipsSnapshot
   >({
-    mutationFn: ({ clipId, input }) => updateClip(clipId, input),
+    mutationFn: ({ clipId, input }) => api.clips.update(clipId, input),
     onMutate: async ({ clipId, input }) => {
       // Pause in-flight refetches so our optimistic write isn't
       // immediately overwritten by a stale response.
@@ -193,7 +188,7 @@ export function useDeleteClipMutation() {
   const qc = useQueryClient()
 
   return useMutation<void, Error, { clipId: string }, ClipsSnapshot>({
-    mutationFn: ({ clipId }) => deleteClip(clipId),
+    mutationFn: ({ clipId }) => api.clips.delete(clipId),
     onMutate: async ({ clipId }) => {
       await qc.cancelQueries({ queryKey: clipKeys.all })
       const snap = snapshotClips(qc)
@@ -215,7 +210,7 @@ export function useLikeStateQuery(
 ) {
   return useQuery({
     queryKey: clipKeys.like(clipId),
-    queryFn: () => fetchLikeState(clipId),
+    queryFn: () => api.clips.fetchLikeState(clipId),
     enabled: enabled && clipId.length > 0,
     // Like state is per-viewer and rarely changes from other tabs —
     // don't hammer the server on window refocus.
@@ -238,7 +233,7 @@ export function useToggleLikeMutation() {
     Context
   >({
     mutationFn: ({ clipId, nextLiked }) =>
-      nextLiked ? likeClip(clipId) : unlikeClip(clipId),
+      nextLiked ? api.clips.like(clipId) : api.clips.unlike(clipId),
     onMutate: async ({ clipId, nextLiked }) => {
       // Pause in-flight fetches so the optimistic values aren't
       // overwritten by a stale refetch landing mid-mutation.
