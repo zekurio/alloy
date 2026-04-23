@@ -10,10 +10,10 @@ import { cn } from "@workspace/ui/lib/utils"
 import {
   clipThumbnailUrl,
   type ClipGameRef,
+  type GameListRow,
   type ClipRow,
-} from "@/lib/clips-api"
+} from "@workspace/api"
 import { clipGameLabel, formatCount, hueForGame } from "@/lib/clip-format"
-import type { GameListRow } from "@/lib/games-api"
 import type { UserListRow } from "@/lib/search-api"
 import { userChipData } from "@/lib/user-display"
 

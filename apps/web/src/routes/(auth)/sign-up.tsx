@@ -2,13 +2,13 @@ import * as React from "react"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
 import { SignUpPageInner } from "@/components/routes/sign-up/sign-up-page-inner"
-import { fetchAuthConfig } from "@/lib/auth-config"
+import { api } from "@/lib/api"
 import { fetchPublicClips } from "@/lib/public-clips"
 
 export const Route = createFileRoute("/(auth)/sign-up")({
   loader: async () => {
     const [config, clips] = await Promise.all([
-      fetchAuthConfig(),
+      api.authConfig.fetch(),
       fetchPublicClips(),
     ])
     if (config.setupRequired) {

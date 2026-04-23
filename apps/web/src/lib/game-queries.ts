@@ -5,20 +5,15 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query"
 
-import type { ClipRow } from "./clips-api"
-import {
-  fetchGame,
-  fetchGameClips,
-  fetchGames,
-  fetchGameTopClips,
-  fetchSteamGridDBStatus,
-  resolveGame,
-  searchGames,
-  type GameClipsParams,
-  type GameListRow,
-  type GameRow,
-  type SteamGridDBSearchResult,
-} from "./games-api"
+import type {
+  ClipRow,
+  GameClipsParams,
+  GameListRow,
+  GameRow,
+  SteamGridDBSearchResult,
+} from "@workspace/api"
+
+import { api } from "./api"
 
 export const gameKeys = {
   all: ["games"] as const,
@@ -42,7 +37,7 @@ export function useSteamGridDBStatusQuery(): UseQueryResult<{
 }> {
   return useQuery({
     queryKey: gameKeys.status(),
-    queryFn: fetchSteamGridDBStatus,
+    queryFn: () => api.games.fetchSteamGridDBStatus(),
     // 5-minute freshness is plenty for a config flag; the admin save
     // path explicitly invalidates so a toggle reflects immediately.
     staleTime: 5 * 60 * 1000,
@@ -57,7 +52,7 @@ export function useSearchGamesQuery(
   const trimmed = query.trim()
   return useQuery({
     queryKey: gameKeys.search(trimmed),
-    queryFn: () => searchGames(trimmed),
+    queryFn: () => api.games.search(trimmed),
     // Empty query short-circuits to [] server-side but we still gate the
     // hook to avoid the round trip entirely.
     enabled: enabled && trimmed.length > 0,
@@ -72,14 +67,14 @@ export function useSearchGamesQuery(
 
 export function useResolveGameMutation() {
   return useMutation<GameRow, Error, { steamgriddbId: number }>({
-    mutationFn: ({ steamgriddbId }) => resolveGame(steamgriddbId),
+    mutationFn: ({ steamgriddbId }) => api.games.resolve(steamgriddbId),
   })
 }
 
 export function useGamesListQuery(): UseQueryResult<GameListRow[]> {
   return useQuery({
     queryKey: gameKeys.list(),
-    queryFn: fetchGames,
+    queryFn: () => api.games.fetchAll(),
     // Clip uploads nudge this indirectly (new game → new row). 60s is a
     // decent balance between freshness and not hammering on tab flips.
     staleTime: 60_000,
@@ -89,7 +84,7 @@ export function useGamesListQuery(): UseQueryResult<GameListRow[]> {
 export function useGameQuery(slug: string): UseQueryResult<GameRow> {
   return useQuery({
     queryKey: gameKeys.detail(slug),
-    queryFn: () => fetchGame(slug),
+    queryFn: () => api.games.fetchBySlug(slug),
     enabled: slug.length > 0,
   })
 }
@@ -100,7 +95,7 @@ export function useGameClipsQuery(
 ): UseQueryResult<ClipRow[]> {
   return useQuery({
     queryKey: gameKeys.clips(slug, params),
-    queryFn: () => fetchGameClips(slug, params),
+    queryFn: () => api.games.fetchClips(slug, params),
     enabled: slug.length > 0,
   })
 }
@@ -111,7 +106,7 @@ export function useGameTopClipsQuery(
 ): UseQueryResult<ClipRow[]> {
   return useQuery({
     queryKey: gameKeys.topClips(slug, limit),
-    queryFn: () => fetchGameTopClips(slug, limit),
+    queryFn: () => api.games.fetchTopClips(slug, limit),
     enabled: slug.length > 0,
   })
 }

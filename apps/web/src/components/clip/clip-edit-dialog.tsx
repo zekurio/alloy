@@ -15,11 +15,16 @@ import { toast } from "@workspace/ui/components/sonner"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { cn } from "@workspace/ui/lib/utils"
 
+import type {
+  ClipMentionRef,
+  ClipPrivacy,
+  ClipRow,
+  GameRow,
+  UserSearchResult,
+} from "@workspace/api"
+
 import { useUpdateClipMutation } from "@/lib/clip-queries"
 import { CLIP_DESCRIPTION_MAX, CLIP_TITLE_MAX } from "@/lib/clip-fields"
-import type { ClipMentionRef, ClipPrivacy, ClipRow } from "@/lib/clips-api"
-import type { GameRow } from "@/lib/games-api"
-import type { UserSearchResult } from "@/lib/users-api"
 
 import { ClipPrivacyPicker } from "./clip-privacy-picker"
 import { GameCombobox } from "@/components/game/game-combobox"

@@ -14,10 +14,10 @@ import { toast } from "@workspace/ui/components/sonner"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { cn } from "@workspace/ui/lib/utils"
 
+import type { ClipGameRef, GameRow } from "@workspace/api"
+
 import { useUpdateClipMutation } from "@/lib/clip-queries"
 import { CLIP_DESCRIPTION_MAX, CLIP_TITLE_MAX } from "@/lib/clip-fields"
-import type { ClipGameRef } from "@/lib/clips-api"
-import type { GameRow } from "@/lib/games-api"
 
 import { GameCombobox } from "@/components/game/game-combobox"
 export { EditableMentions, PrivacyBadgeMenu } from "./clip-privacy-and-mentions"

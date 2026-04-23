@@ -19,9 +19,10 @@ import {
 import { toast } from "@workspace/ui/components/sonner"
 import { cn } from "@workspace/ui/lib/utils"
 
-import type { ClipMentionRef } from "@/lib/clips-api"
+import type { ClipMentionRef } from "@workspace/api"
+
+import { api } from "@/lib/api"
 import { userChipData } from "@/lib/user-display"
-import { followUser, unfollowUser } from "@/lib/users-api"
 
 function UserAvatar({
   user,
@@ -131,8 +132,8 @@ function MentionRow({
     const nextFollowing = !following
     setFollowing(nextFollowing)
     try {
-      if (nextFollowing) await followUser(user.username)
-      else await unfollowUser(user.username)
+      if (nextFollowing) await api.users.follow(user.username)
+      else await api.users.unfollow(user.username)
     } catch (err) {
       setFollowing(!nextFollowing)
       toast.error(err instanceof Error ? err.message : "Something went wrong")
