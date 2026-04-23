@@ -21,6 +21,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import type { ProfileCounts, UserSearchResult } from "@workspace/api"
 
 import { api } from "@/lib/api"
+import { userImageSrc } from "@/lib/user-display"
 import {
   useUserFollowersQuery,
   useUserFollowingQuery,
@@ -148,7 +149,7 @@ function FollowRow({
   const [pending, setPending] = React.useState(false)
   const handle = user.displayUsername || user.username
   const displayName = user.name || `@${handle}`
-  const avatarSrc = user.image ?? undefined
+  const avatarSrc = userImageSrc(user.image)
 
   const toggle = async () => {
     setPending(true)

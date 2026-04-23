@@ -6,7 +6,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 
 import { ProfileActions } from "@/components/profile/profile-actions"
-import { UserBanner, userAvatar } from "@/lib/user-display"
+import { UserBanner, userAvatar, userImageSrc } from "@/lib/user-display"
 import type { ProfileCounts, ProfileViewer, PublicUser } from "@workspace/api"
 import { IdentityStats } from "./identity-stats"
 
@@ -30,14 +30,17 @@ export function ProfileIdentity({
   const { user, counts, viewer } = profile
   const handle = user.username
   const avatar = userAvatar(user)
+  const hasDedicatedBanner = !!userImageSrc(user.banner)
 
   return (
     <>
       <div className="flex w-full flex-col">
         <section
           className={cn(
-            "relative -mx-8 -mt-6 overflow-hidden",
-            "aspect-[3/1] max-h-[240px] min-h-[140px]"
+            "relative -mx-4 -mt-6 overflow-hidden md:-mx-8",
+            hasDedicatedBanner
+              ? "aspect-[16/4] max-h-[280px] min-h-[160px]"
+              : "aspect-[3/1] max-h-[240px] min-h-[140px]"
           )}
         >
           <UserBanner user={user} />
