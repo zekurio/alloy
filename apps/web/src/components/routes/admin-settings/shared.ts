@@ -107,6 +107,39 @@ export function presetSuggestionsFor(
   return PRESET_SUGGESTIONS[hwaccel]
 }
 
+export function defaultPresetFor(
+  hwaccel: EncoderHwaccel,
+  codec: EncoderCodec
+): string {
+  const suggestions = presetSuggestionsFor(hwaccel, codec)
+  if (suggestions.includes("medium")) return "medium"
+  if (suggestions.includes("balanced")) return "balanced"
+  if (suggestions.includes("p4")) return "p4"
+  if (suggestions.includes("6")) return "6"
+  return suggestions[0] ?? "medium"
+}
+
+export function normalizeGlobalPreset(
+  hwaccel: EncoderHwaccel,
+  codec: EncoderCodec,
+  preset: string
+): string {
+  return presetSuggestionsFor(hwaccel, codec).includes(preset)
+    ? preset
+    : defaultPresetFor(hwaccel, codec)
+}
+
+export function normalizeVariantPreset(
+  hwaccel: EncoderHwaccel,
+  codec: EncoderCodec,
+  preset: string | undefined
+): string | undefined {
+  if (preset === undefined) return undefined
+  return presetSuggestionsFor(hwaccel, codec).includes(preset)
+    ? preset
+    : undefined
+}
+
 export const QUALITY_LABEL: Record<EncoderHwaccel, string> = {
   software: "CRF",
   nvenc: "CQ",

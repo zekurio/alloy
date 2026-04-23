@@ -14,18 +14,23 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import { NativeSelect } from "@workspace/ui/components/native-select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@workspace/ui/components/select"
 
 import {
   type AdminEncoderConfig,
   type AdminEncoderVariant,
   ENCODER_CODECS,
-  ENCODER_HEIGHT_MAX,
-  ENCODER_HEIGHT_MIN,
-  ENCODER_HEIGHT_SUGGESTIONS,
   type EncoderCodec,
 } from "@workspace/api"
-import { clampInt, presetSuggestionsFor, QUALITY_LABEL } from "./shared"
+import { EncoderHeightField } from "./encoder-height-field"
+import { EncoderPresetField } from "./encoder-preset-field"
+import { clampInt, normalizeVariantPreset, QUALITY_LABEL } from "./shared"
 
 type IntInputProps = {
   id: string
@@ -34,6 +39,15 @@ type IntInputProps = {
   step?: number
   value: number
   onCommit: (next: number) => void
+}
+
+const INHERIT_CODEC_VALUE = "__inherit__"
+
+function codecLabel(
+  codec: AdminEncoderVariant["codec"],
+  inheritedCodec: EncoderCodec
+) {
+  return codec?.toUpperCase() ?? `Inherit (${inheritedCodec.toUpperCase()})`
 }
 
 export function IntInput({
@@ -123,6 +137,18 @@ export function VariantRow({
     onChange({ ...variant, [key]: value })
   }
 
+  function setCodec(nextCodec: EncoderCodec | undefined) {
+    onChange({
+      ...variant,
+      codec: nextCodec,
+      preset: normalizeVariantPreset(
+        globalConfig.hwaccel,
+        nextCodec ?? globalConfig.codec,
+        variant.preset
+      ),
+    })
+  }
+
   const heightId = `variant-${index}-height`
   const codecId = `variant-${index}-codec`
   const qualityId = `variant-${index}-quality`
@@ -136,8 +162,6 @@ export function VariantRow({
     variant.audioBitrateKbps,
   ].filter((v) => v !== undefined).length
 
-  const heightSuggestionsId = `variant-${index}-height-suggestions`
-
   return (
     <div className="rounded-md border bg-muted/30 p-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -145,28 +169,12 @@ export function VariantRow({
           <FieldLabel htmlFor={heightId} className="sr-only">
             Height
           </FieldLabel>
-          <Input
+          <EncoderHeightField
             id={heightId}
-            type="number"
-            min={ENCODER_HEIGHT_MIN}
-            max={ENCODER_HEIGHT_MAX}
-            step={2}
-            list={heightSuggestionsId}
             value={variant.height}
-            aria-invalid={isDuplicate || undefined}
-            onChange={(e) => {
-              const parsed = Number.parseInt(e.target.value, 10)
-              if (!Number.isFinite(parsed)) return
-              set("height", parsed)
-            }}
+            ariaInvalid={isDuplicate}
+            onChange={(next) => set("height", next)}
           />
-          <datalist id={heightSuggestionsId}>
-            {ENCODER_HEIGHT_SUGGESTIONS.map((h) => (
-              <option key={h} value={h}>
-                {h}p
-              </option>
-            ))}
-          </datalist>
           {isDuplicate ? (
             <FieldDescription className="text-destructive">
               Another rung already uses {variant.height}p.
@@ -232,23 +240,32 @@ export function VariantRow({
           <div className="grid gap-3 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor={codecId}>Codec</FieldLabel>
-              <NativeSelect
-                id={codecId}
-                value={variant.codec ?? ""}
-                onChange={(e) => {
-                  const raw = e.target.value
-                  set("codec", raw === "" ? undefined : (raw as EncoderCodec))
+              <Select
+                value={variant.codec ?? INHERIT_CODEC_VALUE}
+                onValueChange={(value) => {
+                  setCodec(
+                    value === INHERIT_CODEC_VALUE
+                      ? undefined
+                      : (value as EncoderCodec)
+                  )
                 }}
               >
-                <option value="">
-                  Inherit ({globalConfig.codec.toUpperCase()})
-                </option>
-                {ENCODER_CODECS.map((codec) => (
-                  <option key={codec} value={codec}>
-                    {codec.toUpperCase()}
-                  </option>
-                ))}
-              </NativeSelect>
+                <SelectTrigger id={codecId} className="w-full">
+                  <SelectValue>
+                    {codecLabel(variant.codec, globalConfig.codec)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent align="start" alignItemWithTrigger={false}>
+                  <SelectItem value={INHERIT_CODEC_VALUE}>
+                    Inherit ({globalConfig.codec.toUpperCase()})
+                  </SelectItem>
+                  {ENCODER_CODECS.map((codec) => (
+                    <SelectItem key={codec} value={codec}>
+                      {codec.toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
 
             <Field>
@@ -278,27 +295,14 @@ export function VariantRow({
           <div className="grid gap-3 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor={presetId}>Preset</FieldLabel>
-              <Input
+              <EncoderPresetField
                 id={presetId}
-                list={`variant-${index}-preset-suggestions`}
-                value={variant.preset ?? ""}
-                placeholder={`Inherit (${globalConfig.preset})`}
-                disabled={globalConfig.hwaccel === "vaapi"}
-                onChange={(e) => {
-                  const raw = e.target.value
-                  set("preset", raw === "" ? undefined : raw)
-                }}
+                value={variant.preset}
+                inheritedValue={globalConfig.preset}
+                hwaccel={globalConfig.hwaccel}
+                codec={variant.codec ?? globalConfig.codec}
+                onChange={(next) => set("preset", next)}
               />
-              <datalist id={`variant-${index}-preset-suggestions`}>
-                {/* Follow the rung's effective codec so SVT-AV1's numeric
-                 * presets don't leak into an H.264 rung. */}
-                {presetSuggestionsFor(
-                  globalConfig.hwaccel,
-                  variant.codec ?? globalConfig.codec
-                ).map((p) => (
-                  <option key={p} value={p} />
-                ))}
-              </datalist>
             </Field>
 
             <Field>
