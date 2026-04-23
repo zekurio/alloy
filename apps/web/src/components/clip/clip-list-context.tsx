@@ -1,8 +1,11 @@
 import * as React from "react"
 
+import type { ClipRow } from "@workspace/api"
+
 export interface ClipListEntry {
   id: string
   gameSlug: string | null
+  row?: ClipRow
 }
 
 export interface ClipListContextValue {
