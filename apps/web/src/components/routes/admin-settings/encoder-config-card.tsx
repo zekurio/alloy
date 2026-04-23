@@ -69,6 +69,10 @@ export function EncoderConfigCard({
     setForm(encoder)
   }, [encoder])
 
+  function resetForm() {
+    setForm(encoder)
+  }
+
   React.useEffect(() => {
     let cancelled = false
     api.admin
@@ -138,6 +142,17 @@ export function EncoderConfigCard({
       const [moved] = next.splice(index, 1)
       if (!moved) return f
       next.splice(target, 0, moved)
+      return { ...f, variants: next }
+    })
+  }
+
+  function setDefaultVariant(index: number) {
+    setForm((f) => {
+      if (index <= 0 || index >= f.variants.length) return f
+      const next = [...f.variants]
+      const [selected] = next.splice(index, 1)
+      if (!selected) return f
+      next.unshift(selected)
       return { ...f, variants: next }
     })
   }
@@ -222,10 +237,29 @@ export function EncoderConfigCard({
   // Ladder is capped at six rungs on the server; mirror that here so the
   // add button disables at the same boundary (no silent server rejection).
   const canAddVariant = form.variants.length < 6
+  const isDirty = JSON.stringify(form) !== JSON.stringify(encoder)
+  const hasInvalidPreset =
+    form.preset.trim() === "" ||
+    form.variants.some(
+      (variant) => variant.preset !== undefined && variant.preset.trim() === ""
+    )
+  const hasInvalidHeight = form.variants.some(
+    (variant) =>
+      !Number.isInteger(variant.height) ||
+      variant.height < ENCODER_HEIGHT_MIN ||
+      variant.height > ENCODER_HEIGHT_MAX ||
+      variant.height % 2 !== 0
+  )
+  const canSubmit =
+    isDirty &&
+    !pending &&
+    !hasInvalidPreset &&
+    !hasInvalidHeight &&
+    duplicateHeights.size === 0
 
   return (
     <form onSubmit={onSubmit}>
-      <Card>
+      <Card size="sm">
         <CardHeader>
           <div>
             <CardTitle>Encoder</CardTitle>
@@ -235,7 +269,8 @@ export function EncoderConfigCard({
           </div>
         </CardHeader>
 
-        <CardContent className="flex flex-col gap-4">
+        <fieldset disabled={pending} className="contents">
+        <CardContent className="flex flex-col gap-3">
           {capsError ? (
             <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
               <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
@@ -260,7 +295,7 @@ export function EncoderConfigCard({
             </p>
           ) : null}
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="encoder-hwaccel">Encoder</FieldLabel>
               <Select
@@ -285,7 +320,7 @@ export function EncoderConfigCard({
                   })}
                 </SelectContent>
               </Select>
-              <FieldDescription>
+              <FieldDescription className="text-xs leading-snug">
                 Pick your desired encoder. Make sure your GPU and ffmpeg build
                 support the selected codec. If not, pick a software encoder.
               </FieldDescription>
@@ -315,7 +350,7 @@ export function EncoderConfigCard({
                 </SelectContent>
               </Select>
               {currentComboMissing ? (
-                <FieldDescription className="text-destructive">
+                <FieldDescription className="text-xs leading-snug text-destructive">
                   This combination isn&rsquo;t available in the host&rsquo;s
                   ffmpeg build. Encodes will fail.
                 </FieldDescription>
@@ -323,7 +358,7 @@ export function EncoderConfigCard({
             </Field>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <Field>
               <FieldLabel htmlFor="encoder-quality">
                 Quality ({QUALITY_LABEL[form.hwaccel]})
@@ -335,7 +370,7 @@ export function EncoderConfigCard({
                 value={form.quality}
                 onCommit={(next) => set("quality", next)}
               />
-              <FieldDescription>
+              <FieldDescription className="text-xs leading-snug">
                 0–51, lower = higher quality. 23 is a good default for
                 H.264/H.265; AV1 sits around 20–28. Hardware backends typically
                 need slightly higher values.
@@ -355,25 +390,25 @@ export function EncoderConfigCard({
                 onChange={(next) => set("preset", next ?? "")}
               />
             </Field>
-          </div>
 
-          <Field>
-            <FieldLabel htmlFor="encoder-audio-bitrate">
-              Audio bitrate (kbps)
-            </FieldLabel>
-            <IntInput
-              id="encoder-audio-bitrate"
-              min={64}
-              max={256}
-              step={8}
-              value={form.audioBitrateKbps}
-              onCommit={(next) => set("audioBitrateKbps", next)}
-            />
-            <FieldDescription>
-              AAC stereo. 128 is fine for game/voice; ~160 for music-heavy
-              content. Higher is wasted bits.
-            </FieldDescription>
-          </Field>
+            <Field>
+              <FieldLabel htmlFor="encoder-audio-bitrate">
+                Audio bitrate (kbps)
+              </FieldLabel>
+              <IntInput
+                id="encoder-audio-bitrate"
+                min={64}
+                max={256}
+                step={8}
+                value={form.audioBitrateKbps}
+                onCommit={(next) => set("audioBitrateKbps", next)}
+              />
+              <FieldDescription className="text-xs leading-snug">
+                AAC stereo. 128 is fine for game/voice; ~160 for music-heavy
+                content. Higher is wasted bits.
+              </FieldDescription>
+            </Field>
+          </div>
 
           {form.hwaccel === "qsv" ? (
             <Field>
@@ -387,7 +422,7 @@ export function EncoderConfigCard({
                 onChange={(e) => set("qsvDevice", e.target.value)}
                 placeholder="/dev/dri/renderD128"
               />
-              <FieldDescription>
+              <FieldDescription className="text-xs leading-snug">
                 Passed to ffmpeg as QSV&rsquo;s <code>child_device</code>. Use a
                 DRM render node on Linux or an adapter index on Windows.
               </FieldDescription>
@@ -406,7 +441,7 @@ export function EncoderConfigCard({
                 onChange={(e) => set("vaapiDevice", e.target.value)}
                 placeholder="/dev/dri/renderD128"
               />
-              <FieldDescription>
+              <FieldDescription className="text-xs leading-snug">
                 Path to the DRM render node passed to ffmpeg&rsquo;s{" "}
                 <code>-vaapi_device</code>. Only used when the backend is
                 VA-API.
@@ -417,20 +452,31 @@ export function EncoderConfigCard({
           <Separator />
 
           <div className="flex flex-col gap-3">
-            <div>
+            <div className="flex flex-wrap items-start justify-between gap-3">
               <h3 className="text-sm font-medium">Variant ladder</h3>
-              <p className="text-xs text-muted-foreground">
-                First rung is the default playback rendition. Heights above
-                source are clamped. Per-rung fields override the values above.
-              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addVariant}
+                disabled={pending || !canAddVariant}
+              >
+                <PlusIcon />
+                Add variant
+              </Button>
             </div>
 
-            <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2.5">
+            <p className="text-xs text-muted-foreground">
+              Star a rung to make it the default playback rendition. Heights
+              above source are clamped. Per-rung fields override the values
+              above.
+            </p>
+
+            <div className="flex items-center justify-between gap-3 border-b pb-3">
               <div className="min-w-0">
                 <div className="text-sm font-medium">Expose source</div>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Offer the original upload as an opt-in "Source" quality (no
-                  re-encode).
+                <p className="text-xs text-muted-foreground">
+                  Offer the original upload as an opt-in "Source" quality.
                 </p>
               </div>
               <Switch
@@ -440,42 +486,47 @@ export function EncoderConfigCard({
               />
             </div>
 
-            {form.variants.map((variant, index) => (
-              <VariantRow
-                key={`${index}-${variant.height}`}
-                variant={variant}
-                index={index}
-                globalConfig={form}
-                isDuplicate={duplicateHeights.has(variant.height)}
-                canMoveUp={index > 0}
-                canMoveDown={index < form.variants.length - 1}
-                canDelete={form.variants.length > 1}
-                onChange={(next) => updateVariant(index, next)}
-                onMoveUp={() => moveVariant(index, -1)}
-                onMoveDown={() => moveVariant(index, 1)}
-                onDelete={() => removeVariant(index)}
-              />
-            ))}
-
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addVariant}
-              disabled={!canAddVariant}
-              className="self-start"
-            >
-              <PlusIcon />
-              Add variant
-            </Button>
+            <div className="divide-y">
+              {form.variants.map((variant, index) => (
+                <div key={`${index}-${variant.height}`} className="py-3 first:pt-0 last:pb-0">
+                  <VariantRow
+                    variant={variant}
+                    index={index}
+                    isDefault={index === 0}
+                    globalConfig={form}
+                    isDuplicate={duplicateHeights.has(variant.height)}
+                    canMoveUp={index > 0}
+                    canMoveDown={index < form.variants.length - 1}
+                    canDelete={form.variants.length > 1}
+                    onChange={(next) => updateVariant(index, next)}
+                    onSetDefault={() => setDefaultVariant(index)}
+                    onMoveUp={() => moveVariant(index, -1)}
+                    onMoveDown={() => moveVariant(index, 1)}
+                    onDelete={() => removeVariant(index)}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </CardContent>
 
         <CardFooter>
-          <Button type="submit" variant="primary" size="sm" disabled={pending}>
-            {pending ? "Saving…" : "Save encoder"}
-          </Button>
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={resetForm}
+              disabled={pending || !isDirty}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" size="sm" disabled={!canSubmit}>
+              {pending ? "Saving…" : "Save encoder"}
+            </Button>
+          </div>
         </CardFooter>
+        </fieldset>
       </Card>
     </form>
   )

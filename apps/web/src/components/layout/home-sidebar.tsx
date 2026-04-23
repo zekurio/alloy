@@ -1,30 +1,22 @@
 import * as React from "react"
 import { Link, useRouterState } from "@tanstack/react-router"
-import {
-  CogIcon,
-  GamepadIcon,
-  HomeIcon,
-  LibraryIcon,
-  ShieldIcon,
-} from "lucide-react"
+import { GamepadIcon, HomeIcon, LibraryIcon, UploadIcon } from "lucide-react"
 
 import {
   AppBottomNav,
   AppBottomNavItem,
   AppSidebar,
-  AppSidebarFooter,
   AppSidebarGroup,
   AppSidebarItem,
 } from "@workspace/ui/components/app-sidebar"
 
 import { useSuspenseSession } from "@/lib/session-suspense"
+import { useUploadFlowControls } from "@/components/upload/upload-flow"
 
 interface NavFlags {
   isHome: boolean
   isLibrary: boolean
   isGames: boolean
-  isSettings: boolean
-  isAdminPage: boolean
 }
 
 function useNavFlags(): NavFlags {
@@ -35,8 +27,6 @@ function useNavFlags(): NavFlags {
       isGames:
         s.location.pathname === "/games" ||
         s.location.pathname.startsWith("/g/"),
-      isSettings: s.location.pathname === "/user-settings",
-      isAdminPage: s.location.pathname === "/admin-settings",
     }),
     structuralSharing: true,
   })
@@ -51,9 +41,6 @@ export function HomeSidebar() {
             <SidebarTop />
           </React.Suspense>
         </AppSidebarGroup>
-        <React.Suspense fallback={null}>
-          <SidebarBottom />
-        </React.Suspense>
       </AppSidebar>
 
       <AppBottomNav className="md:hidden">
@@ -106,35 +93,6 @@ function SidebarTop() {
   )
 }
 
-function SidebarBottom() {
-  const session = useSuspenseSession()
-  const { isSettings, isAdminPage } = useNavFlags()
-  if (!session) return null
-
-  const isAdmin = (session.user as { role?: string }).role === "admin"
-
-  return (
-    <AppSidebarFooter className="flex flex-col gap-1">
-      <AppSidebarItem
-        active={isSettings}
-        title="Settings"
-        render={<Link to="/user-settings" />}
-      >
-        <CogIcon />
-      </AppSidebarItem>
-      {isAdmin ? (
-        <AppSidebarItem
-          active={isAdminPage}
-          title="Admin"
-          render={<Link to="/admin-settings" />}
-        >
-          <ShieldIcon />
-        </AppSidebarItem>
-      ) : null}
-    </AppSidebarFooter>
-  )
-}
-
 function SidebarTopFallback() {
   return (
     <>
@@ -152,12 +110,10 @@ function SidebarTopFallback() {
 }
 
 function BottomNavItems() {
-  const { isHome, isLibrary, isGames, isSettings, isAdminPage } = useNavFlags()
+  const { isHome, isLibrary, isGames } = useNavFlags()
   const session = useSuspenseSession()
   const profileHandle = session?.user.username ?? null
-  const isAdmin = Boolean(
-    session && (session.user as { role?: string }).role === "admin"
-  )
+  const { queueOpen, setQueueOpen } = useUploadFlowControls()
 
   return (
     <>
@@ -193,20 +149,11 @@ function BottomNavItems() {
       </AppBottomNavItem>
       {session ? (
         <AppBottomNavItem
-          active={isSettings}
-          title="Settings"
-          render={<Link to="/user-settings" />}
+          active={queueOpen}
+          title="Upload"
+          onClick={() => setQueueOpen(true)}
         >
-          <CogIcon />
-        </AppBottomNavItem>
-      ) : null}
-      {isAdmin ? (
-        <AppBottomNavItem
-          active={isAdminPage}
-          title="Admin"
-          render={<Link to="/admin-settings" />}
-        >
-          <ShieldIcon />
+          <UploadIcon />
         </AppBottomNavItem>
       ) : null}
     </>

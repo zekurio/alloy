@@ -17,12 +17,14 @@ export interface ClipCardTriggerProps {
   /** True only when the viewer owns the clip — surfaces the privacy pill. */
   owned?: boolean
   className?: string
+  metaVariant?: "default" | "showcase"
 }
 
 export function ClipCardTrigger({
   row,
   owned = false,
   className,
+  metaVariant = "default",
 }: ClipCardTriggerProps) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -77,6 +79,7 @@ export function ClipCardTrigger({
       accentHue={card.accentHue}
       streamUrl={card.streamUrl}
       privacy={owned ? card.privacy : undefined}
+      metaVariant={metaVariant}
       onThumbnailClick={handleThumbnailClick}
       onThumbnailIntent={preloadClip}
       thumbnailLabel={`Play clip: ${card.title}`}

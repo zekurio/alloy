@@ -28,6 +28,10 @@ type LimitsConfigCardProps = {
   onChange: (next: AdminRuntimeConfig) => void
 }
 
+function formatMaxUploadMiB(maxUploadBytes: number) {
+  return String(Math.round(maxUploadBytes / (1024 * 1024)))
+}
+
 function LimitsFields({
   form,
   maxUploadMiB,
@@ -117,23 +121,66 @@ function LimitsFields({
   )
 }
 
+function LimitsActions({
+  pending,
+  isDirty,
+  onReset,
+}: {
+  pending: boolean
+  isDirty: boolean
+  onReset: () => void
+}) {
+  return (
+    <CardFooter>
+      <div className="ml-auto flex items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onReset}
+          disabled={pending || !isDirty}
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          variant="primary"
+          size="sm"
+          disabled={pending || !isDirty}
+        >
+          {pending ? "Saving…" : "Save limits"}
+        </Button>
+      </div>
+    </CardFooter>
+  )
+}
+
 export function LimitsConfigCard({ limits, onChange }: LimitsConfigCardProps) {
   const [form, setForm] = React.useState<AdminLimitsConfig>(limits)
   const [pending, setPending] = React.useState(false)
   const [maxUploadMiB, setMaxUploadMiB] = React.useState<string>(() =>
-    String(Math.round(limits.maxUploadBytes / (1024 * 1024)))
+    formatMaxUploadMiB(limits.maxUploadBytes)
+  )
+  const initialMaxUploadMiB = React.useMemo(
+    () => formatMaxUploadMiB(limits.maxUploadBytes),
+    [limits.maxUploadBytes]
   )
 
   React.useEffect(() => {
     setForm(limits)
-    setMaxUploadMiB(String(Math.round(limits.maxUploadBytes / (1024 * 1024))))
-  }, [limits])
+    setMaxUploadMiB(initialMaxUploadMiB)
+  }, [initialMaxUploadMiB, limits])
 
   function set<K extends keyof AdminLimitsConfig>(
     key: K,
     value: AdminLimitsConfig[K]
   ) {
     setForm((f) => ({ ...f, [key]: value }))
+  }
+
+  function resetForm() {
+    setForm(limits)
+    setMaxUploadMiB(initialMaxUploadMiB)
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -161,6 +208,11 @@ export function LimitsConfigCard({ limits, onChange }: LimitsConfigCardProps) {
     }
   }
 
+  const isDirty =
+    form.uploadTtlSec !== limits.uploadTtlSec ||
+    form.queueConcurrency !== limits.queueConcurrency ||
+    maxUploadMiB !== initialMaxUploadMiB
+
   return (
     <form onSubmit={onSubmit}>
       <Card>
@@ -172,18 +224,15 @@ export function LimitsConfigCard({ limits, onChange }: LimitsConfigCardProps) {
             </CardDescription>
           </div>
         </CardHeader>
-        <LimitsFields
-          form={form}
-          maxUploadMiB={maxUploadMiB}
-          onFieldChange={set}
-          onMaxUploadChange={setMaxUploadMiB}
-        />
-
-        <CardFooter>
-          <Button type="submit" variant="primary" size="sm" disabled={pending}>
-            {pending ? "Saving…" : "Save limits"}
-          </Button>
-        </CardFooter>
+        <fieldset disabled={pending} className="contents">
+          <LimitsFields
+            form={form}
+            maxUploadMiB={maxUploadMiB}
+            onFieldChange={set}
+            onMaxUploadChange={setMaxUploadMiB}
+          />
+          <LimitsActions pending={pending} isDirty={isDirty} onReset={resetForm} />
+        </fieldset>
       </Card>
     </form>
   )

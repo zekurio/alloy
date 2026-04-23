@@ -55,7 +55,7 @@ function UserProfileLayout() {
         <div
           aria-hidden={gated ? true : undefined}
           className={
-            gated ? "pointer-events-none blur-md select-none" : undefined
+            gated ? "pointer-events-none select-none" : undefined
           }
         >
           {profileError ? (

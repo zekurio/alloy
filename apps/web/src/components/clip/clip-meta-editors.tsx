@@ -217,6 +217,7 @@ export function EditableGame({
           slug: gameRef.slug,
           releaseDate: gameRef.releaseDate,
           heroUrl: gameRef.heroUrl,
+          gridUrl: gameRef.gridUrl,
           logoUrl: gameRef.logoUrl,
           iconUrl: gameRef.iconUrl,
         }

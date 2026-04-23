@@ -253,12 +253,14 @@ function AdminPage() {
           Admin settings
         </h1>
       </div>
-      <TabsList className="mb-4">
-        <TabsTrigger value="auth">Authentication</TabsTrigger>
-        <TabsTrigger value="uploads">Uploads &amp; encoding</TabsTrigger>
-        <TabsTrigger value="integrations">Integrations</TabsTrigger>
-        <TabsTrigger value="users">Users</TabsTrigger>
-      </TabsList>
+      <div className="-mx-1 mb-4 overflow-x-auto px-1">
+        <TabsList className="w-max min-w-full flex-nowrap">
+          <TabsTrigger value="auth">Authentication</TabsTrigger>
+          <TabsTrigger value="uploads">Uploads &amp; encoding</TabsTrigger>
+          <TabsTrigger value="integrations">Integrations</TabsTrigger>
+          <TabsTrigger value="users">Users</TabsTrigger>
+        </TabsList>
+      </div>
 
       <AdminAuthTab
         config={config}

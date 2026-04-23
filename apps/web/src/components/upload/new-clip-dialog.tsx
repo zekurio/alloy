@@ -2,9 +2,7 @@ import * as React from "react"
 import {
   PauseIcon,
   PlayIcon,
-  RotateCcwIcon,
   SkipBackIcon,
-  SkipForwardIcon,
 } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
@@ -22,6 +20,12 @@ import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetTitle,
+} from "@workspace/ui/components/sheet"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -43,7 +47,7 @@ import {
   type SelectedFile,
   type Visibility,
 } from "./new-clip-helpers"
-import { SpeedButton, TrimTimeline, VideoPreview } from "./upload-trim-preview"
+import { TrimTimeline, VideoPreview } from "./upload-trim-preview"
 
 // Re-export public API consumed by upload-flow.tsx so the import surface
 // stays stable across the split.
@@ -141,6 +145,87 @@ export function NewClipDialog({
   // LoadedState immediately on first open without waiting for the effect.
   const activeFile = selectedFile ?? (open ? (initialFile ?? null) : null)
 
+  const surfaceContent = (
+    <>
+      {/* Hidden input used only for the Replace button in LoadedState. */}
+      <input
+        ref={inputRef}
+        type="file"
+        accept={ACCEPT_LIST}
+        className="hidden"
+        onChange={handleInputChange}
+      />
+      {isMobile ? (
+        <div className="shrink-0 px-4 pt-4">
+          <SheetTitle className="text-lg leading-tight font-semibold tracking-[var(--tracking-tight)] text-foreground">
+            New clip
+          </SheetTitle>
+        </div>
+      ) : (
+        <DialogHeader className="shrink-0">
+          <DialogTitle>New clip</DialogTitle>
+        </DialogHeader>
+      )}
+
+      {activeFile ? (
+        <LoadedState
+          file={activeFile}
+          publishing={publishing}
+          onPublish={handlePublish}
+          onReplace={handleReplaceClick}
+          closeAction={
+            isMobile ? (
+              <SheetClose
+                render={
+                  <Button
+                    variant="outline"
+                    size="default"
+                    disabled={publishing}
+                    className="min-w-0 w-full"
+                  />
+                }
+              >
+                Cancel
+              </SheetClose>
+            ) : (
+              <DialogClose
+                render={
+                  <Button variant="outline" size="default" disabled={publishing} />
+                }
+              >
+                Cancel
+              </DialogClose>
+            )
+          }
+        />
+      ) : null}
+    </>
+  )
+
+  if (isMobile) {
+    return (
+      <Sheet
+        open={open}
+        onOpenChange={onOpenChange}
+        onOpenChangeComplete={handleOpenChangeComplete}
+      >
+        <SheetContent
+          side="bottom"
+          showCloseButton={false}
+          className={cn(
+            "flex flex-col overflow-hidden",
+            "right-4 bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+1rem)] left-4",
+            "max-h-[calc(100dvh-var(--header-h)-var(--bottomnav-h)-env(safe-area-inset-bottom)-2.5rem)]",
+            "rounded-xl border bg-surface"
+          )}
+          aria-describedby={undefined}
+        >
+          {surfaceContent}
+        </SheetContent>
+      </Sheet>
+    )
+  }
+
   return (
     <Dialog
       open={open}
@@ -153,32 +238,11 @@ export function NewClipDialog({
         centered={!isMobile}
         className={cn(
           "flex flex-col overflow-hidden",
-          isMobile
-            ? "top-auto right-4 bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+1rem)] left-4 max-h-[calc(100dvh-var(--header-h)-var(--bottomnav-h)-env(safe-area-inset-bottom)-2.5rem)] w-auto max-w-none rounded-xl"
-            : "max-h-[min(94vh,900px)] max-w-[960px]"
+          "max-h-[min(94vh,900px)] max-w-[960px]"
         )}
         aria-describedby={undefined}
       >
-        {/* Hidden input used only for the Replace button in LoadedState. */}
-        <input
-          ref={inputRef}
-          type="file"
-          accept={ACCEPT_LIST}
-          className="hidden"
-          onChange={handleInputChange}
-        />
-        <DialogHeader className="shrink-0">
-          <DialogTitle>New clip</DialogTitle>
-        </DialogHeader>
-
-        {activeFile ? (
-          <LoadedState
-            file={activeFile}
-            publishing={publishing}
-            onPublish={handlePublish}
-            onReplace={handleReplaceClick}
-          />
-        ) : null}
+        {surfaceContent}
       </DialogContent>
     </Dialog>
   )
@@ -189,11 +253,13 @@ function LoadedState({
   publishing,
   onPublish,
   onReplace,
+  closeAction,
 }: {
   file: SelectedFile
   publishing: boolean
   onPublish: (payload: PublishPayload) => void
   onReplace: () => void
+  closeAction: React.ReactNode
 }) {
   const isMobile = useIsMobile()
   const [title, setTitle] = React.useState(stripExtension(file.name))
@@ -208,7 +274,6 @@ function LoadedState({
   const [trimEndMs, setTrimEndMs] = React.useState(file.durationMs)
   const [currentMs, setCurrentMs] = React.useState(0)
   const [isPlaying, setIsPlaying] = React.useState(false)
-  const [playbackRate, setPlaybackRate] = React.useState<0.5 | 1 | 2>(1)
   const [volume, setVolume] = React.useState(1)
   const [muted, setMuted] = React.useState(false)
 
@@ -268,6 +333,7 @@ function LoadedState({
       <DialogBody
         className={cn(
           "flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5",
+          isMobile && "px-4",
           "grid gap-6",
           "grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(260px,1fr)]"
         )}
@@ -281,7 +347,6 @@ function LoadedState({
             durationMs={file.durationMs}
             trimStartMs={trimStartMs}
             trimEndMs={trimEndMs}
-            playbackRate={playbackRate}
             isPlaying={isPlaying}
             currentMs={currentMs}
             volume={volume}
@@ -307,16 +372,6 @@ function LoadedState({
             >
               {isPlaying ? <PauseIcon /> : <PlayIcon />}
             </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Jump to trim end"
-              onClick={() =>
-                setCurrentMs(Math.max(trimStartMs, trimEndMs - 100))
-              }
-            >
-              <SkipForwardIcon />
-            </Button>
             <span className="ml-2 text-xs font-semibold text-foreground-muted tabular-nums">
               {formatTimecode(currentMs)}{" "}
               <span className="text-foreground-muted">/</span>{" "}
@@ -331,26 +386,6 @@ function LoadedState({
               onToggleMute={() => setMuted((m) => !m)}
             />
 
-            <div className="flex items-center gap-1 rounded-md border border-border bg-surface-raised p-0.5">
-              <SpeedButton
-                active={playbackRate === 0.5}
-                onClick={() => setPlaybackRate(0.5)}
-              >
-                ½×
-              </SpeedButton>
-              <SpeedButton
-                active={playbackRate === 1}
-                onClick={() => setPlaybackRate(1)}
-              >
-                1×
-              </SpeedButton>
-              <SpeedButton
-                active={playbackRate === 2}
-                onClick={() => setPlaybackRate(2)}
-              >
-                2×
-              </SpeedButton>
-            </div>
           </div>
 
           <TrimTimeline
@@ -434,7 +469,11 @@ function LoadedState({
 
           <Field>
             <FieldLabel>Visibility</FieldLabel>
-            <ClipPrivacyPicker value={visibility} onChange={setVisibility} />
+            <ClipPrivacyPicker
+              value={visibility}
+              onChange={setVisibility}
+              disabled={publishing || capturing}
+            />
           </Field>
         </section>
       </DialogBody>
@@ -442,7 +481,9 @@ function LoadedState({
       <DialogFooter
         className={cn(
           "shrink-0 flex-wrap pt-3 sm:pt-4",
-          isMobile ? "pb-5" : "pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
+          isMobile
+            ? "grid grid-cols-3 gap-2 px-4 pb-5"
+            : "pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
         )}
       >
         <Button
@@ -450,22 +491,17 @@ function LoadedState({
           size="default"
           disabled={publishing}
           onClick={onReplace}
+          className={cn(isMobile && "min-w-0 w-full")}
         >
-          <RotateCcwIcon />
           Replace
         </Button>
-        <DialogClose
-          render={
-            <Button variant="outline" size="default" disabled={publishing} />
-          }
-        >
-          Cancel
-        </DialogClose>
+        {closeAction}
         <Button
           variant="primary"
           size="default"
           disabled={publishing || capturing}
           onClick={handlePublishClick}
+          className={cn(isMobile && "min-w-0 w-full")}
         >
           {capturing ? "Preparing…" : publishing ? "Uploading…" : "Upload clip"}
         </Button>

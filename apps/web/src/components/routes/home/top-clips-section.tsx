@@ -1,6 +1,13 @@
 import * as React from "react"
 import { FlameIcon } from "lucide-react"
 
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@workspace/ui/components/carousel"
 import { Chip } from "@workspace/ui/components/chip"
 import {
   SectionActions,
@@ -8,9 +15,10 @@ import {
   SectionTitle,
 } from "@workspace/ui/components/section-head"
 
-import { ClipCardList } from "@/components/clip/clip-card-list"
+import { ClipCardTrigger } from "@/components/clip/clip-card-trigger"
 import { ClipCardSkeleton } from "@/components/clip/clip-card-skeleton"
 import { ClipGrid } from "@/components/clip/clip-grid"
+import { ClipListProvider, type ClipListEntry } from "@/components/clip/clip-list-context"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { useTopClipsQuery } from "@/lib/clip-queries"
 import type { ClipFeedWindow } from "@workspace/api"
@@ -60,9 +68,18 @@ export function TopClipsSection({ viewerId }: TopClipsSectionProps) {
     toastId: `top-clips-${window}-error`,
   })
 
+  const entries = React.useMemo<ClipListEntry[]>(
+    () =>
+      (rows ?? []).map((row) => ({
+        id: row.id,
+        gameSlug: row.gameRef?.slug ?? null,
+      })),
+    [rows]
+  )
+
   return (
     <section>
-      <SectionHead>
+      <SectionHead className="items-start sm:items-end">
         <div>
           <SectionTitle>
             <FlameIcon className="text-accent" />
@@ -79,11 +96,26 @@ export function TopClipsSection({ viewerId }: TopClipsSectionProps) {
           title="Couldn't load top clips"
         />
       ) : isPending || !rows ? (
-        <ClipGrid>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <ClipCardSkeleton key={i} />
-          ))}
-        </ClipGrid>
+        <>
+          <div className="sm:hidden">
+            <TopClipsCarousel>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <CarouselItem key={i} className="basis-full pl-0">
+                  <div className="mx-auto w-full max-w-3xl">
+                    <ClipCardSkeleton />
+                  </div>
+                </CarouselItem>
+              ))}
+            </TopClipsCarousel>
+          </div>
+          <div className="hidden sm:block">
+            <ClipGrid>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <ClipCardSkeleton key={i} />
+              ))}
+            </ClipGrid>
+          </div>
+        </>
       ) : rows.length === 0 ? (
         <EmptyState
           seed={`top-${window}-empty`}
@@ -92,13 +124,53 @@ export function TopClipsSection({ viewerId }: TopClipsSectionProps) {
           hint="Check back in a bit or upload your own."
         />
       ) : (
-        <ClipCardList
-          rows={rows}
-          isOwnedByViewer={(row) => row.authorId === viewerId}
-          listKey={`home:top:${window}`}
-        />
+        <ClipListProvider listKey={`home:top:${window}`} entries={entries}>
+          <div className="sm:hidden">
+            <TopClipsCarousel>
+              {rows.map((row) => (
+                <CarouselItem key={row.id} className="basis-full pl-0">
+                <ClipCardTrigger
+                  row={row}
+                  owned={row.authorId === viewerId}
+                  className="mx-auto w-full max-w-3xl"
+                  metaVariant="showcase"
+                />
+              </CarouselItem>
+            ))}
+            </TopClipsCarousel>
+          </div>
+          <div className="hidden sm:block">
+            <ClipGrid>
+              {rows.map((row) => (
+                <ClipCardTrigger
+                  key={row.id}
+                  row={row}
+                  owned={row.authorId === viewerId}
+                />
+              ))}
+            </ClipGrid>
+          </div>
+        </ClipListProvider>
       )}
     </section>
+  )
+}
+
+function TopClipsCarousel({ children }: { children: React.ReactNode }) {
+  return (
+    <Carousel className="group" opts={{ align: "start" }}>
+      <CarouselContent className="-ml-0">{children}</CarouselContent>
+      <CarouselPrevious
+        variant="ghost"
+        size="icon-lg"
+        className="top-[calc(50%-1.75rem)] left-2 z-10 rounded-none border-transparent bg-transparent text-white shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]"
+      />
+      <CarouselNext
+        variant="ghost"
+        size="icon-lg"
+        className="top-[calc(50%-1.75rem)] right-2 z-10 rounded-none border-transparent bg-transparent text-white shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]"
+      />
+    </Carousel>
   )
 }
 

@@ -1,4 +1,5 @@
 import {
+  keepPreviousData,
   useMutation,
   useQuery,
   useQueryClient,
@@ -58,6 +59,7 @@ export function useSearchGamesQuery(
     staleTime: 30_000,
     // SGDB is the upstream — no point re-hitting on window focus.
     refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
     // Autocomplete doesn't want to thrash on transient network blips —
     // a single retry is enough, the user will type again if it's still bad.
     retry: 1,

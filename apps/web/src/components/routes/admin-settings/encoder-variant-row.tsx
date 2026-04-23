@@ -1,7 +1,11 @@
 import * as React from "react"
-import { ChevronDownIcon, ChevronUpIcon, Trash2Icon } from "lucide-react"
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  StarIcon,
+  Trash2Icon,
+} from "lucide-react"
 
-import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
   Collapsible,
@@ -99,12 +103,14 @@ export function IntInput({
 type VariantRowProps = {
   variant: AdminEncoderVariant
   index: number
+  isDefault: boolean
   globalConfig: AdminEncoderConfig
   isDuplicate: boolean
   canMoveUp: boolean
   canMoveDown: boolean
   canDelete: boolean
   onChange: (next: AdminEncoderVariant) => void
+  onSetDefault: () => void
   onMoveUp: () => void
   onMoveDown: () => void
   onDelete: () => void
@@ -113,12 +119,14 @@ type VariantRowProps = {
 export function VariantRow({
   variant,
   index,
+  isDefault,
   globalConfig,
   isDuplicate,
   canMoveUp,
   canMoveDown,
   canDelete,
   onChange,
+  onSetDefault,
   onMoveUp,
   onMoveDown,
   onDelete,
@@ -161,11 +169,12 @@ export function VariantRow({
     variant.preset,
     variant.audioBitrateKbps,
   ].filter((v) => v !== undefined).length
+  const overridesLabel = overrideCount > 0 ? `Overrides (${overrideCount})` : "Overrides"
 
   return (
-    <div className="rounded-md border bg-muted/30 p-3">
+    <Collapsible open={overridesOpen} onOpenChange={setOverridesOpen}>
       <div className="flex flex-wrap items-center gap-2">
-        <Field className="grow">
+        <Field className="min-w-0 flex-1 sm:max-w-xs">
           <FieldLabel htmlFor={heightId} className="sr-only">
             Height
           </FieldLabel>
@@ -173,22 +182,45 @@ export function VariantRow({
             id={heightId}
             value={variant.height}
             ariaInvalid={isDuplicate}
+            showDescription={false}
             onChange={(next) => set("height", next)}
           />
           {isDuplicate ? (
-            <FieldDescription className="text-destructive">
+            <FieldDescription className="text-xs text-destructive">
               Another rung already uses {variant.height}p.
             </FieldDescription>
           ) : null}
         </Field>
 
-        {index === 0 ? (
-          <Badge variant="secondary" className="text-xs">
-            Default playback
-          </Badge>
-        ) : null}
+        <div className="flex items-center self-stretch">
+          <CollapsibleTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-10 px-2 text-xs text-muted-foreground"
+              >
+                {overridesOpen ? "Hide" : "Show"} {overridesLabel}
+              </Button>
+            }
+          />
+        </div>
 
-        <div className="flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onSetDefault}
+            disabled={isDefault}
+            aria-label={isDefault ? "Default playback variant" : "Set as default playback"}
+            title={isDefault ? "Default playback variant" : "Set as default playback"}
+          >
+            <StarIcon
+              className={isDefault ? "size-4 fill-current" : "size-4"}
+            />
+          </Button>
           <Button
             type="button"
             variant="ghost"
@@ -222,115 +254,97 @@ export function VariantRow({
         </div>
       </div>
 
-      <Collapsible open={overridesOpen} onOpenChange={setOverridesOpen}>
-        <CollapsibleTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="mt-2 h-auto px-1 text-xs text-muted-foreground"
-            >
-              {overridesOpen ? "Hide" : "Show"} overrides
-              {overrideCount > 0 ? ` (${overrideCount})` : ""}
-            </Button>
-          }
-        />
-        <CollapsibleContent className="mt-3 flex flex-col gap-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor={codecId}>Codec</FieldLabel>
-              <Select
-                value={variant.codec ?? INHERIT_CODEC_VALUE}
-                onValueChange={(value) => {
-                  setCodec(
-                    value === INHERIT_CODEC_VALUE
-                      ? undefined
-                      : (value as EncoderCodec)
-                  )
-                }}
-              >
-                <SelectTrigger id={codecId} className="w-full">
-                  <SelectValue>
-                    {codecLabel(variant.codec, globalConfig.codec)}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent align="start" alignItemWithTrigger={false}>
-                  <SelectItem value={INHERIT_CODEC_VALUE}>
-                    Inherit ({globalConfig.codec.toUpperCase()})
-                  </SelectItem>
-                  {ENCODER_CODECS.map((codec) => (
-                    <SelectItem key={codec} value={codec}>
-                      {codec.toUpperCase()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
+      <CollapsibleContent className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Field>
+          <FieldLabel htmlFor={codecId}>Codec</FieldLabel>
+          <Select
+            value={variant.codec ?? INHERIT_CODEC_VALUE}
+            onValueChange={(value) => {
+              setCodec(
+                value === INHERIT_CODEC_VALUE
+                  ? undefined
+                  : (value as EncoderCodec)
+              )
+            }}
+          >
+            <SelectTrigger id={codecId} className="w-full">
+              <SelectValue>
+                {codecLabel(variant.codec, globalConfig.codec)}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent align="start" alignItemWithTrigger={false}>
+              <SelectItem value={INHERIT_CODEC_VALUE}>
+                Inherit ({globalConfig.codec.toUpperCase()})
+              </SelectItem>
+              {ENCODER_CODECS.map((codec) => (
+                <SelectItem key={codec} value={codec}>
+                  {codec.toUpperCase()}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
 
-            <Field>
-              <FieldLabel htmlFor={qualityId}>
-                Quality ({QUALITY_LABEL[globalConfig.hwaccel]})
-              </FieldLabel>
-              <Input
-                id={qualityId}
-                type="number"
-                min={0}
-                max={51}
-                step={1}
-                value={variant.quality ?? ""}
-                placeholder={`Inherit (${globalConfig.quality})`}
-                onChange={(e) => {
-                  const raw = e.target.value
-                  if (raw === "") {
-                    set("quality", undefined)
-                  } else {
-                    set("quality", clampInt(raw, 0, 51, variant.quality ?? 23))
-                  }
-                }}
-              />
-            </Field>
-          </div>
+        <Field>
+          <FieldLabel htmlFor={qualityId}>
+            Quality ({QUALITY_LABEL[globalConfig.hwaccel]})
+          </FieldLabel>
+          <Input
+            id={qualityId}
+            type="number"
+            min={0}
+            max={51}
+            step={1}
+            value={variant.quality ?? ""}
+            placeholder={`Inherit (${globalConfig.quality})`}
+            onChange={(e) => {
+              const raw = e.target.value
+              if (raw === "") {
+                set("quality", undefined)
+              } else {
+                set("quality", clampInt(raw, 0, 51, variant.quality ?? 23))
+              }
+            }}
+          />
+        </Field>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor={presetId}>Preset</FieldLabel>
-              <EncoderPresetField
-                id={presetId}
-                value={variant.preset}
-                inheritedValue={globalConfig.preset}
-                hwaccel={globalConfig.hwaccel}
-                codec={variant.codec ?? globalConfig.codec}
-                onChange={(next) => set("preset", next)}
-              />
-            </Field>
+        <Field>
+          <FieldLabel htmlFor={presetId}>Preset</FieldLabel>
+          <EncoderPresetField
+            id={presetId}
+            value={variant.preset}
+            inheritedValue={globalConfig.preset}
+            hwaccel={globalConfig.hwaccel}
+            codec={variant.codec ?? globalConfig.codec}
+            showDescription={false}
+            onChange={(next) => set("preset", next)}
+          />
+        </Field>
 
-            <Field>
-              <FieldLabel htmlFor={audioId}>Audio bitrate (kbps)</FieldLabel>
-              <Input
-                id={audioId}
-                type="number"
-                min={64}
-                max={256}
-                step={8}
-                value={variant.audioBitrateKbps ?? ""}
-                placeholder={`Inherit (${globalConfig.audioBitrateKbps})`}
-                onChange={(e) => {
-                  const raw = e.target.value
-                  if (raw === "") {
-                    set("audioBitrateKbps", undefined)
-                  } else {
-                    set(
-                      "audioBitrateKbps",
-                      clampInt(raw, 64, 256, variant.audioBitrateKbps ?? 128)
-                    )
-                  }
-                }}
-              />
-            </Field>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </div>
+        <Field>
+          <FieldLabel htmlFor={audioId}>Audio bitrate (kbps)</FieldLabel>
+          <Input
+            id={audioId}
+            type="number"
+            min={64}
+            max={256}
+            step={8}
+            value={variant.audioBitrateKbps ?? ""}
+            placeholder={`Inherit (${globalConfig.audioBitrateKbps})`}
+            onChange={(e) => {
+              const raw = e.target.value
+              if (raw === "") {
+                set("audioBitrateKbps", undefined)
+              } else {
+                set(
+                  "audioBitrateKbps",
+                  clampInt(raw, 64, 256, variant.audioBitrateKbps ?? 128)
+                )
+              }
+            }}
+          />
+        </Field>
+      </CollapsibleContent>
+    </Collapsible>
   )
 }

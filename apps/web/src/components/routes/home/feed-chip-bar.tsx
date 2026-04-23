@@ -25,12 +25,12 @@ export function FeedChipBar({ filter, onChange }: FeedChipBarProps) {
   const games = data?.games ?? []
 
   return (
-    <div
-      className={cn(
-        "sticky top-0 z-10 -mx-4 px-4 py-2 backdrop-blur",
-        "border-b border-border bg-background/80"
-      )}
-    >
+      <div
+        className={cn(
+          "sticky top-0 z-10 -mx-4 px-4 py-2",
+          "border-b border-border bg-background"
+        )}
+      >
       <div
         className={cn(
           "flex items-center gap-2 overflow-x-auto",

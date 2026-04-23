@@ -65,6 +65,8 @@ export const game = pgTable(
     slug: text("slug").notNull().unique(),
     releaseDate: timestamp("release_date"),
     heroUrl: text("hero_url"),
+    // Vertical poster grid from SteamGridDB — used for game cards.
+    gridUrl: text("grid_url"),
     // Transparent logo — overlaid on top of the hero on /g/:slug.
     // Nullable for the same reason.
     logoUrl: text("logo_url"),

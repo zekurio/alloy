@@ -15,6 +15,13 @@
       "when": 1776809897057,
       "tag": "0001_closed_vindicator",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776958572401,
+      "tag": "0002_slim_risque",
+      "breakpoints": true
     }
   ]
 }
