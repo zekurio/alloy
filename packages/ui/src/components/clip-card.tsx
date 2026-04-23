@@ -108,7 +108,7 @@ function ClipCard({
           </div>
         )}
         {metaVariant === "showcase" ? null : (
-          <div className="flex items-center gap-3.5 font-mono text-sm tracking-[0.04em] text-foreground-faint">
+          <div className="flex items-center gap-3.5 text-sm tracking-[0.04em] text-foreground-faint">
             <span className="inline-flex items-center gap-1.5">
               <EyeIcon className="size-3.5" />
               {views}
