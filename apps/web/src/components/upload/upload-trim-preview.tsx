@@ -7,8 +7,6 @@ import {
   type VideoPlayerHandle,
 } from "@/components/video/video-player"
 
-import { formatTimecode } from "./new-clip-helpers"
-
 function TrimHandle({
   side,
   onPointerDown,
@@ -24,7 +22,7 @@ function TrimHandle({
       aria-label={side === "start" ? "Trim start" : "Trim end"}
       onPointerDown={onPointerDown}
       className={cn(
-        "absolute top-1 bottom-1 z-10 flex w-3 cursor-ew-resize items-center justify-center rounded-full",
+        "absolute top-1 bottom-1 z-10 flex w-3 cursor-ew-resize items-center justify-center rounded-md",
         side === "start" ? "-ml-1.5" : "-mr-1.5",
         "bg-accent text-accent-foreground shadow-[0_0_0_1px_rgba(0,0,0,0.35)]",
         "hover:bg-accent-hover focus-visible:outline-none",
@@ -39,7 +37,6 @@ function TrimHandle({
 
 export function VideoPreview({
   file,
-  durationMs,
   trimStartMs,
   trimEndMs,
   isPlaying,
@@ -50,7 +47,6 @@ export function VideoPreview({
   onPlayingChange,
 }: {
   file: File
-  durationMs: number
   trimStartMs: number
   trimEndMs: number
   isPlaying: boolean
@@ -114,17 +110,6 @@ export function VideoPreview({
           }
         }}
       />
-
-      <span
-        className={cn(
-          "pointer-events-none absolute bottom-2 left-2 inline-flex items-center rounded-sm bg-background px-1.5 py-0.5",
-          "text-xs text-foreground-muted tabular-nums"
-        )}
-      >
-        {formatTimecode(currentMs)}{" "}
-        <span className="text-foreground-faint">/</span>{" "}
-        {formatTimecode(durationMs)}
-      </span>
     </div>
   )
 }
@@ -218,7 +203,7 @@ export function TrimTimeline({
       onPointerCancel={handlePointerUp}
       className={cn(
         "relative h-8 w-full",
-        "rounded-lg bg-surface-sunken/70",
+        "rounded-lg bg-surface border border-border",
         "select-none"
       )}
     >
