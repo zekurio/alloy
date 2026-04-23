@@ -12,13 +12,13 @@ import {
   validateUsername,
 } from "@/lib/form-validators"
 
-type AccountCreationFieldProps = {
+export type AccountCreationFieldProps = {
   disabled: boolean
   field: AuthStringFieldController
   submissionAttempts: number
 }
 
-type PasswordAccountCreationFieldProps = AccountCreationFieldProps & {
+export type PasswordAccountCreationFieldProps = AccountCreationFieldProps & {
   showPassword: boolean
   togglePassword: () => void
 }
@@ -43,7 +43,7 @@ function getFieldValidationState(
   }
 }
 
-function AccountCreationUsernameField({
+export function AccountCreationUsernameField({
   disabled,
   field,
   submissionAttempts,
@@ -72,7 +72,7 @@ function AccountCreationUsernameField({
   )
 }
 
-function AccountCreationEmailField({
+export function AccountCreationEmailField({
   disabled,
   field,
   submissionAttempts,
@@ -98,7 +98,7 @@ function AccountCreationEmailField({
   )
 }
 
-function AccountCreationPasswordField({
+export function AccountCreationPasswordField({
   disabled,
   field,
   showPassword,

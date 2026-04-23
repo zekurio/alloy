@@ -13,12 +13,15 @@ import { ClipViewerDialog } from "@/components/clip/clip-viewer-dialog"
 import { HomeHeader } from "@/components/layout/home-header"
 import { HomeSidebar } from "@/components/layout/home-sidebar"
 import { UploadFlow, UploadFlowProvider } from "@/components/upload/upload-flow"
+import { requireBrowseAuthBeforeLoad } from "@/lib/auth-guards"
+import { useBrowseAuthGate } from "@/lib/auth-hooks"
 
 interface AppSearch {
   clip?: string
 }
 
 export const Route = createFileRoute("/(app)/_app")({
+  beforeLoad: requireBrowseAuthBeforeLoad,
   validateSearch: (search: Record<string, unknown>): AppSearch => {
     const clip = search.clip
     return typeof clip === "string" && clip.length > 0 ? { clip } : {}
@@ -27,6 +30,7 @@ export const Route = createFileRoute("/(app)/_app")({
 })
 
 function AppLayout() {
+  const { allowed } = useBrowseAuthGate()
   const { clip } = Route.useSearch()
   const navigate = useNavigate()
   const showSharedHeader = useRouterState({
@@ -60,7 +64,7 @@ function AppLayout() {
     [navigate]
   )
 
-  return (
+  return allowed ? (
     <AppSearchProvider>
       <UploadFlowProvider>
         <AppShell>
@@ -76,7 +80,7 @@ function AppLayout() {
         onNavigate={handleNavigateClip}
       />
     </AppSearchProvider>
-  )
+  ) : null
 }
 
 function isSettingsPath(pathname: string): boolean {
