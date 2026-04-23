@@ -42,5 +42,5 @@ function buildStorage(): StorageDriver {
 
 export const storage: StorageDriver = buildStorage()
 
-export type { StorageDriver, UploadTicket } from "./driver"
-export { clipAssetKey, clipVideoVariantKey } from "./driver"
+export type { StorageDriver, UploadTicket, UserAssetRole } from "./driver"
+export { clipAssetKey, clipVideoVariantKey, userAssetKey } from "./driver"

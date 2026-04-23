@@ -227,7 +227,7 @@ export interface SteamGridDBStatus {
 }
 
 export type PublicUser = SerializeDates<
-  Pick<User, "id" | "username" | "name" | "image" | "createdAt" | "updatedAt">
+  Pick<User, "id" | "username" | "name" | "image" | "banner" | "createdAt" | "updatedAt">
 >
 
 export interface ProfileCounts {

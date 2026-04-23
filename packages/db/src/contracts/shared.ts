@@ -15,6 +15,15 @@ export type SerializeDates<T> = T extends Date
       ? { [K in keyof T]: SerializeDates<T[K]> }
       : T
 
+export const ACCEPTED_IMAGE_CONTENT_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+] as const
+
+export type AcceptedImageContentType =
+  (typeof ACCEPTED_IMAGE_CONTENT_TYPES)[number]
+
 export const ACCEPTED_CLIP_CONTENT_TYPES = [
   "video/mp4",
   "video/quicktime",
