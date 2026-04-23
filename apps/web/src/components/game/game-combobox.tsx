@@ -243,18 +243,18 @@ export function GameCombobox({
           aria-invalid={invalid || undefined}
           aria-required={required || undefined}
         >
-        {value ? (
-          <InputGroupAddon align="inline-start">
-            <GameIcon
-              src={value.iconUrl ?? value.logoUrl}
-              name={value.name}
-            />
-          </InputGroupAddon>
-        ) : (
-          <InputGroupAddon align="inline-start">
-            <SearchIcon className="size-4 text-foreground-faint" />
-          </InputGroupAddon>
-        )}
+          {value ? (
+            <InputGroupAddon align="inline-start">
+              <GameIcon
+                src={value.iconUrl ?? value.logoUrl}
+                name={value.name}
+              />
+            </InputGroupAddon>
+          ) : (
+            <InputGroupAddon align="inline-start">
+              <SearchIcon className="size-4 text-foreground-faint" />
+            </InputGroupAddon>
+          )}
         </ComboboxInput>
         <ComboboxContent side={side} className="min-w-[320px]">
           <ComboboxList>

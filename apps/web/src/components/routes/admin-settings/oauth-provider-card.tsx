@@ -13,7 +13,13 @@ import {
   AlertDialogTrigger,
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
-import { Card, CardContent } from "@workspace/ui/components/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
 import { Switch } from "@workspace/ui/components/switch"
 import { toast } from "@workspace/ui/components/sonner"
 
@@ -110,6 +116,16 @@ export function OAuthProviderCard({
   return (
     <>
       <Card>
+        <CardHeader className="pb-0">
+          <div>
+            <CardTitle>OIDC / OAuth provider</CardTitle>
+            <CardDescription>
+              Existing users can sign in with this provider when it is enabled.
+              If open registrations is on, first-time users can create accounts
+              through the same button.
+            </CardDescription>
+          </div>
+        </CardHeader>
         <CardContent className="flex items-center justify-between gap-4 py-4">
           <div className="flex min-w-0 items-center gap-3">
             <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-border">
@@ -131,7 +147,12 @@ export function OAuthProviderCard({
             <div className="flex items-center gap-2">
               <Switch
                 checked={provider.enabled}
-                disabled={disabled}
+                disabled={
+                  disabled ||
+                  (provider.enabled &&
+                    !config.emailPasswordEnabled &&
+                    !config.passkeyEnabled)
+                }
                 onCheckedChange={toggleEnabled}
               />
               <Button

@@ -7,6 +7,7 @@ import { FieldSeparator } from "@workspace/ui/components/field"
 
 import { LoginArtwork } from "@/components/auth/login-artwork"
 import { useRedirectIfAuthed } from "@/lib/auth-hooks"
+import { usePasskeySupport } from "@/lib/passkey-support"
 import type { fetchPublicClips } from "@/lib/public-clips"
 
 import { EmailPasswordForm } from "./email-password-form"
@@ -22,10 +23,17 @@ type LoginPageInnerProps = {
 
 export function LoginPageInner({ config, clips }: LoginPageInnerProps) {
   const canRender = useRedirectIfAuthed("/")
+  const { ready: passkeyReady, supported: passkeySupported } =
+    usePasskeySupport()
   if (!canRender) return null
 
-  const { provider, emailPasswordEnabled, openRegistrations } = config
-  const canSignUp = emailPasswordEnabled && openRegistrations
+  const { provider, emailPasswordEnabled, openRegistrations, passkeyEnabled } =
+    config
+  const showPasskeySignIn = passkeyEnabled && passkeySupported
+  const showAlternativeMethods = showPasskeySignIn || provider !== null
+  const canSignUp =
+    openRegistrations &&
+    (emailPasswordEnabled || passkeyEnabled || provider !== null)
 
   return (
     <div className="relative grid min-h-screen w-full bg-background text-foreground lg:grid-cols-[1fr_minmax(480px,0.7fr)]">
@@ -50,14 +58,14 @@ export function LoginPageInner({ config, clips }: LoginPageInnerProps) {
 
             {emailPasswordEnabled ? <EmailPasswordForm /> : null}
 
-            {emailPasswordEnabled ? (
+            {emailPasswordEnabled && showAlternativeMethods ? (
               <div className="my-6">
                 <FieldSeparator>OR</FieldSeparator>
               </div>
             ) : null}
 
             <div className="flex flex-col gap-3">
-              <PasskeySignIn />
+              {showPasskeySignIn ? <PasskeySignIn /> : null}
               {provider ? (
                 <OAuthSignIn
                   providerId={provider.providerId}
@@ -65,6 +73,13 @@ export function LoginPageInner({ config, clips }: LoginPageInnerProps) {
                 />
               ) : null}
             </div>
+
+            {passkeyEnabled && passkeyReady && !passkeySupported ? (
+              <p className="mt-4 text-sm text-foreground-muted">
+                Passkey sign-in is enabled, but this browser does not support
+                passkeys.
+              </p>
+            ) : null}
 
             {canSignUp ? (
               <p className="mt-6 text-center text-sm text-foreground-muted">

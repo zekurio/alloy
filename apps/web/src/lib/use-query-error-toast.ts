@@ -24,9 +24,6 @@ export function useQueryErrorToast(
     if (lastToastKey.current === toastKey) return
     lastToastKey.current = toastKey
 
-    toast.error(title, {
-      id: toastId,
-      description: error.message,
-    })
+    toast.error(title, { id: toastId })
   }, [error, title, toastId])
 }

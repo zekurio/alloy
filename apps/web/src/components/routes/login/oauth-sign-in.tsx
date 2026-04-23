@@ -21,13 +21,8 @@ export function OAuthSignIn({ providerId, displayName }: OAuthSignInProps) {
         providerId,
         callbackURL: `${window.location.origin}/`,
       })
-    } catch (cause) {
-      toast.error("OAuth sign-in failed", {
-        description:
-          cause instanceof Error
-            ? cause.message
-            : "We couldn't complete the redirect. Please try again.",
-      })
+    } catch {
+      toast.error("OAuth sign-in failed")
       setPending(false)
     }
   }

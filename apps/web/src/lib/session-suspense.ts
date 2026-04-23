@@ -18,6 +18,7 @@ const FALLBACK_CONFIG: PublicAuthConfig = {
   setupRequired: false,
   openRegistrations: false,
   emailPasswordEnabled: true,
+  passkeyEnabled: true,
   requireAuthToBrowse: true,
   provider: null,
 }

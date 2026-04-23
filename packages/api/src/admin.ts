@@ -91,6 +91,7 @@ export interface AdminRuntimeConfig {
   openRegistrations: boolean
   setupComplete: boolean
   emailPasswordEnabled: boolean
+  passkeyEnabled: boolean
   requireAuthToBrowse: boolean
   oauthProvider: AdminOAuthProvider | null
   encoder: AdminEncoderConfig
@@ -108,6 +109,7 @@ export function createAdminApi(context: ApiContext) {
     async updateRuntimeConfig(input: {
       openRegistrations?: boolean
       emailPasswordEnabled?: boolean
+      passkeyEnabled?: boolean
       requireAuthToBrowse?: boolean
     }): Promise<AdminRuntimeConfig> {
       const res = await context.client.api.admin["runtime-config"].$patch({
