@@ -1,17 +1,31 @@
 import * as React from "react"
 
 export function useClickAnchor() {
-  const [anchor, setAnchor] = React.useState<{
-    getBoundingClientRect: () => DOMRect
-  } | null>(null)
+  const [open, setOpen] = React.useState(false)
+  const openRef = React.useRef(false)
+  const [point, setPoint] = React.useState({ x: 0, y: 0 })
+  const anchor = React.useMemo(
+    () => ({
+      getBoundingClientRect: () =>
+        DOMRect.fromRect({
+          x: point.x,
+          y: point.y,
+          width: 1,
+          height: 1,
+        }),
+    }),
+    [point]
+  )
 
-  const onTriggerClick = React.useCallback((e: React.MouseEvent) => {
-    const x = e.clientX
-    const y = e.clientY
-    setAnchor({
-      getBoundingClientRect: () => new DOMRect(x, y, 0, 0),
-    })
+  const onOpenChange = React.useCallback((nextOpen: boolean) => {
+    openRef.current = nextOpen
+    setOpen(nextOpen)
   }, [])
 
-  return { anchor, onTriggerClick } as const
+  const onTriggerPointerDown = React.useCallback((e: React.PointerEvent) => {
+    if (openRef.current) return
+    setPoint({ x: e.clientX, y: e.clientY })
+  }, [])
+
+  return { anchor, open, onOpenChange, onTriggerPointerDown } as const
 }
