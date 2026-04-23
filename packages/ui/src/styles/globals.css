@@ -1,7 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
+@import "@fontsource-variable/dm-sans";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/ibm-plex-mono/600.css";
 
 /* Typography ships with the UI package so the app can keep font loading
    local and predictable. */
@@ -143,9 +146,10 @@
 :root {
   /* Fonts */
   --font-sans:
-    "Geist Variable", ui-sans-serif, system-ui, -apple-system, Segoe UI,
+    "DM Sans Variable", ui-sans-serif, system-ui, -apple-system, Segoe UI,
     Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+    monospace;
 
   /* Radius */
   --radius: 6px;
@@ -233,9 +237,9 @@
   --popover: var(--surface-raised);
   --popover-foreground: var(--foreground);
 
-  /* primary = steel */
-  --primary: #d6dee6;
-  --primary-foreground: #0b0d0f;
+  /* primary = lavender */
+  --primary: #d0c4eb;
+  --primary-foreground: #0b0a0f;
 
   /* secondary = raised neutral */
   --secondary: var(--surface-raised);
@@ -244,15 +248,15 @@
   --muted: var(--surface-raised);
   --muted-foreground: var(--foreground-dim);
 
-  /* accent variants — steel, sampled from the alloy logo shard */
-  --accent: #d6dee6;
-  --accent-hover: #eaeff3;
-  --accent-active: #b8c2ca;
-  --accent-foreground: #0b0d0f;
-  --accent-soft: rgba(214, 222, 230, 0.22);
-  --accent-border: rgba(214, 222, 230, 0.55);
-  --accent-glow: rgba(214, 222, 230, 0.38);
-  --accent-dim: #5c6670;
+  /* accent variants — lavender */
+  --accent: #d0c4eb;
+  --accent-hover: #e3daf5;
+  --accent-active: #b3a8cf;
+  --accent-foreground: #0b0a0f;
+  --accent-soft: rgba(208, 196, 235, 0.22);
+  --accent-border: rgba(208, 196, 235, 0.55);
+  --accent-glow: rgba(208, 196, 235, 0.38);
+  --accent-dim: #5d5572;
 
   --destructive: oklch(0.65 0.24 25);
 

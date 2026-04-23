@@ -90,13 +90,13 @@ function ClipCard({
           {title}
         </div>
         {author ? (
-          <div className="flex min-w-0 items-center gap-2 text-md leading-none text-foreground-dim">
+          <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 text-md leading-none text-foreground-dim">
             <ClipCardAvatar
               author={author}
               authorSeed={authorSeed}
               authorImage={authorImage}
             />
-            <span className="flex min-w-0 -translate-y-0.5 items-center gap-2">
+            <span className="flex min-w-0 items-center gap-2 overflow-hidden">
               <AuthorLabel author={author} href={authorHref} />
               <span className="shrink-0 text-foreground-faint">·</span>
               <GameLabel game={game} icon={gameIcon} href={gameHref} />
@@ -329,7 +329,7 @@ function AuthorLabel({
   href: string | null | undefined
 }) {
   const className = cn(
-    "truncate leading-none font-medium text-foreground-muted",
+    "max-w-[45%] shrink-0 truncate leading-none font-medium text-foreground-muted",
     href && "hover:underline focus-visible:underline focus-visible:outline-none"
   )
   if (href) {
