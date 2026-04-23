@@ -56,13 +56,8 @@ function UserMenuInner() {
       getQueryClient().clear()
       await router.invalidate()
       await navigate({ to: "/login" })
-    } catch (cause) {
-      toast.error("Couldn't sign out", {
-        description:
-          cause instanceof Error
-            ? cause.message
-            : "Something went wrong. Please try again.",
-      })
+    } catch {
+      toast.error("Couldn't sign out")
     }
   }
 

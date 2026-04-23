@@ -1,5 +1,6 @@
 import * as React from "react"
 import { createFileRoute } from "@tanstack/react-router"
+import { ShieldCheckIcon } from "lucide-react"
 
 import { Card, CardContent } from "@workspace/ui/components/card"
 import { toast } from "@workspace/ui/components/sonner"
@@ -17,9 +18,7 @@ import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integ
 import { LimitsConfigCard } from "@/components/routes/admin-settings/limits-config-card"
 import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-provider-card"
 import { ReEncodeClipsCard } from "@/components/routes/admin-settings/re-encode-clips-card"
-import {
-  type AdminRuntimeConfig,
-} from "@workspace/api"
+import { type AdminRuntimeConfig } from "@workspace/api"
 
 import { api } from "@/lib/api"
 import { useRequireAdmin } from "@/lib/auth-hooks"
@@ -86,33 +85,65 @@ function AdminAuthTab({
   config,
   onConfigChange,
   onToggleEmailPassword,
+  onTogglePasskey,
   onToggleOpenRegistrations,
   onToggleRequireAuthToBrowse,
 }: {
   config: AdminRuntimeConfig
   onConfigChange: (next: AdminRuntimeConfig) => void
   onToggleEmailPassword: (nextEnabled: boolean) => void
+  onTogglePasskey: (nextEnabled: boolean) => void
   onToggleOpenRegistrations: (nextEnabled: boolean) => void
   onToggleRequireAuthToBrowse: (nextEnabled: boolean) => void
 }) {
   return (
     <TabsContent value="auth" className="flex flex-col gap-4">
+      <Card>
+        <CardContent className="flex flex-col gap-1 py-4">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <ShieldCheckIcon className="size-4" />
+            Authentication policy
+          </div>
+          <p className="text-sm text-foreground-dim">
+            Sign-in methods control what returning users can use. When open
+            registrations is enabled, the same methods become available for new
+            accounts where supported.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="flex flex-col">
+          <ToggleRow
+            title="Email and password"
+            description="Allow existing users to sign in with email or username plus password."
+            checked={config.emailPasswordEnabled}
+            onCheckedChange={onToggleEmailPassword}
+            disabled={
+              config.emailPasswordEnabled &&
+              !hasAnotherSignInMethod(config, "email")
+            }
+          />
+          <ToggleRow
+            title="Passkeys"
+            description="Allow passkey sign-in and passkey-based account creation on supported browsers."
+            checked={config.passkeyEnabled}
+            onCheckedChange={onTogglePasskey}
+            disabled={
+              config.passkeyEnabled &&
+              !hasAnotherSignInMethod(config, "passkey")
+            }
+          />
+        </CardContent>
+      </Card>
+
       <OAuthProviderCard config={config} onChange={onConfigChange} />
 
       <Card>
         <CardContent className="flex flex-col">
           <ToggleRow
-            title="Email & password login"
-            description="Requires an OAuth provider to be configured before disabling."
-            checked={config.emailPasswordEnabled}
-            onCheckedChange={onToggleEmailPassword}
-            disabled={
-              config.emailPasswordEnabled && !hasEnabledOAuthProvider(config)
-            }
-          />
-          <ToggleRow
             title="Open registrations"
-            description="Auto-create accounts on OAuth sign-in and allow manual sign-ups."
+            description="Allow new accounts through enabled sign-up methods. OAuth uses this to auto-create accounts on first sign-in."
             checked={config.openRegistrations}
             onCheckedChange={onToggleOpenRegistrations}
           />
@@ -132,9 +163,21 @@ function hasEnabledOAuthProvider(config: AdminRuntimeConfig): boolean {
   return config.oauthProvider?.enabled === true
 }
 
+function hasAnotherSignInMethod(
+  config: AdminRuntimeConfig,
+  excluding: "email" | "passkey" | "oauth"
+): boolean {
+  return (
+    (excluding !== "email" && config.emailPasswordEnabled) ||
+    (excluding !== "passkey" && config.passkeyEnabled) ||
+    (excluding !== "oauth" && hasEnabledOAuthProvider(config))
+  )
+}
+
 type BoolToggleKey =
   | "openRegistrations"
   | "emailPasswordEnabled"
+  | "passkeyEnabled"
   | "requireAuthToBrowse"
 
 function useAdminToggles(
@@ -168,6 +211,12 @@ function useAdminToggles(
         nextEnabled,
         nextEnabled ? "Password login enabled" : "Password login disabled"
       ),
+    onTogglePasskey: (nextEnabled: boolean) =>
+      patch(
+        "passkeyEnabled",
+        nextEnabled,
+        nextEnabled ? "Passkeys enabled" : "Passkeys disabled"
+      ),
     onToggleRequireAuthToBrowse: (nextEnabled: boolean) =>
       patch(
         "requireAuthToBrowse",
@@ -183,6 +232,7 @@ function AdminPage() {
   const {
     onToggleOpenRegistrations,
     onToggleEmailPassword,
+    onTogglePasskey,
     onToggleRequireAuthToBrowse,
   } = useAdminToggles(setConfig)
 
@@ -214,6 +264,7 @@ function AdminPage() {
         config={config}
         onConfigChange={setConfig}
         onToggleEmailPassword={onToggleEmailPassword}
+        onTogglePasskey={onTogglePasskey}
         onToggleOpenRegistrations={onToggleOpenRegistrations}
         onToggleRequireAuthToBrowse={onToggleRequireAuthToBrowse}
       />

@@ -31,6 +31,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 import { cn } from "@workspace/ui/lib/utils"
@@ -385,12 +386,15 @@ export function CommentMenu({
             </DropdownMenuItem>
           ) : null}
           {canDelete ? (
-            <DropdownMenuItem
-              variant="destructive"
-              onClick={() => setAlertOpen(true)}
-            >
-              <Trash2Icon /> Delete
-            </DropdownMenuItem>
+            <>
+              {canPin ? <DropdownMenuSeparator /> : null}
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => setAlertOpen(true)}
+              >
+                <Trash2Icon /> Delete
+              </DropdownMenuItem>
+            </>
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>

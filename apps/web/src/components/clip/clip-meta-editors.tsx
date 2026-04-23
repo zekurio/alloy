@@ -101,11 +101,8 @@ export function EditableTitle({
     mutation.mutate(
       { clipId, input: { title: trimmed } },
       {
-        onError: (err) => {
-          toast.error("Couldn't save title", {
-            description:
-              err instanceof Error ? err.message : "Please try again.",
-          })
+        onError: () => {
+          toast.error("Couldn't save title")
           setDraft(value)
         },
       }
@@ -239,12 +236,9 @@ export function EditableGame({
       mutation.mutate(
         { clipId, input: { gameId: row.id } },
         {
-          onError: (err) => {
+          onError: () => {
             setPendingRow(null)
-            toast.error("Couldn't save game", {
-              description:
-                err instanceof Error ? err.message : "Please try again.",
-            })
+            toast.error("Couldn't save game")
           },
         }
       )
@@ -373,11 +367,8 @@ export function EditableDescription({
     mutation.mutate(
       { clipId, input: { description: trimmed } },
       {
-        onError: (err) => {
-          toast.error("Couldn't save description", {
-            description:
-              err instanceof Error ? err.message : "Please try again.",
-          })
+        onError: () => {
+          toast.error("Couldn't save description")
           setDraft(current)
         },
       }
