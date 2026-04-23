@@ -193,10 +193,7 @@ function QueueRow({ item }: { item: QueueItem }) {
             </span>
             {showPct ? (
               <span
-                className={cn(
-                  "font-mono font-semibold tabular-nums",
-                  tone.label
-                )}
+                className={cn("font-semibold tabular-nums", tone.label)}
               >
                 {item.progress}%
               </span>

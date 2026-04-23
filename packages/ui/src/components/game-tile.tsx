@@ -59,7 +59,7 @@ function GameTile({
           {name}
         </div>
         {(clips !== undefined || views !== undefined) && (
-          <div className="flex items-center gap-3 font-mono text-2xs tracking-[0.04em] text-foreground-faint">
+          <div className="flex items-center gap-3 text-2xs tracking-[0.04em] text-foreground-faint">
             {clips !== undefined && (
               <span className="inline-flex items-center gap-1">
                 <FilmIcon className="size-2.5" />
