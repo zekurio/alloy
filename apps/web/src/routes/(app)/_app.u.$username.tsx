@@ -1,5 +1,6 @@
 import * as React from "react"
 import { Outlet, createFileRoute, useNavigate } from "@tanstack/react-router"
+import { createMiddleware, createServerFn } from "@tanstack/react-start"
 
 import { AppMain } from "@workspace/ui/components/app-shell"
 
@@ -9,6 +10,7 @@ import { ProfileIdentitySkeleton } from "@/components/routes/profile/profile-ide
 import { ProfileTabsNav } from "@/components/routes/profile/profile-tabs-nav"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { useUserClipsQuery, userClipsQueryOptions } from "@/lib/clip-queries"
+import { api } from "@/lib/api"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import {
   useProfileCachePatchers,
@@ -16,15 +18,44 @@ import {
   userProfileQueryOptions,
 } from "@/lib/user-queries"
 
+const requestContextMiddleware = createMiddleware().server(
+  ({ next, request }) => {
+    return next({ context: { request } })
+  }
+)
+
+function cookieInit(request: Request): RequestInit | undefined {
+  const cookie = request.headers.get("cookie")
+  return cookie ? { headers: { cookie } } : undefined
+}
+
+const fetchRouteUserProfile = createServerFn({ method: "GET" })
+  .middleware([requestContextMiddleware])
+  .inputValidator((handle: string) => handle)
+  .handler(async ({ data: handle, context }) => {
+    return api.users.fetchProfile(handle, cookieInit(context.request))
+  })
+
+const fetchRouteUserClips = createServerFn({ method: "GET" })
+  .middleware([requestContextMiddleware])
+  .inputValidator((handle: string) => handle)
+  .handler(async ({ data: handle, context }) => {
+    return api.users.fetchClips(handle, cookieInit(context.request))
+  })
+
 export const Route = createFileRoute("/(app)/_app/u/$username")({
   loader: async ({ context, params }) => {
-    const profile = await context.queryClient.ensureQueryData(
-      userProfileQueryOptions(params.username)
-    )
-    void context.queryClient.prefetchQuery(
-      userClipsQueryOptions(params.username)
-    )
-    return { profile }
+    const profileOptions = userProfileQueryOptions(params.username)
+    const clipsOptions = userClipsQueryOptions(params.username)
+    const profilePromise = context.queryClient.ensureQueryData({
+      ...profileOptions,
+      queryFn: () => fetchRouteUserProfile({ data: params.username }),
+    })
+    void context.queryClient.prefetchQuery({
+      ...clipsOptions,
+      queryFn: () => fetchRouteUserClips({ data: params.username }),
+    })
+    return { profile: await profilePromise }
   },
   component: UserProfileLayout,
 })

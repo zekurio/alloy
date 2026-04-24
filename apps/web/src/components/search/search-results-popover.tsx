@@ -1,11 +1,6 @@
 import * as React from "react"
 import { useNavigate } from "@tanstack/react-router"
-import {
-  FilmIcon,
-  GamepadIcon,
-  SearchIcon,
-  UserIcon,
-} from "lucide-react"
+import { FilmIcon, GamepadIcon, SearchIcon, UserIcon } from "lucide-react"
 
 import { Spinner } from "@workspace/ui/components/spinner"
 import { cn } from "@workspace/ui/lib/utils"
@@ -192,7 +187,7 @@ export function SearchResultsPopover() {
           aria-label="Search results"
           className={cn(
             "absolute top-[calc(100%+0.5rem)] right-0 left-0 z-50",
-            "alloy-glass overflow-hidden border rounded-md",
+            "alloy-glass overflow-hidden rounded-md border",
             "animate-in duration-100 fade-in-0 zoom-in-95"
           )}
           style={
@@ -351,7 +346,6 @@ function SearchResultsBody({
           </ul>
         </section>
       ) : null}
-      
     </div>
   )
 }

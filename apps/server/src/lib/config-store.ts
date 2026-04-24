@@ -18,7 +18,6 @@ export {
   ENCODER_CODECS,
   ENCODER_HEIGHT_MAX,
   ENCODER_HEIGHT_MIN,
-  ENCODER_HEIGHT_SUGGESTIONS,
   USERNAME_CLAIM_SUGGESTIONS,
 } from "@workspace/contracts"
 export const HWACCEL_KINDS = ENCODER_HWACCELS
@@ -95,61 +94,29 @@ export type OAuthProviderSubmission = z.infer<
 >
 
 const EncoderVariantSchema = z.object({
+  name: z.string().min(1).max(64),
+  hwaccel: z.enum(HWACCEL_KINDS),
   height: z
     .number()
     .int()
     .min(ENCODER_HEIGHT_MIN)
     .max(ENCODER_HEIGHT_MAX)
     .multipleOf(2),
-  codec: z.enum(ENCODER_CODECS).optional(),
-  quality: z.number().int().min(0).max(51).optional(),
+  codec: z.enum(ENCODER_CODECS),
+  quality: z.number().int().min(0).max(51),
   preset: z.string().min(1).max(64).optional(),
-  audioBitrateKbps: z.number().int().min(64).max(256).optional(),
+  audioBitrateKbps: z.number().int().min(64).max(256),
 })
 
 const EncoderConfigInnerSchema = z.object({
-  hwaccel: z.enum(HWACCEL_KINDS).default("software"),
-  codec: z.enum(ENCODER_CODECS).default("h264"),
-  quality: z.number().int().min(0).max(51).default(23),
-  preset: z.string().min(1).max(64).default("medium"),
-  audioBitrateKbps: z.number().int().min(64).max(256).default(128),
+  enabled: z.boolean().default(false),
   qsvDevice: z.string().min(1).max(128).default("/dev/dri/renderD128"),
   vaapiDevice: z.string().min(1).max(128).default("/dev/dri/renderD128"),
   keepSource: z.boolean().default(true),
-  variants: z
-    .array(EncoderVariantSchema)
-    .min(1)
-    .max(6)
-    .refine(
-      (list) => new Set(list.map((v) => v.height)).size === list.length,
-      "Variants must have unique heights"
-    )
-    .default([{ height: 1080 }, { height: 720 }, { height: 480 }]),
+  variants: z.array(EncoderVariantSchema).default([]),
 })
 
-const EncoderConfigSchema = z.preprocess((raw) => {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw
-  const r = raw as Record<string, unknown>
-  if (r.variants === undefined && r.targetHeight !== undefined) {
-    const legacyTarget = Number(r.targetHeight)
-    const ladder = [legacyTarget, 720, 480].filter(
-      (h) => Number.isFinite(h) && h > 0
-    )
-    const seen = new Set<number>()
-    const heights: number[] = []
-    for (const h of ladder) {
-      if (!seen.has(h)) {
-        seen.add(h)
-        heights.push(h)
-      }
-    }
-    if (heights.length > 0) r.variants = heights.map((h) => ({ height: h }))
-  }
-  // `targetHeight` is no longer part of the schema; drop it so the next
-  // disk write doesn't carry the stale field forever.
-  if ("targetHeight" in r) delete r.targetHeight
-  return r
-}, EncoderConfigInnerSchema)
+const EncoderConfigSchema = EncoderConfigInnerSchema
 
 const LimitsConfigSchema = z.object({
   maxUploadBytes: z

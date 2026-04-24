@@ -302,8 +302,8 @@ export function GameCombobox({
               {hasError
                 ? "Couldn’t reach SteamGridDB"
                 : debouncedQuery.trim().length === 0
-                    ? "Start typing to search"
-                    : "No matches"}
+                  ? "Start typing to search"
+                  : "No matches"}
             </ComboboxEmpty>
           </ComboboxList>
         </ComboboxContent>

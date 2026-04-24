@@ -19,10 +19,11 @@ export const CLIP_PRIVACY = ["public", "unlisted", "private"] as const
 export type ClipPrivacy = (typeof CLIP_PRIVACY)[number]
 
 export interface ClipVariantSettings {
+  hwaccel: string
   codec: string
   audioCodec: "aac"
   quality: number
-  preset: string
+  preset?: string
   audioBitrateKbps: number
   height: number
   trimStartMs: number | null
@@ -53,6 +54,15 @@ export const CLIP_STATUS = [
   "failed",
 ] as const
 export type ClipStatus = (typeof CLIP_STATUS)[number]
+
+export const NOTIFICATION_TYPES = [
+  "clip_upload_failed",
+  "new_follower",
+  "clip_comment",
+  "comment_pinned",
+  "comment_liked_by_author",
+] as const
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 
 export const game = pgTable(
   "game",
@@ -309,6 +319,34 @@ export const block = pgTable(
   (t) => [uniqueIndex("block_pair_idx").on(t.blockerId, t.blockedId)]
 )
 
+export const notification = pgTable(
+  "notification",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    recipientId: uuid("recipient_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    actorId: uuid("actor_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    type: text("type").$type<NotificationType>().notNull(),
+    clipId: uuid("clip_id").references(() => clip.id, {
+      onDelete: "cascade",
+    }),
+    commentId: uuid("comment_id").references(() => clipComment.id, {
+      onDelete: "cascade",
+    }),
+    readAt: timestamp("read_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("notification_recipient_created_idx").on(t.recipientId, t.createdAt),
+    index("notification_recipient_unread_idx")
+      .on(t.recipientId, t.createdAt)
+      .where(sql`${t.readAt} IS NULL`),
+  ]
+)
+
 export const domainSchema = {
   game,
   clip,
@@ -320,6 +358,7 @@ export const domainSchema = {
   follow,
   gameFollow,
   block,
+  notification,
 } as const
 
 export type Game = typeof game.$inferSelect
@@ -340,3 +379,5 @@ export type GameFollow = typeof gameFollow.$inferSelect
 export type NewGameFollow = typeof gameFollow.$inferInsert
 export type Block = typeof block.$inferSelect
 export type NewBlock = typeof block.$inferInsert
+export type Notification = typeof notification.$inferSelect
+export type NewNotification = typeof notification.$inferInsert

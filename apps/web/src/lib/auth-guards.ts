@@ -7,10 +7,7 @@ function isAdmin(session: Session | null): boolean {
 }
 
 export async function requireBrowseAuthBeforeLoad(): Promise<void> {
-  const [config, session] = await Promise.all([
-    loadAuthConfig(),
-    loadSession(),
-  ])
+  const [config, session] = await Promise.all([loadAuthConfig(), loadSession()])
 
   if (config.setupRequired) {
     throw redirect({ to: "/setup" })
@@ -22,10 +19,7 @@ export async function requireBrowseAuthBeforeLoad(): Promise<void> {
 }
 
 export async function requireStrictAuthBeforeLoad(): Promise<void> {
-  const [config, session] = await Promise.all([
-    loadAuthConfig(),
-    loadSession(),
-  ])
+  const [config, session] = await Promise.all([loadAuthConfig(), loadSession()])
 
   if (config.setupRequired) {
     throw redirect({ to: "/setup" })
@@ -37,10 +31,7 @@ export async function requireStrictAuthBeforeLoad(): Promise<void> {
 }
 
 export async function requireAdminBeforeLoad(): Promise<void> {
-  const [config, session] = await Promise.all([
-    loadAuthConfig(),
-    loadSession(),
-  ])
+  const [config, session] = await Promise.all([loadAuthConfig(), loadSession()])
 
   if (config.setupRequired) {
     throw redirect({ to: "/setup" })
@@ -56,10 +47,7 @@ export async function requireAdminBeforeLoad(): Promise<void> {
 }
 
 export async function redirectAuthedBeforeLoad(): Promise<void> {
-  const [config, session] = await Promise.all([
-    loadAuthConfig(),
-    loadSession(),
-  ])
+  const [config, session] = await Promise.all([loadAuthConfig(), loadSession()])
 
   if (config.setupRequired) {
     throw redirect({ to: "/setup" })

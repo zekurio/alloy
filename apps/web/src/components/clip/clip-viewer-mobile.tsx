@@ -305,11 +305,7 @@ function MobileClipViewerBody({
                 params={{ username: handle }}
                 className="inline-flex w-fit items-center gap-2"
               >
-                <Avatar
-                  size="md"
-                  style={avatarStyle}
-                  className="rounded-full"
-                >
+                <Avatar size="md" style={avatarStyle} className="rounded-full">
                   {avatarSrc ? (
                     <AvatarImage src={avatarSrc} alt={author} />
                   ) : null}
@@ -323,7 +319,7 @@ function MobileClipViewerBody({
               </Link>
 
               {/* Title */}
-              <h2 className="line-clamp-2 text-[15px] font-bold leading-snug text-white">
+              <h2 className="line-clamp-2 text-[15px] leading-snug font-bold text-white">
                 {row.title}
               </h2>
 
@@ -395,10 +391,7 @@ function MobileClipViewerBody({
                       </button>
                     }
                   />
-                  <DropdownMenuContent
-                    align="end"
-                    className="min-w-[150px]"
-                  >
+                  <DropdownMenuContent align="end" className="min-w-[150px]">
                     <DropdownMenuItem onClick={() => setEditOpen(true)}>
                       <PencilIcon /> Edit
                     </DropdownMenuItem>
@@ -418,7 +411,7 @@ function MobileClipViewerBody({
 
           {/* ---- Comments overlay (slides up) ---- */}
           {commentsOpen ? (
-            <div className="animate-in slide-in-from-bottom absolute inset-0 z-40 flex flex-col bg-surface duration-200">
+            <div className="absolute inset-0 z-40 flex animate-in flex-col bg-surface duration-200 slide-in-from-bottom">
               <div className="flex items-center justify-between border-b border-border px-4 py-3">
                 <h2 className="text-base font-semibold text-foreground">
                   Comments

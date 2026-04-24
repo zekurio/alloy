@@ -64,7 +64,10 @@ export function IntegrationsConfigCard({
     blankForm(integrations)
   )
   const [pending, setPending] = React.useState(false)
-  const initialForm = React.useMemo(() => blankForm(integrations), [integrations])
+  const initialForm = React.useMemo(
+    () => blankForm(integrations),
+    [integrations]
+  )
 
   React.useEffect(() => {
     setForm(initialForm)

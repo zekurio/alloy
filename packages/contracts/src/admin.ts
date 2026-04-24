@@ -42,29 +42,23 @@ export const ENCODER_CODECS = ["h264", "hevc", "av1"] as const
 
 export type EncoderCodec = (typeof ENCODER_CODECS)[number]
 
-export const ENCODER_HEIGHT_SUGGESTIONS = [
-  360, 480, 720, 1080, 1440, 2160,
-] as const
-
 export const ENCODER_HEIGHT_MIN = 144
 export const ENCODER_HEIGHT_MAX = 4320
 
 export interface AdminEncoderVariant {
+  name: string
+  hwaccel: EncoderHwaccel
   height: number
-  codec?: EncoderCodec
-  quality?: number
+  codec: EncoderCodec
+  quality: number
   preset?: string
-  audioBitrateKbps?: number
+  audioBitrateKbps: number
 }
 
 export type EncoderVariant = AdminEncoderVariant
 
 export interface AdminEncoderConfig {
-  hwaccel: EncoderHwaccel
-  codec: EncoderCodec
-  quality: number
-  preset: string
-  audioBitrateKbps: number
+  enabled: boolean
   qsvDevice: string
   vaapiDevice: string
   keepSource: boolean

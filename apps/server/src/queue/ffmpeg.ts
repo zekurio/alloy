@@ -1,8 +1,4 @@
-import type {
-  EncoderCodec,
-  EncoderConfig,
-  HwaccelKind,
-} from "../lib/config-store"
+import type { EncoderCodec, HwaccelKind } from "../lib/config-store"
 import { env } from "../env"
 import { runCapture, runWithProgress } from "./ffmpeg-process"
 
@@ -15,6 +11,16 @@ export interface ProbeResult {
   contentType: string
   videoCodec: string
   audioCodec: string | null
+}
+
+export interface ResolvedEncoderConfig {
+  hwaccel: HwaccelKind
+  codec: EncoderCodec
+  quality: number
+  preset?: string
+  audioBitrateKbps: number
+  qsvDevice: string
+  vaapiDevice: string
 }
 
 /**
@@ -95,7 +101,7 @@ export async function encode(
   srcPath: string,
   outPath: string,
   opts: {
-    config: EncoderConfig
+    config: ResolvedEncoderConfig
     targetHeight: number
     durationMs: number
     onProgress: (pct: number) => void
@@ -130,7 +136,7 @@ export function buildEncodeArgs(
   srcPath: string,
   outPath: string,
   opts: {
-    config: EncoderConfig
+    config: ResolvedEncoderConfig
     targetHeight: number
     trimStartMs?: number | null
     trimEndMs?: number | null
@@ -201,7 +207,10 @@ export function buildEncodeArgs(
   ]
 }
 
-function buildFilterChain(config: EncoderConfig, targetHeight: number): string {
+function buildFilterChain(
+  config: ResolvedEncoderConfig,
+  targetHeight: number
+): string {
   const scale = `scale=-2:${targetHeight}:force_original_aspect_ratio=decrease`
   switch (config.hwaccel) {
     case "vaapi":
@@ -220,9 +229,9 @@ function buildFilterChain(config: EncoderConfig, targetHeight: number): string {
   }
 }
 
-function buildCodecArgs(config: EncoderConfig): string[] {
+function buildCodecArgs(config: ResolvedEncoderConfig): string[] {
   const q = String(config.quality)
-  const preset = config.preset
+  const presetArgs = config.preset ? ["-preset", config.preset] : []
   const codecName = codecNameFor(config.hwaccel, config.codec)
 
   switch (config.hwaccel) {
@@ -230,8 +239,7 @@ function buildCodecArgs(config: EncoderConfig): string[] {
       return [
         "-c:v",
         codecName,
-        "-preset",
-        preset,
+        ...presetArgs,
         "-crf",
         q,
         ...softwareCodecTail(config.codec),
@@ -240,8 +248,7 @@ function buildCodecArgs(config: EncoderConfig): string[] {
       return [
         "-c:v",
         codecName,
-        "-preset",
-        preset,
+        ...presetArgs,
         "-rc",
         "vbr",
         "-cq",
@@ -250,13 +257,12 @@ function buildCodecArgs(config: EncoderConfig): string[] {
         "0",
       ]
     case "qsv":
-      return ["-c:v", codecName, "-preset", preset, "-global_quality", q]
+      return ["-c:v", codecName, ...presetArgs, "-global_quality", q]
     case "amf":
       return [
         "-c:v",
         codecName,
-        "-quality",
-        preset,
+        ...(config.preset ? ["-quality", config.preset] : []),
         "-rc",
         "cqp",
         "-qp_i",
@@ -265,9 +271,7 @@ function buildCodecArgs(config: EncoderConfig): string[] {
         q,
       ]
     case "vaapi":
-      // VAAPI ignores the preset string — the API just doesn't expose
-      // one. We feed `qp` directly. (admins still set a preset value
-      // because the schema requires one; we just don't emit it.)
+      // VAAPI doesn't expose a preset knob. We feed `qp` directly.
       return ["-c:v", codecName, "-qp", q]
   }
 }

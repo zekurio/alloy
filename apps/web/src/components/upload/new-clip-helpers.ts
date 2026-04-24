@@ -57,8 +57,7 @@ const EXTENSION_TO_CONTENT_TYPE: Record<string, AcceptedContentType> = {
   webm: "video/webm",
 }
 
-export const ACCEPT_LIST =
-  `${ACCEPTED_CLIP_CONTENT_TYPES.join(",")},.mp4,.m4v,.mov,.mkv,.webm`
+export const ACCEPT_LIST = `${ACCEPTED_CLIP_CONTENT_TYPES.join(",")},.mp4,.m4v,.mov,.mkv,.webm`
 
 export function resolveContentType(file: File): AcceptedContentType | null {
   const byMime = CONTENT_TYPE_ALIASES[file.type]

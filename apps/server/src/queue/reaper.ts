@@ -50,10 +50,7 @@ async function reapPending(): Promise<void> {
     )
 
   for (const row of stale) {
-    const keys = [
-      row.storageKey,
-      row.thumbKey ?? clipAssetKey(row.id, "thumb"),
-    ]
+    const keys = [row.storageKey, row.thumbKey ?? clipAssetKey(row.id, "thumb")]
     for (const key of keys) {
       try {
         await storage.delete(key)

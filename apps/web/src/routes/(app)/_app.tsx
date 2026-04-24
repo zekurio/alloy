@@ -1,10 +1,5 @@
 import * as React from "react"
-import {
-  Outlet,
-  createFileRoute,
-  useNavigate,
-  useRouterState,
-} from "@tanstack/react-router"
+import { Outlet, createFileRoute, useNavigate } from "@tanstack/react-router"
 
 import { AppShell } from "@workspace/ui/components/app-shell"
 
@@ -33,9 +28,6 @@ function AppLayout() {
   const { allowed } = useBrowseAuthGate()
   const { clip } = Route.useSearch()
   const navigate = useNavigate()
-  const showSharedHeader = useRouterState({
-    select: (s) => !isSettingsPath(s.location.pathname),
-  })
 
   const handleCloseClipModal = () => {
     void navigate({
@@ -68,8 +60,7 @@ function AppLayout() {
     <AppSearchProvider>
       <UploadFlowProvider>
         <AppShell>
-          <HomeSidebar />
-          {showSharedHeader ? <HomeHeader /> : null}
+          <AppChrome />
           <Outlet />
           <UploadFlow />
         </AppShell>
@@ -83,11 +74,11 @@ function AppLayout() {
   ) : null
 }
 
-function isSettingsPath(pathname: string): boolean {
+const AppChrome = React.memo(function AppChrome() {
   return (
-    pathname === "/user-settings" ||
-    pathname.startsWith("/user-settings/") ||
-    pathname === "/admin-settings" ||
-    pathname.startsWith("/admin-settings/")
+    <>
+      <HomeSidebar />
+      <HomeHeader />
+    </>
   )
-}
+})

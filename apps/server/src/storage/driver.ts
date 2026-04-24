@@ -113,7 +113,10 @@ export function clipAssetKey(clipId: string, role: ClipAssetRole): string {
 }
 
 export function clipVideoVariantKey(clipId: string, variantId: string): string {
-  const safeVariantId = variantId.replace(/[^a-z0-9-]/gi, "").toLowerCase()
+  const safeVariantId = variantId
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase()
   if (!safeVariantId) {
     throw new Error("clipVideoVariantKey requires a non-empty variant id")
   }

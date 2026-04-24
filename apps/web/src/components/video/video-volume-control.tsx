@@ -65,7 +65,7 @@ export function VolumeControl({
   }
 
   return (
-    <div className={cn("group/vol flex select-none items-center", className)}>
+    <div className={cn("group/vol flex items-center select-none", className)}>
       <Button
         variant="ghost"
         size="icon-sm"

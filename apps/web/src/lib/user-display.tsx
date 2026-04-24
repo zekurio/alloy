@@ -156,10 +156,14 @@ export function UserBanner({
   user: AuthUser | null | undefined
   className?: string
 }) {
-  const banner = userBanner(user)
+  const dedicatedBannerSrc = userImageSrc(user?.banner)
+  const banner = {
+    src: dedicatedBannerSrc ?? userAvatarSrc(user),
+    bg: avatarTint(user?.id ?? displayName(user)).bg,
+  }
   // When using a dedicated banner image, render it clean. When falling back
   // to the avatar image, zoom & desaturate it so it reads as a backdrop.
-  const hasDedicatedBanner = !!userImageSrc(user?.banner)
+  const hasDedicatedBanner = !!dedicatedBannerSrc
   return (
     <div
       aria-hidden
@@ -198,8 +202,8 @@ function UserBannerImage({
         alt=""
         aria-hidden
         decoding="async"
-        fetchPriority="high"
-        loading="eager"
+        fetchPriority={hasDedicatedBanner ? "high" : "low"}
+        loading={hasDedicatedBanner ? "eager" : "lazy"}
         onLoad={() => {
           loadedUserBannerSrcs.add(src)
           setStatus("loaded")

@@ -1,52 +1,35 @@
-import * as React from "react";
-import { RotateCcwIcon } from "lucide-react";
+import * as React from "react"
 
-import { FieldDescription } from "@workspace/ui/components/field";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@workspace/ui/components/input-group";
-import { Input } from "@workspace/ui/components/input";
+import { FieldDescription } from "@workspace/ui/components/field"
+import { Input } from "@workspace/ui/components/input"
 
-import type { EncoderCodec, EncoderHwaccel } from "@workspace/api";
-import { defaultPresetFor } from "./shared";
-
-const INVALID_INPUT_GROUP_BUTTON_CLASS =
-  "group-has-[[data-slot=input-group-control][aria-invalid=true]]/input-group:bg-destructive/5 group-has-[[data-slot=input-group-control][aria-invalid=true]]/input-group:hover:bg-destructive/10";
-
-function formatInheritedPresetLabel(inheritedValue: string) {
-  return inheritedValue === ""
-    ? "Inherit (global custom preset)"
-    : `Inherit (${inheritedValue})`;
-}
+import type { EncoderCodec, EncoderHwaccel } from "@workspace/api"
 
 export function EncoderPresetField({
   id,
   value,
   hwaccel,
-  codec,
+  codec: _codec,
   inheritedValue,
   required = false,
   showDescription = true,
   onChange,
 }: {
-  id: string;
-  value: string | undefined;
-  hwaccel: EncoderHwaccel;
-  codec: EncoderCodec;
-  inheritedValue?: string;
-  required?: boolean;
-  showDescription?: boolean;
-  onChange: (next: string | undefined) => void;
+  id: string
+  value: string | undefined
+  hwaccel: EncoderHwaccel
+  codec: EncoderCodec
+  inheritedValue?: string
+  required?: boolean
+  showDescription?: boolean
+  onChange: (next: string | undefined) => void
 }) {
-  const isVaapi = hwaccel === "vaapi";
-  const [draft, setDraft] = React.useState(value ?? "");
+  const isVaapi = hwaccel === "vaapi"
+  const [draft, setDraft] = React.useState(value ?? "")
 
   React.useEffect(() => {
-    setDraft(value ?? "");
-  }, [value]);
+    setDraft(value ?? "")
+  }, [value])
 
   if (isVaapi) {
     return (
@@ -59,60 +42,37 @@ export function EncoderPresetField({
           </FieldDescription>
         ) : null}
       </>
-    );
+    )
   }
 
-  const invalid = required && draft.trim() === "";
-  const fallbackPreset =
-    inheritedValue !== undefined ? undefined : defaultPresetFor(hwaccel, codec);
+  function formatInheritedPresetLabel(inherited: string) {
+    return inherited === ""
+      ? "Inherit (global custom preset)"
+      : `Inherit (${inherited})`
+  }
 
   return (
     <>
-      <InputGroup>
-        <InputGroupInput
-          id={id}
-          value={draft}
-          required={required}
-          placeholder={
-            inheritedValue !== undefined
-              ? formatInheritedPresetLabel(inheritedValue)
-              : "Raw ffmpeg preset"
-          }
-          className="pl-3"
-          aria-invalid={invalid || undefined}
-          onChange={(e) => {
-            const next = e.target.value;
-            setDraft(next);
-            onChange(
-              next.trim() === "" && inheritedValue !== undefined
-                ? undefined
-                : next,
-            );
-          }}
-        />
-        <InputGroupAddon align="inline-end">
-          <InputGroupButton
-            size="icon-xs"
-            className={INVALID_INPUT_GROUP_BUTTON_CLASS}
-            aria-label={
-              inheritedValue !== undefined
-                ? "Inherit global preset"
-                : "Reset preset"
-            }
-            title={
-              inheritedValue !== undefined
-                ? "Inherit global preset"
-                : "Reset preset"
-            }
-            onClick={() => {
-              setDraft(fallbackPreset ?? "");
-              onChange(fallbackPreset);
-            }}
-          >
-            <RotateCcwIcon />
-          </InputGroupButton>
-        </InputGroupAddon>
-      </InputGroup>
+      <Input
+        id={id}
+        value={draft}
+        required={required}
+        placeholder={
+          inheritedValue !== undefined
+            ? formatInheritedPresetLabel(inheritedValue)
+            : "Raw ffmpeg preset"
+        }
+        aria-invalid={(required && draft.trim() === "") || undefined}
+        onChange={(e) => {
+          const next = e.target.value
+          setDraft(next)
+          onChange(
+            next.trim() === "" && inheritedValue !== undefined
+              ? undefined
+              : next
+          )
+        }}
+      />
 
       {showDescription ? (
         <FieldDescription>
@@ -122,5 +82,5 @@ export function EncoderPresetField({
         </FieldDescription>
       ) : null}
     </>
-  );
+  )
 }
