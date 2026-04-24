@@ -56,7 +56,7 @@ function GameCardBody({ game }: { game: GameCardData }) {
 
 export function GameCard({ game, link, className }: GameCardProps) {
   const surface = cn(
-    "group/game-card relative block aspect-[2/3] overflow-hidden rounded-lg [mask-image:linear-gradient(black,black)]",
+    "group/game-card relative block aspect-[2/3] overflow-hidden rounded-md [mask-image:linear-gradient(black,black)]",
     "bg-neutral-900",
     "transition-[box-shadow,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",

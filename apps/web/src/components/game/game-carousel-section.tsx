@@ -1,13 +1,6 @@
 import * as React from "react"
 
 import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@workspace/ui/components/carousel"
-import {
   SectionActions,
   SectionHead,
   SectionMeta,
@@ -40,8 +33,11 @@ type GameBucket = {
   count: number
 }
 
-const ITEM_CLASS = "basis-auto pl-4"
-const CARD_CLASS = "w-48"
+/* Responsive: 3 → 4 → 5 → 6 columns with 10px gap (gap-2.5) */
+const GRID_CLASS =
+  "flex flex-wrap justify-center gap-2.5"
+const ITEM_CLASS =
+  "w-[calc((100%-20px)/3)] sm:w-[calc((100%-30px)/4)] lg:w-[calc((100%-40px)/5)] xl:w-[calc((100%-50px)/6)]"
 
 export function buildGameCarouselEntries(
   clips: Array<Pick<ClipRow, "game" | "gameRef">>,
@@ -113,15 +109,13 @@ export function GameCarouselSection({
       </SectionHead>
 
       {entries === null ? (
-        <Carousel className="group" opts={{ align: "start", dragFree: true }}>
-          <CarouselContent>
-            {Array.from({ length: skeletonSeedCount }).map((_, i) => (
-              <CarouselItem key={i} className={ITEM_CLASS}>
-                <Skeleton className={`aspect-[2/3] ${CARD_CLASS} rounded-lg`} />
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-        </Carousel>
+        <div className={GRID_CLASS}>
+          {Array.from({ length: skeletonSeedCount }).map((_, i) => (
+            <div key={i} className={ITEM_CLASS}>
+              <Skeleton className="aspect-[2/3] w-full rounded-md" />
+            </div>
+          ))}
+        </div>
       ) : entries.length === 0 ? (
         <EmptyState
           seed={emptySeed}
@@ -130,32 +124,20 @@ export function GameCarouselSection({
           hint={emptyHint}
         />
       ) : (
-        <Carousel className="group" opts={{ align: "start", dragFree: true }}>
-          <CarouselContent>
-            {entries.map((entry) => (
-              <CarouselItem
-                key={entry.slug ?? `name:${entry.name}`}
-                className={ITEM_CLASS}
-              >
-                <GameCard
-                  game={entry}
-                  className={CARD_CLASS}
-                  link={renderLink?.(entry)}
-                />
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-          <CarouselPrevious
-            variant="ghost"
-            size="icon"
-            className="left-2 z-10 rounded-none border-transparent bg-transparent text-white shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-9 [&_svg]:stroke-[2.5]"
-          />
-          <CarouselNext
-            variant="ghost"
-            size="icon"
-            className="right-2 z-10 rounded-none border-transparent bg-transparent text-white shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-9 [&_svg]:stroke-[2.5]"
-          />
-        </Carousel>
+        <div className={GRID_CLASS}>
+          {entries.map((entry) => (
+            <div
+              key={entry.slug ?? `name:${entry.name}`}
+              className={ITEM_CLASS}
+            >
+              <GameCard
+                game={entry}
+                className="w-full"
+                link={renderLink?.(entry)}
+              />
+            </div>
+          ))}
+        </div>
       )}
     </section>
   )
