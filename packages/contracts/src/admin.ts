@@ -96,6 +96,27 @@ export interface AdminEncoderCapabilities {
   >
 }
 
+export interface AdminUserStorageRow {
+  id: string
+  name: string
+  username: string
+  email: string
+  image: string | null
+  role: string | null
+  banned: boolean | null
+  createdAt: string
+  storageQuotaBytes: number | null
+  storageUsedBytes: number
+}
+
+export interface AdminUsersResponse {
+  users: AdminUserStorageRow[]
+}
+
+export interface AdminUpdateUserStorageQuotaInput {
+  storageQuotaBytes: number | null
+}
+
 export interface RuntimeConfig {
   openRegistrations: boolean
   setupComplete: boolean

@@ -1,93 +1,55 @@
-import * as React from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import * as React from "react"
+import { useQueryClient } from "@tanstack/react-query"
+import { useNavigate } from "@tanstack/react-router"
 
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@workspace/ui/components/popover";
-import { Sheet, SheetContent } from "@workspace/ui/components/sheet";
-import { toast } from "@workspace/ui/components/sonner";
-import { useIsMobile } from "@workspace/ui/hooks/use-mobile";
-import { cn } from "@workspace/ui/lib/utils";
+} from "@workspace/ui/components/popover"
+import { Sheet, SheetContent } from "@workspace/ui/components/sheet"
+import { toast } from "@workspace/ui/components/sonner"
+import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
+import { cn } from "@workspace/ui/lib/utils"
 
-import { api } from "@/lib/api";
-import { useSuspenseSession } from "@/lib/session-suspense";
-import { FloatingUploadButton } from "./floating-upload-button";
+import { api } from "@/lib/api"
+import { useSuspenseSession } from "@/lib/session-suspense"
+import { FloatingUploadButton } from "./floating-upload-button"
+import { useUploadFlowControls } from "./use-upload-flow-controls"
 import {
   clipKeys,
   useInvalidateClips,
   useUploadQueueQuery,
-} from "@/lib/clip-queries";
-import { uploadToTicket, type QueueClip } from "@workspace/api";
+} from "@/lib/clip-queries"
+import { uploadToTicket, type QueueClip } from "@workspace/api"
 import {
   hueFor,
   localToQueueItem,
   serverToQueueItem,
   type ActiveUpload,
-} from "./upload-queue-mapping";
+} from "./upload-queue-mapping"
 import {
   ACCEPT_LIST,
   probeFile,
   resolveContentType,
   type PublishPayload,
   type SelectedFile,
-} from "./new-clip-dialog";
-import { UploadQueueContent, type QueueItem } from "./upload-queue";
-import { useDismissedClips } from "./use-dismissed-clips";
+} from "./new-clip-helpers"
+import { UploadQueueContent, type QueueItem } from "./upload-queue"
+import { useDismissedClips } from "./use-dismissed-clips"
 
-const loadNewClipDialog = () => import("./new-clip-dialog");
+const loadNewClipDialog = () => import("./new-clip-dialog")
 const NewClipDialog = React.lazy(() =>
   loadNewClipDialog().then((m) => ({
     default: m.NewClipDialog,
-  })),
-);
-
-interface UploadFlowControls {
-  queueOpen: boolean;
-  setQueueOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  activeCount: number;
-  setActiveCount: React.Dispatch<React.SetStateAction<number>>;
-}
-
-const UploadFlowContext = React.createContext<UploadFlowControls | null>(null);
-
-export function UploadFlowProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const [queueOpen, setQueueOpen] = React.useState(false);
-  const [activeCount, setActiveCount] = React.useState(0);
-
-  const value = React.useMemo(
-    () => ({ queueOpen, setQueueOpen, activeCount, setActiveCount }),
-    [queueOpen, activeCount],
-  );
-
-  return (
-    <UploadFlowContext.Provider value={value}>
-      {children}
-    </UploadFlowContext.Provider>
-  );
-}
-
-export function useUploadFlowControls(): UploadFlowControls {
-  const value = React.useContext(UploadFlowContext);
-  if (!value) {
-    throw new Error(
-      "useUploadFlowControls must be used within UploadFlowProvider",
-    );
-  }
-  return value;
-}
+  }))
+)
 
 async function performUpload(
   payload: PublishPayload,
   entry: ActiveUpload,
   bump: () => void,
-  invalidateClips: () => void,
+  invalidateClips: () => void
 ): Promise<void> {
   const { clipId, ticket, thumbTicket } = await api.clips.initiate({
     filename: payload.file.name,
@@ -104,128 +66,128 @@ async function performUpload(
       payload.mentionedUserIds.length > 0
         ? payload.mentionedUserIds
         : undefined,
-  });
+  })
 
-  entry.clipId = clipId;
-  entry.status = "uploading";
-  bump();
+  entry.clipId = clipId
+  entry.status = "uploading"
+  bump()
 
   await uploadToTicket(
     ticket,
     payload.file,
     (loaded, total) => {
-      entry.bytesLoaded = loaded;
-      entry.bytesTotal = total;
-      bump();
+      entry.bytesLoaded = loaded
+      entry.bytesTotal = total
+      bump()
     },
-    entry.abort.signal,
-  );
+    entry.abort.signal
+  )
 
   await uploadToTicket(
     thumbTicket,
     payload.thumbBlob,
     () => undefined,
-    entry.abort.signal,
-  );
+    entry.abort.signal
+  )
 
-  entry.status = "finalizing";
-  bump();
+  entry.status = "finalizing"
+  bump()
 
-  await api.clips.finalize(clipId);
-  void invalidateClips();
+  await api.clips.finalize(clipId)
+  void invalidateClips()
 }
 
 function useServerQueueSync(
   serverQueue: QueueClip[],
   activeRef: React.MutableRefObject<Map<string, ActiveUpload>>,
   retainedThumbsRef: React.MutableRefObject<Map<string, string>>,
-  bump: () => void,
+  bump: () => void
 ) {
-  const invalidateClips = useInvalidateClips();
-  const readyNotifiedRef = React.useRef<Set<string>>(new Set());
+  const invalidateClips = useInvalidateClips()
+  const readyNotifiedRef = React.useRef<Set<string>>(new Set())
   React.useEffect(() => {
-    if (serverQueue.length === 0) return;
-    const seen = new Set(serverQueue.map((r) => r.id));
-    let changed = false;
+    if (serverQueue.length === 0) return
+    const seen = new Set(serverQueue.map((r) => r.id))
+    let changed = false
     for (const [localId, active] of activeRef.current) {
       if (
         active.clipId &&
         seen.has(active.clipId) &&
         active.status !== "uploading"
       ) {
-        const retained = retainedThumbsRef.current.get(active.clipId);
+        const retained = retainedThumbsRef.current.get(active.clipId)
         if (retained && retained !== active.thumbUrl) {
-          URL.revokeObjectURL(retained);
+          URL.revokeObjectURL(retained)
         }
-        retainedThumbsRef.current.set(active.clipId, active.thumbUrl);
-        activeRef.current.delete(localId);
-        changed = true;
+        retainedThumbsRef.current.set(active.clipId, active.thumbUrl)
+        activeRef.current.delete(localId)
+        changed = true
       }
     }
-    if (changed) bump();
-    let becameReady = false;
+    if (changed) bump()
+    let becameReady = false
     for (const row of serverQueue) {
       if (row.status === "ready" && !readyNotifiedRef.current.has(row.id)) {
-        readyNotifiedRef.current.add(row.id);
-        becameReady = true;
+        readyNotifiedRef.current.add(row.id)
+        becameReady = true
       }
     }
-    if (becameReady) void invalidateClips();
+    if (becameReady) void invalidateClips()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverQueue]);
+  }, [serverQueue])
 }
 
 function useCancelRow(
   activeRef: React.MutableRefObject<Map<string, ActiveUpload>>,
   retainedThumbsRef: React.MutableRefObject<Map<string, string>>,
-  bump: () => void,
+  bump: () => void
 ) {
-  const queryClient = useQueryClient();
-  const invalidateClips = useInvalidateClips();
+  const queryClient = useQueryClient()
+  const invalidateClips = useInvalidateClips()
   return React.useCallback(
     (localId: string | null, clipId: string | null) => {
       if (localId) {
-        const entry = activeRef.current.get(localId);
+        const entry = activeRef.current.get(localId)
         if (entry) {
-          entry.abort.abort();
+          entry.abort.abort()
           if (entry.status !== "uploading") {
-            URL.revokeObjectURL(entry.thumbUrl);
-            activeRef.current.delete(localId);
-            bump();
+            URL.revokeObjectURL(entry.thumbUrl)
+            activeRef.current.delete(localId)
+            bump()
             if (entry.clipId) {
-              void api.clips.delete(entry.clipId).catch(() => undefined);
+              void api.clips.delete(entry.clipId).catch(() => undefined)
             }
           }
         }
       }
       if (clipId) {
-        const retained = retainedThumbsRef.current.get(clipId);
+        const retained = retainedThumbsRef.current.get(clipId)
         if (retained) {
-          URL.revokeObjectURL(retained);
-          retainedThumbsRef.current.delete(clipId);
+          URL.revokeObjectURL(retained)
+          retainedThumbsRef.current.delete(clipId)
         }
         queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), (old) =>
-          old ? old.filter((r) => r.id !== clipId) : old,
-        );
+          old ? old.filter((r) => r.id !== clipId) : old
+        )
         void api.clips
           .delete(clipId)
           .then(() => invalidateClips())
-          .catch(() => undefined);
+          .catch(() => undefined)
       }
     },
-    [invalidateClips, queryClient, bump, activeRef, retainedThumbsRef],
-  );
+    [invalidateClips, queryClient, bump, activeRef, retainedThumbsRef]
+  )
 }
 
 function useRunUpload(
   activeRef: React.MutableRefObject<Map<string, ActiveUpload>>,
   retainedThumbsRef: React.MutableRefObject<Map<string, string>>,
-  bump: () => void,
+  bump: () => void
 ) {
-  const invalidateClips = useInvalidateClips();
+  const invalidateClips = useInvalidateClips()
   return React.useCallback(
     async (payload: PublishPayload) => {
-      const localId = `local-${Math.random().toString(36).slice(2)}`;
+      const localId = `local-${Math.random().toString(36).slice(2)}`
       const entry: ActiveUpload = {
         localId,
         title: payload.title,
@@ -235,90 +197,90 @@ function useRunUpload(
         status: "initiating",
         abort: new AbortController(),
         thumbUrl: URL.createObjectURL(payload.thumbBlob),
-      };
-      activeRef.current.set(localId, entry);
-      bump();
+      }
+      activeRef.current.set(localId, entry)
+      bump()
 
       try {
-        await performUpload(payload, entry, bump, invalidateClips);
+        await performUpload(payload, entry, bump, invalidateClips)
         if (entry.clipId) {
-          retainedThumbsRef.current.set(entry.clipId, entry.thumbUrl);
+          retainedThumbsRef.current.set(entry.clipId, entry.thumbUrl)
         } else {
-          URL.revokeObjectURL(entry.thumbUrl);
+          URL.revokeObjectURL(entry.thumbUrl)
         }
-        activeRef.current.delete(localId);
-        bump();
+        activeRef.current.delete(localId)
+        bump()
       } catch (err) {
         if ((err as Error).name === "AbortError") {
-          URL.revokeObjectURL(entry.thumbUrl);
-          activeRef.current.delete(localId);
-          bump();
+          URL.revokeObjectURL(entry.thumbUrl)
+          activeRef.current.delete(localId)
+          bump()
           if (entry.clipId) {
-            void api.clips.delete(entry.clipId).catch(() => undefined);
+            void api.clips.delete(entry.clipId).catch(() => undefined)
           }
-          return;
+          return
         }
-        entry.status = "error";
-        entry.errorMessage = (err as Error).message;
-        bump();
-        throw err;
+        entry.status = "error"
+        entry.errorMessage = (err as Error).message
+        bump()
+        throw err
       }
     },
-    [invalidateClips, bump, activeRef, retainedThumbsRef],
-  );
+    [invalidateClips, bump, activeRef, retainedThumbsRef]
+  )
 }
 
 function useUploadQueueState(
   queueOpen: boolean,
-  onOpenClip: (row: QueueClip) => void,
+  onOpenClip: (row: QueueClip) => void
 ) {
-  const activeRef = React.useRef<Map<string, ActiveUpload>>(new Map());
-  const retainedThumbsRef = React.useRef<Map<string, string>>(new Map());
-  const [, bumpState] = React.useReducer((n: number) => n + 1, 0);
-  const bump = React.useCallback(() => bumpState(), []);
+  const activeRef = React.useRef<Map<string, ActiveUpload>>(new Map())
+  const retainedThumbsRef = React.useRef<Map<string, string>>(new Map())
+  const [, bumpState] = React.useReducer((n: number) => n + 1, 0)
+  const bump = React.useCallback(() => bumpState(), [])
 
-  const { data: serverQueueData } = useUploadQueueQuery({ enabled: queueOpen });
+  const { data: serverQueueData } = useUploadQueueQuery({ enabled: queueOpen })
   const serverQueue = React.useMemo<QueueClip[]>(
     () => serverQueueData ?? [],
-    [serverQueueData],
-  );
+    [serverQueueData]
+  )
 
   React.useEffect(() => {
     return () => {
       for (const active of activeRef.current.values()) {
-        URL.revokeObjectURL(active.thumbUrl);
+        URL.revokeObjectURL(active.thumbUrl)
       }
-      activeRef.current.clear();
+      activeRef.current.clear()
       for (const url of retainedThumbsRef.current.values()) {
-        URL.revokeObjectURL(url);
+        URL.revokeObjectURL(url)
       }
-      retainedThumbsRef.current.clear();
-    };
-  }, []);
+      retainedThumbsRef.current.clear()
+    }
+  }, [])
 
-  useServerQueueSync(serverQueue, activeRef, retainedThumbsRef, bump);
-  const runUpload = useRunUpload(activeRef, retainedThumbsRef, bump);
-  const cancelRow = useCancelRow(activeRef, retainedThumbsRef, bump);
+  useServerQueueSync(serverQueue, activeRef, retainedThumbsRef, bump)
+  const runUpload = useRunUpload(activeRef, retainedThumbsRef, bump)
+  const cancelRow = useCancelRow(activeRef, retainedThumbsRef, bump)
   const releaseRetainedThumb = React.useCallback(
     (clipId: string) => {
-      const retained = retainedThumbsRef.current.get(clipId);
-      if (!retained) return;
-      URL.revokeObjectURL(retained);
-      retainedThumbsRef.current.delete(clipId);
-      bump();
+      const retained = retainedThumbsRef.current.get(clipId)
+      if (!retained) return
+      URL.revokeObjectURL(retained)
+      retainedThumbsRef.current.delete(clipId)
+      bump()
     },
-    [bump],
-  );
-  const { dismissed, dismiss, dismissMany } = useDismissedClips(serverQueue);
+    [bump]
+  )
+  const { dismissed, dismiss, dismissMany } = useDismissedClips(serverQueue)
 
   const queue: QueueItem[] = React.useMemo(() => {
-    const localEntries = Array.from(activeRef.current.values());
+    const localEntries = Array.from(activeRef.current.values())
     const localClipIds = new Set(
-      localEntries.map((e) => e.clipId).filter((x): x is string => Boolean(x)),
-    );
+      localEntries.map((e) => e.clipId).filter((x): x is string => Boolean(x))
+    )
     const fromLocal = localEntries.map((e) =>
-      localToQueueItem(e, () => cancelRow(e.localId, e.clipId ?? null)),
-    );
+      localToQueueItem(e, () => cancelRow(e.localId, e.clipId ?? null))
+    )
     const fromServer = serverQueue
       .filter((row) => !localClipIds.has(row.id) && !dismissed.has(row.id))
       .map((row) =>
@@ -330,15 +292,15 @@ function useUploadQueueState(
           onDismiss:
             row.status === "ready"
               ? () => {
-                  releaseRetainedThumb(row.id);
-                  dismiss(row.id);
+                  releaseRetainedThumb(row.id)
+                  dismiss(row.id)
                 }
               : undefined,
           thumbFallbackUrl: retainedThumbsRef.current.get(row.id),
           onThumbLoad: () => releaseRetainedThumb(row.id),
-        }),
-      );
-    return [...fromLocal, ...fromServer];
+        })
+      )
+    return [...fromLocal, ...fromServer]
   }, [
     serverQueue,
     cancelRow,
@@ -346,60 +308,60 @@ function useUploadQueueState(
     dismissed,
     dismiss,
     releaseRetainedThumb,
-  ]);
+  ])
 
   const activeCount = queue.filter(
-    (q) => q.status !== "published" && q.status !== "failed",
-  ).length;
+    (q) => q.status !== "published" && q.status !== "failed"
+  ).length
 
   const clearCompleted = React.useCallback(() => {
     const readyIds = serverQueue
       .filter((r) => r.status === "ready" && !dismissed.has(r.id))
-      .map((r) => r.id);
+      .map((r) => r.id)
     for (const id of readyIds) {
-      releaseRetainedThumb(id);
+      releaseRetainedThumb(id)
     }
-    dismissMany(readyIds);
-  }, [serverQueue, dismissed, dismissMany, releaseRetainedThumb]);
+    dismissMany(readyIds)
+  }, [serverQueue, dismissed, dismissMany, releaseRetainedThumb])
 
-  return { runUpload, queue, activeCount, clearCompleted };
+  return { runUpload, queue, activeCount, clearCompleted }
 }
 
 function useNewClipPicker(onPicked: () => void) {
-  const [newClipOpen, setNewClipOpen] = React.useState(false);
-  const [newClipModalMounted, setNewClipModalMounted] = React.useState(false);
+  const [newClipOpen, setNewClipOpen] = React.useState(false)
+  const [newClipModalMounted, setNewClipModalMounted] = React.useState(false)
   const [initialFile, setInitialFile] = React.useState<SelectedFile | null>(
-    null,
-  );
-  const inputRef = React.useRef<HTMLInputElement>(null);
+    null
+  )
+  const inputRef = React.useRef<HTMLInputElement>(null)
 
   const openPicker = React.useCallback(() => {
-    setNewClipModalMounted(true);
-    void loadNewClipDialog();
-    inputRef.current?.click();
-  }, []);
+    setNewClipModalMounted(true)
+    void loadNewClipDialog()
+    inputRef.current?.click()
+  }, [])
 
   const onFileChange = React.useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      e.target.value = "";
-      if (!file) return;
-      const contentType = resolveContentType(file);
+      const file = e.target.files?.[0]
+      e.target.value = ""
+      if (!file) return
+      const contentType = resolveContentType(file)
       if (!contentType) {
-        toast.error("Unsupported file type");
-        return;
+        toast.error("Unsupported file type")
+        return
       }
       try {
-        const meta = await probeFile(file);
-        setInitialFile({ ...meta, contentType });
-        onPicked();
-        setNewClipOpen(true);
+        const meta = await probeFile(file)
+        setInitialFile({ ...meta, contentType })
+        onPicked()
+        setNewClipOpen(true)
       } catch {
-        toast.error("Couldn't read video metadata");
+        toast.error("Couldn't read video metadata")
       }
     },
-    [onPicked],
-  );
+    [onPicked]
+  )
 
   return {
     newClipOpen,
@@ -410,24 +372,24 @@ function useNewClipPicker(onPicked: () => void) {
     inputRef,
     openPicker,
     onFileChange,
-  };
+  }
 }
 
 function useWarmEditor(queueOpen: boolean, setMounted: (m: boolean) => void) {
   React.useEffect(() => {
-    if (!queueOpen) return;
+    if (!queueOpen) return
     const warmEditor = () => {
-      setMounted(true);
-      void loadNewClipDialog();
-    };
-    if (typeof window === "undefined") return;
-    if ("requestIdleCallback" in window) {
-      const id = window.requestIdleCallback(warmEditor, { timeout: 1200 });
-      return () => window.cancelIdleCallback(id);
+      setMounted(true)
+      void loadNewClipDialog()
     }
-    const timeout = globalThis.setTimeout(warmEditor, 250);
-    return () => globalThis.clearTimeout(timeout);
-  }, [queueOpen, setMounted]);
+    if (typeof window === "undefined") return
+    if ("requestIdleCallback" in window) {
+      const id = window.requestIdleCallback(warmEditor, { timeout: 1200 })
+      return () => window.cancelIdleCallback(id)
+    }
+    const timeout = globalThis.setTimeout(warmEditor, 250)
+    return () => globalThis.clearTimeout(timeout)
+  }, [queueOpen, setMounted])
 }
 
 export function UploadFlow() {
@@ -435,14 +397,14 @@ export function UploadFlow() {
     <React.Suspense fallback={null}>
       <UploadFlowInner />
     </React.Suspense>
-  );
+  )
 }
 
 function UploadFlowInner() {
-  const session = useSuspenseSession();
-  if (!session) return null;
+  const session = useSuspenseSession()
+  if (!session) return null
 
-  return <AuthedUploadFlow />;
+  return <AuthedUploadFlow />
 }
 
 function UploadQueuePopover({
@@ -453,14 +415,14 @@ function UploadQueuePopover({
   onNewClip,
   onClearCompleted,
 }: {
-  queueOpen: boolean;
-  setQueueOpen: (open: boolean) => void;
-  queue: QueueItem[];
-  activeCount: number;
-  onNewClip: () => void;
-  onClearCompleted: () => void;
+  queueOpen: boolean
+  setQueueOpen: (open: boolean) => void
+  queue: QueueItem[]
+  activeCount: number
+  onNewClip: () => void
+  onClearCompleted: () => void
 }) {
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile()
   const queueGlassStyle = {
     "--queue-glass-opacity": "68%",
     "--queue-glass-bg":
@@ -469,7 +431,7 @@ function UploadQueuePopover({
       "color-mix(in oklab, var(--popover) 18%, var(--background))",
     "--alloy-glass-bg": "var(--queue-glass-bg)",
     "--alloy-glass-shadow": "0 30px 80px -32px rgb(0 0 0 / 0.78)",
-  } as React.CSSProperties;
+  } as React.CSSProperties
   const content = (
     <UploadQueueContent
       queue={queue}
@@ -477,7 +439,7 @@ function UploadQueuePopover({
       onClearCompleted={onClearCompleted}
       onClose={() => setQueueOpen(false)}
     />
-  );
+  )
 
   if (isMobile) {
     return (
@@ -489,7 +451,7 @@ function UploadQueuePopover({
             "right-4 bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+1rem)] left-4",
             "h-auto max-h-[calc(100dvh-var(--header-h)-var(--bottomnav-h)-env(safe-area-inset-bottom)-2rem)]",
             "rounded-2xl border p-3",
-            "alloy-glass",
+            "alloy-glass"
           )}
           style={queueGlassStyle}
           aria-describedby={undefined}
@@ -497,7 +459,7 @@ function UploadQueuePopover({
           {content}
         </SheetContent>
       </Sheet>
-    );
+    )
   }
 
   return (
@@ -520,7 +482,7 @@ function UploadQueuePopover({
           "w-[420px] max-w-[calc(100vw-1.5rem)] border p-3 ring-0",
           "alloy-glass",
           "data-open:animate-[alloy-fab-morph-in_320ms_cubic-bezier(0.34,1.56,0.64,1)_forwards]",
-          "data-closed:animate-[alloy-fab-morph-out_180ms_cubic-bezier(0.36,0,0.66,-0.4)_forwards]",
+          "data-closed:animate-[alloy-fab-morph-out_180ms_cubic-bezier(0.36,0,0.66,-0.4)_forwards]"
         )}
         style={
           {
@@ -540,28 +502,28 @@ function UploadQueuePopover({
         {content}
       </PopoverContent>
     </Popover>
-  );
+  )
 }
 
 function clipLinkFor(row: QueueClip): string {
-  return `${window.location.origin}/g/${row.gameSlug}/c/${row.id}`;
+  return `${window.location.origin}/g/${row.gameSlug}/c/${row.id}`
 }
 
 async function copyClipLink(row: QueueClip): Promise<void> {
   try {
-    await navigator.clipboard.writeText(clipLinkFor(row));
-    toast.success("Link copied");
+    await navigator.clipboard.writeText(clipLinkFor(row))
+    toast.success("Link copied")
   } catch {
-    toast.error("Couldn't copy link");
+    toast.error("Couldn't copy link")
   }
 }
 
 function AuthedUploadFlow() {
-  const { queueOpen, setQueueOpen, setActiveCount } = useUploadFlowControls();
-  const navigate = useNavigate();
+  const { queueOpen, setQueueOpen, setActiveCount } = useUploadFlowControls()
+  const navigate = useNavigate()
   const handleOpenClip = React.useCallback(
     (row: QueueClip) => {
-      setQueueOpen(false);
+      setQueueOpen(false)
       void navigate({
         to: ".",
         search: (prev) => ({ ...prev, clip: row.id }),
@@ -569,14 +531,14 @@ function AuthedUploadFlow() {
           to: "/g/$slug/c/$clipId",
           params: { slug: row.gameSlug, clipId: row.id },
         },
-      });
+      })
     },
-    [navigate],
-  );
+    [navigate]
+  )
   const { runUpload, queue, activeCount, clearCompleted } = useUploadQueueState(
     queueOpen,
-    handleOpenClip,
-  );
+    handleOpenClip
+  )
   const {
     newClipOpen,
     setNewClipOpen,
@@ -586,26 +548,26 @@ function AuthedUploadFlow() {
     inputRef: newClipFileInputRef,
     openPicker: handleNewClip,
     onFileChange: handleNewClipFileInputChange,
-  } = useNewClipPicker(() => setQueueOpen(false));
-  useWarmEditor(queueOpen, setNewClipModalMounted);
+  } = useNewClipPicker(() => setQueueOpen(false))
+  useWarmEditor(queueOpen, setNewClipModalMounted)
 
   React.useEffect(() => {
-    setActiveCount(activeCount);
-    return () => setActiveCount(0);
-  }, [activeCount, setActiveCount]);
+    setActiveCount(activeCount)
+    return () => setActiveCount(0)
+  }, [activeCount, setActiveCount])
 
   const handlePublish = React.useCallback(
     async (payload: PublishPayload) => {
-      setNewClipOpen(false);
-      setQueueOpen(true);
+      setNewClipOpen(false)
+      setQueueOpen(true)
       try {
-        await runUpload(payload);
+        await runUpload(payload)
       } catch {
         // Error lives on the queue row's `failed` status.
       }
     },
-    [runUpload, setNewClipOpen],
-  );
+    [runUpload, setNewClipOpen]
+  )
 
   return (
     <>
@@ -635,5 +597,5 @@ function AuthedUploadFlow() {
         </React.Suspense>
       ) : null}
     </>
-  );
+  )
 }

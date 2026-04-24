@@ -6,6 +6,9 @@ import type {
   AdminLimitsConfig,
   AdminOAuthProvider,
   AdminRuntimeConfig,
+  AdminUpdateUserStorageQuotaInput,
+  AdminUserStorageRow,
+  AdminUsersResponse,
 } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
 
@@ -25,6 +28,9 @@ export type {
   AdminLimitsConfig,
   AdminOAuthProvider,
   AdminRuntimeConfig,
+  AdminUpdateUserStorageQuotaInput,
+  AdminUsersResponse,
+  AdminUserStorageRow,
   EncoderCodec,
   EncoderHwaccel,
   UsernameClaim,
@@ -104,6 +110,25 @@ export function createAdminApi(context: ApiContext) {
         method: "POST",
       })
       return readJsonOrThrow<{ enqueued: number }>(res)
+    },
+
+    async fetchUsers(): Promise<AdminUsersResponse> {
+      const res = await context.request("/api/admin/users")
+      return readJsonOrThrow<AdminUsersResponse>(res)
+    },
+
+    async updateUserStorageQuota(
+      userId: string,
+      input: AdminUpdateUserStorageQuotaInput
+    ): Promise<AdminUserStorageRow> {
+      const res = await context.request(
+        `/api/admin/users/${encodeURIComponent(userId)}/storage-quota`,
+        {
+          method: "PATCH",
+          json: input,
+        }
+      )
+      return readJsonOrThrow<AdminUserStorageRow>(res)
     },
   }
 }
