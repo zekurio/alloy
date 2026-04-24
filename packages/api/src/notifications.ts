@@ -37,5 +37,20 @@ export function createNotificationsApi(context: ApiContext) {
       })
       return readJsonOrThrow(res)
     },
+
+    async delete(id: string): Promise<{ deleted: true; unreadCount: number }> {
+      const res = await context.request(
+        `/api/notifications/${encodeURIComponent(id)}`,
+        { method: "DELETE" }
+      )
+      return readJsonOrThrow(res)
+    },
+
+    async clear(): Promise<{ deleted: true; unreadCount: number }> {
+      const res = await context.request("/api/notifications", {
+        method: "DELETE",
+      })
+      return readJsonOrThrow(res)
+    },
   }
 }

@@ -16,6 +16,7 @@ export const NOTIFICATION_TYPES = [
   "clip_upload_failed",
   "new_follower",
   "clip_comment",
+  "comment_reply",
   "comment_pinned",
   "comment_liked_by_author",
 ] as const
