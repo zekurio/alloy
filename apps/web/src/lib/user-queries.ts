@@ -1,12 +1,18 @@
 import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query"
 
-import type { ProfileViewer, UserProfile } from "@workspace/api"
+import type {
+  ProfileViewer,
+  UserProfile,
+  UserProfileViewer,
+} from "@workspace/api"
 
 import { api } from "./api"
 
 export const userKeys = {
   all: ["user"] as const,
   profile: (handle: string) => [...userKeys.all, "profile", handle] as const,
+  profileViewer: (handle: string) =>
+    [...userKeys.all, "profile-viewer", handle] as const,
   search: (q: string) => [...userKeys.all, "search", q] as const,
   tagged: (handle: string) => [...userKeys.all, "tagged", handle] as const,
   followers: (handle: string) =>
@@ -61,6 +67,10 @@ export function useUserProfileQuery(handle: string) {
   return useQuery(userProfileQueryOptions(handle))
 }
 
+export function useUserProfileViewerQuery(handle: string) {
+  return useQuery(userProfileViewerQueryOptions(handle))
+}
+
 export function userProfileQueryOptions(handle: string) {
   return queryOptions({
     queryKey: userKeys.profile(handle),
@@ -70,19 +80,40 @@ export function userProfileQueryOptions(handle: string) {
   })
 }
 
+export function userProfileViewerQueryOptions(handle: string) {
+  return queryOptions({
+    queryKey: userKeys.profileViewer(handle),
+    queryFn: () => api.users.fetchProfileViewer(handle),
+    enabled: handle.length > 0,
+    staleTime: 30_000,
+  })
+}
+
 export function useProfileCachePatchers(handle: string) {
   const qc = useQueryClient()
-  const key = userKeys.profile(handle)
+  const profileKey = userKeys.profile(handle)
+  const viewerKey = userKeys.profileViewer(handle)
 
   return {
     setViewer: (viewer: ProfileViewer) => {
-      qc.setQueryData<UserProfile>(key, (old) =>
-        old ? { ...old, viewer } : old
+      qc.setQueryData<UserProfileViewer>(viewerKey, (old) =>
+        old ? { ...old, viewer } : { viewer, counts: null }
       )
     },
     bumpFollowers: (delta: number) => {
-      qc.setQueryData<UserProfile>(key, (old) =>
+      qc.setQueryData<UserProfile>(profileKey, (old) =>
         old
+          ? {
+              ...old,
+              counts: {
+                ...old.counts,
+                followers: Math.max(0, old.counts.followers + delta),
+              },
+            }
+          : old
+      )
+      qc.setQueryData<UserProfileViewer>(viewerKey, (old) =>
+        old?.counts
           ? {
               ...old,
               counts: {
