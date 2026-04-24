@@ -226,8 +226,8 @@ export function AdminUsersCard({ currentUserId }: AdminUsersCardProps) {
             {loadError}
           </div>
         ) : users === null ? (
-          <div className="flex items-center gap-2 text-sm text-foreground-muted">
-            <Spinner className="size-4" /> Loading users…
+          <div className="grid place-items-center py-3 text-foreground-muted">
+            <Spinner className="size-4" />
           </div>
         ) : users.length === 0 ? (
           <p className="text-sm text-foreground-muted">No users yet.</p>
