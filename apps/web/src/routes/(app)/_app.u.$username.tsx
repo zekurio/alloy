@@ -8,14 +8,23 @@ import { ProfileIdentity } from "@/components/routes/profile/profile-identity"
 import { ProfileIdentitySkeleton } from "@/components/routes/profile/profile-identity-skeleton"
 import { ProfileTabsNav } from "@/components/routes/profile/profile-tabs-nav"
 import { EmptyState } from "@/components/feedback/empty-state"
-import { useUserClipsQuery } from "@/lib/clip-queries"
+import { useUserClipsQuery, userClipsQueryOptions } from "@/lib/clip-queries"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import {
   useProfileCachePatchers,
   useUserProfileQuery,
+  userProfileQueryOptions,
 } from "@/lib/user-queries"
 
 export const Route = createFileRoute("/(app)/_app/u/$username")({
+  loader: async ({ context, params }) => {
+    await Promise.all([
+      context.queryClient.prefetchQuery(
+        userProfileQueryOptions(params.username)
+      ),
+      context.queryClient.prefetchQuery(userClipsQueryOptions(params.username)),
+    ])
+  },
   component: UserProfileLayout,
 })
 
@@ -54,9 +63,7 @@ function UserProfileLayout() {
       <AppMain>
         <div
           aria-hidden={gated ? true : undefined}
-          className={
-            gated ? "pointer-events-none select-none" : undefined
-          }
+          className={gated ? "pointer-events-none select-none" : undefined}
         >
           {profileError ? (
             <EmptyState
