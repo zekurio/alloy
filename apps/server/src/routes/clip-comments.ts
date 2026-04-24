@@ -78,8 +78,6 @@ export const clipCommentsRoutes = new Hono()
       const target = await resolveEngagementTarget(id, c.req.raw.headers)
       if (!target.accessible) return target.response
 
-      // Replies are single-level: if parent already has a parent, anchor
-      // the new reply to the top-level id instead (YouTube-style).
       let resolvedParentId: string | null = null
       let parentAuthorId: string | null = null
       if (parentId) {
@@ -96,7 +94,7 @@ export const clipCommentsRoutes = new Hono()
         if (!parent || parent.clipId !== id) {
           return c.json({ error: "Parent comment not found" }, 404)
         }
-        resolvedParentId = parent.parentId ?? parent.id
+        resolvedParentId = parent.id
         parentAuthorId = parent.authorId
       }
 
@@ -242,23 +240,14 @@ export const clipCommentsRoutes = new Hono()
       }
 
       await db.transaction(async (tx) => {
-        // Count how many rows we're about to delete so commentCount
-        // stays in sync. Replies cascade via the self-FK.
-        let toDelete = 1
-        if (row.parentId === null) {
-          const [{ count }] = await tx
-            .select({ count: sql<number>`count(*)::int` })
-            .from(clipComment)
-            .where(eq(clipComment.parentId, row.id))
-          toDelete += count ?? 0
-        }
-        await tx.delete(clipComment).where(eq(clipComment.id, row.id))
         await tx
-          .update(clip)
+          .update(clipComment)
           .set({
-            commentCount: sql`GREATEST(0, ${clip.commentCount} - ${toDelete})`,
+            body: "",
+            pinnedAt: null,
+            editedAt: new Date(),
           })
-          .where(eq(clip.id, row.clipId))
+          .where(eq(clipComment.id, row.id))
       })
 
       return c.json({ deleted: true })
