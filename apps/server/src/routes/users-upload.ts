@@ -7,7 +7,7 @@ import { stream } from "hono/streaming"
 import { z } from "zod"
 
 import { user } from "@workspace/db/auth-schema"
-import { ACCEPTED_IMAGE_CONTENT_TYPES } from "@workspace/db/contracts"
+import { ACCEPTED_IMAGE_CONTENT_TYPES } from "@workspace/contracts"
 
 import { db } from "../db"
 import { requireSession } from "../lib/require-session"

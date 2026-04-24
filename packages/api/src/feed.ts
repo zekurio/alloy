@@ -3,7 +3,7 @@ import type {
   ClipRow,
   FeedChipsResponse,
   FeedPageParams,
-} from "@workspace/db/contracts"
+} from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
 
 export type {
@@ -11,7 +11,7 @@ export type {
   FeedChipsResponse,
   FeedFilter,
   FeedPageParams,
-} from "@workspace/db/contracts"
+} from "@workspace/contracts"
 
 export function createFeedApi(context: ApiContext) {
   return {
@@ -23,12 +23,12 @@ export function createFeedApi(context: ApiContext) {
       if (params.limit !== undefined) query.limit = String(params.limit)
       if (params.offset !== undefined) query.offset = String(params.offset)
 
-      const res = await context.client.api.feed.$get({ query })
+      const res = await context.request("/api/feed", { query })
       return readJsonOrThrow<ClipRow[]>(res)
     },
 
     async fetchChips(): Promise<FeedChipsResponse> {
-      const res = await context.client.api.feed.chips.$get({ query: {} })
+      const res = await context.request("/api/feed/chips")
       return readJsonOrThrow<FeedChipsResponse>(res)
     },
   }

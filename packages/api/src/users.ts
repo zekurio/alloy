@@ -6,7 +6,7 @@ import {
   type UserClip,
   type UserProfile,
   type UserSearchResult,
-} from "@workspace/db/contracts"
+} from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
 
 export type {
@@ -16,7 +16,7 @@ export type {
   UserClip,
   UserProfile,
   UserSearchResult,
-} from "@workspace/db/contracts"
+} from "@workspace/contracts"
 
 const ACCEPTED_IMAGE_CONTENT_TYPE_SET: ReadonlySet<string> = new Set(
   ACCEPTED_IMAGE_CONTENT_TYPES
@@ -53,7 +53,8 @@ async function uploadAvatarImage(
     data,
     contentType,
   }
-  const res = await context.client.api.users.me.avatar.upload.$post({
+  const res = await context.request("/api/users/me/avatar/upload", {
+    method: "POST",
     json,
   })
   return readJsonOrThrow<PublicUser>(res)
@@ -69,19 +70,24 @@ async function uploadBannerImage(
     data,
     contentType,
   }
-  const res = await context.client.api.users.me.banner.upload.$post({
+  const res = await context.request("/api/users/me/banner/upload", {
+    method: "POST",
     json,
   })
   return readJsonOrThrow<PublicUser>(res)
 }
 
 async function deleteAvatar(context: ApiContext): Promise<PublicUser> {
-  const res = await context.client.api.users.me.avatar.$delete()
+  const res = await context.request("/api/users/me/avatar", {
+    method: "DELETE",
+  })
   return readJsonOrThrow<PublicUser>(res)
 }
 
 async function deleteBanner(context: ApiContext): Promise<PublicUser> {
-  const res = await context.client.api.users.me.banner.$delete()
+  const res = await context.request("/api/users/me/banner", {
+    method: "DELETE",
+  })
   return readJsonOrThrow<PublicUser>(res)
 }
 
@@ -89,9 +95,7 @@ async function getProfile(
   context: ApiContext,
   handle: string
 ): Promise<UserProfile> {
-  const res = await context.client.api.users[":username"].$get({
-    param: { username: handle },
-  })
+  const res = await context.request(`/api/users/${encodeURIComponent(handle)}`)
   return readJsonOrThrow<UserProfile>(res)
 }
 
@@ -99,9 +103,9 @@ async function getClips(
   context: ApiContext,
   handle: string
 ): Promise<UserClip[]> {
-  const res = await context.client.api.users[":username"].clips.$get({
-    param: { username: handle },
-  })
+  const res = await context.request(
+    `/api/users/${encodeURIComponent(handle)}/clips`
+  )
   return readJsonOrThrow<UserClip[]>(res)
 }
 
@@ -109,9 +113,9 @@ async function getTaggedClips(
   context: ApiContext,
   handle: string
 ): Promise<UserClip[]> {
-  const res = await context.client.api.users[":username"].tagged.$get({
-    param: { username: handle },
-  })
+  const res = await context.request(
+    `/api/users/${encodeURIComponent(handle)}/tagged`
+  )
   return readJsonOrThrow<UserClip[]>(res)
 }
 
@@ -120,7 +124,7 @@ async function searchUsers(
   q: string,
   limit = 8
 ): Promise<UserSearchResult[]> {
-  const res = await context.client.api.users.search.$get({
+  const res = await context.request("/api/users/search", {
     query: { q, limit: String(limit) },
   })
   return readJsonOrThrow<UserSearchResult[]>(res)
@@ -130,9 +134,9 @@ async function getFollowers(
   context: ApiContext,
   handle: string
 ): Promise<UserSearchResult[]> {
-  const res = await context.client.api.users[":username"].followers.$get({
-    param: { username: handle },
-  })
+  const res = await context.request(
+    `/api/users/${encodeURIComponent(handle)}/followers`
+  )
   return readJsonOrThrow<UserSearchResult[]>(res)
 }
 
@@ -140,42 +144,51 @@ async function getFollowing(
   context: ApiContext,
   handle: string
 ): Promise<UserSearchResult[]> {
-  const res = await context.client.api.users[":username"].following.$get({
-    param: { username: handle },
-  })
+  const res = await context.request(
+    `/api/users/${encodeURIComponent(handle)}/following`
+  )
   return readJsonOrThrow<UserSearchResult[]>(res)
 }
 
 async function followUser(context: ApiContext, handle: string): Promise<void> {
-  const res = await context.client.api.users[":username"].follow.$post({
-    param: { username: handle },
-  })
+  const res = await context.request(
+    `/api/users/${encodeURIComponent(handle)}/follow`,
+    { method: "POST" }
+  )
   await readJsonOrThrow<{ following: true }>(res)
 }
 
-async function unfollowUser(context: ApiContext, handle: string): Promise<void> {
-  const res = await context.client.api.users[":username"].follow.$delete({
-    param: { username: handle },
-  })
+async function unfollowUser(
+  context: ApiContext,
+  handle: string
+): Promise<void> {
+  const res = await context.request(
+    `/api/users/${encodeURIComponent(handle)}/follow`,
+    { method: "DELETE" }
+  )
   await readJsonOrThrow<{ following: false }>(res)
 }
 
 async function blockUser(context: ApiContext, handle: string): Promise<void> {
-  const res = await context.client.api.users[":username"].block.$post({
-    param: { username: handle },
-  })
+  const res = await context.request(
+    `/api/users/${encodeURIComponent(handle)}/block`,
+    { method: "POST" }
+  )
   await readJsonOrThrow<{ blocked: true }>(res)
 }
 
 async function unblockUser(context: ApiContext, handle: string): Promise<void> {
-  const res = await context.client.api.users[":username"].block.$delete({
-    param: { username: handle },
-  })
+  const res = await context.request(
+    `/api/users/${encodeURIComponent(handle)}/block`,
+    { method: "DELETE" }
+  )
   await readJsonOrThrow<{ blocked: false }>(res)
 }
 
 async function requestOAuthProfileSync(context: ApiContext): Promise<void> {
-  const res = await context.client.api.users.me["sync-oauth-profile"].$post()
+  const res = await context.request("/api/users/me/sync-oauth-profile", {
+    method: "POST",
+  })
   await readJsonOrThrow<{ synced: true }>(res)
 }
 

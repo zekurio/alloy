@@ -2,7 +2,7 @@ import { zValidator } from "@hono/zod-validator"
 import { and, eq, sql } from "drizzle-orm"
 import { Hono } from "hono"
 
-import type { CommentRow } from "@workspace/db/contracts"
+import type { CommentRow } from "@workspace/contracts"
 import { user } from "@workspace/db/auth-schema"
 import { clip, clipComment, clipCommentLike } from "@workspace/db/schema"
 

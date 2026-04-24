@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm"
 
-import type { ClipMentionRef } from "@workspace/db/contracts"
+import type { ClipMentionRef } from "@workspace/contracts"
 import { user } from "@workspace/db/auth-schema"
 import { clip, clipMention, game } from "@workspace/db/schema"
 

@@ -1,63 +1,74 @@
-import type { User } from "../auth-schema"
-import type {
-  Clip,
-  ClipComment,
-  ClipPrivacy,
-  Game,
-} from "../schema"
-
 import type {
   AcceptedContentType,
-  SerializeDates,
+  ClipEncodedVariant,
+  ClipPrivacy,
+  ClipStatus,
+  IsoDateString,
   UploadTicket,
 } from "./shared"
 
-export type ClipGameRef = SerializeDates<
-  Pick<
-    Game,
-    "id" | "steamgriddbId" | "slug" | "name" | "releaseDate" | "heroUrl" | "gridUrl" | "logoUrl" | "iconUrl"
-  >
->
+export interface PublicUser {
+  id: string
+  username: string
+  name: string
+  image: string | null
+  banner: string | null
+  createdAt: IsoDateString
+  updatedAt: IsoDateString
+}
 
-export type ClipMentionRef = Pick<
-  User,
-  "id" | "username" | "displayUsername" | "name" | "image"
->
+export interface UserSummary {
+  id: string
+  username: string
+  displayUsername: string
+  name: string
+  image: string | null
+}
 
-export type ClipRow = SerializeDates<
-  Pick<
-    Clip,
-    | "id"
-    | "slug"
-    | "authorId"
-    | "title"
-    | "description"
-    | "game"
-    | "gameId"
-    | "privacy"
-    | "storageKey"
-    | "contentType"
-    | "sizeBytes"
-    | "durationMs"
-    | "width"
-    | "height"
-    | "trimStartMs"
-    | "trimEndMs"
-    | "variants"
-    | "thumbKey"
-    | "viewCount"
-    | "likeCount"
-    | "commentCount"
-    | "status"
-    | "encodeProgress"
-    | "failureReason"
-    | "createdAt"
-    | "updatedAt"
-  >
-> & {
-  authorUsername: User["username"]
-  authorName: User["name"]
-  authorImage: User["image"]
+export interface ClipGameRef {
+  id: string
+  steamgriddbId: number
+  slug: string
+  name: string
+  releaseDate: IsoDateString | null
+  heroUrl: string | null
+  gridUrl: string | null
+  logoUrl: string | null
+  iconUrl: string | null
+}
+
+export type ClipMentionRef = UserSummary
+
+export interface ClipRow {
+  id: string
+  slug: string
+  authorId: string
+  title: string
+  description: string | null
+  game: string | null
+  gameId: string
+  privacy: ClipPrivacy
+  storageKey: string
+  contentType: string
+  sizeBytes: number | null
+  durationMs: number | null
+  width: number | null
+  height: number | null
+  trimStartMs: number | null
+  trimEndMs: number | null
+  variants: ClipEncodedVariant[]
+  thumbKey: string | null
+  viewCount: number
+  likeCount: number
+  commentCount: number
+  status: ClipStatus
+  encodeProgress: number
+  failureReason: string | null
+  createdAt: IsoDateString
+  updatedAt: IsoDateString
+  authorUsername: string
+  authorName: string
+  authorImage: string | null
   gameRef: ClipGameRef | null
   mentions?: ClipMentionRef[]
 }
@@ -106,13 +117,14 @@ export interface ClipLikeState {
   likeCount: number
 }
 
-export type QueueClip = SerializeDates<
-  Pick<
-    Clip,
-    "id" | "title" | "status" | "encodeProgress" | "failureReason" | "createdAt"
-  >
-> & {
-  gameSlug: Game["slug"]
+export interface QueueClip {
+  id: string
+  title: string
+  status: ClipStatus
+  encodeProgress: number
+  failureReason: string | null
+  createdAt: IsoDateString
+  gameSlug: string
 }
 
 export type QueueEvent =
@@ -120,24 +132,17 @@ export type QueueEvent =
   | { type: "progress"; id: string; encodeProgress: number }
   | { type: "remove"; id: string }
 
-export type CommentAuthor = Pick<
-  User,
-  "id" | "username" | "displayUsername" | "name" | "image"
->
+export type CommentAuthor = UserSummary
 
-export type CommentRow = SerializeDates<
-  Pick<
-    ClipComment,
-    | "id"
-    | "clipId"
-    | "parentId"
-    | "body"
-    | "likeCount"
-    | "pinnedAt"
-    | "createdAt"
-    | "editedAt"
-  >
-> & {
+export interface CommentRow {
+  id: string
+  clipId: string
+  parentId: string | null
+  body: string
+  likeCount: number
+  pinnedAt: IsoDateString | null
+  createdAt: IsoDateString
+  editedAt: IsoDateString | null
   pinned: boolean
   likedByViewer: boolean
   likedByAuthor: boolean
@@ -200,12 +205,17 @@ export interface SteamGridDBAsset {
   humor?: boolean
 }
 
-export type GameRow = SerializeDates<
-  Pick<
-    Game,
-    "id" | "steamgriddbId" | "name" | "slug" | "releaseDate" | "heroUrl" | "gridUrl" | "logoUrl" | "iconUrl"
-  >
->
+export interface GameRow {
+  id: string
+  steamgriddbId: number
+  name: string
+  slug: string
+  releaseDate: IsoDateString | null
+  heroUrl: string | null
+  gridUrl: string | null
+  logoUrl: string | null
+  iconUrl: string | null
+}
 
 export interface GameListRow extends GameRow {
   clipCount: number
@@ -214,7 +224,6 @@ export interface GameListRow extends GameRow {
 export interface GameDetail extends GameRow {
   viewer: { isFollowing: boolean } | null
 }
-
 
 export interface GameClipsParams {
   sort?: "top" | "recent"
@@ -225,10 +234,6 @@ export interface GameClipsParams {
 export interface SteamGridDBStatus {
   steamgriddbConfigured: boolean
 }
-
-export type PublicUser = SerializeDates<
-  Pick<User, "id" | "username" | "name" | "image" | "banner" | "createdAt" | "updatedAt">
->
 
 export interface ProfileCounts {
   clips: number
@@ -250,15 +255,11 @@ export interface UserProfile {
 }
 
 export type UserClip = ClipRow
+export type UserSearchResult = UserSummary
 
-export type UserSearchResult = Pick<
-  User,
-  "id" | "username" | "displayUsername" | "name" | "image"
->
-
-export type UserListRow = UserSearchResult & {
+export interface UserListRow extends UserSearchResult {
   clipCount: number
-  createdAt: string
+  createdAt: IsoDateString
 }
 
 export interface SearchResults {
