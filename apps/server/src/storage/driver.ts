@@ -1,5 +1,5 @@
 import type { Readable } from "node:stream"
-import type { UploadTicket } from "@workspace/contracts"
+import type { AcceptedContentType, UploadTicket } from "@workspace/contracts"
 
 export interface ResolvedObject {
   stream: (opts?: { start?: number; end?: number }) => Readable
@@ -110,6 +110,26 @@ const CLIP_ASSET_EXTENSION: Record<ClipAssetRole, string> = {
 
 export function clipAssetKey(clipId: string, role: ClipAssetRole): string {
   return `${clipAssetDir(clipId)}/${role}${CLIP_ASSET_EXTENSION[role]}`
+}
+
+function clipSourceExtension(contentType: AcceptedContentType): string {
+  switch (contentType) {
+    case "video/mp4":
+      return ".mp4"
+    case "video/quicktime":
+      return ".mov"
+    case "video/x-matroska":
+      return ".mkv"
+    case "video/webm":
+      return ".webm"
+  }
+}
+
+export function clipSourceAssetKey(
+  clipId: string,
+  contentType: AcceptedContentType
+): string {
+  return `${clipAssetDir(clipId)}/source${clipSourceExtension(contentType)}`
 }
 
 export function clipVideoVariantKey(clipId: string, variantId: string): string {
