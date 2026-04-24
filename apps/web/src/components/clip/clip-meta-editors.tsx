@@ -4,14 +4,12 @@ import { PencilIcon } from "lucide-react"
 
 import { Chip, chipVariants } from "@workspace/ui/components/chip"
 import { GameIcon } from "@workspace/ui/components/game-icon"
-import { Input } from "@workspace/ui/components/input"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
 import { toast } from "@workspace/ui/components/sonner"
-import { Textarea } from "@workspace/ui/components/textarea"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type { ClipGameRef, GameRow } from "@workspace/api"
@@ -19,6 +17,7 @@ import type { ClipGameRef, GameRow } from "@workspace/api"
 import { useUpdateClipMutation } from "@/lib/clip-queries"
 import { CLIP_DESCRIPTION_MAX, CLIP_TITLE_MAX } from "@/lib/clip-fields"
 
+import { LimitedInput, LimitedTextarea } from "@/components/form/limited-field"
 import { GameCombobox } from "@/components/game/game-combobox"
 export { EditableMentions, PrivacyBadgeMenu } from "./clip-privacy-and-mentions"
 
@@ -121,7 +120,7 @@ export function EditableTitle({
   if (editing) {
     return (
       <div className="flex flex-col gap-1">
-        <Input
+        <LimitedInput
           ref={inputRef}
           value={draft}
           onChange={(e) => {
@@ -146,8 +145,15 @@ export function EditableTitle({
           disabled={saving}
           aria-label="Title"
           aria-invalid={error !== null}
+          groupClassName={cn(
+            "h-auto w-full rounded-sm border-0 bg-transparent",
+            "hover:border-transparent hover:bg-transparent",
+            "has-[[data-slot=input-group-control]:focus-visible]:border-transparent",
+            "has-[[data-slot=input-group-control]:focus-visible]:bg-transparent",
+            "has-[[data-slot=input-group-control]:focus-visible]:ring-0"
+          )}
           className={cn(
-            "h-auto rounded-sm border-0 bg-transparent p-0 text-2xl font-semibold tracking-[-0.02em] text-foreground",
+            "h-auto bg-transparent p-0 text-2xl font-semibold tracking-[-0.02em] text-foreground",
             "hover:border-transparent hover:bg-transparent",
             "focus-visible:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0",
             saving && "opacity-60"
@@ -379,7 +385,7 @@ export function EditableDescription({
 
   if (editing) {
     return (
-      <Textarea
+      <LimitedTextarea
         ref={textareaRef}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
@@ -399,7 +405,7 @@ export function EditableDescription({
         placeholder="Add a description — Enter to save, Shift+Enter for a newline."
         aria-label="Description"
         className={cn(
-          "min-h-0 rounded-md px-3 py-2 text-base leading-relaxed",
+          "min-h-0 px-3 py-2 text-base leading-relaxed",
           saving && "opacity-60"
         )}
       />
