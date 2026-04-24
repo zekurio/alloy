@@ -14,9 +14,9 @@ import {
   EmptyBlock,
   GameRowItem,
   GroupLabel,
-  quote,
   UserRowItem,
 } from "./search-result-items"
+import { quote } from "./search-format"
 
 type FlatItem =
   | { kind: "game"; id: string; row: GameListRow }

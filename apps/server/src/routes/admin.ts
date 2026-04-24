@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process"
 
 import { zValidator } from "@hono/zod-validator"
-import { eq, inArray, isNull, sql } from "drizzle-orm"
+import { desc, eq, inArray, isNull, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { createMiddleware } from "hono/factory"
 import { z } from "zod"
@@ -24,6 +24,7 @@ import {
   type OAuthProviderConfig,
   type RuntimeConfig,
 } from "../lib/config-store"
+import { selectSourceStorageUsedBytesByUserIds } from "../lib/storage-quota"
 import { ENCODE_JOB, getBoss } from "../queue"
 import { codecNameFor } from "../queue/ffmpeg"
 
@@ -45,6 +46,19 @@ const RuntimeConfigPatch = z.object({
   emailPasswordEnabled: z.boolean().optional(),
   passkeyEnabled: z.boolean().optional(),
   requireAuthToBrowse: z.boolean().optional(),
+})
+
+const UserIdParam = z.object({
+  id: z.string().uuid(),
+})
+
+const UserStorageQuotaPatch = z.object({
+  storageQuotaBytes: z
+    .number()
+    .int()
+    .positive()
+    .max(Number.MAX_SAFE_INTEGER)
+    .nullable(),
 })
 
 const OAuthProviderAdminSubmissionSchema = z
@@ -85,6 +99,50 @@ function adminRuntimeConfigResponse(config: Readonly<RuntimeConfig>) {
     ...redactSecrets(config),
     authBaseURL: env.BETTER_AUTH_URL,
   }
+}
+
+async function selectAdminUserStorageRows(targetUserIds?: string[]): Promise<
+  {
+    id: string
+    name: string
+    username: string
+    email: string
+    image: string | null
+    role: string | null
+    banned: boolean | null
+    createdAt: string
+    storageQuotaBytes: number | null
+    storageUsedBytes: number
+  }[]
+> {
+  const rows = await db
+    .select({
+      id: user.id,
+      name: user.name,
+      username: user.username,
+      email: user.email,
+      image: user.image,
+      role: user.role,
+      banned: user.banned,
+      createdAt: user.createdAt,
+      storageQuotaBytes: user.storageQuotaBytes,
+    })
+    .from(user)
+    .where(targetUserIds ? inArray(user.id, targetUserIds) : undefined)
+    .orderBy(desc(user.createdAt))
+    .limit(targetUserIds ? targetUserIds.length : 100)
+
+  const usage = await selectSourceStorageUsedBytesByUserIds(
+    db,
+    rows.map((row) => row.id)
+  )
+
+  return rows.map((row) => ({
+    ...row,
+    banned: row.banned ?? null,
+    createdAt: row.createdAt.toISOString(),
+    storageUsedBytes: usage.get(row.id) ?? 0,
+  }))
 }
 
 function hasEnabledOAuthProvider(config: {
@@ -164,6 +222,30 @@ export const adminRoute = new Hono()
   .get("/runtime-config", (c) => {
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
+  .get("/users", async (c) => {
+    return c.json({ users: await selectAdminUserStorageRows() })
+  })
+  .patch(
+    "/users/:id/storage-quota",
+    zValidator("param", UserIdParam),
+    zValidator("json", UserStorageQuotaPatch),
+    async (c) => {
+      const { id } = c.req.valid("param")
+      const { storageQuotaBytes } = c.req.valid("json")
+
+      const [updated] = await db
+        .update(user)
+        .set({ storageQuotaBytes, updatedAt: new Date() })
+        .where(eq(user.id, id))
+        .returning({ id: user.id })
+
+      if (!updated) return c.json({ error: "User not found" }, 404)
+
+      const [row] = await selectAdminUserStorageRows([id])
+      if (!row) return c.json({ error: "User not found" }, 404)
+      return c.json(row)
+    }
+  )
   .patch(
     "/runtime-config",
     zValidator("json", RuntimeConfigPatch),

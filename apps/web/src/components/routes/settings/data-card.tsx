@@ -20,6 +20,7 @@ import { toast } from "@workspace/ui/components/sonner"
 
 import { api } from "@/lib/api"
 import { getQueryClient } from "@/lib/query-client"
+import { formatBytes, storageUsagePercent } from "@/lib/storage-format"
 
 function DataActionRow({
   title,
@@ -41,19 +42,6 @@ function DataActionRow({
   )
 }
 
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B"
-  const units = ["B", "KiB", "MiB", "GiB", "TiB"] as const
-  let value = bytes
-  let unit = 0
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024
-    unit += 1
-  }
-  const digits = value >= 10 || unit === 0 ? 0 : 1
-  return `${value.toFixed(digits)} ${units[unit]}`
-}
-
 function StorageQuotaRow() {
   const { data } = useQuery({
     queryKey: ["user", "storage"],
@@ -63,10 +51,7 @@ function StorageQuotaRow() {
 
   const usedBytes = data?.usedBytes ?? 0
   const quotaBytes = data?.quotaBytes ?? null
-  const pct =
-    quotaBytes && quotaBytes > 0
-      ? Math.min(100, Math.round((usedBytes / quotaBytes) * 100))
-      : 0
+  const pct = storageUsagePercent(usedBytes, quotaBytes)
 
   return (
     <div className="flex flex-col gap-3 py-4">
@@ -83,7 +68,7 @@ function StorageQuotaRow() {
             : `${formatBytes(usedBytes)} / ${formatBytes(quotaBytes)}`}
         </div>
       </div>
-      {quotaBytes === null ? null : <Progress value={pct} />}
+      <Progress value={pct} />
     </div>
   )
 }
