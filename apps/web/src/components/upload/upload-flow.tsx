@@ -138,6 +138,7 @@ async function performUpload(
 function useServerQueueSync(
   serverQueue: QueueClip[],
   activeRef: React.MutableRefObject<Map<string, ActiveUpload>>,
+  retainedThumbsRef: React.MutableRefObject<Map<string, string>>,
   bump: () => void,
 ) {
   const invalidateClips = useInvalidateClips();
@@ -152,7 +153,11 @@ function useServerQueueSync(
         seen.has(active.clipId) &&
         active.status !== "uploading"
       ) {
-        URL.revokeObjectURL(active.thumbUrl);
+        const retained = retainedThumbsRef.current.get(active.clipId);
+        if (retained && retained !== active.thumbUrl) {
+          URL.revokeObjectURL(retained);
+        }
+        retainedThumbsRef.current.set(active.clipId, active.thumbUrl);
         activeRef.current.delete(localId);
         changed = true;
       }
@@ -172,6 +177,7 @@ function useServerQueueSync(
 
 function useCancelRow(
   activeRef: React.MutableRefObject<Map<string, ActiveUpload>>,
+  retainedThumbsRef: React.MutableRefObject<Map<string, string>>,
   bump: () => void,
 ) {
   const queryClient = useQueryClient();
@@ -193,6 +199,11 @@ function useCancelRow(
         }
       }
       if (clipId) {
+        const retained = retainedThumbsRef.current.get(clipId);
+        if (retained) {
+          URL.revokeObjectURL(retained);
+          retainedThumbsRef.current.delete(clipId);
+        }
         queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), (old) =>
           old ? old.filter((r) => r.id !== clipId) : old,
         );
@@ -202,12 +213,13 @@ function useCancelRow(
           .catch(() => undefined);
       }
     },
-    [invalidateClips, queryClient, bump, activeRef],
+    [invalidateClips, queryClient, bump, activeRef, retainedThumbsRef],
   );
 }
 
 function useRunUpload(
   activeRef: React.MutableRefObject<Map<string, ActiveUpload>>,
+  retainedThumbsRef: React.MutableRefObject<Map<string, string>>,
   bump: () => void,
 ) {
   const invalidateClips = useInvalidateClips();
@@ -229,7 +241,11 @@ function useRunUpload(
 
       try {
         await performUpload(payload, entry, bump, invalidateClips);
-        URL.revokeObjectURL(entry.thumbUrl);
+        if (entry.clipId) {
+          retainedThumbsRef.current.set(entry.clipId, entry.thumbUrl);
+        } else {
+          URL.revokeObjectURL(entry.thumbUrl);
+        }
         activeRef.current.delete(localId);
         bump();
       } catch (err) {
@@ -248,7 +264,7 @@ function useRunUpload(
         throw err;
       }
     },
-    [invalidateClips, bump, activeRef],
+    [invalidateClips, bump, activeRef, retainedThumbsRef],
   );
 }
 
@@ -257,6 +273,7 @@ function useUploadQueueState(
   onOpenClip: (row: QueueClip) => void,
 ) {
   const activeRef = React.useRef<Map<string, ActiveUpload>>(new Map());
+  const retainedThumbsRef = React.useRef<Map<string, string>>(new Map());
   const [, bumpState] = React.useReducer((n: number) => n + 1, 0);
   const bump = React.useCallback(() => bumpState(), []);
 
@@ -266,9 +283,32 @@ function useUploadQueueState(
     [serverQueueData],
   );
 
-  useServerQueueSync(serverQueue, activeRef, bump);
-  const runUpload = useRunUpload(activeRef, bump);
-  const cancelRow = useCancelRow(activeRef, bump);
+  React.useEffect(() => {
+    return () => {
+      for (const active of activeRef.current.values()) {
+        URL.revokeObjectURL(active.thumbUrl);
+      }
+      activeRef.current.clear();
+      for (const url of retainedThumbsRef.current.values()) {
+        URL.revokeObjectURL(url);
+      }
+      retainedThumbsRef.current.clear();
+    };
+  }, []);
+
+  useServerQueueSync(serverQueue, activeRef, retainedThumbsRef, bump);
+  const runUpload = useRunUpload(activeRef, retainedThumbsRef, bump);
+  const cancelRow = useCancelRow(activeRef, retainedThumbsRef, bump);
+  const releaseRetainedThumb = React.useCallback(
+    (clipId: string) => {
+      const retained = retainedThumbsRef.current.get(clipId);
+      if (!retained) return;
+      URL.revokeObjectURL(retained);
+      retainedThumbsRef.current.delete(clipId);
+      bump();
+    },
+    [bump],
+  );
   const { dismissed, dismiss, dismissMany } = useDismissedClips(serverQueue);
 
   const queue: QueueItem[] = React.useMemo(() => {
@@ -287,11 +327,26 @@ function useUploadQueueState(
           onOpen: row.status === "ready" ? () => onOpenClip(row) : undefined,
           onCopyLink:
             row.status === "ready" ? () => copyClipLink(row) : undefined,
-          onDismiss: row.status === "ready" ? () => dismiss(row.id) : undefined,
+          onDismiss:
+            row.status === "ready"
+              ? () => {
+                  releaseRetainedThumb(row.id);
+                  dismiss(row.id);
+                }
+              : undefined,
+          thumbFallbackUrl: retainedThumbsRef.current.get(row.id),
+          onThumbLoad: () => releaseRetainedThumb(row.id),
         }),
       );
     return [...fromLocal, ...fromServer];
-  }, [serverQueue, cancelRow, onOpenClip, dismissed, dismiss]);
+  }, [
+    serverQueue,
+    cancelRow,
+    onOpenClip,
+    dismissed,
+    dismiss,
+    releaseRetainedThumb,
+  ]);
 
   const activeCount = queue.filter(
     (q) => q.status !== "published" && q.status !== "failed",
@@ -301,8 +356,11 @@ function useUploadQueueState(
     const readyIds = serverQueue
       .filter((r) => r.status === "ready" && !dismissed.has(r.id))
       .map((r) => r.id);
+    for (const id of readyIds) {
+      releaseRetainedThumb(id);
+    }
     dismissMany(readyIds);
-  }, [serverQueue, dismissed, dismissMany]);
+  }, [serverQueue, dismissed, dismissMany, releaseRetainedThumb]);
 
   return { runUpload, queue, activeCount, clearCompleted };
 }
