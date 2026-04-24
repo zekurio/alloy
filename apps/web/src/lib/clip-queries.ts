@@ -1,6 +1,7 @@
 import {
   useInfiniteQuery,
   useMutation,
+  queryOptions,
   useQuery,
   useQueryClient,
   type InfiniteData,
@@ -63,7 +64,11 @@ export function useRecentClipsInfiniteQuery({
 }
 
 export function useUserClipsQuery(handle: string) {
-  return useQuery({
+  return useQuery(userClipsQueryOptions(handle))
+}
+
+export function userClipsQueryOptions(handle: string) {
+  return queryOptions({
     queryKey: clipKeys.userList(handle),
     queryFn: () => api.users.fetchClips(handle),
     enabled: handle.length > 0,

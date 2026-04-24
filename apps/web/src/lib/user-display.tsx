@@ -1,3 +1,5 @@
+import * as React from "react"
+
 import { cn } from "@workspace/ui/lib/utils"
 
 type AuthUser = {
@@ -17,7 +19,9 @@ function displayUsername(username: string): string {
   return value.startsWith("@") ? value : `@${value}`
 }
 
-export function userImageSrc(src: string | null | undefined): string | undefined {
+export function userImageSrc(
+  src: string | null | undefined
+): string | undefined {
   const value = src?.trim()
   if (!value) return undefined
 
@@ -46,7 +50,8 @@ export function displayName(user: AuthUser | null | undefined): string {
   if (user.displayUsername && user.displayUsername.trim()) {
     return displayUsername(user.displayUsername)
   }
-  if (user.username && user.username.trim()) return displayUsername(user.username)
+  if (user.username && user.username.trim())
+    return displayUsername(user.username)
   if (user.email) return user.email.split("@")[0] ?? "user"
   return "user"
 }
@@ -111,9 +116,7 @@ export type UserBannerData = {
   bg: string
 }
 
-export function userBanner(
-  user: AuthUser | null | undefined
-): UserBannerData {
+export function userBanner(user: AuthUser | null | undefined): UserBannerData {
   const name = displayName(user)
   const { bg } = avatarTint(user?.id ?? name)
   return {
@@ -155,19 +158,50 @@ export function UserBanner({
       style={{ backgroundColor: banner.bg }}
     >
       {banner.src ? (
-        <img
+        <UserBannerImage
           src={banner.src}
-          alt=""
-          aria-hidden
-          decoding="async"
-          className={cn(
-            "absolute inset-0 size-full object-cover",
-            hasDedicatedBanner
-              ? "brightness-90"
-              : "scale-150 brightness-75 saturate-150"
-          )}
+          hasDedicatedBanner={hasDedicatedBanner}
         />
       ) : null}
     </div>
+  )
+}
+
+function UserBannerImage({
+  src,
+  hasDedicatedBanner,
+}: {
+  src: string
+  hasDedicatedBanner: boolean
+}) {
+  const [status, setStatus] = React.useState<"loading" | "loaded" | "error">(
+    "loading"
+  )
+
+  React.useEffect(() => {
+    setStatus("loading")
+  }, [src])
+
+  return (
+    <>
+      <img
+        src={src}
+        alt=""
+        aria-hidden
+        decoding="async"
+        onLoad={() => setStatus("loaded")}
+        onError={() => setStatus("error")}
+        className={cn(
+          "absolute inset-0 size-full object-cover transition-opacity duration-150",
+          status === "loaded" ? "opacity-100" : "opacity-0",
+          hasDedicatedBanner
+            ? "brightness-90"
+            : "scale-150 brightness-75 saturate-150"
+        )}
+      />
+      {status === "loading" ? (
+        <div aria-hidden className="absolute inset-0 animate-pulse bg-muted" />
+      ) : null}
+    </>
   )
 }
