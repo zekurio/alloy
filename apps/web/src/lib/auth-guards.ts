@@ -6,13 +6,37 @@ function isAdmin(session: Session | null): boolean {
   return (session?.user as { role?: string } | undefined)?.role === "admin"
 }
 
-export async function requireBrowseAuthBeforeLoad(): Promise<void> {
-  const [config, session] = await Promise.all([loadAuthConfig(), loadSession()])
+function isClipPermalink(pathname: string): boolean {
+  return /^\/g\/[^/]+\/c\/[^/]+\/?$/.test(pathname)
+}
+
+export async function redirectToSetupBeforeLoad({
+  location,
+}: {
+  location: { pathname: string }
+}): Promise<void> {
+  if (location.pathname === "/setup") return
+
+  const config = await loadAuthConfig()
+  if (config.setupRequired) {
+    throw redirect({ to: "/setup" })
+  }
+}
+
+export async function requireBrowseAuthBeforeLoad({
+  location,
+}: {
+  location: { pathname: string }
+}): Promise<void> {
+  const config = await loadAuthConfig()
 
   if (config.setupRequired) {
     throw redirect({ to: "/setup" })
   }
 
+  if (isClipPermalink(location.pathname)) return
+
+  const session = await loadSession()
   if (!session && config.requireAuthToBrowse) {
     throw redirect({ to: "/login" })
   }

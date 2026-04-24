@@ -32,7 +32,7 @@ jobs:
           - name: web
             file: apps/web/Dockerfile
           - name: aio
-            file: apps/aio/Dockerfile
+            file: docker/Dockerfile.aio
 
     steps:
       - name: Checkout repository

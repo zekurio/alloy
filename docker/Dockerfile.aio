@@ -64,7 +64,7 @@ COPY --from=deps /app/packages/contracts/node_modules /app/packages/contracts/no
 COPY --from=deps /app/packages/db/node_modules /app/packages/db/node_modules
 COPY . .
 COPY --from=web-build /app/apps/web/.output /app/apps/web/.output
-COPY apps/aio/entrypoint.sh /usr/local/bin/alloy-aio
+COPY docker/aio-entrypoint.sh /usr/local/bin/alloy-aio
 RUN chmod +x /usr/local/bin/alloy-aio
 EXPOSE 8080
 VOLUME ["/data"]
