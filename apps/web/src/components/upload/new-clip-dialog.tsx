@@ -12,7 +12,6 @@ import {
 } from "@workspace/ui/components/dialog"
 import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
-import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 import {
   Sheet,
@@ -20,13 +19,13 @@ import {
   SheetContent,
   SheetTitle,
 } from "@workspace/ui/components/sheet"
-import { Textarea } from "@workspace/ui/components/textarea"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { CLIP_DESCRIPTION_MAX, CLIP_TITLE_MAX } from "@/lib/clip-fields"
 import type { GameRow, UserSearchResult } from "@workspace/api"
 
 import { ClipPrivacyPicker } from "@/components/clip/clip-privacy-picker"
+import { LimitedInput, LimitedTextarea } from "@/components/form/limited-field"
 import { GameCombobox } from "@/components/game/game-combobox"
 import { MentionPicker } from "@/components/search/mention-picker"
 import { VolumeControl } from "@/components/video/video-player"
@@ -267,6 +266,9 @@ function LoadedState({
   const [title, setTitle] = React.useState(stripExtension(file.name))
   const [description, setDescription] = React.useState("")
   const [game, setGame] = React.useState<GameRow | null>(null)
+  const [steamGridDBConfigured, setSteamGridDBConfigured] = React.useState<
+    boolean | null
+  >(null)
   const [mentions, setMentions] = React.useState<Array<UserSearchResult>>([])
   const [visibility, setVisibility] = React.useState<Visibility>("unlisted")
 
@@ -284,13 +286,18 @@ function LoadedState({
   const [capturing, setCapturing] = React.useState(false)
   const [submissionAttempts, setSubmissionAttempts] = React.useState(0)
 
-  const titleInvalid = submissionAttempts > 0 && title.trim().length === 0
-  const gameInvalid = submissionAttempts > 0 && game === null
+  const gameRequired = steamGridDBConfigured !== false
+  const hasTitle = title.trim().length > 0
+  const hasGame = game !== null
+  const canPublish =
+    hasTitle && (!gameRequired || hasGame) && trimEndMs > trimStartMs
+  const titleInvalid = submissionAttempts > 0 && !hasTitle
+  const gameInvalid = submissionAttempts > 0 && gameRequired && !hasGame
 
   const handlePublishClick = async () => {
     const trimmedTitle = title.trim()
-    const missingTitle = trimmedTitle.length === 0
-    const missingGame = game === null
+    const missingTitle = !hasTitle
+    const missingGame = gameRequired && !hasGame
 
     setSubmissionAttempts((attempts) => attempts + 1)
 
@@ -317,7 +324,7 @@ function LoadedState({
       contentType: file.contentType,
       title: trimmedTitle,
       description: description.trim() || null,
-      gameId: game.id,
+      gameId: game?.id ?? null,
       privacy: visibility,
       width: file.width,
       height: file.height,
@@ -396,7 +403,7 @@ function LoadedState({
         {/* Right column — metadata form */}
         <section className="flex min-w-0 flex-col gap-4">
           <Field>
-            <FieldLabel htmlFor="clip-game" required>
+            <FieldLabel htmlFor="clip-game" required={gameRequired}>
               Game
             </FieldLabel>
             <GameCombobox
@@ -406,7 +413,8 @@ function LoadedState({
               disabled={publishing || capturing}
               placeholder="Search SteamGridDB…"
               invalid={gameInvalid}
-              required
+              onConfiguredChange={setSteamGridDBConfigured}
+              required={gameRequired}
             />
           </Field>
 
@@ -414,7 +422,7 @@ function LoadedState({
             <FieldLabel htmlFor="clip-title" required>
               Title
             </FieldLabel>
-            <Input
+            <LimitedInput
               id="clip-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -422,21 +430,18 @@ function LoadedState({
               aria-invalid={titleInvalid || undefined}
               aria-required={true}
             />
-            <div className="mt-1 text-right text-xs font-semibold text-foreground-muted tabular-nums">
-              {title.length}/{CLIP_TITLE_MAX}
-            </div>
           </Field>
 
           <Field>
             <FieldLabel htmlFor="clip-description">Description</FieldLabel>
-            <Textarea
+            <LimitedTextarea
               id="clip-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               maxLength={CLIP_DESCRIPTION_MAX}
               placeholder="Add context"
-              className="min-h-0 rounded-md px-3 py-2 text-sm"
+              className="min-h-0 px-3 py-2 text-sm"
             />
           </Field>
 
@@ -477,7 +482,7 @@ function LoadedState({
         <Button
           variant="primary"
           size="default"
-          disabled={publishing || capturing}
+          disabled={publishing || capturing || !canPublish}
           onClick={handlePublishClick}
           className={cn(isMobile && "w-full min-w-0")}
         >
