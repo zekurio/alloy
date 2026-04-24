@@ -79,8 +79,7 @@ export function PasswordCard() {
           >
             {(field) => {
               const showError =
-                field.state.meta.isTouched ||
-                form.state.submissionAttempts > 0
+                field.state.meta.isTouched || form.state.submissionAttempts > 0
               const invalid = showError && !field.state.meta.isValid
 
               return (
@@ -118,8 +117,7 @@ export function PasswordCard() {
           >
             {(field) => {
               const showError =
-                field.state.meta.isTouched ||
-                form.state.submissionAttempts > 0
+                field.state.meta.isTouched || form.state.submissionAttempts > 0
               const invalid = showError && !field.state.meta.isValid
 
               return (
@@ -161,8 +159,7 @@ export function PasswordCard() {
           >
             {(field) => {
               const showError =
-                field.state.meta.isTouched ||
-                form.state.submissionAttempts > 0
+                field.state.meta.isTouched || form.state.submissionAttempts > 0
               const invalid = showError && !field.state.meta.isValid
 
               return (
@@ -213,9 +210,7 @@ export function PasswordCard() {
 
         <SectionFooter>
           <form.Subscribe
-            selector={(state) =>
-              [state.canSubmit, state.isSubmitting] as const
-            }
+            selector={(state) => [state.canSubmit, state.isSubmitting] as const}
           >
             {([canSubmit, isSubmitting]) => (
               <Button

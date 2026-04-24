@@ -72,9 +72,7 @@ function ClipComments({
 }: ClipCommentsProps) {
   const [draft, setDraft] = React.useState("")
   const [sort, setSort] = React.useState<Sort>("top")
-  const [replyTarget, setReplyTarget] = React.useState<ReplyTarget | null>(
-    null
-  )
+  const [replyTarget, setReplyTarget] = React.useState<ReplyTarget | null>(null)
   const [openReplyIds, setOpenReplyIds] = React.useState<Set<string>>(
     () => new Set()
   )

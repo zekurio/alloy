@@ -164,9 +164,9 @@ export function ClipEditDialog({
           "flex max-h-[min(90dvh,820px)] max-w-2xl flex-col gap-0 bg-surface p-0",
           // Mobile: bottom-sheet positioning
           "max-sm:top-auto max-sm:right-0 max-sm:bottom-0 max-sm:left-0",
-          "max-sm:max-w-none max-sm:max-h-[85dvh]",
+          "max-sm:max-h-[85dvh] max-sm:max-w-none",
           "max-sm:translate-x-0 max-sm:translate-y-0",
-          "max-sm:rounded-b-none max-sm:rounded-t-2xl"
+          "max-sm:rounded-t-2xl max-sm:rounded-b-none"
         )}
       >
         <DialogHeader>
