@@ -3,11 +3,11 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { z } from "zod"
 
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
+  Section,
+  SectionContent,
+  SectionHeader,
+  SectionTitle,
+} from "@workspace/ui/components/section"
 import {
   Select,
   SelectContent,
@@ -129,11 +129,11 @@ function AdminAuthTab({
     <TabsContent value="auth" className="flex flex-col gap-3">
       <OAuthProviderCard config={config} onChange={onConfigChange} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Access controls</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col">
+      <Section>
+        <SectionHeader>
+          <SectionTitle>Access controls</SectionTitle>
+        </SectionHeader>
+        <SectionContent className="flex flex-col">
           <ToggleRow
             title="Email and password"
             description="Allow existing users to sign in with email or username plus password."
@@ -166,8 +166,8 @@ function AdminAuthTab({
             checked={config.requireAuthToBrowse}
             onCheckedChange={onToggleRequireAuthToBrowse}
           />
-        </CardContent>
-      </Card>
+        </SectionContent>
+      </Section>
     </TabsContent>
   )
 }

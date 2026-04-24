@@ -14,11 +14,11 @@ import {
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
+  Section,
+  SectionContent,
+  SectionHeader,
+  SectionTitle,
+} from "@workspace/ui/components/section"
 import { Switch } from "@workspace/ui/components/switch"
 import { toast } from "@workspace/ui/components/sonner"
 
@@ -114,11 +114,11 @@ export function OAuthProviderCard({
 
   return (
     <>
-      <Card>
-        <CardHeader className="border-b-0 pb-0">
-          <CardTitle>OIDC / OAuth provider</CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center justify-between gap-4 py-4">
+      <Section>
+        <SectionHeader className="border-b-0 pb-0">
+          <SectionTitle>OIDC / OAuth provider</SectionTitle>
+        </SectionHeader>
+        <SectionContent className="flex items-center justify-between gap-4 py-4">
           <div className="flex min-w-0 items-center gap-3">
             <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-border">
               <UserKeyIcon className="size-4" />
@@ -204,8 +204,8 @@ export function OAuthProviderCard({
               Add provider
             </Button>
           )}
-        </CardContent>
-      </Card>
+        </SectionContent>
+      </Section>
 
       <OAuthCustomProviderDialog
         authBaseURL={config.authBaseURL}

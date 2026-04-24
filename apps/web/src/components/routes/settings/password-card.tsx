@@ -2,7 +2,11 @@ import { useForm } from "@tanstack/react-form"
 import { KeyRoundIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
-import { Card, CardContent, CardFooter } from "@workspace/ui/components/card"
+import {
+  Section,
+  SectionContent,
+  SectionFooter,
+} from "@workspace/ui/components/section"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import { Field, FieldError, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
@@ -52,8 +56,8 @@ export function PasswordCard() {
         void form.handleSubmit()
       }}
     >
-      <Card>
-        <CardContent className="flex flex-col gap-4 py-4">
+      <Section>
+        <SectionContent className="flex flex-col gap-4 py-4">
           <div className="flex items-start gap-3">
             <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border">
               <KeyRoundIcon className="size-4" />
@@ -205,9 +209,9 @@ export function PasswordCard() {
               </Field>
             )}
           </form.Field>
-        </CardContent>
+        </SectionContent>
 
-        <CardFooter>
+        <SectionFooter>
           <form.Subscribe
             selector={(state) =>
               [state.canSubmit, state.isSubmitting] as const
@@ -224,8 +228,8 @@ export function PasswordCard() {
               </Button>
             )}
           </form.Subscribe>
-        </CardFooter>
-      </Card>
+        </SectionFooter>
+      </Section>
     </form>
   )
 }

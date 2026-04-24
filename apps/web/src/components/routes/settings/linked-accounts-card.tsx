@@ -3,7 +3,7 @@ import { useRouter } from "@tanstack/react-router"
 import { Link2OffIcon, LinkIcon, UserKeyIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
-import { Card, CardContent } from "@workspace/ui/components/card"
+import { Section, SectionContent } from "@workspace/ui/components/section"
 import { toast } from "@workspace/ui/components/sonner"
 
 import type { PublicAuthConfig } from "@workspace/api"
@@ -47,8 +47,8 @@ export function LinkedAccountsCard({
   })
 
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 py-4">
+    <Section>
+      <SectionContent className="flex flex-col gap-3 py-4">
         <div>
           <div className="text-sm font-medium">Linked accounts</div>
           <p className="mt-0.5 text-xs text-foreground-dim">
@@ -63,8 +63,8 @@ export function LinkedAccountsCard({
           onLink={actions.onLink}
           onUnlink={actions.onUnlink}
         />
-      </CardContent>
-    </Card>
+      </SectionContent>
+    </Section>
   )
 }
 

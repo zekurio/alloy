@@ -11,7 +11,11 @@ import {
   AvatarImage,
 } from "@workspace/ui/components/avatar"
 import { Button } from "@workspace/ui/components/button"
-import { Card, CardContent, CardFooter } from "@workspace/ui/components/card"
+import {
+  Section,
+  SectionContent,
+  SectionFooter,
+} from "@workspace/ui/components/section"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -261,10 +265,10 @@ export function ProfileCard({
           void form.handleSubmit()
         }}
       >
-        <Card>
-          <CardContent className="flex flex-col gap-4">
+        <Section>
+          <SectionContent className="flex flex-col gap-4">
             {/* Banner preview */}
-            <div className="relative -mx-6 -mt-6 overflow-hidden rounded-t-lg">
+            <div className="relative overflow-hidden rounded-lg">
               <div className="relative aspect-[4/1] min-h-[80px]">
                 <UserBanner user={bannerUser} />
                 {hasBanner ? (
@@ -274,10 +278,10 @@ export function ProfileCard({
                   >
                     <DropdownMenuTrigger
                       disabled={uploading}
-                      className="group absolute inset-0 rounded-t-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                      className="group absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                       onPointerDown={bannerAnchor.onTriggerPointerDown}
                     >
-                      <div className="absolute inset-0 flex items-center justify-center rounded-t-lg bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                      <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
                         <Pencil className="size-4 text-white" />
                       </div>
                     </DropdownMenuTrigger>
@@ -305,9 +309,9 @@ export function ProfileCard({
                     type="button"
                     disabled={uploading}
                     onClick={() => openFilePicker("banner")}
-                    className="group absolute inset-0 rounded-t-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    className="group absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   >
-                    <div className="absolute inset-0 flex items-center justify-center rounded-t-lg bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                    <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
                       <Camera className="size-4 text-white" />
                     </div>
                   </button>
@@ -509,9 +513,9 @@ export function ProfileCard({
                 )
               }}
             </form.Field>
-          </CardContent>
+          </SectionContent>
 
-          <CardFooter>
+          <SectionFooter>
             <form.Subscribe
               selector={(state) =>
                 [
@@ -539,8 +543,8 @@ export function ProfileCard({
                 )
               }}
             </form.Subscribe>
-          </CardFooter>
-        </Card>
+          </SectionFooter>
+        </Section>
       </form>
     </>
   )
