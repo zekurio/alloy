@@ -85,7 +85,9 @@ export function ChromeShell({
   children: React.ReactNode
 }) {
   const [chromeVisible, setChromeVisible] = React.useState(true)
+  const [isFullscreen, setIsFullscreen] = React.useState(false)
   const hideTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const contentAspectRatio = aspectRatio ?? 16 / 9
 
   const scheduleHide = React.useCallback(() => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
@@ -109,6 +111,19 @@ export function ChromeShell({
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
     }
   }, [playing, scheduleHide])
+
+  React.useEffect(() => {
+    if (typeof document === "undefined") return
+
+    const onFullscreenChange = () => {
+      setIsFullscreen(document.fullscreenElement === containerRef.current)
+    }
+
+    onFullscreenChange()
+    document.addEventListener("fullscreenchange", onFullscreenChange)
+    return () =>
+      document.removeEventListener("fullscreenchange", onFullscreenChange)
+  }, [containerRef])
 
   const onKeyDown = React.useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -154,6 +169,7 @@ export function ChromeShell({
       data-mode="chrome"
       data-playing={playing ? "true" : "false"}
       data-chrome={chromeVisible ? "visible" : "hidden"}
+      data-fullscreen={isFullscreen ? "true" : "false"}
       tabIndex={0}
       onKeyDown={onKeyDown}
       onMouseMove={revealChrome}
@@ -171,7 +187,24 @@ export function ChromeShell({
         className
       )}
     >
-      {children}
+      <div
+        data-slot="video-player-frame"
+        className={cn(
+          "absolute inset-0",
+          isFullscreen &&
+            "top-1/2 right-auto bottom-auto left-1/2 h-auto max-h-dvh -translate-x-1/2 -translate-y-1/2"
+        )}
+        style={
+          isFullscreen
+            ? {
+                aspectRatio: String(contentAspectRatio),
+                width: `min(100dvw, calc(100dvh * ${contentAspectRatio}))`,
+              }
+            : undefined
+        }
+      >
+        {children}
+      </div>
     </div>
   )
 }

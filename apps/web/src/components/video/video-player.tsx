@@ -169,6 +169,17 @@ function PlayerCore({
   const [volume, setVolumeState] = React.useState(1)
   const [muted, setMutedState] = React.useState(initialMuted)
   const [hasRenderedFrame, setHasRenderedFrame] = React.useState(false)
+  const sortedQualityOptions = React.useMemo(
+    () =>
+      qualityOptions
+        ? [...qualityOptions].sort((a, b) =>
+            a.label.localeCompare(b.label, undefined, {
+              sensitivity: "base",
+            })
+          )
+        : qualityOptions,
+    [qualityOptions]
+  )
 
   const onTimeUpdateRef = React.useRef(onTimeUpdate)
   const onPlayingChangeRef = React.useRef(onPlayingChange)
@@ -514,7 +525,7 @@ function PlayerCore({
         onToggleMute={toggleMute}
         onVolumeChange={setVolume}
         onSeek={(seconds) => seekInternal(seconds)}
-        qualityOptions={qualityOptions}
+        qualityOptions={sortedQualityOptions}
         selectedQualityId={selectedQualityId}
         onSelectQuality={onSelectQuality}
         onAutoAdvanceChange={onAutoAdvanceChange}
