@@ -1,5 +1,5 @@
-import * as React from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import * as React from "react"
+import { Link, useNavigate } from "@tanstack/react-router"
 import {
   HeartIcon,
   MoreHorizontalIcon,
@@ -9,7 +9,7 @@ import {
   Trash2Icon,
   UserMinusIcon,
   UserPlusIcon,
-} from "lucide-react";
+} from "lucide-react"
 
 import {
   AlertDialog,
@@ -20,77 +20,74 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@workspace/ui/components/alert-dialog";
+} from "@workspace/ui/components/alert-dialog"
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
-} from "@workspace/ui/components/avatar";
-import { Button } from "@workspace/ui/components/button";
+} from "@workspace/ui/components/avatar"
+import { Button } from "@workspace/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu";
-import { GameIcon } from "@workspace/ui/components/game-icon";
-import { toast } from "@workspace/ui/components/sonner";
-import { cn } from "@workspace/ui/lib/utils";
+} from "@workspace/ui/components/dropdown-menu"
+import { GameIcon } from "@workspace/ui/components/game-icon"
+import { toast } from "@workspace/ui/components/sonner"
+import { cn } from "@workspace/ui/lib/utils"
 
-import type { ClipGameRef, ClipMentionRef, ClipPrivacy } from "@workspace/api";
+import type { ClipGameRef, ClipMentionRef, ClipPrivacy } from "@workspace/api"
 
-import { api } from "@/lib/api";
-import { useSession } from "@/lib/auth-client";
-import { PRIVACY_BY_VALUE } from "@/lib/clip-fields";
+import { api } from "@/lib/api"
+import { useSession } from "@/lib/auth-client"
+import { PRIVACY_BY_VALUE } from "@/lib/clip-fields"
 import {
   useDeleteClipMutation,
   useLikeStateQuery,
   useToggleLikeMutation,
-} from "@/lib/clip-queries";
-import { formatCount } from "@/lib/clip-format";
-import {
-  useGameQuery,
-  useToggleGameFavoriteMutation,
-} from "@/lib/game-queries";
+} from "@/lib/clip-queries"
+import { formatCount } from "@/lib/clip-format"
+import { useGameQuery, useToggleGameFavoriteMutation } from "@/lib/game-queries"
 import {
   useProfileCachePatchers,
   useUserProfileQuery,
   useUserProfileViewerQuery,
-} from "@/lib/user-queries";
+} from "@/lib/user-queries"
 
-import { ClipMentionsRow } from "./clip-mentions-row";
-import { renderDescriptionTokens } from "./clip-meta-editors";
+import { ClipMentionsRow } from "./clip-mentions-row"
+import { renderDescriptionTokens } from "./description-tokens"
 
 interface ClipMetaProps {
   /** Clip id — powers each field's PATCH and the delete action. */
-  clipId: string;
-  authorId: string;
-  title: string;
-  game: string;
-  gameRef: ClipGameRef | null;
-  description: string | null;
+  clipId: string
+  authorId: string
+  title: string
+  game: string
+  gameRef: ClipGameRef | null
+  description: string | null
   /** Real privacy value. Pill + popover menu are owner-gated inside. */
-  privacy: ClipPrivacy;
-  views: string;
-  postedAt: string;
+  privacy: ClipPrivacy
+  views: string
+  postedAt: string
   uploader: {
     /** Username handle — drives `/u/:handle` profile links. */
-    handle: string;
-    name: string;
+    handle: string
+    name: string
     avatar: {
-      initials: string;
+      initials: string
       /** Uploader's real avatar URL — falls through to initials on miss. */
-      src?: string;
-      bg?: string;
-      fg?: string;
-    };
-  };
-  likes: number;
-  mentions: ClipMentionRef[];
+      src?: string
+      bg?: string
+      fg?: string
+    }
+  }
+  likes: number
+  mentions: ClipMentionRef[]
   /** Fired after a successful delete — e.g. closes the player modal. */
-  onDeleted?: () => void;
-  onEdit?: () => void;
+  onDeleted?: () => void
+  onEdit?: () => void
 }
 
 function ClipMeta({
@@ -109,104 +106,104 @@ function ClipMeta({
   onDeleted,
   onEdit,
 }: ClipMetaProps) {
-  const { data: session } = useSession();
-  const viewerId = session?.user?.id ?? null;
+  const { data: session } = useSession()
+  const viewerId = session?.user?.id ?? null
   const viewerRole =
-    (session?.user as { role?: string | null } | undefined)?.role ?? null;
-  const isOwner = viewerId !== null && viewerId === authorId;
-  const isAdmin = viewerRole === "admin";
-  const canManage = isOwner || isAdmin;
-  const canLike = viewerId !== null;
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+    (session?.user as { role?: string | null } | undefined)?.role ?? null
+  const isOwner = viewerId !== null && viewerId === authorId
+  const isAdmin = viewerRole === "admin"
+  const canManage = isOwner || isAdmin
+  const canLike = viewerId !== null
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
 
-  const deleteMutation = useDeleteClipMutation();
-  const deleting = deleteMutation.isPending;
+  const deleteMutation = useDeleteClipMutation()
+  const deleting = deleteMutation.isPending
 
-  const likeStateQuery = useLikeStateQuery(clipId, { enabled: canLike });
-  const likeMutation = useToggleLikeMutation();
+  const likeStateQuery = useLikeStateQuery(clipId, { enabled: canLike })
+  const likeMutation = useToggleLikeMutation()
   const pendingLiked =
     likeMutation.isPending && likeMutation.variables?.clipId === clipId
       ? likeMutation.variables.nextLiked
-      : undefined;
-  const liked = pendingLiked ?? likeStateQuery.data?.liked ?? false;
+      : undefined
+  const liked = pendingLiked ?? likeStateQuery.data?.liked ?? false
 
-  const profileQuery = useUserProfileQuery(uploader.handle);
-  const profileViewerQuery = useUserProfileViewerQuery(uploader.handle);
-  const profileData = profileQuery.data;
-  const followerCount = profileData?.counts.followers ?? null;
-  const profileViewer = profileViewerQuery.data?.viewer;
-  const { setViewer, bumpFollowers } = useProfileCachePatchers(uploader.handle);
+  const profileQuery = useUserProfileQuery(uploader.handle)
+  const profileViewerQuery = useUserProfileViewerQuery(uploader.handle)
+  const profileData = profileQuery.data
+  const followerCount = profileData?.counts.followers ?? null
+  const profileViewer = profileViewerQuery.data?.viewer
+  const { setViewer, bumpFollowers } = useProfileCachePatchers(uploader.handle)
 
-  const [followPending, setFollowPending] = React.useState(false);
-  const isFollowing = profileViewer?.isFollowing ?? false;
+  const [followPending, setFollowPending] = React.useState(false)
+  const isFollowing = profileViewer?.isFollowing ?? false
   const canFollow =
     viewerId !== null &&
     profileViewer !== undefined &&
     profileViewer !== null &&
     !profileViewer.isSelf &&
-    !profileViewer.isBlockedBy;
+    !profileViewer.isBlockedBy
 
   const handleLikeToggle = React.useCallback(() => {
-    if (!canLike) return;
+    if (!canLike) return
     likeMutation.mutate(
       { clipId, nextLiked: !liked },
       {
         onError: () => toast.error("Couldn't update like"),
-      },
-    );
-  }, [canLike, clipId, liked, likeMutation]);
+      }
+    )
+  }, [canLike, clipId, liked, likeMutation])
 
   const handleDelete = React.useCallback(() => {
     deleteMutation.mutate(
       { clipId },
       {
         onSuccess: () => {
-          toast.success("Clip deleted");
-          onDeleted?.();
+          toast.success("Clip deleted")
+          onDeleted?.()
         },
         onError: () => toast.error("Couldn't delete clip"),
-      },
-    );
-  }, [clipId, deleteMutation, onDeleted]);
+      }
+    )
+  }, [clipId, deleteMutation, onDeleted])
 
   const handleShare = React.useCallback(async () => {
-    const url = new URL(window.location.href);
-    url.search = "";
-    url.hash = "";
+    const url = new URL(window.location.href)
+    url.search = ""
+    url.hash = ""
 
     try {
-      await navigator.clipboard.writeText(url.toString());
-      toast.success("Link copied");
+      await navigator.clipboard.writeText(url.toString())
+      toast.success("Link copied")
     } catch {
-      toast.error("Couldn't copy link");
+      toast.error("Couldn't copy link")
     }
-  }, []);
+  }, [])
 
   async function handleFollow() {
-    if (followPending || !profileViewer) return;
-    setFollowPending(true);
-    const prev = profileViewer;
-    const optimistic = { ...prev, isFollowing: !isFollowing };
-    setViewer(optimistic);
-    bumpFollowers(isFollowing ? -1 : 1);
+    if (followPending || !profileViewer) return
+    setFollowPending(true)
+    const prev = profileViewer
+    const optimistic = { ...prev, isFollowing: !isFollowing }
+    setViewer(optimistic)
+    bumpFollowers(isFollowing ? -1 : 1)
     try {
-      if (isFollowing) await api.users.unfollow(uploader.handle);
-      else await api.users.follow(uploader.handle);
+      if (isFollowing) await api.users.unfollow(uploader.handle)
+      else await api.users.follow(uploader.handle)
     } catch (cause) {
-      setViewer(prev);
-      bumpFollowers(isFollowing ? 1 : -1);
+      setViewer(prev)
+      bumpFollowers(isFollowing ? 1 : -1)
       toast.error(
-        cause instanceof Error ? cause.message : "Something went wrong",
-      );
+        cause instanceof Error ? cause.message : "Something went wrong"
+      )
     } finally {
-      setFollowPending(false);
+      setFollowPending(false)
     }
   }
 
   const avatarStyle = {
     background: uploader.avatar.bg ?? "var(--neutral-200)",
     color: uploader.avatar.fg ?? "var(--foreground)",
-  } as const;
+  } as const
 
   return (
     <section className="flex flex-col gap-2">
@@ -278,7 +275,7 @@ function ClipMeta({
             className={cn(
               "shrink-0 rounded-md",
               "transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
+              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
             )}
           >
             <Avatar size="xl" style={avatarStyle}>
@@ -300,7 +297,7 @@ function ClipMeta({
                   "inline-flex items-center gap-1.5 text-lg font-semibold tracking-[-0.01em] text-foreground",
                   "hover:text-accent",
                   "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-                  "focus-visible:text-accent focus-visible:outline-none",
+                  "focus-visible:text-accent focus-visible:outline-none"
                 )}
               >
                 <span className="truncate">@{uploader.name}</span>
@@ -376,41 +373,41 @@ function ClipMeta({
         </AlertDialogContent>
       </AlertDialog>
     </section>
-  );
+  )
 }
 
 function ClipGameBadge({
   game,
   gameRef,
 }: {
-  game: string;
-  gameRef: ClipGameRef | null;
+  game: string
+  gameRef: ClipGameRef | null
 }) {
-  const navigate = useNavigate();
-  const icon = gameRef?.iconUrl ?? gameRef?.logoUrl ?? null;
-  const slug = gameRef?.slug ?? "";
-  const gameQuery = useGameQuery(slug);
-  const favoriteMutation = useToggleGameFavoriteMutation();
-  const viewer = gameQuery.data?.viewer;
-  const isFavorite = viewer?.isFollowing ?? false;
-  const canToggle = Boolean(gameRef) && viewer !== undefined;
+  const navigate = useNavigate()
+  const icon = gameRef?.iconUrl ?? gameRef?.logoUrl ?? null
+  const slug = gameRef?.slug ?? ""
+  const gameQuery = useGameQuery(slug)
+  const favoriteMutation = useToggleGameFavoriteMutation()
+  const viewer = gameQuery.data?.viewer
+  const isFavorite = viewer?.isFollowing ?? false
+  const canToggle = Boolean(gameRef) && viewer !== undefined
 
   function toggleFavorite() {
-    if (!gameRef || !canToggle || favoriteMutation.isPending) return;
+    if (!gameRef || !canToggle || favoriteMutation.isPending) return
     if (!viewer) {
-      void navigate({ to: "/login" });
-      return;
+      void navigate({ to: "/login" })
+      return
     }
     favoriteMutation.mutate(
       { slug: gameRef.slug, next: !isFavorite },
       {
         onError: (cause) => {
           toast.error(
-            cause instanceof Error ? cause.message : "Something went wrong",
-          );
+            cause instanceof Error ? cause.message : "Something went wrong"
+          )
         },
-      },
-    );
+      }
+    )
   }
 
   const gameBody = (
@@ -418,11 +415,11 @@ function ClipGameBadge({
       <GameIcon src={icon} name={game} />
       <span className="truncate">{game}</span>
     </>
-  );
+  )
 
   const base = cn(
-    "inline-flex h-8 items-center overflow-hidden rounded-lg border border-border bg-surface-raised",
-  );
+    "inline-flex h-8 items-center overflow-hidden rounded-lg border border-border bg-surface-raised"
+  )
 
   const starBtn = (
     <button
@@ -445,14 +442,14 @@ function ClipGameBadge({
         "inline-flex h-full items-center justify-center px-2.5 transition-colors",
         "text-foreground-faint hover:bg-white/5 hover:text-foreground",
         "disabled:pointer-events-none disabled:opacity-50",
-        isFavorite && "text-accent",
+        isFavorite && "text-accent"
       )}
     >
       <StarIcon className={cn("size-4", isFavorite && "fill-current")} />
     </button>
-  );
+  )
 
-  const separator = <div className="h-4 w-px bg-border" />;
+  const separator = <div className="h-4 w-px bg-border" />
 
   if (gameRef) {
     return (
@@ -468,7 +465,7 @@ function ClipGameBadge({
           {gameBody}
         </Link>
       </div>
-    );
+    )
   }
 
   return (
@@ -479,19 +476,19 @@ function ClipGameBadge({
         {gameBody}
       </span>
     </div>
-  );
+  )
 }
 
 function ClipPrivacyBadge({ privacy }: { privacy: ClipPrivacy }) {
-  const display = PRIVACY_BY_VALUE[privacy];
-  const Icon = display.icon;
+  const display = PRIVACY_BY_VALUE[privacy]
+  const Icon = display.icon
 
   return (
     <span className="inline-flex items-center gap-1 text-foreground-faint">
       <Icon className="size-3" />
       <span className="tabular-nums">{display.label}</span>
     </span>
-  );
+  )
 }
 
-export { ClipMeta, type ClipMetaProps };
+export { ClipMeta, type ClipMetaProps }

@@ -21,7 +21,9 @@ const config = defineConfig({
     }),
     tailwindcss(),
     tanstackStart(),
-    viteReact(),
+    viteReact({
+      exclude: [/\/node_modules\//, /\/src\/routes\/.*\.tsx$/],
+    }),
   ],
 })
 

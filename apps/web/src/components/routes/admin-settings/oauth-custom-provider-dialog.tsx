@@ -70,7 +70,10 @@ export function OAuthCustomProviderDialog({
 
   return (
     <Dialog open={draft !== null} onOpenChange={onOpenChange}>
-      <DialogContent variant="secondary" className="max-w-3xl">
+      <DialogContent
+        variant="secondary"
+        className="flex max-h-[calc(100dvh-2rem)] max-w-3xl flex-col"
+      >
         <DialogHeader>
           <DialogTitle>
             {editing ? "Edit OAuth provider" : "Add OAuth provider"}
@@ -83,7 +86,7 @@ export function OAuthCustomProviderDialog({
 
         {draft ? (
           <form id="oauth-provider-form" onSubmit={onSubmit}>
-            <DialogBody className="flex flex-col gap-4">
+            <DialogBody className="flex max-h-[calc(100dvh-11rem)] flex-col gap-4 overflow-y-auto">
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field>
                   <FieldLabel htmlFor="oauth-display-name" required>
