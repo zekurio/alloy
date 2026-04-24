@@ -1,6 +1,4 @@
 import {
-  ChevronDownIcon,
-  ChevronUpIcon,
   PencilIcon,
   StarIcon,
   Trash2Icon,
@@ -13,26 +11,18 @@ import type { AdminEncoderVariant } from "@workspace/api"
 type VariantRowProps = {
   variant: AdminEncoderVariant
   isDefault: boolean
-  canMoveUp: boolean
-  canMoveDown: boolean
   canDelete: boolean
   onEdit: () => void
   onSetDefault: () => void
-  onMoveUp: () => void
-  onMoveDown: () => void
   onDelete: () => void
 }
 
 export function VariantRow({
   variant,
   isDefault,
-  canMoveUp,
-  canMoveDown,
   canDelete,
   onEdit,
   onSetDefault,
-  onMoveUp,
-  onMoveDown,
   onDelete,
 }: VariantRowProps) {
   const specs = [
@@ -45,18 +35,7 @@ export function VariantRow({
 
   return (
     <div className="flex items-center gap-2">
-      <button
-        type="button"
-        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted/50"
-        onClick={onEdit}
-      >
-        <StarIcon
-          className={
-            isDefault
-              ? "size-3.5 shrink-0 fill-current text-foreground"
-              : "size-3.5 shrink-0 text-muted-foreground/40"
-          }
-        />
+      <div className="min-w-0 flex-1 rounded-md px-2 py-1.5">
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium">
             {variant.name || (
@@ -67,7 +46,7 @@ export function VariantRow({
             {specs.join(" · ")}
           </div>
         </div>
-      </button>
+      </div>
 
       <div className="flex shrink-0 items-center">
         <Button
@@ -95,26 +74,6 @@ export function VariantRow({
           <StarIcon
             className={isDefault ? "size-3.5 fill-current" : "size-3.5"}
           />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          onClick={onMoveUp}
-          disabled={!canMoveUp}
-          aria-label="Move up"
-        >
-          <ChevronUpIcon className="size-3.5" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          onClick={onMoveDown}
-          disabled={!canMoveDown}
-          aria-label="Move down"
-        >
-          <ChevronDownIcon className="size-3.5" />
         </Button>
         <Button
           type="button"
