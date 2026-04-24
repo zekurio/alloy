@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, type SQL } from "drizzle-orm"
+import { and, desc, eq, inArray, isNull, type SQL } from "drizzle-orm"
 import { z } from "zod"
 
 import type { PublicUser } from "@workspace/contracts"
@@ -42,7 +42,9 @@ export async function resolveTarget(segment: string): Promise<UserRow | null> {
   const [row] = await db
     .select()
     .from(user)
-    .where(eq(user.username, segment.toLowerCase()))
+    .where(
+      and(eq(user.username, segment.toLowerCase()), isNull(user.disabledAt))
+    )
     .limit(1)
   return row ?? null
 }
@@ -55,6 +57,7 @@ export async function listUserClips(row: UserRow, headers: Headers) {
   const conditions: SQL[] = [
     eq(clip.authorId, row.id),
     eq(clip.status, "ready"),
+    isNull(user.disabledAt),
   ]
   if (!isOwner && !isAdmin) {
     conditions.push(inArray(clip.privacy, ["public", "unlisted"]))
@@ -78,6 +81,7 @@ export async function listTaggedClips(row: UserRow, headers: Headers) {
   const conditions: SQL[] = [
     eq(clipMention.mentionedUserId, row.id),
     eq(clip.status, "ready"),
+    isNull(user.disabledAt),
   ]
   if (!isAdmin) {
     conditions.push(inArray(clip.privacy, ["public", "unlisted"]))
@@ -105,7 +109,7 @@ export function listFollowers(row: UserRow) {
     })
     .from(follow)
     .innerJoin(user, eq(user.id, follow.followerId))
-    .where(eq(follow.followingId, row.id))
+    .where(and(eq(follow.followingId, row.id), isNull(user.disabledAt)))
     .orderBy(user.username)
     .limit(200)
 }
@@ -121,7 +125,7 @@ export function listFollowing(row: UserRow) {
     })
     .from(follow)
     .innerJoin(user, eq(user.id, follow.followingId))
-    .where(eq(follow.followerId, row.id))
+    .where(and(eq(follow.followerId, row.id), isNull(user.disabledAt)))
     .orderBy(user.username)
     .limit(200)
 }

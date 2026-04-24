@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator"
-import { and, desc, eq, gte, inArray, lt, type SQL } from "drizzle-orm"
+import { and, desc, eq, gte, inArray, isNull, lt, type SQL } from "drizzle-orm"
 import { Hono } from "hono"
 
 import { user } from "@workspace/db/auth-schema"
@@ -22,6 +22,7 @@ export const clips = new Hono()
     const conditions: SQL[] = [
       eq(clip.status, "ready"),
       inArray(clip.privacy, ["public", "unlisted"]),
+      isNull(user.disabledAt),
     ]
     if (window && window !== "all") {
       conditions.push(
@@ -65,11 +66,19 @@ export const clips = new Hono()
     const isOwner = viewer?.id === row.authorId
     const isAdmin = viewer?.role === "admin"
     const isPrivate = row.privacy === "private"
+    const [author] = await db
+      .select({ disabledAt: user.disabledAt })
+      .from(user)
+      .where(eq(user.id, row.authorId))
+      .limit(1)
 
     if (isPrivate) {
       c.header("Cache-Control", "no-store")
     }
 
+    if (author?.disabledAt && !isOwner && !isAdmin) {
+      return c.json({ error: "Not found" }, 404)
+    }
     if (isPrivate && !isOwner && !isAdmin) {
       return c.json({ error: "Not found" }, 404)
     }

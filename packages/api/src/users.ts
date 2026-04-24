@@ -206,6 +206,44 @@ async function requestOAuthProfileSync(context: ApiContext): Promise<void> {
   await readJsonOrThrow<{ synced: true }>(res)
 }
 
+async function getAccountState(
+  context: ApiContext
+): Promise<{ disabledAt: string | null }> {
+  const res = await context.request("/api/users/me/account")
+  return readJsonOrThrow<{ disabledAt: string | null }>(res)
+}
+
+async function disableAccount(
+  context: ApiContext
+): Promise<{ disabledAt: string }> {
+  const res = await context.request("/api/users/me/disable", {
+    method: "POST",
+  })
+  return readJsonOrThrow<{ disabledAt: string }>(res)
+}
+
+async function reactivateAccount(
+  context: ApiContext
+): Promise<{ disabledAt: null }> {
+  const res = await context.request("/api/users/me/reactivate", {
+    method: "POST",
+  })
+  return readJsonOrThrow<{ disabledAt: null }>(res)
+}
+
+function downloadAllClipsUrl(context: ApiContext): string {
+  return new URL("/api/users/me/clips/download", context.baseURL).toString()
+}
+
+async function deleteAllClips(
+  context: ApiContext
+): Promise<{ deleted: number }> {
+  const res = await context.request("/api/users/me/clips", {
+    method: "DELETE",
+  })
+  return readJsonOrThrow<{ deleted: number }>(res)
+}
+
 export function createUsersApi(context: ApiContext) {
   return {
     async uploadAvatar(blob: Blob): Promise<PublicUser> {
@@ -270,6 +308,26 @@ export function createUsersApi(context: ApiContext) {
 
     async syncOAuthProfile(): Promise<void> {
       await requestOAuthProfileSync(context)
+    },
+
+    async fetchAccountState(): Promise<{ disabledAt: string | null }> {
+      return getAccountState(context)
+    },
+
+    async disableAccount(): Promise<{ disabledAt: string }> {
+      return disableAccount(context)
+    },
+
+    async reactivateAccount(): Promise<{ disabledAt: null }> {
+      return reactivateAccount(context)
+    },
+
+    downloadAllClipsUrl(): string {
+      return downloadAllClipsUrl(context)
+    },
+
+    async deleteAllClips(): Promise<{ deleted: number }> {
+      return deleteAllClips(context)
     },
   }
 }
