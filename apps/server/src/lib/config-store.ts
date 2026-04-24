@@ -42,6 +42,7 @@ const OAuthProviderBaseSchema = z.object({
   userInfoUrl: z.string().url().optional(),
   pkce: z.boolean().default(true),
   usernameClaim: z.string().min(1).max(128).default("preferred_username"),
+  quotaClaim: z.string().min(1).max(128).optional(),
 })
 
 const hasEndpoints = (p: z.infer<typeof OAuthProviderBaseSchema>) =>
@@ -169,6 +170,13 @@ const LimitsConfigSchema = z.object({
     .max(64 * 1024 * 1024 * 1024) // 64 GiB hard ceiling — anything larger
     // is almost certainly a misconfig and will crush the disk first.
     .default(4 * 1024 * 1024 * 1024),
+  defaultStorageQuotaBytes: z
+    .number()
+    .int()
+    .positive()
+    .max(Number.MAX_SAFE_INTEGER)
+    .nullable()
+    .default(null),
   uploadTtlSec: z
     .number()
     .int()

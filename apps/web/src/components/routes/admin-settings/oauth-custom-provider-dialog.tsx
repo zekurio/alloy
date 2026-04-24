@@ -191,6 +191,22 @@ export function OAuthCustomProviderDialog({
                     ))}
                   </NativeSelect>
                 </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="oauth-quota-claim">
+                    Quota claim
+                  </FieldLabel>
+                  <Input
+                    id="oauth-quota-claim"
+                    value={draft.quotaClaim ?? ""}
+                    placeholder="storage_quota"
+                    disabled={pendingAction !== null}
+                    onChange={(e) => onChange("quotaClaim", e.target.value)}
+                  />
+                  <FieldDescription>
+                    Optional. Claim value is interpreted as GiB.
+                  </FieldDescription>
+                </Field>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">

@@ -50,6 +50,13 @@
       "when": 1777046400000,
       "tag": "0006_gifted_account_disable",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1777049950274,
+      "tag": "0007_military_nightmare",
+      "breakpoints": true
     }
   ]
 }

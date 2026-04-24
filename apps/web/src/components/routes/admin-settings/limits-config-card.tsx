@@ -31,19 +31,27 @@ function formatMaxUploadMiB(maxUploadBytes: number) {
   return String(Math.round(maxUploadBytes / (1024 * 1024)))
 }
 
+function formatQuotaGiB(quotaBytes: number | null) {
+  return quotaBytes === null ? "" : String(quotaBytes / 1024 / 1024 / 1024)
+}
+
 function LimitsFields({
   form,
   maxUploadMiB,
+  storageQuotaGiB,
   onFieldChange,
   onMaxUploadChange,
+  onStorageQuotaChange,
 }: {
   form: AdminLimitsConfig
   maxUploadMiB: string
+  storageQuotaGiB: string
   onFieldChange: <K extends keyof AdminLimitsConfig>(
     key: K,
     value: AdminLimitsConfig[K]
   ) => void
   onMaxUploadChange: (value: string) => void
+  onStorageQuotaChange: (value: string) => void
 }) {
   return (
     <SectionContent className="flex flex-col gap-4">
@@ -91,6 +99,24 @@ function LimitsFields({
           </FieldDescription>
         </Field>
       </div>
+
+      <Field>
+        <FieldLabel htmlFor="limits-default-storage-quota">
+          Default storage quota (GiB)
+        </FieldLabel>
+        <Input
+          id="limits-default-storage-quota"
+          type="number"
+          min={1}
+          step={1}
+          value={storageQuotaGiB}
+          placeholder="Unlimited"
+          onChange={(e) => onStorageQuotaChange(e.target.value)}
+        />
+        <FieldDescription>
+          Applied to new users. Leave blank for unlimited storage.
+        </FieldDescription>
+      </Field>
 
       <Field>
         <FieldLabel htmlFor="limits-concurrency" required>
@@ -160,15 +186,23 @@ export function LimitsConfigCard({ limits, onChange }: LimitsConfigCardProps) {
   const [maxUploadMiB, setMaxUploadMiB] = React.useState<string>(() =>
     formatMaxUploadMiB(limits.maxUploadBytes)
   )
+  const [storageQuotaGiB, setStorageQuotaGiB] = React.useState<string>(() =>
+    formatQuotaGiB(limits.defaultStorageQuotaBytes)
+  )
   const initialMaxUploadMiB = React.useMemo(
     () => formatMaxUploadMiB(limits.maxUploadBytes),
     [limits.maxUploadBytes]
+  )
+  const initialStorageQuotaGiB = React.useMemo(
+    () => formatQuotaGiB(limits.defaultStorageQuotaBytes),
+    [limits.defaultStorageQuotaBytes]
   )
 
   React.useEffect(() => {
     setForm(limits)
     setMaxUploadMiB(initialMaxUploadMiB)
-  }, [initialMaxUploadMiB, limits])
+    setStorageQuotaGiB(initialStorageQuotaGiB)
+  }, [initialMaxUploadMiB, initialStorageQuotaGiB, limits])
 
   function set<K extends keyof AdminLimitsConfig>(
     key: K,
@@ -180,6 +214,7 @@ export function LimitsConfigCard({ limits, onChange }: LimitsConfigCardProps) {
   function resetForm() {
     setForm(limits)
     setMaxUploadMiB(initialMaxUploadMiB)
+    setStorageQuotaGiB(initialStorageQuotaGiB)
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -190,11 +225,26 @@ export function LimitsConfigCard({ limits, onChange }: LimitsConfigCardProps) {
       toast.error("Max upload size must be a positive number of MiB.")
       return
     }
+    const parsedQuotaGiB =
+      storageQuotaGiB.trim().length === 0 ? null : Number(storageQuotaGiB)
+    if (
+      parsedQuotaGiB !== null &&
+      (!Number.isFinite(parsedQuotaGiB) || parsedQuotaGiB <= 0)
+    ) {
+      toast.error(
+        "Default storage quota must be blank or a positive GiB value."
+      )
+      return
+    }
     setPending(true)
     try {
       const next = await api.admin.updateLimitsConfig({
         ...form,
         maxUploadBytes: Math.round(parsedMiB * 1024 * 1024),
+        defaultStorageQuotaBytes:
+          parsedQuotaGiB === null
+            ? null
+            : Math.round(parsedQuotaGiB * 1024 * 1024 * 1024),
       })
       onChange(next)
       toast.success("Limits updated")
@@ -210,7 +260,8 @@ export function LimitsConfigCard({ limits, onChange }: LimitsConfigCardProps) {
   const isDirty =
     form.uploadTtlSec !== limits.uploadTtlSec ||
     form.queueConcurrency !== limits.queueConcurrency ||
-    maxUploadMiB !== initialMaxUploadMiB
+    maxUploadMiB !== initialMaxUploadMiB ||
+    storageQuotaGiB !== initialStorageQuotaGiB
 
   return (
     <form onSubmit={onSubmit}>
@@ -222,8 +273,10 @@ export function LimitsConfigCard({ limits, onChange }: LimitsConfigCardProps) {
           <LimitsFields
             form={form}
             maxUploadMiB={maxUploadMiB}
+            storageQuotaGiB={storageQuotaGiB}
             onFieldChange={set}
             onMaxUploadChange={setMaxUploadMiB}
+            onStorageQuotaChange={setStorageQuotaGiB}
           />
           <LimitsActions
             pending={pending}

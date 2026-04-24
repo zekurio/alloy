@@ -15,7 +15,7 @@ import { Hono } from "hono"
 import { stream } from "hono/streaming"
 
 import { getAuth } from "../auth"
-import { user } from "@workspace/db/auth-schema"
+import { session as authSession, user } from "@workspace/db/auth-schema"
 import { block, clip, follow } from "@workspace/db/schema"
 
 import { db } from "../db"
@@ -29,6 +29,7 @@ import { createZipStream } from "../lib/zip-stream"
 import { syncLinkedOAuthImage } from "../lib/oauth-profile-sync"
 import { createNotification } from "../lib/notifications"
 import { requireSession } from "../lib/require-session"
+import { selectSourceStorageUsedBytes } from "../lib/storage-quota"
 import { storage } from "../storage"
 import {
   SearchQuery,
@@ -104,12 +105,30 @@ export const usersRoute = new Hono()
     })
   })
 
+  .get("/me/storage", requireSession, async (c) => {
+    const viewerId = c.var.viewerId
+    const [row, usedBytes] = await Promise.all([
+      db
+        .select({ quotaBytes: user.storageQuotaBytes })
+        .from(user)
+        .where(eq(user.id, viewerId))
+        .limit(1),
+      selectSourceStorageUsedBytes(db, viewerId),
+    ])
+    return c.json({
+      usedBytes,
+      quotaBytes: row[0]?.quotaBytes ?? null,
+    })
+  })
+
   .post("/me/disable", requireSession, async (c) => {
+    const viewerId = c.var.viewerId
     const now = new Date()
     await db
       .update(user)
       .set({ disabledAt: now, updatedAt: now })
-      .where(eq(user.id, c.var.viewerId))
+      .where(eq(user.id, viewerId))
+    await db.delete(authSession).where(eq(authSession.userId, viewerId))
     return c.json({ disabledAt: now.toISOString() })
   })
 
