@@ -79,6 +79,8 @@ export interface ServerRowHandlers {
   onOpen?: () => void
   onCopyLink?: () => void
   onDismiss?: () => void
+  thumbFallbackUrl?: string | null
+  onThumbLoad?: () => void
 }
 
 export function serverToQueueItem(
@@ -122,6 +124,8 @@ export function serverToQueueItem(
     detail,
     hue: hueFor(row.id),
     thumbUrl: clipThumbnailUrl(row.id),
+    thumbFallbackUrl: handlers.thumbFallbackUrl,
+    onThumbLoad: handlers.onThumbLoad,
     onCancel: handlers.onCancel,
     onOpen: handlers.onOpen,
     onCopyLink: handlers.onCopyLink,
