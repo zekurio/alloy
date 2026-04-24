@@ -42,9 +42,6 @@ import {
 } from "./new-clip-helpers"
 import { TrimTimeline, VideoPreview } from "./upload-trim-preview"
 
-// Re-export public API consumed by upload-flow.tsx so the import surface
-// stays stable across the split.
-export { ACCEPT_LIST, probeFile, resolveContentType } from "./new-clip-helpers"
 export type {
   PublishPayload,
   SelectedFile,
