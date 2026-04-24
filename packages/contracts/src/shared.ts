@@ -29,6 +29,8 @@ export interface ClipVariantSettings {
   quality: number
   preset?: string
   audioBitrateKbps: number
+  extraInputArgs: string
+  extraOutputArgs: string
   height: number
   trimStartMs: number | null
   trimEndMs: number | null
