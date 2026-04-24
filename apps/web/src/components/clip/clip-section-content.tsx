@@ -8,7 +8,6 @@ type EmptyStateSize = "sm" | "md" | "lg"
 
 type ClipSectionContentProps = {
   rows: readonly ClipRow[] | null
-  loading: boolean
   error: unknown
   skeletonCount?: number
   errorSeed: string
@@ -24,7 +23,6 @@ type ClipSectionContentProps = {
 
 export function ClipSectionContent({
   rows,
-  loading,
   error,
   skeletonCount = 5,
   errorSeed,
@@ -37,30 +35,30 @@ export function ClipSectionContent({
   listKey,
   isOwnedByViewer,
 }: ClipSectionContentProps) {
-  if (error) {
-    return <EmptyState seed={errorSeed} size={errorSize} title={errorTitle} />
-  }
+  if (rows !== null) {
+    if (rows.length === 0) {
+      return (
+        <EmptyState
+          seed={emptySeed}
+          size={emptySize}
+          title={emptyTitle}
+          hint={emptyHint}
+        />
+      )
+    }
 
-  if (loading || rows === null) {
-    return <ClipGridSkeleton count={skeletonCount} />
-  }
-
-  if (rows.length === 0) {
     return (
-      <EmptyState
-        seed={emptySeed}
-        size={emptySize}
-        title={emptyTitle}
-        hint={emptyHint}
+      <ClipCardList
+        rows={rows}
+        isOwnedByViewer={isOwnedByViewer}
+        listKey={listKey}
       />
     )
   }
 
-  return (
-    <ClipCardList
-      rows={rows}
-      isOwnedByViewer={isOwnedByViewer}
-      listKey={listKey}
-    />
-  )
+  if (error) {
+    return <EmptyState seed={errorSeed} size={errorSize} title={errorTitle} />
+  }
+
+  return <ClipGridSkeleton count={skeletonCount} />
 }

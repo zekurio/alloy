@@ -15,11 +15,7 @@ type TopClipsSectionProps = {
 }
 
 export function TopClipsSection({ slug, viewerId }: TopClipsSectionProps) {
-  const {
-    data: rows,
-    error,
-    isPending,
-  } = useGameTopClipsQuery(slug, {
+  const { data: rows, error } = useGameTopClipsQuery(slug, {
     limit: 5,
   })
   useQueryErrorToast(error, {
@@ -40,7 +36,6 @@ export function TopClipsSection({ slug, viewerId }: TopClipsSectionProps) {
 
       <ClipSectionContent
         rows={rows ?? null}
-        loading={isPending}
         error={error}
         errorSeed={`game-${slug}-top-error`}
         errorTitle="Couldn't load top clips"

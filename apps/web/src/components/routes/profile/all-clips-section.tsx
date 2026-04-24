@@ -106,7 +106,6 @@ export function AllClipsSection({
 
       <ClipSectionContent
         rows={visible}
-        loading={visible === null}
         error={error}
         errorSeed="profile-all-error"
         errorTitle="Couldn't load clips"

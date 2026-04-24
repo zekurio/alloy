@@ -49,7 +49,6 @@ function ProfileTaggedTab() {
 
       <ClipSectionContent
         rows={clips}
-        loading={clips === null}
         error={error}
         errorSeed="profile-tagged-error"
         errorTitle="Couldn't load tagged clips"
