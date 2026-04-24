@@ -1,10 +1,12 @@
 import { cn } from "@workspace/ui/lib/utils"
 
+import type { GameDetail } from "@workspace/api"
+
 import { hueForGame } from "@/lib/clip-format"
-import type { GameRow } from "@workspace/api"
+import { GameFavoriteButton } from "./game-favorite-button"
 
 type GameHeaderBannerProps = {
-  game: GameRow
+  game: GameDetail
 }
 
 export function GameHeaderBanner({ game }: GameHeaderBannerProps) {
@@ -38,27 +40,34 @@ export function GameHeaderBanner({ game }: GameHeaderBannerProps) {
         className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/85 via-black/40 to-transparent"
       />
 
-      <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 p-4 sm:p-6">
-        {game.logoUrl ? (
-          <img
-            src={game.logoUrl}
-            alt={game.name}
-            className={cn(
-              "h-16 w-auto max-w-[min(560px,70%)] object-contain object-left",
-              "drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)] sm:h-20"
-            )}
-            decoding="async"
-          />
-        ) : (
-          <h1
-            className={cn(
-              "text-2xl font-semibold tracking-[-0.02em] text-foreground sm:text-3xl",
-              "drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)]"
-            )}
-          >
-            {game.name}
-          </h1>
-        )}
+      <div className="absolute inset-x-0 bottom-0 flex items-end gap-4 p-4 sm:p-6">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          {game.logoUrl ? (
+            <img
+              src={game.logoUrl}
+              alt={game.name}
+              className={cn(
+                "h-16 w-auto max-w-[min(560px,72vw)] object-contain object-left",
+                "drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)] sm:h-20"
+              )}
+              decoding="async"
+            />
+          ) : (
+            <h1
+              className={cn(
+                "truncate text-2xl font-semibold text-foreground sm:text-3xl",
+                "drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)]"
+              )}
+            >
+              {game.name}
+            </h1>
+          )}
+        </div>
+        <GameFavoriteButton
+          slug={game.slug}
+          viewer={game.viewer}
+          className="shadow-[0_6px_18px_oklch(0_0_0_/_0.35)]"
+        />
       </div>
     </section>
   )

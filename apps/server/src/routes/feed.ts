@@ -99,7 +99,7 @@ export const feedRoute = new Hono()
 
     if (filter === "following") {
       // Either the clip author is followed, or the clip's game is
-      // followed. Anon already returned above, so viewerId is set.
+      // favourited. Anon already returned above, so viewerId is set.
       const userFollowed = exists(
         db
           .select({ one: sql`1` })
