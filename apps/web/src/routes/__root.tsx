@@ -11,10 +11,12 @@ import appCss from "@workspace/ui/globals.css?url"
 
 import { ClientOnly } from "@/components/app/client-only"
 import { ReactivateAccountPrompt } from "@/components/account/reactivate-account-prompt"
+import { redirectToSetupBeforeLoad } from "@/lib/auth-guards"
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
 }>()({
+  beforeLoad: redirectToSetupBeforeLoad,
   head: () => ({
     meta: [
       { charSet: "utf-8" },
