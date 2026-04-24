@@ -93,18 +93,26 @@ async function deleteBanner(context: ApiContext): Promise<PublicUser> {
 
 async function getProfile(
   context: ApiContext,
-  handle: string
+  handle: string,
+  init?: RequestInit
 ): Promise<UserProfile> {
-  const res = await context.request(`/api/users/${encodeURIComponent(handle)}`)
+  const res = await context.request(
+    `/api/users/${encodeURIComponent(handle)}`,
+    {
+      init,
+    }
+  )
   return readJsonOrThrow<UserProfile>(res)
 }
 
 async function getClips(
   context: ApiContext,
-  handle: string
+  handle: string,
+  init?: RequestInit
 ): Promise<UserClip[]> {
   const res = await context.request(
-    `/api/users/${encodeURIComponent(handle)}/clips`
+    `/api/users/${encodeURIComponent(handle)}/clips`,
+    { init }
   )
   return readJsonOrThrow<UserClip[]>(res)
 }
@@ -210,12 +218,15 @@ export function createUsersApi(context: ApiContext) {
       return deleteBanner(context)
     },
 
-    async fetchProfile(handle: string): Promise<UserProfile> {
-      return getProfile(context, handle)
+    async fetchProfile(
+      handle: string,
+      init?: RequestInit
+    ): Promise<UserProfile> {
+      return getProfile(context, handle, init)
     },
 
-    async fetchClips(handle: string): Promise<UserClip[]> {
-      return getClips(context, handle)
+    async fetchClips(handle: string, init?: RequestInit): Promise<UserClip[]> {
+      return getClips(context, handle, init)
     },
 
     async fetchTaggedClips(handle: string): Promise<UserClip[]> {

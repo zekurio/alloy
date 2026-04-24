@@ -1,5 +1,5 @@
 import * as React from "react"
-import { AlertCircleIcon, PlusIcon } from "lucide-react"
+import { AlertCircleIcon, AlertTriangleIcon, PlusIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -15,68 +15,46 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import { Separator } from "@workspace/ui/components/separator"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
 import { toast } from "@workspace/ui/components/sonner"
 import { Switch } from "@workspace/ui/components/switch"
 
 import {
-  ENCODER_CODECS,
   ENCODER_HEIGHT_MAX,
   ENCODER_HEIGHT_MIN,
-  ENCODER_HEIGHT_SUGGESTIONS,
-  ENCODER_HWACCELS,
   type AdminEncoderCapabilities,
   type AdminEncoderConfig,
   type AdminEncoderVariant,
   type AdminRuntimeConfig,
-  type EncoderCodec,
-  type EncoderHwaccel,
 } from "@workspace/api"
 
 import { api } from "@/lib/api"
-import { EncoderPresetField } from "./encoder-preset-field"
-import { IntInput, VariantRow } from "./encoder-variant-row"
-import { HWACCEL_LABEL, QUALITY_LABEL } from "./shared"
+import { EncoderVariantDialog } from "./encoder-variant-dialog"
+import { VariantRow } from "./encoder-variant-row"
 
 type EncoderConfigCardProps = {
   encoder: AdminEncoderConfig
   onChange: (next: AdminRuntimeConfig) => void
 }
 
-let nextVariantRowKey = 0
-
-function createVariantRowKey() {
-  nextVariantRowKey += 1
-  return `variant-row-${nextVariantRowKey}`
-}
+/** Index of the variant being edited, or -1 for a new variant, or null when closed. */
+type DialogState = number | null
 
 export function EncoderConfigCard({
   encoder,
   onChange,
 }: EncoderConfigCardProps) {
   const [form, setForm] = React.useState<AdminEncoderConfig>(encoder)
-  const [variantRowKeys, setVariantRowKeys] = React.useState(() =>
-    encoder.variants.map(() => createVariantRowKey())
-  )
   const [pending, setPending] = React.useState(false)
   const [caps, setCaps] = React.useState<AdminEncoderCapabilities | null>(null)
   const [capsError, setCapsError] = React.useState<string | null>(null)
+  const [dialogState, setDialogState] = React.useState<DialogState>(null)
 
   React.useEffect(() => {
     setForm(encoder)
-    setVariantRowKeys(encoder.variants.map(() => createVariantRowKey()))
   }, [encoder])
 
   function resetForm() {
     setForm(encoder)
-    setVariantRowKeys(encoder.variants.map(() => createVariantRowKey()))
   }
 
   React.useEffect(() => {
@@ -106,22 +84,11 @@ export function EncoderConfigCard({
     setForm((f) => ({ ...f, [key]: value }))
   }
 
-  function setEncoderCombo(
-    nextHwaccel: EncoderHwaccel,
-    nextCodec: EncoderCodec
-  ) {
-    setForm((f) => ({
-      ...f,
-      hwaccel: nextHwaccel,
-      codec: nextCodec,
-    }))
-  }
-
-  function updateVariant(index: number, next: AdminEncoderVariant) {
-    setForm((f) => ({
-      ...f,
-      variants: f.variants.map((v, i) => (i === index ? next : v)),
-    }))
+  function setEncodingEnabled(next: boolean) {
+    setForm((f) => ({ ...f, enabled: next }))
+    if (next && form.variants.length === 0) {
+      setDialogState(-1)
+    }
   }
 
   function removeVariant(index: number) {
@@ -129,7 +96,6 @@ export function EncoderConfigCard({
       ...f,
       variants: f.variants.filter((_, i) => i !== index),
     }))
-    setVariantRowKeys((keys) => keys.filter((_, i) => i !== index))
   }
 
   function moveVariant(index: number, direction: -1 | 1) {
@@ -142,15 +108,6 @@ export function EncoderConfigCard({
       next.splice(target, 0, moved)
       return { ...f, variants: next }
     })
-    setVariantRowKeys((keys) => {
-      const target = index + direction
-      if (target < 0 || target >= keys.length) return keys
-      const next = [...keys]
-      const [moved] = next.splice(index, 1)
-      if (!moved) return keys
-      next.splice(target, 0, moved)
-      return next
-    })
   }
 
   function setDefaultVariant(index: number) {
@@ -162,53 +119,85 @@ export function EncoderConfigCard({
       next.unshift(selected)
       return { ...f, variants: next }
     })
-    setVariantRowKeys((keys) => {
-      if (index <= 0 || index >= keys.length) return keys
-      const next = [...keys]
-      const [selected] = next.splice(index, 1)
-      if (!selected) return keys
-      next.unshift(selected)
-      return next
-    })
   }
 
-  function addVariant() {
-    const rowKey = createVariantRowKey()
-    setForm((f) => {
-      const used = new Set(f.variants.map((v) => v.height))
-      const suggestion = [...ENCODER_HEIGHT_SUGGESTIONS]
-        .reverse()
-        .find((h) => !used.has(h))
-      let next: number
-      if (suggestion !== undefined) {
-        next = suggestion
-      } else if (f.variants.length === 0) {
-        next = 1080
-      } else {
-        const smallest = Math.min(...f.variants.map((v) => v.height))
-        next = Math.max(ENCODER_HEIGHT_MIN, Math.floor(smallest / 2 / 2) * 2)
-      }
-      return {
-        ...f,
-        variants: [...f.variants, { height: next }],
-      }
-    })
-    setVariantRowKeys((keys) => [...keys, rowKey])
+  function openNewVariant() {
+    setDialogState(-1)
   }
+
+  function openEditVariant(index: number) {
+    setDialogState(index)
+  }
+
+  function handleDialogSave(variant: AdminEncoderVariant) {
+    if (dialogState === -1) {
+      // Adding new variant
+      setForm((f) => ({
+        ...f,
+        enabled: true,
+        variants: [...f.variants, variant],
+      }))
+    } else if (dialogState !== null) {
+      // Editing existing variant
+      setForm((f) => ({
+        ...f,
+        variants: f.variants.map((v, i) => (i === dialogState ? variant : v)),
+      }))
+    }
+    setDialogState(null)
+  }
+
+  function handleDialogOpenChange(open: boolean) {
+    if (!open) {
+      if (dialogState === -1 && !encoder.enabled) {
+        setForm((f) => (f.variants.length === 0 ? { ...f, enabled: false } : f))
+      }
+      setDialogState(null)
+    }
+  }
+
+  const dialogVariant: AdminEncoderVariant | null =
+    dialogState === -1
+      ? {
+          name: "",
+          hwaccel: "software",
+          height: 1080,
+          codec: "h264",
+          quality: 23,
+          audioBitrateKbps: 128,
+        }
+      : dialogState !== null
+        ? (form.variants[dialogState] ?? null)
+        : null
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (pending) return
+    if (!form.enabled) {
+      setPending(true)
+      try {
+        const next = await api.admin.updateEncoderConfig(form)
+        onChange(next)
+        toast.success("Encoder updated")
+      } catch (cause) {
+        toast.error(
+          cause instanceof Error ? cause.message : "Couldn't update encoder"
+        )
+      } finally {
+        setPending(false)
+      }
+      return
+    }
     if (form.variants.length === 0) {
-      toast.error("Add at least one variant.")
+      toast.error("Add at least one variant or disable variant encoding.")
       return
     }
-    const heights = form.variants.map((v) => v.height)
-    if (new Set(heights).size !== heights.length) {
-      toast.error("Variants must have unique heights.")
-      return
-    }
-    for (const h of heights) {
+    for (const variant of form.variants) {
+      if (variant.name.trim() === "") {
+        toast.error("Every variant needs a name.")
+        return
+      }
+      const h = variant.height
       if (
         !Number.isInteger(h) ||
         h < ENCODER_HEIGHT_MIN ||
@@ -235,31 +224,10 @@ export function EncoderConfigCard({
     }
   }
 
-  const currentCombo = caps?.available[form.hwaccel]
-  const currentComboMissing =
-    caps !== null && currentCombo !== undefined && !currentCombo[form.codec]
-  // Heights that appear in more than one rung — surfaced inline on each
-  // offending row so the admin sees the clash without hitting submit.
-  const duplicateHeights = React.useMemo(() => {
-    const counts = new Map<number, number>()
-    for (const v of form.variants) {
-      counts.set(v.height, (counts.get(v.height) ?? 0) + 1)
-    }
-    const dupes = new Set<number>()
-    for (const [h, count] of counts) {
-      if (count > 1) dupes.add(h)
-    }
-    return dupes
-  }, [form.variants])
-  // Ladder is capped at six rungs on the server; mirror that here so the
-  // add button disables at the same boundary (no silent server rejection).
-  const canAddVariant = form.variants.length < 6
   const isDirty = JSON.stringify(form) !== JSON.stringify(encoder)
-  const hasInvalidPreset =
-    form.preset.trim() === "" ||
-    form.variants.some(
-      (variant) => variant.preset !== undefined && variant.preset.trim() === ""
-    )
+  const hasInvalidVariantName = form.variants.some(
+    (variant) => variant.name.trim() === ""
+  )
   const hasInvalidHeight = form.variants.some(
     (variant) =>
       !Number.isInteger(variant.height) ||
@@ -270,279 +238,219 @@ export function EncoderConfigCard({
   const canSubmit =
     isDirty &&
     !pending &&
-    !hasInvalidPreset &&
-    !hasInvalidHeight &&
-    duplicateHeights.size === 0
+    (!form.enabled ||
+      (!hasInvalidVariantName &&
+        !hasInvalidHeight &&
+        form.variants.length > 0))
+  const usesQsv = form.variants.some((variant) => variant.hwaccel === "qsv")
+  const usesVaapi = form.variants.some((variant) => variant.hwaccel === "vaapi")
 
   return (
-    <form onSubmit={onSubmit}>
-      <Card>
-        <CardHeader>
-          <CardTitle>Encoder</CardTitle>
-        </CardHeader>
+    <>
+      <form onSubmit={onSubmit}>
+        <Card>
+          <CardHeader>
+            <CardTitle>Encoder</CardTitle>
+          </CardHeader>
 
-        <fieldset disabled={pending} className="contents">
-        <CardContent className="flex flex-col gap-3">
-          {capsError ? (
-            <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-              <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
-              <span>{capsError}</span>
-            </div>
-          ) : null}
-
-          {caps && !caps.ffmpegOk ? (
-            <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-              <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
-              <span>
-                ffmpeg isn&rsquo;t reachable on the server. Encodes will fail
-                until the binary is on PATH (or <code>FFMPEG_BIN</code> points
-                at it).
-              </span>
-            </div>
-          ) : null}
-
-          {caps?.ffmpegVersion ? (
-            <p className="text-xs text-muted-foreground">
-              Detected: <span className="font-mono">{caps.ffmpegVersion}</span>
-            </p>
-          ) : null}
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="encoder-hwaccel">Encoder</FieldLabel>
-              <Select
-                value={form.hwaccel}
-                onValueChange={(value) =>
-                  setEncoderCombo(value as EncoderHwaccel, form.codec)
-                }
-              >
-                <SelectTrigger id="encoder-hwaccel" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent align="start" alignItemWithTrigger={false}>
-                  {ENCODER_HWACCELS.map((hw) => {
-                    const row = caps?.available[hw]
-                    const anyCodec = row ? row.h264 || row.hevc : true
-                    return (
-                      <SelectItem key={hw} value={hw} disabled={!anyCodec}>
-                        {HWACCEL_LABEL[hw]}
-                        {row && !anyCodec ? " — unavailable" : ""}
-                      </SelectItem>
-                    )
-                  })}
-                </SelectContent>
-              </Select>
-              <FieldDescription className="text-xs leading-snug">
-                Pick your desired encoder. Make sure your GPU and ffmpeg build
-                support the selected codec. If not, pick a software encoder.
-              </FieldDescription>
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="encoder-codec">Codec</FieldLabel>
-              <Select
-                value={form.codec}
-                onValueChange={(value) =>
-                  setEncoderCombo(form.hwaccel, value as EncoderCodec)
-                }
-              >
-                <SelectTrigger id="encoder-codec" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent align="start" alignItemWithTrigger={false}>
-                  {ENCODER_CODECS.map((codec) => {
-                    const ok = currentCombo ? currentCombo[codec] : true
-                    return (
-                      <SelectItem key={codec} value={codec} disabled={!ok}>
-                        {codec.toUpperCase()}
-                        {currentCombo && !ok ? " — unavailable" : ""}
-                      </SelectItem>
-                    )
-                  })}
-                </SelectContent>
-              </Select>
-              {currentComboMissing ? (
-                <FieldDescription className="text-xs leading-snug text-destructive">
-                  This combination isn&rsquo;t available in the host&rsquo;s
-                  ffmpeg build. Encodes will fail.
-                </FieldDescription>
-              ) : null}
-            </Field>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <Field>
-              <FieldLabel htmlFor="encoder-quality">
-                Quality ({QUALITY_LABEL[form.hwaccel]})
-              </FieldLabel>
-              <IntInput
-                id="encoder-quality"
-                min={0}
-                max={51}
-                value={form.quality}
-                onCommit={(next) => set("quality", next)}
-              />
-              <FieldDescription className="text-xs leading-snug">
-                0–51, lower = higher quality. 23 is a good default for
-                H.264/H.265; AV1 sits around 20–28. Hardware backends typically
-                need slightly higher values.
-              </FieldDescription>
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="encoder-preset" required>
-                Preset
-              </FieldLabel>
-              <EncoderPresetField
-                id="encoder-preset"
-                value={form.preset}
-                hwaccel={form.hwaccel}
-                codec={form.codec}
-                required
-                onChange={(next) => set("preset", next ?? "")}
-              />
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="encoder-audio-bitrate">
-                Audio bitrate (kbps)
-              </FieldLabel>
-              <IntInput
-                id="encoder-audio-bitrate"
-                min={64}
-                max={256}
-                step={8}
-                value={form.audioBitrateKbps}
-                onCommit={(next) => set("audioBitrateKbps", next)}
-              />
-              <FieldDescription className="text-xs leading-snug">
-                AAC stereo. 128 is fine for game/voice; ~160 for music-heavy
-                content. Higher is wasted bits.
-              </FieldDescription>
-            </Field>
-          </div>
-
-          {form.hwaccel === "qsv" ? (
-            <Field>
-              <FieldLabel htmlFor="encoder-qsv-device" required>
-                QSV device
-              </FieldLabel>
-              <Input
-                id="encoder-qsv-device"
-                value={form.qsvDevice}
-                required
-                onChange={(e) => set("qsvDevice", e.target.value)}
-                placeholder="/dev/dri/renderD128"
-              />
-              <FieldDescription className="text-xs leading-snug">
-                Passed to ffmpeg as QSV&rsquo;s <code>child_device</code>. Use a
-                DRM render node on Linux or an adapter index on Windows.
-              </FieldDescription>
-            </Field>
-          ) : null}
-
-          {form.hwaccel === "vaapi" ? (
-            <Field>
-              <FieldLabel htmlFor="encoder-vaapi-device" required>
-                VA-API device
-              </FieldLabel>
-              <Input
-                id="encoder-vaapi-device"
-                value={form.vaapiDevice}
-                required
-                onChange={(e) => set("vaapiDevice", e.target.value)}
-                placeholder="/dev/dri/renderD128"
-              />
-              <FieldDescription className="text-xs leading-snug">
-                Path to the DRM render node passed to ffmpeg&rsquo;s{" "}
-                <code>-vaapi_device</code>. Only used when the backend is
-                VA-API.
-              </FieldDescription>
-            </Field>
-          ) : null}
-
-          <Separator />
-
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <h3 className="text-sm font-medium">Variant ladder</h3>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addVariant}
-                disabled={pending || !canAddVariant}
-              >
-                <PlusIcon />
-                Add variant
-              </Button>
-            </div>
-
-            <p className="text-xs text-muted-foreground">
-              Star a rung to make it the default playback rendition. Heights
-              above source are clamped. Per-rung fields override the values
-              above.
-            </p>
-
-            <div className="flex items-center justify-between gap-3 border-b pb-3">
-              <div className="min-w-0">
-                <div className="text-sm font-medium">Expose source</div>
-                <p className="text-xs text-muted-foreground">
-                  Offer the original upload as an opt-in "Source" quality.
-                </p>
-              </div>
-              <Switch
-                checked={form.keepSource}
-                onCheckedChange={(next) => set("keepSource", next)}
-                aria-label="Keep source"
-              />
-            </div>
-
-            <div className="divide-y">
-              {form.variants.map((variant, index) => (
-                <div
-                  key={variantRowKeys[index] ?? `variant-row-fallback-${index}`}
-                  className="py-3 first:pt-0 last:pb-0"
-                >
-                  <VariantRow
-                    variant={variant}
-                    index={index}
-                    isDefault={index === 0}
-                    globalConfig={form}
-                    isDuplicate={duplicateHeights.has(variant.height)}
-                    canMoveUp={index > 0}
-                    canMoveDown={index < form.variants.length - 1}
-                    canDelete={form.variants.length > 1}
-                    onChange={(next) => updateVariant(index, next)}
-                    onSetDefault={() => setDefaultVariant(index)}
-                    onMoveUp={() => moveVariant(index, -1)}
-                    onMoveDown={() => moveVariant(index, 1)}
-                    onDelete={() => removeVariant(index)}
-                  />
+          <fieldset disabled={pending} className="contents">
+            <CardContent className="flex flex-col gap-3">
+              {capsError ? (
+                <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                  <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
+                  <span>{capsError}</span>
                 </div>
-              ))}
-            </div>
-          </div>
-        </CardContent>
+              ) : null}
 
-        <CardFooter>
-          <div className="ml-auto flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={resetForm}
-              disabled={pending || !isDirty}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" size="sm" disabled={!canSubmit}>
-              {pending ? "Saving…" : "Save encoder"}
-            </Button>
-          </div>
-        </CardFooter>
-        </fieldset>
-      </Card>
-    </form>
+              {caps && !caps.ffmpegOk ? (
+                <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                  <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
+                  <span>
+                    ffmpeg isn&rsquo;t reachable on the server. Encodes will
+                    fail until the binary is on PATH (or <code>FFMPEG_BIN</code>{" "}
+                    points at it).
+                  </span>
+                </div>
+              ) : null}
+
+              {caps?.ffmpegVersion ? (
+                <p className="text-xs text-muted-foreground">
+                  Detected:{" "}
+                  <span className="font-mono">{caps.ffmpegVersion}</span>
+                </p>
+              ) : null}
+
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <FieldLabel htmlFor="encoder-enabled">
+                    Variant encoding
+                  </FieldLabel>
+                  <p className="text-xs text-muted-foreground">
+                    Generate MP4 playback renditions with the variant ladder
+                    below.
+                  </p>
+                </div>
+                <Switch
+                  id="encoder-enabled"
+                  checked={form.enabled}
+                  onCheckedChange={setEncodingEnabled}
+                  aria-label="Enable variant encoding"
+                />
+              </div>
+
+              {!form.enabled ? (
+                <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
+                  <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
+                  <span>
+                    Variant encoding is disabled. Uploaded source files become
+                    the default stream, which can break OpenGraph embeds when
+                    the source is not browser-friendly MP4.
+                  </span>
+                </div>
+              ) : null}
+
+              {form.enabled ? (
+                <>
+                  {usesQsv ? (
+                    <Field>
+                      <FieldLabel htmlFor="encoder-qsv-device" required>
+                        QSV device
+                      </FieldLabel>
+                      <Input
+                        id="encoder-qsv-device"
+                        value={form.qsvDevice}
+                        required
+                        onChange={(e) => set("qsvDevice", e.target.value)}
+                        placeholder="/dev/dri/renderD128"
+                      />
+                      <FieldDescription className="text-xs leading-snug">
+                        Passed to ffmpeg as QSV&rsquo;s{" "}
+                        <code>child_device</code>. Use a DRM render node on
+                        Linux or an adapter index on Windows.
+                      </FieldDescription>
+                    </Field>
+                  ) : null}
+
+                  {usesVaapi ? (
+                    <Field>
+                      <FieldLabel htmlFor="encoder-vaapi-device" required>
+                        VA-API device
+                      </FieldLabel>
+                      <Input
+                        id="encoder-vaapi-device"
+                        value={form.vaapiDevice}
+                        required
+                        onChange={(e) => set("vaapiDevice", e.target.value)}
+                        placeholder="/dev/dri/renderD128"
+                      />
+                      <FieldDescription className="text-xs leading-snug">
+                        Path to the DRM render node passed to ffmpeg&rsquo;s{" "}
+                        <code>-vaapi_device</code>. Only used when the backend
+                        is VA-API.
+                      </FieldDescription>
+                    </Field>
+                  ) : null}
+
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <h3 className="text-sm font-medium">Variant ladder</h3>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={openNewVariant}
+                        disabled={pending}
+                      >
+                        <PlusIcon />
+                        Add variant
+                      </Button>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">
+                      Star a variant to make it the default playback rendition.
+                      Heights above source are clamped. Duplicate resolutions
+                      are allowed when codec, quality, or bitrate targets
+                      differ.
+                    </p>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium">Expose source</div>
+                        <p className="text-xs text-muted-foreground">
+                          Offer the original upload as an opt-in "Source"
+                          quality.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={form.keepSource}
+                        onCheckedChange={(next) => set("keepSource", next)}
+                        aria-label="Keep source"
+                      />
+                    </div>
+
+                    {form.variants.length > 0 ? (
+                      <div className="flex flex-col gap-0.5">
+                        {form.variants.map((variant, index) => (
+                          <VariantRow
+                            key={`${variant.name}-${variant.height}-${variant.codec}-${index}`}
+                            variant={variant}
+                            isDefault={index === 0}
+                            canMoveUp={index > 0}
+                            canMoveDown={index < form.variants.length - 1}
+                            canDelete
+                            onEdit={() => openEditVariant(index)}
+                            onSetDefault={() => setDefaultVariant(index)}
+                            onMoveUp={() => moveVariant(index, -1)}
+                            onMoveDown={() => moveVariant(index, 1)}
+                            onDelete={() => removeVariant(index)}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="py-3 text-center text-sm text-muted-foreground">
+                        No variants configured. Add one to get started.
+                      </p>
+                    )}
+                  </div>
+                </>
+              ) : null}
+            </CardContent>
+
+            <CardFooter>
+              <div className="ml-auto flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={resetForm}
+                  disabled={pending || !isDirty}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  disabled={!canSubmit}
+                >
+                  {pending ? "Saving…" : "Save encoder"}
+                </Button>
+              </div>
+            </CardFooter>
+          </fieldset>
+        </Card>
+      </form>
+
+      <EncoderVariantDialog
+        variant={dialogVariant}
+        isNew={dialogState === -1}
+        caps={caps}
+        qsvDevice={form.qsvDevice}
+        vaapiDevice={form.vaapiDevice}
+        onDeviceChange={(key, value) => set(key, value)}
+        onSave={handleDialogSave}
+        onOpenChange={handleDialogOpenChange}
+      />
+    </>
   )
 }

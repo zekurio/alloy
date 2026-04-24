@@ -225,7 +225,12 @@ function ClipMeta({
             <HeartIcon className={cn(liked && "fill-current")} />
             <span className="tabular-nums">{formatCount(likes)}</span>
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleShare}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={handleShare}
+            aria-label="Share clip"
+          >
             <Share2Icon />
           </Button>
           {canManage ? (

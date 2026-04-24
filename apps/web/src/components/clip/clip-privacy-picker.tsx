@@ -1,6 +1,4 @@
-import {
-  Toggle,
-} from "@workspace/ui/components/toggle"
+import { Toggle } from "@workspace/ui/components/toggle"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type { ClipPrivacy } from "@workspace/api"

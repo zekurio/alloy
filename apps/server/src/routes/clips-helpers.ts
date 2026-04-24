@@ -97,7 +97,7 @@ export async function resolveEngagementTarget(
   id: string,
   headers: Headers
 ): Promise<
-  | { likeCount: number; accessible: true }
+  | { authorId: string; likeCount: number; accessible: true }
   | { likeCount?: never; accessible: false; response: Response }
 > {
   const [row] = await db
@@ -147,7 +147,7 @@ export async function resolveEngagementTarget(
     }
   }
 
-  return { accessible: true, likeCount: row.likeCount }
+  return { accessible: true, authorId: row.authorId, likeCount: row.likeCount }
 }
 
 /** Parse an HTTP `Range: bytes=A-B` header into inclusive byte offsets. */

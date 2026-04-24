@@ -3,7 +3,6 @@ import { Readable } from "node:stream"
 import { zValidator } from "@hono/zod-validator"
 import { eq } from "drizzle-orm"
 import { Hono } from "hono"
-import { stream } from "hono/streaming"
 import { z } from "zod"
 
 import { user } from "@workspace/db/auth-schema"
@@ -12,6 +11,7 @@ import { ACCEPTED_IMAGE_CONTENT_TYPES } from "@workspace/contracts"
 import { db } from "../db"
 import { requireSession } from "../lib/require-session"
 import { storage, userAssetKey } from "../storage"
+import type { ResolvedObject } from "../storage/driver"
 import { toPublicUser, type UserRow } from "./users-helpers"
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024 // 5 MB
@@ -28,12 +28,21 @@ const UploadBody = z.object({
   contentType: z.enum(ACCEPTED_IMAGE_CONTENT_TYPES),
 })
 
-function nodeToWeb(node: Readable): ReadableStream<Uint8Array> {
-  return Readable.toWeb(node) as ReadableStream<Uint8Array>
+async function readAll(node: Readable): Promise<Buffer> {
+  const chunks: Buffer[] = []
+  for await (const chunk of node) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+  }
+  return Buffer.concat(chunks)
 }
 
 function assetUrl(key: string, updatedAt: Date): string {
   return `/storage/user-assets/${key}?v=${updatedAt.getTime().toString(36)}`
+}
+
+function assetEtag(key: string, resolved: ResolvedObject): string {
+  const modified = resolved.lastModified?.getTime() ?? 0
+  return `"${Buffer.from(`${key}:${resolved.size}:${modified}`).toString("base64url")}"`
 }
 
 async function fetchRow(userId: string): Promise<UserRow | null> {
@@ -169,16 +178,32 @@ export const userAssetsRoute = new Hono().get("/:key{.+}", async (c) => {
 
   const resolved = await storage.resolve(key)
   if (!resolved) return c.json({ error: "Not found" }, 404)
+  const etag = assetEtag(key, resolved)
 
-  c.header("Content-Type", resolved.contentType)
-  c.header("Content-Length", String(resolved.size))
+  c.header("ETag", etag)
+  if (resolved.lastModified) {
+    c.header("Last-Modified", resolved.lastModified.toUTCString())
+  }
   c.header("Cache-Control", "public, max-age=86400, immutable")
 
-  const node = resolved.stream()
-  return stream(c, async (s) => {
-    s.onAbort(() => {
-      node.destroy()
-    })
-    await s.pipe(nodeToWeb(node))
-  })
+  if (
+    c.req
+      .header("if-none-match")
+      ?.split(",")
+      .map((v) => v.trim())
+      .includes(etag)
+  ) {
+    return c.body(null, 304)
+  }
+
+  c.header("Content-Type", resolved.contentType)
+  const buf = await readAll(resolved.stream())
+  c.header("Content-Length", String(buf.byteLength))
+
+  return c.body(
+    buf.buffer.slice(
+      buf.byteOffset,
+      buf.byteOffset + buf.byteLength
+    ) as ArrayBuffer
+  )
 })
