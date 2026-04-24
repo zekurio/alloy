@@ -8,7 +8,8 @@ import { clip, clipMention, game } from "@workspace/db/schema"
 
 import { getAuth } from "../auth"
 import { db } from "../db"
-import { publishClipRemove, publishClipUpsert } from "../lib/clip-events"
+import { publishClipUpsert } from "../lib/clip-events"
+import { deleteClipRowAndAssets } from "../lib/clip-delete"
 import { selectClipById } from "../lib/clip-select"
 import { configStore } from "../lib/config-store"
 import { generateUniqueGameSlug } from "../lib/game-slug"
@@ -16,7 +17,6 @@ import { createNotification } from "../lib/notifications"
 import { requireSession } from "../lib/require-session"
 import { isConfigured as isSteamGridDBConfigured } from "../lib/steamgriddb"
 import { ENCODE_JOB, getBoss } from "../queue"
-import { cancelEncode } from "../queue/encode-worker"
 import { clipAssetKey, clipSourceAssetKey, storage } from "../storage"
 import { IdParam, InitiateBody, UpdateBody } from "./clips-helpers"
 
@@ -347,24 +347,6 @@ export const clipsUploadRoutes = new Hono()
       return c.json({ error: "Forbidden" }, 403)
     }
 
-    await cancelEncode(id)
-
-    const keys = [
-      row.storageKey,
-      clipAssetKey(id, "video"),
-      ...row.variants.map((variant) => variant.storageKey),
-      row.thumbKey ?? clipAssetKey(id, "thumb"),
-    ]
-    for (const key of keys) {
-      try {
-        await storage.delete(key)
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn(`[clips] failed to delete ${key}:`, err)
-      }
-    }
-
-    await db.delete(clip).where(eq(clip.id, id))
-    publishClipRemove(row.authorId, id)
+    await deleteClipRowAndAssets(row)
     return c.json({ deleted: true })
   })

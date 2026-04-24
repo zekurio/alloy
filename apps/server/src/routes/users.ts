@@ -5,21 +5,31 @@ import {
   eq,
   ilike,
   inArray,
+  isNull,
   ne,
   notInArray,
   or,
   type SQL,
 } from "drizzle-orm"
 import { Hono } from "hono"
+import { stream } from "hono/streaming"
 
 import { getAuth } from "../auth"
 import { user } from "@workspace/db/auth-schema"
 import { block, clip, follow } from "@workspace/db/schema"
 
 import { db } from "../db"
+import { deleteClipRowAndAssets } from "../lib/clip-delete"
+import {
+  contentDisposition,
+  downloadFilename,
+  nodeToWeb,
+} from "./clips-helpers"
+import { createZipStream } from "../lib/zip-stream"
 import { syncLinkedOAuthImage } from "../lib/oauth-profile-sync"
 import { createNotification } from "../lib/notifications"
 import { requireSession } from "../lib/require-session"
+import { storage } from "../storage"
 import {
   SearchQuery,
   UsernameParam,
@@ -66,6 +76,7 @@ export const usersRoute = new Hono()
         conditions.push(notInArray(user.id, [...excluded]))
       }
     }
+    conditions.push(isNull(user.disabledAt))
 
     const rows = await db
       .select({
@@ -80,6 +91,83 @@ export const usersRoute = new Hono()
       .orderBy(user.username)
       .limit(limit)
     return c.json(rows)
+  })
+
+  .get("/me/account", requireSession, async (c) => {
+    const [row] = await db
+      .select({ disabledAt: user.disabledAt })
+      .from(user)
+      .where(eq(user.id, c.var.viewerId))
+      .limit(1)
+    return c.json({
+      disabledAt: row?.disabledAt ? row.disabledAt.toISOString() : null,
+    })
+  })
+
+  .post("/me/disable", requireSession, async (c) => {
+    const now = new Date()
+    await db
+      .update(user)
+      .set({ disabledAt: now, updatedAt: now })
+      .where(eq(user.id, c.var.viewerId))
+    return c.json({ disabledAt: now.toISOString() })
+  })
+
+  .post("/me/reactivate", requireSession, async (c) => {
+    const now = new Date()
+    await db
+      .update(user)
+      .set({ disabledAt: null, updatedAt: now })
+      .where(eq(user.id, c.var.viewerId))
+    return c.json({ disabledAt: null })
+  })
+
+  .get("/me/clips/download", requireSession, async (c) => {
+    const rows = await db
+      .select()
+      .from(clip)
+      .where(eq(clip.authorId, c.var.viewerId))
+      .orderBy(clip.createdAt)
+
+    const entries = []
+    for (const row of rows) {
+      const resolved = await storage.resolve(row.storageKey)
+      if (!resolved) continue
+      entries.push({
+        filename: downloadFilename(row, "source"),
+        stream: resolved.stream(),
+      })
+    }
+
+    c.header("Content-Type", "application/zip")
+    c.header(
+      "Content-Disposition",
+      contentDisposition(
+        `alloy-clips-${new Date().toISOString().slice(0, 10)}.zip`
+      )
+    )
+    c.header("Cache-Control", "no-store")
+
+    const zip = createZipStream(entries)
+    return stream(c, async (s) => {
+      s.onAbort(() => {
+        zip.destroy()
+      })
+      await s.pipe(nodeToWeb(zip))
+    })
+  })
+
+  .delete("/me/clips", requireSession, async (c) => {
+    const rows = await db
+      .select()
+      .from(clip)
+      .where(eq(clip.authorId, c.var.viewerId))
+
+    for (const row of rows) {
+      await deleteClipRowAndAssets(row)
+    }
+
+    return c.json({ deleted: rows.length })
   })
 
   .post("/me/sync-oauth-profile", requireSession, async (c) => {

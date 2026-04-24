@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm"
 import { Hono } from "hono"
 import { stream } from "hono/streaming"
 
+import { user } from "@workspace/db/auth-schema"
 import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
@@ -20,6 +21,19 @@ import {
   StreamQuery,
 } from "./clips-helpers"
 
+async function selectPlaybackClip(id: string) {
+  const [row] = await db
+    .select({
+      clip,
+      authorDisabledAt: user.disabledAt,
+    })
+    .from(clip)
+    .innerJoin(user, eq(clip.authorId, user.id))
+    .where(eq(clip.id, id))
+    .limit(1)
+  return row ?? null
+}
+
 export const clipsPlaybackRoutes = new Hono()
   .get(
     "/:id/stream",
@@ -28,7 +42,8 @@ export const clipsPlaybackRoutes = new Hono()
     async (c) => {
       const { id } = c.req.valid("param")
       const { variant: requestedVariant } = c.req.valid("query")
-      const [row] = await db.select().from(clip).where(eq(clip.id, id)).limit(1)
+      const selectedRow = await selectPlaybackClip(id)
+      const row = selectedRow?.clip
       if (!row) return c.json({ error: "Not found" }, 404)
 
       const viewer = await peekViewer(c.req.raw.headers)
@@ -40,6 +55,9 @@ export const clipsPlaybackRoutes = new Hono()
         c.header("Cache-Control", "no-store")
       }
 
+      if (selectedRow.authorDisabledAt && !isOwner && !isAdmin) {
+        return c.json({ error: "Not found" }, 404)
+      }
       if (isPrivate && !isOwner && !isAdmin) {
         return viewer
           ? c.json({ error: "Forbidden" }, 403)
@@ -141,7 +159,8 @@ export const clipsPlaybackRoutes = new Hono()
   .get("/:id/thumbnail", zValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
 
-    const [row] = await db.select().from(clip).where(eq(clip.id, id)).limit(1)
+    const selectedRow = await selectPlaybackClip(id)
+    const row = selectedRow?.clip
     if (!row) return c.json({ error: "Not found" }, 404)
 
     const viewer = await peekViewer(c.req.raw.headers)
@@ -153,6 +172,9 @@ export const clipsPlaybackRoutes = new Hono()
       c.header("Cache-Control", "no-store")
     }
 
+    if (selectedRow.authorDisabledAt && !isOwner && !isAdmin) {
+      return c.json({ error: "Not found" }, 404)
+    }
     if (isPrivate && !isOwner && !isAdmin) {
       return viewer
         ? c.json({ error: "Forbidden" }, 403)
@@ -204,7 +226,8 @@ export const clipsPlaybackRoutes = new Hono()
       const { id } = c.req.valid("param")
       const { variant: requestedVariant } = c.req.valid("query")
 
-      const [row] = await db.select().from(clip).where(eq(clip.id, id)).limit(1)
+      const selectedRow = await selectPlaybackClip(id)
+      const row = selectedRow?.clip
       if (!row) return c.json({ error: "Not found" }, 404)
 
       const viewer = await peekViewer(c.req.raw.headers)
@@ -216,6 +239,9 @@ export const clipsPlaybackRoutes = new Hono()
         c.header("Cache-Control", "no-store")
       }
 
+      if (selectedRow.authorDisabledAt && !isOwner && !isAdmin) {
+        return c.json({ error: "Not found" }, 404)
+      }
       if (isPrivate && !isOwner && !isAdmin) {
         return viewer
           ? c.json({ error: "Forbidden" }, 403)

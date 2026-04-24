@@ -1,3 +1,4 @@
+import * as React from "react"
 import type { QueryClient } from "@tanstack/react-query"
 import {
   HeadContent,
@@ -7,6 +8,8 @@ import {
 
 import { Toaster } from "@workspace/ui/components/sonner"
 import appCss from "@workspace/ui/globals.css?url"
+
+import { ReactivateAccountPrompt } from "@/components/account/reactivate-account-prompt"
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
@@ -35,6 +38,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
+        <React.Suspense fallback={null}>
+          <ReactivateAccountPrompt />
+        </React.Suspense>
         {/* Global toast portal — rendered once at the root so every route
             can call `toast.*` without mounting its own provider. */}
         <Toaster />
