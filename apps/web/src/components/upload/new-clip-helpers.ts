@@ -29,7 +29,7 @@ export interface PublishPayload {
   contentType: AcceptedContentType
   title: string
   description: string | null
-  gameId: string
+  gameId: string | null
   privacy: Visibility
   width: number
   height: number
