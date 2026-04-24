@@ -1,39 +1,215 @@
-import { createFileRoute } from "@tanstack/react-router"
+import * as React from "react"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { z } from "zod"
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@workspace/ui/components/select"
+import { toast } from "@workspace/ui/components/sonner"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@workspace/ui/components/tabs"
+
+import type { PublicAuthConfig } from "@workspace/api"
 
 import { DangerZoneCard } from "@/components/routes/settings/danger-zone-card"
-import { LinkedAccountsCard } from "@/components/routes/settings/linked-accounts-card"
-import { PasskeysCard } from "@/components/routes/settings/passkeys-card"
+import {
+  LinkedAccountsCard,
+  shouldShowLinkedAccountsCard,
+  type LinkedAccount,
+} from "@/components/routes/settings/linked-accounts-card"
+import {
+  PasskeysCard,
+  type Passkey,
+} from "@/components/routes/settings/passkeys-card"
+import { PasswordCard } from "@/components/routes/settings/password-card"
 import { ProfileCard } from "@/components/routes/settings/profile-card"
+import { authClient } from "@/lib/auth-client"
 import { useRequireAuthStrict } from "@/lib/auth-hooks"
 import { useSuspenseAuthConfig } from "@/lib/session-suspense"
 
+const USER_TABS = ["profile", "security", "account"] as const
+type UserTab = (typeof USER_TABS)[number]
+
+const TAB_LABELS: Record<UserTab, string> = {
+  profile: "Profile",
+  security: "Security",
+  account: "Account",
+}
+
+const searchSchema = z.object({
+  tab: z.enum(USER_TABS).optional(),
+})
+
 export const Route = createFileRoute("/(app)/_app/_settings/user-settings")({
+  validateSearch: searchSchema,
   component: ProfilePage,
 })
+
+function UserTabSelectors({
+  activeTab,
+  onTabChange,
+}: {
+  activeTab: UserTab
+  onTabChange: (value: string | number | null) => void
+}) {
+  return (
+    <>
+      <div className="mb-3 hidden md:block">
+        <TabsList className="w-max min-w-full flex-nowrap">
+          {USER_TABS.map((t) => (
+            <TabsTrigger key={t} value={t}>
+              {TAB_LABELS[t]}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </div>
+
+      <div className="mb-3 md:hidden">
+        <Select value={activeTab} onValueChange={onTabChange}>
+          <SelectTrigger className="w-full">
+            <SelectValue>{TAB_LABELS[activeTab]}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {USER_TABS.map((t) => (
+              <SelectItem key={t} value={t}>
+                {TAB_LABELS[t]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </>
+  )
+}
+
+function useSecurityData(config: PublicAuthConfig) {
+  const [accounts, setAccounts] = React.useState<LinkedAccount[] | null>(null)
+  const [passkeys, setPasskeys] = React.useState<Passkey[] | null>(null)
+  const [loading, setLoading] = React.useState(true)
+
+  const refreshAccounts = React.useCallback(async () => {
+    const { data, error } = await authClient.listAccounts()
+    if (error) {
+      toast.error(error.message ?? "Couldn't load accounts")
+      setAccounts([])
+      return
+    }
+    setAccounts((data ?? []) as LinkedAccount[])
+  }, [])
+
+  const refreshPasskeys = React.useCallback(async () => {
+    if (!config.passkeyEnabled) return
+    const { data, error } = await authClient.passkey.listUserPasskeys()
+    if (error) {
+      toast.error(error.message ?? "Couldn't load passkeys")
+      setPasskeys([])
+      return
+    }
+    setPasskeys((data ?? []) as Passkey[])
+  }, [config.passkeyEnabled])
+
+  React.useEffect(() => {
+    let active = true
+    setLoading(true)
+
+    Promise.all([refreshAccounts(), refreshPasskeys()]).finally(() => {
+      if (active) setLoading(false)
+    })
+
+    return () => {
+      active = false
+    }
+  }, [refreshAccounts, refreshPasskeys])
+
+  return { accounts, passkeys, loading, refreshAccounts, refreshPasskeys }
+}
+
+function SecurityTabContent({ config }: { config: PublicAuthConfig }) {
+  const { accounts, passkeys, loading, refreshAccounts, refreshPasskeys } =
+    useSecurityData(config)
+
+  if (loading || !accounts) return null
+
+  const hasPasswordAccount = accounts.some(
+    (account) => account.providerId === "credential"
+  )
+
+  return (
+    <>
+      {hasPasswordAccount ? <PasswordCard /> : null}
+      {shouldShowLinkedAccountsCard(config, accounts) ? (
+        <LinkedAccountsCard
+          accounts={accounts}
+          config={config}
+          onRefresh={refreshAccounts}
+        />
+      ) : null}
+      {config.passkeyEnabled && passkeys ? (
+        <PasskeysCard passkeys={passkeys} onRefresh={refreshPasskeys} />
+      ) : null}
+    </>
+  )
+}
 
 function ProfilePage() {
   const session = useRequireAuthStrict()
   const config = useSuspenseAuthConfig()
+  const { tab: activeTab = "profile" } = Route.useSearch()
+  const navigate = useNavigate()
   const user = session?.user
+
+  const setTab = React.useCallback(
+    (value: string | number | null) => {
+      void navigate({
+        to: ".",
+        search: {
+          tab: value === "profile" ? undefined : (value as UserTab),
+        },
+        replace: true,
+      })
+    },
+    [navigate]
+  )
+
   if (!session || !user) return null
 
   return (
-    <>
-      <h1 className="text-xl font-semibold tracking-[-0.02em]">
-        Profile settings
-      </h1>
-      <ProfileCard
-        key={user.id}
-        userId={user.id}
-        initialName={user.name ?? ""}
-        initialUsername={user.username ?? ""}
-        image={user.image ?? ""}
-        banner={(user as { banner?: string | null }).banner ?? ""}
-        email={user.email ?? ""}
-      />
-      <LinkedAccountsCard />
-      {config.passkeyEnabled ? <PasskeysCard /> : null}
-      <DangerZoneCard />
-    </>
+    <Tabs value={activeTab} onValueChange={setTab}>
+      <div className="mb-3 flex items-end justify-between gap-4">
+        <h1 className="text-xl font-semibold tracking-[-0.02em]">
+          Profile settings
+        </h1>
+      </div>
+
+      <UserTabSelectors activeTab={activeTab} onTabChange={setTab} />
+
+      <TabsContent value="profile" className="flex flex-col gap-3">
+        <ProfileCard
+          key={user.id}
+          userId={user.id}
+          initialName={user.name ?? ""}
+          initialUsername={user.username ?? ""}
+          image={user.image ?? ""}
+          banner={(user as { banner?: string | null }).banner ?? ""}
+          email={user.email ?? ""}
+        />
+      </TabsContent>
+
+      <TabsContent value="security" className="flex flex-col gap-3">
+        <SecurityTabContent config={config} />
+      </TabsContent>
+
+      <TabsContent value="account" className="flex flex-col gap-3">
+        <DangerZoneCard />
+      </TabsContent>
+    </Tabs>
   )
 }

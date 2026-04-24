@@ -30,37 +30,20 @@ import { toast } from "@workspace/ui/components/sonner"
 
 import { authClient } from "@/lib/auth-client"
 
-type Passkey = {
+export type Passkey = {
   id: string
   name?: string | null
   createdAt: string | Date
   deviceType?: string
 }
 
-function usePasskeys() {
-  const [passkeys, setPasskeys] = React.useState<Passkey[] | null>(null)
-  const [loading, setLoading] = React.useState(true)
-
-  const refresh = React.useCallback(async () => {
-    const { data, error } = await authClient.passkey.listUserPasskeys()
-    if (error) {
-      toast.error(error.message ?? "Couldn't load passkeys")
-      setPasskeys([])
-      return
-    }
-    setPasskeys((data ?? []) as Passkey[])
-  }, [])
-
-  React.useEffect(() => {
-    setLoading(true)
-    refresh().finally(() => setLoading(false))
-  }, [refresh])
-
-  return { passkeys, loading, refresh }
-}
-
-export function PasskeysCard() {
-  const { passkeys, loading, refresh } = usePasskeys()
+export function PasskeysCard({
+  passkeys,
+  onRefresh,
+}: {
+  passkeys: Passkey[]
+  onRefresh: () => Promise<void>
+}) {
   const [deletingId, setDeletingId] = React.useState<string | null>(null)
 
   async function onDelete(passkey: Passkey) {
@@ -75,7 +58,7 @@ export function PasskeysCard() {
         return
       }
       toast.success("Passkey removed")
-      await refresh()
+      await onRefresh()
     } catch (cause) {
       toast.error(
         cause instanceof Error ? cause.message : "Something went wrong"
@@ -95,12 +78,10 @@ export function PasskeysCard() {
               Sign in without a password using your device or hardware key.
             </p>
           </div>
-          <AddPasskeyDialog onAdded={refresh} />
+          <AddPasskeyDialog onAdded={onRefresh} />
         </div>
 
-        {loading ? (
-          <p className="text-sm text-foreground-muted">Loading…</p>
-        ) : passkeys && passkeys.length > 0 ? (
+        {passkeys.length > 0 ? (
           <ul className="flex flex-col divide-y divide-border">
             {passkeys.map((passkey) => (
               <PasskeyRow

@@ -10,9 +10,8 @@ import type { PublicAuthConfig } from "@workspace/api"
 
 import { authClient, useSession } from "@/lib/auth-client"
 import { api } from "@/lib/api"
-import { useSuspenseAuthConfig } from "@/lib/session-suspense"
 
-type Account = {
+export type LinkedAccount = {
   id: string
   providerId: string
   accountId: string
@@ -22,42 +21,30 @@ type Account = {
 type Provider = NonNullable<PublicAuthConfig["provider"]>
 const OAUTH_LINKED_QUERY_KEY = "oauthLinked"
 
-function useAccounts() {
-  const [accounts, setAccounts] = React.useState<Account[] | null>(null)
-  const [loading, setLoading] = React.useState(true)
-
-  const refresh = React.useCallback(async () => {
-    const { data, error } = await authClient.listAccounts()
-    if (error) {
-      toast.error(error.message ?? "Couldn't load linked accounts")
-      setAccounts([])
-      return
-    }
-    setAccounts((data ?? []) as Account[])
-  }, [])
-
-  React.useEffect(() => {
-    setLoading(true)
-    refresh().finally(() => setLoading(false))
-  }, [refresh])
-
-  return { accounts, loading, refresh }
+export function shouldShowLinkedAccountsCard(
+  config: PublicAuthConfig,
+  accounts: LinkedAccount[]
+): boolean {
+  if (config.provider !== null) return true
+  return accounts.some((account) => account.providerId !== "credential")
 }
 
-export function LinkedAccountsCard() {
+export function LinkedAccountsCard({
+  accounts,
+  config,
+  onRefresh,
+}: {
+  accounts: LinkedAccount[]
+  config: PublicAuthConfig
+  onRefresh: () => Promise<void>
+}) {
   const router = useRouter()
-  const config = useSuspenseAuthConfig()
-  const { accounts, loading, refresh } = useAccounts()
   const actions = useLinkedAccountActions({
-    accounts: accounts ?? [],
+    accounts,
     config,
-    refresh,
+    refresh: onRefresh,
     router,
   })
-
-  if (shouldHideLinkedAccountsCard(config, accounts, loading)) {
-    return null
-  }
 
   return (
     <Card>
@@ -68,34 +55,16 @@ export function LinkedAccountsCard() {
             Connect additional sign-in methods to your account.
           </p>
         </div>
-        {loading ? (
-          <p className="text-sm text-foreground-muted">Loading…</p>
-        ) : (
-          <AccountsList
-            accounts={accounts ?? []}
-            config={config}
-            linkingProviderId={actions.linkingProviderId}
-            unlinkingId={actions.unlinkingId}
-            onLink={actions.onLink}
-            onUnlink={actions.onUnlink}
-          />
-        )}
+        <AccountsList
+          accounts={accounts}
+          config={config}
+          linkingProviderId={actions.linkingProviderId}
+          unlinkingId={actions.unlinkingId}
+          onLink={actions.onLink}
+          onUnlink={actions.onUnlink}
+        />
       </CardContent>
     </Card>
-  )
-}
-
-function shouldHideLinkedAccountsCard(
-  config: PublicAuthConfig,
-  accounts: Account[] | null,
-  loading: boolean
-): boolean {
-  if (config.provider !== null) return false
-  if (loading) return true
-
-  return (
-    (accounts?.filter((account) => account.providerId !== "credential")
-      .length ?? 0) === 0
   )
 }
 
@@ -105,7 +74,7 @@ function useLinkedAccountActions({
   refresh,
   router,
 }: {
-  accounts: Account[]
+  accounts: LinkedAccount[]
   config: PublicAuthConfig
   refresh: () => Promise<void>
   router: ReturnType<typeof useRouter>
@@ -181,7 +150,7 @@ function useLinkedAccountActions({
   )
 
   const onUnlink = React.useCallback(
-    async (account: Account) => {
+    async (account: LinkedAccount) => {
       if (unlinkingId) return
       if (!canRemoveAccount(account, accounts, config)) {
         toast.error(
@@ -220,12 +189,12 @@ function useLinkedAccountActions({
 }
 
 type AccountsListProps = {
-  accounts: Account[]
+  accounts: LinkedAccount[]
   config: PublicAuthConfig
   linkingProviderId: string | null
   unlinkingId: string | null
   onLink: (provider: Provider) => void
-  onUnlink: (account: Account) => void
+  onUnlink: (account: LinkedAccount) => void
 }
 
 function AccountsList({
@@ -374,8 +343,8 @@ function AccountRow(props: AccountRowProps) {
 }
 
 function canRemoveAccount(
-  target: Account,
-  accounts: Account[],
+  target: LinkedAccount,
+  accounts: LinkedAccount[],
   config: PublicAuthConfig
 ): boolean {
   const remaining = accounts.filter((account) => account.id !== target.id)
@@ -383,7 +352,7 @@ function canRemoveAccount(
 }
 
 function accountSupportsSignIn(
-  account: Account,
+  account: LinkedAccount,
   config: PublicAuthConfig
 ): boolean {
   if (account.providerId === "credential") return config.emailPasswordEnabled

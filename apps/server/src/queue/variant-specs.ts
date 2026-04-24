@@ -1,12 +1,13 @@
-import type { EncoderConfig, EncoderVariant } from "../lib/config-store"
-import { clipAssetKey, clipVideoVariantKey } from "../storage"
+import type { EncoderVariant } from "../lib/config-store"
+import { clipVideoVariantKey } from "../storage"
 
 /** Per-variant override resolved from the runtime config. */
 export interface VariantOverride {
-  codec?: EncoderConfig["codec"]
-  quality?: number
-  preset?: string
-  audioBitrateKbps?: number
+  hwaccel: EncoderVariant["hwaccel"]
+  codec: EncoderVariant["codec"]
+  quality: EncoderVariant["quality"]
+  preset: EncoderVariant["preset"]
+  audioBitrateKbps: EncoderVariant["audioBitrateKbps"]
 }
 
 export interface VariantSpec {
@@ -23,25 +24,21 @@ export function buildVariantSpecs(
   sourceHeight: number,
   configuredVariants: ReadonlyArray<EncoderVariant>
 ): VariantSpec[] {
-  const seenHeights = new Set<number>()
   const specs: VariantSpec[] = []
 
-  for (const configured of configuredVariants) {
+  for (const [index, configured] of configuredVariants.entries()) {
     const cappedHeight = Math.min(configured.height, sourceHeight)
     if (cappedHeight <= 0) continue
-    if (seenHeights.has(cappedHeight)) continue
-    seenHeights.add(cappedHeight)
-    const id = `${cappedHeight}p`
+    const id = buildVariantId(configured, cappedHeight, index)
     const isDefault = specs.length === 0
     specs.push({
       id,
-      label: id,
+      label: configured.name,
       height: cappedHeight,
-      storageKey: isDefault
-        ? clipAssetKey(clipId, "video")
-        : clipVideoVariantKey(clipId, id),
+      storageKey: clipVideoVariantKey(clipId, id),
       isDefault,
       override: {
+        hwaccel: configured.hwaccel,
         codec: configured.codec,
         quality: configured.quality,
         preset: configured.preset,
@@ -51,4 +48,20 @@ export function buildVariantSpecs(
   }
 
   return specs
+}
+
+function buildVariantId(
+  variant: EncoderVariant,
+  cappedHeight: number,
+  index: number
+): string {
+  const name = variant.name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+  const readable = [name, `${cappedHeight}p`, variant.hwaccel, variant.codec]
+    .filter(Boolean)
+    .join("-")
+  return `${String(index + 1).padStart(2, "0")}-${readable}`
 }

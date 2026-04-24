@@ -171,21 +171,54 @@ function ClipCardThumb({
 
   const canPreview = Boolean(streamUrl)
 
+  const revealPreview = React.useCallback(() => {
+    const v = videoRef.current
+    if (!v || !hoveredRef.current || !shouldPreviewRef.current || v.paused) {
+      return
+    }
+
+    if ("requestVideoFrameCallback" in v) {
+      v.requestVideoFrameCallback(() => {
+        if (hoveredRef.current && shouldPreviewRef.current && !v.paused) {
+          setPreviewing(true)
+        }
+      })
+      return
+    }
+
+    setPreviewing(true)
+  }, [])
+
   const primePreview = React.useCallback(() => {
     const v = videoRef.current
     if (!v || primedRef.current) return
     primedRef.current = true
+    v.muted = true
+    v.defaultMuted = true
+    v.playsInline = true
+    v.preload = "auto"
     v.load()
   }, [])
 
   const startPreview = React.useCallback(() => {
     const v = videoRef.current
     if (!v || !hoveredRef.current || !shouldPreviewRef.current) return
-    if (v.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return
-    setPreviewing(true)
-    v.currentTime = 0
-    void v.play().catch(() => undefined)
-  }, [])
+
+    if (!v.paused) {
+      revealPreview()
+      return
+    }
+
+    if (v.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      v.currentTime = 0
+    }
+    void v
+      .play()
+      .then(revealPreview)
+      .catch(() => {
+        setPreviewing(false)
+      })
+  }, [revealPreview])
 
   const schedulePreview = () => {
     if (!canPreview) return
@@ -215,7 +248,7 @@ function ClipCardThumb({
 
   const interactive = Boolean(onClick)
   const surfaceClass = cn(
-    "group/clip-thumb relative aspect-video w-full overflow-hidden rounded-md bg-neutral-200 text-left",
+    "group/clip-thumb relative aspect-video w-full appearance-none overflow-hidden rounded-md border-0 bg-black p-0 text-left",
     "transition-[transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
     interactive &&
       "cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
@@ -239,11 +272,13 @@ function ClipCardThumb({
 
   const body = (
     <>
+      <div aria-hidden className="absolute inset-0 bg-black" />
+
       {thumbnail ? (
         <img
           src={thumbnail}
           alt={title}
-          className="size-full object-cover"
+          className="absolute -inset-px size-[calc(100%+2px)] object-cover"
           // Cards load in a scrolling grid — let the browser lazy-load
           // anything outside the initial viewport.
           loading="lazy"
@@ -288,14 +323,18 @@ function ClipCardThumb({
           playsInline
           preload="metadata"
           onLoadedData={startPreview}
+          onCanPlay={startPreview}
+          onPlaying={revealPreview}
+          onTimeUpdate={revealPreview}
           aria-hidden
           className={cn(
-            "absolute inset-0 size-full bg-black object-cover",
+            "absolute -inset-px size-[calc(100%+2px)] bg-black object-cover",
             "transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
             previewing ? "opacity-100" : "pointer-events-none opacity-0"
           )}
         />
       ) : null}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 -bottom-px z-10 h-px bg-black" />
     </>
   )
 

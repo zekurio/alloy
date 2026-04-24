@@ -18,6 +18,7 @@ import { block, clip, follow } from "@workspace/db/schema"
 
 import { db } from "../db"
 import { syncLinkedOAuthImage } from "../lib/oauth-profile-sync"
+import { createNotification } from "../lib/notifications"
 import { requireSession } from "../lib/require-session"
 import {
   SearchQuery,
@@ -93,6 +94,14 @@ export const usersRoute = new Hono()
     const row = await resolveTarget(username)
     if (!row) return c.json({ error: "Not found" }, 404)
     const targetId = row.id
+    const followerCountPromise = db
+      .select({ value: count() })
+      .from(follow)
+      .where(eq(follow.followingId, targetId))
+    const followingCountPromise = db
+      .select({ value: count() })
+      .from(follow)
+      .where(eq(follow.followerId, targetId))
 
     const session = await sessionPromise
     const isOwner = session?.user.id === targetId
@@ -107,82 +116,23 @@ export const usersRoute = new Hono()
       clipConditions.push(inArray(clip.privacy, ["public", "unlisted"]))
     }
 
+    const clipCountPromise = db
+      .select({ value: count() })
+      .from(clip)
+      .where(and(...clipConditions))
+    const viewerPromise = resolveViewerState(session?.user.id ?? null, targetId)
+
     const [
       [{ value: clipCount }],
       [{ value: followerCount }],
       [{ value: followingCount }],
+      viewer,
     ] = await Promise.all([
-      db
-        .select({ value: count() })
-        .from(clip)
-        .where(and(...clipConditions)),
-      db
-        .select({ value: count() })
-        .from(follow)
-        .where(eq(follow.followingId, targetId)),
-      db
-        .select({ value: count() })
-        .from(follow)
-        .where(eq(follow.followerId, targetId)),
+      clipCountPromise,
+      followerCountPromise,
+      followingCountPromise,
+      viewerPromise,
     ])
-
-    let viewer: {
-      isSelf: boolean
-      isFollowing: boolean
-      isBlocked: boolean
-      isBlockedBy: boolean
-    } | null = null
-
-    if (session) {
-      const viewerId = session.user.id
-      const isSelf = viewerId === targetId
-      if (isSelf) {
-        viewer = {
-          isSelf: true,
-          isFollowing: false,
-          isBlocked: false,
-          isBlockedBy: false,
-        }
-      } else {
-        const [followRow, blockRows] = await Promise.all([
-          db
-            .select({ id: follow.id })
-            .from(follow)
-            .where(
-              and(
-                eq(follow.followerId, viewerId),
-                eq(follow.followingId, targetId)
-              )
-            )
-            .limit(1),
-          db
-            .select({
-              blockerId: block.blockerId,
-              blockedId: block.blockedId,
-            })
-            .from(block)
-            .where(
-              or(
-                and(
-                  eq(block.blockerId, viewerId),
-                  eq(block.blockedId, targetId)
-                ),
-                and(
-                  eq(block.blockerId, targetId),
-                  eq(block.blockedId, viewerId)
-                )
-              )
-            ),
-        ])
-
-        viewer = {
-          isSelf: false,
-          isFollowing: followRow.length > 0,
-          isBlocked: blockRows.some((b) => b.blockerId === viewerId),
-          isBlockedBy: blockRows.some((b) => b.blockerId === targetId),
-        }
-      }
-    }
 
     return c.json({
       user: toPublicUser(row),
@@ -265,7 +215,7 @@ export const usersRoute = new Hono()
         return c.json({ error: "Can't follow a blocked user." }, 403)
       }
 
-      await db
+      const inserted = await db
         .insert(follow)
         .values({
           id: crypto.randomUUID(),
@@ -273,6 +223,15 @@ export const usersRoute = new Hono()
           followingId: targetId,
         })
         .onConflictDoNothing()
+        .returning({ id: follow.id })
+
+      if (inserted.length > 0) {
+        void createNotification({
+          recipientId: targetId,
+          actorId: viewerId,
+          type: "new_follower",
+        })
+      }
 
       return c.json({ following: true })
     }
@@ -285,7 +244,6 @@ export const usersRoute = new Hono()
     async (c) => {
       const { username } = c.req.valid("param")
       const viewerId = c.var.viewerId
-
       const target = await resolveTarget(username)
       if (!target) return c.json({ error: "Not found" }, 404)
 
@@ -308,12 +266,9 @@ export const usersRoute = new Hono()
     async (c) => {
       const { username } = c.req.valid("param")
       const viewerId = c.var.viewerId
-
       const target = await resolveTarget(username)
       if (!target) return c.json({ error: "Not found" }, 404)
-      const targetId = target.id
-
-      if (viewerId === targetId) {
+      if (target.id === viewerId) {
         return c.json({ error: "You can't block yourself." }, 400)
       }
 
@@ -322,7 +277,7 @@ export const usersRoute = new Hono()
         .values({
           id: crypto.randomUUID(),
           blockerId: viewerId,
-          blockedId: targetId,
+          blockedId: target.id,
         })
         .onConflictDoNothing()
 
@@ -332,10 +287,10 @@ export const usersRoute = new Hono()
           or(
             and(
               eq(follow.followerId, viewerId),
-              eq(follow.followingId, targetId)
+              eq(follow.followingId, target.id)
             ),
             and(
-              eq(follow.followerId, targetId),
+              eq(follow.followerId, target.id),
               eq(follow.followingId, viewerId)
             )
           )
@@ -352,7 +307,6 @@ export const usersRoute = new Hono()
     async (c) => {
       const { username } = c.req.valid("param")
       const viewerId = c.var.viewerId
-
       const target = await resolveTarget(username)
       if (!target) return c.json({ error: "Not found" }, 404)
 
@@ -364,3 +318,54 @@ export const usersRoute = new Hono()
       return c.json({ blocked: false })
     }
   )
+
+async function resolveViewerState(
+  viewerId: string | null,
+  targetId: string
+): Promise<{
+  isSelf: boolean
+  isFollowing: boolean
+  isBlocked: boolean
+  isBlockedBy: boolean
+} | null> {
+  if (!viewerId) return null
+
+  const isSelf = viewerId === targetId
+  if (isSelf) {
+    return {
+      isSelf: true,
+      isFollowing: false,
+      isBlocked: false,
+      isBlockedBy: false,
+    }
+  }
+
+  const [followRow, blockRows] = await Promise.all([
+    db
+      .select({ id: follow.id })
+      .from(follow)
+      .where(
+        and(eq(follow.followerId, viewerId), eq(follow.followingId, targetId))
+      )
+      .limit(1),
+    db
+      .select({
+        blockerId: block.blockerId,
+        blockedId: block.blockedId,
+      })
+      .from(block)
+      .where(
+        or(
+          and(eq(block.blockerId, viewerId), eq(block.blockedId, targetId)),
+          and(eq(block.blockerId, targetId), eq(block.blockedId, viewerId))
+        )
+      ),
+  ])
+
+  return {
+    isSelf: false,
+    isFollowing: followRow.length > 0,
+    isBlocked: blockRows.some((b) => b.blockerId === viewerId),
+    isBlockedBy: blockRows.some((b) => b.blockerId === targetId),
+  }
+}

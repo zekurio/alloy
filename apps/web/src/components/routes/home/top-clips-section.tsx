@@ -24,7 +24,10 @@ import {
 import { ClipCardTrigger } from "@/components/clip/clip-card-trigger"
 import { ClipCardSkeleton } from "@/components/clip/clip-card-skeleton"
 import { ClipGrid } from "@/components/clip/clip-grid"
-import { ClipListProvider, type ClipListEntry } from "@/components/clip/clip-list-context"
+import {
+  ClipListProvider,
+  type ClipListEntry,
+} from "@/components/clip/clip-list-context"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { useTopClipsQuery } from "@/lib/clip-queries"
 import type { ClipFeedWindow } from "@workspace/api"
@@ -118,12 +121,7 @@ export function TopClipsSection({ viewerId }: TopClipsSectionProps) {
   )
 }
 
-function TopClipsBody({
-  viewerId,
-  window,
-  rows,
-  error,
-}: TopClipsBodyProps) {
+function TopClipsBody({ viewerId, window, rows, error }: TopClipsBodyProps) {
   const entries = React.useMemo<ClipListEntry[]>(
     () =>
       (rows ?? []).map((row) => ({
@@ -172,7 +170,10 @@ function TopClipsSkeletons() {
       <div className="xl:hidden">
         <TopClipsCarousel>
           {Array.from({ length: 5 }).map((_, i) => (
-            <CarouselItem key={i} className="basis-full pl-0 md:basis-1/3 md:pl-4">
+            <CarouselItem
+              key={i}
+              className="basis-full pl-0 md:basis-1/3 md:pl-4"
+            >
               <div className="px-2 md:px-0">
                 <div className="mx-auto w-full max-w-3xl md:max-w-none">
                   <ClipCardSkeleton />
@@ -205,7 +206,10 @@ function TopClipsRows({
       <div className="xl:hidden">
         <TopClipsCarousel>
           {rows.map((row) => (
-            <CarouselItem key={row.id} className="basis-full pl-0 md:basis-1/3 md:pl-4">
+            <CarouselItem
+              key={row.id}
+              className="basis-full pl-0 md:basis-1/3 md:pl-4"
+            >
               <div className="px-2 md:px-0">
                 <ClipCardTrigger
                   row={row}

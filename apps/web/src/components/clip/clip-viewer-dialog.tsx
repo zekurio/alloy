@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
 import { Dialog, DialogViewportContent } from "@workspace/ui/components/dialog"
 import { Spinner } from "@workspace/ui/components/spinner"
-import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
+import { useMediaQuery } from "@workspace/ui/hooks/use-media-query"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { clipThumbnailUrl, type ClipRow } from "@workspace/api"
@@ -45,7 +45,9 @@ export function ClipViewerDialog({
   onNavigate,
 }: ClipViewerDialogProps) {
   const queryClient = useQueryClient()
-  const isMobile = useIsMobile()
+  // Use lg breakpoint (1024px) so the mobile player covers the range where
+  // the desktop grid/sidebar layout hasn't kicked in yet.
+  const isDesktop = useMediaQuery("(min-width: 1024px)")
   const open = clipId !== null
   const query = useClipQuery(clipId ?? "")
   const list = useActiveClipList()
@@ -118,7 +120,7 @@ export function ClipViewerDialog({
     >
       {open ? (
         query.data ? (
-          isMobile ? (
+          !isDesktop ? (
             <MobileClipViewerBody
               row={query.data}
               onDeleted={onClose}
@@ -199,9 +201,7 @@ function ClipViewerDialogBody({
 
   return (
     <>
-      <DialogViewportContent
-        className="overflow-visible rounded-[20px] transition-[filter,opacity,transform] duration-100"
-      >
+      <DialogViewportContent className="overflow-visible rounded-[20px] transition-[filter,opacity,transform] duration-100">
         {showPrev ? (
           <Button
             type="button"
