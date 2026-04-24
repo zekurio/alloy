@@ -21,7 +21,7 @@ export function OAuthButton({
       type="button"
       variant="secondary"
       size="lg"
-      className={cn("justify-start gap-3", className)}
+      className={cn("gap-3", className)}
       data-provider={providerId}
       {...props}
     >

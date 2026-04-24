@@ -30,7 +30,7 @@ export function PasskeySignIn() {
       type="button"
       variant="secondary"
       size="lg"
-      className="w-full justify-start gap-3"
+      className="w-full gap-3"
       disabled={pending}
       onClick={onSignIn}
     >
