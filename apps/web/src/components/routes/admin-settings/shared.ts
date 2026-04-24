@@ -119,6 +119,23 @@ export function defaultPresetFor(
   return suggestions[0] ?? "medium"
 }
 
+export function ffmpegEncoderName(
+  hwaccel: EncoderHwaccel,
+  codec: EncoderCodec
+): string {
+  if (hwaccel === "software") {
+    switch (codec) {
+      case "h264":
+        return "libx264"
+      case "hevc":
+        return "libx265"
+      case "av1":
+        return "libsvtav1"
+    }
+  }
+  return `${codec}_${hwaccel}`
+}
+
 export function normalizeGlobalPreset(
   hwaccel: EncoderHwaccel,
   codec: EncoderCodec,

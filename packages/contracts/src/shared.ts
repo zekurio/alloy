@@ -12,11 +12,21 @@ export const CLIP_STATUS = [
 ] as const
 export type ClipStatus = (typeof CLIP_STATUS)[number]
 
+export const NOTIFICATION_TYPES = [
+  "clip_upload_failed",
+  "new_follower",
+  "clip_comment",
+  "comment_pinned",
+  "comment_liked_by_author",
+] as const
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
+
 export interface ClipVariantSettings {
+  hwaccel: string
   codec: string
   audioCodec: "aac"
   quality: number
-  preset: string
+  preset?: string
   audioBitrateKbps: number
   height: number
   trimStartMs: number | null

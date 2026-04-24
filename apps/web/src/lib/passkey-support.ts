@@ -20,7 +20,7 @@ export function usePasskeySupport(): PasskeySupport {
   const isClient = React.useSyncExternalStore(
     subscribe,
     () => true,
-    () => false,
+    () => false
   )
 
   return {

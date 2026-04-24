@@ -302,10 +302,7 @@ export function MultiStepSignUpForm({
 
   if (!identity) {
     return (
-      <IdentityStep
-        defaultValues={savedIdentity}
-        onContinue={handleContinue}
-      />
+      <IdentityStep defaultValues={savedIdentity} onContinue={handleContinue} />
     )
   }
 

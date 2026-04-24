@@ -6,6 +6,7 @@ import { clip } from "@workspace/db/schema"
 import { db } from "../db"
 import { publishClipUpsertById } from "../lib/clip-events"
 import { configStore } from "../lib/config-store"
+import { createNotification } from "../lib/notifications"
 import { runEncodeInner } from "./encode-run"
 
 export const ENCODE_JOB = "clip.encode" as const
@@ -93,6 +94,11 @@ async function runEncode(clipId: string): Promise<void> {
 
 async function markFailed(clipId: string, reason: string): Promise<void> {
   try {
+    const [owner] = await db
+      .select({ authorId: clip.authorId })
+      .from(clip)
+      .where(eq(clip.id, clipId))
+      .limit(1)
     await db
       .update(clip)
       .set({
@@ -104,6 +110,13 @@ async function markFailed(clipId: string, reason: string): Promise<void> {
     // Terminal transition — cheap path, one extra lookup for the
     // authorId is fine. Fire-and-forget; the write already landed.
     void publishClipUpsertById(clipId)
+    if (owner) {
+      void createNotification({
+        recipientId: owner.authorId,
+        type: "clip_upload_failed",
+        clipId,
+      })
+    }
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error(`[queue] failed to mark clip ${clipId} as failed:`, err)

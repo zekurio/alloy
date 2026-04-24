@@ -11,6 +11,7 @@ import { db } from "../db"
 import { publishClipRemove, publishClipUpsert } from "../lib/clip-events"
 import { selectClipById } from "../lib/clip-select"
 import { configStore } from "../lib/config-store"
+import { createNotification } from "../lib/notifications"
 import { requireSession } from "../lib/require-session"
 import { ENCODE_JOB, getBoss } from "../queue"
 import { cancelEncode } from "../queue/encode-worker"
@@ -28,6 +29,27 @@ async function resolveMentionIds(
     .from(user)
     .where(inArray(user.id, deduped))
   return rows.map((row) => row.id)
+}
+
+async function markUploadFailed(
+  authorId: string,
+  clipId: string,
+  reason: string
+): Promise<void> {
+  await db
+    .update(clip)
+    .set({
+      status: "failed",
+      failureReason: reason.slice(0, 500),
+      updatedAt: new Date(),
+    })
+    .where(eq(clip.id, clipId))
+  void publishClipUpsert(authorId, clipId)
+  void createNotification({
+    recipientId: authorId,
+    type: "clip_upload_failed",
+    clipId,
+  })
 }
 
 export const clipsUploadRoutes = new Hono()
@@ -134,6 +156,7 @@ export const clipsUploadRoutes = new Hono()
 
       const resolved = await storage.resolve(row.storageKey)
       if (!resolved) {
+        await markUploadFailed(row.authorId, id, "Upload bytes are missing")
         return c.json({ error: "Upload bytes are missing" }, 400)
       }
 
@@ -143,6 +166,11 @@ export const clipsUploadRoutes = new Hono()
         if (row.thumbKey) {
           await storage.delete(row.thumbKey).catch(() => undefined)
         }
+        await markUploadFailed(
+          row.authorId,
+          id,
+          "Upload exceeded declared size"
+        )
         return c.json({ error: "Upload exceeded declared size" }, 413)
       }
 
@@ -151,6 +179,11 @@ export const clipsUploadRoutes = new Hono()
       if (row.thumbKey) {
         const thumbResolved = await storage.resolve(row.thumbKey)
         if (!thumbResolved) {
+          await markUploadFailed(
+            row.authorId,
+            id,
+            "Thumbnail bytes are missing"
+          )
           return c.json({ error: "Thumbnail bytes are missing" }, 400)
         }
       }

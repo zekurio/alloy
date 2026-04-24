@@ -225,7 +225,11 @@ export function LimitsConfigCard({ limits, onChange }: LimitsConfigCardProps) {
             onFieldChange={set}
             onMaxUploadChange={setMaxUploadMiB}
           />
-          <LimitsActions pending={pending} isDirty={isDirty} onReset={resetForm} />
+          <LimitsActions
+            pending={pending}
+            isDirty={isDirty}
+            onReset={resetForm}
+          />
         </fieldset>
       </Card>
     </form>

@@ -1,13 +1,16 @@
 import * as React from "react"
+import { Link } from "@tanstack/react-router"
 import {
   BellIcon,
+  CircleAlertIcon,
   HeartIcon,
   MessageSquareIcon,
-  SparklesIcon,
+  PinIcon,
   UserPlusIcon,
   XIcon,
 } from "lucide-react"
 
+import type { NotificationRow } from "@workspace/api"
 import { Button } from "@workspace/ui/components/button"
 import {
   Dialog,
@@ -22,47 +25,15 @@ import {
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { cn } from "@workspace/ui/lib/utils"
 
-type MockNotification = {
-  id: string
-  kind: "like" | "comment" | "follow" | "feature"
-  title: string
-  body: string
-  timeLabel: string
-  unread?: boolean
-}
-
-const MOCK_NOTIFICATIONS: MockNotification[] = [
-  {
-    id: "mock-like-1",
-    kind: "like",
-    title: "New clip reaction",
-    body: "TODO: replace with real actor + clip title once notification payloads exist.",
-    timeLabel: "2m ago",
-    unread: true,
-  },
-  {
-    id: "mock-comment-1",
-    kind: "comment",
-    title: "New comment",
-    body: "TODO: thread comment previews into this row and deep-link to the right timestamp.",
-    timeLabel: "18m ago",
-    unread: true,
-  },
-  {
-    id: "mock-follow-1",
-    kind: "follow",
-    title: "New follower",
-    body: "TODO: swap this mock follower text for actual social graph events.",
-    timeLabel: "1h ago",
-  },
-  {
-    id: "mock-feature-1",
-    kind: "feature",
-    title: "Notification settings preview",
-    body: "TODO: wire read state, batching, preferences, and per-type mute controls.",
-    timeLabel: "Today",
-  },
-]
+import { useSuspenseSession } from "@/lib/session-suspense"
+import {
+  notificationHref,
+  notificationText,
+  useMarkAllNotificationsReadMutation,
+  useMarkNotificationReadMutation,
+  useNotificationStream,
+  useNotificationsQuery,
+} from "@/lib/notification-queries"
 
 const NOTIFICATION_GLASS_STYLE = {
   "--notification-glass-opacity": "72%",
@@ -76,13 +47,23 @@ const NOTIFICATION_GLASS_STYLE = {
 
 export function NotificationCenter() {
   const isMobile = useIsMobile()
+  const session = useSuspenseSession()
+  const enabled = Boolean(session)
   const [open, setOpen] = React.useState(false)
-  const unreadCount = MOCK_NOTIFICATIONS.filter((item) => item.unread).length
+  const query = useNotificationsQuery({ enabled })
+  useNotificationStream({
+    enabled: enabled && query.isFetched,
+    includeSnapshot: false,
+  })
+
+  if (!enabled) return null
+
+  const unreadCount = query.data?.unreadCount ?? 0
 
   const trigger = (
-    <Button variant="ghost" size="icon-sm" aria-label="Notifications">
+    <Button variant="ghost" size="icon" aria-label="Notifications">
       <span className="relative inline-flex">
-        <BellIcon />
+        <BellIcon className="size-5" />
         {unreadCount > 0 ? (
           <span
             aria-hidden
@@ -93,7 +74,13 @@ export function NotificationCenter() {
     </Button>
   )
 
-  const content = <NotificationCenterContent onClose={() => setOpen(false)} />
+  const content = (
+    <NotificationCenterContent
+      data={query.data}
+      isLoading={query.isLoading}
+      onClose={() => setOpen(false)}
+    />
+  )
 
   if (isMobile) {
     return (
@@ -136,8 +123,18 @@ export function NotificationCenter() {
   )
 }
 
-function NotificationCenterContent({ onClose }: { onClose: () => void }) {
-  const unreadCount = MOCK_NOTIFICATIONS.filter((item) => item.unread).length
+function NotificationCenterContent({
+  data,
+  isLoading,
+  onClose,
+}: {
+  data: { items: NotificationRow[]; unreadCount: number } | undefined
+  isLoading: boolean
+  onClose: () => void
+}) {
+  const markAllRead = useMarkAllNotificationsReadMutation()
+  const unreadCount = data?.unreadCount ?? 0
+  const items = data?.items ?? []
 
   return (
     <section className="flex flex-col gap-3">
@@ -151,9 +148,17 @@ function NotificationCenterContent({ onClose }: { onClose: () => void }) {
           </p>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
-            TODO: mark all read
-          </Button>
+          {unreadCount > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs"
+              disabled={markAllRead.isPending}
+              onClick={() => markAllRead.mutate()}
+            >
+              Mark all read
+            </Button>
+          ) : null}
           <Button
             variant="ghost"
             size="icon-sm"
@@ -165,27 +170,37 @@ function NotificationCenterContent({ onClose }: { onClose: () => void }) {
         </div>
       </header>
 
-      <div className="flex flex-col gap-2">
-        {MOCK_NOTIFICATIONS.map((item) => (
-          <NotificationRow key={item.id} item={item} />
-        ))}
+      <div className="flex max-h-[min(520px,calc(100dvh-14rem))] flex-col gap-2 overflow-y-auto pr-1">
+        {isLoading ? (
+          <NotificationEmptyState label="Loading notifications..." />
+        ) : items.length === 0 ? (
+          <NotificationEmptyState label="No notifications yet." />
+        ) : (
+          items.map((item) => (
+            <NotificationRow key={item.id} item={item} onClose={onClose} />
+          ))
+        )}
       </div>
-
-      <footer className="flex items-center justify-between border-t border-border pt-2.5">
-        <p className="text-xs text-foreground-muted">
-          TODO: add pagination, live polling, optimistic read state, and
-          empty/error states.
-        </p>
-        <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
-          TODO: view all
-        </Button>
-      </footer>
     </section>
   )
 }
 
-function NotificationRow({ item }: { item: MockNotification }) {
-  const Icon = ICON_BY_KIND[item.kind]
+function NotificationRow({
+  item,
+  onClose,
+}: {
+  item: NotificationRow
+  onClose: () => void
+}) {
+  const Icon = ICON_BY_KIND[item.type]
+  const text = notificationText(item)
+  const href = notificationHref(item)
+  const unread = item.readAt === null
+  const markRead = useMarkNotificationReadMutation()
+
+  const handleRead = () => {
+    if (unread) markRead.mutate(item.id)
+  }
 
   return (
     <article
@@ -193,7 +208,7 @@ function NotificationRow({ item }: { item: MockNotification }) {
         "alloy-glass relative flex items-start gap-3 rounded-xl border px-3 py-3",
         "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
         "hover:border-border-strong",
-        item.unread && "border-accent-border/60"
+        unread && "border-accent-border/60"
       )}
       style={
         {
@@ -210,25 +225,45 @@ function NotificationRow({ item }: { item: MockNotification }) {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="truncate text-sm font-semibold text-foreground">
-              {item.title}
+              {text.title}
             </h3>
             <p className="mt-1 text-xs leading-5 text-foreground-muted">
-              {item.body}
+              {text.body}
             </p>
           </div>
           <span className="shrink-0 text-[11px] font-medium text-foreground-faint">
-            {item.timeLabel}
+            {formatRelativeTime(item.createdAt)}
           </span>
         </div>
 
         <div className="mt-2 flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
-            TODO: open
-          </Button>
-          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
-            TODO: dismiss
-          </Button>
-          {item.unread ? (
+          {href ? (
+            <Link
+              to={href}
+              className={cn(
+                "inline-flex h-6 items-center rounded-md px-2 text-xs font-medium",
+                "text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground"
+              )}
+              onClick={() => {
+                handleRead()
+                onClose()
+              }}
+            >
+              Open
+            </Link>
+          ) : null}
+          {unread ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs"
+              disabled={markRead.isPending}
+              onClick={handleRead}
+            >
+              Mark read
+            </Button>
+          ) : null}
+          {unread ? (
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent">
               <span aria-hidden className="size-1.5 rounded-full bg-accent" />
               Unread
@@ -240,9 +275,38 @@ function NotificationRow({ item }: { item: MockNotification }) {
   )
 }
 
+function NotificationEmptyState({ label }: { label: string }) {
+  return (
+    <div className="rounded-lg border border-border px-3 py-6 text-center text-xs font-medium text-foreground-muted">
+      {label}
+    </div>
+  )
+}
+
 const ICON_BY_KIND = {
-  like: HeartIcon,
-  comment: MessageSquareIcon,
-  follow: UserPlusIcon,
-  feature: SparklesIcon,
+  clip_upload_failed: CircleAlertIcon,
+  new_follower: UserPlusIcon,
+  clip_comment: MessageSquareIcon,
+  comment_pinned: PinIcon,
+  comment_liked_by_author: HeartIcon,
 } as const
+
+function formatRelativeTime(value: string): string {
+  const deltaSeconds = Math.round(
+    (new Date(value).getTime() - Date.now()) / 1000
+  )
+  const abs = Math.abs(deltaSeconds)
+  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" })
+
+  if (abs < 60) return rtf.format(deltaSeconds, "second")
+  const deltaMinutes = Math.round(deltaSeconds / 60)
+  if (Math.abs(deltaMinutes) < 60) return rtf.format(deltaMinutes, "minute")
+  const deltaHours = Math.round(deltaMinutes / 60)
+  if (Math.abs(deltaHours) < 24) return rtf.format(deltaHours, "hour")
+  const deltaDays = Math.round(deltaHours / 24)
+  if (Math.abs(deltaDays) < 7) return rtf.format(deltaDays, "day")
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+  }).format(new Date(value))
+}

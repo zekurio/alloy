@@ -259,18 +259,14 @@ export function ChromeBar({
     <div
       aria-hidden={false}
       className={cn(
-        "pointer-events-auto absolute inset-x-0 bottom-0 isolate z-20",
+        videoChromeBarClass,
+        "pointer-events-auto absolute inset-x-0 -bottom-px isolate z-20 pb-px",
         "transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
         "group-data-[chrome=hidden]/video:pointer-events-none group-data-[chrome=hidden]/video:opacity-0"
       )}
     >
       <div className="relative flex flex-col">
-        <div
-          className={cn(
-            videoChromeBarClass,
-            "flex flex-col gap-1.5 px-2 pt-1.5 pb-1.5"
-          )}
-        >
+        <div className="flex flex-col gap-1.5 px-2 pt-1.5 pb-1.5">
           <div className="px-0.5 text-white">
             <VideoScrubber
               currentTime={currentTime}
@@ -302,7 +298,9 @@ export function ChromeBar({
             </div>
 
             <div className="inline-flex items-center px-2 text-sm font-semibold text-white/65 tabular-nums">
-              <span className="text-white">{formatTimeStable(currentTime, duration)}</span>
+              <span className="text-white">
+                {formatTimeStable(currentTime, duration)}
+              </span>
               <span className="mx-1 text-white/35">/</span>
               <span>{formatTime(duration)}</span>
             </div>

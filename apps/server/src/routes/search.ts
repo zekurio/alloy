@@ -22,8 +22,10 @@ function toLikePattern(raw: string): string {
   return `%${escaped}%`
 }
 
-export const searchRoute = new Hono()
-  .get("/", zValidator("query", SearchQuery), async (c) => {
+export const searchRoute = new Hono().get(
+  "/",
+  zValidator("query", SearchQuery),
+  async (c) => {
     const { q, limit } = c.req.valid("query")
     const pattern = toLikePattern(q.trim())
 
@@ -145,4 +147,5 @@ export const searchRoute = new Hono()
         clipCount: row.clipCount,
       })),
     })
-  })
+  }
+)

@@ -104,8 +104,9 @@ function ClipPlayer({
     setSourcePlayable(canPlayNativeVideo(sourceContentType))
   }, [sourceContentType])
 
-  const preferredQualityId =
-    sourcePlayable ? "source" : (defaultEncodedId ?? "source")
+  const preferredQualityId = sourcePlayable
+    ? "source"
+    : (defaultEncodedId ?? "source")
   const [selectedQualityId, setSelectedQualityId] =
     React.useState(preferredQualityId)
 
@@ -114,7 +115,10 @@ function ClipPlayer({
   }, [clipId, preferredQualityId])
 
   React.useEffect(() => {
-    if (selectedQualityId === "source" || selectedQualityId === defaultEncodedId)
+    if (
+      selectedQualityId === "source" ||
+      selectedQualityId === defaultEncodedId
+    )
       return
     const stillAvailable = sortedVariants.some(
       (variant) => variant.id === selectedQualityId

@@ -36,6 +36,13 @@
       "when": 1777020117533,
       "tag": "0004_chilly_whiplash",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777026090041,
+      "tag": "0005_curly_the_initiative",
+      "breakpoints": true
     }
   ]
 }

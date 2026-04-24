@@ -8,6 +8,7 @@ import { clip, clipComment, clipCommentLike } from "@workspace/db/schema"
 
 import { getAuth } from "../auth"
 import { db } from "../db"
+import { createNotification } from "../lib/notifications"
 import { requireSession } from "../lib/require-session"
 import { IdParam, peekViewer, resolveEngagementTarget } from "./clips-helpers"
 import {
@@ -113,6 +114,14 @@ export const clipCommentsRoutes = new Hono()
         return rows
       })
       if (!inserted) return c.json({ error: "Insert failed" }, 500)
+
+      void createNotification({
+        recipientId: target.authorId,
+        actorId: viewerId,
+        type: "clip_comment",
+        clipId: id,
+        commentId: inserted.id,
+      })
 
       const [authorRow] = await db
         .select(authorShape)
@@ -268,21 +277,57 @@ export const clipCommentsRoutes = new Hono()
           .returning({ commentId: clipCommentLike.commentId })
         if (inserted.length === 0) {
           const [row] = await tx
-            .select({ likeCount: clipComment.likeCount })
+            .select({
+              likeCount: clipComment.likeCount,
+              authorId: clipComment.authorId,
+              clipId: clipComment.clipId,
+              clipAuthorId: clip.authorId,
+            })
             .from(clipComment)
+            .innerJoin(clip, eq(clipComment.clipId, clip.id))
             .where(eq(clipComment.id, commentId))
             .limit(1)
-          return row ? { liked: true, likeCount: row.likeCount } : null
+          return row
+            ? { liked: true, likeCount: row.likeCount, inserted: false, row }
+            : null
         }
         const [row] = await tx
           .update(clipComment)
           .set({ likeCount: sql`${clipComment.likeCount} + 1` })
           .where(eq(clipComment.id, commentId))
-          .returning({ likeCount: clipComment.likeCount })
-        return row ? { liked: true, likeCount: row.likeCount } : null
+          .returning({
+            likeCount: clipComment.likeCount,
+            authorId: clipComment.authorId,
+            clipId: clipComment.clipId,
+          })
+        if (!row) return null
+        const [clipRow] = await tx
+          .select({ authorId: clip.authorId })
+          .from(clip)
+          .where(eq(clip.id, row.clipId))
+          .limit(1)
+        return {
+          liked: true,
+          likeCount: row.likeCount,
+          inserted: true,
+          row: { ...row, clipAuthorId: clipRow?.authorId ?? null },
+        }
       })
       if (!result) return c.json({ error: "Not found" }, 404)
-      return c.json(result)
+      if (
+        result.inserted &&
+        result.row.clipAuthorId === viewerId &&
+        result.row.authorId !== viewerId
+      ) {
+        void createNotification({
+          recipientId: result.row.authorId,
+          actorId: viewerId,
+          type: "comment_liked_by_author",
+          clipId: result.row.clipId,
+          commentId,
+        })
+      }
+      return c.json({ liked: result.liked, likeCount: result.likeCount })
     }
   )
 
@@ -344,6 +389,7 @@ export const clipCommentsRoutes = new Hono()
         .select({
           id: clipComment.id,
           clipId: clipComment.clipId,
+          authorId: clipComment.authorId,
           parentId: clipComment.parentId,
         })
         .from(clipComment)
@@ -380,6 +426,13 @@ export const clipCommentsRoutes = new Hono()
           .update(clipComment)
           .set({ pinnedAt: new Date() })
           .where(eq(clipComment.id, commentId))
+      })
+      void createNotification({
+        recipientId: row.authorId,
+        actorId: viewerId,
+        type: "comment_pinned",
+        clipId: row.clipId,
+        commentId,
       })
       return c.json({ pinned: true })
     }

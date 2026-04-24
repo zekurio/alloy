@@ -26,6 +26,7 @@ const FALLBACK_CONFIG: PublicAuthConfig = {
 }
 
 let sessionInitialPromise: Promise<void> | null = null
+let sessionLoadPromise: Promise<SessionData> | null = null
 let configPromiseCache: Promise<PublicAuthConfig> | null = null
 
 const requestContextMiddleware = createMiddleware().server(
@@ -36,9 +37,12 @@ const requestContextMiddleware = createMiddleware().server(
 
 async function fetchSession(cookie: string | null): Promise<SessionData> {
   try {
-    const response = await fetch(new URL("/api/auth/get-session", apiOrigin()), {
-      headers: cookie ? { cookie } : undefined,
-    })
+    const response = await fetch(
+      new URL("/api/auth/get-session", apiOrigin()),
+      {
+        headers: cookie ? { cookie } : undefined,
+      }
+    )
 
     if (!response.ok) return null
 
@@ -100,18 +104,32 @@ function sessionInitializedPromise(): Promise<void> {
   return sessionInitialPromise
 }
 
+function fetchClientSession(): Promise<SessionData> {
+  if (sessionLoadPromise) return sessionLoadPromise
+
+  sessionLoadPromise = authClient
+    .getSession()
+    .then(({ data }) => data ?? null)
+    .catch(() => null)
+    .finally(() => {
+      sessionLoadPromise = null
+    })
+  return sessionLoadPromise
+}
+
 export async function loadSession(): Promise<SessionData> {
   if (typeof window === "undefined") return loadServerSession()
 
-  const current = sessionAtom()?.get()
+  const atom = sessionAtom()
+  const current = atom?.get()
   if (current && !current.isPending) return current.data
 
-  try {
-    const { data } = await authClient.getSession()
-    return data ?? null
-  } catch {
-    return null
+  if (atom && current?.isPending) {
+    await sessionInitializedPromise()
+    return atom.get().data
   }
+
+  return fetchClientSession()
 }
 
 export function loadAuthConfig(): Promise<PublicAuthConfig> {

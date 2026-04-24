@@ -12,10 +12,7 @@ import {
 
 import { db } from "../db"
 import { env } from "../env"
-import {
-  publishClipProgress,
-  publishClipUpsert,
-} from "../lib/clip-events"
+import { publishClipProgress, publishClipUpsert } from "../lib/clip-events"
 import { configStore, type EncoderConfig } from "../lib/config-store"
 import { storage } from "../storage"
 import { encode, probe } from "./ffmpeg"
@@ -89,6 +86,17 @@ async function runEncodeInScratch(
   const writeProgress = makeProgressWriter(clipId, row.authorId)
   const encoderConfig = configStore.get("encoder")
 
+  if (!encoderConfig.enabled) {
+    await publishSourceOnlyClip({
+      clipId,
+      authorId: row.authorId,
+      row,
+      probed,
+      sourceKey,
+    })
+    return
+  }
+
   const sourceVariant: ClipEncodedVariant | null = encoderConfig.keepSource
     ? {
         id: "source",
@@ -107,13 +115,11 @@ async function runEncodeInScratch(
     probed.height,
     encoderConfig.variants
   )
+  if (variantSpecs.length === 0) {
+    throw new Error("Encoder is enabled but no variants are configured")
+  }
   const targetSettings = variantSpecs.map((spec) =>
-    resolveVariantSettings(
-      spec,
-      encoderConfig,
-      effectiveTrimStart,
-      effectiveTrimEnd
-    )
+    resolveVariantSettings(spec, effectiveTrimStart, effectiveTrimEnd)
   )
 
   const reusedBySpecIndex = await planReuse(row, variantSpecs, targetSettings)
@@ -163,6 +169,48 @@ async function runEncodeInScratch(
     .where(eq(clip.id, clipId))
 
   void publishClipUpsert(row.authorId, clipId)
+}
+
+async function publishSourceOnlyClip({
+  clipId,
+  authorId,
+  row,
+  probed,
+  sourceKey,
+}: {
+  clipId: string
+  authorId: string
+  row: typeof clip.$inferSelect
+  probed: Awaited<ReturnType<typeof probe>>
+  sourceKey: string
+}): Promise<void> {
+  const sourceVariant: ClipEncodedVariant = {
+    id: "source",
+    label: "Source",
+    storageKey: sourceKey,
+    contentType: row.contentType,
+    width: probed.width,
+    height: probed.height,
+    sizeBytes: row.sizeBytes ?? 0,
+    isDefault: true,
+  }
+
+  await pruneStaleVariants(row, new Map(), sourceVariant)
+  await db
+    .update(clip)
+    .set({
+      status: "ready",
+      encodeProgress: 100,
+      failureReason: null,
+      sizeBytes: sourceVariant.sizeBytes,
+      width: sourceVariant.width,
+      height: sourceVariant.height,
+      variants: [sourceVariant],
+      updatedAt: new Date(),
+    })
+    .where(eq(clip.id, clipId))
+
+  void publishClipUpsert(authorId, clipId)
 }
 
 async function publishEncodedVariants({
@@ -323,13 +371,14 @@ async function encodeVariants(
 
     const variantPath = path.join(opts.paths.scratchDir, `${variant.id}.mp4`)
 
-    const rungConfig: EncoderConfig = {
-      ...opts.config,
-      codec: variant.override.codec ?? opts.config.codec,
-      quality: variant.override.quality ?? opts.config.quality,
-      preset: variant.override.preset ?? opts.config.preset,
-      audioBitrateKbps:
-        variant.override.audioBitrateKbps ?? opts.config.audioBitrateKbps,
+    const rungConfig = {
+      hwaccel: variant.override.hwaccel,
+      codec: variant.override.codec,
+      quality: variant.override.quality,
+      preset: variant.override.preset,
+      audioBitrateKbps: variant.override.audioBitrateKbps,
+      qsvDevice: opts.config.qsvDevice,
+      vaapiDevice: opts.config.vaapiDevice,
     }
 
     await encode(opts.paths.sourcePath, variantPath, {
@@ -378,17 +427,16 @@ async function makeScratchDir(clipId: string): Promise<string> {
 
 function resolveVariantSettings(
   spec: VariantSpec,
-  encoderConfig: EncoderConfig,
   trimStartMs: number | null,
   trimEndMs: number | null
 ): ClipVariantSettings {
   return {
-    codec: spec.override.codec ?? encoderConfig.codec,
+    hwaccel: spec.override.hwaccel,
+    codec: spec.override.codec,
     audioCodec: "aac",
-    quality: spec.override.quality ?? encoderConfig.quality,
-    preset: spec.override.preset ?? encoderConfig.preset,
-    audioBitrateKbps:
-      spec.override.audioBitrateKbps ?? encoderConfig.audioBitrateKbps,
+    quality: spec.override.quality,
+    preset: spec.override.preset,
+    audioBitrateKbps: spec.override.audioBitrateKbps,
     height: spec.height,
     trimStartMs,
     trimEndMs,
@@ -401,6 +449,7 @@ function settingsEqual(
 ): boolean {
   return (
     a.codec === b.codec &&
+    a.hwaccel === b.hwaccel &&
     a.audioCodec === b.audioCodec &&
     a.quality === b.quality &&
     a.preset === b.preset &&

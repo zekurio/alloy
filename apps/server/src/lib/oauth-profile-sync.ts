@@ -5,10 +5,7 @@ import { account, user } from "@workspace/db/auth-schema"
 
 import { getAuth } from "../auth"
 import { db } from "../db"
-import {
-  getEnabledProviderConfig,
-  imageFromProfile,
-} from "./oauth-config"
+import { getEnabledProviderConfig, imageFromProfile } from "./oauth-config"
 
 type DecryptContext = Parameters<typeof decryptOAuthToken>[1]
 type LinkedAccountTokens = {
