@@ -4,7 +4,7 @@ import { Readable } from "node:stream"
 import { eq } from "drizzle-orm"
 import { z } from "zod"
 
-import { ACCEPTED_CLIP_CONTENT_TYPES } from "@workspace/db/contracts"
+import { ACCEPTED_CLIP_CONTENT_TYPES } from "@workspace/contracts"
 import { getAuth } from "../auth"
 import {
   CLIP_PRIVACY,

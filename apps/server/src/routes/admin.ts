@@ -6,7 +6,7 @@ import { Hono } from "hono"
 import { createMiddleware } from "hono/factory"
 import { z } from "zod"
 
-import type { AdminEncoderCapabilities as EncoderCapabilities } from "@workspace/db/contracts"
+import type { AdminEncoderCapabilities as EncoderCapabilities } from "@workspace/contracts"
 import { passkey, user } from "@workspace/db/auth-schema"
 import { clip } from "@workspace/db/schema"
 
