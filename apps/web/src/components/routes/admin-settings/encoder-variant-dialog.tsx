@@ -31,6 +31,7 @@ import {
   type EncoderCodec,
   type EncoderHwaccel,
 } from "@workspace/api"
+import { LimitedInput } from "@/components/form/limited-field"
 import { EncoderHeightField } from "./encoder-height-field"
 import {
   clampInt,
@@ -184,7 +185,7 @@ export function EncoderVariantDialog({
                 <FieldLabel htmlFor="variant-name" required>
                   Variant name
                 </FieldLabel>
-                <Input
+                <LimitedInput
                   id="variant-name"
                   value={draft.name}
                   required

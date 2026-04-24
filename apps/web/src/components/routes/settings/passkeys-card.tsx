@@ -25,9 +25,9 @@ import {
   DialogTrigger,
 } from "@workspace/ui/components/dialog"
 import { Field, FieldLabel } from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/components/sonner"
 
+import { LimitedInput } from "@/components/form/limited-field"
 import { authClient } from "@/lib/auth-client"
 
 export type Passkey = {
@@ -154,7 +154,7 @@ function AddPasskeyDialog({ onAdded }: { onAdded: () => Promise<void> }) {
           <DialogBody>
             <Field>
               <FieldLabel htmlFor="passkey-name">Name (optional)</FieldLabel>
-              <Input
+              <LimitedInput
                 id="passkey-name"
                 type="text"
                 value={name}
