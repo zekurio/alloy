@@ -48,6 +48,7 @@ export const searchRoute = new Hono().get(
           and(
             eq(clip.status, "ready"),
             inArray(clip.privacy, ["public", "unlisted"]),
+            isNull(user.disabledAt),
             or(
               ilike(clip.title, pattern),
               ilike(clip.description, pattern),
@@ -84,7 +85,13 @@ export const searchRoute = new Hono().get(
             inArray(clip.privacy, ["public", "unlisted"])
           )
         )
-        .where(or(ilike(game.name, pattern), ilike(game.slug, pattern)))
+        .innerJoin(user, eq(clip.authorId, user.id))
+        .where(
+          and(
+            or(ilike(game.name, pattern), ilike(game.slug, pattern)),
+            isNull(user.disabledAt)
+          )
+        )
         .groupBy(game.id)
         .orderBy(sql`count(${clip.id}) desc`, game.name)
         .limit(limit),
@@ -115,7 +122,8 @@ export const searchRoute = new Hono().get(
               ilike(user.displayUsername, pattern),
               ilike(user.username, pattern)
             ),
-            or(isNull(user.banned), eq(user.banned, false))
+            or(isNull(user.banned), eq(user.banned, false)),
+            isNull(user.disabledAt)
           )
         )
         .groupBy(user.id)

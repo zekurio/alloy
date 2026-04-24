@@ -16,12 +16,19 @@ export function createAuth(baseURL: string) {
       inferAdditionalFields<
         never,
         {
-          user: { banner: { type: "string"; required: false } }
+          user: {
+            banner: { type: "string"; required: false }
+            disabledAt: { type: "date"; required: false }
+          }
         }
       >({
         user: {
           banner: {
             type: "string",
+            required: false,
+          },
+          disabledAt: {
+            type: "date",
             required: false,
           },
         },
