@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import type { ProfileViewer, UserProfile } from "@workspace/api"
 
@@ -58,7 +58,11 @@ export function useUserFollowingQuery(
 }
 
 export function useUserProfileQuery(handle: string) {
-  return useQuery({
+  return useQuery(userProfileQueryOptions(handle))
+}
+
+export function userProfileQueryOptions(handle: string) {
+  return queryOptions({
     queryKey: userKeys.profile(handle),
     queryFn: () => api.users.fetchProfile(handle),
     enabled: handle.length > 0,
