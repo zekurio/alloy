@@ -32,6 +32,8 @@ export interface QueueItem {
   /** Hue 0–360 — drives the thumbnail gradient placeholder. */
   hue: number
   thumbUrl?: string | null
+  thumbFallbackUrl?: string | null
+  onThumbLoad?: () => void
   /** Optional callbacks the FlowController wires per row. */
   onCancel?: () => void
   onRetry?: () => void
@@ -179,7 +181,12 @@ function QueueRow({ item }: { item: QueueItem }) {
       }
     >
       <div className="flex items-center gap-3">
-        <QueueThumb thumbUrl={item.thumbUrl ?? null} hue={item.hue} />
+        <QueueThumb
+          thumbUrl={item.thumbUrl ?? null}
+          fallbackUrl={item.thumbFallbackUrl ?? null}
+          hue={item.hue}
+          onLoad={item.onThumbLoad}
+        />
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <div className="flex min-w-0 items-baseline gap-2">
@@ -223,15 +230,25 @@ function QueueRow({ item }: { item: QueueItem }) {
 
 function QueueThumb({
   thumbUrl,
+  fallbackUrl,
   hue,
+  onLoad,
 }: {
   thumbUrl: string | null
+  fallbackUrl: string | null
   hue: number
+  onLoad?: () => void
 }) {
   const [errored, setErrored] = React.useState(false)
+  const [loadedSrc, setLoadedSrc] = React.useState<string | null>(null)
   React.useEffect(() => {
     setErrored(false)
+    setLoadedSrc(null)
   }, [thumbUrl])
+
+  const showFallback = Boolean(
+    fallbackUrl && thumbUrl && loadedSrc !== thumbUrl
+  )
 
   return (
     <div
@@ -241,13 +258,25 @@ function QueueThumb({
         background: `linear-gradient(135deg, oklch(0.3 0.1 ${hue}) 0%, oklch(0.15 0.05 ${hue}) 70%, oklch(0.08 0 0) 100%)`,
       }}
     >
+      {showFallback ? (
+        <img
+          src={fallbackUrl!}
+          alt=""
+          className="absolute inset-0 size-full object-cover"
+          decoding="async"
+        />
+      ) : null}
       {thumbUrl && !errored ? (
         <img
           src={thumbUrl}
           alt=""
-          className="size-full object-cover"
+          className={cn("size-full object-cover", showFallback && "opacity-0")}
           loading="lazy"
           decoding="async"
+          onLoad={() => {
+            setLoadedSrc(thumbUrl)
+            onLoad?.()
+          }}
           onError={() => setErrored(true)}
         />
       ) : null}
