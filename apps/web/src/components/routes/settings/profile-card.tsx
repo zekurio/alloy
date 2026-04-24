@@ -32,7 +32,7 @@ import {
   type ImageCropMode,
 } from "@/components/profile/image-crop-dialog"
 import { api } from "@/lib/api"
-import { authClient } from "@/lib/auth-client"
+import { authClient, useSession } from "@/lib/auth-client"
 import { clipKeys } from "@/lib/clip-queries"
 import { feedKeys } from "@/lib/feed-queries"
 import { validateRequiredString, validateUsername } from "@/lib/form-validators"
@@ -65,6 +65,7 @@ export function ProfileCard({
 }: ProfileCardProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
+  const { refetch: refetchSession } = useSession()
   const [profileImage, setProfileImage] = React.useState(image)
   const [profileBanner, setProfileBanner] = React.useState(banner)
   const bannerUser = {
@@ -142,7 +143,7 @@ export function ProfileCard({
   const avatarAnchor = useClickAnchor()
 
   async function refreshProfile() {
-    await authClient.getSession()
+    await refetchSession()
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: userKeys.all }),
       queryClient.invalidateQueries({ queryKey: clipKeys.all }),
@@ -347,7 +348,12 @@ export function ProfileCard({
                             size="xl"
                             style={{ background: avatar.bg, color: avatar.fg }}
                           >
-                            <AvatarImage src={avatar.src} alt={previewName} />
+                            <AvatarImage
+                              src={avatar.src}
+                              alt={previewName}
+                              fetchPriority="high"
+                              loading="eager"
+                            />
                             <AvatarFallback
                               style={{
                                 background: avatar.bg,

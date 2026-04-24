@@ -32,24 +32,12 @@ function nodeToWeb(node: Readable): ReadableStream<Uint8Array> {
   return Readable.toWeb(node) as ReadableStream<Uint8Array>
 }
 
-async function readAll(node: Readable): Promise<Uint8Array> {
-  const chunks: Buffer[] = []
-  for await (const chunk of node) {
-    chunks.push(chunk as Buffer)
-  }
-  return Buffer.concat(chunks)
-}
-
 function assetUrl(key: string, updatedAt: Date): string {
   return `/storage/user-assets/${key}?v=${updatedAt.getTime().toString(36)}`
 }
 
 async function fetchRow(userId: string): Promise<UserRow | null> {
-  const [row] = await db
-    .select()
-    .from(user)
-    .where(eq(user.id, userId))
-    .limit(1)
+  const [row] = await db.select().from(user).where(eq(user.id, userId)).limit(1)
   return row ?? null
 }
 
@@ -80,7 +68,9 @@ export const usersUploadRoute = new Hono<{
       }
       if (buf.byteLength > MAX_AVATAR_BYTES) {
         return c.json(
-          { error: `Avatar too large. Max ${MAX_AVATAR_BYTES / 1024 / 1024} MB` },
+          {
+            error: `Avatar too large. Max ${MAX_AVATAR_BYTES / 1024 / 1024} MB`,
+          },
           413
         )
       }
@@ -117,7 +107,9 @@ export const usersUploadRoute = new Hono<{
       }
       if (buf.byteLength > MAX_BANNER_BYTES) {
         return c.json(
-          { error: `Banner too large. Max ${MAX_BANNER_BYTES / 1024 / 1024} MB` },
+          {
+            error: `Banner too large. Max ${MAX_BANNER_BYTES / 1024 / 1024} MB`,
+          },
           413
         )
       }
@@ -181,16 +173,6 @@ export const userAssetsRoute = new Hono().get("/:key{.+}", async (c) => {
   c.header("Content-Type", resolved.contentType)
   c.header("Content-Length", String(resolved.size))
   c.header("Cache-Control", "public, max-age=86400, immutable")
-
-  if (resolved.size <= 10 * 1024 * 1024) {
-    const buf = await readAll(resolved.stream())
-    return c.body(
-      buf.buffer.slice(
-        buf.byteOffset,
-        buf.byteOffset + buf.byteLength
-      ) as ArrayBuffer
-    )
-  }
 
   const node = resolved.stream()
   return stream(c, async (s) => {
