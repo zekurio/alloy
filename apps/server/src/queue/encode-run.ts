@@ -51,8 +51,8 @@ async function runEncodeInScratch(
   await db
     .update(clip)
     .set({
-      status: "encoding",
-      encodeProgress: 0,
+      status: row.status === "ready" ? "ready" : "encoding",
+      encodeProgress: row.status === "ready" ? row.encodeProgress : 0,
       failureReason: null,
       updatedAt: new Date(),
     })
@@ -129,6 +129,14 @@ async function runEncodeInScratch(
     trim: { startMs: effectiveTrimStart, endMs: effectiveTrimEnd },
     signal,
     writeProgress,
+    onVariant: (variants, progress) =>
+      publishEncodedVariants({
+        clipId,
+        authorId: row.authorId,
+        variants,
+        sourceVariant,
+        progress,
+      }),
   })
 
   const defaultVariant =
@@ -155,6 +163,40 @@ async function runEncodeInScratch(
     .where(eq(clip.id, clipId))
 
   void publishClipUpsert(row.authorId, clipId)
+}
+
+async function publishEncodedVariants({
+  clipId,
+  authorId,
+  variants,
+  sourceVariant,
+  progress,
+}: {
+  clipId: string
+  authorId: string
+  variants: readonly ClipEncodedVariant[]
+  sourceVariant: ClipEncodedVariant | null
+  progress: number
+}): Promise<void> {
+  const defaultVariant =
+    variants.find((variant) => variant.isDefault) ?? variants[0]
+  if (!defaultVariant) return
+
+  await db
+    .update(clip)
+    .set({
+      status: "ready",
+      encodeProgress: progress,
+      failureReason: null,
+      sizeBytes: defaultVariant.sizeBytes,
+      width: defaultVariant.width,
+      height: defaultVariant.height,
+      variants: sourceVariant ? [...variants, sourceVariant] : [...variants],
+      updatedAt: new Date(),
+    })
+    .where(eq(clip.id, clipId))
+
+  void publishClipUpsert(authorId, clipId)
 }
 
 function makeProgressWriter(
@@ -235,6 +277,10 @@ type EncodeVariantsOpts = {
   trim: { startMs: number | null; endMs: number | null }
   signal: AbortSignal
   writeProgress: (pct: number) => void
+  onVariant: (
+    variants: readonly ClipEncodedVariant[],
+    progress: number
+  ) => Promise<void>
 }
 
 async function encodeVariants(
@@ -248,8 +294,8 @@ async function encodeVariants(
     spec: VariantSpec,
     index: number,
     dims: { width: number; height: number; sizeBytes: number }
-  ): void => {
-    encodedVariants.push({
+  ): ClipEncodedVariant => {
+    const encodedVariant = {
       id: spec.id,
       label: spec.label,
       storageKey: spec.storageKey,
@@ -259,7 +305,9 @@ async function encodeVariants(
       sizeBytes: dims.sizeBytes,
       isDefault: spec.isDefault,
       settings: opts.settings[index],
-    })
+    }
+    encodedVariants.push(encodedVariant)
+    return encodedVariant
   }
 
   for (const [index, variant] of opts.specs.entries()) {
@@ -267,7 +315,9 @@ async function encodeVariants(
     if (reuse) {
       pushVariant(variant, index, reuse)
       completedWork += 1
-      opts.writeProgress(Math.floor((completedWork / totalWork) * 100))
+      const progress = Math.floor((completedWork / totalWork) * 100)
+      opts.writeProgress(progress)
+      await opts.onVariant(encodedVariants, progress)
       continue
     }
 
@@ -311,6 +361,9 @@ async function encodeVariants(
       sizeBytes: uploadedSize,
     })
     completedWork += 1
+    const progress = Math.floor((completedWork / totalWork) * 100)
+    opts.writeProgress(progress)
+    await opts.onVariant(encodedVariants, progress)
   }
 
   return encodedVariants

@@ -1,21 +1,29 @@
 import * as React from "react"
-import { DownloadIcon, MaximizeIcon, PauseIcon, PlayIcon } from "lucide-react"
+import { MaximizeIcon, PauseIcon, PlayIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "@workspace/ui/components/select"
 
-import { formatTime } from "./video-player-hooks"
+import { formatTime, formatTimeStable } from "./video-player-hooks"
 import { VideoScrubber } from "./video-scrubber"
+import { VideoSettingsMenu } from "./video-settings-menu"
 import { VolumeControl } from "./video-volume-control"
 
 const KEYBOARD_SEEK_SECONDS = 5
 const KEYBOARD_VOLUME_STEP = 0.1
+
+/* ─── Reusable video-chrome primitives ─────────────────────────────── */
+
+/** Dark translucent bar background — use on any overlay bar sitting on
+ *  top of video content. */
+export const videoChromeBarClass =
+  "group/bar bg-black/70 text-white transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-black/90"
+
+/** Icon button style for controls sitting on video chrome. */
+export const videoChromeIconClass =
+  "size-8 rounded-full text-white hover:bg-white/10 focus-visible:ring-white/30 [&_svg]:size-[18px]"
+
+/* ─── Types ────────────────────────────────────────────────────────── */
 
 export type LoadStatus =
   | { kind: "loading" }
@@ -31,13 +39,7 @@ type VideoKeyCommand = {
   toggleFullscreen: () => void
 }
 
-function withVideoBackdrop(style: React.CSSProperties): React.CSSProperties {
-  return {
-    ...style,
-    WebkitBackdropFilter: "blur(20px) saturate(1.5)",
-    backdropFilter: "blur(20px) saturate(1.5)",
-  }
-}
+/* ─── Shells ───────────────────────────────────────────────────────── */
 
 export function BareShell({
   className,
@@ -197,6 +199,8 @@ function shouldHandleVideoShortcut(
   return role !== "slider" && role !== "button" && role !== "combobox"
 }
 
+/* ─── Chrome bar ───────────────────────────────────────────────────── */
+
 export function ChromeBar({
   playing,
   duration,
@@ -204,6 +208,7 @@ export function ChromeBar({
   bufferedEnd,
   muted,
   volume,
+  autoAdvance,
   onTogglePlay,
   onToggleMute,
   onVolumeChange,
@@ -212,8 +217,8 @@ export function ChromeBar({
   selectedQualityId,
   onSelectQuality,
   downloadOptions,
+  onAutoAdvanceChange,
   onToggleFullscreen,
-  flush = false,
 }: {
   playing: boolean
   duration: number
@@ -221,6 +226,7 @@ export function ChromeBar({
   bufferedEnd: number
   muted: boolean
   volume: number
+  autoAdvance?: boolean
   onTogglePlay: () => void
   onToggleMute: () => void
   onVolumeChange: (v: number) => void
@@ -229,30 +235,11 @@ export function ChromeBar({
   selectedQualityId?: string
   onSelectQuality?: (qualityId: string) => void
   downloadOptions?: Array<{ id: string; label: string; url: string }>
+  onAutoAdvanceChange?: (next: boolean) => void
   onToggleFullscreen: () => void
-  /** Sit flush against the video frame — no padding / rounded corners. */
-  flush?: boolean
 }) {
   const [fullscreenSupported, setFullscreenSupported] = React.useState(false)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
-  const glassStyle = {
-    "--alloy-glass-hue": "var(--surface)",
-    "--alloy-glass-opacity": "52%",
-    "--alloy-glass-bg":
-      "color-mix(in oklab, var(--surface) 52%, transparent)",
-    "--alloy-glass-shadow": "0 18px 42px -28px rgb(0 0 0 / 0.82)",
-  } as React.CSSProperties
-  const iconButtonClass =
-    "rounded-full text-white/90 hover:bg-white/10 hover:text-white focus-visible:ring-white/30"
-  const selectTriggerClass =
-    "h-8 gap-1 rounded-full border-0 bg-transparent pr-2 pl-2 text-xs text-white/90 hover:border-0 hover:bg-white/10 hover:text-white focus:ring-0 focus:ring-offset-0 focus-visible:border-0 focus-visible:bg-white/10 focus-visible:ring-0 [&_svg]:text-white/90 hover:[&_svg]:text-white [&_span]:text-white/90 hover:[&_span]:text-white"
-
-  const hasQualityChoices =
-    (qualityOptions?.length ?? 0) > 1 && Boolean(onSelectQuality)
-  const hasDownloads = (downloadOptions?.length ?? 0) > 0
-  const selectedQualityLabel =
-    qualityOptions?.find((quality) => quality.id === selectedQualityId)?.label ??
-    "Quality"
 
   React.useEffect(() => {
     if (typeof document === "undefined") return
@@ -268,18 +255,6 @@ export function ChromeBar({
     return () => document.removeEventListener("fullscreenchange", onChange)
   }, [])
 
-  const handleDownload = React.useCallback(() => {
-    if (!downloadOptions?.length) return
-    const url = downloadOptions[0].url
-    const anchor = document.createElement("a")
-    anchor.href = url
-    anchor.rel = "noopener"
-    anchor.style.display = "none"
-    document.body.append(anchor)
-    anchor.click()
-    anchor.remove()
-  }, [downloadOptions])
-
   return (
     <div
       aria-hidden={false}
@@ -289,14 +264,14 @@ export function ChromeBar({
         "group-data-[chrome=hidden]/video:pointer-events-none group-data-[chrome=hidden]/video:opacity-0"
       )}
     >
-      <div
-        className={cn(
-          "relative flex flex-col",
-          flush ? "px-0 pb-0" : "gap-2 px-3 pb-3 sm:px-4 sm:pb-4"
-        )}
-      >
-        {flush ? null : (
-          <div className="px-1 text-white">
+      <div className="relative flex flex-col">
+        <div
+          className={cn(
+            videoChromeBarClass,
+            "flex flex-col gap-1.5 px-2 pt-1.5 pb-1.5"
+          )}
+        >
+          <div className="px-0.5 text-white">
             <VideoScrubber
               currentTime={currentTime}
               duration={duration}
@@ -304,36 +279,15 @@ export function ChromeBar({
               onSeek={onSeek}
             />
           </div>
-        )}
 
-        <div
-          className={cn(
-            "alloy-glass flex flex-col gap-1.5 px-1.5 text-white",
-            flush
-              ? "rounded-none border-x-0 border-b-0 border-t pt-1.5 pb-1"
-              : "flex-row items-center rounded-2xl border py-1"
-          )}
-          style={withVideoBackdrop(glassStyle)}
-        >
-          {flush ? (
-            <div className="px-0.5 text-white">
-              <VideoScrubber
-                currentTime={currentTime}
-                duration={duration}
-                bufferedEnd={bufferedEnd}
-                onSeek={onSeek}
-              />
-            </div>
-          ) : null}
-
-          <div className="flex w-full items-center gap-1.5">
-            <div className="inline-flex h-8 items-center gap-0.5">
+          <div className="flex w-full items-center gap-1">
+            <div className="inline-flex items-center gap-0.5">
               <Button
                 variant="ghost"
                 size="icon-sm"
                 aria-label={playing ? "Pause" : "Play"}
                 onClick={onTogglePlay}
-                className={iconButtonClass}
+                className={videoChromeIconClass}
               >
                 {playing ? <PauseIcon /> : <PlayIcon />}
               </Button>
@@ -343,60 +297,27 @@ export function ChromeBar({
                 volume={volume}
                 onToggleMute={onToggleMute}
                 onVolumeChange={onVolumeChange}
+                iconClassName={videoChromeIconClass}
               />
             </div>
 
-            <div className="inline-flex h-8 items-center px-2 text-xs text-white/65 tabular-nums">
-              <span className="text-white/95">{formatTime(currentTime)}</span>
+            <div className="inline-flex items-center px-2 text-sm font-semibold text-white/65 tabular-nums">
+              <span className="text-white">{formatTimeStable(currentTime, duration)}</span>
               <span className="mx-1 text-white/35">/</span>
               <span>{formatTime(duration)}</span>
             </div>
 
-            <div className="ml-auto inline-flex h-8 items-center gap-0.5">
-              {hasQualityChoices ? (
-                <Select
-                  value={selectedQualityId}
-                  onValueChange={(value) => {
-                    if (value) onSelectQuality?.(value)
-                  }}
-                >
-                  <SelectTrigger
-                    size="sm"
-                    className={selectTriggerClass}
-                  >
-                    <span className="truncate">{selectedQualityLabel}</span>
-                  </SelectTrigger>
-                  <SelectContent
-                    align="end"
-                    sideOffset={6}
-                    alignItemWithTrigger={false}
-                    className="alloy-glass w-auto min-w-24 rounded-xl border border-white/10 bg-transparent p-1 text-white shadow-none ring-0 [&_*]:text-white [&_[data-slot=select-item]]:text-white/90 [&_[data-slot=select-item][data-highlighted]]:text-white [&_[data-slot=select-item][data-highlighted]_*]:text-white [&_[data-slot=select-item][data-selected]]:text-white [&_[data-slot=select-item][data-selected]_*]:text-white [&_[data-slot=select-item-indicator]]:text-white"
-                    style={withVideoBackdrop(glassStyle)}
-                  >
-                    {qualityOptions?.map((quality) => (
-                      <SelectItem
-                        key={quality.id}
-                        value={quality.id}
-                        className="min-h-8 rounded-lg py-1.5 pr-8 pl-2.5 text-xs text-white/90 data-[selected=true]:bg-white/12 data-[selected=true]:text-white focus:bg-white/10 focus:text-white data-highlighted:bg-white/10 data-highlighted:text-white [&_span]:text-white/90 data-[selected=true]:[&_span]:text-white data-highlighted:[&_span]:text-white data-highlighted:[&_*]:text-white data-[selected=true]:[&_*]:text-white [&_svg]:text-white"
-                      >
-                        {quality.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : null}
-
-              {hasDownloads ? (
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Download"
-                  onClick={handleDownload}
-                  className={iconButtonClass}
-                >
-                  <DownloadIcon />
-                </Button>
-              ) : null}
+            <div className="ml-auto inline-flex items-center gap-0.5">
+              <VideoSettingsMenu
+                qualityOptions={qualityOptions}
+                selectedQualityId={selectedQualityId}
+                onSelectQuality={onSelectQuality}
+                downloadOptions={downloadOptions}
+                autoAdvance={autoAdvance}
+                onAutoAdvanceChange={onAutoAdvanceChange}
+                triggerClassName={videoChromeIconClass}
+                contentClassName="w-auto min-w-48 rounded-xl border border-white/10 bg-black/80 p-1 text-white shadow-lg ring-0 [&_*]:text-white [&_[data-slot=dropdown-menu-item]]:text-white/90 [&_[data-slot=dropdown-menu-item][data-highlighted]]:text-white [&_[data-slot=dropdown-menu-label]]:text-white/55 [&_[data-slot=dropdown-menu-radio-item]]:text-white/90 [&_[data-slot=dropdown-menu-radio-item][data-highlighted]]:text-white [&_[data-slot=dropdown-menu-sub-trigger]]:text-white/90 [&_[data-slot=dropdown-menu-sub-trigger][data-highlighted]]:text-white"
+              />
 
               {fullscreenSupported ? (
                 <Button
@@ -404,7 +325,7 @@ export function ChromeBar({
                   size="icon-sm"
                   aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
                   onClick={onToggleFullscreen}
-                  className={iconButtonClass}
+                  className={videoChromeIconClass}
                 >
                   <MaximizeIcon />
                 </Button>
@@ -417,6 +338,8 @@ export function ChromeBar({
   )
 }
 
+/* ─── Load overlay ─────────────────────────────────────────────────── */
+
 export function LoadOverlay({ status }: { status: LoadStatus }) {
   if (status.kind === "ready") return null
   return (
@@ -428,27 +351,11 @@ export function LoadOverlay({ status }: { status: LoadStatus }) {
       )}
     >
       {status.kind === "loading" ? (
-        <span
-          className="alloy-glass rounded-full border px-3 py-1"
-          style={withVideoBackdrop({
-            "--alloy-glass-hue": "var(--surface)",
-            "--alloy-glass-opacity": "62%",
-            "--alloy-glass-bg":
-              "color-mix(in oklab, var(--surface) 62%, transparent)",
-          } as React.CSSProperties)}
-        >
+        <span className="rounded-full border border-white/10 bg-black/70 px-3 py-1">
           Loading...
         </span>
       ) : (
-        <span
-          className="alloy-glass max-w-[80%] rounded-xl border px-3 py-2 text-white"
-          style={withVideoBackdrop({
-            "--alloy-glass-hue": "var(--surface)",
-            "--alloy-glass-opacity": "74%",
-            "--alloy-glass-bg":
-              "color-mix(in oklab, var(--surface) 74%, transparent)",
-          } as React.CSSProperties)}
-        >
+        <span className="max-w-[80%] rounded-xl border border-white/10 bg-black/80 px-3 py-2 text-white">
           {status.message}
         </span>
       )}

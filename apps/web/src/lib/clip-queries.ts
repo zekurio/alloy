@@ -27,6 +27,13 @@ export function useClipQuery(clipId: string) {
     queryKey: clipKeys.detail(clipId),
     queryFn: () => api.clips.fetchById(clipId),
     enabled: clipId.length > 0,
+    refetchInterval: (query) => {
+      const row = query.state.data
+      if (!row) return false
+      return row.status === "encoding" || row.encodeProgress < 100
+        ? 2500
+        : false
+    },
     // Keep the previous clip visible while the next one loads so
     // route-driven modal navigation feels continuous.
     placeholderData: (previous) => previous,

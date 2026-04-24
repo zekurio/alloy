@@ -49,6 +49,7 @@ export function ClipViewerDialog({
   const open = clipId !== null
   const query = useClipQuery(clipId ?? "")
   const list = useActiveClipList()
+  const [autoAdvance, setAutoAdvance] = React.useState(false)
 
   const prev = React.useMemo(() => {
     if (!list || !clipId) return null
@@ -124,6 +125,8 @@ export function ClipViewerDialog({
               prev={prev}
               next={next}
               onNavigate={onNavigate ? navigateTo : null}
+              autoAdvance={autoAdvance}
+              onAutoAdvanceChange={setAutoAdvance}
             />
           ) : (
             <ClipViewerDialogBody
@@ -132,6 +135,8 @@ export function ClipViewerDialog({
               prev={prev}
               next={next}
               onNavigate={onNavigate ? navigateTo : null}
+              autoAdvance={autoAdvance}
+              onAutoAdvanceChange={setAutoAdvance}
             />
           )
         ) : (
@@ -161,6 +166,8 @@ interface ClipViewerDialogBodyProps {
   prev?: ClipListEntry | null
   next?: ClipListEntry | null
   onNavigate?: ((entry: ClipListEntry) => void) | null
+  autoAdvance: boolean
+  onAutoAdvanceChange: (next: boolean) => void
 }
 
 function ClipViewerDialogBody({
@@ -169,6 +176,8 @@ function ClipViewerDialogBody({
   prev,
   next,
   onNavigate,
+  autoAdvance,
+  onAutoAdvanceChange,
 }: ClipViewerDialogBodyProps) {
   const [editOpen, setEditOpen] = React.useState(false)
   const handle = row.authorUsername
@@ -184,6 +193,9 @@ function ClipViewerDialogBody({
   const showNext = canNavigate && Boolean(next)
   const gutterOffsetLeftClass = "-left-16"
   const gutterOffsetRightClass = "-right-16"
+  const handleEnded = React.useCallback(() => {
+    if (autoAdvance && next && onNavigate) onNavigate(next)
+  }, [autoAdvance, next, onNavigate])
 
   return (
     <>
@@ -222,7 +234,6 @@ function ClipViewerDialogBody({
             <ChevronRightIcon />
           </Button>
         ) : null}
-
         <div
           className={cn(
             "grid h-full min-h-0 overflow-hidden rounded-[20px] bg-surface",
@@ -238,9 +249,15 @@ function ClipViewerDialogBody({
                 height={row.height}
                 thumbnail={thumbnail}
                 variants={row.variants}
+                status={row.status}
+                encodeProgress={row.encodeProgress}
                 aspectRatio={16 / 9}
                 className="overflow-hidden rounded-[14px] border border-white/10 shadow-[0_30px_90px_-42px_rgba(0,0,0,0.92)] lg:rounded-none lg:border-t-0 lg:border-r-0 lg:border-l-0 lg:shadow-[0_30px_90px_-42px_rgba(0,0,0,0.7)] [&_img]:object-cover [&_video]:object-cover"
                 onPlayThreshold={() => void api.clips.recordView(row.id)}
+                onEnded={handleEnded}
+                autoPlay
+                autoAdvance={canNavigate ? autoAdvance : undefined}
+                onAutoAdvanceChange={onAutoAdvanceChange}
               />
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-1 pt-4 sm:pt-6 lg:px-6 lg:pt-4 lg:pb-4 xl:px-8 xl:pb-6">

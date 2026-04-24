@@ -71,6 +71,8 @@ interface MobileClipViewerBodyProps {
   prev?: ClipListEntry | null
   next?: ClipListEntry | null
   onNavigate?: ((entry: ClipListEntry) => void) | null
+  autoAdvance: boolean
+  onAutoAdvanceChange: (next: boolean) => void
 }
 
 /* ------------------------------------------------------------------ */
@@ -83,6 +85,8 @@ function MobileClipViewerBody({
   prev,
   next,
   onNavigate,
+  autoAdvance,
+  onAutoAdvanceChange,
 }: MobileClipViewerBodyProps) {
   const { data: session } = useSession()
   const viewerId = session?.user?.id ?? null
@@ -181,6 +185,10 @@ function MobileClipViewerBody({
     )
   }, [row.id, deleteMutation, onDeleted])
 
+  const handleEnded = React.useCallback(() => {
+    if (autoAdvance && next && onNavigate) onNavigate(next)
+  }, [autoAdvance, next, onNavigate])
+
   const avatarStyle = { background: bg, color: fg } as const
 
   return (
@@ -237,10 +245,15 @@ function MobileClipViewerBody({
               height={row.height}
               thumbnail={thumbnail}
               variants={row.variants}
+              status={row.status}
+              encodeProgress={row.encodeProgress}
               aspectRatio={16 / 9}
-              chromeFlush
               className="[&_img]:object-cover [&_video]:object-cover"
               onPlayThreshold={() => void api.clips.recordView(row.id)}
+              onEnded={handleEnded}
+              autoPlay
+              autoAdvance={canNav ? autoAdvance : undefined}
+              onAutoAdvanceChange={onAutoAdvanceChange}
             />
           </div>
 

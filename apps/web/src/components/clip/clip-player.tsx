@@ -5,6 +5,7 @@ import {
   clipStreamUrl,
   clipThumbnailUrl,
   type ClipEncodedVariant,
+  type ClipStatus,
 } from "@workspace/api"
 import { VideoPlayer } from "@/components/video/video-player"
 
@@ -17,12 +18,16 @@ interface ClipPlayerProps {
   height?: number | null
   thumbnail?: string | null
   variants?: ClipEncodedVariant[]
+  status?: ClipStatus
+  encodeProgress?: number
   onPlayThreshold?: () => void
+  onEnded?: () => void
   className?: string
+  autoPlay?: boolean
+  autoAdvance?: boolean
+  onAutoAdvanceChange?: (next: boolean) => void
   /** Override the aspect ratio derived from source dimensions. */
   aspectRatio?: number
-  /** Flush the chrome bar against the video frame edge (no padding / rounding). */
-  chromeFlush?: boolean
 }
 
 const FALLBACK_ENCODED_OPTION = {
@@ -54,10 +59,15 @@ function ClipPlayer({
   height,
   thumbnail,
   variants = [],
+  status,
+  encodeProgress = 0,
   onPlayThreshold,
+  onEnded,
   className,
+  autoPlay,
+  autoAdvance,
+  onAutoAdvanceChange,
   aspectRatio: aspectRatioProp,
-  chromeFlush,
 }: ClipPlayerProps) {
   const poster =
     thumbnail === undefined
@@ -70,24 +80,32 @@ function ClipPlayer({
         .sort((a, b) => b.height - a.height),
     [variants]
   )
+
+  const hasLegacyEncodedFallback =
+    status === "ready" && encodeProgress >= 100 && sortedVariants.length === 0
   const encodedQualityOptions =
     sortedVariants.length > 0
       ? sortedVariants.map((variant) => ({
           id: variant.id,
           label: variant.label,
         }))
-      : [FALLBACK_ENCODED_OPTION]
+      : hasLegacyEncodedFallback
+        ? [FALLBACK_ENCODED_OPTION]
+        : []
   const defaultEncodedId =
     sortedVariants.find((variant) => variant.isDefault)?.id ??
     sortedVariants[0]?.id ??
-    FALLBACK_ENCODED_OPTION.id
+    (hasLegacyEncodedFallback ? FALLBACK_ENCODED_OPTION.id : null)
 
-  const [sourcePlayable, setSourcePlayable] = React.useState(false)
+  const [sourcePlayable, setSourcePlayable] = React.useState(() =>
+    canPlayNativeVideo(sourceContentType)
+  )
   React.useEffect(() => {
     setSourcePlayable(canPlayNativeVideo(sourceContentType))
   }, [sourceContentType])
 
-  const preferredQualityId = sourcePlayable ? "source" : defaultEncodedId
+  const preferredQualityId =
+    sourcePlayable ? "source" : (defaultEncodedId ?? "source")
   const [selectedQualityId, setSelectedQualityId] =
     React.useState(preferredQualityId)
 
@@ -95,9 +113,18 @@ function ClipPlayer({
     setSelectedQualityId(preferredQualityId)
   }, [clipId, preferredQualityId])
 
+  React.useEffect(() => {
+    if (selectedQualityId === "source" || selectedQualityId === defaultEncodedId)
+      return
+    const stillAvailable = sortedVariants.some(
+      (variant) => variant.id === selectedQualityId
+    )
+    if (!stillAvailable) setSelectedQualityId(preferredQualityId)
+  }, [defaultEncodedId, preferredQualityId, selectedQualityId, sortedVariants])
+
   // Source leads the list, but encoded MP4 remains the compatibility fallback.
   const qualityOptions = [
-    { id: "source", label: "Source" },
+    ...(sourcePlayable ? [{ id: "source", label: "Source" }] : []),
     ...encodedQualityOptions,
   ]
 
@@ -113,13 +140,28 @@ function ClipPlayer({
           label: variant.label,
           url: clipDownloadUrl(clipId, variant.id),
         }))
-      : [
-          {
-            ...FALLBACK_ENCODED_OPTION,
-            url: clipDownloadUrl(clipId, "encoded"),
-          },
-        ]),
+      : hasLegacyEncodedFallback
+        ? [
+            {
+              ...FALLBACK_ENCODED_OPTION,
+              url: clipDownloadUrl(clipId, "encoded"),
+            },
+          ]
+        : []),
   ]
+
+  if (!sourcePlayable && !defaultEncodedId) {
+    return (
+      <div
+        className={className}
+        style={{ aspectRatio: aspectRatioProp ?? DEFAULT_ASPECT_RATIO }}
+      >
+        <div className="grid size-full place-items-center bg-black text-sm text-white/70">
+          Preparing playback version…
+        </div>
+      </div>
+    )
+  }
 
   const src = clipStreamUrl(clipId, selectedQualityId)
   const selectedVariant =
@@ -152,7 +194,10 @@ function ClipPlayer({
         }
       }}
       onPlayThreshold={onPlayThreshold}
-      chromeFlush={chromeFlush}
+      onEnded={onEnded}
+      autoPlay={autoPlay}
+      autoAdvance={autoAdvance}
+      onAutoAdvanceChange={onAutoAdvanceChange}
     />
   )
 }

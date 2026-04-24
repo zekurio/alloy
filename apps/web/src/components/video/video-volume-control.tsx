@@ -10,6 +10,7 @@ export function VolumeControl({
   onToggleMute,
   onVolumeChange,
   className,
+  iconClassName,
 }: {
   muted: boolean
   volume: number
@@ -17,6 +18,8 @@ export function VolumeControl({
   onVolumeChange: (next: number) => void
   /** Extra classes on the outer wrapper — useful when the control is placed in an external toolbar row (e.g. the upload trim controls). */
   className?: string
+  /** Override the icon button styling (size, colors). */
+  iconClassName?: string
 }) {
   const railRef = React.useRef<HTMLDivElement>(null)
   const draggingIdRef = React.useRef<number | null>(null)
@@ -68,7 +71,10 @@ export function VolumeControl({
         size="icon-sm"
         aria-label={muted ? "Unmute" : "Mute"}
         onClick={onToggleMute}
-        className="rounded-full text-white/90 hover:bg-white/10 hover:text-white focus-visible:ring-white/30"
+        className={cn(
+          "rounded-full text-white hover:bg-white/10 focus-visible:ring-white/30",
+          iconClassName
+        )}
       >
         <Icon />
       </Button>

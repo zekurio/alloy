@@ -22,11 +22,7 @@ export function RecentClipsSection({
   slug,
   viewerId,
 }: RecentClipsSectionProps) {
-  const {
-    data: rows,
-    error,
-    isPending,
-  } = useGameClipsQuery(slug, {
+  const { data: rows, error } = useGameClipsQuery(slug, {
     sort: "recent",
     limit: RECENT_LIMIT,
   })
@@ -56,7 +52,6 @@ export function RecentClipsSection({
 
       <ClipSectionContent
         rows={visibleRows}
-        loading={isPending}
         error={error}
         skeletonCount={10}
         errorSeed={`game-${slug}-recent-error`}

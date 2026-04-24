@@ -162,6 +162,7 @@ export function FeedSection({ filter, viewerId }: FeedSectionProps) {
   })
 
   const rows = React.useMemo(() => (data ? data.pages.flat() : []), [data])
+  const hasData = data !== undefined
 
   const sentinelRef = useInfiniteScrollSentinel(
     fetchNextPage,
@@ -184,7 +185,7 @@ export function FeedSection({ filter, viewerId }: FeedSectionProps) {
       >
         {initialLoad ? (
           <ClipGridSkeleton count={10} />
-        ) : !hasRows && error ? (
+        ) : !hasData && error ? (
           <EmptyState
             seed={`feed-${feedId}-error`}
             size="lg"

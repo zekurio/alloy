@@ -31,11 +31,13 @@ type SharedPlayerProps = {
   onVideoClick?: React.MouseEventHandler<HTMLVideoElement>
   onPlaybackError?: (message: string) => void
   onPlayThreshold?: () => void
+  onEnded?: () => void
+  autoAdvance?: boolean
+  onAutoAdvanceChange?: (next: boolean) => void
   qualityOptions?: Array<{ id: string; label: string }>
   selectedQualityId?: string
   onSelectQuality?: (qualityId: string) => void
   downloadOptions?: Array<{ id: string; label: string; url: string }>
-  chromeFlush?: boolean
 }
 
 interface VideoPlayerProps extends SharedPlayerProps {
@@ -140,12 +142,14 @@ function PlayerCore({
   onVideoClick,
   onPlaybackError,
   onPlayThreshold,
+  onEnded,
+  autoAdvance,
+  onAutoAdvanceChange,
   qualityOptions,
   selectedQualityId,
   onSelectQuality,
   downloadOptions,
   playbackRate,
-  chromeFlush,
 }: PlayerCoreProps) {
   const mediaUrl = useMediaUrl(spec)
   const videoRef = React.useRef<HTMLVideoElement | null>(null)
@@ -166,11 +170,13 @@ function PlayerCore({
   const onTimeUpdateRef = React.useRef(onTimeUpdate)
   const onPlayingChangeRef = React.useRef(onPlayingChange)
   const onPlaybackErrorRef = React.useRef(onPlaybackError)
+  const onEndedRef = React.useRef(onEnded)
   React.useEffect(() => {
     onTimeUpdateRef.current = onTimeUpdate
     onPlayingChangeRef.current = onPlayingChange
     onPlaybackErrorRef.current = onPlaybackError
-  }, [onTimeUpdate, onPlayingChange, onPlaybackError])
+    onEndedRef.current = onEnded
+  }, [onTimeUpdate, onPlayingChange, onPlaybackError, onEnded])
 
   const syncTime = React.useCallback(() => {
     const video = videoRef.current
@@ -215,12 +221,13 @@ function PlayerCore({
     onPlaybackErrorRef.current?.(message)
   }, [setPlayingState])
 
-  const playInternal = React.useCallback(async () => {
+  const playInternal = React.useCallback(async (reportBlocked = true) => {
     const video = videoRef.current
     if (!video) return
     try {
       await video.play()
     } catch (err) {
+      if (!reportBlocked) return
       const message = err instanceof Error ? err.message : String(err)
       setStatus({ kind: "error", message })
       onPlaybackErrorRef.current?.(message)
@@ -396,7 +403,7 @@ function PlayerCore({
     element.playbackRate = playbackRate
     setStatus({ kind: "ready" })
     syncBuffered()
-    if (autoPlay) void playInternal()
+    if (autoPlay) void playInternal(false)
   }, [autoPlay, playbackRate, playInternal, syncBuffered])
 
   const handleLoadedData = React.useCallback(() => {
@@ -449,6 +456,7 @@ function PlayerCore({
         onEnded={() => {
           setPlayingState(false)
           syncTime()
+          onEndedRef.current?.()
         }}
         onError={reportError}
         className="absolute inset-0 block h-full w-full object-contain object-center"
@@ -498,6 +506,7 @@ function PlayerCore({
         bufferedEnd={bufferedEnd}
         muted={muted}
         volume={volume}
+        autoAdvance={autoAdvance}
         onTogglePlay={togglePlay}
         onToggleMute={toggleMute}
         onVolumeChange={setVolume}
@@ -506,7 +515,7 @@ function PlayerCore({
         selectedQualityId={selectedQualityId}
         onSelectQuality={onSelectQuality}
         downloadOptions={downloadOptions}
-        flush={chromeFlush}
+        onAutoAdvanceChange={onAutoAdvanceChange}
         onToggleFullscreen={toggleFullscreen}
       />
     </ChromeShell>
