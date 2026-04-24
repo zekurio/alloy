@@ -247,7 +247,10 @@ export const follow = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("follow_pair_idx").on(t.followerId, t.followingId)]
+  (t) => [
+    uniqueIndex("follow_pair_idx").on(t.followerId, t.followingId),
+    index("follow_following_idx").on(t.followingId),
+  ]
 )
 
 export const gameFollow = pgTable(
