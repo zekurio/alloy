@@ -1,6 +1,6 @@
 import * as React from "react"
-import { Loader2Icon } from "lucide-react"
 
+import { Spinner } from "@workspace/ui/components/spinner"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
@@ -99,8 +99,7 @@ function FeedSentinelStatus({
           "tracking-wide text-foreground-faint uppercase"
         )}
       >
-        <Loader2Icon className="size-3 animate-spin" />
-        Loading more
+        <Spinner className="size-3" />
       </span>
     )
   }
@@ -112,8 +111,7 @@ function FeedSentinelStatus({
           "tracking-wide text-foreground-faint uppercase"
         )}
       >
-        <Loader2Icon className="size-3 animate-spin" />
-        Updating feed
+        <Spinner className="size-3" />
       </span>
     )
   }
