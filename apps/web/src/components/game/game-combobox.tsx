@@ -40,6 +40,7 @@ export interface GameComboboxProps {
   placeholder?: string
   allowClear?: boolean
   invalid?: boolean
+  onConfiguredChange?: (configured: boolean | null) => void
   required?: boolean
   side?: "top" | "bottom"
   /**
@@ -57,12 +58,17 @@ export function GameCombobox({
   placeholder = "Search SteamGridDB…",
   allowClear = true,
   invalid = false,
+  onConfiguredChange,
   required = false,
   side = "bottom",
   className,
 }: GameComboboxProps) {
   const statusQuery = useSteamGridDBStatusQuery()
   const configured = statusQuery.data?.steamgriddbConfigured ?? null
+
+  React.useEffect(() => {
+    onConfiguredChange?.(configured)
+  }, [configured, onConfiguredChange])
 
   // Input text is controlled so a picked value can show the game name
   // (via `itemToStringLabel` alone, the input would blank on open).

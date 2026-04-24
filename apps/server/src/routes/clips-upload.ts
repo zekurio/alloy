@@ -11,12 +11,46 @@ import { db } from "../db"
 import { publishClipRemove, publishClipUpsert } from "../lib/clip-events"
 import { selectClipById } from "../lib/clip-select"
 import { configStore } from "../lib/config-store"
+import { generateUniqueGameSlug } from "../lib/game-slug"
 import { createNotification } from "../lib/notifications"
 import { requireSession } from "../lib/require-session"
+import { isConfigured as isSteamGridDBConfigured } from "../lib/steamgriddb"
 import { ENCODE_JOB, getBoss } from "../queue"
 import { cancelEncode } from "../queue/encode-worker"
 import { clipAssetKey, clipSourceAssetKey, storage } from "../storage"
 import { IdParam, InitiateBody, UpdateBody } from "./clips-helpers"
+
+const UNCATEGORIZED_STEAMGRIDDB_ID = 0
+const UNCATEGORIZED_GAME_NAME = "Uncategorized"
+
+async function ensureUncategorizedGameId(): Promise<string> {
+  const [existing] = await db
+    .select({ id: game.id })
+    .from(game)
+    .where(eq(game.steamgriddbId, UNCATEGORIZED_STEAMGRIDDB_ID))
+    .limit(1)
+  if (existing) return existing.id
+
+  const slug = await generateUniqueGameSlug(UNCATEGORIZED_GAME_NAME)
+  const [inserted] = await db
+    .insert(game)
+    .values({
+      steamgriddbId: UNCATEGORIZED_STEAMGRIDDB_ID,
+      name: UNCATEGORIZED_GAME_NAME,
+      slug,
+    })
+    .onConflictDoNothing({ target: game.steamgriddbId })
+    .returning({ id: game.id })
+  if (inserted) return inserted.id
+
+  const [raced] = await db
+    .select({ id: game.id })
+    .from(game)
+    .where(eq(game.steamgriddbId, UNCATEGORIZED_STEAMGRIDDB_ID))
+    .limit(1)
+  if (!raced) throw new Error("Failed to create uncategorized game")
+  return raced.id
+}
 
 async function resolveMentionIds(
   rawIds: ReadonlyArray<string>,
@@ -67,11 +101,18 @@ export const clipsUploadRoutes = new Hono()
       const thumbKey = clipAssetKey(clipId, "thumb")
 
       const privacy = body.privacy === "private" ? "private" : body.privacy
+      const gameId =
+        body.gameId ??
+        (!isSteamGridDBConfigured() ? await ensureUncategorizedGameId() : null)
+
+      if (!gameId) {
+        return c.json({ error: "Game is required" }, 400)
+      }
 
       const [gameRow] = await db
         .select({ id: game.id })
         .from(game)
-        .where(eq(game.id, body.gameId))
+        .where(eq(game.id, gameId))
         .limit(1)
       if (!gameRow) {
         return c.json({ error: "Unknown game" }, 400)
@@ -90,7 +131,7 @@ export const clipsUploadRoutes = new Hono()
         // Legacy `game` text column stays null on new uploads — the
         // mapped gameId below is the canonical reference.
         game: null,
-        gameId: body.gameId,
+        gameId,
         privacy,
         storageKey,
         contentType: body.contentType,
