@@ -19,6 +19,8 @@ const avatarBadgeSizeClasses = [
   "group-data-[size=2xl]/avatar:size-5",
 ]
 
+const loadedAvatarImageSrcs = new Set<string>()
+
 function Avatar({
   className,
   size = "md",
@@ -51,12 +53,19 @@ function AvatarImage({
   onLoadingStatusChange,
   ...props
 }: AvatarPrimitive.Image.Props) {
+  const initialStatus = src
+    ? loadedAvatarImageSrcs.has(src)
+      ? "loaded"
+      : "loading"
+    : "idle"
   const [status, setStatus] = React.useState<
     "idle" | "loading" | "loaded" | "error"
-  >(src ? "loading" : "idle")
+  >(initialStatus)
 
   React.useEffect(() => {
-    setStatus(src ? "loading" : "idle")
+    setStatus(
+      src ? (loadedAvatarImageSrcs.has(src) ? "loaded" : "loading") : "idle"
+    )
   }, [src])
 
   const showLoadingMask = !!src && status !== "loaded" && status !== "error"
@@ -67,6 +76,9 @@ function AvatarImage({
         data-slot="avatar-image"
         src={src}
         onLoadingStatusChange={(nextStatus) => {
+          if (src && nextStatus === "loaded") {
+            loadedAvatarImageSrcs.add(src)
+          }
           setStatus(nextStatus)
           onLoadingStatusChange?.(nextStatus)
         }}
