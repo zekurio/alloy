@@ -9,7 +9,6 @@ import {
 import { Button } from "@workspace/ui/components/button"
 
 import type { AdminEncoderVariant } from "@workspace/api"
-import { QUALITY_LABEL, ffmpegEncoderName } from "./shared"
 
 type VariantRowProps = {
   variant: AdminEncoderVariant
@@ -38,8 +37,9 @@ export function VariantRow({
 }: VariantRowProps) {
   const specs = [
     `${variant.height}p`,
-    ffmpegEncoderName(variant.hwaccel, variant.codec),
-    `${QUALITY_LABEL[variant.hwaccel]} ${variant.quality}`,
+    variant.encoder || "ffmpeg default encoder",
+    variant.hwaccel ? `hwaccel ${variant.hwaccel}` : "no hwaccel",
+    `quality ${variant.quality}`,
     `${variant.audioBitrateKbps} kbps`,
   ]
 
