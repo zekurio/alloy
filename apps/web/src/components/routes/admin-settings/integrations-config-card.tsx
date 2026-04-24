@@ -14,12 +14,12 @@ import {
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
 import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
+  Section,
+  SectionContent,
+  SectionFooter,
+  SectionHeader,
+  SectionTitle,
+} from "@workspace/ui/components/section"
 import {
   Field,
   FieldDescription,
@@ -126,13 +126,13 @@ export function IntegrationsConfigCard({
 
   return (
     <form onSubmit={onSubmit}>
-      <Card>
-        <CardHeader>
-          <CardTitle>SteamGridDB</CardTitle>
-        </CardHeader>
+      <Section>
+        <SectionHeader>
+          <SectionTitle>SteamGridDB</SectionTitle>
+        </SectionHeader>
 
         <fieldset disabled={pending} className="contents">
-          <CardContent className="flex flex-col gap-4">
+          <SectionContent className="flex flex-col gap-4">
             <Field>
               <FieldLabel htmlFor="sgdb-api-key">API key</FieldLabel>
               <InputGroup>
@@ -203,9 +203,9 @@ export function IntegrationsConfigCard({
                   : "Not configured — game picker is disabled."}
               </FieldDescription>
             </Field>
-          </CardContent>
+          </SectionContent>
 
-          <CardFooter className="justify-end">
+          <SectionFooter className="justify-end">
             <div className="flex items-center gap-2">
               <Button
                 type="button"
@@ -225,9 +225,9 @@ export function IntegrationsConfigCard({
                 {pending ? "Saving…" : "Save changes"}
               </Button>
             </div>
-          </CardFooter>
+          </SectionFooter>
         </fieldset>
-      </Card>
+      </Section>
     </form>
   )
 }

@@ -21,11 +21,11 @@ import {
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
+  Section,
+  SectionContent,
+  SectionHeader,
+  SectionTitle,
+} from "@workspace/ui/components/section"
 import {
   Dialog,
   DialogBody,
@@ -203,9 +203,9 @@ export function AdminUsersCard({ currentUserId }: AdminUsersCardProps) {
   const [seedOpen, setSeedOpen] = React.useState(false)
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Users</CardTitle>
+    <Section>
+      <SectionHeader>
+        <SectionTitle>Users</SectionTitle>
         <Dialog open={seedOpen} onOpenChange={setSeedOpen}>
           <DialogTrigger render={<Button variant="primary" size="sm" />}>
             <UserPlusIcon />
@@ -218,9 +218,9 @@ export function AdminUsersCard({ currentUserId }: AdminUsersCardProps) {
             }}
           />
         </Dialog>
-      </CardHeader>
+      </SectionHeader>
 
-      <CardContent>
+      <SectionContent>
         {loadError ? (
           <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
             {loadError}
@@ -240,8 +240,8 @@ export function AdminUsersCard({ currentUserId }: AdminUsersCardProps) {
             onDelete={onDelete}
           />
         )}
-      </CardContent>
-    </Card>
+      </SectionContent>
+    </Section>
   )
 }
 

@@ -14,7 +14,7 @@ import {
   AlertDialogTrigger,
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
-import { Card, CardContent } from "@workspace/ui/components/card"
+import { Section, SectionContent } from "@workspace/ui/components/section"
 import { toast } from "@workspace/ui/components/sonner"
 
 import { authClient } from "@/lib/auth-client"
@@ -46,8 +46,8 @@ export function DangerZoneCard() {
   }
 
   return (
-    <Card>
-      <CardContent className="flex items-center justify-between gap-4 py-4">
+    <Section>
+      <SectionContent className="flex items-center justify-between gap-4 py-4">
         <div className="min-w-0">
           <div className="text-sm font-medium">Delete account</div>
           <p className="mt-0.5 text-xs text-foreground-dim">
@@ -82,7 +82,7 @@ export function DangerZoneCard() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </CardContent>
-    </Card>
+      </SectionContent>
+    </Section>
   )
 }

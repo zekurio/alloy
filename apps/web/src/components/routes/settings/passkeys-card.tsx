@@ -2,7 +2,7 @@ import * as React from "react"
 import { KeyRoundIcon, PlusIcon, Trash2Icon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
-import { Card, CardContent } from "@workspace/ui/components/card"
+import { Section, SectionContent } from "@workspace/ui/components/section"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -69,8 +69,8 @@ export function PasskeysCard({
   }
 
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 py-4">
+    <Section>
+      <SectionContent className="flex flex-col gap-3 py-4">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-sm font-medium">Passkeys</div>
@@ -97,8 +97,8 @@ export function PasskeysCard({
             No passkeys yet. Add one for faster, password-free sign-in.
           </p>
         )}
-      </CardContent>
-    </Card>
+      </SectionContent>
+    </Section>
   )
 }
 
