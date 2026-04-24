@@ -483,8 +483,7 @@
   }
 }
 
-/* Base card — single-line, vertically centred, no description.             */
-/* Close button matches Button variant="outline" size="icon".           */
+/* Base card — single-line, vertically centred, no description. */
 
 .alloy-toast {
   display: flex !important;
@@ -543,60 +542,8 @@
   display: none;
 }
 
-/* Close button — exact visual match for Button variant="outline" size="icon". */
-.alloy-toast-close {
-  order: 4;
-  position: static !important;
-  transform: none !important;
-  inset: auto !important;
-  right: auto !important;
-  left: auto !important;
-  top: auto !important;
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  margin-left: auto;
-  border: 1px solid var(--border-strong) !important;
-  border-radius: var(--radius-md);
-  background: transparent !important;
-  color: var(--foreground) !important;
-  opacity: 1;
-  transition:
-    background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out);
-}
-.alloy-toast-close:hover {
-  background: transparent !important;
-  color: var(--accent) !important;
-  border-color: var(--accent-border) !important;
-}
-.alloy-toast-close svg {
-  width: 14px;
-  height: 14px;
-}
-
-/* Action / cancel buttons — keep them aligned with Alloy's button look. */
-.alloy-toast-action,
-.alloy-toast-cancel {
+.alloy-toast > [data-slot="button"] {
   order: 3;
   flex: none;
-}
-
-.alloy-toast-action {
-  background: var(--accent) !important;
-  color: var(--accent-foreground) !important;
-  border-radius: var(--radius-sm) !important;
-  padding: 4px 8px !important;
-  font-weight: 600 !important;
-}
-.alloy-toast-cancel {
-  background: var(--surface) !important;
-  color: var(--foreground-muted) !important;
-  border-radius: var(--radius-sm) !important;
-  padding: 4px 8px !important;
+  margin-left: auto;
 }
