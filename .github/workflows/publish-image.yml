@@ -1,0 +1,56 @@
+name: Publish Container Images
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: publish-image-${{ github.ref }}
+      cancel-in-progress: true
+
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - name: server
+            file: apps/server/Dockerfile
+          - name: web
+            file: apps/web/Dockerfile
+          - name: aio
+            file: apps/aio/Dockerfile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Resolve unstable version
+        id: meta
+        shell: bash
+        run: |
+          echo "app_version=unstable-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish image
+        uses: ./.github/actions/publish-image
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.image.name }}
+          file: ${{ matrix.image.file }}
+          build-args: |
+            APP_VERSION=${{ steps.meta.outputs.app_version }}
+          tags: |
+            type=raw,value=unstable
