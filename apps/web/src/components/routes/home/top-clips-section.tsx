@@ -174,10 +174,8 @@ function TopClipsSkeletons() {
               key={i}
               className="basis-full pl-0 md:basis-1/3 md:pl-4"
             >
-              <div className="px-2 md:px-0">
-                <div className="mx-auto w-full max-w-3xl md:max-w-none">
-                  <ClipCardSkeleton />
-                </div>
+              <div className="mx-auto w-full max-w-3xl md:max-w-none">
+                <ClipCardSkeleton />
               </div>
             </CarouselItem>
           ))}
@@ -210,14 +208,12 @@ function TopClipsRows({
               key={row.id}
               className="basis-full pl-0 md:basis-1/3 md:pl-4"
             >
-              <div className="px-2 md:px-0">
-                <ClipCardTrigger
-                  row={row}
-                  owned={row.authorId === viewerId}
-                  className="mx-auto w-full max-w-3xl md:max-w-none"
-                  metaVariant="showcase"
-                />
-              </div>
+              <ClipCardTrigger
+                row={row}
+                owned={row.authorId === viewerId}
+                className="mx-auto w-full max-w-3xl md:max-w-none"
+                metaVariant="showcase"
+              />
             </CarouselItem>
           ))}
         </TopClipsCarousel>
@@ -240,7 +236,7 @@ function TopClipsRows({
 function TopClipsCarousel({ children }: { children: React.ReactNode }) {
   return (
     <Carousel className="group" opts={{ align: "start" }}>
-      <CarouselContent className="-ml-0 md:-ml-4">{children}</CarouselContent>
+      <CarouselContent className="ml-0 md:-ml-4">{children}</CarouselContent>
       <CarouselPrevious
         variant="ghost"
         size="icon"
