@@ -20,6 +20,21 @@ import {
   selectClipAccess,
 } from "./clip-comments-helpers"
 
+async function resolveCommentEngagementTarget(
+  commentId: string,
+  headers: Headers
+) {
+  const [row] = await db
+    .select({ clipId: clipComment.clipId })
+    .from(clipComment)
+    .where(eq(clipComment.id, commentId))
+    .limit(1)
+  if (!row) return { accessible: false as const, response: null }
+  const target = await resolveEngagementTarget(row.clipId, headers)
+  if (!target.accessible) return target
+  return { accessible: true as const }
+}
+
 export const clipCommentsRoutes = new Hono()
   .get(
     "/:id/comments",
@@ -237,6 +252,14 @@ export const clipCommentsRoutes = new Hono()
       const viewerId = c.var.viewerId
       const { commentId } = c.req.valid("param")
 
+      const target = await resolveCommentEngagementTarget(
+        commentId,
+        c.req.raw.headers
+      )
+      if (!target.accessible) {
+        return target.response ?? c.json({ error: "Not found" }, 404)
+      }
+
       const result = await db.transaction(async (tx) => {
         const inserted = await tx
           .insert(clipCommentLike)
@@ -270,6 +293,14 @@ export const clipCommentsRoutes = new Hono()
     async (c) => {
       const viewerId = c.var.viewerId
       const { commentId } = c.req.valid("param")
+
+      const target = await resolveCommentEngagementTarget(
+        commentId,
+        c.req.raw.headers
+      )
+      if (!target.accessible) {
+        return target.response ?? c.json({ error: "Not found" }, 404)
+      }
 
       const result = await db.transaction(async (tx) => {
         const removed = await tx
