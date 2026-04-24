@@ -1,14 +1,19 @@
 import * as React from "react"
-import { AlertCircleIcon, AlertTriangleIcon, PlusIcon } from "lucide-react"
+import {
+  AlertCircleIcon,
+  AlertTriangleIcon,
+  InfoIcon,
+  PlusIcon,
+} from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
+  Section,
+  SectionContent,
+  SectionFooter,
+  SectionHeader,
+  SectionTitle,
+} from "@workspace/ui/components/section"
 import {
   Field,
   FieldDescription,
@@ -17,6 +22,11 @@ import {
 import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/components/sonner"
 import { Switch } from "@workspace/ui/components/switch"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@workspace/ui/components/tooltip"
 
 import {
   ENCODER_HEIGHT_MAX,
@@ -248,13 +258,13 @@ export function EncoderConfigCard({
   return (
     <>
       <form onSubmit={onSubmit}>
-        <Card>
-          <CardHeader>
-            <CardTitle>Encoder</CardTitle>
-          </CardHeader>
+        <Section>
+          <SectionHeader>
+            <SectionTitle>Encoder</SectionTitle>
+          </SectionHeader>
 
           <fieldset disabled={pending} className="contents">
-            <CardContent className="flex flex-col gap-3">
+            <SectionContent className="flex flex-col gap-3">
               {capsError ? (
                 <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
                   <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
@@ -352,26 +362,20 @@ export function EncoderConfigCard({
                   ) : null}
 
                   <div className="flex flex-col gap-3">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex items-center gap-1.5">
                       <h3 className="text-sm font-medium">Variant ladder</h3>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={openNewVariant}
-                        disabled={pending}
-                      >
-                        <PlusIcon />
-                        Add variant
-                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger className="text-muted-foreground hover:text-foreground">
+                          <InfoIcon className="size-3.5" />
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" align="start">
+                          Star a variant to make it the default playback
+                          rendition. Heights above source are clamped. Duplicate
+                          resolutions are allowed when codec, quality, or bitrate
+                          targets differ.
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
-
-                    <p className="text-xs text-muted-foreground">
-                      Star a variant to make it the default playback rendition.
-                      Heights above source are clamped. Duplicate resolutions
-                      are allowed when codec, quality, or bitrate targets
-                      differ.
-                    </p>
 
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
@@ -411,12 +415,24 @@ export function EncoderConfigCard({
                         No variants configured. Add one to get started.
                       </p>
                     )}
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="self-start"
+                      onClick={openNewVariant}
+                      disabled={pending}
+                    >
+                      <PlusIcon />
+                      Add variant
+                    </Button>
                   </div>
                 </>
               ) : null}
-            </CardContent>
+            </SectionContent>
 
-            <CardFooter>
+            <SectionFooter>
               <div className="ml-auto flex items-center gap-2">
                 <Button
                   type="button"
@@ -436,9 +452,9 @@ export function EncoderConfigCard({
                   {pending ? "Saving…" : "Save encoder"}
                 </Button>
               </div>
-            </CardFooter>
+            </SectionFooter>
           </fieldset>
-        </Card>
+        </Section>
       </form>
 
       <EncoderVariantDialog
