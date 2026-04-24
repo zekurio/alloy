@@ -34,6 +34,7 @@ import {
 
 import { api } from "@/lib/api"
 import { EncoderVariantDialog } from "./encoder-variant-dialog"
+import { ReEncodeClipsButton } from "./re-encode-clips-card"
 import { VariantRow } from "./encoder-variant-row"
 
 type EncoderConfigCardProps = {
@@ -379,6 +380,18 @@ export function EncoderConfigCard({
                       <PlusIcon />
                       Add variant
                     </Button>
+                  </div>
+
+                  <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium">
+                        Re-encode existing clips
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Queue current clips against the saved variant ladder.
+                      </p>
+                    </div>
+                    <ReEncodeClipsButton />
                   </div>
                 </>
               ) : null}
