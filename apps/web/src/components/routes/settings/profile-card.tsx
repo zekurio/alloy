@@ -31,6 +31,7 @@ import {
 import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/components/sonner"
 
+import { LimitedInput } from "@/components/form/limited-field"
 import {
   ImageCropDialog,
   type ImageCropMode,
@@ -443,7 +444,7 @@ export function ProfileCard({
                     <FieldLabel htmlFor={field.name} required>
                       Display name
                     </FieldLabel>
-                    <Input
+                    <LimitedInput
                       id={field.name}
                       type="text"
                       autoComplete="name"

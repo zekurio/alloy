@@ -26,6 +26,7 @@ import {
   type AdminOAuthProvider,
   USERNAME_CLAIM_SUGGESTIONS,
 } from "@workspace/api"
+import { LimitedInput } from "@/components/form/limited-field"
 import {
   OAuthCallbackField,
   parseScopes,
@@ -88,7 +89,7 @@ export function OAuthCustomProviderDialog({
                   <FieldLabel htmlFor="oauth-display-name" required>
                     Display name
                   </FieldLabel>
-                  <Input
+                  <LimitedInput
                     id="oauth-display-name"
                     value={draft.displayName}
                     maxLength={64}
