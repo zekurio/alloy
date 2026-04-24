@@ -6,6 +6,7 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@workspace/ui/components/avatar"
+import { Spinner } from "@workspace/ui/components/spinner"
 import { toast } from "@workspace/ui/components/sonner"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -108,7 +109,7 @@ function ClipComments({
         {comments.length > 0 ? <CommentsHeader count={totalCount} /> : null}
         {isLoading ? (
           <div className="flex h-full items-center justify-center p-6">
-            <span className="text-xs text-foreground-faint">Loading…</span>
+            <Spinner />
           </div>
         ) : comments.length === 0 ? (
           <div className="flex h-full items-center justify-center p-6">
@@ -270,7 +271,7 @@ function CommentRowView({
             {authorName}
           </span>
           {comment.author.id === clipAuthorId ? (
-            <span className="rounded-sm bg-accent-soft px-1.5 py-0.5 text-[0.6875rem] font-semibold tracking-wide text-accent uppercase">
+            <span className="inline-flex items-center rounded-sm bg-accent-soft px-1.5 py-0.5 text-[0.6875rem] leading-none font-semibold tracking-wide text-accent uppercase">
               Author
             </span>
           ) : null}
@@ -409,7 +410,7 @@ function ReplyRow({
             {authorName}
           </span>
           {reply.author.id === clipAuthorId ? (
-            <span className="rounded-sm bg-accent-soft px-1.5 py-0.5 text-[0.6875rem] font-semibold tracking-wide text-accent uppercase">
+            <span className="inline-flex items-center rounded-sm bg-accent-soft px-1.5 py-0.5 text-[0.6875rem] leading-none font-semibold tracking-wide text-accent uppercase">
               Author
             </span>
           ) : null}

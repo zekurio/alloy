@@ -6,6 +6,7 @@ import {
   HeartIcon,
   MessageSquareIcon,
   PinIcon,
+  Trash2Icon,
   UserPlusIcon,
   XIcon,
 } from "lucide-react"
@@ -22,6 +23,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
+import { Spinner } from "@workspace/ui/components/spinner"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -29,6 +31,8 @@ import { useSuspenseSession } from "@/lib/session-suspense"
 import {
   notificationHref,
   notificationText,
+  useClearNotificationsMutation,
+  useDeleteNotificationMutation,
   useMarkAllNotificationsReadMutation,
   useMarkNotificationReadMutation,
   useNotificationStream,
@@ -133,6 +137,7 @@ function NotificationCenterContent({
   onClose: () => void
 }) {
   const markAllRead = useMarkAllNotificationsReadMutation()
+  const clearNotifications = useClearNotificationsMutation()
   const unreadCount = data?.unreadCount ?? 0
   const items = data?.items ?? []
 
@@ -159,6 +164,17 @@ function NotificationCenterContent({
               Mark all read
             </Button>
           ) : null}
+          {items.length > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs"
+              disabled={clearNotifications.isPending}
+              onClick={() => clearNotifications.mutate()}
+            >
+              Clear all
+            </Button>
+          ) : null}
           <Button
             variant="ghost"
             size="icon-sm"
@@ -172,7 +188,7 @@ function NotificationCenterContent({
 
       <div className="flex max-h-[min(520px,calc(100dvh-14rem))] flex-col gap-2 overflow-y-auto pr-1">
         {isLoading ? (
-          <NotificationEmptyState label="Loading notifications..." />
+          <NotificationLoadingState />
         ) : items.length === 0 ? (
           <NotificationEmptyState label="No notifications yet." />
         ) : (
@@ -197,6 +213,7 @@ function NotificationRow({
   const href = notificationHref(item)
   const unread = item.readAt === null
   const markRead = useMarkNotificationReadMutation()
+  const deleteNotification = useDeleteNotificationMutation()
 
   const handleRead = () => {
     if (unread) markRead.mutate(item.id)
@@ -263,14 +280,18 @@ function NotificationRow({
               Mark read
             </Button>
           ) : null}
-          {unread ? (
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent">
-              <span aria-hidden className="size-1.5 rounded-full bg-accent" />
-              Unread
-            </span>
-          ) : null}
         </div>
       </div>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label={`Delete notification: ${text.title}`}
+        disabled={deleteNotification.isPending}
+        onClick={() => deleteNotification.mutate(item.id)}
+        className="shrink-0 text-foreground-faint hover:text-danger"
+      >
+        <Trash2Icon />
+      </Button>
     </article>
   )
 }
@@ -283,10 +304,19 @@ function NotificationEmptyState({ label }: { label: string }) {
   )
 }
 
+function NotificationLoadingState() {
+  return (
+    <div className="grid place-items-center rounded-lg border border-border px-3 py-6 text-foreground-muted">
+      <Spinner />
+    </div>
+  )
+}
+
 const ICON_BY_KIND = {
   clip_upload_failed: CircleAlertIcon,
   new_follower: UserPlusIcon,
   clip_comment: MessageSquareIcon,
+  comment_reply: MessageSquareIcon,
   comment_pinned: PinIcon,
   comment_liked_by_author: HeartIcon,
 } as const

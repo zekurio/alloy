@@ -81,11 +81,13 @@ export const clipCommentsRoutes = new Hono()
       // Replies are single-level: if parent already has a parent, anchor
       // the new reply to the top-level id instead (YouTube-style).
       let resolvedParentId: string | null = null
+      let parentAuthorId: string | null = null
       if (parentId) {
         const [parent] = await db
           .select({
             id: clipComment.id,
             clipId: clipComment.clipId,
+            authorId: clipComment.authorId,
             parentId: clipComment.parentId,
           })
           .from(clipComment)
@@ -95,6 +97,7 @@ export const clipCommentsRoutes = new Hono()
           return c.json({ error: "Parent comment not found" }, 404)
         }
         resolvedParentId = parent.parentId ?? parent.id
+        parentAuthorId = parent.authorId
       }
 
       const [inserted] = await db.transaction(async (tx) => {
@@ -122,6 +125,15 @@ export const clipCommentsRoutes = new Hono()
         clipId: id,
         commentId: inserted.id,
       })
+      if (parentAuthorId && parentAuthorId !== target.authorId) {
+        void createNotification({
+          recipientId: parentAuthorId,
+          actorId: viewerId,
+          type: "comment_reply",
+          clipId: id,
+          commentId: inserted.id,
+        })
+      }
 
       const [authorRow] = await db
         .select(authorShape)
