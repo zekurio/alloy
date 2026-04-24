@@ -8,6 +8,7 @@ import {
   ENCODER_HEIGHT_MIN,
   ENCODER_HWACCELS,
   type EncoderHwaccel,
+  type EncoderCodec,
   type RuntimeConfig,
 } from "@workspace/contracts"
 import { env } from "../env"
@@ -93,20 +94,62 @@ export type OAuthProviderSubmission = z.infer<
   typeof OAuthProviderSubmissionSchema
 >
 
-const EncoderVariantSchema = z.object({
-  name: z.string().min(1).max(64),
-  hwaccel: z.enum(HWACCEL_KINDS),
-  height: z
-    .number()
-    .int()
-    .min(ENCODER_HEIGHT_MIN)
-    .max(ENCODER_HEIGHT_MAX)
-    .multipleOf(2),
-  codec: z.enum(ENCODER_CODECS),
-  quality: z.number().int().min(0).max(51),
-  preset: z.string().min(1).max(64).optional(),
-  audioBitrateKbps: z.number().int().min(64).max(256),
-})
+function legacyEncoderName(
+  hwaccel: EncoderHwaccel,
+  codec: EncoderCodec
+): string {
+  if (hwaccel === "software") {
+    switch (codec) {
+      case "h264":
+        return "libx264"
+      case "hevc":
+        return "libx265"
+      case "av1":
+        return "libsvtav1"
+    }
+  }
+  return `${codec}_${hwaccel}`
+}
+
+const EncoderVariantSchema = z.preprocess(
+  (raw) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw
+    const variant = { ...(raw as Record<string, unknown>) }
+    if (variant.encoder === undefined) {
+      const legacyHwaccel = variant.hwaccel
+      const legacyCodec = variant.codec
+      if (
+        ENCODER_HWACCELS.includes(legacyHwaccel as EncoderHwaccel) &&
+        ENCODER_CODECS.includes(legacyCodec as EncoderCodec)
+      ) {
+        variant.encoder = legacyEncoderName(
+          legacyHwaccel as EncoderHwaccel,
+          legacyCodec as EncoderCodec
+        )
+        variant.hwaccel = ""
+      }
+    }
+    if (variant.extraInputArgs === undefined) variant.extraInputArgs = ""
+    if (variant.extraOutputArgs === undefined) variant.extraOutputArgs = ""
+    return variant
+  },
+  z.object({
+    name: z.string().min(1).max(64),
+    hwaccel: z.string().max(128).default(""),
+    height: z
+      .number()
+      .int()
+      .min(ENCODER_HEIGHT_MIN)
+      .max(ENCODER_HEIGHT_MAX)
+      .multipleOf(2),
+    encoder: z.string().max(128).default(""),
+    quality: z.number().int().min(0).max(51),
+    preset: z.string().min(1).max(64).optional(),
+    audioBitrateKbps: z.number().int().min(64).max(256),
+    extraInputArgs: z.string().max(2048).default(""),
+    extraOutputArgs: z.string().max(4096).default(""),
+  })
+)
 
 const EncoderConfigInnerSchema = z.object({
   enabled: z.boolean().default(false),

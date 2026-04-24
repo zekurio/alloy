@@ -14,12 +14,7 @@ import {
   SectionHeader,
   SectionTitle,
 } from "@workspace/ui/components/section"
-import {
-  Field,
-  FieldDescription,
-  FieldLabel,
-} from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
+import { FieldLabel } from "@workspace/ui/components/field"
 import { toast } from "@workspace/ui/components/sonner"
 import { Switch } from "@workspace/ui/components/switch"
 import {
@@ -170,11 +165,13 @@ export function EncoderConfigCard({
     dialogState === -1
       ? {
           name: "",
-          hwaccel: "software",
+          hwaccel: "",
           height: 1080,
-          codec: "h264",
+          encoder: "",
           quality: 23,
           audioBitrateKbps: 128,
+          extraInputArgs: "",
+          extraOutputArgs: "",
         }
       : dialogState !== null
         ? (form.variants[dialogState] ?? null)
@@ -249,12 +246,7 @@ export function EncoderConfigCard({
     isDirty &&
     !pending &&
     (!form.enabled ||
-      (!hasInvalidVariantName &&
-        !hasInvalidHeight &&
-        form.variants.length > 0))
-  const usesQsv = form.variants.some((variant) => variant.hwaccel === "qsv")
-  const usesVaapi = form.variants.some((variant) => variant.hwaccel === "vaapi")
-
+      (!hasInvalidVariantName && !hasInvalidHeight && form.variants.length > 0))
   return (
     <>
       <form onSubmit={onSubmit}>
@@ -321,46 +313,6 @@ export function EncoderConfigCard({
 
               {form.enabled ? (
                 <>
-                  {usesQsv ? (
-                    <Field>
-                      <FieldLabel htmlFor="encoder-qsv-device" required>
-                        QSV device
-                      </FieldLabel>
-                      <Input
-                        id="encoder-qsv-device"
-                        value={form.qsvDevice}
-                        required
-                        onChange={(e) => set("qsvDevice", e.target.value)}
-                        placeholder="/dev/dri/renderD128"
-                      />
-                      <FieldDescription className="text-xs leading-snug">
-                        Passed to ffmpeg as QSV&rsquo;s{" "}
-                        <code>child_device</code>. Use a DRM render node on
-                        Linux or an adapter index on Windows.
-                      </FieldDescription>
-                    </Field>
-                  ) : null}
-
-                  {usesVaapi ? (
-                    <Field>
-                      <FieldLabel htmlFor="encoder-vaapi-device" required>
-                        VA-API device
-                      </FieldLabel>
-                      <Input
-                        id="encoder-vaapi-device"
-                        value={form.vaapiDevice}
-                        required
-                        onChange={(e) => set("vaapiDevice", e.target.value)}
-                        placeholder="/dev/dri/renderD128"
-                      />
-                      <FieldDescription className="text-xs leading-snug">
-                        Path to the DRM render node passed to ffmpeg&rsquo;s{" "}
-                        <code>-vaapi_device</code>. Only used when the backend
-                        is VA-API.
-                      </FieldDescription>
-                    </Field>
-                  ) : null}
-
                   <div className="flex flex-col gap-3">
                     <div className="flex items-center gap-1.5">
                       <h3 className="text-sm font-medium">Variant ladder</h3>
@@ -371,8 +323,8 @@ export function EncoderConfigCard({
                         <TooltipContent side="bottom" align="start">
                           Star a variant to make it the default playback
                           rendition. Heights above source are clamped. Duplicate
-                          resolutions are allowed when codec, quality, or bitrate
-                          targets differ.
+                          resolutions are allowed when codec, quality, or
+                          bitrate targets differ.
                         </TooltipContent>
                       </Tooltip>
                     </div>
@@ -396,7 +348,7 @@ export function EncoderConfigCard({
                       <div className="flex flex-col gap-0.5">
                         {form.variants.map((variant, index) => (
                           <VariantRow
-                            key={`${variant.name}-${variant.height}-${variant.codec}-${index}`}
+                            key={`${variant.name}-${variant.height}-${variant.encoder}-${index}`}
                             variant={variant}
                             isDefault={index === 0}
                             canMoveUp={index > 0}
@@ -460,10 +412,6 @@ export function EncoderConfigCard({
       <EncoderVariantDialog
         variant={dialogVariant}
         isNew={dialogState === -1}
-        caps={caps}
-        qsvDevice={form.qsvDevice}
-        vaapiDevice={form.vaapiDevice}
-        onDeviceChange={(key, value) => set(key, value)}
         onSave={handleDialogSave}
         onOpenChange={handleDialogOpenChange}
       />
