@@ -8,7 +8,6 @@ import { toast } from "@workspace/ui/components/sonner"
 import type { ProfileViewer } from "@workspace/api"
 
 import { api } from "@/lib/api"
-import { useSession } from "@/lib/auth-client"
 
 export function ProfileActions({
   targetHandle,
@@ -19,11 +18,10 @@ export function ProfileActions({
   viewer: ProfileViewer | null
   onChange: (next: ProfileViewer) => void
 }) {
-  const { data: session } = useSession()
   const navigate = useNavigate()
   const [pending, setPending] = React.useState(false)
 
-  if (!session) {
+  if (!viewer) {
     return (
       <Button
         type="button"
@@ -40,7 +38,7 @@ export function ProfileActions({
   }
 
   // Self-profile: no follow controls.
-  if (!viewer || viewer.isSelf) return null
+  if (viewer.isSelf) return null
 
   const { isFollowing, isBlocked, isBlockedBy } = viewer
 
