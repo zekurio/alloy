@@ -1,0 +1,90 @@
+name: Publish Container Image
+description: Build and publish a container image to GHCR with Podman
+
+inputs:
+  github-token:
+    description: GitHub token used for GHCR login
+    required: true
+  images:
+    description: Target image name list for docker metadata action
+    required: true
+  tags:
+    description: Tag rules for docker metadata action
+    required: true
+  context:
+    description: Build context path
+    required: false
+    default: .
+  file:
+    description: Dockerfile path
+    required: false
+    default: ./Dockerfile
+  push:
+    description: Whether to push the built image
+    required: false
+    default: "true"
+  build-args:
+    description: Optional Docker build args passed to the image build
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Install Podman
+      shell: bash
+      run: |
+        if ! command -v podman >/dev/null 2>&1; then
+          sudo apt-get update
+          sudo apt-get install -y podman
+        fi
+
+    - name: Extract image metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ inputs.images }}
+        tags: ${{ inputs.tags }}
+
+    - name: Build image
+      shell: bash
+      env:
+        CONTEXT: ${{ inputs.context }}
+        FILE: ${{ inputs.file }}
+        BUILD_ARGS: ${{ inputs.build-args }}
+        LABELS: ${{ steps.meta.outputs.labels }}
+        TAGS: ${{ steps.meta.outputs.tags }}
+      run: |
+        mapfile -t tag_args < <(printf '%s\n' "$TAGS" | sed '/^$/d' | sed 's/^/--tag=/')
+        mapfile -t label_args < <(printf '%s\n' "$LABELS" | sed '/^$/d' | sed 's/^/--label=/')
+        build_args=()
+        while IFS= read -r arg; do
+          [[ -z "$arg" ]] && continue
+          build_args+=("--build-arg=$arg")
+        done <<< "$BUILD_ARGS"
+
+        podman build \
+          --file "$FILE" \
+          "${tag_args[@]}" \
+          "${label_args[@]}" \
+          "${build_args[@]}" \
+          "$CONTEXT"
+
+    - name: Log in to GHCR
+      if: ${{ inputs.push == 'true' }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        printf '%s' "$GITHUB_TOKEN" | podman login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+    - name: Push image
+      if: ${{ inputs.push == 'true' }}
+      shell: bash
+      env:
+        TAGS: ${{ steps.meta.outputs.tags }}
+      run: |
+        while IFS= read -r tag; do
+          [[ -z "$tag" ]] && continue
+          podman push "$tag"
+        done <<< "$TAGS"
