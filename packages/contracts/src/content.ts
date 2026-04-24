@@ -90,7 +90,7 @@ export interface InitiateClipInput {
   sizeBytes: number
   title: string
   description?: string
-  gameId: string
+  gameId?: string
   privacy?: ClipPrivacy
   trimStartMs?: number
   trimEndMs?: number

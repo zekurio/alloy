@@ -95,7 +95,7 @@ async function performUpload(
     sizeBytes: payload.sizeBytes,
     title: payload.title,
     description: payload.description ?? undefined,
-    gameId: payload.gameId,
+    gameId: payload.gameId ?? undefined,
     privacy: payload.privacy,
     trimStartMs: payload.trimStartMs ?? undefined,
     trimEndMs: payload.trimEndMs ?? undefined,
