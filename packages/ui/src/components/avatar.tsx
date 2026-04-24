@@ -77,7 +77,7 @@ function AvatarImage({
         <span
           aria-hidden
           data-slot="avatar-image-loading"
-          className="absolute inset-0 z-10 animate-pulse bg-muted"
+          className="absolute inset-0 z-10 bg-muted"
         />
       ) : null}
     </>
