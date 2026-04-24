@@ -34,9 +34,7 @@ import {
 import {
   Drawer,
   DrawerContent,
-  DrawerHeader,
   DrawerTitle,
-  DrawerClose,
 } from "@workspace/ui/components/drawer"
 import {
   DropdownMenu,
@@ -422,19 +420,8 @@ function MobileClipViewerBody({
             onOpenChange={setCommentsOpen}
             direction="bottom"
           >
-            <DrawerContent className="max-h-[85vh]">
-              <DrawerHeader className="flex flex-row items-center justify-between border-b border-border py-3">
-                <DrawerTitle>Comments</DrawerTitle>
-                <DrawerClose asChild>
-                  <button
-                    type="button"
-                    className="rounded-full p-1 text-foreground-faint hover:text-foreground"
-                    aria-label="Close comments"
-                  >
-                    <XIcon className="size-5" />
-                  </button>
-                </DrawerClose>
-              </DrawerHeader>
+            <DrawerContent className="max-h-[85vh] bg-surface">
+              <DrawerTitle className="sr-only">Comments</DrawerTitle>
               <ClipComments
                 clipId={row.id}
                 clipAuthorId={row.authorId}
