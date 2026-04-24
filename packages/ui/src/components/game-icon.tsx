@@ -33,6 +33,11 @@ interface GameIconProps
 // letter in a monospace badge on error.
 function GameIcon({ src, name, size, className, ...props }: GameIconProps) {
   const [ok, setOk] = React.useState(src != null)
+
+  React.useEffect(() => {
+    setOk(src != null)
+  }, [src])
+
   return (
     <span
       aria-hidden
