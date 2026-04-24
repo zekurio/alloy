@@ -13,21 +13,22 @@ import { IdentityStats } from "./identity-stats"
 type ProfileData = {
   user: PublicUser
   counts: ProfileCounts
-  viewer: ProfileViewer | null
 }
 
 type ProfileIdentityProps = {
   profile: ProfileData
+  viewer: ProfileViewer | null | undefined
   onViewerChange: (viewer: ProfileViewer) => void
   onFollowerDelta: (delta: number) => void
 }
 
 export function ProfileIdentity({
   profile,
+  viewer,
   onViewerChange,
   onFollowerDelta,
 }: ProfileIdentityProps) {
-  const { user, counts, viewer } = profile
+  const { user, counts } = profile
   const handle = user.username
   const avatar = userAvatar(user)
   const hasDedicatedBanner = !!userImageSrc(user.banner)

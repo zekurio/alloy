@@ -51,8 +51,9 @@ import {
 } from "@/lib/clip-queries"
 import { formatCount } from "@/lib/clip-format"
 import {
-  useUserProfileQuery,
   useProfileCachePatchers,
+  useUserProfileQuery,
+  useUserProfileViewerQuery,
 } from "@/lib/user-queries"
 
 import { ClipMentionsRow } from "./clip-mentions-row"
@@ -129,15 +130,17 @@ function ClipMeta({
   const liked = pendingLiked ?? likeStateQuery.data?.liked ?? false
 
   const profileQuery = useUserProfileQuery(uploader.handle)
+  const profileViewerQuery = useUserProfileViewerQuery(uploader.handle)
   const profileData = profileQuery.data
   const followerCount = profileData?.counts.followers ?? null
-  const profileViewer = profileData?.viewer ?? null
+  const profileViewer = profileViewerQuery.data?.viewer
   const { setViewer, bumpFollowers } = useProfileCachePatchers(uploader.handle)
 
   const [followPending, setFollowPending] = React.useState(false)
   const isFollowing = profileViewer?.isFollowing ?? false
   const canFollow =
     viewerId !== null &&
+    profileViewer !== undefined &&
     profileViewer !== null &&
     !profileViewer.isSelf &&
     !profileViewer.isBlockedBy
