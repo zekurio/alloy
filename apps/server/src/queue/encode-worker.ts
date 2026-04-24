@@ -69,7 +69,12 @@ export async function registerEncodeWorker(boss: PgBoss): Promise<void> {
 async function runEncode(clipId: string): Promise<void> {
   const [row] = await db.select().from(clip).where(eq(clip.id, clipId)).limit(1)
   if (!row) return
-  if (row.status !== "uploaded" && row.status !== "encoding") return
+  if (
+    row.status !== "uploaded" &&
+    row.status !== "encoding" &&
+    !(row.status === "ready" && row.encodeProgress < 100)
+  )
+    return
 
   const abort = new AbortController()
   let resolveDone: () => void = () => undefined
