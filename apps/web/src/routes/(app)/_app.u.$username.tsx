@@ -15,6 +15,7 @@ import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import {
   useProfileCachePatchers,
   useUserProfileQuery,
+  useUserProfileViewerQuery,
   userProfileQueryOptions,
 } from "@/lib/user-queries"
 
@@ -29,13 +30,6 @@ function cookieInit(request: Request): RequestInit | undefined {
   return cookie ? { headers: { cookie } } : undefined
 }
 
-const fetchRouteUserProfile = createServerFn({ method: "GET" })
-  .middleware([requestContextMiddleware])
-  .inputValidator((handle: string) => handle)
-  .handler(async ({ data: handle, context }) => {
-    return api.users.fetchProfile(handle, cookieInit(context.request))
-  })
-
 const fetchRouteUserClips = createServerFn({ method: "GET" })
   .middleware([requestContextMiddleware])
   .inputValidator((handle: string) => handle)
@@ -47,15 +41,12 @@ export const Route = createFileRoute("/(app)/_app/u/$username")({
   loader: async ({ context, params }) => {
     const profileOptions = userProfileQueryOptions(params.username)
     const clipsOptions = userClipsQueryOptions(params.username)
-    const profilePromise = context.queryClient.ensureQueryData({
-      ...profileOptions,
-      queryFn: () => fetchRouteUserProfile({ data: params.username }),
-    })
+    const profile = await context.queryClient.ensureQueryData(profileOptions)
     void context.queryClient.prefetchQuery({
       ...clipsOptions,
       queryFn: () => fetchRouteUserClips({ data: params.username }),
     })
-    return { profile: await profilePromise }
+    return { profile }
   },
   component: UserProfileLayout,
 })
@@ -64,11 +55,19 @@ function UserProfileLayout() {
   const { username } = Route.useParams()
   const navigate = useNavigate()
   const profileQuery = useUserProfileQuery(username)
+  const viewerQuery = useUserProfileViewerQuery(username)
   // Prime the clips cache from the layout — children read the same query key
   // via `useUserClipsQuery` and will get instant data on route change.
   const clipsQuery = useUserClipsQuery(username)
   const { setViewer, bumpFollowers } = useProfileCachePatchers(username)
-  const profile = profileQuery.data ?? null
+  const baseProfile = profileQuery.data ?? null
+  const viewer = viewerQuery.data?.viewer
+  const profile = baseProfile
+    ? {
+        ...baseProfile,
+        counts: viewerQuery.data?.counts ?? baseProfile.counts,
+      }
+    : null
   const profileError = profileQuery.error ?? null
   useQueryErrorToast(profileError, {
     title: "Couldn't load profile",
@@ -83,11 +82,7 @@ function UserProfileLayout() {
     setRevealed(false)
   }, [username])
 
-  const isBlockedView = !!(
-    profile?.viewer &&
-    !profile.viewer.isSelf &&
-    profile.viewer.isBlocked
-  )
+  const isBlockedView = !!(viewer && !viewer.isSelf && viewer.isBlocked)
   const gated = isBlockedView && !revealed
 
   return (
@@ -106,6 +101,7 @@ function UserProfileLayout() {
           ) : profile ? (
             <ProfileIdentity
               profile={profile}
+              viewer={viewer}
               onViewerChange={setViewer}
               onFollowerDelta={bumpFollowers}
             />

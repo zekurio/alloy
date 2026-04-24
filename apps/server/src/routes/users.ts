@@ -88,60 +88,43 @@ export const usersRoute = new Hono()
 
   .get("/:username", zValidator("param", UsernameParam), async (c) => {
     const { username } = c.req.valid("param")
+    const row = await resolveTarget(username)
+    if (!row) return c.json({ error: "Not found" }, 404)
+    const counts = await selectProfileCounts(row.id, {
+      includeRestrictedClips: false,
+    })
+
+    return c.json({
+      user: toPublicUser(row),
+      counts,
+    })
+  })
+
+  .get("/:username/viewer", zValidator("param", UsernameParam), async (c) => {
+    const { username } = c.req.valid("param")
     const sessionPromise = getAuth().api.getSession({
       headers: c.req.raw.headers,
     })
     const row = await resolveTarget(username)
     if (!row) return c.json({ error: "Not found" }, 404)
-    const targetId = row.id
-    const followerCountPromise = db
-      .select({ value: count() })
-      .from(follow)
-      .where(eq(follow.followingId, targetId))
-    const followingCountPromise = db
-      .select({ value: count() })
-      .from(follow)
-      .where(eq(follow.followerId, targetId))
 
     const session = await sessionPromise
-    const isOwner = session?.user.id === targetId
+    if (!session) return c.json({ viewer: null, counts: null })
+
+    const viewerId = session.user.id
     const isAdmin =
-      (session?.user as { role?: string | null } | undefined)?.role === "admin"
-
-    const clipConditions: SQL[] = [
-      eq(clip.authorId, targetId),
-      eq(clip.status, "ready"),
-    ]
-    if (!isOwner && !isAdmin) {
-      clipConditions.push(inArray(clip.privacy, ["public", "unlisted"]))
-    }
-
-    const clipCountPromise = db
-      .select({ value: count() })
-      .from(clip)
-      .where(and(...clipConditions))
-    const viewerPromise = resolveViewerState(session?.user.id ?? null, targetId)
-
-    const [
-      [{ value: clipCount }],
-      [{ value: followerCount }],
-      [{ value: followingCount }],
-      viewer,
-    ] = await Promise.all([
-      clipCountPromise,
-      followerCountPromise,
-      followingCountPromise,
-      viewerPromise,
+      (session.user as { role?: string | null } | undefined)?.role === "admin"
+    const isSelf = viewerId === row.id
+    const [viewer, counts] = await Promise.all([
+      resolveViewerState(viewerId, row.id),
+      isSelf || isAdmin
+        ? selectProfileCounts(row.id, { includeRestrictedClips: true })
+        : Promise.resolve(null),
     ])
 
     return c.json({
-      user: toPublicUser(row),
-      counts: {
-        clips: clipCount,
-        followers: followerCount,
-        following: followingCount,
-      },
       viewer,
+      counts,
     })
   })
 
@@ -367,5 +350,43 @@ async function resolveViewerState(
     isFollowing: followRow.length > 0,
     isBlocked: blockRows.some((b) => b.blockerId === viewerId),
     isBlockedBy: blockRows.some((b) => b.blockerId === targetId),
+  }
+}
+
+async function selectProfileCounts(
+  targetId: string,
+  { includeRestrictedClips }: { includeRestrictedClips: boolean }
+) {
+  const clipConditions: SQL[] = [
+    eq(clip.authorId, targetId),
+    eq(clip.status, "ready"),
+  ]
+  if (!includeRestrictedClips) {
+    clipConditions.push(inArray(clip.privacy, ["public", "unlisted"]))
+  }
+
+  const [
+    [{ value: clipCount }],
+    [{ value: followerCount }],
+    [{ value: followingCount }],
+  ] = await Promise.all([
+    db
+      .select({ value: count() })
+      .from(clip)
+      .where(and(...clipConditions)),
+    db
+      .select({ value: count() })
+      .from(follow)
+      .where(eq(follow.followingId, targetId)),
+    db
+      .select({ value: count() })
+      .from(follow)
+      .where(eq(follow.followerId, targetId)),
+  ])
+
+  return {
+    clips: clipCount,
+    followers: followerCount,
+    following: followingCount,
   }
 }
