@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, type SQL } from "drizzle-orm"
 import { z } from "zod"
 
-import type { PublicUser } from "@workspace/db/contracts"
+import type { PublicUser } from "@workspace/contracts"
 import { user } from "@workspace/db/auth-schema"
 import { clip, clipMention, follow, game } from "@workspace/db/schema"
 

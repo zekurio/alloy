@@ -1,4 +1,4 @@
-import type { GameRow } from "@workspace/db/contracts"
+import type { GameRow } from "@workspace/contracts"
 import { game } from "@workspace/db/schema"
 
 import {

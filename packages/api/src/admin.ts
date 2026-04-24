@@ -6,7 +6,7 @@ import type {
   AdminLimitsConfig,
   AdminOAuthProvider,
   AdminRuntimeConfig,
-} from "@workspace/db/contracts"
+} from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
 
 export {
@@ -17,7 +17,7 @@ export {
   ENCODER_HWACCELS,
   INTEGRATIONS_REDACTED,
   USERNAME_CLAIM_SUGGESTIONS,
-} from "@workspace/db/contracts"
+} from "@workspace/contracts"
 export type {
   AdminEncoderCapabilities,
   AdminEncoderConfig,
@@ -29,12 +29,12 @@ export type {
   EncoderCodec,
   EncoderHwaccel,
   UsernameClaim,
-} from "@workspace/db/contracts"
+} from "@workspace/contracts"
 
 export function createAdminApi(context: ApiContext) {
   return {
     async fetchRuntimeConfig(): Promise<AdminRuntimeConfig> {
-      const res = await context.client.api.admin["runtime-config"].$get()
+      const res = await context.request("/api/admin/runtime-config")
       return readJsonOrThrow<AdminRuntimeConfig>(res)
     },
 
@@ -44,7 +44,8 @@ export function createAdminApi(context: ApiContext) {
       passkeyEnabled?: boolean
       requireAuthToBrowse?: boolean
     }): Promise<AdminRuntimeConfig> {
-      const res = await context.client.api.admin["runtime-config"].$patch({
+      const res = await context.request("/api/admin/runtime-config", {
+        method: "PATCH",
         json: input,
       })
       return readJsonOrThrow<AdminRuntimeConfig>(res)
@@ -53,9 +54,12 @@ export function createAdminApi(context: ApiContext) {
     async saveOAuthConfig(input: {
       oauthProvider: AdminOAuthProvider | null
     }): Promise<AdminRuntimeConfig> {
-      const res = await context.client.api.admin["oauth-config"].$put({
+      const res = await context.request("/api/admin/oauth-config", {
+        method: "PUT",
         json: {
-          oauthProvider: input.oauthProvider ? { ...input.oauthProvider } : null,
+          oauthProvider: input.oauthProvider
+            ? { ...input.oauthProvider }
+            : null,
         },
       })
       return readJsonOrThrow<AdminRuntimeConfig>(res)
@@ -64,33 +68,42 @@ export function createAdminApi(context: ApiContext) {
     async updateEncoderConfig(
       patch: Partial<AdminEncoderConfig>
     ): Promise<AdminRuntimeConfig> {
-      const res = await context.client.api.admin.encoder.$patch({ json: patch })
+      const res = await context.request("/api/admin/encoder", {
+        method: "PATCH",
+        json: patch,
+      })
       return readJsonOrThrow<AdminRuntimeConfig>(res)
     },
 
     async updateLimitsConfig(
       patch: Partial<AdminLimitsConfig>
     ): Promise<AdminRuntimeConfig> {
-      const res = await context.client.api.admin.limits.$patch({ json: patch })
+      const res = await context.request("/api/admin/limits", {
+        method: "PATCH",
+        json: patch,
+      })
       return readJsonOrThrow<AdminRuntimeConfig>(res)
     },
 
     async updateIntegrationsConfig(
       patch: Partial<AdminIntegrationsConfig>
     ): Promise<AdminRuntimeConfig> {
-      const res = await context.client.api.admin.integrations.$patch({
+      const res = await context.request("/api/admin/integrations", {
+        method: "PATCH",
         json: patch,
       })
       return readJsonOrThrow<AdminRuntimeConfig>(res)
     },
 
     async fetchEncoderCapabilities(): Promise<AdminEncoderCapabilities> {
-      const res = await context.client.api.admin.encoder.capabilities.$get()
+      const res = await context.request("/api/admin/encoder/capabilities")
       return readJsonOrThrow<AdminEncoderCapabilities>(res)
     },
 
     async reEncodeAllClips(): Promise<{ enqueued: number }> {
-      const res = await context.client.api.admin.clips["re-encode"].$post()
+      const res = await context.request("/api/admin/clips/re-encode", {
+        method: "POST",
+      })
       return readJsonOrThrow<{ enqueued: number }>(res)
     },
   }

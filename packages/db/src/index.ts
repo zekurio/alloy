@@ -6,7 +6,6 @@ import { domainSchema } from "./schema"
 
 export { authSchema, domainSchema }
 export * from "./auth-schema"
-export * from "./contracts"
 export * from "./schema"
 
 export const dbSchema = {

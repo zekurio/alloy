@@ -9,7 +9,7 @@ import type {
   PasskeySignUpRequest,
   PasskeySignUpResponse,
   PublicAuthConfig,
-} from "@workspace/db/contracts"
+} from "@workspace/contracts"
 import { user } from "@workspace/db/auth-schema"
 
 import { db } from "../db"
@@ -75,7 +75,9 @@ export function verifyPasskeySignUpContext(
   const parsed = PasskeySignUpRequestSchema.extend({
     exp: z.number().int(),
     purpose: z.literal("passkey-sign-up"),
-  }).parse(JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8")))
+  }).parse(
+    JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8"))
+  )
 
   if (parsed.exp <= Date.now()) {
     throw new Error("Registration request expired. Try again.")

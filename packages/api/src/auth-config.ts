@@ -3,7 +3,7 @@ import type {
   PasskeySignUpRequest,
   PasskeySignUpResponse,
   PublicAuthConfig,
-} from "@workspace/db/contracts"
+} from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
 
 export type {
@@ -11,23 +11,22 @@ export type {
   PasskeySignUpResponse,
   PublicAuthConfig,
   PublicAuthProvider,
-} from "@workspace/db/contracts"
+} from "@workspace/contracts"
 
 export function createAuthConfigApi(context: ApiContext) {
   return {
     async fetch(): Promise<PublicAuthConfig> {
-      const res = await context.client.api["auth-config"].$get()
+      const res = await context.request("/api/auth-config")
       return readJsonOrThrow<PublicAuthConfig>(res)
     },
 
     async createPasskeySignUp(
       input: PasskeySignUpRequest
     ): Promise<PasskeySignUpResponse> {
-      const res = await context.client.api["auth-config"]["passkey-sign-up"].$post(
-        {
-          json: input,
-        }
-      )
+      const res = await context.request("/api/auth-config/passkey-sign-up", {
+        method: "POST",
+        json: input,
+      })
       return readJsonOrThrow<PasskeySignUpResponse>(res)
     },
   }

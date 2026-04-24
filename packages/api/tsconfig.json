@@ -9,12 +9,7 @@
     "skipLibCheck": true,
     "strict": true,
     "verbatimModuleSyntax": true,
-    "noEmit": true,
-    "paths": {
-      "@workspace/api/*": ["./src/*"],
-      "@workspace/db": ["../db/src/index.ts"],
-      "@workspace/db/*": ["../db/src/*"]
-    }
+    "noEmit": true
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]

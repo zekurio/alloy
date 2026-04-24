@@ -1,6 +1,6 @@
 import { desc, eq } from "drizzle-orm"
 
-import type { QueueClip } from "@workspace/db/contracts"
+import type { QueueClip } from "@workspace/contracts"
 import { clip, game } from "@workspace/db/schema"
 
 import { db } from "../db"

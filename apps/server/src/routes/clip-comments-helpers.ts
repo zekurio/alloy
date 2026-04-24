@@ -1,7 +1,7 @@
 import { eq, inArray } from "drizzle-orm"
 import { z } from "zod"
 
-import type { CommentRow } from "@workspace/db/contracts"
+import type { CommentRow } from "@workspace/contracts"
 import { user } from "@workspace/db/auth-schema"
 import { clip, clipComment, clipCommentLike } from "@workspace/db/schema"
 
