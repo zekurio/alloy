@@ -1,5 +1,4 @@
 import type { ApiContext } from "./client"
-import { createApiClient } from "./client"
 import type {
   ClipFeedParams,
   ClipLikeState,
@@ -8,10 +7,10 @@ import type {
   InitiateClipResponse,
   UpdateClipInput,
   UploadTicket,
-} from "@workspace/db/contracts"
+} from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
 
-export { ACCEPTED_CLIP_CONTENT_TYPES } from "@workspace/db/contracts"
+export { ACCEPTED_CLIP_CONTENT_TYPES } from "@workspace/contracts"
 export type {
   AcceptedContentType,
   ClipEncodedVariant,
@@ -30,7 +29,7 @@ export type {
   QueueEvent,
   UpdateClipInput,
   UploadTicket,
-} from "@workspace/db/contracts"
+} from "@workspace/contracts"
 
 function withOrigin(path: string, origin?: string): string {
   if (!origin) return path
@@ -117,68 +116,80 @@ export function createClipsApi(context: ApiContext) {
       if (params.limit !== undefined) query.limit = String(params.limit)
       if (params.cursor) query.cursor = params.cursor
 
-      const res = await context.client.api.clips.$get({ query })
+      const res = await context.request("/api/clips", { query })
       return readJsonOrThrow<ClipRow[]>(res)
     },
 
     async fetchById(clipId: string, init?: RequestInit): Promise<ClipRow> {
-      const client = init ? createApiClient(context.baseURL, init) : context.client
-      const res = await client.api.clips[":id"].$get({ param: { id: clipId } })
+      const res = await context.request(
+        `/api/clips/${encodeURIComponent(clipId)}`,
+        { init }
+      )
       return readJsonOrThrow<ClipRow>(res)
     },
 
     async initiate(input: InitiateClipInput): Promise<InitiateClipResponse> {
-      const res = await context.client.api.clips.initiate.$post({ json: input })
+      const res = await context.request("/api/clips/initiate", {
+        method: "POST",
+        json: input,
+      })
       return readJsonOrThrow<InitiateClipResponse>(res)
     },
 
     async finalize(clipId: string): Promise<ClipRow> {
-      const res = await context.client.api.clips[":id"].finalize.$post({
-        param: { id: clipId },
-      })
+      const res = await context.request(
+        `/api/clips/${encodeURIComponent(clipId)}/finalize`,
+        { method: "POST" }
+      )
       return readJsonOrThrow<ClipRow>(res)
     },
 
     async delete(clipId: string): Promise<void> {
-      const res = await context.client.api.clips[":id"].$delete({
-        param: { id: clipId },
-      })
+      const res = await context.request(
+        `/api/clips/${encodeURIComponent(clipId)}`,
+        { method: "DELETE" }
+      )
       await readJsonOrThrow<{ deleted: true }>(res)
     },
 
     async update(clipId: string, input: UpdateClipInput): Promise<ClipRow> {
-      const res = await context.client.api.clips[":id"].$patch({
-        param: { id: clipId },
-        json: input,
-      })
+      const res = await context.request(
+        `/api/clips/${encodeURIComponent(clipId)}`,
+        {
+          method: "PATCH",
+          json: input,
+        }
+      )
       return readJsonOrThrow<ClipRow>(res)
     },
 
     async fetchLikeState(clipId: string): Promise<{ liked: boolean }> {
-      const res = await context.client.api.clips[":id"].like.$get({
-        param: { id: clipId },
-      })
+      const res = await context.request(
+        `/api/clips/${encodeURIComponent(clipId)}/like`
+      )
       return readJsonOrThrow<{ liked: boolean }>(res)
     },
 
     async like(clipId: string): Promise<ClipLikeState> {
-      const res = await context.client.api.clips[":id"].like.$post({
-        param: { id: clipId },
-      })
+      const res = await context.request(
+        `/api/clips/${encodeURIComponent(clipId)}/like`,
+        { method: "POST" }
+      )
       return readJsonOrThrow<ClipLikeState>(res)
     },
 
     async unlike(clipId: string): Promise<ClipLikeState> {
-      const res = await context.client.api.clips[":id"].like.$delete({
-        param: { id: clipId },
-      })
+      const res = await context.request(
+        `/api/clips/${encodeURIComponent(clipId)}/like`,
+        { method: "DELETE" }
+      )
       return readJsonOrThrow<ClipLikeState>(res)
     },
 
     async recordView(clipId: string): Promise<void> {
       try {
-        await context.client.api.clips[":id"].view.$post({
-          param: { id: clipId },
+        await context.request(`/api/clips/${encodeURIComponent(clipId)}/view`, {
+          method: "POST",
         })
       } catch {
         // View tracking is best-effort.

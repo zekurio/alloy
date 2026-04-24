@@ -1,10 +1,7 @@
 import type { GenericOAuthConfig } from "better-auth/plugins/generic-oauth"
-import type { PublicAuthProvider } from "@workspace/db/contracts"
+import type { PublicAuthProvider } from "@workspace/contracts"
 
-import {
-  configStore,
-  type OAuthProviderConfig,
-} from "./config-store"
+import { configStore, type OAuthProviderConfig } from "./config-store"
 
 export function getEnabledProviderConfig(): OAuthProviderConfig | null {
   const provider = configStore.get("oauthProvider")

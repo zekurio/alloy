@@ -4,7 +4,7 @@ import type {
   SteamGridDBAsset,
   SteamGridDBGameDetail,
   SteamGridDBSearchResult,
-} from "@workspace/db/contracts"
+} from "@workspace/contracts"
 import { configStore } from "./config-store"
 
 const BASE_URL = "https://www.steamgriddb.com/api/v2"
@@ -239,9 +239,7 @@ export async function getFirstIcon(
   return data?.[0] ?? null
 }
 
-export async function getGameAssets(
-  steamgriddbId: number
-): Promise<{
+export async function getGameAssets(steamgriddbId: number): Promise<{
   heroUrl: string | null
   gridUrl: string | null
   logoUrl: string | null

@@ -1,5 +1,5 @@
 import type { Readable } from "node:stream"
-import type { UploadTicket } from "@workspace/db/contracts"
+import type { UploadTicket } from "@workspace/contracts"
 
 export interface ResolvedObject {
   stream: (opts?: { start?: number; end?: number }) => Readable
@@ -137,4 +137,4 @@ export function userAssetKey(
   return `${userAssetDir(userId)}/${role}${ext}`
 }
 
-export type { UploadTicket } from "@workspace/db/contracts"
+export type { UploadTicket } from "@workspace/contracts"

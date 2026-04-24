@@ -9,7 +9,7 @@ import {
   ENCODER_HWACCELS,
   type EncoderHwaccel,
   type RuntimeConfig,
-} from "@workspace/db/contracts"
+} from "@workspace/contracts"
 import { env } from "../env"
 
 const ProviderIdPattern = /^[a-z0-9-]+$/
@@ -20,10 +20,10 @@ export {
   ENCODER_HEIGHT_MIN,
   ENCODER_HEIGHT_SUGGESTIONS,
   USERNAME_CLAIM_SUGGESTIONS,
-} from "@workspace/db/contracts"
+} from "@workspace/contracts"
 export const HWACCEL_KINDS = ENCODER_HWACCELS
 export type HwaccelKind = EncoderHwaccel
-export type { UsernameClaim } from "@workspace/db/contracts"
+export type { UsernameClaim } from "@workspace/contracts"
 
 const OAuthProviderBaseSchema = z.object({
   providerId: z
@@ -85,9 +85,10 @@ export const OAuthProviderSchema = OAuthProviderSchemaBase.superRefine(
   (provider, ctx) => validateOAuthProvider(provider, ctx, true)
 )
 
-export const OAuthProviderSubmissionSchema = OAuthProviderSchemaBase.superRefine(
-  (provider, ctx) => validateOAuthProvider(provider, ctx, false)
-)
+export const OAuthProviderSubmissionSchema =
+  OAuthProviderSchemaBase.superRefine((provider, ctx) =>
+    validateOAuthProvider(provider, ctx, false)
+  )
 
 export type OAuthProviderSubmission = z.infer<
   typeof OAuthProviderSubmissionSchema
@@ -189,7 +190,15 @@ export const EncoderConfigPatchSchema = EncoderConfigInnerSchema.partial()
 export const LimitsConfigPatchSchema = LimitsConfigSchema.partial()
 export const IntegrationsConfigPatchSchema = IntegrationsConfigSchema.partial()
 
-export type { EncoderCodec, EncoderConfig, EncoderVariant, IntegrationsConfig, LimitsConfig, OAuthProviderConfig, RuntimeConfig } from "@workspace/db/contracts"
+export type {
+  EncoderCodec,
+  EncoderConfig,
+  EncoderVariant,
+  IntegrationsConfig,
+  LimitsConfig,
+  OAuthProviderConfig,
+  RuntimeConfig,
+} from "@workspace/contracts"
 
 const DEFAULT_CONFIG: RuntimeConfig = RuntimeConfigSchema.parse({})
 
@@ -234,7 +243,13 @@ function stripLegacyProviderFields(
   if (next.displayName === undefined && typeof next.buttonText === "string") {
     next.displayName = next.buttonText
   }
-  for (const key of ["kind", "buttonColor", "textColor", "icon", "buttonText"]) {
+  for (const key of [
+    "kind",
+    "buttonColor",
+    "textColor",
+    "icon",
+    "buttonText",
+  ]) {
     if (key in next) delete next[key]
   }
   return next
