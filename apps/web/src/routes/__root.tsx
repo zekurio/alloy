@@ -8,8 +8,6 @@ import {
 import { Toaster } from "@workspace/ui/components/sonner"
 import appCss from "@workspace/ui/globals.css?url"
 
-import { MobileWarningBanner } from "@/components/layout/mobile-warning-banner"
-
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
 }>()({
@@ -36,7 +34,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <MobileWarningBanner />
         {children}
         {/* Global toast portal — rendered once at the root so every route
             can call `toast.*` without mounting its own provider. */}
