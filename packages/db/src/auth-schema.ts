@@ -1,5 +1,6 @@
 import {
   boolean,
+  bigint,
   integer,
   pgTable,
   text,
@@ -18,6 +19,7 @@ export const user = pgTable("user", {
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
   banner: text("banner"),
+  storageQuotaBytes: bigint("storage_quota_bytes", { mode: "number" }),
   disabledAt: timestamp("disabled_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

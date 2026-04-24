@@ -7,6 +7,7 @@ import {
   type UserProfile,
   type UserProfileViewer,
   type UserSearchResult,
+  type UserStorageUsage,
 } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
 
@@ -18,6 +19,7 @@ export type {
   UserProfile,
   UserProfileViewer,
   UserSearchResult,
+  UserStorageUsage,
 } from "@workspace/contracts"
 
 const ACCEPTED_IMAGE_CONTENT_TYPE_SET: ReadonlySet<string> = new Set(
@@ -213,6 +215,11 @@ async function getAccountState(
   return readJsonOrThrow<{ disabledAt: string | null }>(res)
 }
 
+async function getStorageUsage(context: ApiContext): Promise<UserStorageUsage> {
+  const res = await context.request("/api/users/me/storage")
+  return readJsonOrThrow<UserStorageUsage>(res)
+}
+
 async function disableAccount(
   context: ApiContext
 ): Promise<{ disabledAt: string }> {
@@ -312,6 +319,10 @@ export function createUsersApi(context: ApiContext) {
 
     async fetchAccountState(): Promise<{ disabledAt: string | null }> {
       return getAccountState(context)
+    },
+
+    async fetchStorageUsage(): Promise<UserStorageUsage> {
+      return getStorageUsage(context)
     },
 
     async disableAccount(): Promise<{ disabledAt: string }> {

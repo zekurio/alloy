@@ -302,6 +302,11 @@ export interface UserListRow extends UserSearchResult {
   createdAt: IsoDateString
 }
 
+export interface UserStorageUsage {
+  usedBytes: number
+  quotaBytes: number | null
+}
+
 export interface SearchResults {
   clips: ClipRow[]
   games: GameListRow[]

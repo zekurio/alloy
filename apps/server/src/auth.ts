@@ -59,6 +59,12 @@ function buildUserHooks() {
   return {
     create: {
       before: async (user: IncomingUser, ctx: { path?: string } | null) => {
+        const storageQuotaBytes =
+          typeof user.storageQuotaBytes === "number" ||
+          user.storageQuotaBytes === null
+            ? user.storageQuotaBytes
+            : configStore.get("limits").defaultStorageQuotaBytes
+
         if (isEmailSignUp(ctx?.path)) {
           if (!configStore.get("setupComplete")) {
             if (await hasAnyUser()) {
@@ -66,7 +72,9 @@ function buildUserHooks() {
               return false
             }
             const identity = await populateIdentityFields(user)
-            return { data: { ...user, ...identity, role: "admin" } }
+            return {
+              data: { ...user, ...identity, storageQuotaBytes, role: "admin" },
+            }
           }
           if (
             !configStore.get("openRegistrations") ||
@@ -75,7 +83,7 @@ function buildUserHooks() {
             return false
           }
           const identity = await populateIdentityFields(user)
-          return { data: { ...user, ...identity } }
+          return { data: { ...user, ...identity, storageQuotaBytes } }
         }
 
         if (
@@ -86,7 +94,7 @@ function buildUserHooks() {
         }
 
         const identity = await populateIdentityFields(user)
-        return { data: { ...user, ...identity } }
+        return { data: { ...user, ...identity, storageQuotaBytes } }
       },
       after: async (_user: unknown, ctx: { path?: string } | null) => {
         if (isEmailSignUp(ctx?.path) && !configStore.get("setupComplete")) {
@@ -211,6 +219,10 @@ function buildAuth() {
         },
         disabledAt: {
           type: "date",
+          required: false,
+        },
+        storageQuotaBytes: {
+          type: "number",
           required: false,
         },
       },

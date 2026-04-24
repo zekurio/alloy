@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator"
-import { and, eq, inArray } from "drizzle-orm"
+import { and, eq, inArray, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { nanoid } from "nanoid"
 
@@ -15,6 +15,7 @@ import { configStore } from "../lib/config-store"
 import { generateUniqueGameSlug } from "../lib/game-slug"
 import { createNotification } from "../lib/notifications"
 import { requireSession } from "../lib/require-session"
+import { selectSourceStorageUsedBytes } from "../lib/storage-quota"
 import { isConfigured as isSteamGridDBConfigured } from "../lib/steamgriddb"
 import { ENCODE_JOB, getBoss } from "../queue"
 import { clipAssetKey, clipSourceAssetKey, storage } from "../storage"
@@ -22,6 +23,10 @@ import { IdParam, InitiateBody, UpdateBody } from "./clips-helpers"
 
 const UNCATEGORIZED_STEAMGRIDDB_ID = 0
 const UNCATEGORIZED_GAME_NAME = "Uncategorized"
+
+type InitiateQuotaResult =
+  | { ok: true }
+  | { ok: false; usedBytes: number; quotaBytes: number }
 
 async function ensureUncategorizedGameId(): Promise<string> {
   const [existing] = await db
@@ -122,32 +127,64 @@ export const clipsUploadRoutes = new Hono()
         ? await resolveMentionIds(body.mentionedUserIds, viewerId)
         : []
 
-      await db.insert(clip).values({
-        id: clipId,
-        slug,
-        authorId: viewerId,
-        title: body.title,
-        description: body.description ?? null,
-        // Legacy `game` text column stays null on new uploads — the
-        // mapped gameId below is the canonical reference.
-        game: null,
-        gameId,
-        privacy,
-        storageKey,
-        contentType: body.contentType,
-        sizeBytes: body.sizeBytes,
-        thumbKey,
-        trimStartMs: body.trimStartMs ?? null,
-        trimEndMs: body.trimEndMs ?? null,
-        status: "pending",
-      })
+      const quotaResult = await db.transaction<InitiateQuotaResult>(
+        async (tx) => {
+          await tx.execute(
+            sql`select "id" from "user" where "id" = ${viewerId} for update`
+          )
+          const [quotaRow] = await tx
+            .select({ storageQuotaBytes: user.storageQuotaBytes })
+            .from(user)
+            .where(eq(user.id, viewerId))
+            .limit(1)
 
-      if (mentionedIds.length > 0) {
-        await db.insert(clipMention).values(
-          mentionedIds.map((mentionedUserId) => ({
-            clipId,
-            mentionedUserId,
-          }))
+          const quotaBytes = quotaRow?.storageQuotaBytes ?? null
+          const usedBytes = await selectSourceStorageUsedBytes(tx, viewerId)
+          if (quotaBytes !== null && usedBytes + body.sizeBytes > quotaBytes) {
+            return { ok: false, usedBytes, quotaBytes }
+          }
+
+          await tx.insert(clip).values({
+            id: clipId,
+            slug,
+            authorId: viewerId,
+            title: body.title,
+            description: body.description ?? null,
+            // Legacy `game` text column stays null on new uploads — the
+            // mapped gameId below is the canonical reference.
+            game: null,
+            gameId,
+            privacy,
+            storageKey,
+            contentType: body.contentType,
+            sizeBytes: body.sizeBytes,
+            thumbKey,
+            trimStartMs: body.trimStartMs ?? null,
+            trimEndMs: body.trimEndMs ?? null,
+            status: "pending",
+          })
+
+          if (mentionedIds.length > 0) {
+            await tx.insert(clipMention).values(
+              mentionedIds.map((mentionedUserId) => ({
+                clipId,
+                mentionedUserId,
+              }))
+            )
+          }
+
+          return { ok: true }
+        }
+      )
+
+      if (!quotaResult.ok) {
+        return c.json(
+          {
+            error: "Storage quota exceeded",
+            usedBytes: quotaResult.usedBytes,
+            quotaBytes: quotaResult.quotaBytes,
+          },
+          413
         )
       }
 
@@ -227,6 +264,44 @@ export const clipsUploadRoutes = new Hono()
           )
           return c.json({ error: "Thumbnail bytes are missing" }, 400)
         }
+      }
+
+      const quotaResult = await db.transaction<InitiateQuotaResult>(
+        async (tx) => {
+          await tx.execute(
+            sql`select "id" from "user" where "id" = ${viewerId} for update`
+          )
+          const [quotaRow] = await tx
+            .select({ storageQuotaBytes: user.storageQuotaBytes })
+            .from(user)
+            .where(eq(user.id, viewerId))
+            .limit(1)
+          const quotaBytes = quotaRow?.storageQuotaBytes ?? null
+          const usedBytes = await selectSourceStorageUsedBytes(tx, viewerId)
+          const previousSize = row.sizeBytes ?? 0
+          if (
+            quotaBytes !== null &&
+            usedBytes - previousSize + resolved.size > quotaBytes
+          ) {
+            return { ok: false, usedBytes, quotaBytes }
+          }
+          return { ok: true }
+        }
+      )
+      if (!quotaResult.ok) {
+        await storage.delete(row.storageKey).catch(() => undefined)
+        if (row.thumbKey) {
+          await storage.delete(row.thumbKey).catch(() => undefined)
+        }
+        await markUploadFailed(row.authorId, id, "Storage quota exceeded")
+        return c.json(
+          {
+            error: "Storage quota exceeded",
+            usedBytes: quotaResult.usedBytes,
+            quotaBytes: quotaResult.quotaBytes,
+          },
+          413
+        )
       }
 
       const [transitioned] = await db

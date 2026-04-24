@@ -16,6 +16,7 @@ import { api } from "@/lib/api"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
 function isDisabledSessionUser(user: unknown): boolean {
+  if (!user || typeof user !== "object") return false
   return Boolean((user as { disabledAt?: string | Date | null }).disabledAt)
 }
 

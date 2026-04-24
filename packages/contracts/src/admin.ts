@@ -23,6 +23,7 @@ export interface OAuthProviderConfig {
   userInfoUrl?: string
   pkce?: boolean
   usernameClaim?: UsernameClaim
+  quotaClaim?: string
 }
 
 export type AdminOAuthProvider = OAuthProviderConfig
@@ -71,6 +72,7 @@ export type EncoderConfig = AdminEncoderConfig
 
 export interface AdminLimitsConfig {
   maxUploadBytes: number
+  defaultStorageQuotaBytes: number | null
   uploadTtlSec: number
   queueConcurrency: number
 }
