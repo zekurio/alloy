@@ -99,6 +99,104 @@ export function formatTimecode(ms: number): string {
   return `${m}:${s.toString().padStart(2, "0")}.${cs.toString().padStart(2, "0")}`
 }
 
+const VIDEO_LOAD_TIMEOUT_MS = 15000
+const THUMB_MAX_BYTES = 2 * 1024 * 1024
+const THUMB_DIMENSIONS = [1280, 960, 720] as const
+const THUMB_QUALITIES = [0.85, 0.75, 0.65] as const
+
+function videoErrorMessage(video: HTMLVideoElement, fallback: string): string {
+  const message = video.error?.message
+  return message ? `${fallback}: ${message}` : fallback
+}
+
+function waitForVideoEvent(
+  video: HTMLVideoElement,
+  eventName: "loadedmetadata" | "loadeddata" | "seeked",
+  failureMessage: string,
+  isAlreadyReady?: () => boolean
+): Promise<void> {
+  if (isAlreadyReady?.()) return Promise.resolve()
+
+  return new Promise<void>((resolve, reject) => {
+    let timeoutId = 0
+    const cleanup = () => {
+      window.clearTimeout(timeoutId)
+      video.removeEventListener(eventName, onEvent)
+      video.removeEventListener("error", onError)
+    }
+    const onEvent = () => {
+      cleanup()
+      resolve()
+    }
+    const onError = () => {
+      cleanup()
+      reject(new Error(videoErrorMessage(video, failureMessage)))
+    }
+    timeoutId = window.setTimeout(() => {
+      cleanup()
+      reject(new Error(failureMessage))
+    }, VIDEO_LOAD_TIMEOUT_MS)
+    video.addEventListener(eventName, onEvent, { once: true })
+    video.addEventListener("error", onError, { once: true })
+  })
+}
+
+function thumbnailSize(
+  sourceWidth: number,
+  sourceHeight: number,
+  maxDimension: number
+): { width: number; height: number } {
+  const scale = Math.min(1, maxDimension / Math.max(sourceWidth, sourceHeight))
+  return {
+    width: Math.max(1, Math.round(sourceWidth * scale)),
+    height: Math.max(1, Math.round(sourceHeight * scale)),
+  }
+}
+
+function encodeCanvasAsJpeg(
+  canvas: HTMLCanvasElement,
+  quality: number
+): Promise<Blob> {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob)
+        else reject(new Error("canvas.toBlob returned null"))
+      },
+      "image/jpeg",
+      quality
+    )
+  })
+}
+
+async function drawThumbnail(video: HTMLVideoElement): Promise<Blob> {
+  const srcW = video.videoWidth
+  const srcH = video.videoHeight
+  if (!srcW || !srcH) {
+    throw new Error("Video dimensions unavailable for thumbnail")
+  }
+
+  let lastBlob: Blob | null = null
+  for (const maxDimension of THUMB_DIMENSIONS) {
+    const { width, height } = thumbnailSize(srcW, srcH, maxDimension)
+    const canvas = document.createElement("canvas")
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext("2d")
+    if (!ctx) throw new Error("2D canvas context unavailable")
+    ctx.drawImage(video, 0, 0, width, height)
+
+    for (const quality of THUMB_QUALITIES) {
+      const blob = await encodeCanvasAsJpeg(canvas, quality)
+      if (blob.size <= THUMB_MAX_BYTES) return blob
+      lastBlob = blob
+    }
+  }
+
+  if (lastBlob) return lastBlob
+  throw new Error("Could not encode thumbnail")
+}
+
 export async function captureThumbnail(
   file: File,
   atMs: number
@@ -108,9 +206,6 @@ export async function captureThumbnail(
   video.preload = "auto"
   video.muted = true
   video.playsInline = true
-  // Without `crossOrigin` the element treats blob: as same-origin, which
-  // is what we want — canvas reads stay non-tainted.
-  video.src = url
 
   const cleanup = () => {
     URL.revokeObjectURL(url)
@@ -119,59 +214,41 @@ export async function captureThumbnail(
   }
 
   try {
-    await new Promise<void>((resolve, reject) => {
-      const onLoaded = () => {
-        video.removeEventListener("loadeddata", onLoaded)
-        video.removeEventListener("error", onError)
-        resolve()
-      }
-      const onError = () => {
-        video.removeEventListener("loadeddata", onLoaded)
-        video.removeEventListener("error", onError)
-        reject(new Error("Could not load video for thumbnail capture"))
-      }
-      video.addEventListener("loadeddata", onLoaded)
-      video.addEventListener("error", onError)
-    })
+    const metadataLoaded = waitForVideoEvent(
+      video,
+      "loadedmetadata",
+      "Could not load video metadata for thumbnail capture",
+      () => video.readyState >= HTMLMediaElement.HAVE_METADATA
+    )
+    video.src = url
+    video.load()
+    await metadataLoaded
 
-    await new Promise<void>((resolve, reject) => {
-      const onSeeked = () => {
-        video.removeEventListener("seeked", onSeeked)
-        video.removeEventListener("error", onError)
-        resolve()
-      }
-      const onError = () => {
-        video.removeEventListener("seeked", onSeeked)
-        video.removeEventListener("error", onError)
-        reject(new Error("Seek failed during thumbnail capture"))
-      }
-      video.addEventListener("seeked", onSeeked)
-      video.addEventListener("error", onError)
-      video.currentTime = Math.max(0, atMs / 1000)
-    })
+    const duration = Number.isFinite(video.duration) ? video.duration : null
+    const atSeconds = Math.max(0, atMs / 1000)
+    const minTime = duration !== null && duration > 0.1 ? 0.001 : 0
+    const maxTime =
+      duration === null ? atSeconds : Math.max(0, duration - 0.05)
+    const targetTime = Math.min(Math.max(minTime, atSeconds), maxTime)
 
-    const srcW = video.videoWidth
-    const srcH = video.videoHeight
-    if (!srcW || !srcH) {
-      throw new Error("Video dimensions unavailable for thumbnail")
+    if (Math.abs(video.currentTime - targetTime) > 0.0005) {
+      const seeked = waitForVideoEvent(
+        video,
+        "seeked",
+        "Seek failed during thumbnail capture"
+      )
+      video.currentTime = targetTime
+      await seeked
+    } else {
+      await waitForVideoEvent(
+        video,
+        "loadeddata",
+        "Could not load video frame for thumbnail capture",
+        () => video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
+      )
     }
 
-    const canvas = document.createElement("canvas")
-    canvas.width = srcW
-    canvas.height = srcH
-    const ctx = canvas.getContext("2d")
-    if (!ctx) throw new Error("2D canvas context unavailable")
-    ctx.drawImage(video, 0, 0, srcW, srcH)
-    return await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (blob) => {
-          if (blob) resolve(blob)
-          else reject(new Error("canvas.toBlob returned null"))
-        },
-        "image/jpeg",
-        0.85
-      )
-    })
+    return await drawThumbnail(video)
   } finally {
     cleanup()
   }
