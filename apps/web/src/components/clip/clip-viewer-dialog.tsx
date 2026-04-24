@@ -1,9 +1,13 @@
 import * as React from "react"
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
+import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 
 import { Button } from "@workspace/ui/components/button"
-import { Dialog, DialogViewportContent } from "@workspace/ui/components/dialog"
+import {
+  Dialog,
+  DialogClose,
+  DialogViewportContent,
+} from "@workspace/ui/components/dialog"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { useMediaQuery } from "@workspace/ui/hooks/use-media-query"
 import { cn } from "@workspace/ui/lib/utils"
@@ -202,6 +206,19 @@ function ClipViewerDialogBody({
   return (
     <>
       <DialogViewportContent className="overflow-visible rounded-[20px] transition-[filter,opacity,transform] duration-100">
+        <DialogClose
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute top-3 right-3 z-30 hidden rounded-full border border-white/10 bg-black/45 text-white/80 shadow-none backdrop-blur-sm hover:bg-black/60 hover:text-white lg:inline-flex [&_svg]:!size-5"
+            />
+          }
+          aria-label="Close"
+        >
+          <XIcon />
+        </DialogClose>
         {showPrev ? (
           <Button
             type="button"

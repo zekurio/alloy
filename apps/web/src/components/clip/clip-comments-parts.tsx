@@ -126,7 +126,9 @@ export function CommentComposer({
         <div className="flex items-center justify-between gap-2 rounded-sm bg-surface-raised px-2 py-1 text-xs text-foreground-faint">
           <span className="min-w-0 truncate">
             Replying to{" "}
-            <span className="font-medium text-foreground">{replyingToName}</span>
+            <span className="font-medium text-foreground">
+              {replyingToName}
+            </span>
           </span>
           {onCancelReply ? (
             <Button
@@ -229,7 +231,7 @@ export function CommentBody({
         className={cn(
           "text-[0.9375rem] leading-[1.55] text-foreground-muted",
           "[overflow-wrap:anywhere] break-words whitespace-pre-wrap",
-          deleted && "italic text-foreground-faint",
+          deleted && "text-foreground-faint italic",
           isLong && !expanded && "line-clamp-4"
         )}
       >

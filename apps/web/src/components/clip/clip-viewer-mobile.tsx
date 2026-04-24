@@ -1,5 +1,5 @@
-import * as React from "react"
-import { Link } from "@tanstack/react-router"
+import * as React from "react";
+import { Link } from "@tanstack/react-router";
 import {
   ChevronDownIcon,
   ChevronUpIcon,
@@ -10,7 +10,7 @@ import {
   Share2Icon,
   Trash2Icon,
   XIcon,
-} from "lucide-react"
+} from "lucide-react";
 
 import {
   AlertDialog,
@@ -21,63 +21,63 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@workspace/ui/components/alert-dialog"
+} from "@workspace/ui/components/alert-dialog";
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
-} from "@workspace/ui/components/avatar"
+} from "@workspace/ui/components/avatar";
 import {
   DialogClose,
   DialogViewportContent,
-} from "@workspace/ui/components/dialog"
+} from "@workspace/ui/components/dialog";
 import {
   Drawer,
   DrawerContent,
   DrawerTitle,
-} from "@workspace/ui/components/drawer"
+} from "@workspace/ui/components/drawer";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu"
-import { GameIcon } from "@workspace/ui/components/game-icon"
-import { toast } from "@workspace/ui/components/sonner"
-import { cn } from "@workspace/ui/lib/utils"
+} from "@workspace/ui/components/dropdown-menu";
+import { GameIcon } from "@workspace/ui/components/game-icon";
+import { toast } from "@workspace/ui/components/sonner";
+import { cn } from "@workspace/ui/lib/utils";
 
-import { clipThumbnailUrl, type ClipRow } from "@workspace/api"
+import { clipThumbnailUrl, type ClipRow } from "@workspace/api";
 
-import { api } from "@/lib/api"
-import { clipGameLabel, formatCount } from "@/lib/clip-format"
-import { useSession } from "@/lib/auth-client"
+import { api } from "@/lib/api";
+import { clipGameLabel, formatCount } from "@/lib/clip-format";
+import { useSession } from "@/lib/auth-client";
 import {
   useDeleteClipMutation,
   useLikeStateQuery,
   useToggleLikeMutation,
-} from "@/lib/clip-queries"
-import { avatarTint, displayInitials, userImageSrc } from "@/lib/user-display"
+} from "@/lib/clip-queries";
+import { avatarTint, displayInitials, userImageSrc } from "@/lib/user-display";
 
-import { ClipComments } from "./clip-comments"
-import { ClipEditDialog } from "./clip-edit-dialog"
-import type { ClipListEntry } from "./clip-list-context"
-import { ClipMentionsRow } from "./clip-mentions-row"
-import { renderDescriptionTokens } from "./clip-meta-editors"
-import { ClipPlayer } from "./clip-player"
+import { ClipComments } from "./clip-comments";
+import { ClipEditDialog } from "./clip-edit-dialog";
+import type { ClipListEntry } from "./clip-list-context";
+import { ClipMentionsRow } from "./clip-mentions-row";
+import { renderDescriptionTokens } from "./clip-meta-editors";
+import { ClipPlayer } from "./clip-player";
 
 /* ------------------------------------------------------------------ */
 /*  Props                                                              */
 /* ------------------------------------------------------------------ */
 
 interface MobileClipViewerBodyProps {
-  row: ClipRow
-  onDeleted?: () => void
-  prev?: ClipListEntry | null
-  next?: ClipListEntry | null
-  onNavigate?: ((entry: ClipListEntry) => void) | null
-  autoAdvance: boolean
-  onAutoAdvanceChange: (next: boolean) => void
+  row: ClipRow;
+  onDeleted?: () => void;
+  prev?: ClipListEntry | null;
+  next?: ClipListEntry | null;
+  onNavigate?: ((entry: ClipListEntry) => void) | null;
+  autoAdvance: boolean;
+  onAutoAdvanceChange: (next: boolean) => void;
 }
 
 /* ------------------------------------------------------------------ */
@@ -93,108 +93,108 @@ function MobileClipViewerBody({
   autoAdvance,
   onAutoAdvanceChange,
 }: MobileClipViewerBodyProps) {
-  const { data: session } = useSession()
-  const viewerId = session?.user?.id ?? null
+  const { data: session } = useSession();
+  const viewerId = session?.user?.id ?? null;
   const viewerRole =
-    (session?.user as { role?: string | null } | undefined)?.role ?? null
-  const isOwner = viewerId !== null && viewerId === row.authorId
-  const isAdmin = viewerRole === "admin"
-  const canManage = isOwner || isAdmin
-  const canLike = viewerId !== null
-  const canNav = Boolean(onNavigate)
+    (session?.user as { role?: string | null } | undefined)?.role ?? null;
+  const isOwner = viewerId !== null && viewerId === row.authorId;
+  const isAdmin = viewerRole === "admin";
+  const canManage = isOwner || isAdmin;
+  const canLike = viewerId !== null;
+  const canNav = Boolean(onNavigate);
 
   /* ---- derived ---- */
-  const handle = row.authorUsername
-  const author = row.authorName || handle
-  const initials = displayInitials(author)
-  const { bg, fg } = avatarTint(row.authorId || handle)
-  const gameLabel = clipGameLabel(row)
-  const thumbnail = row.thumbKey ? clipThumbnailUrl(row.id) : null
-  const avatarSrc = userImageSrc(row.authorImage)
-  const gameRef = row.gameRef
-  const gameIcon = gameRef?.iconUrl ?? gameRef?.logoUrl ?? null
+  const handle = row.authorUsername;
+  const author = row.authorName || handle;
+  const initials = displayInitials(author);
+  const { bg, fg } = avatarTint(row.authorId || handle);
+  const gameLabel = clipGameLabel(row);
+  const thumbnail = row.thumbKey ? clipThumbnailUrl(row.id) : null;
+  const avatarSrc = userImageSrc(row.authorImage);
+  const gameRef = row.gameRef;
+  const gameIcon = gameRef?.iconUrl ?? gameRef?.logoUrl ?? null;
 
   /* ---- like state ---- */
-  const likeQuery = useLikeStateQuery(row.id, { enabled: canLike })
-  const likeMut = useToggleLikeMutation()
+  const likeQuery = useLikeStateQuery(row.id, { enabled: canLike });
+  const likeMut = useToggleLikeMutation();
   const pendingLiked =
     likeMut.isPending && likeMut.variables?.clipId === row.id
       ? likeMut.variables.nextLiked
-      : undefined
-  const liked = pendingLiked ?? likeQuery.data?.liked ?? false
+      : undefined;
+  const liked = pendingLiked ?? likeQuery.data?.liked ?? false;
 
   /* ---- edit / delete ---- */
-  const [editOpen, setEditOpen] = React.useState(false)
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
-  const deleteMutation = useDeleteClipMutation()
-  const deleting = deleteMutation.isPending
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const deleteMutation = useDeleteClipMutation();
+  const deleting = deleteMutation.isPending;
 
   /* ---- comments panel ---- */
-  const [commentsOpen, setCommentsOpen] = React.useState(false)
+  const [commentsOpen, setCommentsOpen] = React.useState(false);
 
   React.useEffect(() => {
-    setCommentsOpen(false)
-  }, [row.id])
+    setCommentsOpen(false);
+  }, [row.id]);
 
   /* ---- swipe gesture ---- */
-  const touchRef = React.useRef<{ y: number; t: number } | null>(null)
+  const touchRef = React.useRef<{ y: number; t: number } | null>(null);
 
   const onTouchStart = React.useCallback((e: React.TouchEvent) => {
-    touchRef.current = { y: e.touches[0]!.clientY, t: Date.now() }
-  }, [])
+    touchRef.current = { y: e.touches[0]!.clientY, t: Date.now() };
+  }, []);
 
   const onTouchEnd = React.useCallback(
     (e: React.TouchEvent) => {
-      if (!touchRef.current) return
-      const dy = e.changedTouches[0]!.clientY - touchRef.current.y
-      const dt = Date.now() - touchRef.current.t
-      touchRef.current = null
-      if (dt > 400 || Math.abs(dy) < 60) return
-      if (dy < 0 && next && onNavigate) onNavigate(next)
-      else if (dy > 0 && prev && onNavigate) onNavigate(prev)
+      if (!touchRef.current) return;
+      const dy = e.changedTouches[0]!.clientY - touchRef.current.y;
+      const dt = Date.now() - touchRef.current.t;
+      touchRef.current = null;
+      if (dt > 400 || Math.abs(dy) < 60) return;
+      if (dy < 0 && next && onNavigate) onNavigate(next);
+      else if (dy > 0 && prev && onNavigate) onNavigate(prev);
     },
-    [next, prev, onNavigate]
-  )
+    [next, prev, onNavigate],
+  );
 
   /* ---- handlers ---- */
   const handleLike = React.useCallback(() => {
-    if (!canLike) return
+    if (!canLike) return;
     likeMut.mutate(
       { clipId: row.id, nextLiked: !liked },
-      { onError: () => toast.error("Couldn't update like") }
-    )
-  }, [canLike, row.id, liked, likeMut])
+      { onError: () => toast.error("Couldn't update like") },
+    );
+  }, [canLike, row.id, liked, likeMut]);
 
   const handleShare = React.useCallback(async () => {
-    const url = new URL(window.location.href)
-    url.search = ""
-    url.hash = ""
+    const url = new URL(window.location.href);
+    url.search = "";
+    url.hash = "";
     try {
-      await navigator.clipboard.writeText(url.toString())
-      toast.success("Clip link copied")
+      await navigator.clipboard.writeText(url.toString());
+      toast.success("Link copied");
     } catch {
-      toast.error("Couldn't copy link")
+      toast.error("Couldn't copy link");
     }
-  }, [])
+  }, []);
 
   const handleDelete = React.useCallback(() => {
     deleteMutation.mutate(
       { clipId: row.id },
       {
         onSuccess: () => {
-          toast.success("Clip deleted")
-          onDeleted?.()
+          toast.success("Clip deleted");
+          onDeleted?.();
         },
         onError: () => toast.error("Couldn't delete clip"),
-      }
-    )
-  }, [row.id, deleteMutation, onDeleted])
+      },
+    );
+  }, [row.id, deleteMutation, onDeleted]);
 
   const handleEnded = React.useCallback(() => {
-    if (autoAdvance && next && onNavigate) onNavigate(next)
-  }, [autoAdvance, next, onNavigate])
+    if (autoAdvance && next && onNavigate) onNavigate(next);
+  }, [autoAdvance, next, onNavigate]);
 
-  const avatarStyle = { background: bg, color: fg } as const
+  const avatarStyle = { background: bg, color: fg } as const;
 
   return (
     <>
@@ -353,7 +353,7 @@ function MobileClipViewerBody({
                 <HeartIcon
                   className={cn(
                     "size-7",
-                    liked ? "fill-red-500 text-red-500" : "text-white"
+                    liked ? "fill-red-500 text-red-500" : "text-white",
                   )}
                 />
                 <span className="text-xs font-semibold text-white tabular-nums">
@@ -455,7 +455,7 @@ function MobileClipViewerBody({
         </AlertDialogContent>
       </AlertDialog>
     </>
-  )
+  );
 }
 
-export { MobileClipViewerBody, type MobileClipViewerBodyProps }
+export { MobileClipViewerBody, type MobileClipViewerBodyProps };
