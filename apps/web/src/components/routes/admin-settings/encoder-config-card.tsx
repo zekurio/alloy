@@ -14,7 +14,12 @@ import {
   SectionHeader,
   SectionTitle,
 } from "@workspace/ui/components/section"
-import { FieldLabel } from "@workspace/ui/components/field"
+import {
+  Field,
+  FieldDescription,
+  FieldLabel,
+} from "@workspace/ui/components/field"
+import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/components/sonner"
 import { Switch } from "@workspace/ui/components/switch"
 import {
@@ -102,18 +107,6 @@ export function EncoderConfigCard({
       ...f,
       variants: f.variants.filter((_, i) => i !== index),
     }))
-  }
-
-  function moveVariant(index: number, direction: -1 | 1) {
-    setForm((f) => {
-      const target = index + direction
-      if (target < 0 || target >= f.variants.length) return f
-      const next = [...f.variants]
-      const [moved] = next.splice(index, 1)
-      if (!moved) return f
-      next.splice(target, 0, moved)
-      return { ...f, variants: next }
-    })
   }
 
   function setDefaultVariant(index: number) {
@@ -248,6 +241,13 @@ export function EncoderConfigCard({
     !pending &&
     (!form.enabled ||
       (!hasInvalidVariantName && !hasInvalidHeight && form.variants.length > 0))
+  const sortedVariants = form.variants
+    .map((variant, index) => ({ variant, index }))
+    .sort((a, b) =>
+      a.variant.name.localeCompare(b.variant.name, undefined, {
+        sensitivity: "base",
+      })
+    )
   return (
     <>
       <form onSubmit={onSubmit}>
@@ -282,6 +282,38 @@ export function EncoderConfigCard({
                   <span className="font-mono">{caps.ffmpegVersion}</span>
                 </p>
               ) : null}
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="encoder-qsv-device">
+                    QSV device
+                  </FieldLabel>
+                  <Input
+                    id="encoder-qsv-device"
+                    value={form.qsvDevice}
+                    placeholder="/dev/dri/renderD128"
+                    onChange={(e) => set("qsvDevice", e.target.value)}
+                  />
+                  <FieldDescription>
+                    Device path used for Intel Quick Sync encodes.
+                  </FieldDescription>
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="encoder-vaapi-device">
+                    VAAPI device
+                  </FieldLabel>
+                  <Input
+                    id="encoder-vaapi-device"
+                    value={form.vaapiDevice}
+                    placeholder="/dev/dri/renderD128"
+                    onChange={(e) => set("vaapiDevice", e.target.value)}
+                  />
+                  <FieldDescription>
+                    Device path used for VAAPI hardware encodes.
+                  </FieldDescription>
+                </Field>
+              </div>
 
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -347,18 +379,14 @@ export function EncoderConfigCard({
 
                     {form.variants.length > 0 ? (
                       <div className="flex flex-col gap-0.5">
-                        {form.variants.map((variant, index) => (
+                        {sortedVariants.map(({ variant, index }) => (
                           <VariantRow
                             key={`${variant.name}-${variant.height}-${variant.encoder}-${index}`}
                             variant={variant}
                             isDefault={index === 0}
-                            canMoveUp={index > 0}
-                            canMoveDown={index < form.variants.length - 1}
                             canDelete
                             onEdit={() => openEditVariant(index)}
                             onSetDefault={() => setDefaultVariant(index)}
-                            onMoveUp={() => moveVariant(index, -1)}
-                            onMoveDown={() => moveVariant(index, 1)}
                             onDelete={() => removeVariant(index)}
                           />
                         ))}
