@@ -32,7 +32,7 @@ interface ClipPlayerProps {
 
 const FALLBACK_ENCODED_OPTION = {
   id: "encoded",
-  label: "Playback MP4",
+  label: "Encoded",
 }
 const DEFAULT_ASPECT_RATIO = 16 / 9
 
@@ -88,9 +88,15 @@ function ClipPlayer({
       ? sortedVariants.map((variant) => ({
           id: variant.id,
           label: variant.label,
+          downloadUrl: clipDownloadUrl(clipId, variant.id),
         }))
       : hasLegacyEncodedFallback
-        ? [FALLBACK_ENCODED_OPTION]
+        ? [
+            {
+              ...FALLBACK_ENCODED_OPTION,
+              downloadUrl: clipDownloadUrl(clipId, "encoded"),
+            },
+          ]
         : []
   const defaultEncodedId =
     sortedVariants.find((variant) => variant.isDefault)?.id ??
@@ -126,32 +132,17 @@ function ClipPlayer({
     if (!stillAvailable) setSelectedQualityId(preferredQualityId)
   }, [defaultEncodedId, preferredQualityId, selectedQualityId, sortedVariants])
 
-  // Source leads the list, but encoded MP4 remains the compatibility fallback.
   const qualityOptions = [
-    ...(sourcePlayable ? [{ id: "source", label: "Source" }] : []),
+    ...(sourcePlayable
+      ? [
+          {
+            id: "source",
+            label: "Source",
+            downloadUrl: clipDownloadUrl(clipId, "source"),
+          },
+        ]
+      : []),
     ...encodedQualityOptions,
-  ]
-
-  const downloadOptions = [
-    {
-      id: "source",
-      label: "Original source",
-      url: clipDownloadUrl(clipId, "source"),
-    },
-    ...(sortedVariants.length > 0
-      ? sortedVariants.map((variant) => ({
-          id: variant.id,
-          label: variant.label,
-          url: clipDownloadUrl(clipId, variant.id),
-        }))
-      : hasLegacyEncodedFallback
-        ? [
-            {
-              ...FALLBACK_ENCODED_OPTION,
-              url: clipDownloadUrl(clipId, "encoded"),
-            },
-          ]
-        : []),
   ]
 
   if (!sourcePlayable && !defaultEncodedId) {
@@ -190,7 +181,6 @@ function ClipPlayer({
       qualityOptions={qualityOptions}
       selectedQualityId={selectedQualityId}
       onSelectQuality={setSelectedQualityId}
-      downloadOptions={downloadOptions}
       onPlaybackError={() => {
         if (selectedQualityId === "source") {
           setSourcePlayable(false)

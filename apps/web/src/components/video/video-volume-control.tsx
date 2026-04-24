@@ -72,7 +72,7 @@ export function VolumeControl({
         aria-label={muted ? "Unmute" : "Mute"}
         onClick={onToggleMute}
         className={cn(
-          "rounded-full text-white hover:bg-white/10 focus-visible:ring-white/30",
+          "rounded-full text-foreground-muted hover:bg-neutral-150 hover:text-foreground focus-visible:ring-ring",
           iconClassName
         )}
       >
@@ -112,7 +112,7 @@ export function VolumeControl({
       >
         <div
           aria-hidden
-          className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/24"
+          className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-neutral-200"
         />
         <div
           aria-hidden
@@ -123,7 +123,7 @@ export function VolumeControl({
           aria-hidden
           className={cn(
             "absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full",
-            "border border-white/30 bg-accent shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_18%,transparent)]"
+            "border border-accent-border bg-accent shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_18%,transparent)]"
           )}
           style={{ left: `${effective * 100}%` }}
         />

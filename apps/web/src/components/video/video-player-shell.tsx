@@ -1,7 +1,8 @@
 import * as React from "react"
-import { MaximizeIcon, PauseIcon, PlayIcon } from "lucide-react"
+import { ListVideoIcon, MaximizeIcon, PauseIcon, PlayIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
+import { Spinner } from "@workspace/ui/components/spinner"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { formatTime, formatTimeStable } from "./video-player-hooks"
@@ -14,14 +15,13 @@ const KEYBOARD_VOLUME_STEP = 0.1
 
 /* ─── Reusable video-chrome primitives ─────────────────────────────── */
 
-/** Dark translucent bar background — use on any overlay bar sitting on
- *  top of video content. */
+/** Translucent app-surface bar background for overlay chrome. */
 export const videoChromeBarClass =
-  "group/bar bg-black/70 text-white transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-black/90"
+  "group/bar bg-surface-raised/95 text-foreground shadow-[var(--shadow-inset-top)] backdrop-blur-sm"
 
 /** Icon button style for controls sitting on video chrome. */
 export const videoChromeIconClass =
-  "size-8 rounded-full text-white hover:bg-white/10 focus-visible:ring-white/30 [&_svg]:size-[18px]"
+  "size-9 rounded-full text-foreground-muted hover:bg-neutral-150 hover:text-foreground focus-visible:ring-ring [&_svg]:size-5"
 
 /* ─── Types ────────────────────────────────────────────────────────── */
 
@@ -216,7 +216,6 @@ export function ChromeBar({
   qualityOptions,
   selectedQualityId,
   onSelectQuality,
-  downloadOptions,
   onAutoAdvanceChange,
   onToggleFullscreen,
 }: {
@@ -231,10 +230,14 @@ export function ChromeBar({
   onToggleMute: () => void
   onVolumeChange: (v: number) => void
   onSeek: (sec: number) => void
-  qualityOptions?: Array<{ id: string; label: string }>
+  qualityOptions?: Array<{
+    id: string
+    label: string
+    detail?: string
+    downloadUrl?: string
+  }>
   selectedQualityId?: string
   onSelectQuality?: (qualityId: string) => void
-  downloadOptions?: Array<{ id: string; label: string; url: string }>
   onAutoAdvanceChange?: (next: boolean) => void
   onToggleFullscreen: () => void
 }) {
@@ -266,8 +269,8 @@ export function ChromeBar({
       )}
     >
       <div className="relative flex flex-col">
-        <div className="flex flex-col gap-1.5 px-2 pt-1.5 pb-1.5">
-          <div className="px-0.5 text-white">
+        <div className="flex flex-col gap-2 px-2.5 pt-2 pb-2">
+          <div className="px-0.5">
             <VideoScrubber
               currentTime={currentTime}
               duration={duration}
@@ -276,7 +279,7 @@ export function ChromeBar({
             />
           </div>
 
-          <div className="flex w-full items-center gap-1">
+          <div className="flex w-full items-center gap-1.5">
             <div className="inline-flex items-center gap-0.5">
               <Button
                 variant="ghost"
@@ -297,11 +300,11 @@ export function ChromeBar({
               />
             </div>
 
-            <div className="inline-flex items-center px-2 text-sm font-semibold text-white/65 tabular-nums">
-              <span className="text-white">
+            <div className="inline-flex items-center px-2 text-sm font-semibold text-foreground-faint tabular-nums">
+              <span className="text-foreground">
                 {formatTimeStable(currentTime, duration)}
               </span>
-              <span className="mx-1 text-white/35">/</span>
+              <span className="mx-1 text-foreground-dim">/</span>
               <span>{formatTime(duration)}</span>
             </div>
 
@@ -310,12 +313,26 @@ export function ChromeBar({
                 qualityOptions={qualityOptions}
                 selectedQualityId={selectedQualityId}
                 onSelectQuality={onSelectQuality}
-                downloadOptions={downloadOptions}
-                autoAdvance={autoAdvance}
-                onAutoAdvanceChange={onAutoAdvanceChange}
                 triggerClassName={videoChromeIconClass}
-                contentClassName="w-auto min-w-48 rounded-xl border border-white/10 bg-black/80 p-1 text-white shadow-lg ring-0 [&_*]:text-white [&_[data-slot=dropdown-menu-item]]:text-white/90 [&_[data-slot=dropdown-menu-item][data-highlighted]]:text-white [&_[data-slot=dropdown-menu-label]]:text-white/55 [&_[data-slot=dropdown-menu-radio-item]]:text-white/90 [&_[data-slot=dropdown-menu-radio-item][data-highlighted]]:text-white [&_[data-slot=dropdown-menu-sub-trigger]]:text-white/90 [&_[data-slot=dropdown-menu-sub-trigger][data-highlighted]]:text-white"
               />
+
+              {typeof autoAdvance === "boolean" ? (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={
+                    autoAdvance ? "Disable autoplay" : "Enable autoplay"
+                  }
+                  aria-pressed={autoAdvance}
+                  onClick={() => onAutoAdvanceChange?.(!autoAdvance)}
+                  className={cn(
+                    videoChromeIconClass,
+                    autoAdvance && "text-accent hover:text-accent"
+                  )}
+                >
+                  <ListVideoIcon />
+                </Button>
+              ) : null}
 
               {fullscreenSupported ? (
                 <Button
@@ -344,16 +361,16 @@ export function LoadOverlay({ status }: { status: LoadStatus }) {
     <div
       className={cn(
         "pointer-events-none absolute inset-0 grid place-items-center",
-        "text-center text-xs text-white/72",
+        "text-center text-xs text-foreground-muted",
         status.kind === "loading" ? "bg-transparent" : ""
       )}
     >
       {status.kind === "loading" ? (
-        <span className="rounded-full border border-white/10 bg-black/70 px-3 py-1">
-          Loading...
+        <span className="grid size-10 place-items-center rounded-full border border-border-strong bg-surface-raised/95 shadow-md backdrop-blur-sm">
+          <Spinner className="size-5" />
         </span>
       ) : (
-        <span className="max-w-[80%] rounded-xl border border-white/10 bg-black/80 px-3 py-2 text-white">
+        <span className="max-w-[80%] rounded-xl border border-border-strong bg-surface-raised/95 px-3 py-2 text-foreground shadow-md backdrop-blur-sm">
           {status.message}
         </span>
       )}
