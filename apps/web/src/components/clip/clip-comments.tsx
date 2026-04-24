@@ -324,7 +324,7 @@ function CommentRowView({
             Pinned
           </div>
         ) : null}
-        <div className="flex items-center gap-2 leading-none">
+        <div className="flex items-baseline gap-2 leading-none">
           <span className="text-[0.9375rem] font-semibold text-foreground">
             {authorName}
           </span>
