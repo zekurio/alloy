@@ -9,6 +9,7 @@ import {
 import { Toaster } from "@workspace/ui/components/sonner"
 import appCss from "@workspace/ui/globals.css?url"
 
+import { ClientOnly } from "@/components/app/client-only"
 import { ReactivateAccountPrompt } from "@/components/account/reactivate-account-prompt"
 
 export const Route = createRootRouteWithContext<{
@@ -38,9 +39,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
-        <React.Suspense fallback={null}>
-          <ReactivateAccountPrompt />
-        </React.Suspense>
+        <ClientOnly>
+          <React.Suspense fallback={null}>
+            <ReactivateAccountPrompt />
+          </React.Suspense>
+        </ClientOnly>
         {/* Global toast portal — rendered once at the root so every route
             can call `toast.*` without mounting its own provider. */}
         <Toaster />

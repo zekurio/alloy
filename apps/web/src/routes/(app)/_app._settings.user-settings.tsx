@@ -20,6 +20,7 @@ import {
 import type { PublicAuthConfig } from "@workspace/api"
 
 import { DangerZoneCard } from "@/components/routes/settings/danger-zone-card"
+import { DataCard } from "@/components/routes/settings/data-card"
 import {
   LinkedAccountsCard,
   shouldShowLinkedAccountsCard,
@@ -35,12 +36,13 @@ import { authClient } from "@/lib/auth-client"
 import { useRequireAuthStrict } from "@/lib/auth-hooks"
 import { useSuspenseAuthConfig } from "@/lib/session-suspense"
 
-const USER_TABS = ["profile", "security", "account"] as const
+const USER_TABS = ["profile", "security", "data", "account"] as const
 type UserTab = (typeof USER_TABS)[number]
 
 const TAB_LABELS: Record<UserTab, string> = {
   profile: "Profile",
   security: "Security",
+  data: "Data",
   account: "Account",
 }
 
@@ -205,6 +207,10 @@ function ProfilePage() {
 
       <TabsContent value="security" className="flex flex-col gap-3">
         <SecurityTabContent config={config} />
+      </TabsContent>
+
+      <TabsContent value="data" className="flex flex-col gap-3">
+        <DataCard />
       </TabsContent>
 
       <TabsContent value="account" className="flex flex-col gap-3">

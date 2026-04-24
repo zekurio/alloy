@@ -14,6 +14,7 @@ export function emptyProvider(): AdminOAuthProvider {
     userInfoUrl: "",
     pkce: true,
     usernameClaim: "preferred_username",
+    quotaClaim: "",
   }
 }
 
@@ -45,6 +46,7 @@ export function toSubmissionProvider(
     tokenUrl: emptyToUndefined(provider.tokenUrl),
     userInfoUrl: emptyToUndefined(provider.userInfoUrl),
     usernameClaim: emptyToUndefined(provider.usernameClaim),
+    quotaClaim: emptyToUndefined(provider.quotaClaim),
   }
 }
 
