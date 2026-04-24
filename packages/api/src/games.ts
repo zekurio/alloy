@@ -53,6 +53,22 @@ export function createGamesApi(context: ApiContext) {
       return readJsonOrThrow(res)
     },
 
+    async favorite(slug: string): Promise<{ following: true }> {
+      const res = await context.request(
+        `/api/games/${encodeURIComponent(slug)}/follow`,
+        { method: "POST" }
+      )
+      return readJsonOrThrow(res)
+    },
+
+    async unfavorite(slug: string): Promise<{ following: false }> {
+      const res = await context.request(
+        `/api/games/${encodeURIComponent(slug)}/follow`,
+        { method: "DELETE" }
+      )
+      return readJsonOrThrow(res)
+    },
+
     async follow(slug: string): Promise<{ following: true }> {
       const res = await context.request(
         `/api/games/${encodeURIComponent(slug)}/follow`,

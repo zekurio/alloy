@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import {
   HeartIcon,
   MessageSquareIcon,
@@ -50,6 +50,7 @@ import {
   useToggleLikeMutation,
 } from "@/lib/clip-queries"
 import { formatCount } from "@/lib/clip-format"
+import { useGameQuery, useToggleGameFavoriteMutation } from "@/lib/game-queries"
 import {
   useProfileCachePatchers,
   useUserProfileQuery,
@@ -390,7 +391,33 @@ function ClipGameBadge({
   game: string
   gameRef: ClipGameRef | null
 }) {
+  const navigate = useNavigate()
   const icon = gameRef?.iconUrl ?? gameRef?.logoUrl ?? null
+  const slug = gameRef?.slug ?? ""
+  const gameQuery = useGameQuery(slug)
+  const favoriteMutation = useToggleGameFavoriteMutation()
+  const viewer = gameQuery.data?.viewer
+  const isFavorite = viewer?.isFollowing ?? false
+  const canToggle = Boolean(gameRef) && viewer !== undefined
+
+  function toggleFavorite() {
+    if (!gameRef || !canToggle || favoriteMutation.isPending) return
+    if (!viewer) {
+      void navigate({ to: "/login" })
+      return
+    }
+    favoriteMutation.mutate(
+      { slug: gameRef.slug, next: !isFavorite },
+      {
+        onError: (cause) => {
+          toast.error(
+            cause instanceof Error ? cause.message : "Something went wrong"
+          )
+        },
+      }
+    )
+  }
+
   const gameBody = (
     <>
       <GameIcon src={icon} name={game} />
@@ -405,12 +432,28 @@ function ClipGameBadge({
   const starBtn = (
     <button
       type="button"
-      disabled
-      title="TODO: add game follow"
-      aria-label="Follow game (coming soon)"
-      className="inline-flex h-full items-center justify-center px-2.5 text-foreground-faint transition-colors hover:bg-white/5 disabled:opacity-50"
+      disabled={!canToggle || favoriteMutation.isPending}
+      title={
+        !gameRef
+          ? "Game details unavailable"
+          : viewer === null
+            ? "Sign in to favourite"
+            : isFavorite
+              ? "Remove from favourites"
+              : "Add to favourites"
+      }
+      aria-label={
+        isFavorite ? "Remove game from favourites" : "Add game to favourites"
+      }
+      onClick={toggleFavorite}
+      className={cn(
+        "inline-flex h-full items-center justify-center px-2.5 transition-colors",
+        "text-foreground-faint hover:bg-white/5 hover:text-foreground",
+        "disabled:pointer-events-none disabled:opacity-50",
+        isFavorite && "text-accent"
+      )}
     >
-      <StarIcon className="size-4" />
+      <StarIcon className={cn("size-4", isFavorite && "fill-current")} />
     </button>
   )
 

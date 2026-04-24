@@ -9,6 +9,7 @@ import {
 import type {
   ClipRow,
   GameClipsParams,
+  GameDetail,
   GameListRow,
   GameRow,
   SteamGridDBSearchResult,
@@ -82,7 +83,7 @@ export function useGamesListQuery(): UseQueryResult<GameListRow[]> {
   })
 }
 
-export function useGameQuery(slug: string): UseQueryResult<GameRow> {
+export function useGameQuery(slug: string): UseQueryResult<GameDetail> {
   return useQuery({
     queryKey: gameKeys.detail(slug),
     queryFn: () => api.games.fetchBySlug(slug),
@@ -109,6 +110,41 @@ export function useGameTopClipsQuery(
     queryKey: gameKeys.topClips(slug, limit),
     queryFn: () => api.games.fetchTopClips(slug, limit),
     enabled: slug.length > 0,
+  })
+}
+
+export function useToggleGameFavoriteMutation() {
+  const qc = useQueryClient()
+
+  return useMutation<
+    { following: boolean },
+    Error,
+    { slug: string; next: boolean },
+    {
+      detailKey: ReturnType<typeof gameKeys.detail>
+      previous: GameDetail | undefined
+    }
+  >({
+    mutationFn: ({ slug, next }) =>
+      next ? api.games.favorite(slug) : api.games.unfavorite(slug),
+    onMutate: async ({ slug, next }) => {
+      const detailKey = gameKeys.detail(slug)
+      await qc.cancelQueries({ queryKey: detailKey })
+      const previous = qc.getQueryData<GameDetail>(detailKey)
+      qc.setQueryData<GameDetail>(detailKey, (old) =>
+        old ? { ...old, viewer: { isFollowing: next } } : old
+      )
+      return { detailKey, previous }
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous !== undefined) {
+        qc.setQueryData(context.detailKey, context.previous)
+      }
+    },
+    onSettled: (_data, _error, variables) => {
+      void qc.invalidateQueries({ queryKey: gameKeys.detail(variables.slug) })
+      void qc.invalidateQueries({ queryKey: ["feed"] })
+    },
   })
 }
 

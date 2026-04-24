@@ -61,7 +61,7 @@ export function useToggleGameFollowMutation() {
     { slug: string; next: boolean }
   >({
     mutationFn: ({ slug, next }) =>
-      next ? api.games.follow(slug) : api.games.unfollow(slug),
+      next ? api.games.favorite(slug) : api.games.unfavorite(slug),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: feedKeys.all })
     },
