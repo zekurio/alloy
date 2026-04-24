@@ -203,7 +203,7 @@ export function TrimTimeline({
       onPointerCancel={handlePointerUp}
       className={cn(
         "relative h-8 w-full",
-        "rounded-lg bg-surface border border-border",
+        "rounded-lg border border-border bg-surface",
         "select-none"
       )}
     >

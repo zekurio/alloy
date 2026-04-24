@@ -12,10 +12,7 @@ import { usePasskeySupport } from "@/lib/passkey-support"
 import type { fetchPublicClips } from "@/lib/public-clips"
 import { OAuthSignIn } from "../login/oauth-sign-in"
 
-import {
-  MultiStepSignUpForm,
-  type SignUpStep,
-} from "./multi-step-sign-up-form"
+import { MultiStepSignUpForm, type SignUpStep } from "./multi-step-sign-up-form"
 import { PasskeySignUpForm } from "./passkey-sign-up-form"
 import { SignUpForm } from "./sign-up-form"
 
@@ -112,9 +109,7 @@ export function SignUpPageInner({ clips, config }: SignUpPageInnerProps) {
               {canOAuthSignUp &&
               (!useMultiStep || signUpStep === "identity") ? (
                 <>
-                  {useMultiStep ? (
-                    <FieldSeparator>OR</FieldSeparator>
-                  ) : null}
+                  {useMultiStep ? <FieldSeparator>OR</FieldSeparator> : null}
                   <OAuthSignIn
                     providerId={oauthProvider.providerId}
                     displayName={oauthProvider.displayName}

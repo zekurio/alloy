@@ -9,6 +9,7 @@ import { createClipsApi } from "./clips"
 import { createCommentsApi } from "./comments"
 import { createFeedApi } from "./feed"
 import { createGamesApi } from "./games"
+import { createNotificationsApi } from "./notifications"
 import { createSearchApi } from "./search"
 import { createUsersApi } from "./users"
 
@@ -20,6 +21,7 @@ export * from "./comments"
 export * from "./feed"
 export * from "./games"
 export * from "./http"
+export * from "./notifications"
 export * from "./search"
 export * from "./users"
 
@@ -30,6 +32,7 @@ export interface AlloyApi extends ApiContext {
   comments: ReturnType<typeof createCommentsApi>
   feed: ReturnType<typeof createFeedApi>
   games: ReturnType<typeof createGamesApi>
+  notifications: ReturnType<typeof createNotificationsApi>
   search: ReturnType<typeof createSearchApi>
   users: ReturnType<typeof createUsersApi>
 }
@@ -53,6 +56,7 @@ export function createApi(
     comments: createCommentsApi(context),
     feed: createFeedApi(context),
     games: createGamesApi(context),
+    notifications: createNotificationsApi(context),
     search: createSearchApi(context),
     users: createUsersApi(context),
   }

@@ -4,6 +4,7 @@ import type {
   ClipPrivacy,
   ClipStatus,
   IsoDateString,
+  NotificationType,
   UploadTicket,
 } from "./shared"
 
@@ -131,6 +132,39 @@ export type QueueEvent =
   | { type: "upsert"; clip: QueueClip }
   | { type: "progress"; id: string; encodeProgress: number }
   | { type: "remove"; id: string }
+
+export interface NotificationClipRef {
+  id: string
+  slug: string
+  title: string
+  gameSlug: string | null
+}
+
+export interface NotificationCommentRef {
+  id: string
+  body: string
+}
+
+export interface NotificationRow {
+  id: string
+  type: NotificationType
+  actor: UserSummary | null
+  clip: NotificationClipRef | null
+  comment: NotificationCommentRef | null
+  readAt: IsoDateString | null
+  createdAt: IsoDateString
+}
+
+export interface NotificationsResponse {
+  items: NotificationRow[]
+  unreadCount: number
+}
+
+export type NotificationEvent =
+  | { type: "snapshot"; payload: NotificationsResponse }
+  | { type: "upsert"; notification: NotificationRow; unreadCount: number }
+  | { type: "read"; id: string; readAt: IsoDateString; unreadCount: number }
+  | { type: "read_all"; readAt: IsoDateString; unreadCount: number }
 
 export type CommentAuthor = UserSummary
 

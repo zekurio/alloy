@@ -85,12 +85,16 @@ function UserMenuInner() {
           ) : null}
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => void navigate({ to: "/user-settings" })}>
+        <DropdownMenuItem
+          onClick={() => void navigate({ to: "/user-settings" })}
+        >
           <CogIcon />
           Settings
         </DropdownMenuItem>
         {isAdmin ? (
-          <DropdownMenuItem onClick={() => void navigate({ to: "/admin-settings" })}>
+          <DropdownMenuItem
+            onClick={() => void navigate({ to: "/admin-settings" })}
+          >
             <ShieldIcon />
             Admin settings
           </DropdownMenuItem>

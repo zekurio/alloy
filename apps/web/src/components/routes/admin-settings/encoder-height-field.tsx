@@ -1,17 +1,9 @@
 import * as React from "react"
 
 import { FieldDescription } from "@workspace/ui/components/field"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-  InputGroupText,
-} from "@workspace/ui/components/input-group"
+import { Input } from "@workspace/ui/components/input"
 
-import {
-  ENCODER_HEIGHT_MAX,
-  ENCODER_HEIGHT_MIN,
-} from "@workspace/api"
+import { ENCODER_HEIGHT_MAX, ENCODER_HEIGHT_MIN } from "@workspace/api"
 
 export function EncoderHeightField({
   id,
@@ -27,10 +19,18 @@ export function EncoderHeightField({
   onChange: (next: number) => void
 }) {
   const [customDraft, setCustomDraft] = React.useState(String(value))
+  const measureRef = React.useRef<HTMLSpanElement>(null)
+  const [suffixOffset, setSuffixOffset] = React.useState(0)
 
   React.useEffect(() => {
     setCustomDraft(String(value))
   }, [value])
+
+  React.useEffect(() => {
+    if (measureRef.current) {
+      setSuffixOffset(measureRef.current.offsetWidth)
+    }
+  }, [customDraft])
 
   const parsedDraft = Number.parseInt(customDraft, 10)
   const customInvalid =
@@ -42,8 +42,8 @@ export function EncoderHeightField({
 
   return (
     <>
-      <InputGroup>
-        <InputGroupInput
+      <div className="relative">
+        <Input
           id={id}
           type="number"
           min={ENCODER_HEIGHT_MIN}
@@ -53,7 +53,6 @@ export function EncoderHeightField({
           required
           aria-invalid={ariaInvalid || customInvalid || undefined}
           placeholder="Height"
-          className="pl-3 text-right"
           onChange={(e) => {
             const raw = e.target.value
             setCustomDraft(raw)
@@ -65,10 +64,22 @@ export function EncoderHeightField({
             if (customInvalid) setCustomDraft(String(value))
           }}
         />
-        <InputGroupAddon align="inline-end">
-          <InputGroupText>p</InputGroupText>
-        </InputGroupAddon>
-      </InputGroup>
+        {/* Invisible text to measure the width of the current value */}
+        <span
+          ref={measureRef}
+          className="pointer-events-none invisible absolute inset-y-0 left-3.5 flex items-center text-base"
+          aria-hidden="true"
+        >
+          {customDraft}
+        </span>
+        {/* "p" suffix positioned right after the number */}
+        <span
+          className="pointer-events-none absolute inset-y-0 flex items-center text-sm text-muted-foreground"
+          style={{ left: `calc(0.875rem + ${suffixOffset}px + 0.2rem)` }}
+        >
+          p
+        </span>
+      </div>
 
       {showDescription ? (
         <FieldDescription>
