@@ -26,14 +26,11 @@ import {
   displayName,
   userImageSrc,
   useUserChipData,
-  type UserChipData,
 } from "@/lib/user-display"
 import {
-  AuthorLikeBadge,
   CommentActions,
   CommentBody,
   CommentComposer,
-  CommentLikeButton,
   CommentMenu,
   CommentsHeader,
   CommentsSortDropdown,
@@ -41,6 +38,7 @@ import {
 import { EmptyState } from "@/components/feedback/empty-state"
 
 const LONG_COMMENT_CHARS = 260
+const MAX_VISIBLE_REPLY_INDENT = 2
 
 interface ClipCommentsProps extends React.ComponentProps<"aside"> {
   clipId: string
@@ -48,6 +46,7 @@ interface ClipCommentsProps extends React.ComponentProps<"aside"> {
 }
 
 type Sort = "top" | "new"
+type ReplyTarget = { id: string; authorName: string }
 
 function authorAvatarStyle(comment: CommentRow) {
   const { bg, fg } = avatarTint(comment.author.id || comment.author.name)
@@ -58,6 +57,13 @@ function useAuthorAvatarSrc(author: CommentRow["author"]): string | undefined {
   return userImageSrc(author.image)
 }
 
+function countCommentTree(comment: CommentRow): number {
+  return (
+    1 +
+    comment.replies.reduce((total, reply) => total + countCommentTree(reply), 0)
+  )
+}
+
 function ClipComments({
   className,
   clipId,
@@ -66,6 +72,13 @@ function ClipComments({
 }: ClipCommentsProps) {
   const [draft, setDraft] = React.useState("")
   const [sort, setSort] = React.useState<Sort>("top")
+  const [replyTarget, setReplyTarget] = React.useState<ReplyTarget | null>(
+    null
+  )
+  const [openReplyIds, setOpenReplyIds] = React.useState<Set<string>>(
+    () => new Set()
+  )
+  const composerRef = React.useRef<HTMLTextAreaElement>(null)
   const { data: session } = useSession()
   const me = useUserChipData(session?.user)
   const viewerId = session?.user?.id ?? null
@@ -73,26 +86,65 @@ function ClipComments({
     background: me.avatar.bg,
     color: me.avatar.fg,
   } as const
+  const isRepliesOpen = React.useCallback(
+    (commentId: string) => openReplyIds.has(commentId),
+    [openReplyIds]
+  )
 
   const { data: comments = [], isLoading } = useCommentsQuery(clipId, sort)
   const create = useCreateCommentMutation(clipId)
 
   const totalCount = React.useMemo(
-    () => comments.reduce((n, c) => n + 1 + c.replies.length, 0),
+    () => comments.reduce((n, c) => n + countCommentTree(c), 0),
     [comments]
   )
 
   const isSignedIn = viewerId !== null
   const canSubmit = draft.trim().length > 0 && isSignedIn
 
-  async function submitTopLevel() {
+  function toggleReplies(commentId: string) {
+    setOpenReplyIds((current) => {
+      const next = new Set(current)
+      if (next.has(commentId)) {
+        next.delete(commentId)
+      } else {
+        next.add(commentId)
+      }
+      return next
+    })
+  }
+
+  function startReply(target: ReplyTarget) {
+    setReplyTarget(target)
+    window.requestAnimationFrame(() => composerRef.current?.focus())
+  }
+
+  function cancelReply() {
+    setReplyTarget(null)
+  }
+
+  async function submitComment() {
     const body = draft.trim()
     if (!body || !isSignedIn) return
     try {
-      await create.mutateAsync({ body })
+      await create.mutateAsync({
+        body,
+        parentId: replyTarget?.id,
+      })
+      if (replyTarget) {
+        const parentId = replyTarget.id
+        setOpenReplyIds((current) => new Set(current).add(parentId))
+        setReplyTarget(null)
+      }
       setDraft("")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't post comment")
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : replyTarget
+            ? "Couldn't post reply"
+            : "Couldn't post comment"
+      )
     }
   }
 
@@ -130,8 +182,11 @@ function ClipComments({
                 clipId={clipId}
                 clipAuthorId={clipAuthorId}
                 viewerId={viewerId}
-                me={me}
-                meAvatarStyle={meAvatarStyle}
+                depth={0}
+                repliesOpen={isRepliesOpen(comment.id)}
+                isRepliesOpen={isRepliesOpen}
+                onToggleReplies={toggleReplies}
+                onStartReply={startReply}
               />
             ))}
           </ul>
@@ -146,12 +201,21 @@ function ClipComments({
           draft={draft}
           me={me}
           meAvatarStyle={meAvatarStyle}
-          placeholder={isSignedIn ? "Add a comment…" : "Sign in to comment"}
+          inputRef={composerRef}
+          replyingToName={replyTarget?.authorName}
+          placeholder={
+            isSignedIn
+              ? replyTarget
+                ? `Reply to ${replyTarget.authorName}…`
+                : "Add a comment…"
+              : "Sign in to comment"
+          }
           submitting={create.isPending}
           canSubmit={canSubmit}
           onDraftChange={setDraft}
           onClear={() => setDraft("")}
-          onSubmit={submitTopLevel}
+          onCancelReply={cancelReply}
+          onSubmit={submitComment}
         />
       </div>
     </aside>
@@ -164,33 +228,37 @@ function CommentRowView({
   clipId,
   clipAuthorId,
   viewerId,
-  me,
-  meAvatarStyle,
+  depth,
+  repliesOpen,
+  isRepliesOpen,
+  onToggleReplies,
+  onStartReply,
 }: {
   comment: CommentRow
   first?: boolean
   clipId: string
   clipAuthorId: string
   viewerId: string | null
-  me: UserChipData
-  meAvatarStyle: { background: string; color: string }
+  depth: number
+  repliesOpen: boolean
+  isRepliesOpen: (commentId: string) => boolean
+  onToggleReplies: (commentId: string) => void
+  onStartReply: (target: ReplyTarget) => void
 }) {
   const [expanded, setExpanded] = React.useState(false)
-  const [replyOpen, setReplyOpen] = React.useState(false)
-  const [repliesOpen, setRepliesOpen] = React.useState(false)
-  const [replyDraft, setReplyDraft] = React.useState("")
-  const isLong = comment.body.length > LONG_COMMENT_CHARS
+  const isDeleted = comment.body.length === 0
+  const isLong = !isDeleted && comment.body.length > LONG_COMMENT_CHARS
 
   const toggleLike = useToggleCommentLikeMutation(clipId)
   const togglePin = useTogglePinCommentMutation(clipId)
   const del = useDeleteCommentMutation(clipId)
-  const create = useCreateCommentMutation(clipId)
 
   const isViewerClipAuthor = viewerId !== null && viewerId === clipAuthorId
   const isCommentAuthor = viewerId !== null && viewerId === comment.author.id
-  const canReply = viewerId !== null
-  const canPin = isViewerClipAuthor && comment.parentId === null
-  const canDelete = isCommentAuthor || isViewerClipAuthor
+  const canReply = viewerId !== null && !isDeleted
+  const canPin = isViewerClipAuthor && depth === 0 && !isDeleted
+  const canDelete = !isDeleted && (isCommentAuthor || isViewerClipAuthor)
+  const isTopLevel = depth === 0
 
   function onToggleLike() {
     if (!viewerId) {
@@ -225,19 +293,6 @@ function CommentRowView({
     )
   }
 
-  async function submitReply() {
-    const body = replyDraft.trim()
-    if (!body) return
-    try {
-      await create.mutateAsync({ body, parentId: comment.id })
-      setReplyDraft("")
-      setReplyOpen(false)
-      setRepliesOpen(true)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't post reply")
-    }
-  }
-
   const authorName = displayName(comment.author)
   const avatarStyle = authorAvatarStyle(comment)
   const initials = displayInitials(authorName)
@@ -246,13 +301,18 @@ function CommentRowView({
   return (
     <li
       className={cn(
-        "flex gap-3 px-4 py-3",
-        !first && "border-t border-border",
+        "flex min-w-0",
+        isTopLevel ? "gap-3 px-4 py-3" : "gap-2 py-2",
+        isTopLevel && !first && "border-t border-border",
         comment.pinned &&
           "bg-[color-mix(in_oklab,var(--accent)_4%,transparent)]"
       )}
     >
-      <Avatar size="md" className="shrink-0" style={avatarStyle}>
+      <Avatar
+        size={isTopLevel ? "md" : "sm"}
+        className="shrink-0"
+        style={avatarStyle}
+      >
         {authorAvatarSrc ? (
           <AvatarImage src={authorAvatarSrc} alt={authorName} />
         ) : null}
@@ -260,7 +320,7 @@ function CommentRowView({
       </Avatar>
 
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        {comment.pinned ? (
+        {comment.pinned && isTopLevel && !isDeleted ? (
           <div className="inline-flex items-center gap-1 text-xs text-foreground-faint">
             <PinIcon className="size-3" />
             Pinned
@@ -282,9 +342,11 @@ function CommentRowView({
             canPin={canPin}
             canDelete={canDelete}
             deletePending={del.isPending}
-            deleteTitle="Delete this comment?"
-            deleteDescription="This can't be undone."
-            deleteActionLabel="Delete comment"
+            deleteTitle={
+              isTopLevel ? "Delete this comment?" : "Delete this reply?"
+            }
+            deleteDescription="This will remove the comment text. Replies will stay visible."
+            deleteActionLabel={isTopLevel ? "Delete comment" : "Delete reply"}
             pinned={comment.pinned}
             onPinToggle={onPinToggle}
             onDelete={onDelete}
@@ -292,10 +354,11 @@ function CommentRowView({
         </div>
 
         <CommentBody
-          body={comment.body}
+          body={isDeleted ? "Deleted comment" : comment.body}
           expanded={expanded}
           isLong={isLong}
-          edited={comment.editedAt !== null}
+          edited={!isDeleted && comment.editedAt !== null}
+          deleted={isDeleted}
           onToggle={() => setExpanded((value) => !value)}
         />
         <CommentActions
@@ -307,147 +370,40 @@ function CommentRowView({
           replyCount={comment.replies.length}
           repliesOpen={repliesOpen}
           canReply={canReply}
+          showLike={!isDeleted}
+          compactReplies={depth > 0}
           onToggleLike={onToggleLike}
-          onToggleReplies={() => setRepliesOpen((v) => !v)}
-          onStartReply={() => setReplyOpen(true)}
+          onToggleReplies={() => onToggleReplies(comment.id)}
+          onStartReply={() =>
+            onStartReply({ id: comment.id, authorName: authorName })
+          }
         />
 
-        {replyOpen ? (
-          <div className="mt-2">
-            <CommentComposer
-              draft={replyDraft}
-              me={me}
-              meAvatarStyle={meAvatarStyle}
-              placeholder={`Reply to ${authorName}…`}
-              submitting={create.isPending}
-              canSubmit={replyDraft.trim().length > 0}
-              onDraftChange={setReplyDraft}
-              onClear={() => {
-                setReplyDraft("")
-                setReplyOpen(false)
-              }}
-              onSubmit={submitReply}
-            />
-          </div>
-        ) : null}
-
         {repliesOpen && comment.replies.length > 0 ? (
-          <ul className="mt-2 flex flex-col gap-3 border-l border-border pl-3">
+          <ul
+            className={cn(
+              "mt-2 flex flex-col",
+              depth < MAX_VISIBLE_REPLY_INDENT
+                ? "border-l border-border pl-3"
+                : "pl-0"
+            )}
+          >
             {comment.replies.map((reply) => (
-              <ReplyRow
+              <CommentRowView
                 key={reply.id}
-                reply={reply}
+                comment={reply}
                 clipId={clipId}
                 clipAuthorId={clipAuthorId}
                 viewerId={viewerId}
+                depth={depth + 1}
+                repliesOpen={isRepliesOpen(reply.id)}
+                isRepliesOpen={isRepliesOpen}
+                onToggleReplies={onToggleReplies}
+                onStartReply={onStartReply}
               />
             ))}
           </ul>
         ) : null}
-      </div>
-    </li>
-  )
-}
-
-function ReplyRow({
-  reply,
-  clipId,
-  clipAuthorId,
-  viewerId,
-}: {
-  reply: CommentRow
-  clipId: string
-  clipAuthorId: string
-  viewerId: string | null
-}) {
-  const [expanded, setExpanded] = React.useState(false)
-  const isLong = reply.body.length > LONG_COMMENT_CHARS
-  const toggleLike = useToggleCommentLikeMutation(clipId)
-  const del = useDeleteCommentMutation(clipId)
-
-  const isViewerClipAuthor = viewerId !== null && viewerId === clipAuthorId
-  const isCommentAuthor = viewerId !== null && viewerId === reply.author.id
-  const canDelete = isCommentAuthor || isViewerClipAuthor
-
-  const authorName = displayName(reply.author)
-  const avatarStyle = authorAvatarStyle(reply)
-  const initials = displayInitials(authorName)
-  const authorAvatarSrc = useAuthorAvatarSrc(reply.author)
-
-  function onToggleLike() {
-    if (!viewerId) {
-      toast.error("Sign in to like comments")
-      return
-    }
-    toggleLike.mutate({
-      commentId: reply.id,
-      nextLiked: !reply.likedByViewer,
-    })
-  }
-
-  function onDelete() {
-    del.mutate(
-      { commentId: reply.id },
-      {
-        onError: (err) => {
-          toast.error(err instanceof Error ? err.message : "Couldn't delete")
-        },
-      }
-    )
-  }
-
-  return (
-    <li className="flex gap-2">
-      <Avatar size="sm" className="shrink-0" style={avatarStyle}>
-        {authorAvatarSrc ? (
-          <AvatarImage src={authorAvatarSrc} alt={authorName} />
-        ) : null}
-        <AvatarFallback style={avatarStyle}>{initials}</AvatarFallback>
-      </Avatar>
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="flex items-center gap-2 leading-none">
-          <span className="text-[0.9375rem] font-semibold text-foreground">
-            {authorName}
-          </span>
-          {reply.author.id === clipAuthorId ? (
-            <span className="inline-flex items-center rounded-sm bg-accent-soft px-1.5 py-0.5 text-[0.6875rem] leading-none font-semibold tracking-wide text-accent uppercase">
-              Author
-            </span>
-          ) : null}
-          <span className="text-xs text-foreground-faint">
-            {formatRelativeTime(reply.createdAt)}
-          </span>
-          {canDelete ? (
-            <CommentMenu
-              canPin={false}
-              canDelete={canDelete}
-              deletePending={del.isPending}
-              deleteTitle="Delete this reply?"
-              deleteDescription="This can't be undone."
-              deleteActionLabel="Delete reply"
-              pinned={false}
-              onPinToggle={() => {}}
-              onDelete={onDelete}
-            />
-          ) : null}
-        </div>
-        <CommentBody
-          body={reply.body}
-          expanded={expanded}
-          isLong={isLong}
-          edited={reply.editedAt !== null}
-          onToggle={() => setExpanded((value) => !value)}
-        />
-        <div className="mt-0.5 flex items-center gap-2">
-          <CommentLikeButton
-            liked={reply.likedByViewer}
-            likeCount={reply.likeCount}
-            onClick={onToggleLike}
-          />
-          {reply.likedByAuthor && reply.author.id !== clipAuthorId ? (
-            <AuthorLikeBadge />
-          ) : null}
-        </div>
       </div>
     </li>
   )
