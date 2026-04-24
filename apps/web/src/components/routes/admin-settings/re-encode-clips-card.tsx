@@ -13,7 +13,7 @@ import {
   AlertDialogTrigger,
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
-import { Card, CardContent } from "@workspace/ui/components/card"
+import { Section, SectionContent } from "@workspace/ui/components/section"
 import { toast } from "@workspace/ui/components/sonner"
 
 import { api } from "@/lib/api"
@@ -45,8 +45,8 @@ export function ReEncodeClipsCard() {
   }
 
   return (
-    <Card>
-      <CardContent className="flex items-center justify-between gap-4 py-4">
+    <Section>
+      <SectionContent className="flex items-center justify-between gap-4 py-4">
         <div className="min-w-0">
           <div className="text-sm font-medium">Re-encode all clips</div>
         </div>
@@ -79,7 +79,7 @@ export function ReEncodeClipsCard() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </CardContent>
-    </Card>
+      </SectionContent>
+    </Section>
   )
 }

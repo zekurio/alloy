@@ -3,12 +3,12 @@ import { AlertCircleIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
+  Section,
+  SectionContent,
+  SectionFooter,
+  SectionHeader,
+  SectionTitle,
+} from "@workspace/ui/components/section"
 import {
   Field,
   FieldDescription,
@@ -46,7 +46,7 @@ function LimitsFields({
   onMaxUploadChange: (value: string) => void
 }) {
   return (
-    <CardContent className="flex flex-col gap-4">
+    <SectionContent className="flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field>
           <FieldLabel htmlFor="limits-max-upload" required>
@@ -116,7 +116,7 @@ function LimitsFields({
           <span>Parallel encode jobs. Requires a server restart to apply.</span>
         </FieldDescription>
       </Field>
-    </CardContent>
+    </SectionContent>
   )
 }
 
@@ -130,7 +130,7 @@ function LimitsActions({
   onReset: () => void
 }) {
   return (
-    <CardFooter>
+    <SectionFooter>
       <div className="ml-auto flex items-center gap-2">
         <Button
           type="button"
@@ -150,7 +150,7 @@ function LimitsActions({
           {pending ? "Saving…" : "Save limits"}
         </Button>
       </div>
-    </CardFooter>
+    </SectionFooter>
   )
 }
 
@@ -214,10 +214,10 @@ export function LimitsConfigCard({ limits, onChange }: LimitsConfigCardProps) {
 
   return (
     <form onSubmit={onSubmit}>
-      <Card>
-        <CardHeader>
-          <CardTitle>Limits</CardTitle>
-        </CardHeader>
+      <Section>
+        <SectionHeader>
+          <SectionTitle>Limits</SectionTitle>
+        </SectionHeader>
         <fieldset disabled={pending} className="contents">
           <LimitsFields
             form={form}
@@ -231,7 +231,7 @@ export function LimitsConfigCard({ limits, onChange }: LimitsConfigCardProps) {
             onReset={resetForm}
           />
         </fieldset>
-      </Card>
+      </Section>
     </form>
   )
 }
