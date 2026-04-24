@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator"
-import { and, eq, exists, ne, or, sql, type SQL } from "drizzle-orm"
+import { and, eq, exists, isNull, ne, or, sql, type SQL } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
@@ -87,6 +87,7 @@ export const feedRoute = new Hono()
       // Feed is strictly public. Unlisted clips are reachable by link
       // but shouldn't surface via discovery.
       eq(clip.privacy, "public"),
+      isNull(user.disabledAt),
     ]
 
     if (viewerId) {
@@ -163,6 +164,11 @@ export const feedRoute = new Hono()
         WHERE ${clip.gameId} = ${game.id}
           AND ${clip.status} = 'ready'
           AND ${clip.privacy} = 'public'
+          AND EXISTS (
+            SELECT 1 FROM ${user}
+            WHERE ${user.id} = ${clip.authorId}
+              AND ${user.disabledAt} IS NULL
+          )
       )
     `
 
@@ -191,6 +197,11 @@ export const feedRoute = new Hono()
       WHERE ${clip.gameId} = ${game.id}
         AND ${clip.status} = 'ready'
         AND ${clip.privacy} IN ('public', 'unlisted')
+        AND EXISTS (
+          SELECT 1 FROM ${user}
+          WHERE ${user.id} = ${clip.authorId}
+            AND ${user.disabledAt} IS NULL
+        )
     )`
     const interaction = sql<number>`(
       3 * ${selfCount} + 2 * ${likedCount} + 1 * ${viewedCount}
