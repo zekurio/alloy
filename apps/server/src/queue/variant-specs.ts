@@ -25,11 +25,12 @@ export function buildVariantSpecs(
   configuredVariants: ReadonlyArray<EncoderVariant>
 ): VariantSpec[] {
   const specs: VariantSpec[] = []
+  const usedIds = new Set<string>()
 
   for (const [index, configured] of configuredVariants.entries()) {
     const cappedHeight = Math.min(configured.height, sourceHeight)
     if (cappedHeight <= 0) continue
-    const id = buildVariantId(configured, cappedHeight, index)
+    const id = buildVariantId(configured, index, usedIds)
     const isDefault = specs.length === 0
     specs.push({
       id,
@@ -52,16 +53,21 @@ export function buildVariantSpecs(
 
 function buildVariantId(
   variant: EncoderVariant,
-  cappedHeight: number,
-  index: number
+  index: number,
+  usedIds: Set<string>
 ): string {
-  const name = variant.name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-  const readable = [name, `${cappedHeight}p`, variant.hwaccel, variant.codec]
-    .filter(Boolean)
-    .join("-")
-  return `${String(index + 1).padStart(2, "0")}-${readable}`
+  const slug =
+    variant.name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || `variant-${index + 1}`
+  let id = slug
+  let suffix = 2
+  while (usedIds.has(id)) {
+    id = `${slug}-${suffix}`
+    suffix += 1
+  }
+  usedIds.add(id)
+  return id
 }

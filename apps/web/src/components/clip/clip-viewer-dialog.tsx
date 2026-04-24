@@ -308,9 +308,6 @@ function ClipViewerDialogFallback() {
     <DialogViewportContent className="grid place-items-center">
       <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-surface">
         <Spinner className="size-5" />
-        <span className="text-xs tracking-wide text-foreground-faint uppercase">
-          Loading clip
-        </span>
       </div>
     </DialogViewportContent>
   )
