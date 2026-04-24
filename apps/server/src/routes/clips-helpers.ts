@@ -51,7 +51,7 @@ export const InitiateBody = z
     sizeBytes: z.number().int().positive(),
     title: z.string().min(1).max(100),
     description: z.string().max(2000).optional(),
-    gameId: z.uuid(),
+    gameId: z.uuid().optional(),
     privacy: z.enum(CLIP_PRIVACY).default("public"),
     trimStartMs: z.number().int().min(0).optional(),
     trimEndMs: z.number().int().positive().optional(),
