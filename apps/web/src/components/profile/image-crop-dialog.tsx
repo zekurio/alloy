@@ -26,13 +26,19 @@ function createImage(url: string): Promise<HTMLImageElement> {
 async function cropImage(
   imageSrc: string,
   crop: Area,
-  outputType = "image/jpeg",
-  quality = 0.92
+  output: ImageCropOutput
 ): Promise<Blob> {
   const img = await createImage(imageSrc)
   const canvas = document.createElement("canvas")
-  canvas.width = crop.width
-  canvas.height = crop.height
+  const scale = Math.min(
+    1,
+    output.maxWidth / crop.width,
+    output.maxHeight / crop.height
+  )
+  const width = Math.max(1, Math.round(crop.width * scale))
+  const height = Math.max(1, Math.round(crop.height * scale))
+  canvas.width = width
+  canvas.height = height
   const ctx = canvas.getContext("2d")!
   ctx.drawImage(
     img,
@@ -42,8 +48,8 @@ async function cropImage(
     crop.height,
     0,
     0,
-    crop.width,
-    crop.height
+    width,
+    height
   )
   return new Promise((resolve, reject) => {
     canvas.toBlob(
@@ -51,20 +57,47 @@ async function cropImage(
         if (blob) resolve(blob)
         else reject(new Error("Canvas toBlob returned null"))
       },
-      outputType,
-      quality
+      output.type,
+      output.quality
     )
   })
 }
 
 export type ImageCropMode = "avatar" | "banner"
 
+type ImageCropOutput = {
+  maxWidth: number
+  maxHeight: number
+  type: "image/jpeg"
+  quality: number
+}
+
 const CONFIG: Record<
   ImageCropMode,
-  { aspect: number; title: string; cropShape: "round" | "rect" }
+  {
+    aspect: number
+    title: string
+    cropShape: "round" | "rect"
+    output: ImageCropOutput
+  }
 > = {
-  avatar: { aspect: 1, title: "Crop avatar", cropShape: "rect" },
-  banner: { aspect: 4, title: "Crop banner", cropShape: "rect" },
+  avatar: {
+    aspect: 1,
+    title: "Crop avatar",
+    cropShape: "rect",
+    output: { maxWidth: 512, maxHeight: 512, type: "image/jpeg", quality: 0.9 },
+  },
+  banner: {
+    aspect: 4,
+    title: "Crop banner",
+    cropShape: "rect",
+    output: {
+      maxWidth: 1600,
+      maxHeight: 400,
+      type: "image/jpeg",
+      quality: 0.86,
+    },
+  },
 }
 
 export interface ImageCropDialogProps {
@@ -105,7 +138,7 @@ export function ImageCropDialog({
     if (!imageSrc || !croppedArea) return
     setSaving(true)
     try {
-      const blob = await cropImage(imageSrc, croppedArea)
+      const blob = await cropImage(imageSrc, croppedArea, cfg.output)
       onConfirm(blob)
     } finally {
       setSaving(false)
