@@ -47,12 +47,14 @@ export const ENCODER_HEIGHT_MAX = 4320
 
 export interface AdminEncoderVariant {
   name: string
-  hwaccel: EncoderHwaccel
+  hwaccel: string
   height: number
-  codec: EncoderCodec
+  encoder: string
   quality: number
   preset?: string
   audioBitrateKbps: number
+  extraInputArgs: string
+  extraOutputArgs: string
 }
 
 export type EncoderVariant = AdminEncoderVariant

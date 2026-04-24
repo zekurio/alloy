@@ -373,10 +373,12 @@ async function encodeVariants(
 
     const rungConfig = {
       hwaccel: variant.override.hwaccel,
-      codec: variant.override.codec,
+      encoder: variant.override.encoder,
       quality: variant.override.quality,
       preset: variant.override.preset,
       audioBitrateKbps: variant.override.audioBitrateKbps,
+      extraInputArgs: variant.override.extraInputArgs,
+      extraOutputArgs: variant.override.extraOutputArgs,
       qsvDevice: opts.config.qsvDevice,
       vaapiDevice: opts.config.vaapiDevice,
     }
@@ -432,11 +434,13 @@ function resolveVariantSettings(
 ): ClipVariantSettings {
   return {
     hwaccel: spec.override.hwaccel,
-    codec: spec.override.codec,
+    codec: spec.override.encoder,
     audioCodec: "aac",
     quality: spec.override.quality,
     preset: spec.override.preset,
     audioBitrateKbps: spec.override.audioBitrateKbps,
+    extraInputArgs: spec.override.extraInputArgs,
+    extraOutputArgs: spec.override.extraOutputArgs,
     height: spec.height,
     trimStartMs,
     trimEndMs,
@@ -454,6 +458,8 @@ function settingsEqual(
     a.quality === b.quality &&
     a.preset === b.preset &&
     a.audioBitrateKbps === b.audioBitrateKbps &&
+    a.extraInputArgs === b.extraInputArgs &&
+    a.extraOutputArgs === b.extraOutputArgs &&
     a.height === b.height &&
     a.trimStartMs === b.trimStartMs &&
     a.trimEndMs === b.trimEndMs

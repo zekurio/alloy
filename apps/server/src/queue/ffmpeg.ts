@@ -14,11 +14,13 @@ export interface ProbeResult {
 }
 
 export interface ResolvedEncoderConfig {
-  hwaccel: HwaccelKind
-  codec: EncoderCodec
+  hwaccel: string
+  encoder: string
   quality: number
   preset?: string
   audioBitrateKbps: number
+  extraInputArgs: string
+  extraOutputArgs: string
   qsvDevice: string
   vaapiDevice: string
 }
@@ -157,24 +159,13 @@ export function buildEncodeArgs(
       ]
     : []
 
-  const deviceInit: string[] = (() => {
-    switch (config.hwaccel) {
-      case "vaapi":
-        return ["-vaapi_device", config.vaapiDevice]
-      case "qsv":
-        return [
-          "-init_hw_device",
-          `qsv=qsv:hw,child_device=${config.qsvDevice}`,
-          "-filter_hw_device",
-          "qsv",
-        ]
-      default:
-        return []
-    }
-  })()
-
-  const filterChain = buildFilterChain(config, opts.targetHeight)
+  const filterChain = buildFilterChain(opts.targetHeight)
   const codecArgs = buildCodecArgs(config)
+  const hwaccelArgs = config.hwaccel.trim()
+    ? ["-hwaccel", config.hwaccel.trim()]
+    : []
+  const extraInputArgs = parseExtraArgs(config.extraInputArgs)
+  const extraOutputArgs = parseExtraArgs(config.extraOutputArgs)
   const audioArgs = [
     "-c:a",
     "aac",
@@ -189,8 +180,9 @@ export function buildEncodeArgs(
   return [
     "-hide_banner",
     "-y",
-    ...deviceInit,
     ...trimSeek,
+    ...hwaccelArgs,
+    ...extraInputArgs,
     "-i",
     srcPath,
     ...trimDuration,
@@ -200,6 +192,7 @@ export function buildEncodeArgs(
     "-movflags",
     "+faststart",
     ...audioArgs,
+    ...extraOutputArgs,
     "-progress",
     "pipe:2",
     "-nostats",
@@ -207,83 +200,84 @@ export function buildEncodeArgs(
   ]
 }
 
-function buildFilterChain(
-  config: ResolvedEncoderConfig,
-  targetHeight: number
-): string {
+function buildFilterChain(targetHeight: number): string {
   const scale = `scale=-2:${targetHeight}:force_original_aspect_ratio=decrease`
-  switch (config.hwaccel) {
-    case "vaapi":
-      // VAAPI scaler runs on the GPU once frames are uploaded in nv12.
-      return `format=nv12,hwupload,scale_vaapi=-2:${targetHeight}`
-    case "qsv":
-      // The QSV scaler runs on the iGPU; uploading first lets us scale
-      // and encode without round-tripping back through system memory.
-      return `${scale},hwupload=extra_hw_frames=64,format=qsv`
-    case "software":
-    case "nvenc":
-    case "amf":
-      // libx264/x265 wants yuv420p; NVENC + AMF accept it directly. The
-      // explicit format ensures consistent output regardless of source.
-      return `${scale},format=yuv420p`
-  }
+  return `${scale},format=yuv420p`
 }
 
 function buildCodecArgs(config: ResolvedEncoderConfig): string[] {
   const q = String(config.quality)
   const presetArgs = config.preset ? ["-preset", config.preset] : []
-  const codecName = codecNameFor(config.hwaccel, config.codec)
+  const encoder = config.encoder.trim()
+  if (!encoder) return []
 
-  switch (config.hwaccel) {
-    case "software":
-      return [
-        "-c:v",
-        codecName,
-        ...presetArgs,
-        "-crf",
-        q,
-        ...softwareCodecTail(config.codec),
-      ]
-    case "nvenc":
-      return [
-        "-c:v",
-        codecName,
-        ...presetArgs,
-        "-rc",
-        "vbr",
-        "-cq",
-        q,
-        "-b:v",
-        "0",
-      ]
-    case "qsv":
-      return ["-c:v", codecName, ...presetArgs, "-global_quality", q]
-    case "amf":
-      return [
-        "-c:v",
-        codecName,
-        ...(config.preset ? ["-quality", config.preset] : []),
-        "-rc",
-        "cqp",
-        "-qp_i",
-        q,
-        "-qp_p",
-        q,
-      ]
-    case "vaapi":
-      // VAAPI doesn't expose a preset knob. We feed `qp` directly.
-      return ["-c:v", codecName, "-qp", q]
-  }
+  return ["-c:v", encoder, ...presetArgs, ...qualityArgsForEncoder(encoder, q)]
 }
 
-function softwareCodecTail(codec: EncoderCodec): string[] {
-  switch (codec) {
-    case "h264":
-      return ["-profile:v", "high", "-level", "4.1", "-pix_fmt", "yuv420p"]
-    case "hevc":
-    case "av1":
-      return ["-pix_fmt", "yuv420p"]
+function qualityArgsForEncoder(encoder: string, quality: string): string[] {
+  if (encoder === "libx264") {
+    return [
+      "-crf",
+      quality,
+      "-profile:v",
+      "high",
+      "-level",
+      "4.1",
+      "-pix_fmt",
+      "yuv420p",
+    ]
   }
+  if (encoder === "libx265" || encoder === "libsvtav1") {
+    return ["-crf", quality, "-pix_fmt", "yuv420p"]
+  }
+  if (encoder.endsWith("_nvenc"))
+    return ["-rc", "vbr", "-cq", quality, "-b:v", "0"]
+  if (encoder.endsWith("_qsv")) return ["-global_quality", quality]
+  if (encoder.endsWith("_amf"))
+    return ["-rc", "cqp", "-qp_i", quality, "-qp_p", quality]
+  if (encoder.endsWith("_vaapi")) return ["-qp", quality]
+  return []
+}
+
+export function parseExtraArgs(raw: string): string[] {
+  const args: string[] = []
+  let current = ""
+  let quote: "'" | '"' | null = null
+  let escaping = false
+
+  for (const char of raw) {
+    if (escaping) {
+      current += char
+      escaping = false
+      continue
+    }
+    if (char === "\\") {
+      escaping = true
+      continue
+    }
+    if (quote) {
+      if (char === quote) quote = null
+      else current += char
+      continue
+    }
+    if (char === "'" || char === '"') {
+      quote = char
+      continue
+    }
+    if (/\s/.test(char)) {
+      if (current.length > 0) {
+        args.push(current)
+        current = ""
+      }
+      continue
+    }
+    current += char
+  }
+
+  if (escaping) current += "\\"
+  if (quote) throw new Error("Unclosed quote in ffmpeg extra args")
+  if (current.length > 0) args.push(current)
+  return args
 }
 
 export function codecNameFor(
