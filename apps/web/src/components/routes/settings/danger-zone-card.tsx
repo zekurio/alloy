@@ -1,11 +1,6 @@
 import * as React from "react"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import {
-  DownloadIcon,
-  EyeOffIcon,
-  RotateCcwIcon,
-  Trash2Icon,
-} from "lucide-react"
+import { EyeOffIcon, RotateCcwIcon, Trash2Icon } from "lucide-react"
 
 import {
   AlertDialog,
@@ -23,7 +18,7 @@ import { Section, SectionContent } from "@workspace/ui/components/section"
 import { toast } from "@workspace/ui/components/sonner"
 
 import { api } from "@/lib/api"
-import { authClient } from "@/lib/auth-client"
+import { authClient, signOut } from "@/lib/auth-client"
 import { getQueryClient } from "@/lib/query-client"
 
 function AccountActionRow({
@@ -50,7 +45,7 @@ export function DangerZoneCard() {
   const router = useRouter()
   const navigate = useNavigate()
   const [pendingAction, setPendingAction] = React.useState<
-    "disable" | "reactivate" | "clips" | "delete" | null
+    "disable" | "reactivate" | "delete" | null
   >(null)
   const [disabledAt, setDisabledAt] = React.useState<string | null>(null)
 
@@ -76,7 +71,10 @@ export function DangerZoneCard() {
       const state = await api.users.disableAccount()
       setDisabledAt(state.disabledAt)
       toast.success("Account disabled")
+      await signOut().catch(() => undefined)
+      getQueryClient().clear()
       await router.invalidate()
+      await navigate({ to: "/login" })
     } catch (cause) {
       toast.error(
         cause instanceof Error ? cause.message : "Couldn't disable account"
@@ -103,30 +101,6 @@ export function DangerZoneCard() {
     }
   }
 
-  async function onDeleteAllClips() {
-    if (pending) return
-    setPendingAction("clips")
-    try {
-      const result = await api.users.deleteAllClips()
-      await getQueryClient().invalidateQueries()
-      toast.success(
-        result.deleted === 1
-          ? "Deleted 1 clip"
-          : `Deleted ${result.deleted} clips`
-      )
-    } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't delete clips"
-      )
-    } finally {
-      setPendingAction(null)
-    }
-  }
-
-  function onDownloadAllClips() {
-    window.location.assign(api.users.downloadAllClipsUrl())
-  }
-
   async function onDelete() {
     if (pending) return
     setPendingAction("delete")
@@ -151,55 +125,6 @@ export function DangerZoneCard() {
   return (
     <Section>
       <SectionContent className="divide-y divide-border py-0">
-        <AccountActionRow
-          title="Download clips"
-          description="Download a zip archive with the original files for your clips."
-        >
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onDownloadAllClips}
-          >
-            <DownloadIcon />
-            Download
-          </Button>
-        </AccountActionRow>
-
-        <AccountActionRow
-          title="Delete clips"
-          description="Permanently removes every clip you uploaded. This can't be undone."
-        >
-          <AlertDialog>
-            <AlertDialogTrigger
-              render={
-                <Button type="button" variant="destructive" size="sm">
-                  <Trash2Icon />
-                  Delete clips
-                </Button>
-              }
-            />
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete all clips?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This permanently removes every clip you uploaded.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  variant="destructive"
-                  onClick={onDeleteAllClips}
-                  disabled={pending}
-                >
-                  {pendingAction === "clips" ? "Deleting…" : "Delete clips"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </AccountActionRow>
-
         <AccountActionRow
           title={disabledAt ? "Reactivate account" : "Disable account"}
           description={

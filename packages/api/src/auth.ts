@@ -19,6 +19,7 @@ export function createAuth(baseURL: string) {
           user: {
             banner: { type: "string"; required: false }
             disabledAt: { type: "date"; required: false }
+            storageQuotaBytes: { type: "number"; required: false }
           }
         }
       >({
@@ -29,6 +30,10 @@ export function createAuth(baseURL: string) {
           },
           disabledAt: {
             type: "date",
+            required: false,
+          },
+          storageQuotaBytes: {
+            type: "number",
             required: false,
           },
         },
