@@ -62,13 +62,14 @@ function mapComments(
   fn: (c: CommentRow) => CommentRow
 ): CommentListData {
   if (!data) return data
-  return data.map((top) => {
-    const mapped = fn(top)
+  const mapComment = (comment: CommentRow): CommentRow => {
+    const mapped = fn(comment)
     return {
       ...mapped,
-      replies: mapped.replies.map(fn),
+      replies: mapped.replies.map(mapComment),
     }
-  })
+  }
+  return data.map(mapComment)
 }
 
 function forEachCommentsQuery(
@@ -120,11 +121,15 @@ export function useDeleteCommentMutation(clipId: string) {
   return useMutation({
     mutationFn: (input: { commentId: string }) =>
       api.comments.delete(input.commentId).then(() => input),
-    onSuccess: () => {
+    onSuccess: (_res, { commentId }) => {
+      forEachCommentsQuery(qc, clipId, (old) =>
+        mapComments(old, (c) =>
+          c.id === commentId
+            ? { ...c, body: "", editedAt: new Date().toISOString() }
+            : c
+        )
+      )
       invalidateComments(qc, clipId)
-      // Decrement is approximate (may include replies) — rely on refetch
-      // to reconcile the exact count.
-      void qc.invalidateQueries({ queryKey: clipKeys.detail(clipId) })
     },
   })
 }
