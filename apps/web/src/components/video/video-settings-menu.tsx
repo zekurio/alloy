@@ -16,27 +16,36 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
-import { cn } from "@workspace/ui/lib/utils"
+import { Switch } from "@workspace/ui/components/switch"
 
 export function VideoSettingsMenu({
   qualityOptions = [],
   selectedQualityId,
   onSelectQuality,
   downloadOptions = [],
+  autoAdvance,
+  onAutoAdvanceChange,
   triggerClassName,
   triggerStyle,
+  contentClassName,
+  contentStyle,
 }: {
   qualityOptions?: Array<{ id: string; label: string }>
   selectedQualityId?: string
   onSelectQuality?: (qualityId: string) => void
   downloadOptions?: Array<{ id: string; label: string; url: string }>
+  autoAdvance?: boolean
+  onAutoAdvanceChange?: (next: boolean) => void
   triggerClassName?: string
   triggerStyle?: React.CSSProperties
+  contentClassName?: string
+  contentStyle?: React.CSSProperties
 }) {
   const hasQualityChoices =
     qualityOptions.length > 1 && Boolean(onSelectQuality)
   const hasDownloads = downloadOptions.length > 0
-  if (!hasQualityChoices && !hasDownloads) return null
+  const hasAutoAdvance = typeof autoAdvance === "boolean"
+  if (!hasQualityChoices && !hasDownloads && !hasAutoAdvance) return null
 
   return (
     <DropdownMenu>
@@ -46,17 +55,44 @@ export function VideoSettingsMenu({
             variant="ghost"
             size="icon-sm"
             aria-label="Settings"
-            className={cn(
-              "rounded-full text-white/82 hover:bg-white/10 hover:text-white",
-              triggerClassName
-            )}
+            className={triggerClassName}
             style={triggerStyle}
           >
-            <SettingsIcon />
+            <SettingsIcon strokeWidth={1.5} />
           </Button>
         }
       />
-      <DropdownMenuContent align="end" sideOffset={8}>
+      <DropdownMenuContent
+        align="end"
+        sideOffset={8}
+        className={contentClassName}
+        style={contentStyle}
+      >
+        {hasAutoAdvance ? (
+          <DropdownMenuGroup>
+            <DropdownMenuItem
+              onClick={(event) => {
+                event.preventDefault()
+                onAutoAdvanceChange?.(!autoAdvance)
+              }}
+              className="justify-between gap-6 pr-3"
+            >
+              Autoplay next
+              <Switch
+                size="sm"
+                checked={autoAdvance}
+                onCheckedChange={onAutoAdvanceChange}
+                onClick={(event) => event.stopPropagation()}
+                aria-label="Autoplay next"
+              />
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        ) : null}
+
+        {hasAutoAdvance && (hasQualityChoices || hasDownloads) ? (
+          <DropdownMenuSeparator />
+        ) : null}
+
         {hasQualityChoices ? (
           <DropdownMenuGroup>
             <DropdownMenuLabel>Quality</DropdownMenuLabel>

@@ -39,7 +39,6 @@ type TopClipsBodyProps = {
   window: ClipFeedWindow
   rows: ReturnType<typeof useTopClipsQuery>["data"] | undefined
   error: unknown
-  isPending: boolean
 }
 
 const TOP_WINDOWS: ReadonlyArray<{ key: ClipFeedWindow; label: string }> = [
@@ -91,11 +90,7 @@ function TopWindowPicker({
 
 export function TopClipsSection({ viewerId }: TopClipsSectionProps) {
   const [window, setWindow] = React.useState<ClipFeedWindow>("today")
-  const {
-    data: rows,
-    error,
-    isPending,
-  } = useTopClipsQuery(window, { limit: 5 })
+  const { data: rows, error } = useTopClipsQuery(window, { limit: 5 })
   useQueryErrorToast(error, {
     title: "Couldn't load top clips",
     toastId: `top-clips-${window}-error`,
@@ -118,7 +113,6 @@ export function TopClipsSection({ viewerId }: TopClipsSectionProps) {
         window={window}
         rows={rows}
         error={error}
-        isPending={isPending}
       />
     </section>
   )
@@ -129,7 +123,6 @@ function TopClipsBody({
   window,
   rows,
   error,
-  isPending,
 }: TopClipsBodyProps) {
   const entries = React.useMemo<ClipListEntry[]>(
     () =>
@@ -141,6 +134,25 @@ function TopClipsBody({
     [rows]
   )
 
+  if (rows) {
+    if (rows.length === 0) {
+      return (
+        <EmptyState
+          seed={`top-${window}-empty`}
+          size="md"
+          title={emptyTopTitle(window)}
+          hint="Check back in a bit or upload your own."
+        />
+      )
+    }
+
+    return (
+      <ClipListProvider listKey={`home:top:${window}`} entries={entries}>
+        <TopClipsRows rows={rows} viewerId={viewerId} />
+      </ClipListProvider>
+    )
+  }
+
   if (error) {
     return (
       <EmptyState
@@ -151,24 +163,7 @@ function TopClipsBody({
     )
   }
 
-  if (isPending || !rows) return <TopClipsSkeletons />
-
-  if (rows.length === 0) {
-    return (
-      <EmptyState
-        seed={`top-${window}-empty`}
-        size="md"
-        title={emptyTopTitle(window)}
-        hint="Check back in a bit or upload your own."
-      />
-    )
-  }
-
-  return (
-    <ClipListProvider listKey={`home:top:${window}`} entries={entries}>
-      <TopClipsRows rows={rows} viewerId={viewerId} />
-    </ClipListProvider>
-  )
+  return <TopClipsSkeletons />
 }
 
 function TopClipsSkeletons() {

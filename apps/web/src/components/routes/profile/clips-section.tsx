@@ -54,7 +54,6 @@ export function ClipsSection({
 
       <ClipSectionContent
         rows={visibleClips}
-        loading={clips === null}
         error={error}
         errorSeed={`profile-${variant}-error`}
         errorTitle="Couldn't load clips"
