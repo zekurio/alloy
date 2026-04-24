@@ -209,6 +209,10 @@ function buildAuth() {
           type: "string",
           required: false,
         },
+        disabledAt: {
+          type: "date",
+          required: false,
+        },
       },
       deleteUser: {
         enabled: true,

@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator"
-import { and, desc, eq, inArray, lt, sql, type SQL } from "drizzle-orm"
+import { and, desc, eq, inArray, isNull, lt, sql, type SQL } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
@@ -158,6 +158,8 @@ export const gamesRoute = new Hono()
           inArray(clip.privacy, ["public", "unlisted"])
         )
       )
+      .innerJoin(user, eq(clip.authorId, user.id))
+      .where(isNull(user.disabledAt))
       .groupBy(game.id)
       .orderBy(sql`count(${clip.id}) desc`, game.name)
 
@@ -322,6 +324,7 @@ export const gamesRoute = new Hono()
         eq(clip.gameId, gameRow.id),
         eq(clip.status, "ready"),
         inArray(clip.privacy, ["public", "unlisted"]),
+        isNull(user.disabledAt),
       ]
       if (cursor) {
         conditions.push(lt(clip.createdAt, new Date(cursor)))
@@ -377,7 +380,8 @@ export const gamesRoute = new Hono()
           and(
             eq(clip.gameId, gameRow.id),
             eq(clip.status, "ready"),
-            inArray(clip.privacy, ["public", "unlisted"])
+            inArray(clip.privacy, ["public", "unlisted"]),
+            isNull(user.disabledAt)
           )
         )
         .orderBy(desc(score))
