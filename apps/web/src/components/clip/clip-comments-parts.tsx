@@ -9,6 +9,7 @@ import {
   SendHorizontalIcon,
   SmileIcon,
   Trash2Icon,
+  XIcon,
 } from "lucide-react"
 
 import {
@@ -90,21 +91,27 @@ export function CommentComposer({
   draft,
   me,
   meAvatarStyle,
+  inputRef,
+  replyingToName,
   placeholder = "Add a comment…",
   submitting,
   canSubmit,
   onDraftChange,
   onClear,
+  onCancelReply,
   onSubmit,
 }: {
   draft: string
   me: UserChipData
   meAvatarStyle: { background: string; color: string }
+  inputRef?: React.Ref<HTMLTextAreaElement>
+  replyingToName?: string | null
   placeholder?: string
   submitting: boolean
   canSubmit: boolean
   onDraftChange: (value: string) => void
   onClear: () => void
+  onCancelReply?: () => void
   onSubmit: () => void
 }) {
   return (
@@ -115,6 +122,28 @@ export function CommentComposer({
         "focus-within:border-accent-border focus-within:bg-surface-raised"
       )}
     >
+      {replyingToName ? (
+        <div className="flex items-center justify-between gap-2 rounded-sm bg-surface-raised px-2 py-1 text-xs text-foreground-faint">
+          <span className="min-w-0 truncate">
+            Replying to{" "}
+            <span className="font-medium text-foreground">{replyingToName}</span>
+          </span>
+          {onCancelReply ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              type="button"
+              aria-label="Cancel reply"
+              onClick={onCancelReply}
+              disabled={submitting}
+              className="size-6 shrink-0"
+            >
+              <XIcon className="size-3.5" />
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="flex items-start gap-2">
         <Avatar size="md" className="mt-0.5" style={meAvatarStyle}>
           {me.avatar.src ? (
@@ -126,6 +155,7 @@ export function CommentComposer({
         </Avatar>
 
         <textarea
+          ref={inputRef}
           data-slot="comment-input"
           placeholder={placeholder}
           value={draft}
@@ -183,12 +213,14 @@ export function CommentBody({
   expanded,
   isLong,
   edited,
+  deleted = false,
   onToggle,
 }: {
   body: string
   expanded: boolean
   isLong: boolean
   edited: boolean
+  deleted?: boolean
   onToggle: () => void
 }) {
   return (
@@ -197,6 +229,7 @@ export function CommentBody({
         className={cn(
           "text-[0.9375rem] leading-[1.55] text-foreground-muted",
           "[overflow-wrap:anywhere] break-words whitespace-pre-wrap",
+          deleted && "italic text-foreground-faint",
           isLong && !expanded && "line-clamp-4"
         )}
       >
@@ -231,6 +264,8 @@ export function CommentActions({
   replyCount,
   repliesOpen,
   canReply,
+  showLike = true,
+  compactReplies = false,
   onToggleLike,
   onToggleReplies,
   onStartReply,
@@ -241,26 +276,30 @@ export function CommentActions({
   replyCount: number
   repliesOpen: boolean
   canReply: boolean
+  showLike?: boolean
+  compactReplies?: boolean
   onToggleLike: () => void
   onToggleReplies: () => void
   onStartReply: () => void
 }) {
   return (
-    <div className="mt-0.5 flex items-center gap-2">
-      <CommentLikeButton
-        liked={liked}
-        likeCount={likeCount}
-        onClick={onToggleLike}
-      />
+    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+      {showLike ? (
+        <CommentLikeButton
+          liked={liked}
+          likeCount={likeCount}
+          onClick={onToggleLike}
+        />
+      ) : null}
 
-      {likedByAuthor ? <AuthorLikeBadge /> : null}
+      {showLike && likedByAuthor ? <AuthorLikeBadge /> : null}
 
       {canReply ? (
         <button
           type="button"
           onClick={onStartReply}
           className={cn(
-            "rounded-md px-1.5 py-0.5 text-xs font-medium",
+            "shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium whitespace-nowrap",
             "text-foreground-faint transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
             "hover:bg-surface-raised hover:text-foreground",
             "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
@@ -274,16 +313,30 @@ export function CommentActions({
         <button
           type="button"
           onClick={onToggleReplies}
+          aria-label={`${repliesOpen ? "Hide" : "View"} ${replyCount} ${
+            replyCount === 1 ? "reply" : "replies"
+          }`}
           className={cn(
-            "rounded-md px-1.5 py-0.5 text-xs font-medium",
+            "inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium whitespace-nowrap",
             "text-accent transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
             "hover:bg-accent-soft",
             "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
           )}
         >
-          {repliesOpen
-            ? `Hide ${replyCount} ${replyCount === 1 ? "reply" : "replies"}`
-            : `View ${replyCount} ${replyCount === 1 ? "reply" : "replies"}`}
+          {compactReplies ? (
+            repliesOpen ? (
+              "Hide"
+            ) : (
+              <>
+                <MessageSquareIcon className="size-3" />
+                {replyCount}
+              </>
+            )
+          ) : repliesOpen ? (
+            `Hide ${replyCount} ${replyCount === 1 ? "reply" : "replies"}`
+          ) : (
+            `View ${replyCount} ${replyCount === 1 ? "reply" : "replies"}`
+          )}
         </button>
       ) : null}
     </div>
