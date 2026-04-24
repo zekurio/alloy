@@ -1,8 +1,10 @@
 import * as React from "react"
 
+import { useDebouncedValue } from "@/lib/use-debounced-value"
+
 type AppSearchContextValue = {
   query: string
-  /** `query` passed through `useDeferredValue` + trim + lowercase. */
+  /** `query` debounced, deferred, and trimmed for network-backed search. */
   deferredQuery: string
   setQuery: (next: string) => void
   clear: () => void
@@ -15,7 +17,8 @@ const AppSearchContext = React.createContext<AppSearchContextValue | null>(null)
 export function AppSearchProvider({ children }: { children: React.ReactNode }) {
   const [query, setQueryState] = React.useState("")
   const [open, setOpen] = React.useState(false)
-  const deferredQueryRaw = React.useDeferredValue(query)
+  const debouncedQuery = useDebouncedValue(query, 180)
+  const deferredQueryRaw = React.useDeferredValue(debouncedQuery)
   const deferredQuery = React.useMemo(
     () => deferredQueryRaw.trim(),
     [deferredQueryRaw]
