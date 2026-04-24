@@ -11,7 +11,9 @@ import { clip, clipComment, game, notification } from "@workspace/db/schema"
 
 import { db } from "../db"
 import {
+  publishNotificationRemove,
   publishNotificationRead,
+  publishNotificationsClear,
   publishNotificationsReadAll,
   publishNotificationUpsert,
 } from "./notification-events"
@@ -246,4 +248,30 @@ export async function markAllNotificationsRead(
   const isoReadAt = readAt.toISOString()
   publishNotificationsReadAll(recipientId, isoReadAt, unread)
   return { readAt: isoReadAt, unreadCount: unread }
+}
+
+export async function deleteNotification(
+  recipientId: string,
+  id: string
+): Promise<{ deleted: true; unreadCount: number } | null> {
+  const removed = await db
+    .delete(notification)
+    .where(
+      and(eq(notification.id, id), eq(notification.recipientId, recipientId))
+    )
+    .returning({ id: notification.id })
+  if (removed.length === 0) return null
+
+  const unread = await unreadCount(recipientId)
+  publishNotificationRemove(recipientId, id, unread)
+  return { deleted: true, unreadCount: unread }
+}
+
+export async function clearNotifications(
+  recipientId: string
+): Promise<{ deleted: true; unreadCount: number }> {
+  await db.delete(notification).where(eq(notification.recipientId, recipientId))
+  const unread = await unreadCount(recipientId)
+  publishNotificationsClear(recipientId, unread)
+  return { deleted: true, unreadCount: unread }
 }
