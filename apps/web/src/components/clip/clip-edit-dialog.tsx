@@ -10,9 +10,7 @@ import {
   DialogTitle,
 } from "@workspace/ui/components/dialog"
 import { Field, FieldLabel } from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/components/sonner"
-import { Textarea } from "@workspace/ui/components/textarea"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type {
@@ -27,6 +25,7 @@ import { useUpdateClipMutation } from "@/lib/clip-queries"
 import { CLIP_DESCRIPTION_MAX, CLIP_TITLE_MAX } from "@/lib/clip-fields"
 
 import { ClipPrivacyPicker } from "./clip-privacy-picker"
+import { LimitedInput, LimitedTextarea } from "@/components/form/limited-field"
 import { GameCombobox } from "@/components/game/game-combobox"
 import { MentionPicker } from "@/components/search/mention-picker"
 
@@ -162,7 +161,12 @@ export function ClipEditDialog({
       <DialogContent
         variant="secondary"
         className={cn(
-          "flex max-h-[min(90dvh,820px)] max-w-2xl flex-col gap-0 bg-surface p-0"
+          "flex max-h-[min(90dvh,820px)] max-w-2xl flex-col gap-0 bg-surface p-0",
+          // Mobile: bottom-sheet positioning
+          "max-sm:top-auto max-sm:right-0 max-sm:bottom-0 max-sm:left-0",
+          "max-sm:max-w-none max-sm:max-h-[85dvh]",
+          "max-sm:translate-x-0 max-sm:translate-y-0",
+          "max-sm:rounded-b-none max-sm:rounded-t-2xl"
         )}
       >
         <DialogHeader>
@@ -173,7 +177,7 @@ export function ClipEditDialog({
           <div className="flex flex-col gap-5">
             <Field className="gap-1.5">
               <FieldLabel htmlFor="clip-edit-title">Title</FieldLabel>
-              <Input
+              <LimitedInput
                 id="clip-edit-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -192,7 +196,7 @@ export function ClipEditDialog({
               <FieldLabel htmlFor="clip-edit-description">
                 Description
               </FieldLabel>
-              <Textarea
+              <LimitedTextarea
                 id="clip-edit-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -200,7 +204,7 @@ export function ClipEditDialog({
                 maxLength={CLIP_DESCRIPTION_MAX}
                 disabled={saving}
                 placeholder="Add a description…"
-                className="min-h-0 rounded-md"
+                className="min-h-0"
               />
             </Field>
 
