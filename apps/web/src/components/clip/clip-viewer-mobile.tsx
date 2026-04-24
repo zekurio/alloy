@@ -281,25 +281,25 @@ function MobileClipViewerBody({
           {/* ---- Bottom section ---- */}
           <div className="relative z-10 flex flex-1 overflow-hidden">
             {/* Left: metadata cluster */}
-            <div className="flex flex-1 flex-col justify-end gap-2 p-4 pr-2 pb-5">
+            <div className="flex flex-1 flex-col justify-end gap-2.5 p-4 pr-2 pb-5">
               {/* Game badge */}
               {gameRef ? (
                 <Link
                   to="/g/$slug"
                   params={{ slug: gameRef.slug }}
-                  className="inline-flex w-fit items-center gap-1.5"
+                  className="inline-flex w-fit items-center gap-2"
                 >
                   <GameIcon
                     src={gameIcon}
                     name={gameLabel}
-                    className="size-5 rounded"
+                    className="size-6 rounded"
                   />
-                  <span className="text-sm font-semibold text-white/90">
+                  <span className="text-base font-semibold text-white/90">
                     {gameLabel}
                   </span>
                 </Link>
               ) : (
-                <span className="text-sm font-semibold text-white/90">
+                <span className="text-base font-semibold text-white/90">
                   {gameLabel}
                 </span>
               )}
@@ -310,7 +310,7 @@ function MobileClipViewerBody({
                 params={{ username: handle }}
                 className="inline-flex w-fit items-center gap-2"
               >
-                <Avatar size="md" style={avatarStyle} className="rounded-full">
+                <Avatar size="lg" style={avatarStyle} className="rounded-full">
                   {avatarSrc ? (
                     <AvatarImage src={avatarSrc} alt={author} />
                   ) : null}
@@ -318,7 +318,7 @@ function MobileClipViewerBody({
                     {initials}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-base font-bold text-white">
+                <span className="text-lg font-bold text-white">
                   @{handle}
                 </span>
               </Link>
