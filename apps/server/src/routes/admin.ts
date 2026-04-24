@@ -1,12 +1,13 @@
 import { spawn } from "node:child_process"
 
 import { zValidator } from "@hono/zod-validator"
-import { inArray } from "drizzle-orm"
+import { eq, inArray, isNull, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { createMiddleware } from "hono/factory"
 import { z } from "zod"
 
 import type { AdminEncoderCapabilities as EncoderCapabilities } from "@workspace/db/contracts"
+import { passkey, user } from "@workspace/db/auth-schema"
 import { clip } from "@workspace/db/schema"
 
 import { getAuth } from "../auth"
@@ -104,6 +105,16 @@ function hasEnabledSignInMethod(config: {
   )
 }
 
+async function countUsersWithoutPasskeys(): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(${user.id})::int` })
+    .from(user)
+    .leftJoin(passkey, eq(passkey.userId, user.id))
+    .where(isNull(passkey.id))
+
+  return row?.count ?? 0
+}
+
 function sanitizeScopes(scopes: string[] | undefined): string[] | undefined {
   const next = scopes?.map((scope) => scope.trim()).filter(Boolean)
   return next && next.length > 0 ? next : undefined
@@ -153,42 +164,57 @@ export const adminRoute = new Hono()
   .get("/runtime-config", (c) => {
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
-  .patch("/runtime-config", zValidator("json", RuntimeConfigPatch), (c) => {
-    const body = c.req.valid("json")
-    const current = configStore.getAll()
-    const next = {
-      ...current,
-      ...body,
+  .patch(
+    "/runtime-config",
+    zValidator("json", RuntimeConfigPatch),
+    async (c) => {
+      const body = c.req.valid("json")
+      const current = configStore.getAll()
+      const next = {
+        ...current,
+        ...body,
+      }
+      if (!hasEnabledSignInMethod(next)) {
+        return c.json(
+          {
+            error: "Keep at least one sign-in method enabled.",
+          },
+          400
+        )
+      }
+      if (body.emailPasswordEnabled === false) {
+        const usersWithoutPasskeys = await countUsersWithoutPasskeys()
+        if (usersWithoutPasskeys > 0) {
+          return c.json(
+            {
+              error: `Every user must have at least one passkey before email and password sign-in can be disabled. ${usersWithoutPasskeys} user${usersWithoutPasskeys === 1 ? "" : "s"} still need${usersWithoutPasskeys === 1 ? "s" : ""} a passkey.`,
+            },
+            400
+          )
+        }
+      }
+      const patch: Partial<{
+        openRegistrations: boolean
+        emailPasswordEnabled: boolean
+        passkeyEnabled: boolean
+        requireAuthToBrowse: boolean
+      }> = {}
+      if (body.openRegistrations !== undefined) {
+        patch.openRegistrations = body.openRegistrations
+      }
+      if (body.emailPasswordEnabled !== undefined) {
+        patch.emailPasswordEnabled = body.emailPasswordEnabled
+      }
+      if (body.passkeyEnabled !== undefined) {
+        patch.passkeyEnabled = body.passkeyEnabled
+      }
+      if (body.requireAuthToBrowse !== undefined) {
+        patch.requireAuthToBrowse = body.requireAuthToBrowse
+      }
+      if (Object.keys(patch).length > 0) configStore.patch(patch)
+      return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     }
-    if (!hasEnabledSignInMethod(next)) {
-      return c.json(
-        {
-          error: "Keep at least one sign-in method enabled.",
-        },
-        400
-      )
-    }
-    const patch: Partial<{
-      openRegistrations: boolean
-      emailPasswordEnabled: boolean
-      passkeyEnabled: boolean
-      requireAuthToBrowse: boolean
-    }> = {}
-    if (body.openRegistrations !== undefined) {
-      patch.openRegistrations = body.openRegistrations
-    }
-    if (body.emailPasswordEnabled !== undefined) {
-      patch.emailPasswordEnabled = body.emailPasswordEnabled
-    }
-    if (body.passkeyEnabled !== undefined) {
-      patch.passkeyEnabled = body.passkeyEnabled
-    }
-    if (body.requireAuthToBrowse !== undefined) {
-      patch.requireAuthToBrowse = body.requireAuthToBrowse
-    }
-    if (Object.keys(patch).length > 0) configStore.patch(patch)
-    return c.json(adminRuntimeConfigResponse(configStore.getAll()))
-  })
+  )
   .put(
     "/oauth-config",
     zValidator("json", OAuthConfigSubmissionSchema),
