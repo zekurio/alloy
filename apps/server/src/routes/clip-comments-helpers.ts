@@ -126,11 +126,15 @@ export async function listClipComments({
     }
   }
 
-  for (const t of tops) {
-    t.replies.sort(
+  const sortReplies = (comment: CommentRow) => {
+    comment.replies.sort(
       (a, b) =>
         new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     )
+    for (const reply of comment.replies) sortReplies(reply)
+  }
+  for (const t of tops) {
+    sortReplies(t)
   }
   tops.sort((a, b) => {
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
