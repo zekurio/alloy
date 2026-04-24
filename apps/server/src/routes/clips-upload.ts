@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator"
-import { eq, inArray } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import { Hono } from "hono"
 import { nanoid } from "nanoid"
 
@@ -8,10 +8,7 @@ import { clip, clipMention, game } from "@workspace/db/schema"
 
 import { getAuth } from "../auth"
 import { db } from "../db"
-import {
-  publishClipRemove,
-  publishClipUpsert,
-} from "../lib/clip-events"
+import { publishClipRemove, publishClipUpsert } from "../lib/clip-events"
 import { selectClipById } from "../lib/clip-select"
 import { configStore } from "../lib/config-store"
 import { requireSession } from "../lib/require-session"
@@ -158,14 +155,24 @@ export const clipsUploadRoutes = new Hono()
         }
       }
 
-      await db
+      const [transitioned] = await db
         .update(clip)
         .set({
           status: "uploaded",
           sizeBytes: resolved.size,
           updatedAt: new Date(),
         })
-        .where(eq(clip.id, id))
+        .where(
+          and(
+            eq(clip.id, id),
+            eq(clip.authorId, viewerId),
+            eq(clip.status, "pending")
+          )
+        )
+        .returning({ id: clip.id })
+      if (!transitioned) {
+        return c.json({ error: "Clip is already being finalized" }, 409)
+      }
 
       void publishClipUpsert(viewerId, id)
 

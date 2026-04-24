@@ -138,6 +138,9 @@ export function NewClipDialog({
   // Use the initial file as a synchronous fallback so the modal renders
   // LoadedState immediately on first open without waiting for the effect.
   const activeFile = selectedFile ?? (open ? (initialFile ?? null) : null)
+  const activeFileKey = activeFile
+    ? `${activeFile.name}:${activeFile.sizeBytes}:${activeFile.durationMs}`
+    : null
 
   const surfaceContent = (
     <>
@@ -163,6 +166,7 @@ export function NewClipDialog({
 
       {activeFile ? (
         <LoadedState
+          key={activeFileKey}
           file={activeFile}
           publishing={publishing}
           onPublish={handlePublish}
@@ -175,7 +179,7 @@ export function NewClipDialog({
                     variant="outline"
                     size="default"
                     disabled={publishing}
-                    className="min-w-0 w-full"
+                    className="w-full min-w-0"
                   />
                 }
               >
@@ -184,7 +188,11 @@ export function NewClipDialog({
             ) : (
               <DialogClose
                 render={
-                  <Button variant="outline" size="default" disabled={publishing} />
+                  <Button
+                    variant="outline"
+                    size="default"
+                    disabled={publishing}
+                  />
                 }
               >
                 Cancel
@@ -461,7 +469,7 @@ function LoadedState({
           size="default"
           disabled={publishing}
           onClick={onReplace}
-          className={cn(isMobile && "min-w-0 w-full")}
+          className={cn(isMobile && "w-full min-w-0")}
         >
           Replace
         </Button>
@@ -471,7 +479,7 @@ function LoadedState({
           size="default"
           disabled={publishing || capturing}
           onClick={handlePublishClick}
-          className={cn(isMobile && "min-w-0 w-full")}
+          className={cn(isMobile && "w-full min-w-0")}
         >
           {capturing ? "Preparing…" : publishing ? "Uploading…" : "Upload clip"}
         </Button>
