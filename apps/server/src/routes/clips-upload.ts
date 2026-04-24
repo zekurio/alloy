@@ -15,7 +15,7 @@ import { createNotification } from "../lib/notifications"
 import { requireSession } from "../lib/require-session"
 import { ENCODE_JOB, getBoss } from "../queue"
 import { cancelEncode } from "../queue/encode-worker"
-import { clipAssetKey, storage } from "../storage"
+import { clipAssetKey, clipSourceAssetKey, storage } from "../storage"
 import { IdParam, InitiateBody, UpdateBody } from "./clips-helpers"
 
 async function resolveMentionIds(
@@ -63,7 +63,7 @@ export const clipsUploadRoutes = new Hono()
 
       const clipId = crypto.randomUUID()
       const slug = nanoid(10)
-      const storageKey = clipAssetKey(clipId, "source")
+      const storageKey = clipSourceAssetKey(clipId, body.contentType)
       const thumbKey = clipAssetKey(clipId, "thumb")
 
       const privacy = body.privacy === "private" ? "private" : body.privacy
