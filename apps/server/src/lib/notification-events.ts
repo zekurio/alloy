@@ -49,6 +49,28 @@ export function publishNotificationsReadAll(
   } satisfies NotificationEvent)
 }
 
+export function publishNotificationRemove(
+  recipientId: string,
+  id: string,
+  unreadCount: number
+): void {
+  emitter.emit(channel(recipientId), {
+    type: "remove",
+    id,
+    unreadCount,
+  } satisfies NotificationEvent)
+}
+
+export function publishNotificationsClear(
+  recipientId: string,
+  unreadCount: number
+): void {
+  emitter.emit(channel(recipientId), {
+    type: "clear",
+    unreadCount,
+  } satisfies NotificationEvent)
+}
+
 export function subscribeToNotifications(
   recipientId: string,
   handler: (event: NotificationEvent) => void

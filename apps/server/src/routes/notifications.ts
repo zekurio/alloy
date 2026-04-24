@@ -4,6 +4,8 @@ import { z } from "zod"
 
 import { requireSession } from "../lib/require-session"
 import {
+  clearNotifications,
+  deleteNotification,
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
@@ -25,6 +27,10 @@ export const notificationsRoute = new Hono()
     return c.json(await markAllNotificationsRead(c.var.viewerId))
   })
 
+  .delete("/", requireSession, async (c) => {
+    return c.json(await clearNotifications(c.var.viewerId))
+  })
+
   .patch(
     "/:id/read",
     requireSession,
@@ -36,3 +42,10 @@ export const notificationsRoute = new Hono()
       return c.json(row)
     }
   )
+
+  .delete("/:id", requireSession, zValidator("param", IdParam), async (c) => {
+    const { id } = c.req.valid("param")
+    const result = await deleteNotification(c.var.viewerId, id)
+    if (!result) return c.json({ error: "Not found" }, 404)
+    return c.json(result)
+  })

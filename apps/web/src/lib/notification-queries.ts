@@ -66,6 +66,36 @@ export function useMarkAllNotificationsReadMutation() {
   })
 }
 
+export function useDeleteNotificationMutation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.notifications.delete(id).then((result) => ({ ...result, id })),
+    onSuccess: ({ id, unreadCount }) => {
+      qc.setQueryData<NotificationsResponse>(notificationKeys.list(), (old) =>
+        old
+          ? {
+              unreadCount,
+              items: old.items.filter((item) => item.id !== id),
+            }
+          : old
+      )
+    },
+  })
+}
+
+export function useClearNotificationsMutation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.notifications.clear(),
+    onSuccess: ({ unreadCount }) => {
+      qc.setQueryData<NotificationsResponse>(notificationKeys.list(), (old) =>
+        old ? { unreadCount, items: [] } : old
+      )
+    },
+  })
+}
+
 export function useNotificationStream({
   enabled,
   includeSnapshot = true,
@@ -97,12 +127,16 @@ export function useNotificationStream({
     source.addEventListener("upsert", handleEvent)
     source.addEventListener("read", handleEvent)
     source.addEventListener("read_all", handleEvent)
+    source.addEventListener("remove", handleEvent)
+    source.addEventListener("clear", handleEvent)
 
     return () => {
       source.removeEventListener("snapshot", handleEvent)
       source.removeEventListener("upsert", handleEvent)
       source.removeEventListener("read", handleEvent)
       source.removeEventListener("read_all", handleEvent)
+      source.removeEventListener("remove", handleEvent)
+      source.removeEventListener("clear", handleEvent)
       source.close()
     }
   }, [enabled, includeSnapshot, queryClient])
@@ -148,6 +182,15 @@ function applyNotificationEvent(
             ),
           }
         : old
+    case "remove":
+      return old
+        ? {
+            unreadCount: event.unreadCount,
+            items: old.items.filter((item) => item.id !== event.id),
+          }
+        : old
+    case "clear":
+      return old ? { unreadCount: event.unreadCount, items: [] } : old
   }
 }
 
@@ -181,6 +224,11 @@ export function notificationText(row: NotificationRow): {
       return {
         title: "New comment",
         body: `${actor} commented on ${clipTitle}.`,
+      }
+    case "comment_reply":
+      return {
+        title: "New reply",
+        body: `${actor} replied to your comment on ${clipTitle}.`,
       }
     case "comment_pinned":
       return {
