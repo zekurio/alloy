@@ -269,7 +269,7 @@ function ClipViewerDialogBody({
                 status={row.status}
                 encodeProgress={row.encodeProgress}
                 aspectRatio={16 / 9}
-                className="overflow-hidden rounded-[14px] border border-white/10 shadow-[0_30px_90px_-42px_rgba(0,0,0,0.92)] lg:rounded-none lg:border-t-0 lg:border-r-0 lg:border-l-0 lg:shadow-[0_30px_90px_-42px_rgba(0,0,0,0.7)] [&_img]:object-cover [&_video]:object-cover"
+                className="overflow-hidden rounded-[14px] border border-white/10 shadow-[0_30px_90px_-42px_rgba(0,0,0,0.92)] lg:rounded-none lg:border-t-0 lg:border-r-0 lg:border-l-0 lg:shadow-none [&_img]:object-cover [&_video]:object-cover"
                 onPlayThreshold={() => void api.clips.recordView(row.id)}
                 onEnded={handleEnded}
                 autoPlay
@@ -287,7 +287,6 @@ function ClipViewerDialogBody({
                 views={formatCount(row.viewCount)}
                 postedAt={formatRelativeTime(row.createdAt)}
                 likes={row.likeCount}
-                comments={row.commentCount}
                 privacy={row.privacy}
                 description={row.description}
                 mentions={row.mentions ?? []}

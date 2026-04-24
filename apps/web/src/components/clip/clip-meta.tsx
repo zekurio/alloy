@@ -2,7 +2,6 @@ import * as React from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   HeartIcon,
-  MessageSquareIcon,
   MoreHorizontalIcon,
   PencilIcon,
   Share2Icon,
@@ -88,7 +87,6 @@ interface ClipMetaProps {
     };
   };
   likes: number;
-  comments: number;
   mentions: ClipMentionRef[];
   /** Fired after a successful delete — e.g. closes the player modal. */
   onDeleted?: () => void;
@@ -107,7 +105,6 @@ function ClipMeta({
   postedAt,
   uploader,
   likes,
-  comments,
   mentions,
   onDeleted,
   onEdit,
@@ -330,11 +327,6 @@ function ClipMeta({
                   followers
                 </span>
               ) : null}
-              <ClipMetaStat
-                icon={MessageSquareIcon}
-                label="Comments"
-                value={formatCount(comments)}
-              />
             </div>
           </div>
         </div>
@@ -498,26 +490,6 @@ function ClipPrivacyBadge({ privacy }: { privacy: ClipPrivacy }) {
     <span className="inline-flex items-center gap-1 text-foreground-faint">
       <Icon className="size-3" />
       <span className="tabular-nums">{display.label}</span>
-    </span>
-  );
-}
-
-function ClipMetaStat({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-}) {
-  return (
-    <span
-      className="inline-flex items-center gap-1.5"
-      aria-label={`${label}: ${value}`}
-    >
-      <Icon className="size-3.5 text-foreground-faint" />
-      <span className="text-foreground-muted tabular-nums">{value}</span>
     </span>
   );
 }
