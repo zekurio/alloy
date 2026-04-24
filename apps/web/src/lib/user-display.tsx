@@ -189,6 +189,8 @@ function UserBannerImage({
         alt=""
         aria-hidden
         decoding="async"
+        fetchPriority="high"
+        loading="eager"
         onLoad={() => setStatus("loaded")}
         onError={() => setStatus("error")}
         className={cn(
@@ -200,7 +202,7 @@ function UserBannerImage({
         )}
       />
       {status === "loading" ? (
-        <div aria-hidden className="absolute inset-0 animate-pulse bg-muted" />
+        <div aria-hidden className="absolute inset-0 bg-muted" />
       ) : null}
     </>
   )
