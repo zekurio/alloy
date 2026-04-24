@@ -45,13 +45,42 @@ function Avatar({
   )
 }
 
-function AvatarImage({ className, ...props }: AvatarPrimitive.Image.Props) {
+function AvatarImage({
+  className,
+  src,
+  onLoadingStatusChange,
+  ...props
+}: AvatarPrimitive.Image.Props) {
+  const [status, setStatus] = React.useState<
+    "idle" | "loading" | "loaded" | "error"
+  >(src ? "loading" : "idle")
+
+  React.useEffect(() => {
+    setStatus(src ? "loading" : "idle")
+  }, [src])
+
+  const showLoadingMask = !!src && status !== "loaded" && status !== "error"
+
   return (
-    <AvatarPrimitive.Image
-      data-slot="avatar-image"
-      className={cn("size-full object-cover", className)}
-      {...props}
-    />
+    <>
+      <AvatarPrimitive.Image
+        data-slot="avatar-image"
+        src={src}
+        onLoadingStatusChange={(nextStatus) => {
+          setStatus(nextStatus)
+          onLoadingStatusChange?.(nextStatus)
+        }}
+        className={cn("size-full object-cover", className)}
+        {...props}
+      />
+      {showLoadingMask ? (
+        <span
+          aria-hidden
+          data-slot="avatar-image-loading"
+          className="absolute inset-0 z-10 animate-pulse bg-muted"
+        />
+      ) : null}
+    </>
   )
 }
 
