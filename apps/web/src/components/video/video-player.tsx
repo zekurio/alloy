@@ -34,10 +34,14 @@ type SharedPlayerProps = {
   onEnded?: () => void
   autoAdvance?: boolean
   onAutoAdvanceChange?: (next: boolean) => void
-  qualityOptions?: Array<{ id: string; label: string }>
+  qualityOptions?: Array<{
+    id: string
+    label: string
+    detail?: string
+    downloadUrl?: string
+  }>
   selectedQualityId?: string
   onSelectQuality?: (qualityId: string) => void
-  downloadOptions?: Array<{ id: string; label: string; url: string }>
 }
 
 interface VideoPlayerProps extends SharedPlayerProps {
@@ -148,7 +152,6 @@ function PlayerCore({
   qualityOptions,
   selectedQualityId,
   onSelectQuality,
-  downloadOptions,
   playbackRate,
 }: PlayerCoreProps) {
   const mediaUrl = useMediaUrl(spec)
@@ -514,7 +517,6 @@ function PlayerCore({
         qualityOptions={qualityOptions}
         selectedQualityId={selectedQualityId}
         onSelectQuality={onSelectQuality}
-        downloadOptions={downloadOptions}
         onAutoAdvanceChange={onAutoAdvanceChange}
         onToggleFullscreen={toggleFullscreen}
       />

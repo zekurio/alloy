@@ -165,6 +165,8 @@ export type NotificationEvent =
   | { type: "upsert"; notification: NotificationRow; unreadCount: number }
   | { type: "read"; id: string; readAt: IsoDateString; unreadCount: number }
   | { type: "read_all"; readAt: IsoDateString; unreadCount: number }
+  | { type: "remove"; id: string; unreadCount: number }
+  | { type: "clear"; unreadCount: number }
 
 export type CommentAuthor = UserSummary
 

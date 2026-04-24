@@ -78,22 +78,18 @@ export function VideoScrubber({
       onKeyDown={onKeyDown}
       className={cn(
         "group/scrub relative h-1 w-full cursor-pointer touch-none rounded-full",
-        "bg-white/20",
+        "bg-neutral-200",
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       )}
     >
       <div
         aria-hidden
-        className="absolute inset-y-0 left-0 rounded-full bg-white/30"
+        className="absolute inset-y-0 left-0 rounded-full bg-neutral-300"
         style={{ width: `${buffered}%` }}
       />
       <div
         aria-hidden
-        className={cn(
-          "absolute inset-y-0 left-0 rounded-full",
-          "bg-white group-hover/bar:bg-accent",
-          "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]"
-        )}
+        className="absolute inset-y-0 left-0 rounded-full bg-accent"
         style={{ width: `${progress}%` }}
       />
       <div

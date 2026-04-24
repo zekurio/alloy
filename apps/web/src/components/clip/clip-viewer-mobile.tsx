@@ -32,6 +32,13 @@ import {
   DialogViewportContent,
 } from "@workspace/ui/components/dialog"
 import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerClose,
+} from "@workspace/ui/components/drawer"
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -409,29 +416,32 @@ function MobileClipViewerBody({
             </div>
           </div>
 
-          {/* ---- Comments overlay (slides up) ---- */}
-          {commentsOpen ? (
-            <div className="absolute inset-0 z-40 flex animate-in flex-col bg-surface duration-200 slide-in-from-bottom">
-              <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                <h2 className="text-base font-semibold text-foreground">
-                  Comments
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => setCommentsOpen(false)}
-                  className="rounded-full p-1 text-foreground-faint hover:text-foreground"
-                  aria-label="Close comments"
-                >
-                  <XIcon className="size-5" />
-                </button>
-              </div>
+          {/* ---- Comments drawer (bottom sheet) ---- */}
+          <Drawer
+            open={commentsOpen}
+            onOpenChange={setCommentsOpen}
+            direction="bottom"
+          >
+            <DrawerContent className="max-h-[85vh]">
+              <DrawerHeader className="flex flex-row items-center justify-between border-b border-border py-3">
+                <DrawerTitle>Comments</DrawerTitle>
+                <DrawerClose asChild>
+                  <button
+                    type="button"
+                    className="rounded-full p-1 text-foreground-faint hover:text-foreground"
+                    aria-label="Close comments"
+                  >
+                    <XIcon className="size-5" />
+                  </button>
+                </DrawerClose>
+              </DrawerHeader>
               <ClipComments
                 clipId={row.id}
                 clipAuthorId={row.authorId}
                 className="min-h-0 flex-1 overflow-y-auto border-0"
               />
-            </div>
-          ) : null}
+            </DrawerContent>
+          </Drawer>
         </div>
       </DialogViewportContent>
 

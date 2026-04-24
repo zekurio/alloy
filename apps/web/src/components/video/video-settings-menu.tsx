@@ -1,4 +1,4 @@
-import { DownloadIcon, SettingsIcon } from "lucide-react"
+import { DownloadIcon, GaugeIcon, SettingsIcon } from "lucide-react"
 import * as React from "react"
 
 import { Button } from "@workspace/ui/components/button"
@@ -7,35 +7,30 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
-import { Switch } from "@workspace/ui/components/switch"
+
+export type QualityOption = {
+  id: string
+  label: string
+  downloadUrl?: string
+}
 
 export function VideoSettingsMenu({
   qualityOptions = [],
   selectedQualityId,
   onSelectQuality,
-  downloadOptions = [],
-  autoAdvance,
-  onAutoAdvanceChange,
   triggerClassName,
   triggerStyle,
   contentClassName,
   contentStyle,
 }: {
-  qualityOptions?: Array<{ id: string; label: string }>
+  qualityOptions?: QualityOption[]
   selectedQualityId?: string
   onSelectQuality?: (qualityId: string) => void
-  downloadOptions?: Array<{ id: string; label: string; url: string }>
-  autoAdvance?: boolean
-  onAutoAdvanceChange?: (next: boolean) => void
   triggerClassName?: string
   triggerStyle?: React.CSSProperties
   contentClassName?: string
@@ -43,9 +38,12 @@ export function VideoSettingsMenu({
 }) {
   const hasQualityChoices =
     qualityOptions.length > 1 && Boolean(onSelectQuality)
+  const downloadOptions = qualityOptions.filter((q) => q.downloadUrl)
   const hasDownloads = downloadOptions.length > 0
-  const hasAutoAdvance = typeof autoAdvance === "boolean"
-  if (!hasQualityChoices && !hasDownloads && !hasAutoAdvance) return null
+  const selectedQuality =
+    qualityOptions.find((quality) => quality.id === selectedQualityId) ??
+    qualityOptions[0]
+  if (!hasQualityChoices && !hasDownloads) return null
 
   return (
     <DropdownMenu>
@@ -68,70 +66,54 @@ export function VideoSettingsMenu({
         className={contentClassName}
         style={contentStyle}
       >
-        {hasAutoAdvance ? (
+        {hasQualityChoices || hasDownloads ? (
           <DropdownMenuGroup>
-            <DropdownMenuItem
-              onClick={(event) => {
-                event.preventDefault()
-                onAutoAdvanceChange?.(!autoAdvance)
-              }}
-              className="justify-between gap-6 pr-3"
-            >
-              Autoplay next
-              <Switch
-                size="sm"
-                checked={autoAdvance}
-                onCheckedChange={onAutoAdvanceChange}
-                onClick={(event) => event.stopPropagation()}
-                aria-label="Autoplay next"
-              />
-            </DropdownMenuItem>
+            {hasQualityChoices ? (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <GaugeIcon />
+                  {selectedQuality?.label ?? "Quality"}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent alignOffset={-3}>
+                  {qualityOptions.map((quality) => (
+                    <DropdownMenuItem
+                      key={quality.id}
+                      onClick={() => onSelectQuality?.(quality.id)}
+                    >
+                      <QualityText quality={quality} />
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            ) : null}
+
+            {hasDownloads ? (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <DownloadIcon />
+                  Download
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent alignOffset={-3}>
+                  {downloadOptions.map((quality) => (
+                    <DropdownMenuItem
+                      key={quality.id}
+                      onClick={() => startDownload(quality.downloadUrl!)}
+                    >
+                      {quality.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            ) : null}
           </DropdownMenuGroup>
-        ) : null}
-
-        {hasAutoAdvance && (hasQualityChoices || hasDownloads) ? (
-          <DropdownMenuSeparator />
-        ) : null}
-
-        {hasQualityChoices ? (
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>Quality</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={selectedQualityId}
-              onValueChange={onSelectQuality}
-            >
-              {qualityOptions.map((quality) => (
-                <DropdownMenuRadioItem key={quality.id} value={quality.id}>
-                  {quality.label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuGroup>
-        ) : null}
-
-        {hasQualityChoices && hasDownloads ? <DropdownMenuSeparator /> : null}
-
-        {hasDownloads ? (
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <DownloadIcon />
-              Download
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              {downloadOptions.map((download) => (
-                <DropdownMenuItem
-                  key={download.id}
-                  onClick={() => startDownload(download.url)}
-                >
-                  {download.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
         ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   )
+}
+
+function QualityText({ quality }: { quality: QualityOption }) {
+  return <span className="truncate">{quality.label}</span>
 }
 
 function startDownload(url: string): void {
