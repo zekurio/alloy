@@ -66,6 +66,7 @@ export function userProfileQueryOptions(handle: string) {
     queryKey: userKeys.profile(handle),
     queryFn: () => api.users.fetchProfile(handle),
     enabled: handle.length > 0,
+    staleTime: 30_000,
   })
 }
 

@@ -56,7 +56,12 @@ export function ProfileIdentity({
               className="shrink-0 shadow-[0_8px_24px_oklch(0_0_0_/_0.45)]"
             >
               {avatar.src ? (
-                <AvatarImage src={avatar.src} alt={handle} />
+                <AvatarImage
+                  src={avatar.src}
+                  alt={handle}
+                  fetchPriority="high"
+                  loading="eager"
+                />
               ) : null}
               <AvatarFallback
                 style={{ background: avatar.bg, color: avatar.fg }}

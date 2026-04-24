@@ -18,12 +18,13 @@ import {
 
 export const Route = createFileRoute("/(app)/_app/u/$username")({
   loader: async ({ context, params }) => {
-    await Promise.all([
-      context.queryClient.prefetchQuery(
-        userProfileQueryOptions(params.username)
-      ),
-      context.queryClient.prefetchQuery(userClipsQueryOptions(params.username)),
-    ])
+    const profile = await context.queryClient.ensureQueryData(
+      userProfileQueryOptions(params.username)
+    )
+    void context.queryClient.prefetchQuery(
+      userClipsQueryOptions(params.username)
+    )
+    return { profile }
   },
   component: UserProfileLayout,
 })
