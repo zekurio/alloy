@@ -29,7 +29,6 @@ import { EncoderConfigCard } from "@/components/routes/admin-settings/encoder-co
 import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integrations-config-card"
 import { LimitsConfigCard } from "@/components/routes/admin-settings/limits-config-card"
 import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-provider-card"
-import { ReEncodeClipsCard } from "@/components/routes/admin-settings/re-encode-clips-card"
 import { type AdminRuntimeConfig } from "@workspace/api"
 
 import { api } from "@/lib/api"
@@ -293,7 +292,6 @@ function AdminUploadsTab({
         limits={config.limits}
         onChange={(next) => onConfigChange(next)}
       />
-      <ReEncodeClipsCard />
     </TabsContent>
   )
 }
