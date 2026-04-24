@@ -41,31 +41,40 @@ export function GamesSection() {
         </SectionActions>
       </SectionHead>
 
-      {error ? (
+      {games !== undefined ? (
+        games.length === 0 ? (
+          <EmptyState
+            seed="games-empty"
+            size="lg"
+            title="No games yet"
+            hint="Upload a clip and pick a game to seed this list."
+          />
+        ) : (
+          <GamesGrid>
+            {games.map((g) => (
+              <GameCard
+                key={g.id}
+                game={g}
+                link={{ kind: "game", slug: g.slug }}
+              />
+            ))}
+          </GamesGrid>
+        )
+      ) : error ? (
         <EmptyState seed="games-error" size="lg" title="Couldn't load games" />
-      ) : isPending || !games ? (
+      ) : isPending ? (
         <GamesGrid>
           {Array.from({ length: 10 }).map((_, i) => (
             <Skeleton key={i} className="aspect-[2/3] rounded-lg" />
           ))}
         </GamesGrid>
-      ) : games.length === 0 ? (
+      ) : (
         <EmptyState
           seed="games-empty"
           size="lg"
           title="No games yet"
           hint="Upload a clip and pick a game to seed this list."
         />
-      ) : (
-        <GamesGrid>
-          {games.map((g) => (
-            <GameCard
-              key={g.id}
-              game={g}
-              link={{ kind: "game", slug: g.slug }}
-            />
-          ))}
-        </GamesGrid>
       )}
     </section>
   )
