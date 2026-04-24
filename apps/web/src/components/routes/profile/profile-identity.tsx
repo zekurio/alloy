@@ -40,8 +40,8 @@ export function ProfileIdentity({
           className={cn(
             "relative -mx-4 -mt-6 overflow-hidden md:-mx-8",
             hasDedicatedBanner
-              ? "aspect-[16/4] max-h-[280px] min-h-[160px]"
-              : "aspect-[3/1] max-h-[240px] min-h-[140px]"
+              ? "aspect-[16/4] max-h-[280px] min-h-28 sm:min-h-[160px]"
+              : "aspect-[3/1] max-h-[240px] min-h-28 sm:min-h-[140px]"
           )}
         >
           <UserBanner user={user} />
@@ -50,11 +50,11 @@ export function ProfileIdentity({
             className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/95 via-black/60 to-transparent"
           />
 
-          <div className="absolute inset-x-0 bottom-0 flex items-end gap-4 p-4 sm:p-6">
+          <div className="absolute inset-x-0 bottom-0 flex items-end gap-3 p-3 sm:gap-4 sm:p-6">
             <Avatar
               size="2xl"
               style={{ background: avatar.bg, color: avatar.fg }}
-              className="shrink-0 shadow-[0_8px_24px_oklch(0_0_0_/_0.45)]"
+              className="size-16 shrink-0 text-xl shadow-[0_8px_24px_oklch(0_0_0_/_0.45)] sm:size-24 sm:text-[28px]"
             >
               {avatar.src ? (
                 <AvatarImage
@@ -76,7 +76,7 @@ export function ProfileIdentity({
                 <h1
                   className={cn(
                     "truncate text-2xl font-semibold tracking-[-0.02em] text-foreground",
-                    "drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)] sm:text-3xl"
+                    "drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)] max-sm:text-xl sm:text-3xl"
                   )}
                 >
                   {user.name || `@${handle}`}
@@ -106,7 +106,7 @@ export function ProfileIdentity({
         </section>
       </div>
 
-      <div className="mt-3 mb-4">
+      <div className="mt-3 mb-3 sm:mb-4">
         <IdentityStats handle={handle} counts={counts} />
       </div>
     </>

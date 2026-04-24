@@ -31,6 +31,7 @@ export function GamesSection({ clips, username }: GamesSectionProps) {
       emptySeed="profile-games-empty"
       emptyTitle="No games yet"
       emptyHint="Upload a clip to start the list."
+      skeletonSeedCount={3}
       renderLink={(game) =>
         username && game.slug
           ? { kind: "user-clips", username, slug: game.slug }

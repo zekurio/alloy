@@ -33,11 +33,9 @@ type GameBucket = {
   count: number
 }
 
-/* Responsive: 3 → 4 → 5 → 6 columns with 10px gap (gap-2.5) */
+/* Responsive: preserve the mobile 3-up density, then add columns as space opens. */
 const GRID_CLASS =
-  "flex flex-wrap justify-center gap-2.5"
-const ITEM_CLASS =
-  "w-[calc((100%-20px)/3)] sm:w-[calc((100%-30px)/4)] lg:w-[calc((100%-40px)/5)] xl:w-[calc((100%-50px)/6)]"
+  "grid grid-cols-3 gap-2.5 max-sm:[&>*]:max-w-24 max-sm:[&>*]:justify-self-center sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 xl:grid-cols-11 2xl:grid-cols-[repeat(13,minmax(0,1fr))]"
 
 export function buildGameCarouselEntries(
   clips: Array<Pick<ClipRow, "game" | "gameRef">>,
@@ -94,7 +92,7 @@ export function GameCarouselSection({
   renderLink,
 }: GameCarouselSectionProps) {
   return (
-    <section className="mb-6">
+    <section className="mb-5 sm:mb-6">
       <SectionHead>
         <div>
           <SectionTitle>{title}</SectionTitle>
@@ -111,9 +109,7 @@ export function GameCarouselSection({
       {entries === null ? (
         <div className={GRID_CLASS}>
           {Array.from({ length: skeletonSeedCount }).map((_, i) => (
-            <div key={i} className={ITEM_CLASS}>
-              <Skeleton className="aspect-[2/3] w-full rounded-md" />
-            </div>
+            <Skeleton key={i} className="aspect-[2/3] w-full rounded-md" />
           ))}
         </div>
       ) : entries.length === 0 ? (
@@ -126,16 +122,12 @@ export function GameCarouselSection({
       ) : (
         <div className={GRID_CLASS}>
           {entries.map((entry) => (
-            <div
+            <GameCard
               key={entry.slug ?? `name:${entry.name}`}
-              className={ITEM_CLASS}
-            >
-              <GameCard
-                game={entry}
-                className="w-full"
-                link={renderLink?.(entry)}
-              />
-            </div>
+              game={entry}
+              className="w-full"
+              link={renderLink?.(entry)}
+            />
           ))}
         </div>
       )}

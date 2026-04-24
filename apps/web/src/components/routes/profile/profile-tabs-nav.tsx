@@ -33,7 +33,7 @@ export function ProfileTabsNav({ username, clipsCount }: ProfileTabsNavProps) {
     <nav
       data-slot="tabs-list"
       data-variant="line"
-      className="group/tabs-list mb-8 inline-flex w-full items-center gap-5 border-b border-border text-muted-foreground"
+      className="group/tabs-list mb-5 inline-flex w-full items-center gap-5 border-b border-border text-muted-foreground sm:mb-8"
     >
       {TABS.map((tab) => {
         const isActive = tab.segment === active
