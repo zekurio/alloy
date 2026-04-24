@@ -11,7 +11,7 @@ import {
 } from "@workspace/ui/components/app-sidebar"
 
 import { useSuspenseSession } from "@/lib/session-suspense"
-import { useUploadFlowControls } from "@/components/upload/upload-flow"
+import { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
 
 interface NavFlags {
   isHome: boolean

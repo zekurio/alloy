@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useForm } from "@tanstack/react-form"
-import { Trash2Icon, UserPlusIcon } from "lucide-react"
+import { PencilIcon, Trash2Icon, UserPlusIcon } from "lucide-react"
 
 import {
   AlertDialog,
@@ -44,6 +44,7 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
+import { Progress } from "@workspace/ui/components/progress"
 import {
   Select,
   SelectContent,
@@ -63,66 +64,26 @@ import {
 } from "@workspace/ui/components/table"
 
 import { authClient } from "@/lib/auth-client"
+import { api } from "@/lib/api"
 import { validateEmail, validateUsername } from "@/lib/form-validators"
+import {
+  formatBytes,
+  formatQuotaGiB,
+  parseQuotaGiB,
+  storageUsagePercent,
+} from "@/lib/storage-format"
 import {
   avatarTint,
   displayInitials,
   displayName,
   userImageSrc,
 } from "@/lib/user-display"
+import type { AdminUserStorageRow } from "@workspace/api"
 
-interface AdminUserRow {
-  id: string
-  name: string
-  username: string
-  email: string
-  image?: string | null
-  role?: string | string[] | null
-  banned?: boolean | null
-  createdAt: string | Date
-}
+type AdminUserRow = AdminUserStorageRow
 
 interface AdminUsersCardProps {
   currentUserId: string
-}
-
-function asAdminUserRows(input: unknown): AdminUserRow[] {
-  if (!Array.isArray(input)) return []
-  return input.flatMap((value) => {
-    if (!value || typeof value !== "object") return []
-    const row = value as Record<string, unknown>
-    const createdAt = row.createdAt
-    if (
-      typeof row.id !== "string" ||
-      typeof row.email !== "string" ||
-      (typeof createdAt !== "string" && !(createdAt instanceof Date))
-    ) {
-      return []
-    }
-    return [
-      {
-        id: row.id,
-        name: typeof row.name === "string" ? row.name : "",
-        username: typeof row.username === "string" ? row.username : "",
-        email: row.email,
-        image:
-          typeof row.image === "string" || row.image === null
-            ? row.image
-            : null,
-        role:
-          typeof row.role === "string" ||
-          row.role === null ||
-          Array.isArray(row.role)
-            ? (row.role as AdminUserRow["role"])
-            : null,
-        banned:
-          typeof row.banned === "boolean" || row.banned === null
-            ? row.banned
-            : null,
-        createdAt,
-      },
-    ]
-  })
 }
 
 function useAdminUsers(currentUserId: string) {
@@ -132,11 +93,8 @@ function useAdminUsers(currentUserId: string) {
 
   const refresh = React.useCallback(async () => {
     try {
-      const { data, error } = await authClient.admin.listUsers({
-        query: { limit: 100 },
-      })
-      if (error) throw new Error(error.message ?? "Failed to load users")
-      setUsers(asAdminUserRows(data?.users))
+      const data = await api.admin.fetchUsers()
+      setUsers(data.users)
       setLoadError(null)
     } catch (cause) {
       setLoadError(
@@ -194,12 +152,51 @@ function useAdminUsers(currentUserId: string) {
     }
   }
 
-  return { users, loadError, busyId, refresh, onDelete, onChangeRole }
+  const onChangeQuota = async (
+    user: AdminUserRow,
+    storageQuotaBytes: number | null
+  ) => {
+    if (busyId) return
+    setBusyId(user.id)
+    try {
+      const updated = await api.admin.updateUserStorageQuota(user.id, {
+        storageQuotaBytes,
+      })
+      setUsers(
+        (current) =>
+          current?.map((row) => (row.id === updated.id ? updated : row)) ?? null
+      )
+      toast.success("Storage quota updated")
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "Couldn't update storage quota"
+      )
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  return {
+    users,
+    loadError,
+    busyId,
+    refresh,
+    onDelete,
+    onChangeRole,
+    onChangeQuota,
+  }
 }
 
 export function AdminUsersCard({ currentUserId }: AdminUsersCardProps) {
-  const { users, loadError, busyId, refresh, onDelete, onChangeRole } =
-    useAdminUsers(currentUserId)
+  const {
+    users,
+    loadError,
+    busyId,
+    refresh,
+    onDelete,
+    onChangeRole,
+    onChangeQuota,
+  } = useAdminUsers(currentUserId)
   const [seedOpen, setSeedOpen] = React.useState(false)
 
   return (
@@ -237,6 +234,7 @@ export function AdminUsersCard({ currentUserId }: AdminUsersCardProps) {
             currentUserId={currentUserId}
             busyId={busyId}
             onChangeRole={onChangeRole}
+            onChangeQuota={onChangeQuota}
             onDelete={onDelete}
           />
         )}
@@ -250,12 +248,14 @@ function UsersTable({
   currentUserId,
   busyId,
   onChangeRole,
+  onChangeQuota,
   onDelete,
 }: {
   users: AdminUserRow[]
   currentUserId: string
   busyId: string | null
   onChangeRole: (user: AdminUserRow, nextRole: "admin" | "user") => void
+  onChangeQuota: (user: AdminUserRow, storageQuotaBytes: number | null) => void
   onDelete: (user: AdminUserRow) => void
 }) {
   return (
@@ -264,8 +264,9 @@ function UsersTable({
         <TableRow>
           <TableHead>User</TableHead>
           <TableHead>Email</TableHead>
+          <TableHead className="w-[240px]">Storage</TableHead>
           <TableHead className="w-[160px]">Role</TableHead>
-          <TableHead className="w-[80px]" />
+          <TableHead className="w-[104px]" />
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -276,6 +277,7 @@ function UsersTable({
             currentUserId={currentUserId}
             busy={busyId === user.id}
             onChangeRole={onChangeRole}
+            onChangeQuota={onChangeQuota}
             onDelete={onDelete}
           />
         ))}
@@ -289,12 +291,14 @@ function UserTableRow({
   currentUserId,
   busy,
   onChangeRole,
+  onChangeQuota,
   onDelete,
 }: {
   user: AdminUserRow
   currentUserId: string
   busy: boolean
   onChangeRole: (user: AdminUserRow, nextRole: "admin" | "user") => void
+  onChangeQuota: (user: AdminUserRow, storageQuotaBytes: number | null) => void
   onDelete: (user: AdminUserRow) => void
 }) {
   const role = normalizeRole(user.role)
@@ -329,6 +333,9 @@ function UserTableRow({
       </TableCell>
       <TableCell className="text-foreground-muted">{user.email}</TableCell>
       <TableCell>
+        <StorageUsageCell user={user} />
+      </TableCell>
+      <TableCell>
         <Select
           value={role}
           onValueChange={(value) =>
@@ -346,45 +353,161 @@ function UserTableRow({
         </Select>
       </TableCell>
       <TableCell className="text-right">
-        <AlertDialog>
-          <AlertDialogTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Delete user"
-                disabled={busy || isSelf}
-              >
-                <Trash2Icon className="size-4" />
-              </Button>
-            }
+        <div className="flex justify-end gap-1">
+          <StorageQuotaDialog
+            user={user}
+            busy={busy}
+            onChangeQuota={onChangeQuota}
           />
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete {user.email}?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This removes their sessions and clips. It can't be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                variant="destructive"
-                onClick={() => onDelete(user)}
-                disabled={busy}
-              >
-                {busy ? "Deleting…" : "Delete"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          <AlertDialog>
+            <AlertDialogTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Delete user"
+                  disabled={busy || isSelf}
+                >
+                  <Trash2Icon className="size-4" />
+                </Button>
+              }
+            />
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete {user.email}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This removes their sessions and clips. It can't be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  variant="destructive"
+                  onClick={() => onDelete(user)}
+                  disabled={busy}
+                >
+                  {busy ? "Deleting…" : "Delete"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </TableCell>
     </TableRow>
   )
 }
 
-function normalizeRole(role: string | string[] | null | undefined): string {
-  if (Array.isArray(role)) return role.includes("admin") ? "admin" : "user"
+function StorageUsageCell({ user }: { user: AdminUserRow }) {
+  const pct = storageUsagePercent(user.storageUsedBytes, user.storageQuotaBytes)
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <span className="truncate text-foreground-muted">
+          {formatBytes(user.storageUsedBytes)}
+        </span>
+        <span className="shrink-0 text-foreground-faint tabular-nums">
+          {user.storageQuotaBytes === null
+            ? "Unlimited"
+            : formatBytes(user.storageQuotaBytes)}
+        </span>
+      </div>
+      <Progress value={pct} />
+    </div>
+  )
+}
+
+function StorageQuotaDialog({
+  user,
+  busy,
+  onChangeQuota,
+}: {
+  user: AdminUserRow
+  busy: boolean
+  onChangeQuota: (user: AdminUserRow, storageQuotaBytes: number | null) => void
+}) {
+  const [open, setOpen] = React.useState(false)
+  const [quotaGiB, setQuotaGiB] = React.useState("")
+
+  React.useEffect(() => {
+    if (open) setQuotaGiB(formatQuotaGiB(user.storageQuotaBytes))
+  }, [open, user.storageQuotaBytes])
+
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    try {
+      onChangeQuota(user, parseQuotaGiB(quotaGiB))
+      setOpen(false)
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "Invalid quota")
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Edit storage quota"
+            disabled={busy}
+          >
+            <PencilIcon className="size-4" />
+          </Button>
+        }
+      />
+      <DialogContent variant="secondary">
+        <form onSubmit={onSubmit}>
+          <DialogHeader>
+            <DialogTitle>Edit storage quota</DialogTitle>
+            <DialogDescription>
+              Set the source clip storage quota for {user.email}.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogBody>
+            <Field>
+              <FieldLabel htmlFor={`quota-${user.id}`}>
+                Storage quota (GiB)
+              </FieldLabel>
+              <Input
+                id={`quota-${user.id}`}
+                type="number"
+                min={1}
+                step={1}
+                value={quotaGiB}
+                placeholder="Unlimited"
+                disabled={busy}
+                onChange={(e) => setQuotaGiB(e.target.value)}
+              />
+              <FieldDescription>
+                Leave blank for unlimited storage.
+              </FieldDescription>
+            </Field>
+          </DialogBody>
+          <DialogFooter>
+            <DialogClose
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                />
+              }
+            >
+              Cancel
+            </DialogClose>
+            <Button type="submit" variant="primary" size="sm" disabled={busy}>
+              {busy ? "Saving…" : "Save quota"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function normalizeRole(role: string | null | undefined): string {
   if (role === "admin") return "admin"
   return "user"
 }
