@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@workspace/ui/components/dialog"
+import { Spinner } from "@workspace/ui/components/spinner"
 import { toast } from "@workspace/ui/components/sonner"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -111,9 +112,9 @@ export function IdentityStats({ handle, counts }: IdentityStatsProps) {
           </DialogHeader>
           <DialogBody className="max-h-[60vh] overflow-y-auto px-2 py-2">
             {loading ? (
-              <p className="px-2 py-4 text-center text-sm text-foreground-faint">
-                Loading…
-              </p>
+              <div className="grid place-items-center px-2 py-4 text-foreground-faint">
+                <Spinner />
+              </div>
             ) : list && list.length > 0 ? (
               <ul className="flex flex-col">
                 {list.map((u) => (
