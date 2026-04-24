@@ -13,6 +13,8 @@ type AuthUser = {
 }
 
 const USER_ASSET_PATH_PREFIX = "/storage/user-assets/"
+const userImageSrcCache = new Map<string, string>()
+const loadedUserBannerSrcs = new Set<string>()
 
 function displayUsername(username: string): string {
   const value = username.trim()
@@ -24,19 +26,26 @@ export function userImageSrc(
 ): string | undefined {
   const value = src?.trim()
   if (!value) return undefined
+  const cached = userImageSrcCache.get(value)
+  if (cached) return cached
 
-  if (value.startsWith(USER_ASSET_PATH_PREFIX)) return value
-  if (value.startsWith("/")) return value
+  if (value.startsWith(USER_ASSET_PATH_PREFIX) || value.startsWith("/")) {
+    userImageSrcCache.set(value, value)
+    return value
+  }
 
   try {
     const url = new URL(value)
     if (url.pathname.startsWith(USER_ASSET_PATH_PREFIX)) {
-      return `${url.pathname}${url.search}${url.hash}`
+      const normalized = `${url.pathname}${url.search}${url.hash}`
+      userImageSrcCache.set(value, normalized)
+      return normalized
     }
   } catch {
     // Non-URL values fall through unchanged so upstream data can still render.
   }
 
+  userImageSrcCache.set(value, value)
   return value
 }
 
@@ -175,11 +184,11 @@ function UserBannerImage({
   hasDedicatedBanner: boolean
 }) {
   const [status, setStatus] = React.useState<"loading" | "loaded" | "error">(
-    "loading"
+    () => (loadedUserBannerSrcs.has(src) ? "loaded" : "loading")
   )
 
   React.useEffect(() => {
-    setStatus("loading")
+    setStatus(loadedUserBannerSrcs.has(src) ? "loaded" : "loading")
   }, [src])
 
   return (
@@ -191,7 +200,10 @@ function UserBannerImage({
         decoding="async"
         fetchPriority="high"
         loading="eager"
-        onLoad={() => setStatus("loaded")}
+        onLoad={() => {
+          loadedUserBannerSrcs.add(src)
+          setStatus("loaded")
+        }}
         onError={() => setStatus("error")}
         className={cn(
           "absolute inset-0 size-full object-cover transition-opacity duration-150",

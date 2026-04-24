@@ -87,13 +87,14 @@ export const usersRoute = new Hono()
 
   .get("/:username", zValidator("param", UsernameParam), async (c) => {
     const { username } = c.req.valid("param")
+    const sessionPromise = getAuth().api.getSession({
+      headers: c.req.raw.headers,
+    })
     const row = await resolveTarget(username)
     if (!row) return c.json({ error: "Not found" }, 404)
     const targetId = row.id
 
-    const session = await getAuth().api.getSession({
-      headers: c.req.raw.headers,
-    })
+    const session = await sessionPromise
     const isOwner = session?.user.id === targetId
     const isAdmin =
       (session?.user as { role?: string | null } | undefined)?.role === "admin"
