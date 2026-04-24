@@ -5,6 +5,7 @@ import {
   type PublicUser,
   type UserClip,
   type UserProfile,
+  type UserProfileViewer,
   type UserSearchResult,
 } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
@@ -15,6 +16,7 @@ export type {
   PublicUser,
   UserClip,
   UserProfile,
+  UserProfileViewer,
   UserSearchResult,
 } from "@workspace/contracts"
 
@@ -93,16 +95,20 @@ async function deleteBanner(context: ApiContext): Promise<PublicUser> {
 
 async function getProfile(
   context: ApiContext,
-  handle: string,
-  init?: RequestInit
+  handle: string
 ): Promise<UserProfile> {
-  const res = await context.request(
-    `/api/users/${encodeURIComponent(handle)}`,
-    {
-      init,
-    }
-  )
+  const res = await context.request(`/api/users/${encodeURIComponent(handle)}`)
   return readJsonOrThrow<UserProfile>(res)
+}
+
+async function getProfileViewer(
+  context: ApiContext,
+  handle: string
+): Promise<UserProfileViewer> {
+  const res = await context.request(
+    `/api/users/${encodeURIComponent(handle)}/viewer`
+  )
+  return readJsonOrThrow<UserProfileViewer>(res)
 }
 
 async function getClips(
@@ -218,11 +224,12 @@ export function createUsersApi(context: ApiContext) {
       return deleteBanner(context)
     },
 
-    async fetchProfile(
-      handle: string,
-      init?: RequestInit
-    ): Promise<UserProfile> {
-      return getProfile(context, handle, init)
+    async fetchProfile(handle: string): Promise<UserProfile> {
+      return getProfile(context, handle)
+    },
+
+    async fetchProfileViewer(handle: string): Promise<UserProfileViewer> {
+      return getProfileViewer(context, handle)
     },
 
     async fetchClips(handle: string, init?: RequestInit): Promise<UserClip[]> {

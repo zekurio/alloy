@@ -285,7 +285,11 @@ export interface ProfileViewer {
 export interface UserProfile {
   user: PublicUser
   counts: ProfileCounts
+}
+
+export interface UserProfileViewer {
   viewer: ProfileViewer | null
+  counts: ProfileCounts | null
 }
 
 export type UserClip = ClipRow

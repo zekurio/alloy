@@ -9,7 +9,10 @@ import {
 } from "@workspace/ui/components/section-head"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
-import { useTaggedClipsQuery, useUserProfileQuery } from "@/lib/user-queries"
+import {
+  useTaggedClipsQuery,
+  useUserProfileViewerQuery,
+} from "@/lib/user-queries"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 export const Route = createFileRoute("/(app)/_app/u/$username/tagged")({
@@ -19,10 +22,10 @@ export const Route = createFileRoute("/(app)/_app/u/$username/tagged")({
 function ProfileTaggedTab() {
   const { username } = Route.useParams()
   const clipsQuery = useTaggedClipsQuery(username)
-  const profileQuery = useUserProfileQuery(username)
+  const viewerQuery = useUserProfileViewerQuery(username)
   const clips = clipsQuery.data ?? null
   const error = clipsQuery.error ?? null
-  const isSelf = profileQuery.data?.viewer?.isSelf ?? false
+  const isSelf = viewerQuery.data?.viewer?.isSelf ?? false
 
   useQueryErrorToast(error, {
     title: "Couldn't load tagged clips",

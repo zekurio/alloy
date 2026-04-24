@@ -15,11 +15,20 @@ export function ProfileActions({
   onChange,
 }: {
   targetHandle: string
-  viewer: ProfileViewer | null
+  viewer: ProfileViewer | null | undefined
   onChange: (next: ProfileViewer) => void
 }) {
   const navigate = useNavigate()
   const [pending, setPending] = React.useState(false)
+
+  if (viewer === undefined) {
+    return (
+      <Button type="button" variant="primary" size="sm" disabled>
+        <UserPlusIcon />
+        Follow
+      </Button>
+    )
+  }
 
   if (!viewer) {
     return (

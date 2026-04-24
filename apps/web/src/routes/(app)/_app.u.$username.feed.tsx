@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { ClipsSection } from "@/components/routes/profile/clips-section"
 import { GamesSection } from "@/components/routes/profile/games-section"
 import { useUserClipsQuery } from "@/lib/clip-queries"
-import { useUserProfileQuery } from "@/lib/user-queries"
+import { useUserProfileViewerQuery } from "@/lib/user-queries"
 
 export const Route = createFileRoute("/(app)/_app/u/$username/feed")({
   component: ProfileFeedTab,
@@ -12,10 +12,10 @@ export const Route = createFileRoute("/(app)/_app/u/$username/feed")({
 function ProfileFeedTab() {
   const { username } = Route.useParams()
   const clipsQuery = useUserClipsQuery(username)
-  const profileQuery = useUserProfileQuery(username)
+  const viewerQuery = useUserProfileViewerQuery(username)
   const clips = clipsQuery.data ?? null
   const clipsError = clipsQuery.error ?? null
-  const isSelf = profileQuery.data?.viewer?.isSelf ?? false
+  const isSelf = viewerQuery.data?.viewer?.isSelf ?? false
 
   return (
     <>
