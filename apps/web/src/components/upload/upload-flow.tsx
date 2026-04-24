@@ -76,7 +76,9 @@ export function UploadFlowProvider({
 export function useUploadFlowControls(): UploadFlowControls {
   const value = React.useContext(UploadFlowContext)
   if (!value) {
-    throw new Error("useUploadFlowControls must be used within UploadFlowProvider")
+    throw new Error(
+      "useUploadFlowControls must be used within UploadFlowProvider"
+    )
   }
   return value
 }
@@ -227,6 +229,9 @@ function useRunUpload(
 
       try {
         await performUpload(payload, entry, bump, invalidateClips)
+        URL.revokeObjectURL(entry.thumbUrl)
+        activeRef.current.delete(localId)
+        bump()
       } catch (err) {
         if ((err as Error).name === "AbortError") {
           URL.revokeObjectURL(entry.thumbUrl)
