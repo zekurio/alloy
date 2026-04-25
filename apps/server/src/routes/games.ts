@@ -46,6 +46,11 @@ const TopQuery = z.object({
   limit: z.coerce.number().int().positive().max(20).default(5),
 })
 
+const GamesListQuery = z.object({
+  limit: z.coerce.number().int().positive().max(100).default(100),
+  offset: z.coerce.number().int().min(0).default(0),
+})
+
 export const gamesRoute = new Hono()
   .get("/status", (c) => {
     return c.json({ steamgriddbConfigured: isConfigured() })
@@ -135,7 +140,8 @@ export const gamesRoute = new Hono()
     }
   )
 
-  .get("/", async (c) => {
+  .get("/", zValidator("query", GamesListQuery), async (c) => {
+    const { limit, offset } = c.req.valid("query")
     const rows = await db
       .select({
         id: game.id,
@@ -162,6 +168,8 @@ export const gamesRoute = new Hono()
       .where(isNull(user.disabledAt))
       .groupBy(game.id)
       .orderBy(sql`count(${clip.id}) desc`, game.name)
+      .limit(limit)
+      .offset(offset)
 
     return c.json(
       rows.map((row) => ({
