@@ -123,7 +123,6 @@ export interface AdminUpdateUserStorageQuotaInput {
 export interface RuntimeConfig {
   openRegistrations: boolean
   setupComplete: boolean
-  emailPasswordEnabled: boolean
   passkeyEnabled: boolean
   requireAuthToBrowse: boolean
   oauthProvider: OAuthProviderConfig | null
@@ -144,7 +143,6 @@ export interface PublicAuthProvider {
 export interface PublicAuthConfig {
   setupRequired: boolean
   openRegistrations: boolean
-  emailPasswordEnabled: boolean
   passkeyEnabled: boolean
   requireAuthToBrowse: boolean
   provider: PublicAuthProvider | null

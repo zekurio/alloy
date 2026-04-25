@@ -45,7 +45,6 @@ export function createAdminApi(context: ApiContext) {
 
     async updateRuntimeConfig(input: {
       openRegistrations?: boolean
-      emailPasswordEnabled?: boolean
       passkeyEnabled?: boolean
       requireAuthToBrowse?: boolean
     }): Promise<AdminRuntimeConfig> {
