@@ -4,7 +4,6 @@ import { Hono } from "hono"
 
 import { clip, clipLike, clipView } from "@workspace/db/schema"
 
-import { getAuth } from "../auth"
 import { cache } from "../cache"
 import { db } from "../db"
 import { requireSession } from "../lib/require-session"
@@ -116,34 +115,10 @@ export const clipsEngagementRoutes = new Hono()
   .post("/:id/view", zValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
 
-    const [row] = await db
-      .select({
-        id: clip.id,
-        authorId: clip.authorId,
-        status: clip.status,
-        privacy: clip.privacy,
-      })
-      .from(clip)
-      .where(eq(clip.id, id))
-      .limit(1)
-    if (!row) return c.json({ error: "Not found" }, 404)
-    if (row.status !== "ready") return c.json({ error: "Not found" }, 404)
+    const target = await resolveEngagementTarget(id, c.req.raw.headers)
+    if (!target.accessible) return target.response
 
     const viewer = await resolveViewer(c)
-    if (row.privacy === "private") {
-      const session = await getAuth().api.getSession({
-        headers: c.req.raw.headers,
-      })
-      const isOwner = session?.user?.id === row.authorId
-      const isAdmin =
-        (session?.user as { role?: string | null } | undefined)?.role ===
-        "admin"
-      if (!isOwner && !isAdmin) {
-        return session
-          ? c.json({ error: "Forbidden" }, 403)
-          : c.json({ error: "Unauthorized" }, 401)
-      }
-    }
 
     let fresh = true
     try {
