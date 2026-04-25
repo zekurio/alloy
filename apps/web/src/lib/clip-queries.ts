@@ -82,6 +82,14 @@ export function userClipsQueryOptions(handle: string) {
   })
 }
 
+export function useUserLikedClipsQuery(handle: string) {
+  return useQuery({
+    queryKey: clipKeys.userLikedList(handle),
+    queryFn: () => api.users.fetchLikedClips(handle),
+    enabled: handle.length > 0,
+  })
+}
+
 export function useUploadQueueQuery({ enabled }: { enabled: boolean }) {
   useUploadQueueStream({ enabled })
   return useQuery({

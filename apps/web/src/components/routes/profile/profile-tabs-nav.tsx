@@ -8,16 +8,21 @@ type ProfileTabsNavProps = {
   clipsCount: number | null
 }
 
-type TabSegment = "feed" | "all" | "tagged"
+type TabSegment = "feed" | "all" | "liked" | "tagged"
 type Tab = {
   segment: TabSegment
   label: string
-  to: "/u/$username/feed" | "/u/$username/all" | "/u/$username/tagged"
+  to:
+    | "/u/$username/feed"
+    | "/u/$username/all"
+    | "/u/$username/liked"
+    | "/u/$username/tagged"
 }
 
 const TABS: ReadonlyArray<Tab> = [
   { segment: "feed", label: "Feed", to: "/u/$username/feed" },
   { segment: "all", label: "Clips", to: "/u/$username/all" },
+  { segment: "liked", label: "Liked", to: "/u/$username/liked" },
   { segment: "tagged", label: "Tagged", to: "/u/$username/tagged" },
 ]
 
