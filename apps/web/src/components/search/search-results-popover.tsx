@@ -87,6 +87,11 @@ function useSearchPopoverState(
   React.useEffect(() => {
     if (!open) return
     const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target
+      const wrapper = rootRef.current?.closest<HTMLElement>(
+        '[data-slot="app-header-search"]'
+      )
+      if (!(target instanceof Node) || !wrapper?.contains(target)) return
       if (event.key === "Escape") {
         event.preventDefault()
         clear()
