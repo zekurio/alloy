@@ -1,5 +1,6 @@
 import * as React from "react"
 import { useForm } from "@tanstack/react-form"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { PencilIcon, Trash2Icon, UserPlusIcon } from "lucide-react"
 
 import {
@@ -78,34 +79,32 @@ import {
   displayName,
   userImageSrc,
 } from "@/lib/user-display"
-import type { AdminUserStorageRow } from "@workspace/api"
+import type { AdminUsersResponse, AdminUserStorageRow } from "@workspace/api"
 
 type AdminUserRow = AdminUserStorageRow
+const adminUsersQueryKey = ["admin", "users"] as const
 
 interface AdminUsersCardProps {
   currentUserId: string
 }
 
 function useAdminUsers(currentUserId: string) {
-  const [users, setUsers] = React.useState<AdminUserRow[] | null>(null)
-  const [loadError, setLoadError] = React.useState<string | null>(null)
+  const queryClient = useQueryClient()
   const [busyId, setBusyId] = React.useState<string | null>(null)
-
+  const usersQuery = useQuery({
+    queryKey: adminUsersQueryKey,
+    queryFn: () => api.admin.fetchUsers(),
+  })
+  const { refetch } = usersQuery
+  const users = usersQuery.data?.users ?? null
+  const loadError = usersQuery.error
+    ? usersQuery.error instanceof Error
+      ? usersQuery.error.message
+      : "Failed to load users"
+    : null
   const refresh = React.useCallback(async () => {
-    try {
-      const data = await api.admin.fetchUsers()
-      setUsers(data.users)
-      setLoadError(null)
-    } catch (cause) {
-      setLoadError(
-        cause instanceof Error ? cause.message : "Failed to load users"
-      )
-    }
-  }, [])
-
-  React.useEffect(() => {
-    void refresh()
-  }, [refresh])
+    await refetch()
+  }, [refetch])
 
   const onDelete = async (user: AdminUserRow) => {
     if (busyId) return
@@ -114,7 +113,7 @@ function useAdminUsers(currentUserId: string) {
       const { error } = await authClient.admin.removeUser({ userId: user.id })
       if (error) throw new Error(error.message ?? "Delete failed")
       toast.success("User removed")
-      await refresh()
+      await queryClient.invalidateQueries({ queryKey: adminUsersQueryKey })
     } catch {
       toast.error("Couldn't remove user")
     } finally {
@@ -126,6 +125,7 @@ function useAdminUsers(currentUserId: string) {
     user: AdminUserRow,
     nextRole: "admin" | "user"
   ) => {
+    if (busyId) return
     const current = normalizeRole(user.role)
     if (current === nextRole) return
     if (user.id === currentUserId && nextRole !== "admin") {
@@ -144,7 +144,7 @@ function useAdminUsers(currentUserId: string) {
       toast.success(
         nextRole === "admin" ? "Promoted to admin" : "Reverted to user"
       )
-      await refresh()
+      await queryClient.invalidateQueries({ queryKey: adminUsersQueryKey })
     } catch {
       toast.error("Couldn't update role")
     } finally {
@@ -162,9 +162,17 @@ function useAdminUsers(currentUserId: string) {
       const updated = await api.admin.updateUserStorageQuota(user.id, {
         storageQuotaBytes,
       })
-      setUsers(
+      queryClient.setQueryData<AdminUsersResponse>(
+        adminUsersQueryKey,
         (current) =>
-          current?.map((row) => (row.id === updated.id ? updated : row)) ?? null
+          current
+            ? {
+                ...current,
+                users: current.users.map((row) =>
+                  row.id === updated.id ? updated : row
+                ),
+              }
+            : current
       )
       toast.success("Storage quota updated")
     } catch (cause) {
