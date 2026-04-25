@@ -7,7 +7,7 @@ import { cva } from "class-variance-authority"
 import type { VariantProps } from "class-variance-authority"
 
 import { cn } from "@workspace/ui/lib/utils"
-import { Skeleton } from "@workspace/ui/components/skeleton"
+import { Spinner } from "@workspace/ui/components/spinner"
 import {
   Tooltip,
   TooltipContent,
@@ -239,35 +239,22 @@ function SidebarMenuBadge({
 
 function SidebarMenuSkeleton({
   className,
-  showIcon = false,
+  showIcon: _showIcon = false,
   ...props
 }: React.ComponentProps<"div"> & {
   showIcon?: boolean
 }) {
-  const width = showIcon ? "72%" : "64%"
-
   return (
     <div
       data-slot="sidebar-menu-skeleton"
       data-sidebar="menu-skeleton"
-      className={cn("flex h-8 items-center gap-2 rounded-md px-2", className)}
+      className={cn(
+        "flex h-8 items-center justify-center rounded-md px-2",
+        className
+      )}
       {...props}
     >
-      {showIcon ? (
-        <Skeleton
-          className="size-4 rounded-md"
-          data-sidebar="menu-skeleton-icon"
-        />
-      ) : null}
-      <Skeleton
-        className="h-4 max-w-(--skeleton-width) flex-1"
-        data-sidebar="menu-skeleton-text"
-        style={
-          {
-            "--skeleton-width": width,
-          } as React.CSSProperties
-        }
-      />
+      <Spinner className="size-4" />
     </div>
   )
 }
