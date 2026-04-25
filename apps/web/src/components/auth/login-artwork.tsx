@@ -143,14 +143,51 @@ function buildRows(source: Tile[], rowCount: number): Tile[][] {
   return rows
 }
 
-const ROW_COUNT = 5
-const ROW_SETTINGS = [
-  { durationSeconds: 80, reverse: false },
-  { durationSeconds: 95, reverse: true },
-  { durationSeconds: 70, reverse: false },
-  { durationSeconds: 105, reverse: true },
-  { durationSeconds: 85, reverse: false },
-] as const
+/** Duration pool — cycled per-row to give each row a distinct speed. */
+const ROW_DURATIONS = [80, 95, 70, 105, 85] as const
+
+const ROTATION_DEG = 8
+const SCALE = 1.25
+
+/** Compute how many marquee rows are needed so the rotated, scaled stage
+ *  fully covers the visible container — no empty corners. */
+function useRowCount(containerRef: React.RefObject<HTMLDivElement | null>) {
+  const [count, setCount] = React.useState<number>(ROW_DURATIONS.length)
+
+  React.useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    function update() {
+      const { height: h, width: w } = el!.getBoundingClientRect()
+      // Approximate tile height from the clamp(240px,22vw,420px) width at 16/10 aspect
+      const vw = window.innerWidth
+      const tileW = Math.min(420, Math.max(240, vw * 0.22))
+      const tileH = tileW * (10 / 16)
+      const gap = Math.min(18, Math.max(8, vw * 0.009))
+      // The rotated rectangle needs to span the diagonal extent of the container
+      const rotRad = (ROTATION_DEG * Math.PI) / 180
+      const neededH = (h + w * Math.sin(rotRad)) / SCALE
+      const rows = Math.ceil(neededH / (tileH + gap)) + 1
+      setCount(Math.max(3, Math.min(rows, 12)))
+    }
+
+    update()
+
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [containerRef])
+
+  return count
+}
+
+function getRowSettings(index: number) {
+  return {
+    durationSeconds: ROW_DURATIONS[index % ROW_DURATIONS.length],
+    reverse: index % 2 !== 0,
+  }
+}
 
 const EMPTY_KAOMOJI =
   EMPTY_STATE_KAOMOJI[hashHue("auth-artwork-empty") % EMPTY_STATE_KAOMOJI.length]
@@ -174,8 +211,11 @@ export const LoginArtwork = React.memo(function LoginArtwork({
 }: {
   clips: PublicClip[]
 }) {
-  const rows = React.useMemo(() => {
-    const source: Tile[] = clips
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const rowCount = useRowCount(containerRef)
+
+  const source = React.useMemo<Tile[]>(() => {
+    return clips
       .filter(hasThumbnail)
       .slice(0, MAX_SOURCE_TILES)
       .map((c, i) => ({
@@ -184,16 +224,18 @@ export const LoginArtwork = React.memo(function LoginArtwork({
         hue: hueFor(c),
         thumbUrl: c.thumbUrl,
       }))
-
-    if (source.length === 0) return []
-
-    return buildRows(source, ROW_COUNT)
   }, [clips])
+
+  const rows = React.useMemo(
+    () => (source.length === 0 ? [] : buildRows(source, rowCount)),
+    [source, rowCount]
+  )
 
   if (rows.length === 0) return <LoginArtworkEmpty />
 
   return (
     <div
+      ref={containerRef}
       aria-hidden
       className="pointer-events-none absolute inset-0 overflow-hidden"
     >
@@ -202,18 +244,21 @@ export const LoginArtwork = React.memo(function LoginArtwork({
       <div
         className="absolute inset-0 flex flex-col justify-center gap-[clamp(8px,0.9vw,18px)]"
         style={{
-          transform: "rotate(-8deg) scale(1.25)",
+          transform: `rotate(-${ROTATION_DEG}deg) scale(${SCALE})`,
           transformOrigin: "center",
         }}
       >
-        {rows.map((rowTiles, i) => (
-          <MarqueeRow
-            key={i}
-            tiles={rowTiles}
-            reverse={ROW_SETTINGS[i].reverse}
-            durationSeconds={ROW_SETTINGS[i].durationSeconds}
-          />
-        ))}
+        {rows.map((rowTiles, i) => {
+          const settings = getRowSettings(i)
+          return (
+            <MarqueeRow
+              key={i}
+              tiles={rowTiles}
+              reverse={settings.reverse}
+              durationSeconds={settings.durationSeconds}
+            />
+          )
+        })}
       </div>
 
       {/* Right-edge vignette so the form pane reads cleanly, plus a light
