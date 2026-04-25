@@ -40,7 +40,13 @@ export class FsStorageDriver implements StorageDriver {
 
   /** Resolve a storageKey against the configured root. */
   fullPath(key: string): string {
-    return path.join(this.opts.root, key)
+    const root = path.resolve(this.opts.root)
+    const resolved = path.resolve(root, key)
+    const relative = path.relative(root, resolved)
+    if (relative.startsWith("..") || path.isAbsolute(relative)) {
+      throw new Error("Storage key escapes storage root")
+    }
+    return resolved
   }
 
   async put(
