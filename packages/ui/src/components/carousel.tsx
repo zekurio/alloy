@@ -6,42 +6,12 @@ import useEmblaCarousel from "embla-carousel-react"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
-import type { UseEmblaCarouselType } from "embla-carousel-react"
-
-type CarouselApi = UseEmblaCarouselType[1]
-type UseCarouselParameters = Parameters<typeof useEmblaCarousel>
-type CarouselOptions = UseCarouselParameters[0]
-type CarouselPlugin = UseCarouselParameters[1]
-
-type CarouselProps = {
-  opts?: CarouselOptions
-  plugins?: CarouselPlugin
-  orientation?: "horizontal" | "vertical"
-  setApi?: (api: CarouselApi) => void
-}
-
-type CarouselContextProps = {
-  carouselRef: ReturnType<typeof useEmblaCarousel>[0]
-  api: ReturnType<typeof useEmblaCarousel>[1]
-  scrollPrev: () => void
-  scrollNext: () => void
-  canScrollPrev: boolean
-  canScrollNext: boolean
-  opts?: CarouselOptions
-  orientation: NonNullable<CarouselProps["orientation"]>
-}
-
-const CarouselContext = React.createContext<CarouselContextProps | null>(null)
-
-function useCarousel() {
-  const context = React.useContext(CarouselContext)
-
-  if (!context) {
-    throw new Error("useCarousel must be used within a <Carousel />")
-  }
-
-  return context
-}
+import {
+  CarouselContext,
+  useCarousel,
+  type CarouselApi,
+  type CarouselProps,
+} from "@workspace/ui/hooks/use-carousel"
 
 function Carousel({
   orientation = "horizontal",
@@ -61,6 +31,7 @@ function Carousel({
   )
   const [canScrollPrev, setCanScrollPrev] = React.useState(false)
   const [canScrollNext, setCanScrollNext] = React.useState(false)
+  const [settled, setSettled] = React.useState(false)
 
   const onSelect = React.useCallback((emblaApi: CarouselApi) => {
     if (!emblaApi) return
@@ -97,10 +68,16 @@ function Carousel({
   React.useEffect(() => {
     if (!api) return
     onSelect(api)
+
+    // Mark settled after a rAF so the first layout pass has completed
+    // and scroll state is accurate — prevents chevron flash on mount.
+    const rafId = requestAnimationFrame(() => setSettled(true))
+
     api.on("reInit", onSelect)
     api.on("select", onSelect)
 
     return () => {
+      cancelAnimationFrame(rafId)
       api.off("reInit", onSelect)
       api.off("select", onSelect)
     }
@@ -117,6 +94,7 @@ function Carousel({
         scrollNext,
         canScrollPrev,
         canScrollNext,
+        settled,
       }}
     >
       <div
@@ -221,7 +199,7 @@ function CarouselPrevious({
   size = "icon-sm",
   ...props
 }: React.ComponentProps<typeof Button>) {
-  const { orientation, scrollPrev, canScrollPrev } = useCarousel()
+  const { orientation, scrollPrev, canScrollPrev, settled } = useCarousel()
 
   return (
     <CarouselControl
@@ -230,7 +208,7 @@ function CarouselPrevious({
       size={size}
       orientation={orientation}
       position="previous"
-      className={className}
+      className={cn(!settled && "!hidden", className)}
       disabled={!canScrollPrev}
       onClick={scrollPrev}
       {...props}
@@ -247,7 +225,7 @@ function CarouselNext({
   size = "icon-sm",
   ...props
 }: React.ComponentProps<typeof Button>) {
-  const { orientation, scrollNext, canScrollNext } = useCarousel()
+  const { orientation, scrollNext, canScrollNext, settled } = useCarousel()
 
   return (
     <CarouselControl
@@ -256,7 +234,7 @@ function CarouselNext({
       size={size}
       orientation={orientation}
       position="next"
-      className={className}
+      className={cn(!settled && "!hidden", className)}
       disabled={!canScrollNext}
       onClick={scrollNext}
       {...props}
@@ -268,11 +246,10 @@ function CarouselNext({
 }
 
 export {
-  type CarouselApi,
   Carousel,
   CarouselContent,
   CarouselItem,
   CarouselPrevious,
   CarouselNext,
-  useCarousel,
 }
+export type { CarouselApi }

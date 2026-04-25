@@ -148,8 +148,8 @@
   --font-sans:
     "DM Sans Variable", ui-sans-serif, system-ui, -apple-system, Segoe UI,
     Helvetica, Arial, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
-    monospace;
+  --font-mono:
+    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* Radius */
   --radius: 6px;
