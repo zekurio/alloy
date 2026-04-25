@@ -41,8 +41,19 @@ export function createGamesApi(context: ApiContext) {
       return readJsonOrThrow(res)
     },
 
-    async fetchAll(): Promise<GameListRow[]> {
-      const res = await context.request("/api/games")
+    async fetchAll(
+      params: { limit?: number; offset?: number } = {}
+    ): Promise<GameListRow[]> {
+      const res = await context.request("/api/games", {
+        query: {
+          ...(params.limit !== undefined
+            ? { limit: String(params.limit) }
+            : {}),
+          ...(params.offset !== undefined
+            ? { offset: String(params.offset) }
+            : {}),
+        },
+      })
       return readJsonOrThrow(res)
     },
 

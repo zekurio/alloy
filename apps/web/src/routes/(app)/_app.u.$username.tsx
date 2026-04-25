@@ -17,6 +17,7 @@ import {
   useUserProfileQuery,
   useUserProfileViewerQuery,
   userProfileQueryOptions,
+  userProfileViewerQueryOptions,
 } from "@/lib/user-queries"
 
 const requestContextMiddleware = createMiddleware().server(
@@ -37,11 +38,23 @@ const fetchRouteUserClips = createServerFn({ method: "GET" })
     return api.users.fetchClips(handle, cookieInit(context.request))
   })
 
+const fetchRouteUserViewer = createServerFn({ method: "GET" })
+  .middleware([requestContextMiddleware])
+  .inputValidator((handle: string) => handle)
+  .handler(async ({ data: handle, context }) => {
+    return api.users.fetchProfileViewer(handle, cookieInit(context.request))
+  })
+
 export const Route = createFileRoute("/(app)/_app/u/$username")({
   loader: async ({ context, params }) => {
     const profileOptions = userProfileQueryOptions(params.username)
     const clipsOptions = userClipsQueryOptions(params.username)
+    const viewerOptions = userProfileViewerQueryOptions(params.username)
     const profile = await context.queryClient.ensureQueryData(profileOptions)
+    await context.queryClient.ensureQueryData({
+      ...viewerOptions,
+      queryFn: () => fetchRouteUserViewer({ data: params.username }),
+    })
     void context.queryClient.prefetchQuery({
       ...clipsOptions,
       queryFn: () => fetchRouteUserClips({ data: params.username }),
