@@ -16,15 +16,6 @@ type AtomValue = {
   isPending: boolean
 }
 
-const FALLBACK_CONFIG: PublicAuthConfig = {
-  setupRequired: false,
-  openRegistrations: false,
-  emailPasswordEnabled: true,
-  passkeyEnabled: true,
-  requireAuthToBrowse: true,
-  provider: null,
-}
-
 let sessionInitialPromise: Promise<void> | null = null
 let sessionLoadPromise: Promise<SessionData> | null = null
 let configPromiseCache: Promise<PublicAuthConfig> | null = null
@@ -134,7 +125,10 @@ export async function loadSession(): Promise<SessionData> {
 
 export function loadAuthConfig(): Promise<PublicAuthConfig> {
   if (!configPromiseCache) {
-    configPromiseCache = api.authConfig.fetch().catch(() => FALLBACK_CONFIG)
+    configPromiseCache = api.authConfig.fetch().catch((err) => {
+      configPromiseCache = null
+      throw err
+    })
   }
   return configPromiseCache
 }

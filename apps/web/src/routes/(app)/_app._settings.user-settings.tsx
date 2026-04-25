@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { z } from "zod"
 
@@ -93,45 +94,54 @@ function UserTabSelectors({
 }
 
 function useSecurityData(config: PublicAuthConfig) {
-  const [accounts, setAccounts] = React.useState<LinkedAccount[] | null>(null)
-  const [passkeys, setPasskeys] = React.useState<Passkey[] | null>(null)
-  const [loading, setLoading] = React.useState(true)
+  const accountsQuery = useQuery({
+    queryKey: ["auth", "accounts"],
+    queryFn: async () => {
+      const { data, error } = await authClient.listAccounts()
+      if (error) {
+        throw new Error(error.message ?? "Couldn't load accounts")
+      }
+      return (data ?? []) as LinkedAccount[]
+    },
+  })
 
-  const refreshAccounts = React.useCallback(async () => {
-    const { data, error } = await authClient.listAccounts()
-    if (error) {
-      toast.error(error.message ?? "Couldn't load accounts")
-      setAccounts([])
-      return
-    }
-    setAccounts((data ?? []) as LinkedAccount[])
-  }, [])
-
-  const refreshPasskeys = React.useCallback(async () => {
-    if (!config.passkeyEnabled) return
-    const { data, error } = await authClient.passkey.listUserPasskeys()
-    if (error) {
-      toast.error(error.message ?? "Couldn't load passkeys")
-      setPasskeys([])
-      return
-    }
-    setPasskeys((data ?? []) as Passkey[])
-  }, [config.passkeyEnabled])
+  const passkeysQuery = useQuery({
+    queryKey: ["auth", "passkeys"],
+    enabled: config.passkeyEnabled,
+    queryFn: async () => {
+      const { data, error } = await authClient.passkey.listUserPasskeys()
+      if (error) {
+        throw new Error(error.message ?? "Couldn't load passkeys")
+      }
+      return (data ?? []) as Passkey[]
+    },
+  })
 
   React.useEffect(() => {
-    let active = true
-    setLoading(true)
-
-    Promise.all([refreshAccounts(), refreshPasskeys()]).finally(() => {
-      if (active) setLoading(false)
-    })
-
-    return () => {
-      active = false
+    if (accountsQuery.error) {
+      toast.error(accountsQuery.error.message)
     }
-  }, [refreshAccounts, refreshPasskeys])
+  }, [accountsQuery.error])
 
-  return { accounts, passkeys, loading, refreshAccounts, refreshPasskeys }
+  React.useEffect(() => {
+    if (passkeysQuery.error) {
+      toast.error(passkeysQuery.error.message)
+    }
+  }, [passkeysQuery.error])
+
+  return {
+    accounts: accountsQuery.data ?? null,
+    passkeys: config.passkeyEnabled ? (passkeysQuery.data ?? null) : null,
+    loading:
+      accountsQuery.isPending ||
+      (config.passkeyEnabled && passkeysQuery.isPending),
+    refreshAccounts: async () => {
+      await accountsQuery.refetch()
+    },
+    refreshPasskeys: async () => {
+      await passkeysQuery.refetch()
+    },
+  }
 }
 
 function SecurityTabContent({ config }: { config: PublicAuthConfig }) {
@@ -174,9 +184,7 @@ function SecurityTabContent({ config }: { config: PublicAuthConfig }) {
 
       {showPasskeySection ? (
         <div className="flex flex-col gap-3">
-          {showPasswordSection ? (
-            <hr className="border-border" />
-          ) : null}
+          {showPasswordSection ? <hr className="border-border" /> : null}
           <PasskeysCard passkeys={passkeys!} onRefresh={refreshPasskeys} />
         </div>
       ) : null}
