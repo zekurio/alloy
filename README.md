@@ -52,41 +52,6 @@ docker compose up -d
 psql postgresql://postgres:postgres@localhost:5432/alloy
 ```
 
-## Container hardware encoding
-
-The `server` and `aio` images use Jellyfin's ffmpeg build plus VA-API, Intel
-Media SDK, oneVPL, and Mesa Vulkan/VA userspace packages so the same image can
-run on common NVIDIA, Intel, and AMD hosts. The host still has to expose the GPU
-to the container.
-
-The AIO image is meant for simple deploys: mount `/data` and it will use the
-embedded Postgres instance plus filesystem storage under `/data/storage` without
-requiring database or storage environment variables. Use the split deployment
-with an external S3-compatible bucket when you want object storage to serve
-upload and download bandwidth directly.
-
-For Intel QSV or VA-API, and for AMD VA-API/AMF setups, pass the render device:
-
-```bash
-docker run --device /dev/dri:/dev/dri ghcr.io/<owner>/<repo>-aio:unstable
-```
-
-For NVIDIA NVENC, install the NVIDIA Container Toolkit on the host and pass the
-GPU plus video capabilities:
-
-```bash
-docker run --gpus all \
-  -e NVIDIA_VISIBLE_DEVICES=all \
-  -e NVIDIA_DRIVER_CAPABILITIES=compute,video,utility \
-  ghcr.io/<owner>/<repo>-aio:unstable
-```
-
-In Alloy's admin encoder settings, choose the global hardware acceleration
-method, then choose an output codec on each variant. QSV and VA-API show a
-device field; use `/dev/dri/renderD128` unless your host exposes a different
-render node. The capability probe in the admin UI is the source of truth for
-which encoders the running container can actually use.
-
 ## Environment
 
 Copy the example environment files:
