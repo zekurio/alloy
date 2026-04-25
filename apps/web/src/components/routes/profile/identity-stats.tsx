@@ -121,6 +121,7 @@ export function IdentityStats({ handle, counts }: IdentityStatsProps) {
                   <FollowRow
                     key={u.id}
                     user={u}
+                    initiallyFollowing={view === "following"}
                     onNavigate={() => setOpen(null)}
                   />
                 ))}
@@ -141,16 +142,22 @@ export function IdentityStats({ handle, counts }: IdentityStatsProps) {
 
 function FollowRow({
   user,
+  initiallyFollowing,
   onNavigate,
 }: {
   user: UserSearchResult
+  initiallyFollowing: boolean
   onNavigate: () => void
 }) {
-  const [following, setFollowing] = React.useState(false)
+  const [following, setFollowing] = React.useState(initiallyFollowing)
   const [pending, setPending] = React.useState(false)
   const handle = user.displayUsername || user.username
   const displayName = user.name || `@${handle}`
   const avatarSrc = userImageSrc(user.image)
+
+  React.useEffect(() => {
+    setFollowing(initiallyFollowing)
+  }, [initiallyFollowing, user.id])
 
   const toggle = async () => {
     setPending(true)

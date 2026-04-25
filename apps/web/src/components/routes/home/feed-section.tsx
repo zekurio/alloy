@@ -159,7 +159,10 @@ export function FeedSection({ filter, viewerId }: FeedSectionProps) {
     toastId: `feed-${feedId}-error`,
   })
 
-  const rows = React.useMemo(() => (data ? data.pages.flat() : []), [data])
+  const rows = React.useMemo(
+    () => (data ? data.pages.flatMap((page) => page.items) : []),
+    [data]
+  )
   const hasData = data !== undefined
 
   const sentinelRef = useInfiniteScrollSentinel(
