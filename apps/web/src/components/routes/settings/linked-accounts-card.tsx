@@ -205,9 +205,6 @@ function AccountsList({
   onLink,
   onUnlink,
 }: AccountsListProps) {
-  const credentialAccount = accounts.find(
-    (account) => account.providerId === "credential"
-  )
   const providerAccount = config.provider
     ? accounts.find(
         (account) => account.providerId === config.provider?.providerId
@@ -221,21 +218,6 @@ function AccountsList({
 
   return (
     <ul className="flex flex-col divide-y divide-border">
-      {credentialAccount ? (
-        <AccountRow
-          key={credentialAccount.id}
-          label="Email and password"
-          sublabel={
-            config.emailPasswordEnabled
-              ? "Connected"
-              : "Configured account, but password login is currently disabled"
-          }
-          busy={unlinkingId === credentialAccount.id}
-          canUnlink={canRemoveAccount(credentialAccount, accounts, config)}
-          onAction={() => onUnlink(credentialAccount)}
-        />
-      ) : null}
-
       {config.provider ? (
         providerAccount ? (
           <AccountRow
@@ -355,6 +337,6 @@ function accountSupportsSignIn(
   account: LinkedAccount,
   config: PublicAuthConfig
 ): boolean {
-  if (account.providerId === "credential") return config.emailPasswordEnabled
+  if (account.providerId === "credential") return false
   return config.provider?.providerId === account.providerId
 }

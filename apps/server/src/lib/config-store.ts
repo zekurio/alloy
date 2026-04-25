@@ -261,7 +261,6 @@ const IntegrationsConfigSchema = z.object({
 const RuntimeConfigSchema = z.object({
   openRegistrations: z.boolean().default(false),
   setupComplete: z.boolean().default(false),
-  emailPasswordEnabled: z.boolean().default(true),
   passkeyEnabled: z.boolean().default(true),
   requireAuthToBrowse: z.boolean().default(true),
   oauthProvider: OAuthProviderSchema.nullable().default(null),
@@ -319,6 +318,7 @@ function migrateLegacyFields(raw: unknown): unknown {
   if ("oauthProviders" in r) delete r.oauthProviders
   if ("oauthDiscord" in r) delete r.oauthDiscord
   if ("oauthTwitch" in r) delete r.oauthTwitch
+  if ("emailPasswordEnabled" in r) delete r.emailPasswordEnabled
   return r
 }
 

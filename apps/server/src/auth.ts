@@ -26,15 +26,10 @@ import {
 } from "./lib/username"
 
 const OAUTH_CALLBACK_PREFIXES = ["/callback/", "/oauth2/callback/"] as const
-const EMAIL_SIGNUP_PATH = "/sign-up/email"
 
 function isOAuthCallback(path: string | undefined): boolean {
   if (!path) return false
   return OAUTH_CALLBACK_PREFIXES.some((prefix) => path.startsWith(prefix))
-}
-
-function isEmailSignUp(path: string | undefined): boolean {
-  return path === EMAIL_SIGNUP_PATH
 }
 
 type IncomingUser = {
@@ -65,27 +60,6 @@ function buildUserHooks() {
             ? user.storageQuotaBytes
             : configStore.get("limits").defaultStorageQuotaBytes
 
-        if (isEmailSignUp(ctx?.path)) {
-          if (!configStore.get("setupComplete")) {
-            if (await hasAnyUser()) {
-              configStore.set("setupComplete", true)
-              return false
-            }
-            const identity = await populateIdentityFields(user)
-            return {
-              data: { ...user, ...identity, storageQuotaBytes, role: "admin" },
-            }
-          }
-          if (
-            !configStore.get("openRegistrations") ||
-            !configStore.get("emailPasswordEnabled")
-          ) {
-            return false
-          }
-          const identity = await populateIdentityFields(user)
-          return { data: { ...user, ...identity, storageQuotaBytes } }
-        }
-
         if (
           isOAuthCallback(ctx?.path) &&
           !configStore.get("openRegistrations")
@@ -95,11 +69,6 @@ function buildUserHooks() {
 
         const identity = await populateIdentityFields(user)
         return { data: { ...user, ...identity, storageQuotaBytes } }
-      },
-      after: async (_user: unknown, ctx: { path?: string } | null) => {
-        if (isEmailSignUp(ctx?.path) && !configStore.get("setupComplete")) {
-          configStore.set("setupComplete", true)
-        }
       },
     },
   }
@@ -119,6 +88,21 @@ async function createPasskeyRegistrationUser(
           : "Invalid registration request.",
     })
   }
+  if (payload.setupFirstAdmin) {
+    if (await hasAnyUser()) {
+      configStore.set("setupComplete", true)
+      throw new APIError("BAD_REQUEST", {
+        message: "Initial setup is already complete.",
+      })
+    }
+  } else if (
+    !configStore.get("openRegistrations") ||
+    !configStore.get("passkeyEnabled")
+  ) {
+    throw new APIError("BAD_REQUEST", {
+      message: "Passkey sign-up is currently disabled.",
+    })
+  }
   const existing = await db
     .select({ id: user.id })
     .from(user)
@@ -135,6 +119,7 @@ async function createPasskeyRegistrationUser(
   })
   return {
     email: payload.email,
+    setupFirstAdmin: payload.setupFirstAdmin,
     ...identity,
   }
 }
@@ -162,9 +147,13 @@ function buildPasskeyPlugin() {
           email: identity.email,
           name: identity.name,
           username: identity.username,
+          role: identity.setupFirstAdmin ? "admin" : undefined,
         })
         const session = await ctx.context.internalAdapter.createSession(user.id)
         ctx.context.setNewSession({ session, user })
+        if (identity.setupFirstAdmin) {
+          configStore.set("setupComplete", true)
+        }
         return { userId: user.id }
       },
     },
@@ -172,7 +161,6 @@ function buildPasskeyPlugin() {
 }
 
 function buildAuth() {
-  const emailPasswordEnabled = configStore.get("emailPasswordEnabled")
   const passkeyEnabled = configStore.get("passkeyEnabled")
   const plugins = [
     admin(),
@@ -200,7 +188,7 @@ function buildAuth() {
       database: { generateId: false },
     },
     emailAndPassword: {
-      enabled: emailPasswordEnabled,
+      enabled: false,
     },
     account: {
       accountLinking: {
@@ -255,13 +243,10 @@ configStore.subscribe((next, prev) => {
     JSON.stringify(next.oauthProvider) !== JSON.stringify(prev.oauthProvider)
   const openRegistrationsChanged =
     next.openRegistrations !== prev.openRegistrations
-  const emailPasswordChanged =
-    next.emailPasswordEnabled !== prev.emailPasswordEnabled
   const passkeyChanged = next.passkeyEnabled !== prev.passkeyEnabled
   if (
     !providerChanged &&
     !openRegistrationsChanged &&
-    !emailPasswordChanged &&
     !passkeyChanged
   ) {
     return
