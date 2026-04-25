@@ -1,11 +1,11 @@
 import { cache, use } from "react"
-import { createMiddleware, createServerFn } from "@tanstack/react-start"
+import { useRouterState } from "@tanstack/react-router"
 
 import type { PublicAuthConfig } from "@workspace/api"
 
 import { api } from "./api"
 import { authClient, useSession } from "./auth-client"
-import { apiOrigin } from "./env"
+import { fetchCurrentServerSession } from "./session-server"
 
 type SessionData = ReturnType<typeof useSession>["data"]
 
@@ -16,40 +16,34 @@ type AtomValue = {
   isPending: boolean
 }
 
-let sessionInitialPromise: Promise<void> | null = null
-let sessionLoadPromise: Promise<SessionData> | null = null
-let configPromiseCache: Promise<PublicAuthConfig> | null = null
-
-const requestContextMiddleware = createMiddleware().server(
-  ({ next, request }) => {
-    return next({ context: { request } })
-  }
-)
-
-async function fetchSession(cookie: string | null): Promise<SessionData> {
-  try {
-    const response = await fetch(
-      new URL("/api/auth/get-session", apiOrigin()),
-      {
-        headers: cookie ? { cookie } : undefined,
-      }
-    )
-
-    if (!response.ok) return null
-
-    return (await response.json()) as SessionData
-  } catch {
-    return null
-  }
+type RouteSessionState = {
+  found: boolean
+  data: SessionData
 }
 
-const fetchServerSession = createServerFn({ method: "GET" })
-  .middleware([requestContextMiddleware])
-  .handler(async ({ context }) => {
-    return fetchSession(context.request.headers.get("cookie"))
-  })
+let sessionInitialPromise: Promise<void> | null = null
+let configPromiseCache: Promise<PublicAuthConfig> | null = null
 
-const loadServerSession = cache(() => fetchServerSession())
+const loadServerSession = cache(() => fetchCurrentServerSession())
+
+function useRouteSession(): RouteSessionState {
+  return useRouterState({
+    select: (state): RouteSessionState => {
+      for (let i = state.matches.length - 1; i >= 0; i -= 1) {
+        const context = state.matches[i]?.context as
+          | { session?: SessionData }
+          | undefined
+        if (
+          context &&
+          Object.prototype.hasOwnProperty.call(context, "session")
+        ) {
+          return { found: true, data: context.session ?? null }
+        }
+      }
+      return { found: false, data: null }
+    },
+  })
+}
 
 function sessionAtom():
   | { get(): AtomValue; listen(cb: (v: AtomValue) => void): () => void }
@@ -95,32 +89,8 @@ function sessionInitializedPromise(): Promise<void> {
   return sessionInitialPromise
 }
 
-function fetchClientSession(): Promise<SessionData> {
-  if (sessionLoadPromise) return sessionLoadPromise
-
-  sessionLoadPromise = authClient
-    .getSession()
-    .then(({ data }) => data ?? null)
-    .catch(() => null)
-    .finally(() => {
-      sessionLoadPromise = null
-    })
-  return sessionLoadPromise
-}
-
 export async function loadSession(): Promise<SessionData> {
-  if (typeof window === "undefined") return loadServerSession()
-
-  const atom = sessionAtom()
-  const current = atom?.get()
-  if (current && !current.isPending) return current.data
-
-  if (atom && current?.isPending) {
-    await sessionInitializedPromise()
-    return atom.get().data
-  }
-
-  return fetchClientSession()
+  return loadServerSession()
 }
 
 export function loadAuthConfig(): Promise<PublicAuthConfig> {
@@ -138,8 +108,11 @@ export function invalidateAuthConfig(): void {
 }
 
 export function useSuspenseSession(): SessionData {
+  const routeSession = useRouteSession()
+  if (routeSession.found) return routeSession.data
+
   if (typeof window === "undefined") {
-    return use(loadServerSession())
+    return null
   }
 
   use(sessionInitializedPromise())

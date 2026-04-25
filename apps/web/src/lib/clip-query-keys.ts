@@ -8,6 +8,8 @@ export const clipKeys = {
     [...clipKeys.lists(), "top", { window, limit }] as const,
   userList: (handle: string) =>
     [...clipKeys.lists(), "user", { handle }] as const,
+  userLikedList: (handle: string) =>
+    [...clipKeys.lists(), "user-liked", { handle }] as const,
   /** Infinite recent feed. Separate branch because its data shape is
    *  `InfiniteData<ClipRow[]>`, not `ClipRow[]`. */
   infinite: () => [...clipKeys.all, "infinite"] as const,

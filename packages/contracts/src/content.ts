@@ -90,7 +90,7 @@ export interface InitiateClipInput {
   sizeBytes: number
   title: string
   description?: string
-  gameId?: string
+  gameId: string
   privacy?: ClipPrivacy
   trimStartMs?: number
   trimEndMs?: number
@@ -269,6 +269,7 @@ export interface GameListRow extends GameRow {
 
 export interface GameDetail extends GameRow {
   viewer: { isFollowing: boolean } | null
+  favouritesCount: number
 }
 
 export interface GameClipsParams {
