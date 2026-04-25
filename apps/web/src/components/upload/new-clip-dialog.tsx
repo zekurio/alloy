@@ -310,9 +310,10 @@ function LoadedState({
       thumbBlob = await captureThumbnail(file.file, posterAtMs)
     } catch (err) {
       setCapturing(false)
-      throw err instanceof Error
-        ? err
-        : new Error("Could not capture thumbnail")
+      toast.error(
+        err instanceof Error ? err.message : "Could not capture thumbnail"
+      )
+      return
     } finally {
       setCapturing(false)
     }
