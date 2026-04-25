@@ -144,18 +144,41 @@ function SecurityTabContent({ config }: { config: PublicAuthConfig }) {
     (account) => account.providerId === "credential"
   )
 
+  const showPasswordSection =
+    hasPasswordAccount || shouldShowLinkedAccountsCard(config, accounts)
+  const showPasskeySection = config.passkeyEnabled && passkeys !== null
+
   return (
     <>
-      {hasPasswordAccount ? <PasswordCard /> : null}
-      {shouldShowLinkedAccountsCard(config, accounts) ? (
-        <LinkedAccountsCard
-          accounts={accounts}
-          config={config}
-          onRefresh={refreshAccounts}
-        />
+      {showPasswordSection ? (
+        <div className="flex flex-col gap-3">
+          <div>
+            <h2 className="text-md font-semibold tracking-[-0.005em]">
+              Password
+            </h2>
+            <p className="mt-0.5 text-xs text-foreground-dim">
+              Manage your password and linked sign-in methods.
+            </p>
+          </div>
+
+          {hasPasswordAccount ? <PasswordCard /> : null}
+          {shouldShowLinkedAccountsCard(config, accounts) ? (
+            <LinkedAccountsCard
+              accounts={accounts}
+              config={config}
+              onRefresh={refreshAccounts}
+            />
+          ) : null}
+        </div>
       ) : null}
-      {config.passkeyEnabled && passkeys ? (
-        <PasskeysCard passkeys={passkeys} onRefresh={refreshPasskeys} />
+
+      {showPasskeySection ? (
+        <div className="flex flex-col gap-3">
+          {showPasswordSection ? (
+            <hr className="border-border" />
+          ) : null}
+          <PasskeysCard passkeys={passkeys!} onRefresh={refreshPasskeys} />
+        </div>
       ) : null}
     </>
   )

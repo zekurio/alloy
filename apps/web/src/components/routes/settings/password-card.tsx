@@ -1,5 +1,4 @@
 import { useForm } from "@tanstack/react-form"
-import { KeyRoundIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -58,17 +57,6 @@ export function PasswordCard() {
     >
       <Section>
         <SectionContent className="flex flex-col gap-4 py-4">
-          <div className="flex items-start gap-3">
-            <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border">
-              <KeyRoundIcon className="size-4" />
-            </span>
-            <div>
-              <div className="text-sm font-medium">Password</div>
-              <p className="mt-0.5 text-xs text-foreground-dim">
-                Change the password used for email and password sign-in.
-              </p>
-            </div>
-          </div>
 
           <form.Field
             name="currentPassword"
