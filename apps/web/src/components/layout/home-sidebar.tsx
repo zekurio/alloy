@@ -1,11 +1,18 @@
 import * as React from "react"
 import { Link, useRouterState } from "@tanstack/react-router"
-import { GamepadIcon, HomeIcon, LibraryIcon, UploadIcon } from "lucide-react"
+import {
+  GamepadIcon,
+  HomeIcon,
+  LibraryIcon,
+  PlusIcon,
+  SettingsIcon,
+} from "lucide-react"
 
 import {
   AppBottomNav,
   AppBottomNavItem,
   AppSidebar,
+  AppSidebarFooter,
   AppSidebarGroup,
   AppSidebarItem,
 } from "@workspace/ui/components/app-sidebar"
@@ -17,6 +24,7 @@ interface NavFlags {
   isHome: boolean
   isLibrary: boolean
   isGames: boolean
+  isSettings: boolean
 }
 
 function useNavFlags(): NavFlags {
@@ -27,6 +35,9 @@ function useNavFlags(): NavFlags {
       isGames:
         s.location.pathname === "/games" ||
         s.location.pathname.startsWith("/g/"),
+      isSettings:
+        s.location.pathname.startsWith("/user-settings") ||
+        s.location.pathname.startsWith("/settings"),
     }),
     structuralSharing: true,
   })
@@ -41,6 +52,11 @@ export function HomeSidebar() {
             <SidebarTop />
           </React.Suspense>
         </AppSidebarGroup>
+        <AppSidebarFooter>
+          <React.Suspense fallback={<SidebarSettingsFallback />}>
+            <SidebarSettings />
+          </React.Suspense>
+        </AppSidebarFooter>
       </AppSidebar>
 
       <AppBottomNav className="md:hidden">
@@ -93,6 +109,19 @@ function SidebarTop() {
   )
 }
 
+function SidebarSettings() {
+  const { isSettings } = useNavFlags()
+  return (
+    <AppSidebarItem
+      active={isSettings}
+      title="Settings"
+      render={<Link to="/user-settings" />}
+    >
+      <SettingsIcon />
+    </AppSidebarItem>
+  )
+}
+
 function SidebarTopFallback() {
   return (
     <>
@@ -109,8 +138,16 @@ function SidebarTopFallback() {
   )
 }
 
+function SidebarSettingsFallback() {
+  return (
+    <AppSidebarItem title="Settings">
+      <SettingsIcon />
+    </AppSidebarItem>
+  )
+}
+
 function BottomNavItems() {
-  const { isHome, isLibrary, isGames } = useNavFlags()
+  const { isHome, isLibrary, isGames, isSettings } = useNavFlags()
   const session = useSuspenseSession()
   const profileHandle = session?.user.username ?? null
   const { queueOpen, setQueueOpen } = useUploadFlowControls()
@@ -140,6 +177,24 @@ function BottomNavItems() {
           <LibraryIcon />
         </AppBottomNavItem>
       )}
+      {session ? (
+        <AppBottomNavItem
+          active={queueOpen}
+          title="Upload"
+          onClick={() => setQueueOpen(true)}
+        >
+          <PlusIcon />
+        </AppBottomNavItem>
+      ) : (
+        <AppBottomNavItem
+          title="Upload"
+          aria-disabled
+          tabIndex={-1}
+          className="pointer-events-none opacity-60"
+        >
+          <PlusIcon />
+        </AppBottomNavItem>
+      )}
       <AppBottomNavItem
         active={isGames}
         title="Games"
@@ -147,15 +202,13 @@ function BottomNavItems() {
       >
         <GamepadIcon />
       </AppBottomNavItem>
-      {session ? (
-        <AppBottomNavItem
-          active={queueOpen}
-          title="Upload"
-          onClick={() => setQueueOpen(true)}
-        >
-          <UploadIcon />
-        </AppBottomNavItem>
-      ) : null}
+      <AppBottomNavItem
+        active={isSettings}
+        title="Settings"
+        render={<Link to="/user-settings" />}
+      >
+        <SettingsIcon />
+      </AppBottomNavItem>
     </>
   )
 }
@@ -169,8 +222,14 @@ function BottomNavFallback() {
       <AppBottomNavItem title="Library">
         <LibraryIcon />
       </AppBottomNavItem>
+      <AppBottomNavItem title="Upload">
+        <PlusIcon />
+      </AppBottomNavItem>
       <AppBottomNavItem title="Games">
         <GamepadIcon />
+      </AppBottomNavItem>
+      <AppBottomNavItem title="Settings">
+        <SettingsIcon />
       </AppBottomNavItem>
     </>
   )
