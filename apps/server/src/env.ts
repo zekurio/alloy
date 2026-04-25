@@ -4,13 +4,26 @@ import { z } from "zod"
 // Deploy-time env only. Anything an admin should be able to change at
 // runtime (OAuth provider, open-registrations) lives in `lib/config-store.ts`.
 
+function normalizePublicServerUrl(value: string): string {
+  const url = new URL(value)
+  url.pathname = url.pathname.replace(/\/api\/?$/, "") || "/"
+  url.search = ""
+  url.hash = ""
+  return url.toString().replace(/\/$/, "")
+}
+
 const EnvSchema = z
   .object({
     DATABASE_URL: z.string().url(),
     BETTER_AUTH_SECRET: z
       .string()
       .min(32, "BETTER_AUTH_SECRET must be at least 32 chars"),
-    BETTER_AUTH_URL: z.string().url().default("http://localhost:3000"),
+    PUBLIC_SERVER_URL: z
+      .string()
+      .url()
+      .default(process.env.BETTER_AUTH_URL ?? "http://localhost:3000")
+      .transform(normalizePublicServerUrl),
+    BETTER_AUTH_URL: z.string().url().optional(),
     PORT: z.coerce.number().int().positive().default(3000),
     TRUSTED_ORIGINS: z
       .string()
@@ -28,7 +41,15 @@ const EnvSchema = z
 
     STORAGE_DRIVER: z.enum(["fs", "s3"]).default("fs"),
     STORAGE_FS_ROOT: z.string().default("./data/storage"),
-    STORAGE_PUBLIC_BASE_URL: z.string().url().default("http://localhost:3000"),
+    STORAGE_PUBLIC_BASE_URL: z
+      .string()
+      .url()
+      .default(
+        process.env.PUBLIC_SERVER_URL ??
+          process.env.BETTER_AUTH_URL ??
+          "http://localhost:3000"
+      )
+      .transform(normalizePublicServerUrl),
     STORAGE_HMAC_SECRET: z.string().optional(),
 
     // S3 / S3-compatible (R2, Tigris, MinIO, …). Only read when STORAGE_DRIVER=s3.

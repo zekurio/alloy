@@ -42,11 +42,8 @@ export const app = new Hono()
   .route("/api/search", searchRoute)
   .route("/api/users", usersRoute)
   .route("/api/users", usersUploadRoute)
-  .route("/events", eventsRoute)
-  // `/storage/upload/:token` is the fs driver's companion route — kept
-  // out of `/api/*` because it has no analog under the s3 driver (the
-  // browser would PUT straight at the bucket there).
-  .route("/storage", storageRoute)
-  .route("/storage/user-assets", userAssetsRoute)
+  .route("/api/events", eventsRoute)
+  .route("/api/assets", storageRoute)
+  .route("/api/assets/users", userAssetsRoute)
 
 export type AppType = typeof app
