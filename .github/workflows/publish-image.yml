@@ -20,7 +20,7 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     concurrency:
-      group: publish-image-${{ github.ref }}
+      group: publish-image-${{ github.ref }}-${{ matrix.image.name }}
       cancel-in-progress: true
 
     strategy:
