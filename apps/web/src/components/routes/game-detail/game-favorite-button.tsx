@@ -2,31 +2,48 @@ import { useNavigate } from "@tanstack/react-router"
 import { StarIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { formatCount } from "@/lib/clip-format"
 import { useToggleGameFavoriteMutation } from "@/lib/game-queries"
 
 type GameFavoriteButtonProps = {
   slug: string
   viewer: { isFollowing: boolean } | null | undefined
+  count: number
   className?: string
 }
 
 export function GameFavoriteButton({
   slug,
   viewer,
+  count,
   className,
 }: GameFavoriteButtonProps) {
   const navigate = useNavigate()
   const mutation = useToggleGameFavoriteMutation()
-  const isFavorite = viewer?.isFollowing ?? false
+  const isStarred = viewer?.isFollowing ?? false
+  const label = formatCount(count)
+
+  const sharedContent = (
+    <>
+      <StarIcon className={cn(isStarred && "fill-current")} />
+      <span className="tabular-nums">{label}</span>
+    </>
+  )
 
   if (viewer === undefined) {
     return (
-      <Button type="button" variant="primary" size="sm" disabled>
-        <StarIcon />
-        Favourite
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        aria-label="Star"
+        disabled
+        className={className}
+      >
+        {sharedContent}
       </Button>
     )
   }
@@ -35,15 +52,16 @@ export function GameFavoriteButton({
     return (
       <Button
         type="button"
-        variant="primary"
+        variant="ghost"
         size="sm"
+        aria-label="Sign in to star"
+        title="Sign in to star"
         className={className}
         onClick={() => {
           void navigate({ to: "/login" })
         }}
       >
-        <StarIcon />
-        Sign in to favourite
+        {sharedContent}
       </Button>
     )
   }
@@ -51,12 +69,15 @@ export function GameFavoriteButton({
   return (
     <Button
       type="button"
-      variant={isFavorite ? "ghost" : "primary"}
+      variant={isStarred ? "accent-outline" : "ghost"}
       size="sm"
+      aria-pressed={isStarred}
+      aria-label={isStarred ? "Unstar" : "Star"}
+      title={isStarred ? "Unstar" : "Star"}
       className={className}
       onClick={() => {
         mutation.mutate(
-          { slug, next: !isFavorite },
+          { slug, next: !isStarred },
           {
             onError: (cause) => {
               toast.error(
@@ -68,12 +89,7 @@ export function GameFavoriteButton({
       }}
       disabled={mutation.isPending}
     >
-      <StarIcon className={cn(isFavorite && "fill-current")} />
-      {mutation.isPending
-        ? "Working..."
-        : isFavorite
-          ? "Favourited"
-          : "Favourite"}
+      {sharedContent}
     </Button>
   )
 }

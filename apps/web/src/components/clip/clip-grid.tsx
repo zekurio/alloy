@@ -2,8 +2,6 @@ import * as React from "react"
 
 import { cn } from "@workspace/ui/lib/utils"
 
-import { ClipCardSkeleton } from "./clip-card-skeleton"
-
 export function ClipGrid({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -16,26 +14,6 @@ export function ClipGrid({ className, ...props }: React.ComponentProps<"div">) {
       )}
       {...props}
     />
-  )
-}
-
-type ClipGridSkeletonProps = Omit<
-  React.ComponentProps<typeof ClipGrid>,
-  "children"
-> & {
-  count?: number
-}
-
-export function ClipGridSkeleton({
-  count = 5,
-  ...props
-}: ClipGridSkeletonProps) {
-  return (
-    <ClipGrid {...props}>
-      {Array.from({ length: count }, (_, i) => (
-        <ClipCardSkeleton key={i} />
-      ))}
-    </ClipGrid>
   )
 }
 

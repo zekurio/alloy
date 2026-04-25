@@ -22,15 +22,14 @@ function TrimHandle({
       aria-label={side === "start" ? "Trim start" : "Trim end"}
       onPointerDown={onPointerDown}
       className={cn(
-        "absolute top-1 bottom-1 z-10 flex w-3 cursor-ew-resize items-center justify-center rounded-md",
-        side === "start" ? "-ml-1.5" : "-mr-1.5",
+        "absolute top-1 bottom-1 z-10 flex w-3 cursor-ew-resize items-center justify-center rounded-sm",
         "bg-accent text-accent-foreground shadow-[0_0_0_1px_rgba(0,0,0,0.35)]",
         "hover:bg-accent-hover focus-visible:outline-none",
         "touch-none"
       )}
       style={style}
     >
-      <span className="h-3.5 w-px rounded-full bg-accent-foreground/80" />
+      <span className="h-3.5 w-px rounded-[1px] bg-accent-foreground/80" />
     </button>
   )
 }
@@ -210,10 +209,14 @@ export function TrimTimeline({
         "select-none"
       )}
     >
-      {/* Base rail — dim track spanning the full duration. */}
+      {/* Base rail — dim track between the trim handles. */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-x-1 top-1/2 h-2 -translate-y-1/2 rounded-full bg-foreground-faint/15"
+        className="pointer-events-none absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-foreground-faint/15"
+        style={{
+          left: `${pctOf(trimStartMs)}%`,
+          right: `${100 - pctOf(trimEndMs)}%`,
+        }}
       />
 
       {/* Selected-range fill — accent rail inside the trim window. */}
@@ -229,12 +232,16 @@ export function TrimTimeline({
       <TrimHandle
         side="start"
         onPointerDown={(e) => startDrag("start", e)}
-        style={{ left: `${pctOf(trimStartMs)}%` }}
+        style={{
+          left: `clamp(4px, ${pctOf(trimStartMs)}%, calc(100% - 16px))`,
+        }}
       />
       <TrimHandle
         side="end"
         onPointerDown={(e) => startDrag("end", e)}
-        style={{ left: `calc(${pctOf(trimEndMs)}% - 12px)` }}
+        style={{
+          left: `clamp(4px, calc(${pctOf(trimEndMs)}% - 12px), calc(100% - 16px))`,
+        }}
       />
 
       {/* Playhead — only render when it's inside the trim window so it

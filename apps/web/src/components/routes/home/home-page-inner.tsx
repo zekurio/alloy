@@ -16,10 +16,12 @@ export function HomePageInner() {
 
   return (
     <AppMain>
-      <div className="flex w-full flex-col gap-8">
+      <div className="flex w-full flex-col">
         <TopClipsSection viewerId={viewerId} />
         <FeedChipBar filter={filter} onChange={setFilter} />
-        <FeedSection filter={filter} viewerId={viewerId} />
+        <div className="pt-8">
+          <FeedSection filter={filter} viewerId={viewerId} />
+        </div>
       </div>
     </AppMain>
   )

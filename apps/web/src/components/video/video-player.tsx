@@ -512,6 +512,26 @@ function PlayerCore({
         volumeBy,
         toggleFullscreen,
       }}
+      bar={
+        <ChromeBar
+          playing={playing}
+          duration={duration}
+          currentTime={currentTime}
+          bufferedEnd={bufferedEnd}
+          muted={muted}
+          volume={volume}
+          autoAdvance={autoAdvance}
+          onTogglePlay={togglePlay}
+          onToggleMute={toggleMute}
+          onVolumeChange={setVolume}
+          onSeek={(seconds) => seekInternal(seconds)}
+          qualityOptions={sortedQualityOptions}
+          selectedQualityId={selectedQualityId}
+          onSelectQuality={onSelectQuality}
+          onAutoAdvanceChange={onAutoAdvanceChange}
+          onToggleFullscreen={toggleFullscreen}
+        />
+      }
     >
       {renderVideo((e: React.MouseEvent<HTMLVideoElement>) => {
         onVideoClick?.(e)
@@ -519,25 +539,6 @@ function PlayerCore({
       })}
 
       <LoadOverlay status={status} />
-
-      <ChromeBar
-        playing={playing}
-        duration={duration}
-        currentTime={currentTime}
-        bufferedEnd={bufferedEnd}
-        muted={muted}
-        volume={volume}
-        autoAdvance={autoAdvance}
-        onTogglePlay={togglePlay}
-        onToggleMute={toggleMute}
-        onVolumeChange={setVolume}
-        onSeek={(seconds) => seekInternal(seconds)}
-        qualityOptions={sortedQualityOptions}
-        selectedQualityId={selectedQualityId}
-        onSelectQuality={onSelectQuality}
-        onAutoAdvanceChange={onAutoAdvanceChange}
-        onToggleFullscreen={toggleFullscreen}
-      />
     </ChromeShell>
   )
 }

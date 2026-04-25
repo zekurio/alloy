@@ -8,7 +8,7 @@ import {
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
 import { Sheet, SheetContent } from "@workspace/ui/components/sheet"
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -57,7 +57,7 @@ async function performUpload(
     sizeBytes: payload.sizeBytes,
     title: payload.title,
     description: payload.description ?? undefined,
-    gameId: payload.gameId ?? undefined,
+    gameId: payload.gameId,
     privacy: payload.privacy,
     trimStartMs: payload.trimStartMs ?? undefined,
     trimEndMs: payload.trimEndMs ?? undefined,

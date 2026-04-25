@@ -1,14 +1,9 @@
-import { Skeleton } from "@workspace/ui/components/skeleton"
+import { Spinner } from "@workspace/ui/components/spinner"
 
 export function ClipCardSkeleton() {
   return (
-    <div className="flex flex-col gap-3">
-      <Skeleton className="aspect-video rounded-md" />
-      <div className="flex flex-col gap-2">
-        <Skeleton className="h-5 w-3/4" />
-        <Skeleton className="h-4 w-1/2" />
-        <Skeleton className="h-3 w-2/3" />
-      </div>
+    <div className="flex aspect-video items-center justify-center">
+      <Spinner className="size-5" />
     </div>
   )
 }

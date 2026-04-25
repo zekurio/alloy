@@ -5,7 +5,7 @@ import { AtSignIcon, LockIcon } from "lucide-react"
 
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import { Label } from "@workspace/ui/components/label"
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 
 import { authClient } from "@/lib/auth-client"
 import {

@@ -6,7 +6,7 @@ import type {
   NotificationRow,
   NotificationsResponse,
 } from "@workspace/api"
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 
 import { api } from "./api"
 import { apiOrigin } from "./env"

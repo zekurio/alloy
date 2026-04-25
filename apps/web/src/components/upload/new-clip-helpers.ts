@@ -29,7 +29,7 @@ export interface PublishPayload {
   contentType: AcceptedContentType
   title: string
   description: string | null
-  gameId: string | null
+  gameId: string
   privacy: Visibility
   width: number
   height: number
@@ -227,8 +227,7 @@ export async function captureThumbnail(
     const duration = Number.isFinite(video.duration) ? video.duration : null
     const atSeconds = Math.max(0, atMs / 1000)
     const minTime = duration !== null && duration > 0.1 ? 0.001 : 0
-    const maxTime =
-      duration === null ? atSeconds : Math.max(0, duration - 0.05)
+    const maxTime = duration === null ? atSeconds : Math.max(0, duration - 0.05)
     const targetTime = Math.min(Math.max(minTime, atSeconds), maxTime)
 
     if (Math.abs(video.currentTime - targetTime) > 0.0005) {

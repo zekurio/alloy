@@ -34,7 +34,9 @@ function hueFor(clip: { title: string; game: string | null }): number {
   return hashHue(clip.title)
 }
 
-function hasThumbnail(clip: PublicClip): clip is PublicClip & { thumbUrl: string } {
+function hasThumbnail(
+  clip: PublicClip
+): clip is PublicClip & { thumbUrl: string } {
   return clip.thumbUrl !== null
 }
 
@@ -190,7 +192,9 @@ function getRowSettings(index: number) {
 }
 
 const EMPTY_KAOMOJI =
-  EMPTY_STATE_KAOMOJI[hashHue("auth-artwork-empty") % EMPTY_STATE_KAOMOJI.length]
+  EMPTY_STATE_KAOMOJI[
+    hashHue("auth-artwork-empty") % EMPTY_STATE_KAOMOJI.length
+  ]
 
 function LoginArtworkEmpty() {
   return (

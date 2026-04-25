@@ -1,7 +1,8 @@
 import type { ClipRow } from "@workspace/api"
 
+import { Spinner } from "@workspace/ui/components/spinner"
+
 import { ClipCardList } from "@/components/clip/clip-card-list"
-import { ClipGridSkeleton } from "@/components/clip/clip-grid"
 import { EmptyState } from "@/components/feedback/empty-state"
 
 type EmptyStateSize = "sm" | "md" | "lg"
@@ -9,7 +10,6 @@ type EmptyStateSize = "sm" | "md" | "lg"
 type ClipSectionContentProps = {
   rows: readonly ClipRow[] | null
   error: unknown
-  skeletonCount?: number
   errorSeed: string
   errorTitle: string
   errorSize?: EmptyStateSize
@@ -24,7 +24,6 @@ type ClipSectionContentProps = {
 export function ClipSectionContent({
   rows,
   error,
-  skeletonCount = 5,
   errorSeed,
   errorTitle,
   errorSize = "md",
@@ -60,5 +59,9 @@ export function ClipSectionContent({
     return <EmptyState seed={errorSeed} size={errorSize} title={errorTitle} />
   }
 
-  return <ClipGridSkeleton count={skeletonCount} />
+  return (
+    <div className="flex items-center justify-center py-12">
+      <Spinner className="size-6" />
+    </div>
+  )
 }

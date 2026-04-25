@@ -167,7 +167,10 @@ export function UserBanner({
   return (
     <div
       aria-hidden
-      className={cn("absolute inset-0 overflow-hidden", className)}
+      className={cn(
+        "absolute inset-0 overflow-hidden rounded-[inherit]",
+        className
+      )}
       style={{ backgroundColor: banner.bg }}
     >
       {banner.src ? (
@@ -210,7 +213,7 @@ function UserBannerImage({
         }}
         onError={() => setStatus("error")}
         className={cn(
-          "absolute inset-0 size-full object-cover transition-opacity duration-150",
+          "absolute inset-0 size-full rounded-[inherit] object-cover transition-opacity duration-150",
           status === "loaded" ? "opacity-100" : "opacity-0",
           hasDedicatedBanner
             ? "brightness-90"
@@ -218,7 +221,10 @@ function UserBannerImage({
         )}
       />
       {status === "loading" ? (
-        <div aria-hidden className="absolute inset-0 bg-muted" />
+        <div
+          aria-hidden
+          className="absolute inset-0 rounded-[inherit] bg-muted"
+        />
       ) : null}
     </>
   )

@@ -20,7 +20,7 @@ import {
   SectionTitle,
 } from "@workspace/ui/components/section"
 import { Switch } from "@workspace/ui/components/switch"
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 
 import type { AdminOAuthProvider, AdminRuntimeConfig } from "@workspace/api"
 

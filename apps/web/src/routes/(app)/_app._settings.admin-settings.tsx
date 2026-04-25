@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 import { Switch } from "@workspace/ui/components/switch"
 import {
   Tabs,

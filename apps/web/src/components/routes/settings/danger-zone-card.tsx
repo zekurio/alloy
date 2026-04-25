@@ -15,7 +15,7 @@ import {
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
 import { Section, SectionContent } from "@workspace/ui/components/section"
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 
 import { api } from "@/lib/api"
 import { authClient, signOut } from "@/lib/auth-client"

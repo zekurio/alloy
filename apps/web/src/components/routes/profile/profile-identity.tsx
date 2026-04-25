@@ -38,19 +38,19 @@ export function ProfileIdentity({
       <div className="flex w-full flex-col">
         <section
           className={cn(
-            "relative -mx-4 -mt-6 overflow-hidden md:-mx-8",
+            "relative overflow-hidden rounded-lg",
             hasDedicatedBanner
-              ? "aspect-[16/4] max-h-[280px] min-h-28 sm:min-h-[160px]"
-              : "aspect-[3/1] max-h-[240px] min-h-28 sm:min-h-[140px]"
+              ? "aspect-[16/4] max-h-[280px] min-h-32 sm:min-h-[160px]"
+              : "aspect-[5/2] max-h-[240px] min-h-32 sm:min-h-[140px]"
           )}
         >
           <UserBanner user={user} />
           <div
             aria-hidden
-            className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/95 via-black/60 to-transparent"
+            className="absolute inset-x-0 bottom-0 h-2/3 rounded-[inherit] bg-gradient-to-t from-black/95 via-black/60 to-transparent"
           />
 
-          <div className="absolute inset-x-0 bottom-0 flex items-end gap-3 p-3 sm:gap-4 sm:p-6">
+          <div className="absolute inset-x-0 bottom-0 flex items-end gap-3 p-4 sm:gap-4 sm:p-6">
             <Avatar
               size="2xl"
               style={{ background: avatar.bg, color: avatar.fg }}
