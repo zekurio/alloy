@@ -101,6 +101,7 @@ function Carousel({
     api.on("select", onSelect)
 
     return () => {
+      api.off("reInit", onSelect)
       api.off("select", onSelect)
     }
   }, [api, onSelect])
@@ -138,12 +139,12 @@ function CarouselContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       ref={carouselRef}
-      className="overflow-hidden [backface-visibility:hidden] [contain:paint] [transform:translateZ(0)]"
+      className="[transform:translateZ(0)] overflow-hidden [contain:paint] [backface-visibility:hidden]"
       data-slot="carousel-content"
     >
       <div
         className={cn(
-          "flex [backface-visibility:hidden] [transform:translateZ(0)]",
+          "flex [transform:translateZ(0)] [backface-visibility:hidden]",
           orientation === "horizontal" ? "-ml-4" : "-mt-4 flex-col",
           className
         )}
@@ -162,7 +163,7 @@ function CarouselItem({ className, ...props }: React.ComponentProps<"div">) {
       aria-roledescription="slide"
       data-slot="carousel-item"
       className={cn(
-        "relative isolate min-w-0 shrink-0 grow-0 basis-full [backface-visibility:hidden] [contain:paint] [transform:translateZ(0)]",
+        "relative isolate min-w-0 shrink-0 grow-0 basis-full [transform:translateZ(0)] [contain:paint] [backface-visibility:hidden]",
         orientation === "horizontal" ? "pl-4" : "pt-4",
         className
       )}
