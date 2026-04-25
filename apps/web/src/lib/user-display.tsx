@@ -2,6 +2,8 @@ import * as React from "react"
 
 import { cn } from "@workspace/ui/lib/utils"
 
+import { apiOrigin } from "./env"
+
 type AuthUser = {
   id?: string
   name?: string | null
@@ -12,7 +14,10 @@ type AuthUser = {
   banner?: string | null
 }
 
-const USER_ASSET_PATH_PREFIX = "/storage/user-assets/"
+const USER_ASSET_PATH_PREFIXES = [
+  "/api/assets/users/",
+  "/storage/user-assets/",
+] as const
 const userImageSrcCache = new Map<string, string>()
 const loadedUserBannerSrcs = new Set<string>()
 
@@ -29,15 +34,30 @@ export function userImageSrc(
   const cached = userImageSrcCache.get(value)
   if (cached) return cached
 
-  if (value.startsWith(USER_ASSET_PATH_PREFIX) || value.startsWith("/")) {
+  const matchingPathPrefix = USER_ASSET_PATH_PREFIXES.find((prefix) =>
+    value.startsWith(prefix)
+  )
+  if (matchingPathPrefix) {
+    const normalized = normalizeUserAssetPath(value, matchingPathPrefix)
+    userImageSrcCache.set(value, normalized)
+    return normalized
+  }
+
+  if (value.startsWith("/")) {
     userImageSrcCache.set(value, value)
     return value
   }
 
   try {
     const url = new URL(value)
-    if (url.pathname.startsWith(USER_ASSET_PATH_PREFIX)) {
-      const normalized = `${url.pathname}${url.search}${url.hash}`
+    const urlPathPrefix = USER_ASSET_PATH_PREFIXES.find((prefix) =>
+      url.pathname.startsWith(prefix)
+    )
+    if (urlPathPrefix) {
+      const normalized = normalizeUserAssetPath(
+        `${url.pathname}${url.search}${url.hash}`,
+        urlPathPrefix
+      )
       userImageSrcCache.set(value, normalized)
       return normalized
     }
@@ -47,6 +67,14 @@ export function userImageSrc(
 
   userImageSrcCache.set(value, value)
   return value
+}
+
+function normalizeUserAssetPath(value: string, prefix: string): string {
+  const nextPath =
+    prefix === "/storage/user-assets/"
+      ? `/api/assets/users/${value.slice(prefix.length)}`
+      : value
+  return new URL(nextPath, apiOrigin()).toString()
 }
 
 /**

@@ -1,6 +1,6 @@
 import * as React from "react"
-import { Link, useNavigate, useRouter } from "@tanstack/react-router"
-import { CogIcon, LogInIcon, LogOutIcon, ShieldIcon } from "lucide-react"
+import { Link, useRouter } from "@tanstack/react-router"
+import { LogInIcon, LogOutIcon } from "lucide-react"
 
 import { buttonVariants } from "@workspace/ui/lib/button-variants"
 import {
@@ -30,7 +30,6 @@ export function UserMenu() {
 function UserMenuInner() {
   const session = useSuspenseSession()
   const router = useRouter()
-  const navigate = useNavigate()
   const chip = useUserChipData(session?.user)
 
   if (!session) {
@@ -49,14 +48,11 @@ function UserMenuInner() {
   const handle = user.username ?? user.displayUsername ?? null
   const email = user.email ?? null
   const primaryLabel = handle ? `@${handle}` : chip.name
-  const isAdmin = (user as { role?: string }).role === "admin"
-
   async function onSignOut() {
     try {
       await signOut()
       getQueryClient().clear()
       await router.invalidate()
-      await navigate({ to: "/login" })
     } catch {
       toast.error("Couldn't sign out")
     }
@@ -84,21 +80,6 @@ function UserMenuInner() {
             </span>
           ) : null}
         </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={() => void navigate({ to: "/user-settings" })}
-        >
-          <CogIcon />
-          Settings
-        </DropdownMenuItem>
-        {isAdmin ? (
-          <DropdownMenuItem
-            onClick={() => void navigate({ to: "/admin-settings" })}
-          >
-            <ShieldIcon />
-            Admin settings
-          </DropdownMenuItem>
-        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onClick={onSignOut}>
           <LogOutIcon />
