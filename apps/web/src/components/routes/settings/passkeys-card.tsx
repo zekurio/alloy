@@ -1,5 +1,5 @@
 import * as React from "react"
-import { KeyRoundIcon, PlusIcon, Trash2Icon } from "lucide-react"
+import { PlusIcon, Trash2Icon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import { Section, SectionContent } from "@workspace/ui/components/section"
@@ -29,6 +29,7 @@ import { toast } from "@workspace/ui/components/sonner"
 
 import { LimitedInput } from "@/components/form/limited-field"
 import { authClient } from "@/lib/auth-client"
+import { addPasskeyWithLabel } from "@/lib/passkeys"
 
 export type Passkey = {
   id: string
@@ -112,8 +113,8 @@ function AddPasskeyDialog({ onAdded }: { onAdded: () => Promise<void> }) {
     if (adding) return
     setAdding(true)
     try {
-      const { error } = await authClient.passkey.addPasskey({
-        name: name.trim() || undefined,
+      const { error } = await addPasskeyWithLabel({
+        label: name,
       })
       if (error) {
         toast.error(error.message ?? "Couldn't register passkey")
@@ -196,16 +197,11 @@ function PasskeyRow({
 }) {
   return (
     <li className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border">
-          <KeyRoundIcon className="size-4" />
-        </span>
-        <div className="min-w-0">
-          <div className="text-sm font-medium">{passkey.name || "Passkey"}</div>
-          <p className="text-xs text-foreground-dim">
-            Added {formatDate(passkey.createdAt)}
-          </p>
-        </div>
+      <div className="min-w-0">
+        <div className="text-sm font-medium">{passkey.name || "Passkey"}</div>
+        <p className="text-xs text-foreground-dim">
+          Added {formatDate(passkey.createdAt)}
+        </p>
       </div>
       <AlertDialog>
         <AlertDialogTrigger
