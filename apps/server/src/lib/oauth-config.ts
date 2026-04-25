@@ -54,6 +54,7 @@ function quotaBytesFromProfile(
   claim: string | undefined
 ): number | null | undefined {
   if (!claim) return undefined
+  if (!(claim in profile)) return null
   return quotaBytesFromClaimValue(profile[claim])
 }
 

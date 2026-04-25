@@ -98,7 +98,7 @@ function redactSecrets(
 function adminRuntimeConfigResponse(config: Readonly<RuntimeConfig>) {
   return {
     ...redactSecrets(config),
-    authBaseURL: env.BETTER_AUTH_URL,
+    authBaseURL: env.PUBLIC_SERVER_URL,
   }
 }
 

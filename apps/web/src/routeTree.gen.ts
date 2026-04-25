@@ -9,9 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as StorageSplatRouteImport } from './routes/storage/$'
-import { Route as EventsSplatRouteImport } from './routes/events/$'
-import { Route as ApiSplatRouteImport } from './routes/api/$'
 import { Route as authSignUpRouteImport } from './routes/(auth)/sign-up'
 import { Route as authSetupRouteImport } from './routes/(auth)/setup'
 import { Route as authLoginRouteImport } from './routes/(auth)/login'
@@ -22,29 +19,14 @@ import { Route as appAppSettingsRouteImport } from './routes/(app)/_app._setting
 import { Route as appAppUUsernameRouteImport } from './routes/(app)/_app.u.$username'
 import { Route as appAppGSlugRouteImport } from './routes/(app)/_app.g.$slug'
 import { Route as appAppSettingsUserSettingsRouteImport } from './routes/(app)/_app._settings.user-settings'
-import { Route as appAppSettingsAdminSettingsRouteImport } from './routes/(app)/_app._settings.admin-settings'
 import { Route as appAppUUsernameIndexRouteImport } from './routes/(app)/_app.u.$username.index'
 import { Route as appAppUUsernameTaggedRouteImport } from './routes/(app)/_app.u.$username.tagged'
 import { Route as appAppUUsernameLikedRouteImport } from './routes/(app)/_app.u.$username.liked'
 import { Route as appAppUUsernameFeedRouteImport } from './routes/(app)/_app.u.$username.feed'
 import { Route as appAppUUsernameAllRouteImport } from './routes/(app)/_app.u.$username.all'
+import { Route as appAppSettingsSettingsAdminRouteImport } from './routes/(app)/_app._settings.settings.admin'
 import { Route as appAppGSlugCClipIdRouteImport } from './routes/(app)/_app.g.$slug.c.$clipId'
 
-const StorageSplatRoute = StorageSplatRouteImport.update({
-  id: '/storage/$',
-  path: '/storage/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EventsSplatRoute = EventsSplatRouteImport.update({
-  id: '/events/$',
-  path: '/events/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiSplatRoute = ApiSplatRouteImport.update({
-  id: '/api/$',
-  path: '/api/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const authSignUpRoute = authSignUpRouteImport.update({
   id: '/(auth)/sign-up',
   path: '/sign-up',
@@ -94,12 +76,6 @@ const appAppSettingsUserSettingsRoute =
     path: '/user-settings',
     getParentRoute: () => appAppSettingsRoute,
   } as any)
-const appAppSettingsAdminSettingsRoute =
-  appAppSettingsAdminSettingsRouteImport.update({
-    id: '/admin-settings',
-    path: '/admin-settings',
-    getParentRoute: () => appAppSettingsRoute,
-  } as any)
 const appAppUUsernameIndexRoute = appAppUUsernameIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -125,6 +101,12 @@ const appAppUUsernameAllRoute = appAppUUsernameAllRouteImport.update({
   path: '/all',
   getParentRoute: () => appAppUUsernameRoute,
 } as any)
+const appAppSettingsSettingsAdminRoute =
+  appAppSettingsSettingsAdminRouteImport.update({
+    id: '/settings/admin',
+    path: '/settings/admin',
+    getParentRoute: () => appAppSettingsRoute,
+  } as any)
 const appAppGSlugCClipIdRoute = appAppGSlugCClipIdRouteImport.update({
   id: '/c/$clipId',
   path: '/c/$clipId',
@@ -135,15 +117,12 @@ export interface FileRoutesByFullPath {
   '/login': typeof authLoginRoute
   '/setup': typeof authSetupRoute
   '/sign-up': typeof authSignUpRoute
-  '/api/$': typeof ApiSplatRoute
-  '/events/$': typeof EventsSplatRoute
-  '/storage/$': typeof StorageSplatRoute
   '/games': typeof appAppGamesRoute
   '/': typeof appAppIndexRoute
-  '/admin-settings': typeof appAppSettingsAdminSettingsRoute
   '/user-settings': typeof appAppSettingsUserSettingsRoute
   '/g/$slug': typeof appAppGSlugRouteWithChildren
   '/u/$username': typeof appAppUUsernameRouteWithChildren
+  '/settings/admin': typeof appAppSettingsSettingsAdminRoute
   '/u/$username/all': typeof appAppUUsernameAllRoute
   '/u/$username/feed': typeof appAppUUsernameFeedRoute
   '/u/$username/liked': typeof appAppUUsernameLikedRoute
@@ -155,14 +134,11 @@ export interface FileRoutesByTo {
   '/login': typeof authLoginRoute
   '/setup': typeof authSetupRoute
   '/sign-up': typeof authSignUpRoute
-  '/api/$': typeof ApiSplatRoute
-  '/events/$': typeof EventsSplatRoute
-  '/storage/$': typeof StorageSplatRoute
   '/games': typeof appAppGamesRoute
   '/': typeof appAppIndexRoute
-  '/admin-settings': typeof appAppSettingsAdminSettingsRoute
   '/user-settings': typeof appAppSettingsUserSettingsRoute
   '/g/$slug': typeof appAppGSlugRouteWithChildren
+  '/settings/admin': typeof appAppSettingsSettingsAdminRoute
   '/u/$username/all': typeof appAppUUsernameAllRoute
   '/u/$username/feed': typeof appAppUUsernameFeedRoute
   '/u/$username/liked': typeof appAppUUsernameLikedRoute
@@ -176,16 +152,13 @@ export interface FileRoutesById {
   '/(auth)/login': typeof authLoginRoute
   '/(auth)/setup': typeof authSetupRoute
   '/(auth)/sign-up': typeof authSignUpRoute
-  '/api/$': typeof ApiSplatRoute
-  '/events/$': typeof EventsSplatRoute
-  '/storage/$': typeof StorageSplatRoute
   '/(app)/_app/_settings': typeof appAppSettingsRouteWithChildren
   '/(app)/_app/games': typeof appAppGamesRoute
   '/(app)/_app/': typeof appAppIndexRoute
-  '/(app)/_app/_settings/admin-settings': typeof appAppSettingsAdminSettingsRoute
   '/(app)/_app/_settings/user-settings': typeof appAppSettingsUserSettingsRoute
   '/(app)/_app/g/$slug': typeof appAppGSlugRouteWithChildren
   '/(app)/_app/u/$username': typeof appAppUUsernameRouteWithChildren
+  '/(app)/_app/_settings/settings/admin': typeof appAppSettingsSettingsAdminRoute
   '/(app)/_app/u/$username/all': typeof appAppUUsernameAllRoute
   '/(app)/_app/u/$username/feed': typeof appAppUUsernameFeedRoute
   '/(app)/_app/u/$username/liked': typeof appAppUUsernameLikedRoute
@@ -199,15 +172,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/setup'
     | '/sign-up'
-    | '/api/$'
-    | '/events/$'
-    | '/storage/$'
     | '/games'
     | '/'
-    | '/admin-settings'
     | '/user-settings'
     | '/g/$slug'
     | '/u/$username'
+    | '/settings/admin'
     | '/u/$username/all'
     | '/u/$username/feed'
     | '/u/$username/liked'
@@ -219,14 +189,11 @@ export interface FileRouteTypes {
     | '/login'
     | '/setup'
     | '/sign-up'
-    | '/api/$'
-    | '/events/$'
-    | '/storage/$'
     | '/games'
     | '/'
-    | '/admin-settings'
     | '/user-settings'
     | '/g/$slug'
+    | '/settings/admin'
     | '/u/$username/all'
     | '/u/$username/feed'
     | '/u/$username/liked'
@@ -239,16 +206,13 @@ export interface FileRouteTypes {
     | '/(auth)/login'
     | '/(auth)/setup'
     | '/(auth)/sign-up'
-    | '/api/$'
-    | '/events/$'
-    | '/storage/$'
     | '/(app)/_app/_settings'
     | '/(app)/_app/games'
     | '/(app)/_app/'
-    | '/(app)/_app/_settings/admin-settings'
     | '/(app)/_app/_settings/user-settings'
     | '/(app)/_app/g/$slug'
     | '/(app)/_app/u/$username'
+    | '/(app)/_app/_settings/settings/admin'
     | '/(app)/_app/u/$username/all'
     | '/(app)/_app/u/$username/feed'
     | '/(app)/_app/u/$username/liked'
@@ -262,34 +226,10 @@ export interface RootRouteChildren {
   authLoginRoute: typeof authLoginRoute
   authSetupRoute: typeof authSetupRoute
   authSignUpRoute: typeof authSignUpRoute
-  ApiSplatRoute: typeof ApiSplatRoute
-  EventsSplatRoute: typeof EventsSplatRoute
-  StorageSplatRoute: typeof StorageSplatRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/storage/$': {
-      id: '/storage/$'
-      path: '/storage/$'
-      fullPath: '/storage/$'
-      preLoaderRoute: typeof StorageSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/events/$': {
-      id: '/events/$'
-      path: '/events/$'
-      fullPath: '/events/$'
-      preLoaderRoute: typeof EventsSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/$': {
-      id: '/api/$'
-      path: '/api/$'
-      fullPath: '/api/$'
-      preLoaderRoute: typeof ApiSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/(auth)/sign-up': {
       id: '/(auth)/sign-up'
       path: '/sign-up'
@@ -360,13 +300,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof appAppSettingsUserSettingsRouteImport
       parentRoute: typeof appAppSettingsRoute
     }
-    '/(app)/_app/_settings/admin-settings': {
-      id: '/(app)/_app/_settings/admin-settings'
-      path: '/admin-settings'
-      fullPath: '/admin-settings'
-      preLoaderRoute: typeof appAppSettingsAdminSettingsRouteImport
-      parentRoute: typeof appAppSettingsRoute
-    }
     '/(app)/_app/u/$username/': {
       id: '/(app)/_app/u/$username/'
       path: '/'
@@ -402,6 +335,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof appAppUUsernameAllRouteImport
       parentRoute: typeof appAppUUsernameRoute
     }
+    '/(app)/_app/_settings/settings/admin': {
+      id: '/(app)/_app/_settings/settings/admin'
+      path: '/settings/admin'
+      fullPath: '/settings/admin'
+      preLoaderRoute: typeof appAppSettingsSettingsAdminRouteImport
+      parentRoute: typeof appAppSettingsRoute
+    }
     '/(app)/_app/g/$slug/c/$clipId': {
       id: '/(app)/_app/g/$slug/c/$clipId'
       path: '/c/$clipId'
@@ -413,13 +353,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface appAppSettingsRouteChildren {
-  appAppSettingsAdminSettingsRoute: typeof appAppSettingsAdminSettingsRoute
   appAppSettingsUserSettingsRoute: typeof appAppSettingsUserSettingsRoute
+  appAppSettingsSettingsAdminRoute: typeof appAppSettingsSettingsAdminRoute
 }
 
 const appAppSettingsRouteChildren: appAppSettingsRouteChildren = {
-  appAppSettingsAdminSettingsRoute: appAppSettingsAdminSettingsRoute,
   appAppSettingsUserSettingsRoute: appAppSettingsUserSettingsRoute,
+  appAppSettingsSettingsAdminRoute: appAppSettingsSettingsAdminRoute,
 }
 
 const appAppSettingsRouteWithChildren = appAppSettingsRoute._addFileChildren(
@@ -482,9 +422,6 @@ const rootRouteChildren: RootRouteChildren = {
   authLoginRoute: authLoginRoute,
   authSetupRoute: authSetupRoute,
   authSignUpRoute: authSignUpRoute,
-  ApiSplatRoute: ApiSplatRoute,
-  EventsSplatRoute: EventsSplatRoute,
-  StorageSplatRoute: StorageSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

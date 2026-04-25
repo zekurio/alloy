@@ -23,6 +23,7 @@ import {
 import { Switch } from "@workspace/ui/components/switch"
 
 import {
+  OAUTH_QUOTA_CLAIM_DEFAULT,
   type AdminOAuthProvider,
   USERNAME_CLAIM_SUGGESTIONS,
 } from "@workspace/api"
@@ -199,12 +200,13 @@ export function OAuthCustomProviderDialog({
                   <Input
                     id="oauth-quota-claim"
                     value={draft.quotaClaim ?? ""}
-                    placeholder="storage_quota"
+                    placeholder={OAUTH_QUOTA_CLAIM_DEFAULT}
                     disabled={pendingAction !== null}
                     onChange={(e) => onChange("quotaClaim", e.target.value)}
                   />
                   <FieldDescription>
-                    Optional. Claim value is interpreted as GiB.
+                    Claim value is interpreted as GiB. Defaults to{" "}
+                    {OAUTH_QUOTA_CLAIM_DEFAULT}.
                   </FieldDescription>
                 </Field>
               </div>
