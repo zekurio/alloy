@@ -1,4 +1,5 @@
 const UPSTREAM = process.env.INTERNAL_API_URL ?? "http://localhost:3000"
+const EVENT_STREAM_RETRY_MS = 10_000
 
 type ProxyOptions = {
   signal?: AbortSignal
@@ -40,6 +41,10 @@ export async function proxyToUpstream(
       })
     }
 
+    if (isEventStreamRequest(request)) {
+      return eventStreamRetryResponse()
+    }
+
     return Response.json(
       { error: "Upstream API unavailable" },
       { status: 502, statusText: "Bad Gateway" }
@@ -48,5 +53,27 @@ export async function proxyToUpstream(
 }
 
 function isAbortError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === "AbortError"
+  if (error instanceof DOMException && error.name === "AbortError") return true
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    error.name === "AbortError"
+  )
+}
+
+function isEventStreamRequest(request: Request): boolean {
+  const accept = request.headers.get("accept")
+  return accept?.includes("text/event-stream") ?? false
+}
+
+function eventStreamRetryResponse(): Response {
+  return new Response(`retry: ${EVENT_STREAM_RETRY_MS}\n\n`, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      "X-Accel-Buffering": "no",
+      "Content-Encoding": "identity",
+    },
+  })
 }
