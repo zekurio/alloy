@@ -25,7 +25,14 @@ export function ReEncodeClipsButton() {
     if (pending) return
     setPending(true)
     try {
-      const { enqueued } = await api.admin.reEncodeAllClips()
+      let enqueued = 0
+      let hasMore = true
+      while (hasMore) {
+        const result = await api.admin.reEncodeAllClips()
+        enqueued += result.enqueued
+        hasMore = result.hasMore
+        if (result.enqueued === 0) break
+      }
       if (enqueued === 0) {
         toast.info("No clips to re-encode")
       } else {

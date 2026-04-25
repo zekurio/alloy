@@ -105,10 +105,12 @@ async function getProfile(
 
 async function getProfileViewer(
   context: ApiContext,
-  handle: string
+  handle: string,
+  init?: RequestInit
 ): Promise<UserProfileViewer> {
   const res = await context.request(
-    `/api/users/${encodeURIComponent(handle)}/viewer`
+    `/api/users/${encodeURIComponent(handle)}/viewer`,
+    { init }
   )
   return readJsonOrThrow<UserProfileViewer>(res)
 }
@@ -244,11 +246,11 @@ function downloadAllClipsUrl(context: ApiContext): string {
 
 async function deleteAllClips(
   context: ApiContext
-): Promise<{ deleted: number }> {
+): Promise<{ deleted: number; hasMore: boolean }> {
   const res = await context.request("/api/users/me/clips", {
     method: "DELETE",
   })
-  return readJsonOrThrow<{ deleted: number }>(res)
+  return readJsonOrThrow<{ deleted: number; hasMore: boolean }>(res)
 }
 
 export function createUsersApi(context: ApiContext) {
@@ -273,8 +275,11 @@ export function createUsersApi(context: ApiContext) {
       return getProfile(context, handle)
     },
 
-    async fetchProfileViewer(handle: string): Promise<UserProfileViewer> {
-      return getProfileViewer(context, handle)
+    async fetchProfileViewer(
+      handle: string,
+      init?: RequestInit
+    ): Promise<UserProfileViewer> {
+      return getProfileViewer(context, handle, init)
     },
 
     async fetchClips(handle: string, init?: RequestInit): Promise<UserClip[]> {
@@ -337,7 +342,7 @@ export function createUsersApi(context: ApiContext) {
       return downloadAllClipsUrl(context)
     },
 
-    async deleteAllClips(): Promise<{ deleted: number }> {
+    async deleteAllClips(): Promise<{ deleted: number; hasMore: boolean }> {
       return deleteAllClips(context)
     },
   }
