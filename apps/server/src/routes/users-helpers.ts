@@ -3,7 +3,7 @@ import { z } from "zod"
 
 import type { PublicUser } from "@workspace/contracts"
 import { user } from "@workspace/db/auth-schema"
-import { clip, clipMention, follow, game } from "@workspace/db/schema"
+import { clip, clipLike, clipMention, follow, game } from "@workspace/db/schema"
 
 import { getAuth } from "../auth"
 import { db } from "../db"
@@ -95,6 +95,32 @@ export async function listTaggedClips(row: UserRow, headers: Headers) {
     .leftJoin(game, eq(clip.gameId, game.id))
     .where(and(...conditions))
     .orderBy(desc(clip.createdAt))
+    .limit(50)
+}
+
+export async function listLikedClips(row: UserRow, headers: Headers) {
+  const session = await getAuth().api.getSession({ headers })
+  const isOwner = session?.user.id === row.id
+  const isAdmin =
+    (session?.user as { role?: string | null } | undefined)?.role === "admin"
+
+  const conditions: SQL[] = [
+    eq(clipLike.userId, row.id),
+    eq(clip.status, "ready"),
+    isNull(user.disabledAt),
+  ]
+  if (!isOwner && !isAdmin) {
+    conditions.push(inArray(clip.privacy, ["public", "unlisted"]))
+  }
+
+  return db
+    .select(clipSelectShape)
+    .from(clipLike)
+    .innerJoin(clip, eq(clipLike.clipId, clip.id))
+    .innerJoin(user, eq(clip.authorId, user.id))
+    .leftJoin(game, eq(clip.gameId, game.id))
+    .where(and(...conditions))
+    .orderBy(desc(clipLike.createdAt))
     .limit(50)
 }
 

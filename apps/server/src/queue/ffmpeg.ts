@@ -201,7 +201,8 @@ export function buildEncodeArgs(
 function buildHardwareArgs(config: ResolvedEncoderConfig): string[] {
   const hwaccel = config.hwaccel.trim()
   const encoder = config.encoder.trim()
-  const args = hwaccel ? ["-hwaccel", hwaccel] : []
+  const ffmpegHwaccel = ffmpegHwaccelName(hwaccel)
+  const args = ffmpegHwaccel ? ["-hwaccel", ffmpegHwaccel] : []
 
   if (encoder.endsWith("_qsv") || hwaccel === "qsv") {
     args.push("-qsv_device", config.qsvDevice)
@@ -211,6 +212,12 @@ function buildHardwareArgs(config: ResolvedEncoderConfig): string[] {
   }
 
   return args
+}
+
+function ffmpegHwaccelName(hwaccel: string): string {
+  if (hwaccel === "none") return ""
+  if (hwaccel === "nvenc") return "cuda"
+  return hwaccel
 }
 
 function buildFilterChain(
@@ -303,7 +310,7 @@ export function codecNameFor(
   hwaccel: HwaccelKind,
   codec: EncoderCodec
 ): string {
-  if (hwaccel === "software") {
+  if (hwaccel === "none") {
     switch (codec) {
       case "h264":
         return "libx264"
