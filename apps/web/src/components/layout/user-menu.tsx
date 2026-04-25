@@ -2,7 +2,7 @@ import * as React from "react"
 import { Link, useNavigate, useRouter } from "@tanstack/react-router"
 import { CogIcon, LogInIcon, LogOutIcon, ShieldIcon } from "lucide-react"
 
-import { buttonVariants } from "@workspace/ui/components/button"
+import { buttonVariants } from "@workspace/ui/lib/button-variants"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,8 +10,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
-import { Skeleton } from "@workspace/ui/components/skeleton"
-import { toast } from "@workspace/ui/components/sonner"
+import { Spinner } from "@workspace/ui/components/spinner"
+import { toast } from "@workspace/ui/lib/toast"
 import { UserAvatarButton } from "@workspace/ui/components/user-avatar-button"
 
 import { signOut } from "@/lib/auth-client"
@@ -113,10 +113,10 @@ function UserAvatarSkeleton() {
   return (
     <div
       data-slot="user-avatar-skeleton"
-      className="inline-flex size-9 shrink-0"
+      className="inline-flex size-9 shrink-0 items-center justify-center"
       aria-hidden
     >
-      <Skeleton className="size-9 rounded-lg" />
+      <Spinner className="size-4" />
     </div>
   )
 }

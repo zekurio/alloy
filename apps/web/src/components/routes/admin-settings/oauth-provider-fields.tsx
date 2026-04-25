@@ -3,7 +3,7 @@ import { CopyIcon } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 
 export function OAuthCallbackField({
   id,
@@ -38,18 +38,6 @@ export function OAuthCallbackField({
       </div>
     </Field>
   )
-}
-
-export function scopeInputValue(scopes: string[] | undefined): string {
-  return scopes?.join(" ") ?? ""
-}
-
-export function parseScopes(raw: string): string[] | undefined {
-  const scopes = raw
-    .split(/[\s,]+/)
-    .map((scope) => scope.trim())
-    .filter(Boolean)
-  return scopes.length > 0 ? scopes : undefined
 }
 
 async function copyToClipboard(

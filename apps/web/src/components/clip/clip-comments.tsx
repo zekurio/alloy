@@ -8,7 +8,7 @@ import {
 } from "@workspace/ui/components/avatar"
 import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { useSession } from "@/lib/auth-client"

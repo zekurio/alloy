@@ -1,7 +1,7 @@
 import * as React from "react"
 
 import { isServerHttpError } from "@workspace/api"
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 
 type UseQueryErrorToastOptions = {
   title: string

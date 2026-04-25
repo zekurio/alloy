@@ -2,7 +2,7 @@ import * as React from "react"
 import { KeyRoundIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 
 import { authClient } from "@/lib/auth-client"
 
