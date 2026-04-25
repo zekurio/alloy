@@ -10,39 +10,53 @@ function isClipPermalink(pathname: string): boolean {
   return /^\/g\/[^/]+\/c\/[^/]+\/?$/.test(pathname)
 }
 
+function authContext(
+  config: Awaited<ReturnType<typeof loadAuthConfig>>,
+  session: Session | null
+) {
+  return { authConfig: config, session }
+}
+
 export async function redirectToSetupBeforeLoad({
   location,
 }: {
   location: { pathname: string }
-}): Promise<void> {
-  if (location.pathname === "/setup") return
+}) {
+  if (location.pathname === "/setup") {
+    return authContext(await loadAuthConfig(), null)
+  }
 
   const config = await loadAuthConfig()
   if (config.setupRequired) {
     throw redirect({ to: "/setup" })
   }
+  const session = await loadSession()
+  return authContext(config, session)
 }
 
 export async function requireBrowseAuthBeforeLoad({
   location,
 }: {
   location: { pathname: string }
-}): Promise<void> {
+}) {
   const config = await loadAuthConfig()
 
   if (config.setupRequired) {
     throw redirect({ to: "/setup" })
   }
 
-  if (isClipPermalink(location.pathname)) return
-
   const session = await loadSession()
+  if (isClipPermalink(location.pathname)) {
+    return authContext(config, session)
+  }
+
   if (!session && config.requireAuthToBrowse) {
     throw redirect({ to: "/login" })
   }
+  return authContext(config, session)
 }
 
-export async function requireStrictAuthBeforeLoad(): Promise<void> {
+export async function requireStrictAuthBeforeLoad() {
   const [config, session] = await Promise.all([loadAuthConfig(), loadSession()])
 
   if (config.setupRequired) {
@@ -52,9 +66,10 @@ export async function requireStrictAuthBeforeLoad(): Promise<void> {
   if (!session) {
     throw redirect({ to: "/login" })
   }
+  return authContext(config, session)
 }
 
-export async function requireAdminBeforeLoad(): Promise<void> {
+export async function requireAdminBeforeLoad() {
   const [config, session] = await Promise.all([loadAuthConfig(), loadSession()])
 
   if (config.setupRequired) {
@@ -68,9 +83,10 @@ export async function requireAdminBeforeLoad(): Promise<void> {
   if (!isAdmin(session)) {
     throw redirect({ to: "/" })
   }
+  return authContext(config, session)
 }
 
-export async function redirectAuthedBeforeLoad(): Promise<void> {
+export async function redirectAuthedBeforeLoad() {
   const [config, session] = await Promise.all([loadAuthConfig(), loadSession()])
 
   if (config.setupRequired) {
@@ -80,4 +96,5 @@ export async function redirectAuthedBeforeLoad(): Promise<void> {
   if (session) {
     throw redirect({ to: "/" })
   }
+  return authContext(config, session)
 }
