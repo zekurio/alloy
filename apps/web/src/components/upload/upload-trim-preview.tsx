@@ -135,6 +135,7 @@ export function TrimTimeline({
   const dragStateRef = React.useRef<{
     kind: "start" | "end" | "playhead"
     pointerId: number
+    element: Element
   } | null>(null)
 
   const pctOf = (ms: number) =>
@@ -160,7 +161,7 @@ export function TrimTimeline({
     e.stopPropagation()
     const target = e.currentTarget
     target.setPointerCapture(e.pointerId)
-    dragStateRef.current = { kind, pointerId: e.pointerId }
+    dragStateRef.current = { kind, pointerId: e.pointerId, element: target }
   }
 
   const handlePointerMove = (e: React.PointerEvent) => {
@@ -183,7 +184,9 @@ export function TrimTimeline({
   const handlePointerUp = (e: React.PointerEvent) => {
     const drag = dragStateRef.current
     if (!drag || drag.pointerId !== e.pointerId) return
-    e.currentTarget.releasePointerCapture(e.pointerId)
+    if (drag.element.hasPointerCapture(e.pointerId)) {
+      drag.element.releasePointerCapture(e.pointerId)
+    }
     dragStateRef.current = null
   }
 

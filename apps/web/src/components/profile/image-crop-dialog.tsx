@@ -129,6 +129,7 @@ export function ImageCropDialog({
     setImageSrc(url)
     setCrop({ x: 0, y: 0 })
     setZoom(1)
+    setCroppedArea(null)
     return () => URL.revokeObjectURL(url)
   }, [file])
 

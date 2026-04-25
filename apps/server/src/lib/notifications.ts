@@ -27,6 +27,7 @@ interface CreateNotificationInput {
   type: NotificationType
   clipId?: string | null
   commentId?: string | null
+  suppressErrors?: boolean
 }
 
 function iso(value: Date | string | null): string | null {
@@ -202,6 +203,7 @@ export async function createNotification(
     if (row) publishNotificationUpsert(input.recipientId, row, unread)
     return row
   } catch (err) {
+    if (input.suppressErrors === false) throw err
     // Notification writes should not make the primary user action fail.
     // eslint-disable-next-line no-console
     console.warn("[notifications] failed to create notification:", err)
