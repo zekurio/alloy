@@ -52,7 +52,9 @@ export function publicClipsWithLoadedThumbnails(
   if (cached) return cached
 
   const promise = Promise.all(
-    clips.flatMap((clip) => (clip.thumbUrl ? [loadThumbnail(clip.thumbUrl)] : []))
+    clips.flatMap((clip) =>
+      clip.thumbUrl ? [loadThumbnail(clip.thumbUrl)] : []
+    )
   ).then(() => clips)
 
   publicClipThumbnailBatchCache.set(clips, promise)

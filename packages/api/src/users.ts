@@ -137,6 +137,16 @@ async function getTaggedClips(
   return readJsonOrThrow<UserClip[]>(res)
 }
 
+async function getLikedClips(
+  context: ApiContext,
+  handle: string
+): Promise<UserClip[]> {
+  const res = await context.request(
+    `/api/users/${encodeURIComponent(handle)}/liked`
+  )
+  return readJsonOrThrow<UserClip[]>(res)
+}
+
 async function searchUsers(
   context: ApiContext,
   q: string,
@@ -288,6 +298,10 @@ export function createUsersApi(context: ApiContext) {
 
     async fetchTaggedClips(handle: string): Promise<UserClip[]> {
       return getTaggedClips(context, handle)
+    },
+
+    async fetchLikedClips(handle: string): Promise<UserClip[]> {
+      return getLikedClips(context, handle)
     },
 
     async search(q: string, limit = 8): Promise<UserSearchResult[]> {
