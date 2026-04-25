@@ -127,7 +127,7 @@ async function createPasskeyRegistrationUser(
 function buildPasskeyPlugin() {
   return passkeyPlugin({
     rpName: "alloy",
-    rpID: new URL(env.BETTER_AUTH_URL).hostname,
+    rpID: new URL(env.PUBLIC_SERVER_URL).hostname,
     origin: env.TRUSTED_ORIGINS,
     registration: {
       requireSession: false,
@@ -178,7 +178,7 @@ function buildAuth() {
   ]
   return betterAuth({
     appName: "alloy",
-    baseURL: env.BETTER_AUTH_URL,
+    baseURL: env.PUBLIC_SERVER_URL,
     secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(db, {
       provider: "pg",
@@ -244,11 +244,7 @@ configStore.subscribe((next, prev) => {
   const openRegistrationsChanged =
     next.openRegistrations !== prev.openRegistrations
   const passkeyChanged = next.passkeyEnabled !== prev.passkeyEnabled
-  if (
-    !providerChanged &&
-    !openRegistrationsChanged &&
-    !passkeyChanged
-  ) {
+  if (!providerChanged && !openRegistrationsChanged && !passkeyChanged) {
     return
   }
   currentAuth = buildAuth()
