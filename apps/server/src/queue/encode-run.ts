@@ -44,6 +44,7 @@ async function runEncodeInScratch(
 ): Promise<void> {
   const sourcePath = path.join(scratchDir, "source")
   await storage.downloadToFile(sourceKey, sourcePath)
+  await ensureClipStillPresent(clipId, signal)
 
   await db
     .update(clip)
@@ -58,6 +59,7 @@ async function runEncodeInScratch(
   void publishClipUpsert(row.authorId, clipId)
 
   const probed = await probe(sourcePath)
+  await ensureClipStillPresent(clipId, signal)
 
   const trimRequested =
     row.trimStartMs != null &&
@@ -126,6 +128,7 @@ async function runEncodeInScratch(
   await pruneStaleVariants(row, reusedBySpecIndex, sourceVariant)
 
   const encodedVariants = await encodeVariants({
+    clipId,
     reuse: reusedBySpecIndex,
     paths: { sourcePath, scratchDir },
     specs: variantSpecs,
@@ -316,6 +319,7 @@ async function pruneStaleVariants(
 }
 
 type EncodeVariantsOpts = {
+  clipId: string
   specs: VariantSpec[]
   settings: ClipVariantSettings[]
   reuse: Map<number, ClipEncodedVariant>
@@ -359,6 +363,7 @@ async function encodeVariants(
   }
 
   for (const [index, variant] of opts.specs.entries()) {
+    await ensureClipStillPresent(opts.clipId, opts.signal)
     const reuse = opts.reuse.get(index)
     if (reuse) {
       pushVariant(variant, index, reuse)
@@ -398,7 +403,9 @@ async function encodeVariants(
       signal: opts.signal,
     })
 
+    await ensureClipStillPresent(opts.clipId, opts.signal)
     const variantProbe = await probe(variantPath)
+    await ensureClipStillPresent(opts.clipId, opts.signal)
     const { size: uploadedSize } = await storage.uploadFromFile(
       variantPath,
       variant.storageKey,
@@ -420,11 +427,26 @@ async function encodeVariants(
   return encodedVariants
 }
 
+async function ensureClipStillPresent(
+  clipId: string,
+  signal: AbortSignal
+): Promise<void> {
+  signal.throwIfAborted()
+  const [row] = await db
+    .select({ id: clip.id })
+    .from(clip)
+    .where(eq(clip.id, clipId))
+    .limit(1)
+  if (row) return
+  const err = new Error("Encode cancelled")
+  err.name = "AbortError"
+  throw err
+}
+
 async function makeScratchDir(clipId: string): Promise<string> {
   const base = env.ENCODE_SCRATCH_DIR ?? path.join(os.tmpdir(), "alloy-encode")
-  const dir = path.join(base, clipId)
-  await fsp.mkdir(dir, { recursive: true })
-  return dir
+  await fsp.mkdir(base, { recursive: true })
+  return fsp.mkdtemp(path.join(base, `${clipId}-`))
 }
 
 function resolveVariantSettings(

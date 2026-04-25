@@ -11,6 +11,7 @@ export async function deleteClipRowAndAssets(
   row: typeof clip.$inferSelect
 ): Promise<void> {
   await cancelEncode(row.id)
+  await db.delete(clip).where(eq(clip.id, row.id))
 
   const keys = [
     row.storageKey,
@@ -27,6 +28,5 @@ export async function deleteClipRowAndAssets(
     }
   }
 
-  await db.delete(clip).where(eq(clip.id, row.id))
   publishClipRemove(row.authorId, row.id)
 }
