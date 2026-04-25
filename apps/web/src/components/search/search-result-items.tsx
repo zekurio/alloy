@@ -14,6 +14,7 @@ import {
   type ClipRow,
 } from "@workspace/api"
 import { clipGameLabel, formatCount, hueForGame } from "@/lib/clip-format"
+import { apiOrigin } from "@/lib/env"
 import type { UserListRow } from "@/lib/search-api"
 import { userChipData } from "@/lib/user-display"
 
@@ -82,7 +83,7 @@ export function ClipRowItem({
   onHover: () => void
   onSelect: () => void
 }) {
-  const thumb = row.thumbKey ? clipThumbnailUrl(row.id) : null
+  const thumb = row.thumbKey ? clipThumbnailUrl(row.id, apiOrigin()) : null
   const label = clipGameLabel(row)
   return (
     <RowButton active={active} onHover={onHover} onSelect={onSelect}>

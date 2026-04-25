@@ -52,6 +52,7 @@ import { clipThumbnailUrl, type ClipRow } from "@workspace/api"
 import { api } from "@/lib/api"
 import { clipGameLabel, formatCount } from "@/lib/clip-format"
 import { useSession } from "@/lib/auth-client"
+import { apiOrigin } from "@/lib/env"
 import {
   useDeleteClipMutation,
   useLikeStateQuery,
@@ -109,7 +110,7 @@ function MobileClipViewerBody({
   const initials = displayInitials(author)
   const { bg, fg } = avatarTint(row.authorId || handle)
   const gameLabel = clipGameLabel(row)
-  const thumbnail = row.thumbKey ? clipThumbnailUrl(row.id) : null
+  const thumbnail = row.thumbKey ? clipThumbnailUrl(row.id, apiOrigin()) : null
   const avatarSrc = userImageSrc(row.authorImage)
   const gameRef = row.gameRef
   const gameIcon = gameRef?.iconUrl ?? gameRef?.logoUrl ?? null

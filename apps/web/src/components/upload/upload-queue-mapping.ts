@@ -1,5 +1,6 @@
 import type { QueueClip } from "@workspace/api"
 import { clipThumbnailUrl } from "@workspace/api"
+import { apiOrigin } from "@/lib/env"
 import type { QueueItem, QueueItemStatus } from "./upload-queue"
 
 export interface ActiveUpload {
@@ -123,7 +124,7 @@ export function serverToQueueItem(
           : 0,
     detail,
     hue: hueFor(row.id),
-    thumbUrl: clipThumbnailUrl(row.id),
+    thumbUrl: clipThumbnailUrl(row.id, apiOrigin()),
     thumbFallbackUrl: handlers.thumbFallbackUrl,
     onThumbLoad: handlers.onThumbLoad,
     onCancel: handlers.onCancel,

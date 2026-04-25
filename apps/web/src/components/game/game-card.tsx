@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { hueForGame } from "@/lib/clip-format"
-import { publicOrigin } from "@/lib/env"
+import { apiOrigin } from "@/lib/env"
 
 export type GameCardData = {
   name: string
@@ -27,7 +27,7 @@ function GameCardBody({ game }: { game: GameCardData }) {
   const hue = hueForGame(game.name)
   const gridSrc =
     game.gridUrl && game.slug
-      ? `${publicOrigin()}/api/games/${encodeURIComponent(game.slug)}/grid`
+      ? `${apiOrigin()}/api/games/${encodeURIComponent(game.slug)}/grid`
       : null
 
   if (gridSrc) {
