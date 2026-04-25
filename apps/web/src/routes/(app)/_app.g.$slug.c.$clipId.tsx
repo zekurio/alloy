@@ -12,6 +12,7 @@ import {
 
 import { ClipViewerDialog } from "@/components/clip/clip-viewer-dialog"
 import { api } from "@/lib/api"
+import { clipKeys } from "@/lib/clip-queries"
 
 const requestContextMiddleware = createMiddleware().server(
   ({ next, request }) => {
@@ -38,12 +39,13 @@ const fetchRouteClipById = createServerFn({ method: "GET" })
   })
 
 export const Route = createFileRoute("/(app)/_app/g/$slug/c/$clipId")({
-  loader: async ({ params }) => {
+  loader: async ({ context, params }) => {
     try {
       const [clip, origin] = await Promise.all([
         fetchRouteClipById({ data: params.clipId }),
         getPublicOrigin(),
       ])
+      context.queryClient.setQueryData(clipKeys.detail(params.clipId), clip)
       return { clip, publicOrigin: origin }
     } catch (error) {
       if (

@@ -6,6 +6,7 @@ import { z } from "zod"
 
 import { ACCEPTED_CLIP_CONTENT_TYPES } from "@workspace/contracts"
 import { getAuth } from "../auth"
+import { user } from "@workspace/db/auth-schema"
 import {
   CLIP_PRIVACY,
   clip,
@@ -107,8 +108,10 @@ export async function resolveEngagementTarget(
       status: clip.status,
       privacy: clip.privacy,
       likeCount: clip.likeCount,
+      authorDisabledAt: user.disabledAt,
     })
     .from(clip)
+    .innerJoin(user, eq(clip.authorId, user.id))
     .where(eq(clip.id, id))
     .limit(1)
   if (!row) {
@@ -134,6 +137,15 @@ export async function resolveEngagementTarget(
   const viewer = await peekViewer(headers)
   const isOwner = viewer?.id === row.authorId
   const isAdmin = viewer?.role === "admin"
+  if (row.authorDisabledAt && !isOwner && !isAdmin) {
+    return {
+      accessible: false,
+      response: new Response(JSON.stringify({ error: "Not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      }),
+    }
+  }
   if (row.privacy === "private" && !isOwner && !isAdmin) {
     return {
       accessible: false,
