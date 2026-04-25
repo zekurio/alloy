@@ -29,11 +29,14 @@ export interface OAuthProviderConfig {
 export type AdminOAuthProvider = OAuthProviderConfig
 
 export const ENCODER_HWACCELS = [
-  "software",
+  "none",
+  "amf",
   "nvenc",
   "qsv",
-  "amf",
+  "rkmpp",
   "vaapi",
+  "videotoolbox",
+  "v4l2m2m",
 ] as const
 
 export type EncoderHwaccel = (typeof ENCODER_HWACCELS)[number]
@@ -48,9 +51,8 @@ export const ENCODER_HEIGHT_MAX = 4320
 
 export interface AdminEncoderVariant {
   name: string
-  hwaccel: string
+  codec: EncoderCodec
   height: number
-  encoder: string
   quality: number
   preset?: string
   audioBitrateKbps: number
@@ -62,6 +64,7 @@ export type EncoderVariant = AdminEncoderVariant
 
 export interface AdminEncoderConfig {
   enabled: boolean
+  hwaccel: EncoderHwaccel
   qsvDevice: string
   vaapiDevice: string
   keepSource: boolean

@@ -74,7 +74,7 @@ function encodeFeedCursor(cursor: FeedCursor): string {
   return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url")
 }
 
-function rankScore(viewerId: string | null, asOf: Date) {
+function rankScore(viewerId: string | null, asOf: string) {
   const vid = viewerId ?? null
   return sql<number>`
     (
@@ -174,7 +174,7 @@ export const feedRoute = new Hono()
       if (combined) conditions.push(combined)
     }
 
-    const score = rankScore(viewerId, asOf)
+    const score = rankScore(viewerId, asOf.toISOString())
     if (rawCursor && !cursor) {
       return c.json({ error: "Invalid cursor" }, 400)
     }

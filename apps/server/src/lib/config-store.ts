@@ -95,55 +95,94 @@ export type OAuthProviderSubmission = z.infer<
   typeof OAuthProviderSubmissionSchema
 >
 
-function legacyEncoderName(
-  hwaccel: EncoderHwaccel,
-  codec: EncoderCodec
-): string {
-  if (hwaccel === "software") {
-    switch (codec) {
-      case "h264":
-        return "libx264"
-      case "hevc":
-        return "libx265"
-      case "av1":
-        return "libsvtav1"
+function inferLegacyEncoderSettings(
+  variants: unknown
+): { hwaccel: EncoderHwaccel; codec: EncoderCodec } | null {
+  if (!Array.isArray(variants)) return null
+  for (const rawVariant of variants) {
+    if (
+      !rawVariant ||
+      typeof rawVariant !== "object" ||
+      Array.isArray(rawVariant)
+    ) {
+      continue
     }
+
+    const variant = rawVariant as Record<string, unknown>
+    const legacyHwaccel =
+      variant.hwaccel === "software" ? "none" : variant.hwaccel
+    const legacyCodec = variant.codec
+    if (
+      ENCODER_HWACCELS.includes(legacyHwaccel as EncoderHwaccel) &&
+      ENCODER_CODECS.includes(legacyCodec as EncoderCodec)
+    ) {
+      return {
+        hwaccel: legacyHwaccel as EncoderHwaccel,
+        codec: legacyCodec as EncoderCodec,
+      }
+    }
+
+    const encoder = typeof variant.encoder === "string" ? variant.encoder : ""
+    const inferred = inferFromEncoderName(encoder)
+    if (inferred) return inferred
   }
-  return `${codec}_${hwaccel}`
+  return null
+}
+
+function inferLegacyVariantCodec(
+  variant: Record<string, unknown>
+): EncoderCodec | null {
+  if (ENCODER_CODECS.includes(variant.codec as EncoderCodec)) {
+    return variant.codec as EncoderCodec
+  }
+  const encoder = typeof variant.encoder === "string" ? variant.encoder : ""
+  return inferFromEncoderName(encoder)?.codec ?? null
+}
+
+function inferFromEncoderName(
+  encoder: string
+): { hwaccel: EncoderHwaccel; codec: EncoderCodec } | null {
+  switch (encoder) {
+    case "libx264":
+      return { hwaccel: "none", codec: "h264" }
+    case "libx265":
+      return { hwaccel: "none", codec: "hevc" }
+    case "libsvtav1":
+      return { hwaccel: "none", codec: "av1" }
+  }
+
+  const match =
+    /^(h264|hevc|av1)_(amf|nvenc|qsv|rkmpp|vaapi|videotoolbox|v4l2m2m)$/.exec(
+      encoder
+    )
+  if (!match) return null
+  return {
+    codec: match[1] as EncoderCodec,
+    hwaccel: match[2] as EncoderHwaccel,
+  }
 }
 
 const EncoderVariantSchema = z.preprocess(
   (raw) => {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw
     const variant = { ...(raw as Record<string, unknown>) }
-    if (variant.encoder === undefined) {
-      const legacyHwaccel = variant.hwaccel
-      const legacyCodec = variant.codec
-      if (
-        ENCODER_HWACCELS.includes(legacyHwaccel as EncoderHwaccel) &&
-        ENCODER_CODECS.includes(legacyCodec as EncoderCodec)
-      ) {
-        variant.encoder = legacyEncoderName(
-          legacyHwaccel as EncoderHwaccel,
-          legacyCodec as EncoderCodec
-        )
-        variant.hwaccel = ""
-      }
-    }
+    const legacyCodec = inferLegacyVariantCodec(variant)
+    if (legacyCodec) variant.codec = legacyCodec
     if (variant.extraInputArgs === undefined) variant.extraInputArgs = ""
     if (variant.extraOutputArgs === undefined) variant.extraOutputArgs = ""
+    delete variant.hwaccel
+    delete variant.encoder
     return variant
   },
   z.object({
     name: z.string().min(1).max(64),
-    hwaccel: z.string().max(128).default(""),
+    codec: z.enum(ENCODER_CODECS).default("h264"),
     height: z
       .number()
       .int()
       .min(ENCODER_HEIGHT_MIN)
       .max(ENCODER_HEIGHT_MAX)
       .multipleOf(2),
-    encoder: z.string().max(128).default(""),
     quality: z.number().int().min(0).max(51),
     preset: z.string().min(1).max(64).optional(),
     audioBitrateKbps: z.number().int().min(64).max(256),
@@ -154,13 +193,42 @@ const EncoderVariantSchema = z.preprocess(
 
 const EncoderConfigInnerSchema = z.object({
   enabled: z.boolean().default(false),
+  hwaccel: z.enum(ENCODER_HWACCELS).default("none"),
   qsvDevice: z.string().min(1).max(128).default("/dev/dri/renderD128"),
   vaapiDevice: z.string().min(1).max(128).default("/dev/dri/renderD128"),
   keepSource: z.boolean().default(true),
   variants: z.array(EncoderVariantSchema).default([]),
 })
 
-const EncoderConfigSchema = EncoderConfigInnerSchema
+const EncoderConfigSchema = z.preprocess((raw) => {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw
+  const config = { ...(raw as Record<string, unknown>) }
+  const inferred = inferLegacyEncoderSettings(config.variants)
+  if (config.hwaccel === undefined && inferred)
+    config.hwaccel = inferred.hwaccel
+  if (config.hwaccel === "software") config.hwaccel = "none"
+  const fallbackCodec = ENCODER_CODECS.includes(config.codec as EncoderCodec)
+    ? (config.codec as EncoderCodec)
+    : (inferred?.codec ?? "h264")
+  if (Array.isArray(config.variants)) {
+    config.variants = config.variants.map((rawVariant) => {
+      if (
+        !rawVariant ||
+        typeof rawVariant !== "object" ||
+        Array.isArray(rawVariant)
+      ) {
+        return rawVariant
+      }
+      const variant = { ...(rawVariant as Record<string, unknown>) }
+      if (variant.codec === undefined && variant.encoder === undefined) {
+        variant.codec = fallbackCodec
+      }
+      return variant
+    })
+  }
+  delete config.codec
+  return config
+}, EncoderConfigInnerSchema)
 
 const LimitsConfigSchema = z.object({
   maxUploadBytes: z

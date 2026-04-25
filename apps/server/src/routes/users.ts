@@ -37,6 +37,7 @@ import {
   UsernameParam,
   listFollowers,
   listFollowing,
+  listLikedClips,
   listTaggedClips,
   listUserClips,
   resolveTarget,
@@ -260,6 +261,14 @@ export const usersRoute = new Hono()
     if (!row) return c.json({ error: "Not found" }, 404)
 
     return c.json(await listTaggedClips(row, c.req.raw.headers))
+  })
+
+  .get("/:username/liked", zValidator("param", UsernameParam), async (c) => {
+    const { username } = c.req.valid("param")
+    const row = await resolveTarget(username)
+    if (!row) return c.json({ error: "Not found" }, 404)
+
+    return c.json(await listLikedClips(row, c.req.raw.headers))
   })
 
   .get(
