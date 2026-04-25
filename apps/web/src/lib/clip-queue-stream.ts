@@ -5,7 +5,7 @@ import { clipKeys } from "./clip-query-keys"
 import { apiOrigin } from "./env"
 import type { QueueClip, QueueEvent } from "@workspace/api"
 
-const STREAM_URL = "/events/clips/queue"
+const STREAM_URL = "/api/events/clips/queue"
 
 function applyEvent(
   prev: QueueClip[] | undefined,
