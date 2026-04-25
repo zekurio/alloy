@@ -11,7 +11,7 @@ import { toast } from "@workspace/ui/lib/toast"
 import { api } from "./api"
 import { apiOrigin } from "./env"
 
-const STREAM_URL = "/events/notifications"
+const STREAM_URL = "/api/events/notifications"
 
 export const notificationKeys = {
   all: ["notifications"] as const,

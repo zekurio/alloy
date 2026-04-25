@@ -1,6 +1,7 @@
 import { clipThumbnailUrl } from "@workspace/api"
 
 import { api } from "./api"
+import { apiOrigin } from "./env"
 
 export interface PublicClip {
   id: string
@@ -68,7 +69,7 @@ export async function fetchPublicClips(): Promise<PublicClip[]> {
       id: r.id,
       title: r.title,
       game: r.game,
-      thumbUrl: r.thumbKey ? clipThumbnailUrl(r.id) : null,
+      thumbUrl: r.thumbKey ? clipThumbnailUrl(r.id, apiOrigin()) : null,
     }))
   } catch {
     return []

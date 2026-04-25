@@ -137,7 +137,6 @@ function TopClipsRows({
                 row={row}
                 owned={isSelf}
                 className="mx-auto w-full max-w-3xl md:max-w-none"
-                metaVariant="showcase"
               />
             </CarouselItem>
           ))}

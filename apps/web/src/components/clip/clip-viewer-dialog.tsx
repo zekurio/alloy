@@ -22,6 +22,7 @@ import {
 } from "@/lib/clip-format"
 import { clipKeys, useClipQuery } from "@/lib/clip-queries"
 import { commentKeys } from "@/lib/comment-queries"
+import { apiOrigin } from "@/lib/env"
 import { avatarTint, displayInitials, userImageSrc } from "@/lib/user-display"
 
 import { ClipComments } from "./clip-comments"
@@ -210,7 +211,7 @@ function ClipViewerDialogBody({
   const initials = displayInitials(author)
   const { bg, fg } = avatarTint(row.authorId || handle)
   const gameLabel = clipGameLabel(row)
-  const thumbnail = row.thumbKey ? clipThumbnailUrl(row.id) : null
+  const thumbnail = row.thumbKey ? clipThumbnailUrl(row.id, apiOrigin()) : null
   const avatarSrc = userImageSrc(row.authorImage)
 
   const canNavigate = Boolean(onNavigate)

@@ -188,7 +188,6 @@ function TopClipsRows({
                 row={row}
                 owned={row.authorId === viewerId}
                 className="mx-auto w-full max-w-3xl md:max-w-none"
-                metaVariant="showcase"
               />
             </CarouselItem>
           ))}
