@@ -8,8 +8,8 @@ import { loadAuthConfig } from "@/lib/session-suspense"
 
 export const Route = createFileRoute("/(auth)/login")({
   beforeLoad: redirectAuthedBeforeLoad,
-  loader: async () => {
-    const config = await loadAuthConfig()
+  loader: async ({ context }) => {
+    const config = context.authConfig ?? (await loadAuthConfig())
     if (config.setupRequired) {
       throw redirect({ to: "/setup" })
     }
