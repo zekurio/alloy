@@ -24,10 +24,7 @@
             pnpm
             postgresql_17
             util-linux
-            # ffmpeg + ffprobe drive the encode queue (`apps/server/src/queue/`).
-            # `ffmpeg-headless` is the trimmed build — no GUI deps — which is
-            # all the server needs.
-            ffmpeg-headless
+            jellyfin-ffmpeg
           ];
 
           shellHook = ''
