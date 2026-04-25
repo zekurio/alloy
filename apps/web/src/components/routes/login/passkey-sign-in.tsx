@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useNavigate, useRouter } from "@tanstack/react-router"
 import { KeyRoundIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
@@ -8,6 +9,8 @@ import { authClient } from "@/lib/auth-client"
 
 export function PasskeySignIn() {
   const [pending, setPending] = React.useState(false)
+  const navigate = useNavigate()
+  const router = useRouter()
 
   async function onSignIn() {
     if (pending) return
@@ -19,6 +22,9 @@ export function PasskeySignIn() {
         setPending(false)
         return
       }
+      await authClient.getSession()
+      await router.invalidate()
+      await navigate({ to: "/" })
     } catch {
       toast.error("Passkey sign-in failed")
       setPending(false)
