@@ -110,14 +110,12 @@ function useAdminConfig(session: ReturnType<typeof useRequireAdmin>) {
 function AdminAuthTab({
   config,
   onConfigChange,
-  onToggleEmailPassword,
   onTogglePasskey,
   onToggleOpenRegistrations,
   onToggleRequireAuthToBrowse,
 }: {
   config: AdminRuntimeConfig
   onConfigChange: (next: AdminRuntimeConfig) => void
-  onToggleEmailPassword: (nextEnabled: boolean) => void
   onTogglePasskey: (nextEnabled: boolean) => void
   onToggleOpenRegistrations: (nextEnabled: boolean) => void
   onToggleRequireAuthToBrowse: (nextEnabled: boolean) => void
@@ -131,16 +129,6 @@ function AdminAuthTab({
           <SectionTitle>Access controls</SectionTitle>
         </SectionHeader>
         <SectionContent className="flex flex-col">
-          <ToggleRow
-            title="Email and password"
-            description="Allow existing users to sign in with email or username plus password."
-            checked={config.emailPasswordEnabled}
-            onCheckedChange={onToggleEmailPassword}
-            disabled={
-              config.emailPasswordEnabled &&
-              !hasAnotherSignInMethod(config, "email")
-            }
-          />
           <ToggleRow
             title="Passkeys"
             description="Allow passkey sign-in and passkey-based account creation on supported browsers."
@@ -175,10 +163,9 @@ function hasEnabledOAuthProvider(config: AdminRuntimeConfig): boolean {
 
 function hasAnotherSignInMethod(
   config: AdminRuntimeConfig,
-  excluding: "email" | "passkey" | "oauth"
+  excluding: "passkey" | "oauth"
 ): boolean {
   return (
-    (excluding !== "email" && config.emailPasswordEnabled) ||
     (excluding !== "passkey" && config.passkeyEnabled) ||
     (excluding !== "oauth" && hasEnabledOAuthProvider(config))
   )
@@ -186,7 +173,6 @@ function hasAnotherSignInMethod(
 
 type BoolToggleKey =
   | "openRegistrations"
-  | "emailPasswordEnabled"
   | "passkeyEnabled"
   | "requireAuthToBrowse"
 
@@ -218,12 +204,6 @@ function useAdminToggles(
         "openRegistrations",
         nextEnabled,
         nextEnabled ? "Registrations open" : "Registrations closed"
-      ),
-    onToggleEmailPassword: (nextEnabled: boolean) =>
-      patch(
-        "emailPasswordEnabled",
-        nextEnabled,
-        nextEnabled ? "Password login enabled" : "Password login disabled"
       ),
     onTogglePasskey: (nextEnabled: boolean) =>
       patch(
@@ -330,7 +310,6 @@ function AdminPage() {
   const { config, setConfig, loadError } = useAdminConfig(session)
   const {
     onToggleOpenRegistrations,
-    onToggleEmailPassword,
     onTogglePasskey,
     onToggleRequireAuthToBrowse,
   } = useAdminToggles(setConfig)
@@ -369,7 +348,6 @@ function AdminPage() {
       <AdminAuthTab
         config={config}
         onConfigChange={setConfig}
-        onToggleEmailPassword={onToggleEmailPassword}
         onTogglePasskey={onTogglePasskey}
         onToggleOpenRegistrations={onToggleOpenRegistrations}
         onToggleRequireAuthToBrowse={onToggleRequireAuthToBrowse}

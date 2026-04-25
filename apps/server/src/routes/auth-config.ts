@@ -34,6 +34,7 @@ type PasskeySignUpPayload = {
   email: string
   exp: number
   purpose: "passkey-sign-up"
+  setupFirstAdmin: boolean
   username: string
 }
 
@@ -75,6 +76,7 @@ export function verifyPasskeySignUpContext(
   const parsed = PasskeySignUpRequestSchema.extend({
     exp: z.number().int(),
     purpose: z.literal("passkey-sign-up"),
+    setupFirstAdmin: z.boolean(),
   }).parse(
     JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8"))
   )
@@ -95,7 +97,6 @@ export const authConfigRoute = new Hono()
     return c.json({
       setupRequired: await isSetupRequired(),
       openRegistrations: configStore.get("openRegistrations"),
-      emailPasswordEnabled: configStore.get("emailPasswordEnabled"),
       passkeyEnabled: configStore.get("passkeyEnabled"),
       requireAuthToBrowse: configStore.get("requireAuthToBrowse"),
       provider: getPublicProvider(),
@@ -105,13 +106,11 @@ export const authConfigRoute = new Hono()
     "/passkey-sign-up",
     zValidator("json", PasskeySignUpRequestSchema),
     async (c) => {
-      if (await isSetupRequired()) {
-        return c.json({ error: "Complete initial setup first." }, 400)
-      }
-      if (!configStore.get("openRegistrations")) {
+      const setupFirstAdmin = await isSetupRequired()
+      if (!setupFirstAdmin && !configStore.get("openRegistrations")) {
         return c.json({ error: "Sign-up is currently closed." }, 400)
       }
-      if (!configStore.get("passkeyEnabled")) {
+      if (!setupFirstAdmin && !configStore.get("passkeyEnabled")) {
         return c.json({ error: "Passkey sign-up is currently disabled." }, 400)
       }
 
@@ -131,6 +130,7 @@ export const authConfigRoute = new Hono()
         email: body.email,
         exp: Date.now() + 15 * 60_000,
         purpose: "passkey-sign-up",
+        setupFirstAdmin,
         username: body.username,
       })
 

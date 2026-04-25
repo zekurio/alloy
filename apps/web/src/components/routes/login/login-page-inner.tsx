@@ -3,14 +3,11 @@ import { Link } from "@tanstack/react-router"
 import type { PublicAuthConfig } from "@workspace/api"
 
 import { AlloyLogo } from "@workspace/ui/components/alloy-logo"
-import { FieldSeparator } from "@workspace/ui/components/field"
-
 import { LoginArtwork } from "@/components/auth/login-artwork"
 import { useRedirectIfAuthed } from "@/lib/auth-hooks"
 import { usePasskeySupport } from "@/lib/passkey-support"
 import type { fetchPublicClips } from "@/lib/public-clips"
 
-import { EmailPasswordForm } from "./email-password-form"
 import { OAuthSignIn } from "./oauth-sign-in"
 import { PasskeySignIn } from "./passkey-sign-in"
 
@@ -28,13 +25,10 @@ export function LoginPageInner({ config, clips }: LoginPageInnerProps) {
   if (!canRender) return null
   if (config.passkeyEnabled && !passkeyReady) return null
 
-  const { provider, emailPasswordEnabled, openRegistrations, passkeyEnabled } =
-    config
+  const { provider, openRegistrations, passkeyEnabled } = config
   const showPasskeySignIn = passkeyEnabled && passkeySupported
-  const showAlternativeMethods = showPasskeySignIn || provider !== null
   const canSignUp =
-    openRegistrations &&
-    (emailPasswordEnabled || passkeyEnabled || provider !== null)
+    openRegistrations && (passkeyEnabled || provider !== null)
 
   return (
     <div className="relative grid min-h-screen w-full bg-background text-foreground lg:grid-cols-[1fr_minmax(480px,0.7fr)]">
@@ -56,14 +50,6 @@ export function LoginPageInner({ config, clips }: LoginPageInnerProps) {
                 Sign in
               </h2>
             </div>
-
-            {emailPasswordEnabled ? <EmailPasswordForm /> : null}
-
-            {emailPasswordEnabled && showAlternativeMethods ? (
-              <div className="my-6">
-                <FieldSeparator>OR</FieldSeparator>
-              </div>
-            ) : null}
 
             <div className="flex flex-col gap-3">
               {showPasskeySignIn ? <PasskeySignIn /> : null}

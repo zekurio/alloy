@@ -1,13 +1,13 @@
 import { spawn } from "node:child_process"
 
 import { zValidator } from "@hono/zod-validator"
-import { desc, eq, inArray, isNull, sql } from "drizzle-orm"
+import { desc, eq, inArray } from "drizzle-orm"
 import { Hono } from "hono"
 import { createMiddleware } from "hono/factory"
 import { z } from "zod"
 
 import type { AdminEncoderCapabilities as EncoderCapabilities } from "@workspace/contracts"
-import { passkey, user } from "@workspace/db/auth-schema"
+import { user } from "@workspace/db/auth-schema"
 import { clip } from "@workspace/db/schema"
 
 import { getAuth } from "../auth"
@@ -45,7 +45,6 @@ const requireAdmin = createMiddleware<{
 
 const RuntimeConfigPatch = z.object({
   openRegistrations: z.boolean().optional(),
-  emailPasswordEnabled: z.boolean().optional(),
   passkeyEnabled: z.boolean().optional(),
   requireAuthToBrowse: z.boolean().optional(),
 })
@@ -154,25 +153,10 @@ function hasEnabledOAuthProvider(config: {
 }
 
 function hasEnabledSignInMethod(config: {
-  emailPasswordEnabled: boolean
   passkeyEnabled: boolean
   oauthProvider: { enabled: boolean } | null
 }): boolean {
-  return (
-    config.emailPasswordEnabled ||
-    config.passkeyEnabled ||
-    hasEnabledOAuthProvider(config)
-  )
-}
-
-async function countUsersWithoutPasskeys(): Promise<number> {
-  const [row] = await db
-    .select({ count: sql<number>`count(${user.id})::int` })
-    .from(user)
-    .leftJoin(passkey, eq(passkey.userId, user.id))
-    .where(isNull(passkey.id))
-
-  return row?.count ?? 0
+  return config.passkeyEnabled || hasEnabledOAuthProvider(config)
 }
 
 function sanitizeScopes(scopes: string[] | undefined): string[] | undefined {
@@ -266,28 +250,13 @@ export const adminRoute = new Hono()
           400
         )
       }
-      if (body.emailPasswordEnabled === false) {
-        const usersWithoutPasskeys = await countUsersWithoutPasskeys()
-        if (usersWithoutPasskeys > 0) {
-          return c.json(
-            {
-              error: `Every user must have at least one passkey before email and password sign-in can be disabled. ${usersWithoutPasskeys} user${usersWithoutPasskeys === 1 ? "" : "s"} still need${usersWithoutPasskeys === 1 ? "s" : ""} a passkey.`,
-            },
-            400
-          )
-        }
-      }
       const patch: Partial<{
         openRegistrations: boolean
-        emailPasswordEnabled: boolean
         passkeyEnabled: boolean
         requireAuthToBrowse: boolean
       }> = {}
       if (body.openRegistrations !== undefined) {
         patch.openRegistrations = body.openRegistrations
-      }
-      if (body.emailPasswordEnabled !== undefined) {
-        patch.emailPasswordEnabled = body.emailPasswordEnabled
       }
       if (body.passkeyEnabled !== undefined) {
         patch.passkeyEnabled = body.passkeyEnabled
@@ -311,7 +280,6 @@ export const adminRoute = new Hono()
           : null
         if (
           !hasEnabledSignInMethod({
-            emailPasswordEnabled: configStore.get("emailPasswordEnabled"),
             passkeyEnabled: configStore.get("passkeyEnabled"),
             oauthProvider: nextProvider,
           })

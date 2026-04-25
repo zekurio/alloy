@@ -141,9 +141,7 @@ export function OAuthProviderCard({
                 checked={provider.enabled}
                 disabled={
                   disabled ||
-                  (provider.enabled &&
-                    !config.emailPasswordEnabled &&
-                    !config.passkeyEnabled)
+                  (provider.enabled && !config.passkeyEnabled)
                 }
                 onCheckedChange={toggleEnabled}
               />

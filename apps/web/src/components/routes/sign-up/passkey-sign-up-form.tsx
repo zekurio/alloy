@@ -10,6 +10,7 @@ import { api } from "@/lib/api"
 import { authClient } from "@/lib/auth-client"
 import { validateEmail, validateUsername } from "@/lib/form-validators"
 import { addPasskeyWithLabel } from "@/lib/passkeys"
+import { invalidateAuthConfig } from "@/lib/session-suspense"
 
 type PasskeySignUpFormState = {
   username: string
@@ -32,7 +33,15 @@ type StringFieldController = {
   }
 }
 
-function usePasskeySignUpSubmit() {
+type PasskeySignUpFormProps = {
+  redirectTo?: "/" | "/admin-settings"
+  successMessage?: string
+}
+
+function usePasskeySignUpSubmit({
+  redirectTo = "/",
+  successMessage,
+}: PasskeySignUpFormProps) {
   const router = useRouter()
   const navigate = useNavigate()
 
@@ -51,14 +60,16 @@ function usePasskeySignUpSubmit() {
           toast.error("Couldn't create your passkey account")
           return
         }
+        if (successMessage) toast.success(successMessage)
+        invalidateAuthConfig()
         await authClient.getSession()
         await router.invalidate()
-        await navigate({ to: "/" })
+        await navigate({ to: redirectTo })
       } catch {
         toast.error("Unexpected error")
       }
     },
-    [navigate, router]
+    [navigate, redirectTo, router, successMessage]
   )
 }
 
@@ -191,8 +202,8 @@ function SubmitButton() {
   )
 }
 
-export function PasskeySignUpForm() {
-  const submit = usePasskeySignUpSubmit()
+export function PasskeySignUpForm(props: PasskeySignUpFormProps) {
+  const submit = usePasskeySignUpSubmit(props)
   const form = useForm({
     defaultValues: {
       username: "",

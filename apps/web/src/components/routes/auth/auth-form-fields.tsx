@@ -1,5 +1,4 @@
 import * as React from "react"
-import { EyeIcon, EyeOffIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -11,7 +10,6 @@ import {
 import {
   InputGroup,
   InputGroupAddon,
-  InputGroupButton,
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
 
@@ -57,12 +55,6 @@ type TextFieldProps = BaseFieldProps &
     | "spellCheck"
     | "type"
   >
-
-type PasswordFieldProps = BaseFieldProps & {
-  autoComplete: string
-  showPassword: boolean
-  togglePassword: () => void
-}
 
 type SharedAuthTextFieldProps = Pick<
   TextFieldProps,
@@ -335,9 +327,7 @@ function renderAuthTextField(
   })
 }
 
-function createAuthInputField<
-  TProps extends TextFieldProps | PasswordFieldProps,
->(
+function createAuthInputField<TProps extends TextFieldProps>(
   buildExtraInputProps: (
     props: TProps
   ) => Omit<
@@ -371,25 +361,6 @@ export const FormInputField = createAuthInputField<TextFieldProps>(
     inputMode,
     spellCheck,
     type,
-  })
-)
-
-export const PasswordInputField = createAuthInputField<PasswordFieldProps>(
-  ({ autoComplete, disabled, showPassword, togglePassword }) => ({
-    autoComplete,
-    type: showPassword ? "text" : "password",
-    trailingAddon: (
-      <InputGroupAddon align="inline-end">
-        <InputGroupButton
-          size="icon-xs"
-          aria-label={showPassword ? "Hide password" : "Show password"}
-          onClick={togglePassword}
-          disabled={disabled}
-        >
-          {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-        </InputGroupButton>
-      </InputGroupAddon>
-    ),
   })
 )
 
