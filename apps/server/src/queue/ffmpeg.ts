@@ -159,11 +159,9 @@ export function buildEncodeArgs(
       ]
     : []
 
-  const filterChain = buildFilterChain(opts.targetHeight)
+  const filterChain = buildFilterChain(opts.targetHeight, config)
   const codecArgs = buildCodecArgs(config)
-  const hwaccelArgs = config.hwaccel.trim()
-    ? ["-hwaccel", config.hwaccel.trim()]
-    : []
+  const hardwareArgs = buildHardwareArgs(config)
   const extraInputArgs = parseExtraArgs(config.extraInputArgs)
   const extraOutputArgs = parseExtraArgs(config.extraOutputArgs)
   const audioArgs = [
@@ -181,7 +179,7 @@ export function buildEncodeArgs(
     "-hide_banner",
     "-y",
     ...trimSeek,
-    ...hwaccelArgs,
+    ...hardwareArgs,
     ...extraInputArgs,
     "-i",
     srcPath,
@@ -200,8 +198,29 @@ export function buildEncodeArgs(
   ]
 }
 
-function buildFilterChain(targetHeight: number): string {
+function buildHardwareArgs(config: ResolvedEncoderConfig): string[] {
+  const hwaccel = config.hwaccel.trim()
+  const encoder = config.encoder.trim()
+  const args = hwaccel ? ["-hwaccel", hwaccel] : []
+
+  if (encoder.endsWith("_qsv") || hwaccel === "qsv") {
+    args.push("-qsv_device", config.qsvDevice)
+  }
+  if (encoder.endsWith("_vaapi") || hwaccel === "vaapi") {
+    args.push("-vaapi_device", config.vaapiDevice)
+  }
+
+  return args
+}
+
+function buildFilterChain(
+  targetHeight: number,
+  config: ResolvedEncoderConfig
+): string {
   const scale = `scale=-2:${targetHeight}:force_original_aspect_ratio=decrease`
+  if (config.encoder.trim().endsWith("_vaapi")) {
+    return `${scale},format=nv12,hwupload`
+  }
   return `${scale},format=yuv420p`
 }
 
