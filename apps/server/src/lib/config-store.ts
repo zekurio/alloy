@@ -7,11 +7,13 @@ import {
   ENCODER_HEIGHT_MAX,
   ENCODER_HEIGHT_MIN,
   ENCODER_HWACCELS,
+  OAUTH_QUOTA_CLAIM_DEFAULT,
   type EncoderHwaccel,
   type EncoderCodec,
   type RuntimeConfig,
 } from "@workspace/contracts"
 import { env } from "../env"
+import { publishConfigChange } from "./config-events"
 
 const ProviderIdPattern = /^[a-z0-9-]+$/
 
@@ -42,7 +44,7 @@ const OAuthProviderBaseSchema = z.object({
   userInfoUrl: z.string().url().optional(),
   pkce: z.boolean().default(true),
   usernameClaim: z.string().min(1).max(128).default("preferred_username"),
-  quotaClaim: z.string().min(1).max(128).optional(),
+  quotaClaim: z.string().min(1).max(128).default(OAUTH_QUOTA_CLAIM_DEFAULT),
 })
 
 const hasEndpoints = (p: z.infer<typeof OAuthProviderBaseSchema>) =>
@@ -388,6 +390,7 @@ function commit(next: RuntimeConfig): void {
   const prev = state
   writeToDisk(next)
   state = next
+  publishConfigChange(state, prev)
   for (const listener of listeners) {
     try {
       listener(state, prev)
