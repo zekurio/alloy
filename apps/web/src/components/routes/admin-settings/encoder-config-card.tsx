@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useQuery } from "@tanstack/react-query"
 import {
   AlertCircleIcon,
   AlertTriangleIcon,
@@ -31,7 +32,6 @@ import {
 import {
   ENCODER_HEIGHT_MAX,
   ENCODER_HEIGHT_MIN,
-  type AdminEncoderCapabilities,
   type AdminEncoderConfig,
   type AdminEncoderVariant,
   type AdminRuntimeConfig,
@@ -56,9 +56,18 @@ export function EncoderConfigCard({
 }: EncoderConfigCardProps) {
   const [form, setForm] = React.useState<AdminEncoderConfig>(encoder)
   const [pending, setPending] = React.useState(false)
-  const [caps, setCaps] = React.useState<AdminEncoderCapabilities | null>(null)
-  const [capsError, setCapsError] = React.useState<string | null>(null)
   const [dialogState, setDialogState] = React.useState<DialogState>(null)
+  const capsQuery = useQuery({
+    queryKey: ["admin", "encoder-capabilities"],
+    queryFn: () => api.admin.fetchEncoderCapabilities(),
+    staleTime: 5 * 60_000,
+  })
+  const caps = capsQuery.data ?? null
+  const capsError = capsQuery.error
+    ? capsQuery.error instanceof Error
+      ? capsQuery.error.message
+      : "Couldn't probe ffmpeg capabilities"
+    : null
 
   React.useEffect(() => {
     setForm(encoder)
@@ -67,26 +76,6 @@ export function EncoderConfigCard({
   function resetForm() {
     setForm(encoder)
   }
-
-  React.useEffect(() => {
-    let cancelled = false
-    api.admin
-      .fetchEncoderCapabilities()
-      .then((next) => {
-        if (!cancelled) setCaps(next)
-      })
-      .catch((cause: unknown) => {
-        if (cancelled) return
-        setCapsError(
-          cause instanceof Error
-            ? cause.message
-            : "Couldn't probe ffmpeg capabilities"
-        )
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   function set<K extends keyof AdminEncoderConfig>(
     key: K,
