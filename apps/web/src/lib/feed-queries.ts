@@ -32,13 +32,10 @@ export function useFeedInfiniteQuery(
       api.feed.fetch({
         filter,
         limit,
-        offset: pageParam,
+        cursor: pageParam,
       } satisfies FeedPageParams),
-    initialPageParam: 0,
-    getNextPageParam: (last, _pages, lastPageParam) => {
-      if (last.length < limit) return undefined
-      return (lastPageParam as number) + last.length
-    },
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
     placeholderData: keepPreviousData,
   })
 }

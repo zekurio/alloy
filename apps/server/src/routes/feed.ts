@@ -1,5 +1,7 @@
+import { Buffer } from "node:buffer"
+
 import { zValidator } from "@hono/zod-validator"
-import { and, eq, exists, isNull, ne, or, sql, type SQL } from "drizzle-orm"
+import { and, eq, exists, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
@@ -24,7 +26,7 @@ const FeedQuery = z
     filter: FilterEnum.default("foryou"),
     gameId: z.uuid().optional(),
     limit: z.coerce.number().int().positive().max(50).default(20),
-    offset: z.coerce.number().int().min(0).default(0),
+    cursor: z.string().optional(),
   })
   .refine((v) => v.filter !== "game" || v.gameId !== undefined, {
     message: "gameId is required when filter=game",
@@ -35,13 +37,50 @@ const ChipsQuery = z.object({
   limit: z.coerce.number().int().positive().max(40).default(20),
 })
 
-function rankScore(viewerId: string | null) {
+type FeedCursor = {
+  score: number
+  createdAt: string
+  id: string
+  asOf: string
+}
+
+function parseFeedCursor(value: string | undefined): FeedCursor | null {
+  if (!value) return null
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8")
+    ) as Partial<FeedCursor>
+    if (
+      typeof parsed.score !== "number" ||
+      !Number.isFinite(parsed.score) ||
+      typeof parsed.createdAt !== "string" ||
+      typeof parsed.id !== "string" ||
+      typeof parsed.asOf !== "string"
+    ) {
+      return null
+    }
+    return {
+      score: parsed.score,
+      createdAt: parsed.createdAt,
+      id: parsed.id,
+      asOf: parsed.asOf,
+    }
+  } catch {
+    return null
+  }
+}
+
+function encodeFeedCursor(cursor: FeedCursor): string {
+  return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url")
+}
+
+function rankScore(viewerId: string | null, asOf: Date) {
   const vid = viewerId ?? null
   return sql<number>`
     (
       (${clip.likeCount} + 0.1 * ${clip.viewCount})
       / power(
-          extract(epoch from (now() - ${clip.createdAt})) / 3600.0 + 2.0,
+          extract(epoch from (${asOf}::timestamp - ${clip.createdAt})) / 3600.0 + 2.0,
           1.5
         )
     )
@@ -69,7 +108,12 @@ function rankScore(viewerId: string | null) {
 
 export const feedRoute = new Hono()
   .get("/", zValidator("query", FeedQuery), async (c) => {
-    const { filter, gameId, limit, offset } = c.req.valid("query")
+    const { filter, gameId, limit, cursor: rawCursor } = c.req.valid("query")
+    const cursor = parseFeedCursor(rawCursor)
+    const asOf = cursor ? new Date(cursor.asOf) : new Date()
+    if (Number.isNaN(asOf.getTime())) {
+      return c.json({ error: "Invalid cursor" }, 400)
+    }
 
     const session = await getAuth().api.getSession({
       headers: c.req.raw.headers,
@@ -79,7 +123,7 @@ export const feedRoute = new Hono()
     if (filter === "following" && !viewerId) {
       // Nothing to personalise for anon — return an empty page rather
       // than leaking unrelated clips from the foryou corpus.
-      return c.json([])
+      return c.json({ items: [], nextCursor: null })
     }
 
     const conditions: SQL[] = [
@@ -130,10 +174,34 @@ export const feedRoute = new Hono()
       if (combined) conditions.push(combined)
     }
 
-    const score = rankScore(viewerId)
+    const score = rankScore(viewerId, asOf)
+    if (rawCursor && !cursor) {
+      return c.json({ error: "Invalid cursor" }, 400)
+    }
+    if (cursor) {
+      const cursorCreatedAt = new Date(cursor.createdAt)
+      if (Number.isNaN(cursorCreatedAt.getTime())) {
+        return c.json({ error: "Invalid cursor" }, 400)
+      }
+      conditions.push(
+        or(
+          lt(score, cursor.score),
+          and(
+            sql`abs(${score} - ${cursor.score}) < 0.000000000001`,
+            or(
+              lt(clip.createdAt, cursorCreatedAt),
+              and(
+                eq(clip.createdAt, cursorCreatedAt),
+                sql`${clip.id} > ${cursor.id}`
+              )
+            )
+          )
+        )!
+      )
+    }
 
     const rows = await db
-      .select(clipSelectShape)
+      .select({ ...clipSelectShape, rankScore: score })
       .from(clip)
       .innerJoin(user, eq(clip.authorId, user.id))
       .leftJoin(game, eq(clip.gameId, game.id))
@@ -142,9 +210,25 @@ export const feedRoute = new Hono()
       // neighbouring pages don't duplicate rows when scores collide.
       .orderBy(sql`${score} desc`, sql`${clip.createdAt} desc`, clip.id)
       .limit(limit)
-      .offset(offset)
 
-    return c.json(rows)
+    const tail = rows[rows.length - 1]
+    const nextCursor =
+      rows.length === limit && tail
+        ? encodeFeedCursor({
+            score: tail.rankScore,
+            createdAt:
+              tail.createdAt instanceof Date
+                ? tail.createdAt.toISOString()
+                : String(tail.createdAt),
+            id: tail.id,
+            asOf: asOf.toISOString(),
+          })
+        : null
+
+    return c.json({
+      items: rows.map(({ rankScore: _rankScore, ...row }) => row),
+      nextCursor,
+    })
   })
 
   .get("/chips", zValidator("query", ChipsQuery), async (c) => {
