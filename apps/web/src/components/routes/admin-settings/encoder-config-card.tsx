@@ -21,7 +21,14 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import { toast } from "@workspace/ui/components/sonner"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@workspace/ui/components/select"
+import { toast } from "@workspace/ui/lib/toast"
 import { Switch } from "@workspace/ui/components/switch"
 import {
   Tooltip,
@@ -32,9 +39,12 @@ import {
 import {
   ENCODER_HEIGHT_MAX,
   ENCODER_HEIGHT_MIN,
+  ENCODER_HWACCELS,
+  type AdminEncoderCapabilities,
   type AdminEncoderConfig,
   type AdminEncoderVariant,
   type AdminRuntimeConfig,
+  type EncoderHwaccel,
 } from "@workspace/api"
 
 import { api } from "@/lib/api"
@@ -49,6 +59,36 @@ type EncoderConfigCardProps = {
 
 /** Index of the variant being edited, or -1 for a new variant, or null when closed. */
 type DialogState = number | null
+
+const HWACCEL_LABELS: Record<EncoderHwaccel, string> = {
+  none: "None",
+  amf: "AMD AMF",
+  nvenc: "Nvidia NVENC",
+  qsv: "Intel Quicksync (QSV)",
+  rkmpp: "Rockchip MPP (RKMPP)",
+  vaapi: "Video Acceleration API (VAAPI)",
+  videotoolbox: "Apple VideoToolBox",
+  v4l2m2m: "Video4Linux2 (V4L2)",
+}
+
+function isEncoderHwaccel(
+  value: string | number | null
+): value is EncoderHwaccel {
+  return (
+    typeof value === "string" &&
+    ENCODER_HWACCELS.includes(value as EncoderHwaccel)
+  )
+}
+
+function variantCodecAvailable(
+  caps: AdminEncoderCapabilities | null,
+  hwaccel: EncoderHwaccel,
+  variant: AdminEncoderVariant
+): boolean {
+  return caps?.ffmpegOk
+    ? (caps.available[hwaccel]?.[variant.codec] ?? false)
+    : true
+}
 
 export function EncoderConfigCard({
   encoder,
@@ -148,9 +188,8 @@ export function EncoderConfigCard({
     dialogState === -1
       ? {
           name: "",
-          hwaccel: "",
+          codec: "h264",
           height: 1080,
-          encoder: "",
           quality: 23,
           audioBitrateKbps: 128,
           extraInputArgs: "",
@@ -199,6 +238,10 @@ export function EncoderConfigCard({
         )
         return
       }
+      if (!variantCodecAvailable(caps, form.hwaccel, variant)) {
+        toast.error(`${variant.name} uses an encoder unavailable in ffmpeg.`)
+        return
+      }
     }
     setPending(true)
     try {
@@ -225,11 +268,33 @@ export function EncoderConfigCard({
       variant.height > ENCODER_HEIGHT_MAX ||
       variant.height % 2 !== 0
   )
+  const unsupportedVariant = form.variants.find(
+    (variant) => !variantCodecAvailable(caps, form.hwaccel, variant)
+  )
+  const selectedDevice =
+    form.hwaccel === "qsv"
+      ? {
+          key: "qsvDevice" as const,
+          id: "encoder-qsv-device",
+          label: "QSV device",
+          description: "Device path used for Intel Quick Sync encodes.",
+        }
+      : form.hwaccel === "vaapi"
+        ? {
+            key: "vaapiDevice" as const,
+            id: "encoder-vaapi-device",
+            label: "VAAPI device",
+            description: "Device path used for VAAPI hardware encodes.",
+          }
+        : null
   const canSubmit =
     isDirty &&
     !pending &&
     (!form.enabled ||
-      (!hasInvalidVariantName && !hasInvalidHeight && form.variants.length > 0))
+      (!unsupportedVariant &&
+        !hasInvalidVariantName &&
+        !hasInvalidHeight &&
+        form.variants.length > 0))
   const sortedVariants = form.variants
     .map((variant, index) => ({ variant, index }))
     .sort((a, b) =>
@@ -274,35 +339,59 @@ export function EncoderConfigCard({
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="encoder-qsv-device">
-                    QSV device
+                  <FieldLabel htmlFor="encoder-hwaccel">
+                    Hardware acceleration
                   </FieldLabel>
-                  <Input
-                    id="encoder-qsv-device"
-                    value={form.qsvDevice}
-                    placeholder="/dev/dri/renderD128"
-                    onChange={(e) => set("qsvDevice", e.target.value)}
-                  />
+                  <Select
+                    value={form.hwaccel}
+                    onValueChange={(value) => {
+                      if (isEncoderHwaccel(value)) set("hwaccel", value)
+                    }}
+                  >
+                    <SelectTrigger id="encoder-hwaccel" className="w-full">
+                      <SelectValue>{HWACCEL_LABELS[form.hwaccel]}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent align="start">
+                      {ENCODER_HWACCELS.map((hwaccel) => (
+                        <SelectItem key={hwaccel} value={hwaccel}>
+                          {HWACCEL_LABELS[hwaccel]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FieldDescription>
-                    Device path used for Intel Quick Sync encodes.
-                  </FieldDescription>
-                </Field>
-
-                <Field>
-                  <FieldLabel htmlFor="encoder-vaapi-device">
-                    VAAPI device
-                  </FieldLabel>
-                  <Input
-                    id="encoder-vaapi-device"
-                    value={form.vaapiDevice}
-                    placeholder="/dev/dri/renderD128"
-                    onChange={(e) => set("vaapiDevice", e.target.value)}
-                  />
-                  <FieldDescription>
-                    Device path used for VAAPI hardware encodes.
+                    Applies to every generated variant.
                   </FieldDescription>
                 </Field>
               </div>
+
+              {selectedDevice ? (
+                <Field>
+                  <FieldLabel htmlFor={selectedDevice.id}>
+                    {selectedDevice.label}
+                  </FieldLabel>
+                  <Input
+                    id={selectedDevice.id}
+                    value={form[selectedDevice.key]}
+                    placeholder="/dev/dri/renderD128"
+                    onChange={(e) => set(selectedDevice.key, e.target.value)}
+                  />
+                  <FieldDescription>
+                    {selectedDevice.description}
+                  </FieldDescription>
+                </Field>
+              ) : null}
+
+              {unsupportedVariant ? (
+                <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
+                  <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
+                  <span>
+                    The detected ffmpeg build does not report support for every
+                    configured variant codec with {HWACCEL_LABELS[form.hwaccel]}
+                    .
+                  </span>
+                </div>
+              ) : null}
 
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -370,7 +459,7 @@ export function EncoderConfigCard({
                       <div className="flex flex-col gap-0.5">
                         {sortedVariants.map(({ variant, index }) => (
                           <VariantRow
-                            key={`${variant.name}-${variant.height}-${variant.encoder}-${index}`}
+                            key={`${variant.name}-${variant.height}-${index}`}
                             variant={variant}
                             isDefault={index === 0}
                             canDelete
@@ -442,6 +531,8 @@ export function EncoderConfigCard({
       <EncoderVariantDialog
         variant={dialogVariant}
         isNew={dialogState === -1}
+        hwaccel={form.hwaccel}
+        capabilities={caps}
         onSave={handleDialogSave}
         onOpenChange={handleDialogOpenChange}
       />

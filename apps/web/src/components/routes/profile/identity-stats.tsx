@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@workspace/ui/components/dialog"
 import { Spinner } from "@workspace/ui/components/spinner"
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type { ProfileCounts, UserSearchResult } from "@workspace/api"

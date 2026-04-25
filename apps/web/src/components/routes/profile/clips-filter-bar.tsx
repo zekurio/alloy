@@ -72,21 +72,34 @@ export function ClipsFilterBar({
         <span className="pr-1 text-xs font-semibold tracking-wide text-foreground-muted uppercase">
           Sort
         </span>
-        {SORT_OPTIONS.map((opt) => (
-          <Chip
-            key={opt.key}
+        <DropdownMenu>
+          <DropdownMenuTrigger
             render={
-              <Link
-                to="/u/$username/all"
-                params={{ username }}
-                search={searchFor(opt.key, gameSlug)}
-                data-active={sort === opt.key ? "true" : undefined}
-              />
+              <Chip data-active="true">
+                {SORT_OPTIONS.find((o) => o.key === sort)?.label ??
+                  SORT_OPTIONS[0].label}
+                <ChevronDownIcon />
+              </Chip>
             }
-          >
-            {opt.label}
-          </Chip>
-        ))}
+          />
+          <DropdownMenuContent className="w-44">
+            {SORT_OPTIONS.map((opt) => (
+              <DropdownMenuItem
+                key={opt.key}
+                render={
+                  <Link
+                    to="/u/$username/all"
+                    params={{ username }}
+                    search={searchFor(opt.key, gameSlug)}
+                    data-active={sort === opt.key ? "true" : undefined}
+                  />
+                }
+              >
+                {opt.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Vertical divider */}

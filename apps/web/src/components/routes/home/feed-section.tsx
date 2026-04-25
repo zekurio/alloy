@@ -4,7 +4,6 @@ import { Spinner } from "@workspace/ui/components/spinner"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
-import { ClipGridSkeleton } from "@/components/clip/clip-grid"
 import { EmptyState } from "@/components/feedback/empty-state"
 import type { FeedFilter } from "@workspace/api"
 import { useFeedInfiniteQuery } from "@/lib/feed-queries"
@@ -81,14 +80,12 @@ function FeedSentinelStatus({
   isFetchingNextPage,
   hasRows,
   error,
-  hasNextPage,
   onRetry,
 }: {
   isRefreshing: boolean
   isFetchingNextPage: boolean
   hasRows: boolean
   error: unknown
-  hasNextPage: boolean
   onRetry: () => void
 }) {
   if (isFetchingNextPage && hasRows) {
@@ -130,13 +127,6 @@ function FeedSentinelStatus({
       </button>
     )
   }
-  if (!hasNextPage && hasRows) {
-    return (
-      <span className="text-xs tracking-wide text-foreground-faint uppercase">
-        End of feed
-      </span>
-    )
-  }
   return null
 }
 
@@ -175,6 +165,11 @@ export function FeedSection({ filter, viewerId }: FeedSectionProps) {
   const hasRows = rows.length > 0
   const isRefreshing =
     hasRows && (isFetching || isPlaceholderData) && !isFetchingNextPage
+  const showSentinel =
+    hasNextPage !== false ||
+    isFetchingNextPage ||
+    isRefreshing ||
+    (Boolean(error) && hasRows)
 
   return (
     <section aria-busy={isRefreshing ? true : undefined}>
@@ -185,7 +180,9 @@ export function FeedSection({ filter, viewerId }: FeedSectionProps) {
         )}
       >
         {initialLoad ? (
-          <ClipGridSkeleton count={10} />
+          <div className="flex items-center justify-center py-12">
+            <Spinner className="size-6" />
+          </div>
         ) : !hasData && error ? (
           <EmptyState
             seed={`feed-${feedId}-error`}
@@ -208,20 +205,21 @@ export function FeedSection({ filter, viewerId }: FeedSectionProps) {
         )}
       </div>
 
-      <div
-        ref={sentinelRef}
-        aria-hidden
-        className="mt-6 flex min-h-6 items-center justify-center"
-      >
-        <FeedSentinelStatus
-          isRefreshing={isRefreshing}
-          isFetchingNextPage={isFetchingNextPage}
-          hasRows={hasRows}
-          error={error}
-          hasNextPage={Boolean(hasNextPage)}
-          onRetry={() => void refetch()}
-        />
-      </div>
+      {showSentinel ? (
+        <div
+          ref={sentinelRef}
+          aria-hidden
+          className="mt-6 flex min-h-6 items-center justify-center"
+        >
+          <FeedSentinelStatus
+            isRefreshing={isRefreshing}
+            isFetchingNextPage={isFetchingNextPage}
+            hasRows={hasRows}
+            error={error}
+            onRetry={() => void refetch()}
+          />
+        </div>
+      ) : null}
     </section>
   )
 }

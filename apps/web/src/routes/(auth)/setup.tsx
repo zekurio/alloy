@@ -9,7 +9,7 @@ import {
 import { ArrowRightIcon } from "lucide-react"
 
 import { AlloyLogo } from "@workspace/ui/components/alloy-logo"
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 
 import { AccountCreationFields } from "@/components/routes/auth/account-creation-fields"
 import { api } from "@/lib/api"

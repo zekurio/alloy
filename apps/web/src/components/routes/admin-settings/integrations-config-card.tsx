@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { Trash2Icon } from "lucide-react"
 
 import {
@@ -31,7 +32,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 
 import {
   INTEGRATIONS_REDACTED,
@@ -40,6 +41,7 @@ import {
 } from "@workspace/api"
 
 import { api } from "@/lib/api"
+import { gameKeys } from "@/lib/game-queries"
 
 type IntegrationsConfigCardProps = {
   integrations: AdminIntegrationsConfig
@@ -50,6 +52,7 @@ export function IntegrationsConfigCard({
   integrations,
   onChange,
 }: IntegrationsConfigCardProps) {
+  const queryClient = useQueryClient()
   const blankForm = (
     src: AdminIntegrationsConfig
   ): AdminIntegrationsConfig => ({
@@ -96,6 +99,10 @@ export function IntegrationsConfigCard({
       }
       const next = await api.admin.updateIntegrationsConfig(patch)
       onChange(next)
+      queryClient.setQueryData(gameKeys.status(), {
+        steamgriddbConfigured: true,
+      })
+      void queryClient.invalidateQueries({ queryKey: gameKeys.status() })
       toast.success("Integrations updated")
     } catch (cause) {
       toast.error(
@@ -114,6 +121,10 @@ export function IntegrationsConfigCard({
         steamgriddbApiKey: "",
       })
       onChange(next)
+      queryClient.setQueryData(gameKeys.status(), {
+        steamgriddbConfigured: false,
+      })
+      void queryClient.invalidateQueries({ queryKey: gameKeys.status() })
       toast.success("SteamGridDB key removed")
     } catch (cause) {
       toast.error(
