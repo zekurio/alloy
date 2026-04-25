@@ -1,4 +1,3 @@
-import * as React from "react"
 import { Link } from "@tanstack/react-router"
 
 import type { PublicAuthConfig } from "@workspace/api"
@@ -19,13 +18,7 @@ type PublicClips = Awaited<ReturnType<typeof fetchPublicClips>>
 
 type LoginPageInnerProps = {
   config: PublicAuthConfig
-  clips: Promise<PublicClips>
-}
-
-function LoginArtworkPane({ clips }: { clips: Promise<PublicClips> }) {
-  const resolvedClips = React.use(clips)
-
-  return <LoginArtwork clips={resolvedClips} />
+  clips: PublicClips
 }
 
 export function LoginPageInner({ config, clips }: LoginPageInnerProps) {
@@ -46,9 +39,7 @@ export function LoginPageInner({ config, clips }: LoginPageInnerProps) {
   return (
     <div className="relative grid min-h-screen w-full bg-background text-foreground lg:grid-cols-[1fr_minmax(480px,0.7fr)]">
       <div className="relative hidden overflow-hidden lg:block">
-        <React.Suspense fallback={<LoginArtwork clips={[]} />}>
-          <LoginArtworkPane clips={clips} />
-        </React.Suspense>
+        <LoginArtwork clips={clips} />
       </div>
 
       <div className="relative flex min-h-screen flex-col px-6 py-8 sm:px-10">

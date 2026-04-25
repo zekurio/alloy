@@ -3,30 +3,8 @@ import type { CSSProperties } from "react"
 
 import { cn } from "@workspace/ui/lib/utils"
 
+import { EMPTY_STATE_KAOMOJI } from "@/lib/kaomoji"
 import type { PublicClip } from "@/lib/public-clips"
-
-const FALLBACK_TITLES = [
-  "Clutch 1v3 on Ascent",
-  "Last-second defuse",
-  "Pentakill baron pit",
-  "Sova recon dart",
-  "200 IQ smoke wall",
-  "Perfect ult combo",
-  "5v5 team clutch",
-  "Triple kill headshot",
-  "Headshot across map",
-  "Invisible wall bug",
-  "Impossible flick",
-  "Quad in ranked",
-  "Wingman no-scope",
-  "Victory royale solo squad",
-  "Ace with viper wall",
-  "Goal of the year",
-  "Ranked grind stream",
-  "Ace — lost pistol",
-  "Triple kill on Haven",
-  "Operator 1-tap spam",
-] as const
 
 const MAX_SOURCE_TILES = 12
 
@@ -56,11 +34,15 @@ function hueFor(clip: { title: string; game: string | null }): number {
   return hashHue(clip.title)
 }
 
+function hasThumbnail(clip: PublicClip): clip is PublicClip & { thumbUrl: string } {
+  return clip.thumbUrl !== null
+}
+
 type Tile = {
   key: string
   title: string
   hue: number
-  thumbUrl: string | null
+  thumbUrl: string
 }
 
 function Tile({
@@ -70,7 +52,7 @@ function Tile({
 }: {
   title: string
   hue: number
-  thumbUrl: string | null
+  thumbUrl: string
 }) {
   return (
     <div
@@ -87,20 +69,16 @@ function Tile({
         `,
       }}
     >
-      {thumbUrl ? (
-        <img
-          src={thumbUrl}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          draggable={false}
-          sizes="(min-width: 1024px) 22vw, 0px"
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-      ) : null}
-      {thumbUrl ? (
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-      ) : null}
+      <img
+        src={thumbUrl}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        draggable={false}
+        sizes="(min-width: 1024px) 22vw, 0px"
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
       <div className="absolute inset-x-[6%] bottom-[4%] text-[clamp(12px,1vw,16px)] font-semibold tracking-[-0.01em] text-white/85 drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
         {title}
       </div>
@@ -174,28 +152,45 @@ const ROW_SETTINGS = [
   { durationSeconds: 85, reverse: false },
 ] as const
 
+const EMPTY_KAOMOJI =
+  EMPTY_STATE_KAOMOJI[hashHue("auth-artwork-empty") % EMPTY_STATE_KAOMOJI.length]
+
+function LoginArtworkEmpty() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,var(--surface-sunken),transparent_56%)]" />
+      <span className="relative font-mono text-5xl leading-none text-foreground-faint select-none">
+        {EMPTY_KAOMOJI}
+      </span>
+    </div>
+  )
+}
+
 export const LoginArtwork = React.memo(function LoginArtwork({
   clips,
 }: {
   clips: PublicClip[]
 }) {
   const rows = React.useMemo(() => {
-    const source: Tile[] =
-      clips.length > 0
-        ? clips.slice(0, MAX_SOURCE_TILES).map((c, i) => ({
-            key: c.id || `clip-${i}`,
-            title: c.title,
-            hue: hueFor(c),
-            thumbUrl: c.thumbUrl,
-          }))
-        : FALLBACK_TITLES.map((title, i) => ({
-            key: `fallback-${i}`,
-            title,
-            hue: hashHue(title),
-            thumbUrl: null,
-          }))
+    const source: Tile[] = clips
+      .filter(hasThumbnail)
+      .slice(0, MAX_SOURCE_TILES)
+      .map((c, i) => ({
+        key: c.id || `clip-${i}`,
+        title: c.title,
+        hue: hueFor(c),
+        thumbUrl: c.thumbUrl,
+      }))
+
+    if (source.length === 0) return []
+
     return buildRows(source, ROW_COUNT)
   }, [clips])
+
+  if (rows.length === 0) return <LoginArtworkEmpty />
 
   return (
     <div
