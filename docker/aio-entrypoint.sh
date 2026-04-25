@@ -11,7 +11,7 @@ generate_secret() {
 
 export ALLOY_DATA_DIR="${ALLOY_DATA_DIR:-/data}"
 export PGDATA="${PGDATA:-$ALLOY_DATA_DIR/postgres}"
-export MINIO_DATA_DIR="${MINIO_DATA_DIR:-$ALLOY_DATA_DIR/minio}"
+export STORAGE_FS_ROOT="${STORAGE_FS_ROOT:-$ALLOY_DATA_DIR/storage}"
 
 secrets_file="$ALLOY_DATA_DIR/secrets.env"
 if [[ -f "$secrets_file" && -z "${BETTER_AUTH_SECRET:-}" ]]; then
@@ -30,15 +30,9 @@ fi
 export POSTGRES_DB="${POSTGRES_DB:-alloy}"
 export POSTGRES_USER="${POSTGRES_USER:-alloy}"
 export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-alloy}"
-export MINIO_BUCKET="${MINIO_BUCKET:-alloy}"
-export MINIO_ROOT_USER="${MINIO_ROOT_USER:-alloy}"
-export MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-alloy-minio-password}"
-export S3_ACCESS_KEY_ID="${S3_ACCESS_KEY_ID:-$MINIO_ROOT_USER}"
-export S3_SECRET_ACCESS_KEY="${S3_SECRET_ACCESS_KEY:-$MINIO_ROOT_PASSWORD}"
-export S3_BUCKET="${S3_BUCKET:-$MINIO_BUCKET}"
 export PGPASSWORD="$POSTGRES_PASSWORD"
 
-mkdir -p "$ALLOY_DATA_DIR" "$PGDATA" "$MINIO_DATA_DIR" "$ALLOY_DATA_DIR/encode"
+mkdir -p "$ALLOY_DATA_DIR" "$PGDATA" "$STORAGE_FS_ROOT" "$ALLOY_DATA_DIR/encode"
 chown -R postgres:postgres "$PGDATA"
 
 PG_BIN="$(dirname "$(find /usr/lib/postgresql -path '*/bin/pg_ctl' -print -quit)")"
@@ -87,26 +81,14 @@ if ! psql -h 127.0.0.1 -U "$POSTGRES_USER" -d postgres -tAc "SELECT 1 FROM pg_da
   createdb -h 127.0.0.1 -U "$POSTGRES_USER" "$POSTGRES_DB"
 fi
 
-log "starting minio"
-minio server "$MINIO_DATA_DIR" --address 127.0.0.1:9000 --console-address 127.0.0.1:9001 &
-minio_pid=$!
-
-until mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null 2>&1; do
-  sleep 1
-done
-mc mb --ignore-existing "local/$MINIO_BUCKET" >/dev/null
-
 export DATABASE_URL="${DATABASE_URL:-postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@127.0.0.1:5432/$POSTGRES_DB}"
 export INTERNAL_API_URL="${INTERNAL_API_URL:-http://127.0.0.1:3000}"
 export PUBLIC_APP_URL="${PUBLIC_APP_URL:-http://localhost:8080}"
 export PUBLIC_API_URL="${PUBLIC_API_URL:-$PUBLIC_APP_URL}"
 export BETTER_AUTH_URL="${BETTER_AUTH_URL:-$PUBLIC_APP_URL}"
 export TRUSTED_ORIGINS="${TRUSTED_ORIGINS:-$PUBLIC_APP_URL}"
-export STORAGE_DRIVER="${STORAGE_DRIVER:-s3}"
+export STORAGE_DRIVER="${STORAGE_DRIVER:-fs}"
 export STORAGE_PUBLIC_BASE_URL="${STORAGE_PUBLIC_BASE_URL:-$PUBLIC_APP_URL}"
-export S3_REGION="${S3_REGION:-us-east-1}"
-export S3_ENDPOINT="${S3_ENDPOINT:-http://127.0.0.1:9000}"
-export S3_FORCE_PATH_STYLE="${S3_FORCE_PATH_STYLE:-true}"
 export RUNTIME_CONFIG_PATH="${RUNTIME_CONFIG_PATH:-$ALLOY_DATA_DIR/runtime-config.json}"
 export ENCODE_SCRATCH_DIR="${ENCODE_SCRATCH_DIR:-$ALLOY_DATA_DIR/encode}"
 
@@ -121,4 +103,4 @@ log "starting web"
 PORT="${WEB_PORT:-8080}" node /app/apps/web/.output/server/index.mjs &
 web_pid=$!
 
-wait -n "$server_pid" "$web_pid" "$minio_pid"
+wait -n "$server_pid" "$web_pid"
