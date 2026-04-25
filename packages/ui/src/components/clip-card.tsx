@@ -86,47 +86,57 @@ function ClipCard({
         buttonRef={thumbnailRef}
       />
       <div className="flex flex-col gap-2">
-        <div className="truncate text-base font-semibold tracking-[-0.015em] text-foreground sm:text-lg">
-          {title}
-        </div>
-        {author ? (
-          <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 text-md leading-none text-foreground-dim">
-            <ClipCardAvatar
-              author={author}
-              authorSeed={authorSeed}
-              authorImage={authorImage}
-            />
-            <span className="flex min-w-0 items-center gap-2 overflow-hidden">
-              <AuthorLabel author={author} href={authorHref} />
-              <span className="shrink-0 text-foreground-faint">·</span>
-              <GameLabel game={game} icon={gameIcon} href={gameHref} />
-            </span>
+        {metaVariant === "showcase" ? (
+          <div className="truncate text-base font-semibold tracking-[-0.015em] text-foreground sm:text-lg">
+            {title}
           </div>
         ) : (
-          <div className="text-md text-accent">
-            <GameLabel game={game} icon={gameIcon} href={gameHref} />
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="min-w-0 flex-1 truncate text-base font-semibold tracking-[-0.015em] text-foreground sm:text-lg">
+              {title}
+            </div>
+            <span className="inline-flex shrink-0 items-center gap-3.5 pt-1 text-sm tracking-[0.04em] text-foreground-faint">
+              <span className="inline-flex items-center gap-1.5">
+                <EyeIcon className="size-3.5" />
+                {views}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <HeartIcon className="size-3.5" />
+                {likes}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <MessageSquareIcon className="size-3.5" />
+                {commentCount}
+              </span>
+            </span>
           </div>
         )}
-        {metaVariant === "showcase" ? null : (
-          <div className="flex items-center gap-3.5 text-sm tracking-[0.04em] text-foreground-faint">
-            <span className="inline-flex items-center gap-1.5">
-              <EyeIcon className="size-3.5" />
-              {views}
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <HeartIcon className="size-3.5" />
-              {likes}
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <MessageSquareIcon className="size-3.5" />
-              {commentCount}
-            </span>
-            <span className="ml-auto inline-flex items-center gap-1.5">
+        <div className="flex min-w-0 items-center gap-3">
+          {author ? (
+            <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 text-md leading-none text-foreground-dim">
+              <ClipCardAvatar
+                author={author}
+                authorSeed={authorSeed}
+                authorImage={authorImage}
+              />
+              <span className="flex min-w-0 items-center gap-2 overflow-hidden">
+                <AuthorLabel author={author} href={authorHref} />
+                <span className="shrink-0 text-foreground-faint">·</span>
+                <GameLabel game={game} icon={gameIcon} href={gameHref} />
+              </span>
+            </div>
+          ) : (
+            <div className="min-w-0 flex-1 text-md text-accent">
+              <GameLabel game={game} icon={gameIcon} href={gameHref} />
+            </div>
+          )}
+          {metaVariant === "showcase" ? null : (
+            <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 text-sm tracking-[0.04em] text-foreground-faint">
               {privacyBadge}
               {postedAt}
             </span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </article>
   )
@@ -334,7 +344,10 @@ function ClipCardThumb({
           )}
         />
       ) : null}
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 -bottom-px z-10 h-px bg-black" />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 -bottom-px z-10 h-px bg-black"
+      />
     </>
   )
 
