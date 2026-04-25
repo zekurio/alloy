@@ -85,6 +85,7 @@ export function ClipViewerDialog({
     if (!open) return
     const onKey = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return
+      if (isEditableKeyTarget(event.target)) return
       if (event.key === "ArrowLeft" && prev) {
         event.preventDefault()
         navigateTo(prev)
@@ -108,9 +109,14 @@ export function ClipViewerDialog({
         queryKey: clipKeys.detail(entry.id),
         queryFn: () => api.clips.fetchById(entry.id),
       })
-      void queryClient.prefetchQuery({
-        queryKey: commentKeys.list(entry.id, "top"),
-        queryFn: () => api.comments.fetch(entry.id, "top"),
+      void queryClient.prefetchInfiniteQuery({
+        queryKey: commentKeys.list(entry.id, "top", 30),
+        queryFn: ({ pageParam }) =>
+          api.comments.fetch(entry.id, "top", {
+            limit: 30,
+            cursor: pageParam,
+          }),
+        initialPageParam: null as string | null,
       })
     }
   }, [open, prev, next, queryClient])
@@ -150,6 +156,19 @@ export function ClipViewerDialog({
         )
       ) : null}
     </Dialog>
+  )
+}
+
+function isEditableKeyTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  if (target.isContentEditable) return true
+  const tag = target.tagName
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    tag === "BUTTON" ||
+    tag === "A"
   )
 }
 

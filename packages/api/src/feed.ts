@@ -1,6 +1,6 @@
 import type { ApiContext } from "./client"
 import type {
-  ClipRow,
+  FeedPage,
   FeedChipsResponse,
   FeedPageParams,
 } from "@workspace/contracts"
@@ -10,21 +10,22 @@ export type {
   FeedChipGame,
   FeedChipsResponse,
   FeedFilter,
+  FeedPage,
   FeedPageParams,
 } from "@workspace/contracts"
 
 export function createFeedApi(context: ApiContext) {
   return {
-    async fetch(params: FeedPageParams): Promise<ClipRow[]> {
+    async fetch(params: FeedPageParams): Promise<FeedPage> {
       const query: Record<string, string> = {
         filter: params.filter.kind,
       }
       if (params.filter.kind === "game") query.gameId = params.filter.gameId
       if (params.limit !== undefined) query.limit = String(params.limit)
-      if (params.offset !== undefined) query.offset = String(params.offset)
+      if (params.cursor) query.cursor = params.cursor
 
       const res = await context.request("/api/feed", { query })
-      return readJsonOrThrow<ClipRow[]>(res)
+      return readJsonOrThrow<FeedPage>(res)
     },
 
     async fetchChips(): Promise<FeedChipsResponse> {

@@ -188,6 +188,11 @@ export interface CommentRow {
 
 export type CommentSort = "top" | "new"
 
+export interface CommentPage {
+  items: CommentRow[]
+  nextCursor: string | null
+}
+
 export type FeedFilter =
   | { kind: "foryou" }
   | { kind: "following" }
@@ -196,7 +201,12 @@ export type FeedFilter =
 export interface FeedPageParams {
   filter: FeedFilter
   limit?: number
-  offset?: number
+  cursor?: string | null
+}
+
+export interface FeedPage {
+  items: ClipRow[]
+  nextCursor: string | null
 }
 
 export interface FeedChipGame {
