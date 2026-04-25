@@ -9,6 +9,7 @@ import { AuthSubmitButton, FormInputField } from "../auth/auth-form-fields"
 import { api } from "@/lib/api"
 import { authClient } from "@/lib/auth-client"
 import { validateEmail, validateUsername } from "@/lib/form-validators"
+import { addPasskeyWithLabel } from "@/lib/passkeys"
 
 type PasskeySignUpFormState = {
   username: string
@@ -42,9 +43,9 @@ function usePasskeySignUpSubmit() {
           email: form.email.trim(),
           username: form.username.trim().toLowerCase(),
         })
-        const { error } = await authClient.passkey.addPasskey({
+        const { error } = await addPasskeyWithLabel({
           context,
-          name: `${form.username.trim()}'s passkey`,
+          label: `${form.username.trim()}'s passkey`,
         })
         if (error) {
           toast.error("Couldn't create your passkey account")

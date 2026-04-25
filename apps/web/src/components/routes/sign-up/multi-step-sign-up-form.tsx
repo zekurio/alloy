@@ -14,6 +14,7 @@ import {
   validatePassword,
   validateUsername,
 } from "@/lib/form-validators"
+import { addPasskeyWithLabel } from "@/lib/passkeys"
 import {
   AccountCreationEmailField,
   AccountCreationPasswordField,
@@ -65,9 +66,9 @@ function usePasskeySignUpSubmit() {
           email: identity.email.trim(),
           username: identity.username.trim().toLowerCase(),
         })
-        const { error } = await authClient.passkey.addPasskey({
+        const { error } = await addPasskeyWithLabel({
           context,
-          name: `${identity.username.trim()}'s passkey`,
+          label: `${identity.username.trim()}'s passkey`,
         })
         if (error) {
           toast.error("Couldn't create your passkey account")
