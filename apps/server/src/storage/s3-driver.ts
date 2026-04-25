@@ -123,7 +123,13 @@ export class S3StorageDriver implements StorageDriver {
     const cmd = new PutObjectCommand({
       Bucket: this.bucket,
       Key: input.key,
+      ContentLength: input.maxBytes,
       ContentType: input.contentType,
+      Metadata: {
+        "alloy-user-id": input.userId,
+        "alloy-clip-id": input.clipId,
+        "alloy-max-bytes": String(input.maxBytes),
+      },
     })
     const url = await getSignedUrl(this.client, cmd, {
       expiresIn: input.expiresInSec,
@@ -131,7 +137,12 @@ export class S3StorageDriver implements StorageDriver {
     return {
       uploadUrl: url,
       method: "PUT",
-      headers: { "Content-Type": input.contentType },
+      headers: {
+        "Content-Type": input.contentType,
+        "x-amz-meta-alloy-user-id": input.userId,
+        "x-amz-meta-alloy-clip-id": input.clipId,
+        "x-amz-meta-alloy-max-bytes": String(input.maxBytes),
+      },
       expiresAt: Math.floor(Date.now() / 1000) + input.expiresInSec,
     }
   }
