@@ -25,21 +25,6 @@ export function validateEmail(value: string): string | undefined {
   return undefined
 }
 
-export function validatePassword(
-  value: string,
-  minimumLength = 8
-): string | undefined {
-  if (value.length === 0) {
-    return "Password is required"
-  }
-
-  if (value.length < minimumLength) {
-    return `Password must be at least ${minimumLength} characters`
-  }
-
-  return undefined
-}
-
 export function validateUsername(value: string): string | undefined {
   const trimmed = value.trim()
 

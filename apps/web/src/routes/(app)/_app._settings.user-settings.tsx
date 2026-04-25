@@ -31,7 +31,6 @@ import {
   PasskeysCard,
   type Passkey,
 } from "@/components/routes/settings/passkeys-card"
-import { PasswordCard } from "@/components/routes/settings/password-card"
 import { ProfileCard } from "@/components/routes/settings/profile-card"
 import { authClient } from "@/lib/auth-client"
 import { useRequireAuthStrict } from "@/lib/auth-hooks"
@@ -150,41 +149,36 @@ function SecurityTabContent({ config }: { config: PublicAuthConfig }) {
 
   if (loading || !accounts) return null
 
-  const hasPasswordAccount = accounts.some(
-    (account) => account.providerId === "credential"
+  const showLinkedAccountsSection = shouldShowLinkedAccountsCard(
+    config,
+    accounts
   )
-
-  const showPasswordSection =
-    hasPasswordAccount || shouldShowLinkedAccountsCard(config, accounts)
   const showPasskeySection = config.passkeyEnabled && passkeys !== null
 
   return (
     <>
-      {showPasswordSection ? (
+      {showLinkedAccountsSection ? (
         <div className="flex flex-col gap-3">
           <div>
             <h2 className="text-md font-semibold tracking-[-0.005em]">
-              Password
+              Sign-in methods
             </h2>
             <p className="mt-0.5 text-xs text-foreground-dim">
-              Manage your password and linked sign-in methods.
+              Manage linked OAuth sign-in methods.
             </p>
           </div>
 
-          {hasPasswordAccount ? <PasswordCard /> : null}
-          {shouldShowLinkedAccountsCard(config, accounts) ? (
-            <LinkedAccountsCard
-              accounts={accounts}
-              config={config}
-              onRefresh={refreshAccounts}
-            />
-          ) : null}
+          <LinkedAccountsCard
+            accounts={accounts}
+            config={config}
+            onRefresh={refreshAccounts}
+          />
         </div>
       ) : null}
 
       {showPasskeySection ? (
         <div className="flex flex-col gap-3">
-          {showPasswordSection ? <hr className="border-border" /> : null}
+          {showLinkedAccountsSection ? <hr className="border-border" /> : null}
           <PasskeysCard passkeys={passkeys!} onRefresh={refreshPasskeys} />
         </div>
       ) : null}
