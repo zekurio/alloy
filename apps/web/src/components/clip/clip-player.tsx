@@ -8,6 +8,7 @@ import {
   type ClipStatus,
 } from "@workspace/api"
 import { VideoPlayer } from "@/components/video/video-player"
+import { apiOrigin } from "@/lib/env"
 
 interface ClipPlayerProps {
   /** Real clip id — drives both the stream URL and the default poster. */
@@ -71,7 +72,7 @@ function ClipPlayer({
 }: ClipPlayerProps) {
   const poster =
     thumbnail === undefined
-      ? clipThumbnailUrl(clipId)
+      ? clipThumbnailUrl(clipId, apiOrigin())
       : (thumbnail ?? undefined)
   const sortedVariants = React.useMemo(
     () =>
@@ -88,13 +89,13 @@ function ClipPlayer({
       ? sortedVariants.map((variant) => ({
           id: variant.id,
           label: variant.label,
-          downloadUrl: clipDownloadUrl(clipId, variant.id),
+          downloadUrl: clipDownloadUrl(clipId, variant.id, apiOrigin()),
         }))
       : hasLegacyEncodedFallback
         ? [
             {
               ...FALLBACK_ENCODED_OPTION,
-              downloadUrl: clipDownloadUrl(clipId, "encoded"),
+              downloadUrl: clipDownloadUrl(clipId, "encoded", apiOrigin()),
             },
           ]
         : []
@@ -138,7 +139,7 @@ function ClipPlayer({
           {
             id: "source",
             label: "Source",
-            downloadUrl: clipDownloadUrl(clipId, "source"),
+            downloadUrl: clipDownloadUrl(clipId, "source", apiOrigin()),
           },
         ]
       : []),
@@ -158,7 +159,7 @@ function ClipPlayer({
     )
   }
 
-  const src = clipStreamUrl(clipId, selectedQualityId)
+  const src = clipStreamUrl(clipId, selectedQualityId, apiOrigin())
   const selectedVariant =
     selectedQualityId === "source"
       ? null

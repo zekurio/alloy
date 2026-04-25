@@ -39,10 +39,10 @@ export function useSteamGridDBStatusQuery(): UseQueryResult<SteamGridDBStatus> {
   return useQuery({
     queryKey: gameKeys.status(),
     queryFn: () => api.games.fetchSteamGridDBStatus(),
-    // 5-minute freshness is plenty for a config flag; the admin save
-    // path explicitly invalidates so a toggle reflects immediately.
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    // Config can be changed by another browser session. Keep this cheap probe
+    // fresh when the game picker mounts instead of requiring a page reload.
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   })
 }
 

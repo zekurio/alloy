@@ -5,6 +5,7 @@ import type {
   ClipRow,
 } from "@workspace/api"
 import { clipStreamUrl, clipThumbnailUrl } from "@workspace/api"
+import { apiOrigin } from "./env"
 import { userImageSrc } from "./user-display"
 
 /** 12.4k / 1.3k / 842 — mirrors the number style used across the UI. */
@@ -97,8 +98,8 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
     likes: formatCount(row.likeCount),
     comments: formatCount(row.commentCount),
     postedAt: formatRelativeTime(row.createdAt, now),
-    thumbnail: row.thumbKey ? clipThumbnailUrl(row.id) : undefined,
-    streamUrl: clipStreamUrl(row.id),
+    thumbnail: row.thumbKey ? clipThumbnailUrl(row.id, apiOrigin()) : undefined,
+    streamUrl: clipStreamUrl(row.id, undefined, apiOrigin()),
     variants: row.variants,
     accentHue: hueForGame(game),
     privacy: row.privacy,
