@@ -184,7 +184,7 @@ function ClipPlayer({
       onPlaybackError={() => {
         if (selectedQualityId === "source") {
           setSourcePlayable(false)
-          setSelectedQualityId(defaultEncodedId)
+          if (defaultEncodedId) setSelectedQualityId(defaultEncodedId)
         }
       }}
       onPlayThreshold={onPlayThreshold}

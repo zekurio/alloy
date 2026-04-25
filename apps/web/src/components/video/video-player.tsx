@@ -219,6 +219,13 @@ function PlayerCore({
   }, [])
 
   React.useEffect(() => {
+    mutedRef.current = initialMuted
+    setMutedState(initialMuted)
+    const video = videoRef.current
+    if (video) video.muted = initialMuted
+  }, [initialMuted])
+
+  React.useEffect(() => {
     setStatus({ kind: "loading" })
     setDuration(0)
     setCurrentTime(0)
