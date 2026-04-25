@@ -81,10 +81,11 @@ docker run --gpus all \
   ghcr.io/<owner>/<repo>-aio:unstable
 ```
 
-In Alloy's admin encoder settings, use `/dev/dri/renderD128` for the QSV or
-VA-API device unless your host exposes a different render node. The capability
-matrix in the admin UI is the source of truth for which encoders the running
-container can actually use.
+In Alloy's admin encoder settings, choose the global hardware acceleration
+method, then choose an output codec on each variant. QSV and VA-API show a
+device field; use `/dev/dri/renderD128` unless your host exposes a different
+render node. The capability probe in the admin UI is the source of truth for
+which encoders the running container can actually use.
 
 ## Environment
 
