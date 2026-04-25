@@ -1,7 +1,9 @@
-FROM docker.io/library/node:24-slim AS base
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+FROM docker.io/library/node:24-bookworm-slim AS base
+COPY docker/install-ffmpeg-hwaccel-deps.sh /tmp/install-ffmpeg-hwaccel-deps.sh
+RUN sh /tmp/install-ffmpeg-hwaccel-deps.sh \
+  && rm /tmp/install-ffmpeg-hwaccel-deps.sh
+ENV FFMPEG_BIN=/usr/lib/jellyfin-ffmpeg/ffmpeg
+ENV FFPROBE_BIN=/usr/lib/jellyfin-ffmpeg/ffprobe
 RUN corepack enable
 WORKDIR /app
 
