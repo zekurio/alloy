@@ -1,9 +1,10 @@
 import type { ApiContext } from "./client"
-import type { CommentRow, CommentSort } from "@workspace/contracts"
+import type { CommentPage, CommentRow, CommentSort } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
 
 export type {
   CommentAuthor,
+  CommentPage,
   CommentRow,
   CommentSort,
 } from "@workspace/contracts"
@@ -12,15 +13,17 @@ export function createCommentsApi(context: ApiContext) {
   return {
     async fetch(
       clipId: string,
-      sort: CommentSort = "top"
-    ): Promise<CommentRow[]> {
+      sort: CommentSort = "top",
+      params: { limit?: number; cursor?: string | null } = {}
+    ): Promise<CommentPage> {
+      const query: Record<string, string> = { sort }
+      if (params.limit !== undefined) query.limit = String(params.limit)
+      if (params.cursor) query.cursor = params.cursor
       const res = await context.request(
         `/api/clips/${encodeURIComponent(clipId)}/comments`,
-        {
-          query: { sort },
-        }
+        { query }
       )
-      return readJsonOrThrow<CommentRow[]>(res)
+      return readJsonOrThrow<CommentPage>(res)
     },
 
     async create(input: {

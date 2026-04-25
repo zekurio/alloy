@@ -43,25 +43,37 @@ export const clipCommentsRoutes = new Hono()
     zValidator("query", ListQuery),
     async (c) => {
       const { id } = c.req.valid("param")
-      const { sort } = c.req.valid("query")
+      const { sort, limit, cursor } = c.req.valid("query")
 
       const target = await selectClipAccess(id)
       if (!target) return c.json({ error: "Not found" }, 404)
       const viewer = await peekViewer(c.req.raw.headers)
       const isOwner = viewer?.id === target.authorId
       const isAdmin = viewer?.role === "admin"
+      if (target.authorDisabledAt && !isOwner && !isAdmin) {
+        return c.json({ error: "Not found" }, 404)
+      }
       if (target.privacy === "private" && !isOwner && !isAdmin) {
         return c.json({ error: "Not found" }, 404)
       }
 
-      return c.json(
-        await listClipComments({
-          clipId: id,
-          sort,
-          viewerId: viewer?.id ?? null,
-          clipAuthorId: target.authorId,
-        })
-      )
+      try {
+        return c.json(
+          await listClipComments({
+            clipId: id,
+            sort,
+            limit,
+            cursor,
+            viewerId: viewer?.id ?? null,
+            clipAuthorId: target.authorId,
+          })
+        )
+      } catch (err) {
+        if (err instanceof Error && err.message === "Invalid cursor") {
+          return c.json({ error: "Invalid cursor" }, 400)
+        }
+        throw err
+      }
     }
   )
 

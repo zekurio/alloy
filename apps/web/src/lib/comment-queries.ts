@@ -1,28 +1,44 @@
 import {
   keepPreviousData,
+  useInfiniteQuery,
   useMutation,
-  useQuery,
   useQueryClient,
+  type InfiniteData,
   type QueryClient,
 } from "@tanstack/react-query"
 
-import type { ClipRow, CommentRow, CommentSort } from "@workspace/api"
+import type {
+  ClipRow,
+  CommentPage,
+  CommentRow,
+  CommentSort,
+} from "@workspace/api"
 
 import { api } from "./api"
 import { clipKeys } from "./clip-queries"
 
 export const commentKeys = {
   all: ["comments"] as const,
-  list: (clipId: string, sort: CommentSort) =>
-    [...commentKeys.all, "list", { clipId, sort }] as const,
+  list: (clipId: string, sort: CommentSort, limit: number) =>
+    [...commentKeys.all, "list", { clipId, sort, limit }] as const,
   clipLists: (clipId: string) =>
     [...commentKeys.all, "list", { clipId }] as const,
 }
 
-export function useCommentsQuery(clipId: string, sort: CommentSort = "top") {
-  return useQuery({
-    queryKey: commentKeys.list(clipId, sort),
-    queryFn: () => api.comments.fetch(clipId, sort),
+export function useCommentsQuery(
+  clipId: string,
+  sort: CommentSort = "top",
+  { limit = 30 }: { limit?: number } = {}
+) {
+  return useInfiniteQuery({
+    queryKey: commentKeys.list(clipId, sort, limit),
+    queryFn: ({ pageParam }) =>
+      api.comments.fetch(clipId, sort, {
+        limit,
+        cursor: pageParam,
+      }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
     enabled: clipId.length > 0,
     placeholderData: keepPreviousData,
   })
@@ -53,9 +69,17 @@ function bumpClipCommentCount(qc: QueryClient, clipId: string, delta: number) {
     { queryKey: clipKeys.lists() },
     (old) => old?.map(apply)
   )
+  qc.setQueriesData<InfiniteData<ClipRow[], string | null> | undefined>(
+    { queryKey: clipKeys.infinite() },
+    (old) =>
+      old && {
+        ...old,
+        pages: old.pages.map((page) => page.map(apply)),
+      }
+  )
 }
 
-type CommentListData = CommentRow[] | undefined
+type CommentListData = InfiniteData<CommentPage, string | null> | undefined
 
 function mapComments(
   data: CommentListData,
@@ -69,7 +93,13 @@ function mapComments(
       replies: mapped.replies.map(mapComment),
     }
   }
-  return data.map(mapComment)
+  return {
+    ...data,
+    pages: data.pages.map((page) => ({
+      ...page,
+      items: page.items.map(mapComment),
+    })),
+  }
 }
 
 function forEachCommentsQuery(

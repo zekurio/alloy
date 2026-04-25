@@ -6,6 +6,7 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@workspace/ui/components/avatar"
+import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { toast } from "@workspace/ui/components/sonner"
 import { cn } from "@workspace/ui/lib/utils"
@@ -89,7 +90,18 @@ function ClipComments({
     [openReplyIds]
   )
 
-  const { data: comments = [], isLoading } = useCommentsQuery(clipId, sort)
+  React.useEffect(() => {
+    setDraft("")
+    setReplyTarget(null)
+    setSort("top")
+    setOpenReplyIds(new Set())
+  }, [clipId])
+
+  const commentsQuery = useCommentsQuery(clipId, sort)
+  const comments = React.useMemo(
+    () => commentsQuery.data?.pages.flatMap((page) => page.items) ?? [],
+    [commentsQuery.data]
+  )
   const create = useCreateCommentMutation(clipId)
 
   const totalCount = React.useMemo(
@@ -157,7 +169,7 @@ function ClipComments({
     >
       <div className="flex-1 overflow-y-auto">
         {comments.length > 0 ? <CommentsHeader count={totalCount} /> : null}
-        {isLoading ? (
+        {commentsQuery.isLoading ? (
           <div className="flex h-full items-center justify-center p-6">
             <Spinner />
           </div>
@@ -171,23 +183,41 @@ function ClipComments({
             />
           </div>
         ) : (
-          <ul className="flex flex-col">
-            {comments.map((comment, index) => (
-              <CommentRowView
-                key={comment.id}
-                comment={comment}
-                first={index === 0}
-                clipId={clipId}
-                clipAuthorId={clipAuthorId}
-                viewerId={viewerId}
-                depth={0}
-                repliesOpen={isRepliesOpen(comment.id)}
-                isRepliesOpen={isRepliesOpen}
-                onToggleReplies={toggleReplies}
-                onStartReply={startReply}
-              />
-            ))}
-          </ul>
+          <>
+            <ul className="flex flex-col">
+              {comments.map((comment, index) => (
+                <CommentRowView
+                  key={comment.id}
+                  comment={comment}
+                  first={index === 0}
+                  clipId={clipId}
+                  clipAuthorId={clipAuthorId}
+                  viewerId={viewerId}
+                  depth={0}
+                  repliesOpen={isRepliesOpen(comment.id)}
+                  isRepliesOpen={isRepliesOpen}
+                  onToggleReplies={toggleReplies}
+                  onStartReply={startReply}
+                />
+              ))}
+            </ul>
+            {commentsQuery.hasNextPage ? (
+              <div className="flex justify-center p-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={commentsQuery.isFetchingNextPage}
+                  onClick={() => void commentsQuery.fetchNextPage()}
+                >
+                  {commentsQuery.isFetchingNextPage ? (
+                    <Spinner className="size-4" />
+                  ) : null}
+                  Load more
+                </Button>
+              </div>
+            ) : null}
+          </>
         )}
       </div>
 
