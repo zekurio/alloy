@@ -111,7 +111,7 @@ export class FsStorageDriver implements StorageDriver {
     const token = signToken(payload, this.opts.hmacSecret)
     const baseUrl = this.opts.publicBaseUrl.replace(/\/+$/, "")
     return {
-      uploadUrl: `${baseUrl}/storage/upload/${token}`,
+      uploadUrl: `${baseUrl}/api/assets/upload/${token}`,
       method: "POST",
       headers: { "Content-Type": input.contentType },
       expiresAt,

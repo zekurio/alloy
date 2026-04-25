@@ -18,6 +18,8 @@ COPY packages/ui/package.json packages/ui/package.json
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS web-build
+ARG VITE_SERVER_URL=http://localhost:3000
+ENV VITE_SERVER_URL=$VITE_SERVER_URL
 COPY . .
 RUN pnpm --filter web build
 
@@ -32,10 +34,9 @@ ENV POSTGRES_USER=alloy
 ENV POSTGRES_PASSWORD=alloy
 ENV PORT=3000
 ENV WEB_PORT=8080
-ENV INTERNAL_API_URL=http://127.0.0.1:3000
+ENV VITE_SERVER_URL=http://localhost:3000
 ENV PUBLIC_APP_URL=http://localhost:8080
-ENV PUBLIC_API_URL=http://localhost:8080
-ENV BETTER_AUTH_URL=http://localhost:8080
+ENV PUBLIC_SERVER_URL=http://localhost:3000
 ENV TRUSTED_ORIGINS=http://localhost:8080
 ENV STORAGE_DRIVER=fs
 ENV STORAGE_FS_ROOT=/data/storage
@@ -51,6 +52,6 @@ COPY . .
 COPY --from=web-build /app/apps/web/.output /app/apps/web/.output
 COPY docker/aio-entrypoint.sh /usr/local/bin/alloy-aio
 RUN chmod +x /usr/local/bin/alloy-aio
-EXPOSE 8080
+EXPOSE 8080 3000
 VOLUME ["/data"]
 ENTRYPOINT ["tini", "--", "alloy-aio"]

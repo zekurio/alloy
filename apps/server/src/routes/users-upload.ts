@@ -37,7 +37,7 @@ async function readAll(node: Readable): Promise<Buffer> {
 }
 
 function assetUrl(key: string, updatedAt: Date): string {
-  return `/storage/user-assets/${key}?v=${updatedAt.getTime().toString(36)}`
+  return `/api/assets/users/${key}?v=${updatedAt.getTime().toString(36)}`
 }
 
 function assetEtag(key: string, resolved: ResolvedObject): string {

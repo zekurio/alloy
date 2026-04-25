@@ -74,7 +74,7 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
       return c.json({ error: "Upload exceeded maximum size" }, 413)
     }
     // eslint-disable-next-line no-console
-    console.error("[storage/upload] write failed:", err)
+    console.error("[api/assets/upload] write failed:", err)
     return c.json({ error: "Upload write failed" }, 500)
   }
 
@@ -88,7 +88,7 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
       return c.json({ error: "Upload ticket has already been used" }, 409)
     }
     // eslint-disable-next-line no-console
-    console.error("[storage/upload] publish failed:", err)
+    console.error("[api/assets/upload] publish failed:", err)
     return c.json({ error: "Upload publish failed" }, 500)
   }
   await fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => undefined)

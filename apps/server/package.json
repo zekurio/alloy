@@ -8,7 +8,7 @@
     "./auth": "./src/auth.ts"
   },
   "scripts": {
-    "dev": "PORT=3000 BETTER_AUTH_URL=http://localhost:3000 TRUSTED_ORIGINS=http://localhost:5173 tsx watch src/index.ts",
+    "dev": "PORT=3000 PUBLIC_SERVER_URL=http://localhost:3000 TRUSTED_ORIGINS=http://localhost:5173 tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "build": "tsgo --noEmit",
     "lint": "oxlint .",
