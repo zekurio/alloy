@@ -11,6 +11,7 @@ import appCss from "@workspace/ui/globals.css?url"
 
 import { ClientOnly } from "@/components/app/client-only"
 import { ReactivateAccountPrompt } from "@/components/account/reactivate-account-prompt"
+import { ConfigEvents } from "@/lib/config-events"
 import { redirectToSetupBeforeLoad } from "@/lib/auth-guards"
 
 export const Route = createRootRouteWithContext<{
@@ -43,6 +44,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         {children}
         <ClientOnly>
           <React.Suspense fallback={null}>
+            <ConfigEvents />
             <ReactivateAccountPrompt />
           </React.Suspense>
         </ClientOnly>

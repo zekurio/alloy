@@ -27,58 +27,61 @@ export function LoginPageInner({ config, clips }: LoginPageInnerProps) {
 
   const { provider, openRegistrations, passkeyEnabled } = config
   const showPasskeySignIn = passkeyEnabled && passkeySupported
-  const canSignUp =
-    openRegistrations && (passkeyEnabled || provider !== null)
+  const canSignUp = openRegistrations && (passkeyEnabled || provider !== null)
 
   return (
-    <div className="relative grid min-h-screen w-full bg-background text-foreground lg:grid-cols-[1fr_minmax(480px,0.7fr)]">
-      <div className="relative hidden overflow-hidden lg:block">
+    <div className="relative min-h-screen w-full bg-background text-foreground">
+      <div className="absolute inset-0 overflow-hidden">
         <LoginArtwork clips={clips} />
       </div>
 
-      <div className="relative flex min-h-screen flex-col px-6 py-8 sm:px-10">
-        <header className="flex items-center">
-          <Link to="/" className="inline-flex items-center">
-            <AlloyLogo showText size={36} />
-          </Link>
-        </header>
+      <div className="relative grid min-h-screen lg:grid-cols-[1fr_minmax(480px,0.7fr)]">
+        <div className="hidden lg:block" />
 
-        <div className="flex flex-1 items-center justify-center">
-          <div className="w-full max-w-sm">
-            <div className="mb-8 space-y-1.5">
-              <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
-                Sign in
-              </h2>
-            </div>
+        <div className="relative flex min-h-screen flex-col bg-background/85 px-6 py-8 backdrop-blur-md sm:px-10 lg:bg-background lg:backdrop-blur-none">
+          <header className="flex items-center">
+            <Link to="/" className="inline-flex items-center">
+              <AlloyLogo showText size={36} />
+            </Link>
+          </header>
 
-            <div className="flex flex-col gap-3">
-              {showPasskeySignIn ? <PasskeySignIn /> : null}
-              {provider ? (
-                <OAuthSignIn
-                  providerId={provider.providerId}
-                  displayName={provider.displayName}
-                />
+          <div className="flex flex-1 items-center">
+            <div className="w-full max-w-sm">
+              <div className="mb-8 space-y-1.5">
+                <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
+                  Sign in
+                </h2>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                {showPasskeySignIn ? <PasskeySignIn /> : null}
+                {provider ? (
+                  <OAuthSignIn
+                    providerId={provider.providerId}
+                    displayName={provider.displayName}
+                  />
+                ) : null}
+              </div>
+
+              {passkeyEnabled && passkeyReady && !passkeySupported ? (
+                <p className="mt-4 text-sm text-foreground-muted">
+                  Passkey sign-in is enabled, but this browser does not support
+                  passkeys.
+                </p>
+              ) : null}
+
+              {canSignUp ? (
+                <p className="mt-6 text-center text-sm text-foreground-muted">
+                  Don't have an account?{" "}
+                  <Link
+                    to="/sign-up"
+                    className="font-medium text-foreground underline-offset-4 hover:text-accent hover:underline"
+                  >
+                    Create one
+                  </Link>
+                </p>
               ) : null}
             </div>
-
-            {passkeyEnabled && passkeyReady && !passkeySupported ? (
-              <p className="mt-4 text-sm text-foreground-muted">
-                Passkey sign-in is enabled, but this browser does not support
-                passkeys.
-              </p>
-            ) : null}
-
-            {canSignUp ? (
-              <p className="mt-6 text-center text-sm text-foreground-muted">
-                Don't have an account?{" "}
-                <Link
-                  to="/sign-up"
-                  className="font-medium text-foreground underline-offset-4 hover:text-accent hover:underline"
-                >
-                  Create one
-                </Link>
-              </p>
-            ) : null}
           </div>
         </div>
       </div>

@@ -21,6 +21,11 @@ type RouteSessionState = {
   data: SessionData
 }
 
+type RouteAuthConfigState = {
+  found: boolean
+  data: PublicAuthConfig | null
+}
+
 let sessionInitialPromise: Promise<void> | null = null
 let configPromiseCache: Promise<PublicAuthConfig> | null = null
 
@@ -38,6 +43,25 @@ function useRouteSession(): RouteSessionState {
           Object.prototype.hasOwnProperty.call(context, "session")
         ) {
           return { found: true, data: context.session ?? null }
+        }
+      }
+      return { found: false, data: null }
+    },
+  })
+}
+
+function useRouteAuthConfig(): RouteAuthConfigState {
+  return useRouterState({
+    select: (state): RouteAuthConfigState => {
+      for (let i = state.matches.length - 1; i >= 0; i -= 1) {
+        const context = state.matches[i]?.context as
+          | { authConfig?: PublicAuthConfig }
+          | undefined
+        if (
+          context &&
+          Object.prototype.hasOwnProperty.call(context, "authConfig")
+        ) {
+          return { found: true, data: context.authConfig ?? null }
         }
       }
       return { found: false, data: null }
@@ -94,6 +118,10 @@ export async function loadSession(): Promise<SessionData> {
 }
 
 export function loadAuthConfig(): Promise<PublicAuthConfig> {
+  if (typeof window === "undefined") {
+    return api.authConfig.fetch()
+  }
+
   if (!configPromiseCache) {
     configPromiseCache = api.authConfig.fetch().catch((err) => {
       configPromiseCache = null
@@ -125,5 +153,10 @@ export function useSuspenseSession(): SessionData {
  * across routes — cheap to call from multiple components on the same page.
  */
 export function useSuspenseAuthConfig(): PublicAuthConfig {
+  const routeAuthConfig = useRouteAuthConfig()
+  if (routeAuthConfig.found && routeAuthConfig.data) {
+    return routeAuthConfig.data
+  }
+
   return use(loadAuthConfig())
 }

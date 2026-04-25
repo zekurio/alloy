@@ -10,6 +10,8 @@ export const USERNAME_CLAIM_SUGGESTIONS = [
 
 export type UsernameClaim = string
 
+export const OAUTH_QUOTA_CLAIM_DEFAULT = "alloy_quota"
+
 export interface OAuthProviderConfig {
   providerId: string
   displayName: string

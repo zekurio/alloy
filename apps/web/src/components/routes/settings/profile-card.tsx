@@ -514,6 +514,20 @@ export function ProfileCard({
                 )
               }}
             </form.Field>
+
+            <Field>
+              <FieldLabel htmlFor="email">Email</FieldLabel>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                readOnly
+                disabled
+              />
+              <FieldDescription>
+                Contact address used for your account.
+              </FieldDescription>
+            </Field>
           </SectionContent>
 
           <SectionFooter>
