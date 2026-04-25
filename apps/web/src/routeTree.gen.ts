@@ -25,6 +25,7 @@ import { Route as appAppSettingsUserSettingsRouteImport } from './routes/(app)/_
 import { Route as appAppSettingsAdminSettingsRouteImport } from './routes/(app)/_app._settings.admin-settings'
 import { Route as appAppUUsernameIndexRouteImport } from './routes/(app)/_app.u.$username.index'
 import { Route as appAppUUsernameTaggedRouteImport } from './routes/(app)/_app.u.$username.tagged'
+import { Route as appAppUUsernameLikedRouteImport } from './routes/(app)/_app.u.$username.liked'
 import { Route as appAppUUsernameFeedRouteImport } from './routes/(app)/_app.u.$username.feed'
 import { Route as appAppUUsernameAllRouteImport } from './routes/(app)/_app.u.$username.all'
 import { Route as appAppGSlugCClipIdRouteImport } from './routes/(app)/_app.g.$slug.c.$clipId'
@@ -109,6 +110,11 @@ const appAppUUsernameTaggedRoute = appAppUUsernameTaggedRouteImport.update({
   path: '/tagged',
   getParentRoute: () => appAppUUsernameRoute,
 } as any)
+const appAppUUsernameLikedRoute = appAppUUsernameLikedRouteImport.update({
+  id: '/liked',
+  path: '/liked',
+  getParentRoute: () => appAppUUsernameRoute,
+} as any)
 const appAppUUsernameFeedRoute = appAppUUsernameFeedRouteImport.update({
   id: '/feed',
   path: '/feed',
@@ -140,6 +146,7 @@ export interface FileRoutesByFullPath {
   '/u/$username': typeof appAppUUsernameRouteWithChildren
   '/u/$username/all': typeof appAppUUsernameAllRoute
   '/u/$username/feed': typeof appAppUUsernameFeedRoute
+  '/u/$username/liked': typeof appAppUUsernameLikedRoute
   '/u/$username/tagged': typeof appAppUUsernameTaggedRoute
   '/u/$username/': typeof appAppUUsernameIndexRoute
   '/g/$slug/c/$clipId': typeof appAppGSlugCClipIdRoute
@@ -158,6 +165,7 @@ export interface FileRoutesByTo {
   '/g/$slug': typeof appAppGSlugRouteWithChildren
   '/u/$username/all': typeof appAppUUsernameAllRoute
   '/u/$username/feed': typeof appAppUUsernameFeedRoute
+  '/u/$username/liked': typeof appAppUUsernameLikedRoute
   '/u/$username/tagged': typeof appAppUUsernameTaggedRoute
   '/u/$username': typeof appAppUUsernameIndexRoute
   '/g/$slug/c/$clipId': typeof appAppGSlugCClipIdRoute
@@ -180,6 +188,7 @@ export interface FileRoutesById {
   '/(app)/_app/u/$username': typeof appAppUUsernameRouteWithChildren
   '/(app)/_app/u/$username/all': typeof appAppUUsernameAllRoute
   '/(app)/_app/u/$username/feed': typeof appAppUUsernameFeedRoute
+  '/(app)/_app/u/$username/liked': typeof appAppUUsernameLikedRoute
   '/(app)/_app/u/$username/tagged': typeof appAppUUsernameTaggedRoute
   '/(app)/_app/u/$username/': typeof appAppUUsernameIndexRoute
   '/(app)/_app/g/$slug/c/$clipId': typeof appAppGSlugCClipIdRoute
@@ -201,6 +210,7 @@ export interface FileRouteTypes {
     | '/u/$username'
     | '/u/$username/all'
     | '/u/$username/feed'
+    | '/u/$username/liked'
     | '/u/$username/tagged'
     | '/u/$username/'
     | '/g/$slug/c/$clipId'
@@ -219,6 +229,7 @@ export interface FileRouteTypes {
     | '/g/$slug'
     | '/u/$username/all'
     | '/u/$username/feed'
+    | '/u/$username/liked'
     | '/u/$username/tagged'
     | '/u/$username'
     | '/g/$slug/c/$clipId'
@@ -240,6 +251,7 @@ export interface FileRouteTypes {
     | '/(app)/_app/u/$username'
     | '/(app)/_app/u/$username/all'
     | '/(app)/_app/u/$username/feed'
+    | '/(app)/_app/u/$username/liked'
     | '/(app)/_app/u/$username/tagged'
     | '/(app)/_app/u/$username/'
     | '/(app)/_app/g/$slug/c/$clipId'
@@ -369,6 +381,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof appAppUUsernameTaggedRouteImport
       parentRoute: typeof appAppUUsernameRoute
     }
+    '/(app)/_app/u/$username/liked': {
+      id: '/(app)/_app/u/$username/liked'
+      path: '/liked'
+      fullPath: '/u/$username/liked'
+      preLoaderRoute: typeof appAppUUsernameLikedRouteImport
+      parentRoute: typeof appAppUUsernameRoute
+    }
     '/(app)/_app/u/$username/feed': {
       id: '/(app)/_app/u/$username/feed'
       path: '/feed'
@@ -422,6 +441,7 @@ const appAppGSlugRouteWithChildren = appAppGSlugRoute._addFileChildren(
 interface appAppUUsernameRouteChildren {
   appAppUUsernameAllRoute: typeof appAppUUsernameAllRoute
   appAppUUsernameFeedRoute: typeof appAppUUsernameFeedRoute
+  appAppUUsernameLikedRoute: typeof appAppUUsernameLikedRoute
   appAppUUsernameTaggedRoute: typeof appAppUUsernameTaggedRoute
   appAppUUsernameIndexRoute: typeof appAppUUsernameIndexRoute
 }
@@ -429,6 +449,7 @@ interface appAppUUsernameRouteChildren {
 const appAppUUsernameRouteChildren: appAppUUsernameRouteChildren = {
   appAppUUsernameAllRoute: appAppUUsernameAllRoute,
   appAppUUsernameFeedRoute: appAppUUsernameFeedRoute,
+  appAppUUsernameLikedRoute: appAppUUsernameLikedRoute,
   appAppUUsernameTaggedRoute: appAppUUsernameTaggedRoute,
   appAppUUsernameIndexRoute: appAppUUsernameIndexRoute,
 }
