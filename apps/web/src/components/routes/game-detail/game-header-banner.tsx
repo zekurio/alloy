@@ -15,8 +15,8 @@ export function GameHeaderBanner({ game }: GameHeaderBannerProps) {
   return (
     <section
       className={cn(
-        "relative -mx-4 -mt-6 overflow-hidden md:-mx-8",
-        "aspect-[16/4] max-h-[280px] min-h-[160px]"
+        "relative overflow-hidden rounded-lg",
+        "aspect-[16/4] max-h-[280px] min-h-32 sm:min-h-[160px]"
       )}
     >
       {game.heroUrl ? (
@@ -37,37 +37,38 @@ export function GameHeaderBanner({ game }: GameHeaderBannerProps) {
       )}
       <div
         aria-hidden
-        className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/85 via-black/40 to-transparent"
+        className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/95 via-black/60 to-transparent"
       />
 
-      <div className="absolute inset-x-0 bottom-0 flex items-end gap-4 p-4 sm:p-6">
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
+      <div className="absolute inset-x-0 bottom-0 flex items-end gap-3 p-4 sm:gap-4 sm:p-6">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           {game.logoUrl ? (
             <img
               src={game.logoUrl}
               alt={game.name}
               className={cn(
-                "h-16 w-auto max-w-[min(560px,72vw)] object-contain object-left",
-                "drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)] sm:h-20"
+                "h-12 w-auto max-w-[min(420px,60vw)] object-contain object-left",
+                "drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)] sm:h-16"
               )}
               decoding="async"
             />
           ) : (
             <h1
               className={cn(
-                "truncate text-2xl font-semibold text-foreground sm:text-3xl",
-                "drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)]"
+                "min-w-0 truncate text-2xl font-semibold tracking-[-0.02em] text-foreground",
+                "drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)] max-sm:text-xl sm:text-3xl"
               )}
             >
               {game.name}
             </h1>
           )}
+          <GameFavoriteButton
+            slug={game.slug}
+            viewer={game.viewer}
+            count={game.favouritesCount}
+            className="shadow-[0_6px_18px_oklch(0_0_0_/_0.35)]"
+          />
         </div>
-        <GameFavoriteButton
-          slug={game.slug}
-          viewer={game.viewer}
-          className="shadow-[0_6px_18px_oklch(0_0_0_/_0.35)]"
-        />
       </div>
     </section>
   )

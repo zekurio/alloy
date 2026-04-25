@@ -1,12 +1,14 @@
-import {
-  PencilIcon,
-  StarIcon,
-  Trash2Icon,
-} from "lucide-react"
+import { PencilIcon, StarIcon, Trash2Icon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 
-import type { AdminEncoderVariant } from "@workspace/api"
+import type { AdminEncoderVariant, EncoderCodec } from "@workspace/api"
+
+const CODEC_LABELS: Record<EncoderCodec, string> = {
+  h264: "H.264",
+  hevc: "HEVC",
+  av1: "AV1",
+}
 
 type VariantRowProps = {
   variant: AdminEncoderVariant
@@ -27,11 +29,11 @@ export function VariantRow({
 }: VariantRowProps) {
   const specs = [
     `${variant.height}p`,
-    variant.encoder || "ffmpeg default encoder",
-    variant.hwaccel ? `hwaccel ${variant.hwaccel}` : "no hwaccel",
+    CODEC_LABELS[variant.codec],
     `quality ${variant.quality}`,
+    variant.preset ? `preset ${variant.preset}` : null,
     `${variant.audioBitrateKbps} kbps`,
-  ]
+  ].filter(Boolean)
 
   return (
     <div className="flex items-center gap-2">

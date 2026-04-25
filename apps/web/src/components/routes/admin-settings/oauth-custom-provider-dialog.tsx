@@ -27,11 +27,8 @@ import {
   USERNAME_CLAIM_SUGGESTIONS,
 } from "@workspace/api"
 import { LimitedInput } from "@/components/form/limited-field"
-import {
-  OAuthCallbackField,
-  parseScopes,
-  scopeInputValue,
-} from "./oauth-provider-fields"
+import { OAuthCallbackField } from "./oauth-provider-fields"
+import { parseScopes, scopeInputValue } from "./oauth-provider-scopes"
 import { callbackURLForProvider } from "./shared"
 
 export function OAuthCustomProviderDialog({
