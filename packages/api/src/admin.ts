@@ -105,11 +105,11 @@ export function createAdminApi(context: ApiContext) {
       return readJsonOrThrow<AdminEncoderCapabilities>(res)
     },
 
-    async reEncodeAllClips(): Promise<{ enqueued: number }> {
+    async reEncodeAllClips(): Promise<{ enqueued: number; hasMore: boolean }> {
       const res = await context.request("/api/admin/clips/re-encode", {
         method: "POST",
       })
-      return readJsonOrThrow<{ enqueued: number }>(res)
+      return readJsonOrThrow<{ enqueued: number; hasMore: boolean }>(res)
     },
 
     async fetchUsers(): Promise<AdminUsersResponse> {
