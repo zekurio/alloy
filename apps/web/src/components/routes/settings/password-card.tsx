@@ -9,7 +9,7 @@ import {
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import { Field, FieldError, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 
 import { authClient } from "@/lib/auth-client"
 import { validatePassword } from "@/lib/form-validators"
@@ -57,7 +57,6 @@ export function PasswordCard() {
     >
       <Section>
         <SectionContent className="flex flex-col gap-4 py-4">
-
           <form.Field
             name="currentPassword"
             validators={{

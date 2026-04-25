@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Button } from "@workspace/ui/components/button"
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 import {
   Dialog,
   DialogBody,
@@ -263,9 +263,6 @@ function LoadedState({
   const [title, setTitle] = React.useState(stripExtension(file.name))
   const [description, setDescription] = React.useState("")
   const [game, setGame] = React.useState<GameRow | null>(null)
-  const [steamGridDBConfigured, setSteamGridDBConfigured] = React.useState<
-    boolean | null
-  >(null)
   const [mentions, setMentions] = React.useState<Array<UserSearchResult>>([])
   const [visibility, setVisibility] = React.useState<Visibility>("unlisted")
 
@@ -283,18 +280,16 @@ function LoadedState({
   const [capturing, setCapturing] = React.useState(false)
   const [submissionAttempts, setSubmissionAttempts] = React.useState(0)
 
-  const gameRequired = steamGridDBConfigured !== false
   const hasTitle = title.trim().length > 0
   const hasGame = game !== null
-  const canPublish =
-    hasTitle && (!gameRequired || hasGame) && trimEndMs > trimStartMs
+  const canPublish = hasTitle && hasGame && trimEndMs > trimStartMs
   const titleInvalid = submissionAttempts > 0 && !hasTitle
-  const gameInvalid = submissionAttempts > 0 && gameRequired && !hasGame
+  const gameInvalid = submissionAttempts > 0 && !hasGame
 
   const handlePublishClick = async () => {
     const trimmedTitle = title.trim()
     const missingTitle = !hasTitle
-    const missingGame = gameRequired && !hasGame
+    const missingGame = !game
 
     setSubmissionAttempts((attempts) => attempts + 1)
 
@@ -322,7 +317,7 @@ function LoadedState({
       contentType: file.contentType,
       title: trimmedTitle,
       description: description.trim() || null,
-      gameId: game?.id ?? null,
+      gameId: game.id,
       privacy: visibility,
       width: file.width,
       height: file.height,
@@ -401,7 +396,7 @@ function LoadedState({
         {/* Right column — metadata form */}
         <section className="flex min-w-0 flex-col gap-4">
           <Field>
-            <FieldLabel htmlFor="clip-game" required={gameRequired}>
+            <FieldLabel htmlFor="clip-game" required>
               Game
             </FieldLabel>
             <GameCombobox
@@ -411,8 +406,7 @@ function LoadedState({
               disabled={publishing || capturing}
               placeholder="Search SteamGridDB…"
               invalid={gameInvalid}
-              onConfiguredChange={setSteamGridDBConfigured}
-              required={gameRequired}
+              required
             />
           </Field>
 

@@ -6,7 +6,7 @@ import {
   SectionMeta,
   SectionTitle,
 } from "@workspace/ui/components/section-head"
-import { Skeleton } from "@workspace/ui/components/skeleton"
+import { Spinner } from "@workspace/ui/components/spinner"
 
 import { EmptyState } from "@/components/feedback/empty-state"
 import { GameCard } from "@/components/game/game-card"
@@ -63,11 +63,9 @@ export function GamesSection() {
       ) : error ? (
         <EmptyState seed="games-error" size="lg" title="Couldn't load games" />
       ) : isPending ? (
-        <GamesGrid>
-          {Array.from({ length: 10 }).map((_, i) => (
-            <Skeleton key={i} className="aspect-[2/3] rounded-lg" />
-          ))}
-        </GamesGrid>
+        <div className="flex items-center justify-center py-12">
+          <Spinner className="size-6" />
+        </div>
       ) : (
         <EmptyState
           seed="games-empty"

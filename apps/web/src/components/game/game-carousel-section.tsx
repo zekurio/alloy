@@ -1,12 +1,19 @@
 import * as React from "react"
 
 import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@workspace/ui/components/carousel"
+import {
   SectionActions,
   SectionHead,
   SectionMeta,
   SectionTitle,
 } from "@workspace/ui/components/section-head"
-import { Skeleton } from "@workspace/ui/components/skeleton"
+import { Spinner } from "@workspace/ui/components/spinner"
 
 import { EmptyState } from "@/components/feedback/empty-state"
 import { GameCard, type GameCardData, type GameCardLink } from "./game-card"
@@ -20,7 +27,6 @@ type GameCarouselSectionProps = {
   emptyTitle: string
   emptyHint: string
   emptySeed: string
-  skeletonSeedCount?: number
   renderLink?: (entry: GameCarouselEntry) => GameCardLink | undefined
 }
 
@@ -33,9 +39,10 @@ type GameBucket = {
   count: number
 }
 
-/* Responsive: preserve the mobile 3-up density, then add columns as space opens. */
+/* Mobile becomes a swipeable carousel showing 3 tiles at once.
+ * sm+ keeps the responsive grid (more columns as space opens). */
 const GRID_CLASS =
-  "grid grid-cols-3 gap-2.5 max-sm:[&>*]:max-w-24 max-sm:[&>*]:justify-self-center sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 xl:grid-cols-11 2xl:grid-cols-[repeat(13,minmax(0,1fr))]"
+  "hidden sm:grid gap-2.5 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 xl:grid-cols-11 2xl:grid-cols-[repeat(13,minmax(0,1fr))]"
 
 export function buildGameCarouselEntries(
   clips: Array<Pick<ClipRow, "game" | "gameRef">>,
@@ -88,11 +95,10 @@ export function GameCarouselSection({
   emptyTitle,
   emptyHint,
   emptySeed,
-  skeletonSeedCount = 5,
   renderLink,
 }: GameCarouselSectionProps) {
   return (
-    <section className="mb-5 sm:mb-6">
+    <section>
       <SectionHead>
         <div>
           <SectionTitle>{title}</SectionTitle>
@@ -107,10 +113,8 @@ export function GameCarouselSection({
       </SectionHead>
 
       {entries === null ? (
-        <div className={GRID_CLASS}>
-          {Array.from({ length: skeletonSeedCount }).map((_, i) => (
-            <Skeleton key={i} className="aspect-[2/3] w-full rounded-md" />
-          ))}
+        <div className="flex items-center justify-center py-12">
+          <Spinner className="size-6" />
         </div>
       ) : entries.length === 0 ? (
         <EmptyState
@@ -120,16 +124,44 @@ export function GameCarouselSection({
           hint={emptyHint}
         />
       ) : (
-        <div className={GRID_CLASS}>
-          {entries.map((entry) => (
-            <GameCard
-              key={entry.slug ?? `name:${entry.name}`}
-              game={entry}
-              className="w-full"
-              link={renderLink?.(entry)}
+        <>
+          <Carousel className="group sm:hidden" opts={{ align: "start" }}>
+            <CarouselContent className="-ml-2.5">
+              {entries.map((entry) => (
+                <CarouselItem
+                  key={entry.slug ?? `name:${entry.name}`}
+                  className="basis-1/3 pl-2.5"
+                >
+                  <GameCard
+                    game={entry}
+                    className="w-full"
+                    link={renderLink?.(entry)}
+                  />
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselPrevious
+              variant="ghost"
+              size="icon"
+              className="top-1/2 left-1 z-10 -translate-y-1/2 rounded-none border-transparent bg-transparent text-white shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-7 [&_svg]:stroke-[2.5]"
             />
-          ))}
-        </div>
+            <CarouselNext
+              variant="ghost"
+              size="icon"
+              className="top-1/2 right-1 z-10 -translate-y-1/2 rounded-none border-transparent bg-transparent text-white shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-7 [&_svg]:stroke-[2.5]"
+            />
+          </Carousel>
+          <div className={GRID_CLASS}>
+            {entries.map((entry) => (
+              <GameCard
+                key={entry.slug ?? `name:${entry.name}`}
+                game={entry}
+                className="w-full"
+                link={renderLink?.(entry)}
+              />
+            ))}
+          </div>
+        </>
       )}
     </section>
   )

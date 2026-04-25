@@ -3,7 +3,7 @@ import { useForm } from "@tanstack/react-form"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { ArrowRightIcon } from "lucide-react"
 
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 
 import { authClient } from "@/lib/auth-client"
 import { AuthSubmitButton } from "../auth/auth-form-fields"

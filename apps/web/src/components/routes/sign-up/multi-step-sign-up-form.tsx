@@ -5,7 +5,7 @@ import { ArrowLeftIcon, ArrowRightIcon, KeyRoundIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import { FieldSeparator } from "@workspace/ui/components/field"
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 
 import { api } from "@/lib/api"
 import { authClient } from "@/lib/auth-client"

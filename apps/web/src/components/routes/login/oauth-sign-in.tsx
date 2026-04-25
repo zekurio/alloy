@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 
 import { OAuthButton } from "@/components/auth/oauth-button"
 import { authClient } from "@/lib/auth-client"

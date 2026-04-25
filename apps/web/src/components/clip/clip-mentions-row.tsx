@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@workspace/ui/components/dialog"
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type { ClipMentionRef } from "@workspace/api"

@@ -20,7 +20,7 @@ type FeedChipBarProps = {
 }
 
 const CHEVRON_CLASS =
-  "z-10 rounded-none border-transparent bg-transparent text-white shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-9 [&_svg]:stroke-[2.5]"
+  "z-10 rounded-none border-transparent bg-transparent text-muted-foreground shadow-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] hover:border-transparent hover:bg-transparent hover:text-foreground hover:shadow-none hover:drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] [&_svg]:!size-4 [&_svg]:stroke-[2]"
 
 function isActive(filter: FeedFilter, candidate: FeedFilter): boolean {
   if (filter.kind !== candidate.kind) return false

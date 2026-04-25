@@ -54,7 +54,7 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select"
 import { Spinner } from "@workspace/ui/components/spinner"
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 import {
   Table,
   TableBody,

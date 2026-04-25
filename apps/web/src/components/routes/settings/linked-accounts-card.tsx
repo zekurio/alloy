@@ -4,7 +4,7 @@ import { Link2OffIcon, LinkIcon, UserKeyIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import { Section, SectionContent } from "@workspace/ui/components/section"
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 
 import type { PublicAuthConfig } from "@workspace/api"
 

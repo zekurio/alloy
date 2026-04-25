@@ -131,9 +131,16 @@ export function useToggleGameFavoriteMutation() {
       const detailKey = gameKeys.detail(slug)
       await qc.cancelQueries({ queryKey: detailKey })
       const previous = qc.getQueryData<GameDetail>(detailKey)
-      qc.setQueryData<GameDetail>(detailKey, (old) =>
-        old ? { ...old, viewer: { isFollowing: next } } : old
-      )
+      qc.setQueryData<GameDetail>(detailKey, (old) => {
+        if (!old) return old
+        const wasFollowing = old.viewer?.isFollowing ?? false
+        const delta = next === wasFollowing ? 0 : next ? 1 : -1
+        return {
+          ...old,
+          viewer: { isFollowing: next },
+          favouritesCount: Math.max(0, old.favouritesCount + delta),
+        }
+      })
       return { detailKey, previous }
     },
     onError: (_error, _variables, context) => {

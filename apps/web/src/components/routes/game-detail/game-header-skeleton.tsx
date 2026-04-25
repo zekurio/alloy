@@ -1,7 +1,9 @@
-import { Skeleton } from "@workspace/ui/components/skeleton"
+import { Spinner } from "@workspace/ui/components/spinner"
 
 export function GameHeaderSkeleton() {
   return (
-    <Skeleton className="-mx-4 -mt-6 aspect-[16/4] max-h-[280px] min-h-[160px] w-auto rounded-none md:-mx-8" />
+    <div className="flex aspect-[16/4] max-h-[280px] min-h-32 w-full items-center justify-center sm:min-h-[160px]">
+      <Spinner className="size-6" />
+    </div>
   )
 }

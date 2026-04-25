@@ -15,9 +15,22 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@workspace/ui/components/select"
 import { Textarea } from "@workspace/ui/components/textarea"
 
-import { type AdminEncoderVariant } from "@workspace/api"
+import {
+  ENCODER_CODECS,
+  type AdminEncoderCapabilities,
+  type AdminEncoderVariant,
+  type EncoderCodec,
+  type EncoderHwaccel,
+} from "@workspace/api"
 import { LimitedInput } from "@/components/form/limited-field"
 import { EncoderHeightField } from "./encoder-height-field"
 import { clampInt } from "./shared"
@@ -25,13 +38,29 @@ import { clampInt } from "./shared"
 type EncoderVariantDialogProps = {
   variant: AdminEncoderVariant | null
   isNew: boolean
+  hwaccel: EncoderHwaccel
+  capabilities: AdminEncoderCapabilities | null
   onSave: (variant: AdminEncoderVariant) => void
   onOpenChange: (open: boolean) => void
+}
+
+const CODEC_LABELS: Record<EncoderCodec, string> = {
+  h264: "H.264",
+  hevc: "HEVC",
+  av1: "AV1",
+}
+
+function isEncoderCodec(value: string | number | null): value is EncoderCodec {
+  return (
+    typeof value === "string" && ENCODER_CODECS.includes(value as EncoderCodec)
+  )
 }
 
 export function EncoderVariantDialog({
   variant,
   isNew,
+  hwaccel,
+  capabilities,
   onSave,
   onOpenChange,
 }: EncoderVariantDialogProps) {
@@ -104,21 +133,6 @@ export function EncoderVariantDialog({
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="variant-video-encoder">
-                    Video encoder
-                  </FieldLabel>
-                  <Input
-                    id="variant-video-encoder"
-                    value={draft.encoder}
-                    placeholder="libx264, h264_nvenc, hevc_vaapi"
-                    onChange={(e) => set("encoder", e.target.value)}
-                  />
-                  <FieldDescription className="text-xs leading-snug">
-                    Passed as <code>-c:v</code>. Leave blank to let ffmpeg pick.
-                  </FieldDescription>
-                </Field>
-
-                <Field>
                   <FieldLabel htmlFor="variant-height" required>
                     Vertical resolution
                   </FieldLabel>
@@ -131,23 +145,41 @@ export function EncoderVariantDialog({
                 </Field>
               </div>
 
-              <Field>
-                <FieldLabel htmlFor="variant-hwaccel">
-                  Hardware acceleration
-                </FieldLabel>
-                <Input
-                  id="variant-hwaccel"
-                  value={draft.hwaccel}
-                  placeholder="cuda, qsv, vaapi"
-                  onChange={(e) => set("hwaccel", e.target.value)}
-                />
-                <FieldDescription className="text-xs leading-snug">
-                  Passed as <code>-hwaccel</code>. Leave blank for ffmpeg
-                  defaults.
-                </FieldDescription>
-              </Field>
-
               <div className="grid gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="variant-codec" required>
+                    Video codec
+                  </FieldLabel>
+                  <Select
+                    value={draft.codec}
+                    onValueChange={(value) => {
+                      if (isEncoderCodec(value)) set("codec", value)
+                    }}
+                  >
+                    <SelectTrigger id="variant-codec" className="w-full">
+                      <SelectValue>{CODEC_LABELS[draft.codec]}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent align="start">
+                      {ENCODER_CODECS.map((codec) => (
+                        <SelectItem
+                          key={codec}
+                          value={codec}
+                          disabled={
+                            capabilities?.ffmpegOk
+                              ? !capabilities.available[hwaccel][codec]
+                              : false
+                          }
+                        >
+                          {CODEC_LABELS[codec]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FieldDescription className="text-xs leading-snug">
+                    Combined with the global hardware acceleration setting.
+                  </FieldDescription>
+                </Field>
+
                 <Field>
                   <FieldLabel htmlFor="variant-quality" required>
                     Quality

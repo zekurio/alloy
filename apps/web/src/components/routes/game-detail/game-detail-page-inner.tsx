@@ -15,7 +15,7 @@ export function GameDetailPageInner({ slug }: GameDetailPageInnerProps) {
 
   return (
     <AppMain>
-      <div className="flex w-full flex-col gap-8">
+      <div className="flex w-full flex-col gap-6">
         <GameHeader slug={slug} />
         <TopClipsSection slug={slug} viewerId={viewerId} />
         <RecentClipsSection slug={slug} viewerId={viewerId} />

@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router"
 import { ShieldOffIcon, UserMinusIcon, UserPlusIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
-import { toast } from "@workspace/ui/components/sonner"
+import { toast } from "@workspace/ui/lib/toast"
 
 import type { ProfileViewer } from "@workspace/api"
 

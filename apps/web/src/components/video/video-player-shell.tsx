@@ -75,6 +75,7 @@ export function ChromeShell({
   aspectRatio,
   playing,
   onKeyCommand,
+  bar,
   children,
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>
@@ -82,6 +83,8 @@ export function ChromeShell({
   aspectRatio?: number
   playing: boolean
   onKeyCommand: VideoKeyCommand
+  /** Chrome bar overlay — rendered as a sibling of the clipped video so its edges align pixel-perfect with the video container regardless of sub-pixel layout. */
+  bar?: React.ReactNode
   children: React.ReactNode
 }) {
   const [chromeVisible, setChromeVisible] = React.useState(true)
@@ -181,30 +184,33 @@ export function ChromeShell({
         cursor: chromeVisible ? undefined : "none",
       }}
       className={cn(
-        "group/video relative isolate w-full overflow-hidden bg-black select-none",
+        "group/video relative isolate w-full bg-black select-none",
         !aspectRatio && "aspect-video",
         "focus:outline-none",
         className
       )}
     >
-      <div
-        data-slot="video-player-frame"
-        className={cn(
-          "absolute inset-0",
-          isFullscreen &&
-            "top-1/2 right-auto bottom-auto left-1/2 h-auto max-h-dvh -translate-x-1/2 -translate-y-1/2"
-        )}
-        style={
-          isFullscreen
-            ? {
-                aspectRatio: String(contentAspectRatio),
-                width: `min(100dvw, calc(100dvh * ${contentAspectRatio}))`,
-              }
-            : undefined
-        }
-      >
-        {children}
+      <div className="absolute inset-0 overflow-hidden">
+        <div
+          data-slot="video-player-frame"
+          className={cn(
+            "absolute inset-0",
+            isFullscreen &&
+              "top-1/2 right-auto bottom-auto left-1/2 h-auto max-h-dvh -translate-x-1/2 -translate-y-1/2"
+          )}
+          style={
+            isFullscreen
+              ? {
+                  aspectRatio: String(contentAspectRatio),
+                  width: `min(100dvw, calc(100dvh * ${contentAspectRatio}))`,
+                }
+              : undefined
+          }
+        >
+          {children}
+        </div>
       </div>
+      {bar}
     </div>
   )
 }

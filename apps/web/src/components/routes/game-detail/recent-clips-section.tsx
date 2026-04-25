@@ -53,7 +53,6 @@ export function RecentClipsSection({
       <ClipSectionContent
         rows={visibleRows}
         error={error}
-        skeletonCount={10}
         errorSeed={`game-${slug}-recent-error`}
         errorTitle="Couldn't load clips"
         errorSize="lg"
