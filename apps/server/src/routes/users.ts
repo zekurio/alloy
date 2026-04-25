@@ -13,6 +13,7 @@ import {
 } from "drizzle-orm"
 import { Hono } from "hono"
 import { stream } from "hono/streaming"
+import { z } from "zod"
 
 import { getAuth } from "../auth"
 import { session as authSession, user } from "@workspace/db/auth-schema"
@@ -42,6 +43,10 @@ import {
   toLikePattern,
   toPublicUser,
 } from "./users-helpers"
+
+const ClipBatchQuery = z.object({
+  limit: z.coerce.number().int().positive().max(100).default(100),
+})
 
 export const usersRoute = new Hono()
   .get("/search", zValidator("query", SearchQuery), async (c) => {
@@ -148,15 +153,13 @@ export const usersRoute = new Hono()
       .where(eq(clip.authorId, c.var.viewerId))
       .orderBy(clip.createdAt)
 
-    const entries = []
-    for (const row of rows) {
-      const resolved = await storage.resolve(row.storageKey)
-      if (!resolved) continue
-      entries.push({
-        filename: downloadFilename(row, "source"),
-        stream: resolved.stream(),
-      })
-    }
+    const entries = rows.map((row) => ({
+      filename: downloadFilename(row, "source"),
+      stream: async () => {
+        const resolved = await storage.resolve(row.storageKey)
+        return resolved?.stream() ?? null
+      },
+    }))
 
     c.header("Content-Type", "application/zip")
     c.header(
@@ -176,18 +179,26 @@ export const usersRoute = new Hono()
     })
   })
 
-  .delete("/me/clips", requireSession, async (c) => {
-    const rows = await db
-      .select()
-      .from(clip)
-      .where(eq(clip.authorId, c.var.viewerId))
+  .delete(
+    "/me/clips",
+    requireSession,
+    zValidator("query", ClipBatchQuery),
+    async (c) => {
+      const { limit } = c.req.valid("query")
+      const rows = await db
+        .select()
+        .from(clip)
+        .where(eq(clip.authorId, c.var.viewerId))
+        .orderBy(clip.createdAt)
+        .limit(limit)
 
-    for (const row of rows) {
-      await deleteClipRowAndAssets(row)
+      for (const row of rows) {
+        await deleteClipRowAndAssets(row)
+      }
+
+      return c.json({ deleted: rows.length, hasMore: rows.length === limit })
     }
-
-    return c.json({ deleted: rows.length })
-  })
+  )
 
   .post("/me/sync-oauth-profile", requireSession, async (c) => {
     return c.json(await syncLinkedOAuthImage(c.var.viewerId))

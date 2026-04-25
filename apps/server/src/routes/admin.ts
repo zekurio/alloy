@@ -28,6 +28,8 @@ import { selectSourceStorageUsedBytesByUserIds } from "../lib/storage-quota"
 import { ENCODE_JOB, getBoss } from "../queue"
 import { codecNameFor } from "../queue/ffmpeg"
 
+const RE_ENCODE_BATCH_LIMIT = 100
+
 const requireAdmin = createMiddleware<{
   Variables: { adminUserId: string }
 }>(async (c, next) => {
@@ -389,8 +391,10 @@ export const adminRoute = new Hono()
       .select({ id: clip.id })
       .from(clip)
       .where(inArray(clip.status, ["ready", "failed"]))
+      .orderBy(clip.createdAt)
+      .limit(RE_ENCODE_BATCH_LIMIT)
     if (rows.length === 0) {
-      return c.json({ enqueued: 0 })
+      return c.json({ enqueued: 0, hasMore: false })
     }
     const ids = rows.map((r) => r.id)
     await db
@@ -407,7 +411,10 @@ export const adminRoute = new Hono()
     for (const id of ids) {
       await boss.send(ENCODE_JOB, { clipId: id })
     }
-    return c.json({ enqueued: ids.length })
+    return c.json({
+      enqueued: ids.length,
+      hasMore: ids.length === RE_ENCODE_BATCH_LIMIT,
+    })
   })
 
 let capabilityCache: {

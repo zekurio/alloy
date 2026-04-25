@@ -84,12 +84,17 @@ export function DataCard() {
     if (pending) return
     setPending(true)
     try {
-      const result = await api.users.deleteAllClips()
+      let deleted = 0
+      let hasMore = true
+      while (hasMore) {
+        const result = await api.users.deleteAllClips()
+        deleted += result.deleted
+        hasMore = result.hasMore
+        if (result.deleted === 0) break
+      }
       await getQueryClient().invalidateQueries()
       toast.success(
-        result.deleted === 1
-          ? "Deleted 1 clip"
-          : `Deleted ${result.deleted} clips`
+        deleted === 1 ? "Deleted 1 clip" : `Deleted ${deleted} clips`
       )
     } catch (cause) {
       toast.error(
