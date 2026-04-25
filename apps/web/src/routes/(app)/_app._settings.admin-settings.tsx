@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { z } from "zod"
 
@@ -49,6 +50,8 @@ const searchSchema = z.object({
   tab: z.enum(ADMIN_TABS).optional(),
 })
 
+const adminRuntimeConfigQueryKey = ["admin", "runtime-config"] as const
+
 export const Route = createFileRoute("/(app)/_app/_settings/admin-settings")({
   beforeLoad: requireAdminBeforeLoad,
   validateSearch: searchSchema,
@@ -84,27 +87,22 @@ function ToggleRow({
 }
 
 function useAdminConfig(session: ReturnType<typeof useRequireAdmin>) {
+  const configQuery = useQuery({
+    queryKey: adminRuntimeConfigQueryKey,
+    queryFn: () => api.admin.fetchRuntimeConfig(),
+    enabled: Boolean(session),
+  })
   const [config, setConfig] = React.useState<AdminRuntimeConfig | null>(null)
-  const [loadError, setLoadError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
-    if (!session) return
-    let cancelled = false
-    api.admin
-      .fetchRuntimeConfig()
-      .then((next) => {
-        if (!cancelled) setConfig(next)
-      })
-      .catch((cause: unknown) => {
-        if (cancelled) return
-        setLoadError(
-          cause instanceof Error ? cause.message : "Couldn't load settings"
-        )
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [session])
+    if (configQuery.data) setConfig(configQuery.data)
+  }, [configQuery.data])
+
+  const loadError = configQuery.error
+    ? configQuery.error instanceof Error
+      ? configQuery.error.message
+      : "Couldn't load settings"
+    : null
 
   return { config, setConfig, loadError }
 }
@@ -200,13 +198,17 @@ function useAdminToggles(
     next: boolean,
     successMsg: string
   ) => {
-    setConfig((prev) => (prev ? { ...prev, [key]: next } : prev))
+    let previous: AdminRuntimeConfig | null = null
+    setConfig((prev) => {
+      previous = prev
+      return prev ? { ...prev, [key]: next } : prev
+    })
     try {
       const updated = await api.admin.updateRuntimeConfig({ [key]: next })
       setConfig(updated)
       toast.success(successMsg)
     } catch (cause) {
-      setConfig((prev) => (prev ? { ...prev, [key]: !next } : prev))
+      setConfig(previous)
       toast.error(cause instanceof Error ? cause.message : "Update failed")
     }
   }
