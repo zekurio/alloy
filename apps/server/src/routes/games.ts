@@ -214,7 +214,13 @@ export const gamesRoute = new Hono()
       viewer = { isFollowing: followRow !== undefined }
     }
 
-    return c.json({ ...serialiseGame(row), viewer })
+    const [{ value: favouritesCount }] = await db
+      .select({ value: sql<number>`count(*)::int` })
+      .from(gameFollow)
+      .innerJoin(user, eq(user.id, gameFollow.userId))
+      .where(and(eq(gameFollow.gameId, row.id), isNull(user.disabledAt)))
+
+    return c.json({ ...serialiseGame(row), viewer, favouritesCount })
   })
 
   .get("/:slug/hero", zValidator("param", SlugParam), async (c) => {

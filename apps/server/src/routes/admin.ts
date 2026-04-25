@@ -433,11 +433,14 @@ async function getEncoderCapabilities(): Promise<EncoderCapabilities> {
 
 async function probeEncoderCapabilities(): Promise<EncoderCapabilities> {
   const empty: EncoderCapabilities["available"] = {
-    software: { h264: false, hevc: false, av1: false },
+    none: { h264: false, hevc: false, av1: false },
+    amf: { h264: false, hevc: false, av1: false },
     nvenc: { h264: false, hevc: false, av1: false },
     qsv: { h264: false, hevc: false, av1: false },
-    amf: { h264: false, hevc: false, av1: false },
+    rkmpp: { h264: false, hevc: false, av1: false },
     vaapi: { h264: false, hevc: false, av1: false },
+    videotoolbox: { h264: false, hevc: false, av1: false },
+    v4l2m2m: { h264: false, hevc: false, av1: false },
   }
 
   const stdout = await runCapture(env.FFMPEG_BIN, [

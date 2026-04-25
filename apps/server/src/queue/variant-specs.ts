@@ -3,8 +3,7 @@ import { clipVideoVariantKey } from "../storage"
 
 /** Per-variant override resolved from the runtime config. */
 export interface VariantOverride {
-  hwaccel: EncoderVariant["hwaccel"]
-  encoder: EncoderVariant["encoder"]
+  codec: EncoderVariant["codec"]
   quality: EncoderVariant["quality"]
   preset: EncoderVariant["preset"]
   audioBitrateKbps: EncoderVariant["audioBitrateKbps"]
@@ -41,8 +40,7 @@ export function buildVariantSpecs(
       storageKey: clipVideoVariantKey(clipId, id),
       isDefault,
       override: {
-        hwaccel: configured.hwaccel,
-        encoder: configured.encoder,
+        codec: configured.codec,
         quality: configured.quality,
         preset: configured.preset,
         audioBitrateKbps: configured.audioBitrateKbps,

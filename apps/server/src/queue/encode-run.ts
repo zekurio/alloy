@@ -15,7 +15,7 @@ import { env } from "../env"
 import { publishClipProgress, publishClipUpsert } from "../lib/clip-events"
 import { configStore, type EncoderConfig } from "../lib/config-store"
 import { storage } from "../storage"
-import { encode, probe } from "./ffmpeg"
+import { codecNameFor, encode, probe } from "./ffmpeg"
 import { buildVariantSpecs, type VariantSpec } from "./variant-specs"
 
 export async function runEncodeInner(
@@ -121,7 +121,12 @@ async function runEncodeInScratch(
     throw new Error("Encoder is enabled but no variants are configured")
   }
   const targetSettings = variantSpecs.map((spec) =>
-    resolveVariantSettings(spec, effectiveTrimStart, effectiveTrimEnd)
+    resolveVariantSettings(
+      spec,
+      encoderConfig,
+      effectiveTrimStart,
+      effectiveTrimEnd
+    )
   )
 
   const reusedBySpecIndex = await planReuse(row, variantSpecs, targetSettings)
@@ -377,8 +382,8 @@ async function encodeVariants(
     const variantPath = path.join(opts.paths.scratchDir, `${variant.id}.mp4`)
 
     const rungConfig = {
-      hwaccel: variant.override.hwaccel,
-      encoder: variant.override.encoder,
+      hwaccel: opts.config.hwaccel,
+      encoder: codecNameFor(opts.config.hwaccel, variant.override.codec),
       quality: variant.override.quality,
       preset: variant.override.preset,
       audioBitrateKbps: variant.override.audioBitrateKbps,
@@ -451,12 +456,13 @@ async function makeScratchDir(clipId: string): Promise<string> {
 
 function resolveVariantSettings(
   spec: VariantSpec,
+  config: EncoderConfig,
   trimStartMs: number | null,
   trimEndMs: number | null
 ): ClipVariantSettings {
   return {
-    hwaccel: spec.override.hwaccel,
-    codec: spec.override.encoder,
+    hwaccel: config.hwaccel,
+    codec: codecNameFor(config.hwaccel, spec.override.codec),
     audioCodec: "aac",
     quality: spec.override.quality,
     preset: spec.override.preset,
