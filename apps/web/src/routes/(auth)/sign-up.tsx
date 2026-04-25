@@ -8,13 +8,14 @@ import { loadAuthConfig } from "@/lib/session-suspense"
 
 export const Route = createFileRoute("/(auth)/sign-up")({
   beforeLoad: redirectAuthedBeforeLoad,
-  loader: async () => {
-    const config = await loadAuthConfig()
+  loader: async ({ context }) => {
+    const config = context.authConfig ?? (await loadAuthConfig())
     if (config.setupRequired) {
       throw redirect({ to: "/setup" })
     }
     const canSignUp =
-      config.openRegistrations && (config.passkeyEnabled || config.provider !== null)
+      config.openRegistrations &&
+      (config.passkeyEnabled || config.provider !== null)
     if (!canSignUp) {
       throw redirect({ to: "/login" })
     }

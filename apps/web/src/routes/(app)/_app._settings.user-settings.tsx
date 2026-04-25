@@ -1,25 +1,18 @@
 import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { z } from "zod"
+import { createFileRoute } from "@tanstack/react-router"
+import {
+  AlertTriangleIcon,
+  DatabaseIcon,
+  ShieldIcon,
+  UserIcon,
+} from "lucide-react"
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
 import { toast } from "@workspace/ui/lib/toast"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@workspace/ui/components/tabs"
 
 import type { PublicAuthConfig } from "@workspace/api"
 
+import { AdminSettingsSections } from "@/components/routes/settings/admin-tab-content"
 import { DangerZoneCard } from "@/components/routes/settings/danger-zone-card"
 import { DataCard } from "@/components/routes/settings/data-card"
 import {
@@ -32,74 +25,21 @@ import {
   type Passkey,
 } from "@/components/routes/settings/passkeys-card"
 import { ProfileCard } from "@/components/routes/settings/profile-card"
+import { SettingsSection } from "@/components/routes/settings/settings-section"
 import { authClient } from "@/lib/auth-client"
-import { useRequireAuthStrict } from "@/lib/auth-hooks"
+import { useIsAdmin, useRequireAuthStrict } from "@/lib/auth-hooks"
 import { useSuspenseAuthConfig } from "@/lib/session-suspense"
 
-const USER_TABS = ["profile", "security", "data", "account"] as const
-type UserTab = (typeof USER_TABS)[number]
-
-const TAB_LABELS: Record<UserTab, string> = {
-  profile: "Profile",
-  security: "Security",
-  data: "Data",
-  account: "Account",
-}
-
-const searchSchema = z.object({
-  tab: z.enum(USER_TABS).optional(),
-})
-
 export const Route = createFileRoute("/(app)/_app/_settings/user-settings")({
-  validateSearch: searchSchema,
   component: ProfilePage,
 })
-
-function UserTabSelectors({
-  activeTab,
-  onTabChange,
-}: {
-  activeTab: UserTab
-  onTabChange: (value: string | number | null) => void
-}) {
-  return (
-    <>
-      <div className="mb-3 hidden md:block">
-        <TabsList className="w-max min-w-full flex-nowrap">
-          {USER_TABS.map((t) => (
-            <TabsTrigger key={t} value={t}>
-              {TAB_LABELS[t]}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </div>
-
-      <div className="mb-3 md:hidden">
-        <Select value={activeTab} onValueChange={onTabChange}>
-          <SelectTrigger className="w-full">
-            <SelectValue>{TAB_LABELS[activeTab]}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {USER_TABS.map((t) => (
-              <SelectItem key={t} value={t}>
-                {TAB_LABELS[t]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-    </>
-  )
-}
 
 function useSecurityData(config: PublicAuthConfig) {
   const accountsQuery = useQuery({
     queryKey: ["auth", "accounts"],
     queryFn: async () => {
       const { data, error } = await authClient.listAccounts()
-      if (error) {
-        throw new Error(error.message ?? "Couldn't load accounts")
-      }
+      if (error) throw new Error(error.message ?? "Couldn't load accounts")
       return (data ?? []) as LinkedAccount[]
     },
   })
@@ -109,23 +49,17 @@ function useSecurityData(config: PublicAuthConfig) {
     enabled: config.passkeyEnabled,
     queryFn: async () => {
       const { data, error } = await authClient.passkey.listUserPasskeys()
-      if (error) {
-        throw new Error(error.message ?? "Couldn't load passkeys")
-      }
+      if (error) throw new Error(error.message ?? "Couldn't load passkeys")
       return (data ?? []) as Passkey[]
     },
   })
 
   React.useEffect(() => {
-    if (accountsQuery.error) {
-      toast.error(accountsQuery.error.message)
-    }
+    if (accountsQuery.error) toast.error(accountsQuery.error.message)
   }, [accountsQuery.error])
 
   React.useEffect(() => {
-    if (passkeysQuery.error) {
-      toast.error(passkeysQuery.error.message)
-    }
+    if (passkeysQuery.error) toast.error(passkeysQuery.error.message)
   }, [passkeysQuery.error])
 
   return {
@@ -143,82 +77,58 @@ function useSecurityData(config: PublicAuthConfig) {
   }
 }
 
-function SecurityTabContent({ config }: { config: PublicAuthConfig }) {
+function SecurityContent({ config }: { config: PublicAuthConfig }) {
   const { accounts, passkeys, loading, refreshAccounts, refreshPasskeys } =
     useSecurityData(config)
 
   if (loading || !accounts) return null
 
-  const showLinkedAccountsSection = shouldShowLinkedAccountsCard(
-    config,
-    accounts
-  )
-  const showPasskeySection = config.passkeyEnabled && passkeys !== null
+  const showLinkedAccounts = shouldShowLinkedAccountsCard(config, accounts)
+  const showPasskeys = config.passkeyEnabled && passkeys !== null
 
   return (
-    <>
-      {showLinkedAccountsSection ? (
+    <div className="flex flex-col gap-4">
+      {showLinkedAccounts && (
         <div className="flex flex-col gap-3">
           <div>
-            <h2 className="text-md font-semibold tracking-[-0.005em]">
-              Sign-in methods
-            </h2>
+            <h2 className="text-sm font-semibold">Sign-in methods</h2>
             <p className="mt-0.5 text-xs text-foreground-dim">
               Manage linked OAuth sign-in methods.
             </p>
           </div>
-
           <LinkedAccountsCard
             accounts={accounts}
             config={config}
             onRefresh={refreshAccounts}
           />
         </div>
-      ) : null}
-
-      {showPasskeySection ? (
-        <div className="flex flex-col gap-3">
-          {showLinkedAccountsSection ? <hr className="border-border" /> : null}
-          <PasskeysCard passkeys={passkeys!} onRefresh={refreshPasskeys} />
-        </div>
-      ) : null}
-    </>
+      )}
+      {showLinkedAccounts && showPasskeys && <hr className="border-border" />}
+      {showPasskeys && (
+        <PasskeysCard passkeys={passkeys!} onRefresh={refreshPasskeys} />
+      )}
+    </div>
   )
 }
 
 function ProfilePage() {
   const session = useRequireAuthStrict()
+  const isAdmin = useIsAdmin()
   const config = useSuspenseAuthConfig()
-  const { tab: activeTab = "profile" } = Route.useSearch()
-  const navigate = useNavigate()
   const user = session?.user
-
-  const setTab = React.useCallback(
-    (value: string | number | null) => {
-      void navigate({
-        to: ".",
-        search: {
-          tab: value === "profile" ? undefined : (value as UserTab),
-        },
-        replace: true,
-      })
-    },
-    [navigate]
-  )
 
   if (!session || !user) return null
 
   return (
-    <Tabs value={activeTab} onValueChange={setTab}>
-      <div className="mb-3 flex items-end justify-between gap-4">
-        <h1 className="text-xl font-semibold tracking-[-0.02em]">
-          Profile settings
-        </h1>
-      </div>
+    <div className="flex flex-col gap-3">
+      <h1 className="text-xl font-semibold tracking-[-0.02em]">Settings</h1>
 
-      <UserTabSelectors activeTab={activeTab} onTabChange={setTab} />
-
-      <TabsContent value="profile" className="flex flex-col gap-3">
+      <SettingsSection
+        icon={UserIcon}
+        title="Profile"
+        description="Manage your display name, username, avatar, and banner."
+        defaultOpen
+      >
         <ProfileCard
           key={user.id}
           userId={user.id}
@@ -228,19 +138,40 @@ function ProfilePage() {
           banner={(user as { banner?: string | null }).banner ?? ""}
           email={user.email ?? ""}
         />
-      </TabsContent>
+      </SettingsSection>
 
-      <TabsContent value="security" className="flex flex-col gap-3">
-        <SecurityTabContent config={config} />
-      </TabsContent>
+      <SettingsSection
+        icon={ShieldIcon}
+        title="Security"
+        description="Manage sign-in methods and passkeys."
+      >
+        <SecurityContent config={config} />
+      </SettingsSection>
 
-      <TabsContent value="data" className="flex flex-col gap-3">
+      <SettingsSection
+        icon={DatabaseIcon}
+        title="Data"
+        description="Manage your storage quota and clips."
+      >
         <DataCard />
-      </TabsContent>
+      </SettingsSection>
 
-      <TabsContent value="account" className="flex flex-col gap-3">
+      <SettingsSection
+        icon={AlertTriangleIcon}
+        title="Account"
+        description="Disable or permanently delete your account."
+      >
         <DangerZoneCard />
-      </TabsContent>
-    </Tabs>
+      </SettingsSection>
+
+      {isAdmin && (
+        <>
+          <p className="mt-2 px-1 text-xs font-medium tracking-widest text-foreground-dim uppercase">
+            Administration
+          </p>
+          <AdminSettingsSections userId={user.id} />
+        </>
+      )}
+    </div>
   )
 }

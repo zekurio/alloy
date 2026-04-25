@@ -1,6 +1,13 @@
 import { redirect } from "@tanstack/react-router"
 
+import type { PublicAuthConfig } from "@workspace/api"
+
 import { loadAuthConfig, loadSession, type Session } from "./session-suspense"
+
+type AuthRouteContext = {
+  authConfig?: PublicAuthConfig
+  session?: Session | null
+}
 
 function isAdmin(session: Session | null): boolean {
   return (session?.user as { role?: string } | undefined)?.role === "admin"
@@ -10,11 +17,26 @@ function isClipPermalink(pathname: string): boolean {
   return /^\/g\/[^/]+\/c\/[^/]+\/?$/.test(pathname)
 }
 
-function authContext(
-  config: Awaited<ReturnType<typeof loadAuthConfig>>,
-  session: Session | null
-) {
+function authContext(config: PublicAuthConfig, session: Session | null) {
   return { authConfig: config, session }
+}
+
+function contextSession(context: AuthRouteContext): Session | null | undefined {
+  if (Object.prototype.hasOwnProperty.call(context, "session")) {
+    return context.session ?? null
+  }
+  return undefined
+}
+
+function loadContextAuthConfig(context: AuthRouteContext) {
+  return context.authConfig
+    ? Promise.resolve(context.authConfig)
+    : loadAuthConfig()
+}
+
+function loadContextSession(context: AuthRouteContext) {
+  const session = contextSession(context)
+  return session !== undefined ? Promise.resolve(session) : loadSession()
 }
 
 export async function redirectToSetupBeforeLoad({
@@ -35,17 +57,19 @@ export async function redirectToSetupBeforeLoad({
 }
 
 export async function requireBrowseAuthBeforeLoad({
+  context,
   location,
 }: {
+  context: AuthRouteContext
   location: { pathname: string }
 }) {
-  const config = await loadAuthConfig()
+  const config = await loadContextAuthConfig(context)
 
   if (config.setupRequired) {
     throw redirect({ to: "/setup" })
   }
 
-  const session = await loadSession()
+  const session = await loadContextSession(context)
   if (isClipPermalink(location.pathname)) {
     return authContext(config, session)
   }
@@ -56,8 +80,15 @@ export async function requireBrowseAuthBeforeLoad({
   return authContext(config, session)
 }
 
-export async function requireStrictAuthBeforeLoad() {
-  const [config, session] = await Promise.all([loadAuthConfig(), loadSession()])
+export async function requireStrictAuthBeforeLoad({
+  context,
+}: {
+  context: AuthRouteContext
+}) {
+  const [config, session] = await Promise.all([
+    loadContextAuthConfig(context),
+    loadContextSession(context),
+  ])
 
   if (config.setupRequired) {
     throw redirect({ to: "/setup" })
@@ -69,8 +100,15 @@ export async function requireStrictAuthBeforeLoad() {
   return authContext(config, session)
 }
 
-export async function requireAdminBeforeLoad() {
-  const [config, session] = await Promise.all([loadAuthConfig(), loadSession()])
+export async function requireAdminBeforeLoad({
+  context,
+}: {
+  context: AuthRouteContext
+}) {
+  const [config, session] = await Promise.all([
+    loadContextAuthConfig(context),
+    loadContextSession(context),
+  ])
 
   if (config.setupRequired) {
     throw redirect({ to: "/setup" })
@@ -86,8 +124,15 @@ export async function requireAdminBeforeLoad() {
   return authContext(config, session)
 }
 
-export async function redirectAuthedBeforeLoad() {
-  const [config, session] = await Promise.all([loadAuthConfig(), loadSession()])
+export async function redirectAuthedBeforeLoad({
+  context,
+}: {
+  context: AuthRouteContext
+}) {
+  const [config, session] = await Promise.all([
+    loadContextAuthConfig(context),
+    loadContextSession(context),
+  ])
 
   if (config.setupRequired) {
     throw redirect({ to: "/setup" })

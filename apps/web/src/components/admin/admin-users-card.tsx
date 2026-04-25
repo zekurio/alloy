@@ -273,7 +273,6 @@ function UsersTable({
           <TableHead>User</TableHead>
           <TableHead>Email</TableHead>
           <TableHead className="w-[240px]">Storage</TableHead>
-          <TableHead className="w-[160px]">Role</TableHead>
           <TableHead className="w-[104px]" />
         </TableRow>
       </TableHeader>
@@ -309,7 +308,6 @@ function UserTableRow({
   onChangeQuota: (user: AdminUserRow, storageQuotaBytes: number | null) => void
   onDelete: (user: AdminUserRow) => void
 }) {
-  const role = normalizeRole(user.role)
   const isSelf = user.id === currentUserId
   const name = displayName(user)
   const { bg, fg } = avatarTint(user.id || name)
@@ -343,29 +341,13 @@ function UserTableRow({
       <TableCell>
         <StorageUsageCell user={user} />
       </TableCell>
-      <TableCell>
-        <Select
-          value={role}
-          onValueChange={(value) =>
-            onChangeRole(user, value as "admin" | "user")
-          }
-          disabled={busy}
-        >
-          <SelectTrigger size="sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="user">User</SelectItem>
-            <SelectItem value="admin">Admin</SelectItem>
-          </SelectContent>
-        </Select>
-      </TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-1">
-          <StorageQuotaDialog
+          <EditUserDialog
             user={user}
             busy={busy}
             onChangeQuota={onChangeQuota}
+            onChangeRole={onChangeRole}
           />
           <AlertDialog>
             <AlertDialogTrigger
@@ -424,26 +406,33 @@ function StorageUsageCell({ user }: { user: AdminUserRow }) {
   )
 }
 
-function StorageQuotaDialog({
+function EditUserDialog({
   user,
   busy,
   onChangeQuota,
+  onChangeRole,
 }: {
   user: AdminUserRow
   busy: boolean
   onChangeQuota: (user: AdminUserRow, storageQuotaBytes: number | null) => void
+  onChangeRole: (user: AdminUserRow, nextRole: "admin" | "user") => void
 }) {
   const [open, setOpen] = React.useState(false)
   const [quotaGiB, setQuotaGiB] = React.useState("")
+  const [role, setRole] = React.useState<"admin" | "user">("user")
 
   React.useEffect(() => {
-    if (open) setQuotaGiB(formatQuotaGiB(user.storageQuotaBytes))
-  }, [open, user.storageQuotaBytes])
+    if (open) {
+      setQuotaGiB(formatQuotaGiB(user.storageQuotaBytes))
+      setRole(normalizeRole(user.role) as "admin" | "user")
+    }
+  }, [open, user.storageQuotaBytes, user.role])
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     try {
       onChangeQuota(user, parseQuotaGiB(quotaGiB))
+      onChangeRole(user, role)
       setOpen(false)
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "Invalid quota")
@@ -457,7 +446,7 @@ function StorageQuotaDialog({
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label="Edit storage quota"
+            aria-label="Edit user"
             disabled={busy}
           >
             <PencilIcon className="size-4" />
@@ -467,12 +456,28 @@ function StorageQuotaDialog({
       <DialogContent variant="secondary">
         <form onSubmit={onSubmit}>
           <DialogHeader>
-            <DialogTitle>Edit storage quota</DialogTitle>
+            <DialogTitle>Edit user</DialogTitle>
             <DialogDescription>
-              Set the source clip storage quota for {user.email}.
+              Update role and storage quota for {user.email}.
             </DialogDescription>
           </DialogHeader>
-          <DialogBody>
+          <DialogBody className="flex flex-col gap-4">
+            <Field>
+              <FieldLabel htmlFor={`role-${user.id}`}>Role</FieldLabel>
+              <Select
+                value={role}
+                onValueChange={(v) => setRole(v as "admin" | "user")}
+                disabled={busy}
+              >
+                <SelectTrigger id={`role-${user.id}`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
             <Field>
               <FieldLabel htmlFor={`quota-${user.id}`}>
                 Storage quota (GiB)
@@ -487,9 +492,7 @@ function StorageQuotaDialog({
                 disabled={busy}
                 onChange={(e) => setQuotaGiB(e.target.value)}
               />
-              <FieldDescription>
-                Leave blank for unlimited storage.
-              </FieldDescription>
+              <FieldDescription>Leave blank for unlimited storage.</FieldDescription>
             </Field>
           </DialogBody>
           <DialogFooter>
@@ -506,7 +509,7 @@ function StorageQuotaDialog({
               Cancel
             </DialogClose>
             <Button type="submit" variant="primary" size="sm" disabled={busy}>
-              {busy ? "Saving…" : "Save quota"}
+              {busy ? "Saving…" : "Save"}
             </Button>
           </DialogFooter>
         </form>

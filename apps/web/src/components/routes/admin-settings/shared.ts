@@ -1,4 +1,7 @@
-import type { AdminOAuthProvider } from "@workspace/api"
+import {
+  OAUTH_QUOTA_CLAIM_DEFAULT,
+  type AdminOAuthProvider,
+} from "@workspace/api"
 
 export function emptyProvider(): AdminOAuthProvider {
   return {
@@ -14,7 +17,7 @@ export function emptyProvider(): AdminOAuthProvider {
     userInfoUrl: "",
     pkce: true,
     usernameClaim: "preferred_username",
-    quotaClaim: "",
+    quotaClaim: OAUTH_QUOTA_CLAIM_DEFAULT,
   }
 }
 

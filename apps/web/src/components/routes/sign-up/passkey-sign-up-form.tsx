@@ -34,7 +34,7 @@ type StringFieldController = {
 }
 
 type PasskeySignUpFormProps = {
-  redirectTo?: "/" | "/admin-settings"
+  redirectTo?: "/" | "/user-settings"
   successMessage?: string
 }
 
@@ -55,6 +55,7 @@ function usePasskeySignUpSubmit({
         const { error } = await addPasskeyWithLabel({
           context,
           label: `${form.username.trim()}'s passkey`,
+          promptForLabel: true,
         })
         if (error) {
           toast.error("Couldn't create your passkey account")

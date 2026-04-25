@@ -3,7 +3,6 @@ import type { CSSProperties } from "react"
 
 import { cn } from "@workspace/ui/lib/utils"
 
-import { EMPTY_STATE_KAOMOJI } from "@/lib/kaomoji"
 import type { PublicClip } from "@/lib/public-clips"
 
 const MAX_SOURCE_TILES = 12
@@ -44,17 +43,25 @@ type Tile = {
   key: string
   title: string
   hue: number
-  thumbUrl: string
+  thumbUrl: string | null
 }
 
-function Tile({
+const PLACEHOLDER_HUES = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330]
+const PLACEHOLDER_TILES: Tile[] = PLACEHOLDER_HUES.map((hue, i) => ({
+  key: `placeholder-${i}`,
+  title: "",
+  hue,
+  thumbUrl: null,
+}))
+
+const Tile = React.memo(function Tile({
   title,
   hue,
   thumbUrl,
 }: {
   title: string
   hue: number
-  thumbUrl: string
+  thumbUrl: string | null
 }) {
   return (
     <div
@@ -71,24 +78,30 @@ function Tile({
         `,
       }}
     >
-      <img
-        src={thumbUrl}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        draggable={false}
-        sizes="(min-width: 1024px) 22vw, 0px"
-        className="absolute inset-0 h-full w-full object-cover"
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-      <div className="absolute inset-x-[6%] bottom-[4%] text-[clamp(12px,1vw,16px)] font-semibold tracking-[-0.01em] text-white/85 drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
-        {title}
-      </div>
+      {thumbUrl ? (
+        <img
+          src={thumbUrl}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          sizes="22vw"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : null}
+      {thumbUrl ? (
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+      ) : null}
+      {title ? (
+        <div className="absolute inset-x-[6%] bottom-[4%] text-[clamp(12px,1vw,16px)] font-semibold tracking-[-0.01em] text-white/85 drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
+          {title}
+        </div>
+      ) : null}
     </div>
   )
-}
+})
 
-function MarqueeRow({
+const MarqueeRow = React.memo(function MarqueeRow({
   tiles,
   reverse,
   durationSeconds,
@@ -127,12 +140,11 @@ function MarqueeRow({
       </div>
     </div>
   )
-}
+})
 
 function buildRows(source: Tile[], rowCount: number): Tile[][] {
   const MIN_PER_ROW = 8
   const pool: Tile[] = []
-  // Pad the pool so each row has at least MIN_PER_ROW tiles.
   const needed = rowCount * MIN_PER_ROW
   while (pool.length < needed) {
     pool.push(...source)
@@ -162,12 +174,10 @@ function useRowCount(containerRef: React.RefObject<HTMLDivElement | null>) {
 
     function update() {
       const { height: h, width: w } = el!.getBoundingClientRect()
-      // Approximate tile height from the clamp(240px,22vw,420px) width at 16/10 aspect
       const vw = window.innerWidth
       const tileW = Math.min(420, Math.max(240, vw * 0.22))
       const tileH = tileW * (10 / 16)
       const gap = Math.min(18, Math.max(8, vw * 0.009))
-      // The rotated rectangle needs to span the diagonal extent of the container
       const rotRad = (ROTATION_DEG * Math.PI) / 180
       const neededH = (h + w * Math.sin(rotRad)) / SCALE
       const rows = Math.ceil(neededH / (tileH + gap)) + 1
@@ -191,25 +201,6 @@ function getRowSettings(index: number) {
   }
 }
 
-const EMPTY_KAOMOJI =
-  EMPTY_STATE_KAOMOJI[
-    hashHue("auth-artwork-empty") % EMPTY_STATE_KAOMOJI.length
-  ]
-
-function LoginArtworkEmpty() {
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
-    >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,var(--surface-sunken),transparent_56%)]" />
-      <span className="relative font-mono text-5xl leading-none text-foreground-faint select-none">
-        {EMPTY_KAOMOJI}
-      </span>
-    </div>
-  )
-}
-
 export const LoginArtwork = React.memo(function LoginArtwork({
   clips,
 }: {
@@ -219,7 +210,7 @@ export const LoginArtwork = React.memo(function LoginArtwork({
   const rowCount = useRowCount(containerRef)
 
   const source = React.useMemo<Tile[]>(() => {
-    return clips
+    const real = clips
       .filter(hasThumbnail)
       .slice(0, MAX_SOURCE_TILES)
       .map((c, i) => ({
@@ -228,14 +219,15 @@ export const LoginArtwork = React.memo(function LoginArtwork({
         hue: hueFor(c),
         thumbUrl: c.thumbUrl,
       }))
+    return real.length > 0 ? real : PLACEHOLDER_TILES
   }, [clips])
 
+  const isEmpty = source === PLACEHOLDER_TILES
+
   const rows = React.useMemo(
-    () => (source.length === 0 ? [] : buildRows(source, rowCount)),
+    () => buildRows(source, rowCount),
     [source, rowCount]
   )
-
-  if (rows.length === 0) return <LoginArtworkEmpty />
 
   return (
     <div
@@ -243,8 +235,6 @@ export const LoginArtwork = React.memo(function LoginArtwork({
       aria-hidden
       className="pointer-events-none absolute inset-0 overflow-hidden"
     >
-      {/* Rotated 2D stage — rows fill the pane vertically. We over-scale so
-          the rotated rectangle still covers all four corners of the pane. */}
       <div
         className="absolute inset-0 flex flex-col justify-center gap-[clamp(8px,0.9vw,18px)]"
         style={{
@@ -265,10 +255,13 @@ export const LoginArtwork = React.memo(function LoginArtwork({
         })}
       </div>
 
-      {/* Right-edge vignette so the form pane reads cleanly, plus a light
-          overall darken so the tiles feel like backdrop rather than content. */}
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-background" />
-      <div className="absolute inset-0 bg-background/30" />
+      <div
+        className={cn(
+          "absolute inset-0",
+          isEmpty ? "bg-background/55" : "bg-background/30"
+        )}
+      />
     </div>
   )
 })
