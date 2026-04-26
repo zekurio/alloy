@@ -2,11 +2,11 @@ import { zValidator } from "@hono/zod-validator"
 import { and, desc, eq, inArray, isNull, lt, sql, type SQL } from "drizzle-orm"
 import { Hono } from "hono"
 
-import { getAuth } from "../auth"
 import { user } from "@workspace/db/auth-schema"
 import { clip, game, gameFollow } from "@workspace/db/schema"
 
 import { db } from "../db"
+import { getSession } from "../lib/auth/session"
 import { clipSelectShape } from "../lib/clip-select"
 import { generateUniqueGameSlug } from "../lib/game-slug"
 import { requireSession } from "../lib/require-session"
@@ -173,9 +173,7 @@ export const gamesRoute = new Hono()
       .limit(1)
     if (!row) return c.json({ error: "Not found" }, 404)
 
-    const session = await getAuth().api.getSession({
-      headers: c.req.raw.headers,
-    })
+    const session = await getSession(c)
     let viewer: { isFollowing: boolean } | null = null
     if (session) {
       const [followRow] = await db

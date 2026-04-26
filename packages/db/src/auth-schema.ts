@@ -1,106 +1,125 @@
 import {
-  boolean,
   bigint,
+  boolean,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
 
+export const USER_ROLES = ["user", "admin"] as const
+export type UserRole = (typeof USER_ROLES)[number]
+
+export const USER_STATUSES = ["active", "disabled"] as const
+export type UserStatus = (typeof USER_STATUSES)[number]
+
 export const user = pgTable("user", {
   id: uuid("id").primaryKey().defaultRandom(),
-  // Display name — free text, possibly from the OIDC `name` claim. Separate
-  // from the handle so users can pick one without touching the other.
-  name: text("name").notNull().default(""),
-  username: text("username").notNull().unique(),
-  displayUsername: text("display_username").notNull().default(""),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
+  username: text("username").notNull().unique(),
+  displayUsername: text("display_username").notNull().default(""),
+  name: text("name").notNull().default(""),
   image: text("image"),
   banner: text("banner"),
-  storageQuotaBytes: bigint("storage_quota_bytes", { mode: "number" }),
+  role: text("role").$type<UserRole>().notNull().default("user"),
+  status: text("status").$type<UserStatus>().notNull().default("active"),
   disabledAt: timestamp("disabled_at"),
+  storageQuotaBytes: bigint("storage_quota_bytes", { mode: "number" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  role: text("role"),
-  banned: boolean("banned").default(false),
-  banReason: text("ban_reason"),
-  banExpires: timestamp("ban_expires"),
 })
 
-export const session = pgTable("session", {
+export const authSession = pgTable("auth_session", {
   id: uuid("id").primaryKey().defaultRandom(),
-  expiresAt: timestamp("expires_at").notNull(),
-  token: text("token").notNull().unique(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  tokenHash: text("token_hash").notNull().unique(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  expiresAt: timestamp("expires_at"),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  impersonatedBy: uuid("impersonated_by"),
-})
-
-export const account = pgTable("account", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  accountId: text("account_id").notNull(),
-  providerId: text("provider_id").notNull(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  accessToken: text("access_token"),
-  refreshToken: text("refresh_token"),
-  idToken: text("id_token"),
-  accessTokenExpiresAt: timestamp("access_token_expires_at"),
-  refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
-  scope: text("scope"),
-  password: text("password"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at"),
 })
 
-export const verification = pgTable("verification", {
+export const userPasskey = pgTable("user_passkey", {
   id: uuid("id").primaryKey().defaultRandom(),
-  identifier: text("identifier").notNull(),
-  value: text("value").notNull(),
-  expiresAt: timestamp("expires_at").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-})
-
-export const passkey = pgTable("passkey", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name"),
-  publicKey: text("public_key").notNull(),
   userId: uuid("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
-  credentialID: text("credential_id").notNull(),
-  counter: integer("counter").notNull(),
+  credentialId: text("credential_id").notNull().unique(),
+  publicKey: text("public_key").notNull(),
+  counter: integer("counter").notNull().default(0),
+  name: text("name"),
   deviceType: text("device_type").notNull(),
-  backedUp: boolean("backed_up").notNull(),
+  backedUp: boolean("backed_up").notNull().default(false),
   transports: text("transports"),
-  createdAt: timestamp("created_at").defaultNow(),
   aaguid: text("aaguid"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  lastUsedAt: timestamp("last_used_at"),
+})
+
+export const authAccount = pgTable(
+  "auth_account",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    providerId: text("provider_id").notNull(),
+    providerAccountId: text("provider_account_id").notNull(),
+    email: text("email"),
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    idToken: text("id_token"),
+    accessTokenExpiresAt: timestamp("access_token_expires_at"),
+    refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
+    scope: text("scope"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("auth_account_provider_account_idx").on(
+      t.providerId,
+      t.providerAccountId
+    ),
+  ]
+)
+
+export const authChallenge = pgTable("auth_challenge", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  purpose: text("purpose").notNull(),
+  identifier: text("identifier").notNull(),
+  challenge: text("challenge").notNull(),
+  payload: jsonb("payload")
+    .$type<Record<string, unknown>>()
+    .notNull()
+    .default({}),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 
 export const authSchema = {
   user,
-  session,
-  account,
-  verification,
-  passkey,
+  authSession,
+  userPasskey,
+  authAccount,
+  authChallenge,
 } as const
 
 export type User = typeof user.$inferSelect
 export type NewUser = typeof user.$inferInsert
-export type Session = typeof session.$inferSelect
-export type NewSession = typeof session.$inferInsert
-export type Account = typeof account.$inferSelect
-export type NewAccount = typeof account.$inferInsert
-export type Verification = typeof verification.$inferSelect
-export type NewVerification = typeof verification.$inferInsert
-export type Passkey = typeof passkey.$inferSelect
-export type NewPasskey = typeof passkey.$inferInsert
+export type AuthSession = typeof authSession.$inferSelect
+export type NewAuthSession = typeof authSession.$inferInsert
+export type UserPasskey = typeof userPasskey.$inferSelect
+export type NewUserPasskey = typeof userPasskey.$inferInsert
+export type AuthAccount = typeof authAccount.$inferSelect
+export type NewAuthAccount = typeof authAccount.$inferInsert
+export type AuthChallenge = typeof authChallenge.$inferSelect
+export type NewAuthChallenge = typeof authChallenge.$inferInsert

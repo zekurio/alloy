@@ -69,8 +69,8 @@ export function SeedUserDialog({
         <DialogHeader>
           <DialogTitle>Seed a user</DialogTitle>
           <DialogDescription>
-            Creates a passwordless account. The user signs in via OAuth and
-            their identity links to this email.
+            Creates a user identity. The user can add a passkey during setup or
+            after an admin provisions access.
           </DialogDescription>
         </DialogHeader>
         <DialogBody className="flex flex-col gap-4">

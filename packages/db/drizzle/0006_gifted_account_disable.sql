@@ -1,1 +1,0 @@
-ALTER TABLE "user" ADD COLUMN "disabled_at" timestamp;

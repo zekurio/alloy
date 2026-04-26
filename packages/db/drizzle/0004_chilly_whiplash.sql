@@ -1,1 +1,0 @@
-CREATE INDEX "follow_following_idx" ON "follow" USING btree ("following_id");

@@ -4,11 +4,13 @@ import { Hono } from "hono"
 import { stream } from "hono/streaming"
 import { z } from "zod"
 
-import { getAuth } from "../auth"
-import { session as authSession, user } from "@workspace/db/auth-schema"
+import { user } from "@workspace/db/auth-schema"
 import { block, clip, follow } from "@workspace/db/schema"
 
 import { db } from "../db"
+import { clearSessionCookies } from "../lib/auth/cookies"
+import { deleteAllSessionsForUser, getSession, requireAnySession } from "../lib/auth/session"
+import { assertCanRemoveAdmin } from "../lib/auth/identity"
 import { deleteClipRowAndAssets } from "../lib/clip-delete"
 import {
   contentDisposition,
@@ -43,9 +45,7 @@ const ClipBatchQuery = z.object({
 export const usersRoute = new Hono()
   .get("/search", zValidator("query", SearchQuery), async (c) => {
     const { q, limit } = c.req.valid("query")
-    const session = await getAuth().api.getSession({
-      headers: c.req.raw.headers,
-    })
+    const session = await getSession(c)
     const rows = await searchVisibleUsers({
       q,
       limit,
@@ -84,19 +84,21 @@ export const usersRoute = new Hono()
   .post("/me/disable", requireSession, async (c) => {
     const viewerId = c.var.viewerId
     const now = new Date()
+    await assertCanRemoveAdmin(viewerId)
     await db
       .update(user)
-      .set({ disabledAt: now, updatedAt: now })
+      .set({ disabledAt: now, status: "disabled", updatedAt: now })
       .where(eq(user.id, viewerId))
-    await db.delete(authSession).where(eq(authSession.userId, viewerId))
+    await deleteAllSessionsForUser(viewerId)
+    clearSessionCookies(c)
     return c.json({ disabledAt: now.toISOString() })
   })
 
-  .post("/me/reactivate", requireSession, async (c) => {
+  .post("/me/reactivate", requireAnySession, async (c) => {
     const now = new Date()
     await db
       .update(user)
-      .set({ disabledAt: null, updatedAt: now })
+      .set({ disabledAt: null, status: "active", updatedAt: now })
       .where(eq(user.id, c.var.viewerId))
     return c.json({ disabledAt: null })
   })
@@ -175,9 +177,7 @@ export const usersRoute = new Hono()
 
   .get("/:username/viewer", zValidator("param", UsernameParam), async (c) => {
     const { username } = c.req.valid("param")
-    const sessionPromise = getAuth().api.getSession({
-      headers: c.req.raw.headers,
-    })
+    const sessionPromise = getSession(c)
     const row = await resolveTarget(username)
     if (!row) return c.json({ error: "Not found" }, 404)
 

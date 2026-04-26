@@ -368,11 +368,6 @@ function UserTableRow({
                 You
               </Badge>
             ) : null}
-            {user.banned ? (
-              <Badge variant="destructive" className="text-xs">
-                Banned
-              </Badge>
-            ) : null}
           </div>
         </div>
       </TableCell>
