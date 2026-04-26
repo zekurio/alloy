@@ -13,9 +13,8 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
-    "@better-auth/passkey": "^1.6.6",
+    "@simplewebauthn/browser": "^13.3.0",
     "@workspace/contracts": "workspace:*",
-    "better-auth": "^1.6.6",
     "react": "^19.2.5"
   },
   "devDependencies": {

@@ -122,7 +122,6 @@ export const searchRoute = new Hono().get(
               ilike(user.displayUsername, pattern),
               ilike(user.username, pattern)
             ),
-            or(isNull(user.banned), eq(user.banned, false)),
             isNull(user.disabledAt)
           )
         )

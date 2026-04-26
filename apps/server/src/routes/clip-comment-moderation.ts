@@ -2,8 +2,8 @@ import { and, eq, sql } from "drizzle-orm"
 
 import { clip, clipComment } from "@workspace/db/schema"
 
-import { getAuth } from "../auth"
 import { db } from "../db"
+import { getSession } from "../lib/auth/session"
 
 export async function selectCommentModerationTarget(commentId: string) {
   const [row] = await db
@@ -41,7 +41,7 @@ export async function canModerateComment({
   if (!row) return { ok: false as const, error: "Not found", status: 404 }
 
   const clipAuthorId = await selectClipAuthorId(row.clipId)
-  const session = await getAuth().api.getSession({ headers })
+  const session = await getSession(headers)
   const isAdmin =
     (session?.user as { role?: string | null } | undefined)?.role === "admin"
   const isCommentAuthor = row.authorId === viewerId

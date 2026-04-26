@@ -17,12 +17,14 @@ export function OAuthSignIn({ providerId, displayName }: OAuthSignInProps) {
     if (pending) return
     setPending(true)
     try {
-      await authClient.signIn.oauth2({
+      const { error } = await authClient.signIn.oauth2({
         providerId,
         callbackURL: `${window.location.origin}/`,
       })
+      if (error) toast.error(error.message)
     } catch {
       toast.error("OAuth sign-in failed")
+    } finally {
       setPending(false)
     }
   }
