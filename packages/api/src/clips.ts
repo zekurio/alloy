@@ -107,93 +107,114 @@ export function uploadToTicket(
   })
 }
 
+function clipPath(clipId: string, suffix = "") {
+  return `/api/clips/${encodeURIComponent(clipId)}${suffix}`
+}
+
+async function fetchClips(
+  context: ApiContext,
+  params: ClipFeedParams = {}
+): Promise<ClipRow[]> {
+  const query: Record<string, string> = {}
+  if (params.window) query.window = params.window
+  if (params.sort) query.sort = params.sort
+  if (params.limit !== undefined) query.limit = String(params.limit)
+  if (params.cursor) query.cursor = params.cursor
+
+  const res = await context.request("/api/clips", { query })
+  return readJsonOrThrow<ClipRow[]>(res)
+}
+
+async function fetchClipById(
+  context: ApiContext,
+  clipId: string,
+  init?: RequestInit
+): Promise<ClipRow> {
+  const res = await context.request(clipPath(clipId), { init })
+  return readJsonOrThrow<ClipRow>(res)
+}
+
+async function initiateClip(
+  context: ApiContext,
+  input: InitiateClipInput
+): Promise<InitiateClipResponse> {
+  const res = await context.request("/api/clips/initiate", {
+    method: "POST",
+    json: input,
+  })
+  return readJsonOrThrow<InitiateClipResponse>(res)
+}
+
+async function finalizeClip(
+  context: ApiContext,
+  clipId: string
+): Promise<ClipRow> {
+  const res = await context.request(clipPath(clipId, "/finalize"), {
+    method: "POST",
+  })
+  return readJsonOrThrow<ClipRow>(res)
+}
+
+async function deleteClip(context: ApiContext, clipId: string): Promise<void> {
+  const res = await context.request(clipPath(clipId), { method: "DELETE" })
+  await readJsonOrThrow<{ deleted: true }>(res)
+}
+
+async function updateClip(
+  context: ApiContext,
+  clipId: string,
+  input: UpdateClipInput
+): Promise<ClipRow> {
+  const res = await context.request(clipPath(clipId), {
+    method: "PATCH",
+    json: input,
+  })
+  return readJsonOrThrow<ClipRow>(res)
+}
+
+async function fetchLikeState(
+  context: ApiContext,
+  clipId: string
+): Promise<{ liked: boolean }> {
+  const res = await context.request(clipPath(clipId, "/like"))
+  return readJsonOrThrow<{ liked: boolean }>(res)
+}
+
+async function setClipLike(
+  context: ApiContext,
+  clipId: string,
+  liked: boolean
+): Promise<ClipLikeState> {
+  const res = await context.request(clipPath(clipId, "/like"), {
+    method: liked ? "POST" : "DELETE",
+  })
+  return readJsonOrThrow<ClipLikeState>(res)
+}
+
+async function recordClipView(
+  context: ApiContext,
+  clipId: string
+): Promise<void> {
+  try {
+    await context.request(clipPath(clipId, "/view"), { method: "POST" })
+  } catch {
+    // View tracking is best-effort.
+  }
+}
+
 export function createClipsApi(context: ApiContext) {
   return {
-    async fetch(params: ClipFeedParams = {}): Promise<ClipRow[]> {
-      const query: Record<string, string> = {}
-      if (params.window) query.window = params.window
-      if (params.sort) query.sort = params.sort
-      if (params.limit !== undefined) query.limit = String(params.limit)
-      if (params.cursor) query.cursor = params.cursor
-
-      const res = await context.request("/api/clips", { query })
-      return readJsonOrThrow<ClipRow[]>(res)
-    },
-
-    async fetchById(clipId: string, init?: RequestInit): Promise<ClipRow> {
-      const res = await context.request(
-        `/api/clips/${encodeURIComponent(clipId)}`,
-        { init }
-      )
-      return readJsonOrThrow<ClipRow>(res)
-    },
-
-    async initiate(input: InitiateClipInput): Promise<InitiateClipResponse> {
-      const res = await context.request("/api/clips/initiate", {
-        method: "POST",
-        json: input,
-      })
-      return readJsonOrThrow<InitiateClipResponse>(res)
-    },
-
-    async finalize(clipId: string): Promise<ClipRow> {
-      const res = await context.request(
-        `/api/clips/${encodeURIComponent(clipId)}/finalize`,
-        { method: "POST" }
-      )
-      return readJsonOrThrow<ClipRow>(res)
-    },
-
-    async delete(clipId: string): Promise<void> {
-      const res = await context.request(
-        `/api/clips/${encodeURIComponent(clipId)}`,
-        { method: "DELETE" }
-      )
-      await readJsonOrThrow<{ deleted: true }>(res)
-    },
-
-    async update(clipId: string, input: UpdateClipInput): Promise<ClipRow> {
-      const res = await context.request(
-        `/api/clips/${encodeURIComponent(clipId)}`,
-        {
-          method: "PATCH",
-          json: input,
-        }
-      )
-      return readJsonOrThrow<ClipRow>(res)
-    },
-
-    async fetchLikeState(clipId: string): Promise<{ liked: boolean }> {
-      const res = await context.request(
-        `/api/clips/${encodeURIComponent(clipId)}/like`
-      )
-      return readJsonOrThrow<{ liked: boolean }>(res)
-    },
-
-    async like(clipId: string): Promise<ClipLikeState> {
-      const res = await context.request(
-        `/api/clips/${encodeURIComponent(clipId)}/like`,
-        { method: "POST" }
-      )
-      return readJsonOrThrow<ClipLikeState>(res)
-    },
-
-    async unlike(clipId: string): Promise<ClipLikeState> {
-      const res = await context.request(
-        `/api/clips/${encodeURIComponent(clipId)}/like`,
-        { method: "DELETE" }
-      )
-      return readJsonOrThrow<ClipLikeState>(res)
-    },
-
-    async recordView(clipId: string): Promise<void> {
-      try {
-        await context.request(`/api/clips/${encodeURIComponent(clipId)}/view`, {
-          method: "POST",
-        })
-      } catch {
-        // View tracking is best-effort.
-      }
-    },
+    fetch: (params: ClipFeedParams = {}) => fetchClips(context, params),
+    fetchById: (clipId: string, init?: RequestInit) =>
+      fetchClipById(context, clipId, init),
+    initiate: (input: InitiateClipInput) => initiateClip(context, input),
+    finalize: (clipId: string) => finalizeClip(context, clipId),
+    delete: (clipId: string) => deleteClip(context, clipId),
+    update: (clipId: string, input: UpdateClipInput) =>
+      updateClip(context, clipId, input),
+    fetchLikeState: (clipId: string) => fetchLikeState(context, clipId),
+    like: (clipId: string) => setClipLike(context, clipId, true),
+    unlike: (clipId: string) => setClipLike(context, clipId, false),
+    recordView: (clipId: string) => recordClipView(context, clipId),
   }
 }

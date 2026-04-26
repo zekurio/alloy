@@ -13,7 +13,9 @@ function hasPasskeySupport(): boolean {
 }
 
 function subscribe(): () => void {
-  return () => {}
+  return () => {
+    // No external store: this hook only needs a hydration-safe client snapshot.
+  }
 }
 
 export function usePasskeySupport(): PasskeySupport {

@@ -180,7 +180,40 @@ function LimitsActions({
   )
 }
 
-export function LimitsConfigCard({ limits, onChange }: LimitsConfigCardProps) {
+function parseLimitsPatch({
+  form,
+  maxUploadMiB,
+  storageQuotaGiB,
+}: {
+  form: AdminLimitsConfig
+  maxUploadMiB: string
+  storageQuotaGiB: string
+}): Partial<AdminLimitsConfig> | null {
+  const parsedMiB = Number(maxUploadMiB)
+  if (!Number.isFinite(parsedMiB) || parsedMiB <= 0) {
+    toast.error("Max upload size must be a positive number of MiB.")
+    return null
+  }
+  const parsedQuotaGiB =
+    storageQuotaGiB.trim().length === 0 ? null : Number(storageQuotaGiB)
+  if (
+    parsedQuotaGiB !== null &&
+    (!Number.isFinite(parsedQuotaGiB) || parsedQuotaGiB <= 0)
+  ) {
+    toast.error("Default storage quota must be blank or a positive GiB value.")
+    return null
+  }
+  return {
+    ...form,
+    maxUploadBytes: Math.round(parsedMiB * 1024 * 1024),
+    defaultStorageQuotaBytes:
+      parsedQuotaGiB === null
+        ? null
+        : Math.round(parsedQuotaGiB * 1024 * 1024 * 1024),
+  }
+}
+
+function useLimitsConfigForm({ limits, onChange }: LimitsConfigCardProps) {
   const [form, setForm] = React.useState<AdminLimitsConfig>(limits)
   const [pending, setPending] = React.useState(false)
   const [maxUploadMiB, setMaxUploadMiB] = React.useState<string>(() =>
@@ -220,32 +253,11 @@ export function LimitsConfigCard({ limits, onChange }: LimitsConfigCardProps) {
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (pending) return
-    const parsedMiB = Number(maxUploadMiB)
-    if (!Number.isFinite(parsedMiB) || parsedMiB <= 0) {
-      toast.error("Max upload size must be a positive number of MiB.")
-      return
-    }
-    const parsedQuotaGiB =
-      storageQuotaGiB.trim().length === 0 ? null : Number(storageQuotaGiB)
-    if (
-      parsedQuotaGiB !== null &&
-      (!Number.isFinite(parsedQuotaGiB) || parsedQuotaGiB <= 0)
-    ) {
-      toast.error(
-        "Default storage quota must be blank or a positive GiB value."
-      )
-      return
-    }
+    const patch = parseLimitsPatch({ form, maxUploadMiB, storageQuotaGiB })
+    if (!patch) return
     setPending(true)
     try {
-      const next = await api.admin.updateLimitsConfig({
-        ...form,
-        maxUploadBytes: Math.round(parsedMiB * 1024 * 1024),
-        defaultStorageQuotaBytes:
-          parsedQuotaGiB === null
-            ? null
-            : Math.round(parsedQuotaGiB * 1024 * 1024 * 1024),
-      })
+      const next = await api.admin.updateLimitsConfig(patch)
       onChange(next)
       toast.success("Limits updated")
     } catch (cause) {
@@ -263,25 +275,42 @@ export function LimitsConfigCard({ limits, onChange }: LimitsConfigCardProps) {
     maxUploadMiB !== initialMaxUploadMiB ||
     storageQuotaGiB !== initialStorageQuotaGiB
 
+  return {
+    form,
+    pending,
+    maxUploadMiB,
+    storageQuotaGiB,
+    isDirty,
+    set,
+    setMaxUploadMiB,
+    setStorageQuotaGiB,
+    resetForm,
+    onSubmit,
+  }
+}
+
+export function LimitsConfigCard(props: LimitsConfigCardProps) {
+  const state = useLimitsConfigForm(props)
+
   return (
-    <form onSubmit={onSubmit}>
+    <form onSubmit={state.onSubmit}>
       <Section>
         <SectionHeader>
           <SectionTitle>Limits</SectionTitle>
         </SectionHeader>
-        <fieldset disabled={pending} className="contents">
+        <fieldset disabled={state.pending} className="contents">
           <LimitsFields
-            form={form}
-            maxUploadMiB={maxUploadMiB}
-            storageQuotaGiB={storageQuotaGiB}
-            onFieldChange={set}
-            onMaxUploadChange={setMaxUploadMiB}
-            onStorageQuotaChange={setStorageQuotaGiB}
+            form={state.form}
+            maxUploadMiB={state.maxUploadMiB}
+            storageQuotaGiB={state.storageQuotaGiB}
+            onFieldChange={state.set}
+            onMaxUploadChange={state.setMaxUploadMiB}
+            onStorageQuotaChange={state.setStorageQuotaGiB}
           />
           <LimitsActions
-            pending={pending}
-            isDirty={isDirty}
-            onReset={resetForm}
+            pending={state.pending}
+            isDirty={state.isDirty}
+            onReset={state.resetForm}
           />
         </fieldset>
       </Section>

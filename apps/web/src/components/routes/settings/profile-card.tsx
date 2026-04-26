@@ -2,7 +2,7 @@ import * as React from "react"
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
-import { Camera, ImageIcon, Pencil, Trash2 } from "lucide-react"
+import { Camera, Pencil } from "lucide-react"
 import { useClickAnchor } from "@/hooks/use-click-anchor"
 
 import {
@@ -18,8 +18,6 @@ import {
 } from "@workspace/ui/components/section"
 import {
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 import {
@@ -49,6 +47,11 @@ import {
   userAvatar,
   userImageSrc,
 } from "@/lib/user-display"
+import {
+  MediaDropdownContent,
+  MediaEditOverlay,
+} from "./profile-media-controls"
+
 import { userKeys } from "@/lib/user-queries"
 
 type ProfileCardProps = {
@@ -282,28 +285,16 @@ export function ProfileCard({
                       className="group absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                       onPointerDown={bannerAnchor.onTriggerPointerDown}
                     >
-                      <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                      <MediaEditOverlay radius="lg">
                         <Pencil className="size-4 text-white" />
-                      </div>
+                      </MediaEditOverlay>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      anchor={bannerAnchor.anchor ?? undefined}
-                      className="w-auto"
-                    >
-                      <DropdownMenuItem
-                        onClick={() => openFilePicker("banner")}
-                      >
-                        <ImageIcon />
-                        Upload new banner
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onClick={handleRemoveBanner}
-                      >
-                        <Trash2 />
-                        Remove banner
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
+                    <MediaDropdownContent
+                      anchor={bannerAnchor.anchor}
+                      kind="banner"
+                      onUpload={() => openFilePicker("banner")}
+                      onRemove={handleRemoveBanner}
+                    />
                   </DropdownMenu>
                 ) : (
                   <button
@@ -312,9 +303,9 @@ export function ProfileCard({
                     onClick={() => openFilePicker("banner")}
                     className="group absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   >
-                    <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                    <MediaEditOverlay radius="lg">
                       <Camera className="size-4 text-white" />
-                    </div>
+                    </MediaEditOverlay>
                   </button>
                 )}
               </div>
@@ -368,28 +359,16 @@ export function ProfileCard({
                               {avatar.initials}
                             </AvatarFallback>
                           </Avatar>
-                          <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                          <MediaEditOverlay radius="md">
                             <Pencil className="size-4 text-white" />
-                          </div>
+                          </MediaEditOverlay>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          anchor={avatarAnchor.anchor ?? undefined}
-                          className="w-auto"
-                        >
-                          <DropdownMenuItem
-                            onClick={() => openFilePicker("avatar")}
-                          >
-                            <ImageIcon />
-                            Upload new avatar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={handleRemoveAvatar}
-                          >
-                            <Trash2 />
-                            Remove avatar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
+                        <MediaDropdownContent
+                          anchor={avatarAnchor.anchor}
+                          kind="avatar"
+                          onUpload={() => openFilePicker("avatar")}
+                          onRemove={handleRemoveAvatar}
+                        />
                       </DropdownMenu>
                     ) : (
                       <button
@@ -408,9 +387,9 @@ export function ProfileCard({
                             {avatar.initials}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                        <MediaEditOverlay radius="md">
                           <Camera className="size-4 text-white" />
-                        </div>
+                        </MediaEditOverlay>
                       </button>
                     )}
                     <div className="flex flex-col gap-0.5">

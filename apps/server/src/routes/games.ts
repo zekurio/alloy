@@ -1,7 +1,6 @@
 import { zValidator } from "@hono/zod-validator"
 import { and, desc, eq, inArray, isNull, lt, sql, type SQL } from "drizzle-orm"
 import { Hono } from "hono"
-import { z } from "zod"
 
 import { getAuth } from "../auth"
 import { user } from "@workspace/db/auth-schema"
@@ -18,38 +17,16 @@ import {
   isConfigured,
   searchGames,
 } from "../lib/steamgriddb"
-import { serialiseGame, sgdbErrorResponse } from "./games-helpers"
-
-const SlugParam = z.object({
-  slug: z
-    .string()
-    .min(1)
-    .max(64)
-    .regex(/^[a-z0-9-]+$/),
-})
-
-const SearchQuery = z.object({
-  q: z.string().min(1).max(120),
-})
-
-const ResolveBody = z.object({
-  steamgriddbId: z.number().int().positive(),
-})
-
-const ClipsQuery = z.object({
-  sort: z.enum(["top", "recent"]).default("recent"),
-  limit: z.coerce.number().int().positive().max(100).default(50),
-  cursor: z.iso.datetime().optional(),
-})
-
-const TopQuery = z.object({
-  limit: z.coerce.number().int().positive().max(20).default(5),
-})
-
-const GamesListQuery = z.object({
-  limit: z.coerce.number().int().positive().max(100).default(100),
-  offset: z.coerce.number().int().min(0).default(0),
-})
+import {
+  ClipsQuery,
+  GamesListQuery,
+  ResolveBody,
+  SearchQuery,
+  SlugParam,
+  TopQuery,
+  serialiseGame,
+  sgdbErrorResponse,
+} from "./games-helpers"
 
 export const gamesRoute = new Hono()
   .get("/status", (c) => {

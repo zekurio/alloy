@@ -41,12 +41,7 @@ function AccountActionRow({
   )
 }
 
-export function DangerZoneCard() {
-  const router = useRouter()
-  const navigate = useNavigate()
-  const [pendingAction, setPendingAction] = React.useState<
-    "disable" | "reactivate" | "delete" | null
-  >(null)
+function useAccountDisabledState() {
   const [disabledAt, setDisabledAt] = React.useState<string | null>(null)
 
   React.useEffect(() => {
@@ -61,6 +56,17 @@ export function DangerZoneCard() {
       active = false
     }
   }, [])
+
+  return { disabledAt, setDisabledAt }
+}
+
+function useAccountDangerActions() {
+  const router = useRouter()
+  const navigate = useNavigate()
+  const [pendingAction, setPendingAction] = React.useState<
+    "disable" | "reactivate" | "delete" | null
+  >(null)
+  const { disabledAt, setDisabledAt } = useAccountDisabledState()
 
   const pending = pendingAction !== null
 
@@ -122,94 +128,134 @@ export function DangerZoneCard() {
     }
   }
 
+  return {
+    disabledAt,
+    pending,
+    pendingAction,
+    onDisable,
+    onReactivate,
+    onDelete,
+  }
+}
+
+function DisableAccountRow({
+  disabledAt,
+  pending,
+  pendingAction,
+  onDisable,
+  onReactivate,
+}: {
+  disabledAt: string | null
+  pending: boolean
+  pendingAction: "disable" | "reactivate" | "delete" | null
+  onDisable: () => Promise<void>
+  onReactivate: () => Promise<void>
+}) {
+  return (
+    <AccountActionRow
+      title={disabledAt ? "Reactivate account" : "Disable account"}
+      description={
+        disabledAt
+          ? "Make your profile and clips visible again."
+          : "Hide your profile and clips until you reactivate your account."
+      }
+    >
+      {disabledAt ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onReactivate}
+          disabled={pending}
+        >
+          <RotateCcwIcon />
+          {pendingAction === "reactivate" ? "Reactivating..." : "Reactivate"}
+        </Button>
+      ) : (
+        <AlertDialog>
+          <AlertDialogTrigger
+            render={
+              <Button type="button" variant="outline" size="sm">
+                <EyeOffIcon />
+                Disable
+              </Button>
+            }
+          />
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Disable your account?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Your profile and clips will be hidden until you sign back in and
+                reactivate.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={onDisable} disabled={pending}>
+                {pendingAction === "disable"
+                  ? "Disabling..."
+                  : "Disable account"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </AccountActionRow>
+  )
+}
+
+function DeleteAccountRow({
+  pending,
+  pendingAction,
+  onDelete,
+}: {
+  pending: boolean
+  pendingAction: "disable" | "reactivate" | "delete" | null
+  onDelete: () => Promise<void>
+}) {
+  return (
+    <AccountActionRow
+      title="Delete account"
+      description="Permanently removes your account and clips. Can't be undone."
+    >
+      <AlertDialog>
+        <AlertDialogTrigger
+          render={
+            <Button type="button" variant="destructive" size="sm">
+              <Trash2Icon />
+              Delete account
+            </Button>
+          }
+        />
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+            <AlertDialogDescription>This can't be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={onDelete}
+              disabled={pending}
+            >
+              {pendingAction === "delete" ? "Deleting..." : "Delete account"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </AccountActionRow>
+  )
+}
+
+export function DangerZoneCard() {
+  const actions = useAccountDangerActions()
+
   return (
     <Section>
       <SectionContent className="divide-y divide-border py-0">
-        <AccountActionRow
-          title={disabledAt ? "Reactivate account" : "Disable account"}
-          description={
-            disabledAt
-              ? "Make your profile and clips visible again."
-              : "Hide your profile and clips until you reactivate your account."
-          }
-        >
-          {disabledAt ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onReactivate}
-              disabled={pending}
-            >
-              <RotateCcwIcon />
-              {pendingAction === "reactivate" ? "Reactivating…" : "Reactivate"}
-            </Button>
-          ) : (
-            <AlertDialog>
-              <AlertDialogTrigger
-                render={
-                  <Button type="button" variant="outline" size="sm">
-                    <EyeOffIcon />
-                    Disable
-                  </Button>
-                }
-              />
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Disable your account?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Your profile and clips will be hidden until you sign back in
-                    and reactivate.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel disabled={pending}>
-                    Cancel
-                  </AlertDialogCancel>
-                  <AlertDialogAction onClick={onDisable} disabled={pending}>
-                    {pendingAction === "disable"
-                      ? "Disabling…"
-                      : "Disable account"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
-        </AccountActionRow>
-
-        <AccountActionRow
-          title="Delete account"
-          description="Permanently removes your account and clips. Can't be undone."
-        >
-          <AlertDialog>
-            <AlertDialogTrigger
-              render={
-                <Button type="button" variant="destructive" size="sm">
-                  <Trash2Icon />
-                  Delete account
-                </Button>
-              }
-            />
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete your account?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This can't be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  variant="destructive"
-                  onClick={onDelete}
-                  disabled={pending}
-                >
-                  {pendingAction === "delete" ? "Deleting…" : "Delete account"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </AccountActionRow>
+        <DisableAccountRow {...actions} />
+        <DeleteAccountRow {...actions} />
       </SectionContent>
     </Section>
   )

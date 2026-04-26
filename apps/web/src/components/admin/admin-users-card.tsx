@@ -1,5 +1,4 @@
 import * as React from "react"
-import { useForm } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { PencilIcon, Trash2Icon, UserPlusIcon } from "lucide-react"
 
@@ -41,7 +40,6 @@ import {
 import {
   Field,
   FieldDescription,
-  FieldError,
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
@@ -66,7 +64,7 @@ import {
 
 import { authClient } from "@/lib/auth-client"
 import { api } from "@/lib/api"
-import { validateEmail, validateUsername } from "@/lib/form-validators"
+import { SeedUserDialog } from "@/components/admin/seed-user-dialog"
 import {
   formatBytes,
   formatQuotaGiB,
@@ -88,25 +86,37 @@ interface AdminUsersCardProps {
   currentUserId: string
 }
 
-function useAdminUsers(currentUserId: string) {
-  const queryClient = useQueryClient()
-  const [busyId, setBusyId] = React.useState<string | null>(null)
+function useAdminUsersQuery() {
   const usersQuery = useQuery({
     queryKey: adminUsersQueryKey,
     queryFn: () => api.admin.fetchUsers(),
   })
   const { refetch } = usersQuery
-  const users = usersQuery.data?.users ?? null
+  const refresh = React.useCallback(async () => {
+    await refetch()
+  }, [refetch])
   const loadError = usersQuery.error
     ? usersQuery.error instanceof Error
       ? usersQuery.error.message
       : "Failed to load users"
     : null
-  const refresh = React.useCallback(async () => {
-    await refetch()
-  }, [refetch])
 
-  const onDelete = async (user: AdminUserRow) => {
+  return {
+    users: usersQuery.data?.users ?? null,
+    loadError,
+    refresh,
+  }
+}
+
+function useDeleteAdminUser({
+  busyId,
+  setBusyId,
+}: {
+  busyId: string | null
+  setBusyId: React.Dispatch<React.SetStateAction<string | null>>
+}) {
+  const queryClient = useQueryClient()
+  return async (user: AdminUserRow) => {
     if (busyId) return
     setBusyId(user.id)
     try {
@@ -120,11 +130,19 @@ function useAdminUsers(currentUserId: string) {
       setBusyId(null)
     }
   }
+}
 
-  const onChangeRole = async (
-    user: AdminUserRow,
-    nextRole: "admin" | "user"
-  ) => {
+function useChangeAdminUserRole({
+  busyId,
+  currentUserId,
+  setBusyId,
+}: {
+  busyId: string | null
+  currentUserId: string
+  setBusyId: React.Dispatch<React.SetStateAction<string | null>>
+}) {
+  const queryClient = useQueryClient()
+  return async (user: AdminUserRow, nextRole: "admin" | "user") => {
     if (busyId) return
     const current = normalizeRole(user.role)
     if (current === nextRole) return
@@ -151,11 +169,17 @@ function useAdminUsers(currentUserId: string) {
       setBusyId(null)
     }
   }
+}
 
-  const onChangeQuota = async (
-    user: AdminUserRow,
-    storageQuotaBytes: number | null
-  ) => {
+function useChangeAdminUserQuota({
+  busyId,
+  setBusyId,
+}: {
+  busyId: string | null
+  setBusyId: React.Dispatch<React.SetStateAction<string | null>>
+}) {
+  const queryClient = useQueryClient()
+  return async (user: AdminUserRow, storageQuotaBytes: number | null) => {
     if (busyId) return
     setBusyId(user.id)
     try {
@@ -183,15 +207,30 @@ function useAdminUsers(currentUserId: string) {
       setBusyId(null)
     }
   }
+}
+
+function useAdminUserMutations(currentUserId: string) {
+  const [busyId, setBusyId] = React.useState<string | null>(null)
+  const mutationState = { busyId, setBusyId }
+  const onDelete = useDeleteAdminUser(mutationState)
+  const onChangeQuota = useChangeAdminUserQuota(mutationState)
+  const onChangeRole = useChangeAdminUserRole({
+    ...mutationState,
+    currentUserId,
+  })
 
   return {
-    users,
-    loadError,
     busyId,
-    refresh,
     onDelete,
     onChangeRole,
     onChangeQuota,
+  }
+}
+
+function useAdminUsers(currentUserId: string) {
+  return {
+    ...useAdminUsersQuery(),
+    ...useAdminUserMutations(currentUserId),
   }
 }
 
@@ -521,188 +560,4 @@ function EditUserDialog({
 function normalizeRole(role: string | null | undefined): string {
   if (role === "admin") return "admin"
   return "user"
-}
-
-function SeedUserDialog({
-  onCreated,
-}: {
-  onCreated: () => void | Promise<void>
-}) {
-  const form = useForm({
-    defaultValues: {
-      username: "",
-      email: "",
-      role: "user" as "user" | "admin",
-    } as { username: string; email: string; role: "user" | "admin" },
-    onSubmit: async ({ value }) => {
-      try {
-        const { error } = await authClient.admin.createUser({
-          name: value.username.trim(),
-          email: value.email.trim(),
-          role: value.role,
-        })
-        if (error) throw new Error(error.message ?? "Create failed")
-        toast.success("User seeded")
-        form.reset()
-        await onCreated()
-      } catch {
-        toast.error("Couldn't seed user")
-      }
-    },
-  })
-
-  return (
-    <DialogContent variant="secondary">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          void form.handleSubmit()
-        }}
-      >
-        <DialogHeader>
-          <DialogTitle>Seed a user</DialogTitle>
-          <DialogDescription>
-            Creates a passwordless account. The user signs in via OAuth and
-            their identity links to this email.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogBody className="flex flex-col gap-4">
-          <form.Field
-            name="username"
-            validators={{
-              onChange: ({ value }) => validateUsername(value.trim()),
-            }}
-          >
-            {(field) => {
-              const showError =
-                field.state.meta.isTouched || form.state.submissionAttempts > 0
-              const invalid = showError && !field.state.meta.isValid
-
-              return (
-                <Field>
-                  <FieldLabel htmlFor={field.name} required>
-                    Username
-                  </FieldLabel>
-                  <Input
-                    id={field.name}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) =>
-                      field.handleChange(e.target.value.toLowerCase())
-                    }
-                    autoComplete="off"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    disabled={form.state.isSubmitting}
-                    aria-invalid={invalid || undefined}
-                    aria-describedby={
-                      invalid ? `${field.name}-error` : undefined
-                    }
-                  />
-                  <FieldDescription>
-                    Used to sign in. Lowercase letters, numbers, `_` and `-`.
-                  </FieldDescription>
-                  <FieldError
-                    id={`${field.name}-error`}
-                    errors={showError ? field.state.meta.errors : undefined}
-                  />
-                </Field>
-              )
-            }}
-          </form.Field>
-          <form.Field
-            name="email"
-            validators={{
-              onChange: ({ value }) => validateEmail(value),
-            }}
-          >
-            {(field) => {
-              const showError =
-                field.state.meta.isTouched || form.state.submissionAttempts > 0
-              const invalid = showError && !field.state.meta.isValid
-
-              return (
-                <Field>
-                  <FieldLabel htmlFor={field.name} required>
-                    Email
-                  </FieldLabel>
-                  <Input
-                    id={field.name}
-                    type="email"
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    disabled={form.state.isSubmitting}
-                    aria-invalid={invalid || undefined}
-                    aria-describedby={
-                      invalid ? `${field.name}-error` : undefined
-                    }
-                  />
-                  <FieldDescription>
-                    Must match the email returned by the OAuth provider.
-                  </FieldDescription>
-                  <FieldError
-                    id={`${field.name}-error`}
-                    errors={showError ? field.state.meta.errors : undefined}
-                  />
-                </Field>
-              )
-            }}
-          </form.Field>
-          <form.Field name="role">
-            {(field) => (
-              <Field>
-                <FieldLabel htmlFor={field.name}>Role</FieldLabel>
-                <Select
-                  value={field.state.value}
-                  onValueChange={(value) =>
-                    field.handleChange(value as "user" | "admin")
-                  }
-                  disabled={form.state.isSubmitting}
-                >
-                  <SelectTrigger id={field.name}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-            )}
-          </form.Field>
-        </DialogBody>
-        <DialogFooter>
-          <DialogClose
-            render={
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={form.state.isSubmitting}
-              />
-            }
-          >
-            Cancel
-          </DialogClose>
-          <form.Subscribe
-            selector={(state) => [state.canSubmit, state.isSubmitting] as const}
-          >
-            {([canSubmit, isSubmitting]) => (
-              <Button
-                type="submit"
-                variant="primary"
-                size="sm"
-                disabled={!canSubmit}
-              >
-                {isSubmitting ? "Seeding…" : "Seed user"}
-              </Button>
-            )}
-          </form.Subscribe>
-        </DialogFooter>
-      </form>
-    </DialogContent>
-  )
 }
