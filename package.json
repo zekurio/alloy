@@ -4,6 +4,10 @@
   "private": true,
   "scripts": {
     "build": "turbo build",
+    "package:web": "rm -rf build/www && mkdir -p build && cp -R apps/web/dist build/www",
+    "start": "pnpm --filter @workspace/server start",
+    "serve": "pnpm start",
+    "preview": "pnpm build && pnpm package:web && pnpm start",
     "dev": "turbo dev",
     "db:generate": "pnpm --filter @workspace/db db:generate",
     "db:migrate": "pnpm --filter @workspace/db db:migrate",
@@ -12,6 +16,7 @@
     "db:stop": "bash ./scripts/dev-postgres.sh stop",
     "db:push": "pnpm --filter @workspace/db db:push",
     "db:studio": "pnpm --filter @workspace/db db:studio",
+    "migrate:deploy": "pnpm --filter @workspace/db migrate:deploy",
     "lint": "turbo lint",
     "lint:github": "turbo lint -- --deny-warnings --format=github",
     "lint:ci": "turbo lint -- --deny-warnings",
