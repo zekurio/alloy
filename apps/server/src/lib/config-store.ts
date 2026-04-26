@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto"
 import fs from "node:fs"
 import path from "node:path"
 import { z } from "zod"
@@ -7,9 +8,11 @@ import {
   ENCODER_HEIGHT_MAX,
   ENCODER_HEIGHT_MIN,
   ENCODER_HWACCELS,
+  STORAGE_DRIVERS,
   type EncoderHwaccel,
   type EncoderCodec,
   type RuntimeConfig,
+  type StorageDriverKind,
 } from "@workspace/contracts"
 import { env } from "../env"
 import { publishConfigChange } from "./config-events"
@@ -195,6 +198,73 @@ const IntegrationsConfigSchema = z.object({
   steamgriddbApiKey: z.string().default(""),
 })
 
+function normalizePublicUrl(value: string): string {
+  const url = new URL(value)
+  url.pathname = url.pathname.replace(/\/api\/?$/, "") || "/"
+  url.search = ""
+  url.hash = ""
+  return url.toString().replace(/\/$/, "")
+}
+
+const FsStorageConfigSchema = z.object({
+  root: z.string().min(1).default("./data/storage"),
+  publicBaseUrl: z
+    .string()
+    .url()
+    .default(env.PUBLIC_SERVER_URL)
+    .transform(normalizePublicUrl),
+  hmacSecret: z.string().min(32),
+})
+
+const S3StorageConfigSchema = z.object({
+  bucket: z.string().default(env.S3_BUCKET ?? ""),
+  region: z.string().default(env.S3_REGION),
+  endpoint: z.string().url().optional(),
+  accessKeyId: z.string().optional(),
+  secretAccessKey: z.string().optional(),
+  forcePathStyle: z.boolean().default(env.S3_FORCE_PATH_STYLE),
+  presignExpiresSec: z
+    .number()
+    .int()
+    .positive()
+    .default(env.S3_PRESIGN_EXPIRES_SEC),
+})
+
+const DEFAULT_FS_STORAGE_CONFIG = FsStorageConfigSchema.parse({
+  root: env.STORAGE_FS_ROOT,
+  publicBaseUrl: env.STORAGE_PUBLIC_BASE_URL,
+  hmacSecret:
+    env.STORAGE_HMAC_SECRET && env.STORAGE_HMAC_SECRET.length >= 32
+      ? env.STORAGE_HMAC_SECRET
+      : randomBytes(32).toString("base64url"),
+})
+
+const DEFAULT_S3_STORAGE_CONFIG = S3StorageConfigSchema.parse({
+  bucket: env.S3_BUCKET ?? "",
+  region: env.S3_REGION,
+  endpoint: env.S3_ENDPOINT,
+  accessKeyId: env.S3_ACCESS_KEY_ID,
+  secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+  forcePathStyle: env.S3_FORCE_PATH_STYLE,
+  presignExpiresSec: env.S3_PRESIGN_EXPIRES_SEC,
+})
+
+const StorageConfigSchema = z
+  .object({
+    driver: z.enum(STORAGE_DRIVERS).default("fs"),
+    fs: FsStorageConfigSchema.default(DEFAULT_FS_STORAGE_CONFIG),
+    s3: S3StorageConfigSchema.default(DEFAULT_S3_STORAGE_CONFIG),
+  })
+  .superRefine((config, ctx) => {
+    if (config.driver === "s3" && config.s3.bucket.trim().length === 0) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["s3", "bucket"],
+        message: "S3 bucket is required when storage driver is s3.",
+      })
+    }
+  })
+
 const RuntimeConfigSchema = z.object({
   openRegistrations: z.boolean().default(false),
   setupComplete: z.boolean().default(false),
@@ -206,11 +276,23 @@ const RuntimeConfigSchema = z.object({
   integrations: IntegrationsConfigSchema.default(
     IntegrationsConfigSchema.parse({})
   ),
+  storage: StorageConfigSchema.default({
+    driver: env.STORAGE_DRIVER as StorageDriverKind,
+    fs: DEFAULT_FS_STORAGE_CONFIG,
+    s3: DEFAULT_S3_STORAGE_CONFIG,
+  }),
 })
 
 export const EncoderConfigPatchSchema = EncoderConfigInnerSchema.partial()
 export const LimitsConfigPatchSchema = LimitsConfigSchema.partial()
 export const IntegrationsConfigPatchSchema = IntegrationsConfigSchema.partial()
+export const FsStorageConfigPatchSchema = FsStorageConfigSchema.partial()
+export const S3StorageConfigPatchSchema = S3StorageConfigSchema.partial()
+export const StorageConfigPatchSchema = z.object({
+  driver: z.enum(STORAGE_DRIVERS).optional(),
+  fs: FsStorageConfigPatchSchema.optional(),
+  s3: S3StorageConfigPatchSchema.optional(),
+})
 
 export type {
   EncoderCodec,
@@ -220,13 +302,26 @@ export type {
   LimitsConfig,
   OAuthProviderConfig,
   RuntimeConfig,
+  StorageConfig,
 } from "@workspace/contracts"
 
-const DEFAULT_CONFIG: RuntimeConfig = RuntimeConfigSchema.parse({})
+const DEFAULT_CONFIG: RuntimeConfig = RuntimeConfigSchema.parse({
+  storage: {
+    driver: "fs",
+    fs: DEFAULT_FS_STORAGE_CONFIG,
+    s3: DEFAULT_S3_STORAGE_CONFIG,
+  },
+})
+
+function bootstrapDefaultConfig(): RuntimeConfig {
+  const parsed = RuntimeConfigSchema.safeParse({})
+  return parsed.success ? parsed.data : DEFAULT_CONFIG
+}
 
 function resolveConfigPath(): string {
-  if (env.RUNTIME_CONFIG_PATH && env.RUNTIME_CONFIG_PATH.length > 0) {
-    return path.resolve(env.RUNTIME_CONFIG_PATH)
+  const configuredPath = env.ALLOY_CONFIG_FILE ?? env.RUNTIME_CONFIG_PATH
+  if (configuredPath && configuredPath.length > 0) {
+    return path.resolve(configuredPath)
   }
   return path.resolve(process.cwd(), "data/runtime-config.json")
 }
@@ -278,30 +373,34 @@ function stripLegacyProviderFields(
   return next
 }
 
-function loadFromDisk(): RuntimeConfig {
+type LoadResult =
+  | { ok: true; config: RuntimeConfig; shouldPersist: boolean }
+  | { ok: false; error: string }
+
+function loadFromDisk(): LoadResult {
   if (!fs.existsSync(CONFIG_PATH)) {
-    return { ...DEFAULT_CONFIG }
+    return {
+      ok: true,
+      config: bootstrapDefaultConfig(),
+      shouldPersist: true,
+    }
   }
   try {
     const raw = fs.readFileSync(CONFIG_PATH, "utf-8")
     const json = migrateLegacyFields(JSON.parse(raw))
     const result = RuntimeConfigSchema.safeParse(json)
     if (!result.success) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[config-store] ${CONFIG_PATH} failed validation, falling back to defaults:`,
-        JSON.stringify(result.error.flatten())
-      )
-      return { ...DEFAULT_CONFIG }
+      return {
+        ok: false,
+        error: JSON.stringify(result.error.flatten()),
+      }
     }
-    return result.data
+    return { ok: true, config: result.data, shouldPersist: false }
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[config-store] failed to read ${CONFIG_PATH}, falling back to defaults:`,
-      err instanceof Error ? err.message : err
-    )
-    return { ...DEFAULT_CONFIG }
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    }
   }
 }
 
@@ -313,7 +412,19 @@ function writeToDisk(next: RuntimeConfig): void {
   fs.renameSync(tmpPath, CONFIG_PATH)
 }
 
-let state: RuntimeConfig = loadFromDisk()
+const initialLoad = loadFromDisk()
+if (!initialLoad.ok) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[config-store] ${CONFIG_PATH} failed validation, falling back to defaults:`,
+    initialLoad.error
+  )
+}
+
+let state: RuntimeConfig = initialLoad.ok ? initialLoad.config : DEFAULT_CONFIG
+if (initialLoad.ok && initialLoad.shouldPersist) {
+  writeToDisk(state)
+}
 
 type Listener = (
   next: Readonly<RuntimeConfig>,
@@ -321,9 +432,9 @@ type Listener = (
 ) => void
 const listeners = new Set<Listener>()
 
-function commit(next: RuntimeConfig): void {
+function apply(next: RuntimeConfig, persist: boolean): void {
   const prev = state
-  writeToDisk(next)
+  if (persist) writeToDisk(next)
   state = next
   publishConfigChange(state, prev)
   for (const listener of listeners) {
@@ -336,11 +447,43 @@ function commit(next: RuntimeConfig): void {
   }
 }
 
+function commit(next: RuntimeConfig): void {
+  apply(next, true)
+}
+
+function reloadFromDisk(): boolean {
+  const result = loadFromDisk()
+  if (!result.ok) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[config-store] ignoring invalid ${CONFIG_PATH}:`,
+      result.error
+    )
+    return false
+  }
+  apply(result.config, false)
+  return true
+}
+
+let reloadTimer: NodeJS.Timeout | null = null
+function startConfigFileWatcher(): void {
+  fs.watchFile(CONFIG_PATH, { interval: 1000 }, () => {
+    if (reloadTimer) clearTimeout(reloadTimer)
+    reloadTimer = setTimeout(() => {
+      reloadTimer = null
+      reloadFromDisk()
+    }, 50)
+  })
+}
+
+startConfigFileWatcher()
+
 export interface ConfigStore {
   get<K extends keyof RuntimeConfig>(key: K): RuntimeConfig[K]
   getAll(): Readonly<RuntimeConfig>
   set<K extends keyof RuntimeConfig>(key: K, value: RuntimeConfig[K]): void
   patch(patch: Partial<RuntimeConfig>): void
+  reload(): boolean
   subscribe(fn: Listener): () => void
   readonly filePath: string
 }
@@ -357,6 +500,9 @@ export const configStore: ConfigStore = {
   },
   patch(patch) {
     commit(RuntimeConfigSchema.parse({ ...state, ...patch }))
+  },
+  reload() {
+    return reloadFromDisk()
   },
   subscribe(fn) {
     listeners.add(fn)
