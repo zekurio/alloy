@@ -138,6 +138,109 @@ function ToggleRow({
   )
 }
 
+function AuthSettingsSection({
+  config,
+  setConfig,
+  onToggleOpenRegistrations,
+  onTogglePasskey,
+  onToggleRequireAuthToBrowse,
+}: {
+  config: AdminRuntimeConfig
+  setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>
+  onToggleOpenRegistrations: (next: boolean) => void
+  onTogglePasskey: (next: boolean) => void
+  onToggleRequireAuthToBrowse: (next: boolean) => void
+}) {
+  return (
+    <SettingsSection
+      icon={KeyRoundIcon}
+      title="Authentication"
+      description="Configure sign-in methods and access controls."
+    >
+      <div className="flex flex-col gap-4">
+        <OAuthProviderCard config={config} onChange={setConfig} />
+        <Section>
+          <SectionHeader>
+            <SectionTitle>Access controls</SectionTitle>
+          </SectionHeader>
+          <SectionContent className="flex flex-col">
+            <ToggleRow
+              title="Passkeys"
+              description="Allow passkey sign-in and passkey-based account creation on supported browsers."
+              checked={config.passkeyEnabled}
+              onCheckedChange={onTogglePasskey}
+              disabled={
+                config.passkeyEnabled &&
+                !hasAnotherSignInMethod(config, "passkey")
+              }
+            />
+            <ToggleRow
+              title="Open registrations"
+              description="Allow new accounts through enabled sign-up methods. OAuth uses this to auto-create accounts on first sign-in."
+              checked={config.openRegistrations}
+              onCheckedChange={onToggleOpenRegistrations}
+            />
+            <ToggleRow
+              title="Require sign-in to browse"
+              description="Off lets anyone view clips, games, and profiles. Uploads still need an account."
+              checked={config.requireAuthToBrowse}
+              onCheckedChange={onToggleRequireAuthToBrowse}
+            />
+          </SectionContent>
+        </Section>
+      </div>
+    </SettingsSection>
+  )
+}
+
+function UploadSettingsSection({
+  config,
+  setConfig,
+}: {
+  config: AdminRuntimeConfig
+  setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>
+}) {
+  return (
+    <SettingsSection
+      icon={UploadIcon}
+      title="Uploads & encoding"
+      description="Configure video encoding settings and upload limits."
+    >
+      <div className="flex flex-col gap-4">
+        <EncoderConfigCard
+          encoder={config.encoder}
+          onChange={(next) => setConfig(next)}
+        />
+        <LimitsConfigCard
+          limits={config.limits}
+          onChange={(next) => setConfig(next)}
+        />
+      </div>
+    </SettingsSection>
+  )
+}
+
+function IntegrationSettingsSection({
+  config,
+  setConfig,
+}: {
+  config: AdminRuntimeConfig
+  setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>
+}) {
+  return (
+    <SettingsSection
+      icon={LinkIcon}
+      title="Integrations"
+      description="Connect external services and webhooks."
+    >
+      <IntegrationsConfigCard
+        integrations={config.integrations}
+        onChange={(next) => setConfig(next)}
+      />
+    </SettingsSection>
+  )
+}
+
 export function AdminSettingsSections({ userId }: { userId: string }) {
   const { config, setConfig, loadError } = useAdminConfig()
   const {
@@ -157,73 +260,15 @@ export function AdminSettingsSections({ userId }: { userId: string }) {
 
   return (
     <>
-      <SettingsSection
-        icon={KeyRoundIcon}
-        title="Authentication"
-        description="Configure sign-in methods and access controls."
-      >
-        <div className="flex flex-col gap-4">
-          <OAuthProviderCard config={config} onChange={setConfig} />
-          <Section>
-            <SectionHeader>
-              <SectionTitle>Access controls</SectionTitle>
-            </SectionHeader>
-            <SectionContent className="flex flex-col">
-              <ToggleRow
-                title="Passkeys"
-                description="Allow passkey sign-in and passkey-based account creation on supported browsers."
-                checked={config.passkeyEnabled}
-                onCheckedChange={onTogglePasskey}
-                disabled={
-                  config.passkeyEnabled &&
-                  !hasAnotherSignInMethod(config, "passkey")
-                }
-              />
-              <ToggleRow
-                title="Open registrations"
-                description="Allow new accounts through enabled sign-up methods. OAuth uses this to auto-create accounts on first sign-in."
-                checked={config.openRegistrations}
-                onCheckedChange={onToggleOpenRegistrations}
-              />
-              <ToggleRow
-                title="Require sign-in to browse"
-                description="Off lets anyone view clips, games, and profiles. Uploads still need an account."
-                checked={config.requireAuthToBrowse}
-                onCheckedChange={onToggleRequireAuthToBrowse}
-              />
-            </SectionContent>
-          </Section>
-        </div>
-      </SettingsSection>
-
-      <SettingsSection
-        icon={UploadIcon}
-        title="Uploads & encoding"
-        description="Configure video encoding settings and upload limits."
-      >
-        <div className="flex flex-col gap-4">
-          <EncoderConfigCard
-            encoder={config.encoder}
-            onChange={(next) => setConfig(next)}
-          />
-          <LimitsConfigCard
-            limits={config.limits}
-            onChange={(next) => setConfig(next)}
-          />
-        </div>
-      </SettingsSection>
-
-      <SettingsSection
-        icon={LinkIcon}
-        title="Integrations"
-        description="Connect external services and webhooks."
-      >
-        <IntegrationsConfigCard
-          integrations={config.integrations}
-          onChange={(next) => setConfig(next)}
-        />
-      </SettingsSection>
-
+      <AuthSettingsSection
+        config={config}
+        setConfig={setConfig}
+        onToggleOpenRegistrations={onToggleOpenRegistrations}
+        onTogglePasskey={onTogglePasskey}
+        onToggleRequireAuthToBrowse={onToggleRequireAuthToBrowse}
+      />
+      <UploadSettingsSection config={config} setConfig={setConfig} />
+      <IntegrationSettingsSection config={config} setConfig={setConfig} />
       <SettingsSection
         icon={UsersIcon}
         title="Users"

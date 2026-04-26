@@ -5,7 +5,7 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
 import { EmptyState } from "@/components/feedback/empty-state"
-import type { FeedFilter } from "@workspace/api"
+import type { ClipRow, FeedFilter } from "@workspace/api"
 import { useFeedInfiniteQuery } from "@/lib/feed-queries"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
@@ -88,19 +88,7 @@ function FeedSentinelStatus({
   error: unknown
   onRetry: () => void
 }) {
-  if (isFetchingNextPage && hasRows) {
-    return (
-      <span
-        className={cn(
-          "inline-flex items-center gap-2 text-xs",
-          "tracking-wide text-foreground-faint uppercase"
-        )}
-      >
-        <Spinner className="size-3" />
-      </span>
-    )
-  }
-  if (isRefreshing && hasRows) {
+  if ((isFetchingNextPage || isRefreshing) && hasRows) {
     return (
       <span
         className={cn(
@@ -130,7 +118,64 @@ function FeedSentinelStatus({
   return null
 }
 
-export function FeedSection({ filter, viewerId }: FeedSectionProps) {
+function FeedSectionBody({
+  initialLoad,
+  hasData,
+  error,
+  hasRows,
+  rows,
+  filter,
+  feedId,
+  viewerId,
+}: {
+  initialLoad: boolean
+  hasData: boolean
+  error: unknown
+  hasRows: boolean
+  rows: ClipRow[]
+  filter: FeedFilter
+  feedId: string
+  viewerId: string | undefined
+}) {
+  if (initialLoad) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Spinner className="size-6" />
+      </div>
+    )
+  }
+
+  if (!hasData && error) {
+    return (
+      <EmptyState
+        seed={`feed-${feedId}-error`}
+        size="lg"
+        title="Couldn't load feed"
+      />
+    )
+  }
+
+  if (!hasRows) {
+    return (
+      <EmptyState
+        seed={`feed-${feedId}-empty`}
+        size="lg"
+        title={emptyTitle(filter)}
+        hint={emptyHint(filter)}
+      />
+    )
+  }
+
+  return (
+    <ClipCardList
+      rows={rows}
+      isOwnedByViewer={(row) => row.authorId === viewerId}
+      listKey={`home:feed:${feedId}`}
+    />
+  )
+}
+
+function useFeedSectionState(filter: FeedFilter) {
   const feedId = filterId(filter)
   const {
     data,
@@ -155,12 +200,6 @@ export function FeedSection({ filter, viewerId }: FeedSectionProps) {
   )
   const hasData = data !== undefined
 
-  const sentinelRef = useInfiniteScrollSentinel(
-    fetchNextPage,
-    Boolean(hasNextPage),
-    isFetchingNextPage
-  )
-
   const initialLoad = isPending && rows.length === 0
   const hasRows = rows.length > 0
   const isRefreshing =
@@ -171,52 +210,63 @@ export function FeedSection({ filter, viewerId }: FeedSectionProps) {
     isRefreshing ||
     (Boolean(error) && hasRows)
 
+  return {
+    feedId,
+    rows,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isRefreshing,
+    initialLoad,
+    hasData,
+    hasRows,
+    refetch,
+    showSentinel,
+  }
+}
+
+export function FeedSection({ filter, viewerId }: FeedSectionProps) {
+  const state = useFeedSectionState(filter)
+
+  const sentinelRef = useInfiniteScrollSentinel(
+    state.fetchNextPage,
+    Boolean(state.hasNextPage),
+    state.isFetchingNextPage
+  )
+
   return (
-    <section aria-busy={isRefreshing ? true : undefined}>
+    <section aria-busy={state.isRefreshing ? true : undefined}>
       <div
         className={cn(
           "transition-opacity duration-150",
-          isRefreshing && "opacity-70"
+          state.isRefreshing && "opacity-70"
         )}
       >
-        {initialLoad ? (
-          <div className="flex items-center justify-center py-12">
-            <Spinner className="size-6" />
-          </div>
-        ) : !hasData && error ? (
-          <EmptyState
-            seed={`feed-${feedId}-error`}
-            size="lg"
-            title="Couldn't load feed"
-          />
-        ) : !hasRows ? (
-          <EmptyState
-            seed={`feed-${feedId}-empty`}
-            size="lg"
-            title={emptyTitle(filter)}
-            hint={emptyHint(filter)}
-          />
-        ) : (
-          <ClipCardList
-            rows={rows}
-            isOwnedByViewer={(row) => row.authorId === viewerId}
-            listKey={`home:feed:${feedId}`}
-          />
-        )}
+        <FeedSectionBody
+          initialLoad={state.initialLoad}
+          hasData={state.hasData}
+          error={state.error}
+          hasRows={state.hasRows}
+          rows={state.rows}
+          filter={filter}
+          feedId={state.feedId}
+          viewerId={viewerId}
+        />
       </div>
 
-      {showSentinel ? (
+      {state.showSentinel ? (
         <div
           ref={sentinelRef}
           aria-hidden
           className="mt-6 flex min-h-6 items-center justify-center"
         >
           <FeedSentinelStatus
-            isRefreshing={isRefreshing}
-            isFetchingNextPage={isFetchingNextPage}
-            hasRows={hasRows}
-            error={error}
-            onRetry={() => void refetch()}
+            isRefreshing={state.isRefreshing}
+            isFetchingNextPage={state.isFetchingNextPage}
+            hasRows={state.hasRows}
+            error={state.error}
+            onRetry={() => void state.refetch()}
           />
         </div>
       ) : null}

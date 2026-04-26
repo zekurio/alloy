@@ -73,14 +73,10 @@ function StorageQuotaRow() {
   )
 }
 
-export function DataCard() {
+function useDeleteAllClipsAction() {
   const [pending, setPending] = React.useState(false)
 
-  function onDownloadAllClips() {
-    window.location.assign(api.users.downloadAllClipsUrl())
-  }
-
-  async function onDeleteAllClips() {
+  const onDeleteAllClips = async () => {
     if (pending) return
     setPending(true)
     try {
@@ -105,59 +101,88 @@ export function DataCard() {
     }
   }
 
+  return { pending, onDeleteAllClips }
+}
+
+function DownloadClipsRow() {
+  function onDownloadAllClips() {
+    window.location.assign(api.users.downloadAllClipsUrl())
+  }
+
+  return (
+    <DataActionRow
+      title="Download clips"
+      description="Download a zip archive with the original files for your clips."
+    >
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={onDownloadAllClips}
+      >
+        <DownloadIcon />
+        Download
+      </Button>
+    </DataActionRow>
+  )
+}
+
+function DeleteClipsRow({
+  pending,
+  onDeleteAllClips,
+}: {
+  pending: boolean
+  onDeleteAllClips: () => Promise<void>
+}) {
+  return (
+    <DataActionRow
+      title="Delete clips"
+      description="Permanently removes every clip you uploaded. This can't be undone."
+    >
+      <AlertDialog>
+        <AlertDialogTrigger
+          render={
+            <Button type="button" variant="destructive" size="sm">
+              <Trash2Icon />
+              Delete clips
+            </Button>
+          }
+        />
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete all clips?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes every clip you uploaded.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={onDeleteAllClips}
+              disabled={pending}
+            >
+              {pending ? "Deleting..." : "Delete clips"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </DataActionRow>
+  )
+}
+
+export function DataCard() {
+  const { pending, onDeleteAllClips } = useDeleteAllClipsAction()
+
   return (
     <Section>
       <SectionContent className="divide-y divide-border py-0">
         <StorageQuotaRow />
-
-        <DataActionRow
-          title="Download clips"
-          description="Download a zip archive with the original files for your clips."
-        >
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onDownloadAllClips}
-          >
-            <DownloadIcon />
-            Download
-          </Button>
-        </DataActionRow>
-
-        <DataActionRow
-          title="Delete clips"
-          description="Permanently removes every clip you uploaded. This can't be undone."
-        >
-          <AlertDialog>
-            <AlertDialogTrigger
-              render={
-                <Button type="button" variant="destructive" size="sm">
-                  <Trash2Icon />
-                  Delete clips
-                </Button>
-              }
-            />
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete all clips?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This permanently removes every clip you uploaded.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  variant="destructive"
-                  onClick={onDeleteAllClips}
-                  disabled={pending}
-                >
-                  {pending ? "Deleting…" : "Delete clips"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </DataActionRow>
+        <DownloadClipsRow />
+        <DeleteClipsRow
+          pending={pending}
+          onDeleteAllClips={onDeleteAllClips}
+        />
       </SectionContent>
     </Section>
   )

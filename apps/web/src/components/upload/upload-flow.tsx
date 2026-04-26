@@ -37,13 +37,11 @@ import {
 } from "./new-clip-helpers"
 import { UploadQueueContent, type QueueItem } from "./upload-queue"
 import { useDismissedClips } from "./use-dismissed-clips"
-
-const loadNewClipDialog = () => import("./new-clip-dialog")
-const NewClipDialog = React.lazy(() =>
-  loadNewClipDialog().then((m) => ({
-    default: m.NewClipDialog,
-  }))
-)
+import {
+  NewClipDialog,
+  loadNewClipDialog,
+  useWarmEditor,
+} from "./upload-dialog-loader"
 
 async function performUpload(
   payload: PublishPayload,
@@ -376,23 +374,6 @@ function useNewClipPicker(onPicked: () => void) {
     openPicker,
     onFileChange,
   }
-}
-
-function useWarmEditor(queueOpen: boolean, setMounted: (m: boolean) => void) {
-  React.useEffect(() => {
-    if (!queueOpen) return
-    const warmEditor = () => {
-      setMounted(true)
-      void loadNewClipDialog()
-    }
-    if (typeof window === "undefined") return
-    if ("requestIdleCallback" in window) {
-      const id = window.requestIdleCallback(warmEditor, { timeout: 1200 })
-      return () => window.cancelIdleCallback(id)
-    }
-    const timeout = globalThis.setTimeout(warmEditor, 250)
-    return () => globalThis.clearTimeout(timeout)
-  }, [queueOpen, setMounted])
 }
 
 export function UploadFlow() {

@@ -16,6 +16,30 @@ import { requireSession } from "../lib/require-session"
 
 const HEARTBEAT_MS = 25_000
 
+async function writeEventBatch<T>(
+  writeSSE: (message: { event: string; data: string }) => Promise<void>,
+  batch: T[],
+  eventName: (event: T) => string
+) {
+  for (const event of batch) {
+    await writeSSE({
+      event: eventName(event),
+      data: JSON.stringify(event),
+    })
+  }
+}
+
+async function writePendingEvents<T>(
+  writeSSE: (message: { event: string; data: string }) => Promise<void>,
+  pending: T[],
+  eventName: (event: T) => string
+) {
+  if (pending.length === 0) return false
+  const batch = pending.splice(0, pending.length)
+  await writeEventBatch(writeSSE, batch, eventName)
+  return true
+}
+
 export const eventsRoute = new Hono().get(
   "/clips/queue",
   requireSession,
@@ -48,17 +72,14 @@ export const eventsRoute = new Hono().get(
         })
 
         while (!stream.aborted) {
-          if (pending.length > 0) {
-            const batch = pending
-            pending = []
-            for (const event of batch) {
-              await stream.writeSSE({
-                event: event.type,
-                data: JSON.stringify(event),
-              })
-            }
+          if (
+            await writePendingEvents(
+              stream.writeSSE.bind(stream),
+              pending,
+              (event) => event.type
+            )
+          )
             continue
-          }
 
           // Idle: race the heartbeat against the next publish.
           const heartbeat = stream.sleep(HEARTBEAT_MS)
@@ -102,17 +123,14 @@ eventsRoute.get("/config", (c) => {
 
     try {
       while (!stream.aborted) {
-        if (pending.length > 0) {
-          const batch = pending
-          pending = []
-          for (const event of batch) {
-            await stream.writeSSE({
-              event: "config",
-              data: JSON.stringify(event),
-            })
-          }
+        if (
+          await writePendingEvents(
+            stream.writeSSE.bind(stream),
+            pending,
+            () => "config"
+          )
+        )
           continue
-        }
 
         const heartbeat = stream.sleep(HEARTBEAT_MS)
         const nextEvent = new Promise<void>((resolve) => {
@@ -163,17 +181,14 @@ eventsRoute.get("/notifications", requireSession, (c) => {
       }
 
       while (!stream.aborted) {
-        if (pending.length > 0) {
-          const batch = pending
-          pending = []
-          for (const event of batch) {
-            await stream.writeSSE({
-              event: event.type,
-              data: JSON.stringify(event),
-            })
-          }
+        if (
+          await writePendingEvents(
+            stream.writeSSE.bind(stream),
+            pending,
+            (event) => event.type
+          )
+        )
           continue
-        }
 
         const heartbeat = stream.sleep(HEARTBEAT_MS)
         const nextEvent = new Promise<void>((resolve) => {
