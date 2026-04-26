@@ -27,12 +27,6 @@ type ProfileTopClipsSectionProps = {
 
 const TOP_LIMIT = 5
 
-/**
- * Mirrors the game-detail "Top clips" section: same hot-score ranking
- * (views + likes×3, decayed by age), same mobile carousel + xl grid.
- * Computed client-side from the already-loaded user clips list to avoid
- * a second round trip.
- */
 function rankScore(clip: UserClip, now: number): number {
   const ageDays = Math.max(
     0,

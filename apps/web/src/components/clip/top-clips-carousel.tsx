@@ -7,11 +7,6 @@ import {
   CarouselPrevious,
 } from "@workspace/ui/components/carousel"
 
-/**
- * Shared mobile/medium "Top clips" embla carousel — used on the home feed
- * and on game detail pages. xl+ callers should render a `ClipGrid` instead
- * (the carousel is `xl:hidden` at the call site).
- */
 export function TopClipsCarousel({ children }: { children: React.ReactNode }) {
   return (
     <Carousel className="group" opts={{ align: "start" }}>

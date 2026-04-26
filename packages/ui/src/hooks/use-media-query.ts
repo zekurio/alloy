@@ -2,13 +2,6 @@
 
 import * as React from "react"
 
-/**
- * Subscribe to a CSS media-query and return whether it currently matches.
- *
- * ```ts
- * const isLg = useMediaQuery("(min-width: 1024px)")
- * ```
- */
 export function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = React.useState(false)
 
