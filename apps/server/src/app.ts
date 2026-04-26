@@ -2,9 +2,9 @@ import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { logger } from "hono/logger"
 
-import { getAuth } from "./auth"
 import { env } from "./env"
 import { adminRoute } from "./routes/admin"
+import { authRoute } from "./routes/auth"
 import { authConfigRoute } from "./routes/auth-config"
 import { clips } from "./routes/clips"
 import { eventsRoute } from "./routes/events"
@@ -30,9 +30,7 @@ const apiApp = new Hono()
     })
   )
   .get("/health", (c) => c.json({ status: "ok" }))
-  // Resolve per-request so the admin UI can swap auth at runtime when the
-  // OAuth provider changes.
-  .on(["GET", "POST"], "/api/auth/*", (c) => getAuth().handler(c.req.raw))
+  .route("/api/auth", authRoute)
   .route("/api/auth-config", authConfigRoute)
   .route("/api/setup", setupRoute)
   .route("/api/admin", adminRoute)

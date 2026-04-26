@@ -5,7 +5,6 @@ import { eq } from "drizzle-orm"
 import { z } from "zod"
 
 import { ACCEPTED_CLIP_CONTENT_TYPES } from "@workspace/contracts"
-import { getAuth } from "../auth"
 import { user } from "@workspace/db/auth-schema"
 import {
   CLIP_PRIVACY,
@@ -14,6 +13,7 @@ import {
 } from "@workspace/db/schema"
 
 import { db } from "../db"
+import { getSession } from "../lib/auth/session"
 import { configStore } from "../lib/config-store"
 import { clipAssetKey } from "../storage"
 
@@ -86,7 +86,7 @@ export const UpdateBody = z.object({
 export async function peekViewer(
   headers: Headers
 ): Promise<{ id: string; role: string | null } | null> {
-  const session = await getAuth().api.getSession({ headers })
+  const session = await getSession(headers)
   if (!session) return null
   return {
     id: session.user.id,
