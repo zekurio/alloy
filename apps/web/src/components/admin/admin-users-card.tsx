@@ -81,6 +81,7 @@ import type { AdminUsersResponse, AdminUserStorageRow } from "@workspace/api"
 
 type AdminUserRow = AdminUserStorageRow
 const adminUsersQueryKey = ["admin", "users"] as const
+const currentUserStorageQueryKey = ["user", "storage"] as const
 
 interface AdminUsersCardProps {
   currentUserId: string
@@ -173,9 +174,11 @@ function useChangeAdminUserRole({
 
 function useChangeAdminUserQuota({
   busyId,
+  currentUserId,
   setBusyId,
 }: {
   busyId: string | null
+  currentUserId: string
   setBusyId: React.Dispatch<React.SetStateAction<string | null>>
 }) {
   const queryClient = useQueryClient()
@@ -198,6 +201,11 @@ function useChangeAdminUserQuota({
               }
             : current
       )
+      if (updated.id === currentUserId) {
+        void queryClient.invalidateQueries({
+          queryKey: currentUserStorageQueryKey,
+        })
+      }
       toast.success("Storage quota updated")
     } catch (cause) {
       toast.error(
@@ -213,7 +221,10 @@ function useAdminUserMutations(currentUserId: string) {
   const [busyId, setBusyId] = React.useState<string | null>(null)
   const mutationState = { busyId, setBusyId }
   const onDelete = useDeleteAdminUser(mutationState)
-  const onChangeQuota = useChangeAdminUserQuota(mutationState)
+  const onChangeQuota = useChangeAdminUserQuota({
+    ...mutationState,
+    currentUserId,
+  })
   const onChangeRole = useChangeAdminUserRole({
     ...mutationState,
     currentUserId,
