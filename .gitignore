@@ -19,6 +19,7 @@ coverage
 
 # Build Outputs
 dist
+build
 .output
 .nitro
 .tanstack

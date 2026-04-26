@@ -15,6 +15,7 @@ import { selectClipById } from "./lib/clip-select"
 
 const HEAD_MARKER = "<!-- alloy:head -->"
 const CLIP_PERMALINK_RE = /^\/g\/[^/]+\/c\/([^/]+)\/?$/
+const WEB_BUILD_DIR = "www"
 
 type MetadataClip = NonNullable<Awaited<ReturnType<typeof selectClipById>>>
 
@@ -69,18 +70,14 @@ function safeJoin(root: string, requestPath: string): string | null {
 }
 
 async function resolveWebMount(): Promise<WebMount | null> {
-  if (env.SERVE_WEB === "false") return null
-
-  const distDir = resolve(process.cwd(), env.WEB_DIST_DIR)
+  const distDir = resolve(
+    process.cwd(),
+    env.WEB_DIST_DIR ?? join(env.ALLOY_BUILD_DATA, WEB_BUILD_DIR)
+  )
   const indexPath = join(distDir, "index.html")
   const indexExists = await fileExists(indexPath)
 
-  if (!indexExists) {
-    if (env.SERVE_WEB === "true") {
-      throw new Error(`WEB_DIST_DIR is missing index.html: ${distDir}`)
-    }
-    return null
-  }
+  if (!indexExists) return null
 
   return {
     distDir,

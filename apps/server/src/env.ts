@@ -14,6 +14,7 @@ function normalizePublicServerUrl(value: string): string {
 
 const defaultPublicServerUrl =
   process.env.PUBLIC_SERVER_URL ?? "http://localhost:3000"
+const defaultBuildData = process.env.ALLOY_BUILD_DATA ?? "../../build"
 
 const EnvSchema = z
   .object({
@@ -25,8 +26,8 @@ const EnvSchema = z
       .default(defaultPublicServerUrl)
       .transform(normalizePublicServerUrl),
     PORT: z.coerce.number().int().positive().default(3000),
-    SERVE_WEB: z.enum(["auto", "true", "false"]).default("auto"),
-    WEB_DIST_DIR: z.string().default("../web/dist"),
+    ALLOY_BUILD_DATA: z.string().default(defaultBuildData),
+    WEB_DIST_DIR: z.string().optional(),
     TRUSTED_ORIGINS: z
       .string()
       .default(defaultPublicServerUrl)
