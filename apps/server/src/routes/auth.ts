@@ -3,7 +3,7 @@ import type {
   AuthenticationResponseJSON,
   RegistrationResponseJSON,
 } from "@simplewebauthn/server"
-import { and, eq } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { createMiddleware } from "hono/factory"
 import { z } from "zod"
@@ -156,7 +156,16 @@ export const authRoute = new Hono()
           let row
 
           if (setupFirstAdmin) {
-            if (!(await setupRequired())) {
+            await tx.execute(sql`select pg_advisory_xact_lock(hashtext('alloy:first-admin-setup'))`)
+
+            const existingAdminSignInMethod = await tx
+              .select({ id: user.id })
+              .from(user)
+              .innerJoin(userPasskey, eq(userPasskey.userId, user.id))
+              .where(and(eq(user.role, "admin"), eq(user.status, "active")))
+              .limit(1)
+
+            if (existingAdminSignInMethod.length > 0) {
               throw new Error("Initial setup is already complete.")
             }
             const [existing] = await tx
