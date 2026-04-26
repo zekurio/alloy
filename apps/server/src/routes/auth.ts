@@ -105,7 +105,12 @@ export const authRoute = new Hono()
           if (!(await canOpenPasskeyRegistration())) {
             return c.json({ error: "Passkey sign-up is currently disabled." }, 400)
           }
-          if (await findUserByEmail(body.email)) {
+          const existing = await findUserByEmail(body.email)
+          if (
+            existing &&
+            (existing.status !== "active" ||
+              (await countUserPasskeys(existing.id)) > 0)
+          ) {
             return c.json(
               { error: "An account already exists for that email address." },
               400
@@ -115,7 +120,7 @@ export const authRoute = new Hono()
 
         const email = normalizeEmail(body.email)
         const username = validateUsername(body.username)
-        const existing = setupFirstAdmin ? await findUserByEmail(email) : null
+        const existing = await findUserByEmail(email)
         const registration = await beginPasskeyRegistration({
           identifier: email,
           payload: { email, username, setupFirstAdmin },
