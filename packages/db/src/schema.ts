@@ -112,8 +112,7 @@ export const clip = pgTable(
       .notNull()
       .references(() => game.id, { onDelete: "restrict" }),
 
-    // One of `CLIP_PRIVACY`. Stored as text (matching better-auth's `role`
-    // convention) and validated via zod on write paths.
+    // One of `CLIP_PRIVACY`, validated via zod on write paths.
     privacy: text("privacy").$type<ClipPrivacy>().notNull().default("public"),
 
     storageKey: text("storage_key").notNull(),

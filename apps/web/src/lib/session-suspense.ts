@@ -10,11 +10,6 @@ type SessionData = ReturnType<typeof useSession>["data"]
 
 export type Session = NonNullable<SessionData>
 
-type AtomValue = {
-  data: SessionData
-  isPending: boolean
-}
-
 type RouteSessionState = {
   found: boolean
   data: SessionData
@@ -66,16 +61,6 @@ function useRouteAuthConfig(): RouteAuthConfigState {
   })
 }
 
-function sessionAtom():
-  | { get(): AtomValue; listen(cb: (v: AtomValue) => void): () => void }
-  | undefined {
-  const atom = authClient.$store.atoms.session as
-    | { get(): AtomValue; listen(cb: (v: AtomValue) => void): () => void }
-    | undefined
-
-  return atom
-}
-
 function sessionInitializedPromise(): Promise<void> {
   if (sessionInitialPromise) return sessionInitialPromise
 
@@ -84,23 +69,15 @@ function sessionInitializedPromise(): Promise<void> {
     return sessionInitialPromise
   }
 
-  const atom = sessionAtom()
-
-  if (!atom) {
-    // Shouldn't happen with our client config, but fail open rather than
-    // suspending forever.
-    sessionInitialPromise = Promise.resolve()
-    return sessionInitialPromise
-  }
-
-  const current = atom.get()
-  if (current && !current.isPending) {
+  const current = authClient.$store.getSnapshot()
+  if (!current.isPending) {
     sessionInitialPromise = Promise.resolve()
     return sessionInitialPromise
   }
 
   sessionInitialPromise = new Promise<void>((resolve) => {
-    const unsubscribe = atom.listen((value) => {
+    const unsubscribe = authClient.$store.subscribe(() => {
+      const value = authClient.$store.getSnapshot()
       if (!value.isPending) {
         unsubscribe()
         resolve()

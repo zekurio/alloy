@@ -1,15 +1,18 @@
 import { zValidator } from "@hono/zod-validator"
 import { desc, eq, inArray } from "drizzle-orm"
 import { Hono } from "hono"
-import { createMiddleware } from "hono/factory"
 import { z } from "zod"
 
 import { user } from "@workspace/db/auth-schema"
 import { clip } from "@workspace/db/schema"
 
-import { getAuth } from "../auth"
 import { db } from "../db"
 import { env } from "../env"
+import {
+  assertCanRemoveAdmin,
+  createUserIdentity,
+} from "../lib/auth/identity"
+import { deleteAllSessionsForUser, requireAdmin } from "../lib/auth/session"
 import {
   EncoderConfigPatchSchema,
   IntegrationsConfigPatchSchema,
@@ -25,19 +28,6 @@ import { ENCODE_JOB, getBoss } from "../queue"
 import { getEncoderCapabilities } from "./admin-encoder-capabilities"
 
 const RE_ENCODE_BATCH_LIMIT = 100
-
-const requireAdmin = createMiddleware<{
-  Variables: { adminUserId: string }
-}>(async (c, next) => {
-  const session = await getAuth().api.getSession({ headers: c.req.raw.headers })
-  if (!session) return c.json({ error: "Unauthorized" }, 401)
-  const role = (session.user as { role?: string }).role
-  if (role !== "admin") {
-    return c.json({ error: "Forbidden" }, 403)
-  }
-  c.set("adminUserId", session.user.id)
-  await next()
-})
 
 const RuntimeConfigPatch = z.object({
   openRegistrations: z.boolean().optional(),
@@ -56,6 +46,17 @@ const UserStorageQuotaPatch = z.object({
     .positive()
     .max(Number.MAX_SAFE_INTEGER)
     .nullable(),
+})
+
+const CreateUserBody = z.object({
+  email: z.string().trim().email(),
+  name: z.string().trim().optional(),
+  username: z.string().trim().optional(),
+  role: z.enum(["user", "admin"]).default("user"),
+})
+
+const UserRolePatch = z.object({
+  role: z.enum(["user", "admin"]),
 })
 
 const OAuthProviderAdminSubmissionSchema = z
@@ -106,7 +107,6 @@ async function selectAdminUserStorageRows(targetUserIds?: string[]): Promise<
     email: string
     image: string | null
     role: string | null
-    banned: boolean | null
     createdAt: string
     storageQuotaBytes: number | null
     storageUsedBytes: number
@@ -120,7 +120,6 @@ async function selectAdminUserStorageRows(targetUserIds?: string[]): Promise<
       email: user.email,
       image: user.image,
       role: user.role,
-      banned: user.banned,
       createdAt: user.createdAt,
       storageQuotaBytes: user.storageQuotaBytes,
     })
@@ -136,23 +135,17 @@ async function selectAdminUserStorageRows(targetUserIds?: string[]): Promise<
 
   return rows.map((row) => ({
     ...row,
-    banned: row.banned ?? null,
     createdAt: row.createdAt.toISOString(),
     storageUsedBytes: usage.get(row.id) ?? 0,
   }))
-}
-
-function hasEnabledOAuthProvider(config: {
-  oauthProvider: { enabled: boolean } | null
-}): boolean {
-  return config.oauthProvider?.enabled === true
 }
 
 function hasEnabledSignInMethod(config: {
   passkeyEnabled: boolean
   oauthProvider: { enabled: boolean } | null
 }): boolean {
-  return config.passkeyEnabled || hasEnabledOAuthProvider(config)
+  void config.oauthProvider
+  return config.passkeyEnabled
 }
 
 function sanitizeScopes(scopes: string[] | undefined): string[] | undefined {
@@ -206,6 +199,77 @@ export const adminRoute = new Hono()
   })
   .get("/users", async (c) => {
     return c.json({ users: await selectAdminUserStorageRows() })
+  })
+  .post("/users", zValidator("json", CreateUserBody), async (c) => {
+    try {
+      const body = c.req.valid("json")
+      const username = body.username ?? body.name ?? body.email.split("@")[0]!
+      const created = await createUserIdentity({
+        email: body.email,
+        username,
+        name: body.name ?? username,
+        role: body.role,
+      })
+      const [row] = await selectAdminUserStorageRows([created.id])
+      return c.json(row ?? created)
+    } catch (cause) {
+      return c.json(
+        {
+          error:
+            cause instanceof Error ? cause.message : "Couldn't create user.",
+        },
+        400
+      )
+    }
+  })
+  .patch(
+    "/users/:id/role",
+    zValidator("param", UserIdParam),
+    zValidator("json", UserRolePatch),
+    async (c) => {
+      try {
+        const { id } = c.req.valid("param")
+        const { role } = c.req.valid("json")
+        if (role !== "admin") await assertCanRemoveAdmin(id)
+        const [updated] = await db
+          .update(user)
+          .set({ role, updatedAt: new Date() })
+          .where(eq(user.id, id))
+          .returning({ id: user.id })
+        if (!updated) return c.json({ error: "User not found" }, 404)
+        const [row] = await selectAdminUserStorageRows([id])
+        return c.json(row)
+      } catch (cause) {
+        return c.json(
+          {
+            error:
+              cause instanceof Error ? cause.message : "Couldn't update role.",
+          },
+          400
+        )
+      }
+    }
+  )
+  .delete("/users/:id", zValidator("param", UserIdParam), async (c) => {
+    try {
+      const { id } = c.req.valid("param")
+      await assertCanRemoveAdmin(id)
+      await deleteAllSessionsForUser(id)
+      const [deleted] = await db
+        .delete(user)
+        .where(eq(user.id, id))
+        .returning({ id: user.id })
+      if (!deleted) return c.json({ error: "User not found" }, 404)
+      return c.json({ success: true })
+    } catch (cause) {
+      return c.json(
+        {
+          error:
+            cause instanceof Error ? cause.message : "Couldn't remove user.",
+        },
+        400
+      )
+    }
   })
   .patch(
     "/users/:id/storage-quota",
