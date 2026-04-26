@@ -8,10 +8,11 @@ import {
   type RegistrationResponseJSON,
   type Uint8Array_,
 } from "@simplewebauthn/server"
-import { and, eq, lt } from "drizzle-orm"
+import { and, eq, gt, lt } from "drizzle-orm"
 
 import {
   authChallenge,
+  user,
   userPasskey,
   type User,
   type UserPasskey,
@@ -69,6 +70,25 @@ async function deleteExpiredChallenges(): Promise<void> {
   await db.delete(authChallenge).where(lt(authChallenge.expiresAt, new Date()))
 }
 
+async function consumeChallenge(input: {
+  challengeId: string
+  purpose: string
+  expiredMessage: string
+}) {
+  const [challenge] = await db
+    .delete(authChallenge)
+    .where(
+      and(
+        eq(authChallenge.id, input.challengeId),
+        eq(authChallenge.purpose, input.purpose),
+        gt(authChallenge.expiresAt, new Date())
+      )
+    )
+    .returning()
+  if (!challenge) throw new Error(input.expiredMessage)
+  return challenge
+}
+
 export async function beginPasskeyRegistration(input: {
   identifier: string
   payload: RegistrationPayload
@@ -114,20 +134,11 @@ export async function verifyPasskeyRegistration(input: {
   challengeId: string
   response: RegistrationResponseJSON
 }) {
-  const [challenge] = await db
-    .select()
-    .from(authChallenge)
-    .where(
-      and(
-        eq(authChallenge.id, input.challengeId),
-        eq(authChallenge.purpose, "passkey-registration")
-      )
-    )
-    .limit(1)
-  if (!challenge || challenge.expiresAt <= new Date()) {
-    throw new Error("Passkey registration expired. Try again.")
-  }
-  await db.delete(authChallenge).where(eq(authChallenge.id, challenge.id))
+  const challenge = await consumeChallenge({
+    challengeId: input.challengeId,
+    purpose: "passkey-registration",
+    expiredMessage: "Passkey registration expired. Try again.",
+  })
 
   const verification = await verifyRegistrationResponse({
     response: input.response,
@@ -166,24 +177,16 @@ export async function verifyPasskeyAuthentication(input: {
   challengeId: string
   response: AuthenticationResponseJSON
 }) {
-  const [challenge] = await db
-    .select()
-    .from(authChallenge)
-    .where(
-      and(
-        eq(authChallenge.id, input.challengeId),
-        eq(authChallenge.purpose, "passkey-authentication")
-      )
-    )
-    .limit(1)
-  if (!challenge || challenge.expiresAt <= new Date()) {
-    throw new Error("Passkey sign-in expired. Try again.")
-  }
-  await db.delete(authChallenge).where(eq(authChallenge.id, challenge.id))
+  const challenge = await consumeChallenge({
+    challengeId: input.challengeId,
+    purpose: "passkey-authentication",
+    expiredMessage: "Passkey sign-in expired. Try again.",
+  })
 
   const [credential] = await db
-    .select()
+    .select({ passkey: userPasskey, owner: user })
     .from(userPasskey)
+    .innerJoin(user, eq(user.id, userPasskey.userId))
     .where(eq(userPasskey.credentialId, input.response.id))
     .limit(1)
   if (!credential) throw new Error("Passkey is not registered.")
@@ -194,15 +197,15 @@ export async function verifyPasskeyAuthentication(input: {
     expectedOrigin: expectedOrigins(),
     expectedRPID: rpId(),
     credential: {
-      id: credential.credentialId,
-      publicKey: base64UrlToBytes(credential.publicKey) as Uint8Array_,
-      counter: credential.counter,
-      transports: transports(credential),
+      id: credential.passkey.credentialId,
+      publicKey: base64UrlToBytes(credential.passkey.publicKey) as Uint8Array_,
+      counter: credential.passkey.counter,
+      transports: transports(credential.passkey),
     },
     requireUserVerification: true,
   })
   if (!verification.verified) throw new Error("Passkey sign-in failed.")
-  return { credential, verification }
+  return { credential: credential.passkey, verification }
 }
 
 export function passkeyPublicKey(publicKey: Uint8Array): string {

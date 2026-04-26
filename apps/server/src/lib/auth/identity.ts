@@ -1,4 +1,4 @@
-import { and, count, eq, ne } from "drizzle-orm"
+import { and, count, eq, ne, sql } from "drizzle-orm"
 
 import { user, userPasskey, type NewUser, type User } from "@workspace/db/auth-schema"
 
@@ -112,7 +112,7 @@ export async function findUserByEmail(email: string): Promise<User | null> {
 export async function createOrClaimSetupUser(input: {
   email: string
   username: string
-}): Promise<User> {
+}): Promise<{ user: User; created: boolean }> {
   const email = normalizeEmail(input.email)
   const existing = await findUserByEmail(email)
   if (existing) {
@@ -130,46 +130,49 @@ export async function createOrClaimSetupUser(input: {
       .where(eq(user.id, existing.id))
       .returning()
     if (!updated) throw new Error("Could not claim setup user.")
-    return updated
+    return { user: updated, created: false }
   }
-  return createUserIdentity({
-    email,
-    username: input.username,
-    name: input.username,
-    role: "admin",
-  })
+  return {
+    user: await createUserIdentity({
+      email,
+      username: input.username,
+      name: input.username,
+      role: "admin",
+    }),
+    created: true,
+  }
 }
 
 export async function createRegistrationUser(input: {
   email: string
   username: string
   setupFirstAdmin: boolean
-}): Promise<User> {
+}): Promise<{ user: User; created: boolean }> {
   if (input.setupFirstAdmin) {
     if (!(await setupRequired())) {
       throw new Error("Initial setup is already complete.")
     }
     return createOrClaimSetupUser(input)
   }
-  if (!configStore.get("openRegistrations")) {
-    throw new Error("Sign-up is currently closed.")
-  }
   if (!configStore.get("passkeyEnabled")) {
     throw new Error("Passkey sign-up is currently disabled.")
   }
   const existing = await findUserByEmail(input.email)
   if (existing) {
-    if (existing.status === "active" && (await countUserPasskeys(existing.id)) === 0) {
-      return existing
-    }
     throw new Error("An account already exists for that email address.")
   }
-  return createUserIdentity({
-    email: input.email,
-    username: input.username,
-    name: input.username,
-    role: "user",
-  })
+  if (!configStore.get("openRegistrations")) {
+    throw new Error("Sign-up is currently closed.")
+  }
+  return {
+    user: await createUserIdentity({
+      email: input.email,
+      username: input.username,
+      name: input.username,
+      role: "user",
+    }),
+    created: true,
+  }
 }
 
 export async function updateUserIdentity(
@@ -205,6 +208,41 @@ export async function countUserPasskeys(userId: string): Promise<number> {
     .from(userPasskey)
     .where(eq(userPasskey.userId, userId))
   return row?.value ?? 0
+}
+
+export async function deleteUserPasskeyPreservingSignIn(input: {
+  userId: string
+  passkeyId: string
+}): Promise<"deleted" | "not-found" | "last-sign-in-method"> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`
+      select ${userPasskey.id}
+      from ${userPasskey}
+      where ${userPasskey.userId} = ${input.userId}
+      for update
+    `)
+
+    const [row] = await tx
+      .select({ value: count() })
+      .from(userPasskey)
+      .where(eq(userPasskey.userId, input.userId))
+
+    if ((row?.value ?? 0) <= 1) {
+      return "last-sign-in-method"
+    }
+
+    const [deleted] = await tx
+      .delete(userPasskey)
+      .where(
+        and(
+          eq(userPasskey.id, input.passkeyId),
+          eq(userPasskey.userId, input.userId)
+        )
+      )
+      .returning({ id: userPasskey.id })
+
+    return deleted ? "deleted" : "not-found"
+  })
 }
 
 export function normalizeDisplayUsername(username: string): string {

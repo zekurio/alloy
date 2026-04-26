@@ -6,6 +6,7 @@ import {
   type PublicKeyCredentialRequestOptionsJSON,
   type RegistrationResponseJSON,
 } from "@simplewebauthn/browser"
+import type { AdminUserStorageRow } from "@workspace/contracts"
 
 type AuthError = { message: string }
 type AuthResult<T> = Promise<{ data: T | null; error: AuthError | null }>
@@ -340,7 +341,7 @@ export function createAuth(baseURL: string) {
         username?: string
         role?: "user" | "admin"
       }) =>
-        jsonResult<{ user: AuthUser }>(
+        jsonResult<AdminUserStorageRow>(
           "/api/admin/users",
           { method: "POST", body: JSON.stringify(input) },
           "Could not create user"
@@ -352,7 +353,7 @@ export function createAuth(baseURL: string) {
           "Could not remove user"
         ),
       setRole: (input: { userId: string; role: "user" | "admin" }) =>
-        jsonResult<{ user: AuthUser }>(
+        jsonResult<AdminUserStorageRow>(
           `/api/admin/users/${encodeURIComponent(input.userId)}/role`,
           { method: "PATCH", body: JSON.stringify({ role: input.role }) },
           "Could not update role"
