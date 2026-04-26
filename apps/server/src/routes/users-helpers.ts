@@ -24,8 +24,8 @@ import {
   game,
 } from "@workspace/db/schema"
 
-import { getAuth } from "../auth"
 import { db } from "../db"
+import { getSession } from "../lib/auth/session"
 import { clipSelectShape } from "../lib/clip-select"
 
 export const UsernameParam = z.object({ username: z.string().min(1) })
@@ -119,7 +119,7 @@ export async function resolveTarget(segment: string): Promise<UserRow | null> {
 }
 
 export async function listUserClips(row: UserRow, headers: Headers) {
-  const session = await getAuth().api.getSession({ headers })
+  const session = await getSession(headers)
   const isOwner = session?.user.id === row.id
   const isAdmin =
     (session?.user as { role?: string | null } | undefined)?.role === "admin"
@@ -143,7 +143,7 @@ export async function listUserClips(row: UserRow, headers: Headers) {
 }
 
 export async function listTaggedClips(row: UserRow, headers: Headers) {
-  const session = await getAuth().api.getSession({ headers })
+  const session = await getSession(headers)
   const isAdmin =
     (session?.user as { role?: string | null } | undefined)?.role === "admin"
 
@@ -168,7 +168,7 @@ export async function listTaggedClips(row: UserRow, headers: Headers) {
 }
 
 export async function listLikedClips(row: UserRow, headers: Headers) {
-  const session = await getAuth().api.getSession({ headers })
+  const session = await getSession(headers)
   const isOwner = session?.user.id === row.id
   const isAdmin =
     (session?.user as { role?: string | null } | undefined)?.role === "admin"

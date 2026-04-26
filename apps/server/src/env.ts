@@ -13,22 +13,17 @@ function normalizePublicServerUrl(value: string): string {
 }
 
 const defaultPublicServerUrl =
-  process.env.PUBLIC_SERVER_URL ??
-  process.env.BETTER_AUTH_URL ??
-  "http://localhost:3000"
+  process.env.PUBLIC_SERVER_URL ?? "http://localhost:3000"
 
 const EnvSchema = z
   .object({
     DATABASE_URL: z.string().url(),
-    BETTER_AUTH_SECRET: z
-      .string()
-      .min(32, "BETTER_AUTH_SECRET must be at least 32 chars"),
+    ALLOY_AUTH_SECRET: z.string().min(32).optional(),
     PUBLIC_SERVER_URL: z
       .string()
       .url()
       .default(defaultPublicServerUrl)
       .transform(normalizePublicServerUrl),
-    BETTER_AUTH_URL: z.string().url().optional(),
     PORT: z.coerce.number().int().positive().default(3000),
     SERVE_WEB: z.enum(["auto", "true", "false"]).default("auto"),
     WEB_DIST_DIR: z.string().default("../web/dist"),
@@ -75,6 +70,13 @@ const EnvSchema = z
     CACHE_DRIVER: z.enum(["memory"]).default("memory"),
   })
   .superRefine((cfg, ctx) => {
+    if (!cfg.ALLOY_AUTH_SECRET) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["ALLOY_AUTH_SECRET"],
+        message: "ALLOY_AUTH_SECRET must be set and at least 32 chars.",
+      })
+    }
     if (cfg.STORAGE_DRIVER === "s3" && !cfg.S3_BUCKET) {
       ctx.addIssue({
         code: "custom",
@@ -107,3 +109,5 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data
+
+export const authSecret = env.ALLOY_AUTH_SECRET!
