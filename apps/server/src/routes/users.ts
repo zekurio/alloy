@@ -4,11 +4,13 @@ import { Hono } from "hono"
 import { stream } from "hono/streaming"
 import { z } from "zod"
 
-import { authSession, user } from "@workspace/db/auth-schema"
+import { user } from "@workspace/db/auth-schema"
 import { block, clip, follow } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { getSession } from "../lib/auth/session"
+import { clearSessionCookies } from "../lib/auth/cookies"
+import { deleteAllSessionsForUser, getSession, requireAnySession } from "../lib/auth/session"
+import { assertCanRemoveAdmin } from "../lib/auth/identity"
 import { deleteClipRowAndAssets } from "../lib/clip-delete"
 import {
   contentDisposition,
@@ -82,15 +84,17 @@ export const usersRoute = new Hono()
   .post("/me/disable", requireSession, async (c) => {
     const viewerId = c.var.viewerId
     const now = new Date()
+    await assertCanRemoveAdmin(viewerId)
     await db
       .update(user)
       .set({ disabledAt: now, status: "disabled", updatedAt: now })
       .where(eq(user.id, viewerId))
-    await db.delete(authSession).where(eq(authSession.userId, viewerId))
+    await deleteAllSessionsForUser(viewerId)
+    clearSessionCookies(c)
     return c.json({ disabledAt: now.toISOString() })
   })
 
-  .post("/me/reactivate", requireSession, async (c) => {
+  .post("/me/reactivate", requireAnySession, async (c) => {
     const now = new Date()
     await db
       .update(user)

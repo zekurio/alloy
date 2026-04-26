@@ -17,6 +17,7 @@ import {
   assertCanRemoveAdmin,
   countUserPasskeys,
   createRegistrationUser,
+  deleteUserPasskeyPreservingSignIn,
   findUserByEmail,
   normalizeEmail,
   setupRequired,
@@ -106,11 +107,7 @@ export const authRoute = new Hono()
             return c.json({ error: "Passkey sign-up is currently disabled." }, 400)
           }
           const existing = await findUserByEmail(body.email)
-          if (
-            existing &&
-            (existing.status !== "active" ||
-              (await countUserPasskeys(existing.id)) > 0)
-          ) {
+          if (existing) {
             return c.json(
               { error: "An account already exists for that email address." },
               400
@@ -125,9 +122,9 @@ export const authRoute = new Hono()
           identifier: email,
           payload: { email, username, setupFirstAdmin },
           user: {
-            id: existing?.id ?? crypto.randomUUID(),
+            id: existing && setupFirstAdmin ? existing.id : crypto.randomUUID(),
             email,
-            name: existing?.name || username,
+            name: existing && setupFirstAdmin ? existing.name || username : username,
             username,
           },
         })
@@ -151,14 +148,12 @@ export const authRoute = new Hono()
         if (!payload.email || !payload.username) {
           return c.json({ error: "Invalid registration request." }, 400)
         }
-        const existingBeforeCreate = await findUserByEmail(payload.email)
-        let userRow: Awaited<ReturnType<typeof createRegistrationUser>> | null =
-          null
-        userRow = await createRegistrationUser({
+        const registrationUser = await createRegistrationUser({
           email: payload.email,
           username: payload.username,
           setupFirstAdmin: payload.setupFirstAdmin === true,
         })
+        const userRow = registrationUser.user
         const info = verification.registrationInfo
         try {
           await db.insert(userPasskey).values({
@@ -173,7 +168,7 @@ export const authRoute = new Hono()
             name: `${userRow.username}'s passkey`,
           })
         } catch (cause) {
-          if (!existingBeforeCreate) {
+          if (registrationUser.created) {
             await db.delete(user).where(eq(user.id, userRow.id))
           }
           throw cause
@@ -309,17 +304,17 @@ export const authRoute = new Hono()
     zValidator("param", UuidParam),
     async (c) => {
       const { id } = c.req.valid("param")
-      if ((await countUserPasskeys(c.var.viewerId)) <= 1) {
+      const result = await deleteUserPasskeyPreservingSignIn({
+        userId: c.var.viewerId,
+        passkeyId: id,
+      })
+      if (result === "last-sign-in-method") {
         return c.json(
           { error: "Add another sign-in method before removing this passkey." },
           400
         )
       }
-      const [deleted] = await db
-        .delete(userPasskey)
-        .where(and(eq(userPasskey.id, id), eq(userPasskey.userId, c.var.viewerId)))
-        .returning({ id: userPasskey.id })
-      if (!deleted) return c.json({ error: "Passkey not found." }, 404)
+      if (result === "not-found") return c.json({ error: "Passkey not found." }, 404)
       return c.json({ success: true })
     }
   )
