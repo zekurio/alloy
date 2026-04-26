@@ -203,11 +203,10 @@ export const adminRoute = new Hono()
   .post("/users", zValidator("json", CreateUserBody), async (c) => {
     try {
       const body = c.req.valid("json")
-      const username = body.username ?? body.name ?? body.email.split("@")[0]!
       const created = await createUserIdentity({
         email: body.email,
-        username,
-        name: body.name ?? username,
+        username: body.username,
+        name: body.name,
         role: body.role,
       })
       const [row] = await selectAdminUserStorageRows([created.id])
