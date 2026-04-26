@@ -2,11 +2,30 @@ import * as React from "react"
 
 import { cn } from "@workspace/ui/lib/utils"
 
-function Section({ className, ...props }: React.ComponentProps<"div">) {
+function SectionDiv({
+  slot,
+  baseClassName,
+  className,
+  ...props
+}: React.ComponentProps<"div"> & {
+  slot: string
+  baseClassName: string
+}) {
   return (
     <div
-      data-slot="section"
-      className={cn("flex flex-col", className)}
+      data-slot={slot}
+      className={cn(baseClassName, className)}
+      {...props}
+    />
+  )
+}
+
+function Section({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <SectionDiv
+      slot="section"
+      baseClassName="flex flex-col"
+      className={className}
       {...props}
     />
   )
@@ -14,12 +33,10 @@ function Section({ className, ...props }: React.ComponentProps<"div">) {
 
 function SectionHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <div
-      data-slot="section-header"
-      className={cn(
-        "flex items-start justify-between gap-3 border-b border-border pb-4",
-        className
-      )}
+    <SectionDiv
+      slot="section-header"
+      baseClassName="flex items-start justify-between gap-3 border-b border-border pb-4"
+      className={className}
       {...props}
     />
   )
@@ -27,12 +44,10 @@ function SectionHeader({ className, ...props }: React.ComponentProps<"div">) {
 
 function SectionTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <div
-      data-slot="section-title"
-      className={cn(
-        "text-md leading-tight font-semibold tracking-[-0.005em]",
-        className
-      )}
+    <SectionDiv
+      slot="section-title"
+      baseClassName="text-md leading-tight font-semibold tracking-[-0.005em]"
+      className={className}
       {...props}
     />
   )
@@ -40,9 +55,10 @@ function SectionTitle({ className, ...props }: React.ComponentProps<"div">) {
 
 function SectionContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <div
-      data-slot="section-content"
-      className={cn("py-4", className)}
+    <SectionDiv
+      slot="section-content"
+      baseClassName="py-4"
+      className={className}
       {...props}
     />
   )
@@ -50,12 +66,10 @@ function SectionContent({ className, ...props }: React.ComponentProps<"div">) {
 
 function SectionFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <div
-      data-slot="section-footer"
-      className={cn(
-        "flex items-center justify-end gap-2 border-t border-border pt-4",
-        className
-      )}
+    <SectionDiv
+      slot="section-footer"
+      baseClassName="flex items-center justify-end gap-2 border-t border-border pt-4"
+      className={className}
       {...props}
     />
   )

@@ -8,6 +8,7 @@ import { user } from "@workspace/db/auth-schema"
 import { clip, clipComment, clipCommentLike } from "@workspace/db/schema"
 
 import { db } from "../db"
+import { resolveEngagementTarget } from "./clips-helpers"
 
 export const BODY_MAX = 2000
 
@@ -51,6 +52,22 @@ export async function selectClipAccess(clipId: string) {
     .limit(1)
   return row ?? null
 }
+
+export async function resolveCommentEngagementTarget(
+  commentId: string,
+  headers: Headers
+) {
+  const [row] = await db
+    .select({ clipId: clipComment.clipId })
+    .from(clipComment)
+    .where(eq(clipComment.id, commentId))
+    .limit(1)
+  if (!row) return { accessible: false as const, response: null }
+  const target = await resolveEngagementTarget(row.clipId, headers)
+  if (!target.accessible) return target
+  return { accessible: true as const }
+}
+
 
 export async function listClipComments({
   clipId,
