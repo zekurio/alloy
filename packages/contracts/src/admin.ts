@@ -108,7 +108,6 @@ export interface AdminUserStorageRow {
   email: string
   image: string | null
   role: string | null
-  banned: boolean | null
   createdAt: string
   storageQuotaBytes: number | null
   storageUsedBytes: number
@@ -148,13 +147,4 @@ export interface PublicAuthConfig {
   passkeyEnabled: boolean
   requireAuthToBrowse: boolean
   provider: PublicAuthProvider | null
-}
-
-export interface PasskeySignUpRequest {
-  email: string
-  username: string
-}
-
-export interface PasskeySignUpResponse {
-  context: string
 }

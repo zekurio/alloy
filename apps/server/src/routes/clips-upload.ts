@@ -6,8 +6,8 @@ import { nanoid } from "nanoid"
 import { user } from "@workspace/db/auth-schema"
 import { clip, clipMention, game } from "@workspace/db/schema"
 
-import { getAuth } from "../auth"
 import { db } from "../db"
+import { getSession } from "../lib/auth/session"
 import { publishClipUpsert } from "../lib/clip-events"
 import { deleteClipRowAndAssets } from "../lib/clip-delete"
 import { selectClipById } from "../lib/clip-select"
@@ -311,9 +311,7 @@ export const clipsUploadRoutes = new Hono()
       const { id } = c.req.valid("param")
       const body = c.req.valid("json")
 
-      const session = await getAuth().api.getSession({
-        headers: c.req.raw.headers,
-      })
+      const session = await getSession(c)
       const isAdmin =
         (session?.user as { role?: string | null } | undefined)?.role ===
         "admin"
@@ -378,9 +376,7 @@ export const clipsUploadRoutes = new Hono()
     const viewerId = c.var.viewerId
     const { id } = c.req.valid("param")
 
-    const session = await getAuth().api.getSession({
-      headers: c.req.raw.headers,
-    })
+    const session = await getSession(c)
     const isAdmin =
       (session?.user as { role?: string | null } | undefined)?.role === "admin"
 

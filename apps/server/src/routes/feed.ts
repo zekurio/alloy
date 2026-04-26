@@ -5,7 +5,6 @@ import { and, eq, exists, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
-import { getAuth } from "../auth"
 import { user } from "@workspace/db/auth-schema"
 import {
   clip,
@@ -17,6 +16,7 @@ import {
 } from "@workspace/db/schema"
 
 import { db } from "../db"
+import { getSession } from "../lib/auth/session"
 import { clipSelectShape } from "../lib/clip-select"
 
 const FilterEnum = z.enum(["foryou", "following", "game"])
@@ -115,9 +115,7 @@ export const feedRoute = new Hono()
       return c.json({ error: "Invalid cursor" }, 400)
     }
 
-    const session = await getAuth().api.getSession({
-      headers: c.req.raw.headers,
-    })
+    const session = await getSession(c)
     const viewerId = session?.user.id ?? null
 
     if (filter === "following" && !viewerId) {
@@ -234,9 +232,7 @@ export const feedRoute = new Hono()
   .get("/chips", zValidator("query", ChipsQuery), async (c) => {
     const { limit } = c.req.valid("query")
 
-    const session = await getAuth().api.getSession({
-      headers: c.req.raw.headers,
-    })
+    const session = await getSession(c)
     const viewerId = session?.user.id ?? null
     const vid = viewerId ?? null
 

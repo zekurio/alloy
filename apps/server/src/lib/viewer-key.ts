@@ -3,8 +3,8 @@ import { createHmac, randomUUID, timingSafeEqual } from "node:crypto"
 import { getCookie, setCookie } from "hono/cookie"
 import type { Context } from "hono"
 
-import { getAuth } from "../auth"
-import { env } from "../env"
+import { authSecret } from "../env"
+import { getSession } from "./auth/session"
 
 const COOKIE_NAME = "alloy_viewer"
 const COOKIE_MAX_AGE_SEC = 365 * 24 * 60 * 60
@@ -24,9 +24,7 @@ export interface ResolvedViewer {
  * fall back to cookie; mint a fresh anon id if neither works.
  */
 export async function resolveViewer(c: Context): Promise<ResolvedViewer> {
-  const session = await getAuth().api.getSession({
-    headers: c.req.raw.headers,
-  })
+  const session = await getSession(c)
   if (session) {
     return {
       viewerKey: `user:${session.user.id}`,
@@ -83,7 +81,7 @@ function verifyCookie(raw: string): string | null {
 }
 
 function hmac(value: string): string {
-  return createHmac("sha256", env.BETTER_AUTH_SECRET)
+  return createHmac("sha256", authSecret)
     .update(value)
     .digest("base64url")
 }

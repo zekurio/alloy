@@ -6,10 +6,8 @@ import { ArrowRightIcon, KeyRoundIcon, MailIcon, UserIcon } from "lucide-react"
 import { toast } from "@workspace/ui/lib/toast"
 
 import { AuthSubmitButton, FormInputField } from "../auth/auth-form-fields"
-import { api } from "@/lib/api"
 import { authClient } from "@/lib/auth-client"
 import { validateEmail, validateUsername } from "@/lib/form-validators"
-import { addPasskeyWithLabel } from "@/lib/passkeys"
 import { invalidateAuthConfig } from "@/lib/session-suspense"
 
 type PasskeySignUpFormState = {
@@ -48,14 +46,9 @@ function usePasskeySignUpSubmit({
   return React.useCallback(
     async (form: PasskeySignUpFormState) => {
       try {
-        const { context } = await api.authConfig.createPasskeySignUp({
+        const { error } = await authClient.passkey.signUp({
           email: form.email.trim(),
           username: form.username.trim().toLowerCase(),
-        })
-        const { error } = await addPasskeyWithLabel({
-          context,
-          label: `${form.username.trim()}'s passkey`,
-          promptForLabel: true,
         })
         if (error) {
           toast.error("Couldn't create your passkey account")
