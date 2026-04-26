@@ -46,11 +46,20 @@ export async function setupRequired(): Promise<boolean> {
   return required
 }
 
-export async function hasOtherAdmin(excludeUserId: string): Promise<boolean> {
+export async function hasOtherAdminSignInMethod(
+  excludeUserId: string
+): Promise<boolean> {
   const rows = await db
     .select({ id: user.id })
     .from(user)
-    .where(and(eq(user.role, "admin"), ne(user.id, excludeUserId)))
+    .innerJoin(userPasskey, eq(userPasskey.userId, user.id))
+    .where(
+      and(
+        eq(user.role, "admin"),
+        eq(user.status, "active"),
+        ne(user.id, excludeUserId)
+      )
+    )
     .limit(1)
   return rows.length > 0
 }
@@ -62,8 +71,10 @@ export async function assertCanRemoveAdmin(targetUserId: string): Promise<void> 
     .where(eq(user.id, targetUserId))
     .limit(1)
   if (row?.role !== "admin") return
-  if (await hasOtherAdmin(targetUserId)) return
-  throw new Error("Cannot remove the last admin account. Promote another user to admin first.")
+  if (await hasOtherAdminSignInMethod(targetUserId)) return
+  throw new Error(
+    "Cannot remove the last admin with a sign-in method. Add a passkey to another admin first."
+  )
 }
 
 export async function createUserIdentity(input: {
@@ -146,7 +157,11 @@ export async function createRegistrationUser(input: {
   if (!configStore.get("passkeyEnabled")) {
     throw new Error("Passkey sign-up is currently disabled.")
   }
-  if (await findUserByEmail(input.email)) {
+  const existing = await findUserByEmail(input.email)
+  if (existing) {
+    if (existing.status === "active" && (await countUserPasskeys(existing.id)) === 0) {
+      return existing
+    }
     throw new Error("An account already exists for that email address.")
   }
   return createUserIdentity({
