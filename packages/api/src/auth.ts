@@ -102,11 +102,11 @@ function createSessionStore(fetchSession: () => Promise<SessionData | null>) {
         cause instanceof Error ? cause : new Error("Could not load session")
       state = { ...state, isPending: false, error }
       emit()
-      return { data: state.data }
+      throw error
     }
   }
 
-  const initial = refetch()
+  const initial = refetch().catch(() => ({ data: null }))
 
   return {
     initial,
