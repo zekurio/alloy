@@ -16,7 +16,6 @@ import { clearSessionCookies, setSessionCookies } from "../lib/auth/cookies"
 import {
   assertCanRemoveAdmin,
   countUserPasskeys,
-  createRegistrationUser,
   deleteUserPasskeyPreservingSignIn,
   findUserByEmail,
   normalizeEmail,
@@ -148,16 +147,87 @@ export const authRoute = new Hono()
         if (!payload.email || !payload.username) {
           return c.json({ error: "Invalid registration request." }, 400)
         }
-        const registrationUser = await createRegistrationUser({
-          email: payload.email,
-          username: payload.username,
-          setupFirstAdmin: payload.setupFirstAdmin === true,
-        })
-        const userRow = registrationUser.user
         const info = verification.registrationInfo
-        try {
-          await db.insert(userPasskey).values({
-            userId: userRow.id,
+
+        const userRow = await db.transaction(async (tx) => {
+          const email = normalizeEmail(payload.email ?? "")
+          const username = validateUsername(payload.username ?? "")
+          const setupFirstAdmin = payload.setupFirstAdmin === true
+          let row
+
+          if (setupFirstAdmin) {
+            if (!(await setupRequired())) {
+              throw new Error("Initial setup is already complete.")
+            }
+            const [existing] = await tx
+              .select()
+              .from(user)
+              .where(eq(user.email, email))
+              .limit(1)
+
+            if (existing) {
+              const now = new Date()
+              const [updated] = await tx
+                .update(user)
+                .set({
+                  role: "admin",
+                  status: "active",
+                  disabledAt: null,
+                  username,
+                  name: existing.name || username,
+                  updatedAt: now,
+                })
+                .where(eq(user.id, existing.id))
+                .returning()
+              if (!updated) throw new Error("Could not claim setup user.")
+              row = updated
+            } else {
+              const [created] = await tx
+                .insert(user)
+                .values({
+                  email,
+                  emailVerified: true,
+                  username,
+                  name: username,
+                  role: "admin",
+                  storageQuotaBytes: configStore.get("limits").defaultStorageQuotaBytes,
+                })
+                .returning()
+              if (!created) throw new Error("Could not create user.")
+              row = created
+            }
+          } else {
+            if (!configStore.get("passkeyEnabled")) {
+              throw new Error("Passkey sign-up is currently disabled.")
+            }
+            const [existing] = await tx
+              .select({ id: user.id })
+              .from(user)
+              .where(eq(user.email, email))
+              .limit(1)
+            if (existing) {
+              throw new Error("An account already exists for that email address.")
+            }
+            if (!configStore.get("openRegistrations")) {
+              throw new Error("Sign-up is currently closed.")
+            }
+            const [created] = await tx
+              .insert(user)
+              .values({
+                email,
+                emailVerified: true,
+                username,
+                name: username,
+                role: "user",
+                storageQuotaBytes: configStore.get("limits").defaultStorageQuotaBytes,
+              })
+              .returning()
+            if (!created) throw new Error("Could not create user.")
+            row = created
+          }
+
+          await tx.insert(userPasskey).values({
+            userId: row.id,
             credentialId: info.credential.id,
             publicKey: passkeyPublicKey(info.credential.publicKey),
             counter: info.credential.counter,
@@ -165,14 +235,12 @@ export const authRoute = new Hono()
             backedUp: info.credentialBackedUp,
             transports: serializeTransports(response.response.transports),
             aaguid: info.aaguid,
-            name: `${userRow.username}'s passkey`,
+            name: `${row.username}'s passkey`,
           })
-        } catch (cause) {
-          if (registrationUser.created) {
-            await db.delete(user).where(eq(user.id, userRow.id))
-          }
-          throw cause
-        }
+
+          return row
+        })
+
         const { token, data } = await createSession(c, userRow.id)
         setSessionCookies(c, token)
         return c.json(data)
