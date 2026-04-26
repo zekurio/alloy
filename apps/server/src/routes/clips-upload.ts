@@ -24,6 +24,22 @@ type InitiateQuotaResult =
   | { ok: true }
   | { ok: false; usedBytes: number; quotaBytes: number }
 
+type QuotaDb = Pick<typeof db, "execute" | "select">
+
+async function selectLockedQuotaState(database: QuotaDb, viewerId: string) {
+  await database.execute(
+    sql`select "id" from "user" where "id" = ${viewerId} for update`
+  )
+  const [quotaRow] = await database
+    .select({ storageQuotaBytes: user.storageQuotaBytes })
+    .from(user)
+    .where(eq(user.id, viewerId))
+    .limit(1)
+  const quotaBytes = quotaRow?.storageQuotaBytes ?? null
+  const usedBytes = await selectSourceStorageUsedBytes(database, viewerId)
+  return { quotaBytes, usedBytes }
+}
+
 async function resolveMentionIds(
   rawIds: ReadonlyArray<string>,
   authorId: string
@@ -94,17 +110,10 @@ export const clipsUploadRoutes = new Hono()
 
       const quotaResult = await db.transaction<InitiateQuotaResult>(
         async (tx) => {
-          await tx.execute(
-            sql`select "id" from "user" where "id" = ${viewerId} for update`
+          const { quotaBytes, usedBytes } = await selectLockedQuotaState(
+            tx,
+            viewerId
           )
-          const [quotaRow] = await tx
-            .select({ storageQuotaBytes: user.storageQuotaBytes })
-            .from(user)
-            .where(eq(user.id, viewerId))
-            .limit(1)
-
-          const quotaBytes = quotaRow?.storageQuotaBytes ?? null
-          const usedBytes = await selectSourceStorageUsedBytes(tx, viewerId)
           if (quotaBytes !== null && usedBytes + body.sizeBytes > quotaBytes) {
             return { ok: false, usedBytes, quotaBytes }
           }
@@ -233,16 +242,10 @@ export const clipsUploadRoutes = new Hono()
 
       const quotaResult = await db.transaction<InitiateQuotaResult>(
         async (tx) => {
-          await tx.execute(
-            sql`select "id" from "user" where "id" = ${viewerId} for update`
+          const { quotaBytes, usedBytes } = await selectLockedQuotaState(
+            tx,
+            viewerId
           )
-          const [quotaRow] = await tx
-            .select({ storageQuotaBytes: user.storageQuotaBytes })
-            .from(user)
-            .where(eq(user.id, viewerId))
-            .limit(1)
-          const quotaBytes = quotaRow?.storageQuotaBytes ?? null
-          const usedBytes = await selectSourceStorageUsedBytes(tx, viewerId)
           const previousSize = row.sizeBytes ?? 0
           if (
             quotaBytes !== null &&

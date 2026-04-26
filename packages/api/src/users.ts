@@ -51,22 +51,20 @@ async function uploadAvatarImage(
   context: ApiContext,
   blob: Blob
 ): Promise<PublicUser> {
-  const data = await blobToBase64(blob)
-  const contentType = getUploadContentType(blob)
-  const json: { data: string; contentType: AcceptedImageContentType } = {
-    data,
-    contentType,
-  }
-  const res = await context.request("/api/users/me/avatar/upload", {
-    method: "POST",
-    json,
-  })
-  return readJsonOrThrow<PublicUser>(res)
+  return uploadUserImage(context, blob, "avatar")
 }
 
 async function uploadBannerImage(
   context: ApiContext,
   blob: Blob
+): Promise<PublicUser> {
+  return uploadUserImage(context, blob, "banner")
+}
+
+async function uploadUserImage(
+  context: ApiContext,
+  blob: Blob,
+  kind: "avatar" | "banner"
 ): Promise<PublicUser> {
   const data = await blobToBase64(blob)
   const contentType = getUploadContentType(blob)
@@ -74,7 +72,7 @@ async function uploadBannerImage(
     data,
     contentType,
   }
-  const res = await context.request("/api/users/me/banner/upload", {
+  const res = await context.request(`/api/users/me/${kind}/upload`, {
     method: "POST",
     json,
   })
@@ -265,99 +263,30 @@ async function deleteAllClips(
 
 export function createUsersApi(context: ApiContext) {
   return {
-    async uploadAvatar(blob: Blob): Promise<PublicUser> {
-      return uploadAvatarImage(context, blob)
-    },
-
-    async uploadBanner(blob: Blob): Promise<PublicUser> {
-      return uploadBannerImage(context, blob)
-    },
-
-    async removeAvatar(): Promise<PublicUser> {
-      return deleteAvatar(context)
-    },
-
-    async removeBanner(): Promise<PublicUser> {
-      return deleteBanner(context)
-    },
-
-    async fetchProfile(handle: string): Promise<UserProfile> {
-      return getProfile(context, handle)
-    },
-
-    async fetchProfileViewer(
-      handle: string,
-      init?: RequestInit
-    ): Promise<UserProfileViewer> {
-      return getProfileViewer(context, handle, init)
-    },
-
-    async fetchClips(handle: string, init?: RequestInit): Promise<UserClip[]> {
-      return getClips(context, handle, init)
-    },
-
-    async fetchTaggedClips(handle: string): Promise<UserClip[]> {
-      return getTaggedClips(context, handle)
-    },
-
-    async fetchLikedClips(handle: string): Promise<UserClip[]> {
-      return getLikedClips(context, handle)
-    },
-
-    async search(q: string, limit = 8): Promise<UserSearchResult[]> {
-      return searchUsers(context, q, limit)
-    },
-
-    async fetchFollowers(handle: string): Promise<UserSearchResult[]> {
-      return getFollowers(context, handle)
-    },
-
-    async fetchFollowing(handle: string): Promise<UserSearchResult[]> {
-      return getFollowing(context, handle)
-    },
-
-    async follow(handle: string): Promise<void> {
-      await followUser(context, handle)
-    },
-
-    async unfollow(handle: string): Promise<void> {
-      await unfollowUser(context, handle)
-    },
-
-    async block(handle: string): Promise<void> {
-      await blockUser(context, handle)
-    },
-
-    async unblock(handle: string): Promise<void> {
-      await unblockUser(context, handle)
-    },
-
-    async syncOAuthProfile(): Promise<void> {
-      await requestOAuthProfileSync(context)
-    },
-
-    async fetchAccountState(): Promise<{ disabledAt: string | null }> {
-      return getAccountState(context)
-    },
-
-    async fetchStorageUsage(): Promise<UserStorageUsage> {
-      return getStorageUsage(context)
-    },
-
-    async disableAccount(): Promise<{ disabledAt: string }> {
-      return disableAccount(context)
-    },
-
-    async reactivateAccount(): Promise<{ disabledAt: null }> {
-      return reactivateAccount(context)
-    },
-
-    downloadAllClipsUrl(): string {
-      return downloadAllClipsUrl(context)
-    },
-
-    async deleteAllClips(): Promise<{ deleted: number; hasMore: boolean }> {
-      return deleteAllClips(context)
-    },
+    uploadAvatar: (blob: Blob) => uploadAvatarImage(context, blob),
+    uploadBanner: (blob: Blob) => uploadBannerImage(context, blob),
+    removeAvatar: () => deleteAvatar(context),
+    removeBanner: () => deleteBanner(context),
+    fetchProfile: (handle: string) => getProfile(context, handle),
+    fetchProfileViewer: (handle: string, init?: RequestInit) =>
+      getProfileViewer(context, handle, init),
+    fetchClips: (handle: string, init?: RequestInit) =>
+      getClips(context, handle, init),
+    fetchTaggedClips: (handle: string) => getTaggedClips(context, handle),
+    fetchLikedClips: (handle: string) => getLikedClips(context, handle),
+    search: (q: string, limit = 8) => searchUsers(context, q, limit),
+    fetchFollowers: (handle: string) => getFollowers(context, handle),
+    fetchFollowing: (handle: string) => getFollowing(context, handle),
+    follow: (handle: string) => followUser(context, handle),
+    unfollow: (handle: string) => unfollowUser(context, handle),
+    block: (handle: string) => blockUser(context, handle),
+    unblock: (handle: string) => unblockUser(context, handle),
+    syncOAuthProfile: () => requestOAuthProfileSync(context),
+    fetchAccountState: () => getAccountState(context),
+    fetchStorageUsage: () => getStorageUsage(context),
+    disableAccount: () => disableAccount(context),
+    reactivateAccount: () => reactivateAccount(context),
+    downloadAllClipsUrl: () => downloadAllClipsUrl(context),
+    deleteAllClips: () => deleteAllClips(context),
   }
 }

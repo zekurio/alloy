@@ -48,6 +48,14 @@ type IntegrationsConfigCardProps = {
   onChange: (next: AdminRuntimeConfig) => void
 }
 
+function updateSteamGridDBStatus(
+  queryClient: ReturnType<typeof useQueryClient>,
+  steamgriddbConfigured: boolean
+) {
+  queryClient.setQueryData(gameKeys.status(), { steamgriddbConfigured })
+  void queryClient.invalidateQueries({ queryKey: gameKeys.status() })
+}
+
 export function IntegrationsConfigCard({
   integrations,
   onChange,
@@ -99,10 +107,7 @@ export function IntegrationsConfigCard({
       }
       const next = await api.admin.updateIntegrationsConfig(patch)
       onChange(next)
-      queryClient.setQueryData(gameKeys.status(), {
-        steamgriddbConfigured: true,
-      })
-      void queryClient.invalidateQueries({ queryKey: gameKeys.status() })
+      updateSteamGridDBStatus(queryClient, true)
       toast.success("Integrations updated")
     } catch (cause) {
       toast.error(
@@ -121,10 +126,7 @@ export function IntegrationsConfigCard({
         steamgriddbApiKey: "",
       })
       onChange(next)
-      queryClient.setQueryData(gameKeys.status(), {
-        steamgriddbConfigured: false,
-      })
-      void queryClient.invalidateQueries({ queryKey: gameKeys.status() })
+      updateSteamGridDBStatus(queryClient, false)
       toast.success("SteamGridDB key removed")
     } catch (cause) {
       toast.error(

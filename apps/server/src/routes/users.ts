@@ -1,16 +1,5 @@
 import { zValidator } from "@hono/zod-validator"
-import {
-  and,
-  count,
-  eq,
-  ilike,
-  inArray,
-  isNull,
-  ne,
-  notInArray,
-  or,
-  type SQL,
-} from "drizzle-orm"
+import { and, eq, or } from "drizzle-orm"
 import { Hono } from "hono"
 import { stream } from "hono/streaming"
 import { z } from "zod"
@@ -41,7 +30,9 @@ import {
   listTaggedClips,
   listUserClips,
   resolveTarget,
-  toLikePattern,
+  resolveViewerState,
+  searchVisibleUsers,
+  selectProfileCounts,
   toPublicUser,
 } from "./users-helpers"
 
@@ -52,51 +43,14 @@ const ClipBatchQuery = z.object({
 export const usersRoute = new Hono()
   .get("/search", zValidator("query", SearchQuery), async (c) => {
     const { q, limit } = c.req.valid("query")
-    const pattern = toLikePattern(q.trim())
-
     const session = await getAuth().api.getSession({
       headers: c.req.raw.headers,
     })
-    const viewerId = session?.user.id ?? null
-
-    const conditions: SQL[] = [
-      or(
-        ilike(user.name, pattern),
-        ilike(user.displayUsername, pattern),
-        ilike(user.username, pattern)
-      )!,
-    ]
-    if (viewerId) {
-      conditions.push(ne(user.id, viewerId))
-      const blockRows = await db
-        .select({
-          blockerId: block.blockerId,
-          blockedId: block.blockedId,
-        })
-        .from(block)
-        .where(or(eq(block.blockerId, viewerId), eq(block.blockedId, viewerId)))
-      const excluded = new Set<string>()
-      for (const row of blockRows) {
-        excluded.add(row.blockerId === viewerId ? row.blockedId : row.blockerId)
-      }
-      if (excluded.size > 0) {
-        conditions.push(notInArray(user.id, [...excluded]))
-      }
-    }
-    conditions.push(isNull(user.disabledAt))
-
-    const rows = await db
-      .select({
-        id: user.id,
-        username: user.username,
-        displayUsername: user.displayUsername,
-        name: user.name,
-        image: user.image,
-      })
-      .from(user)
-      .where(and(...conditions))
-      .orderBy(user.username)
-      .limit(limit)
+    const rows = await searchVisibleUsers({
+      q,
+      limit,
+      viewerId: session?.user.id ?? null,
+    })
     return c.json(rows)
   })
 
@@ -428,92 +382,3 @@ export const usersRoute = new Hono()
       return c.json({ blocked: false })
     }
   )
-
-async function resolveViewerState(
-  viewerId: string | null,
-  targetId: string
-): Promise<{
-  isSelf: boolean
-  isFollowing: boolean
-  isBlocked: boolean
-  isBlockedBy: boolean
-} | null> {
-  if (!viewerId) return null
-
-  const isSelf = viewerId === targetId
-  if (isSelf) {
-    return {
-      isSelf: true,
-      isFollowing: false,
-      isBlocked: false,
-      isBlockedBy: false,
-    }
-  }
-
-  const [followRow, blockRows] = await Promise.all([
-    db
-      .select({ id: follow.id })
-      .from(follow)
-      .where(
-        and(eq(follow.followerId, viewerId), eq(follow.followingId, targetId))
-      )
-      .limit(1),
-    db
-      .select({
-        blockerId: block.blockerId,
-        blockedId: block.blockedId,
-      })
-      .from(block)
-      .where(
-        or(
-          and(eq(block.blockerId, viewerId), eq(block.blockedId, targetId)),
-          and(eq(block.blockerId, targetId), eq(block.blockedId, viewerId))
-        )
-      ),
-  ])
-
-  return {
-    isSelf: false,
-    isFollowing: followRow.length > 0,
-    isBlocked: blockRows.some((b) => b.blockerId === viewerId),
-    isBlockedBy: blockRows.some((b) => b.blockerId === targetId),
-  }
-}
-
-async function selectProfileCounts(
-  targetId: string,
-  { includeRestrictedClips }: { includeRestrictedClips: boolean }
-) {
-  const clipConditions: SQL[] = [
-    eq(clip.authorId, targetId),
-    eq(clip.status, "ready"),
-  ]
-  if (!includeRestrictedClips) {
-    clipConditions.push(inArray(clip.privacy, ["public", "unlisted"]))
-  }
-
-  const [
-    [{ value: clipCount }],
-    [{ value: followerCount }],
-    [{ value: followingCount }],
-  ] = await Promise.all([
-    db
-      .select({ value: count() })
-      .from(clip)
-      .where(and(...clipConditions)),
-    db
-      .select({ value: count() })
-      .from(follow)
-      .where(eq(follow.followingId, targetId)),
-    db
-      .select({ value: count() })
-      .from(follow)
-      .where(eq(follow.followerId, targetId)),
-  ])
-
-  return {
-    clips: clipCount,
-    followers: followerCount,
-    following: followingCount,
-  }
-}

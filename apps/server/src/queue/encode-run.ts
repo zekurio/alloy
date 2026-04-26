@@ -12,11 +12,17 @@ import {
 
 import { db } from "../db"
 import { env } from "../env"
-import { publishClipProgress, publishClipUpsert } from "../lib/clip-events"
+import { publishClipUpsert } from "../lib/clip-events"
 import { configStore, type EncoderConfig } from "../lib/config-store"
 import { storage } from "../storage"
 import { codecNameFor, encode, probe } from "./ffmpeg"
 import { buildVariantSpecs, type VariantSpec } from "./variant-specs"
+import {
+  planReuse,
+  pruneStaleVariants,
+  resolveVariantSettings,
+} from "./encode-variant-helpers"
+import { makeProgressWriter } from "./encode-progress"
 
 export async function runEncodeInner(
   clipId: string,
@@ -255,74 +261,6 @@ async function publishEncodedVariants({
   void publishClipUpsert(authorId, clipId)
 }
 
-function makeProgressWriter(
-  clipId: string,
-  authorId: string
-): (pct: number) => void {
-  let lastWrittenPct = 0
-  let lastWriteAt = 0
-  return (pct: number) => {
-    const now = Date.now()
-    if (pct <= lastWrittenPct) return
-    if (now - lastWriteAt < 2000 && pct < 99) return
-    lastWrittenPct = pct
-    lastWriteAt = now
-    db.update(clip)
-      .set({ encodeProgress: pct, updatedAt: new Date() })
-      .where(eq(clip.id, clipId))
-      .catch((err: unknown) => {
-        // eslint-disable-next-line no-console
-        console.error(
-          `[encode-worker] progress update failed for ${clipId}:`,
-          err
-        )
-      })
-    publishClipProgress(authorId, clipId, pct)
-  }
-}
-
-async function planReuse(
-  row: typeof clip.$inferSelect,
-  variantSpecs: VariantSpec[],
-  targetSettings: ClipVariantSettings[]
-): Promise<Map<number, ClipEncodedVariant>> {
-  const reusedBySpecIndex = new Map<number, ClipEncodedVariant>()
-  const priorByStorageKey = new Map<string, ClipEncodedVariant>()
-  for (const prev of row.variants) priorByStorageKey.set(prev.storageKey, prev)
-
-  for (let i = 0; i < variantSpecs.length; i++) {
-    const spec = variantSpecs[i]!
-    const prev = priorByStorageKey.get(spec.storageKey)
-    if (!prev?.settings) continue
-    if (!settingsEqual(prev.settings, targetSettings[i]!)) continue
-    const fileHit = await storage.resolve(spec.storageKey)
-    if (!fileHit) continue
-    reusedBySpecIndex.set(i, prev)
-  }
-  return reusedBySpecIndex
-}
-
-async function pruneStaleVariants(
-  row: typeof clip.$inferSelect,
-  reusedBySpecIndex: Map<number, ClipEncodedVariant>,
-  sourceVariant: ClipEncodedVariant | null
-): Promise<void> {
-  const reusedKeys = new Set(
-    Array.from(reusedBySpecIndex.values()).map((v) => v.storageKey)
-  )
-  if (sourceVariant) reusedKeys.add(sourceVariant.storageKey)
-  for (const prev of row.variants) {
-    if (reusedKeys.has(prev.storageKey)) continue
-    await storage.delete(prev.storageKey).catch((err: unknown) => {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[encode-worker] failed to remove stale variant ${prev.storageKey}:`,
-        err
-      )
-    })
-  }
-}
-
 type EncodeVariantsOpts = {
   clipId: string
   specs: VariantSpec[]
@@ -452,44 +390,4 @@ async function makeScratchDir(clipId: string): Promise<string> {
   const base = env.ENCODE_SCRATCH_DIR ?? path.join(os.tmpdir(), "alloy-encode")
   await fsp.mkdir(base, { recursive: true })
   return fsp.mkdtemp(path.join(base, `${clipId}-`))
-}
-
-function resolveVariantSettings(
-  spec: VariantSpec,
-  config: EncoderConfig,
-  trimStartMs: number | null,
-  trimEndMs: number | null
-): ClipVariantSettings {
-  return {
-    hwaccel: config.hwaccel,
-    codec: codecNameFor(config.hwaccel, spec.override.codec),
-    audioCodec: "aac",
-    quality: spec.override.quality,
-    preset: spec.override.preset,
-    audioBitrateKbps: spec.override.audioBitrateKbps,
-    extraInputArgs: spec.override.extraInputArgs,
-    extraOutputArgs: spec.override.extraOutputArgs,
-    height: spec.height,
-    trimStartMs,
-    trimEndMs,
-  }
-}
-
-function settingsEqual(
-  a: ClipVariantSettings,
-  b: ClipVariantSettings
-): boolean {
-  return (
-    a.codec === b.codec &&
-    a.hwaccel === b.hwaccel &&
-    a.audioCodec === b.audioCodec &&
-    a.quality === b.quality &&
-    a.preset === b.preset &&
-    a.audioBitrateKbps === b.audioBitrateKbps &&
-    a.extraInputArgs === b.extraInputArgs &&
-    a.extraOutputArgs === b.extraOutputArgs &&
-    a.height === b.height &&
-    a.trimStartMs === b.trimStartMs &&
-    a.trimEndMs === b.trimEndMs
-  )
 }

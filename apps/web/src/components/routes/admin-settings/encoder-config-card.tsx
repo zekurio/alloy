@@ -90,6 +90,29 @@ function variantCodecAvailable(
     : true
 }
 
+async function saveEncoderConfig({
+  form,
+  onChange,
+  setPending,
+}: {
+  form: AdminEncoderConfig
+  onChange: (next: AdminRuntimeConfig) => void
+  setPending: React.Dispatch<React.SetStateAction<boolean>>
+}) {
+  setPending(true)
+  try {
+    const next = await api.admin.updateEncoderConfig(form)
+    onChange(next)
+    toast.success("Encoder updated")
+  } catch (cause) {
+    toast.error(
+      cause instanceof Error ? cause.message : "Couldn't update encoder"
+    )
+  } finally {
+    setPending(false)
+  }
+}
+
 export function EncoderConfigCard({
   encoder,
   onChange,
@@ -159,14 +182,12 @@ export function EncoderConfigCard({
 
   function handleDialogSave(variant: AdminEncoderVariant) {
     if (dialogState === -1) {
-      // Adding new variant
       setForm((f) => ({
         ...f,
         enabled: true,
         variants: [...f.variants, variant],
       }))
     } else if (dialogState !== null) {
-      // Editing existing variant
       setForm((f) => ({
         ...f,
         variants: f.variants.map((v, i) => (i === dialogState ? variant : v)),
@@ -203,18 +224,7 @@ export function EncoderConfigCard({
     e.preventDefault()
     if (pending) return
     if (!form.enabled) {
-      setPending(true)
-      try {
-        const next = await api.admin.updateEncoderConfig(form)
-        onChange(next)
-        toast.success("Encoder updated")
-      } catch (cause) {
-        toast.error(
-          cause instanceof Error ? cause.message : "Couldn't update encoder"
-        )
-      } finally {
-        setPending(false)
-      }
+      await saveEncoderConfig({ form, onChange, setPending })
       return
     }
     if (form.variants.length === 0) {
@@ -243,18 +253,7 @@ export function EncoderConfigCard({
         return
       }
     }
-    setPending(true)
-    try {
-      const next = await api.admin.updateEncoderConfig(form)
-      onChange(next)
-      toast.success("Encoder updated")
-    } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't update encoder"
-      )
-    } finally {
-      setPending(false)
-    }
+    await saveEncoderConfig({ form, onChange, setPending })
   }
 
   const isDirty = JSON.stringify(form) !== JSON.stringify(encoder)

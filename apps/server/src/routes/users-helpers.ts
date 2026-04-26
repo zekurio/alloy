@@ -1,9 +1,28 @@
-import { and, desc, eq, inArray, isNull, type SQL } from "drizzle-orm"
+import {
+  and,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  ne,
+  notInArray,
+  or,
+  type SQL,
+} from "drizzle-orm"
 import { z } from "zod"
 
 import type { PublicUser } from "@workspace/contracts"
 import { user } from "@workspace/db/auth-schema"
-import { clip, clipLike, clipMention, follow, game } from "@workspace/db/schema"
+import {
+  block,
+  clip,
+  clipLike,
+  clipMention,
+  follow,
+  game,
+} from "@workspace/db/schema"
 
 import { getAuth } from "../auth"
 import { db } from "../db"
@@ -22,6 +41,56 @@ export function toLikePattern(raw: string): string {
     .replace(/%/g, "\\%")
     .replace(/_/g, "\\_")
   return `%${escaped}%`
+}
+
+export async function searchVisibleUsers({
+  q,
+  limit,
+  viewerId,
+}: {
+  q: string
+  limit: number
+  viewerId: string | null
+}) {
+  const pattern = toLikePattern(q.trim())
+  const conditions: SQL[] = [
+    or(
+      ilike(user.name, pattern),
+      ilike(user.displayUsername, pattern),
+      ilike(user.username, pattern)
+    )!,
+  ]
+  if (viewerId) {
+    conditions.push(ne(user.id, viewerId))
+    const blockRows = await db
+      .select({
+        blockerId: block.blockerId,
+        blockedId: block.blockedId,
+      })
+      .from(block)
+      .where(or(eq(block.blockerId, viewerId), eq(block.blockedId, viewerId)))
+    const excluded = new Set<string>()
+    for (const row of blockRows) {
+      excluded.add(row.blockerId === viewerId ? row.blockedId : row.blockerId)
+    }
+    if (excluded.size > 0) {
+      conditions.push(notInArray(user.id, [...excluded]))
+    }
+  }
+  conditions.push(isNull(user.disabledAt))
+
+  return db
+    .select({
+      id: user.id,
+      username: user.username,
+      displayUsername: user.displayUsername,
+      name: user.name,
+      image: user.image,
+    })
+    .from(user)
+    .where(and(...conditions))
+    .orderBy(user.username)
+    .limit(limit)
 }
 
 export type UserRow = typeof user.$inferSelect
@@ -154,4 +223,93 @@ export function listFollowing(row: UserRow) {
     .where(and(eq(follow.followerId, row.id), isNull(user.disabledAt)))
     .orderBy(user.username)
     .limit(200)
+}
+
+export async function resolveViewerState(
+  viewerId: string | null,
+  targetId: string
+): Promise<{
+  isSelf: boolean
+  isFollowing: boolean
+  isBlocked: boolean
+  isBlockedBy: boolean
+} | null> {
+  if (!viewerId) return null
+
+  const isSelf = viewerId === targetId
+  if (isSelf) {
+    return {
+      isSelf: true,
+      isFollowing: false,
+      isBlocked: false,
+      isBlockedBy: false,
+    }
+  }
+
+  const [followRow, blockRows] = await Promise.all([
+    db
+      .select({ id: follow.id })
+      .from(follow)
+      .where(
+        and(eq(follow.followerId, viewerId), eq(follow.followingId, targetId))
+      )
+      .limit(1),
+    db
+      .select({
+        blockerId: block.blockerId,
+        blockedId: block.blockedId,
+      })
+      .from(block)
+      .where(
+        or(
+          and(eq(block.blockerId, viewerId), eq(block.blockedId, targetId)),
+          and(eq(block.blockerId, targetId), eq(block.blockedId, viewerId))
+        )
+      ),
+  ])
+
+  return {
+    isSelf: false,
+    isFollowing: followRow.length > 0,
+    isBlocked: blockRows.some((b) => b.blockerId === viewerId),
+    isBlockedBy: blockRows.some((b) => b.blockerId === targetId),
+  }
+}
+
+export async function selectProfileCounts(
+  targetId: string,
+  { includeRestrictedClips }: { includeRestrictedClips: boolean }
+) {
+  const clipConditions: SQL[] = [
+    eq(clip.authorId, targetId),
+    eq(clip.status, "ready"),
+  ]
+  if (!includeRestrictedClips) {
+    clipConditions.push(inArray(clip.privacy, ["public", "unlisted"]))
+  }
+
+  const [
+    [{ value: clipCount }],
+    [{ value: followerCount }],
+    [{ value: followingCount }],
+  ] = await Promise.all([
+    db
+      .select({ value: count() })
+      .from(clip)
+      .where(and(...clipConditions)),
+    db
+      .select({ value: count() })
+      .from(follow)
+      .where(eq(follow.followingId, targetId)),
+    db
+      .select({ value: count() })
+      .from(follow)
+      .where(eq(follow.followerId, targetId)),
+  ])
+
+  return {
+    clips: clipCount,
+    followers: followerCount,
+    following: followingCount,
+  }
 }
