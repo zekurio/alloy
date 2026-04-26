@@ -1,13 +1,8 @@
 import * as React from "react"
 import type { QueryClient } from "@tanstack/react-query"
-import {
-  HeadContent,
-  Scripts,
-  createRootRouteWithContext,
-} from "@tanstack/react-router"
+import { Outlet, createRootRouteWithContext } from "@tanstack/react-router"
 
 import { Toaster } from "@workspace/ui/components/sonner"
-import appCss from "@workspace/ui/globals.css?url"
 
 import { ClientOnly } from "@/components/app/client-only"
 import { ReactivateAccountPrompt } from "@/components/account/reactivate-account-prompt"
@@ -18,42 +13,24 @@ export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
 }>()({
   beforeLoad: redirectToSetupBeforeLoad,
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "alloy" },
-    ],
-    links: [
-      { rel: "icon", type: "image/png", href: "/alloy-logo.png" },
-      { rel: "apple-touch-icon", href: "/alloy-logo.png" },
-      { rel: "stylesheet", href: appCss },
-    ],
-  }),
   notFoundComponent: RootNotFound,
-  shellComponent: RootDocument,
+  component: RootLayout,
 })
 
-function RootDocument({ children }: { children: React.ReactNode }) {
+function RootLayout() {
   return (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        {children}
-        <ClientOnly>
-          <React.Suspense fallback={null}>
-            <ConfigEvents />
-            <ReactivateAccountPrompt />
-          </React.Suspense>
-        </ClientOnly>
-        {/* Global toast portal — rendered once at the root so every route
-            can call `toast.*` without mounting its own provider. */}
-        <Toaster />
-        <Scripts />
-      </body>
-    </html>
+    <>
+      <Outlet />
+      <ClientOnly>
+        <React.Suspense fallback={null}>
+          <ConfigEvents />
+          <ReactivateAccountPrompt />
+        </React.Suspense>
+      </ClientOnly>
+      {/* Global toast portal — rendered once at the root so every route
+          can call `toast.*` without mounting its own provider. */}
+      <Toaster />
+    </>
   )
 }
 

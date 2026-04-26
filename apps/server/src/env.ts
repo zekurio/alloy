@@ -12,6 +12,11 @@ function normalizePublicServerUrl(value: string): string {
   return url.toString().replace(/\/$/, "")
 }
 
+const defaultPublicServerUrl =
+  process.env.PUBLIC_SERVER_URL ??
+  process.env.BETTER_AUTH_URL ??
+  "http://localhost:3000"
+
 const EnvSchema = z
   .object({
     DATABASE_URL: z.string().url(),
@@ -21,13 +26,15 @@ const EnvSchema = z
     PUBLIC_SERVER_URL: z
       .string()
       .url()
-      .default(process.env.BETTER_AUTH_URL ?? "http://localhost:3000")
+      .default(defaultPublicServerUrl)
       .transform(normalizePublicServerUrl),
     BETTER_AUTH_URL: z.string().url().optional(),
     PORT: z.coerce.number().int().positive().default(3000),
+    SERVE_WEB: z.enum(["auto", "true", "false"]).default("auto"),
+    WEB_DIST_DIR: z.string().default("../web/dist"),
     TRUSTED_ORIGINS: z
       .string()
-      .default("http://localhost:5173")
+      .default(defaultPublicServerUrl)
       .transform((value) =>
         value
           .split(",")
@@ -44,11 +51,7 @@ const EnvSchema = z
     STORAGE_PUBLIC_BASE_URL: z
       .string()
       .url()
-      .default(
-        process.env.PUBLIC_SERVER_URL ??
-          process.env.BETTER_AUTH_URL ??
-          "http://localhost:3000"
-      )
+      .default(defaultPublicServerUrl)
       .transform(normalizePublicServerUrl),
     STORAGE_HMAC_SECRET: z.string().optional(),
 

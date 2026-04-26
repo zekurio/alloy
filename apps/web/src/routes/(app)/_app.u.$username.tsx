@@ -1,6 +1,5 @@
 import * as React from "react"
 import { Outlet, createFileRoute, useNavigate } from "@tanstack/react-router"
-import { createMiddleware, createServerFn } from "@tanstack/react-start"
 
 import { AppMain } from "@workspace/ui/components/app-shell"
 
@@ -20,31 +19,6 @@ import {
   userProfileViewerQueryOptions,
 } from "@/lib/user-queries"
 
-const requestContextMiddleware = createMiddleware().server(
-  ({ next, request }) => {
-    return next({ context: { request } })
-  }
-)
-
-function cookieInit(request: Request): RequestInit | undefined {
-  const cookie = request.headers.get("cookie")
-  return cookie ? { headers: { cookie } } : undefined
-}
-
-const fetchRouteUserClips = createServerFn({ method: "GET" })
-  .middleware([requestContextMiddleware])
-  .inputValidator((handle: string) => handle)
-  .handler(async ({ data: handle, context }) => {
-    return api.users.fetchClips(handle, cookieInit(context.request))
-  })
-
-const fetchRouteUserViewer = createServerFn({ method: "GET" })
-  .middleware([requestContextMiddleware])
-  .inputValidator((handle: string) => handle)
-  .handler(async ({ data: handle, context }) => {
-    return api.users.fetchProfileViewer(handle, cookieInit(context.request))
-  })
-
 export const Route = createFileRoute("/(app)/_app/u/$username")({
   loader: async ({ context, params }) => {
     const profileOptions = userProfileQueryOptions(params.username)
@@ -53,11 +27,11 @@ export const Route = createFileRoute("/(app)/_app/u/$username")({
     const profile = await context.queryClient.ensureQueryData(profileOptions)
     await context.queryClient.ensureQueryData({
       ...viewerOptions,
-      queryFn: () => fetchRouteUserViewer({ data: params.username }),
+      queryFn: () => api.users.fetchProfileViewer(params.username),
     })
     void context.queryClient.prefetchQuery({
       ...clipsOptions,
-      queryFn: () => fetchRouteUserClips({ data: params.username }),
+      queryFn: () => api.users.fetchClips(params.username),
     })
     return { profile }
   },
