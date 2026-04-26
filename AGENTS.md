@@ -2,21 +2,46 @@
 
 This file provides guidance to AI agents running in this repo.
 
-## Onboarding
-  
-You can figure out most things yourself. This is a turbo monorepo, so be aware of where your CWD currently is.
+## Task Completion Requirements
 
-## VCS
+- All of `pnpm fmt`, `pnpm lint`, and `pnpm typecheck` must pass before considering tasks completed.
 
-This repository uses Jujutsu (`jj`). Do not use Git commands.
+## Project Snapshot
 
-Agents operate within a **shared working copy**. Do not create separate working copies per agent.
+Alloy is an open-source and self-hostable alternative to Medal.tv.
 
-### Change management
+This repository is a VERY EARLY WIP. Proposing sweeping changes that improve long-term maintainability is encouraged.
 
+## Core Priorities
+
+1. Performance first.
+2. Reliability first.
+3. Keep behavior predictable under many interactions and during failures (upload fails, playback errors, requests error out).
+
+If a tradeoff is required, choose correctness and robustness over short-term convenience.
+
+## Maintainability
+
+Long term maintainability is a core priority. If you add new functionality, first check if there is shared logic that can be extracted to a separate module. Duplicate logic across multiple files is a code smell and should be avoided. Don't be afraid to change existing code. Don't take shortcuts by just adding local logic to solve a problem.
+
+## Package Roles
+
+- `apps/server` - Hono API server for auth, clips, uploads, playback, feeds, search, notifications, admin, storage, and encoding jobs.
+- `apps/web` - React/TanStack frontend for the Alloy web app.
+- `packages/api` - Typed client helpers for calling the server API from the web app.
+- `packages/ui` - Shared React UI components, styles, hooks, and design utilities.
+- `packages/db` - Drizzle database schema, migrations, and database exports.
+- `packages/contracts` - Shared TypeScript contracts and types used across apps and packages.
+
+## Repository Workflow
+
+This repository uses Jujutsu (`jj`) instead of Git. Do not use Git commands.
+
+- Agents operate within a **shared working copy**. Do not create separate working copies per agent.
+- Keep each change focused on one logical task or concern.
 - Do not automatically finalize changes after every prompt.
-- Group edits into **one logical change**.
-- When a logical unit of work is complete, ask the user whether to finalize it.
+- Create a new change with `jj new` when starting distinct work, when work diverges significantly, or when the current change would become hard to review.
+- Split mixed or oversized work with `jj split`.
 
 If approved, run:
 
@@ -25,30 +50,8 @@ jj describe -m "<type>: <what changed>"
 jj new
 ```
 
-### Creating new changes
-
-Create a new change when:
-- starting a **distinct task or concern**
-- work diverges significantly from the current change
-- changes would otherwise become mixed or hard to review
-
-```bash
-jj new
-```
-
-### Keeping changes clean
-
-- Each change must represent a **single logical step**
-- Do not mix unrelated edits in one change
-- If a change becomes too large or mixed, split it:
-
-```bash
-jj split
-```
-
 ### Multi-agent coordination
 
-- All agents share the same workspace and repository state
 - Do not perform conflicting edits in parallel
 - Prefer assigning agents **separate concerns**, not separate files arbitrarily
 - If multiple agents contribute:
@@ -64,25 +67,3 @@ jj split
 
 - Avoid destructive operations unless explicitly requested
 - If unsure whether to amend, split, or create a new change, ask the user first
-
-## Nix
-
-With `flake.nix` present, assume you are running on a NixOS system or a system using the Nix package manager. Arbitrary binaries can be executed from the Nix repositories.
-
-## Workflow
-
-Talk through details of implementations with the user. Do not make assumptions.
-
-After each code pass:
-1. Run lint and typecheck.
-2. Fix all issues without asking.
-
-## Code Quality
-
-Follow best practices. Keep the app fast and responsive.
-
-- Prefer composition over duplication. If similar components are repeated, extract a shared primitive.
-- Use existing UI primitives whenever possible instead of reimplementing patterns.
-- Keep components small, focused, and reusable.
-- Avoid unnecessary re-renders and expensive computations.
-- Co-locate logic where it is used, but extract when reuse becomes clear.
