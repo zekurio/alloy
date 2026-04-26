@@ -99,7 +99,12 @@ function cookieTokenFromHeaders(headers: Headers): string | null {
   if (!cookie) return null
   for (const part of cookie.split(";")) {
     const [name, ...rest] = part.trim().split("=")
-    if (name === "alloy_session") return decodeURIComponent(rest.join("="))
+    if (name !== "alloy_session") continue
+    try {
+      return decodeURIComponent(rest.join("="))
+    } catch {
+      return null
+    }
   }
   return null
 }
@@ -118,11 +123,22 @@ export async function deleteExpiredSessions(): Promise<void> {
   await db.delete(authSession).where(lt(authSession.expiresAt, new Date()))
 }
 
+export const requireAnySession = createMiddleware<{
+  Variables: { viewerId: string; session: SessionData }
+}>(async (c, next) => {
+  const session = await getSession(c)
+  if (!session) return c.json({ error: "Unauthorized" }, 401)
+  c.set("viewerId", session.user.id)
+  c.set("session", session)
+  await next()
+})
+
 export const requireSession = createMiddleware<{
   Variables: { viewerId: string; session: SessionData }
 }>(async (c, next) => {
   const session = await getSession(c)
   if (!session) return c.json({ error: "Unauthorized" }, 401)
+  if (session.user.status !== "active") return c.json({ error: "Forbidden" }, 403)
   c.set("viewerId", session.user.id)
   c.set("session", session)
   await next()
@@ -133,6 +149,7 @@ export const requireAdmin = createMiddleware<{
 }>(async (c, next) => {
   const session = await getSession(c)
   if (!session) return c.json({ error: "Unauthorized" }, 401)
+  if (session.user.status !== "active") return c.json({ error: "Forbidden" }, 403)
   if (session.user.role !== "admin") return c.json({ error: "Forbidden" }, 403)
   c.set("adminUserId", session.user.id)
   c.set("session", session)
