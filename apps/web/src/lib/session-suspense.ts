@@ -1,4 +1,4 @@
-import { cache, use } from "react"
+import { use } from "react"
 import { useRouterState } from "@tanstack/react-router"
 
 import type { PublicAuthConfig } from "@workspace/api"
@@ -28,8 +28,6 @@ type RouteAuthConfigState = {
 
 let sessionInitialPromise: Promise<void> | null = null
 let configPromiseCache: Promise<PublicAuthConfig> | null = null
-
-const loadServerSession = cache(() => fetchCurrentServerSession())
 
 function useRouteSession(): RouteSessionState {
   return useRouterState({
@@ -114,7 +112,7 @@ function sessionInitializedPromise(): Promise<void> {
 }
 
 export async function loadSession(): Promise<SessionData> {
-  return loadServerSession()
+  return fetchCurrentServerSession()
 }
 
 export function loadAuthConfig(): Promise<PublicAuthConfig> {
