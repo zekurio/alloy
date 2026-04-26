@@ -19,6 +19,7 @@ import {
   LimitsConfigPatchSchema,
   OAuthProviderSchema,
   OAuthProviderSubmissionSchema,
+  StorageConfigPatchSchema,
   configStore,
   type OAuthProviderConfig,
   type RuntimeConfig,
@@ -89,6 +90,19 @@ function redactSecrets(
     oauthProvider: config.oauthProvider
       ? { ...config.oauthProvider, clientSecret: "" }
       : null,
+    storage: {
+      ...config.storage,
+      fs: {
+        ...config.storage.fs,
+        hmacSecret: config.storage.fs.hmacSecret ? REDACTED_SENTINEL : "",
+      },
+      s3: {
+        ...config.storage.s3,
+        secretAccessKey: config.storage.s3.secretAccessKey
+          ? REDACTED_SENTINEL
+          : "",
+      },
+    },
   }
 }
 
@@ -195,6 +209,12 @@ function finalizeOAuthProviderSubmission(
 export const adminRoute = new Hono()
   .use("*", requireAdmin)
   .get("/runtime-config", (c) => {
+    return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+  })
+  .post("/runtime-config/reload", (c) => {
+    if (!configStore.reload()) {
+      return c.json({ error: "Runtime config file failed validation." }, 400)
+    }
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
   .get("/users", async (c) => {
@@ -408,6 +428,49 @@ export const adminRoute = new Hono()
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     }
   )
+
+  /**
+   * PATCH /storage — update the active storage driver configuration. The
+   * server rebuilds the driver immediately for new operations; in-flight
+   * uploads/downloads continue on the driver instance they already entered.
+   */
+  .patch("/storage", zValidator("json", StorageConfigPatchSchema), (c) => {
+    const patch = c.req.valid("json")
+    const current = configStore.get("storage")
+    const next = {
+      driver: patch.driver ?? current.driver,
+      fs: { ...current.fs, ...patch.fs },
+      s3: { ...current.s3, ...patch.s3 },
+    }
+
+    if (
+      patch.fs?.hmacSecret === undefined ||
+      patch.fs.hmacSecret === REDACTED_SENTINEL
+    ) {
+      next.fs.hmacSecret = current.fs.hmacSecret
+    }
+    if (
+      patch.s3?.secretAccessKey === undefined ||
+      patch.s3.secretAccessKey === REDACTED_SENTINEL
+    ) {
+      next.s3.secretAccessKey = current.s3.secretAccessKey
+    }
+
+    try {
+      configStore.set("storage", next)
+    } catch (cause) {
+      return c.json(
+        {
+          error:
+            cause instanceof Error
+              ? cause.message
+              : "Couldn't save storage configuration.",
+        },
+        400
+      )
+    }
+    return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+  })
 
   .get("/encoder/capabilities", async (c) => {
     return c.json(await getEncoderCapabilities())

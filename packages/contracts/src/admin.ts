@@ -92,6 +92,39 @@ export interface AdminIntegrationsConfig {
 
 export type IntegrationsConfig = AdminIntegrationsConfig
 
+export const STORAGE_DRIVERS = ["fs", "s3"] as const
+export type StorageDriverKind = (typeof STORAGE_DRIVERS)[number]
+
+export interface AdminFsStorageConfig {
+  root: string
+  publicBaseUrl: string
+  hmacSecret: string
+}
+
+export interface AdminS3StorageConfig {
+  bucket: string
+  region: string
+  endpoint?: string
+  accessKeyId?: string
+  secretAccessKey?: string
+  forcePathStyle: boolean
+  presignExpiresSec: number
+}
+
+export type AdminStorageConfig =
+  | {
+      driver: "fs"
+      fs: AdminFsStorageConfig
+      s3: AdminS3StorageConfig
+    }
+  | {
+      driver: "s3"
+      fs: AdminFsStorageConfig
+      s3: AdminS3StorageConfig
+    }
+
+export type StorageConfig = AdminStorageConfig
+
 export interface AdminEncoderCapabilities {
   ffmpegOk: boolean
   ffmpegVersion: string | null
@@ -130,6 +163,7 @@ export interface RuntimeConfig {
   encoder: EncoderConfig
   limits: LimitsConfig
   integrations: IntegrationsConfig
+  storage: StorageConfig
 }
 
 export interface AdminRuntimeConfig extends RuntimeConfig {

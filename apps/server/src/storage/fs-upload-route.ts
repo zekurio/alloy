@@ -5,16 +5,15 @@ import { pipeline } from "node:stream/promises"
 
 import { Hono } from "hono"
 
-import { env } from "../env"
 import { decodeUploadToken, FsStorageDriver } from "./fs-driver"
-import { storage } from "./index"
+import { getStorageConfig, getStorageDriver } from "./index"
 
 export const storageRoute = new Hono().post("/upload/:token", async (c) => {
-  // The driver factory always returns a concrete class; only the fs
-  // driver makes sense behind this route. Bail loudly if the env was
-  // flipped to something else after this route was mounted — it would
-  // be an obvious deploy bug, not a runtime user error.
-  if (!(storage instanceof FsStorageDriver)) {
+  const storage = getStorageDriver()
+  const storageConfig = getStorageConfig()
+  // Only the fs driver makes sense behind this route. S3 uploads go
+  // directly to the object store via presigned URLs.
+  if (!(storage instanceof FsStorageDriver) || storageConfig.driver !== "fs") {
     return c.json(
       { error: "Upload route is only valid for the fs storage driver" },
       500
@@ -22,7 +21,7 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
   }
 
   const token = c.req.param("token")
-  const decoded = decodeUploadToken(token, env.STORAGE_HMAC_SECRET!)
+  const decoded = decodeUploadToken(token, storageConfig.fs.hmacSecret)
   if (!decoded.ok) {
     return c.json({ error: "Invalid upload ticket" }, 401)
   }

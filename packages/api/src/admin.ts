@@ -6,6 +6,7 @@ import type {
   AdminLimitsConfig,
   AdminOAuthProvider,
   AdminRuntimeConfig,
+  AdminStorageConfig,
   AdminUpdateUserStorageQuotaInput,
   AdminUserStorageRow,
   AdminUsersResponse,
@@ -19,6 +20,7 @@ export {
   ENCODER_HWACCELS,
   INTEGRATIONS_REDACTED,
   OAUTH_QUOTA_CLAIM_DEFAULT,
+  STORAGE_DRIVERS,
   USERNAME_CLAIM_SUGGESTIONS,
 } from "@workspace/contracts"
 export type {
@@ -29,6 +31,9 @@ export type {
   AdminLimitsConfig,
   AdminOAuthProvider,
   AdminRuntimeConfig,
+  AdminStorageConfig,
+  AdminFsStorageConfig,
+  AdminS3StorageConfig,
   AdminUpdateUserStorageQuotaInput,
   AdminUsersResponse,
   AdminUserStorageRow,
@@ -57,6 +62,15 @@ async function updateRuntimeConfig(
   const res = await context.request("/api/admin/runtime-config", {
     method: "PATCH",
     json: input,
+  })
+  return readJsonOrThrow<AdminRuntimeConfig>(res)
+}
+
+async function reloadRuntimeConfig(
+  context: ApiContext
+): Promise<AdminRuntimeConfig> {
+  const res = await context.request("/api/admin/runtime-config/reload", {
+    method: "POST",
   })
   return readJsonOrThrow<AdminRuntimeConfig>(res)
 }
@@ -127,6 +141,7 @@ export function createAdminApi(context: ApiContext) {
     fetchRuntimeConfig: () => fetchRuntimeConfig(context),
     updateRuntimeConfig: (input: RuntimeConfigPatch) =>
       updateRuntimeConfig(context, input),
+    reloadRuntimeConfig: () => reloadRuntimeConfig(context),
     saveOAuthConfig: (input: { oauthProvider: AdminOAuthProvider | null }) =>
       saveOAuthConfig(context, input),
     updateEncoderConfig: (patch: Partial<AdminEncoderConfig>) =>
@@ -135,6 +150,8 @@ export function createAdminApi(context: ApiContext) {
       patchRuntimeSection(context, "/api/admin/limits", patch),
     updateIntegrationsConfig: (patch: Partial<AdminIntegrationsConfig>) =>
       patchRuntimeSection(context, "/api/admin/integrations", patch),
+    updateStorageConfig: (patch: Partial<AdminStorageConfig>) =>
+      patchRuntimeSection(context, "/api/admin/storage", patch),
     fetchEncoderCapabilities: () => fetchEncoderCapabilities(context),
     reEncodeAllClips: () => reEncodeAllClips(context),
     fetchUsers: () => fetchUsers(context),

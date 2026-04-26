@@ -14,6 +14,7 @@ function normalizePublicServerUrl(value: string): string {
 
 const defaultPublicServerUrl =
   process.env.PUBLIC_SERVER_URL ?? "http://localhost:3000"
+const defaultBuildData = process.env.ALLOY_BUILD_DATA ?? "../../build"
 
 const EnvSchema = z
   .object({
@@ -25,8 +26,8 @@ const EnvSchema = z
       .default(defaultPublicServerUrl)
       .transform(normalizePublicServerUrl),
     PORT: z.coerce.number().int().positive().default(3000),
-    SERVE_WEB: z.enum(["auto", "true", "false"]).default("auto"),
-    WEB_DIST_DIR: z.string().default("../web/dist"),
+    ALLOY_BUILD_DATA: z.string().default(defaultBuildData),
+    WEB_DIST_DIR: z.string().optional(),
     TRUSTED_ORIGINS: z
       .string()
       .default(defaultPublicServerUrl)
@@ -37,8 +38,9 @@ const EnvSchema = z
           .filter(Boolean)
       ),
 
-    // Optional override for the runtime config file path. Useful for tests and
-    // for pointing multiple server processes at a shared mount in production.
+    // Runtime config file path. `ALLOY_CONFIG_FILE` is the preferred name;
+    // `RUNTIME_CONFIG_PATH` remains as a compatibility alias.
+    ALLOY_CONFIG_FILE: z.string().optional(),
     RUNTIME_CONFIG_PATH: z.string().optional(),
 
     STORAGE_DRIVER: z.enum(["fs", "s3"]).default("fs"),
@@ -76,23 +78,6 @@ const EnvSchema = z
         path: ["ALLOY_AUTH_SECRET"],
         message: "ALLOY_AUTH_SECRET must be set and at least 32 chars.",
       })
-    }
-    if (cfg.STORAGE_DRIVER === "s3" && !cfg.S3_BUCKET) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["S3_BUCKET"],
-        message: "S3_BUCKET is required when STORAGE_DRIVER=s3",
-      })
-    }
-    if (cfg.STORAGE_DRIVER === "fs") {
-      if (!cfg.STORAGE_HMAC_SECRET || cfg.STORAGE_HMAC_SECRET.length < 32) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["STORAGE_HMAC_SECRET"],
-          message:
-            "STORAGE_HMAC_SECRET must be set and at least 32 chars when STORAGE_DRIVER=fs",
-        })
-      }
     }
   })
 
