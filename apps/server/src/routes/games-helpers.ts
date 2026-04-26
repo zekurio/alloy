@@ -1,10 +1,42 @@
 import type { GameRow } from "@workspace/contracts"
 import { game } from "@workspace/db/schema"
+import { z } from "zod"
 
 import {
   SteamGridDBError,
   SteamGridDBNotConfiguredError,
 } from "../lib/steamgriddb"
+
+export const SlugParam = z.object({
+  slug: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[a-z0-9-]+$/),
+})
+
+export const SearchQuery = z.object({
+  q: z.string().min(1).max(120),
+})
+
+export const ResolveBody = z.object({
+  steamgriddbId: z.number().int().positive(),
+})
+
+export const ClipsQuery = z.object({
+  sort: z.enum(["top", "recent"]).default("recent"),
+  limit: z.coerce.number().int().positive().max(100).default(50),
+  cursor: z.iso.datetime().optional(),
+})
+
+export const TopQuery = z.object({
+  limit: z.coerce.number().int().positive().max(20).default(5),
+})
+
+export const GamesListQuery = z.object({
+  limit: z.coerce.number().int().positive().max(100).default(100),
+  offset: z.coerce.number().int().min(0).default(0),
+})
 
 export function serialiseGame(row: typeof game.$inferSelect) {
   return {

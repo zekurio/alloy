@@ -6,7 +6,6 @@ import type { CommentRow } from "@workspace/contracts"
 import { user } from "@workspace/db/auth-schema"
 import { clip, clipComment, clipCommentLike } from "@workspace/db/schema"
 
-import { getAuth } from "../auth"
 import { db } from "../db"
 import { createNotification } from "../lib/notifications"
 import { requireSession } from "../lib/require-session"
@@ -18,23 +17,15 @@ import {
   UpdateBody,
   authorShape,
   listClipComments,
+  resolveCommentEngagementTarget,
   selectClipAccess,
 } from "./clip-comments-helpers"
-
-async function resolveCommentEngagementTarget(
-  commentId: string,
-  headers: Headers
-) {
-  const [row] = await db
-    .select({ clipId: clipComment.clipId })
-    .from(clipComment)
-    .where(eq(clipComment.id, commentId))
-    .limit(1)
-  if (!row) return { accessible: false as const, response: null }
-  const target = await resolveEngagementTarget(row.clipId, headers)
-  if (!target.accessible) return target
-  return { accessible: true as const }
-}
+import {
+  canModerateComment,
+  pinTopLevelComment,
+  softDeleteComment,
+  unpinComment,
+} from "./clip-comment-moderation"
 
 export const clipCommentsRoutes = new Hono()
   .get(
@@ -221,47 +212,16 @@ export const clipCommentsRoutes = new Hono()
       const viewerId = c.var.viewerId
       const { commentId } = c.req.valid("param")
 
-      const [row] = await db
-        .select({
-          id: clipComment.id,
-          clipId: clipComment.clipId,
-          authorId: clipComment.authorId,
-          parentId: clipComment.parentId,
-        })
-        .from(clipComment)
-        .where(eq(clipComment.id, commentId))
-        .limit(1)
-      if (!row) return c.json({ error: "Not found" }, 404)
-
-      const [clipRow] = await db
-        .select({ authorId: clip.authorId })
-        .from(clip)
-        .where(eq(clip.id, row.clipId))
-        .limit(1)
-
-      const session = await getAuth().api.getSession({
+      const target = await canModerateComment({
+        commentId,
+        viewerId,
         headers: c.req.raw.headers,
       })
-      const isAdmin =
-        (session?.user as { role?: string | null } | undefined)?.role ===
-        "admin"
-      const isCommentAuthor = row.authorId === viewerId
-      const isClipAuthor = clipRow?.authorId === viewerId
-      if (!isCommentAuthor && !isClipAuthor && !isAdmin) {
-        return c.json({ error: "Forbidden" }, 403)
+      if (!target.ok) {
+        return c.json({ error: target.error }, target.status as 403 | 404)
       }
 
-      await db.transaction(async (tx) => {
-        await tx
-          .update(clipComment)
-          .set({
-            body: "",
-            pinnedAt: null,
-            editedAt: new Date(),
-          })
-          .where(eq(clipComment.id, row.id))
-      })
-
+      await softDeleteComment(target.row.id)
       return c.json({ deleted: true })
     }
   )
@@ -398,53 +358,15 @@ export const clipCommentsRoutes = new Hono()
       const viewerId = c.var.viewerId
       const { commentId } = c.req.valid("param")
 
-      const [row] = await db
-        .select({
-          id: clipComment.id,
-          clipId: clipComment.clipId,
-          authorId: clipComment.authorId,
-          parentId: clipComment.parentId,
-        })
-        .from(clipComment)
-        .where(eq(clipComment.id, commentId))
-        .limit(1)
-      if (!row) return c.json({ error: "Not found" }, 404)
-      if (row.parentId !== null) {
-        return c.json({ error: "Only top-level comments can be pinned" }, 400)
+      const result = await pinTopLevelComment({ commentId, viewerId })
+      if (!result.ok) {
+        return c.json({ error: result.error }, result.status as 400 | 403 | 404)
       }
-
-      const [clipRow] = await db
-        .select({ authorId: clip.authorId })
-        .from(clip)
-        .where(eq(clip.id, row.clipId))
-        .limit(1)
-      if (!clipRow) return c.json({ error: "Not found" }, 404)
-      if (clipRow.authorId !== viewerId) {
-        return c.json({ error: "Forbidden" }, 403)
-      }
-
-      await db.transaction(async (tx) => {
-        // Unpin any existing pin for this clip first — the partial unique
-        // index guarantees only one pinnedAt can be non-null at a time.
-        await tx
-          .update(clipComment)
-          .set({ pinnedAt: null })
-          .where(
-            and(
-              eq(clipComment.clipId, row.clipId),
-              sql`${clipComment.pinnedAt} IS NOT NULL`
-            )
-          )
-        await tx
-          .update(clipComment)
-          .set({ pinnedAt: new Date() })
-          .where(eq(clipComment.id, commentId))
-      })
       void createNotification({
-        recipientId: row.authorId,
+        recipientId: result.row.authorId,
         actorId: viewerId,
         type: "comment_pinned",
-        clipId: row.clipId,
+        clipId: result.row.clipId,
         commentId,
       })
       return c.json({ pinned: true })
@@ -459,27 +381,10 @@ export const clipCommentsRoutes = new Hono()
       const viewerId = c.var.viewerId
       const { commentId } = c.req.valid("param")
 
-      const [row] = await db
-        .select({ id: clipComment.id, clipId: clipComment.clipId })
-        .from(clipComment)
-        .where(eq(clipComment.id, commentId))
-        .limit(1)
-      if (!row) return c.json({ error: "Not found" }, 404)
-
-      const [clipRow] = await db
-        .select({ authorId: clip.authorId })
-        .from(clip)
-        .where(eq(clip.id, row.clipId))
-        .limit(1)
-      if (!clipRow) return c.json({ error: "Not found" }, 404)
-      if (clipRow.authorId !== viewerId) {
-        return c.json({ error: "Forbidden" }, 403)
+      const result = await unpinComment({ commentId, viewerId })
+      if (!result.ok) {
+        return c.json({ error: result.error }, result.status as 403 | 404)
       }
-
-      await db
-        .update(clipComment)
-        .set({ pinnedAt: null })
-        .where(eq(clipComment.id, commentId))
       return c.json({ pinned: false })
     }
   )

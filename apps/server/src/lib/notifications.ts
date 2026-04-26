@@ -91,6 +91,36 @@ function serialize(row: {
   }
 }
 
+function selectNotificationFields() {
+  return {
+    id: notification.id,
+    type: notification.type,
+    readAt: notification.readAt,
+    createdAt: notification.createdAt,
+    actorId: user.id,
+    actorUsername: user.username,
+    actorDisplayUsername: user.displayUsername,
+    actorName: user.name,
+    actorImage: user.image,
+    clipId: clip.id,
+    clipSlug: clip.slug,
+    clipTitle: clip.title,
+    gameSlug: game.slug,
+    commentId: clipComment.id,
+    commentBody: clipComment.body,
+  }
+}
+
+function notificationDetailsQuery() {
+  return db
+    .select(selectNotificationFields())
+    .from(notification)
+    .leftJoin(user, eq(notification.actorId, user.id))
+    .leftJoin(clip, eq(notification.clipId, clip.id))
+    .leftJoin(game, eq(clip.gameId, game.id))
+    .leftJoin(clipComment, eq(notification.commentId, clipComment.id))
+}
+
 async function unreadCount(recipientId: string): Promise<number> {
   const [row] = await db
     .select({ value: count() })
@@ -108,29 +138,7 @@ async function selectNotificationById(
   id: string,
   recipientId: string
 ): Promise<NotificationRow | null> {
-  const [row] = await db
-    .select({
-      id: notification.id,
-      type: notification.type,
-      readAt: notification.readAt,
-      createdAt: notification.createdAt,
-      actorId: user.id,
-      actorUsername: user.username,
-      actorDisplayUsername: user.displayUsername,
-      actorName: user.name,
-      actorImage: user.image,
-      clipId: clip.id,
-      clipSlug: clip.slug,
-      clipTitle: clip.title,
-      gameSlug: game.slug,
-      commentId: clipComment.id,
-      commentBody: clipComment.body,
-    })
-    .from(notification)
-    .leftJoin(user, eq(notification.actorId, user.id))
-    .leftJoin(clip, eq(notification.clipId, clip.id))
-    .leftJoin(game, eq(clip.gameId, game.id))
-    .leftJoin(clipComment, eq(notification.commentId, clipComment.id))
+  const [row] = await notificationDetailsQuery()
     .where(
       and(eq(notification.id, id), eq(notification.recipientId, recipientId))
     )
@@ -145,29 +153,7 @@ export async function listNotifications(
 ): Promise<NotificationsResponse> {
   const boundedLimit = Math.min(Math.max(1, limit), MAX_LIMIT)
   const [rows, unread] = await Promise.all([
-    db
-      .select({
-        id: notification.id,
-        type: notification.type,
-        readAt: notification.readAt,
-        createdAt: notification.createdAt,
-        actorId: user.id,
-        actorUsername: user.username,
-        actorDisplayUsername: user.displayUsername,
-        actorName: user.name,
-        actorImage: user.image,
-        clipId: clip.id,
-        clipSlug: clip.slug,
-        clipTitle: clip.title,
-        gameSlug: game.slug,
-        commentId: clipComment.id,
-        commentBody: clipComment.body,
-      })
-      .from(notification)
-      .leftJoin(user, eq(notification.actorId, user.id))
-      .leftJoin(clip, eq(notification.clipId, clip.id))
-      .leftJoin(game, eq(clip.gameId, game.id))
-      .leftJoin(clipComment, eq(notification.commentId, clipComment.id))
+    notificationDetailsQuery()
       .where(eq(notification.recipientId, recipientId))
       .orderBy(desc(notification.createdAt))
       .limit(boundedLimit),
