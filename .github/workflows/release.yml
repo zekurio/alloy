@@ -145,30 +145,6 @@ jobs:
             type=raw,value=${{ steps.meta.outputs.tag }}
             type=raw,value=latest,enable=${{ steps.meta.outputs.make_latest == 'true' }}
 
-      - name: Publish release web image
-        uses: ./.github/actions/publish-image
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-web
-          file: apps/web/Dockerfile
-          build-args: |
-            APP_VERSION=${{ steps.meta.outputs.version }}
-          tags: |
-            type=raw,value=${{ steps.meta.outputs.tag }}
-            type=raw,value=latest,enable=${{ steps.meta.outputs.make_latest == 'true' }}
-
-      - name: Publish release aio image
-        uses: ./.github/actions/publish-image
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-aio
-          file: docker/Dockerfile
-          build-args: |
-            APP_VERSION=${{ steps.meta.outputs.version }}
-          tags: |
-            type=raw,value=${{ steps.meta.outputs.tag }}
-            type=raw,value=latest,enable=${{ steps.meta.outputs.make_latest == 'true' }}
-
       - name: Push release commit and tag
         env:
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}

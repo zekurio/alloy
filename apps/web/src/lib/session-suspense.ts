@@ -5,7 +5,6 @@ import type { PublicAuthConfig } from "@workspace/api"
 
 import { api } from "./api"
 import { authClient, useSession } from "./auth-client"
-import { fetchCurrentServerSession } from "./session-server"
 
 type SessionData = ReturnType<typeof useSession>["data"]
 
@@ -112,7 +111,13 @@ function sessionInitializedPromise(): Promise<void> {
 }
 
 export async function loadSession(): Promise<SessionData> {
-  return fetchCurrentServerSession()
+  if (typeof window === "undefined") return null
+  try {
+    const { data } = await authClient.getSession()
+    return data
+  } catch {
+    return null
+  }
 }
 
 export function loadAuthConfig(): Promise<PublicAuthConfig> {

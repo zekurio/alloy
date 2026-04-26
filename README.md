@@ -1,6 +1,6 @@
 # alloy
 
-Alloy is an open-source alternative to medal.tv.
+Alloy is an open-source alternative to Medal.tv.
 
 It is still a work in progress. Self-hosting is not polished yet, and Docker support exists but will be improved.
 
@@ -84,6 +84,23 @@ pnpm dev
 ```
 
 This runs the web app on http://localhost:5173 and the server on http://localhost:3000.
+
+In development, the frontend and API stay split so Vite can provide fast HMR.
+Set `VITE_SERVER_URL=http://localhost:3000` in `apps/web/.env` and keep
+`TRUSTED_ORIGINS=http://localhost:5173` in `apps/server/.env`.
+
+## Production container
+
+Production uses one Alloy application container: `ghcr.io/<owner>/<repo>-server`.
+The server listens on port `3000`, serves `/api/*`, and mounts the built web app
+from the same origin. Browser API calls therefore default to the current origin;
+you should set `PUBLIC_SERVER_URL` to the public URL users visit.
+
+PostgreSQL is not bundled in the application container. Provide it separately
+and set `DATABASE_URL`.
+
+The server image sets `SERVE_WEB=true` and `WEB_DIST_DIR=../web/dist`, so startup
+fails if the web build is missing.
 
 ## Contributing
 

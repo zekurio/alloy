@@ -16,10 +16,11 @@ import { setupRoute } from "./routes/setup"
 import { usersRoute } from "./routes/users"
 import { usersUploadRoute, userAssetsRoute } from "./routes/users-upload"
 import { storageRoute } from "./storage/fs-upload-route"
+import { mountWeb } from "./web"
 
 // Chain the route calls so the inferred type includes every route — the
 // @workspace/api package consumes `AppType` via hono/client for RPC.
-export const app = new Hono()
+const apiApp = new Hono()
   .use("*", logger())
   .use(
     "*",
@@ -46,4 +47,6 @@ export const app = new Hono()
   .route("/api/assets", storageRoute)
   .route("/api/assets/users", userAssetsRoute)
 
-export type AppType = typeof app
+export const app = await mountWeb(apiApp)
+
+export type AppType = typeof apiApp
