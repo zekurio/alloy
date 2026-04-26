@@ -1,46 +1,67 @@
-import { env } from "../env"
+import type { StorageConfig } from "@workspace/contracts"
+
+import { configStore } from "../lib/config-store"
 import type { StorageDriver } from "./driver"
 import { FsStorageDriver } from "./fs-driver"
 import { S3StorageDriver } from "./s3-driver"
 
-function buildStorage(): StorageDriver {
-  switch (env.STORAGE_DRIVER) {
+function buildStorage(config: StorageConfig): StorageDriver {
+  switch (config.driver) {
     case "fs":
-      if (!env.STORAGE_HMAC_SECRET) {
-        // Safety net — the env superRefine already enforces this, but
-        // typescript can't narrow across that boundary.
-        throw new Error("STORAGE_DRIVER=fs requires STORAGE_HMAC_SECRET")
-      }
       return new FsStorageDriver({
-        root: env.STORAGE_FS_ROOT,
-        publicBaseUrl: env.STORAGE_PUBLIC_BASE_URL,
-        hmacSecret: env.STORAGE_HMAC_SECRET,
+        root: config.fs.root,
+        publicBaseUrl: config.fs.publicBaseUrl,
+        hmacSecret: config.fs.hmacSecret,
       })
     case "s3":
-      if (!env.S3_BUCKET) {
-        // Safety net — the env superRefine already enforces this, but
-        // typescript can't narrow across that boundary.
-        throw new Error("STORAGE_DRIVER=s3 requires S3_BUCKET")
-      }
       return new S3StorageDriver({
-        bucket: env.S3_BUCKET,
-        region: env.S3_REGION,
-        endpoint: env.S3_ENDPOINT,
-        accessKeyId: env.S3_ACCESS_KEY_ID,
-        secretAccessKey: env.S3_SECRET_ACCESS_KEY,
-        forcePathStyle: env.S3_FORCE_PATH_STYLE,
-        presignExpiresSec: env.S3_PRESIGN_EXPIRES_SEC,
+        bucket: config.s3.bucket,
+        region: config.s3.region,
+        endpoint: config.s3.endpoint,
+        accessKeyId: config.s3.accessKeyId,
+        secretAccessKey: config.s3.secretAccessKey,
+        forcePathStyle: config.s3.forcePathStyle,
+        presignExpiresSec: config.s3.presignExpiresSec,
       })
     default: {
       // Exhaustiveness check — adding a new variant to `STORAGE_DRIVER`
       // without handling it here is a compile error.
-      const exhaustive: never = env.STORAGE_DRIVER
-      throw new Error(`Unsupported STORAGE_DRIVER: ${exhaustive as string}`)
+      const exhaustive: never = config
+      throw new Error(`Unsupported STORAGE_DRIVER: ${JSON.stringify(exhaustive)}`)
     }
   }
 }
 
-export const storage: StorageDriver = buildStorage()
+let activeStorage = buildStorage(configStore.get("storage"))
+
+configStore.subscribe((next, prev) => {
+  if (next.storage === prev.storage) return
+  activeStorage = buildStorage(next.storage)
+})
+
+class ReloadableStorageDriver implements StorageDriver {
+  put: StorageDriver["put"] = (...args) => activeStorage.put(...args)
+  resolve: StorageDriver["resolve"] = (...args) => activeStorage.resolve(...args)
+  mintUploadUrl: StorageDriver["mintUploadUrl"] = (...args) =>
+    activeStorage.mintUploadUrl(...args)
+  delete: StorageDriver["delete"] = (...args) => activeStorage.delete(...args)
+  downloadToFile: StorageDriver["downloadToFile"] = (...args) =>
+    activeStorage.downloadToFile(...args)
+  uploadFromFile: StorageDriver["uploadFromFile"] = (...args) =>
+    activeStorage.uploadFromFile(...args)
+  mintDownloadUrl: StorageDriver["mintDownloadUrl"] = (...args) =>
+    activeStorage.mintDownloadUrl(...args)
+}
+
+export function getStorageDriver(): StorageDriver {
+  return activeStorage
+}
+
+export function getStorageConfig(): StorageConfig {
+  return configStore.get("storage")
+}
+
+export const storage: StorageDriver = new ReloadableStorageDriver()
 
 export type { StorageDriver, UploadTicket, UserAssetRole } from "./driver"
 export {
