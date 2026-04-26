@@ -1,5 +1,4 @@
 const DEFAULT_SERVER_URL = "http://localhost:3000"
-const DEFAULT_WEB_URL = "http://localhost:5173"
 
 function normalizeOrigin(value: string): string {
   const url = new URL(value)
@@ -9,10 +8,19 @@ function normalizeOrigin(value: string): string {
   return url.toString().replace(/\/$/, "")
 }
 
+function nonEmpty(value: string | undefined): string | undefined {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : undefined
+}
+
 function webServerUrl(): string {
+  if (typeof window !== "undefined") {
+    return nonEmpty(import.meta.env.VITE_SERVER_URL) ?? window.location.origin
+  }
+
   return (
-    import.meta.env.VITE_SERVER_URL ??
-    process.env.VITE_SERVER_URL ??
+    nonEmpty(process.env.INTERNAL_API_URL) ??
+    nonEmpty(process.env.VITE_SERVER_URL) ??
     DEFAULT_SERVER_URL
   )
 }
@@ -23,5 +31,5 @@ export function apiOrigin(): string {
 
 export function publicOrigin(): string {
   if (typeof window !== "undefined") return window.location.origin
-  return normalizeOrigin(process.env.PUBLIC_APP_URL ?? DEFAULT_WEB_URL)
+  return normalizeOrigin(nonEmpty(process.env.PUBLIC_SERVER_URL) ?? webServerUrl())
 }
