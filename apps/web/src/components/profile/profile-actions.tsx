@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useNavigate } from "@tanstack/react-router"
-import { ShieldOffIcon, UserMinusIcon, UserPlusIcon } from "lucide-react"
+import { ShieldOffIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
@@ -23,8 +23,13 @@ export function ProfileActions({
 
   if (viewer === undefined) {
     return (
-      <Button type="button" variant="primary" size="sm" disabled>
-        <UserPlusIcon />
+      <Button
+        type="button"
+        variant="primary"
+        size="sm"
+        aria-label="Follow"
+        disabled
+      >
         Follow
       </Button>
     )
@@ -36,12 +41,13 @@ export function ProfileActions({
         type="button"
         variant="primary"
         size="sm"
+        aria-label="Sign in to follow"
+        title="Sign in to follow"
         onClick={() => {
           void navigate({ to: "/login" })
         }}
       >
-        <UserPlusIcon />
-        Sign in to follow
+        Follow
       </Button>
     )
   }
@@ -97,11 +103,13 @@ export function ProfileActions({
         type="button"
         variant="ghost"
         size="sm"
+        aria-label="Unblock"
+        title="Unblock"
         onClick={runUnblock}
         disabled={pending}
       >
         <ShieldOffIcon />
-        {pending ? "Working…" : "Unblock"}
+        Unblock
       </Button>
     )
   }
@@ -115,11 +123,13 @@ export function ProfileActions({
       type="button"
       variant={isFollowing ? "ghost" : "primary"}
       size="sm"
+      aria-pressed={isFollowing}
+      aria-label={isFollowing ? "Unfollow" : "Follow"}
+      title={isFollowing ? "Unfollow" : "Follow"}
       onClick={runFollow}
       disabled={pending}
     >
-      {isFollowing ? <UserMinusIcon /> : <UserPlusIcon />}
-      {pending ? "Working…" : isFollowing ? "Following" : "Follow"}
+      {isFollowing ? "Following" : "Follow"}
     </Button>
   )
 }

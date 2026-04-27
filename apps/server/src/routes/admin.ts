@@ -8,10 +8,7 @@ import { user } from "@workspace/db/auth-schema"
 import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
-import {
-  assertCanRemoveAdmin,
-  createUserIdentity,
-} from "../lib/auth/identity"
+import { assertCanRemoveAdmin, createUserIdentity } from "../lib/auth/identity"
 import { deleteAllSessionsForUser, requireAdmin } from "../lib/auth/session"
 import {
   EncoderConfigPatchSchema,
@@ -92,10 +89,7 @@ export const adminRoute = new Hono()
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
   .get("/runtime-config/export", (c) => {
-    c.header(
-      "Content-Disposition",
-      'attachment; filename="alloy-config.json"'
-    )
+    c.header("Content-Disposition", 'attachment; filename="alloy-config.json"')
     return c.json(configStore.getAll())
   })
   .put("/runtime-config/import", async (c) => {

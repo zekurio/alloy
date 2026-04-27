@@ -126,7 +126,7 @@ export function EncoderVariantDialog({
                   aria-invalid={draft.name.trim() === "" || undefined}
                   onChange={(e) => set("name", e.target.value)}
                 />
-                <FieldDescription className="text-xs leading-snug">
+                <FieldDescription className="text-xs leading-tight">
                   Used as the player label and in the stored MP4 filename.
                 </FieldDescription>
               </Field>
@@ -175,7 +175,7 @@ export function EncoderVariantDialog({
                       ))}
                     </SelectContent>
                   </Select>
-                  <FieldDescription className="text-xs leading-snug">
+                  <FieldDescription className="text-xs leading-tight">
                     Combined with the global hardware acceleration setting.
                   </FieldDescription>
                 </Field>
@@ -223,7 +223,7 @@ export function EncoderVariantDialog({
                       set("preset", next.trim() === "" ? undefined : next)
                     }}
                   />
-                  <FieldDescription className="text-xs leading-snug">
+                  <FieldDescription className="text-xs leading-tight">
                     Passed as <code>-preset</code>. Leave blank to omit.
                   </FieldDescription>
                 </Field>
@@ -278,7 +278,7 @@ export function EncoderVariantDialog({
                     placeholder="-probesize 100M -analyzeduration 100M"
                     onChange={(e) => set("extraInputArgs", e.target.value)}
                   />
-                  <FieldDescription className="text-xs leading-snug">
+                  <FieldDescription className="text-xs leading-tight">
                     Inserted before <code>-i</code>.
                   </FieldDescription>
                 </Field>
@@ -293,7 +293,7 @@ export function EncoderVariantDialog({
                     placeholder='-vf "scale=1280:-2,fps=60" -movflags +faststart'
                     onChange={(e) => set("extraOutputArgs", e.target.value)}
                   />
-                  <FieldDescription className="text-xs leading-snug">
+                  <FieldDescription className="text-xs leading-tight">
                     Inserted after generated video, audio, and muxing args.
                   </FieldDescription>
                 </Field>

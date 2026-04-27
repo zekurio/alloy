@@ -241,6 +241,7 @@ function useUploadQueueState(
   const bump = React.useCallback(() => bumpState(), [])
 
   const { data: serverQueueData } = useUploadQueueQuery({ enabled: queueOpen })
+  const serverQueueHydrated = serverQueueData !== undefined
   const serverQueue = React.useMemo<QueueClip[]>(
     () => serverQueueData ?? [],
     [serverQueueData]
@@ -325,7 +326,13 @@ function useUploadQueueState(
     dismissMany(readyIds)
   }, [serverQueue, dismissed, dismissMany, releaseRetainedThumb])
 
-  return { runUpload, queue, activeCount, clearCompleted }
+  return {
+    runUpload,
+    queue,
+    activeCount,
+    clearCompleted,
+    isQueueLoading: queueOpen && !serverQueueHydrated,
+  }
 }
 
 function useNewClipPicker(onPicked: () => void) {
@@ -396,6 +403,7 @@ function UploadQueuePopover({
   setQueueOpen,
   queue,
   activeCount,
+  isQueueLoading,
   onNewClip,
   onClearCompleted,
 }: {
@@ -403,6 +411,7 @@ function UploadQueuePopover({
   setQueueOpen: (open: boolean) => void
   queue: QueueItem[]
   activeCount: number
+  isQueueLoading: boolean
   onNewClip: () => void
   onClearCompleted: () => void
 }) {
@@ -419,6 +428,7 @@ function UploadQueuePopover({
   const content = (
     <UploadQueueContent
       queue={queue}
+      isLoading={isQueueLoading}
       onNewClip={onNewClip}
       onClearCompleted={onClearCompleted}
       onClose={() => setQueueOpen(false)}
@@ -519,10 +529,8 @@ function AuthedUploadFlow() {
     },
     [navigate]
   )
-  const { runUpload, queue, activeCount, clearCompleted } = useUploadQueueState(
-    queueOpen,
-    handleOpenClip
-  )
+  const { runUpload, queue, activeCount, clearCompleted, isQueueLoading } =
+    useUploadQueueState(queueOpen, handleOpenClip)
   const {
     newClipOpen,
     setNewClipOpen,
@@ -567,6 +575,7 @@ function AuthedUploadFlow() {
         setQueueOpen={setQueueOpen}
         queue={queue}
         activeCount={activeCount}
+        isQueueLoading={isQueueLoading}
         onNewClip={handleNewClip}
         onClearCompleted={clearCompleted}
       />

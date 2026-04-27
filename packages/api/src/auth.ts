@@ -87,7 +87,9 @@ function createSessionStore(fetchSession: () => Promise<SessionData | null>) {
     for (const listener of listeners) listener()
   }
 
-  async function refetch(_options?: unknown): Promise<{ data: SessionData | null }> {
+  async function refetch(
+    _options?: unknown
+  ): Promise<{ data: SessionData | null }> {
     state = { ...state, isPending: true, error: null }
     emit()
     try {
@@ -128,10 +130,7 @@ export function createAuth(baseURL: string) {
     return new URL(path, baseURL).toString()
   }
 
-  async function request<T>(
-    path: string,
-    init: RequestInit = {}
-  ): Promise<T> {
+  async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const res = await fetch(url(path), {
       credentials: "include",
       ...init,

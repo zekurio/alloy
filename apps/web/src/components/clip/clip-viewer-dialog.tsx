@@ -23,7 +23,7 @@ import {
 import { clipKeys, useClipQuery } from "@/lib/clip-queries"
 import { commentKeys } from "@/lib/comment-queries"
 import { apiOrigin } from "@/lib/env"
-import { avatarTint, displayInitials, userImageSrc } from "@/lib/user-display"
+import { userAvatar } from "@/lib/user-display"
 
 import { ClipComments } from "./clip-comments"
 import { ClipEditDialog } from "./clip-edit-dialog"
@@ -39,6 +39,7 @@ import { MobileClipViewerBody } from "./clip-viewer-mobile"
 interface ClipViewerDialogProps {
   /** Current dialog target. `null` keeps the viewer closed. */
   clipId: string | null
+  focusedCommentId?: string | null
   /** How to dismiss — typically clears the search param or navigates back. */
   onClose: () => void
   onNavigate?: (entry: ClipListEntry) => void
@@ -46,6 +47,7 @@ interface ClipViewerDialogProps {
 
 export function ClipViewerDialog({
   clipId,
+  focusedCommentId = null,
   onClose,
   onNavigate,
 }: ClipViewerDialogProps) {
@@ -138,6 +140,7 @@ export function ClipViewerDialog({
               prev={prev}
               next={next}
               onNavigate={onNavigate ? navigateTo : null}
+              focusedCommentId={focusedCommentId}
               autoAdvance={autoAdvance}
               onAutoAdvanceChange={setAutoAdvance}
             />
@@ -148,6 +151,7 @@ export function ClipViewerDialog({
               prev={prev}
               next={next}
               onNavigate={onNavigate ? navigateTo : null}
+              focusedCommentId={focusedCommentId}
               autoAdvance={autoAdvance}
               onAutoAdvanceChange={setAutoAdvance}
             />
@@ -192,6 +196,7 @@ interface ClipViewerDialogBodyProps {
   prev?: ClipListEntry | null
   next?: ClipListEntry | null
   onNavigate?: ((entry: ClipListEntry) => void) | null
+  focusedCommentId?: string | null
   autoAdvance: boolean
   onAutoAdvanceChange: (next: boolean) => void
 }
@@ -202,17 +207,21 @@ function ClipViewerDialogBody({
   prev,
   next,
   onNavigate,
+  focusedCommentId = null,
   autoAdvance,
   onAutoAdvanceChange,
 }: ClipViewerDialogBodyProps) {
   const [editOpen, setEditOpen] = React.useState(false)
   const handle = row.authorUsername
   const author = row.authorName || handle
-  const initials = displayInitials(author)
-  const { bg, fg } = avatarTint(row.authorId || handle)
+  const avatar = userAvatar({
+    id: row.authorId,
+    username: handle,
+    name: author,
+    image: row.authorImage,
+  })
   const gameLabel = clipGameLabel(row)
   const thumbnail = row.thumbKey ? clipThumbnailUrl(row.id, apiOrigin()) : null
-  const avatarSrc = userImageSrc(row.authorImage)
 
   const canNavigate = Boolean(onNavigate)
   const showPrev = canNavigate && Boolean(prev)
@@ -225,7 +234,7 @@ function ClipViewerDialogBody({
 
   return (
     <>
-      <DialogViewportContent className="overflow-visible rounded-[20px] transition-[filter,opacity,transform] duration-100">
+      <DialogViewportContent className="overflow-visible rounded-[20px] bg-surface transition-[filter,opacity,transform] duration-100">
         <DialogClose
           render={
             <Button
@@ -288,8 +297,8 @@ function ClipViewerDialogBody({
                 variants={row.variants}
                 status={row.status}
                 encodeProgress={row.encodeProgress}
-                aspectRatio={16 / 9}
-                className="overflow-hidden rounded-[14px] border border-white/10 shadow-[0_30px_90px_-42px_rgba(0,0,0,0.92)] lg:rounded-none lg:border-t-0 lg:border-r-0 lg:border-l-0 lg:shadow-none [&_img]:object-cover [&_video]:object-cover"
+                maxDisplayHeight="min(82dvh, calc(100dvh - 220px))"
+                className="overflow-hidden rounded-[14px] shadow-[0_30px_90px_-42px_rgba(0,0,0,0.92)] ring-1 ring-white/10 ring-inset lg:rounded-none lg:shadow-none"
                 onPlayThreshold={() => void api.clips.recordView(row.id)}
                 onEnded={handleEnded}
                 autoPlay
@@ -314,10 +323,10 @@ function ClipViewerDialogBody({
                   handle,
                   name: author,
                   avatar: {
-                    initials,
-                    src: avatarSrc,
-                    bg,
-                    fg,
+                    initials: avatar.initials,
+                    src: avatar.src,
+                    bg: avatar.bg,
+                    fg: avatar.fg,
                   },
                 }}
                 onEdit={() => setEditOpen(true)}
@@ -329,7 +338,8 @@ function ClipViewerDialogBody({
           <ClipComments
             clipId={row.id}
             clipAuthorId={row.authorId}
-            className="min-h-[320px] border-t border-border/70 bg-surface lg:min-h-0 lg:border-t-0 lg:border-l"
+            focusedCommentId={focusedCommentId}
+            className="min-h-[320px] border-t border-border/70 bg-surface lg:min-h-0 lg:border-t-0 lg:border-l lg:border-border"
           />
         </div>
       </DialogViewportContent>

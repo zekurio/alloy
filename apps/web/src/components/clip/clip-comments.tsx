@@ -1,6 +1,4 @@
 import * as React from "react"
-import { PinIcon } from "lucide-react"
-
 import {
   Avatar,
   AvatarFallback,
@@ -21,13 +19,7 @@ import {
   useTogglePinCommentMutation,
 } from "@/lib/comment-queries"
 import type { CommentRow } from "@workspace/api"
-import {
-  avatarTint,
-  displayInitials,
-  displayName,
-  userImageSrc,
-  useUserChipData,
-} from "@/lib/user-display"
+import { displayName, userAvatar, useUserChipData } from "@/lib/user-display"
 import {
   CommentActions,
   CommentBody,
@@ -44,19 +36,11 @@ const MAX_VISIBLE_REPLY_INDENT = 2
 interface ClipCommentsProps extends React.ComponentProps<"aside"> {
   clipId: string
   clipAuthorId: string
+  focusedCommentId?: string | null
 }
 
 type Sort = "top" | "new"
 type ReplyTarget = { id: string; authorName: string }
-
-function authorAvatarStyle(comment: CommentRow) {
-  const { bg, fg } = avatarTint(comment.author.id || comment.author.name)
-  return { background: bg, color: fg }
-}
-
-function useAuthorAvatarSrc(author: CommentRow["author"]): string | undefined {
-  return userImageSrc(author.image)
-}
 
 function countCommentTree(comment: CommentRow): number {
   return (
@@ -65,10 +49,23 @@ function countCommentTree(comment: CommentRow): number {
   )
 }
 
+function findCommentPath(
+  comments: CommentRow[],
+  commentId: string
+): string[] | null {
+  for (const comment of comments) {
+    if (comment.id === commentId) return [comment.id]
+    const replyPath = findCommentPath(comment.replies, commentId)
+    if (replyPath) return [comment.id, ...replyPath]
+  }
+  return null
+}
+
 function ClipComments({
   className,
   clipId,
   clipAuthorId,
+  focusedCommentId = null,
   ...props
 }: ClipCommentsProps) {
   const [draft, setDraft] = React.useState("")
@@ -77,7 +74,13 @@ function ClipComments({
   const [openReplyIds, setOpenReplyIds] = React.useState<Set<string>>(
     () => new Set()
   )
+  const [flashingCommentId, setFlashingCommentId] = React.useState<
+    string | null
+  >(null)
+  const commentRefs = React.useRef(new Map<string, HTMLLIElement>())
   const composerRef = React.useRef<HTMLTextAreaElement>(null)
+  const loadingFocusedCommentRef = React.useRef(false)
+  const flashedCommentRef = React.useRef<string | null>(null)
   const { data: session } = useSession()
   const me = useUserChipData(session?.user)
   const viewerId = session?.user?.id ?? null
@@ -95,7 +98,16 @@ function ClipComments({
     setReplyTarget(null)
     setSort("top")
     setOpenReplyIds(new Set())
+    setFlashingCommentId(null)
+    loadingFocusedCommentRef.current = false
+    flashedCommentRef.current = null
   }, [clipId])
+
+  React.useEffect(() => {
+    flashedCommentRef.current = null
+    setFlashingCommentId(null)
+    loadingFocusedCommentRef.current = false
+  }, [focusedCommentId])
 
   const commentsQuery = useCommentsQuery(clipId, sort)
   const comments = React.useMemo(
@@ -133,6 +145,19 @@ function ClipComments({
     setReplyTarget(null)
   }
 
+  async function copyCommentLink(commentId: string) {
+    const url = new URL(window.location.href)
+    url.hash = ""
+    url.searchParams.set("comment", commentId)
+
+    try {
+      await navigator.clipboard.writeText(url.toString())
+      toast.success("Comment link copied")
+    } catch {
+      toast.error("Couldn't copy comment link")
+    }
+  }
+
   async function submitComment() {
     const body = draft.trim()
     if (!body || !isSignedIn) return
@@ -157,6 +182,65 @@ function ClipComments({
       )
     }
   }
+
+  React.useEffect(() => {
+    if (!focusedCommentId) return
+    const path = findCommentPath(comments, focusedCommentId)
+
+    if (!path) {
+      if (
+        commentsQuery.hasNextPage &&
+        !commentsQuery.isFetchingNextPage &&
+        !loadingFocusedCommentRef.current
+      ) {
+        loadingFocusedCommentRef.current = true
+        void commentsQuery.fetchNextPage().finally(() => {
+          loadingFocusedCommentRef.current = false
+        })
+      }
+      return
+    }
+
+    const ancestorIds = path.slice(0, -1)
+    if (ancestorIds.length > 0) {
+      setOpenReplyIds((current) => {
+        let changed = false
+        const next = new Set(current)
+        for (const id of ancestorIds) {
+          if (!next.has(id)) {
+            next.add(id)
+            changed = true
+          }
+        }
+        return changed ? next : current
+      })
+    }
+
+    if (flashedCommentRef.current === focusedCommentId) return
+
+    const scrollAndFlash = () => {
+      const target = commentRefs.current.get(focusedCommentId)
+      if (!target) return
+      flashedCommentRef.current = focusedCommentId
+      target.scrollIntoView({ block: "center", behavior: "smooth" })
+      setFlashingCommentId(focusedCommentId)
+      window.setTimeout(() => {
+        setFlashingCommentId((current) =>
+          current === focusedCommentId ? null : current
+        )
+      }, 2400)
+    }
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(scrollAndFlash)
+    })
+  }, [
+    comments,
+    commentsQuery,
+    commentsQuery.hasNextPage,
+    commentsQuery.isFetchingNextPage,
+    focusedCommentId,
+  ])
 
   return (
     <aside
@@ -196,8 +280,11 @@ function ClipComments({
                   depth={0}
                   repliesOpen={isRepliesOpen(comment.id)}
                   isRepliesOpen={isRepliesOpen}
+                  flashingCommentId={flashingCommentId}
+                  commentRefs={commentRefs}
                   onToggleReplies={toggleReplies}
                   onStartReply={startReply}
+                  onCopyLink={copyCommentLink}
                 />
               ))}
             </ul>
@@ -221,7 +308,7 @@ function ClipComments({
         )}
       </div>
 
-      <div className="border-t border-border bg-surface p-3">
+      <div className="relative bg-surface p-3 shadow-[inset_0_1px_0_var(--border)]">
         <div className="mb-1.5">
           <CommentsSortDropdown sort={sort} onSortChange={setSort} />
         </div>
@@ -259,8 +346,11 @@ function CommentRowView({
   depth,
   repliesOpen,
   isRepliesOpen,
+  flashingCommentId,
+  commentRefs,
   onToggleReplies,
   onStartReply,
+  onCopyLink,
 }: {
   comment: CommentRow
   first?: boolean
@@ -270,8 +360,11 @@ function CommentRowView({
   depth: number
   repliesOpen: boolean
   isRepliesOpen: (commentId: string) => boolean
+  flashingCommentId: string | null
+  commentRefs: React.MutableRefObject<Map<string, HTMLLIElement>>
   onToggleReplies: (commentId: string) => void
   onStartReply: (target: ReplyTarget) => void
+  onCopyLink: (commentId: string) => void
 }) {
   const [expanded, setExpanded] = React.useState(false)
   const isDeleted = comment.body.length === 0
@@ -322,44 +415,40 @@ function CommentRowView({
   }
 
   const authorName = displayName(comment.author)
-  const avatarStyle = authorAvatarStyle(comment)
-  const initials = displayInitials(authorName)
-  const authorAvatarSrc = useAuthorAvatarSrc(comment.author)
+  const avatar = userAvatar(comment.author)
+  const avatarStyle = { background: avatar.bg, color: avatar.fg }
 
   return (
     <li
+      ref={(node) => {
+        if (node) commentRefs.current.set(comment.id, node)
+        else commentRefs.current.delete(comment.id)
+      }}
+      data-comment-id={comment.id}
       className={cn(
-        "flex min-w-0",
+        "flex min-w-0 scroll-mt-6 rounded-md transition-[background-color,box-shadow] duration-700",
         isTopLevel ? "gap-3 px-4 py-3" : "gap-2 py-2",
         isTopLevel && !first && "border-t border-border",
-        comment.pinned &&
-          "bg-[color-mix(in_oklab,var(--accent)_4%,transparent)]"
+        flashingCommentId === comment.id &&
+          "bg-accent-soft shadow-[inset_3px_0_0_var(--accent),0_0_0_1px_var(--accent-border)]"
       )}
     >
       <Avatar
         size={isTopLevel ? "md" : "sm"}
-        className="shrink-0"
+        className="mt-1 shrink-0"
         style={avatarStyle}
       >
-        {authorAvatarSrc ? (
-          <AvatarImage src={authorAvatarSrc} alt={authorName} />
-        ) : null}
-        <AvatarFallback style={avatarStyle}>{initials}</AvatarFallback>
+        {avatar.src ? <AvatarImage src={avatar.src} alt={authorName} /> : null}
+        <AvatarFallback style={avatarStyle}>{avatar.initials}</AvatarFallback>
       </Avatar>
 
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        {comment.pinned && isTopLevel && !isDeleted ? (
-          <div className="inline-flex items-center gap-1 text-xs text-foreground-faint">
-            <PinIcon className="size-3" />
-            Pinned
-          </div>
-        ) : null}
-        <div className="flex items-baseline gap-2 leading-none">
+        <div className="flex items-baseline gap-2 leading-4">
           <span className="text-[0.9375rem] font-semibold text-foreground">
             {authorName}
           </span>
           {comment.author.id === clipAuthorId ? (
-            <span className="inline-flex items-center rounded-sm bg-accent-soft px-1.5 py-0.5 text-[0.6875rem] leading-none font-semibold tracking-wide text-accent uppercase">
+            <span className="inline-flex items-center rounded-sm bg-accent-soft px-1.5 py-0.5 text-[0.6875rem] leading-3 font-semibold tracking-wide text-accent uppercase">
               Author
             </span>
           ) : null}
@@ -367,7 +456,6 @@ function CommentRowView({
             {formatRelativeTime(comment.createdAt)}
           </span>
           <CommentMenu
-            canPin={canPin}
             canDelete={canDelete}
             deletePending={del.isPending}
             deleteTitle={
@@ -375,8 +463,7 @@ function CommentRowView({
             }
             deleteDescription="This will remove the comment text. Replies will stay visible."
             deleteActionLabel={isTopLevel ? "Delete comment" : "Delete reply"}
-            pinned={comment.pinned}
-            onPinToggle={onPinToggle}
+            onCopyLink={() => onCopyLink(comment.id)}
             onDelete={onDelete}
           />
         </div>
@@ -400,6 +487,9 @@ function CommentRowView({
           canReply={canReply}
           showLike={!isDeleted}
           compactReplies={depth > 0}
+          pinned={comment.pinned}
+          canPin={canPin}
+          onPinToggle={onPinToggle}
           onToggleLike={onToggleLike}
           onToggleReplies={() => onToggleReplies(comment.id)}
           onStartReply={() =>
@@ -426,8 +516,11 @@ function CommentRowView({
                 depth={depth + 1}
                 repliesOpen={isRepliesOpen(reply.id)}
                 isRepliesOpen={isRepliesOpen}
+                flashingCommentId={flashingCommentId}
+                commentRefs={commentRefs}
                 onToggleReplies={onToggleReplies}
                 onStartReply={onStartReply}
+                onCopyLink={onCopyLink}
               />
             ))}
           </ul>

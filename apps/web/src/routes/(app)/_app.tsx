@@ -14,26 +14,35 @@ import { useBrowseAuthGate } from "@/lib/auth-hooks"
 
 interface AppSearch {
   clip?: string
+  comment?: string
 }
 
 export const Route = createFileRoute("/(app)/_app")({
   beforeLoad: requireBrowseAuthBeforeLoad,
   validateSearch: (search: Record<string, unknown>): AppSearch => {
     const clip = search.clip
-    return typeof clip === "string" && clip.length > 0 ? { clip } : {}
+    const comment = search.comment
+    return {
+      ...(typeof clip === "string" && clip.length > 0 ? { clip } : {}),
+      ...(typeof comment === "string" && comment.length > 0 ? { comment } : {}),
+    }
   },
   component: AppLayout,
 })
 
 function AppLayout() {
   const { allowed } = useBrowseAuthGate()
-  const { clip } = Route.useSearch()
+  const { clip, comment } = Route.useSearch()
   const navigate = useNavigate()
 
   const handleCloseClipModal = () => {
     void navigate({
       to: ".",
-      search: (prev: AppSearch) => ({ ...prev, clip: undefined }),
+      search: (prev: AppSearch) => ({
+        ...prev,
+        clip: undefined,
+        comment: undefined,
+      }),
       replace: true,
     })
   }
@@ -42,7 +51,11 @@ function AppLayout() {
     (entry: { id: string; gameSlug: string | null }) => {
       void navigate({
         to: ".",
-        search: (prev: AppSearch) => ({ ...prev, clip: entry.id }),
+        search: (prev: AppSearch) => ({
+          ...prev,
+          clip: entry.id,
+          comment: undefined,
+        }),
         ...(entry.gameSlug
           ? {
               mask: {
@@ -68,6 +81,7 @@ function AppLayout() {
       </UploadFlowProvider>
       <ClipViewerDialog
         clipId={clip ?? null}
+        focusedCommentId={comment ?? null}
         onClose={handleCloseClipModal}
         onNavigate={handleNavigateClip}
       />

@@ -9,7 +9,11 @@ import { block, clip, follow } from "@workspace/db/schema"
 
 import { db } from "../db"
 import { clearSessionCookies } from "../lib/auth/cookies"
-import { deleteAllSessionsForUser, getSession, requireAnySession } from "../lib/auth/session"
+import {
+  deleteAllSessionsForUser,
+  getSession,
+  requireAnySession,
+} from "../lib/auth/session"
 import { assertCanRemoveAdmin } from "../lib/auth/identity"
 import { deleteClipRowAndAssets } from "../lib/clip-delete"
 import {

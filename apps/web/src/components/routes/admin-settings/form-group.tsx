@@ -21,7 +21,7 @@ export function FormGroup({
     <div
       className={cn(
         "flex flex-col gap-3 border-border py-3 not-first:border-t first:pt-0 last:pb-0",
-        className,
+        className
       )}
     >
       <div className="flex flex-col gap-0.5">

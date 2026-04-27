@@ -81,7 +81,5 @@ function verifyCookie(raw: string): string | null {
 }
 
 function hmac(value: string): string {
-  return createHmac("sha256", authSecret)
-    .update(value)
-    .digest("base64url")
+  return createHmac("sha256", authSecret).update(value).digest("base64url")
 }

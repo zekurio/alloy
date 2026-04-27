@@ -3,8 +3,12 @@ import { Link } from "@tanstack/react-router"
 import type { PublicAuthConfig } from "@workspace/api"
 
 import { AlloyLogo } from "@workspace/ui/components/alloy-logo"
+import { cn } from "@workspace/ui/lib/utils"
 
-import { LoginArtwork } from "@/components/auth/login-artwork"
+import {
+  hasLoginArtworkClips,
+  LoginArtwork,
+} from "@/components/auth/login-artwork"
 import { useRedirectIfAuthed } from "@/lib/auth-hooks"
 import { usePasskeySupport } from "@/lib/passkey-support"
 import type { fetchPublicClips } from "@/lib/public-clips"
@@ -31,24 +35,39 @@ export function SignUpPageInner({ clips, config }: SignUpPageInnerProps) {
   const showPasskeySignUp = canPasskeySignUp && passkeySupported
   const oauthProvider = config.openRegistrations ? config.provider : null
   const canOAuthSignUp = oauthProvider !== null
+  const showArtwork = hasLoginArtworkClips(clips)
 
   return (
     <div className="relative min-h-screen w-full bg-background text-foreground">
-      <div className="absolute inset-0 overflow-hidden">
-        <LoginArtwork clips={clips} />
-      </div>
+      {showArtwork ? (
+        <div className="absolute inset-0 overflow-hidden">
+          <LoginArtwork clips={clips} />
+        </div>
+      ) : null}
 
-      <div className="relative grid min-h-screen lg:grid-cols-[1fr_minmax(480px,0.7fr)]">
-        <div className="hidden lg:block" />
-
-        <div className="relative flex min-h-screen flex-col bg-background/85 px-6 py-8 backdrop-blur-md sm:px-10 lg:bg-background lg:backdrop-blur-none">
-          <header className="flex items-center">
+      <div
+        className={cn(
+          "relative flex min-h-screen w-full",
+          showArtwork
+            ? "items-center justify-center lg:justify-end"
+            : "items-center justify-center"
+        )}
+      >
+        <div
+          className={cn(
+            "relative flex min-h-screen w-full flex-col px-6 py-8 sm:px-10",
+            showArtwork
+              ? "max-w-none bg-background/85 backdrop-blur-md lg:max-w-[432px]"
+              : "max-w-md"
+          )}
+        >
+          <header className="absolute top-8 left-6 flex items-center sm:left-10">
             <Link to="/" className="inline-flex items-center">
               <AlloyLogo showText size={36} />
             </Link>
           </header>
 
-          <div className="flex flex-1 items-center">
+          <div className="flex flex-1 items-center justify-center py-24">
             <div className="w-full max-w-sm">
               <div className="mb-8 space-y-1.5">
                 <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">

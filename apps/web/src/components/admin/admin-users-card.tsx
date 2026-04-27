@@ -71,12 +71,7 @@ import {
   parseQuotaGiB,
   storageUsagePercent,
 } from "@/lib/storage-format"
-import {
-  avatarTint,
-  displayInitials,
-  displayName,
-  userImageSrc,
-} from "@/lib/user-display"
+import { displayName, userAvatar } from "@/lib/user-display"
 import type { AdminUsersResponse, AdminUserStorageRow } from "@workspace/api"
 
 type AdminUserRow = AdminUserStorageRow
@@ -247,7 +242,10 @@ function useAdminUsers(currentUserId: string) {
   }
 }
 
-export function AdminUsersCard({ currentUserId, hideHeader }: AdminUsersCardProps) {
+export function AdminUsersCard({
+  currentUserId,
+  hideHeader,
+}: AdminUsersCardProps) {
   const {
     users,
     loadError,
@@ -336,9 +334,7 @@ function UsersTable({
           <TableHead>Email</TableHead>
           <TableHead className="w-[240px]">Storage</TableHead>
           <TableHead className="w-[104px]">
-            {action && (
-              <div className="flex justify-end">{action}</div>
-            )}
+            {action && <div className="flex justify-end">{action}</div>}
           </TableHead>
         </TableRow>
       </TableHeader>
@@ -376,16 +372,17 @@ function UserTableRow({
 }) {
   const isSelf = user.id === currentUserId
   const name = displayName(user)
-  const { bg, fg } = avatarTint(user.id || name)
+  const avatar = userAvatar(user)
+  const avatarStyle = { background: avatar.bg, color: avatar.fg }
 
   return (
     <TableRow>
       <TableCell>
         <div className="flex items-center gap-2">
-          <Avatar className="size-7">
-            <AvatarImage src={userImageSrc(user.image)} />
-            <AvatarFallback style={{ background: bg, color: fg }}>
-              {displayInitials(name)}
+          <Avatar className="size-7" style={avatarStyle}>
+            {avatar.src ? <AvatarImage src={avatar.src} alt={name} /> : null}
+            <AvatarFallback style={avatarStyle}>
+              {avatar.initials}
             </AvatarFallback>
           </Avatar>
           <div className="flex items-center gap-2">

@@ -12,11 +12,7 @@ function SectionDiv({
   baseClassName: string
 }) {
   return (
-    <div
-      data-slot={slot}
-      className={cn(baseClassName, className)}
-      {...props}
-    />
+    <div data-slot={slot} className={cn(baseClassName, className)} {...props} />
   )
 }
 
