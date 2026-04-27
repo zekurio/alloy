@@ -6,6 +6,7 @@ import { Toaster } from "@workspace/ui/components/sonner"
 
 import { ClientOnly } from "@/components/app/client-only"
 import { ReactivateAccountPrompt } from "@/components/account/reactivate-account-prompt"
+import { ConfigEvents } from "@/lib/config-events"
 import { redirectToSetupBeforeLoad } from "@/lib/auth-guards"
 
 export const Route = createRootRouteWithContext<{
@@ -22,6 +23,7 @@ function RootLayout() {
       <Outlet />
       <ClientOnly>
         <React.Suspense fallback={null}>
+          <ConfigEvents />
           <ReactivateAccountPrompt />
         </React.Suspense>
       </ClientOnly>

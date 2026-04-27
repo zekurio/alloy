@@ -161,14 +161,14 @@ function buildPatch(
   const s3Patch: Record<string, unknown> = {
     bucket: form.s3.bucket.trim(),
     region: form.s3.region.trim(),
+    endpoint:
+      form.s3.endpoint.trim().length > 0 ? form.s3.endpoint.trim() : null,
+    accessKeyId:
+      form.s3.accessKeyId.trim().length > 0
+        ? form.s3.accessKeyId.trim()
+        : null,
     forcePathStyle: form.s3.forcePathStyle,
     presignExpiresSec: presignSec,
-  }
-  if (form.s3.endpoint.trim().length > 0) {
-    s3Patch.endpoint = form.s3.endpoint.trim()
-  }
-  if (form.s3.accessKeyId.trim().length > 0) {
-    s3Patch.accessKeyId = form.s3.accessKeyId.trim()
   }
   if (
     form.s3.secretAccessKey !== initial.s3.secretAccessKey &&
