@@ -85,6 +85,8 @@ const currentUserStorageQueryKey = ["user", "storage"] as const
 
 interface AdminUsersCardProps {
   currentUserId: string
+  /** Hide the section header (useful when already wrapped in a titled collapsible). */
+  hideHeader?: boolean
 }
 
 function useAdminUsersQuery() {
@@ -245,7 +247,7 @@ function useAdminUsers(currentUserId: string) {
   }
 }
 
-export function AdminUsersCard({ currentUserId }: AdminUsersCardProps) {
+export function AdminUsersCard({ currentUserId, hideHeader }: AdminUsersCardProps) {
   const {
     users,
     loadError,
@@ -257,46 +259,54 @@ export function AdminUsersCard({ currentUserId }: AdminUsersCardProps) {
   } = useAdminUsers(currentUserId)
   const [seedOpen, setSeedOpen] = React.useState(false)
 
+  const seedButton = (
+    <Dialog open={seedOpen} onOpenChange={setSeedOpen}>
+      <DialogTrigger render={<Button variant="primary" size="sm" />}>
+        <UserPlusIcon />
+        Seed user
+      </DialogTrigger>
+      <SeedUserDialog
+        onCreated={async () => {
+          setSeedOpen(false)
+          await refresh()
+        }}
+      />
+    </Dialog>
+  )
+
+  const content = loadError ? (
+    <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+      {loadError}
+    </div>
+  ) : users === null ? (
+    <div className="grid place-items-center py-3 text-foreground-muted">
+      <Spinner className="size-4" />
+    </div>
+  ) : users.length === 0 ? (
+    <p className="text-sm text-foreground-muted">No users yet.</p>
+  ) : (
+    <UsersTable
+      users={users}
+      currentUserId={currentUserId}
+      busyId={busyId}
+      onChangeRole={onChangeRole}
+      onChangeQuota={onChangeQuota}
+      onDelete={onDelete}
+      action={hideHeader ? seedButton : undefined}
+    />
+  )
+
+  if (hideHeader) {
+    return content
+  }
+
   return (
     <Section>
       <SectionHeader>
         <SectionTitle>Users</SectionTitle>
-        <Dialog open={seedOpen} onOpenChange={setSeedOpen}>
-          <DialogTrigger render={<Button variant="primary" size="sm" />}>
-            <UserPlusIcon />
-            Seed user
-          </DialogTrigger>
-          <SeedUserDialog
-            onCreated={async () => {
-              setSeedOpen(false)
-              await refresh()
-            }}
-          />
-        </Dialog>
+        {seedButton}
       </SectionHeader>
-
-      <SectionContent>
-        {loadError ? (
-          <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-            {loadError}
-          </div>
-        ) : users === null ? (
-          <div className="grid place-items-center py-3 text-foreground-muted">
-            <Spinner className="size-4" />
-          </div>
-        ) : users.length === 0 ? (
-          <p className="text-sm text-foreground-muted">No users yet.</p>
-        ) : (
-          <UsersTable
-            users={users}
-            currentUserId={currentUserId}
-            busyId={busyId}
-            onChangeRole={onChangeRole}
-            onChangeQuota={onChangeQuota}
-            onDelete={onDelete}
-          />
-        )}
-      </SectionContent>
+      <SectionContent>{content}</SectionContent>
     </Section>
   )
 }
@@ -308,6 +318,7 @@ function UsersTable({
   onChangeRole,
   onChangeQuota,
   onDelete,
+  action,
 }: {
   users: AdminUserRow[]
   currentUserId: string
@@ -315,6 +326,7 @@ function UsersTable({
   onChangeRole: (user: AdminUserRow, nextRole: "admin" | "user") => void
   onChangeQuota: (user: AdminUserRow, storageQuotaBytes: number | null) => void
   onDelete: (user: AdminUserRow) => void
+  action?: React.ReactNode
 }) {
   return (
     <Table>
@@ -323,7 +335,11 @@ function UsersTable({
           <TableHead>User</TableHead>
           <TableHead>Email</TableHead>
           <TableHead className="w-[240px]">Storage</TableHead>
-          <TableHead className="w-[104px]" />
+          <TableHead className="w-[104px]">
+            {action && (
+              <div className="flex justify-end">{action}</div>
+            )}
+          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -537,7 +553,9 @@ function EditUserDialog({
                 disabled={busy}
                 onChange={(e) => setQuotaGiB(e.target.value)}
               />
-              <FieldDescription>Leave blank for unlimited storage.</FieldDescription>
+              <FieldDescription>
+                Leave blank for unlimited storage.
+              </FieldDescription>
             </Field>
           </DialogBody>
           <DialogFooter>

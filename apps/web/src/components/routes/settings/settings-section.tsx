@@ -32,20 +32,20 @@ export function SettingsSection({
       onOpenChange={setOpen}
       className="overflow-hidden rounded-md border border-border bg-surface"
     >
-      <CollapsibleTrigger className="flex w-full cursor-pointer items-start gap-3 px-4 py-3.5 text-left transition-colors hover:bg-white/[0.02]">
-        {Icon && <Icon className="mt-0.5 size-[18px] shrink-0 text-primary" />}
-        <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold">{title}</div>
-          {description && (
-            <p className="mt-0.5 text-xs text-foreground-dim">{description}</p>
-          )}
+      <CollapsibleTrigger className="flex w-full cursor-pointer flex-col px-4 py-3 text-left transition-colors hover:bg-white/[0.02]">
+        <div className="flex w-full items-center gap-3">
+          {Icon && <Icon className="size-[18px] shrink-0 text-primary" />}
+          <div className="min-w-0 flex-1 text-sm font-semibold">{title}</div>
+          <ChevronDownIcon
+            className={cn(
+              "size-4 shrink-0 text-foreground-dim transition-transform duration-200",
+              open && "rotate-180"
+            )}
+          />
         </div>
-        <ChevronDownIcon
-          className={cn(
-            "mt-0.5 size-4 shrink-0 text-foreground-dim transition-transform duration-200",
-            open && "rotate-180"
-          )}
-        />
+        {description && (
+          <p className="mt-1 text-xs text-foreground-dim">{description}</p>
+        )}
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="border-t border-border px-4 py-4">{children}</div>
