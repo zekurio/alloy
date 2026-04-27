@@ -1,6 +1,5 @@
 import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
-import { useRouter } from "@tanstack/react-router"
 import {
   DatabaseIcon,
   KeyRoundIcon,
@@ -27,7 +26,7 @@ import { StorageConfigCard } from "@/components/routes/admin-settings/storage-co
 import { SettingsSection } from "@/components/routes/settings/settings-section"
 import { type AdminRuntimeConfig } from "@workspace/api"
 import { api } from "@/lib/api"
-import { invalidateAuthConfig } from "@/lib/session-suspense"
+import { publishRuntimeConfigUpdate } from "@/lib/runtime-config-events"
 
 const adminRuntimeConfigQueryKey = ["admin", "runtime-config"] as const
 
@@ -59,7 +58,6 @@ type BoolToggleKey =
 function useAdminToggles(
   setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>
 ) {
-  const router = useRouter()
   const patch = async (
     key: BoolToggleKey,
     next: boolean,
@@ -72,8 +70,7 @@ function useAdminToggles(
     })
     try {
       const updated = await api.admin.updateRuntimeConfig({ [key]: next })
-      invalidateAuthConfig()
-      void router.invalidate()
+      publishRuntimeConfigUpdate({ authConfigChanged: true })
       setConfig(updated)
       toast.success(successMsg)
     } catch (cause) {
