@@ -32,7 +32,7 @@ type StringFieldController = {
 }
 
 type PasskeySignUpFormProps = {
-  redirectTo?: "/" | "/user-settings"
+  redirectTo?: "/" | "/setup" | "/user-settings"
   successMessage?: string
 }
 
