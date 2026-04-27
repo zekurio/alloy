@@ -14,7 +14,6 @@ import {
   type RuntimeConfig,
 } from "@workspace/contracts"
 import { env } from "../env"
-import { publishConfigChange } from "./config-events"
 import {
   OAuthProviderSchema,
   OAuthProviderSubmissionSchema,
@@ -431,7 +430,6 @@ function apply(next: RuntimeConfig, persist: boolean): void {
   const prev = state
   if (persist) writeToDisk(next)
   state = next
-  publishConfigChange(state, prev)
   for (const listener of listeners) {
     try {
       listener(state, prev)
