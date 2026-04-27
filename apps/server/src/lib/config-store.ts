@@ -215,26 +215,36 @@ const FsStorageConfigSchema = z.object({
 })
 
 const S3StorageConfigSchema = z.object({
-  bucket: z.string().default(""),
-  region: z.string().default("auto"),
+  bucket: z.string().default(env.S3_BUCKET ?? ""),
+  region: z.string().default(env.S3_REGION),
   endpoint: z.string().url().optional(),
   accessKeyId: z.string().optional(),
   secretAccessKey: z.string().optional(),
-  forcePathStyle: z.boolean().default(false),
-  presignExpiresSec: z.number().int().positive().default(900),
+  forcePathStyle: z.boolean().default(env.S3_FORCE_PATH_STYLE),
+  presignExpiresSec: z
+    .number()
+    .int()
+    .positive()
+    .default(env.S3_PRESIGN_EXPIRES_SEC),
 })
 
 const DEFAULT_FS_STORAGE_CONFIG = FsStorageConfigSchema.parse({
-  root: "./data/storage",
-  publicBaseUrl: env.PUBLIC_SERVER_URL,
-  hmacSecret: randomBytes(32).toString("base64url"),
+  root: env.STORAGE_FS_ROOT,
+  publicBaseUrl: env.STORAGE_PUBLIC_BASE_URL,
+  hmacSecret:
+    env.STORAGE_HMAC_SECRET && env.STORAGE_HMAC_SECRET.length >= 32
+      ? env.STORAGE_HMAC_SECRET
+      : randomBytes(32).toString("base64url"),
 })
 
 const DEFAULT_S3_STORAGE_CONFIG = S3StorageConfigSchema.parse({
-  bucket: "",
-  region: "auto",
-  forcePathStyle: false,
-  presignExpiresSec: 900,
+  bucket: env.S3_BUCKET ?? "",
+  region: env.S3_REGION,
+  endpoint: env.S3_ENDPOINT,
+  accessKeyId: env.S3_ACCESS_KEY_ID,
+  secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+  forcePathStyle: env.S3_FORCE_PATH_STYLE,
+  presignExpiresSec: env.S3_PRESIGN_EXPIRES_SEC,
 })
 
 const StorageConfigSchema = z
@@ -265,7 +275,7 @@ const RuntimeConfigSchema = z.object({
     IntegrationsConfigSchema.parse({})
   ),
   storage: StorageConfigSchema.default({
-    driver: "fs",
+    driver: env.STORAGE_DRIVER,
     fs: DEFAULT_FS_STORAGE_CONFIG,
     s3: DEFAULT_S3_STORAGE_CONFIG,
   }),

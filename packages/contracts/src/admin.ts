@@ -125,6 +125,22 @@ export type AdminStorageConfig =
 
 export type StorageConfig = AdminStorageConfig
 
+export type AdminFsStorageConfigPatch = Partial<AdminFsStorageConfig>
+
+export type AdminS3StorageConfigPatch = Partial<
+  Omit<AdminS3StorageConfig, "endpoint" | "accessKeyId" | "secretAccessKey">
+> & {
+  endpoint?: string | null
+  accessKeyId?: string | null
+  secretAccessKey?: string | null
+}
+
+export interface AdminStorageConfigPatch {
+  driver?: StorageDriverKind
+  fs?: AdminFsStorageConfigPatch
+  s3?: AdminS3StorageConfigPatch
+}
+
 export interface AdminEncoderCapabilities {
   ffmpegOk: boolean
   ffmpegVersion: string | null
