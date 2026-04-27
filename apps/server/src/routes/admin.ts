@@ -437,12 +437,29 @@ export const adminRoute = new Hono()
   .patch("/storage", zValidator("json", StorageConfigPatchSchema), (c) => {
     const patch = c.req.valid("json")
     const current = configStore.get("storage")
-    const next = {
-      driver: patch.driver ?? current.driver,
-      fs: { ...current.fs, ...patch.fs },
-      s3: { ...current.s3, ...patch.s3 },
+    const next = structuredClone(current)
+    next.driver = patch.driver ?? current.driver
+    next.fs = { ...current.fs, ...patch.fs }
+
+    if (patch.s3?.bucket !== undefined) next.s3.bucket = patch.s3.bucket
+    if (patch.s3?.region !== undefined) next.s3.region = patch.s3.region
+    if (patch.s3?.forcePathStyle !== undefined) {
+      next.s3.forcePathStyle = patch.s3.forcePathStyle
+    }
+    if (patch.s3?.presignExpiresSec !== undefined) {
+      next.s3.presignExpiresSec = patch.s3.presignExpiresSec
     }
 
+    if (patch.s3?.endpoint === null) {
+      delete next.s3.endpoint
+    } else if (patch.s3?.endpoint !== undefined) {
+      next.s3.endpoint = patch.s3.endpoint
+    }
+    if (patch.s3?.accessKeyId === null) {
+      delete next.s3.accessKeyId
+    } else if (patch.s3?.accessKeyId !== undefined) {
+      next.s3.accessKeyId = patch.s3.accessKeyId
+    }
     if (
       patch.fs?.hmacSecret === undefined ||
       patch.fs.hmacSecret === REDACTED_SENTINEL
@@ -454,6 +471,8 @@ export const adminRoute = new Hono()
       patch.s3.secretAccessKey === REDACTED_SENTINEL
     ) {
       next.s3.secretAccessKey = current.s3.secretAccessKey
+    } else if (patch.s3?.secretAccessKey === null) {
+      delete next.s3.secretAccessKey
     }
 
     try {
