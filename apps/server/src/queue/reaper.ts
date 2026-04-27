@@ -1,4 +1,4 @@
-import { and, eq, lt, or, sql } from "drizzle-orm"
+import { and, eq, isNull, lt, or, sql } from "drizzle-orm"
 import type { PgBoss } from "pg-boss"
 
 import { clip } from "@workspace/db/schema"
@@ -75,7 +75,11 @@ async function requeueStuckProcessing(boss: PgBoss): Promise<void> {
       and(
         or(
           eq(clip.status, "uploaded"),
-          and(eq(clip.status, "ready"), lt(clip.encodeProgress, 100))
+          and(
+            eq(clip.status, "ready"),
+            lt(clip.encodeProgress, 100),
+            isNull(clip.failureReason)
+          )
         ),
         lt(
           clip.updatedAt,
