@@ -1,13 +1,18 @@
 import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
+  ClapperboardIcon,
   DatabaseIcon,
+  DownloadIcon,
+  GaugeIcon,
+  ImageIcon,
   KeyRoundIcon,
-  LinkIcon,
   UploadIcon,
   UsersIcon,
+  WrenchIcon,
 } from "lucide-react"
 
+import { Button } from "@workspace/ui/components/button"
 import {
   Section,
   SectionContent,
@@ -162,7 +167,7 @@ function AuthSettingsSection({
       description="Configure sign-in methods and access controls."
     >
       <div className="flex flex-col gap-4">
-        <OAuthProviderCard config={config} onChange={setConfig} />
+        <OAuthProviderCard config={config} onChange={setConfig} hideHeader />
         <Section>
           <SectionHeader>
             <SectionTitle>Access controls</SectionTitle>
@@ -197,7 +202,7 @@ function AuthSettingsSection({
   )
 }
 
-function UploadSettingsSection({
+function EncoderSettingsSection({
   config,
   setConfig,
 }: {
@@ -206,20 +211,37 @@ function UploadSettingsSection({
 }) {
   return (
     <SettingsSection
-      icon={UploadIcon}
-      title="Uploads & encoding"
-      description="Configure video encoding settings and upload limits."
+      icon={ClapperboardIcon}
+      title="Encoder"
+      description="Configure video encoding and hardware acceleration."
     >
-      <div className="flex flex-col gap-4">
-        <EncoderConfigCard
-          encoder={config.encoder}
-          onChange={(next) => setConfig(next)}
-        />
-        <LimitsConfigCard
-          limits={config.limits}
-          onChange={(next) => setConfig(next)}
-        />
-      </div>
+      <EncoderConfigCard
+        encoder={config.encoder}
+        onChange={(next) => setConfig(next)}
+        hideHeader
+      />
+    </SettingsSection>
+  )
+}
+
+function LimitsSettingsSection({
+  config,
+  setConfig,
+}: {
+  config: AdminRuntimeConfig
+  setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>
+}) {
+  return (
+    <SettingsSection
+      icon={GaugeIcon}
+      title="Limits"
+      description="Set upload size and storage quota defaults."
+    >
+      <LimitsConfigCard
+        limits={config.limits}
+        onChange={(next) => setConfig(next)}
+        hideHeader
+      />
     </SettingsSection>
   )
 }
@@ -240,12 +262,13 @@ function StorageSettingsSection({
       <StorageConfigCard
         storage={config.storage}
         onChange={(next) => setConfig(next)}
+        hideHeader
       />
     </SettingsSection>
   )
 }
 
-function IntegrationSettingsSection({
+function SteamGridDBSettingsSection({
   config,
   setConfig,
 }: {
@@ -254,14 +277,124 @@ function IntegrationSettingsSection({
 }) {
   return (
     <SettingsSection
-      icon={LinkIcon}
-      title="Integrations"
-      description="Connect external services and webhooks."
+      icon={ImageIcon}
+      title="SteamGridDB"
+      description="Game artwork and metadata from SteamGridDB."
     >
       <IntegrationsConfigCard
         integrations={config.integrations}
         onChange={(next) => setConfig(next)}
+        hideHeader
       />
+    </SettingsSection>
+  )
+}
+
+function ConfigTransferSection({
+  setConfig,
+}: {
+  setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>
+}) {
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const [exporting, setExporting] = React.useState(false)
+  const [importing, setImporting] = React.useState(false)
+
+  async function onExport() {
+    setExporting(true)
+    try {
+      const data = await api.admin.exportRuntimeConfig()
+      const json = JSON.stringify(data, null, 2)
+      const blob = new Blob([json], { type: "application/json" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `alloy-config-${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success("Configuration exported")
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "Export failed")
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  async function onFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ""
+    setImporting(true)
+    try {
+      const text = await file.text()
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(text)
+      } catch {
+        throw new Error("Selected file is not valid JSON")
+      }
+      const updated = await api.admin.importRuntimeConfig(parsed)
+      publishRuntimeConfigUpdate({ authConfigChanged: true })
+      setConfig(updated)
+      toast.success("Configuration imported")
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "Import failed")
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  return (
+    <SettingsSection
+      icon={WrenchIcon}
+      title="Configuration"
+      description="Export or import server configuration as JSON."
+    >
+      <div className="flex flex-col">
+        <div className="flex items-start justify-between gap-4 py-3 border-b border-border first:pt-0">
+          <div className="min-w-0">
+            <div className="text-sm font-medium">Export</div>
+            <p className="mt-0.5 text-xs text-foreground-dim">
+              Download the current server configuration including secrets.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onExport}
+            disabled={exporting}
+          >
+            <DownloadIcon />
+            {exporting ? "Exporting..." : "Export"}
+          </Button>
+        </div>
+        <div className="flex items-start justify-between gap-4 py-3 last:pb-0">
+          <div className="min-w-0">
+            <div className="text-sm font-medium">Import</div>
+            <p className="mt-0.5 text-xs text-foreground-dim">
+              Replace the current configuration from a previously exported JSON
+              file.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+          >
+            <UploadIcon />
+            {importing ? "Importing..." : "Import"}
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={onFileSelected}
+          />
+        </div>
+      </div>
     </SettingsSection>
   )
 }
@@ -292,16 +425,18 @@ export function AdminSettingsSections({ userId }: { userId: string }) {
         onTogglePasskey={onTogglePasskey}
         onToggleRequireAuthToBrowse={onToggleRequireAuthToBrowse}
       />
-      <UploadSettingsSection config={config} setConfig={setConfig} />
+      <EncoderSettingsSection config={config} setConfig={setConfig} />
+      <LimitsSettingsSection config={config} setConfig={setConfig} />
       <StorageSettingsSection config={config} setConfig={setConfig} />
-      <IntegrationSettingsSection config={config} setConfig={setConfig} />
+      <SteamGridDBSettingsSection config={config} setConfig={setConfig} />
       <SettingsSection
         icon={UsersIcon}
         title="Users"
         description="Manage user accounts and permissions."
       >
-        <AdminUsersCard currentUserId={userId} />
+        <AdminUsersCard currentUserId={userId} hideHeader />
       </SettingsSection>
+      <ConfigTransferSection setConfig={setConfig} />
     </>
   )
 }
