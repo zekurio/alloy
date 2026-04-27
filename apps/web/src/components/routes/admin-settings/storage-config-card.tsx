@@ -476,7 +476,7 @@ function StorageActions({
     <SectionFooter>
       <div className="flex items-center gap-1.5 text-xs text-foreground-dim">
         <AlertCircleIcon className="size-3.5 shrink-0" />
-        <span>Changing the storage driver requires a server restart.</span>
+        <span>Storage changes apply immediately to new requests.</span>
       </div>
       <div className="ml-auto flex items-center gap-2">
         <Button
