@@ -49,6 +49,7 @@ class ReloadableStorageDriver implements StorageDriver {
     activeStorage.downloadToFile(...args)
   uploadFromFile: StorageDriver["uploadFromFile"] = (...args) =>
     activeStorage.uploadFromFile(...args)
+  copy: StorageDriver["copy"] = (...args) => activeStorage.copy(...args)
   mintDownloadUrl: StorageDriver["mintDownloadUrl"] = (...args) =>
     activeStorage.mintDownloadUrl(...args)
 }
@@ -66,7 +67,11 @@ export const storage: StorageDriver = new ReloadableStorageDriver()
 export type { StorageDriver, UploadTicket, UserAssetRole } from "./driver"
 export {
   clipAssetKey,
+  clipOriginalAssetKey,
   clipSourceAssetKey,
+  clipSourceMp4Key,
+  clipStagingThumbKey,
+  clipStagingVideoKey,
   clipVideoVariantKey,
   userAssetKey,
 } from "./driver"

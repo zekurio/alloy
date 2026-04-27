@@ -42,6 +42,7 @@ export type {
   AdminUserStorageRow,
   EncoderCodec,
   EncoderHwaccel,
+  EncoderOpenGraphTarget,
   UsernameClaim,
 } from "@workspace/contracts"
 

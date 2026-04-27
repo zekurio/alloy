@@ -17,7 +17,12 @@ import { requireSession } from "../lib/require-session"
 import { selectSourceStorageUsedBytes } from "../lib/storage-quota"
 import { isConfigured as isSteamGridDBConfigured } from "../lib/steamgriddb"
 import { ENCODE_JOB, getBoss } from "../queue"
-import { clipAssetKey, clipSourceAssetKey, storage } from "../storage"
+import {
+  clipAssetKey,
+  clipStagingThumbKey,
+  clipStagingVideoKey,
+  storage,
+} from "../storage"
 import { IdParam, InitiateBody, UpdateBody } from "./clips-helpers"
 
 type InitiateQuotaResult =
@@ -85,8 +90,8 @@ export const clipsUploadRoutes = new Hono()
 
       const clipId = crypto.randomUUID()
       const slug = nanoid(10)
-      const storageKey = clipSourceAssetKey(clipId, body.contentType)
-      const thumbKey = clipAssetKey(clipId, "thumb")
+      const storageKey = clipStagingVideoKey(clipId, body.contentType)
+      const thumbKey = clipStagingThumbKey(clipId)
 
       const privacy = body.privacy === "private" ? "private" : body.privacy
       const gameId = body.gameId
@@ -239,6 +244,7 @@ export const clipsUploadRoutes = new Hono()
           return c.json({ error: "Thumbnail bytes are missing" }, 400)
         }
       }
+      const canonicalThumbKey = clipAssetKey(id, "thumb")
 
       const quotaResult = await db.transaction<InitiateQuotaResult>(
         async (tx) => {
@@ -272,11 +278,32 @@ export const clipsUploadRoutes = new Hono()
         )
       }
 
+      if (row.thumbKey && row.thumbKey !== canonicalThumbKey) {
+        try {
+          await storage.copy({
+            fromKey: row.thumbKey,
+            toKey: canonicalThumbKey,
+            contentType: "image/jpeg",
+          })
+        } catch (err) {
+          const [current] = await db
+            .select({ status: clip.status })
+            .from(clip)
+            .where(eq(clip.id, id))
+            .limit(1)
+          if (current?.status !== "pending") {
+            return c.json({ error: "Clip is already being finalized" }, 409)
+          }
+          throw err
+        }
+      }
+
       const [transitioned] = await db
         .update(clip)
         .set({
           status: "uploaded",
           sizeBytes: resolved.size,
+          thumbKey: canonicalThumbKey,
           updatedAt: new Date(),
         })
         .where(
@@ -289,6 +316,9 @@ export const clipsUploadRoutes = new Hono()
         .returning({ id: clip.id })
       if (!transitioned) {
         return c.json({ error: "Clip is already being finalized" }, 409)
+      }
+      if (row.thumbKey && row.thumbKey !== canonicalThumbKey) {
+        await storage.delete(row.thumbKey).catch(() => undefined)
       }
 
       void publishClipUpsert(viewerId, id)

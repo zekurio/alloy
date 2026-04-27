@@ -9,6 +9,7 @@ import {
   STORAGE_DRIVERS,
   type EncoderCodec,
   type EncoderHwaccel,
+  type EncoderOpenGraphTarget,
   type RuntimeConfig,
 } from "@workspace/contracts"
 
@@ -95,6 +96,11 @@ const EncoderVariantSchema = z.preprocess(
     return variant
   },
   z.object({
+    id: z
+      .string()
+      .min(1)
+      .max(80)
+      .regex(/^[a-z0-9][a-z0-9-]*$/),
     name: z.string().min(1).max(64),
     codec: z.enum(ENCODER_CODECS).default("h264"),
     height: z
@@ -111,12 +117,36 @@ const EncoderVariantSchema = z.preprocess(
   })
 )
 
+const EncoderOpenGraphTargetSchema: z.ZodType<EncoderOpenGraphTarget> =
+  z.discriminatedUnion("type", [
+    z.object({ type: z.literal("none") }),
+    z.object({ type: z.literal("source") }),
+    z.object({ type: z.literal("defaultVariant") }),
+    z.object({
+      type: z.literal("variant"),
+      variantId: z
+        .string()
+        .min(1)
+        .max(80)
+        .regex(/^[a-z0-9][a-z0-9-]*$/),
+    }),
+  ])
+
 const EncoderConfigInnerSchema = z.object({
   enabled: z.boolean().default(false),
+  remuxEnabled: z.boolean().default(false),
   hwaccel: z.enum(ENCODER_HWACCELS).default("none"),
   qsvDevice: z.string().min(1).max(128).default("/dev/dri/renderD128"),
   vaapiDevice: z.string().min(1).max(128).default("/dev/dri/renderD128"),
   keepSource: z.boolean().default(true),
+  defaultVariantId: z
+    .string()
+    .min(1)
+    .max(80)
+    .regex(/^[a-z0-9][a-z0-9-]*$/)
+    .nullable()
+    .default(null),
+  openGraphTarget: EncoderOpenGraphTargetSchema.default({ type: "source" }),
   variants: z.array(EncoderVariantSchema).default([]),
 })
 
@@ -131,6 +161,7 @@ const EncoderConfigSchema = z.preprocess((raw) => {
     ? (config.codec as EncoderCodec)
     : (inferred?.codec ?? "h264")
   if (Array.isArray(config.variants)) {
+    const usedIds = new Set<string>()
     config.variants = config.variants.map((rawVariant) => {
       if (
         !rawVariant ||
@@ -143,12 +174,58 @@ const EncoderConfigSchema = z.preprocess((raw) => {
       if (variant.codec === undefined && variant.encoder === undefined) {
         variant.codec = fallbackCodec
       }
+      if (typeof variant.id !== "string" || variant.id.trim() === "") {
+        variant.id = buildLegacyVariantId(variant.name, usedIds)
+      } else {
+        variant.id = normalizeVariantId(variant.id, usedIds)
+      }
       return variant
     })
+  }
+  if (config.defaultVariantId === undefined) {
+    const firstVariant = Array.isArray(config.variants)
+      ? (config.variants[0] as Record<string, unknown> | undefined)
+      : undefined
+    config.defaultVariantId =
+      typeof firstVariant?.id === "string" ? firstVariant.id : null
+  }
+  if (config.openGraphTarget === undefined) {
+    config.openGraphTarget = { type: "source" }
   }
   delete config.codec
   return config
 }, EncoderConfigInnerSchema)
+
+function buildLegacyVariantId(name: unknown, usedIds: Set<string>): string {
+  const base =
+    typeof name === "string"
+      ? name
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+      : ""
+  return normalizeVariantId(base || "variant", usedIds)
+}
+
+function normalizeVariantId(raw: string, usedIds: Set<string>): string {
+  const base =
+    raw
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80) || "variant"
+  let id = base
+  let suffix = 2
+  while (usedIds.has(id)) {
+    const suffixText = `-${suffix}`
+    id = `${base.slice(0, 80 - suffixText.length)}${suffixText}`
+    suffix += 1
+  }
+  usedIds.add(id)
+  return id
+}
 
 const LimitsConfigSchema = z.object({
   maxUploadBytes: z

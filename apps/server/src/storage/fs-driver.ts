@@ -151,6 +151,28 @@ export class FsStorageDriver implements StorageDriver {
     return { size: stat.size }
   }
 
+  async copy(input: {
+    fromKey: string
+    toKey: string
+    contentType: string
+  }): Promise<{ size: number }> {
+    const src = this.fullPath(input.fromKey)
+    const dst = this.fullPath(input.toKey)
+    await fsp.mkdir(path.dirname(dst), { recursive: true })
+    await fsp.rm(dst, { force: true })
+    try {
+      await fsp.link(src, dst)
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code
+      if (code !== "EXDEV" && code !== "EPERM" && code !== "ENOSYS") throw err
+      const tmp = `${dst}.${process.pid}.${Date.now()}.tmp`
+      await fsp.copyFile(src, tmp)
+      await fsp.rename(tmp, dst)
+    }
+    const stat = await fsp.stat(dst)
+    return { size: stat.size }
+  }
+
   async mintDownloadUrl(
     _key: string,
     _input: MintDownloadUrlInput

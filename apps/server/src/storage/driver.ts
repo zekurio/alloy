@@ -81,6 +81,13 @@ export interface StorageDriver {
     contentType: string
   ): Promise<{ size: number }>
 
+  /** Copy an existing object to another key, replacing Content-Type metadata. */
+  copy(input: {
+    fromKey: string
+    toKey: string
+    contentType: string
+  }): Promise<{ size: number }>
+
   /**
    * Return a short-lived URL the browser can GET to read the object,
    * or `null` when the driver wants callers to stream through the
@@ -130,6 +137,30 @@ export function clipSourceAssetKey(
   contentType: AcceptedContentType
 ): string {
   return `${clipAssetDir(clipId)}/source${clipSourceExtension(contentType)}`
+}
+
+export function clipStagingVideoKey(
+  clipId: string,
+  contentType: AcceptedContentType
+): string {
+  return `${clipAssetDir(clipId)}/staging/source${clipSourceExtension(
+    contentType
+  )}`
+}
+
+export function clipStagingThumbKey(clipId: string): string {
+  return `${clipAssetDir(clipId)}/staging/thumb.jpg`
+}
+
+export function clipOriginalAssetKey(
+  clipId: string,
+  contentType: AcceptedContentType
+): string {
+  return `${clipAssetDir(clipId)}/original${clipSourceExtension(contentType)}`
+}
+
+export function clipSourceMp4Key(clipId: string): string {
+  return `${clipAssetDir(clipId)}/source.mp4`
 }
 
 export function clipVideoVariantKey(clipId: string, variantId: string): string {

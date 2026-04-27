@@ -1,4 +1,4 @@
-import { PencilIcon, StarIcon, Trash2Icon } from "lucide-react"
+import { LinkIcon, PencilIcon, StarIcon, Trash2Icon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 
@@ -13,18 +13,22 @@ const CODEC_LABELS: Record<EncoderCodec, string> = {
 type VariantRowProps = {
   variant: AdminEncoderVariant
   isDefault: boolean
+  isOpenGraphTarget: boolean
   canDelete: boolean
   onEdit: () => void
   onSetDefault: () => void
+  onSetOpenGraph: () => void
   onDelete: () => void
 }
 
 export function VariantRow({
   variant,
   isDefault,
+  isOpenGraphTarget,
   canDelete,
   onEdit,
   onSetDefault,
+  onSetOpenGraph,
   onDelete,
 }: VariantRowProps) {
   const specs = [
@@ -59,6 +63,22 @@ export function VariantRow({
           aria-label="Edit variant"
         >
           <PencilIcon className="size-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          onClick={onSetOpenGraph}
+          aria-label={
+            isOpenGraphTarget ? "OpenGraph video variant" : "Use for OpenGraph"
+          }
+          title={
+            isOpenGraphTarget ? "OpenGraph video variant" : "Use for OpenGraph"
+          }
+        >
+          <LinkIcon
+            className={isOpenGraphTarget ? "size-3.5 text-accent" : "size-3.5"}
+          />
         </Button>
         <Button
           type="button"

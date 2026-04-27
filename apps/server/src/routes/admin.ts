@@ -287,9 +287,9 @@ export const adminRoute = new Hono()
 
   /**
    * PATCH /limits — update upload + queue limits. `maxUploadBytes` and
-   * `uploadTtlSec` are picked up on the next `/initiate` call;
-   * `queueConcurrency` is registered with pg-boss at boot and needs a
-   * server restart to take effect (the UI surfaces this as a hint).
+   * `uploadTtlSec` are picked up on the next `/initiate` call.
+   * `queueConcurrency` is re-registered after currently running encode jobs
+   * finish, without requiring a server restart.
    */
   .patch("/limits", zValidator("json", LimitsConfigPatchSchema), (c) => {
     const patch = c.req.valid("json")
