@@ -203,12 +203,6 @@ function QueueRow({ item }: { item: QueueItem }) {
                 {item.progress}%
               </span>
             ) : null}
-            <span aria-hidden className="text-foreground-muted">
-              ·
-            </span>
-            <span className="truncate font-medium text-foreground-muted">
-              {item.detail}
-            </span>
           </div>
         </div>
 

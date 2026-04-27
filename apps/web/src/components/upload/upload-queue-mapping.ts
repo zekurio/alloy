@@ -104,8 +104,9 @@ export function serverToQueueItem(
       detail = "Transcoding video"
       break
     case "ready":
-      status = "published"
-      detail = "Ready"
+      status = row.encodeProgress < 100 ? "encoding" : "published"
+      detail =
+        row.encodeProgress < 100 ? "Publishing playback variants" : "Ready"
       break
     case "failed":
       status = "failed"

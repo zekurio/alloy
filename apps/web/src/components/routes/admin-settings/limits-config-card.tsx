@@ -21,6 +21,7 @@ import type { AdminLimitsConfig, AdminRuntimeConfig } from "@workspace/api"
 
 import { api } from "@/lib/api"
 import { clampInt } from "./shared"
+import { FormGroup } from "./form-group"
 
 type LimitsConfigCardProps = {
   limits: AdminLimitsConfig
@@ -56,94 +57,111 @@ function LimitsFields({
   onStorageQuotaChange: (value: string) => void
 }) {
   return (
-    <SectionContent className="flex flex-col gap-4">
-      <div className="grid gap-4 sm:grid-cols-2">
+    <SectionContent className="flex flex-col gap-0">
+      <FormGroup
+        title="Uploads"
+        description="Per-file size and URL lifetime constraints."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="limits-max-upload" required>
+              Max upload size (MiB)
+            </FieldLabel>
+            <Input
+              id="limits-max-upload"
+              type="number"
+              min={1}
+              max={64 * 1024}
+              step={1}
+              required
+              value={maxUploadMiB}
+              onChange={(e) => onMaxUploadChange(e.target.value)}
+            />
+            <FieldDescription>
+              Per-file upload cap. Server hard-limits at 64 GiB.
+            </FieldDescription>
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="limits-ttl" required>
+              Upload ticket TTL (seconds)
+            </FieldLabel>
+            <Input
+              id="limits-ttl"
+              type="number"
+              min={60}
+              max={86_400}
+              step={30}
+              required
+              value={form.uploadTtlSec}
+              onChange={(e) =>
+                onFieldChange(
+                  "uploadTtlSec",
+                  clampInt(e.target.value, 60, 86_400, form.uploadTtlSec)
+                )
+              }
+            />
+            <FieldDescription>
+              Upload URL lifetime. 15 min suits slow connections.
+            </FieldDescription>
+          </Field>
+        </div>
+      </FormGroup>
+
+      <FormGroup
+        title="Storage"
+        description="Default quota applied to new user accounts."
+      >
         <Field>
-          <FieldLabel htmlFor="limits-max-upload" required>
-            Max upload size (MiB)
+          <FieldLabel htmlFor="limits-default-storage-quota">
+            Default storage quota (GiB)
           </FieldLabel>
           <Input
-            id="limits-max-upload"
+            id="limits-default-storage-quota"
             type="number"
             min={1}
-            max={64 * 1024}
             step={1}
-            required
-            value={maxUploadMiB}
-            onChange={(e) => onMaxUploadChange(e.target.value)}
+            value={storageQuotaGiB}
+            placeholder="Unlimited"
+            onChange={(e) => onStorageQuotaChange(e.target.value)}
           />
           <FieldDescription>
-            Per-file upload cap. Server hard-limits at 64 GiB.
+            Leave blank for unlimited storage.
           </FieldDescription>
         </Field>
+      </FormGroup>
 
+      <FormGroup
+        title="Encoding queue"
+        description="Parallel job limits for the video encoding pipeline."
+      >
         <Field>
-          <FieldLabel htmlFor="limits-ttl" required>
-            Upload ticket TTL (seconds)
+          <FieldLabel htmlFor="limits-concurrency" required>
+            Queue concurrency
           </FieldLabel>
           <Input
-            id="limits-ttl"
+            id="limits-concurrency"
             type="number"
-            min={60}
-            max={86_400}
-            step={30}
+            min={1}
+            max={16}
+            step={1}
             required
-            value={form.uploadTtlSec}
+            value={form.queueConcurrency}
             onChange={(e) =>
               onFieldChange(
-                "uploadTtlSec",
-                clampInt(e.target.value, 60, 86_400, form.uploadTtlSec)
+                "queueConcurrency",
+                clampInt(e.target.value, 1, 16, form.queueConcurrency)
               )
             }
           />
-          <FieldDescription>
-            Upload URL lifetime. 15 min suits slow connections.
+          <FieldDescription className="flex items-start gap-1.5">
+            <AlertCircleIcon className="mt-0.5 size-3.5 shrink-0" />
+            <span>
+              Parallel encode jobs. Applies after currently running jobs finish.
+            </span>
           </FieldDescription>
         </Field>
-      </div>
-
-      <Field>
-        <FieldLabel htmlFor="limits-default-storage-quota">
-          Default storage quota (GiB)
-        </FieldLabel>
-        <Input
-          id="limits-default-storage-quota"
-          type="number"
-          min={1}
-          step={1}
-          value={storageQuotaGiB}
-          placeholder="Unlimited"
-          onChange={(e) => onStorageQuotaChange(e.target.value)}
-        />
-        <FieldDescription>
-          Applied to new users. Leave blank for unlimited storage.
-        </FieldDescription>
-      </Field>
-
-      <Field>
-        <FieldLabel htmlFor="limits-concurrency" required>
-          Queue concurrency
-        </FieldLabel>
-        <Input
-          id="limits-concurrency"
-          type="number"
-          min={1}
-          max={16}
-          step={1}
-          required
-          value={form.queueConcurrency}
-          onChange={(e) =>
-            onFieldChange(
-              "queueConcurrency",
-              clampInt(e.target.value, 1, 16, form.queueConcurrency)
-            )
-          }
-        />
-        <FieldDescription className="flex items-start gap-1.5">
-          <AlertCircleIcon className="mt-0.5 size-3.5 shrink-0" />
-          <span>Parallel encode jobs. Requires a server restart to apply.</span>
-        </FieldDescription>
-      </Field>
+      </FormGroup>
     </SectionContent>
   )
 }

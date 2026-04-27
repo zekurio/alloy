@@ -39,6 +39,7 @@ export interface ClipVariantSettings {
 export interface ClipEncodedVariant {
   id: string
   label: string
+  role?: "source" | "variant"
   storageKey: string
   contentType: string
   width: number
@@ -46,6 +47,10 @@ export interface ClipEncodedVariant {
   sizeBytes: number
   isDefault: boolean
   settings?: ClipVariantSettings
+  remuxSettings?: {
+    trimStartMs: number | null
+    trimEndMs: number | null
+  }
 }
 
 export const ACCEPTED_IMAGE_CONTENT_TYPES = [
