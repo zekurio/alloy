@@ -42,9 +42,8 @@ COPY --from=web /app/apps/web/dist /build/www
 WORKDIR /app/apps/server
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV ALLOY_BUILD_DATA=/build
+ENV WEB_DIST_DIR=/build/www
 ENV PUBLIC_SERVER_URL=http://localhost:3000
 ENV TRUSTED_ORIGINS=http://localhost:3000
-ENV STORAGE_PUBLIC_BASE_URL=http://localhost:3000
 EXPOSE 3000
 CMD ["pnpm", "exec", "tsx", "src/index.ts"]

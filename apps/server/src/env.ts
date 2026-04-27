@@ -1,32 +1,31 @@
-import "dotenv/config"
-import { z } from "zod"
+import "dotenv/config";
+import { z } from "zod";
 
 // Deploy-time env only. Anything an admin should be able to change at
 // runtime (OAuth provider, open-registrations) lives in `lib/config-store.ts`.
 
 function normalizePublicServerUrl(value: string): string {
-  const url = new URL(value)
-  url.pathname = url.pathname.replace(/\/api\/?$/, "") || "/"
-  url.search = ""
-  url.hash = ""
-  return url.toString().replace(/\/$/, "")
+  const url = new URL(value);
+  url.pathname = url.pathname.replace(/\/api\/?$/, "") || "/";
+  url.search = "";
+  url.hash = "";
+  return url.toString().replace(/\/$/, "");
 }
 
 const defaultPublicServerUrl =
-  process.env.PUBLIC_SERVER_URL ?? "http://localhost:3000"
-const defaultBuildData = process.env.ALLOY_BUILD_DATA ?? "../../build"
+  process.env.PUBLIC_SERVER_URL ?? "http://localhost:3000";
 
 const EnvSchema = z
   .object({
-    DATABASE_URL: z.string().url(),
+    DATABASE_URL: z.url(),
     ALLOY_AUTH_SECRET: z.string().min(32).optional(),
     PUBLIC_SERVER_URL: z
-      .string()
       .url()
       .default(defaultPublicServerUrl)
       .transform(normalizePublicServerUrl),
     PORT: z.coerce.number().int().positive().default(3000),
-    ALLOY_BUILD_DATA: z.string().default(defaultBuildData),
+    // Packaging/deployment override for the packaged web app root. Local dev
+    // usually serves the web app through Vite instead.
     WEB_DIST_DIR: z.string().optional(),
     TRUSTED_ORIGINS: z
       .string()
@@ -35,7 +34,7 @@ const EnvSchema = z
         value
           .split(",")
           .map((origin) => origin.trim())
-          .filter(Boolean)
+          .filter(Boolean),
       ),
 
     // Runtime config file path. `ALLOY_CONFIG_FILE` is the preferred name;
@@ -46,22 +45,22 @@ const EnvSchema = z
     STORAGE_DRIVER: z.enum(["fs", "s3"]).default("fs"),
     STORAGE_FS_ROOT: z.string().default("./data/storage"),
     STORAGE_PUBLIC_BASE_URL: z
-      .string()
       .url()
       .default(defaultPublicServerUrl)
       .transform(normalizePublicServerUrl),
     STORAGE_HMAC_SECRET: z.string().optional(),
 
-    // S3 / S3-compatible (R2, Tigris, MinIO, …). Only read when STORAGE_DRIVER=s3.
+    // S3 / S3-compatible providers. These only seed runtime config when the
+    // runtime config file does not exist yet.
     S3_BUCKET: z.string().optional(),
     S3_REGION: z.string().default("auto"),
-    S3_ENDPOINT: z.string().url().optional(),
+    S3_ENDPOINT: z.url().optional(),
     S3_ACCESS_KEY_ID: z.string().optional(),
     S3_SECRET_ACCESS_KEY: z.string().optional(),
     S3_FORCE_PATH_STYLE: z
       .string()
       .optional()
-      .transform((v) => v === "true" || v === "1"),
+      .transform((value) => value === "true" || value === "1"),
     S3_PRESIGN_EXPIRES_SEC: z.coerce.number().int().positive().default(900),
 
     ENCODE_SCRATCH_DIR: z.string().optional(),
@@ -77,22 +76,22 @@ const EnvSchema = z
         code: "custom",
         path: ["ALLOY_AUTH_SECRET"],
         message: "ALLOY_AUTH_SECRET must be set and at least 32 chars.",
-      })
+      });
     }
-  })
+  });
 
-const parsed = EnvSchema.safeParse(process.env)
+const parsed = EnvSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  const fieldErrors = parsed.error.flatten().fieldErrors
+  const fieldErrors = parsed.error.flatten().fieldErrors;
   // eslint-disable-next-line no-console
   console.error(
     "[server/env] Invalid environment variables:\n" +
-      JSON.stringify(fieldErrors, null, 2)
-  )
-  process.exit(1)
+      JSON.stringify(fieldErrors, null, 2),
+  );
+  process.exit(1);
 }
 
-export const env = parsed.data
+export const env = parsed.data;
 
-export const authSecret = env.ALLOY_AUTH_SECRET!
+export const authSecret = env.ALLOY_AUTH_SECRET!;

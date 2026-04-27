@@ -1,5 +1,4 @@
 import * as React from "react"
-import { useRouter } from "@tanstack/react-router"
 import { PencilIcon, PlusIcon, Trash2Icon, UserKeyIcon } from "lucide-react"
 
 import {
@@ -26,7 +25,7 @@ import { toast } from "@workspace/ui/lib/toast"
 import type { AdminOAuthProvider, AdminRuntimeConfig } from "@workspace/api"
 
 import { api } from "@/lib/api"
-import { invalidateAuthConfig } from "@/lib/session-suspense"
+import { publishRuntimeConfigUpdate } from "@/lib/runtime-config-events"
 import { OAuthCustomProviderDialog } from "./oauth-custom-provider-dialog"
 import { emptyProvider, toSubmissionProvider } from "./shared"
 
@@ -39,7 +38,6 @@ export function OAuthProviderCard({
   config,
   onChange,
 }: OAuthProviderCardProps) {
-  const router = useRouter()
   const [draft, setDraft] = React.useState<AdminOAuthProvider | null>(null)
   const [editing, setEditing] = React.useState(false)
   const [pendingAction, setPendingAction] = React.useState<string | null>(null)
@@ -53,8 +51,7 @@ export function OAuthProviderCard({
     setPendingAction(successMessage)
     try {
       const updated = await api.admin.saveOAuthConfig({ oauthProvider: next })
-      invalidateAuthConfig()
-      void router.invalidate()
+      publishRuntimeConfigUpdate({ authConfigChanged: true })
       onChange(updated)
       toast.success(successMessage)
       return true
