@@ -6,6 +6,7 @@ import {
   useSuspenseSession,
   type Session,
 } from "./session-suspense"
+import { devFlags } from "./flags"
 
 function isAdmin(session: Session | null): boolean {
   return (session?.user as { role?: string } | undefined)?.role === "admin"
@@ -16,6 +17,7 @@ function browseAuthTarget(
   config: ReturnType<typeof useSuspenseAuthConfig>
 ): "/setup" | "/login" | null {
   if (config.setupRequired) return "/setup"
+  if (devFlags.forceOnboarding && isAdmin(session)) return "/setup"
   if (!session && config.requireAuthToBrowse) return "/login"
   return null
 }
@@ -56,7 +58,12 @@ export function useRequireAuthStrict(): Session | null {
   const config = useSuspenseAuthConfig()
   const navigate = useNavigate()
 
-  const target = config.setupRequired ? "/setup" : session ? null : "/login"
+  const target =
+    config.setupRequired || (devFlags.forceOnboarding && isAdmin(session))
+      ? "/setup"
+      : session
+        ? null
+        : "/login"
 
   React.useEffect(() => {
     if (target) void navigate({ to: target, replace: true })
