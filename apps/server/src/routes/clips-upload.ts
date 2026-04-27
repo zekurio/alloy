@@ -245,13 +245,6 @@ export const clipsUploadRoutes = new Hono()
         }
       }
       const canonicalThumbKey = clipAssetKey(id, "thumb")
-      if (row.thumbKey && row.thumbKey !== canonicalThumbKey) {
-        await storage.copy({
-          fromKey: row.thumbKey,
-          toKey: canonicalThumbKey,
-          contentType: "image/jpeg",
-        })
-      }
 
       const quotaResult = await db.transaction<InitiateQuotaResult>(
         async (tx) => {
@@ -273,9 +266,6 @@ export const clipsUploadRoutes = new Hono()
         await storage.delete(row.storageKey).catch(() => undefined)
         if (row.thumbKey) {
           await storage.delete(row.thumbKey).catch(() => undefined)
-        }
-        if (row.thumbKey && row.thumbKey !== canonicalThumbKey) {
-          await storage.delete(canonicalThumbKey).catch(() => undefined)
         }
         await markUploadFailed(row.authorId, id, "Storage quota exceeded")
         return c.json(
@@ -308,6 +298,11 @@ export const clipsUploadRoutes = new Hono()
         return c.json({ error: "Clip is already being finalized" }, 409)
       }
       if (row.thumbKey && row.thumbKey !== canonicalThumbKey) {
+        await storage.copy({
+          fromKey: row.thumbKey,
+          toKey: canonicalThumbKey,
+          contentType: "image/jpeg",
+        })
         await storage.delete(row.thumbKey).catch(() => undefined)
       }
 
