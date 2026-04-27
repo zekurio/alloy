@@ -72,6 +72,16 @@ const DRIVER_LABELS: Record<StorageDriverKind, string> = {
 type StorageConfigCardProps = {
   storage: AdminStorageConfig
   onChange: (next: AdminRuntimeConfig) => void
+  allowSubmitUnchanged?: boolean
+  submitLabel?: string
+  /** Called after a successful save (or when submitted with no changes). */
+  onSaved?: () => void
+  /** Hide the footer action buttons (Cancel / Save). */
+  hideActions?: boolean
+  /** Hide the section header (useful when already wrapped in a titled collapsible). */
+  hideHeader?: boolean
+  /** HTML `id` for the `<form>` element, useful for external submit buttons. */
+  formId?: string
 }
 
 interface FsForm {
@@ -182,9 +192,7 @@ function buildPatch(
     endpoint:
       form.s3.endpoint.trim().length > 0 ? form.s3.endpoint.trim() : null,
     accessKeyId:
-      form.s3.accessKeyId.trim().length > 0
-        ? form.s3.accessKeyId.trim()
-        : null,
+      form.s3.accessKeyId.trim().length > 0 ? form.s3.accessKeyId.trim() : null,
     forcePathStyle: form.s3.forcePathStyle,
     presignExpiresSec: presignSec,
   }
@@ -207,7 +215,11 @@ function formEquals(a: StorageForm, b: StorageForm): boolean {
 /*  Hook                                                               */
 /* ------------------------------------------------------------------ */
 
-function useStorageConfigForm({ storage, onChange }: StorageConfigCardProps) {
+function useStorageConfigForm({
+  storage,
+  onChange,
+  onSaved,
+}: StorageConfigCardProps) {
   const initial = React.useMemo(() => toForm(storage), [storage])
   const [form, setForm] = React.useState<StorageForm>(initial)
   const [pending, setPending] = React.useState(false)
@@ -237,12 +249,17 @@ function useStorageConfigForm({ storage, onChange }: StorageConfigCardProps) {
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (pending) return
+    if (!isDirty) {
+      onSaved?.()
+      return
+    }
     const patch = buildPatch(form, initial)
     if (!patch) return
     setPending(true)
     try {
       const next = await api.admin.updateStorageConfig(patch)
       onChange(next)
+      onSaved?.()
       toast.success("Storage updated")
     } catch (cause) {
       toast.error(
@@ -559,13 +576,17 @@ function S3Fields({
 }
 
 function StorageActions({
+  allowSubmitUnchanged,
   pending,
   isDirty,
   onReset,
+  submitLabel = "Save storage",
 }: {
+  allowSubmitUnchanged?: boolean
   pending: boolean
   isDirty: boolean
   onReset: () => void
+  submitLabel?: string
 }) {
   return (
     <SectionFooter>
@@ -587,9 +608,9 @@ function StorageActions({
           type="submit"
           variant="primary"
           size="sm"
-          disabled={pending || !isDirty}
+          disabled={pending || (!isDirty && !allowSubmitUnchanged)}
         >
-          {pending ? "Saving…" : "Save storage"}
+          {pending ? "Saving…" : submitLabel}
         </Button>
       </div>
     </SectionFooter>
@@ -607,11 +628,13 @@ export function StorageConfigCard(props: StorageConfigCardProps) {
   const secretConfigured = (props.storage.s3.secretAccessKey ?? "") === REDACTED
 
   return (
-    <form onSubmit={state.onSubmit}>
+    <form id={props.formId} onSubmit={state.onSubmit}>
       <Section>
-        <SectionHeader>
-          <SectionTitle>Storage</SectionTitle>
-        </SectionHeader>
+        {!props.hideHeader && (
+          <SectionHeader>
+            <SectionTitle>Storage</SectionTitle>
+          </SectionHeader>
+        )}
         <fieldset disabled={state.pending} className="contents">
           <SectionContent className="flex flex-col gap-4">
             <DriverPicker
@@ -637,11 +660,15 @@ export function StorageConfigCard(props: StorageConfigCardProps) {
             )}
           </SectionContent>
 
-          <StorageActions
-            pending={state.pending}
-            isDirty={state.isDirty}
-            onReset={state.resetForm}
-          />
+          {!props.hideActions && (
+            <StorageActions
+              allowSubmitUnchanged={props.allowSubmitUnchanged}
+              pending={state.pending}
+              isDirty={state.isDirty}
+              onReset={state.resetForm}
+              submitLabel={props.submitLabel}
+            />
+          )}
         </fieldset>
       </Section>
     </form>

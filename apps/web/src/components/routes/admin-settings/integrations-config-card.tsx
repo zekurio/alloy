@@ -46,6 +46,14 @@ import { gameKeys } from "@/lib/game-queries"
 type IntegrationsConfigCardProps = {
   integrations: AdminIntegrationsConfig
   onChange: (next: AdminRuntimeConfig) => void
+  /** Called after a successful save (or when submitted with no changes). */
+  onSaved?: () => void
+  /** Hide the footer action buttons (Cancel / Save). */
+  hideActions?: boolean
+  /** Hide the section header (useful when already wrapped in a titled collapsible). */
+  hideHeader?: boolean
+  /** HTML `id` for the `<form>` element, useful for external submit buttons. */
+  formId?: string
 }
 
 function updateSteamGridDBStatus(
@@ -59,6 +67,10 @@ function updateSteamGridDBStatus(
 export function IntegrationsConfigCard({
   integrations,
   onChange,
+  onSaved,
+  hideActions,
+  hideHeader,
+  formId,
 }: IntegrationsConfigCardProps) {
   const queryClient = useQueryClient()
   const blankForm = (
@@ -95,6 +107,10 @@ export function IntegrationsConfigCard({
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (pending) return
+    if (!isDirty) {
+      onSaved?.()
+      return
+    }
     setPending(true)
     try {
       const patch: Partial<AdminIntegrationsConfig> = {}
@@ -109,6 +125,7 @@ export function IntegrationsConfigCard({
       onChange(next)
       updateSteamGridDBStatus(queryClient, true)
       toast.success("Integrations updated")
+      onSaved?.()
     } catch (cause) {
       toast.error(
         cause instanceof Error ? cause.message : "Couldn't update integrations"
@@ -138,11 +155,13 @@ export function IntegrationsConfigCard({
   }
 
   return (
-    <form onSubmit={onSubmit}>
+    <form id={formId} onSubmit={onSubmit}>
       <Section>
-        <SectionHeader>
-          <SectionTitle>SteamGridDB</SectionTitle>
-        </SectionHeader>
+        {!hideHeader && (
+          <SectionHeader>
+            <SectionTitle>SteamGridDB</SectionTitle>
+          </SectionHeader>
+        )}
 
         <fieldset disabled={pending} className="contents">
           <SectionContent className="flex flex-col gap-4">
@@ -218,27 +237,29 @@ export function IntegrationsConfigCard({
             </Field>
           </SectionContent>
 
-          <SectionFooter className="justify-end">
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={resetForm}
-                disabled={pending || !isDirty}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                size="sm"
-                disabled={pending || !isDirty}
-              >
-                {pending ? "Saving…" : "Save changes"}
-              </Button>
-            </div>
-          </SectionFooter>
+          {!hideActions && (
+            <SectionFooter className="justify-end">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={resetForm}
+                  disabled={pending || !isDirty}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  disabled={pending || !isDirty}
+                >
+                  {pending ? "Saving…" : "Save changes"}
+                </Button>
+              </div>
+            </SectionFooter>
+          )}
         </fieldset>
       </Section>
     </form>
