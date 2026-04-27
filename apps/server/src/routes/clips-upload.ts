@@ -278,6 +278,26 @@ export const clipsUploadRoutes = new Hono()
         )
       }
 
+      if (row.thumbKey && row.thumbKey !== canonicalThumbKey) {
+        try {
+          await storage.copy({
+            fromKey: row.thumbKey,
+            toKey: canonicalThumbKey,
+            contentType: "image/jpeg",
+          })
+        } catch (err) {
+          const [current] = await db
+            .select({ status: clip.status })
+            .from(clip)
+            .where(eq(clip.id, id))
+            .limit(1)
+          if (current?.status !== "pending") {
+            return c.json({ error: "Clip is already being finalized" }, 409)
+          }
+          throw err
+        }
+      }
+
       const [transitioned] = await db
         .update(clip)
         .set({
@@ -298,11 +318,6 @@ export const clipsUploadRoutes = new Hono()
         return c.json({ error: "Clip is already being finalized" }, 409)
       }
       if (row.thumbKey && row.thumbKey !== canonicalThumbKey) {
-        await storage.copy({
-          fromKey: row.thumbKey,
-          toKey: canonicalThumbKey,
-          contentType: "image/jpeg",
-        })
         await storage.delete(row.thumbKey).catch(() => undefined)
       }
 
