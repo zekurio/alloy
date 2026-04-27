@@ -1,5 +1,6 @@
 import { zValidator } from "@hono/zod-validator"
-import { desc, eq, inArray } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
+import type { Context } from "hono"
 import { Hono } from "hono"
 import { z } from "zod"
 
@@ -7,7 +8,6 @@ import { user } from "@workspace/db/auth-schema"
 import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { env } from "../env"
 import {
   assertCanRemoveAdmin,
   createUserIdentity,
@@ -17,16 +17,22 @@ import {
   EncoderConfigPatchSchema,
   IntegrationsConfigPatchSchema,
   LimitsConfigPatchSchema,
-  OAuthProviderSchema,
-  OAuthProviderSubmissionSchema,
   StorageConfigPatchSchema,
   configStore,
-  type OAuthProviderConfig,
   type RuntimeConfig,
 } from "../lib/config-store"
-import { selectSourceStorageUsedBytesByUserIds } from "../lib/storage-quota"
 import { ENCODE_JOB, getBoss } from "../queue"
 import { getEncoderCapabilities } from "./admin-encoder-capabilities"
+import {
+  REDACTED_SENTINEL,
+  adminRuntimeConfigResponse,
+  errorMessage,
+  finalizeOAuthProviderSubmission,
+  hasEnabledSignInMethod,
+  mergeStorageConfigPatch,
+  preserveRedactedSecrets,
+  selectAdminUserStorageRows,
+} from "./admin-helpers"
 
 const RE_ENCODE_BATCH_LIMIT = 100
 
@@ -70,179 +76,8 @@ const OAuthConfigSubmissionSchema = z.object({
   oauthProvider: OAuthProviderAdminSubmissionSchema.nullable(),
 })
 
-type OAuthProviderAdminSubmission = Record<string, unknown> & {
-  providerId?: string
-}
-
-const REDACTED_SENTINEL = "***"
-
-function redactSecrets(
-  config: Readonly<RuntimeConfig>
-): Readonly<RuntimeConfig> {
-  return {
-    ...config,
-    integrations: {
-      ...config.integrations,
-      steamgriddbApiKey: config.integrations.steamgriddbApiKey
-        ? REDACTED_SENTINEL
-        : "",
-    },
-    oauthProvider: config.oauthProvider
-      ? { ...config.oauthProvider, clientSecret: "" }
-      : null,
-    storage: {
-      ...config.storage,
-      fs: {
-        ...config.storage.fs,
-        hmacSecret: config.storage.fs.hmacSecret ? REDACTED_SENTINEL : "",
-      },
-      s3: {
-        ...config.storage.s3,
-        secretAccessKey: config.storage.s3.secretAccessKey
-          ? REDACTED_SENTINEL
-          : "",
-      },
-    },
-  }
-}
-
-function adminRuntimeConfigResponse(config: Readonly<RuntimeConfig>) {
-  return {
-    ...redactSecrets(config),
-    authBaseURL: env.PUBLIC_SERVER_URL,
-  }
-}
-
-/**
- * When importing a previously-exported config that was round-tripped through
- * the redacting response helper, secret fields will contain sentinel values.
- * Replace those sentinels with the real values from the current config so the
- * import doesn't wipe secrets the admin never intended to change.
- */
-function preserveRedactedSecrets(
-  input: Record<string, unknown>,
-  current: RuntimeConfig
-): void {
-  if (input.integrations && typeof input.integrations === "object") {
-    const integrations = input.integrations as Record<string, unknown>
-    if (integrations.steamgriddbApiKey === REDACTED_SENTINEL) {
-      integrations.steamgriddbApiKey = current.integrations.steamgriddbApiKey
-    }
-  }
-  if (input.oauthProvider && typeof input.oauthProvider === "object") {
-    const provider = input.oauthProvider as Record<string, unknown>
-    if (!provider.clientSecret || provider.clientSecret === "") {
-      provider.clientSecret = current.oauthProvider?.clientSecret ?? ""
-    }
-  }
-  if (input.storage && typeof input.storage === "object") {
-    const storage = input.storage as Record<string, unknown>
-    if (storage.fs && typeof storage.fs === "object") {
-      const fs = storage.fs as Record<string, unknown>
-      if (fs.hmacSecret === REDACTED_SENTINEL) {
-        fs.hmacSecret = current.storage.fs.hmacSecret
-      }
-    }
-    if (storage.s3 && typeof storage.s3 === "object") {
-      const s3 = storage.s3 as Record<string, unknown>
-      if (s3.secretAccessKey === REDACTED_SENTINEL) {
-        s3.secretAccessKey = current.storage.s3.secretAccessKey
-      }
-    }
-  }
-}
-
-async function selectAdminUserStorageRows(targetUserIds?: string[]): Promise<
-  {
-    id: string
-    name: string
-    username: string
-    email: string
-    image: string | null
-    role: string | null
-    createdAt: string
-    storageQuotaBytes: number | null
-    storageUsedBytes: number
-  }[]
-> {
-  const rows = await db
-    .select({
-      id: user.id,
-      name: user.name,
-      username: user.username,
-      email: user.email,
-      image: user.image,
-      role: user.role,
-      createdAt: user.createdAt,
-      storageQuotaBytes: user.storageQuotaBytes,
-    })
-    .from(user)
-    .where(targetUserIds ? inArray(user.id, targetUserIds) : undefined)
-    .orderBy(desc(user.createdAt))
-    .limit(targetUserIds ? targetUserIds.length : 100)
-
-  const usage = await selectSourceStorageUsedBytesByUserIds(
-    db,
-    rows.map((row) => row.id)
-  )
-
-  return rows.map((row) => ({
-    ...row,
-    createdAt: row.createdAt.toISOString(),
-    storageUsedBytes: usage.get(row.id) ?? 0,
-  }))
-}
-
-function hasEnabledSignInMethod(config: {
-  passkeyEnabled: boolean
-  oauthProvider: { enabled: boolean } | null
-}): boolean {
-  void config.oauthProvider
-  return config.passkeyEnabled
-}
-
-function sanitizeScopes(scopes: string[] | undefined): string[] | undefined {
-  const next = scopes?.map((scope) => scope.trim()).filter(Boolean)
-  return next && next.length > 0 ? next : undefined
-}
-
-function finalizeOAuthProviderSubmission(
-  provider: OAuthProviderAdminSubmission,
-  existing: OAuthProviderConfig | null
-): OAuthProviderConfig {
-  const parsedProvider = OAuthProviderSubmissionSchema.parse({
-    ...provider,
-    clientId:
-      typeof provider.clientId === "string"
-        ? provider.clientId.trim()
-        : provider.clientId,
-    clientSecret:
-      typeof provider.clientSecret === "string"
-        ? provider.clientSecret.trim()
-        : provider.clientSecret,
-    scopes: sanitizeScopes(
-      Array.isArray(provider.scopes)
-        ? provider.scopes.filter(
-            (scope): scope is string => typeof scope === "string"
-          )
-        : undefined
-    ),
-  })
-  const clientSecret =
-    parsedProvider.clientSecret.length > 0
-      ? parsedProvider.clientSecret
-      : existing?.providerId === parsedProvider.providerId
-        ? existing.clientSecret
-        : ""
-  if (clientSecret.length === 0) {
-    throw new Error(
-      `Client secret is required for ${parsedProvider.displayName}.`
-    )
-  }
-  return OAuthProviderSchema.parse({
-    ...parsedProvider,
-    clientSecret,
-  }) as OAuthProviderConfig
+function badRequest(c: Context, cause: unknown, fallback: string) {
+  return c.json({ error: errorMessage(cause, fallback) }, 400)
 }
 
 export const adminRoute = new Hono()
@@ -292,15 +127,7 @@ export const adminRoute = new Hono()
       configStore.patch(input as Partial<RuntimeConfig>)
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     } catch (cause) {
-      return c.json(
-        {
-          error:
-            cause instanceof Error
-              ? cause.message
-              : "Invalid configuration.",
-        },
-        400
-      )
+      return badRequest(c, cause, "Invalid configuration.")
     }
   })
   .get("/users", async (c) => {
@@ -318,13 +145,7 @@ export const adminRoute = new Hono()
       const [row] = await selectAdminUserStorageRows([created.id])
       return c.json(row ?? created)
     } catch (cause) {
-      return c.json(
-        {
-          error:
-            cause instanceof Error ? cause.message : "Couldn't create user.",
-        },
-        400
-      )
+      return badRequest(c, cause, "Couldn't create user.")
     }
   })
   .patch(
@@ -345,13 +166,7 @@ export const adminRoute = new Hono()
         const [row] = await selectAdminUserStorageRows([id])
         return c.json(row)
       } catch (cause) {
-        return c.json(
-          {
-            error:
-              cause instanceof Error ? cause.message : "Couldn't update role.",
-          },
-          400
-        )
+        return badRequest(c, cause, "Couldn't update role.")
       }
     }
   )
@@ -367,13 +182,7 @@ export const adminRoute = new Hono()
       if (!deleted) return c.json({ error: "User not found" }, 404)
       return c.json({ success: true })
     } catch (cause) {
-      return c.json(
-        {
-          error:
-            cause instanceof Error ? cause.message : "Couldn't remove user.",
-        },
-        400
-      )
+      return badRequest(c, cause, "Couldn't remove user.")
     }
   })
   .patch(
@@ -458,15 +267,7 @@ export const adminRoute = new Hono()
         }
         configStore.patch({ oauthProvider: nextProvider })
       } catch (cause) {
-        return c.json(
-          {
-            error:
-              cause instanceof Error
-                ? cause.message
-                : "Couldn't save OAuth configuration.",
-          },
-          400
-        )
+        return badRequest(c, cause, "Couldn't save OAuth configuration.")
       }
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     }
@@ -523,56 +324,12 @@ export const adminRoute = new Hono()
   .patch("/storage", zValidator("json", StorageConfigPatchSchema), (c) => {
     const patch = c.req.valid("json")
     const current = configStore.get("storage")
-    const next = structuredClone(current)
-    next.driver = patch.driver ?? current.driver
-    next.fs = { ...current.fs, ...patch.fs }
-
-    if (patch.s3?.bucket !== undefined) next.s3.bucket = patch.s3.bucket
-    if (patch.s3?.region !== undefined) next.s3.region = patch.s3.region
-    if (patch.s3?.forcePathStyle !== undefined) {
-      next.s3.forcePathStyle = patch.s3.forcePathStyle
-    }
-    if (patch.s3?.presignExpiresSec !== undefined) {
-      next.s3.presignExpiresSec = patch.s3.presignExpiresSec
-    }
-
-    if (patch.s3?.endpoint === null) {
-      delete next.s3.endpoint
-    } else if (patch.s3?.endpoint !== undefined) {
-      next.s3.endpoint = patch.s3.endpoint
-    }
-    if (patch.s3?.accessKeyId === null) {
-      delete next.s3.accessKeyId
-    } else if (patch.s3?.accessKeyId !== undefined) {
-      next.s3.accessKeyId = patch.s3.accessKeyId
-    }
-    if (
-      patch.fs?.hmacSecret === undefined ||
-      patch.fs.hmacSecret === REDACTED_SENTINEL
-    ) {
-      next.fs.hmacSecret = current.fs.hmacSecret
-    }
-    if (
-      patch.s3?.secretAccessKey === undefined ||
-      patch.s3.secretAccessKey === REDACTED_SENTINEL
-    ) {
-      next.s3.secretAccessKey = current.s3.secretAccessKey
-    } else if (patch.s3?.secretAccessKey === null) {
-      delete next.s3.secretAccessKey
-    }
+    const next = mergeStorageConfigPatch(current, patch)
 
     try {
       configStore.set("storage", next)
     } catch (cause) {
-      return c.json(
-        {
-          error:
-            cause instanceof Error
-              ? cause.message
-              : "Couldn't save storage configuration.",
-        },
-        400
-      )
+      return badRequest(c, cause, "Couldn't save storage configuration.")
     }
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
