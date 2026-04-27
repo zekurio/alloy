@@ -72,7 +72,10 @@ export function resolveVariantSettings(
   }
 }
 
-function settingsEqual(a: ClipVariantSettings, b: ClipVariantSettings): boolean {
+function settingsEqual(
+  a: ClipVariantSettings,
+  b: ClipVariantSettings
+): boolean {
   return (
     a.codec === b.codec &&
     a.hwaccel === b.hwaccel &&

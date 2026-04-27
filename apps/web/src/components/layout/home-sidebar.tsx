@@ -22,25 +22,49 @@ import { useUploadFlowControls } from "@/components/upload/use-upload-flow-contr
 
 interface NavFlags {
   isHome: boolean
-  isLibrary: boolean
   isGames: boolean
   isSettings: boolean
+  profileHandle: string | null
 }
 
 function useNavFlags(): NavFlags {
   return useRouterState({
     select: (s) => ({
       isHome: s.location.pathname === "/",
-      isLibrary: s.location.pathname.startsWith("/u/"),
       isGames:
         s.location.pathname === "/games" ||
         s.location.pathname.startsWith("/g/"),
       isSettings:
         s.location.pathname.startsWith("/user-settings") ||
         s.location.pathname.startsWith("/settings"),
+      profileHandle: getProfileHandleFromPathname(s.location.pathname),
     }),
     structuralSharing: true,
   })
+}
+
+function getProfileHandleFromPathname(pathname: string): string | null {
+  const match = /^\/u\/([^/]+)/.exec(pathname)
+  return match?.[1] ? decodePathSegment(match[1]).toLowerCase() : null
+}
+
+function decodePathSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment)
+  } catch {
+    return segment
+  }
+}
+
+function isOwnProfilePath(
+  routeProfileHandle: string | null,
+  sessionProfileHandle: string | null
+): boolean {
+  return (
+    !!routeProfileHandle &&
+    !!sessionProfileHandle &&
+    routeProfileHandle === sessionProfileHandle.toLowerCase()
+  )
 }
 
 export function HomeSidebar() {
@@ -69,9 +93,10 @@ export function HomeSidebar() {
 }
 
 function SidebarTop() {
-  const { isHome, isLibrary, isGames } = useNavFlags()
+  const { isHome, isGames, profileHandle: routeProfileHandle } = useNavFlags()
   const session = useSuspenseSession()
   const profileHandle = session?.user.username ?? null
+  const isLibrary = isOwnProfilePath(routeProfileHandle, profileHandle)
 
   return (
     <>
@@ -147,9 +172,15 @@ function SidebarSettingsFallback() {
 }
 
 function BottomNavItems() {
-  const { isHome, isLibrary, isGames, isSettings } = useNavFlags()
+  const {
+    isHome,
+    isGames,
+    isSettings,
+    profileHandle: routeProfileHandle,
+  } = useNavFlags()
   const session = useSuspenseSession()
   const profileHandle = session?.user.username ?? null
+  const isLibrary = isOwnProfilePath(routeProfileHandle, profileHandle)
   const { queueOpen, setQueueOpen } = useUploadFlowControls()
 
   return (
@@ -182,17 +213,18 @@ function BottomNavItems() {
           active={queueOpen}
           title="Upload"
           onClick={() => setQueueOpen(true)}
+          className="before:!hidden [&_svg]:!size-4"
         >
-          <PlusIcon />
+          <NavUploadIcon />
         </AppBottomNavItem>
       ) : (
         <AppBottomNavItem
           title="Upload"
           aria-disabled
           tabIndex={-1}
-          className="pointer-events-none opacity-60"
+          className="pointer-events-none opacity-60 before:!hidden [&_svg]:!size-4"
         >
-          <PlusIcon />
+          <NavUploadIcon />
         </AppBottomNavItem>
       )}
       <AppBottomNavItem
@@ -222,8 +254,8 @@ function BottomNavFallback() {
       <AppBottomNavItem title="Library">
         <LibraryIcon />
       </AppBottomNavItem>
-      <AppBottomNavItem title="Upload">
-        <PlusIcon />
+      <AppBottomNavItem title="Upload" className="before:!hidden [&_svg]:!size-4">
+        <NavUploadIcon />
       </AppBottomNavItem>
       <AppBottomNavItem title="Games">
         <GamepadIcon />
@@ -232,5 +264,13 @@ function BottomNavFallback() {
         <SettingsIcon />
       </AppBottomNavItem>
     </>
+  )
+}
+
+function NavUploadIcon() {
+  return (
+    <span className="flex size-7 items-center justify-center rounded-full bg-accent text-accent-foreground">
+      <PlusIcon strokeWidth={2.5} />
+    </span>
   )
 }

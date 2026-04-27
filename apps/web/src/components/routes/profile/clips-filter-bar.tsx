@@ -38,6 +38,9 @@ const SORT_OPTIONS: ReadonlyArray<{
   { key: "views", label: "Most viewed" },
 ]
 
+const filterLabelClass =
+  "inline-flex h-8 items-center pr-1 text-xs leading-4 font-semibold tracking-wide text-foreground-muted uppercase"
+
 export function ClipsFilterBar({
   username,
   sort,
@@ -69,13 +72,11 @@ export function ClipsFilterBar({
     <div className="mb-6 flex flex-wrap items-center gap-3">
       {/* Sort group */}
       <div className="flex items-center gap-1.5">
-        <span className="pr-1 text-xs font-semibold tracking-wide text-foreground-muted uppercase">
-          Sort
-        </span>
+        <span className={filterLabelClass}>Sort</span>
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <Chip data-active="true">
+              <Chip size="xl" data-active="true">
                 {SORT_OPTIONS.find((o) => o.key === sort)?.label ??
                   SORT_OPTIONS[0].label}
                 <ChevronDownIcon />
@@ -110,11 +111,10 @@ export function ClipsFilterBar({
       {/* Game filter */}
       {gameOptions.length > 0 ? (
         <div className="flex items-center gap-1.5">
-          <span className="pr-1 text-xs font-semibold tracking-wide text-foreground-muted uppercase">
-            Game
-          </span>
+          <span className={filterLabelClass}>Game</span>
           {gameSlug && selectedGame ? (
             <Chip
+              size="xl"
               data-active="true"
               onClick={clearGame}
               aria-label={`Clear game filter: ${selectedGame.name}`}
@@ -131,7 +131,7 @@ export function ClipsFilterBar({
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
-                  <Chip>
+                  <Chip size="xl">
                     All games
                     <ChevronDownIcon />
                   </Chip>
