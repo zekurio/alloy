@@ -3,7 +3,7 @@ import type {
   AuthenticationResponseJSON,
   RegistrationResponseJSON,
 } from "@simplewebauthn/server"
-import { and, eq, sql } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
 import { createMiddleware } from "hono/factory"
 import { z } from "zod"
@@ -39,6 +39,7 @@ import {
   verifyPasskeyRegistration,
 } from "../lib/auth/webauthn"
 import { configStore } from "../lib/config-store"
+import { completePasskeySignUp } from "./auth-passkey-signup"
 
 const SignUpOptionsBody = z.object({
   email: z.string().trim().email(),
@@ -147,107 +148,10 @@ export const authRoute = new Hono()
         if (!payload.email || !payload.username) {
           return c.json({ error: "Invalid registration request." }, 400)
         }
-        const info = verification.registrationInfo
-
-        const userRow = await db.transaction(async (tx) => {
-          const email = normalizeEmail(payload.email ?? "")
-          const username = validateUsername(payload.username ?? "")
-          const setupFirstAdmin = payload.setupFirstAdmin === true
-          let row
-
-          if (setupFirstAdmin) {
-            await tx.execute(sql`select pg_advisory_xact_lock(hashtext('alloy:first-admin-setup'))`)
-
-            const existingAdminSignInMethod = await tx
-              .select({ id: user.id })
-              .from(user)
-              .innerJoin(userPasskey, eq(userPasskey.userId, user.id))
-              .where(and(eq(user.role, "admin"), eq(user.status, "active")))
-              .limit(1)
-
-            if (existingAdminSignInMethod.length > 0) {
-              throw new Error("Initial setup is already complete.")
-            }
-            const [existing] = await tx
-              .select()
-              .from(user)
-              .where(eq(user.email, email))
-              .limit(1)
-
-            if (existing) {
-              const now = new Date()
-              const [updated] = await tx
-                .update(user)
-                .set({
-                  role: "admin",
-                  status: "active",
-                  disabledAt: null,
-                  username,
-                  name: existing.name || username,
-                  updatedAt: now,
-                })
-                .where(eq(user.id, existing.id))
-                .returning()
-              if (!updated) throw new Error("Could not claim setup user.")
-              row = updated
-            } else {
-              const [created] = await tx
-                .insert(user)
-                .values({
-                  email,
-                  emailVerified: true,
-                  username,
-                  name: username,
-                  role: "admin",
-                  storageQuotaBytes: configStore.get("limits").defaultStorageQuotaBytes,
-                })
-                .returning()
-              if (!created) throw new Error("Could not create user.")
-              row = created
-            }
-          } else {
-            if (!configStore.get("passkeyEnabled")) {
-              throw new Error("Passkey sign-up is currently disabled.")
-            }
-            const [existing] = await tx
-              .select({ id: user.id })
-              .from(user)
-              .where(eq(user.email, email))
-              .limit(1)
-            if (existing) {
-              throw new Error("An account already exists for that email address.")
-            }
-            if (!configStore.get("openRegistrations")) {
-              throw new Error("Sign-up is currently closed.")
-            }
-            const [created] = await tx
-              .insert(user)
-              .values({
-                email,
-                emailVerified: true,
-                username,
-                name: username,
-                role: "user",
-                storageQuotaBytes: configStore.get("limits").defaultStorageQuotaBytes,
-              })
-              .returning()
-            if (!created) throw new Error("Could not create user.")
-            row = created
-          }
-
-          await tx.insert(userPasskey).values({
-            userId: row.id,
-            credentialId: info.credential.id,
-            publicKey: passkeyPublicKey(info.credential.publicKey),
-            counter: info.credential.counter,
-            deviceType: info.credentialDeviceType,
-            backedUp: info.credentialBackedUp,
-            transports: serializeTransports(response.response.transports),
-            aaguid: info.aaguid,
-            name: `${row.username}'s passkey`,
-          })
-
-          return row
+        const userRow = await completePasskeySignUp({
+          payload,
+          registrationInfo: verification.registrationInfo,
+          response,
         })
 
         const { token, data } = await createSession(c, userRow.id)

@@ -1,12 +1,5 @@
 import * as React from "react"
-import {
-  startAuthentication,
-  startRegistration,
-  type PublicKeyCredentialCreationOptionsJSON,
-  type PublicKeyCredentialRequestOptionsJSON,
-  type RegistrationResponseJSON,
-} from "@simplewebauthn/browser"
-import type { AdminUserStorageRow } from "@workspace/contracts"
+import { createAuthActions } from "./auth-actions"
 
 type AuthError = { message: string }
 type AuthResult<T> = Promise<{ data: T | null; error: AuthError | null }>
@@ -60,7 +53,12 @@ type StoreState = {
   error: Error | null
 }
 
-function errorFrom(cause: unknown, fallback: string): AuthError {
+type SessionStore = ReturnType<typeof createSessionStore>
+type RequestFn = <T>(path: string, init?: RequestInit) => Promise<T>
+
+export type { AuthError, AuthResult, RequestFn, SessionStore }
+
+export function errorFrom(cause: unknown, fallback: string): AuthError {
   return {
     message: cause instanceof Error ? cause.message : fallback,
   }
@@ -181,89 +179,6 @@ export function createAuth(baseURL: string) {
     }
   }
 
-  async function passkeySignIn(): AuthResult<SessionData> {
-    try {
-      const start = await request<{
-        challengeId: string
-        options: PublicKeyCredentialRequestOptionsJSON
-      }>("/api/auth/passkey/sign-in/options", { method: "POST" })
-      const response = await startAuthentication({
-        optionsJSON: start.options,
-      })
-      const data = await request<SessionData>("/api/auth/passkey/sign-in/verify", {
-        method: "POST",
-        body: JSON.stringify({ challengeId: start.challengeId, response }),
-      })
-      store.set(data)
-      return { data, error: null }
-    } catch (cause) {
-      return { data: null, error: errorFrom(cause, "Passkey sign-in failed") }
-    }
-  }
-
-  async function passkeySignUp(input: {
-    email: string
-    username: string
-  }): AuthResult<SessionData> {
-    try {
-      const start = await request<{
-        challengeId: string
-        options: PublicKeyCredentialCreationOptionsJSON
-      }>("/api/auth/passkey/sign-up/options", {
-        method: "POST",
-        body: JSON.stringify(input),
-      })
-      const response = await startRegistration({
-        optionsJSON: start.options,
-      })
-      const data = await request<SessionData>("/api/auth/passkey/sign-up/verify", {
-        method: "POST",
-        body: JSON.stringify({ challengeId: start.challengeId, response }),
-      })
-      store.set(data)
-      return { data, error: null }
-    } catch (cause) {
-      return { data: null, error: errorFrom(cause, "Passkey sign-up failed") }
-    }
-  }
-
-  async function addPasskey(input: {
-    name?: string | null
-  }): AuthResult<Passkey> {
-    try {
-      const start = await request<{
-        challengeId: string
-        options: PublicKeyCredentialCreationOptionsJSON
-      }>("/api/auth/passkeys/options", { method: "POST" })
-      const response: RegistrationResponseJSON = await startRegistration({
-        optionsJSON: start.options,
-      })
-      const data = await request<Passkey>("/api/auth/passkeys/verify", {
-        method: "POST",
-        body: JSON.stringify({
-          challengeId: start.challengeId,
-          response,
-          name: input.name,
-        }),
-      })
-      return { data, error: null }
-    } catch (cause) {
-      return { data: null, error: errorFrom(cause, "Could not add passkey") }
-    }
-  }
-
-  async function jsonResult<T>(
-    path: string,
-    init: RequestInit,
-    fallback: string
-  ): AuthResult<T> {
-    try {
-      return { data: await request<T>(path, init), error: null }
-    } catch (cause) {
-      return { data: null, error: errorFrom(cause, fallback) }
-    }
-  }
-
   return {
     getSession,
     signOut,
@@ -274,90 +189,6 @@ export function createAuth(baseURL: string) {
       subscribe: store.subscribe,
       refetch: store.refetch,
     },
-    signIn: {
-      passkey: passkeySignIn,
-      oauth2: async (_input?: unknown): AuthResult<never> => ({
-        data: null,
-        error: { message: "OAuth sign-in is not implemented yet." },
-      }),
-    },
-    signUp: {
-      passkey: passkeySignUp,
-    },
-    passkey: {
-      signUp: passkeySignUp,
-      addPasskey,
-      listUserPasskeys: () =>
-        jsonResult<Passkey[]>("/api/auth/passkeys", {}, "Could not load passkeys"),
-      updatePasskey: (input: { id: string; name?: string | null }) =>
-        jsonResult<Passkey>(
-          `/api/auth/passkeys/${encodeURIComponent(input.id)}`,
-          { method: "PATCH", body: JSON.stringify({ name: input.name }) },
-          "Could not update passkey"
-        ),
-      deletePasskey: (input: { id: string }) =>
-        jsonResult<{ success: true }>(
-          `/api/auth/passkeys/${encodeURIComponent(input.id)}`,
-          { method: "DELETE" },
-          "Could not delete passkey"
-        ),
-    },
-    updateUser: async (input: { name?: string; username?: string }) => {
-      const result = await jsonResult<{ user: AuthUser }>(
-        "/api/auth/user",
-        { method: "PATCH", body: JSON.stringify(input) },
-        "Could not update user"
-      )
-      if (!result.error) await store.refetch()
-      return result
-    },
-    deleteUser: () =>
-      jsonResult<{ success: true }>(
-        "/api/auth/user",
-        { method: "DELETE" },
-        "Could not delete user"
-      ).then((result) => {
-        if (!result.error) store.set(null)
-        return result
-      }),
-    listAccounts: () =>
-      jsonResult<LinkedAccount[]>("/api/auth/accounts", {}, "Could not load accounts"),
-    unlinkAccount: (input: { providerId: string; accountId: string }) =>
-      jsonResult<{ success: true }>(
-        "/api/auth/accounts/unlink",
-        { method: "POST", body: JSON.stringify(input) },
-        "Could not unlink account"
-      ),
-    oauth2: {
-      link: async (_input?: unknown): AuthResult<never> => ({
-        data: null,
-        error: { message: "OAuth linking is not implemented yet." },
-      }),
-    },
-    admin: {
-      createUser: (input: {
-        email: string
-        name?: string
-        username?: string
-        role?: "user" | "admin"
-      }) =>
-        jsonResult<AdminUserStorageRow>(
-          "/api/admin/users",
-          { method: "POST", body: JSON.stringify(input) },
-          "Could not create user"
-        ),
-      removeUser: (input: { userId: string }) =>
-        jsonResult<{ success: true }>(
-          `/api/admin/users/${encodeURIComponent(input.userId)}`,
-          { method: "DELETE" },
-          "Could not remove user"
-        ),
-      setRole: (input: { userId: string; role: "user" | "admin" }) =>
-        jsonResult<AdminUserStorageRow>(
-          `/api/admin/users/${encodeURIComponent(input.userId)}/role`,
-          { method: "PATCH", body: JSON.stringify({ role: input.role }) },
-          "Could not update role"
-        ),
-    },
+    ...createAuthActions(request, store),
   }
 }
