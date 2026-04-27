@@ -1,10 +1,6 @@
 import { Hono } from "hono"
 import { streamSSE } from "hono/streaming"
 
-import {
-  subscribeToConfigChanges,
-  type ConfigEvent,
-} from "../lib/config-events"
 import { subscribeToAuthorQueue, type QueueEvent } from "../lib/clip-events"
 import { selectQueueRowsForAuthor } from "../lib/clip-queue-select"
 import {
@@ -101,53 +97,6 @@ export const eventsRoute = new Hono().get(
     })
   }
 )
-
-eventsRoute.get("/config", (c) => {
-  c.header("Cache-Control", "no-cache, no-transform")
-  c.header("X-Accel-Buffering", "no")
-  c.header("Content-Encoding", "identity")
-
-  return streamSSE(c, async (stream) => {
-    let pending: ConfigEvent[] = []
-    let wake: (() => void) | null = null
-
-    const unsubscribe = subscribeToConfigChanges((event) => {
-      pending.push(event)
-      wake?.()
-    })
-
-    stream.onAbort(() => {
-      unsubscribe()
-      wake?.()
-    })
-
-    try {
-      while (!stream.aborted) {
-        if (
-          await writePendingEvents(
-            stream.writeSSE.bind(stream),
-            pending,
-            () => "config"
-          )
-        )
-          continue
-
-        const heartbeat = stream.sleep(HEARTBEAT_MS)
-        const nextEvent = new Promise<void>((resolve) => {
-          wake = resolve
-        })
-        await Promise.race([heartbeat, nextEvent])
-        wake = null
-
-        if (pending.length === 0 && !stream.aborted) {
-          await stream.writeSSE({ event: "heartbeat", data: "" })
-        }
-      }
-    } finally {
-      unsubscribe()
-    }
-  })
-})
 
 eventsRoute.get("/notifications", requireSession, (c) => {
   const viewerId = c.var.viewerId
