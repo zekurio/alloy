@@ -30,13 +30,14 @@ export async function planReuse(
 }
 
 export async function pruneStaleVariants(
-  row: { variants: ClipEncodedVariant[] },
+  row: { variants: ClipEncodedVariant[]; storageKey?: string },
   reusedBySpecIndex: Map<number, ClipEncodedVariant>,
   sourceVariant: ClipEncodedVariant | null
 ): Promise<void> {
   const reusedKeys = new Set(
     Array.from(reusedBySpecIndex.values()).map((v) => v.storageKey)
   )
+  if (row.storageKey) reusedKeys.add(row.storageKey)
   if (sourceVariant) reusedKeys.add(sourceVariant.storageKey)
   for (const prev of row.variants) {
     if (reusedKeys.has(prev.storageKey)) continue
