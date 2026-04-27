@@ -20,7 +20,7 @@ import { clipAssetKey } from "../storage"
 export const IdParam = z.object({ id: z.uuid() })
 export const StreamQuery = z.object({ variant: z.string().min(1).optional() })
 export const DownloadQuery = z.object({
-  variant: z.string().min(1).default("source"),
+  variant: z.string().min(1).optional(),
 })
 
 export const ListQuery = z.object({
