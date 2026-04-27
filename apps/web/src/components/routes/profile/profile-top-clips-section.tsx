@@ -125,7 +125,7 @@ function TopClipsRows({
           {clips.map((row) => (
             <CarouselItem
               key={row.id}
-              className="basis-full pl-0 md:basis-1/3 md:pl-4"
+              className="basis-full pl-3 md:basis-1/3 md:pl-4"
             >
               <ClipCardTrigger
                 row={row}

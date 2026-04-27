@@ -4,6 +4,7 @@ import {
   ChevronRightIcon,
   CopyIcon,
   ExternalLinkIcon,
+  Loader2Icon,
   PauseIcon,
   Trash2Icon,
   UploadIcon,
@@ -45,6 +46,8 @@ export interface QueueItem {
 
 interface UploadQueueContentProps {
   queue: Array<QueueItem>
+  /** True until the initial server queue snapshot has populated the cache. */
+  isLoading?: boolean
   /** Opens the file picker for a new upload. */
   onNewClip: () => void
   /** Dismisses every finished (published) row in one go. */
@@ -57,6 +60,7 @@ const PAGE_SIZE = 6
 
 export function UploadQueueContent({
   queue,
+  isLoading = false,
   onNewClip,
   onClearCompleted,
   onClose,
@@ -79,15 +83,27 @@ export function UploadQueueContent({
         <h2 className="text-sm font-semibold text-foreground">Uploads</h2>
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-foreground-muted tabular-nums">
-            {queue.length === 0
-              ? "empty"
-              : `${queue.length} ${queue.length === 1 ? "item" : "items"}`}
+            {isLoading && queue.length === 0
+              ? "loading"
+              : queue.length === 0
+                ? "empty"
+                : `${queue.length} ${queue.length === 1 ? "item" : "items"}`}
           </span>
         </div>
       </header>
 
       <div className="flex flex-col gap-2">
-        {queue.length === 0 ? (
+        {isLoading && queue.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-border px-6 py-8 text-center">
+            <Loader2Icon
+              aria-hidden
+              className="size-4 animate-spin text-foreground-muted"
+            />
+            <p className="text-sm font-medium text-foreground">
+              Loading uploads
+            </p>
+          </div>
+        ) : queue.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border px-6 py-8 text-center">
             <p className="text-sm font-medium text-foreground">
               Nothing in the queue

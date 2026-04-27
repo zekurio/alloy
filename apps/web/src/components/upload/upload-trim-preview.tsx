@@ -114,6 +114,8 @@ export function VideoPreview({
 }
 
 const MIN_TRIM_MS = 100
+const TRIM_HANDLE_WIDTH_PX = 12
+const TRIM_RAIL_INSET_PX = 10
 
 export function TrimTimeline({
   durationMs,
@@ -145,8 +147,9 @@ export function TrimTimeline({
       const track = trackRef.current
       if (!track) return 0
       const rect = track.getBoundingClientRect()
-      const x = clientX - rect.left
-      const pct = Math.min(1, Math.max(0, x / rect.width))
+      const railWidth = Math.max(1, rect.width - TRIM_RAIL_INSET_PX * 2)
+      const x = clientX - rect.left - TRIM_RAIL_INSET_PX
+      const pct = Math.min(1, Math.max(0, x / railWidth))
       return Math.round(pct * durationMs)
     },
     [durationMs]
@@ -209,56 +212,65 @@ export function TrimTimeline({
         "select-none"
       )}
     >
-      {/* Base rail — dim track between the trim handles. */}
-      <span
+      <div
         aria-hidden
-        className="pointer-events-none absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-foreground-faint/15"
-        style={{
-          left: `${pctOf(trimStartMs)}%`,
-          right: `${100 - pctOf(trimEndMs)}%`,
-        }}
-      />
-
-      {/* Selected-range fill — accent rail inside the trim window. */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-accent"
-        style={{
-          left: `${pctOf(trimStartMs)}%`,
-          right: `${100 - pctOf(trimEndMs)}%`,
-        }}
-      />
-
-      <TrimHandle
-        side="start"
-        onPointerDown={(e) => startDrag("start", e)}
-        style={{
-          left: `clamp(4px, ${pctOf(trimStartMs)}%, calc(100% - 16px))`,
-        }}
-      />
-      <TrimHandle
-        side="end"
-        onPointerDown={(e) => startDrag("end", e)}
-        style={{
-          left: `clamp(4px, calc(${pctOf(trimEndMs)}% - 12px), calc(100% - 16px))`,
-        }}
-      />
-
-      {/* Playhead — only render when it's inside the trim window so it
-          doesn't visually escape the highlighted range */}
-      {currentMs >= trimStartMs && currentMs <= trimEndMs ? (
-        <button
-          type="button"
-          aria-label="Playhead — drag to scrub"
-          onPointerDown={(e) => startDrag("playhead", e)}
-          className={cn(
-            "absolute top-0 bottom-0 z-20 -ml-[1px] w-[2px] cursor-ew-resize bg-foreground",
-            "shadow-[0_0_0_1px_rgba(0,0,0,0.3)]",
-            "touch-none focus-visible:outline-none"
-          )}
-          style={{ left: `${pctOf(currentMs)}%` }}
+        className="pointer-events-none absolute inset-y-0"
+        style={{ left: TRIM_RAIL_INSET_PX, right: TRIM_RAIL_INSET_PX }}
+      >
+        {/* Base rail — dim track between the trim handles. */}
+        <span
+          className="absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-foreground-faint/15"
+          style={{
+            left: `${pctOf(trimStartMs)}%`,
+            right: `${100 - pctOf(trimEndMs)}%`,
+          }}
         />
-      ) : null}
+
+        {/* Selected-range fill — accent rail inside the trim window. */}
+        <span
+          className="absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-accent"
+          style={{
+            left: `${pctOf(trimStartMs)}%`,
+            right: `${100 - pctOf(trimEndMs)}%`,
+          }}
+        />
+      </div>
+
+      <div
+        className="absolute inset-y-0"
+        style={{ left: TRIM_RAIL_INSET_PX, right: TRIM_RAIL_INSET_PX }}
+      >
+        <TrimHandle
+          side="start"
+          onPointerDown={(e) => startDrag("start", e)}
+          style={{
+            left: `calc(${pctOf(trimStartMs)}% - ${TRIM_HANDLE_WIDTH_PX / 2}px)`,
+          }}
+        />
+        <TrimHandle
+          side="end"
+          onPointerDown={(e) => startDrag("end", e)}
+          style={{
+            left: `calc(${pctOf(trimEndMs)}% - ${TRIM_HANDLE_WIDTH_PX / 2}px)`,
+          }}
+        />
+
+        {/* Playhead — only render when it's inside the trim window so it
+            doesn't visually escape the highlighted range */}
+        {currentMs >= trimStartMs && currentMs <= trimEndMs ? (
+          <button
+            type="button"
+            aria-label="Playhead — drag to scrub"
+            onPointerDown={(e) => startDrag("playhead", e)}
+            className={cn(
+              "absolute top-0 bottom-0 z-20 -ml-[1px] w-[2px] cursor-ew-resize bg-foreground",
+              "shadow-[0_0_0_1px_rgba(0,0,0,0.3)]",
+              "touch-none focus-visible:outline-none"
+            )}
+            style={{ left: `${pctOf(currentMs)}%` }}
+          />
+        ) : null}
+      </div>
     </div>
   )
 }

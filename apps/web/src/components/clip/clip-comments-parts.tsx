@@ -2,6 +2,7 @@ import * as React from "react"
 import {
   ArrowUpDownIcon,
   HeartIcon,
+  LinkIcon,
   MessageSquareIcon,
   MoreHorizontalIcon,
   PinIcon,
@@ -32,11 +33,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { formatCount } from "@/lib/number-format"
 import type { UserChipData } from "@/lib/user-display"
 
 type Sort = "top" | "new"
@@ -44,9 +45,9 @@ type Sort = "top" | "new"
 export function CommentsHeader({ count }: { count: number }) {
   return (
     <div className="flex items-center justify-center pt-4 pb-1">
-      <div className="inline-flex items-center gap-1.5 rounded-full bg-surface-raised px-3 py-1 text-xs font-medium text-foreground-faint">
+      <div className="inline-flex items-center gap-1.5 rounded-full bg-surface-raised px-3 py-1 text-xs leading-4 font-medium text-foreground-faint tabular-nums">
         <MessageSquareIcon className="size-3.5" />
-        {count} {count === 1 ? "comment" : "comments"}
+        {formatCount(count)} {count === 1 ? "comment" : "comments"}
       </div>
     </div>
   )
@@ -268,6 +269,9 @@ export function CommentActions({
   canReply,
   showLike = true,
   compactReplies = false,
+  pinned,
+  canPin,
+  onPinToggle,
   onToggleLike,
   onToggleReplies,
   onStartReply,
@@ -280,6 +284,9 @@ export function CommentActions({
   canReply: boolean
   showLike?: boolean
   compactReplies?: boolean
+  pinned: boolean
+  canPin: boolean
+  onPinToggle: () => void
   onToggleLike: () => void
   onToggleReplies: () => void
   onStartReply: () => void
@@ -311,6 +318,36 @@ export function CommentActions({
         </button>
       ) : null}
 
+      {canPin ? (
+        <button
+          type="button"
+          onClick={onPinToggle}
+          className={cn(
+            "inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs leading-4 font-medium whitespace-nowrap tabular-nums",
+            "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+            pinned
+              ? "text-accent hover:bg-accent-soft"
+              : "text-foreground-faint hover:bg-surface-raised hover:text-foreground",
+            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
+          )}
+        >
+          {pinned ? (
+            <>
+              <PinOffIcon className="size-3" /> Unpin
+            </>
+          ) : (
+            <>
+              <PinIcon className="size-3" /> Pin
+            </>
+          )}
+        </button>
+      ) : pinned ? (
+        <span className="inline-flex items-center gap-1 rounded-md bg-accent-soft px-1.5 py-0.5 text-xs leading-4 font-semibold text-accent">
+          <PinIcon className="size-3" />
+          Pinned by author
+        </span>
+      ) : null}
+
       {replyCount > 0 ? (
         <button
           type="button"
@@ -319,7 +356,7 @@ export function CommentActions({
             replyCount === 1 ? "reply" : "replies"
           }`}
           className={cn(
-            "inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium whitespace-nowrap",
+            "inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs leading-4 font-medium whitespace-nowrap tabular-nums",
             "text-accent transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
             "hover:bg-accent-soft",
             "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
@@ -331,13 +368,17 @@ export function CommentActions({
             ) : (
               <>
                 <MessageSquareIcon className="size-3" />
-                {replyCount}
+                {formatCount(replyCount)}
               </>
             )
           ) : repliesOpen ? (
-            `Hide ${replyCount} ${replyCount === 1 ? "reply" : "replies"}`
+            `Hide ${formatCount(replyCount)} ${
+              replyCount === 1 ? "reply" : "replies"
+            }`
           ) : (
-            `View ${replyCount} ${replyCount === 1 ? "reply" : "replies"}`
+            `View ${formatCount(replyCount)} ${
+              replyCount === 1 ? "reply" : "replies"
+            }`
           )}
         </button>
       ) : null}
@@ -361,7 +402,7 @@ export function CommentLikeButton({
       aria-pressed={liked}
       className={cn(
         "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5",
-        "text-xs font-medium",
+        "text-xs leading-4 font-medium tabular-nums",
         "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
         liked ? "text-accent" : "text-foreground-faint hover:text-foreground",
         "hover:bg-surface-raised",
@@ -369,7 +410,7 @@ export function CommentLikeButton({
       )}
     >
       <HeartIcon className={cn("size-3", liked && "fill-current")} />
-      {likeCount}
+      {formatCount(likeCount)}
     </button>
   )
 }
@@ -377,7 +418,7 @@ export function CommentLikeButton({
 export function AuthorLikeBadge() {
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-md bg-accent-soft px-1.5 py-0.5 text-xs font-semibold text-accent"
+      className="inline-flex items-center gap-1 rounded-md bg-accent-soft px-1.5 py-0.5 text-xs leading-4 font-semibold text-accent"
       title="Liked by the clip author"
     >
       <HeartIcon className="size-3 fill-current" />
@@ -387,29 +428,24 @@ export function AuthorLikeBadge() {
 }
 
 export function CommentMenu({
-  canPin,
   canDelete,
   deletePending,
   deleteTitle,
   deleteDescription,
   deleteActionLabel,
-  pinned,
-  onPinToggle,
+  onCopyLink,
   onDelete,
 }: {
-  canPin: boolean
   canDelete: boolean
   deletePending: boolean
   deleteTitle: string
   deleteDescription: string
   deleteActionLabel: string
-  pinned: boolean
-  onPinToggle: () => void
+  onCopyLink: () => void
   onDelete: () => void
 }) {
   const [alertOpen, setAlertOpen] = React.useState(false)
 
-  if (!canPin && !canDelete) return null
   return (
     <>
       <DropdownMenu>
@@ -427,29 +463,16 @@ export function CommentMenu({
           }
         />
         <DropdownMenuContent align="end" sideOffset={6}>
-          {canPin ? (
-            <DropdownMenuItem onClick={onPinToggle}>
-              {pinned ? (
-                <>
-                  <PinOffIcon /> Unpin
-                </>
-              ) : (
-                <>
-                  <PinIcon /> Pin
-                </>
-              )}
-            </DropdownMenuItem>
-          ) : null}
+          <DropdownMenuItem onClick={onCopyLink}>
+            <LinkIcon /> Copy link
+          </DropdownMenuItem>
           {canDelete ? (
-            <>
-              {canPin ? <DropdownMenuSeparator /> : null}
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={() => setAlertOpen(true)}
-              >
-                <Trash2Icon /> Delete
-              </DropdownMenuItem>
-            </>
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => setAlertOpen(true)}
+            >
+              <Trash2Icon /> Delete
+            </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>

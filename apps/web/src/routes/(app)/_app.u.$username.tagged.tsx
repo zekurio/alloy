@@ -9,6 +9,7 @@ import {
 } from "@workspace/ui/components/section-head"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
+import { formatCount } from "@/lib/number-format"
 import {
   useTaggedClipsQuery,
   useUserProfileViewerQuery,
@@ -44,7 +45,8 @@ function ProfileTaggedTab() {
         <SectionActions>
           {clips ? (
             <SectionMeta>
-              {clips.length} {clips.length === 1 ? "clip" : "clips"}
+              {formatCount(clips.length)}{" "}
+              {clips.length === 1 ? "clip" : "clips"}
             </SectionMeta>
           ) : null}
         </SectionActions>
