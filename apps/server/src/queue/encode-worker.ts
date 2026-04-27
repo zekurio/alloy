@@ -21,6 +21,8 @@ const activeEncodes = new Map<
   string,
   { abort: AbortController; done: Promise<void> }
 >()
+let registeredConcurrency: number | null = null
+let reconfigurePromise: Promise<void> = Promise.resolve()
 
 export async function cancelEncode(clipId: string): Promise<void> {
   const entry = activeEncodes.get(clipId)
@@ -38,7 +40,26 @@ export async function registerEncodeWorker(boss: PgBoss): Promise<void> {
     expireInSeconds: 60 * 60,
   })
 
-  const concurrency = configStore.get("limits").queueConcurrency
+  await configureEncodeWorker(boss, configStore.get("limits").queueConcurrency)
+
+  configStore.subscribe((next, prev) => {
+    if (next.limits.queueConcurrency === prev.limits.queueConcurrency) return
+    const concurrency = next.limits.queueConcurrency
+    reconfigurePromise = reconfigurePromise
+      .catch(() => undefined)
+      .then(() => configureEncodeWorker(boss, concurrency, { replace: true }))
+  })
+}
+
+async function configureEncodeWorker(
+  boss: PgBoss,
+  concurrency: number,
+  opts: { replace?: boolean } = {}
+): Promise<void> {
+  if (registeredConcurrency === concurrency && !opts.replace) return
+  if (opts.replace) {
+    await boss.offWork(ENCODE_JOB, { wait: true })
+  }
 
   await boss.work<EncodeJobData>(
     ENCODE_JOB,
@@ -65,6 +86,7 @@ export async function registerEncodeWorker(boss: PgBoss): Promise<void> {
       }
     }
   )
+  registeredConcurrency = concurrency
 }
 
 async function runEncode(clipId: string): Promise<void> {

@@ -81,6 +81,13 @@ function ClipPlayer({
         .sort((a, b) => b.height - a.height),
     [variants]
   )
+  const sourceVariant = React.useMemo(
+    () =>
+      variants.find(
+        (variant) => variant.role === "source" || variant.id === "source"
+      ) ?? null,
+    [variants]
+  )
 
   const hasLegacyEncodedFallback =
     status === "ready" && encodeProgress >= 100 && sortedVariants.length === 0
@@ -105,13 +112,16 @@ function ClipPlayer({
     (hasLegacyEncodedFallback ? FALLBACK_ENCODED_OPTION.id : null)
 
   const [sourcePlayable, setSourcePlayable] = React.useState(() =>
-    canPlayNativeVideo(sourceContentType)
+    canPlayNativeVideo(sourceVariant?.contentType ?? sourceContentType)
   )
   React.useEffect(() => {
-    setSourcePlayable(canPlayNativeVideo(sourceContentType))
-  }, [sourceContentType])
+    setSourcePlayable(
+      canPlayNativeVideo(sourceVariant?.contentType ?? sourceContentType)
+    )
+  }, [sourceContentType, sourceVariant?.contentType])
 
-  const preferredQualityId = sourcePlayable
+  const sourceAvailable = sourceVariant !== null
+  const preferredQualityId = sourceAvailable && sourcePlayable
     ? "source"
     : (defaultEncodedId ?? "source")
   const [selectedQualityId, setSelectedQualityId] =
@@ -134,7 +144,7 @@ function ClipPlayer({
   }, [defaultEncodedId, preferredQualityId, selectedQualityId, sortedVariants])
 
   const qualityOptions = [
-    ...(sourcePlayable
+    ...(sourceAvailable && sourcePlayable
       ? [
           {
             id: "source",
@@ -146,7 +156,7 @@ function ClipPlayer({
     ...encodedQualityOptions,
   ]
 
-  if (!sourcePlayable && !defaultEncodedId) {
+  if ((!sourceAvailable || !sourcePlayable) && !defaultEncodedId) {
     return (
       <div
         className={className}

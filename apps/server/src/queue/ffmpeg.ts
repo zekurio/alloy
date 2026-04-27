@@ -134,6 +134,66 @@ export async function encode(
   )
 }
 
+export async function remuxToMp4(
+  srcPath: string,
+  outPath: string,
+  opts: {
+    trimStartMs?: number | null
+    trimEndMs?: number | null
+    signal?: AbortSignal
+  }
+): Promise<void> {
+  await runWithProgress(
+    env.FFMPEG_BIN,
+    buildRemuxArgs(srcPath, outPath, opts),
+    () => undefined,
+    opts.signal
+  )
+}
+
+export function buildRemuxArgs(
+  srcPath: string,
+  outPath: string,
+  opts: {
+    trimStartMs?: number | null
+    trimEndMs?: number | null
+  }
+): string[] {
+  const hasTrim =
+    opts.trimStartMs != null &&
+    opts.trimEndMs != null &&
+    opts.trimEndMs > opts.trimStartMs
+  const trimSeek: string[] = hasTrim
+    ? ["-ss", msToFfmpegTimestamp(opts.trimStartMs ?? 0)]
+    : []
+  const trimDuration: string[] = hasTrim
+    ? [
+        "-t",
+        msToFfmpegTimestamp((opts.trimEndMs ?? 0) - (opts.trimStartMs ?? 0)),
+      ]
+    : []
+
+  return [
+    "-hide_banner",
+    "-y",
+    ...trimSeek,
+    "-i",
+    srcPath,
+    ...trimDuration,
+    "-map",
+    "0:v:0",
+    "-map",
+    "0:a?",
+    "-c",
+    "copy",
+    "-movflags",
+    "+faststart",
+    "-avoid_negative_ts",
+    "make_zero",
+    outPath,
+  ]
+}
+
 export function buildEncodeArgs(
   srcPath: string,
   outPath: string,

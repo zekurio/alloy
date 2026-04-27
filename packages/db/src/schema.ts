@@ -35,6 +35,7 @@ export interface ClipVariantSettings {
 export interface ClipEncodedVariant {
   id: string
   label: string
+  role?: "source" | "variant"
   storageKey: string
   contentType: string
   width: number
@@ -46,6 +47,10 @@ export interface ClipEncodedVariant {
    * it. Missing settings are treated as "unknown → re-encode".
    */
   settings?: ClipVariantSettings
+  remuxSettings?: {
+    trimStartMs: number | null
+    trimEndMs: number | null
+  }
 }
 
 export const CLIP_STATUS = [

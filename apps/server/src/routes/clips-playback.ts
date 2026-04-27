@@ -63,22 +63,18 @@ export const clipsPlaybackRoutes = new Hono()
           ? c.json({ error: "Forbidden" }, 403)
           : c.json({ error: "Unauthorized" }, 401)
       }
-      if (row.status !== "ready" && requestedVariant !== "source") {
+      if (row.status !== "ready") {
         return c.json({ error: "Clip not ready" }, 404)
       }
 
-      const selected =
-        requestedVariant === "source"
-          ? { key: row.storageKey, contentType: row.contentType, id: "source" }
-          : (() => {
-              const variant = findEncodedVariant(row, requestedVariant)
-              if (!variant) return null
-              return {
-                key: variant.storageKey,
-                contentType: variant.contentType,
-                id: variant.id,
-              }
-            })()
+      const variant = findEncodedVariant(row, requestedVariant)
+      const selected = variant
+        ? {
+            key: variant.storageKey,
+            contentType: variant.contentType,
+            id: variant.id,
+          }
+        : null
 
       if (!selected) {
         return c.json({ error: "Unknown quality" }, 404)
@@ -251,23 +247,15 @@ export const clipsPlaybackRoutes = new Hono()
         return c.json({ error: "Not found" }, 404)
       }
 
-      const selected =
-        requestedVariant === "source"
-          ? {
-              key: row.storageKey,
-              contentType: row.contentType,
-              filename: downloadFilename(row, "source"),
-            }
-          : (() => {
-              if (row.status !== "ready") return null
-              const encodedVariant = findEncodedVariant(row, requestedVariant)
-              if (!encodedVariant) return null
-              return {
-                key: encodedVariant.storageKey,
-                contentType: encodedVariant.contentType,
-                filename: downloadFilename(row, encodedVariant),
-              }
-            })()
+      const encodedVariant =
+        row.status === "ready" ? findEncodedVariant(row, requestedVariant) : null
+      const selected = encodedVariant
+        ? {
+            key: encodedVariant.storageKey,
+            contentType: encodedVariant.contentType,
+            filename: downloadFilename(row, encodedVariant),
+          }
+        : null
 
       if (!selected) {
         return c.json({ error: "Unknown download variant" }, 404)

@@ -1,4 +1,4 @@
-import { and, eq, lt, sql } from "drizzle-orm"
+import { and, eq, lt, or, sql } from "drizzle-orm"
 import type { PgBoss } from "pg-boss"
 
 import { clip } from "@workspace/db/schema"
@@ -22,7 +22,7 @@ export async function registerReaperWorker(boss: PgBoss): Promise<void> {
 
   await boss.work(REAP_JOB, async () => {
     await reapPending()
-    await reuploadStuck(boss)
+    await requeueStuckProcessing(boss)
   })
 
   // Every 10 minutes. `boss.schedule` is idempotent — restarting the
@@ -67,13 +67,16 @@ async function reapPending(): Promise<void> {
   }
 }
 
-async function reuploadStuck(boss: PgBoss): Promise<void> {
+async function requeueStuckProcessing(boss: PgBoss): Promise<void> {
   const stuck = await db
     .select({ id: clip.id })
     .from(clip)
     .where(
       and(
-        eq(clip.status, "uploaded"),
+        or(
+          eq(clip.status, "uploaded"),
+          and(eq(clip.status, "ready"), lt(clip.encodeProgress, 100))
+        ),
         lt(
           clip.updatedAt,
           sql`now() - interval '${sql.raw(UPLOADED_MAX_AGE_INTERVAL)}'`

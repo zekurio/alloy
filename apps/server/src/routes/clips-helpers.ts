@@ -202,21 +202,38 @@ export type PlaybackClipRow = typeof clip.$inferSelect
 export function encodedVariantsForRow(
   row: PlaybackClipRow
 ): ClipEncodedVariant[] {
-  if (row.variants.length > 0) {
-    return row.variants
+  const hasStoredVariants = row.variants.length > 0
+  const variants = [...row.variants]
+  const hasSource = variants.some(
+    (variant) => variant.role === "source" || variant.id === "source"
+  )
+  if (!hasStoredVariants && !hasSource && !isStagingKey(row.storageKey)) {
+    variants.push({
+      id: "source",
+      label: "Source",
+      role: "source",
+      storageKey: row.storageKey,
+      contentType: row.contentType,
+      width: row.width ?? 0,
+      height: row.height ?? 0,
+      sizeBytes: row.sizeBytes ?? 0,
+      isDefault: variants.length === 0,
+    })
   }
-  return [
-    {
+  if (!hasStoredVariants) {
+    variants.push({
       id: "encoded",
       label: "Playback MP4",
+      role: "variant",
       storageKey: clipAssetKey(row.id, "video"),
       contentType: "video/mp4",
       width: row.width ?? 0,
       height: row.height ?? 0,
       sizeBytes: row.sizeBytes ?? 0,
-      isDefault: true,
-    },
-  ]
+      isDefault: !variants.some((variant) => variant.isDefault),
+    })
+  }
+  return variants
 }
 
 export function findEncodedVariant(
@@ -228,6 +245,10 @@ export function findEncodedVariant(
     return variants.find((variant) => variant.isDefault) ?? variants[0] ?? null
   }
   return variants.find((variant) => variant.id === variantId) ?? null
+}
+
+function isStagingKey(key: string): boolean {
+  return key.includes("/staging/")
 }
 
 function extensionForContentType(contentType: string): string {
