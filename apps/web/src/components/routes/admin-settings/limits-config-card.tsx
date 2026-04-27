@@ -25,6 +25,8 @@ import { clampInt } from "./shared"
 type LimitsConfigCardProps = {
   limits: AdminLimitsConfig
   onChange: (next: AdminRuntimeConfig) => void
+  /** Hide the section header (useful when already wrapped in a titled collapsible). */
+  hideHeader?: boolean
 }
 
 function formatMaxUploadMiB(maxUploadBytes: number) {
@@ -295,9 +297,11 @@ export function LimitsConfigCard(props: LimitsConfigCardProps) {
   return (
     <form onSubmit={state.onSubmit}>
       <Section>
-        <SectionHeader>
-          <SectionTitle>Limits</SectionTitle>
-        </SectionHeader>
+        {!props.hideHeader && (
+          <SectionHeader>
+            <SectionTitle>Limits</SectionTitle>
+          </SectionHeader>
+        )}
         <fieldset disabled={state.pending} className="contents">
           <LimitsFields
             form={state.form}
