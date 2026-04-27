@@ -31,5 +31,7 @@ export function apiOrigin(): string {
 
 export function publicOrigin(): string {
   if (typeof window !== "undefined") return window.location.origin
-  return normalizeOrigin(nonEmpty(process.env.PUBLIC_SERVER_URL) ?? webServerUrl())
+  return normalizeOrigin(
+    nonEmpty(process.env.PUBLIC_SERVER_URL) ?? webServerUrl()
+  )
 }
