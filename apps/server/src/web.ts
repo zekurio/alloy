@@ -11,6 +11,10 @@ import type { ClipEncodedVariant } from "@workspace/db/schema"
 
 import { db } from "./db"
 import { env } from "./env"
+import {
+  configStore,
+  type EncoderOpenGraphTarget,
+} from "./lib/config-store"
 import { selectClipById } from "./lib/clip-select"
 
 const HEAD_MARKER = "<!-- alloy:head -->"
@@ -101,13 +105,39 @@ function metaProperty(property: string, content: string): string {
   return `<meta property="${property}" content="${htmlEscape(content)}" />`
 }
 
-function selectOpenGraphVariant(row: MetadataClip): ClipEncodedVariant | null {
-  const mp4Variants = row.variants.filter(
-    (variant) => variant.id !== "source" && variant.contentType === "video/mp4"
+function selectOpenGraphVideo(
+  row: MetadataClip,
+  target: EncoderOpenGraphTarget
+): ClipEncodedVariant | null {
+  const variants = row.variants.filter(
+    (variant) => variant.contentType === "video/mp4"
   )
-  return (
-    mp4Variants.find((variant) => variant.isDefault) ?? mp4Variants[0] ?? null
+  const playbackVariants = variants.filter(
+    (variant) => variant.role !== "source" && variant.id !== "source"
   )
+  const defaultPlaybackVariant =
+    playbackVariants.find((variant) => variant.isDefault) ??
+    playbackVariants[0] ??
+    null
+  switch (target.type) {
+    case "none":
+      return null
+    case "source":
+      return (
+        variants.find(
+          (variant) => variant.role === "source" || variant.id === "source"
+        ) ?? null
+      )
+    case "defaultVariant":
+      return defaultPlaybackVariant
+    case "variant":
+      return (
+        variants.find(
+          (variant) =>
+            variant.role !== "source" && variant.id === target.variantId
+        ) ?? null
+      )
+  }
 }
 
 async function visiblePublicClip(id: string): Promise<MetadataClip | null> {
@@ -144,13 +174,18 @@ async function clipHead(pathname: string): Promise<string> {
     const poster = row.thumbKey
       ? new URL(`/api/clips/${row.id}/thumbnail`, origin).toString()
       : null
-    const ogVariant = selectOpenGraphVariant(row)
-    const videoUrl = new URL(
-      `/api/clips/${row.id}/stream?variant=${encodeURIComponent(
-        ogVariant?.id ?? "encoded"
-      )}`,
-      origin
-    ).toString()
+    const ogVariant = selectOpenGraphVideo(
+      row,
+      configStore.get("encoder").openGraphTarget
+    )
+    const videoUrl = ogVariant
+      ? new URL(
+          `/api/clips/${row.id}/stream?variant=${encodeURIComponent(
+            ogVariant.id
+          )}`,
+          origin
+        ).toString()
+      : null
     const width = ogVariant?.width ?? row.width
     const height = ogVariant?.height ?? row.height
 
@@ -162,14 +197,20 @@ async function clipHead(pathname: string): Promise<string> {
       metaProperty("og:title", row.title),
       metaProperty("og:description", description),
       ...(poster ? [metaProperty("og:image", poster)] : []),
-      metaProperty("og:video", videoUrl),
-      metaProperty("og:video:url", videoUrl),
-      ...(videoUrl.startsWith("https:")
-        ? [metaProperty("og:video:secure_url", videoUrl)]
+      ...(videoUrl
+        ? [
+            metaProperty("og:video", videoUrl),
+            metaProperty("og:video:url", videoUrl),
+            ...(videoUrl.startsWith("https:")
+              ? [metaProperty("og:video:secure_url", videoUrl)]
+              : []),
+            metaProperty("og:video:type", ogVariant?.contentType ?? "video/mp4"),
+            ...(width ? [metaProperty("og:video:width", String(width))] : []),
+            ...(height
+              ? [metaProperty("og:video:height", String(height))]
+              : []),
+          ]
         : []),
-      metaProperty("og:video:type", "video/mp4"),
-      ...(width ? [metaProperty("og:video:width", String(width))] : []),
-      ...(height ? [metaProperty("og:video:height", String(height))] : []),
       metaName("twitter:card", "summary_large_image"),
       metaName("twitter:title", row.title),
       metaName("twitter:description", description),

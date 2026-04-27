@@ -31,6 +31,7 @@ import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integ
 import { StorageConfigCard } from "@/components/routes/admin-settings/storage-config-card";
 import { PasskeySignUpForm } from "@/components/routes/sign-up/passkey-sign-up-form";
 import { api } from "@/lib/api";
+import { devFlags } from "@/lib/flags";
 import { fetchPublicClips } from "@/lib/public-clips";
 import type { PublicClip } from "@/lib/public-clips";
 import { loadAuthConfig, loadSession } from "@/lib/session-suspense";
@@ -44,6 +45,9 @@ export const Route = createFileRoute("/(auth)/setup")({
     const role = (session?.user as { role?: string } | undefined)?.role;
     if (!config.setupRequired && !session) {
       throw redirect({ to: "/login" });
+    }
+    if (!config.setupRequired && !devFlags.forceOnboarding) {
+      throw redirect({ to: "/" });
     }
     if (!config.setupRequired && role !== "admin") throw redirect({ to: "/" });
     const clips = fetchPublicClips();
@@ -121,6 +125,7 @@ function AdminAccountStep() {
 }
 
 const defaultEncoderVariant: AdminEncoderVariant = {
+  id: "1080p-hevc",
   name: "1080p HEVC",
   codec: "hevc",
   height: 1080,
@@ -310,7 +315,8 @@ function getStepDone(config: AdminRuntimeConfig): [boolean, boolean, boolean] {
     // Storage is considered done if it has a configured driver
     true,
     // Encoding is done when enabled with at least one variant
-    config.encoder.enabled && config.encoder.variants.length > 0,
+    config.encoder.remuxEnabled ||
+      (config.encoder.enabled && config.encoder.variants.length > 0),
     // SteamGridDB is done when the key is set (redacted = "***")
     config.integrations.steamgriddbApiKey === "***",
   ];
@@ -387,8 +393,11 @@ function EncoderOnboardingCard({
     const nextEncoder: AdminEncoderConfig = {
       ...config.encoder,
       enabled: true,
+      remuxEnabled: true,
       hwaccel: "none",
       keepSource: true,
+      defaultVariantId: defaultEncoderVariant.id,
+      openGraphTarget: { type: "source" },
       variants: [defaultEncoderVariant],
     };
     try {

@@ -9,6 +9,7 @@ import {
   GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
+  CopyObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3"
 import { Upload } from "@aws-sdk/lib-storage"
@@ -181,6 +182,24 @@ export class S3StorageDriver implements StorageDriver {
     return { size: stat.size }
   }
 
+  async copy(input: {
+    fromKey: string
+    toKey: string
+    contentType: string
+  }): Promise<{ size: number }> {
+    await this.client.send(
+      new CopyObjectCommand({
+        Bucket: this.bucket,
+        Key: input.toKey,
+        CopySource: `${this.bucket}/${encodeS3CopySourceKey(input.fromKey)}`,
+        ContentType: input.contentType,
+        MetadataDirective: "REPLACE",
+      })
+    )
+    const resolved = await this.resolve(input.toKey)
+    return { size: resolved?.size ?? 0 }
+  }
+
   async mintDownloadUrl(
     key: string,
     input: MintDownloadUrlInput
@@ -243,4 +262,11 @@ function isMissing(err: unknown): boolean {
     code === "NoSuchKey" ||
     code === "NotFound"
   )
+}
+
+function encodeS3CopySourceKey(key: string): string {
+  return key
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/")
 }

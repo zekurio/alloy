@@ -52,6 +52,7 @@ export const ENCODER_HEIGHT_MIN = 144
 export const ENCODER_HEIGHT_MAX = 4320
 
 export interface AdminEncoderVariant {
+  id: string
   name: string
   codec: EncoderCodec
   height: number
@@ -64,12 +65,21 @@ export interface AdminEncoderVariant {
 
 export type EncoderVariant = AdminEncoderVariant
 
+export type EncoderOpenGraphTarget =
+  | { type: "none" }
+  | { type: "source" }
+  | { type: "defaultVariant" }
+  | { type: "variant"; variantId: string }
+
 export interface AdminEncoderConfig {
   enabled: boolean
+  remuxEnabled: boolean
   hwaccel: EncoderHwaccel
   qsvDevice: string
   vaapiDevice: string
   keepSource: boolean
+  defaultVariantId: string | null
+  openGraphTarget: EncoderOpenGraphTarget
   variants: AdminEncoderVariant[]
 }
 

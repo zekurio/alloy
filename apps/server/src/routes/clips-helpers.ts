@@ -15,12 +15,11 @@ import {
 import { db } from "../db"
 import { getSession } from "../lib/auth/session"
 import { configStore } from "../lib/config-store"
-import { clipAssetKey } from "../storage"
 
 export const IdParam = z.object({ id: z.uuid() })
 export const StreamQuery = z.object({ variant: z.string().min(1).optional() })
 export const DownloadQuery = z.object({
-  variant: z.string().min(1).default("source"),
+  variant: z.string().min(1).optional(),
 })
 
 export const ListQuery = z.object({
@@ -202,21 +201,7 @@ export type PlaybackClipRow = typeof clip.$inferSelect
 export function encodedVariantsForRow(
   row: PlaybackClipRow
 ): ClipEncodedVariant[] {
-  if (row.variants.length > 0) {
-    return row.variants
-  }
-  return [
-    {
-      id: "encoded",
-      label: "Playback MP4",
-      storageKey: clipAssetKey(row.id, "video"),
-      contentType: "video/mp4",
-      width: row.width ?? 0,
-      height: row.height ?? 0,
-      sizeBytes: row.sizeBytes ?? 0,
-      isDefault: true,
-    },
-  ]
+  return row.variants
 }
 
 export function findEncodedVariant(
