@@ -16,7 +16,6 @@ import {
   type EncoderOpenGraphTarget,
 } from "./lib/config-store"
 import { selectClipById } from "./lib/clip-select"
-import { encodedVariantsForRow } from "./routes/clips-helpers"
 
 const HEAD_MARKER = "<!-- alloy:head -->"
 const CLIP_PERMALINK_RE = /^\/g\/[^/]+\/c\/([^/]+)\/?$/
@@ -110,7 +109,7 @@ function selectOpenGraphVideo(
   row: MetadataClip,
   target: EncoderOpenGraphTarget
 ): ClipEncodedVariant | null {
-  const variants = encodedVariantsForRow(row).filter(
+  const variants = row.variants.filter(
     (variant) => variant.contentType === "video/mp4"
   )
   const playbackVariants = variants.filter(
@@ -127,8 +126,7 @@ function selectOpenGraphVideo(
       return (
         variants.find(
           (variant) => variant.role === "source" || variant.id === "source"
-        ) ??
-        defaultPlaybackVariant
+        ) ?? null
       )
     case "defaultVariant":
       return defaultPlaybackVariant
