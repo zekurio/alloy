@@ -78,7 +78,7 @@ async function configureEncodeWorker(
         if ((err as Error).name === "AbortError") return
         const reason = err instanceof Error ? err.message : "Encode failed"
         if (job.retryCount >= RETRY_LIMIT) {
-          await markFailed(clipId, reason)
+          await markFailedUnlessReady(clipId, reason)
         } else {
           await recordFailureReason(clipId, reason)
         }
@@ -114,13 +114,20 @@ async function runEncode(clipId: string): Promise<void> {
   }
 }
 
-async function markFailed(clipId: string, reason: string): Promise<void> {
+async function markFailedUnlessReady(
+  clipId: string,
+  reason: string
+): Promise<void> {
   try {
     const [owner] = await db
-      .select({ authorId: clip.authorId })
+      .select({ authorId: clip.authorId, status: clip.status })
       .from(clip)
       .where(eq(clip.id, clipId))
       .limit(1)
+    if (owner?.status === "ready") {
+      await recordFailureReason(clipId, reason)
+      return
+    }
     await db
       .update(clip)
       .set({
