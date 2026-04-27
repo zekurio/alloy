@@ -35,19 +35,20 @@ Long term maintainability is a core priority. If you add new functionality, firs
 
 ## Repository Workflow
 
-This repository uses Jujutsu (`jj`) instead of Git. Do not use Git commands.
+This repository uses standard Git.
 
 - Agents operate within a **shared working copy**. Do not create separate working copies per agent.
 - Keep each change focused on one logical task or concern.
-- Do not automatically finalize changes after every prompt.
-- Create a new change with `jj new` when starting distinct work, when work diverges significantly, or when the current change would become hard to review.
-- Split mixed or oversized work with `jj split`.
+- Do not automatically commit changes after every prompt.
+- Create a new branch when starting distinct work, when work diverges significantly, or when the current branch would become hard to review.
+- Split mixed or oversized work into separate commits.
 
 If approved, run:
 
 ```bash
-jj describe -m "<type>: <what changed>"
-jj new
+git add <paths>
+git commit -m "<type>: <what changed>"
+git push
 ```
 
 ### Multi-agent coordination
@@ -55,7 +56,7 @@ jj new
 - Do not perform conflicting edits in parallel
 - Prefer assigning agents **separate concerns**, not separate files arbitrarily
 - If multiple agents contribute:
-  - keep their work in **separate changes**, not separate working copies
+  - keep their work in **separate commits or branches**, not separate working copies
   - ensure changes remain independently understandable and reviewable
 
 ### Commit messages
@@ -66,4 +67,4 @@ jj new
 ### Safety
 
 - Avoid destructive operations unless explicitly requested
-- If unsure whether to amend, split, or create a new change, ask the user first
+- If unsure whether to amend, split, or create a new branch, ask the user first
