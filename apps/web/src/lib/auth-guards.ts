@@ -2,6 +2,7 @@ import { redirect } from "@tanstack/react-router"
 
 import type { PublicAuthConfig } from "@workspace/api"
 
+import { devFlags } from "./flags"
 import { loadAuthConfig, loadSession, type Session } from "./session-suspense"
 
 type AuthRouteContext = {
@@ -19,6 +20,13 @@ function isClipPermalink(pathname: string): boolean {
 
 function authContext(config: PublicAuthConfig, session: Session | null) {
   return { authConfig: config, session }
+}
+
+function shouldForceOnboarding(
+  config: PublicAuthConfig,
+  session: Session | null
+) {
+  return devFlags.forceOnboarding && !config.setupRequired && isAdmin(session)
 }
 
 function contextSession(context: AuthRouteContext): Session | null | undefined {
@@ -53,6 +61,9 @@ export async function redirectToSetupBeforeLoad({
     throw redirect({ to: "/setup" })
   }
   const session = await loadSession()
+  if (shouldForceOnboarding(config, session)) {
+    throw redirect({ to: "/setup" })
+  }
   return authContext(config, session)
 }
 
@@ -70,6 +81,10 @@ export async function requireBrowseAuthBeforeLoad({
   }
 
   const session = await loadContextSession(context)
+  if (shouldForceOnboarding(config, session)) {
+    throw redirect({ to: "/setup" })
+  }
+
   if (isClipPermalink(location.pathname)) {
     return authContext(config, session)
   }
@@ -94,6 +109,10 @@ export async function requireStrictAuthBeforeLoad({
     throw redirect({ to: "/setup" })
   }
 
+  if (shouldForceOnboarding(config, session)) {
+    throw redirect({ to: "/setup" })
+  }
+
   if (!session) {
     throw redirect({ to: "/login" })
   }
@@ -111,6 +130,10 @@ export async function requireAdminBeforeLoad({
   ])
 
   if (config.setupRequired) {
+    throw redirect({ to: "/setup" })
+  }
+
+  if (shouldForceOnboarding(config, session)) {
     throw redirect({ to: "/setup" })
   }
 
@@ -135,6 +158,10 @@ export async function redirectAuthedBeforeLoad({
   ])
 
   if (config.setupRequired) {
+    throw redirect({ to: "/setup" })
+  }
+
+  if (shouldForceOnboarding(config, session)) {
     throw redirect({ to: "/setup" })
   }
 

@@ -277,6 +277,18 @@ export const adminRoute = new Hono()
     const current = configStore.getAll()
     preserveRedactedSecrets(input, current)
     try {
+      const next = {
+        ...current,
+        ...input,
+      }
+      if (!hasEnabledSignInMethod(next)) {
+        return c.json(
+          {
+            error: "Keep at least one sign-in method enabled.",
+          },
+          400
+        )
+      }
       configStore.patch(input as Partial<RuntimeConfig>)
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     } catch (cause) {

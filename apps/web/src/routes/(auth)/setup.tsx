@@ -1,11 +1,11 @@
-import * as React from "react"
-import { useQuery } from "@tanstack/react-query"
+import * as React from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   createFileRoute,
   Link,
   redirect,
   useNavigate,
-} from "@tanstack/react-router"
+} from "@tanstack/react-router";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -14,65 +14,65 @@ import {
   FilmIcon,
   InfoIcon,
   LinkIcon,
-} from "lucide-react"
+} from "lucide-react";
 
-import { AlloyLogo } from "@workspace/ui/components/alloy-logo"
-import { Button } from "@workspace/ui/components/button"
-import { toast } from "@workspace/ui/lib/toast"
+import { AlloyLogo } from "@workspace/ui/components/alloy-logo";
+import { Button } from "@workspace/ui/components/button";
+import { toast } from "@workspace/ui/lib/toast";
 import type {
   AdminEncoderConfig,
   AdminEncoderVariant,
   AdminRuntimeConfig,
-} from "@workspace/api"
+} from "@workspace/api";
 
-import { LoginArtwork } from "@/components/auth/login-artwork"
-import { EncoderConfigCard } from "@/components/routes/admin-settings/encoder-config-card"
-import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integrations-config-card"
-import { StorageConfigCard } from "@/components/routes/admin-settings/storage-config-card"
-import { PasskeySignUpForm } from "@/components/routes/sign-up/passkey-sign-up-form"
-import { api } from "@/lib/api"
-import { fetchPublicClips } from "@/lib/public-clips"
-import type { PublicClip } from "@/lib/public-clips"
-import { loadAuthConfig, loadSession } from "@/lib/session-suspense"
+import { LoginArtwork } from "@/components/auth/login-artwork";
+import { EncoderConfigCard } from "@/components/routes/admin-settings/encoder-config-card";
+import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integrations-config-card";
+import { StorageConfigCard } from "@/components/routes/admin-settings/storage-config-card";
+import { PasskeySignUpForm } from "@/components/routes/sign-up/passkey-sign-up-form";
+import { api } from "@/lib/api";
+import { fetchPublicClips } from "@/lib/public-clips";
+import type { PublicClip } from "@/lib/public-clips";
+import { loadAuthConfig, loadSession } from "@/lib/session-suspense";
 
 export const Route = createFileRoute("/(auth)/setup")({
   loader: async ({ context }) => {
-    const config = context.authConfig ?? (await loadAuthConfig())
+    const config = context.authConfig ?? (await loadAuthConfig());
     const session = config.setupRequired
       ? null
-      : (context.session ?? (await loadSession()))
-    const role = (session?.user as { role?: string } | undefined)?.role
+      : (context.session ?? (await loadSession()));
+    const role = (session?.user as { role?: string } | undefined)?.role;
     if (!config.setupRequired && !session) {
-      throw redirect({ to: "/login" })
+      throw redirect({ to: "/login" });
     }
-    if (!config.setupRequired && role !== "admin") throw redirect({ to: "/" })
-    const clips = fetchPublicClips()
-    return { config, clips, session }
+    if (!config.setupRequired && role !== "admin") throw redirect({ to: "/" });
+    const clips = fetchPublicClips();
+    return { config, clips, session };
   },
   component: SetupPage,
-})
+});
 
 function SetupPage() {
-  const { clips } = Route.useLoaderData()
+  const { clips } = Route.useLoaderData();
   return (
     <React.Suspense fallback={<SetupPageInner clips={[]} />}>
       <SetupPageLoaded clips={clips} />
     </React.Suspense>
-  )
+  );
 }
 
 function SetupPageLoaded({
   clips,
 }: {
-  clips: ReturnType<typeof fetchPublicClips>
+  clips: ReturnType<typeof fetchPublicClips>;
 }) {
-  const resolvedClips = React.use(clips)
-  return <SetupPageInner clips={resolvedClips} />
+  const resolvedClips = React.use(clips);
+  return <SetupPageInner clips={resolvedClips} />;
 }
 
 function SetupPageInner({ clips }: { clips: PublicClip[] }) {
-  const { config } = Route.useLoaderData()
-  const mode = config.setupRequired ? "account" : "onboarding"
+  const { config } = Route.useLoaderData();
+  const mode = config.setupRequired ? "account" : "onboarding";
 
   return (
     <div className="relative min-h-screen w-full bg-background text-foreground">
@@ -90,18 +90,18 @@ function SetupPageInner({ clips }: { clips: PublicClip[] }) {
             </Link>
           </header>
 
-          <div className="flex flex-1 items-center py-8">
+          <div className="flex flex-1 items-center">
             {mode === "account" ? <AdminAccountStep /> : <AdminSetupSteps />}
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 function AdminAccountStep() {
   return (
-    <div className="mx-auto w-full max-w-sm lg:mx-0">
+    <div className="w-full max-w-sm">
       <div className="mb-8 space-y-1.5">
         <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
           Create the admin account
@@ -117,7 +117,7 @@ function AdminAccountStep() {
         successMessage="Admin account ready"
       />
     </div>
-  )
+  );
 }
 
 const defaultEncoderVariant: AdminEncoderVariant = {
@@ -126,80 +126,95 @@ const defaultEncoderVariant: AdminEncoderVariant = {
   height: 1080,
   quality: 24,
   preset: "medium",
-  audioBitrateKbps: 160,
+  audioBitrateKbps: 192,
   extraInputArgs: "",
   extraOutputArgs: "",
-}
+};
 
 const SETUP_STEPS = [
-  { icon: DatabaseIcon, label: "Storage", formId: "setup-storage" },
-  { icon: FilmIcon, label: "Encoding", formId: "setup-encoder" },
-  { icon: LinkIcon, label: "SteamGridDB", formId: "setup-integrations" },
-] as const
+  {
+    icon: DatabaseIcon,
+    label: "Storage",
+    description: "Configure where clips and uploads are stored.",
+    formId: "setup-storage",
+  },
+  {
+    icon: FilmIcon,
+    label: "Encoding",
+    description: "Configure video encoding and hardware acceleration.",
+    formId: "setup-encoder",
+  },
+  {
+    icon: LinkIcon,
+    label: "SteamGridDB",
+    description: "Game artwork and metadata from SteamGridDB.",
+    formId: "setup-integrations",
+  },
+] as const;
 
-type SetupStep = 0 | 1 | 2
+type SetupStep = 0 | 1 | 2;
 
 function AdminSetupSteps() {
-  const navigate = useNavigate()
-  const [step, setStep] = React.useState<SetupStep>(0)
-  const [config, setConfig] = React.useState<AdminRuntimeConfig | null>(null)
+  const navigate = useNavigate();
+  const [step, setStep] = React.useState<SetupStep>(0);
+  const [config, setConfig] = React.useState<AdminRuntimeConfig | null>(null);
   const configQuery = useQuery({
     queryKey: ["setup", "admin-runtime-config"],
     queryFn: () => api.admin.fetchRuntimeConfig(),
-  })
+  });
 
   React.useEffect(() => {
-    if (configQuery.data) setConfig(configQuery.data)
-  }, [configQuery.data])
+    if (configQuery.data) setConfig(configQuery.data);
+  }, [configQuery.data]);
 
   const loadError = configQuery.error
     ? configQuery.error instanceof Error
       ? configQuery.error.message
       : "Couldn't load setup"
-    : null
+    : null;
 
   if (loadError) {
     return (
       <div className="w-full rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
         {loadError}
       </div>
-    )
+    );
   }
 
-  if (!config) return null
+  if (!config) return null;
 
-  const stepDone = getStepDone(config)
-  const isLastStep = step === 2
+  const stepDone = getStepDone(config);
+  const isLastStep = step === 2;
 
-  function advanceStep() {
-    if (step < 2) {
-      setStep((step + 1) as SetupStep)
-    } else {
-      void navigate({ to: "/" })
-    }
+  function advanceStep(savedStep: SetupStep) {
+    setStep((currentStep) => {
+      if (currentStep !== savedStep) return currentStep;
+      if (currentStep < 2) return (currentStep + 1) as SetupStep;
+      queueMicrotask(() => void navigate({ to: "/" }));
+      return currentStep;
+    });
   }
 
   function handleNext() {
     const formEl = document.getElementById(
-      SETUP_STEPS[step].formId
-    ) as HTMLFormElement | null
+      SETUP_STEPS[step].formId,
+    ) as HTMLFormElement | null;
     if (formEl) {
-      formEl.requestSubmit()
+      formEl.requestSubmit();
     } else {
-      advanceStep()
+      advanceStep(step);
     }
   }
 
+  const currentStep = SETUP_STEPS[step];
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-6 lg:mx-0">
+    <div className="w-full max-w-2xl space-y-6">
       <div className="space-y-1.5">
         <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
           Finish instance setup
         </h2>
         <p className="text-sm text-foreground-muted">
-          {step === 0 && "Configure where clip uploads are stored."}
-          {step === 1 && "Set up video encoding for playback variants."}
-          {step === 2 && "Connect SteamGridDB for game artwork metadata."}
+          {currentStep.description}
         </p>
       </div>
 
@@ -210,9 +225,10 @@ function AdminSetupSteps() {
           <StorageConfigCard
             storage={config.storage}
             onChange={(next) => setConfig(next)}
-            onSaved={advanceStep}
+            onSaved={() => advanceStep(0)}
             formId="setup-storage"
             hideActions
+            hideHeader
           />
         )}
         {step === 1 && (
@@ -221,16 +237,18 @@ function AdminSetupSteps() {
             onChange={(next) => setConfig(next)}
             encoderFormId="setup-encoder"
             hideEncoderActions
-            onEncoderSaved={advanceStep}
+            hideEncoderHeader
+            onEncoderSaved={() => advanceStep(1)}
           />
         )}
         {step === 2 && (
           <IntegrationsConfigCard
             integrations={config.integrations}
             onChange={(next) => setConfig(next)}
-            onSaved={advanceStep}
+            onSaved={() => advanceStep(2)}
             formId="setup-integrations"
             hideActions
+            hideHeader
           />
         )}
       </div>
@@ -254,7 +272,7 @@ function AdminSetupSteps() {
         </Button>
       </div>
     </div>
-  )
+  );
 }
 
 function getStepDone(config: AdminRuntimeConfig): [boolean, boolean, boolean] {
@@ -265,21 +283,21 @@ function getStepDone(config: AdminRuntimeConfig): [boolean, boolean, boolean] {
     config.encoder.enabled && config.encoder.variants.length > 0,
     // SteamGridDB is done when the key is set (redacted = "***")
     config.integrations.steamgriddbApiKey === "***",
-  ]
+  ];
 }
 
 function StepIndicator({
   currentStep,
   stepDone,
 }: {
-  currentStep: SetupStep
-  stepDone: [boolean, boolean, boolean]
+  currentStep: SetupStep;
+  stepDone: [boolean, boolean, boolean];
 }) {
   return (
     <div className="grid gap-2 sm:grid-cols-3">
       {SETUP_STEPS.map((item, index) => {
-        const isCurrent = index === currentStep
-        const isDone = stepDone[index]
+        const isCurrent = index === currentStep;
+        const isDone = stepDone[index];
 
         return (
           <div
@@ -298,59 +316,61 @@ function StepIndicator({
               <CheckCircle2Icon className="size-4 text-success" />
             ) : null}
           </div>
-        )
+        );
       })}
     </div>
-  )
+  );
 }
 
 function EncoderOnboardingCard({
   config,
   onChange,
   encoderFormId,
+  hideEncoderHeader,
   hideEncoderActions,
   onEncoderSaved,
 }: {
-  config: AdminRuntimeConfig
-  onChange: (next: AdminRuntimeConfig) => void
-  encoderFormId?: string
-  hideEncoderActions?: boolean
-  onEncoderSaved?: () => void
+  config: AdminRuntimeConfig;
+  onChange: (next: AdminRuntimeConfig) => void;
+  encoderFormId?: string;
+  hideEncoderHeader?: boolean;
+  hideEncoderActions?: boolean;
+  onEncoderSaved?: () => void;
 }) {
-  const [pending, setPending] = React.useState(false)
+  const [pending, setPending] = React.useState(false);
   const capsQuery = useQuery({
     queryKey: ["admin", "encoder-capabilities"],
     queryFn: () => api.admin.fetchEncoderCapabilities(),
     staleTime: 5 * 60_000,
-  })
-  const caps = capsQuery.data
+  });
+  const caps = capsQuery.data;
   const showSuggestion =
-    !config.encoder.enabled || config.encoder.variants.length === 0
+    !config.encoder.enabled || config.encoder.variants.length === 0;
 
   async function applyDefaultProfile() {
-    if (pending) return
+    if (pending) return;
     if (caps?.ffmpegOk && !caps.available.none.hevc) {
-      toast.error("Detected ffmpeg does not report software HEVC support.")
-      return
+      toast.error("Detected ffmpeg does not report software HEVC support.");
+      return;
     }
-    setPending(true)
+    setPending(true);
     const nextEncoder: AdminEncoderConfig = {
       ...config.encoder,
       enabled: true,
       hwaccel: "none",
       keepSource: true,
       variants: [defaultEncoderVariant],
-    }
+    };
     try {
-      const next = await api.admin.updateEncoderConfig(nextEncoder)
-      onChange(next)
-      toast.success("Default encoder variant applied")
+      const next = await api.admin.updateEncoderConfig(nextEncoder);
+      onChange(next);
+      toast.success("Default encoder variant applied");
     } catch (cause) {
       toast.error(
-        cause instanceof Error ? cause.message : "Couldn't update encoder"
-      )
+        cause instanceof Error ? cause.message : "Couldn't update encoder",
+      );
     } finally {
-      setPending(false)
+      setPending(false);
     }
   }
 
@@ -380,9 +400,10 @@ function EncoderOnboardingCard({
         encoder={config.encoder}
         onChange={(next) => onChange(next)}
         formId={encoderFormId}
+        hideHeader={hideEncoderHeader}
         hideActions={hideEncoderActions}
         onSaved={onEncoderSaved}
       />
     </div>
-  )
+  );
 }

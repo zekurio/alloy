@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
+import { Spinner } from "@workspace/ui/components/spinner"
 import {
   Section,
   SectionContent,
@@ -556,33 +557,32 @@ function FfmpegBadge({
   caps: AdminEncoderCapabilities | null
   error: string | null
 }) {
-  if (error) {
-    return (
-      <Tooltip>
-        <TooltipTrigger className="inline-flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-xs">
-          <span className="font-mono font-medium text-foreground-muted">
-            ffmpeg
-          </span>
-          <AlertCircleIcon className="size-3.5 text-destructive" />
-        </TooltipTrigger>
-        <TooltipContent side="bottom">{error}</TooltipContent>
-      </Tooltip>
-    )
-  }
-
-  if (!caps) return null
-
-  const tooltipText = caps.ffmpegOk
-    ? (caps.ffmpegVersion ?? "ffmpeg detected")
-    : "Not found — set FFMPEG_BIN or add ffmpeg to PATH"
+  const tooltipText = error
+    ? error
+    : caps
+      ? caps.ffmpegOk
+        ? (caps.ffmpegVersion ?? "ffmpeg detected")
+        : "Not found — set FFMPEG_BIN or add ffmpeg to PATH"
+      : "Checking ffmpeg availability"
+  const failed = error !== null || caps?.ffmpegOk === false
 
   return (
     <Tooltip>
-      <TooltipTrigger className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-raised px-2 py-1 text-xs">
+      <TooltipTrigger
+        className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${
+          failed
+            ? "border-destructive/30 bg-destructive/5"
+            : "border-border bg-surface-raised"
+        }`}
+      >
         <span className="font-mono font-medium text-foreground-muted">
           ffmpeg
         </span>
-        {caps.ffmpegOk ? (
+        {error ? (
+          <AlertCircleIcon className="size-3.5 text-destructive" />
+        ) : !caps ? (
+          <Spinner className="size-3.5 text-foreground-muted" />
+        ) : caps.ffmpegOk ? (
           <CheckCircle2Icon className="size-3.5 text-success" />
         ) : (
           <XCircleIcon className="size-3.5 text-destructive" />
