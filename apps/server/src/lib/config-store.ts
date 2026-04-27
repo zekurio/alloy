@@ -48,6 +48,7 @@ export {
 export type {
   EncoderCodec,
   EncoderConfig,
+  EncoderOpenGraphTarget,
   EncoderVariant,
   IntegrationsConfig,
   LimitsConfig,

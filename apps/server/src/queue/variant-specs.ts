@@ -23,22 +23,21 @@ export interface VariantSpec {
 export function buildVariantSpecs(
   clipId: string,
   sourceHeight: number,
-  configuredVariants: ReadonlyArray<EncoderVariant>
+  configuredVariants: ReadonlyArray<EncoderVariant>,
+  defaultVariantId: string | null
 ): VariantSpec[] {
   const specs: VariantSpec[] = []
-  const usedIds = new Set<string>()
 
-  for (const [index, configured] of configuredVariants.entries()) {
+  for (const configured of configuredVariants) {
     const cappedHeight = Math.min(configured.height, sourceHeight)
     if (cappedHeight <= 0) continue
-    const id = buildVariantId(configured, index, usedIds)
     const isDefault = specs.length === 0
     specs.push({
-      id,
+      id: configured.id,
       label: configured.name,
       height: cappedHeight,
-      storageKey: clipVideoVariantKey(clipId, id),
-      isDefault,
+      storageKey: clipVideoVariantKey(clipId, configured.id),
+      isDefault: configured.id === defaultVariantId || (!defaultVariantId && isDefault),
       override: {
         codec: configured.codec,
         quality: configured.quality,
@@ -51,25 +50,4 @@ export function buildVariantSpecs(
   }
 
   return specs
-}
-
-function buildVariantId(
-  variant: EncoderVariant,
-  index: number,
-  usedIds: Set<string>
-): string {
-  const slug =
-    variant.name
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || `variant-${index + 1}`
-  let id = slug
-  let suffix = 2
-  while (usedIds.has(id)) {
-    id = `${slug}-${suffix}`
-    suffix += 1
-  }
-  usedIds.add(id)
-  return id
 }
