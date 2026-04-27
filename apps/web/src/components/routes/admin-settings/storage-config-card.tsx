@@ -1,6 +1,17 @@
 import * as React from "react"
-import { AlertCircleIcon } from "lucide-react"
+import { AlertCircleIcon, Trash2Icon } from "lucide-react"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
@@ -9,6 +20,12 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@workspace/ui/components/input-group"
 import {
   RadioGroup,
   RadioGroupItem,
@@ -29,6 +46,7 @@ import {
   type AdminRuntimeConfig,
   type AdminS3StorageConfig,
   type AdminStorageConfig,
+  type AdminStorageConfigPatch,
 } from "@workspace/api"
 
 type StorageDriverKind = (typeof STORAGE_DRIVERS)[number]
@@ -117,7 +135,7 @@ function toForm(storage: AdminStorageConfig): StorageForm {
 function buildPatch(
   form: StorageForm,
   initial: StorageForm
-): Partial<AdminStorageConfig> | null {
+): AdminStorageConfigPatch | null {
   if (form.driver === "fs") {
     if (form.fs.root.trim().length === 0) {
       toast.error("Filesystem root path is required.")
@@ -142,11 +160,11 @@ function buildPatch(
 
   const presignSec = clampInt(form.s3.presignExpiresSec, 60, 86_400, 3600)
 
-  const patch: Record<string, unknown> = { driver: form.driver }
+  const patch: AdminStorageConfigPatch = { driver: form.driver }
 
   // Build FS patch — omit hmacSecret if untouched so the server keeps the
   // existing value.
-  const fsPatch: Record<string, unknown> = {
+  const fsPatch: AdminStorageConfigPatch["fs"] = {
     root: form.fs.root.trim(),
     publicBaseUrl: form.fs.publicBaseUrl.trim(),
   }
@@ -158,7 +176,7 @@ function buildPatch(
   }
   patch.fs = fsPatch
 
-  const s3Patch: Record<string, unknown> = {
+  const s3Patch: AdminStorageConfigPatch["s3"] = {
     bucket: form.s3.bucket.trim(),
     region: form.s3.region.trim(),
     endpoint:
@@ -178,7 +196,7 @@ function buildPatch(
   }
   patch.s3 = s3Patch
 
-  return patch as Partial<AdminStorageConfig>
+  return patch
 }
 
 function formEquals(a: StorageForm, b: StorageForm): boolean {
@@ -235,6 +253,26 @@ function useStorageConfigForm({ storage, onChange }: StorageConfigCardProps) {
     }
   }
 
+  async function onClearS3Secret() {
+    if (pending) return
+    setPending(true)
+    try {
+      const next = await api.admin.updateStorageConfig({
+        s3: { secretAccessKey: null },
+      })
+      onChange(next)
+      toast.success("S3 secret access key removed")
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error
+          ? cause.message
+          : "Couldn't remove S3 secret access key"
+      )
+    } finally {
+      setPending(false)
+    }
+  }
+
   return {
     form,
     pending,
@@ -244,6 +282,7 @@ function useStorageConfigForm({ storage, onChange }: StorageConfigCardProps) {
     setS3,
     resetForm,
     onSubmit,
+    onClearS3Secret,
   }
 }
 
@@ -344,11 +383,17 @@ function FsFields({
 function S3Fields({
   form,
   secretConfigured,
+  pending,
+  isDirty,
   onChange,
+  onClearSecret,
 }: {
   form: S3Form
   secretConfigured: boolean
+  pending: boolean
+  isDirty: boolean
   onChange: <K extends keyof S3Form>(key: K, value: S3Form[K]) => void
+  onClearSecret: () => void
 }) {
   return (
     <>
@@ -407,14 +452,64 @@ function S3Fields({
           <FieldLabel htmlFor="storage-s3-secret-key">
             Secret access key
           </FieldLabel>
-          <Input
-            id="storage-s3-secret-key"
-            type="password"
-            autoComplete="new-password"
-            value={form.secretAccessKey}
-            placeholder={secretConfigured ? "Leave blank to keep current" : ""}
-            onChange={(e) => onChange("secretAccessKey", e.target.value)}
-          />
+          <InputGroup>
+            <InputGroupInput
+              id="storage-s3-secret-key"
+              type="password"
+              className="pl-3.5"
+              autoComplete="new-password"
+              value={form.secretAccessKey}
+              placeholder={
+                secretConfigured ? "Leave blank to keep current" : ""
+              }
+              onChange={(e) => onChange("secretAccessKey", e.target.value)}
+            />
+            {secretConfigured ? (
+              <InputGroupAddon align="inline-end">
+                <AlertDialog>
+                  <AlertDialogTrigger
+                    render={
+                      <InputGroupButton
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-danger hover:text-danger"
+                        aria-label="Remove S3 secret access key"
+                        title="Remove secret access key"
+                        disabled={pending || isDirty}
+                      />
+                    }
+                  >
+                    <Trash2Icon />
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        Remove S3 secret access key?
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This removes the stored static credential. S3 access
+                        will use instance-role or workload identity credentials
+                        until a new secret is added.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={pending}>
+                        Cancel
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        variant="destructive"
+                        onClick={onClearSecret}
+                        disabled={pending}
+                      >
+                        {pending ? "Removing..." : "Remove secret"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </InputGroupAddon>
+            ) : null}
+          </InputGroup>
           <FieldDescription>
             {secretConfigured
               ? "Configured. Type a new value to rotate."
@@ -534,7 +629,10 @@ export function StorageConfigCard(props: StorageConfigCardProps) {
               <S3Fields
                 form={state.form.s3}
                 secretConfigured={secretConfigured}
+                pending={state.pending}
+                isDirty={state.isDirty}
                 onChange={state.setS3}
+                onClearSecret={state.onClearS3Secret}
               />
             )}
           </SectionContent>

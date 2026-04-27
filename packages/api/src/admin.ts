@@ -6,7 +6,7 @@ import type {
   AdminLimitsConfig,
   AdminOAuthProvider,
   AdminRuntimeConfig,
-  AdminStorageConfig,
+  AdminStorageConfigPatch,
   AdminUpdateUserStorageQuotaInput,
   AdminUserStorageRow,
   AdminUsersResponse,
@@ -32,8 +32,11 @@ export type {
   AdminOAuthProvider,
   AdminRuntimeConfig,
   AdminStorageConfig,
+  AdminStorageConfigPatch,
   AdminFsStorageConfig,
+  AdminFsStorageConfigPatch,
   AdminS3StorageConfig,
+  AdminS3StorageConfigPatch,
   AdminUpdateUserStorageQuotaInput,
   AdminUsersResponse,
   AdminUserStorageRow,
@@ -150,7 +153,7 @@ export function createAdminApi(context: ApiContext) {
       patchRuntimeSection(context, "/api/admin/limits", patch),
     updateIntegrationsConfig: (patch: Partial<AdminIntegrationsConfig>) =>
       patchRuntimeSection(context, "/api/admin/integrations", patch),
-    updateStorageConfig: (patch: Partial<AdminStorageConfig>) =>
+    updateStorageConfig: (patch: AdminStorageConfigPatch) =>
       patchRuntimeSection(context, "/api/admin/storage", patch),
     fetchEncoderCapabilities: () => fetchEncoderCapabilities(context),
     reEncodeAllClips: () => reEncodeAllClips(context),
