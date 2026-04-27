@@ -3,8 +3,10 @@ import { useQuery } from "@tanstack/react-query"
 import {
   AlertCircleIcon,
   AlertTriangleIcon,
+  CheckCircle2Icon,
   InfoIcon,
   PlusIcon,
+  XCircleIcon,
 } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
@@ -55,6 +57,14 @@ import { VariantRow } from "./encoder-variant-row"
 type EncoderConfigCardProps = {
   encoder: AdminEncoderConfig
   onChange: (next: AdminRuntimeConfig) => void
+  /** Called after a successful save (or when submitted with no changes). */
+  onSaved?: () => void
+  /** Hide the footer action buttons (Cancel / Save). */
+  hideActions?: boolean
+  /** Hide the section header (useful when already wrapped in a titled collapsible). */
+  hideHeader?: boolean
+  /** HTML `id` for the `<form>` element, useful for external submit buttons. */
+  formId?: string
 }
 
 /** Index of the variant being edited, or -1 for a new variant, or null when closed. */
@@ -94,16 +104,19 @@ async function saveEncoderConfig({
   form,
   onChange,
   setPending,
+  onSaved,
 }: {
   form: AdminEncoderConfig
   onChange: (next: AdminRuntimeConfig) => void
   setPending: React.Dispatch<React.SetStateAction<boolean>>
+  onSaved?: () => void
 }) {
   setPending(true)
   try {
     const next = await api.admin.updateEncoderConfig(form)
     onChange(next)
     toast.success("Encoder updated")
+    onSaved?.()
   } catch (cause) {
     toast.error(
       cause instanceof Error ? cause.message : "Couldn't update encoder"
@@ -116,6 +129,10 @@ async function saveEncoderConfig({
 export function EncoderConfigCard({
   encoder,
   onChange,
+  onSaved,
+  hideActions,
+  hideHeader,
+  formId,
 }: EncoderConfigCardProps) {
   const [form, setForm] = React.useState<AdminEncoderConfig>(encoder)
   const [pending, setPending] = React.useState(false)
@@ -223,8 +240,12 @@ export function EncoderConfigCard({
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (pending) return
+    if (!isDirty) {
+      onSaved?.()
+      return
+    }
     if (!form.enabled) {
-      await saveEncoderConfig({ form, onChange, setPending })
+      await saveEncoderConfig({ form, onChange, setPending, onSaved })
       return
     }
     if (form.variants.length === 0) {
@@ -253,7 +274,7 @@ export function EncoderConfigCard({
         return
       }
     }
-    await saveEncoderConfig({ form, onChange, setPending })
+    await saveEncoderConfig({ form, onChange, setPending, onSaved })
   }
 
   const isDirty = JSON.stringify(form) !== JSON.stringify(encoder)
@@ -303,43 +324,28 @@ export function EncoderConfigCard({
     )
   return (
     <>
-      <form onSubmit={onSubmit}>
+      <form id={formId} onSubmit={onSubmit}>
         <Section>
-          <SectionHeader>
-            <SectionTitle>Encoder</SectionTitle>
-          </SectionHeader>
+          {!hideHeader && (
+            <SectionHeader>
+              <SectionTitle>Encoder</SectionTitle>
+              <FfmpegBadge caps={caps} error={capsError} />
+            </SectionHeader>
+          )}
 
           <fieldset disabled={pending} className="contents">
-            <SectionContent className="flex flex-col gap-3">
-              {capsError ? (
-                <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-                  <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
-                  <span>{capsError}</span>
-                </div>
-              ) : null}
-
-              {caps && !caps.ffmpegOk ? (
-                <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-                  <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
-                  <span>
-                    ffmpeg isn&rsquo;t reachable on the server. Encodes will
-                    fail until the binary is on PATH (or <code>FFMPEG_BIN</code>{" "}
-                    points at it).
-                  </span>
-                </div>
-              ) : null}
-
-              {caps?.ffmpegVersion ? (
-                <p className="text-xs text-muted-foreground">
-                  Detected:{" "}
-                  <span className="font-mono">{caps.ffmpegVersion}</span>
-                </p>
-              ) : null}
-
+            <SectionContent
+              className={`flex flex-col ${hideActions ? "gap-2" : "gap-3"}`}
+            >
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field>
                   <FieldLabel htmlFor="encoder-hwaccel">
-                    Hardware acceleration
+                    <span className="flex items-center gap-2">
+                      Hardware acceleration
+                      {hideHeader && (
+                        <FfmpegBadge caps={caps} error={capsError} />
+                      )}
+                    </span>
                   </FieldLabel>
                   <Select
                     value={form.hwaccel}
@@ -487,42 +493,46 @@ export function EncoderConfigCard({
                     </Button>
                   </div>
 
-                  <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium">
-                        Re-encode existing clips
+                  {!hideActions && (
+                    <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium">
+                          Re-encode existing clips
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Queue current clips against the saved variant ladder.
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Queue current clips against the saved variant ladder.
-                      </p>
+                      <ReEncodeClipsButton />
                     </div>
-                    <ReEncodeClipsButton />
-                  </div>
+                  )}
                 </>
               ) : null}
             </SectionContent>
 
-            <SectionFooter>
-              <div className="ml-auto flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={resetForm}
-                  disabled={pending || !isDirty}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="sm"
-                  disabled={!canSubmit}
-                >
-                  {pending ? "Saving…" : "Save encoder"}
-                </Button>
-              </div>
-            </SectionFooter>
+            {!hideActions && (
+              <SectionFooter>
+                <div className="ml-auto flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={resetForm}
+                    disabled={pending || !isDirty}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="sm"
+                    disabled={!canSubmit}
+                  >
+                    {pending ? "Saving…" : "Save encoder"}
+                  </Button>
+                </div>
+              </SectionFooter>
+            )}
           </fieldset>
         </Section>
       </form>
@@ -536,5 +546,49 @@ export function EncoderConfigCard({
         onOpenChange={handleDialogOpenChange}
       />
     </>
+  )
+}
+
+function FfmpegBadge({
+  caps,
+  error,
+}: {
+  caps: AdminEncoderCapabilities | null
+  error: string | null
+}) {
+  if (error) {
+    return (
+      <Tooltip>
+        <TooltipTrigger className="inline-flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-xs">
+          <span className="font-mono font-medium text-foreground-muted">
+            ffmpeg
+          </span>
+          <AlertCircleIcon className="size-3.5 text-destructive" />
+        </TooltipTrigger>
+        <TooltipContent side="bottom">{error}</TooltipContent>
+      </Tooltip>
+    )
+  }
+
+  if (!caps) return null
+
+  const tooltipText = caps.ffmpegOk
+    ? (caps.ffmpegVersion ?? "ffmpeg detected")
+    : "Not found — set FFMPEG_BIN or add ffmpeg to PATH"
+
+  return (
+    <Tooltip>
+      <TooltipTrigger className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-raised px-2 py-1 text-xs">
+        <span className="font-mono font-medium text-foreground-muted">
+          ffmpeg
+        </span>
+        {caps.ffmpegOk ? (
+          <CheckCircle2Icon className="size-3.5 text-success" />
+        ) : (
+          <XCircleIcon className="size-3.5 text-destructive" />
+        )}
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{tooltipText}</TooltipContent>
+    </Tooltip>
   )
 }

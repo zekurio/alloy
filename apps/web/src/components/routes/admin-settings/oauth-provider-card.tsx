@@ -32,11 +32,14 @@ import { emptyProvider, toSubmissionProvider } from "./shared"
 type OAuthProviderCardProps = {
   config: AdminRuntimeConfig
   onChange: (next: AdminRuntimeConfig) => void
+  /** Hide the section header (useful when already wrapped in a titled collapsible). */
+  hideHeader?: boolean
 }
 
 export function OAuthProviderCard({
   config,
   onChange,
+  hideHeader,
 }: OAuthProviderCardProps) {
   const [draft, setDraft] = React.useState<AdminOAuthProvider | null>(null)
   const [editing, setEditing] = React.useState(false)
@@ -117,9 +120,11 @@ export function OAuthProviderCard({
   return (
     <>
       <Section>
-        <SectionHeader>
-          <SectionTitle>OIDC / OAuth provider</SectionTitle>
-        </SectionHeader>
+        {!hideHeader && (
+          <SectionHeader>
+            <SectionTitle>OIDC / OAuth provider</SectionTitle>
+          </SectionHeader>
+        )}
         <SectionContent className="flex items-center justify-between gap-4 py-4">
           <div className="flex min-w-0 items-center gap-3">
             <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-border">

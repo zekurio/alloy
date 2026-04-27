@@ -113,6 +113,45 @@ function adminRuntimeConfigResponse(config: Readonly<RuntimeConfig>) {
   }
 }
 
+/**
+ * When importing a previously-exported config that was round-tripped through
+ * the redacting response helper, secret fields will contain sentinel values.
+ * Replace those sentinels with the real values from the current config so the
+ * import doesn't wipe secrets the admin never intended to change.
+ */
+function preserveRedactedSecrets(
+  input: Record<string, unknown>,
+  current: RuntimeConfig
+): void {
+  if (input.integrations && typeof input.integrations === "object") {
+    const integrations = input.integrations as Record<string, unknown>
+    if (integrations.steamgriddbApiKey === REDACTED_SENTINEL) {
+      integrations.steamgriddbApiKey = current.integrations.steamgriddbApiKey
+    }
+  }
+  if (input.oauthProvider && typeof input.oauthProvider === "object") {
+    const provider = input.oauthProvider as Record<string, unknown>
+    if (!provider.clientSecret || provider.clientSecret === "") {
+      provider.clientSecret = current.oauthProvider?.clientSecret ?? ""
+    }
+  }
+  if (input.storage && typeof input.storage === "object") {
+    const storage = input.storage as Record<string, unknown>
+    if (storage.fs && typeof storage.fs === "object") {
+      const fs = storage.fs as Record<string, unknown>
+      if (fs.hmacSecret === REDACTED_SENTINEL) {
+        fs.hmacSecret = current.storage.fs.hmacSecret
+      }
+    }
+    if (storage.s3 && typeof storage.s3 === "object") {
+      const s3 = storage.s3 as Record<string, unknown>
+      if (s3.secretAccessKey === REDACTED_SENTINEL) {
+        s3.secretAccessKey = current.storage.s3.secretAccessKey
+      }
+    }
+  }
+}
+
 async function selectAdminUserStorageRows(targetUserIds?: string[]): Promise<
   {
     id: string
@@ -216,6 +255,41 @@ export const adminRoute = new Hono()
       return c.json({ error: "Runtime config file failed validation." }, 400)
     }
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+  })
+  .get("/runtime-config/export", (c) => {
+    c.header(
+      "Content-Disposition",
+      'attachment; filename="alloy-config.json"'
+    )
+    return c.json(configStore.getAll())
+  })
+  .put("/runtime-config/import", async (c) => {
+    let body: unknown
+    try {
+      body = await c.req.json()
+    } catch {
+      return c.json({ error: "Invalid JSON." }, 400)
+    }
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return c.json({ error: "Expected a JSON object." }, 400)
+    }
+    const input = body as Record<string, unknown>
+    const current = configStore.getAll()
+    preserveRedactedSecrets(input, current)
+    try {
+      configStore.patch(input as Partial<RuntimeConfig>)
+      return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+    } catch (cause) {
+      return c.json(
+        {
+          error:
+            cause instanceof Error
+              ? cause.message
+              : "Invalid configuration.",
+        },
+        400
+      )
+    }
   })
   .get("/users", async (c) => {
     return c.json({ users: await selectAdminUserStorageRows() })
