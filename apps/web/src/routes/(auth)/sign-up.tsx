@@ -1,3 +1,4 @@
+import * as React from "react"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
 import { SignUpPageInner } from "@/components/routes/sign-up/sign-up-page-inner"
@@ -18,7 +19,7 @@ export const Route = createFileRoute("/(auth)/sign-up")({
     if (!canSignUp) {
       throw redirect({ to: "/login" })
     }
-    const clips = await fetchPublicClips()
+    const clips = fetchPublicClips()
     return { clips, config }
   },
   component: SignUpPage,
@@ -27,5 +28,21 @@ export const Route = createFileRoute("/(auth)/sign-up")({
 function SignUpPage() {
   const { clips, config } = Route.useLoaderData()
 
-  return <SignUpPageInner clips={clips} config={config} />
+  return (
+    <React.Suspense fallback={<SignUpPageInner clips={[]} config={config} />}>
+      <SignUpPageLoaded clips={clips} config={config} />
+    </React.Suspense>
+  )
+}
+
+function SignUpPageLoaded({
+  clips,
+  config,
+}: {
+  clips: ReturnType<typeof fetchPublicClips>
+  config: Awaited<ReturnType<typeof loadAuthConfig>>
+}) {
+  const resolvedClips = React.use(clips)
+
+  return <SignUpPageInner clips={resolvedClips} config={config} />
 }
