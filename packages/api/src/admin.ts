@@ -78,6 +78,24 @@ async function reloadRuntimeConfig(
   return readJsonOrThrow<AdminRuntimeConfig>(res)
 }
 
+async function exportRuntimeConfig(
+  context: ApiContext
+): Promise<unknown> {
+  const res = await context.request("/api/admin/runtime-config/export")
+  return readJsonOrThrow<unknown>(res)
+}
+
+async function importRuntimeConfig(
+  context: ApiContext,
+  config: unknown
+): Promise<AdminRuntimeConfig> {
+  const res = await context.request("/api/admin/runtime-config/import", {
+    method: "PUT",
+    json: config,
+  })
+  return readJsonOrThrow<AdminRuntimeConfig>(res)
+}
+
 async function saveOAuthConfig(
   context: ApiContext,
   input: { oauthProvider: AdminOAuthProvider | null }
@@ -145,6 +163,9 @@ export function createAdminApi(context: ApiContext) {
     updateRuntimeConfig: (input: RuntimeConfigPatch) =>
       updateRuntimeConfig(context, input),
     reloadRuntimeConfig: () => reloadRuntimeConfig(context),
+    exportRuntimeConfig: () => exportRuntimeConfig(context),
+    importRuntimeConfig: (config: unknown) =>
+      importRuntimeConfig(context, config),
     saveOAuthConfig: (input: { oauthProvider: AdminOAuthProvider | null }) =>
       saveOAuthConfig(context, input),
     updateEncoderConfig: (patch: Partial<AdminEncoderConfig>) =>
