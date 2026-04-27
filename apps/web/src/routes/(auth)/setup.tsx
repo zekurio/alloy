@@ -155,6 +155,30 @@ const SETUP_STEPS = [
 type SetupStep = 0 | 1 | 2;
 
 function AdminSetupSteps() {
+  const setup = useAdminSetupSteps();
+
+  if (setup.loadError) {
+    return (
+      <div className="w-full rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+        {setup.loadError}
+      </div>
+    );
+  }
+
+  if (!setup.config) return null;
+
+  return (
+    <AdminSetupStepContent
+      config={setup.config}
+      step={setup.step}
+      setStep={setup.setStep}
+      setConfig={setup.setConfig}
+      advanceStep={setup.advanceStep}
+    />
+  );
+}
+
+function useAdminSetupSteps() {
   const navigate = useNavigate();
   const [step, setStep] = React.useState<SetupStep>(0);
   const [config, setConfig] = React.useState<AdminRuntimeConfig | null>(null);
@@ -173,19 +197,6 @@ function AdminSetupSteps() {
       : "Couldn't load setup"
     : null;
 
-  if (loadError) {
-    return (
-      <div className="w-full rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-        {loadError}
-      </div>
-    );
-  }
-
-  if (!config) return null;
-
-  const stepDone = getStepDone(config);
-  const isLastStep = step === 2;
-
   function advanceStep(savedStep: SetupStep) {
     setStep((currentStep) => {
       if (currentStep !== savedStep) return currentStep;
@@ -194,6 +205,25 @@ function AdminSetupSteps() {
       return currentStep;
     });
   }
+
+  return { advanceStep, config, loadError, setConfig, setStep, step };
+}
+
+function AdminSetupStepContent({
+  config,
+  step,
+  setStep,
+  setConfig,
+  advanceStep,
+}: {
+  config: AdminRuntimeConfig;
+  step: SetupStep;
+  setStep: React.Dispatch<React.SetStateAction<SetupStep>>;
+  setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>;
+  advanceStep: (savedStep: SetupStep) => void;
+}) {
+  const stepDone = getStepDone(config);
+  const isLastStep = step === 2;
 
   function handleNext() {
     const formEl = document.getElementById(
