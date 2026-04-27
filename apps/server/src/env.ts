@@ -42,6 +42,27 @@ const EnvSchema = z
     ALLOY_CONFIG_FILE: z.string().optional(),
     RUNTIME_CONFIG_PATH: z.string().optional(),
 
+    STORAGE_DRIVER: z.enum(["fs", "s3"]).default("fs"),
+    STORAGE_FS_ROOT: z.string().default("./data/storage"),
+    STORAGE_PUBLIC_BASE_URL: z
+      .url()
+      .default(defaultPublicServerUrl)
+      .transform(normalizePublicServerUrl),
+    STORAGE_HMAC_SECRET: z.string().optional(),
+
+    // S3 / S3-compatible providers. These only seed runtime config when the
+    // runtime config file does not exist yet.
+    S3_BUCKET: z.string().optional(),
+    S3_REGION: z.string().default("auto"),
+    S3_ENDPOINT: z.url().optional(),
+    S3_ACCESS_KEY_ID: z.string().optional(),
+    S3_SECRET_ACCESS_KEY: z.string().optional(),
+    S3_FORCE_PATH_STYLE: z
+      .string()
+      .optional()
+      .transform((value) => value === "true" || value === "1"),
+    S3_PRESIGN_EXPIRES_SEC: z.coerce.number().int().positive().default(900),
+
     ENCODE_SCRATCH_DIR: z.string().optional(),
 
     FFMPEG_BIN: z.string().default("ffmpeg"),
