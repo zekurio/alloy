@@ -274,6 +274,9 @@ export const clipsUploadRoutes = new Hono()
         if (row.thumbKey) {
           await storage.delete(row.thumbKey).catch(() => undefined)
         }
+        if (row.thumbKey && row.thumbKey !== canonicalThumbKey) {
+          await storage.delete(canonicalThumbKey).catch(() => undefined)
+        }
         await markUploadFailed(row.authorId, id, "Storage quota exceeded")
         return c.json(
           {

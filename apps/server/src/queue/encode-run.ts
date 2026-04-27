@@ -217,8 +217,8 @@ async function runPipelineInScratch(
     resolveVariantSettings(
       spec,
       encoderConfig,
-      trim.startMs,
-      trim.endMs
+      encodeTrim.startMs,
+      encodeTrim.endMs
     )
   )
 
