@@ -58,7 +58,7 @@ import {
   useLikeStateQuery,
   useToggleLikeMutation,
 } from "@/lib/clip-queries"
-import { avatarTint, displayInitials, userImageSrc } from "@/lib/user-display"
+import { userAvatar } from "@/lib/user-display"
 
 import { ClipComments } from "./clip-comments"
 import { ClipEditDialog } from "./clip-edit-dialog"
@@ -77,6 +77,7 @@ interface MobileClipViewerBodyProps {
   prev?: ClipListEntry | null
   next?: ClipListEntry | null
   onNavigate?: ((entry: ClipListEntry) => void) | null
+  focusedCommentId?: string | null
   autoAdvance: boolean
   onAutoAdvanceChange: (next: boolean) => void
 }
@@ -91,6 +92,7 @@ function MobileClipViewerBody({
   prev,
   next,
   onNavigate,
+  focusedCommentId = null,
   autoAdvance,
   onAutoAdvanceChange,
 }: MobileClipViewerBodyProps) {
@@ -107,11 +109,14 @@ function MobileClipViewerBody({
   /* ---- derived ---- */
   const handle = row.authorUsername
   const author = row.authorName || handle
-  const initials = displayInitials(author)
-  const { bg, fg } = avatarTint(row.authorId || handle)
+  const avatar = userAvatar({
+    id: row.authorId,
+    username: handle,
+    name: author,
+    image: row.authorImage,
+  })
   const gameLabel = clipGameLabel(row)
   const thumbnail = row.thumbKey ? clipThumbnailUrl(row.id, apiOrigin()) : null
-  const avatarSrc = userImageSrc(row.authorImage)
   const gameRef = row.gameRef
   const gameIcon = gameRef?.iconUrl ?? gameRef?.logoUrl ?? null
 
@@ -136,6 +141,10 @@ function MobileClipViewerBody({
   React.useEffect(() => {
     setCommentsOpen(false)
   }, [row.id])
+
+  React.useEffect(() => {
+    if (focusedCommentId) setCommentsOpen(true)
+  }, [focusedCommentId])
 
   /* ---- swipe gesture ---- */
   const touchRef = React.useRef<{ y: number; t: number } | null>(null)
@@ -195,7 +204,7 @@ function MobileClipViewerBody({
     if (autoAdvance && next && onNavigate) onNavigate(next)
   }, [autoAdvance, next, onNavigate])
 
-  const avatarStyle = { background: bg, color: fg } as const
+  const avatarStyle = { background: avatar.bg, color: avatar.fg } as const
 
   return (
     <>
@@ -253,8 +262,7 @@ function MobileClipViewerBody({
               variants={row.variants}
               status={row.status}
               encodeProgress={row.encodeProgress}
-              aspectRatio={16 / 9}
-              className="[&_img]:object-cover [&_video]:object-cover"
+              maxDisplayHeight="min(72dvh, calc(100dvh - 104px))"
               onPlayThreshold={() => void api.clips.recordView(row.id)}
               onEnded={handleEnded}
               autoPlay
@@ -312,18 +320,18 @@ function MobileClipViewerBody({
                 className="inline-flex w-fit items-center gap-2"
               >
                 <Avatar size="lg" style={avatarStyle} className="rounded-full">
-                  {avatarSrc ? (
-                    <AvatarImage src={avatarSrc} alt={author} />
+                  {avatar.src ? (
+                    <AvatarImage src={avatar.src} alt={author} />
                   ) : null}
                   <AvatarFallback style={avatarStyle}>
-                    {initials}
+                    {avatar.initials}
                   </AvatarFallback>
                 </Avatar>
                 <span className="text-lg font-bold text-white">@{handle}</span>
               </Link>
 
               {/* Title */}
-              <h2 className="line-clamp-2 text-[15px] leading-snug font-bold text-white">
+              <h2 className="line-clamp-2 text-md leading-tight font-bold text-white">
                 {row.title}
               </h2>
 
@@ -424,6 +432,7 @@ function MobileClipViewerBody({
               <ClipComments
                 clipId={row.id}
                 clipAuthorId={row.authorId}
+                focusedCommentId={focusedCommentId}
                 className="min-h-0 flex-1 overflow-y-auto border-0"
               />
             </DrawerContent>

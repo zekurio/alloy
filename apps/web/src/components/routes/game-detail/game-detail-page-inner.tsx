@@ -14,11 +14,13 @@ export function GameDetailPageInner({ slug }: GameDetailPageInnerProps) {
   const viewerId = session?.user.id
 
   return (
-    <AppMain>
+    <AppMain className="!px-0 !py-0">
       <div className="flex w-full flex-col gap-6">
         <GameHeader slug={slug} />
-        <TopClipsSection slug={slug} viewerId={viewerId} />
-        <RecentClipsSection slug={slug} viewerId={viewerId} />
+        <div className="flex flex-col gap-6 px-4 pb-4 md:px-8 md:pb-6">
+          <TopClipsSection slug={slug} viewerId={viewerId} />
+          <RecentClipsSection slug={slug} viewerId={viewerId} />
+        </div>
       </div>
     </AppMain>
   )

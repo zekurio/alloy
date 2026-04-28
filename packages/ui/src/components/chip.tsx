@@ -6,7 +6,7 @@ import type { VariantProps } from "class-variance-authority"
 
 const chipVariants = cva(
   cn(
-    "inline-flex items-center gap-2 leading-none",
+    "inline-flex items-center justify-center gap-2 text-center align-middle",
     "rounded-md border border-border bg-surface-raised",
     "cursor-pointer whitespace-nowrap text-foreground-muted select-none",
     "transition-[background-color,border-color,color] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
@@ -19,10 +19,11 @@ const chipVariants = cva(
   {
     variants: {
       size: {
-        default: "h-6 px-2.5 text-xs [&_svg:not([class*='size-'])]:size-3.5",
-        sm: "h-5 px-2 text-2xs [&_svg:not([class*='size-'])]:size-3",
-        lg: "h-7 px-3 text-sm [&_svg:not([class*='size-'])]:size-4",
-        xl: "h-8 rounded-lg px-2.5 text-sm font-semibold [&_svg:not([class*='size-'])]:size-4",
+        default:
+          "h-6 px-2.5 text-xs leading-4 [&_svg:not([class*='size-'])]:size-3.5",
+        sm: "h-5 px-2 text-2xs leading-3 [&_svg:not([class*='size-'])]:size-3",
+        lg: "h-7 px-3 text-sm leading-4 [&_svg:not([class*='size-'])]:size-4",
+        xl: "h-8 rounded-lg px-2.5 text-sm leading-4 font-semibold [&_svg:not([class*='size-'])]:size-4",
       },
     },
     defaultVariants: {

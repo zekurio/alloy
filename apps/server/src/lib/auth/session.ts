@@ -55,17 +55,16 @@ export async function createSession(
   return { token, data }
 }
 
-async function selectSessionByHash(tokenHash: string): Promise<SessionData | null> {
+async function selectSessionByHash(
+  tokenHash: string
+): Promise<SessionData | null> {
   const now = new Date()
   const [row] = await db
     .select({ session: authSession, user })
     .from(authSession)
     .innerJoin(user, eq(user.id, authSession.userId))
     .where(
-      and(
-        eq(authSession.tokenHash, tokenHash),
-        gt(authSession.expiresAt, now)
-      )
+      and(eq(authSession.tokenHash, tokenHash), gt(authSession.expiresAt, now))
     )
     .limit(1)
   if (!row) return null
@@ -112,7 +111,9 @@ function cookieTokenFromHeaders(headers: Headers): string | null {
 export async function deleteCurrentSession(c: Context): Promise<void> {
   const token = readSessionCookie(c)
   if (!token) return
-  await db.delete(authSession).where(eq(authSession.tokenHash, hashSessionToken(token)))
+  await db
+    .delete(authSession)
+    .where(eq(authSession.tokenHash, hashSessionToken(token)))
 }
 
 export async function deleteAllSessionsForUser(userId: string): Promise<void> {
@@ -138,7 +139,8 @@ export const requireSession = createMiddleware<{
 }>(async (c, next) => {
   const session = await getSession(c)
   if (!session) return c.json({ error: "Unauthorized" }, 401)
-  if (session.user.status !== "active") return c.json({ error: "Forbidden" }, 403)
+  if (session.user.status !== "active")
+    return c.json({ error: "Forbidden" }, 403)
   c.set("viewerId", session.user.id)
   c.set("session", session)
   await next()
@@ -149,7 +151,8 @@ export const requireAdmin = createMiddleware<{
 }>(async (c, next) => {
   const session = await getSession(c)
   if (!session) return c.json({ error: "Unauthorized" }, 401)
-  if (session.user.status !== "active") return c.json({ error: "Forbidden" }, 403)
+  if (session.user.status !== "active")
+    return c.json({ error: "Forbidden" }, 403)
   if (session.user.role !== "admin") return c.json({ error: "Forbidden" }, 403)
   c.set("adminUserId", session.user.id)
   c.set("session", session)

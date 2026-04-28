@@ -3,6 +3,8 @@ import { Link, useLocation } from "@tanstack/react-router"
 import { TabsCount } from "@workspace/ui/components/tabs"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { formatCount } from "@/lib/number-format"
+
 type ProfileTabsNavProps = {
   username: string
   clipsCount: number | null
@@ -64,7 +66,7 @@ export function ProfileTabsNav({ username, clipsCount }: ProfileTabsNavProps) {
           >
             {tab.label}
             {tab.segment === "all" && clipsCount !== null ? (
-              <TabsCount>{clipsCount}</TabsCount>
+              <TabsCount>{formatCount(clipsCount)}</TabsCount>
             ) : null}
           </Link>
         )

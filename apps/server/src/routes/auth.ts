@@ -104,7 +104,10 @@ export const authRoute = new Hono()
         const setupFirstAdmin = await setupRequired()
         if (!setupFirstAdmin) {
           if (!(await canOpenPasskeyRegistration())) {
-            return c.json({ error: "Passkey sign-up is currently disabled." }, 400)
+            return c.json(
+              { error: "Passkey sign-up is currently disabled." },
+              400
+            )
           }
           const existing = await findUserByEmail(body.email)
           if (existing) {
@@ -124,13 +127,19 @@ export const authRoute = new Hono()
           user: {
             id: existing && setupFirstAdmin ? existing.id : crypto.randomUUID(),
             email,
-            name: existing && setupFirstAdmin ? existing.name || username : username,
+            name:
+              existing && setupFirstAdmin
+                ? existing.name || username
+                : username,
             username,
           },
         })
         return c.json(registration)
       } catch (cause) {
-        return c.json({ error: errorMessage(cause, "Could not start sign-up.") }, 400)
+        return c.json(
+          { error: errorMessage(cause, "Could not start sign-up.") },
+          400
+        )
       }
     }
   )
@@ -158,7 +167,10 @@ export const authRoute = new Hono()
         setSessionCookies(c, token)
         return c.json(data)
       } catch (cause) {
-        return c.json({ error: errorMessage(cause, "Could not verify passkey.") }, 400)
+        return c.json(
+          { error: errorMessage(cause, "Could not verify passkey.") },
+          400
+        )
       }
     }
   )
@@ -166,7 +178,10 @@ export const authRoute = new Hono()
     try {
       return c.json(await beginPasskeyAuthentication())
     } catch (cause) {
-      return c.json({ error: errorMessage(cause, "Could not start sign-in.") }, 400)
+      return c.json(
+        { error: errorMessage(cause, "Could not start sign-in.") },
+        400
+      )
     }
   })
   .post(
@@ -192,7 +207,10 @@ export const authRoute = new Hono()
         setSessionCookies(c, token)
         return c.json(data)
       } catch (cause) {
-        return c.json({ error: errorMessage(cause, "Passkey sign-in failed.") }, 400)
+        return c.json(
+          { error: errorMessage(cause, "Passkey sign-in failed.") },
+          400
+        )
       }
     }
   )
@@ -223,7 +241,10 @@ export const authRoute = new Hono()
         })
       )
     } catch (cause) {
-      return c.json({ error: errorMessage(cause, "Could not start passkey registration.") }, 400)
+      return c.json(
+        { error: errorMessage(cause, "Could not start passkey registration.") },
+        400
+      )
     }
   })
   .post(
@@ -258,7 +279,10 @@ export const authRoute = new Hono()
           .returning()
         return c.json(created)
       } catch (cause) {
-        return c.json({ error: errorMessage(cause, "Could not add passkey.") }, 400)
+        return c.json(
+          { error: errorMessage(cause, "Could not add passkey.") },
+          400
+        )
       }
     }
   )
@@ -273,7 +297,9 @@ export const authRoute = new Hono()
       const [updated] = await db
         .update(userPasskey)
         .set({ name: name?.trim() || null, updatedAt: new Date() })
-        .where(and(eq(userPasskey.id, id), eq(userPasskey.userId, c.var.viewerId)))
+        .where(
+          and(eq(userPasskey.id, id), eq(userPasskey.userId, c.var.viewerId))
+        )
         .returning()
       if (!updated) return c.json({ error: "Passkey not found." }, 404)
       return c.json(updated)
@@ -295,18 +321,30 @@ export const authRoute = new Hono()
           400
         )
       }
-      if (result === "not-found") return c.json({ error: "Passkey not found." }, 404)
+      if (result === "not-found")
+        return c.json({ error: "Passkey not found." }, 404)
       return c.json({ success: true })
     }
   )
-  .patch("/user", requireSession, zValidator("json", UpdateUserBody), async (c) => {
-    try {
-      const updated = await updateUserIdentity(c.var.viewerId, c.req.valid("json"))
-      return c.json({ user: updated })
-    } catch (cause) {
-      return c.json({ error: errorMessage(cause, "Could not update user.") }, 400)
+  .patch(
+    "/user",
+    requireSession,
+    zValidator("json", UpdateUserBody),
+    async (c) => {
+      try {
+        const updated = await updateUserIdentity(
+          c.var.viewerId,
+          c.req.valid("json")
+        )
+        return c.json({ user: updated })
+      } catch (cause) {
+        return c.json(
+          { error: errorMessage(cause, "Could not update user.") },
+          400
+        )
+      }
     }
-  })
+  )
   .delete("/user", requireSession, async (c) => {
     try {
       await assertCanRemoveAdmin(c.var.viewerId)
@@ -314,7 +352,10 @@ export const authRoute = new Hono()
       clearSessionCookies(c)
       return c.json({ success: true })
     } catch (cause) {
-      return c.json({ error: errorMessage(cause, "Could not delete user.") }, 400)
+      return c.json(
+        { error: errorMessage(cause, "Could not delete user.") },
+        400
+      )
     }
   })
   .get("/accounts", requireSession, async (c) => {
@@ -362,5 +403,7 @@ export const authRoute = new Hono()
   )
 
 async function canOpenPasskeyRegistration(): Promise<boolean> {
-  return configStore.get("openRegistrations") && configStore.get("passkeyEnabled")
+  return (
+    configStore.get("openRegistrations") && configStore.get("passkeyEnabled")
+  )
 }

@@ -57,7 +57,9 @@ function isAuthenticatorTransport(
   return AUTHENTICATOR_TRANSPORTS.has(value)
 }
 
-function transports(row: UserPasskey): AuthenticatorTransportFuture[] | undefined {
+function transports(
+  row: UserPasskey
+): AuthenticatorTransportFuture[] | undefined {
   return row.transports
     ? row.transports
         .split(",")
@@ -212,6 +214,8 @@ export function passkeyPublicKey(publicKey: Uint8Array): string {
   return bytesToBase64Url(publicKey)
 }
 
-export function serializeTransports(value: string[] | undefined): string | null {
+export function serializeTransports(
+  value: string[] | undefined
+): string | null {
   return value && value.length > 0 ? value.join(",") : null
 }

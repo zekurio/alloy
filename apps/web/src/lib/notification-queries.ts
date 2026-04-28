@@ -249,5 +249,8 @@ export function notificationHref(row: NotificationRow): string | null {
   }
   if (!row.clip) return null
   const slug = row.clip.gameSlug ?? row.clip.slug
-  return `/g/${slug}/c/${row.clip.id}`
+  const clipHref = `/g/${slug}/c/${row.clip.id}`
+  return row.comment
+    ? `${clipHref}?comment=${encodeURIComponent(row.comment.id)}`
+    : clipHref
 }

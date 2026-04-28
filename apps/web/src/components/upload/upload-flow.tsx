@@ -240,7 +240,11 @@ function useUploadQueueState(
   const [, bumpState] = React.useReducer((n: number) => n + 1, 0)
   const bump = React.useCallback(() => bumpState(), [])
 
-  const { data: serverQueueData } = useUploadQueueQuery({ enabled: queueOpen })
+  const { data: serverQueueData, stream } = useUploadQueueQuery({
+    enabled: queueOpen,
+  })
+  const serverQueueHydrated = serverQueueData !== undefined
+  const queueStreamFailed = stream.initialError
   const serverQueue = React.useMemo<QueueClip[]>(
     () => serverQueueData ?? [],
     [serverQueueData]
@@ -325,7 +329,14 @@ function useUploadQueueState(
     dismissMany(readyIds)
   }, [serverQueue, dismissed, dismissMany, releaseRetainedThumb])
 
-  return { runUpload, queue, activeCount, clearCompleted }
+  return {
+    runUpload,
+    queue,
+    activeCount,
+    clearCompleted,
+    isQueueLoading: queueOpen && !serverQueueHydrated && !queueStreamFailed,
+    isQueueUnavailable: queueOpen && !serverQueueHydrated && queueStreamFailed,
+  }
 }
 
 function useNewClipPicker(onPicked: () => void) {
@@ -396,6 +407,8 @@ function UploadQueuePopover({
   setQueueOpen,
   queue,
   activeCount,
+  isQueueLoading,
+  isQueueUnavailable,
   onNewClip,
   onClearCompleted,
 }: {
@@ -403,6 +416,8 @@ function UploadQueuePopover({
   setQueueOpen: (open: boolean) => void
   queue: QueueItem[]
   activeCount: number
+  isQueueLoading: boolean
+  isQueueUnavailable: boolean
   onNewClip: () => void
   onClearCompleted: () => void
 }) {
@@ -419,6 +434,8 @@ function UploadQueuePopover({
   const content = (
     <UploadQueueContent
       queue={queue}
+      isLoading={isQueueLoading}
+      isUnavailable={isQueueUnavailable}
       onNewClip={onNewClip}
       onClearCompleted={onClearCompleted}
       onClose={() => setQueueOpen(false)}
@@ -519,10 +536,14 @@ function AuthedUploadFlow() {
     },
     [navigate]
   )
-  const { runUpload, queue, activeCount, clearCompleted } = useUploadQueueState(
-    queueOpen,
-    handleOpenClip
-  )
+  const {
+    runUpload,
+    queue,
+    activeCount,
+    clearCompleted,
+    isQueueLoading,
+    isQueueUnavailable,
+  } = useUploadQueueState(queueOpen, handleOpenClip)
   const {
     newClipOpen,
     setNewClipOpen,
@@ -567,6 +588,8 @@ function AuthedUploadFlow() {
         setQueueOpen={setQueueOpen}
         queue={queue}
         activeCount={activeCount}
+        isQueueLoading={isQueueLoading}
+        isQueueUnavailable={isQueueUnavailable}
         onNewClip={handleNewClip}
         onClearCompleted={clearCompleted}
       />

@@ -7,7 +7,15 @@ import { ClipViewerDialog } from "@/components/clip/clip-viewer-dialog"
 import { api } from "@/lib/api"
 import { clipKeys } from "@/lib/clip-queries"
 
+interface ClipRouteSearch {
+  comment?: string
+}
+
 export const Route = createFileRoute("/(app)/_app/g/$slug/c/$clipId")({
+  validateSearch: (search: Record<string, unknown>): ClipRouteSearch => {
+    const comment = search.comment
+    return typeof comment === "string" && comment.length > 0 ? { comment } : {}
+  },
   loader: async ({ context, params }) => {
     try {
       const clip = await api.clips.fetchById(params.clipId)
@@ -32,6 +40,7 @@ export const Route = createFileRoute("/(app)/_app/g/$slug/c/$clipId")({
 
 function ClipModalRoute() {
   const { slug, clipId } = Route.useParams()
+  const { comment } = Route.useSearch()
   const router = useRouter()
   const [modalClipId, setModalClipId] = React.useState<string | null>(clipId)
 
@@ -62,6 +71,7 @@ function ClipModalRoute() {
       void router.navigate({
         to: "/g/$slug/c/$clipId",
         params: { slug: entry.gameSlug ?? slug, clipId: entry.id },
+        search: {},
         replace: true,
       })
     },
@@ -71,6 +81,7 @@ function ClipModalRoute() {
   return (
     <ClipViewerDialog
       clipId={modalClipId}
+      focusedCommentId={comment ?? null}
       onClose={handleClose}
       onNavigate={handleNavigate}
     />

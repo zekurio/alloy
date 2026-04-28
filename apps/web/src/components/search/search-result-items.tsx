@@ -108,15 +108,9 @@ export function ClipRowItem({
         >
           {row.title}
         </div>
-        <div className="truncate text-xs font-semibold text-foreground-muted">
+        <div className="flex items-center gap-2 truncate text-xs font-semibold text-foreground-muted">
           <span>{label}</span>
-          <span aria-hidden className="mx-1.5 text-foreground-muted/70">
-            ·
-          </span>
           <span>@{row.authorUsername}</span>
-          <span aria-hidden className="mx-1.5 text-foreground-muted/70">
-            ·
-          </span>
           <span>{formatCount(row.viewCount)} views</span>
         </div>
       </div>
@@ -159,7 +153,7 @@ export function GameRowItem({
           {row.name}
         </div>
         <div className="truncate text-xs font-semibold text-foreground-muted">
-          {row.clipCount} {row.clipCount === 1 ? "clip" : "clips"}
+          {formatCount(row.clipCount)} {row.clipCount === 1 ? "clip" : "clips"}
         </div>
       </div>
     </RowButton>
@@ -201,13 +195,11 @@ export function UserRowItem({
         >
           {chip.name}
         </div>
-        <div className="truncate text-xs font-semibold text-foreground-muted">
+        <div className="flex items-center gap-2 truncate text-xs font-semibold text-foreground-muted">
           <span>@{handle}</span>
-          <span aria-hidden className="mx-1.5 text-foreground-muted/70">
-            ·
-          </span>
           <span>
-            {row.clipCount} {row.clipCount === 1 ? "clip" : "clips"}
+            {formatCount(row.clipCount)}{" "}
+            {row.clipCount === 1 ? "clip" : "clips"}
           </span>
         </div>
       </div>

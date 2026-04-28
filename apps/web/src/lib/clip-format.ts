@@ -6,15 +6,10 @@ import type {
 } from "@workspace/api"
 import { clipStreamUrl, clipThumbnailUrl } from "@workspace/api"
 import { apiOrigin } from "./env"
+import { formatCount } from "./number-format"
 import { userImageSrc } from "./user-display"
 
-/** 12.4k / 1.3k / 842 — mirrors the number style used across the UI. */
-export function formatCount(n: number): string {
-  if (n < 1_000) return String(n)
-  if (n < 10_000) return `${(n / 1_000).toFixed(1)}k`
-  if (n < 1_000_000) return `${Math.round(n / 1_000)}k`
-  return `${(n / 1_000_000).toFixed(1)}m`
-}
+export { formatCount } from "./number-format"
 
 export function formatRelativeTime(
   iso: string,

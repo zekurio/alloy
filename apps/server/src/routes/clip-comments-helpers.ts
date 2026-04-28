@@ -68,7 +68,6 @@ export async function resolveCommentEngagementTarget(
   return { accessible: true as const }
 }
 
-
 export async function listClipComments({
   clipId,
   sort,
