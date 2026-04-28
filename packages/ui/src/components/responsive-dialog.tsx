@@ -206,14 +206,29 @@ function ResponsiveDialogDescription({
 type ResponsiveDialogTriggerProps = DialogPrimitive.Trigger.Props &
   React.ComponentProps<typeof DrawerPrimitive.Trigger>
 
-function ResponsiveDialogTrigger(props: ResponsiveDialogTriggerProps) {
+function ResponsiveDialogTrigger({
+  render,
+  children,
+  ...props
+}: ResponsiveDialogTriggerProps) {
   const isMobile = useIsResponsiveMobile()
 
   if (isMobile) {
-    return <DrawerTrigger {...props} />
+    if (render) {
+      return (
+      <DrawerTrigger asChild {...props}>
+        {render as React.ReactNode}
+      </DrawerTrigger>
+      )
+    }
+    return <DrawerTrigger {...props}>{children}</DrawerTrigger>
   }
 
-  return <DialogTrigger {...props} />
+  return (
+    <DialogTrigger render={render} {...props}>
+      {children}
+    </DialogTrigger>
+  )
 }
 
 type ResponsiveDialogCloseProps = DialogPrimitive.Close.Props &
