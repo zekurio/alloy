@@ -7,14 +7,14 @@ import {
   type User,
 } from "@workspace/db/auth-schema"
 
-import { db } from "../../db"
-import { configStore } from "../config-store"
+import { db } from "../db"
+import { configStore } from "../config/store"
 import {
   generateUniqueUsername,
   slugifyUsername,
   USERNAME_MAX_LEN,
   USERNAME_MIN_LEN,
-} from "../username"
+} from "./username"
 
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
