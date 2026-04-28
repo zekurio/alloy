@@ -28,7 +28,6 @@ import { ClipPrivacyPicker } from "@/components/clip/clip-privacy-picker"
 import { LimitedInput, LimitedTextarea } from "@/components/form/limited-field"
 import { GameCombobox } from "@/components/game/game-combobox"
 import { MentionPicker } from "@/components/search/mention-picker"
-import { VolumeControl } from "@/components/video/video-player"
 import {
   ACCEPT_LIST,
   captureThumbnail,
@@ -229,7 +228,7 @@ export function NewClipDialog({
         centered={!isMobile}
         className={cn(
           "flex flex-col overflow-hidden",
-          "max-h-[min(94vh,900px)] max-w-[960px]"
+          "max-h-[min(90vh,900px)] max-w-[min(96vw,1200px)]"
         )}
         aria-describedby={undefined}
       >
@@ -327,10 +326,10 @@ function LoadedState({
     <>
       <DialogBody
         className={cn(
-          "flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5",
+          "flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4",
           isMobile && "px-4",
           "grid gap-6",
-          "grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(260px,1fr)]"
+          "grid-cols-1 lg:grid-cols-[minmax(0,3fr)_minmax(260px,1fr)]"
         )}
       >
         {/* Left column — trim / player */}
@@ -347,9 +346,12 @@ function LoadedState({
             muted={muted}
             onTimeUpdate={setCurrentMs}
             onPlayingChange={setIsPlaying}
+            onVolumeChange={setVolume}
+            onToggleMute={() => setMuted((m) => !m)}
           />
 
           <TrimTimeline
+            file={file.file}
             durationMs={file.durationMs}
             trimStartMs={trimStartMs}
             trimEndMs={trimEndMs}
@@ -362,26 +364,30 @@ function LoadedState({
               setCurrentMs((prev) => Math.min(Math.max(prev, start), end))
             }}
             onSeek={(ms) => setCurrentMs(ms)}
-          />
-
-          <div className="flex items-center gap-3 text-xs font-semibold text-foreground-muted tabular-nums">
-            <span>In {formatTimecode(trimStartMs)}</span>
-            <span>
-              {formatTimecode(trimEndMs - trimStartMs)}
-              {trimChanged ? (
-                <span className="ml-1 text-accent">trimmed</span>
-              ) : null}
-            </span>
-            <span>Out {formatTimecode(trimEndMs)}</span>
-
-            <VolumeControl
-              className="ml-auto"
-              volume={volume}
-              muted={muted}
-              onVolumeChange={setVolume}
-              onToggleMute={() => setMuted((m) => !m)}
-            />
-          </div>
+          >
+            <div className="flex items-center gap-4 text-xs text-foreground-muted tabular-nums">
+              <span>
+                <span className="text-foreground-faint">In</span>{" "}
+                <span className="font-semibold text-foreground">
+                  {formatTimecode(trimStartMs)}
+                </span>
+              </span>
+              <span className="font-semibold text-foreground">
+                {formatTimecode(trimEndMs - trimStartMs)}
+                {trimChanged ? (
+                  <span className="ml-1.5 font-medium text-accent">
+                    trimmed
+                  </span>
+                ) : null}
+              </span>
+              <span>
+                <span className="text-foreground-faint">Out</span>{" "}
+                <span className="font-semibold text-foreground">
+                  {formatTimecode(trimEndMs)}
+                </span>
+              </span>
+            </div>
+          </TrimTimeline>
         </section>
 
         {/* Right column — metadata form */}

@@ -37,7 +37,7 @@ import { ClipPlayer } from "./clip-player"
 import { MobileClipViewerBody } from "./clip-viewer-mobile"
 
 interface ClipViewerDialogProps {
-  /** Current dialog target. `null` keeps the viewer closed. */
+  /** Current dialog target. `null` keeps the viewer open. */
   clipId: string | null
   focusedCommentId?: string | null
   /** How to dismiss — typically clears the search param or navigates back. */

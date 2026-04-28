@@ -34,49 +34,47 @@ function RouteErrorState({
 
   return (
     <RouteStateFrame variant={variant}>
-      <RouteStateSurface>
-        <RouteStateHeader
-          eyebrow="Route error"
-          icon={
-            <span className="flex size-8 items-center justify-center rounded-md border border-[color-mix(in_oklab,var(--danger)_45%,transparent)] bg-[color-mix(in_oklab,var(--danger)_12%,transparent)] text-danger">
-              <AlertTriangle className="size-4" aria-hidden />
-            </span>
-          }
-          title="Something went wrong"
-          description="This view failed to load. You can retry it or return home."
-        />
+      <div className="flex flex-col items-center gap-4 text-center text-balance">
+        <div className="flex flex-col gap-1.5">
+          <h1 className="flex items-center justify-center gap-2 text-lg font-semibold tracking-tight text-foreground">
+            <AlertTriangle className="size-4 text-danger" aria-hidden />
+            Something went wrong
+          </h1>
+          <p className="text-sm leading-relaxed text-foreground-muted">
+            This view failed to load. You can retry it or return home.
+          </p>
+        </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" onClick={reset}>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Button type="button" variant="outline" onClick={reset}>
             <RotateCw className="size-3.5" aria-hidden />
             Try again
           </Button>
-          <Link to="/" className={buttonVariants({ variant: "secondary" })}>
+          <Link to="/" className={buttonVariants({ variant: "ghost" })}>
             <Home className="size-3.5" aria-hidden />
             Go home
           </Link>
         </div>
 
         {isDev && details ? (
-          <div className="w-full border-t border-border pt-3">
+          <div className="w-full max-w-sm pt-2">
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="-ml-2"
               aria-expanded={showDetails}
               onClick={() => setShowDetails((value) => !value)}
             >
               {showDetails ? "Hide details" : "Show details"}
             </Button>
             {showDetails ? (
-              <pre className="mt-2 max-h-56 overflow-auto rounded-md border border-border bg-surface-raised p-3 text-left font-mono text-xs leading-relaxed whitespace-pre-wrap text-foreground-muted">
+              <pre className="mt-2 max-h-56 overflow-auto rounded-lg border border-dashed border-border p-3 text-left font-mono text-xs leading-relaxed whitespace-pre-wrap text-foreground-dim">
                 {details}
               </pre>
             ) : null}
           </div>
         ) : null}
-      </RouteStateSurface>
+      </div>
     </RouteStateFrame>
   )
 }
@@ -89,23 +87,27 @@ function RouteNotFoundState({
 
   return (
     <RouteStateFrame variant={variant}>
-      <RouteStateSurface>
-        <RouteStateHeader
-          eyebrow="404"
-          icon={<AlloyLogoMark size={32} />}
-          title="Page not found"
-          description="The page may have moved, been deleted, or never existed."
-        />
+      <div className="flex flex-col items-center gap-4 text-center text-balance">
+        <AlloyLogoMark size={40} />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Link to="/" className={buttonVariants()}>
+        <div className="flex flex-col gap-1.5">
+          <h1 className="text-lg font-semibold tracking-tight text-foreground">
+            Page not found
+          </h1>
+          <p className="text-sm leading-relaxed text-foreground-muted">
+            The page may have moved, been deleted, or never existed.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Link to="/" className={buttonVariants({ variant: "outline" })}>
             <Home className="size-3.5" aria-hidden />
             Go home
           </Link>
           {canGoBack ? (
             <Button
               type="button"
-              variant="secondary"
+              variant="ghost"
               onClick={() => window.history.back()}
             >
               <ArrowLeft className="size-3.5" aria-hidden />
@@ -113,7 +115,7 @@ function RouteNotFoundState({
             </Button>
           ) : null}
         </div>
-      </RouteStateSurface>
+      </div>
     </RouteStateFrame>
   )
 }
@@ -139,40 +141,6 @@ function RouteStateFrame({
   )
 }
 
-function RouteStateSurface({ children }: { children: React.ReactNode }) {
-  return (
-    <section className="flex w-full max-w-[420px] flex-col gap-5 rounded-lg border border-border bg-surface p-5 shadow-sm">
-      {children}
-    </section>
-  )
-}
-
-function RouteStateHeader({
-  description,
-  eyebrow,
-  icon,
-  title,
-}: {
-  description: string
-  eyebrow: string
-  icon: React.ReactNode
-  title: string
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      {icon}
-      <div className="flex flex-col gap-1.5">
-        <div className="eyebrow">{eyebrow}</div>
-        <h1 className="text-lg font-semibold tracking-normal text-foreground">
-          {title}
-        </h1>
-        <p className="text-sm leading-relaxed text-foreground-muted">
-          {description}
-        </p>
-      </div>
-    </div>
-  )
-}
 
 function getErrorDetails(
   error: unknown,

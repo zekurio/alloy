@@ -66,9 +66,6 @@ const CROP_AREA_INSET = 0.9
 // bounded by these caps so wild aspects don't blow up the dialog.
 const MAX_PANE_WIDTH = 720
 const MAX_PANE_HEIGHT = 540
-// Aspect clamps protect against pathological sources (e.g. 1×1000 strips).
-// Common aspects (9:16 ≈ 0.56 through 16:9 ≈ 1.78, plus banner-style 4:1
-// and 5:1) sit comfortably inside this range.
 const MIN_PANE_ASPECT = 0.4
 const MAX_PANE_ASPECT = 6
 // Sum of horizontal padding inside DialogContent (DialogBody is `px-6`).
@@ -113,12 +110,6 @@ function rotatedBoundingBox(width: number, height: number, rotation: number) {
 
 type Size = { width: number; height: number }
 
-/**
- * Compute a pane size that matches the source image's aspect ratio, bounded
- * by the configured caps. The pane is sized to fill MAX_PANE_WIDTH unless
- * that would make it taller than MAX_PANE_HEIGHT, in which case it's bound
- * by height instead. Aspect is clamped first to keep extreme sources sane.
- */
 function computePaneSize(naturalWidth: number, naturalHeight: number): Size {
   const rawAspect = naturalWidth / naturalHeight
   const aspect = clamp(rawAspect, MIN_PANE_ASPECT, MAX_PANE_ASPECT)
@@ -133,14 +124,6 @@ function computePaneSize(naturalWidth: number, naturalHeight: number): Size {
 
 type Flip = { horizontal: boolean; vertical: boolean }
 
-/**
- * Renders the user's crop selection to a JPEG blob.
- *
- * react-easy-crop reports `croppedAreaPixels` in the natural (un-flipped)
- * coordinate space of the source image, so we re-apply rotation and flip on
- * a working canvas before slicing out the requested rectangle. The output is
- * downscaled (preserving aspect) to fit within `output.maxWidth`/`maxHeight`.
- */
 async function renderCrop(opts: {
   src: string
   area: Area
@@ -245,11 +228,6 @@ function computeCropSize(paneSize: Size, aspect: number): Size {
   return { width, height }
 }
 
-/**
- * The reusable cropper UI: preview pane + zoom slider + transform toolbar.
- * Mode-agnostic — the only thing the caller varies is `aspect`. State lives
- * in the parent so the dialog can drive Reset and Apply against it.
- */
 function ImageCropperView({
   src,
   aspect,
@@ -270,10 +248,6 @@ function ImageCropperView({
   const paneRef = React.useRef<HTMLDivElement>(null)
   const [renderedPaneSize, setRenderedPaneSize] = React.useState<Size>(paneSize)
 
-  // react-easy-crop's default transform doesn't include flips, so we recreate
-  // it ourselves and append scaleX/scaleY. The library still uses crop/zoom/
-  // rotation to compute pixel coordinates, so flipping is purely visual until
-  // we reapply it during canvas export.
   const transform = `translate(${crop.x}px, ${crop.y}px) rotate(${rotation}deg) scale(${zoom}) scaleX(${flipX ? -1 : 1}) scaleY(${flipY ? -1 : 1})`
 
   React.useEffect(() => {
