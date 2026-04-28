@@ -1,11 +1,5 @@
 import { cn } from "@workspace/ui/lib/utils"
 
-/**
- * Visual subsection within a config card / form.
- * Renders a title + optional description, followed by grouped children.
- * Consecutive `FormGroup`s are separated by a top border matching the
- * `py-3` / `border-b` rhythm used by `ToggleRow` and `ConfigTransferSection`.
- */
 export function FormGroup({
   title,
   description,
