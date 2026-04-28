@@ -31,22 +31,32 @@ import { StorageConfigCard } from "@/components/routes/admin-settings/storage-co
 import { PasskeySignUpForm } from "@/components/routes/sign-up/passkey-sign-up-form"
 import { api } from "@/lib/api"
 import { devFlags } from "@/lib/flags"
-import { loadAuthConfig, loadSession } from "@/lib/session-suspense"
+import {
+  invalidateAuthConfig,
+  loadAuthConfig,
+  loadSession,
+} from "@/lib/session-suspense"
 
 export const Route = createFileRoute("/(auth)/setup")({
   loader: async ({ context }) => {
     const config = context.authConfig ?? (await loadAuthConfig())
-    const session = config.setupRequired
+    const session = config.adminAccountRequired
       ? null
       : (context.session ?? (await loadSession()))
     const role = (session?.user as { role?: string } | undefined)?.role
-    if (!config.setupRequired && !session) {
+    if (!config.adminAccountRequired && !session) {
       throw redirect({ to: "/login" })
     }
-    if (!config.setupRequired && !devFlags.forceOnboarding) {
+    if (
+      !config.adminAccountRequired &&
+      !config.setupRequired &&
+      !devFlags.forceOnboarding
+    ) {
       throw redirect({ to: "/" })
     }
-    if (!config.setupRequired && role !== "admin") throw redirect({ to: "/" })
+    if (!config.adminAccountRequired && role !== "admin") {
+      throw redirect({ to: "/" })
+    }
     return { config, session }
   },
   component: SetupPage,
@@ -58,7 +68,7 @@ function SetupPage() {
 
 function SetupPageInner() {
   const { config } = Route.useLoaderData()
-  const mode = config.setupRequired ? "account" : "onboarding"
+  const mode = config.adminAccountRequired ? "account" : "onboarding"
 
   return (
     <div className="relative min-h-screen w-full bg-background text-foreground">
@@ -174,11 +184,24 @@ function useAdminSetupSteps() {
       : "Couldn't load setup"
     : null
 
+  async function completeSetup() {
+    try {
+      await api.admin.updateRuntimeConfig({ setupComplete: true })
+      invalidateAuthConfig()
+      toast.success("Setup complete")
+      void navigate({ to: "/" })
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "Couldn't complete setup"
+      )
+    }
+  }
+
   function advanceStep(savedStep: SetupStep) {
     setStep((currentStep) => {
       if (currentStep !== savedStep) return currentStep
       if (currentStep < 2) return (currentStep + 1) as SetupStep
-      queueMicrotask(() => void navigate({ to: "/" }))
+      queueMicrotask(() => void completeSetup())
       return currentStep
     })
   }
