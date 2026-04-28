@@ -11,8 +11,8 @@ import type { ClipEncodedVariant } from "@workspace/db/schema"
 
 import { db } from "./db"
 import { env } from "./env"
-import { configStore, type EncoderOpenGraphTarget } from "./lib/config-store"
-import { selectClipById } from "./lib/clip-select"
+import { configStore, type EncoderOpenGraphTarget } from "./config/store"
+import { selectClipById } from "./clips/select"
 
 const HEAD_MARKER = "<!-- alloy:head -->"
 const CLIP_PERMALINK_RE = /^\/g\/[^/]+\/c\/([^/]+)\/?$/

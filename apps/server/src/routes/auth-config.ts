@@ -2,9 +2,9 @@ import { Hono } from "hono"
 
 import type { PublicAuthConfig } from "@workspace/contracts"
 
-import { configStore } from "../lib/config-store"
-import { getPublicProvider } from "../lib/oauth-config"
-import { isSetupRequired } from "../lib/user-bootstrap"
+import { configStore } from "../config/store"
+import { getPublicProvider } from "../auth/oauth-config"
+import { isSetupRequired } from "../auth/user-bootstrap"
 
 export const authConfigRoute = new Hono().get("/", async (c) => {
   return c.json({
