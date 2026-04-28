@@ -49,11 +49,7 @@ export async function hasAdminSignInMethod(): Promise<boolean> {
 }
 
 export async function setupRequired(): Promise<boolean> {
-  const required = !(await hasAdminSignInMethod())
-  if (!required && !configStore.get("setupComplete")) {
-    configStore.set("setupComplete", true)
-  }
-  return required
+  return !(await hasAdminSignInMethod())
 }
 
 export async function hasOtherAdminSignInMethod(

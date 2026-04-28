@@ -404,11 +404,7 @@ export function EncoderConfigCard({
         form.variants.length > 0))
   const sortedVariants = form.variants
     .map((variant, index) => ({ variant, index }))
-    .sort((a, b) =>
-      a.variant.name.localeCompare(b.variant.name, undefined, {
-        sensitivity: "base",
-      })
-    )
+    .sort((a, b) => b.variant.height - a.variant.height)
   return (
     <>
       <form id={formId} onSubmit={onSubmit}>
@@ -598,16 +594,9 @@ export function EncoderConfigCard({
                           key={`${variant.name}-${variant.height}-${index}`}
                           variant={variant}
                           isDefault={variant.id === form.defaultVariantId}
-                          isOpenGraphTarget={
-                            form.openGraphTarget.type === "variant" &&
-                            form.openGraphTarget.variantId === variant.id
-                          }
                           canDelete
                           onEdit={() => openEditVariant(index)}
                           onSetDefault={() => setDefaultVariant(index)}
-                          onSetOpenGraph={() =>
-                            setOpenGraphValue(`variant:${variant.id}`)
-                          }
                           onDelete={() => removeVariant(index)}
                         />
                       ))}
@@ -645,8 +634,9 @@ export function EncoderConfigCard({
 
             {!hideActions && (
               <SectionFooter>
-                <div className="ml-auto flex items-center gap-2">
+                <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
                   <Button
+                    className="flex-1 sm:flex-initial"
                     type="button"
                     variant="outline"
                     size="sm"
@@ -656,6 +646,7 @@ export function EncoderConfigCard({
                     Cancel
                   </Button>
                   <Button
+                    className="flex-1 sm:flex-initial"
                     type="submit"
                     variant="primary"
                     size="sm"

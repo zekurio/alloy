@@ -47,6 +47,7 @@ export type {
 } from "@workspace/contracts"
 
 type RuntimeConfigPatch = {
+  setupComplete?: boolean
   openRegistrations?: boolean
   passkeyEnabled?: boolean
   requireAuthToBrowse?: boolean

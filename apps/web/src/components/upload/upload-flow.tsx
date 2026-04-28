@@ -7,7 +7,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
-import { Sheet, SheetContent } from "@workspace/ui/components/sheet"
+import { Drawer, DrawerContent } from "@workspace/ui/components/drawer"
 import { toast } from "@workspace/ui/lib/toast"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { cn } from "@workspace/ui/lib/utils"
@@ -444,22 +444,15 @@ function UploadQueuePopover({
 
   if (isMobile) {
     return (
-      <Sheet open={queueOpen} onOpenChange={setQueueOpen}>
-        <SheetContent
-          side="bottom"
-          showCloseButton={false}
-          className={cn(
-            "right-4 bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+1rem)] left-4",
-            "h-auto max-h-[calc(100dvh-var(--header-h)-var(--bottomnav-h)-env(safe-area-inset-bottom)-2rem)]",
-            "rounded-2xl border p-3",
-            "alloy-glass"
-          )}
+      <Drawer open={queueOpen} onOpenChange={setQueueOpen}>
+        <DrawerContent
+          className={cn("max-h-[85vh] p-3", "alloy-glass")}
           style={queueGlassStyle}
           aria-describedby={undefined}
         >
           {content}
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
     )
   }
 

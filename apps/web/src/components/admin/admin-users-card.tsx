@@ -27,16 +27,16 @@ import {
   SectionTitle,
 } from "@workspace/ui/components/section"
 import {
-  Dialog,
-  DialogBody,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@workspace/ui/components/dialog"
+  ResponsiveDialog,
+  ResponsiveDialogBody,
+  ResponsiveDialogClose,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@workspace/ui/components/responsive-dialog"
 import {
   Field,
   FieldDescription,
@@ -257,19 +257,16 @@ export function AdminUsersCard({
   } = useAdminUsers(currentUserId)
   const [seedOpen, setSeedOpen] = React.useState(false)
 
-  const seedButton = (
-    <Dialog open={seedOpen} onOpenChange={setSeedOpen}>
-      <DialogTrigger render={<Button variant="primary" size="sm" />}>
-        <UserPlusIcon />
-        Seed user
-      </DialogTrigger>
+  const seedDialog = (trigger: React.ReactNode) => (
+    <ResponsiveDialog open={seedOpen} onOpenChange={setSeedOpen}>
+      {trigger}
       <SeedUserDialog
         onCreated={async () => {
           setSeedOpen(false)
           await refresh()
         }}
       />
-    </Dialog>
+    </ResponsiveDialog>
   )
 
   const content = loadError ? (
@@ -290,7 +287,19 @@ export function AdminUsersCard({
       onChangeRole={onChangeRole}
       onChangeQuota={onChangeQuota}
       onDelete={onDelete}
-      action={hideHeader ? seedButton : undefined}
+      action={
+        hideHeader
+          ? seedDialog(
+              <ResponsiveDialogTrigger
+                render={
+                  <Button variant="ghost" size="icon-sm" aria-label="Seed user">
+                    <UserPlusIcon className="size-4" />
+                  </Button>
+                }
+              />
+            )
+          : undefined
+      }
     />
   )
 
@@ -302,7 +311,14 @@ export function AdminUsersCard({
     <Section>
       <SectionHeader>
         <SectionTitle>Users</SectionTitle>
-        {seedButton}
+        {seedDialog(
+          <ResponsiveDialogTrigger
+            render={<Button variant="primary" size="sm" />}
+          >
+            <UserPlusIcon />
+            Seed user
+          </ResponsiveDialogTrigger>
+        )}
       </SectionHeader>
       <SectionContent>{content}</SectionContent>
     </Section>
@@ -498,8 +514,8 @@ function EditUserDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
+    <ResponsiveDialog open={open} onOpenChange={setOpen}>
+      <ResponsiveDialogTrigger
         render={
           <Button
             variant="ghost"
@@ -511,15 +527,15 @@ function EditUserDialog({
           </Button>
         }
       />
-      <DialogContent variant="secondary">
+      <ResponsiveDialogContent variant="secondary">
         <form onSubmit={onSubmit}>
-          <DialogHeader>
-            <DialogTitle>Edit user</DialogTitle>
-            <DialogDescription>
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Edit user</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription>
               Update role and storage quota for {user.email}.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogBody className="flex flex-col gap-4">
+            </ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
+          <ResponsiveDialogBody className="flex flex-col gap-4">
             <Field>
               <FieldLabel htmlFor={`role-${user.id}`}>Role</FieldLabel>
               <Select
@@ -554,9 +570,9 @@ function EditUserDialog({
                 Leave blank for unlimited storage.
               </FieldDescription>
             </Field>
-          </DialogBody>
-          <DialogFooter>
-            <DialogClose
+          </ResponsiveDialogBody>
+          <ResponsiveDialogFooter>
+            <ResponsiveDialogClose
               render={
                 <Button
                   type="button"
@@ -567,14 +583,14 @@ function EditUserDialog({
               }
             >
               Cancel
-            </DialogClose>
+            </ResponsiveDialogClose>
             <Button type="submit" variant="primary" size="sm" disabled={busy}>
               {busy ? "Saving…" : "Save"}
             </Button>
-          </DialogFooter>
+          </ResponsiveDialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   )
 }
 

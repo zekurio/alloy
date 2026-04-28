@@ -4,11 +4,12 @@ import type { PublicAuthConfig } from "@workspace/contracts"
 
 import { configStore } from "../config/store"
 import { getPublicProvider } from "../auth/oauth-config"
-import { isSetupRequired } from "../auth/user-bootstrap"
+import { getSetupStatus } from "../auth/user-bootstrap"
 
 export const authConfigRoute = new Hono().get("/", async (c) => {
+  const setupStatus = await getSetupStatus()
   return c.json({
-    setupRequired: await isSetupRequired(),
+    ...setupStatus,
     openRegistrations: configStore.get("openRegistrations"),
     passkeyEnabled: configStore.get("passkeyEnabled"),
     requireAuthToBrowse: configStore.get("requireAuthToBrowse"),

@@ -76,6 +76,12 @@ export function clipGameLabel(row: Pick<ClipRow, "gameRef" | "game">): string {
   return row.gameRef?.name ?? row.game ?? "Uncategorised"
 }
 
+function versionedClipThumbnailUrl(row: Pick<ClipRow, "id" | "updatedAt">) {
+  const url = new URL(clipThumbnailUrl(row.id, apiOrigin()))
+  url.searchParams.set("v", row.updatedAt)
+  return url.toString()
+}
+
 export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
   const game = clipGameLabel(row)
   return {
@@ -93,7 +99,7 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
     likes: formatCount(row.likeCount),
     comments: formatCount(row.commentCount),
     postedAt: formatRelativeTime(row.createdAt, now),
-    thumbnail: row.thumbKey ? clipThumbnailUrl(row.id, apiOrigin()) : undefined,
+    thumbnail: row.thumbKey ? versionedClipThumbnailUrl(row) : undefined,
     streamUrl: clipStreamUrl(row.id, undefined, apiOrigin()),
     variants: row.variants,
     accentHue: hueForGame(game),
