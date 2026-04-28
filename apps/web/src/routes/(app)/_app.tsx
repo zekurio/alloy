@@ -1,10 +1,14 @@
 import * as React from "react"
 import { Outlet, createFileRoute, useNavigate } from "@tanstack/react-router"
 
-import { AppShell } from "@workspace/ui/components/app-shell"
+import { AppMain, AppShell } from "@workspace/ui/components/app-shell"
 
 import { AppSearchProvider } from "@/components/search/app-search"
 import { ClipViewerDialog } from "@/components/clip/clip-viewer-dialog"
+import {
+  RouteErrorState,
+  RouteNotFoundState,
+} from "@/components/feedback/route-state"
 import { HomeHeader } from "@/components/layout/home-header"
 import { HomeSidebar } from "@/components/layout/home-sidebar"
 import { UploadFlow } from "@/components/upload/upload-flow"
@@ -27,6 +31,8 @@ export const Route = createFileRoute("/(app)/_app")({
       ...(typeof comment === "string" && comment.length > 0 ? { comment } : {}),
     }
   },
+  errorComponent: AppRouteErrorState,
+  notFoundComponent: AppRouteNotFoundState,
   component: AppLayout,
 })
 
@@ -97,3 +103,34 @@ const AppChrome = React.memo(function AppChrome() {
     </>
   )
 })
+
+function AppRouteErrorState(props: React.ComponentProps<typeof RouteErrorState>) {
+  return (
+    <AppRouteStateShell>
+      <RouteErrorState {...props} variant="panel" />
+    </AppRouteStateShell>
+  )
+}
+
+function AppRouteNotFoundState(
+  props: React.ComponentProps<typeof RouteNotFoundState>
+) {
+  return (
+    <AppRouteStateShell>
+      <RouteNotFoundState {...props} variant="panel" />
+    </AppRouteStateShell>
+  )
+}
+
+function AppRouteStateShell({ children }: { children: React.ReactNode }) {
+  return (
+    <AppSearchProvider>
+      <UploadFlowProvider>
+        <AppShell>
+          <AppChrome />
+          <AppMain>{children}</AppMain>
+        </AppShell>
+      </UploadFlowProvider>
+    </AppSearchProvider>
+  )
+}

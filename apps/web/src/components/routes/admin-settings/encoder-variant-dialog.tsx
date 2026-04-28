@@ -2,13 +2,13 @@ import * as React from "react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui/components/dialog"
+  ResponsiveDialog,
+  ResponsiveDialogBody,
+  ResponsiveDialogContent,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@workspace/ui/components/responsive-dialog"
 import {
   Field,
   FieldDescription,
@@ -104,15 +104,17 @@ export function EncoderVariantDialog({
   }
 
   return (
-    <Dialog open={variant !== null} onOpenChange={onOpenChange}>
-      <DialogContent variant="secondary" className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{isNew ? "Add variant" : "Edit variant"}</DialogTitle>
-        </DialogHeader>
+    <ResponsiveDialog open={variant !== null} onOpenChange={onOpenChange}>
+      <ResponsiveDialogContent variant="secondary" className="max-w-2xl">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>
+            {isNew ? "Add variant" : "Edit variant"}
+          </ResponsiveDialogTitle>
+        </ResponsiveDialogHeader>
 
         {draft ? (
           <form id="encoder-variant-form" onSubmit={handleSubmit}>
-            <DialogBody className="flex flex-col gap-4">
+            <ResponsiveDialogBody className="flex flex-col gap-4">
               <Field>
                 <FieldLabel htmlFor="variant-name" required>
                   Variant name
@@ -298,9 +300,9 @@ export function EncoderVariantDialog({
                   </FieldDescription>
                 </Field>
               </div>
-            </DialogBody>
+            </ResponsiveDialogBody>
 
-            <DialogFooter>
+            <ResponsiveDialogFooter>
               <Button
                 type="button"
                 variant="outline"
@@ -311,10 +313,10 @@ export function EncoderVariantDialog({
               <Button type="submit" variant="primary">
                 {isNew ? "Add variant" : "Save variant"}
               </Button>
-            </DialogFooter>
+            </ResponsiveDialogFooter>
           </form>
         ) : null}
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   )
 }
