@@ -76,9 +76,6 @@ function ResponsiveDialogContent({
       <DrawerContent
         className={cn(
           "max-h-[85vh] bg-surface",
-          // Ensure intermediate elements (e.g. <form>) between the
-          // DrawerContent and body/footer participate in the flex layout
-          // so the footer stays pinned and the body scrolls.
           "[&>form]:flex [&>form]:min-h-0 [&>form]:flex-1 [&>form]:flex-col",
           className
         )}
