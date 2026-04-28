@@ -2,13 +2,13 @@ import * as React from "react"
 import { Link } from "@tanstack/react-router"
 import {
   BellIcon,
+  CheckIcon,
   CircleAlertIcon,
   HeartIcon,
   MessageSquareIcon,
   PinIcon,
   Trash2Icon,
   UserPlusIcon,
-  XIcon,
 } from "lucide-react"
 
 import type { NotificationRow } from "@workspace/api"
@@ -143,23 +143,34 @@ function NotificationCenterContent({
 
   return (
     <section className="flex flex-col gap-3">
-      <header className="flex items-start justify-between gap-3 px-1">
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-foreground">
-            Notifications
-          </h2>
-          <p className="text-xs font-medium text-foreground-muted">
-            {unreadCount} unread
-          </p>
-        </div>
-        <div className="flex items-center gap-1">
+      <header className="flex items-center justify-between px-1">
+        <h2 className="text-sm font-semibold text-foreground">Notifications</h2>
+        <span className="text-xs font-semibold text-foreground-muted tabular-nums">
+          {unreadCount === 0 ? "all read" : `${unreadCount} unread`}
+        </span>
+      </header>
+
+      <div className="flex max-h-[min(520px,calc(100dvh-14rem))] flex-col gap-2 overflow-y-auto pr-1">
+        {isLoading ? (
+          <NotificationLoadingState />
+        ) : items.length === 0 ? (
+          <NotificationEmptyState />
+        ) : (
+          items.map((item) => (
+            <NotificationRow key={item.id} item={item} onClose={onClose} />
+          ))
+        )}
+      </div>
+
+      <div className="flex justify-end border-t border-border pt-2.5">
+        <div className="flex items-center gap-2">
           {unreadCount > 0 ? (
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-2 text-xs"
               disabled={markAllRead.isPending}
               onClick={() => markAllRead.mutate()}
+              className="text-foreground-muted"
             >
               Mark all read
             </Button>
@@ -168,34 +179,23 @@ function NotificationCenterContent({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-2 text-xs"
               disabled={clearNotifications.isPending}
               onClick={() => clearNotifications.mutate()}
+              className="text-foreground-muted"
             >
               Clear all
             </Button>
           ) : null}
           <Button
             variant="ghost"
-            size="icon-sm"
+            size="sm"
             aria-label="Close notifications"
             onClick={onClose}
+            className="text-foreground-muted"
           >
-            <XIcon />
+            Close
           </Button>
         </div>
-      </header>
-
-      <div className="flex max-h-[min(520px,calc(100dvh-14rem))] flex-col gap-2 overflow-y-auto pr-1">
-        {isLoading ? (
-          <NotificationLoadingState />
-        ) : items.length === 0 ? (
-          <NotificationEmptyState label="No notifications yet." />
-        ) : (
-          items.map((item) => (
-            <NotificationRow key={item.id} item={item} onClose={onClose} />
-          ))
-        )}
       </div>
     </section>
   )
@@ -215,15 +215,11 @@ function NotificationRow({
   const markRead = useMarkNotificationReadMutation()
   const deleteNotification = useDeleteNotificationMutation()
 
-  const handleRead = () => {
-    if (unread) markRead.mutate(item.id)
-  }
-
   return (
     <article
       className={cn(
-        "alloy-glass relative flex items-start gap-3 rounded-xl border px-3 py-3",
-        "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+        "alloy-glass relative flex items-center gap-3 rounded-md border px-3 py-2.5",
+        "transition-[border-color] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
         "hover:border-border-strong",
         unread && "border-accent-border/60"
       )}
@@ -238,68 +234,64 @@ function NotificationRow({
         <Icon className="size-3.5" />
       </div>
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h3 className="truncate text-sm font-semibold text-foreground">
-              {text.title}
-            </h3>
-            <p className="mt-1 text-xs leading-5 text-foreground-muted">
-              {text.body}
-            </p>
-          </div>
-          <span className="shrink-0 text-[11px] font-medium text-foreground-faint">
-            {formatRelativeTime(item.createdAt)}
-          </span>
-        </div>
-
-        <div className="mt-2 flex items-center gap-2">
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex min-w-0 items-baseline gap-2">
           {href ? (
             <Link
               to={href}
-              className={cn(
-                "inline-flex h-6 items-center rounded-md px-2 text-xs font-medium",
-                "text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground"
-              )}
+              className="truncate text-sm font-semibold tracking-[-0.01em] text-foreground hover:underline"
               onClick={() => {
-                handleRead()
+                if (unread) markRead.mutate(item.id)
                 onClose()
               }}
             >
-              Open
+              {text.title}
             </Link>
-          ) : null}
-          {unread ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-xs"
-              disabled={markRead.isPending}
-              onClick={handleRead}
-            >
-              Mark read
-            </Button>
-          ) : null}
+          ) : (
+            <span className="truncate text-sm font-semibold tracking-[-0.01em] text-foreground">
+              {text.title}
+            </span>
+          )}
+        </div>
+        <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-foreground-muted">
+          <span className="truncate">{text.body}</span>
+          <span className="shrink-0">{formatRelativeTime(item.createdAt)}</span>
         </div>
       </div>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label={`Delete notification: ${text.title}`}
-        disabled={deleteNotification.isPending}
-        onClick={() => deleteNotification.mutate(item.id)}
-        className="shrink-0 text-foreground-faint hover:text-danger"
-      >
-        <Trash2Icon />
-      </Button>
+
+      <div className="flex shrink-0 items-center justify-end gap-0.5">
+        {unread ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Mark as read: ${text.title}`}
+            disabled={markRead.isPending}
+            onClick={() => markRead.mutate(item.id)}
+          >
+            <CheckIcon />
+          </Button>
+        ) : null}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={`Delete notification: ${text.title}`}
+          disabled={deleteNotification.isPending}
+          onClick={() => deleteNotification.mutate(item.id)}
+        >
+          <Trash2Icon />
+        </Button>
+      </div>
     </article>
   )
 }
 
-function NotificationEmptyState({ label }: { label: string }) {
+function NotificationEmptyState() {
   return (
-    <div className="rounded-lg border border-border px-3 py-6 text-center text-xs font-medium text-foreground-muted">
-      {label}
+    <div className="flex flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border px-6 py-8 text-center">
+      <p className="text-sm font-medium text-foreground">Nothing here yet</p>
+      <p className="text-xs font-semibold text-foreground-muted">
+        New notifications will show up here.
+      </p>
     </div>
   )
 }

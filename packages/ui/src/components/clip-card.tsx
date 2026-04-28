@@ -85,35 +85,35 @@ function ClipCard({
         label={thumbnailLabel ?? title}
         buttonRef={thumbnailRef}
       />
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1.5">
         {metaVariant === "showcase" ? (
           <div className="truncate text-base font-semibold tracking-[-0.015em] text-foreground sm:text-lg">
             {title}
           </div>
         ) : (
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="min-w-0 flex-1 truncate text-base font-semibold tracking-[-0.015em] text-foreground sm:text-lg">
+          <div className="flex min-w-0 items-center gap-2 text-base leading-5 sm:text-lg sm:leading-6">
+            <div className="min-w-0 flex-1 truncate font-semibold tracking-[-0.015em] text-foreground">
               {title}
             </div>
-            <span className="inline-flex shrink-0 items-center gap-3.5 pt-1 text-sm tracking-[0.04em] text-foreground-faint">
+            <span className="inline-flex shrink-0 items-center gap-3 text-sm leading-none tracking-[0.04em] text-foreground-faint tabular-nums">
               <span className="inline-flex items-center gap-1.5">
-                <EyeIcon className="size-3.5" />
+                <EyeIcon className="size-4" />
                 {views}
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <HeartIcon className="size-3.5" />
+                <HeartIcon className="size-4" />
                 {likes}
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <MessageSquareIcon className="size-3.5" />
+                <MessageSquareIcon className="size-4" />
                 {commentCount}
               </span>
             </span>
           </div>
         )}
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 items-center gap-2 text-md leading-5">
           {author ? (
-            <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 text-md leading-none text-foreground-dim">
+            <div className="flex min-w-0 flex-1 items-center gap-2 text-foreground-dim">
               <ClipCardAvatar
                 author={author}
                 authorSeed={authorSeed}
@@ -126,12 +126,12 @@ function ClipCard({
               </span>
             </div>
           ) : (
-            <div className="min-w-0 flex-1 text-md text-accent">
+            <div className="min-w-0 flex-1 text-accent">
               <GameLabel game={game} icon={gameIcon} href={gameHref} />
             </div>
           )}
           {metaVariant === "showcase" ? null : (
-            <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 text-sm tracking-[0.04em] text-foreground-faint">
+            <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 text-sm leading-4 tracking-[0.04em] text-foreground-faint">
               {privacyBadge}
               {postedAt}
             </span>
@@ -381,7 +381,7 @@ function AuthorLabel({
   href: string | null | undefined
 }) {
   const className = cn(
-    "max-w-[45%] shrink-0 truncate leading-none font-medium text-foreground-muted",
+    "max-w-[45%] shrink-0 truncate leading-4 font-medium text-foreground-muted",
     href && "hover:underline focus-visible:underline focus-visible:outline-none"
   )
   if (href) {
@@ -415,7 +415,7 @@ function ClipCardAvatar({
       aria-hidden
       className={cn(
         "inline-flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-[3px]",
-        "text-[9px] leading-none font-semibold"
+        "text-[9px] leading-3 font-semibold"
       )}
       style={{
         background: `oklch(0.32 0.18 ${hue})`,
@@ -447,7 +447,7 @@ function GameLabel({
   href: string | null | undefined
 }) {
   const className = cn(
-    "inline-flex min-w-0 items-center gap-1.5 truncate leading-none text-accent",
+    "inline-flex min-w-0 items-center gap-1.5 truncate leading-4 text-accent",
     href && "hover:underline focus-visible:underline focus-visible:outline-none"
   )
   const content = (
@@ -479,7 +479,7 @@ function renderPrivacyBadge(
       title={label}
       aria-label={label}
     >
-      <Icon className="size-3.5" aria-hidden />
+      <Icon className="size-4" aria-hidden />
     </span>
   )
 }

@@ -46,14 +46,6 @@ type Tile = {
   thumbUrl: string | null
 }
 
-const PLACEHOLDER_HUES = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330]
-const PLACEHOLDER_TILES: Tile[] = PLACEHOLDER_HUES.map((hue, i) => ({
-  key: `placeholder-${i}`,
-  title: "",
-  hue,
-  thumbUrl: null,
-}))
-
 const Tile = React.memo(function Tile({
   title,
   hue,
@@ -201,6 +193,10 @@ function getRowSettings(index: number) {
   }
 }
 
+export function hasLoginArtworkClips(clips: PublicClip[]): boolean {
+  return clips.some(hasThumbnail)
+}
+
 export const LoginArtwork = React.memo(function LoginArtwork({
   clips,
 }: {
@@ -210,7 +206,7 @@ export const LoginArtwork = React.memo(function LoginArtwork({
   const rowCount = useRowCount(containerRef)
 
   const source = React.useMemo<Tile[]>(() => {
-    const real = clips
+    return clips
       .filter(hasThumbnail)
       .slice(0, MAX_SOURCE_TILES)
       .map((c, i) => ({
@@ -219,15 +215,14 @@ export const LoginArtwork = React.memo(function LoginArtwork({
         hue: hueFor(c),
         thumbUrl: c.thumbUrl,
       }))
-    return real.length > 0 ? real : PLACEHOLDER_TILES
   }, [clips])
 
-  const isEmpty = source === PLACEHOLDER_TILES
-
   const rows = React.useMemo(
-    () => buildRows(source, rowCount),
+    () => (source.length > 0 ? buildRows(source, rowCount) : []),
     [source, rowCount]
   )
+
+  if (rows.length === 0) return null
 
   return (
     <div
@@ -256,12 +251,7 @@ export const LoginArtwork = React.memo(function LoginArtwork({
       </div>
 
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-background" />
-      <div
-        className={cn(
-          "absolute inset-0",
-          isEmpty ? "bg-background/55" : "bg-background/30"
-        )}
-      />
+      <div className="absolute inset-0 bg-background/30" />
     </div>
   )
 })

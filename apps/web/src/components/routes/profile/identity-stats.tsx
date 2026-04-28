@@ -22,7 +22,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import type { ProfileCounts, UserSearchResult } from "@workspace/api"
 
 import { api } from "@/lib/api"
-import { userImageSrc } from "@/lib/user-display"
+import { userAvatar } from "@/lib/user-display"
 import {
   useUserFollowersQuery,
   useUserFollowingQuery,
@@ -34,14 +34,6 @@ type FollowModal = "followers" | "following" | null
 type IdentityStatsProps = {
   handle: string
   counts: ProfileCounts
-}
-
-function StatSeparator() {
-  return (
-    <span aria-hidden className="text-foreground-muted/80">
-      ·
-    </span>
-  )
 }
 
 function FollowStatButton({
@@ -87,15 +79,12 @@ export function IdentityStats({ handle, counts }: IdentityStatsProps) {
 
   return (
     <>
-      <div className="flex items-center gap-4 text-sm font-medium text-foreground-muted">
-        <StatInline value={counts.clips} label="clips" />
-        <StatSeparator />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-medium text-foreground-muted">
         <FollowStatButton
           value={counts.followers}
           label="followers"
           onClick={() => setOpen("followers")}
         />
-        <StatSeparator />
         <FollowStatButton
           value={counts.following}
           label="following"
@@ -153,7 +142,8 @@ function FollowRow({
   const [pending, setPending] = React.useState(false)
   const handle = user.displayUsername || user.username
   const displayName = user.name || `@${handle}`
-  const avatarSrc = userImageSrc(user.image)
+  const avatar = userAvatar(user)
+  const avatarStyle = { background: avatar.bg, color: avatar.fg }
 
   React.useEffect(() => {
     setFollowing(initiallyFollowing)
@@ -182,11 +172,11 @@ function FollowRow({
         onClick={onNavigate}
         className="flex min-w-0 flex-1 items-center gap-3"
       >
-        <Avatar size="md">
-          <AvatarImage src={avatarSrc} alt={displayName} />
-          <AvatarFallback>
-            {displayName.slice(0, 2).toUpperCase()}
-          </AvatarFallback>
+        <Avatar size="md" style={avatarStyle}>
+          {avatar.src ? (
+            <AvatarImage src={avatar.src} alt={displayName} />
+          ) : null}
+          <AvatarFallback style={avatarStyle}>{avatar.initials}</AvatarFallback>
         </Avatar>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm text-foreground">

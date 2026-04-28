@@ -49,7 +49,7 @@ export function VariantRow({
             )}
           </div>
           <div className="truncate text-xs text-muted-foreground">
-            {specs.join(" · ")}
+            {specs.join("  ")}
           </div>
         </div>
       </div>

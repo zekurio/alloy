@@ -82,7 +82,8 @@ export async function pinTopLevelComment({
   }
 
   const clipAuthorId = await selectClipAuthorId(row.clipId)
-  if (!clipAuthorId) return { ok: false as const, error: "Not found", status: 404 }
+  if (!clipAuthorId)
+    return { ok: false as const, error: "Not found", status: 404 }
   if (clipAuthorId !== viewerId) {
     return { ok: false as const, error: "Forbidden", status: 403 }
   }
@@ -116,7 +117,8 @@ export async function unpinComment({
   if (!row) return { ok: false as const, error: "Not found", status: 404 }
 
   const clipAuthorId = await selectClipAuthorId(row.clipId)
-  if (!clipAuthorId) return { ok: false as const, error: "Not found", status: 404 }
+  if (!clipAuthorId)
+    return { ok: false as const, error: "Not found", status: 404 }
   if (clipAuthorId !== viewerId) {
     return { ok: false as const, error: "Forbidden", status: 403 }
   }

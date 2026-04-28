@@ -45,7 +45,9 @@ async function claimOrCreateSetupAdmin(
   email: string,
   username: string
 ) {
-  await tx.execute(sql`select pg_advisory_xact_lock(hashtext('alloy:first-admin-setup'))`)
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(hashtext('alloy:first-admin-setup'))`
+  )
 
   const existingAdminSignInMethod = await tx
     .select({ id: user.id })
@@ -57,7 +59,11 @@ async function claimOrCreateSetupAdmin(
   if (existingAdminSignInMethod.length > 0) {
     throw new Error("Initial setup is already complete.")
   }
-  const [existing] = await tx.select().from(user).where(eq(user.email, email)).limit(1)
+  const [existing] = await tx
+    .select()
+    .from(user)
+    .where(eq(user.email, email))
+    .limit(1)
 
   if (existing) {
     const now = new Date()

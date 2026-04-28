@@ -248,7 +248,9 @@ export const clipsPlaybackRoutes = new Hono()
       }
 
       const encodedVariant =
-        row.status === "ready" ? findEncodedVariant(row, requestedVariant) : null
+        row.status === "ready"
+          ? findEncodedVariant(row, requestedVariant)
+          : null
       const selected = encodedVariant
         ? {
             key: encodedVariant.storageKey,
