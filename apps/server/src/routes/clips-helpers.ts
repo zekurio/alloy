@@ -13,8 +13,8 @@ import {
 } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { getSession } from "../lib/auth/session"
-import { configStore } from "../lib/config-store"
+import { getSession } from "../auth/session"
+import { configStore } from "../config/store"
 
 export const IdParam = z.object({ id: z.uuid() })
 export const StreamQuery = z.object({ variant: z.string().min(1).optional() })

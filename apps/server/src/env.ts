@@ -2,7 +2,7 @@ import "dotenv/config"
 import { z } from "zod"
 
 // Deploy-time env only. Anything an admin should be able to change at
-// runtime (OAuth provider, open-registrations) lives in `lib/config-store.ts`.
+// runtime (OAuth provider, open-registrations) lives in `config/store.ts`.
 
 function normalizePublicServerUrl(value: string): string {
   const url = new URL(value)

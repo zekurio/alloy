@@ -4,7 +4,7 @@ import type { PgBoss } from "pg-boss"
 import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { publishClipRemove } from "../lib/clip-events"
+import { publishClipRemove } from "../clips/events"
 import { clipAssetKey, storage } from "../storage"
 import { ENCODE_JOB } from "./encode-worker"
 

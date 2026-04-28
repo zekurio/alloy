@@ -25,8 +25,8 @@ import {
 } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { getSession } from "../lib/auth/session"
-import { clipSelectShape } from "../lib/clip-select"
+import { getSession } from "../auth/session"
+import { clipSelectShape } from "../clips/select"
 
 export const UsernameParam = z.object({ username: z.string().min(1) })
 

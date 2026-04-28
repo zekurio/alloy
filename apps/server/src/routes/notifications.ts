@@ -2,14 +2,14 @@ import { zValidator } from "@hono/zod-validator"
 import { Hono } from "hono"
 import { z } from "zod"
 
-import { requireSession } from "../lib/require-session"
+import { requireSession } from "../auth/require-session"
 import {
   clearNotifications,
   deleteNotification,
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
-} from "../lib/notifications"
+} from "../notifications"
 
 const ListQuery = z.object({
   limit: z.coerce.number().int().min(1).max(50).optional(),

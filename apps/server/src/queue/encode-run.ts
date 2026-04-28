@@ -13,8 +13,8 @@ import {
 
 import { db } from "../db"
 import { env } from "../env"
-import { publishClipUpsert } from "../lib/clip-events"
-import { configStore, type EncoderConfig } from "../lib/config-store"
+import { publishClipUpsert } from "../clips/events"
+import { configStore, type EncoderConfig } from "../config/store"
 import { clipOriginalAssetKey, clipSourceMp4Key, storage } from "../storage"
 import { codecNameFor, encode, probe, remuxToMp4 } from "./ffmpeg"
 import { makeProgressWriter } from "./encode-progress"

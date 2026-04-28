@@ -6,7 +6,7 @@ import type { QueueEvent } from "@workspace/contracts"
 import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { selectQueueRowById } from "./clip-queue-select"
+import { selectQueueRowById } from "./queue-select"
 
 const emitter = new EventEmitter()
 // Subscribers are one per open SSE connection — cap removed so we don't

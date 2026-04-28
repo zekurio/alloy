@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm"
 import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { publishClipProgress } from "../lib/clip-events"
+import { publishClipProgress } from "../clips/events"
 
 export function makeProgressWriter(
   clipId: string,

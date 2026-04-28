@@ -8,24 +8,24 @@ import { user } from "@workspace/db/auth-schema"
 import { block, clip, follow } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { clearSessionCookies } from "../lib/auth/cookies"
+import { clearSessionCookies } from "../auth/cookies"
 import {
   deleteAllSessionsForUser,
   getSession,
   requireAnySession,
-} from "../lib/auth/session"
-import { assertCanRemoveAdmin } from "../lib/auth/identity"
-import { deleteClipRowAndAssets } from "../lib/clip-delete"
+} from "../auth/session"
+import { assertCanRemoveAdmin } from "../auth/identity"
+import { deleteClipRowAndAssets } from "../clips/delete"
 import {
   contentDisposition,
   downloadFilename,
   nodeToWeb,
 } from "./clips-helpers"
-import { createZipStream } from "../lib/zip-stream"
-import { syncLinkedOAuthImage } from "../lib/oauth-profile-sync"
-import { createNotification } from "../lib/notifications"
-import { requireSession } from "../lib/require-session"
-import { selectSourceStorageUsedBytes } from "../lib/storage-quota"
+import { createZipStream } from "../archive/zip-stream"
+import { syncLinkedOAuthImage } from "../auth/oauth-profile-sync"
+import { createNotification } from "../notifications"
+import { requireSession } from "../auth/require-session"
+import { selectSourceStorageUsedBytes } from "../storage/quota"
 import { storage } from "../storage"
 import {
   SearchQuery,

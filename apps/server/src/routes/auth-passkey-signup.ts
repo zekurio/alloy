@@ -4,9 +4,9 @@ import { and, eq, sql } from "drizzle-orm"
 import { user, userPasskey } from "@workspace/db/auth-schema"
 
 import { db } from "../db"
-import { configStore } from "../lib/config-store"
-import { normalizeEmail, validateUsername } from "../lib/auth/identity"
-import { passkeyPublicKey, serializeTransports } from "../lib/auth/webauthn"
+import { configStore } from "../config/store"
+import { normalizeEmail, validateUsername } from "../auth/identity"
+import { passkeyPublicKey, serializeTransports } from "../auth/webauthn"
 
 type PasskeyRegistrationPayload = {
   email?: unknown
