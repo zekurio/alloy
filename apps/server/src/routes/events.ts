@@ -1,14 +1,14 @@
 import { Hono } from "hono"
 import { streamSSE } from "hono/streaming"
 
-import { subscribeToAuthorQueue, type QueueEvent } from "../lib/clip-events"
-import { selectQueueRowsForAuthor } from "../lib/clip-queue-select"
+import { subscribeToAuthorQueue, type QueueEvent } from "../clips/events"
+import { selectQueueRowsForAuthor } from "../clips/queue-select"
 import {
   subscribeToNotifications,
   type NotificationEvent,
-} from "../lib/notification-events"
-import { listNotifications } from "../lib/notifications"
-import { requireSession } from "../lib/require-session"
+} from "../notifications/events"
+import { listNotifications } from "../notifications"
+import { requireSession } from "../auth/require-session"
 
 const HEARTBEAT_MS = 25_000
 

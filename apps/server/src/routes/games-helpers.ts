@@ -5,7 +5,7 @@ import { z } from "zod"
 import {
   SteamGridDBError,
   SteamGridDBNotConfiguredError,
-} from "../lib/steamgriddb"
+} from "../games/steamgriddb"
 
 export const SlugParam = z.object({
   slug: z

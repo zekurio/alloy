@@ -17,12 +17,12 @@ import {
   S3StorageConfigPatchSchema,
   StorageConfigPatchSchema,
   bootstrapDefaultConfig,
-} from "./config-schema"
+} from "./schema"
 import {
   OAuthProviderSchema,
   OAuthProviderSubmissionSchema,
   type OAuthProviderSubmission,
-} from "./config-oauth-schema"
+} from "./oauth-schema"
 
 export {
   ENCODER_CODECS,

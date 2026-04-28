@@ -16,8 +16,8 @@ import {
 } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { getSession } from "../lib/auth/session"
-import { clipSelectShape } from "../lib/clip-select"
+import { getSession } from "../auth/session"
+import { clipSelectShape } from "../clips/select"
 
 const FilterEnum = z.enum(["foryou", "following", "game"])
 

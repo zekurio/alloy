@@ -11,8 +11,8 @@ import {
   type OAuthProviderConfig,
   type RuntimeConfig,
   type StorageConfig,
-} from "../lib/config-store"
-import { selectSourceStorageUsedBytesByUserIds } from "../lib/storage-quota"
+} from "../config/store"
+import { selectSourceStorageUsedBytesByUserIds } from "../storage/quota"
 
 export const REDACTED_SENTINEL = "***"
 

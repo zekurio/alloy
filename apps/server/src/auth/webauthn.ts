@@ -18,8 +18,8 @@ import {
   type UserPasskey,
 } from "@workspace/db/auth-schema"
 
-import { db } from "../../db"
-import { env } from "../../env"
+import { db } from "../db"
+import { env } from "../env"
 import { base64UrlToBytes, bytesToBase64Url } from "./tokens"
 
 const RP_NAME = "alloy"

@@ -4,7 +4,7 @@ import { getCookie, setCookie } from "hono/cookie"
 import type { Context } from "hono"
 
 import { authSecret } from "../env"
-import { getSession } from "./auth/session"
+import { getSession } from "./session"
 
 const COOKIE_NAME = "alloy_viewer"
 const COOKIE_MAX_AGE_SEC = 365 * 24 * 60 * 60
