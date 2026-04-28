@@ -5,7 +5,7 @@ import type {
   SteamGridDBGameDetail,
   SteamGridDBSearchResult,
 } from "@workspace/contracts"
-import { configStore } from "./config-store"
+import { configStore } from "../config/store"
 
 const BASE_URL = "https://www.steamgriddb.com/api/v2"
 

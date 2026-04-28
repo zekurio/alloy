@@ -9,7 +9,7 @@ import {
   type User,
 } from "@workspace/db/auth-schema"
 
-import { db } from "../../db"
+import { db } from "../db"
 import { readSessionCookie } from "./cookies"
 import { generateSessionToken, hashSessionToken } from "./tokens"
 

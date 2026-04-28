@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm"
 import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { publishClipRemove } from "./clip-events"
+import { publishClipRemove } from "./events"
 import { cancelEncode } from "../queue/encode-worker"
 import { clipAssetKey, storage } from "../storage"
 

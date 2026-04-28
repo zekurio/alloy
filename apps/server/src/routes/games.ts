@@ -6,17 +6,17 @@ import { user } from "@workspace/db/auth-schema"
 import { clip, game, gameFollow } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { getSession } from "../lib/auth/session"
-import { clipSelectShape } from "../lib/clip-select"
-import { generateUniqueGameSlug } from "../lib/game-slug"
-import { requireSession } from "../lib/require-session"
+import { getSession } from "../auth/session"
+import { clipSelectShape } from "../clips/select"
+import { generateUniqueGameSlug } from "../games/slug"
+import { requireSession } from "../auth/require-session"
 import {
   enrichSearchResultsWithIcons,
   getGameAssets,
   getGameById,
   isConfigured,
   searchGames,
-} from "../lib/steamgriddb"
+} from "../games/steamgriddb"
 import {
   ClipsQuery,
   GamesListQuery,

@@ -9,7 +9,7 @@ import { user } from "@workspace/db/auth-schema"
 import { ACCEPTED_IMAGE_CONTENT_TYPES } from "@workspace/contracts"
 
 import { db } from "../db"
-import { requireSession } from "../lib/require-session"
+import { requireSession } from "../auth/require-session"
 import { storage, userAssetKey } from "../storage"
 import type { ResolvedObject } from "../storage/driver"
 import { toPublicUser, type UserRow } from "./users-helpers"

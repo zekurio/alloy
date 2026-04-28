@@ -16,7 +16,7 @@ import {
   publishNotificationsClear,
   publishNotificationsReadAll,
   publishNotificationUpsert,
-} from "./notification-events"
+} from "./events"
 
 const DEFAULT_LIMIT = 20
 const MAX_LIMIT = 50

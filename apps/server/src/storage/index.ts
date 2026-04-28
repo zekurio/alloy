@@ -1,6 +1,6 @@
 import type { StorageConfig } from "@workspace/contracts"
 
-import { configStore } from "../lib/config-store"
+import { configStore } from "../config/store"
 import type { StorageDriver } from "./driver"
 import { FsStorageDriver } from "./fs-driver"
 import { S3StorageDriver } from "./s3-driver"
