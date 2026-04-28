@@ -91,8 +91,8 @@ export function useUserLikedClipsQuery(handle: string) {
 }
 
 export function useUploadQueueQuery({ enabled }: { enabled: boolean }) {
-  useUploadQueueStream({ enabled })
-  return useQuery({
+  const stream = useUploadQueueStream({ enabled })
+  const query = useQuery({
     queryKey: clipKeys.queue(),
     queryFn: () => {
       throw new Error("queue stream drives the cache; queryFn is inert")
@@ -100,6 +100,7 @@ export function useUploadQueueQuery({ enabled }: { enabled: boolean }) {
     enabled: false,
     staleTime: Infinity,
   })
+  return { ...query, stream }
 }
 
 function patchClipInCaches(

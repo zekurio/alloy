@@ -44,8 +44,10 @@ function applyEvent(
 
 export function useUploadQueueStream({ enabled }: { enabled: boolean }) {
   const queryClient = useQueryClient()
+  const [initialError, setInitialError] = React.useState(false)
 
   React.useEffect(() => {
+    setInitialError(false)
     if (!enabled) return
 
     const url = new URL(STREAM_URL, apiOrigin()).toString()
@@ -54,6 +56,7 @@ export function useUploadQueueStream({ enabled }: { enabled: boolean }) {
     const handleSnapshot = (ev: MessageEvent<string>) => {
       const snapshot = JSON.parse(ev.data) as QueueClip[]
       queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), snapshot)
+      setInitialError(false)
     }
 
     const handleDelta = (ev: MessageEvent<string>) => {
@@ -61,6 +64,12 @@ export function useUploadQueueStream({ enabled }: { enabled: boolean }) {
       queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), (prev) =>
         applyEvent(prev, event)
       )
+    }
+
+    source.onerror = () => {
+      if (queryClient.getQueryData<QueueClip[]>(clipKeys.queue()) === undefined) {
+        setInitialError(true)
+      }
     }
 
     source.addEventListener("snapshot", handleSnapshot)
@@ -75,7 +84,10 @@ export function useUploadQueueStream({ enabled }: { enabled: boolean }) {
       source.removeEventListener("upsert", handleDelta)
       source.removeEventListener("progress", handleDelta)
       source.removeEventListener("remove", handleDelta)
+      source.onerror = null
       source.close()
     }
   }, [enabled, queryClient])
+
+  return { initialError }
 }
