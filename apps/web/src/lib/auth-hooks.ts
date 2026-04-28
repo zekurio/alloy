@@ -16,8 +16,13 @@ function browseAuthTarget(
   session: Session | null,
   config: ReturnType<typeof useSuspenseAuthConfig>
 ): "/setup" | "/login" | null {
-  if (config.setupRequired) return "/setup"
-  if (devFlags.forceOnboarding && isAdmin(session)) return "/setup"
+  if (config.adminAccountRequired) return "/setup"
+  if (
+    (config.setupRequired || devFlags.forceOnboarding) &&
+    isAdmin(session)
+  ) {
+    return "/setup"
+  }
   if (!session && config.requireAuthToBrowse) return "/login"
   return null
 }
@@ -59,7 +64,8 @@ export function useRequireAuthStrict(): Session | null {
   const navigate = useNavigate()
 
   const target =
-    config.setupRequired || (devFlags.forceOnboarding && isAdmin(session))
+    config.adminAccountRequired ||
+    ((config.setupRequired || devFlags.forceOnboarding) && isAdmin(session))
       ? "/setup"
       : session
         ? null
