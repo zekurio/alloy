@@ -30,8 +30,8 @@ function SectionTitle({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="section-title"
       className={cn(
-        "flex items-center gap-2 text-xl font-semibold tracking-[-0.02em] text-foreground",
-        "[&_svg]:size-[18px] [&_svg]:shrink-0",
+        "flex items-center gap-2 text-xl leading-7 font-semibold tracking-[-0.02em] text-foreground",
+        "[&_svg]:size-5 [&_svg]:shrink-0",
         className
       )}
       {...props}
@@ -53,7 +53,7 @@ function SectionActions({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="section-actions"
-      className={cn("flex items-center gap-1.5", className)}
+      className={cn("flex items-center gap-1.5 leading-4", className)}
       {...props}
     />
   )

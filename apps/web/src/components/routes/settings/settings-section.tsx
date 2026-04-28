@@ -34,7 +34,7 @@ export function SettingsSection({
     >
       <CollapsibleTrigger className="flex w-full cursor-pointer flex-col px-4 py-3 text-left transition-colors hover:bg-white/[0.02]">
         <div className="flex w-full items-center gap-3">
-          {Icon && <Icon className="size-[18px] shrink-0 text-primary" />}
+          {Icon && <Icon className="size-5 shrink-0 text-primary" />}
           <div className="min-w-0 flex-1 text-sm font-semibold">{title}</div>
           <ChevronDownIcon
             className={cn(

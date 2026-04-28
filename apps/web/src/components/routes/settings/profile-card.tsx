@@ -496,13 +496,7 @@ export function ProfileCard({
 
             <Field>
               <FieldLabel htmlFor="email">Email</FieldLabel>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                readOnly
-                disabled
-              />
+              <Input id="email" type="email" value={email} readOnly disabled />
               <FieldDescription>
                 Contact address used for your account.
               </FieldDescription>

@@ -371,16 +371,14 @@ function LoadedState({
             onSeek={(ms) => setCurrentMs(ms)}
           />
 
-          <div className="flex items-center gap-2 text-xs font-semibold text-foreground-muted tabular-nums">
+          <div className="flex items-center gap-3 text-xs font-semibold text-foreground-muted tabular-nums">
             <span>In {formatTimecode(trimStartMs)}</span>
-            <span className="text-foreground-faint">·</span>
             <span>
               {formatTimecode(trimEndMs - trimStartMs)}
               {trimChanged ? (
                 <span className="ml-1 text-accent">trimmed</span>
               ) : null}
             </span>
-            <span className="text-foreground-faint">·</span>
             <span>Out {formatTimecode(trimEndMs)}</span>
 
             <VolumeControl

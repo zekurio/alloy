@@ -98,7 +98,7 @@ export function MentionPicker({
     <div ref={containerRef} className="relative" onBlur={handleBlur}>
       <div
         className={cn(
-          "flex min-h-[30px] flex-wrap items-center gap-1.5 rounded-md border border-border bg-input px-2 py-1.5",
+          "flex min-h-8 flex-wrap items-center gap-1.5 rounded-md border border-border bg-input px-2 py-1.5",
           "focus-within:border-accent-border focus-within:bg-surface-raised",
           disabled && "opacity-60"
         )}

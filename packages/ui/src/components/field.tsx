@@ -23,7 +23,7 @@ function FieldRequiredMarker() {
       <span
         aria-hidden="true"
         data-slot="field-required-marker"
-        className="text-base leading-none font-semibold text-foreground-muted transition-colors group-has-[:user-invalid]/field:text-destructive group-has-[[aria-invalid=true]]/field:text-destructive group-data-[invalid=true]/field:text-destructive"
+        className="text-base leading-5 font-semibold text-foreground-muted transition-colors group-has-[:user-invalid]/field:text-destructive group-has-[[aria-invalid=true]]/field:text-destructive group-data-[invalid=true]/field:text-destructive"
       >
         *
       </span>
@@ -163,7 +163,7 @@ function Field({
 function FieldContent({ className, ...props }: React.ComponentProps<"div">) {
   return renderFieldSection(
     "field-content",
-    "group/field-content flex flex-1 flex-col gap-1.5 leading-snug",
+    "group/field-content flex flex-1 flex-col gap-1.5 leading-tight",
     { className, ...props }
   )
 }
@@ -182,7 +182,7 @@ function FieldLabel({
     <Label
       data-slot="field-label"
       className={cn(
-        "group/field-label peer/field-label flex w-fit items-center gap-2.5 leading-snug group-has-[:user-invalid]/field:text-destructive group-has-[[aria-invalid=true]]/field:text-destructive group-data-[disabled=true]/field:opacity-50 group-data-[invalid=true]/field:text-destructive has-data-checked:border-primary/30 has-data-checked:bg-primary/5 has-[>[data-slot=field]]:rounded-lg has-[>[data-slot=field]]:border has-[>[data-slot=field]]:border-border *:data-[slot=field]:p-3 dark:has-data-checked:border-primary/20 dark:has-data-checked:bg-primary/10",
+        "group/field-label peer/field-label flex w-fit items-center gap-2.5 leading-tight group-has-[:user-invalid]/field:text-destructive group-has-[[aria-invalid=true]]/field:text-destructive group-data-[disabled=true]/field:opacity-50 group-data-[invalid=true]/field:text-destructive has-data-checked:border-primary/30 has-data-checked:bg-primary/5 has-[>[data-slot=field]]:rounded-lg has-[>[data-slot=field]]:border has-[>[data-slot=field]]:border-border *:data-[slot=field]:p-3 dark:has-data-checked:border-primary/20 dark:has-data-checked:bg-primary/10",
         "has-[>[data-slot=field]]:w-full has-[>[data-slot=field]]:flex-col",
         className
       )}

@@ -1,19 +1,19 @@
-import "dotenv/config";
-import { z } from "zod";
+import "dotenv/config"
+import { z } from "zod"
 
 // Deploy-time env only. Anything an admin should be able to change at
 // runtime (OAuth provider, open-registrations) lives in `lib/config-store.ts`.
 
 function normalizePublicServerUrl(value: string): string {
-  const url = new URL(value);
-  url.pathname = url.pathname.replace(/\/api\/?$/, "") || "/";
-  url.search = "";
-  url.hash = "";
-  return url.toString().replace(/\/$/, "");
+  const url = new URL(value)
+  url.pathname = url.pathname.replace(/\/api\/?$/, "") || "/"
+  url.search = ""
+  url.hash = ""
+  return url.toString().replace(/\/$/, "")
 }
 
 const defaultPublicServerUrl =
-  process.env.PUBLIC_SERVER_URL ?? "http://localhost:3000";
+  process.env.PUBLIC_SERVER_URL ?? "http://localhost:3000"
 
 const EnvSchema = z
   .object({
@@ -34,7 +34,7 @@ const EnvSchema = z
         value
           .split(",")
           .map((origin) => origin.trim())
-          .filter(Boolean),
+          .filter(Boolean)
       ),
 
     // Runtime config file path. `ALLOY_CONFIG_FILE` is the preferred name;
@@ -76,22 +76,22 @@ const EnvSchema = z
         code: "custom",
         path: ["ALLOY_AUTH_SECRET"],
         message: "ALLOY_AUTH_SECRET must be set and at least 32 chars.",
-      });
+      })
     }
-  });
+  })
 
-const parsed = EnvSchema.safeParse(process.env);
+const parsed = EnvSchema.safeParse(process.env)
 
 if (!parsed.success) {
-  const fieldErrors = parsed.error.flatten().fieldErrors;
+  const fieldErrors = parsed.error.flatten().fieldErrors
   // eslint-disable-next-line no-console
   console.error(
     "[server/env] Invalid environment variables:\n" +
-      JSON.stringify(fieldErrors, null, 2),
-  );
-  process.exit(1);
+      JSON.stringify(fieldErrors, null, 2)
+  )
+  process.exit(1)
 }
 
-export const env = parsed.data;
+export const env = parsed.data
 
-export const authSecret = env.ALLOY_AUTH_SECRET!;
+export const authSecret = env.ALLOY_AUTH_SECRET!

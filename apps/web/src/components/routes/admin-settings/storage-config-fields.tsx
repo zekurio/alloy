@@ -1,4 +1,4 @@
-import { Trash2Icon } from "lucide-react";
+import { Trash2Icon } from "lucide-react"
 
 import {
   AlertDialog,
@@ -10,43 +10,43 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@workspace/ui/components/alert-dialog";
-import { Button } from "@workspace/ui/components/button";
-import { Checkbox } from "@workspace/ui/components/checkbox";
+} from "@workspace/ui/components/alert-dialog"
+import { Button } from "@workspace/ui/components/button"
+import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
   Field,
   FieldDescription,
   FieldLabel,
-} from "@workspace/ui/components/field";
-import { Input } from "@workspace/ui/components/input";
+} from "@workspace/ui/components/field"
+import { Input } from "@workspace/ui/components/input"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-} from "@workspace/ui/components/input-group";
+} from "@workspace/ui/components/input-group"
 import {
   RadioGroup,
   RadioGroupItem,
-} from "@workspace/ui/components/radio-group";
-import { SectionFooter } from "@workspace/ui/components/section";
+} from "@workspace/ui/components/radio-group"
+import { SectionFooter } from "@workspace/ui/components/section"
 
-import { STORAGE_DRIVERS } from "@workspace/api";
+import { STORAGE_DRIVERS } from "@workspace/api"
 
-import type { FsForm, S3Form, StorageDriverKind } from "./storage-config-card";
-import { FormGroup } from "./form-group";
+import type { FsForm, S3Form, StorageDriverKind } from "./storage-config-card"
+import { FormGroup } from "./form-group"
 
 const DRIVER_LABELS: Record<StorageDriverKind, string> = {
   fs: "Local filesystem",
   s3: "S3-compatible",
-};
+}
 
 export function DriverPicker({
   driver,
   onChange,
 }: {
-  driver: StorageDriverKind;
-  onChange: (next: StorageDriverKind) => void;
+  driver: StorageDriverKind
+  onChange: (next: StorageDriverKind) => void
 }) {
   return (
     <Field>
@@ -64,7 +64,7 @@ export function DriverPicker({
         ))}
       </RadioGroup>
     </Field>
-  );
+  )
 }
 
 export function FsFields({
@@ -72,9 +72,9 @@ export function FsFields({
   hmacConfigured,
   onChange,
 }: {
-  form: FsForm;
-  hmacConfigured: boolean;
-  onChange: <K extends keyof FsForm>(key: K, value: FsForm[K]) => void;
+  form: FsForm
+  hmacConfigured: boolean
+  onChange: <K extends keyof FsForm>(key: K, value: FsForm[K]) => void
 }) {
   return (
     <>
@@ -128,7 +128,7 @@ export function FsFields({
         </FieldDescription>
       </Field>
     </>
-  );
+  )
 }
 
 export function S3Fields({
@@ -139,12 +139,12 @@ export function S3Fields({
   onChange,
   onClearSecret,
 }: {
-  form: S3Form;
-  secretConfigured: boolean;
-  pending: boolean;
-  isDirty: boolean;
-  onChange: <K extends keyof S3Form>(key: K, value: S3Form[K]) => void;
-  onClearSecret: () => void;
+  form: S3Form
+  secretConfigured: boolean
+  pending: boolean
+  isDirty: boolean
+  onChange: <K extends keyof S3Form>(key: K, value: S3Form[K]) => void
+  onClearSecret: () => void
 }) {
   return (
     <>
@@ -323,7 +323,7 @@ export function S3Fields({
         </div>
       </FormGroup>
     </>
-  );
+  )
 }
 
 export function StorageActions({
@@ -333,11 +333,11 @@ export function StorageActions({
   onReset,
   submitLabel = "Save storage",
 }: {
-  allowSubmitUnchanged?: boolean;
-  pending: boolean;
-  isDirty: boolean;
-  onReset: () => void;
-  submitLabel?: string;
+  allowSubmitUnchanged?: boolean
+  pending: boolean
+  isDirty: boolean
+  onReset: () => void
+  submitLabel?: string
 }) {
   return (
     <SectionFooter>
@@ -361,5 +361,5 @@ export function StorageActions({
         </Button>
       </div>
     </SectionFooter>
-  );
+  )
 }

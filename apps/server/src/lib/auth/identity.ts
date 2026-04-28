@@ -1,6 +1,11 @@
 import { and, count, eq, ne, sql } from "drizzle-orm"
 
-import { user, userPasskey, type NewUser, type User } from "@workspace/db/auth-schema"
+import {
+  user,
+  userPasskey,
+  type NewUser,
+  type User,
+} from "@workspace/db/auth-schema"
 
 import { db } from "../../db"
 import { configStore } from "../config-store"
@@ -17,13 +22,18 @@ export function normalizeEmail(email: string): string {
 
 export function validateUsername(value: string): string {
   const username = value.trim().toLowerCase()
-  if (username.length < USERNAME_MIN_LEN || username.length > USERNAME_MAX_LEN) {
+  if (
+    username.length < USERNAME_MIN_LEN ||
+    username.length > USERNAME_MAX_LEN
+  ) {
     throw new Error(
       `Username must be between ${USERNAME_MIN_LEN} and ${USERNAME_MAX_LEN} characters.`
     )
   }
   if (!/^[a-z0-9_-]+$/.test(username)) {
-    throw new Error("Username can only contain lowercase letters, numbers, underscores, and hyphens.")
+    throw new Error(
+      "Username can only contain lowercase letters, numbers, underscores, and hyphens."
+    )
   }
   return username
 }
@@ -64,7 +74,9 @@ export async function hasOtherAdminSignInMethod(
   return rows.length > 0
 }
 
-export async function assertCanRemoveAdmin(targetUserId: string): Promise<void> {
+export async function assertCanRemoveAdmin(
+  targetUserId: string
+): Promise<void> {
   const [row] = await db
     .select({ role: user.role })
     .from(user)

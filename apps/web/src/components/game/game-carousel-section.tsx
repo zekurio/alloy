@@ -16,6 +16,7 @@ import {
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { EmptyState } from "@/components/feedback/empty-state"
+import { formatCount } from "@/lib/number-format"
 import { GameCard, type GameCardData, type GameCardLink } from "./game-card"
 import type { ClipRow } from "@workspace/api"
 
@@ -106,7 +107,8 @@ export function GameCarouselSection({
         <SectionActions>
           {entries && entries.length > 0 ? (
             <SectionMeta>
-              {entries.length} {entries.length === 1 ? "game" : "games"}
+              {formatCount(entries.length)}{" "}
+              {entries.length === 1 ? "game" : "games"}
             </SectionMeta>
           ) : null}
         </SectionActions>

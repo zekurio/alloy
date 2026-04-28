@@ -25,6 +25,7 @@ export interface VideoPlayerHandle {
 
 type SharedPlayerProps = {
   className?: string
+  maxDisplayHeight?: string
   playerRef?: React.Ref<VideoPlayerHandle>
   onTimeUpdate?: (seconds: number) => void
   onPlayingChange?: (playing: boolean) => void
@@ -140,6 +141,7 @@ function PlayerCore({
   loop,
   initialMuted,
   className,
+  maxDisplayHeight,
   playerRef,
   onTimeUpdate,
   onPlayingChange,
@@ -491,6 +493,7 @@ function PlayerCore({
         className={className}
         status={status}
         aspectRatio={aspectRatio}
+        maxDisplayHeight={maxDisplayHeight}
       >
         {renderVideo(onVideoClick)}
       </BareShell>
@@ -502,6 +505,7 @@ function PlayerCore({
       containerRef={containerRef}
       className={className}
       aspectRatio={aspectRatio}
+      maxDisplayHeight={maxDisplayHeight}
       playing={playing}
       onKeyCommand={{
         togglePlay,

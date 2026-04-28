@@ -2,8 +2,10 @@ import * as React from "react"
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
+  CircleAlertIcon,
   CopyIcon,
   ExternalLinkIcon,
+  Loader2Icon,
   PauseIcon,
   Trash2Icon,
   UploadIcon,
@@ -45,6 +47,10 @@ export interface QueueItem {
 
 interface UploadQueueContentProps {
   queue: Array<QueueItem>
+  /** True until the initial server queue snapshot has populated the cache. */
+  isLoading?: boolean
+  /** True when the initial server queue stream could not hydrate the cache. */
+  isUnavailable?: boolean
   /** Opens the file picker for a new upload. */
   onNewClip: () => void
   /** Dismisses every finished (published) row in one go. */
@@ -57,6 +63,8 @@ const PAGE_SIZE = 6
 
 export function UploadQueueContent({
   queue,
+  isLoading = false,
+  isUnavailable = false,
   onNewClip,
   onClearCompleted,
   onClose,
@@ -79,15 +87,44 @@ export function UploadQueueContent({
         <h2 className="text-sm font-semibold text-foreground">Uploads</h2>
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-foreground-muted tabular-nums">
-            {queue.length === 0
-              ? "empty"
-              : `${queue.length} ${queue.length === 1 ? "item" : "items"}`}
+            {isUnavailable && queue.length === 0
+              ? "unavailable"
+              : isLoading && queue.length === 0
+                ? "loading"
+                : queue.length === 0
+                  ? "empty"
+                  : `${queue.length} ${queue.length === 1 ? "item" : "items"}`}
           </span>
         </div>
       </header>
 
       <div className="flex flex-col gap-2">
-        {queue.length === 0 ? (
+        {isUnavailable && queue.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-border px-6 py-8 text-center">
+            <CircleAlertIcon
+              aria-hidden
+              className="size-4 text-foreground-muted"
+            />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">
+                Upload queue unavailable
+              </p>
+              <p className="text-xs font-semibold text-foreground-muted">
+                Reopen uploads after the connection recovers.
+              </p>
+            </div>
+          </div>
+        ) : isLoading && queue.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-border px-6 py-8 text-center">
+            <Loader2Icon
+              aria-hidden
+              className="size-4 animate-spin text-foreground-muted"
+            />
+            <p className="text-sm font-medium text-foreground">
+              Loading uploads
+            </p>
+          </div>
+        ) : queue.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border px-6 py-8 text-center">
             <p className="text-sm font-medium text-foreground">
               Nothing in the queue

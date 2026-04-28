@@ -16,9 +16,10 @@ type ErrorBody = {
 function isJsonResponse(res: Response): boolean {
   const contentType = res.headers.get("Content-Type")?.toLowerCase()
   return (
-    contentType?.includes("application/json") ||
-    contentType?.includes("+json")
-  ) ?? false
+    (contentType?.includes("application/json") ||
+      contentType?.includes("+json")) ??
+    false
+  )
 }
 
 async function readErrorBody(res: Response): Promise<ErrorBody> {

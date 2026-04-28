@@ -37,7 +37,8 @@ export function buildVariantSpecs(
       label: configured.name,
       height: cappedHeight,
       storageKey: clipVideoVariantKey(clipId, configured.id),
-      isDefault: configured.id === defaultVariantId || (!defaultVariantId && isDefault),
+      isDefault:
+        configured.id === defaultVariantId || (!defaultVariantId && isDefault),
       override: {
         codec: configured.codec,
         quality: configured.quality,

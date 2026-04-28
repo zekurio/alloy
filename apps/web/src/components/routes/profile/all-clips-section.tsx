@@ -9,6 +9,7 @@ import {
 } from "@workspace/ui/components/section-head"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
+import { formatCount } from "@/lib/number-format"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import type { UserClip } from "@workspace/api"
 import type { ProfileAllSort } from "@/routes/(app)/_app.u.$username.all"
@@ -90,7 +91,8 @@ export function AllClipsSection({
         <SectionActions>
           {visible ? (
             <SectionMeta>
-              {visible.length} {visible.length === 1 ? "clip" : "clips"}
+              {formatCount(visible.length)}{" "}
+              {visible.length === 1 ? "clip" : "clips"}
             </SectionMeta>
           ) : null}
         </SectionActions>

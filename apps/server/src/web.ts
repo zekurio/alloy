@@ -11,10 +11,7 @@ import type { ClipEncodedVariant } from "@workspace/db/schema"
 
 import { db } from "./db"
 import { env } from "./env"
-import {
-  configStore,
-  type EncoderOpenGraphTarget,
-} from "./lib/config-store"
+import { configStore, type EncoderOpenGraphTarget } from "./lib/config-store"
 import { selectClipById } from "./lib/clip-select"
 
 const HEAD_MARKER = "<!-- alloy:head -->"
@@ -204,7 +201,10 @@ async function clipHead(pathname: string): Promise<string> {
             ...(videoUrl.startsWith("https:")
               ? [metaProperty("og:video:secure_url", videoUrl)]
               : []),
-            metaProperty("og:video:type", ogVariant?.contentType ?? "video/mp4"),
+            metaProperty(
+              "og:video:type",
+              ogVariant?.contentType ?? "video/mp4"
+            ),
             ...(width ? [metaProperty("og:video:width", String(width))] : []),
             ...(height
               ? [metaProperty("og:video:height", String(height))]

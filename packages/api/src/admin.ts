@@ -79,9 +79,7 @@ async function reloadRuntimeConfig(
   return readJsonOrThrow<AdminRuntimeConfig>(res)
 }
 
-async function exportRuntimeConfig(
-  context: ApiContext
-): Promise<unknown> {
+async function exportRuntimeConfig(context: ApiContext): Promise<unknown> {
   const res = await context.request("/api/admin/runtime-config/export")
   return readJsonOrThrow<unknown>(res)
 }

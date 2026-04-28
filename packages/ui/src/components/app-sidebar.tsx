@@ -58,7 +58,7 @@ function useNavItem(
 const SIDEBAR_ITEM_STYLE: NavItemStyle = {
   slot: "app-sidebar-item",
   className: cn(
-    "group/app-sidebar-item relative flex h-[34px] w-full items-center justify-center rounded-md",
+    "group/app-sidebar-item relative flex h-9 w-full items-center justify-center rounded-md",
     "text-foreground-muted",
     "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
     "not-data-active:hover:bg-surface-raised not-data-active:hover:text-foreground",
@@ -69,7 +69,7 @@ const SIDEBAR_ITEM_STYLE: NavItemStyle = {
     "data-active:before:h-4 data-active:before:w-[2px] data-active:before:-translate-y-1/2",
     "data-active:before:bg-accent data-active:before:shadow-[0_0_6px_var(--accent-glow)]",
     "data-active:before:content-['']",
-    "[&_svg]:size-[18px] [&_svg]:shrink-0"
+    "[&_svg]:size-5 [&_svg]:shrink-0"
   ),
 }
 

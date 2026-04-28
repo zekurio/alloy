@@ -94,7 +94,7 @@ const AppHeaderSearch = React.forwardRef<
         containerClassName
       )}
     >
-      <div className="group/search relative flex h-[30px] w-full items-center">
+      <div className="group/search relative flex h-8 w-full items-center">
         <span
           aria-hidden
           className={cn(
@@ -131,7 +131,7 @@ const AppHeaderSearch = React.forwardRef<
             onClick={onClear}
             className={cn(
               "absolute top-1/2 right-1.5 -translate-y-1/2",
-              "grid size-[22px] place-items-center rounded-sm",
+              "grid size-6 place-items-center rounded-sm",
               // Brand-blue-aware hover: soft fill from the accent family
               // instead of the off-white the native browser X paints.
               "text-foreground-faint",

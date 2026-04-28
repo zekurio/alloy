@@ -330,7 +330,7 @@ function ClipMeta({
 
         <div className="flex shrink-0 flex-col items-end gap-1">
           <ClipGameBadge game={game} gameRef={gameRef} />
-          <div className="flex items-center gap-1.5 pt-0.5 text-xs text-foreground-faint">
+          <div className="flex items-center gap-1.5 pt-0.5 text-xs leading-4 text-foreground-faint">
             {privacy !== "public" ? (
               <>
                 <ClipPrivacyBadge privacy={privacy} />
@@ -472,7 +472,7 @@ function ClipGameBadge({
     <div className={base}>
       {starBtn}
       {separator}
-      <span className="inline-flex h-full items-center gap-2 px-2.5 text-sm font-semibold text-foreground-muted">
+      <span className="inline-flex h-full items-center gap-2 px-2.5 text-sm leading-4 font-semibold text-foreground-muted">
         {gameBody}
       </span>
     </div>
@@ -484,7 +484,7 @@ function ClipPrivacyBadge({ privacy }: { privacy: ClipPrivacy }) {
   const Icon = display.icon
 
   return (
-    <span className="inline-flex items-center gap-1 text-foreground-faint">
+    <span className="inline-flex items-center gap-1 leading-4 text-foreground-faint">
       <Icon className="size-3" />
       <span className="tabular-nums">{display.label}</span>
     </span>

@@ -350,7 +350,7 @@ function ConfigTransferSection({
       description="Export or import server configuration as JSON."
     >
       <div className="flex flex-col">
-        <div className="flex items-start justify-between gap-4 py-3 border-b border-border first:pt-0">
+        <div className="flex items-start justify-between gap-4 border-b border-border py-3 first:pt-0">
           <div className="min-w-0">
             <div className="text-sm font-medium">Export</div>
             <p className="mt-0.5 text-xs text-foreground-dim">

@@ -6,7 +6,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 
 import { ProfileActions } from "@/components/profile/profile-actions"
-import { UserBanner, userAvatar, userImageSrc } from "@/lib/user-display"
+import { UserBanner, userAvatar } from "@/lib/user-display"
 import type { ProfileCounts, ProfileViewer, PublicUser } from "@workspace/api"
 import { IdentityStats } from "./identity-stats"
 
@@ -31,84 +31,91 @@ export function ProfileIdentity({
   const { user, counts } = profile
   const handle = user.username
   const avatar = userAvatar(user)
-  const hasDedicatedBanner = !!userImageSrc(user.banner)
+  const showProfileAction =
+    viewer === undefined || !viewer || (!viewer.isSelf && !viewer.isBlockedBy)
+
+  const actionNode = showProfileAction ? (
+    <ProfileActions
+      targetHandle={handle}
+      viewer={viewer}
+      onChange={(next) => {
+        const wasFollowing = viewer?.isFollowing ?? false
+        const willFollow = next.isFollowing
+        if (wasFollowing !== willFollow) {
+          onFollowerDelta(willFollow ? 1 : -1)
+        }
+        onViewerChange(next)
+      }}
+    />
+  ) : null
 
   return (
-    <>
-      <div className="flex w-full flex-col">
-        <section
-          className={cn(
-            "relative overflow-hidden rounded-lg",
-            hasDedicatedBanner
-              ? "aspect-[16/4] max-h-[280px] min-h-32 sm:min-h-[160px]"
-              : "aspect-[5/2] max-h-[240px] min-h-32 sm:min-h-[140px]"
-          )}
-        >
-          <UserBanner user={user} />
-          <div
-            aria-hidden
-            className="absolute inset-x-0 bottom-0 h-2/3 rounded-[inherit] bg-gradient-to-t from-black/95 via-black/60 to-transparent"
-          />
+    <div className="flex w-full flex-col">
+      {/* Banner */}
+      <section
+        className={cn(
+          "relative h-[120px] w-full overflow-hidden sm:h-[clamp(200px,22vw,360px)]"
+        )}
+      >
+        <UserBanner user={user} />
+      </section>
 
-          <div className="absolute inset-x-0 bottom-0 flex items-end gap-3 p-4 sm:gap-4 sm:p-6">
-            <Avatar
-              size="2xl"
+      {/* Profile info bar */}
+      <div className="px-4 pb-3 sm:pb-4 md:px-8">
+        <div className="flex items-start gap-3 sm:gap-4">
+          {/* Avatar — overlaps the banner */}
+          <Avatar
+            size="2xl"
+            style={{ background: avatar.bg, color: avatar.fg }}
+            className={cn(
+              "!size-16 shrink-0 !text-lg ring-[3px] ring-background",
+              "sm:!size-24 sm:!text-[28px] sm:ring-4",
+              "-mt-8 sm:-mt-12"
+            )}
+          >
+            {avatar.src ? (
+              <AvatarImage
+                src={avatar.src}
+                alt={handle}
+                fetchPriority="high"
+                loading="eager"
+              />
+            ) : null}
+            <AvatarFallback
               style={{ background: avatar.bg, color: avatar.fg }}
-              className="size-16 shrink-0 text-xl shadow-[0_8px_24px_oklch(0_0_0_/_0.45)] sm:size-24 sm:text-[28px]"
             >
-              {avatar.src ? (
-                <AvatarImage
-                  src={avatar.src}
-                  alt={handle}
-                  fetchPriority="high"
-                  loading="eager"
-                />
-              ) : null}
-              <AvatarFallback
-                style={{ background: avatar.bg, color: avatar.fg }}
-              >
-                {avatar.initials}
-              </AvatarFallback>
-            </Avatar>
+              {avatar.initials}
+            </AvatarFallback>
+          </Avatar>
 
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5 pb-1">
-              <div className="flex min-w-0 items-center gap-3">
-                <h1
-                  className={cn(
-                    "truncate text-2xl font-semibold tracking-[-0.02em] text-foreground",
-                    "drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)] max-sm:text-xl sm:text-3xl"
-                  )}
-                >
+          {/* Identity + action */}
+          <div className="flex min-w-0 flex-1 items-start gap-3 pt-2 sm:pt-2.5">
+            <div className="min-w-0 flex-1">
+              {/* Name row with inline handle */}
+              <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0">
+                <h1 className="truncate text-lg font-semibold tracking-[-0.02em] text-foreground sm:text-2xl">
                   {user.name || `@${handle}`}
                 </h1>
-                <ProfileActions
-                  targetHandle={handle}
-                  viewer={viewer}
-                  onChange={(next) => {
-                    const wasFollowing = viewer?.isFollowing ?? false
-                    const willFollow = next.isFollowing
-                    if (wasFollowing !== willFollow) {
-                      onFollowerDelta(willFollow ? 1 : -1)
-                    }
-                    onViewerChange(next)
-                  }}
-                />
-              </div>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm leading-none font-medium text-foreground-muted">
                 {user.name ? (
-                  <span className="truncate leading-none font-semibold">
+                  <span className="truncate text-sm font-medium text-foreground-muted">
                     @{handle}
                   </span>
                 ) : null}
               </div>
-            </div>
-          </div>
-        </section>
-      </div>
 
-      <div className="mt-3 mb-3 sm:mb-4">
-        <IdentityStats handle={handle} counts={counts} />
+              {/* Stats */}
+              <div className="mt-0.5">
+                <IdentityStats handle={handle} counts={counts} />
+              </div>
+            </div>
+
+            {/* Follow / action button */}
+            {actionNode ? (
+              <div className="shrink-0">{actionNode}</div>
+            ) : null}
+          </div>
+        </div>
       </div>
-    </>
+    </div>
   )
 }

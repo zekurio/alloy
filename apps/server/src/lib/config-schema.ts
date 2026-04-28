@@ -241,7 +241,12 @@ const LimitsConfigSchema = z.object({
     .max(Number.MAX_SAFE_INTEGER)
     .nullable()
     .default(null),
-  uploadTtlSec: z.number().int().min(60).max(24 * 60 * 60).default(900),
+  uploadTtlSec: z
+    .number()
+    .int()
+    .min(60)
+    .max(24 * 60 * 60)
+    .default(900),
   queueConcurrency: z.number().int().min(1).max(16).default(1),
 })
 
@@ -338,13 +343,12 @@ export const EncoderConfigPatchSchema = EncoderConfigInnerSchema.partial()
 export const LimitsConfigPatchSchema = LimitsConfigSchema.partial()
 export const IntegrationsConfigPatchSchema = IntegrationsConfigSchema.partial()
 export const FsStorageConfigPatchSchema = FsStorageConfigSchema.partial()
-export const S3StorageConfigPatchSchema = S3StorageConfigSchema.partial().extend(
-  {
+export const S3StorageConfigPatchSchema =
+  S3StorageConfigSchema.partial().extend({
     endpoint: z.string().url().nullable().optional(),
     accessKeyId: z.string().nullable().optional(),
     secretAccessKey: z.string().nullable().optional(),
-  }
-)
+  })
 export const StorageConfigPatchSchema = z.object({
   driver: z.enum(STORAGE_DRIVERS).optional(),
   fs: FsStorageConfigPatchSchema.optional(),

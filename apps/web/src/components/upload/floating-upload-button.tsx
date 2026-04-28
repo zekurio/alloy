@@ -74,7 +74,7 @@ export function FloatingUploadButton({
         <span
           aria-hidden
           className={cn(
-            "absolute -top-1 -right-1 flex h-[18px] min-w-[18px] items-center justify-center px-1",
+            "absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center px-1",
             "rounded-full border-2 border-background bg-surface-raised",
             "text-xs font-semibold text-foreground tabular-nums",
             "transition-[transform,opacity] duration-[var(--duration-base)] ease-[var(--ease-out)]",

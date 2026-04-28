@@ -27,7 +27,9 @@ function buildStorage(config: StorageConfig): StorageDriver {
       // Exhaustiveness check — adding a new variant to `STORAGE_DRIVER`
       // without handling it here is a compile error.
       const exhaustive: never = config
-      throw new Error(`Unsupported STORAGE_DRIVER: ${JSON.stringify(exhaustive)}`)
+      throw new Error(
+        `Unsupported STORAGE_DRIVER: ${JSON.stringify(exhaustive)}`
+      )
     }
   }
 }
@@ -41,7 +43,8 @@ configStore.subscribe((next, prev) => {
 
 class ReloadableStorageDriver implements StorageDriver {
   put: StorageDriver["put"] = (...args) => activeStorage.put(...args)
-  resolve: StorageDriver["resolve"] = (...args) => activeStorage.resolve(...args)
+  resolve: StorageDriver["resolve"] = (...args) =>
+    activeStorage.resolve(...args)
   mintUploadUrl: StorageDriver["mintUploadUrl"] = (...args) =>
     activeStorage.mintUploadUrl(...args)
   delete: StorageDriver["delete"] = (...args) => activeStorage.delete(...args)

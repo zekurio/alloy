@@ -15,7 +15,7 @@ export function ClipGrid({ className, ...props }: React.ComponentProps<"div">) {
     <GridFrame
       data-slot="clip-grid"
       baseClassName={cn(
-        "grid gap-6 grid-cols-1 md:grid-cols-3 xl:grid-cols-5",
+        "grid grid-cols-1 gap-6 md:grid-cols-3 xl:grid-cols-5",
         "[&>*]:[contain-intrinsic-size:260px] [&>*]:[content-visibility:auto]"
       )}
       className={className}

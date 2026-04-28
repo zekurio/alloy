@@ -6,9 +6,9 @@ import type { VariantProps } from "class-variance-authority"
 
 const badgeVariants = cva(
   cn(
-    "group/badge inline-flex h-[18px] items-center gap-1.5 px-2",
+    "group/badge inline-flex h-5 items-center gap-1.5 px-2",
     "overflow-hidden rounded-md border whitespace-nowrap",
-    "font-mono text-2xs font-medium tracking-[0.06em] uppercase",
+    "font-mono text-2xs leading-3 font-medium tracking-[0.06em] uppercase",
     "transition-colors",
     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:outline-none",
     "[&>svg]:pointer-events-none [&>svg]:size-2.5"
@@ -27,7 +27,7 @@ const badgeVariants = cva(
         live: cn(
           "border-[oklch(0.65_0.25_25/0.4)] bg-[oklch(0.65_0.25_25/0.12)] text-live",
           // pulsing dot — leading pseudo
-          "before:size-[5px] before:rounded-full before:bg-live before:content-['']",
+          "before:size-1.5 before:rounded-full before:bg-live before:content-['']",
           "before:animate-pulse-dot before:shadow-[0_0_6px_var(--live)]"
         ),
         // shadcn aliases

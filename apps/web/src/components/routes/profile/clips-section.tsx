@@ -8,6 +8,7 @@ import {
 } from "@workspace/ui/components/section-head"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
+import { formatCount } from "@/lib/number-format"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import type { UserClip } from "@workspace/api"
 
@@ -45,7 +46,7 @@ export function ClipsSection({
         <SectionActions>
           {visibleClips ? (
             <SectionMeta>
-              {visibleClips.length}{" "}
+              {formatCount(visibleClips.length)}{" "}
               {visibleClips.length === 1 ? "clip" : "clips"}
             </SectionMeta>
           ) : null}

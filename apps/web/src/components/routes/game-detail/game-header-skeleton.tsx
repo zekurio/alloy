@@ -2,7 +2,7 @@ import { Spinner } from "@workspace/ui/components/spinner"
 
 export function GameHeaderSkeleton() {
   return (
-    <div className="flex aspect-[16/4] max-h-[280px] min-h-32 w-full items-center justify-center sm:min-h-[160px]">
+    <div className="flex h-[clamp(260px,28vw,480px)] w-full items-center justify-center">
       <Spinner className="size-6" />
     </div>
   )
