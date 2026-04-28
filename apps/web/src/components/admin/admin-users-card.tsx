@@ -73,6 +73,7 @@ import {
 } from "@/lib/storage-format"
 import { displayName, userAvatar } from "@/lib/user-display"
 import type { AdminUsersResponse, AdminUserStorageRow } from "@workspace/api"
+import { normalizeRole } from "./admin-user-role"
 
 type AdminUserRow = AdminUserStorageRow
 const adminUsersQueryKey = ["admin", "users"] as const
@@ -592,9 +593,4 @@ function EditUserDialog({
       </ResponsiveDialogContent>
     </ResponsiveDialog>
   )
-}
-
-function normalizeRole(role: string | null | undefined): string {
-  if (role === "admin") return "admin"
-  return "user"
 }
