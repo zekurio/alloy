@@ -86,7 +86,7 @@ export interface ServerRowHandlers {
 
 function queueThumbnailUrl(row: QueueClip): string {
   const url = new URL(clipThumbnailUrl(row.id, apiOrigin()))
-  url.searchParams.set("v", `${row.status}-${row.encodeProgress}`)
+  url.searchParams.set("v", row.status)
   return url.toString()
 }
 
