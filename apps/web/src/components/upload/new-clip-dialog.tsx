@@ -10,15 +10,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@workspace/ui/components/dialog"
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerTitle,
+} from "@workspace/ui/components/drawer"
 import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { Label } from "@workspace/ui/components/label"
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetTitle,
-} from "@workspace/ui/components/sheet"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { CLIP_DESCRIPTION_MAX, CLIP_TITLE_MAX } from "@/lib/clip-fields"
@@ -149,10 +149,10 @@ export function NewClipDialog({
         onChange={handleInputChange}
       />
       {isMobile ? (
-        <div className="shrink-0 px-4 pt-4">
-          <SheetTitle className="text-lg leading-tight font-semibold tracking-[var(--tracking-tight)] text-foreground">
+        <div className="shrink-0 px-4 pt-2 pb-4">
+          <DrawerTitle className="text-lg leading-tight font-semibold tracking-[var(--tracking-tight)] text-foreground">
             New clip
-          </SheetTitle>
+          </DrawerTitle>
         </div>
       ) : (
         <DialogHeader className="shrink-0">
@@ -169,18 +169,16 @@ export function NewClipDialog({
           onReplace={handleReplaceClick}
           closeAction={
             isMobile ? (
-              <SheetClose
-                render={
-                  <Button
-                    variant="outline"
-                    size="default"
-                    disabled={publishing}
-                    className="w-full min-w-0"
-                  />
-                }
-              >
-                Cancel
-              </SheetClose>
+              <DrawerClose asChild>
+                <Button
+                  variant="outline"
+                  size="default"
+                  disabled={publishing}
+                  className="w-full min-w-0"
+                >
+                  Cancel
+                </Button>
+              </DrawerClose>
             ) : (
               <DialogClose
                 render={
@@ -202,25 +200,20 @@ export function NewClipDialog({
 
   if (isMobile) {
     return (
-      <Sheet
+      <Drawer
         open={open}
-        onOpenChange={onOpenChange}
-        onOpenChangeComplete={handleOpenChangeComplete}
+        onOpenChange={(next) => {
+          onOpenChange(next)
+          if (!next) handleOpenChangeComplete(false)
+        }}
       >
-        <SheetContent
-          side="bottom"
-          showCloseButton={false}
-          className={cn(
-            "flex flex-col overflow-hidden",
-            "right-4 bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+1rem)] left-4",
-            "max-h-[calc(100dvh-var(--header-h)-var(--bottomnav-h)-env(safe-area-inset-bottom)-2.5rem)]",
-            "rounded-xl border bg-surface"
-          )}
+        <DrawerContent
+          className="max-h-[85vh] bg-surface"
           aria-describedby={undefined}
         >
           {surfaceContent}
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
     )
   }
 

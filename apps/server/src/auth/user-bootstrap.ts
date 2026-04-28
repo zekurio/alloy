@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm"
 import { user } from "@workspace/db/auth-schema"
 
 import { db } from "../db"
+import { configStore } from "../config/store"
 import { hasAdminSignInMethod, setupRequired } from "./identity"
 
 export async function hasAnyUser(): Promise<boolean> {
@@ -12,6 +13,17 @@ export async function hasAnyUser(): Promise<boolean> {
 
 export async function isSetupRequired(): Promise<boolean> {
   return setupRequired()
+}
+
+export async function getSetupStatus(): Promise<{
+  adminAccountRequired: boolean
+  setupRequired: boolean
+}> {
+  const adminAccountRequired = await setupRequired()
+  return {
+    adminAccountRequired,
+    setupRequired: adminAccountRequired || !configStore.get("setupComplete"),
+  }
 }
 
 export async function hasAnyAdmin(): Promise<boolean> {

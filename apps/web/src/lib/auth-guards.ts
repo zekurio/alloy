@@ -26,7 +26,11 @@ function shouldForceOnboarding(
   config: PublicAuthConfig,
   session: Session | null
 ) {
-  return devFlags.forceOnboarding && !config.setupRequired && isAdmin(session)
+  return (
+    (config.setupRequired || devFlags.forceOnboarding) &&
+    !config.adminAccountRequired &&
+    isAdmin(session)
+  )
 }
 
 function contextSession(context: AuthRouteContext): Session | null | undefined {
@@ -57,7 +61,7 @@ export async function redirectToSetupBeforeLoad({
   }
 
   const config = await loadAuthConfig()
-  if (config.setupRequired) {
+  if (config.adminAccountRequired) {
     throw redirect({ to: "/setup" })
   }
   const session = await loadSession()
@@ -76,7 +80,7 @@ export async function requireBrowseAuthBeforeLoad({
 }) {
   const config = await loadContextAuthConfig(context)
 
-  if (config.setupRequired) {
+  if (config.adminAccountRequired) {
     throw redirect({ to: "/setup" })
   }
 
@@ -105,7 +109,7 @@ export async function requireStrictAuthBeforeLoad({
     loadContextSession(context),
   ])
 
-  if (config.setupRequired) {
+  if (config.adminAccountRequired) {
     throw redirect({ to: "/setup" })
   }
 
@@ -129,7 +133,7 @@ export async function requireAdminBeforeLoad({
     loadContextSession(context),
   ])
 
-  if (config.setupRequired) {
+  if (config.adminAccountRequired) {
     throw redirect({ to: "/setup" })
   }
 
@@ -157,7 +161,7 @@ export async function redirectAuthedBeforeLoad({
     loadContextSession(context),
   ])
 
-  if (config.setupRequired) {
+  if (config.adminAccountRequired) {
     throw redirect({ to: "/setup" })
   }
 

@@ -4,12 +4,11 @@ import { FlipHorizontal, FlipVertical, RotateCcw, RotateCw } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
-  Sheet,
-  SheetContent,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@workspace/ui/components/sheet"
+  Drawer,
+  DrawerContent,
+  DrawerFooter,
+  DrawerTitle,
+} from "@workspace/ui/components/drawer"
 import { Slider } from "@workspace/ui/components/slider"
 
 export type ImageCropMode = "avatar" | "banner"
@@ -536,16 +535,14 @@ export function ImageCropDialog({
   }
 
   return (
-    <Sheet
+    <Drawer
       open={open}
       onOpenChange={(next) => {
         if (!next && !saving) onCancel()
       }}
     >
-      <SheetContent
-        side="bottom"
-        showCloseButton={false}
-        className="right-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] left-3 mx-auto max-h-[calc(100dvh-env(safe-area-inset-bottom)-1.5rem)] overflow-hidden rounded-xl border bg-surface sm:right-6 sm:bottom-6 sm:left-6"
+      <DrawerContent
+        className="max-h-[85vh] overflow-hidden bg-surface"
         style={{
           maxWidth: paneSize
             ? paneSize.width + DIALOG_HORIZONTAL_PADDING
@@ -553,11 +550,11 @@ export function ImageCropDialog({
         }}
         aria-describedby={undefined}
       >
-        <SheetHeader className="shrink-0 px-6 pt-5 pb-0">
-          <SheetTitle className="text-lg leading-tight font-semibold tracking-[var(--tracking-tight)] text-foreground">
+        <div className="shrink-0 px-6 pt-2 pb-4">
+          <DrawerTitle className="text-lg leading-tight font-semibold tracking-[var(--tracking-tight)] text-foreground">
             {cfg.title}
-          </SheetTitle>
-        </SheetHeader>
+          </DrawerTitle>
+        </div>
         <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-6 py-4">
           {imageMeta && paneSize ? (
             <ImageCropperView
@@ -588,7 +585,7 @@ export function ImageCropDialog({
             </p>
           ) : null}
         </div>
-        <SheetFooter className="mt-0 shrink-0 flex-row items-center justify-between px-6 pb-5">
+        <DrawerFooter className="mt-0 shrink-0 flex-row items-center justify-between px-6">
           <Button
             type="button"
             variant="ghost"
@@ -616,8 +613,8 @@ export function ImageCropDialog({
               {saving ? "Saving…" : "Apply"}
             </Button>
           </div>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
   )
 }

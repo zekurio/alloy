@@ -341,8 +341,9 @@ export function StorageActions({
 }) {
   return (
     <SectionFooter>
-      <div className="ml-auto flex items-center gap-2">
+      <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
         <Button
+          className="flex-1 sm:flex-initial"
           type="button"
           variant="outline"
           size="sm"
@@ -352,6 +353,7 @@ export function StorageActions({
           Cancel
         </Button>
         <Button
+          className="flex-1 sm:flex-initial"
           type="submit"
           variant="primary"
           size="sm"

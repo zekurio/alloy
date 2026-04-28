@@ -6,6 +6,10 @@ import { Toaster } from "@workspace/ui/components/sonner"
 
 import { ClientOnly } from "@/components/app/client-only"
 import { ReactivateAccountPrompt } from "@/components/account/reactivate-account-prompt"
+import {
+  RouteErrorState,
+  RouteNotFoundState,
+} from "@/components/feedback/route-state"
 import { redirectToSetupBeforeLoad } from "@/lib/auth-guards"
 import { RuntimeConfigEvents } from "@/lib/runtime-config-events"
 
@@ -13,7 +17,10 @@ export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
 }>()({
   beforeLoad: redirectToSetupBeforeLoad,
-  notFoundComponent: RootNotFound,
+  errorComponent: (props) => <RouteErrorState {...props} variant="screen" />,
+  notFoundComponent: (props) => (
+    <RouteNotFoundState {...props} variant="screen" />
+  ),
   component: RootLayout,
 })
 
@@ -31,18 +38,5 @@ function RootLayout() {
           can call `toast.*` without mounting its own provider. */}
       <Toaster />
     </>
-  )
-}
-
-function RootNotFound() {
-  return (
-    <main className="flex min-h-[100svh] items-center justify-center bg-background p-6 text-foreground">
-      <div className="flex max-w-sm flex-col gap-2 text-center">
-        <h1 className="text-lg font-semibold">Page not found</h1>
-        <p className="text-sm text-foreground-muted">
-          The page you are looking for does not exist.
-        </p>
-      </div>
-    </main>
   )
 }
