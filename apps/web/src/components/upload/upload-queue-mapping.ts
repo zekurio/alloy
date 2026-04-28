@@ -84,6 +84,12 @@ export interface ServerRowHandlers {
   onThumbLoad?: () => void
 }
 
+function queueThumbnailUrl(row: QueueClip): string {
+  const url = new URL(clipThumbnailUrl(row.id, apiOrigin()))
+  url.searchParams.set("v", row.status)
+  return url.toString()
+}
+
 export function serverToQueueItem(
   row: QueueClip,
   handlers: ServerRowHandlers
@@ -125,7 +131,7 @@ export function serverToQueueItem(
           : 0,
     detail,
     hue: hueFor(row.id),
-    thumbUrl: clipThumbnailUrl(row.id, apiOrigin()),
+    thumbUrl: queueThumbnailUrl(row),
     thumbFallbackUrl: handlers.thumbFallbackUrl,
     onThumbLoad: handlers.onThumbLoad,
     onCancel: handlers.onCancel,

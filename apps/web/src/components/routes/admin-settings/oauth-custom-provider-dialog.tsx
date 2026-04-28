@@ -2,14 +2,14 @@ import * as React from "react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui/components/dialog"
+  ResponsiveDialog,
+  ResponsiveDialogBody,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@workspace/ui/components/responsive-dialog"
 import {
   Field,
   FieldDescription,
@@ -67,24 +67,24 @@ export function OAuthCustomProviderDialog({
   }, [draft])
 
   return (
-    <Dialog open={draft !== null} onOpenChange={onOpenChange}>
-      <DialogContent
+    <ResponsiveDialog open={draft !== null} onOpenChange={onOpenChange}>
+      <ResponsiveDialogContent
         variant="secondary"
         className="flex max-h-[calc(100dvh-2rem)] max-w-3xl flex-col"
       >
-        <DialogHeader>
-          <DialogTitle>
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>
             {editing ? "Edit OAuth provider" : "Add OAuth provider"}
-          </DialogTitle>
-          <DialogDescription>
+          </ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
             Technical admin surface. The callback URL is computed from the
             current provider ID.
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
         {draft ? (
           <form id="oauth-provider-form" onSubmit={onSubmit}>
-            <DialogBody className="flex max-h-[calc(100dvh-11rem)] flex-col gap-4 overflow-y-auto">
+            <ResponsiveDialogBody className="flex max-h-[calc(100dvh-11rem)] flex-col gap-4 overflow-y-auto">
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field>
                   <FieldLabel htmlFor="oauth-display-name" required>
@@ -297,9 +297,9 @@ export function OAuthCustomProviderDialog({
                   />
                 </label>
               </div>
-            </DialogBody>
+            </ResponsiveDialogBody>
 
-            <DialogFooter>
+            <ResponsiveDialogFooter>
               <Button
                 type="button"
                 variant="outline"
@@ -315,10 +315,10 @@ export function OAuthCustomProviderDialog({
               >
                 {editing ? "Save changes" : "Add provider"}
               </Button>
-            </DialogFooter>
+            </ResponsiveDialogFooter>
           </form>
         ) : null}
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   )
 }

@@ -1,15 +1,11 @@
 import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
-  AlertCircleIcon,
   AlertTriangleIcon,
-  CheckCircle2Icon,
   PlusIcon,
-  XCircleIcon,
 } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
-import { Spinner } from "@workspace/ui/components/spinner"
 import {
   Section,
   SectionContent,
@@ -32,21 +28,14 @@ import {
 } from "@workspace/ui/components/select"
 import { toast } from "@workspace/ui/lib/toast"
 import { Switch } from "@workspace/ui/components/switch"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@workspace/ui/components/tooltip"
 
 import {
   ENCODER_HEIGHT_MAX,
   ENCODER_HEIGHT_MIN,
   ENCODER_HWACCELS,
-  type AdminEncoderCapabilities,
   type AdminEncoderConfig,
   type AdminEncoderVariant,
   type AdminRuntimeConfig,
-  type EncoderHwaccel,
 } from "@workspace/api"
 
 import { api } from "@/lib/api"
@@ -54,6 +43,16 @@ import { EncoderVariantDialog } from "./encoder-variant-dialog"
 import { FormGroup } from "./form-group"
 import { ReEncodeClipsButton } from "./re-encode-clips-card"
 import { VariantRow } from "./encoder-variant-row"
+import { FfmpegBadge } from "./encoder-ffmpeg-badge"
+import {
+  HWACCEL_LABELS,
+  isEncoderHwaccel,
+  openGraphDisplayLabel,
+  openGraphValue,
+  saveEncoderConfig,
+  variantCodecAvailable,
+  variantIdFromName,
+} from "./encoder-config-helpers"
 
 type EncoderConfigCardProps = {
   encoder: AdminEncoderConfig
@@ -70,95 +69,6 @@ type EncoderConfigCardProps = {
 
 /** Index of the variant being edited, or -1 for a new variant, or null when closed. */
 type DialogState = number | null
-
-const HWACCEL_LABELS: Record<EncoderHwaccel, string> = {
-  none: "None",
-  amf: "AMD AMF",
-  nvenc: "Nvidia NVENC",
-  qsv: "Intel Quicksync (QSV)",
-  rkmpp: "Rockchip MPP (RKMPP)",
-  vaapi: "Video Acceleration API (VAAPI)",
-  videotoolbox: "Apple VideoToolBox",
-  v4l2m2m: "Video4Linux2 (V4L2)",
-}
-
-function isEncoderHwaccel(
-  value: string | number | null
-): value is EncoderHwaccel {
-  return (
-    typeof value === "string" &&
-    ENCODER_HWACCELS.includes(value as EncoderHwaccel)
-  )
-}
-
-function variantCodecAvailable(
-  caps: AdminEncoderCapabilities | null,
-  hwaccel: EncoderHwaccel,
-  variant: AdminEncoderVariant
-): boolean {
-  return caps?.ffmpegOk
-    ? (caps.available[hwaccel]?.[variant.codec] ?? false)
-    : true
-}
-
-function variantIdFromName(name: string, usedIds: Set<string>): string {
-  const base =
-    name
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "variant"
-  let id = base
-  let suffix = 2
-  while (usedIds.has(id)) {
-    id = `${base}-${suffix}`
-    suffix += 1
-  }
-  return id
-}
-
-function openGraphValue(form: AdminEncoderConfig): string {
-  const target = form.openGraphTarget
-  return target.type === "variant" ? `variant:${target.variantId}` : target.type
-}
-
-function openGraphDisplayLabel(form: AdminEncoderConfig): string {
-  const target = form.openGraphTarget
-  if (target.type === "none") return "No video"
-  if (target.type === "source") return "Source MP4"
-  if (target.type === "defaultVariant") return "Default playback variant"
-  if (target.type === "variant") {
-    const variant = form.variants.find((v) => v.id === target.variantId)
-    return variant?.name ?? target.variantId
-  }
-  return "Unknown"
-}
-
-async function saveEncoderConfig({
-  form,
-  onChange,
-  setPending,
-  onSaved,
-}: {
-  form: AdminEncoderConfig
-  onChange: (next: AdminRuntimeConfig) => void
-  setPending: React.Dispatch<React.SetStateAction<boolean>>
-  onSaved?: () => void
-}) {
-  setPending(true)
-  try {
-    const next = await api.admin.updateEncoderConfig(form)
-    onChange(next)
-    toast.success("Encoder updated")
-    onSaved?.()
-  } catch (cause) {
-    toast.error(
-      cause instanceof Error ? cause.message : "Couldn't update encoder"
-    )
-  } finally {
-    setPending(false)
-  }
-}
 
 export function EncoderConfigCard({
   encoder,
@@ -404,11 +314,7 @@ export function EncoderConfigCard({
         form.variants.length > 0))
   const sortedVariants = form.variants
     .map((variant, index) => ({ variant, index }))
-    .sort((a, b) =>
-      a.variant.name.localeCompare(b.variant.name, undefined, {
-        sensitivity: "base",
-      })
-    )
+    .sort((a, b) => b.variant.height - a.variant.height)
   return (
     <>
       <form id={formId} onSubmit={onSubmit}>
@@ -598,16 +504,9 @@ export function EncoderConfigCard({
                           key={`${variant.name}-${variant.height}-${index}`}
                           variant={variant}
                           isDefault={variant.id === form.defaultVariantId}
-                          isOpenGraphTarget={
-                            form.openGraphTarget.type === "variant" &&
-                            form.openGraphTarget.variantId === variant.id
-                          }
                           canDelete
                           onEdit={() => openEditVariant(index)}
                           onSetDefault={() => setDefaultVariant(index)}
-                          onSetOpenGraph={() =>
-                            setOpenGraphValue(`variant:${variant.id}`)
-                          }
                           onDelete={() => removeVariant(index)}
                         />
                       ))}
@@ -645,8 +544,9 @@ export function EncoderConfigCard({
 
             {!hideActions && (
               <SectionFooter>
-                <div className="ml-auto flex items-center gap-2">
+                <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
                   <Button
+                    className="flex-1 sm:flex-initial"
                     type="button"
                     variant="outline"
                     size="sm"
@@ -656,6 +556,7 @@ export function EncoderConfigCard({
                     Cancel
                   </Button>
                   <Button
+                    className="flex-1 sm:flex-initial"
                     type="submit"
                     variant="primary"
                     size="sm"
@@ -679,48 +580,5 @@ export function EncoderConfigCard({
         onOpenChange={handleDialogOpenChange}
       />
     </>
-  )
-}
-
-function FfmpegBadge({
-  caps,
-  error,
-}: {
-  caps: AdminEncoderCapabilities | null
-  error: string | null
-}) {
-  const tooltipText = error
-    ? error
-    : caps
-      ? caps.ffmpegOk
-        ? (caps.ffmpegVersion ?? "ffmpeg detected")
-        : "Not found — set FFMPEG_BIN or add ffmpeg to PATH"
-      : "Checking ffmpeg availability"
-  const failed = error !== null || caps?.ffmpegOk === false
-
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${
-          failed
-            ? "border-destructive/30 bg-destructive/5"
-            : "border-border bg-surface-raised"
-        }`}
-      >
-        <span className="font-mono font-medium text-foreground-muted">
-          ffmpeg
-        </span>
-        {error ? (
-          <AlertCircleIcon className="size-3.5 text-destructive" />
-        ) : !caps ? (
-          <Spinner className="size-3.5 text-foreground-muted" />
-        ) : caps.ffmpegOk ? (
-          <CheckCircle2Icon className="size-3.5 text-success" />
-        ) : (
-          <XCircleIcon className="size-3.5 text-destructive" />
-        )}
-      </TooltipTrigger>
-      <TooltipContent side="bottom">{tooltipText}</TooltipContent>
-    </Tooltip>
   )
 }
