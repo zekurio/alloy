@@ -206,6 +206,19 @@ function ResponsiveDialogDescription({
 type ResponsiveDialogTriggerProps = DialogPrimitive.Trigger.Props &
   React.ComponentProps<typeof DrawerPrimitive.Trigger>
 
+function renderDrawerChild(
+  render: DialogPrimitive.Trigger.Props["render"],
+  children: React.ReactNode
+) {
+  if (React.isValidElement<{ children?: React.ReactNode }>(render)) {
+    if (render.props.children !== undefined || children === undefined) {
+      return render
+    }
+    return React.cloneElement(render, undefined, children)
+  }
+  return children
+}
+
 function ResponsiveDialogTrigger({
   render,
   children,
@@ -214,14 +227,15 @@ function ResponsiveDialogTrigger({
   const isMobile = useIsResponsiveMobile()
 
   if (isMobile) {
-    if (render) {
+    const child = renderDrawerChild(render, children)
+    if (child) {
       return (
-      <DrawerTrigger asChild {...props}>
-        {render as React.ReactNode}
-      </DrawerTrigger>
+        <DrawerTrigger asChild {...props}>
+          {child}
+        </DrawerTrigger>
       )
     }
-    return <DrawerTrigger {...props}>{children}</DrawerTrigger>
+    return <DrawerTrigger {...props} />
   }
 
   return (
@@ -234,14 +248,30 @@ function ResponsiveDialogTrigger({
 type ResponsiveDialogCloseProps = DialogPrimitive.Close.Props &
   React.ComponentProps<typeof DrawerPrimitive.Close>
 
-function ResponsiveDialogClose(props: ResponsiveDialogCloseProps) {
+function ResponsiveDialogClose({
+  render,
+  children,
+  ...props
+}: ResponsiveDialogCloseProps) {
   const isMobile = useIsResponsiveMobile()
 
   if (isMobile) {
+    const child = renderDrawerChild(render, children)
+    if (child) {
+      return (
+        <DrawerClose asChild {...props}>
+          {child}
+        </DrawerClose>
+      )
+    }
     return <DrawerClose {...props} />
   }
 
-  return <DialogClose {...props} />
+  return (
+    <DialogClose render={render} {...props}>
+      {children}
+    </DialogClose>
+  )
 }
 
 export {

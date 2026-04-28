@@ -4,6 +4,7 @@ import { cn } from "@workspace/ui/lib/utils";
 
 export const TRIM_HANDLE_WIDTH_PX = 14;
 const WAVEFORM_BARS = 200;
+const MAX_WAVEFORM_DECODE_BYTES = 64 * 1024 * 1024;
 const MIN_ZOOM_SPAN_MS = 500;
 const MAX_ZOOM = 40;
 
@@ -17,6 +18,12 @@ export function useAudioWaveform(
     let cancelled = false;
 
     async function decode() {
+      setPeaks(null);
+
+      if (file.size > MAX_WAVEFORM_DECODE_BYTES) {
+        return;
+      }
+
       try {
         const arrayBuf = await file.arrayBuffer();
         const ctx = new OfflineAudioContext(1, 1, 44_100);
