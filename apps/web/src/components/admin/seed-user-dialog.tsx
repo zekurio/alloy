@@ -2,14 +2,14 @@ import { useForm } from "@tanstack/react-form"
 
 import { Button } from "@workspace/ui/components/button"
 import {
-  DialogBody,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui/components/dialog"
+  ResponsiveDialogBody,
+  ResponsiveDialogClose,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@workspace/ui/components/responsive-dialog"
 import {
   Field,
   FieldDescription,
@@ -58,7 +58,7 @@ export function SeedUserDialog({
   })
 
   return (
-    <DialogContent variant="secondary">
+    <ResponsiveDialogContent variant="secondary">
       <form
         onSubmit={(e) => {
           e.preventDefault()
@@ -66,14 +66,14 @@ export function SeedUserDialog({
           void form.handleSubmit()
         }}
       >
-        <DialogHeader>
-          <DialogTitle>Seed a user</DialogTitle>
-          <DialogDescription>
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Seed a user</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
             Creates a user identity. The user can add a passkey during setup or
             after an admin provisions access.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogBody className="flex flex-col gap-4">
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
+        <ResponsiveDialogBody className="flex flex-col gap-4">
           <form.Field
             name="username"
             validators={{
@@ -179,9 +179,9 @@ export function SeedUserDialog({
               </Field>
             )}
           </form.Field>
-        </DialogBody>
-        <DialogFooter>
-          <DialogClose
+        </ResponsiveDialogBody>
+        <ResponsiveDialogFooter>
+          <ResponsiveDialogClose
             render={
               <Button
                 type="button"
@@ -192,7 +192,7 @@ export function SeedUserDialog({
             }
           >
             Cancel
-          </DialogClose>
+          </ResponsiveDialogClose>
           <form.Subscribe
             selector={(state) => [state.canSubmit, state.isSubmitting] as const}
           >
@@ -207,8 +207,8 @@ export function SeedUserDialog({
               </Button>
             )}
           </form.Subscribe>
-        </DialogFooter>
+        </ResponsiveDialogFooter>
       </form>
-    </DialogContent>
+    </ResponsiveDialogContent>
   )
 }

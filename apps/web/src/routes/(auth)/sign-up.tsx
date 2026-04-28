@@ -10,8 +10,11 @@ export const Route = createFileRoute("/(auth)/sign-up")({
   beforeLoad: redirectAuthedBeforeLoad,
   loader: async ({ context }) => {
     const config = context.authConfig ?? (await loadAuthConfig())
-    if (config.setupRequired) {
+    if (config.adminAccountRequired) {
       throw redirect({ to: "/setup" })
+    }
+    if (config.setupRequired) {
+      throw redirect({ to: "/login" })
     }
     const canSignUp =
       config.openRegistrations &&

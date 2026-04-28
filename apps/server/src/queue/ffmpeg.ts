@@ -159,19 +159,7 @@ export function buildRemuxArgs(
     trimEndMs?: number | null
   }
 ): string[] {
-  const hasTrim =
-    opts.trimStartMs != null &&
-    opts.trimEndMs != null &&
-    opts.trimEndMs > opts.trimStartMs
-  const trimSeek: string[] = hasTrim
-    ? ["-ss", msToFfmpegTimestamp(opts.trimStartMs ?? 0)]
-    : []
-  const trimDuration: string[] = hasTrim
-    ? [
-        "-t",
-        msToFfmpegTimestamp((opts.trimEndMs ?? 0) - (opts.trimStartMs ?? 0)),
-      ]
-    : []
+  const { trimSeek, trimDuration } = buildTrimArgs(opts)
 
   return [
     "-hide_banner",
@@ -205,19 +193,7 @@ export function buildEncodeArgs(
   }
 ): string[] {
   const { config } = opts
-  const hasTrim =
-    opts.trimStartMs != null &&
-    opts.trimEndMs != null &&
-    opts.trimEndMs > opts.trimStartMs
-  const trimSeek: string[] = hasTrim
-    ? ["-ss", msToFfmpegTimestamp(opts.trimStartMs ?? 0)]
-    : []
-  const trimDuration: string[] = hasTrim
-    ? [
-        "-t",
-        msToFfmpegTimestamp((opts.trimEndMs ?? 0) - (opts.trimStartMs ?? 0)),
-      ]
-    : []
+  const { trimSeek, trimDuration } = buildTrimArgs(opts)
 
   const filterChain = buildFilterChain(opts.targetHeight, config)
   const codecArgs = buildCodecArgs(config)
@@ -256,6 +232,25 @@ export function buildEncodeArgs(
     "-nostats",
     outPath,
   ]
+}
+
+function buildTrimArgs(opts: {
+  trimStartMs?: number | null
+  trimEndMs?: number | null
+}): { trimSeek: string[]; trimDuration: string[] } {
+  const hasTrim =
+    opts.trimStartMs != null &&
+    opts.trimEndMs != null &&
+    opts.trimEndMs > opts.trimStartMs
+  if (!hasTrim) return { trimSeek: [], trimDuration: [] }
+
+  return {
+    trimSeek: ["-ss", msToFfmpegTimestamp(opts.trimStartMs ?? 0)],
+    trimDuration: [
+      "-t",
+      msToFfmpegTimestamp((opts.trimEndMs ?? 0) - (opts.trimStartMs ?? 0)),
+    ],
+  }
 }
 
 function buildHardwareArgs(config: ResolvedEncoderConfig): string[] {

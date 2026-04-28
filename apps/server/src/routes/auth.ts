@@ -5,13 +5,11 @@ import type {
 } from "@simplewebauthn/server"
 import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
-import { createMiddleware } from "hono/factory"
 import { z } from "zod"
 
 import { authAccount, user, userPasskey } from "@workspace/db/auth-schema"
 
 import { db } from "../db"
-import { env } from "../env"
 import { clearSessionCookies, setSessionCookies } from "../auth/cookies"
 import {
   assertCanRemoveAdmin,
@@ -38,8 +36,12 @@ import {
   verifyPasskeyAuthentication,
   verifyPasskeyRegistration,
 } from "../auth/webauthn"
-import { configStore } from "../config/store"
 import { completePasskeySignUp } from "./auth-passkey-signup"
+import {
+  canOpenPasskeyRegistration,
+  csrf,
+  errorMessage,
+} from "./auth-route-helpers"
 
 const SignUpOptionsBody = z.object({
   email: z.string().trim().email(),
@@ -68,22 +70,6 @@ const UnlinkAccountBody = z.object({
   providerId: z.string().min(1),
   accountId: z.string().min(1),
 })
-
-const csrf = createMiddleware(async (c, next) => {
-  if (!["POST", "PATCH", "DELETE", "PUT"].includes(c.req.method)) {
-    await next()
-    return
-  }
-  const origin = c.req.header("origin")
-  if (origin && !env.TRUSTED_ORIGINS.includes(origin)) {
-    return c.json({ error: "Forbidden" }, 403)
-  }
-  await next()
-})
-
-function errorMessage(cause: unknown, fallback: string): string {
-  return cause instanceof Error ? cause.message : fallback
-}
 
 export const authRoute = new Hono()
   .use("*", csrf)
@@ -401,9 +387,3 @@ export const authRoute = new Hono()
       return c.json({ success: true })
     }
   )
-
-async function canOpenPasskeyRegistration(): Promise<boolean> {
-  return (
-    configStore.get("openRegistrations") && configStore.get("passkeyEnabled")
-  )
-}

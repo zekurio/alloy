@@ -202,6 +202,7 @@ export interface PublicAuthProvider {
 }
 
 export interface PublicAuthConfig {
+  adminAccountRequired: boolean
   setupRequired: boolean
   openRegistrations: boolean
   passkeyEnabled: boolean

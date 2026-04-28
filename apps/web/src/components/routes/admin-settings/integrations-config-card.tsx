@@ -239,8 +239,9 @@ export function IntegrationsConfigCard({
 
           {!hideActions && (
             <SectionFooter className="justify-end">
-              <div className="flex items-center gap-2">
+              <div className="flex w-full items-center gap-2 sm:w-auto">
                 <Button
+                  className="flex-1 sm:flex-initial"
                   type="button"
                   variant="outline"
                   size="sm"
@@ -250,6 +251,7 @@ export function IntegrationsConfigCard({
                   Cancel
                 </Button>
                 <Button
+                  className="flex-1 sm:flex-initial"
                   type="submit"
                   variant="primary"
                   size="sm"

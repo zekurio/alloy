@@ -167,6 +167,11 @@ function ClipCardThumb({
   const shouldPreviewRef = React.useRef(false)
   const primedRef = React.useRef(false)
   const [previewing, setPreviewing] = React.useState(false)
+  const [thumbnailFailed, setThumbnailFailed] = React.useState(false)
+
+  React.useEffect(() => {
+    setThumbnailFailed(false)
+  }, [thumbnail])
 
   // Clear any pending hover timer when the component unmounts — stray
   // setTimeouts would otherwise touch a detached video ref after a fast
@@ -284,7 +289,7 @@ function ClipCardThumb({
     <>
       <div aria-hidden className="absolute inset-0 bg-black" />
 
-      {thumbnail ? (
+      {thumbnail && !thumbnailFailed ? (
         <img
           src={thumbnail}
           alt={title}
@@ -293,6 +298,7 @@ function ClipCardThumb({
           // anything outside the initial viewport.
           loading="lazy"
           decoding="async"
+          onError={() => setThumbnailFailed(true)}
         />
       ) : accentHue !== undefined ? (
         <div

@@ -10,7 +10,7 @@ export const Route = createFileRoute("/(auth)/login")({
   beforeLoad: redirectAuthedBeforeLoad,
   loader: async ({ context }) => {
     const config = context.authConfig ?? (await loadAuthConfig())
-    if (config.setupRequired) {
+    if (config.adminAccountRequired) {
       throw redirect({ to: "/setup" })
     }
     const clips = fetchPublicClips()

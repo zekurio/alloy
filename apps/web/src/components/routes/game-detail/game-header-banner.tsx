@@ -16,7 +16,7 @@ export function GameHeaderBanner({ game }: GameHeaderBannerProps) {
     <section
       className={cn(
         "relative overflow-hidden",
-        "h-[clamp(260px,28vw,480px)] w-full"
+        "h-[clamp(120px,15vw,200px)] w-full"
       )}
     >
       {game.heroUrl ? (

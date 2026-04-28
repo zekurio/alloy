@@ -87,16 +87,14 @@ export function formatDuration(ms: number): string {
 }
 
 /**
- * `M:SS.cs` for the trim/preview UI. Centiseconds give the user enough
- * precision to land on a specific moment without flooding the display.
+ * `M:SS` for the trim/preview UI.
  */
 export function formatTimecode(ms: number): string {
   const safe = Math.max(0, Math.round(ms))
   const totalSec = Math.floor(safe / 1000)
   const m = Math.floor(totalSec / 60)
   const s = totalSec % 60
-  const cs = Math.floor((safe % 1000) / 10)
-  return `${m}:${s.toString().padStart(2, "0")}.${cs.toString().padStart(2, "0")}`
+  return `${m}:${s.toString().padStart(2, "0")}`
 }
 
 const VIDEO_LOAD_TIMEOUT_MS = 15000

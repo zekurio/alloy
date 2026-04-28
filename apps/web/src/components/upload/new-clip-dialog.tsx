@@ -10,15 +10,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@workspace/ui/components/dialog"
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerTitle,
+} from "@workspace/ui/components/drawer"
 import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { Label } from "@workspace/ui/components/label"
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetTitle,
-} from "@workspace/ui/components/sheet"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { CLIP_DESCRIPTION_MAX, CLIP_TITLE_MAX } from "@/lib/clip-fields"
@@ -28,7 +28,6 @@ import { ClipPrivacyPicker } from "@/components/clip/clip-privacy-picker"
 import { LimitedInput, LimitedTextarea } from "@/components/form/limited-field"
 import { GameCombobox } from "@/components/game/game-combobox"
 import { MentionPicker } from "@/components/search/mention-picker"
-import { VolumeControl } from "@/components/video/video-player"
 import {
   ACCEPT_LIST,
   captureThumbnail,
@@ -149,10 +148,10 @@ export function NewClipDialog({
         onChange={handleInputChange}
       />
       {isMobile ? (
-        <div className="shrink-0 px-4 pt-4">
-          <SheetTitle className="text-lg leading-tight font-semibold tracking-[var(--tracking-tight)] text-foreground">
+        <div className="shrink-0 px-4 pt-2 pb-4">
+          <DrawerTitle className="text-lg leading-tight font-semibold tracking-[var(--tracking-tight)] text-foreground">
             New clip
-          </SheetTitle>
+          </DrawerTitle>
         </div>
       ) : (
         <DialogHeader className="shrink-0">
@@ -169,18 +168,16 @@ export function NewClipDialog({
           onReplace={handleReplaceClick}
           closeAction={
             isMobile ? (
-              <SheetClose
-                render={
-                  <Button
-                    variant="outline"
-                    size="default"
-                    disabled={publishing}
-                    className="w-full min-w-0"
-                  />
-                }
-              >
-                Cancel
-              </SheetClose>
+              <DrawerClose asChild>
+                <Button
+                  variant="outline"
+                  size="default"
+                  disabled={publishing}
+                  className="w-full min-w-0"
+                >
+                  Cancel
+                </Button>
+              </DrawerClose>
             ) : (
               <DialogClose
                 render={
@@ -202,25 +199,20 @@ export function NewClipDialog({
 
   if (isMobile) {
     return (
-      <Sheet
+      <Drawer
         open={open}
-        onOpenChange={onOpenChange}
-        onOpenChangeComplete={handleOpenChangeComplete}
+        onOpenChange={(next) => {
+          onOpenChange(next)
+          if (!next) handleOpenChangeComplete(false)
+        }}
       >
-        <SheetContent
-          side="bottom"
-          showCloseButton={false}
-          className={cn(
-            "flex flex-col overflow-hidden",
-            "right-4 bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+1rem)] left-4",
-            "max-h-[calc(100dvh-var(--header-h)-var(--bottomnav-h)-env(safe-area-inset-bottom)-2.5rem)]",
-            "rounded-xl border bg-surface"
-          )}
+        <DrawerContent
+          className="max-h-[85vh] bg-surface"
           aria-describedby={undefined}
         >
           {surfaceContent}
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
     )
   }
 
@@ -236,7 +228,7 @@ export function NewClipDialog({
         centered={!isMobile}
         className={cn(
           "flex flex-col overflow-hidden",
-          "max-h-[min(94vh,900px)] max-w-[960px]"
+          "max-h-[min(90vh,900px)] max-w-[min(96vw,1200px)]"
         )}
         aria-describedby={undefined}
       >
@@ -334,10 +326,10 @@ function LoadedState({
     <>
       <DialogBody
         className={cn(
-          "flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5",
+          "flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4",
           isMobile && "px-4",
           "grid gap-6",
-          "grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(260px,1fr)]"
+          "grid-cols-1 lg:grid-cols-[minmax(0,3fr)_minmax(260px,1fr)]"
         )}
       >
         {/* Left column — trim / player */}
@@ -354,9 +346,12 @@ function LoadedState({
             muted={muted}
             onTimeUpdate={setCurrentMs}
             onPlayingChange={setIsPlaying}
+            onVolumeChange={setVolume}
+            onToggleMute={() => setMuted((m) => !m)}
           />
 
           <TrimTimeline
+            file={file.file}
             durationMs={file.durationMs}
             trimStartMs={trimStartMs}
             trimEndMs={trimEndMs}
@@ -369,26 +364,30 @@ function LoadedState({
               setCurrentMs((prev) => Math.min(Math.max(prev, start), end))
             }}
             onSeek={(ms) => setCurrentMs(ms)}
-          />
-
-          <div className="flex items-center gap-3 text-xs font-semibold text-foreground-muted tabular-nums">
-            <span>In {formatTimecode(trimStartMs)}</span>
-            <span>
-              {formatTimecode(trimEndMs - trimStartMs)}
-              {trimChanged ? (
-                <span className="ml-1 text-accent">trimmed</span>
-              ) : null}
-            </span>
-            <span>Out {formatTimecode(trimEndMs)}</span>
-
-            <VolumeControl
-              className="ml-auto"
-              volume={volume}
-              muted={muted}
-              onVolumeChange={setVolume}
-              onToggleMute={() => setMuted((m) => !m)}
-            />
-          </div>
+          >
+            <div className="flex items-center gap-4 text-xs text-foreground-muted tabular-nums">
+              <span>
+                <span className="text-foreground-faint">In</span>{" "}
+                <span className="font-semibold text-foreground">
+                  {formatTimecode(trimStartMs)}
+                </span>
+              </span>
+              <span className="font-semibold text-foreground">
+                {formatTimecode(trimEndMs - trimStartMs)}
+                {trimChanged ? (
+                  <span className="ml-1.5 font-medium text-accent">
+                    trimmed
+                  </span>
+                ) : null}
+              </span>
+              <span>
+                <span className="text-foreground-faint">Out</span>{" "}
+                <span className="font-semibold text-foreground">
+                  {formatTimecode(trimEndMs)}
+                </span>
+              </span>
+            </div>
+          </TrimTimeline>
         </section>
 
         {/* Right column — metadata form */}
