@@ -7,7 +7,7 @@ import { user } from "@workspace/db/auth-schema"
 import { clip, game } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { clipSelectShape } from "../lib/clip-select"
+import { clipSelectShape } from "../clips/select"
 
 const SearchQuery = z.object({
   q: z.string().min(1).max(120),

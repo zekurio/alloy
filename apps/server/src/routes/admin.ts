@@ -8,8 +8,8 @@ import { user } from "@workspace/db/auth-schema"
 import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { assertCanRemoveAdmin, createUserIdentity } from "../lib/auth/identity"
-import { deleteAllSessionsForUser, requireAdmin } from "../lib/auth/session"
+import { assertCanRemoveAdmin, createUserIdentity } from "../auth/identity"
+import { deleteAllSessionsForUser, requireAdmin } from "../auth/session"
 import {
   EncoderConfigPatchSchema,
   IntegrationsConfigPatchSchema,
@@ -17,7 +17,7 @@ import {
   StorageConfigPatchSchema,
   configStore,
   type RuntimeConfig,
-} from "../lib/config-store"
+} from "../config/store"
 import { ENCODE_JOB, getBoss } from "../queue"
 import { getEncoderCapabilities } from "./admin-encoder-capabilities"
 import {

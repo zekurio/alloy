@@ -3,7 +3,7 @@ import { spawn } from "node:child_process"
 import type { AdminEncoderCapabilities as EncoderCapabilities } from "@workspace/contracts"
 
 import { env } from "../env"
-import { HWACCEL_KINDS } from "../lib/config-store"
+import { HWACCEL_KINDS } from "../config/store"
 import { codecNameFor } from "../queue/ffmpeg"
 
 let capabilityCache: {
