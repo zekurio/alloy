@@ -6,8 +6,8 @@ import { clip, clipLike, clipView } from "@workspace/db/schema"
 
 import { cache } from "../cache"
 import { db } from "../db"
-import { requireSession } from "../lib/require-session"
-import { applyViewerCookie, resolveViewer } from "../lib/viewer-key"
+import { requireSession } from "../auth/require-session"
+import { applyViewerCookie, resolveViewer } from "../auth/viewer-key"
 import {
   IdParam,
   resolveEngagementTarget,

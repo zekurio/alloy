@@ -14,7 +14,7 @@ import {
 } from "@workspace/contracts"
 
 import { env } from "../env"
-import { OAuthProviderSchema } from "./config-oauth-schema"
+import { OAuthProviderSchema } from "./oauth-schema"
 
 function inferLegacyEncoderSettings(
   variants: unknown

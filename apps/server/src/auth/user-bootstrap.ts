@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm"
 import { user } from "@workspace/db/auth-schema"
 
 import { db } from "../db"
-import { hasAdminSignInMethod, setupRequired } from "./auth/identity"
+import { hasAdminSignInMethod, setupRequired } from "./identity"
 
 export async function hasAnyUser(): Promise<boolean> {
   const rows = await db.select({ id: user.id }).from(user).limit(1)
