@@ -34,6 +34,7 @@ import {
 const RE_ENCODE_BATCH_LIMIT = 100
 
 const RuntimeConfigPatch = z.object({
+  setupComplete: z.boolean().optional(),
   openRegistrations: z.boolean().optional(),
   passkeyEnabled: z.boolean().optional(),
   requireAuthToBrowse: z.boolean().optional(),
@@ -219,10 +220,14 @@ export const adminRoute = new Hono()
         )
       }
       const patch: Partial<{
+        setupComplete: boolean
         openRegistrations: boolean
         passkeyEnabled: boolean
         requireAuthToBrowse: boolean
       }> = {}
+      if (body.setupComplete !== undefined) {
+        patch.setupComplete = body.setupComplete
+      }
       if (body.openRegistrations !== undefined) {
         patch.openRegistrations = body.openRegistrations
       }

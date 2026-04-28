@@ -62,7 +62,7 @@ export function ProfileIdentity({
 
       {/* Profile info bar */}
       <div className="px-4 pb-3 sm:pb-4 md:px-8">
-        <div className="flex items-start gap-3 sm:gap-4">
+        <div className="flex items-end gap-3 sm:gap-4">
           {/* Avatar — overlaps the banner */}
           <Avatar
             size="2xl"
@@ -89,7 +89,7 @@ export function ProfileIdentity({
           </Avatar>
 
           {/* Identity + action */}
-          <div className="flex min-w-0 flex-1 items-start gap-3 pt-2 sm:pt-2.5">
+          <div className="flex min-w-0 flex-1 items-end gap-3">
             <div className="min-w-0 flex-1">
               {/* Name row with inline handle */}
               <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0">
