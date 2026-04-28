@@ -1,4 +1,4 @@
-import type { EncoderVariant } from "../lib/config-store"
+import type { EncoderVariant } from "../config/store"
 import { clipVideoVariantKey } from "../storage"
 
 /** Per-variant override resolved from the runtime config. */

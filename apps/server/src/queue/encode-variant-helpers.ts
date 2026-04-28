@@ -5,7 +5,7 @@ import {
 
 import { storage } from "../storage"
 import { codecNameFor } from "./ffmpeg"
-import type { EncoderConfig } from "../lib/config-store"
+import type { EncoderConfig } from "../config/store"
 import type { VariantSpec } from "./variant-specs"
 
 export async function planReuse(

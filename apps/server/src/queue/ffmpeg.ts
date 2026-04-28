@@ -1,4 +1,4 @@
-import type { EncoderCodec, HwaccelKind } from "../lib/config-store"
+import type { EncoderCodec, HwaccelKind } from "../config/store"
 import { env } from "../env"
 import { runCapture, runWithProgress } from "./ffmpeg-process"
 

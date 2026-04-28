@@ -4,9 +4,9 @@ import type { PgBoss } from "pg-boss"
 import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { publishClipUpsertById } from "../lib/clip-events"
-import { configStore } from "../lib/config-store"
-import { createNotification } from "../lib/notifications"
+import { publishClipUpsertById } from "../clips/events"
+import { configStore } from "../config/store"
+import { createNotification } from "../notifications"
 import { runEncodeInner } from "./encode-run"
 
 export const ENCODE_JOB = "clip.encode" as const

@@ -12,7 +12,7 @@ import { authAccount, user, userPasskey } from "@workspace/db/auth-schema"
 
 import { db } from "../db"
 import { env } from "../env"
-import { clearSessionCookies, setSessionCookies } from "../lib/auth/cookies"
+import { clearSessionCookies, setSessionCookies } from "../auth/cookies"
 import {
   assertCanRemoveAdmin,
   countUserPasskeys,
@@ -22,14 +22,14 @@ import {
   setupRequired,
   updateUserIdentity,
   validateUsername,
-} from "../lib/auth/identity"
-import { oauthNotImplemented } from "../lib/auth/oauth"
+} from "../auth/identity"
+import { oauthNotImplemented } from "../auth/oauth"
 import {
   createSession,
   deleteCurrentSession,
   getSession,
   requireSession,
-} from "../lib/auth/session"
+} from "../auth/session"
 import {
   beginPasskeyAuthentication,
   beginPasskeyRegistration,
@@ -37,8 +37,8 @@ import {
   serializeTransports,
   verifyPasskeyAuthentication,
   verifyPasskeyRegistration,
-} from "../lib/auth/webauthn"
-import { configStore } from "../lib/config-store"
+} from "../auth/webauthn"
+import { configStore } from "../config/store"
 import { completePasskeySignUp } from "./auth-passkey-signup"
 
 const SignUpOptionsBody = z.object({

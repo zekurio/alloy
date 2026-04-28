@@ -7,8 +7,8 @@ import { user } from "@workspace/db/auth-schema"
 import { clip, clipComment, clipCommentLike } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { createNotification } from "../lib/notifications"
-import { requireSession } from "../lib/require-session"
+import { createNotification } from "../notifications"
+import { requireSession } from "../auth/require-session"
 import { IdParam, peekViewer, resolveEngagementTarget } from "./clips-helpers"
 import {
   CommentIdParam,
