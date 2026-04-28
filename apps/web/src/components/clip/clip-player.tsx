@@ -24,6 +24,7 @@ interface ClipPlayerProps {
   onPlayThreshold?: () => void
   onEnded?: () => void
   className?: string
+  maxDisplayHeight?: string
   autoPlay?: boolean
   autoAdvance?: boolean
   onAutoAdvanceChange?: (next: boolean) => void
@@ -65,6 +66,7 @@ function ClipPlayer({
   onPlayThreshold,
   onEnded,
   className,
+  maxDisplayHeight,
   autoPlay,
   autoAdvance,
   onAutoAdvanceChange,
@@ -121,9 +123,10 @@ function ClipPlayer({
   }, [sourceContentType, sourceVariant?.contentType])
 
   const sourceAvailable = sourceVariant !== null
-  const preferredQualityId = sourceAvailable && sourcePlayable
-    ? "source"
-    : (defaultEncodedId ?? "source")
+  const preferredQualityId =
+    sourceAvailable && sourcePlayable
+      ? "source"
+      : (defaultEncodedId ?? "source")
   const [selectedQualityId, setSelectedQualityId] =
     React.useState(preferredQualityId)
 
@@ -155,12 +158,20 @@ function ClipPlayer({
       : []),
     ...encodedQualityOptions,
   ]
+  const sourceAspectRatio =
+    aspectRatioProp ?? aspectRatioFromDimensions(width, height)
 
   if ((!sourceAvailable || !sourcePlayable) && !defaultEncodedId) {
     return (
       <div
         className={className}
-        style={{ aspectRatio: aspectRatioProp ?? DEFAULT_ASPECT_RATIO }}
+        style={{
+          aspectRatio: sourceAspectRatio,
+          maxHeight: maxDisplayHeight,
+          width: maxDisplayHeight
+            ? `min(100%, calc(${maxDisplayHeight} * ${sourceAspectRatio}))`
+            : undefined,
+        }}
       >
         <div className="grid size-full place-items-center bg-black text-sm text-white/70">
           Preparing playback version…
@@ -187,6 +198,7 @@ function ClipPlayer({
       src={src}
       poster={poster}
       aspectRatio={aspectRatio}
+      maxDisplayHeight={maxDisplayHeight}
       className={className}
       sourceIdentity={`${clipId}:${selectedQualityId}`}
       qualityOptions={qualityOptions}

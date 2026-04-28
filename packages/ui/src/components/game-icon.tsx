@@ -7,7 +7,7 @@ import { cn } from "@workspace/ui/lib/utils"
 const gameIconVariants = cva(
   cn(
     "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-sm",
-    "bg-surface-muted font-mono text-foreground-faint uppercase"
+    "bg-surface-muted font-mono leading-3 text-foreground-faint uppercase"
   ),
   {
     variants: {

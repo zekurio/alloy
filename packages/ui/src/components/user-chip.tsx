@@ -25,7 +25,7 @@ function UserChip({
       type="button"
       data-slot="user-chip"
       className={cn(
-        "group inline-flex h-[30px] items-center gap-2 py-[2px] pr-3 pl-[2px]",
+        "group inline-flex h-8 items-center gap-2 py-0.5 pr-3 pl-0.5",
         "rounded-md border border-border bg-surface-raised text-foreground",
         "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
         "hover:border-border-strong",
@@ -35,7 +35,7 @@ function UserChip({
       {...props}
     >
       <span
-        className="relative inline-flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-[4px] text-[10px] leading-none font-semibold"
+        className="relative inline-flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-[4px] text-[10px] leading-3 font-semibold"
         style={{
           background: avatar.bg ?? "var(--neutral-200)",
           color: avatar.fg ?? "var(--foreground)",
@@ -46,7 +46,7 @@ function UserChip({
           <UserChipImage key={avatar.src} src={avatar.src} />
         ) : null}
       </span>
-      <span className="text-xs leading-none font-semibold">{name}</span>
+      <span className="text-xs leading-4 font-semibold">{name}</span>
       {children ?? (
         <ChevronRightIcon className="ml-1 size-3 rotate-90 text-foreground-faint" />
       )}

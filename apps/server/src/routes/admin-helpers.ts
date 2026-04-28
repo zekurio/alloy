@@ -182,7 +182,9 @@ export function patchRuntimeConfig(patch: Partial<RuntimeConfig>): void {
 type StorageConfigPatch = {
   driver?: StorageConfig["driver"]
   fs?: Partial<StorageConfig["fs"]>
-  s3?: Partial<Omit<StorageConfig["s3"], "endpoint" | "accessKeyId" | "secretAccessKey">> & {
+  s3?: Partial<
+    Omit<StorageConfig["s3"], "endpoint" | "accessKeyId" | "secretAccessKey">
+  > & {
     endpoint?: string | null
     accessKeyId?: string | null
     secretAccessKey?: string | null

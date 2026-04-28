@@ -15,9 +15,9 @@ const KEYBOARD_VOLUME_STEP = 0.1
 
 /* ─── Reusable video-chrome primitives ─────────────────────────────── */
 
-/** Translucent app-surface bar background for overlay chrome. */
+/** App-surface bar background for player chrome. */
 export const videoChromeBarClass =
-  "group/bar bg-surface-raised/95 text-foreground shadow-[var(--shadow-inset-top)] backdrop-blur-sm"
+  "group/bar border-t border-border/70 bg-surface-raised text-foreground shadow-[var(--shadow-inset-top)]"
 
 /** Icon button style for controls sitting on video chrome. */
 export const videoChromeIconClass =
@@ -45,23 +45,31 @@ export function BareShell({
   className,
   status,
   aspectRatio,
+  maxDisplayHeight,
   children,
 }: {
   className?: string
   status: LoadStatus
   aspectRatio?: number
+  maxDisplayHeight?: string
   children: React.ReactNode
 }) {
+  const sizingStyle = React.useMemo(
+    () => videoPlayerSizingStyle(aspectRatio, maxDisplayHeight),
+    [aspectRatio, maxDisplayHeight]
+  )
+
   return (
     <div
       data-slot="video-player"
       data-mode="bare"
       className={cn(
         "relative isolate w-full overflow-hidden bg-black",
+        maxDisplayHeight && "mx-auto",
         !aspectRatio && "aspect-video",
         className
       )}
-      style={aspectRatio ? { aspectRatio: String(aspectRatio) } : undefined}
+      style={sizingStyle}
     >
       {children}
       <LoadOverlay status={status} />
@@ -73,6 +81,7 @@ export function ChromeShell({
   containerRef,
   className,
   aspectRatio,
+  maxDisplayHeight,
   playing,
   onKeyCommand,
   bar,
@@ -81,39 +90,25 @@ export function ChromeShell({
   containerRef: React.RefObject<HTMLDivElement | null>
   className?: string
   aspectRatio?: number
+  maxDisplayHeight?: string
   playing: boolean
   onKeyCommand: VideoKeyCommand
-  /** Chrome bar overlay — rendered as a sibling of the clipped video so its edges align pixel-perfect with the video container regardless of sub-pixel layout. */
+  /** Chrome controls rendered as their own layout row under the media viewport. */
   bar?: React.ReactNode
   children: React.ReactNode
 }) {
-  const [chromeVisible, setChromeVisible] = React.useState(true)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
-  const hideTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
-  const contentAspectRatio = aspectRatio ?? 16 / 9
-
-  const scheduleHide = React.useCallback(() => {
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
-    hideTimerRef.current = setTimeout(() => setChromeVisible(false), 2000)
-  }, [])
-
-  const revealChrome = React.useCallback(() => {
-    setChromeVisible(true)
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
-    if (playing) scheduleHide()
-  }, [playing, scheduleHide])
-
-  React.useEffect(() => {
-    if (!playing) {
-      if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
-      setChromeVisible(true)
-      return
-    }
-    scheduleHide()
-    return () => {
-      if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
-    }
-  }, [playing, scheduleHide])
+  const mediaSizingStyle = React.useMemo(
+    () =>
+      isFullscreen
+        ? undefined
+        : videoPlayerSizingStyle(aspectRatio, maxDisplayHeight),
+    [aspectRatio, isFullscreen, maxDisplayHeight]
+  )
+  const rootSizingStyle = React.useMemo(
+    () => mediaShellSizingStyle(aspectRatio, maxDisplayHeight, isFullscreen),
+    [aspectRatio, isFullscreen, maxDisplayHeight]
+  )
 
   React.useEffect(() => {
     if (typeof document === "undefined") return
@@ -171,48 +166,63 @@ export function ChromeShell({
       data-slot="video-player"
       data-mode="chrome"
       data-playing={playing ? "true" : "false"}
-      data-chrome={chromeVisible ? "visible" : "hidden"}
+      data-chrome="visible"
       data-fullscreen={isFullscreen ? "true" : "false"}
       tabIndex={0}
       onKeyDown={onKeyDown}
-      onMouseMove={revealChrome}
-      onMouseLeave={() => {
-        if (playing) setChromeVisible(false)
-      }}
-      style={{
-        ...(aspectRatio ? { aspectRatio: String(aspectRatio) } : {}),
-        cursor: chromeVisible ? undefined : "none",
-      }}
+      style={rootSizingStyle}
       className={cn(
-        "group/video relative isolate w-full bg-black select-none",
-        !aspectRatio && "aspect-video",
+        "group/video relative isolate flex w-full flex-col overflow-hidden bg-black select-none",
+        isFullscreen && "h-dvh w-dvw",
+        maxDisplayHeight && !isFullscreen && "mx-auto",
         "focus:outline-none",
         className
       )}
     >
-      <div className="absolute inset-0 overflow-hidden">
-        <div
-          data-slot="video-player-frame"
-          className={cn(
-            "absolute inset-0",
-            isFullscreen &&
-              "top-1/2 right-auto bottom-auto left-1/2 h-auto max-h-dvh -translate-x-1/2 -translate-y-1/2"
-          )}
-          style={
-            isFullscreen
-              ? {
-                  aspectRatio: String(contentAspectRatio),
-                  width: `min(100dvw, calc(100dvh * ${contentAspectRatio}))`,
-                }
-              : undefined
-          }
-        >
+      <div
+        data-slot="video-player-media"
+        className={cn(
+          "relative min-h-0 w-full overflow-hidden bg-black",
+          isFullscreen ? "flex-1" : !aspectRatio && "aspect-video"
+        )}
+        style={mediaSizingStyle}
+      >
+        <div data-slot="video-player-frame" className="absolute inset-0">
           {children}
         </div>
       </div>
       {bar}
     </div>
   )
+}
+
+function videoPlayerSizingStyle(
+  aspectRatio: number | undefined,
+  maxDisplayHeight: string | undefined
+): React.CSSProperties | undefined {
+  if (!aspectRatio && !maxDisplayHeight) return undefined
+  if (!maxDisplayHeight) {
+    return aspectRatio ? { aspectRatio: String(aspectRatio) } : undefined
+  }
+
+  return {
+    ...(aspectRatio ? { aspectRatio: String(aspectRatio) } : {}),
+    maxHeight: maxDisplayHeight,
+    width: aspectRatio
+      ? `min(100%, calc(${maxDisplayHeight} * ${aspectRatio}))`
+      : undefined,
+  }
+}
+
+function mediaShellSizingStyle(
+  aspectRatio: number | undefined,
+  maxDisplayHeight: string | undefined,
+  isFullscreen: boolean
+): React.CSSProperties | undefined {
+  if (isFullscreen || !aspectRatio || !maxDisplayHeight) return undefined
+  return {
+    width: `min(100%, calc(${maxDisplayHeight} * ${aspectRatio}))`,
+  }
 }
 
 function shouldHandleVideoShortcut(
@@ -302,9 +312,7 @@ export function ChromeBar({
       aria-hidden={false}
       className={cn(
         videoChromeBarClass,
-        "pointer-events-auto absolute inset-x-0 -bottom-px isolate z-20 pb-px",
-        "transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-        "group-data-[chrome=hidden]/video:pointer-events-none group-data-[chrome=hidden]/video:opacity-0"
+        "pointer-events-auto relative isolate z-20 shrink-0"
       )}
     >
       <div className="relative flex flex-col">

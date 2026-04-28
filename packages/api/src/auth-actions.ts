@@ -43,10 +43,13 @@ async function passkeySignIn(
     const response = await startAuthentication({
       optionsJSON: start.options,
     })
-    const data = await request<SessionData>("/api/auth/passkey/sign-in/verify", {
-      method: "POST",
-      body: JSON.stringify({ challengeId: start.challengeId, response }),
-    })
+    const data = await request<SessionData>(
+      "/api/auth/passkey/sign-in/verify",
+      {
+        method: "POST",
+        body: JSON.stringify({ challengeId: start.challengeId, response }),
+      }
+    )
     store.set(data)
     return { data, error: null }
   } catch (cause) {
@@ -145,7 +148,8 @@ function createPasskeyActions(request: RequestFn, store: SessionStore) {
     },
     passkey: {
       signUp: signUpWithPasskey,
-      addPasskey: (input: { name?: string | null }) => addPasskey(request, input),
+      addPasskey: (input: { name?: string | null }) =>
+        addPasskey(request, input),
       listUserPasskeys: () =>
         result<Passkey[]>("/api/auth/passkeys", {}, "Could not load passkeys"),
       updatePasskey: (input: { id: string; name?: string | null }) =>
@@ -188,7 +192,11 @@ function createUserActions(request: RequestFn, store: SessionStore) {
         return deleteResult
       }),
     listAccounts: () =>
-      result<LinkedAccount[]>("/api/auth/accounts", {}, "Could not load accounts"),
+      result<LinkedAccount[]>(
+        "/api/auth/accounts",
+        {},
+        "Could not load accounts"
+      ),
     unlinkAccount: (input: { providerId: string; accountId: string }) =>
       result<{ success: true }>(
         "/api/auth/accounts/unlink",

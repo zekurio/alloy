@@ -4,11 +4,11 @@ import { Avatar as AvatarPrimitive } from "@base-ui/react/avatar"
 import { cn } from "@workspace/ui/lib/utils"
 
 const avatarRootSizeClasses = [
-  "data-[size=sm]:size-5 data-[size=sm]:text-[9px]",
-  "data-[size=md]:size-7 data-[size=md]:text-[11px]",
-  "data-[size=lg]:size-9 data-[size=lg]:text-[13px]",
-  "data-[size=xl]:size-12 data-[size=xl]:text-[16px]",
-  "data-[size=2xl]:size-24 data-[size=2xl]:rounded-lg data-[size=2xl]:text-[28px]",
+  "data-[size=sm]:size-5 data-[size=sm]:text-[9px] data-[size=sm]:leading-3",
+  "data-[size=md]:size-7 data-[size=md]:text-[11px] data-[size=md]:leading-4",
+  "data-[size=lg]:size-9 data-[size=lg]:text-[13px] data-[size=lg]:leading-4",
+  "data-[size=xl]:size-12 data-[size=xl]:text-[16px] data-[size=xl]:leading-5",
+  "data-[size=2xl]:size-24 data-[size=2xl]:rounded-lg data-[size=2xl]:text-[28px] data-[size=2xl]:leading-9",
 ]
 
 const avatarBadgeSizeClasses = [
@@ -21,17 +21,44 @@ const avatarBadgeSizeClasses = [
 
 const loadedAvatarImageSrcs = new Set<string>()
 
+function getAvatarImageKey(children: React.ReactNode): string {
+  let imageKey = "fallback"
+
+  React.Children.forEach(children, (child) => {
+    if (!React.isValidElement(child)) return
+
+    if (child.type === AvatarImage) {
+      const src = (child.props as { src?: unknown }).src
+      imageKey = typeof src === "string" && src ? src : "fallback"
+      return
+    }
+
+    const nestedChildren = (child.props as { children?: React.ReactNode })
+      .children
+    if (nestedChildren !== undefined) {
+      const nestedKey = getAvatarImageKey(nestedChildren)
+      if (nestedKey !== "fallback") imageKey = nestedKey
+    }
+  })
+
+  return imageKey
+}
+
 function Avatar({
   className,
   size = "md",
   ring = false,
+  children,
   ...props
 }: AvatarPrimitive.Root.Props & {
   size?: "sm" | "md" | "lg" | "xl" | "2xl"
   ring?: boolean
 }) {
+  const imageKey = getAvatarImageKey(children)
+
   return (
     <AvatarPrimitive.Root
+      key={imageKey}
       data-slot="avatar"
       data-size={size}
       data-ring={ring || undefined}
@@ -43,7 +70,9 @@ function Avatar({
         className
       )}
       {...props}
-    />
+    >
+      {children}
+    </AvatarPrimitive.Root>
   )
 }
 
@@ -103,10 +132,7 @@ function AvatarFallback({
   return (
     <AvatarPrimitive.Fallback
       data-slot="avatar-fallback"
-      className={cn(
-        "flex size-full items-center justify-center leading-none",
-        className
-      )}
+      className={cn("flex size-full items-center justify-center", className)}
       {...props}
     />
   )
@@ -148,7 +174,7 @@ function AvatarGroupCount({
       data-slot="avatar-group-count"
       className={cn(
         "relative inline-flex shrink-0 items-center justify-center rounded-md bg-surface-raised text-foreground-muted ring-2 ring-background select-none",
-        "size-7 text-[10px] group-has-data-[size=lg]/avatar-group:size-9 group-has-data-[size=sm]/avatar-group:size-5 group-has-data-[size=xl]/avatar-group:size-12",
+        "size-7 text-[10px] leading-3 group-has-data-[size=lg]/avatar-group:size-9 group-has-data-[size=sm]/avatar-group:size-5 group-has-data-[size=xl]/avatar-group:size-12",
         className
       )}
       {...props}

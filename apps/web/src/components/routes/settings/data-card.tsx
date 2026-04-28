@@ -179,10 +179,7 @@ export function DataCard() {
       <SectionContent className="divide-y divide-border py-0">
         <StorageQuotaRow />
         <DownloadClipsRow />
-        <DeleteClipsRow
-          pending={pending}
-          onDeleteAllClips={onDeleteAllClips}
-        />
+        <DeleteClipsRow pending={pending} onDeleteAllClips={onDeleteAllClips} />
       </SectionContent>
     </Section>
   )

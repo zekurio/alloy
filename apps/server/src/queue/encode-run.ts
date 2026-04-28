@@ -15,11 +15,7 @@ import { db } from "../db"
 import { env } from "../env"
 import { publishClipUpsert } from "../lib/clip-events"
 import { configStore, type EncoderConfig } from "../lib/config-store"
-import {
-  clipOriginalAssetKey,
-  clipSourceMp4Key,
-  storage,
-} from "../storage"
+import { clipOriginalAssetKey, clipSourceMp4Key, storage } from "../storage"
 import { codecNameFor, encode, probe, remuxToMp4 } from "./ffmpeg"
 import { makeProgressWriter } from "./encode-progress"
 import {
@@ -211,7 +207,9 @@ async function runPipelineInScratch(
     encoderConfig.defaultVariantId
   )
   if (variantSpecs.length === 0) {
-    throw new Error("Variant encoding is enabled but no variants are configured")
+    throw new Error(
+      "Variant encoding is enabled but no variants are configured"
+    )
   }
   const targetSettings = variantSpecs.map((spec) =>
     resolveVariantSettings(
