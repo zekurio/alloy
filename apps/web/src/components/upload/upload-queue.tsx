@@ -243,9 +243,7 @@ function QueueRow({ item, first }: { item: QueueItem; first: boolean }) {
         <div
           className={cn(
             "absolute top-1.5 right-1.5 flex shrink-0 items-center gap-0.5 rounded-md bg-surface-raised/95 p-0.5",
-            "shadow-[0_4px_12px_-4px_rgb(0_0_0_/_0.35)] ring-1 ring-border",
-            "opacity-0 transition-opacity duration-[var(--duration-fast)]",
-            "group-hover/row:opacity-100 focus-within:opacity-100"
+            "shadow-[0_4px_12px_-4px_rgb(0_0_0_/_0.35)] ring-1 ring-border"
           )}
         >
           <RowAction item={item} />
