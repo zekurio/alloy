@@ -23,7 +23,11 @@ import { OAUTH_QUOTA_CLAIM_DEFAULT } from "@workspace/contracts"
 import { configStore, type OAuthProviderConfig } from "../config/store"
 import { db } from "../db"
 import { env } from "../env"
-import { setSessionCookies } from "./cookies"
+import {
+  clearOAuthStateCookie,
+  readOAuthStateCookie,
+  setSessionCookies,
+} from "./cookies"
 import { findUserByEmail, normalizeEmail } from "./identity"
 import { getEnabledProviderConfig, imageFromProfile } from "./oauth-config"
 import { createSession, getSession } from "./session"
@@ -37,6 +41,7 @@ const oauthClientCache = new Map<string, Promise<Configuration>>()
 type OAuthMode = "sign-in" | "link"
 
 type OAuthChallengePayload = {
+  browserNonce: string
   callbackURL: string
   codeVerifier?: string
   mode: OAuthMode
@@ -66,7 +71,7 @@ type StoredTokens = {
 export async function startOAuthSignIn(input: {
   providerId: string
   callbackURL?: string | null
-}): Promise<{ url: string }> {
+}): Promise<{ browserNonce: string; url: string }> {
   return startOAuthFlow({ ...input, mode: "sign-in" })
 }
 
@@ -74,7 +79,7 @@ export async function startOAuthLink(input: {
   providerId: string
   callbackURL?: string | null
   userId: string
-}): Promise<{ url: string }> {
+}): Promise<{ browserNonce: string; url: string }> {
   return startOAuthFlow({ ...input, mode: "link" })
 }
 
@@ -83,11 +88,12 @@ async function startOAuthFlow(input: {
   callbackURL?: string | null
   mode: OAuthMode
   userId?: string
-}): Promise<{ url: string }> {
+}): Promise<{ browserNonce: string; url: string }> {
   const provider = requireEnabledProvider(input.providerId)
   await deleteExpiredOAuthChallenges()
 
   const state = randomState()
+  const browserNonce = randomState()
   const codeVerifier =
     provider.pkce === false ? undefined : randomPKCECodeVerifier()
   const callbackURL = normalizeCallbackURL(input.callbackURL)
@@ -106,6 +112,7 @@ async function startOAuthFlow(input: {
 
   const url = buildAuthorizationUrl(config, params)
   const payload: OAuthChallengePayload = {
+    browserNonce,
     callbackURL,
     codeVerifier,
     mode: input.mode,
@@ -125,7 +132,7 @@ async function startOAuthFlow(input: {
     .returning({ id: authChallenge.id })
   if (!challenge) throw new Error("Could not start OAuth flow.")
 
-  return { url: url.toString() }
+  return { browserNonce, url: url.toString() }
 }
 
 export async function finishOAuthCallback(
@@ -139,9 +146,14 @@ export async function finishOAuthCallback(
 
   const challenge = await consumeOAuthChallenge(state)
   const payload = challenge.payload as OAuthChallengePayload
+  const browserNonce = readOAuthStateCookie(c, provider.providerId)
+  clearOAuthStateCookie(c, provider.providerId)
   try {
     if (payload.providerId !== provider.providerId) {
       throw new Error("OAuth provider changed during sign-in.")
+    }
+    if (browserNonce !== payload.browserNonce) {
+      throw new Error("OAuth sign-in did not start in this browser.")
     }
 
     const callbackURL = new URL(callbackURLForProvider(provider.providerId))
