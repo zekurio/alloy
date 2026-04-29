@@ -233,7 +233,7 @@ function MobileClipViewerBody({
           </DialogClose>
 
           {/* ---- Top spacer (pushes player toward vertical center) ---- */}
-          <div className="flex-1" />
+          <div className="min-h-0 flex-1" />
 
           {/* ---- Prev clip chevron (above video) ---- */}
           <div className="relative z-10 flex shrink-0 justify-center py-1">
@@ -262,7 +262,7 @@ function MobileClipViewerBody({
               variants={row.variants}
               status={row.status}
               encodeProgress={row.encodeProgress}
-              maxDisplayHeight="min(72dvh, calc(100dvh - 104px))"
+              maxDisplayHeight="min(72dvh, calc(100dvh - 18rem))"
               onPlayThreshold={() => void api.clips.recordView(row.id)}
               onEnded={handleEnded}
               autoPlay
@@ -288,9 +288,9 @@ function MobileClipViewerBody({
           </div>
 
           {/* ---- Bottom section ---- */}
-          <div className="relative z-10 flex flex-1 overflow-hidden">
+          <div className="relative z-10 flex max-h-[min(40dvh,16rem)] shrink-0 overflow-hidden">
             {/* Left: metadata cluster */}
-            <div className="flex flex-1 flex-col justify-end gap-2.5 p-4 pr-2 pb-5">
+            <div className="flex min-h-0 flex-1 flex-col justify-end gap-2.5 overflow-hidden p-4 pr-2 pb-5">
               {/* Game badge */}
               {gameRef ? (
                 <Link
