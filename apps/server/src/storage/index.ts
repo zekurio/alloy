@@ -25,7 +25,6 @@ function buildStorage(config: StorageConfig): StorageDriver {
       })
     default: {
       // Exhaustiveness check: adding a new storage driver variant without
-      // handling it here is a compile error.
       const exhaustive: never = config
       throw new Error(
         `Unsupported storage driver: ${JSON.stringify(exhaustive)}`
