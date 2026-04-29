@@ -32,16 +32,19 @@ export function shouldShowLinkedAccountsCard(
 export function LinkedAccountsCard({
   accounts,
   config,
+  hasPasskeySignIn,
   onRefresh,
 }: {
   accounts: LinkedAccount[]
   config: PublicAuthConfig
+  hasPasskeySignIn: boolean
   onRefresh: () => Promise<void>
 }) {
   const router = useRouter()
   const actions = useLinkedAccountActions({
     accounts,
     config,
+    hasPasskeySignIn,
     refresh: onRefresh,
     router,
   })
@@ -58,6 +61,7 @@ export function LinkedAccountsCard({
         <AccountsList
           accounts={accounts}
           config={config}
+          hasPasskeySignIn={hasPasskeySignIn}
           linkingProviderId={actions.linkingProviderId}
           unlinkingId={actions.unlinkingId}
           onLink={actions.onLink}
@@ -71,11 +75,13 @@ export function LinkedAccountsCard({
 function useLinkedAccountActions({
   accounts,
   config,
+  hasPasskeySignIn,
   refresh,
   router,
 }: {
   accounts: LinkedAccount[]
   config: PublicAuthConfig
+  hasPasskeySignIn: boolean
   refresh: () => Promise<void>
   router: ReturnType<typeof useRouter>
 }) {
@@ -152,7 +158,7 @@ function useLinkedAccountActions({
   const onUnlink = React.useCallback(
     async (account: LinkedAccount) => {
       if (unlinkingId) return
-      if (!canRemoveAccount(account, accounts, config)) {
+      if (!canRemoveAccount(account, accounts, config, hasPasskeySignIn)) {
         toast.error(
           "This is your last enabled sign-in method. Link another before removing it."
         )
@@ -177,7 +183,7 @@ function useLinkedAccountActions({
         setUnlinkingId(null)
       }
     },
-    [accounts, config, refresh, router, unlinkingId]
+    [accounts, config, hasPasskeySignIn, refresh, router, unlinkingId]
   )
 
   return {
@@ -191,6 +197,7 @@ function useLinkedAccountActions({
 type AccountsListProps = {
   accounts: LinkedAccount[]
   config: PublicAuthConfig
+  hasPasskeySignIn: boolean
   linkingProviderId: string | null
   unlinkingId: string | null
   onLink: (provider: Provider) => void
@@ -200,6 +207,7 @@ type AccountsListProps = {
 function AccountsList({
   accounts,
   config,
+  hasPasskeySignIn,
   linkingProviderId,
   unlinkingId,
   onLink,
@@ -225,7 +233,12 @@ function AccountsList({
             label={config.provider.displayName}
             sublabel="Connected"
             busy={unlinkingId === providerAccount.id}
-            canUnlink={canRemoveAccount(providerAccount, accounts, config)}
+            canUnlink={canRemoveAccount(
+              providerAccount,
+              accounts,
+              config,
+              hasPasskeySignIn
+            )}
             onAction={() => onUnlink(providerAccount)}
             showIcon
           />
@@ -247,7 +260,12 @@ function AccountsList({
           label={account.providerId}
           sublabel="Linked, but no longer configured on this server"
           busy={unlinkingId === account.id}
-          canUnlink={canRemoveAccount(account, accounts, config)}
+          canUnlink={canRemoveAccount(
+            account,
+            accounts,
+            config,
+            hasPasskeySignIn
+          )}
           onAction={() => onUnlink(account)}
           showIcon
         />
@@ -327,8 +345,11 @@ function AccountRow(props: AccountRowProps) {
 function canRemoveAccount(
   target: LinkedAccount,
   accounts: LinkedAccount[],
-  config: PublicAuthConfig
+  config: PublicAuthConfig,
+  hasPasskeySignIn: boolean
 ): boolean {
+  if (hasPasskeySignIn) return true
+
   const remaining = accounts.filter((account) => account.id !== target.id)
   return remaining.some((account) => accountSupportsSignIn(account, config))
 }

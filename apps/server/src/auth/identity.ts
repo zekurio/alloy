@@ -258,14 +258,18 @@ export async function countUserPasskeys(userId: string): Promise<number> {
   return row?.value ?? 0
 }
 
+type AuthTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+type AuthExecutor = typeof db | AuthTransaction
+
 async function countEnabledOAuthAccounts(
   userId: string,
-  excludeAccount?: { providerId: string; providerAccountId: string }
+  excludeAccount?: { providerId: string; providerAccountId: string },
+  executor: AuthExecutor = db
 ): Promise<number> {
   const provider = configStore.get("oauthProvider")
   if (!provider?.enabled) return 0
 
-  const rows = await db
+  const rows = await executor
     .select({
       providerAccountId: authAccount.providerAccountId,
       providerId: authAccount.providerId,
@@ -291,10 +295,12 @@ export async function userHasEnabledSignInMethod(
   options: {
     excludeAccount?: { providerId: string; providerAccountId: string }
     excludePasskeyId?: string
+    executor?: AuthExecutor
   } = {}
 ): Promise<boolean> {
+  const executor = options.executor ?? db
   if (configStore.get("passkeyEnabled")) {
-    const passkeys = await db
+    const passkeys = await executor
       .select({ id: userPasskey.id })
       .from(userPasskey)
       .where(eq(userPasskey.userId, userId))
@@ -303,7 +309,25 @@ export async function userHasEnabledSignInMethod(
     }
   }
 
-  return (await countEnabledOAuthAccounts(userId, options.excludeAccount)) > 0
+  return (
+    (await countEnabledOAuthAccounts(
+      userId,
+      options.excludeAccount,
+      executor
+    )) > 0
+  )
+}
+
+async function lockUserSignInMethods(
+  tx: AuthTransaction,
+  userId: string
+): Promise<void> {
+  await tx.execute(sql`
+    select ${user.id}
+    from ${user}
+    where ${user.id} = ${userId}
+    for update
+  `)
 }
 
 export async function deleteUserPasskeyPreservingSignIn(input: {
@@ -311,16 +335,12 @@ export async function deleteUserPasskeyPreservingSignIn(input: {
   passkeyId: string
 }): Promise<"deleted" | "not-found" | "last-sign-in-method"> {
   return db.transaction(async (tx) => {
-    await tx.execute(sql`
-      select ${userPasskey.id}
-      from ${userPasskey}
-      where ${userPasskey.userId} = ${input.userId}
-      for update
-    `)
+    await lockUserSignInMethods(tx, input.userId)
 
     if (
       !(await userHasEnabledSignInMethod(input.userId, {
         excludePasskeyId: input.passkeyId,
+        executor: tx,
       }))
     ) {
       return "last-sign-in-method"
@@ -335,6 +355,41 @@ export async function deleteUserPasskeyPreservingSignIn(input: {
         )
       )
       .returning({ id: userPasskey.id })
+
+    return deleted ? "deleted" : "not-found"
+  })
+}
+
+export async function unlinkOAuthAccountPreservingSignIn(input: {
+  userId: string
+  providerId: string
+  providerAccountId: string
+}): Promise<"deleted" | "not-found" | "last-sign-in-method"> {
+  return db.transaction(async (tx) => {
+    await lockUserSignInMethods(tx, input.userId)
+
+    if (
+      !(await userHasEnabledSignInMethod(input.userId, {
+        excludeAccount: {
+          providerId: input.providerId,
+          providerAccountId: input.providerAccountId,
+        },
+        executor: tx,
+      }))
+    ) {
+      return "last-sign-in-method"
+    }
+
+    const [deleted] = await tx
+      .delete(authAccount)
+      .where(
+        and(
+          eq(authAccount.userId, input.userId),
+          eq(authAccount.providerId, input.providerId),
+          eq(authAccount.providerAccountId, input.providerAccountId)
+        )
+      )
+      .returning({ id: authAccount.id })
 
     return deleted ? "deleted" : "not-found"
   })

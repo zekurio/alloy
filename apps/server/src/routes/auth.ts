@@ -17,11 +17,12 @@ import {
   findUserByEmail,
   normalizeEmail,
   setupRequired,
+  unlinkOAuthAccountPreservingSignIn,
   updateUserIdentity,
-  userHasEnabledSignInMethod,
   validateUsername,
 } from "../auth/identity"
 import {
+  fallbackOAuthErrorRedirect,
   finishOAuthCallback,
   startOAuthLink,
   startOAuthSignIn,
@@ -405,12 +406,7 @@ export const authRoute = new Hono()
       const result = await finishOAuthCallback(c, c.req.param("providerId"))
       return c.redirect(result.redirectTo)
     } catch (cause) {
-      const redirectTo = new URL("/login", c.req.url)
-      redirectTo.searchParams.set(
-        "oauth_error",
-        errorMessage(cause, "OAuth sign-in failed.")
-      )
-      return c.redirect(redirectTo.toString())
+      return c.redirect(fallbackOAuthErrorRedirect(cause))
     }
   })
   .post(
@@ -419,30 +415,19 @@ export const authRoute = new Hono()
     zValidator("json", UnlinkAccountBody),
     async (c) => {
       const body = c.req.valid("json")
-      if (
-        !(await userHasEnabledSignInMethod(c.var.viewerId, {
-          excludeAccount: {
-            providerId: body.providerId,
-            providerAccountId: body.accountId,
-          },
-        }))
-      ) {
+      const result = await unlinkOAuthAccountPreservingSignIn({
+        userId: c.var.viewerId,
+        providerId: body.providerId,
+        providerAccountId: body.accountId,
+      })
+      if (result === "last-sign-in-method") {
         return c.json(
           { error: "Add another sign-in method before unlinking this account." },
           400
         )
       }
-      const [deleted] = await db
-        .delete(authAccount)
-        .where(
-          and(
-            eq(authAccount.userId, c.var.viewerId),
-            eq(authAccount.providerId, body.providerId),
-            eq(authAccount.providerAccountId, body.accountId)
-          )
-        )
-        .returning({ id: authAccount.id })
-      if (!deleted) return c.json({ error: "Account not found." }, 404)
+      if (result === "not-found")
+        return c.json({ error: "Account not found." }, 404)
       return c.json({ success: true })
     }
   )
