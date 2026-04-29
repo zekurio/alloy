@@ -2,7 +2,11 @@ import { redirect } from "@tanstack/react-router"
 
 import type { PublicAuthConfig } from "@workspace/api"
 
-import { devFlags } from "./flags"
+import {
+  browseAuthTarget,
+  isAdmin,
+  shouldForceOnboarding,
+} from "./auth-access"
 import { loadAuthConfig, loadSession, type Session } from "./session-suspense"
 
 type AuthRouteContext = {
@@ -10,27 +14,8 @@ type AuthRouteContext = {
   session?: Session | null
 }
 
-function isAdmin(session: Session | null): boolean {
-  return (session?.user as { role?: string } | undefined)?.role === "admin"
-}
-
-function isClipPermalink(pathname: string): boolean {
-  return /^\/g\/[^/]+\/c\/[^/]+\/?$/.test(pathname)
-}
-
 function authContext(config: PublicAuthConfig, session: Session | null) {
   return { authConfig: config, session }
-}
-
-function shouldForceOnboarding(
-  config: PublicAuthConfig,
-  session: Session | null
-) {
-  return (
-    (config.setupRequired || devFlags.forceOnboarding) &&
-    !config.adminAccountRequired &&
-    isAdmin(session)
-  )
 }
 
 function contextSession(context: AuthRouteContext): Session | null | undefined {
@@ -89,13 +74,8 @@ export async function requireBrowseAuthBeforeLoad({
     throw redirect({ to: "/setup" })
   }
 
-  if (isClipPermalink(location.pathname)) {
-    return authContext(config, session)
-  }
-
-  if (!session && config.requireAuthToBrowse) {
-    throw redirect({ to: "/login" })
-  }
+  const target = browseAuthTarget(session, config, location.pathname)
+  if (target) throw redirect({ to: target })
   return authContext(config, session)
 }
 
