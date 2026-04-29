@@ -2,6 +2,7 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import type { GameDetail } from "@workspace/api"
 
+import { APP_BANNER_HEIGHT_CLASS } from "@/lib/banner-layout"
 import { hueForGame } from "@/lib/clip-format"
 import { GameFavoriteButton } from "./game-favorite-button"
 
@@ -16,7 +17,8 @@ export function GameHeaderBanner({ game }: GameHeaderBannerProps) {
     <section
       className={cn(
         "relative overflow-hidden",
-        "h-[clamp(120px,15vw,200px)] w-full"
+        APP_BANNER_HEIGHT_CLASS,
+        "w-full"
       )}
     >
       {game.heroUrl ? (
