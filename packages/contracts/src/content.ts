@@ -138,6 +138,8 @@ export interface NotificationClipRef {
   slug: string
   title: string
   gameSlug: string | null
+  /** True when the clip has a generated thumbnail available for preview. */
+  hasThumb: boolean
 }
 
 export interface NotificationCommentRef {
