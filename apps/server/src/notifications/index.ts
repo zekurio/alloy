@@ -266,12 +266,6 @@ export async function deleteNotification(
   return { deleted: true, unreadCount: unread }
 }
 
-/**
- * Notify every follower of `authorId` that a new clip just went live.
- * Skips silently on failure — notification fanout must never break the
- * publish path. Follower reads are paged and writes are batched so popular
- * creators do not launch one DB burst per follower.
- */
 export async function notifyFollowersOfNewClip(input: {
   authorId: string
   clipId: string
