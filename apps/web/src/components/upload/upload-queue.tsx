@@ -82,8 +82,8 @@ export function UploadQueueContent({
   const visible = queue.slice(start, start + PAGE_SIZE)
 
   return (
-    <div className="flex flex-col gap-3">
-      <header className="flex items-center justify-between px-1">
+    <div className="flex flex-col">
+      <header className="mb-2 flex items-center justify-between px-1">
         <h2 className="text-sm font-semibold text-foreground">Uploads</h2>
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-foreground-muted tabular-nums">
@@ -98,9 +98,9 @@ export function UploadQueueContent({
         </div>
       </header>
 
-      <div className="flex flex-col gap-2">
+      <div className="-mx-1 flex flex-col">
         {isUnavailable && queue.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-border px-6 py-8 text-center">
+          <div className="mx-1 flex flex-col items-center justify-center gap-2 rounded-md border border-border px-6 py-8 text-center">
             <CircleAlertIcon
               aria-hidden
               className="size-4 text-foreground-muted"
@@ -115,7 +115,7 @@ export function UploadQueueContent({
             </div>
           </div>
         ) : isLoading && queue.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-border px-6 py-8 text-center">
+          <div className="mx-1 flex flex-col items-center justify-center gap-2 rounded-md border border-border px-6 py-8 text-center">
             <Loader2Icon
               aria-hidden
               className="size-4 animate-spin text-foreground-muted"
@@ -125,7 +125,7 @@ export function UploadQueueContent({
             </p>
           </div>
         ) : queue.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border px-6 py-8 text-center">
+          <div className="mx-1 flex flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border px-6 py-8 text-center">
             <p className="text-sm font-medium text-foreground">
               Nothing in the queue
             </p>
@@ -134,12 +134,14 @@ export function UploadQueueContent({
             </p>
           </div>
         ) : (
-          visible.map((item) => <QueueRow key={item.id} item={item} />)
+          visible.map((item, index) => (
+            <QueueRow key={item.id} item={item} first={index === 0} />
+          ))
         )}
       </div>
 
       {pageCount > 1 ? (
-        <div className="flex items-center justify-between gap-2 px-1 text-xs font-semibold text-foreground-muted">
+        <div className="mt-2 flex items-center justify-between gap-2 px-1 text-xs font-semibold text-foreground-muted">
           <Button
             variant="ghost"
             size="icon-sm"
@@ -164,7 +166,7 @@ export function UploadQueueContent({
         </div>
       ) : null}
 
-      <div className="flex justify-end border-t border-border pt-2.5">
+      <div className="flex justify-end border-t border-border pt-2">
         <div className="flex items-center gap-2">
           {completedCount > 0 && onClearCompleted ? (
             <Button
@@ -197,7 +199,7 @@ export function UploadQueueContent({
   )
 }
 
-function QueueRow({ item }: { item: QueueItem }) {
+function QueueRow({ item, first }: { item: QueueItem; first: boolean }) {
   const tone = STATUS_TONES[item.status]
   const showPct = item.status === "uploading" || item.status === "encoding"
 
@@ -205,17 +207,12 @@ function QueueRow({ item }: { item: QueueItem }) {
     <article
       data-slot="queue-row"
       className={cn(
-        "group/row alloy-glass relative flex flex-col gap-2",
-        "rounded-md border px-3 py-2.5",
-        "transition-[border-color] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-        "hover:border-border-strong"
+        "group/row relative flex flex-col gap-2 rounded-md px-2 py-2.5",
+        "transition-[background-color] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+        "hover:bg-surface-raised/60",
+        !first &&
+          "before:pointer-events-none before:absolute before:inset-x-2 before:-top-px before:h-px before:bg-border"
       )}
-      style={
-        {
-          "--alloy-glass-bg": "var(--queue-row-glass-bg)",
-          "--alloy-glass-shadow": "0 12px 32px -28px rgb(0 0 0 / 0.48)",
-        } as React.CSSProperties
-      }
     >
       <div className="flex items-center gap-3">
         <QueueThumb
@@ -243,7 +240,12 @@ function QueueRow({ item }: { item: QueueItem }) {
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center justify-end gap-0.5">
+        <div
+          className={cn(
+            "absolute top-1.5 right-1.5 flex shrink-0 items-center gap-0.5 rounded-md bg-surface-raised/95 p-0.5",
+            "shadow-[0_4px_12px_-4px_rgb(0_0_0_/_0.35)] ring-1 ring-border"
+          )}
+        >
           <RowAction item={item} />
         </div>
       </div>
