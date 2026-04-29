@@ -3,10 +3,7 @@ import path from "node:path"
 
 import { eq } from "drizzle-orm"
 
-import {
-  clip,
-  type ClipEncodedVariant,
-} from "@workspace/db/schema"
+import { clip, type ClipEncodedVariant } from "@workspace/db/schema"
 
 import { db } from "../db"
 import { publishClipUpsert } from "../clips/events"
@@ -160,17 +157,18 @@ async function runPipelineInScratch(
     processingKey = promoted.storageKey
     processingContentType = promoted.contentType
     processingSizeBytes = promoted.sizeBytes
-    sourceVariant = !encoderConfig.remuxEnabled && encoderConfig.keepSource
-      ? makeSourceVariant({
-          storageKey: promoted.storageKey,
-          contentType: promoted.contentType,
-          width: probed.width,
-          height: probed.height,
-          sizeBytes: promoted.sizeBytes,
-          isDefault: !encoderConfig.enabled,
-          trim,
-        })
-      : null
+    sourceVariant =
+      !encoderConfig.remuxEnabled && encoderConfig.keepSource
+        ? makeSourceVariant({
+            storageKey: promoted.storageKey,
+            contentType: promoted.contentType,
+            width: probed.width,
+            height: probed.height,
+            sizeBytes: promoted.sizeBytes,
+            isDefault: !encoderConfig.enabled,
+            trim,
+          })
+        : null
   }
 
   if (!encoderConfig.enabled) {

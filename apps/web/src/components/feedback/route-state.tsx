@@ -82,8 +82,7 @@ function RouteErrorState({
 function RouteNotFoundState({
   variant = "screen",
 }: RouteNotFoundStateProps): React.ReactElement {
-  const canGoBack =
-    typeof window !== "undefined" && window.history.length > 1
+  const canGoBack = typeof window !== "undefined" && window.history.length > 1
 
   return (
     <RouteStateFrame variant={variant}>
@@ -140,7 +139,6 @@ function RouteStateFrame({
     </Component>
   )
 }
-
 
 function getErrorDetails(
   error: unknown,
