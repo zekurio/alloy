@@ -26,6 +26,7 @@ import {
 
 const DEFAULT_LIMIT = 20
 const MAX_LIMIT = 50
+const NEW_VIDEO_FANOUT_BATCH_SIZE = 10
 
 interface CreateNotificationInput {
   recipientId: string
@@ -267,8 +268,8 @@ export async function deleteNotification(
 /**
  * Notify every follower of `authorId` that a new clip just went live.
  * Skips silently on failure — notification fanout must never break the
- * publish path. Each notification is created independently so a single
- * failure does not poison the whole batch.
+ * publish path. Fanout is batched so popular creators do not launch one DB
+ * burst per follower.
  */
 export async function notifyFollowersOfNewClip(input: {
   authorId: string
@@ -282,16 +283,19 @@ export async function notifyFollowersOfNewClip(input: {
 
     if (followers.length === 0) return
 
-    await Promise.all(
-      followers.map((row) =>
-        createNotification({
-          recipientId: row.followerId,
-          actorId: input.authorId,
-          type: "new_video",
-          clipId: input.clipId,
-        })
+    for (let i = 0; i < followers.length; i += NEW_VIDEO_FANOUT_BATCH_SIZE) {
+      const batch = followers.slice(i, i + NEW_VIDEO_FANOUT_BATCH_SIZE)
+      await Promise.all(
+        batch.map((row) =>
+          createNotification({
+            recipientId: row.followerId,
+            actorId: input.authorId,
+            type: "new_video",
+            clipId: input.clipId,
+          })
+        )
       )
-    )
+    }
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn("[notifications] new-video fanout failed:", err)
