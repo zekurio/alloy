@@ -13,15 +13,19 @@ import { db } from "../db"
 import { clearSessionCookies, setSessionCookies } from "../auth/cookies"
 import {
   assertCanRemoveAdmin,
-  countUserPasskeys,
   deleteUserPasskeyPreservingSignIn,
   findUserByEmail,
   normalizeEmail,
   setupRequired,
   updateUserIdentity,
+  userHasEnabledSignInMethod,
   validateUsername,
 } from "../auth/identity"
-import { oauthNotImplemented } from "../auth/oauth"
+import {
+  finishOAuthCallback,
+  startOAuthLink,
+  startOAuthSignIn,
+} from "../auth/oauth"
 import {
   createSession,
   deleteCurrentSession,
@@ -69,6 +73,11 @@ const UuidParam = z.object({
 const UnlinkAccountBody = z.object({
   providerId: z.string().min(1),
   accountId: z.string().min(1),
+})
+
+const OAuthStartBody = z.object({
+  providerId: z.string().min(1),
+  callbackURL: z.string().optional().nullable(),
 })
 
 export const authRoute = new Hono()
@@ -357,9 +366,52 @@ export const authRoute = new Hono()
       .orderBy(authAccount.createdAt)
     return c.json(rows)
   })
-  .post("/oauth/link", requireSession, (c) => {
-    const result = oauthNotImplemented()
-    return c.json({ error: result.error }, result.status)
+  .post(
+    "/oauth/sign-in",
+    zValidator("json", OAuthStartBody),
+    async (c) => {
+      try {
+        return c.json(await startOAuthSignIn(c.req.valid("json")))
+      } catch (cause) {
+        return c.json(
+          { error: errorMessage(cause, "Could not start OAuth sign-in.") },
+          400
+        )
+      }
+    }
+  )
+  .post(
+    "/oauth/link",
+    requireSession,
+    zValidator("json", OAuthStartBody),
+    async (c) => {
+      try {
+        return c.json(
+          await startOAuthLink({
+            ...c.req.valid("json"),
+            userId: c.var.viewerId,
+          })
+        )
+      } catch (cause) {
+        return c.json(
+          { error: errorMessage(cause, "Could not start OAuth link.") },
+          400
+        )
+      }
+    }
+  )
+  .get("/oauth2/callback/:providerId", async (c) => {
+    try {
+      const result = await finishOAuthCallback(c, c.req.param("providerId"))
+      return c.redirect(result.redirectTo)
+    } catch (cause) {
+      const redirectTo = new URL("/login", c.req.url)
+      redirectTo.searchParams.set(
+        "oauth_error",
+        errorMessage(cause, "OAuth sign-in failed.")
+      )
+      return c.redirect(redirectTo.toString())
+    }
   })
   .post(
     "/accounts/unlink",
@@ -367,9 +419,16 @@ export const authRoute = new Hono()
     zValidator("json", UnlinkAccountBody),
     async (c) => {
       const body = c.req.valid("json")
-      if ((await countUserPasskeys(c.var.viewerId)) === 0) {
+      if (
+        !(await userHasEnabledSignInMethod(c.var.viewerId, {
+          excludeAccount: {
+            providerId: body.providerId,
+            providerAccountId: body.accountId,
+          },
+        }))
+      ) {
         return c.json(
-          { error: "Add a passkey before unlinking this account." },
+          { error: "Add another sign-in method before unlinking this account." },
           400
         )
       }
