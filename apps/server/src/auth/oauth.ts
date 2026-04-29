@@ -32,6 +32,7 @@ import { generateUniqueUsername, slugifyUsername } from "./username"
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000
 const OAUTH_PURPOSE = "oauth-state"
 const GIB = 1024 ** 3
+const oauthClientCache = new Map<string, Promise<Configuration>>()
 
 type OAuthMode = "sign-in" | "link"
 
@@ -138,42 +139,48 @@ export async function finishOAuthCallback(
 
   const challenge = await consumeOAuthChallenge(state)
   const payload = challenge.payload as OAuthChallengePayload
-  if (payload.providerId !== provider.providerId) {
-    throw new Error("OAuth provider changed during sign-in.")
-  }
-
-  const callbackURL = new URL(callbackURLForProvider(provider.providerId))
-  callbackURL.search = currentURL.search
-
-  const config = await oauthClient(provider)
-  const tokens = await authorizationCodeGrant(config, callbackURL, {
-    expectedState: state,
-    pkceCodeVerifier: payload.codeVerifier,
-  })
-  const profile = await profileFromTokens(config, provider, tokens)
-
-  if (payload.mode === "link") {
-    const session = await getSession(c)
-    if (!session || session.user.id !== payload.userId) {
-      throw new Error("Sign in again before linking this account.")
+  try {
+    if (payload.providerId !== provider.providerId) {
+      throw new Error("OAuth provider changed during sign-in.")
     }
-    await linkAccountToUser({
+
+    const callbackURL = new URL(callbackURLForProvider(provider.providerId))
+    callbackURL.search = currentURL.search
+
+    const config = await oauthClient(provider)
+    const tokens = await authorizationCodeGrant(config, callbackURL, {
+      expectedState: state,
+      pkceCodeVerifier: payload.codeVerifier,
+    })
+    const profile = await profileFromTokens(config, provider, tokens)
+
+    if (payload.mode === "link") {
+      const session = await getSession(c)
+      if (!session || session.user.id !== payload.userId) {
+        throw new Error("Sign in again before linking this account.")
+      }
+      await linkAccountToUser({
+        profile,
+        provider,
+        tokens: storedTokens(tokens),
+        userId: session.user.id,
+      })
+      return { redirectTo: payload.callbackURL }
+    }
+
+    const userId = await resolveSignInUser({
       profile,
       provider,
       tokens: storedTokens(tokens),
-      userId: session.user.id,
     })
+    const { token } = await createSession(c, userId)
+    setSessionCookies(c, token)
     return { redirectTo: payload.callbackURL }
+  } catch (cause) {
+    return {
+      redirectTo: callbackURLWithOAuthError(payload.callbackURL, cause),
+    }
   }
-
-  const userId = await resolveSignInUser({
-    profile,
-    provider,
-    tokens: storedTokens(tokens),
-  })
-  const { token } = await createSession(c, userId)
-  setSessionCookies(c, token)
-  return { redirectTo: payload.callbackURL }
 }
 
 export async function syncLinkedOAuthImage(userId: string): Promise<{
@@ -201,12 +208,13 @@ export async function syncLinkedOAuthImage(userId: string): Promise<{
     return { image: null, synced: false }
   }
 
-  const config = await oauthClient(provider)
-  const userInfo = await fetchUserInfo(
-    config,
+  const userInfo = await fetchLinkedUserInfo(
+    provider,
     account.accessToken,
     account.providerAccountId
   )
+  if (!userInfo) return { image: null, synced: false }
+
   const image = imageFromProfile(userInfo)
   if (!image) return { image: null, synced: false }
 
@@ -226,6 +234,21 @@ function requireEnabledProvider(providerId: string): OAuthProviderConfig {
 }
 
 async function oauthClient(
+  provider: OAuthProviderConfig
+): Promise<Configuration> {
+  const key = oauthClientCacheKey(provider)
+  const cached = oauthClientCache.get(key)
+  if (cached) return cached
+
+  const clientPromise = createOAuthClient(provider).catch((cause) => {
+    oauthClientCache.delete(key)
+    throw cause
+  })
+  oauthClientCache.set(key, clientPromise)
+  return clientPromise
+}
+
+async function createOAuthClient(
   provider: OAuthProviderConfig
 ): Promise<Configuration> {
   const metadata = {
@@ -265,6 +288,35 @@ async function oauthClient(
   return config
 }
 
+async function fetchLinkedUserInfo(
+  provider: OAuthProviderConfig,
+  accessToken: string,
+  providerAccountId: string
+): Promise<UserInfoResponse | null> {
+  try {
+    const config = await oauthClient(provider)
+    return await fetchUserInfo(config, accessToken, providerAccountId)
+  } catch (cause) {
+    console.warn(
+      "[oauth] could not sync linked profile:",
+      cause instanceof Error ? cause.message : cause
+    )
+    return null
+  }
+}
+
+function oauthClientCacheKey(provider: OAuthProviderConfig): string {
+  return JSON.stringify({
+    authorizationUrl: provider.authorizationUrl,
+    clientId: provider.clientId,
+    clientSecret: provider.clientSecret,
+    discoveryUrl: provider.discoveryUrl,
+    providerId: provider.providerId,
+    tokenUrl: provider.tokenUrl,
+    userInfoUrl: provider.userInfoUrl,
+  })
+}
+
 function insecureOptions(url: string) {
   return new URL(url).protocol === "http:"
     ? { execute: [allowInsecureRequests] }
@@ -302,6 +354,22 @@ function normalizeCallbackURL(value: string | null | undefined): string {
   if (!allowedOrigins.has(url.origin)) {
     throw new Error("OAuth callback URL is not trusted.")
   }
+  return url.toString()
+}
+
+export function fallbackOAuthErrorRedirect(cause: unknown): string {
+  return callbackURLWithOAuthError(
+    new URL("/login", env.PUBLIC_SERVER_URL).toString(),
+    cause
+  )
+}
+
+function callbackURLWithOAuthError(callbackURL: string, cause: unknown): string {
+  const url = new URL(callbackURL)
+  url.searchParams.set(
+    "oauth_error",
+    cause instanceof Error ? cause.message : "OAuth sign-in failed."
+  )
   return url.toString()
 }
 
