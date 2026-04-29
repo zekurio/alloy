@@ -2,13 +2,13 @@ import * as React from "react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui/components/dialog"
+  ResponsiveDialog,
+  ResponsiveDialogBody,
+  ResponsiveDialogContent,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@workspace/ui/components/responsive-dialog"
 import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { toast } from "@workspace/ui/lib/toast"
 import { cn } from "@workspace/ui/lib/utils"
@@ -157,23 +157,18 @@ export function ClipEditDialog({
   ])
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveDialogContent
         variant="secondary"
         className={cn(
-          "flex max-h-[min(90dvh,820px)] max-w-2xl flex-col gap-0 bg-surface p-0",
-          // Mobile: bottom-sheet positioning
-          "max-sm:top-auto max-sm:right-0 max-sm:bottom-0 max-sm:left-0",
-          "max-sm:max-h-[85dvh] max-sm:max-w-none",
-          "max-sm:translate-x-0 max-sm:translate-y-0",
-          "max-sm:rounded-t-2xl max-sm:rounded-b-none"
+          "flex max-h-[min(90dvh,820px)] flex-col gap-0 bg-surface p-0 md:max-w-2xl"
         )}
       >
-        <DialogHeader>
-          <DialogTitle>Edit clip</DialogTitle>
-        </DialogHeader>
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Edit clip</ResponsiveDialogTitle>
+        </ResponsiveDialogHeader>
 
-        <DialogBody className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+        <ResponsiveDialogBody className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
           <div className="flex flex-col gap-5">
             <Field className="gap-1.5">
               <FieldLabel htmlFor="clip-edit-title">Title</FieldLabel>
@@ -237,9 +232,9 @@ export function ClipEditDialog({
               />
             </Field>
           </div>
-        </DialogBody>
+        </ResponsiveDialogBody>
 
-        <DialogFooter
+        <ResponsiveDialogFooter
           className={cn(
             "px-4 pt-3 sm:px-6",
             "pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
@@ -263,8 +258,8 @@ export function ClipEditDialog({
           >
             {saving ? "Saving…" : "Save"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </ResponsiveDialogFooter>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   )
 }
