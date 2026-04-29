@@ -254,7 +254,10 @@ function BottomNavFallback() {
       <AppBottomNavItem title="Library">
         <LibraryIcon />
       </AppBottomNavItem>
-      <AppBottomNavItem title="Upload" className="before:!hidden [&_svg]:!size-4">
+      <AppBottomNavItem
+        title="Upload"
+        className="before:!hidden [&_svg]:!size-4"
+      >
         <NavUploadIcon />
       </AppBottomNavItem>
       <AppBottomNavItem title="Games">
