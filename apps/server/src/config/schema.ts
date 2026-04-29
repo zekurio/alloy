@@ -7,8 +7,6 @@ import {
   ENCODER_HEIGHT_MIN,
   ENCODER_HWACCELS,
   STORAGE_DRIVERS,
-  type EncoderCodec,
-  type EncoderHwaccel,
   type EncoderOpenGraphTarget,
   type RuntimeConfig,
 } from "@workspace/contracts"
@@ -16,83 +14,12 @@ import {
 import { env } from "../env"
 import { OAuthProviderSchema } from "./oauth-schema"
 
-function inferLegacyEncoderSettings(
-  variants: unknown
-): { hwaccel: EncoderHwaccel; codec: EncoderCodec } | null {
-  if (!Array.isArray(variants)) return null
-  for (const rawVariant of variants) {
-    if (
-      !rawVariant ||
-      typeof rawVariant !== "object" ||
-      Array.isArray(rawVariant)
-    ) {
-      continue
-    }
-
-    const variant = rawVariant as Record<string, unknown>
-    const legacyHwaccel =
-      variant.hwaccel === "software" ? "none" : variant.hwaccel
-    const legacyCodec = variant.codec
-    if (
-      ENCODER_HWACCELS.includes(legacyHwaccel as EncoderHwaccel) &&
-      ENCODER_CODECS.includes(legacyCodec as EncoderCodec)
-    ) {
-      return {
-        hwaccel: legacyHwaccel as EncoderHwaccel,
-        codec: legacyCodec as EncoderCodec,
-      }
-    }
-
-    const encoder = typeof variant.encoder === "string" ? variant.encoder : ""
-    const inferred = inferFromEncoderName(encoder)
-    if (inferred) return inferred
-  }
-  return null
-}
-
-function inferLegacyVariantCodec(
-  variant: Record<string, unknown>
-): EncoderCodec | null {
-  if (ENCODER_CODECS.includes(variant.codec as EncoderCodec)) {
-    return variant.codec as EncoderCodec
-  }
-  const encoder = typeof variant.encoder === "string" ? variant.encoder : ""
-  return inferFromEncoderName(encoder)?.codec ?? null
-}
-
-function inferFromEncoderName(
-  encoder: string
-): { hwaccel: EncoderHwaccel; codec: EncoderCodec } | null {
-  switch (encoder) {
-    case "libx264":
-      return { hwaccel: "none", codec: "h264" }
-    case "libx265":
-      return { hwaccel: "none", codec: "hevc" }
-    case "libsvtav1":
-      return { hwaccel: "none", codec: "av1" }
-  }
-
-  const match =
-    /^(h264|hevc|av1)_(amf|nvenc|qsv|rkmpp|vaapi|videotoolbox|v4l2m2m)$/.exec(
-      encoder
-    )
-  if (!match) return null
-  return {
-    codec: match[1] as EncoderCodec,
-    hwaccel: match[2] as EncoderHwaccel,
-  }
-}
-
 const EncoderVariantSchema = z.preprocess(
   (raw) => {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw
     const variant = { ...(raw as Record<string, unknown>) }
-    const legacyCodec = inferLegacyVariantCodec(variant)
-    if (legacyCodec) variant.codec = legacyCodec
     if (variant.extraInputArgs === undefined) variant.extraInputArgs = ""
     if (variant.extraOutputArgs === undefined) variant.extraOutputArgs = ""
-    delete variant.hwaccel
-    delete variant.encoder
     return variant
   },
   z.object({
@@ -153,13 +80,6 @@ const EncoderConfigInnerSchema = z.object({
 const EncoderConfigSchema = z.preprocess((raw) => {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw
   const config = { ...(raw as Record<string, unknown>) }
-  const inferred = inferLegacyEncoderSettings(config.variants)
-  if (config.hwaccel === undefined && inferred)
-    config.hwaccel = inferred.hwaccel
-  if (config.hwaccel === "software") config.hwaccel = "none"
-  const fallbackCodec = ENCODER_CODECS.includes(config.codec as EncoderCodec)
-    ? (config.codec as EncoderCodec)
-    : (inferred?.codec ?? "h264")
   if (Array.isArray(config.variants)) {
     const usedIds = new Set<string>()
     config.variants = config.variants.map((rawVariant) => {
@@ -171,11 +91,8 @@ const EncoderConfigSchema = z.preprocess((raw) => {
         return rawVariant
       }
       const variant = { ...(rawVariant as Record<string, unknown>) }
-      if (variant.codec === undefined && variant.encoder === undefined) {
-        variant.codec = fallbackCodec
-      }
       if (typeof variant.id !== "string" || variant.id.trim() === "") {
-        variant.id = buildLegacyVariantId(variant.name, usedIds)
+        variant.id = buildVariantId(variant.name, usedIds)
       } else {
         variant.id = normalizeVariantId(variant.id, usedIds)
       }
@@ -192,11 +109,10 @@ const EncoderConfigSchema = z.preprocess((raw) => {
   if (config.openGraphTarget === undefined) {
     config.openGraphTarget = { type: "source" }
   }
-  delete config.codec
   return config
 }, EncoderConfigInnerSchema)
 
-function buildLegacyVariantId(name: unknown, usedIds: Set<string>): string {
+function buildVariantId(name: unknown, usedIds: Set<string>): string {
   const base =
     typeof name === "string"
       ? name
@@ -254,6 +170,13 @@ const IntegrationsConfigSchema = z.object({
   steamgriddbApiKey: z.string().default(""),
 })
 
+const ServerSecretsConfigSchema = z.object({
+  viewerCookieSecret: z
+    .string()
+    .min(32)
+    .default(() => randomBytes(32).toString("base64url")),
+})
+
 function normalizePublicUrl(value: string): string {
   const url = new URL(value)
   url.pathname = url.pathname.replace(/\/api\/?$/, "") || "/"
@@ -273,37 +196,20 @@ const FsStorageConfigSchema = z.object({
 })
 
 const S3StorageConfigSchema = z.object({
-  bucket: z.string().default(env.S3_BUCKET ?? ""),
-  region: z.string().default(env.S3_REGION),
+  bucket: z.string().default(""),
+  region: z.string().default("auto"),
   endpoint: z.string().url().optional(),
   accessKeyId: z.string().optional(),
   secretAccessKey: z.string().optional(),
-  forcePathStyle: z.boolean().default(env.S3_FORCE_PATH_STYLE),
-  presignExpiresSec: z
-    .number()
-    .int()
-    .positive()
-    .default(env.S3_PRESIGN_EXPIRES_SEC),
+  forcePathStyle: z.boolean().default(false),
+  presignExpiresSec: z.number().int().positive().default(900),
 })
 
 const DEFAULT_FS_STORAGE_CONFIG = FsStorageConfigSchema.parse({
-  root: env.STORAGE_FS_ROOT,
-  publicBaseUrl: env.STORAGE_PUBLIC_BASE_URL,
-  hmacSecret:
-    env.STORAGE_HMAC_SECRET && env.STORAGE_HMAC_SECRET.length >= 32
-      ? env.STORAGE_HMAC_SECRET
-      : randomBytes(32).toString("base64url"),
+  hmacSecret: randomBytes(32).toString("base64url"),
 })
 
-const DEFAULT_S3_STORAGE_CONFIG = S3StorageConfigSchema.parse({
-  bucket: env.S3_BUCKET ?? "",
-  region: env.S3_REGION,
-  endpoint: env.S3_ENDPOINT,
-  accessKeyId: env.S3_ACCESS_KEY_ID,
-  secretAccessKey: env.S3_SECRET_ACCESS_KEY,
-  forcePathStyle: env.S3_FORCE_PATH_STYLE,
-  presignExpiresSec: env.S3_PRESIGN_EXPIRES_SEC,
-})
+const DEFAULT_S3_STORAGE_CONFIG = S3StorageConfigSchema.parse({})
 
 const StorageConfigSchema = z
   .object({
@@ -332,8 +238,11 @@ export const RuntimeConfigSchema = z.object({
   integrations: IntegrationsConfigSchema.default(
     IntegrationsConfigSchema.parse({})
   ),
+  secrets: ServerSecretsConfigSchema.default(
+    ServerSecretsConfigSchema.parse({})
+  ),
   storage: StorageConfigSchema.default({
-    driver: env.STORAGE_DRIVER,
+    driver: "fs",
     fs: DEFAULT_FS_STORAGE_CONFIG,
     s3: DEFAULT_S3_STORAGE_CONFIG,
   }),
