@@ -10,7 +10,12 @@ import { z } from "zod"
 import { authAccount, user, userPasskey } from "@workspace/db/auth-schema"
 
 import { db } from "../db"
-import { clearSessionCookies, setSessionCookies } from "../auth/cookies"
+import {
+  clearOAuthStateCookie,
+  clearSessionCookies,
+  setOAuthStateCookie,
+  setSessionCookies,
+} from "../auth/cookies"
 import {
   assertCanRemoveAdmin,
   deleteUserPasskeyPreservingSignIn,
@@ -372,7 +377,10 @@ export const authRoute = new Hono()
     zValidator("json", OAuthStartBody),
     async (c) => {
       try {
-        return c.json(await startOAuthSignIn(c.req.valid("json")))
+        const body = c.req.valid("json")
+        const result = await startOAuthSignIn(body)
+        setOAuthStateCookie(c, body.providerId, result.browserNonce)
+        return c.json({ url: result.url })
       } catch (cause) {
         return c.json(
           { error: errorMessage(cause, "Could not start OAuth sign-in.") },
@@ -387,12 +395,13 @@ export const authRoute = new Hono()
     zValidator("json", OAuthStartBody),
     async (c) => {
       try {
-        return c.json(
-          await startOAuthLink({
-            ...c.req.valid("json"),
-            userId: c.var.viewerId,
-          })
-        )
+        const body = c.req.valid("json")
+        const result = await startOAuthLink({
+          ...body,
+          userId: c.var.viewerId,
+        })
+        setOAuthStateCookie(c, body.providerId, result.browserNonce)
+        return c.json({ url: result.url })
       } catch (cause) {
         return c.json(
           { error: errorMessage(cause, "Could not start OAuth link.") },
@@ -402,10 +411,12 @@ export const authRoute = new Hono()
     }
   )
   .get("/oauth2/callback/:providerId", async (c) => {
+    const providerId = c.req.param("providerId")
     try {
-      const result = await finishOAuthCallback(c, c.req.param("providerId"))
+      const result = await finishOAuthCallback(c, providerId)
       return c.redirect(result.redirectTo)
     } catch (cause) {
+      clearOAuthStateCookie(c, providerId)
       return c.redirect(fallbackOAuthErrorRedirect(cause))
     }
   })
