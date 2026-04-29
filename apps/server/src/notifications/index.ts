@@ -1,4 +1,4 @@
-import { and, count, desc, eq, isNull } from "drizzle-orm"
+import { and, count, desc, eq, gt, isNull } from "drizzle-orm"
 
 import type {
   NotificationRow,
@@ -7,7 +7,13 @@ import type {
   UserSummary,
 } from "@workspace/contracts"
 import { user } from "@workspace/db/auth-schema"
-import { clip, clipComment, game, notification } from "@workspace/db/schema"
+import {
+  clip,
+  clipComment,
+  follow,
+  game,
+  notification,
+} from "@workspace/db/schema"
 
 import { db } from "../db"
 import {
@@ -20,6 +26,8 @@ import {
 
 const DEFAULT_LIMIT = 20
 const MAX_LIMIT = 50
+const NEW_VIDEO_FANOUT_BATCH_SIZE = 10
+const NEW_VIDEO_FANOUT_PAGE_SIZE = 100
 
 interface CreateNotificationInput {
   recipientId: string
@@ -65,6 +73,7 @@ function serialize(row: {
   clipId: string | null
   clipSlug: string | null
   clipTitle: string | null
+  clipThumbKey: string | null
   gameSlug: string | null
   commentId: string | null
   commentBody: string | null
@@ -80,6 +89,7 @@ function serialize(row: {
             slug: row.clipSlug,
             title: row.clipTitle,
             gameSlug: row.gameSlug,
+            hasThumb: row.clipThumbKey !== null,
           }
         : null,
     comment:
@@ -105,6 +115,7 @@ function selectNotificationFields() {
     clipId: clip.id,
     clipSlug: clip.slug,
     clipTitle: clip.title,
+    clipThumbKey: clip.thumbKey,
     gameSlug: game.slug,
     commentId: clipComment.id,
     commentBody: clipComment.body,
@@ -253,6 +264,55 @@ export async function deleteNotification(
   const unread = await unreadCount(recipientId)
   publishNotificationRemove(recipientId, id, unread)
   return { deleted: true, unreadCount: unread }
+}
+
+/**
+ * Notify every follower of `authorId` that a new clip just went live.
+ * Skips silently on failure — notification fanout must never break the
+ * publish path. Follower reads are paged and writes are batched so popular
+ * creators do not launch one DB burst per follower.
+ */
+export async function notifyFollowersOfNewClip(input: {
+  authorId: string
+  clipId: string
+}): Promise<void> {
+  try {
+    let cursor: string | null = null
+    for (;;) {
+      const followers = await db
+        .select({ id: follow.id, followerId: follow.followerId })
+        .from(follow)
+        .where(
+          cursor
+            ? and(eq(follow.followingId, input.authorId), gt(follow.id, cursor))
+            : eq(follow.followingId, input.authorId)
+        )
+        .orderBy(follow.id)
+        .limit(NEW_VIDEO_FANOUT_PAGE_SIZE)
+
+      if (followers.length === 0) return
+
+      for (let i = 0; i < followers.length; i += NEW_VIDEO_FANOUT_BATCH_SIZE) {
+        const batch = followers.slice(i, i + NEW_VIDEO_FANOUT_BATCH_SIZE)
+        await Promise.all(
+          batch.map((row) =>
+            createNotification({
+              recipientId: row.followerId,
+              actorId: input.authorId,
+              type: "new_video",
+              clipId: input.clipId,
+            })
+          )
+        )
+      }
+
+      cursor = followers[followers.length - 1]?.id ?? null
+      if (followers.length < NEW_VIDEO_FANOUT_PAGE_SIZE) return
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn("[notifications] new-video fanout failed:", err)
+  }
 }
 
 export async function clearNotifications(
