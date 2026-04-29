@@ -18,6 +18,7 @@ import {
   useToggleCommentLikeMutation,
   useTogglePinCommentMutation,
 } from "@/lib/comment-queries"
+import { useSuspenseAuthConfig } from "@/lib/session-suspense"
 import type { CommentRow } from "@workspace/api"
 import { displayName, userAvatar, useUserChipData } from "@/lib/user-display"
 import {
@@ -116,6 +117,7 @@ function ClipComments({
     [commentsQuery.data]
   )
   const create = useCreateCommentMutation(clipId)
+  const authConfig = useSuspenseAuthConfig()
 
   const totalCount = React.useMemo(
     () => comments.reduce((n, c) => n + countCommentTree(c), 0),
@@ -123,6 +125,9 @@ function ClipComments({
   )
 
   const isSignedIn = viewerId !== null
+  const canSignUp =
+    authConfig.openRegistrations &&
+    (authConfig.passkeyEnabled || authConfig.provider !== null)
   const canSubmit = draft.trim().length > 0 && isSignedIn
 
   function toggleReplies(commentId: string) {
@@ -333,7 +338,7 @@ function ClipComments({
             onSubmit={submitComment}
           />
         ) : (
-          <CommentAuthHint />
+          <CommentAuthHint canSignUp={canSignUp} />
         )}
       </div>
     </aside>
