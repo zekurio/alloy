@@ -102,6 +102,10 @@ export interface AdminIntegrationsConfig {
 
 export type IntegrationsConfig = AdminIntegrationsConfig
 
+export interface ServerSecretsConfig {
+  viewerCookieSecret: string
+}
+
 export const STORAGE_DRIVERS = ["fs", "s3"] as const
 export type StorageDriverKind = (typeof STORAGE_DRIVERS)[number]
 
@@ -190,6 +194,7 @@ export interface RuntimeConfig {
   limits: LimitsConfig
   integrations: IntegrationsConfig
   storage: StorageConfig
+  secrets: ServerSecretsConfig
 }
 
 export interface AdminRuntimeConfig extends RuntimeConfig {
