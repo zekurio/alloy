@@ -104,7 +104,9 @@ const AppChrome = React.memo(function AppChrome() {
   )
 })
 
-function AppRouteErrorState(props: React.ComponentProps<typeof RouteErrorState>) {
+function AppRouteErrorState(
+  props: React.ComponentProps<typeof RouteErrorState>
+) {
   return (
     <AppRouteStateShell>
       <RouteErrorState {...props} variant="panel" />

@@ -67,7 +67,9 @@ export function useUploadQueueStream({ enabled }: { enabled: boolean }) {
     }
 
     source.onerror = () => {
-      if (queryClient.getQueryData<QueueClip[]>(clipKeys.queue()) === undefined) {
+      if (
+        queryClient.getQueryData<QueueClip[]>(clipKeys.queue()) === undefined
+      ) {
         setInitialError(true)
       }
     }

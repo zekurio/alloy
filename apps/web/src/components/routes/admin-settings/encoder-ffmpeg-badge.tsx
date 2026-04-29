@@ -1,8 +1,4 @@
-import {
-  AlertCircleIcon,
-  CheckCircle2Icon,
-  XCircleIcon,
-} from "lucide-react"
+import { AlertCircleIcon, CheckCircle2Icon, XCircleIcon } from "lucide-react"
 
 import { Spinner } from "@workspace/ui/components/spinner"
 import {
