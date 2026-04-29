@@ -8,7 +8,11 @@ import { user } from "@workspace/db/auth-schema"
 import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { assertCanRemoveAdmin, createUserIdentity } from "../auth/identity"
+import {
+  assertCanRemoveAdmin,
+  createUserIdentity,
+  hasAdminSignInMethodForConfig,
+} from "../auth/identity"
 import { deleteAllSessionsForUser, requireAdmin } from "../auth/session"
 import {
   EncoderConfigPatchSchema,
@@ -78,6 +82,19 @@ function badRequest(c: Context, cause: unknown, fallback: string) {
   return c.json({ error: errorMessage(cause, fallback) }, 400)
 }
 
+async function signInConfigError(config: {
+  passkeyEnabled: boolean
+  oauthProvider: { enabled: boolean; providerId: string } | null
+}): Promise<string | null> {
+  if (!hasEnabledSignInMethod(config)) {
+    return "Keep at least one sign-in method enabled."
+  }
+  if (!(await hasAdminSignInMethodForConfig(config))) {
+    return "Keep at least one active admin sign-in method before disabling passkeys or OAuth."
+  }
+  return null
+}
+
 export const adminRoute = new Hono()
   .use("*", requireAdmin)
   .get("/runtime-config", (c) => {
@@ -111,13 +128,9 @@ export const adminRoute = new Hono()
         ...current,
         ...input,
       }
-      if (!hasEnabledSignInMethod(next)) {
-        return c.json(
-          {
-            error: "Keep at least one sign-in method enabled.",
-          },
-          400
-        )
+      const authError = await signInConfigError(next)
+      if (authError) {
+        return c.json({ error: authError }, 400)
       }
       configStore.patch(input as Partial<RuntimeConfig>)
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
@@ -211,13 +224,9 @@ export const adminRoute = new Hono()
         ...current,
         ...body,
       }
-      if (!hasEnabledSignInMethod(next)) {
-        return c.json(
-          {
-            error: "Keep at least one sign-in method enabled.",
-          },
-          400
-        )
+      const authError = await signInConfigError(next)
+      if (authError) {
+        return c.json({ error: authError }, 400)
       }
       const patch: Partial<{
         setupComplete: boolean
@@ -244,25 +253,19 @@ export const adminRoute = new Hono()
   .put(
     "/oauth-config",
     zValidator("json", OAuthConfigSubmissionSchema),
-    (c) => {
+    async (c) => {
       const submission = c.req.valid("json")
       const existing = configStore.get("oauthProvider")
       try {
         const nextProvider = submission.oauthProvider
           ? finalizeOAuthProviderSubmission(submission.oauthProvider, existing)
           : null
-        if (
-          !hasEnabledSignInMethod({
+        const authError = await signInConfigError({
             passkeyEnabled: configStore.get("passkeyEnabled"),
             oauthProvider: nextProvider,
-          })
-        ) {
-          return c.json(
-            {
-              error: "Keep at least one sign-in method enabled.",
-            },
-            400
-          )
+        })
+        if (authError) {
+          return c.json({ error: authError }, 400)
         }
         configStore.patch({ oauthProvider: nextProvider })
       } catch (cause) {

@@ -99,6 +99,9 @@ function SecurityContent({ config }: { config: PublicAuthConfig }) {
           <LinkedAccountsCard
             accounts={accounts}
             config={config}
+            hasPasskeySignIn={
+              config.passkeyEnabled && (passkeys?.length ?? 0) > 0
+            }
             onRefresh={refreshAccounts}
           />
         </div>
