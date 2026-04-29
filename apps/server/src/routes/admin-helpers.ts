@@ -139,8 +139,7 @@ export function hasEnabledSignInMethod(config: {
   passkeyEnabled: boolean
   oauthProvider: { enabled: boolean } | null
 }): boolean {
-  void config.oauthProvider
-  return config.passkeyEnabled
+  return config.passkeyEnabled || config.oauthProvider?.enabled === true
 }
 
 function sanitizeScopes(scopes: string[] | undefined): string[] | undefined {
