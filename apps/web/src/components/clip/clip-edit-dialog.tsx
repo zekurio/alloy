@@ -161,7 +161,7 @@ export function ClipEditDialog({
       <ResponsiveDialogContent
         variant="secondary"
         className={cn(
-          "flex max-h-[min(90dvh,820px)] max-w-2xl flex-col gap-0 bg-surface p-0"
+          "flex max-h-[min(90dvh,820px)] flex-col gap-0 bg-surface p-0 md:max-w-2xl"
         )}
       >
         <ResponsiveDialogHeader>
