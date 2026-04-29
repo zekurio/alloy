@@ -182,6 +182,7 @@ in
           TRUSTED_ORIGINS = lib.concatStringsSep "," (
             lib.unique ([ cfg.publicServerUrl ] ++ cfg.trustedOrigins)
           );
+          ALLOY_STATE_DIR = toString cfg.stateDir;
           ALLOY_CONFIG_FILE = "${cfg.stateDir}/config.json";
           ENCODE_SCRATCH_DIR = "${cfg.stateDir}/scratch";
         }
