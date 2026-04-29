@@ -198,47 +198,69 @@ function toastNotification(row: NotificationRow) {
   if (row.type !== "clip_upload_failed") return
 
   const text = notificationText(row)
-  toast.error(text.title, {
-    description: text.body,
+  toast.error(text.kind, {
+    description: text.title,
     id: `notification:${row.id}`,
   })
 }
 
 export function notificationText(row: NotificationRow): {
+  /** Short label for the notification kind — surfaces above the body. */
+  kind: string
+  /** Primary, scannable line — the user's name or the clip title. */
   title: string
-  body: string
+  /** Optional secondary line, used for context (e.g. comment body excerpt). */
+  body: string | null
 } {
   const actor =
+    row.actor?.name ||
     row.actor?.displayUsername ||
     row.actor?.username ||
-    row.actor?.name ||
     "Someone"
   const clipTitle = row.clip?.title ?? "your clip"
 
   switch (row.type) {
     case "clip_upload_failed":
-      return { title: "Clip upload failed", body: clipTitle }
+      return {
+        kind: "Upload failed",
+        title: clipTitle,
+        body: "Tap to retry from the upload queue.",
+      }
     case "new_follower":
-      return { title: "New follower", body: `${actor} followed you.` }
+      return {
+        kind: "New follower",
+        title: `${actor} followed you`,
+        body: null,
+      }
+    case "new_video":
+      return {
+        kind: "New video",
+        title: `${actor} uploaded a new video`,
+        body: clipTitle,
+      }
     case "clip_comment":
       return {
-        title: "New comment",
-        body: `${actor} commented on ${clipTitle}.`,
+        kind: "New comment",
+        title: `${actor} commented on ${clipTitle}`,
+        body: row.comment?.body ?? null,
       }
     case "comment_reply":
       return {
-        title: "New reply",
-        body: `${actor} replied to your comment on ${clipTitle}.`,
+        kind: "New reply",
+        title: `${actor} replied to your comment`,
+        body: row.comment?.body ?? clipTitle,
       }
     case "comment_pinned":
       return {
-        title: "Comment pinned",
-        body: `${actor} pinned your comment on ${clipTitle}.`,
+        kind: "Comment pinned",
+        title: `${actor} pinned your comment`,
+        body: clipTitle,
       }
     case "comment_liked_by_author":
       return {
-        title: "Comment liked",
-        body: `${actor} liked your comment on ${clipTitle}.`,
+        kind: "Comment liked",
+        title: `${actor} liked your comment`,
+        body: clipTitle,
       }
   }
 }
@@ -246,6 +268,10 @@ export function notificationText(row: NotificationRow): {
 export function notificationHref(row: NotificationRow): string | null {
   if (row.type === "new_follower" && row.actor) {
     return `/u/${row.actor.username}`
+  }
+  if (row.type === "new_video" && row.clip) {
+    const slug = row.clip.gameSlug ?? row.clip.slug
+    return `/g/${slug}/c/${row.clip.id}`
   }
   if (!row.clip) return null
   const slug = row.clip.gameSlug ?? row.clip.slug
