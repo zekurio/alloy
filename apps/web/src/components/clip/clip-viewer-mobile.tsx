@@ -205,20 +205,12 @@ function MobileClipViewerBody({
   }, [autoAdvance, next, onNavigate])
 
   const avatarStyle = { background: avatar.bg, color: avatar.fg } as const
-  const mobileViewerLayoutStyle = {
-    "--clip-mobile-top-grow":
-      "clamp(0.25, calc((100dvh - 620px) / 180), 1)",
-    "--clip-mobile-bottom-grow": "calc(2 - var(--clip-mobile-top-grow))",
-    "--clip-mobile-player-max-height":
-      "min(72dvh, calc(100dvh - clamp(12rem, 36dvh, 18rem)))",
-  } as React.CSSProperties
 
   return (
     <>
       <DialogViewportContent className="h-dvh w-dvw rounded-none border-0 shadow-none">
         <div
           className="relative flex h-full flex-col bg-black"
-          style={mobileViewerLayoutStyle}
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
         >
@@ -241,10 +233,7 @@ function MobileClipViewerBody({
           </DialogClose>
 
           {/* ---- Top spacer (pushes player toward vertical center) ---- */}
-          <div
-            className="min-h-0 basis-0"
-            style={{ flexGrow: "var(--clip-mobile-top-grow)" }}
-          />
+          <div className="min-h-0 flex-1" />
 
           {/* ---- Prev clip chevron (above video) ---- */}
           <div className="relative z-10 flex shrink-0 justify-center py-1">
@@ -273,7 +262,7 @@ function MobileClipViewerBody({
               variants={row.variants}
               status={row.status}
               encodeProgress={row.encodeProgress}
-              maxDisplayHeight="var(--clip-mobile-player-max-height)"
+              maxDisplayHeight="min(72dvh, calc(100dvh - 18rem))"
               onPlayThreshold={() => void api.clips.recordView(row.id)}
               onEnded={handleEnded}
               autoPlay
@@ -299,10 +288,7 @@ function MobileClipViewerBody({
           </div>
 
           {/* ---- Bottom section ---- */}
-          <div
-            className="relative z-10 flex min-h-0 basis-0 overflow-visible"
-            style={{ flexGrow: "var(--clip-mobile-bottom-grow)" }}
-          >
+          <div className="relative z-10 flex max-h-[min(40dvh,16rem)] shrink-0 overflow-hidden">
             {/* Left: metadata cluster */}
             <div className="flex min-h-0 flex-1 flex-col justify-end gap-2.5 overflow-hidden p-4 pr-2 pb-5">
               {/* Game badge */}
