@@ -24,11 +24,11 @@ function buildStorage(config: StorageConfig): StorageDriver {
         presignExpiresSec: config.s3.presignExpiresSec,
       })
     default: {
-      // Exhaustiveness check — adding a new variant to `STORAGE_DRIVER`
-      // without handling it here is a compile error.
+      // Exhaustiveness check: adding a new storage driver variant without
+      // handling it here is a compile error.
       const exhaustive: never = config
       throw new Error(
-        `Unsupported STORAGE_DRIVER: ${JSON.stringify(exhaustive)}`
+        `Unsupported storage driver: ${JSON.stringify(exhaustive)}`
       )
     }
   }

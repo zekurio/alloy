@@ -3,7 +3,7 @@ import { createHmac, randomUUID, timingSafeEqual } from "node:crypto"
 import { getCookie, setCookie } from "hono/cookie"
 import type { Context } from "hono"
 
-import { authSecret } from "../env"
+import { configStore } from "../config/store"
 import { getSession } from "./session"
 
 const COOKIE_NAME = "alloy_viewer"
@@ -81,5 +81,8 @@ function verifyCookie(raw: string): string | null {
 }
 
 function hmac(value: string): string {
-  return createHmac("sha256", authSecret).update(value).digest("base64url")
+  const { viewerCookieSecret } = configStore.get("secrets")
+  return createHmac("sha256", viewerCookieSecret)
+    .update(value)
+    .digest("base64url")
 }
