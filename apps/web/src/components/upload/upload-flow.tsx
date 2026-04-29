@@ -137,11 +137,11 @@ function UploadQueuePopover({
     return (
       <Drawer open={queueOpen} onOpenChange={setQueueOpen}>
         <DrawerContent
-          className={cn("max-h-[85vh] p-3", "alloy-glass")}
+          className={cn("max-h-[85vh] p-0", "alloy-glass")}
           style={queueGlassStyle}
           aria-describedby={undefined}
         >
-          {content}
+          <div className="p-3">{content}</div>
         </DrawerContent>
       </Drawer>
     )
