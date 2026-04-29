@@ -1,9 +1,6 @@
 import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
-import {
-  AlertTriangleIcon,
-  PlusIcon,
-} from "lucide-react"
+import { AlertTriangleIcon, PlusIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
