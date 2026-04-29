@@ -254,6 +254,13 @@ const IntegrationsConfigSchema = z.object({
   steamgriddbApiKey: z.string().default(""),
 })
 
+const ServerSecretsConfigSchema = z.object({
+  viewerCookieSecret: z
+    .string()
+    .min(32)
+    .default(() => randomBytes(32).toString("base64url")),
+})
+
 function normalizePublicUrl(value: string): string {
   const url = new URL(value)
   url.pathname = url.pathname.replace(/\/api\/?$/, "") || "/"
@@ -273,37 +280,20 @@ const FsStorageConfigSchema = z.object({
 })
 
 const S3StorageConfigSchema = z.object({
-  bucket: z.string().default(env.S3_BUCKET ?? ""),
-  region: z.string().default(env.S3_REGION),
+  bucket: z.string().default(""),
+  region: z.string().default("auto"),
   endpoint: z.string().url().optional(),
   accessKeyId: z.string().optional(),
   secretAccessKey: z.string().optional(),
-  forcePathStyle: z.boolean().default(env.S3_FORCE_PATH_STYLE),
-  presignExpiresSec: z
-    .number()
-    .int()
-    .positive()
-    .default(env.S3_PRESIGN_EXPIRES_SEC),
+  forcePathStyle: z.boolean().default(false),
+  presignExpiresSec: z.number().int().positive().default(900),
 })
 
 const DEFAULT_FS_STORAGE_CONFIG = FsStorageConfigSchema.parse({
-  root: env.STORAGE_FS_ROOT,
-  publicBaseUrl: env.STORAGE_PUBLIC_BASE_URL,
-  hmacSecret:
-    env.STORAGE_HMAC_SECRET && env.STORAGE_HMAC_SECRET.length >= 32
-      ? env.STORAGE_HMAC_SECRET
-      : randomBytes(32).toString("base64url"),
+  hmacSecret: randomBytes(32).toString("base64url"),
 })
 
-const DEFAULT_S3_STORAGE_CONFIG = S3StorageConfigSchema.parse({
-  bucket: env.S3_BUCKET ?? "",
-  region: env.S3_REGION,
-  endpoint: env.S3_ENDPOINT,
-  accessKeyId: env.S3_ACCESS_KEY_ID,
-  secretAccessKey: env.S3_SECRET_ACCESS_KEY,
-  forcePathStyle: env.S3_FORCE_PATH_STYLE,
-  presignExpiresSec: env.S3_PRESIGN_EXPIRES_SEC,
-})
+const DEFAULT_S3_STORAGE_CONFIG = S3StorageConfigSchema.parse({})
 
 const StorageConfigSchema = z
   .object({
@@ -332,8 +322,11 @@ export const RuntimeConfigSchema = z.object({
   integrations: IntegrationsConfigSchema.default(
     IntegrationsConfigSchema.parse({})
   ),
+  secrets: ServerSecretsConfigSchema.default(
+    ServerSecretsConfigSchema.parse({})
+  ),
   storage: StorageConfigSchema.default({
-    driver: env.STORAGE_DRIVER,
+    driver: "fs",
     fs: DEFAULT_FS_STORAGE_CONFIG,
     s3: DEFAULT_S3_STORAGE_CONFIG,
   }),

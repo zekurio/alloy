@@ -35,6 +35,12 @@ function redactSecrets(
         ? REDACTED_SENTINEL
         : "",
     },
+    secrets: {
+      ...config.secrets,
+      viewerCookieSecret: config.secrets.viewerCookieSecret
+        ? REDACTED_SENTINEL
+        : "",
+    },
     oauthProvider: config.oauthProvider
       ? { ...config.oauthProvider, clientSecret: "" }
       : null,
@@ -69,6 +75,12 @@ export function preserveRedactedSecrets(
     const integrations = input.integrations as Record<string, unknown>
     if (integrations.steamgriddbApiKey === REDACTED_SENTINEL) {
       integrations.steamgriddbApiKey = current.integrations.steamgriddbApiKey
+    }
+  }
+  if (input.secrets && typeof input.secrets === "object") {
+    const secrets = input.secrets as Record<string, unknown>
+    if (secrets.viewerCookieSecret === REDACTED_SENTINEL) {
+      secrets.viewerCookieSecret = current.secrets.viewerCookieSecret
     }
   }
   if (input.oauthProvider && typeof input.oauthProvider === "object") {

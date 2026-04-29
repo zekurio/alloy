@@ -112,6 +112,17 @@ function stripLegacyProviderFields(
   return next
 }
 
+function needsViewerSecretMigration(raw: unknown): boolean {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return true
+  const secrets = (raw as Record<string, unknown>).secrets
+  if (!secrets || typeof secrets !== "object" || Array.isArray(secrets)) {
+    return true
+  }
+  return (
+    typeof (secrets as Record<string, unknown>).viewerCookieSecret !== "string"
+  )
+}
+
 type LoadResult =
   | { ok: true; config: RuntimeConfig; shouldPersist: boolean }
   | { ok: false; error: string }
@@ -127,6 +138,7 @@ function loadFromDisk(): LoadResult {
   try {
     const raw = fs.readFileSync(CONFIG_PATH, "utf-8")
     const json = migrateLegacyFields(JSON.parse(raw))
+    const shouldPersist = needsViewerSecretMigration(json)
     const result = RuntimeConfigSchema.safeParse(json)
     if (!result.success) {
       return {
@@ -134,7 +146,7 @@ function loadFromDisk(): LoadResult {
         error: JSON.stringify(result.error.flatten()),
       }
     }
-    return { ok: true, config: result.data, shouldPersist: false }
+    return { ok: true, config: result.data, shouldPersist }
   } catch (err) {
     return {
       ok: false,
