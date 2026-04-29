@@ -10,7 +10,9 @@ import {
 export function TopClipsCarousel({ children }: { children: React.ReactNode }) {
   return (
     <Carousel className="group" opts={{ align: "start" }}>
-      <CarouselContent className="-ml-3 md:-ml-4">{children}</CarouselContent>
+      <CarouselContent className="ml-0 gap-3 md:-ml-4 md:gap-0">
+        {children}
+      </CarouselContent>
       <CarouselPrevious
         variant="ghost"
         size="icon"
