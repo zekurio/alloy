@@ -13,6 +13,7 @@ import {
 import { db } from "../db"
 import { env } from "../env"
 import { publishClipUpsert } from "../clips/events"
+import { notifyFollowersOfNewClip } from "../notifications"
 import { type EncoderConfig } from "../config/store"
 import { clipSourceMp4Key, storage } from "../storage"
 import { codecNameFor, encode, probe, remuxToMp4 } from "./ffmpeg"
@@ -70,27 +71,35 @@ export async function tryPublishRemux({
       isDefault: true,
       trim,
     })
-    await db
-      .update(clip)
-      .set({
-        status: "ready",
-        encodeProgress: 0,
-        failureReason: null,
-        storageKey: remuxKey,
-        contentType: "video/mp4",
-        sizeBytes: size,
-        width: remuxProbe.width,
-        height: remuxProbe.height,
-        variants: exposeSource
-          ? mergeVariantSets(row.variants, [variant])
-          : removeSourceVariants(row.variants),
-        updatedAt: new Date(),
-      })
-      .where(eq(clip.id, clipId))
+    const publishState = await db.transaction(async (tx) => {
+      const previous = await readClipPublishState(tx, clipId)
+      const [published] = await tx
+        .update(clip)
+        .set({
+          status: "ready",
+          encodeProgress: 0,
+          failureReason: null,
+          storageKey: remuxKey,
+          contentType: "video/mp4",
+          sizeBytes: size,
+          width: remuxProbe.width,
+          height: remuxProbe.height,
+          variants: exposeSource
+            ? mergeVariantSets(row.variants, [variant])
+            : removeSourceVariants(row.variants),
+          updatedAt: new Date(),
+        })
+        .where(eq(clip.id, clipId))
+        .returning({ status: clip.status, privacy: clip.privacy })
+      return { previous, published }
+    })
     if (originalSourceKey !== remuxKey) {
       await storage.delete(originalSourceKey).catch(() => undefined)
     }
     void publishClipUpsert(row.authorId, clipId)
+    if (exposeSource) {
+      notifyFollowersIfNewPublicClip(row.authorId, clipId, publishState)
+    }
     return { path: remuxPath, variant }
   } catch (err) {
     if ((err as Error).name === "AbortError") throw err
@@ -119,20 +128,26 @@ export async function publishSourceOnlyClip({
   sourceVariant: ClipEncodedVariant
 }): Promise<void> {
   await pruneStaleVariants(row, new Map(), sourceVariant)
-  await db
-    .update(clip)
-    .set({
-      status: "ready",
-      encodeProgress: 100,
-      failureReason: null,
-      sizeBytes: sourceVariant.sizeBytes,
-      width: sourceVariant.width,
-      height: sourceVariant.height,
-      variants: [sourceVariant],
-      updatedAt: new Date(),
-    })
-    .where(eq(clip.id, clipId))
+  const publishState = await db.transaction(async (tx) => {
+    const previous = await readClipPublishState(tx, clipId)
+    const [published] = await tx
+      .update(clip)
+      .set({
+        status: "ready",
+        encodeProgress: 100,
+        failureReason: null,
+        sizeBytes: sourceVariant.sizeBytes,
+        width: sourceVariant.width,
+        height: sourceVariant.height,
+        variants: [sourceVariant],
+        updatedAt: new Date(),
+      })
+      .where(eq(clip.id, clipId))
+      .returning({ status: clip.status, privacy: clip.privacy })
+    return { previous, published }
+  })
   void publishClipUpsert(authorId, clipId)
+  notifyFollowersIfNewPublicClip(authorId, clipId, publishState)
 }
 
 export async function publishEncodedVariants({
@@ -152,22 +167,69 @@ export async function publishEncodedVariants({
     variants.find((variant) => variant.isDefault) ?? variants[0]
   if (!defaultVariant) return
 
-  await db
-    .update(clip)
-    .set({
-      status: "ready",
-      encodeProgress: progress,
-      failureReason: null,
-      sizeBytes: sourceVariant?.sizeBytes ?? defaultVariant.sizeBytes,
-      width: sourceVariant?.width ?? defaultVariant.width,
-      height: sourceVariant?.height ?? defaultVariant.height,
-      variants: sourceVariant
-        ? mergeVariantSets([...variants], [sourceVariant])
-        : [...variants],
-      updatedAt: new Date(),
-    })
-    .where(eq(clip.id, clipId))
+  const publishState = await db.transaction(async (tx) => {
+    const previous = await readClipPublishState(tx, clipId)
+    const [published] = await tx
+      .update(clip)
+      .set({
+        status: "ready",
+        encodeProgress: progress,
+        failureReason: null,
+        sizeBytes: sourceVariant?.sizeBytes ?? defaultVariant.sizeBytes,
+        width: sourceVariant?.width ?? defaultVariant.width,
+        height: sourceVariant?.height ?? defaultVariant.height,
+        variants: sourceVariant
+          ? mergeVariantSets([...variants], [sourceVariant])
+          : [...variants],
+        updatedAt: new Date(),
+      })
+      .where(eq(clip.id, clipId))
+      .returning({ status: clip.status, privacy: clip.privacy })
+    return { previous, published }
+  })
   void publishClipUpsert(authorId, clipId)
+  notifyFollowersIfNewPublicClip(authorId, clipId, publishState)
+}
+
+function notifyFollowersIfNewPublicClip(
+  authorId: string,
+  clipId: string,
+  state: ClipPublishStateChange
+): void {
+  const { previous, published } = state
+  if (
+    previous &&
+    previous.status !== "ready" &&
+    published?.status === "ready" &&
+    published.privacy === "public"
+  ) {
+    void notifyFollowersOfNewClip({ authorId, clipId })
+  }
+}
+
+type ClipPublishStateChange = {
+  previous: ClipPublishState | undefined
+  published: ClipPublishState | undefined
+}
+
+type ClipPublishState = {
+  status: ClipRow["status"]
+  privacy: ClipRow["privacy"]
+}
+
+type ClipPublishStateReader = Pick<typeof db, "select">
+
+async function readClipPublishState(
+  tx: ClipPublishStateReader,
+  clipId: string
+): Promise<ClipPublishState | undefined> {
+  const [current] = await tx
+    .select({ status: clip.status, privacy: clip.privacy })
+    .from(clip)
+    .where(eq(clip.id, clipId))
+    .limit(1)
+    .for("update")
+  return current
 }
 
 type EncodeVariantsOpts = {

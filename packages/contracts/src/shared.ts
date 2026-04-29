@@ -19,6 +19,7 @@ export const NOTIFICATION_TYPES = [
   "comment_reply",
   "comment_pinned",
   "comment_liked_by_author",
+  "new_video",
 ] as const
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 
