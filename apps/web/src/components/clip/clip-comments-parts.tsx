@@ -91,7 +91,7 @@ export function CommentsSortDropdown({
   )
 }
 
-export function CommentAuthHint() {
+export function CommentAuthHint({ canSignUp }: { canSignUp: boolean }) {
   return (
     <div className="rounded-md border border-border bg-input p-3">
       <div className="flex flex-col gap-3">
@@ -104,7 +104,9 @@ export function CommentAuthHint() {
               Sign in to interact
             </p>
             <p className="mt-0.5 text-sm text-foreground-faint">
-              Create an account or sign in to comment, reply, and like comments.
+              {canSignUp
+                ? "Create an account or sign in to comment, reply, and like comments."
+                : "Sign in to comment, reply, and like comments."}
             </p>
           </div>
         </div>
@@ -116,12 +118,14 @@ export function CommentAuthHint() {
             <LogInIcon />
             Sign in
           </Link>
-          <Link
-            to="/sign-up"
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            Create account
-          </Link>
+          {canSignUp ? (
+            <Link
+              to="/sign-up"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              Create account
+            </Link>
+          ) : null}
         </div>
       </div>
     </div>
