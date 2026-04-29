@@ -66,7 +66,7 @@ in
 
     stateDir = mkOption {
       type = types.path;
-      default = "/var/lib/alloy";
+      default = "/var/lib/alloy-clips";
       description = "Directory used for Alloy runtime configuration, clip storage, and encoder scratch data.";
     };
 
@@ -203,7 +203,7 @@ in
         Restart = "on-failure";
         RestartSec = 3;
         RuntimeDirectory = "alloy-clips";
-        StateDirectory = mkIf (cfg.stateDir == "/var/lib/alloy") "alloy";
+        StateDirectory = mkIf (cfg.stateDir == "/var/lib/alloy-clips") "alloy-clips";
         User = cfg.user;
         Group = cfg.group;
         WorkingDirectory = cfg.stateDir;
