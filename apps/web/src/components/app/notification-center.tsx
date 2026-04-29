@@ -303,7 +303,8 @@ function NotificationRow({
           "absolute top-1.5 right-1.5 flex shrink-0 items-center gap-0.5 rounded-md bg-surface-raised/95 p-0.5",
           "shadow-[0_4px_12px_-4px_rgb(0_0_0_/_0.35)] ring-1 ring-border",
           "opacity-0 transition-opacity duration-[var(--duration-fast)]",
-          "group-hover/notification:opacity-100 focus-within:opacity-100"
+          "group-hover/notification:opacity-100 focus-within:opacity-100",
+          "max-sm:static max-sm:mt-0.5 max-sm:opacity-100"
         )}
       >
         {unread ? (
@@ -345,11 +346,6 @@ function NotificationThumb({ src }: { src: string }) {
   )
 }
 
-/**
- * Leading visual: actor avatar (rounded-square) when we have one, otherwise
- * a kind-tinted icon tile. Falls back to initials with the user's tinted
- * background — keeps the row scannable when an actor has no profile image.
- */
 function NotificationLeading({
   item,
   unread,
