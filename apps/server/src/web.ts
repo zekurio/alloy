@@ -261,6 +261,10 @@ export async function mountWeb(app: Hono): Promise<Hono> {
     serveFile(c, "/alloy-logo.png", "public, max-age=86400")
   )
 
+  app.on(["GET", "HEAD"], "/favicon.ico", (c) =>
+    serveFile(c, "/alloy-logo.png", "public, max-age=86400")
+  )
+
   app.on(["GET", "HEAD"], "/robots.txt", (c) =>
     serveFile(c, "/robots.txt", "public, max-age=86400")
   )
