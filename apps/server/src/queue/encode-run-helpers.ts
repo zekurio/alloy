@@ -71,6 +71,7 @@ export async function tryPublishRemux({
       isDefault: true,
       trim,
     })
+    const previous = await readClipPublishState(clipId)
     await db
       .update(clip)
       .set({
@@ -92,9 +93,7 @@ export async function tryPublishRemux({
       await storage.delete(originalSourceKey).catch(() => undefined)
     }
     void publishClipUpsert(row.authorId, clipId)
-    if (row.status !== "ready" && row.privacy === "public") {
-      void notifyFollowersOfNewClip({ authorId: row.authorId, clipId })
-    }
+    notifyFollowersIfNewPublicClip(row.authorId, clipId, previous)
     return { path: remuxPath, variant }
   } catch (err) {
     if ((err as Error).name === "AbortError") throw err
@@ -123,6 +122,7 @@ export async function publishSourceOnlyClip({
   sourceVariant: ClipEncodedVariant
 }): Promise<void> {
   await pruneStaleVariants(row, new Map(), sourceVariant)
+  const previous = await readClipPublishState(clipId)
   await db
     .update(clip)
     .set({
@@ -137,9 +137,7 @@ export async function publishSourceOnlyClip({
     })
     .where(eq(clip.id, clipId))
   void publishClipUpsert(authorId, clipId)
-  if (row.status !== "ready" && row.privacy === "public") {
-    void notifyFollowersOfNewClip({ authorId, clipId })
-  }
+  notifyFollowersIfNewPublicClip(authorId, clipId, previous)
 }
 
 export async function publishEncodedVariants({
@@ -190,6 +188,36 @@ export async function publishEncodedVariants({
   ) {
     void notifyFollowersOfNewClip({ authorId, clipId })
   }
+}
+
+function notifyFollowersIfNewPublicClip(
+  authorId: string,
+  clipId: string,
+  previous: ClipPublishState | undefined
+): void {
+  if (
+    previous &&
+    previous.status !== "ready" &&
+    previous.privacy === "public"
+  ) {
+    void notifyFollowersOfNewClip({ authorId, clipId })
+  }
+}
+
+type ClipPublishState = {
+  status: ClipRow["status"]
+  privacy: ClipRow["privacy"]
+}
+
+async function readClipPublishState(
+  clipId: string
+): Promise<ClipPublishState | undefined> {
+  const [current] = await db
+    .select({ status: clip.status, privacy: clip.privacy })
+    .from(clip)
+    .where(eq(clip.id, clipId))
+    .limit(1)
+  return current
 }
 
 type EncodeVariantsOpts = {
