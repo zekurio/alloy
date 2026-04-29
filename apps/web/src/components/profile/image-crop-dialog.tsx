@@ -11,6 +11,11 @@ import {
 } from "@workspace/ui/components/drawer"
 import { Slider } from "@workspace/ui/components/slider"
 
+import {
+  PROFILE_BANNER_ASPECT,
+  PROFILE_BANNER_OUTPUT,
+} from "@/lib/banner-layout"
+
 export type ImageCropMode = "avatar" | "banner"
 
 type ImageCropOutput = {
@@ -42,11 +47,10 @@ const CONFIG: Record<ImageCropMode, ModeConfig> = {
     restrictPosition: true,
   },
   banner: {
-    aspect: 4,
+    aspect: PROFILE_BANNER_ASPECT,
     title: "Crop banner",
     output: {
-      maxWidth: 1600,
-      maxHeight: 400,
+      ...PROFILE_BANNER_OUTPUT,
       type: "image/jpeg",
       quality: 0.86,
     },

@@ -1,14 +1,14 @@
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { APP_BANNER_HEIGHT_CLASS } from "@/lib/banner-layout"
+
 export function ProfileIdentitySkeleton() {
   return (
     <div className="flex w-full flex-col">
       {/* Banner skeleton */}
       <div
-        className={cn(
-          "h-[120px] w-full bg-surface-raised sm:h-[clamp(200px,22vw,360px)]"
-        )}
+        className={cn(APP_BANNER_HEIGHT_CLASS, "w-full bg-surface-raised")}
       />
 
       {/* Profile info bar skeleton */}
