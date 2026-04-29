@@ -1,15 +1,15 @@
-import * as React from "react";
+import * as React from "react"
 
-import { cn } from "@workspace/ui/lib/utils";
+import { cn } from "@workspace/ui/lib/utils"
 
 import {
   VideoPlayer,
   type VideoPlayerHandle,
-} from "@/components/video/video-player";
-import { VolumeControl } from "@/components/video/video-volume-control";
+} from "@/components/video/video-player"
+import { VolumeControl } from "@/components/video/video-volume-control"
 
-import { formatTimecode } from "./new-clip-helpers";
-import { Button } from "@workspace/ui/components/button";
+import { formatTimecode } from "./new-clip-helpers"
+import { Button } from "@workspace/ui/components/button"
 import {
   TRIM_HANDLE_WIDTH_PX,
   TrimHandle,
@@ -17,7 +17,7 @@ import {
   useAudioWaveform,
   useTimeMarkers,
   useTimelineZoom,
-} from "./upload-trim-timeline-helpers";
+} from "./upload-trim-timeline-helpers"
 
 export function VideoPreview({
   file,
@@ -32,48 +32,48 @@ export function VideoPreview({
   onVolumeChange,
   onToggleMute,
 }: {
-  file: File;
-  trimStartMs: number;
-  trimEndMs: number;
-  isPlaying: boolean;
-  currentMs: number;
-  volume: number;
-  muted: boolean;
-  onTimeUpdate: (ms: number) => void;
-  onPlayingChange: (playing: boolean) => void;
-  onVolumeChange: (v: number) => void;
-  onToggleMute: () => void;
+  file: File
+  trimStartMs: number
+  trimEndMs: number
+  isPlaying: boolean
+  currentMs: number
+  volume: number
+  muted: boolean
+  onTimeUpdate: (ms: number) => void
+  onPlayingChange: (playing: boolean) => void
+  onVolumeChange: (v: number) => void
+  onToggleMute: () => void
 }) {
-  const playerRef = React.useRef<VideoPlayerHandle>(null);
+  const playerRef = React.useRef<VideoPlayerHandle>(null)
 
   React.useEffect(() => {
-    const p = playerRef.current;
-    if (!p) return;
+    const p = playerRef.current
+    if (!p) return
     if (isPlaying) {
       if (p.getCurrentTime() * 1000 >= trimEndMs - 30) {
-        p.seek(trimStartMs / 1000);
+        p.seek(trimStartMs / 1000)
       }
-      void p.play().catch(() => undefined);
+      void p.play().catch(() => undefined)
     } else {
-      p.pause();
+      p.pause()
     }
-  }, [isPlaying, trimStartMs, trimEndMs]);
+  }, [isPlaying, trimStartMs, trimEndMs])
 
   React.useEffect(() => {
-    const p = playerRef.current;
-    if (!p) return;
-    p.setVolume(volume);
-    p.setMuted(muted);
-  }, [volume, muted]);
+    const p = playerRef.current
+    if (!p) return
+    p.setVolume(volume)
+    p.setMuted(muted)
+  }, [volume, muted])
 
   React.useEffect(() => {
-    const p = playerRef.current;
-    if (!p) return;
-    const playerMs = p.getCurrentTime() * 1000;
+    const p = playerRef.current
+    if (!p) return
+    const playerMs = p.getCurrentTime() * 1000
     if (Math.abs(playerMs - currentMs) > 50) {
-      p.seek(currentMs / 1000);
+      p.seek(currentMs / 1000)
     }
-  }, [currentMs]);
+  }, [currentMs])
 
   return (
     <div className="group/preview relative">
@@ -84,10 +84,10 @@ export function VideoPreview({
         onVideoClick={() => onPlayingChange(!isPlaying)}
         onPlayingChange={onPlayingChange}
         onTimeUpdate={(t) => {
-          onTimeUpdate(t * 1000);
+          onTimeUpdate(t * 1000)
           if (t * 1000 >= trimEndMs && isPlaying) {
-            playerRef.current?.pause();
-            onPlayingChange(false);
+            playerRef.current?.pause()
+            onPlayingChange(false)
           }
         }}
       />
@@ -97,7 +97,7 @@ export function VideoPreview({
           "absolute bottom-2 left-2 z-10",
           "rounded-lg border border-border/50 bg-surface-raised/90 px-1 py-0.5 shadow-md backdrop-blur-sm",
           "opacity-0 transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-          "group-hover/preview:opacity-100 focus-within:opacity-100",
+          "group-hover/preview:opacity-100 focus-within:opacity-100"
         )}
       >
         <VolumeControl
@@ -108,10 +108,10 @@ export function VideoPreview({
         />
       </div>
     </div>
-  );
+  )
 }
 
-const MIN_TRIM_MS = 100;
+const MIN_TRIM_MS = 100
 
 export function TrimTimeline({
   file,
@@ -123,116 +123,119 @@ export function TrimTimeline({
   onSeek,
   children,
 }: {
-  file: File;
-  durationMs: number;
-  trimStartMs: number;
-  trimEndMs: number;
-  currentMs: number;
-  onTrimChange: (start: number, end: number) => void;
-  onSeek: (ms: number) => void;
+  file: File
+  durationMs: number
+  trimStartMs: number
+  trimEndMs: number
+  currentMs: number
+  onTrimChange: (start: number, end: number) => void
+  onSeek: (ms: number) => void
   /** Rendered in the footer row below the waveform (left side). */
-  children?: React.ReactNode;
+  children?: React.ReactNode
 }) {
-  const waveformPeaks = useAudioWaveform(file);
+  const waveformPeaks = useAudioWaveform(file)
   const { viewStartMs, viewEndMs, handleWheel, isZoomed, resetZoom } =
-    useTimelineZoom(durationMs);
-  const { major: majorMarkers, minor: minorMarkers } = useTimeMarkers(viewStartMs, viewEndMs);
-  const rootRef = React.useRef<HTMLDivElement>(null);
-  const trackRef = React.useRef<HTMLDivElement>(null);
+    useTimelineZoom(durationMs)
+  const { major: majorMarkers, minor: minorMarkers } = useTimeMarkers(
+    viewStartMs,
+    viewEndMs
+  )
+  const rootRef = React.useRef<HTMLDivElement>(null)
+  const trackRef = React.useRef<HTMLDivElement>(null)
   const dragStateRef = React.useRef<{
-    kind: "start" | "end" | "playhead";
-    pointerId: number;
-    element: Element;
-  } | null>(null);
+    kind: "start" | "end" | "playhead"
+    pointerId: number
+    element: Element
+  } | null>(null)
 
-  const viewSpan = viewEndMs - viewStartMs;
+  const viewSpan = viewEndMs - viewStartMs
 
   /** Map a ms value to a percentage within the current view window. */
   const pctOf = (ms: number) =>
     viewSpan > 0
       ? Math.min(100, Math.max(0, ((ms - viewStartMs) / viewSpan) * 100))
-      : 0;
+      : 0
 
   /** Map a client X coordinate to a ms value within the full duration. */
   const msFromClient = React.useCallback(
     (clientX: number): number => {
-      const track = trackRef.current;
-      if (!track) return 0;
-      const rect = track.getBoundingClientRect();
-      const pct = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-      return Math.round(viewStartMs + pct * (viewEndMs - viewStartMs));
+      const track = trackRef.current
+      if (!track) return 0
+      const rect = track.getBoundingClientRect()
+      const pct = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
+      return Math.round(viewStartMs + pct * (viewEndMs - viewStartMs))
     },
-    [viewStartMs, viewEndMs],
-  );
+    [viewStartMs, viewEndMs]
+  )
 
   // Wheel handler for zoom/pan.
   React.useEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
+    const root = rootRef.current
+    if (!root) return
     const onWheel = (e: WheelEvent) => {
-      const rect = root.getBoundingClientRect();
+      const rect = root.getBoundingClientRect()
       const cursorPct = Math.min(
         1,
-        Math.max(0, (e.clientX - rect.left) / rect.width),
-      );
-      handleWheel(e, cursorPct);
-    };
-    root.addEventListener("wheel", onWheel, { passive: false });
-    return () => root.removeEventListener("wheel", onWheel);
-  }, [handleWheel]);
+        Math.max(0, (e.clientX - rect.left) / rect.width)
+      )
+      handleWheel(e, cursorPct)
+    }
+    root.addEventListener("wheel", onWheel, { passive: false })
+    return () => root.removeEventListener("wheel", onWheel)
+  }, [handleWheel])
 
   const startDrag = (
     kind: "start" | "end" | "playhead",
-    e: React.PointerEvent,
+    e: React.PointerEvent
   ) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const target = e.currentTarget;
-    target.setPointerCapture(e.pointerId);
-    dragStateRef.current = { kind, pointerId: e.pointerId, element: target };
-  };
+    e.preventDefault()
+    e.stopPropagation()
+    const target = e.currentTarget
+    target.setPointerCapture(e.pointerId)
+    dragStateRef.current = { kind, pointerId: e.pointerId, element: target }
+  }
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    const drag = dragStateRef.current;
-    if (!drag || drag.pointerId !== e.pointerId) return;
-    const ms = msFromClient(e.clientX);
+    const drag = dragStateRef.current
+    if (!drag || drag.pointerId !== e.pointerId) return
+    const ms = msFromClient(e.clientX)
     if (drag.kind === "start") {
-      const next = Math.min(ms, trimEndMs - MIN_TRIM_MS);
-      onTrimChange(Math.max(0, next), trimEndMs);
+      const next = Math.min(ms, trimEndMs - MIN_TRIM_MS)
+      onTrimChange(Math.max(0, next), trimEndMs)
     } else if (drag.kind === "end") {
-      const next = Math.max(ms, trimStartMs + MIN_TRIM_MS);
-      onTrimChange(trimStartMs, Math.min(durationMs, next));
+      const next = Math.max(ms, trimStartMs + MIN_TRIM_MS)
+      onTrimChange(trimStartMs, Math.min(durationMs, next))
     } else {
-      onSeek(Math.min(Math.max(ms, trimStartMs), trimEndMs));
+      onSeek(Math.min(Math.max(ms, trimStartMs), trimEndMs))
     }
-  };
+  }
 
   const handlePointerUp = (e: React.PointerEvent) => {
-    const drag = dragStateRef.current;
-    if (!drag || drag.pointerId !== e.pointerId) return;
+    const drag = dragStateRef.current
+    if (!drag || drag.pointerId !== e.pointerId) return
     if (drag.element.hasPointerCapture(e.pointerId)) {
-      drag.element.releasePointerCapture(e.pointerId);
+      drag.element.releasePointerCapture(e.pointerId)
     }
-    dragStateRef.current = null;
-  };
+    dragStateRef.current = null
+  }
 
   const handleTrackClick = (e: React.MouseEvent) => {
-    if (dragStateRef.current) return;
-    const ms = msFromClient(e.clientX);
-    onSeek(Math.min(Math.max(ms, trimStartMs), trimEndMs));
-  };
+    if (dragStateRef.current) return
+    const ms = msFromClient(e.clientX)
+    onSeek(Math.min(Math.max(ms, trimStartMs), trimEndMs))
+  }
 
-  const startPct = pctOf(trimStartMs);
-  const endPct = pctOf(trimEndMs);
+  const startPct = pctOf(trimStartMs)
+  const endPct = pctOf(trimEndMs)
 
   // View window as normalised 0..1 fractions of the full duration (for
   // the waveform canvas).
-  const viewFracStart = durationMs > 0 ? viewStartMs / durationMs : 0;
-  const viewFracEnd = durationMs > 0 ? viewEndMs / durationMs : 1;
+  const viewFracStart = durationMs > 0 ? viewStartMs / durationMs : 0
+  const viewFracEnd = durationMs > 0 ? viewEndMs / durationMs : 1
 
-  const windowSpanPct = Math.max(0.01, endPct - startPct);
-  const innerWidthPct = (100 / windowSpanPct) * 100;
-  const innerOffsetPct = (startPct / windowSpanPct) * 100;
+  const windowSpanPct = Math.max(0.01, endPct - startPct)
+  const innerWidthPct = (100 / windowSpanPct) * 100
+  const innerOffsetPct = (startPct / windowSpanPct) * 100
 
   return (
     <div
@@ -293,7 +296,7 @@ export function TrimTimeline({
               onPointerDown={(e) => startDrag("playhead", e)}
               className={cn(
                 "absolute top-0 z-30 -translate-x-1/2 cursor-ew-resize",
-                "touch-none focus-visible:outline-none",
+                "touch-none focus-visible:outline-none"
               )}
               style={{ left: `${pctOf(currentMs)}%` }}
             >
@@ -319,7 +322,7 @@ export function TrimTimeline({
         className={cn(
           "relative h-14 w-full",
           "rounded-md bg-surface-raised",
-          "overflow-hidden",
+          "overflow-hidden"
         )}
       >
         {/* Background waveform (dimmed — cut-away region) */}
@@ -434,7 +437,7 @@ export function TrimTimeline({
         <div
           className={cn(
             "ml-auto shrink-0 transition-opacity duration-150",
-            isZoomed ? "opacity-100" : "pointer-events-none opacity-0",
+            isZoomed ? "opacity-100" : "pointer-events-none opacity-0"
           )}
         >
           <Button
@@ -449,5 +452,5 @@ export function TrimTimeline({
         </div>
       </div>
     </div>
-  );
+  )
 }
