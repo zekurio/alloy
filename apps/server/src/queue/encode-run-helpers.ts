@@ -71,9 +71,9 @@ export async function tryPublishRemux({
       isDefault: true,
       trim,
     })
-    const previous = await db.transaction(async (tx) => {
+    const publishState = await db.transaction(async (tx) => {
       const previous = await readClipPublishState(tx, clipId)
-      await tx
+      const [published] = await tx
         .update(clip)
         .set({
           status: "ready",
@@ -90,14 +90,15 @@ export async function tryPublishRemux({
           updatedAt: new Date(),
         })
         .where(eq(clip.id, clipId))
-      return previous
+        .returning({ status: clip.status, privacy: clip.privacy })
+      return { previous, published }
     })
     if (originalSourceKey !== remuxKey) {
       await storage.delete(originalSourceKey).catch(() => undefined)
     }
     void publishClipUpsert(row.authorId, clipId)
     if (exposeSource) {
-      notifyFollowersIfNewPublicClip(row.authorId, clipId, previous)
+      notifyFollowersIfNewPublicClip(row.authorId, clipId, publishState)
     }
     return { path: remuxPath, variant }
   } catch (err) {
@@ -127,9 +128,9 @@ export async function publishSourceOnlyClip({
   sourceVariant: ClipEncodedVariant
 }): Promise<void> {
   await pruneStaleVariants(row, new Map(), sourceVariant)
-  const previous = await db.transaction(async (tx) => {
+  const publishState = await db.transaction(async (tx) => {
     const previous = await readClipPublishState(tx, clipId)
-    await tx
+    const [published] = await tx
       .update(clip)
       .set({
         status: "ready",
@@ -142,10 +143,11 @@ export async function publishSourceOnlyClip({
         updatedAt: new Date(),
       })
       .where(eq(clip.id, clipId))
-    return previous
+      .returning({ status: clip.status, privacy: clip.privacy })
+    return { previous, published }
   })
   void publishClipUpsert(authorId, clipId)
-  notifyFollowersIfNewPublicClip(authorId, clipId, previous)
+  notifyFollowersIfNewPublicClip(authorId, clipId, publishState)
 }
 
 export async function publishEncodedVariants({
@@ -165,9 +167,9 @@ export async function publishEncodedVariants({
     variants.find((variant) => variant.isDefault) ?? variants[0]
   if (!defaultVariant) return
 
-  const previous = await db.transaction(async (tx) => {
+  const publishState = await db.transaction(async (tx) => {
     const previous = await readClipPublishState(tx, clipId)
-    await tx
+    const [published] = await tx
       .update(clip)
       .set({
         status: "ready",
@@ -182,24 +184,32 @@ export async function publishEncodedVariants({
         updatedAt: new Date(),
       })
       .where(eq(clip.id, clipId))
-    return previous
+      .returning({ status: clip.status, privacy: clip.privacy })
+    return { previous, published }
   })
   void publishClipUpsert(authorId, clipId)
-  notifyFollowersIfNewPublicClip(authorId, clipId, previous)
+  notifyFollowersIfNewPublicClip(authorId, clipId, publishState)
 }
 
 function notifyFollowersIfNewPublicClip(
   authorId: string,
   clipId: string,
-  previous: ClipPublishState | undefined
+  state: ClipPublishStateChange
 ): void {
+  const { previous, published } = state
   if (
     previous &&
     previous.status !== "ready" &&
-    previous.privacy === "public"
+    published?.status === "ready" &&
+    published.privacy === "public"
   ) {
     void notifyFollowersOfNewClip({ authorId, clipId })
   }
+}
+
+type ClipPublishStateChange = {
+  previous: ClipPublishState | undefined
+  published: ClipPublishState | undefined
 }
 
 type ClipPublishState = {
