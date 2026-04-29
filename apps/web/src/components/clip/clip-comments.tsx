@@ -22,6 +22,7 @@ import type { CommentRow } from "@workspace/api"
 import { displayName, userAvatar, useUserChipData } from "@/lib/user-display"
 import {
   CommentActions,
+  CommentAuthHint,
   CommentBody,
   CommentComposer,
   CommentMenu,
@@ -312,26 +313,28 @@ function ClipComments({
         <div className="mb-1.5">
           <CommentsSortDropdown sort={sort} onSortChange={setSort} />
         </div>
-        <CommentComposer
-          draft={draft}
-          me={me}
-          meAvatarStyle={meAvatarStyle}
-          inputRef={composerRef}
-          replyingToName={replyTarget?.authorName}
-          placeholder={
-            isSignedIn
-              ? replyTarget
+        {isSignedIn ? (
+          <CommentComposer
+            draft={draft}
+            me={me}
+            meAvatarStyle={meAvatarStyle}
+            inputRef={composerRef}
+            replyingToName={replyTarget?.authorName}
+            placeholder={
+              replyTarget
                 ? `Reply to ${replyTarget.authorName}…`
                 : "Add a comment…"
-              : "Sign in to comment"
-          }
-          submitting={create.isPending}
-          canSubmit={canSubmit}
-          onDraftChange={setDraft}
-          onClear={() => setDraft("")}
-          onCancelReply={cancelReply}
-          onSubmit={submitComment}
-        />
+            }
+            submitting={create.isPending}
+            canSubmit={canSubmit}
+            onDraftChange={setDraft}
+            onClear={() => setDraft("")}
+            onCancelReply={cancelReply}
+            onSubmit={submitComment}
+          />
+        ) : (
+          <CommentAuthHint />
+        )}
       </div>
     </aside>
   )

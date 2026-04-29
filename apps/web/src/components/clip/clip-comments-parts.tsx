@@ -1,8 +1,10 @@
 import * as React from "react"
+import { Link } from "@tanstack/react-router"
 import {
   ArrowUpDownIcon,
   HeartIcon,
   LinkIcon,
+  LogInIcon,
   MessageSquareIcon,
   MoreHorizontalIcon,
   PinIcon,
@@ -29,6 +31,7 @@ import {
   AvatarImage,
 } from "@workspace/ui/components/avatar"
 import { Button } from "@workspace/ui/components/button"
+import { buttonVariants } from "@workspace/ui/lib/button-variants"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -85,6 +88,43 @@ export function CommentsSortDropdown({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+export function CommentAuthHint() {
+  return (
+    <div className="rounded-md border border-border bg-input p-3">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-start gap-2.5">
+          <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+            <MessageSquareIcon className="size-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">
+              Sign in to interact
+            </p>
+            <p className="mt-0.5 text-sm text-foreground-faint">
+              Create an account or sign in to comment, reply, and like comments.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/login"
+            className={buttonVariants({ variant: "primary", size: "sm" })}
+          >
+            <LogInIcon />
+            Sign in
+          </Link>
+          <Link
+            to="/sign-up"
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Create account
+          </Link>
+        </div>
+      </div>
+    </div>
   )
 }
 
