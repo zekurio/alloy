@@ -46,8 +46,7 @@ export function useRequireAuthStrict(): Session | null {
   const navigate = useNavigate()
 
   const target =
-    config.adminAccountRequired ||
-    shouldForceOnboarding(config, session)
+    config.adminAccountRequired || shouldForceOnboarding(config, session)
       ? "/setup"
       : session
         ? null
