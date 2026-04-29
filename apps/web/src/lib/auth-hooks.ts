@@ -1,31 +1,12 @@
 import * as React from "react"
-import { useNavigate } from "@tanstack/react-router"
+import { useLocation, useNavigate } from "@tanstack/react-router"
 
 import {
   useSuspenseAuthConfig,
   useSuspenseSession,
   type Session,
 } from "./session-suspense"
-import { devFlags } from "./flags"
-
-function isAdmin(session: Session | null): boolean {
-  return (session?.user as { role?: string } | undefined)?.role === "admin"
-}
-
-function browseAuthTarget(
-  session: Session | null,
-  config: ReturnType<typeof useSuspenseAuthConfig>
-): "/setup" | "/login" | null {
-  if (config.adminAccountRequired) return "/setup"
-  if (
-    (config.setupRequired || devFlags.forceOnboarding) &&
-    isAdmin(session)
-  ) {
-    return "/setup"
-  }
-  if (!session && config.requireAuthToBrowse) return "/login"
-  return null
-}
+import { browseAuthTarget, isAdmin, shouldForceOnboarding } from "./auth-access"
 
 export function useAuth(): Session | null {
   return useSuspenseSession()
@@ -48,8 +29,9 @@ export function useBrowseAuthGate(): {
   const session = useSuspenseSession()
   const config = useSuspenseAuthConfig()
   const navigate = useNavigate()
+  const location = useLocation()
 
-  const target = browseAuthTarget(session, config)
+  const target = browseAuthTarget(session, config, location.pathname)
 
   React.useEffect(() => {
     if (target) void navigate({ to: target, replace: true })
@@ -65,7 +47,7 @@ export function useRequireAuthStrict(): Session | null {
 
   const target =
     config.adminAccountRequired ||
-    ((config.setupRequired || devFlags.forceOnboarding) && isAdmin(session))
+    shouldForceOnboarding(config, session)
       ? "/setup"
       : session
         ? null
