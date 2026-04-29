@@ -67,64 +67,8 @@ function resolveConfigPath(): string {
 
 const CONFIG_PATH = resolveConfigPath()
 
-function migrateLegacyFields(raw: unknown): unknown {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw
-  const r = { ...(raw as Record<string, unknown>) }
-  if (Array.isArray(r.oauthProviders) && r.oauthProvider === undefined) {
-    const first = r.oauthProviders.find(
-      (p): p is Record<string, unknown> =>
-        !!p && typeof p === "object" && !Array.isArray(p)
-    )
-    if (first) r.oauthProvider = stripLegacyProviderFields(first)
-  }
-  if (
-    r.oauthProvider &&
-    typeof r.oauthProvider === "object" &&
-    !Array.isArray(r.oauthProvider)
-  ) {
-    r.oauthProvider = stripLegacyProviderFields(
-      r.oauthProvider as Record<string, unknown>
-    )
-  }
-  if ("oauthProviders" in r) delete r.oauthProviders
-  if ("oauthDiscord" in r) delete r.oauthDiscord
-  if ("oauthTwitch" in r) delete r.oauthTwitch
-  if ("emailPasswordEnabled" in r) delete r.emailPasswordEnabled
-  return r
-}
-
-function stripLegacyProviderFields(
-  p: Record<string, unknown>
-): Record<string, unknown> {
-  const next = { ...p }
-  if (next.displayName === undefined && typeof next.buttonText === "string") {
-    next.displayName = next.buttonText
-  }
-  for (const key of [
-    "kind",
-    "buttonColor",
-    "textColor",
-    "icon",
-    "buttonText",
-  ]) {
-    if (key in next) delete next[key]
-  }
-  return next
-}
-
-function needsViewerSecretMigration(raw: unknown): boolean {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return true
-  const secrets = (raw as Record<string, unknown>).secrets
-  if (!secrets || typeof secrets !== "object" || Array.isArray(secrets)) {
-    return true
-  }
-  return (
-    typeof (secrets as Record<string, unknown>).viewerCookieSecret !== "string"
-  )
-}
-
 type LoadResult =
-  | { ok: true; config: RuntimeConfig; shouldPersist: boolean }
+  | { ok: true; config: RuntimeConfig; created: boolean }
   | { ok: false; error: string }
 
 function loadFromDisk(): LoadResult {
@@ -132,13 +76,12 @@ function loadFromDisk(): LoadResult {
     return {
       ok: true,
       config: bootstrapDefaultConfig(),
-      shouldPersist: true,
+      created: true,
     }
   }
   try {
     const raw = fs.readFileSync(CONFIG_PATH, "utf-8")
-    const json = migrateLegacyFields(JSON.parse(raw))
-    const shouldPersist = needsViewerSecretMigration(json)
+    const json = JSON.parse(raw)
     const result = RuntimeConfigSchema.safeParse(json)
     if (!result.success) {
       return {
@@ -146,7 +89,7 @@ function loadFromDisk(): LoadResult {
         error: JSON.stringify(result.error.flatten()),
       }
     }
-    return { ok: true, config: result.data, shouldPersist }
+    return { ok: true, config: result.data, created: false }
   } catch (err) {
     return {
       ok: false,
@@ -173,7 +116,7 @@ if (!initialLoad.ok) {
 }
 
 let state: RuntimeConfig = initialLoad.ok ? initialLoad.config : DEFAULT_CONFIG
-if (initialLoad.ok && initialLoad.shouldPersist) {
+if (initialLoad.ok && initialLoad.created) {
   writeToDisk(state)
 }
 
