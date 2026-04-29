@@ -1,4 +1,5 @@
 import * as React from "react"
+import { Link } from "@tanstack/react-router"
 import {
   ArrowUpDownIcon,
   HeartIcon,
@@ -85,6 +86,33 @@ export function CommentsSortDropdown({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+export function CommentAuthHint({ canSignUp }: { canSignUp: boolean }) {
+  return (
+    <div className="rounded-md border border-border bg-input px-3 py-2.5">
+      <p className="text-sm text-foreground-faint">
+        <Link
+          to="/login"
+          className="font-medium text-foreground hover:underline"
+        >
+          Log in
+        </Link>
+        {canSignUp ? (
+          <>
+            {" or "}
+            <Link
+              to="/sign-up"
+              className="font-medium text-foreground hover:underline"
+            >
+              create an account
+            </Link>
+          </>
+        ) : null}{" "}
+        to comment
+      </p>
+    </div>
   )
 }
 
