@@ -1,5 +1,5 @@
 {
-  description = "alloy - devShell";
+  description = "alloy";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -12,12 +12,30 @@
       nixpkgs,
       flake-utils,
     }:
+    let
+      overlay = final: _prev: {
+        alloy-clips = final.callPackage ./nix/package.nix { };
+      };
+    in
     flake-utils.lib.eachDefaultSystem (
       system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ overlay ];
+        };
       in
       {
+        packages = {
+          alloy = pkgs.alloy-clips;
+          default = pkgs.alloy-clips;
+        };
+
+        apps.default = {
+          type = "app";
+          program = "${pkgs.alloy-clips}/bin/alloy";
+        };
+
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             nodejs
@@ -58,5 +76,13 @@
           '';
         };
       }
-    );
+    )
+    // {
+      overlays.default = overlay;
+
+      nixosModules = {
+        alloy = import ./nix/module.nix;
+        default = self.nixosModules.alloy;
+      };
+    };
 }
