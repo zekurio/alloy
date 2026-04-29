@@ -48,7 +48,7 @@ function AuthKaomoji() {
       aria-hidden
       className="flex h-full min-h-screen items-center justify-center bg-surface px-10"
     >
-      <div className="select-none text-[clamp(48px,7vw,120px)] leading-none font-semibold text-foreground-muted/65">
+      <div className="text-[clamp(48px,7vw,120px)] leading-none font-semibold text-foreground-muted/65 select-none">
         {EMPTY_STATE_KAOMOJI[0]}
       </div>
     </div>
