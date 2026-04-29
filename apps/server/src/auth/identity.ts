@@ -39,8 +39,22 @@ export function validateUsername(value: string): string {
   return username
 }
 
+type SignInMethodConfig = {
+  passkeyEnabled: boolean
+  oauthProvider: { enabled: boolean; providerId: string } | null
+}
+
 export async function hasAdminSignInMethod(): Promise<boolean> {
-  if (configStore.get("passkeyEnabled")) {
+  return hasAdminSignInMethodForConfig({
+    passkeyEnabled: configStore.get("passkeyEnabled"),
+    oauthProvider: configStore.get("oauthProvider"),
+  })
+}
+
+export async function hasAdminSignInMethodForConfig(
+  config: SignInMethodConfig
+): Promise<boolean> {
+  if (config.passkeyEnabled) {
     const passkeyRows = await db
       .select({ id: user.id })
       .from(user)
@@ -50,7 +64,7 @@ export async function hasAdminSignInMethod(): Promise<boolean> {
     if (passkeyRows.length > 0) return true
   }
 
-  const provider = configStore.get("oauthProvider")
+  const provider = config.oauthProvider
   if (!provider?.enabled) return false
 
   const oauthRows = await db
