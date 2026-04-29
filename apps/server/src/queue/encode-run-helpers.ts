@@ -13,6 +13,7 @@ import {
 import { db } from "../db"
 import { env } from "../env"
 import { publishClipUpsert } from "../clips/events"
+import { notifyFollowersOfNewClip } from "../notifications"
 import { type EncoderConfig } from "../config/store"
 import { clipSourceMp4Key, storage } from "../storage"
 import { codecNameFor, encode, probe, remuxToMp4 } from "./ffmpeg"
@@ -91,6 +92,9 @@ export async function tryPublishRemux({
       await storage.delete(originalSourceKey).catch(() => undefined)
     }
     void publishClipUpsert(row.authorId, clipId)
+    if (row.status !== "ready" && row.privacy === "public") {
+      void notifyFollowersOfNewClip({ authorId: row.authorId, clipId })
+    }
     return { path: remuxPath, variant }
   } catch (err) {
     if ((err as Error).name === "AbortError") throw err
@@ -133,6 +137,9 @@ export async function publishSourceOnlyClip({
     })
     .where(eq(clip.id, clipId))
   void publishClipUpsert(authorId, clipId)
+  if (row.status !== "ready" && row.privacy === "public") {
+    void notifyFollowersOfNewClip({ authorId, clipId })
+  }
 }
 
 export async function publishEncodedVariants({
@@ -152,6 +159,14 @@ export async function publishEncodedVariants({
     variants.find((variant) => variant.isDefault) ?? variants[0]
   if (!defaultVariant) return
 
+  // Read prior status/privacy so we can fan out a "new video" notification
+  // exactly once — the first time the clip transitions to ready.
+  const [previous] = await db
+    .select({ status: clip.status, privacy: clip.privacy })
+    .from(clip)
+    .where(eq(clip.id, clipId))
+    .limit(1)
+
   await db
     .update(clip)
     .set({
@@ -168,6 +183,13 @@ export async function publishEncodedVariants({
     })
     .where(eq(clip.id, clipId))
   void publishClipUpsert(authorId, clipId)
+  if (
+    previous &&
+    previous.status !== "ready" &&
+    previous.privacy === "public"
+  ) {
+    void notifyFollowersOfNewClip({ authorId, clipId })
+  }
 }
 
 type EncodeVariantsOpts = {

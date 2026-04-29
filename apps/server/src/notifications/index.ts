@@ -7,7 +7,13 @@ import type {
   UserSummary,
 } from "@workspace/contracts"
 import { user } from "@workspace/db/auth-schema"
-import { clip, clipComment, game, notification } from "@workspace/db/schema"
+import {
+  clip,
+  clipComment,
+  follow,
+  game,
+  notification,
+} from "@workspace/db/schema"
 
 import { db } from "../db"
 import {
@@ -65,6 +71,7 @@ function serialize(row: {
   clipId: string | null
   clipSlug: string | null
   clipTitle: string | null
+  clipThumbKey: string | null
   gameSlug: string | null
   commentId: string | null
   commentBody: string | null
@@ -80,6 +87,7 @@ function serialize(row: {
             slug: row.clipSlug,
             title: row.clipTitle,
             gameSlug: row.gameSlug,
+            hasThumb: row.clipThumbKey !== null,
           }
         : null,
     comment:
@@ -105,6 +113,7 @@ function selectNotificationFields() {
     clipId: clip.id,
     clipSlug: clip.slug,
     clipTitle: clip.title,
+    clipThumbKey: clip.thumbKey,
     gameSlug: game.slug,
     commentId: clipComment.id,
     commentBody: clipComment.body,
@@ -253,6 +262,40 @@ export async function deleteNotification(
   const unread = await unreadCount(recipientId)
   publishNotificationRemove(recipientId, id, unread)
   return { deleted: true, unreadCount: unread }
+}
+
+/**
+ * Notify every follower of `authorId` that a new clip just went live.
+ * Skips silently on failure — notification fanout must never break the
+ * publish path. Each notification is created independently so a single
+ * failure does not poison the whole batch.
+ */
+export async function notifyFollowersOfNewClip(input: {
+  authorId: string
+  clipId: string
+}): Promise<void> {
+  try {
+    const followers = await db
+      .select({ followerId: follow.followerId })
+      .from(follow)
+      .where(eq(follow.followingId, input.authorId))
+
+    if (followers.length === 0) return
+
+    await Promise.all(
+      followers.map((row) =>
+        createNotification({
+          recipientId: row.followerId,
+          actorId: input.authorId,
+          type: "new_video",
+          clipId: input.clipId,
+        })
+      )
+    )
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn("[notifications] new-video fanout failed:", err)
+  }
 }
 
 export async function clearNotifications(
