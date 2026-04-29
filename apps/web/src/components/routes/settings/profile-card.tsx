@@ -36,6 +36,7 @@ import {
 } from "@/components/profile/image-crop-dialog"
 import { api } from "@/lib/api"
 import { authClient, useSession } from "@/lib/auth-client"
+import { PROFILE_BANNER_ASPECT } from "@/lib/banner-layout"
 import { clipKeys } from "@/lib/clip-queries"
 import { feedKeys } from "@/lib/feed-queries"
 import { validateRequiredString, validateUsername } from "@/lib/form-validators"
@@ -273,7 +274,10 @@ export function ProfileCard({
           <SectionContent className="flex flex-col gap-4">
             {/* Banner preview */}
             <div className="relative overflow-hidden rounded-lg">
-              <div className="relative aspect-[4/1] min-h-[80px]">
+              <div
+                className="relative min-h-[80px]"
+                style={{ aspectRatio: PROFILE_BANNER_ASPECT }}
+              >
                 <UserBanner user={bannerUser} />
                 {hasBanner ? (
                   <DropdownMenu
