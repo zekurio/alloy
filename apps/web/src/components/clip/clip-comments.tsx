@@ -18,10 +18,12 @@ import {
   useToggleCommentLikeMutation,
   useTogglePinCommentMutation,
 } from "@/lib/comment-queries"
+import { useSuspenseAuthConfig } from "@/lib/session-suspense"
 import type { CommentRow } from "@workspace/api"
 import { displayName, userAvatar, useUserChipData } from "@/lib/user-display"
 import {
   CommentActions,
+  CommentAuthHint,
   CommentBody,
   CommentComposer,
   CommentMenu,
@@ -115,6 +117,7 @@ function ClipComments({
     [commentsQuery.data]
   )
   const create = useCreateCommentMutation(clipId)
+  const authConfig = useSuspenseAuthConfig()
 
   const totalCount = React.useMemo(
     () => comments.reduce((n, c) => n + countCommentTree(c), 0),
@@ -122,6 +125,9 @@ function ClipComments({
   )
 
   const isSignedIn = viewerId !== null
+  const canSignUp =
+    authConfig.openRegistrations &&
+    (authConfig.passkeyEnabled || authConfig.provider !== null)
   const canSubmit = draft.trim().length > 0 && isSignedIn
 
   function toggleReplies(commentId: string) {
@@ -312,26 +318,28 @@ function ClipComments({
         <div className="mb-1.5">
           <CommentsSortDropdown sort={sort} onSortChange={setSort} />
         </div>
-        <CommentComposer
-          draft={draft}
-          me={me}
-          meAvatarStyle={meAvatarStyle}
-          inputRef={composerRef}
-          replyingToName={replyTarget?.authorName}
-          placeholder={
-            isSignedIn
-              ? replyTarget
+        {isSignedIn ? (
+          <CommentComposer
+            draft={draft}
+            me={me}
+            meAvatarStyle={meAvatarStyle}
+            inputRef={composerRef}
+            replyingToName={replyTarget?.authorName}
+            placeholder={
+              replyTarget
                 ? `Reply to ${replyTarget.authorName}…`
                 : "Add a comment…"
-              : "Sign in to comment"
-          }
-          submitting={create.isPending}
-          canSubmit={canSubmit}
-          onDraftChange={setDraft}
-          onClear={() => setDraft("")}
-          onCancelReply={cancelReply}
-          onSubmit={submitComment}
-        />
+            }
+            submitting={create.isPending}
+            canSubmit={canSubmit}
+            onDraftChange={setDraft}
+            onClear={() => setDraft("")}
+            onCancelReply={cancelReply}
+            onSubmit={submitComment}
+          />
+        ) : (
+          <CommentAuthHint canSignUp={canSignUp} />
+        )}
       </div>
     </aside>
   )
