@@ -138,10 +138,13 @@ function createPasskeyActions(request: RequestFn, store: SessionStore) {
   return {
     signIn: {
       passkey: () => passkeySignIn(request, store),
-      oauth2: async (_input?: unknown): AuthResult<never> => ({
-        data: null,
-        error: { message: "OAuth sign-in is not implemented yet." },
-      }),
+      oauth2: (input: { providerId: string; callbackURL?: string }) =>
+        startOAuthRedirect(
+          request,
+          "/api/auth/oauth/sign-in",
+          input,
+          "Could not start OAuth sign-in"
+        ),
     },
     signUp: {
       passkey: signUpWithPasskey,
@@ -206,13 +209,34 @@ function createUserActions(request: RequestFn, store: SessionStore) {
   }
 }
 
-function createOAuthActions() {
+async function startOAuthRedirect(
+  request: RequestFn,
+  path: string,
+  input: { providerId: string; callbackURL?: string },
+  fallback: string
+): AuthResult<never> {
+  try {
+    const data = await request<{ url: string }>(path, {
+      method: "POST",
+      body: JSON.stringify(input),
+    })
+    window.location.assign(data.url)
+    return { data: null, error: null }
+  } catch (cause) {
+    return { data: null, error: errorFrom(cause, fallback) }
+  }
+}
+
+function createOAuthActions(request: RequestFn) {
   return {
     oauth2: {
-      link: async (_input?: unknown): AuthResult<never> => ({
-        data: null,
-        error: { message: "OAuth linking is not implemented yet." },
-      }),
+      link: (input: { providerId: string; callbackURL?: string }) =>
+        startOAuthRedirect(
+          request,
+          "/api/auth/oauth/link",
+          input,
+          "Could not start OAuth link"
+        ),
     },
   }
 }
@@ -254,7 +278,7 @@ export function createAuthActions(request: RequestFn, store: SessionStore) {
   return {
     ...createPasskeyActions(request, store),
     ...createUserActions(request, store),
-    ...createOAuthActions(),
+    ...createOAuthActions(request),
     ...createAdminActions(request),
   }
 }
