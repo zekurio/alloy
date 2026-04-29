@@ -346,11 +346,6 @@ function NotificationThumb({ src }: { src: string }) {
   )
 }
 
-/**
- * Leading visual: actor avatar (rounded-square) when we have one, otherwise
- * a kind-tinted icon tile. Falls back to initials with the user's tinted
- * background — keeps the row scannable when an actor has no profile image.
- */
 function NotificationLeading({
   item,
   unread,
