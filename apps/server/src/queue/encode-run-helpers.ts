@@ -96,7 +96,9 @@ export async function tryPublishRemux({
       await storage.delete(originalSourceKey).catch(() => undefined)
     }
     void publishClipUpsert(row.authorId, clipId)
-    notifyFollowersIfNewPublicClip(row.authorId, clipId, previous)
+    if (exposeSource) {
+      notifyFollowersIfNewPublicClip(row.authorId, clipId, previous)
+    }
     return { path: remuxPath, variant }
   } catch (err) {
     if ((err as Error).name === "AbortError") throw err
