@@ -6,6 +6,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 
 import { ProfileActions } from "@/components/profile/profile-actions"
+import { APP_BANNER_HEIGHT_CLASS } from "@/lib/banner-layout"
 import { UserBanner, userAvatar } from "@/lib/user-display"
 import type { ProfileCounts, ProfileViewer, PublicUser } from "@workspace/api"
 import { IdentityStats } from "./identity-stats"
@@ -54,7 +55,8 @@ export function ProfileIdentity({
       {/* Banner */}
       <section
         className={cn(
-          "relative h-[120px] w-full overflow-hidden sm:h-[clamp(200px,22vw,360px)]"
+          "relative w-full overflow-hidden",
+          APP_BANNER_HEIGHT_CLASS
         )}
       >
         <UserBanner user={user} />
@@ -81,9 +83,7 @@ export function ProfileIdentity({
                 loading="eager"
               />
             ) : null}
-            <AvatarFallback
-              style={{ background: avatar.bg, color: avatar.fg }}
-            >
+            <AvatarFallback style={{ background: avatar.bg, color: avatar.fg }}>
               {avatar.initials}
             </AvatarFallback>
           </Avatar>
@@ -110,9 +110,7 @@ export function ProfileIdentity({
             </div>
 
             {/* Follow / action button */}
-            {actionNode ? (
-              <div className="shrink-0">{actionNode}</div>
-            ) : null}
+            {actionNode ? <div className="shrink-0">{actionNode}</div> : null}
           </div>
         </div>
       </div>
