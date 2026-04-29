@@ -20,6 +20,7 @@ function serverUrl(mode: string): string {
 }
 
 const config = defineConfig(({ mode }) => ({
+  publicDir: "../../public",
   server: {
     port: 5173,
     strictPort: true,
