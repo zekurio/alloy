@@ -2,7 +2,6 @@
   fetchPnpmDeps,
   jellyfin-ffmpeg,
   lib,
-  makeBinaryWrapper,
   nodejs_24,
   pnpm_10,
   pnpmConfigHook,
@@ -53,7 +52,6 @@ stdenv.mkDerivation (finalAttrs: {
   };
 
   nativeBuildInputs = [
-    makeBinaryWrapper
     nodejs_24
     pnpmConfigHook
     pnpm_10
@@ -103,12 +101,6 @@ stdenv.mkDerivation (finalAttrs: {
     exec "$out/share/alloy/apps/server/node_modules/.bin/tsx" "$out/share/alloy/apps/server/src/index.ts" "\$@"
     EOF
     chmod +x "$out/bin/alloy"
-
-    makeWrapper ${lib.getExe pnpm_10} "$out/bin/alloy-migrate" \
-      --prefix PATH : ${lib.makeBinPath [ nodejs_24 ]} \
-      --add-flags "--dir" \
-      --add-flags "$out/share/alloy/packages/db" \
-      --add-flags "migrate:deploy"
 
     runHook postInstall
   '';

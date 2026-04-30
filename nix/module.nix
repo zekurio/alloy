@@ -193,8 +193,6 @@ in
           ${lib.escapeShellArg cfg.stateDir} \
           ${lib.escapeShellArg "${cfg.stateDir}/data/storage"} \
           ${lib.escapeShellArg "${cfg.stateDir}/scratch"}
-
-        ${cfg.package}/bin/alloy-migrate
       '';
 
       serviceConfig = {
