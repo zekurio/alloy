@@ -105,7 +105,8 @@ function toForm(storage: AdminStorageConfig): StorageForm {
 
 function buildPatch(
   form: StorageForm,
-  initial: StorageForm
+  initial: StorageForm,
+  s3SecretConfigured: boolean
 ): AdminStorageConfigPatch | null {
   if (form.driver === "fs") {
     if (form.fs.root.trim().length === 0) {
@@ -130,6 +131,25 @@ function buildPatch(
   }
 
   const presignSec = clampInt(form.s3.presignExpiresSec, 60, 86_400, 3600)
+  const s3AccessKeyId = form.s3.accessKeyId.trim()
+  const s3SecretAccessKey = form.s3.secretAccessKey.trim()
+
+  if (form.driver === "s3") {
+    if (s3AccessKeyId.length === 0 && s3SecretAccessKey.length > 0) {
+      toast.error("S3 access key ID is required when a secret is provided.")
+      return null
+    }
+    if (
+      s3AccessKeyId.length > 0 &&
+      s3SecretAccessKey.length === 0 &&
+      !s3SecretConfigured
+    ) {
+      toast.error(
+        "S3 secret access key is required when an access key ID is provided."
+      )
+      return null
+    }
+  }
 
   const patch: AdminStorageConfigPatch = { driver: form.driver }
 
@@ -152,16 +172,17 @@ function buildPatch(
     region: form.s3.region.trim(),
     endpoint:
       form.s3.endpoint.trim().length > 0 ? form.s3.endpoint.trim() : null,
-    accessKeyId:
-      form.s3.accessKeyId.trim().length > 0 ? form.s3.accessKeyId.trim() : null,
+    accessKeyId: s3AccessKeyId.length > 0 ? s3AccessKeyId : null,
     forcePathStyle: form.s3.forcePathStyle,
     presignExpiresSec: presignSec,
   }
-  if (
+  if (s3AccessKeyId.length === 0) {
+    s3Patch.secretAccessKey = null
+  } else if (
     form.s3.secretAccessKey !== initial.s3.secretAccessKey &&
-    form.s3.secretAccessKey !== ""
+    s3SecretAccessKey !== ""
   ) {
-    s3Patch.secretAccessKey = form.s3.secretAccessKey
+    s3Patch.secretAccessKey = s3SecretAccessKey
   }
   patch.s3 = s3Patch
 
@@ -184,6 +205,7 @@ function useStorageConfigForm({
   const initial = React.useMemo(() => toForm(storage), [storage])
   const [form, setForm] = React.useState<StorageForm>(initial)
   const [pending, setPending] = React.useState(false)
+  const s3SecretConfigured = (storage.s3.secretAccessKey ?? "") === REDACTED
 
   React.useEffect(() => {
     setForm(initial)
@@ -214,7 +236,7 @@ function useStorageConfigForm({
       onSaved?.()
       return
     }
-    const patch = buildPatch(form, initial)
+    const patch = buildPatch(form, initial, s3SecretConfigured)
     if (!patch) return
     setPending(true)
     try {

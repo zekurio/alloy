@@ -242,6 +242,8 @@ export function mergeStorageConfigPatch(
     next.s3.secretAccessKey = current.s3.secretAccessKey
   } else if (patch.s3?.secretAccessKey === null) {
     delete next.s3.secretAccessKey
+  } else {
+    next.s3.secretAccessKey = patch.s3.secretAccessKey
   }
 
   return next
