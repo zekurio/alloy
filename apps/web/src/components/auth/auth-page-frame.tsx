@@ -1,9 +1,9 @@
-import type { ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import { Link } from "@tanstack/react-router"
 
 import { AlloyLogo } from "@workspace/ui/components/alloy-logo"
 
-import { EMPTY_STATE_KAOMOJI } from "@/lib/kaomoji"
+import { pickEmptyStateKaomoji } from "@/lib/kaomoji"
 import type { PublicClip } from "@/lib/public-clips"
 
 import {
@@ -43,13 +43,15 @@ export function AuthPageFrame({ clips, children }: AuthPageFrameProps) {
 }
 
 function AuthKaomoji() {
+  const [kaomoji] = useState(() => pickEmptyStateKaomoji())
+
   return (
     <div
       aria-hidden
       className="flex h-full min-h-screen items-center justify-center bg-surface px-10"
     >
       <div className="text-[clamp(48px,7vw,120px)] leading-none font-semibold text-foreground-muted/65 select-none">
-        {EMPTY_STATE_KAOMOJI[0]}
+        {kaomoji}
       </div>
     </div>
   )
