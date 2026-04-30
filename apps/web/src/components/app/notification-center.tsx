@@ -34,6 +34,7 @@ import { Spinner } from "@workspace/ui/components/spinner"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { EmptyState } from "@/components/feedback/empty-state"
 import { apiOrigin } from "@/lib/env"
 import { useSuspenseSession } from "@/lib/session-suspense"
 import { displayName, userAvatar } from "@/lib/user-display"
@@ -393,12 +394,12 @@ function NotificationLeading({
 
 function NotificationEmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border px-6 py-8 text-center">
-      <p className="text-sm font-medium text-foreground">Nothing here yet</p>
-      <p className="text-xs font-semibold text-foreground-muted">
-        New notifications will show up here.
-      </p>
-    </div>
+    <EmptyState
+      className="border border-dashed border-border px-6"
+      hint="New notifications will show up here."
+      size="sm"
+      title="Nothing here yet"
+    />
   )
 }
 
