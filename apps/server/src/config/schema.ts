@@ -195,7 +195,7 @@ const FsStorageConfigSchema = z.object({
   hmacSecret: z.string().min(32),
 })
 
-const S3StorageConfigSchema = z.object({
+const S3StorageConfigBaseSchema = z.object({
   bucket: z.string().default(""),
   region: z.string().default("auto"),
   endpoint: z.string().url().optional(),
@@ -204,6 +204,25 @@ const S3StorageConfigSchema = z.object({
   forcePathStyle: z.boolean().default(false),
   presignExpiresSec: z.number().int().positive().default(900),
 })
+
+const S3StorageConfigSchema = S3StorageConfigBaseSchema.superRefine(
+  (config, ctx) => {
+    const hasAccessKey =
+      config.accessKeyId !== undefined && config.accessKeyId.trim().length > 0
+    const hasSecret =
+      config.secretAccessKey !== undefined &&
+      config.secretAccessKey.trim().length > 0
+
+    if (hasAccessKey === hasSecret) return
+
+    ctx.addIssue({
+      code: "custom",
+      path: hasAccessKey ? ["secretAccessKey"] : ["accessKeyId"],
+      message:
+        "S3 access key ID and secret access key must be configured together.",
+    })
+  }
+)
 
 const DEFAULT_FS_STORAGE_CONFIG = FsStorageConfigSchema.parse({
   hmacSecret: randomBytes(32).toString("base64url"),
@@ -253,7 +272,7 @@ export const LimitsConfigPatchSchema = LimitsConfigSchema.partial()
 export const IntegrationsConfigPatchSchema = IntegrationsConfigSchema.partial()
 export const FsStorageConfigPatchSchema = FsStorageConfigSchema.partial()
 export const S3StorageConfigPatchSchema =
-  S3StorageConfigSchema.partial().extend({
+  S3StorageConfigBaseSchema.partial().extend({
     endpoint: z.string().url().nullable().optional(),
     accessKeyId: z.string().nullable().optional(),
     secretAccessKey: z.string().nullable().optional(),
