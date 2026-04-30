@@ -12,7 +12,7 @@ let
   isPostgresUnixSocket = lib.hasPrefix "/" cfg.database.host;
   databaseUrl =
     if isPostgresUnixSocket then
-      "postgresql:///${cfg.database.name}?host=${cfg.database.host}&user=${cfg.database.user}"
+      "postgresql:///${cfg.database.name}"
     else
       "postgresql://${cfg.database.user}@${cfg.database.host}:${toString cfg.database.port}/${cfg.database.name}";
 in
@@ -68,6 +68,14 @@ in
       type = types.path;
       default = "/var/lib/alloy-clips";
       description = "Directory used for Alloy runtime configuration, clip storage, and encoder scratch data.";
+    };
+
+    encodeScratchDir = mkOption {
+      type = types.path;
+      default = "${cfg.stateDir}/scratch";
+      defaultText = lib.literalExpression ''"${config.services."alloy-clips".stateDir}/scratch"'';
+      example = "/var/cache/alloy-clips/scratch";
+      description = "Directory used for temporary encoder scratch data.";
     };
 
     secretsFile = mkOption {
@@ -164,7 +172,7 @@ in
       "d ${cfg.stateDir} 0700 ${cfg.user} ${cfg.group} -"
       "d ${cfg.stateDir}/data 0700 ${cfg.user} ${cfg.group} -"
       "d ${cfg.stateDir}/data/storage 0700 ${cfg.user} ${cfg.group} -"
-      "d ${cfg.stateDir}/scratch 0700 ${cfg.user} ${cfg.group} -"
+      "d ${cfg.encodeScratchDir} 0700 ${cfg.user} ${cfg.group} -"
     ];
 
     systemd.services.alloy-clips = {
@@ -184,7 +192,12 @@ in
           );
           ALLOY_STATE_DIR = toString cfg.stateDir;
           ALLOY_CONFIG_FILE = "${cfg.stateDir}/config.json";
-          ENCODE_SCRATCH_DIR = "${cfg.stateDir}/scratch";
+          ENCODE_SCRATCH_DIR = toString cfg.encodeScratchDir;
+        }
+        // lib.optionalAttrs isPostgresUnixSocket {
+          PGHOST = cfg.database.host;
+          PGPORT = toString cfg.database.port;
+          PGUSER = cfg.database.user;
         }
         // cfg.environment;
 
@@ -192,7 +205,7 @@ in
         ${lib.getExe' pkgs.coreutils "mkdir"} -p \
           ${lib.escapeShellArg cfg.stateDir} \
           ${lib.escapeShellArg "${cfg.stateDir}/data/storage"} \
-          ${lib.escapeShellArg "${cfg.stateDir}/scratch"}
+          ${lib.escapeShellArg cfg.encodeScratchDir}
       '';
 
       serviceConfig = {
@@ -218,7 +231,10 @@ in
         ProtectKernelModules = true;
         ProtectKernelTunables = true;
         ProtectSystem = "strict";
-        ReadWritePaths = [ cfg.stateDir ];
+        ReadWritePaths = [
+          cfg.stateDir
+          cfg.encodeScratchDir
+        ];
         RestrictAddressFamilies = [
           "AF_INET"
           "AF_INET6"
