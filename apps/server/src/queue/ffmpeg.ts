@@ -30,15 +30,19 @@ export interface ResolvedEncoderConfig {
  * content type. Throws on non-zero exit or unparsable output.
  */
 export async function probe(srcPath: string): Promise<ProbeResult> {
-  const { stdout } = await runCapture(env.FFPROBE_BIN, [
-    "-v",
-    "error",
-    "-print_format",
-    "json",
-    "-show_streams",
-    "-show_format",
-    srcPath,
-  ])
+  const { stdout } = await runCapture(
+    env.FFPROBE_BIN,
+    [
+      "-v",
+      "error",
+      "-print_format",
+      "json",
+      "-show_streams",
+      "-show_format",
+      srcPath,
+    ],
+    { label: "probe" }
+  )
 
   let parsed: ProbeJson
   try {
@@ -130,7 +134,7 @@ export async function encode(
       )
       opts.onProgress(pct)
     },
-    opts.signal
+    { label: `encode ${opts.targetHeight}p`, signal: opts.signal }
   )
 }
 
@@ -147,7 +151,7 @@ export async function remuxToMp4(
     env.FFMPEG_BIN,
     buildRemuxArgs(srcPath, outPath, opts),
     () => undefined,
-    opts.signal
+    { label: "remux source", signal: opts.signal }
   )
 }
 

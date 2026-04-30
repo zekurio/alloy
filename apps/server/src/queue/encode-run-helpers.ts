@@ -49,6 +49,7 @@ export async function tryPublishRemux({
   const remuxPath = path.join(scratchDir, "source.mp4")
   const remuxKey = clipSourceMp4Key(clipId)
   try {
+    console.info(`[ffmpeg] clip ${clipId}: remux started`)
     await remuxToMp4(sourcePath, remuxPath, {
       trimStartMs: trim.startMs,
       trimEndMs: trim.endMs,
@@ -100,10 +101,14 @@ export async function tryPublishRemux({
     if (exposeSource) {
       notifyFollowersIfNewPublicClip(row.authorId, clipId, publishState)
     }
+    console.info(
+      `[ffmpeg] clip ${clipId}: remux published ${remuxProbe.width}x${remuxProbe.height}, ${size} bytes`
+    )
     return { path: remuxPath, variant }
   } catch (err) {
     if ((err as Error).name === "AbortError") throw err
     const reason = err instanceof Error ? err.message : "Remux failed"
+    console.warn(`[ffmpeg] clip ${clipId}: remux failed: ${reason}`)
     await db
       .update(clip)
       .set({
@@ -281,6 +286,9 @@ export async function encodeVariants(
     await ensureClipStillPresent(opts.clipId, opts.signal)
     const reuse = opts.reuse.get(index)
     if (reuse) {
+      console.info(
+        `[ffmpeg] clip ${opts.clipId}: reusing variant ${variant.id} (${variant.height}p)`
+      )
       pushVariant(variant, index, reuse)
       completedWork += 1
       const progress = Math.floor((completedWork / totalWork) * 100)
@@ -302,6 +310,9 @@ export async function encodeVariants(
       vaapiDevice: opts.config.vaapiDevice,
     }
 
+    console.info(
+      `[ffmpeg] clip ${opts.clipId}: encoding variant ${variant.id} (${variant.height}p) with ${rungConfig.encoder}`
+    )
     await encode(opts.paths.sourcePath, variantPath, {
       config: rungConfig,
       targetHeight: variant.height,
@@ -332,6 +343,9 @@ export async function encodeVariants(
       height: variantProbe.height,
       sizeBytes: uploadedSize,
     })
+    console.info(
+      `[ffmpeg] clip ${opts.clipId}: published variant ${variant.id} (${variantProbe.width}x${variantProbe.height}, ${uploadedSize} bytes)`
+    )
     completedWork += 1
     const progress = Math.floor((completedWork / totalWork) * 100)
     opts.writeProgress(progress)

@@ -27,18 +27,30 @@ export function buildVariantSpecs(
   defaultVariantId: string | null
 ): VariantSpec[] {
   const specs: VariantSpec[] = []
+  const defaultVariantIsAvailable = configuredVariants.some(
+    (variant) =>
+      variant.id === defaultVariantId &&
+      variant.height > 0 &&
+      variant.height <= sourceHeight
+  )
 
   for (const configured of configuredVariants) {
-    const cappedHeight = Math.min(configured.height, sourceHeight)
-    if (cappedHeight <= 0) continue
-    const isDefault = specs.length === 0
+    if (configured.height <= 0) continue
+    if (configured.height > sourceHeight) {
+      console.info(
+        `[ffmpeg] clip ${clipId}: skipping variant ${configured.id} (${configured.height}p) because source is ${sourceHeight}p`
+      )
+      continue
+    }
+    const isFirstAvailable = specs.length === 0
     specs.push({
       id: configured.id,
       label: configured.name,
-      height: cappedHeight,
+      height: configured.height,
       storageKey: clipVideoVariantKey(clipId, configured.id),
       isDefault:
-        configured.id === defaultVariantId || (!defaultVariantId && isDefault),
+        configured.id === defaultVariantId ||
+        (!defaultVariantIsAvailable && isFirstAvailable),
       override: {
         codec: configured.codec,
         quality: configured.quality,
