@@ -199,11 +199,13 @@ export function buildEncodeArgs(
   const { config } = opts
   const { trimSeek, trimDuration } = buildTrimArgs(opts)
 
-  const filterChain = buildFilterChain(opts.targetHeight, config)
   const codecArgs = buildCodecArgs(config)
-  const hardwareArgs = buildHardwareArgs(config)
   const extraInputArgs = parseExtraArgs(config.extraInputArgs)
   const extraOutputArgs = parseExtraArgs(config.extraOutputArgs)
+  const { videoFilter, remainingArgs: remainingExtraOutputArgs } =
+    extractVideoFilterArgs(extraOutputArgs)
+  const filterChain = videoFilter ?? buildFilterChain(opts.targetHeight, config)
+  const hardwareArgs = buildHardwareArgs(config)
   const audioArgs = [
     "-c:a",
     "aac",
@@ -230,7 +232,7 @@ export function buildEncodeArgs(
     "-movflags",
     "+faststart",
     ...audioArgs,
-    ...extraOutputArgs,
+    ...remainingExtraOutputArgs,
     "-progress",
     "pipe:2",
     "-nostats",
@@ -260,8 +262,7 @@ function buildTrimArgs(opts: {
 function buildHardwareArgs(config: ResolvedEncoderConfig): string[] {
   const hwaccel = config.hwaccel.trim()
   const encoder = config.encoder.trim()
-  const ffmpegHwaccel = ffmpegHwaccelName(hwaccel)
-  const args = ffmpegHwaccel ? ["-hwaccel", ffmpegHwaccel] : []
+  const args: string[] = []
 
   if (encoder.endsWith("_qsv") || hwaccel === "qsv") {
     args.push("-qsv_device", config.qsvDevice)
@@ -271,12 +272,6 @@ function buildHardwareArgs(config: ResolvedEncoderConfig): string[] {
   }
 
   return args
-}
-
-function ffmpegHwaccelName(hwaccel: string): string {
-  if (hwaccel === "none") return ""
-  if (hwaccel === "nvenc") return "cuda"
-  return hwaccel
 }
 
 function buildFilterChain(
@@ -363,6 +358,47 @@ export function parseExtraArgs(raw: string): string[] {
   if (quote) throw new Error("Unclosed quote in ffmpeg extra args")
   if (current.length > 0) args.push(current)
   return args
+}
+
+function extractVideoFilterArgs(args: string[]): {
+  videoFilter: string | null
+  remainingArgs: string[]
+} {
+  let videoFilter: string | null = null
+  const remainingArgs: string[] = []
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!
+    const inlineValue = videoFilterOptionInlineValue(arg)
+    if (inlineValue != null) {
+      videoFilter = inlineValue
+      continue
+    }
+    if (isVideoFilterOption(arg)) {
+      const value = args[i + 1]
+      if (value == null) {
+        throw new Error(`Missing value for ffmpeg output option ${arg}`)
+      }
+      videoFilter = value
+      i += 1
+      continue
+    }
+    remainingArgs.push(arg)
+  }
+
+  return { videoFilter, remainingArgs }
+}
+
+function isVideoFilterOption(arg: string): boolean {
+  return arg === "-vf" || arg === "-filter:v" || arg.startsWith("-filter:v:")
+}
+
+function videoFilterOptionInlineValue(arg: string): string | null {
+  const equalsIndex = arg.indexOf("=")
+  if (equalsIndex < 0) return null
+  const option = arg.slice(0, equalsIndex)
+  if (!isVideoFilterOption(option)) return null
+  return arg.slice(equalsIndex + 1)
 }
 
 export function codecNameFor(
