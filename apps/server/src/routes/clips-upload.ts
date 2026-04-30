@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
 import { nanoid } from "nanoid"
 
-import { clip, clipMention, game } from "@workspace/db/schema"
+import { clip, clipMention, clipUploadTicket, game } from "@workspace/db/schema"
 
 import { db } from "../db"
 import { getSession } from "../auth/session"
@@ -20,8 +20,12 @@ import {
   clipStagingVideoKey,
   storage,
 } from "../storage"
+import { validateImageBytes } from "../media/image-validation"
 import { IdParam, InitiateBody, UpdateBody } from "./clips-helpers"
 import {
+  assertUsableUploadTicket,
+  createUploadTickets,
+  markUploadTicketUsed,
   markUploadFailed,
   resolveMentionIds,
   selectLockedQuotaState,
@@ -120,6 +124,16 @@ export const clipsUploadRoutes = new Hono()
       void publishClipUpsert(viewerId, clipId)
 
       const expiresInSec = configStore.get("limits").uploadTtlSec
+      const expiresAt = new Date(Date.now() + expiresInSec * 1000)
+      await createUploadTickets({
+        clipId,
+        videoKey: storageKey,
+        videoContentType: body.contentType,
+        videoBytes: body.sizeBytes,
+        thumbKey,
+        thumbBytes: body.thumbSizeBytes,
+        expiresAt,
+      })
       const [ticket, thumbTicket] = await Promise.all([
         storage.mintUploadUrl({
           key: storageKey,
@@ -158,6 +172,17 @@ export const clipsUploadRoutes = new Hono()
       }
       if (row.status !== "pending") {
         return c.json({ error: `Clip is already ${row.status}` }, 409)
+      }
+      const videoTicketOk = await assertUsableUploadTicket({
+        clipId: id,
+        storageKey: row.storageKey,
+        contentType: row.contentType,
+        expectedBytes: row.sizeBytes ?? 0,
+        role: "video",
+      })
+      if (!videoTicketOk) {
+        await markUploadFailed(row.authorId, id, "Upload ticket expired")
+        return c.json({ error: "Upload ticket expired" }, 410)
       }
 
       const resolved = await storage.resolve(row.storageKey)
@@ -199,6 +224,24 @@ export const clipsUploadRoutes = new Hono()
       // Client-captured thumbnails are required — the encode worker
       // reuses the existing keys instead of shelling out to ffmpeg.
       if (row.thumbKey) {
+        const [thumbTicket] = await db
+          .select()
+          .from(clipUploadTicket)
+          .where(
+            and(
+              eq(clipUploadTicket.clipId, id),
+              eq(clipUploadTicket.storageKey, row.thumbKey)
+            )
+          )
+          .limit(1)
+        if (!thumbTicket) {
+          await markUploadFailed(row.authorId, id, "Thumbnail ticket missing")
+          return c.json({ error: "Thumbnail ticket missing" }, 400)
+        }
+        if (thumbTicket && thumbTicket.expiresAt <= new Date()) {
+          await markUploadFailed(row.authorId, id, "Thumbnail ticket expired")
+          return c.json({ error: "Thumbnail ticket expired" }, 410)
+        }
         const thumbResolved = await storage.resolve(row.thumbKey)
         if (!thumbResolved) {
           await markUploadFailed(
@@ -207,6 +250,25 @@ export const clipsUploadRoutes = new Hono()
             "Thumbnail bytes are missing"
           )
           return c.json({ error: "Thumbnail bytes are missing" }, 400)
+        }
+        if (thumbTicket && thumbResolved.size !== thumbTicket.expectedBytes) {
+          await storage.delete(row.thumbKey).catch(() => undefined)
+          await markUploadFailed(
+            row.authorId,
+            id,
+            "Thumbnail size did not match declared size"
+          )
+          return c.json(
+            { error: "Thumbnail size did not match declared size" },
+            400
+          )
+        }
+        const thumbBytes = await readResolvedObject(thumbResolved)
+        const thumbValidation = validateImageBytes(thumbBytes, "image/jpeg")
+        if (!thumbValidation.ok) {
+          await storage.delete(row.thumbKey).catch(() => undefined)
+          await markUploadFailed(row.authorId, id, thumbValidation.error)
+          return c.json({ error: thumbValidation.error }, 400)
         }
       }
       const canonicalThumbKey = clipAssetKey(id, "thumb")
@@ -285,6 +347,10 @@ export const clipsUploadRoutes = new Hono()
       if (row.thumbKey && row.thumbKey !== canonicalThumbKey) {
         await storage.delete(row.thumbKey).catch(() => undefined)
       }
+      await Promise.all([
+        markUploadTicketUsed(row.storageKey),
+        row.thumbKey ? markUploadTicketUsed(row.thumbKey) : Promise.resolve(),
+      ])
 
       void publishClipUpsert(viewerId, id)
 
@@ -410,3 +476,13 @@ export const clipsUploadRoutes = new Hono()
     await deleteClipRowAndAssets(row)
     return c.json({ deleted: true })
   })
+
+async function readResolvedObject(resolved: {
+  stream: () => NodeJS.ReadableStream
+}): Promise<Buffer> {
+  const chunks: Buffer[] = []
+  for await (const chunk of resolved.stream()) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+  }
+  return Buffer.concat(chunks)
+}

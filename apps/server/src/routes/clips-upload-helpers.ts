@@ -1,7 +1,7 @@
-import { eq, inArray, sql } from "drizzle-orm"
+import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm"
 
 import { user } from "@workspace/db/auth-schema"
-import { clip } from "@workspace/db/schema"
+import { clip, clipUploadTicket } from "@workspace/db/schema"
 
 import { db } from "../db"
 import { publishClipUpsert } from "../clips/events"
@@ -63,4 +63,70 @@ export async function markUploadFailed(
     type: "clip_upload_failed",
     clipId,
   })
+}
+
+export async function createUploadTickets(input: {
+  clipId: string
+  videoKey: string
+  videoContentType: string
+  videoBytes: number
+  thumbKey: string
+  thumbBytes: number
+  expiresAt: Date
+}): Promise<void> {
+  await db.insert(clipUploadTicket).values([
+    {
+      clipId: input.clipId,
+      role: "video",
+      storageKey: input.videoKey,
+      contentType: input.videoContentType,
+      expectedBytes: input.videoBytes,
+      expiresAt: input.expiresAt,
+    },
+    {
+      clipId: input.clipId,
+      role: "thumbnail",
+      storageKey: input.thumbKey,
+      contentType: "image/jpeg",
+      expectedBytes: input.thumbBytes,
+      expiresAt: input.expiresAt,
+    },
+  ])
+}
+
+export async function markUploadTicketUsed(storageKey: string): Promise<void> {
+  await db
+    .update(clipUploadTicket)
+    .set({ usedAt: new Date() })
+    .where(
+      and(
+        eq(clipUploadTicket.storageKey, storageKey),
+        isNull(clipUploadTicket.usedAt),
+        gt(clipUploadTicket.expiresAt, new Date())
+      )
+    )
+}
+
+export async function assertUsableUploadTicket(input: {
+  clipId: string
+  storageKey: string
+  contentType: string
+  expectedBytes: number
+  role: "video" | "thumbnail"
+}): Promise<boolean> {
+  const [ticket] = await db
+    .select({ id: clipUploadTicket.id })
+    .from(clipUploadTicket)
+    .where(
+      and(
+        eq(clipUploadTicket.clipId, input.clipId),
+        eq(clipUploadTicket.storageKey, input.storageKey),
+        eq(clipUploadTicket.contentType, input.contentType),
+        eq(clipUploadTicket.expectedBytes, input.expectedBytes),
+        eq(clipUploadTicket.role, input.role),
+        gt(clipUploadTicket.expiresAt, new Date())
+      )
+    )
+    .limit(1)
+  return Boolean(ticket)
 }
