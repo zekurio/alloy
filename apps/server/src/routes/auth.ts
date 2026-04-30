@@ -7,31 +7,19 @@ import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
-import { authAccount, user, userPasskey } from "@workspace/db/auth-schema"
+import { user, userPasskey } from "@workspace/db/auth-schema"
 
 import { db } from "../db"
-import {
-  clearOAuthStateCookie,
-  clearSessionCookies,
-  setOAuthStateCookie,
-  setSessionCookies,
-} from "../auth/cookies"
+import { clearSessionCookies, setSessionCookies } from "../auth/cookies"
 import {
   assertCanRemoveAdmin,
   deleteUserPasskeyPreservingSignIn,
   findUserByEmail,
   normalizeEmail,
   setupRequired,
-  unlinkOAuthAccountPreservingSignIn,
   updateUserIdentity,
   validateUsername,
 } from "../auth/identity"
-import {
-  fallbackOAuthErrorRedirect,
-  finishOAuthCallback,
-  startOAuthLink,
-  startOAuthSignIn,
-} from "../auth/oauth"
 import {
   createSession,
   deleteCurrentSession,
@@ -46,6 +34,7 @@ import {
   verifyPasskeyAuthentication,
   verifyPasskeyRegistration,
 } from "../auth/webauthn"
+import { authOAuthRoute } from "./auth-oauth-routes"
 import { completePasskeySignUp } from "./auth-passkey-signup"
 import {
   canOpenPasskeyRegistration,
@@ -75,16 +64,6 @@ const UpdateUserBody = z.object({
 
 const UuidParam = z.object({
   id: z.string().uuid(),
-})
-
-const UnlinkAccountBody = z.object({
-  providerId: z.string().min(1),
-  accountId: z.string().min(1),
-})
-
-const OAuthStartBody = z.object({
-  providerId: z.string().min(1),
-  callbackURL: z.string().optional().nullable(),
 })
 
 export const authRoute = new Hono()
@@ -360,84 +339,4 @@ export const authRoute = new Hono()
       )
     }
   })
-  .get("/accounts", requireSession, async (c) => {
-    const rows = await db
-      .select({
-        id: authAccount.id,
-        providerId: authAccount.providerId,
-        accountId: authAccount.providerAccountId,
-        createdAt: authAccount.createdAt,
-      })
-      .from(authAccount)
-      .where(eq(authAccount.userId, c.var.viewerId))
-      .orderBy(authAccount.createdAt)
-    return c.json(rows)
-  })
-  .post("/oauth/sign-in", zValidator("json", OAuthStartBody), async (c) => {
-    try {
-      const body = c.req.valid("json")
-      const result = await startOAuthSignIn(body)
-      setOAuthStateCookie(c, body.providerId, result.browserNonce)
-      return c.json({ url: result.url })
-    } catch (cause) {
-      return c.json(
-        { error: errorMessage(cause, "Could not start OAuth sign-in.") },
-        400
-      )
-    }
-  })
-  .post(
-    "/oauth/link",
-    requireSession,
-    zValidator("json", OAuthStartBody),
-    async (c) => {
-      try {
-        const body = c.req.valid("json")
-        const result = await startOAuthLink({
-          ...body,
-          userId: c.var.viewerId,
-        })
-        setOAuthStateCookie(c, body.providerId, result.browserNonce)
-        return c.json({ url: result.url })
-      } catch (cause) {
-        return c.json(
-          { error: errorMessage(cause, "Could not start OAuth link.") },
-          400
-        )
-      }
-    }
-  )
-  .get("/oauth2/callback/:providerId", async (c) => {
-    const providerId = c.req.param("providerId")
-    try {
-      const result = await finishOAuthCallback(c, providerId)
-      return c.redirect(result.redirectTo)
-    } catch (cause) {
-      clearOAuthStateCookie(c, providerId)
-      return c.redirect(fallbackOAuthErrorRedirect(cause))
-    }
-  })
-  .post(
-    "/accounts/unlink",
-    requireSession,
-    zValidator("json", UnlinkAccountBody),
-    async (c) => {
-      const body = c.req.valid("json")
-      const result = await unlinkOAuthAccountPreservingSignIn({
-        userId: c.var.viewerId,
-        providerId: body.providerId,
-        providerAccountId: body.accountId,
-      })
-      if (result === "last-sign-in-method") {
-        return c.json(
-          {
-            error: "Add another sign-in method before unlinking this account.",
-          },
-          400
-        )
-      }
-      if (result === "not-found")
-        return c.json({ error: "Account not found." }, 404)
-      return c.json({ success: true })
-    }
-  )
+  .route("/", authOAuthRoute)

@@ -92,9 +92,6 @@ export function runWithProgress(
     proc.on("close", (code) => {
       signal?.removeEventListener("abort", onAbort)
       if (aborted) {
-        console.info(
-          `[ffmpeg] ${processName(bin, opts.label)} cancelled after ${Date.now() - startedAt}ms`
-        )
         reject(abortError())
         return
       }
@@ -119,23 +116,19 @@ function abortError(): Error {
 }
 
 function logProcessStart(
-  bin: string,
-  args: ReadonlyArray<string>,
-  label: string | undefined
+  _bin: string,
+  _args: ReadonlyArray<string>,
+  _label: string | undefined
 ): void {
-  console.info(
-    `[ffmpeg] ${processName(bin, label)} started: ${formatCommand(bin, args)}`
-  )
+  return undefined
 }
 
 function logProcessSuccess(
-  bin: string,
-  label: string | undefined,
-  startedAt: number
+  _bin: string,
+  _label: string | undefined,
+  _startedAt: number
 ): void {
-  console.info(
-    `[ffmpeg] ${processName(bin, label)} completed in ${Date.now() - startedAt}ms`
-  )
+  return undefined
 }
 
 function logProcessFailure(
@@ -166,13 +159,4 @@ function logProcessError(
 function processName(bin: string, label: string | undefined): string {
   const base = label ? `${label} (${bin})` : bin
   return base
-}
-
-function formatCommand(bin: string, args: ReadonlyArray<string>): string {
-  return [bin, ...args].map(quoteArg).join(" ")
-}
-
-function quoteArg(arg: string): string {
-  if (/^[A-Za-z0-9_./:=+-]+$/.test(arg)) return arg
-  return JSON.stringify(arg)
 }
