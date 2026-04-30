@@ -34,14 +34,47 @@ export interface S3DriverOptions {
   presignExpiresSec: number
 }
 
-export class S3StorageDriver implements StorageDriver {
-  private readonly client: S3Client
-  private readonly bucket: string
-  private readonly presignExpiresSec: number
+type S3DriverOptionsProvider = () => S3DriverOptions
 
-  constructor(opts: S3DriverOptions) {
-    this.bucket = opts.bucket
-    this.presignExpiresSec = opts.presignExpiresSec
+export class S3StorageDriver implements StorageDriver {
+  private readonly optionsProvider: S3DriverOptionsProvider
+  private cachedClient: { cacheKey: string; client: S3Client } | null = null
+
+  constructor(opts: S3DriverOptions | S3DriverOptionsProvider) {
+    this.optionsProvider = typeof opts === "function" ? opts : () => opts
+  }
+
+  private getOptions(): S3DriverOptions {
+    const opts = this.optionsProvider()
+    const accessKeyId = normalizeOptional(opts.accessKeyId)
+    const secretAccessKey = normalizeOptional(opts.secretAccessKey)
+    if (
+      (accessKeyId && !secretAccessKey) ||
+      (!accessKeyId && secretAccessKey)
+    ) {
+      throw new Error(
+        "S3 storage runtime config must include both accessKeyId and secretAccessKey, or neither."
+      )
+    }
+    return {
+      ...opts,
+      endpoint: normalizeOptional(opts.endpoint),
+      accessKeyId,
+      secretAccessKey,
+    }
+  }
+
+  private getClient(opts: S3DriverOptions): S3Client {
+    const cacheKey = JSON.stringify({
+      region: opts.region,
+      endpoint: opts.endpoint,
+      accessKeyId: opts.accessKeyId,
+      secretAccessKey: opts.secretAccessKey,
+      forcePathStyle: opts.forcePathStyle,
+    })
+    if (this.cachedClient?.cacheKey === cacheKey) {
+      return this.cachedClient.client
+    }
     // If access keys aren't provided we let the SDK's default credential
     // chain take over — supports instance roles, workload identity, etc.
     const credentials =
@@ -51,7 +84,7 @@ export class S3StorageDriver implements StorageDriver {
             secretAccessKey: opts.secretAccessKey,
           }
         : undefined
-    this.client = new S3Client({
+    const client = new S3Client({
       region: opts.region,
       endpoint: opts.endpoint,
       forcePathStyle: opts.forcePathStyle,
@@ -60,6 +93,8 @@ export class S3StorageDriver implements StorageDriver {
       requestChecksumCalculation: "WHEN_REQUIRED",
       responseChecksumValidation: "WHEN_REQUIRED",
     })
+    this.cachedClient = { cacheKey, client }
+    return client
   }
 
   async put(
@@ -67,10 +102,12 @@ export class S3StorageDriver implements StorageDriver {
     body: Buffer | Readable,
     contentType: string
   ): Promise<{ size: number }> {
+    const opts = this.getOptions()
+    const client = this.getClient(opts)
     if (Buffer.isBuffer(body)) {
-      await this.client.send(
+      await client.send(
         new PutObjectCommand({
-          Bucket: this.bucket,
+          Bucket: opts.bucket,
           Key: key,
           Body: body,
           ContentType: contentType,
@@ -86,9 +123,9 @@ export class S3StorageDriver implements StorageDriver {
       }
     }
     const upload = new Upload({
-      client: this.client,
+      client,
       params: {
-        Bucket: this.bucket,
+        Bucket: opts.bucket,
         Key: key,
         Body: Readable.from(counter(body)),
         ContentType: contentType,
@@ -99,10 +136,12 @@ export class S3StorageDriver implements StorageDriver {
   }
 
   async resolve(key: string): Promise<ResolvedObject | null> {
+    const opts = this.getOptions()
+    const client = this.getClient(opts)
     let head
     try {
-      head = await this.client.send(
-        new HeadObjectCommand({ Bucket: this.bucket, Key: key })
+      head = await client.send(
+        new HeadObjectCommand({ Bucket: opts.bucket, Key: key })
       )
     } catch (err) {
       if (isMissing(err)) return null
@@ -121,13 +160,15 @@ export class S3StorageDriver implements StorageDriver {
   }
 
   async mintUploadUrl(input: MintUploadUrlInput): Promise<UploadTicket> {
+    const opts = this.getOptions()
+    const client = this.getClient(opts)
     const cmd = new PutObjectCommand({
-      Bucket: this.bucket,
+      Bucket: opts.bucket,
       Key: input.key,
       ContentLength: input.maxBytes,
       ContentType: input.contentType,
     })
-    const url = await getSignedUrl(this.client, cmd, {
+    const url = await getSignedUrl(client, cmd, {
       expiresIn: input.expiresInSec,
     })
     return {
@@ -141,9 +182,11 @@ export class S3StorageDriver implements StorageDriver {
   }
 
   async delete(key: string): Promise<void> {
+    const opts = this.getOptions()
+    const client = this.getClient(opts)
     try {
-      await this.client.send(
-        new DeleteObjectCommand({ Bucket: this.bucket, Key: key })
+      await client.send(
+        new DeleteObjectCommand({ Bucket: opts.bucket, Key: key })
       )
     } catch (err) {
       if (isMissing(err)) return
@@ -152,9 +195,11 @@ export class S3StorageDriver implements StorageDriver {
   }
 
   async downloadToFile(key: string, destPath: string): Promise<void> {
+    const opts = this.getOptions()
+    const client = this.getClient(opts)
     await fsp.mkdir(path.dirname(destPath), { recursive: true })
-    const resp = await this.client.send(
-      new GetObjectCommand({ Bucket: this.bucket, Key: key })
+    const resp = await client.send(
+      new GetObjectCommand({ Bucket: opts.bucket, Key: key })
     )
     const body = resp.Body as Readable | undefined
     if (!body) {
@@ -168,11 +213,13 @@ export class S3StorageDriver implements StorageDriver {
     key: string,
     contentType: string
   ): Promise<{ size: number }> {
+    const opts = this.getOptions()
+    const client = this.getClient(opts)
     const stat = await fsp.stat(localPath)
     const upload = new Upload({
-      client: this.client,
+      client,
       params: {
-        Bucket: this.bucket,
+        Bucket: opts.bucket,
         Key: key,
         Body: createReadStream(localPath),
         ContentType: contentType,
@@ -187,11 +234,13 @@ export class S3StorageDriver implements StorageDriver {
     toKey: string
     contentType: string
   }): Promise<{ size: number }> {
-    await this.client.send(
+    const opts = this.getOptions()
+    const client = this.getClient(opts)
+    await client.send(
       new CopyObjectCommand({
-        Bucket: this.bucket,
+        Bucket: opts.bucket,
         Key: input.toKey,
-        CopySource: `${this.bucket}/${encodeS3CopySourceKey(input.fromKey)}`,
+        CopySource: `${opts.bucket}/${encodeS3CopySourceKey(input.fromKey)}`,
         ContentType: input.contentType,
         MetadataDirective: "REPLACE",
       })
@@ -204,15 +253,17 @@ export class S3StorageDriver implements StorageDriver {
     key: string,
     input: MintDownloadUrlInput
   ): Promise<DownloadUrl | null> {
+    const opts = this.getOptions()
+    const client = this.getClient(opts)
     const cmd = new GetObjectCommand({
-      Bucket: this.bucket,
+      Bucket: opts.bucket,
       Key: key,
       ResponseContentType: input.responseContentType,
       ResponseContentDisposition: input.responseContentDisposition,
       ResponseCacheControl: input.responseCacheControl,
     })
-    const expiresIn = input.expiresInSec || this.presignExpiresSec
-    const url = await getSignedUrl(this.client, cmd, { expiresIn })
+    const expiresIn = input.expiresInSec || opts.presignExpiresSec
+    const url = await getSignedUrl(client, cmd, { expiresIn })
     return {
       url,
       expiresAt: Math.floor(Date.now() / 1000) + expiresIn,
@@ -224,6 +275,8 @@ export class S3StorageDriver implements StorageDriver {
     start: number | undefined,
     end: number | undefined
   ): Readable {
+    const opts = this.getOptions()
+    const client = this.getClient(opts)
     const pass = new PassThrough()
     const range =
       start !== undefined
@@ -231,9 +284,9 @@ export class S3StorageDriver implements StorageDriver {
         : undefined
     void (async () => {
       try {
-        const resp = await this.client.send(
+        const resp = await client.send(
           new GetObjectCommand({
-            Bucket: this.bucket,
+            Bucket: opts.bucket,
             Key: key,
             Range: range,
           })
@@ -251,6 +304,12 @@ export class S3StorageDriver implements StorageDriver {
     })()
     return pass
   }
+}
+
+function normalizeOptional(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
 }
 
 function isMissing(err: unknown): boolean {
