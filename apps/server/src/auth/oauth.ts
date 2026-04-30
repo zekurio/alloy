@@ -376,7 +376,10 @@ export function fallbackOAuthErrorRedirect(cause: unknown): string {
   )
 }
 
-function callbackURLWithOAuthError(callbackURL: string, cause: unknown): string {
+function callbackURLWithOAuthError(
+  callbackURL: string,
+  cause: unknown
+): string {
   const url = new URL(callbackURL)
   url.searchParams.set(
     "oauth_error",
@@ -534,14 +537,16 @@ async function linkAccountToUser(input: {
     return
   }
 
-  await db.insert(authAccount).values(
-    accountValues(
-      input.userId,
-      input.provider.providerId,
-      input.profile,
-      input.tokens
+  await db
+    .insert(authAccount)
+    .values(
+      accountValues(
+        input.userId,
+        input.provider.providerId,
+        input.profile,
+        input.tokens
+      )
     )
-  )
   if (input.profile.picture) {
     await db
       .update(user)
@@ -588,7 +593,9 @@ async function updateLinkedAccount(
 
 async function createOAuthUser(
   profile: OAuthProfile,
-  insert: (values: typeof user.$inferInsert) => Promise<typeof user.$inferSelect>
+  insert: (
+    values: typeof user.$inferInsert
+  ) => Promise<typeof user.$inferSelect>
 ) {
   if (!profile.email) {
     throw new Error("OAuth profile is missing an email address.")
