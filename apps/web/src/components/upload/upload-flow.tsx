@@ -242,7 +242,7 @@ function AuthedUploadFlow() {
         // Error lives on the queue row's `failed` status.
       }
     },
-    [runUpload, setNewClipOpen]
+    [runUpload, setNewClipOpen, setQueueOpen]
   )
 
   return (
