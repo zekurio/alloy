@@ -5,6 +5,7 @@ import { authSchema } from "./auth-schema"
 import { domainSchema } from "./schema"
 
 export { authSchema, domainSchema }
+export { migrateDatabase } from "./migrate"
 export * from "./auth-schema"
 export * from "./schema"
 
