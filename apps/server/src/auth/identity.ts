@@ -239,9 +239,18 @@ export async function createRegistrationUser(input: {
 
 export async function updateUserIdentity(
   userId: string,
-  input: { name?: string; username?: string }
+  input: { email?: string; name?: string; username?: string }
 ): Promise<User> {
   const patch: Partial<NewUser> = { updatedAt: new Date() }
+  if (input.email !== undefined) {
+    const email = normalizeEmail(input.email)
+    const existing = await findUserByEmail(email)
+    if (existing && existing.id !== userId) {
+      throw new Error("An account already exists for that email address.")
+    }
+    patch.email = email
+    patch.emailVerified = true
+  }
   if (input.name !== undefined) patch.name = input.name.trim()
   if (input.username !== undefined) {
     const username = validateUsername(input.username)

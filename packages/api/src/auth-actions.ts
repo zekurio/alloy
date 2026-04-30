@@ -176,7 +176,11 @@ function createUserActions(request: RequestFn, store: SessionStore) {
     jsonResult<T>(request, path, init, fallback)
 
   return {
-    updateUser: async (input: { name?: string; username?: string }) => {
+    updateUser: async (input: {
+      email?: string
+      name?: string
+      username?: string
+    }) => {
       const update = await result<{ user: AuthUser }>(
         "/api/auth/user",
         { method: "PATCH", body: JSON.stringify(input) },
