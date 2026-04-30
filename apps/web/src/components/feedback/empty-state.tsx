@@ -2,24 +2,7 @@ import * as React from "react"
 
 import { cn } from "@workspace/ui/lib/utils"
 
-import { EMPTY_STATE_KAOMOJI } from "@/lib/kaomoji"
-
-function hashSeed(seed: string | number): number {
-  const s = typeof seed === "number" ? String(seed) : seed
-  let h = 0
-  for (let i = 0; i < s.length; i++) {
-    h = (h * 31 + s.charCodeAt(i)) >>> 0
-  }
-  return h
-}
-
-export function pickKaomoji(seed?: string | number): string {
-  const idx =
-    seed === undefined
-      ? Math.floor(Math.random() * EMPTY_STATE_KAOMOJI.length)
-      : hashSeed(seed) % EMPTY_STATE_KAOMOJI.length
-  return EMPTY_STATE_KAOMOJI[idx]!
-}
+import { pickEmptyStateKaomoji } from "@/lib/kaomoji"
 
 interface EmptyStateProps extends React.ComponentProps<"div"> {
   seed?: string | number
@@ -43,7 +26,7 @@ const faceSizeClasses: Record<NonNullable<EmptyStateProps["size"]>, string> = {
 }
 
 export function EmptyState({
-  seed,
+  seed: _seed,
   title,
   hint,
   action,
@@ -51,7 +34,7 @@ export function EmptyState({
   className,
   ...props
 }: EmptyStateProps) {
-  const face = React.useMemo(() => pickKaomoji(seed), [seed])
+  const [face] = React.useState(() => pickEmptyStateKaomoji())
 
   return (
     <div

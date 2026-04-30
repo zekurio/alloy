@@ -39,7 +39,11 @@ import { authClient, useSession } from "@/lib/auth-client"
 import { PROFILE_BANNER_ASPECT } from "@/lib/banner-layout"
 import { clipKeys } from "@/lib/clip-queries"
 import { feedKeys } from "@/lib/feed-queries"
-import { validateRequiredString, validateUsername } from "@/lib/form-validators"
+import {
+  validateEmail,
+  validateRequiredString,
+  validateUsername,
+} from "@/lib/form-validators"
 import { gameKeys } from "@/lib/game-queries"
 import { searchKeys } from "@/lib/search-api"
 import {
@@ -85,36 +89,32 @@ export function ProfileCard({
   const hasBanner = !!userImageSrc(profileBanner)
   const form = useForm({
     defaultValues: {
+      email,
       name: initialName,
       username: initialUsername,
-    } as { name: string; username: string },
+    } as { email: string; name: string; username: string },
     onSubmit: async ({ value }) => {
+      const trimmedEmail = value.email.trim()
       const trimmedName = value.name.trim()
       const trimmedUsername = value.username.trim()
+      const emailDirty =
+        trimmedEmail.toLowerCase() !== email.trim().toLowerCase()
       const nameDirty = trimmedName !== initialName.trim()
       const usernameDirty = trimmedUsername !== initialUsername.trim()
 
-      if (!nameDirty && !usernameDirty) {
+      if (!emailDirty && !nameDirty && !usernameDirty) {
         return
       }
 
       try {
-        if (nameDirty) {
-          const { error } = await authClient.updateUser({ name: trimmedName })
-          if (error) {
-            toast.error(error.message ?? "Couldn't save")
-            return
-          }
-        }
-
-        if (usernameDirty) {
-          const { error } = await authClient.updateUser({
-            username: trimmedUsername,
-          })
-          if (error) {
-            toast.error(error.message ?? "Couldn't update username")
-            return
-          }
+        const { error } = await authClient.updateUser({
+          ...(emailDirty ? { email: trimmedEmail } : {}),
+          ...(nameDirty ? { name: trimmedName } : {}),
+          ...(usernameDirty ? { username: trimmedUsername } : {}),
+        })
+        if (error) {
+          toast.error(error.message ?? "Couldn't save")
+          return
         }
 
         toast.success("Saved")
@@ -129,10 +129,11 @@ export function ProfileCard({
 
   React.useEffect(() => {
     form.reset({
+      email,
       name: initialName,
       username: initialUsername,
     })
-  }, [form, initialName, initialUsername])
+  }, [email, form, initialName, initialUsername])
 
   React.useEffect(() => {
     setProfileImage(image)
@@ -316,18 +317,22 @@ export function ProfileCard({
             </div>
 
             {/* Avatar + identity */}
-            <form.Subscribe selector={(state) => state.values.name}>
-              {(currentName) => {
+            <form.Subscribe
+              selector={(state) =>
+                [state.values.email, state.values.name] as const
+              }
+            >
+              {([currentEmail, currentName]) => {
                 const previewName = displayName({
                   id: userId,
                   name: currentName.trim() || null,
-                  email,
+                  email: currentEmail.trim() || email,
                   image: profileImage || null,
                 })
                 const avatar = userAvatar({
                   id: userId,
                   name: currentName.trim() || null,
-                  email,
+                  email: currentEmail.trim() || email,
                   image: profileImage || null,
                 })
                 const hasAvatar = !!avatar.src
@@ -401,7 +406,7 @@ export function ProfileCard({
                         {previewName}
                       </span>
                       <span className="text-sm text-foreground-faint">
-                        {email}
+                        {currentEmail.trim() || email}
                       </span>
                     </div>
                   </div>
@@ -498,13 +503,50 @@ export function ProfileCard({
               }}
             </form.Field>
 
-            <Field>
-              <FieldLabel htmlFor="email">Email</FieldLabel>
-              <Input id="email" type="email" value={email} readOnly disabled />
-              <FieldDescription>
-                Contact address used for your account.
-              </FieldDescription>
-            </Field>
+            <form.Field
+              name="email"
+              validators={{
+                onChange: ({ value }) => validateEmail(value),
+              }}
+            >
+              {(field) => {
+                const showError =
+                  field.state.meta.isTouched ||
+                  form.state.submissionAttempts > 0
+                const invalid = showError && !field.state.meta.isValid
+
+                return (
+                  <Field>
+                    <FieldLabel htmlFor={field.name} required>
+                      Email
+                    </FieldLabel>
+                    <Input
+                      id={field.name}
+                      type="email"
+                      autoComplete="email"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      disabled={form.state.isSubmitting}
+                      aria-invalid={invalid || undefined}
+                      aria-describedby={
+                        invalid ? `${field.name}-error` : `${field.name}-hint`
+                      }
+                    />
+                    <FieldDescription id={`${field.name}-hint`}>
+                      Updates immediately without email verification.
+                    </FieldDescription>
+                    <FieldError
+                      id={`${field.name}-error`}
+                      errors={showError ? field.state.meta.errors : undefined}
+                    />
+                  </Field>
+                )
+              }}
+            </form.Field>
           </SectionContent>
 
           <SectionFooter>
@@ -513,15 +555,24 @@ export function ProfileCard({
                 [
                   state.values.name,
                   state.values.username,
+                  state.values.email,
                   state.canSubmit,
                   state.isSubmitting,
                 ] as const
               }
             >
-              {([currentName, currentUsername, canSubmit, isSubmitting]) => {
+              {([
+                currentName,
+                currentUsername,
+                currentEmail,
+                canSubmit,
+                isSubmitting,
+              ]) => {
                 const dirty =
                   currentName.trim() !== initialName.trim() ||
-                  currentUsername.trim() !== initialUsername.trim()
+                  currentUsername.trim() !== initialUsername.trim() ||
+                  currentEmail.trim().toLowerCase() !==
+                    email.trim().toLowerCase()
 
                 return (
                   <Button

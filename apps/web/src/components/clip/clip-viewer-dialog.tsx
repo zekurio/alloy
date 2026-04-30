@@ -297,7 +297,11 @@ function ClipViewerDialogBody({
                 variants={row.variants}
                 status={row.status}
                 encodeProgress={row.encodeProgress}
-                maxDisplayHeight="min(82dvh, calc(100dvh - 220px))"
+                maxDisplayHeight={
+                  row.description
+                    ? "min(78dvh, calc(100dvh - 300px))"
+                    : "min(82dvh, calc(100dvh - 220px))"
+                }
                 className="overflow-hidden rounded-[14px] shadow-[0_30px_90px_-42px_rgba(0,0,0,0.92)] ring-1 ring-white/10 ring-inset lg:rounded-none lg:shadow-none"
                 onPlayThreshold={() => void api.clips.recordView(row.id)}
                 onEnded={handleEnded}

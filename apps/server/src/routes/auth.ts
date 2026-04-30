@@ -68,6 +68,7 @@ const PasskeyNameBody = z.object({
 })
 
 const UpdateUserBody = z.object({
+  email: z.string().trim().email().optional(),
   name: z.string().max(100).optional(),
   username: z.string().min(1).max(32).optional(),
 })
@@ -372,23 +373,19 @@ export const authRoute = new Hono()
       .orderBy(authAccount.createdAt)
     return c.json(rows)
   })
-  .post(
-    "/oauth/sign-in",
-    zValidator("json", OAuthStartBody),
-    async (c) => {
-      try {
-        const body = c.req.valid("json")
-        const result = await startOAuthSignIn(body)
-        setOAuthStateCookie(c, body.providerId, result.browserNonce)
-        return c.json({ url: result.url })
-      } catch (cause) {
-        return c.json(
-          { error: errorMessage(cause, "Could not start OAuth sign-in.") },
-          400
-        )
-      }
+  .post("/oauth/sign-in", zValidator("json", OAuthStartBody), async (c) => {
+    try {
+      const body = c.req.valid("json")
+      const result = await startOAuthSignIn(body)
+      setOAuthStateCookie(c, body.providerId, result.browserNonce)
+      return c.json({ url: result.url })
+    } catch (cause) {
+      return c.json(
+        { error: errorMessage(cause, "Could not start OAuth sign-in.") },
+        400
+      )
     }
-  )
+  })
   .post(
     "/oauth/link",
     requireSession,
@@ -433,7 +430,9 @@ export const authRoute = new Hono()
       })
       if (result === "last-sign-in-method") {
         return c.json(
-          { error: "Add another sign-in method before unlinking this account." },
+          {
+            error: "Add another sign-in method before unlinking this account.",
+          },
           400
         )
       }
