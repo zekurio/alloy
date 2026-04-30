@@ -58,9 +58,6 @@ async function runPipelineInScratch(
   signal: AbortSignal
 ): Promise<void> {
   const originalSourceKey = row.storageKey
-  console.info(
-    `[ffmpeg] clip ${clipId}: encode pipeline started for ${originalSourceKey}`
-  )
   const sourcePath = path.join(scratchDir, "source")
   await storage.downloadToFile(originalSourceKey, sourcePath)
   await ensureClipStillPresent(clipId, signal)
@@ -77,9 +74,6 @@ async function runPipelineInScratch(
   void publishClipUpsert(row.authorId, clipId)
 
   const probed = await probe(sourcePath)
-  console.info(
-    `[ffmpeg] clip ${clipId}: source probed as ${probed.width}x${probed.height}, ${probed.durationMs}ms, video=${probed.videoCodec}, audio=${probed.audioCodec ?? "none"}`
-  )
   await ensureClipStillPresent(clipId, signal)
 
   const sourceAlreadyRemuxed = isRemuxedSourceKey(clipId, originalSourceKey)
@@ -203,14 +197,8 @@ async function runPipelineInScratch(
     encoderConfig.variants,
     encoderConfig.defaultVariantId
   )
-  console.info(
-    `[ffmpeg] clip ${clipId}: planned ${variantSpecs.length} variant(s): ${variantSpecs.map((spec) => `${spec.id}:${spec.height}p`).join(", ") || "none"}`
-  )
   if (variantSpecs.length === 0) {
     if (sourceVariant) {
-      console.info(
-        `[ffmpeg] clip ${clipId}: no eligible variants for ${probed.height}p source; publishing source only`
-      )
       await publishSourceOnlyClip({
         clipId,
         authorId: row.authorId,
@@ -288,7 +276,4 @@ async function runPipelineInScratch(
     })
     .where(eq(clip.id, clipId))
   void publishClipUpsert(row.authorId, clipId)
-  console.info(
-    `[ffmpeg] clip ${clipId}: encode pipeline completed with ${encodedVariants.length} encoded variant(s)`
-  )
 }
