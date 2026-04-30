@@ -46,4 +46,4 @@ ENV WEB_DIST_DIR=/build/www
 ENV PUBLIC_SERVER_URL=http://localhost:3000
 ENV TRUSTED_ORIGINS=http://localhost:3000
 EXPOSE 3000
-CMD ["pnpm", "exec", "tsx", "src/index.ts"]
+CMD ["./node_modules/.bin/tsx", "src/index.ts"]
