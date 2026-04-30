@@ -20,13 +20,7 @@ import {
   DropdownMenu,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-} from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
+import { Field, FieldError, FieldLabel } from "@workspace/ui/components/field"
 import { toast } from "@workspace/ui/lib/toast"
 
 import { LimitedInput } from "@/components/form/limited-field"
@@ -56,6 +50,7 @@ import {
   MediaDropdownContent,
   MediaEditOverlay,
 } from "./profile-media-controls"
+import { ProfileTextField } from "./profile-text-field"
 
 import { userKeys } from "@/lib/user-queries"
 
@@ -253,6 +248,32 @@ export function ProfileCard({
       />
     </>
   )
+
+  const identityTextFields = [
+    {
+      autoComplete: "username",
+      description: (
+        <>
+          Lowercase letters, numbers, underscores and hyphens. Used in your
+          profile URL.
+        </>
+      ),
+      label: "Username",
+      name: "username",
+      onChangeValue: (value: string) => value.toLowerCase(),
+      type: "text",
+      validate: (value: string) => validateUsername(value.trim()),
+    },
+    {
+      autoComplete: "email",
+      description: "Updates immediately without email verification.",
+      label: "Email",
+      name: "email",
+      onChangeValue: undefined,
+      type: "email",
+      validate: validateEmail,
+    },
+  ] as const
 
   return (
     <>
@@ -455,98 +476,28 @@ export function ProfileCard({
               }}
             </form.Field>
 
-            <form.Field
-              name="username"
-              validators={{
-                onChange: ({ value }) => validateUsername(value.trim()),
-              }}
-            >
-              {(field) => {
-                const showError =
-                  field.state.meta.isTouched ||
-                  form.state.submissionAttempts > 0
-                const invalid = showError && !field.state.meta.isValid
-
-                return (
-                  <Field>
-                    <FieldLabel htmlFor={field.name} required>
-                      Username
-                    </FieldLabel>
-                    <Input
-                      id={field.name}
-                      type="text"
-                      autoComplete="username"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) =>
-                        field.handleChange(e.target.value.toLowerCase())
-                      }
-                      disabled={form.state.isSubmitting}
-                      aria-invalid={invalid || undefined}
-                      aria-describedby={
-                        invalid ? `${field.name}-error` : undefined
-                      }
-                    />
-                    <FieldDescription>
-                      Lowercase letters, numbers, underscores and hyphens. Used
-                      in your profile URL.
-                    </FieldDescription>
-                    <FieldError
-                      id={`${field.name}-error`}
-                      errors={showError ? field.state.meta.errors : undefined}
-                    />
-                  </Field>
-                )
-              }}
-            </form.Field>
-
-            <form.Field
-              name="email"
-              validators={{
-                onChange: ({ value }) => validateEmail(value),
-              }}
-            >
-              {(field) => {
-                const showError =
-                  field.state.meta.isTouched ||
-                  form.state.submissionAttempts > 0
-                const invalid = showError && !field.state.meta.isValid
-
-                return (
-                  <Field>
-                    <FieldLabel htmlFor={field.name} required>
-                      Email
-                    </FieldLabel>
-                    <Input
-                      id={field.name}
-                      type="email"
-                      autoComplete="email"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      disabled={form.state.isSubmitting}
-                      aria-invalid={invalid || undefined}
-                      aria-describedby={
-                        invalid ? `${field.name}-error` : `${field.name}-hint`
-                      }
-                    />
-                    <FieldDescription id={`${field.name}-hint`}>
-                      Updates immediately without email verification.
-                    </FieldDescription>
-                    <FieldError
-                      id={`${field.name}-error`}
-                      errors={showError ? field.state.meta.errors : undefined}
-                    />
-                  </Field>
-                )
-              }}
-            </form.Field>
+            {identityTextFields.map((config) => (
+              <form.Field
+                key={config.name}
+                name={config.name}
+                validators={{
+                  onChange: ({ value }) => config.validate(value),
+                }}
+              >
+                {(field) => (
+                  <ProfileTextField
+                    field={field}
+                    label={config.label}
+                    type={config.type}
+                    autoComplete={config.autoComplete}
+                    isSubmitting={form.state.isSubmitting}
+                    submissionAttempts={form.state.submissionAttempts}
+                    onChangeValue={config.onChangeValue}
+                    description={config.description}
+                  />
+                )}
+              </form.Field>
+            ))}
           </SectionContent>
 
           <SectionFooter>

@@ -48,7 +48,7 @@ function AlloyLogoMark({
 }: React.ImgHTMLAttributes<HTMLImageElement> & { size?: number }) {
   return (
     <img
-      src="/alloy-logo.png"
+      src="/logo.png"
       width={size}
       height={size}
       alt="alloy"

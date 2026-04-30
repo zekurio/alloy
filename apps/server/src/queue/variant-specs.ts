@@ -37,9 +37,6 @@ export function buildVariantSpecs(
   for (const configured of configuredVariants) {
     if (configured.height <= 0) continue
     if (configured.height > sourceHeight) {
-      console.info(
-        `[ffmpeg] clip ${clipId}: skipping variant ${configured.id} (${configured.height}p) because source is ${sourceHeight}p`
-      )
       continue
     }
     const isFirstAvailable = specs.length === 0
