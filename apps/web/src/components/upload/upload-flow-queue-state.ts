@@ -196,7 +196,7 @@ function useRunUpload(
           return
         }
         if (entry.clipId) {
-          void api.clips.delete(entry.clipId).catch(() => undefined)
+          void api.clips.markUploadFailed(entry.clipId).catch(() => undefined)
         }
         entry.status = "error"
         entry.errorMessage = (err as Error).message

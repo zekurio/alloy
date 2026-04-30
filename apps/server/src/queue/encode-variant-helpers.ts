@@ -83,10 +83,18 @@ function settingsEqual(
     a.quality === b.quality &&
     a.preset === b.preset &&
     a.audioBitrateKbps === b.audioBitrateKbps &&
-    a.extraInputArgs === b.extraInputArgs &&
-    a.extraOutputArgs === b.extraOutputArgs &&
+    argsEqual(a.extraInputArgs, b.extraInputArgs) &&
+    argsEqual(a.extraOutputArgs, b.extraOutputArgs) &&
     a.height === b.height &&
     a.trimStartMs === b.trimStartMs &&
     a.trimEndMs === b.trimEndMs
   )
+}
+
+function argsEqual(a: string, b: string): boolean {
+  return normalizeArgs(a) === normalizeArgs(b)
+}
+
+function normalizeArgs(value: string): string {
+  return value.trim().replace(/\s+/g, " ")
 }

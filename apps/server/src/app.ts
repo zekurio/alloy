@@ -13,6 +13,7 @@ import { gamesRoute } from "./routes/games"
 import { notificationsRoute } from "./routes/notifications"
 import { searchRoute } from "./routes/search"
 import { setupRoute } from "./routes/setup"
+import { csrf } from "./routes/auth-route-helpers"
 import { usersRoute } from "./routes/users"
 import { usersUploadRoute, userAssetsRoute } from "./routes/users-upload"
 import { storageRoute } from "./storage/fs-upload-route"
@@ -29,6 +30,7 @@ const apiApp = new Hono()
       credentials: true,
     })
   )
+  .use("/api/*", csrf)
   .get("/health", (c) => c.json({ status: "ok" }))
   .route("/api/auth", authRoute)
   .route("/api/auth-config", authConfigRoute)

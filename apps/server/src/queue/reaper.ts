@@ -5,12 +5,12 @@ import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
 import { publishClipRemove } from "../clips/events"
+import { configStore } from "../config/store"
 import { clipAssetKey, storage } from "../storage"
 import { ENCODE_JOB } from "./encode-worker"
 
 export const REAP_JOB = "clip.reap" as const
 
-const PENDING_MAX_AGE_INTERVAL = "1 hour"
 const UPLOADED_MAX_AGE_INTERVAL = "24 hours"
 
 export async function registerReaperWorker(boss: PgBoss): Promise<void> {
@@ -31,6 +31,9 @@ export async function registerReaperWorker(boss: PgBoss): Promise<void> {
 }
 
 async function reapPending(): Promise<void> {
+  const pendingCutoff = new Date(
+    Date.now() - configStore.get("limits").uploadTtlSec * 1000
+  )
   const stale = await db
     .select({
       id: clip.id,
@@ -39,15 +42,7 @@ async function reapPending(): Promise<void> {
       thumbKey: clip.thumbKey,
     })
     .from(clip)
-    .where(
-      and(
-        eq(clip.status, "pending"),
-        lt(
-          clip.createdAt,
-          sql`now() - interval '${sql.raw(PENDING_MAX_AGE_INTERVAL)}'`
-        )
-      )
-    )
+    .where(and(eq(clip.status, "pending"), lt(clip.createdAt, pendingCutoff)))
 
   for (const row of stale) {
     const keys = [row.storageKey, row.thumbKey ?? clipAssetKey(row.id, "thumb")]

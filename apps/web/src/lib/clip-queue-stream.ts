@@ -42,6 +42,14 @@ function applyEvent(
   }
 }
 
+function parseQueuePayload<T>(data: string): T | null {
+  try {
+    return JSON.parse(data) as T
+  } catch {
+    return null
+  }
+}
+
 export function useUploadQueueStream({ enabled }: { enabled: boolean }) {
   const queryClient = useQueryClient()
   const [initialError, setInitialError] = React.useState(false)
@@ -54,13 +62,21 @@ export function useUploadQueueStream({ enabled }: { enabled: boolean }) {
     const source = new EventSource(url, { withCredentials: true })
 
     const handleSnapshot = (ev: MessageEvent<string>) => {
-      const snapshot = JSON.parse(ev.data) as QueueClip[]
+      const snapshot = parseQueuePayload<QueueClip[]>(ev.data)
+      if (!snapshot) {
+        setInitialError(true)
+        return
+      }
       queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), snapshot)
       setInitialError(false)
     }
 
     const handleDelta = (ev: MessageEvent<string>) => {
-      const event = JSON.parse(ev.data) as QueueEvent
+      const event = parseQueuePayload<QueueEvent>(ev.data)
+      if (!event) {
+        setInitialError(true)
+        return
+      }
       queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), (prev) =>
         applyEvent(prev, event)
       )

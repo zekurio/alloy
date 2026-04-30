@@ -167,7 +167,7 @@ export const clipsUploadRoutes = new Hono()
       }
 
       const declaredSize = row.sizeBytes ?? 0
-      if (declaredSize > 0 && resolved.size > declaredSize * 1.05) {
+      if (declaredSize > 0 && resolved.size !== declaredSize) {
         await storage.delete(row.storageKey).catch(() => undefined)
         if (row.thumbKey) {
           await storage.delete(row.thumbKey).catch(() => undefined)
@@ -175,9 +175,25 @@ export const clipsUploadRoutes = new Hono()
         await markUploadFailed(
           row.authorId,
           id,
-          "Upload exceeded declared size"
+          "Upload size did not match declared size"
         )
-        return c.json({ error: "Upload exceeded declared size" }, 413)
+        return c.json({ error: "Upload size did not match declared size" }, 400)
+      }
+
+      if (resolved.contentType !== row.contentType) {
+        await storage.delete(row.storageKey).catch(() => undefined)
+        if (row.thumbKey) {
+          await storage.delete(row.thumbKey).catch(() => undefined)
+        }
+        await markUploadFailed(
+          row.authorId,
+          id,
+          "Upload content type did not match declared type"
+        )
+        return c.json(
+          { error: "Upload content type did not match declared type" },
+          400
+        )
       }
 
       // Client-captured thumbnails are required — the encode worker
@@ -277,6 +293,32 @@ export const clipsUploadRoutes = new Hono()
 
       const updated = await selectClipById(id)
       return c.json(updated)
+    }
+  )
+
+  .post(
+    "/:id/fail",
+    requireSession,
+    zValidator("param", IdParam),
+    async (c) => {
+      const viewerId = c.var.viewerId
+      const { id } = c.req.valid("param")
+
+      const [row] = await db.select().from(clip).where(eq(clip.id, id)).limit(1)
+      if (!row) return c.json({ error: "Not found" }, 404)
+      if (row.authorId !== viewerId) {
+        return c.json({ error: "Forbidden" }, 403)
+      }
+      if (row.status !== "pending" && row.status !== "uploaded") {
+        return c.json({ error: `Clip is already ${row.status}` }, 409)
+      }
+
+      await storage.delete(row.storageKey).catch(() => undefined)
+      if (row.thumbKey) {
+        await storage.delete(row.thumbKey).catch(() => undefined)
+      }
+      await markUploadFailed(row.authorId, id, "Upload failed")
+      return c.json({ success: true })
     }
   )
 

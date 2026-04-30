@@ -7,6 +7,7 @@ import type {
   InitiateClipResponse,
   UpdateClipInput,
   UploadTicket,
+  QueueClip,
 } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
 
@@ -125,6 +126,11 @@ async function fetchClips(
   return readJsonOrThrow<ClipRow[]>(res)
 }
 
+async function fetchUploadQueue(context: ApiContext): Promise<QueueClip[]> {
+  const res = await context.request("/api/clips/queue")
+  return readJsonOrThrow<QueueClip[]>(res)
+}
+
 async function fetchClipById(
   context: ApiContext,
   clipId: string,
@@ -153,6 +159,16 @@ async function finalizeClip(
     method: "POST",
   })
   return readJsonOrThrow<ClipRow>(res)
+}
+
+async function markUploadFailed(
+  context: ApiContext,
+  clipId: string
+): Promise<void> {
+  const res = await context.request(clipPath(clipId, "/fail"), {
+    method: "POST",
+  })
+  await readJsonOrThrow<{ success: true }>(res)
 }
 
 async function deleteClip(context: ApiContext, clipId: string): Promise<void> {
@@ -205,10 +221,12 @@ async function recordClipView(
 export function createClipsApi(context: ApiContext) {
   return {
     fetch: (params: ClipFeedParams = {}) => fetchClips(context, params),
+    fetchQueue: () => fetchUploadQueue(context),
     fetchById: (clipId: string, init?: RequestInit) =>
       fetchClipById(context, clipId, init),
     initiate: (input: InitiateClipInput) => initiateClip(context, input),
     finalize: (clipId: string) => finalizeClip(context, clipId),
+    markUploadFailed: (clipId: string) => markUploadFailed(context, clipId),
     delete: (clipId: string) => deleteClip(context, clipId),
     update: (clipId: string, input: UpdateClipInput) =>
       updateClip(context, clipId, input),

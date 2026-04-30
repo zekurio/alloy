@@ -12,6 +12,26 @@ function normalizePublicServerUrl(value: string): string {
   return url.toString().replace(/\/$/, "")
 }
 
+function normalizeOrigin(value: string): string {
+  const url = new URL(value)
+  url.pathname = ""
+  url.search = ""
+  url.hash = ""
+  return url.toString().replace(/\/$/, "")
+}
+
+function normalizeTrustedOrigins(value: string): string[] {
+  const origins = new Set(
+    value
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean)
+      .map(normalizeOrigin)
+  )
+  origins.add(normalizeOrigin(defaultPublicServerUrl))
+  return [...origins]
+}
+
 const defaultPublicServerUrl =
   process.env.PUBLIC_SERVER_URL ?? "http://localhost:3000"
 
@@ -28,12 +48,7 @@ const EnvSchema = z.object({
   TRUSTED_ORIGINS: z
     .string()
     .default(defaultPublicServerUrl)
-    .transform((value) =>
-      value
-        .split(",")
-        .map((origin) => origin.trim())
-        .filter(Boolean)
-    ),
+    .transform(normalizeTrustedOrigins),
 
   // Runtime config file path. `ALLOY_CONFIG_FILE` is the preferred name;
   // `RUNTIME_CONFIG_PATH` remains as a compatibility alias.
