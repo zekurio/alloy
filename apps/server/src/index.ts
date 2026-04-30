@@ -1,8 +1,11 @@
 import { serve } from "@hono/node-server"
+import { migrateDatabase } from "@workspace/db"
 
 import { app } from "./app"
 import { env } from "./env"
 import { startQueue, stopQueue } from "./queue"
+
+await migrateDatabase(env.DATABASE_URL)
 
 const server = serve(
   {
