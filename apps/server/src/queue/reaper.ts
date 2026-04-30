@@ -1,7 +1,7 @@
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm"
 import type { PgBoss } from "pg-boss"
 
-import { clip } from "@workspace/db/schema"
+import { clip, clipUploadTicket } from "@workspace/db/schema"
 
 import { db } from "../db"
 import { publishClipRemove } from "../clips/events"
@@ -22,6 +22,7 @@ export async function registerReaperWorker(boss: PgBoss): Promise<void> {
 
   await boss.work(REAP_JOB, async () => {
     await reapPending()
+    await reapExpiredUploadTickets()
     await requeueStuckProcessing(boss)
   })
 
@@ -62,6 +63,35 @@ async function reapPending(): Promise<void> {
   }
 }
 
+async function reapExpiredUploadTickets(): Promise<void> {
+  const expiredTickets = await db
+    .select({
+      id: clipUploadTicket.id,
+      clipId: clipUploadTicket.clipId,
+      storageKey: clipUploadTicket.storageKey,
+    })
+    .from(clipUploadTicket)
+    .where(
+      and(
+        isNull(clipUploadTicket.usedAt),
+        lt(clipUploadTicket.expiresAt, new Date())
+      )
+    )
+
+  for (const ticket of expiredTickets) {
+    try {
+      await storage.delete(ticket.storageKey)
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[queue/reap] could not delete expired staged object ${ticket.storageKey}:`,
+        err
+      )
+    }
+    await db.delete(clipUploadTicket).where(eq(clipUploadTicket.id, ticket.id))
+  }
+}
+
 async function requeueStuckProcessing(boss: PgBoss): Promise<void> {
   const stuck = await db
     .select({ id: clip.id })
@@ -70,6 +100,7 @@ async function requeueStuckProcessing(boss: PgBoss): Promise<void> {
       and(
         or(
           eq(clip.status, "uploaded"),
+          eq(clip.status, "encoding"),
           and(
             eq(clip.status, "ready"),
             lt(clip.encodeProgress, 100),

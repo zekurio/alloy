@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useForm } from "@tanstack/react-form"
 import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
 import {
@@ -22,6 +23,7 @@ import { Label } from "@workspace/ui/components/label"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { CLIP_DESCRIPTION_MAX, CLIP_TITLE_MAX } from "@/lib/clip-fields"
+import { validateRequiredString } from "@/lib/form-validators"
 import type { GameRow, UserSearchResult } from "@workspace/api"
 
 import { ClipPrivacyPicker } from "@/components/clip/clip-privacy-picker"
@@ -252,11 +254,52 @@ function LoadedState({
   closeAction: React.ReactNode
 }) {
   const isMobile = useIsMobile()
-  const [title, setTitle] = React.useState(stripExtension(file.name))
-  const [description, setDescription] = React.useState("")
-  const [game, setGame] = React.useState<GameRow | null>(null)
-  const [mentions, setMentions] = React.useState<Array<UserSearchResult>>([])
-  const [visibility, setVisibility] = React.useState<Visibility>("unlisted")
+  const form = useForm({
+    defaultValues: {
+      title: stripExtension(file.name),
+      description: "",
+      game: null as GameRow | null,
+      mentions: [] as UserSearchResult[],
+      visibility: "unlisted" as Visibility,
+    },
+    onSubmit: async ({ value }) => {
+      if (trimEndMs <= trimStartMs) return
+      if (!value.game || value.title.trim().length === 0) return
+      setCapturing(true)
+      let thumbBlob: Blob
+      try {
+        const posterAtMs = Math.min(
+          trimStartMs + 1000,
+          Math.max(trimStartMs, trimEndMs - 100)
+        )
+        thumbBlob = await captureThumbnail(file.file, posterAtMs)
+      } catch (err) {
+        setCapturing(false)
+        toast.error(
+          err instanceof Error ? err.message : "Could not capture thumbnail"
+        )
+        return
+      } finally {
+        setCapturing(false)
+      }
+      onPublish({
+        file: file.file,
+        contentType: file.contentType,
+        title: value.title.trim(),
+        description: value.description.trim() || null,
+        gameId: value.game.id,
+        privacy: value.visibility,
+        width: file.width,
+        height: file.height,
+        durationMs: trimChanged ? trimEndMs - trimStartMs : file.durationMs,
+        sizeBytes: file.sizeBytes,
+        trimStartMs: trimChanged ? trimStartMs : null,
+        trimEndMs: trimChanged ? trimEndMs : null,
+        thumbBlob,
+        mentionedUserIds: value.mentions.map((u) => u.id),
+      })
+    },
+  })
 
   // Trim window in ms against the source. Initial range = full clip; we
   // only emit the trim columns to the server when the user narrowed it.
@@ -270,60 +313,15 @@ function LoadedState({
   const trimChanged = trimStartMs > 0 || trimEndMs < file.durationMs
 
   const [capturing, setCapturing] = React.useState(false)
-  const [submissionAttempts, setSubmissionAttempts] = React.useState(0)
-
-  const hasTitle = title.trim().length > 0
-  const hasGame = game !== null
-  const canPublish = hasTitle && hasGame && trimEndMs > trimStartMs
-  const titleInvalid = submissionAttempts > 0 && !hasTitle
-  const gameInvalid = submissionAttempts > 0 && !hasGame
-
-  const handlePublishClick = async () => {
-    const trimmedTitle = title.trim()
-    const missingTitle = !hasTitle
-    const missingGame = !game
-
-    setSubmissionAttempts((attempts) => attempts + 1)
-
-    if (missingTitle || missingGame) return
-    if (trimEndMs <= trimStartMs) return
-    setCapturing(true)
-    let thumbBlob: Blob
-    try {
-      const posterAtMs = Math.min(
-        trimStartMs + 1000,
-        Math.max(trimStartMs, trimEndMs - 100)
-      )
-      thumbBlob = await captureThumbnail(file.file, posterAtMs)
-    } catch (err) {
-      setCapturing(false)
-      toast.error(
-        err instanceof Error ? err.message : "Could not capture thumbnail"
-      )
-      return
-    } finally {
-      setCapturing(false)
-    }
-    onPublish({
-      file: file.file,
-      contentType: file.contentType,
-      title: trimmedTitle,
-      description: description.trim() || null,
-      gameId: game.id,
-      privacy: visibility,
-      width: file.width,
-      height: file.height,
-      durationMs: trimChanged ? trimEndMs - trimStartMs : file.durationMs,
-      sizeBytes: file.sizeBytes,
-      trimStartMs: trimChanged ? trimStartMs : null,
-      trimEndMs: trimChanged ? trimEndMs : null,
-      thumbBlob,
-      mentionedUserIds: mentions.map((u) => u.id),
-    })
-  }
-
   return (
-    <>
+    <form
+      className="contents"
+      onSubmit={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        void form.handleSubmit()
+      }}
+    >
       <DialogBody
         className={cn(
           "flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4",
@@ -392,61 +390,108 @@ function LoadedState({
 
         {/* Right column — metadata form */}
         <section className="flex min-w-0 flex-col gap-4">
-          <Field>
-            <FieldLabel htmlFor="clip-game" required>
-              Game
-            </FieldLabel>
-            <GameCombobox
-              id="clip-game"
-              value={game}
-              onChange={setGame}
-              disabled={publishing || capturing}
-              placeholder="Search SteamGridDB…"
-              invalid={gameInvalid}
-              required
-            />
-          </Field>
+          <form.Field
+            name="game"
+            validators={{
+              onChange: ({ value }) => (value ? undefined : "Game is required"),
+            }}
+          >
+            {(field) => {
+              const invalid =
+                form.state.submissionAttempts > 0 && !field.state.meta.isValid
+              return (
+                <Field>
+                  <FieldLabel htmlFor="clip-game" required>
+                    Game
+                  </FieldLabel>
+                  <GameCombobox
+                    id="clip-game"
+                    value={field.state.value}
+                    onChange={field.handleChange}
+                    disabled={publishing || capturing}
+                    placeholder="Search SteamGridDB…"
+                    invalid={invalid}
+                    required
+                  />
+                </Field>
+              )
+            }}
+          </form.Field>
 
-          <Field>
-            <FieldLabel htmlFor="clip-title" required>
-              Title
-            </FieldLabel>
-            <LimitedInput
-              id="clip-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              maxLength={CLIP_TITLE_MAX}
-              aria-invalid={titleInvalid || undefined}
-              aria-required={true}
-            />
-          </Field>
+          <form.Field
+            name="title"
+            validators={{
+              onChange: ({ value }) =>
+                validateRequiredString(value, "Title") ??
+                (value.trim().length > CLIP_TITLE_MAX
+                  ? `Title can be at most ${CLIP_TITLE_MAX} characters`
+                  : undefined),
+            }}
+          >
+            {(field) => {
+              const invalid =
+                form.state.submissionAttempts > 0 && !field.state.meta.isValid
+              return (
+                <Field>
+                  <FieldLabel htmlFor="clip-title" required>
+                    Title
+                  </FieldLabel>
+                  <LimitedInput
+                    id="clip-title"
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    maxLength={CLIP_TITLE_MAX}
+                    aria-invalid={invalid || undefined}
+                    aria-required={true}
+                  />
+                </Field>
+              )
+            }}
+          </form.Field>
 
-          <Field>
-            <FieldLabel htmlFor="clip-description">Description</FieldLabel>
-            <LimitedTextarea
-              id="clip-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              maxLength={CLIP_DESCRIPTION_MAX}
-              placeholder="Add context"
-              className="min-h-0 px-3 py-2 text-sm"
-            />
-          </Field>
+          <form.Field name="description">
+            {(field) => (
+              <Field>
+                <FieldLabel htmlFor="clip-description">Description</FieldLabel>
+                <LimitedTextarea
+                  id="clip-description"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  rows={3}
+                  maxLength={CLIP_DESCRIPTION_MAX}
+                  placeholder="Add context"
+                  className="min-h-0 px-3 py-2 text-sm"
+                />
+              </Field>
+            )}
+          </form.Field>
 
-          <Field>
-            <FieldLabel>Tag users</FieldLabel>
-            <MentionPicker value={mentions} onChange={setMentions} />
-          </Field>
+          <form.Field name="mentions">
+            {(field) => (
+              <Field>
+                <FieldLabel>Tag users</FieldLabel>
+                <MentionPicker
+                  value={field.state.value}
+                  onChange={field.handleChange}
+                />
+              </Field>
+            )}
+          </form.Field>
 
-          <Field>
-            <FieldLabel>Visibility</FieldLabel>
-            <ClipPrivacyPicker
-              value={visibility}
-              onChange={setVisibility}
-              disabled={publishing || capturing}
-            />
-          </Field>
+          <form.Field name="visibility">
+            {(field) => (
+              <Field>
+                <FieldLabel>Visibility</FieldLabel>
+                <ClipPrivacyPicker
+                  value={field.state.value}
+                  onChange={field.handleChange}
+                  disabled={publishing || capturing}
+                />
+              </Field>
+            )}
+          </form.Field>
         </section>
       </DialogBody>
 
@@ -468,16 +513,43 @@ function LoadedState({
           Replace
         </Button>
         {closeAction}
-        <Button
-          variant="primary"
-          size="default"
-          disabled={publishing || capturing || !canPublish}
-          onClick={handlePublishClick}
-          className={cn(isMobile && "w-full min-w-0")}
+        <form.Subscribe
+          selector={(state) =>
+            [
+              state.canSubmit,
+              state.isSubmitting,
+              state.values.title,
+              state.values.game,
+            ] as const
+          }
         >
-          {capturing ? "Preparing…" : publishing ? "Uploading…" : "Upload clip"}
-        </Button>
+          {([canSubmit, isSubmitting, titleValue, gameValue]) => {
+            const missingMetadata = titleValue.trim().length === 0 || !gameValue
+            return (
+              <Button
+                type="submit"
+                variant="primary"
+                size="default"
+                disabled={
+                  publishing ||
+                  capturing ||
+                  isSubmitting ||
+                  !canSubmit ||
+                  missingMetadata ||
+                  trimEndMs <= trimStartMs
+                }
+                className={cn(isMobile && "w-full min-w-0")}
+              >
+                {capturing || isSubmitting
+                  ? "Preparing…"
+                  : publishing
+                    ? "Uploading…"
+                    : "Upload clip"}
+              </Button>
+            )
+          }}
+        </form.Subscribe>
       </DialogFooter>
-    </>
+    </form>
   )
 }
