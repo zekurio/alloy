@@ -261,8 +261,8 @@ export const adminRoute = new Hono()
           ? finalizeOAuthProviderSubmission(submission.oauthProvider, existing)
           : null
         const authError = await signInConfigError({
-            passkeyEnabled: configStore.get("passkeyEnabled"),
-            oauthProvider: nextProvider,
+          passkeyEnabled: configStore.get("passkeyEnabled"),
+          oauthProvider: nextProvider,
         })
         if (authError) {
           return c.json({ error: authError }, 400)

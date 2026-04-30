@@ -90,13 +90,13 @@ stdenv.mkDerivation (finalAttrs: {
     #!${stdenv.shell}
     set -e
     export PATH="${lib.makeBinPath [ nodejs_24 jellyfin-ffmpeg ]}:\$PATH"
-    state_dir="''${ALLOY_STATE_DIR:-''${XDG_STATE_HOME:-\$HOME/.local/state}/alloy}"
-    mkdir -p "\$state_dir/data/storage" "\$state_dir/scratch"
-    export ALLOY_CONFIG_FILE="''${ALLOY_CONFIG_FILE:-\$state_dir/config.json}"
-    export ENCODE_SCRATCH_DIR="''${ENCODE_SCRATCH_DIR:-\$state_dir/scratch}"
-    export WEB_DIST_DIR="''${WEB_DIST_DIR:-$out/share/alloy/www}"
-    export FFMPEG_BIN="''${FFMPEG_BIN:-${lib.getExe jellyfin-ffmpeg}}"
-    export FFPROBE_BIN="''${FFPROBE_BIN:-${jellyfin-ffmpeg}/bin/ffprobe}"
+    state_dir="\''${ALLOY_STATE_DIR-\''${XDG_STATE_HOME:-\$HOME/.local/state}/alloy}"
+    export ALLOY_CONFIG_FILE="\''${ALLOY_CONFIG_FILE-\$state_dir/config.json}"
+    export ENCODE_SCRATCH_DIR="\''${ENCODE_SCRATCH_DIR-\$state_dir/scratch}"
+    export WEB_DIST_DIR="\''${WEB_DIST_DIR-$out/share/alloy/www}"
+    export FFMPEG_BIN="\''${FFMPEG_BIN-${lib.getExe jellyfin-ffmpeg}}"
+    export FFPROBE_BIN="\''${FFPROBE_BIN-${jellyfin-ffmpeg}/bin/ffprobe}"
+    mkdir -p "\$state_dir/data/storage" "\$ENCODE_SCRATCH_DIR"
     cd "\$state_dir"
     exec "$out/share/alloy/apps/server/node_modules/.bin/tsx" "$out/share/alloy/apps/server/src/index.ts" "\$@"
     EOF
