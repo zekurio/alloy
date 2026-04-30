@@ -1,5 +1,7 @@
 import * as React from "react"
 import { createAuthActions } from "./auth-actions"
+import { createApiClient } from "./client"
+import { readJsonOrThrow } from "./http"
 
 type AuthError = { message: string }
 type AuthResult<T> = Promise<{ data: T | null; error: AuthError | null }>
@@ -64,21 +66,6 @@ export function errorFrom(cause: unknown, fallback: string): AuthError {
   }
 }
 
-async function readJson<T>(res: Response): Promise<T> {
-  const body = (await res.json().catch(() => null)) as
-    | { error?: string; message?: string }
-    | T
-    | null
-  if (!res.ok) {
-    const message =
-      body && typeof body === "object" && "error" in body
-        ? (body.error ?? `${res.status} ${res.statusText}`)
-        : `${res.status} ${res.statusText}`
-    throw new Error(message)
-  }
-  return body as T
-}
-
 function createSessionStore(fetchSession: () => Promise<SessionData | null>) {
   let state: StoreState = { data: null, isPending: true, error: null }
   const listeners = new Set<() => void>()
@@ -126,20 +113,17 @@ function createSessionStore(fetchSession: () => Promise<SessionData | null>) {
 export type AuthClient = ReturnType<typeof createAuth>
 
 export function createAuth(baseURL: string) {
-  function url(path: string): string {
-    return new URL(path, baseURL).toString()
-  }
+  const client = createApiClient(baseURL)
 
   async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-    const res = await fetch(url(path), {
-      credentials: "include",
-      ...init,
-      headers: {
-        ...(init.body ? { "Content-Type": "application/json" } : {}),
-        ...init.headers,
-      },
+    const headers = new Headers(init.headers)
+    if (init.body && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json")
+    }
+    const res = await client.request(path, {
+      init: { ...init, headers },
     })
-    return readJson<T>(res)
+    return readJsonOrThrow<T>(res)
   }
 
   async function fetchSession(): Promise<SessionData | null> {
