@@ -14,15 +14,7 @@ function buildStorage(config: StorageConfig): StorageDriver {
         hmacSecret: config.fs.hmacSecret,
       })
     case "s3":
-      return new S3StorageDriver({
-        bucket: config.s3.bucket,
-        region: config.s3.region,
-        endpoint: config.s3.endpoint,
-        accessKeyId: config.s3.accessKeyId,
-        secretAccessKey: config.s3.secretAccessKey,
-        forcePathStyle: config.s3.forcePathStyle,
-        presignExpiresSec: config.s3.presignExpiresSec,
-      })
+      return new S3StorageDriver(() => configStore.get("storage").s3)
     default: {
       // Exhaustiveness check: adding a new storage driver variant without
       const exhaustive: never = config
