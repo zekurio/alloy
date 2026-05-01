@@ -74,7 +74,7 @@ function parseWebp(
   bytes: Buffer
 ): { width: number; height: number; contentType: string } | null {
   if (
-    bytes.length < 30 ||
+    bytes.length < 16 ||
     bytes.subarray(0, 4).toString("ascii") !== "RIFF" ||
     bytes.subarray(8, 12).toString("ascii") !== "WEBP"
   ) {
