@@ -1,44 +1,44 @@
-import * as React from "react";
-import { AwardIcon } from "lucide-react";
+import * as React from "react"
+import { AwardIcon } from "lucide-react"
 
-import { CarouselItem } from "@workspace/ui/components/carousel";
+import { CarouselItem } from "@workspace/ui/components/carousel"
 import {
   SectionActions,
   SectionHead,
   SectionTitle,
-} from "@workspace/ui/components/section-head";
+} from "@workspace/ui/components/section-head"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@workspace/ui/components/select";
+} from "@workspace/ui/components/select"
 
-import { Spinner } from "@workspace/ui/components/spinner";
+import { Spinner } from "@workspace/ui/components/spinner"
 
-import { ClipCardTrigger } from "@/components/clip/clip-card-trigger";
-import { ClipGrid } from "@/components/clip/clip-grid";
-import { TopClipsCarousel } from "@/components/clip/top-clips-carousel";
+import { ClipCardTrigger } from "@/components/clip/clip-card-trigger"
+import { ClipGrid } from "@/components/clip/clip-grid"
+import { TopClipsCarousel } from "@/components/clip/top-clips-carousel"
 import {
   ClipListProvider,
   type ClipListEntry,
-} from "@/components/clip/clip-list-context";
-import { EmptyState } from "@/components/feedback/empty-state";
-import { useTopClipsQuery } from "@/lib/clip-queries";
-import type { ClipFeedWindow } from "@workspace/api";
-import { useQueryErrorToast } from "@/lib/use-query-error-toast";
+} from "@/components/clip/clip-list-context"
+import { EmptyState } from "@/components/feedback/empty-state"
+import { useTopClipsQuery } from "@/lib/clip-queries"
+import type { ClipFeedWindow } from "@workspace/api"
+import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 type TopClipsSectionProps = {
-  viewerId: string | undefined;
-};
+  viewerId: string | undefined
+}
 
 type TopClipsBodyProps = {
-  viewerId: string | undefined;
-  window: ClipFeedWindow;
-  rows: ReturnType<typeof useTopClipsQuery>["data"] | undefined;
-  error: unknown;
-};
+  viewerId: string | undefined
+  window: ClipFeedWindow
+  rows: ReturnType<typeof useTopClipsQuery>["data"] | undefined
+  error: unknown
+}
 
 const TOP_WINDOWS: ReadonlyArray<{ key: ClipFeedWindow; label: string }> = [
   { key: "today", label: "Today" },
@@ -46,17 +46,17 @@ const TOP_WINDOWS: ReadonlyArray<{ key: ClipFeedWindow; label: string }> = [
   { key: "month", label: "Month" },
   { key: "year", label: "Year" },
   { key: "all", label: "All time" },
-];
+]
 
 function TopWindowPicker({
   window,
   onChange,
 }: {
-  window: ClipFeedWindow;
-  onChange: (next: ClipFeedWindow) => void;
+  window: ClipFeedWindow
+  onChange: (next: ClipFeedWindow) => void
 }) {
   const selectedLabel =
-    TOP_WINDOWS.find((item) => item.key === window)?.label ?? "Today";
+    TOP_WINDOWS.find((item) => item.key === window)?.label ?? "Today"
 
   return (
     <SectionActions>
@@ -64,7 +64,7 @@ function TopWindowPicker({
         value={window}
         onValueChange={(next) => {
           if (typeof next === "string" && isClipFeedWindow(next)) {
-            onChange(next);
+            onChange(next)
           }
         }}
       >
@@ -84,16 +84,16 @@ function TopWindowPicker({
         </SelectContent>
       </Select>
     </SectionActions>
-  );
+  )
 }
 
 export function TopClipsSection({ viewerId }: TopClipsSectionProps) {
-  const [window, setWindow] = React.useState<ClipFeedWindow>("today");
-  const { data: rows, error } = useTopClipsQuery(window, { limit: 5 });
+  const [window, setWindow] = React.useState<ClipFeedWindow>("today")
+  const { data: rows, error } = useTopClipsQuery(window, { limit: 5 })
   useQueryErrorToast(error, {
     title: "Couldn't load top clips",
     toastId: `top-clips-${window}-error`,
-  });
+  })
 
   return (
     <section className="pb-6">
@@ -114,7 +114,7 @@ export function TopClipsSection({ viewerId }: TopClipsSectionProps) {
         error={error}
       />
     </section>
-  );
+  )
 }
 
 function TopClipsBody({ viewerId, window, rows, error }: TopClipsBodyProps) {
@@ -125,8 +125,8 @@ function TopClipsBody({ viewerId, window, rows, error }: TopClipsBodyProps) {
         gameSlug: row.gameRef?.slug ?? null,
         row,
       })),
-    [rows],
-  );
+    [rows]
+  )
 
   if (rows) {
     if (rows.length === 0) {
@@ -137,14 +137,14 @@ function TopClipsBody({ viewerId, window, rows, error }: TopClipsBodyProps) {
           title={emptyTopTitle(window)}
           hint="Check back in a bit or upload your own."
         />
-      );
+      )
     }
 
     return (
       <ClipListProvider listKey={`home:top:${window}`} entries={entries}>
         <TopClipsRows rows={rows} viewerId={viewerId} />
       </ClipListProvider>
-    );
+    )
   }
 
   if (error) {
@@ -154,10 +154,10 @@ function TopClipsBody({ viewerId, window, rows, error }: TopClipsBodyProps) {
         size="md"
         title="Couldn't load top clips"
       />
-    );
+    )
   }
 
-  return <TopClipsSkeletons />;
+  return <TopClipsSkeletons />
 }
 
 function TopClipsSkeletons() {
@@ -165,15 +165,15 @@ function TopClipsSkeletons() {
     <div className="flex items-center justify-center py-12">
       <Spinner className="size-6" />
     </div>
-  );
+  )
 }
 
 function TopClipsRows({
   rows,
   viewerId,
 }: {
-  rows: NonNullable<TopClipsBodyProps["rows"]>;
-  viewerId: string | undefined;
+  rows: NonNullable<TopClipsBodyProps["rows"]>
+  viewerId: string | undefined
 }) {
   return (
     <>
@@ -205,24 +205,24 @@ function TopClipsRows({
         </ClipGrid>
       </div>
     </>
-  );
+  )
 }
 
 function emptyTopTitle(window: ClipFeedWindow): string {
   switch (window) {
     case "today":
-      return "No top clips today yet";
+      return "No top clips today yet"
     case "week":
-      return "No top clips this week yet";
+      return "No top clips this week yet"
     case "month":
-      return "No top clips this month yet";
+      return "No top clips this month yet"
     case "year":
-      return "No top clips this year yet";
+      return "No top clips this year yet"
     case "all":
-      return "No top clips yet";
+      return "No top clips yet"
   }
 }
 
 function isClipFeedWindow(value: string): value is ClipFeedWindow {
-  return TOP_WINDOWS.some((item) => item.key === value);
+  return TOP_WINDOWS.some((item) => item.key === value)
 }

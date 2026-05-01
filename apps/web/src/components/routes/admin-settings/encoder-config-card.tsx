@@ -43,8 +43,12 @@ import { VariantRow } from "./encoder-variant-row"
 import { FfmpegBadge } from "./encoder-ffmpeg-badge"
 import {
   HWACCEL_LABELS,
+  compatibleOpenGraphTarget,
   isEncoderHwaccel,
+  isOpenGraphCompatibleConfiguredVariant,
+  normalizeOpenGraphTarget,
   openGraphDisplayLabel,
+  openGraphTargetIsCompatible,
   openGraphValue,
   saveEncoderConfig,
   variantCodecAvailable,
@@ -120,17 +124,11 @@ export function EncoderConfigCard({
         removed?.id === f.defaultVariantId
           ? (variants[0]?.id ?? null)
           : f.defaultVariantId
-      const openGraphTarget =
-        f.openGraphTarget.type === "variant" &&
-        f.openGraphTarget.variantId === removed?.id
-          ? ({ type: "source" } as const)
-          : f.openGraphTarget
-      return {
+      return normalizeOpenGraphTarget({
         ...f,
         defaultVariantId: nextDefault,
-        openGraphTarget,
         variants,
-      }
+      })
     })
   }
 
@@ -142,9 +140,6 @@ export function EncoderConfigCard({
     if (!value) return
     setForm((f) => {
       if (value === "none") return { ...f, openGraphTarget: { type: "none" } }
-      if (value === "source") {
-        return { ...f, openGraphTarget: { type: "source" } }
-      }
       if (value === "defaultVariant") {
         return { ...f, openGraphTarget: { type: "defaultVariant" } }
       }
@@ -180,28 +175,32 @@ export function EncoderConfigCard({
       id: variant.id || variantIdFromName(variant.name, usedIds),
     }
     if (dialogState === -1) {
-      setForm((f) => ({
-        ...f,
-        enabled: true,
-        defaultVariantId: f.defaultVariantId ?? normalizedVariant.id,
-        variants: [...f.variants, normalizedVariant],
-      }))
+      setForm((f) =>
+        normalizeOpenGraphTarget({
+          ...f,
+          enabled: true,
+          defaultVariantId: f.defaultVariantId ?? normalizedVariant.id,
+          variants: [...f.variants, normalizedVariant],
+        })
+      )
     } else if (dialogState !== null) {
-      setForm((f) => ({
-        ...f,
-        defaultVariantId:
-          f.variants[dialogState]?.id === f.defaultVariantId
-            ? normalizedVariant.id
-            : f.defaultVariantId,
-        openGraphTarget:
-          f.openGraphTarget.type === "variant" &&
-          f.openGraphTarget.variantId === f.variants[dialogState]?.id
-            ? { type: "variant", variantId: normalizedVariant.id }
-            : f.openGraphTarget,
-        variants: f.variants.map((v, i) =>
-          i === dialogState ? normalizedVariant : v
-        ),
-      }))
+      setForm((f) =>
+        normalizeOpenGraphTarget({
+          ...f,
+          defaultVariantId:
+            f.variants[dialogState]?.id === f.defaultVariantId
+              ? normalizedVariant.id
+              : f.defaultVariantId,
+          openGraphTarget:
+            f.openGraphTarget.type === "variant" &&
+            f.openGraphTarget.variantId === f.variants[dialogState]?.id
+              ? { type: "variant", variantId: normalizedVariant.id }
+              : f.openGraphTarget,
+          variants: f.variants.map((v, i) =>
+            i === dialogState ? normalizedVariant : v
+          ),
+        })
+      )
     }
     setDialogState(null)
   }
@@ -239,7 +238,12 @@ export function EncoderConfigCard({
       return
     }
     if (!form.enabled) {
-      await saveEncoderConfig({ form, onChange, setPending, onSaved })
+      await saveEncoderConfig({
+        form: normalizeOpenGraphTarget(form),
+        onChange,
+        setPending,
+        onSaved,
+      })
       return
     }
     if (form.variants.length === 0) {
@@ -268,6 +272,12 @@ export function EncoderConfigCard({
         return
       }
     }
+    if (!openGraphTargetIsCompatible(form)) {
+      toast.error(
+        "OpenGraph video must use an H.264 MP4 variant with AAC audio."
+      )
+      return
+    }
     await saveEncoderConfig({ form, onChange, setPending, onSaved })
   }
 
@@ -285,6 +295,16 @@ export function EncoderConfigCard({
   const unsupportedVariant = form.variants.find(
     (variant) => !variantCodecAvailable(caps, form.hwaccel, variant)
   )
+  const defaultOpenGraphVariant = form.variants.find(
+    (variant) => variant.id === form.defaultVariantId
+  )
+  const defaultOpenGraphCompatible = defaultOpenGraphVariant
+    ? isOpenGraphCompatibleConfiguredVariant(defaultOpenGraphVariant)
+    : false
+  const openGraphCompatibleVariants = form.variants.filter(
+    isOpenGraphCompatibleConfiguredVariant
+  )
+  const currentOpenGraphTargetCompatible = openGraphTargetIsCompatible(form)
   const selectedDevice =
     form.hwaccel === "qsv"
       ? {
@@ -452,11 +472,16 @@ export function EncoderConfigCard({
                     </SelectTrigger>
                     <SelectContent align="start">
                       <SelectItem value="none">No video</SelectItem>
-                      <SelectItem value="source">Source MP4</SelectItem>
-                      <SelectItem value="defaultVariant">
+                      <SelectItem value="source" disabled>
+                        Source MP4 (not compatible)
+                      </SelectItem>
+                      <SelectItem
+                        value="defaultVariant"
+                        disabled={!defaultOpenGraphCompatible}
+                      >
                         Default playback variant
                       </SelectItem>
-                      {form.variants.map((variant) => (
+                      {openGraphCompatibleVariants.map((variant) => (
                         <SelectItem
                           key={variant.id}
                           value={`variant:${variant.id}`}
@@ -464,12 +489,40 @@ export function EncoderConfigCard({
                           {variant.name}
                         </SelectItem>
                       ))}
+                      {form.variants
+                        .filter(
+                          (variant) =>
+                            !isOpenGraphCompatibleConfiguredVariant(variant)
+                        )
+                        .map((variant) => (
+                          <SelectItem
+                            key={variant.id}
+                            value={`variant:${variant.id}`}
+                            disabled
+                          >
+                            {variant.name} ({variant.codec.toUpperCase()} not
+                            compatible)
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                   <FieldDescription>
-                    Missing targets are omitted from metadata instead of
-                    emitting broken video URLs.
+                    OpenGraph video uses H.264 MP4 with AAC audio. Other formats
+                    fall back to image-only previews.
                   </FieldDescription>
+                  {!currentOpenGraphTargetCompatible ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="self-start"
+                      onClick={() =>
+                        set("openGraphTarget", compatibleOpenGraphTarget(form))
+                      }
+                    >
+                      Use compatible target
+                    </Button>
+                  ) : null}
                 </Field>
               </FormGroup>
 

@@ -7,6 +7,7 @@ import {
   ENCODER_HEIGHT_MIN,
   ENCODER_HWACCELS,
   STORAGE_DRIVERS,
+  type EncoderConfig,
   type EncoderOpenGraphTarget,
   type RuntimeConfig,
 } from "@workspace/contracts"
@@ -110,7 +111,38 @@ const EncoderConfigSchema = z.preprocess((raw) => {
     config.openGraphTarget = { type: "source" }
   }
   return config
-}, EncoderConfigInnerSchema)
+}, EncoderConfigInnerSchema.transform(normalizeEncoderOpenGraphTarget))
+
+export function normalizeEncoderOpenGraphTarget(
+  config: EncoderConfig
+): EncoderConfig {
+  const firstCompatible = config.variants.find(
+    (variant) => variant.codec === "h264"
+  )
+  const fallback: EncoderOpenGraphTarget = firstCompatible
+    ? { type: "variant", variantId: firstCompatible.id }
+    : { type: "none" }
+  const target = config.openGraphTarget
+
+  if (target.type === "none") return config
+  if (target.type === "source") {
+    return { ...config, openGraphTarget: fallback }
+  }
+  if (target.type === "defaultVariant") {
+    const defaultVariant = config.variants.find(
+      (variant) => variant.id === config.defaultVariantId
+    )
+    return defaultVariant?.codec === "h264"
+      ? config
+      : { ...config, openGraphTarget: fallback }
+  }
+  const selected = config.variants.find(
+    (variant) => variant.id === target.variantId
+  )
+  return selected?.codec === "h264"
+    ? config
+    : { ...config, openGraphTarget: fallback }
+}
 
 function buildVariantId(name: unknown, usedIds: Set<string>): string {
   const base =
@@ -252,7 +284,7 @@ export const RuntimeConfigSchema = z.object({
   passkeyEnabled: z.boolean().default(true),
   requireAuthToBrowse: z.boolean().default(true),
   oauthProvider: OAuthProviderSchema.nullable().default(null),
-  encoder: EncoderConfigSchema.default(EncoderConfigInnerSchema.parse({})),
+  encoder: EncoderConfigSchema.default(EncoderConfigSchema.parse({})),
   limits: LimitsConfigSchema.default(LimitsConfigSchema.parse({})),
   integrations: IntegrationsConfigSchema.default(
     IntegrationsConfigSchema.parse({})
