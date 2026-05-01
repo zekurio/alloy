@@ -32,10 +32,6 @@ interface ClipPlayerProps {
   aspectRatio?: number
 }
 
-const FALLBACK_ENCODED_OPTION = {
-  id: "encoded",
-  label: "Encoded",
-}
 const DEFAULT_ASPECT_RATIO = 16 / 9
 
 function aspectRatioFromDimensions(
@@ -61,8 +57,8 @@ function ClipPlayer({
   height,
   thumbnail,
   variants = [],
-  status,
-  encodeProgress = 0,
+  status: _status,
+  encodeProgress: _encodeProgress = 0,
   onPlayThreshold,
   onEnded,
   className,
@@ -97,27 +93,15 @@ function ClipPlayer({
     [variants]
   )
 
-  const hasLegacyEncodedFallback =
-    status === "ready" && encodeProgress >= 100 && variants.length === 0
-  const encodedQualityOptions =
-    sortedVariants.length > 0
-      ? sortedVariants.map((variant) => ({
-          id: variant.id,
-          label: variant.label,
-          downloadUrl: clipDownloadUrl(clipId, variant.id, apiOrigin()),
-        }))
-      : hasLegacyEncodedFallback
-        ? [
-            {
-              ...FALLBACK_ENCODED_OPTION,
-              downloadUrl: clipDownloadUrl(clipId, "encoded", apiOrigin()),
-            },
-          ]
-        : []
+  const encodedQualityOptions = sortedVariants.map((variant) => ({
+    id: variant.id,
+    label: variant.label,
+    downloadUrl: clipDownloadUrl(clipId, variant.id, apiOrigin()),
+  }))
   const defaultEncodedId =
     sortedVariants.find((variant) => variant.isDefault)?.id ??
     sortedVariants[0]?.id ??
-    (hasLegacyEncodedFallback ? FALLBACK_ENCODED_OPTION.id : null)
+    null
 
   const [sourcePlayable, setSourcePlayable] = React.useState(() =>
     canPlayNativeVideo(sourceVariant?.contentType ?? sourceContentType)
