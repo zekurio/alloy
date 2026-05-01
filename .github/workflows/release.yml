@@ -1,6 +1,9 @@
 name: Release
 
 on:
+  push:
+    tags:
+      - "v*.*.*"
   workflow_dispatch:
     inputs:
       version:
@@ -28,14 +31,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
-          ref: dev
+          ref: ${{ github.event_name == 'workflow_dispatch' && 'dev' || github.ref }}
           fetch-depth: 0
 
       - name: Resolve release version
         id: meta
         shell: bash
         run: |
-          raw="${{ github.event.inputs.version }}"
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            raw="${{ github.event.inputs.version }}"
+          else
+            raw="${GITHUB_REF_NAME}"
+          fi
+
           version="${raw#v}"
 
           if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
@@ -55,6 +63,7 @@ jobs:
           fi
 
       - name: Ensure release tag does not already exist
+        if: github.event_name == 'workflow_dispatch'
         shell: bash
         env:
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
@@ -96,6 +105,7 @@ jobs:
         run: pnpm run build
 
       - name: Update package version
+        if: github.event_name == 'workflow_dispatch'
         id: version_bump
         shell: bash
         env:
@@ -117,11 +127,13 @@ jobs:
           EOF
 
       - name: Configure git author
+        if: github.event_name == 'workflow_dispatch'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Commit release version and create tag
+        if: github.event_name == 'workflow_dispatch'
         id: git_release
         shell: bash
         env:
@@ -133,11 +145,17 @@ jobs:
           git tag -a "$RELEASE_TAG" -m "Release $RELEASE_TAG"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve release target
+        id: release_target
+        shell: bash
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Publish release images
         uses: ./.github/actions/publish-image
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-server
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           file: apps/server/Dockerfile
           build-args: |
             APP_VERSION=${{ steps.meta.outputs.version }}
@@ -146,6 +164,7 @@ jobs:
             type=raw,value=latest,enable=${{ steps.meta.outputs.make_latest == 'true' }}
 
       - name: Push release commit and tag
+        if: github.event_name == 'workflow_dispatch'
         env:
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
         run: |
@@ -156,7 +175,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
-          target_commitish: ${{ steps.git_release.outputs.sha }}
+          target_commitish: ${{ steps.release_target.outputs.sha }}
           name: Alloy ${{ steps.meta.outputs.tag }}
           generate_release_notes: true
           prerelease: ${{ steps.meta.outputs.is_prerelease }}

@@ -1,12 +1,9 @@
-name: Publish Container Images
+name: Publish Nightly Container Image
 
 on:
-  push:
-    branches:
-      - dev
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -20,26 +17,48 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     concurrency:
-      group: publish-image-${{ github.ref }}-server
+      group: publish-nightly-image
       cancel-in-progress: true
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+        with:
+          ref: dev
 
-      - name: Resolve unstable version
+      - name: Resolve nightly version
         id: meta
         shell: bash
         run: |
-          echo "app_version=unstable-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          version="$(node --input-type=module <<'EOF'
+          import { readFileSync } from "node:fs";
+
+          const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+          const stableCore = String(pkg.version).replace(/[-+].*$/, "");
+          const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(stableCore);
+
+          if (!match) {
+            console.error(`Invalid package.json version: ${pkg.version}`);
+            process.exit(1);
+          }
+
+          const [, major, minor, patch] = match;
+          const date = new Date().toISOString().slice(0, 10).replaceAll("-", "");
+          console.log(`${major}.${minor}.${Number(patch) + 1}-nightly.${date}.${process.env.GITHUB_RUN_NUMBER}`);
+          EOF
+          )"
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=nightly-v$version" >> "$GITHUB_OUTPUT"
 
       - name: Publish image
         uses: ./.github/actions/publish-image
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-server
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           file: apps/server/Dockerfile
           build-args: |
-            APP_VERSION=${{ steps.meta.outputs.app_version }}
+            APP_VERSION=${{ steps.meta.outputs.version }}
           tags: |
-            type=raw,value=unstable
+            type=raw,value=nightly
+            type=raw,value=${{ steps.meta.outputs.tag }}
