@@ -1,5 +1,5 @@
 import type { AcceptedContentType } from "@workspace/contracts"
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 
 import { clip, type ClipEncodedVariant } from "@workspace/db/schema"
 
@@ -21,12 +21,14 @@ export async function promoteProcessingSource({
   originalSourceKey,
   contentType,
   probed,
+  runId,
 }: {
   clipId: string
   row: ClipRow
   originalSourceKey: string
   contentType: string
   probed: Awaited<ReturnType<typeof probe>>
+  runId: string
 }): Promise<SourcePromotion> {
   const promoted = await promoteOriginalSource({
     clipId,
@@ -34,6 +36,7 @@ export async function promoteProcessingSource({
     originalSourceKey,
     contentType,
     probed,
+    runId,
   })
   if (promoted.storageKey !== originalSourceKey) {
     await storage.delete(originalSourceKey).catch(() => undefined)
@@ -47,8 +50,9 @@ async function promoteOriginalSource(args: {
   originalSourceKey: string
   contentType: string
   probed: Awaited<ReturnType<typeof probe>>
+  runId: string
 }): Promise<SourcePromotion> {
-  const { clipId, row, originalSourceKey, contentType, probed } = args
+  const { clipId, row, originalSourceKey, contentType, probed, runId } = args
   if (!isStagingKey(originalSourceKey)) {
     return {
       storageKey: originalSourceKey,
@@ -76,7 +80,7 @@ async function promoteOriginalSource(args: {
       height: probed.height,
       updatedAt: new Date(),
     })
-    .where(eq(clip.id, clipId))
+    .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
   return { storageKey: durableKey, contentType, sizeBytes: size }
 }
 

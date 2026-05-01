@@ -62,6 +62,9 @@ export const CLIP_STATUS = [
 ] as const
 export type ClipStatus = (typeof CLIP_STATUS)[number]
 
+export const UPLOAD_TICKET_ROLE = ["video", "thumbnail"] as const
+export type UploadTicketRole = (typeof UPLOAD_TICKET_ROLE)[number]
+
 export const NOTIFICATION_TYPES = [
   "clip_upload_failed",
   "new_follower",
@@ -148,6 +151,9 @@ export const clip = pgTable(
 
     status: text("status").$type<ClipStatus>().notNull().default("pending"),
     encodeProgress: integer("encode_progress").notNull().default(0),
+    encodeRunId: uuid("encode_run_id"),
+    encodeLockedAt: timestamp("encode_locked_at"),
+    encodeAttempt: integer("encode_attempt").notNull().default(0),
     failureReason: text("failure_reason"),
 
     createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -160,6 +166,28 @@ export const clip = pgTable(
     index("clip_privacy_created_idx").on(t.privacy, t.createdAt),
     index("clip_status_idx").on(t.status),
     index("clip_game_created_idx").on(t.gameId, t.createdAt),
+  ]
+)
+
+export const clipUploadTicket = pgTable(
+  "clip_upload_ticket",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clipId: uuid("clip_id")
+      .notNull()
+      .references(() => clip.id, { onDelete: "cascade" }),
+    role: text("role").$type<UploadTicketRole>().notNull(),
+    storageKey: text("storage_key").notNull().unique(),
+    contentType: text("content_type").notNull(),
+    expectedBytes: bigint("expected_bytes", { mode: "number" }).notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    usedAt: timestamp("used_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("clip_upload_ticket_clip_idx").on(t.clipId),
+    index("clip_upload_ticket_expires_idx").on(t.expiresAt),
+    index("clip_upload_ticket_used_idx").on(t.usedAt),
   ]
 )
 
@@ -358,6 +386,7 @@ export const notification = pgTable(
 export const domainSchema = {
   game,
   clip,
+  clipUploadTicket,
   clipLike,
   clipView,
   clipComment,
@@ -373,6 +402,8 @@ export type Game = typeof game.$inferSelect
 export type NewGame = typeof game.$inferInsert
 export type Clip = typeof clip.$inferSelect
 export type NewClip = typeof clip.$inferInsert
+export type ClipUploadTicket = typeof clipUploadTicket.$inferSelect
+export type NewClipUploadTicket = typeof clipUploadTicket.$inferInsert
 export type ClipLike = typeof clipLike.$inferSelect
 export type ClipView = typeof clipView.$inferSelect
 export type NewClipView = typeof clipView.$inferInsert

@@ -10,6 +10,7 @@ import { ACCEPTED_IMAGE_CONTENT_TYPES } from "@workspace/contracts"
 
 import { db } from "../db"
 import { requireSession } from "../auth/require-session"
+import { validateImageBytes } from "../media/image-validation"
 import { storage, userAssetKey } from "../storage"
 import type { ResolvedObject } from "../storage/driver"
 import { toPublicUser, type UserRow } from "./users-helpers"
@@ -83,6 +84,10 @@ export const usersUploadRoute = new Hono<{
           413
         )
       }
+      const validation = validateImageBytes(buf, contentType)
+      if (!validation.ok) {
+        return c.json({ error: validation.error }, 400)
+      }
 
       const ext = EXT_FOR_CONTENT_TYPE[contentType] ?? ".bin"
       const key = userAssetKey(viewerId, "avatar", ext)
@@ -121,6 +126,10 @@ export const usersUploadRoute = new Hono<{
           },
           413
         )
+      }
+      const validation = validateImageBytes(buf, contentType)
+      if (!validation.ok) {
+        return c.json({ error: validation.error }, 400)
       }
 
       const ext = EXT_FOR_CONTENT_TYPE[contentType] ?? ".bin"

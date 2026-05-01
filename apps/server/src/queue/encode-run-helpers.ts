@@ -2,7 +2,7 @@ import { promises as fsp } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 
 import {
   clip,
@@ -36,6 +36,7 @@ export async function tryPublishRemux({
   signal,
   originalSourceKey,
   exposeSource,
+  runId,
 }: {
   clipId: string
   row: ClipRow
@@ -45,6 +46,7 @@ export async function tryPublishRemux({
   signal: AbortSignal
   originalSourceKey: string
   exposeSource: boolean
+  runId: string
 }): Promise<{ path: string; variant: ClipEncodedVariant } | null> {
   const remuxPath = path.join(scratchDir, "source.mp4")
   const remuxKey = clipSourceMp4Key(clipId)
@@ -54,9 +56,9 @@ export async function tryPublishRemux({
       trimEndMs: trim.endMs,
       signal,
     })
-    await ensureClipStillPresent(clipId, signal)
+    await ensureClipStillPresent(clipId, runId, signal)
     const remuxProbe = await probe(remuxPath)
-    await ensureClipStillPresent(clipId, signal)
+    await ensureClipStillPresent(clipId, runId, signal)
     const { size } = await storage.uploadFromFile(
       remuxPath,
       remuxKey,
@@ -71,12 +73,12 @@ export async function tryPublishRemux({
       isDefault: true,
       trim,
     })
-    const publishState = await db.transaction(async (tx) => {
+    await db.transaction(async (tx) => {
       const previous = await readClipPublishState(tx, clipId)
       const [published] = await tx
         .update(clip)
         .set({
-          status: "ready",
+          status: "encoding",
           encodeProgress: 0,
           failureReason: null,
           storageKey: remuxKey,
@@ -89,7 +91,7 @@ export async function tryPublishRemux({
             : removeSourceVariants(row.variants),
           updatedAt: new Date(),
         })
-        .where(eq(clip.id, clipId))
+        .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
         .returning({ status: clip.status, privacy: clip.privacy })
       return { previous, published }
     })
@@ -97,9 +99,6 @@ export async function tryPublishRemux({
       await storage.delete(originalSourceKey).catch(() => undefined)
     }
     void publishClipUpsert(row.authorId, clipId)
-    if (exposeSource) {
-      notifyFollowersIfNewPublicClip(row.authorId, clipId, publishState)
-    }
     return { path: remuxPath, variant }
   } catch (err) {
     if ((err as Error).name === "AbortError") throw err
@@ -122,11 +121,13 @@ export async function publishSourceOnlyClip({
   authorId,
   row,
   sourceVariant,
+  runId,
 }: {
   clipId: string
   authorId: string
   row: ClipRow
   sourceVariant: ClipEncodedVariant
+  runId: string
 }): Promise<void> {
   await pruneStaleVariants(row, new Map(), sourceVariant)
   const publishState = await db.transaction(async (tx) => {
@@ -141,9 +142,11 @@ export async function publishSourceOnlyClip({
         width: sourceVariant.width,
         height: sourceVariant.height,
         variants: [sourceVariant],
+        encodeRunId: null,
+        encodeLockedAt: null,
         updatedAt: new Date(),
       })
-      .where(eq(clip.id, clipId))
+      .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
       .returning({ status: clip.status, privacy: clip.privacy })
     return { previous, published }
   })
@@ -157,12 +160,14 @@ export async function publishEncodedVariants({
   variants,
   sourceVariant,
   progress,
+  runId,
 }: {
   clipId: string
   authorId: string
   variants: readonly ClipEncodedVariant[]
   sourceVariant: ClipEncodedVariant | null
   progress: number
+  runId: string
 }): Promise<void> {
   const defaultVariant =
     variants.find((variant) => variant.isDefault) ?? variants[0]
@@ -173,7 +178,7 @@ export async function publishEncodedVariants({
     const [published] = await tx
       .update(clip)
       .set({
-        status: "ready",
+        status: progress >= 100 ? "ready" : "encoding",
         encodeProgress: progress,
         failureReason: null,
         sizeBytes: sourceVariant?.sizeBytes ?? defaultVariant.sizeBytes,
@@ -184,7 +189,7 @@ export async function publishEncodedVariants({
           : [...variants],
         updatedAt: new Date(),
       })
-      .where(eq(clip.id, clipId))
+      .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
       .returning({ status: clip.status, privacy: clip.privacy })
     return { previous, published }
   })
@@ -243,6 +248,7 @@ type EncodeVariantsOpts = {
   duration: number
   trim: { startMs: number | null; endMs: number | null }
   signal: AbortSignal
+  runId: string
   writeProgress: (pct: number) => void
   onVariant: (
     variants: readonly ClipEncodedVariant[],
@@ -279,7 +285,7 @@ export async function encodeVariants(
   }
 
   for (const [index, variant] of opts.specs.entries()) {
-    await ensureClipStillPresent(opts.clipId, opts.signal)
+    await ensureClipStillPresent(opts.clipId, opts.runId, opts.signal)
     const reuse = opts.reuse.get(index)
     if (reuse) {
       pushVariant(variant, index, reuse)
@@ -318,9 +324,9 @@ export async function encodeVariants(
       signal: opts.signal,
     })
 
-    await ensureClipStillPresent(opts.clipId, opts.signal)
+    await ensureClipStillPresent(opts.clipId, opts.runId, opts.signal)
     const variantProbe = await probe(variantPath)
-    await ensureClipStillPresent(opts.clipId, opts.signal)
+    await ensureClipStillPresent(opts.clipId, opts.runId, opts.signal)
     const { size: uploadedSize } = await storage.uploadFromFile(
       variantPath,
       variant.storageKey,
@@ -360,13 +366,14 @@ export function resolveTrim(
 
 export async function ensureClipStillPresent(
   clipId: string,
+  runId: string,
   signal: AbortSignal
 ): Promise<void> {
   signal.throwIfAborted()
   const [row] = await db
     .select({ id: clip.id })
     .from(clip)
-    .where(eq(clip.id, clipId))
+    .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
     .limit(1)
   if (row) return
   const err = new Error("Encode cancelled")

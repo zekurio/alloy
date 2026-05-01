@@ -1,7 +1,7 @@
 import { promises as fsp } from "node:fs"
 import path from "node:path"
 
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 
 import { clip, type ClipEncodedVariant } from "@workspace/db/schema"
 
@@ -39,11 +39,12 @@ type ClipRow = typeof clip.$inferSelect
 export async function runEncodeInner(
   clipId: string,
   row: ClipRow,
+  runId: string,
   signal: AbortSignal
 ): Promise<void> {
   const scratchDir = await makeScratchDir(clipId)
   try {
-    await runPipelineInScratch(clipId, row, scratchDir, signal)
+    await runPipelineInScratch(clipId, row, runId, scratchDir, signal)
   } finally {
     await fsp.rm(scratchDir, { recursive: true, force: true }).catch(() => {
       // Best-effort: a stray scratch dir is a capacity issue, not data loss.
@@ -54,27 +55,28 @@ export async function runEncodeInner(
 async function runPipelineInScratch(
   clipId: string,
   row: ClipRow,
+  runId: string,
   scratchDir: string,
   signal: AbortSignal
 ): Promise<void> {
   const originalSourceKey = row.storageKey
   const sourcePath = path.join(scratchDir, "source")
   await storage.downloadToFile(originalSourceKey, sourcePath)
-  await ensureClipStillPresent(clipId, signal)
+  await ensureClipStillPresent(clipId, runId, signal)
 
   await db
     .update(clip)
     .set({
-      status: row.status === "ready" ? "ready" : "encoding",
-      encodeProgress: row.status === "ready" ? row.encodeProgress : 0,
+      status: "encoding",
+      encodeProgress: 0,
       failureReason: null,
       updatedAt: new Date(),
     })
-    .where(eq(clip.id, clipId))
+    .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
   void publishClipUpsert(row.authorId, clipId)
 
   const probed = await probe(sourcePath)
-  await ensureClipStillPresent(clipId, signal)
+  await ensureClipStillPresent(clipId, runId, signal)
 
   const sourceAlreadyRemuxed = isRemuxedSourceKey(clipId, originalSourceKey)
   const trim = sourceAlreadyRemuxed
@@ -93,7 +95,7 @@ async function runPipelineInScratch(
       height: probed.height,
       updatedAt: new Date(),
     })
-    .where(eq(clip.id, clipId))
+    .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
 
   const encoderConfig = configStore.get("encoder")
   const writeProgress = makeProgressWriter(clipId, row.authorId)
@@ -130,6 +132,7 @@ async function runPipelineInScratch(
       signal,
       originalSourceKey,
       exposeSource: encoderConfig.keepSource,
+      runId,
     })
     if (remuxed) {
       remuxedSource = remuxed
@@ -153,6 +156,7 @@ async function runPipelineInScratch(
       originalSourceKey,
       contentType: row.contentType,
       probed,
+      runId,
     })
     processingKey = promoted.storageKey
     processingContentType = promoted.contentType
@@ -187,6 +191,7 @@ async function runPipelineInScratch(
           isDefault: true,
           trim,
         }),
+      runId,
     })
     return
   }
@@ -204,6 +209,7 @@ async function runPipelineInScratch(
         authorId: row.authorId,
         row,
         sourceVariant,
+        runId,
       })
       return
     }
@@ -243,6 +249,7 @@ async function runPipelineInScratch(
     duration: outputDurationMs,
     trim: encodeTrim,
     signal,
+    runId,
     writeProgress,
     onVariant: (variants, progress) =>
       publishEncodedVariants({
@@ -251,6 +258,7 @@ async function runPipelineInScratch(
         variants,
         sourceVariant,
         progress,
+        runId,
       }),
   })
 
@@ -272,8 +280,10 @@ async function runPipelineInScratch(
       variants: sourceVariant
         ? mergeVariantSets(encodedVariants, [sourceVariant])
         : encodedVariants,
+      encodeRunId: null,
+      encodeLockedAt: null,
       updatedAt: new Date(),
     })
-    .where(eq(clip.id, clipId))
+    .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
   void publishClipUpsert(row.authorId, clipId)
 }
