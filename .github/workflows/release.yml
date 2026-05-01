@@ -112,22 +112,25 @@ jobs:
           RELEASE_VERSION: ${{ steps.meta.outputs.version }}
         run: |
           node --input-type=module <<'EOF'
-          import { readFileSync, writeFileSync } from "node:fs";
+          import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+
+          function setOutput(name, value) {
+            appendFileSync(process.env.GITHUB_OUTPUT, `${name}=${value}\n`);
+          }
 
           const filePath = "package.json";
           const pkg = JSON.parse(readFileSync(filePath, "utf8"));
 
           if (pkg.version === process.env.RELEASE_VERSION) {
             console.log(`package.json is already at version ${pkg.version}.`);
-            process.stdout.write("changed=false\n");
+            setOutput("changed", "false");
             process.exit(0);
           }
 
           pkg.version = process.env.RELEASE_VERSION;
           writeFileSync(filePath, `${JSON.stringify(pkg, null, 2)}\n`);
-          process.stdout.write("changed=true\n");
+          setOutput("changed", "true");
           EOF
-          } >> "$GITHUB_OUTPUT"
 
       - name: Configure git author
         if: github.event_name == 'workflow_dispatch'
