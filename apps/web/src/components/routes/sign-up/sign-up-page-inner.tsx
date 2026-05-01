@@ -13,7 +13,7 @@ import { PasskeySignUpForm } from "./passkey-sign-up-form"
 type PublicClips = Awaited<ReturnType<typeof fetchPublicClips>>
 
 type SignUpPageInnerProps = {
-  clips: PublicClips
+  clips: PublicClips | null
   config: PublicAuthConfig
 }
 

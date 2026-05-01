@@ -3,7 +3,10 @@ import { createFileRoute, redirect } from "@tanstack/react-router"
 
 import { SignUpPageInner } from "@/components/routes/sign-up/sign-up-page-inner"
 import { redirectAuthedBeforeLoad } from "@/lib/auth-guards"
-import { fetchPublicClips } from "@/lib/public-clips"
+import {
+  fetchPublicClips,
+  publicClipsWithLoadedThumbnails,
+} from "@/lib/public-clips"
 import { loadAuthConfig } from "@/lib/session-suspense"
 
 export const Route = createFileRoute("/(auth)/sign-up")({
@@ -22,7 +25,7 @@ export const Route = createFileRoute("/(auth)/sign-up")({
     if (!canSignUp) {
       throw redirect({ to: "/login" })
     }
-    const clips = fetchPublicClips()
+    const clips = fetchPublicClips().then(publicClipsWithLoadedThumbnails)
     return { clips, config }
   },
   component: SignUpPage,
@@ -32,7 +35,7 @@ function SignUpPage() {
   const { clips, config } = Route.useLoaderData()
 
   return (
-    <React.Suspense fallback={<SignUpPageInner clips={[]} config={config} />}>
+    <React.Suspense fallback={<SignUpPageInner clips={null} config={config} />}>
       <SignUpPageLoaded clips={clips} config={config} />
     </React.Suspense>
   )

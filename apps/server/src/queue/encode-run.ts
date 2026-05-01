@@ -122,6 +122,7 @@ async function runPipelineInScratch(
   let sourceVariant: ClipEncodedVariant | null = null
   let encodeTrim = trim
   let remuxedSource: { path: string; variant: ClipEncodedVariant } | null = null
+  let canonicalSourceKey = preservedSource.storageKey
 
   if (sourceAlreadyRemuxed && encoderConfig.keepSource) {
     sourceVariant =
@@ -156,6 +157,10 @@ async function runPipelineInScratch(
       processingSizeBytes = remuxed.variant.sizeBytes
       sourceVariant = encoderConfig.keepSource ? remuxed.variant : null
       encodeTrim = { startMs: null, endMs: null }
+      if (trim.startMs != null && trim.endMs != null) {
+        canonicalSourceKey = remuxed.variant.storageKey
+        await storage.delete(preservedSource.storageKey).catch(() => undefined)
+      }
     } else if (!encoderConfig.enabled) {
       throw new Error("Remux failed and variant encoding is disabled")
     }
@@ -247,12 +252,17 @@ async function runPipelineInScratch(
   const rowForReuse = sourceVariant
     ? {
         ...row,
+        storageKey: canonicalSourceKey,
         variants: mergeVariantSets(row.variants, [
           sourceVariant,
           openGraphVariant,
         ]),
       }
-    : { ...row, variants: mergeVariantSets(row.variants, [openGraphVariant]) }
+    : {
+        ...row,
+        storageKey: canonicalSourceKey,
+        variants: mergeVariantSets(row.variants, [openGraphVariant]),
+      }
   const reusedBySpecIndex = await planReuse(
     rowForReuse,
     variantSpecs,
