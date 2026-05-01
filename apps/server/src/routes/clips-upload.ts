@@ -328,15 +328,21 @@ export const clipsUploadRoutes = new Hono()
       if (row.thumbKey && row.thumbKey !== canonicalThumbKey) {
         await storage.delete(row.thumbKey).catch(() => undefined)
       }
-      await Promise.all([
-        markUploadTicketUsed(row.storageKey),
-        row.thumbKey ? markUploadTicketUsed(row.thumbKey) : Promise.resolve(),
-      ])
 
       void publishClipUpsert(viewerId, id)
 
       const boss = await getBoss()
       await boss.send(ENCODE_JOB, { clipId: id })
+      await Promise.all([
+        markUploadTicketUsed(row.storageKey),
+        row.thumbKey ? markUploadTicketUsed(row.thumbKey) : Promise.resolve(),
+      ]).catch((err) => {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[clips/finalize] could not mark upload tickets used:`,
+          err
+        )
+      })
 
       const updated = await selectClipById(id)
       return c.json(updated)
