@@ -4,8 +4,8 @@ import { Readable } from "node:stream"
 import { pipeline } from "node:stream/promises"
 
 import { Hono } from "hono"
-import { and, eq, gt, isNull } from "drizzle-orm"
-import { clipUploadTicket } from "@workspace/db/schema"
+import { and, eq } from "drizzle-orm"
+import { clip, clipUploadTicket } from "@workspace/db/schema"
 
 import { decodeUploadToken, FsStorageDriver } from "./fs-driver"
 import { db } from "../db"
@@ -33,23 +33,64 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
     ct: expectedContentType,
     mb: maxBytes,
     cid: clipId,
+    uid: userId,
   } = decoded.payload
 
+  async function matchesLegacyPendingClipUpload(): Promise<boolean> {
+    const [row] = await db
+      .select({
+        authorId: clip.authorId,
+        status: clip.status,
+        storageKey: clip.storageKey,
+        contentType: clip.contentType,
+        sizeBytes: clip.sizeBytes,
+        thumbKey: clip.thumbKey,
+      })
+      .from(clip)
+      .where(eq(clip.id, clipId))
+      .limit(1)
+    if (!row || row.authorId !== userId || row.status !== "pending") {
+      return false
+    }
+    if (
+      row.storageKey === key &&
+      row.contentType === expectedContentType &&
+      (row.sizeBytes ?? 0) === maxBytes
+    ) {
+      return true
+    }
+    return row.thumbKey === key && expectedContentType === "image/jpeg"
+  }
+
   const [ticket] = await db
-    .select({ id: clipUploadTicket.id })
+    .select({
+      id: clipUploadTicket.id,
+      contentType: clipUploadTicket.contentType,
+      expectedBytes: clipUploadTicket.expectedBytes,
+      expiresAt: clipUploadTicket.expiresAt,
+      usedAt: clipUploadTicket.usedAt,
+    })
     .from(clipUploadTicket)
     .where(
       and(
         eq(clipUploadTicket.clipId, clipId),
-        eq(clipUploadTicket.storageKey, key),
-        eq(clipUploadTicket.contentType, expectedContentType),
-        eq(clipUploadTicket.expectedBytes, maxBytes),
-        isNull(clipUploadTicket.usedAt),
-        gt(clipUploadTicket.expiresAt, new Date())
+        eq(clipUploadTicket.storageKey, key)
       )
     )
     .limit(1)
-  if (!ticket) {
+  if (ticket) {
+    if (
+      ticket.contentType !== expectedContentType ||
+      ticket.expectedBytes !== maxBytes ||
+      ticket.usedAt !== null ||
+      ticket.expiresAt <= new Date()
+    ) {
+      return c.json(
+        { error: "Upload ticket has expired or already been used" },
+        401
+      )
+    }
+  } else if (!(await matchesLegacyPendingClipUpload())) {
     return c.json(
       { error: "Upload ticket has expired or already been used" },
       401
@@ -120,10 +161,12 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
     return c.json({ error: "Upload publish failed" }, 500)
   }
   await fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => undefined)
-  await db
-    .update(clipUploadTicket)
-    .set({ usedAt: new Date() })
-    .where(eq(clipUploadTicket.id, ticket.id))
+  if (ticket) {
+    await db
+      .update(clipUploadTicket)
+      .set({ usedAt: new Date() })
+      .where(eq(clipUploadTicket.id, ticket.id))
+  }
 
   return c.body(null, 204)
 })
