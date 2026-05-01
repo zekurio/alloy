@@ -10,7 +10,6 @@ import { user } from "@workspace/db/auth-schema"
 
 import { db } from "./db"
 import { env } from "./env"
-import { configStore } from "./config/store"
 import { selectClipById } from "./clips/select"
 import { selectOpenGraphVideo } from "./open-graph/video-selection"
 
@@ -136,10 +135,7 @@ async function clipHead(pathname: string): Promise<string> {
     const poster = row.thumbKey
       ? new URL(`/api/clips/${row.id}/thumbnail`, origin).toString()
       : null
-    const ogVariant = selectOpenGraphVideo(
-      row.variants,
-      configStore.get("encoder").openGraphTarget
-    )
+    const ogVariant = selectOpenGraphVideo(row.variants)
     const videoUrl = ogVariant
       ? new URL(
           `/api/clips/${row.id}/stream?variant=${encodeURIComponent(

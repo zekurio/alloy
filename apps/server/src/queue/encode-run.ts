@@ -22,6 +22,7 @@ import {
   ensureClipStillPresent,
   makeScratchDir,
   publishEncodedVariants,
+  publishOpenGraphVariant,
   publishSourceOnlyClip,
   resolveTrim,
   tryPublishRemux,
@@ -99,11 +100,25 @@ async function runPipelineInScratch(
 
   const encoderConfig = configStore.get("encoder")
   const writeProgress = makeProgressWriter(clipId, row.authorId)
+  const preservedSource = sourceAlreadyRemuxed
+    ? {
+        storageKey: originalSourceKey,
+        contentType: row.contentType,
+        sizeBytes: row.sizeBytes ?? 0,
+      }
+    : await promoteProcessingSource({
+        clipId,
+        row,
+        originalSourceKey,
+        contentType: row.contentType,
+        probed,
+        runId,
+      })
 
   let processingPath = sourcePath
-  let processingKey = originalSourceKey
-  let processingContentType = row.contentType
-  let processingSizeBytes = row.sizeBytes ?? 0
+  let processingKey = preservedSource.storageKey
+  let processingContentType = preservedSource.contentType
+  let processingSizeBytes = preservedSource.sizeBytes
   let sourceVariant: ClipEncodedVariant | null = null
   let encodeTrim = trim
   let remuxedSource: { path: string; variant: ClipEncodedVariant } | null = null
@@ -112,11 +127,11 @@ async function runPipelineInScratch(
     sourceVariant =
       findSourceVariant(row.variants) ??
       makeSourceVariant({
-        storageKey: originalSourceKey,
-        contentType: row.contentType,
+        storageKey: preservedSource.storageKey,
+        contentType: preservedSource.contentType,
         width: probed.width,
         height: probed.height,
-        sizeBytes: row.sizeBytes ?? 0,
+        sizeBytes: preservedSource.sizeBytes,
         isDefault: !encoderConfig.enabled,
         trim,
       })
@@ -130,7 +145,6 @@ async function runPipelineInScratch(
       scratchDir,
       trim,
       signal,
-      originalSourceKey,
       exposeSource: encoderConfig.keepSource,
       runId,
     })
@@ -147,33 +161,35 @@ async function runPipelineInScratch(
     }
   }
 
-  const shouldPromoteOriginal =
-    !sourceAlreadyRemuxed && (!encoderConfig.remuxEnabled || !remuxedSource)
-  if (shouldPromoteOriginal) {
-    const promoted = await promoteProcessingSource({
-      clipId,
-      row,
-      originalSourceKey,
-      contentType: row.contentType,
-      probed,
-      runId,
-    })
-    processingKey = promoted.storageKey
-    processingContentType = promoted.contentType
-    processingSizeBytes = promoted.sizeBytes
-    sourceVariant =
-      !encoderConfig.remuxEnabled && encoderConfig.keepSource
-        ? makeSourceVariant({
-            storageKey: promoted.storageKey,
-            contentType: promoted.contentType,
-            width: probed.width,
-            height: probed.height,
-            sizeBytes: promoted.sizeBytes,
-            isDefault: !encoderConfig.enabled,
-            trim,
-          })
-        : null
+  if (
+    !sourceAlreadyRemuxed &&
+    (!encoderConfig.remuxEnabled || !remuxedSource)
+  ) {
+    sourceVariant = encoderConfig.keepSource
+      ? makeSourceVariant({
+          storageKey: preservedSource.storageKey,
+          contentType: preservedSource.contentType,
+          width: probed.width,
+          height: probed.height,
+          sizeBytes: preservedSource.sizeBytes,
+          isDefault: !encoderConfig.enabled,
+          trim,
+        })
+      : null
   }
+
+  const openGraphVariant = await publishOpenGraphVariant({
+    clipId,
+    row,
+    source: preservedSource,
+    sourcePath,
+    scratchDir,
+    probed,
+    trim,
+    config: encoderConfig,
+    signal,
+    runId,
+  })
 
   if (!encoderConfig.enabled) {
     await publishSourceOnlyClip({
@@ -191,6 +207,7 @@ async function runPipelineInScratch(
           isDefault: true,
           trim,
         }),
+      retainedVariants: [openGraphVariant],
       runId,
     })
     return
@@ -209,6 +226,7 @@ async function runPipelineInScratch(
         authorId: row.authorId,
         row,
         sourceVariant,
+        retainedVariants: [openGraphVariant],
         runId,
       })
       return
@@ -229,15 +247,20 @@ async function runPipelineInScratch(
   const rowForReuse = sourceVariant
     ? {
         ...row,
-        variants: mergeVariantSets(row.variants, [sourceVariant]),
+        variants: mergeVariantSets(row.variants, [
+          sourceVariant,
+          openGraphVariant,
+        ]),
       }
-    : row
+    : { ...row, variants: mergeVariantSets(row.variants, [openGraphVariant]) }
   const reusedBySpecIndex = await planReuse(
     rowForReuse,
     variantSpecs,
     targetSettings
   )
-  await pruneStaleVariants(rowForReuse, reusedBySpecIndex, sourceVariant)
+  await pruneStaleVariants(rowForReuse, reusedBySpecIndex, sourceVariant, [
+    openGraphVariant,
+  ])
 
   const encodedVariants = await encodeVariants({
     clipId,
@@ -257,6 +280,7 @@ async function runPipelineInScratch(
         authorId: row.authorId,
         variants,
         sourceVariant,
+        retainedVariants: [openGraphVariant],
         progress,
         runId,
       }),
@@ -274,12 +298,11 @@ async function runPipelineInScratch(
       status: "ready",
       encodeProgress: 100,
       failureReason: null,
-      sizeBytes: sourceVariant?.sizeBytes ?? defaultVariant.sizeBytes,
-      width: sourceVariant?.width ?? defaultVariant.width,
-      height: sourceVariant?.height ?? defaultVariant.height,
       variants: sourceVariant
-        ? mergeVariantSets(encodedVariants, [sourceVariant])
-        : encodedVariants,
+        ? mergeVariantSets(mergeVariantSets(encodedVariants, [sourceVariant]), [
+            openGraphVariant,
+          ])
+        : mergeVariantSets(encodedVariants, [openGraphVariant]),
       encodeRunId: null,
       encodeLockedAt: null,
       updatedAt: new Date(),
