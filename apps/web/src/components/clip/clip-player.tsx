@@ -98,7 +98,7 @@ function ClipPlayer({
   )
 
   const hasLegacyEncodedFallback =
-    status === "ready" && encodeProgress >= 100 && sortedVariants.length === 0
+    status === "ready" && encodeProgress >= 100 && variants.length === 0
   const encodedQualityOptions =
     sortedVariants.length > 0
       ? sortedVariants.map((variant) => ({
