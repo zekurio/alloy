@@ -228,7 +228,7 @@ function extractVideoFilterArgs(args: string[]): {
     const arg = args[i]!
     const inlineValue = videoFilterOptionInlineValue(arg)
     if (inlineValue != null) {
-      videoFilter = inlineValue
+      videoFilter = unwrapFilterValue(inlineValue)
       continue
     }
     if (isVideoFilterOption(arg)) {
@@ -236,7 +236,7 @@ function extractVideoFilterArgs(args: string[]): {
       if (value == null) {
         throw new Error(`Missing value for ffmpeg output option ${arg}`)
       }
-      videoFilter = value
+      videoFilter = unwrapFilterValue(value)
       i += 1
       continue
     }
@@ -244,6 +244,18 @@ function extractVideoFilterArgs(args: string[]): {
   }
 
   return { videoFilter, remainingArgs }
+}
+
+function unwrapFilterValue(value: string): string {
+  const trimmed = value.trim()
+  if (trimmed.length < 2) return value
+
+  const first = trimmed[0]
+  const last = trimmed[trimmed.length - 1]
+  if ((first === '"' || first === "'") && first === last) {
+    return trimmed.slice(1, -1)
+  }
+  return value
 }
 
 function isVideoFilterOption(arg: string): boolean {

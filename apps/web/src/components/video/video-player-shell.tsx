@@ -98,13 +98,16 @@ export function ChromeShell({
   children: React.ReactNode
 }) {
   const [isFullscreen, setIsFullscreen] = React.useState(false)
-  const mediaSizingStyle = React.useMemo(
-    () =>
-      isFullscreen
-        ? undefined
-        : videoPlayerSizingStyle(aspectRatio, maxDisplayHeight),
-    [aspectRatio, isFullscreen, maxDisplayHeight]
-  )
+  const isFillParent = maxDisplayHeight === "100%"
+  const mediaSizingStyle = React.useMemo(() => {
+    if (isFullscreen) return undefined
+    if (isFillParent) {
+      // Outer shell carries the aspect-ratio in fill mode; inner just grows
+      // to fill the remaining space above the chrome bar.
+      return { flex: "1 1 0", minHeight: 0 }
+    }
+    return videoPlayerSizingStyle(aspectRatio, maxDisplayHeight)
+  }, [aspectRatio, isFillParent, isFullscreen, maxDisplayHeight])
   const rootSizingStyle = React.useMemo(
     () => mediaShellSizingStyle(aspectRatio, maxDisplayHeight, isFullscreen),
     [aspectRatio, isFullscreen, maxDisplayHeight]
@@ -205,6 +208,24 @@ function videoPlayerSizingStyle(
     return aspectRatio ? { aspectRatio: String(aspectRatio) } : undefined
   }
 
+  if (maxDisplayHeight === "100%") {
+    // Fill-parent mode: the player sizes itself from the flex parent's
+    // remaining height, preserving aspect ratio. No fixed pixel reservation,
+    // so siblings (description, tags) can grow naturally without forcing
+    // the player to shrink in width or triggering meta scrollbars.
+    if (!aspectRatio) {
+      return { maxHeight: "100%", maxWidth: "100%" }
+    }
+    return {
+      aspectRatio: String(aspectRatio),
+      height: "100%",
+      width: "auto",
+      maxHeight: "100%",
+      maxWidth: "100%",
+      marginInline: "auto",
+    }
+  }
+
   return {
     ...(aspectRatio ? { aspectRatio: String(aspectRatio) } : {}),
     maxHeight: maxDisplayHeight,
@@ -219,7 +240,21 @@ function mediaShellSizingStyle(
   maxDisplayHeight: string | undefined,
   isFullscreen: boolean
 ): React.CSSProperties | undefined {
-  if (isFullscreen || !aspectRatio || !maxDisplayHeight) return undefined
+  if (isFullscreen || !maxDisplayHeight) return undefined
+  if (maxDisplayHeight === "100%") {
+    if (!aspectRatio) {
+      return { height: "100%", maxHeight: "100%", maxWidth: "100%" }
+    }
+    return {
+      aspectRatio: String(aspectRatio),
+      height: "100%",
+      width: "auto",
+      maxHeight: "100%",
+      maxWidth: "100%",
+      marginInline: "auto",
+    }
+  }
+  if (!aspectRatio) return undefined
   return {
     width: `min(100%, calc(${maxDisplayHeight} * ${aspectRatio}))`,
   }
