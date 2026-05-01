@@ -187,7 +187,7 @@ export function EncoderConfigCard({
           codec: "h264",
           height: 1080,
           quality: 23,
-          audioBitrateKbps: 128,
+          audioBitrateKbps: 256,
           extraInputArgs: "",
           extraOutputArgs: "",
         }

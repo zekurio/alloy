@@ -254,7 +254,7 @@ export async function publishOpenGraphVariant({
     codec: "h264",
     audioCodec: "aac",
     quality: 23,
-    audioBitrateKbps: 128,
+    audioBitrateKbps: 256,
     extraInputArgs: "",
     extraOutputArgs: "",
     height: targetHeight,
