@@ -15,9 +15,14 @@ import { env } from "../env"
 import { publishClipUpsert } from "../clips/events"
 import { notifyFollowersOfNewClip } from "../notifications"
 import { type EncoderConfig } from "../config/store"
-import { clipSourceMp4Key, storage } from "../storage"
+import { clipOpenGraphVideoKey, clipSourceMp4Key, storage } from "../storage"
+import {
+  OPEN_GRAPH_VARIANT_ID,
+  isOpenGraphVariant,
+  openGraphCompatibleSource,
+} from "../open-graph/video-selection"
 import { codecNameFor, encode, probe, remuxToMp4 } from "./ffmpeg"
-import { pruneStaleVariants } from "./encode-variant-helpers"
+import { pruneStaleVariants, settingsEqual } from "./encode-variant-helpers"
 import type { VariantSpec } from "./variant-specs"
 import {
   makeSourceVariant,
@@ -34,7 +39,6 @@ export async function tryPublishRemux({
   scratchDir,
   trim,
   signal,
-  originalSourceKey,
   exposeSource,
   runId,
 }: {
@@ -44,7 +48,6 @@ export async function tryPublishRemux({
   scratchDir: string
   trim: { startMs: number | null; endMs: number | null }
   signal: AbortSignal
-  originalSourceKey: string
   exposeSource: boolean
   runId: string
 }): Promise<{ path: string; variant: ClipEncodedVariant } | null> {
@@ -81,11 +84,6 @@ export async function tryPublishRemux({
           status: "encoding",
           encodeProgress: 0,
           failureReason: null,
-          storageKey: remuxKey,
-          contentType: "video/mp4",
-          sizeBytes: size,
-          width: remuxProbe.width,
-          height: remuxProbe.height,
           variants: exposeSource
             ? mergeVariantSets(row.variants, [variant])
             : removeSourceVariants(row.variants),
@@ -95,9 +93,6 @@ export async function tryPublishRemux({
         .returning({ status: clip.status, privacy: clip.privacy })
       return { previous, published }
     })
-    if (originalSourceKey !== remuxKey) {
-      await storage.delete(originalSourceKey).catch(() => undefined)
-    }
     void publishClipUpsert(row.authorId, clipId)
     return { path: remuxPath, variant }
   } catch (err) {
@@ -121,15 +116,17 @@ export async function publishSourceOnlyClip({
   authorId,
   row,
   sourceVariant,
+  retainedVariants = [],
   runId,
 }: {
   clipId: string
   authorId: string
   row: ClipRow
   sourceVariant: ClipEncodedVariant
+  retainedVariants?: readonly ClipEncodedVariant[]
   runId: string
 }): Promise<void> {
-  await pruneStaleVariants(row, new Map(), sourceVariant)
+  await pruneStaleVariants(row, new Map(), sourceVariant, retainedVariants)
   const publishState = await db.transaction(async (tx) => {
     const previous = await readClipPublishState(tx, clipId)
     const [published] = await tx
@@ -138,10 +135,7 @@ export async function publishSourceOnlyClip({
         status: "ready",
         encodeProgress: 100,
         failureReason: null,
-        sizeBytes: sourceVariant.sizeBytes,
-        width: sourceVariant.width,
-        height: sourceVariant.height,
-        variants: [sourceVariant],
+        variants: mergeVariantSets([sourceVariant], retainedVariants),
         encodeRunId: null,
         encodeLockedAt: null,
         updatedAt: new Date(),
@@ -159,6 +153,7 @@ export async function publishEncodedVariants({
   authorId,
   variants,
   sourceVariant,
+  retainedVariants = [],
   progress,
   runId,
 }: {
@@ -166,12 +161,11 @@ export async function publishEncodedVariants({
   authorId: string
   variants: readonly ClipEncodedVariant[]
   sourceVariant: ClipEncodedVariant | null
+  retainedVariants?: readonly ClipEncodedVariant[]
   progress: number
   runId: string
 }): Promise<void> {
-  const defaultVariant =
-    variants.find((variant) => variant.isDefault) ?? variants[0]
-  if (!defaultVariant) return
+  if (variants.length === 0) return
 
   const publishState = await db.transaction(async (tx) => {
     const previous = await readClipPublishState(tx, clipId)
@@ -181,12 +175,12 @@ export async function publishEncodedVariants({
         status: progress >= 100 ? "ready" : "encoding",
         encodeProgress: progress,
         failureReason: null,
-        sizeBytes: sourceVariant?.sizeBytes ?? defaultVariant.sizeBytes,
-        width: sourceVariant?.width ?? defaultVariant.width,
-        height: sourceVariant?.height ?? defaultVariant.height,
-        variants: sourceVariant
-          ? mergeVariantSets([...variants], [sourceVariant])
-          : [...variants],
+        variants: mergeVariantSets(
+          sourceVariant
+            ? mergeVariantSets([...variants], [sourceVariant])
+            : variants,
+          retainedVariants
+        ),
         updatedAt: new Date(),
       })
       .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
@@ -195,6 +189,129 @@ export async function publishEncodedVariants({
   })
   void publishClipUpsert(authorId, clipId)
   notifyFollowersIfNewPublicClip(authorId, clipId, publishState)
+}
+
+export async function publishOpenGraphVariant({
+  clipId,
+  row,
+  source,
+  sourcePath,
+  scratchDir,
+  probed,
+  trim,
+  config,
+  signal,
+  runId,
+}: {
+  clipId: string
+  row: ClipRow
+  source: { storageKey: string; contentType: string; sizeBytes: number }
+  sourcePath: string
+  scratchDir: string
+  probed: Awaited<ReturnType<typeof probe>>
+  trim: { startMs: number | null; endMs: number | null }
+  config: EncoderConfig
+  signal: AbortSignal
+  runId: string
+}): Promise<ClipEncodedVariant> {
+  const reusableSource = openGraphCompatibleSource({
+    contentType: source.contentType,
+    videoCodec: probed.videoCodec,
+    audioCodec: probed.audioCodec,
+    height: probed.height,
+    trim,
+  })
+  if (reusableSource) {
+    return {
+      id: OPEN_GRAPH_VARIANT_ID,
+      label: "OpenGraph",
+      role: "openGraph",
+      storageKey: source.storageKey,
+      contentType: source.contentType,
+      width: probed.width,
+      height: probed.height,
+      sizeBytes: source.sizeBytes,
+      isDefault: false,
+      settings: {
+        hwaccel: "source",
+        codec: "h264",
+        audioCodec: probed.audioCodec === "aac" ? "aac" : "none",
+        quality: 0,
+        audioBitrateKbps: 0,
+        extraInputArgs: "",
+        extraOutputArgs: "",
+        height: probed.height,
+        trimStartMs: null,
+        trimEndMs: null,
+      },
+    }
+  }
+
+  const targetHeight = Math.min(probed.height, 1080)
+  const storageKey = clipOpenGraphVideoKey(clipId)
+  const settings: ClipVariantSettings = {
+    hwaccel: config.hwaccel,
+    codec: "h264",
+    audioCodec: "aac",
+    quality: 23,
+    audioBitrateKbps: 128,
+    extraInputArgs: "",
+    extraOutputArgs: "",
+    height: targetHeight,
+    trimStartMs: trim.startMs,
+    trimEndMs: trim.endMs,
+  }
+  const existing = row.variants.find(isOpenGraphVariant)
+  if (existing?.settings && settingsEqual(existing.settings, settings)) {
+    const fileHit = await storage.resolve(existing.storageKey)
+    if (fileHit) return existing
+  }
+
+  const variantPath = path.join(scratchDir, `${OPEN_GRAPH_VARIANT_ID}.mp4`)
+  await encode(sourcePath, variantPath, {
+    config: {
+      hwaccel: config.hwaccel,
+      encoder: codecNameFor(config.hwaccel, "h264"),
+      quality: settings.quality,
+      audioBitrateKbps: settings.audioBitrateKbps,
+      extraInputArgs: "",
+      extraOutputArgs: "",
+      qsvDevice: config.qsvDevice,
+      vaapiDevice: config.vaapiDevice,
+    },
+    targetHeight,
+    durationMs:
+      trim.startMs != null && trim.endMs != null
+        ? Math.max(1, trim.endMs - trim.startMs)
+        : probed.durationMs,
+    onProgress: () => undefined,
+    trimStartMs: trim.startMs,
+    trimEndMs: trim.endMs,
+    signal,
+  })
+
+  await ensureClipStillPresent(clipId, runId, signal)
+  const variantProbe = await probe(variantPath)
+  await ensureClipStillPresent(clipId, runId, signal)
+  const { size } = await storage.uploadFromFile(
+    variantPath,
+    storageKey,
+    "video/mp4"
+  )
+  await fsp.rm(variantPath, { force: true }).catch(() => undefined)
+
+  return {
+    id: OPEN_GRAPH_VARIANT_ID,
+    label: "OpenGraph",
+    role: "openGraph",
+    storageKey,
+    contentType: "video/mp4",
+    width: variantProbe.width,
+    height: variantProbe.height,
+    sizeBytes: size,
+    isDefault: false,
+    settings,
+  }
 }
 
 function notifyFollowersIfNewPublicClip(

@@ -15,6 +15,7 @@ import {
 import { db } from "../db"
 import { getSession } from "../auth/session"
 import { configStore } from "../config/store"
+import { isOpenGraphVariant } from "../open-graph/video-selection"
 
 export const IdParam = z.object({ id: z.uuid() })
 export const StreamQuery = z.object({ variant: z.string().min(1).optional() })
@@ -210,7 +211,17 @@ export function findEncodedVariant(
 ): ClipEncodedVariant | null {
   const variants = encodedVariantsForRow(row)
   if (!variantId) {
-    return variants.find((variant) => variant.isDefault) ?? variants[0] ?? null
+    const playbackVariants = variants.filter(
+      (variant) =>
+        variant.role !== "source" &&
+        variant.id !== "source" &&
+        !isOpenGraphVariant(variant)
+    )
+    return (
+      playbackVariants.find((variant) => variant.isDefault) ??
+      playbackVariants[0] ??
+      null
+    )
   }
   return variants.find((variant) => variant.id === variantId) ?? null
 }

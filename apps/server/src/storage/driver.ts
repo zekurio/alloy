@@ -174,6 +174,10 @@ export function clipVideoVariantKey(clipId: string, variantId: string): string {
   return `${clipAssetDir(clipId)}/video-${safeVariantId}.mp4`
 }
 
+export function clipOpenGraphVideoKey(clipId: string): string {
+  return `${clipAssetDir(clipId)}/opengraph.mp4`
+}
+
 function userAssetDir(userId: string): string {
   const hex = userId.replace(/-/g, "")
   const aa = hex.slice(0, 2)

@@ -26,7 +26,7 @@ export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 export interface ClipVariantSettings {
   hwaccel: string
   codec: string
-  audioCodec: "aac"
+  audioCodec: "aac" | "none"
   quality: number
   preset?: string
   audioBitrateKbps: number
@@ -40,7 +40,7 @@ export interface ClipVariantSettings {
 export interface ClipEncodedVariant {
   id: string
   label: string
-  role?: "source" | "variant"
+  role?: "source" | "variant" | "openGraph"
   storageKey: string
   contentType: string
   width: number
