@@ -26,6 +26,8 @@
     "packages/*"
   ],
   "devDependencies": {
+    "@esbuild/linux-x64": "0.25.12",
+    "@esbuild/win32-x64": "0.25.12",
     "@oxfmt/binding-linux-x64-gnu": "0.46.0",
     "@oxfmt/binding-win32-x64-msvc": "0.46.0",
     "@oxlint/binding-linux-x64-gnu": "1.61.0",
