@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, sql } from "drizzle-orm"
+import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm"
 
 import { user } from "@workspace/db/auth-schema"
 import { clip, clipUploadTicket } from "@workspace/db/schema"
@@ -106,42 +106,26 @@ export async function markUploadTicketUsed(storageKey: string): Promise<void> {
     )
 }
 
-export type UploadTicketCheckResult =
-  | { status: "usable" }
-  | { status: "missing" }
-  | { status: "invalid"; reason: "expired" | "mismatch" }
-
-export async function checkUploadTicket(input: {
+export async function assertUsableUploadTicket(input: {
   clipId: string
   storageKey: string
   contentType: string
   expectedBytes: number
   role: "video" | "thumbnail"
-}): Promise<UploadTicketCheckResult> {
+}): Promise<boolean> {
   const [ticket] = await db
-    .select({
-      contentType: clipUploadTicket.contentType,
-      expectedBytes: clipUploadTicket.expectedBytes,
-      expiresAt: clipUploadTicket.expiresAt,
-    })
+    .select({ id: clipUploadTicket.id })
     .from(clipUploadTicket)
     .where(
       and(
         eq(clipUploadTicket.clipId, input.clipId),
         eq(clipUploadTicket.storageKey, input.storageKey),
-        eq(clipUploadTicket.role, input.role)
+        eq(clipUploadTicket.contentType, input.contentType),
+        eq(clipUploadTicket.expectedBytes, input.expectedBytes),
+        eq(clipUploadTicket.role, input.role),
+        gt(clipUploadTicket.expiresAt, new Date())
       )
     )
     .limit(1)
-  if (!ticket) return { status: "missing" }
-  if (
-    ticket.contentType !== input.contentType ||
-    ticket.expectedBytes !== input.expectedBytes
-  ) {
-    return { status: "invalid", reason: "mismatch" }
-  }
-  if (ticket.expiresAt <= new Date()) {
-    return { status: "invalid", reason: "expired" }
-  }
-  return { status: "usable" }
+  return Boolean(ticket)
 }
