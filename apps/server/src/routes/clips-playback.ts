@@ -8,6 +8,7 @@ import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
 import { storage } from "../storage"
+import { isOpenGraphVariant } from "../open-graph/video-selection"
 import {
   contentDisposition,
   DownloadQuery,
@@ -251,6 +252,9 @@ export const clipsPlaybackRoutes = new Hono()
         row.status === "ready"
           ? findEncodedVariant(row, requestedVariant)
           : null
+      if (encodedVariant && isOpenGraphVariant(encodedVariant)) {
+        return c.json({ error: "Unknown download variant" }, 404)
+      }
       const selected = encodedVariant
         ? {
             key: encodedVariant.storageKey,
