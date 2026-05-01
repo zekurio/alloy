@@ -1,4 +1,4 @@
-import { and, eq, isNull, lt, or, sql } from "drizzle-orm"
+import { and, eq, isNull, lt, ne, or, sql } from "drizzle-orm"
 import type { PgBoss } from "pg-boss"
 
 import { clip } from "@workspace/db/schema"
@@ -131,10 +131,38 @@ async function runEncode(clipId: string): Promise<void> {
 
   try {
     await runEncodeInner(clipId, row, runId, abort.signal)
+  } catch (err) {
+    if ((err as Error).name !== "AbortError") {
+      const reason = err instanceof Error ? err.message : "Encode failed"
+      await releaseEncodeLease(clipId, runId, reason)
+    }
+    throw err
   } finally {
     activeEncodes.delete(clipId)
     resolveDone()
   }
+}
+
+async function releaseEncodeLease(
+  clipId: string,
+  runId: string,
+  reason: string
+): Promise<void> {
+  await db
+    .update(clip)
+    .set({
+      encodeRunId: null,
+      encodeLockedAt: null,
+      failureReason: reason.slice(0, 500),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(clip.id, clipId),
+        eq(clip.encodeRunId, runId),
+        ne(clip.status, "ready")
+      )
+    )
 }
 
 async function markFailedUnlessReady(
@@ -155,6 +183,8 @@ async function markFailedUnlessReady(
       .update(clip)
       .set({
         status: "failed",
+        encodeRunId: null,
+        encodeLockedAt: null,
         failureReason: reason.slice(0, 500),
         updatedAt: new Date(),
       })

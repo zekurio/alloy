@@ -105,7 +105,7 @@ function parseWebp(
     const b3 = bytes[24]
     return {
       width: 1 + (((b1 & 0x3f) << 8) | b0),
-      height: 1 + ((b3 << 6) | (b2 >> 2) | ((b1 & 0xc0) << 6)),
+      height: 1 + (((b3 & 0x0f) << 10) | (b2 << 2) | ((b1 & 0xc0) >> 6)),
       contentType: "image/webp",
     }
   }
