@@ -1,66 +1,42 @@
-import type { EncoderOpenGraphTarget } from "@workspace/contracts"
 import type { ClipEncodedVariant } from "@workspace/db/schema"
+
+export const OPEN_GRAPH_VARIANT_ID = "opengraph"
+
+export function isOpenGraphVariant(variant: ClipEncodedVariant): boolean {
+  return variant.role === "openGraph" || variant.id === OPEN_GRAPH_VARIANT_ID
+}
 
 export function isOpenGraphCompatibleVideoVariant(
   variant: ClipEncodedVariant
 ): boolean {
   return (
+    isOpenGraphVariant(variant) &&
     variant.contentType === "video/mp4" &&
     variant.settings?.codec === "h264" &&
-    variant.settings.audioCodec === "aac"
+    (variant.settings.audioCodec === "aac" ||
+      variant.settings.audioCodec === "none")
   )
 }
 
 export function selectOpenGraphVideo(
-  variants: readonly ClipEncodedVariant[],
-  target: EncoderOpenGraphTarget
+  variants: readonly ClipEncodedVariant[]
 ): ClipEncodedVariant | null {
-  if (target.type === "none") return null
-
-  const compatiblePlaybackVariants = variants.filter(
-    (variant) =>
-      variant.role !== "source" &&
-      variant.id !== "source" &&
-      isOpenGraphCompatibleVideoVariant(variant)
-  )
-  const defaultCompatiblePlaybackVariant =
-    compatiblePlaybackVariants.find((variant) => variant.isDefault) ??
-    compatiblePlaybackVariants[0] ??
-    null
-
-  const selected = selectConfiguredTarget(variants, target)
-  if (selected && isOpenGraphCompatibleVideoVariant(selected)) return selected
-
-  return defaultCompatiblePlaybackVariant
+  return variants.find(isOpenGraphCompatibleVideoVariant) ?? null
 }
 
-function selectConfiguredTarget(
-  variants: readonly ClipEncodedVariant[],
-  target: Exclude<EncoderOpenGraphTarget, { type: "none" }>
-): ClipEncodedVariant | null {
-  switch (target.type) {
-    case "source":
-      return (
-        variants.find(
-          (variant) => variant.role === "source" || variant.id === "source"
-        ) ?? null
-      )
-    case "defaultVariant": {
-      const playbackVariants = variants.filter(
-        (variant) => variant.role !== "source" && variant.id !== "source"
-      )
-      return (
-        playbackVariants.find((variant) => variant.isDefault) ??
-        playbackVariants[0] ??
-        null
-      )
-    }
-    case "variant":
-      return (
-        variants.find(
-          (variant) =>
-            variant.role !== "source" && variant.id === target.variantId
-        ) ?? null
-      )
-  }
+export function openGraphCompatibleSource(input: {
+  contentType: string
+  videoCodec: string
+  audioCodec: string | null
+  height: number
+  trim: { startMs: number | null; endMs: number | null }
+}): boolean {
+  return (
+    input.contentType === "video/mp4" &&
+    input.videoCodec === "h264" &&
+    (input.audioCodec === "aac" || input.audioCodec === null) &&
+    input.height <= 1080 &&
+    input.trim.startMs === null &&
+    input.trim.endMs === null
+  )
 }
