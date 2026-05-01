@@ -87,6 +87,7 @@ async function reapExpiredUploadTickets(): Promise<void> {
         `[queue/reap] could not delete expired staged object ${ticket.storageKey}:`,
         err
       )
+      continue
     }
     await db.delete(clipUploadTicket).where(eq(clipUploadTicket.id, ticket.id))
   }
