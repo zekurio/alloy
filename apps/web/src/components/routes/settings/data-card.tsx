@@ -1,6 +1,5 @@
 import * as React from "react"
 import { DownloadIcon, Trash2Icon } from "lucide-react"
-import { useQuery } from "@tanstack/react-query"
 
 import {
   AlertDialog,
@@ -14,13 +13,12 @@ import {
   AlertDialogTrigger,
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
-import { Progress } from "@workspace/ui/components/progress"
 import { Section, SectionContent } from "@workspace/ui/components/section"
 import { toast } from "@workspace/ui/lib/toast"
 
+import { StorageQuota } from "@/components/storage-quota"
 import { api } from "@/lib/api"
 import { getQueryClient } from "@/lib/query-client"
-import { formatBytes, storageUsagePercent } from "@/lib/storage-format"
 
 function DataActionRow({
   title,
@@ -38,37 +36,6 @@ function DataActionRow({
         <p className="mt-0.5 text-xs text-foreground-dim">{description}</p>
       </div>
       {children}
-    </div>
-  )
-}
-
-function StorageQuotaRow() {
-  const { data } = useQuery({
-    queryKey: ["user", "storage"],
-    queryFn: () => api.users.fetchStorageUsage(),
-    staleTime: 30_000,
-  })
-
-  const usedBytes = data?.usedBytes ?? 0
-  const quotaBytes = data?.quotaBytes ?? null
-  const pct = storageUsagePercent(usedBytes, quotaBytes)
-
-  return (
-    <div className="flex flex-col gap-3 py-4">
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <div className="text-sm font-medium">Storage</div>
-          <p className="mt-0.5 text-xs text-foreground-dim">
-            Source clips count toward your quota. Encoded copies do not.
-          </p>
-        </div>
-        <div className="shrink-0 text-right text-sm tabular-nums">
-          {quotaBytes === null
-            ? `${formatBytes(usedBytes)} used`
-            : `${formatBytes(usedBytes)} / ${formatBytes(quotaBytes)}`}
-        </div>
-      </div>
-      <Progress value={pct} />
     </div>
   )
 }
@@ -177,7 +144,7 @@ export function DataCard() {
   return (
     <Section>
       <SectionContent className="divide-y divide-border py-0">
-        <StorageQuotaRow />
+        <StorageQuota />
         <DownloadClipsRow />
         <DeleteClipsRow pending={pending} onDeleteAllClips={onDeleteAllClips} />
       </SectionContent>
