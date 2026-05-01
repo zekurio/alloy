@@ -118,13 +118,16 @@ jobs:
           const pkg = JSON.parse(readFileSync(filePath, "utf8"));
 
           if (pkg.version === process.env.RELEASE_VERSION) {
-            console.error(`package.json is already at version ${pkg.version}.`);
-            process.exit(1);
+            console.log(`package.json is already at version ${pkg.version}.`);
+            process.stdout.write("changed=false\n");
+            process.exit(0);
           }
 
           pkg.version = process.env.RELEASE_VERSION;
           writeFileSync(filePath, `${JSON.stringify(pkg, null, 2)}\n`);
+          process.stdout.write("changed=true\n");
           EOF
+          } >> "$GITHUB_OUTPUT"
 
       - name: Configure git author
         if: github.event_name == 'workflow_dispatch'
@@ -140,8 +143,13 @@ jobs:
           RELEASE_VERSION: ${{ steps.meta.outputs.version }}
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
         run: |
-          git add package.json
-          git commit -m "chore(release): prepare $RELEASE_TAG"
+          if [[ "${{ steps.version_bump.outputs.changed }}" == "true" ]]; then
+            git add package.json
+            git commit -m "chore(release): prepare $RELEASE_TAG"
+          else
+            echo "package.json already matches $RELEASE_VERSION; tagging current dev commit."
+          fi
+
           git tag -a "$RELEASE_TAG" -m "Release $RELEASE_TAG"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
