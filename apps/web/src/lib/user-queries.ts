@@ -1,4 +1,9 @@
-import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  queryOptions,
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 
 import type {
   ProfileViewer,
@@ -15,6 +20,8 @@ export const userKeys = {
     [...userKeys.all, "profile-viewer", handle] as const,
   search: (q: string) => [...userKeys.all, "search", q] as const,
   tagged: (handle: string) => [...userKeys.all, "tagged", handle] as const,
+  profileGamesInfinite: (handle: string, limit: number) =>
+    [...userKeys.all, "profile-games-infinite", { handle, limit }] as const,
   followers: (handle: string) =>
     [...userKeys.all, "followers", handle] as const,
   following: (handle: string) =>
@@ -36,6 +43,26 @@ export function useTaggedClipsQuery(handle: string) {
     queryKey: userKeys.tagged(handle),
     queryFn: () => api.users.fetchTaggedClips(handle),
     enabled: handle.length > 0,
+  })
+}
+
+export function useProfileGamesInfiniteQuery(
+  handle: string,
+  { limit = 24 }: { limit?: number } = {}
+) {
+  return useInfiniteQuery({
+    queryKey: userKeys.profileGamesInfinite(handle, limit),
+    queryFn: ({ pageParam }) =>
+      api.users.fetchProfileGames(handle, {
+        limit,
+        offset: pageParam,
+      }),
+    enabled: handle.length > 0,
+    initialPageParam: 0,
+    getNextPageParam: (last, pages) =>
+      last.length < limit
+        ? undefined
+        : pages.reduce((total, page) => total + page.length, 0),
   })
 }
 
