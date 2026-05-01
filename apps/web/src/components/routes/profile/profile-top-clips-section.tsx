@@ -1,38 +1,38 @@
-import * as React from "react";
-import { AwardIcon } from "lucide-react";
+import * as React from "react"
+import { AwardIcon } from "lucide-react"
 
-import { CarouselItem } from "@workspace/ui/components/carousel";
+import { CarouselItem } from "@workspace/ui/components/carousel"
 import {
   SectionHead,
   SectionTitle,
-} from "@workspace/ui/components/section-head";
+} from "@workspace/ui/components/section-head"
 
-import { Spinner } from "@workspace/ui/components/spinner";
+import { Spinner } from "@workspace/ui/components/spinner"
 
-import { ClipCardTrigger } from "@/components/clip/clip-card-trigger";
-import { ClipGrid } from "@/components/clip/clip-grid";
+import { ClipCardTrigger } from "@/components/clip/clip-card-trigger"
+import { ClipGrid } from "@/components/clip/clip-grid"
 import {
   ClipListProvider,
   type ClipListEntry,
-} from "@/components/clip/clip-list-context";
-import { TopClipsCarousel } from "@/components/clip/top-clips-carousel";
-import { EmptyState } from "@/components/feedback/empty-state";
-import type { UserClip } from "@workspace/api";
+} from "@/components/clip/clip-list-context"
+import { TopClipsCarousel } from "@/components/clip/top-clips-carousel"
+import { EmptyState } from "@/components/feedback/empty-state"
+import type { UserClip } from "@workspace/api"
 
 type ProfileTopClipsSectionProps = {
-  username: string;
-  clips: UserClip[] | null;
-  isSelf: boolean;
-};
+  username: string
+  clips: UserClip[] | null
+  isSelf: boolean
+}
 
-const TOP_LIMIT = 5;
+const TOP_LIMIT = 5
 
 function rankScore(clip: UserClip, now: number): number {
   const ageDays = Math.max(
     0,
-    (now - new Date(clip.createdAt).getTime()) / 86_400_000,
-  );
-  return (clip.viewCount + clip.likeCount * 3) / Math.pow(ageDays + 2, 1.5);
+    (now - new Date(clip.createdAt).getTime()) / 86_400_000
+  )
+  return (clip.viewCount + clip.likeCount * 3) / Math.pow(ageDays + 2, 1.5)
 }
 
 export function ProfileTopClipsSection({
@@ -41,12 +41,12 @@ export function ProfileTopClipsSection({
   isSelf,
 }: ProfileTopClipsSectionProps) {
   const topClips = React.useMemo<UserClip[] | null>(() => {
-    if (clips === null) return null;
-    const now = Date.now();
+    if (clips === null) return null
+    const now = Date.now()
     return [...clips]
       .sort((a, b) => rankScore(b, now) - rankScore(a, now))
-      .slice(0, TOP_LIMIT);
-  }, [clips]);
+      .slice(0, TOP_LIMIT)
+  }, [clips])
 
   return (
     <section>
@@ -65,14 +65,14 @@ export function ProfileTopClipsSection({
         isSelf={isSelf}
       />
     </section>
-  );
+  )
 }
 
 type ProfileTopClipsBodyProps = {
-  username: string;
-  clips: UserClip[] | null;
-  isSelf: boolean;
-};
+  username: string
+  clips: UserClip[] | null
+  isSelf: boolean
+}
 
 function ProfileTopClipsBody({
   username,
@@ -86,11 +86,11 @@ function ProfileTopClipsBody({
         gameSlug: row.gameRef?.slug ?? null,
         row,
       })),
-    [clips],
-  );
+    [clips]
+  )
 
   if (clips === null) {
-    return <TopClipsSkeletons />;
+    return <TopClipsSkeletons />
   }
 
   if (clips.length === 0) {
@@ -101,22 +101,22 @@ function ProfileTopClipsBody({
         title="No top clips yet"
         hint="Once clips have likes and views, the best ones land here."
       />
-    );
+    )
   }
 
   return (
     <ClipListProvider listKey={`profile:${username}:top`} entries={entries}>
       <TopClipsRows clips={clips} isSelf={isSelf} />
     </ClipListProvider>
-  );
+  )
 }
 
 function TopClipsRows({
   clips,
   isSelf,
 }: {
-  clips: readonly UserClip[];
-  isSelf: boolean;
+  clips: readonly UserClip[]
+  isSelf: boolean
 }) {
   return (
     <>
@@ -144,7 +144,7 @@ function TopClipsRows({
         </ClipGrid>
       </div>
     </>
-  );
+  )
 }
 
 function TopClipsSkeletons() {
@@ -152,5 +152,5 @@ function TopClipsSkeletons() {
     <div className="flex items-center justify-center py-12">
       <Spinner className="size-6" />
     </div>
-  );
+  )
 }
