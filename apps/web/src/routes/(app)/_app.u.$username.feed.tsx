@@ -25,7 +25,7 @@ function ProfileFeedTab() {
         clips={clips}
         isSelf={isSelf}
       />
-      <GamesSection clips={clips} username={username} />
+      <GamesSection username={username} />
       <ClipsSection
         username={username}
         clips={clips}

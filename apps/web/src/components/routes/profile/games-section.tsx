@@ -2,22 +2,26 @@ import * as React from "react"
 import { GamepadIcon } from "lucide-react"
 
 import {
-  buildGameCarouselEntries,
   GameCarouselSection,
   type GameCarouselEntry,
 } from "@/components/game/game-carousel-section"
-import type { UserClip } from "@workspace/api"
+import { useProfileGamesInfiniteQuery } from "@/lib/user-queries"
+import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 type GamesSectionProps = {
-  clips: UserClip[] | null
-  username?: string
+  username: string
 }
 
-export function GamesSection({ clips, username }: GamesSectionProps) {
-  const games = React.useMemo<GameCarouselEntry[] | null>(
-    () => (clips === null ? null : buildGameCarouselEntries(clips)),
-    [clips]
-  )
+export function GamesSection({ username }: GamesSectionProps) {
+  const gamesQuery = useProfileGamesInfiniteQuery(username)
+  useQueryErrorToast(gamesQuery.error, {
+    title: "Couldn't load games",
+    toastId: `profile-${username}-games-error`,
+  })
+  const games = React.useMemo<GameCarouselEntry[] | null>(() => {
+    if (!gamesQuery.data) return null
+    return gamesQuery.data.pages.flat()
+  }, [gamesQuery.data])
 
   return (
     <GameCarouselSection
@@ -32,10 +36,17 @@ export function GamesSection({ clips, username }: GamesSectionProps) {
       emptyTitle="No games yet"
       emptyHint="Upload a clip to start the list."
       renderLink={(game) =>
-        username && game.slug
+        game.slug
           ? { kind: "user-clips", username, slug: game.slug }
           : undefined
       }
+      hasNextPage={gamesQuery.hasNextPage}
+      isFetchingNextPage={gamesQuery.isFetchingNextPage}
+      onEndReached={() => {
+        if (gamesQuery.hasNextPage && !gamesQuery.isFetchingNextPage) {
+          void gamesQuery.fetchNextPage()
+        }
+      }}
     />
   )
 }

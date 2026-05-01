@@ -269,6 +269,10 @@ export interface GameListRow extends GameRow {
   clipCount: number
 }
 
+export interface ProfileGameRow extends GameListRow {
+  lastClippedAt: IsoDateString
+}
+
 export interface GameDetail extends GameRow {
   viewer: { isFollowing: boolean } | null
   favouritesCount: number

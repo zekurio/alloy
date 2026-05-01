@@ -2,6 +2,7 @@ import type { ApiContext } from "./client"
 import {
   ACCEPTED_IMAGE_CONTENT_TYPES,
   type AcceptedImageContentType,
+  type ProfileGameRow,
   type PublicUser,
   type UserClip,
   type UserProfile,
@@ -13,6 +14,7 @@ import { readJsonOrThrow } from "./http"
 
 export type {
   ProfileCounts,
+  ProfileGameRow,
   ProfileViewer,
   PublicUser,
   UserClip,
@@ -123,6 +125,25 @@ async function getClips(
     { init }
   )
   return readJsonOrThrow<UserClip[]>(res)
+}
+
+async function getProfileGames(
+  context: ApiContext,
+  handle: string,
+  params: { limit?: number; offset?: number } = {}
+): Promise<ProfileGameRow[]> {
+  const res = await context.request(
+    `/api/users/${encodeURIComponent(handle)}/games`,
+    {
+      query: {
+        ...(params.limit !== undefined ? { limit: String(params.limit) } : {}),
+        ...(params.offset !== undefined
+          ? { offset: String(params.offset) }
+          : {}),
+      },
+    }
+  )
+  return readJsonOrThrow<ProfileGameRow[]>(res)
 }
 
 async function getTaggedClips(
@@ -272,6 +293,10 @@ export function createUsersApi(context: ApiContext) {
       getProfileViewer(context, handle, init),
     fetchClips: (handle: string, init?: RequestInit) =>
       getClips(context, handle, init),
+    fetchProfileGames: (
+      handle: string,
+      params: { limit?: number; offset?: number } = {}
+    ) => getProfileGames(context, handle, params),
     fetchTaggedClips: (handle: string) => getTaggedClips(context, handle),
     fetchLikedClips: (handle: string) => getLikedClips(context, handle),
     search: (q: string, limit = 8) => searchUsers(context, q, limit),

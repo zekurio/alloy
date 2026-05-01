@@ -29,11 +29,13 @@ import { selectSourceStorageUsedBytes } from "../storage/quota"
 import { storage } from "../storage"
 import {
   SearchQuery,
+  UserGamesQuery,
   UsernameParam,
   listFollowers,
   listFollowing,
   listLikedClips,
   listTaggedClips,
+  listUserGames,
   listUserClips,
   resolveTarget,
   resolveViewerState,
@@ -212,6 +214,20 @@ export const usersRoute = new Hono()
 
     return c.json(await listUserClips(row, c.req.raw.headers))
   })
+
+  .get(
+    "/:username/games",
+    zValidator("param", UsernameParam),
+    zValidator("query", UserGamesQuery),
+    async (c) => {
+      const { username } = c.req.valid("param")
+      const query = c.req.valid("query")
+      const row = await resolveTarget(username)
+      if (!row) return c.json({ error: "Not found" }, 404)
+
+      return c.json(await listUserGames(row, c.req.raw.headers, query))
+    }
+  )
 
   .get("/:username/tagged", zValidator("param", UsernameParam), async (c) => {
     const { username } = c.req.valid("param")
