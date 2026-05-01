@@ -9,6 +9,7 @@ import {
   ne,
   notInArray,
   or,
+  sql,
   type SQL,
 } from "drizzle-orm"
 import { z } from "zod"
@@ -33,6 +34,11 @@ export const UsernameParam = z.object({ username: z.string().min(1) })
 export const SearchQuery = z.object({
   q: z.string().min(1).max(64),
   limit: z.coerce.number().int().positive().max(20).default(8),
+})
+
+export const UserGamesQuery = z.object({
+  limit: z.coerce.number().int().positive().max(48).default(24),
+  offset: z.coerce.number().int().min(0).default(0),
 })
 
 export function toLikePattern(raw: string): string {
@@ -140,6 +146,67 @@ export async function listUserClips(row: UserRow, headers: Headers) {
     .where(and(...conditions))
     .orderBy(desc(clip.createdAt))
     .limit(50)
+}
+
+export async function listUserGames(
+  row: UserRow,
+  headers: Headers,
+  { limit, offset }: z.infer<typeof UserGamesQuery>
+) {
+  const session = await getSession(headers)
+  const isOwner = session?.user.id === row.id
+  const isAdmin =
+    (session?.user as { role?: string | null } | undefined)?.role === "admin"
+  const conditions: SQL[] = [
+    eq(clip.authorId, row.id),
+    eq(clip.status, "ready"),
+    isNull(user.disabledAt),
+  ]
+  if (!isOwner && !isAdmin) {
+    conditions.push(inArray(clip.privacy, ["public", "unlisted"]))
+  }
+
+  const lastClippedAt = sql<Date>`max(${clip.createdAt})`
+
+  const rows = await db
+    .select({
+      id: game.id,
+      steamgriddbId: game.steamgriddbId,
+      name: game.name,
+      slug: game.slug,
+      releaseDate: game.releaseDate,
+      heroUrl: game.heroUrl,
+      gridUrl: game.gridUrl,
+      logoUrl: game.logoUrl,
+      iconUrl: game.iconUrl,
+      clipCount: sql<number>`count(${clip.id})::int`,
+      lastClippedAt,
+    })
+    .from(clip)
+    .innerJoin(user, eq(clip.authorId, user.id))
+    .innerJoin(game, eq(clip.gameId, game.id))
+    .where(and(...conditions))
+    .groupBy(game.id)
+    .orderBy(sql`${lastClippedAt} desc`, game.name)
+    .limit(limit)
+    .offset(offset)
+
+  return rows.map((gameRow) => ({
+    id: gameRow.id,
+    steamgriddbId: gameRow.steamgriddbId,
+    name: gameRow.name,
+    slug: gameRow.slug,
+    releaseDate: gameRow.releaseDate ? gameRow.releaseDate.toISOString() : null,
+    heroUrl: gameRow.heroUrl,
+    gridUrl: gameRow.gridUrl,
+    logoUrl: gameRow.logoUrl,
+    iconUrl: gameRow.iconUrl,
+    clipCount: gameRow.clipCount,
+    lastClippedAt:
+      gameRow.lastClippedAt instanceof Date
+        ? gameRow.lastClippedAt.toISOString()
+        : String(gameRow.lastClippedAt),
+  }))
 }
 
 export async function listTaggedClips(row: UserRow, headers: Headers) {
