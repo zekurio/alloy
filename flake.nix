@@ -19,8 +19,7 @@
       {
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            nodejs
-            pnpm
+            bun
             postgresql_17
             util-linux
             jellyfin-ffmpeg

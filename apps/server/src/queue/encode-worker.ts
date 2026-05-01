@@ -1,5 +1,4 @@
 import { and, eq, isNull, lt, ne, or, sql } from "drizzle-orm"
-import type { PgBoss } from "pg-boss"
 
 import { clip } from "@workspace/db/schema"
 
@@ -13,17 +12,21 @@ export const ENCODE_JOB = "clip.encode" as const
 
 const RETRY_LIMIT = 2
 const ENCODE_LEASE_STALE_INTERVAL = "2 hours"
-
-interface EncodeJobData {
-  clipId: string
-}
+const RETRY_DELAY_INTERVAL = "30 seconds"
+const POLL_INTERVAL_MS = 5000
 
 const activeEncodes = new Map<
   string,
   { abort: AbortController; done: Promise<void> }
 >()
-let registeredConcurrency: number | null = null
-let reconfigurePromise: Promise<void> = Promise.resolve()
+const queuedClipIds = new Set<string>()
+const inFlightClipIds = new Set<string>()
+const runningJobs = new Set<Promise<void>>()
+let wakeTimer: NodeJS.Timeout | null = null
+let pumpPromise: Promise<void> | null = null
+let unsubscribeConfig: (() => void) | null = null
+let started = false
+let stopping = false
 
 export async function cancelEncode(clipId: string): Promise<void> {
   const entry = activeEncodes.get(clipId)
@@ -32,62 +35,122 @@ export async function cancelEncode(clipId: string): Promise<void> {
   await entry.done
 }
 
-export async function registerEncodeWorker(boss: PgBoss): Promise<void> {
-  await boss.createQueue(ENCODE_JOB, {
-    policy: "standard",
-    retryLimit: RETRY_LIMIT,
-    retryDelay: 30,
-    retryBackoff: true,
-    expireInSeconds: 60 * 60,
-  })
-
-  await configureEncodeWorker(boss, configStore.get("limits").queueConcurrency)
-
-  configStore.subscribe((next, prev) => {
-    if (next.limits.queueConcurrency === prev.limits.queueConcurrency) return
-    const concurrency = next.limits.queueConcurrency
-    reconfigurePromise = reconfigurePromise
-      .catch(() => undefined)
-      .then(() => configureEncodeWorker(boss, concurrency, { replace: true }))
-  })
+export function enqueueEncode(clipId: string): void {
+  queuedClipIds.add(clipId)
+  schedulePump(0)
 }
 
-async function configureEncodeWorker(
-  boss: PgBoss,
-  concurrency: number,
-  opts: { replace?: boolean } = {}
-): Promise<void> {
-  if (registeredConcurrency === concurrency && !opts.replace) return
-  if (opts.replace) {
-    await boss.offWork(ENCODE_JOB, { wait: true })
+export async function startEncodeWorker(): Promise<void> {
+  if (started) return
+  started = true
+  stopping = false
+  unsubscribeConfig = configStore.subscribe((next, prev) => {
+    if (next.limits.queueConcurrency === prev.limits.queueConcurrency) return
+    schedulePump(0)
+  })
+  schedulePump(0)
+}
+
+export async function stopEncodeWorker(): Promise<void> {
+  if (!started) return
+  started = false
+  stopping = true
+  if (wakeTimer) {
+    clearTimeout(wakeTimer)
+    wakeTimer = null
+  }
+  unsubscribeConfig?.()
+  unsubscribeConfig = null
+  await Promise.allSettled(runningJobs)
+}
+
+function schedulePump(delayMs: number): void {
+  if (!started || stopping) return
+  if (wakeTimer && delayMs > 0) return
+  if (wakeTimer) clearTimeout(wakeTimer)
+  wakeTimer = setTimeout(() => {
+    wakeTimer = null
+    void pump()
+  }, delayMs)
+}
+
+async function pump(): Promise<void> {
+  if (pumpPromise) return pumpPromise
+  pumpPromise = pumpInner().finally(() => {
+    pumpPromise = null
+  })
+  return pumpPromise
+}
+
+async function pumpInner(): Promise<void> {
+  while (
+    started &&
+    !stopping &&
+    runningJobs.size < configStore.get("limits").queueConcurrency
+  ) {
+    const clipId = await nextClipId()
+    if (!clipId) {
+      schedulePump(POLL_INTERVAL_MS)
+      return
+    }
+    const job = processClip(clipId)
+    runningJobs.add(job)
+    job.finally(() => {
+      runningJobs.delete(job)
+      schedulePump(0)
+    })
+  }
+}
+
+async function nextClipId(): Promise<string | null> {
+  for (const queued of queuedClipIds) {
+    queuedClipIds.delete(queued)
+    if (!inFlightClipIds.has(queued)) return queued
   }
 
-  await boss.work<EncodeJobData>(
-    ENCODE_JOB,
-    {
-      includeMetadata: true,
-      localConcurrency: concurrency,
-      batchSize: 1,
-    },
-    async (jobs) => {
-      const job = jobs[0]
-      if (!job) return
-      const clipId = job.data.clipId
-      try {
-        await runEncode(clipId)
-      } catch (err) {
-        if ((err as Error).name === "AbortError") return
-        const reason = err instanceof Error ? err.message : "Encode failed"
-        if (job.retryCount >= RETRY_LIMIT) {
-          await markFailedUnlessReady(clipId, reason)
-        } else {
-          await recordFailureReason(clipId, reason)
-        }
-        throw err
-      }
-    }
-  )
-  registeredConcurrency = concurrency
+  const rows = await db
+    .select({ id: clip.id })
+    .from(clip)
+    .where(
+      and(
+        or(
+          eq(clip.status, "uploaded"),
+          eq(clip.status, "encoding"),
+          and(eq(clip.status, "ready"), lt(clip.encodeProgress, 100))
+        ),
+        or(
+          isNull(clip.encodeLockedAt),
+          lt(
+            clip.encodeLockedAt,
+            sql`now() - interval '${sql.raw(ENCODE_LEASE_STALE_INTERVAL)}'`
+          )
+        ),
+        or(
+          isNull(clip.failureReason),
+          lt(
+            clip.updatedAt,
+            sql`now() - interval '${sql.raw(RETRY_DELAY_INTERVAL)}'`
+          )
+        )
+      )
+    )
+    .orderBy(clip.updatedAt)
+    .limit(configStore.get("limits").queueConcurrency + inFlightClipIds.size)
+
+  return rows.find((row) => !inFlightClipIds.has(row.id))?.id ?? null
+}
+
+async function processClip(clipId: string): Promise<void> {
+  inFlightClipIds.add(clipId)
+  try {
+    await runEncode(clipId)
+  } catch (err) {
+    if ((err as Error).name === "AbortError") return
+    // eslint-disable-next-line no-console
+    console.error(`[queue] encode job failed for ${clipId}:`, err)
+  } finally {
+    inFlightClipIds.delete(clipId)
+  }
 }
 
 async function runEncode(clipId: string): Promise<void> {
@@ -134,7 +197,11 @@ async function runEncode(clipId: string): Promise<void> {
   } catch (err) {
     if ((err as Error).name !== "AbortError") {
       const reason = err instanceof Error ? err.message : "Encode failed"
-      await releaseEncodeLease(clipId, runId, reason)
+      if (row.encodeAttempt > RETRY_LIMIT) {
+        await markFailedUnlessReady(clipId, reason)
+      } else {
+        await releaseEncodeLease(clipId, runId, reason)
+      }
     }
     throw err
   } finally {
