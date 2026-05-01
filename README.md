@@ -14,12 +14,12 @@ If you use Nix, the fastest way to get started is with the flake:
 nix develop
 ```
 
-This shell provides `node`, `pnpm`, `psql`, PostgreSQL 17, and `ffmpeg`.
+This shell provides `bun`, `psql`, PostgreSQL 17, and `ffmpeg`.
 
 Then install dependencies:
 
 ```bash
-pnpm install
+bun install --omit optional
 ```
 
 ## Local database
@@ -57,13 +57,13 @@ psql postgresql://postgres:postgres@localhost:5432/alloy
 Apply the database schema:
 
 ```bash
-pnpm db:push
+bun run db:push
 ```
 
 Start everything:
 
 ```bash
-pnpm dev
+bun run dev
 ```
 
 This runs the web app on http://localhost:5173 and the server on http://localhost:3000.
