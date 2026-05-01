@@ -187,7 +187,7 @@ export async function listUserGames(
     .innerJoin(game, eq(clip.gameId, game.id))
     .where(and(...conditions))
     .groupBy(game.id)
-    .orderBy(sql`${lastClippedAt} desc`, game.name)
+    .orderBy(sql`${lastClippedAt} desc`, game.name, game.id)
     .limit(limit)
     .offset(offset)
 
