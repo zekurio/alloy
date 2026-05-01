@@ -60,6 +60,7 @@ const Tile = React.memo(function Tile({
       className={cn(
         "relative aspect-[16/10] shrink-0 overflow-hidden rounded-lg",
         "w-[clamp(240px,22vw,420px)]",
+        "transform-gpu [contain:paint]",
         "ring-1 ring-white/5 ring-inset",
         "shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
       )}
@@ -74,7 +75,7 @@ const Tile = React.memo(function Tile({
         <img
           src={thumbUrl}
           alt=""
-          loading="lazy"
+          loading="eager"
           decoding="async"
           draggable={false}
           sizes="22vw"
@@ -105,7 +106,7 @@ const MarqueeRow = React.memo(function MarqueeRow({
   return (
     <div className="relative shrink-0 overflow-hidden">
       <div
-        className="animate-marquee-x flex w-max gap-[clamp(8px,0.9vw,18px)]"
+        className="animate-marquee-x flex w-max transform-gpu gap-[clamp(8px,0.9vw,18px)]"
         style={
           {
             "--marquee-duration": `${durationSeconds}s`,
@@ -231,7 +232,7 @@ export const LoginArtwork = React.memo(function LoginArtwork({
       className="pointer-events-none absolute inset-0 overflow-hidden"
     >
       <div
-        className="absolute inset-0 flex flex-col justify-center gap-[clamp(8px,0.9vw,18px)]"
+        className="absolute inset-0 flex transform-gpu flex-col justify-center gap-[clamp(8px,0.9vw,18px)]"
         style={{
           transform: `rotate(-${ROTATION_DEG}deg) scale(${SCALE})`,
           transformOrigin: "center",
