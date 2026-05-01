@@ -7,12 +7,12 @@ import type { Context, Hono } from "hono"
 
 import { eq } from "drizzle-orm"
 import { user } from "@workspace/db/auth-schema"
-import type { ClipEncodedVariant } from "@workspace/db/schema"
 
 import { db } from "./db"
 import { env } from "./env"
-import { configStore, type EncoderOpenGraphTarget } from "./config/store"
+import { configStore } from "./config/store"
 import { selectClipById } from "./clips/select"
+import { selectOpenGraphVideo } from "./open-graph/video-selection"
 
 const HEAD_MARKER = "<!-- alloy:head -->"
 const CLIP_PERMALINK_RE = /^\/g\/[^/]+\/c\/([^/]+)\/?$/
@@ -102,41 +102,6 @@ function metaProperty(property: string, content: string): string {
   return `<meta property="${property}" content="${htmlEscape(content)}" />`
 }
 
-function selectOpenGraphVideo(
-  row: MetadataClip,
-  target: EncoderOpenGraphTarget
-): ClipEncodedVariant | null {
-  const variants = row.variants.filter(
-    (variant) => variant.contentType === "video/mp4"
-  )
-  const playbackVariants = variants.filter(
-    (variant) => variant.role !== "source" && variant.id !== "source"
-  )
-  const defaultPlaybackVariant =
-    playbackVariants.find((variant) => variant.isDefault) ??
-    playbackVariants[0] ??
-    null
-  switch (target.type) {
-    case "none":
-      return null
-    case "source":
-      return (
-        variants.find(
-          (variant) => variant.role === "source" || variant.id === "source"
-        ) ?? null
-      )
-    case "defaultVariant":
-      return defaultPlaybackVariant
-    case "variant":
-      return (
-        variants.find(
-          (variant) =>
-            variant.role !== "source" && variant.id === target.variantId
-        ) ?? null
-      )
-  }
-}
-
 async function visiblePublicClip(id: string): Promise<MetadataClip | null> {
   const row = await selectClipById(id)
   if (!row) return null
@@ -172,7 +137,7 @@ async function clipHead(pathname: string): Promise<string> {
       ? new URL(`/api/clips/${row.id}/thumbnail`, origin).toString()
       : null
     const ogVariant = selectOpenGraphVideo(
-      row,
+      row.variants,
       configStore.get("encoder").openGraphTarget
     )
     const videoUrl = ogVariant
