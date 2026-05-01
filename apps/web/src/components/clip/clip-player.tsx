@@ -79,7 +79,13 @@ function ClipPlayer({
   const sortedVariants = React.useMemo(
     () =>
       variants
-        .filter((variant) => variant.id !== "source")
+        .filter(
+          (variant) =>
+            variant.id !== "source" &&
+            variant.role !== "source" &&
+            variant.id !== "opengraph" &&
+            variant.role !== "openGraph"
+        )
         .sort((a, b) => b.height - a.height),
     [variants]
   )
