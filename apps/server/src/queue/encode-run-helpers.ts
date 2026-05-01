@@ -53,6 +53,7 @@ export async function tryPublishRemux({
 }): Promise<{ path: string; variant: ClipEncodedVariant } | null> {
   const remuxPath = path.join(scratchDir, "source.mp4")
   const remuxKey = clipSourceMp4Key(clipId)
+  const hasTrim = trim.startMs != null && trim.endMs != null
   try {
     await remuxToMp4(sourcePath, remuxPath, {
       trimStartMs: trim.startMs,
@@ -84,6 +85,15 @@ export async function tryPublishRemux({
           status: "encoding",
           encodeProgress: 0,
           failureReason: null,
+          ...(hasTrim
+            ? {
+                storageKey: remuxKey,
+                contentType: "video/mp4",
+                sizeBytes: size,
+                width: remuxProbe.width,
+                height: remuxProbe.height,
+              }
+            : {}),
           variants: exposeSource
             ? mergeVariantSets(row.variants, [variant])
             : removeSourceVariants(row.variants),
