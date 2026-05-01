@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
 import { nanoid } from "nanoid"
 
-import { clip, clipMention, clipUploadTicket, game } from "@workspace/db/schema"
+import { clip, clipMention, game } from "@workspace/db/schema"
 
 import { db } from "../db"
 import { getSession } from "../auth/session"
@@ -23,7 +23,7 @@ import {
 import { validateImageBytes } from "../media/image-validation"
 import { IdParam, InitiateBody, UpdateBody } from "./clips-helpers"
 import {
-  assertUsableUploadTicket,
+  checkUploadTicket,
   createUploadTickets,
   markUploadTicketUsed,
   markUploadFailed,
@@ -173,16 +173,21 @@ export const clipsUploadRoutes = new Hono()
       if (row.status !== "pending") {
         return c.json({ error: `Clip is already ${row.status}` }, 409)
       }
-      const videoTicketOk = await assertUsableUploadTicket({
+      const videoTicket = await checkUploadTicket({
         clipId: id,
         storageKey: row.storageKey,
         contentType: row.contentType,
         expectedBytes: row.sizeBytes ?? 0,
         role: "video",
       })
-      if (!videoTicketOk) {
-        await markUploadFailed(row.authorId, id, "Upload ticket expired")
-        return c.json({ error: "Upload ticket expired" }, 410)
+      const legacyUploadWithoutTickets = videoTicket.status === "missing"
+      if (videoTicket.status === "invalid") {
+        const error =
+          videoTicket.reason === "expired"
+            ? "Upload ticket expired"
+            : "Upload ticket did not match declared upload"
+        await markUploadFailed(row.authorId, id, error)
+        return c.json({ error }, videoTicket.reason === "expired" ? 410 : 400)
       }
 
       const resolved = await storage.resolve(row.storageKey)
@@ -224,24 +229,6 @@ export const clipsUploadRoutes = new Hono()
       // Client-captured thumbnails are required — the encode worker
       // reuses the existing keys instead of shelling out to ffmpeg.
       if (row.thumbKey) {
-        const [thumbTicket] = await db
-          .select()
-          .from(clipUploadTicket)
-          .where(
-            and(
-              eq(clipUploadTicket.clipId, id),
-              eq(clipUploadTicket.storageKey, row.thumbKey)
-            )
-          )
-          .limit(1)
-        if (!thumbTicket) {
-          await markUploadFailed(row.authorId, id, "Thumbnail ticket missing")
-          return c.json({ error: "Thumbnail ticket missing" }, 400)
-        }
-        if (thumbTicket && thumbTicket.expiresAt <= new Date()) {
-          await markUploadFailed(row.authorId, id, "Thumbnail ticket expired")
-          return c.json({ error: "Thumbnail ticket expired" }, 410)
-        }
         const thumbResolved = await storage.resolve(row.thumbKey)
         if (!thumbResolved) {
           await markUploadFailed(
@@ -251,17 +238,33 @@ export const clipsUploadRoutes = new Hono()
           )
           return c.json({ error: "Thumbnail bytes are missing" }, 400)
         }
-        if (thumbTicket && thumbResolved.size !== thumbTicket.expectedBytes) {
+        const thumbTicket = await checkUploadTicket({
+          clipId: id,
+          storageKey: row.thumbKey,
+          contentType: "image/jpeg",
+          expectedBytes: thumbResolved.size,
+          role: "thumbnail",
+        })
+        if (thumbTicket.status === "missing" && !legacyUploadWithoutTickets) {
+          await markUploadFailed(row.authorId, id, "Thumbnail ticket missing")
+          return c.json({ error: "Thumbnail ticket missing" }, 400)
+        }
+        if (
+          thumbTicket.status === "invalid" &&
+          thumbTicket.reason === "expired"
+        ) {
+          const error = "Thumbnail ticket expired"
+          await markUploadFailed(row.authorId, id, error)
+          return c.json({ error }, 410)
+        }
+        if (
+          thumbTicket.status === "invalid" &&
+          thumbTicket.reason === "mismatch"
+        ) {
           await storage.delete(row.thumbKey).catch(() => undefined)
-          await markUploadFailed(
-            row.authorId,
-            id,
-            "Thumbnail size did not match declared size"
-          )
-          return c.json(
-            { error: "Thumbnail size did not match declared size" },
-            400
-          )
+          const error = "Thumbnail ticket did not match declared upload"
+          await markUploadFailed(row.authorId, id, error)
+          return c.json({ error }, 400)
         }
         const thumbBytes = await readResolvedObject(thumbResolved)
         const thumbValidation = validateImageBytes(thumbBytes, "image/jpeg")
