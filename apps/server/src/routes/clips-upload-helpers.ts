@@ -101,8 +101,7 @@ export async function markUploadTicketUsed(storageKey: string): Promise<void> {
     .where(
       and(
         eq(clipUploadTicket.storageKey, storageKey),
-        isNull(clipUploadTicket.usedAt),
-        gt(clipUploadTicket.expiresAt, new Date())
+        isNull(clipUploadTicket.usedAt)
       )
     )
 }
