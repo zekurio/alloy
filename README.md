@@ -19,7 +19,7 @@ This shell provides `bun`, `psql`, PostgreSQL 17, and `ffmpeg`.
 Then install dependencies:
 
 ```bash
-bun install --omit optional
+bun install
 ```
 
 ## Local database

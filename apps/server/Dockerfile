@@ -14,7 +14,7 @@ COPY packages/api/package.json packages/api/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/ui/package.json packages/ui/package.json
-RUN bun install --frozen-lockfile --omit optional
+RUN bun install --frozen-lockfile
 
 FROM deps AS server
 COPY . .
