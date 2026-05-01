@@ -284,7 +284,7 @@ export const RuntimeConfigSchema = z.object({
   passkeyEnabled: z.boolean().default(true),
   requireAuthToBrowse: z.boolean().default(true),
   oauthProvider: OAuthProviderSchema.nullable().default(null),
-  encoder: EncoderConfigSchema.default(EncoderConfigInnerSchema.parse({})),
+  encoder: EncoderConfigSchema.default(EncoderConfigSchema.parse({})),
   limits: LimitsConfigSchema.default(LimitsConfigSchema.parse({})),
   integrations: IntegrationsConfigSchema.default(
     IntegrationsConfigSchema.parse({})
