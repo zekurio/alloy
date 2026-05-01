@@ -76,9 +76,15 @@ function schedulePump(delayMs: number): void {
 
 async function pump(): Promise<void> {
   if (pumpPromise) return pumpPromise
-  pumpPromise = pumpInner().finally(() => {
-    pumpPromise = null
-  })
+  pumpPromise = pumpInner()
+    .catch((err) => {
+      // eslint-disable-next-line no-console
+      console.error("[queue] encode worker pump failed:", err)
+      schedulePump(POLL_INTERVAL_MS)
+    })
+    .finally(() => {
+      pumpPromise = null
+    })
   return pumpPromise
 }
 
