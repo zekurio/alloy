@@ -50,6 +50,7 @@ interface ClipMentionsRowProps {
   mentions: ClipMentionRef[]
 }
 
+/** Mobile/full-bleed variant: avatar group + summary text on its own row. */
 function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
   const [open, setOpen] = React.useState(false)
   if (mentions.length === 0) return null
@@ -95,21 +96,97 @@ function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
         </span>
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Tagged in clip</DialogTitle>
-          </DialogHeader>
-          <DialogBody className="max-h-[60vh] overflow-y-auto px-2 py-2">
-            <ul className="flex flex-col">
-              {mentions.map((u) => (
-                <MentionRow key={u.id} user={u} onOpen={() => setOpen(false)} />
-              ))}
-            </ul>
-          </DialogBody>
-        </DialogContent>
-      </Dialog>
+      <MentionsListDialog
+        mentions={mentions}
+        open={open}
+        onOpenChange={setOpen}
+      />
     </>
+  )
+}
+
+/**
+ * Inline variant for the desktop user cluster — renders only the summary
+ * text ("with @user and N others"), no avatar group, no own row. Designed
+ * to sit next to the follower count beneath the uploader name.
+ */
+function ClipMentionsInline({ mentions }: ClipMentionsRowProps) {
+  const [open, setOpen] = React.useState(false)
+  if (mentions.length === 0) return null
+
+  const first = mentions[0]!
+  const others = mentions.length - 1
+  const firstHandle = first.displayUsername || first.username
+
+  const handleLinkClasses = cn(
+    "font-medium text-foreground",
+    "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+    "hover:text-accent focus-visible:text-accent focus-visible:outline-none"
+  )
+
+  return (
+    <>
+      <span className="inline-flex min-w-0 items-baseline gap-1">
+        <span>with</span>
+        <Link
+          to="/u/$username"
+          params={{ username: first.username }}
+          className={cn("truncate", handleLinkClasses)}
+        >
+          @{firstHandle}
+        </Link>
+        {others > 0 ? (
+          <>
+            <span>and</span>
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className={cn("shrink-0", handleLinkClasses)}
+              aria-label="View all tagged users"
+            >
+              {others} other{others === 1 ? "" : "s"}
+            </button>
+          </>
+        ) : null}
+      </span>
+
+      <MentionsListDialog
+        mentions={mentions}
+        open={open}
+        onOpenChange={setOpen}
+      />
+    </>
+  )
+}
+
+function MentionsListDialog({
+  mentions,
+  open,
+  onOpenChange,
+}: {
+  mentions: ClipMentionRef[]
+  open: boolean
+  onOpenChange: (next: boolean) => void
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Tagged in clip</DialogTitle>
+        </DialogHeader>
+        <DialogBody className="max-h-[60vh] overflow-y-auto px-2 py-2">
+          <ul className="flex flex-col">
+            {mentions.map((u) => (
+              <MentionRow
+                key={u.id}
+                user={u}
+                onOpen={() => onOpenChange(false)}
+              />
+            ))}
+          </ul>
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -174,4 +251,4 @@ function MentionRow({
   )
 }
 
-export { ClipMentionsRow }
+export { ClipMentionsRow, ClipMentionsInline }
