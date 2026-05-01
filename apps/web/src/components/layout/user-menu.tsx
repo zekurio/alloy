@@ -14,6 +14,7 @@ import { Spinner } from "@workspace/ui/components/spinner"
 import { toast } from "@workspace/ui/lib/toast"
 import { UserAvatarButton } from "@workspace/ui/components/user-avatar-button"
 
+import { StorageQuotaCompact } from "@/components/storage-quota"
 import { signOut } from "@/lib/auth-client"
 import { getQueryClient } from "@/lib/query-client"
 import { useSuspenseSession } from "@/lib/session-suspense"
@@ -79,6 +80,10 @@ function UserMenuInner() {
               {email}
             </span>
           ) : null}
+        </div>
+        <DropdownMenuSeparator />
+        <div className="px-3 py-2">
+          <StorageQuotaCompact />
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onClick={onSignOut}>
