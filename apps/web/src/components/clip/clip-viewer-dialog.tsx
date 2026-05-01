@@ -287,7 +287,7 @@ function ClipViewerDialogBody({
           )}
         >
           <div className="flex min-h-0 flex-col bg-surface p-4 sm:p-6 lg:p-0">
-            <div className="shrink-0">
+            <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
               <ClipPlayer
                 clipId={row.id}
                 sourceContentType={row.contentType}
@@ -297,11 +297,7 @@ function ClipViewerDialogBody({
                 variants={row.variants}
                 status={row.status}
                 encodeProgress={row.encodeProgress}
-                maxDisplayHeight={
-                  row.description
-                    ? "min(78dvh, calc(100dvh - 300px))"
-                    : "min(82dvh, calc(100dvh - 220px))"
-                }
+                maxDisplayHeight="100%"
                 className="overflow-hidden rounded-[14px] shadow-[0_30px_90px_-42px_rgba(0,0,0,0.92)] ring-1 ring-white/10 ring-inset lg:rounded-none lg:shadow-none"
                 onPlayThreshold={() => void api.clips.recordView(row.id)}
                 onEnded={handleEnded}
@@ -310,7 +306,7 @@ function ClipViewerDialogBody({
                 onAutoAdvanceChange={onAutoAdvanceChange}
               />
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-1 pt-4 sm:pt-6 lg:px-6 lg:pt-4 lg:pb-4 xl:px-8 xl:pb-6">
+            <div className="shrink-0 px-1 pt-4 sm:pt-6 lg:px-6 lg:pt-4 lg:pb-4 xl:px-8 xl:pb-6">
               <ClipMeta
                 clipId={row.id}
                 authorId={row.authorId}
