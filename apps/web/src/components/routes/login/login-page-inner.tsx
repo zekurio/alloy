@@ -14,7 +14,7 @@ type PublicClips = Awaited<ReturnType<typeof fetchPublicClips>>
 
 type LoginPageInnerProps = {
   config: PublicAuthConfig
-  clips: PublicClips
+  clips: PublicClips | null
 }
 
 export function LoginPageInner({ config, clips }: LoginPageInnerProps) {

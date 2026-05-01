@@ -56,7 +56,7 @@ export function StorageQuotaCompact({ className }: { className?: string }) {
         <span className="text-xs font-medium text-foreground-muted">
           Storage
         </span>
-        <span className="text-2xs tabular-nums text-foreground-faint">
+        <span className="text-2xs text-foreground-faint tabular-nums">
           {formatUsage(usedBytes, quotaBytes)}
         </span>
       </div>
