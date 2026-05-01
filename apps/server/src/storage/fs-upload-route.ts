@@ -4,8 +4,11 @@ import { Readable } from "node:stream"
 import { pipeline } from "node:stream/promises"
 
 import { Hono } from "hono"
+import { and, eq, gt, isNull } from "drizzle-orm"
+import { clipUploadTicket } from "@workspace/db/schema"
 
 import { decodeUploadToken, FsStorageDriver } from "./fs-driver"
+import { db } from "../db"
 import { getStorageConfig, getStorageDriver } from "./index"
 
 export const storageRoute = new Hono().post("/upload/:token", async (c) => {
@@ -25,7 +28,33 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
   if (!decoded.ok) {
     return c.json({ error: "Invalid upload ticket" }, 401)
   }
-  const { k: key, ct: expectedContentType, mb: maxBytes } = decoded.payload
+  const {
+    k: key,
+    ct: expectedContentType,
+    mb: maxBytes,
+    cid: clipId,
+  } = decoded.payload
+
+  const [ticket] = await db
+    .select({ id: clipUploadTicket.id })
+    .from(clipUploadTicket)
+    .where(
+      and(
+        eq(clipUploadTicket.clipId, clipId),
+        eq(clipUploadTicket.storageKey, key),
+        eq(clipUploadTicket.contentType, expectedContentType),
+        eq(clipUploadTicket.expectedBytes, maxBytes),
+        isNull(clipUploadTicket.usedAt),
+        gt(clipUploadTicket.expiresAt, new Date())
+      )
+    )
+    .limit(1)
+  if (!ticket) {
+    return c.json(
+      { error: "Upload ticket has expired or already been used" },
+      401
+    )
+  }
 
   const contentType = c.req.header("content-type")
   if (contentType && contentType !== expectedContentType) {
@@ -91,6 +120,10 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
     return c.json({ error: "Upload publish failed" }, 500)
   }
   await fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => undefined)
+  await db
+    .update(clipUploadTicket)
+    .set({ usedAt: new Date() })
+    .where(eq(clipUploadTicket.id, ticket.id))
 
   return c.body(null, 204)
 })
