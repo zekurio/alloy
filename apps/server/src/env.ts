@@ -59,8 +59,6 @@ const EnvSchema = z.object({
 
   FFMPEG_BIN: z.string().default("ffmpeg"),
   FFPROBE_BIN: z.string().default("ffprobe"),
-
-  CACHE_DRIVER: z.enum(["memory"]).default("memory"),
 })
 
 const parsed = EnvSchema.safeParse(process.env)

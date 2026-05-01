@@ -4,15 +4,10 @@ import { Hono } from "hono"
 
 import { clip, clipLike, clipView } from "@workspace/db/schema"
 
-import { cache } from "../cache"
 import { db } from "../db"
 import { requireSession } from "../auth/require-session"
 import { applyViewerCookie, resolveViewer } from "../auth/viewer-key"
-import {
-  IdParam,
-  resolveEngagementTarget,
-  VIEW_THROTTLE_TTL_SEC,
-} from "./clips-helpers"
+import { IdParam, resolveEngagementTarget } from "./clips-helpers"
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -120,33 +115,20 @@ export const clipsEngagementRoutes = new Hono()
 
     const viewer = await resolveViewer(c)
 
-    let fresh = true
-    try {
-      fresh = await cache.setIfAbsent(
-        `view:${id}:${viewer.viewerKey}`,
-        VIEW_THROTTLE_TTL_SEC
-      )
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn(`[clips] cache setIfAbsent failed for view ${id}:`, err)
-    }
-
-    if (fresh) {
-      const inserted = await db
-        .insert(clipView)
-        .values({
-          clipId: id,
-          viewerKey: viewer.viewerKey,
-          userId: viewer.userId,
-        })
-        .onConflictDoNothing()
-        .returning({ clipId: clipView.clipId })
-      if (inserted.length > 0) {
-        await db
-          .update(clip)
-          .set({ viewCount: sql`${clip.viewCount} + 1` })
-          .where(eq(clip.id, id))
-      }
+    const inserted = await db
+      .insert(clipView)
+      .values({
+        clipId: id,
+        viewerKey: viewer.viewerKey,
+        userId: viewer.userId,
+      })
+      .onConflictDoNothing()
+      .returning({ clipId: clipView.clipId })
+    if (inserted.length > 0) {
+      await db
+        .update(clip)
+        .set({ viewCount: sql`${clip.viewCount} + 1` })
+        .where(eq(clip.id, id))
     }
 
     applyViewerCookie(c, viewer.cookieToSet)

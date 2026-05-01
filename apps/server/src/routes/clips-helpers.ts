@@ -41,10 +41,6 @@ export const WINDOW_MS: Record<"today" | "week" | "month" | "year", number> = {
 
 export const MAX_THUMB_BYTES = 2 * 1024 * 1024
 
-// Short-window cache throttle — the `clip_view` PK does the real dedup,
-// this just avoids one DB round-trip on refresh-spam within the TTL.
-export const VIEW_THROTTLE_TTL_SEC = 60
-
 export const InitiateBody = z
   .object({
     filename: z.string().min(1).max(255),
