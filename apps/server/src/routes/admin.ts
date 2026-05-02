@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator"
-import { eq, inArray } from "drizzle-orm"
+import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm"
 import type { Context } from "hono"
 import { Hono } from "hono"
 import { z } from "zod"
@@ -36,12 +36,21 @@ import {
 } from "./admin-helpers"
 
 const RE_ENCODE_BATCH_LIMIT = 100
+const LOGIN_SPLASH_CLIP_LIMIT = 24
 
 const RuntimeConfigPatch = z.object({
   setupComplete: z.boolean().optional(),
   openRegistrations: z.boolean().optional(),
   passkeyEnabled: z.boolean().optional(),
   requireAuthToBrowse: z.boolean().optional(),
+})
+
+const AppearancePatch = z.object({
+  loginSplash: z
+    .object({
+      enabled: z.boolean().optional(),
+    })
+    .optional(),
 })
 
 const UserIdParam = z.object({
@@ -93,6 +102,32 @@ async function signInConfigError(config: {
     return "Keep at least one active admin sign-in method before disabling passkeys or OAuth."
   }
   return null
+}
+
+async function selectRandomPublicSplashClipIds(): Promise<string[]> {
+  const rows = await db
+    .select({ id: clip.id })
+    .from(clip)
+    .innerJoin(user, eq(clip.authorId, user.id))
+    .where(
+      and(
+        eq(clip.status, "ready"),
+        eq(clip.privacy, "public"),
+        isNotNull(clip.thumbKey),
+        isNull(user.disabledAt)
+      )
+    )
+    .orderBy(sql`random()`)
+    .limit(LOGIN_SPLASH_CLIP_LIMIT)
+  return rows.map((row) => row.id)
+}
+
+async function generateLoginSplashPatch(enabled = true) {
+  return {
+    enabled,
+    clipIds: await selectRandomPublicSplashClipIds(),
+    generatedAt: new Date().toISOString(),
+  }
 }
 
 export const adminRoute = new Hono()
@@ -317,6 +352,30 @@ export const adminRoute = new Hono()
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     }
   )
+
+  .patch("/appearance", zValidator("json", AppearancePatch), async (c) => {
+    const patch = c.req.valid("json")
+    const current = configStore.get("appearance")
+    const next = { ...current, loginSplash: { ...current.loginSplash } }
+    if (patch.loginSplash?.enabled !== undefined) {
+      const enabled = patch.loginSplash.enabled
+      next.loginSplash =
+        enabled && next.loginSplash.clipIds.length === 0
+          ? await generateLoginSplashPatch(true)
+          : { ...next.loginSplash, enabled }
+    }
+    configStore.set("appearance", next)
+    return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+  })
+
+  .post("/appearance/login-splash/regenerate", async (c) => {
+    const current = configStore.get("appearance")
+    configStore.set("appearance", {
+      ...current,
+      loginSplash: await generateLoginSplashPatch(current.loginSplash.enabled),
+    })
+    return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+  })
 
   /**
    * PATCH /storage — update the active storage driver configuration. The

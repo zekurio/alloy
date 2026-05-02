@@ -1,258 +1,121 @@
 import * as React from "react"
-import type { CSSProperties } from "react"
 
+import { clipThumbnailUrl, type LoginSplashClip } from "@workspace/api"
 import { cn } from "@workspace/ui/lib/utils"
 
-import type { PublicClip } from "@/lib/public-clips"
+import { apiOrigin } from "@/lib/env"
 
 const MAX_SOURCE_TILES = 12
+const MIN_PER_ROW = 8
+const ROW_COUNT = 7
+const ROTATION_DEG = 8
+const SCALE = 1.25
+const TILE_GAP = "clamp(4px, 0.9cqw, 18px)"
+const ROW_OFFSETS = [
+  "0%",
+  "-24%",
+  "-10%",
+  "-34%",
+  "-16%",
+  "-28%",
+  "-6%",
+] as const
 
-const GAME_HUE: Record<string, number> = {
-  Valorant: 300,
-  "Counter-Strike 2": 45,
-  CS2: 45,
-  "Apex Legends": 30,
-  "League of Legends": 210,
-  Fortnite: 260,
-  "Overwatch 2": 20,
-  "Rocket League": 220,
-  Dota2: 15,
-  Minecraft: 140,
+export function hasLoginArtworkClips(clips: LoginSplashClip[]): boolean {
+  return clips.length > 0
 }
 
-function hashHue(input: string): number {
-  let h = 0
-  for (let i = 0; i < input.length; i++) {
-    h = (h * 31 + input.charCodeAt(i)) | 0
-  }
-  return Math.abs(h) % 360
-}
+function buildRows(clips: LoginSplashClip[]): LoginSplashClip[][] {
+  if (clips.length === 0) return []
 
-function hueFor(clip: { title: string; game: string | null }): number {
-  if (clip.game && GAME_HUE[clip.game] !== undefined) return GAME_HUE[clip.game]
-  return hashHue(clip.title)
-}
-
-function hasThumbnail(
-  clip: PublicClip
-): clip is PublicClip & { thumbUrl: string } {
-  return clip.thumbUrl !== null
-}
-
-type Tile = {
-  key: string
-  title: string
-  hue: number
-  thumbUrl: string | null
-}
-
-const Tile = React.memo(function Tile({
-  title,
-  hue,
-  thumbUrl,
-}: {
-  title: string
-  hue: number
-  thumbUrl: string | null
-}) {
-  return (
-    <div
-      className={cn(
-        "relative aspect-[16/10] shrink-0 overflow-hidden rounded-lg",
-        "w-[clamp(240px,22vw,420px)]",
-        "transform-gpu [contain:paint]",
-        "ring-1 ring-white/5 ring-inset",
-        "shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
-      )}
-      style={{
-        background: `
-          radial-gradient(120% 80% at 30% 20%, oklch(0.42 0.16 ${hue}) 0%, transparent 55%),
-          linear-gradient(135deg, oklch(0.24 0.11 ${hue}) 0%, oklch(0.12 0.05 ${hue}) 70%, oklch(0.07 0 0) 100%)
-        `,
-      }}
-    >
-      {thumbUrl ? (
-        <img
-          src={thumbUrl}
-          alt=""
-          loading="eager"
-          decoding="async"
-          draggable={false}
-          sizes="22vw"
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-      ) : null}
-      {thumbUrl ? (
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-      ) : null}
-      {title ? (
-        <div className="absolute inset-x-[6%] bottom-[4%] text-[clamp(12px,1vw,16px)] font-semibold tracking-[-0.01em] text-white/85 drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
-          {title}
-        </div>
-      ) : null}
-    </div>
-  )
-})
-
-const MarqueeRow = React.memo(function MarqueeRow({
-  tiles,
-  reverse,
-  durationSeconds,
-}: {
-  tiles: Tile[]
-  reverse: boolean
-  durationSeconds: number
-}) {
-  return (
-    <div className="relative shrink-0 overflow-hidden">
-      <div
-        className="animate-marquee-x flex w-max transform-gpu gap-[clamp(8px,0.9vw,18px)]"
-        style={
-          {
-            "--marquee-duration": `${durationSeconds}s`,
-            "--marquee-direction": reverse ? "reverse" : "normal",
-          } as CSSProperties
-        }
-      >
-        {[0, 1].map((copy) => (
-          <div
-            key={copy}
-            className="flex gap-[clamp(8px,0.9vw,18px)]"
-            aria-hidden={copy === 1}
-          >
-            {tiles.map((t) => (
-              <Tile
-                key={`${copy}-${t.key}`}
-                title={t.title}
-                hue={t.hue}
-                thumbUrl={t.thumbUrl}
-              />
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-})
-
-function buildRows(source: Tile[], rowCount: number): Tile[][] {
-  const MIN_PER_ROW = 8
-  const pool: Tile[] = []
-  const needed = rowCount * MIN_PER_ROW
-  while (pool.length < needed) {
+  const source = clips.slice(0, MAX_SOURCE_TILES)
+  const pool: LoginSplashClip[] = []
+  while (pool.length < ROW_COUNT * MIN_PER_ROW) {
     pool.push(...source)
   }
 
-  const rows: Tile[][] = Array.from({ length: rowCount }, () => [])
-  pool.forEach((tile, i) => {
-    rows[i % rowCount].push({ ...tile, key: `${tile.key}-${i}` })
+  const rows: LoginSplashClip[][] = Array.from({ length: ROW_COUNT }, () => [])
+  pool.forEach((clip, i) => {
+    rows[i % ROW_COUNT]!.push(clip)
   })
   return rows
 }
 
-/** Duration pool — cycled per-row to give each row a distinct speed. */
-const ROW_DURATIONS = [80, 95, 70, 105, 85] as const
-
-const ROTATION_DEG = 8
-const SCALE = 1.25
-
-/** Compute how many marquee rows are needed so the rotated, scaled stage
- *  fully covers the visible container — no empty corners. */
-function useRowCount(containerRef: React.RefObject<HTMLDivElement | null>) {
-  const [count, setCount] = React.useState<number>(ROW_DURATIONS.length)
-
-  React.useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-
-    function update() {
-      const { height: h, width: w } = el!.getBoundingClientRect()
-      const vw = window.innerWidth
-      const tileW = Math.min(420, Math.max(240, vw * 0.22))
-      const tileH = tileW * (10 / 16)
-      const gap = Math.min(18, Math.max(8, vw * 0.009))
-      const rotRad = (ROTATION_DEG * Math.PI) / 180
-      const neededH = (h + w * Math.sin(rotRad)) / SCALE
-      const rows = Math.ceil(neededH / (tileH + gap)) + 1
-      setCount(Math.max(3, Math.min(rows, 12)))
-    }
-
-    update()
-
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [containerRef])
-
-  return count
-}
-
-function getRowSettings(index: number) {
-  return {
-    durationSeconds: ROW_DURATIONS[index % ROW_DURATIONS.length],
-    reverse: index % 2 !== 0,
-  }
-}
-
-export function hasLoginArtworkClips(clips: PublicClip[]): boolean {
-  return clips.some(hasThumbnail)
+function Tile({
+  clip,
+  origin,
+}: {
+  clip: LoginSplashClip
+  origin: string | undefined
+}) {
+  return (
+    <div
+      className={cn(
+        "relative aspect-video shrink-0 overflow-hidden rounded-lg",
+        "transform-gpu bg-surface [contain:paint]",
+        "shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ring-1 ring-white/5 ring-inset"
+      )}
+      style={{ width: "clamp(96px, 22cqw, 420px)" }}
+    >
+      <img
+        src={clipThumbnailUrl(clip.id, origin)}
+        alt=""
+        loading="eager"
+        decoding="async"
+        draggable={false}
+        sizes="22vw"
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+    </div>
+  )
 }
 
 export const LoginArtwork = React.memo(function LoginArtwork({
   clips,
 }: {
-  clips: PublicClip[]
+  clips: LoginSplashClip[]
 }) {
-  const containerRef = React.useRef<HTMLDivElement>(null)
-  const rowCount = useRowCount(containerRef)
-
-  const source = React.useMemo<Tile[]>(() => {
-    return clips
-      .filter(hasThumbnail)
-      .slice(0, MAX_SOURCE_TILES)
-      .map((c, i) => ({
-        key: c.id || `clip-${i}`,
-        title: c.title,
-        hue: hueFor(c),
-        thumbUrl: c.thumbUrl,
-      }))
-  }, [clips])
-
-  const rows = React.useMemo(
-    () => (source.length > 0 ? buildRows(source, rowCount) : []),
-    [source, rowCount]
-  )
-
+  const origin = apiOrigin()
+  const rows = React.useMemo(() => buildRows(clips), [clips])
   if (rows.length === 0) return null
 
   return (
     <div
-      ref={containerRef}
       aria-hidden
-      className="pointer-events-none absolute inset-0 overflow-hidden"
+      className="[container-type:size] pointer-events-none absolute inset-0 overflow-hidden bg-black"
     >
       <div
-        className="absolute inset-0 flex transform-gpu flex-col justify-center gap-[clamp(8px,0.9vw,18px)]"
+        className="absolute inset-0 flex transform-gpu flex-col justify-center"
         style={{
+          gap: TILE_GAP,
           transform: `rotate(-${ROTATION_DEG}deg) scale(${SCALE})`,
           transformOrigin: "center",
         }}
       >
-        {rows.map((rowTiles, i) => {
-          const settings = getRowSettings(i)
-          return (
-            <MarqueeRow
-              key={i}
-              tiles={rowTiles}
-              reverse={settings.reverse}
-              durationSeconds={settings.durationSeconds}
-            />
-          )
-        })}
+        {rows.map((row, rowIndex) => (
+          <div key={rowIndex} className="relative shrink-0 overflow-hidden">
+            <div
+              className="flex w-max transform-gpu"
+              style={{
+                gap: TILE_GAP,
+                transform: `translate3d(${ROW_OFFSETS[rowIndex % ROW_OFFSETS.length]}, 0, 0)`,
+              }}
+            >
+              {[0, 1].map((copy) => (
+                <div key={copy} className="flex" style={{ gap: TILE_GAP }}>
+                  {row.map((clip, columnIndex) => (
+                    <Tile
+                      key={`${copy}-${clip.id}-${rowIndex}-${columnIndex}`}
+                      clip={clip}
+                      origin={origin}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
-
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-background" />
-      <div className="absolute inset-0 bg-background/30" />
     </div>
   )
 })
