@@ -81,6 +81,7 @@ export function VideoPreview({
         src={file}
         controls={false}
         playerRef={playerRef}
+        shortcutBounds={{ start: trimStartMs / 1000, end: trimEndMs / 1000 }}
         onVideoClick={() => onPlayingChange(!isPlaying)}
         onPlayingChange={onPlayingChange}
         onTimeUpdate={(t) => {
