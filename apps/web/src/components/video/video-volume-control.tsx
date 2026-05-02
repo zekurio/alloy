@@ -37,7 +37,12 @@ export function VolumeControl({
     const rail = railRef.current
     if (!rail) return 0
     const rect = rail.getBoundingClientRect()
-    return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
+    const insetPx = 12
+    const trackWidth = Math.max(1, rect.width - insetPx * 2)
+    return Math.min(
+      1,
+      Math.max(0, (clientX - rect.left - insetPx) / trackWidth)
+    )
   }, [])
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -65,14 +70,17 @@ export function VolumeControl({
   }
 
   return (
-    <div className={cn("group/vol flex items-center select-none", className)}>
+    <div
+      data-video-player-control
+      className={cn("group/vol flex items-center select-none", className)}
+    >
       <Button
         variant="ghost"
         size="icon-sm"
         aria-label={muted ? "Unmute" : "Mute"}
         onClick={onToggleMute}
         className={cn(
-          "rounded-full text-foreground-muted hover:bg-neutral-150 hover:text-foreground focus-visible:ring-ring",
+          "size-9 shrink-0 rounded-full text-foreground-muted hover:bg-neutral-150 hover:text-foreground focus-visible:ring-ring [&_svg]:size-5",
           iconClassName
         )}
       >
@@ -104,20 +112,20 @@ export function VolumeControl({
         className={cn(
           "relative flex h-8 cursor-pointer touch-none items-center overflow-visible rounded-full",
           "w-0 opacity-0 transition-[width,opacity] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-          "group-hover/vol:ml-1 group-hover/vol:w-20 group-hover/vol:opacity-100",
-          "focus-within:ml-1 focus-within:w-20 focus-within:opacity-100",
-          "data-[dragging=true]:ml-1 data-[dragging=true]:w-20 data-[dragging=true]:opacity-100",
+          "group-hover/vol:ml-1 group-hover/vol:w-24 group-hover/vol:opacity-100",
+          "focus-within:ml-1 focus-within:w-24 focus-within:opacity-100",
+          "data-[dragging=true]:ml-1 data-[dragging=true]:w-24 data-[dragging=true]:opacity-100",
           "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         )}
       >
         <div
           aria-hidden
-          className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-neutral-200"
+          className="absolute inset-x-3 top-1/2 h-1 -translate-y-1/2 rounded-full bg-neutral-200"
         />
         <div
           aria-hidden
-          className="absolute top-1/2 left-0 h-1 -translate-y-1/2 rounded-full bg-accent"
-          style={{ width: `${effective * 100}%` }}
+          className="absolute top-1/2 left-3 h-1 -translate-y-1/2 rounded-full bg-accent"
+          style={{ width: `calc(${effective} * (100% - 1.5rem))` }}
         />
         <div
           aria-hidden
@@ -125,7 +133,7 @@ export function VolumeControl({
             "absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full",
             "border border-accent-border bg-accent shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_18%,transparent)]"
           )}
-          style={{ left: `${effective * 100}%` }}
+          style={{ left: `calc(0.75rem + ${effective} * (100% - 1.5rem))` }}
         />
       </div>
     </div>
