@@ -177,6 +177,18 @@ const ServerSecretsConfigSchema = z.object({
     .default(() => randomBytes(32).toString("base64url")),
 })
 
+const LoginSplashConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  clipIds: z.array(z.string().uuid()).max(48).default([]),
+  generatedAt: z.string().datetime().nullable().default(null),
+})
+
+const AppearanceConfigSchema = z.object({
+  loginSplash: LoginSplashConfigSchema.default(
+    LoginSplashConfigSchema.parse({})
+  ),
+})
+
 function normalizePublicUrl(value: string): string {
   const url = new URL(value)
   url.pathname = url.pathname.replace(/\/api\/?$/, "") || "/"
@@ -257,6 +269,7 @@ export const RuntimeConfigSchema = z.object({
   integrations: IntegrationsConfigSchema.default(
     IntegrationsConfigSchema.parse({})
   ),
+  appearance: AppearanceConfigSchema.default(AppearanceConfigSchema.parse({})),
   secrets: ServerSecretsConfigSchema.default(
     ServerSecretsConfigSchema.parse({})
   ),
@@ -270,6 +283,7 @@ export const RuntimeConfigSchema = z.object({
 export const EncoderConfigPatchSchema = EncoderConfigInnerSchema.partial()
 export const LimitsConfigPatchSchema = LimitsConfigSchema.partial()
 export const IntegrationsConfigPatchSchema = IntegrationsConfigSchema.partial()
+export const AppearanceConfigPatchSchema = AppearanceConfigSchema.partial()
 export const FsStorageConfigPatchSchema = FsStorageConfigSchema.partial()
 export const S3StorageConfigPatchSchema =
   S3StorageConfigBaseSchema.partial().extend({
