@@ -26,11 +26,16 @@ jobs:
         with:
           ref: dev
 
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+
       - name: Resolve nightly version
         id: meta
         shell: bash
         run: |
-          version="$(node --input-type=module <<'EOF'
+          version="$(bun --eval '
           import { readFileSync } from "node:fs";
 
           const pkg = JSON.parse(readFileSync("package.json", "utf8"));
@@ -45,7 +50,7 @@ jobs:
           const [, major, minor, patch] = match;
           const date = new Date().toISOString().slice(0, 10).replaceAll("-", "");
           console.log(`${major}.${minor}.${Number(patch) + 1}-nightly.${date}.${process.env.GITHUB_RUN_NUMBER}`);
-          EOF
+          '
           )"
 
           echo "version=$version" >> "$GITHUB_OUTPUT"

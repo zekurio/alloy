@@ -22,7 +22,7 @@ import {
   configStore,
   type RuntimeConfig,
 } from "../config/store"
-import { ENCODE_JOB, getBoss } from "../queue"
+import { enqueueEncode } from "../queue"
 import { getEncoderCapabilities } from "./admin-encoder-capabilities"
 import {
   REDACTED_SENTINEL,
@@ -356,14 +356,16 @@ export const adminRoute = new Hono()
       .set({
         status: "uploaded",
         encodeProgress: 0,
+        encodeRunId: null,
+        encodeLockedAt: null,
+        encodeAttempt: 0,
         failureReason: null,
         updatedAt: new Date(),
       })
       .where(inArray(clip.id, ids))
 
-    const boss = await getBoss()
     for (const id of ids) {
-      await boss.send(ENCODE_JOB, { clipId: id })
+      enqueueEncode(id)
     }
     return c.json({
       enqueued: ids.length,
