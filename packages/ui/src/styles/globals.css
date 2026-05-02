@@ -415,19 +415,6 @@
     animation: alloy-pulse 1.6s infinite;
   }
 
-  /* Horizontal marquee. The track holds two copies of the content laid out
-     side-by-side; translating by -50% wraps seamlessly. Speed and direction
-     are overridden per-row via the `--marquee-duration` and
-     `--marquee-direction` custom properties.
-     Used by the login page's decorative carousel. */
-  @keyframes alloy-marquee-x {
-    from {
-      transform: translate3d(0, 0, 0);
-    }
-    to {
-      transform: translate3d(-50%, 0, 0);
-    }
-  }
   /* Upload FAB ↔ queue popover morph. Origin is bottom-right so the
      popover grows out of the FAB's corner with a little spring overshoot
      and a cheeky tilt that settles back to zero. */
@@ -470,17 +457,6 @@
     100% {
       opacity: 1;
       transform: scale(1) rotate(0);
-    }
-  }
-
-  .animate-marquee-x {
-    animation: alloy-marquee-x var(--marquee-duration, 60s) linear infinite;
-    animation-direction: var(--marquee-direction, normal);
-    will-change: transform;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .animate-marquee-x {
-      animation: none;
     }
   }
 }

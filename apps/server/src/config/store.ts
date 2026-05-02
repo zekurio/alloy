@@ -9,6 +9,7 @@ import {
 import { env } from "../env"
 import {
   DEFAULT_CONFIG,
+  AppearanceConfigPatchSchema,
   EncoderConfigPatchSchema,
   FsStorageConfigPatchSchema,
   IntegrationsConfigPatchSchema,
@@ -38,6 +39,7 @@ export { OAuthProviderSchema, OAuthProviderSubmissionSchema }
 export type { OAuthProviderSubmission }
 export {
   EncoderConfigPatchSchema,
+  AppearanceConfigPatchSchema,
   FsStorageConfigPatchSchema,
   IntegrationsConfigPatchSchema,
   LimitsConfigPatchSchema,
@@ -50,6 +52,7 @@ export type {
   EncoderConfig,
   EncoderOpenGraphTarget,
   EncoderVariant,
+  AppearanceConfig,
   IntegrationsConfig,
   LimitsConfig,
   OAuthProviderConfig,

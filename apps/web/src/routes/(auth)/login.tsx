@@ -1,12 +1,7 @@
-import * as React from "react"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
 import { LoginPageInner } from "@/components/routes/login/login-page-inner"
 import { redirectAuthedBeforeLoad } from "@/lib/auth-guards"
-import {
-  fetchPublicClips,
-  publicClipsWithLoadedThumbnails,
-} from "@/lib/public-clips"
 import { loadAuthConfig } from "@/lib/session-suspense"
 
 export const Route = createFileRoute("/(auth)/login")({
@@ -16,30 +11,13 @@ export const Route = createFileRoute("/(auth)/login")({
     if (config.adminAccountRequired) {
       throw redirect({ to: "/setup" })
     }
-    const clips = fetchPublicClips().then(publicClipsWithLoadedThumbnails)
-    return { config, clips }
+    return { config }
   },
   component: LoginPage,
 })
 
 function LoginPage() {
-  const { config, clips } = Route.useLoaderData()
+  const { config } = Route.useLoaderData()
 
-  return (
-    <React.Suspense fallback={<LoginPageInner config={config} clips={null} />}>
-      <LoginPageLoaded config={config} clips={clips} />
-    </React.Suspense>
-  )
-}
-
-function LoginPageLoaded({
-  config,
-  clips,
-}: {
-  config: Awaited<ReturnType<typeof loadAuthConfig>>
-  clips: ReturnType<typeof fetchPublicClips>
-}) {
-  const resolvedClips = React.use(clips)
-
-  return <LoginPageInner config={config} clips={resolvedClips} />
+  return <LoginPageInner config={config} />
 }

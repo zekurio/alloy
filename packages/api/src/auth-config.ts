@@ -2,7 +2,12 @@ import type { ApiContext } from "./client"
 import type { PublicAuthConfig } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
 
-export type { PublicAuthConfig, PublicAuthProvider } from "@workspace/contracts"
+export type {
+  LoginSplashClip,
+  PublicAuthConfig,
+  PublicAuthProvider,
+  PublicLoginSplashConfig,
+} from "@workspace/contracts"
 
 export function createAuthConfigApi(context: ApiContext) {
   return {

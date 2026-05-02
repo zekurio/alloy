@@ -5,19 +5,15 @@ import type { PublicAuthConfig } from "@workspace/api"
 import { AuthPageFrame } from "@/components/auth/auth-page-frame"
 import { useRedirectIfAuthed } from "@/lib/auth-hooks"
 import { usePasskeySupport } from "@/lib/passkey-support"
-import type { fetchPublicClips } from "@/lib/public-clips"
 import { OAuthSignIn } from "../login/oauth-sign-in"
 
 import { PasskeySignUpForm } from "./passkey-sign-up-form"
 
-type PublicClips = Awaited<ReturnType<typeof fetchPublicClips>>
-
 type SignUpPageInnerProps = {
-  clips: PublicClips | null
   config: PublicAuthConfig
 }
 
-export function SignUpPageInner({ clips, config }: SignUpPageInnerProps) {
+export function SignUpPageInner({ config }: SignUpPageInnerProps) {
   const canRender = useRedirectIfAuthed("/")
   const { supported: passkeySupported, ready: passkeyReady } =
     usePasskeySupport()
@@ -31,7 +27,7 @@ export function SignUpPageInner({ clips, config }: SignUpPageInnerProps) {
   const canOAuthSignUp = oauthProvider !== null
 
   return (
-    <AuthPageFrame clips={clips}>
+    <AuthPageFrame splash={config.loginSplash}>
       <div className="mb-8 space-y-1.5">
         <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
           Create your account

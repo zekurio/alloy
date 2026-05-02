@@ -5,19 +5,15 @@ import type { PublicAuthConfig } from "@workspace/api"
 import { AuthPageFrame } from "@/components/auth/auth-page-frame"
 import { useRedirectIfAuthed } from "@/lib/auth-hooks"
 import { usePasskeySupport } from "@/lib/passkey-support"
-import type { fetchPublicClips } from "@/lib/public-clips"
 
 import { OAuthSignIn } from "./oauth-sign-in"
 import { PasskeySignIn } from "./passkey-sign-in"
 
-type PublicClips = Awaited<ReturnType<typeof fetchPublicClips>>
-
 type LoginPageInnerProps = {
   config: PublicAuthConfig
-  clips: PublicClips | null
 }
 
-export function LoginPageInner({ config, clips }: LoginPageInnerProps) {
+export function LoginPageInner({ config }: LoginPageInnerProps) {
   const canRender = useRedirectIfAuthed("/")
   const { ready: passkeyReady, supported: passkeySupported } =
     usePasskeySupport()
@@ -28,7 +24,7 @@ export function LoginPageInner({ config, clips }: LoginPageInnerProps) {
   const showPasskeySignIn = passkeyEnabled && passkeySupported
   const canSignUp = openRegistrations && (passkeyEnabled || provider !== null)
   return (
-    <AuthPageFrame clips={clips}>
+    <AuthPageFrame splash={config.loginSplash}>
       <div className="mb-8 space-y-1.5">
         <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
           Sign in

@@ -7,6 +7,8 @@ import {
   GaugeIcon,
   ImageIcon,
   KeyRoundIcon,
+  PaletteIcon,
+  RotateCcwIcon,
   UploadIcon,
   UsersIcon,
   WrenchIcon,
@@ -23,6 +25,7 @@ import { Switch } from "@workspace/ui/components/switch"
 import { toast } from "@workspace/ui/lib/toast"
 
 import { AdminUsersCard } from "@/components/admin/admin-users-card"
+import { LoginArtwork } from "@/components/auth/login-artwork"
 import { EncoderConfigCard } from "@/components/routes/admin-settings/encoder-config-card"
 import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integrations-config-card"
 import { LimitsConfigCard } from "@/components/routes/admin-settings/limits-config-card"
@@ -290,6 +293,120 @@ function SteamGridDBSettingsSection({
   )
 }
 
+function AppearanceSettingsSection({
+  config,
+  setConfig,
+}: {
+  config: AdminRuntimeConfig
+  setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>
+}) {
+  const [pending, setPending] = React.useState(false)
+  const splash = config.appearance.loginSplash
+  const previewClips = React.useMemo(
+    () =>
+      splash.clipIds.map((id) => ({
+        id,
+        title: "",
+        game: null,
+      })),
+    [splash.clipIds]
+  )
+
+  async function updateSplashEnabled(next: boolean) {
+    if (pending) return
+    setPending(true)
+    try {
+      const updated = await api.admin.updateAppearanceConfig({
+        loginSplash: { enabled: next },
+      })
+      setConfig(updated)
+      publishRuntimeConfigUpdate({ authConfigChanged: true })
+      toast.success(next ? "Login backdrop enabled" : "Login backdrop disabled")
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "Couldn't update backdrop"
+      )
+    } finally {
+      setPending(false)
+    }
+  }
+
+  async function regenerateSplash() {
+    if (pending) return
+    setPending(true)
+    try {
+      const updated = await api.admin.regenerateLoginSplash()
+      setConfig(updated)
+      publishRuntimeConfigUpdate({ authConfigChanged: true })
+      toast.success("Login backdrop regenerated")
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "Couldn't regenerate backdrop"
+      )
+    } finally {
+      setPending(false)
+    }
+  }
+
+  return (
+    <SettingsSection
+      icon={PaletteIcon}
+      title="Appearance"
+      description="Configure login page presentation."
+    >
+      <Section>
+        <SectionContent className="flex flex-col gap-4">
+          <div className="relative aspect-video overflow-hidden rounded-md border border-border bg-surface">
+            {previewClips.length > 0 ? (
+              <LoginArtwork clips={previewClips} />
+            ) : (
+              <div className="flex h-full items-center justify-center px-4 text-center text-sm text-foreground-muted">
+                Enable or regenerate the login backdrop to pick public clips.
+              </div>
+            )}
+          </div>
+          <div className="flex items-start justify-between gap-4 py-3 not-last:border-b not-last:border-border first:pt-0">
+            <div className="min-w-0">
+              <div className="text-sm font-medium">Login backdrop</div>
+              <p className="mt-0.5 text-xs text-foreground-dim">
+                Use a generated collage from random public clip thumbnails.
+              </p>
+              {splash.generatedAt ? (
+                <p className="mt-1 text-xs text-foreground-muted">
+                  Last generated {new Date(splash.generatedAt).toLocaleString()}
+                </p>
+              ) : null}
+            </div>
+            <Switch
+              checked={splash.enabled}
+              onCheckedChange={updateSplashEnabled}
+              disabled={pending}
+            />
+          </div>
+          <div className="flex items-start justify-between gap-4 py-3 last:pb-0">
+            <div className="min-w-0">
+              <div className="text-sm font-medium">Regenerate</div>
+              <p className="mt-0.5 text-xs text-foreground-dim">
+                Pick a new random set from public clips with thumbnails.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={regenerateSplash}
+              disabled={pending}
+            >
+              <RotateCcwIcon />
+              Regenerate
+            </Button>
+          </div>
+        </SectionContent>
+      </Section>
+    </SettingsSection>
+  )
+}
+
 function ConfigTransferSection({
   setConfig,
 }: {
@@ -428,6 +545,7 @@ export function AdminSettingsSections({ userId }: { userId: string }) {
       <EncoderSettingsSection config={config} setConfig={setConfig} />
       <LimitsSettingsSection config={config} setConfig={setConfig} />
       <StorageSettingsSection config={config} setConfig={setConfig} />
+      <AppearanceSettingsSection config={config} setConfig={setConfig} />
       <SteamGridDBSettingsSection config={config} setConfig={setConfig} />
       <SettingsSection
         icon={UsersIcon}
