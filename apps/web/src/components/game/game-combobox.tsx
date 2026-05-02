@@ -223,8 +223,13 @@ export function GameCombobox({
   const resolving = resolveMutation.isPending
   const isDisabled = disabled || resolving || configured === null
 
+  // Anchor the popup to the InputGroup wrapper rather than the inner
+  // <input> (Base UI's default), so the dropdown's left edge aligns with
+  // the visual border of the field instead of with the start of the text.
+  const anchorRef = React.useRef<HTMLDivElement>(null)
+
   return (
-    <div className={cn("relative", className)}>
+    <div ref={anchorRef} className={cn("relative", className)}>
       <Combobox<GameComboboxItem>
         items={effectiveItems}
         value={controlledValue}
@@ -260,7 +265,11 @@ export function GameCombobox({
             </InputGroupAddon>
           )}
         </ComboboxInput>
-        <ComboboxContent side={side} className="min-w-[320px]">
+        <ComboboxContent
+          side={side}
+          anchor={anchorRef}
+          className="min-w-[320px]"
+        >
           <ComboboxList>
             {effectiveItems.length === 0
               ? null
@@ -269,19 +278,15 @@ export function GameCombobox({
                     <ComboboxItem
                       key={item.id}
                       value={item}
-                      className="py-2 pl-1"
+                      className="gap-1.5 py-2 pl-1"
                     >
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <GameIcon
-                          src={item.iconUrl ?? item.logoUrl}
-                          name={item.name}
-                        />
-                        <div className="min-w-0">
-                          <span className="truncate text-sm text-foreground">
-                            {item.name}
-                          </span>
-                        </div>
-                      </div>
+                      <GameIcon
+                        src={item.iconUrl ?? item.logoUrl}
+                        name={item.name}
+                      />
+                      <span className="min-w-0 truncate text-sm text-foreground">
+                        {item.name}
+                      </span>
                     </ComboboxItem>
                   )
                 })}
