@@ -464,7 +464,6 @@ function PlayerCore({
   }, [playerId])
 
   React.useEffect(() => {
-    activeVideoPlayerId = playerId
     return () => {
       if (activeVideoPlayerId === playerId) activeVideoPlayerId = null
     }
@@ -561,6 +560,7 @@ function PlayerCore({
         aspectRatio={aspectRatio}
         maxDisplayHeight={maxDisplayHeight}
         onPointerDown={activatePlayer}
+        onFocus={activatePlayer}
       >
         {renderVideo(onVideoClick)}
       </BareShell>
@@ -575,6 +575,7 @@ function PlayerCore({
       maxDisplayHeight={maxDisplayHeight}
       playing={playing}
       onPointerDown={activatePlayer}
+      onFocus={activatePlayer}
       onKeyCommand={keyCommand}
       bar={
         <ChromeBar
