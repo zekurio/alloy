@@ -356,6 +356,9 @@ export const adminRoute = new Hono()
       .set({
         status: "uploaded",
         encodeProgress: 0,
+        encodeRunId: null,
+        encodeLockedAt: null,
+        encodeAttempt: 0,
         failureReason: null,
         updatedAt: new Date(),
       })
