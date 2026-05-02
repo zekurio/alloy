@@ -95,6 +95,7 @@ async function pumpInner(): Promise<void> {
     runningJobs.size < configStore.get("limits").queueConcurrency
   ) {
     const clipId = await nextClipId()
+    if (!started || stopping) return
     if (!clipId) {
       schedulePump(POLL_INTERVAL_MS)
       return

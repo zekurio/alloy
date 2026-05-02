@@ -1,10 +1,15 @@
 import { Buffer } from "node:buffer"
-import { createHmac, createHash } from "node:crypto"
 import { createReadStream, createWriteStream, promises as fsp } from "node:fs"
 import path from "node:path"
 import { PassThrough, Readable } from "node:stream"
 import { pipeline } from "node:stream/promises"
-import { S3Client } from "bun"
+import { S3Client as BunS3Client } from "bun"
+import {
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client as AwsS3Client,
+} from "@aws-sdk/client-s3"
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 
 import type {
   DownloadUrl,
@@ -26,15 +31,14 @@ export interface S3DriverOptions {
 }
 
 type S3DriverOptionsProvider = () => S3DriverOptions
-type S3PresignCredentials = {
-  accessKeyId: string
-  secretAccessKey: string
-  sessionToken?: string
-}
 
 export class S3StorageDriver implements StorageDriver {
   private readonly optionsProvider: S3DriverOptionsProvider
-  private cachedClient: { cacheKey: string; client: S3Client } | null = null
+  private cachedClient: { cacheKey: string; client: BunS3Client } | null = null
+  private cachedPresignClient: {
+    cacheKey: string
+    client: AwsS3Client
+  } | null = null
 
   constructor(opts: S3DriverOptions | S3DriverOptionsProvider) {
     this.optionsProvider = typeof opts === "function" ? opts : () => opts
@@ -60,7 +64,7 @@ export class S3StorageDriver implements StorageDriver {
     }
   }
 
-  private getClient(opts: S3DriverOptions): S3Client {
+  private getClient(opts: S3DriverOptions): BunS3Client {
     const cacheKey = JSON.stringify({
       region: opts.region,
       endpoint: opts.endpoint,
@@ -70,7 +74,7 @@ export class S3StorageDriver implements StorageDriver {
     if (this.cachedClient?.cacheKey === cacheKey) {
       return this.cachedClient.client
     }
-    const client = new S3Client({
+    const client = new BunS3Client({
       region: opts.region,
       endpoint: opts.endpoint,
       bucket: opts.bucket,
@@ -78,6 +82,36 @@ export class S3StorageDriver implements StorageDriver {
       secretAccessKey: opts.secretAccessKey,
     })
     this.cachedClient = { cacheKey, client }
+    return client
+  }
+
+  private getPresignClient(opts: S3DriverOptions): AwsS3Client {
+    const cacheKey = JSON.stringify({
+      region: opts.region,
+      endpoint: opts.endpoint,
+      accessKeyId: opts.accessKeyId,
+      secretAccessKey: opts.secretAccessKey,
+      forcePathStyle: opts.forcePathStyle,
+    })
+    if (this.cachedPresignClient?.cacheKey === cacheKey) {
+      return this.cachedPresignClient.client
+    }
+    const credentials =
+      opts.accessKeyId && opts.secretAccessKey
+        ? {
+            accessKeyId: opts.accessKeyId,
+            secretAccessKey: opts.secretAccessKey,
+          }
+        : undefined
+    const client = new AwsS3Client({
+      region: opts.region,
+      endpoint: opts.endpoint,
+      forcePathStyle: opts.forcePathStyle,
+      credentials,
+      requestChecksumCalculation: "WHEN_REQUIRED",
+      responseChecksumValidation: "WHEN_REQUIRED",
+    })
+    this.cachedPresignClient = { cacheKey, client }
     return client
   }
 
@@ -136,11 +170,15 @@ export class S3StorageDriver implements StorageDriver {
 
   async mintUploadUrl(input: MintUploadUrlInput): Promise<UploadTicket> {
     const opts = this.getOptions()
-    const client = this.getClient(opts)
-    const url = client.presign(input.key, {
+    const client = this.getPresignClient(opts)
+    const command = new PutObjectCommand({
+      Bucket: opts.bucket,
+      Key: input.key,
+      ContentLength: input.maxBytes,
+      ContentType: input.contentType,
+    })
+    const url = await getSignedUrl(client, command, {
       expiresIn: input.expiresInSec,
-      method: "PUT",
-      type: input.contentType,
     })
     return {
       uploadUrl: url,
@@ -208,16 +246,16 @@ export class S3StorageDriver implements StorageDriver {
     input: MintDownloadUrlInput
   ): Promise<DownloadUrl | null> {
     const opts = this.getOptions()
-    const client = this.getClient(opts)
+    const client = this.getPresignClient(opts)
     const expiresIn = input.expiresInSec || opts.presignExpiresSec
-    const url = input.responseCacheControl
-      ? presignDownloadUrl(opts, key, input, expiresIn)
-      : client.presign(key, {
-          expiresIn,
-          method: "GET",
-          type: input.responseContentType,
-          contentDisposition: input.responseContentDisposition,
-        })
+    const command = new GetObjectCommand({
+      Bucket: opts.bucket,
+      Key: key,
+      ResponseContentType: input.responseContentType,
+      ResponseContentDisposition: input.responseContentDisposition,
+      ResponseCacheControl: input.responseCacheControl,
+    })
+    const url = await getSignedUrl(client, command, { expiresIn })
     return {
       url,
       expiresAt: Math.floor(Date.now() / 1000) + expiresIn,
@@ -268,139 +306,4 @@ function isMissing(err: unknown): boolean {
     code === "NotFound" ||
     code === "ENOENT"
   )
-}
-
-function presignDownloadUrl(
-  opts: S3DriverOptions,
-  key: string,
-  input: MintDownloadUrlInput,
-  expiresIn: number
-): string {
-  const credentials = getPresignCredentials(opts)
-  const now = new Date()
-  const shortDate = formatSigV4Date(now).slice(0, 8)
-  const scope = `${shortDate}/${opts.region}/s3/aws4_request`
-  const endpoint = s3Endpoint(opts)
-  const objectPath = s3ObjectPath(opts, key)
-  const query = new URLSearchParams({
-    "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
-    "X-Amz-Credential": `${credentials.accessKeyId}/${scope}`,
-    "X-Amz-Date": formatSigV4Date(now),
-    "X-Amz-Expires": String(expiresIn),
-    "X-Amz-SignedHeaders": "host",
-  })
-  if (credentials.sessionToken) {
-    query.set("X-Amz-Security-Token", credentials.sessionToken)
-  }
-  if (input.responseContentType) {
-    query.set("response-content-type", input.responseContentType)
-  }
-  if (input.responseContentDisposition) {
-    query.set("response-content-disposition", input.responseContentDisposition)
-  }
-  query.set("response-cache-control", input.responseCacheControl ?? "")
-
-  const canonicalQuery = canonicalQueryString(query)
-  const canonicalRequest = [
-    "GET",
-    objectPath,
-    canonicalQuery,
-    `host:${endpoint.host}`,
-    "",
-    "host",
-    "UNSIGNED-PAYLOAD",
-  ].join("\n")
-  const stringToSign = [
-    "AWS4-HMAC-SHA256",
-    formatSigV4Date(now),
-    scope,
-    sha256Hex(canonicalRequest),
-  ].join("\n")
-  const signature = hmacHex(
-    signingKey(credentials.secretAccessKey, shortDate, opts.region),
-    stringToSign
-  )
-  query.set("X-Amz-Signature", signature)
-
-  return `${endpoint.origin}${objectPath}?${canonicalQueryString(query)}`
-}
-
-function getPresignCredentials(opts: S3DriverOptions): S3PresignCredentials {
-  const accessKeyId =
-    opts.accessKeyId ??
-    normalizeOptional(process.env.AWS_ACCESS_KEY_ID) ??
-    normalizeOptional(process.env.AWS_ACCESS_KEY)
-  const secretAccessKey =
-    opts.secretAccessKey ?? normalizeOptional(process.env.AWS_SECRET_ACCESS_KEY)
-  if (!accessKeyId || !secretAccessKey) {
-    throw new Error(
-      "S3 response cache-control presigning requires accessKeyId and secretAccessKey."
-    )
-  }
-  return {
-    accessKeyId,
-    secretAccessKey,
-    sessionToken: normalizeOptional(process.env.AWS_SESSION_TOKEN),
-  }
-}
-
-function s3Endpoint(opts: S3DriverOptions): URL {
-  if (opts.endpoint) return new URL(opts.endpoint)
-  return new URL(`https://s3.${opts.region}.amazonaws.com`)
-}
-
-function s3ObjectPath(opts: S3DriverOptions, key: string): string {
-  return `/${encodeURIComponent(opts.bucket)}/${encodeS3Path(key)}`
-}
-
-function encodeS3Path(key: string): string {
-  return key
-    .split("/")
-    .map((part) => encodeURIComponent(part))
-    .join("/")
-}
-
-function canonicalQueryString(query: URLSearchParams): string {
-  return [...query.entries()]
-    .map(([key, value]) => [encodeURIComponent(key), encodeURIComponent(value)])
-    .sort(([aKey, aValue], [bKey, bValue]) =>
-      aKey === bKey
-        ? compareCodePoint(aValue, bValue)
-        : compareCodePoint(aKey, bKey)
-    )
-    .map(([key, value]) => `${key}=${value}`)
-    .join("&")
-}
-
-function compareCodePoint(left: string, right: string): number {
-  if (left < right) return -1
-  if (left > right) return 1
-  return 0
-}
-
-function formatSigV4Date(date: Date): string {
-  return date.toISOString().replace(/[:-]|\.\d{3}/g, "")
-}
-
-function sha256Hex(value: string): string {
-  return createHash("sha256").update(value).digest("hex")
-}
-
-function hmac(key: Buffer | string, value: string): Buffer {
-  return createHmac("sha256", key).update(value).digest()
-}
-
-function hmacHex(key: Buffer, value: string): string {
-  return createHmac("sha256", key).update(value).digest("hex")
-}
-
-function signingKey(
-  secretAccessKey: string,
-  date: string,
-  region: string
-): Buffer {
-  const dateKey = hmac(`AWS4${secretAccessKey}`, date)
-  const regionKey = hmac(dateKey, region)
-  const serviceKey = hmac(regionKey, "s3")
-  return hmac(serviceKey, "aws4_request")
 }
