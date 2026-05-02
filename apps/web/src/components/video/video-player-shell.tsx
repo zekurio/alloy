@@ -50,6 +50,7 @@ export function BareShell({
   aspectRatio,
   maxDisplayHeight,
   onPointerDown,
+  onFocus,
   children,
 }: {
   containerRef?: React.RefObject<HTMLDivElement | null>
@@ -58,6 +59,7 @@ export function BareShell({
   aspectRatio?: number
   maxDisplayHeight?: string
   onPointerDown?: React.PointerEventHandler<HTMLDivElement>
+  onFocus?: React.FocusEventHandler<HTMLDivElement>
   children: React.ReactNode
 }) {
   const sizingStyle = React.useMemo(
@@ -80,6 +82,7 @@ export function BareShell({
       )}
       style={sizingStyle}
       onPointerDown={onPointerDown}
+      onFocus={onFocus}
     >
       {children}
       <LoadOverlay status={status} />
@@ -94,6 +97,7 @@ export function ChromeShell({
   maxDisplayHeight,
   playing,
   onPointerDown,
+  onFocus,
   onKeyCommand,
   bar,
   children,
@@ -104,6 +108,7 @@ export function ChromeShell({
   maxDisplayHeight?: string
   playing: boolean
   onPointerDown?: React.PointerEventHandler<HTMLDivElement>
+  onFocus?: React.FocusEventHandler<HTMLDivElement>
   onKeyCommand: VideoKeyCommand
   /** Chrome controls rendered as their own layout row under the media viewport. */
   bar?: React.ReactNode
@@ -157,6 +162,7 @@ export function ChromeShell({
       tabIndex={0}
       onKeyDown={onKeyDown}
       onPointerDown={onPointerDown}
+      onFocus={onFocus}
       style={rootSizingStyle}
       className={cn(
         "group/video relative isolate flex w-full flex-col overflow-hidden bg-black select-none",
