@@ -75,10 +75,14 @@ curl -fsSL https://repo.jellyfin.org/jellyfin_team.gpg.key \
   | gpg --dearmor -o /etc/apt/keyrings/jellyfin.gpg
 
 architecture="$(dpkg --print-architecture)"
+debian_codename="$(
+  . /etc/os-release
+  printf '%s' "${VERSION_CODENAME:-bookworm}"
+)"
 cat >/etc/apt/sources.list.d/jellyfin.sources <<EOF
 Types: deb
 URIs: https://repo.jellyfin.org/debian
-Suites: bookworm
+Suites: ${debian_codename}
 Components: main
 Architectures: ${architecture}
 Signed-By: /etc/apt/keyrings/jellyfin.gpg
