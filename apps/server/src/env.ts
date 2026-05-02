@@ -1,4 +1,3 @@
-import "dotenv/config"
 import { z } from "zod"
 
 // Deploy-time env only. Anything an admin should be able to change at
@@ -36,6 +35,9 @@ const defaultPublicServerUrl =
   process.env.PUBLIC_SERVER_URL ?? "http://localhost:3000"
 
 const EnvSchema = z.object({
+  NODE_ENV: z
+    .enum(["development", "production", "test"])
+    .default("development"),
   DATABASE_URL: z.url(),
   PUBLIC_SERVER_URL: z
     .url()
@@ -50,10 +52,8 @@ const EnvSchema = z.object({
     .default(defaultPublicServerUrl)
     .transform(normalizeTrustedOrigins),
 
-  // Runtime config file path. `ALLOY_CONFIG_FILE` is the preferred name;
-  // `RUNTIME_CONFIG_PATH` remains as a compatibility alias.
+  // Runtime config file path.
   ALLOY_CONFIG_FILE: z.string().optional(),
-  RUNTIME_CONFIG_PATH: z.string().optional(),
 
   ENCODE_SCRATCH_DIR: z.string().optional(),
 

@@ -5,7 +5,9 @@ import { app } from "./app"
 import { env } from "./env"
 import { startQueue, stopQueue } from "./queue"
 
-await migrateDatabase(env.DATABASE_URL)
+if (env.NODE_ENV === "production") {
+  await migrateDatabase(env.DATABASE_URL)
+}
 
 const server = serve(
   {
