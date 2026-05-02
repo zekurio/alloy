@@ -40,6 +40,7 @@ export type {
   AdminUpdateUserStorageQuotaInput,
   AdminUsersResponse,
   AdminUserStorageRow,
+  AppearanceConfig,
   EncoderCodec,
   EncoderHwaccel,
   EncoderOpenGraphTarget,
@@ -51,6 +52,12 @@ type RuntimeConfigPatch = {
   openRegistrations?: boolean
   passkeyEnabled?: boolean
   requireAuthToBrowse?: boolean
+}
+
+type AppearanceConfigPatch = {
+  loginSplash?: {
+    enabled?: boolean
+  }
 }
 
 async function fetchRuntimeConfig(
@@ -137,6 +144,16 @@ async function reEncodeAllClips(
   return readJsonOrThrow<{ enqueued: number; hasMore: boolean }>(res)
 }
 
+async function regenerateLoginSplash(
+  context: ApiContext
+): Promise<AdminRuntimeConfig> {
+  const res = await context.request(
+    "/api/admin/appearance/login-splash/regenerate",
+    { method: "POST" }
+  )
+  return readJsonOrThrow<AdminRuntimeConfig>(res)
+}
+
 async function fetchUsers(context: ApiContext): Promise<AdminUsersResponse> {
   const res = await context.request("/api/admin/users")
   return readJsonOrThrow<AdminUsersResponse>(res)
@@ -174,6 +191,9 @@ export function createAdminApi(context: ApiContext) {
       patchRuntimeSection(context, "/api/admin/limits", patch),
     updateIntegrationsConfig: (patch: Partial<AdminIntegrationsConfig>) =>
       patchRuntimeSection(context, "/api/admin/integrations", patch),
+    updateAppearanceConfig: (patch: AppearanceConfigPatch) =>
+      patchRuntimeSection(context, "/api/admin/appearance", patch),
+    regenerateLoginSplash: () => regenerateLoginSplash(context),
     updateStorageConfig: (patch: AdminStorageConfigPatch) =>
       patchRuntimeSection(context, "/api/admin/storage", patch),
     fetchEncoderCapabilities: () => fetchEncoderCapabilities(context),

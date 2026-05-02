@@ -106,6 +106,28 @@ export interface ServerSecretsConfig {
   viewerCookieSecret: string
 }
 
+export interface LoginSplashClip {
+  id: string
+  title: string
+  game: string | null
+}
+
+export interface LoginSplashConfig {
+  enabled: boolean
+  clipIds: string[]
+  generatedAt: string | null
+}
+
+export interface PublicLoginSplashConfig {
+  enabled: boolean
+  generatedAt: string | null
+  clips: LoginSplashClip[]
+}
+
+export interface AppearanceConfig {
+  loginSplash: LoginSplashConfig
+}
+
 export const STORAGE_DRIVERS = ["fs", "s3"] as const
 export type StorageDriverKind = (typeof STORAGE_DRIVERS)[number]
 
@@ -193,6 +215,7 @@ export interface RuntimeConfig {
   encoder: EncoderConfig
   limits: LimitsConfig
   integrations: IntegrationsConfig
+  appearance: AppearanceConfig
   storage: StorageConfig
   secrets: ServerSecretsConfig
 }
@@ -213,4 +236,5 @@ export interface PublicAuthConfig {
   passkeyEnabled: boolean
   requireAuthToBrowse: boolean
   provider: PublicAuthProvider | null
+  loginSplash: PublicLoginSplashConfig
 }
