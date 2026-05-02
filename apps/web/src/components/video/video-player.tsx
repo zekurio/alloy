@@ -6,8 +6,11 @@ import {
   BareShell,
   ChromeBar,
   ChromeShell,
+  handleVideoKeyCommand,
   LoadOverlay,
+  shouldHandleGlobalVideoShortcut,
   type LoadStatus,
+  type VideoKeyCommand,
 } from "./video-player-shell"
 
 export { VolumeControl } from "./video-volume-control"
@@ -23,6 +26,8 @@ export interface VideoPlayerHandle {
   setPlaybackRate(rate: number): void
 }
 
+let activeVideoPlayerId: string | null = null
+
 type SharedPlayerProps = {
   className?: string
   maxDisplayHeight?: string
@@ -35,6 +40,10 @@ type SharedPlayerProps = {
   onEnded?: () => void
   autoAdvance?: boolean
   onAutoAdvanceChange?: (next: boolean) => void
+  shortcutBounds?: {
+    start: number
+    end: number
+  }
   qualityOptions?: Array<{
     id: string
     label: string
@@ -151,12 +160,14 @@ function PlayerCore({
   onEnded,
   autoAdvance,
   onAutoAdvanceChange,
+  shortcutBounds,
   qualityOptions,
   selectedQualityId,
   onSelectQuality,
   playbackRate,
 }: PlayerCoreProps) {
   const mediaUrl = useMediaUrl(spec)
+  const playerId = React.useId()
   const videoRef = React.useRef<HTMLVideoElement | null>(null)
   const containerRef = React.useRef<HTMLDivElement | null>(null)
   const playingRef = React.useRef(false)
@@ -255,19 +266,21 @@ function PlayerCore({
       const video = videoRef.current
       if (!video) return
       const dur = Number.isFinite(video.duration) ? video.duration : targetSec
+      const min = Math.max(0, shortcutBounds?.start ?? 0)
+      const max = Math.max(
+        min,
+        Math.min(dur > 0 ? dur : targetSec, shortcutBounds?.end ?? dur)
+      )
       const clamped = Math.max(
-        0,
-        Math.min(
-          dur > 0 ? dur : targetSec,
-          Number.isFinite(targetSec) ? targetSec : 0
-        )
+        min,
+        Math.min(max, Number.isFinite(targetSec) ? targetSec : 0)
       )
       video.currentTime = clamped
       setCurrentTime(clamped)
       onTimeUpdateRef.current?.(clamped)
       if (keepPlaying) void playInternal()
     },
-    [playInternal]
+    [playInternal, shortcutBounds?.end, shortcutBounds?.start]
   )
 
   React.useEffect(() => {
@@ -390,9 +403,72 @@ function PlayerCore({
     }
   }, [])
 
+  const keyCommand = React.useMemo<VideoKeyCommand>(
+    () => ({
+      togglePlay,
+      toggleMute,
+      seekBy,
+      seekTo: (seconds) =>
+        seekInternal(Number.isFinite(seconds) ? seconds : duration),
+      seekPercent: (percent) => {
+        const start = Math.max(0, shortcutBounds?.start ?? 0)
+        const end =
+          shortcutBounds?.end !== undefined &&
+          Number.isFinite(shortcutBounds.end)
+            ? shortcutBounds.end
+            : duration
+        const span = Math.max(0, end - start)
+        seekInternal(start + span * Math.min(1, Math.max(0, percent)))
+      },
+      volumeBy,
+      toggleFullscreen,
+    }),
+    [
+      duration,
+      seekBy,
+      seekInternal,
+      shortcutBounds?.end,
+      shortcutBounds?.start,
+      toggleFullscreen,
+      toggleMute,
+      togglePlay,
+      volumeBy,
+    ]
+  )
+
+  React.useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (activeVideoPlayerId !== playerId) return
+      if (
+        !shouldHandleGlobalVideoShortcut(event.target, containerRef.current)
+      ) {
+        return
+      }
+      if (handleVideoKeyCommand(event, keyCommand)) {
+        containerRef.current?.focus({ preventScroll: true })
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown, { capture: true })
+    return () =>
+      window.removeEventListener("keydown", onKeyDown, { capture: true })
+  }, [keyCommand, playerId])
+
   const focusPlayerContainer = React.useCallback(() => {
+    activeVideoPlayerId = playerId
     containerRef.current?.focus({ preventScroll: true })
-  }, [])
+  }, [playerId])
+
+  const activatePlayer = React.useCallback(() => {
+    activeVideoPlayerId = playerId
+  }, [playerId])
+
+  React.useEffect(() => {
+    activeVideoPlayerId = playerId
+    return () => {
+      if (activeVideoPlayerId === playerId) activeVideoPlayerId = null
+    }
+  }, [playerId])
 
   usePlayThreshold({
     playing,
@@ -479,10 +555,12 @@ function PlayerCore({
   if (!controls) {
     return (
       <BareShell
+        containerRef={containerRef}
         className={className}
         status={status}
         aspectRatio={aspectRatio}
         maxDisplayHeight={maxDisplayHeight}
+        onPointerDown={activatePlayer}
       >
         {renderVideo(onVideoClick)}
       </BareShell>
@@ -496,15 +574,8 @@ function PlayerCore({
       aspectRatio={aspectRatio}
       maxDisplayHeight={maxDisplayHeight}
       playing={playing}
-      onKeyCommand={{
-        togglePlay,
-        toggleMute,
-        seekBy,
-        seekTo: (seconds) =>
-          seekInternal(Number.isFinite(seconds) ? seconds : duration),
-        volumeBy,
-        toggleFullscreen,
-      }}
+      onPointerDown={activatePlayer}
+      onKeyCommand={keyCommand}
       bar={
         <ChromeBar
           playing={playing}
