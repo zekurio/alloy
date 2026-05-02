@@ -4,7 +4,9 @@ import { migrate } from "drizzle-orm/bun-sql/migrator"
 import { fileURLToPath } from "node:url"
 import process from "node:process"
 
-const migrationsFolder = fileURLToPath(new URL("../drizzle", import.meta.url))
+const migrationsFolder =
+  process.env.ALLOY_MIGRATIONS_DIR ??
+  fileURLToPath(new URL("../drizzle", import.meta.url))
 
 export async function migrateDatabase(databaseUrl: string) {
   const client = new SQL({ url: databaseUrl, max: 1 })

@@ -10,6 +10,7 @@
     "dev": "PORT=3000 PUBLIC_SERVER_URL=http://localhost:3000 TRUSTED_ORIGINS=http://localhost:5173 bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "build": "tsgo --noEmit",
+    "build:bundle": "bun build src/index.ts --target=bun --outdir=dist --sourcemap=none",
     "lint": "oxlint .",
     "format": "oxfmt --write .",
     "typecheck": "tsgo --noEmit",
