@@ -1,5 +1,5 @@
 import { Hono } from "hono"
-import { and, eq, inArray, isNull } from "drizzle-orm"
+import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm"
 
 import type { PublicAuthConfig } from "@workspace/contracts"
 import { user } from "@workspace/db/auth-schema"
@@ -28,6 +28,7 @@ export const authConfigRoute = new Hono().get("/", async (c) => {
               inArray(clip.id, loginSplash.clipIds),
               eq(clip.status, "ready"),
               eq(clip.privacy, "public"),
+              isNotNull(clip.thumbKey),
               isNull(user.disabledAt)
             )
           )
