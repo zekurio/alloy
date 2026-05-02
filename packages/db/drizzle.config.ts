@@ -1,4 +1,5 @@
 import { defineConfig } from "drizzle-kit"
+import process from "bun"
 
 const databaseUrl = process.env.DATABASE_URL
 
