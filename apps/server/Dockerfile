@@ -1,30 +1,29 @@
-FROM docker.io/library/node:24-bookworm-slim AS base
+FROM oven/bun:1.3.13-debian AS base
 COPY apps/server/docker/install-ffmpeg-hwaccel-deps.sh /tmp/install-ffmpeg-hwaccel-deps.sh
 RUN sh /tmp/install-ffmpeg-hwaccel-deps.sh \
   && rm /tmp/install-ffmpeg-hwaccel-deps.sh
 ENV FFMPEG_BIN=/usr/lib/jellyfin-ffmpeg/ffmpeg
 ENV FFPROBE_BIN=/usr/lib/jellyfin-ffmpeg/ffprobe
-RUN corepack enable
 WORKDIR /app
 
 FROM base AS deps
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json bun.lock ./
 COPY apps/server/package.json apps/server/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/api/package.json packages/api/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/ui/package.json packages/ui/package.json
-RUN pnpm install --frozen-lockfile
+RUN bun install --frozen-lockfile
 
 FROM deps AS server
 COPY . .
-RUN pnpm --filter @workspace/server build \
+RUN bun --filter @workspace/server build \
   && touch /tmp/server-build-ok
 
 FROM deps AS web
 COPY . .
-RUN pnpm --filter web build
+RUN bun --filter web build
 
 FROM base AS runtime
 ARG APP_VERSION=dev
@@ -46,4 +45,4 @@ ENV WEB_DIST_DIR=/build/www
 ENV PUBLIC_SERVER_URL=http://localhost:3000
 ENV TRUSTED_ORIGINS=http://localhost:3000
 EXPOSE 3000
-CMD ["./node_modules/.bin/tsx", "src/index.ts"]
+CMD ["bun", "src/index.ts"]

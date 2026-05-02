@@ -1,5 +1,5 @@
-import { drizzle } from "drizzle-orm/postgres-js"
-import postgres from "postgres"
+import { SQL } from "bun"
+import { drizzle } from "drizzle-orm/bun-sql"
 
 import { authSchema } from "./auth-schema"
 import { domainSchema } from "./schema"
@@ -15,8 +15,9 @@ export const dbSchema = {
 } as const
 
 export function createDb(databaseUrl: string) {
-  const client = postgres(databaseUrl, { max: 10 })
-  const db = drizzle(client, {
+  const client = new SQL({ url: databaseUrl, max: 10 })
+  const db = drizzle({
+    client,
     schema: dbSchema,
   })
 
