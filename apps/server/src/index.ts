@@ -29,7 +29,7 @@ const shutdown = (_signal: NodeJS.Signals) => {
   // eslint-disable-next-line no-console
   // Stop the queue first so in-flight encodes get a chance to finish
   // (or at least to flush their progress) before the HTTP server goes
-  // away. pg-boss's graceful stop waits for the workers to clear.
+  // away. The queue stop path waits for in-flight workers to clear.
   void stopQueue()
     .catch((err) => {
       // eslint-disable-next-line no-console

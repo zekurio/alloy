@@ -1,5 +1,4 @@
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm"
-import type { PgBoss } from "pg-boss"
 
 import { clip, clipUploadTicket } from "@workspace/db/schema"
 
@@ -7,28 +6,43 @@ import { db } from "../db"
 import { publishClipRemove } from "../clips/events"
 import { configStore } from "../config/store"
 import { clipAssetKey, storage } from "../storage"
-import { ENCODE_JOB } from "./encode-worker"
+import { enqueueEncode } from "./encode-worker"
 
 export const REAP_JOB = "clip.reap" as const
 
 const UPLOADED_MAX_AGE_INTERVAL = "24 hours"
+const REAP_INTERVAL_MS = 10 * 60 * 1000
 
-export async function registerReaperWorker(boss: PgBoss): Promise<void> {
-  await boss.createQueue(REAP_JOB, {
-    policy: "singleton",
-    retryLimit: 0,
-    expireInSeconds: 60 * 5,
-  })
+let reaperTimer: NodeJS.Timeout | null = null
+let reaperRunning = false
 
-  await boss.work(REAP_JOB, async () => {
+export async function startReaperWorker(): Promise<void> {
+  if (reaperTimer) return
+  reaperTimer = setInterval(() => {
+    void runReaper()
+  }, REAP_INTERVAL_MS)
+  await runReaper()
+}
+
+export function stopReaperWorker(): void {
+  if (!reaperTimer) return
+  clearInterval(reaperTimer)
+  reaperTimer = null
+}
+
+async function runReaper(): Promise<void> {
+  if (reaperRunning) return
+  reaperRunning = true
+  try {
     await reapPending()
     await reapExpiredUploadTickets()
-    await requeueStuckProcessing(boss)
-  })
-
-  // Every 10 minutes. `boss.schedule` is idempotent — restarting the
-  // server doesn't pile up duplicate cron entries.
-  await boss.schedule(REAP_JOB, "*/10 * * * *")
+    await requeueStuckProcessing()
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("[queue/reap] failed:", err)
+  } finally {
+    reaperRunning = false
+  }
 }
 
 async function reapPending(): Promise<void> {
@@ -93,7 +107,7 @@ async function reapExpiredUploadTickets(): Promise<void> {
   }
 }
 
-async function requeueStuckProcessing(boss: PgBoss): Promise<void> {
+async function requeueStuckProcessing(): Promise<void> {
   const stuck = await db
     .select({ id: clip.id })
     .from(clip)
@@ -116,7 +130,7 @@ async function requeueStuckProcessing(boss: PgBoss): Promise<void> {
     )
 
   for (const row of stuck) {
-    await boss.send(ENCODE_JOB, { clipId: row.id })
+    enqueueEncode(row.id)
   }
   if (stuck.length > 0) {
     // eslint-disable-next-line no-console

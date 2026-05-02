@@ -13,7 +13,7 @@ import { selectClipById } from "../clips/select"
 import { configStore } from "../config/store"
 import { requireSession } from "../auth/require-session"
 import { isConfigured as isSteamGridDBConfigured } from "../games/steamgriddb"
-import { ENCODE_JOB, getBoss } from "../queue"
+import { enqueueEncode } from "../queue"
 import {
   clipAssetKey,
   clipStagingThumbKey,
@@ -331,8 +331,7 @@ export const clipsUploadRoutes = new Hono()
 
       void publishClipUpsert(viewerId, id)
 
-      const boss = await getBoss()
-      await boss.send(ENCODE_JOB, { clipId: id })
+      enqueueEncode(id)
       await Promise.all([
         markUploadTicketUsed(row.storageKey),
         row.thumbKey ? markUploadTicketUsed(row.thumbKey) : Promise.resolve(),

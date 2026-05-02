@@ -1,13 +1,13 @@
-import { drizzle } from "drizzle-orm/postgres-js"
-import { migrate } from "drizzle-orm/postgres-js/migrator"
+import { SQL } from "bun"
+import { drizzle } from "drizzle-orm/bun-sql"
+import { migrate } from "drizzle-orm/bun-sql/migrator"
 import { fileURLToPath } from "node:url"
 import process from "node:process"
-import postgres from "postgres"
 
 const migrationsFolder = fileURLToPath(new URL("../drizzle", import.meta.url))
 
 export async function migrateDatabase(databaseUrl: string) {
-  const client = postgres(databaseUrl, { max: 1 })
+  const client = new SQL({ url: databaseUrl, max: 1 })
 
   try {
     await client`select pg_advisory_lock(hashtext('alloy_migrations'))`
@@ -19,7 +19,7 @@ export async function migrateDatabase(databaseUrl: string) {
       await client`select pg_advisory_unlock(hashtext('alloy_migrations'))`
     }
   } finally {
-    await client.end()
+    await client.close()
   }
 }
 

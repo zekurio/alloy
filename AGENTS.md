@@ -4,7 +4,7 @@ This file provides guidance to AI agents running in this repo.
 
 ## Task Completion Requirements
 
-- All of `pnpm fmt`, `pnpm lint`, and `pnpm typecheck` must pass before considering tasks completed.
+- All of `bun fmt`, `bun lint`, and `bun typecheck` must pass before considering a coding task completed.
 
 ## Project Snapshot
 
