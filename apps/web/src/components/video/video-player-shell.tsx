@@ -11,6 +11,7 @@ import { VideoSettingsMenu } from "./video-settings-menu"
 import { VolumeControl } from "./video-volume-control"
 
 const KEYBOARD_SEEK_SECONDS = 5
+export const KEYBOARD_LONG_SEEK_SECONDS = 10
 const KEYBOARD_VOLUME_STEP = 0.1
 
 /* ─── Reusable video-chrome primitives ─────────────────────────────── */
@@ -30,11 +31,12 @@ export type LoadStatus =
   | { kind: "ready" }
   | { kind: "error"; message: string }
 
-type VideoKeyCommand = {
+export type VideoKeyCommand = {
   togglePlay: () => void
   toggleMute: () => void
   seekBy: (delta: number) => void
   seekTo: (seconds: number) => void
+  seekPercent: (percent: number) => void
   volumeBy: (delta: number) => void
   toggleFullscreen: () => void
 }
@@ -42,16 +44,22 @@ type VideoKeyCommand = {
 /* ─── Shells ───────────────────────────────────────────────────────── */
 
 export function BareShell({
+  containerRef,
   className,
   status,
   aspectRatio,
   maxDisplayHeight,
+  onPointerDown,
+  onFocus,
   children,
 }: {
+  containerRef?: React.RefObject<HTMLDivElement | null>
   className?: string
   status: LoadStatus
   aspectRatio?: number
   maxDisplayHeight?: string
+  onPointerDown?: React.PointerEventHandler<HTMLDivElement>
+  onFocus?: React.FocusEventHandler<HTMLDivElement>
   children: React.ReactNode
 }) {
   const sizingStyle = React.useMemo(
@@ -61,15 +69,20 @@ export function BareShell({
 
   return (
     <div
+      ref={containerRef}
       data-slot="video-player"
       data-mode="bare"
+      tabIndex={-1}
       className={cn(
         "relative isolate w-full overflow-hidden bg-black",
         maxDisplayHeight && "mx-auto",
         !aspectRatio && "aspect-video",
+        "focus:outline-none",
         className
       )}
       style={sizingStyle}
+      onPointerDown={onPointerDown}
+      onFocus={onFocus}
     >
       {children}
       <LoadOverlay status={status} />
@@ -83,6 +96,8 @@ export function ChromeShell({
   aspectRatio,
   maxDisplayHeight,
   playing,
+  onPointerDown,
+  onFocus,
   onKeyCommand,
   bar,
   children,
@@ -92,6 +107,8 @@ export function ChromeShell({
   aspectRatio?: number
   maxDisplayHeight?: string
   playing: boolean
+  onPointerDown?: React.PointerEventHandler<HTMLDivElement>
+  onFocus?: React.FocusEventHandler<HTMLDivElement>
   onKeyCommand: VideoKeyCommand
   /** Chrome controls rendered as their own layout row under the media viewport. */
   bar?: React.ReactNode
@@ -129,36 +146,7 @@ export function ChromeShell({
   const onKeyDown = React.useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (!shouldHandleVideoShortcut(e.target, e.currentTarget)) return
-      const key = e.key.toLowerCase()
-
-      if (e.key === " " || e.code === "Space" || key === "k") {
-        e.preventDefault()
-        onKeyCommand.togglePlay()
-      } else if (e.key === "ArrowLeft") {
-        e.preventDefault()
-        onKeyCommand.seekBy(-KEYBOARD_SEEK_SECONDS)
-      } else if (e.key === "ArrowRight") {
-        e.preventDefault()
-        onKeyCommand.seekBy(KEYBOARD_SEEK_SECONDS)
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault()
-        onKeyCommand.volumeBy(KEYBOARD_VOLUME_STEP)
-      } else if (e.key === "ArrowDown") {
-        e.preventDefault()
-        onKeyCommand.volumeBy(-KEYBOARD_VOLUME_STEP)
-      } else if (e.key === "Home") {
-        e.preventDefault()
-        onKeyCommand.seekTo(0)
-      } else if (e.key === "End") {
-        e.preventDefault()
-        onKeyCommand.seekTo(Number.POSITIVE_INFINITY)
-      } else if (key === "m") {
-        e.preventDefault()
-        onKeyCommand.toggleMute()
-      } else if (key === "f") {
-        e.preventDefault()
-        onKeyCommand.toggleFullscreen()
-      }
+      handleVideoKeyCommand(e.nativeEvent, onKeyCommand)
     },
     [onKeyCommand]
   )
@@ -173,6 +161,8 @@ export function ChromeShell({
       data-fullscreen={isFullscreen ? "true" : "false"}
       tabIndex={0}
       onKeyDown={onKeyDown}
+      onPointerDown={onPointerDown}
+      onFocus={onFocus}
       style={rootSizingStyle}
       className={cn(
         "group/video relative isolate flex w-full flex-col overflow-hidden bg-black select-none",
@@ -260,7 +250,7 @@ function mediaShellSizingStyle(
   }
 }
 
-function shouldHandleVideoShortcut(
+export function shouldHandleVideoShortcut(
   target: EventTarget,
   currentTarget: HTMLDivElement
 ): boolean {
@@ -281,6 +271,107 @@ function shouldHandleVideoShortcut(
 
   const role = target.getAttribute("role")
   return role !== "slider" && role !== "button" && role !== "combobox"
+}
+
+export function shouldHandleGlobalVideoShortcut(
+  target: EventTarget | null,
+  playerRoot: HTMLElement | null
+) {
+  if (!(target instanceof HTMLElement)) return true
+  if (target.closest("[data-video-shortcut-scope='ignore']")) return false
+  if (target.isContentEditable) return false
+
+  const tag = target.tagName
+  if (
+    tag === "INPUT" ||
+    tag === "SELECT" ||
+    tag === "TEXTAREA" ||
+    tag === "A"
+  ) {
+    return false
+  }
+
+  const isPlayerControl = Boolean(
+    playerRoot?.contains(target) ||
+    target.closest("[data-video-player-control]")
+  )
+
+  if (tag === "BUTTON" && !isPlayerControl) return false
+
+  const role = target.getAttribute("role")
+  if (role === "slider" || role === "combobox") return false
+  return role !== "button" || isPlayerControl
+}
+
+export function handleVideoKeyCommand(
+  e: KeyboardEvent,
+  command: VideoKeyCommand
+): boolean {
+  if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return false
+  const key = e.key.toLowerCase()
+
+  if (e.key === " " || e.code === "Space" || key === "k") {
+    e.preventDefault()
+    command.togglePlay()
+    return true
+  }
+  if (e.key === "ArrowLeft") {
+    e.preventDefault()
+    command.seekBy(-KEYBOARD_SEEK_SECONDS)
+    return true
+  }
+  if (e.key === "ArrowRight") {
+    e.preventDefault()
+    command.seekBy(KEYBOARD_SEEK_SECONDS)
+    return true
+  }
+  if (key === "j") {
+    e.preventDefault()
+    command.seekBy(-KEYBOARD_LONG_SEEK_SECONDS)
+    return true
+  }
+  if (key === "l") {
+    e.preventDefault()
+    command.seekBy(KEYBOARD_LONG_SEEK_SECONDS)
+    return true
+  }
+  if (e.key === "ArrowUp") {
+    e.preventDefault()
+    command.volumeBy(KEYBOARD_VOLUME_STEP)
+    return true
+  }
+  if (e.key === "ArrowDown") {
+    e.preventDefault()
+    command.volumeBy(-KEYBOARD_VOLUME_STEP)
+    return true
+  }
+  if (e.key === "Home") {
+    e.preventDefault()
+    command.seekTo(0)
+    return true
+  }
+  if (e.key === "End") {
+    e.preventDefault()
+    command.seekTo(Number.POSITIVE_INFINITY)
+    return true
+  }
+  if (/^[0-9]$/.test(key)) {
+    e.preventDefault()
+    command.seekPercent(Number(key) / 10)
+    return true
+  }
+  if (key === "m") {
+    e.preventDefault()
+    command.toggleMute()
+    return true
+  }
+  if (key === "f") {
+    e.preventDefault()
+    command.toggleFullscreen()
+    return true
+  }
+
+  return false
 }
 
 /* ─── Chrome bar ───────────────────────────────────────────────────── */
