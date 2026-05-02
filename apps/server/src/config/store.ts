@@ -61,7 +61,7 @@ export type {
 } from "@workspace/contracts"
 
 function resolveConfigPath(): string {
-  const configuredPath = env.ALLOY_CONFIG_FILE ?? env.RUNTIME_CONFIG_PATH
+  const configuredPath = env.ALLOY_CONFIG_FILE
   if (configuredPath && configuredPath.length > 0) {
     return path.resolve(configuredPath)
   }

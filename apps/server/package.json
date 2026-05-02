@@ -7,7 +7,7 @@
     "./app": "./src/app.ts"
   },
   "scripts": {
-    "dev": "PORT=3000 PUBLIC_SERVER_URL=http://localhost:3000 TRUSTED_ORIGINS=http://localhost:5173 bun --watch src/index.ts",
+    "dev": "NODE_ENV=development PORT=3000 PUBLIC_SERVER_URL=http://localhost:3000 TRUSTED_ORIGINS=http://localhost:5173 bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "build": "tsgo --noEmit",
     "build:bundle": "bun build src/index.ts --target=bun --outdir=dist --sourcemap=none",
@@ -27,7 +27,6 @@
     "@simplewebauthn/server": "^13.3.0",
     "@workspace/contracts": "workspace:*",
     "@workspace/db": "workspace:*",
-    "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.14",
     "isomorphic-dompurify": "^3.9.0",

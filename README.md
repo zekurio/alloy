@@ -60,6 +60,11 @@ Apply the database schema:
 bun run db:push
 ```
 
+The server runs startup migrations only when `NODE_ENV=production`, which is
+what the Docker image sets. Local development keeps `NODE_ENV=development` and
+uses `db:push` instead, so Drizzle's dev push workflow does not collide with the
+production migration journal.
+
 Start everything:
 
 ```bash
