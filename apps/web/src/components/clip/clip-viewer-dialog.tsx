@@ -222,6 +222,7 @@ function ClipViewerDialogBody({
   })
   const gameLabel = clipGameLabel(row)
   const thumbnail = row.thumbKey ? clipThumbnailUrl(row.id, apiOrigin()) : null
+  const initialFocusRef = React.useRef<HTMLDivElement>(null)
 
   const canNavigate = Boolean(onNavigate)
   const showPrev = canNavigate && Boolean(prev)
@@ -234,7 +235,10 @@ function ClipViewerDialogBody({
 
   return (
     <>
-      <DialogViewportContent className="overflow-visible rounded-[20px] bg-surface transition-[filter,opacity,transform] duration-100">
+      <DialogViewportContent
+        initialFocus={initialFocusRef}
+        className="overflow-visible rounded-[20px] bg-surface transition-[filter,opacity,transform] duration-100"
+      >
         <DialogClose
           render={
             <Button
@@ -287,7 +291,11 @@ function ClipViewerDialogBody({
           )}
         >
           <div className="row-span-2 grid min-h-0 grid-rows-subgrid bg-surface p-4 sm:p-6 lg:p-0">
-            <div className="flex min-h-0 items-center justify-center overflow-hidden">
+            <div
+              ref={initialFocusRef}
+              tabIndex={-1}
+              className="flex min-h-0 items-center justify-center overflow-hidden outline-none"
+            >
               <ClipPlayer
                 clipId={row.id}
                 sourceContentType={row.contentType}

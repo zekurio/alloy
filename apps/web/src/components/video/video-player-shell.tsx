@@ -378,6 +378,7 @@ export function handleVideoKeyCommand(
 
 export function ChromeBar({
   size = "default",
+  containerRef,
   playing,
   duration,
   currentTime,
@@ -396,6 +397,7 @@ export function ChromeBar({
   onToggleFullscreen,
 }: {
   size?: "default" | "compact"
+  containerRef: React.RefObject<HTMLDivElement | null>
   playing: boolean
   duration: number
   currentTime: number
@@ -420,6 +422,9 @@ export function ChromeBar({
 }) {
   const [fullscreenSupported, setFullscreenSupported] = React.useState(false)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
+  const settingsPortalContainer = isFullscreen
+    ? containerRef.current
+    : undefined
 
   React.useEffect(() => {
     if (typeof document === "undefined") return
@@ -429,11 +434,12 @@ export function ChromeBar({
   React.useEffect(() => {
     if (typeof document === "undefined") return
     const onChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement))
+      setIsFullscreen(document.fullscreenElement === containerRef.current)
     }
+    onChange()
     document.addEventListener("fullscreenchange", onChange)
     return () => document.removeEventListener("fullscreenchange", onChange)
-  }, [])
+  }, [containerRef])
 
   return (
     <div
@@ -506,6 +512,7 @@ export function ChromeBar({
                   videoChromeIconClass,
                   size === "compact" && "size-10 [&_svg]:size-6"
                 )}
+                portalContainer={settingsPortalContainer}
               />
 
               {typeof autoAdvance === "boolean" ? (
