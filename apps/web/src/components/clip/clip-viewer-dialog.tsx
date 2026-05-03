@@ -282,12 +282,12 @@ function ClipViewerDialogBody({
         ) : null}
         <div
           className={cn(
-            "grid h-full min-h-0 overflow-hidden rounded-[20px] bg-surface",
+            "grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden rounded-[20px] bg-surface",
             "lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_448px]"
           )}
         >
-          <div className="flex min-h-0 flex-col bg-surface p-4 sm:p-6 lg:p-0">
-            <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+          <div className="row-span-2 grid min-h-0 grid-rows-subgrid bg-surface p-4 sm:p-6 lg:p-0">
+            <div className="flex min-h-0 items-center justify-center overflow-hidden">
               <ClipPlayer
                 clipId={row.id}
                 sourceContentType={row.contentType}
@@ -306,7 +306,7 @@ function ClipViewerDialogBody({
                 onAutoAdvanceChange={onAutoAdvanceChange}
               />
             </div>
-            <div className="shrink-0 px-1 pt-4 sm:pt-6 lg:px-6 lg:pt-4 lg:pb-4 xl:px-8 xl:pb-6">
+            <div className="px-1 pt-4 sm:pt-6 lg:px-6 lg:pt-4 lg:pb-4 xl:px-8 xl:pb-6">
               <ClipMeta
                 clipId={row.id}
                 authorId={row.authorId}
@@ -339,7 +339,7 @@ function ClipViewerDialogBody({
             clipId={row.id}
             clipAuthorId={row.authorId}
             focusedCommentId={focusedCommentId}
-            className="min-h-[320px] border-t border-border/70 bg-surface lg:min-h-0 lg:border-t-0 lg:border-l lg:border-border"
+            className="row-span-2 grid-rows-subgrid border-l border-border bg-surface"
           />
         </div>
       </DialogViewportContent>
