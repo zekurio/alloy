@@ -22,15 +22,18 @@ function DropdownMenuContent({
   side = "bottom",
   sideOffset = 4,
   anchor,
+  portalContainer,
   className,
   ...props
 }: MenuPrimitive.Popup.Props &
   Pick<
     MenuPrimitive.Positioner.Props,
     "align" | "alignOffset" | "side" | "sideOffset" | "anchor"
-  >) {
+  > & {
+    portalContainer?: MenuPrimitive.Portal.Props["container"]
+  }) {
   return (
-    <MenuPrimitive.Portal>
+    <MenuPrimitive.Portal container={portalContainer}>
       <MenuPrimitive.Positioner
         className="isolate z-50 outline-none"
         align={align}
@@ -154,6 +157,7 @@ function DropdownMenuSubContent({
   alignOffset = -3,
   side = "right",
   sideOffset = 0,
+  portalContainer,
   className,
   ...props
 }: React.ComponentProps<typeof DropdownMenuContent>) {
@@ -165,6 +169,7 @@ function DropdownMenuSubContent({
       alignOffset={alignOffset}
       side={side}
       sideOffset={sideOffset}
+      portalContainer={portalContainer}
       {...props}
     />
   )

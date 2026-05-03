@@ -64,10 +64,12 @@ function ResponsiveDialogContent({
   className,
   children,
   variant = "default",
+  style,
 }: {
   className?: string
   children: React.ReactNode
   variant?: "default" | "secondary"
+  style?: React.CSSProperties
 }) {
   const isMobile = useIsResponsiveMobile()
 
@@ -79,6 +81,7 @@ function ResponsiveDialogContent({
           "[&>form]:flex [&>form]:min-h-0 [&>form]:flex-1 [&>form]:flex-col",
           className
         )}
+        style={style}
       >
         {children}
       </DrawerContent>
@@ -86,7 +89,7 @@ function ResponsiveDialogContent({
   }
 
   return (
-    <DialogContent variant={variant} className={className}>
+    <DialogContent variant={variant} className={className} style={style}>
       {children}
     </DialogContent>
   )

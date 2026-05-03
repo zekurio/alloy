@@ -14,7 +14,7 @@ import {
   TRIM_HANDLE_WIDTH_PX,
   TrimHandle,
   WaveformCanvas,
-  useAudioWaveform,
+  type AudioWaveformAnalysis,
   useTimeMarkers,
   useTimelineZoom,
 } from "./upload-trim-timeline-helpers"
@@ -115,8 +115,8 @@ export function VideoPreview({
 const MIN_TRIM_MS = 100
 
 export function TrimTimeline({
-  file,
   durationMs,
+  waveformAnalysis,
   trimStartMs,
   trimEndMs,
   currentMs,
@@ -124,8 +124,8 @@ export function TrimTimeline({
   onSeek,
   children,
 }: {
-  file: File
   durationMs: number
+  waveformAnalysis: AudioWaveformAnalysis | null
   trimStartMs: number
   trimEndMs: number
   currentMs: number
@@ -134,7 +134,6 @@ export function TrimTimeline({
   /** Rendered in the footer row below the waveform (left side). */
   children?: React.ReactNode
 }) {
-  const waveformPeaks = useAudioWaveform(file)
   const { viewStartMs, viewEndMs, handleWheel, isZoomed, resetZoom } =
     useTimelineZoom(durationMs)
   const { major: majorMarkers, minor: minorMarkers } = useTimeMarkers(
@@ -233,6 +232,7 @@ export function TrimTimeline({
   // the waveform canvas).
   const viewFracStart = durationMs > 0 ? viewStartMs / durationMs : 0
   const viewFracEnd = durationMs > 0 ? viewEndMs / durationMs : 1
+  const waveformPeaks = waveformAnalysis?.peaks ?? null
 
   const windowSpanPct = Math.max(0.01, endPct - startPct)
   const innerWidthPct = (100 / windowSpanPct) * 100
