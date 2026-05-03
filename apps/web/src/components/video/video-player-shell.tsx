@@ -446,7 +446,7 @@ export function ChromeBar({
       <div className="relative flex flex-col">
         <div
           className={cn(
-            "flex flex-col px-2.5",
+            "flex flex-col px-2",
             size === "compact" ? "gap-1 px-2 pt-1 pb-1" : "gap-2 pt-2 pb-2"
           )}
         >
@@ -459,8 +459,8 @@ export function ChromeBar({
             />
           </div>
 
-          <div className="flex w-full items-center gap-1.5">
-            <div className="inline-flex items-center gap-0.5">
+          <div className="flex w-full items-center gap-2">
+            <div className="inline-flex items-center gap-1">
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -487,7 +487,7 @@ export function ChromeBar({
 
             <div
               className={cn(
-                "inline-flex items-center px-2 text-sm font-semibold text-foreground-faint tabular-nums"
+                "inline-flex h-9 items-center px-2 text-sm leading-5 font-semibold text-foreground-faint tabular-nums"
               )}
             >
               <span className="text-foreground">
@@ -497,7 +497,7 @@ export function ChromeBar({
               <span>{formatTime(duration)}</span>
             </div>
 
-            <div className="ml-auto inline-flex items-center gap-0.5">
+            <div className="ml-auto inline-flex items-center gap-1">
               <VideoSettingsMenu
                 qualityOptions={qualityOptions}
                 selectedQualityId={selectedQualityId}
