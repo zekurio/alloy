@@ -17,6 +17,28 @@ import { toPublicUser, type UserRow } from "./users-helpers"
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024 // 5 MB
 const MAX_BANNER_BYTES = 10 * 1024 * 1024 // 10 MB
+const USER_ASSET_CONTENT_TYPE = "image/webp"
+const USER_ASSET_EXT = ".webp"
+
+const USER_ASSET_TARGETS = {
+  avatar: { width: 512, height: 512 },
+  banner: { width: 1500, height: 375 },
+} as const
+
+type BunImagePipeline = {
+  resize: (
+    width: number,
+    height: number,
+    options: { fit: "fill"; filter: "lanczos3" }
+  ) => BunImagePipeline
+  webp: (options: { quality: number }) => BunImagePipeline
+  buffer: () => Promise<Buffer>
+}
+
+type BunImageConstructor = new (
+  input: Buffer,
+  options: { autoOrient: boolean; maxPixels: number }
+) => BunImagePipeline
 
 const EXT_FOR_CONTENT_TYPE: Record<string, string> = {
   "image/jpeg": ".jpg",
@@ -55,10 +77,62 @@ async function deleteOldAssets(
   userId: string,
   role: "avatar" | "banner"
 ): Promise<void> {
-  const exts = Object.values(EXT_FOR_CONTENT_TYPE)
+  const exts = [
+    ...new Set([...Object.values(EXT_FOR_CONTENT_TYPE), USER_ASSET_EXT]),
+  ]
   await Promise.all(
     exts.map((ext) => storage.delete(userAssetKey(userId, role, ext)))
   )
+}
+
+async function resizeUserAsset(
+  bytes: Buffer,
+  role: "avatar" | "banner"
+): Promise<Buffer> {
+  const target = USER_ASSET_TARGETS[role]
+  const BunImage = (
+    globalThis.Bun as unknown as { Image?: BunImageConstructor }
+  ).Image
+
+  if (BunImage) {
+    return new BunImage(bytes, {
+      autoOrient: true,
+      maxPixels: 24_000_000,
+    })
+      .resize(target.width, target.height, {
+        fit: "fill",
+        filter: "lanczos3",
+      })
+      .webp({ quality: 88 })
+      .buffer()
+  }
+
+  const child = globalThis.Bun.spawn(
+    [
+      "magick",
+      "-",
+      "-auto-orient",
+      "-resize",
+      `${target.width}x${target.height}!`,
+      "webp:-",
+    ],
+    {
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+    }
+  )
+  child.stdin.write(bytes)
+  child.stdin.end()
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(child.stdout).arrayBuffer(),
+    new Response(child.stderr).text(),
+    child.exited,
+  ])
+  if (exitCode !== 0) {
+    throw new Error(stderr.trim() || "ImageMagick failed")
+  }
+  return Buffer.from(stdout)
 }
 
 export const usersUploadRoute = new Hono<{
@@ -89,11 +163,17 @@ export const usersUploadRoute = new Hono<{
         return c.json({ error: validation.error }, 400)
       }
 
-      const ext = EXT_FOR_CONTENT_TYPE[contentType] ?? ".bin"
-      const key = userAssetKey(viewerId, "avatar", ext)
+      let resized: Buffer
+      try {
+        resized = await resizeUserAsset(buf, "avatar")
+      } catch {
+        return c.json({ error: "Could not process image" }, 400)
+      }
+
+      const key = userAssetKey(viewerId, "avatar", USER_ASSET_EXT)
 
       await deleteOldAssets(viewerId, "avatar")
-      await storage.put(key, buf, contentType)
+      await storage.put(key, resized, USER_ASSET_CONTENT_TYPE)
 
       const updatedAt = new Date()
       const url = assetUrl(key, updatedAt)
@@ -132,11 +212,17 @@ export const usersUploadRoute = new Hono<{
         return c.json({ error: validation.error }, 400)
       }
 
-      const ext = EXT_FOR_CONTENT_TYPE[contentType] ?? ".bin"
-      const key = userAssetKey(viewerId, "banner", ext)
+      let resized: Buffer
+      try {
+        resized = await resizeUserAsset(buf, "banner")
+      } catch {
+        return c.json({ error: "Could not process image" }, 400)
+      }
+
+      const key = userAssetKey(viewerId, "banner", USER_ASSET_EXT)
 
       await deleteOldAssets(viewerId, "banner")
-      await storage.put(key, buf, contentType)
+      await storage.put(key, resized, USER_ASSET_CONTENT_TYPE)
 
       const updatedAt = new Date()
       const url = assetUrl(key, updatedAt)

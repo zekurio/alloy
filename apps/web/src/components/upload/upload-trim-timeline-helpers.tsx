@@ -8,19 +8,30 @@ const MAX_WAVEFORM_DECODE_BYTES = 64 * 1024 * 1024
 const MIN_ZOOM_SPAN_MS = 500
 const MAX_ZOOM = 40
 
-export function useAudioWaveform(
+export interface AudioWaveformAnalysis {
+  peaks: Float32Array
+  loudestMs: number | null
+}
+
+export function useAudioWaveformAnalysis(
   file: File,
+  durationMs: number,
   bars: number = WAVEFORM_BARS
-): Float32Array | null {
-  const [peaks, setPeaks] = React.useState<Float32Array | null>(null)
+): AudioWaveformAnalysis | null {
+  const [analysis, setAnalysis] = React.useState<AudioWaveformAnalysis | null>(
+    null
+  )
 
   React.useEffect(() => {
     let cancelled = false
 
     async function decode() {
-      setPeaks(null)
+      setAnalysis(null)
 
       if (file.size > MAX_WAVEFORM_DECODE_BYTES) {
+        return
+      }
+      if (typeof OfflineAudioContext === "undefined") {
         return
       }
 
@@ -28,8 +39,11 @@ export function useAudioWaveform(
         const arrayBuf = await file.arrayBuffer()
         const ctx = new OfflineAudioContext(1, 1, 44_100)
         const audioBuffer = await ctx.decodeAudioData(arrayBuf)
+        if (cancelled) return
 
         const length = audioBuffer.length
+        if (length <= 0 || audioBuffer.numberOfChannels <= 0) return
+
         const merged = new Float32Array(length)
         for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
           const channelData = audioBuffer.getChannelData(ch)
@@ -47,6 +61,7 @@ export function useAudioWaveform(
         const bucketSize = Math.max(1, Math.floor(length / bars))
         const result = new Float32Array(bars)
         let maxPeak = 0
+        let loudestBucket = 0
         for (let b = 0; b < bars; b++) {
           const start = b * bucketSize
           const end = Math.min(start + bucketSize, length)
@@ -56,7 +71,10 @@ export function useAudioWaveform(
             if (abs > peak) peak = abs
           }
           result[b] = peak
-          if (peak > maxPeak) maxPeak = peak
+          if (peak > maxPeak) {
+            maxPeak = peak
+            loudestBucket = b
+          }
         }
 
         if (maxPeak > 0) {
@@ -65,9 +83,25 @@ export function useAudioWaveform(
           }
         }
 
-        if (!cancelled) setPeaks(result)
-      } catch {
-        if (!cancelled) setPeaks(null)
+        const audioDurationMs = audioBuffer.duration * 1000
+        const sourceDurationMs =
+          Number.isFinite(durationMs) && durationMs > 0
+            ? durationMs
+            : audioDurationMs
+        const bucketCenter = (loudestBucket + 0.5) / bars
+        const loudestMs =
+          maxPeak > 0 && Number.isFinite(sourceDurationMs)
+            ? Math.max(
+                0,
+                Math.min(sourceDurationMs, bucketCenter * sourceDurationMs)
+              )
+            : null
+
+        if (!cancelled) setAnalysis({ peaks: result, loudestMs })
+      } catch (err) {
+        if (!cancelled) setAnalysis(null)
+        // eslint-disable-next-line no-console
+        console.warn("[upload] audio waveform decode failed:", err)
       }
     }
 
@@ -75,9 +109,9 @@ export function useAudioWaveform(
     return () => {
       cancelled = true
     }
-  }, [file, bars])
+  }, [file, durationMs, bars])
 
-  return peaks
+  return analysis
 }
 
 function drawWaveform(

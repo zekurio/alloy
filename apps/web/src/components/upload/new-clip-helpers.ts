@@ -197,7 +197,8 @@ async function drawThumbnail(video: HTMLVideoElement): Promise<Blob> {
 
 export async function captureThumbnail(
   file: File,
-  atMs: number
+  atMs: number,
+  fallbackAtMs?: number
 ): Promise<Blob> {
   const url = URL.createObjectURL(file)
   const video = document.createElement("video")
@@ -208,7 +209,11 @@ export async function captureThumbnail(
   const cleanup = () => {
     URL.revokeObjectURL(url)
     video.removeAttribute("src")
-    video.load()
+    try {
+      video.load()
+    } catch {
+      // Some mobile browsers throw while tearing down blob-backed media.
+    }
   }
 
   try {
@@ -223,32 +228,65 @@ export async function captureThumbnail(
     await metadataLoaded
 
     const duration = Number.isFinite(video.duration) ? video.duration : null
-    const atSeconds = Math.max(0, atMs / 1000)
     const minTime = duration !== null && duration > 0.1 ? 0.001 : 0
-    const maxTime = duration === null ? atSeconds : Math.max(0, duration - 0.05)
-    const targetTime = Math.min(Math.max(minTime, atSeconds), maxTime)
+    const maxTime =
+      duration === null
+        ? Math.max(0, atMs / 1000)
+        : Math.max(0, duration - 0.05)
+    const candidateTimes = uniqueThumbnailTimes(
+      [atMs, fallbackAtMs, 1000, 100, 0],
+      minTime,
+      maxTime
+    )
+    let lastError: unknown = null
 
-    if (Math.abs(video.currentTime - targetTime) > 0.0005) {
-      const seeked = waitForVideoEvent(
-        video,
-        "seeked",
-        "Seek failed during thumbnail capture"
-      )
-      video.currentTime = targetTime
-      await seeked
-    } else {
-      await waitForVideoEvent(
-        video,
-        "loadeddata",
-        "Could not load video frame for thumbnail capture",
-        () => video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
-      )
+    for (const targetTime of candidateTimes) {
+      try {
+        if (Math.abs(video.currentTime - targetTime) > 0.0005) {
+          const seeked = waitForVideoEvent(
+            video,
+            "seeked",
+            "Seek failed during thumbnail capture"
+          )
+          video.currentTime = targetTime
+          await seeked
+        } else {
+          await waitForVideoEvent(
+            video,
+            "loadeddata",
+            "Could not load video frame for thumbnail capture",
+            () => video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
+          )
+        }
+
+        return await drawThumbnail(video)
+      } catch (err) {
+        lastError = err
+      }
     }
 
-    return await drawThumbnail(video)
+    throw lastError instanceof Error
+      ? lastError
+      : new Error("Could not capture thumbnail")
   } finally {
     cleanup()
   }
+}
+
+function uniqueThumbnailTimes(
+  timesMs: Array<number | null | undefined>,
+  minSeconds: number,
+  maxSeconds: number
+): number[] {
+  const result: number[] = []
+  for (const ms of timesMs) {
+    if (ms === null || ms === undefined || !Number.isFinite(ms)) continue
+    const seconds = Math.min(Math.max(minSeconds, ms / 1000), maxSeconds)
+    if (result.every((existing) => Math.abs(existing - seconds) > 0.05)) {
+      result.push(seconds)
+    }
+  }
+  return result.length > 0 ? result : [minSeconds]
 }
 
 export type ProbedFile = Omit<SelectedFile, "contentType">
@@ -257,6 +295,8 @@ export function probeFile(file: File): Promise<ProbedFile> {
   return new Promise<ProbedFile>((resolve, reject) => {
     const url = URL.createObjectURL(file)
     const video = document.createElement("video")
+    let settled = false
+    let timeoutId = 0
     video.preload = "metadata"
     // Muted + playsInline avoids autoplay quirks on some browsers when
     // metadata loads kick the element into a playing state.
@@ -264,12 +304,25 @@ export function probeFile(file: File): Promise<ProbedFile> {
     video.playsInline = true
 
     const cleanup = () => {
+      window.clearTimeout(timeoutId)
       URL.revokeObjectURL(url)
       video.removeAttribute("src")
-      video.load()
+      try {
+        video.load()
+      } catch {
+        // Some mobile browsers throw while tearing down blob-backed media.
+      }
+    }
+    const fail = (message: string) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      reject(new Error(message))
     }
 
     video.onloadedmetadata = () => {
+      if (settled) return
+      settled = true
       const width = video.videoWidth
       const height = video.videoHeight
       const durationMs = Math.round((video.duration || 0) * 1000)
@@ -292,9 +345,12 @@ export function probeFile(file: File): Promise<ProbedFile> {
       })
     }
     video.onerror = () => {
-      cleanup()
-      reject(new Error("Could not read video metadata"))
+      fail(videoErrorMessage(video, "Could not read video metadata"))
     }
+    timeoutId = window.setTimeout(() => {
+      fail("Timed out while reading video metadata")
+    }, VIDEO_LOAD_TIMEOUT_MS)
     video.src = url
+    video.load()
   })
 }

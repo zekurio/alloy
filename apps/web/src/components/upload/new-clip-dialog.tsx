@@ -42,6 +42,7 @@ import {
   type Visibility,
 } from "./new-clip-helpers"
 import { TrimTimeline, VideoPreview } from "./upload-trim-preview"
+import { useAudioWaveformAnalysis } from "./upload-trim-timeline-helpers"
 
 export type {
   PublishPayload,
@@ -268,11 +269,23 @@ function LoadedState({
       setCapturing(true)
       let thumbBlob: Blob
       try {
-        const posterAtMs = Math.min(
+        const fallbackPosterAtMs = Math.min(
           trimStartMs + 1000,
           Math.max(trimStartMs, trimEndMs - 100)
         )
-        thumbBlob = await captureThumbnail(file.file, posterAtMs)
+        const loudestAtMs =
+          waveformAnalysis?.loudestMs !== null &&
+          waveformAnalysis?.loudestMs !== undefined
+            ? Math.min(
+                Math.max(waveformAnalysis.loudestMs, trimStartMs),
+                Math.max(trimStartMs, trimEndMs - 100)
+              )
+            : null
+        thumbBlob = await captureThumbnail(
+          file.file,
+          loudestAtMs ?? fallbackPosterAtMs,
+          fallbackPosterAtMs
+        )
       } catch (err) {
         setCapturing(false)
         toast.error(
@@ -309,6 +322,7 @@ function LoadedState({
   const [isPlaying, setIsPlaying] = React.useState(false)
   const [volume, setVolume] = React.useState(1)
   const [muted, setMuted] = React.useState(false)
+  const waveformAnalysis = useAudioWaveformAnalysis(file.file, file.durationMs)
 
   const trimChanged = trimStartMs > 0 || trimEndMs < file.durationMs
 
@@ -349,8 +363,8 @@ function LoadedState({
           />
 
           <TrimTimeline
-            file={file.file}
             durationMs={file.durationMs}
+            waveformAnalysis={waveformAnalysis}
             trimStartMs={trimStartMs}
             trimEndMs={trimEndMs}
             currentMs={currentMs}

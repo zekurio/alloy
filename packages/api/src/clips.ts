@@ -70,20 +70,44 @@ export function uploadToTicket(
 ): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest()
-    xhr.open(ticket.method, ticket.uploadUrl)
-    xhr.withCredentials = false
-    for (const [name, value] of Object.entries(ticket.headers)) {
-      xhr.setRequestHeader(name, value)
+    let settled = false
+    const abortUpload = () => xhr.abort()
+    const settle = (fn: () => void) => {
+      if (settled) return
+      settled = true
+      if (signal) signal.removeEventListener("abort", abortUpload)
+      fn()
     }
-    if (!ticket.headers["Content-Type"]) {
-      xhr.setRequestHeader("Content-Type", body.type)
+
+    try {
+      xhr.open(ticket.method, ticket.uploadUrl)
+      xhr.withCredentials = false
+      for (const [name, value] of Object.entries(ticket.headers)) {
+        xhr.setRequestHeader(name, value)
+      }
+      const hasContentType = Object.keys(ticket.headers).some(
+        (name) => name.toLowerCase() === "content-type"
+      )
+      if (!hasContentType && body.type) {
+        xhr.setRequestHeader("Content-Type", body.type)
+      }
+    } catch (err) {
+      settle(() =>
+        reject(
+          err instanceof Error
+            ? err
+            : new Error("Could not prepare upload request")
+        )
+      )
+      return
     }
+
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(e.loaded, e.total)
     }
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
-        resolve()
+        settle(resolve)
       } else {
         let message = `${xhr.status} ${xhr.statusText}`
         try {
@@ -92,19 +116,28 @@ export function uploadToTicket(
         } catch {
           // Keep the status line when the upstream body isn't JSON.
         }
-        reject(new Error(message))
+        settle(() => reject(new Error(message)))
       }
     }
-    xhr.onerror = () => reject(new Error("Network error during upload"))
-    xhr.onabort = () => reject(new DOMException("Upload aborted", "AbortError"))
+    xhr.onerror = () =>
+      settle(() => reject(new Error("Network error during upload")))
+    xhr.ontimeout = () => settle(() => reject(new Error("Upload timed out")))
+    xhr.onabort = () =>
+      settle(() => reject(new DOMException("Upload aborted", "AbortError")))
     if (signal) {
       if (signal.aborted) {
         xhr.abort()
         return
       }
-      signal.addEventListener("abort", () => xhr.abort(), { once: true })
+      signal.addEventListener("abort", abortUpload, { once: true })
     }
-    xhr.send(body)
+    try {
+      xhr.send(body)
+    } catch (err) {
+      settle(() =>
+        reject(err instanceof Error ? err : new Error("Could not start upload"))
+      )
+    }
   })
 }
 

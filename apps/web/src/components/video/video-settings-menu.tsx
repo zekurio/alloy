@@ -27,6 +27,7 @@ export function VideoSettingsMenu({
   triggerStyle,
   contentClassName,
   contentStyle,
+  portalContainer,
 }: {
   qualityOptions?: QualityOption[]
   selectedQualityId?: string
@@ -35,6 +36,7 @@ export function VideoSettingsMenu({
   triggerStyle?: React.CSSProperties
   contentClassName?: string
   contentStyle?: React.CSSProperties
+  portalContainer?: HTMLElement | null
 }) {
   const hasQualityChoices =
     qualityOptions.length > 1 && Boolean(onSelectQuality)
@@ -61,10 +63,12 @@ export function VideoSettingsMenu({
         }
       />
       <DropdownMenuContent
+        data-video-shortcut-scope="ignore"
         align="end"
         sideOffset={8}
         className={contentClassName}
         style={contentStyle}
+        portalContainer={portalContainer}
       >
         {hasQualityChoices || hasDownloads ? (
           <DropdownMenuGroup>
@@ -74,7 +78,11 @@ export function VideoSettingsMenu({
                   <GaugeIcon />
                   {selectedQuality?.label ?? "Quality"}
                 </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent alignOffset={-3}>
+                <DropdownMenuSubContent
+                  data-video-shortcut-scope="ignore"
+                  alignOffset={-3}
+                  portalContainer={portalContainer}
+                >
                   {qualityOptions.map((quality) => (
                     <DropdownMenuItem
                       key={quality.id}
@@ -93,7 +101,11 @@ export function VideoSettingsMenu({
                   <DownloadIcon />
                   Download
                 </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent alignOffset={-3}>
+                <DropdownMenuSubContent
+                  data-video-shortcut-scope="ignore"
+                  alignOffset={-3}
+                  portalContainer={portalContainer}
+                >
                   {downloadOptions.map((quality) => (
                     <DropdownMenuItem
                       key={quality.id}

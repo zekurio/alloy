@@ -24,10 +24,6 @@ import { Field, FieldError, FieldLabel } from "@workspace/ui/components/field"
 import { toast } from "@workspace/ui/lib/toast"
 
 import { LimitedInput } from "@/components/form/limited-field"
-import {
-  ImageCropDialog,
-  type ImageCropMode,
-} from "@/components/profile/image-crop-dialog"
 import { api } from "@/lib/api"
 import { authClient, useSession } from "@/lib/auth-client"
 import { PROFILE_BANNER_ASPECT } from "@/lib/banner-layout"
@@ -138,8 +134,6 @@ export function ProfileCard({
     setProfileBanner(banner)
   }, [banner])
 
-  const [cropFile, setCropFile] = React.useState<File | null>(null)
-  const [cropMode, setCropMode] = React.useState<ImageCropMode>("avatar")
   const [uploading, setUploading] = React.useState(false)
 
   const avatarInputRef = React.useRef<HTMLInputElement>(null)
@@ -159,36 +153,34 @@ export function ProfileCard({
     await router.invalidate()
   }
 
-  function openFilePicker(mode: ImageCropMode) {
+  function openFilePicker(mode: "avatar" | "banner") {
     const ref = mode === "avatar" ? avatarInputRef : bannerInputRef
     ref.current?.click()
   }
 
   function handleFileSelect(
     e: React.ChangeEvent<HTMLInputElement>,
-    mode: ImageCropMode
+    mode: "avatar" | "banner"
   ) {
     const file = e.target.files?.[0]
     if (!file) return
-    setCropMode(mode)
-    setCropFile(file)
     // Reset the input so the same file can be re-selected.
     e.target.value = ""
+    void handleImageUpload(file, mode)
   }
 
-  async function handleCropConfirm(blob: Blob) {
-    setCropFile(null)
+  async function handleImageUpload(blob: Blob, mode: "avatar" | "banner") {
     setUploading(true)
     try {
       let nextUser: Awaited<ReturnType<typeof api.users.uploadAvatar>>
-      if (cropMode === "avatar") {
+      if (mode === "avatar") {
         nextUser = await api.users.uploadAvatar(blob)
         setProfileImage(nextUser.image ?? "")
       } else {
         nextUser = await api.users.uploadBanner(blob)
         setProfileBanner(nextUser.banner ?? "")
       }
-      toast.success(cropMode === "avatar" ? "Avatar updated" : "Banner updated")
+      toast.success(mode === "avatar" ? "Avatar updated" : "Banner updated")
       await refreshProfile()
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "Upload failed")
@@ -278,12 +270,6 @@ export function ProfileCard({
   return (
     <>
       {fileInputs}
-      <ImageCropDialog
-        file={cropFile}
-        mode={cropMode}
-        onConfirm={handleCropConfirm}
-        onCancel={() => setCropFile(null)}
-      />
 
       <form
         onSubmit={(e) => {
@@ -311,7 +297,7 @@ export function ProfileCard({
                       className="group absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                       onPointerDown={bannerAnchor.onTriggerPointerDown}
                     >
-                      <MediaEditOverlay radius="lg">
+                      <MediaEditOverlay radius="lg" tone="control">
                         <Pencil className="size-4 text-white" />
                       </MediaEditOverlay>
                     </DropdownMenuTrigger>
@@ -329,12 +315,16 @@ export function ProfileCard({
                     onClick={() => openFilePicker("banner")}
                     className="group absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   >
-                    <MediaEditOverlay radius="lg">
+                    <MediaEditOverlay radius="lg" tone="control">
                       <Camera className="size-4 text-white" />
                     </MediaEditOverlay>
                   </button>
                 )}
               </div>
+              <p className="mt-2 text-xs text-foreground-faint">
+                Banners are resized to 1500x375. Use a 4:1 image to avoid
+                distortion.
+              </p>
             </div>
 
             {/* Avatar + identity */}
@@ -428,6 +418,10 @@ export function ProfileCard({
                       </span>
                       <span className="text-sm text-foreground-faint">
                         {currentEmail.trim() || email}
+                      </span>
+                      <span className="text-xs text-foreground-faint">
+                        Avatars are resized to 512x512. Use a square image to
+                        avoid distortion.
                       </span>
                     </div>
                   </div>

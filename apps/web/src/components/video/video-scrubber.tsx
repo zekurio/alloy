@@ -79,6 +79,8 @@ export function VideoScrubber({
       className={cn(
         "group/scrub relative h-1 w-full cursor-pointer touch-none rounded-full",
         "bg-neutral-200",
+        "transition-[height] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+        "group-hover/bar:h-1.5 focus-visible:h-1.5",
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       )}
     >
