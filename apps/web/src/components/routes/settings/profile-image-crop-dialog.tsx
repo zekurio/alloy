@@ -37,6 +37,8 @@ const CROP_CONFIG: Record<CropMode, CropConfig> = {
   },
 }
 
+const PAN_AXIS_EPSILON_PX = 0.5
+
 type LoadedImage = {
   height: number
   src: string
@@ -171,9 +173,9 @@ export function ProfileImageCropDialog({
     (next: Point) => {
       if (!imageBox) return { x: 0, y: 0 }
 
-      return clampImageOffset(next, cropFrame, imageBox, mode, zoom)
+      return clampImageOffset(next, cropFrame, imageBox)
     },
-    [cropFrame, imageBox, mode, zoom]
+    [cropFrame, imageBox]
   )
 
   React.useEffect(() => {
@@ -214,9 +216,7 @@ export function ProfileImageCropDialog({
           y: drag.startOffset.y + event.clientY - drag.origin.y,
         },
         liveCropFrame,
-        liveImageBox,
-        mode,
-        zoom
+        liveImageBox
       )
     )
   }
@@ -319,7 +319,7 @@ export function ProfileImageCropDialog({
 
     setZoom(nextZoom)
     setOffset((current) =>
-      clampImageOffset(current, liveCropFrame, liveImageBox, mode, nextZoom)
+      clampImageOffset(current, liveCropFrame, liveImageBox)
     )
   }
 
@@ -449,12 +449,9 @@ function pointsEqual(a: Point, b: Point) {
 function clampImageOffset(
   next: Point,
   cropFrame: CropFrame,
-  imageBox: { height: number; width: number } | null,
-  mode: CropMode,
-  zoom: number
+  imageBox: { height: number; width: number } | null
 ) {
   if (!imageBox) return { x: 0, y: 0 }
-  const minZoom = zoom <= 1
 
   const stageCenterX = cropFrame.stageWidth / 2
   const stageCenterY = cropFrame.stageHeight / 2
@@ -465,16 +462,14 @@ function clampImageOffset(
   const maxY = cropFrame.y - stageCenterY + imageBox.height / 2
 
   return {
-    x:
-      minZoom && (mode === "avatar" || mode === "banner")
-        ? 0
-        : clampRange(next.x, minX, maxX),
-    y: minZoom && mode === "avatar" ? 0 : clampRange(next.y, minY, maxY),
+    x: clampRange(next.x, minX, maxX),
+    y: clampRange(next.y, minY, maxY),
   }
 }
 
 function clampRange(value: number, min: number, max: number) {
   if (min > max) return (min + max) / 2
+  if (max - min <= PAN_AXIS_EPSILON_PX) return (min + max) / 2
   return clamp(value, min, max)
 }
 
