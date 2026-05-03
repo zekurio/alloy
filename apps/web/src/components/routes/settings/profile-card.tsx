@@ -46,6 +46,7 @@ import {
   MediaDropdownContent,
   MediaEditOverlay,
 } from "./profile-media-controls"
+import { ProfileImageCropDialog } from "./profile-image-crop-dialog"
 import { ProfileTextField } from "./profile-text-field"
 
 import { userKeys } from "@/lib/user-queries"
@@ -135,6 +136,8 @@ export function ProfileCard({
   }, [banner])
 
   const [uploading, setUploading] = React.useState(false)
+  const [cropFile, setCropFile] = React.useState<File | null>(null)
+  const [cropMode, setCropMode] = React.useState<"avatar" | "banner">("avatar")
 
   const avatarInputRef = React.useRef<HTMLInputElement>(null)
   const bannerInputRef = React.useRef<HTMLInputElement>(null)
@@ -166,7 +169,8 @@ export function ProfileCard({
     if (!file) return
     // Reset the input so the same file can be re-selected.
     e.target.value = ""
-    void handleImageUpload(file, mode)
+    setCropMode(mode)
+    setCropFile(file)
   }
 
   async function handleImageUpload(blob: Blob, mode: "avatar" | "banner") {
@@ -270,6 +274,21 @@ export function ProfileCard({
   return (
     <>
       {fileInputs}
+      <ProfileImageCropDialog
+        file={cropFile}
+        mode={cropMode}
+        open={!!cropFile}
+        applying={uploading}
+        onOpenChange={(open) => {
+          if (!open && !uploading) {
+            setCropFile(null)
+          }
+        }}
+        onApply={async (blob) => {
+          await handleImageUpload(blob, cropMode)
+          setCropFile(null)
+        }}
+      />
 
       <form
         onSubmit={(e) => {
