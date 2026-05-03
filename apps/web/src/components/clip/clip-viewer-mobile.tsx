@@ -205,10 +205,14 @@ function MobileClipViewerBody({
   }, [autoAdvance, next, onNavigate])
 
   const avatarStyle = { background: avatar.bg, color: avatar.fg } as const
+  const initialFocusRef = React.useRef<HTMLDivElement>(null)
 
   return (
     <>
-      <DialogViewportContent className="h-dvh w-dvw rounded-none border-0 shadow-none">
+      <DialogViewportContent
+        initialFocus={initialFocusRef}
+        className="h-dvh w-dvw rounded-none border-0 shadow-none"
+      >
         <div
           className="relative flex h-full flex-col bg-black"
           onTouchStart={onTouchStart}
@@ -252,7 +256,11 @@ function MobileClipViewerBody({
           </div>
 
           {/* ---- Video player ---- */}
-          <div className="relative z-10 shrink-0">
+          <div
+            ref={initialFocusRef}
+            tabIndex={-1}
+            className="relative z-10 shrink-0 outline-none"
+          >
             <ClipPlayer
               clipId={row.id}
               sourceContentType={row.contentType}
