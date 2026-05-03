@@ -456,6 +456,14 @@ function PlayerCore({
       window.removeEventListener("keydown", onKeyDown, { capture: true })
   }, [keyCommand, playerId])
 
+  React.useEffect(() => {
+    if (!autoPlay && controls) return
+    activeVideoPlayerId = playerId
+    return () => {
+      if (activeVideoPlayerId === playerId) activeVideoPlayerId = null
+    }
+  }, [autoPlay, controls, playerId])
+
   const focusPlayerContainer = React.useCallback(() => {
     activeVideoPlayerId = playerId
     containerRef.current?.focus({ preventScroll: true })
@@ -581,6 +589,7 @@ function PlayerCore({
       onKeyCommand={keyCommand}
       bar={
         <ChromeBar
+          containerRef={containerRef}
           playing={playing}
           duration={duration}
           currentTime={currentTime}
