@@ -252,12 +252,12 @@ function ClipComments({
     <aside
       data-slot="clip-comments"
       className={cn(
-        "flex h-full min-h-0 flex-col border-l border-border bg-surface",
+        "grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] border-l border-border bg-surface",
         className
       )}
       {...props}
     >
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 overflow-y-auto">
         {comments.length > 0 ? <CommentsHeader count={totalCount} /> : null}
         {commentsQuery.isLoading ? (
           <div className="flex h-full items-center justify-center p-6">
