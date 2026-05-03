@@ -25,6 +25,7 @@ interface ClipPlayerProps {
   onEnded?: () => void
   className?: string
   maxDisplayHeight?: string
+  chromeSize?: "default" | "compact"
   autoPlay?: boolean
   autoAdvance?: boolean
   onAutoAdvanceChange?: (next: boolean) => void
@@ -63,6 +64,7 @@ function ClipPlayer({
   onEnded,
   className,
   maxDisplayHeight,
+  chromeSize,
   autoPlay,
   autoAdvance,
   onAutoAdvanceChange,
@@ -189,6 +191,7 @@ function ClipPlayer({
       poster={poster}
       aspectRatio={aspectRatio}
       maxDisplayHeight={maxDisplayHeight}
+      chromeSize={chromeSize}
       className={className}
       sourceIdentity={`${clipId}:${selectedQualityId}`}
       qualityOptions={qualityOptions}

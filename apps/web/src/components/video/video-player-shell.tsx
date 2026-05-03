@@ -377,6 +377,7 @@ export function handleVideoKeyCommand(
 /* ─── Chrome bar ───────────────────────────────────────────────────── */
 
 export function ChromeBar({
+  size = "default",
   playing,
   duration,
   currentTime,
@@ -394,6 +395,7 @@ export function ChromeBar({
   onAutoAdvanceChange,
   onToggleFullscreen,
 }: {
+  size?: "default" | "compact"
   playing: boolean
   duration: number
   currentTime: number
@@ -442,8 +444,13 @@ export function ChromeBar({
       )}
     >
       <div className="relative flex flex-col">
-        <div className="flex flex-col gap-2 px-2.5 pt-2 pb-2">
-          <div className="px-0.5">
+        <div
+          className={cn(
+            "flex flex-col px-2",
+            size === "compact" ? "gap-1 px-2 pt-1 pb-1" : "gap-2 pt-2 pb-2"
+          )}
+        >
+          <div className={cn(size === "compact" ? "px-2" : "px-0.5")}>
             <VideoScrubber
               currentTime={currentTime}
               duration={duration}
@@ -452,28 +459,37 @@ export function ChromeBar({
             />
           </div>
 
-          <div className="flex w-full items-center gap-1.5">
-            <div className="inline-flex items-center gap-0.5">
+          <div className="flex w-full items-center gap-2">
+            <div className="inline-flex items-center gap-1">
               <Button
                 variant="ghost"
                 size="icon-sm"
                 aria-label={playing ? "Pause" : "Play"}
                 onClick={onTogglePlay}
-                className={videoChromeIconClass}
+                className={cn(
+                  videoChromeIconClass,
+                  size === "compact" && "size-10 [&_svg]:size-6"
+                )}
               >
                 {playing ? <PauseIcon /> : <PlayIcon />}
               </Button>
 
-              <VolumeControl
-                muted={muted}
-                volume={volume}
-                onToggleMute={onToggleMute}
-                onVolumeChange={onVolumeChange}
-                iconClassName={videoChromeIconClass}
-              />
+              {size === "compact" ? null : (
+                <VolumeControl
+                  muted={muted}
+                  volume={volume}
+                  onToggleMute={onToggleMute}
+                  onVolumeChange={onVolumeChange}
+                  iconClassName={videoChromeIconClass}
+                />
+              )}
             </div>
 
-            <div className="inline-flex items-center px-2 text-sm font-semibold text-foreground-faint tabular-nums">
+            <div
+              className={cn(
+                "inline-flex h-9 items-center px-2 text-sm leading-5 font-semibold text-foreground-faint tabular-nums"
+              )}
+            >
               <span className="text-foreground">
                 {formatTimeStable(currentTime, duration)}
               </span>
@@ -481,12 +497,15 @@ export function ChromeBar({
               <span>{formatTime(duration)}</span>
             </div>
 
-            <div className="ml-auto inline-flex items-center gap-0.5">
+            <div className="ml-auto inline-flex items-center gap-1">
               <VideoSettingsMenu
                 qualityOptions={qualityOptions}
                 selectedQualityId={selectedQualityId}
                 onSelectQuality={onSelectQuality}
-                triggerClassName={videoChromeIconClass}
+                triggerClassName={cn(
+                  videoChromeIconClass,
+                  size === "compact" && "size-10 [&_svg]:size-6"
+                )}
               />
 
               {typeof autoAdvance === "boolean" ? (
@@ -500,6 +519,7 @@ export function ChromeBar({
                   onClick={() => onAutoAdvanceChange?.(!autoAdvance)}
                   className={cn(
                     videoChromeIconClass,
+                    size === "compact" && "size-10 [&_svg]:size-6",
                     autoAdvance && "text-accent hover:text-accent"
                   )}
                 >
@@ -513,7 +533,10 @@ export function ChromeBar({
                   size="icon-sm"
                   aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
                   onClick={onToggleFullscreen}
-                  className={videoChromeIconClass}
+                  className={cn(
+                    videoChromeIconClass,
+                    size === "compact" && "size-10 [&_svg]:size-6"
+                  )}
                 >
                   <MaximizeIcon />
                 </Button>

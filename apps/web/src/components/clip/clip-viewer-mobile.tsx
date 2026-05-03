@@ -232,8 +232,8 @@ function MobileClipViewerBody({
             <XIcon className="size-5" />
           </DialogClose>
 
-          {/* ---- Top spacer (pushes player toward vertical center) ---- */}
-          <div className="min-h-0 flex-1" />
+          {/* ---- Top spacer (keeps the player higher while metadata stays bottom-pinned) ---- */}
+          <div className="h-[clamp(4rem,28dvh,16rem)] min-h-0 shrink" />
 
           {/* ---- Prev clip chevron (above video) ---- */}
           <div className="relative z-10 flex shrink-0 justify-center py-1">
@@ -263,6 +263,7 @@ function MobileClipViewerBody({
               status={row.status}
               encodeProgress={row.encodeProgress}
               maxDisplayHeight="min(72dvh, calc(100dvh - 18rem))"
+              chromeSize="compact"
               onPlayThreshold={() => void api.clips.recordView(row.id)}
               onEnded={handleEnded}
               autoPlay
@@ -286,6 +287,8 @@ function MobileClipViewerBody({
               <div className="size-7" />
             )}
           </div>
+
+          <div className="min-h-0 flex-1" />
 
           {/* ---- Bottom section ---- */}
           <div className="relative z-10 flex max-h-[min(40dvh,16rem)] shrink-0 overflow-hidden">

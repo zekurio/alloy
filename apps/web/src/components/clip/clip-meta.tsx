@@ -37,6 +37,11 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 import { GameIcon } from "@workspace/ui/components/game-icon"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@workspace/ui/components/popover"
 import { toast } from "@workspace/ui/lib/toast"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -340,6 +345,47 @@ function ClipMeta({
           </div>
         </div>
 
+        {hasDescription ? (
+          <Popover
+            open={descriptionExpanded}
+            onOpenChange={setDescriptionExpanded}
+          >
+            <PopoverTrigger
+              render={
+                <button
+                  type="button"
+                  className={cn(
+                    "inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-surface-raised px-3 py-1 text-xs font-medium",
+                    "text-foreground-muted",
+                    "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+                    "hover:border-border-strong hover:text-foreground",
+                    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  )}
+                >
+                  {descriptionExpanded ? (
+                    <ChevronUpIcon className="size-3.5" />
+                  ) : (
+                    <ChevronDownIcon className="size-3.5" />
+                  )}
+                  {descriptionExpanded
+                    ? "Hide description"
+                    : "Show description"}
+                </button>
+              }
+            />
+            <PopoverContent
+              side="top"
+              align="center"
+              sideOffset={8}
+              className="max-h-[40dvh] w-[min(28rem,calc(100vw-2rem))] overflow-y-auto"
+            >
+              <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground-muted">
+                {renderDescriptionTokens(description!, { linkHashtags: true })}
+              </p>
+            </PopoverContent>
+          </Popover>
+        ) : null}
+
         <div className="flex shrink-0 flex-col items-end gap-1">
           <ClipGameBadge game={game} gameRef={gameRef} />
           <div className="flex items-center gap-1.5 pt-0.5 text-xs leading-4 text-foreground-faint">
@@ -355,37 +401,6 @@ function ClipMeta({
           </div>
         </div>
       </div>
-
-      {hasDescription ? (
-        <div className="mt-1 flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={() => setDescriptionExpanded((v) => !v)}
-            aria-expanded={descriptionExpanded}
-            className={cn(
-              "inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-surface-raised px-3 py-1 text-xs font-medium",
-              "text-foreground-muted",
-              "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-              "hover:border-border-strong hover:text-foreground",
-              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-            )}
-          >
-            {descriptionExpanded ? (
-              <ChevronUpIcon className="size-3.5" />
-            ) : (
-              <ChevronDownIcon className="size-3.5" />
-            )}
-            {descriptionExpanded ? "Hide description" : "Show description"}
-          </button>
-          {descriptionExpanded ? (
-            <div className="max-h-[28dvh] overflow-y-auto pr-1">
-              <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground-muted">
-                {renderDescriptionTokens(description!, { linkHashtags: true })}
-              </p>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
