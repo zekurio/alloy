@@ -40,6 +40,7 @@ type SharedPlayerProps = {
   onEnded?: () => void
   autoAdvance?: boolean
   onAutoAdvanceChange?: (next: boolean) => void
+  chromeSize?: "default" | "compact"
   shortcutBounds?: {
     start: number
     end: number
@@ -160,6 +161,7 @@ function PlayerCore({
   onEnded,
   autoAdvance,
   onAutoAdvanceChange,
+  chromeSize = "default",
   shortcutBounds,
   qualityOptions,
   selectedQualityId,
@@ -586,6 +588,7 @@ function PlayerCore({
           muted={muted}
           volume={volume}
           autoAdvance={autoAdvance}
+          size={chromeSize}
           onTogglePlay={togglePlay}
           onToggleMute={toggleMute}
           onVolumeChange={setVolume}
