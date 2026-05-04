@@ -74,16 +74,18 @@ function serialize(row: {
   clipSlug: string | null
   clipTitle: string | null
   clipThumbKey: string | null
+  clipPrivacy: string | null
   gameSlug: string | null
   commentId: string | null
   commentBody: string | null
 }): NotificationRow {
+  const canExposeClip = row.type !== "new_video" || row.clipPrivacy === "public"
   return {
     id: row.id,
     type: row.type,
     actor: actorShape(row),
     clip:
-      row.clipId && row.clipSlug && row.clipTitle
+      canExposeClip && row.clipId && row.clipSlug && row.clipTitle
         ? {
             id: row.clipId,
             slug: row.clipSlug,
@@ -116,6 +118,7 @@ function selectNotificationFields() {
     clipSlug: clip.slug,
     clipTitle: clip.title,
     clipThumbKey: clip.thumbKey,
+    clipPrivacy: clip.privacy,
     gameSlug: game.slug,
     commentId: clipComment.id,
     commentBody: clipComment.body,

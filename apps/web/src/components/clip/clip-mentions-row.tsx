@@ -105,11 +105,6 @@ function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
   )
 }
 
-/**
- * Inline variant for the desktop user cluster — renders only the summary
- * text ("with @user and N others"), no avatar group, no own row. Designed
- * to sit next to the follower count beneath the uploader name.
- */
 function ClipMentionsInline({ mentions }: ClipMentionsRowProps) {
   const [open, setOpen] = React.useState(false)
   if (mentions.length === 0) return null

@@ -261,7 +261,7 @@ function LoadedState({
       description: "",
       game: null as GameRow | null,
       mentions: [] as UserSearchResult[],
-      visibility: "unlisted" as Visibility,
+      visibility: "public" as Visibility,
     },
     onSubmit: async ({ value }) => {
       if (trimEndMs <= trimStartMs) return

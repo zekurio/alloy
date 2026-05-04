@@ -4,6 +4,7 @@ import { user } from "@workspace/db/auth-schema"
 
 import { db } from "../db"
 import { env } from "../env"
+import { hasAdminSignInMethodForConfig } from "../auth/identity"
 import {
   OAuthProviderSchema,
   OAuthProviderSubmissionSchema,
@@ -22,6 +23,19 @@ type OAuthProviderAdminSubmission = Record<string, unknown> & {
 
 export function errorMessage(cause: unknown, fallback: string): string {
   return cause instanceof Error ? cause.message : fallback
+}
+
+export async function signInConfigError(config: {
+  passkeyEnabled: boolean
+  oauthProvider: { enabled: boolean; providerId: string } | null
+}): Promise<string | null> {
+  if (!hasEnabledSignInMethod(config)) {
+    return "Keep at least one sign-in method enabled."
+  }
+  if (!(await hasAdminSignInMethodForConfig(config))) {
+    return "Keep at least one active admin sign-in method before disabling passkeys or OAuth."
+  }
+  return null
 }
 
 function redactSecrets(

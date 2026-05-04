@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator"
-import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import type { Context } from "hono"
 import { Hono } from "hono"
 import { z } from "zod"
@@ -8,11 +8,7 @@ import { user } from "@workspace/db/auth-schema"
 import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
-import {
-  assertCanRemoveAdmin,
-  createUserIdentity,
-  hasAdminSignInMethodForConfig,
-} from "../auth/identity"
+import { assertCanRemoveAdmin, createUserIdentity } from "../auth/identity"
 import { deleteAllSessionsForUser, requireAdmin } from "../auth/session"
 import {
   EncoderConfigPatchSchema,
@@ -29,14 +25,14 @@ import {
   adminRuntimeConfigResponse,
   errorMessage,
   finalizeOAuthProviderSubmission,
-  hasEnabledSignInMethod,
   mergeStorageConfigPatch,
   preserveRedactedSecrets,
   selectAdminUserStorageRows,
+  signInConfigError,
 } from "./admin-helpers"
+import { generateLoginSplashPatch } from "./admin-login-splash"
 
 const RE_ENCODE_BATCH_LIMIT = 100
-const LOGIN_SPLASH_CLIP_LIMIT = 24
 
 const RuntimeConfigPatch = z.object({
   setupComplete: z.boolean().optional(),
@@ -89,45 +85,6 @@ const OAuthConfigSubmissionSchema = z.object({
 
 function badRequest(c: Context, cause: unknown, fallback: string) {
   return c.json({ error: errorMessage(cause, fallback) }, 400)
-}
-
-async function signInConfigError(config: {
-  passkeyEnabled: boolean
-  oauthProvider: { enabled: boolean; providerId: string } | null
-}): Promise<string | null> {
-  if (!hasEnabledSignInMethod(config)) {
-    return "Keep at least one sign-in method enabled."
-  }
-  if (!(await hasAdminSignInMethodForConfig(config))) {
-    return "Keep at least one active admin sign-in method before disabling passkeys or OAuth."
-  }
-  return null
-}
-
-async function selectRandomPublicSplashClipIds(): Promise<string[]> {
-  const rows = await db
-    .select({ id: clip.id })
-    .from(clip)
-    .innerJoin(user, eq(clip.authorId, user.id))
-    .where(
-      and(
-        eq(clip.status, "ready"),
-        eq(clip.privacy, "public"),
-        isNotNull(clip.thumbKey),
-        isNull(user.disabledAt)
-      )
-    )
-    .orderBy(sql`random()`)
-    .limit(LOGIN_SPLASH_CLIP_LIMIT)
-  return rows.map((row) => row.id)
-}
-
-async function generateLoginSplashPatch(enabled = true) {
-  return {
-    enabled,
-    clipIds: await selectRandomPublicSplashClipIds(),
-    generatedAt: new Date().toISOString(),
-  }
 }
 
 export const adminRoute = new Hono()

@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator"
-import { and, eq } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { Hono } from "hono"
 import { nanoid } from "nanoid"
 
@@ -13,24 +13,16 @@ import { selectClipById } from "../clips/select"
 import { configStore } from "../config/store"
 import { requireSession } from "../auth/require-session"
 import { isConfigured as isSteamGridDBConfigured } from "../games/steamgriddb"
-import { enqueueEncode } from "../queue"
-import {
-  clipAssetKey,
-  clipStagingThumbKey,
-  clipStagingVideoKey,
-  storage,
-} from "../storage"
-import { validateImageBytes } from "../media/image-validation"
+import { clipStagingThumbKey, clipStagingVideoKey, storage } from "../storage"
 import { IdParam, InitiateBody, UpdateBody } from "./clips-helpers"
 import {
-  assertUsableUploadTicket,
   createUploadTickets,
-  markUploadTicketUsed,
   markUploadFailed,
   resolveMentionIds,
   selectLockedQuotaState,
   type InitiateQuotaResult,
 } from "./clips-upload-helpers"
+import { finalizeClipUpload } from "./clips-finalize"
 
 export const clipsUploadRoutes = new Hono()
   .post(
@@ -162,189 +154,8 @@ export const clipsUploadRoutes = new Hono()
     requireSession,
     zValidator("param", IdParam),
     async (c) => {
-      const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")
-
-      const [row] = await db.select().from(clip).where(eq(clip.id, id)).limit(1)
-      if (!row) return c.json({ error: "Not found" }, 404)
-      if (row.authorId !== viewerId) {
-        return c.json({ error: "Forbidden" }, 403)
-      }
-      if (row.status !== "pending") {
-        return c.json({ error: `Clip is already ${row.status}` }, 409)
-      }
-      const videoTicketOk = await assertUsableUploadTicket({
-        clipId: id,
-        storageKey: row.storageKey,
-        contentType: row.contentType,
-        expectedBytes: row.sizeBytes ?? 0,
-        role: "video",
-      })
-      if (!videoTicketOk) {
-        await markUploadFailed(row.authorId, id, "Upload ticket expired")
-        return c.json({ error: "Upload ticket expired" }, 410)
-      }
-
-      const resolved = await storage.resolve(row.storageKey)
-      if (!resolved) {
-        await markUploadFailed(row.authorId, id, "Upload bytes are missing")
-        return c.json({ error: "Upload bytes are missing" }, 400)
-      }
-
-      const declaredSize = row.sizeBytes ?? 0
-      if (declaredSize > 0 && resolved.size !== declaredSize) {
-        await storage.delete(row.storageKey).catch(() => undefined)
-        if (row.thumbKey) {
-          await storage.delete(row.thumbKey).catch(() => undefined)
-        }
-        await markUploadFailed(
-          row.authorId,
-          id,
-          "Upload size did not match declared size"
-        )
-        return c.json({ error: "Upload size did not match declared size" }, 400)
-      }
-
-      if (resolved.contentType !== row.contentType) {
-        await storage.delete(row.storageKey).catch(() => undefined)
-        if (row.thumbKey) {
-          await storage.delete(row.thumbKey).catch(() => undefined)
-        }
-        await markUploadFailed(
-          row.authorId,
-          id,
-          "Upload content type did not match declared type"
-        )
-        return c.json(
-          { error: "Upload content type did not match declared type" },
-          400
-        )
-      }
-
-      // Client-captured thumbnails are required — the encode worker
-      // reuses the existing keys instead of shelling out to ffmpeg.
-      if (row.thumbKey) {
-        const thumbResolved = await storage.resolve(row.thumbKey)
-        if (!thumbResolved) {
-          await markUploadFailed(
-            row.authorId,
-            id,
-            "Thumbnail bytes are missing"
-          )
-          return c.json({ error: "Thumbnail bytes are missing" }, 400)
-        }
-        const thumbTicketOk = await assertUsableUploadTicket({
-          clipId: id,
-          storageKey: row.thumbKey,
-          contentType: "image/jpeg",
-          expectedBytes: thumbResolved.size,
-          role: "thumbnail",
-        })
-        if (!thumbTicketOk) {
-          await markUploadFailed(row.authorId, id, "Thumbnail ticket expired")
-          return c.json({ error: "Thumbnail ticket expired" }, 410)
-        }
-        const thumbBytes = await readResolvedObject(thumbResolved)
-        const thumbValidation = validateImageBytes(thumbBytes, "image/jpeg")
-        if (!thumbValidation.ok) {
-          await storage.delete(row.thumbKey).catch(() => undefined)
-          await markUploadFailed(row.authorId, id, thumbValidation.error)
-          return c.json({ error: thumbValidation.error }, 400)
-        }
-      }
-      const canonicalThumbKey = clipAssetKey(id, "thumb")
-
-      const quotaResult = await db.transaction<InitiateQuotaResult>(
-        async (tx) => {
-          const { quotaBytes, usedBytes } = await selectLockedQuotaState(
-            tx,
-            viewerId
-          )
-          const previousSize = row.sizeBytes ?? 0
-          if (
-            quotaBytes !== null &&
-            usedBytes - previousSize + resolved.size > quotaBytes
-          ) {
-            return { ok: false, usedBytes, quotaBytes }
-          }
-          return { ok: true }
-        }
-      )
-      if (!quotaResult.ok) {
-        await storage.delete(row.storageKey).catch(() => undefined)
-        if (row.thumbKey) {
-          await storage.delete(row.thumbKey).catch(() => undefined)
-        }
-        await markUploadFailed(row.authorId, id, "Storage quota exceeded")
-        return c.json(
-          {
-            error: "Storage quota exceeded",
-            usedBytes: quotaResult.usedBytes,
-            quotaBytes: quotaResult.quotaBytes,
-          },
-          413
-        )
-      }
-
-      if (row.thumbKey && row.thumbKey !== canonicalThumbKey) {
-        try {
-          await storage.copy({
-            fromKey: row.thumbKey,
-            toKey: canonicalThumbKey,
-            contentType: "image/jpeg",
-          })
-        } catch (err) {
-          const [current] = await db
-            .select({ status: clip.status })
-            .from(clip)
-            .where(eq(clip.id, id))
-            .limit(1)
-          if (current?.status !== "pending") {
-            return c.json({ error: "Clip is already being finalized" }, 409)
-          }
-          throw err
-        }
-      }
-
-      const [transitioned] = await db
-        .update(clip)
-        .set({
-          status: "uploaded",
-          sizeBytes: resolved.size,
-          thumbKey: canonicalThumbKey,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(clip.id, id),
-            eq(clip.authorId, viewerId),
-            eq(clip.status, "pending")
-          )
-        )
-        .returning({ id: clip.id })
-      if (!transitioned) {
-        return c.json({ error: "Clip is already being finalized" }, 409)
-      }
-      if (row.thumbKey && row.thumbKey !== canonicalThumbKey) {
-        await storage.delete(row.thumbKey).catch(() => undefined)
-      }
-
-      void publishClipUpsert(viewerId, id)
-
-      enqueueEncode(id)
-      await Promise.all([
-        markUploadTicketUsed(row.storageKey),
-        row.thumbKey ? markUploadTicketUsed(row.thumbKey) : Promise.resolve(),
-      ]).catch((err) => {
-        // eslint-disable-next-line no-console
-        console.warn(
-          `[clips/finalize] could not mark upload tickets used:`,
-          err
-        )
-      })
-
-      const updated = await selectClipById(id)
-      return c.json(updated)
+      return finalizeClipUpload(c, c.var.viewerId, id)
     }
   )
 
@@ -462,13 +273,3 @@ export const clipsUploadRoutes = new Hono()
     await deleteClipRowAndAssets(row)
     return c.json({ deleted: true })
   })
-
-async function readResolvedObject(resolved: {
-  stream: () => NodeJS.ReadableStream
-}): Promise<Buffer> {
-  const chunks: Buffer[] = []
-  for await (const chunk of resolved.stream()) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
-  }
-  return Buffer.concat(chunks)
-}

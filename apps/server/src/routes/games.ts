@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator"
-import { and, desc, eq, inArray, isNull, lt, sql, type SQL } from "drizzle-orm"
+import { and, desc, eq, isNull, lt, sql, type SQL } from "drizzle-orm"
 import { Hono } from "hono"
 
 import { user } from "@workspace/db/auth-schema"
@@ -138,7 +138,7 @@ export const gamesRoute = new Hono()
         and(
           eq(clip.gameId, game.id),
           eq(clip.status, "ready"),
-          inArray(clip.privacy, ["public", "unlisted"])
+          eq(clip.privacy, "public")
         )
       )
       .innerJoin(user, eq(clip.authorId, user.id))
@@ -312,7 +312,7 @@ export const gamesRoute = new Hono()
       const conditions: SQL[] = [
         eq(clip.gameId, gameRow.id),
         eq(clip.status, "ready"),
-        inArray(clip.privacy, ["public", "unlisted"]),
+        eq(clip.privacy, "public"),
         isNull(user.disabledAt),
       ]
       if (cursor) {
@@ -369,7 +369,7 @@ export const gamesRoute = new Hono()
           and(
             eq(clip.gameId, gameRow.id),
             eq(clip.status, "ready"),
-            inArray(clip.privacy, ["public", "unlisted"]),
+            eq(clip.privacy, "public"),
             isNull(user.disabledAt)
           )
         )

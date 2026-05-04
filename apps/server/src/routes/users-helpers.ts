@@ -4,7 +4,6 @@ import {
   desc,
   eq,
   ilike,
-  inArray,
   isNull,
   ne,
   notInArray,
@@ -39,6 +38,10 @@ export const SearchQuery = z.object({
 export const UserGamesQuery = z.object({
   limit: z.coerce.number().int().positive().max(48).default(24),
   offset: z.coerce.number().int().min(0).default(0),
+})
+
+export const ClipBatchQuery = z.object({
+  limit: z.coerce.number().int().positive().max(100).default(100),
 })
 
 export function toLikePattern(raw: string): string {
@@ -127,19 +130,33 @@ export async function resolveTarget(segment: string): Promise<UserRow | null> {
   return row ?? null
 }
 
-export async function listUserClips(row: UserRow, headers: Headers) {
+async function canViewRestrictedUserClips(row: UserRow, headers: Headers) {
   const session = await getSession(headers)
   const isOwner = session?.user.id === row.id
   const isAdmin =
     (session?.user as { role?: string | null } | undefined)?.role === "admin"
+  return isOwner || isAdmin
+}
+
+function applyPublicClipRestriction(
+  conditions: SQL[],
+  includeRestrictedClips: boolean
+) {
+  if (!includeRestrictedClips) {
+    conditions.push(eq(clip.privacy, "public"))
+  }
+}
+
+export async function listUserClips(row: UserRow, headers: Headers) {
   const conditions: SQL[] = [
     eq(clip.authorId, row.id),
     eq(clip.status, "ready"),
     isNull(user.disabledAt),
   ]
-  if (!isOwner && !isAdmin) {
-    conditions.push(inArray(clip.privacy, ["public", "unlisted"]))
-  }
+  applyPublicClipRestriction(
+    conditions,
+    await canViewRestrictedUserClips(row, headers)
+  )
 
   return db
     .select(clipSelectShape)
@@ -156,18 +173,15 @@ export async function listUserGames(
   headers: Headers,
   { limit, offset }: z.infer<typeof UserGamesQuery>
 ) {
-  const session = await getSession(headers)
-  const isOwner = session?.user.id === row.id
-  const isAdmin =
-    (session?.user as { role?: string | null } | undefined)?.role === "admin"
   const conditions: SQL[] = [
     eq(clip.authorId, row.id),
     eq(clip.status, "ready"),
     isNull(user.disabledAt),
   ]
-  if (!isOwner && !isAdmin) {
-    conditions.push(inArray(clip.privacy, ["public", "unlisted"]))
-  }
+  applyPublicClipRestriction(
+    conditions,
+    await canViewRestrictedUserClips(row, headers)
+  )
 
   const lastClippedAt = sql<Date>`max(${clip.createdAt})`
 
@@ -223,7 +237,7 @@ export async function listTaggedClips(row: UserRow, headers: Headers) {
     isNull(user.disabledAt),
   ]
   if (!isAdmin) {
-    conditions.push(inArray(clip.privacy, ["public", "unlisted"]))
+    conditions.push(eq(clip.privacy, "public"))
   }
 
   return db
@@ -249,7 +263,7 @@ export async function listLikedClips(row: UserRow, headers: Headers) {
     isNull(user.disabledAt),
   ]
   if (!isOwner && !isAdmin) {
-    conditions.push(inArray(clip.privacy, ["public", "unlisted"]))
+    conditions.push(eq(clip.privacy, "public"))
   }
 
   return db
@@ -355,7 +369,7 @@ export async function selectProfileCounts(
     eq(clip.status, "ready"),
   ]
   if (!includeRestrictedClips) {
-    clipConditions.push(inArray(clip.privacy, ["public", "unlisted"]))
+    clipConditions.push(eq(clip.privacy, "public"))
   }
 
   const [

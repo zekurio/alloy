@@ -194,6 +194,7 @@ async function runPipelineInScratch(
     config: encoderConfig,
     signal,
     runId,
+    ensureClipStillPresent,
   })
 
   if (!encoderConfig.enabled) {
@@ -283,6 +284,7 @@ async function runPipelineInScratch(
     trim: encodeTrim,
     signal,
     runId,
+    ensureClipStillPresent,
     writeProgress,
     onVariant: (variants, progress) =>
       publishEncodedVariants({

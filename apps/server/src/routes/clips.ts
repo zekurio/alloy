@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator"
-import { and, desc, eq, gte, inArray, isNull, lt, type SQL } from "drizzle-orm"
+import { and, desc, eq, gte, isNull, lt, type SQL } from "drizzle-orm"
 import { Hono } from "hono"
 
 import { user } from "@workspace/db/auth-schema"
@@ -21,7 +21,7 @@ export const clips = new Hono()
 
     const conditions: SQL[] = [
       eq(clip.status, "ready"),
-      inArray(clip.privacy, ["public", "unlisted"]),
+      eq(clip.privacy, "public"),
       isNull(user.disabledAt),
     ]
     if (window && window !== "all") {

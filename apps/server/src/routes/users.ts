@@ -1,11 +1,9 @@
 import { zValidator } from "@hono/zod-validator"
 import { and, eq, or } from "drizzle-orm"
 import { Hono } from "hono"
-import { stream } from "hono/streaming"
-import { z } from "zod"
 
 import { user } from "@workspace/db/auth-schema"
-import { block, clip, follow } from "@workspace/db/schema"
+import { block, follow } from "@workspace/db/schema"
 
 import { db } from "../db"
 import { clearSessionCookies } from "../auth/cookies"
@@ -15,20 +13,14 @@ import {
   requireAnySession,
 } from "../auth/session"
 import { assertCanRemoveAdmin } from "../auth/identity"
-import { deleteClipRowAndAssets } from "../clips/delete"
-import {
-  contentDisposition,
-  downloadFilename,
-  nodeToWeb,
-} from "./clips-helpers"
-import { createZipStream } from "../archive/zip-stream"
 import { syncLinkedOAuthImage } from "../auth/oauth-profile-sync"
 import { createNotification } from "../notifications"
 import { requireSession } from "../auth/require-session"
 import { selectSourceStorageUsedBytes } from "../storage/quota"
-import { storage } from "../storage"
+import { deleteOwnClips, downloadOwnClips } from "./users-data"
 import {
   SearchQuery,
+  ClipBatchQuery,
   UserGamesQuery,
   UsernameParam,
   listFollowers,
@@ -43,10 +35,6 @@ import {
   selectProfileCounts,
   toPublicUser,
 } from "./users-helpers"
-
-const ClipBatchQuery = z.object({
-  limit: z.coerce.number().int().positive().max(100).default(100),
-})
 
 export const usersRoute = new Hono()
   .get("/search", zValidator("query", SearchQuery), async (c) => {
@@ -110,36 +98,7 @@ export const usersRoute = new Hono()
   })
 
   .get("/me/clips/download", requireSession, async (c) => {
-    const rows = await db
-      .select()
-      .from(clip)
-      .where(eq(clip.authorId, c.var.viewerId))
-      .orderBy(clip.createdAt)
-
-    const entries = rows.map((row) => ({
-      filename: downloadFilename(row, "source"),
-      stream: async () => {
-        const resolved = await storage.resolve(row.storageKey)
-        return resolved?.stream() ?? null
-      },
-    }))
-
-    c.header("Content-Type", "application/zip")
-    c.header(
-      "Content-Disposition",
-      contentDisposition(
-        `alloy-clips-${new Date().toISOString().slice(0, 10)}.zip`
-      )
-    )
-    c.header("Cache-Control", "no-store")
-
-    const zip = createZipStream(entries)
-    return stream(c, async (s) => {
-      s.onAbort(() => {
-        zip.destroy()
-      })
-      await s.pipe(nodeToWeb(zip))
-    })
+    return downloadOwnClips(c, c.var.viewerId)
   })
 
   .delete(
@@ -148,18 +107,7 @@ export const usersRoute = new Hono()
     zValidator("query", ClipBatchQuery),
     async (c) => {
       const { limit } = c.req.valid("query")
-      const rows = await db
-        .select()
-        .from(clip)
-        .where(eq(clip.authorId, c.var.viewerId))
-        .orderBy(clip.createdAt)
-        .limit(limit)
-
-      for (const row of rows) {
-        await deleteClipRowAndAssets(row)
-      }
-
-      return c.json({ deleted: rows.length, hasMore: rows.length === limit })
+      return c.json(await deleteOwnClips(c.var.viewerId, limit))
     }
   )
 

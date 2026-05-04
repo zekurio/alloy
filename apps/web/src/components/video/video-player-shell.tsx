@@ -199,10 +199,6 @@ function videoPlayerSizingStyle(
   }
 
   if (maxDisplayHeight === "100%") {
-    // Fill-parent mode: the player sizes itself from the flex parent's
-    // remaining height, preserving aspect ratio. No fixed pixel reservation,
-    // so siblings (description, tags) can grow naturally without forcing
-    // the player to shrink in width or triggering meta scrollbars.
     if (!aspectRatio) {
       return { maxHeight: "100%", maxWidth: "100%" }
     }

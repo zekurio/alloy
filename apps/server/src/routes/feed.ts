@@ -276,7 +276,7 @@ export const feedRoute = new Hono()
       SELECT count(*)::int FROM ${clip}
       WHERE ${clip.gameId} = ${game.id}
         AND ${clip.status} = 'ready'
-        AND ${clip.privacy} IN ('public', 'unlisted')
+        AND ${clip.privacy} = 'public'
         AND EXISTS (
           SELECT 1 FROM ${user}
           WHERE ${user.id} = ${clip.authorId}

@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator"
-import { and, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm"
+import { and, desc, eq, ilike, isNull, or, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
@@ -47,7 +47,7 @@ export const searchRoute = new Hono().get(
         .where(
           and(
             eq(clip.status, "ready"),
-            inArray(clip.privacy, ["public", "unlisted"]),
+            eq(clip.privacy, "public"),
             isNull(user.disabledAt),
             or(
               ilike(clip.title, pattern),
@@ -82,7 +82,7 @@ export const searchRoute = new Hono().get(
           and(
             eq(clip.gameId, game.id),
             eq(clip.status, "ready"),
-            inArray(clip.privacy, ["public", "unlisted"])
+            eq(clip.privacy, "public")
           )
         )
         .innerJoin(user, eq(clip.authorId, user.id))
@@ -112,7 +112,7 @@ export const searchRoute = new Hono().get(
           and(
             eq(clip.authorId, user.id),
             eq(clip.status, "ready"),
-            inArray(clip.privacy, ["public", "unlisted"])
+            eq(clip.privacy, "public")
           )
         )
         .where(

@@ -28,6 +28,14 @@ let unsubscribeConfig: (() => void) | null = null
 let started = false
 let stopping = false
 
+function encodableStatusCondition() {
+  return or(
+    eq(clip.status, "uploaded"),
+    eq(clip.status, "encoding"),
+    and(eq(clip.status, "ready"), lt(clip.encodeProgress, 100))
+  )
+}
+
 export async function cancelEncode(clipId: string): Promise<void> {
   const entry = activeEncodes.get(clipId)
   if (!entry) return
@@ -120,11 +128,7 @@ async function nextClipId(): Promise<string | null> {
     .from(clip)
     .where(
       and(
-        or(
-          eq(clip.status, "uploaded"),
-          eq(clip.status, "encoding"),
-          and(eq(clip.status, "ready"), lt(clip.encodeProgress, 100))
-        ),
+        encodableStatusCondition(),
         or(
           isNull(clip.encodeLockedAt),
           lt(
@@ -175,11 +179,7 @@ async function runEncode(clipId: string): Promise<void> {
     .where(
       and(
         eq(clip.id, clipId),
-        or(
-          eq(clip.status, "uploaded"),
-          eq(clip.status, "encoding"),
-          and(eq(clip.status, "ready"), lt(clip.encodeProgress, 100))
-        ),
+        encodableStatusCondition(),
         or(
           isNull(clip.encodeLockedAt),
           lt(
