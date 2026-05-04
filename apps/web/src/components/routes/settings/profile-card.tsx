@@ -173,7 +173,10 @@ export function ProfileCard({
     setCropFile(file)
   }
 
-  async function handleImageUpload(blob: Blob, mode: "avatar" | "banner") {
+  async function handleImageUpload(
+    blob: Blob,
+    mode: "avatar" | "banner"
+  ): Promise<boolean> {
     setUploading(true)
     try {
       let nextUser: Awaited<ReturnType<typeof api.users.uploadAvatar>>
@@ -186,8 +189,10 @@ export function ProfileCard({
       }
       toast.success(mode === "avatar" ? "Avatar updated" : "Banner updated")
       await refreshProfile()
+      return true
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "Upload failed")
+      return false
     } finally {
       setUploading(false)
     }
@@ -285,8 +290,10 @@ export function ProfileCard({
           }
         }}
         onApply={async (blob) => {
-          await handleImageUpload(blob, cropMode)
-          setCropFile(null)
+          const uploaded = await handleImageUpload(blob, cropMode)
+          if (uploaded) {
+            setCropFile(null)
+          }
         }}
       />
 
