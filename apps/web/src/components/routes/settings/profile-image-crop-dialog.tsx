@@ -135,9 +135,12 @@ export function ProfileImageCropDialog({
       setZoom(DEFAULT_PREVIEW_ZOOM)
     }
 
-    load().catch(() => {
+    load().catch((cause) => {
       if (active) {
         setLoadedImage(null)
+        toast.error(
+          cause instanceof Error ? cause.message : "Couldn't load image"
+        )
       }
     })
 
