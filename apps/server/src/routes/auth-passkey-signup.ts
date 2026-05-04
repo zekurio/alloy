@@ -67,6 +67,7 @@ async function claimOrCreateSetupAdmin(
 
   if (existing) {
     const now = new Date()
+    await assertUsernameAvailable(tx, username, existing.id)
     const [updated] = await tx
       .update(user)
       .set({
@@ -83,6 +84,7 @@ async function claimOrCreateSetupAdmin(
     return updated
   }
 
+  await assertUsernameAvailable(tx, username)
   const [created] = await tx
     .insert(user)
     .values(newPasskeyUserValues(email, username, "admin"))
@@ -110,12 +112,28 @@ async function createOpenRegistrationUser(
   if (!configStore.get("openRegistrations")) {
     throw new Error("Sign-up is currently closed.")
   }
+  await assertUsernameAvailable(tx, username)
   const [created] = await tx
     .insert(user)
     .values(newPasskeyUserValues(email, username, "user"))
     .returning()
   if (!created) throw new Error("Could not create user.")
   return created
+}
+
+async function assertUsernameAvailable(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  username: string,
+  excludeUserId?: string
+) {
+  const conditions = [eq(sql`lower(${user.username})`, username.toLowerCase())]
+  if (excludeUserId) conditions.push(sql`${user.id} <> ${excludeUserId}`)
+  const [existing] = await tx
+    .select({ id: user.id })
+    .from(user)
+    .where(and(...conditions))
+    .limit(1)
+  if (existing) throw new Error("Username is already taken.")
 }
 
 export function completePasskeySignUp({

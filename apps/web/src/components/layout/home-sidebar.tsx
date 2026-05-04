@@ -45,7 +45,7 @@ function useNavFlags(): NavFlags {
 
 function getProfileHandleFromPathname(pathname: string): string | null {
   const match = /^\/u\/([^/]+)/.exec(pathname)
-  return match?.[1] ? decodePathSegment(match[1]).toLowerCase() : null
+  return match?.[1] ? decodePathSegment(match[1]) : null
 }
 
 function decodePathSegment(segment: string): string {
@@ -63,7 +63,7 @@ function isOwnProfilePath(
   return (
     !!routeProfileHandle &&
     !!sessionProfileHandle &&
-    routeProfileHandle === sessionProfileHandle.toLowerCase()
+    routeProfileHandle.toLowerCase() === sessionProfileHandle.toLowerCase()
   )
 }
 
