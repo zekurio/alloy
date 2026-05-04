@@ -48,7 +48,7 @@ function usePasskeySignUpSubmit({
       try {
         const { error } = await authClient.passkey.signUp({
           email: form.email.trim(),
-          username: form.username.trim().toLowerCase(),
+          username: form.username.trim(),
         })
         if (error) {
           toast.error("Couldn't create your passkey account")
@@ -150,12 +150,10 @@ function UsernameField(props: {
       autoComplete="username"
       autoCorrect="off"
       spellCheck={false}
-      placeholder="alice"
+      placeholder="Alice"
       field={props.field}
-      onChange={(value) => props.field.handleChange(value.toLowerCase())}
       invalid={invalid}
       errors={errors}
-      description="Lowercase letters, numbers, underscores and hyphens."
       disabled={props.disabled}
     />
   )

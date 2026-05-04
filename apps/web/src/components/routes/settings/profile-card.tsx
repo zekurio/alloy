@@ -254,15 +254,10 @@ export function ProfileCard({
   const identityTextFields = [
     {
       autoComplete: "username",
-      description: (
-        <>
-          Lowercase letters, numbers, underscores and hyphens. Used in your
-          profile URL.
-        </>
-      ),
+      description: undefined,
       label: "Username",
       name: "username",
-      onChangeValue: (value: string) => value.toLowerCase(),
+      onChangeValue: undefined,
       type: "text",
       validate: (value: string) => validateUsername(value.trim()),
     },
