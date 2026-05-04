@@ -7,6 +7,7 @@ import { db } from "../db"
 export const USERNAME_MAX_LEN = 24
 export const USERNAME_MIN_LEN = 1
 const USERNAME_DISALLOWED_RE = /[\p{Cc}\p{Cs}/\\]/u
+const USERNAME_DOT_SEGMENTS = new Set([".", ".."])
 const MAX_LEN = USERNAME_MAX_LEN
 const MIN_LEN = USERNAME_MIN_LEN
 const MAX_SUFFIX = 100
@@ -20,6 +21,9 @@ export function normalizeUsername(input: string): string {
   }
   if (USERNAME_DISALLOWED_RE.test(username)) {
     throw new Error("Username cannot contain slashes or control characters.")
+  }
+  if (USERNAME_DOT_SEGMENTS.has(username)) {
+    throw new Error("Username cannot be a path dot-segment.")
   }
   return username
 }
