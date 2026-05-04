@@ -138,6 +138,7 @@ export function ProfileCard({
   const [uploading, setUploading] = React.useState(false)
   const [cropFile, setCropFile] = React.useState<File | null>(null)
   const [cropMode, setCropMode] = React.useState<"avatar" | "banner">("avatar")
+  const [cropApplying, setCropApplying] = React.useState(false)
 
   const avatarInputRef = React.useRef<HTMLInputElement>(null)
   const bannerInputRef = React.useRef<HTMLInputElement>(null)
@@ -284,8 +285,9 @@ export function ProfileCard({
         mode={cropMode}
         open={!!cropFile}
         applying={uploading}
+        onApplyingChange={setCropApplying}
         onOpenChange={(open) => {
-          if (!open && !uploading) {
+          if (!open && !uploading && !cropApplying) {
             setCropFile(null)
           }
         }}
