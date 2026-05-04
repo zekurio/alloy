@@ -101,11 +101,11 @@ function metaProperty(property: string, content: string): string {
   return `<meta property="${property}" content="${htmlEscape(content)}" />`
 }
 
-async function visiblePublicClip(id: string): Promise<MetadataClip | null> {
+async function visiblePermalinkClip(id: string): Promise<MetadataClip | null> {
   const row = await selectClipById(id)
   if (!row) return null
   if (row.status !== "ready") return null
-  if (row.privacy !== "public") return null
+  if (row.privacy === "private") return null
 
   const [author] = await db
     .select({ disabledAt: user.disabledAt })
@@ -123,7 +123,7 @@ async function clipHead(pathname: string): Promise<string> {
   if (!clipId) return ""
 
   try {
-    const row = await visiblePublicClip(clipId)
+    const row = await visiblePermalinkClip(clipId)
     if (!row) return ""
 
     const origin = env.PUBLIC_SERVER_URL
