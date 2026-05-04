@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 
 import { user } from "@workspace/db/auth-schema"
 
@@ -90,7 +90,7 @@ async function isUsernameAvailable(candidate: string): Promise<boolean> {
   const rows = await db
     .select({ id: user.id })
     .from(user)
-    .where(eq(user.username, candidate))
+    .where(eq(sql`lower(${user.username})`, candidate.toLowerCase()))
     .limit(1)
   return rows.length === 0
 }
