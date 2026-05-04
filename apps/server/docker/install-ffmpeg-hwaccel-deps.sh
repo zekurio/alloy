@@ -63,6 +63,7 @@ apt-get install -y --no-install-recommends \
   ca-certificates \
   curl \
   gnupg \
+  imagemagick \
   libva-drm2 \
   libva2 \
   mesa-va-drivers \
