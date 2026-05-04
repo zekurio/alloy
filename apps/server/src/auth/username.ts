@@ -6,9 +6,23 @@ import { db } from "../db"
 
 export const USERNAME_MAX_LEN = 24
 export const USERNAME_MIN_LEN = 1
+const USERNAME_DISALLOWED_RE = /[\p{Cc}\p{Cs}/\\]/u
 const MAX_LEN = USERNAME_MAX_LEN
 const MIN_LEN = USERNAME_MIN_LEN
 const MAX_SUFFIX = 100
+
+export function normalizeUsername(input: string): string {
+  const username = input.trim()
+  if (username.length < MIN_LEN || username.length > MAX_LEN) {
+    throw new Error(
+      `Username must be between ${MIN_LEN} and ${MAX_LEN} characters.`
+    )
+  }
+  if (USERNAME_DISALLOWED_RE.test(username)) {
+    throw new Error("Username cannot contain slashes or control characters.")
+  }
+  return username
+}
 
 export function slugifyUsername(input: string): string {
   return (

@@ -25,21 +25,6 @@ const USER_ASSET_TARGETS = {
   banner: { width: 1500, height: 375 },
 } as const
 
-type BunImagePipeline = {
-  resize: (
-    width: number,
-    height: number,
-    options: { fit: "fill"; filter: "lanczos3" }
-  ) => BunImagePipeline
-  webp: (options: { quality: number }) => BunImagePipeline
-  buffer: () => Promise<Buffer>
-}
-
-type BunImageConstructor = new (
-  input: Buffer,
-  options: { autoOrient: boolean; maxPixels: number }
-) => BunImagePipeline
-
 const EXT_FOR_CONTENT_TYPE: Record<string, string> = {
   "image/jpeg": ".jpg",
   "image/png": ".png",
@@ -85,43 +70,46 @@ async function deleteOldAssets(
   )
 }
 
-async function resizeUserAsset(
-  bytes: Buffer,
-  role: "avatar" | "banner"
-): Promise<Buffer> {
-  const target = USER_ASSET_TARGETS[role]
-  const BunImage = (
-    globalThis.Bun as unknown as { Image?: BunImageConstructor }
-  ).Image
-
-  if (BunImage) {
-    return new BunImage(bytes, {
-      autoOrient: true,
-      maxPixels: 24_000_000,
-    })
-      .resize(target.width, target.height, {
-        fit: "fill",
-        filter: "lanczos3",
-      })
-      .webp({ quality: 88 })
-      .buffer()
-  }
-
-  const child = globalThis.Bun.spawn(
-    [
-      "magick",
+function imageMagickArgs(
+  target: (typeof USER_ASSET_TARGETS)["avatar" | "banner"]
+): string[] {
+  const magick = globalThis.Bun.which("magick")
+  if (magick) {
+    return [
+      magick,
       "-",
       "-auto-orient",
       "-resize",
       `${target.width}x${target.height}!`,
       "webp:-",
-    ],
-    {
-      stdin: "pipe",
-      stdout: "pipe",
-      stderr: "pipe",
-    }
-  )
+    ]
+  }
+
+  const convert = globalThis.Bun.which("convert")
+  if (convert) {
+    return [
+      convert,
+      "-",
+      "-auto-orient",
+      "-resize",
+      `${target.width}x${target.height}!`,
+      "webp:-",
+    ]
+  }
+
+  throw new Error("ImageMagick is not installed")
+}
+
+async function resizeUserAsset(
+  bytes: Buffer,
+  role: "avatar" | "banner"
+): Promise<Buffer> {
+  const target = USER_ASSET_TARGETS[role]
+  const child = globalThis.Bun.spawn(imageMagickArgs(target), {
+    stdin: "pipe",
+    stdout: "pipe",
+    stderr: "pipe",
+  })
   child.stdin.write(bytes)
   child.stdin.end()
   const [stdout, stderr, exitCode] = await Promise.all([
@@ -166,7 +154,8 @@ export const usersUploadRoute = new Hono<{
       let resized: Buffer
       try {
         resized = await resizeUserAsset(buf, "avatar")
-      } catch {
+      } catch (cause) {
+        console.error("Failed to process avatar upload", cause)
         return c.json({ error: "Could not process image" }, 400)
       }
 
@@ -215,7 +204,8 @@ export const usersUploadRoute = new Hono<{
       let resized: Buffer
       try {
         resized = await resizeUserAsset(buf, "banner")
-      } catch {
+      } catch (cause) {
+        console.error("Failed to process banner upload", cause)
         return c.json({ error: "Could not process image" }, 400)
       }
 
