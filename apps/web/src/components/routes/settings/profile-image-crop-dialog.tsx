@@ -11,6 +11,7 @@ import {
 } from "@workspace/ui/components/dialog"
 import { Button } from "@workspace/ui/components/button"
 import { Slider } from "@workspace/ui/components/slider"
+import { toast } from "@workspace/ui/lib/toast"
 import { cn } from "@workspace/ui/lib/utils"
 
 type CropMode = "avatar" | "banner"
@@ -63,6 +64,7 @@ export function ProfileImageCropDialog({
   open,
   applying,
   onApply,
+  onApplyingChange,
   onOpenChange,
 }: {
   file: File | null
@@ -70,6 +72,7 @@ export function ProfileImageCropDialog({
   open: boolean
   applying: boolean
   onApply: (blob: Blob) => Promise<void>
+  onApplyingChange?: (applying: boolean) => void
   onOpenChange: (open: boolean) => void
 }) {
   const config = CROP_CONFIG[mode]
@@ -97,6 +100,10 @@ export function ProfileImageCropDialog({
       getCropFrame(effectiveStageSize, config.aspect, mode, containedImageBox),
     [config.aspect, containedImageBox, effectiveStageSize, mode]
   )
+
+  React.useEffect(() => {
+    onApplyingChange?.(cropPending)
+  }, [cropPending, onApplyingChange])
 
   React.useEffect(() => {
     if (!file || !open) {
@@ -300,6 +307,16 @@ export function ProfileImageCropDialog({
     }
   }
 
+  async function handleApplyClick() {
+    try {
+      await handleApply()
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "Couldn't crop image"
+      )
+    }
+  }
+
   function updateStageSizeFromDom() {
     const nextStageSize = readElementSize(stageRef.current)
     if (nextStageSize) {
@@ -450,7 +467,7 @@ export function ProfileImageCropDialog({
             type="button"
             variant="primary"
             size="sm"
-            onClick={() => void handleApply()}
+            onClick={() => void handleApplyClick()}
             disabled={applyDisabled}
           >
             {applyDisabled && (applying || cropPending)
