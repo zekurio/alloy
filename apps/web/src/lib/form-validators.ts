@@ -2,7 +2,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u
 
 export const USERNAME_MIN_LEN = 1
 export const USERNAME_MAX_LEN = 24
-export const USERNAME_RE = /^[a-z0-9_-]+$/u
+export const USERNAME_DISALLOWED_RE = /[\p{Cc}\p{Cs}/\\]/u
 
 export function validateRequiredString(
   value: string,
@@ -36,8 +36,8 @@ export function validateUsername(value: string): string | undefined {
     return `Username can be at most ${USERNAME_MAX_LEN} characters`
   }
 
-  if (!USERNAME_RE.test(trimmed)) {
-    return "Only lowercase letters, numbers, underscores and hyphens"
+  if (USERNAME_DISALLOWED_RE.test(trimmed)) {
+    return "Username can't contain slashes or control characters"
   }
 
   return undefined

@@ -267,7 +267,7 @@ export function notificationText(row: NotificationRow): {
 
 export function notificationHref(row: NotificationRow): string | null {
   if (row.type === "new_follower" && row.actor) {
-    return `/u/${row.actor.username}`
+    return `/u/${encodeURIComponent(row.actor.username)}`
   }
   if (row.type === "new_video" && row.clip) {
     const slug = row.clip.gameSlug ?? row.clip.slug

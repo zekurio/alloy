@@ -33,7 +33,9 @@ export const ClipCardTrigger = React.memo(function ClipCardTrigger({
 
   const gameSlug = card.gameRef?.slug ?? null
   const gameHref = gameSlug ? `/g/${gameSlug}` : null
-  const authorHref = card.authorUsername ? `/u/${card.authorUsername}` : null
+  const authorHref = card.authorUsername
+    ? `/u/${encodeURIComponent(card.authorUsername)}`
+    : null
 
   const preloadClip = React.useCallback(() => {
     queryClient.setQueryData<ClipRow>(

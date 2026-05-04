@@ -118,7 +118,10 @@ export async function resolveTarget(segment: string): Promise<UserRow | null> {
     .select()
     .from(user)
     .where(
-      and(eq(user.username, segment.toLowerCase()), isNull(user.disabledAt))
+      and(
+        eq(sql`lower(${user.username})`, segment.toLowerCase()),
+        isNull(user.disabledAt)
+      )
     )
     .limit(1)
   return row ?? null
