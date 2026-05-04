@@ -28,13 +28,28 @@ const TABS: ReadonlyArray<Tab> = [
   { segment: "tagged", label: "Tagged", to: "/u/$username/tagged" },
 ]
 
+function decodePathSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment)
+  } catch {
+    return segment
+  }
+}
+
+function activeProfileSegment(pathname: string, username: string): TabSegment {
+  const match = /^\/u\/([^/]+)(?:\/([^/]+))?/.exec(pathname)
+  if (!match || decodePathSegment(match[1] ?? "") !== username) return "feed"
+  const segment = match[2]
+  return TABS.some((tab) => tab.segment === segment)
+    ? (segment as TabSegment)
+    : "feed"
+}
+
 export function ProfileTabsNav({ username, clipsCount }: ProfileTabsNavProps) {
   const { pathname } = useLocation()
-  const base = `/u/${username}`
   // `/u/:username` with no trailing segment defaults to feed (the index
   // route redirects there, but paint the right active state immediately).
-  const active =
-    TABS.find((t) => pathname === `${base}/${t.segment}`)?.segment ?? "feed"
+  const active = activeProfileSegment(pathname, username)
 
   return (
     <nav

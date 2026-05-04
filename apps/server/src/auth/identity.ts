@@ -1,4 +1,4 @@
-import { and, eq, ne } from "drizzle-orm"
+import { and, eq, ne, sql } from "drizzle-orm"
 
 import {
   authAccount,
@@ -12,9 +12,8 @@ import { db } from "../db"
 import { configStore } from "../config/store"
 import {
   generateUniqueUsername,
+  normalizeUsername,
   slugifyUsername,
-  USERNAME_MAX_LEN,
-  USERNAME_MIN_LEN,
 } from "./username"
 export {
   countUserPasskeys,
@@ -28,21 +27,21 @@ export function normalizeEmail(email: string): string {
 }
 
 export function validateUsername(value: string): string {
-  const username = value.trim().toLowerCase()
-  if (
-    username.length < USERNAME_MIN_LEN ||
-    username.length > USERNAME_MAX_LEN
-  ) {
-    throw new Error(
-      `Username must be between ${USERNAME_MIN_LEN} and ${USERNAME_MAX_LEN} characters.`
-    )
-  }
-  if (!/^[a-z0-9_-]+$/.test(username)) {
-    throw new Error(
-      "Username can only contain lowercase letters, numbers, underscores, and hyphens."
-    )
-  }
-  return username
+  return normalizeUsername(value)
+}
+
+async function assertUsernameAvailable(
+  username: string,
+  excludeUserId?: string
+): Promise<void> {
+  const conditions = [eq(sql`lower(${user.username})`, username.toLowerCase())]
+  if (excludeUserId) conditions.push(ne(user.id, excludeUserId))
+  const [existing] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(and(...conditions))
+    .limit(1)
+  if (existing) throw new Error("Username is already taken.")
 }
 
 type SignInMethodConfig = {
@@ -155,6 +154,7 @@ export async function createUserIdentity(input: {
   const username = input.username
     ? validateUsername(input.username)
     : await generateUniqueUsername({ email, name: input.name ?? email })
+  await assertUsernameAvailable(username)
   const values: NewUser = {
     email,
     emailVerified: true,
@@ -185,13 +185,15 @@ export async function createOrClaimSetupUser(input: {
   const existing = await findUserByEmail(email)
   if (existing) {
     const now = new Date()
+    const username = validateUsername(input.username)
+    await assertUsernameAvailable(username, existing.id)
     const [updated] = await db
       .update(user)
       .set({
         role: "admin",
         status: "active",
         disabledAt: null,
-        username: validateUsername(input.username),
+        username,
         name: existing.name || input.username,
         updatedAt: now,
       })
@@ -260,14 +262,7 @@ export async function updateUserIdentity(
   if (input.name !== undefined) patch.name = input.name.trim()
   if (input.username !== undefined) {
     const username = validateUsername(input.username)
-    const [existing] = await db
-      .select({ id: user.id })
-      .from(user)
-      .where(eq(user.username, username))
-      .limit(1)
-    if (existing && existing.id !== userId) {
-      throw new Error("Username is already taken.")
-    }
+    await assertUsernameAvailable(username, userId)
     patch.username = username
   }
   const [updated] = await db

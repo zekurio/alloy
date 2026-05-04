@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm"
 import {
   bigint,
   boolean,
@@ -16,22 +17,28 @@ export type UserRole = (typeof USER_ROLES)[number]
 export const USER_STATUSES = ["active", "disabled"] as const
 export type UserStatus = (typeof USER_STATUSES)[number]
 
-export const user = pgTable("user", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  email: text("email").notNull().unique(),
-  emailVerified: boolean("email_verified").notNull().default(false),
-  username: text("username").notNull().unique(),
-  displayUsername: text("display_username").notNull().default(""),
-  name: text("name").notNull().default(""),
-  image: text("image"),
-  banner: text("banner"),
-  role: text("role").$type<UserRole>().notNull().default("user"),
-  status: text("status").$type<UserStatus>().notNull().default("active"),
-  disabledAt: timestamp("disabled_at"),
-  storageQuotaBytes: bigint("storage_quota_bytes", { mode: "number" }),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-})
+export const user = pgTable(
+  "user",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull().unique(),
+    emailVerified: boolean("email_verified").notNull().default(false),
+    username: text("username").notNull(),
+    displayUsername: text("display_username").notNull().default(""),
+    name: text("name").notNull().default(""),
+    image: text("image"),
+    banner: text("banner"),
+    role: text("role").$type<UserRole>().notNull().default("user"),
+    status: text("status").$type<UserStatus>().notNull().default("active"),
+    disabledAt: timestamp("disabled_at"),
+    storageQuotaBytes: bigint("storage_quota_bytes", { mode: "number" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("user_username_lower_unique").on(sql`lower(${t.username})`),
+  ]
+)
 
 export const authSession = pgTable("auth_session", {
   id: uuid("id").primaryKey().defaultRandom(),
