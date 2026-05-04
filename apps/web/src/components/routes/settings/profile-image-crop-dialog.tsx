@@ -38,6 +38,7 @@ const CROP_CONFIG: Record<CropMode, CropConfig> = {
 }
 
 const PAN_AXIS_EPSILON_PX = 0.5
+const DEFAULT_PREVIEW_ZOOM = 1
 
 type LoadedImage = {
   height: number
@@ -79,31 +80,36 @@ export function ProfileImageCropDialog({
   const [stageSize, setStageSize] = React.useState({ height: 0, width: 0 })
   const [offset, setOffset] = React.useState<Point>({ x: 0, y: 0 })
   const [zoom, setZoom] = React.useState(1)
+  const [cropPending, setCropPending] = React.useState(false)
   const stageReady = stageSize.width > 0 && stageSize.height > 0
   const cropReady = !!loadedImage && stageReady
+  const controlsDisabled = !cropReady || applying || cropPending
   const effectiveStageSize = React.useMemo(
     () => (stageReady ? stageSize : fallbackStageSize(mode)),
     [mode, stageSize]
   )
+  const containedImageBox = React.useMemo(() => {
+    if (!loadedImage) return null
+    return getImageBox(loadedImage, effectiveStageSize, 1)
+  }, [effectiveStageSize, loadedImage])
   const cropFrame = React.useMemo(
-    () => getCropFrame(effectiveStageSize, config.aspect, mode),
-    [config.aspect, effectiveStageSize, mode]
+    () =>
+      getCropFrame(effectiveStageSize, config.aspect, mode, containedImageBox),
+    [config.aspect, containedImageBox, effectiveStageSize, mode]
   )
-  const minZoom = loadedImage
-    ? getMinZoom(loadedImage, effectiveStageSize, cropFrame)
-    : 1
-  const renderedZoom = minZoom * zoom
 
   React.useEffect(() => {
     if (!file || !open) {
       setLoadedImage(null)
       setStageSize({ height: 0, width: 0 })
+      setCropPending(false)
       return
     }
 
     let active = true
     setLoadedImage(null)
     setStageSize({ height: 0, width: 0 })
+    setCropPending(false)
 
     const load = async () => {
       const [src, dimensions] = await Promise.all([
@@ -119,7 +125,7 @@ export function ProfileImageCropDialog({
         width: dimensions.width,
       })
       setOffset({ x: 0, y: 0 })
-      setZoom(1)
+      setZoom(DEFAULT_PREVIEW_ZOOM)
     }
 
     load().catch(() => {
@@ -166,8 +172,8 @@ export function ProfileImageCropDialog({
       return null
     }
 
-    return getImageBox(loadedImage, effectiveStageSize, renderedZoom)
-  }, [effectiveStageSize, loadedImage, renderedZoom])
+    return getImageBox(loadedImage, effectiveStageSize, zoom)
+  }, [effectiveStageSize, loadedImage, zoom])
 
   const clampOffset = React.useCallback(
     (next: Point) => {
@@ -202,12 +208,17 @@ export function ProfileImageCropDialog({
     if (!drag || drag.pointerId !== event.pointerId) return
 
     const liveStageSize = updateStageSizeFromDom() ?? effectiveStageSize
-    const liveCropFrame = getCropFrame(liveStageSize, config.aspect, mode)
-    const liveMinZoom = loadedImage
-      ? getMinZoom(loadedImage, liveStageSize, liveCropFrame)
-      : 1
+    const liveContainedImageBox = loadedImage
+      ? getImageBox(loadedImage, liveStageSize, 1)
+      : null
+    const liveCropFrame = getCropFrame(
+      liveStageSize,
+      config.aspect,
+      mode,
+      liveContainedImageBox
+    )
     const liveImageBox = loadedImage
-      ? getImageBox(loadedImage, liveStageSize, liveMinZoom * zoom)
+      ? getImageBox(loadedImage, liveStageSize, zoom)
       : null
     setOffset(
       clampImageOffset(
@@ -232,59 +243,61 @@ export function ProfileImageCropDialog({
   }
 
   async function handleApply() {
-    if (!file || !cropReady) return
+    if (!file || !cropReady || cropPending) return
 
-    const image = await loadImage(loadedImage.src)
-    const renderedStageSize = readElementSize(stageRef.current) ?? stageSize
-    if (renderedStageSize.width <= 0 || renderedStageSize.height <= 0) return
+    setCropPending(true)
+    try {
+      const image = await loadImage(loadedImage.src)
+      const renderedStageSize = readElementSize(stageRef.current) ?? stageSize
+      if (renderedStageSize.width <= 0 || renderedStageSize.height <= 0) return
 
-    const renderedCropFrame = getCropFrame(
-      renderedStageSize,
-      config.aspect,
-      mode
-    )
-    const renderedMinZoom = getMinZoom(
-      loadedImage,
-      renderedStageSize,
-      renderedCropFrame
-    )
-    const renderedImageBox = getImageBox(
-      loadedImage,
-      renderedStageSize,
-      renderedMinZoom * zoom
-    )
-    const imageLeft =
-      (renderedStageSize.width - renderedImageBox.width) / 2 + offset.x
-    const imageTop =
-      (renderedStageSize.height - renderedImageBox.height) / 2 + offset.y
-    const cropLeft = renderedCropFrame.x - imageLeft
-    const cropTop = renderedCropFrame.y - imageTop
-    const scaleX = image.naturalWidth / renderedImageBox.width
-    const scaleY = image.naturalHeight / renderedImageBox.height
+      const renderedContainedImageBox = getImageBox(
+        loadedImage,
+        renderedStageSize,
+        1
+      )
+      const renderedCropFrame = getCropFrame(
+        renderedStageSize,
+        config.aspect,
+        mode,
+        renderedContainedImageBox
+      )
+      const renderedImageBox = getImageBox(loadedImage, renderedStageSize, zoom)
+      const imageLeft =
+        (renderedStageSize.width - renderedImageBox.width) / 2 + offset.x
+      const imageTop =
+        (renderedStageSize.height - renderedImageBox.height) / 2 + offset.y
+      const cropLeft = renderedCropFrame.x - imageLeft
+      const cropTop = renderedCropFrame.y - imageTop
+      const scaleX = image.naturalWidth / renderedImageBox.width
+      const scaleY = image.naturalHeight / renderedImageBox.height
 
-    const canvas = document.createElement("canvas")
-    canvas.width = config.outputWidth
-    canvas.height = config.outputHeight
+      const canvas = document.createElement("canvas")
+      canvas.width = config.outputWidth
+      canvas.height = config.outputHeight
 
-    const context = canvas.getContext("2d")
-    if (!context) throw new Error("Image cropping is not supported")
+      const context = canvas.getContext("2d")
+      if (!context) throw new Error("Image cropping is not supported")
 
-    context.imageSmoothingEnabled = true
-    context.imageSmoothingQuality = "high"
-    context.drawImage(
-      image,
-      cropLeft * scaleX,
-      cropTop * scaleY,
-      renderedCropFrame.width * scaleX,
-      renderedCropFrame.height * scaleY,
-      0,
-      0,
-      config.outputWidth,
-      config.outputHeight
-    )
+      context.imageSmoothingEnabled = true
+      context.imageSmoothingQuality = "high"
+      context.drawImage(
+        image,
+        cropLeft * scaleX,
+        cropTop * scaleY,
+        renderedCropFrame.width * scaleX,
+        renderedCropFrame.height * scaleY,
+        0,
+        0,
+        config.outputWidth,
+        config.outputHeight
+      )
 
-    const blob = await canvasToBlob(canvas, preferredOutputType(file.type))
-    await onApply(blob)
+      const blob = await canvasToBlob(canvas, preferredOutputType(file.type))
+      await onApply(blob)
+    } finally {
+      setCropPending(false)
+    }
   }
 
   function updateStageSizeFromDom() {
@@ -309,12 +322,17 @@ export function ProfileImageCropDialog({
     const nextZoom = Array.isArray(value) ? (value[0] ?? 1) : value
     const liveStageSize =
       readElementSize(stageRef.current) ?? effectiveStageSize
-    const liveCropFrame = getCropFrame(liveStageSize, config.aspect, mode)
-    const liveMinZoom = loadedImage
-      ? getMinZoom(loadedImage, liveStageSize, liveCropFrame)
-      : 1
+    const liveContainedImageBox = loadedImage
+      ? getImageBox(loadedImage, liveStageSize, 1)
+      : null
+    const liveCropFrame = getCropFrame(
+      liveStageSize,
+      config.aspect,
+      mode,
+      liveContainedImageBox
+    )
     const liveImageBox = loadedImage
-      ? getImageBox(loadedImage, liveStageSize, liveMinZoom * nextZoom)
+      ? getImageBox(loadedImage, liveStageSize, nextZoom)
       : null
 
     setZoom(nextZoom)
@@ -327,6 +345,11 @@ export function ProfileImageCropDialog({
     cropReady && imageBox
       ? getImagePlacement(effectiveStageSize, imageBox, offset)
       : null
+  const cropCovered =
+    cropReady && imagePlacement
+      ? isCropCovered(cropFrame, imagePlacement)
+      : false
+  const applyDisabled = !cropCovered || applying || cropPending
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -407,7 +430,7 @@ export function ProfileImageCropDialog({
               step={0.01}
               value={zoom}
               onValueChange={handleZoomChange}
-              disabled={!cropReady || applying}
+              disabled={controlsDisabled}
             />
             <Plus className="size-4 shrink-0 text-foreground-faint" />
           </div>
@@ -419,7 +442,7 @@ export function ProfileImageCropDialog({
             variant="secondary"
             size="sm"
             onClick={() => onOpenChange(false)}
-            disabled={applying}
+            disabled={applying || cropPending}
           >
             Cancel
           </Button>
@@ -428,9 +451,11 @@ export function ProfileImageCropDialog({
             variant="primary"
             size="sm"
             onClick={() => void handleApply()}
-            disabled={!cropReady || applying}
+            disabled={applyDisabled}
           >
-            {applying ? "Applying..." : "Apply"}
+            {applyDisabled && (applying || cropPending)
+              ? "Applying..."
+              : "Apply"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -507,19 +532,6 @@ function getImagePlacement(
   }
 }
 
-function getMinZoom(
-  image: Pick<LoadedImage, "height" | "width">,
-  stage: { height: number; width: number },
-  cropFrame: CropFrame
-) {
-  const baseImageBox = getImageBox(image, stage, 1)
-  return Math.max(
-    1,
-    cropFrame.width / baseImageBox.width,
-    cropFrame.height / baseImageBox.height
-  )
-}
-
 type CropFrame = {
   height: number
   stageHeight: number
@@ -532,11 +544,21 @@ type CropFrame = {
 function getCropFrame(
   stage: { height: number; width: number },
   aspect: number,
-  mode: CropMode
+  mode: CropMode,
+  containedImageBox: { height: number; width: number } | null
 ): CropFrame {
-  const maxWidth = mode === "avatar" ? stage.height * 0.78 : stage.width
-  const maxHeight =
+  const preferredMaxWidth =
+    mode === "avatar" ? stage.height * 0.78 : stage.width
+  const preferredMaxHeight =
     mode === "avatar" ? stage.height * 0.78 : stage.height * 0.54
+  const maxWidth = Math.min(
+    preferredMaxWidth,
+    containedImageBox?.width ?? preferredMaxWidth
+  )
+  const maxHeight = Math.min(
+    preferredMaxHeight,
+    containedImageBox?.height ?? preferredMaxHeight
+  )
   let width = Math.min(stage.width, maxWidth)
   let height = width / aspect
 
@@ -553,6 +575,23 @@ function getCropFrame(
     x: (stage.width - width) / 2,
     y: (stage.height - height) / 2,
   }
+}
+
+function isCropCovered(
+  cropFrame: CropFrame,
+  image: { height: number; left: number; top: number; width: number }
+) {
+  const imageRight = image.left + image.width
+  const imageBottom = image.top + image.height
+  const cropRight = cropFrame.x + cropFrame.width
+  const cropBottom = cropFrame.y + cropFrame.height
+
+  return (
+    image.left <= cropFrame.x &&
+    image.top <= cropFrame.y &&
+    imageRight >= cropRight &&
+    imageBottom >= cropBottom
+  )
 }
 
 function readElementSize(node: HTMLElement | null) {
