@@ -94,9 +94,7 @@ export function SeedUserDialog({
                     id={field.name}
                     value={field.state.value}
                     onBlur={field.handleBlur}
-                    onChange={(e) =>
-                      field.handleChange(e.target.value.toLowerCase())
-                    }
+                    onChange={(e) => field.handleChange(e.target.value)}
                     autoComplete="off"
                     autoCapitalize="none"
                     autoCorrect="off"
@@ -108,7 +106,7 @@ export function SeedUserDialog({
                     }
                   />
                   <FieldDescription>
-                    Used to sign in. Lowercase letters, numbers, `_` and `-`.
+                    Used to sign in. Slashes are not allowed.
                   </FieldDescription>
                   <FieldError
                     id={`${field.name}-error`}
