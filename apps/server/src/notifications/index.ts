@@ -79,7 +79,10 @@ function serialize(row: {
   commentId: string | null
   commentBody: string | null
 }): NotificationRow {
-  const canExposeClip = row.type !== "new_video" || row.clipPrivacy === "public"
+  const canExposeClip =
+    row.type !== "new_video" ||
+    row.clipPrivacy === "public" ||
+    row.clipPrivacy === "unlisted"
   return {
     id: row.id,
     type: row.type,
