@@ -46,6 +46,7 @@ import {
   MediaDropdownContent,
   MediaEditOverlay,
 } from "./profile-media-controls"
+import { ProfileImageCropDialog } from "./profile-image-crop-dialog"
 import { ProfileTextField } from "./profile-text-field"
 
 import { userKeys } from "@/lib/user-queries"
@@ -135,6 +136,9 @@ export function ProfileCard({
   }, [banner])
 
   const [uploading, setUploading] = React.useState(false)
+  const [cropFile, setCropFile] = React.useState<File | null>(null)
+  const [cropMode, setCropMode] = React.useState<"avatar" | "banner">("avatar")
+  const [cropApplying, setCropApplying] = React.useState(false)
 
   const avatarInputRef = React.useRef<HTMLInputElement>(null)
   const bannerInputRef = React.useRef<HTMLInputElement>(null)
@@ -166,10 +170,14 @@ export function ProfileCard({
     if (!file) return
     // Reset the input so the same file can be re-selected.
     e.target.value = ""
-    void handleImageUpload(file, mode)
+    setCropMode(mode)
+    setCropFile(file)
   }
 
-  async function handleImageUpload(blob: Blob, mode: "avatar" | "banner") {
+  async function handleImageUpload(
+    blob: Blob,
+    mode: "avatar" | "banner"
+  ): Promise<boolean> {
     setUploading(true)
     try {
       let nextUser: Awaited<ReturnType<typeof api.users.uploadAvatar>>
@@ -182,8 +190,10 @@ export function ProfileCard({
       }
       toast.success(mode === "avatar" ? "Avatar updated" : "Banner updated")
       await refreshProfile()
+      return true
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "Upload failed")
+      return false
     } finally {
       setUploading(false)
     }
@@ -270,6 +280,24 @@ export function ProfileCard({
   return (
     <>
       {fileInputs}
+      <ProfileImageCropDialog
+        file={cropFile}
+        mode={cropMode}
+        open={!!cropFile}
+        applying={uploading}
+        onApplyingChange={setCropApplying}
+        onOpenChange={(open) => {
+          if (!open && !uploading && !cropApplying) {
+            setCropFile(null)
+          }
+        }}
+        onApply={async (blob) => {
+          const uploaded = await handleImageUpload(blob, cropMode)
+          if (uploaded) {
+            setCropFile(null)
+          }
+        }}
+      />
 
       <form
         onSubmit={(e) => {
