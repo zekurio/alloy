@@ -1,3 +1,5 @@
+import { isIP } from "node:net"
+
 import { z } from "zod"
 
 // Deploy-time env only. Anything an admin should be able to change at
@@ -32,16 +34,9 @@ function normalizeTrustedOrigins(value: string): string[] {
 }
 
 function isLoopbackHostname(hostname: string): boolean {
-  const ipv4Octets = hostname.split(".")
-  const isIpv4Loopback =
-    ipv4Octets.length === 4 &&
-    ipv4Octets.every((octet) => /^\d+$/.test(octet)) &&
-    ipv4Octets.map(Number).every((octet) => octet >= 0 && octet <= 255) &&
-    Number(ipv4Octets[0]) === 127
-
   return (
     hostname === "localhost" ||
-    isIpv4Loopback ||
+    (isIP(hostname) === 4 && hostname.startsWith("127.")) ||
     hostname === "[::1]" ||
     hostname === "::1" ||
     hostname.endsWith(".localhost")
