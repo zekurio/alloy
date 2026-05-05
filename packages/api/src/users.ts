@@ -270,7 +270,7 @@ async function reactivateAccount(
 }
 
 function downloadAllClipsUrl(context: ApiContext): string {
-  return new URL("/api/users/me/clips/download", context.baseURL).toString()
+  return new URL("/api/users/me/clips/download", context.publicURL).toString()
 }
 
 async function deleteAllClips(

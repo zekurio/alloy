@@ -6,7 +6,11 @@ import { user } from "@workspace/db/auth-schema"
 import { clip, game } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { clipSelectShape, selectClipById } from "../clips/select"
+import {
+  clipSelectShape,
+  selectClipById,
+  toPublicClipRow,
+} from "../clips/select"
 import { selectQueueRowsForAuthor } from "../clips/queue-select"
 import { requireSession } from "../auth/require-session"
 import { clipCommentsRoutes } from "./clip-comments"
@@ -48,7 +52,7 @@ export const clips = new Hono()
       .where(and(...conditions))
       .orderBy(...orderBy)
       .limit(limit)
-    return c.json(rows)
+    return c.json(rows.map(toPublicClipRow))
   })
 
   .get("/queue", requireSession, async (c) => {
@@ -85,7 +89,7 @@ export const clips = new Hono()
     if (row.status !== "ready" && !isOwner && !isAdmin) {
       return c.json({ error: "Not found" }, 404)
     }
-    return c.json(row)
+    return c.json(toPublicClipRow(row))
   })
 
   .route("/", clipsUploadRoutes)

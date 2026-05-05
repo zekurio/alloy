@@ -12,6 +12,7 @@ import type {
   AdminUsersResponse,
 } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
+import { validateAdminRuntimeConfig } from "./contract-validators"
 
 export {
   ENCODER_CODECS,
@@ -64,7 +65,7 @@ async function fetchRuntimeConfig(
   context: ApiContext
 ): Promise<AdminRuntimeConfig> {
   const res = await context.request("/api/admin/runtime-config")
-  return readJsonOrThrow<AdminRuntimeConfig>(res)
+  return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
 async function updateRuntimeConfig(
@@ -75,7 +76,7 @@ async function updateRuntimeConfig(
     method: "PATCH",
     json: input,
   })
-  return readJsonOrThrow<AdminRuntimeConfig>(res)
+  return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
 async function reloadRuntimeConfig(
@@ -84,7 +85,7 @@ async function reloadRuntimeConfig(
   const res = await context.request("/api/admin/runtime-config/reload", {
     method: "POST",
   })
-  return readJsonOrThrow<AdminRuntimeConfig>(res)
+  return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
 async function exportRuntimeConfig(context: ApiContext): Promise<unknown> {
@@ -100,7 +101,7 @@ async function importRuntimeConfig(
     method: "PUT",
     json: config,
   })
-  return readJsonOrThrow<AdminRuntimeConfig>(res)
+  return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
 async function saveOAuthConfig(
@@ -113,7 +114,7 @@ async function saveOAuthConfig(
       oauthProvider: input.oauthProvider ? { ...input.oauthProvider } : null,
     },
   })
-  return readJsonOrThrow<AdminRuntimeConfig>(res)
+  return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
 async function patchRuntimeSection<T>(
@@ -125,7 +126,7 @@ async function patchRuntimeSection<T>(
     method: "PATCH",
     json: patch,
   })
-  return readJsonOrThrow<AdminRuntimeConfig>(res)
+  return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
 async function fetchEncoderCapabilities(
@@ -151,7 +152,7 @@ async function regenerateLoginSplash(
     "/api/admin/appearance/login-splash/regenerate",
     { method: "POST" }
   )
-  return readJsonOrThrow<AdminRuntimeConfig>(res)
+  return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
 async function fetchUsers(context: ApiContext): Promise<AdminUsersResponse> {

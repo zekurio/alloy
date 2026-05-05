@@ -78,7 +78,33 @@ The dev scripts provide the local server URL and trusted origin defaults.
 
 ## Deployment
 
-WIP
+Build the packaged web app and server bundle:
+
+```bash
+bun run build:prod
+```
+
+Run the bundled server with production migrations enabled:
+
+```bash
+NODE_ENV=production \
+DATABASE_URL=postgres://... \
+PUBLIC_SERVER_URL=https://alloy.example.com \
+TRUSTED_ORIGINS=https://alloy.example.com \
+bun run start:prod
+```
+
+`PUBLIC_SERVER_URL` must be the externally reachable origin in production.
+Startup rejects localhost or loopback values so OAuth callbacks, WebAuthn,
+generated media URLs, CORS, and secure cookies use the deployment host.
+
+For Docker deployments, mount persistent storage for runtime config and encoder
+scratch data:
+
+```bash
+-v alloy-config:/var/lib/alloy
+-v alloy-encode:/var/cache/alloy
+```
 
 ## Contributing
 

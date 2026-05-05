@@ -10,6 +10,7 @@ import type {
   QueueClip,
 } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
+import { validateClipRow, validateClipRows } from "./contract-validators"
 
 export { ACCEPTED_CLIP_CONTENT_TYPES } from "@workspace/contracts"
 export type {
@@ -37,12 +38,16 @@ function withOrigin(path: string, origin?: string): string {
   return new URL(path, origin).toString()
 }
 
+function publicClipPath(clipId: string, suffix: string): string {
+  return `/api/clips/${encodeURIComponent(clipId)}${suffix}`
+}
+
 export function clipStreamUrl(
   clipId: string,
   variantId?: string,
   origin?: string
 ): string {
-  const path = `/api/clips/${clipId}/stream`
+  const path = publicClipPath(clipId, "/stream")
   if (!variantId) return withOrigin(path, origin)
 
   const search = new URLSearchParams({ variant: variantId }).toString()
@@ -50,7 +55,7 @@ export function clipStreamUrl(
 }
 
 export function clipThumbnailUrl(clipId: string, origin?: string): string {
-  return withOrigin(`/api/clips/${clipId}/thumbnail`, origin)
+  return withOrigin(publicClipPath(clipId, "/thumbnail"), origin)
 }
 
 export function clipDownloadUrl(
@@ -59,7 +64,7 @@ export function clipDownloadUrl(
   origin?: string
 ): string {
   const search = new URLSearchParams({ variant: variantId }).toString()
-  return withOrigin(`/api/clips/${clipId}/download?${search}`, origin)
+  return withOrigin(`${publicClipPath(clipId, "/download")}?${search}`, origin)
 }
 
 export function uploadToTicket(
@@ -156,7 +161,7 @@ async function fetchClips(
   if (params.cursor) query.cursor = params.cursor
 
   const res = await context.request("/api/clips", { query })
-  return readJsonOrThrow<ClipRow[]>(res)
+  return readJsonOrThrow(res, validateClipRows)
 }
 
 async function fetchUploadQueue(context: ApiContext): Promise<QueueClip[]> {
@@ -170,7 +175,7 @@ async function fetchClipById(
   init?: RequestInit
 ): Promise<ClipRow> {
   const res = await context.request(clipPath(clipId), { init })
-  return readJsonOrThrow<ClipRow>(res)
+  return readJsonOrThrow(res, validateClipRow)
 }
 
 async function initiateClip(
@@ -191,7 +196,7 @@ async function finalizeClip(
   const res = await context.request(clipPath(clipId, "/finalize"), {
     method: "POST",
   })
-  return readJsonOrThrow<ClipRow>(res)
+  return readJsonOrThrow(res, validateClipRow)
 }
 
 async function markUploadFailed(
@@ -218,7 +223,7 @@ async function updateClip(
     method: "PATCH",
     json: input,
   })
-  return readJsonOrThrow<ClipRow>(res)
+  return readJsonOrThrow(res, validateClipRow)
 }
 
 async function fetchLikeState(

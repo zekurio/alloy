@@ -1,8 +1,11 @@
 import { Hono } from "hono"
 import { cors } from "hono/cors"
+import { createMiddleware } from "hono/factory"
 import { logger } from "hono/logger"
 
 import { env } from "./env"
+import { configStore } from "./config/store"
+import { getSession } from "./auth/session"
 import { adminRoute } from "./routes/admin"
 import { authRoute } from "./routes/auth"
 import { authConfigRoute } from "./routes/auth-config"
@@ -19,6 +22,39 @@ import { usersUploadRoute, userAssetsRoute } from "./routes/users-upload"
 import { storageRoute } from "./storage/fs-upload-route"
 import { mountWeb } from "./web"
 
+const BROWSE_API_PREFIXES = [
+  "/api/clips",
+  "/api/feed",
+  "/api/games",
+  "/api/search",
+  "/api/users/search",
+] as const
+
+const BROWSE_API_PATTERNS = [/^\/api\/users\/(?!me(?:\/|$))[^/]+(?:\/.*)?$/]
+
+const requireAuthToBrowse = createMiddleware(async (c, next) => {
+  if (!configStore.get("requireAuthToBrowse")) {
+    await next()
+    return
+  }
+
+  const path = c.req.path
+  const isBrowseRequest =
+    BROWSE_API_PREFIXES.some((prefix) => path.startsWith(prefix)) ||
+    BROWSE_API_PATTERNS.some((pattern) => pattern.test(path))
+  if (!isBrowseRequest) {
+    await next()
+    return
+  }
+
+  const session = await getSession(c)
+  if (!session || session.user.status !== "active") {
+    return c.json({ error: "Unauthorized" }, 401)
+  }
+
+  await next()
+})
+
 // Chain the route calls so the inferred type includes every route — the
 // @workspace/api package consumes `AppType` via hono/client for RPC.
 const apiApp = new Hono()
@@ -31,6 +67,7 @@ const apiApp = new Hono()
     })
   )
   .use("/api/*", csrf)
+  .use("/api/*", requireAuthToBrowse)
   .get("/health", (c) => c.json({ status: "ok" }))
   .route("/api/auth", authRoute)
   .route("/api/auth-config", authConfigRoute)

@@ -49,7 +49,6 @@ export interface ClipRow {
   game: string | null
   gameId: string
   privacy: ClipPrivacy
-  storageKey: string
   contentType: string
   sizeBytes: number | null
   durationMs: number | null

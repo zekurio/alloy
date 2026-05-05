@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm"
 import {
   bigint,
+  check,
   foreignKey,
   index,
   integer,
@@ -13,10 +14,19 @@ import {
   uuid,
 } from "drizzle-orm/pg-core"
 
+import {
+  CLIP_PRIVACY,
+  CLIP_STATUS,
+  NOTIFICATION_TYPES,
+  UPLOAD_TICKET_ROLE,
+  type ClipPrivacy,
+  type ClipStatus,
+  type NotificationType,
+  type UploadTicketRole,
+} from "@workspace/contracts"
 import { user } from "./auth-schema"
 
-export const CLIP_PRIVACY = ["public", "unlisted", "private"] as const
-export type ClipPrivacy = (typeof CLIP_PRIVACY)[number]
+export { CLIP_PRIVACY, CLIP_STATUS, NOTIFICATION_TYPES, UPLOAD_TICKET_ROLE }
 
 export interface ClipVariantSettings {
   hwaccel: string
@@ -52,29 +62,6 @@ export interface ClipEncodedVariant {
     trimEndMs: number | null
   }
 }
-
-export const CLIP_STATUS = [
-  "pending",
-  "uploaded",
-  "encoding",
-  "ready",
-  "failed",
-] as const
-export type ClipStatus = (typeof CLIP_STATUS)[number]
-
-export const UPLOAD_TICKET_ROLE = ["video", "thumbnail"] as const
-export type UploadTicketRole = (typeof UPLOAD_TICKET_ROLE)[number]
-
-export const NOTIFICATION_TYPES = [
-  "clip_upload_failed",
-  "new_follower",
-  "clip_comment",
-  "comment_reply",
-  "comment_pinned",
-  "comment_liked_by_author",
-  "new_video",
-] as const
-export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 
 export const game = pgTable(
   "game",
@@ -166,6 +153,18 @@ export const clip = pgTable(
     index("clip_privacy_created_idx").on(t.privacy, t.createdAt),
     index("clip_status_idx").on(t.status),
     index("clip_game_created_idx").on(t.gameId, t.createdAt),
+    check(
+      "clip_privacy_check",
+      sql`${t.privacy} in ('public', 'unlisted', 'private')`
+    ),
+    check(
+      "clip_status_check",
+      sql`${t.status} in ('pending', 'uploaded', 'encoding', 'ready', 'failed')`
+    ),
+    check(
+      "clip_size_bytes_safe_check",
+      sql`${t.sizeBytes} is null or (${t.sizeBytes} >= 0 and ${t.sizeBytes} <= 9007199254740991)`
+    ),
   ]
 )
 
@@ -188,6 +187,14 @@ export const clipUploadTicket = pgTable(
     index("clip_upload_ticket_clip_idx").on(t.clipId),
     index("clip_upload_ticket_expires_idx").on(t.expiresAt),
     index("clip_upload_ticket_used_idx").on(t.usedAt),
+    check(
+      "clip_upload_ticket_role_check",
+      sql`${t.role} in ('video', 'thumbnail')`
+    ),
+    check(
+      "clip_upload_ticket_expected_bytes_safe_check",
+      sql`${t.expectedBytes} > 0 and ${t.expectedBytes} <= 9007199254740991`
+    ),
   ]
 )
 
@@ -380,6 +387,10 @@ export const notification = pgTable(
     index("notification_recipient_unread_idx")
       .on(t.recipientId, t.createdAt)
       .where(sql`${t.readAt} IS NULL`),
+    check(
+      "notification_type_check",
+      sql`${t.type} in ('clip_upload_failed', 'new_follower', 'clip_comment', 'comment_reply', 'comment_pinned', 'comment_liked_by_author', 'new_video')`
+    ),
   ]
 )
 

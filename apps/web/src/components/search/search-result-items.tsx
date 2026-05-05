@@ -40,11 +40,13 @@ export function GroupLabel({
 }
 
 function RowButton({
+  id,
   active,
   onHover,
   onSelect,
   children,
 }: {
+  id: string
   active: boolean
   onHover: () => void
   onSelect: () => void
@@ -52,6 +54,7 @@ function RowButton({
 }) {
   return (
     <button
+      id={id}
       type="button"
       role="option"
       aria-selected={active}
@@ -73,11 +76,13 @@ function RowButton({
 }
 
 export function ClipRowItem({
+  id,
   row,
   active,
   onHover,
   onSelect,
 }: {
+  id: string
   row: ClipRow
   active: boolean
   onHover: () => void
@@ -86,7 +91,7 @@ export function ClipRowItem({
   const thumb = row.thumbKey ? clipThumbnailUrl(row.id, apiOrigin()) : null
   const label = clipGameLabel(row)
   return (
-    <RowButton active={active} onHover={onHover} onSelect={onSelect}>
+    <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>
       <div className="relative aspect-video w-16 shrink-0 overflow-hidden rounded-sm bg-surface-sunken">
         {thumb ? (
           <img
@@ -119,18 +124,20 @@ export function ClipRowItem({
 }
 
 export function GameRowItem({
+  id,
   row,
   active,
   onHover,
   onSelect,
 }: {
+  id: string
   row: GameListRow
   active: boolean
   onHover: () => void
   onSelect: () => void
 }) {
   return (
-    <RowButton active={active} onHover={onHover} onSelect={onSelect}>
+    <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>
       <div className="relative aspect-video w-16 shrink-0 overflow-hidden rounded-sm bg-surface-sunken">
         {row.heroUrl ? (
           <img
@@ -161,11 +168,13 @@ export function GameRowItem({
 }
 
 export function UserRowItem({
+  id,
   row,
   active,
   onHover,
   onSelect,
 }: {
+  id: string
   row: UserListRow
   active: boolean
   onHover: () => void
@@ -174,7 +183,7 @@ export function UserRowItem({
   const chip = userChipData(row)
   const handle = row.displayUsername || row.username
   return (
-    <RowButton active={active} onHover={onHover} onSelect={onSelect}>
+    <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>
       <Avatar size="lg" className="rounded-[3px]">
         {chip.avatar.src ? <AvatarImage src={chip.avatar.src} alt="" /> : null}
         <AvatarFallback

@@ -8,8 +8,11 @@
   },
   "scripts": {
     "dev": "NODE_ENV=development PORT=3000 PUBLIC_SERVER_URL=http://localhost:3000 TRUSTED_ORIGINS=http://localhost:5173 bun --watch src/index.ts",
-    "start": "bun src/index.ts",
-    "build": "tsgo --noEmit",
+    "start": "bun run start:prod",
+    "start:dev": "bun run dev",
+    "start:preview": "NODE_ENV=development bun src/index.ts",
+    "start:prod": "NODE_ENV=production bun dist/index.js",
+    "build": "tsgo --noEmit && bun build src/index.ts --target=bun --outdir=dist --sourcemap=none",
     "build:bundle": "bun build src/index.ts --target=bun --outdir=dist --sourcemap=none",
     "lint": "oxlint .",
     "format": "oxfmt --write .",

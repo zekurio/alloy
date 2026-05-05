@@ -7,7 +7,7 @@ import { clip, game, gameFollow } from "@workspace/db/schema"
 
 import { db } from "../db"
 import { getSession } from "../auth/session"
-import { clipSelectShape } from "../clips/select"
+import { clipSelectShape, toPublicClipRow } from "../clips/select"
 import { generateUniqueGameSlug } from "../games/slug"
 import { requireSession } from "../auth/require-session"
 import {
@@ -333,7 +333,7 @@ export const gamesRoute = new Hono()
         .orderBy(...orderBy)
         .limit(limit)
 
-      return c.json(rows)
+      return c.json(rows.map(toPublicClipRow))
     }
   )
 
@@ -376,6 +376,6 @@ export const gamesRoute = new Hono()
         .orderBy(desc(score))
         .limit(limit)
 
-      return c.json(rows)
+      return c.json(rows.map(toPublicClipRow))
     }
   )

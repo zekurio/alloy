@@ -64,11 +64,8 @@ export function NotificationCenter() {
   const session = useSuspenseSession()
   const enabled = Boolean(session)
   const [open, setOpen] = React.useState(false)
-  const query = useNotificationsQuery({ enabled })
-  useNotificationStream({
-    enabled: enabled && query.isFetched,
-    includeSnapshot: false,
-  })
+  const query = useNotificationsQuery({ enabled: false })
+  useNotificationStream({ enabled })
 
   if (!enabled) return null
 
@@ -91,7 +88,7 @@ export function NotificationCenter() {
   const content = (
     <NotificationCenterContent
       data={query.data}
-      isLoading={query.isLoading}
+      isLoading={query.data === undefined}
       onClose={() => setOpen(false)}
     />
   )

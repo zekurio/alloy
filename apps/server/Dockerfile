@@ -19,7 +19,6 @@ RUN bun install --frozen-lockfile
 FROM deps AS server
 COPY . .
 RUN bun --filter @workspace/server build \
-  && bun --filter @workspace/server build:bundle \
   && touch /tmp/server-build-ok
 
 FROM deps AS web
@@ -38,7 +37,7 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV WEB_DIST_DIR=/build/www
 ENV ALLOY_MIGRATIONS_DIR=/app/packages/db/drizzle
-ENV PUBLIC_SERVER_URL=http://localhost:3000
-ENV TRUSTED_ORIGINS=http://localhost:3000
+ENV ALLOY_CONFIG_FILE=/var/lib/alloy/runtime-config.json
+ENV ENCODE_SCRATCH_DIR=/var/cache/alloy/encode
 EXPOSE 3000
 CMD ["bun", "dist/index.js"]

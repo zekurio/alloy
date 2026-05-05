@@ -85,9 +85,11 @@ async function reapExpiredUploadTickets(): Promise<void> {
       storageKey: clipUploadTicket.storageKey,
     })
     .from(clipUploadTicket)
+    .innerJoin(clip, eq(clip.id, clipUploadTicket.clipId))
     .where(
       and(
         isNull(clipUploadTicket.usedAt),
+        eq(clip.status, "pending"),
         lt(clipUploadTicket.expiresAt, new Date())
       )
     )

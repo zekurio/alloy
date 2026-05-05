@@ -23,6 +23,15 @@ export const NOTIFICATION_TYPES = [
 ] as const
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 
+export const UPLOAD_TICKET_ROLE = ["video", "thumbnail"] as const
+export type UploadTicketRole = (typeof UPLOAD_TICKET_ROLE)[number]
+
+export const USER_ROLES = ["user", "admin"] as const
+export type UserRole = (typeof USER_ROLES)[number]
+
+export const USER_STATUSES = ["active", "disabled"] as const
+export type UserStatus = (typeof USER_STATUSES)[number]
+
 export interface ClipVariantSettings {
   hwaccel: string
   codec: string
@@ -41,7 +50,6 @@ export interface ClipEncodedVariant {
   id: string
   label: string
   role?: "source" | "variant" | "openGraph"
-  storageKey: string
   contentType: string
   width: number
   height: number

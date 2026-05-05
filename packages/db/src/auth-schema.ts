@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm"
 import {
   bigint,
   boolean,
+  check,
   integer,
   jsonb,
   pgTable,
@@ -11,11 +12,14 @@ import {
   uuid,
 } from "drizzle-orm/pg-core"
 
-export const USER_ROLES = ["user", "admin"] as const
-export type UserRole = (typeof USER_ROLES)[number]
+import {
+  USER_ROLES,
+  USER_STATUSES,
+  type UserRole,
+  type UserStatus,
+} from "@workspace/contracts"
 
-export const USER_STATUSES = ["active", "disabled"] as const
-export type UserStatus = (typeof USER_STATUSES)[number]
+export { USER_ROLES, USER_STATUSES }
 
 export const user = pgTable(
   "user",
@@ -37,6 +41,12 @@ export const user = pgTable(
   },
   (t) => [
     uniqueIndex("user_username_lower_unique").on(sql`lower(${t.username})`),
+    check("user_role_check", sql`${t.role} in ('user', 'admin')`),
+    check("user_status_check", sql`${t.status} in ('active', 'disabled')`),
+    check(
+      "user_storage_quota_bytes_safe_check",
+      sql`${t.storageQuotaBytes} is null or (${t.storageQuotaBytes} >= 0 and ${t.storageQuotaBytes} <= 9007199254740991)`
+    ),
   ]
 )
 

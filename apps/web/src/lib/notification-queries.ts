@@ -111,9 +111,30 @@ export function useNotificationStream({
     const url = new URL(STREAM_URL, apiOrigin())
     if (!includeSnapshot) url.searchParams.set("snapshot", "false")
     const source = new EventSource(url, { withCredentials: true })
+    let refreshRequested = false
+    const refreshFromFetch = () => {
+      if (refreshRequested) return
+      refreshRequested = true
+      void queryClient.invalidateQueries({ queryKey: notificationKeys.list() })
+      void queryClient
+        .fetchQuery({
+          queryKey: notificationKeys.list(),
+          queryFn: () => api.notifications.fetch(),
+        })
+        .catch((cause) => {
+          console.warn(
+            "[notifications] Failed to refresh notification list.",
+            cause
+          )
+        })
+        .finally(() => {
+          refreshRequested = false
+        })
+    }
 
     const handleEvent = (ev: MessageEvent<string>) => {
-      const event = JSON.parse(ev.data) as NotificationEvent
+      const event = parseNotificationEvent(ev.data, refreshFromFetch)
+      if (!event) return
       queryClient.setQueryData<NotificationsResponse>(
         notificationKeys.list(),
         (old) => applyNotificationEvent(old, event)
@@ -129,6 +150,7 @@ export function useNotificationStream({
     source.addEventListener("read_all", handleEvent)
     source.addEventListener("remove", handleEvent)
     source.addEventListener("clear", handleEvent)
+    source.addEventListener("error", refreshFromFetch)
 
     return () => {
       source.removeEventListener("snapshot", handleEvent)
@@ -137,9 +159,23 @@ export function useNotificationStream({
       source.removeEventListener("read_all", handleEvent)
       source.removeEventListener("remove", handleEvent)
       source.removeEventListener("clear", handleEvent)
+      source.removeEventListener("error", refreshFromFetch)
       source.close()
     }
   }, [enabled, includeSnapshot, queryClient])
+}
+
+function parseNotificationEvent(
+  data: string,
+  refreshFromFetch: () => void
+): NotificationEvent | null {
+  try {
+    return JSON.parse(data) as NotificationEvent
+  } catch (cause) {
+    console.warn("[notifications] Ignoring malformed SSE payload.", cause)
+    refreshFromFetch()
+    return null
+  }
 }
 
 function applyNotificationEvent(
