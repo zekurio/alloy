@@ -35,7 +35,12 @@ async function readUnexpectedBodyType(res: Response): Promise<string> {
   return `Expected JSON response but received ${contentType}${suffix}`
 }
 
-export async function readJsonOrThrow<T>(res: Response): Promise<T> {
+export type JsonValidator<T> = (value: unknown) => T
+
+export async function readJsonOrThrow<T>(
+  res: Response,
+  validate?: JsonValidator<T>
+): Promise<T> {
   if (!res.ok) {
     const body = await readErrorBody(res)
     throw new HttpError(
@@ -48,7 +53,8 @@ export async function readJsonOrThrow<T>(res: Response): Promise<T> {
     throw new HttpError(res.status, await readUnexpectedBodyType(res))
   }
 
-  return (await res.json()) as T
+  const json = await res.json()
+  return validate ? validate(json) : (json as T)
 }
 
 export function isServerHttpError(error: unknown): error is HttpError {

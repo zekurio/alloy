@@ -4,6 +4,7 @@ import type {
   NotificationsResponse,
 } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
+import { validateNotificationsResponse } from "./contract-validators"
 
 export type {
   NotificationClipRef,
@@ -20,7 +21,7 @@ export function createNotificationsApi(context: ApiContext) {
       const res = await context.request("/api/notifications", {
         query: { limit: String(limit) },
       })
-      return readJsonOrThrow<NotificationsResponse>(res)
+      return readJsonOrThrow(res, validateNotificationsResponse)
     },
 
     async markRead(id: string): Promise<NotificationRow> {

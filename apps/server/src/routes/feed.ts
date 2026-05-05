@@ -17,7 +17,7 @@ import {
 
 import { db } from "../db"
 import { getSession } from "../auth/session"
-import { clipSelectShape } from "../clips/select"
+import { clipSelectShape, toPublicClipRow } from "../clips/select"
 
 const FilterEnum = z.enum(["foryou", "following", "game"])
 
@@ -224,7 +224,9 @@ export const feedRoute = new Hono()
         : null
 
     return c.json({
-      items: rows.map(({ rankScore: _rankScore, ...row }) => row),
+      items: rows.map(({ rankScore: _rankScore, ...row }) =>
+        toPublicClipRow(row)
+      ),
       nextCursor,
     })
   })

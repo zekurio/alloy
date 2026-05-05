@@ -7,7 +7,7 @@ import { user } from "@workspace/db/auth-schema"
 import { clip, game } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { clipSelectShape } from "../clips/select"
+import { clipSelectShape, toPublicClipRow } from "../clips/select"
 
 const SearchQuery = z.object({
   q: z.string().min(1).max(120),
@@ -131,7 +131,7 @@ export const searchRoute = new Hono().get(
     ])
 
     return c.json({
-      clips,
+      clips: clips.map(toPublicClipRow),
       games: games.map((row) => ({
         id: row.id,
         steamgriddbId: row.steamgriddbId,

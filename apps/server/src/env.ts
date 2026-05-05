@@ -31,6 +31,15 @@ function normalizeTrustedOrigins(value: string): string[] {
   return [...origins]
 }
 
+function isLoopbackHostname(hostname: string): boolean {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    hostname.endsWith(".localhost")
+  )
+}
+
 const defaultPublicServerUrl =
   process.env.PUBLIC_SERVER_URL ?? "http://localhost:3000"
 
@@ -69,6 +78,17 @@ if (!parsed.success) {
   console.error(
     "[server/env] Invalid environment variables:\n" +
       JSON.stringify(fieldErrors, null, 2)
+  )
+  process.exit(1)
+}
+
+if (
+  parsed.data.NODE_ENV === "production" &&
+  isLoopbackHostname(new URL(parsed.data.PUBLIC_SERVER_URL).hostname)
+) {
+  // eslint-disable-next-line no-console
+  console.error(
+    "[server/env] PUBLIC_SERVER_URL must be the externally reachable origin in production."
   )
   process.exit(1)
 }

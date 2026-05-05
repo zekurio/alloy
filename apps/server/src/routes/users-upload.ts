@@ -19,6 +19,11 @@ const MAX_AVATAR_BYTES = 5 * 1024 * 1024 // 5 MB
 const MAX_BANNER_BYTES = 10 * 1024 * 1024 // 10 MB
 const USER_ASSET_CONTENT_TYPE = "image/webp"
 const USER_ASSET_EXT = ".webp"
+const BASE64_OVERHEAD = 4 / 3
+const MAX_AVATAR_DATA_CHARS = Math.ceil(MAX_AVATAR_BYTES * BASE64_OVERHEAD) + 4
+const MAX_BANNER_DATA_CHARS = Math.ceil(MAX_BANNER_BYTES * BASE64_OVERHEAD) + 4
+const USER_ASSET_KEY_RE =
+  /^users\/[0-9a-f]{2}\/[0-9a-f]{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:avatar|banner)\.webp$/i
 
 const USER_ASSET_TARGETS = {
   avatar: { width: 512, height: 512 },
@@ -31,8 +36,13 @@ const EXT_FOR_CONTENT_TYPE: Record<string, string> = {
   "image/webp": ".webp",
 }
 
-const UploadBody = z.object({
-  data: z.string().min(1),
+const AvatarUploadBody = z.object({
+  data: z.string().min(1).max(MAX_AVATAR_DATA_CHARS),
+  contentType: z.enum(ACCEPTED_IMAGE_CONTENT_TYPES),
+})
+
+const BannerUploadBody = z.object({
+  data: z.string().min(1).max(MAX_BANNER_DATA_CHARS),
   contentType: z.enum(ACCEPTED_IMAGE_CONTENT_TYPES),
 })
 
@@ -129,7 +139,7 @@ export const usersUploadRoute = new Hono<{
   .post(
     "/me/avatar/upload",
     requireSession,
-    zValidator("json", UploadBody),
+    zValidator("json", AvatarUploadBody),
     async (c) => {
       const viewerId = c.var.viewerId
       const { data, contentType } = c.req.valid("json")
@@ -179,7 +189,7 @@ export const usersUploadRoute = new Hono<{
   .post(
     "/me/banner/upload",
     requireSession,
-    zValidator("json", UploadBody),
+    zValidator("json", BannerUploadBody),
     async (c) => {
       const viewerId = c.var.viewerId
       const { data, contentType } = c.req.valid("json")
@@ -250,7 +260,9 @@ export const usersUploadRoute = new Hono<{
 
 export const userAssetsRoute = new Hono().get("/:key{.+}", async (c) => {
   const key = c.req.param("key") ?? ""
-  if (!key) return c.json({ error: "Not found" }, 404)
+  if (!key || !USER_ASSET_KEY_RE.test(key)) {
+    return c.json({ error: "Not found" }, 404)
+  }
 
   const direct = await storage.mintDownloadUrl(key, {
     expiresInSec: 900,

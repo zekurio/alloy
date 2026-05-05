@@ -9,6 +9,7 @@ import type {
   SteamGridDBStatus,
 } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
+import { validateClipRows } from "./contract-validators"
 
 export type {
   GameClipsParams,
@@ -93,7 +94,7 @@ async function fetchGameClips(
   if (params.limit !== undefined) query.limit = String(params.limit)
   if (params.cursor) query.cursor = params.cursor
   const res = await context.request(gamePath(slug, "/clips"), { query })
-  return readJsonOrThrow(res)
+  return readJsonOrThrow(res, validateClipRows)
 }
 
 async function fetchGameTopClips(
@@ -104,7 +105,7 @@ async function fetchGameTopClips(
   const res = await context.request(gamePath(slug, "/top-clips"), {
     query: { limit: String(limit) },
   })
-  return readJsonOrThrow(res)
+  return readJsonOrThrow(res, validateClipRows)
 }
 
 export function createGamesApi(context: ApiContext) {
