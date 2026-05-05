@@ -6,7 +6,7 @@ ALTER TABLE "user"
 
 ALTER TABLE "user"
   ADD CONSTRAINT "user_storage_quota_bytes_safe_check"
-  CHECK ("storage_quota_bytes" is null or ("storage_quota_bytes" > 0 and "storage_quota_bytes" <= 9007199254740991)) NOT VALID;
+  CHECK ("storage_quota_bytes" is null or ("storage_quota_bytes" >= 0 and "storage_quota_bytes" <= 9007199254740991)) NOT VALID;
 
 ALTER TABLE "clip"
   ADD CONSTRAINT "clip_privacy_check" CHECK ("privacy" in ('public', 'unlisted', 'private')) NOT VALID;
