@@ -45,7 +45,7 @@ export const user = pgTable(
     check("user_status_check", sql`${t.status} in ('active', 'disabled')`),
     check(
       "user_storage_quota_bytes_safe_check",
-      sql`${t.storageQuotaBytes} is null or (${t.storageQuotaBytes} > 0 and ${t.storageQuotaBytes} <= 9007199254740991)`
+      sql`${t.storageQuotaBytes} is null or (${t.storageQuotaBytes} >= 0 and ${t.storageQuotaBytes} <= 9007199254740991)`
     ),
   ]
 )
