@@ -1,6 +1,7 @@
 import type { ApiContext } from "./client"
 import type { SearchResults } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
+import { validateSearchResults } from "./contract-validators"
 
 export type { SearchResults, UserListRow } from "@workspace/contracts"
 
@@ -10,7 +11,7 @@ export function createSearchApi(context: ApiContext) {
       const res = await context.request("/api/search", {
         query: { q: query, limit: String(limit) },
       })
-      return readJsonOrThrow<SearchResults>(res)
+      return readJsonOrThrow(res, validateSearchResults)
     },
   }
 }

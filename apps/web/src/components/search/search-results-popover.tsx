@@ -19,9 +19,13 @@ import {
 import { quote } from "./search-format"
 
 type FlatItem =
-  | { kind: "game"; id: string; row: GameListRow }
-  | { kind: "user"; id: string; row: UserListRow }
-  | { kind: "clip"; id: string; row: ClipRow }
+  | { kind: "game"; id: string; optionId: string; row: GameListRow }
+  | { kind: "user"; id: string; optionId: string; row: UserListRow }
+  | { kind: "clip"; id: string; optionId: string; row: ClipRow }
+
+function resultOptionId(listboxId: string, id: string): string {
+  return `${listboxId}-option-${encodeURIComponent(id)}`
+}
 
 function useSearchPopoverState(
   flat: FlatItem[],
@@ -46,14 +50,17 @@ function useSearchPopoverState(
       closePopover()
       clear()
       const slug = row.gameRef?.slug
-      if (!slug) return
       void navigate({
         to: ".",
         search: (prev) => ({ ...prev, clip: row.id }),
-        mask: {
-          to: "/g/$slug/c/$clipId",
-          params: { slug, clipId: row.id },
-        },
+        ...(slug
+          ? {
+              mask: {
+                to: "/g/$slug/c/$clipId",
+                params: { slug, clipId: row.id },
+              },
+            }
+          : {}),
       })
     },
     [clear, closePopover, navigate]
@@ -144,6 +151,8 @@ function useSearchPopoverState(
 
 export function SearchResultsPopover() {
   const { query, deferredQuery, open, setOpen, clear } = useAppSearch()
+  const bridgeRef = React.useRef<HTMLSpanElement | null>(null)
+  const listboxId = React.useId()
 
   const { data, isFetching, error } = useSearchQuery(deferredQuery, {
     enabled: open && deferredQuery.length > 0,
@@ -157,20 +166,23 @@ export function SearchResultsPopover() {
       ...data.games.map<FlatItem>((row) => ({
         kind: "game",
         id: `game:${row.id}`,
+        optionId: resultOptionId(listboxId, `game:${row.id}`),
         row,
       })),
       ...data.users.map<FlatItem>((row) => ({
         kind: "user",
         id: `user:${row.id}`,
+        optionId: resultOptionId(listboxId, `user:${row.id}`),
         row,
       })),
       ...data.clips.map<FlatItem>((row) => ({
         kind: "clip",
         id: `clip:${row.id}`,
+        optionId: resultOptionId(listboxId, `clip:${row.id}`),
         row,
       })),
     ]
-  }, [data])
+  }, [data, listboxId])
 
   const {
     activeIndex,
@@ -182,11 +194,49 @@ export function SearchResultsPopover() {
   } = useSearchPopoverState(flat, open, clear, setOpen)
 
   const showPopover = open && query.trim().length > 0
+  const activeOptionId =
+    showPopover && flat.length > 0 ? flat[activeIndex]?.optionId : undefined
+
+  React.useEffect(() => {
+    const wrapper = bridgeRef.current?.closest<HTMLElement>(
+      '[data-slot="app-header-search"]'
+    )
+    const input = wrapper?.querySelector<HTMLInputElement>("input")
+    if (!input) return
+
+    input.setAttribute("role", "combobox")
+    input.setAttribute("aria-autocomplete", "list")
+    input.setAttribute("aria-haspopup", "listbox")
+    input.setAttribute("aria-expanded", showPopover ? "true" : "false")
+
+    if (showPopover) {
+      input.setAttribute("aria-controls", listboxId)
+    } else {
+      input.removeAttribute("aria-controls")
+    }
+
+    if (activeOptionId) {
+      input.setAttribute("aria-activedescendant", activeOptionId)
+    } else {
+      input.removeAttribute("aria-activedescendant")
+    }
+
+    return () => {
+      input.removeAttribute("role")
+      input.removeAttribute("aria-autocomplete")
+      input.removeAttribute("aria-haspopup")
+      input.removeAttribute("aria-expanded")
+      input.removeAttribute("aria-controls")
+      input.removeAttribute("aria-activedescendant")
+    }
+  }, [activeOptionId, listboxId, showPopover])
 
   return (
     <>
+      <span ref={bridgeRef} hidden />
       {showPopover ? (
         <div
+          id={listboxId}
           ref={rootRef}
           role="listbox"
           aria-label="Search results"
@@ -300,6 +350,7 @@ function SearchResultsBody({
               return (
                 <li key={item.id}>
                   <GameRowItem
+                    id={item.optionId}
                     row={item.row}
                     active={activeIndex === globalIdx}
                     onHover={() => onHover(globalIdx)}
@@ -320,6 +371,7 @@ function SearchResultsBody({
               return (
                 <li key={item.id}>
                   <UserRowItem
+                    id={item.optionId}
                     row={item.row}
                     active={activeIndex === globalIdx}
                     onHover={() => onHover(globalIdx)}
@@ -340,6 +392,7 @@ function SearchResultsBody({
               return (
                 <li key={item.id}>
                   <ClipRowItem
+                    id={item.optionId}
                     row={item.row}
                     active={activeIndex === globalIdx}
                     onHover={() => onHover(globalIdx)}

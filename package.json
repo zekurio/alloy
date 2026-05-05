@@ -4,10 +4,15 @@
   "private": true,
   "scripts": {
     "build": "turbo build",
+    "build:prod": "turbo build && bun run package:prod",
     "package:web": "rm -rf build/www && mkdir -p build && cp -R apps/web/dist build/www",
-    "start": "bun --filter @workspace/server start",
+    "package:prod": "bun run package:web",
+    "start": "bun run start:prod",
+    "start:dev": "bun --filter @workspace/server start:dev",
+    "start:preview": "bun --filter @workspace/server start:preview",
+    "start:prod": "bun --filter @workspace/server start:prod",
     "serve": "bun run start",
-    "preview": "bun run build && bun run package:web && bun run start",
+    "preview": "bun run build && bun run package:web && bun run start:preview",
     "dev": "turbo dev",
     "pg:start": "scripts/dev-postgres.sh start",
     "pg:stop": "scripts/dev-postgres.sh stop",
@@ -35,7 +40,7 @@
   },
   "packageManager": "bun@1.3.13",
   "engines": {
-    "bun": ">=1.3.0"
+    "bun": "1.3.13"
   },
   "overrides": {
     "undici": "^7.24.0",

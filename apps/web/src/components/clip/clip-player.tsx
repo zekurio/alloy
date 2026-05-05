@@ -58,7 +58,7 @@ function ClipPlayer({
   height,
   thumbnail,
   variants = [],
-  status: _status,
+  status,
   encodeProgress: _encodeProgress = 0,
   onPlayThreshold,
   onEnded,
@@ -154,6 +154,7 @@ function ClipPlayer({
     aspectRatioProp ?? aspectRatioFromDimensions(width, height)
 
   if ((!sourceAvailable || !sourcePlayable) && !defaultEncodedId) {
+    const unavailable = status === "failed"
     return (
       <div
         className={className}
@@ -166,7 +167,9 @@ function ClipPlayer({
         }}
       >
         <div className="grid size-full place-items-center bg-black text-sm text-white/70">
-          Preparing playback version…
+          {unavailable
+            ? "Playback unavailable."
+            : "Preparing playback version…"}
         </div>
       </div>
     )

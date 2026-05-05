@@ -3,13 +3,13 @@ import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
 import { nanoid } from "nanoid"
 
-import { clip, clipMention, game } from "@workspace/db/schema"
+import { clip, clipMention, clipUploadTicket, game } from "@workspace/db/schema"
 
 import { db } from "../db"
 import { getSession } from "../auth/session"
 import { publishClipUpsert } from "../clips/events"
 import { deleteClipRowAndAssets } from "../clips/delete"
-import { selectClipById } from "../clips/select"
+import { selectClipById, toPublicClipRow } from "../clips/select"
 import { configStore } from "../config/store"
 import { requireSession } from "../auth/require-session"
 import { isConfigured as isSteamGridDBConfigured } from "../games/steamgriddb"
@@ -25,7 +25,6 @@ import { IdParam, InitiateBody, UpdateBody } from "./clips-helpers"
 import {
   assertUsableUploadTicket,
   createUploadTickets,
-  markUploadTicketUsed,
   markUploadFailed,
   resolveMentionIds,
   selectLockedQuotaState,
@@ -125,33 +124,45 @@ export const clipsUploadRoutes = new Hono()
 
       const expiresInSec = configStore.get("limits").uploadTtlSec
       const expiresAt = new Date(Date.now() + expiresInSec * 1000)
-      await createUploadTickets({
-        clipId,
-        videoKey: storageKey,
-        videoContentType: body.contentType,
-        videoBytes: body.sizeBytes,
-        thumbKey,
-        thumbBytes: body.thumbSizeBytes,
-        expiresAt,
-      })
-      const [ticket, thumbTicket] = await Promise.all([
-        storage.mintUploadUrl({
-          key: storageKey,
-          contentType: body.contentType,
-          maxBytes: body.sizeBytes,
-          expiresInSec,
-          userId: viewerId,
+      let ticket: Awaited<ReturnType<typeof storage.mintUploadUrl>>
+      let thumbTicket: Awaited<ReturnType<typeof storage.mintUploadUrl>>
+      try {
+        await createUploadTickets({
           clipId,
-        }),
-        storage.mintUploadUrl({
-          key: thumbKey,
-          contentType: "image/jpeg",
-          maxBytes: body.thumbSizeBytes,
-          expiresInSec,
-          userId: viewerId,
-          clipId,
-        }),
-      ])
+          videoKey: storageKey,
+          videoContentType: body.contentType,
+          videoBytes: body.sizeBytes,
+          thumbKey,
+          thumbBytes: body.thumbSizeBytes,
+          expiresAt,
+        })
+        ;[ticket, thumbTicket] = await Promise.all([
+          storage.mintUploadUrl({
+            key: storageKey,
+            contentType: body.contentType,
+            maxBytes: body.sizeBytes,
+            expiresInSec,
+            userId: viewerId,
+            clipId,
+          }),
+          storage.mintUploadUrl({
+            key: thumbKey,
+            contentType: "image/jpeg",
+            maxBytes: body.thumbSizeBytes,
+            expiresInSec,
+            userId: viewerId,
+            clipId,
+          }),
+        ])
+      } catch (err) {
+        await db
+          .delete(clip)
+          .where(eq(clip.id, clipId))
+          .catch(() => undefined)
+        await storage.delete(storageKey).catch(() => undefined)
+        await storage.delete(thumbKey).catch(() => undefined)
+        throw err
+      }
 
       return c.json({ clipId, slug, ticket, thumbTicket })
     }
@@ -306,22 +317,48 @@ export const clipsUploadRoutes = new Hono()
         }
       }
 
-      const [transitioned] = await db
-        .update(clip)
-        .set({
-          status: "uploaded",
-          sizeBytes: resolved.size,
-          thumbKey: canonicalThumbKey,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(clip.id, id),
-            eq(clip.authorId, viewerId),
-            eq(clip.status, "pending")
+      const [transitioned] = await db.transaction(async (tx) => {
+        const now = new Date()
+        await tx
+          .update(clipUploadTicket)
+          .set({ usedAt: now })
+          .where(
+            and(
+              eq(clipUploadTicket.clipId, id),
+              eq(clipUploadTicket.storageKey, row.storageKey),
+              eq(clipUploadTicket.role, "video")
+            )
           )
-        )
-        .returning({ id: clip.id })
+        if (row.thumbKey) {
+          await tx
+            .update(clipUploadTicket)
+            .set({ usedAt: now })
+            .where(
+              and(
+                eq(clipUploadTicket.clipId, id),
+                eq(clipUploadTicket.storageKey, row.thumbKey),
+                eq(clipUploadTicket.role, "thumbnail")
+              )
+            )
+        }
+
+        return tx
+          .update(clip)
+          .set({
+            status: "uploaded",
+            sizeBytes: resolved.size,
+            thumbKey: canonicalThumbKey,
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(clip.id, id),
+              eq(clip.authorId, viewerId),
+              eq(clip.status, "pending")
+            )
+          )
+          .returning({ id: clip.id })
+      })
       if (!transitioned) {
         return c.json({ error: "Clip is already being finalized" }, 409)
       }
@@ -332,19 +369,9 @@ export const clipsUploadRoutes = new Hono()
       void publishClipUpsert(viewerId, id)
 
       enqueueEncode(id)
-      await Promise.all([
-        markUploadTicketUsed(row.storageKey),
-        row.thumbKey ? markUploadTicketUsed(row.thumbKey) : Promise.resolve(),
-      ]).catch((err) => {
-        // eslint-disable-next-line no-console
-        console.warn(
-          `[clips/finalize] could not mark upload tickets used:`,
-          err
-        )
-      })
 
       const updated = await selectClipById(id)
-      return c.json(updated)
+      return c.json(updated ? toPublicClipRow(updated) : null)
     }
   )
 
@@ -441,7 +468,7 @@ export const clipsUploadRoutes = new Hono()
       void publishClipUpsert(row.authorId, id)
 
       const updated = await selectClipById(id)
-      return c.json(updated)
+      return c.json(updated ? toPublicClipRow(updated) : null)
     }
   )
 
