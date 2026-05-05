@@ -27,6 +27,14 @@ inputs:
     description: Optional Docker build args passed to the image build
     required: false
     default: ""
+  provenance:
+    description: Whether to publish BuildKit provenance attestations
+    required: false
+    default: "false"
+  sbom:
+    description: Whether to publish BuildKit SBOM attestations
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -57,5 +65,7 @@ runs:
         push: ${{ inputs.push }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
+        provenance: ${{ inputs.provenance }}
+        sbom: ${{ inputs.sbom }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
