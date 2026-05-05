@@ -78,3 +78,22 @@ export async function selectClipById(id: string) {
   const mentions = await selectClipMentions(id)
   return { ...row, mentions }
 }
+
+export function toPublicClipRow<
+  T extends {
+    storageKey: string
+    thumbKey: string | null
+    variants: readonly { storageKey: string }[]
+  },
+>(row: T) {
+  const { storageKey: _storageKey, variants, ...rest } = row
+  return {
+    ...rest,
+    thumbKey: row.thumbKey ? "thumbnail" : null,
+    variants: variants.map(
+      ({ storageKey: _variantStorageKey, ...variant }) => ({
+        ...variant,
+      })
+    ),
+  }
+}

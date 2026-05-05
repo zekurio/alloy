@@ -19,6 +19,7 @@ import {
 } from "@workspace/db/auth-schema"
 
 import { db } from "../db"
+import { configStore } from "../config/store"
 import { env } from "../env"
 import { base64UrlToBytes, bytesToBase64Url } from "./tokens"
 
@@ -156,6 +157,9 @@ export async function verifyPasskeyRegistration(input: {
 }
 
 export async function beginPasskeyAuthentication() {
+  if (!configStore.get("passkeyEnabled")) {
+    throw new Error("Passkey sign-in is currently disabled.")
+  }
   await deleteExpiredChallenges()
   const options = await generateAuthenticationOptions({
     rpID: rpId(),
@@ -179,6 +183,9 @@ export async function verifyPasskeyAuthentication(input: {
   challengeId: string
   response: AuthenticationResponseJSON
 }) {
+  if (!configStore.get("passkeyEnabled")) {
+    throw new Error("Passkey sign-in is currently disabled.")
+  }
   const challenge = await consumeChallenge({
     challengeId: input.challengeId,
     purpose: "passkey-authentication",

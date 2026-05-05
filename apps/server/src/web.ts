@@ -10,12 +10,15 @@ import { user } from "@workspace/db/auth-schema"
 
 import { db } from "./db"
 import { env } from "./env"
+import { configStore } from "./config/store"
+import { getSession } from "./auth/session"
 import { selectClipById } from "./clips/select"
 import { selectOpenGraphVideo } from "./open-graph/video-selection"
 
 const HEAD_MARKER = "<!-- alloy:head -->"
 const CLIP_PERMALINK_RE = /^\/g\/[^/]+\/c\/([^/]+)\/?$/
 const DEFAULT_WEB_DIST_DIR = "../../build/www"
+const PUBLIC_WEB_PATHS = new Set(["/login", "/setup", "/sign-up"])
 
 type MetadataClip = NonNullable<Awaited<ReturnType<typeof selectClipById>>>
 
@@ -234,6 +237,15 @@ export async function mountWeb(app: Hono): Promise<Hono> {
     const pathname = new URL(c.req.url).pathname
     if (pathname === "/health" || pathname.startsWith("/api/")) {
       return c.notFound()
+    }
+    if (
+      configStore.get("requireAuthToBrowse") &&
+      !PUBLIC_WEB_PATHS.has(pathname)
+    ) {
+      const session = await getSession(c)
+      if (!session || session.user.status !== "active") {
+        return c.redirect("/login", 302)
+      }
     }
 
     const head = await clipHead(pathname)

@@ -27,7 +27,7 @@ import {
 
 import { db } from "../db"
 import { getSession } from "../auth/session"
-import { clipSelectShape } from "../clips/select"
+import { clipSelectShape, toPublicClipRow } from "../clips/select"
 
 export const UsernameParam = z.object({ username: z.string().min(1) })
 
@@ -141,7 +141,7 @@ export async function listUserClips(row: UserRow, headers: Headers) {
     conditions.push(inArray(clip.privacy, ["public", "unlisted"]))
   }
 
-  return db
+  const rows = await db
     .select(clipSelectShape)
     .from(clip)
     .innerJoin(user, eq(clip.authorId, user.id))
@@ -149,6 +149,7 @@ export async function listUserClips(row: UserRow, headers: Headers) {
     .where(and(...conditions))
     .orderBy(desc(clip.createdAt))
     .limit(50)
+  return rows.map(toPublicClipRow)
 }
 
 export async function listUserGames(
@@ -226,7 +227,7 @@ export async function listTaggedClips(row: UserRow, headers: Headers) {
     conditions.push(inArray(clip.privacy, ["public", "unlisted"]))
   }
 
-  return db
+  const rows = await db
     .select(clipSelectShape)
     .from(clipMention)
     .innerJoin(clip, eq(clipMention.clipId, clip.id))
@@ -235,6 +236,7 @@ export async function listTaggedClips(row: UserRow, headers: Headers) {
     .where(and(...conditions))
     .orderBy(desc(clip.createdAt))
     .limit(50)
+  return rows.map(toPublicClipRow)
 }
 
 export async function listLikedClips(row: UserRow, headers: Headers) {
@@ -252,7 +254,7 @@ export async function listLikedClips(row: UserRow, headers: Headers) {
     conditions.push(inArray(clip.privacy, ["public", "unlisted"]))
   }
 
-  return db
+  const rows = await db
     .select(clipSelectShape)
     .from(clipLike)
     .innerJoin(clip, eq(clipLike.clipId, clip.id))
@@ -261,6 +263,7 @@ export async function listLikedClips(row: UserRow, headers: Headers) {
     .where(and(...conditions))
     .orderBy(desc(clipLike.createdAt))
     .limit(50)
+  return rows.map(toPublicClipRow)
 }
 
 export function listFollowers(row: UserRow) {
