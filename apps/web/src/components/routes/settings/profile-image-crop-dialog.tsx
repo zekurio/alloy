@@ -40,6 +40,7 @@ const CROP_CONFIG: Record<CropMode, CropConfig> = {
 
 const PAN_AXIS_EPSILON_PX = 0.5
 const DEFAULT_PREVIEW_ZOOM = 1
+const MAX_PREVIEW_ZOOM = 4
 
 type LoadedImage = {
   height: number
@@ -78,6 +79,7 @@ export function ProfileImageCropDialog({
   const config = CROP_CONFIG[mode]
   const stageRef = React.useRef<HTMLDivElement>(null)
   const dragRef = React.useRef<DragState | null>(null)
+  const zoomInitializedRef = React.useRef(false)
   const [stageNode, setStageNode] = React.useState<HTMLDivElement | null>(null)
   const [loadedImage, setLoadedImage] = React.useState<LoadedImage | null>(null)
   const [stageSize, setStageSize] = React.useState({ height: 0, width: 0 })
@@ -100,6 +102,10 @@ export function ProfileImageCropDialog({
       getCropFrame(effectiveStageSize, config.aspect, mode, containedImageBox),
     [config.aspect, containedImageBox, effectiveStageSize, mode]
   )
+  const minimumZoom = React.useMemo(
+    () => getMinimumZoom(mode, containedImageBox, cropFrame),
+    [containedImageBox, cropFrame, mode]
+  )
 
   React.useEffect(() => {
     onApplyingChange?.(cropPending)
@@ -110,6 +116,7 @@ export function ProfileImageCropDialog({
       setLoadedImage(null)
       setStageSize({ height: 0, width: 0 })
       setCropPending(false)
+      zoomInitializedRef.current = false
       return
     }
 
@@ -117,6 +124,7 @@ export function ProfileImageCropDialog({
     setLoadedImage(null)
     setStageSize({ height: 0, width: 0 })
     setCropPending(false)
+    zoomInitializedRef.current = false
 
     const load = async () => {
       const [src, dimensions] = await Promise.all([
@@ -148,6 +156,18 @@ export function ProfileImageCropDialog({
       active = false
     }
   }, [file, open])
+
+  React.useEffect(() => {
+    if (!cropReady || zoomInitializedRef.current) return
+
+    zoomInitializedRef.current = true
+    setOffset({ x: 0, y: 0 })
+    setZoom(minimumZoom)
+  }, [cropReady, minimumZoom])
+
+  React.useEffect(() => {
+    setZoom((current) => clamp(current, minimumZoom, MAX_PREVIEW_ZOOM))
+  }, [minimumZoom])
 
   React.useLayoutEffect(() => {
     if (!open) return
@@ -281,7 +301,6 @@ export function ProfileImageCropDialog({
       const cropTop = renderedCropFrame.y - imageTop
       const scaleX = image.naturalWidth / renderedImageBox.width
       const scaleY = image.naturalHeight / renderedImageBox.height
-
       const canvas = document.createElement("canvas")
       canvas.width = config.outputWidth
       canvas.height = config.outputHeight
@@ -339,7 +358,8 @@ export function ProfileImageCropDialog({
   }, [])
 
   function handleZoomChange(value: number | readonly number[]) {
-    const nextZoom = Array.isArray(value) ? (value[0] ?? 1) : value
+    const rawZoom = Array.isArray(value) ? (value[0] ?? 1) : value
+    const nextZoom = clamp(rawZoom, minimumZoom, MAX_PREVIEW_ZOOM)
     const liveStageSize =
       readElementSize(stageRef.current) ?? effectiveStageSize
     const liveContainedImageBox = loadedImage
@@ -445,8 +465,8 @@ export function ProfileImageCropDialog({
             <Minus className="size-4 shrink-0 text-foreground-faint" />
             <Slider
               aria-label="Zoom"
-              min={1}
-              max={4}
+              min={minimumZoom}
+              max={MAX_PREVIEW_ZOOM}
               step={0.01}
               value={zoom}
               onValueChange={handleZoomChange}
@@ -516,6 +536,25 @@ function clampRange(value: number, min: number, max: number) {
   if (min > max) return (min + max) / 2
   if (max - min <= PAN_AXIS_EPSILON_PX) return (min + max) / 2
   return clamp(value, min, max)
+}
+
+function getMinimumZoom(
+  mode: CropMode,
+  containedImageBox: { height: number; width: number } | null,
+  cropFrame: CropFrame
+) {
+  if (mode !== "avatar" || !containedImageBox) {
+    return DEFAULT_PREVIEW_ZOOM
+  }
+
+  return clamp(
+    Math.max(
+      cropFrame.width / containedImageBox.width,
+      cropFrame.height / containedImageBox.height
+    ),
+    0,
+    DEFAULT_PREVIEW_ZOOM
+  )
 }
 
 function fallbackStageSize(mode: CropMode) {
