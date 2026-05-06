@@ -1,13 +1,16 @@
 import { Buffer } from "node:buffer"
 import { createReadStream, createWriteStream, promises as fsp } from "node:fs"
 import path from "node:path"
-import { PassThrough, Readable } from "node:stream"
+import { PassThrough, Readable, Transform } from "node:stream"
 import { pipeline } from "node:stream/promises"
-import { S3Client as BunS3Client } from "bun"
 import {
+  CopyObjectCommand,
+  DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   PutObjectCommand,
-  S3Client as AwsS3Client,
+  S3Client,
+  type HeadObjectCommandOutput,
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 
@@ -34,11 +37,7 @@ type S3DriverOptionsProvider = () => S3DriverOptions
 
 export class S3StorageDriver implements StorageDriver {
   private readonly optionsProvider: S3DriverOptionsProvider
-  private cachedClient: { cacheKey: string; client: BunS3Client } | null = null
-  private cachedPresignClient: {
-    cacheKey: string
-    client: AwsS3Client
-  } | null = null
+  private cachedClient: { cacheKey: string; client: S3Client } | null = null
 
   constructor(opts: S3DriverOptions | S3DriverOptionsProvider) {
     this.optionsProvider = typeof opts === "function" ? opts : () => opts
@@ -64,37 +63,17 @@ export class S3StorageDriver implements StorageDriver {
     }
   }
 
-  private getClient(opts: S3DriverOptions): BunS3Client {
+  private getClient(opts: S3DriverOptions): S3Client {
     const cacheKey = JSON.stringify({
-      region: opts.region,
-      endpoint: opts.endpoint,
-      accessKeyId: opts.accessKeyId,
-      secretAccessKey: opts.secretAccessKey,
-    })
-    if (this.cachedClient?.cacheKey === cacheKey) {
-      return this.cachedClient.client
-    }
-    const client = new BunS3Client({
-      region: opts.region,
-      endpoint: opts.endpoint,
       bucket: opts.bucket,
-      accessKeyId: opts.accessKeyId,
-      secretAccessKey: opts.secretAccessKey,
-    })
-    this.cachedClient = { cacheKey, client }
-    return client
-  }
-
-  private getPresignClient(opts: S3DriverOptions): AwsS3Client {
-    const cacheKey = JSON.stringify({
       region: opts.region,
       endpoint: opts.endpoint,
       accessKeyId: opts.accessKeyId,
       secretAccessKey: opts.secretAccessKey,
       forcePathStyle: opts.forcePathStyle,
     })
-    if (this.cachedPresignClient?.cacheKey === cacheKey) {
-      return this.cachedPresignClient.client
+    if (this.cachedClient?.cacheKey === cacheKey) {
+      return this.cachedClient.client
     }
     const credentials =
       opts.accessKeyId && opts.secretAccessKey
@@ -103,7 +82,7 @@ export class S3StorageDriver implements StorageDriver {
             secretAccessKey: opts.secretAccessKey,
           }
         : undefined
-    const client = new AwsS3Client({
+    const client = new S3Client({
       region: opts.region,
       endpoint: opts.endpoint,
       forcePathStyle: opts.forcePathStyle,
@@ -111,7 +90,7 @@ export class S3StorageDriver implements StorageDriver {
       requestChecksumCalculation: "WHEN_REQUIRED",
       responseChecksumValidation: "WHEN_REQUIRED",
     })
-    this.cachedPresignClient = { cacheKey, client }
+    this.cachedClient = { cacheKey, client }
     return client
   }
 
@@ -122,55 +101,67 @@ export class S3StorageDriver implements StorageDriver {
   ): Promise<{ size: number }> {
     const opts = this.getOptions()
     const client = this.getClient(opts)
-    const file = client.file(key)
     if (Buffer.isBuffer(body)) {
-      await file.write(body, { type: contentType })
+      await client.send(
+        new PutObjectCommand({
+          Bucket: opts.bucket,
+          Key: key,
+          Body: body,
+          ContentLength: body.byteLength,
+          ContentType: contentType,
+        })
+      )
       return { size: body.byteLength }
     }
+
     let size = 0
-    const writer = file.writer({
-      type: contentType,
-      retry: 3,
+    const counter = new Transform({
+      transform(chunk: Buffer, _encoding, callback) {
+        size += chunk.byteLength
+        callback(null, chunk)
+      },
     })
-    for await (const chunk of body) {
-      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
-      size += buffer.byteLength
-      writer.write(buffer)
-    }
-    await writer.end()
+    const stream = new PassThrough()
+    const upload = client.send(
+      new PutObjectCommand({
+        Bucket: opts.bucket,
+        Key: key,
+        Body: stream,
+        ContentType: contentType,
+      })
+    )
+    await pipeline(body, counter, stream)
+    await upload
     return { size }
   }
 
   async resolve(key: string): Promise<ResolvedObject | null> {
     const opts = this.getOptions()
     const client = this.getClient(opts)
-    let stat
+    let stat: HeadObjectCommandOutput
     try {
-      stat = await client.stat(key)
+      stat = await client.send(
+        new HeadObjectCommand({
+          Bucket: opts.bucket,
+          Key: key,
+        })
+      )
     } catch (err) {
       if (isMissing(err)) return null
       throw err
     }
-    const size = Number(stat.size ?? 0)
-    const contentType = stat.type ?? "application/octet-stream"
-    const lastModified =
-      stat.lastModified instanceof Date
-        ? stat.lastModified
-        : stat.lastModified
-          ? new Date(stat.lastModified)
-          : null
 
     return {
       stream: (opts) => this.openStream(key, opts?.start, opts?.end),
-      size,
-      contentType,
-      lastModified,
+      size: Number(stat.ContentLength ?? 0),
+      contentType: stat.ContentType ?? "application/octet-stream",
+      lastModified: stat.LastModified ?? null,
     }
   }
 
   async mintUploadUrl(input: MintUploadUrlInput): Promise<UploadTicket> {
     const opts = this.getOptions()
-    const client = this.getPresignClient(opts)
+    const client = this.getClient(opts)
     const command = new PutObjectCommand({
       Bucket: opts.bucket,
       Key: input.key,
@@ -194,7 +185,12 @@ export class S3StorageDriver implements StorageDriver {
     const opts = this.getOptions()
     const client = this.getClient(opts)
     try {
-      await client.delete(key)
+      await client.send(
+        new DeleteObjectCommand({
+          Bucket: opts.bucket,
+          Key: key,
+        })
+      )
     } catch (err) {
       if (isMissing(err)) return
       throw err
@@ -202,11 +198,11 @@ export class S3StorageDriver implements StorageDriver {
   }
 
   async downloadToFile(key: string, destPath: string): Promise<void> {
-    const opts = this.getOptions()
-    const client = this.getClient(opts)
     await fsp.mkdir(path.dirname(destPath), { recursive: true })
-    const body = Readable.fromWeb(client.file(key).stream())
-    await pipeline(body, createWriteStream(destPath))
+    await pipeline(
+      this.openStream(key, undefined, undefined),
+      createWriteStream(destPath)
+    )
   }
 
   async uploadFromFile(
@@ -226,19 +222,20 @@ export class S3StorageDriver implements StorageDriver {
   }): Promise<{ size: number }> {
     const opts = this.getOptions()
     const client = this.getClient(opts)
-    const sourceUrl = client.presign(input.fromKey, {
-      expiresIn: opts.presignExpiresSec,
-      method: "GET",
-    })
-    const source = await fetch(sourceUrl)
-    if (!source.ok || !source.body) {
-      throw new Error(
-        `s3: copy source ${input.fromKey} returned ${source.status}`
-      )
-    }
-    await client.file(input.toKey).write(source, { type: input.contentType })
+    await client.send(
+      new CopyObjectCommand({
+        Bucket: opts.bucket,
+        Key: input.toKey,
+        CopySource: `${opts.bucket}/${encodeCopySourceKey(input.fromKey)}`,
+        ContentType: input.contentType,
+        MetadataDirective: "REPLACE",
+      })
+    )
     const resolved = await this.resolve(input.toKey)
-    return { size: resolved?.size ?? 0 }
+    if (!resolved) {
+      throw new Error(`s3: copied object ${input.toKey} could not be resolved`)
+    }
+    return { size: resolved.size }
   }
 
   async mintDownloadUrl(
@@ -246,7 +243,7 @@ export class S3StorageDriver implements StorageDriver {
     input: MintDownloadUrlInput
   ): Promise<DownloadUrl | null> {
     const opts = this.getOptions()
-    const client = this.getPresignClient(opts)
+    const client = this.getClient(opts)
     const expiresIn = input.expiresInSec || opts.presignExpiresSec
     const command = new GetObjectCommand({
       Bucket: opts.bucket,
@@ -272,14 +269,21 @@ export class S3StorageDriver implements StorageDriver {
     const pass = new PassThrough()
     void (async () => {
       try {
-        const file = client.file(key)
-        const body = Readable.fromWeb(
+        const range =
           start === undefined
-            ? file.stream()
-            : file
-                .slice(start, end === undefined ? undefined : end + 1)
-                .stream()
+            ? undefined
+            : `bytes=${start}-${end === undefined ? "" : end}`
+        const result = await client.send(
+          new GetObjectCommand({
+            Bucket: opts.bucket,
+            Key: key,
+            Range: range,
+          })
         )
+        if (!result.Body) {
+          throw new Error(`s3: ${key} returned an empty body`)
+        }
+        const body = toNodeReadable(result.Body)
         body.on("error", (err) => pass.destroy(err))
         body.pipe(pass)
       } catch (err) {
@@ -288,6 +292,32 @@ export class S3StorageDriver implements StorageDriver {
     })()
     return pass
   }
+}
+
+function toNodeReadable(body: unknown): Readable {
+  if (body instanceof Readable) {
+    return body
+  }
+  if (
+    body instanceof ReadableStream ||
+    (body && typeof (body as { getReader?: unknown }).getReader === "function")
+  ) {
+    return Readable.fromWeb(body as ReadableStream<Uint8Array>)
+  }
+  const withTransform = body as
+    | { transformToWebStream?: () => ReadableStream<Uint8Array> }
+    | undefined
+  if (withTransform?.transformToWebStream) {
+    return Readable.fromWeb(withTransform.transformToWebStream())
+  }
+  throw new Error("s3: unsupported response body stream")
+}
+
+function encodeCopySourceKey(key: string): string {
+  return key
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/")
 }
 
 function normalizeOptional(value: string | undefined): string | undefined {

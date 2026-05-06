@@ -14,12 +14,12 @@ If you use Nix, the fastest way to get started is with the flake:
 nix develop
 ```
 
-This shell provides `bun`, `psql`, PostgreSQL 17, and `ffmpeg`.
+This shell provides `deno`, `psql`, PostgreSQL 17, and `ffmpeg`.
 
 Then install dependencies:
 
 ```bash
-bun install
+deno install
 ```
 
 ## Local database
@@ -57,7 +57,7 @@ psql postgresql://postgres:postgres@localhost:5432/alloy
 Apply the database schema:
 
 ```bash
-bun run db:push
+deno task db:push
 ```
 
 The server runs startup migrations only when `NODE_ENV=production`, which is
@@ -68,7 +68,7 @@ production migration journal.
 Start everything:
 
 ```bash
-bun run dev
+deno task dev
 ```
 
 This runs the web app on http://localhost:5173 and the server on http://localhost:3000.
@@ -81,7 +81,7 @@ The dev scripts provide the local server URL and trusted origin defaults.
 Build the packaged web app and server bundle:
 
 ```bash
-bun run build:prod
+deno task build:prod
 ```
 
 Run the bundled server with production migrations enabled:
@@ -91,7 +91,7 @@ NODE_ENV=production \
 DATABASE_URL=postgres://... \
 PUBLIC_SERVER_URL=https://alloy.example.com \
 TRUSTED_ORIGINS=https://alloy.example.com \
-bun run start:prod
+deno task start:prod
 ```
 
 `PUBLIC_SERVER_URL` must be the externally reachable origin in production.

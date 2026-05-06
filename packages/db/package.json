@@ -14,17 +14,18 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "migrate:deploy": "bun src/migrate.ts",
+    "migrate:deploy": "deno run --allow-env --allow-read --allow-net src/migrate.ts",
     "lint": "oxlint .",
     "format": "oxfmt --write .",
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
     "@workspace/contracts": "workspace:*",
-    "drizzle-orm": "^0.45.2"
+    "drizzle-orm": "^0.45.2",
+    "postgres": "^3.4.7"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.6",
+    "@types/deno": "^2.5.0",
     "@types/node": "^25.6.0",
     "@typescript/native-preview": "7.0.0-dev.20260420.1",
     "drizzle-kit": "^0.31.10",

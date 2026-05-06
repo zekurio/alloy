@@ -1,35 +1,39 @@
-FROM oven/bun:1.3.13-slim AS base
+FROM denoland/deno:2.7.14 AS base
+USER root
 COPY apps/server/docker/install-ffmpeg-hwaccel-deps.sh /tmp/install-ffmpeg-hwaccel-deps.sh
 RUN sh /tmp/install-ffmpeg-hwaccel-deps.sh \
-  && rm /tmp/install-ffmpeg-hwaccel-deps.sh
+  && rm /tmp/install-ffmpeg-hwaccel-deps.sh \
+  && mkdir -p /app /var/lib/alloy /var/cache/alloy/encode \
+  && chown -R deno:deno /app /var/lib/alloy /var/cache/alloy
 ENV FFMPEG_BIN=/usr/lib/jellyfin-ffmpeg/ffmpeg
 ENV FFPROBE_BIN=/usr/lib/jellyfin-ffmpeg/ffprobe
+ENV DENO_NO_PROMPT=1
 WORKDIR /app
+USER deno
 
 FROM base AS deps
-COPY package.json bun.lock ./
-COPY apps/server/package.json apps/server/package.json
-COPY apps/web/package.json apps/web/package.json
-COPY packages/api/package.json packages/api/package.json
-COPY packages/contracts/package.json packages/contracts/package.json
-COPY packages/db/package.json packages/db/package.json
-COPY packages/ui/package.json packages/ui/package.json
-RUN bun install --frozen-lockfile
+COPY --chown=deno:deno deno.json package.json deno.lock ./
+COPY --chown=deno:deno apps/server/package.json apps/server/package.json
+COPY --chown=deno:deno apps/web/package.json apps/web/package.json
+COPY --chown=deno:deno packages/api/package.json packages/api/package.json
+COPY --chown=deno:deno packages/contracts/package.json packages/contracts/package.json
+COPY --chown=deno:deno packages/db/package.json packages/db/package.json
+COPY --chown=deno:deno packages/ui/package.json packages/ui/package.json
+RUN deno install --frozen
 
 FROM deps AS server
-COPY . .
-RUN bun --filter @workspace/server build \
+COPY --chown=deno:deno . .
+RUN deno task --cwd apps/server build \
   && touch /tmp/server-build-ok
 
 FROM deps AS web
-COPY . .
-RUN bun --filter web build
+COPY --chown=deno:deno . .
+RUN deno task --cwd apps/web build
 
 FROM base AS runtime
 ARG APP_VERSION=dev
 ENV APP_VERSION=$APP_VERSION
-COPY --from=server /app/apps/server/dist /app/apps/server/dist
-COPY packages/db/drizzle packages/db/drizzle
+COPY --chown=deno:deno --from=server /app /app
 COPY --from=server /tmp/server-build-ok /tmp/server-build-ok
 COPY --from=web /app/apps/web/dist /build/www
 WORKDIR /app/apps/server
@@ -40,4 +44,4 @@ ENV ALLOY_MIGRATIONS_DIR=/app/packages/db/drizzle
 ENV ALLOY_CONFIG_FILE=/var/lib/alloy/runtime-config.json
 ENV ENCODE_SCRATCH_DIR=/var/cache/alloy/encode
 EXPOSE 3000
-CMD ["bun", "dist/index.js"]
+CMD ["deno", "task", "start:prod"]
