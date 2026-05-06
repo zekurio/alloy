@@ -33,7 +33,21 @@ RUN deno task --cwd apps/web build
 FROM base AS runtime
 ARG APP_VERSION=dev
 ENV APP_VERSION=$APP_VERSION
-COPY --chown=deno:deno --from=server /app /app
+COPY --chown=deno:deno --from=deps /app/deno.json /app/package.json /app/deno.lock /app/
+COPY --chown=deno:deno --from=deps /app/node_modules /app/node_modules
+COPY --chown=deno:deno --from=deps /app/apps/server/package.json /app/apps/server/package.json
+COPY --chown=deno:deno --from=deps /app/apps/web/package.json /app/apps/web/package.json
+COPY --chown=deno:deno --from=deps /app/packages/api/package.json /app/packages/api/package.json
+COPY --chown=deno:deno --from=deps /app/packages/contracts/package.json /app/packages/contracts/package.json
+COPY --chown=deno:deno --from=deps /app/packages/db/package.json /app/packages/db/package.json
+COPY --chown=deno:deno --from=deps /app/packages/ui/package.json /app/packages/ui/package.json
+COPY --chown=deno:deno --from=server /app/apps/server/src /app/apps/server/src
+COPY --chown=deno:deno --from=server /app/apps/server/tsconfig.json /app/apps/server/tsconfig.json
+COPY --chown=deno:deno --from=server /app/packages/contracts/src /app/packages/contracts/src
+COPY --chown=deno:deno --from=server /app/packages/contracts/tsconfig.json /app/packages/contracts/tsconfig.json
+COPY --chown=deno:deno --from=server /app/packages/db/src /app/packages/db/src
+COPY --chown=deno:deno --from=server /app/packages/db/drizzle /app/packages/db/drizzle
+COPY --chown=deno:deno --from=server /app/packages/db/tsconfig.json /app/packages/db/tsconfig.json
 COPY --from=server /tmp/server-build-ok /tmp/server-build-ok
 COPY --from=web /app/apps/web/dist /build/www
 WORKDIR /app/apps/server
