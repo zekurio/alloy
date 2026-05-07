@@ -104,7 +104,7 @@ jobs:
         env:
           RELEASE_VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          deno eval --allow-env --allow-read --allow-write '
+          deno eval '
           import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 
           function setOutput(name, value) {
