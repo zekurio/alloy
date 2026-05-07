@@ -16,7 +16,8 @@
     "db:studio": "drizzle-kit studio",
     "migrate:deploy": "deno run --allow-env --allow-read --allow-net src/migrate.ts",
     "lint": "oxlint .",
-    "format": "oxfmt --write .",
+    "fmt": "oxfmt --write .",
+    "format": "deno task fmt",
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {

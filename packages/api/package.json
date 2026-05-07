@@ -9,7 +9,8 @@
   },
   "scripts": {
     "lint": "oxlint .",
-    "format": "oxfmt --write .",
+    "fmt": "oxfmt --write .",
+    "format": "deno task fmt",
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {

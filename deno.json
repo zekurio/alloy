@@ -21,11 +21,11 @@
     "db:push": "deno task --cwd packages/db db:push",
     "db:studio": "deno task --cwd packages/db db:studio",
     "migrate:deploy": "deno task --cwd packages/db migrate:deploy",
-    "fmt": "deno task format",
+    "fmt": "deno task --filter @workspace/contracts fmt && deno task --filter @workspace/api fmt && deno task --filter @workspace/db fmt && deno task --filter @workspace/ui fmt && deno task --filter @workspace/server fmt && deno task --filter web fmt",
     "lint": "deno task --filter @workspace/contracts lint && deno task --filter @workspace/api lint && deno task --filter @workspace/db lint && deno task --filter @workspace/ui lint && deno task --filter @workspace/server lint && deno task --filter web lint",
     "lint:github": "deno task --filter @workspace/contracts lint -- --deny-warnings --format=github && deno task --filter @workspace/api lint -- --deny-warnings --format=github && deno task --filter @workspace/db lint -- --deny-warnings --format=github && deno task --filter @workspace/ui lint -- --deny-warnings --format=github && deno task --filter @workspace/server lint -- --deny-warnings --format=github && deno task --filter web lint -- --deny-warnings --format=github",
     "lint:ci": "deno task --filter @workspace/contracts lint -- --deny-warnings && deno task --filter @workspace/api lint -- --deny-warnings && deno task --filter @workspace/db lint -- --deny-warnings && deno task --filter @workspace/ui lint -- --deny-warnings && deno task --filter @workspace/server lint -- --deny-warnings && deno task --filter web lint -- --deny-warnings",
-    "format": "deno task --filter @workspace/contracts format && deno task --filter @workspace/api format && deno task --filter @workspace/db format && deno task --filter @workspace/ui format && deno task --filter @workspace/server format && deno task --filter web format",
+    "format": "deno task fmt",
     "typecheck": "deno task --filter @workspace/contracts typecheck && deno task --filter @workspace/api typecheck && deno task --filter @workspace/db typecheck && deno task --filter @workspace/ui typecheck && deno task --filter @workspace/server typecheck && deno task --filter web typecheck"
   }
 }
