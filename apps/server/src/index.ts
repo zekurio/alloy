@@ -1,4 +1,5 @@
-import { serve } from "@hono/node-server"
+/* global Deno */
+
 import { migrateDatabase } from "@workspace/db"
 
 import { app } from "./app"
@@ -9,14 +10,11 @@ if (env.NODE_ENV === "production") {
   await migrateDatabase(env.DATABASE_URL)
 }
 
-const server = serve(
+const server = Deno.serve(
   {
-    fetch: app.fetch,
     port: env.PORT,
   },
-  (_info) => {
-    // eslint-disable-next-line no-console
-  }
+  app.fetch
 )
 
 void startQueue().catch((err) => {
@@ -25,7 +23,7 @@ void startQueue().catch((err) => {
 })
 
 let shuttingDown = false
-const shutdown = (_signal: NodeJS.Signals) => {
+const shutdown = () => {
   if (shuttingDown) return
   shuttingDown = true
   // eslint-disable-next-line no-console
@@ -38,9 +36,9 @@ const shutdown = (_signal: NodeJS.Signals) => {
       console.error("[queue] failed to stop cleanly:", err)
     })
     .finally(() => {
-      server.close(() => process.exit(0))
+      void server.shutdown().finally(() => Deno.exit(0))
     })
 }
 
-process.on("SIGINT", shutdown)
-process.on("SIGTERM", shutdown)
+Deno.addSignalListener("SIGINT", shutdown)
+Deno.addSignalListener("SIGTERM", shutdown)

@@ -1,3 +1,5 @@
+/* global Deno */
+
 import { Readable } from "node:stream"
 
 import { zValidator } from "@hono/zod-validator"
@@ -80,10 +82,22 @@ async function deleteOldAssets(
   )
 }
 
-function imageMagickArgs(
+async function which(binary: string): Promise<string | null> {
+  const command = new Deno.Command("which", {
+    args: [binary],
+    stdout: "piped",
+    stderr: "null",
+  })
+  const output = await command.output()
+  if (!output.success) return null
+  const path = new TextDecoder().decode(output.stdout).trim()
+  return path.length > 0 ? path : null
+}
+
+async function imageMagickArgs(
   target: (typeof USER_ASSET_TARGETS)["avatar" | "banner"]
-): string[] {
-  const magick = globalThis.Bun.which("magick")
+): Promise<string[]> {
+  const magick = await which("magick")
   if (magick) {
     return [
       magick,
@@ -95,7 +109,7 @@ function imageMagickArgs(
     ]
   }
 
-  const convert = globalThis.Bun.which("convert")
+  const convert = await which("convert")
   if (convert) {
     return [
       convert,
@@ -115,20 +129,21 @@ async function resizeUserAsset(
   role: "avatar" | "banner"
 ): Promise<Buffer> {
   const target = USER_ASSET_TARGETS[role]
-  const child = globalThis.Bun.spawn(imageMagickArgs(target), {
-    stdin: "pipe",
-    stdout: "pipe",
-    stderr: "pipe",
+  const [command, ...args] = await imageMagickArgs(target)
+  const child = new Deno.Command(command, {
+    args,
+    stdin: "piped",
+    stdout: "piped",
+    stderr: "piped",
   })
-  child.stdin.write(bytes)
-  child.stdin.end()
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(child.stdout).arrayBuffer(),
-    new Response(child.stderr).text(),
-    child.exited,
-  ])
-  if (exitCode !== 0) {
-    throw new Error(stderr.trim() || "ImageMagick failed")
+  const process = child.spawn()
+  const writer = process.stdin.getWriter()
+  await writer.write(bytes)
+  await writer.close()
+  const { stdout, stderr, success } = await process.output()
+  if (!success) {
+    const message = new TextDecoder().decode(stderr).trim()
+    throw new Error(message || "ImageMagick failed")
   }
   return Buffer.from(stdout)
 }

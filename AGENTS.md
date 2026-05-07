@@ -4,7 +4,7 @@ This file provides guidance to AI agents running in this repo.
 
 ## Task Completion Requirements
 
-- All of `bun fmt`, `bun lint`, and `bun typecheck` must pass before considering a coding task completed.
+- All of `deno task fmt`, `deno task lint`, and `deno task typecheck` must pass before considering a coding task completed.
 
 ## Project Snapshot
 

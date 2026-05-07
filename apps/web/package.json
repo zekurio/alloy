@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview --port 5173 --strictPort",
     "lint": "oxlint .",
-    "format": "oxfmt --write .",
+    "fmt": "oxfmt --write .",
+    "format": "deno task fmt",
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {

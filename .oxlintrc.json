@@ -18,7 +18,6 @@
     ".nitro/**",
     ".tanstack/**",
     ".vinxi/**",
-    ".turbo/**",
     "coverage/**"
   ],
   "overrides": [
@@ -26,6 +25,9 @@
       "files": ["apps/server/src/**/*.{ts,tsx}"],
       "env": {
         "node": true
+      },
+      "globals": {
+        "Deno": "readonly"
       }
     }
   ],
