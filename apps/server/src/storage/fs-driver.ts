@@ -1,10 +1,9 @@
 import { Buffer } from "node:buffer"
 import { createHmac, timingSafeEqual } from "node:crypto"
-import { createWriteStream, promises as fsp } from "node:fs"
+import { createReadStream, createWriteStream, promises as fsp } from "node:fs"
 import path from "node:path"
 import { Readable } from "node:stream"
 import { pipeline } from "node:stream/promises"
-import { file as bunFile, write as bunWrite } from "bun"
 
 import type {
   DownloadUrl,
@@ -59,7 +58,7 @@ export class FsStorageDriver implements StorageDriver {
     await fsp.mkdir(path.dirname(dst), { recursive: true })
 
     if (Buffer.isBuffer(body)) {
-      await bunWrite(dst, body)
+      await fsp.writeFile(dst, body)
       return { size: body.byteLength }
     }
 
@@ -87,18 +86,9 @@ export class FsStorageDriver implements StorageDriver {
     }
     if (!stat.isFile()) return null
 
-    const file = bunFile(full)
-
     return {
       stream: (opts) => {
-        const blob =
-          opts?.start !== undefined || opts?.end !== undefined
-            ? file.slice(
-                opts?.start,
-                opts?.end === undefined ? undefined : opts.end + 1
-              )
-            : file
-        return Readable.fromWeb(blob.stream())
+        return fspCreateReadStream(full, opts?.start, opts?.end)
       },
       size: stat.size,
       contentType: contentTypeForExt(path.extname(full)),
@@ -137,7 +127,7 @@ export class FsStorageDriver implements StorageDriver {
       const code = (err as NodeJS.ErrnoException).code
       if (code !== "EXDEV" && code !== "EPERM" && code !== "ENOSYS") throw err
     }
-    await bunWrite(destPath, bunFile(src))
+    await fsp.copyFile(src, destPath)
   }
 
   async uploadFromFile(
@@ -153,9 +143,10 @@ export class FsStorageDriver implements StorageDriver {
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code
       if (code !== "EXDEV" && code !== "EPERM" && code !== "ENOSYS") throw err
-      await bunWrite(dst, bunFile(localPath))
+      await fsp.copyFile(localPath, dst)
     }
-    return { size: bunFile(dst).size }
+    const stat = await fsp.stat(dst)
+    return { size: stat.size }
   }
 
   async copy(input: {
@@ -173,10 +164,11 @@ export class FsStorageDriver implements StorageDriver {
       const code = (err as NodeJS.ErrnoException).code
       if (code !== "EXDEV" && code !== "EPERM" && code !== "ENOSYS") throw err
       const tmp = `${dst}.${process.pid}.${Date.now()}.tmp`
-      await bunWrite(tmp, bunFile(src))
+      await fsp.copyFile(src, tmp)
       await fsp.rename(tmp, dst)
     }
-    return { size: bunFile(dst).size }
+    const stat = await fsp.stat(dst)
+    return { size: stat.size }
   }
 
   async mintDownloadUrl(
@@ -219,6 +211,21 @@ export class FsStorageDriver implements StorageDriver {
       current = path.dirname(current)
     }
   }
+}
+
+function fspCreateReadStream(
+  path: string,
+  start: number | undefined,
+  end: number | undefined
+): Readable {
+  const opts =
+    start === undefined && end === undefined
+      ? undefined
+      : {
+          start,
+          end,
+        }
+  return Readable.from(createReadStream(path, opts))
 }
 
 export function signToken(payload: UploadTokenPayload, secret: string): string {

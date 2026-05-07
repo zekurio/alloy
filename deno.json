@@ -1,8 +1,7 @@
 {
-  "name": "alloy",
-  "version": "0.0.3",
-  "private": true,
-  "scripts": {
+  "workspace": ["apps/*", "packages/*"],
+  "nodeModulesDir": "auto",
+  "tasks": {
     "build": "deno task --filter @workspace/server build && deno task --filter web build",
     "start": "deno task start:prod",
     "start:prod": "WEB_DIST_DIR=${WEB_DIST_DIR:-../../apps/web/dist} deno task --cwd apps/server start:prod",
@@ -17,28 +16,9 @@
     "db:studio": "deno task --cwd packages/db db:studio",
     "fmt": "deno task --filter @workspace/contracts fmt && deno task --filter @workspace/api fmt && deno task --filter @workspace/db fmt && deno task --filter @workspace/ui fmt && deno task --filter @workspace/server fmt && deno task --filter web fmt",
     "lint": "deno task --filter @workspace/contracts lint && deno task --filter @workspace/api lint && deno task --filter @workspace/db lint && deno task --filter @workspace/ui lint && deno task --filter @workspace/server lint && deno task --filter web lint",
-    "lint:github": "deno task --filter @workspace/contracts lint -- --deny-warnings --format=github && deno task --filter @workspace/api lint -- --deny-warnings --format=github && deno task --filter @workspace/db lint -- --deny-warnings --format=github && deno task --filter @workspace/ui lint -- --deny-warnings --format=github && deno task --filter @workspace/server lint -- --deny-warnings --format=github && deno task --filter web lint -- --deny-warnings --format=github",
-    "lint:ci": "deno task --filter @workspace/contracts lint -- --deny-warnings && deno task --filter @workspace/api lint -- --deny-warnings && deno task --filter @workspace/db lint -- --deny-warnings && deno task --filter @workspace/ui lint -- --deny-warnings && deno task --filter @workspace/server lint -- --deny-warnings && deno task --filter web lint -- --deny-warnings",
+    "lint:github": "deno task --filter @workspace/contracts lint --deny-warnings --format=github && deno task --filter @workspace/api lint --deny-warnings --format=github && deno task --filter @workspace/db lint --deny-warnings --format=github && deno task --filter @workspace/ui lint --deny-warnings --format=github && deno task --filter @workspace/server lint --deny-warnings --format=github && deno task --filter web lint --deny-warnings --format=github",
+    "lint:ci": "deno task --filter @workspace/contracts lint --deny-warnings && deno task --filter @workspace/api lint --deny-warnings && deno task --filter @workspace/db lint --deny-warnings && deno task --filter @workspace/ui lint --deny-warnings && deno task --filter @workspace/server lint --deny-warnings && deno task --filter web lint --deny-warnings",
     "format": "deno task fmt",
     "typecheck": "deno task --filter @workspace/contracts typecheck && deno task --filter @workspace/api typecheck && deno task --filter @workspace/db typecheck && deno task --filter @workspace/ui typecheck && deno task --filter @workspace/server typecheck && deno task --filter web typecheck"
-  },
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
-  "devDependencies": {
-    "oxfmt": "^0.46.0",
-    "typescript": "6.0.3"
-  },
-  "engines": {
-    "deno": "2.7.14"
-  },
-  "overrides": {
-    "undici": "^7.24.0",
-    "srvx": "^0.11.15",
-    "h3": ">=2.0.1-rc.18",
-    "h3-v2": "npm:h3@>=2.0.1-rc.18",
-    "brace-expansion": "^5.0.5",
-    "esbuild": "^0.25.0"
   }
 }

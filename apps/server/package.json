@@ -7,25 +7,21 @@
     "./app": "./src/app.ts"
   },
   "scripts": {
-    "dev": "NODE_ENV=development PORT=3000 PUBLIC_SERVER_URL=http://localhost:3000 TRUSTED_ORIGINS=http://localhost:5173 bun --watch src/index.ts",
-    "start": "bun run start:prod",
-    "start:dev": "bun run dev",
-    "start:preview": "NODE_ENV=development bun src/index.ts",
-    "start:prod": "NODE_ENV=production bun dist/index.js",
-    "build": "tsgo --noEmit && bun build src/index.ts --target=bun --outdir=dist --sourcemap=none",
-    "build:bundle": "bun build src/index.ts --target=bun --outdir=dist --sourcemap=none",
+    "dev": "NODE_ENV=development PORT=3000 PUBLIC_SERVER_URL=http://localhost:3000 TRUSTED_ORIGINS=http://localhost:5173 deno run --watch --allow-env --allow-net --allow-read --allow-write --allow-run src/index.ts",
+    "start:prod": "NODE_ENV=production deno run --allow-env --allow-net --allow-read --allow-write --allow-run src/index.ts",
+    "build": "tsgo --noEmit && mkdir -p dist && deno cache src/index.ts && touch dist/server-cache-ok",
     "lint": "oxlint .",
-    "format": "oxfmt --write .",
+    "fmt": "oxfmt --write .",
+    "format": "deno task fmt",
     "typecheck": "tsgo --noEmit",
-    "db:generate": "bun --cwd ../../packages/db db:generate",
-    "db:migrate": "bun --cwd ../../packages/db db:migrate",
-    "db:push": "bun --cwd ../../packages/db db:push",
-    "db:studio": "bun --cwd ../../packages/db db:studio"
+    "db:generate": "deno task --cwd ../../packages/db db:generate",
+    "db:migrate": "deno task --cwd ../../packages/db db:migrate",
+    "db:push": "deno task --cwd ../../packages/db db:push",
+    "db:studio": "deno task --cwd ../../packages/db db:studio"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1041.0",
     "@aws-sdk/s3-request-presigner": "^3.1041.0",
-    "@hono/node-server": "^1.19.14",
     "@hono/zod-validator": "^0.7.6",
     "@simplewebauthn/server": "^13.3.0",
     "@workspace/contracts": "workspace:*",
@@ -36,10 +32,11 @@
     "jose": "^6.2.2",
     "nanoid": "^5.1.9",
     "openid-client": "^6.8.2",
+    "postgres": "^3.4.7",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.6",
+    "@types/deno": "^2.5.0",
     "@types/node": "^25.6.0",
     "@typescript/native-preview": "7.0.0-dev.20260420.1",
     "oxfmt": "^0.46.0",
