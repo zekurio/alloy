@@ -78,13 +78,13 @@ The dev scripts provide the local server URL and trusted origin defaults.
 
 ## Deployment
 
-Build the packaged web app and server bundle:
+Build the web app and server:
 
 ```bash
-deno task build:prod
+deno task build
 ```
 
-Run the bundled server with production migrations enabled:
+Run the server with production migrations enabled:
 
 ```bash
 NODE_ENV=production \

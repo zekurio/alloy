@@ -8,12 +8,8 @@
   },
   "scripts": {
     "dev": "NODE_ENV=development PORT=3000 PUBLIC_SERVER_URL=http://localhost:3000 TRUSTED_ORIGINS=http://localhost:5173 deno run --watch --allow-env --allow-net --allow-read --allow-write --allow-run src/index.ts",
-    "start": "deno task start:prod",
-    "start:dev": "deno task dev",
-    "start:preview": "NODE_ENV=development deno run --allow-env --allow-net --allow-read --allow-write --allow-run src/index.ts",
     "start:prod": "NODE_ENV=production deno run --allow-env --allow-net --allow-read --allow-write --allow-run src/index.ts",
     "build": "tsgo --noEmit && mkdir -p dist && deno cache src/index.ts && touch dist/server-cache-ok",
-    "build:bundle": "deno cache src/index.ts",
     "lint": "oxlint .",
     "fmt": "oxfmt --write .",
     "format": "deno task fmt",
