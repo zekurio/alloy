@@ -41,6 +41,12 @@ COPY --chown=deno:deno --from=deps /app/packages/api/package.json /app/packages/
 COPY --chown=deno:deno --from=deps /app/packages/contracts/package.json /app/packages/contracts/package.json
 COPY --chown=deno:deno --from=deps /app/packages/db/package.json /app/packages/db/package.json
 COPY --chown=deno:deno --from=deps /app/packages/ui/package.json /app/packages/ui/package.json
+COPY --chown=deno:deno --from=deps /app/apps/web/node_modules /app/apps/web/node_modules
+COPY --chown=deno:deno --from=deps /app/packages/api/node_modules /app/packages/api/node_modules
+COPY --chown=deno:deno --from=deps /app/packages/contracts/node_modules /app/packages/contracts/node_modules
+COPY --chown=deno:deno --from=deps /app/packages/db/node_modules /app/packages/db/node_modules
+COPY --chown=deno:deno --from=deps /app/packages/ui/node_modules /app/packages/ui/node_modules
+COPY --chown=deno:deno --from=server /deno-dir /deno-dir
 COPY --chown=deno:deno --from=server /app/apps/server/src /app/apps/server/src
 COPY --chown=deno:deno --from=server /app/apps/server/tsconfig.json /app/apps/server/tsconfig.json
 COPY --chown=deno:deno --from=server /app/packages/contracts/src /app/packages/contracts/src
@@ -58,4 +64,4 @@ ENV ALLOY_MIGRATIONS_DIR=/app/packages/db/drizzle
 ENV ALLOY_CONFIG_FILE=/var/lib/alloy/runtime-config.json
 ENV ENCODE_SCRATCH_DIR=/var/cache/alloy/encode
 EXPOSE 3000
-CMD ["deno", "task", "start:prod"]
+CMD ["deno", "run", "--quiet", "--cached-only", "--node-modules-dir=none", "--allow-env", "--allow-net", "--allow-read", "--allow-write", "--allow-run", "src/index.ts"]
