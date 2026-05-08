@@ -5,7 +5,7 @@ import { AlloyLogo } from "@workspace/ui/components/alloy-logo"
 import type { PublicLoginSplashConfig } from "@workspace/api"
 
 import {
-  hasLoginArtworkClips,
+  hasLoginArtworkImage,
   LoginArtwork,
 } from "@/components/auth/login-artwork"
 
@@ -15,12 +15,12 @@ type AuthPageFrameProps = {
 }
 
 export function AuthPageFrame({ splash, children }: AuthPageFrameProps) {
-  const showArtwork = splash.enabled && hasLoginArtworkClips(splash.clips)
+  const showArtwork = splash.enabled && hasLoginArtworkImage(splash.imageUrl)
 
   return (
     <div className="relative min-h-screen w-full bg-background text-foreground">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        {showArtwork ? <LoginArtwork clips={splash.clips} /> : null}
+        {showArtwork ? <LoginArtwork imageUrl={splash.imageUrl!} /> : null}
       </div>
       {showArtwork ? (
         <div
