@@ -64,4 +64,4 @@ ENV ALLOY_MIGRATIONS_DIR=/app/packages/db/drizzle
 ENV ALLOY_CONFIG_FILE=/var/lib/alloy/runtime-config.json
 ENV ENCODE_SCRATCH_DIR=/var/cache/alloy/encode
 EXPOSE 3000
-CMD ["deno", "run", "--quiet", "--cached-only", "--node-modules-dir=none", "--allow-env", "--allow-net", "--allow-read", "--allow-write", "--allow-run", "src/index.ts"]
+CMD ["deno", "run", "--quiet", "--cached-only", "--node-modules-dir=none", "--allow-env", "--allow-net", "--allow-read", "--allow-write", "--allow-run", "--allow-ffi", "src/index.ts"]
