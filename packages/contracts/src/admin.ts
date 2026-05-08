@@ -119,6 +119,7 @@ export interface LoginSplashConfig {
 }
 
 export const LOGIN_SPLASH_LAYOUT_VERSION = 2
+export const LOGIN_SPLASH_IMAGE_PATH = `/api/auth-config/login-splash-v${LOGIN_SPLASH_LAYOUT_VERSION}.jpg`
 
 export interface PublicLoginSplashConfig {
   enabled: boolean
