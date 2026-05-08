@@ -34,6 +34,7 @@ import { StorageConfigCard } from "@/components/routes/admin-settings/storage-co
 import { SettingsSection } from "@/components/routes/settings/settings-section"
 import { type AdminRuntimeConfig } from "@workspace/api"
 import { api } from "@/lib/api"
+import { apiOrigin } from "@/lib/env"
 import { publishRuntimeConfigUpdate } from "@/lib/runtime-config-events"
 
 const adminRuntimeConfigQueryKey = ["admin", "runtime-config"] as const
@@ -302,15 +303,16 @@ function AppearanceSettingsSection({
 }) {
   const [pending, setPending] = React.useState(false)
   const splash = config.appearance.loginSplash
-  const previewClips = React.useMemo(
-    () =>
-      splash.clipIds.map((id) => ({
-        id,
-        title: "",
-        game: null,
-      })),
-    [splash.clipIds]
-  )
+  const previewImageUrl = React.useMemo(() => {
+    if (splash.clipIds.length === 0) return null
+    const parsed = splash.generatedAt
+      ? Date.parse(splash.generatedAt)
+      : Date.now()
+    const version = Number.isFinite(parsed) ? parsed : Date.now()
+    const path = `/api/auth-config/login-splash.jpg?v=${version}`
+    const origin = apiOrigin()
+    return origin ? new URL(path, origin).toString() : path
+  }, [splash.clipIds.length, splash.generatedAt])
 
   async function updateSplashEnabled(next: boolean) {
     if (pending) return
@@ -357,8 +359,8 @@ function AppearanceSettingsSection({
       <Section>
         <SectionContent className="flex flex-col gap-4">
           <div className="relative aspect-video overflow-hidden rounded-md border border-border bg-surface">
-            {previewClips.length > 0 ? (
-              <LoginArtwork clips={previewClips} />
+            {previewImageUrl ? (
+              <LoginArtwork imageUrl={previewImageUrl} />
             ) : (
               <div className="flex h-full items-center justify-center px-4 text-center text-sm text-foreground-muted">
                 Enable or regenerate the login backdrop to pick public clips.

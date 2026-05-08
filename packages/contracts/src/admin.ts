@@ -121,6 +121,7 @@ export interface LoginSplashConfig {
 export interface PublicLoginSplashConfig {
   enabled: boolean
   generatedAt: string | null
+  imageUrl: string | null
   clips: LoginSplashClip[]
 }
 
