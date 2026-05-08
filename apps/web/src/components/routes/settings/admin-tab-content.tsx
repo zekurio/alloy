@@ -33,7 +33,7 @@ import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-prov
 import { StorageConfigCard } from "@/components/routes/admin-settings/storage-config-card"
 import { SettingsSection } from "@/components/routes/settings/settings-section"
 import {
-  LOGIN_SPLASH_LAYOUT_VERSION,
+  LOGIN_SPLASH_IMAGE_PATH,
   type AdminRuntimeConfig,
 } from "@workspace/api"
 import { api } from "@/lib/api"
@@ -312,7 +312,7 @@ function AppearanceSettingsSection({
       ? Date.parse(splash.generatedAt)
       : Date.now()
     const version = Number.isFinite(parsed) ? parsed : Date.now()
-    const path = `/api/auth-config/login-splash.jpg?v=${version}&layout=${LOGIN_SPLASH_LAYOUT_VERSION}`
+    const path = `${LOGIN_SPLASH_IMAGE_PATH}?v=${version}`
     const origin = apiOrigin()
     return origin ? new URL(path, origin).toString() : path
   }, [splash.clipIds.length, splash.generatedAt])

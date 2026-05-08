@@ -5,6 +5,7 @@ import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm"
 import sharp from "sharp"
 
 import {
+  LOGIN_SPLASH_IMAGE_PATH,
   LOGIN_SPLASH_LAYOUT_VERSION,
   type PublicAuthConfig,
 } from "@workspace/contracts"
@@ -19,7 +20,7 @@ import { getSetupStatus } from "../auth/user-bootstrap"
 import { storage } from "../storage"
 import { readAll } from "./clips-helpers"
 
-const SPLASH_IMAGE_PATH = "/api/auth-config/login-splash.jpg"
+const LEGACY_SPLASH_IMAGE_PATH = "/login-splash.jpg"
 const SPLASH_CONTENT_TYPE = "image/jpeg"
 const SPLASH_WIDTH = 1920
 const SPLASH_HEIGHT = 1080
@@ -30,6 +31,8 @@ const TILE_HEIGHT = 304
 const TILE_GAP = 24
 const TILE_ROTATION_DEGREES = 30
 const TILE_GRID_MARGIN_STEPS = 2
+const TILE_ROW_SHIFT = 184
+const TILE_ROW_SHIFTS = [0, 0.58, 0.22, 0.74, 0.39] as const
 
 type SplashClipRow = {
   id: string
@@ -56,7 +59,7 @@ function loginSplashImageUrl(generatedAt: string | null): string {
   const parsed = generatedAt ? Date.parse(generatedAt) : Date.now()
   const version = Number.isFinite(parsed) ? parsed : Date.now()
   return new URL(
-    `${SPLASH_IMAGE_PATH}?v=${version}&layout=${LOGIN_SPLASH_LAYOUT_VERSION}`,
+    `${LOGIN_SPLASH_IMAGE_PATH}?v=${version}`,
     env.PUBLIC_SERVER_URL
   ).toString()
 }
@@ -134,8 +137,12 @@ async function buildLoginSplashImage(
   let tileIndex = 0
   for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
     const top = startTop + rowIndex * (TILE_HEIGHT + TILE_GAP)
+    const rowShift =
+      TILE_ROW_SHIFT * (TILE_ROW_SHIFTS[rowIndex % TILE_ROW_SHIFTS.length] ?? 0)
     for (let columnIndex = 0; columnIndex < columnCount; columnIndex++) {
-      const left = startLeft + columnIndex * (TILE_WIDTH + TILE_GAP)
+      const left = Math.round(
+        startLeft + rowShift + columnIndex * (TILE_WIDTH + TILE_GAP)
+      )
       const tile = usableTiles[tileIndex % usableTiles.length]
       if (!tile) continue
       composites.push({ input: tile, left, top })
@@ -266,7 +273,12 @@ export const authConfigRoute = new Hono()
       },
     } satisfies PublicAuthConfig)
   })
-  .get("/login-splash.jpg", async (c) => {
+  .get(LEGACY_SPLASH_IMAGE_PATH, (c) => {
+    const url = new URL(c.req.url)
+    url.pathname = LOGIN_SPLASH_IMAGE_PATH
+    return c.redirect(url.toString(), 302)
+  })
+  .get(LOGIN_SPLASH_IMAGE_PATH.replace("/api/auth-config", ""), async (c) => {
     const rows = await selectLoginSplashRows()
     if (rows.length === 0) return c.json({ error: "Not found" }, 404)
 
