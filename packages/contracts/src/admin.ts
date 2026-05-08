@@ -118,6 +118,8 @@ export interface LoginSplashConfig {
   generatedAt: string | null
 }
 
+export const LOGIN_SPLASH_LAYOUT_VERSION = 2
+
 export interface PublicLoginSplashConfig {
   enabled: boolean
   generatedAt: string | null

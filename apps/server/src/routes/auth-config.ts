@@ -4,7 +4,10 @@ import { Hono } from "hono"
 import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm"
 import sharp from "sharp"
 
-import type { PublicAuthConfig } from "@workspace/contracts"
+import {
+  LOGIN_SPLASH_LAYOUT_VERSION,
+  type PublicAuthConfig,
+} from "@workspace/contracts"
 import { user } from "@workspace/db/auth-schema"
 import { clip } from "@workspace/db/schema"
 
@@ -25,6 +28,8 @@ const SPLASH_CACHE_MAX_BYTES = 8 * 1024 * 1024
 const TILE_WIDTH = 540
 const TILE_HEIGHT = 304
 const TILE_GAP = 24
+const TILE_ROTATION_DEGREES = 30
+const TILE_GRID_MARGIN_STEPS = 2
 
 type SplashClipRow = {
   id: string
@@ -51,7 +56,7 @@ function loginSplashImageUrl(generatedAt: string | null): string {
   const parsed = generatedAt ? Date.parse(generatedAt) : Date.now()
   const version = Number.isFinite(parsed) ? parsed : Date.now()
   return new URL(
-    `${SPLASH_IMAGE_PATH}?v=${version}`,
+    `${SPLASH_IMAGE_PATH}?v=${version}&layout=${LOGIN_SPLASH_LAYOUT_VERSION}`,
     env.PUBLIC_SERVER_URL
   ).toString()
 }
@@ -59,7 +64,9 @@ function loginSplashImageUrl(generatedAt: string | null): string {
 function loginSplashCacheKey(rows: SplashClipRow[]): string {
   const generatedAt =
     configStore.get("appearance").loginSplash.generatedAt ?? "pending"
-  return `${generatedAt}:${rows.map((row) => `${row.id}:${row.thumbKey}`).join(",")}`
+  return `${LOGIN_SPLASH_LAYOUT_VERSION}:${generatedAt}:${rows
+    .map((row) => `${row.id}:${row.thumbKey}`)
+    .join(",")}`
 }
 
 async function buildTile(asset: SplashClipAsset): Promise<Buffer> {
@@ -95,22 +102,40 @@ function splashShadeOverlay(): Buffer {
 async function buildLoginSplashImage(
   assets: SplashClipAsset[]
 ): Promise<Buffer | null> {
-  const rowStarts = [-260, 18, -146, 132]
-  const rowTops = [-86, 218, 522, 826]
   const tiles = await Promise.all(
     assets.map((asset) => buildTile(asset).catch(() => null))
   )
   const usableTiles = tiles.filter((tile): tile is Buffer => tile !== null)
   if (usableTiles.length === 0) return null
 
+  const rotationRadians = (TILE_ROTATION_DEGREES * Math.PI) / 180
+  const rotationCoverWidth =
+    SPLASH_WIDTH * Math.abs(Math.cos(rotationRadians)) +
+    SPLASH_HEIGHT * Math.abs(Math.sin(rotationRadians))
+  const rotationCoverHeight =
+    SPLASH_WIDTH * Math.abs(Math.sin(rotationRadians)) +
+    SPLASH_HEIGHT * Math.abs(Math.cos(rotationRadians))
+  const gridWidth = Math.ceil(
+    rotationCoverWidth + (TILE_WIDTH + TILE_GAP) * TILE_GRID_MARGIN_STEPS
+  )
+  const gridHeight = Math.ceil(
+    rotationCoverHeight + (TILE_HEIGHT + TILE_GAP) * TILE_GRID_MARGIN_STEPS
+  )
+  const columnCount =
+    Math.ceil((gridWidth + TILE_GAP) / (TILE_WIDTH + TILE_GAP)) + 1
+  const rowCount =
+    Math.ceil((gridHeight + TILE_GAP) / (TILE_HEIGHT + TILE_GAP)) + 1
+  const contentWidth = columnCount * TILE_WIDTH + (columnCount - 1) * TILE_GAP
+  const contentHeight = rowCount * TILE_HEIGHT + (rowCount - 1) * TILE_GAP
+  const startLeft = Math.floor((gridWidth - contentWidth) / 2)
+  const startTop = Math.floor((gridHeight - contentHeight) / 2)
+
   const composites: sharp.OverlayOptions[] = []
   let tileIndex = 0
-  for (const [rowIndex, top] of rowTops.entries()) {
-    for (
-      let left = rowStarts[rowIndex] ?? 0;
-      left < SPLASH_WIDTH;
-      left += TILE_WIDTH + TILE_GAP
-    ) {
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+    const top = startTop + rowIndex * (TILE_HEIGHT + TILE_GAP)
+    for (let columnIndex = 0; columnIndex < columnCount; columnIndex++) {
+      const left = startLeft + columnIndex * (TILE_WIDTH + TILE_GAP)
       const tile = usableTiles[tileIndex % usableTiles.length]
       if (!tile) continue
       composites.push({ input: tile, left, top })
@@ -120,15 +145,30 @@ async function buildLoginSplashImage(
 
   if (composites.length === 0) return null
 
-  const blurredTiles = await sharp({
+  const rotatedBackdrop = await sharp({
     create: {
-      width: SPLASH_WIDTH,
-      height: SPLASH_HEIGHT,
+      width: gridWidth,
+      height: gridHeight,
       channels: 3,
       background: "#050609",
     },
   })
     .composite(composites)
+    .rotate(TILE_ROTATION_DEGREES, { background: "#050609" })
+    .jpeg({ quality: 86, mozjpeg: true })
+    .toBuffer({ resolveWithObject: true })
+
+  const tiledBackdrop = await sharp(rotatedBackdrop.data)
+    .extract({
+      left: Math.floor((rotatedBackdrop.info.width - SPLASH_WIDTH) / 2),
+      top: Math.floor((rotatedBackdrop.info.height - SPLASH_HEIGHT) / 2),
+      width: SPLASH_WIDTH,
+      height: SPLASH_HEIGHT,
+    })
+    .jpeg({ quality: 86, mozjpeg: true })
+    .toBuffer()
+
+  const blurredTiles = await sharp(tiledBackdrop)
     .blur(18)
     .modulate({ brightness: 0.64, saturation: 0.9 })
     .jpeg({ quality: 82, mozjpeg: true })
@@ -144,7 +184,7 @@ async function buildLoginSplashImage(
   })
     .composite([
       { input: blurredTiles, left: 0, top: 0 },
-      ...composites,
+      { input: tiledBackdrop, left: 0, top: 0 },
       {
         input: splashShadeOverlay(),
         raw: {

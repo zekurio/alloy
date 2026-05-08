@@ -32,7 +32,10 @@ import { LimitsConfigCard } from "@/components/routes/admin-settings/limits-conf
 import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-provider-card"
 import { StorageConfigCard } from "@/components/routes/admin-settings/storage-config-card"
 import { SettingsSection } from "@/components/routes/settings/settings-section"
-import { type AdminRuntimeConfig } from "@workspace/api"
+import {
+  LOGIN_SPLASH_LAYOUT_VERSION,
+  type AdminRuntimeConfig,
+} from "@workspace/api"
 import { api } from "@/lib/api"
 import { apiOrigin } from "@/lib/env"
 import { publishRuntimeConfigUpdate } from "@/lib/runtime-config-events"
@@ -309,7 +312,7 @@ function AppearanceSettingsSection({
       ? Date.parse(splash.generatedAt)
       : Date.now()
     const version = Number.isFinite(parsed) ? parsed : Date.now()
-    const path = `/api/auth-config/login-splash.jpg?v=${version}`
+    const path = `/api/auth-config/login-splash.jpg?v=${version}&layout=${LOGIN_SPLASH_LAYOUT_VERSION}`
     const origin = apiOrigin()
     return origin ? new URL(path, origin).toString() : path
   }, [splash.clipIds.length, splash.generatedAt])
