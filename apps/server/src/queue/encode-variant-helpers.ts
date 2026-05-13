@@ -14,15 +14,18 @@ export async function planReuse(
   targetSettings: ClipVariantSettings[]
 ): Promise<Map<number, ClipEncodedVariant>> {
   const reusedBySpecIndex = new Map<number, ClipEncodedVariant>()
-  const priorByStorageKey = new Map<string, ClipEncodedVariant>()
-  for (const prev of row.variants) priorByStorageKey.set(prev.storageKey, prev)
+  const priorByVariantId = new Map<string, ClipEncodedVariant>()
+  for (const prev of row.variants) {
+    if (prev.role && prev.role !== "variant") continue
+    priorByVariantId.set(prev.id, prev)
+  }
 
   for (let i = 0; i < variantSpecs.length; i++) {
     const spec = variantSpecs[i]!
-    const prev = priorByStorageKey.get(spec.storageKey)
+    const prev = priorByVariantId.get(spec.id)
     if (!prev?.settings) continue
     if (!settingsEqual(prev.settings, targetSettings[i]!)) continue
-    const fileHit = await storage.resolve(spec.storageKey)
+    const fileHit = await storage.resolve(prev.storageKey)
     if (!fileHit) continue
     reusedBySpecIndex.set(i, prev)
   }

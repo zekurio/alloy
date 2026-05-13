@@ -205,7 +205,15 @@ async function runEncode(clipId: string): Promise<void> {
   try {
     await runEncodeInner(clipId, row, runId, abort.signal)
   } catch (err) {
-    if ((err as Error).name !== "AbortError") {
+    if ((err as Error).name === "AbortError") {
+      if (stopping) {
+        await releaseEncodeLease(
+          clipId,
+          runId,
+          "Encode interrupted by shutdown"
+        )
+      }
+    } else {
       const reason = err instanceof Error ? err.message : "Encode failed"
       if (row.encodeAttempt > RETRY_LIMIT) {
         await markFailedUnlessReady(clipId, reason)
