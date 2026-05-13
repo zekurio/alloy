@@ -1,7 +1,6 @@
 import * as React from "react"
 import { createAuthActions } from "./auth-actions"
 import { createApiClient } from "./client"
-import { validateObject } from "./contract-validators"
 import { readJsonOrThrow } from "./http"
 
 type AuthError = { message: string }
@@ -116,6 +115,14 @@ export type AuthClient = ReturnType<typeof createAuth>
 export function createAuth(baseURL: string) {
   const client = createApiClient(baseURL)
 
+  function validateAuthResponse<T>(value: unknown): T {
+    if (value === null) return value as T
+    if (typeof value !== "object") {
+      throw new Error("Invalid auth response")
+    }
+    return value as T
+  }
+
   async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const headers = new Headers(init.headers)
     if (init.body && !headers.has("Content-Type")) {
@@ -124,9 +131,7 @@ export function createAuth(baseURL: string) {
     const res = await client.request(path, {
       init: { ...init, headers },
     })
-    return readJsonOrThrow(res, (value) =>
-      value === null ? (value as T) : validateObject<T>(value, "auth")
-    )
+    return readJsonOrThrow(res, validateAuthResponse<T>)
   }
 
   async function fetchSession(): Promise<SessionData | null> {

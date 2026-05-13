@@ -152,7 +152,15 @@ export function removeSourceVariants(
 }
 
 export function isRemuxedSourceKey(clipId: string, key: string): boolean {
-  return key === clipSourceMp4Key(clipId)
+  const legacyKey = clipSourceMp4Key(clipId)
+  if (key === legacyKey) return true
+
+  const runScopedPrefix = `${legacyKey.slice(0, -".mp4".length)}-`
+  return (
+    key.startsWith(runScopedPrefix) &&
+    key.endsWith(".mp4") &&
+    key.length > runScopedPrefix.length + ".mp4".length
+  )
 }
 
 function isStagingKey(key: string): boolean {
