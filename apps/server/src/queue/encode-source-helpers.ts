@@ -6,6 +6,7 @@ import { clip, type ClipEncodedVariant } from "@workspace/db/schema"
 import { db } from "../db"
 import { clipOriginalAssetKey, clipSourceMp4Key, storage } from "../storage"
 import { probe } from "./ffmpeg"
+import { abortEncode } from "./encode-abort"
 
 type ClipRow = typeof clip.$inferSelect
 
@@ -70,7 +71,7 @@ async function promoteOriginalSource(args: {
     toKey: durableKey,
     contentType,
   })
-  await db
+  const [updated] = await db
     .update(clip)
     .set({
       storageKey: durableKey,
@@ -81,6 +82,10 @@ async function promoteOriginalSource(args: {
       updatedAt: new Date(),
     })
     .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
+    .returning({ id: clip.id })
+  if (!updated) {
+    throw abortEncode()
+  }
   return { storageKey: durableKey, contentType, sizeBytes: size }
 }
 

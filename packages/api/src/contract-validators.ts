@@ -1,8 +1,11 @@
 import type {
   AdminRuntimeConfig,
+  ClipLikeState,
   ClipRow,
   FeedPage,
+  InitiateClipResponse,
   NotificationsResponse,
+  QueueClip,
   SearchResults,
 } from "@workspace/contracts"
 
@@ -17,6 +20,17 @@ function assertNoStorageKey(value: Record<string, unknown>, label: string) {
   if ("storageKey" in value) {
     throw new Error(`Invalid ${label} response: storageKey must not be public`)
   }
+}
+
+export function validateObject<T>(value: unknown, label: string): T {
+  objectRecord(value, label)
+  return value as T
+}
+
+export function validateObjectArray<T>(value: unknown, label: string): T[] {
+  if (!Array.isArray(value)) throw new Error(`Invalid ${label} response`)
+  for (const item of value) objectRecord(item, label)
+  return value as T[]
 }
 
 export function validateClipRow(value: unknown): ClipRow {
@@ -35,6 +49,66 @@ export function validateClipRow(value: unknown): ClipRow {
 export function validateClipRows(value: unknown): ClipRow[] {
   if (!Array.isArray(value)) throw new Error("Invalid clips response")
   return value.map(validateClipRow)
+}
+
+export function validateQueueClips(value: unknown): QueueClip[] {
+  if (!Array.isArray(value)) throw new Error("Invalid queue response")
+  for (const item of value) {
+    const row = objectRecord(item, "queue clip")
+    if (typeof row.id !== "string") {
+      throw new Error("Invalid queue response: id must be a string")
+    }
+    if (typeof row.status !== "string") {
+      throw new Error("Invalid queue response: status must be a string")
+    }
+    if (typeof row.encodeProgress !== "number") {
+      throw new Error("Invalid queue response: encodeProgress must be numeric")
+    }
+  }
+  return value as QueueClip[]
+}
+
+export function validateInitiateClipResponse(
+  value: unknown
+): InitiateClipResponse {
+  const response = objectRecord(value, "initiate clip")
+  if (typeof response.clipId !== "string") {
+    throw new Error("Invalid initiate clip response: clipId must be a string")
+  }
+  if (typeof response.slug !== "string") {
+    throw new Error("Invalid initiate clip response: slug must be a string")
+  }
+  objectRecord(response.ticket, "upload ticket")
+  objectRecord(response.thumbTicket, "thumbnail upload ticket")
+  return value as InitiateClipResponse
+}
+
+export function validateClipLikeState(value: unknown): ClipLikeState {
+  const response = objectRecord(value, "clip like state")
+  if (typeof response.liked !== "boolean") {
+    throw new Error("Invalid clip like response: liked must be boolean")
+  }
+  if (typeof response.likeCount !== "number") {
+    throw new Error("Invalid clip like response: likeCount must be numeric")
+  }
+  return value as ClipLikeState
+}
+
+export function validateBooleanFlag<T extends string, V extends boolean>(
+  value: unknown,
+  key: T,
+  expected?: V
+): Record<T, V extends boolean ? V : boolean> {
+  const response = objectRecord(value, key)
+  if (
+    (expected === undefined &&
+      response[key] !== true &&
+      response[key] !== false) ||
+    (expected !== undefined && response[key] !== expected)
+  ) {
+    throw new Error(`Invalid ${key} response: ${key} must be boolean`)
+  }
+  return response as Record<T, V extends boolean ? V : boolean>
 }
 
 export function validateFeedPage(value: unknown): FeedPage {

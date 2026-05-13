@@ -1,6 +1,7 @@
 import * as React from "react"
 import { createAuthActions } from "./auth-actions"
 import { createApiClient } from "./client"
+import { validateObject } from "./contract-validators"
 import { readJsonOrThrow } from "./http"
 
 type AuthError = { message: string }
@@ -123,7 +124,9 @@ export function createAuth(baseURL: string) {
     const res = await client.request(path, {
       init: { ...init, headers },
     })
-    return readJsonOrThrow<T>(res)
+    return readJsonOrThrow(res, (value) =>
+      value === null ? (value as T) : validateObject<T>(value, "auth")
+    )
   }
 
   async function fetchSession(): Promise<SessionData | null> {

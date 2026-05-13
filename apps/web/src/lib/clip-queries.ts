@@ -95,8 +95,9 @@ export function useUploadQueueQuery({ enabled }: { enabled: boolean }) {
   const query = useQuery({
     queryKey: clipKeys.queue(),
     queryFn: () => api.clips.fetchQueue(),
-    enabled: enabled && stream.initialError,
-    staleTime: Infinity,
+    enabled,
+    refetchInterval: 15_000,
+    staleTime: 5_000,
   })
   return { ...query, stream }
 }

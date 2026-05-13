@@ -61,6 +61,9 @@ export async function stopEncodeWorker(): Promise<void> {
   }
   unsubscribeConfig?.()
   unsubscribeConfig = null
+  for (const entry of activeEncodes.values()) {
+    entry.abort.abort()
+  }
   await Promise.allSettled(runningJobs)
 }
 

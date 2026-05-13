@@ -8,7 +8,6 @@ import {
 } from "@workspace/contracts"
 import { env } from "../env"
 import {
-  DEFAULT_CONFIG,
   AppearanceConfigPatchSchema,
   EncoderConfigPatchSchema,
   FsStorageConfigPatchSchema,
@@ -112,14 +111,15 @@ function writeToDisk(next: RuntimeConfig): void {
 const initialLoad = loadFromDisk()
 if (!initialLoad.ok) {
   // eslint-disable-next-line no-console
-  console.warn(
-    `[config-store] ${CONFIG_PATH} failed validation, falling back to defaults:`,
+  console.error(
+    `[config-store] ${CONFIG_PATH} failed validation:`,
     initialLoad.error
   )
+  process.exit(1)
 }
 
-let state: RuntimeConfig = initialLoad.ok ? initialLoad.config : DEFAULT_CONFIG
-if (initialLoad.ok && initialLoad.created) {
+let state: RuntimeConfig = initialLoad.config
+if (initialLoad.created) {
   writeToDisk(state)
 }
 

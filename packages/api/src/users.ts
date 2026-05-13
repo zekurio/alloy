@@ -11,6 +11,11 @@ import {
   type UserStorageUsage,
 } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
+import {
+  validateBooleanFlag,
+  validateObject,
+  validateObjectArray,
+} from "./contract-validators"
 
 export type {
   ProfileCounts,
@@ -78,21 +83,27 @@ async function uploadUserImage(
     method: "POST",
     json,
   })
-  return readJsonOrThrow<PublicUser>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObject<PublicUser>(value, "user")
+  )
 }
 
 async function deleteAvatar(context: ApiContext): Promise<PublicUser> {
   const res = await context.request("/api/users/me/avatar", {
     method: "DELETE",
   })
-  return readJsonOrThrow<PublicUser>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObject<PublicUser>(value, "user")
+  )
 }
 
 async function deleteBanner(context: ApiContext): Promise<PublicUser> {
   const res = await context.request("/api/users/me/banner", {
     method: "DELETE",
   })
-  return readJsonOrThrow<PublicUser>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObject<PublicUser>(value, "user")
+  )
 }
 
 async function getProfile(
@@ -100,7 +111,9 @@ async function getProfile(
   handle: string
 ): Promise<UserProfile> {
   const res = await context.request(`/api/users/${encodeURIComponent(handle)}`)
-  return readJsonOrThrow<UserProfile>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObject<UserProfile>(value, "user profile")
+  )
 }
 
 async function getProfileViewer(
@@ -112,7 +125,9 @@ async function getProfileViewer(
     `/api/users/${encodeURIComponent(handle)}/viewer`,
     { init }
   )
-  return readJsonOrThrow<UserProfileViewer>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObject<UserProfileViewer>(value, "profile viewer")
+  )
 }
 
 async function getClips(
@@ -124,7 +139,9 @@ async function getClips(
     `/api/users/${encodeURIComponent(handle)}/clips`,
     { init }
   )
-  return readJsonOrThrow<UserClip[]>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObjectArray<UserClip>(value, "user clips")
+  )
 }
 
 async function getProfileGames(
@@ -143,7 +160,9 @@ async function getProfileGames(
       },
     }
   )
-  return readJsonOrThrow<ProfileGameRow[]>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObjectArray<ProfileGameRow>(value, "profile games")
+  )
 }
 
 async function getTaggedClips(
@@ -153,7 +172,9 @@ async function getTaggedClips(
   const res = await context.request(
     `/api/users/${encodeURIComponent(handle)}/tagged`
   )
-  return readJsonOrThrow<UserClip[]>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObjectArray<UserClip>(value, "tagged clips")
+  )
 }
 
 async function getLikedClips(
@@ -163,7 +184,9 @@ async function getLikedClips(
   const res = await context.request(
     `/api/users/${encodeURIComponent(handle)}/liked`
   )
-  return readJsonOrThrow<UserClip[]>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObjectArray<UserClip>(value, "liked clips")
+  )
 }
 
 async function searchUsers(
@@ -174,7 +197,9 @@ async function searchUsers(
   const res = await context.request("/api/users/search", {
     query: { q, limit: String(limit) },
   })
-  return readJsonOrThrow<UserSearchResult[]>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObjectArray<UserSearchResult>(value, "user search")
+  )
 }
 
 async function getFollowers(
@@ -184,7 +209,9 @@ async function getFollowers(
   const res = await context.request(
     `/api/users/${encodeURIComponent(handle)}/followers`
   )
-  return readJsonOrThrow<UserSearchResult[]>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObjectArray<UserSearchResult>(value, "followers")
+  )
 }
 
 async function getFollowing(
@@ -194,7 +221,9 @@ async function getFollowing(
   const res = await context.request(
     `/api/users/${encodeURIComponent(handle)}/following`
   )
-  return readJsonOrThrow<UserSearchResult[]>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObjectArray<UserSearchResult>(value, "following")
+  )
 }
 
 async function followUser(context: ApiContext, handle: string): Promise<void> {
@@ -202,7 +231,7 @@ async function followUser(context: ApiContext, handle: string): Promise<void> {
     `/api/users/${encodeURIComponent(handle)}/follow`,
     { method: "POST" }
   )
-  await readJsonOrThrow<{ following: true }>(res)
+  validateBooleanFlag(await readJsonOrThrow<unknown>(res), "following", true)
 }
 
 async function unfollowUser(
@@ -213,7 +242,7 @@ async function unfollowUser(
     `/api/users/${encodeURIComponent(handle)}/follow`,
     { method: "DELETE" }
   )
-  await readJsonOrThrow<{ following: false }>(res)
+  validateBooleanFlag(await readJsonOrThrow<unknown>(res), "following", false)
 }
 
 async function blockUser(context: ApiContext, handle: string): Promise<void> {
@@ -221,7 +250,7 @@ async function blockUser(context: ApiContext, handle: string): Promise<void> {
     `/api/users/${encodeURIComponent(handle)}/block`,
     { method: "POST" }
   )
-  await readJsonOrThrow<{ blocked: true }>(res)
+  validateBooleanFlag(await readJsonOrThrow<unknown>(res), "blocked", true)
 }
 
 async function unblockUser(context: ApiContext, handle: string): Promise<void> {
@@ -229,26 +258,30 @@ async function unblockUser(context: ApiContext, handle: string): Promise<void> {
     `/api/users/${encodeURIComponent(handle)}/block`,
     { method: "DELETE" }
   )
-  await readJsonOrThrow<{ blocked: false }>(res)
+  validateBooleanFlag(await readJsonOrThrow<unknown>(res), "blocked", false)
 }
 
 async function requestOAuthProfileSync(context: ApiContext): Promise<void> {
   const res = await context.request("/api/users/me/sync-oauth-profile", {
     method: "POST",
   })
-  await readJsonOrThrow<{ synced: true }>(res)
+  validateBooleanFlag(await readJsonOrThrow<unknown>(res), "synced", true)
 }
 
 async function getAccountState(
   context: ApiContext
 ): Promise<{ disabledAt: string | null }> {
   const res = await context.request("/api/users/me/account")
-  return readJsonOrThrow<{ disabledAt: string | null }>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObject<{ disabledAt: string | null }>(value, "account state")
+  )
 }
 
 async function getStorageUsage(context: ApiContext): Promise<UserStorageUsage> {
   const res = await context.request("/api/users/me/storage")
-  return readJsonOrThrow<UserStorageUsage>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObject<UserStorageUsage>(value, "storage usage")
+  )
 }
 
 async function disableAccount(
@@ -257,7 +290,9 @@ async function disableAccount(
   const res = await context.request("/api/users/me/disable", {
     method: "POST",
   })
-  return readJsonOrThrow<{ disabledAt: string }>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObject<{ disabledAt: string }>(value, "disable account")
+  )
 }
 
 async function reactivateAccount(
@@ -266,7 +301,9 @@ async function reactivateAccount(
   const res = await context.request("/api/users/me/reactivate", {
     method: "POST",
   })
-  return readJsonOrThrow<{ disabledAt: null }>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObject<{ disabledAt: null }>(value, "reactivate account")
+  )
 }
 
 function downloadAllClipsUrl(context: ApiContext): string {
@@ -279,7 +316,9 @@ async function deleteAllClips(
   const res = await context.request("/api/users/me/clips", {
     method: "DELETE",
   })
-  return readJsonOrThrow<{ deleted: number; hasMore: boolean }>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObject<{ deleted: number; hasMore: boolean }>(value, "delete clips")
+  )
 }
 
 export function createUsersApi(context: ApiContext) {

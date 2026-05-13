@@ -22,6 +22,7 @@ import {
   openGraphCompatibleSource,
 } from "../open-graph/video-selection"
 import { codecNameFor, encode, probe, remuxToMp4 } from "./ffmpeg"
+import { abortEncode } from "./encode-abort"
 import { pruneStaleVariants, settingsEqual } from "./encode-variant-helpers"
 import type { VariantSpec } from "./variant-specs"
 import {
@@ -52,7 +53,7 @@ export async function tryPublishRemux({
   runId: string
 }): Promise<{ path: string; variant: ClipEncodedVariant } | null> {
   const remuxPath = path.join(scratchDir, "source.mp4")
-  const remuxKey = clipSourceMp4Key(clipId)
+  const remuxKey = clipSourceMp4Key(clipId, runId)
   const hasTrim = trim.startMs != null && trim.endMs != null
   try {
     await remuxToMp4(sourcePath, remuxPath, {
@@ -77,7 +78,7 @@ export async function tryPublishRemux({
       isDefault: true,
       trim,
     })
-    await db.transaction(async (tx) => {
+    const publishState = await db.transaction(async (tx) => {
       const previous = await readClipPublishState(tx, clipId)
       const [published] = await tx
         .update(clip)
@@ -103,6 +104,10 @@ export async function tryPublishRemux({
         .returning({ status: clip.status, privacy: clip.privacy })
       return { previous, published }
     })
+    if (!publishState.published) {
+      await storage.delete(remuxKey).catch(() => undefined)
+      throw abortEncode()
+    }
     void publishClipUpsert(row.authorId, clipId)
     return { path: remuxPath, variant }
   } catch (err) {
@@ -154,6 +159,10 @@ export async function publishSourceOnlyClip({
       .returning({ status: clip.status, privacy: clip.privacy })
     return { previous, published }
   })
+  if (!publishState.published) {
+    await deleteRunScopedVariants([sourceVariant, ...retainedVariants], runId)
+    throw abortEncode()
+  }
   void publishClipUpsert(authorId, clipId)
   notifyFollowersIfNewPublicClip(authorId, clipId, publishState)
 }
@@ -197,6 +206,15 @@ export async function publishEncodedVariants({
       .returning({ status: clip.status, privacy: clip.privacy })
     return { previous, published }
   })
+  if (!publishState.published) {
+    await deleteRunScopedVariants(
+      sourceVariant
+        ? [...variants, sourceVariant, ...retainedVariants]
+        : [...variants, ...retainedVariants],
+      runId
+    )
+    throw abortEncode()
+  }
   void publishClipUpsert(authorId, clipId)
   notifyFollowersIfNewPublicClip(authorId, clipId, publishState)
 }
@@ -258,7 +276,7 @@ export async function publishOpenGraphVariant({
   }
 
   const targetHeight = Math.min(probed.height, 1080)
-  const storageKey = clipOpenGraphVideoKey(clipId)
+  const storageKey = clipOpenGraphVideoKey(clipId, runId)
   const settings: ClipVariantSettings = {
     hwaccel: config.hwaccel,
     codec: "h264",
@@ -503,9 +521,19 @@ export async function ensureClipStillPresent(
     .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
     .limit(1)
   if (row) return
-  const err = new Error("Encode cancelled")
-  err.name = "AbortError"
-  throw err
+  throw abortEncode()
+}
+
+async function deleteRunScopedVariants(
+  variants: readonly ClipEncodedVariant[],
+  runId: string
+): Promise<void> {
+  const keys = new Set(
+    variants
+      .map((variant) => variant.storageKey)
+      .filter((storageKey) => storageKey.includes(runId))
+  )
+  await Promise.allSettled([...keys].map((key) => storage.delete(key)))
 }
 
 export async function makeScratchDir(clipId: string): Promise<string> {

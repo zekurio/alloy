@@ -218,7 +218,7 @@ export function useUploadQueueState(
   const bump = React.useCallback(() => bumpState(), [])
 
   const { data: serverQueueData, stream } = useUploadQueueQuery({
-    enabled: queueOpen,
+    enabled: true,
   })
   const serverQueueHydrated = serverQueueData !== undefined
   const queueStreamFailed = stream.initialError
