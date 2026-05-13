@@ -265,7 +265,7 @@ async function requestOAuthProfileSync(context: ApiContext): Promise<void> {
   const res = await context.request("/api/users/me/sync-oauth-profile", {
     method: "POST",
   })
-  validateBooleanFlag(await readJsonOrThrow<unknown>(res), "synced", true)
+  validateBooleanFlag(await readJsonOrThrow<unknown>(res), "synced")
 }
 
 async function getAccountState(
