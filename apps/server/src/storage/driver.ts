@@ -159,11 +159,16 @@ export function clipOriginalAssetKey(
   return `${clipAssetDir(clipId)}/original${clipSourceExtension(contentType)}`
 }
 
-export function clipSourceMp4Key(clipId: string): string {
-  return `${clipAssetDir(clipId)}/source.mp4`
+export function clipSourceMp4Key(clipId: string, runId?: string): string {
+  const runSuffix = runId ? `-${runId}` : ""
+  return `${clipAssetDir(clipId)}/source${runSuffix}.mp4`
 }
 
-export function clipVideoVariantKey(clipId: string, variantId: string): string {
+export function clipVideoVariantKey(
+  clipId: string,
+  variantId: string,
+  runId?: string
+): string {
   const safeVariantId = variantId
     .replace(/[^a-z0-9]+/gi, "-")
     .replace(/^-+|-+$/g, "")
@@ -171,11 +176,13 @@ export function clipVideoVariantKey(clipId: string, variantId: string): string {
   if (!safeVariantId) {
     throw new Error("clipVideoVariantKey requires a non-empty variant id")
   }
-  return `${clipAssetDir(clipId)}/video-${safeVariantId}.mp4`
+  const runSuffix = runId ? `-${runId}` : ""
+  return `${clipAssetDir(clipId)}/video-${safeVariantId}${runSuffix}.mp4`
 }
 
-export function clipOpenGraphVideoKey(clipId: string): string {
-  return `${clipAssetDir(clipId)}/opengraph.mp4`
+export function clipOpenGraphVideoKey(clipId: string, runId?: string): string {
+  const runSuffix = runId ? `-${runId}` : ""
+  return `${clipAssetDir(clipId)}/opengraph${runSuffix}.mp4`
 }
 
 function userAssetDir(userId: string): string {

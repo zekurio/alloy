@@ -12,6 +12,17 @@ import { requireSession } from "../auth/require-session"
 
 const HEARTBEAT_MS = 25_000
 
+async function writeQueueSnapshot(
+  writeSSE: (message: { event: string; data: string }) => Promise<void>,
+  viewerId: string
+): Promise<void> {
+  const snapshot = await selectQueueRowsForAuthor(viewerId)
+  await writeSSE({
+    event: "snapshot",
+    data: JSON.stringify(snapshot),
+  })
+}
+
 async function writeEventBatch<T>(
   writeSSE: (message: { event: string; data: string }) => Promise<void>,
   batch: T[],
@@ -61,11 +72,7 @@ export const eventsRoute = new Hono().get(
       })
 
       try {
-        const snapshot = await selectQueueRowsForAuthor(viewerId)
-        await stream.writeSSE({
-          event: "snapshot",
-          data: JSON.stringify(snapshot),
-        })
+        await writeQueueSnapshot(stream.writeSSE.bind(stream), viewerId)
 
         while (!stream.aborted) {
           if (
@@ -86,9 +93,11 @@ export const eventsRoute = new Hono().get(
           wake = null
 
           if (pending.length === 0 && !stream.aborted) {
-            // Heartbeat tick — zero-payload event the client ignores.
-            // Keeps the pipe warm for proxies with idle timeouts.
-            await stream.writeSSE({ event: "heartbeat", data: "" })
+            // Periodic snapshots keep horizontally scaled deployments
+            // eventually consistent even when process-local events are
+            // emitted by a different server instance. They also keep the
+            // pipe warm for proxies with idle timeouts.
+            await writeQueueSnapshot(stream.writeSSE.bind(stream), viewerId)
           }
         }
       } finally {

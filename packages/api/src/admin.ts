@@ -12,7 +12,10 @@ import type {
   AdminUsersResponse,
 } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
-import { validateAdminRuntimeConfig } from "./contract-validators"
+import {
+  validateAdminRuntimeConfig,
+  validateObject,
+} from "./contract-validators"
 
 export {
   ENCODER_CODECS,
@@ -92,7 +95,9 @@ async function reloadRuntimeConfig(
 
 async function exportRuntimeConfig(context: ApiContext): Promise<unknown> {
   const res = await context.request("/api/admin/runtime-config/export")
-  return readJsonOrThrow<unknown>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObject<unknown>(value, "runtime config export")
+  )
 }
 
 async function importRuntimeConfig(
@@ -135,7 +140,9 @@ async function fetchEncoderCapabilities(
   context: ApiContext
 ): Promise<AdminEncoderCapabilities> {
   const res = await context.request("/api/admin/encoder/capabilities")
-  return readJsonOrThrow<AdminEncoderCapabilities>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObject<AdminEncoderCapabilities>(value, "encoder capabilities")
+  )
 }
 
 async function reEncodeAllClips(
@@ -144,7 +151,12 @@ async function reEncodeAllClips(
   const res = await context.request("/api/admin/clips/re-encode", {
     method: "POST",
   })
-  return readJsonOrThrow<{ enqueued: number; hasMore: boolean }>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObject<{ enqueued: number; hasMore: boolean }>(
+      value,
+      "re-encode response"
+    )
+  )
 }
 
 async function regenerateLoginSplash(
@@ -159,7 +171,9 @@ async function regenerateLoginSplash(
 
 async function fetchUsers(context: ApiContext): Promise<AdminUsersResponse> {
   const res = await context.request("/api/admin/users")
-  return readJsonOrThrow<AdminUsersResponse>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObject<AdminUsersResponse>(value, "admin users")
+  )
 }
 
 async function updateUserStorageQuota(
@@ -174,7 +188,9 @@ async function updateUserStorageQuota(
       json: input,
     }
   )
-  return readJsonOrThrow<AdminUserStorageRow>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObject<AdminUserStorageRow>(value, "admin user storage")
+  )
 }
 
 export function createAdminApi(context: ApiContext) {
