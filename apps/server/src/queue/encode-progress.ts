@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm"
+import { and, eq, lt } from "drizzle-orm"
 
 import { clip } from "@workspace/db/schema"
 
@@ -7,7 +7,8 @@ import { publishClipProgress } from "../clips/events"
 
 export function makeProgressWriter(
   clipId: string,
-  authorId: string
+  authorId: string,
+  runId: string
 ): (pct: number) => void {
   let lastWrittenPct = 0
   let lastWriteAt = 0
@@ -19,7 +20,17 @@ export function makeProgressWriter(
     lastWriteAt = now
     db.update(clip)
       .set({ encodeProgress: pct, updatedAt: new Date() })
-      .where(eq(clip.id, clipId))
+      .where(
+        and(
+          eq(clip.id, clipId),
+          eq(clip.encodeRunId, runId),
+          lt(clip.encodeProgress, pct)
+        )
+      )
+      .returning({ id: clip.id })
+      .then((rows) => {
+        if (rows.length > 0) publishClipProgress(authorId, clipId, pct)
+      })
       .catch((err: unknown) => {
         // eslint-disable-next-line no-console
         console.error(
@@ -27,6 +38,5 @@ export function makeProgressWriter(
           err
         )
       })
-    publishClipProgress(authorId, clipId, pct)
   }
 }

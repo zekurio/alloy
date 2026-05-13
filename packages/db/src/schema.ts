@@ -28,6 +28,10 @@ import { user } from "./auth-schema"
 
 export { CLIP_PRIVACY, CLIP_STATUS, NOTIFICATION_TYPES, UPLOAD_TICKET_ROLE }
 
+function sqlStringList(values: readonly string[]): string {
+  return values.map((value) => `'${value.replaceAll("'", "''")}'`).join(", ")
+}
+
 export interface ClipVariantSettings {
   hwaccel: string
   codec: string
@@ -155,11 +159,11 @@ export const clip = pgTable(
     index("clip_game_created_idx").on(t.gameId, t.createdAt),
     check(
       "clip_privacy_check",
-      sql`${t.privacy} in ('public', 'unlisted', 'private')`
+      sql`${t.privacy} in (${sql.raw(sqlStringList(CLIP_PRIVACY))})`
     ),
     check(
       "clip_status_check",
-      sql`${t.status} in ('pending', 'uploaded', 'encoding', 'ready', 'failed')`
+      sql`${t.status} in (${sql.raw(sqlStringList(CLIP_STATUS))})`
     ),
     check(
       "clip_size_bytes_safe_check",
@@ -189,7 +193,7 @@ export const clipUploadTicket = pgTable(
     index("clip_upload_ticket_used_idx").on(t.usedAt),
     check(
       "clip_upload_ticket_role_check",
-      sql`${t.role} in ('video', 'thumbnail')`
+      sql`${t.role} in (${sql.raw(sqlStringList(UPLOAD_TICKET_ROLE))})`
     ),
     check(
       "clip_upload_ticket_expected_bytes_safe_check",
@@ -389,7 +393,7 @@ export const notification = pgTable(
       .where(sql`${t.readAt} IS NULL`),
     check(
       "notification_type_check",
-      sql`${t.type} in ('clip_upload_failed', 'new_follower', 'clip_comment', 'comment_reply', 'comment_pinned', 'comment_liked_by_author', 'new_video')`
+      sql`${t.type} in (${sql.raw(sqlStringList(NOTIFICATION_TYPES))})`
     ),
   ]
 )

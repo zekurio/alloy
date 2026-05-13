@@ -19,7 +19,7 @@ import { toast } from "@workspace/ui/lib/toast"
 
 import { api } from "@/lib/api"
 import { authClient, signOut } from "@/lib/auth-client"
-import { getQueryClient } from "@/lib/query-client"
+import { resetClientState } from "@/lib/query-client"
 
 function AccountActionRow({
   title,
@@ -78,7 +78,7 @@ function useAccountDangerActions() {
       setDisabledAt(state.disabledAt)
       toast.success("Account disabled")
       await signOut().catch(() => undefined)
-      getQueryClient().clear()
+      resetClientState()
       await router.invalidate()
       await navigate({ to: "/login" })
     } catch (cause) {

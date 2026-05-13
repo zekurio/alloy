@@ -10,6 +10,7 @@ import { publishClipUpsert } from "../clips/events"
 import { configStore } from "../config/store"
 import { storage } from "../storage"
 import { probe } from "./ffmpeg"
+import { abortEncode } from "./encode-abort"
 import { makeProgressWriter } from "./encode-progress"
 import {
   planReuse,
@@ -65,7 +66,7 @@ async function runPipelineInScratch(
   await storage.downloadToFile(originalSourceKey, sourcePath)
   await ensureClipStillPresent(clipId, runId, signal)
 
-  await db
+  const [published] = await db
     .update(clip)
     .set({
       status: "encoding",
@@ -74,6 +75,8 @@ async function runPipelineInScratch(
       updatedAt: new Date(),
     })
     .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
+    .returning({ id: clip.id })
+  if (!published) throw abortEncode()
   void publishClipUpsert(row.authorId, clipId)
 
   const probed = await probe(sourcePath)
@@ -88,7 +91,7 @@ async function runPipelineInScratch(
       ? Math.max(1, trim.endMs - trim.startMs)
       : probed.durationMs
 
-  await db
+  const [probedUpdate] = await db
     .update(clip)
     .set({
       durationMs: outputDurationMs,
@@ -97,9 +100,11 @@ async function runPipelineInScratch(
       updatedAt: new Date(),
     })
     .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
+    .returning({ id: clip.id })
+  if (!probedUpdate) throw abortEncode()
 
   const encoderConfig = configStore.get("encoder")
-  const writeProgress = makeProgressWriter(clipId, row.authorId)
+  const writeProgress = makeProgressWriter(clipId, row.authorId, runId)
   const preservedSource = sourceAlreadyRemuxed
     ? {
         storageKey: originalSourceKey,
@@ -222,7 +227,8 @@ async function runPipelineInScratch(
     clipId,
     probed.height,
     encoderConfig.variants,
-    encoderConfig.defaultVariantId
+    encoderConfig.defaultVariantId,
+    runId
   )
   if (variantSpecs.length === 0) {
     if (sourceVariant) {
@@ -302,7 +308,7 @@ async function runPipelineInScratch(
     throw new Error(`No encoded variants were produced for clip ${clipId}`)
   }
 
-  await db
+  const [finalPublished] = await db
     .update(clip)
     .set({
       status: "ready",
@@ -318,5 +324,7 @@ async function runPipelineInScratch(
       updatedAt: new Date(),
     })
     .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
+    .returning({ id: clip.id })
+  if (!finalPublished) throw abortEncode()
   void publishClipUpsert(row.authorId, clipId)
 }

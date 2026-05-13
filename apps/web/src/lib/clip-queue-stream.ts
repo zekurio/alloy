@@ -2,6 +2,7 @@ import * as React from "react"
 import { useQueryClient } from "@tanstack/react-query"
 
 import { clipKeys } from "./clip-query-keys"
+import { api } from "./api"
 import { apiOrigin } from "./env"
 import type { QueueClip, QueueEvent } from "@workspace/api"
 
@@ -53,10 +54,41 @@ function parseQueuePayload<T>(data: string): T | null {
 export function useUploadQueueStream({ enabled }: { enabled: boolean }) {
   const queryClient = useQueryClient()
   const [initialError, setInitialError] = React.useState(false)
+  const fallbackFetchRef = React.useRef<Promise<QueueClip[]> | null>(null)
 
   React.useEffect(() => {
     setInitialError(false)
     if (!enabled) return
+
+    let active = true
+
+    const refreshFromFetch = () => {
+      if (fallbackFetchRef.current) return fallbackFetchRef.current
+      const hadCachedQueue =
+        queryClient.getQueryData<QueueClip[]>(clipKeys.queue()) !== undefined
+      void queryClient.invalidateQueries({ queryKey: clipKeys.queue() })
+      const request = queryClient
+        .fetchQuery({
+          queryKey: clipKeys.queue(),
+          queryFn: () => api.clips.fetchQueue(),
+          staleTime: 0,
+        })
+        .then((queue) => {
+          if (active) setInitialError(false)
+          return queue
+        })
+        .catch((err: unknown) => {
+          if (active && !hadCachedQueue) setInitialError(true)
+          throw err
+        })
+        .finally(() => {
+          if (fallbackFetchRef.current === request) {
+            fallbackFetchRef.current = null
+          }
+        })
+      fallbackFetchRef.current = request
+      return request
+    }
 
     const url = new URL(STREAM_URL, apiOrigin()).toString()
     const source = new EventSource(url, { withCredentials: true })
@@ -64,7 +96,7 @@ export function useUploadQueueStream({ enabled }: { enabled: boolean }) {
     const handleSnapshot = (ev: MessageEvent<string>) => {
       const snapshot = parseQueuePayload<QueueClip[]>(ev.data)
       if (!snapshot) {
-        setInitialError(true)
+        void refreshFromFetch().catch(() => undefined)
         return
       }
       queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), snapshot)
@@ -74,7 +106,7 @@ export function useUploadQueueStream({ enabled }: { enabled: boolean }) {
     const handleDelta = (ev: MessageEvent<string>) => {
       const event = parseQueuePayload<QueueEvent>(ev.data)
       if (!event) {
-        setInitialError(true)
+        void refreshFromFetch().catch(() => undefined)
         return
       }
       queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), (prev) =>
@@ -83,11 +115,7 @@ export function useUploadQueueStream({ enabled }: { enabled: boolean }) {
     }
 
     source.onerror = () => {
-      if (
-        queryClient.getQueryData<QueueClip[]>(clipKeys.queue()) === undefined
-      ) {
-        setInitialError(true)
-      }
+      void refreshFromFetch().catch(() => undefined)
     }
 
     source.addEventListener("snapshot", handleSnapshot)
@@ -98,6 +126,7 @@ export function useUploadQueueStream({ enabled }: { enabled: boolean }) {
     // silently. Nothing to wire up.
 
     return () => {
+      active = false
       source.removeEventListener("snapshot", handleSnapshot)
       source.removeEventListener("upsert", handleDelta)
       source.removeEventListener("progress", handleDelta)

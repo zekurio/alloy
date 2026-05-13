@@ -10,7 +10,17 @@ import type {
   QueueClip,
 } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
-import { validateClipRow, validateClipRows } from "./contract-validators"
+import {
+  validateBooleanFlag,
+  validateClipLikeState,
+  validateClipRow,
+  validateClipRows,
+  validateInitiateClipResponse,
+  validateQueueClips,
+} from "./contract-validators"
+
+const UPLOAD_TIMEOUT_GRACE_MS = 30_000
+const MIN_UPLOAD_TIMEOUT_MS = 30_000
 
 export { ACCEPTED_CLIP_CONTENT_TYPES } from "@workspace/contracts"
 export type {
@@ -137,6 +147,10 @@ export function uploadToTicket(
       signal.addEventListener("abort", abortUpload, { once: true })
     }
     try {
+      xhr.timeout = Math.max(
+        MIN_UPLOAD_TIMEOUT_MS,
+        ticket.expiresAt * 1000 - Date.now() + UPLOAD_TIMEOUT_GRACE_MS
+      )
       xhr.send(body)
     } catch (err) {
       settle(() =>
@@ -166,7 +180,7 @@ async function fetchClips(
 
 async function fetchUploadQueue(context: ApiContext): Promise<QueueClip[]> {
   const res = await context.request("/api/clips/queue")
-  return readJsonOrThrow<QueueClip[]>(res)
+  return readJsonOrThrow(res, validateQueueClips)
 }
 
 async function fetchClipById(
@@ -186,7 +200,7 @@ async function initiateClip(
     method: "POST",
     json: input,
   })
-  return readJsonOrThrow<InitiateClipResponse>(res)
+  return readJsonOrThrow(res, validateInitiateClipResponse)
 }
 
 async function finalizeClip(
@@ -206,12 +220,12 @@ async function markUploadFailed(
   const res = await context.request(clipPath(clipId, "/fail"), {
     method: "POST",
   })
-  await readJsonOrThrow<{ success: true }>(res)
+  validateBooleanFlag(await readJsonOrThrow<unknown>(res), "success")
 }
 
 async function deleteClip(context: ApiContext, clipId: string): Promise<void> {
   const res = await context.request(clipPath(clipId), { method: "DELETE" })
-  await readJsonOrThrow<{ deleted: true }>(res)
+  validateBooleanFlag(await readJsonOrThrow<unknown>(res), "deleted")
 }
 
 async function updateClip(
@@ -231,7 +245,11 @@ async function fetchLikeState(
   clipId: string
 ): Promise<{ liked: boolean }> {
   const res = await context.request(clipPath(clipId, "/like"))
-  return readJsonOrThrow<{ liked: boolean }>(res)
+  const response = validateBooleanFlag(
+    await readJsonOrThrow<unknown>(res),
+    "liked"
+  )
+  return { liked: response.liked }
 }
 
 async function setClipLike(
@@ -242,7 +260,7 @@ async function setClipLike(
   const res = await context.request(clipPath(clipId, "/like"), {
     method: liked ? "POST" : "DELETE",
   })
-  return readJsonOrThrow<ClipLikeState>(res)
+  return readJsonOrThrow(res, validateClipLikeState)
 }
 
 async function recordClipView(

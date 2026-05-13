@@ -192,22 +192,21 @@ export const clipsUploadRoutes = new Hono()
         role: "video",
       })
       if (!videoTicketOk) {
+        await deleteUploadAssets(row.storageKey, row.thumbKey)
         await markUploadFailed(row.authorId, id, "Upload ticket expired")
         return c.json({ error: "Upload ticket expired" }, 410)
       }
 
       const resolved = await storage.resolve(row.storageKey)
       if (!resolved) {
+        await deleteUploadAssets(row.storageKey, row.thumbKey)
         await markUploadFailed(row.authorId, id, "Upload bytes are missing")
         return c.json({ error: "Upload bytes are missing" }, 400)
       }
 
       const declaredSize = row.sizeBytes ?? 0
       if (declaredSize > 0 && resolved.size !== declaredSize) {
-        await storage.delete(row.storageKey).catch(() => undefined)
-        if (row.thumbKey) {
-          await storage.delete(row.thumbKey).catch(() => undefined)
-        }
+        await deleteUploadAssets(row.storageKey, row.thumbKey)
         await markUploadFailed(
           row.authorId,
           id,
@@ -217,10 +216,7 @@ export const clipsUploadRoutes = new Hono()
       }
 
       if (resolved.contentType !== row.contentType) {
-        await storage.delete(row.storageKey).catch(() => undefined)
-        if (row.thumbKey) {
-          await storage.delete(row.thumbKey).catch(() => undefined)
-        }
+        await deleteUploadAssets(row.storageKey, row.thumbKey)
         await markUploadFailed(
           row.authorId,
           id,
@@ -237,6 +233,7 @@ export const clipsUploadRoutes = new Hono()
       if (row.thumbKey) {
         const thumbResolved = await storage.resolve(row.thumbKey)
         if (!thumbResolved) {
+          await deleteUploadAssets(row.storageKey, row.thumbKey)
           await markUploadFailed(
             row.authorId,
             id,
@@ -252,13 +249,14 @@ export const clipsUploadRoutes = new Hono()
           role: "thumbnail",
         })
         if (!thumbTicketOk) {
+          await deleteUploadAssets(row.storageKey, row.thumbKey)
           await markUploadFailed(row.authorId, id, "Thumbnail ticket expired")
           return c.json({ error: "Thumbnail ticket expired" }, 410)
         }
         const thumbBytes = await readResolvedObject(thumbResolved)
         const thumbValidation = validateImageBytes(thumbBytes, "image/jpeg")
         if (!thumbValidation.ok) {
-          await storage.delete(row.thumbKey).catch(() => undefined)
+          await deleteUploadAssets(row.storageKey, row.thumbKey)
           await markUploadFailed(row.authorId, id, thumbValidation.error)
           return c.json({ error: thumbValidation.error }, 400)
         }
@@ -282,10 +280,7 @@ export const clipsUploadRoutes = new Hono()
         }
       )
       if (!quotaResult.ok) {
-        await storage.delete(row.storageKey).catch(() => undefined)
-        if (row.thumbKey) {
-          await storage.delete(row.thumbKey).catch(() => undefined)
-        }
+        await deleteUploadAssets(row.storageKey, row.thumbKey)
         await markUploadFailed(row.authorId, id, "Storage quota exceeded")
         return c.json(
           {
@@ -392,10 +387,7 @@ export const clipsUploadRoutes = new Hono()
         return c.json({ error: `Clip is already ${row.status}` }, 409)
       }
 
-      await storage.delete(row.storageKey).catch(() => undefined)
-      if (row.thumbKey) {
-        await storage.delete(row.thumbKey).catch(() => undefined)
-      }
+      await deleteUploadAssets(row.storageKey, row.thumbKey)
       await markUploadFailed(row.authorId, id, "Upload failed")
       return c.json({ success: true })
     }
@@ -498,4 +490,14 @@ async function readResolvedObject(resolved: {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
   }
   return Buffer.concat(chunks)
+}
+
+async function deleteUploadAssets(
+  storageKey: string,
+  thumbKey: string | null
+): Promise<void> {
+  await storage.delete(storageKey).catch(() => undefined)
+  if (thumbKey) {
+    await storage.delete(thumbKey).catch(() => undefined)
+  }
 }

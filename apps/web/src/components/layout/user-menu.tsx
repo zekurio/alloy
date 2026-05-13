@@ -16,7 +16,7 @@ import { UserAvatarButton } from "@workspace/ui/components/user-avatar-button"
 
 import { StorageQuotaCompact } from "@/components/storage-quota"
 import { signOut } from "@/lib/auth-client"
-import { getQueryClient } from "@/lib/query-client"
+import { resetClientState } from "@/lib/query-client"
 import { useSuspenseSession } from "@/lib/session-suspense"
 import { useUserChipData } from "@/lib/user-display"
 
@@ -52,7 +52,7 @@ function UserMenuInner() {
   async function onSignOut() {
     try {
       await signOut()
-      getQueryClient().clear()
+      resetClientState()
       await router.invalidate()
     } catch {
       toast.error("Couldn't sign out")

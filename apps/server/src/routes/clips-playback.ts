@@ -88,17 +88,16 @@ export const clipsPlaybackRoutes = new Hono()
             ? "no-store"
             : "private, max-age=300"
 
-      const direct = await storage.mintDownloadUrl(selected.key, {
-        expiresInSec: 900,
-        responseContentType: selected.contentType || undefined,
-        responseCacheControl: cacheControl,
-      })
-      if (direct) {
-        c.header(
-          "Cache-Control",
-          isPrivate ? "no-store" : "private, max-age=60"
-        )
-        return c.redirect(direct.url, 302)
+      if (!isPrivate) {
+        const direct = await storage.mintDownloadUrl(selected.key, {
+          expiresInSec: 900,
+          responseContentType: selected.contentType || undefined,
+          responseCacheControl: cacheControl,
+        })
+        if (direct) {
+          c.header("Cache-Control", "private, max-age=60")
+          return c.redirect(direct.url, 302)
+        }
       }
 
       const resolved = await storage.resolve(selected.key)
@@ -191,13 +190,15 @@ export const clipsPlaybackRoutes = new Hono()
           ? "no-store"
           : "private, max-age=86400"
 
-    const direct = await storage.mintDownloadUrl(key, {
-      expiresInSec: 900,
-      responseCacheControl: thumbCacheControl,
-    })
-    if (direct) {
-      c.header("Cache-Control", isPrivate ? "no-store" : "private, max-age=60")
-      return c.redirect(direct.url, 302)
+    if (!isPrivate) {
+      const direct = await storage.mintDownloadUrl(key, {
+        expiresInSec: 900,
+        responseCacheControl: thumbCacheControl,
+      })
+      if (direct) {
+        c.header("Cache-Control", "private, max-age=60")
+        return c.redirect(direct.url, 302)
+      }
     }
 
     const resolved = await storage.resolve(key)
@@ -274,18 +275,17 @@ export const clipsPlaybackRoutes = new Hono()
             ? "no-store"
             : "private, max-age=300"
 
-      const direct = await storage.mintDownloadUrl(selected.key, {
-        expiresInSec: 900,
-        responseContentType: selected.contentType || undefined,
-        responseContentDisposition: contentDisposition(selected.filename),
-        responseCacheControl: dlCacheControl,
-      })
-      if (direct) {
-        c.header(
-          "Cache-Control",
-          isPrivate ? "no-store" : "private, max-age=60"
-        )
-        return c.redirect(direct.url, 302)
+      if (!isPrivate) {
+        const direct = await storage.mintDownloadUrl(selected.key, {
+          expiresInSec: 900,
+          responseContentType: selected.contentType || undefined,
+          responseContentDisposition: contentDisposition(selected.filename),
+          responseCacheControl: dlCacheControl,
+        })
+        if (direct) {
+          c.header("Cache-Control", "private, max-age=60")
+          return c.redirect(direct.url, 302)
+        }
       }
 
       const resolved = await storage.resolve(selected.key)

@@ -4,7 +4,7 @@ import type { Context } from "hono"
 import { Hono } from "hono"
 import { z } from "zod"
 
-import { user } from "@workspace/db/auth-schema"
+import { USER_ROLES, user } from "@workspace/db/auth-schema"
 import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
@@ -70,11 +70,11 @@ const CreateUserBody = z.object({
   email: z.string().trim().email(),
   name: z.string().trim().optional(),
   username: z.string().trim().optional(),
-  role: z.enum(["user", "admin"]).default("user"),
+  role: z.enum(USER_ROLES).default("user"),
 })
 
 const UserRolePatch = z.object({
-  role: z.enum(["user", "admin"]),
+  role: z.enum(USER_ROLES),
 })
 
 const OAuthProviderAdminSubmissionSchema = z

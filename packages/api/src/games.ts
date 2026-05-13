@@ -9,7 +9,12 @@ import type {
   SteamGridDBStatus,
 } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
-import { validateClipRows } from "./contract-validators"
+import {
+  validateBooleanFlag,
+  validateClipRows,
+  validateObject,
+  validateObjectArray,
+} from "./contract-validators"
 
 export type {
   GameClipsParams,
@@ -28,7 +33,9 @@ async function fetchSteamGridDBStatus(
   context: ApiContext
 ): Promise<SteamGridDBStatus> {
   const res = await context.request("/api/games/status")
-  return readJsonOrThrow(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObject<SteamGridDBStatus>(value, "SteamGridDB status")
+  )
 }
 
 async function searchGames(
@@ -38,7 +45,9 @@ async function searchGames(
   const res = await context.request("/api/games/search", {
     query: { q: query },
   })
-  return readJsonOrThrow(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObjectArray<SteamGridDBSearchResult>(value, "game search")
+  )
 }
 
 async function resolveGame(
@@ -49,7 +58,7 @@ async function resolveGame(
     method: "POST",
     json: { steamgriddbId },
   })
-  return readJsonOrThrow(res)
+  return readJsonOrThrow(res, (value) => validateObject<GameRow>(value, "game"))
 }
 
 async function fetchAllGames(
@@ -62,7 +71,9 @@ async function fetchAllGames(
       ...(params.offset !== undefined ? { offset: String(params.offset) } : {}),
     },
   })
-  return readJsonOrThrow(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObjectArray<GameListRow>(value, "games")
+  )
 }
 
 async function fetchGameBySlug(
@@ -70,7 +81,9 @@ async function fetchGameBySlug(
   slug: string
 ): Promise<GameDetail> {
   const res = await context.request(gamePath(slug))
-  return readJsonOrThrow(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObject<GameDetail>(value, "game detail")
+  )
 }
 
 async function setGameFollow(
@@ -81,7 +94,12 @@ async function setGameFollow(
   const res = await context.request(gamePath(slug, "/follow"), {
     method: following ? "POST" : "DELETE",
   })
-  return readJsonOrThrow(res)
+  const response = validateBooleanFlag(
+    await readJsonOrThrow<unknown>(res),
+    "following",
+    following
+  )
+  return { following: response.following }
 }
 
 async function fetchGameClips(

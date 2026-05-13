@@ -5,7 +5,7 @@ import type {
   FeedPageParams,
 } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
-import { validateFeedPage } from "./contract-validators"
+import { validateFeedPage, validateObject } from "./contract-validators"
 
 export type {
   FeedChipGame,
@@ -31,7 +31,9 @@ export function createFeedApi(context: ApiContext) {
 
     async fetchChips(): Promise<FeedChipsResponse> {
       const res = await context.request("/api/feed/chips")
-      return readJsonOrThrow<FeedChipsResponse>(res)
+      return readJsonOrThrow(res, (value) =>
+        validateObject<FeedChipsResponse>(value, "feed chips")
+      )
     },
   }
 }

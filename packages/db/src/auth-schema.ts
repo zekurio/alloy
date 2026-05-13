@@ -21,6 +21,10 @@ import {
 
 export { USER_ROLES, USER_STATUSES }
 
+function sqlStringList(values: readonly string[]): string {
+  return values.map((value) => `'${value.replaceAll("'", "''")}'`).join(", ")
+}
+
 export const user = pgTable(
   "user",
   {
@@ -41,8 +45,14 @@ export const user = pgTable(
   },
   (t) => [
     uniqueIndex("user_username_lower_unique").on(sql`lower(${t.username})`),
-    check("user_role_check", sql`${t.role} in ('user', 'admin')`),
-    check("user_status_check", sql`${t.status} in ('active', 'disabled')`),
+    check(
+      "user_role_check",
+      sql`${t.role} in (${sql.raw(sqlStringList(USER_ROLES))})`
+    ),
+    check(
+      "user_status_check",
+      sql`${t.status} in (${sql.raw(sqlStringList(USER_STATUSES))})`
+    ),
     check(
       "user_storage_quota_bytes_safe_check",
       sql`${t.storageQuotaBytes} is null or (${t.storageQuotaBytes} >= 0 and ${t.storageQuotaBytes} <= 9007199254740991)`

@@ -4,7 +4,11 @@ import type {
   NotificationsResponse,
 } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
-import { validateNotificationsResponse } from "./contract-validators"
+import {
+  validateBooleanFlag,
+  validateNotificationsResponse,
+  validateObject,
+} from "./contract-validators"
 
 export type {
   NotificationClipRef,
@@ -29,14 +33,21 @@ export function createNotificationsApi(context: ApiContext) {
         `/api/notifications/${encodeURIComponent(id)}/read`,
         { method: "PATCH" }
       )
-      return readJsonOrThrow<NotificationRow>(res)
+      return readJsonOrThrow(res, (value) =>
+        validateObject<NotificationRow>(value, "notification")
+      )
     },
 
     async markAllRead(): Promise<{ readAt: string; unreadCount: number }> {
       const res = await context.request("/api/notifications/read-all", {
         method: "PATCH",
       })
-      return readJsonOrThrow(res)
+      return readJsonOrThrow(res, (value) =>
+        validateObject<{ readAt: string; unreadCount: number }>(
+          value,
+          "mark all notifications read"
+        )
+      )
     },
 
     async delete(id: string): Promise<{ deleted: true; unreadCount: number }> {
@@ -44,14 +55,24 @@ export function createNotificationsApi(context: ApiContext) {
         `/api/notifications/${encodeURIComponent(id)}`,
         { method: "DELETE" }
       )
-      return readJsonOrThrow(res)
+      const response = await readJsonOrThrow<unknown>(res)
+      validateBooleanFlag(response, "deleted", true)
+      return validateObject<{ deleted: true; unreadCount: number }>(
+        response,
+        "delete notification"
+      )
     },
 
     async clear(): Promise<{ deleted: true; unreadCount: number }> {
       const res = await context.request("/api/notifications", {
         method: "DELETE",
       })
-      return readJsonOrThrow(res)
+      const response = await readJsonOrThrow<unknown>(res)
+      validateBooleanFlag(response, "deleted", true)
+      return validateObject<{ deleted: true; unreadCount: number }>(
+        response,
+        "clear notifications"
+      )
     },
   }
 }

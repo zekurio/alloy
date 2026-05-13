@@ -115,7 +115,6 @@ export function VideoPlayer({
 
   return (
     <PlayerCore
-      key={specKey}
       spec={spec}
       identity={identity}
       aspectRatio={aspectRatio}
