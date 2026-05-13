@@ -411,13 +411,14 @@ export async function encodeVariants(
   const pushVariant = (
     spec: VariantSpec,
     index: number,
-    dims: { width: number; height: number; sizeBytes: number }
+    dims: { width: number; height: number; sizeBytes: number },
+    storageKey = spec.storageKey
   ): ClipEncodedVariant => {
     const encodedVariant = {
       id: spec.id,
       label: spec.label,
       role: "variant" as const,
-      storageKey: spec.storageKey,
+      storageKey,
       contentType: "video/mp4",
       width: dims.width,
       height: dims.height,
@@ -433,7 +434,7 @@ export async function encodeVariants(
     await ensureClipStillPresent(opts.clipId, opts.runId, opts.signal)
     const reuse = opts.reuse.get(index)
     if (reuse) {
-      pushVariant(variant, index, reuse)
+      pushVariant(variant, index, reuse, reuse.storageKey)
       completedWork += 1
       const progress = Math.floor((completedWork / totalWork) * 100)
       opts.writeProgress(progress)
