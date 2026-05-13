@@ -1,6 +1,7 @@
 import type { ApiContext } from "./client"
 import type { CommentPage, CommentRow, CommentSort } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
+import { validateBooleanFlag, validateObject } from "./contract-validators"
 
 export type {
   CommentAuthor,
@@ -26,7 +27,9 @@ async function fetchComments(
     `/api/clips/${encodeURIComponent(clipId)}/comments`,
     { query }
   )
-  return readJsonOrThrow<CommentPage>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObject<CommentPage>(value, "comments")
+  )
 }
 
 async function createComment(
@@ -40,7 +43,9 @@ async function createComment(
       json: { body: input.body, parentId: input.parentId },
     }
   )
-  return readJsonOrThrow<CommentRow>(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObject<CommentRow>(value, "comment")
+  )
 }
 
 async function updateComment(
@@ -52,7 +57,12 @@ async function updateComment(
     method: "PATCH",
     json: { body },
   })
-  return readJsonOrThrow(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObject<{ id: string; body: string; editedAt: string | null }>(
+      value,
+      "comment update"
+    )
+  )
 }
 
 async function deleteComment(
@@ -62,7 +72,7 @@ async function deleteComment(
   const res = await context.request(commentPath(commentId), {
     method: "DELETE",
   })
-  await readJsonOrThrow<{ deleted: true }>(res)
+  validateBooleanFlag(await readJsonOrThrow<unknown>(res), "deleted", true)
 }
 
 async function setCommentLike(
@@ -73,7 +83,9 @@ async function setCommentLike(
   const res = await context.request(commentPath(commentId, "/like"), {
     method: liked ? "POST" : "DELETE",
   })
-  return readJsonOrThrow(res)
+  return readJsonOrThrow(res, (value) =>
+    validateObject<{ liked: boolean; likeCount: number }>(value, "comment like")
+  )
 }
 
 async function setCommentPinned(
@@ -84,7 +96,12 @@ async function setCommentPinned(
   const res = await context.request(commentPath(commentId, "/pin"), {
     method: pinned ? "POST" : "DELETE",
   })
-  return readJsonOrThrow(res)
+  const response = validateBooleanFlag(
+    await readJsonOrThrow<unknown>(res),
+    "pinned",
+    pinned
+  )
+  return { pinned: response.pinned }
 }
 
 export function createCommentsApi(context: ApiContext) {

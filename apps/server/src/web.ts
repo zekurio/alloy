@@ -194,7 +194,16 @@ function withInjectedHead(indexHtml: string, head: string): string {
 
 export async function mountWeb(app: Hono): Promise<Hono> {
   const mount = await resolveWebMount()
-  if (!mount) return app
+  if (!mount) {
+    if (env.NODE_ENV === "production") {
+      throw new Error(
+        `Web build not found at ${
+          env.WEB_DIST_DIR ?? DEFAULT_WEB_DIST_DIR
+        }; run the web build or set WEB_DIST_DIR.`
+      )
+    }
+    return app
+  }
   const webMount = mount
 
   async function serveFile(

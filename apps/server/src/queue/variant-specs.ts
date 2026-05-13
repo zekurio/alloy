@@ -24,7 +24,8 @@ export function buildVariantSpecs(
   clipId: string,
   sourceHeight: number,
   configuredVariants: ReadonlyArray<EncoderVariant>,
-  defaultVariantId: string | null
+  defaultVariantId: string | null,
+  runId?: string
 ): VariantSpec[] {
   const specs: VariantSpec[] = []
   const defaultVariantIsAvailable = configuredVariants.some(
@@ -44,7 +45,7 @@ export function buildVariantSpecs(
       id: configured.id,
       label: configured.name,
       height: configured.height,
-      storageKey: clipVideoVariantKey(clipId, configured.id),
+      storageKey: clipVideoVariantKey(clipId, configured.id, runId),
       isDefault:
         configured.id === defaultVariantId ||
         (!defaultVariantIsAvailable && isFirstAvailable),

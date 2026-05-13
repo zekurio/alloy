@@ -1,5 +1,7 @@
 import { QueryClient } from "@tanstack/react-query"
 
+import { invalidateAuthConfig } from "./session-suspense"
+
 let browserClient: QueryClient | null = null
 
 function makeClient(): QueryClient {
@@ -28,4 +30,9 @@ export function getQueryClient(): QueryClient {
   }
   if (!browserClient) browserClient = makeClient()
   return browserClient
+}
+
+export function resetClientState(): void {
+  invalidateAuthConfig()
+  getQueryClient().clear()
 }
