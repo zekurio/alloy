@@ -222,20 +222,32 @@ export class S3StorageDriver implements StorageDriver {
   }): Promise<{ size: number }> {
     const opts = this.getOptions()
     const client = this.getClient(opts)
-    await client.send(
-      new CopyObjectCommand({
-        Bucket: opts.bucket,
-        Key: input.toKey,
-        CopySource: `${opts.bucket}/${encodeCopySourceKey(input.fromKey)}`,
-        ContentType: input.contentType,
-        MetadataDirective: "REPLACE",
-      })
-    )
-    const resolved = await this.resolve(input.toKey)
-    if (!resolved) {
-      throw new Error(`s3: copied object ${input.toKey} could not be resolved`)
+    try {
+      await client.send(
+        new CopyObjectCommand({
+          Bucket: opts.bucket,
+          Key: input.toKey,
+          CopySource: `${opts.bucket}/${encodeCopySourceKey(input.fromKey)}`,
+          ContentType: input.contentType,
+          MetadataDirective: "REPLACE",
+        })
+      )
+      const resolved = await this.resolve(input.toKey)
+      if (!resolved) {
+        throw new Error(
+          `s3: copied object ${input.toKey} could not be resolved`
+        )
+      }
+      return { size: resolved.size }
+    } catch (err) {
+      if (!isMissing(err)) throw err
     }
-    return { size: resolved.size }
+
+    const source = await this.resolve(input.fromKey)
+    if (!source) {
+      throw new Error(`s3: copy source ${input.fromKey} does not exist`)
+    }
+    return await this.put(input.toKey, source.stream(), input.contentType)
   }
 
   async mintDownloadUrl(
