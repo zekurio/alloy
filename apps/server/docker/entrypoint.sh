@@ -12,7 +12,7 @@ if [ "$(id -u)" = "0" ]; then
   chown -R deno:deno "$CONFIG_DIR"
   chown deno:deno "$ENCODE_SCRATCH_DIR"
 
-  exec su deno -s /bin/sh -c 'exec deno run --quiet --cached-only --node-modules-dir=none --allow-env --allow-net --allow-read --allow-write --allow-run --allow-ffi src/index.ts'
+  exec su deno -s /bin/sh -c 'exec deno run --quiet --cached-only --node-modules-dir=none --allow-env --allow-net --allow-read --allow-write --allow-run --allow-ffi --allow-sys=osRelease src/index.ts'
 fi
 
 exec deno run --quiet --cached-only --node-modules-dir=none \
@@ -22,4 +22,5 @@ exec deno run --quiet --cached-only --node-modules-dir=none \
   --allow-write \
   --allow-run \
   --allow-ffi \
+  --allow-sys=osRelease \
   src/index.ts
