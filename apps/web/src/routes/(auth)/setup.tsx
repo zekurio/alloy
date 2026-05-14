@@ -254,6 +254,7 @@ function AdminSetupStepContent({
         {step === 0 && (
           <StorageConfigCard
             storage={config.storage}
+            lockedByEnv={config.configLocks?.storage === true}
             onChange={(next) => setConfig(next)}
             onSaved={() => advanceStep(0)}
             formId="setup-storage"

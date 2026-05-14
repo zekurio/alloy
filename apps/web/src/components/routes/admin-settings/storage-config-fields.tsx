@@ -330,12 +330,14 @@ export function StorageActions({
   allowSubmitUnchanged,
   pending,
   isDirty,
+  locked,
   onReset,
   submitLabel = "Save storage",
 }: {
   allowSubmitUnchanged?: boolean
   pending: boolean
   isDirty: boolean
+  locked?: boolean
   onReset: () => void
   submitLabel?: string
 }) {
@@ -348,7 +350,7 @@ export function StorageActions({
           variant="outline"
           size="sm"
           onClick={onReset}
-          disabled={pending || !isDirty}
+          disabled={locked || pending || !isDirty}
         >
           Cancel
         </Button>
@@ -357,7 +359,7 @@ export function StorageActions({
           type="submit"
           variant="primary"
           size="sm"
-          disabled={pending || (!isDirty && !allowSubmitUnchanged)}
+          disabled={locked || pending || (!isDirty && !allowSubmitUnchanged)}
         >
           {pending ? "Saving..." : submitLabel}
         </Button>

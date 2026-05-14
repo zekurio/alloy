@@ -226,6 +226,9 @@ export interface RuntimeConfig {
 
 export interface AdminRuntimeConfig extends RuntimeConfig {
   authBaseURL: string
+  configLocks?: {
+    storage?: boolean
+  }
 }
 
 export interface PublicAuthProvider {

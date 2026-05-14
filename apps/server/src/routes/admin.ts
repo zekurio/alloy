@@ -33,6 +33,7 @@ import {
   mergeStorageConfigPatch,
   preserveRedactedSecrets,
   selectAdminUserStorageRows,
+  storageConfigLockedByEnv,
 } from "./admin-helpers"
 
 const RE_ENCODE_BATCH_LIMIT = 100
@@ -383,6 +384,14 @@ export const adminRoute = new Hono()
    * uploads/downloads continue on the driver instance they already entered.
    */
   .patch("/storage", zValidator("json", StorageConfigPatchSchema), (c) => {
+    if (storageConfigLockedByEnv) {
+      return badRequest(
+        c,
+        new Error("Storage is configured by environment variables."),
+        "Storage is configured by environment variables."
+      )
+    }
+
     const patch = c.req.valid("json")
     const current = configStore.get("storage")
     const next = mergeStorageConfigPatch(current, patch)

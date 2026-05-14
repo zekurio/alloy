@@ -268,6 +268,7 @@ function StorageSettingsSection({
     >
       <StorageConfigCard
         storage={config.storage}
+        lockedByEnv={config.configLocks?.storage === true}
         onChange={(next) => setConfig(next)}
         hideHeader
       />

@@ -1,6 +1,7 @@
 {
   "version": "5",
   "specifiers": {
+    "npm:@aws-sdk/client-s3@*": "3.1043.0",
     "npm:@aws-sdk/client-s3@^3.1041.0": "3.1043.0",
     "npm:@aws-sdk/s3-request-presigner@^3.1041.0": "3.1043.0",
     "npm:@base-ui/react@^1.4.1": "1.4.1_@types+react@19.2.14_date-fns@4.1.0_react@19.2.5_react-dom@19.2.5__react@19.2.5",

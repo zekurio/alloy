@@ -119,8 +119,87 @@ if (!initialLoad.ok) {
 }
 
 let state: RuntimeConfig = initialLoad.config
+let persistedState: RuntimeConfig = initialLoad.config
+
+const STORAGE_ENV_KEYS = [
+  "ALLOY_STORAGE_DRIVER",
+  "ALLOY_STORAGE_FS_ROOT",
+  "ALLOY_STORAGE_FS_PUBLIC_BASE_URL",
+  "ALLOY_STORAGE_FS_HMAC_SECRET",
+  "ALLOY_STORAGE_S3_BUCKET",
+  "ALLOY_STORAGE_S3_REGION",
+  "ALLOY_STORAGE_S3_ENDPOINT",
+  "ALLOY_STORAGE_S3_ACCESS_KEY_ID",
+  "ALLOY_STORAGE_S3_SECRET_ACCESS_KEY",
+  "ALLOY_STORAGE_S3_FORCE_PATH_STYLE",
+  "ALLOY_STORAGE_S3_PRESIGN_EXPIRES_SEC",
+] as const
+
+export const storageConfigLockedByEnv = STORAGE_ENV_KEYS.some(
+  (key) => process.env[key] !== undefined
+)
+
+function applyEnvStorageConfig(config: RuntimeConfig): RuntimeConfig {
+  if (!storageConfigLockedByEnv) return config
+
+  const next = structuredClone(config)
+  const hasFsEnv = STORAGE_ENV_KEYS.some(
+    (key) =>
+      key.startsWith("ALLOY_STORAGE_FS_") && process.env[key] !== undefined
+  )
+  const hasS3Env = STORAGE_ENV_KEYS.some(
+    (key) =>
+      key.startsWith("ALLOY_STORAGE_S3_") && process.env[key] !== undefined
+  )
+
+  next.storage.driver =
+    env.ALLOY_STORAGE_DRIVER ??
+    (hasS3Env && !hasFsEnv ? "s3" : next.storage.driver)
+
+  if (process.env.ALLOY_STORAGE_FS_ROOT !== undefined) {
+    next.storage.fs.root = env.ALLOY_STORAGE_FS_ROOT ?? next.storage.fs.root
+  }
+  if (process.env.ALLOY_STORAGE_FS_PUBLIC_BASE_URL !== undefined) {
+    next.storage.fs.publicBaseUrl =
+      env.ALLOY_STORAGE_FS_PUBLIC_BASE_URL ?? next.storage.fs.publicBaseUrl
+  }
+  if (process.env.ALLOY_STORAGE_FS_HMAC_SECRET !== undefined) {
+    next.storage.fs.hmacSecret =
+      env.ALLOY_STORAGE_FS_HMAC_SECRET ?? next.storage.fs.hmacSecret
+  }
+
+  if (process.env.ALLOY_STORAGE_S3_BUCKET !== undefined) {
+    next.storage.s3.bucket =
+      env.ALLOY_STORAGE_S3_BUCKET ?? next.storage.s3.bucket
+  }
+  if (
+    process.env.ALLOY_STORAGE_S3_REGION !== undefined ||
+    next.storage.driver === "s3"
+  ) {
+    next.storage.s3.region = env.ALLOY_STORAGE_S3_REGION
+  }
+  if (process.env.ALLOY_STORAGE_S3_ENDPOINT !== undefined) {
+    next.storage.s3.endpoint = env.ALLOY_STORAGE_S3_ENDPOINT
+  }
+  if (process.env.ALLOY_STORAGE_S3_ACCESS_KEY_ID !== undefined) {
+    next.storage.s3.accessKeyId = env.ALLOY_STORAGE_S3_ACCESS_KEY_ID
+  }
+  if (process.env.ALLOY_STORAGE_S3_SECRET_ACCESS_KEY !== undefined) {
+    next.storage.s3.secretAccessKey = env.ALLOY_STORAGE_S3_SECRET_ACCESS_KEY
+  }
+  if (process.env.ALLOY_STORAGE_S3_FORCE_PATH_STYLE !== undefined) {
+    next.storage.s3.forcePathStyle = env.ALLOY_STORAGE_S3_FORCE_PATH_STYLE
+  }
+  if (process.env.ALLOY_STORAGE_S3_PRESIGN_EXPIRES_SEC !== undefined) {
+    next.storage.s3.presignExpiresSec = env.ALLOY_STORAGE_S3_PRESIGN_EXPIRES_SEC
+  }
+
+  return RuntimeConfigSchema.parse(next)
+}
+
+state = applyEnvStorageConfig(state)
 if (initialLoad.created) {
-  writeToDisk(state)
+  writeToDisk(persistedState)
 }
 
 type Listener = (
@@ -129,9 +208,14 @@ type Listener = (
 ) => void
 const listeners = new Set<Listener>()
 
-function apply(next: RuntimeConfig, persist: boolean): void {
+function apply(
+  next: RuntimeConfig,
+  persisted: RuntimeConfig,
+  persist: boolean
+): void {
   const prev = state
-  if (persist) writeToDisk(next)
+  if (persist) writeToDisk(persisted)
+  persistedState = persisted
   state = next
   for (const listener of listeners) {
     try {
@@ -144,7 +228,10 @@ function apply(next: RuntimeConfig, persist: boolean): void {
 }
 
 function commit(next: RuntimeConfig): void {
-  apply(next, true)
+  const persisted = storageConfigLockedByEnv
+    ? RuntimeConfigSchema.parse({ ...next, storage: persistedState.storage })
+    : next
+  apply(applyEnvStorageConfig(persisted), persisted, true)
 }
 
 function reloadFromDisk(): boolean {
@@ -157,7 +244,7 @@ function reloadFromDisk(): boolean {
     )
     return false
   }
-  apply(result.config, false)
+  apply(applyEnvStorageConfig(result.config), result.config, false)
   return true
 }
 

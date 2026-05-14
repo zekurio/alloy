@@ -71,6 +71,28 @@ const EnvSchema = z.object({
 
   FFMPEG_BIN: z.string().default("ffmpeg"),
   FFPROBE_BIN: z.string().default("ffprobe"),
+
+  ALLOY_STORAGE_DRIVER: z.enum(["fs", "s3"]).optional(),
+  ALLOY_STORAGE_FS_ROOT: z.string().min(1).optional(),
+  ALLOY_STORAGE_FS_PUBLIC_BASE_URL: z
+    .url()
+    .optional()
+    .transform((value) => (value ? normalizePublicServerUrl(value) : value)),
+  ALLOY_STORAGE_FS_HMAC_SECRET: z.string().min(32).optional(),
+  ALLOY_STORAGE_S3_BUCKET: z.string().optional(),
+  ALLOY_STORAGE_S3_REGION: z.string().default("auto"),
+  ALLOY_STORAGE_S3_ENDPOINT: z.url().optional(),
+  ALLOY_STORAGE_S3_ACCESS_KEY_ID: z.string().optional(),
+  ALLOY_STORAGE_S3_SECRET_ACCESS_KEY: z.string().optional(),
+  ALLOY_STORAGE_S3_FORCE_PATH_STYLE: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((value) => value === "true"),
+  ALLOY_STORAGE_S3_PRESIGN_EXPIRES_SEC: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(900),
 })
 
 const parsed = EnvSchema.safeParse(process.env)

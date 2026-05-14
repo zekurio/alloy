@@ -1,5 +1,10 @@
 import * as React from "react"
 import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@workspace/ui/components/alert"
+import {
   Section,
   SectionContent,
   SectionHeader,
@@ -43,6 +48,7 @@ type StorageConfigCardProps = {
   hideHeader?: boolean
   /** HTML `id` for the `<form>` element, useful for external submit buttons. */
   formId?: string
+  lockedByEnv?: boolean
 }
 
 export interface FsForm {
@@ -201,6 +207,7 @@ function useStorageConfigForm({
   storage,
   onChange,
   onSaved,
+  lockedByEnv,
 }: StorageConfigCardProps) {
   const initial = React.useMemo(() => toForm(storage), [storage])
   const [form, setForm] = React.useState<StorageForm>(initial)
@@ -231,6 +238,10 @@ function useStorageConfigForm({
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (lockedByEnv) {
+      onSaved?.()
+      return
+    }
     if (pending) return
     if (!isDirty) {
       onSaved?.()
@@ -300,8 +311,21 @@ export function StorageConfigCard(props: StorageConfigCardProps) {
             <SectionTitle>Storage</SectionTitle>
           </SectionHeader>
         )}
-        <fieldset disabled={state.pending} className="contents">
+        <fieldset
+          disabled={state.pending || props.lockedByEnv}
+          className="contents"
+        >
           <SectionContent className="flex flex-col gap-4">
+            {props.lockedByEnv ? (
+              <Alert>
+                <AlertTitle>Storage is managed by environment</AlertTitle>
+                <AlertDescription>
+                  These values are prefilled from server environment variables
+                  and cannot be changed here.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
             <DriverPicker
               driver={state.form.driver}
               onChange={state.setDriver}
@@ -330,6 +354,7 @@ export function StorageConfigCard(props: StorageConfigCardProps) {
               allowSubmitUnchanged={props.allowSubmitUnchanged}
               pending={state.pending}
               isDirty={state.isDirty}
+              locked={props.lockedByEnv}
               onReset={state.resetForm}
               submitLabel={props.submitLabel}
             />

@@ -8,6 +8,7 @@ import {
   OAuthProviderSchema,
   OAuthProviderSubmissionSchema,
   configStore,
+  storageConfigLockedByEnv,
   type OAuthProviderConfig,
   type RuntimeConfig,
   type StorageConfig,
@@ -15,6 +16,7 @@ import {
 import { selectSourceStorageUsedBytesByUserIds } from "../storage/quota"
 
 export const REDACTED_SENTINEL = "***"
+export { storageConfigLockedByEnv }
 
 type OAuthProviderAdminSubmission = Record<string, unknown> & {
   providerId?: string
@@ -64,6 +66,9 @@ export function adminRuntimeConfigResponse(config: Readonly<RuntimeConfig>) {
   return {
     ...redactSecrets(config),
     authBaseURL: env.PUBLIC_SERVER_URL,
+    configLocks: {
+      storage: storageConfigLockedByEnv,
+    },
   }
 }
 
