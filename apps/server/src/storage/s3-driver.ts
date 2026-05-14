@@ -100,17 +100,8 @@ export class S3StorageDriver implements StorageDriver {
     contentType: string
   ): Promise<{ size: number }> {
     const opts = this.getOptions()
-    const client = this.getClient(opts)
     if (Buffer.isBuffer(body)) {
-      await client.send(
-        new PutObjectCommand({
-          Bucket: opts.bucket,
-          Key: key,
-          Body: body,
-          ContentLength: body.byteLength,
-          ContentType: contentType,
-        })
-      )
+      await this.putStream(opts, key, body, contentType, body.byteLength)
       return { size: body.byteLength }
     }
 
@@ -122,17 +113,29 @@ export class S3StorageDriver implements StorageDriver {
       },
     })
     const stream = new PassThrough()
-    const upload = client.send(
-      new PutObjectCommand({
-        Bucket: opts.bucket,
-        Key: key,
-        Body: stream,
-        ContentType: contentType,
-      })
-    )
+    const upload = this.putStream(opts, key, stream, contentType)
     await pipeline(body, counter, stream)
     await upload
     return { size }
+  }
+
+  private async putStream(
+    opts: S3DriverOptions,
+    key: string,
+    body: Buffer | Readable,
+    contentType: string,
+    contentLength?: number
+  ): Promise<void> {
+    const client = this.getClient(opts)
+    await client.send(
+      new PutObjectCommand({
+        Bucket: opts.bucket,
+        Key: key,
+        Body: body,
+        ContentLength: contentLength,
+        ContentType: contentType,
+      })
+    )
   }
 
   async resolve(key: string): Promise<ResolvedObject | null> {
@@ -211,7 +214,14 @@ export class S3StorageDriver implements StorageDriver {
     contentType: string
   ): Promise<{ size: number }> {
     const stat = await fsp.stat(localPath)
-    await this.put(key, createReadStream(localPath), contentType)
+    const opts = this.getOptions()
+    await this.putStream(
+      opts,
+      key,
+      createReadStream(localPath),
+      contentType,
+      stat.size
+    )
     return { size: stat.size }
   }
 
@@ -247,7 +257,14 @@ export class S3StorageDriver implements StorageDriver {
     if (!source) {
       throw new Error(`s3: copy source ${input.fromKey} does not exist`)
     }
-    return await this.put(input.toKey, source.stream(), input.contentType)
+    await this.putStream(
+      opts,
+      input.toKey,
+      source.stream(),
+      input.contentType,
+      source.size
+    )
+    return { size: source.size }
   }
 
   async mintDownloadUrl(
