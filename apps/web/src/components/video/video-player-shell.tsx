@@ -18,7 +18,7 @@ const KEYBOARD_VOLUME_STEP = 0.1
 
 /** App-surface bar background for player chrome. */
 export const videoChromeBarClass =
-  "group/bar border-t border-border/70 bg-surface-raised text-foreground shadow-[var(--shadow-inset-top)]"
+  "alloy-glass group/bar border-t text-foreground [--alloy-glass-bg:color-mix(in_oklab,var(--surface-raised)_58%,transparent)] [--alloy-glass-blur:18px] [--alloy-glass-border:rgb(255_255_255_/_0.12)] [--alloy-glass-shadow:var(--shadow-inset-top)]"
 
 /** Icon button style for controls sitting on video chrome. */
 export const videoChromeIconClass =
@@ -110,7 +110,7 @@ export function ChromeShell({
   onPointerDown?: React.PointerEventHandler<HTMLDivElement>
   onFocus?: React.FocusEventHandler<HTMLDivElement>
   onKeyCommand: VideoKeyCommand
-  /** Chrome controls rendered as their own layout row under the media viewport. */
+  /** Chrome controls rendered inside the media viewport. */
   bar?: React.ReactNode
   children: React.ReactNode
 }) {
@@ -183,8 +183,8 @@ export function ChromeShell({
         <div data-slot="video-player-frame" className="absolute inset-0">
           {children}
         </div>
+        {bar}
       </div>
-      {bar}
     </div>
   )
 }
@@ -446,7 +446,7 @@ export function ChromeBar({
       aria-hidden={false}
       className={cn(
         videoChromeBarClass,
-        "pointer-events-auto relative isolate z-20 shrink-0"
+        "pointer-events-auto absolute inset-x-0 bottom-0 isolate z-20"
       )}
     >
       <div className="relative flex flex-col">

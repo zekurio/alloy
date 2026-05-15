@@ -393,6 +393,8 @@
   .alloy-glass {
     --alloy-glass-hue: var(--popover);
     --alloy-glass-opacity: 72%;
+    --alloy-glass-blur: 18px;
+    --alloy-glass-saturation: 1.35;
     --alloy-glass-bg: color-mix(
       in oklab,
       var(--alloy-glass-hue) var(--alloy-glass-opacity),
@@ -403,6 +405,10 @@
     background-color: var(--alloy-glass-bg);
     border-color: var(--alloy-glass-border);
     box-shadow: var(--alloy-glass-shadow);
+    -webkit-backdrop-filter: blur(var(--alloy-glass-blur))
+      saturate(var(--alloy-glass-saturation));
+    backdrop-filter: blur(var(--alloy-glass-blur))
+      saturate(var(--alloy-glass-saturation));
   }
 
   /* Live-dot pulse — used by badge[data-variant="live"] */
