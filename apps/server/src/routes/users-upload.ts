@@ -1,7 +1,5 @@
 /* global Deno */
 
-import { Readable } from "node:stream"
-
 import { zValidator } from "@hono/zod-validator"
 import { eq } from "drizzle-orm"
 import { Hono } from "hono"
@@ -48,12 +46,20 @@ const BannerUploadBody = z.object({
   contentType: z.enum(ACCEPTED_IMAGE_CONTENT_TYPES),
 })
 
-async function readAll(node: Readable): Promise<Buffer> {
-  const chunks: Buffer[] = []
-  for await (const chunk of node) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+async function readAll(stream: ReadableStream<Uint8Array>): Promise<Buffer> {
+  const chunks: Uint8Array[] = []
+  let size = 0
+  for await (const chunk of stream) {
+    chunks.push(chunk)
+    size += chunk.byteLength
   }
-  return Buffer.concat(chunks)
+  const out = Buffer.alloc(size)
+  let offset = 0
+  for (const chunk of chunks) {
+    out.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return out
 }
 
 function assetUrl(key: string, updatedAt: Date): string {

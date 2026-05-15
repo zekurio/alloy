@@ -1,5 +1,5 @@
 {
-  "id": "9ae0510e-caf5-45e7-a5b6-314029bf1def",
+  "id": "fbb82dd6-2d5c-440f-a1a2-3cfdb026b9b3",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -234,6 +234,25 @@
           "notNull": true,
           "default": 0
         },
+        "encode_run_id": {
+          "name": "encode_run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "encode_locked_at": {
+          "name": "encode_locked_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "encode_attempt": {
+          "name": "encode_attempt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "failure_reason": {
           "name": "failure_reason",
           "type": "text",
@@ -358,7 +377,20 @@
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "clip_privacy_check": {
+          "name": "clip_privacy_check",
+          "value": "\"clip\".\"privacy\" in ('public', 'unlisted', 'private')"
+        },
+        "clip_status_check": {
+          "name": "clip_status_check",
+          "value": "\"clip\".\"status\" in ('pending', 'uploaded', 'encoding', 'ready', 'failed')"
+        },
+        "clip_size_bytes_safe_check": {
+          "name": "clip_size_bytes_safe_check",
+          "value": "\"clip\".\"size_bytes\" is null or (\"clip\".\"size_bytes\" >= 0 and \"clip\".\"size_bytes\" <= 9007199254740991)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.clip_comment": {
@@ -719,6 +751,146 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.clip_upload_ticket": {
+      "name": "clip_upload_ticket",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "clip_id": {
+          "name": "clip_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "storage_key": {
+          "name": "storage_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content_type": {
+          "name": "content_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expected_bytes": {
+          "name": "expected_bytes",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "used_at": {
+          "name": "used_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "clip_upload_ticket_clip_idx": {
+          "name": "clip_upload_ticket_clip_idx",
+          "columns": [
+            {
+              "expression": "clip_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "clip_upload_ticket_expires_idx": {
+          "name": "clip_upload_ticket_expires_idx",
+          "columns": [
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "clip_upload_ticket_used_idx": {
+          "name": "clip_upload_ticket_used_idx",
+          "columns": [
+            {
+              "expression": "used_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "clip_upload_ticket_clip_id_clip_id_fk": {
+          "name": "clip_upload_ticket_clip_id_clip_id_fk",
+          "tableFrom": "clip_upload_ticket",
+          "tableTo": "clip",
+          "columnsFrom": ["clip_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "clip_upload_ticket_storage_key_unique": {
+          "name": "clip_upload_ticket_storage_key_unique",
+          "nullsNotDistinct": false,
+          "columns": ["storage_key"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "clip_upload_ticket_role_check": {
+          "name": "clip_upload_ticket_role_check",
+          "value": "\"clip_upload_ticket\".\"role\" in ('video', 'thumbnail')"
+        },
+        "clip_upload_ticket_expected_bytes_safe_check": {
+          "name": "clip_upload_ticket_expected_bytes_safe_check",
+          "value": "\"clip_upload_ticket\".\"expected_bytes\" > 0 and \"clip_upload_ticket\".\"expected_bytes\" <= 9007199254740991"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.clip_view": {
@@ -1245,7 +1417,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "notification_type_check": {
+          "name": "notification_type_check",
+          "value": "\"notification\".\"type\" in ('clip_upload_failed', 'new_follower', 'clip_comment', 'comment_reply', 'comment_pinned', 'comment_liked_by_author', 'new_video')"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.auth_account": {
@@ -1615,7 +1792,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "user_username_lower_unique": {
+          "name": "user_username_lower_unique",
+          "columns": [
+            {
+              "expression": "lower(\"username\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
@@ -1623,15 +1816,23 @@
           "name": "user_email_unique",
           "nullsNotDistinct": false,
           "columns": ["email"]
-        },
-        "user_username_unique": {
-          "name": "user_username_unique",
-          "nullsNotDistinct": false,
-          "columns": ["username"]
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "user_role_check": {
+          "name": "user_role_check",
+          "value": "\"user\".\"role\" in ('user', 'admin')"
+        },
+        "user_status_check": {
+          "name": "user_status_check",
+          "value": "\"user\".\"status\" in ('active', 'disabled')"
+        },
+        "user_storage_quota_bytes_safe_check": {
+          "name": "user_storage_quota_bytes_safe_check",
+          "value": "\"user\".\"storage_quota_bytes\" is null or (\"user\".\"storage_quota_bytes\" >= 0 and \"user\".\"storage_quota_bytes\" <= 9007199254740991)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.user_passkey": {

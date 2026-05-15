@@ -1,8 +1,10 @@
-import type { Readable } from "node:stream"
 import type { AcceptedContentType, UploadTicket } from "@workspace/contracts"
 
 export interface ResolvedObject {
-  stream: (opts?: { start?: number; end?: number }) => Readable
+  stream: (opts?: {
+    start?: number
+    end?: number
+  }) => ReadableStream<Uint8Array>
   /** Byte length of the full object — used to compute Content-Length. */
   size: number
   /** Stored `Content-Type`. The clip row carries the same value but the
@@ -48,7 +50,7 @@ export interface StorageDriver {
    */
   put(
     key: string,
-    body: Buffer | Readable,
+    body: Uint8Array | ReadableStream<Uint8Array>,
     contentType: string
   ): Promise<{ size: number }>
 

@@ -1,5 +1,3 @@
-import { isIP } from "node:net"
-
 import { z } from "zod"
 
 // Deploy-time env only. Anything an admin should be able to change at
@@ -36,15 +34,25 @@ function normalizeTrustedOrigins(value: string): string[] {
 function isLoopbackHostname(hostname: string): boolean {
   return (
     hostname === "localhost" ||
-    (isIP(hostname) === 4 && hostname.startsWith("127.")) ||
+    isLoopbackIpv4(hostname) ||
     hostname === "[::1]" ||
     hostname === "::1" ||
     hostname.endsWith(".localhost")
   )
 }
 
+function isLoopbackIpv4(hostname: string): boolean {
+  const parts = hostname.split(".")
+  if (parts.length !== 4 || parts[0] !== "127") return false
+  return parts.every((part) => {
+    if (!/^\d+$/.test(part)) return false
+    const value = Number(part)
+    return value >= 0 && value <= 255
+  })
+}
+
 const defaultPublicServerUrl =
-  process.env.PUBLIC_SERVER_URL ?? "http://localhost:3000"
+  Deno.env.get("PUBLIC_SERVER_URL") ?? "http://localhost:3000"
 
 const EnvSchema = z.object({
   NODE_ENV: z
@@ -73,7 +81,7 @@ const EnvSchema = z.object({
   FFPROBE_BIN: z.string().default("ffprobe"),
 })
 
-const parsed = EnvSchema.safeParse(process.env)
+const parsed = EnvSchema.safeParse(Deno.env.toObject())
 
 if (!parsed.success) {
   const fieldErrors = parsed.error.flatten().fieldErrors
@@ -82,7 +90,7 @@ if (!parsed.success) {
     "[server/env] Invalid environment variables:\n" +
       JSON.stringify(fieldErrors, null, 2)
   )
-  process.exit(1)
+  Deno.exit(1)
 }
 
 if (
@@ -93,7 +101,7 @@ if (
   console.error(
     "[server/env] PUBLIC_SERVER_URL must be the externally reachable origin in production."
   )
-  process.exit(1)
+  Deno.exit(1)
 }
 
 export const env = parsed.data

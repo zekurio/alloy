@@ -1,6 +1,3 @@
-import { Buffer } from "node:buffer"
-import { Readable } from "node:stream"
-
 import { eq } from "drizzle-orm"
 import { z } from "zod"
 
@@ -253,14 +250,20 @@ export function downloadFilename(
   return `${base}-${variant.id}.${extensionForContentType(variant.contentType)}`
 }
 
-export function nodeToWeb(node: Readable): ReadableStream<Uint8Array> {
-  return Readable.toWeb(node) as ReadableStream<Uint8Array>
-}
-
-export async function readAll(node: Readable): Promise<Uint8Array> {
-  const chunks: Buffer[] = []
-  for await (const chunk of node) {
-    chunks.push(chunk as Buffer)
+export async function readAll(
+  stream: ReadableStream<Uint8Array>
+): Promise<Uint8Array> {
+  const chunks: Uint8Array[] = []
+  let size = 0
+  for await (const chunk of stream) {
+    chunks.push(chunk)
+    size += chunk.byteLength
   }
-  return Buffer.concat(chunks)
+  const out = new Uint8Array(size)
+  let offset = 0
+  for (const chunk of chunks) {
+    out.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return out
 }

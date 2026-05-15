@@ -1,8 +1,3 @@
-import { createReadStream } from "node:fs"
-import { readFile, stat } from "node:fs/promises"
-import { isAbsolute, join, relative, resolve } from "node:path"
-import { Readable } from "node:stream"
-
 import type { Context, Hono } from "hono"
 
 import { eq } from "drizzle-orm"
@@ -14,6 +9,7 @@ import { configStore } from "./config/store"
 import { getSession } from "./auth/session"
 import { selectClipById } from "./clips/select"
 import { selectOpenGraphVideo } from "./open-graph/video-selection"
+import { isAbsolute, join, relative, resolve } from "./runtime/path"
 
 const HEAD_MARKER = "<!-- alloy:head -->"
 const CLIP_PERMALINK_RE = /^\/g\/[^/]+\/c\/([^/]+)\/?$/
@@ -27,14 +23,10 @@ type WebMount = {
   indexHtml: string
 }
 
-function nodeToWeb(node: Readable): ReadableStream<Uint8Array> {
-  return Readable.toWeb(node) as ReadableStream<Uint8Array>
-}
-
 async function fileExists(path: string): Promise<boolean> {
   try {
-    const s = await stat(path)
-    return s.isFile()
+    const s = await Deno.stat(path)
+    return s.isFile
   } catch {
     return false
   }
@@ -84,7 +76,7 @@ async function resolveWebMount(): Promise<WebMount | null> {
 
   return {
     distDir,
-    indexHtml: await readFile(indexPath, "utf8"),
+    indexHtml: await Deno.readTextFile(indexPath),
   }
 }
 
@@ -214,15 +206,16 @@ export async function mountWeb(app: Hono): Promise<Hono> {
     const path = safeJoin(webMount.distDir, requestPath)
     if (!path) return c.notFound()
 
-    const s = await stat(path).catch(() => null)
-    if (!s?.isFile()) return c.notFound()
+    const s = await Deno.stat(path).catch(() => null)
+    if (!s?.isFile) return c.notFound()
 
     c.header("Content-Type", contentType(path))
     c.header("Content-Length", String(s.size))
     c.header("Cache-Control", cacheControl)
     if (c.req.method === "HEAD") return c.body(null)
 
-    return c.body(nodeToWeb(createReadStream(path)))
+    const file = await Deno.open(path, { read: true })
+    return c.body(file.readable)
   }
 
   app.on(["GET", "HEAD"], "/assets/*", (c) => {

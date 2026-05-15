@@ -41,7 +41,7 @@ export async function createSession(
   const [session] = await db
     .insert(authSession)
     .values({
-      tokenHash: hashSessionToken(token),
+      tokenHash: await hashSessionToken(token),
       userId,
       expiresAt,
       ipAddress: requestIp(c),
@@ -88,7 +88,7 @@ export async function getSession(
       ? readSessionCookie(headers)
       : cookieTokenFromHeaders(headers)
   if (!token) return null
-  const data = await selectSessionByHash(hashSessionToken(token))
+  const data = await selectSessionByHash(await hashSessionToken(token))
   if (!data) return null
   return data
 }
@@ -113,7 +113,7 @@ export async function deleteCurrentSession(c: Context): Promise<void> {
   if (!token) return
   await db
     .delete(authSession)
-    .where(eq(authSession.tokenHash, hashSessionToken(token)))
+    .where(eq(authSession.tokenHash, await hashSessionToken(token)))
 }
 
 export async function deleteAllSessionsForUser(userId: string): Promise<void> {

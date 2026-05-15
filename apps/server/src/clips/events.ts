@@ -1,5 +1,3 @@
-import { EventEmitter } from "node:events"
-
 import { eq } from "drizzle-orm"
 
 import type { QueueEvent } from "@workspace/contracts"
@@ -8,10 +6,7 @@ import { clip } from "@workspace/db/schema"
 import { db } from "../db"
 import { selectQueueRowById } from "./queue-select"
 
-const emitter = new EventEmitter()
-// Subscribers are one per open SSE connection — cap removed so we don't
-// trip Node's default 10-listener warning on a moderately busy instance.
-emitter.setMaxListeners(0)
+const subscribers = new Map<string, Set<(event: QueueEvent) => void>>()
 
 function channel(authorId: string): string {
   return `queue:${authorId}`
@@ -23,7 +18,7 @@ export async function publishClipUpsert(
 ): Promise<void> {
   const row = await selectQueueRowById(clipId)
   if (!row) return
-  emitter.emit(channel(authorId), {
+  publish(channel(authorId), {
     type: "upsert",
     clip: row,
   } satisfies QueueEvent)
@@ -45,7 +40,7 @@ export function publishClipProgress(
   clipId: string,
   encodeProgress: number
 ): void {
-  emitter.emit(channel(authorId), {
+  publish(channel(authorId), {
     type: "progress",
     id: clipId,
     encodeProgress,
@@ -53,7 +48,7 @@ export function publishClipProgress(
 }
 
 export function publishClipRemove(authorId: string, clipId: string): void {
-  emitter.emit(channel(authorId), {
+  publish(channel(authorId), {
     type: "remove",
     id: clipId,
   } satisfies QueueEvent)
@@ -65,8 +60,20 @@ export function subscribeToAuthorQueue(
   handler: (event: QueueEvent) => void
 ): () => void {
   const ch = channel(authorId)
-  emitter.on(ch, handler)
-  return () => emitter.off(ch, handler)
+  let channelSubscribers = subscribers.get(ch)
+  if (!channelSubscribers) {
+    channelSubscribers = new Set()
+    subscribers.set(ch, channelSubscribers)
+  }
+  channelSubscribers.add(handler)
+  return () => {
+    channelSubscribers.delete(handler)
+    if (channelSubscribers.size === 0) subscribers.delete(ch)
+  }
+}
+
+function publish(channelName: string, event: QueueEvent): void {
+  for (const handler of subscribers.get(channelName) ?? []) handler(event)
 }
 
 export type { QueueEvent } from "@workspace/contracts"

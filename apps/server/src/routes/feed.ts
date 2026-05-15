@@ -1,5 +1,3 @@
-import { Buffer } from "node:buffer"
-
 import { zValidator } from "@hono/zod-validator"
 import { and, eq, exists, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm"
 import { Hono } from "hono"
@@ -18,6 +16,7 @@ import {
 import { db } from "../db"
 import { getSession } from "../auth/session"
 import { clipSelectShape, toPublicClipRow } from "../clips/select"
+import { base64UrlDecodeText, base64UrlEncodeText } from "../encoding/base64url"
 
 const FilterEnum = z.enum(["foryou", "following", "game"])
 
@@ -47,9 +46,7 @@ type FeedCursor = {
 function parseFeedCursor(value: string | undefined): FeedCursor | null {
   if (!value) return null
   try {
-    const parsed = JSON.parse(
-      Buffer.from(value, "base64url").toString("utf8")
-    ) as Partial<FeedCursor>
+    const parsed = JSON.parse(base64UrlDecodeText(value)) as Partial<FeedCursor>
     if (
       typeof parsed.score !== "number" ||
       !Number.isFinite(parsed.score) ||
@@ -71,7 +68,7 @@ function parseFeedCursor(value: string | undefined): FeedCursor | null {
 }
 
 function encodeFeedCursor(cursor: FeedCursor): string {
-  return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url")
+  return base64UrlEncodeText(JSON.stringify(cursor))
 }
 
 function rankScore(viewerId: string | null, asOf: string) {

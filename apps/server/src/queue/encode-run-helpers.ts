@@ -1,7 +1,3 @@
-import { promises as fsp } from "node:fs"
-import os from "node:os"
-import path from "node:path"
-
 import { and, eq } from "drizzle-orm"
 
 import {
@@ -15,10 +11,11 @@ import { env } from "../env"
 import { publishClipUpsert } from "../clips/events"
 import { notifyFollowersOfNewClip } from "../notifications"
 import { type EncoderConfig } from "../config/store"
+import { join } from "../runtime/path"
 import { clipOpenGraphVideoKey, clipSourceMp4Key, storage } from "../storage"
 import {
-  OPEN_GRAPH_VARIANT_ID,
   isOpenGraphVariant,
+  OPEN_GRAPH_VARIANT_ID,
   openGraphCompatibleSource,
 } from "../open-graph/video-selection"
 import { codecNameFor, encode, probe, remuxToMp4 } from "./ffmpeg"
@@ -52,7 +49,7 @@ export async function tryPublishRemux({
   exposeSource: boolean
   runId: string
 }): Promise<{ path: string; variant: ClipEncodedVariant } | null> {
-  const remuxPath = path.join(scratchDir, "source.mp4")
+  const remuxPath = join(scratchDir, "source.mp4")
   const remuxKey = clipSourceMp4Key(clipId, runId)
   const hasTrim = trim.startMs != null && trim.endMs != null
   try {
@@ -295,7 +292,7 @@ export async function publishOpenGraphVariant({
     if (fileHit) return existing
   }
 
-  const variantPath = path.join(scratchDir, `${OPEN_GRAPH_VARIANT_ID}.mp4`)
+  const variantPath = join(scratchDir, `${OPEN_GRAPH_VARIANT_ID}.mp4`)
   await encode(sourcePath, variantPath, {
     config: {
       hwaccel: config.hwaccel,
@@ -326,7 +323,7 @@ export async function publishOpenGraphVariant({
     storageKey,
     "video/mp4"
   )
-  await fsp.rm(variantPath, { force: true }).catch(() => undefined)
+  await Deno.remove(variantPath).catch(() => undefined)
 
   return {
     id: OPEN_GRAPH_VARIANT_ID,
@@ -442,7 +439,7 @@ export async function encodeVariants(
       continue
     }
 
-    const variantPath = path.join(opts.paths.scratchDir, `${variant.id}.mp4`)
+    const variantPath = join(opts.paths.scratchDir, `${variant.id}.mp4`)
     const rungConfig = {
       hwaccel: opts.config.hwaccel,
       encoder: codecNameFor(opts.config.hwaccel, variant.override.codec),
@@ -478,7 +475,7 @@ export async function encodeVariants(
       variant.storageKey,
       "video/mp4"
     )
-    await fsp.rm(variantPath, { force: true }).catch(() => undefined)
+    await Deno.remove(variantPath).catch(() => undefined)
 
     pushVariant(variant, index, {
       width: variantProbe.width,
@@ -538,7 +535,9 @@ async function deleteRunScopedVariants(
 }
 
 export async function makeScratchDir(clipId: string): Promise<string> {
-  const base = env.ENCODE_SCRATCH_DIR ?? path.join(os.tmpdir(), "alloy-encode")
-  await fsp.mkdir(base, { recursive: true })
-  return fsp.mkdtemp(path.join(base, `${clipId}-`))
+  const base =
+    env.ENCODE_SCRATCH_DIR ??
+    join(Deno.env.get("TMPDIR") ?? "/tmp", "alloy-encode")
+  await Deno.mkdir(base, { recursive: true })
+  return Deno.makeTempDir({ dir: base, prefix: `${clipId}-` })
 }

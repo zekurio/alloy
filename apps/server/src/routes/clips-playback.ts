@@ -15,7 +15,6 @@ import {
   downloadFilename,
   findEncodedVariant,
   IdParam,
-  nodeToWeb,
   parseRange,
   peekViewer,
   readAll,
@@ -114,7 +113,7 @@ export const clipsPlaybackRoutes = new Hono()
 
       if (range) {
         const length = range.end - range.start + 1
-        const node = resolved.stream({ start: range.start, end: range.end })
+        const body = resolved.stream({ start: range.start, end: range.end })
         c.header("Content-Type", contentType)
         c.header(
           "Content-Range",
@@ -125,23 +124,19 @@ export const clipsPlaybackRoutes = new Hono()
         c.header("Cache-Control", cacheControl)
         c.status(206)
         return stream(c, async (s) => {
-          s.onAbort(() => {
-            node.destroy()
-          })
-          await s.pipe(nodeToWeb(node))
+          s.onAbort(() => body.cancel().catch(() => undefined))
+          await s.pipe(body)
         })
       }
 
-      const node = resolved.stream()
+      const body = resolved.stream()
       c.header("Content-Type", contentType)
       c.header("Content-Length", String(resolved.size))
       c.header("Accept-Ranges", "bytes")
       c.header("Cache-Control", cacheControl)
       return stream(c, async (s) => {
-        s.onAbort(() => {
-          node.destroy()
-        })
-        await s.pipe(nodeToWeb(node))
+        s.onAbort(() => body.cancel().catch(() => undefined))
+        await s.pipe(body)
       })
     }
   )
@@ -298,12 +293,10 @@ export const clipsPlaybackRoutes = new Hono()
       c.header("Content-Disposition", contentDisposition(selected.filename))
       c.header("Cache-Control", dlCacheControl)
 
-      const node = resolved.stream()
+      const body = resolved.stream()
       return stream(c, async (s) => {
-        s.onAbort(() => {
-          node.destroy()
-        })
-        await s.pipe(nodeToWeb(node))
+        s.onAbort(() => body.cancel().catch(() => undefined))
+        await s.pipe(body)
       })
     }
   )

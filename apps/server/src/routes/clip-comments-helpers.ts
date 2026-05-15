@@ -1,5 +1,3 @@
-import { Buffer } from "node:buffer"
-
 import { and, desc, eq, inArray, isNull, or, sql, type SQL } from "drizzle-orm"
 import { z } from "zod"
 
@@ -8,6 +6,7 @@ import { user } from "@workspace/db/auth-schema"
 import { clip, clipComment, clipCommentLike } from "@workspace/db/schema"
 
 import { db } from "../db"
+import { base64UrlDecodeText, base64UrlEncodeText } from "../encoding/base64url"
 import { resolveEngagementTarget } from "./clips-helpers"
 
 export const BODY_MAX = 2000
@@ -178,7 +177,7 @@ function parseCommentCursor(value: string | undefined): CommentCursor | null {
   if (!value) return null
   try {
     const parsed = JSON.parse(
-      Buffer.from(value, "base64url").toString("utf8")
+      base64UrlDecodeText(value)
     ) as Partial<CommentCursor>
     if (
       typeof parsed.pinned !== "boolean" ||
@@ -202,7 +201,7 @@ function parseCommentCursor(value: string | undefined): CommentCursor | null {
 }
 
 function encodeCommentCursor(row: CommentRowRecord): string {
-  return Buffer.from(
+  return base64UrlEncodeText(
     JSON.stringify({
       pinned: row.pinnedAt !== null,
       likeCount: row.likeCount,
@@ -211,9 +210,8 @@ function encodeCommentCursor(row: CommentRowRecord): string {
           ? row.createdAt.toISOString()
           : String(row.createdAt),
       id: row.id,
-    } satisfies CommentCursor),
-    "utf8"
-  ).toString("base64url")
+    } satisfies CommentCursor)
+  )
 }
 
 function commentOrderBy(sort: "top" | "new") {

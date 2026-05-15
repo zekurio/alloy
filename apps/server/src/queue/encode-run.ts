@@ -1,6 +1,3 @@
-import { promises as fsp } from "node:fs"
-import path from "node:path"
-
 import { and, eq } from "drizzle-orm"
 
 import { clip, type ClipEncodedVariant } from "@workspace/db/schema"
@@ -8,6 +5,7 @@ import { clip, type ClipEncodedVariant } from "@workspace/db/schema"
 import { db } from "../db"
 import { publishClipUpsert } from "../clips/events"
 import { configStore } from "../config/store"
+import { join } from "../runtime/path"
 import { storage } from "../storage"
 import { probe } from "./ffmpeg"
 import { abortEncode } from "./encode-abort"
@@ -48,7 +46,7 @@ export async function runEncodeInner(
   try {
     await runPipelineInScratch(clipId, row, runId, scratchDir, signal)
   } finally {
-    await fsp.rm(scratchDir, { recursive: true, force: true }).catch(() => {
+    await Deno.remove(scratchDir, { recursive: true }).catch(() => {
       // Best-effort: a stray scratch dir is a capacity issue, not data loss.
     })
   }
@@ -62,7 +60,7 @@ async function runPipelineInScratch(
   signal: AbortSignal
 ): Promise<void> {
   const originalSourceKey = row.storageKey
-  const sourcePath = path.join(scratchDir, "source")
+  const sourcePath = join(scratchDir, "source")
   await storage.downloadToFile(originalSourceKey, sourcePath)
   await ensureClipStillPresent(clipId, runId, signal)
 

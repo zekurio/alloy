@@ -1,11 +1,8 @@
-import { EventEmitter } from "node:events"
-
 import type { NotificationEvent, NotificationRow } from "@workspace/contracts"
 
 export type { NotificationEvent } from "@workspace/contracts"
 
-const emitter = new EventEmitter()
-emitter.setMaxListeners(0)
+const subscribers = new Map<string, Set<(event: NotificationEvent) => void>>()
 
 function channel(userId: string): string {
   return `notifications:${userId}`
@@ -16,7 +13,7 @@ export function publishNotificationUpsert(
   notification: NotificationRow,
   unreadCount: number
 ): void {
-  emitter.emit(channel(recipientId), {
+  publish(channel(recipientId), {
     type: "upsert",
     notification,
     unreadCount,
@@ -29,7 +26,7 @@ export function publishNotificationRead(
   readAt: string,
   unreadCount: number
 ): void {
-  emitter.emit(channel(recipientId), {
+  publish(channel(recipientId), {
     type: "read",
     id,
     readAt,
@@ -42,7 +39,7 @@ export function publishNotificationsReadAll(
   readAt: string,
   unreadCount: number
 ): void {
-  emitter.emit(channel(recipientId), {
+  publish(channel(recipientId), {
     type: "read_all",
     readAt,
     unreadCount,
@@ -54,7 +51,7 @@ export function publishNotificationRemove(
   id: string,
   unreadCount: number
 ): void {
-  emitter.emit(channel(recipientId), {
+  publish(channel(recipientId), {
     type: "remove",
     id,
     unreadCount,
@@ -65,7 +62,7 @@ export function publishNotificationsClear(
   recipientId: string,
   unreadCount: number
 ): void {
-  emitter.emit(channel(recipientId), {
+  publish(channel(recipientId), {
     type: "clear",
     unreadCount,
   } satisfies NotificationEvent)
@@ -76,6 +73,18 @@ export function subscribeToNotifications(
   handler: (event: NotificationEvent) => void
 ): () => void {
   const ch = channel(recipientId)
-  emitter.on(ch, handler)
-  return () => emitter.off(ch, handler)
+  let channelSubscribers = subscribers.get(ch)
+  if (!channelSubscribers) {
+    channelSubscribers = new Set()
+    subscribers.set(ch, channelSubscribers)
+  }
+  channelSubscribers.add(handler)
+  return () => {
+    channelSubscribers.delete(handler)
+    if (channelSubscribers.size === 0) subscribers.delete(ch)
+  }
+}
+
+function publish(channelName: string, event: NotificationEvent): void {
+  for (const handler of subscribers.get(channelName) ?? []) handler(event)
 }

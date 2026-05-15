@@ -1,5 +1,3 @@
-import { spawn } from "node:child_process"
-
 export interface CaptureResult {
   stdout: string
   stderr: string
@@ -10,63 +8,66 @@ interface RunProcessOptions {
   signal?: AbortSignal
 }
 
-export function runCapture(
+export async function runCapture(
   bin: string,
   args: ReadonlyArray<string>,
   opts: RunProcessOptions = {}
 ): Promise<CaptureResult> {
-  return new Promise((resolve, reject) => {
-    const startedAt = Date.now()
-    logProcessStart(bin, args, opts.label)
-    const proc = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"] })
-    let stdout = ""
-    let stderr = ""
-    proc.stdout.on("data", (chunk) => {
-      stdout += String(chunk)
-    })
-    proc.stderr.on("data", (chunk) => {
-      stderr += String(chunk)
-    })
-    proc.on("error", (err) => {
-      logProcessError(bin, opts.label, startedAt, err)
-      reject(err)
-    })
-    proc.on("close", (code) => {
-      if (code === 0) {
-        logProcessSuccess(bin, opts.label, startedAt)
-        resolve({ stdout, stderr })
-      } else {
-        logProcessFailure(bin, opts.label, startedAt, code, stderr)
-        reject(
-          new Error(
-            `${bin} exited ${code}: ${stderr.trim().slice(-500) || "(no stderr)"}`
-          )
-        )
-      }
-    })
-  })
+  const startedAt = Date.now()
+  logProcessStart(bin, args, opts.label)
+  try {
+    const output = await new Deno.Command(bin, {
+      args: [...args],
+      stdin: "null",
+      stdout: "piped",
+      stderr: "piped",
+    }).output()
+    const stdout = new TextDecoder().decode(output.stdout)
+    const stderr = new TextDecoder().decode(output.stderr)
+    if (output.success) {
+      logProcessSuccess(bin, opts.label, startedAt)
+      return { stdout, stderr }
+    }
+    logProcessFailure(bin, opts.label, startedAt, output.code, stderr)
+    throw new Error(
+      `${bin} exited ${output.code}: ${stderr.trim().slice(-500) || "(no stderr)"}`
+    )
+  } catch (err) {
+    logProcessError(bin, opts.label, startedAt, err as Error)
+    throw err
+  }
 }
 
-export function runWithProgress(
+export async function runWithProgress(
   bin: string,
   args: ReadonlyArray<string>,
   onLine: (line: string) => void,
   opts: RunProcessOptions = {}
 ): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const { signal } = opts
-    if (signal?.aborted) {
-      reject(abortError())
-      return
-    }
-    const startedAt = Date.now()
-    logProcessStart(bin, args, opts.label)
-    const proc = spawn(bin, args, { stdio: ["ignore", "ignore", "pipe"] })
-    let stderrTail = ""
-    let buf = ""
-    let aborted = false
-    proc.stderr.on("data", (chunk) => {
-      const text = String(chunk)
+  const { signal } = opts
+  if (signal?.aborted) throw abortError()
+  const startedAt = Date.now()
+  logProcessStart(bin, args, opts.label)
+  const command = new Deno.Command(bin, {
+    args: [...args],
+    stdin: "null",
+    stdout: "null",
+    stderr: "piped",
+  })
+  const proc = command.spawn()
+  let aborted = false
+  const onAbort = () => {
+    aborted = true
+    proc.kill("SIGTERM")
+  }
+  signal?.addEventListener("abort", onAbort, { once: true })
+  let stderrTail = ""
+  let buf = ""
+  const decoder = new TextDecoder()
+  try {
+    if (!proc.stderr) throw new Error("stderr pipe unavailable")
+    for await (const chunk of proc.stderr) {
+      const text = decoder.decode(chunk, { stream: true })
       stderrTail = (stderrTail + text).slice(-2000)
       buf += text
       let idx: number
@@ -75,38 +76,31 @@ export function runWithProgress(
         buf = buf.slice(idx + 1)
         if (line) onLine(line)
       }
-    })
-    // Deliver SIGTERM on abort; the `close` handler resolves the
-    // promise as AbortError because `aborted` is set.
-    const onAbort = () => {
-      aborted = true
-      proc.kill("SIGTERM")
     }
-    signal?.addEventListener("abort", onAbort, { once: true })
-
-    proc.on("error", (err) => {
-      signal?.removeEventListener("abort", onAbort)
-      logProcessError(bin, opts.label, startedAt, err)
-      reject(err)
-    })
-    proc.on("close", (code) => {
-      signal?.removeEventListener("abort", onAbort)
-      if (aborted) {
-        reject(abortError())
-        return
-      }
-      if (code === 0) {
-        if (buf) onLine(buf)
-        logProcessSuccess(bin, opts.label, startedAt)
-        resolve()
-      } else {
-        logProcessFailure(bin, opts.label, startedAt, code, stderrTail)
-        reject(
-          new Error(`${bin} exited ${code}: ${stderrTail.trim().slice(-500)}`)
-        )
-      }
-    })
-  })
+    const finalText = decoder.decode()
+    if (finalText) {
+      stderrTail = (stderrTail + finalText).slice(-2000)
+      buf += finalText
+    }
+    const status = await proc.status
+    signal?.removeEventListener("abort", onAbort)
+    if (aborted) throw abortError()
+    if (status.success) {
+      if (buf) onLine(buf)
+      logProcessSuccess(bin, opts.label, startedAt)
+      return
+    }
+    logProcessFailure(bin, opts.label, startedAt, status.code, stderrTail)
+    throw new Error(
+      `${bin} exited ${status.code}: ${stderrTail.trim().slice(-500)}`
+    )
+  } catch (err) {
+    signal?.removeEventListener("abort", onAbort)
+    if ((err as Error).name !== "AbortError") {
+      logProcessError(bin, opts.label, startedAt, err as Error)
+    }
+    throw err
+  }
 }
 
 function abortError(): Error {

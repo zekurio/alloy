@@ -254,7 +254,10 @@ export const clipsUploadRoutes = new Hono()
           return c.json({ error: "Thumbnail ticket expired" }, 410)
         }
         const thumbBytes = await readResolvedObject(thumbResolved)
-        const thumbValidation = validateImageBytes(thumbBytes, "image/jpeg")
+        const thumbValidation = validateImageBytes(
+          Buffer.from(thumbBytes),
+          "image/jpeg"
+        )
         if (!thumbValidation.ok) {
           await deleteUploadAssets(row.storageKey, row.thumbKey)
           await markUploadFailed(row.authorId, id, thumbValidation.error)
@@ -483,13 +486,21 @@ export const clipsUploadRoutes = new Hono()
   })
 
 async function readResolvedObject(resolved: {
-  stream: () => NodeJS.ReadableStream
-}): Promise<Buffer> {
-  const chunks: Buffer[] = []
+  stream: () => ReadableStream<Uint8Array>
+}): Promise<Uint8Array> {
+  const chunks: Uint8Array[] = []
+  let size = 0
   for await (const chunk of resolved.stream()) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+    chunks.push(chunk)
+    size += chunk.byteLength
   }
-  return Buffer.concat(chunks)
+  const out = new Uint8Array(size)
+  let offset = 0
+  for (const chunk of chunks) {
+    out.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return out
 }
 
 async function deleteUploadAssets(

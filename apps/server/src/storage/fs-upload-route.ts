@@ -1,8 +1,3 @@
-import { createWriteStream, promises as fsp } from "node:fs"
-import path from "node:path"
-import { Readable } from "node:stream"
-import { pipeline } from "node:stream/promises"
-
 import { Hono } from "hono"
 import { and, eq, gt, isNull } from "drizzle-orm"
 import { clipUploadTicket } from "@workspace/db/schema"
@@ -24,7 +19,7 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
   }
 
   const token = c.req.param("token")
-  const decoded = decodeUploadToken(token, storageConfig.fs.hmacSecret)
+  const decoded = await decodeUploadToken(token, storageConfig.fs.hmacSecret)
   if (!decoded.ok) {
     return c.json({ error: "Invalid upload ticket" }, 401)
   }
@@ -69,57 +64,52 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
   }
 
   const fullDst = storage.fullPath(key)
-  const tmpDir = path.join(storage.fullPath(".tmp"), token.slice(-32))
-  await fsp.mkdir(tmpDir, { recursive: true })
-  await fsp.mkdir(path.dirname(fullDst), { recursive: true })
-  const tmpFile = path.join(tmpDir, "blob")
+  const tmpDir = `${storage.fullPath(".tmp")}/${token.slice(-32)}`
+  await Deno.mkdir(tmpDir, { recursive: true })
+  await Deno.mkdir(dirname(fullDst), { recursive: true })
+  const tmpFile = `${tmpDir}/blob`
 
   let bytesWritten = 0
   let limitTripped = false
-  const nodeBody = Readable.fromWeb(
-    c.req.raw.body as Parameters<typeof Readable.fromWeb>[0]
-  )
-  const counter = async function* (src: Readable) {
-    for await (const chunk of src) {
-      bytesWritten += (chunk as Buffer).byteLength
-      if (bytesWritten > maxBytes) {
-        limitTripped = true
-        // Throwing aborts the pipeline; the catch below cleans up the
-        // partial write and returns 413.
-        throw new Error("upload exceeded maxBytes")
-      }
-      yield chunk
-    }
-  }
+  const file = await Deno.open(tmpFile, {
+    create: true,
+    write: true,
+    truncate: true,
+  })
 
   try {
-    await pipeline(nodeBody, counter, createWriteStream(tmpFile))
+    for await (const chunk of c.req.raw.body) {
+      bytesWritten += chunk.byteLength
+      if (bytesWritten > maxBytes) {
+        limitTripped = true
+        throw new Error("upload exceeded maxBytes")
+      }
+      await writeAll(file, chunk)
+    }
   } catch (err) {
-    await fsp
-      .rm(tmpDir, { recursive: true, force: true })
-      .catch(() => undefined)
+    await Deno.remove(tmpDir, { recursive: true }).catch(() => undefined)
     if (limitTripped) {
       return c.json({ error: "Upload exceeded maximum size" }, 413)
     }
     // eslint-disable-next-line no-console
     console.error("[api/assets/upload] write failed:", err)
     return c.json({ error: "Upload write failed" }, 500)
+  } finally {
+    file.close()
   }
 
   try {
-    await fsp.link(tmpFile, fullDst)
+    await Deno.link(tmpFile, fullDst)
   } catch (err) {
-    await fsp
-      .rm(tmpDir, { recursive: true, force: true })
-      .catch(() => undefined)
-    if ((err as NodeJS.ErrnoException).code === "EEXIST") {
+    await Deno.remove(tmpDir, { recursive: true }).catch(() => undefined)
+    if (err instanceof Deno.errors.AlreadyExists) {
       return c.json({ error: "Upload ticket has already been used" }, 409)
     }
     // eslint-disable-next-line no-console
     console.error("[api/assets/upload] publish failed:", err)
     return c.json({ error: "Upload publish failed" }, 500)
   }
-  await fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => undefined)
+  await Deno.remove(tmpDir, { recursive: true }).catch(() => undefined)
   await db
     .update(clipUploadTicket)
     .set({ usedAt: new Date() })
@@ -127,3 +117,19 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
 
   return c.body(null, 204)
 })
+
+function dirname(value: string): string {
+  const index = value.lastIndexOf("/")
+  return index <= 0 ? "/" : value.slice(0, index)
+}
+
+async function writeAll(file: Deno.FsFile, chunk: Uint8Array): Promise<void> {
+  let offset = 0
+  while (offset < chunk.byteLength) {
+    const written = await file.write(chunk.subarray(offset))
+    if (written <= 0) {
+      throw new Error("file write made no progress")
+    }
+    offset += written
+  }
+}

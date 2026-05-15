@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto"
 import { z } from "zod"
 
 import {
@@ -13,6 +12,16 @@ import {
 
 import { env } from "../env"
 import { OAuthProviderSchema } from "./oauth-schema"
+
+function randomSecret(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32))
+  let binary = ""
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "")
+}
 
 const EncoderVariantSchema = z.preprocess(
   (raw) => {
@@ -171,10 +180,7 @@ const IntegrationsConfigSchema = z.object({
 })
 
 const ServerSecretsConfigSchema = z.object({
-  viewerCookieSecret: z
-    .string()
-    .min(32)
-    .default(() => randomBytes(32).toString("base64url")),
+  viewerCookieSecret: z.string().min(32).default(randomSecret),
 })
 
 const LoginSplashConfigSchema = z.object({
@@ -237,7 +243,7 @@ const S3StorageConfigSchema = S3StorageConfigBaseSchema.superRefine(
 )
 
 const DEFAULT_FS_STORAGE_CONFIG = FsStorageConfigSchema.parse({
-  hmacSecret: randomBytes(32).toString("base64url"),
+  hmacSecret: randomSecret(),
 })
 
 const DEFAULT_S3_STORAGE_CONFIG = S3StorageConfigSchema.parse({})
