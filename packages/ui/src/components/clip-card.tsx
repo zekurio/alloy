@@ -287,7 +287,10 @@ function ClipCardThumb({
       onIntent?.()
       schedulePreview()
     },
-    onBlur: cancelPreview,
+    onBlur: () => {
+      setPointerActivated(false)
+      cancelPreview()
+    },
   }
 
   const body = (
