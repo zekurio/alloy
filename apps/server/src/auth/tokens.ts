@@ -1,17 +1,17 @@
-import { createHash, randomBytes } from "node:crypto"
+import { bytesToBase64Url } from "../encoding/base64url"
+
+export { base64UrlToBytes, bytesToBase64Url } from "../encoding/base64url"
+
+const textEncoder = new TextEncoder()
 
 export function generateSessionToken(): string {
-  return randomBytes(32).toString("base64url")
+  return bytesToBase64Url(crypto.getRandomValues(new Uint8Array(32)))
 }
 
-export function hashSessionToken(token: string): string {
-  return createHash("sha256").update(token).digest("base64url")
-}
-
-export function bytesToBase64Url(bytes: Uint8Array): string {
-  return Buffer.from(bytes).toString("base64url")
-}
-
-export function base64UrlToBytes(value: string): Uint8Array {
-  return Uint8Array.from(Buffer.from(value, "base64url"))
+export async function hashSessionToken(token: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    textEncoder.encode(token)
+  )
+  return bytesToBase64Url(new Uint8Array(digest))
 }

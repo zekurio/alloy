@@ -29,6 +29,12 @@
       "globals": {
         "Deno": "readonly"
       }
+    },
+    {
+      "files": ["packages/db/**/*.{ts,tsx}"],
+      "globals": {
+        "Deno": "readonly"
+      }
     }
   ],
   "rules": {

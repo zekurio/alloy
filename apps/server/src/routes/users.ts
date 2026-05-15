@@ -16,11 +16,7 @@ import {
 } from "../auth/session"
 import { assertCanRemoveAdmin } from "../auth/identity"
 import { deleteClipRowAndAssets } from "../clips/delete"
-import {
-  contentDisposition,
-  downloadFilename,
-  nodeToWeb,
-} from "./clips-helpers"
+import { contentDisposition, downloadFilename } from "./clips-helpers"
 import { createZipStream } from "../archive/zip-stream"
 import { syncLinkedOAuthImage } from "../auth/oauth-profile-sync"
 import { createNotification } from "../notifications"
@@ -135,10 +131,8 @@ export const usersRoute = new Hono()
 
     const zip = createZipStream(entries)
     return stream(c, async (s) => {
-      s.onAbort(() => {
-        zip.destroy()
-      })
-      await s.pipe(nodeToWeb(zip))
+      s.onAbort(() => zip.cancel().catch(() => undefined))
+      await s.pipe(zip)
     })
   })
 

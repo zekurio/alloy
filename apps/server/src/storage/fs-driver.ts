@@ -1,10 +1,3 @@
-import { Buffer } from "node:buffer"
-import { createHmac, timingSafeEqual } from "node:crypto"
-import { createReadStream, createWriteStream, promises as fsp } from "node:fs"
-import path from "node:path"
-import { Readable } from "node:stream"
-import { pipeline } from "node:stream/promises"
-
 import type {
   DownloadUrl,
   MintDownloadUrlInput,
@@ -40,10 +33,9 @@ export class FsStorageDriver implements StorageDriver {
 
   /** Resolve a storageKey against the configured root. */
   fullPath(key: string): string {
-    const root = path.resolve(this.opts.root)
-    const resolved = path.resolve(root, key)
-    const relative = path.relative(root, resolved)
-    if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    const root = normalizePath(this.opts.root)
+    const resolved = normalizePath(`${root}/${key}`)
+    if (resolved !== root && !resolved.startsWith(`${root}/`)) {
       throw new Error("Storage key escapes storage root")
     }
     return resolved
@@ -51,48 +43,52 @@ export class FsStorageDriver implements StorageDriver {
 
   async put(
     key: string,
-    body: Buffer | Readable,
+    body: Uint8Array | ReadableStream<Uint8Array>,
     _contentType: string
   ): Promise<{ size: number }> {
     const dst = this.fullPath(key)
-    await fsp.mkdir(path.dirname(dst), { recursive: true })
+    await Deno.mkdir(dirname(dst), { recursive: true })
 
-    if (Buffer.isBuffer(body)) {
-      await fsp.writeFile(dst, body)
+    if (body instanceof Uint8Array) {
+      await Deno.writeFile(dst, body)
       return { size: body.byteLength }
     }
 
-    // Stream — count bytes as they pass through so we can return size.
     let size = 0
-    const out = createWriteStream(dst)
-    const counter = async function* (src: Readable) {
-      for await (const chunk of src) {
-        size += (chunk as Buffer).byteLength
-        yield chunk
+    const file = await Deno.open(dst, {
+      create: true,
+      write: true,
+      truncate: true,
+    })
+    try {
+      for await (const chunk of body) {
+        size += chunk.byteLength
+        await file.write(chunk)
       }
+    } finally {
+      file.close()
     }
-    await pipeline(body, counter, out)
     return { size }
   }
 
   async resolve(key: string): Promise<ResolvedObject | null> {
     const full = this.fullPath(key)
-    let stat: Awaited<ReturnType<typeof fsp.stat>>
+    let stat: Deno.FileInfo
     try {
-      stat = await fsp.stat(full)
+      stat = await Deno.stat(full)
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") return null
+      if (err instanceof Deno.errors.NotFound) return null
       throw err
     }
-    if (!stat.isFile()) return null
+    if (!stat.isFile) return null
 
     return {
       stream: (opts) => {
         return fspCreateReadStream(full, opts?.start, opts?.end)
       },
       size: stat.size,
-      contentType: contentTypeForExt(path.extname(full)),
-      lastModified: stat.mtime,
+      contentType: contentTypeForExt(extname(full)),
+      lastModified: stat.mtime ?? null,
     }
   }
 
@@ -106,7 +102,7 @@ export class FsStorageDriver implements StorageDriver {
       uid: input.userId,
       cid: input.clipId,
     }
-    const token = signToken(payload, this.opts.hmacSecret)
+    const token = await signToken(payload, this.opts.hmacSecret)
     const baseUrl = this.opts.publicBaseUrl.replace(/\/+$/, "")
     return {
       uploadUrl: `${baseUrl}/api/assets/upload/${token}`,
@@ -118,16 +114,17 @@ export class FsStorageDriver implements StorageDriver {
 
   async downloadToFile(key: string, destPath: string): Promise<void> {
     const src = this.fullPath(key)
-    await fsp.mkdir(path.dirname(destPath), { recursive: true })
+    await Deno.mkdir(dirname(destPath), { recursive: true })
     try {
-      await fsp.rm(destPath, { force: true })
-      await fsp.link(src, destPath)
+      await Deno.remove(destPath).catch((err) => {
+        if (!(err instanceof Deno.errors.NotFound)) throw err
+      })
+      await Deno.link(src, destPath)
       return
     } catch (err) {
-      const code = (err as NodeJS.ErrnoException).code
-      if (code !== "EXDEV" && code !== "EPERM" && code !== "ENOSYS") throw err
+      if (!isCopyFallbackError(err)) throw err
     }
-    await fsp.copyFile(src, destPath)
+    await Deno.copyFile(src, destPath)
   }
 
   async uploadFromFile(
@@ -136,16 +133,17 @@ export class FsStorageDriver implements StorageDriver {
     _contentType: string
   ): Promise<{ size: number }> {
     const dst = this.fullPath(key)
-    await fsp.mkdir(path.dirname(dst), { recursive: true })
-    await fsp.rm(dst, { force: true })
+    await Deno.mkdir(dirname(dst), { recursive: true })
+    await Deno.remove(dst).catch((err) => {
+      if (!(err instanceof Deno.errors.NotFound)) throw err
+    })
     try {
-      await fsp.link(localPath, dst)
+      await Deno.link(localPath, dst)
     } catch (err) {
-      const code = (err as NodeJS.ErrnoException).code
-      if (code !== "EXDEV" && code !== "EPERM" && code !== "ENOSYS") throw err
-      await fsp.copyFile(localPath, dst)
+      if (!isCopyFallbackError(err)) throw err
+      await Deno.copyFile(localPath, dst)
     }
-    const stat = await fsp.stat(dst)
+    const stat = await Deno.stat(dst)
     return { size: stat.size }
   }
 
@@ -156,18 +154,19 @@ export class FsStorageDriver implements StorageDriver {
   }): Promise<{ size: number }> {
     const src = this.fullPath(input.fromKey)
     const dst = this.fullPath(input.toKey)
-    await fsp.mkdir(path.dirname(dst), { recursive: true })
-    await fsp.rm(dst, { force: true })
+    await Deno.mkdir(dirname(dst), { recursive: true })
+    await Deno.remove(dst).catch((err) => {
+      if (!(err instanceof Deno.errors.NotFound)) throw err
+    })
     try {
-      await fsp.link(src, dst)
+      await Deno.link(src, dst)
     } catch (err) {
-      const code = (err as NodeJS.ErrnoException).code
-      if (code !== "EXDEV" && code !== "EPERM" && code !== "ENOSYS") throw err
-      const tmp = `${dst}.${process.pid}.${Date.now()}.tmp`
-      await fsp.copyFile(src, tmp)
-      await fsp.rename(tmp, dst)
+      if (!isCopyFallbackError(err)) throw err
+      const tmp = `${dst}.${crypto.randomUUID()}.tmp`
+      await Deno.copyFile(src, tmp)
+      await Deno.rename(tmp, dst)
     }
-    const stat = await fsp.stat(dst)
+    const stat = await Deno.stat(dst)
     return { size: stat.size }
   }
 
@@ -183,32 +182,32 @@ export class FsStorageDriver implements StorageDriver {
   async delete(key: string): Promise<void> {
     const full = this.fullPath(key)
     try {
-      await fsp.rm(full, { force: true })
+      await Deno.remove(full)
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") return
+      if (err instanceof Deno.errors.NotFound) return
       throw err
     }
-    await this.pruneEmptyAncestors(path.dirname(full))
+    await this.pruneEmptyAncestors(dirname(full))
   }
 
   private async pruneEmptyAncestors(startDir: string): Promise<void> {
-    const root = path.resolve(this.opts.root)
-    let current = path.resolve(startDir)
+    const root = normalizePath(this.opts.root)
+    let current = normalizePath(startDir)
     while (true) {
-      const rel = path.relative(root, current)
-      if (rel === "" || rel.startsWith("..")) return
+      if (current === root || !current.startsWith(`${root}/`)) return
       try {
-        await fsp.rmdir(current)
+        await Deno.remove(current)
       } catch (err) {
-        const code = (err as NodeJS.ErrnoException).code
-        // Non-empty = done (sibling clips still occupy this shard).
-        // Missing = someone else already cleaned it — also done.
-        if (code === "ENOTEMPTY" || code === "ENOENT" || code === "EEXIST") {
+        if (
+          err instanceof Deno.errors.NotFound ||
+          isOsErrorCode(err, "ENOTEMPTY") ||
+          isOsErrorCode(err, "EEXIST")
+        ) {
           return
         }
         throw err
       }
-      current = path.dirname(current)
+      current = dirname(current)
     }
   }
 }
@@ -217,28 +216,97 @@ function fspCreateReadStream(
   path: string,
   start: number | undefined,
   end: number | undefined
-): Readable {
-  const opts =
-    start === undefined && end === undefined
-      ? undefined
-      : {
-          start,
-          end,
+): ReadableStream<Uint8Array> {
+  const file = Deno.openSync(path, { read: true })
+  if (start !== undefined) file.seekSync(start, Deno.SeekMode.Start)
+  const limit = end === undefined ? undefined : end - (start ?? 0) + 1
+  if (limit === undefined) return file.readable
+
+  let remaining = limit
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      if (remaining <= 0) return
+      try {
+        const chunk = new Uint8Array(Math.min(64 * 1024, remaining))
+        const bytesRead = await file.read(chunk)
+        if (bytesRead === null) {
+          remaining = 0
+          file.close()
+          controller.close()
+          return
         }
-  return Readable.from(createReadStream(path, opts))
+        remaining -= bytesRead
+        controller.enqueue(chunk.subarray(0, bytesRead))
+        if (remaining <= 0) {
+          file.close()
+          controller.close()
+        }
+      } catch (err) {
+        file.close()
+        throw err
+      }
+    },
+    cancel() {
+      file.close()
+    },
+  })
 }
 
-export function signToken(payload: UploadTokenPayload, secret: string): string {
-  const json = Buffer.from(JSON.stringify(payload), "utf8")
-  const sig = createHmac("sha256", secret).update(json).digest()
-  return `${json.toString("base64url")}.${sig.toString("base64url")}`
+function normalizePath(value: string): string {
+  const absolute = value.startsWith("/") ? value : `${Deno.cwd()}/${value}`
+  const parts: string[] = []
+  for (const part of absolute.split("/")) {
+    if (!part || part === ".") continue
+    if (part === "..") parts.pop()
+    else parts.push(part)
+  }
+  return `/${parts.join("/")}`
+}
+
+function dirname(value: string): string {
+  const normalized = normalizePath(value)
+  const index = normalized.lastIndexOf("/")
+  return index <= 0 ? "/" : normalized.slice(0, index)
+}
+
+function extname(value: string): string {
+  const base = value.slice(value.lastIndexOf("/") + 1)
+  const index = base.lastIndexOf(".")
+  return index <= 0 ? "" : base.slice(index)
+}
+
+function isCopyFallbackError(err: unknown): boolean {
+  return (
+    isOsErrorCode(err, "EXDEV") ||
+    err instanceof Deno.errors.PermissionDenied ||
+    isOsErrorCode(err, "ENOSYS")
+  )
+}
+
+function isOsErrorCode(err: unknown, code: string): boolean {
+  return (err as { code?: string } | null)?.code === code
+}
+
+const textEncoder = new TextEncoder()
+const textDecoder = new TextDecoder()
+
+export async function signToken(
+  payload: UploadTokenPayload,
+  secret: string
+): Promise<string> {
+  const json = textEncoder.encode(JSON.stringify(payload))
+  const sig = await hmacSha256(json, secret)
+  return `${base64UrlEncode(json)}.${base64UrlEncode(sig)}`
 }
 
 export type DecodedToken =
   | { ok: true; payload: UploadTokenPayload }
   | { ok: false; reason: "malformed" | "bad-signature" | "expired" }
 
-export function decodeUploadToken(token: string, secret: string): DecodedToken {
+export async function decodeUploadToken(
+  token: string,
+  secret: string
+): Promise<DecodedToken> {
   const dot = token.indexOf(".")
   if (dot <= 0 || dot === token.length - 1) {
     return { ok: false, reason: "malformed" }
@@ -246,11 +314,11 @@ export function decodeUploadToken(token: string, secret: string): DecodedToken {
   const payloadB64 = token.slice(0, dot)
   const sigB64 = token.slice(dot + 1)
 
-  let payloadBytes: Buffer
-  let sigBytes: Buffer
+  let payloadBytes: Uint8Array
+  let sigBytes: Uint8Array
   try {
-    payloadBytes = Buffer.from(payloadB64, "base64url")
-    sigBytes = Buffer.from(sigB64, "base64url")
+    payloadBytes = base64UrlDecode(payloadB64)
+    sigBytes = base64UrlDecode(sigB64)
   } catch {
     return { ok: false, reason: "malformed" }
   }
@@ -258,16 +326,16 @@ export function decodeUploadToken(token: string, secret: string): DecodedToken {
     return { ok: false, reason: "malformed" }
   }
 
-  const expected = createHmac("sha256", secret).update(payloadBytes).digest()
+  const expected = await hmacSha256(payloadBytes, secret)
   // `timingSafeEqual` requires equal-length buffers; the byte-length
   // check above gates that. Wrong-length sigs already returned malformed.
-  if (!timingSafeEqual(expected, sigBytes)) {
+  if (!constantTimeEqual(expected, sigBytes)) {
     return { ok: false, reason: "bad-signature" }
   }
 
   let payload: UploadTokenPayload
   try {
-    payload = JSON.parse(payloadBytes.toString("utf8")) as UploadTokenPayload
+    payload = JSON.parse(textDecoder.decode(payloadBytes)) as UploadTokenPayload
   } catch {
     return { ok: false, reason: "malformed" }
   }
@@ -285,6 +353,63 @@ export function decodeUploadToken(token: string, secret: string): DecodedToken {
     return { ok: false, reason: "expired" }
   }
   return { ok: true, payload }
+}
+
+async function hmacSha256(
+  payload: Uint8Array,
+  secret: string
+): Promise<Uint8Array> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    textEncoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  )
+  return new Uint8Array(
+    await crypto.subtle.sign("HMAC", key, bytesToArrayBuffer(payload))
+  )
+}
+
+function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength
+  ) as ArrayBuffer
+}
+
+function base64UrlEncode(bytes: Uint8Array): string {
+  let binary = ""
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "")
+}
+
+function base64UrlDecode(value: string): Uint8Array {
+  if (!/^[A-Za-z0-9_-]*$/.test(value)) {
+    throw new Error("Invalid base64url")
+  }
+  const padded = value
+    .replaceAll("-", "+")
+    .replaceAll("_", "/")
+    .padEnd(Math.ceil(value.length / 4) * 4, "=")
+  const binary = atob(padded)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes
+}
+
+function constantTimeEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.byteLength !== right.byteLength) return false
+  let diff = 0
+  for (let i = 0; i < left.byteLength; i++) {
+    diff |= left[i] ^ right[i]
+  }
+  return diff === 0
 }
 
 function contentTypeForExt(ext: string): string {

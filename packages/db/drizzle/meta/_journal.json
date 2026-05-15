@@ -5,29 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1777211390633,
-      "tag": "0000_lucky_hellfire_club",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1777606800000,
-      "tag": "0001_upload_tickets_encode_leases",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1777921389747,
-      "tag": "0002_case_insensitive_usernames",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1778013233000,
-      "tag": "0003_constraints_and_safe_byte_counts",
+      "when": 1778874646973,
+      "tag": "0000_white_moira_mactaggert",
       "breakpoints": true
     }
   ]
