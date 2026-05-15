@@ -60,6 +60,11 @@ export function ClipViewerDialog({
   const list = useActiveClipList()
   const [autoAdvance, setAutoAdvance] = React.useState(false)
 
+  const closeViewer = React.useCallback(() => {
+    setActiveClipList(null)
+    onClose()
+  }, [onClose])
+
   const prev = React.useMemo(() => {
     if (!list || !clipId) return null
     return list.prevOf(clipId)
@@ -78,12 +83,6 @@ export function ClipViewerDialog({
     [onNavigate, queryClient]
   )
 
-  // Clear the active list when the dialog closes so stale neighbours
-  // don't leak into a later viewer open.
-  React.useEffect(() => {
-    if (!open) setActiveClipList(null)
-  }, [open])
-
   React.useEffect(() => {
     if (!open) return
     const onKey = (event: KeyboardEvent) => {
@@ -97,8 +96,8 @@ export function ClipViewerDialog({
         navigateTo(next)
       }
     }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
+    window.addEventListener("keydown", onKey, { capture: true })
+    return () => window.removeEventListener("keydown", onKey, { capture: true })
   }, [open, prev, next, navigateTo])
 
   React.useEffect(() => {
@@ -128,7 +127,7 @@ export function ClipViewerDialog({
     <Dialog
       open={open}
       onOpenChange={(nextOpen) => {
-        if (!nextOpen) onClose()
+        if (!nextOpen) closeViewer()
       }}
     >
       {open ? (
@@ -136,7 +135,7 @@ export function ClipViewerDialog({
           !isDesktop ? (
             <MobileClipViewerBody
               row={query.data}
-              onDeleted={onClose}
+              onDeleted={closeViewer}
               prev={prev}
               next={next}
               onNavigate={onNavigate ? navigateTo : null}
@@ -147,7 +146,7 @@ export function ClipViewerDialog({
           ) : (
             <ClipViewerDialogBody
               row={query.data}
-              onDeleted={onClose}
+              onDeleted={closeViewer}
               prev={prev}
               next={next}
               onNavigate={onNavigate ? navigateTo : null}
@@ -225,19 +224,61 @@ function ClipViewerDialogBody({
   const initialFocusRef = React.useRef<HTMLDivElement>(null)
 
   const canNavigate = Boolean(onNavigate)
-  const showPrev = canNavigate && Boolean(prev)
-  const showNext = canNavigate && Boolean(next)
-  const gutterOffsetLeftClass = "-left-16"
-  const gutterOffsetRightClass = "-right-16"
+  // Render both chevrons whenever navigation is wired up — matches medal.tv,
+  // where the arrows are always visible and just disabled at list boundaries
+  // (or when the viewer was opened outside of a browsable list).
+  const showPrev = canNavigate
+  const showNext = canNavigate
+  const prevDisabled = !prev
+  const nextDisabled = !next
   const handleEnded = React.useCallback(() => {
     if (autoAdvance && next && onNavigate) onNavigate(next)
   }, [autoAdvance, next, onNavigate])
 
+  // Modal sizing is driven from the 16:9 video frame + a fixed-width comments
+  // rail (Medal-style). All four numbers below are exposed as CSS variables so
+  // the lg/xl breakpoints can override individual pieces without having to
+  // rewrite the full calc(). `--clip-modal-margin-*` is the gutter PER side.
+  //
+  //   video_h  = min(dvh - 2*margin_y - meta,  (dvw - 2*margin_x - sidebar) * 9/16)
+  //   modal_h  = video_h + meta
+  //   modal_w  = (video_h * 16/9) + sidebar
+  //
+  // This keeps the modal short-and-wide (matching medal.tv) instead of letting
+  // it stretch to the full viewport height the way the inherited
+  // DialogViewportContent defaults would.
   return (
     <>
       <DialogViewportContent
         initialFocus={initialFocusRef}
-        className="overflow-visible rounded-[20px] bg-surface transition-[filter,opacity,transform] duration-100"
+        style={
+          {
+            "--clip-modal-margin-x": "16px",
+            "--clip-modal-margin-y": "16px",
+            "--clip-modal-nav-gutter": "72px",
+            "--clip-modal-sidebar": "400px",
+            "--clip-modal-meta": "13rem",
+          } as React.CSSProperties
+        }
+        className={cn(
+          // Below lg this branch is normally hidden by MobileClipViewerBody, but
+          // we keep a sensible fallback in case the breakpoint check disagrees.
+          "h-auto max-h-[calc(100dvh-32px)] w-[calc(100dvw-32px)] overflow-visible rounded-[20px] bg-surface transition-[filter,opacity,transform] duration-100",
+          // lg: explicit, coupled width + height that track the 16:9 video.
+          // Side gutters are deliberately wider than the top/bottom margins so
+          // the modal sits closer to the viewport's vertical edges while still
+          // leaving plenty of room for the prev/next chevrons on the sides —
+          // matches medal.tv's spacing.
+          "lg:[--clip-modal-margin-x:160px] lg:[--clip-modal-margin-y:20px] lg:[--clip-modal-nav-gutter:72px]",
+          "lg:h-[calc(min(calc(100dvh-var(--clip-modal-margin-y)*2-var(--clip-modal-meta)),calc((100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2-var(--clip-modal-sidebar))*9/16))+var(--clip-modal-meta))]",
+          "lg:max-h-[calc(100dvh-var(--clip-modal-margin-y)*2)]",
+          "lg:w-[calc(min(calc(100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2-var(--clip-modal-sidebar)),calc((100dvh-var(--clip-modal-margin-y)*2-var(--clip-modal-meta))*16/9))+var(--clip-modal-sidebar))]",
+          "lg:max-w-[calc(100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2)]",
+          // xl: wider sidebar + extra horizontal gutter, still slim vertically.
+          "xl:[--clip-modal-margin-x:200px] xl:[--clip-modal-margin-y:24px] xl:[--clip-modal-meta:14rem] xl:[--clip-modal-sidebar:448px]",
+          // 2xl: max breathing room for chevrons + meta on ultrawide.
+          "2xl:[--clip-modal-margin-x:256px] 2xl:[--clip-modal-margin-y:28px]"
+        )}
       >
         <DialogClose
           render={
@@ -245,7 +286,7 @@ function ClipViewerDialogBody({
               type="button"
               variant="ghost"
               size="icon"
-              className="absolute top-3 right-3 z-30 hidden rounded-full border border-white/10 bg-black/45 text-white/80 shadow-none backdrop-blur-sm hover:bg-black/60 hover:text-white lg:inline-flex [&_svg]:!size-5"
+              className="absolute top-3 right-3 z-30 hidden rounded-full border-transparent bg-transparent text-white/80 shadow-none hover:border-transparent hover:bg-transparent hover:text-white lg:inline-flex [&_svg]:!size-5"
             />
           }
           aria-label="Close"
@@ -259,9 +300,10 @@ function ClipViewerDialogBody({
             size="icon"
             onClick={() => (prev && onNavigate ? onNavigate(prev) : undefined)}
             aria-label="Previous clip"
+            disabled={prevDisabled}
             className={cn(
-              "absolute top-1/2 z-20 -translate-y-1/2 rounded-none border-transparent bg-transparent text-white shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-9 [&_svg]:stroke-[2.5]",
-              gutterOffsetLeftClass,
+              "absolute top-1/2 left-[calc((var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))*-1)] z-40 h-12 w-[calc(var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
+              "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
               "hidden lg:inline-flex"
             )}
           >
@@ -275,9 +317,10 @@ function ClipViewerDialogBody({
             size="icon"
             onClick={() => (next && onNavigate ? onNavigate(next) : undefined)}
             aria-label="Next clip"
+            disabled={nextDisabled}
             className={cn(
-              "absolute top-1/2 z-20 -translate-y-1/2 rounded-none border-transparent bg-transparent text-white shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-9 [&_svg]:stroke-[2.5]",
-              gutterOffsetRightClass,
+              "absolute top-1/2 right-[calc((var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))*-1)] z-40 h-12 w-[calc(var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
+              "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
               "hidden lg:inline-flex"
             )}
           >
@@ -286,15 +329,15 @@ function ClipViewerDialogBody({
         ) : null}
         <div
           className={cn(
-            "grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden rounded-[20px] bg-surface",
-            "lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_448px]"
+            "grid h-full min-h-0 overflow-hidden rounded-[20px] bg-surface",
+            "lg:grid-cols-[minmax(0,1fr)_var(--clip-modal-sidebar)]"
           )}
         >
-          <div className="row-span-2 grid min-h-0 grid-rows-subgrid bg-surface p-4 sm:p-6 lg:p-0">
+          <div className="grid min-h-0 grid-rows-[auto_auto] bg-surface p-4 sm:p-6 lg:grid-rows-[auto_minmax(0,1fr)] lg:p-0">
             <div
               ref={initialFocusRef}
               tabIndex={-1}
-              className="flex min-h-0 items-center justify-center overflow-hidden outline-none"
+              className="relative aspect-[16/9] w-full overflow-hidden outline-none"
             >
               <ClipPlayer
                 clipId={row.id}
@@ -305,16 +348,17 @@ function ClipViewerDialogBody({
                 variants={row.variants}
                 status={row.status}
                 encodeProgress={row.encodeProgress}
-                maxDisplayHeight="100%"
-                className="overflow-hidden rounded-[14px] shadow-[0_30px_90px_-42px_rgba(0,0,0,0.92)] ring-1 ring-white/10 ring-inset lg:rounded-none lg:shadow-none"
+                aspectRatio={16 / 9}
+                className="h-full w-full overflow-hidden rounded-[14px] shadow-[0_30px_90px_-42px_rgba(0,0,0,0.92)] ring-1 ring-white/10 ring-inset lg:rounded-none lg:shadow-none lg:ring-0"
                 onPlayThreshold={() => void api.clips.recordView(row.id)}
                 onEnded={handleEnded}
                 autoPlay
                 autoAdvance={canNavigate ? autoAdvance : undefined}
                 onAutoAdvanceChange={onAutoAdvanceChange}
+                enableHorizontalSeekShortcuts={false}
               />
             </div>
-            <div className="px-1 pt-4 sm:pt-6 lg:px-6 lg:pt-4 lg:pb-4 xl:px-8 xl:pb-6">
+            <div className="min-h-0 overflow-y-auto px-1 pt-4 sm:pt-6 lg:px-4 lg:pt-3 lg:pb-4 xl:px-5 xl:pt-4 xl:pb-5">
               <ClipMeta
                 clipId={row.id}
                 authorId={row.authorId}
@@ -347,7 +391,7 @@ function ClipViewerDialogBody({
             clipId={row.id}
             clipAuthorId={row.authorId}
             focusedCommentId={focusedCommentId}
-            className="row-span-2 grid-rows-subgrid border-l border-border bg-surface"
+            className="bg-surface"
           />
         </div>
       </DialogViewportContent>

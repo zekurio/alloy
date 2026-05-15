@@ -242,13 +242,14 @@ export function SearchResultsPopover() {
           aria-label="Search results"
           className={cn(
             "absolute top-[calc(100%+0.5rem)] right-0 left-0 z-50",
-            "alloy-glass overflow-hidden rounded-md border",
+            "alloy-blur overflow-hidden rounded-md border",
             "animate-in duration-100 fade-in-0 zoom-in-95"
           )}
           style={
             {
-              "--alloy-glass-opacity": "78%",
-              "--alloy-glass-shadow": "0 24px 60px -28px rgb(0 0 0 / 0.78)",
+              "--alloy-blur-opacity": "82%",
+              "--alloy-blur-blur": "28px",
+              "--alloy-blur-shadow": "0 24px 60px -28px rgb(0 0 0 / 0.78)",
             } as React.CSSProperties
           }
           onMouseDown={(event) => event.preventDefault()}

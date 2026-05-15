@@ -105,60 +105,6 @@ function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
   )
 }
 
-/**
- * Inline variant for the desktop user cluster — renders only the summary
- * text ("with @user and N others"), no avatar group, no own row. Designed
- * to sit next to the follower count beneath the uploader name.
- */
-function ClipMentionsInline({ mentions }: ClipMentionsRowProps) {
-  const [open, setOpen] = React.useState(false)
-  if (mentions.length === 0) return null
-
-  const first = mentions[0]!
-  const others = mentions.length - 1
-  const firstHandle = first.displayUsername || first.username
-
-  const handleLinkClasses = cn(
-    "font-medium text-foreground",
-    "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-    "hover:text-accent focus-visible:text-accent focus-visible:outline-none"
-  )
-
-  return (
-    <>
-      <span className="inline-flex min-w-0 items-baseline gap-1">
-        <span>with</span>
-        <Link
-          to="/u/$username"
-          params={{ username: first.username }}
-          className={cn("truncate", handleLinkClasses)}
-        >
-          @{firstHandle}
-        </Link>
-        {others > 0 ? (
-          <>
-            <span>and</span>
-            <button
-              type="button"
-              onClick={() => setOpen(true)}
-              className={cn("shrink-0", handleLinkClasses)}
-              aria-label="View all tagged users"
-            >
-              {others} other{others === 1 ? "" : "s"}
-            </button>
-          </>
-        ) : null}
-      </span>
-
-      <MentionsListDialog
-        mentions={mentions}
-        open={open}
-        onOpenChange={setOpen}
-      />
-    </>
-  )
-}
-
 function MentionsListDialog({
   mentions,
   open,
@@ -251,4 +197,4 @@ function MentionRow({
   )
 }
 
-export { ClipMentionsRow, ClipMentionsInline }
+export { ClipMentionsRow }

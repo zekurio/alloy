@@ -173,7 +173,7 @@ export function NewClipDialog({
             isMobile ? (
               <DrawerClose asChild>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="default"
                   disabled={publishing}
                   className="w-full min-w-0"
@@ -185,7 +185,7 @@ export function NewClipDialog({
               <DialogClose
                 render={
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="default"
                     disabled={publishing}
                   />
@@ -208,9 +208,10 @@ export function NewClipDialog({
           onOpenChange(next)
           if (!next) handleOpenChangeComplete(false)
         }}
+        handleOnly
       >
         <DrawerContent
-          className="max-h-[85vh] bg-surface"
+          className="max-h-[85vh] bg-surface [&>[data-slot=drawer-handle]]:hidden"
           aria-describedby={undefined}
         >
           {surfaceContent}
@@ -518,7 +519,7 @@ function LoadedState({
         )}
       >
         <Button
-          variant="secondary"
+          variant="ghost"
           size="default"
           disabled={publishing}
           onClick={onReplace}

@@ -50,13 +50,15 @@ import {
 } from "@/lib/notification-queries"
 
 const NOTIFICATION_GLASS_STYLE = {
-  "--notification-glass-opacity": "72%",
-  "--notification-glass-bg":
-    "color-mix(in oklab, var(--popover) var(--notification-glass-opacity), var(--background))",
+  /* Row tint stays opaque (rendered inside the blurred surface, no
+     backdrop-filter of its own). The surface fill is left to the default
+     `--alloy-blur-bg`, which mixes the popover hue with *transparent* so
+     the backdrop blur actually has something to soften. */
   "--notification-row-glass-bg":
     "color-mix(in oklab, var(--popover) 16%, var(--background))",
-  "--alloy-glass-bg": "var(--notification-glass-bg)",
-  "--alloy-glass-shadow": "0 30px 80px -32px rgb(0 0 0 / 0.78)",
+  "--alloy-blur-opacity": "78%",
+  "--alloy-blur-blur": "32px",
+  "--alloy-blur-shadow": "0 30px 80px -32px rgb(0 0 0 / 0.78)",
 } as React.CSSProperties
 
 export function NotificationCenter() {
@@ -100,10 +102,11 @@ export function NotificationCenter() {
         <DialogContent
           disableZoom
           centered={false}
+          showOverlay={false}
           className={cn(
             "top-[calc(var(--header-h)+0.5rem)] right-4 left-4 z-50 w-auto max-w-none rounded-2xl border p-3",
             "max-h-[calc(100dvh-var(--header-h)-var(--bottomnav-h)-env(safe-area-inset-bottom)-1.5rem)]",
-            "alloy-glass"
+            "alloy-blur"
           )}
           style={NOTIFICATION_GLASS_STYLE}
           aria-describedby={undefined}
@@ -123,7 +126,7 @@ export function NotificationCenter() {
         sideOffset={8}
         className={cn(
           "w-[380px] max-w-[calc(100vw-1.5rem)] border p-3 ring-0",
-          "alloy-glass"
+          "alloy-blur duration-0 data-open:animate-none data-closed:animate-none"
         )}
         style={NOTIFICATION_GLASS_STYLE}
         aria-describedby={undefined}

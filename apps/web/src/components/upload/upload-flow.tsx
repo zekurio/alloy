@@ -6,7 +6,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
-import { Drawer, DrawerContent } from "@workspace/ui/components/drawer"
+import {
+  Drawer,
+  DrawerContent,
+  DrawerTitle,
+} from "@workspace/ui/components/drawer"
 import { toast } from "@workspace/ui/lib/toast"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { cn } from "@workspace/ui/lib/utils"
@@ -114,13 +118,15 @@ function UploadQueuePopover({
 }) {
   const isMobile = useIsMobile()
   const queueGlassStyle = {
-    "--queue-glass-opacity": "68%",
-    "--queue-glass-bg":
-      "color-mix(in oklab, var(--popover) var(--queue-glass-opacity), var(--background))",
+    /* Row tint is opaque (it sits inside the already-blurred surface).
+       The surface fill itself is left to the default `--alloy-blur-bg`
+       which mixes with *transparent*, so the backdrop blur is actually
+       visible. */
     "--queue-row-glass-bg":
       "color-mix(in oklab, var(--popover) 18%, var(--background))",
-    "--alloy-glass-bg": "var(--queue-glass-bg)",
-    "--alloy-glass-shadow": "0 30px 80px -32px rgb(0 0 0 / 0.78)",
+    "--alloy-blur-opacity": "78%",
+    "--alloy-blur-blur": "32px",
+    "--alloy-blur-shadow": "0 30px 80px -32px rgb(0 0 0 / 0.78)",
   } as React.CSSProperties
   const content = (
     <UploadQueueContent
@@ -135,12 +141,21 @@ function UploadQueuePopover({
 
   if (isMobile) {
     return (
-      <Drawer open={queueOpen} onOpenChange={setQueueOpen}>
+      <Drawer
+        open={queueOpen}
+        onOpenChange={setQueueOpen}
+        dismissible={false}
+        handleOnly
+      >
         <DrawerContent
-          className={cn("max-h-[85vh] p-0", "alloy-glass")}
+          className={cn(
+            "max-h-[85vh] p-0 [&>[data-slot=drawer-handle]]:hidden",
+            "alloy-blur"
+          )}
           style={queueGlassStyle}
           aria-describedby={undefined}
         >
+          <DrawerTitle className="sr-only">Upload queue</DrawerTitle>
           <div className="p-3">{content}</div>
         </DrawerContent>
       </Drawer>
@@ -165,7 +180,7 @@ function UploadQueuePopover({
         alignOffset={0}
         className={cn(
           "w-[420px] max-w-[calc(100vw-1.5rem)] border p-3 ring-0",
-          "alloy-glass",
+          "alloy-blur",
           "data-open:animate-[alloy-fab-morph-in_320ms_cubic-bezier(0.34,1.56,0.64,1)_forwards]",
           "data-closed:animate-[alloy-fab-morph-out_180ms_cubic-bezier(0.36,0,0.66,-0.4)_forwards]"
         )}
