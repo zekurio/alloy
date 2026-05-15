@@ -1,5 +1,3 @@
-import { Buffer } from "node:buffer"
-
 import { Hono } from "hono"
 import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm"
 import sharp from "sharp"
@@ -45,14 +43,28 @@ type SplashClipAsset = SplashClipRow & {
   bytes: Uint8Array
 }
 
-let splashCache: { key: string; image: Buffer } | null = null
-let splashShadeCache: Buffer | null = null
+type SharpConstructorInput = Exclude<
+  Parameters<typeof sharp>[0],
+  undefined | unknown[]
+>
+type SharpOverlayInput = NonNullable<sharp.OverlayOptions["input"]>
 
-function imageBody(image: Buffer): ArrayBuffer {
+let splashCache: { key: string; image: Uint8Array } | null = null
+let splashShadeCache: Uint8Array | null = null
+
+function imageBody(image: Uint8Array): ArrayBuffer {
   return image.buffer.slice(
     image.byteOffset,
     image.byteOffset + image.byteLength
   ) as ArrayBuffer
+}
+
+function sharpInput(bytes: Uint8Array): SharpConstructorInput {
+  return bytes as unknown as SharpConstructorInput
+}
+
+function sharpOverlayInput(bytes: Uint8Array): SharpOverlayInput {
+  return bytes as unknown as SharpOverlayInput
 }
 
 function loginSplashImageUrl(generatedAt: string | null): string {
@@ -72,17 +84,17 @@ function loginSplashCacheKey(rows: SplashClipRow[]): string {
     .join(",")}`
 }
 
-async function buildTile(asset: SplashClipAsset): Promise<Buffer> {
-  return await sharp(Buffer.from(asset.bytes))
+async function buildTile(asset: SplashClipAsset): Promise<Uint8Array> {
+  return await sharp(sharpInput(asset.bytes))
     .resize(TILE_WIDTH, TILE_HEIGHT, { fit: "cover" })
     .jpeg({ quality: 82, mozjpeg: true })
     .toBuffer()
 }
 
-function splashShadeOverlay(): Buffer {
+function splashShadeOverlay(): Uint8Array {
   if (splashShadeCache) return splashShadeCache
 
-  const pixels = Buffer.alloc(SPLASH_WIDTH * SPLASH_HEIGHT * 4)
+  const pixels = new Uint8Array(SPLASH_WIDTH * SPLASH_HEIGHT * 4)
   const centerX = SPLASH_WIDTH * 0.5
   const centerY = SPLASH_HEIGHT * 0.48
   const maxDistance = Math.hypot(centerX, centerY)
@@ -104,11 +116,11 @@ function splashShadeOverlay(): Buffer {
 
 async function buildLoginSplashImage(
   assets: SplashClipAsset[]
-): Promise<Buffer | null> {
+): Promise<Uint8Array | null> {
   const tiles = await Promise.all(
     assets.map((asset) => buildTile(asset).catch(() => null))
   )
-  const usableTiles = tiles.filter((tile): tile is Buffer => tile !== null)
+  const usableTiles = tiles.filter((tile): tile is Uint8Array => tile !== null)
   if (usableTiles.length === 0) return null
 
   const rotationRadians = (TILE_ROTATION_DEGREES * Math.PI) / 180
@@ -145,7 +157,7 @@ async function buildLoginSplashImage(
       )
       const tile = usableTiles[tileIndex % usableTiles.length]
       if (!tile) continue
-      composites.push({ input: tile, left, top })
+      composites.push({ input: sharpOverlayInput(tile), left, top })
       tileIndex++
     }
   }
@@ -165,7 +177,7 @@ async function buildLoginSplashImage(
     .jpeg({ quality: 86, mozjpeg: true })
     .toBuffer({ resolveWithObject: true })
 
-  const tiledBackdrop = await sharp(rotatedBackdrop.data)
+  const tiledBackdrop = await sharp(sharpInput(rotatedBackdrop.data))
     .extract({
       left: Math.floor((rotatedBackdrop.info.width - SPLASH_WIDTH) / 2),
       top: Math.floor((rotatedBackdrop.info.height - SPLASH_HEIGHT) / 2),
@@ -175,7 +187,7 @@ async function buildLoginSplashImage(
     .jpeg({ quality: 86, mozjpeg: true })
     .toBuffer()
 
-  const blurredTiles = await sharp(tiledBackdrop)
+  const blurredTiles = await sharp(sharpInput(tiledBackdrop))
     .blur(18)
     .modulate({ brightness: 0.64, saturation: 0.9 })
     .jpeg({ quality: 82, mozjpeg: true })
@@ -190,10 +202,10 @@ async function buildLoginSplashImage(
     },
   })
     .composite([
-      { input: blurredTiles, left: 0, top: 0 },
-      { input: tiledBackdrop, left: 0, top: 0 },
+      { input: sharpOverlayInput(blurredTiles), left: 0, top: 0 },
+      { input: sharpOverlayInput(tiledBackdrop), left: 0, top: 0 },
       {
-        input: splashShadeOverlay(),
+        input: sharpOverlayInput(splashShadeOverlay()),
         raw: {
           width: SPLASH_WIDTH,
           height: SPLASH_HEIGHT,

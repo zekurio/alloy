@@ -1,14 +1,13 @@
-import fs from "node:fs"
-import path from "node:path"
-
 import {
   ENCODER_HWACCELS,
   type EncoderHwaccel,
   type RuntimeConfig,
 } from "@workspace/contracts"
 import { env } from "../env"
+import { dirname, resolve } from "../runtime/path"
 import {
   AppearanceConfigPatchSchema,
+  bootstrapDefaultConfig,
   EncoderConfigPatchSchema,
   FsStorageConfigPatchSchema,
   IntegrationsConfigPatchSchema,
@@ -16,12 +15,11 @@ import {
   RuntimeConfigSchema,
   S3StorageConfigPatchSchema,
   StorageConfigPatchSchema,
-  bootstrapDefaultConfig,
 } from "./schema"
 import {
   OAuthProviderSchema,
-  OAuthProviderSubmissionSchema,
   type OAuthProviderSubmission,
+  OAuthProviderSubmissionSchema,
 } from "./oauth-schema"
 
 export {
@@ -37,8 +35,8 @@ export type { UsernameClaim } from "@workspace/contracts"
 export { OAuthProviderSchema, OAuthProviderSubmissionSchema }
 export type { OAuthProviderSubmission }
 export {
-  EncoderConfigPatchSchema,
   AppearanceConfigPatchSchema,
+  EncoderConfigPatchSchema,
   FsStorageConfigPatchSchema,
   IntegrationsConfigPatchSchema,
   LimitsConfigPatchSchema,
@@ -47,11 +45,11 @@ export {
 }
 
 export type {
+  AppearanceConfig,
   EncoderCodec,
   EncoderConfig,
   EncoderOpenGraphTarget,
   EncoderVariant,
-  AppearanceConfig,
   IntegrationsConfig,
   LimitsConfig,
   OAuthProviderConfig,
@@ -62,9 +60,9 @@ export type {
 function resolveConfigPath(): string {
   const configuredPath = env.ALLOY_CONFIG_FILE
   if (configuredPath && configuredPath.length > 0) {
-    return path.resolve(configuredPath)
+    return resolve(configuredPath)
   }
-  return path.resolve(process.cwd(), "data/runtime-config.json")
+  return resolve(Deno.cwd(), "data/runtime-config.json")
 }
 
 const CONFIG_PATH = resolveConfigPath()
@@ -74,15 +72,30 @@ type LoadResult =
   | { ok: false; error: string }
 
 function loadFromDisk(): LoadResult {
-  if (!fs.existsSync(CONFIG_PATH)) {
+  try {
+    if (!Deno.statSync(CONFIG_PATH).isFile) {
+      return {
+        ok: true,
+        config: bootstrapDefaultConfig(),
+        created: true,
+      }
+    }
+  } catch (err) {
+    if (err instanceof Deno.errors.NotFound) {
+      return {
+        ok: true,
+        config: bootstrapDefaultConfig(),
+        created: true,
+      }
+    }
     return {
-      ok: true,
-      config: bootstrapDefaultConfig(),
-      created: true,
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
     }
   }
+
   try {
-    const raw = fs.readFileSync(CONFIG_PATH, "utf-8")
+    const raw = Deno.readTextFileSync(CONFIG_PATH)
     const json = JSON.parse(raw)
     const result = RuntimeConfigSchema.safeParse(json)
     if (!result.success) {
@@ -101,11 +114,11 @@ function loadFromDisk(): LoadResult {
 }
 
 function writeToDisk(next: RuntimeConfig): void {
-  fs.mkdirSync(path.dirname(CONFIG_PATH), { recursive: true })
+  Deno.mkdirSync(dirname(CONFIG_PATH), { recursive: true })
   // Atomic: tmp + rename survives process death mid-write.
   const tmpPath = `${CONFIG_PATH}.tmp`
-  fs.writeFileSync(tmpPath, `${JSON.stringify(next, null, 2)}\n`, "utf-8")
-  fs.renameSync(tmpPath, CONFIG_PATH)
+  Deno.writeTextFileSync(tmpPath, `${JSON.stringify(next, null, 2)}\n`)
+  Deno.renameSync(tmpPath, CONFIG_PATH)
 }
 
 const initialLoad = loadFromDisk()
@@ -161,15 +174,31 @@ function reloadFromDisk(): boolean {
   return true
 }
 
-let reloadTimer: NodeJS.Timeout | null = null
+let reloadTimer: ReturnType<typeof setTimeout> | null = null
 function startConfigFileWatcher(): void {
-  fs.watchFile(CONFIG_PATH, { interval: 1000 }, () => {
-    if (reloadTimer) clearTimeout(reloadTimer)
-    reloadTimer = setTimeout(() => {
-      reloadTimer = null
-      reloadFromDisk()
-    }, 50)
-  })
+  const watcher = Deno.watchFs(CONFIG_PATH)
+  ;(async () => {
+    try {
+      for await (const event of watcher) {
+        if (
+          !event.paths.includes(CONFIG_PATH) ||
+          (event.kind !== "modify" &&
+            event.kind !== "create" &&
+            event.kind !== "remove")
+        ) {
+          continue
+        }
+        if (reloadTimer) clearTimeout(reloadTimer)
+        reloadTimer = setTimeout(() => {
+          reloadTimer = null
+          reloadFromDisk()
+        }, 50)
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn("[config-store] config watcher stopped:", err)
+    }
+  })()
 }
 
 startConfigFileWatcher()

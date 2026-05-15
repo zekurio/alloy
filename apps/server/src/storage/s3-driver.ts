@@ -1,19 +1,15 @@
-import { Buffer } from "node:buffer"
-import { createReadStream, createWriteStream, promises as fsp } from "node:fs"
-import path from "node:path"
-import { PassThrough, Readable, Transform } from "node:stream"
-import { pipeline } from "node:stream/promises"
 import {
   CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  type HeadObjectCommandOutput,
   PutObjectCommand,
   S3Client,
-  type HeadObjectCommandOutput,
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 
+import { dirname } from "../runtime/path"
 import type {
   DownloadUrl,
   MintDownloadUrlInput,
@@ -96,33 +92,32 @@ export class S3StorageDriver implements StorageDriver {
 
   async put(
     key: string,
-    body: Buffer | Readable,
+    body: Uint8Array | ReadableStream<Uint8Array>,
     contentType: string
   ): Promise<{ size: number }> {
     const opts = this.getOptions()
-    if (Buffer.isBuffer(body)) {
+    if (body instanceof Uint8Array) {
       await this.putStream(opts, key, body, contentType, body.byteLength)
       return { size: body.byteLength }
     }
 
     let size = 0
-    const counter = new Transform({
-      transform(chunk: Buffer, _encoding, callback) {
-        size += chunk.byteLength
-        callback(null, chunk)
-      },
-    })
-    const stream = new PassThrough()
-    const upload = this.putStream(opts, key, stream, contentType)
-    await pipeline(body, counter, stream)
-    await upload
+    const counted = body.pipeThrough(
+      new TransformStream<Uint8Array, Uint8Array>({
+        transform(chunk, controller) {
+          size += chunk.byteLength
+          controller.enqueue(chunk)
+        },
+      })
+    )
+    await this.putStream(opts, key, counted, contentType)
     return { size }
   }
 
   private async putStream(
     opts: S3DriverOptions,
     key: string,
-    body: Buffer | Readable,
+    body: Uint8Array | ReadableStream<Uint8Array>,
     contentType: string,
     contentLength?: number
   ): Promise<void> {
@@ -131,7 +126,7 @@ export class S3StorageDriver implements StorageDriver {
       new PutObjectCommand({
         Bucket: opts.bucket,
         Key: key,
-        Body: body,
+        Body: body as never,
         ContentLength: contentLength,
         ContentType: contentType,
       })
@@ -201,11 +196,13 @@ export class S3StorageDriver implements StorageDriver {
   }
 
   async downloadToFile(key: string, destPath: string): Promise<void> {
-    await fsp.mkdir(path.dirname(destPath), { recursive: true })
-    await pipeline(
-      this.openStream(key, undefined, undefined),
-      createWriteStream(destPath)
-    )
+    await Deno.mkdir(dirname(destPath), { recursive: true })
+    const file = await Deno.open(destPath, {
+      create: true,
+      write: true,
+      truncate: true,
+    })
+    await this.openStream(key, undefined, undefined).pipeTo(file.writable)
   }
 
   async uploadFromFile(
@@ -213,15 +210,10 @@ export class S3StorageDriver implements StorageDriver {
     key: string,
     contentType: string
   ): Promise<{ size: number }> {
-    const stat = await fsp.stat(localPath)
+    const stat = await Deno.stat(localPath)
     const opts = this.getOptions()
-    await this.putStream(
-      opts,
-      key,
-      createReadStream(localPath),
-      contentType,
-      stat.size
-    )
+    const file = await Deno.open(localPath, { read: true })
+    await this.putStream(opts, key, file.readable, contentType, stat.size)
     return { size: stat.size }
   }
 
@@ -292,12 +284,18 @@ export class S3StorageDriver implements StorageDriver {
     key: string,
     start: number | undefined,
     end: number | undefined
-  ): Readable {
+  ): ReadableStream<Uint8Array> {
     const opts = this.getOptions()
     const client = this.getClient(opts)
-    const pass = new PassThrough()
-    void (async () => {
-      try {
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
+    let opening: Promise<ReadableStreamDefaultReader<Uint8Array>> | null = null
+    let done = false
+    const abortController = new AbortController()
+
+    const openReader = async () => {
+      if (reader) return reader
+      if (opening) return opening
+      opening = (async () => {
         const range =
           start === undefined
             ? undefined
@@ -307,39 +305,106 @@ export class S3StorageDriver implements StorageDriver {
             Bucket: opts.bucket,
             Key: key,
             Range: range,
-          })
+          }),
+          { abortSignal: abortController.signal }
         )
         if (!result.Body) {
           throw new Error(`s3: ${key} returned an empty body`)
         }
-        const body = toNodeReadable(result.Body)
-        body.on("error", (err) => pass.destroy(err))
-        body.pipe(pass)
-      } catch (err) {
-        pass.destroy(err as Error)
-      }
-    })()
-    return pass
+        reader = toWebReadable(result.Body).getReader()
+        if (done) {
+          await reader.cancel()
+          reader.releaseLock()
+          reader = null
+          throw new DOMException("Stream canceled", "AbortError")
+        }
+        return reader
+      })()
+      return opening
+    }
+
+    return new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        if (done) return
+        try {
+          const activeReader = await openReader()
+          const next = await activeReader.read()
+          if (next.done) {
+            done = true
+            activeReader.releaseLock()
+            controller.close()
+            return
+          }
+          controller.enqueue(next.value)
+        } catch (err) {
+          done = true
+          if (reader) {
+            reader.releaseLock()
+            reader = null
+          }
+          controller.error(err)
+        }
+      },
+      async cancel(reason) {
+        done = true
+        abortController.abort(reason)
+        const activeReader = reader
+        reader = null
+        if (activeReader) {
+          try {
+            await activeReader.cancel(reason)
+          } finally {
+            activeReader.releaseLock()
+          }
+        }
+      },
+    })
   }
 }
 
-function toNodeReadable(body: unknown): Readable {
-  if (body instanceof Readable) {
-    return body
-  }
+function toWebReadable(body: unknown): ReadableStream<Uint8Array> {
   if (
     body instanceof ReadableStream ||
     (body && typeof (body as { getReader?: unknown }).getReader === "function")
   ) {
-    return Readable.fromWeb(body as ReadableStream<Uint8Array>)
+    return body as ReadableStream<Uint8Array>
   }
   const withTransform = body as
     | { transformToWebStream?: () => ReadableStream<Uint8Array> }
     | undefined
   if (withTransform?.transformToWebStream) {
-    return Readable.fromWeb(withTransform.transformToWebStream())
+    return withTransform.transformToWebStream()
   }
+  if (isAsyncIterable(body)) return readableFromAsyncIterable(body)
   throw new Error("s3: unsupported response body stream")
+}
+
+function isAsyncIterable(value: unknown): value is AsyncIterable<Uint8Array> {
+  return (
+    value != null &&
+    typeof (value as { [Symbol.asyncIterator]?: unknown })[
+      Symbol.asyncIterator
+    ] === "function"
+  )
+}
+
+function readableFromAsyncIterable(
+  iterable: AsyncIterable<Uint8Array>
+): ReadableStream<Uint8Array> {
+  const iterator = iterable[Symbol.asyncIterator]()
+  return new ReadableStream({
+    async pull(controller) {
+      const next = await iterator.next()
+      if (next.done) {
+        controller.close()
+        return
+      }
+      controller.enqueue(next.value)
+    },
+    async cancel() {
+      await iterator.return?.()
+    },
+  })
 }
 
 function encodeCopySourceKey(key: string): string {
