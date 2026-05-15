@@ -25,10 +25,11 @@ interface ClipPlayerProps {
   onEnded?: () => void
   className?: string
   maxDisplayHeight?: string
-  chromeSize?: "default" | "compact"
+  chromeSize?: "default" | "compact" | "minimal"
   autoPlay?: boolean
   autoAdvance?: boolean
   onAutoAdvanceChange?: (next: boolean) => void
+  enableHorizontalSeekShortcuts?: boolean
   /** Override the aspect ratio derived from source dimensions. */
   aspectRatio?: number
 }
@@ -68,6 +69,7 @@ function ClipPlayer({
   autoPlay,
   autoAdvance,
   onAutoAdvanceChange,
+  enableHorizontalSeekShortcuts,
   aspectRatio: aspectRatioProp,
 }: ClipPlayerProps) {
   const poster =
@@ -211,6 +213,7 @@ function ClipPlayer({
       autoPlay={autoPlay}
       autoAdvance={autoAdvance}
       onAutoAdvanceChange={onAutoAdvanceChange}
+      enableHorizontalSeekShortcuts={enableHorizontalSeekShortcuts}
     />
   )
 }

@@ -314,7 +314,7 @@ function ClipComments({
         )}
       </div>
 
-      <div className="relative bg-surface p-3 shadow-[inset_0_1px_0_var(--border)]">
+      <div className="relative flex flex-col justify-end bg-surface p-3">
         <div className="mb-1.5">
           <CommentsSortDropdown sort={sort} onSortChange={setSort} />
         </div>
