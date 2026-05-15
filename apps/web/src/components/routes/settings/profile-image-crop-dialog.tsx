@@ -238,18 +238,8 @@ export function ProfileImageCropDialog({
     if (!drag || drag.pointerId !== event.pointerId) return
 
     const liveStageSize = updateStageSizeFromDom() ?? effectiveStageSize
-    const liveContainedImageBox = loadedImage
-      ? getImageBox(loadedImage, liveStageSize, 1)
-      : null
-    const liveCropFrame = getCropFrame(
-      liveStageSize,
-      config.aspect,
-      mode,
-      liveContainedImageBox
-    )
-    const liveImageBox = loadedImage
-      ? getImageBox(loadedImage, liveStageSize, zoom)
-      : null
+    const { cropFrame: liveCropFrame, imageBox: liveImageBox } =
+      getLiveCropGeometry(loadedImage, liveStageSize, config, mode, zoom)
     setOffset(
       clampImageOffset(
         {
@@ -362,18 +352,8 @@ export function ProfileImageCropDialog({
     const nextZoom = clamp(rawZoom, minimumZoom, MAX_PREVIEW_ZOOM)
     const liveStageSize =
       readElementSize(stageRef.current) ?? effectiveStageSize
-    const liveContainedImageBox = loadedImage
-      ? getImageBox(loadedImage, liveStageSize, 1)
-      : null
-    const liveCropFrame = getCropFrame(
-      liveStageSize,
-      config.aspect,
-      mode,
-      liveContainedImageBox
-    )
-    const liveImageBox = loadedImage
-      ? getImageBox(loadedImage, liveStageSize, nextZoom)
-      : null
+    const { cropFrame: liveCropFrame, imageBox: liveImageBox } =
+      getLiveCropGeometry(loadedImage, liveStageSize, config, mode, nextZoom)
 
     setZoom(nextZoom)
     setOffset((current) =>
@@ -555,6 +535,20 @@ function getMinimumZoom(
     0,
     DEFAULT_PREVIEW_ZOOM
   )
+}
+
+function getLiveCropGeometry(
+  image: LoadedImage | null,
+  stage: { height: number; width: number },
+  config: CropConfig,
+  mode: CropMode,
+  zoom: number
+) {
+  const containedImageBox = image ? getImageBox(image, stage, 1) : null
+  return {
+    cropFrame: getCropFrame(stage, config.aspect, mode, containedImageBox),
+    imageBox: image ? getImageBox(image, stage, zoom) : null,
+  }
 }
 
 function fallbackStageSize(mode: CropMode) {

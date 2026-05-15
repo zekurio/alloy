@@ -20,12 +20,11 @@
     "db:studio": "deno task --cwd ../../packages/db db:studio"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1041.0",
-    "@aws-sdk/s3-request-presigner": "^3.1041.0",
     "@hono/zod-validator": "^0.7.6",
     "@simplewebauthn/server": "^13.3.0",
     "@workspace/contracts": "workspace:*",
     "@workspace/db": "workspace:*",
+    "aws4fetch": "^1.0.20",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.14",
     "isomorphic-dompurify": "^3.9.0",

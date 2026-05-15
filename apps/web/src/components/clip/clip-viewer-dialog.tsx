@@ -224,9 +224,6 @@ function ClipViewerDialogBody({
   const initialFocusRef = React.useRef<HTMLDivElement>(null)
 
   const canNavigate = Boolean(onNavigate)
-  // Render both chevrons whenever navigation is wired up — matches medal.tv,
-  // where the arrows are always visible and just disabled at list boundaries
-  // (or when the viewer was opened outside of a browsable list).
   const showPrev = canNavigate
   const showNext = canNavigate
   const prevDisabled = !prev
@@ -235,18 +232,6 @@ function ClipViewerDialogBody({
     if (autoAdvance && next && onNavigate) onNavigate(next)
   }, [autoAdvance, next, onNavigate])
 
-  // Modal sizing is driven from the 16:9 video frame + a fixed-width comments
-  // rail (Medal-style). All four numbers below are exposed as CSS variables so
-  // the lg/xl breakpoints can override individual pieces without having to
-  // rewrite the full calc(). `--clip-modal-margin-*` is the gutter PER side.
-  //
-  //   video_h  = min(dvh - 2*margin_y - meta,  (dvw - 2*margin_x - sidebar) * 9/16)
-  //   modal_h  = video_h + meta
-  //   modal_w  = (video_h * 16/9) + sidebar
-  //
-  // This keeps the modal short-and-wide (matching medal.tv) instead of letting
-  // it stretch to the full viewport height the way the inherited
-  // DialogViewportContent defaults would.
   return (
     <>
       <DialogViewportContent
@@ -264,11 +249,6 @@ function ClipViewerDialogBody({
           // Below lg this branch is normally hidden by MobileClipViewerBody, but
           // we keep a sensible fallback in case the breakpoint check disagrees.
           "h-auto max-h-[calc(100dvh-32px)] w-[calc(100dvw-32px)] overflow-visible rounded-[20px] bg-surface transition-[filter,opacity,transform] duration-100",
-          // lg: explicit, coupled width + height that track the 16:9 video.
-          // Side gutters are deliberately wider than the top/bottom margins so
-          // the modal sits closer to the viewport's vertical edges while still
-          // leaving plenty of room for the prev/next chevrons on the sides —
-          // matches medal.tv's spacing.
           "lg:[--clip-modal-margin-x:160px] lg:[--clip-modal-margin-y:20px] lg:[--clip-modal-nav-gutter:72px]",
           "lg:h-[calc(min(calc(100dvh-var(--clip-modal-margin-y)*2-var(--clip-modal-meta)),calc((100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2-var(--clip-modal-sidebar))*9/16))+var(--clip-modal-meta))]",
           "lg:max-h-[calc(100dvh-var(--clip-modal-margin-y)*2)]",

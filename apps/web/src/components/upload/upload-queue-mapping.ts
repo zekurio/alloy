@@ -1,5 +1,4 @@
-import type { QueueClip } from "@workspace/api"
-import { clipThumbnailUrl } from "@workspace/api"
+import { clipThumbnailUrl, type QueueClip } from "@workspace/api"
 import { apiOrigin } from "@/lib/env"
 import type { QueueItem, QueueItemStatus } from "./upload-queue"
 

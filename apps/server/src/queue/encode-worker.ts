@@ -1,4 +1,4 @@
-import { and, eq, isNull, lt, ne, or, sql } from "drizzle-orm"
+import { and, eq, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm"
 
 import { clip } from "@workspace/db/schema"
 
@@ -123,18 +123,7 @@ async function nextClipId(): Promise<string | null> {
     .from(clip)
     .where(
       and(
-        or(
-          eq(clip.status, "uploaded"),
-          eq(clip.status, "encoding"),
-          and(eq(clip.status, "ready"), lt(clip.encodeProgress, 100))
-        ),
-        or(
-          isNull(clip.encodeLockedAt),
-          lt(
-            clip.encodeLockedAt,
-            sql`now() - interval '${sql.raw(ENCODE_LEASE_STALE_INTERVAL)}'`
-          )
-        ),
+        ...encodeLeaseConditions(),
         or(
           isNull(clip.failureReason),
           lt(
@@ -175,23 +164,7 @@ async function runEncode(clipId: string): Promise<void> {
       failureReason: null,
       updatedAt: new Date(),
     })
-    .where(
-      and(
-        eq(clip.id, clipId),
-        or(
-          eq(clip.status, "uploaded"),
-          eq(clip.status, "encoding"),
-          and(eq(clip.status, "ready"), lt(clip.encodeProgress, 100))
-        ),
-        or(
-          isNull(clip.encodeLockedAt),
-          lt(
-            clip.encodeLockedAt,
-            sql`now() - interval '${sql.raw(ENCODE_LEASE_STALE_INTERVAL)}'`
-          )
-        )
-      )
-    )
+    .where(and(eq(clip.id, clipId), ...encodeLeaseConditions()))
     .returning()
   if (!row) return
 
@@ -226,6 +199,23 @@ async function runEncode(clipId: string): Promise<void> {
     activeEncodes.delete(clipId)
     resolveDone()
   }
+}
+
+function encodeLeaseConditions(): [SQL, SQL] {
+  return [
+    or(
+      eq(clip.status, "uploaded"),
+      eq(clip.status, "encoding"),
+      and(eq(clip.status, "ready"), lt(clip.encodeProgress, 100))
+    )!,
+    or(
+      isNull(clip.encodeLockedAt),
+      lt(
+        clip.encodeLockedAt,
+        sql`now() - interval '${sql.raw(ENCODE_LEASE_STALE_INTERVAL)}'`
+      )
+    )!,
+  ]
 }
 
 async function releaseEncodeLease(
