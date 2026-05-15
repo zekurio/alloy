@@ -29,10 +29,16 @@ CREATE TABLE "clip" (
 	"comment_count" integer DEFAULT 0 NOT NULL,
 	"status" text DEFAULT 'pending' NOT NULL,
 	"encode_progress" integer DEFAULT 0 NOT NULL,
+	"encode_run_id" uuid,
+	"encode_locked_at" timestamp,
+	"encode_attempt" integer DEFAULT 0 NOT NULL,
 	"failure_reason" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "clip_slug_unique" UNIQUE("slug")
+	CONSTRAINT "clip_slug_unique" UNIQUE("slug"),
+	CONSTRAINT "clip_privacy_check" CHECK ("clip"."privacy" in ('public', 'unlisted', 'private')),
+	CONSTRAINT "clip_status_check" CHECK ("clip"."status" in ('pending', 'uploaded', 'encoding', 'ready', 'failed')),
+	CONSTRAINT "clip_size_bytes_safe_check" CHECK ("clip"."size_bytes" is null or ("clip"."size_bytes" >= 0 and "clip"."size_bytes" <= 9007199254740991))
 );
 --> statement-breakpoint
 CREATE TABLE "clip_comment" (
@@ -65,6 +71,21 @@ CREATE TABLE "clip_mention" (
 	"clip_id" uuid NOT NULL,
 	"mentioned_user_id" uuid NOT NULL,
 	CONSTRAINT "clip_mention_clip_id_mentioned_user_id_pk" PRIMARY KEY("clip_id","mentioned_user_id")
+);
+--> statement-breakpoint
+CREATE TABLE "clip_upload_ticket" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"clip_id" uuid NOT NULL,
+	"role" text NOT NULL,
+	"storage_key" text NOT NULL,
+	"content_type" text NOT NULL,
+	"expected_bytes" bigint NOT NULL,
+	"expires_at" timestamp NOT NULL,
+	"used_at" timestamp,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "clip_upload_ticket_storage_key_unique" UNIQUE("storage_key"),
+	CONSTRAINT "clip_upload_ticket_role_check" CHECK ("clip_upload_ticket"."role" in ('video', 'thumbnail')),
+	CONSTRAINT "clip_upload_ticket_expected_bytes_safe_check" CHECK ("clip_upload_ticket"."expected_bytes" > 0 and "clip_upload_ticket"."expected_bytes" <= 9007199254740991)
 );
 --> statement-breakpoint
 CREATE TABLE "clip_view" (
@@ -113,7 +134,8 @@ CREATE TABLE "notification" (
 	"clip_id" uuid,
 	"comment_id" uuid,
 	"read_at" timestamp,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "notification_type_check" CHECK ("notification"."type" in ('clip_upload_failed', 'new_follower', 'clip_comment', 'comment_reply', 'comment_pinned', 'comment_liked_by_author', 'new_video'))
 );
 --> statement-breakpoint
 CREATE TABLE "auth_account" (
@@ -171,7 +193,9 @@ CREATE TABLE "user" (
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "user_email_unique" UNIQUE("email"),
-	CONSTRAINT "user_username_unique" UNIQUE("username")
+	CONSTRAINT "user_role_check" CHECK ("user"."role" in ('user', 'admin')),
+	CONSTRAINT "user_status_check" CHECK ("user"."status" in ('active', 'disabled')),
+	CONSTRAINT "user_storage_quota_bytes_safe_check" CHECK ("user"."storage_quota_bytes" is null or ("user"."storage_quota_bytes" >= 0 and "user"."storage_quota_bytes" <= 9007199254740991))
 );
 --> statement-breakpoint
 CREATE TABLE "user_passkey" (
@@ -204,6 +228,7 @@ ALTER TABLE "clip_like" ADD CONSTRAINT "clip_like_clip_id_clip_id_fk" FOREIGN KE
 ALTER TABLE "clip_like" ADD CONSTRAINT "clip_like_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clip_mention" ADD CONSTRAINT "clip_mention_clip_id_clip_id_fk" FOREIGN KEY ("clip_id") REFERENCES "public"."clip"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clip_mention" ADD CONSTRAINT "clip_mention_mentioned_user_id_user_id_fk" FOREIGN KEY ("mentioned_user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "clip_upload_ticket" ADD CONSTRAINT "clip_upload_ticket_clip_id_clip_id_fk" FOREIGN KEY ("clip_id") REFERENCES "public"."clip"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clip_view" ADD CONSTRAINT "clip_view_clip_id_clip_id_fk" FOREIGN KEY ("clip_id") REFERENCES "public"."clip"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clip_view" ADD CONSTRAINT "clip_view_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "follow" ADD CONSTRAINT "follow_follower_id_user_id_fk" FOREIGN KEY ("follower_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -228,6 +253,9 @@ CREATE UNIQUE INDEX "clip_comment_one_pin_per_clip_idx" ON "clip_comment" USING 
 CREATE INDEX "clip_comment_like_user_idx" ON "clip_comment_like" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "clip_like_user_idx" ON "clip_like" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "clip_mention_user_idx" ON "clip_mention" USING btree ("mentioned_user_id");--> statement-breakpoint
+CREATE INDEX "clip_upload_ticket_clip_idx" ON "clip_upload_ticket" USING btree ("clip_id");--> statement-breakpoint
+CREATE INDEX "clip_upload_ticket_expires_idx" ON "clip_upload_ticket" USING btree ("expires_at");--> statement-breakpoint
+CREATE INDEX "clip_upload_ticket_used_idx" ON "clip_upload_ticket" USING btree ("used_at");--> statement-breakpoint
 CREATE INDEX "clip_view_user_clip_idx" ON "clip_view" USING btree ("user_id","clip_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "follow_pair_idx" ON "follow" USING btree ("follower_id","following_id");--> statement-breakpoint
 CREATE INDEX "follow_following_idx" ON "follow" USING btree ("following_id");--> statement-breakpoint
@@ -236,4 +264,5 @@ CREATE UNIQUE INDEX "game_follow_pair_idx" ON "game_follow" USING btree ("user_i
 CREATE INDEX "game_follow_game_idx" ON "game_follow" USING btree ("game_id");--> statement-breakpoint
 CREATE INDEX "notification_recipient_created_idx" ON "notification" USING btree ("recipient_id","created_at");--> statement-breakpoint
 CREATE INDEX "notification_recipient_unread_idx" ON "notification" USING btree ("recipient_id","created_at") WHERE "notification"."read_at" IS NULL;--> statement-breakpoint
-CREATE UNIQUE INDEX "auth_account_provider_account_idx" ON "auth_account" USING btree ("provider_id","provider_account_id");
+CREATE UNIQUE INDEX "auth_account_provider_account_idx" ON "auth_account" USING btree ("provider_id","provider_account_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "user_username_lower_unique" ON "user" USING btree (lower("username"));

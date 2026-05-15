@@ -1,5 +1,3 @@
-import { spawn } from "node:child_process"
-
 import type { AdminEncoderCapabilities as EncoderCapabilities } from "@workspace/contracts"
 
 import { env } from "../env"
@@ -64,17 +62,18 @@ async function probeEncoderCapabilities(): Promise<EncoderCapabilities> {
   return { ffmpegOk: true, ffmpegVersion, available }
 }
 
-function runCapture(bin: string, args: ReadonlyArray<string>): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"] })
-    let stdout = ""
-    proc.stdout.on("data", (chunk) => {
-      stdout += String(chunk)
-    })
-    proc.on("error", reject)
-    proc.on("close", (code) => {
-      if (code === 0) resolve(stdout)
-      else reject(new Error(`${bin} exited ${code}`))
-    })
-  })
+async function runCapture(
+  bin: string,
+  args: ReadonlyArray<string>
+): Promise<string> {
+  const output = await new Deno.Command(bin, {
+    args: [...args],
+    stdin: "null",
+    stdout: "piped",
+    stderr: "null",
+  }).output()
+  if (!output.success) {
+    throw new Error(`${bin} exited ${output.code}`)
+  }
+  return new TextDecoder().decode(output.stdout)
 }

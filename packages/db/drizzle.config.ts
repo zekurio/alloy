@@ -1,7 +1,6 @@
 import { defineConfig } from "drizzle-kit"
-import process from "node:process"
 
-const databaseUrl = process.env.DATABASE_URL
+const databaseUrl = Deno.env.get("DATABASE_URL")
 
 if (!databaseUrl) {
   throw new Error("DATABASE_URL is required to run Drizzle CLI commands")
