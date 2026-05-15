@@ -17,6 +17,9 @@
       system:
       let
         pkgs = import nixpkgs { inherit system; };
+        nativeLibs = with pkgs; [
+          stdenv.cc.cc.lib
+        ];
       in
       {
         devShells.default = pkgs.mkShell {
@@ -25,7 +28,9 @@
             postgresql_17
             util-linux
             jellyfin-ffmpeg
-          ];
+          ] ++ nativeLibs;
+
+          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath nativeLibs;
 
           shellHook = ''
             export ALLOY_ROOT="$PWD"

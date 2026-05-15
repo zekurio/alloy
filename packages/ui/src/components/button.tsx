@@ -120,6 +120,7 @@ function Button({
   return (
     <ButtonPrimitive
       data-slot="button"
+      data-variant={variant ?? "primary"}
       ref={setRef}
       type={type}
       disabled={disabled || formInvalid}

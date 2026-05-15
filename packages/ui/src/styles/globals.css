@@ -388,27 +388,41 @@
     letter-spacing: var(--tracking-mono);
   }
 
-  /* Shared tinted-glass surface. Tint can vary per surface via CSS vars,
-     while border and base depth stay consistent. */
-  .alloy-glass {
-    --alloy-glass-hue: var(--popover);
-    --alloy-glass-opacity: 72%;
-    --alloy-glass-blur: 18px;
-    --alloy-glass-saturation: 1.35;
-    --alloy-glass-bg: color-mix(
+  /* Shared blurred surface for floating chrome (popovers, menus, the video
+     player bar). The intent is *depth*, not transparency: a strong backdrop
+     blur softens whatever is behind, but the fill stays mostly opaque so
+     text always reads cleanly. No sheen, no saturation/brightness pumps —
+     we deliberately don't try to mimic Apple's liquid-glass refraction.
+     Per-surface tokens (--alloy-blur-bg, --alloy-blur-blur, ...) let
+     callers retune any of these without redefining the whole stack. */
+  .alloy-blur {
+    --alloy-blur-hue: var(--popover);
+    --alloy-blur-opacity: 88%;
+    --alloy-blur-blur: 24px;
+    --alloy-blur-bg: color-mix(
       in oklab,
-      var(--alloy-glass-hue) var(--alloy-glass-opacity),
-      var(--background)
+      var(--alloy-blur-hue) var(--alloy-blur-opacity),
+      transparent
     );
-    --alloy-glass-border: rgb(255 255 255 / 0.14);
-    --alloy-glass-shadow: 0 18px 48px -30px rgb(0 0 0 / 0.72);
-    background-color: var(--alloy-glass-bg);
-    border-color: var(--alloy-glass-border);
-    box-shadow: var(--alloy-glass-shadow);
-    -webkit-backdrop-filter: blur(var(--alloy-glass-blur))
-      saturate(var(--alloy-glass-saturation));
-    backdrop-filter: blur(var(--alloy-glass-blur))
-      saturate(var(--alloy-glass-saturation));
+    --alloy-blur-border: rgb(255 255 255 / 0.08);
+    --alloy-blur-shadow: 0 18px 48px -24px rgb(0 0 0 / 0.55);
+    background-color: var(--alloy-blur-bg);
+    border-color: var(--alloy-blur-border);
+    box-shadow: var(--alloy-blur-shadow);
+    -webkit-backdrop-filter: blur(var(--alloy-blur-blur));
+    backdrop-filter: blur(var(--alloy-blur-blur));
+  }
+
+  /* Browsers without backdrop-filter get a near-opaque tint over the
+     underlying surface — readable instead of muddy. */
+  @supports not (backdrop-filter: blur(1px)) {
+    .alloy-blur {
+      background-color: color-mix(
+        in oklab,
+        var(--alloy-blur-hue) 96%,
+        var(--background)
+      );
+    }
   }
 
   /* Live-dot pulse — used by badge[data-variant="live"] */

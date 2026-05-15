@@ -168,6 +168,7 @@ function ClipCardThumb({
   const primedRef = React.useRef(false)
   const [previewing, setPreviewing] = React.useState(false)
   const [thumbnailFailed, setThumbnailFailed] = React.useState(false)
+  const [pointerActivated, setPointerActivated] = React.useState(false)
 
   React.useEffect(() => {
     setThumbnailFailed(false)
@@ -266,7 +267,7 @@ function ClipCardThumb({
     "group/clip-thumb relative aspect-video w-full appearance-none overflow-hidden rounded-md border-0 bg-black p-0 text-left",
     "transition-[transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
     interactive &&
-      "cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
+      "cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none data-[pointer-activated=true]:focus-visible:ring-0 data-[pointer-activated=true]:focus-visible:ring-offset-0"
   )
   const hoverHandlers = {
     onPointerEnter: (e: React.PointerEvent) => {
@@ -275,7 +276,11 @@ function ClipCardThumb({
       schedulePreview()
     },
     onPointerDown: () => {
+      setPointerActivated(true)
       onIntent?.()
+    },
+    onKeyDown: () => {
+      setPointerActivated(false)
     },
     onPointerLeave: cancelPreview,
     onFocus: () => {
@@ -364,6 +369,7 @@ function ClipCardThumb({
         ref={buttonRef}
         onClick={onClick}
         aria-label={label}
+        data-pointer-activated={pointerActivated ? "true" : undefined}
         className={surfaceClass}
         {...hoverHandlers}
       >

@@ -1,8 +1,6 @@
 import * as React from "react"
 import { Link } from "@tanstack/react-router"
 import {
-  ChevronDownIcon,
-  ChevronUpIcon,
   HeartIcon,
   MessageSquareIcon,
   MoreHorizontalIcon,
@@ -44,6 +42,7 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 import { GameIcon } from "@workspace/ui/components/game-icon"
+import { buttonVariants } from "@workspace/ui/lib/button-variants"
 import { toast } from "@workspace/ui/lib/toast"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -66,6 +65,8 @@ import type { ClipListEntry } from "./clip-list-context"
 import { ClipMentionsRow } from "./clip-mentions-row"
 import { renderDescriptionTokens } from "./description-tokens"
 import { ClipPlayer } from "./clip-player"
+
+const MOBILE_SWIPE_HINT_SEEN_KEY = "alloy.mobileClipSwipeHintSeen"
 
 /* ------------------------------------------------------------------ */
 /*  Props                                                              */
@@ -137,6 +138,7 @@ function MobileClipViewerBody({
 
   /* ---- comments panel ---- */
   const [commentsOpen, setCommentsOpen] = React.useState(false)
+  const [showSwipeHint, setShowSwipeHint] = React.useState(false)
 
   React.useEffect(() => {
     setCommentsOpen(false)
@@ -145,6 +147,21 @@ function MobileClipViewerBody({
   React.useEffect(() => {
     if (focusedCommentId) setCommentsOpen(true)
   }, [focusedCommentId])
+
+  React.useEffect(() => {
+    if (!canNav || (!prev && !next)) return
+
+    try {
+      if (sessionStorage.getItem(MOBILE_SWIPE_HINT_SEEN_KEY) === "true") return
+      sessionStorage.setItem(MOBILE_SWIPE_HINT_SEEN_KEY, "true")
+    } catch {
+      // Storage may be blocked in private or embedded contexts.
+    }
+
+    setShowSwipeHint(true)
+    const timer = window.setTimeout(() => setShowSwipeHint(false), 2400)
+    return () => window.clearTimeout(timer)
+  }, [canNav, next, prev])
 
   /* ---- swipe gesture ---- */
   const touchRef = React.useRef<{ y: number; t: number } | null>(null)
@@ -230,7 +247,11 @@ function MobileClipViewerBody({
 
           {/* ---- Close button ---- */}
           <DialogClose
-            className="absolute top-3 right-3 z-30 grid size-8 place-items-center rounded-full bg-black/60 text-white/80 backdrop-blur-sm"
+            data-variant="ghost"
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "icon" }),
+              "absolute top-3 right-3 z-30 rounded-full text-white/80 hover:bg-white/10 hover:text-white focus-visible:ring-white/40 focus-visible:ring-offset-0"
+            )}
             aria-label="Close"
           >
             <XIcon className="size-5" />
@@ -238,22 +259,6 @@ function MobileClipViewerBody({
 
           {/* ---- Top spacer (keeps the player higher while metadata stays bottom-pinned) ---- */}
           <div className="h-[clamp(4rem,28dvh,16rem)] min-h-0 shrink" />
-
-          {/* ---- Prev clip chevron (above video) ---- */}
-          <div className="relative z-10 flex shrink-0 justify-center py-1">
-            {canNav && prev ? (
-              <button
-                type="button"
-                onClick={() => onNavigate!(prev)}
-                className="text-white/50 drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] active:text-white/80"
-                aria-label="Previous clip"
-              >
-                <ChevronUpIcon className="size-7 stroke-[2.5]" />
-              </button>
-            ) : (
-              <div className="size-7" />
-            )}
-          </div>
 
           {/* ---- Video player ---- */}
           <div
@@ -271,30 +276,28 @@ function MobileClipViewerBody({
               status={row.status}
               encodeProgress={row.encodeProgress}
               maxDisplayHeight="min(72dvh, calc(100dvh - 18rem))"
-              chromeSize="compact"
+              chromeSize="minimal"
               onPlayThreshold={() => void api.clips.recordView(row.id)}
               onEnded={handleEnded}
               autoPlay
               autoAdvance={canNav ? autoAdvance : undefined}
               onAutoAdvanceChange={onAutoAdvanceChange}
+              enableHorizontalSeekShortcuts={false}
             />
           </div>
 
-          {/* ---- Next clip chevron (below video) ---- */}
-          <div className="relative z-10 flex shrink-0 justify-center py-1">
-            {canNav && next ? (
-              <button
-                type="button"
-                onClick={() => onNavigate!(next)}
-                className="text-white/50 drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] active:text-white/80"
-                aria-label="Next clip"
-              >
-                <ChevronDownIcon className="size-7 stroke-[2.5]" />
-              </button>
-            ) : (
-              <div className="size-7" />
-            )}
-          </div>
+          {showSwipeHint ? (
+            <div
+              aria-hidden
+              className={cn(
+                "pointer-events-none relative z-20 mx-auto mt-3 rounded-full border border-white/10 bg-black/35 px-3 py-1.5",
+                "text-xs font-semibold tracking-wide text-white/75 shadow-[0_8px_30px_-14px_rgb(0_0_0_/_0.9)] backdrop-blur-md",
+                "animate-in duration-200 fade-in-0 slide-in-from-bottom-1"
+              )}
+            >
+              Swipe to navigate
+            </div>
+          ) : null}
 
           <div className="min-h-0 flex-1" />
 
