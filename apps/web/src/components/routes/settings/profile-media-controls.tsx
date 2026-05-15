@@ -75,7 +75,10 @@ export function MediaDropdownContent({
   onRemove: () => void
 }) {
   return (
-    <DropdownMenuContent anchor={anchor ?? undefined} className="w-auto">
+    <DropdownMenuContent
+      anchor={anchor ?? undefined}
+      className="alloy-blur w-auto border-white/8 text-foreground"
+    >
       <MediaMenuItems kind={kind} onUpload={onUpload} onRemove={onRemove} />
     </DropdownMenuContent>
   )

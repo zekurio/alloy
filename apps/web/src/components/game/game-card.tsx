@@ -35,7 +35,7 @@ function GameCardBody({ game }: { game: GameCardData }) {
       <img
         src={gridSrc}
         alt=""
-        crossOrigin="anonymous"
+        crossOrigin="use-credentials"
         className="absolute inset-0 size-full object-cover"
         loading="lazy"
         decoding="async"

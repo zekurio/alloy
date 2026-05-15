@@ -6,7 +6,7 @@
     "start": "deno task start:prod",
     "start:prod": "WEB_DIST_DIR=${WEB_DIST_DIR:-../../apps/web/dist} deno task --cwd apps/server start:prod",
     "serve": "deno task start",
-    "dev": "deno task --cwd apps/server dev & deno task --cwd apps/web dev & wait",
+    "dev": "sh -c 'deno task --cwd apps/server dev & deno task --cwd apps/web dev & wait'",
     "pg:start": "scripts/dev-postgres.sh start",
     "pg:stop": "scripts/dev-postgres.sh stop",
     "pg:status": "scripts/dev-postgres.sh status",

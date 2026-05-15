@@ -166,34 +166,37 @@ export function UploadQueueContent({
         </div>
       ) : null}
 
-      <div className="flex justify-end border-t border-border pt-2">
-        <div className="flex items-center gap-2">
-          {completedCount > 0 && onClearCompleted ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClearCompleted}
-              className="text-foreground-muted"
-            >
-              Clear completed
-            </Button>
-          ) : null}
-          {onClose ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label="Close uploads"
-              onClick={onClose}
-              className="text-foreground-muted"
-            >
-              Close
-            </Button>
-          ) : null}
-          <Button variant="primary" size="sm" onClick={onNewClip}>
-            <UploadIcon />
-            Upload clip
+      <div className="grid auto-cols-fr grid-flow-col items-center gap-2 border-t border-border pt-2">
+        {completedCount > 0 && onClearCompleted ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClearCompleted}
+            className="w-full text-foreground-muted"
+          >
+            Clear completed
           </Button>
-        </div>
+        ) : null}
+        {onClose ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Close uploads"
+            onClick={onClose}
+            className="w-full text-foreground-muted"
+          >
+            Close
+          </Button>
+        ) : null}
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={onNewClip}
+          className="w-full"
+        >
+          <UploadIcon />
+          Upload clip
+        </Button>
       </div>
     </div>
   )

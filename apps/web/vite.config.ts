@@ -1,8 +1,12 @@
+import dns from "node:dns"
+
 import { defineConfig, loadEnv } from "vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import viteReact from "@vitejs/plugin-react"
 import viteTsConfigPaths from "vite-tsconfig-paths"
 import tailwindcss from "@tailwindcss/vite"
+
+dns.setDefaultResultOrder("verbatim")
 
 const DEFAULT_SERVER_URL = "http://localhost:3000"
 
@@ -22,6 +26,7 @@ function serverUrl(mode: string): string {
 const config = defineConfig(({ mode }) => ({
   publicDir: "../../public",
   server: {
+    host: "localhost",
     port: 5173,
     strictPort: true,
     proxy: {
@@ -32,6 +37,7 @@ const config = defineConfig(({ mode }) => ({
     },
   },
   preview: {
+    host: "localhost",
     port: 5173,
     strictPort: true,
   },

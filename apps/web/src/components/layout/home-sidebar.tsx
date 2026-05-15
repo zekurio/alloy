@@ -212,7 +212,10 @@ function BottomNavItems() {
         <AppBottomNavItem
           active={queueOpen}
           title="Upload"
-          onClick={() => setQueueOpen(true)}
+          onClick={(event) => {
+            event.currentTarget.blur()
+            setQueueOpen(true)
+          }}
           className="before:!hidden [&_svg]:!size-4"
         >
           <NavUploadIcon />

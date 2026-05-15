@@ -1,8 +1,6 @@
 import * as React from "react"
 import { Link, useNavigate } from "@tanstack/react-router"
 import {
-  ChevronDownIcon,
-  ChevronUpIcon,
   HeartIcon,
   MoreHorizontalIcon,
   PencilIcon,
@@ -37,11 +35,6 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 import { GameIcon } from "@workspace/ui/components/game-icon"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@workspace/ui/components/popover"
 import { toast } from "@workspace/ui/lib/toast"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -63,7 +56,7 @@ import {
   useUserProfileViewerQuery,
 } from "@/lib/user-queries"
 
-import { ClipMentionsInline } from "./clip-mentions-row"
+import { ClipMentionsRow } from "./clip-mentions-row"
 import { renderDescriptionTokens } from "./description-tokens"
 
 interface ClipMetaProps {
@@ -122,12 +115,6 @@ function ClipMeta({
   const canManage = isOwner || isAdmin
   const canLike = viewerId !== null
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
-  const [descriptionExpanded, setDescriptionExpanded] = React.useState(false)
-  // Collapse the description whenever we navigate to a different clip — the
-  // expanded state belongs to a particular clip, not the viewer instance.
-  React.useEffect(() => {
-    setDescriptionExpanded(false)
-  }, [clipId])
   const hasDescription = Boolean(description && description.trim().length > 0)
 
   const deleteMutation = useDeleteClipMutation()
@@ -223,7 +210,7 @@ function ClipMeta({
     <section className="flex flex-col gap-2">
       {/* Title + top-right actions */}
       <div className="flex items-start justify-between gap-3">
-        <h1 className="min-w-0 text-2xl font-semibold tracking-[-0.02em] text-foreground sm:text-[2rem]">
+        <h1 className="min-w-0 text-2xl leading-none font-semibold tracking-[-0.02em] text-foreground sm:text-[2rem]">
           {title}
         </h1>
 
@@ -280,7 +267,7 @@ function ClipMeta({
       </div>
 
       {/* User row */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-end justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <Link
             to="/u/$username"
@@ -329,62 +316,16 @@ function ClipMeta({
                 </Button>
               ) : null}
             </div>
-            {followerCount !== null || mentions.length > 0 ? (
-              <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-foreground-faint">
-                {followerCount !== null ? (
-                  <span>
-                    <span className="text-foreground-muted">
-                      {formatCount(followerCount)}
-                    </span>{" "}
-                    followers
-                  </span>
-                ) : null}
-                <ClipMentionsInline mentions={mentions} />
+            {followerCount !== null ? (
+              <div className="mt-0.5 text-xs text-foreground-faint">
+                <span className="text-foreground-muted">
+                  {formatCount(followerCount)}
+                </span>{" "}
+                followers
               </div>
             ) : null}
           </div>
         </div>
-
-        {hasDescription ? (
-          <Popover
-            open={descriptionExpanded}
-            onOpenChange={setDescriptionExpanded}
-          >
-            <PopoverTrigger
-              render={
-                <button
-                  type="button"
-                  className={cn(
-                    "inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-surface-raised px-3 py-1 text-xs font-medium",
-                    "text-foreground-muted",
-                    "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-                    "hover:border-border-strong hover:text-foreground",
-                    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                  )}
-                >
-                  {descriptionExpanded ? (
-                    <ChevronUpIcon className="size-3.5" />
-                  ) : (
-                    <ChevronDownIcon className="size-3.5" />
-                  )}
-                  {descriptionExpanded
-                    ? "Hide description"
-                    : "Show description"}
-                </button>
-              }
-            />
-            <PopoverContent
-              side="top"
-              align="center"
-              sideOffset={8}
-              className="max-h-[40dvh] w-[min(28rem,calc(100vw-2rem))] overflow-y-auto"
-            >
-              <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground-muted">
-                {renderDescriptionTokens(description!, { linkHashtags: true })}
-              </p>
-            </PopoverContent>
-          </Popover>
-        ) : null}
 
         <div className="flex shrink-0 flex-col items-end gap-1">
           <ClipGameBadge game={game} gameRef={gameRef} />
@@ -401,6 +342,14 @@ function ClipMeta({
           </div>
         </div>
       </div>
+
+      {mentions.length > 0 ? <ClipMentionsRow mentions={mentions} /> : null}
+
+      {hasDescription ? (
+        <p className="max-w-3xl text-sm leading-relaxed whitespace-pre-wrap text-foreground-muted">
+          {renderDescriptionTokens(description!, { linkHashtags: true })}
+        </p>
+      ) : null}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

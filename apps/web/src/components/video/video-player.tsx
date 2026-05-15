@@ -40,7 +40,7 @@ type SharedPlayerProps = {
   onEnded?: () => void
   autoAdvance?: boolean
   onAutoAdvanceChange?: (next: boolean) => void
-  chromeSize?: "default" | "compact"
+  chromeSize?: "default" | "compact" | "minimal"
   shortcutBounds?: {
     start: number
     end: number
@@ -53,6 +53,7 @@ type SharedPlayerProps = {
   }>
   selectedQualityId?: string
   onSelectQuality?: (qualityId: string) => void
+  enableHorizontalSeekShortcuts?: boolean
 }
 
 interface VideoPlayerProps extends SharedPlayerProps {
@@ -165,6 +166,7 @@ function PlayerCore({
   qualityOptions,
   selectedQualityId,
   onSelectQuality,
+  enableHorizontalSeekShortcuts = true,
   playbackRate,
 }: PlayerCoreProps) {
   const mediaUrl = useMediaUrl(spec)
@@ -445,7 +447,11 @@ function PlayerCore({
       ) {
         return
       }
-      if (handleVideoKeyCommand(event, keyCommand)) {
+      if (
+        handleVideoKeyCommand(event, keyCommand, {
+          enableHorizontalSeek: enableHorizontalSeekShortcuts,
+        })
+      ) {
         containerRef.current?.focus({ preventScroll: true })
       }
     }
@@ -453,7 +459,7 @@ function PlayerCore({
     window.addEventListener("keydown", onKeyDown, { capture: true })
     return () =>
       window.removeEventListener("keydown", onKeyDown, { capture: true })
-  }, [keyCommand, playerId])
+  }, [enableHorizontalSeekShortcuts, keyCommand, playerId])
 
   React.useEffect(() => {
     if (!autoPlay && controls) return
@@ -586,6 +592,8 @@ function PlayerCore({
       onPointerDown={activatePlayer}
       onFocus={activatePlayer}
       onKeyCommand={keyCommand}
+      enableHorizontalSeekShortcuts={enableHorizontalSeekShortcuts}
+      barBelow={chromeSize === "minimal"}
       bar={
         <ChromeBar
           containerRef={containerRef}

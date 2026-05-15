@@ -1,5 +1,13 @@
 import * as React from "react"
-import { ListVideoIcon, MaximizeIcon, PauseIcon, PlayIcon } from "lucide-react"
+import {
+  ListVideoIcon,
+  MaximizeIcon,
+  PauseIcon,
+  PlayIcon,
+  Volume1Icon,
+  Volume2Icon,
+  VolumeXIcon,
+} from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
@@ -16,13 +24,19 @@ const KEYBOARD_VOLUME_STEP = 0.1
 
 /* ─── Reusable video-chrome primitives ─────────────────────────────── */
 
-/** App-surface bar background for player chrome. */
+/** Floating blurred surface for player chrome. The bar deliberately hovers
+ *  inside the video frame instead of butting against the bottom edge — this
+ *  sidesteps subpixel rounding issues at the wrapper/meta seam, lets the
+ *  blur read against real video content on all sides, and looks more like
+ *  a proper "chrome pane" than a tacked-on strip. */
 export const videoChromeBarClass =
-  "group/bar border-t border-border/70 bg-surface-raised text-foreground shadow-[var(--shadow-inset-top)]"
+  "alloy-blur group/bar text-foreground rounded-2xl border border-white/8 [--alloy-blur-bg:rgb(8_8_10_/_0.82)] [--alloy-blur-blur:28px] [--alloy-blur-border:rgb(255_255_255_/_0.08)] [--alloy-blur-shadow:0_18px_48px_-20px_rgb(0_0_0_/_0.75)]"
 
-/** Icon button style for controls sitting on video chrome. */
+/** Icon button style for controls sitting on video chrome. Icons keep
+ *  full foreground colour and a subtle drop shadow so they stay legible
+ *  on bright or busy video content underneath the translucent bar. */
 export const videoChromeIconClass =
-  "size-9 rounded-full text-foreground-muted hover:bg-neutral-150 hover:text-foreground focus-visible:ring-ring [&_svg]:size-5"
+  "size-9 rounded-full text-foreground drop-shadow-[0_1px_2px_rgb(0_0_0_/_0.5)] hover:bg-white/10 hover:text-foreground focus-visible:ring-ring [&_svg]:size-5"
 
 /* ─── Types ────────────────────────────────────────────────────────── */
 
@@ -99,7 +113,9 @@ export function ChromeShell({
   onPointerDown,
   onFocus,
   onKeyCommand,
+  enableHorizontalSeekShortcuts = true,
   bar,
+  barBelow = false,
   children,
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>
@@ -110,8 +126,12 @@ export function ChromeShell({
   onPointerDown?: React.PointerEventHandler<HTMLDivElement>
   onFocus?: React.FocusEventHandler<HTMLDivElement>
   onKeyCommand: VideoKeyCommand
-  /** Chrome controls rendered as their own layout row under the media viewport. */
+  enableHorizontalSeekShortcuts?: boolean
+  /** Chrome controls rendered inside the media viewport. */
   bar?: React.ReactNode
+  /** When true, the bar is rendered as a sibling below the media frame
+   *  instead of overlaying the video. */
+  barBelow?: boolean
   children: React.ReactNode
 }) {
   const [isFullscreen, setIsFullscreen] = React.useState(false)
@@ -146,9 +166,11 @@ export function ChromeShell({
   const onKeyDown = React.useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (!shouldHandleVideoShortcut(e.target, e.currentTarget)) return
-      handleVideoKeyCommand(e.nativeEvent, onKeyCommand)
+      handleVideoKeyCommand(e.nativeEvent, onKeyCommand, {
+        enableHorizontalSeek: enableHorizontalSeekShortcuts,
+      })
     },
-    [onKeyCommand]
+    [enableHorizontalSeekShortcuts, onKeyCommand]
   )
 
   return (
@@ -165,7 +187,8 @@ export function ChromeShell({
       onFocus={onFocus}
       style={rootSizingStyle}
       className={cn(
-        "group/video relative isolate flex w-full flex-col overflow-hidden bg-black select-none",
+        "group/video relative isolate flex w-full flex-col overflow-hidden select-none",
+        barBelow ? "bg-transparent" : "bg-black",
         isFullscreen && "h-dvh w-dvw",
         maxDisplayHeight && !isFullscreen && "mx-auto",
         "focus:outline-none",
@@ -183,8 +206,9 @@ export function ChromeShell({
         <div data-slot="video-player-frame" className="absolute inset-0">
           {children}
         </div>
+        {barBelow ? null : bar}
       </div>
-      {bar}
+      {barBelow ? bar : null}
     </div>
   )
 }
@@ -305,22 +329,24 @@ export function shouldHandleGlobalVideoShortcut(
 
 export function handleVideoKeyCommand(
   e: KeyboardEvent,
-  command: VideoKeyCommand
+  command: VideoKeyCommand,
+  options: { enableHorizontalSeek?: boolean } = {}
 ): boolean {
   if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return false
   const key = e.key.toLowerCase()
+  const enableHorizontalSeek = options.enableHorizontalSeek ?? true
 
   if (e.key === " " || e.code === "Space" || key === "k") {
     e.preventDefault()
     command.togglePlay()
     return true
   }
-  if (e.key === "ArrowLeft") {
+  if (enableHorizontalSeek && e.key === "ArrowLeft") {
     e.preventDefault()
     command.seekBy(-KEYBOARD_SEEK_SECONDS)
     return true
   }
-  if (e.key === "ArrowRight") {
+  if (enableHorizontalSeek && e.key === "ArrowRight") {
     e.preventDefault()
     command.seekBy(KEYBOARD_SEEK_SECONDS)
     return true
@@ -396,7 +422,7 @@ export function ChromeBar({
   onAutoAdvanceChange,
   onToggleFullscreen,
 }: {
-  size?: "default" | "compact"
+  size?: "default" | "compact" | "minimal"
   containerRef: React.RefObject<HTMLDivElement | null>
   playing: boolean
   duration: number
@@ -422,6 +448,10 @@ export function ChromeBar({
 }) {
   const [fullscreenSupported, setFullscreenSupported] = React.useState(false)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
+  // Track open menus so we can pin the bar visible while the user is
+  // navigating settings — the menu is portaled outside the player, so the
+  // group-hover/focus state alone would hide the bar on mouseout.
+  const [settingsOpen, setSettingsOpen] = React.useState(false)
   const settingsPortalContainer = isFullscreen
     ? containerRef.current
     : undefined
@@ -441,12 +471,49 @@ export function ChromeBar({
     return () => document.removeEventListener("fullscreenchange", onChange)
   }, [containerRef])
 
+  if (size === "minimal") {
+    const MuteIcon =
+      muted || volume === 0
+        ? VolumeXIcon
+        : volume < 0.5
+          ? Volume1Icon
+          : Volume2Icon
+    return (
+      <div
+        className={cn("pointer-events-auto flex items-center gap-2 px-3 py-2")}
+      >
+        <div className="min-w-0 flex-1 px-1.5">
+          <VideoScrubber
+            currentTime={currentTime}
+            duration={duration}
+            bufferedEnd={bufferedEnd}
+            onSeek={onSeek}
+            variant="translucent"
+          />
+        </div>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={muted ? "Unmute" : "Mute"}
+          onClick={onToggleMute}
+          className={cn(videoChromeIconClass, "size-9 [&_svg]:size-5")}
+        >
+          <MuteIcon />
+        </Button>
+      </div>
+    )
+  }
+
   return (
     <div
       aria-hidden={false}
+      data-pinned={settingsOpen ? "true" : undefined}
       className={cn(
         videoChromeBarClass,
-        "pointer-events-auto relative isolate z-20 shrink-0"
+        "pointer-events-none absolute inset-x-3 bottom-3 isolate z-20 translate-y-1 opacity-0 transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+        "group-focus-within/video:pointer-events-auto group-focus-within/video:translate-y-0 group-focus-within/video:opacity-100",
+        "group-hover/video:pointer-events-auto group-hover/video:translate-y-0 group-hover/video:opacity-100",
+        "data-[pinned=true]:pointer-events-auto data-[pinned=true]:translate-y-0 data-[pinned=true]:opacity-100"
       )}
     >
       <div className="relative flex flex-col">
@@ -493,14 +560,14 @@ export function ChromeBar({
 
             <div
               className={cn(
-                "inline-flex h-9 items-center px-2 text-sm leading-5 font-semibold text-foreground-faint tabular-nums"
+                "inline-flex h-9 items-center px-2 text-sm leading-5 font-semibold text-foreground tabular-nums drop-shadow-[0_1px_2px_rgb(0_0_0_/_0.5)]"
               )}
             >
-              <span className="text-foreground">
-                {formatTimeStable(currentTime, duration)}
+              <span>{formatTimeStable(currentTime, duration)}</span>
+              <span className="mx-1 text-foreground-muted">/</span>
+              <span className="text-foreground-muted">
+                {formatTime(duration)}
               </span>
-              <span className="mx-1 text-foreground-dim">/</span>
-              <span>{formatTime(duration)}</span>
             </div>
 
             <div className="ml-auto inline-flex items-center gap-1">
@@ -508,6 +575,7 @@ export function ChromeBar({
                 qualityOptions={qualityOptions}
                 selectedQualityId={selectedQualityId}
                 onSelectQuality={onSelectQuality}
+                onOpenChange={setSettingsOpen}
                 triggerClassName={cn(
                   videoChromeIconClass,
                   size === "compact" && "size-10 [&_svg]:size-6"

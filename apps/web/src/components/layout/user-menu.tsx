@@ -70,7 +70,11 @@ function UserMenuInner() {
           />
         }
       />
-      <DropdownMenuContent align="end" sideOffset={6} className="min-w-[220px]">
+      <DropdownMenuContent
+        align="end"
+        sideOffset={6}
+        className="alloy-blur min-w-[220px] border-white/8 text-foreground"
+      >
         <div className="flex flex-col gap-0.5 px-3 py-2">
           <span className="truncate text-sm font-semibold text-foreground">
             {primaryLabel}

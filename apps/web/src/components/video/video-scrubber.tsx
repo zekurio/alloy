@@ -7,11 +7,15 @@ export function VideoScrubber({
   duration,
   bufferedEnd,
   onSeek,
+  variant = "default",
 }: {
   currentTime: number
   duration: number
   bufferedEnd: number
   onSeek: (sec: number) => void
+  /** "translucent" uses white-on-transparent track colours suitable for
+   *  rails that sit on a plain dark background without a chrome surface. */
+  variant?: "default" | "translucent"
 }) {
   const railRef = React.useRef<HTMLDivElement>(null)
   const draggingIdRef = React.useRef<number | null>(null)
@@ -77,16 +81,19 @@ export function VideoScrubber({
       onPointerCancel={onPointerUp}
       onKeyDown={onKeyDown}
       className={cn(
-        "group/scrub relative h-1 w-full cursor-pointer touch-none rounded-full",
-        "bg-neutral-200",
+        "group/scrub relative h-1.5 w-full cursor-pointer touch-none rounded-full",
+        variant === "translucent" ? "bg-white/15" : "bg-neutral-200",
         "transition-[height] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-        "group-hover/bar:h-1.5 focus-visible:h-1.5",
+        "focus-visible:h-2",
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       )}
     >
       <div
         aria-hidden
-        className="absolute inset-y-0 left-0 rounded-full bg-neutral-300"
+        className={cn(
+          "absolute inset-y-0 left-0 rounded-full",
+          variant === "translucent" ? "bg-white/10" : "bg-neutral-300"
+        )}
         style={{ width: `${buffered}%` }}
       />
       <div
@@ -97,10 +104,11 @@ export function VideoScrubber({
       <div
         aria-hidden
         className={cn(
-          "absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full",
-          "bg-accent shadow-[0_0_0_4px_color-mix(in_oklab,var(--accent)_18%,transparent)]",
-          "opacity-0 transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-          "group-hover/bar:opacity-100 group-focus-visible/scrub:opacity-100"
+          "absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full",
+          "bg-accent shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_18%,transparent)]",
+          variant === "translucent"
+            ? "opacity-100"
+            : "opacity-0 transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)] group-hover/scrub:opacity-100 group-focus-visible/scrub:opacity-100"
         )}
         style={{ left: `${progress}%` }}
       />
