@@ -592,6 +592,7 @@ function PlayerCore({
       onPointerDown={activatePlayer}
       onFocus={activatePlayer}
       onKeyCommand={keyCommand}
+      enableHorizontalSeekShortcuts={enableHorizontalSeekShortcuts}
       barBelow={chromeSize === "minimal"}
       bar={
         <ChromeBar

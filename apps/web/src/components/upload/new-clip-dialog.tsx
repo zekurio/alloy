@@ -173,7 +173,7 @@ export function NewClipDialog({
             isMobile ? (
               <DrawerClose asChild>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="default"
                   disabled={publishing}
                   className="w-full min-w-0"
@@ -185,7 +185,7 @@ export function NewClipDialog({
               <DialogClose
                 render={
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="default"
                     disabled={publishing}
                   />
@@ -519,7 +519,7 @@ function LoadedState({
         )}
       >
         <Button
-          variant="secondary"
+          variant="ghost"
           size="default"
           disabled={publishing}
           onClick={onReplace}

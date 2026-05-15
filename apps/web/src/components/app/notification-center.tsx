@@ -126,7 +126,7 @@ export function NotificationCenter() {
         sideOffset={8}
         className={cn(
           "w-[380px] max-w-[calc(100vw-1.5rem)] border p-3 ring-0",
-          "alloy-blur"
+          "alloy-blur duration-0 data-open:animate-none data-closed:animate-none"
         )}
         style={NOTIFICATION_GLASS_STYLE}
         aria-describedby={undefined}

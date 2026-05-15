@@ -27,7 +27,11 @@ import { userAvatar } from "@/lib/user-display"
 
 import { ClipComments } from "./clip-comments"
 import { ClipEditDialog } from "./clip-edit-dialog"
-import { useActiveClipList, type ClipListEntry } from "./clip-list-context"
+import {
+  setActiveClipList,
+  useActiveClipList,
+  type ClipListEntry,
+} from "./clip-list-context"
 import { ClipMeta } from "./clip-meta"
 import { ClipPlayer } from "./clip-player"
 import { MobileClipViewerBody } from "./clip-viewer-mobile"
@@ -55,6 +59,11 @@ export function ClipViewerDialog({
   const query = useClipQuery(clipId ?? "")
   const list = useActiveClipList()
   const [autoAdvance, setAutoAdvance] = React.useState(false)
+
+  const closeViewer = React.useCallback(() => {
+    setActiveClipList(null)
+    onClose()
+  }, [onClose])
 
   const prev = React.useMemo(() => {
     if (!list || !clipId) return null
@@ -118,7 +127,7 @@ export function ClipViewerDialog({
     <Dialog
       open={open}
       onOpenChange={(nextOpen) => {
-        if (!nextOpen) onClose()
+        if (!nextOpen) closeViewer()
       }}
     >
       {open ? (
@@ -126,7 +135,7 @@ export function ClipViewerDialog({
           !isDesktop ? (
             <MobileClipViewerBody
               row={query.data}
-              onDeleted={onClose}
+              onDeleted={closeViewer}
               prev={prev}
               next={next}
               onNavigate={onNavigate ? navigateTo : null}
@@ -137,7 +146,7 @@ export function ClipViewerDialog({
           ) : (
             <ClipViewerDialogBody
               row={query.data}
-              onDeleted={onClose}
+              onDeleted={closeViewer}
               prev={prev}
               next={next}
               onNavigate={onNavigate ? navigateTo : null}

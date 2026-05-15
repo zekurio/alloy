@@ -113,6 +113,7 @@ export function ChromeShell({
   onPointerDown,
   onFocus,
   onKeyCommand,
+  enableHorizontalSeekShortcuts = true,
   bar,
   barBelow = false,
   children,
@@ -125,6 +126,7 @@ export function ChromeShell({
   onPointerDown?: React.PointerEventHandler<HTMLDivElement>
   onFocus?: React.FocusEventHandler<HTMLDivElement>
   onKeyCommand: VideoKeyCommand
+  enableHorizontalSeekShortcuts?: boolean
   /** Chrome controls rendered inside the media viewport. */
   bar?: React.ReactNode
   /** When true, the bar is rendered as a sibling below the media frame
@@ -164,9 +166,11 @@ export function ChromeShell({
   const onKeyDown = React.useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (!shouldHandleVideoShortcut(e.target, e.currentTarget)) return
-      handleVideoKeyCommand(e.nativeEvent, onKeyCommand)
+      handleVideoKeyCommand(e.nativeEvent, onKeyCommand, {
+        enableHorizontalSeek: enableHorizontalSeekShortcuts,
+      })
     },
-    [onKeyCommand]
+    [enableHorizontalSeekShortcuts, onKeyCommand]
   )
 
   return (
