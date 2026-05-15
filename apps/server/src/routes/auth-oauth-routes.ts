@@ -1,7 +1,6 @@
 import { zValidator } from "@hono/zod-validator"
 import { eq } from "drizzle-orm"
-import { Hono } from "hono"
-import type { Context } from "hono"
+import { Hono, type Context } from "hono"
 import { z } from "zod"
 
 import { authAccount } from "@workspace/db/auth-schema"

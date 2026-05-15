@@ -12,8 +12,7 @@ import {
   UserPlusIcon,
 } from "lucide-react"
 
-import { clipThumbnailUrl } from "@workspace/api"
-import type { NotificationRow } from "@workspace/api"
+import { clipThumbnailUrl, type NotificationRow } from "@workspace/api"
 import {
   Avatar,
   AvatarFallback,

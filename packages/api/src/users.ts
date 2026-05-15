@@ -169,24 +169,14 @@ async function getTaggedClips(
   context: ApiContext,
   handle: string
 ): Promise<UserClip[]> {
-  const res = await context.request(
-    `/api/users/${encodeURIComponent(handle)}/tagged`
-  )
-  return readJsonOrThrow(res, (value) =>
-    validateObjectArray<UserClip>(value, "tagged clips")
-  )
+  return getUserArray<UserClip>(context, handle, "tagged", "tagged clips")
 }
 
 async function getLikedClips(
   context: ApiContext,
   handle: string
 ): Promise<UserClip[]> {
-  const res = await context.request(
-    `/api/users/${encodeURIComponent(handle)}/liked`
-  )
-  return readJsonOrThrow(res, (value) =>
-    validateObjectArray<UserClip>(value, "liked clips")
-  )
+  return getUserArray<UserClip>(context, handle, "liked", "liked clips")
 }
 
 async function searchUsers(
@@ -206,24 +196,39 @@ async function getFollowers(
   context: ApiContext,
   handle: string
 ): Promise<UserSearchResult[]> {
-  const res = await context.request(
-    `/api/users/${encodeURIComponent(handle)}/followers`
-  )
-  return readJsonOrThrow(res, (value) =>
-    validateObjectArray<UserSearchResult>(value, "followers")
-  )
+  return getUserConnections(context, handle, "followers")
 }
 
 async function getFollowing(
   context: ApiContext,
   handle: string
 ): Promise<UserSearchResult[]> {
+  return getUserConnections(context, handle, "following")
+}
+
+async function getUserConnections(
+  context: ApiContext,
+  handle: string,
+  pathSegment: "followers" | "following"
+): Promise<UserSearchResult[]> {
+  return getUserArray<UserSearchResult>(
+    context,
+    handle,
+    pathSegment,
+    pathSegment
+  )
+}
+
+async function getUserArray<T>(
+  context: ApiContext,
+  handle: string,
+  pathSegment: string,
+  label: string
+): Promise<T[]> {
   const res = await context.request(
-    `/api/users/${encodeURIComponent(handle)}/following`
+    `/api/users/${encodeURIComponent(handle)}/${pathSegment}`
   )
-  return readJsonOrThrow(res, (value) =>
-    validateObjectArray<UserSearchResult>(value, "following")
-  )
+  return readJsonOrThrow(res, (value) => validateObjectArray<T>(value, label))
 }
 
 async function followUser(context: ApiContext, handle: string): Promise<void> {

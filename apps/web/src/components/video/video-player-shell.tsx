@@ -24,17 +24,9 @@ const KEYBOARD_VOLUME_STEP = 0.1
 
 /* ─── Reusable video-chrome primitives ─────────────────────────────── */
 
-/** Floating blurred surface for player chrome. The bar deliberately hovers
- *  inside the video frame instead of butting against the bottom edge — this
- *  sidesteps subpixel rounding issues at the wrapper/meta seam, lets the
- *  blur read against real video content on all sides, and looks more like
- *  a proper "chrome pane" than a tacked-on strip. */
 export const videoChromeBarClass =
   "alloy-blur group/bar text-foreground rounded-2xl border border-white/8 [--alloy-blur-bg:rgb(8_8_10_/_0.82)] [--alloy-blur-blur:28px] [--alloy-blur-border:rgb(255_255_255_/_0.08)] [--alloy-blur-shadow:0_18px_48px_-20px_rgb(0_0_0_/_0.75)]"
 
-/** Icon button style for controls sitting on video chrome. Icons keep
- *  full foreground colour and a subtle drop shadow so they stay legible
- *  on bright or busy video content underneath the translucent bar. */
 export const videoChromeIconClass =
   "size-9 rounded-full text-foreground drop-shadow-[0_1px_2px_rgb(0_0_0_/_0.5)] hover:bg-white/10 hover:text-foreground focus-visible:ring-ring [&_svg]:size-5"
 
@@ -223,10 +215,6 @@ function videoPlayerSizingStyle(
   }
 
   if (maxDisplayHeight === "100%") {
-    // Fill-parent mode: the player sizes itself from the flex parent's
-    // remaining height, preserving aspect ratio. No fixed pixel reservation,
-    // so siblings (description, tags) can grow naturally without forcing
-    // the player to shrink in width or triggering meta scrollbars.
     if (!aspectRatio) {
       return { maxHeight: "100%", maxWidth: "100%" }
     }
@@ -448,9 +436,6 @@ export function ChromeBar({
 }) {
   const [fullscreenSupported, setFullscreenSupported] = React.useState(false)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
-  // Track open menus so we can pin the bar visible while the user is
-  // navigating settings — the menu is portaled outside the player, so the
-  // group-hover/focus state alone would hide the bar on mouseout.
   const [settingsOpen, setSettingsOpen] = React.useState(false)
   const settingsPortalContainer = isFullscreen
     ? containerRef.current

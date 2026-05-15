@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm"
 import sharp from "sharp"
+import { Buffer } from "node:buffer"
 
 import {
   LOGIN_SPLASH_IMAGE_PATH,
@@ -60,11 +61,11 @@ function imageBody(image: Uint8Array): ArrayBuffer {
 }
 
 function sharpInput(bytes: Uint8Array): SharpConstructorInput {
-  return bytes as unknown as SharpConstructorInput
+  return Buffer.from(bytes)
 }
 
 function sharpOverlayInput(bytes: Uint8Array): SharpOverlayInput {
-  return bytes as unknown as SharpOverlayInput
+  return Buffer.from(bytes)
 }
 
 function loginSplashImageUrl(generatedAt: string | null): string {

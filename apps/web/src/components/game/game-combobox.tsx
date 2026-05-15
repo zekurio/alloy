@@ -105,9 +105,6 @@ export function GameCombobox({
     setVisibleCount(PAGE_SIZE)
   }, [debouncedQuery])
 
-  // Anchor the popup to the InputGroup wrapper rather than the inner
-  // <input> (Base UI's default), so the dropdown's left edge aligns with
-  // the visual border of the field instead of with the start of the text.
   const anchorRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
