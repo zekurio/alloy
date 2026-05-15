@@ -93,10 +93,6 @@ export const eventsRoute = new Hono().get(
           wake = null
 
           if (pending.length === 0 && !stream.aborted) {
-            // Periodic snapshots keep horizontally scaled deployments
-            // eventually consistent even when process-local events are
-            // emitted by a different server instance. They also keep the
-            // pipe warm for proxies with idle timeouts.
             await writeQueueSnapshot(stream.writeSSE.bind(stream), viewerId)
           }
         }

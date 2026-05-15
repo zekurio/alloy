@@ -20,10 +20,6 @@ export type QualityOption = {
   downloadUrl?: string
 }
 
-/** Blurred dropdown content shared across the settings root and its
- *  sub-menus. The alloy-blur tokens are retuned to match the chrome bar so
- *  the menu reads as the same material — slightly darker because dropdowns
- *  often land on bright video. */
 const glassMenuClass =
   "alloy-blur border-white/10 text-foreground [--alloy-blur-bg:rgb(8_8_10_/_0.88)] [--alloy-blur-blur:24px] [--alloy-blur-border:rgb(255_255_255_/_0.08)] [--alloy-blur-shadow:0_18px_48px_-20px_rgb(0_0_0_/_0.7)]"
 
@@ -41,8 +37,6 @@ export function VideoSettingsMenu({
   qualityOptions?: QualityOption[]
   selectedQualityId?: string
   onSelectQuality?: (qualityId: string) => void
-  /** Fires when the menu opens/closes — used by the chrome bar to keep
-   *  itself visible while the user is interacting with the menu. */
   onOpenChange?: (open: boolean) => void
   triggerClassName?: string
   triggerStyle?: React.CSSProperties

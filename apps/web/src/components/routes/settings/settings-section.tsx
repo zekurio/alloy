@@ -1,6 +1,5 @@
 import * as React from "react"
-import { ChevronDownIcon } from "lucide-react"
-import type { LucideIcon } from "lucide-react"
+import { ChevronDownIcon, type LucideIcon } from "lucide-react"
 
 import { cn } from "@workspace/ui/lib/utils"
 import {

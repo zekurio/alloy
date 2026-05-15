@@ -1,12 +1,12 @@
 import * as React from "react"
 import * as RechartsPrimitive from "recharts"
 import { cn } from "@workspace/ui/lib/utils"
-import type { TooltipValueType } from "recharts"
 
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const
 
 const INITIAL_DIMENSION = { width: 320, height: 200 } as const
+type TooltipValueType = number | string | ReadonlyArray<number | string>
 type TooltipNameType = number | string
 
 export type ChartConfig = Record<
