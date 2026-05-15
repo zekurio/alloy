@@ -1,13 +1,4 @@
-import {
-  CopyObjectCommand,
-  DeleteObjectCommand,
-  GetObjectCommand,
-  HeadObjectCommand,
-  type HeadObjectCommandOutput,
-  PutObjectCommand,
-  S3Client,
-} from "@aws-sdk/client-s3"
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
+import { AwsClient } from "aws4fetch"
 
 import { dirname } from "../runtime/path"
 import type {
@@ -33,7 +24,7 @@ type S3DriverOptionsProvider = () => S3DriverOptions
 
 export class S3StorageDriver implements StorageDriver {
   private readonly optionsProvider: S3DriverOptionsProvider
-  private cachedClient: { cacheKey: string; client: S3Client } | null = null
+  private cachedClient: { cacheKey: string; client: AwsClient } | null = null
 
   constructor(opts: S3DriverOptions | S3DriverOptionsProvider) {
     this.optionsProvider = typeof opts === "function" ? opts : () => opts
@@ -59,32 +50,35 @@ export class S3StorageDriver implements StorageDriver {
     }
   }
 
-  private getClient(opts: S3DriverOptions): S3Client {
+  private getClient(opts: S3DriverOptions): AwsClient {
+    const accessKeyId = opts.accessKeyId ?? Deno.env.get("AWS_ACCESS_KEY_ID")
+    const secretAccessKey =
+      opts.secretAccessKey ?? Deno.env.get("AWS_SECRET_ACCESS_KEY")
+    if (!accessKeyId || !secretAccessKey) {
+      throw new Error(
+        "S3 storage requires accessKeyId and secretAccessKey, or AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY."
+      )
+    }
+
     const cacheKey = JSON.stringify({
       bucket: opts.bucket,
       region: opts.region,
       endpoint: opts.endpoint,
-      accessKeyId: opts.accessKeyId,
-      secretAccessKey: opts.secretAccessKey,
+      accessKeyId,
+      secretAccessKey,
+      sessionToken: Deno.env.get("AWS_SESSION_TOKEN"),
       forcePathStyle: opts.forcePathStyle,
     })
     if (this.cachedClient?.cacheKey === cacheKey) {
       return this.cachedClient.client
     }
-    const credentials =
-      opts.accessKeyId && opts.secretAccessKey
-        ? {
-            accessKeyId: opts.accessKeyId,
-            secretAccessKey: opts.secretAccessKey,
-          }
-        : undefined
-    const client = new S3Client({
+    const client = new AwsClient({
+      accessKeyId,
+      secretAccessKey,
+      sessionToken: Deno.env.get("AWS_SESSION_TOKEN"),
+      service: "s3",
       region: opts.region,
-      endpoint: opts.endpoint,
-      forcePathStyle: opts.forcePathStyle,
-      credentials,
-      requestChecksumCalculation: "WHEN_REQUIRED",
-      responseChecksumValidation: "WHEN_REQUIRED",
+      retries: 0,
     })
     this.cachedClient = { cacheKey, client }
     return client
@@ -97,7 +91,7 @@ export class S3StorageDriver implements StorageDriver {
   ): Promise<{ size: number }> {
     const opts = this.getOptions()
     if (body instanceof Uint8Array) {
-      await this.putStream(opts, key, body, contentType, body.byteLength)
+      await this.putBuffer(opts, key, body, contentType)
       return { size: body.byteLength }
     }
 
@@ -117,57 +111,69 @@ export class S3StorageDriver implements StorageDriver {
   private async putStream(
     opts: S3DriverOptions,
     key: string,
-    body: Uint8Array | ReadableStream<Uint8Array>,
+    body: ReadableStream<Uint8Array>,
     contentType: string,
     contentLength?: number
   ): Promise<void> {
     const client = this.getClient(opts)
-    await client.send(
-      new PutObjectCommand({
-        Bucket: opts.bucket,
-        Key: key,
-        Body: body as never,
-        ContentLength: contentLength,
-        ContentType: contentType,
-      })
-    )
+    const headers: Record<string, string> = {
+      "Content-Type": contentType,
+    }
+    if (contentLength !== undefined) {
+      headers["Content-Length"] = String(contentLength)
+    }
+    const res = await client.fetch(objectUrl(opts, key), {
+      method: "PUT",
+      headers,
+      body,
+    })
+    await assertOk(res, `upload ${key}`)
+  }
+
+  private async putBuffer(
+    opts: S3DriverOptions,
+    key: string,
+    body: Uint8Array,
+    contentType: string
+  ): Promise<void> {
+    const client = this.getClient(opts)
+    const res = await client.fetch(objectUrl(opts, key), {
+      method: "PUT",
+      headers: {
+        "Content-Length": String(body.byteLength),
+        "Content-Type": contentType,
+      },
+      body,
+    })
+    await assertOk(res, `upload ${key}`)
   }
 
   async resolve(key: string): Promise<ResolvedObject | null> {
     const opts = this.getOptions()
     const client = this.getClient(opts)
-    let stat: HeadObjectCommandOutput
-    try {
-      stat = await client.send(
-        new HeadObjectCommand({
-          Bucket: opts.bucket,
-          Key: key,
-        })
-      )
-    } catch (err) {
-      if (isMissing(err)) return null
-      throw err
-    }
+    const stat = await client.fetch(objectUrl(opts, key), { method: "HEAD" })
+    if (stat.status === 404) return null
+    await assertOk(stat, `stat ${key}`)
 
     return {
       stream: (opts) => this.openStream(key, opts?.start, opts?.end),
-      size: Number(stat.ContentLength ?? 0),
-      contentType: stat.ContentType ?? "application/octet-stream",
-      lastModified: stat.LastModified ?? null,
+      size: Number(stat.headers.get("Content-Length") ?? 0),
+      contentType:
+        stat.headers.get("Content-Type") ?? "application/octet-stream",
+      lastModified: parseHttpDate(stat.headers.get("Last-Modified")),
     }
   }
 
   async mintUploadUrl(input: MintUploadUrlInput): Promise<UploadTicket> {
     const opts = this.getOptions()
     const client = this.getClient(opts)
-    const command = new PutObjectCommand({
-      Bucket: opts.bucket,
-      Key: input.key,
-      ContentLength: input.maxBytes,
-      ContentType: input.contentType,
-    })
-    const url = await getSignedUrl(client, command, {
-      expiresIn: input.expiresInSec,
+    const url = await presignUrl(client, objectUrl(opts, input.key), {
+      method: "PUT",
+      expiresInSec: input.expiresInSec,
+      headers: {
+        "Content-Length": String(input.maxBytes),
+        "Content-Type": input.contentType,
+      },
     })
     return {
       uploadUrl: url,
@@ -182,17 +188,9 @@ export class S3StorageDriver implements StorageDriver {
   async delete(key: string): Promise<void> {
     const opts = this.getOptions()
     const client = this.getClient(opts)
-    try {
-      await client.send(
-        new DeleteObjectCommand({
-          Bucket: opts.bucket,
-          Key: key,
-        })
-      )
-    } catch (err) {
-      if (isMissing(err)) return
-      throw err
-    }
+    const res = await client.fetch(objectUrl(opts, key), { method: "DELETE" })
+    if (res.status === 404) return
+    await assertOk(res, `delete ${key}`)
   }
 
   async downloadToFile(key: string, destPath: string): Promise<void> {
@@ -224,16 +222,17 @@ export class S3StorageDriver implements StorageDriver {
   }): Promise<{ size: number }> {
     const opts = this.getOptions()
     const client = this.getClient(opts)
-    try {
-      await client.send(
-        new CopyObjectCommand({
-          Bucket: opts.bucket,
-          Key: input.toKey,
-          CopySource: `${opts.bucket}/${encodeCopySourceKey(input.fromKey)}`,
-          ContentType: input.contentType,
-          MetadataDirective: "REPLACE",
-        })
-      )
+    const copyRes = await client.fetch(objectUrl(opts, input.toKey), {
+      method: "PUT",
+      headers: {
+        "Content-Type": input.contentType,
+        "x-amz-copy-source": `${opts.bucket}/${encodeCopySourceKey(
+          input.fromKey
+        )}`,
+        "x-amz-metadata-directive": "REPLACE",
+      },
+    })
+    if (copyRes.ok) {
       const resolved = await this.resolve(input.toKey)
       if (!resolved) {
         throw new Error(
@@ -241,9 +240,8 @@ export class S3StorageDriver implements StorageDriver {
         )
       }
       return { size: resolved.size }
-    } catch (err) {
-      if (!isMissing(err)) throw err
     }
+    if (copyRes.status !== 404) await assertOk(copyRes, `copy ${input.fromKey}`)
 
     const source = await this.resolve(input.fromKey)
     if (!source) {
@@ -266,16 +264,25 @@ export class S3StorageDriver implements StorageDriver {
     const opts = this.getOptions()
     const client = this.getClient(opts)
     const expiresIn = input.expiresInSec || opts.presignExpiresSec
-    const command = new GetObjectCommand({
-      Bucket: opts.bucket,
-      Key: key,
-      ResponseContentType: input.responseContentType,
-      ResponseContentDisposition: input.responseContentDisposition,
-      ResponseCacheControl: input.responseCacheControl,
+    const url = objectUrl(opts, key)
+    if (input.responseContentType) {
+      url.searchParams.set("response-content-type", input.responseContentType)
+    }
+    if (input.responseContentDisposition) {
+      url.searchParams.set(
+        "response-content-disposition",
+        input.responseContentDisposition
+      )
+    }
+    if (input.responseCacheControl) {
+      url.searchParams.set("response-cache-control", input.responseCacheControl)
+    }
+    const signedUrl = await presignUrl(client, url, {
+      method: "GET",
+      expiresInSec: expiresIn,
     })
-    const url = await getSignedUrl(client, command, { expiresIn })
     return {
-      url,
+      url: signedUrl,
       expiresAt: Math.floor(Date.now() / 1000) + expiresIn,
     }
   }
@@ -300,18 +307,16 @@ export class S3StorageDriver implements StorageDriver {
           start === undefined
             ? undefined
             : `bytes=${start}-${end === undefined ? "" : end}`
-        const result = await client.send(
-          new GetObjectCommand({
-            Bucket: opts.bucket,
-            Key: key,
-            Range: range,
-          }),
-          { abortSignal: abortController.signal }
-        )
-        if (!result.Body) {
+        const result = await client.fetch(objectUrl(opts, key), {
+          method: "GET",
+          headers: range ? { Range: range } : undefined,
+          signal: abortController.signal,
+        })
+        await assertOk(result, `read ${key}`)
+        if (!result.body) {
           throw new Error(`s3: ${key} returned an empty body`)
         }
-        reader = toWebReadable(result.Body).getReader()
+        reader = result.body.getReader()
         if (done) {
           await reader.cancel()
           reader.releaseLock()
@@ -362,51 +367,6 @@ export class S3StorageDriver implements StorageDriver {
   }
 }
 
-function toWebReadable(body: unknown): ReadableStream<Uint8Array> {
-  if (
-    body instanceof ReadableStream ||
-    (body && typeof (body as { getReader?: unknown }).getReader === "function")
-  ) {
-    return body as ReadableStream<Uint8Array>
-  }
-  const withTransform = body as
-    | { transformToWebStream?: () => ReadableStream<Uint8Array> }
-    | undefined
-  if (withTransform?.transformToWebStream) {
-    return withTransform.transformToWebStream()
-  }
-  if (isAsyncIterable(body)) return readableFromAsyncIterable(body)
-  throw new Error("s3: unsupported response body stream")
-}
-
-function isAsyncIterable(value: unknown): value is AsyncIterable<Uint8Array> {
-  return (
-    value != null &&
-    typeof (value as { [Symbol.asyncIterator]?: unknown })[
-      Symbol.asyncIterator
-    ] === "function"
-  )
-}
-
-function readableFromAsyncIterable(
-  iterable: AsyncIterable<Uint8Array>
-): ReadableStream<Uint8Array> {
-  const iterator = iterable[Symbol.asyncIterator]()
-  return new ReadableStream({
-    async pull(controller) {
-      const next = await iterator.next()
-      if (next.done) {
-        controller.close()
-        return
-      }
-      controller.enqueue(next.value)
-    },
-    async cancel() {
-      await iterator.return?.()
-    },
-  })
-}
-
 function encodeCopySourceKey(key: string): string {
   return key
     .split("/")
@@ -420,14 +380,73 @@ function normalizeOptional(value: string | undefined): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined
 }
 
-function isMissing(err: unknown): boolean {
-  const name = (err as { name?: string; Code?: string } | null)?.name
-  const code = (err as { name?: string; Code?: string } | null)?.Code
-  return (
-    name === "NotFound" ||
-    name === "NoSuchKey" ||
-    code === "NoSuchKey" ||
-    code === "NotFound" ||
-    code === "ENOENT"
+function objectUrl(opts: S3DriverOptions, key: string): URL {
+  const base = new URL(
+    opts.endpoint ?? `https://s3.${opts.region}.amazonaws.com`
   )
+  const encodedKey = encodeObjectKey(key)
+
+  if (opts.forcePathStyle) {
+    base.pathname = joinUrlPath(base.pathname, opts.bucket, encodedKey)
+    return base
+  }
+
+  if (opts.endpoint) {
+    base.hostname = `${opts.bucket}.${base.hostname}`
+    base.pathname = joinUrlPath(base.pathname, encodedKey)
+    return base
+  }
+
+  base.hostname = `${opts.bucket}.s3.${opts.region}.amazonaws.com`
+  base.pathname = joinUrlPath(base.pathname, encodedKey)
+  return base
+}
+
+function encodeObjectKey(key: string): string {
+  return key
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/")
+}
+
+function joinUrlPath(...parts: string[]): string {
+  const joined = parts
+    .map((part) => part.replace(/^\/+|\/+$/g, ""))
+    .filter((part) => part.length > 0)
+    .join("/")
+  return `/${joined}`
+}
+
+async function presignUrl(
+  client: AwsClient,
+  url: URL,
+  input: {
+    method: string
+    expiresInSec: number
+    headers?: RequestInit["headers"]
+  }
+): Promise<string> {
+  url.searchParams.set("X-Amz-Expires", String(input.expiresInSec))
+  const signed = await client.sign(url, {
+    method: input.method,
+    headers: input.headers,
+    aws: { signQuery: true },
+  })
+  return signed.url
+}
+
+async function assertOk(res: Response, operation: string): Promise<void> {
+  if (res.ok) return
+  const detail = await res.text().catch(() => "")
+  throw new Error(
+    `s3: ${operation} failed with ${res.status} ${res.statusText}${
+      detail ? `: ${detail}` : ""
+    }`
+  )
+}
+
+function parseHttpDate(value: string | null): Date | null {
+  if (!value) return null
+  const time = Date.parse(value)
+  return Number.isNaN(time) ? null : new Date(time)
 }

@@ -128,18 +128,7 @@ export async function resolveTarget(segment: string): Promise<UserRow | null> {
 }
 
 export async function listUserClips(row: UserRow, headers: Headers) {
-  const session = await getSession(headers)
-  const isOwner = session?.user.id === row.id
-  const isAdmin =
-    (session?.user as { role?: string | null } | undefined)?.role === "admin"
-  const conditions: SQL[] = [
-    eq(clip.authorId, row.id),
-    eq(clip.status, "ready"),
-    isNull(user.disabledAt),
-  ]
-  if (!isOwner && !isAdmin) {
-    conditions.push(inArray(clip.privacy, ["public", "unlisted"]))
-  }
+  const conditions = await visibleReadyClipConditions(row, headers)
 
   const rows = await db
     .select(clipSelectShape)
@@ -157,18 +146,7 @@ export async function listUserGames(
   headers: Headers,
   { limit, offset }: z.infer<typeof UserGamesQuery>
 ) {
-  const session = await getSession(headers)
-  const isOwner = session?.user.id === row.id
-  const isAdmin =
-    (session?.user as { role?: string | null } | undefined)?.role === "admin"
-  const conditions: SQL[] = [
-    eq(clip.authorId, row.id),
-    eq(clip.status, "ready"),
-    isNull(user.disabledAt),
-  ]
-  if (!isOwner && !isAdmin) {
-    conditions.push(inArray(clip.privacy, ["public", "unlisted"]))
-  }
+  const conditions = await visibleReadyClipConditions(row, headers)
 
   const lastClippedAt = sql<Date>`max(${clip.createdAt})`
 
@@ -211,6 +189,25 @@ export async function listUserGames(
         ? gameRow.lastClippedAt.toISOString()
         : String(gameRow.lastClippedAt),
   }))
+}
+
+async function visibleReadyClipConditions(
+  row: UserRow,
+  headers: Headers
+): Promise<SQL[]> {
+  const session = await getSession(headers)
+  const isOwner = session?.user.id === row.id
+  const isAdmin =
+    (session?.user as { role?: string | null } | undefined)?.role === "admin"
+  const conditions: SQL[] = [
+    eq(clip.authorId, row.id),
+    eq(clip.status, "ready"),
+    isNull(user.disabledAt),
+  ]
+  if (!isOwner && !isAdmin) {
+    conditions.push(inArray(clip.privacy, ["public", "unlisted"]))
+  }
+  return conditions
 }
 
 export async function listTaggedClips(row: UserRow, headers: Headers) {

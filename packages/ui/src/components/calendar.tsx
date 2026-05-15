@@ -1,5 +1,10 @@
 import * as React from "react"
-import { DayPicker, getDefaultClassNames } from "react-day-picker"
+import {
+  DayPicker,
+  getDefaultClassNames,
+  type DayButton,
+  type Locale,
+} from "react-day-picker"
 
 import {
   ChevronDownIcon,
@@ -9,7 +14,6 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
 import { buttonVariants } from "@workspace/ui/lib/button-variants"
-import type { DayButton, Locale } from "react-day-picker"
 
 function Calendar({
   className,
