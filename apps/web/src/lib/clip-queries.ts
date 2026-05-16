@@ -30,7 +30,7 @@ export function useClipQuery(clipId: string) {
     refetchInterval: (query) => {
       const row = query.state.data
       if (!row) return false
-      return row.status === "encoding" || row.encodeProgress < 100
+      return row.status === "processing" || row.encodeProgress < 100
         ? 2500
         : false
     },

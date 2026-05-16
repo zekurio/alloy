@@ -3,13 +3,7 @@ export type IsoDateString = string
 export const CLIP_PRIVACY = ["public", "unlisted", "private"] as const
 export type ClipPrivacy = (typeof CLIP_PRIVACY)[number]
 
-export const CLIP_STATUS = [
-  "pending",
-  "uploaded",
-  "encoding",
-  "ready",
-  "failed",
-] as const
+export const CLIP_STATUS = ["pending", "processing", "ready", "failed"] as const
 export type ClipStatus = (typeof CLIP_STATUS)[number]
 
 export const NOTIFICATION_TYPES = [
@@ -23,7 +17,7 @@ export const NOTIFICATION_TYPES = [
 ] as const
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 
-export const UPLOAD_TICKET_ROLE = ["video", "thumbnail"] as const
+export const UPLOAD_TICKET_ROLE = ["video"] as const
 export type UploadTicketRole = (typeof UPLOAD_TICKET_ROLE)[number]
 
 export const USER_ROLES = ["user", "admin"] as const
@@ -49,7 +43,6 @@ export interface ClipVariantSettings {
 export interface ClipEncodedVariant {
   id: string
   label: string
-  role?: "source" | "variant" | "openGraph"
   contentType: string
   width: number
   height: number

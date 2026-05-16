@@ -65,21 +65,12 @@ export interface AdminEncoderVariant {
 
 export type EncoderVariant = AdminEncoderVariant
 
-export type EncoderOpenGraphTarget =
-  | { type: "none" }
-  | { type: "source" }
-  | { type: "defaultVariant" }
-  | { type: "variant"; variantId: string }
-
 export interface AdminEncoderConfig {
   enabled: boolean
-  remuxEnabled: boolean
   hwaccel: EncoderHwaccel
   qsvDevice: string
   vaapiDevice: string
-  keepSource: boolean
   defaultVariantId: string | null
-  openGraphTarget: EncoderOpenGraphTarget
   variants: AdminEncoderVariant[]
 }
 

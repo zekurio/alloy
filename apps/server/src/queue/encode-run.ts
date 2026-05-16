@@ -1,40 +1,43 @@
 import { and, eq } from "drizzle-orm"
 
-import { clip, type ClipEncodedVariant } from "@workspace/db/schema"
+import {
+  clip,
+  clipUploadTicket,
+  type ClipEncodedVariant,
+  type ClipVariantSettings,
+} from "@workspace/db/schema"
+import type { AcceptedContentType } from "@workspace/contracts"
 
 import { db } from "../db"
 import { publishClipUpsert } from "../clips/events"
+import { notifyFollowersOfNewClip } from "../notifications"
 import { configStore } from "../config/store"
 import { join } from "../runtime/path"
-import { storage } from "../storage"
-import { probe } from "./ffmpeg"
+import {
+  clipAssetKey,
+  clipOpenGraphVideoKey,
+  clipSourceAssetKey,
+  storage,
+} from "../storage"
+import { deleteScratchUpload, scratchUploadPath } from "../uploads/scratch"
 import { abortEncode } from "./encode-abort"
 import { makeProgressWriter } from "./encode-progress"
+import { codecNameFor, encode, probe, thumbnail } from "./ffmpeg"
+import { planReuse, resolveVariantSettings } from "./encode-variant-helpers"
+import { buildVariantPlan, type VariantSpec } from "./variant-specs"
 import {
-  planReuse,
-  pruneStaleVariants,
-  resolveVariantSettings,
-} from "./encode-variant-helpers"
-import { buildVariantSpecs } from "./variant-specs"
-import {
-  encodeVariants,
   ensureClipStillPresent,
   makeScratchDir,
-  publishEncodedVariants,
-  publishOpenGraphVariant,
-  publishSourceOnlyClip,
   resolveTrim,
-  tryPublishRemux,
 } from "./encode-run-helpers"
-import {
-  findSourceVariant,
-  isRemuxedSourceKey,
-  makeSourceVariant,
-  mergeVariantSets,
-  promoteProcessingSource,
-} from "./encode-source-helpers"
 
 type ClipRow = typeof clip.$inferSelect
+
+type Asset = {
+  storageKey: string
+  contentType: string
+  sizeBytes: number
+}
 
 export async function runEncodeInner(
   clipId: string,
@@ -43,8 +46,24 @@ export async function runEncodeInner(
   signal: AbortSignal
 ): Promise<void> {
   const scratchDir = await makeScratchDir(clipId)
+  const uploadedKeys: string[] = []
+  let retainedSourceKey: string | null = null
   try {
-    await runPipelineInScratch(clipId, row, runId, scratchDir, signal)
+    await runPipelineInScratch({
+      clipId,
+      row,
+      runId,
+      signal,
+      scratchDir,
+      uploadedKeys,
+      setSourceAsset: (asset) => {
+        retainedSourceKey = asset.storageKey
+      },
+    })
+  } catch (err) {
+    await cleanupFailedRun(uploadedKeys, retainedSourceKey)
+    await deleteScratchUpload(await selectScratchUploadKey(clipId))
+    throw err
   } finally {
     await Deno.remove(scratchDir, { recursive: true }).catch(() => {
       // Best-effort: a stray scratch dir is a capacity issue, not data loss.
@@ -52,22 +71,40 @@ export async function runEncodeInner(
   }
 }
 
-async function runPipelineInScratch(
-  clipId: string,
-  row: ClipRow,
-  runId: string,
-  scratchDir: string,
+async function runPipelineInScratch({
+  clipId,
+  row,
+  runId,
+  signal,
+  scratchDir,
+  uploadedKeys,
+  setSourceAsset,
+}: {
+  clipId: string
+  row: ClipRow
+  runId: string
   signal: AbortSignal
-): Promise<void> {
-  const originalSourceKey = row.storageKey
+  scratchDir: string
+  uploadedKeys: string[]
+  setSourceAsset: (asset: Asset) => void
+}): Promise<void> {
+  const sourceContentType = row.sourceContentType as AcceptedContentType | null
+  if (!sourceContentType) throw new Error("Clip is missing source content type")
+
   const sourcePath = join(scratchDir, "source")
-  await storage.downloadToFile(originalSourceKey, sourcePath)
+  if (row.sourceKey) {
+    await storage.downloadToFile(row.sourceKey, sourcePath)
+  } else {
+    const uploadKey = await selectScratchUploadKey(clipId)
+    if (!uploadKey) throw new Error("Uploaded source is missing")
+    await Deno.copyFile(scratchUploadPath(uploadKey), sourcePath)
+  }
   await ensureClipStillPresent(clipId, runId, signal)
 
   const [published] = await db
     .update(clip)
     .set({
-      status: "encoding",
+      status: "processing",
       encodeProgress: 0,
       failureReason: null,
       updatedAt: new Date(),
@@ -78,20 +115,64 @@ async function runPipelineInScratch(
   void publishClipUpsert(row.authorId, clipId)
 
   const probed = await probe(sourcePath)
-  await ensureClipStillPresent(clipId, runId, signal)
-
-  const sourceAlreadyRemuxed = isRemuxedSourceKey(clipId, originalSourceKey)
-  const trim = sourceAlreadyRemuxed
-    ? { startMs: null, endMs: null }
-    : resolveTrim(row, probed.durationMs)
+  const trim = resolveTrim(row, probed.durationMs)
   const outputDurationMs =
     trim.startMs != null && trim.endMs != null
       ? Math.max(1, trim.endMs - trim.startMs)
       : probed.durationMs
 
-  const [probedUpdate] = await db
+  const encoderConfig = configStore.get("encoder")
+  const variantPlan = encoderConfig.enabled
+    ? buildVariantPlan(
+        clipId,
+        probed.height,
+        encoderConfig.variants,
+        encoderConfig.defaultVariantId
+      )
+    : { specs: [], skipped: [] }
+  const variantSpecs = variantPlan.specs
+  if (variantPlan.skipped.length > 0) {
+    console.info(
+      `[encode] clip ${clipId}: skipped variants: ${variantPlan.skipped
+        .map((variant) => `${variant.id} (${variant.reason})`)
+        .join(", ")}`
+    )
+  }
+
+  const totalWork = 4 + variantSpecs.length
+  let completedWork = 0
+  const writeProgress = makeProgressWriter(clipId, row.authorId, runId)
+  const completeWork = () => {
+    completedWork += 1
+    writeProgress(Math.min(99, Math.floor((completedWork / totalWork) * 100)))
+  }
+  const writeVariantProgress = (variantPct: number) => {
+    writeProgress(
+      Math.min(
+        99,
+        Math.floor(((completedWork + variantPct / 100) / totalWork) * 100)
+      )
+    )
+  }
+
+  const sourceKey =
+    row.sourceKey ?? clipSourceAssetKey(clipId, sourceContentType)
+  const sourceUpload = row.sourceKey
+    ? { size: row.sourceSizeBytes ?? (await Deno.stat(sourcePath)).size }
+    : await storage.uploadFromFile(sourcePath, sourceKey, sourceContentType)
+  if (!row.sourceKey) uploadedKeys.push(sourceKey)
+  const sourceAsset = {
+    storageKey: sourceKey,
+    contentType: sourceContentType,
+    sizeBytes: sourceUpload.size,
+  }
+  setSourceAsset(sourceAsset)
+  const [sourcePublished] = await db
     .update(clip)
     .set({
+      sourceKey: sourceAsset.storageKey,
+      sourceContentType: sourceAsset.contentType,
+      sourceSizeBytes: sourceAsset.sizeBytes,
       durationMs: outputDurationMs,
       width: probed.width,
       height: probed.height,
@@ -99,230 +180,251 @@ async function runPipelineInScratch(
     })
     .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
     .returning({ id: clip.id })
-  if (!probedUpdate) throw abortEncode()
+  if (!sourcePublished) throw abortEncode()
+  completeWork()
 
-  const encoderConfig = configStore.get("encoder")
-  const writeProgress = makeProgressWriter(clipId, row.authorId, runId)
-  const preservedSource = sourceAlreadyRemuxed
-    ? {
-        storageKey: originalSourceKey,
-        contentType: row.contentType,
-        sizeBytes: row.sizeBytes ?? 0,
-      }
-    : await promoteProcessingSource({
-        clipId,
-        row,
-        originalSourceKey,
-        contentType: row.contentType,
-        probed,
-        runId,
-      })
-
-  let processingPath = sourcePath
-  let processingKey = preservedSource.storageKey
-  let processingContentType = preservedSource.contentType
-  let processingSizeBytes = preservedSource.sizeBytes
-  let sourceVariant: ClipEncodedVariant | null = null
-  let encodeTrim = trim
-  let remuxedSource: { path: string; variant: ClipEncodedVariant } | null = null
-  let canonicalSourceKey = preservedSource.storageKey
-
-  if (sourceAlreadyRemuxed && encoderConfig.keepSource) {
-    sourceVariant =
-      findSourceVariant(row.variants) ??
-      makeSourceVariant({
-        storageKey: preservedSource.storageKey,
-        contentType: preservedSource.contentType,
-        width: probed.width,
-        height: probed.height,
-        sizeBytes: preservedSource.sizeBytes,
-        isDefault: !encoderConfig.enabled,
-        trim,
-      })
-  }
-
-  if (encoderConfig.remuxEnabled && !sourceAlreadyRemuxed) {
-    const remuxed = await tryPublishRemux({
-      clipId,
-      row,
-      sourcePath,
-      scratchDir,
-      trim,
-      signal,
-      exposeSource: encoderConfig.keepSource,
-      runId,
-    })
-    if (remuxed) {
-      remuxedSource = remuxed
-      processingPath = remuxed.path
-      processingKey = remuxed.variant.storageKey
-      processingContentType = remuxed.variant.contentType
-      processingSizeBytes = remuxed.variant.sizeBytes
-      sourceVariant = encoderConfig.keepSource ? remuxed.variant : null
-      encodeTrim = { startMs: null, endMs: null }
-      if (trim.startMs != null && trim.endMs != null) {
-        canonicalSourceKey = remuxed.variant.storageKey
-        await storage.delete(preservedSource.storageKey).catch(() => undefined)
-      }
-    } else if (!encoderConfig.enabled) {
-      throw new Error("Remux failed and variant encoding is disabled")
-    }
-  }
-
-  if (
-    !sourceAlreadyRemuxed &&
-    (!encoderConfig.remuxEnabled || !remuxedSource)
-  ) {
-    sourceVariant = encoderConfig.keepSource
-      ? makeSourceVariant({
-          storageKey: preservedSource.storageKey,
-          contentType: preservedSource.contentType,
-          width: probed.width,
-          height: probed.height,
-          sizeBytes: preservedSource.sizeBytes,
-          isDefault: !encoderConfig.enabled,
-          trim,
-        })
-      : null
-  }
-
-  const openGraphVariant = await publishOpenGraphVariant({
+  await ensureClipStillPresent(clipId, runId, signal)
+  const openGraph = await publishOpenGraph({
     clipId,
-    row,
-    source: preservedSource,
     sourcePath,
     scratchDir,
     probed,
     trim,
-    config: encoderConfig,
     signal,
-    runId,
   })
+  uploadedKeys.push(openGraph.storageKey)
+  completeWork()
 
-  if (!encoderConfig.enabled) {
-    await publishSourceOnlyClip({
-      clipId,
-      authorId: row.authorId,
-      row,
-      sourceVariant:
-        sourceVariant ??
-        makeSourceVariant({
-          storageKey: processingKey,
-          contentType: processingContentType,
-          width: probed.width,
-          height: probed.height,
-          sizeBytes: processingSizeBytes,
-          isDefault: true,
-          trim,
-        }),
-      retainedVariants: [openGraphVariant],
-      runId,
-    })
-    return
-  }
+  await ensureClipStillPresent(clipId, runId, signal)
+  const thumbKey = clipAssetKey(clipId, "thumb")
+  const thumbPath = join(scratchDir, "thumb.jpg")
+  await thumbnail(sourcePath, thumbPath, {
+    atMs: Math.min(outputDurationMs - 1, Math.max(0, outputDurationMs / 3)),
+    signal,
+  })
+  await storage.uploadFromFile(thumbPath, thumbKey, "image/jpeg")
+  uploadedKeys.push(thumbKey)
+  completeWork()
 
-  const variantSpecs = buildVariantSpecs(
-    clipId,
-    probed.height,
-    encoderConfig.variants,
-    encoderConfig.defaultVariantId,
-    runId
-  )
-  if (variantSpecs.length === 0) {
-    if (sourceVariant) {
-      await publishSourceOnlyClip({
-        clipId,
-        authorId: row.authorId,
-        row,
-        sourceVariant,
-        retainedVariants: [openGraphVariant],
-        runId,
-      })
-      return
-    }
-    throw new Error(
-      "Variant encoding is enabled but no variants are eligible for this source resolution"
-    )
-  }
   const targetSettings = variantSpecs.map((spec) =>
-    resolveVariantSettings(
-      spec,
-      encoderConfig,
-      encodeTrim.startMs,
-      encodeTrim.endMs
-    )
+    resolveVariantSettings(spec, encoderConfig, trim.startMs, trim.endMs)
   )
-
-  const rowForReuse = sourceVariant
-    ? {
-        ...row,
-        storageKey: canonicalSourceKey,
-        variants: mergeVariantSets(row.variants, [
-          sourceVariant,
-          openGraphVariant,
-        ]),
-      }
-    : {
-        ...row,
-        storageKey: canonicalSourceKey,
-        variants: mergeVariantSets(row.variants, [openGraphVariant]),
-      }
-  const reusedBySpecIndex = await planReuse(
-    rowForReuse,
-    variantSpecs,
-    targetSettings
-  )
-  await pruneStaleVariants(rowForReuse, reusedBySpecIndex, sourceVariant, [
-    openGraphVariant,
-  ])
-
-  const encodedVariants = await encodeVariants({
+  const reusedBySpecIndex = await planReuse(row, variantSpecs, targetSettings)
+  const encodedVariants = await encodePlaybackVariants({
     clipId,
-    reuse: reusedBySpecIndex,
-    paths: { sourcePath: processingPath, scratchDir },
     specs: variantSpecs,
     settings: targetSettings,
-    config: encoderConfig,
-    duration: outputDurationMs,
-    trim: encodeTrim,
-    signal,
+    reuse: reusedBySpecIndex,
+    sourcePath,
+    scratchDir,
+    durationMs: outputDurationMs,
+    trim,
     runId,
-    writeProgress,
-    onVariant: (variants, progress) =>
-      publishEncodedVariants({
-        clipId,
-        authorId: row.authorId,
-        variants,
-        sourceVariant,
-        retainedVariants: [openGraphVariant],
-        progress,
-        runId,
-      }),
+    signal,
+    writeVariantProgress,
+    onVariantUploaded: (key) => uploadedKeys.push(key),
+    completeWork,
   })
 
-  const defaultVariant =
-    encodedVariants.find((variant) => variant.isDefault) ?? encodedVariants[0]
-  if (!defaultVariant) {
-    throw new Error(`No encoded variants were produced for clip ${clipId}`)
+  await ensureClipStillPresent(clipId, runId, signal)
+  const publishState = await db.transaction(async (tx) => {
+    const [previous] = await tx
+      .select({ status: clip.status, privacy: clip.privacy })
+      .from(clip)
+      .where(eq(clip.id, clipId))
+      .limit(1)
+      .for("update")
+    const [updated] = await tx
+      .update(clip)
+      .set({
+        status: "ready",
+        sourceKey: sourceAsset.storageKey,
+        sourceContentType: sourceAsset.contentType,
+        sourceSizeBytes: sourceAsset.sizeBytes,
+        openGraphKey: openGraph.storageKey,
+        openGraphContentType: openGraph.contentType,
+        openGraphSizeBytes: openGraph.sizeBytes,
+        thumbKey,
+        durationMs: outputDurationMs,
+        width: probed.width,
+        height: probed.height,
+        variants: encodedVariants,
+        encodeProgress: 100,
+        encodeRunId: null,
+        encodeLockedAt: null,
+        failureReason: null,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
+      .returning({ status: clip.status, privacy: clip.privacy })
+    return { previous, updated }
+  })
+  if (!publishState.updated) throw abortEncode()
+  await deleteScratchUpload(await selectScratchUploadKey(clipId))
+  completeWork()
+  void publishClipUpsert(row.authorId, clipId)
+  if (
+    publishState.previous?.status !== "ready" &&
+    publishState.updated.privacy === "public"
+  ) {
+    void notifyFollowersOfNewClip({ authorId: row.authorId, clipId })
+  }
+}
+
+async function selectScratchUploadKey(clipId: string): Promise<string | null> {
+  const [ticket] = await db
+    .select({ storageKey: clipUploadTicket.storageKey })
+    .from(clipUploadTicket)
+    .where(
+      and(
+        eq(clipUploadTicket.clipId, clipId),
+        eq(clipUploadTicket.role, "video")
+      )
+    )
+    .limit(1)
+  return ticket?.storageKey ?? null
+}
+
+async function publishOpenGraph({
+  clipId,
+  sourcePath,
+  scratchDir,
+  probed,
+  trim,
+  signal,
+}: {
+  clipId: string
+  sourcePath: string
+  scratchDir: string
+  probed: Awaited<ReturnType<typeof probe>>
+  trim: { startMs: number | null; endMs: number | null }
+  signal: AbortSignal
+}): Promise<Asset & { width: number; height: number }> {
+  const config = configStore.get("encoder")
+  const targetHeight = Math.min(probed.height, 1080)
+  const outPath = join(scratchDir, "opengraph.mp4")
+  await encode(sourcePath, outPath, {
+    config: {
+      hwaccel: config.hwaccel,
+      encoder: codecNameFor(config.hwaccel, "h264"),
+      quality: 23,
+      audioBitrateKbps: 256,
+      extraInputArgs: "",
+      extraOutputArgs: "",
+      qsvDevice: config.qsvDevice,
+      vaapiDevice: config.vaapiDevice,
+    },
+    targetHeight,
+    durationMs:
+      trim.startMs != null && trim.endMs != null
+        ? Math.max(1, trim.endMs - trim.startMs)
+        : probed.durationMs,
+    onProgress: () => undefined,
+    trimStartMs: trim.startMs,
+    trimEndMs: trim.endMs,
+    signal,
+  })
+  const variantProbe = await probe(outPath)
+  const storageKey = clipOpenGraphVideoKey(clipId)
+  const { size } = await storage.uploadFromFile(
+    outPath,
+    storageKey,
+    "video/mp4"
+  )
+  return {
+    storageKey,
+    contentType: "video/mp4",
+    sizeBytes: size,
+    width: variantProbe.width,
+    height: variantProbe.height,
+  }
+}
+
+async function encodePlaybackVariants(opts: {
+  clipId: string
+  specs: VariantSpec[]
+  settings: ClipVariantSettings[]
+  reuse: Map<number, ClipEncodedVariant>
+  sourcePath: string
+  scratchDir: string
+  durationMs: number
+  trim: { startMs: number | null; endMs: number | null }
+  runId: string
+  signal: AbortSignal
+  writeVariantProgress: (pct: number) => void
+  onVariantUploaded: (storageKey: string) => void
+  completeWork: () => void
+}): Promise<ClipEncodedVariant[]> {
+  const config = configStore.get("encoder")
+  const encodedVariants: ClipEncodedVariant[] = []
+
+  for (const [index, spec] of opts.specs.entries()) {
+    await ensureClipStillPresent(opts.clipId, opts.runId, opts.signal)
+    const reuse = opts.reuse.get(index)
+    if (reuse) {
+      encodedVariants.push({
+        ...reuse,
+        id: spec.id,
+        label: spec.label,
+        isDefault: spec.isDefault,
+      })
+      opts.completeWork()
+      continue
+    }
+
+    const variantPath = join(opts.scratchDir, `${spec.id}.mp4`)
+    await encode(opts.sourcePath, variantPath, {
+      config: {
+        hwaccel: config.hwaccel,
+        encoder: codecNameFor(config.hwaccel, spec.override.codec),
+        quality: spec.override.quality,
+        preset: spec.override.preset,
+        audioBitrateKbps: spec.override.audioBitrateKbps,
+        extraInputArgs: spec.override.extraInputArgs,
+        extraOutputArgs: spec.override.extraOutputArgs,
+        qsvDevice: config.qsvDevice,
+        vaapiDevice: config.vaapiDevice,
+      },
+      targetHeight: spec.height,
+      durationMs: opts.durationMs,
+      onProgress: opts.writeVariantProgress,
+      trimStartMs: opts.trim.startMs,
+      trimEndMs: opts.trim.endMs,
+      signal: opts.signal,
+    })
+
+    await ensureClipStillPresent(opts.clipId, opts.runId, opts.signal)
+    const variantProbe = await probe(variantPath)
+    const { size } = await storage.uploadFromFile(
+      variantPath,
+      spec.storageKey,
+      "video/mp4"
+    )
+    opts.onVariantUploaded(spec.storageKey)
+    encodedVariants.push({
+      id: spec.id,
+      label: spec.label,
+      storageKey: spec.storageKey,
+      contentType: "video/mp4",
+      width: variantProbe.width,
+      height: variantProbe.height,
+      sizeBytes: size,
+      isDefault: spec.isDefault,
+      settings: opts.settings[index],
+    })
+    opts.completeWork()
   }
 
-  const [finalPublished] = await db
-    .update(clip)
-    .set({
-      status: "ready",
-      encodeProgress: 100,
-      failureReason: null,
-      variants: sourceVariant
-        ? mergeVariantSets(mergeVariantSets(encodedVariants, [sourceVariant]), [
-            openGraphVariant,
-          ])
-        : mergeVariantSets(encodedVariants, [openGraphVariant]),
-      encodeRunId: null,
-      encodeLockedAt: null,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
-    .returning({ id: clip.id })
-  if (!finalPublished) throw abortEncode()
-  void publishClipUpsert(row.authorId, clipId)
+  return encodedVariants
+}
+
+async function cleanupFailedRun(
+  uploadedKeys: readonly string[],
+  retainedSourceKey: string | null
+): Promise<void> {
+  await Promise.allSettled(
+    [...new Set(uploadedKeys)]
+      .filter((key) => key !== retainedSourceKey)
+      .map((key) => storage.delete(key))
+  )
 }

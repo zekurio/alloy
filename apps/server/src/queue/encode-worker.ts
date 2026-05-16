@@ -157,7 +157,7 @@ async function runEncode(clipId: string): Promise<void> {
   const [row] = await db
     .update(clip)
     .set({
-      status: "encoding",
+      status: "processing",
       encodeRunId: runId,
       encodeLockedAt: new Date(),
       encodeAttempt: sql`${clip.encodeAttempt} + 1`,
@@ -204,8 +204,7 @@ async function runEncode(clipId: string): Promise<void> {
 function encodeLeaseConditions(): [SQL, SQL] {
   return [
     or(
-      eq(clip.status, "uploaded"),
-      eq(clip.status, "encoding"),
+      eq(clip.status, "processing"),
       and(eq(clip.status, "ready"), lt(clip.encodeProgress, 100))
     )!,
     or(
