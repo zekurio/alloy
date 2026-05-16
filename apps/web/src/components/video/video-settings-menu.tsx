@@ -30,6 +30,7 @@ export function VideoSettingsMenu({
   onSelectQuality,
   onOpenChange,
   triggerClassName,
+  triggerIconClassName,
   triggerStyle,
   contentClassName,
   contentStyle,
@@ -40,6 +41,7 @@ export function VideoSettingsMenu({
   onSelectQuality?: (qualityId: string) => void
   onOpenChange?: (open: boolean) => void
   triggerClassName?: string
+  triggerIconClassName?: string
   triggerStyle?: React.CSSProperties
   contentClassName?: string
   contentStyle?: React.CSSProperties
@@ -68,7 +70,7 @@ export function VideoSettingsMenu({
             className={triggerClassName}
             style={triggerStyle}
           >
-            <SettingsIcon strokeWidth={1.5} />
+            <SettingsIcon className={triggerIconClassName} />
           </Button>
         }
       />

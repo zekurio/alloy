@@ -7,7 +7,7 @@
     "./app": "./src/app.ts"
   },
   "scripts": {
-    "dev": "NODE_ENV=development PORT=3000 PUBLIC_SERVER_URL=http://localhost:3000 TRUSTED_ORIGINS=http://localhost:5173 deno run --watch --allow-env --allow-net --allow-read --allow-write --allow-run --allow-ffi src/index.ts",
+    "dev": "NODE_ENV=development PORT=3000 PUBLIC_SERVER_URL=http://localhost:3000 TRUSTED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173 deno run --watch --allow-env --allow-net --allow-read --allow-write --allow-run --allow-ffi src/index.ts",
     "start:prod": "NODE_ENV=production deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-ffi --allow-sys=osRelease src/index.ts",
     "build": "tsgo --noEmit && mkdir -p dist && deno cache src/index.ts && touch dist/server-cache-ok",
     "lint": "oxlint .",

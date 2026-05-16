@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator"
-import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import { Hono, type Context } from "hono"
 import { z } from "zod"
 
@@ -23,6 +23,7 @@ import {
 } from "../config/store"
 import { enqueueEncode } from "../queue"
 import { getEncoderCapabilities } from "./admin-encoder-capabilities"
+import { generateLoginSplashPatch } from "./admin-appearance"
 import {
   REDACTED_SENTINEL,
   adminRuntimeConfigResponse,
@@ -35,7 +36,6 @@ import {
 } from "./admin-helpers"
 
 const RE_ENCODE_BATCH_LIMIT = 100
-const LOGIN_SPLASH_CLIP_LIMIT = 24
 
 const RuntimeConfigPatch = z.object({
   setupComplete: z.boolean().optional(),
@@ -101,32 +101,6 @@ async function signInConfigError(config: {
     return "Keep at least one active admin sign-in method before disabling passkeys or OAuth."
   }
   return null
-}
-
-async function selectRandomPublicSplashClipIds(): Promise<string[]> {
-  const rows = await db
-    .select({ id: clip.id })
-    .from(clip)
-    .innerJoin(user, eq(clip.authorId, user.id))
-    .where(
-      and(
-        eq(clip.status, "ready"),
-        eq(clip.privacy, "public"),
-        isNotNull(clip.thumbKey),
-        isNull(user.disabledAt)
-      )
-    )
-    .orderBy(sql`random()`)
-    .limit(LOGIN_SPLASH_CLIP_LIMIT)
-  return rows.map((row) => row.id)
-}
-
-async function generateLoginSplashPatch(enabled = true) {
-  return {
-    enabled,
-    clipIds: await selectRandomPublicSplashClipIds(),
-    generatedAt: new Date().toISOString(),
-  }
 }
 
 export const adminRoute = new Hono()

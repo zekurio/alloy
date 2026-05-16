@@ -22,18 +22,23 @@ function serverUrl(mode: string): string {
 const config = defineConfig(({ mode }) => ({
   publicDir: "../../public",
   server: {
-    host: "localhost",
+    host: true,
     port: 5173,
     strictPort: true,
     proxy: {
       "/api": {
         target: serverUrl(mode),
         changeOrigin: true,
+        configure(proxy) {
+          proxy.on("proxyReq", (proxyReq) => {
+            proxyReq.setHeader("Origin", serverUrl(mode))
+          })
+        },
       },
     },
   },
   preview: {
-    host: "localhost",
+    host: true,
     port: 5173,
     strictPort: true,
   },

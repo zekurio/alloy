@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useMediaQuery } from "@workspace/ui/hooks/use-media-query"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { usePlayThreshold } from "./video-player-hooks"
@@ -12,6 +13,13 @@ import {
   type LoadStatus,
   type VideoKeyCommand,
 } from "./video-player-shell"
+import {
+  mediaErrorMessage,
+  sourceSpecKey,
+  toSourceSpec,
+  useMediaUrl,
+  type SourceSpec,
+} from "./video-source"
 
 export { VolumeControl } from "./video-volume-control"
 
@@ -38,9 +46,7 @@ type SharedPlayerProps = {
   onPlaybackError?: (message: string) => void
   onPlayThreshold?: () => void
   onEnded?: () => void
-  autoAdvance?: boolean
-  onAutoAdvanceChange?: (next: boolean) => void
-  chromeSize?: "default" | "compact" | "minimal"
+  chromeSize?: "default" | "compact"
   shortcutBounds?: {
     start: number
     end: number
@@ -67,37 +73,6 @@ interface VideoPlayerProps extends SharedPlayerProps {
   loop?: boolean
   muted?: boolean
   playbackRate?: number
-}
-
-type SourceSpec = { kind: "url"; url: string } | { kind: "file"; file: File }
-
-function toSourceSpec(src: string | File): SourceSpec {
-  return typeof src === "string"
-    ? { kind: "url", url: src }
-    : { kind: "file", file: src }
-}
-
-function sourceSpecKey(spec: SourceSpec): string {
-  return spec.kind === "url"
-    ? `url:${spec.url}`
-    : `file:${spec.file.name}:${spec.file.size}:${spec.file.lastModified}`
-}
-
-function useMediaUrl(spec: SourceSpec): string | null {
-  const [objectUrl, setObjectUrl] = React.useState<string | null>(null)
-
-  React.useEffect(() => {
-    if (spec.kind === "url") {
-      setObjectUrl(null)
-      return
-    }
-
-    const url = URL.createObjectURL(spec.file)
-    setObjectUrl(url)
-    return () => URL.revokeObjectURL(url)
-  }, [spec])
-
-  return spec.kind === "url" ? spec.url : objectUrl
 }
 
 export function VideoPlayer({
@@ -160,8 +135,6 @@ function PlayerCore({
   onPlaybackError,
   onPlayThreshold,
   onEnded,
-  autoAdvance,
-  onAutoAdvanceChange,
   chromeSize = "default",
   shortcutBounds,
   qualityOptions,
@@ -177,6 +150,7 @@ function PlayerCore({
   const playingRef = React.useRef(false)
   const volumeRef = React.useRef(1)
   const mutedRef = React.useRef(initialMuted)
+  const chromeHideTimerRef = React.useRef<number | null>(null)
 
   const [status, setStatus] = React.useState<LoadStatus>({ kind: "loading" })
   const [duration, setDuration] = React.useState(0)
@@ -186,6 +160,25 @@ function PlayerCore({
   const [volume, setVolumeState] = React.useState(1)
   const [muted, setMutedState] = React.useState(initialMuted)
   const [hasRenderedFrame, setHasRenderedFrame] = React.useState(false)
+  const [chromeVisible, setChromeVisible] = React.useState(true)
+  const isCoarsePointer = useMediaQuery("(pointer: coarse)")
+
+  const clearChromeHideTimer = React.useCallback(() => {
+    if (chromeHideTimerRef.current === null) return
+    window.clearTimeout(chromeHideTimerRef.current)
+    chromeHideTimerRef.current = null
+  }, [])
+
+  const scheduleChromeHide = React.useCallback(
+    (delayMs = isCoarsePointer ? 2600 : 1600) => {
+      clearChromeHideTimer()
+      chromeHideTimerRef.current = window.setTimeout(() => {
+        setChromeVisible(false)
+        chromeHideTimerRef.current = null
+      }, delayMs)
+    },
+    [clearChromeHideTimer, isCoarsePointer]
+  )
 
   const onTimeUpdateRef = React.useRef(onTimeUpdate)
   const onPlayingChangeRef = React.useRef(onPlayingChange)
@@ -238,7 +231,16 @@ function PlayerCore({
     setBufferedEnd(0)
     setHasRenderedFrame(false)
     setPlayingState(false)
-  }, [identity, mediaUrl, setPlayingState])
+    clearChromeHideTimer()
+    setChromeVisible(!(isCoarsePointer && autoPlay))
+  }, [
+    autoPlay,
+    clearChromeHideTimer,
+    identity,
+    isCoarsePointer,
+    mediaUrl,
+    setPlayingState,
+  ])
 
   const reportError = React.useCallback(() => {
     const video = videoRef.current
@@ -407,6 +409,22 @@ function PlayerCore({
     }
   }, [])
 
+  React.useEffect(() => {
+    if (typeof document === "undefined") return
+
+    const onFullscreenChange = () => {
+      const nextIsFullscreen =
+        document.fullscreenElement === containerRef.current
+      if (nextIsFullscreen && isCoarsePointer) screen.orientation?.unlock?.()
+      setChromeVisible(true)
+    }
+
+    onFullscreenChange()
+    document.addEventListener("fullscreenchange", onFullscreenChange)
+    return () =>
+      document.removeEventListener("fullscreenchange", onFullscreenChange)
+  }, [isCoarsePointer])
+
   const keyCommand = React.useMemo<VideoKeyCommand>(
     () => ({
       togglePlay,
@@ -482,8 +500,29 @@ function PlayerCore({
   React.useEffect(() => {
     return () => {
       if (activeVideoPlayerId === playerId) activeVideoPlayerId = null
+      clearChromeHideTimer()
     }
-  }, [playerId])
+  }, [clearChromeHideTimer, playerId])
+
+  React.useEffect(() => {
+    if (isCoarsePointer && autoPlay) {
+      clearChromeHideTimer()
+      setChromeVisible(false)
+      return
+    }
+    if (playing) {
+      scheduleChromeHide()
+    } else {
+      clearChromeHideTimer()
+      if (!isCoarsePointer) setChromeVisible(true)
+    }
+  }, [
+    autoPlay,
+    clearChromeHideTimer,
+    isCoarsePointer,
+    playing,
+    scheduleChromeHide,
+  ])
 
   usePlayThreshold({
     playing,
@@ -519,6 +558,44 @@ function PlayerCore({
     syncTime()
     syncBuffered()
   }, [syncBuffered, syncTime])
+
+  const handleChromePointerMove = React.useCallback(() => {
+    if (isCoarsePointer) return
+    setChromeVisible(true)
+    if (playingRef.current) scheduleChromeHide()
+  }, [isCoarsePointer, scheduleChromeHide])
+
+  const handleChromePointerLeave = React.useCallback(() => {
+    if (isCoarsePointer) return
+    clearChromeHideTimer()
+    setChromeVisible(false)
+  }, [clearChromeHideTimer, isCoarsePointer])
+
+  const handleControlledVideoClick = React.useCallback(
+    (event: React.MouseEvent<HTMLVideoElement>) => {
+      onVideoClick?.(event)
+
+      if (isCoarsePointer) {
+        setChromeVisible((current) => {
+          const next = !current
+          if (next) scheduleChromeHide()
+          else clearChromeHideTimer()
+          return next
+        })
+        return
+      }
+
+      setChromeVisible(true)
+      togglePlay()
+    },
+    [
+      clearChromeHideTimer,
+      isCoarsePointer,
+      onVideoClick,
+      scheduleChromeHide,
+      togglePlay,
+    ]
+  )
 
   const renderVideo = (
     clickHandler?: React.MouseEventHandler<HTMLVideoElement>
@@ -591,10 +668,11 @@ function PlayerCore({
       maxDisplayHeight={maxDisplayHeight}
       playing={playing}
       onPointerDown={activatePlayer}
+      onPointerMove={handleChromePointerMove}
+      onPointerLeave={handleChromePointerLeave}
       onFocus={activatePlayer}
       onKeyCommand={keyCommand}
       enableHorizontalSeekShortcuts={enableHorizontalSeekShortcuts}
-      barBelow={chromeSize === "minimal"}
       bar={
         <ChromeBar
           containerRef={containerRef}
@@ -602,9 +680,9 @@ function PlayerCore({
           duration={duration}
           currentTime={currentTime}
           bufferedEnd={bufferedEnd}
+          visible={chromeVisible}
           muted={muted}
           volume={volume}
-          autoAdvance={autoAdvance}
           size={chromeSize}
           onTogglePlay={togglePlay}
           onToggleMute={toggleMute}
@@ -613,33 +691,13 @@ function PlayerCore({
           qualityOptions={qualityOptions}
           selectedQualityId={selectedQualityId}
           onSelectQuality={onSelectQuality}
-          onAutoAdvanceChange={onAutoAdvanceChange}
           onToggleFullscreen={toggleFullscreen}
         />
       }
     >
-      {renderVideo((e: React.MouseEvent<HTMLVideoElement>) => {
-        onVideoClick?.(e)
-        togglePlay()
-      })}
+      {renderVideo(handleControlledVideoClick)}
 
       <LoadOverlay status={status} />
     </ChromeShell>
   )
-}
-
-function mediaErrorMessage(video: HTMLVideoElement | null): string {
-  const error = video?.error
-  switch (error?.code) {
-    case MediaError.MEDIA_ERR_ABORTED:
-      return "Video loading was aborted."
-    case MediaError.MEDIA_ERR_NETWORK:
-      return "Network error while loading the video."
-    case MediaError.MEDIA_ERR_DECODE:
-      return "The browser could not decode this video."
-    case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
-      return "This video source is not supported by the browser."
-    default:
-      return "Video playback failed."
-  }
 }

@@ -5,6 +5,8 @@ import { env } from "../env"
 import { dirname, join, relative, resolve } from "../runtime/path"
 import { signToken } from "../storage/fs-driver"
 
+const Deno = globalThis.Deno
+
 export function clipScratchUploadKey(
   clipId: string,
   contentType: AcceptedContentType

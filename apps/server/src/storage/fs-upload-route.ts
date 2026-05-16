@@ -7,6 +7,9 @@ import { db } from "../db"
 import { configStore } from "../config/store"
 import { ensureScratchParent } from "../uploads/scratch"
 
+const Deno = globalThis.Deno
+type DenoFsFile = Awaited<ReturnType<typeof Deno.open>>
+
 export const storageRoute = new Hono().post("/upload/:token", async (c) => {
   const token = c.req.param("token")
   const decoded = await decodeUploadToken(
@@ -116,7 +119,7 @@ function dirname(value: string): string {
   return index <= 0 ? "/" : value.slice(0, index)
 }
 
-async function writeAll(file: Deno.FsFile, chunk: Uint8Array): Promise<void> {
+async function writeAll(file: DenoFsFile, chunk: Uint8Array): Promise<void> {
   let offset = 0
   while (offset < chunk.byteLength) {
     const written = await file.write(chunk.subarray(offset))

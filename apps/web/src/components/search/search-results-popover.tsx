@@ -149,19 +149,12 @@ function useSearchPopoverState(
   }
 }
 
-export function SearchResultsPopover() {
-  const { query, deferredQuery, open, setOpen, clear } = useAppSearch()
-  const bridgeRef = React.useRef<HTMLSpanElement | null>(null)
-  const listboxId = React.useId()
-
-  const { data, isFetching, error } = useSearchQuery(deferredQuery, {
-    enabled: open && deferredQuery.length > 0,
-  })
-
-  const flat = React.useMemo<FlatItem[]>(() => {
+function useFlatSearchResults(
+  data: ReturnType<typeof useSearchQuery>["data"],
+  listboxId: string
+): FlatItem[] {
+  return React.useMemo<FlatItem[]>(() => {
     if (!data) return []
-    // Order matches the rendering split below so `activeIndex` maps to
-    // the right row.
     return [
       ...data.games.map<FlatItem>((row) => ({
         kind: "game",
@@ -183,6 +176,54 @@ export function SearchResultsPopover() {
       })),
     ]
   }, [data, listboxId])
+}
+
+function useSearchInputA11y(
+  bridgeRef: React.RefObject<HTMLSpanElement | null>,
+  showPopover: boolean,
+  listboxId: string,
+  activeOptionId: string | undefined
+): void {
+  React.useEffect(() => {
+    const wrapper = bridgeRef.current?.closest<HTMLElement>(
+      '[data-slot="app-header-search"]'
+    )
+    const input = wrapper?.querySelector<HTMLInputElement>("input")
+    if (!input) return
+
+    input.setAttribute("role", "combobox")
+    input.setAttribute("aria-autocomplete", "list")
+    input.setAttribute("aria-haspopup", "listbox")
+    input.setAttribute("aria-expanded", showPopover ? "true" : "false")
+
+    if (showPopover) input.setAttribute("aria-controls", listboxId)
+    else input.removeAttribute("aria-controls")
+
+    if (activeOptionId)
+      input.setAttribute("aria-activedescendant", activeOptionId)
+    else input.removeAttribute("aria-activedescendant")
+
+    return () => {
+      input.removeAttribute("role")
+      input.removeAttribute("aria-autocomplete")
+      input.removeAttribute("aria-haspopup")
+      input.removeAttribute("aria-expanded")
+      input.removeAttribute("aria-controls")
+      input.removeAttribute("aria-activedescendant")
+    }
+  }, [activeOptionId, bridgeRef, listboxId, showPopover])
+}
+
+export function SearchResultsPopover() {
+  const { query, deferredQuery, open, setOpen, clear } = useAppSearch()
+  const bridgeRef = React.useRef<HTMLSpanElement | null>(null)
+  const listboxId = React.useId()
+
+  const { data, isFetching, error } = useSearchQuery(deferredQuery, {
+    enabled: open && deferredQuery.length > 0,
+  })
+
+  const flat = useFlatSearchResults(data, listboxId)
 
   const {
     activeIndex,
@@ -197,39 +238,7 @@ export function SearchResultsPopover() {
   const activeOptionId =
     showPopover && flat.length > 0 ? flat[activeIndex]?.optionId : undefined
 
-  React.useEffect(() => {
-    const wrapper = bridgeRef.current?.closest<HTMLElement>(
-      '[data-slot="app-header-search"]'
-    )
-    const input = wrapper?.querySelector<HTMLInputElement>("input")
-    if (!input) return
-
-    input.setAttribute("role", "combobox")
-    input.setAttribute("aria-autocomplete", "list")
-    input.setAttribute("aria-haspopup", "listbox")
-    input.setAttribute("aria-expanded", showPopover ? "true" : "false")
-
-    if (showPopover) {
-      input.setAttribute("aria-controls", listboxId)
-    } else {
-      input.removeAttribute("aria-controls")
-    }
-
-    if (activeOptionId) {
-      input.setAttribute("aria-activedescendant", activeOptionId)
-    } else {
-      input.removeAttribute("aria-activedescendant")
-    }
-
-    return () => {
-      input.removeAttribute("role")
-      input.removeAttribute("aria-autocomplete")
-      input.removeAttribute("aria-haspopup")
-      input.removeAttribute("aria-expanded")
-      input.removeAttribute("aria-controls")
-      input.removeAttribute("aria-activedescendant")
-    }
-  }, [activeOptionId, listboxId, showPopover])
+  useSearchInputA11y(bridgeRef, showPopover, listboxId, activeOptionId)
 
   return (
     <>

@@ -1,5 +1,7 @@
 import { z } from "zod"
 
+const Deno = globalThis.Deno
+
 // Deploy-time env only. Anything an admin should be able to change at
 // runtime (OAuth provider, open-registrations) lives in `config/store.ts`.
 
@@ -91,6 +93,7 @@ if (!parsed.success) {
       JSON.stringify(fieldErrors, null, 2)
   )
   Deno.exit(1)
+  throw new Error("Invalid environment variables")
 }
 
 if (
@@ -102,6 +105,7 @@ if (
     "[server/env] PUBLIC_SERVER_URL must be the externally reachable origin in production."
   )
   Deno.exit(1)
+  throw new Error("Invalid production PUBLIC_SERVER_URL")
 }
 
 export const env = parsed.data

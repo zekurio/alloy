@@ -1,5 +1,7 @@
 const SEP = "/"
 
+const Deno = globalThis.Deno
+
 export function isAbsolute(path: string): boolean {
   return path.startsWith(SEP)
 }
