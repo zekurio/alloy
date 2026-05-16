@@ -87,7 +87,7 @@ export const clipsPlaybackRoutes = new Hono()
             ? "no-store"
             : "private, max-age=300"
 
-      if (!isPrivate) {
+      if (!isPrivate && c.req.method !== "HEAD") {
         const direct = await storage.mintDownloadUrl(selected.key, {
           expiresInSec: 900,
           responseContentType: selected.contentType || undefined,
@@ -123,6 +123,7 @@ export const clipsPlaybackRoutes = new Hono()
         c.header("Accept-Ranges", "bytes")
         c.header("Cache-Control", cacheControl)
         c.status(206)
+        if (c.req.method === "HEAD") return c.body(null)
         return stream(c, async (s) => {
           s.onAbort(() => body.cancel().catch(() => undefined))
           await s.pipe(body)
@@ -134,6 +135,7 @@ export const clipsPlaybackRoutes = new Hono()
       c.header("Content-Length", String(resolved.size))
       c.header("Accept-Ranges", "bytes")
       c.header("Cache-Control", cacheControl)
+      if (c.req.method === "HEAD") return c.body(null)
       return stream(c, async (s) => {
         s.onAbort(() => body.cancel().catch(() => undefined))
         await s.pipe(body)
@@ -185,7 +187,7 @@ export const clipsPlaybackRoutes = new Hono()
           ? "no-store"
           : "private, max-age=86400"
 
-    if (!isPrivate) {
+    if (!isPrivate && c.req.method !== "HEAD") {
       const direct = await storage.mintDownloadUrl(key, {
         expiresInSec: 900,
         responseCacheControl: thumbCacheControl,
@@ -199,10 +201,12 @@ export const clipsPlaybackRoutes = new Hono()
     const resolved = await storage.resolve(key)
     if (!resolved) return c.json({ error: "No thumbnail" }, 404)
 
-    const buf = await readAll(resolved.stream())
     c.header("Content-Type", resolved.contentType)
-    c.header("Content-Length", String(buf.byteLength))
+    c.header("Content-Length", String(resolved.size))
     c.header("Cache-Control", thumbCacheControl)
+    if (c.req.method === "HEAD") return c.body(null)
+
+    const buf = await readAll(resolved.stream())
     return c.body(
       buf.buffer.slice(
         buf.byteOffset,
@@ -270,7 +274,7 @@ export const clipsPlaybackRoutes = new Hono()
             ? "no-store"
             : "private, max-age=300"
 
-      if (!isPrivate) {
+      if (!isPrivate && c.req.method !== "HEAD") {
         const direct = await storage.mintDownloadUrl(selected.key, {
           expiresInSec: 900,
           responseContentType: selected.contentType || undefined,
@@ -292,6 +296,7 @@ export const clipsPlaybackRoutes = new Hono()
       c.header("Content-Length", String(resolved.size))
       c.header("Content-Disposition", contentDisposition(selected.filename))
       c.header("Cache-Control", dlCacheControl)
+      if (c.req.method === "HEAD") return c.body(null)
 
       const body = resolved.stream()
       return stream(c, async (s) => {

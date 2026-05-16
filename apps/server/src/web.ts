@@ -240,9 +240,11 @@ export async function mountWeb(app: Hono): Promise<Hono> {
     if (pathname === "/health" || pathname.startsWith("/api/")) {
       return c.notFound()
     }
+    const head = await clipHead(pathname)
     if (
       configStore.get("requireAuthToBrowse") &&
-      !PUBLIC_WEB_PATHS.has(pathname)
+      !PUBLIC_WEB_PATHS.has(pathname) &&
+      !head
     ) {
       const session = await getSession(c)
       if (!session || session.user.status !== "active") {
@@ -250,7 +252,6 @@ export async function mountWeb(app: Hono): Promise<Hono> {
       }
     }
 
-    const head = await clipHead(pathname)
     const html = withInjectedHead(webMount.indexHtml, head)
     c.header("Content-Type", "text/html; charset=utf-8")
     c.header("Cache-Control", "no-cache")
