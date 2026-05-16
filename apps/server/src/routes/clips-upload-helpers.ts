@@ -70,28 +70,16 @@ export async function createUploadTickets(input: {
   videoKey: string
   videoContentType: string
   videoBytes: number
-  thumbKey: string
-  thumbBytes: number
   expiresAt: Date
 }): Promise<void> {
-  await db.insert(clipUploadTicket).values([
-    {
-      clipId: input.clipId,
-      role: "video",
-      storageKey: input.videoKey,
-      contentType: input.videoContentType,
-      expectedBytes: input.videoBytes,
-      expiresAt: input.expiresAt,
-    },
-    {
-      clipId: input.clipId,
-      role: "thumbnail",
-      storageKey: input.thumbKey,
-      contentType: "image/jpeg",
-      expectedBytes: input.thumbBytes,
-      expiresAt: input.expiresAt,
-    },
-  ])
+  await db.insert(clipUploadTicket).values({
+    clipId: input.clipId,
+    role: "video",
+    storageKey: input.videoKey,
+    contentType: input.videoContentType,
+    expectedBytes: input.videoBytes,
+    expiresAt: input.expiresAt,
+  })
 }
 
 export async function markUploadTicketUsed(storageKey: string): Promise<void> {
@@ -111,7 +99,7 @@ export async function assertUsableUploadTicket(input: {
   storageKey: string
   contentType: string
   expectedBytes: number
-  role: "video" | "thumbnail"
+  role: "video"
 }): Promise<boolean> {
   const [ticket] = await db
     .select({ id: clipUploadTicket.id })

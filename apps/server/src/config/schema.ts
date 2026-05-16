@@ -6,7 +6,6 @@ import {
   ENCODER_HEIGHT_MIN,
   ENCODER_HWACCELS,
   STORAGE_DRIVERS,
-  type EncoderOpenGraphTarget,
   type RuntimeConfig,
 } from "@workspace/contracts"
 
@@ -53,28 +52,11 @@ const EncoderVariantSchema = z.preprocess(
   })
 )
 
-const EncoderOpenGraphTargetSchema: z.ZodType<EncoderOpenGraphTarget> =
-  z.discriminatedUnion("type", [
-    z.object({ type: z.literal("none") }),
-    z.object({ type: z.literal("source") }),
-    z.object({ type: z.literal("defaultVariant") }),
-    z.object({
-      type: z.literal("variant"),
-      variantId: z
-        .string()
-        .min(1)
-        .max(80)
-        .regex(/^[a-z0-9][a-z0-9-]*$/),
-    }),
-  ])
-
 const EncoderConfigInnerSchema = z.object({
   enabled: z.boolean().default(false),
-  remuxEnabled: z.boolean().default(false),
   hwaccel: z.enum(ENCODER_HWACCELS).default("none"),
   qsvDevice: z.string().min(1).max(128).default("/dev/dri/renderD128"),
   vaapiDevice: z.string().min(1).max(128).default("/dev/dri/renderD128"),
-  keepSource: z.boolean().default(true),
   defaultVariantId: z
     .string()
     .min(1)
@@ -82,7 +64,6 @@ const EncoderConfigInnerSchema = z.object({
     .regex(/^[a-z0-9][a-z0-9-]*$/)
     .nullable()
     .default(null),
-  openGraphTarget: EncoderOpenGraphTargetSchema.default({ type: "source" }),
   variants: z.array(EncoderVariantSchema).default([]),
 })
 
@@ -114,9 +95,6 @@ const EncoderConfigSchema = z.preprocess((raw) => {
       : undefined
     config.defaultVariantId =
       typeof firstVariant?.id === "string" ? firstVariant.id : null
-  }
-  if (config.openGraphTarget === undefined) {
-    config.openGraphTarget = { type: "source" }
   }
   return config
 }, EncoderConfigInnerSchema)

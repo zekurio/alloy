@@ -1,11 +1,12 @@
 import { and, eq, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm"
 
-import { clip } from "@workspace/db/schema"
+import { clip, clipUploadTicket } from "@workspace/db/schema"
 
 import { db } from "../db"
 import { publishClipUpsertById } from "../clips/events"
 import { configStore } from "../config/store"
 import { createNotification } from "../notifications"
+import { deleteScratchUpload } from "../uploads/scratch"
 import { runEncodeInner } from "./encode-run"
 
 export const ENCODE_JOB = "clip.encode" as const
@@ -157,7 +158,7 @@ async function runEncode(clipId: string): Promise<void> {
   const [row] = await db
     .update(clip)
     .set({
-      status: "encoding",
+      status: "processing",
       encodeRunId: runId,
       encodeLockedAt: new Date(),
       encodeAttempt: sql`${clip.encodeAttempt} + 1`,
@@ -204,8 +205,7 @@ async function runEncode(clipId: string): Promise<void> {
 function encodeLeaseConditions(): [SQL, SQL] {
   return [
     or(
-      eq(clip.status, "uploaded"),
-      eq(clip.status, "encoding"),
+      eq(clip.status, "processing"),
       and(eq(clip.status, "ready"), lt(clip.encodeProgress, 100))
     )!,
     or(
@@ -264,6 +264,7 @@ async function markFailedUnlessReady(
         updatedAt: new Date(),
       })
       .where(eq(clip.id, clipId))
+    await cleanupTerminalScratchUploads(clipId)
     // Terminal transition — cheap path, one extra lookup for the
     // authorId is fine. Fire-and-forget; the write already landed.
     void publishClipUpsertById(clipId)
@@ -278,6 +279,20 @@ async function markFailedUnlessReady(
     // eslint-disable-next-line no-console
     console.error(`[queue] failed to mark clip ${clipId} as failed:`, err)
   }
+}
+
+async function cleanupTerminalScratchUploads(clipId: string): Promise<void> {
+  const tickets = await db
+    .select({
+      id: clipUploadTicket.id,
+      storageKey: clipUploadTicket.storageKey,
+    })
+    .from(clipUploadTicket)
+    .where(eq(clipUploadTicket.clipId, clipId))
+  await Promise.allSettled(
+    tickets.map((ticket) => deleteScratchUpload(ticket.storageKey))
+  )
+  await db.delete(clipUploadTicket).where(eq(clipUploadTicket.clipId, clipId))
 }
 
 async function recordFailureReason(

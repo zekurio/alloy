@@ -268,7 +268,7 @@ function MobileClipViewerBody({
           >
             <ClipPlayer
               clipId={row.id}
-              sourceContentType={row.contentType}
+              sourceContentType={row.sourceContentType}
               width={row.width}
               height={row.height}
               thumbnail={thumbnail}

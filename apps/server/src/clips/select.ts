@@ -15,9 +15,12 @@ export const clipSelectShape = {
   game: clip.game,
   gameId: clip.gameId,
   privacy: clip.privacy,
-  storageKey: clip.storageKey,
-  contentType: clip.contentType,
-  sizeBytes: clip.sizeBytes,
+  sourceKey: clip.sourceKey,
+  sourceContentType: clip.sourceContentType,
+  sourceSizeBytes: clip.sourceSizeBytes,
+  openGraphKey: clip.openGraphKey,
+  openGraphContentType: clip.openGraphContentType,
+  openGraphSizeBytes: clip.openGraphSizeBytes,
   durationMs: clip.durationMs,
   width: clip.width,
   height: clip.height,
@@ -81,12 +84,18 @@ export async function selectClipById(id: string) {
 
 export function toPublicClipRow<
   T extends {
-    storageKey: string
+    sourceKey: string | null
+    openGraphKey: string | null
     thumbKey: string | null
     variants: readonly { storageKey: string }[]
   },
 >(row: T) {
-  const { storageKey: _storageKey, variants, ...rest } = row
+  const {
+    sourceKey: _sourceKey,
+    openGraphKey: _openGraphKey,
+    variants,
+    ...rest
+  } = row
   return {
     ...rest,
     thumbKey: row.thumbKey ? "thumbnail" : null,

@@ -16,7 +16,6 @@ export async function planReuse(
   const reusedBySpecIndex = new Map<number, ClipEncodedVariant>()
   const priorByVariantId = new Map<string, ClipEncodedVariant>()
   for (const prev of row.variants) {
-    if (prev.role && prev.role !== "variant") continue
     priorByVariantId.set(prev.id, prev)
   }
 
@@ -35,14 +34,12 @@ export async function planReuse(
 export async function pruneStaleVariants(
   row: { variants: ClipEncodedVariant[]; storageKey?: string },
   reusedBySpecIndex: Map<number, ClipEncodedVariant>,
-  sourceVariant: ClipEncodedVariant | null,
   retainedVariants: readonly ClipEncodedVariant[] = []
 ): Promise<void> {
   const reusedKeys = new Set(
     Array.from(reusedBySpecIndex.values()).map((v) => v.storageKey)
   )
   if (row.storageKey) reusedKeys.add(row.storageKey)
-  if (sourceVariant) reusedKeys.add(sourceVariant.storageKey)
   for (const variant of retainedVariants) reusedKeys.add(variant.storageKey)
   for (const prev of row.variants) {
     if (reusedKeys.has(prev.storageKey)) continue
