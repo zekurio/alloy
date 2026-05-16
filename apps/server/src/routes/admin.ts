@@ -412,7 +412,7 @@ export const adminRoute = new Hono()
     await db
       .update(clip)
       .set({
-        status: "uploaded",
+        status: "processing",
         encodeProgress: 0,
         encodeRunId: null,
         encodeLockedAt: null,

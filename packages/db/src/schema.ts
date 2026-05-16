@@ -49,7 +49,6 @@ export interface ClipVariantSettings {
 export interface ClipEncodedVariant {
   id: string
   label: string
-  role?: "source" | "variant" | "openGraph"
   storageKey: string
   contentType: string
   width: number
@@ -115,11 +114,14 @@ export const clip = pgTable(
     // One of `CLIP_PRIVACY`, validated via zod on write paths.
     privacy: text("privacy").$type<ClipPrivacy>().notNull().default("public"),
 
-    storageKey: text("storage_key").notNull(),
-    contentType: text("content_type").notNull(),
+    sourceKey: text("source_key"),
+    sourceContentType: text("source_content_type"),
+    sourceSizeBytes: bigint("source_size_bytes", { mode: "number" }),
+    openGraphKey: text("open_graph_key"),
+    openGraphContentType: text("open_graph_content_type"),
+    openGraphSizeBytes: bigint("open_graph_size_bytes", { mode: "number" }),
     // Nullable: populated by the finalize step after ffprobe. Clips in
     // 'pending' or 'failed' status may be missing some or all of these.
-    sizeBytes: bigint("size_bytes", { mode: "number" }),
     durationMs: integer("duration_ms"),
     width: integer("width"),
     height: integer("height"),
@@ -166,8 +168,12 @@ export const clip = pgTable(
       sql`${t.status} in (${sql.raw(sqlStringList(CLIP_STATUS))})`
     ),
     check(
-      "clip_size_bytes_safe_check",
-      sql`${t.sizeBytes} is null or (${t.sizeBytes} >= 0 and ${t.sizeBytes} <= 9007199254740991)`
+      "clip_source_size_bytes_safe_check",
+      sql`${t.sourceSizeBytes} is null or (${t.sourceSizeBytes} >= 0 and ${t.sourceSizeBytes} <= 9007199254740991)`
+    ),
+    check(
+      "clip_open_graph_size_bytes_safe_check",
+      sql`${t.openGraphSizeBytes} is null or (${t.openGraphSizeBytes} >= 0 and ${t.openGraphSizeBytes} <= 9007199254740991)`
     ),
   ]
 )

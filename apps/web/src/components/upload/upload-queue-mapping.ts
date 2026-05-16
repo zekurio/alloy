@@ -100,13 +100,9 @@ export function serverToQueueItem(
       status = "queued"
       detail = "Awaiting upload"
       break
-    case "uploaded":
-      status = "queued"
-      detail = "Queued for encoder"
-      break
-    case "encoding":
+    case "processing":
       status = "encoding"
-      detail = "Transcoding video"
+      detail = "Processing clip"
       break
     case "ready":
       status = row.encodeProgress < 100 ? "encoding" : "published"

@@ -428,6 +428,7 @@ export function ChromeBar({
     label: string
     detail?: string
     downloadUrl?: string
+    selectable?: boolean
   }>
   selectedQualityId?: string
   onSelectQuality?: (qualityId: string) => void

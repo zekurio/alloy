@@ -79,7 +79,6 @@ export function validateInitiateClipResponse(
     throw new Error("Invalid initiate clip response: slug must be a string")
   }
   objectRecord(response.ticket, "upload ticket")
-  objectRecord(response.thumbTicket, "thumbnail upload ticket")
   return value as InitiateClipResponse
 }
 

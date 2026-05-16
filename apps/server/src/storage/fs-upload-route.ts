@@ -2,24 +2,17 @@ import { Hono } from "hono"
 import { and, eq, gt, isNull } from "drizzle-orm"
 import { clipUploadTicket } from "@workspace/db/schema"
 
-import { decodeUploadToken, FsStorageDriver } from "./fs-driver"
+import { decodeUploadToken } from "./fs-driver"
 import { db } from "../db"
-import { getStorageConfig, getStorageDriver } from "./index"
+import { configStore } from "../config/store"
+import { ensureScratchParent } from "../uploads/scratch"
 
 export const storageRoute = new Hono().post("/upload/:token", async (c) => {
-  const storage = getStorageDriver()
-  const storageConfig = getStorageConfig()
-  // Only the fs driver makes sense behind this route. S3 uploads go
-  // directly to the object store via presigned URLs.
-  if (!(storage instanceof FsStorageDriver) || storageConfig.driver !== "fs") {
-    return c.json(
-      { error: "Upload route is only valid for the fs storage driver" },
-      500
-    )
-  }
-
   const token = c.req.param("token")
-  const decoded = await decodeUploadToken(token, storageConfig.fs.hmacSecret)
+  const decoded = await decodeUploadToken(
+    token,
+    configStore.get("storage").fs.hmacSecret
+  )
   if (!decoded.ok) {
     return c.json({ error: "Invalid upload ticket" }, 401)
   }
@@ -63,8 +56,8 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
     return c.json({ error: "Empty upload body" }, 400)
   }
 
-  const fullDst = storage.fullPath(key)
-  const tmpDir = `${storage.fullPath(".tmp")}/${token.slice(-32)}`
+  const fullDst = await ensureScratchParent(key)
+  const tmpDir = `${dirname(fullDst)}/.tmp-${token.slice(-32)}`
   await Deno.mkdir(tmpDir, { recursive: true })
   await Deno.mkdir(dirname(fullDst), { recursive: true })
   const tmpFile = `${tmpDir}/blob`

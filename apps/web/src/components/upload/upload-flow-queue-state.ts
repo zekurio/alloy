@@ -26,7 +26,7 @@ async function performUpload(
   bump: () => void,
   invalidateClips: () => void
 ): Promise<void> {
-  const { clipId, ticket, thumbTicket } = await api.clips.initiate({
+  const { clipId, ticket } = await api.clips.initiate({
     filename: payload.file.name,
     contentType: payload.contentType,
     sizeBytes: payload.sizeBytes,
@@ -36,7 +36,6 @@ async function performUpload(
     privacy: payload.privacy,
     trimStartMs: payload.trimStartMs ?? undefined,
     trimEndMs: payload.trimEndMs ?? undefined,
-    thumbSizeBytes: payload.thumbBlob.size,
     mentionedUserIds:
       payload.mentionedUserIds.length > 0
         ? payload.mentionedUserIds
@@ -55,13 +54,6 @@ async function performUpload(
       entry.bytesTotal = total
       bump()
     },
-    entry.abort.signal
-  )
-
-  await uploadToTicket(
-    thumbTicket,
-    payload.thumbBlob,
-    () => undefined,
     entry.abort.signal
   )
 

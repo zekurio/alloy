@@ -12,7 +12,6 @@ import {
 import { db } from "../db"
 import { getSession } from "../auth/session"
 import { configStore } from "../config/store"
-import { isOpenGraphVariant } from "../open-graph/video-selection"
 
 export const IdParam = z.object({ id: z.uuid() })
 export const StreamQuery = z.object({ variant: z.string().min(1).optional() })
@@ -36,8 +35,6 @@ export const WINDOW_MS: Record<"today" | "week" | "month" | "year", number> = {
   year: 365 * 24 * 60 * 60 * 1000,
 }
 
-export const MAX_THUMB_BYTES = 2 * 1024 * 1024
-
 export const InitiateBody = z
   .object({
     filename: z.string().min(1).max(255),
@@ -49,7 +46,6 @@ export const InitiateBody = z
     privacy: z.enum(CLIP_PRIVACY).default("public"),
     trimStartMs: z.number().int().min(0).optional(),
     trimEndMs: z.number().int().positive().optional(),
-    thumbSizeBytes: z.number().int().positive().max(MAX_THUMB_BYTES),
     mentionedUserIds: z.array(z.uuid()).optional(),
   })
   .refine((b) => b.sizeBytes <= configStore.get("limits").maxUploadBytes, {
@@ -204,17 +200,7 @@ export function findEncodedVariant(
 ): ClipEncodedVariant | null {
   const variants = encodedVariantsForRow(row)
   if (!variantId) {
-    const playbackVariants = variants.filter(
-      (variant) =>
-        variant.role !== "source" &&
-        variant.id !== "source" &&
-        !isOpenGraphVariant(variant)
-    )
-    return (
-      playbackVariants.find((variant) => variant.isDefault) ??
-      playbackVariants[0] ??
-      null
-    )
+    return variants.find((variant) => variant.isDefault) ?? variants[0] ?? null
   }
   return variants.find((variant) => variant.id === variantId) ?? null
 }
@@ -245,7 +231,7 @@ export function downloadFilename(
 ): string {
   const base = row.title.trim().replace(/[/\\?%*:|"<>]/g, "-") || row.id
   if (variant === "source") {
-    return `${base}-source.${extensionForContentType(row.contentType)}`
+    return `${base}-source.${extensionForContentType(row.sourceContentType ?? "")}`
   }
   return `${base}-${variant.id}.${extensionForContentType(variant.contentType)}`
 }

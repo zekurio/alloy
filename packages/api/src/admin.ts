@@ -49,7 +49,6 @@ export type {
   AppearanceConfig,
   EncoderCodec,
   EncoderHwaccel,
-  EncoderOpenGraphTarget,
   UsernameClaim,
 } from "@workspace/contracts"
 

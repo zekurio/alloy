@@ -1,24 +1,29 @@
 import { eq } from "drizzle-orm"
 
-import { clip } from "@workspace/db/schema"
+import { clip, clipUploadTicket } from "@workspace/db/schema"
 
 import { db } from "../db"
 import { publishClipRemove } from "./events"
 import { cancelEncode } from "../queue/encode-worker"
-import { clipAssetKey, storage } from "../storage"
+import { storage } from "../storage"
+import { deleteScratchUpload } from "../uploads/scratch"
 
 export async function deleteClipRowAndAssets(
   row: typeof clip.$inferSelect
 ): Promise<void> {
   await cancelEncode(row.id)
+  const tickets = await db
+    .select({ storageKey: clipUploadTicket.storageKey })
+    .from(clipUploadTicket)
+    .where(eq(clipUploadTicket.clipId, row.id))
   await db.delete(clip).where(eq(clip.id, row.id))
 
   const keys = [
-    row.storageKey,
-    clipAssetKey(row.id, "video"),
+    row.sourceKey,
+    row.openGraphKey,
     ...row.variants.map((variant) => variant.storageKey),
-    row.thumbKey ?? clipAssetKey(row.id, "thumb"),
-  ]
+    row.thumbKey,
+  ].filter((key): key is string => Boolean(key))
   for (const key of keys) {
     try {
       await storage.delete(key)
@@ -27,6 +32,9 @@ export async function deleteClipRowAndAssets(
       console.warn(`[clips] failed to delete ${key}:`, err)
     }
   }
+  await Promise.allSettled(
+    tickets.map((ticket) => deleteScratchUpload(ticket.storageKey))
+  )
 
   publishClipRemove(row.authorId, row.id)
 }

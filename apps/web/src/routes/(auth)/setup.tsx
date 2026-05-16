@@ -310,8 +310,7 @@ function getStepDone(config: AdminRuntimeConfig): [boolean, boolean, boolean] {
     // Storage is considered done if it has a configured driver
     true,
     // Encoding is done when enabled with at least one variant
-    config.encoder.remuxEnabled ||
-      (config.encoder.enabled && config.encoder.variants.length > 0),
+    true,
     // SteamGridDB is done when the key is set (redacted = "***")
     config.integrations.steamgriddbApiKey === "***",
   ]
@@ -388,11 +387,8 @@ function EncoderOnboardingCard({
     const nextEncoder: AdminEncoderConfig = {
       ...config.encoder,
       enabled: true,
-      remuxEnabled: true,
       hwaccel: "none",
-      keepSource: true,
       defaultVariantId: defaultEncoderVariant.id,
-      openGraphTarget: { type: "source" },
       variants: [defaultEncoderVariant],
     }
     try {

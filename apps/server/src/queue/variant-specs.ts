@@ -1,5 +1,5 @@
-import type { EncoderVariant } from "../config/store"
-import { clipVideoVariantKey } from "../storage"
+import type { EncoderVariant } from "@workspace/contracts"
+import { clipVideoVariantKey } from "../storage/driver"
 
 /** Per-variant override resolved from the runtime config. */
 export interface VariantOverride {
@@ -20,14 +20,20 @@ export interface VariantSpec {
   override: VariantOverride
 }
 
-export function buildVariantSpecs(
+export interface VariantPlan {
+  specs: VariantSpec[]
+  skipped: Array<{ id: string; label: string; height: number; reason: string }>
+}
+
+export function buildVariantPlan(
   clipId: string,
   sourceHeight: number,
   configuredVariants: ReadonlyArray<EncoderVariant>,
   defaultVariantId: string | null,
   runId?: string
-): VariantSpec[] {
+): VariantPlan {
   const specs: VariantSpec[] = []
+  const skipped: VariantPlan["skipped"] = []
   const defaultVariantIsAvailable = configuredVariants.some(
     (variant) =>
       variant.id === defaultVariantId &&
@@ -36,8 +42,22 @@ export function buildVariantSpecs(
   )
 
   for (const configured of configuredVariants) {
-    if (configured.height <= 0) continue
+    if (configured.height <= 0) {
+      skipped.push({
+        id: configured.id,
+        label: configured.name,
+        height: configured.height,
+        reason: "invalid height",
+      })
+      continue
+    }
     if (configured.height > sourceHeight) {
+      skipped.push({
+        id: configured.id,
+        label: configured.name,
+        height: configured.height,
+        reason: `source is ${sourceHeight}p`,
+      })
       continue
     }
     const isFirstAvailable = specs.length === 0
@@ -60,5 +80,27 @@ export function buildVariantSpecs(
     })
   }
 
-  return specs
+  specs.sort(
+    (a, b) =>
+      b.height - a.height ||
+      a.label.localeCompare(b.label) ||
+      a.id.localeCompare(b.id)
+  )
+  return { specs, skipped }
+}
+
+export function buildVariantSpecs(
+  clipId: string,
+  sourceHeight: number,
+  configuredVariants: ReadonlyArray<EncoderVariant>,
+  defaultVariantId: string | null,
+  runId?: string
+): VariantSpec[] {
+  return buildVariantPlan(
+    clipId,
+    sourceHeight,
+    configuredVariants,
+    defaultVariantId,
+    runId
+  ).specs
 }

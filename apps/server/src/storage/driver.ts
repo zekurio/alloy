@@ -46,7 +46,7 @@ export interface MintDownloadUrlInput {
 export interface StorageDriver {
   /**
    * Server-side write. Returns the byte length actually written so the
-   * caller can echo it back into Content-Length / `clip.sizeBytes`.
+   * caller can echo it back into Content-Length / clip asset metadata.
    */
   put(
     key: string,
@@ -152,18 +152,6 @@ export function clipStagingVideoKey(
 
 export function clipStagingThumbKey(clipId: string): string {
   return `${clipAssetDir(clipId)}/staging/thumb.jpg`
-}
-
-export function clipOriginalAssetKey(
-  clipId: string,
-  contentType: AcceptedContentType
-): string {
-  return `${clipAssetDir(clipId)}/original${clipSourceExtension(contentType)}`
-}
-
-export function clipSourceMp4Key(clipId: string, runId?: string): string {
-  const runSuffix = runId ? `-${runId}` : ""
-  return `${clipAssetDir(clipId)}/source${runSuffix}.mp4`
 }
 
 export function clipVideoVariantKey(

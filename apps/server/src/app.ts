@@ -33,7 +33,7 @@ const BROWSE_API_PREFIXES = [
 const BROWSE_API_PATTERNS = [/^\/api\/users\/(?!me(?:\/|$))[^/]+(?:\/.*)?$/]
 
 const SHAREABLE_CLIP_ASSET_RE =
-  /^\/api\/clips\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:stream|thumbnail)$/i
+  /^\/api\/clips\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:stream|thumbnail|opengraph)$/i
 const SHAREABLE_CLIP_DETAIL_RE =
   /^\/api\/clips\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const SHAREABLE_CLIP_COMMENTS_RE =

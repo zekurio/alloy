@@ -115,7 +115,8 @@ export const usersRoute = new Hono()
     const entries = rows.map((row) => ({
       filename: downloadFilename(row, "source"),
       stream: async () => {
-        const resolved = await storage.resolve(row.storageKey)
+        if (!row.sourceKey) return null
+        const resolved = await storage.resolve(row.sourceKey)
         return resolved?.stream() ?? null
       },
     }))

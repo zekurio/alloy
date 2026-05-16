@@ -61,10 +61,8 @@ export const storage: StorageDriver = new ReloadableStorageDriver()
 export type { StorageDriver, UploadTicket, UserAssetRole } from "./driver"
 export {
   clipAssetKey,
-  clipOriginalAssetKey,
   clipOpenGraphVideoKey,
   clipSourceAssetKey,
-  clipSourceMp4Key,
   clipStagingThumbKey,
   clipStagingVideoKey,
   clipVideoVariantKey,

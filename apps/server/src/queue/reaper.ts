@@ -5,7 +5,7 @@ import { clip, clipUploadTicket } from "@workspace/db/schema"
 import { db } from "../db"
 import { publishClipRemove } from "../clips/events"
 import { configStore } from "../config/store"
-import { clipAssetKey, storage } from "../storage"
+import { deleteScratchUpload } from "../uploads/scratch"
 import { enqueueEncode } from "./encode-worker"
 
 export const REAP_JOB = "clip.reap" as const
@@ -53,22 +53,18 @@ async function reapPending(): Promise<void> {
     .select({
       id: clip.id,
       authorId: clip.authorId,
-      storageKey: clip.storageKey,
-      thumbKey: clip.thumbKey,
     })
     .from(clip)
     .where(and(eq(clip.status, "pending"), lt(clip.createdAt, pendingCutoff)))
 
   for (const row of stale) {
-    const keys = [row.storageKey, row.thumbKey ?? clipAssetKey(row.id, "thumb")]
-    for (const key of keys) {
-      try {
-        await storage.delete(key)
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn(`[queue/reap] could not delete bytes for ${row.id}:`, err)
-      }
-    }
+    const tickets = await db
+      .select({ storageKey: clipUploadTicket.storageKey })
+      .from(clipUploadTicket)
+      .where(eq(clipUploadTicket.clipId, row.id))
+    await Promise.allSettled(
+      tickets.map((ticket) => deleteScratchUpload(ticket.storageKey))
+    )
     await db.delete(clip).where(eq(clip.id, row.id))
     publishClipRemove(row.authorId, row.id)
   }
@@ -96,7 +92,7 @@ async function reapExpiredUploadTickets(): Promise<void> {
 
   for (const ticket of expiredTickets) {
     try {
-      await storage.delete(ticket.storageKey)
+      await deleteScratchUpload(ticket.storageKey)
     } catch (err) {
       // eslint-disable-next-line no-console
       console.warn(
@@ -116,8 +112,7 @@ async function requeueStuckProcessing(): Promise<void> {
     .where(
       and(
         or(
-          eq(clip.status, "uploaded"),
-          eq(clip.status, "encoding"),
+          eq(clip.status, "processing"),
           and(
             eq(clip.status, "ready"),
             lt(clip.encodeProgress, 100),

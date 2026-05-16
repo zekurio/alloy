@@ -3,7 +3,7 @@ import type { ClipEncodedVariant } from "@workspace/db/schema"
 export const OPEN_GRAPH_VARIANT_ID = "opengraph"
 
 export function isOpenGraphVariant(variant: ClipEncodedVariant): boolean {
-  return variant.role === "openGraph" || variant.id === OPEN_GRAPH_VARIANT_ID
+  return variant.id === OPEN_GRAPH_VARIANT_ID
 }
 
 export function isOpenGraphCompatibleVideoVariant(
