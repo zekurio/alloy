@@ -13,16 +13,11 @@ import { publishClipUpsert } from "../clips/events"
 import { notifyFollowersOfNewClip } from "../notifications"
 import { configStore } from "../config/store"
 import { join } from "../runtime/path"
-import {
-  clipAssetKey,
-  clipOpenGraphVideoKey,
-  clipSourceAssetKey,
-  storage,
-} from "../storage"
+import { clipAssetKey, clipOpenGraphVideoKey, storage } from "../storage"
 import { deleteScratchUpload, scratchUploadPath } from "../uploads/scratch"
 import { abortEncode } from "./encode-abort"
 import { makeProgressWriter } from "./encode-progress"
-import { codecNameFor, encode, probe, thumbnail } from "./ffmpeg"
+import { codecNameFor, encode, probe, remuxToMp4, thumbnail } from "./ffmpeg"
 import { planReuse, resolveVariantSettings } from "./encode-variant-helpers"
 import { buildVariantPlan, type VariantSpec } from "./variant-specs"
 import {
@@ -48,6 +43,7 @@ export async function runEncodeInner(
   const scratchDir = await makeScratchDir(clipId)
   const uploadedKeys: string[] = []
   let retainedSourceKey: string | null = null
+  let sourcePublishedForRetry = !!row.sourceKey
   try {
     await runPipelineInScratch({
       clipId,
@@ -56,13 +52,16 @@ export async function runEncodeInner(
       signal,
       scratchDir,
       uploadedKeys,
-      setSourceAsset: (asset) => {
+      retainSourceAsset: (asset) => {
         retainedSourceKey = asset.storageKey
+        sourcePublishedForRetry = true
       },
     })
   } catch (err) {
     await cleanupFailedRun(uploadedKeys, retainedSourceKey)
-    await deleteScratchUpload(await selectScratchUploadKey(clipId))
+    if (sourcePublishedForRetry) {
+      await deleteScratchUpload(await selectScratchUploadKey(clipId))
+    }
     throw err
   } finally {
     await Deno.remove(scratchDir, { recursive: true }).catch(() => {
@@ -78,7 +77,7 @@ async function runPipelineInScratch({
   signal,
   scratchDir,
   uploadedKeys,
-  setSourceAsset,
+  retainSourceAsset,
 }: {
   clipId: string
   row: ClipRow
@@ -86,7 +85,7 @@ async function runPipelineInScratch({
   signal: AbortSignal
   scratchDir: string
   uploadedKeys: string[]
-  setSourceAsset: (asset: Asset) => void
+  retainSourceAsset: (asset: Asset) => void
 }): Promise<void> {
   const sourceContentType = row.sourceContentType as AcceptedContentType | null
   if (!sourceContentType) throw new Error("Clip is missing source content type")
@@ -155,18 +154,23 @@ async function runPipelineInScratch({
     )
   }
 
-  const sourceKey =
-    row.sourceKey ?? clipSourceAssetKey(clipId, sourceContentType)
+  const publishedSourceContentType = "video/mp4"
+  const sourceKey = row.sourceKey ?? clipAssetKey(clipId, "source")
   const sourceUpload = row.sourceKey
     ? { size: row.sourceSizeBytes ?? (await Deno.stat(sourcePath)).size }
-    : await storage.uploadFromFile(sourcePath, sourceKey, sourceContentType)
+    : await publishRemuxedSource({
+        sourcePath,
+        scratchDir,
+        trim,
+        signal,
+        sourceKey,
+      })
   if (!row.sourceKey) uploadedKeys.push(sourceKey)
   const sourceAsset = {
     storageKey: sourceKey,
-    contentType: sourceContentType,
+    contentType: publishedSourceContentType,
     sizeBytes: sourceUpload.size,
   }
-  setSourceAsset(sourceAsset)
   const [sourcePublished] = await db
     .update(clip)
     .set({
@@ -181,6 +185,7 @@ async function runPipelineInScratch({
     .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
     .returning({ id: clip.id })
   if (!sourcePublished) throw abortEncode()
+  retainSourceAsset(sourceAsset)
   completeWork()
 
   await ensureClipStillPresent(clipId, runId, signal)
@@ -283,6 +288,28 @@ async function selectScratchUploadKey(clipId: string): Promise<string | null> {
     )
     .limit(1)
   return ticket?.storageKey ?? null
+}
+
+async function publishRemuxedSource({
+  sourcePath,
+  scratchDir,
+  trim,
+  signal,
+  sourceKey,
+}: {
+  sourcePath: string
+  scratchDir: string
+  trim: { startMs: number | null; endMs: number | null }
+  signal: AbortSignal
+  sourceKey: string
+}): Promise<{ size: number }> {
+  const remuxedSourcePath = join(scratchDir, "source.mp4")
+  await remuxToMp4(sourcePath, remuxedSourcePath, {
+    trimStartMs: trim.startMs,
+    trimEndMs: trim.endMs,
+    signal,
+  })
+  return await storage.uploadFromFile(remuxedSourcePath, sourceKey, "video/mp4")
 }
 
 async function publishOpenGraph({
