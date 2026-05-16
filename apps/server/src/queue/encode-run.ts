@@ -203,8 +203,10 @@ async function runPipelineInScratch({
   await ensureClipStillPresent(clipId, runId, signal)
   const thumbKey = clipAssetKey(clipId, "thumb")
   const thumbPath = join(scratchDir, "thumb.jpg")
+  const thumbAtMs =
+    (trim.startMs ?? 0) + Math.min(outputDurationMs - 1, outputDurationMs / 3)
   await thumbnail(sourcePath, thumbPath, {
-    atMs: Math.min(outputDurationMs - 1, Math.max(0, outputDurationMs / 3)),
+    atMs: Math.max(0, thumbAtMs),
     signal,
   })
   await storage.uploadFromFile(thumbPath, thumbKey, "image/jpeg")
