@@ -19,13 +19,21 @@ USER deno
 
 FROM base AS deps
 
-COPY --chown=deno:deno deno.json package.json deno.lock ./
-COPY --chown=deno:deno apps/server/package.json apps/server/package.json
-COPY --chown=deno:deno apps/web/package.json apps/web/package.json
-COPY --chown=deno:deno packages/api/package.json packages/api/package.json
-COPY --chown=deno:deno packages/contracts/package.json packages/contracts/package.json
-COPY --chown=deno:deno packages/db/package.json packages/db/package.json
-COPY --chown=deno:deno packages/ui/package.json packages/ui/package.json
+USER root
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends nodejs \
+  && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+USER deno
+
+COPY --chown=deno:deno deno.json deno.lock ./
+COPY --chown=deno:deno apps/server/deno.json apps/server/deno.json
+COPY --chown=deno:deno apps/web/deno.json apps/web/deno.json
+COPY --chown=deno:deno packages/api/deno.json packages/api/deno.json
+COPY --chown=deno:deno packages/contracts/deno.json packages/contracts/deno.json
+COPY --chown=deno:deno packages/db/deno.json packages/db/deno.json
+COPY --chown=deno:deno packages/ui/deno.json packages/ui/deno.json
 
 RUN deno install --frozen
 
@@ -33,8 +41,7 @@ FROM deps AS server
 
 COPY --chown=deno:deno . .
 
-RUN deno task --cwd apps/server build \
-  && touch /tmp/server-build-ok
+RUN deno task --cwd apps/server build
 
 FROM deps AS web
 
@@ -49,22 +56,14 @@ USER root
 ARG APP_VERSION=dev
 ENV APP_VERSION=$APP_VERSION
 
-COPY --chown=deno:deno --from=deps /app/deno.json /app/package.json /app/deno.lock /app/
-COPY --chown=deno:deno --from=deps /app/node_modules /app/node_modules
+COPY --chown=deno:deno --from=deps /app/deno.json /app/deno.lock /app/
+COPY --chown=deno:deno --from=deps /app/apps/server/deno.json /app/apps/server/deno.json
+COPY --chown=deno:deno --from=deps /app/apps/web/deno.json /app/apps/web/deno.json
 
-COPY --chown=deno:deno --from=deps /app/apps/server/package.json /app/apps/server/package.json
-COPY --chown=deno:deno --from=deps /app/apps/web/package.json /app/apps/web/package.json
-
-COPY --chown=deno:deno --from=deps /app/packages/api/package.json /app/packages/api/package.json
-COPY --chown=deno:deno --from=deps /app/packages/contracts/package.json /app/packages/contracts/package.json
-COPY --chown=deno:deno --from=deps /app/packages/db/package.json /app/packages/db/package.json
-COPY --chown=deno:deno --from=deps /app/packages/ui/package.json /app/packages/ui/package.json
-
-COPY --chown=deno:deno --from=deps /app/apps/web/node_modules /app/apps/web/node_modules
-COPY --chown=deno:deno --from=deps /app/packages/api/node_modules /app/packages/api/node_modules
-COPY --chown=deno:deno --from=deps /app/packages/contracts/node_modules /app/packages/contracts/node_modules
-COPY --chown=deno:deno --from=deps /app/packages/db/node_modules /app/packages/db/node_modules
-COPY --chown=deno:deno --from=deps /app/packages/ui/node_modules /app/packages/ui/node_modules
+COPY --chown=deno:deno --from=deps /app/packages/api/deno.json /app/packages/api/deno.json
+COPY --chown=deno:deno --from=deps /app/packages/contracts/deno.json /app/packages/contracts/deno.json
+COPY --chown=deno:deno --from=deps /app/packages/db/deno.json /app/packages/db/deno.json
+COPY --chown=deno:deno --from=deps /app/packages/ui/deno.json /app/packages/ui/deno.json
 
 COPY --chown=deno:deno --from=server /deno-dir /deno-dir
 
@@ -78,7 +77,6 @@ COPY --chown=deno:deno --from=server /app/packages/db/src /app/packages/db/src
 COPY --chown=deno:deno --from=server /app/packages/db/drizzle /app/packages/db/drizzle
 COPY --chown=deno:deno --from=server /app/packages/db/tsconfig.json /app/packages/db/tsconfig.json
 
-COPY --from=server /tmp/server-build-ok /tmp/server-build-ok
 COPY --from=web /app/apps/web/dist /build/www
 
 COPY --chown=root:root apps/server/docker/entrypoint.sh /entrypoint.sh
