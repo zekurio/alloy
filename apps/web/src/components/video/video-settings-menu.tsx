@@ -18,6 +18,7 @@ export type QualityOption = {
   id: string
   label: string
   downloadUrl?: string
+  selectable?: boolean
 }
 
 const glassMenuClass =
@@ -44,13 +45,16 @@ export function VideoSettingsMenu({
   contentStyle?: React.CSSProperties
   portalContainer?: HTMLElement | null
 }) {
+  const selectableOptions = qualityOptions.filter(
+    (quality) => quality.selectable !== false
+  )
   const hasQualityChoices =
-    qualityOptions.length > 1 && Boolean(onSelectQuality)
+    selectableOptions.length > 1 && Boolean(onSelectQuality)
   const downloadOptions = qualityOptions.filter((q) => q.downloadUrl)
   const hasDownloads = downloadOptions.length > 0
   const selectedQuality =
-    qualityOptions.find((quality) => quality.id === selectedQualityId) ??
-    qualityOptions[0]
+    selectableOptions.find((quality) => quality.id === selectedQualityId) ??
+    selectableOptions[0]
   if (!hasQualityChoices && !hasDownloads) return null
 
   return (
@@ -90,7 +94,7 @@ export function VideoSettingsMenu({
                   portalContainer={portalContainer}
                   className={glassMenuClass}
                 >
-                  {qualityOptions.map((quality) => (
+                  {selectableOptions.map((quality) => (
                     <DropdownMenuItem
                       key={quality.id}
                       onClick={() => onSelectQuality?.(quality.id)}

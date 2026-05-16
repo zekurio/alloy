@@ -138,20 +138,38 @@
           "notNull": true,
           "default": "'public'"
         },
-        "storage_key": {
-          "name": "storage_key",
+        "source_key": {
+          "name": "source_key",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
-        "content_type": {
-          "name": "content_type",
+        "source_content_type": {
+          "name": "source_content_type",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
-        "size_bytes": {
-          "name": "size_bytes",
+        "source_size_bytes": {
+          "name": "source_size_bytes",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "open_graph_key": {
+          "name": "open_graph_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "open_graph_content_type": {
+          "name": "open_graph_content_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "open_graph_size_bytes": {
+          "name": "open_graph_size_bytes",
           "type": "bigint",
           "primaryKey": false,
           "notNull": false
@@ -384,11 +402,15 @@
         },
         "clip_status_check": {
           "name": "clip_status_check",
-          "value": "\"clip\".\"status\" in ('pending', 'uploaded', 'encoding', 'ready', 'failed')"
+          "value": "\"clip\".\"status\" in ('pending', 'processing', 'ready', 'failed')"
         },
-        "clip_size_bytes_safe_check": {
-          "name": "clip_size_bytes_safe_check",
-          "value": "\"clip\".\"size_bytes\" is null or (\"clip\".\"size_bytes\" >= 0 and \"clip\".\"size_bytes\" <= 9007199254740991)"
+        "clip_source_size_bytes_safe_check": {
+          "name": "clip_source_size_bytes_safe_check",
+          "value": "\"clip\".\"source_size_bytes\" is null or (\"clip\".\"source_size_bytes\" >= 0 and \"clip\".\"source_size_bytes\" <= 9007199254740991)"
+        },
+        "clip_open_graph_size_bytes_safe_check": {
+          "name": "clip_open_graph_size_bytes_safe_check",
+          "value": "\"clip\".\"open_graph_size_bytes\" is null or (\"clip\".\"open_graph_size_bytes\" >= 0 and \"clip\".\"open_graph_size_bytes\" <= 9007199254740991)"
         }
       },
       "isRLSEnabled": false
@@ -884,7 +906,7 @@
       "checkConstraints": {
         "clip_upload_ticket_role_check": {
           "name": "clip_upload_ticket_role_check",
-          "value": "\"clip_upload_ticket\".\"role\" in ('video', 'thumbnail')"
+          "value": "\"clip_upload_ticket\".\"role\" in ('video')"
         },
         "clip_upload_ticket_expected_bytes_safe_check": {
           "name": "clip_upload_ticket_expected_bytes_safe_check",

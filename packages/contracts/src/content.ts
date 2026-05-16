@@ -49,8 +49,10 @@ export interface ClipRow {
   game: string | null
   gameId: string
   privacy: ClipPrivacy
-  contentType: string
-  sizeBytes: number | null
+  sourceContentType: string | null
+  sourceSizeBytes: number | null
+  openGraphContentType: string | null
+  openGraphSizeBytes: number | null
   durationMs: number | null
   width: number | null
   height: number | null
@@ -93,7 +95,6 @@ export interface InitiateClipInput {
   privacy?: ClipPrivacy
   trimStartMs?: number
   trimEndMs?: number
-  thumbSizeBytes: number
   mentionedUserIds?: string[]
 }
 
@@ -101,7 +102,6 @@ export interface InitiateClipResponse {
   clipId: string
   slug: string
   ticket: UploadTicket
-  thumbTicket: UploadTicket
 }
 
 export interface UpdateClipInput {

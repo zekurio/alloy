@@ -202,14 +202,6 @@ export function EncoderConfigCard({
       onSaved?.()
       return
     }
-    if (!form.enabled) {
-      await saveEncoderConfig({ form, onChange, setPending, onSaved })
-      return
-    }
-    if (form.variants.length === 0) {
-      toast.error("Add at least one variant or disable variant encoding.")
-      return
-    }
     for (const variant of form.variants) {
       if (variant.name.trim() === "") {
         toast.error("Every variant needs a name.")
@@ -269,10 +261,7 @@ export function EncoderConfigCard({
     isDirty &&
     !pending &&
     (!form.enabled ||
-      (!unsupportedVariant &&
-        !hasInvalidVariantName &&
-        !hasInvalidHeight &&
-        form.variants.length > 0))
+      (!unsupportedVariant && !hasInvalidVariantName && !hasInvalidHeight))
   const sortedVariants = form.variants
     .map((variant, index) => ({ variant, index }))
     .sort((a, b) => b.variant.height - a.variant.height)
@@ -352,24 +341,6 @@ export function EncoderConfigCard({
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <FieldLabel htmlFor="encoder-remux-enabled">
-                      Remux source to MP4
-                    </FieldLabel>
-                    <p className="text-xs text-muted-foreground">
-                      Publish a browser-friendly Source stream before background
-                      variants finish.
-                    </p>
-                  </div>
-                  <Switch
-                    id="encoder-remux-enabled"
-                    checked={form.remuxEnabled}
-                    onCheckedChange={(next) => set("remuxEnabled", next)}
-                    aria-label="Enable source remux"
-                  />
-                </div>
-
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
                     <FieldLabel htmlFor="encoder-enabled">
                       Variant encoding
                     </FieldLabel>
@@ -385,17 +356,6 @@ export function EncoderConfigCard({
                     aria-label="Enable variant encoding"
                   />
                 </div>
-
-                {!form.enabled && !form.remuxEnabled ? (
-                  <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
-                    <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
-                    <span>
-                      Remux and variant encoding are disabled. Uploaded source
-                      files become the default stream, which can break playback
-                      and OpenGraph embeds.
-                    </span>
-                  </div>
-                ) : null}
               </FormGroup>
 
               {/* ── Variant ladder ── */}
@@ -404,21 +364,6 @@ export function EncoderConfigCard({
                   title="Variant ladder"
                   description="Renditions generated for each uploaded clip. Star a variant to set the default playback quality."
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium">Expose source</div>
-                      <p className="text-xs text-muted-foreground">
-                        Offer the published source as an opt-in "Source" quality
-                        when variant encoding runs.
-                      </p>
-                    </div>
-                    <Switch
-                      checked={form.keepSource}
-                      onCheckedChange={(next) => set("keepSource", next)}
-                      aria-label="Keep source"
-                    />
-                  </div>
-
                   {form.variants.length > 0 ? (
                     <div className="flex flex-col gap-0.5">
                       {sortedVariants.map(({ variant, index }) => (

@@ -8,7 +8,6 @@ import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
 import { storage } from "../storage"
-import { isOpenGraphVariant } from "../open-graph/video-selection"
 import {
   contentDisposition,
   DownloadQuery,
@@ -67,14 +66,26 @@ export const clipsPlaybackRoutes = new Hono()
         return c.json({ error: "Clip not ready" }, 404)
       }
 
-      const variant = findEncodedVariant(row, requestedVariant)
-      const selected = variant
-        ? {
-            key: variant.storageKey,
-            contentType: variant.contentType,
-            id: variant.id,
-          }
-        : null
+      const variant =
+        requestedVariant === "source"
+          ? null
+          : findEncodedVariant(row, requestedVariant)
+      const selected =
+        requestedVariant === "source"
+          ? row.sourceKey && row.sourceContentType
+            ? {
+                key: row.sourceKey,
+                contentType: row.sourceContentType,
+                id: "source",
+              }
+            : null
+          : variant
+            ? {
+                key: variant.storageKey,
+                contentType: variant.contentType,
+                id: variant.id,
+              }
+            : null
 
       if (!selected) {
         return c.json({ error: "Unknown quality" }, 404)
@@ -215,6 +226,46 @@ export const clipsPlaybackRoutes = new Hono()
     )
   })
 
+  .get("/:id/opengraph", zValidator("param", IdParam), async (c) => {
+    const { id } = c.req.valid("param")
+    const selectedRow = await selectPlaybackClip(id)
+    const row = selectedRow?.clip
+    if (!row) return c.json({ error: "Not found" }, 404)
+
+    if (row.status !== "ready" || !row.openGraphKey) {
+      return c.json({ error: "Not found" }, 404)
+    }
+    if (row.privacy === "private") {
+      return c.json({ error: "Not found" }, 404)
+    }
+    if (selectedRow.authorDisabledAt) {
+      return c.json({ error: "Not found" }, 404)
+    }
+
+    const direct = await storage.mintDownloadUrl(row.openGraphKey, {
+      expiresInSec: 900,
+      responseContentType: row.openGraphContentType ?? "video/mp4",
+      responseCacheControl: "public, max-age=300",
+    })
+    if (direct && c.req.method !== "HEAD") {
+      c.header("Cache-Control", "private, max-age=60")
+      return c.redirect(direct.url, 302)
+    }
+
+    const resolved = await storage.resolve(row.openGraphKey)
+    if (!resolved) return c.json({ error: "OpenGraph unavailable" }, 404)
+    c.header("Content-Type", row.openGraphContentType ?? resolved.contentType)
+    c.header("Content-Length", String(resolved.size))
+    c.header("Accept-Ranges", "bytes")
+    c.header("Cache-Control", "public, max-age=300")
+    if (c.req.method === "HEAD") return c.body(null)
+    const body = resolved.stream()
+    return stream(c, async (s) => {
+      s.onAbort(() => body.cancel().catch(() => undefined))
+      await s.pipe(body)
+    })
+  })
+
   .get(
     "/:id/download",
     zValidator("param", IdParam),
@@ -249,19 +300,25 @@ export const clipsPlaybackRoutes = new Hono()
       }
 
       const encodedVariant =
-        row.status === "ready"
+        row.status === "ready" && requestedVariant !== "source"
           ? findEncodedVariant(row, requestedVariant)
           : null
-      if (encodedVariant && isOpenGraphVariant(encodedVariant)) {
-        return c.json({ error: "Unknown download variant" }, 404)
-      }
-      const selected = encodedVariant
-        ? {
-            key: encodedVariant.storageKey,
-            contentType: encodedVariant.contentType,
-            filename: downloadFilename(row, encodedVariant),
-          }
-        : null
+      const selected =
+        requestedVariant === "source"
+          ? row.sourceKey && row.sourceContentType
+            ? {
+                key: row.sourceKey,
+                contentType: row.sourceContentType,
+                filename: downloadFilename(row, "source"),
+              }
+            : null
+          : encodedVariant
+            ? {
+                key: encodedVariant.storageKey,
+                contentType: encodedVariant.contentType,
+                filename: downloadFilename(row, encodedVariant),
+              }
+            : null
 
       if (!selected) {
         return c.json({ error: "Unknown download variant" }, 404)

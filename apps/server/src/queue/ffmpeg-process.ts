@@ -110,19 +110,21 @@ function abortError(): Error {
 }
 
 function logProcessStart(
-  _bin: string,
-  _args: ReadonlyArray<string>,
-  _label: string | undefined
+  bin: string,
+  args: ReadonlyArray<string>,
+  label: string | undefined
 ): void {
-  return undefined
+  console.info(`[ffmpeg] ${processName(bin, label)} started: ${args.join(" ")}`)
 }
 
 function logProcessSuccess(
-  _bin: string,
-  _label: string | undefined,
-  _startedAt: number
+  bin: string,
+  label: string | undefined,
+  startedAt: number
 ): void {
-  return undefined
+  console.info(
+    `[ffmpeg] ${processName(bin, label)} finished in ${Date.now() - startedAt}ms`
+  )
 }
 
 function logProcessFailure(

@@ -11,10 +11,10 @@ import { VideoPlayer } from "@/components/video/video-player"
 import { apiOrigin } from "@/lib/env"
 
 interface ClipPlayerProps {
-  /** Real clip id — drives both the stream URL and the default poster. */
+  /** Real clip id: drives the stream URL and the default poster. */
   clipId: string
-  /** MIME type of the uploaded source, used to decide if native playback can start on source quality. */
-  sourceContentType?: string
+  /** MIME type of the uploaded source, used for the source download option. */
+  sourceContentType?: string | null
   width?: number | null
   height?: number | null
   thumbnail?: string | null
@@ -46,7 +46,7 @@ function aspectRatioFromDimensions(
   return width / height
 }
 
-function canPlayNativeVideo(contentType: string | undefined): boolean {
+function canPlayNativeVideo(contentType: string | null | undefined): boolean {
   if (!contentType || typeof document === "undefined") return false
   const video = document.createElement("video")
   return video.canPlayType(contentType) !== ""
@@ -79,48 +79,23 @@ function ClipPlayer({
   const sortedVariants = React.useMemo(
     () =>
       variants
-        .filter(
-          (variant) =>
-            variant.id !== "source" &&
-            variant.role !== "source" &&
-            variant.id !== "opengraph" &&
-            variant.role !== "openGraph"
-        )
-        .sort((a, b) => b.height - a.height),
-    [variants]
-  )
-  const sourceVariant = React.useMemo(
-    () =>
-      variants.find(
-        (variant) => variant.role === "source" || variant.id === "source"
-      ) ?? null,
+        .slice()
+        .sort(
+          (a, b) =>
+            b.height - a.height ||
+            a.label.localeCompare(b.label) ||
+            a.id.localeCompare(b.id)
+        ),
     [variants]
   )
 
-  const encodedQualityOptions = sortedVariants.map((variant) => ({
-    id: variant.id,
-    label: variant.label,
-    downloadUrl: clipDownloadUrl(clipId, variant.id, apiOrigin()),
-  }))
   const defaultEncodedId =
     sortedVariants.find((variant) => variant.isDefault)?.id ??
     sortedVariants[0]?.id ??
     null
-
-  const [sourcePlayable, setSourcePlayable] = React.useState(() =>
-    canPlayNativeVideo(sourceVariant?.contentType ?? sourceContentType)
-  )
-  React.useEffect(() => {
-    setSourcePlayable(
-      canPlayNativeVideo(sourceVariant?.contentType ?? sourceContentType)
-    )
-  }, [sourceContentType, sourceVariant?.contentType])
-
-  const sourceAvailable = sourceVariant !== null
+  const sourcePlayable = canPlayNativeVideo(sourceContentType)
   const preferredQualityId =
-    sourceAvailable && sourcePlayable
-      ? "source"
-      : (defaultEncodedId ?? "source")
+    defaultEncodedId ?? (sourcePlayable ? "source" : "")
   const [selectedQualityId, setSelectedQualityId] =
     React.useState(preferredQualityId)
 
@@ -129,33 +104,40 @@ function ClipPlayer({
   }, [clipId, preferredQualityId])
 
   React.useEffect(() => {
-    if (
-      selectedQualityId === "source" ||
-      selectedQualityId === defaultEncodedId
-    )
-      return
-    const stillAvailable = sortedVariants.some(
-      (variant) => variant.id === selectedQualityId
-    )
+    if (selectedQualityId === defaultEncodedId) return
+    const stillAvailable =
+      sortedVariants.some((variant) => variant.id === selectedQualityId) ||
+      (selectedQualityId === "source" && sourcePlayable)
     if (!stillAvailable) setSelectedQualityId(preferredQualityId)
-  }, [defaultEncodedId, preferredQualityId, selectedQualityId, sortedVariants])
+  }, [
+    defaultEncodedId,
+    preferredQualityId,
+    selectedQualityId,
+    sortedVariants,
+    sourcePlayable,
+  ])
 
   const qualityOptions = [
-    ...(sourceAvailable && sourcePlayable
+    ...(sourceContentType
       ? [
           {
             id: "source",
             label: "Source",
             downloadUrl: clipDownloadUrl(clipId, "source", apiOrigin()),
+            selectable: sourcePlayable,
           },
         ]
       : []),
-    ...encodedQualityOptions,
+    ...sortedVariants.map((variant) => ({
+      id: variant.id,
+      label: variant.label,
+      downloadUrl: clipDownloadUrl(clipId, variant.id, apiOrigin()),
+    })),
   ]
   const sourceAspectRatio =
     aspectRatioProp ?? aspectRatioFromDimensions(width, height)
 
-  if ((!sourceAvailable || !sourcePlayable) && !defaultEncodedId) {
+  if (!defaultEncodedId && !sourcePlayable) {
     const unavailable = status === "failed"
     return (
       <div
@@ -171,13 +153,12 @@ function ClipPlayer({
         <div className="grid size-full place-items-center bg-black text-sm text-white/70">
           {unavailable
             ? "Playback unavailable."
-            : "Preparing playback version…"}
+            : "Preparing playback version..."}
         </div>
       </div>
     )
   }
 
-  const src = clipStreamUrl(clipId, selectedQualityId, apiOrigin())
   const selectedVariant =
     selectedQualityId === "source"
       ? null
@@ -192,7 +173,7 @@ function ClipPlayer({
 
   return (
     <VideoPlayer
-      src={src}
+      src={clipStreamUrl(clipId, selectedQualityId, apiOrigin())}
       poster={poster}
       aspectRatio={aspectRatio}
       maxDisplayHeight={maxDisplayHeight}
@@ -202,12 +183,6 @@ function ClipPlayer({
       qualityOptions={qualityOptions}
       selectedQualityId={selectedQualityId}
       onSelectQuality={setSelectedQualityId}
-      onPlaybackError={() => {
-        if (selectedQualityId === "source") {
-          setSourcePlayable(false)
-          if (defaultEncodedId) setSelectedQualityId(defaultEncodedId)
-        }
-      }}
       onPlayThreshold={onPlayThreshold}
       onEnded={onEnded}
       autoPlay={autoPlay}

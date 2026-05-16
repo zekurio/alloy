@@ -14,9 +14,12 @@ CREATE TABLE "clip" (
 	"game" text,
 	"game_id" uuid NOT NULL,
 	"privacy" text DEFAULT 'public' NOT NULL,
-	"storage_key" text NOT NULL,
-	"content_type" text NOT NULL,
-	"size_bytes" bigint,
+	"source_key" text,
+	"source_content_type" text,
+	"source_size_bytes" bigint,
+	"open_graph_key" text,
+	"open_graph_content_type" text,
+	"open_graph_size_bytes" bigint,
 	"duration_ms" integer,
 	"width" integer,
 	"height" integer,
@@ -37,8 +40,9 @@ CREATE TABLE "clip" (
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "clip_slug_unique" UNIQUE("slug"),
 	CONSTRAINT "clip_privacy_check" CHECK ("clip"."privacy" in ('public', 'unlisted', 'private')),
-	CONSTRAINT "clip_status_check" CHECK ("clip"."status" in ('pending', 'uploaded', 'encoding', 'ready', 'failed')),
-	CONSTRAINT "clip_size_bytes_safe_check" CHECK ("clip"."size_bytes" is null or ("clip"."size_bytes" >= 0 and "clip"."size_bytes" <= 9007199254740991))
+	CONSTRAINT "clip_status_check" CHECK ("clip"."status" in ('pending', 'processing', 'ready', 'failed')),
+	CONSTRAINT "clip_source_size_bytes_safe_check" CHECK ("clip"."source_size_bytes" is null or ("clip"."source_size_bytes" >= 0 and "clip"."source_size_bytes" <= 9007199254740991)),
+	CONSTRAINT "clip_open_graph_size_bytes_safe_check" CHECK ("clip"."open_graph_size_bytes" is null or ("clip"."open_graph_size_bytes" >= 0 and "clip"."open_graph_size_bytes" <= 9007199254740991))
 );
 --> statement-breakpoint
 CREATE TABLE "clip_comment" (
@@ -84,7 +88,7 @@ CREATE TABLE "clip_upload_ticket" (
 	"used_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "clip_upload_ticket_storage_key_unique" UNIQUE("storage_key"),
-	CONSTRAINT "clip_upload_ticket_role_check" CHECK ("clip_upload_ticket"."role" in ('video', 'thumbnail')),
+	CONSTRAINT "clip_upload_ticket_role_check" CHECK ("clip_upload_ticket"."role" in ('video')),
 	CONSTRAINT "clip_upload_ticket_expected_bytes_safe_check" CHECK ("clip_upload_ticket"."expected_bytes" > 0 and "clip_upload_ticket"."expected_bytes" <= 9007199254740991)
 );
 --> statement-breakpoint

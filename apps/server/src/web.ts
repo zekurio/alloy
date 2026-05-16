@@ -8,7 +8,6 @@ import { env } from "./env"
 import { configStore } from "./config/store"
 import { getSession } from "./auth/session"
 import { selectClipById } from "./clips/select"
-import { selectOpenGraphVideo } from "./open-graph/video-selection"
 import { isAbsolute, join, relative, resolve } from "./runtime/path"
 
 const HEAD_MARKER = "<!-- alloy:head -->"
@@ -130,17 +129,11 @@ async function clipHead(pathname: string): Promise<string> {
     const poster = row.thumbKey
       ? new URL(`/api/clips/${row.id}/thumbnail`, origin).toString()
       : null
-    const ogVariant = selectOpenGraphVideo(row.variants)
-    const videoUrl = ogVariant
-      ? new URL(
-          `/api/clips/${row.id}/stream?variant=${encodeURIComponent(
-            ogVariant.id
-          )}`,
-          origin
-        ).toString()
+    const videoUrl = row.openGraphKey
+      ? new URL(`/api/clips/${row.id}/opengraph`, origin).toString()
       : null
-    const width = ogVariant?.width ?? row.width
-    const height = ogVariant?.height ?? row.height
+    const width = row.width
+    const height = row.height
 
     return [
       `<title>${htmlEscape(row.title)} | alloy</title>`,
@@ -159,7 +152,7 @@ async function clipHead(pathname: string): Promise<string> {
               : []),
             metaProperty(
               "og:video:type",
-              ogVariant?.contentType ?? "video/mp4"
+              row.openGraphContentType ?? "video/mp4"
             ),
             ...(width ? [metaProperty("og:video:width", String(width))] : []),
             ...(height
