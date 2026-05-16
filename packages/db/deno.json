@@ -1,0 +1,19 @@
+{
+  "name": "@workspace/db",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts",
+    "./auth-schema": "./src/auth-schema.ts",
+    "./contracts": "./src/contracts.ts"
+  },
+  "tasks": {
+    "db:generate": "deno run -A npm:drizzle-kit@^0.31.10 generate",
+    "db:migrate": "deno run -A npm:drizzle-kit@^0.31.10 migrate",
+    "db:push": "deno run -A npm:drizzle-kit@^0.31.10 push",
+    "db:studio": "deno run -A npm:drizzle-kit@^0.31.10 studio",
+    "lint": "deno run -A npm:oxlint@^1.61.0 .",
+    "fmt": "deno run -A npm:oxfmt@^0.46.0 --write .",
+    "format": "deno task fmt",
+    "typecheck": "deno run -A npm:@typescript/native-preview@7.0.0-dev.20260420.1/tsgo --noEmit"
+  }
+}

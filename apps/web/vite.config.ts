@@ -3,6 +3,7 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import viteReact from "@vitejs/plugin-react"
 import viteTsConfigPaths from "vite-tsconfig-paths"
 import tailwindcss from "@tailwindcss/vite"
+import { fileURLToPath, URL } from "node:url"
 
 const DEFAULT_SERVER_URL = "http://localhost:3000"
 
@@ -21,6 +22,58 @@ function serverUrl(mode: string): string {
 
 const config = defineConfig(({ mode }) => ({
   publicDir: "../../public",
+  resolve: {
+    alias: [
+      {
+        find: /^@workspace\/api$/,
+        replacement: fileURLToPath(
+          new URL("../../packages/api/src/index.ts", import.meta.url)
+        ),
+      },
+      {
+        find: /^@workspace\/api\/(.*)$/,
+        replacement: fileURLToPath(
+          new URL("../../packages/api/src/$1", import.meta.url)
+        ),
+      },
+      {
+        find: /^@workspace\/contracts$/,
+        replacement: fileURLToPath(
+          new URL("../../packages/contracts/src/index.ts", import.meta.url)
+        ),
+      },
+      {
+        find: /^@workspace\/contracts\/(.*)$/,
+        replacement: fileURLToPath(
+          new URL("../../packages/contracts/src/$1", import.meta.url)
+        ),
+      },
+      {
+        find: /^@workspace\/db$/,
+        replacement: fileURLToPath(
+          new URL("../../packages/db/src/index.ts", import.meta.url)
+        ),
+      },
+      {
+        find: /^@workspace\/db\/(.*)$/,
+        replacement: fileURLToPath(
+          new URL("../../packages/db/src/$1", import.meta.url)
+        ),
+      },
+      {
+        find: /^@workspace\/ui\/globals\.css$/,
+        replacement: fileURLToPath(
+          new URL("../../packages/ui/src/styles/globals.css", import.meta.url)
+        ),
+      },
+      {
+        find: /^@workspace\/ui\/(.*)$/,
+        replacement: fileURLToPath(
+          new URL("../../packages/ui/src/$1", import.meta.url)
+        ),
+      },
+    ],
+  },
   server: {
     host: true,
     port: 5173,
