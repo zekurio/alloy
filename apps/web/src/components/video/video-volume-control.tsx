@@ -38,15 +38,15 @@ export function VolumeControl({
         ? Volume1Icon
         : Volume2Icon
 
-  const computeVolume = React.useCallback((clientX: number): number => {
+  const computeVolume = React.useCallback((clientY: number): number => {
     const rail = railRef.current
     if (!rail) return 0
     const rect = rail.getBoundingClientRect()
     const insetPx = 12
-    const trackWidth = Math.max(1, rect.width - insetPx * 2)
+    const trackHeight = Math.max(1, rect.height - insetPx * 2)
     return Math.min(
       1,
-      Math.max(0, (clientX - rect.left - insetPx) / trackWidth)
+      Math.max(0, (rect.bottom - insetPx - clientY) / trackHeight)
     )
   }, [])
 
@@ -57,13 +57,13 @@ export function VolumeControl({
     e.currentTarget.setPointerCapture(e.pointerId)
     draggingIdRef.current = e.pointerId
     setDragging(true)
-    onVolumeChange(computeVolume(e.clientX))
+    onVolumeChange(computeVolume(e.clientY))
   }
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (draggingIdRef.current !== e.pointerId) return
     e.preventDefault()
     e.stopPropagation()
-    onVolumeChange(computeVolume(e.clientX))
+    onVolumeChange(computeVolume(e.clientY))
   }
   const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (draggingIdRef.current !== e.pointerId) return
@@ -77,7 +77,10 @@ export function VolumeControl({
   return (
     <div
       data-video-player-control
-      className={cn("group/vol flex items-center select-none", className)}
+      className={cn(
+        "group/vol relative flex items-center select-none before:absolute before:bottom-full before:left-1/2 before:h-3 before:w-8 before:-translate-x-1/2 before:content-['']",
+        className
+      )}
     >
       <Button
         variant="ghost"
@@ -118,34 +121,40 @@ export function VolumeControl({
             } else if (e.key === "ArrowRight") {
               e.preventDefault()
               onVolumeChange(Math.min(1, effective + 0.1))
+            } else if (e.key === "ArrowDown") {
+              e.preventDefault()
+              onVolumeChange(Math.max(0, effective - 0.1))
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault()
+              onVolumeChange(Math.min(1, effective + 0.1))
             }
           }}
           className={cn(
-            "relative flex h-8 cursor-pointer touch-none items-center overflow-visible rounded-full",
-            "w-0 opacity-0 transition-[width,opacity] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-            "group-hover/vol:ml-1 group-hover/vol:w-24 group-hover/vol:opacity-100",
-            "focus-within:ml-1 focus-within:w-24 focus-within:opacity-100",
-            "data-[dragging=true]:ml-1 data-[dragging=true]:w-24 data-[dragging=true]:opacity-100",
+            "absolute bottom-[calc(100%+0.25rem)] left-1/2 z-10 flex h-28 w-8 -translate-x-1/2 cursor-pointer touch-none items-center justify-center overflow-visible rounded-full py-3",
+            "bg-black/45 opacity-0 shadow-[0_8px_24px_-12px_rgb(0_0_0_/_0.9)] backdrop-blur-sm transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+            "pointer-events-none translate-y-0 group-hover/vol:pointer-events-auto group-hover/vol:-translate-y-1 group-hover/vol:opacity-100",
+            "focus-within:pointer-events-auto focus-within:-translate-y-1 focus-within:opacity-100",
+            "data-[dragging=true]:pointer-events-auto data-[dragging=true]:-translate-y-1 data-[dragging=true]:opacity-100",
             "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           )}
         >
           <div
             aria-hidden
-            className="absolute inset-x-3 top-1/2 h-1 -translate-y-1/2 rounded-full bg-neutral-200"
+            className="absolute inset-y-3 left-1/2 w-[4px] -translate-x-1/2 rounded-full bg-white/25"
           />
           <div
             aria-hidden
-            className="absolute top-1/2 left-3 h-1 -translate-y-1/2 rounded-full bg-accent"
-            style={{ width: `calc(${effective} * (100% - 24px))` }}
+            className="absolute bottom-3 left-1/2 w-[4px] -translate-x-1/2 rounded-full bg-accent"
+            style={{ height: `calc(${effective} * (100% - 24px))` }}
           />
           <div
             aria-hidden
             className={cn(
-              "absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full",
-              "border border-accent-border bg-accent shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_18%,transparent)]"
+              "absolute left-1/2 size-[14px] -translate-x-1/2 translate-y-1/2 rounded-full",
+              "bg-accent"
             )}
             style={{
-              left: `calc(12px + ${effective} * (100% - 24px))`,
+              bottom: `calc(12px + ${effective} * (100% - 24px))`,
             }}
           />
         </div>

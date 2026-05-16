@@ -22,7 +22,10 @@ export type QualityOption = {
 }
 
 const glassMenuClass =
-  "alloy-blur border-white/10 text-foreground [--alloy-blur-bg:rgb(8_8_10_/_0.88)] [--alloy-blur-blur:24px] [--alloy-blur-border:rgb(255_255_255_/_0.08)] [--alloy-blur-shadow:0_18px_48px_-20px_rgb(0_0_0_/_0.7)]"
+  "rounded-xl border-white/10 !bg-black/45 text-foreground shadow-[0_8px_24px_-12px_rgb(0_0_0_/_0.9)] backdrop-blur-sm"
+
+const glassMenuItemClass =
+  "text-foreground/80 transition-colors focus:bg-transparent focus:text-accent data-highlighted:bg-transparent data-highlighted:text-accent [&_svg]:text-foreground/70 focus:[&_svg]:text-accent data-highlighted:[&_svg]:text-accent"
 
 export function VideoSettingsMenu({
   qualityOptions = [],
@@ -77,7 +80,8 @@ export function VideoSettingsMenu({
       <DropdownMenuContent
         data-video-shortcut-scope="ignore"
         align="end"
-        sideOffset={8}
+        side="top"
+        sideOffset={4}
         className={cn(glassMenuClass, contentClassName)}
         style={contentStyle}
         portalContainer={portalContainer}
@@ -86,19 +90,22 @@ export function VideoSettingsMenu({
           <DropdownMenuGroup>
             {hasQualityChoices ? (
               <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
+                <DropdownMenuSubTrigger className={glassMenuItemClass}>
                   <GaugeIcon />
                   {selectedQuality?.label ?? "Quality"}
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent
                   data-video-shortcut-scope="ignore"
                   alignOffset={-3}
+                  side="left"
+                  sideOffset={4}
                   portalContainer={portalContainer}
                   className={glassMenuClass}
                 >
                   {selectableOptions.map((quality) => (
                     <DropdownMenuItem
                       key={quality.id}
+                      className={glassMenuItemClass}
                       onClick={() => onSelectQuality?.(quality.id)}
                     >
                       <QualityText quality={quality} />
@@ -110,19 +117,22 @@ export function VideoSettingsMenu({
 
             {hasDownloads ? (
               <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
+                <DropdownMenuSubTrigger className={glassMenuItemClass}>
                   <DownloadIcon />
                   Download
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent
                   data-video-shortcut-scope="ignore"
                   alignOffset={-3}
+                  side="left"
+                  sideOffset={4}
                   portalContainer={portalContainer}
                   className={glassMenuClass}
                 >
                   {downloadOptions.map((quality) => (
                     <DropdownMenuItem
                       key={quality.id}
+                      className={glassMenuItemClass}
                       onClick={() => startDownload(quality.downloadUrl!)}
                     >
                       {quality.label}
