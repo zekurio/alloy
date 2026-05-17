@@ -30,6 +30,24 @@ import {
   type InitiateQuotaResult,
 } from "./clips-upload-helpers"
 
+const Deno = globalThis.Deno
+
+async function selectVideoUploadTicketStorageKey(
+  clipId: string
+): Promise<string | null> {
+  const [ticketRow] = await db
+    .select({ storageKey: clipUploadTicket.storageKey })
+    .from(clipUploadTicket)
+    .where(
+      and(
+        eq(clipUploadTicket.clipId, clipId),
+        eq(clipUploadTicket.role, "video")
+      )
+    )
+    .limit(1)
+  return ticketRow?.storageKey ?? null
+}
+
 export const clipsUploadRoutes = new Hono()
   .post(
     "/initiate",
@@ -156,48 +174,43 @@ export const clipsUploadRoutes = new Hono()
         return c.json({ error: `Clip is already ${row.status}` }, 409)
       }
 
-      const [ticketRow] = await db
-        .select({ storageKey: clipUploadTicket.storageKey })
-        .from(clipUploadTicket)
-        .where(
-          and(
-            eq(clipUploadTicket.clipId, id),
-            eq(clipUploadTicket.role, "video")
-          )
-        )
-        .limit(1)
-      if (!ticketRow || !row.sourceContentType || row.sourceSizeBytes == null) {
+      const storageKey = await selectVideoUploadTicketStorageKey(id)
+      if (
+        !storageKey ||
+        !row.sourceContentType ||
+        row.sourceSizeBytes == null
+      ) {
         await markUploadFailed(row.authorId, id, "Upload ticket missing")
         return c.json({ error: "Upload ticket missing" }, 400)
       }
 
       const videoTicketOk = await assertUsableUploadTicket({
         clipId: id,
-        storageKey: ticketRow.storageKey,
+        storageKey,
         contentType: row.sourceContentType,
         expectedBytes: row.sourceSizeBytes,
         role: "video",
       })
       if (!videoTicketOk) {
-        await deleteScratchUpload(ticketRow.storageKey)
+        await deleteScratchUpload(storageKey)
         await markUploadFailed(row.authorId, id, "Upload ticket expired")
         return c.json({ error: "Upload ticket expired" }, 410)
       }
 
-      const uploadStat = await Deno.stat(
-        scratchUploadPath(ticketRow.storageKey)
-      ).catch((err) => {
-        if (err instanceof Deno.errors.NotFound) return null
-        throw err
-      })
+      const uploadStat = await Deno.stat(scratchUploadPath(storageKey)).catch(
+        (err) => {
+          if (err instanceof Deno.errors.NotFound) return null
+          throw err
+        }
+      )
       if (!uploadStat?.isFile) {
-        await deleteScratchUpload(ticketRow.storageKey)
+        await deleteScratchUpload(storageKey)
         await markUploadFailed(row.authorId, id, "Upload bytes are missing")
         return c.json({ error: "Upload bytes are missing" }, 400)
       }
 
       if (uploadStat.size !== row.sourceSizeBytes) {
-        await deleteScratchUpload(ticketRow.storageKey)
+        await deleteScratchUpload(storageKey)
         await markUploadFailed(
           row.authorId,
           id,
@@ -222,7 +235,7 @@ export const clipsUploadRoutes = new Hono()
         }
       )
       if (!quotaResult.ok) {
-        await deleteScratchUpload(ticketRow.storageKey)
+        await deleteScratchUpload(storageKey)
         await markUploadFailed(row.authorId, id, "Storage quota exceeded")
         return c.json(
           {
@@ -276,17 +289,7 @@ export const clipsUploadRoutes = new Hono()
         return c.json({ error: `Clip is already ${row.status}` }, 409)
       }
 
-      const [ticketRow] = await db
-        .select({ storageKey: clipUploadTicket.storageKey })
-        .from(clipUploadTicket)
-        .where(
-          and(
-            eq(clipUploadTicket.clipId, id),
-            eq(clipUploadTicket.role, "video")
-          )
-        )
-        .limit(1)
-      await deleteScratchUpload(ticketRow?.storageKey ?? null)
+      await deleteScratchUpload(await selectVideoUploadTicketStorageKey(id))
       await markUploadFailed(row.authorId, id, "Upload failed")
       return c.json({ success: true })
     }

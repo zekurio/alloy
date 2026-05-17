@@ -1,0 +1,13 @@
+{
+  "name": "@workspace/api",
+  "exports": {
+    ".": "./src/index.ts",
+    "./auth": "./src/auth.ts"
+  },
+  "tasks": {
+    "lint": "deno run -A npm:oxlint@^1.61.0 .",
+    "fmt": "deno run -A npm:oxfmt@^0.46.0 --write .",
+    "format": "deno task fmt",
+    "typecheck": "deno run -A npm:@typescript/native-preview@7.0.0-dev.20260420.1/tsgo --noEmit"
+  }
+}

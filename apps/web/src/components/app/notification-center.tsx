@@ -34,6 +34,10 @@ import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { EmptyState } from "@/components/feedback/empty-state"
+import {
+  announceFloatingSurfaceOpen,
+  subscribeToFloatingSurfaceOpen,
+} from "@/components/app/floating-surface-events"
 import { apiOrigin } from "@/lib/env"
 import { useSuspenseSession } from "@/lib/session-suspense"
 import { displayName, userAvatar } from "@/lib/user-display"
@@ -68,6 +72,16 @@ export function NotificationCenter() {
   const query = useNotificationsQuery({ enabled: false })
   useNotificationStream({ enabled })
 
+  React.useEffect(() => {
+    return subscribeToFloatingSurfaceOpen((surface) => {
+      if (surface !== "notifications") setOpen(false)
+    })
+  }, [])
+
+  React.useEffect(() => {
+    if (open) announceFloatingSurfaceOpen("notifications")
+  }, [open])
+
   if (!enabled) return null
 
   const unreadCount = query.data?.unreadCount ?? 0
@@ -96,7 +110,7 @@ export function NotificationCenter() {
 
   if (isMobile) {
     return (
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog modal={false} open={open} onOpenChange={setOpen}>
         <DialogTrigger render={trigger} />
         <DialogContent
           disableZoom

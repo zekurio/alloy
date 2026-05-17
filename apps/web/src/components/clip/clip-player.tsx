@@ -25,10 +25,8 @@ interface ClipPlayerProps {
   onEnded?: () => void
   className?: string
   maxDisplayHeight?: string
-  chromeSize?: "default" | "compact" | "minimal"
+  chromeSize?: "default" | "compact"
   autoPlay?: boolean
-  autoAdvance?: boolean
-  onAutoAdvanceChange?: (next: boolean) => void
   enableHorizontalSeekShortcuts?: boolean
   /** Override the aspect ratio derived from source dimensions. */
   aspectRatio?: number
@@ -67,8 +65,6 @@ function ClipPlayer({
   maxDisplayHeight,
   chromeSize,
   autoPlay,
-  autoAdvance,
-  onAutoAdvanceChange,
   enableHorizontalSeekShortcuts,
   aspectRatio: aspectRatioProp,
 }: ClipPlayerProps) {
@@ -186,8 +182,6 @@ function ClipPlayer({
       onPlayThreshold={onPlayThreshold}
       onEnded={onEnded}
       autoPlay={autoPlay}
-      autoAdvance={autoAdvance}
-      onAutoAdvanceChange={onAutoAdvanceChange}
       enableHorizontalSeekShortcuts={enableHorizontalSeekShortcuts}
     />
   )
