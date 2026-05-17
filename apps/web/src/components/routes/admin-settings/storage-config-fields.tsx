@@ -345,7 +345,7 @@ export function StorageActions({
         <Button
           className="flex-1 sm:flex-initial"
           type="button"
-          variant="outline"
+          variant="ghost"
           size="sm"
           onClick={onReset}
           disabled={pending || !isDirty}

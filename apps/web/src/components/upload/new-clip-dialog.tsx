@@ -151,7 +151,7 @@ export function NewClipDialog({
         onChange={handleInputChange}
       />
       {isMobile ? (
-        <div className="shrink-0 px-4 pt-2 pb-4">
+        <div className="shrink-0 px-4 pt-4 pb-4">
           <DrawerTitle className="text-lg leading-tight font-semibold tracking-[var(--tracking-tight)] text-foreground">
             New clip
           </DrawerTitle>
@@ -208,10 +208,9 @@ export function NewClipDialog({
           onOpenChange(next)
           if (!next) handleOpenChangeComplete(false)
         }}
-        handleOnly
       >
         <DrawerContent
-          className="max-h-[85vh] bg-surface [&>[data-slot=drawer-handle]]:hidden"
+          className="max-h-[92dvh] bg-surface"
           aria-describedby={undefined}
         >
           {surfaceContent}
@@ -339,7 +338,8 @@ function LoadedState({
     >
       <DialogBody
         className={cn(
-          "flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4",
+          "flex-1 px-4 py-3 sm:px-6 sm:py-4",
+          isMobile ? "overflow-y-scroll" : "overflow-y-auto",
           isMobile && "px-4",
           "grid gap-6",
           "grid-cols-1 lg:grid-cols-[minmax(0,3fr)_minmax(260px,1fr)]"

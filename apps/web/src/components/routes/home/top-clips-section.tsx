@@ -96,7 +96,7 @@ export function TopClipsSection({ viewerId }: TopClipsSectionProps) {
   })
 
   return (
-    <section className="pb-6">
+    <section>
       <SectionHead>
         <div>
           <SectionTitle>

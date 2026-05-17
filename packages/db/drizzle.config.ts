@@ -1,5 +1,7 @@
 import { defineConfig } from "drizzle-kit"
 
+const Deno = globalThis.Deno
+
 const databaseUrl = Deno.env.get("DATABASE_URL")
 
 if (!databaseUrl) {

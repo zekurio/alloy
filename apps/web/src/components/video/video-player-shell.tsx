@@ -1,34 +1,36 @@
 import * as React from "react"
-import {
-  ListVideoIcon,
-  MaximizeIcon,
-  PauseIcon,
-  PlayIcon,
-  Volume1Icon,
-  Volume2Icon,
-  VolumeXIcon,
-} from "lucide-react"
+import { MaximizeIcon, PauseIcon, PlayIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
+import { useMediaQuery } from "@workspace/ui/hooks/use-media-query"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { formatTime, formatTimeStable } from "./video-player-hooks"
 import { VideoScrubber } from "./video-scrubber"
 import { VideoSettingsMenu } from "./video-settings-menu"
 import { VolumeControl } from "./video-volume-control"
+import {
+  handleVideoKeyCommand,
+  shouldHandleVideoShortcut,
+  type VideoKeyCommand,
+} from "./video-keyboard"
 
-const KEYBOARD_SEEK_SECONDS = 5
-export const KEYBOARD_LONG_SEEK_SECONDS = 10
-const KEYBOARD_VOLUME_STEP = 0.1
+export {
+  handleVideoKeyCommand,
+  KEYBOARD_LONG_SEEK_SECONDS,
+  shouldHandleGlobalVideoShortcut,
+  type VideoKeyCommand,
+} from "./video-keyboard"
 
 /* ─── Reusable video-chrome primitives ─────────────────────────────── */
 
-export const videoChromeBarClass =
-  "alloy-blur group/bar text-foreground rounded-2xl border border-white/8 [--alloy-blur-bg:rgb(8_8_10_/_0.82)] [--alloy-blur-blur:28px] [--alloy-blur-border:rgb(255_255_255_/_0.08)] [--alloy-blur-shadow:0_18px_48px_-20px_rgb(0_0_0_/_0.75)]"
-
 export const videoChromeIconClass =
-  "size-9 rounded-full text-foreground drop-shadow-[0_1px_2px_rgb(0_0_0_/_0.5)] hover:bg-white/10 hover:text-foreground focus-visible:ring-ring [&_svg]:size-5"
+  "size-[52px] rounded-full text-foreground shadow-none hover:bg-transparent hover:text-foreground hover:shadow-none focus-visible:ring-ring"
+
+const videoChromeGlyphClass =
+  "size-[18px] stroke-[1.8] drop-shadow-[0_0_6px_color-mix(in_oklab,var(--accent)_75%,transparent)]"
+const compactVideoChromeGlyphClass =
+  "size-[18px] stroke-[1.8] drop-shadow-[0_0_6px_color-mix(in_oklab,var(--accent)_75%,transparent)]"
 
 /* ─── Types ────────────────────────────────────────────────────────── */
 
@@ -36,16 +38,6 @@ export type LoadStatus =
   | { kind: "loading" }
   | { kind: "ready" }
   | { kind: "error"; message: string }
-
-export type VideoKeyCommand = {
-  togglePlay: () => void
-  toggleMute: () => void
-  seekBy: (delta: number) => void
-  seekTo: (seconds: number) => void
-  seekPercent: (percent: number) => void
-  volumeBy: (delta: number) => void
-  toggleFullscreen: () => void
-}
 
 /* ─── Shells ───────────────────────────────────────────────────────── */
 
@@ -103,6 +95,8 @@ export function ChromeShell({
   maxDisplayHeight,
   playing,
   onPointerDown,
+  onPointerMove,
+  onPointerLeave,
   onFocus,
   onKeyCommand,
   enableHorizontalSeekShortcuts = true,
@@ -116,6 +110,8 @@ export function ChromeShell({
   maxDisplayHeight?: string
   playing: boolean
   onPointerDown?: React.PointerEventHandler<HTMLDivElement>
+  onPointerMove?: React.PointerEventHandler<HTMLDivElement>
+  onPointerLeave?: React.PointerEventHandler<HTMLDivElement>
   onFocus?: React.FocusEventHandler<HTMLDivElement>
   onKeyCommand: VideoKeyCommand
   enableHorizontalSeekShortcuts?: boolean
@@ -176,6 +172,8 @@ export function ChromeShell({
       tabIndex={0}
       onKeyDown={onKeyDown}
       onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerLeave={onPointerLeave}
       onFocus={onFocus}
       style={rootSizingStyle}
       className={cn(
@@ -262,144 +260,18 @@ function mediaShellSizingStyle(
   }
 }
 
-export function shouldHandleVideoShortcut(
-  target: EventTarget,
-  currentTarget: HTMLDivElement
-): boolean {
-  if (target === currentTarget) return true
-  if (!(target instanceof HTMLElement)) return false
-  if (target.closest("[data-video-shortcut-scope='ignore']")) return false
-  if (target.isContentEditable) return false
-
-  const tag = target.tagName
-  if (
-    tag === "BUTTON" ||
-    tag === "INPUT" ||
-    tag === "SELECT" ||
-    tag === "TEXTAREA"
-  ) {
-    return false
-  }
-
-  const role = target.getAttribute("role")
-  return role !== "slider" && role !== "button" && role !== "combobox"
-}
-
-export function shouldHandleGlobalVideoShortcut(
-  target: EventTarget | null,
-  playerRoot: HTMLElement | null
-) {
-  if (!(target instanceof HTMLElement)) return true
-  if (target.closest("[data-video-shortcut-scope='ignore']")) return false
-  if (target.isContentEditable) return false
-
-  const tag = target.tagName
-  if (
-    tag === "INPUT" ||
-    tag === "SELECT" ||
-    tag === "TEXTAREA" ||
-    tag === "A"
-  ) {
-    return false
-  }
-
-  const isPlayerControl = Boolean(
-    playerRoot?.contains(target) ||
-    target.closest("[data-video-player-control]")
-  )
-
-  if (tag === "BUTTON" && !isPlayerControl) return false
-
-  const role = target.getAttribute("role")
-  if (role === "slider" || role === "combobox") return false
-  return role !== "button" || isPlayerControl
-}
-
-export function handleVideoKeyCommand(
-  e: KeyboardEvent,
-  command: VideoKeyCommand,
-  options: { enableHorizontalSeek?: boolean } = {}
-): boolean {
-  if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return false
-  const key = e.key.toLowerCase()
-  const enableHorizontalSeek = options.enableHorizontalSeek ?? true
-
-  if (e.key === " " || e.code === "Space" || key === "k") {
-    e.preventDefault()
-    command.togglePlay()
-    return true
-  }
-  if (enableHorizontalSeek && e.key === "ArrowLeft") {
-    e.preventDefault()
-    command.seekBy(-KEYBOARD_SEEK_SECONDS)
-    return true
-  }
-  if (enableHorizontalSeek && e.key === "ArrowRight") {
-    e.preventDefault()
-    command.seekBy(KEYBOARD_SEEK_SECONDS)
-    return true
-  }
-  if (key === "j") {
-    e.preventDefault()
-    command.seekBy(-KEYBOARD_LONG_SEEK_SECONDS)
-    return true
-  }
-  if (key === "l") {
-    e.preventDefault()
-    command.seekBy(KEYBOARD_LONG_SEEK_SECONDS)
-    return true
-  }
-  if (e.key === "ArrowUp") {
-    e.preventDefault()
-    command.volumeBy(KEYBOARD_VOLUME_STEP)
-    return true
-  }
-  if (e.key === "ArrowDown") {
-    e.preventDefault()
-    command.volumeBy(-KEYBOARD_VOLUME_STEP)
-    return true
-  }
-  if (e.key === "Home") {
-    e.preventDefault()
-    command.seekTo(0)
-    return true
-  }
-  if (e.key === "End") {
-    e.preventDefault()
-    command.seekTo(Number.POSITIVE_INFINITY)
-    return true
-  }
-  if (/^[0-9]$/.test(key)) {
-    e.preventDefault()
-    command.seekPercent(Number(key) / 10)
-    return true
-  }
-  if (key === "m") {
-    e.preventDefault()
-    command.toggleMute()
-    return true
-  }
-  if (key === "f") {
-    e.preventDefault()
-    command.toggleFullscreen()
-    return true
-  }
-
-  return false
-}
-
 /* ─── Chrome bar ───────────────────────────────────────────────────── */
 
 export function ChromeBar({
   size = "default",
   containerRef,
+  visible = true,
   playing,
   duration,
   currentTime,
   bufferedEnd,
   muted,
   volume,
-  autoAdvance,
   onTogglePlay,
   onToggleMute,
   onVolumeChange,
@@ -407,18 +279,17 @@ export function ChromeBar({
   qualityOptions,
   selectedQualityId,
   onSelectQuality,
-  onAutoAdvanceChange,
   onToggleFullscreen,
 }: {
-  size?: "default" | "compact" | "minimal"
+  size?: "default" | "compact"
   containerRef: React.RefObject<HTMLDivElement | null>
+  visible?: boolean
   playing: boolean
   duration: number
   currentTime: number
   bufferedEnd: number
   muted: boolean
   volume: number
-  autoAdvance?: boolean
   onTogglePlay: () => void
   onToggleMute: () => void
   onVolumeChange: (v: number) => void
@@ -432,15 +303,16 @@ export function ChromeBar({
   }>
   selectedQualityId?: string
   onSelectQuality?: (qualityId: string) => void
-  onAutoAdvanceChange?: (next: boolean) => void
   onToggleFullscreen: () => void
 }) {
   const [fullscreenSupported, setFullscreenSupported] = React.useState(false)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
   const [settingsOpen, setSettingsOpen] = React.useState(false)
-  const settingsPortalContainer = isFullscreen
-    ? containerRef.current
-    : undefined
+  const isCoarsePointer = useMediaQuery("(pointer: coarse)")
+  const settingsPortalContainer = containerRef.current
+  const chromeInteractive = visible || settingsOpen
+  const showEdgeScrubber = isCoarsePointer
+  const edgeScrubberInteractive = !visible && !settingsOpen
 
   React.useEffect(() => {
     if (typeof document === "undefined") return
@@ -457,156 +329,138 @@ export function ChromeBar({
     return () => document.removeEventListener("fullscreenchange", onChange)
   }, [containerRef])
 
-  if (size === "minimal") {
-    const MuteIcon =
-      muted || volume === 0
-        ? VolumeXIcon
-        : volume < 0.5
-          ? Volume1Icon
-          : Volume2Icon
-    return (
-      <div
-        className={cn("pointer-events-auto flex items-center gap-2 px-3 py-2")}
-      >
-        <div className="min-w-0 flex-1 px-1.5">
+  return (
+    <>
+      {showEdgeScrubber && !chromeInteractive ? (
+        <div
+          className={cn(
+            "absolute inset-x-0 bottom-0 z-30",
+            edgeScrubberInteractive
+              ? "pointer-events-auto"
+              : "pointer-events-none"
+          )}
+        >
           <VideoScrubber
             currentTime={currentTime}
             duration={duration}
             bufferedEnd={bufferedEnd}
             onSeek={onSeek}
-            variant="translucent"
+            variant="edge"
           />
         </div>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={muted ? "Unmute" : "Mute"}
-          onClick={onToggleMute}
-          className={cn(videoChromeIconClass, "size-9 [&_svg]:size-5")}
-        >
-          <MuteIcon />
-        </Button>
-      </div>
-    )
-  }
+      ) : null}
 
-  return (
-    <div
-      aria-hidden={false}
-      data-pinned={settingsOpen ? "true" : undefined}
-      className={cn(
-        videoChromeBarClass,
-        "pointer-events-none absolute inset-x-3 bottom-3 isolate z-20 translate-y-1 opacity-0 transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-        "group-focus-within/video:pointer-events-auto group-focus-within/video:translate-y-0 group-focus-within/video:opacity-100",
-        "group-hover/video:pointer-events-auto group-hover/video:translate-y-0 group-hover/video:opacity-100",
-        "data-[pinned=true]:pointer-events-auto data-[pinned=true]:translate-y-0 data-[pinned=true]:opacity-100"
-      )}
-    >
-      <div className="relative flex flex-col">
+      <div
+        aria-hidden={false}
+        data-pinned={settingsOpen ? "true" : undefined}
+        className={cn(
+          "pointer-events-none absolute inset-x-0 bottom-0 isolate z-20 flex items-center gap-1 px-1 pt-3 pb-[env(safe-area-inset-bottom)] transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+          "after:pointer-events-none after:absolute after:inset-x-0 after:bottom-[-1px] after:h-[2px] after:bg-black/70",
+          "bg-gradient-to-t from-black/70 via-black/30 to-transparent",
+          visible ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0",
+          chromeInteractive && "pointer-events-auto",
+          "data-[pinned=true]:translate-y-0 data-[pinned=true]:opacity-100",
+          isFullscreen &&
+            "pr-[max(2px,calc(env(safe-area-inset-right)+2px))] pl-[max(2px,calc(env(safe-area-inset-left)+2px))]"
+        )}
+      >
         <div
           className={cn(
-            "flex flex-col px-2",
-            size === "compact" ? "gap-1 px-2 pt-1 pb-1" : "gap-2 pt-2 pb-2"
+            "flex min-h-[60px] min-w-0 flex-1 items-center gap-1",
+            size === "compact" && "min-h-[64px] gap-1"
           )}
         >
-          <div className={cn(size === "compact" ? "px-2" : "px-0.5")}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={playing ? "Pause" : "Play"}
+            onClick={onTogglePlay}
+            className={cn(
+              videoChromeIconClass,
+              size === "compact" && "size-[56px]"
+            )}
+          >
+            {playing ? (
+              <PauseIcon
+                className={cn(
+                  videoChromeGlyphClass,
+                  size === "compact" && compactVideoChromeGlyphClass
+                )}
+              />
+            ) : (
+              <PlayIcon
+                className={cn(
+                  videoChromeGlyphClass,
+                  size === "compact" && compactVideoChromeGlyphClass
+                )}
+              />
+            )}
+          </Button>
+
+          <VolumeControl
+            muted={muted}
+            volume={volume}
+            onToggleMute={onToggleMute}
+            onVolumeChange={onVolumeChange}
+            showSlider={!isCoarsePointer}
+            iconGlyphClassName={cn(
+              videoChromeGlyphClass,
+              size === "compact" && compactVideoChromeGlyphClass
+            )}
+            iconClassName={cn(
+              videoChromeIconClass,
+              size === "compact" && "size-[56px]"
+            )}
+          />
+
+          <div className="min-w-0 flex-1 px-[2px]">
             <VideoScrubber
               currentTime={currentTime}
               duration={duration}
               bufferedEnd={bufferedEnd}
               onSeek={onSeek}
+              variant="translucent"
             />
           </div>
 
-          <div className="flex w-full items-center gap-2">
-            <div className="inline-flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={playing ? "Pause" : "Play"}
-                onClick={onTogglePlay}
-                className={cn(
-                  videoChromeIconClass,
-                  size === "compact" && "size-10 [&_svg]:size-6"
-                )}
-              >
-                {playing ? <PauseIcon /> : <PlayIcon />}
-              </Button>
+          <VideoSettingsMenu
+            qualityOptions={qualityOptions}
+            selectedQualityId={selectedQualityId}
+            onSelectQuality={onSelectQuality}
+            onOpenChange={setSettingsOpen}
+            triggerClassName={cn(
+              videoChromeIconClass,
+              size === "compact" && "size-[56px]"
+            )}
+            triggerIconClassName={cn(
+              videoChromeGlyphClass,
+              size === "compact" && compactVideoChromeGlyphClass
+            )}
+            portalContainer={settingsPortalContainer}
+          />
 
-              {size === "compact" ? null : (
-                <VolumeControl
-                  muted={muted}
-                  volume={volume}
-                  onToggleMute={onToggleMute}
-                  onVolumeChange={onVolumeChange}
-                  iconClassName={videoChromeIconClass}
-                />
-              )}
-            </div>
-
-            <div
+          {fullscreenSupported ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+              onClick={onToggleFullscreen}
               className={cn(
-                "inline-flex h-9 items-center px-2 text-sm leading-5 font-semibold text-foreground tabular-nums drop-shadow-[0_1px_2px_rgb(0_0_0_/_0.5)]"
+                videoChromeIconClass,
+                size === "compact" && "size-[56px]"
               )}
             >
-              <span>{formatTimeStable(currentTime, duration)}</span>
-              <span className="mx-1 text-foreground-muted">/</span>
-              <span className="text-foreground-muted">
-                {formatTime(duration)}
-              </span>
-            </div>
-
-            <div className="ml-auto inline-flex items-center gap-1">
-              <VideoSettingsMenu
-                qualityOptions={qualityOptions}
-                selectedQualityId={selectedQualityId}
-                onSelectQuality={onSelectQuality}
-                onOpenChange={setSettingsOpen}
-                triggerClassName={cn(
-                  videoChromeIconClass,
-                  size === "compact" && "size-10 [&_svg]:size-6"
+              <MaximizeIcon
+                className={cn(
+                  videoChromeGlyphClass,
+                  size === "compact" && compactVideoChromeGlyphClass
                 )}
-                portalContainer={settingsPortalContainer}
               />
-
-              {typeof autoAdvance === "boolean" ? (
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={
-                    autoAdvance ? "Disable autoplay" : "Enable autoplay"
-                  }
-                  aria-pressed={autoAdvance}
-                  onClick={() => onAutoAdvanceChange?.(!autoAdvance)}
-                  className={cn(
-                    videoChromeIconClass,
-                    size === "compact" && "size-10 [&_svg]:size-6",
-                    autoAdvance && "text-accent hover:text-accent"
-                  )}
-                >
-                  <ListVideoIcon />
-                </Button>
-              ) : null}
-
-              {fullscreenSupported ? (
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-                  onClick={onToggleFullscreen}
-                  className={cn(
-                    videoChromeIconClass,
-                    size === "compact" && "size-10 [&_svg]:size-6"
-                  )}
-                >
-                  <MaximizeIcon />
-                </Button>
-              ) : null}
-            </div>
-          </div>
+            </Button>
+          ) : null}
         </div>
       </div>
-    </div>
+    </>
   )
 }
 

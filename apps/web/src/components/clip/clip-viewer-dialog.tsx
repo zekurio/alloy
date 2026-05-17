@@ -58,7 +58,6 @@ export function ClipViewerDialog({
   const open = clipId !== null
   const query = useClipQuery(clipId ?? "")
   const list = useActiveClipList()
-  const [autoAdvance, setAutoAdvance] = React.useState(false)
 
   const closeViewer = React.useCallback(() => {
     setActiveClipList(null)
@@ -140,8 +139,6 @@ export function ClipViewerDialog({
               next={next}
               onNavigate={onNavigate ? navigateTo : null}
               focusedCommentId={focusedCommentId}
-              autoAdvance={autoAdvance}
-              onAutoAdvanceChange={setAutoAdvance}
             />
           ) : (
             <ClipViewerDialogBody
@@ -151,8 +148,6 @@ export function ClipViewerDialog({
               next={next}
               onNavigate={onNavigate ? navigateTo : null}
               focusedCommentId={focusedCommentId}
-              autoAdvance={autoAdvance}
-              onAutoAdvanceChange={setAutoAdvance}
             />
           )
         ) : (
@@ -196,8 +191,6 @@ interface ClipViewerDialogBodyProps {
   next?: ClipListEntry | null
   onNavigate?: ((entry: ClipListEntry) => void) | null
   focusedCommentId?: string | null
-  autoAdvance: boolean
-  onAutoAdvanceChange: (next: boolean) => void
 }
 
 function ClipViewerDialogBody({
@@ -207,8 +200,6 @@ function ClipViewerDialogBody({
   next,
   onNavigate,
   focusedCommentId = null,
-  autoAdvance,
-  onAutoAdvanceChange,
 }: ClipViewerDialogBodyProps) {
   const [editOpen, setEditOpen] = React.useState(false)
   const handle = row.authorUsername
@@ -228,9 +219,6 @@ function ClipViewerDialogBody({
   const showNext = canNavigate
   const prevDisabled = !prev
   const nextDisabled = !next
-  const handleEnded = React.useCallback(() => {
-    if (autoAdvance && next && onNavigate) onNavigate(next)
-  }, [autoAdvance, next, onNavigate])
 
   return (
     <>
@@ -331,10 +319,7 @@ function ClipViewerDialogBody({
                 aspectRatio={16 / 9}
                 className="h-full w-full overflow-hidden rounded-[14px] shadow-[0_30px_90px_-42px_rgba(0,0,0,0.92)] ring-1 ring-white/10 ring-inset lg:rounded-none lg:shadow-none lg:ring-0"
                 onPlayThreshold={() => void api.clips.recordView(row.id)}
-                onEnded={handleEnded}
                 autoPlay
-                autoAdvance={canNavigate ? autoAdvance : undefined}
-                onAutoAdvanceChange={onAutoAdvanceChange}
                 enableHorizontalSeekShortcuts={false}
               />
             </div>
