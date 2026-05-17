@@ -84,7 +84,7 @@ export function OAuthCustomProviderDialog({
 
         {draft ? (
           <form id="oauth-provider-form" onSubmit={onSubmit}>
-            <ResponsiveDialogBody className="flex max-h-[calc(100dvh-11rem)] flex-col gap-4 overflow-y-auto">
+            <ResponsiveDialogBody className="flex max-h-[calc(100dvh-11rem)] flex-col gap-4 overflow-y-scroll">
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field>
                   <FieldLabel htmlFor="oauth-display-name" required>
@@ -302,7 +302,7 @@ export function OAuthCustomProviderDialog({
             <ResponsiveDialogFooter>
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 onClick={() => onOpenChange(false)}
                 disabled={pendingAction !== null}
               >

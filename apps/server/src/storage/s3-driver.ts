@@ -1,8 +1,4 @@
 import { AwsClient } from "aws4fetch"
-import { once } from "node:events"
-import { request as httpRequest } from "node:http"
-import { request as httpsRequest } from "node:https"
-import type { ClientRequest, IncomingMessage } from "node:http"
 
 import { dirname } from "../runtime/path"
 import type {
@@ -13,6 +9,10 @@ import type {
   StorageDriver,
   UploadTicket,
 } from "./driver"
+import { readStream, signedStreamPut } from "./s3-streams"
+import { encodeCopySourceKey, objectUrl, presignUrl } from "./s3-url"
+
+const Deno = globalThis.Deno
 
 export interface S3DriverOptions {
   bucket: string
@@ -364,72 +364,10 @@ export class S3StorageDriver implements StorageDriver {
   }
 }
 
-function encodeCopySourceKey(key: string): string {
-  return key
-    .split("/")
-    .map((part) => encodeURIComponent(part))
-    .join("/")
-}
-
 function normalizeOptional(value: string | undefined): string | undefined {
   if (value === undefined) return undefined
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : undefined
-}
-
-function objectUrl(opts: S3DriverOptions, key: string): URL {
-  const base = new URL(
-    opts.endpoint ?? `https://s3.${opts.region}.amazonaws.com`
-  )
-  const encodedKey = encodeObjectKey(key)
-
-  if (opts.forcePathStyle) {
-    base.pathname = joinUrlPath(base.pathname, opts.bucket, encodedKey)
-    return base
-  }
-
-  if (opts.endpoint) {
-    base.hostname = `${opts.bucket}.${base.hostname}`
-    base.pathname = joinUrlPath(base.pathname, encodedKey)
-    return base
-  }
-
-  base.hostname = `${opts.bucket}.s3.${opts.region}.amazonaws.com`
-  base.pathname = joinUrlPath(base.pathname, encodedKey)
-  return base
-}
-
-function encodeObjectKey(key: string): string {
-  return key
-    .split("/")
-    .map((part) => encodeURIComponent(part))
-    .join("/")
-}
-
-function joinUrlPath(...parts: string[]): string {
-  const joined = parts
-    .map((part) => part.replace(/^\/+|\/+$/g, ""))
-    .filter((part) => part.length > 0)
-    .join("/")
-  return `/${joined}`
-}
-
-async function presignUrl(
-  client: AwsClient,
-  url: URL,
-  input: {
-    method: string
-    expiresInSec: number
-    headers?: RequestInit["headers"]
-  }
-): Promise<string> {
-  url.searchParams.set("X-Amz-Expires", String(input.expiresInSec))
-  const signed = await client.sign(url, {
-    method: input.method,
-    headers: input.headers,
-    aws: { signQuery: true },
-  })
-  return signed.url
 }
 
 async function assertOk(res: Response, operation: string): Promise<void> {
@@ -440,121 +378,6 @@ async function assertOk(res: Response, operation: string): Promise<void> {
       detail ? `: ${detail}` : ""
     }`
   )
-}
-
-async function signedStreamPut(
-  client: AwsClient,
-  url: URL,
-  headers: Record<string, string>,
-  body: ReadableStream<Uint8Array>,
-  key: string
-): Promise<void> {
-  const signed = await client.sign(url, {
-    method: "PUT",
-    headers,
-  })
-  const res = await putWithContentLength(signed.url, signed.headers, body)
-  if (res.status >= 200 && res.status < 300) return
-  throw new Error(
-    `s3: upload ${key} failed with ${res.status} ${res.statusText}${
-      res.body ? `: ${res.body}` : ""
-    }`
-  )
-}
-
-function putWithContentLength(
-  url: string,
-  headers: Headers,
-  body: ReadableStream<Uint8Array>
-): Promise<{ status: number; statusText: string; body: string }> {
-  return new Promise((resolve, reject) => {
-    const parsed = new URL(url)
-    const request = parsed.protocol === "http:" ? httpRequest : httpsRequest
-    const req = request(
-      parsed,
-      {
-        method: "PUT",
-        headers: Object.fromEntries(headers.entries()),
-      },
-      (res) => {
-        void readNodeResponse(res).then(resolve, reject)
-      }
-    )
-    req.on("error", reject)
-    void writeStreamToRequest(body, req).catch((err) => {
-      req.destroy(err instanceof Error ? err : new Error(String(err)))
-      reject(err)
-    })
-  })
-}
-
-async function writeStreamToRequest(
-  body: ReadableStream<Uint8Array>,
-  req: ClientRequest
-): Promise<void> {
-  const reader = body.getReader()
-  try {
-    while (true) {
-      const next = await reader.read()
-      if (next.done) break
-      if (!req.write(next.value)) {
-        await once(req, "drain")
-      }
-    }
-    req.end()
-  } finally {
-    reader.releaseLock()
-  }
-}
-
-function readNodeResponse(
-  res: IncomingMessage
-): Promise<{ status: number; statusText: string; body: string }> {
-  return new Promise((resolve, reject) => {
-    const chunks: Uint8Array[] = []
-    res.on("data", (chunk: Uint8Array) => chunks.push(chunk))
-    res.on("error", reject)
-    res.on("end", () => {
-      const size = chunks.reduce((total, chunk) => total + chunk.byteLength, 0)
-      const joined = new Uint8Array(size)
-      let offset = 0
-      for (const chunk of chunks) {
-        joined.set(chunk, offset)
-        offset += chunk.byteLength
-      }
-      resolve({
-        status: res.statusCode ?? 0,
-        statusText: res.statusMessage ?? "",
-        body: new TextDecoder().decode(joined),
-      })
-    })
-  })
-}
-
-async function readStream(
-  body: ReadableStream<Uint8Array>
-): Promise<Uint8Array> {
-  const chunks: Uint8Array[] = []
-  let size = 0
-  const reader = body.getReader()
-  try {
-    while (true) {
-      const next = await reader.read()
-      if (next.done) break
-      chunks.push(next.value)
-      size += next.value.byteLength
-    }
-  } finally {
-    reader.releaseLock()
-  }
-
-  const joined = new Uint8Array(size)
-  let offset = 0
-  for (const chunk of chunks) {
-    joined.set(chunk, offset)
-    offset += chunk.byteLength
-  }
-  return joined
 }
 
 function parseHttpDate(value: string | null): Date | null {

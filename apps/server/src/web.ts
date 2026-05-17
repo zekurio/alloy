@@ -10,6 +10,8 @@ import { getSession } from "./auth/session"
 import { selectClipById } from "./clips/select"
 import { isAbsolute, join, relative, resolve } from "./runtime/path"
 
+const Deno = globalThis.Deno
+
 const HEAD_MARKER = "<!-- alloy:head -->"
 const CLIP_PERMALINK_RE = /^\/g\/[^/]+\/c\/([^/]+)\/?$/
 const DEFAULT_WEB_DIST_DIR = "../../build/www"

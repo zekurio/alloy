@@ -11,17 +11,17 @@ function AppHeader({ className, ...props }: React.ComponentProps<"header">) {
       data-slot="app-header"
       className={cn(
         "relative grid min-w-0 items-center gap-2 px-4 sm:gap-3 sm:px-5",
-        "[grid-template-columns:auto_minmax(9rem,16rem)_auto]",
-        "max-sm:[&:has([data-slot=app-header-search]:focus-within)]:[grid-template-columns:0_minmax(0,1fr)_0]",
-        "sm:[grid-template-columns:auto_minmax(12rem,22rem)_auto]",
-        "lg:[grid-template-columns:auto_minmax(16rem,28rem)_auto]",
+        "[grid-template-columns:auto_minmax(0,1fr)_auto]",
         "[&_[data-slot=app-header-brand]]:col-start-1",
         "[&_[data-slot=app-header-search]]:col-start-2",
         "[&_[data-slot=app-header-actions]]:col-start-3",
-        "max-sm:[&:has([data-slot=app-header-search]:focus-within)_[data-slot=app-header-brand]]:opacity-0",
-        "max-sm:[&:has([data-slot=app-header-search]:focus-within)_[data-slot=app-header-actions]]:opacity-0",
+        // Mobile-only: when the search is focused, expand it edge-to-edge
+        // by collapsing the brand and actions tracks to zero width.
+        "max-sm:[&:has([data-slot=app-header-search]:focus-within)]:[grid-template-columns:0_minmax(0,1fr)_0]",
         "max-sm:[&:has([data-slot=app-header-search]:focus-within)_[data-slot=app-header-brand]]:pointer-events-none",
+        "max-sm:[&:has([data-slot=app-header-search]:focus-within)_[data-slot=app-header-brand]]:opacity-0",
         "max-sm:[&:has([data-slot=app-header-search]:focus-within)_[data-slot=app-header-actions]]:pointer-events-none",
+        "max-sm:[&:has([data-slot=app-header-search]:focus-within)_[data-slot=app-header-actions]]:opacity-0",
         "h-[var(--header-h)] border-b border-border bg-surface",
         className
       )}
@@ -71,7 +71,7 @@ const AppHeaderSearch = React.forwardRef<
   {
     className,
     containerClassName,
-    hint = "⌘K",
+    hint,
     icon,
     placeholder = "Search clips and games...",
     onClear,
@@ -82,6 +82,7 @@ const AppHeaderSearch = React.forwardRef<
   },
   ref
 ) {
+  const resolvedHint = hint ?? <DefaultSearchHint />
   const hasValue =
     onClear != null && typeof value === "string" && value.length > 0
 
@@ -89,8 +90,8 @@ const AppHeaderSearch = React.forwardRef<
     <div
       data-slot="app-header-search"
       className={cn(
-        "relative w-full min-w-0 justify-self-center",
-        "max-sm:focus-within:z-30 max-sm:focus-within:justify-self-stretch",
+        "relative w-full max-w-[28rem] min-w-0 justify-self-center",
+        "max-sm:focus-within:z-30",
         containerClassName
       )}
     >
@@ -144,9 +145,9 @@ const AppHeaderSearch = React.forwardRef<
           >
             <XIcon />
           </button>
-        ) : hint ? (
+        ) : resolvedHint ? (
           <Kbd className="absolute top-1/2 right-2 hidden -translate-y-1/2 sm:inline-flex">
-            {hint}
+            {resolvedHint}
           </Kbd>
         ) : null}
       </div>
@@ -154,6 +155,30 @@ const AppHeaderSearch = React.forwardRef<
     </div>
   )
 })
+
+function useIsMacPlatform() {
+  const [isMac, setIsMac] = React.useState(false)
+  React.useEffect(() => {
+    if (typeof navigator === "undefined") return
+    const platform =
+      // `userAgentData.platform` is the modern API; fall back to the legacy
+      // `navigator.platform` string for browsers that don't expose it yet.
+      (
+        navigator as Navigator & {
+          userAgentData?: { platform?: string }
+        }
+      ).userAgentData?.platform ??
+      navigator.platform ??
+      ""
+    setIsMac(/mac|iphone|ipad|ipod/i.test(platform))
+  }, [])
+  return isMac
+}
+
+function DefaultSearchHint() {
+  const isMac = useIsMacPlatform()
+  return isMac ? <>⌘K</> : <>Ctrl K</>
+}
 
 /**
  * Header actions — right-aligned group for buttons, user chip, etc.

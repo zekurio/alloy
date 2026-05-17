@@ -1,14 +1,6 @@
 import * as React from "react"
 import { Link } from "@tanstack/react-router"
-import {
-  HeartIcon,
-  MessageSquareIcon,
-  MoreHorizontalIcon,
-  PencilIcon,
-  Share2Icon,
-  Trash2Icon,
-  XIcon,
-} from "lucide-react"
+import { XIcon } from "lucide-react"
 
 import {
   AlertDialog,
@@ -21,11 +13,6 @@ import {
   AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog"
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@workspace/ui/components/avatar"
-import {
   DialogClose,
   DialogViewportContent,
 } from "@workspace/ui/components/dialog"
@@ -34,14 +21,8 @@ import {
   DrawerContent,
   DrawerTitle,
 } from "@workspace/ui/components/drawer"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu"
 import { GameIcon } from "@workspace/ui/components/game-icon"
+import { useMediaQuery } from "@workspace/ui/hooks/use-media-query"
 import { buttonVariants } from "@workspace/ui/lib/button-variants"
 import { toast } from "@workspace/ui/lib/toast"
 import { cn } from "@workspace/ui/lib/utils"
@@ -49,7 +30,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import { clipThumbnailUrl, type ClipRow } from "@workspace/api"
 
 import { api } from "@/lib/api"
-import { clipGameLabel, formatCount } from "@/lib/clip-format"
+import { clipGameLabel } from "@/lib/clip-format"
 import { useSession } from "@/lib/auth-client"
 import { apiOrigin } from "@/lib/env"
 import {
@@ -65,6 +46,7 @@ import type { ClipListEntry } from "./clip-list-context"
 import { ClipMentionsRow } from "./clip-mentions-row"
 import { renderDescriptionTokens } from "./description-tokens"
 import { ClipPlayer } from "./clip-player"
+import { ClipAuthorLink, MobileActionsRail } from "./clip-viewer-mobile-actions"
 
 const MOBILE_SWIPE_HINT_SEEN_KEY = "alloy.mobileClipSwipeHintSeen"
 
@@ -79,8 +61,6 @@ interface MobileClipViewerBodyProps {
   next?: ClipListEntry | null
   onNavigate?: ((entry: ClipListEntry) => void) | null
   focusedCommentId?: string | null
-  autoAdvance: boolean
-  onAutoAdvanceChange: (next: boolean) => void
 }
 
 /* ------------------------------------------------------------------ */
@@ -94,8 +74,6 @@ function MobileClipViewerBody({
   next,
   onNavigate,
   focusedCommentId = null,
-  autoAdvance,
-  onAutoAdvanceChange,
 }: MobileClipViewerBodyProps) {
   const { data: session } = useSession()
   const viewerId = session?.user?.id ?? null
@@ -217,12 +195,33 @@ function MobileClipViewerBody({
     )
   }, [row.id, deleteMutation, onDeleted])
 
-  const handleEnded = React.useCallback(() => {
-    if (autoAdvance && next && onNavigate) onNavigate(next)
-  }, [autoAdvance, next, onNavigate])
-
   const avatarStyle = { background: avatar.bg, color: avatar.fg } as const
   const initialFocusRef = React.useRef<HTMLDivElement>(null)
+
+  const isLandscape = useMediaQuery("(orientation: landscape)")
+
+  React.useEffect(() => {
+    return () => {
+      if (typeof document === "undefined") return
+      if (document.fullscreenElement) {
+        void document.exitFullscreen?.().catch(() => undefined)
+      }
+    }
+  }, [])
+
+  const actionRailProps = {
+    liked,
+    canLike,
+    canManage,
+    deleting,
+    likeCount: row.likeCount,
+    commentCount: row.commentCount,
+    onLike: handleLike,
+    onComments: () => setCommentsOpen(true),
+    onShare: handleShare,
+    onEdit: () => setEditOpen(true),
+    onDelete: () => setDeleteDialogOpen(true),
+  }
 
   return (
     <>
@@ -231,6 +230,7 @@ function MobileClipViewerBody({
         className="h-dvh w-dvw rounded-none border-0 shadow-none"
       >
         <div
+          data-orientation={isLandscape ? "landscape" : "portrait"}
           className="relative flex h-full flex-col bg-black"
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
@@ -245,12 +245,41 @@ function MobileClipViewerBody({
             />
           ) : null}
 
+          {/* ---- Landscape metadata overlay ---- */}
+          {isLandscape ? (
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center gap-3 bg-gradient-to-b from-black/70 via-black/35 to-transparent pt-[max(0.75rem,calc(env(safe-area-inset-top)+0.25rem))] pr-[calc(max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))+3rem)] pb-10 pl-[max(0.75rem,calc(env(safe-area-inset-left)+0.25rem))]">
+              <ClipAuthorLink
+                handle={handle}
+                avatar={avatar}
+                avatarStyle={avatarStyle}
+                author={author}
+                size="md"
+                className="pointer-events-auto inline-flex shrink-0 items-center gap-2"
+                textClassName="text-base font-semibold text-white"
+              />
+              <h2 className="line-clamp-1 min-w-0 flex-1 text-base font-semibold text-white/90">
+                {row.title}
+              </h2>
+            </div>
+          ) : null}
+
+          {/* ---- Landscape action rail ---- */}
+          {isLandscape ? (
+            <div className="pointer-events-auto absolute right-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] bottom-[max(3.5rem,calc(env(safe-area-inset-bottom)+1rem))] z-20 flex w-9 flex-col items-center gap-4 drop-shadow-[0_1px_3px_rgba(0,0,0,0.65)]">
+              <MobileActionsRail
+                {...actionRailProps}
+                iconSizeClassName="size-6"
+                countClassName="text-[11px] font-semibold text-white tabular-nums"
+              />
+            </div>
+          ) : null}
+
           {/* ---- Close button ---- */}
           <DialogClose
             data-variant="ghost"
             className={cn(
               buttonVariants({ variant: "ghost", size: "icon" }),
-              "absolute top-3 right-3 z-30 rounded-full text-white/80 hover:bg-white/10 hover:text-white focus-visible:ring-white/40 focus-visible:ring-offset-0"
+              "absolute top-[max(0.75rem,calc(env(safe-area-inset-top)+0.25rem))] right-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] z-30 rounded-full text-white/80 hover:bg-white/10 hover:text-white focus-visible:ring-white/40 focus-visible:ring-offset-0"
             )}
             aria-label="Close"
           >
@@ -258,13 +287,18 @@ function MobileClipViewerBody({
           </DialogClose>
 
           {/* ---- Top spacer (keeps the player higher while metadata stays bottom-pinned) ---- */}
-          <div className="h-[clamp(4rem,28dvh,16rem)] min-h-0 shrink" />
+          {isLandscape ? null : (
+            <div className="h-[clamp(4rem,28dvh,16rem)] min-h-0 shrink" />
+          )}
 
           {/* ---- Video player ---- */}
           <div
             ref={initialFocusRef}
             tabIndex={-1}
-            className="relative z-10 shrink-0 outline-none"
+            className={cn(
+              "relative z-10 outline-none",
+              isLandscape ? "flex min-h-0 flex-1 items-center" : "shrink-0"
+            )}
           >
             <ClipPlayer
               clipId={row.id}
@@ -275,18 +309,17 @@ function MobileClipViewerBody({
               variants={row.variants}
               status={row.status}
               encodeProgress={row.encodeProgress}
-              maxDisplayHeight="min(72dvh, calc(100dvh - 18rem))"
-              chromeSize="minimal"
+              maxDisplayHeight={
+                isLandscape ? "100dvh" : "min(72dvh, calc(100dvh - 18rem))"
+              }
+              chromeSize="compact"
               onPlayThreshold={() => void api.clips.recordView(row.id)}
-              onEnded={handleEnded}
               autoPlay
-              autoAdvance={canNav ? autoAdvance : undefined}
-              onAutoAdvanceChange={onAutoAdvanceChange}
               enableHorizontalSeekShortcuts={false}
             />
           </div>
 
-          {showSwipeHint ? (
+          {showSwipeHint && !isLandscape ? (
             <div
               aria-hidden
               className={cn(
@@ -299,12 +332,17 @@ function MobileClipViewerBody({
             </div>
           ) : null}
 
-          <div className="min-h-0 flex-1" />
+          {isLandscape ? null : <div className="min-h-0 flex-1" />}
 
           {/* ---- Bottom section ---- */}
-          <div className="relative z-10 flex max-h-[min(40dvh,16rem)] shrink-0 overflow-hidden">
+          <div
+            className={cn(
+              "relative z-10 flex max-h-[min(40dvh,16rem)] shrink-0 overflow-hidden",
+              isLandscape && "hidden"
+            )}
+          >
             {/* Left: metadata cluster */}
-            <div className="flex min-h-0 flex-1 flex-col justify-end gap-2.5 overflow-hidden p-4 pr-2 pb-5">
+            <div className="flex min-h-0 flex-1 flex-col justify-end gap-2.5 overflow-hidden pt-4 pr-2 pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,calc(env(safe-area-inset-left)+0.25rem))]">
               {/* Game badge */}
               {gameRef ? (
                 <Link
@@ -328,21 +366,15 @@ function MobileClipViewerBody({
               )}
 
               {/* Author with avatar */}
-              <Link
-                to="/u/$username"
-                params={{ username: handle }}
+              <ClipAuthorLink
+                handle={handle}
+                avatar={avatar}
+                avatarStyle={avatarStyle}
+                author={author}
+                size="lg"
                 className="inline-flex w-fit items-center gap-2"
-              >
-                <Avatar size="lg" style={avatarStyle} className="rounded-full">
-                  {avatar.src ? (
-                    <AvatarImage src={avatar.src} alt={author} />
-                  ) : null}
-                  <AvatarFallback style={avatarStyle}>
-                    {avatar.initials}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-lg font-bold text-white">@{handle}</span>
-              </Link>
+                textClassName="text-lg font-bold text-white"
+              />
 
               {/* Title */}
               <h2 className="line-clamp-2 text-md leading-tight font-bold text-white">
@@ -363,75 +395,12 @@ function MobileClipViewerBody({
             </div>
 
             {/* Right: action buttons */}
-            <div className="flex flex-col items-center justify-end gap-5 px-3 pb-5">
-              {/* Like */}
-              <button
-                type="button"
-                onClick={handleLike}
-                disabled={!canLike}
-                className="flex flex-col items-center gap-0.5 disabled:opacity-50"
-              >
-                <HeartIcon
-                  className={cn(
-                    "size-7",
-                    liked ? "fill-red-500 text-red-500" : "text-white"
-                  )}
-                />
-                <span className="text-xs font-semibold text-white tabular-nums">
-                  {formatCount(row.likeCount)}
-                </span>
-              </button>
-
-              {/* Comments */}
-              <button
-                type="button"
-                onClick={() => setCommentsOpen(true)}
-                className="flex flex-col items-center gap-0.5"
-              >
-                <MessageSquareIcon className="size-7 text-white" />
-                <span className="text-xs font-semibold text-white tabular-nums">
-                  {formatCount(row.commentCount)}
-                </span>
-              </button>
-
-              {/* Share */}
-              <button
-                type="button"
-                onClick={handleShare}
-                className="flex flex-col items-center"
-              >
-                <Share2Icon className="size-7 text-white" />
-              </button>
-
-              {/* Owner/Admin menu */}
-              {canManage ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={
-                      <button
-                        type="button"
-                        className="flex flex-col items-center text-white/80"
-                        aria-label="Clip actions"
-                      >
-                        <MoreHorizontalIcon className="size-7 rotate-90" />
-                      </button>
-                    }
-                  />
-                  <DropdownMenuContent align="end" className="min-w-[150px]">
-                    <DropdownMenuItem onClick={() => setEditOpen(true)}>
-                      <PencilIcon /> Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      variant="destructive"
-                      disabled={deleting}
-                      onClick={() => setDeleteDialogOpen(true)}
-                    >
-                      <Trash2Icon /> Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : null}
+            <div className="flex flex-col items-center justify-end gap-5 pr-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-3">
+              <MobileActionsRail
+                {...actionRailProps}
+                iconSizeClassName="size-7"
+                countClassName="text-xs font-semibold text-white tabular-nums"
+              />
             </div>
           </div>
 
@@ -441,13 +410,13 @@ function MobileClipViewerBody({
             onOpenChange={setCommentsOpen}
             direction="bottom"
           >
-            <DrawerContent className="max-h-[85vh] bg-surface">
+            <DrawerContent className="max-h-[92dvh] bg-surface">
               <DrawerTitle className="sr-only">Comments</DrawerTitle>
               <ClipComments
                 clipId={row.id}
                 clipAuthorId={row.authorId}
                 focusedCommentId={focusedCommentId}
-                className="min-h-0 flex-1 overflow-y-auto border-0"
+                className="min-h-0 flex-1 overflow-y-scroll border-0 [&>[data-slot=clip-comments-scroll]]:overflow-y-scroll"
               />
             </DrawerContent>
           </Drawer>

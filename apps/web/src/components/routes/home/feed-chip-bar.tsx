@@ -35,12 +35,7 @@ export function FeedChipBar({ filter, onChange }: FeedChipBarProps) {
   const games = data?.games ?? []
 
   return (
-    <div
-      className={cn(
-        "sticky top-0 z-10 -mx-4 px-4 py-2",
-        "border-b border-border bg-background"
-      )}
-    >
+    <div className={cn("sticky top-0 z-10 -mx-4 px-4 py-5", "bg-background")}>
       <Carousel className="group" opts={{ align: "start", dragFree: true }}>
         <CarouselContent className="-ml-2">
           <CarouselItem className="basis-auto pl-2">

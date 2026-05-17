@@ -7,14 +7,18 @@ import {
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
 import {
-  Drawer,
-  DrawerContent,
-  DrawerTitle,
-} from "@workspace/ui/components/drawer"
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@workspace/ui/components/dialog"
 import { toast } from "@workspace/ui/lib/toast"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { cn } from "@workspace/ui/lib/utils"
 
+import {
+  announceFloatingSurfaceOpen,
+  subscribeToFloatingSurfaceOpen,
+} from "@/components/app/floating-surface-events"
 import { useSuspenseSession } from "@/lib/session-suspense"
 import { FloatingUploadButton } from "./floating-upload-button"
 import { useUploadFlowControls } from "./use-upload-flow-controls"
@@ -139,26 +143,35 @@ function UploadQueuePopover({
     />
   )
 
+  React.useEffect(() => {
+    return subscribeToFloatingSurfaceOpen((surface) => {
+      if (surface !== "uploads") setQueueOpen(false)
+    })
+  }, [setQueueOpen])
+
+  React.useEffect(() => {
+    if (queueOpen) announceFloatingSurfaceOpen("uploads")
+  }, [queueOpen])
+
   if (isMobile) {
     return (
-      <Drawer
-        open={queueOpen}
-        onOpenChange={setQueueOpen}
-        dismissible={false}
-        handleOnly
-      >
-        <DrawerContent
+      <Dialog modal={false} open={queueOpen} onOpenChange={setQueueOpen}>
+        <DialogContent
+          disableZoom
+          centered={false}
+          showOverlay={false}
           className={cn(
-            "max-h-[85vh] p-0 [&>[data-slot=drawer-handle]]:hidden",
+            "right-3 bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+0.75rem)] left-3 z-50 w-auto max-w-none rounded-2xl border p-3",
+            "max-h-[calc(100dvh-var(--header-h)-var(--bottomnav-h)-env(safe-area-inset-bottom)-1.5rem)]",
             "alloy-blur"
           )}
           style={queueGlassStyle}
           aria-describedby={undefined}
         >
-          <DrawerTitle className="sr-only">Upload queue</DrawerTitle>
-          <div className="p-3">{content}</div>
-        </DrawerContent>
-      </Drawer>
+          <DialogTitle className="sr-only">Upload queue</DialogTitle>
+          {content}
+        </DialogContent>
+      </Dialog>
     )
   }
 

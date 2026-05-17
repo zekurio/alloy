@@ -7,6 +7,8 @@ import { env } from "../env"
 import { join } from "../runtime/path"
 import { abortEncode } from "./encode-abort"
 
+const Deno = globalThis.Deno
+
 type ClipRow = typeof clip.$inferSelect
 
 export function resolveTrim(

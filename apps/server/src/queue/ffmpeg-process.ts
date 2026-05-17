@@ -3,6 +3,8 @@ export interface CaptureResult {
   stderr: string
 }
 
+const Deno = globalThis.Deno
+
 interface RunProcessOptions {
   label?: string
   signal?: AbortSignal
@@ -14,7 +16,6 @@ export async function runCapture(
   opts: RunProcessOptions = {}
 ): Promise<CaptureResult> {
   const startedAt = Date.now()
-  logProcessStart(bin, args, opts.label)
   try {
     const output = await new Deno.Command(bin, {
       args: [...args],
@@ -25,7 +26,6 @@ export async function runCapture(
     const stdout = new TextDecoder().decode(output.stdout)
     const stderr = new TextDecoder().decode(output.stderr)
     if (output.success) {
-      logProcessSuccess(bin, opts.label, startedAt)
       return { stdout, stderr }
     }
     logProcessFailure(bin, opts.label, startedAt, output.code, stderr)
@@ -47,7 +47,6 @@ export async function runWithProgress(
   const { signal } = opts
   if (signal?.aborted) throw abortError()
   const startedAt = Date.now()
-  logProcessStart(bin, args, opts.label)
   const command = new Deno.Command(bin, {
     args: [...args],
     stdin: "null",
@@ -87,7 +86,6 @@ export async function runWithProgress(
     if (aborted) throw abortError()
     if (status.success) {
       if (buf) onLine(buf)
-      logProcessSuccess(bin, opts.label, startedAt)
       return
     }
     logProcessFailure(bin, opts.label, startedAt, status.code, stderrTail)
@@ -107,24 +105,6 @@ function abortError(): Error {
   // DOMException gives a properly-tagged `.name === "AbortError"` that
   // downstream `instanceof`-free checks can key off without importing.
   return new DOMException("Encode cancelled", "AbortError")
-}
-
-function logProcessStart(
-  bin: string,
-  args: ReadonlyArray<string>,
-  label: string | undefined
-): void {
-  console.info(`[ffmpeg] ${processName(bin, label)} started: ${args.join(" ")}`)
-}
-
-function logProcessSuccess(
-  bin: string,
-  label: string | undefined,
-  startedAt: number
-): void {
-  console.info(
-    `[ffmpeg] ${processName(bin, label)} finished in ${Date.now() - startedAt}ms`
-  )
 }
 
 function logProcessFailure(

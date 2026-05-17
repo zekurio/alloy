@@ -77,7 +77,7 @@ function ResponsiveDialogContent({
     return (
       <DrawerContent
         className={cn(
-          "max-h-[85vh] bg-surface",
+          "max-h-[92dvh] bg-surface",
           "[&>form]:flex [&>form]:min-h-0 [&>form]:flex-1 [&>form]:flex-col",
           className
         )}
@@ -105,7 +105,7 @@ function ResponsiveDialogHeader({
     return (
       <div
         data-slot="responsive-dialog-header"
-        className={cn("flex flex-col gap-0.5 px-4 pt-2 pb-4", className)}
+        className={cn("flex flex-col gap-0.5 px-4 pt-4 pb-4", className)}
         {...props}
       />
     )
@@ -124,7 +124,7 @@ function ResponsiveDialogBody({
     return (
       <div
         data-slot="responsive-dialog-body"
-        className={cn("min-h-0 flex-1 overflow-y-auto px-4 py-4", className)}
+        className={cn("min-h-0 flex-1 overflow-y-scroll px-4 py-4", className)}
         {...props}
       />
     )

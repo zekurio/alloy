@@ -136,6 +136,21 @@ function SidebarTop() {
 
 function SidebarSettings() {
   const { isSettings } = useNavFlags()
+  const session = useSuspenseSession()
+
+  if (!session) {
+    return (
+      <AppSidebarItem
+        title="Settings"
+        aria-disabled
+        tabIndex={-1}
+        className="pointer-events-none opacity-60"
+      >
+        <SettingsIcon />
+      </AppSidebarItem>
+    )
+  }
+
   return (
     <AppSidebarItem
       active={isSettings}
@@ -238,9 +253,17 @@ function BottomNavItems() {
         <GamepadIcon />
       </AppBottomNavItem>
       <AppBottomNavItem
-        active={isSettings}
         title="Settings"
-        render={<Link to="/user-settings" />}
+        {...(session
+          ? {
+              active: isSettings,
+              render: <Link to="/user-settings" />,
+            }
+          : {
+              "aria-disabled": true,
+              tabIndex: -1,
+              className: "pointer-events-none opacity-60",
+            })}
       >
         <SettingsIcon />
       </AppBottomNavItem>

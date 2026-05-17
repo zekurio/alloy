@@ -109,4 +109,9 @@ if [ -n "$optional_packages" ]; then
   apt-get install -y --no-install-recommends $optional_packages
 fi
 
-rm -rf /var/lib/apt/lists/*
+apt-get purge -y --auto-remove curl gnupg
+rm -f \
+  /etc/apt/apt.conf.d/99alloy-rootless-build \
+  /etc/apt/keyrings/jellyfin.gpg \
+  /etc/apt/sources.list.d/jellyfin.sources
+rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*

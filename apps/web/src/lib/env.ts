@@ -1,4 +1,5 @@
 const DEFAULT_SERVER_URL = "http://localhost:3000"
+const DEFAULT_SERVER_PORT = "3000"
 
 function normalizeOrigin(value: string): string {
   const url = new URL(value)
@@ -13,9 +14,25 @@ function nonEmpty(value: string | undefined): string | undefined {
   return trimmed ? trimmed : undefined
 }
 
+function isDefaultLocalServerUrl(value: string): boolean {
+  const url = new URL(value)
+  return (
+    url.protocol === "http:" &&
+    url.hostname === "localhost" &&
+    url.port === DEFAULT_SERVER_PORT
+  )
+}
+
+function browserServerUrl(value: string | undefined): string {
+  const configured = nonEmpty(value)
+  if (!configured) return window.location.origin
+  if (!isDefaultLocalServerUrl(configured)) return configured
+  return window.location.origin
+}
+
 function webServerUrl(): string {
   if (typeof window !== "undefined") {
-    return nonEmpty(import.meta.env.VITE_SERVER_URL) ?? window.location.origin
+    return browserServerUrl(import.meta.env.VITE_SERVER_URL)
   }
 
   return (

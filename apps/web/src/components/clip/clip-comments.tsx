@@ -257,7 +257,7 @@ function ClipComments({
       )}
       {...props}
     >
-      <div className="min-h-0 overflow-y-auto">
+      <div data-slot="clip-comments-scroll" className="min-h-0 overflow-y-auto">
         {comments.length > 0 ? <CommentsHeader count={totalCount} /> : null}
         {commentsQuery.isLoading ? (
           <div className="flex h-full items-center justify-center p-6">

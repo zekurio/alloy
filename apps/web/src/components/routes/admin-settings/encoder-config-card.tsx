@@ -415,7 +415,7 @@ export function EncoderConfigCard({
                   <Button
                     className="flex-1 sm:flex-initial"
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     onClick={resetForm}
                     disabled={pending || !isDirty}

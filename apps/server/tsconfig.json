@@ -21,7 +21,20 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "drizzle-orm": [
+        "../../node_modules/.deno/drizzle-orm@0.45.2/node_modules/drizzle-orm"
+      ],
+      "drizzle-orm/*": [
+        "../../node_modules/.deno/drizzle-orm@0.45.2/node_modules/drizzle-orm/*"
+      ],
+      "postgres": [
+        "../../node_modules/.deno/postgres@3.4.7/node_modules/postgres"
+      ],
+      "@workspace/contracts": ["../../packages/contracts/src/index.ts"],
+      "@workspace/contracts/*": ["../../packages/contracts/src/*"],
+      "@workspace/db": ["../../packages/db/src/index.ts"],
+      "@workspace/db/*": ["../../packages/db/src/*"]
     }
   }
 }

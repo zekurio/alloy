@@ -15,7 +15,7 @@ export function VideoScrubber({
   onSeek: (sec: number) => void
   /** "translucent" uses white-on-transparent track colours suitable for
    *  rails that sit on a plain dark background without a chrome surface. */
-  variant?: "default" | "translucent"
+  variant?: "default" | "translucent" | "edge"
 }) {
   const railRef = React.useRef<HTMLDivElement>(null)
   const draggingIdRef = React.useRef<number | null>(null)
@@ -81,37 +81,48 @@ export function VideoScrubber({
       onPointerCancel={onPointerUp}
       onKeyDown={onKeyDown}
       className={cn(
-        "group/scrub relative h-1.5 w-full cursor-pointer touch-none rounded-full",
-        variant === "translucent" ? "bg-white/15" : "bg-neutral-200",
-        "transition-[height] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-        "focus-visible:h-2",
+        "group/scrub relative w-full cursor-pointer touch-none",
+        variant === "edge" ? "h-3 rounded-none" : "h-[24px] rounded-full",
+        "bg-transparent",
+        variant !== "edge" &&
+          "transition-[height] duration-[var(--duration-fast)] ease-[var(--ease-out)] focus-visible:h-2",
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       )}
     >
       <div
         aria-hidden
         className={cn(
-          "absolute inset-y-0 left-0 rounded-full",
-          variant === "translucent" ? "bg-white/10" : "bg-neutral-300"
+          "absolute left-0 rounded-full",
+          variant === "edge"
+            ? "bottom-0 h-[2px]"
+            : "top-1/2 h-[4px] -translate-y-1/2",
+          variant === "edge" ? "bg-white/20" : "bg-white/25"
         )}
         style={{ width: `${buffered}%` }}
       />
       <div
         aria-hidden
-        className="absolute inset-y-0 left-0 rounded-full bg-accent"
+        className={cn(
+          "absolute left-0 rounded-full bg-accent",
+          variant === "edge"
+            ? "bottom-0 h-[2px]"
+            : "top-1/2 h-[4px] -translate-y-1/2"
+        )}
         style={{ width: `${progress}%` }}
       />
-      <div
-        aria-hidden
-        className={cn(
-          "absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full",
-          "bg-accent shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_18%,transparent)]",
-          variant === "translucent"
-            ? "opacity-100"
-            : "opacity-0 transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)] group-hover/scrub:opacity-100 group-focus-visible/scrub:opacity-100"
-        )}
-        style={{ left: `${progress}%` }}
-      />
+      {variant === "edge" ? null : (
+        <div
+          aria-hidden
+          className={cn(
+            "absolute top-1/2 size-[14px] -translate-x-1/2 -translate-y-1/2 rounded-full",
+            "bg-accent",
+            variant === "translucent"
+              ? "opacity-100"
+              : "opacity-0 transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)] group-hover/scrub:opacity-100 group-focus-visible/scrub:opacity-100"
+          )}
+          style={{ left: `${progress}%` }}
+        />
+      )}
     </div>
   )
 }

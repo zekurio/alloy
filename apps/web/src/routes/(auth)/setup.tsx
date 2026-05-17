@@ -107,15 +107,15 @@ function AdminAccountStep() {
 }
 
 const defaultEncoderVariant: AdminEncoderVariant = {
-  id: "1080p-hevc",
-  name: "1080p HEVC",
-  codec: "hevc",
+  id: "1080p-av1",
+  name: "1080p AV1",
+  codec: "av1",
   height: 1080,
-  quality: 24,
-  preset: "medium",
+  quality: 28,
   audioBitrateKbps: 192,
-  extraInputArgs: "",
-  extraOutputArgs: "",
+  extraInputArgs: "-probesize 50M -analyzeduration 50M -fflags +genpts",
+  extraOutputArgs:
+    '-vf "scale=1920:-2:flags=lanczos" -pix_fmt yuv420p10le -g 240 -svtav1-params tune=0:film-grain=0 -movflags +faststart',
 }
 
 const SETUP_STEPS = [
@@ -379,8 +379,8 @@ function EncoderOnboardingCard({
 
   async function applyDefaultProfile() {
     if (pending) return
-    if (caps?.ffmpegOk && !caps.available.none.hevc) {
-      toast.error("Detected ffmpeg does not report software HEVC support.")
+    if (caps?.ffmpegOk && !caps.available.none.av1) {
+      toast.error("Detected ffmpeg does not report software AV1 support.")
       return
     }
     setPending(true)
@@ -419,7 +419,7 @@ function EncoderOnboardingCard({
             >
               {pending
                 ? "Applying…"
-                : "Apply the recommended 1080p HEVC profile"}
+                : "Apply the recommended 1080p AV1 profile"}
             </button>{" "}
             for software encoding that works out of the box.
           </p>

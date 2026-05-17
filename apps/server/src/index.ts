@@ -1,10 +1,10 @@
-/* global Deno */
-
 import { migrateDatabase } from "@workspace/db"
 
 import { app } from "./app"
 import { env } from "./env"
 import { startQueue, stopQueue } from "./queue"
+
+const Deno = globalThis.Deno
 
 if (env.NODE_ENV === "production") {
   await migrateDatabase(env.DATABASE_URL)

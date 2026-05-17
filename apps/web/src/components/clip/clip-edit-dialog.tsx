@@ -168,7 +168,7 @@ export function ClipEditDialog({
           <ResponsiveDialogTitle>Edit clip</ResponsiveDialogTitle>
         </ResponsiveDialogHeader>
 
-        <ResponsiveDialogBody className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+        <ResponsiveDialogBody className="flex-1 overflow-y-scroll px-4 py-4 sm:px-6">
           <div className="flex flex-col gap-5">
             <Field className="gap-1.5">
               <FieldLabel htmlFor="clip-edit-title">Title</FieldLabel>
@@ -242,7 +242,7 @@ export function ClipEditDialog({
         >
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="default"
             onClick={() => onOpenChange(false)}
             disabled={saving}

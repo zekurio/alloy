@@ -1,0 +1,19 @@
+{
+  "name": "@workspace/server",
+  "exports": {
+    "./app": "./src/app.ts"
+  },
+  "tasks": {
+    "dev": "NODE_ENV=development PORT=3000 PUBLIC_SERVER_URL=http://localhost:3000 TRUSTED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173 deno run --watch --allow-env --allow-net --allow-read --allow-write --allow-run --allow-ffi src/index.ts",
+    "start:prod": "NODE_ENV=production deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-ffi --allow-sys=osRelease src/index.ts",
+    "build": "deno run -A npm:@typescript/native-preview@7.0.0-dev.20260420.1/tsgo --noEmit && mkdir -p dist && deno cache src/index.ts && touch dist/server-cache-ok",
+    "lint": "deno run -A npm:oxlint@^1.61.0 .",
+    "fmt": "deno run -A npm:oxfmt@^0.46.0 --write .",
+    "format": "deno task fmt",
+    "typecheck": "deno run -A npm:@typescript/native-preview@7.0.0-dev.20260420.1/tsgo --noEmit",
+    "db:generate": "deno task --cwd ../../packages/db db:generate",
+    "db:migrate": "deno task --cwd ../../packages/db db:migrate",
+    "db:push": "deno task --cwd ../../packages/db db:push",
+    "db:studio": "deno task --cwd ../../packages/db db:studio"
+  }
+}

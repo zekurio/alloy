@@ -169,7 +169,7 @@ function AddPasskeyDialog({ onAdded }: { onAdded: () => Promise<void> }) {
           <DialogFooter>
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               size="sm"
               disabled={adding}
               onClick={() => setOpen(false)}

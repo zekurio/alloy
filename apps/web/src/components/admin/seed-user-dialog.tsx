@@ -183,7 +183,7 @@ export function SeedUserDialog({
             render={
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 disabled={form.state.isSubmitting}
               />

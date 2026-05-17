@@ -1,0 +1,18 @@
+{
+  "name": "@workspace/ui",
+  "exports": {
+    "./globals.css": "./src/styles/globals.css",
+    "./lib/*": "./src/lib/*.ts",
+    "./components/*": "./src/components/*.tsx",
+    "./hooks/*": "./src/hooks/*.ts"
+  },
+  "imports": {
+    "zod": "npm:zod@3.25.76"
+  },
+  "tasks": {
+    "lint": "deno run -A npm:oxlint@^1.61.0 .",
+    "fmt": "deno run -A npm:oxfmt@^0.46.0 --write .",
+    "format": "deno task fmt",
+    "typecheck": "deno run -A npm:@typescript/native-preview@7.0.0-dev.20260420.1/tsgo --noEmit"
+  }
+}
