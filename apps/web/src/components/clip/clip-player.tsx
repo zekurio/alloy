@@ -9,6 +9,7 @@ import {
 } from "@workspace/api"
 import { VideoPlayer } from "@/components/video/video-player"
 import { apiOrigin } from "@/lib/env"
+import { formatBytes } from "@/lib/storage-format"
 
 interface ClipPlayerProps {
   /** Real clip id: drives the stream URL and the default poster. */
@@ -48,6 +49,15 @@ function canPlayNativeVideo(contentType: string | null | undefined): boolean {
   if (!contentType || typeof document === "undefined") return false
   const video = document.createElement("video")
   return video.canPlayType(contentType) !== ""
+}
+
+function variantDetail(variant: ClipEncodedVariant): string {
+  const parts = [
+    variant.settings?.codec?.toUpperCase(),
+    `${variant.width}x${variant.height}`,
+    formatBytes(variant.sizeBytes),
+  ].filter(Boolean)
+  return parts.join(" · ")
 }
 
 function ClipPlayer({
@@ -119,6 +129,7 @@ function ClipPlayer({
           {
             id: "source",
             label: "Source",
+            detail: sourcePlayable ? "Original upload" : "Download only",
             downloadUrl: clipDownloadUrl(clipId, "source", apiOrigin()),
             selectable: sourcePlayable,
           },
@@ -127,6 +138,7 @@ function ClipPlayer({
     ...sortedVariants.map((variant) => ({
       id: variant.id,
       label: variant.label,
+      detail: variantDetail(variant),
       downloadUrl: clipDownloadUrl(clipId, variant.id, apiOrigin()),
     })),
   ]
