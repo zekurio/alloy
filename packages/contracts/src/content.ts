@@ -83,6 +83,7 @@ export interface ClipFeedParams {
   sort?: ClipFeedSort
   limit?: number
   cursor?: string
+  hashtag?: string
 }
 
 export interface InitiateClipInput {
@@ -198,6 +199,7 @@ export type FeedFilter =
   | { kind: "foryou" }
   | { kind: "following" }
   | { kind: "game"; gameId: string }
+  | { kind: "hashtag"; tag: string }
 
 export interface FeedPageParams {
   filter: FeedFilter

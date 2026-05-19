@@ -31,6 +31,7 @@ import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 type TopClipsSectionProps = {
   viewerId: string | undefined
+  hashtag?: string
 }
 
 type TopClipsBodyProps = {
@@ -38,6 +39,7 @@ type TopClipsBodyProps = {
   window: ClipFeedWindow
   rows: ReturnType<typeof useTopClipsQuery>["data"] | undefined
   error: unknown
+  hashtag?: string
 }
 
 const TOP_WINDOWS: ReadonlyArray<{ key: ClipFeedWindow; label: string }> = [
@@ -87,9 +89,9 @@ function TopWindowPicker({
   )
 }
 
-export function TopClipsSection({ viewerId }: TopClipsSectionProps) {
+export function TopClipsSection({ viewerId, hashtag }: TopClipsSectionProps) {
   const [window, setWindow] = React.useState<ClipFeedWindow>("today")
-  const { data: rows, error } = useTopClipsQuery(window, { limit: 5 })
+  const { data: rows, error } = useTopClipsQuery(window, { limit: 5, hashtag })
   useQueryErrorToast(error, {
     title: "Couldn't load top clips",
     toastId: `top-clips-${window}-error`,
@@ -112,12 +114,19 @@ export function TopClipsSection({ viewerId }: TopClipsSectionProps) {
         window={window}
         rows={rows}
         error={error}
+        hashtag={hashtag}
       />
     </section>
   )
 }
 
-function TopClipsBody({ viewerId, window, rows, error }: TopClipsBodyProps) {
+function TopClipsBody({
+  viewerId,
+  window,
+  rows,
+  error,
+  hashtag,
+}: TopClipsBodyProps) {
   const entries = React.useMemo<ClipListEntry[]>(
     () =>
       (rows ?? []).map((row) => ({
@@ -134,7 +143,9 @@ function TopClipsBody({ viewerId, window, rows, error }: TopClipsBodyProps) {
         <EmptyState
           seed={`top-${window}-empty`}
           size="md"
-          title={emptyTopTitle(window)}
+          title={
+            hashtag ? `No top clips tagged #${hashtag}` : emptyTopTitle(window)
+          }
           hint="Check back in a bit or upload your own."
         />
       )

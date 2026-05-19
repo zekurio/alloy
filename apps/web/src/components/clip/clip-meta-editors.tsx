@@ -19,7 +19,10 @@ import { CLIP_DESCRIPTION_MAX, CLIP_TITLE_MAX } from "@/lib/clip-fields"
 
 import { LimitedInput, LimitedTextarea } from "@/components/form/limited-field"
 import { GameCombobox } from "@/components/game/game-combobox"
-import { renderDescriptionTokens } from "./description-tokens"
+import {
+  renderDescriptionTokens,
+  renderHashtagTokens,
+} from "./description-tokens"
 export { EditableMentions, PrivacyBadgeMenu } from "./clip-privacy-and-mentions"
 
 const editPencilVariants = {
@@ -113,7 +116,7 @@ export function EditableTitle({
   if (!canEdit) {
     return (
       <h1 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
-        {displayValue}
+        {renderHashtagTokens(displayValue, { linkHashtags: true })}
       </h1>
     )
   }
@@ -181,7 +184,7 @@ export function EditableTitle({
       )}
     >
       <h1 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
-        {displayValue}
+        {renderHashtagTokens(displayValue, { linkHashtags: false })}
       </h1>
       <EditPencil variant="title" />
     </button>

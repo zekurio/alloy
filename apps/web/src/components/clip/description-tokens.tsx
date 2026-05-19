@@ -1,7 +1,7 @@
 import * as React from "react"
 import { Link } from "@tanstack/react-router"
 
-export function renderDescriptionTokens(
+export function renderHashtagTokens(
   raw: string,
   { linkHashtags }: { linkHashtags: boolean }
 ): React.ReactNode[] {
@@ -20,6 +20,7 @@ export function renderDescriptionTokens(
         <Link
           key={`tag-${key++}`}
           to="/"
+          search={{ tag }}
           className="text-accent hover:underline"
         >
           #{tag}
@@ -37,3 +38,5 @@ export function renderDescriptionTokens(
   if (lastIndex < raw.length) nodes.push(raw.slice(lastIndex))
   return nodes
 }
+
+export const renderDescriptionTokens = renderHashtagTokens

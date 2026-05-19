@@ -57,7 +57,10 @@ import {
 } from "@/lib/user-queries"
 
 import { ClipMentionsRow } from "./clip-mentions-row"
-import { renderDescriptionTokens } from "./description-tokens"
+import {
+  renderDescriptionTokens,
+  renderHashtagTokens,
+} from "./description-tokens"
 
 interface ClipMetaProps {
   /** Clip id — powers each field's PATCH and the delete action. */
@@ -211,7 +214,7 @@ function ClipMeta({
       {/* Title + top-right actions */}
       <div className="flex items-start justify-between gap-3">
         <h1 className="min-w-0 text-2xl leading-none font-semibold tracking-[-0.02em] text-foreground sm:text-[2rem]">
-          {title}
+          {renderHashtagTokens(title, { linkHashtags: true })}
         </h1>
 
         <div className="flex shrink-0 items-center gap-1 self-start">
