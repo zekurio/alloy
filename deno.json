@@ -1,4 +1,5 @@
 {
+  "version": "0.0.1",
   "workspace": ["apps/*", "packages/*"],
   "nodeModulesDir": "auto",
   "imports": {
