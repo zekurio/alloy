@@ -6,6 +6,7 @@ import tailwindcss from "@tailwindcss/vite"
 import { fileURLToPath, URL } from "node:url"
 
 const DEFAULT_SERVER_URL = "http://localhost:3000"
+const workspaceRoot = fileURLToPath(new URL("../..", import.meta.url))
 
 function normalizeServerUrl(value: string): string {
   const url = new URL(value)
@@ -21,6 +22,7 @@ function serverUrl(mode: string): string {
 }
 
 const config = defineConfig(({ mode }) => ({
+  cacheDir: "../../node_modules/.vite/web",
   publicDir: "../../public",
   resolve: {
     alias: [
@@ -78,6 +80,9 @@ const config = defineConfig(({ mode }) => ({
     host: true,
     port: 5173,
     strictPort: true,
+    fs: {
+      allow: [workspaceRoot],
+    },
     proxy: {
       "/api": {
         target: serverUrl(mode),

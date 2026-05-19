@@ -173,6 +173,7 @@ async function fetchClips(
   if (params.sort) query.sort = params.sort
   if (params.limit !== undefined) query.limit = String(params.limit)
   if (params.cursor) query.cursor = params.cursor
+  if (params.hashtag) query.hashtag = params.hashtag
 
   const res = await context.request("/api/clips", { query })
   return readJsonOrThrow(res, validateClipRows)

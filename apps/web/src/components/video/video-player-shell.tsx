@@ -354,7 +354,7 @@ export function ChromeBar({
         aria-hidden={false}
         data-pinned={settingsOpen ? "true" : undefined}
         className={cn(
-          "pointer-events-none absolute inset-x-0 bottom-0 isolate z-20 flex items-center gap-1 px-1 pt-3 pb-[env(safe-area-inset-bottom)] transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+          "pointer-events-none absolute inset-x-0 bottom-0 isolate z-20 flex items-center gap-1 px-1 pt-2 pb-[env(safe-area-inset-bottom)] transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
           "after:pointer-events-none after:absolute after:inset-x-0 after:bottom-[-1px] after:h-[2px] after:bg-black/70",
           "bg-gradient-to-t from-black/70 via-black/30 to-transparent",
           visible ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0",

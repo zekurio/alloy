@@ -6,6 +6,8 @@ export const clipKeys = {
   lists: () => [...clipKeys.all, "list"] as const,
   topList: (window: ClipFeedWindow, limit: number) =>
     [...clipKeys.lists(), "top", { window, limit }] as const,
+  topHashtagList: (window: ClipFeedWindow, limit: number, hashtag: string) =>
+    [...clipKeys.lists(), "top", { window, limit, hashtag }] as const,
   userList: (handle: string) =>
     [...clipKeys.lists(), "user", { handle }] as const,
   userLikedList: (handle: string) =>

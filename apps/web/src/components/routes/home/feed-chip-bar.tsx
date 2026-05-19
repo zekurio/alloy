@@ -1,4 +1,4 @@
-import { FlameIcon, UsersIcon } from "lucide-react"
+import { FlameIcon, HashIcon, UsersIcon } from "lucide-react"
 
 import {
   Carousel,
@@ -26,6 +26,9 @@ function isActive(filter: FeedFilter, candidate: FeedFilter): boolean {
   if (filter.kind !== candidate.kind) return false
   if (filter.kind === "game" && candidate.kind === "game") {
     return filter.gameId === candidate.gameId
+  }
+  if (filter.kind === "hashtag" && candidate.kind === "hashtag") {
+    return filter.tag === candidate.tag
   }
   return true
 }
@@ -62,6 +65,13 @@ export function FeedChipBar({ filter, onChange }: FeedChipBarProps) {
               Following
             </Chip>
           </CarouselItem>
+          {filter.kind === "hashtag" ? (
+            <CarouselItem className="basis-auto pl-2">
+              <Chip size="xl" data-active="true" title={`#${filter.tag}`}>
+                <HashIcon />#{filter.tag}
+              </Chip>
+            </CarouselItem>
+          ) : null}
 
           {games.map((g) => (
             <CarouselItem key={g.id} className="basis-auto pl-2">

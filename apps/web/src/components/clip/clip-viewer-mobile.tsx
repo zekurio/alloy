@@ -44,7 +44,10 @@ import { ClipComments } from "./clip-comments"
 import { ClipEditDialog } from "./clip-edit-dialog"
 import type { ClipListEntry } from "./clip-list-context"
 import { ClipMentionsRow } from "./clip-mentions-row"
-import { renderDescriptionTokens } from "./description-tokens"
+import {
+  renderDescriptionTokens,
+  renderHashtagTokens,
+} from "./description-tokens"
 import { ClipPlayer } from "./clip-player"
 import { ClipAuthorLink, MobileActionsRail } from "./clip-viewer-mobile-actions"
 
@@ -258,7 +261,7 @@ function MobileClipViewerBody({
                 textClassName="text-base font-semibold text-white"
               />
               <h2 className="line-clamp-1 min-w-0 flex-1 text-base font-semibold text-white/90">
-                {row.title}
+                {renderHashtagTokens(row.title, { linkHashtags: true })}
               </h2>
             </div>
           ) : null}
@@ -378,7 +381,7 @@ function MobileClipViewerBody({
 
               {/* Title */}
               <h2 className="line-clamp-2 text-md leading-tight font-bold text-white">
-                {row.title}
+                {renderHashtagTokens(row.title, { linkHashtags: true })}
               </h2>
 
               {/* Mentions */}

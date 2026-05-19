@@ -82,7 +82,7 @@ export function VideoScrubber({
       onKeyDown={onKeyDown}
       className={cn(
         "group/scrub relative w-full cursor-pointer touch-none",
-        variant === "edge" ? "h-3 rounded-none" : "h-[24px] rounded-full",
+        variant === "edge" ? "h-3 rounded-none" : "h-3 rounded-full",
         "bg-transparent",
         variant !== "edge" &&
           "transition-[height] duration-[var(--duration-fast)] ease-[var(--ease-out)] focus-visible:h-2",
@@ -114,7 +114,7 @@ export function VideoScrubber({
         <div
           aria-hidden
           className={cn(
-            "absolute top-1/2 size-[14px] -translate-x-1/2 -translate-y-1/2 rounded-full",
+            "absolute top-1/2 size-[10px] -translate-x-1/2 -translate-y-1/2 rounded-full",
             "bg-accent",
             variant === "translucent"
               ? "opacity-100"

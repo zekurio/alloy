@@ -56,6 +56,8 @@ function emptyTitle(filter: FeedFilter): string {
       return "Your following feed is empty"
     case "game":
       return "No clips in this game yet"
+    case "hashtag":
+      return `No clips tagged #${filter.tag}`
   }
 }
 
@@ -67,11 +69,14 @@ function emptyHint(filter: FeedFilter): string {
       return "Follow creators or favourite games to populate this tab."
     case "game":
       return "Be the first to post one."
+    case "hashtag":
+      return "Try another tag or check back later."
   }
 }
 
 function filterId(filter: FeedFilter): string {
   if (filter.kind === "game") return `game:${filter.gameId}`
+  if (filter.kind === "hashtag") return `hashtag:${filter.tag}`
   return filter.kind
 }
 

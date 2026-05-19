@@ -25,13 +25,13 @@ export type QualityOption = {
 }
 
 const glassMenuClass =
-  "!w-[min(360px,calc(var(--available-width,100vw)-8px))] min-w-[min(260px,calc(var(--available-width,100vw)-8px))] max-w-[calc(var(--available-width,100vw)-8px)] rounded-xl border-white/10 !bg-black/70 p-0 text-foreground shadow-[0_10px_28px_-14px_rgb(0_0_0_/_0.95)] backdrop-blur-md"
+  "!w-[min(300px,calc(var(--available-width,100vw)-8px))] min-w-[min(220px,calc(var(--available-width,100vw)-8px))] max-w-[calc(var(--available-width,100vw)-8px)] rounded-xl border-white/[0.08] bg-popover/[0.88] p-0 text-foreground shadow-[0_18px_48px_-24px_rgb(0_0_0_/_0.55)] backdrop-blur-xl"
 
 const panelClass =
-  "max-h-[min(460px,calc(var(--available-height,100vh)-8px))] overflow-y-auto py-1"
+  "max-h-[min(460px,calc(var(--available-height,100vh)-8px))] overflow-y-auto p-1.5"
 
 const menuRowClass =
-  "flex min-h-11 w-full items-center gap-3 px-3 text-left text-sm text-foreground/90 outline-none transition-colors hover:bg-white/10 focus-visible:bg-white/10"
+  "flex min-h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-sm text-foreground/90 outline-none transition-colors hover:bg-white/15 focus-visible:bg-white/15"
 
 const iconClass = "size-4 shrink-0 text-foreground/80"
 
@@ -181,20 +181,24 @@ function QualitySettingsView({
   return (
     <div className={panelClass}>
       <PanelHeader title="Quality" onBack={onBack} />
-      <div className="border-t border-white/10 py-1">
+      <div>
         {options.map((quality) => {
           const selected = quality.id === selectedQualityId
           return (
             <button
               key={quality.id}
               type="button"
-              className={cn(menuRowClass, selected && "bg-white/10")}
+              className={cn(
+                menuRowClass,
+                selected &&
+                  "bg-white/20 text-foreground focus-visible:bg-white/25"
+              )}
               onClick={() => onSelectQuality?.(quality.id)}
             >
-              <span className="flex size-4 shrink-0 items-center justify-center">
+              <span className="flex w-6 shrink-0 items-center justify-center">
                 {selected ? <CheckIcon className="size-4" /> : null}
               </span>
-              <QualityLabel quality={quality} />
+              <QualityLabel quality={quality} showDetail={false} />
             </button>
           )
         })}
@@ -215,7 +219,7 @@ function DownloadSettingsView({
   return (
     <div className={panelClass}>
       <PanelHeader title="Download" onBack={onBack} />
-      <div className="border-t border-white/10 py-1">
+      <div>
         {options.map((quality) => (
           <button
             key={quality.id}
@@ -223,8 +227,10 @@ function DownloadSettingsView({
             className={menuRowClass}
             onClick={() => onDownload(quality.downloadUrl!)}
           >
-            <DownloadIcon className={iconClass} />
-            <QualityLabel quality={quality} />
+            <span className="flex w-6 shrink-0 items-center justify-center">
+              <DownloadIcon className={iconClass} />
+            </span>
+            <QualityLabel quality={quality} showDetail={false} />
           </button>
         ))}
       </div>
@@ -234,10 +240,10 @@ function DownloadSettingsView({
 
 function PanelHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return (
-    <div className="flex h-12 items-center gap-2 px-2">
+    <div className="flex h-8 items-center gap-2.5 px-2.5">
       <button
         type="button"
-        className="grid size-8 shrink-0 place-items-center rounded-md text-foreground/90 transition-colors outline-none hover:bg-white/10 focus-visible:bg-white/10"
+        className="grid size-6 shrink-0 place-items-center rounded-md text-foreground/90 transition-colors outline-none hover:bg-white/15 focus-visible:bg-white/15"
         aria-label="Back"
         onClick={onBack}
       >
@@ -273,11 +279,22 @@ function MenuNavigationRow({
   )
 }
 
-function QualityLabel({ quality }: { quality: QualityOption }) {
+function QualityLabel({
+  quality,
+  showDetail = true,
+}: {
+  quality: QualityOption
+  showDetail?: boolean
+}) {
   return (
-    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+    <span
+      className={cn(
+        "flex min-w-0 flex-1",
+        showDetail ? "flex-col gap-0.5" : "items-center"
+      )}
+    >
       <span className="truncate text-foreground">{quality.label}</span>
-      {quality.detail ? (
+      {showDetail && quality.detail ? (
         <span className="truncate text-xs text-foreground/55">
           {quality.detail}
         </span>
@@ -288,8 +305,7 @@ function QualityLabel({ quality }: { quality: QualityOption }) {
 
 function qualitySummary(quality: QualityOption | undefined): string {
   if (!quality) return "Unavailable"
-  if (!quality.detail) return quality.label
-  return `${quality.label} · ${quality.detail}`
+  return quality.label
 }
 
 function startDownload(url: string): void {

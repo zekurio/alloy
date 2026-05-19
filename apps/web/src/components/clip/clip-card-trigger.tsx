@@ -11,6 +11,7 @@ import { toClipCardData } from "@/lib/clip-format"
 import { clipKeys } from "@/lib/clip-queries"
 
 import { setActiveClipList, useClipList } from "./clip-list-context"
+import { renderHashtagTokens } from "./description-tokens"
 
 export interface ClipCardTriggerProps {
   row: ClipRow
@@ -66,6 +67,7 @@ export const ClipCardTrigger = React.memo(function ClipCardTrigger({
     <ClipCard
       className={className}
       title={card.title}
+      titleContent={renderHashtagTokens(card.title, { linkHashtags: true })}
       author={card.author}
       authorSeed={card.authorId}
       authorImage={card.authorImage}

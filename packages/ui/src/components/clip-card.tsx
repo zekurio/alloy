@@ -12,6 +12,7 @@ import { cn } from "@workspace/ui/lib/utils"
 
 interface ClipCardProps extends React.ComponentProps<"article"> {
   title: string
+  titleContent?: React.ReactNode
   author: string
   authorSeed?: string
   authorImage?: string | null
@@ -42,6 +43,7 @@ const HOVER_PREVIEW_DELAY_MS = 250
 function ClipCard({
   className,
   title,
+  titleContent,
   author,
   authorSeed,
   authorImage,
@@ -88,12 +90,12 @@ function ClipCard({
       <div className="flex flex-col gap-1.5">
         {metaVariant === "showcase" ? (
           <div className="truncate text-base font-semibold tracking-[-0.015em] text-foreground sm:text-lg">
-            {title}
+            {titleContent ?? title}
           </div>
         ) : (
           <div className="flex min-w-0 items-center gap-2 text-base leading-5 sm:text-lg sm:leading-6">
             <div className="min-w-0 flex-1 truncate font-semibold tracking-[-0.015em] text-foreground">
-              {title}
+              {titleContent ?? title}
             </div>
             <span className="inline-flex shrink-0 items-center gap-3 text-sm leading-none tracking-[0.04em] text-foreground-faint tabular-nums">
               <span className="inline-flex items-center gap-1.5">

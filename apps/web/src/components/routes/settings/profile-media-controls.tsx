@@ -22,7 +22,7 @@ export function MediaEditOverlay({
         "absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100",
         tone === "shade"
           ? "bg-black/50"
-          : "bg-black/10 ring-1 ring-white/20 ring-inset",
+          : "bg-black/50 ring-1 ring-white/20 ring-inset",
         radius === "lg" ? "rounded-lg" : "rounded-md"
       )}
     >

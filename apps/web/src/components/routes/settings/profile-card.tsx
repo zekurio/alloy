@@ -2,7 +2,7 @@ import * as React from "react"
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
-import { Camera, Pencil } from "lucide-react"
+import { Pencil } from "lucide-react"
 import { useClickAnchor } from "@/hooks/use-click-anchor"
 
 import {
@@ -320,7 +320,7 @@ export function ProfileCard({
                       className="group absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                       onPointerDown={bannerAnchor.onTriggerPointerDown}
                     >
-                      <MediaEditOverlay radius="lg" tone="control">
+                      <MediaEditOverlay radius="lg">
                         <Pencil className="size-4 text-white" />
                       </MediaEditOverlay>
                     </DropdownMenuTrigger>
@@ -338,8 +338,8 @@ export function ProfileCard({
                     onClick={() => openFilePicker("banner")}
                     className="group absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   >
-                    <MediaEditOverlay radius="lg" tone="control">
-                      <Camera className="size-4 text-white" />
+                    <MediaEditOverlay radius="lg">
+                      <Pencil className="size-4 text-white" />
                     </MediaEditOverlay>
                   </button>
                 )}
@@ -431,7 +431,7 @@ export function ProfileCard({
                           </AvatarFallback>
                         </Avatar>
                         <MediaEditOverlay radius="md">
-                          <Camera className="size-4 text-white" />
+                          <Pencil className="size-4 text-white" />
                         </MediaEditOverlay>
                       </button>
                     )}

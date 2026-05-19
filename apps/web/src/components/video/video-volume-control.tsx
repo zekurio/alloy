@@ -42,7 +42,7 @@ export function VolumeControl({
     const rail = railRef.current
     if (!rail) return 0
     const rect = rail.getBoundingClientRect()
-    const insetPx = 12
+    const insetPx = 16
     const trackHeight = Math.max(1, rect.height - insetPx * 2)
     return Math.min(
       1,
@@ -130,8 +130,8 @@ export function VolumeControl({
             }
           }}
           className={cn(
-            "absolute bottom-[calc(100%+0.25rem)] left-1/2 z-10 flex h-28 w-8 -translate-x-1/2 cursor-pointer touch-none items-center justify-center overflow-visible rounded-full py-3",
-            "bg-black/45 opacity-0 shadow-[0_8px_24px_-12px_rgb(0_0_0_/_0.9)] backdrop-blur-sm transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+            "absolute bottom-[calc(100%+0.25rem)] left-1/2 z-10 flex h-28 w-8 -translate-x-1/2 cursor-pointer touch-none items-center justify-center overflow-visible rounded-full py-4",
+            "border border-white/[0.08] bg-popover/[0.88] opacity-0 shadow-[0_18px_48px_-24px_rgb(0_0_0_/_0.55)] backdrop-blur-xl transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
             "pointer-events-none translate-y-0 group-hover/vol:pointer-events-auto group-hover/vol:-translate-y-1 group-hover/vol:opacity-100",
             "focus-within:pointer-events-auto focus-within:-translate-y-1 focus-within:opacity-100",
             "data-[dragging=true]:pointer-events-auto data-[dragging=true]:-translate-y-1 data-[dragging=true]:opacity-100",
@@ -140,21 +140,21 @@ export function VolumeControl({
         >
           <div
             aria-hidden
-            className="absolute inset-y-3 left-1/2 w-[4px] -translate-x-1/2 rounded-full bg-white/25"
+            className="absolute inset-y-4 left-1/2 w-[4px] -translate-x-1/2 rounded-full bg-white/25"
           />
           <div
             aria-hidden
-            className="absolute bottom-3 left-1/2 w-[4px] -translate-x-1/2 rounded-full bg-accent"
-            style={{ height: `calc(${effective} * (100% - 24px))` }}
+            className="absolute bottom-4 left-1/2 w-[4px] -translate-x-1/2 rounded-full bg-accent"
+            style={{ height: `calc(${effective} * (100% - 32px))` }}
           />
           <div
             aria-hidden
             className={cn(
-              "absolute left-1/2 size-[14px] -translate-x-1/2 translate-y-1/2 rounded-full",
+              "absolute left-1/2 size-[10px] -translate-x-1/2 translate-y-1/2 rounded-full",
               "bg-accent"
             )}
             style={{
-              bottom: `calc(12px + ${effective} * (100% - 24px))`,
+              bottom: `calc(16px + ${effective} * (100% - 32px))`,
             }}
           />
         </div>

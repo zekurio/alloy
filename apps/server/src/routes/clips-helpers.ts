@@ -24,6 +24,10 @@ export const ListQuery = z.object({
   sort: z.enum(["top", "recent"]).default("recent"),
   limit: z.coerce.number().int().positive().max(100).default(50),
   cursor: z.iso.datetime().optional(),
+  hashtag: z
+    .string()
+    .regex(/^[\p{L}\p{N}_]+$/u)
+    .optional(),
 })
 
 // Epoch offsets for the window filter. Kept in one place so both the feed

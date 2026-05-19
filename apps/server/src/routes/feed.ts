@@ -17,19 +17,28 @@ import { db } from "../db"
 import { getSession } from "../auth/session"
 import { clipSelectShape, toPublicClipRow } from "../clips/select"
 import { base64UrlDecodeText, base64UrlEncodeText } from "../encoding/base64url"
+import { hashtagTextFilter } from "./hashtag-filter"
 
-const FilterEnum = z.enum(["foryou", "following", "game"])
+const FilterEnum = z.enum(["foryou", "following", "game", "hashtag"])
 
 const FeedQuery = z
   .object({
     filter: FilterEnum.default("foryou"),
     gameId: z.uuid().optional(),
+    tag: z
+      .string()
+      .regex(/^[\p{L}\p{N}_]+$/u)
+      .optional(),
     limit: z.coerce.number().int().positive().max(50).default(20),
     cursor: z.string().optional(),
   })
   .refine((v) => v.filter !== "game" || v.gameId !== undefined, {
     message: "gameId is required when filter=game",
     path: ["gameId"],
+  })
+  .refine((v) => v.filter !== "hashtag" || v.tag !== undefined, {
+    message: "tag is required when filter=hashtag",
+    path: ["tag"],
   })
 
 const ChipsQuery = z.object({
@@ -105,7 +114,13 @@ function rankScore(viewerId: string | null, asOf: string) {
 
 export const feedRoute = new Hono()
   .get("/", zValidator("query", FeedQuery), async (c) => {
-    const { filter, gameId, limit, cursor: rawCursor } = c.req.valid("query")
+    const {
+      filter,
+      gameId,
+      tag,
+      limit,
+      cursor: rawCursor,
+    } = c.req.valid("query")
     const cursor = parseFeedCursor(rawCursor)
     const asOf = cursor ? new Date(cursor.asOf) : new Date()
     if (Number.isNaN(asOf.getTime())) {
@@ -135,6 +150,10 @@ export const feedRoute = new Hono()
 
     if (filter === "game") {
       conditions.push(eq(clip.gameId, gameId!))
+    }
+
+    if (filter === "hashtag") {
+      conditions.push(hashtagTextFilter(tag!))
     }
 
     if (filter === "following") {

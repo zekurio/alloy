@@ -20,6 +20,7 @@ build
 .output
 .nitro
 .tanstack
+.vite
 .vinxi
 
 # Debug
