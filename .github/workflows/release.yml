@@ -97,7 +97,7 @@ jobs:
           NODE_ENV: production
         run: deno task build
 
-      - name: Update package version
+      - name: Update Deno version
         if: github.event_name == 'workflow_dispatch'
         id: version_bump
         shell: bash
@@ -111,17 +111,17 @@ jobs:
             appendFileSync(Deno.env.get("GITHUB_OUTPUT"), `${name}=${value}\n`);
           }
 
-          const filePath = "package.json";
-          const pkg = JSON.parse(readFileSync(filePath, "utf8"));
+          const filePath = "deno.json";
+          const config = JSON.parse(readFileSync(filePath, "utf8"));
 
-          if (pkg.version === Deno.env.get("RELEASE_VERSION")) {
-            console.log(`package.json is already at version ${pkg.version}.`);
+          if (config.version === Deno.env.get("RELEASE_VERSION")) {
+            console.log(`deno.json is already at version ${config.version}.`);
             setOutput("changed", "false");
             Deno.exit(0);
           }
 
-          pkg.version = Deno.env.get("RELEASE_VERSION");
-          writeFileSync(filePath, `${JSON.stringify(pkg, null, 2)}\n`);
+          config.version = Deno.env.get("RELEASE_VERSION");
+          writeFileSync(filePath, `${JSON.stringify(config, null, 2)}\n`);
           setOutput("changed", "true");
           '
 
@@ -140,10 +140,10 @@ jobs:
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
         run: |
           if [[ "${{ steps.version_bump.outputs.changed }}" == "true" ]]; then
-            git add package.json
+            git add deno.json
             git commit -m "chore(release): prepare $RELEASE_TAG"
           else
-            echo "package.json already matches $RELEASE_VERSION; tagging current dev commit."
+            echo "deno.json already matches $RELEASE_VERSION; tagging current dev commit."
           fi
 
           git tag -a "$RELEASE_TAG" -m "Release $RELEASE_TAG"
