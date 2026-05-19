@@ -72,7 +72,7 @@ export function BareShell({
       data-mode="bare"
       tabIndex={-1}
       className={cn(
-        "relative isolate w-full overflow-hidden bg-black",
+        "relative isolate w-full overflow-hidden bg-[oklch(12%_0.01_250)]",
         maxDisplayHeight && "mx-auto",
         !aspectRatio && "aspect-video",
         "focus:outline-none",
@@ -178,7 +178,7 @@ export function ChromeShell({
       style={rootSizingStyle}
       className={cn(
         "group/video relative isolate flex w-full flex-col overflow-hidden select-none",
-        barBelow ? "bg-transparent" : "bg-black",
+        barBelow ? "bg-transparent" : "bg-[oklch(12%_0.01_250)]",
         isFullscreen && "h-dvh w-dvw",
         maxDisplayHeight && !isFullscreen && "mx-auto",
         "focus:outline-none",
@@ -188,7 +188,7 @@ export function ChromeShell({
       <div
         data-slot="video-player-media"
         className={cn(
-          "relative min-h-0 w-full overflow-hidden bg-black",
+          "relative min-h-0 w-full overflow-hidden bg-[oklch(12%_0.01_250)]",
           isFullscreen ? "flex-1" : !aspectRatio && "aspect-video"
         )}
         style={mediaSizingStyle}
@@ -355,7 +355,7 @@ export function ChromeBar({
         data-pinned={settingsOpen ? "true" : undefined}
         className={cn(
           "pointer-events-none absolute inset-x-0 bottom-0 isolate z-20 flex items-center gap-1 px-1 pt-2 pb-[env(safe-area-inset-bottom)] transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-          "after:pointer-events-none after:absolute after:inset-x-0 after:bottom-[-1px] after:h-[2px] after:bg-black/70",
+          "after:pointer-events-none after:absolute after:inset-x-0 after:bottom-[-1px] after:h-[2px] after:bg-[oklch(12%_0.01_250)]/70",
           "bg-gradient-to-t from-black/70 via-black/30 to-transparent",
           visible ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0",
           chromeInteractive && "pointer-events-auto",
@@ -371,6 +371,7 @@ export function ChromeBar({
           )}
         >
           <Button
+            type="button"
             variant="ghost"
             size="icon-sm"
             aria-label={playing ? "Pause" : "Play"}
@@ -441,6 +442,7 @@ export function ChromeBar({
 
           {fullscreenSupported ? (
             <Button
+              type="button"
               variant="ghost"
               size="icon-sm"
               aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}

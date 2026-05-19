@@ -21,8 +21,8 @@ export function MediaEditOverlay({
       className={cn(
         "absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100",
         tone === "shade"
-          ? "bg-black/50"
-          : "bg-black/50 ring-1 ring-white/20 ring-inset",
+          ? "bg-[oklch(12%_0.01_250)]/50"
+          : "bg-[oklch(12%_0.01_250)]/50 ring-1 ring-white/20 ring-inset",
         radius === "lg" ? "rounded-lg" : "rounded-md"
       )}
     >
@@ -31,7 +31,7 @@ export function MediaEditOverlay({
           "inline-flex size-8 items-center justify-center rounded-full",
           tone === "shade"
             ? "bg-transparent"
-            : "bg-black/45 shadow-[0_2px_10px_oklch(0_0_0_/_0.24)] backdrop-blur-sm"
+            : "bg-[oklch(12%_0.01_250)]/45 shadow-[0_2px_10px_oklch(0_0_0_/_0.24)] backdrop-blur-sm"
         )}
       >
         {children}

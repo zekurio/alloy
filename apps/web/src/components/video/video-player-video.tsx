@@ -44,7 +44,7 @@ export function VideoFrame({
 }: VideoFrameProps) {
   return (
     <>
-      <div aria-hidden className="absolute inset-0 bg-black" />
+      <div aria-hidden className="absolute inset-0 bg-[oklch(12%_0.01_250)]" />
       {posterVisible ? (
         <img
           src={poster}

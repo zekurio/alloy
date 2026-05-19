@@ -194,8 +194,8 @@ function UploadQueuePopover({
         className={cn(
           "w-[420px] max-w-[calc(100vw-1.5rem)] border p-3 ring-0",
           "alloy-blur",
-          "data-open:animate-[alloy-fab-morph-in_320ms_cubic-bezier(0.34,1.56,0.64,1)_forwards]",
-          "data-closed:animate-[alloy-fab-morph-out_180ms_cubic-bezier(0.36,0,0.66,-0.4)_forwards]"
+          "data-open:animate-[alloy-fab-morph-in_320ms_var(--ease-out)_forwards]",
+          "data-closed:animate-[alloy-fab-morph-out_180ms_var(--ease-out)_forwards]"
         )}
         style={
           {

@@ -158,7 +158,7 @@ function ClipPlayer({
             : undefined,
         }}
       >
-        <div className="grid size-full place-items-center bg-black text-sm text-white/70">
+        <div className="grid size-full place-items-center bg-[oklch(12%_0.01_250)] text-sm text-white/70">
           {unavailable
             ? "Playback unavailable."
             : "Preparing playback version..."}
