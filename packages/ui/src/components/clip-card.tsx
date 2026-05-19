@@ -168,12 +168,15 @@ function ClipCardThumb({
   const hoveredRef = React.useRef(false)
   const shouldPreviewRef = React.useRef(false)
   const primedRef = React.useRef(false)
+  const preloadedThumbnailRef = React.useRef<string | null>(null)
   const [previewing, setPreviewing] = React.useState(false)
   const [previewMounted, setPreviewMounted] = React.useState(false)
+  const [thumbnailLoaded, setThumbnailLoaded] = React.useState(false)
   const [thumbnailFailed, setThumbnailFailed] = React.useState(false)
   const [pointerActivated, setPointerActivated] = React.useState(false)
 
   React.useEffect(() => {
+    setThumbnailLoaded(false)
     setThumbnailFailed(false)
   }, [thumbnail])
 
@@ -189,6 +192,15 @@ function ClipCardThumb({
   }, [])
 
   const canPreview = Boolean(streamUrl)
+
+  const preloadThumbnail = () => {
+    if (!thumbnail || thumbnailFailed) return
+    if (preloadedThumbnailRef.current === thumbnail) return
+    preloadedThumbnailRef.current = thumbnail
+    const image = new Image()
+    image.decoding = "async"
+    image.src = thumbnail
+  }
 
   const revealPreview = React.useCallback(() => {
     const v = videoRef.current
@@ -273,8 +285,9 @@ function ClipCardThumb({
   }
 
   const interactive = Boolean(onClick)
+  const fallback = renderThumbnailFallback(accentHue)
   const surfaceClass = cn(
-    "group/clip-thumb relative aspect-video w-full appearance-none overflow-hidden rounded-md border-0 bg-black p-0 text-left",
+    "group/clip-thumb relative aspect-video w-full appearance-none overflow-hidden rounded-md border-0 bg-[oklch(12%_0.01_250)] p-0 text-left",
     "transition-[transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
     interactive &&
       "cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none data-[pointer-activated=true]:focus-visible:ring-0 data-[pointer-activated=true]:focus-visible:ring-offset-0"
@@ -282,12 +295,14 @@ function ClipCardThumb({
   const hoverHandlers = {
     onPointerEnter: (e: React.PointerEvent) => {
       onIntent?.()
+      preloadThumbnail()
       if (e.pointerType === "touch") return
       schedulePreview()
     },
     onPointerDown: () => {
       setPointerActivated(true)
       onIntent?.()
+      preloadThumbnail()
     },
     onKeyDown: () => {
       setPointerActivated(false)
@@ -295,6 +310,7 @@ function ClipCardThumb({
     onPointerLeave: cancelPreview,
     onFocus: () => {
       onIntent?.()
+      preloadThumbnail()
       schedulePreview()
     },
     onBlur: () => {
@@ -305,42 +321,27 @@ function ClipCardThumb({
 
   const body = (
     <>
-      <div aria-hidden className="absolute inset-0 bg-black" />
+      {fallback}
 
       {thumbnail && !thumbnailFailed ? (
         <img
           src={thumbnail}
           alt={title}
-          className="absolute -inset-px size-[calc(100%+2px)] object-cover"
+          className={cn(
+            "absolute -inset-px size-[calc(100%+2px)] object-cover transition-opacity duration-200 ease-out",
+            thumbnailLoaded ? "opacity-100" : "opacity-0"
+          )}
           // Cards load in a scrolling grid — let the browser lazy-load
           // anything outside the initial viewport.
           loading="lazy"
           decoding="async"
-          onError={() => setThumbnailFailed(true)}
-        />
-      ) : accentHue !== undefined ? (
-        <div
-          aria-hidden
-          className="absolute inset-0"
-          style={{
-            background: `linear-gradient(135deg, oklch(0.3 0.1 ${accentHue}) 0%, oklch(0.15 0.05 ${accentHue}) 70%, oklch(0.08 0 0) 100%)`,
+          onLoad={() => setThumbnailLoaded(true)}
+          onError={() => {
+            setThumbnailLoaded(false)
+            setThumbnailFailed(true)
           }}
         />
-      ) : (
-        <div
-          aria-hidden
-          className={cn(
-            "absolute inset-0 grid place-items-center",
-            "font-mono text-2xs tracking-[0.1em] text-foreground-faint uppercase"
-          )}
-          style={{
-            background:
-              "repeating-linear-gradient(45deg, oklch(0.18 0 0) 0 8px, oklch(0.16 0 0) 8px 16px)",
-          }}
-        >
-          clip preview
-        </div>
-      )}
+      ) : null}
 
       {/* Hover preview overlay. Mounted only when we actually have a
           stream URL — keeps the DOM light for mock decks and
@@ -362,7 +363,7 @@ function ClipCardThumb({
           onTimeUpdate={revealPreview}
           aria-hidden
           className={cn(
-            "absolute -inset-px size-[calc(100%+2px)] bg-black object-cover",
+            "absolute -inset-px size-[calc(100%+2px)] bg-[oklch(12%_0.01_250)] object-cover",
             "transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
             previewing ? "opacity-100" : "pointer-events-none opacity-0"
           )}
@@ -370,7 +371,7 @@ function ClipCardThumb({
       ) : null}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 -bottom-px z-10 h-px bg-black"
+        className="pointer-events-none absolute inset-x-0 -bottom-px z-10 h-px bg-[oklch(12%_0.01_250)]"
       />
     </>
   )
@@ -394,6 +395,36 @@ function ClipCardThumb({
   return (
     <div className={surfaceClass} {...hoverHandlers}>
       {body}
+    </div>
+  )
+}
+
+function renderThumbnailFallback(accentHue: number | undefined) {
+  if (accentHue !== undefined) {
+    return (
+      <div
+        aria-hidden
+        className="absolute inset-0"
+        style={{
+          background: `linear-gradient(135deg, oklch(0.3 0.1 ${accentHue}) 0%, oklch(0.15 0.05 ${accentHue}) 70%, oklch(0.08 0 0) 100%)`,
+        }}
+      />
+    )
+  }
+
+  return (
+    <div
+      aria-hidden
+      className={cn(
+        "absolute inset-0 grid place-items-center",
+        "font-mono text-2xs tracking-[0.1em] text-foreground-faint uppercase"
+      )}
+      style={{
+        background:
+          "repeating-linear-gradient(45deg, oklch(0.18 0 0) 0 8px, oklch(0.16 0 0) 8px 16px)",
+      }}
+    >
+      clip preview
     </div>
   )
 }

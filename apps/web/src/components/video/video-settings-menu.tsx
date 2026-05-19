@@ -83,6 +83,7 @@ export function VideoSettingsMenu({
       <DropdownMenuTrigger
         render={
           <Button
+            type="button"
             variant="ghost"
             size="icon-sm"
             aria-label="Settings"

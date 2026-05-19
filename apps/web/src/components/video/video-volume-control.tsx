@@ -86,6 +86,7 @@ export function VolumeControl({
       )}
     >
       <Button
+        type="button"
         variant="ghost"
         size="icon-sm"
         aria-label={muted ? "Unmute" : "Mute"}
@@ -134,7 +135,7 @@ export function VolumeControl({
           }}
           className={cn(
             "absolute bottom-[calc(100%+0.45rem)] left-1/2 z-10 flex h-32 w-10 -translate-x-1/2 cursor-pointer touch-none items-center justify-center overflow-visible rounded-full py-5",
-            "border border-white/15 bg-black/60 opacity-0 shadow-[0_18px_54px_-18px_rgb(0_0_0_/_0.72)] ring-1 ring-black/15 backdrop-blur-xl transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+            "border border-white/15 bg-[oklch(12%_0.01_250)]/60 opacity-0 shadow-[0_18px_54px_-18px_rgb(0_0_0_/_0.72)] ring-1 ring-[oklch(12%_0.01_250)]/15 backdrop-blur-xl transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
             "pointer-events-none translate-y-0 group-hover/vol:pointer-events-auto group-hover/vol:-translate-y-1 group-hover/vol:opacity-100",
             "focus-within:pointer-events-auto focus-within:-translate-y-1 focus-within:opacity-100",
             "data-[dragging=true]:pointer-events-auto data-[dragging=true]:-translate-y-1 data-[dragging=true]:opacity-100",

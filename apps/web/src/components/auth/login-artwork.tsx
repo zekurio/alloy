@@ -12,7 +12,7 @@ export const LoginArtwork = React.memo(function LoginArtwork({
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 overflow-hidden bg-black"
+      className="pointer-events-none absolute inset-0 overflow-hidden bg-[oklch(12%_0.01_250)]"
     >
       <img
         src={imageUrl}
