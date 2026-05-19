@@ -234,7 +234,7 @@ function MobileClipViewerBody({
       >
         <div
           data-orientation={isLandscape ? "landscape" : "portrait"}
-          className="relative flex h-full flex-col bg-black"
+          className="relative flex h-full flex-col bg-[oklch(12%_0.01_250)]"
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
         >
@@ -326,7 +326,7 @@ function MobileClipViewerBody({
             <div
               aria-hidden
               className={cn(
-                "pointer-events-none relative z-20 mx-auto mt-3 rounded-full border border-white/10 bg-black/35 px-3 py-1.5",
+                "pointer-events-none relative z-20 mx-auto mt-3 rounded-full border border-white/10 bg-[oklch(12%_0.01_250)]/35 px-3 py-1.5",
                 "text-xs font-semibold tracking-wide text-white/75 shadow-[0_8px_30px_-14px_rgb(0_0_0_/_0.9)] backdrop-blur-md",
                 "animate-in duration-200 fade-in-0 slide-in-from-bottom-1"
               )}

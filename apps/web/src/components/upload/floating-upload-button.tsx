@@ -32,15 +32,13 @@ export function FloatingUploadButton({
         "bg-accent text-accent-foreground",
         "border border-accent",
         "shadow-lg shadow-black/40",
-        // Spring-ish easing on scale/rotate so the FAB pops back in
-        // with a little overshoot that mirrors the popover's morph.
         "transition-[background-color,box-shadow,transform,opacity]",
-        "duration-[280ms] ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+        "duration-[280ms] ease-[var(--ease-out)]",
         "hover:bg-accent-hover hover:shadow-xl",
         "active:bg-accent-active",
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
         isOpen
-          ? "pointer-events-none scale-0 rotate-[-12deg] opacity-0 duration-[160ms] ease-[cubic-bezier(0.36,0,0.66,-0.2)]"
+          ? "pointer-events-none scale-0 rotate-[-12deg] opacity-0 duration-[160ms] ease-[var(--ease-out)]"
           : "scale-100 rotate-0 opacity-100",
         className
       )}
