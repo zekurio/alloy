@@ -18,10 +18,11 @@ import { clipsEngagementRoutes } from "./clips-engagement"
 import { IdParam, ListQuery, peekViewer, WINDOW_MS } from "./clips-helpers"
 import { clipsPlaybackRoutes } from "./clips-playback"
 import { clipsUploadRoutes } from "./clips-upload"
+import { hashtagTextFilter } from "./hashtag-filter"
 
 export const clips = new Hono()
   .get("/", zValidator("query", ListQuery), async (c) => {
-    const { window, sort, cursor, limit } = c.req.valid("query")
+    const { window, sort, cursor, limit, hashtag } = c.req.valid("query")
 
     const conditions: SQL[] = [
       eq(clip.status, "ready"),
@@ -35,6 +36,9 @@ export const clips = new Hono()
     }
     if (cursor) {
       conditions.push(lt(clip.createdAt, new Date(cursor)))
+    }
+    if (hashtag) {
+      conditions.push(hashtagTextFilter(hashtag))
     }
 
     // Top: likes desc with createdAt tiebreak so a flood of zero-like

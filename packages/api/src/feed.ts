@@ -22,6 +22,7 @@ export function createFeedApi(context: ApiContext) {
         filter: params.filter.kind,
       }
       if (params.filter.kind === "game") query.gameId = params.filter.gameId
+      if (params.filter.kind === "hashtag") query.tag = params.filter.tag
       if (params.limit !== undefined) query.limit = String(params.limit)
       if (params.cursor) query.cursor = params.cursor
 

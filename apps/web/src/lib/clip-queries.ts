@@ -42,11 +42,13 @@ export function useClipQuery(clipId: string) {
 
 export function useTopClipsQuery(
   window: ClipFeedWindow,
-  { limit = 5 }: { limit?: number } = {}
+  { limit = 5, hashtag }: { limit?: number; hashtag?: string } = {}
 ) {
   return useQuery({
-    queryKey: clipKeys.topList(window, limit),
-    queryFn: () => api.clips.fetch({ window, sort: "top", limit }),
+    queryKey: hashtag
+      ? clipKeys.topHashtagList(window, limit, hashtag)
+      : clipKeys.topList(window, limit),
+    queryFn: () => api.clips.fetch({ window, sort: "top", limit, hashtag }),
   })
 }
 
