@@ -13,6 +13,7 @@ export function VolumeControl({
   className,
   iconClassName,
   iconGlyphClassName,
+  sliderClassName,
 }: {
   muted: boolean
   volume: number
@@ -25,6 +26,8 @@ export function VolumeControl({
   iconClassName?: string
   /** Override the Lucide icon glyph styling. */
   iconGlyphClassName?: string
+  /** Override the vertical slider popover styling. */
+  sliderClassName?: string
 }) {
   const railRef = React.useRef<HTMLDivElement>(null)
   const draggingIdRef = React.useRef<number | null>(null)
@@ -42,7 +45,7 @@ export function VolumeControl({
     const rail = railRef.current
     if (!rail) return 0
     const rect = rail.getBoundingClientRect()
-    const insetPx = 16
+    const insetPx = 20
     const trackHeight = Math.max(1, rect.height - insetPx * 2)
     return Math.min(
       1,
@@ -130,31 +133,32 @@ export function VolumeControl({
             }
           }}
           className={cn(
-            "absolute bottom-[calc(100%+0.25rem)] left-1/2 z-10 flex h-28 w-8 -translate-x-1/2 cursor-pointer touch-none items-center justify-center overflow-visible rounded-full py-4",
-            "border border-white/[0.08] bg-popover/[0.88] opacity-0 shadow-[0_18px_48px_-24px_rgb(0_0_0_/_0.55)] backdrop-blur-xl transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+            "absolute bottom-[calc(100%+0.45rem)] left-1/2 z-10 flex h-32 w-10 -translate-x-1/2 cursor-pointer touch-none items-center justify-center overflow-visible rounded-full py-5",
+            "border border-white/15 bg-black/60 opacity-0 shadow-[0_18px_54px_-18px_rgb(0_0_0_/_0.72)] ring-1 ring-black/15 backdrop-blur-xl transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
             "pointer-events-none translate-y-0 group-hover/vol:pointer-events-auto group-hover/vol:-translate-y-1 group-hover/vol:opacity-100",
             "focus-within:pointer-events-auto focus-within:-translate-y-1 focus-within:opacity-100",
             "data-[dragging=true]:pointer-events-auto data-[dragging=true]:-translate-y-1 data-[dragging=true]:opacity-100",
-            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+            sliderClassName
           )}
         >
           <div
             aria-hidden
-            className="absolute inset-y-4 left-1/2 w-[4px] -translate-x-1/2 rounded-full bg-white/25"
+            className="absolute inset-y-5 left-1/2 w-[3px] -translate-x-1/2 rounded-full bg-white/25"
           />
           <div
             aria-hidden
-            className="absolute bottom-4 left-1/2 w-[4px] -translate-x-1/2 rounded-full bg-accent"
-            style={{ height: `calc(${effective} * (100% - 32px))` }}
+            className="absolute bottom-5 left-1/2 w-[3px] -translate-x-1/2 rounded-full bg-accent shadow-[0_0_14px_color-mix(in_oklab,var(--accent)_70%,transparent)]"
+            style={{ height: `calc(${effective} * (100% - 40px))` }}
           />
           <div
             aria-hidden
             className={cn(
-              "absolute left-1/2 size-[10px] -translate-x-1/2 translate-y-1/2 rounded-full",
-              "bg-accent"
+              "absolute left-1/2 size-3 -translate-x-1/2 translate-y-1/2 rounded-full",
+              "border-2 border-white bg-accent shadow-[0_4px_16px_rgb(0_0_0_/_0.45),0_0_18px_color-mix(in_oklab,var(--accent)_65%,transparent)]"
             )}
             style={{
-              bottom: `calc(16px + ${effective} * (100% - 32px))`,
+              bottom: `calc(20px + ${effective} * (100% - 40px))`,
             }}
           />
         </div>
