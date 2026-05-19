@@ -95,8 +95,8 @@ export function VideoPreview({
 
       <div
         className={cn(
-          "absolute bottom-2 left-2 z-10",
-          "rounded-lg border border-border/50 bg-surface-raised/90 px-1 py-0.5 shadow-md backdrop-blur-sm",
+          "absolute bottom-3 left-3 z-10",
+          "rounded-2xl border border-white/10 bg-black/45 p-1 shadow-[0_14px_36px_-18px_rgb(0_0_0_/_0.85)] backdrop-blur-md",
           "opacity-0 transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
           "group-hover/preview:opacity-100 focus-within:opacity-100"
         )}
@@ -106,6 +106,10 @@ export function VideoPreview({
           volume={volume}
           onToggleMute={onToggleMute}
           onVolumeChange={onVolumeChange}
+          className="before:h-4"
+          iconClassName="size-10 rounded-xl text-white hover:bg-white/10 hover:text-white focus-visible:ring-white/35"
+          iconGlyphClassName="size-4 drop-shadow-[0_0_10px_rgb(255_255_255_/_0.24)]"
+          sliderClassName="bottom-[calc(100%+0.55rem)] bg-black/65"
         />
       </div>
     </div>
