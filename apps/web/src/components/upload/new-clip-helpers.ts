@@ -86,17 +86,6 @@ export function formatDuration(ms: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`
 }
 
-/**
- * `M:SS` for the trim/preview UI.
- */
-export function formatTimecode(ms: number): string {
-  const safe = Math.max(0, Math.round(ms))
-  const totalSec = Math.floor(safe / 1000)
-  const m = Math.floor(totalSec / 60)
-  const s = totalSec % 60
-  return `${m}:${s.toString().padStart(2, "0")}`
-}
-
 const VIDEO_LOAD_TIMEOUT_MS = 15000
 const THUMB_MAX_BYTES = 2 * 1024 * 1024
 const THUMB_DIMENSIONS = [1280, 960, 720] as const

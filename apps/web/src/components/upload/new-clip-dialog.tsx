@@ -19,7 +19,6 @@ import {
 } from "@workspace/ui/components/drawer"
 import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
-import { Label } from "@workspace/ui/components/label"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { CLIP_DESCRIPTION_MAX, CLIP_TITLE_MAX } from "@/lib/clip-fields"
@@ -30,10 +29,10 @@ import { ClipPrivacyPicker } from "@/components/clip/clip-privacy-picker"
 import { LimitedInput, LimitedTextarea } from "@/components/form/limited-field"
 import { GameCombobox } from "@/components/game/game-combobox"
 import { MentionPicker } from "@/components/search/mention-picker"
+import { VideoPlayer } from "@/components/video/video-player"
 import {
   ACCEPT_LIST,
   captureThumbnail,
-  formatTimecode,
   probeFile,
   resolveContentType,
   stripExtension,
@@ -41,8 +40,6 @@ import {
   type SelectedFile,
   type Visibility,
 } from "./new-clip-helpers"
-import { TrimTimeline, VideoPreview } from "./upload-trim-preview"
-import { useAudioWaveformAnalysis } from "./upload-trim-timeline-helpers"
 
 export type {
   PublishPayload,
@@ -264,28 +261,12 @@ function LoadedState({
       visibility: "unlisted" as Visibility,
     },
     onSubmit: async ({ value }) => {
-      if (trimEndMs <= trimStartMs) return
       if (!value.game || value.title.trim().length === 0) return
       setCapturing(true)
       let thumbBlob: Blob
       try {
-        const fallbackPosterAtMs = Math.min(
-          trimStartMs + 1000,
-          Math.max(trimStartMs, trimEndMs - 100)
-        )
-        const loudestAtMs =
-          waveformAnalysis?.loudestMs !== null &&
-          waveformAnalysis?.loudestMs !== undefined
-            ? Math.min(
-                Math.max(waveformAnalysis.loudestMs, trimStartMs),
-                Math.max(trimStartMs, trimEndMs - 100)
-              )
-            : null
-        thumbBlob = await captureThumbnail(
-          file.file,
-          loudestAtMs ?? fallbackPosterAtMs,
-          fallbackPosterAtMs
-        )
+        const posterAtMs = Math.min(1000, Math.max(0, file.durationMs - 100))
+        thumbBlob = await captureThumbnail(file.file, posterAtMs)
       } catch (err) {
         setCapturing(false)
         toast.error(
@@ -304,27 +285,15 @@ function LoadedState({
         privacy: value.visibility,
         width: file.width,
         height: file.height,
-        durationMs: trimChanged ? trimEndMs - trimStartMs : file.durationMs,
+        durationMs: file.durationMs,
         sizeBytes: file.sizeBytes,
-        trimStartMs: trimChanged ? trimStartMs : null,
-        trimEndMs: trimChanged ? trimEndMs : null,
+        trimStartMs: null,
+        trimEndMs: null,
         thumbBlob,
         mentionedUserIds: value.mentions.map((u) => u.id),
       })
     },
   })
-
-  // Trim window in ms against the source. Initial range = full clip; we
-  // only emit the trim columns to the server when the user narrowed it.
-  const [trimStartMs, setTrimStartMs] = React.useState(0)
-  const [trimEndMs, setTrimEndMs] = React.useState(file.durationMs)
-  const [currentMs, setCurrentMs] = React.useState(0)
-  const [isPlaying, setIsPlaying] = React.useState(false)
-  const [volume, setVolume] = React.useState(1)
-  const [muted, setMuted] = React.useState(false)
-  const waveformAnalysis = useAudioWaveformAnalysis(file.file, file.durationMs)
-
-  const trimChanged = trimStartMs > 0 || trimEndMs < file.durationMs
 
   const [capturing, setCapturing] = React.useState(false)
   return (
@@ -341,69 +310,13 @@ function LoadedState({
           "flex-1 px-4 py-3 sm:px-6 sm:py-4",
           isMobile ? "overflow-y-scroll" : "overflow-y-auto",
           isMobile && "px-4",
-          "grid gap-6",
-          "grid-cols-1 lg:grid-cols-[minmax(0,3fr)_minmax(260px,1fr)]"
+          "grid grid-cols-1 gap-5 lg:grid-cols-[1fr_320px]"
         )}
       >
-        {/* Left column — trim / player */}
         <section className="flex min-w-0 flex-col gap-3">
-          <Label>Trim</Label>
-
-          <VideoPreview
-            file={file.file}
-            trimStartMs={trimStartMs}
-            trimEndMs={trimEndMs}
-            isPlaying={isPlaying}
-            currentMs={currentMs}
-            volume={volume}
-            muted={muted}
-            onTimeUpdate={setCurrentMs}
-            onPlayingChange={setIsPlaying}
-            onVolumeChange={setVolume}
-            onToggleMute={() => setMuted((m) => !m)}
-          />
-
-          <TrimTimeline
-            durationMs={file.durationMs}
-            waveformAnalysis={waveformAnalysis}
-            trimStartMs={trimStartMs}
-            trimEndMs={trimEndMs}
-            currentMs={currentMs}
-            onTrimChange={(start, end) => {
-              setTrimStartMs(start)
-              setTrimEndMs(end)
-              // Clamp the playhead into the new window so it doesn't sit
-              // off-range when the user drags the start past it.
-              setCurrentMs((prev) => Math.min(Math.max(prev, start), end))
-            }}
-            onSeek={(ms) => setCurrentMs(ms)}
-          >
-            <div className="flex items-center gap-4 text-xs text-foreground-muted tabular-nums">
-              <span>
-                <span className="text-foreground-faint">In</span>{" "}
-                <span className="font-semibold text-foreground">
-                  {formatTimecode(trimStartMs)}
-                </span>
-              </span>
-              <span className="font-semibold text-foreground">
-                {formatTimecode(trimEndMs - trimStartMs)}
-                {trimChanged ? (
-                  <span className="ml-1.5 font-medium text-accent">
-                    trimmed
-                  </span>
-                ) : null}
-              </span>
-              <span>
-                <span className="text-foreground-faint">Out</span>{" "}
-                <span className="font-semibold text-foreground">
-                  {formatTimecode(trimEndMs)}
-                </span>
-              </span>
-            </div>
-          </TrimTimeline>
+          <ClipPreview file={file} />
         </section>
 
-        {/* Right column — metadata form */}
         <section className="flex min-w-0 flex-col gap-4">
           <form.Field
             name="game"
@@ -550,8 +463,7 @@ function LoadedState({
                   capturing ||
                   isSubmitting ||
                   !canSubmit ||
-                  missingMetadata ||
-                  trimEndMs <= trimStartMs
+                  missingMetadata
                 }
                 className={cn(isMobile && "w-full min-w-0")}
               >
@@ -566,5 +478,13 @@ function LoadedState({
         </form.Subscribe>
       </DialogFooter>
     </form>
+  )
+}
+
+function ClipPreview({ file }: { file: SelectedFile }) {
+  return (
+    <div className="aspect-video overflow-hidden rounded-lg bg-surface-sunken shadow-[inset_0_1px_0_oklch(1_0_0_/_0.035)]">
+      <VideoPlayer src={file.file} controls autoPlay muted className="h-full" />
+    </div>
   )
 }
