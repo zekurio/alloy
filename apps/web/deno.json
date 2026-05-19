@@ -4,9 +4,9 @@
     ".": "./src/main.tsx"
   },
   "tasks": {
-    "dev": "deno run -A npm:vite@^7.3.2 dev --port 5173 --strictPort",
-    "build": "deno run -A npm:vite@^7.3.2 build",
-    "preview": "deno run -A npm:vite@^7.3.2 preview --port 5173 --strictPort",
+    "dev": "deno run -A npm:vite@^8.0.10 dev --port 5173 --strictPort",
+    "build": "deno run -A npm:vite@^8.0.10 build",
+    "preview": "deno run -A npm:vite@^8.0.10 preview --port 5173 --strictPort",
     "lint": "deno run -A npm:oxlint@^1.61.0 .",
     "fmt": "deno run -A npm:oxfmt@^0.46.0 --write .",
     "format": "deno task fmt",

@@ -1,7 +1,6 @@
 import { defineConfig, loadEnv } from "vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import viteReact from "@vitejs/plugin-react"
-import viteTsConfigPaths from "vite-tsconfig-paths"
 import tailwindcss from "@tailwindcss/vite"
 import { fileURLToPath, URL } from "node:url"
 
@@ -25,6 +24,7 @@ const config = defineConfig(({ mode }) => ({
   cacheDir: "../../node_modules/.vite/web",
   publicDir: "../../public",
   resolve: {
+    tsconfigPaths: true,
     alias: [
       {
         find: /^@workspace\/api$/,
@@ -101,11 +101,8 @@ const config = defineConfig(({ mode }) => ({
     strictPort: true,
   },
   plugins: [
-    viteTsConfigPaths({
-      projects: ["./tsconfig.json"],
-    }),
     tailwindcss(),
-    tanstackRouter(),
+    tanstackRouter({ autoCodeSplitting: true }),
     viteReact(),
   ],
 }))

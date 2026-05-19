@@ -28,7 +28,6 @@ import type {
 import { EncoderConfigCard } from "@/components/routes/admin-settings/encoder-config-card"
 import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integrations-config-card"
 import { StorageConfigCard } from "@/components/routes/admin-settings/storage-config-card"
-import { PasskeySignUpForm } from "@/components/routes/sign-up/passkey-sign-up-form"
 import { api } from "@/lib/api"
 import { devFlags } from "@/lib/flags"
 import {
@@ -61,6 +60,12 @@ export const Route = createFileRoute("/(auth)/setup")({
   },
   component: SetupPage,
 })
+
+const PasskeySignUpForm = React.lazy(() =>
+  import("@/components/routes/sign-up/passkey-sign-up-form").then((m) => ({
+    default: m.PasskeySignUpForm,
+  }))
+)
 
 function SetupPage() {
   return <SetupPageInner />
@@ -98,10 +103,12 @@ function AdminAccountStep() {
         </p>
       </div>
 
-      <PasskeySignUpForm
-        redirectTo="/setup"
-        successMessage="Admin account ready"
-      />
+      <React.Suspense fallback={null}>
+        <PasskeySignUpForm
+          redirectTo="/setup"
+          successMessage="Admin account ready"
+        />
+      </React.Suspense>
     </div>
   )
 }
