@@ -2,10 +2,7 @@ import * as React from "react"
 import type { QueryClient } from "@tanstack/react-query"
 import { Outlet, createRootRouteWithContext } from "@tanstack/react-router"
 
-import { Toaster } from "@workspace/ui/components/sonner"
-
 import { ClientOnly } from "@/components/app/client-only"
-import { ReactivateAccountPrompt } from "@/components/account/reactivate-account-prompt"
 import {
   RouteErrorState,
   RouteNotFoundState,
@@ -24,6 +21,18 @@ export const Route = createRootRouteWithContext<{
   component: RootLayout,
 })
 
+const ReactivateAccountPrompt = React.lazy(() =>
+  import("@/components/account/reactivate-account-prompt").then((m) => ({
+    default: m.ReactivateAccountPrompt,
+  }))
+)
+
+const Toaster = React.lazy(() =>
+  import("@workspace/ui/components/sonner").then((m) => ({
+    default: m.Toaster,
+  }))
+)
+
 function RootLayout() {
   return (
     <>
@@ -36,7 +45,9 @@ function RootLayout() {
       </ClientOnly>
       {/* Global toast portal — rendered once at the root so every route
           can call `toast.*` without mounting its own provider. */}
-      <Toaster />
+      <React.Suspense fallback={null}>
+        <Toaster />
+      </React.Suspense>
     </>
   )
 }
