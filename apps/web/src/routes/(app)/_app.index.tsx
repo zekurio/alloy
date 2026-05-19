@@ -1,11 +1,17 @@
 import * as React from "react"
 import { createFileRoute } from "@tanstack/react-router"
-import { z } from "zod"
 
 import { HomePageInner } from "@/components/routes/home/home-page-inner"
 
+type HomeSearch = {
+  tag?: string
+}
+
 export const Route = createFileRoute("/(app)/_app/")({
-  validateSearch: z.object({ tag: z.string().optional() }),
+  validateSearch: (search: Record<string, unknown>): HomeSearch => {
+    const tag = search.tag
+    return typeof tag === "string" && tag.length > 0 ? { tag } : {}
+  },
   component: HomePage,
 })
 

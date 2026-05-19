@@ -169,6 +169,7 @@ function ClipCardThumb({
   const shouldPreviewRef = React.useRef(false)
   const primedRef = React.useRef(false)
   const [previewing, setPreviewing] = React.useState(false)
+  const [previewMounted, setPreviewMounted] = React.useState(false)
   const [thumbnailFailed, setThumbnailFailed] = React.useState(false)
   const [pointerActivated, setPointerActivated] = React.useState(false)
 
@@ -238,10 +239,17 @@ function ClipCardThumb({
       })
   }, [revealPreview])
 
+  React.useEffect(() => {
+    if (!previewMounted || !hoveredRef.current) return
+    primePreview()
+    startPreview()
+  }, [previewMounted, primePreview, startPreview])
+
   const schedulePreview = () => {
     if (!canPreview) return
     hoveredRef.current = true
-    primePreview()
+    setPreviewMounted(true)
+    if (previewMounted) primePreview()
     if (timerRef.current !== null) window.clearTimeout(timerRef.current)
     timerRef.current = window.setTimeout(() => {
       shouldPreviewRef.current = true
@@ -340,7 +348,7 @@ function ClipCardThumb({
           here: the request starts same-origin so cookies still reach
           the auth gate, and S3-backed redirects then remain compatible
           with buckets that do not allow credentialed CORS media loads. */}
-      {canPreview ? (
+      {canPreview && previewMounted ? (
         <video
           ref={videoRef}
           src={streamUrl}
