@@ -182,7 +182,10 @@ function normalizePublicUrl(value: string): string {
 }
 
 const FsStorageConfigSchema = z.object({
-  root: z.string().min(1).default("./data/storage"),
+  root: z
+    .string()
+    .min(1)
+    .default(env.ALLOY_STORAGE_DIR ?? "./data/storage"),
   publicBaseUrl: z
     .string()
     .url()
