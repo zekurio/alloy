@@ -4,8 +4,6 @@ import { env } from "../env"
 import { HWACCEL_KINDS } from "../config/store"
 import { codecNameFor } from "../queue/ffmpeg"
 
-const Deno = globalThis.Deno
-
 let capabilityCache: {
   expiresAt: number
   value: EncoderCapabilities

@@ -6,7 +6,6 @@ import {
 import { env } from "../env"
 import { dirname, resolve } from "../runtime/path"
 
-const Deno = globalThis.Deno
 import {
   AppearanceConfigPatchSchema,
   bootstrapDefaultConfig,

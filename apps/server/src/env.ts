@@ -1,7 +1,5 @@
 import { z } from "zod"
 
-const Deno = globalThis.Deno
-
 // Deploy-time env only. Anything an admin should be able to change at
 // runtime (OAuth provider, open-registrations) lives in `config/store.ts`.
 

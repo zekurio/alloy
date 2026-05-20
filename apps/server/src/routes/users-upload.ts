@@ -1,6 +1,7 @@
 import { zValidator } from "@hono/zod-validator"
 import { eq } from "drizzle-orm"
 import { Hono } from "hono"
+import { Buffer } from "node:buffer"
 import { z } from "zod"
 
 import { user } from "@workspace/db/auth-schema"
@@ -12,8 +13,6 @@ import { validateImageBytes } from "../media/image-validation"
 import { storage, userAssetKey } from "../storage"
 import type { ResolvedObject } from "../storage/driver"
 import { toPublicUser, type UserRow } from "./users-helpers"
-
-const Deno = globalThis.Deno
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024 // 5 MB
 const MAX_BANNER_BYTES = 10 * 1024 * 1024 // 10 MB
