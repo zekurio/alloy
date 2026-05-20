@@ -74,6 +74,7 @@ const EnvSchema = z.object({
 
   // Runtime config file path.
   ALLOY_CONFIG_FILE: z.string().optional(),
+  ALLOY_STORAGE_DIR: z.string().optional(),
 
   ENCODE_SCRATCH_DIR: z.string().optional(),
 
