@@ -132,17 +132,16 @@ export class S3StorageDriver implements StorageDriver {
     contentType: string
   ): Promise<void> {
     const client = this.getClient(opts)
-    const res = await client.fetch(
-      new Request(objectUrl(opts, key), {
-        method: "PUT",
-        headers: {
-          "Content-Length": String(body.byteLength),
-          "Content-Type": contentType,
-        },
-        body: bytesToArrayBuffer(body),
-      })
+    await signedStreamPut(
+      client,
+      objectUrl(opts, key),
+      {
+        "Content-Length": String(body.byteLength),
+        "Content-Type": contentType,
+      },
+      streamBytes(body),
+      key
     )
-    await assertOk(res, `upload ${key}`)
   }
 
   async resolve(key: string): Promise<ResolvedObject | null> {
@@ -388,11 +387,13 @@ async function assertOk(res: Response, operation: string): Promise<void> {
   )
 }
 
-function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-  return bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength
-  ) as ArrayBuffer
+function streamBytes(bytes: Uint8Array): ReadableStream<Uint8Array> {
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(bytes)
+      controller.close()
+    },
+  })
 }
 
 function parseHttpDate(value: string | null): Date | null {
