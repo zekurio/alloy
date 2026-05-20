@@ -154,37 +154,6 @@ jobs:
         run: |
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-
-      - name: Cache Nix store
-        uses: DeterminateSystems/magic-nix-cache-action@v13
-
-      - name: Build Nix package
-        run: nix build .#alloy --print-build-logs --out-link result-alloy
-
-      - name: Export Nix binary cache
-        id: nix_artifact
-        shell: bash
-        env:
-          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
-        run: |
-          cache_dir="alloy-${RELEASE_VERSION}-x86_64-linux-nix-cache"
-          nix copy --to "file://$cache_dir" .#alloy
-          tar --zstd -cf "${cache_dir}.tar.zst" "$cache_dir"
-          echo "path=${cache_dir}.tar.zst" >> "$GITHUB_OUTPUT"
-
-      - name: Upload Nix package cache artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: alloy-${{ steps.meta.outputs.version }}-x86_64-linux-nix-cache
-          path: ${{ steps.nix_artifact.outputs.path }}
-          if-no-files-found: error
-          retention-days: 30
-
       - name: Resolve previous release tag
         id: previous_tag
         shell: bash
@@ -225,7 +194,6 @@ jobs:
           previous_tag: ${{ steps.previous_tag.outputs.tag }}
           prerelease: ${{ steps.meta.outputs.is_prerelease }}
           make_latest: ${{ steps.meta.outputs.make_latest }}
-          files: ${{ steps.nix_artifact.outputs.path }}
 
       - name: Publish first GitHub release
         if: steps.previous_tag.outputs.tag == ''
@@ -237,4 +205,3 @@ jobs:
           generate_release_notes: true
           prerelease: ${{ steps.meta.outputs.is_prerelease }}
           make_latest: ${{ steps.meta.outputs.make_latest }}
-          files: ${{ steps.nix_artifact.outputs.path }}
