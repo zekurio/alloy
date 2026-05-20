@@ -5,6 +5,7 @@
   nodejs,
   makeWrapper,
   ffmpeg-headless,
+  version ? (builtins.fromJSON (builtins.readFile ../deno.json)).version,
   source ? lib.cleanSourceWith {
     src = ../.;
     filter =
@@ -27,7 +28,6 @@
 
 let
   pname = "alloy";
-  version = "0.0.1";
 
   denoDeps = stdenvNoCC.mkDerivation {
     pname = "${pname}-deno-deps";
