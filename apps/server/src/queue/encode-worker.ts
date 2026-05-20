@@ -23,7 +23,7 @@ const activeEncodes = new Map<
 const queuedClipIds = new Set<string>()
 const inFlightClipIds = new Set<string>()
 const runningJobs = new Set<Promise<void>>()
-let wakeTimer: NodeJS.Timeout | null = null
+let wakeTimer: ReturnType<typeof setTimeout> | null = null
 let pumpPromise: Promise<void> | null = null
 let unsubscribeConfig: (() => void) | null = null
 let started = false

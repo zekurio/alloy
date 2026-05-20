@@ -9,6 +9,7 @@ import {
   type Uint8Array_,
 } from "@simplewebauthn/server"
 import { and, eq, gt, lt } from "drizzle-orm"
+import { Buffer } from "node:buffer"
 
 import {
   authChallenge,

@@ -3,8 +3,6 @@ export interface CaptureResult {
   stderr: string
 }
 
-const Deno = globalThis.Deno
-
 interface RunProcessOptions {
   label?: string
   signal?: AbortSignal

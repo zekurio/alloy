@@ -1,3 +1,5 @@
+import type { Buffer } from "node:buffer"
+
 export type ImageValidationResult =
   | { ok: true; width: number; height: number; contentType: string }
   | { ok: false; error: string }

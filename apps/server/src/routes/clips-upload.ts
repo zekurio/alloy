@@ -30,8 +30,6 @@ import {
   type InitiateQuotaResult,
 } from "./clips-upload-helpers"
 
-const Deno = globalThis.Deno
-
 async function selectVideoUploadTicketStorageKey(
   clipId: string
 ): Promise<string | null> {

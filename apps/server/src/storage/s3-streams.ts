@@ -14,10 +14,7 @@ export async function signedStreamPut(
   body: ReadableStream<Uint8Array>,
   key: string
 ): Promise<void> {
-  const signed = await client.sign(url, {
-    method: "PUT",
-    headers,
-  })
+  const signed = await client.sign(new Request(url, { method: "PUT", headers }))
   const res = await putWithContentLength(signed.url, signed.headers, body)
   if (res.status >= 200 && res.status < 300) return
   throw new Error(
@@ -36,7 +33,7 @@ function putWithContentLength(
     const parsed = new URL(url)
     const request = parsed.protocol === "http:" ? httpRequest : httpsRequest
     const req = request(
-      parsed,
+      parsed.toString(),
       {
         method: "PUT",
         headers: Object.fromEntries(headers.entries()),

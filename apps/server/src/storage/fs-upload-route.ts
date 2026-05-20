@@ -7,7 +7,6 @@ import { db } from "../db"
 import { configStore } from "../config/store"
 import { ensureScratchParent } from "../uploads/scratch"
 
-const Deno = globalThis.Deno
 type DenoFsFile = Awaited<ReturnType<typeof Deno.open>>
 
 export const storageRoute = new Hono().post("/upload/:token", async (c) => {

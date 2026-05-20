@@ -12,8 +12,6 @@ import type {
 import { readStream, signedStreamPut } from "./s3-streams"
 import { encodeCopySourceKey, objectUrl, presignUrl } from "./s3-url"
 
-const Deno = globalThis.Deno
-
 export interface S3DriverOptions {
   bucket: string
   region: string
@@ -134,21 +132,24 @@ export class S3StorageDriver implements StorageDriver {
     contentType: string
   ): Promise<void> {
     const client = this.getClient(opts)
-    const res = await client.fetch(objectUrl(opts, key), {
-      method: "PUT",
-      headers: {
+    await signedStreamPut(
+      client,
+      objectUrl(opts, key),
+      {
         "Content-Length": String(body.byteLength),
         "Content-Type": contentType,
       },
-      body,
-    })
-    await assertOk(res, `upload ${key}`)
+      streamBytes(body),
+      key
+    )
   }
 
   async resolve(key: string): Promise<ResolvedObject | null> {
     const opts = this.getOptions()
     const client = this.getClient(opts)
-    const stat = await client.fetch(objectUrl(opts, key), { method: "HEAD" })
+    const stat = await client.fetch(
+      new Request(objectUrl(opts, key), { method: "HEAD" })
+    )
     if (stat.status === 404) return null
     await assertOk(stat, `stat ${key}`)
 
@@ -185,7 +186,9 @@ export class S3StorageDriver implements StorageDriver {
   async delete(key: string): Promise<void> {
     const opts = this.getOptions()
     const client = this.getClient(opts)
-    const res = await client.fetch(objectUrl(opts, key), { method: "DELETE" })
+    const res = await client.fetch(
+      new Request(objectUrl(opts, key), { method: "DELETE" })
+    )
     if (res.status === 404) return
     await assertOk(res, `delete ${key}`)
   }
@@ -219,16 +222,18 @@ export class S3StorageDriver implements StorageDriver {
   }): Promise<{ size: number }> {
     const opts = this.getOptions()
     const client = this.getClient(opts)
-    const copyRes = await client.fetch(objectUrl(opts, input.toKey), {
-      method: "PUT",
-      headers: {
-        "Content-Type": input.contentType,
-        "x-amz-copy-source": `${opts.bucket}/${encodeCopySourceKey(
-          input.fromKey
-        )}`,
-        "x-amz-metadata-directive": "REPLACE",
-      },
-    })
+    const copyRes = await client.fetch(
+      new Request(objectUrl(opts, input.toKey), {
+        method: "PUT",
+        headers: {
+          "Content-Type": input.contentType,
+          "x-amz-copy-source": `${opts.bucket}/${encodeCopySourceKey(
+            input.fromKey
+          )}`,
+          "x-amz-metadata-directive": "REPLACE",
+        },
+      })
+    )
     if (copyRes.ok) {
       const resolved = await this.resolve(input.toKey)
       if (!resolved) {
@@ -304,11 +309,13 @@ export class S3StorageDriver implements StorageDriver {
           start === undefined
             ? undefined
             : `bytes=${start}-${end === undefined ? "" : end}`
-        const result = await client.fetch(objectUrl(opts, key), {
-          method: "GET",
-          headers: range ? { Range: range } : undefined,
-          signal: abortController.signal,
-        })
+        const result = await client.fetch(
+          new Request(objectUrl(opts, key), {
+            method: "GET",
+            headers: range ? { Range: range } : undefined,
+            signal: abortController.signal,
+          })
+        )
         await assertOk(result, `read ${key}`)
         if (!result.body) {
           throw new Error(`s3: ${key} returned an empty body`)
@@ -378,6 +385,15 @@ async function assertOk(res: Response, operation: string): Promise<void> {
       detail ? `: ${detail}` : ""
     }`
   )
+}
+
+function streamBytes(bytes: Uint8Array): ReadableStream<Uint8Array> {
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(bytes)
+      controller.close()
+    },
+  })
 }
 
 function parseHttpDate(value: string | null): Date | null {

@@ -10,8 +10,6 @@ import { signToken, type UploadTokenPayload } from "./fs-upload-token"
 
 export { decodeUploadToken, signToken } from "./fs-upload-token"
 
-const Deno = globalThis.Deno
-
 export interface FsDriverOptions {
   root: string
   publicBaseUrl: string

@@ -2,8 +2,6 @@ import { drizzle } from "drizzle-orm/postgres-js"
 import { migrate } from "drizzle-orm/postgres-js/migrator"
 import postgres from "postgres"
 
-const Deno = globalThis.Deno
-
 const migrationsFolder =
   Deno.env.get("ALLOY_MIGRATIONS_DIR") ??
   new URL("../drizzle", import.meta.url).pathname
