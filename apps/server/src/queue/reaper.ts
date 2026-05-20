@@ -13,7 +13,7 @@ export const REAP_JOB = "clip.reap" as const
 const UPLOADED_MAX_AGE_INTERVAL = "24 hours"
 const REAP_INTERVAL_MS = 10 * 60 * 1000
 
-let reaperTimer: NodeJS.Timeout | null = null
+let reaperTimer: ReturnType<typeof setInterval> | null = null
 let reaperRunning = false
 
 export async function startReaperWorker(): Promise<void> {

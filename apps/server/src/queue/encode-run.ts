@@ -9,7 +9,6 @@ import { notifyFollowersOfNewClip } from "../notifications"
 import { configStore } from "../config/store"
 import { join } from "../runtime/path"
 
-const Deno = globalThis.Deno
 import { clipAssetKey, storage } from "../storage"
 import { deleteScratchUpload, scratchUploadPath } from "../uploads/scratch"
 import { abortEncode } from "./encode-abort"
