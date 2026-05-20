@@ -78,6 +78,38 @@ The dev scripts provide the local server URL and trusted origin defaults.
 
 ## Deployment
 
+### NixOS
+
+The flake exposes an `x86_64-linux` package and NixOS module. In your NixOS
+flake, make Alloy follow your system `nixpkgs` input so the same Alloy module can
+be used with either the current stable channel or unstable:
+
+```nix
+inputs.alloy.url = "github:zekurio/alloy";
+inputs.alloy.inputs.nixpkgs.follows = "nixpkgs";
+```
+
+Then import the module:
+
+```nix
+{
+  imports = [ inputs.alloy.nixosModules.default ];
+
+  services.alloy-clips = {
+    enable = true;
+    publicServerUrl = "https://alloy.example.com";
+    database.createLocally = true;
+  };
+}
+```
+
+The module provisions PostgreSQL by default, creates `/var/lib/alloy` and
+`/var/cache/alloy`, sets `ALLOY_CONFIG_FILE`, `ALLOY_STORAGE_DIR`,
+`ENCODE_SCRATCH_DIR`, and wraps the packaged server with the built web assets,
+migrations, and ffmpeg paths. `initialRuntimeConfig` can be used as an optional
+one-shot JSON bootstrap config; otherwise Alloy creates the mutable runtime JSON
+with fresh secrets on first boot.
+
 Build the web app and server:
 
 ```bash

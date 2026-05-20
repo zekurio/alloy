@@ -2,7 +2,7 @@
   description = "alloy";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -13,15 +13,24 @@
       flake-utils,
       ...
     }:
-    flake-utils.lib.eachDefaultSystem (
+    let
+      systems = [ "x86_64-linux" ];
+    in
+    flake-utils.lib.eachSystem systems (
       system:
       let
         pkgs = import nixpkgs { inherit system; };
+        alloy = pkgs.callPackage ./nix/package.nix { };
         nativeLibs = with pkgs; [
           stdenv.cc.cc.lib
         ];
       in
       {
+        packages = {
+          default = alloy;
+          inherit alloy;
+        };
+
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             deno
@@ -63,5 +72,8 @@
           '';
         };
       }
-    );
+    )
+    // {
+      nixosModules.default = import ./nix/module.nix { inherit self; };
+    };
 }
