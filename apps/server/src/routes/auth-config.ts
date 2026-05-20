@@ -1,7 +1,6 @@
 import { Hono } from "hono"
 import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm"
-import sharp from "sharp"
-import { Buffer } from "node:buffer"
+import { Image } from "@matmen/imagescript"
 
 import {
   LOGIN_SPLASH_IMAGE_PATH,
@@ -44,28 +43,16 @@ type SplashClipAsset = SplashClipRow & {
   bytes: Uint8Array
 }
 
-type SharpConstructorInput = Exclude<
-  Parameters<typeof sharp>[0],
-  undefined | unknown[]
->
-type SharpOverlayInput = NonNullable<sharp.OverlayOptions["input"]>
+type SplashImage = InstanceType<typeof Image>
 
 let splashCache: { key: string; image: Uint8Array } | null = null
-let splashShadeCache: Uint8Array | null = null
+let splashShadeCache: SplashImage | null = null
 
 function imageBody(image: Uint8Array): ArrayBuffer {
   return image.buffer.slice(
     image.byteOffset,
     image.byteOffset + image.byteLength
   ) as ArrayBuffer
-}
-
-function sharpInput(bytes: Uint8Array): SharpConstructorInput {
-  return Buffer.from(bytes)
-}
-
-function sharpOverlayInput(bytes: Uint8Array): SharpOverlayInput {
-  return Buffer.from(bytes)
 }
 
 function loginSplashImageUrl(generatedAt: string | null): string {
@@ -85,17 +72,19 @@ function loginSplashCacheKey(rows: SplashClipRow[]): string {
     .join(",")}`
 }
 
-async function buildTile(asset: SplashClipAsset): Promise<Uint8Array> {
-  return await sharp(sharpInput(asset.bytes))
-    .resize(TILE_WIDTH, TILE_HEIGHT, { fit: "cover" })
-    .jpeg({ quality: 82, mozjpeg: true })
-    .toBuffer()
+function createSolidImage(width: number, height: number): SplashImage {
+  return new Image(width, height).fill(Image.rgbToColor(5, 6, 9))
 }
 
-function splashShadeOverlay(): Uint8Array {
+async function buildTile(asset: SplashClipAsset): Promise<SplashImage> {
+  const image = await Image.decode(asset.bytes)
+  return image.cover(TILE_WIDTH, TILE_HEIGHT)
+}
+
+function splashShadeOverlay(): SplashImage {
   if (splashShadeCache) return splashShadeCache
 
-  const pixels = new Uint8Array(SPLASH_WIDTH * SPLASH_HEIGHT * 4)
+  const image = new Image(SPLASH_WIDTH, SPLASH_HEIGHT)
   const centerX = SPLASH_WIDTH * 0.5
   const centerY = SPLASH_HEIGHT * 0.48
   const maxDistance = Math.hypot(centerX, centerY)
@@ -107,12 +96,14 @@ function splashShadeOverlay(): Uint8Array {
       const rightShade = Math.max(0, (x / SPLASH_WIDTH - 0.52) * 95)
       const bottomShade = Math.max(0, (y / SPLASH_HEIGHT - 0.58) * 70)
       const vignette = Math.min(120, distance * 88)
-      pixels[index + 3] = Math.round(56 + rightShade + bottomShade + vignette)
+      image.bitmap[index + 3] = Math.round(
+        56 + rightShade + bottomShade + vignette
+      )
     }
   }
 
-  splashShadeCache = pixels
-  return pixels
+  splashShadeCache = image
+  return image
 }
 
 async function buildLoginSplashImage(
@@ -121,7 +112,7 @@ async function buildLoginSplashImage(
   const tiles = await Promise.all(
     assets.map((asset) => buildTile(asset).catch(() => null))
   )
-  const usableTiles = tiles.filter((tile): tile is Uint8Array => tile !== null)
+  const usableTiles = tiles.filter((tile): tile is SplashImage => tile !== null)
   if (usableTiles.length === 0) return null
 
   const rotationRadians = (TILE_ROTATION_DEGREES * Math.PI) / 180
@@ -146,7 +137,7 @@ async function buildLoginSplashImage(
   const startLeft = Math.floor((gridWidth - contentWidth) / 2)
   const startTop = Math.floor((gridHeight - contentHeight) / 2)
 
-  const composites: sharp.OverlayOptions[] = []
+  const backdrop = createSolidImage(gridWidth, gridHeight)
   let tileIndex = 0
   for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
     const top = startTop + rowIndex * (TILE_HEIGHT + TILE_GAP)
@@ -158,66 +149,25 @@ async function buildLoginSplashImage(
       )
       const tile = usableTiles[tileIndex % usableTiles.length]
       if (!tile) continue
-      composites.push({ input: sharpOverlayInput(tile), left, top })
+      backdrop.composite(tile, left, top)
       tileIndex++
     }
   }
 
-  if (composites.length === 0) return null
+  if (tileIndex === 0) return null
 
-  const rotatedBackdrop = await sharp({
-    create: {
-      width: gridWidth,
-      height: gridHeight,
-      channels: 3,
-      background: "#050609",
-    },
-  })
-    .composite(composites)
-    .rotate(TILE_ROTATION_DEGREES, { background: "#050609" })
-    .jpeg({ quality: 86, mozjpeg: true })
-    .toBuffer({ resolveWithObject: true })
+  backdrop.rotate(TILE_ROTATION_DEGREES)
+  backdrop.crop(
+    Math.floor((backdrop.width - SPLASH_WIDTH) / 2),
+    Math.floor((backdrop.height - SPLASH_HEIGHT) / 2),
+    SPLASH_WIDTH,
+    SPLASH_HEIGHT
+  )
 
-  const tiledBackdrop = await sharp(sharpInput(rotatedBackdrop.data))
-    .extract({
-      left: Math.floor((rotatedBackdrop.info.width - SPLASH_WIDTH) / 2),
-      top: Math.floor((rotatedBackdrop.info.height - SPLASH_HEIGHT) / 2),
-      width: SPLASH_WIDTH,
-      height: SPLASH_HEIGHT,
-    })
-    .jpeg({ quality: 86, mozjpeg: true })
-    .toBuffer()
-
-  const blurredTiles = await sharp(sharpInput(tiledBackdrop))
-    .blur(18)
-    .modulate({ brightness: 0.64, saturation: 0.9 })
-    .jpeg({ quality: 82, mozjpeg: true })
-    .toBuffer()
-
-  return sharp({
-    create: {
-      width: SPLASH_WIDTH,
-      height: SPLASH_HEIGHT,
-      channels: 3,
-      background: "#050609",
-    },
-  })
-    .composite([
-      { input: sharpOverlayInput(blurredTiles), left: 0, top: 0 },
-      { input: sharpOverlayInput(tiledBackdrop), left: 0, top: 0 },
-      {
-        input: sharpOverlayInput(splashShadeOverlay()),
-        raw: {
-          width: SPLASH_WIDTH,
-          height: SPLASH_HEIGHT,
-          channels: 4,
-        },
-        left: 0,
-        top: 0,
-      },
-    ])
-    .jpeg({ quality: 86, mozjpeg: true })
-    .toBuffer()
+  return await createSolidImage(SPLASH_WIDTH, SPLASH_HEIGHT)
+    .composite(backdrop, 0, 0)
+    .composite(splashShadeOverlay(), 0, 0)
+    .encodeJPEG(86)
 }
 
 async function selectLoginSplashRows(): Promise<SplashClipRow[]> {
