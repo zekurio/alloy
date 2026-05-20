@@ -52,14 +52,13 @@ export async function presignUrl(
   input: {
     method: string
     expiresInSec: number
-    headers?: RequestInit["headers"]
+    headers?: HeadersInit
   }
 ): Promise<string> {
   url.searchParams.set("X-Amz-Expires", String(input.expiresInSec))
-  const signed = await client.sign(url, {
-    method: input.method,
-    headers: input.headers,
-    aws: { signQuery: true },
-  })
+  const signed = await client.sign(
+    new Request(url, { method: input.method, headers: input.headers }),
+    { aws: { signQuery: true } }
+  )
   return signed.url
 }

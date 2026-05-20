@@ -1,10 +1,9 @@
 {
-  "include": ["src/**/*.ts", "src/**/*.d.ts"],
+  "include": ["src/**/*.ts"],
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
-    "lib": ["ES2023"],
-    "types": ["node", "deno"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable", "DOM.AsyncIterable", "deno.ns"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",
