@@ -15,12 +15,13 @@
     }:
     let
       systems = [ "x86_64-linux" ];
+      version = (builtins.fromJSON (builtins.readFile ./deno.json)).version;
     in
     flake-utils.lib.eachSystem systems (
       system:
       let
         pkgs = import nixpkgs { inherit system; };
-        alloy = pkgs.callPackage ./nix/package.nix { };
+        alloy = pkgs.callPackage ./nix/package.nix { inherit version; };
         nativeLibs = with pkgs; [
           stdenv.cc.cc.lib
         ];
@@ -30,6 +31,8 @@
           default = alloy;
           inherit alloy;
         };
+
+        checks.default = alloy;
 
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [

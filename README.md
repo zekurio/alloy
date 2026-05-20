@@ -80,14 +80,16 @@ The dev scripts provide the local server URL and trusted origin defaults.
 
 ### NixOS
 
-The flake exposes an `x86_64-linux` package and NixOS module. In your NixOS
-flake, make Alloy follow your system `nixpkgs` input so the same Alloy module can
-be used with either the current stable channel or unstable:
+The flake exposes an `x86_64-linux` package and NixOS module. Pin Alloy to a
+release tag and make it follow your system `nixpkgs` input so the same Alloy
+module can be used with either the current stable channel or unstable:
 
 ```nix
-inputs.alloy.url = "github:zekurio/alloy";
+inputs.alloy.url = "github:zekurio/alloy/v0.0.1";
 inputs.alloy.inputs.nixpkgs.follows = "nixpkgs";
 ```
+
+The Nix package version follows the tagged `deno.json` version.
 
 Then import the module:
 
