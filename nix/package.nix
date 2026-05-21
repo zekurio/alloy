@@ -4,7 +4,7 @@
   deno,
   nodejs,
   makeWrapper,
-  ffmpeg-headless,
+  jellyfin-ffmpeg,
   version ? (builtins.fromJSON (builtins.readFile ../deno.json)).version,
   source ? lib.cleanSourceWith {
     src = ../.;
@@ -143,8 +143,8 @@ stdenvNoCC.mkDerivation {
       --set-default NODE_ENV production \
       --set-default WEB_DIST_DIR "$out/share/alloy/web" \
       --set-default ALLOY_MIGRATIONS_DIR "$out/share/alloy/migrations" \
-      --set-default FFMPEG_BIN "${ffmpeg-headless}/bin/ffmpeg" \
-      --set-default FFPROBE_BIN "${ffmpeg-headless}/bin/ffprobe"
+      --set-default FFMPEG_BIN "${jellyfin-ffmpeg}/bin/ffmpeg" \
+      --set-default FFPROBE_BIN "${jellyfin-ffmpeg}/bin/ffprobe"
 
     runHook postInstall
   '';
