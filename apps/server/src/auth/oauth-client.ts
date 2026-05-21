@@ -1,6 +1,8 @@
 import {
+  AuthorizationResponseError,
   ClientSecretPost,
   Configuration,
+  ResponseBodyError,
   allowInsecureRequests,
   discovery,
   fetchUserInfo,
@@ -160,9 +162,37 @@ export function callbackURLWithOAuthError(
   cause: unknown
 ): string {
   const url = new URL(callbackURL)
-  url.searchParams.set(
-    "oauth_error",
-    cause instanceof Error ? cause.message : "OAuth sign-in failed."
-  )
+  url.searchParams.set("oauth_error", oauthErrorMessage(cause))
   return url.toString()
+}
+
+function oauthErrorMessage(cause: unknown): string {
+  if (cause instanceof ResponseBodyError) {
+    return providerErrorMessage(
+      "OAuth provider rejected the request",
+      cause.error,
+      cause.error_description,
+      cause.status
+    )
+  }
+
+  if (cause instanceof AuthorizationResponseError) {
+    return providerErrorMessage(
+      "OAuth provider rejected the sign-in",
+      cause.error,
+      cause.error_description
+    )
+  }
+
+  return cause instanceof Error ? cause.message : "OAuth sign-in failed."
+}
+
+function providerErrorMessage(
+  prefix: string,
+  error: string,
+  description?: string,
+  status?: number
+): string {
+  const detail = description ? `${error}: ${description}` : error
+  return status ? `${prefix} (${status}): ${detail}` : `${prefix}: ${detail}`
 }

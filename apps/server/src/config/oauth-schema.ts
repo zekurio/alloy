@@ -1,6 +1,9 @@
 import { z } from "zod"
 
-import { OAUTH_QUOTA_CLAIM_DEFAULT } from "@workspace/contracts"
+import {
+  OAUTH_QUOTA_CLAIM_DEFAULT,
+  OAUTH_ROLE_CLAIM_DEFAULT,
+} from "@workspace/contracts"
 
 const ProviderIdPattern = /^[a-z0-9-]+$/
 
@@ -22,6 +25,7 @@ const OAuthProviderBaseSchema = z.object({
   pkce: z.boolean().default(true),
   usernameClaim: z.string().min(1).max(128).default("preferred_username"),
   quotaClaim: z.string().min(1).max(128).default(OAUTH_QUOTA_CLAIM_DEFAULT),
+  roleClaim: z.string().min(1).max(128).default(OAUTH_ROLE_CLAIM_DEFAULT),
 })
 
 const hasEndpoints = (p: z.infer<typeof OAuthProviderBaseSchema>) =>

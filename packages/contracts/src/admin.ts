@@ -11,6 +11,7 @@ export const USERNAME_CLAIM_SUGGESTIONS = [
 export type UsernameClaim = string
 
 export const OAUTH_QUOTA_CLAIM_DEFAULT = "alloy_quota"
+export const OAUTH_ROLE_CLAIM_DEFAULT = "alloy_role"
 
 export interface OAuthProviderConfig {
   providerId: string
@@ -26,6 +27,7 @@ export interface OAuthProviderConfig {
   pkce?: boolean
   usernameClaim?: UsernameClaim
   quotaClaim?: string
+  roleClaim?: string
 }
 
 export type AdminOAuthProvider = OAuthProviderConfig
