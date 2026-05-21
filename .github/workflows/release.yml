@@ -31,7 +31,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && 'dev' || github.ref }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || github.ref }}
           fetch-depth: 0
 
       - name: Resolve release version
@@ -143,7 +143,7 @@ jobs:
             git add deno.json
             git commit -m "chore(release): prepare $RELEASE_TAG"
           else
-            echo "deno.json already matches $RELEASE_VERSION; tagging current dev commit."
+            echo "deno.json already matches $RELEASE_VERSION; tagging current main commit."
           fi
 
           git tag -a "$RELEASE_TAG" -m "Release $RELEASE_TAG"
@@ -180,7 +180,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
         run: |
-          git push origin HEAD:dev
+          git push origin HEAD:main
           git push origin "$RELEASE_TAG"
 
       - name: Publish GitHub release
