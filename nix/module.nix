@@ -23,8 +23,7 @@ let
     else
       jsonFormat.generate "alloy-runtime-config.json" cfg.initialRuntimeConfig;
 
-  localDatabaseUrl =
-    "postgres://${cfg.database.user}@localhost/${cfg.database.name}?host=${cfg.database.socketDir}";
+  localDatabaseUrl = "postgres:///${cfg.database.name}";
   staticDatabaseUrl = if cfg.database.url != null then cfg.database.url else localDatabaseUrl;
 
   startScript = pkgs.writeShellScript "alloy-start" ''
@@ -264,6 +263,11 @@ in
         ALLOY_CONFIG_FILE = cfg.configFile;
         ALLOY_STORAGE_DIR = cfg.storageDir;
         ENCODE_SCRATCH_DIR = encodeDir;
+      }
+      // lib.optionalAttrs (cfg.database.url == null && cfg.database.urlFile == null) {
+        PGHOST = cfg.database.socketDir;
+        PGUSER = cfg.database.user;
+        PGDATABASE = cfg.database.name;
       }
       // cfg.environment;
 
