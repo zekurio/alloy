@@ -272,7 +272,7 @@ function AccountsList({
 }
 
 function linkedAccountLabel(account: LinkedAccount): string {
-  return `Connected as ${account.email}`
+  return account.email ? `Connected as ${account.email}` : "Connected"
 }
 
 function LinkRow(props: { label: string; busy: boolean; onLink: () => void }) {

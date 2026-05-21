@@ -166,7 +166,12 @@ async function syncOAuthUserRole(
   if (!current || current.role === profile.role) return
 
   if (profile.role !== "admin") {
-    await assertCanRemoveAdmin(userId)
+    try {
+      await assertCanRemoveAdmin(userId)
+    } catch (cause) {
+      console.warn("[auth/oauth] skipped OAuth role demotion:", cause)
+      return
+    }
   }
 
   await db
