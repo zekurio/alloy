@@ -112,6 +112,7 @@ stdenvNoCC.mkDerivation {
 
     deno task build
     deno compile \
+      --vendor=true \
       --cached-only \
       --frozen \
       --target x86_64-unknown-linux-gnu \
