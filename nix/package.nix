@@ -23,7 +23,7 @@
         || name == "node_modules"
       );
   },
-  denoDepsHash ? "sha256-HhW464MedxrNFLb1cVs4dcaBdmKHtsfOYI1IqRixPJ0=",
+  denoDepsHash ? "sha256-wA9UKnIjDsr1VV/PZviFXCop0FnI/eWYClr8WSET/pA=",
 }:
 
 let
@@ -54,10 +54,9 @@ let
       export DENO_NO_UPDATE_CHECK=1
       mkdir -p "$HOME" "$DENO_DIR"
 
-      deno install --frozen
-      deno cache --frozen apps/server/src/index.ts apps/web/vite.config.ts
+      deno install --frozen --vendor=true
       deno compile \
-        --cached-only \
+        --vendor=true \
         --frozen \
         --target x86_64-unknown-linux-gnu \
         --output "$TMPDIR/alloy-server-probe" \
@@ -76,15 +75,10 @@ let
     installPhase = ''
       runHook preInstall
 
-      mkdir -p "$out"
-      cp -R "$DENO_DIR" "$out/deno-dir"
-      rm -rf \
-        "$out/deno-dir/dep_analysis_cache"* \
-        "$out/deno-dir/gen" \
-        "$out/deno-dir/node_analysis_cache"*
-      if [ -d node_modules ]; then
-        cp -R node_modules "$out/node_modules"
-      fi
+      mkdir -p "$out/deno-dir"
+      cp -R "$DENO_DIR/dl" "$out/deno-dir/dl"
+      cp -R vendor "$out/vendor"
+      cp -R node_modules "$out/node_modules"
 
       runHook postInstall
     '';
@@ -111,11 +105,10 @@ stdenvNoCC.mkDerivation {
     mkdir -p "$HOME"
     cp -R "${denoDeps}/deno-dir" "$DENO_DIR"
     chmod -R u+w "$DENO_DIR"
-
-    if [ -d "${denoDeps}/node_modules" ]; then
-      cp -R "${denoDeps}/node_modules" node_modules
-      chmod -R u+w node_modules
-    fi
+    cp -R "${denoDeps}/vendor" vendor
+    cp -R "${denoDeps}/node_modules" node_modules
+    chmod -R u+w vendor node_modules
+    node -e 'const fs = require("node:fs"); const config = JSON.parse(fs.readFileSync("deno.json", "utf8")); config.vendor = true; fs.writeFileSync("deno.json", JSON.stringify(config));'
 
     deno task build
     deno compile \
