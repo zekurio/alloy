@@ -57,9 +57,10 @@ let
       deno install --frozen --vendor=true
       deno compile \
         --vendor=true \
+        --unstable-sloppy-imports \
         --frozen \
         --target x86_64-unknown-linux-gnu \
-        --output "$TMPDIR/alloy-server-probe" \
+        --output "$TMPDIR/alloy-probe" \
         --allow-env \
         --allow-net \
         --allow-read \
@@ -113,10 +114,11 @@ stdenvNoCC.mkDerivation {
     deno task build
     deno compile \
       --vendor=true \
+      --unstable-sloppy-imports \
       --cached-only \
       --frozen \
       --target x86_64-unknown-linux-gnu \
-      --output alloy-server \
+      --output alloy \
       --allow-env \
       --allow-net \
       --allow-read \
@@ -132,12 +134,12 @@ stdenvNoCC.mkDerivation {
   installPhase = ''
     runHook preInstall
 
-    install -Dm755 alloy-server "$out/libexec/alloy-server"
+    install -Dm755 alloy "$out/libexec/alloy"
     mkdir -p "$out/bin" "$out/share/alloy"
     cp -R apps/web/dist "$out/share/alloy/web"
     cp -R packages/db/drizzle "$out/share/alloy/migrations"
 
-    makeWrapper "$out/libexec/alloy-server" "$out/bin/alloy-server" \
+    makeWrapper "$out/libexec/alloy" "$out/bin/alloy" \
       --set-default NODE_ENV production \
       --set-default WEB_DIST_DIR "$out/share/alloy/web" \
       --set-default ALLOY_MIGRATIONS_DIR "$out/share/alloy/migrations" \
@@ -151,7 +153,7 @@ stdenvNoCC.mkDerivation {
     description = "Open-source and self-hostable alternative to Medal.tv";
     homepage = "https://github.com/zekurio/alloy";
     license = lib.licenses.agpl3Only;
-    mainProgram = "alloy-server";
+    mainProgram = "alloy";
     platforms = [ "x86_64-linux" ];
   };
 }

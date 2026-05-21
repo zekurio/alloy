@@ -37,7 +37,7 @@ let
       export DATABASE_URL=${lib.escapeShellArg staticDatabaseUrl}
     ''}
 
-    exec ${lib.escapeShellArg cfg.package}/bin/alloy-server
+    exec ${lib.escapeShellArg cfg.package}/bin/alloy
   '';
 
   preStart = ''
