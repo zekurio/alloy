@@ -9,6 +9,9 @@ const devFlagDefinitions = {
   forceOnboarding: {
     env: "VITE_DEV_FORCE_ONBOARDING",
   },
+  forceSetup: {
+    env: "VITE_DEV_FORCE_SETUP",
+  },
 } as const satisfies Record<string, FlagDefinition>
 
 const featureFlagDefinitions = {} as const satisfies Record<
@@ -48,6 +51,10 @@ function readFlagGroup<T extends Record<string, FlagDefinition>>(
 
 export const devFlags = readFlagGroup(devFlagDefinitions)
 export const featureFlags = readFlagGroup(featureFlagDefinitions)
+
+export function isDevSetupForced(): boolean {
+  return devFlags.forceSetup || devFlags.forceOnboarding
+}
 
 export function isDevFlagEnabled(name: DevFlagName): boolean {
   return devFlags[name]

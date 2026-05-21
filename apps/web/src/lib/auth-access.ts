@@ -1,6 +1,6 @@
 import type { PublicAuthConfig } from "@workspace/api"
 
-import { devFlags } from "./flags"
+import { isDevSetupForced } from "./flags"
 import type { Session } from "./session-suspense"
 
 export type AuthRouteTarget = "/setup" | "/login" | null
@@ -18,7 +18,7 @@ export function shouldForceOnboarding(
   session: Session | null
 ): boolean {
   return (
-    (config.setupRequired || devFlags.forceOnboarding) &&
+    (config.setupRequired || isDevSetupForced()) &&
     !config.adminAccountRequired &&
     isAdmin(session)
   )

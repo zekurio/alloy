@@ -6,7 +6,12 @@ import {
   type UserInfoResponse,
 } from "openid-client"
 
-import { OAUTH_QUOTA_CLAIM_DEFAULT } from "@workspace/contracts"
+import {
+  OAUTH_QUOTA_CLAIM_DEFAULT,
+  OAUTH_ROLE_CLAIM_DEFAULT,
+  USER_ROLES,
+  type UserRole,
+} from "@workspace/contracts"
 
 import { configStore, type OAuthProviderConfig } from "../config/store"
 import { normalizeEmail } from "./identity"
@@ -48,6 +53,7 @@ export async function profileFromTokens(
     picture: imageFromProfile(raw) ?? null,
     providerAccountId,
     raw,
+    role: roleFromProfile(raw, provider.roleClaim),
     storageQuotaBytes: quotaFromProfile(raw, provider.quotaClaim),
     usernameHint,
   }
@@ -76,6 +82,26 @@ function stringClaim(
   return typeof value === "string" && value.trim().length > 0
     ? value.trim()
     : null
+}
+
+function roleFromProfile(
+  profile: Record<string, unknown>,
+  claim = OAUTH_ROLE_CLAIM_DEFAULT
+): UserRole | undefined {
+  const value = profile[claim]
+  if (typeof value === "string") return roleFromString(value) ?? undefined
+  if (Array.isArray(value)) {
+    const roles = value
+      .map((item) => (typeof item === "string" ? roleFromString(item) : null))
+      .filter((role): role is UserRole => role !== null)
+    return roles.includes("admin") ? "admin" : roles[0]
+  }
+  return undefined
+}
+
+function roleFromString(value: string): UserRole | null {
+  const role = value.trim().toLowerCase()
+  return USER_ROLES.includes(role as UserRole) ? (role as UserRole) : null
 }
 
 function quotaFromProfile(
