@@ -15,6 +15,7 @@ export type LinkedAccount = {
   id: string
   providerId: string
   accountId: string
+  email: string | null
   createdAt: string | Date
 }
 
@@ -99,14 +100,12 @@ function useLinkedAccountActions({
 
     let active = true
 
-    const clearMarker = () => {
-      url.searchParams.delete(OAUTH_LINKED_QUERY_KEY)
-      window.history.replaceState(
-        null,
-        "",
-        `${url.pathname}${url.search}${url.hash}`
-      )
-    }
+    url.searchParams.delete(OAUTH_LINKED_QUERY_KEY)
+    window.history.replaceState(
+      null,
+      "",
+      `${url.pathname}${url.search}${url.hash}`
+    )
 
     void (async () => {
       try {
@@ -122,8 +121,6 @@ function useLinkedAccountActions({
               : "Couldn't sync linked account profile"
           )
         }
-      } finally {
-        if (active) clearMarker()
       }
     })()
 
@@ -231,7 +228,7 @@ function AccountsList({
           <AccountRow
             key={providerAccount.id}
             label={config.provider.displayName}
-            sublabel="Connected"
+            sublabel={linkedAccountLabel(providerAccount)}
             busy={unlinkingId === providerAccount.id}
             canUnlink={canRemoveAccount(
               providerAccount,
@@ -258,7 +255,7 @@ function AccountsList({
         <AccountRow
           key={account.id}
           label={account.providerId}
-          sublabel="Linked, but no longer configured on this server"
+          sublabel={`${linkedAccountLabel(account)} · No longer configured`}
           busy={unlinkingId === account.id}
           canUnlink={canRemoveAccount(
             account,
@@ -272,6 +269,10 @@ function AccountsList({
       ))}
     </ul>
   )
+}
+
+function linkedAccountLabel(account: LinkedAccount): string {
+  return account.email ? `Connected as ${account.email}` : "Connected"
 }
 
 function LinkRow(props: { label: string; busy: boolean; onLink: () => void }) {

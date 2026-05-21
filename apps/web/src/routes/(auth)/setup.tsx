@@ -14,6 +14,7 @@ import {
   FilmIcon,
   InfoIcon,
   LinkIcon,
+  UserKeyIcon,
 } from "lucide-react"
 
 import { AlloyLogo } from "@workspace/ui/components/alloy-logo"
@@ -27,9 +28,10 @@ import type {
 
 import { EncoderConfigCard } from "@/components/routes/admin-settings/encoder-config-card"
 import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integrations-config-card"
+import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-provider-card"
 import { StorageConfigCard } from "@/components/routes/admin-settings/storage-config-card"
 import { api } from "@/lib/api"
-import { devFlags } from "@/lib/flags"
+import { isDevSetupForced } from "@/lib/flags"
 import {
   invalidateAuthConfig,
   loadAuthConfig,
@@ -49,7 +51,7 @@ export const Route = createFileRoute("/(auth)/setup")({
     if (
       !config.adminAccountRequired &&
       !config.setupRequired &&
-      !devFlags.forceOnboarding
+      !isDevSetupForced()
     ) {
       throw redirect({ to: "/" })
     }
@@ -119,7 +121,7 @@ const defaultEncoderVariant: AdminEncoderVariant = {
   codec: "av1",
   height: 1080,
   quality: 28,
-  audioBitrateKbps: 192,
+  audioBitrateKbps: 256,
   extraInputArgs: "-probesize 50M -analyzeduration 50M -fflags +genpts",
   extraOutputArgs:
     '-vf "scale=1920:-2:flags=lanczos" -pix_fmt yuv420p10le -g 240 -svtav1-params tune=0:film-grain=0 -movflags +faststart',
@@ -139,6 +141,12 @@ const SETUP_STEPS = [
     formId: "setup-encoder",
   },
   {
+    icon: UserKeyIcon,
+    label: "OIDC",
+    description: "Configure an optional OIDC/OAuth provider for sign-in.",
+    formId: "setup-oidc",
+  },
+  {
     icon: LinkIcon,
     label: "SteamGridDB",
     description: "Game artwork and metadata from SteamGridDB.",
@@ -146,7 +154,9 @@ const SETUP_STEPS = [
   },
 ] as const
 
-type SetupStep = 0 | 1 | 2
+type SetupStep = 0 | 1 | 2 | 3
+
+const SETUP_LAST_STEP: SetupStep = 3
 
 function AdminSetupSteps() {
   const setup = useAdminSetupSteps()
@@ -207,7 +217,7 @@ function useAdminSetupSteps() {
   function advanceStep(savedStep: SetupStep) {
     setStep((currentStep) => {
       if (currentStep !== savedStep) return currentStep
-      if (currentStep < 2) return (currentStep + 1) as SetupStep
+      if (currentStep < SETUP_LAST_STEP) return (currentStep + 1) as SetupStep
       queueMicrotask(() => void completeSetup())
       return currentStep
     })
@@ -230,7 +240,7 @@ function AdminSetupStepContent({
   advanceStep: (savedStep: SetupStep) => void
 }) {
   const stepDone = getStepDone(config)
-  const isLastStep = step === 2
+  const isLastStep = step === SETUP_LAST_STEP
 
   function handleNext() {
     const formEl = document.getElementById(
@@ -279,10 +289,13 @@ function AdminSetupStepContent({
           />
         )}
         {step === 2 && (
+          <OAuthProviderCard config={config} onChange={setConfig} hideHeader />
+        )}
+        {step === 3 && (
           <IntegrationsConfigCard
             integrations={config.integrations}
             onChange={(next) => setConfig(next)}
-            onSaved={() => advanceStep(2)}
+            onSaved={() => advanceStep(3)}
             formId="setup-integrations"
             hideActions
             hideHeader
@@ -312,12 +325,16 @@ function AdminSetupStepContent({
   )
 }
 
-function getStepDone(config: AdminRuntimeConfig): [boolean, boolean, boolean] {
+function getStepDone(
+  config: AdminRuntimeConfig
+): [boolean, boolean, boolean, boolean] {
   return [
     // Storage is considered done if it has a configured driver
     true,
     // Encoding is done when enabled with at least one variant
     true,
+    // OIDC is optional; it is done once a provider is configured.
+    config.oauthProvider !== null,
     // SteamGridDB is done when the key is set (redacted = "***")
     config.integrations.steamgriddbApiKey === "***",
   ]
@@ -328,10 +345,10 @@ function StepIndicator({
   stepDone,
 }: {
   currentStep: SetupStep
-  stepDone: [boolean, boolean, boolean]
+  stepDone: [boolean, boolean, boolean, boolean]
 }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-3">
+    <div className="grid gap-2 sm:grid-cols-4">
       {SETUP_STEPS.map((item, index) => {
         const isCurrent = index === currentStep
         const isDone = stepDone[index]

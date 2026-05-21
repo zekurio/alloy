@@ -24,6 +24,7 @@ import { Switch } from "@workspace/ui/components/switch"
 
 import {
   OAUTH_QUOTA_CLAIM_DEFAULT,
+  OAUTH_ROLE_CLAIM_DEFAULT,
   type AdminOAuthProvider,
   USERNAME_CLAIM_SUGGESTIONS,
 } from "@workspace/api"
@@ -207,6 +208,21 @@ export function OAuthCustomProviderDialog({
                   <FieldDescription>
                     Claim value is interpreted as GiB. Defaults to{" "}
                     {OAUTH_QUOTA_CLAIM_DEFAULT}.
+                  </FieldDescription>
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="oauth-role-claim">Role claim</FieldLabel>
+                  <Input
+                    id="oauth-role-claim"
+                    value={draft.roleClaim ?? ""}
+                    placeholder={OAUTH_ROLE_CLAIM_DEFAULT}
+                    disabled={pendingAction !== null}
+                    onChange={(e) => onChange("roleClaim", e.target.value)}
+                  />
+                  <FieldDescription>
+                    Claim value can be user or admin. Defaults to{" "}
+                    {OAUTH_ROLE_CLAIM_DEFAULT}.
                   </FieldDescription>
                 </Field>
               </div>
