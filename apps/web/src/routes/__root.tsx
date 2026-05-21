@@ -8,6 +8,7 @@ import {
   RouteNotFoundState,
 } from "@/components/feedback/route-state"
 import { redirectToSetupBeforeLoad } from "@/lib/auth-guards"
+import { OAuthErrorToast } from "@/components/auth/oauth-error-toast"
 import { RuntimeConfigEvents } from "@/lib/runtime-config-events"
 
 export const Route = createRootRouteWithContext<{
@@ -40,6 +41,7 @@ function RootLayout() {
       <ClientOnly>
         <React.Suspense fallback={null}>
           <RuntimeConfigEvents />
+          <OAuthErrorToast />
           <ReactivateAccountPrompt />
         </React.Suspense>
       </ClientOnly>

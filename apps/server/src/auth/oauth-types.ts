@@ -1,3 +1,5 @@
+import type { UserRole } from "@workspace/contracts"
+
 export type OAuthMode = "sign-in" | "link"
 
 export type OAuthChallengePayload = {
@@ -16,6 +18,7 @@ export type OAuthProfile = {
   picture: string | null
   providerAccountId: string
   raw: Record<string, unknown>
+  role: UserRole | undefined
   storageQuotaBytes: number | null | undefined
   usernameHint: string | null
 }

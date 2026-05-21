@@ -22,7 +22,7 @@ function FieldRequiredMarker() {
       <span
         aria-hidden="true"
         data-slot="field-required-marker"
-        className="text-base leading-5 font-semibold text-foreground-muted transition-colors group-has-[:user-invalid]/field:text-destructive group-has-[[aria-invalid=true]]/field:text-destructive group-data-[invalid=true]/field:text-destructive"
+        className="text-base leading-none font-semibold text-foreground-muted transition-colors group-has-[:user-invalid]/field:text-destructive group-has-[[aria-invalid=true]]/field:text-destructive group-data-[invalid=true]/field:text-destructive"
       >
         *
       </span>

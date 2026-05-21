@@ -4,7 +4,7 @@ import { authAccount, user } from "@workspace/db/auth-schema"
 
 import { configStore, type OAuthProviderConfig } from "../config/store"
 import { db } from "../db"
-import { findUserByEmail } from "./identity"
+import { assertCanRemoveAdmin, findUserByEmail } from "./identity"
 import type { OAuthProfile, StoredTokens } from "./oauth-types"
 import { defaultOAuthStorageQuota } from "./oauth-profile"
 import { generateUniqueUsername, slugifyUsername } from "./username"
@@ -20,6 +20,7 @@ export async function resolveSignInUser(input: {
   )
   if (existingAccount) {
     await updateLinkedAccount(existingAccount.id, input.profile, input.tokens)
+    await syncOAuthUserRole(existingAccount.userId, input.profile)
     return existingAccount.userId
   }
 
@@ -37,7 +38,7 @@ export async function resolveSignInUser(input: {
     throw new Error("Sign-up is currently closed.")
   }
 
-  return db.transaction(async (tx) => {
+  const userId = await db.transaction(async (tx) => {
     const row =
       existingUser ??
       (await createOAuthUser(input.profile, async (values) => {
@@ -73,6 +74,9 @@ export async function resolveSignInUser(input: {
 
     return row.id
   })
+
+  await syncOAuthUserRole(userId, input.profile)
+  return userId
 }
 
 export async function linkAccountToUser(input: {
@@ -109,6 +113,7 @@ export async function linkAccountToUser(input: {
       .set({ image: input.profile.picture, updatedAt: new Date() })
       .where(eq(user.id, input.userId))
   }
+  await syncOAuthUserRole(input.userId, input.profile)
 }
 
 async function findLinkedAccount(
@@ -147,6 +152,29 @@ async function updateLinkedAccount(
     .where(eq(authAccount.id, accountId))
 }
 
+async function syncOAuthUserRole(
+  userId: string,
+  profile: OAuthProfile
+): Promise<void> {
+  if (profile.role === undefined) return
+
+  const [current] = await db
+    .select({ role: user.role })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1)
+  if (!current || current.role === profile.role) return
+
+  if (profile.role !== "admin") {
+    await assertCanRemoveAdmin(userId)
+  }
+
+  await db
+    .update(user)
+    .set({ role: profile.role, updatedAt: new Date() })
+    .where(eq(user.id, userId))
+}
+
 async function createOAuthUser(
   profile: OAuthProfile,
   insert: (
@@ -168,6 +196,7 @@ async function createOAuthUser(
     username,
     name: profile.name,
     image: profile.picture,
+    role: profile.role ?? "user",
     storageQuotaBytes:
       profile.storageQuotaBytes === undefined
         ? defaultOAuthStorageQuota()
