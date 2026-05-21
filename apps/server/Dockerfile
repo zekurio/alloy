@@ -41,7 +41,20 @@ FROM deps AS server
 
 COPY --chown=deno:deno . .
 
-RUN deno task --cwd apps/server build
+RUN deno task --cwd apps/server build \
+  && deno compile \
+    --cached-only \
+    --frozen \
+    --unstable-sloppy-imports \
+    --output /app/alloy \
+    --allow-env \
+    --allow-net \
+    --allow-read \
+    --allow-write \
+    --allow-run \
+    --allow-ffi \
+    --allow-sys=osRelease \
+    apps/server/src/index.ts
 
 FROM deps AS web
 
@@ -65,6 +78,7 @@ COPY --chown=deno:deno --from=deps /app/packages/contracts/deno.json /app/packag
 COPY --chown=deno:deno --from=deps /app/packages/db/deno.json /app/packages/db/deno.json
 COPY --chown=deno:deno --from=deps /app/packages/ui/deno.json /app/packages/ui/deno.json
 
+COPY --chown=root:root --from=server /app/alloy /usr/local/bin/alloy
 COPY --chown=deno:deno --from=server /deno-dir /deno-dir
 
 COPY --chown=deno:deno --from=server /app/apps/server/src /app/apps/server/src
