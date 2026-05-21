@@ -121,14 +121,14 @@ in
 
     storageDir = lib.mkOption {
       type = lib.types.path;
-      default = "/var/lib/alloy/storage";
+      default = "${config.services.alloy-clips.stateDir}/storage";
       defaultText = lib.literalExpression ''"\${config.services.alloy-clips.stateDir}/storage"'';
       description = "Filesystem storage root used when Alloy bootstraps runtime config.";
     };
 
     configFile = lib.mkOption {
       type = lib.types.path;
-      default = "/var/lib/alloy/runtime-config.json";
+      default = "${config.services.alloy-clips.stateDir}/runtime-config.json";
       defaultText = lib.literalExpression ''"\${config.services.alloy-clips.stateDir}/runtime-config.json"'';
       description = "Mutable JSON runtime config file used by Alloy and the admin UI.";
     };
@@ -210,6 +210,14 @@ in
         assertion = !(cfg.database.createLocally && cfg.database.urlFile != null);
         message = "services.alloy-clips.database.urlFile cannot be set when database.createLocally is true.";
       }
+      {
+        assertion = cfg.database.createLocally || cfg.database.url != null || cfg.database.urlFile != null;
+        message = "services.alloy-clips.database.url or database.urlFile must be set when database.createLocally is false.";
+      }
+      {
+        assertion = !cfg.database.createLocally || cfg.user == cfg.database.user;
+        message = "services.alloy-clips.user must match services.alloy-clips.database.user when database.createLocally is true.";
+      }
     ];
 
     users.groups.${cfg.group} = { };
@@ -222,6 +230,7 @@ in
 
     services.postgresql = lib.mkIf cfg.database.createLocally {
       enable = true;
+      settings.unix_socket_directories = cfg.database.socketDir;
       ensureDatabases = [ cfg.database.name ];
       ensureUsers = [
         {
