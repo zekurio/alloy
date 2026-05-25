@@ -69,7 +69,7 @@ type AppearanceConfigPatch = {
 async function fetchRuntimeConfig(
   context: ApiContext
 ): Promise<AdminRuntimeConfig> {
-  const res = await context.request("/api/admin/runtime-config")
+  const res = await context.rpc.api.admin["runtime-config"].$get()
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
@@ -77,8 +77,7 @@ async function updateRuntimeConfig(
   context: ApiContext,
   input: RuntimeConfigPatch
 ): Promise<AdminRuntimeConfig> {
-  const res = await context.request("/api/admin/runtime-config", {
-    method: "PATCH",
+  const res = await context.rpc.api.admin["runtime-config"].$patch({
     json: input,
   })
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
@@ -87,14 +86,12 @@ async function updateRuntimeConfig(
 async function reloadRuntimeConfig(
   context: ApiContext
 ): Promise<AdminRuntimeConfig> {
-  const res = await context.request("/api/admin/runtime-config/reload", {
-    method: "POST",
-  })
+  const res = await context.rpc.api.admin["runtime-config"].reload.$post()
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
 async function exportRuntimeConfig(context: ApiContext): Promise<unknown> {
-  const res = await context.request("/api/admin/runtime-config/export")
+  const res = await context.rpc.api.admin["runtime-config"].export.$get()
   return readJsonOrThrow(res, (value) =>
     validateObject<unknown>(value, "runtime config export")
   )
@@ -104,8 +101,7 @@ async function importRuntimeConfig(
   context: ApiContext,
   config: unknown
 ): Promise<AdminRuntimeConfig> {
-  const res = await context.request("/api/admin/runtime-config/import", {
-    method: "PUT",
+  const res = await context.rpc.api.admin["runtime-config"].import.$put({
     json: config,
   })
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
@@ -115,8 +111,7 @@ async function saveOAuthConfig(
   context: ApiContext,
   input: { oauthProvider: AdminOAuthProvider | null }
 ): Promise<AdminRuntimeConfig> {
-  const res = await context.request("/api/admin/oauth-config", {
-    method: "PUT",
+  const res = await context.rpc.api.admin["oauth-config"].$put({
     json: {
       oauthProvider: input.oauthProvider ? { ...input.oauthProvider } : null,
     },
@@ -124,22 +119,26 @@ async function saveOAuthConfig(
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
+type RuntimeConfigSection =
+  | "encoder"
+  | "limits"
+  | "integrations"
+  | "appearance"
+  | "storage"
+
 async function patchRuntimeSection<T>(
   context: ApiContext,
-  path: string,
+  section: RuntimeConfigSection,
   patch: Partial<T>
 ): Promise<AdminRuntimeConfig> {
-  const res = await context.request(path, {
-    method: "PATCH",
-    json: patch,
-  })
+  const res = await context.rpc.api.admin[section].$patch({ json: patch })
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
 async function fetchEncoderCapabilities(
   context: ApiContext
 ): Promise<AdminEncoderCapabilities> {
-  const res = await context.request("/api/admin/encoder/capabilities")
+  const res = await context.rpc.api.admin.encoder.capabilities.$get()
   return readJsonOrThrow(res, (value) =>
     validateObject<AdminEncoderCapabilities>(value, "encoder capabilities")
   )
@@ -148,9 +147,7 @@ async function fetchEncoderCapabilities(
 async function reEncodeAllClips(
   context: ApiContext
 ): Promise<{ enqueued: number; hasMore: boolean }> {
-  const res = await context.request("/api/admin/clips/re-encode", {
-    method: "POST",
-  })
+  const res = await context.rpc.api.admin.clips["re-encode"].$post()
   return readJsonOrThrow(res, (value) =>
     validateObject<{ enqueued: number; hasMore: boolean }>(
       value,
@@ -162,15 +159,13 @@ async function reEncodeAllClips(
 async function regenerateLoginSplash(
   context: ApiContext
 ): Promise<AdminRuntimeConfig> {
-  const res = await context.request(
-    "/api/admin/appearance/login-splash/regenerate",
-    { method: "POST" }
-  )
+  const res =
+    await context.rpc.api.admin.appearance["login-splash"].regenerate.$post()
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
 async function fetchUsers(context: ApiContext): Promise<AdminUsersResponse> {
-  const res = await context.request("/api/admin/users")
+  const res = await context.rpc.api.admin.users.$get()
   return readJsonOrThrow(res, (value) =>
     validateObject<AdminUsersResponse>(value, "admin users")
   )
@@ -181,13 +176,10 @@ async function updateUserStorageQuota(
   userId: string,
   input: AdminUpdateUserStorageQuotaInput
 ): Promise<AdminUserStorageRow> {
-  const res = await context.request(
-    `/api/admin/users/${encodeURIComponent(userId)}/storage-quota`,
-    {
-      method: "PATCH",
-      json: input,
-    }
-  )
+  const res = await context.rpc.api.admin.users[":id"]["storage-quota"].$patch({
+    param: { id: userId },
+    json: input,
+  })
   return readJsonOrThrow(res, (value) =>
     validateObject<AdminUserStorageRow>(value, "admin user storage")
   )
@@ -205,16 +197,16 @@ export function createAdminApi(context: ApiContext) {
     saveOAuthConfig: (input: { oauthProvider: AdminOAuthProvider | null }) =>
       saveOAuthConfig(context, input),
     updateEncoderConfig: (patch: Partial<AdminEncoderConfig>) =>
-      patchRuntimeSection(context, "/api/admin/encoder", patch),
+      patchRuntimeSection(context, "encoder", patch),
     updateLimitsConfig: (patch: Partial<AdminLimitsConfig>) =>
-      patchRuntimeSection(context, "/api/admin/limits", patch),
+      patchRuntimeSection(context, "limits", patch),
     updateIntegrationsConfig: (patch: Partial<AdminIntegrationsConfig>) =>
-      patchRuntimeSection(context, "/api/admin/integrations", patch),
+      patchRuntimeSection(context, "integrations", patch),
     updateAppearanceConfig: (patch: AppearanceConfigPatch) =>
-      patchRuntimeSection(context, "/api/admin/appearance", patch),
+      patchRuntimeSection(context, "appearance", patch),
     regenerateLoginSplash: () => regenerateLoginSplash(context),
     updateStorageConfig: (patch: AdminStorageConfigPatch) =>
-      patchRuntimeSection(context, "/api/admin/storage", patch),
+      patchRuntimeSection(context, "storage", patch),
     fetchEncoderCapabilities: () => fetchEncoderCapabilities(context),
     reEncodeAllClips: () => reEncodeAllClips(context),
     fetchUsers: () => fetchUsers(context),
