@@ -10,10 +10,6 @@ export type {
   CommentSort,
 } from "@workspace/contracts"
 
-function commentPath(commentId: string, suffix = "") {
-  return `/api/clips/comments/${encodeURIComponent(commentId)}${suffix}`
-}
-
 async function fetchComments(
   context: ApiContext,
   clipId: string,
@@ -23,10 +19,10 @@ async function fetchComments(
   const query: Record<string, string> = { sort }
   if (params.limit !== undefined) query.limit = String(params.limit)
   if (params.cursor) query.cursor = params.cursor
-  const res = await context.request(
-    `/api/clips/${encodeURIComponent(clipId)}/comments`,
-    { query }
-  )
+  const res = await context.rpc.api.clips[":id"].comments.$get({
+    param: { id: clipId },
+    query,
+  })
   return readJsonOrThrow(res, (value) =>
     validateObject<CommentPage>(value, "comments")
   )
@@ -36,13 +32,10 @@ async function createComment(
   context: ApiContext,
   input: { clipId: string; body: string; parentId?: string }
 ): Promise<CommentRow> {
-  const res = await context.request(
-    `/api/clips/${encodeURIComponent(input.clipId)}/comments`,
-    {
-      method: "POST",
-      json: { body: input.body, parentId: input.parentId },
-    }
-  )
+  const res = await context.rpc.api.clips[":id"].comments.$post({
+    param: { id: input.clipId },
+    json: { body: input.body, parentId: input.parentId },
+  })
   return readJsonOrThrow(res, (value) =>
     validateObject<CommentRow>(value, "comment")
   )
@@ -53,8 +46,8 @@ async function updateComment(
   commentId: string,
   body: string
 ): Promise<{ id: string; body: string; editedAt: string | null }> {
-  const res = await context.request(commentPath(commentId), {
-    method: "PATCH",
+  const res = await context.rpc.api.clips.comments[":commentId"].$patch({
+    param: { commentId },
     json: { body },
   })
   return readJsonOrThrow(res, (value) =>
@@ -69,8 +62,8 @@ async function deleteComment(
   context: ApiContext,
   commentId: string
 ): Promise<void> {
-  const res = await context.request(commentPath(commentId), {
-    method: "DELETE",
+  const res = await context.rpc.api.clips.comments[":commentId"].$delete({
+    param: { commentId },
   })
   validateBooleanFlag(await readJsonOrThrow<unknown>(res), "deleted", true)
 }
@@ -80,9 +73,13 @@ async function setCommentLike(
   commentId: string,
   liked: boolean
 ): Promise<{ liked: boolean; likeCount: number }> {
-  const res = await context.request(commentPath(commentId, "/like"), {
-    method: liked ? "POST" : "DELETE",
-  })
+  const res = liked
+    ? await context.rpc.api.clips.comments[":commentId"].like.$post({
+        param: { commentId },
+      })
+    : await context.rpc.api.clips.comments[":commentId"].like.$delete({
+        param: { commentId },
+      })
   return readJsonOrThrow(res, (value) =>
     validateObject<{ liked: boolean; likeCount: number }>(value, "comment like")
   )
@@ -93,9 +90,13 @@ async function setCommentPinned(
   commentId: string,
   pinned: boolean
 ): Promise<{ pinned: boolean }> {
-  const res = await context.request(commentPath(commentId, "/pin"), {
-    method: pinned ? "POST" : "DELETE",
-  })
+  const res = pinned
+    ? await context.rpc.api.clips.comments[":commentId"].pin.$post({
+        param: { commentId },
+      })
+    : await context.rpc.api.clips.comments[":commentId"].pin.$delete({
+        param: { commentId },
+      })
   const response = validateBooleanFlag(
     await readJsonOrThrow<unknown>(res),
     "pinned",

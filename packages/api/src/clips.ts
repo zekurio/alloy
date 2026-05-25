@@ -160,10 +160,6 @@ export function uploadToTicket(
   })
 }
 
-function clipPath(clipId: string, suffix = "") {
-  return `/api/clips/${encodeURIComponent(clipId)}${suffix}`
-}
-
 async function fetchClips(
   context: ApiContext,
   params: ClipFeedParams = {}
@@ -175,12 +171,12 @@ async function fetchClips(
   if (params.cursor) query.cursor = params.cursor
   if (params.hashtag) query.hashtag = params.hashtag
 
-  const res = await context.request("/api/clips", { query })
+  const res = await context.rpc.api.clips.$get({ query })
   return readJsonOrThrow(res, validateClipRows)
 }
 
 async function fetchUploadQueue(context: ApiContext): Promise<QueueClip[]> {
-  const res = await context.request("/api/clips/queue")
+  const res = await context.rpc.api.clips.queue.$get()
   return readJsonOrThrow(res, validateQueueClips)
 }
 
@@ -189,7 +185,10 @@ async function fetchClipById(
   clipId: string,
   init?: RequestInit
 ): Promise<ClipRow> {
-  const res = await context.request(clipPath(clipId), { init })
+  const res = await context.rpc.api.clips[":id"].$get(
+    { param: { id: clipId } },
+    { init }
+  )
   return readJsonOrThrow(res, validateClipRow)
 }
 
@@ -197,10 +196,7 @@ async function initiateClip(
   context: ApiContext,
   input: InitiateClipInput
 ): Promise<InitiateClipResponse> {
-  const res = await context.request("/api/clips/initiate", {
-    method: "POST",
-    json: input,
-  })
+  const res = await context.rpc.api.clips.initiate.$post({ json: input })
   return readJsonOrThrow(res, validateInitiateClipResponse)
 }
 
@@ -208,8 +204,8 @@ async function finalizeClip(
   context: ApiContext,
   clipId: string
 ): Promise<ClipRow> {
-  const res = await context.request(clipPath(clipId, "/finalize"), {
-    method: "POST",
+  const res = await context.rpc.api.clips[":id"].finalize.$post({
+    param: { id: clipId },
   })
   return readJsonOrThrow(res, validateClipRow)
 }
@@ -218,14 +214,16 @@ async function markUploadFailed(
   context: ApiContext,
   clipId: string
 ): Promise<void> {
-  const res = await context.request(clipPath(clipId, "/fail"), {
-    method: "POST",
+  const res = await context.rpc.api.clips[":id"].fail.$post({
+    param: { id: clipId },
   })
   validateBooleanFlag(await readJsonOrThrow<unknown>(res), "success")
 }
 
 async function deleteClip(context: ApiContext, clipId: string): Promise<void> {
-  const res = await context.request(clipPath(clipId), { method: "DELETE" })
+  const res = await context.rpc.api.clips[":id"].$delete({
+    param: { id: clipId },
+  })
   validateBooleanFlag(await readJsonOrThrow<unknown>(res), "deleted")
 }
 
@@ -234,8 +232,8 @@ async function updateClip(
   clipId: string,
   input: UpdateClipInput
 ): Promise<ClipRow> {
-  const res = await context.request(clipPath(clipId), {
-    method: "PATCH",
+  const res = await context.rpc.api.clips[":id"].$patch({
+    param: { id: clipId },
     json: input,
   })
   return readJsonOrThrow(res, validateClipRow)
@@ -245,7 +243,9 @@ async function fetchLikeState(
   context: ApiContext,
   clipId: string
 ): Promise<{ liked: boolean }> {
-  const res = await context.request(clipPath(clipId, "/like"))
+  const res = await context.rpc.api.clips[":id"].like.$get({
+    param: { id: clipId },
+  })
   const response = validateBooleanFlag(
     await readJsonOrThrow<unknown>(res),
     "liked"
@@ -258,9 +258,13 @@ async function setClipLike(
   clipId: string,
   liked: boolean
 ): Promise<ClipLikeState> {
-  const res = await context.request(clipPath(clipId, "/like"), {
-    method: liked ? "POST" : "DELETE",
-  })
+  const res = liked
+    ? await context.rpc.api.clips[":id"].like.$post({
+        param: { id: clipId },
+      })
+    : await context.rpc.api.clips[":id"].like.$delete({
+        param: { id: clipId },
+      })
   return readJsonOrThrow(res, validateClipLikeState)
 }
 
@@ -269,7 +273,9 @@ async function recordClipView(
   clipId: string
 ): Promise<void> {
   try {
-    await context.request(clipPath(clipId, "/view"), { method: "POST" })
+    await context.rpc.api.clips[":id"].view.$post({
+      param: { id: clipId },
+    })
   } catch {
     // View tracking is best-effort.
   }

@@ -26,12 +26,12 @@ export function createFeedApi(context: ApiContext) {
       if (params.limit !== undefined) query.limit = String(params.limit)
       if (params.cursor) query.cursor = params.cursor
 
-      const res = await context.request("/api/feed", { query })
+      const res = await context.rpc.api.feed.$get({ query })
       return readJsonOrThrow(res, validateFeedPage)
     },
 
     async fetchChips(): Promise<FeedChipsResponse> {
-      const res = await context.request("/api/feed/chips")
+      const res = await context.rpc.api.feed.chips.$get({ query: {} })
       return readJsonOrThrow(res, (value) =>
         validateObject<FeedChipsResponse>(value, "feed chips")
       )

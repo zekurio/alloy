@@ -4,6 +4,12 @@
     ".": "./src/index.ts",
     "./auth": "./src/auth.ts"
   },
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable", "DOM.AsyncIterable", "deno.ns"],
+    "strict": true
+  },
   "tasks": {
     "lint": "deno run -A npm:oxlint@^1.61.0 .",
     "fmt": "deno run -A npm:oxfmt@^0.46.0 --write .",

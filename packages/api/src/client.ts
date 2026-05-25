@@ -1,3 +1,7 @@
+import { hc } from "hono/client"
+import type { ClientRequestOptions } from "hono/client"
+import type { AppType } from "@workspace/server/app"
+
 export interface CreateApiOptions {
   baseURL: string
   publicURL?: string
@@ -15,10 +19,13 @@ export interface ApiClient {
   request(path: string, options?: ApiRequestOptions): Promise<Response>
 }
 
+export type RpcClient = ReturnType<typeof hc<AppType>>
+
 export interface ApiContext {
   baseURL: string
   publicURL: string
   client: ApiClient
+  rpc: RpcClient
   request(path: string, options?: ApiRequestOptions): Promise<Response>
 }
 
@@ -70,12 +77,23 @@ export function createApiClient(
   }
 }
 
+function createRpcClient(baseURL: string, init: RequestInit = {}): RpcClient {
+  const options: ClientRequestOptions = {
+    init: {
+      ...init,
+      credentials: init.credentials ?? "include",
+    },
+  }
+  return hc<AppType>(baseURL, options)
+}
+
 export function createApiContext(options: CreateApiOptions): ApiContext {
   const client = createApiClient(options.baseURL, options.init)
   return {
     baseURL: options.baseURL,
     publicURL: options.publicURL ?? options.baseURL,
     client,
+    rpc: createRpcClient(options.baseURL, options.init),
     request: client.request,
   }
 }

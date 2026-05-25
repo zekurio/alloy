@@ -25,14 +25,10 @@ export type {
   SteamGridDBStatus,
 } from "@workspace/contracts"
 
-function gamePath(slug: string, suffix = "") {
-  return `/api/games/${encodeURIComponent(slug)}${suffix}`
-}
-
 async function fetchSteamGridDBStatus(
   context: ApiContext
 ): Promise<SteamGridDBStatus> {
-  const res = await context.request("/api/games/status")
+  const res = await context.rpc.api.games.status.$get()
   return readJsonOrThrow(res, (value) =>
     validateObject<SteamGridDBStatus>(value, "SteamGridDB status")
   )
@@ -42,7 +38,7 @@ async function searchGames(
   context: ApiContext,
   query: string
 ): Promise<SteamGridDBSearchResult[]> {
-  const res = await context.request("/api/games/search", {
+  const res = await context.rpc.api.games.search.$get({
     query: { q: query },
   })
   return readJsonOrThrow(res, (value) =>
@@ -54,8 +50,7 @@ async function resolveGame(
   context: ApiContext,
   steamgriddbId: number
 ): Promise<GameRow> {
-  const res = await context.request("/api/games/resolve", {
-    method: "POST",
+  const res = await context.rpc.api.games.resolve.$post({
     json: { steamgriddbId },
   })
   return readJsonOrThrow(res, (value) => validateObject<GameRow>(value, "game"))
@@ -65,7 +60,7 @@ async function fetchAllGames(
   context: ApiContext,
   params: { limit?: number; offset?: number } = {}
 ): Promise<GameListRow[]> {
-  const res = await context.request("/api/games", {
+  const res = await context.rpc.api.games.$get({
     query: {
       ...(params.limit !== undefined ? { limit: String(params.limit) } : {}),
       ...(params.offset !== undefined ? { offset: String(params.offset) } : {}),
@@ -80,7 +75,9 @@ async function fetchGameBySlug(
   context: ApiContext,
   slug: string
 ): Promise<GameDetail> {
-  const res = await context.request(gamePath(slug))
+  const res = await context.rpc.api.games[":slug"].$get({
+    param: { slug },
+  })
   return readJsonOrThrow(res, (value) =>
     validateObject<GameDetail>(value, "game detail")
   )
@@ -91,9 +88,9 @@ async function setGameFollow(
   slug: string,
   following: boolean
 ): Promise<{ following: boolean }> {
-  const res = await context.request(gamePath(slug, "/follow"), {
-    method: following ? "POST" : "DELETE",
-  })
+  const res = following
+    ? await context.rpc.api.games[":slug"].follow.$post({ param: { slug } })
+    : await context.rpc.api.games[":slug"].follow.$delete({ param: { slug } })
   const response = validateBooleanFlag(
     await readJsonOrThrow<unknown>(res),
     "following",
@@ -111,7 +108,10 @@ async function fetchGameClips(
   if (params.sort) query.sort = params.sort
   if (params.limit !== undefined) query.limit = String(params.limit)
   if (params.cursor) query.cursor = params.cursor
-  const res = await context.request(gamePath(slug, "/clips"), { query })
+  const res = await context.rpc.api.games[":slug"].clips.$get({
+    param: { slug },
+    query,
+  })
   return readJsonOrThrow(res, validateClipRows)
 }
 
@@ -120,7 +120,8 @@ async function fetchGameTopClips(
   slug: string,
   limit = 5
 ): Promise<ClipRow[]> {
-  const res = await context.request(gamePath(slug, "/top-clips"), {
+  const res = await context.rpc.api.games[":slug"]["top-clips"].$get({
+    param: { slug },
     query: { limit: String(limit) },
   })
   return readJsonOrThrow(res, validateClipRows)
