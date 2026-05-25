@@ -13,7 +13,7 @@ export type {
 export function createAuthConfigApi(context: ApiContext) {
   return {
     async fetch(): Promise<PublicAuthConfig> {
-      const res = await context.request("/api/auth-config")
+      const res = await context.rpc.api["auth-config"].$get()
       return readJsonOrThrow(res, (value) =>
         validateObject<PublicAuthConfig>(value, "auth config")
       )
