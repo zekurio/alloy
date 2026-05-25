@@ -44,6 +44,10 @@ function getUploadContentType(blob: Blob): AcceptedImageContentType {
   throw new Error("Unsupported image type")
 }
 
+function usernameParam(handle: string): { username: string } {
+  return { username: encodeURIComponent(handle) }
+}
+
 async function blobToBase64(blob: Blob): Promise<string> {
   const buf = await blob.arrayBuffer()
   const bytes = new Uint8Array(buf)
@@ -107,7 +111,7 @@ async function getProfile(
   handle: string
 ): Promise<UserProfile> {
   const res = await context.rpc.api.users[":username"].$get({
-    param: { username: handle },
+    param: usernameParam(handle),
   })
   return readJsonOrThrow(res, (value) =>
     validateObject<UserProfile>(value, "user profile")
@@ -120,7 +124,7 @@ async function getProfileViewer(
   init?: RequestInit
 ): Promise<UserProfileViewer> {
   const res = await context.rpc.api.users[":username"].viewer.$get(
-    { param: { username: handle } },
+    { param: usernameParam(handle) },
     { init }
   )
   return readJsonOrThrow(res, (value) =>
@@ -134,7 +138,7 @@ async function getClips(
   init?: RequestInit
 ): Promise<UserClip[]> {
   const res = await context.rpc.api.users[":username"].clips.$get(
-    { param: { username: handle } },
+    { param: usernameParam(handle) },
     { init }
   )
   return readJsonOrThrow(res, (value) =>
@@ -148,7 +152,7 @@ async function getProfileGames(
   params: { limit?: number; offset?: number } = {}
 ): Promise<ProfileGameRow[]> {
   const res = await context.rpc.api.users[":username"].games.$get({
-    param: { username: handle },
+    param: usernameParam(handle),
     query: {
       ...(params.limit !== undefined ? { limit: String(params.limit) } : {}),
       ...(params.offset !== undefined ? { offset: String(params.offset) } : {}),
@@ -223,13 +227,13 @@ async function getUserArray<T>(
     context.rpc.api.users[":username"][
       pathSegment as "tagged" | "liked" | "followers" | "following"
     ]
-  const res = await endpoint.$get({ param: { username: handle } })
+  const res = await endpoint.$get({ param: usernameParam(handle) })
   return readJsonOrThrow(res, (value) => validateObjectArray<T>(value, label))
 }
 
 async function followUser(context: ApiContext, handle: string): Promise<void> {
   const res = await context.rpc.api.users[":username"].follow.$post({
-    param: { username: handle },
+    param: usernameParam(handle),
   })
   validateBooleanFlag(await readJsonOrThrow<unknown>(res), "following", true)
 }
@@ -239,21 +243,21 @@ async function unfollowUser(
   handle: string
 ): Promise<void> {
   const res = await context.rpc.api.users[":username"].follow.$delete({
-    param: { username: handle },
+    param: usernameParam(handle),
   })
   validateBooleanFlag(await readJsonOrThrow<unknown>(res), "following", false)
 }
 
 async function blockUser(context: ApiContext, handle: string): Promise<void> {
   const res = await context.rpc.api.users[":username"].block.$post({
-    param: { username: handle },
+    param: usernameParam(handle),
   })
   validateBooleanFlag(await readJsonOrThrow<unknown>(res), "blocked", true)
 }
 
 async function unblockUser(context: ApiContext, handle: string): Promise<void> {
   const res = await context.rpc.api.users[":username"].block.$delete({
-    param: { username: handle },
+    param: usernameParam(handle),
   })
   validateBooleanFlag(await readJsonOrThrow<unknown>(res), "blocked", false)
 }
