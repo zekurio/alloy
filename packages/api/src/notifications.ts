@@ -22,26 +22,23 @@ export type {
 export function createNotificationsApi(context: ApiContext) {
   return {
     async fetch(limit = 20): Promise<NotificationsResponse> {
-      const res = await context.request("/api/notifications", {
+      const res = await context.rpc.api.notifications.$get({
         query: { limit: String(limit) },
       })
       return readJsonOrThrow(res, validateNotificationsResponse)
     },
 
     async markRead(id: string): Promise<NotificationRow> {
-      const res = await context.request(
-        `/api/notifications/${encodeURIComponent(id)}/read`,
-        { method: "PATCH" }
-      )
+      const res = await context.rpc.api.notifications[":id"].read.$patch({
+        param: { id },
+      })
       return readJsonOrThrow(res, (value) =>
         validateObject<NotificationRow>(value, "notification")
       )
     },
 
     async markAllRead(): Promise<{ readAt: string; unreadCount: number }> {
-      const res = await context.request("/api/notifications/read-all", {
-        method: "PATCH",
-      })
+      const res = await context.rpc.api.notifications["read-all"].$patch()
       return readJsonOrThrow(res, (value) =>
         validateObject<{ readAt: string; unreadCount: number }>(
           value,
@@ -51,10 +48,9 @@ export function createNotificationsApi(context: ApiContext) {
     },
 
     async delete(id: string): Promise<{ deleted: true; unreadCount: number }> {
-      const res = await context.request(
-        `/api/notifications/${encodeURIComponent(id)}`,
-        { method: "DELETE" }
-      )
+      const res = await context.rpc.api.notifications[":id"].$delete({
+        param: { id },
+      })
       const response = await readJsonOrThrow<unknown>(res)
       validateBooleanFlag(response, "deleted", true)
       return validateObject<{ deleted: true; unreadCount: number }>(
@@ -64,9 +60,7 @@ export function createNotificationsApi(context: ApiContext) {
     },
 
     async clear(): Promise<{ deleted: true; unreadCount: number }> {
-      const res = await context.request("/api/notifications", {
-        method: "DELETE",
-      })
+      const res = await context.rpc.api.notifications.$delete()
       const response = await readJsonOrThrow<unknown>(res)
       validateBooleanFlag(response, "deleted", true)
       return validateObject<{ deleted: true; unreadCount: number }>(

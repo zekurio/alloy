@@ -79,28 +79,24 @@ async function uploadUserImage(
     data,
     contentType,
   }
-  const res = await context.request(`/api/users/me/${kind}/upload`, {
-    method: "POST",
-    json,
-  })
+  const res =
+    kind === "avatar"
+      ? await context.rpc.api.users.me.avatar.upload.$post({ json })
+      : await context.rpc.api.users.me.banner.upload.$post({ json })
   return readJsonOrThrow(res, (value) =>
     validateObject<PublicUser>(value, "user")
   )
 }
 
 async function deleteAvatar(context: ApiContext): Promise<PublicUser> {
-  const res = await context.request("/api/users/me/avatar", {
-    method: "DELETE",
-  })
+  const res = await context.rpc.api.users.me.avatar.$delete()
   return readJsonOrThrow(res, (value) =>
     validateObject<PublicUser>(value, "user")
   )
 }
 
 async function deleteBanner(context: ApiContext): Promise<PublicUser> {
-  const res = await context.request("/api/users/me/banner", {
-    method: "DELETE",
-  })
+  const res = await context.rpc.api.users.me.banner.$delete()
   return readJsonOrThrow(res, (value) =>
     validateObject<PublicUser>(value, "user")
   )
@@ -110,7 +106,9 @@ async function getProfile(
   context: ApiContext,
   handle: string
 ): Promise<UserProfile> {
-  const res = await context.request(`/api/users/${encodeURIComponent(handle)}`)
+  const res = await context.rpc.api.users[":username"].$get({
+    param: { username: handle },
+  })
   return readJsonOrThrow(res, (value) =>
     validateObject<UserProfile>(value, "user profile")
   )
@@ -121,8 +119,8 @@ async function getProfileViewer(
   handle: string,
   init?: RequestInit
 ): Promise<UserProfileViewer> {
-  const res = await context.request(
-    `/api/users/${encodeURIComponent(handle)}/viewer`,
+  const res = await context.rpc.api.users[":username"].viewer.$get(
+    { param: { username: handle } },
     { init }
   )
   return readJsonOrThrow(res, (value) =>
@@ -135,8 +133,8 @@ async function getClips(
   handle: string,
   init?: RequestInit
 ): Promise<UserClip[]> {
-  const res = await context.request(
-    `/api/users/${encodeURIComponent(handle)}/clips`,
+  const res = await context.rpc.api.users[":username"].clips.$get(
+    { param: { username: handle } },
     { init }
   )
   return readJsonOrThrow(res, (value) =>
@@ -149,17 +147,13 @@ async function getProfileGames(
   handle: string,
   params: { limit?: number; offset?: number } = {}
 ): Promise<ProfileGameRow[]> {
-  const res = await context.request(
-    `/api/users/${encodeURIComponent(handle)}/games`,
-    {
-      query: {
-        ...(params.limit !== undefined ? { limit: String(params.limit) } : {}),
-        ...(params.offset !== undefined
-          ? { offset: String(params.offset) }
-          : {}),
-      },
-    }
-  )
+  const res = await context.rpc.api.users[":username"].games.$get({
+    param: { username: handle },
+    query: {
+      ...(params.limit !== undefined ? { limit: String(params.limit) } : {}),
+      ...(params.offset !== undefined ? { offset: String(params.offset) } : {}),
+    },
+  })
   return readJsonOrThrow(res, (value) =>
     validateObjectArray<ProfileGameRow>(value, "profile games")
   )
@@ -184,7 +178,7 @@ async function searchUsers(
   q: string,
   limit = 8
 ): Promise<UserSearchResult[]> {
-  const res = await context.request("/api/users/search", {
+  const res = await context.rpc.api.users.search.$get({
     query: { q, limit: String(limit) },
   })
   return readJsonOrThrow(res, (value) =>
@@ -225,17 +219,18 @@ async function getUserArray<T>(
   pathSegment: string,
   label: string
 ): Promise<T[]> {
-  const res = await context.request(
-    `/api/users/${encodeURIComponent(handle)}/${pathSegment}`
-  )
+  const endpoint =
+    context.rpc.api.users[":username"][
+      pathSegment as "tagged" | "liked" | "followers" | "following"
+    ]
+  const res = await endpoint.$get({ param: { username: handle } })
   return readJsonOrThrow(res, (value) => validateObjectArray<T>(value, label))
 }
 
 async function followUser(context: ApiContext, handle: string): Promise<void> {
-  const res = await context.request(
-    `/api/users/${encodeURIComponent(handle)}/follow`,
-    { method: "POST" }
-  )
+  const res = await context.rpc.api.users[":username"].follow.$post({
+    param: { username: handle },
+  })
   validateBooleanFlag(await readJsonOrThrow<unknown>(res), "following", true)
 }
 
@@ -243,47 +238,42 @@ async function unfollowUser(
   context: ApiContext,
   handle: string
 ): Promise<void> {
-  const res = await context.request(
-    `/api/users/${encodeURIComponent(handle)}/follow`,
-    { method: "DELETE" }
-  )
+  const res = await context.rpc.api.users[":username"].follow.$delete({
+    param: { username: handle },
+  })
   validateBooleanFlag(await readJsonOrThrow<unknown>(res), "following", false)
 }
 
 async function blockUser(context: ApiContext, handle: string): Promise<void> {
-  const res = await context.request(
-    `/api/users/${encodeURIComponent(handle)}/block`,
-    { method: "POST" }
-  )
+  const res = await context.rpc.api.users[":username"].block.$post({
+    param: { username: handle },
+  })
   validateBooleanFlag(await readJsonOrThrow<unknown>(res), "blocked", true)
 }
 
 async function unblockUser(context: ApiContext, handle: string): Promise<void> {
-  const res = await context.request(
-    `/api/users/${encodeURIComponent(handle)}/block`,
-    { method: "DELETE" }
-  )
+  const res = await context.rpc.api.users[":username"].block.$delete({
+    param: { username: handle },
+  })
   validateBooleanFlag(await readJsonOrThrow<unknown>(res), "blocked", false)
 }
 
 async function requestOAuthProfileSync(context: ApiContext): Promise<void> {
-  const res = await context.request("/api/users/me/sync-oauth-profile", {
-    method: "POST",
-  })
+  const res = await context.rpc.api.users.me["sync-oauth-profile"].$post()
   validateBooleanFlag(await readJsonOrThrow<unknown>(res), "synced")
 }
 
 async function getAccountState(
   context: ApiContext
 ): Promise<{ disabledAt: string | null }> {
-  const res = await context.request("/api/users/me/account")
+  const res = await context.rpc.api.users.me.account.$get()
   return readJsonOrThrow(res, (value) =>
     validateObject<{ disabledAt: string | null }>(value, "account state")
   )
 }
 
 async function getStorageUsage(context: ApiContext): Promise<UserStorageUsage> {
-  const res = await context.request("/api/users/me/storage")
+  const res = await context.rpc.api.users.me.storage.$get()
   return readJsonOrThrow(res, (value) =>
     validateObject<UserStorageUsage>(value, "storage usage")
   )
@@ -292,9 +282,7 @@ async function getStorageUsage(context: ApiContext): Promise<UserStorageUsage> {
 async function disableAccount(
   context: ApiContext
 ): Promise<{ disabledAt: string }> {
-  const res = await context.request("/api/users/me/disable", {
-    method: "POST",
-  })
+  const res = await context.rpc.api.users.me.disable.$post()
   return readJsonOrThrow(res, (value) =>
     validateObject<{ disabledAt: string }>(value, "disable account")
   )
@@ -303,9 +291,7 @@ async function disableAccount(
 async function reactivateAccount(
   context: ApiContext
 ): Promise<{ disabledAt: null }> {
-  const res = await context.request("/api/users/me/reactivate", {
-    method: "POST",
-  })
+  const res = await context.rpc.api.users.me.reactivate.$post()
   return readJsonOrThrow(res, (value) =>
     validateObject<{ disabledAt: null }>(value, "reactivate account")
   )
@@ -318,9 +304,7 @@ function downloadAllClipsUrl(context: ApiContext): string {
 async function deleteAllClips(
   context: ApiContext
 ): Promise<{ deleted: number; hasMore: boolean }> {
-  const res = await context.request("/api/users/me/clips", {
-    method: "DELETE",
-  })
+  const res = await context.rpc.api.users.me.clips.$delete({ query: {} })
   return readJsonOrThrow(res, (value) =>
     validateObject<{ deleted: number; hasMore: boolean }>(value, "delete clips")
   )
