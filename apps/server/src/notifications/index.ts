@@ -71,7 +71,6 @@ function serialize(row: {
   actorName: string | null
   actorImage: string | null
   clipId: string | null
-  clipSlug: string | null
   clipTitle: string | null
   clipThumbKey: string | null
   gameSlug: string | null
@@ -83,10 +82,9 @@ function serialize(row: {
     type: row.type,
     actor: actorShape(row),
     clip:
-      row.clipId && row.clipSlug && row.clipTitle
+      row.clipId && row.clipTitle && row.gameSlug
         ? {
             id: row.clipId,
-            slug: row.clipSlug,
             title: row.clipTitle,
             gameSlug: row.gameSlug,
             hasThumb: row.clipThumbKey !== null,
@@ -113,7 +111,6 @@ function selectNotificationFields() {
     actorName: user.name,
     actorImage: user.image,
     clipId: clip.id,
-    clipSlug: clip.slug,
     clipTitle: clip.title,
     clipThumbKey: clip.thumbKey,
     gameSlug: game.slug,

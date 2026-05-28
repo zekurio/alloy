@@ -75,9 +75,6 @@ export function validateInitiateClipResponse(
   if (typeof response.clipId !== "string") {
     throw new Error("Invalid initiate clip response: clipId must be a string")
   }
-  if (typeof response.slug !== "string") {
-    throw new Error("Invalid initiate clip response: slug must be a string")
-  }
   objectRecord(response.ticket, "upload ticket")
   return value as InitiateClipResponse
 }

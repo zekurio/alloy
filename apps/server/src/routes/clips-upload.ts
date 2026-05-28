@@ -1,7 +1,6 @@
 import { zValidator } from "@hono/zod-validator"
 import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
-import { nanoid } from "nanoid"
 
 import { clip, clipMention, clipUploadTicket, game } from "@workspace/db/schema"
 
@@ -56,7 +55,6 @@ export const clipsUploadRoutes = new Hono()
       const body = c.req.valid("json")
 
       const clipId = crypto.randomUUID()
-      const slug = nanoid(10)
       const uploadKey = clipScratchUploadKey(clipId, body.contentType)
       const privacy = body.privacy === "private" ? "private" : body.privacy
 
@@ -87,7 +85,6 @@ export const clipsUploadRoutes = new Hono()
 
           await tx.insert(clip).values({
             id: clipId,
-            slug,
             authorId: viewerId,
             title: body.title,
             description: body.description ?? null,
@@ -145,7 +142,7 @@ export const clipsUploadRoutes = new Hono()
           userId: viewerId,
           clipId,
         })
-        return c.json({ clipId, slug, ticket })
+        return c.json({ clipId, ticket })
       } catch (err) {
         await db
           .delete(clip)

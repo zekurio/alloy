@@ -42,7 +42,6 @@ export type ClipMentionRef = UserSummary
 
 export interface ClipRow {
   id: string
-  slug: string
   authorId: string
   title: string
   description: string | null
@@ -101,7 +100,6 @@ export interface InitiateClipInput {
 
 export interface InitiateClipResponse {
   clipId: string
-  slug: string
   ticket: UploadTicket
 }
 
@@ -135,9 +133,8 @@ export type QueueEvent =
 
 export interface NotificationClipRef {
   id: string
-  slug: string
   title: string
-  gameSlug: string | null
+  gameSlug: string
   /** True when the clip has a generated thumbnail available for preview. */
   hasThumb: boolean
 }

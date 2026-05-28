@@ -44,7 +44,6 @@ export function hueForGame(game: string | null | undefined): number {
 
 export interface ClipCardData {
   clipId: string
-  slug: string
   title: string
   game: string
   gameSlug: string | null
@@ -86,7 +85,6 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
   const game = clipGameLabel(row)
   return {
     clipId: row.id,
-    slug: row.slug,
     title: row.title,
     game,
     gameSlug: row.gameRef?.slug ?? null,

@@ -66,7 +66,6 @@ export const clip = pgTable(
   "clip",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    slug: text("slug").notNull().unique(),
 
     authorId: uuid("author_id")
       .notNull()
