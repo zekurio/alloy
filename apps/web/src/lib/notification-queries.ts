@@ -306,12 +306,10 @@ export function notificationHref(row: NotificationRow): string | null {
     return `/u/${encodeURIComponent(row.actor.username)}`
   }
   if (row.type === "new_video" && row.clip) {
-    const slug = row.clip.gameSlug ?? row.clip.slug
-    return `/g/${slug}/c/${row.clip.id}`
+    return `/g/${row.clip.gameSlug}/c/${row.clip.id}`
   }
   if (!row.clip) return null
-  const slug = row.clip.gameSlug ?? row.clip.slug
-  const clipHref = `/g/${slug}/c/${row.clip.id}`
+  const clipHref = `/g/${row.clip.gameSlug}/c/${row.clip.id}`
   return row.comment
     ? `${clipHref}?comment=${encodeURIComponent(row.comment.id)}`
     : clipHref
