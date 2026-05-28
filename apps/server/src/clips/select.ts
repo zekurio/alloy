@@ -8,7 +8,6 @@ import { db } from "../db"
 
 export const clipSelectShape = {
   id: clip.id,
-  slug: clip.slug,
   authorId: clip.authorId,
   title: clip.title,
   description: clip.description,
