@@ -83,19 +83,8 @@ jobs:
         with:
           deno-version: v2.7.14
 
-      - name: Install dependencies
-        run: deno install --frozen
-
-      - name: Run lint
-        run: deno task lint:github
-
-      - name: Run typecheck
-        run: deno task typecheck
-
-      - name: Run app build
-        env:
-          NODE_ENV: production
-        run: deno task build
+      - name: Set up Nix
+        uses: cachix/install-nix-action@v31
 
       - name: Update Deno version
         if: github.event_name == 'workflow_dispatch'
@@ -104,6 +93,7 @@ jobs:
         env:
           RELEASE_VERSION: ${{ steps.meta.outputs.version }}
         run: |
+          # shellcheck disable=SC2016
           deno eval '
           import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 
@@ -125,13 +115,25 @@ jobs:
           setOutput("changed", "true");
           '
 
+      - name: Validate Deno version matches release
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          actual="$(deno eval 'import { readFileSync } from "node:fs"; console.log(JSON.parse(readFileSync("deno.json", "utf8")).version);')"
+
+          if [[ "$actual" != "$RELEASE_VERSION" ]]; then
+            echo "deno.json version $actual does not match release $RELEASE_VERSION." >&2
+            exit 1
+          fi
+
       - name: Configure git author
         if: github.event_name == 'workflow_dispatch'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Commit release version and create tag
+      - name: Commit release version
         if: github.event_name == 'workflow_dispatch'
         id: git_release
         shell: bash
@@ -143,9 +145,35 @@ jobs:
             git add deno.json
             git commit -m "chore(release): prepare $RELEASE_TAG"
           else
-            echo "deno.json already matches $RELEASE_VERSION; tagging current main commit."
+            echo "deno.json already matches $RELEASE_VERSION; validating current main commit."
           fi
 
+      - name: Install dependencies
+        run: deno install --frozen
+
+      - name: Run lint
+        run: deno task lint:github
+
+      - name: Run typecheck
+        run: deno task typecheck
+
+      - name: Run app build
+        env:
+          NODE_ENV: production
+        run: deno task build
+
+      - name: Evaluate Nix flake
+        run: nix --extra-experimental-features "nix-command flakes" flake check --no-build
+
+      - name: Build Nix package
+        run: nix --extra-experimental-features "nix-command flakes" build .#alloy --no-link
+
+      - name: Create release tag
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
+        run: |
           git tag -a "$RELEASE_TAG" -m "Release $RELEASE_TAG"
 
       - name: Resolve release target
