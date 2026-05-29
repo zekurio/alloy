@@ -213,7 +213,7 @@ jobs:
 
       - name: Publish GitHub release
         if: steps.previous_tag.outputs.tag != ''
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
           target_commitish: ${{ steps.release_target.outputs.sha }}
@@ -225,7 +225,7 @@ jobs:
 
       - name: Publish first GitHub release
         if: steps.previous_tag.outputs.tag == ''
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
           target_commitish: ${{ steps.release_target.outputs.sha }}
