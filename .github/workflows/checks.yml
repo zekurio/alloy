@@ -1,13 +1,14 @@
 name: Lint, Check and Build
 
 on:
+  pull_request:
   push:
 
 permissions:
   contents: read
 
 concurrency:
-  group: push-checks-${{ github.ref }}
+  group: checks-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -36,3 +37,19 @@ jobs:
         env:
           NODE_ENV: production
         run: deno task build
+
+  nix-package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Evaluate Nix flake
+        run: nix --extra-experimental-features "nix-command flakes" flake check --no-build
+
+      - name: Build Nix package
+        run: nix --extra-experimental-features "nix-command flakes" build .#alloy --no-link

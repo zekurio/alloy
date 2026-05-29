@@ -35,6 +35,7 @@ jobs:
         id: meta
         shell: bash
         run: |
+          # shellcheck disable=SC2016
           version="$(deno eval '
           import { readFileSync } from "node:fs";
 
