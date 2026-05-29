@@ -23,7 +23,7 @@
         || name == "node_modules"
       );
   },
-  denoDepsHash ? "sha256-wA9UKnIjDsr1VV/PZviFXCop0FnI/eWYClr8WSET/pA=",
+  denoDepsHash ? "sha256-YzrYdzTy0hPwILtOfpNMjnAwgwneQqAKhXI7dJJ6RSc=",
 }:
 
 let
