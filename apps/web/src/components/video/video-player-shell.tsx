@@ -27,10 +27,12 @@ export {
 export const videoChromeIconClass =
   "size-[52px] rounded-full text-foreground shadow-none hover:bg-transparent hover:text-foreground hover:shadow-none focus-visible:ring-ring"
 
+// A soft dark drop-shadow keeps the white glyphs legible over bright video
+// frames (e.g. a sunlit scene) where an accent-colored glow would just blend
+// in. Two stacked shadows act as a gentle outline on every edge.
 const videoChromeGlyphClass =
-  "size-[18px] stroke-[1.8] drop-shadow-[0_0_6px_color-mix(in_oklab,var(--accent)_75%,transparent)]"
-const compactVideoChromeGlyphClass =
-  "size-[18px] stroke-[1.8] drop-shadow-[0_0_6px_color-mix(in_oklab,var(--accent)_75%,transparent)]"
+  "size-[18px] stroke-[2] [filter:drop-shadow(0_0_1px_rgba(0,0,0,0.4))_drop-shadow(0_1px_2px_rgba(0,0,0,0.3))]"
+const compactVideoChromeGlyphClass = videoChromeGlyphClass
 
 /* ─── Types ────────────────────────────────────────────────────────── */
 
@@ -123,16 +125,17 @@ export function ChromeShell({
   children: React.ReactNode
 }) {
   const [isFullscreen, setIsFullscreen] = React.useState(false)
-  const isFillParent = maxDisplayHeight === "100%"
-  const mediaSizingStyle = React.useMemo(() => {
+  const mediaSizingStyle = React.useMemo<
+    React.CSSProperties | undefined
+  >(() => {
     if (isFullscreen) return undefined
-    if (isFillParent) {
-      // Outer shell carries the aspect-ratio in fill mode; inner just grows
-      // to fill the remaining space above the chrome bar.
-      return { flex: "1 1 0", minHeight: 0 }
-    }
-    return videoPlayerSizingStyle(aspectRatio, maxDisplayHeight)
-  }, [aspectRatio, isFillParent, isFullscreen, maxDisplayHeight])
+    // The shell owns the aspect-ratio so there is a single rounded box defining
+    // the video area; the media frame simply fills it. Re-deriving the media
+    // height from its own `aspect-ratio` would create a second, independently
+    // rounded box that can disagree with the shell by a sub-pixel and leave a
+    // thin gap between the video and the bottom chrome shadow.
+    return { flex: "1 1 0", minHeight: 0 }
+  }, [isFullscreen])
   const rootSizingStyle = React.useMemo(
     () => mediaShellSizingStyle(aspectRatio, maxDisplayHeight, isFullscreen),
     [aspectRatio, isFullscreen, maxDisplayHeight]
@@ -180,6 +183,7 @@ export function ChromeShell({
         "group/video relative isolate flex w-full flex-col overflow-hidden select-none",
         barBelow ? "bg-transparent" : "bg-[oklch(12%_0.01_250)]",
         isFullscreen && "h-dvh w-dvw",
+        !aspectRatio && !isFullscreen && "aspect-video",
         maxDisplayHeight && !isFullscreen && "mx-auto",
         "focus:outline-none",
         className
@@ -189,7 +193,7 @@ export function ChromeShell({
         data-slot="video-player-media"
         className={cn(
           "relative min-h-0 w-full overflow-hidden bg-[oklch(12%_0.01_250)]",
-          isFullscreen ? "flex-1" : !aspectRatio && "aspect-video"
+          isFullscreen && "flex-1"
         )}
         style={mediaSizingStyle}
       >
@@ -240,24 +244,35 @@ function mediaShellSizingStyle(
   maxDisplayHeight: string | undefined,
   isFullscreen: boolean
 ): React.CSSProperties | undefined {
-  if (isFullscreen || !maxDisplayHeight) return undefined
+  if (isFullscreen) return undefined
+  if (!aspectRatio && !maxDisplayHeight) return undefined
+
+  const style: React.CSSProperties = {}
+  if (aspectRatio) style.aspectRatio = String(aspectRatio)
+
   if (maxDisplayHeight === "100%") {
-    if (!aspectRatio) {
-      return { height: "100%", maxHeight: "100%", maxWidth: "100%" }
+    style.height = "100%"
+    style.maxHeight = "100%"
+    style.maxWidth = "100%"
+    if (aspectRatio) {
+      style.width = "auto"
+      style.marginInline = "auto"
     }
-    return {
-      aspectRatio: String(aspectRatio),
-      height: "100%",
-      width: "auto",
-      maxHeight: "100%",
-      maxWidth: "100%",
-      marginInline: "auto",
+    return style
+  }
+
+  if (maxDisplayHeight) {
+    style.maxHeight = maxDisplayHeight
+    if (aspectRatio) {
+      style.width = `min(100%, calc(${maxDisplayHeight} * ${aspectRatio}))`
     }
+    return style
   }
-  if (!aspectRatio) return undefined
-  return {
-    width: `min(100%, calc(${maxDisplayHeight} * ${aspectRatio}))`,
-  }
+
+  // Aspect-ratio only: the shell derives its height from its own width, unless
+  // the parent supplies an explicit height (e.g. the clip modal's `h-full`),
+  // which then wins and the ratio is satisfied by the box it's placed in.
+  return style
 }
 
 /* ─── Chrome bar ───────────────────────────────────────────────────── */
@@ -355,8 +370,7 @@ export function ChromeBar({
         data-pinned={settingsOpen ? "true" : undefined}
         className={cn(
           "pointer-events-none absolute inset-x-0 bottom-0 isolate z-20 flex items-center gap-1 px-1 pt-2 pb-[env(safe-area-inset-bottom)] transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-          "after:pointer-events-none after:absolute after:inset-x-0 after:bottom-[-1px] after:h-[2px] after:bg-[oklch(12%_0.01_250)]/70",
-          "bg-gradient-to-t from-black/70 via-black/30 to-transparent",
+          "bg-gradient-to-t from-black via-black/30 to-transparent pt-10",
           visible ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0",
           chromeInteractive && "pointer-events-auto",
           "data-[pinned=true]:translate-y-0 data-[pinned=true]:opacity-100",

@@ -1,4 +1,5 @@
 import * as React from "react"
+import { Link } from "@tanstack/react-router"
 import { AwardIcon } from "lucide-react"
 
 import { CarouselItem } from "@workspace/ui/components/carousel"
@@ -7,18 +8,15 @@ import {
   SectionHead,
   SectionTitle,
 } from "@workspace/ui/components/section-head"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
 
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { ClipCardTrigger } from "@/components/clip/clip-card-trigger"
 import { ClipGrid } from "@/components/clip/clip-grid"
+import {
+  SortDropdown,
+  type SortDropdownOption,
+} from "@/components/clip/sort-dropdown"
 import { TopClipsCarousel } from "@/components/clip/top-clips-carousel"
 import {
   ClipListProvider,
@@ -31,6 +29,7 @@ import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 type TopClipsSectionProps = {
   viewerId: string | undefined
+  window: ClipFeedWindow
   hashtag?: string
 }
 
@@ -42,7 +41,7 @@ type TopClipsBodyProps = {
   hashtag?: string
 }
 
-const TOP_WINDOWS: ReadonlyArray<{ key: ClipFeedWindow; label: string }> = [
+const TOP_WINDOWS: ReadonlyArray<SortDropdownOption<ClipFeedWindow>> = [
   { key: "today", label: "Today" },
   { key: "week", label: "Week" },
   { key: "month", label: "Month" },
@@ -50,47 +49,11 @@ const TOP_WINDOWS: ReadonlyArray<{ key: ClipFeedWindow; label: string }> = [
   { key: "all", label: "All time" },
 ]
 
-function TopWindowPicker({
+export function TopClipsSection({
+  viewerId,
   window,
-  onChange,
-}: {
-  window: ClipFeedWindow
-  onChange: (next: ClipFeedWindow) => void
-}) {
-  const selectedLabel =
-    TOP_WINDOWS.find((item) => item.key === window)?.label ?? "Today"
-
-  return (
-    <SectionActions>
-      <Select
-        value={window}
-        onValueChange={(next) => {
-          if (typeof next === "string" && isClipFeedWindow(next)) {
-            onChange(next)
-          }
-        }}
-      >
-        <SelectTrigger
-          aria-label="Top clips time range"
-          size="sm"
-          className="min-w-32 rounded-full border-border/80 bg-surface-raised/80 px-3.5 shadow-sm"
-        >
-          <SelectValue>{selectedLabel}</SelectValue>
-        </SelectTrigger>
-        <SelectContent align="end" alignItemWithTrigger={false}>
-          {TOP_WINDOWS.map((item) => (
-            <SelectItem key={item.key} value={item.key}>
-              {item.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </SectionActions>
-  )
-}
-
-export function TopClipsSection({ viewerId, hashtag }: TopClipsSectionProps) {
-  const [window, setWindow] = React.useState<ClipFeedWindow>("today")
+  hashtag,
+}: TopClipsSectionProps) {
   const { data: rows, error } = useTopClipsQuery(window, { limit: 5, hashtag })
   useQueryErrorToast(error, {
     title: "Couldn't load top clips",
@@ -106,7 +69,24 @@ export function TopClipsSection({ viewerId, hashtag }: TopClipsSectionProps) {
             Top clips
           </SectionTitle>
         </div>
-        <TopWindowPicker window={window} onChange={setWindow} />
+        <SectionActions>
+          <SortDropdown
+            value={window}
+            options={TOP_WINDOWS}
+            contentClassName="w-40"
+            renderOptionLink={(opt, active) => (
+              <Link
+                to="/"
+                search={(prev) => ({
+                  ...prev,
+                  // "today" is the default — keep it out of the URL.
+                  window: opt.key === "today" ? undefined : opt.key,
+                })}
+                data-active={active ? "true" : undefined}
+              />
+            )}
+          />
+        </SectionActions>
       </SectionHead>
 
       <TopClipsBody
@@ -232,8 +212,4 @@ function emptyTopTitle(window: ClipFeedWindow): string {
     case "all":
       return "No top clips yet"
   }
-}
-
-function isClipFeedWindow(value: string): value is ClipFeedWindow {
-  return TOP_WINDOWS.some((item) => item.key === value)
 }
