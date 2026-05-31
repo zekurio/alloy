@@ -1,6 +1,6 @@
 import signal
+import shutil
 import subprocess
-import sys
 from ipaddress import ip_address
 from pathlib import Path
 
@@ -17,6 +17,13 @@ def _is_ipv6(host: str) -> bool:
 def main() -> int:
     log.info("Initializing Alloy machine learning")
 
+    gunicorn = shutil.which("gunicorn")
+    if gunicorn is None:
+        log.error(
+            "Unable to start Alloy machine learning: gunicorn was not found on PATH"
+        )
+        return 1
+
     module_dir = Path(__file__).parent
     bind_host = non_prefixed_settings.alloy_ml_host
     if _is_ipv6(bind_host):
@@ -27,9 +34,7 @@ def main() -> int:
     try:
         with subprocess.Popen(
             [
-                sys.executable,
-                "-m",
-                "gunicorn",
+                gunicorn,
                 "alloy_ml.main:app",
                 "-k",
                 "alloy_ml.config.CustomUvicornWorker",
