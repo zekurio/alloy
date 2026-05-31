@@ -154,10 +154,9 @@ export function VolumeControl({
           />
           <div
             aria-hidden
-            className={cn(
-              "absolute left-1/2 size-3 -translate-x-1/2 translate-y-1/2 rounded-full",
-              "border-2 border-white bg-accent shadow-[0_4px_16px_rgb(0_0_0_/_0.45),0_0_18px_color-mix(in_oklab,var(--accent)_65%,transparent)]"
-            )}
+            // Same primitive as the progress scrubber's knob: a plain
+            // 10px accent dot, centred on its position.
+            className="absolute left-1/2 size-[10px] -translate-x-1/2 translate-y-1/2 rounded-full bg-accent"
             style={{
               bottom: `calc(20px + ${effective} * (100% - 40px))`,
             }}

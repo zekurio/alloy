@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv } from "vite"
+import { defineConfig, loadEnv, type ProxyOptions } from "vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import viteReact from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
@@ -20,79 +20,55 @@ function serverUrl(mode: string): string {
   return normalizeServerUrl(env.VITE_SERVER_URL?.trim() || DEFAULT_SERVER_URL)
 }
 
+function apiProxy(mode: string): ProxyOptions {
+  const apiTarget = serverUrl(mode)
+
+  return {
+    target: apiTarget,
+    // Preserve the browser Origin for CSRF and WebAuthn expectedOrigin checks;
+    // changeOrigin only makes the upstream Host header match the API target.
+    changeOrigin: true,
+    configure(proxy) {
+      proxy.on("error", (err, _req, res) => {
+        // Vite otherwise turns backend connection failures into an opaque 502,
+        // which hides the actual dev-server dependency.
+        console.error(`[vite] API proxy failed for ${apiTarget}:`, err)
+
+        if ("writeHead" in res && !res.headersSent) {
+          res.writeHead(503, { "Content-Type": "application/json" })
+        }
+
+        res.end(
+          JSON.stringify({
+            error: "API server unavailable",
+            message: `Could not reach Alloy server at ${apiTarget}.`,
+          })
+        )
+      })
+    },
+  }
+}
+
 const config = defineConfig(({ mode }) => ({
   cacheDir: "../../node_modules/.vite/web",
+  clearScreen: false,
   publicDir: "../../public",
   resolve: {
+    // Keep workspace path aliases in tsconfig/deno.json; Vite resolves them
+    // natively during dev and build.
     tsconfigPaths: true,
-    alias: [
-      {
-        find: /^@workspace\/api$/,
-        replacement: fileURLToPath(
-          new URL("../../packages/api/src/index.ts", import.meta.url)
-        ),
-      },
-      {
-        find: /^@workspace\/api\/(.*)$/,
-        replacement: fileURLToPath(
-          new URL("../../packages/api/src/$1", import.meta.url)
-        ),
-      },
-      {
-        find: /^@workspace\/contracts$/,
-        replacement: fileURLToPath(
-          new URL("../../packages/contracts/src/index.ts", import.meta.url)
-        ),
-      },
-      {
-        find: /^@workspace\/contracts\/(.*)$/,
-        replacement: fileURLToPath(
-          new URL("../../packages/contracts/src/$1", import.meta.url)
-        ),
-      },
-      {
-        find: /^@workspace\/db$/,
-        replacement: fileURLToPath(
-          new URL("../../packages/db/src/index.ts", import.meta.url)
-        ),
-      },
-      {
-        find: /^@workspace\/db\/(.*)$/,
-        replacement: fileURLToPath(
-          new URL("../../packages/db/src/$1", import.meta.url)
-        ),
-      },
-      {
-        find: /^@workspace\/ui\/globals\.css$/,
-        replacement: fileURLToPath(
-          new URL("../../packages/ui/src/styles/globals.css", import.meta.url)
-        ),
-      },
-      {
-        find: /^@workspace\/ui\/(.*)$/,
-        replacement: fileURLToPath(
-          new URL("../../packages/ui/src/$1", import.meta.url)
-        ),
-      },
-    ],
   },
   server: {
     host: true,
     port: 5173,
     strictPort: true,
+    // Hono owns API CORS; Vite serves the app and proxies same-origin /api.
+    cors: false,
     fs: {
       allow: [workspaceRoot],
     },
     proxy: {
-      "/api": {
-        target: serverUrl(mode),
-        changeOrigin: true,
-        configure(proxy) {
-          proxy.on("proxyReq", (proxyReq) => {
-            proxyReq.setHeader("Origin", serverUrl(mode))
-          })
-        },
-      },
+      "/api": apiProxy(mode),
     },
   },
   preview: {
