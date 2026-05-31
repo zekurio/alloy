@@ -6,22 +6,9 @@
   makeWrapper,
   jellyfin-ffmpeg,
   version ? (builtins.fromJSON (builtins.readFile ../deno.json)).version,
-  source ? lib.cleanSourceWith {
-    src = ../.;
-    filter =
-      path: type:
-      let
-        name = baseNameOf path;
-      in
-      !(
-        name == ".direnv"
-        || name == ".git"
-        || name == ".pg"
-        || name == "build"
-        || name == "data"
-        || name == "dist"
-        || name == "node_modules"
-      );
+  source ? import ./source.nix {
+    inherit lib;
+    root = ../.;
   },
   denoDepsHash ? "sha256-YzrYdzTy0hPwILtOfpNMjnAwgwneQqAKhXI7dJJ6RSc=",
 }:

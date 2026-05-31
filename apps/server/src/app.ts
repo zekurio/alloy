@@ -13,6 +13,7 @@ import { clips } from "./routes/clips"
 import { eventsRoute } from "./routes/events"
 import { feedRoute } from "./routes/feed"
 import { gamesRoute } from "./routes/games"
+import { mlRoute } from "./routes/ml"
 import { notificationsRoute } from "./routes/notifications"
 import { searchRoute } from "./routes/search"
 import { setupRoute } from "./routes/setup"
@@ -100,6 +101,7 @@ const apiApp = new Hono()
   .route("/api/clips", clips)
   .route("/api/feed", feedRoute)
   .route("/api/games", gamesRoute)
+  .route("/api/ml", mlRoute)
   .route("/api/notifications", notificationsRoute)
   .route("/api/search", searchRoute)
   .route("/api/users", usersRoute)

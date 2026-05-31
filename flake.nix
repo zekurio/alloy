@@ -22,14 +22,17 @@
       let
         pkgs = import nixpkgs { inherit system; };
         alloy = pkgs.callPackage ./nix/package.nix { inherit version; };
+        alloy-machine-learning = pkgs.callPackage ./nix/machine-learning.nix { inherit version; };
         nativeLibs = with pkgs; [
           stdenv.cc.cc.lib
+          zlib
+          zstd
         ];
       in
       {
         packages = {
           default = alloy;
-          inherit alloy;
+          inherit alloy alloy-machine-learning;
         };
 
         checks.default = alloy;
@@ -37,6 +40,8 @@
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             deno
+            uv
+            python311
             postgresql_17
             util-linux
             jellyfin-ffmpeg

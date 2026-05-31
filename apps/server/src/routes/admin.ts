@@ -12,6 +12,7 @@ import {
   EncoderConfigPatchSchema,
   IntegrationsConfigPatchSchema,
   LimitsConfigPatchSchema,
+  MachineLearningConfigPatchSchema,
   StorageConfigPatchSchema,
   configStore,
   type RuntimeConfig,
@@ -218,6 +219,17 @@ export const adminRoute = new Hono()
             : patch.steamgriddbApiKey
       }
       configStore.set("integrations", next)
+      return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+    }
+  )
+
+  .patch(
+    "/machine-learning",
+    zValidator("json", MachineLearningConfigPatchSchema),
+    (c) => {
+      const patch = c.req.valid("json")
+      const next = { ...configStore.get("machineLearning"), ...patch }
+      configStore.set("machineLearning", next)
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     }
   )

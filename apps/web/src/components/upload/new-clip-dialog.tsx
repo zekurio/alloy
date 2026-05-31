@@ -28,8 +28,15 @@ import type { GameRow, UserSearchResult } from "@workspace/api"
 import { ClipPrivacyPicker } from "@/components/clip/clip-privacy-picker"
 import { LimitedInput, LimitedTextarea } from "@/components/form/limited-field"
 import { GameCombobox } from "@/components/game/game-combobox"
+import { GameSuggestion } from "@/components/game/game-suggestion"
 import { MentionPicker } from "@/components/search/mention-picker"
 import { VideoPlayer } from "@/components/video/video-player"
+import {
+  useGamePreviewByNameQuery,
+  useResolveGameMutation,
+} from "@/lib/game-queries"
+import { useMlConfigQuery } from "@/lib/ml-queries"
+import { useGameSuggestionQuery } from "./use-game-suggestion"
 import {
   ACCEPT_LIST,
   captureThumbnail,
@@ -296,6 +303,30 @@ function LoadedState({
   })
 
   const [capturing, setCapturing] = React.useState(false)
+
+  // Advisory ML game guess. Frames are captured once per staged file; include
+  // the browser File timestamp so Replace does not reuse a stale query entry.
+  const fileKey = `${file.name}:${file.sizeBytes}:${file.durationMs}:${file.file.lastModified}`
+  const mlConfigQuery = useMlConfigQuery()
+  const mlEnabled = mlConfigQuery.data?.enabled === true
+  const [suggestionDismissed, setSuggestionDismissed] = React.useState(false)
+  const suggestionQuery = useGameSuggestionQuery(
+    file.file,
+    fileKey,
+    mlConfigQuery.data,
+    { enabled: mlEnabled && !suggestionDismissed }
+  )
+  // Search the top prediction for preview art/name without upserting a game
+  // row. Accepting the suggestion resolves and commits the row explicitly.
+  const topLabel = suggestionQuery.data?.[0]?.label
+  const previewQuery = useGamePreviewByNameQuery(topLabel, {
+    enabled: mlEnabled && !suggestionDismissed,
+  })
+  const resolveGameMutation = useResolveGameMutation()
+  const suggestedGame = previewQuery.data
+  const suggestionAnalyzing =
+    suggestionQuery.isLoading || (Boolean(topLabel) && previewQuery.isLoading)
+
   return (
     <form
       className="contents"
@@ -327,6 +358,51 @@ function LoadedState({
             {(field) => {
               const invalid =
                 form.state.submissionAttempts > 0 && !field.state.meta.isValid
+
+              // Only surface a guess while the field is still empty and the
+              // user hasn't dismissed it. Accept commits the resolved game;
+              // decline clears the field and steps aside.
+              const showSuggestion =
+                mlEnabled && !suggestionDismissed && !field.state.value
+              let suggestionNode: React.ReactNode = null
+              if (showSuggestion && suggestionAnalyzing) {
+                suggestionNode = (
+                  <GameSuggestion
+                    status="analyzing"
+                    onAccept={() => {}}
+                    onDecline={() => setSuggestionDismissed(true)}
+                  />
+                )
+              } else if (showSuggestion && suggestedGame) {
+                suggestionNode = (
+                  <GameSuggestion
+                    status="ready"
+                    game={suggestedGame}
+                    accepting={resolveGameMutation.isPending}
+                    onAccept={() => {
+                      resolveGameMutation.mutate(
+                        { steamgriddbId: suggestedGame.id },
+                        {
+                          onSuccess: (game) => {
+                            field.handleChange(game)
+                            setSuggestionDismissed(true)
+                          },
+                          onError: (error) => {
+                            toast.error(
+                              error.message || "Could not use suggestion"
+                            )
+                          },
+                        }
+                      )
+                    }}
+                    onDecline={() => {
+                      field.handleChange(null)
+                      setSuggestionDismissed(true)
+                    }}
+                  />
+                )
+              }
+
               return (
                 <Field>
                   <FieldLabel htmlFor="clip-game" required>
@@ -340,6 +416,7 @@ function LoadedState({
                     placeholder="Search SteamGridDB…"
                     invalid={invalid}
                     required
+                    suggestion={suggestionNode}
                   />
                 </Field>
               )

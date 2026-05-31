@@ -4,7 +4,9 @@ import type {
   ClipRow,
   FeedPage,
   InitiateClipResponse,
+  MlGameSuggestionResponse,
   NotificationsResponse,
+  PublicMlConfig,
   QueueClip,
   SearchResults,
 } from "@workspace/contracts"
@@ -138,6 +140,57 @@ export function validateNotificationsResponse(
     )
   }
   return value as NotificationsResponse
+}
+
+export function validatePublicMlConfig(value: unknown): PublicMlConfig {
+  const config = objectRecord(value, "machine learning config")
+  if (typeof config.enabled !== "boolean") {
+    throw new Error("Invalid machine learning config: enabled must be boolean")
+  }
+  return value as PublicMlConfig
+}
+
+export function validateMlGameSuggestionResponse(
+  value: unknown
+): MlGameSuggestionResponse {
+  const response = objectRecord(value, "machine learning game suggestions")
+  if (response.kind !== "game-suggestion" || response.advisory !== true) {
+    throw new Error("Invalid machine learning response: unexpected kind")
+  }
+  if (typeof response.modelName !== "string" || !response.modelName.trim()) {
+    throw new Error("Invalid machine learning response: modelName is required")
+  }
+  if (
+    response.modelVersion !== null &&
+    typeof response.modelVersion !== "string"
+  ) {
+    throw new Error("Invalid machine learning response: invalid modelVersion")
+  }
+  if (!Array.isArray(response.predictions)) {
+    throw new Error(
+      "Invalid machine learning response: predictions must be an array"
+    )
+  }
+  for (const item of response.predictions) {
+    const prediction = objectRecord(item, "machine learning prediction")
+    if (typeof prediction.rank !== "number") {
+      throw new Error("Invalid machine learning response: rank must be numeric")
+    }
+    if (typeof prediction.label !== "string" || !prediction.label.trim()) {
+      throw new Error("Invalid machine learning response: label is required")
+    }
+    if (
+      typeof prediction.score !== "number" ||
+      !Number.isFinite(prediction.score) ||
+      prediction.score < 0 ||
+      prediction.score > 1
+    ) {
+      throw new Error(
+        "Invalid machine learning response: score must be between 0 and 1"
+      )
+    }
+  }
+  return value as MlGameSuggestionResponse
 }
 
 export function validateAdminRuntimeConfig(value: unknown): AdminRuntimeConfig {

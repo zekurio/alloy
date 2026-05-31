@@ -262,6 +262,103 @@ export async function captureThumbnail(
   }
 }
 
+const FRAME_JPEG_QUALITY = 0.72
+
+/**
+ * Grab `count` evenly-spaced frames from the video, each scaled down to
+ * `maxWidth` px wide, as JPEG blobs. Feeds the advisory ML game-suggestion
+ * model — cheap, best-effort, and never load-bearing, so we swallow
+ * per-frame failures and return whatever we managed to capture.
+ */
+export async function captureFrames(
+  file: File,
+  { count, maxWidth }: { count: number; maxWidth: number }
+): Promise<Blob[]> {
+  if (count <= 0) return []
+
+  const url = URL.createObjectURL(file)
+  const video = document.createElement("video")
+  video.preload = "auto"
+  video.muted = true
+  video.playsInline = true
+
+  const cleanup = () => {
+    URL.revokeObjectURL(url)
+    video.removeAttribute("src")
+    try {
+      video.load()
+    } catch {
+      // Some mobile browsers throw while tearing down blob-backed media.
+    }
+  }
+
+  try {
+    const metadataLoaded = waitForVideoEvent(
+      video,
+      "loadedmetadata",
+      "Could not load video metadata for frame capture",
+      () => video.readyState >= HTMLMediaElement.HAVE_METADATA
+    )
+    video.src = url
+    video.load()
+    await metadataLoaded
+
+    const srcW = video.videoWidth
+    const srcH = video.videoHeight
+    if (!srcW || !srcH) return []
+
+    const duration = Number.isFinite(video.duration) ? video.duration : 0
+    const times = evenlySpacedFrameTimes(duration, count)
+
+    const { width, height } = thumbnailSize(srcW, srcH, maxWidth)
+    const canvas = document.createElement("canvas")
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return []
+
+    const frames: Blob[] = []
+    for (const targetTime of times) {
+      try {
+        if (Math.abs(video.currentTime - targetTime) > 0.0005) {
+          const seeked = waitForVideoEvent(
+            video,
+            "seeked",
+            "Seek failed during frame capture"
+          )
+          video.currentTime = targetTime
+          await seeked
+        }
+        ctx.drawImage(video, 0, 0, width, height)
+        frames.push(await encodeCanvasAsJpeg(canvas, FRAME_JPEG_QUALITY))
+      } catch {
+        // Advisory feature — skip frames we can't grab and keep going.
+      }
+    }
+    return frames
+  } finally {
+    cleanup()
+  }
+}
+
+/**
+ * Spread `count` sample points across the interior of the clip, skipping the
+ * very start/end which are often black or mid-fade. e.g. count=4 →
+ * 20%/40%/60%/80% of the duration.
+ */
+function evenlySpacedFrameTimes(
+  durationSeconds: number,
+  count: number
+): number[] {
+  if (durationSeconds <= 0.1) return [0]
+  const times: number[] = []
+  for (let i = 1; i <= count; i++) {
+    const fraction = i / (count + 1)
+    times.push(Number((durationSeconds * fraction).toFixed(3)))
+  }
+  return times
+}
+
 function uniqueThumbnailTimes(
   timesMs: Array<number | null | undefined>,
   minSeconds: number,

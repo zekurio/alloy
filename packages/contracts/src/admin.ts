@@ -95,6 +95,14 @@ export interface AdminIntegrationsConfig {
 
 export type IntegrationsConfig = AdminIntegrationsConfig
 
+export interface AdminMachineLearningConfig {
+  enabled: boolean
+  baseUrl: string
+  requestTimeoutMs: number
+}
+
+export type MachineLearningConfig = AdminMachineLearningConfig
+
 export interface ServerSecretsConfig {
   viewerCookieSecret: string
 }
@@ -212,6 +220,7 @@ export interface RuntimeConfig {
   encoder: EncoderConfig
   limits: LimitsConfig
   integrations: IntegrationsConfig
+  machineLearning: MachineLearningConfig
   appearance: AppearanceConfig
   storage: StorageConfig
   secrets: ServerSecretsConfig
