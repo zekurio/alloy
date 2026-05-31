@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
-from typing import Literal
+from typing import Callable, Literal
 
 import torch
 from torch import nn
@@ -76,32 +74,31 @@ class ClipCnnClassifier(nn.Module):
         )
 
 
-def build_torchvision_backbone(arch: CnnArch) -> tuple[nn.Module, int]:
-    if arch == "resnet18":
-        model = resnet18(weights=None)
-        feature_dim = model.fc.in_features
-        model.fc = nn.Identity()
-    elif arch == "resnet34":
-        model = resnet34(weights=None)
-        feature_dim = model.fc.in_features
-        model.fc = nn.Identity()
-    elif arch == "resnet50":
-        model = resnet50(weights=None)
-        feature_dim = model.fc.in_features
-        model.fc = nn.Identity()
-    elif arch == "efficientnet_b0":
-        model = efficientnet_b0(weights=None)
-        feature_dim = model.classifier[-1].in_features
-        model.classifier = nn.Identity()
-    elif arch == "efficientnet_b2":
-        model = efficientnet_b2(weights=None)
-        feature_dim = model.classifier[-1].in_features
-        model.classifier = nn.Identity()
-    else:
-        raise ValueError(f"unsupported torchvision architecture: {arch}")
-
+def _resnet_backbone(factory: Callable[..., nn.Module]) -> tuple[nn.Module, int]:
+    model = factory(weights=None)
+    feature_dim = model.fc.in_features
+    model.fc = nn.Identity()
     return model, feature_dim
 
 
-def build_clip_cnn(config: ClipCnnConfig) -> ClipCnnClassifier:
-    return ClipCnnClassifier(config)
+def _efficientnet_backbone(factory: Callable[..., nn.Module]) -> tuple[nn.Module, int]:
+    model = factory(weights=None)
+    feature_dim = model.classifier[-1].in_features
+    model.classifier = nn.Identity()
+    return model, feature_dim
+
+
+_BACKBONE_BUILDERS: dict[CnnArch, Callable[[], tuple[nn.Module, int]]] = {
+    "resnet18": lambda: _resnet_backbone(resnet18),
+    "resnet34": lambda: _resnet_backbone(resnet34),
+    "resnet50": lambda: _resnet_backbone(resnet50),
+    "efficientnet_b0": lambda: _efficientnet_backbone(efficientnet_b0),
+    "efficientnet_b2": lambda: _efficientnet_backbone(efficientnet_b2),
+}
+
+
+def build_torchvision_backbone(arch: CnnArch) -> tuple[nn.Module, int]:
+    try:
+        return _BACKBONE_BUILDERS[arch]()
+    except KeyError as err:
+        raise ValueError(f"unsupported torchvision architecture: {arch}") from err

@@ -6,6 +6,12 @@ import { fileURLToPath, URL } from "node:url"
 
 const DEFAULT_SERVER_URL = "http://localhost:3000"
 const workspaceRoot = fileURLToPath(new URL("../..", import.meta.url))
+const ATOMIC_WRITE_TEMP_FILE = /[/\\][^/\\]+\.tmp\.[^/\\]+$/
+const EDITOR_TEMP_FILES = [
+  ATOMIC_WRITE_TEMP_FILE,
+  /[/\\]\.[^/\\]+\.sw[a-z]$/,
+  /[/\\][^/\\]+~$/,
+]
 
 function normalizeServerUrl(value: string): string {
   const url = new URL(value)
@@ -66,6 +72,9 @@ const config = defineConfig(({ mode }) => ({
     cors: false,
     fs: {
       allow: [workspaceRoot],
+    },
+    watch: {
+      ignored: EDITOR_TEMP_FILES,
     },
     proxy: {
       "/api": apiProxy(mode),

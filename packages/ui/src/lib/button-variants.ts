@@ -35,10 +35,10 @@ const buttonVariants = cva(
           "border-[color-mix(in_oklab,var(--danger)_40%,transparent)] bg-transparent text-danger hover:bg-[color-mix(in_oklab,var(--danger)_14%,transparent)]",
       },
       size: {
-        default: "h-8 px-4 text-sm leading-4",
+        default: "h-9 px-4 text-sm leading-4 sm:h-8",
         sm: "h-7 px-3.5 text-xs leading-4",
-        md: "h-8 px-4 text-sm leading-4",
-        lg: "h-9 px-5 text-md leading-5",
+        md: "h-9 px-4 text-sm leading-4 sm:h-8",
+        lg: "h-10 px-5 text-md leading-5 sm:h-9",
         icon: "size-8 px-0",
         "icon-xs": "size-5 px-0",
         "icon-sm": "size-6 px-0",

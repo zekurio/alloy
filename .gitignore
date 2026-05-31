@@ -33,6 +33,7 @@ npm-debug.log*
 
 # Local postgres (initdb data dir for dev)
 .pg
+.alloy-dev.lock
 
 # Runtime config store (JSON-backed, mutable via admin UI)
 data/

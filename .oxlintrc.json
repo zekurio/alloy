@@ -35,6 +35,12 @@
       "globals": {
         "Deno": "readonly"
       }
+    },
+    {
+      "files": ["scripts/**/*.ts"],
+      "globals": {
+        "Deno": "readonly"
+      }
     }
   ],
   "rules": {

@@ -66,6 +66,9 @@ export function validateQueueClips(value: unknown): QueueClip[] {
     if (typeof row.encodeProgress !== "number") {
       throw new Error("Invalid queue response: encodeProgress must be numeric")
     }
+    if (typeof row.hasThumb !== "boolean") {
+      throw new Error("Invalid queue response: hasThumb must be boolean")
+    }
   }
   return value as QueueClip[]
 }
@@ -197,5 +200,54 @@ export function validateAdminRuntimeConfig(value: unknown): AdminRuntimeConfig {
   const config = objectRecord(value, "admin runtime config")
   objectRecord(config.limits, "admin limits config")
   objectRecord(config.encoder, "admin encoder config")
+  const machineLearning = objectRecord(
+    config.machineLearning,
+    "admin machine learning config"
+  )
+  const gameClassifier = objectRecord(
+    machineLearning.gameClassifier,
+    "admin game classifier config"
+  )
+  if (typeof machineLearning.enabled !== "boolean") {
+    throw new Error(
+      "Invalid admin machine learning config: enabled must be boolean"
+    )
+  }
+  if (typeof machineLearning.baseUrl !== "string") {
+    throw new Error(
+      "Invalid admin machine learning config: baseUrl is required"
+    )
+  }
+  if (typeof machineLearning.requestTimeoutMs !== "number") {
+    throw new Error(
+      "Invalid admin machine learning config: requestTimeoutMs must be numeric"
+    )
+  }
+  for (const key of ["modelName", "repoId", "filename", "revision"] as const) {
+    if (
+      typeof gameClassifier[key] !== "string" ||
+      !gameClassifier[key].trim()
+    ) {
+      throw new Error(
+        `Invalid admin game classifier config: ${key} is required`
+      )
+    }
+  }
+  if (
+    gameClassifier.modelVersion !== null &&
+    typeof gameClassifier.modelVersion !== "string"
+  ) {
+    throw new Error(
+      "Invalid admin game classifier config: modelVersion must be string or null"
+    )
+  }
+  if (
+    gameClassifier.checkpointPath !== null &&
+    typeof gameClassifier.checkpointPath !== "string"
+  ) {
+    throw new Error(
+      "Invalid admin game classifier config: checkpointPath must be string or null"
+    )
+  }
   return value as AdminRuntimeConfig
 }

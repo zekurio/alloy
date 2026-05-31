@@ -1,170 +1,174 @@
-type DevProcess = {
-  label: string;
-  args: string[];
-};
+import { CommandFailedError, runLoggedCommand, writeLine } from "./dev-io.ts"
+import { acquireDevLock } from "./dev-lock.ts"
+import {
+  type DevProcess,
+  type RunningDevProcess,
+  startProcess,
+  stopChildren,
+} from "./dev-process.ts"
+import {
+  assertPortsAvailable,
+  ensureDevPostgres,
+  getDevEnv,
+} from "./dev-preflight.ts"
 
-type RunningDevProcess = DevProcess & {
-  child: Deno.ChildProcess;
-  exited: boolean;
-  status: Promise<Deno.CommandStatus>;
-};
-
-type SyncWriter = {
-  writeSync(bytes: Uint8Array): number;
-};
-
-const processes: DevProcess[] = [
-  {
-    label: "api",
-    args: ["task", "--quiet", "--cwd", "apps/server", "dev"],
-  },
-  {
-    label: "web",
-    args: ["task", "--quiet", "--cwd", "apps/web", "dev"],
-  },
-  {
-    label: "ml",
-    args: ["task", "--quiet", "dev:ml"],
-  },
-];
-
-const encoder = new TextEncoder();
-const decoder = new TextDecoder();
-const running = new Set<RunningDevProcess>();
-let shuttingDown = false;
-
-for (const process of processes) {
-  const child = new Deno.Command(Deno.execPath(), {
-    args: process.args,
-    stdout: "piped",
-    stderr: "piped",
-  }).spawn();
-
-  const runningProcess: RunningDevProcess = {
-    ...process,
-    child,
-    exited: false,
-    status: child.status.then((status) => {
-      runningProcess.exited = true;
-      return status;
-    }),
-  };
-
-  running.add(runningProcess);
-  pipeOutput(process.label, child.stdout, Deno.stdout);
-  pipeOutput(process.label, child.stderr, Deno.stderr);
+const args = new Set(Deno.args.filter((arg) => arg !== "--"))
+if (args.has("--help") || args.has("-h")) {
+  printUsage()
+  Deno.exit(0)
 }
+
+const invalidArgs = args.difference(
+  new Set(["--help", "--ml", "--no-db-push", "-h"])
+)
+if (invalidArgs.size > 0) {
+  writeLine(
+    Deno.stderr,
+    "dev",
+    `unknown option: ${[...invalidArgs].join(", ")}`
+  )
+  printUsage()
+  Deno.exit(1)
+}
+
+const includeMl = args.has("--ml") || Deno.env.get("ALLOY_DEV_ML") === "1"
+const pushDatabase =
+  !args.has("--no-db-push") && Deno.env.get("ALLOY_DEV_DB_PUSH") !== "0"
+const devEnv = getDevEnv(includeMl)
+const processes = buildProcessList(includeMl, devEnv)
+const releaseDevLock = await acquireDevLock()
+let shuttingDown = false
+let running = new Set<RunningDevProcess>()
+
+try {
+  await ensureDevPostgres(devEnv.DATABASE_URL)
+  if (pushDatabase) {
+    await runLoggedCommand("db", Deno.execPath(), ["task", "db:push"], {
+      env: devEnv,
+    })
+  }
+  await assertPortsAvailable(processes)
+} catch (err) {
+  releaseDevLock()
+  if (err instanceof CommandFailedError) {
+    Deno.exit(err.code)
+  }
+  throw err
+}
+
+running = new Set<RunningDevProcess>(
+  processes.map((process) => startProcess(process))
+)
 
 try {
   Deno.addSignalListener("SIGINT", () => {
-    shutdown("SIGINT", 130);
-  });
+    shutdown("SIGINT", 130)
+  })
   Deno.addSignalListener("SIGTERM", () => {
-    shutdown("SIGTERM", 143);
-  });
+    shutdown("SIGTERM", 143)
+  })
+  Deno.addSignalListener("SIGHUP", () => {
+    shutdown("SIGHUP", 129)
+  })
 } catch {
   // Signal listeners are unavailable on some platforms.
 }
 
-const firstExit = await Promise.race(
-  [...running].map(async (process) => {
-    const status = await process.status;
-    return { process, status };
-  }),
-);
+while (running.size > 0) {
+  const firstExit = await Promise.race(
+    [...running].map(async (process) => {
+      const status = await process.status
+      return { process, status }
+    })
+  )
 
-if (!shuttingDown) {
-  const code = firstExit.status.code ?? (firstExit.status.success ? 0 : 1);
+  running.delete(firstExit.process)
+  if (shuttingDown) {
+    continue
+  }
+
+  const code = firstExit.status.code ?? (firstExit.status.success ? 0 : 1)
   const reason = firstExit.status.success
     ? "exited"
-    : `failed with code ${code}`;
+    : `failed with code ${code}`
+
+  if (firstExit.process.optional) {
+    writeLine(
+      Deno.stderr,
+      "dev",
+      `${firstExit.process.label} ${reason}; continuing without it.`
+    )
+    continue
+  }
+
   writeLine(
     Deno.stderr,
     "dev",
-    `${firstExit.process.label} ${reason}; stopping remaining dev processes.`,
-  );
-  await stopChildren("SIGTERM");
-  Deno.exit(code);
+    `${firstExit.process.label} ${reason}; stopping remaining dev processes.`
+  )
+  await stopChildren(running, "SIGTERM")
+  releaseDevLock()
+  Deno.exit(code)
+}
+
+releaseDevLock()
+
+function buildProcessList(
+  includeMachineLearning: boolean,
+  env: Record<string, string>
+): DevProcess[] {
+  const processes: DevProcess[] = [
+    {
+      label: "api",
+      args: ["task", "--quiet", "--cwd", "apps/server", "dev"],
+      env,
+      port: Number(Deno.env.get("PORT") ?? "3000"),
+    },
+    {
+      label: "web",
+      args: ["task", "--quiet", "--cwd", "apps/web", "dev"],
+      port: 5173,
+    },
+  ]
+
+  if (includeMachineLearning) {
+    processes.push({
+      label: "ml",
+      args: ["task", "--quiet", "dev:ml"],
+      optional: true,
+      port: Number(Deno.env.get("ALLOY_ML_PORT") ?? "3003"),
+    })
+  }
+
+  return processes
 }
 
 async function shutdown(signal: Deno.Signal, code: number) {
   if (shuttingDown) {
-    return;
+    return
   }
 
-  shuttingDown = true;
-  writeLine(Deno.stderr, "dev", `received ${signal}; stopping dev processes.`);
-  await stopChildren("SIGTERM");
-  Deno.exit(code);
+  shuttingDown = true
+  writeLine(Deno.stderr, "dev", `received ${signal}; stopping dev processes.`)
+  await stopChildren(running, "SIGTERM")
+  releaseDevLock()
+  Deno.exit(code)
 }
 
-async function stopChildren(signal: Deno.Signal) {
-  for (const process of running) {
-    if (!process.exited) {
-      try {
-        process.child.kill(signal);
-      } catch {
-        // The process may have exited between the status check and signal.
-      }
-    }
-  }
-
-  const statuses = [...running].map((process) => process.status);
-  const settled = Promise.allSettled(statuses);
-  const timeout = new Promise<"timeout">((resolve) => {
-    setTimeout(() => resolve("timeout"), 5_000);
-  });
-
-  if (await Promise.race([settled, timeout]) === "timeout") {
-    for (const process of running) {
-      if (!process.exited) {
-        try {
-          process.child.kill("SIGKILL");
-        } catch {
-          // The process may have exited before the forced stop.
-        }
-      }
-    }
-
-    await settled;
-  }
-}
-
-async function pipeOutput(
-  label: string,
-  readable: ReadableStream<Uint8Array>,
-  writable: SyncWriter,
-) {
-  let pending = "";
-
-  for await (const chunk of readable) {
-    pending += decoder.decode(chunk, { stream: true });
-    pending = flushCompleteLines(label, writable, pending);
-  }
-
-  pending += decoder.decode();
-  if (pending.length > 0) {
-    writeLine(writable, label, pending);
-  }
-}
-
-function flushCompleteLines(
-  label: string,
-  writable: SyncWriter,
-  output: string,
-) {
-  const lines = output.split(/\r?\n/);
-  const pending = lines.pop() ?? "";
-
-  for (const line of lines) {
-    writeLine(writable, label, line);
-  }
-
-  return pending;
-}
-
-function writeLine(writable: SyncWriter, label: string, line: string) {
-  writable.writeSync(
-    encoder.encode(line.length === 0 ? "\n" : `[${label}] ${line}\n`),
-  );
+function printUsage() {
+  writeLine(
+    Deno.stdout,
+    "dev",
+    "Usage: deno task dev [-- --ml] [-- --no-db-push]"
+  )
+  writeLine(
+    Deno.stdout,
+    "dev",
+    "  --ml           also start the optional ML service."
+  )
+  writeLine(
+    Deno.stdout,
+    "dev",
+    "  --no-db-push   skip applying the database schema before starting."
+  )
 }

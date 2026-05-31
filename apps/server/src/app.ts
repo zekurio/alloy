@@ -109,6 +109,12 @@ const apiApp = new Hono()
   .route("/api/events", eventsRoute)
   .route("/api/assets", storageRoute)
   .route("/api/assets/users", userAssetsRoute)
+  .onError((err, c) => {
+    // eslint-disable-next-line no-console
+    console.error("[api] unhandled request error:", err)
+
+    return c.json({ error: "Internal Server Error" }, 500)
+  })
 
 export const app = await mountWeb(apiApp)
 

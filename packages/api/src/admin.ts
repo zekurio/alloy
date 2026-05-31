@@ -35,6 +35,7 @@ export type {
   AdminEncoderCapabilities,
   AdminEncoderConfig,
   AdminEncoderVariant,
+  AdminGameClassifierModelConfig,
   AdminIntegrationsConfig,
   AdminLimitsConfig,
   AdminMachineLearningConfig,

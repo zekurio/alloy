@@ -34,7 +34,6 @@ type StorageConfigCardProps = {
   storage: AdminStorageConfig
   onChange: (next: AdminRuntimeConfig) => void
   allowSubmitUnchanged?: boolean
-  submitLabel?: string
   /** Called after a successful save (or when submitted with no changes). */
   onSaved?: () => void
   /** Hide the footer action buttons (Cancel / Save). */
@@ -331,7 +330,6 @@ export function StorageConfigCard(props: StorageConfigCardProps) {
               pending={state.pending}
               isDirty={state.isDirty}
               onReset={state.resetForm}
-              submitLabel={props.submitLabel}
             />
           )}
         </fieldset>
