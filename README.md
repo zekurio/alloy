@@ -133,13 +133,13 @@ Then import the module:
   services.alloy-clips = {
     enable = true;
     publicServerUrl = "https://alloy.example.com";
-    database.createLocally = true;
   };
 }
 ```
 
-The module provisions PostgreSQL by default, creates `/var/lib/alloy` and
-`/var/cache/alloy`, sets `ALLOY_CONFIG_FILE`, `ALLOY_STORAGE_DIR`,
+The module enables PostgreSQL and creates the Alloy database by default,
+creates `/var/lib/alloy` and `/var/cache/alloy`, sets `ALLOY_CONFIG_FILE`,
+`ALLOY_STORAGE_DIR`,
 `ENCODE_SCRATCH_DIR`, and wraps the packaged server with the built web assets,
 migrations, and ffmpeg paths. `initialRuntimeConfig` can be used as an optional
 one-shot JSON bootstrap config; otherwise Alloy creates the mutable runtime JSON
