@@ -26,7 +26,7 @@ RUN python -m venv /opt/venv \
 FROM python:3.11-slim-bookworm AS prod
 
 ENV ALLOY_ML_HOST=0.0.0.0 \
-    ALLOY_ML_PORT=3003 \
+    ALLOY_ML_PORT=2662 \
     MACHINE_LEARNING_CACHE_FOLDER=/cache \
     HF_HOME=/cache/huggingface \
     HF_HUB_CACHE=/cache/huggingface/hub \
@@ -49,7 +49,7 @@ COPY --from=builder /opt/venv /opt/venv
 COPY scripts/healthcheck.py scripts/healthcheck.py
 COPY alloy_ml alloy_ml
 
-EXPOSE 3003
+EXPOSE 2662
 
 ENTRYPOINT ["tini", "--"]
 CMD ["python", "-m", "alloy_ml"]

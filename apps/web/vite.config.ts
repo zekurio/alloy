@@ -4,7 +4,7 @@ import viteReact from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 import { fileURLToPath, URL } from "node:url"
 
-const DEFAULT_SERVER_URL = "http://localhost:3000"
+const DEFAULT_SERVER_URL = "http://localhost:2552"
 const workspaceRoot = fileURLToPath(new URL("../..", import.meta.url))
 const ATOMIC_WRITE_TEMP_FILE = /[/\\][^/\\]+\.tmp\.[^/\\]+$/
 const EDITOR_TEMP_FILES = [

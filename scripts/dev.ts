@@ -122,7 +122,7 @@ function buildProcessList(
       label: "api",
       args: ["task", "--quiet", "--cwd", "apps/server", "dev"],
       env,
-      port: Number(Deno.env.get("PORT") ?? "3000"),
+      port: Number(Deno.env.get("PORT") ?? "2552"),
     },
     {
       label: "web",
@@ -136,7 +136,7 @@ function buildProcessList(
       label: "ml",
       args: ["task", "--quiet", "dev:ml"],
       optional: true,
-      port: Number(Deno.env.get("ALLOY_ML_PORT") ?? "3003"),
+      port: Number(Deno.env.get("ALLOY_ML_PORT") ?? "2662"),
     })
   }
 

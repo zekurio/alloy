@@ -4,7 +4,7 @@ from ipaddress import ip_address
 from urllib.error import URLError
 from urllib.request import urlopen
 
-port = os.getenv("ALLOY_ML_PORT", "3003")
+port = os.getenv("ALLOY_ML_PORT", "2662")
 host = os.getenv("ALLOY_ML_HOST", "0.0.0.0")
 
 

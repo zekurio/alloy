@@ -98,7 +98,7 @@ The `dev:ml` task follows Immich's service workflow: it enters
 `python -m alloy_ml`. Set `MACHINE_LEARNING_UV_SYNC=0` to skip dependency sync
 after the first run.
 
-The service listens on http://localhost:3003 and exposes `/ping`, `/health`,
+The service listens on http://localhost:2662 and exposes `/ping`, `/health`,
 `/predict`, and `/v1/game-classifier/predict`. See
 [`machine-learning/README.md`](./machine-learning/README.md) for the request
 contract.

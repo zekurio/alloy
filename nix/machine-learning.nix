@@ -62,7 +62,7 @@ python.pkgs.buildPythonApplication {
       --prefix PATH : ${lib.makeBinPath [ python.pkgs.gunicorn ]} \
       --prefix PYTHONPATH : "$out/${python.sitePackages}:${python.pkgs.makePythonPath dependencies}" \
       --set-default ALLOY_ML_HOST 127.0.0.1 \
-      --set-default ALLOY_ML_PORT 3003 \
+      --set-default ALLOY_ML_PORT 2662 \
       --set-default HF_HOME /var/cache/alloy/machine-learning/huggingface \
       --set-default HF_HUB_CACHE /var/cache/alloy/machine-learning/huggingface/hub \
       --set-default HF_HUB_DISABLE_PROGRESS_BARS 1 \

@@ -1,7 +1,7 @@
 import { runLoggedCommand, writeLine } from "./dev-io.ts"
 import type { DevProcess } from "./dev-process.ts"
 
-const DEFAULT_PUBLIC_SERVER_URL = "http://localhost:3000"
+const DEFAULT_PUBLIC_SERVER_URL = "http://localhost:2552"
 const DEFAULT_TRUSTED_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
 
 type PostgresConnection = {
@@ -15,7 +15,7 @@ export function getDevEnv(includeMl: boolean): Record<string, string> {
   const env: Record<string, string> = {
     DATABASE_URL: Deno.env.get("DATABASE_URL") ?? defaultDatabaseUrl(),
     NODE_ENV: Deno.env.get("NODE_ENV") ?? "development",
-    PORT: Deno.env.get("PORT") ?? "3000",
+    PORT: Deno.env.get("PORT") ?? "2552",
     PUBLIC_SERVER_URL:
       Deno.env.get("PUBLIC_SERVER_URL") ?? DEFAULT_PUBLIC_SERVER_URL,
     TRUSTED_ORIGINS: Deno.env.get("TRUSTED_ORIGINS") ?? DEFAULT_TRUSTED_ORIGINS,
@@ -25,7 +25,7 @@ export function getDevEnv(includeMl: boolean): Record<string, string> {
     env.MACHINE_LEARNING_ENABLED =
       Deno.env.get("MACHINE_LEARNING_ENABLED") ?? "1"
     env.MACHINE_LEARNING_URL =
-      Deno.env.get("MACHINE_LEARNING_URL") ?? "http://localhost:3003"
+      Deno.env.get("MACHINE_LEARNING_URL") ?? "http://localhost:2662"
   }
 
   return env

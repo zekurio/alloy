@@ -47,7 +47,7 @@ class NonPrefixedSettings(BaseSettings):
     model_config = SettingsConfigDict(case_sensitive=False)
 
     alloy_ml_host: str = "0.0.0.0"
-    alloy_ml_port: int = 3003
+    alloy_ml_port: int = 2662
     alloy_ml_log_level: str = "info"
     no_color: bool = False
 

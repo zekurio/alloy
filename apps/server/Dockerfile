@@ -99,13 +99,13 @@ RUN chmod +x /entrypoint.sh
 WORKDIR /app/apps/server
 
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=2552
 ENV WEB_DIST_DIR=/build/www
 ENV ALLOY_MIGRATIONS_DIR=/app/packages/db/drizzle
 
 ENV ALLOY_CONFIG_FILE=/config/runtime-config.json
 ENV ENCODE_SCRATCH_DIR=/cache/encode
 
-EXPOSE 3000
+EXPOSE 2552
 
 CMD ["/entrypoint.sh"]
