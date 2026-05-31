@@ -52,7 +52,7 @@ function isLoopbackIpv4(hostname: string): boolean {
 }
 
 const defaultPublicServerUrl =
-  Deno.env.get("PUBLIC_SERVER_URL") ?? "http://localhost:3000"
+  Deno.env.get("PUBLIC_SERVER_URL") ?? "http://localhost:2552"
 
 const EnvSchema = z.object({
   NODE_ENV: z
@@ -63,7 +63,7 @@ const EnvSchema = z.object({
     .url()
     .default(defaultPublicServerUrl)
     .transform(normalizePublicServerUrl),
-  PORT: z.coerce.number().int().positive().default(3000),
+  PORT: z.coerce.number().int().positive().default(2552),
   // Packaging/deployment override for the packaged web app root. Local dev
   // usually serves the web app through Vite instead.
   WEB_DIST_DIR: z.string().optional(),

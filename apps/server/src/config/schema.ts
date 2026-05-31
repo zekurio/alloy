@@ -12,6 +12,13 @@ import {
 import { env } from "../env"
 import { OAuthProviderSchema } from "./oauth-schema"
 
+const LEGACY_DEFAULT_MACHINE_LEARNING_URLS = new Set([
+  "http://localhost:3003",
+  "http://localhost:3004",
+])
+const DEFAULT_MACHINE_LEARNING_URL =
+  Deno.env.get("MACHINE_LEARNING_URL") ?? "http://localhost:2662"
+
 function randomSecret(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(32))
   let binary = ""
@@ -208,7 +215,7 @@ const MachineLearningConfigSchema = z.object({
   baseUrl: z
     .string()
     .url()
-    .default(Deno.env.get("MACHINE_LEARNING_URL") ?? "http://localhost:3003")
+    .default(DEFAULT_MACHINE_LEARNING_URL)
     .transform(normalizeBaseUrl),
   requestTimeoutMs: z.number().int().min(1_000).max(300_000).default(60_000),
   gameClassifier: GameClassifierModelConfigSchema.default(
@@ -304,30 +311,55 @@ const StorageConfigSchema = z
     }
   })
 
-export const RuntimeConfigSchema = z.object({
-  openRegistrations: z.boolean().default(false),
-  setupComplete: z.boolean().default(false),
-  passkeyEnabled: z.boolean().default(true),
-  requireAuthToBrowse: z.boolean().default(true),
-  oauthProvider: OAuthProviderSchema.nullable().default(null),
-  encoder: EncoderConfigSchema.default(EncoderConfigInnerSchema.parse({})),
-  limits: LimitsConfigSchema.default(LimitsConfigSchema.parse({})),
-  integrations: IntegrationsConfigSchema.default(
-    IntegrationsConfigSchema.parse({})
-  ),
-  machineLearning: MachineLearningConfigSchema.default(
-    MachineLearningConfigSchema.parse({})
-  ),
-  appearance: AppearanceConfigSchema.default(AppearanceConfigSchema.parse({})),
-  secrets: ServerSecretsConfigSchema.default(
-    ServerSecretsConfigSchema.parse({})
-  ),
-  storage: StorageConfigSchema.default({
-    driver: "fs",
-    fs: DEFAULT_FS_STORAGE_CONFIG,
-    s3: DEFAULT_S3_STORAGE_CONFIG,
-  }),
-})
+export const RuntimeConfigSchema = z.preprocess(
+  (raw) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw
+    const config = { ...(raw as Record<string, unknown>) }
+    if (
+      config.machineLearning &&
+      typeof config.machineLearning === "object" &&
+      !Array.isArray(config.machineLearning)
+    ) {
+      const machineLearning = {
+        ...(config.machineLearning as Record<string, unknown>),
+      }
+      if (
+        typeof machineLearning.baseUrl === "string" &&
+        LEGACY_DEFAULT_MACHINE_LEARNING_URLS.has(machineLearning.baseUrl)
+      ) {
+        machineLearning.baseUrl = DEFAULT_MACHINE_LEARNING_URL
+      }
+      config.machineLearning = machineLearning
+    }
+    return config
+  },
+  z.object({
+    openRegistrations: z.boolean().default(false),
+    setupComplete: z.boolean().default(false),
+    passkeyEnabled: z.boolean().default(true),
+    requireAuthToBrowse: z.boolean().default(true),
+    oauthProvider: OAuthProviderSchema.nullable().default(null),
+    encoder: EncoderConfigSchema.default(EncoderConfigInnerSchema.parse({})),
+    limits: LimitsConfigSchema.default(LimitsConfigSchema.parse({})),
+    integrations: IntegrationsConfigSchema.default(
+      IntegrationsConfigSchema.parse({})
+    ),
+    machineLearning: MachineLearningConfigSchema.default(
+      MachineLearningConfigSchema.parse({})
+    ),
+    appearance: AppearanceConfigSchema.default(
+      AppearanceConfigSchema.parse({})
+    ),
+    secrets: ServerSecretsConfigSchema.default(
+      ServerSecretsConfigSchema.parse({})
+    ),
+    storage: StorageConfigSchema.default({
+      driver: "fs",
+      fs: DEFAULT_FS_STORAGE_CONFIG,
+      s3: DEFAULT_S3_STORAGE_CONFIG,
+    }),
+  })
+)
 
 export const EncoderConfigPatchSchema = EncoderConfigInnerSchema.partial()
 export const LimitsConfigPatchSchema = LimitsConfigSchema.partial()
