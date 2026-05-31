@@ -69,13 +69,7 @@ Environment variables:
 | `MACHINE_LEARNING_GAME_CLASSIFIER_CHECKPOINT` | unset | Optional local checkpoint override for development |
 | `MACHINE_LEARNING_GAME_CLASSIFIER_NAME` | `alloy-game-classifier` | Response model name |
 | `MACHINE_LEARNING_GAME_CLASSIFIER_VERSION` | `MACHINE_LEARNING_GAME_CLASSIFIER_REVISION` | Response model version |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_TOP_K` | `5` | Default number of predictions |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_MAX_FRAMES` | `24` | Maximum uploaded frames per prediction request |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_MAX_FRAME_BYTES` | `10485760` | Maximum bytes per uploaded frame |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_MAX_FRAME_WIDTH` | `4096` | Maximum decoded frame width |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_MAX_FRAME_HEIGHT` | `4096` | Maximum decoded frame height |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_MAX_FRAME_PIXELS` | `16777216` | Maximum decoded pixels per frame |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_MAX_REQUEST_BYTES` | `536870912` | Maximum prediction request/frame payload bytes |
+| `MACHINE_LEARNING_GAME_CLASSIFIER_TOP_K` | `1` | Default number of predictions |
 | `MACHINE_LEARNING_PRELOAD_GAME_CLASSIFIER` | `false` | Download and load the classifier at service startup |
 | `MACHINE_LEARNING_DEVICE` | `auto` | `auto`, `cpu`, `cuda`, or `mps` |
 | `MACHINE_LEARNING_WORKERS` | `1` | Gunicorn worker count |

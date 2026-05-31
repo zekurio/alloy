@@ -175,15 +175,6 @@ const MachineLearningConfigSchema = z.object({
     .default(Deno.env.get("MACHINE_LEARNING_URL") ?? "http://localhost:3003")
     .transform(normalizeBaseUrl),
   requestTimeoutMs: z.number().int().min(1_000).max(300_000).default(60_000),
-  maxAnalyzeBytes: z
-    .number()
-    .int()
-    .positive()
-    .max(4 * 1024 * 1024 * 1024)
-    .default(512 * 1024 * 1024),
-  frameCount: z.number().int().min(1).max(24).default(12),
-  frameWidth: z.number().int().min(128).max(1280).default(512),
-  topK: z.number().int().min(1).max(20).default(5),
 })
 
 const ServerSecretsConfigSchema = z.object({

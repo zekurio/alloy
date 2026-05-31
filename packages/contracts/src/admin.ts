@@ -99,10 +99,6 @@ export interface AdminMachineLearningConfig {
   enabled: boolean
   baseUrl: string
   requestTimeoutMs: number
-  maxAnalyzeBytes: number
-  frameCount: number
-  frameWidth: number
-  topK: number
 }
 
 export type MachineLearningConfig = AdminMachineLearningConfig

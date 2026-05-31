@@ -147,17 +147,6 @@ export function validatePublicMlConfig(value: unknown): PublicMlConfig {
   if (typeof config.enabled !== "boolean") {
     throw new Error("Invalid machine learning config: enabled must be boolean")
   }
-  for (const key of ["maxAnalyzeBytes", "frameCount", "frameWidth", "topK"]) {
-    if (
-      typeof config[key] !== "number" ||
-      !Number.isFinite(config[key]) ||
-      config[key] <= 0
-    ) {
-      throw new Error(
-        `Invalid machine learning config: ${key} must be a positive number`
-      )
-    }
-  }
   return value as PublicMlConfig
 }
 

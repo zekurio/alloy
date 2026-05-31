@@ -20,8 +20,4 @@ export interface MlErrorResponse {
 /** Subset of the server's ML config exposed to authenticated clients. */
 export interface PublicMlConfig {
   enabled: boolean
-  maxAnalyzeBytes: number
-  frameCount: number
-  frameWidth: number
-  topK: number
 }

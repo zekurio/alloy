@@ -24,7 +24,7 @@ export class MachineLearningError extends Error {
 export async function predictGameFromFrameBytes(input: {
   config: MachineLearningConfig
   frameBytes: Uint8Array[]
-  topK: number
+  topK?: number
 }): Promise<GameClassifierResult> {
   if (input.frameBytes.length === 0) {
     throw new MachineLearningError("No frames provided.", 400)
@@ -41,7 +41,9 @@ export async function predictGameFromFrameBytes(input: {
       `frame-${i}.jpg`
     )
   }
-  form.set("top_k", String(input.topK))
+  if (input.topK !== undefined) {
+    form.set("top_k", String(input.topK))
+  }
 
   const controller = new AbortController()
   const timeout = setTimeout(
@@ -96,7 +98,7 @@ export async function predictGameFromFrameBytes(input: {
 
 function parseGameClassifierResult(
   value: unknown,
-  topK: number
+  topK: number | undefined
 ): GameClassifierResult {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new MachineLearningError(
@@ -130,7 +132,9 @@ function parseGameClassifierResult(
     )
   }
 
-  const predictions = obj.predictions.slice(0, topK).map((item, index) => {
+  const predictionItems =
+    topK === undefined ? obj.predictions : obj.predictions.slice(0, topK)
+  const predictions = predictionItems.map((item, index) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) {
       throw new MachineLearningError(
         "Machine learning response contained an invalid prediction.",
