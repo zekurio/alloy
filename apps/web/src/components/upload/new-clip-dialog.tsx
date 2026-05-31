@@ -304,9 +304,9 @@ function LoadedState({
 
   const [capturing, setCapturing] = React.useState(false)
 
-  // Advisory ML game guess. Frames are captured once per staged file; the
-  // surrounding LoadedState is keyed by file, so this all resets on Replace.
-  const fileKey = `${file.name}:${file.sizeBytes}:${file.durationMs}`
+  // Advisory ML game guess. Frames are captured once per staged file; include
+  // the browser File timestamp so Replace does not reuse a stale query entry.
+  const fileKey = `${file.name}:${file.sizeBytes}:${file.durationMs}:${file.file.lastModified}`
   const mlConfigQuery = useMlConfigQuery()
   const mlEnabled = mlConfigQuery.data?.enabled === true
   const [suggestionDismissed, setSuggestionDismissed] = React.useState(false)
