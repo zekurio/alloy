@@ -4,6 +4,7 @@ import type {
   AdminEncoderConfig,
   AdminIntegrationsConfig,
   AdminLimitsConfig,
+  AdminMachineLearningConfig,
   AdminOAuthProvider,
   AdminRuntimeConfig,
   AdminStorageConfigPatch,
@@ -36,6 +37,7 @@ export type {
   AdminEncoderVariant,
   AdminIntegrationsConfig,
   AdminLimitsConfig,
+  AdminMachineLearningConfig,
   AdminOAuthProvider,
   AdminRuntimeConfig,
   AdminStorageConfig,
@@ -123,6 +125,7 @@ type RuntimeConfigSection =
   | "encoder"
   | "limits"
   | "integrations"
+  | "machine-learning"
   | "appearance"
   | "storage"
 
@@ -202,6 +205,8 @@ export function createAdminApi(context: ApiContext) {
       patchRuntimeSection(context, "limits", patch),
     updateIntegrationsConfig: (patch: Partial<AdminIntegrationsConfig>) =>
       patchRuntimeSection(context, "integrations", patch),
+    updateMachineLearningConfig: (patch: Partial<AdminMachineLearningConfig>) =>
+      patchRuntimeSection(context, "machine-learning", patch),
     updateAppearanceConfig: (patch: AppearanceConfigPatch) =>
       patchRuntimeSection(context, "appearance", patch),
     regenerateLoginSplash: () => regenerateLoginSplash(context),

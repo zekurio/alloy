@@ -13,6 +13,7 @@ import {
   FsStorageConfigPatchSchema,
   IntegrationsConfigPatchSchema,
   LimitsConfigPatchSchema,
+  MachineLearningConfigPatchSchema,
   RuntimeConfigSchema,
   S3StorageConfigPatchSchema,
   StorageConfigPatchSchema,
@@ -41,6 +42,7 @@ export {
   FsStorageConfigPatchSchema,
   IntegrationsConfigPatchSchema,
   LimitsConfigPatchSchema,
+  MachineLearningConfigPatchSchema,
   S3StorageConfigPatchSchema,
   StorageConfigPatchSchema,
 }
@@ -52,6 +54,7 @@ export type {
   EncoderVariant,
   IntegrationsConfig,
   LimitsConfig,
+  MachineLearningConfig,
   OAuthProviderConfig,
   RuntimeConfig,
   StorageConfig,

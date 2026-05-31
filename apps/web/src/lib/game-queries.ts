@@ -73,6 +73,30 @@ export function useResolveGameMutation() {
   })
 }
 
+/**
+ * Resolve a free-text game name (e.g. an ML suggestion label) into an SGDB
+ * search preview without upserting a local game row. Accepting the suggestion
+ * should call `/games/resolve`; previewing it should not mutate server state.
+ */
+export function useGamePreviewByNameQuery(
+  name: string | undefined,
+  { enabled = true }: { enabled?: boolean } = {}
+): UseQueryResult<SteamGridDBSearchResult | null> {
+  const trimmed = name?.trim() ?? ""
+  return useQuery({
+    queryKey: [...gameKeys.all, "preview-by-name", trimmed] as const,
+    enabled: enabled && trimmed.length > 0,
+    // The label → top SGDB hit mapping is stable enough to cache per session.
+    staleTime: Infinity,
+    retry: false,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      const results = await api.games.search(trimmed)
+      return results[0] ?? null
+    },
+  })
+}
+
 export function useGamesListQuery(): UseQueryResult<GameListRow[]> {
   return useQuery({
     queryKey: gameKeys.list(),
