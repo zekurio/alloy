@@ -435,6 +435,37 @@
     animation: alloy-pulse 1.6s infinite;
   }
 
+  /* Sweep a soft accent highlight across the game-suggestion "thinking" verb
+     text so it reads as alive rather than a frozen label. */
+  @keyframes alloy-text-shimmer {
+    to {
+      background-position: -200% 0;
+    }
+  }
+  .animate-text-shimmer {
+    background-image: linear-gradient(
+      100deg,
+      var(--foreground-muted) 0%,
+      var(--foreground-muted) 38%,
+      var(--accent) 50%,
+      var(--foreground-muted) 62%,
+      var(--foreground-muted) 100%
+    );
+    background-size: 200% 100%;
+    background-position: 200% 0;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    animation: alloy-text-shimmer 2.4s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-text-shimmer {
+      animation: none;
+      color: var(--foreground-muted);
+    }
+  }
+
   /* Upload FAB ↔ queue popover morph. Origin is bottom-right so the
      popover grows out of the FAB's corner with a little spring overshoot
      and a cheeky tilt that settles back to zero. */

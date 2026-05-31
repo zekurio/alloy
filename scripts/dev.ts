@@ -22,6 +22,10 @@ const processes: DevProcess[] = [
     label: "web",
     args: ["task", "--quiet", "--cwd", "apps/web", "dev"],
   },
+  {
+    label: "ml",
+    args: ["task", "--quiet", "dev:ml"],
+  },
 ];
 
 const encoder = new TextEncoder();

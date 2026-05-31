@@ -44,6 +44,11 @@ export interface GameComboboxProps {
   required?: boolean
   side?: "top" | "bottom"
   /**
+   * Optional node rendered directly beneath the input — used by the upload
+   * flow to attach the ML game suggestion to the field it fills.
+   */
+  suggestion?: React.ReactNode
+  /**
    * Extra classes on the wrapping element so callers can size the input
    * to match their form layout without overriding the combobox internals.
    */
@@ -61,6 +66,7 @@ export function GameCombobox({
   onConfiguredChange,
   required = false,
   side = "bottom",
+  suggestion,
   className,
 }: GameComboboxProps) {
   const statusQuery = useSteamGridDBStatusQuery()
@@ -319,6 +325,9 @@ export function GameCombobox({
           </ComboboxList>
         </ComboboxContent>
       </Combobox>
+      {suggestion ? (
+        <div className="absolute inset-0 z-10">{suggestion}</div>
+      ) : null}
     </div>
   )
 }
