@@ -78,7 +78,15 @@ export function VideoFrame({
         onPause={onPause}
         onEnded={onEnded}
         onError={onError}
-        className="absolute inset-0 block h-full w-full object-contain object-center"
+        // A non-zero `clip-path` inset stops Chromium from promoting the video
+        // to a hardware *underlay* — a plane that punches a transparent hole
+        // through the page layers, ignores ancestor `overflow`/`clip-path`, and
+        // rounds ~1px past the box, showing as a bright hairline of uncovered
+        // video beneath the chrome. A real clip region forces the normal raster
+        // path so the edge stays inside the box. The inset must be non-zero:
+        // `inset(0)` clips nothing and is optimised away, leaving the underlay
+        // in place. 1px is below perceptible crop for object-contain content.
+        className="absolute inset-0 block h-full w-full object-contain object-center [clip-path:inset(1px)]"
       />
     </>
   )

@@ -10,6 +10,11 @@ import {
 } from "@workspace/ui/components/dropdown-menu"
 import { GameIcon } from "@workspace/ui/components/game-icon"
 
+import {
+  filterLabelClass,
+  SortDropdown,
+  type SortDropdownOption,
+} from "@/components/clip/sort-dropdown"
 import type { ProfileAllSort } from "@/routes/(app)/_app.u.$username.all"
 
 type GameOption = {
@@ -28,18 +33,12 @@ type ClipsFilterBarProps = {
   gameOptions: GameOption[]
 }
 
-const SORT_OPTIONS: ReadonlyArray<{
-  key: ProfileAllSort
-  label: string
-}> = [
+const SORT_OPTIONS: ReadonlyArray<SortDropdownOption<ProfileAllSort>> = [
   { key: "recent", label: "Newest" },
   { key: "oldest", label: "Oldest" },
   { key: "top", label: "Most liked" },
   { key: "views", label: "Most viewed" },
 ]
-
-const filterLabelClass =
-  "inline-flex h-8 items-center pr-1 text-xs leading-4 font-semibold tracking-wide text-foreground-muted uppercase"
 
 export function ClipsFilterBar({
   username,
@@ -71,37 +70,19 @@ export function ClipsFilterBar({
   return (
     <div className="mb-6 flex flex-wrap items-center gap-3">
       {/* Sort group */}
-      <div className="flex items-center gap-1.5">
-        <span className={filterLabelClass}>Sort</span>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Chip size="xl" data-active="true">
-                {SORT_OPTIONS.find((o) => o.key === sort)?.label ??
-                  SORT_OPTIONS[0].label}
-                <ChevronDownIcon />
-              </Chip>
-            }
+      <SortDropdown
+        label="Sort"
+        value={sort}
+        options={SORT_OPTIONS}
+        renderOptionLink={(opt, active) => (
+          <Link
+            to="/u/$username/all"
+            params={{ username }}
+            search={searchFor(opt.key, gameSlug)}
+            data-active={active ? "true" : undefined}
           />
-          <DropdownMenuContent className="w-44">
-            {SORT_OPTIONS.map((opt) => (
-              <DropdownMenuItem
-                key={opt.key}
-                render={
-                  <Link
-                    to="/u/$username/all"
-                    params={{ username }}
-                    search={searchFor(opt.key, gameSlug)}
-                    data-active={sort === opt.key ? "true" : undefined}
-                  />
-                }
-              >
-                {opt.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+        )}
+      />
 
       {/* Vertical divider */}
       {gameOptions.length > 0 ? (

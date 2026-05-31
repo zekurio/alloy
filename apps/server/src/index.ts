@@ -11,6 +11,9 @@ if (env.NODE_ENV === "production") {
 const server = Deno.serve(
   {
     port: env.PORT,
+    onListen() {
+      // eslint-disable-next-line no-console
+    },
   },
   app.fetch
 )
