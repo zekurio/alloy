@@ -12,6 +12,7 @@ const queueSelectShape = {
   status: clip.status,
   encodeProgress: clip.encodeProgress,
   failureReason: clip.failureReason,
+  thumbKey: clip.thumbKey,
   createdAt: clip.createdAt,
 } as const
 
@@ -23,11 +24,17 @@ function serialize(
     status: (typeof clip.$inferSelect)["status"]
     encodeProgress: number
     failureReason: string | null
+    thumbKey: string | null
     createdAt: Date
   } | null
 ): QueueClip | null {
   if (!row) return null
-  return { ...row, createdAt: row.createdAt.toISOString() }
+  const { thumbKey, createdAt, ...publicRow } = row
+  return {
+    ...publicRow,
+    hasThumb: thumbKey !== null,
+    createdAt: createdAt.toISOString(),
+  }
 }
 
 /** Viewer's 50 most recent clips — the snapshot sent on queue opens and on

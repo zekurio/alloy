@@ -3,14 +3,19 @@ import { cn } from "@workspace/ui/lib/utils"
 export function FormGroup({
   title,
   description,
+  action,
   children,
   className,
 }: {
-  title: string
+  title?: string
   description?: string
-  children: React.ReactNode
+  /** Optional control rendered top-right, aligned with the title. */
+  action?: React.ReactNode
+  children?: React.ReactNode
   className?: string
 }) {
+  const hasHeader = Boolean(title || description || action)
+
   return (
     <div
       className={cn(
@@ -18,12 +23,17 @@ export function FormGroup({
         className
       )}
     >
-      <div className="flex flex-col gap-0.5">
-        <h3 className="text-sm font-medium">{title}</h3>
-        {description ? (
-          <p className="text-xs text-foreground-dim">{description}</p>
-        ) : null}
-      </div>
+      {hasHeader ? (
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            {title ? <div className="text-sm font-medium">{title}</div> : null}
+            {description ? (
+              <p className="text-xs text-foreground-dim">{description}</p>
+            ) : null}
+          </div>
+          {action ? <div className="shrink-0">{action}</div> : null}
+        </div>
+      ) : null}
       {children}
     </div>
   )

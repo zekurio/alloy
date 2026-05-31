@@ -1,9 +1,6 @@
 {
   "version": "0.0.3",
-  "workspace": [
-    "apps/*",
-    "packages/*"
-  ],
+  "workspace": ["apps/*", "packages/*"],
   "nodeModulesDir": "auto",
   "imports": {
     "@base-ui/react": "npm:@base-ui/react@1.4.1",
@@ -44,18 +41,17 @@
     "zod": "npm:zod@4.3.6"
   },
   "tasks": {
-    "build": "deno task --filter @workspace/server build && deno task --filter web build",
+    "build": "deno task --filter @workspace/server build && deno task --filter @workspace/web build",
     "start": "deno task start:prod",
     "start:prod": "WEB_DIST_DIR=${WEB_DIST_DIR:-../../apps/web/dist} deno task --cwd apps/server start:prod",
     "serve": "deno task start",
-    "dev": "deno run --allow-run --allow-read scripts/dev.ts",
+    "dev": "deno run --allow-run --allow-read --allow-env --allow-net=127.0.0.1,0.0.0.0 --allow-write=.alloy-dev.lock scripts/dev.ts",
+    "dev:all": "deno task dev -- --ml",
+    "dev:quick": "deno task dev -- --no-db-push",
     "dev:api": "deno task --quiet --cwd apps/server dev",
     "dev:web": "deno task --quiet --cwd apps/web dev",
     "dev:server": "deno task --cwd apps/server dev",
     "dev:ml": "scripts/dev-ml.sh",
-    "ml:up": "docker compose --profile ml up machine-learning",
-    "ml:start": "docker compose --profile ml up -d machine-learning",
-    "ml:stop": "docker compose stop machine-learning",
     "pg:start": "scripts/dev-postgres.sh start",
     "pg:stop": "scripts/dev-postgres.sh stop",
     "pg:status": "scripts/dev-postgres.sh status",
@@ -63,16 +59,14 @@
     "db:migrate": "deno task --cwd packages/db db:migrate",
     "db:push": "deno task --cwd packages/db db:push",
     "db:studio": "deno task --cwd packages/db db:studio",
-    "fmt": "deno task --filter @workspace/contracts fmt && deno task --filter @workspace/api fmt && deno task --filter @workspace/db fmt && deno task --filter @workspace/ui fmt && deno task --filter @workspace/server fmt && deno task --filter web fmt",
-    "lint": "deno task --filter @workspace/contracts lint && deno task --filter @workspace/api lint && deno task --filter @workspace/db lint && deno task --filter @workspace/ui lint && deno task --filter @workspace/server lint && deno task --filter web lint",
-    "lint:github": "deno task --filter @workspace/contracts lint --deny-warnings --format=github && deno task --filter @workspace/api lint --deny-warnings --format=github && deno task --filter @workspace/db lint --deny-warnings --format=github && deno task --filter @workspace/ui lint --deny-warnings --format=github && deno task --filter @workspace/server lint --deny-warnings --format=github && deno task --filter web lint --deny-warnings --format=github",
-    "lint:ci": "deno task --filter @workspace/contracts lint --deny-warnings && deno task --filter @workspace/api lint --deny-warnings && deno task --filter @workspace/db lint --deny-warnings && deno task --filter @workspace/ui lint --deny-warnings && deno task --filter @workspace/server lint --deny-warnings && deno task --filter web lint --deny-warnings",
+    "fmt": "deno run -A npm:oxfmt@^0.46.0 --write deno.json tsconfig.json .oxlintrc.json scripts/*.ts && deno task --filter '*' fmt",
+    "lint": "sh -n scripts/dev-ml.sh scripts/dev-postgres.sh scripts/dev-server.sh && deno run -A npm:oxlint@^1.61.0 scripts/*.ts && deno task --filter '*' lint",
+    "lint:github": "sh -n scripts/dev-ml.sh scripts/dev-postgres.sh scripts/dev-server.sh && deno run -A npm:oxlint@^1.61.0 scripts/*.ts --deny-warnings --format=github && deno task --filter '*' lint --deny-warnings --format=github",
+    "lint:ci": "sh -n scripts/dev-ml.sh scripts/dev-postgres.sh scripts/dev-server.sh && deno run -A npm:oxlint@^1.61.0 scripts/*.ts --deny-warnings && deno task --filter '*' lint --deny-warnings",
     "format": "deno task fmt",
-    "typecheck": "deno task --filter @workspace/contracts typecheck && deno task --filter @workspace/api typecheck && deno task --filter @workspace/db typecheck && deno task --filter @workspace/ui typecheck && deno task --filter @workspace/server typecheck && deno task --filter web typecheck"
+    "typecheck": "deno check scripts/*.ts && deno task --filter '*' typecheck"
   },
   "allowScripts": {
-    "deny": [
-      "npm:esbuild@0.25.12"
-    ]
+    "deny": ["npm:esbuild@0.25.12"]
   }
 }

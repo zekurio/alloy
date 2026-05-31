@@ -195,7 +195,7 @@ export function UploadQueueContent({
           className="w-full"
         >
           <UploadIcon />
-          Upload clip
+          Upload
         </Button>
       </div>
     </div>
@@ -283,7 +283,7 @@ function QueueThumb({
   }, [thumbUrl])
 
   const showFallback = Boolean(
-    fallbackUrl && thumbUrl && loadedSrc !== thumbUrl
+    fallbackUrl && (!thumbUrl || loadedSrc !== thumbUrl)
   )
 
   return (

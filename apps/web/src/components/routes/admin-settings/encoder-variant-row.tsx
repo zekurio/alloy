@@ -1,5 +1,16 @@
-import { PencilIcon, StarIcon, Trash2Icon } from "lucide-react"
+import { CopyIcon, PencilIcon, StarIcon, Trash2Icon } from "lucide-react"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
 
 import type { AdminEncoderVariant, EncoderCodec } from "@workspace/api"
@@ -16,6 +27,7 @@ type VariantRowProps = {
   canDelete: boolean
   onEdit: () => void
   onSetDefault: () => void
+  onDuplicate: () => void
   onDelete: () => void
 }
 
@@ -25,6 +37,7 @@ export function VariantRow({
   canDelete,
   onEdit,
   onSetDefault,
+  onDuplicate,
   onDelete,
 }: VariantRowProps) {
   const specs = [
@@ -81,12 +94,44 @@ export function VariantRow({
           type="button"
           variant="ghost"
           size="icon-sm"
-          onClick={onDelete}
-          disabled={!canDelete}
-          aria-label="Remove variant"
+          onClick={onDuplicate}
+          aria-label="Duplicate variant"
+          title="Duplicate variant"
         >
-          <Trash2Icon className="size-3.5" />
+          <CopyIcon className="size-3.5" />
         </Button>
+        <AlertDialog>
+          <AlertDialogTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                disabled={!canDelete}
+                aria-label="Remove variant"
+              />
+            }
+          >
+            <Trash2Icon className="size-3.5" />
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove variant?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {variant.name
+                  ? `“${variant.name}” will be removed from the variant ladder.`
+                  : "This variant will be removed from the variant ladder."}{" "}
+                Existing clips keep their current renditions until re-encoded.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" onClick={onDelete}>
+                Remove variant
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   )

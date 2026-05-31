@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import concurrent.futures
 import logging
 import os
@@ -9,12 +7,18 @@ from pathlib import Path
 from socket import socket
 
 from gunicorn.arbiter import Arbiter
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from rich.console import Console
 from rich.logging import RichHandler
 from uvicorn import Server
 from uvicorn.workers import UvicornWorker
+
+
+DEFAULT_GAME_CLASSIFIER_REPO_ID = "zekurio/alloy-clipnet-b2-v1"
+DEFAULT_GAME_CLASSIFIER_FILENAME = "alloy-clipnet-b2-v1.pt"
+DEFAULT_GAME_CLASSIFIER_REVISION = "05b8d2af2b704a21366e58e9fd6bef5cef2847cb"
+DEFAULT_GAME_CLASSIFIER_NAME = "alloy-game-classifier"
+DEFAULT_GAME_CLASSIFIER_VERSION = "alloy-clipnet-b2-v1"
 
 
 class Settings(BaseSettings):
@@ -31,12 +35,11 @@ class Settings(BaseSettings):
     request_threads: int = os.cpu_count() or 4
     device: str = "auto"
     game_classifier_checkpoint: Path | None = None
-    game_classifier_repo_id: str = "zekurio/alloy-game-clip-efficientnet-b2-v1-broad"
-    game_classifier_filename: str = "alloy-game-clip-efficientnet-b2-v1-broad.pt"
-    game_classifier_revision: str = "main"
-    game_classifier_name: str = "alloy-game-classifier"
-    game_classifier_version: str | None = None
-    game_classifier_top_k: int = Field(default=1, ge=1)
+    game_classifier_repo_id: str = DEFAULT_GAME_CLASSIFIER_REPO_ID
+    game_classifier_filename: str = DEFAULT_GAME_CLASSIFIER_FILENAME
+    game_classifier_revision: str = DEFAULT_GAME_CLASSIFIER_REVISION
+    game_classifier_name: str = DEFAULT_GAME_CLASSIFIER_NAME
+    game_classifier_version: str | None = DEFAULT_GAME_CLASSIFIER_VERSION
     preload_game_classifier: bool = False
 
 
@@ -71,7 +74,8 @@ _clean_name_pattern = re.compile(r"[^A-Za-z0-9_.-]+")
 
 
 def clean_model_name(value: str) -> str:
-    token = value.rstrip("/").split("/")[-1]
+    token = value.strip().rstrip("/")
+    token = token.removeprefix("https://huggingface.co/")
     cleaned = _clean_name_pattern.sub("_", token).strip("._-")
     return cleaned or "model"
 

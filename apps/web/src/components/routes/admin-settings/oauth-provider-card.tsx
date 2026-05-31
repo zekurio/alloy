@@ -174,14 +174,14 @@ export function OAuthProviderCard({
                   }
                 />
                 <AlertDialogContent>
-                  <AlertDialogHeader>
+                  <AlertDialogHeader className="place-items-start text-left">
                     <AlertDialogTitle>Remove OAuth provider?</AlertDialogTitle>
                     <AlertDialogDescription>
                       This disables sign-in through {provider.displayName}. You
                       can add it back later.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
-                  <AlertDialogFooter>
+                  <AlertDialogFooter className="flex-row justify-end">
                     <AlertDialogCancel disabled={disabled}>
                       Cancel
                     </AlertDialogCancel>

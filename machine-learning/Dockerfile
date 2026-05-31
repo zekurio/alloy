@@ -17,11 +17,11 @@ RUN apt-get update \
 
 COPY --from=ghcr.io/astral-sh/uv:0.8.15 /uv /uvx /bin/
 
-COPY pyproject.toml README.md ./
+COPY pyproject.toml uv.lock README.md ./
 COPY alloy_ml alloy_ml
 
 RUN python -m venv /opt/venv \
-  && uv sync --active --extra "${DEVICE}" --no-dev --compile-bytecode --no-progress --link-mode copy
+  && uv sync --active --frozen --extra "${DEVICE}" --no-dev --compile-bytecode --no-progress --link-mode copy
 
 FROM python:3.11-slim-bookworm AS prod
 

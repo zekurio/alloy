@@ -43,6 +43,25 @@ export function variantCodecAvailable(
     : true
 }
 
+/**
+ * Build a copy name for a duplicated variant, appending "copy" (and a counter
+ * when needed) so the ladder never holds two identically named variants.
+ * `usedNames` must contain the lowercased, trimmed names already in use.
+ */
+export function uniqueVariantName(
+  name: string,
+  usedNames: Set<string>
+): string {
+  const base = name.trim() || "Variant"
+  let candidate = `${base} copy`
+  let suffix = 2
+  while (usedNames.has(candidate.toLowerCase())) {
+    candidate = `${base} copy ${suffix}`
+    suffix += 1
+  }
+  return candidate
+}
+
 export function variantIdFromName(name: string, usedIds: Set<string>): string {
   const base =
     name

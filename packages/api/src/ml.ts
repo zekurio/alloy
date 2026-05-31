@@ -22,14 +22,12 @@ async function fetchMlConfig(context: ApiContext): Promise<PublicMlConfig> {
 
 async function suggestGames(
   context: ApiContext,
-  frames: Blob[],
-  topK?: number
+  frames: Blob[]
 ): Promise<MlGameSuggestionResponse> {
   const body = new FormData()
   for (let i = 0; i < frames.length; i++) {
     body.append("frames", frames[i]!, `frame-${i}.jpg`)
   }
-  if (topK !== undefined) body.set("topK", String(topK))
 
   const res = await context.client.request("/api/ml/game-suggestions", {
     method: "POST",
@@ -42,7 +40,6 @@ async function suggestGames(
 export function createMlApi(context: ApiContext) {
   return {
     getConfig: () => fetchMlConfig(context),
-    suggestGames: (frames: Blob[], topK?: number) =>
-      suggestGames(context, frames, topK),
+    suggestGames: (frames: Blob[]) => suggestGames(context, frames),
   }
 }

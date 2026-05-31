@@ -1,4 +1,5 @@
 import * as React from "react"
+import { PlusIcon, SaveIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -329,7 +330,17 @@ export function OAuthCustomProviderDialog({
                 variant="primary"
                 disabled={pendingAction !== null}
               >
-                {editing ? "Save changes" : "Add provider"}
+                {editing ? (
+                  <>
+                    <SaveIcon />
+                    Save
+                  </>
+                ) : (
+                  <>
+                    <PlusIcon />
+                    Add provider
+                  </>
+                )}
               </Button>
             </ResponsiveDialogFooter>
           </form>

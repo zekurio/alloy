@@ -2,7 +2,7 @@ import * as React from "react"
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
-import { Pencil } from "lucide-react"
+import { Pencil, SaveIcon } from "lucide-react"
 import { useClickAnchor } from "@/hooks/use-click-anchor"
 
 import {
@@ -549,7 +549,8 @@ export function ProfileCard({
                     size="sm"
                     disabled={!dirty || !canSubmit}
                   >
-                    {isSubmitting ? "Saving…" : "Save changes"}
+                    <SaveIcon />
+                    {isSubmitting ? "Saving…" : "Save"}
                   </Button>
                 )
               }}

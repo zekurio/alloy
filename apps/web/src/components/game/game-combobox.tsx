@@ -43,10 +43,6 @@ export interface GameComboboxProps {
   onConfiguredChange?: (configured: boolean | null) => void
   required?: boolean
   side?: "top" | "bottom"
-  /**
-   * Optional node rendered directly beneath the input — used by the upload
-   * flow to attach the ML game suggestion to the field it fills.
-   */
   suggestion?: React.ReactNode
   /**
    * Extra classes on the wrapping element so callers can size the input

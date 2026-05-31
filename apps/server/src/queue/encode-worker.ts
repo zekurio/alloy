@@ -12,7 +12,8 @@ import { runEncodeInner } from "./encode-run"
 export const ENCODE_JOB = "clip.encode" as const
 
 const RETRY_LIMIT = 2
-const ENCODE_LEASE_STALE_INTERVAL = "2 hours"
+const ENCODE_LEASE_STALE_INTERVAL = "2 minutes"
+const ENCODE_LEASE_HEARTBEAT_MS = 30_000
 const RETRY_DELAY_INTERVAL = "30 seconds"
 const POLL_INTERVAL_MS = 5000
 
@@ -175,6 +176,7 @@ async function runEncode(clipId: string): Promise<void> {
     resolveDone = r
   })
   activeEncodes.set(clipId, { abort, done })
+  const stopHeartbeat = startEncodeLeaseHeartbeat(clipId, runId, abort)
 
   try {
     await runEncodeInner(clipId, row, runId, abort.signal)
@@ -197,9 +199,41 @@ async function runEncode(clipId: string): Promise<void> {
     }
     throw err
   } finally {
+    stopHeartbeat()
     activeEncodes.delete(clipId)
     resolveDone()
   }
+}
+
+function startEncodeLeaseHeartbeat(
+  clipId: string,
+  runId: string,
+  abort: AbortController
+): () => void {
+  let pending = false
+  const beat = () => {
+    if (pending || abort.signal.aborted) return
+    pending = true
+    db.update(clip)
+      .set({ encodeLockedAt: new Date() })
+      .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
+      .returning({ id: clip.id })
+      .then((rows) => {
+        if (rows.length === 0) abort.abort()
+      })
+      .catch((err: unknown) => {
+        // eslint-disable-next-line no-console
+        console.error(
+          `[queue] encode lease heartbeat failed for ${clipId}:`,
+          err
+        )
+      })
+      .finally(() => {
+        pending = false
+      })
+  }
+  const timer = setInterval(beat, ENCODE_LEASE_HEARTBEAT_MS)
+  return () => clearInterval(timer)
 }
 
 function encodeLeaseConditions(): [SQL, SQL] {

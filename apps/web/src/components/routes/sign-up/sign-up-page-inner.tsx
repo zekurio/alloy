@@ -2,6 +2,8 @@ import { Link } from "@tanstack/react-router"
 
 import type { PublicAuthConfig } from "@workspace/api"
 
+import { Separator } from "@workspace/ui/components/separator"
+
 import { AuthPageFrame } from "@/components/auth/auth-page-frame"
 import { useRedirectIfAuthed } from "@/lib/auth-hooks"
 import { usePasskeySupport } from "@/lib/passkey-support"
@@ -25,6 +27,7 @@ export function SignUpPageInner({ config }: SignUpPageInnerProps) {
   const showPasskeySignUp = canPasskeySignUp && passkeySupported
   const oauthProvider = config.openRegistrations ? config.provider : null
   const canOAuthSignUp = oauthProvider !== null
+  const showSeparator = showPasskeySignUp && canOAuthSignUp
 
   return (
     <AuthPageFrame splash={config.loginSplash}>
@@ -45,6 +48,16 @@ export function SignUpPageInner({ config }: SignUpPageInnerProps) {
             Passkey sign-up is enabled, but this browser does not support
             passkeys.
           </p>
+        ) : null}
+
+        {showSeparator ? (
+          <div className="flex items-center gap-3">
+            <Separator className="flex-1" />
+            <span className="text-xs font-medium tracking-wider text-foreground-muted uppercase">
+              or
+            </span>
+            <Separator className="flex-1" />
+          </div>
         ) : null}
 
         {canOAuthSignUp ? (

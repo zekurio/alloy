@@ -33,7 +33,8 @@ checkpoint has already been cached locally.
 `POST /predict`
 
 Multipart form endpoint. Send JPEG or PNG frames using the repeated `frames`
-field. Optional form field: `top_k`.
+field. Optional form fields: `model_name`, `model_version`, `repo_id`,
+`filename`, `revision`, and `checkpoint_path`.
 
 The response is ranked, confidence-scored, and marked advisory:
 
@@ -42,7 +43,7 @@ The response is ranked, confidence-scored, and marked advisory:
   "kind": "game-suggestion",
   "advisory": true,
   "modelName": "alloy-game-classifier",
-  "modelVersion": "v1-broad-efficientnet-b2-20260530-202943",
+  "modelVersion": "alloy-clipnet-b2-v1",
   "predictions": [
     { "label": "valorant", "score": 0.94 },
     { "label": "counter-strike-2", "score": 0.03 }
@@ -63,13 +64,12 @@ Environment variables:
 | `ALLOY_ML_PORT` | `3003` | Bind port |
 | `ALLOY_ML_LOG_LEVEL` | `info` | Log level |
 | `MACHINE_LEARNING_CACHE_FOLDER` | `/cache` | Runtime cache root |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_REPO_ID` | `zekurio/alloy-game-clip-efficientnet-b2-v1-broad` | Hugging Face model repo |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_FILENAME` | `alloy-game-clip-efficientnet-b2-v1-broad.pt` | Checkpoint file inside the Hugging Face repo |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_REVISION` | `main` | Hugging Face revision, tag, branch, or commit |
+| `MACHINE_LEARNING_GAME_CLASSIFIER_REPO_ID` | `zekurio/alloy-clipnet-b2-v1` | Hugging Face model repo |
+| `MACHINE_LEARNING_GAME_CLASSIFIER_FILENAME` | `alloy-clipnet-b2-v1.pt` | Checkpoint file inside the Hugging Face repo |
+| `MACHINE_LEARNING_GAME_CLASSIFIER_REVISION` | `05b8d2af2b704a21366e58e9fd6bef5cef2847cb` | Hugging Face revision, tag, branch, or commit |
 | `MACHINE_LEARNING_GAME_CLASSIFIER_CHECKPOINT` | unset | Optional local checkpoint override for development |
 | `MACHINE_LEARNING_GAME_CLASSIFIER_NAME` | `alloy-game-classifier` | Response model name |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_VERSION` | `MACHINE_LEARNING_GAME_CLASSIFIER_REVISION` | Response model version |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_TOP_K` | `1` | Default number of predictions |
+| `MACHINE_LEARNING_GAME_CLASSIFIER_VERSION` | `alloy-clipnet-b2-v1` | Response model version |
 | `MACHINE_LEARNING_PRELOAD_GAME_CLASSIFIER` | `false` | Download and load the classifier at service startup |
 | `MACHINE_LEARNING_DEVICE` | `auto` | `auto`, `cpu`, `cuda`, or `mps` |
 | `MACHINE_LEARNING_WORKERS` | `1` | Gunicorn worker count |
@@ -96,20 +96,21 @@ It mirrors the direct command above and keeps the model cache in
 `data/ml-cache`. Use `MACHINE_LEARNING_UV_SYNC=0 deno task dev:ml` after the
 first sync if you only want to restart the service.
 
-For Docker-based development, use the compose profile from the repository root:
-
-```bash
-deno task ml:up
-```
-
-Use `deno task ml:start` for detached mode and `deno task ml:stop` to stop the
-container.
-
 The checked-in Dockerfile currently targets CPU inference. CUDA/ROCm images can
 be added as separate device variants later, following Immich's pattern.
 
 The checkpoint is downloaded lazily by `huggingface_hub` on first classifier
-load and reused from `MACHINE_LEARNING_CACHE_FOLDER/game-classifier/<model>/`
-afterward. Set `MACHINE_LEARNING_PRELOAD_GAME_CLASSIFIER=true` to download and
-load it during service startup. The Docker image intentionally does not bake the
+load and reused from the Immich-style path
+`MACHINE_LEARNING_CACHE_FOLDER/game-classification/<model>__<revision>/classifier/model.pt`
+afterward. The adjacent `source.json` records the Hugging Face repo, filename,
+and revision; if that source changes, Alloy clears and redownloads the model
+folder. Set `MACHINE_LEARNING_PRELOAD_GAME_CLASSIFIER=true` to download and load
+it during service startup. The Docker image intentionally does not bake the
 checkpoint.
+
+The app server can also pass a classifier model reference per request. This is
+how Alloy's runtime config makes the model adjustable without restarting the ML
+service: the registry keeps one in-memory classifier per
+repo/revision/filename or local checkpoint path. A `MACHINE_LEARNING_*`
+environment variable still sets the direct-service default, and the server-side
+runtime config controls what normal upload suggestions use.

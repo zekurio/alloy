@@ -4,17 +4,22 @@ import { createFileRoute } from "@tanstack/react-router"
 import {
   AlertTriangleIcon,
   DatabaseIcon,
+  SettingsIcon,
   ShieldIcon,
   UserIcon,
 } from "lucide-react"
 
+import { SectionTitle } from "@workspace/ui/components/section-head"
 import { toast } from "@workspace/ui/lib/toast"
 
 import type { PublicAuthConfig } from "@workspace/api"
 
 import { AdminSettingsSections } from "@/components/routes/settings/admin-tab-content"
 import { DangerZoneCard } from "@/components/routes/settings/danger-zone-card"
-import { DataCard } from "@/components/routes/settings/data-card"
+import {
+  ClipDataCard,
+  StorageUsageCard,
+} from "@/components/routes/settings/data-card"
 import {
   LinkedAccountsCard,
   shouldShowLinkedAccountsCard,
@@ -123,57 +128,67 @@ function ProfilePage() {
   if (!session || !user) return null
 
   return (
-    <div className="flex flex-col gap-3">
-      <h1 className="text-xl font-semibold tracking-[-0.02em]">Settings</h1>
+    <div className="flex flex-col gap-6">
+      <SectionTitle>
+        <SettingsIcon className="text-accent" />
+        Settings
+      </SectionTitle>
 
-      <SettingsSection
-        icon={UserIcon}
-        title="Profile"
-        description="Manage your display name, username, avatar, and banner."
-        defaultOpen
-      >
-        <ProfileCard
-          key={user.id}
-          userId={user.id}
-          initialName={user.name ?? ""}
-          initialUsername={user.username ?? ""}
-          image={user.image ?? ""}
-          banner={(user as { banner?: string | null }).banner ?? ""}
-          email={user.email ?? ""}
-        />
-      </SettingsSection>
+      <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
+        <SettingsSection
+          icon={UserIcon}
+          title="Profile identity"
+          description="Edit your name, username, email, avatar, and banner."
+        >
+          <ProfileCard
+            key={user.id}
+            userId={user.id}
+            initialName={user.name ?? ""}
+            initialUsername={user.username ?? ""}
+            image={user.image ?? ""}
+            banner={(user as { banner?: string | null }).banner ?? ""}
+            email={user.email ?? ""}
+          />
+        </SettingsSection>
 
-      <SettingsSection
-        icon={ShieldIcon}
-        title="Security"
-        description="Manage sign-in methods and passkeys."
-      >
-        <SecurityContent config={config} />
-      </SettingsSection>
+        <SettingsSection
+          icon={ShieldIcon}
+          title="Sign-in security"
+          description="Manage linked accounts and passkeys for this account."
+        >
+          <SecurityContent config={config} />
+        </SettingsSection>
 
-      <SettingsSection
-        icon={DatabaseIcon}
-        title="Data"
-        description="Manage your storage quota and clips."
-      >
-        <DataCard />
-      </SettingsSection>
+        <SettingsSection
+          icon={DatabaseIcon}
+          title="Clips & storage"
+          description="Review storage usage, download, or remove your clips."
+        >
+          <div className="flex flex-col gap-4">
+            <StorageUsageCard />
+            <hr className="border-border" />
+            <ClipDataCard />
+          </div>
+        </SettingsSection>
 
-      <SettingsSection
-        icon={AlertTriangleIcon}
-        title="Account"
-        description="Disable or permanently delete your account."
-      >
-        <DangerZoneCard />
-      </SettingsSection>
+        <SettingsSection
+          icon={AlertTriangleIcon}
+          title="Account state"
+          description="Disable this profile or permanently delete the account."
+        >
+          <DangerZoneCard />
+        </SettingsSection>
+      </div>
 
       {isAdmin && (
-        <>
-          <p className="mt-2 px-1 text-xs font-medium tracking-widest text-foreground-dim uppercase">
+        <div className="flex flex-col gap-3">
+          <p className="px-1 text-xs font-medium tracking-widest text-foreground-dim uppercase">
             Administration
           </p>
-          <AdminSettingsSections userId={user.id} />
-        </>
+          <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
+            <AdminSettingsSections userId={user.id} />
+          </div>
+        </div>
       )}
     </div>
   )

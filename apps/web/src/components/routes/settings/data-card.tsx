@@ -138,13 +138,22 @@ function DeleteClipsRow({
   )
 }
 
-export function DataCard() {
+export function StorageUsageCard() {
+  return (
+    <Section>
+      <SectionContent className="py-0">
+        <StorageQuota />
+      </SectionContent>
+    </Section>
+  )
+}
+
+export function ClipDataCard() {
   const { pending, onDeleteAllClips } = useDeleteAllClipsAction()
 
   return (
     <Section>
       <SectionContent className="divide-y divide-border py-0">
-        <StorageQuota />
         <DownloadClipsRow />
         <DeleteClipsRow pending={pending} onDeleteAllClips={onDeleteAllClips} />
       </SectionContent>

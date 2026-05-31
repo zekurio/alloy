@@ -99,9 +99,19 @@ export interface AdminMachineLearningConfig {
   enabled: boolean
   baseUrl: string
   requestTimeoutMs: number
+  gameClassifier: AdminGameClassifierModelConfig
 }
 
 export type MachineLearningConfig = AdminMachineLearningConfig
+
+export interface AdminGameClassifierModelConfig {
+  modelName: string
+  modelVersion: string | null
+  repoId: string
+  filename: string
+  revision: string
+  checkpointPath: string | null
+}
 
 export interface ServerSecretsConfig {
   viewerCookieSecret: string

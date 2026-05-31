@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { PencilIcon, Trash2Icon, UserPlusIcon } from "lucide-react"
+import { PencilIcon, SaveIcon, Trash2Icon, UserPlusIcon } from "lucide-react"
 
 import {
   AlertDialog,
@@ -586,6 +586,7 @@ function EditUserDialog({
               Cancel
             </ResponsiveDialogClose>
             <Button type="submit" variant="primary" size="sm" disabled={busy}>
+              <SaveIcon />
               {busy ? "Saving…" : "Save"}
             </Button>
           </ResponsiveDialogFooter>

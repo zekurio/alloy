@@ -1,5 +1,5 @@
 import * as React from "react"
-import { AlertCircleIcon } from "lucide-react"
+import { AlertCircleIcon, SaveIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -195,7 +195,8 @@ function LimitsActions({
           size="sm"
           disabled={pending || !isDirty}
         >
-          {pending ? "Saving…" : "Save limits"}
+          <SaveIcon />
+          {pending ? "Saving…" : "Save"}
         </Button>
       </div>
     </SectionFooter>

@@ -1,4 +1,4 @@
-import { Trash2Icon } from "lucide-react"
+import { SaveIcon, Trash2Icon } from "lucide-react"
 
 import {
   AlertDialog,
@@ -331,13 +331,11 @@ export function StorageActions({
   pending,
   isDirty,
   onReset,
-  submitLabel = "Save storage",
 }: {
   allowSubmitUnchanged?: boolean
   pending: boolean
   isDirty: boolean
   onReset: () => void
-  submitLabel?: string
 }) {
   return (
     <SectionFooter>
@@ -359,7 +357,8 @@ export function StorageActions({
           size="sm"
           disabled={pending || (!isDirty && !allowSubmitUnchanged)}
         >
-          {pending ? "Saving..." : submitLabel}
+          <SaveIcon />
+          {pending ? "Saving…" : "Save"}
         </Button>
       </div>
     </SectionFooter>

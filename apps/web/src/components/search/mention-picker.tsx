@@ -98,8 +98,10 @@ export function MentionPicker({
     <div ref={containerRef} className="relative" onBlur={handleBlur}>
       <div
         className={cn(
-          "flex min-h-8 flex-wrap items-center gap-1.5 rounded-md border border-border bg-input px-2 py-1.5",
-          "focus-within:border-accent-border focus-within:bg-surface-raised",
+          "flex min-h-11 flex-wrap items-center gap-1.5 rounded-lg border border-border bg-input px-3 py-1.5 sm:min-h-9",
+          "transition-[border-color,background-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+          "hover:border-border-strong hover:bg-surface-raised",
+          "focus-within:border-accent-border focus-within:bg-surface-raised focus-within:ring-2 focus-within:ring-accent-border/20 focus-within:ring-inset",
           disabled && "opacity-60"
         )}
         onClick={() => inputRef.current?.focus()}
@@ -110,8 +112,8 @@ export function MentionPicker({
             <span
               key={u.id}
               className={cn(
-                "inline-flex h-5 items-center gap-1 rounded-sm bg-accent px-1.5",
-                "text-xs font-medium text-accent-foreground"
+                "inline-flex h-6 items-center gap-1 rounded-sm bg-accent px-1.5 sm:h-5",
+                "text-sm font-medium text-accent-foreground sm:text-xs"
               )}
             >
               @{handle}
@@ -136,7 +138,7 @@ export function MentionPicker({
           disabled={disabled}
           placeholder={value.length === 0 ? placeholder : ""}
           className={cn(
-            "min-w-[120px] flex-1 bg-transparent text-xs text-foreground",
+            "min-w-[120px] flex-1 bg-transparent text-base text-foreground sm:text-sm",
             "outline-none placeholder:text-foreground-faint"
           )}
         />
