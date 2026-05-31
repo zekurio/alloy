@@ -7,6 +7,8 @@ import { configStore } from "../config/store"
 import { MachineLearningError, predictGameFromFrameBytes } from "../ml/client"
 
 const MAX_FRAME_BYTES = 10 * 1024 * 1024
+const MULTIPART_BASE_OVERHEAD_BYTES = 1024 * 1024
+const MULTIPART_FRAME_OVERHEAD_BYTES = 16 * 1024
 type MlRouteErrorStatus = 400 | 413 | 502 | 503
 
 export const mlRoute = new Hono()
@@ -28,12 +30,15 @@ export const mlRoute = new Hono()
       return c.json({ error: "Machine learning is disabled" }, 503)
     }
 
-    let formData: FormData
-    try {
-      formData = await c.req.raw.formData()
-    } catch {
-      return c.json({ error: "Expected multipart/form-data" }, 400)
+    const formDataResult = await readMultipartFormDataWithinLimit(
+      c.req.raw,
+      maxMultipartBodyBytes(config.maxAnalyzeBytes, config.frameCount),
+      config.maxAnalyzeBytes
+    )
+    if (!formDataResult.ok) {
+      return c.json({ error: formDataResult.error }, formDataResult.status)
     }
+    const formData = formDataResult.formData
 
     const entries = formData.getAll("frames")
     if (entries.some((e) => !(e instanceof File))) {
@@ -107,6 +112,117 @@ function parseTopK(value: FormDataEntryValue | null): number | string | null {
     return "topK must be an integer between 1 and 20"
   }
   return parsed
+}
+
+type MultipartFormDataResult =
+  | { ok: true; formData: FormData }
+  | { ok: false; status: 400 | 413; error: string }
+
+async function readMultipartFormDataWithinLimit(
+  request: Request,
+  maxBytes: number,
+  maxAnalyzeBytes: number
+): Promise<MultipartFormDataResult> {
+  if (!isMultipartFormData(request.headers.get("content-type"))) {
+    return {
+      ok: false,
+      status: 400,
+      error: "Expected multipart/form-data",
+    }
+  }
+
+  const contentLength = parseContentLength(
+    request.headers.get("content-length")
+  )
+  if (contentLength !== null && contentLength > maxBytes) {
+    return {
+      ok: false,
+      status: 413,
+      error: `Frame payload exceeds maximum analysis size of ${formatBytes(maxAnalyzeBytes)}`,
+    }
+  }
+
+  const body = await readBodyWithinLimit(request, maxBytes)
+  if (!body.ok) {
+    return {
+      ok: false,
+      status: 413,
+      error: `Frame payload exceeds maximum analysis size of ${formatBytes(maxAnalyzeBytes)}`,
+    }
+  }
+
+  try {
+    const boundedRequest = new Request(request.url, {
+      body: bytesToArrayBuffer(body.bytes),
+      headers: request.headers,
+      method: request.method,
+    })
+    return { ok: true, formData: await boundedRequest.formData() }
+  } catch {
+    return {
+      ok: false,
+      status: 400,
+      error: "Expected multipart/form-data",
+    }
+  }
+}
+
+function isMultipartFormData(contentType: string | null): boolean {
+  return (
+    contentType?.split(";")[0]?.trim().toLowerCase() === "multipart/form-data"
+  )
+}
+
+function parseContentLength(value: string | null): number | null {
+  if (value === null) return null
+  const parsed = Number(value)
+  if (!Number.isSafeInteger(parsed) || parsed < 0) return null
+  return parsed
+}
+
+async function readBodyWithinLimit(
+  request: Request,
+  maxBytes: number
+): Promise<{ ok: true; bytes: Uint8Array } | { ok: false }> {
+  if (!request.body) return { ok: true, bytes: new Uint8Array() }
+
+  const reader = request.body.getReader()
+  const chunks: Uint8Array[] = []
+  let totalBytes = 0
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    totalBytes += value.byteLength
+    if (totalBytes > maxBytes) {
+      await reader.cancel().catch(() => undefined)
+      return { ok: false }
+    }
+    chunks.push(value)
+  }
+
+  const bytes = new Uint8Array(totalBytes)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return { ok: true, bytes }
+}
+
+function maxMultipartBodyBytes(maxAnalyzeBytes: number, frameCount: number) {
+  return (
+    maxAnalyzeBytes +
+    MULTIPART_BASE_OVERHEAD_BYTES +
+    frameCount * MULTIPART_FRAME_OVERHEAD_BYTES
+  )
+}
+
+function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength
+  ) as ArrayBuffer
 }
 
 function mlErrorResponse(c: Context, cause: unknown) {
