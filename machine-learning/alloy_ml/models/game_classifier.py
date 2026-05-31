@@ -55,9 +55,21 @@ class GameClassifierSpec:
 
     @property
     def cache_key(self) -> str:
+        metadata = json.dumps(
+            {
+                "modelName": self.model_name,
+                "modelVersion": self.response_model_version,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
         if self.checkpoint_path is not None:
-            return f"local:{self.checkpoint_path}"
-        return f"hf:{self.repo_id}@{self.revision}/{self.filename}"
+            return f"local:{self.checkpoint_path}|metadata:{metadata}"
+        return f"hf:{self.repo_id}@{self.revision}/{self.filename}|metadata:{metadata}"
+
+    @property
+    def response_model_version(self) -> str:
+        return self.model_version or self.revision
 
     def with_overrides(
         self,
