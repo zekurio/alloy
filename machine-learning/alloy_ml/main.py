@@ -40,7 +40,7 @@ def install_multipart_limits() -> None:
             max_part_size=max_part_size,
             **kwargs,
         )
-        self._alloy_file_bytes = 0
+        self._alloy_part_bytes = 0
 
     def limited_on_part_data(
         self: MultiPartParser,
@@ -49,16 +49,16 @@ def install_multipart_limits() -> None:
         end: int,
     ) -> None:
         chunk_size = end - start
+        total_size = getattr(self, "_alloy_part_bytes", 0) + chunk_size
+        if total_size > settings.game_classifier_max_request_bytes:
+            raise MultiPartException("Frame payload exceeds maximum size.")
+        self._alloy_part_bytes = total_size
+
         current_file = self._current_part.file
         if current_file is not None:
             current_size = current_file.size or 0
             if current_size + chunk_size > settings.game_classifier_max_frame_bytes:
                 raise MultiPartException("Frame exceeds maximum size.")
-
-            total_size = getattr(self, "_alloy_file_bytes", 0) + chunk_size
-            if total_size > settings.game_classifier_max_request_bytes:
-                raise MultiPartException("Frame payload exceeds maximum size.")
-            self._alloy_file_bytes = total_size
 
         _multipart_parser_on_part_data(self, data, start, end)
 
