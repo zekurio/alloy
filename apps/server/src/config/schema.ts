@@ -168,7 +168,7 @@ function normalizeBaseUrl(value: string): string {
 }
 
 const MachineLearningConfigSchema = z.object({
-  enabled: z.boolean().default(envFlag("MACHINE_LEARNING_ENABLED", true)),
+  enabled: z.boolean().default(envFlag("MACHINE_LEARNING_ENABLED", false)),
   baseUrl: z
     .string()
     .url()
