@@ -88,6 +88,18 @@ in
       description = "Extra groups for hardware encoder device access.";
     };
 
+    accelerationDevices = lib.mkOption {
+      type = lib.types.nullOr (lib.types.listOf lib.types.str);
+      default = [ ];
+      example = [ "/dev/dri/renderD128" ];
+      description = ''
+        Device paths that Alloy services can access for hardware acceleration.
+        This is useful for hardware encoding and machine learning inference.
+        The special value `[ ]` disallows device access using PrivateDevices.
+        Set to null to allow access to all devices.
+      '';
+    };
+
     port = lib.mkOption {
       type = lib.types.port;
       default = 3000;
@@ -354,9 +366,11 @@ in
         UMask = "0077";
 
         NoNewPrivileges = true;
+        PrivateDevices = cfg.accelerationDevices == [ ];
         PrivateTmp = true;
-        ProtectHome = true;
         ProtectSystem = "strict";
+        ProtectHome = true;
+        DeviceAllow = lib.mkIf (cfg.accelerationDevices != null) cfg.accelerationDevices;
         ReadWritePaths = lib.unique [
           cfg.stateDir
           cfg.cacheDir
@@ -394,9 +408,11 @@ in
         UMask = "0077";
 
         NoNewPrivileges = true;
+        PrivateDevices = cfg.accelerationDevices == [ ];
         PrivateTmp = true;
-        ProtectHome = true;
         ProtectSystem = "strict";
+        ProtectHome = true;
+        DeviceAllow = lib.mkIf (cfg.accelerationDevices != null) cfg.accelerationDevices;
         ReadWritePaths = lib.unique [
           cfg.machine-learning.cacheDir
         ];
