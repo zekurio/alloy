@@ -122,6 +122,7 @@ export interface QueueClip {
   status: ClipStatus
   encodeProgress: number
   failureReason: string | null
+  hasThumb: boolean
   createdAt: IsoDateString
   gameSlug: string
 }

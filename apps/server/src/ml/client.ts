@@ -24,7 +24,6 @@ export class MachineLearningError extends Error {
 export async function predictGameFromFrameBytes(input: {
   config: MachineLearningConfig
   frameBytes: Uint8Array[]
-  topK?: number
 }): Promise<GameClassifierResult> {
   if (input.frameBytes.length === 0) {
     throw new MachineLearningError("No frames provided.", 400)
@@ -32,18 +31,19 @@ export async function predictGameFromFrameBytes(input: {
 
   const form = new FormData()
   for (let i = 0; i < input.frameBytes.length; i++) {
-    // Cast via Uint8Array<ArrayBuffer> to satisfy the BlobPart constraint —
-    // Deno's Uint8Array has buffer typed as ArrayBufferLike (not ArrayBuffer).
-    const bytes = input.frameBytes[i] as unknown as Uint8Array<ArrayBuffer>
     form.append(
       "frames",
-      new Blob([bytes], { type: "image/jpeg" }),
+      new Blob([blobSafeBytes(input.frameBytes[i])], { type: "image/jpeg" }),
       `frame-${i}.jpg`
     )
   }
-  if (input.topK !== undefined) {
-    form.set("top_k", String(input.topK))
-  }
+  const classifier = input.config.gameClassifier
+  form.set("model_name", classifier.modelName)
+  form.set("model_version", classifier.modelVersion ?? "")
+  form.set("repo_id", classifier.repoId)
+  form.set("filename", classifier.filename)
+  form.set("revision", classifier.revision)
+  form.set("checkpoint_path", classifier.checkpointPath ?? "")
 
   const controller = new AbortController()
   const timeout = setTimeout(
@@ -93,13 +93,16 @@ export async function predictGameFromFrameBytes(input: {
     )
   }
 
-  return parseGameClassifierResult(payload, input.topK)
+  return parseGameClassifierResult(payload)
 }
 
-function parseGameClassifierResult(
-  value: unknown,
-  topK: number | undefined
-): GameClassifierResult {
+function blobSafeBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(bytes.byteLength)
+  copy.set(bytes)
+  return copy
+}
+
+function parseGameClassifierResult(value: unknown): GameClassifierResult {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new MachineLearningError(
       "Machine learning response was not an object.",
@@ -132,9 +135,7 @@ function parseGameClassifierResult(
     )
   }
 
-  const predictionItems =
-    topK === undefined ? obj.predictions : obj.predictions.slice(0, topK)
-  const predictions = predictionItems.map((item, index) => {
+  const predictions = obj.predictions.map((item, index) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) {
       throw new MachineLearningError(
         "Machine learning response contained an invalid prediction.",

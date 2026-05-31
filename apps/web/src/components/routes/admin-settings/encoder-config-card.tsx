@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
-import { AlertTriangleIcon, PlusIcon } from "lucide-react"
+import { AlertTriangleIcon, PlusIcon, SaveIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -45,6 +45,7 @@ import {
   HWACCEL_LABELS,
   isEncoderHwaccel,
   saveEncoderConfig,
+  uniqueVariantName,
   variantCodecAvailable,
   variantIdFromName,
 } from "./encoder-config-helpers"
@@ -128,6 +129,26 @@ export function EncoderConfigCard({
 
   function setDefaultVariant(index: number) {
     setForm((f) => ({ ...f, defaultVariantId: f.variants[index]?.id ?? null }))
+  }
+
+  function duplicateVariant(index: number) {
+    setForm((f) => {
+      const source = f.variants[index]
+      if (!source) return f
+      const usedIds = new Set(f.variants.map((v) => v.id))
+      const usedNames = new Set(
+        f.variants.map((v) => v.name.trim().toLowerCase())
+      )
+      const name = uniqueVariantName(source.name, usedNames)
+      const copy: AdminEncoderVariant = {
+        ...source,
+        name,
+        id: variantIdFromName(name, usedIds),
+      }
+      const variants = [...f.variants]
+      variants.splice(index + 1, 0, copy)
+      return { ...f, variants }
+    })
   }
 
   function openNewVariant() {
@@ -363,6 +384,18 @@ export function EncoderConfigCard({
                 <FormGroup
                   title="Variant ladder"
                   description="Renditions generated for each uploaded clip. Star a variant to set the default playback quality."
+                  action={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={openNewVariant}
+                      disabled={pending}
+                    >
+                      <PlusIcon />
+                      Add variant
+                    </Button>
+                  }
                 >
                   {form.variants.length > 0 ? (
                     <div className="flex flex-col gap-0.5">
@@ -374,6 +407,7 @@ export function EncoderConfigCard({
                           canDelete
                           onEdit={() => openEditVariant(index)}
                           onSetDefault={() => setDefaultVariant(index)}
+                          onDuplicate={() => duplicateVariant(index)}
                           onDelete={() => removeVariant(index)}
                         />
                       ))}
@@ -383,18 +417,6 @@ export function EncoderConfigCard({
                       No variants configured. Add one to get started.
                     </p>
                   )}
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="self-start"
-                    onClick={openNewVariant}
-                    disabled={pending}
-                  >
-                    <PlusIcon />
-                    Add variant
-                  </Button>
                 </FormGroup>
               ) : null}
 
@@ -403,9 +425,8 @@ export function EncoderConfigCard({
                 <FormGroup
                   title="Re-encode existing clips"
                   description="Queue current clips against the saved variant ladder."
-                >
-                  <ReEncodeClipsButton />
-                </FormGroup>
+                  action={<ReEncodeClipsButton />}
+                />
               ) : null}
             </SectionContent>
 
@@ -429,7 +450,8 @@ export function EncoderConfigCard({
                     size="sm"
                     disabled={!canSubmit}
                   >
-                    {pending ? "Saving…" : "Save encoder"}
+                    <SaveIcon />
+                    {pending ? "Saving…" : "Save"}
                   </Button>
                 </div>
               </SectionFooter>

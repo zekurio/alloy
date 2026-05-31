@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { Trash2Icon } from "lucide-react"
+import { SaveIcon, Trash2Icon } from "lucide-react"
 
 import {
   AlertDialog,
@@ -257,7 +257,8 @@ export function IntegrationsConfigCard({
                   size="sm"
                   disabled={pending || !isDirty}
                 >
-                  {pending ? "Saving…" : "Save changes"}
+                  <SaveIcon />
+                  {pending ? "Saving…" : "Save"}
                 </Button>
               </div>
             </SectionFooter>

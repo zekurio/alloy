@@ -1,5 +1,6 @@
 import * as React from "react"
 import { useForm } from "@tanstack/react-form"
+import { UploadIcon } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
 import {
@@ -327,6 +328,57 @@ function LoadedState({
   const suggestionAnalyzing =
     suggestionQuery.isLoading || (Boolean(topLabel) && previewQuery.isLoading)
 
+  const replaceButton = (
+    <Button
+      variant="ghost"
+      size="default"
+      disabled={publishing}
+      onClick={onReplace}
+      className={cn(isMobile && "w-full min-w-0")}
+    >
+      Replace
+    </Button>
+  )
+
+  const submitButton = (
+    <form.Subscribe
+      selector={(state) =>
+        [
+          state.canSubmit,
+          state.isSubmitting,
+          state.values.title,
+          state.values.game,
+        ] as const
+      }
+    >
+      {([canSubmit, isSubmitting, titleValue, gameValue]) => {
+        const missingMetadata = titleValue.trim().length === 0 || !gameValue
+        return (
+          <Button
+            type="submit"
+            variant="primary"
+            size="default"
+            disabled={
+              publishing ||
+              capturing ||
+              isSubmitting ||
+              !canSubmit ||
+              missingMetadata
+            }
+            className={cn(isMobile && "col-span-2 w-full min-w-0")}
+          >
+            <UploadIcon />
+            {capturing || isSubmitting
+              ? "Preparing…"
+              : publishing
+                ? "Uploading…"
+                : "Upload"}
+          </Button>
+        )
+      }}
+    </form.Subscribe>
+  )
+
   return (
     <form
       className="contents"
@@ -341,14 +393,14 @@ function LoadedState({
           "flex-1 px-4 py-3 sm:px-6 sm:py-4",
           isMobile ? "overflow-y-scroll" : "overflow-y-auto",
           isMobile && "px-4",
-          "grid grid-cols-1 gap-5 lg:grid-cols-[1fr_320px]"
+          "grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]"
         )}
       >
         <section className="flex min-w-0 flex-col gap-3">
           <ClipPreview file={file} />
         </section>
 
-        <section className="flex min-w-0 flex-col gap-4">
+        <section className="flex min-w-0 flex-col gap-4 lg:h-full">
           <form.Field
             name="game"
             validators={{
@@ -467,7 +519,7 @@ function LoadedState({
                   rows={3}
                   maxLength={CLIP_DESCRIPTION_MAX}
                   placeholder="Add context"
-                  className="min-h-0 px-3 py-2 text-sm"
+                  className="min-h-0 px-3 py-2 text-base sm:text-sm"
                 />
               </Field>
             )}
@@ -497,71 +549,44 @@ function LoadedState({
               </Field>
             )}
           </form.Field>
+
+          {/* Desktop actions live at the bottom of the form column so they
+              align with the video's bottom edge — no empty footer band. */}
+          {!isMobile ? (
+            <div className="mt-auto flex flex-wrap items-center justify-end gap-2 pt-2">
+              {replaceButton}
+              {closeAction}
+              {submitButton}
+            </div>
+          ) : null}
         </section>
       </DialogBody>
 
-      <DialogFooter
-        className={cn(
-          "shrink-0 flex-wrap pt-3 sm:pt-4",
-          isMobile
-            ? "grid grid-cols-3 gap-2 px-4 pb-5"
-            : "pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
-        )}
-      >
-        <Button
-          variant="ghost"
-          size="default"
-          disabled={publishing}
-          onClick={onReplace}
-          className={cn(isMobile && "w-full min-w-0")}
-        >
-          Replace
-        </Button>
-        {closeAction}
-        <form.Subscribe
-          selector={(state) =>
-            [
-              state.canSubmit,
-              state.isSubmitting,
-              state.values.title,
-              state.values.game,
-            ] as const
-          }
-        >
-          {([canSubmit, isSubmitting, titleValue, gameValue]) => {
-            const missingMetadata = titleValue.trim().length === 0 || !gameValue
-            return (
-              <Button
-                type="submit"
-                variant="primary"
-                size="default"
-                disabled={
-                  publishing ||
-                  capturing ||
-                  isSubmitting ||
-                  !canSubmit ||
-                  missingMetadata
-                }
-                className={cn(isMobile && "w-full min-w-0")}
-              >
-                {capturing || isSubmitting
-                  ? "Preparing…"
-                  : publishing
-                    ? "Uploading…"
-                    : "Upload clip"}
-              </Button>
-            )
-          }}
-        </form.Subscribe>
-      </DialogFooter>
+      {isMobile ? (
+        <DialogFooter className="grid shrink-0 grid-cols-2 flex-wrap gap-2 px-4 pt-3 pb-5">
+          {replaceButton}
+          {closeAction}
+          {submitButton}
+        </DialogFooter>
+      ) : null}
     </form>
   )
 }
 
 function ClipPreview({ file }: { file: SelectedFile }) {
   return (
-    <div className="aspect-video overflow-hidden rounded-lg bg-surface-sunken shadow-[inset_0_1px_0_oklch(1_0_0_/_0.035)]">
-      <VideoPlayer src={file.file} controls autoPlay muted className="h-full" />
+    // Square corners on purpose: Chromium promotes the video to its own layer
+    // that paints ~1px past any rounded box, leaving grimy corners. A flush
+    // 16:9 rectangle with the player's own dark fill (which absorbs
+    // `object-contain` letterboxing) is the only reliably clean look.
+    <div className="aspect-video">
+      <VideoPlayer
+        src={file.file}
+        controls
+        autoPlay
+        muted
+        className="h-full w-full"
+      />
     </div>
   )
 }

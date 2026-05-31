@@ -41,9 +41,6 @@ export const mlRoute = new Hono()
       )
     }
 
-    const topK = parseTopK(formData.get("topK") ?? formData.get("top_k"))
-    if (typeof topK === "string") return c.json({ error: topK }, 400)
-
     let frameBytes: Uint8Array[]
     try {
       frameBytes = await Promise.all(
@@ -57,24 +54,12 @@ export const mlRoute = new Hono()
       const result = await predictGameFromFrameBytes({
         config,
         frameBytes,
-        topK: topK ?? undefined,
       })
       return c.json(result)
     } catch (cause) {
       return mlErrorResponse(c, cause)
     }
   })
-
-function parseTopK(value: FormDataEntryValue | null): number | string | null {
-  if (value === null) return null
-  if (value instanceof File) return "topK must be a number"
-  if (value.trim().length === 0) return null
-  const parsed = Number(value)
-  if (!Number.isSafeInteger(parsed) || parsed < 1) {
-    return "topK must be a positive integer"
-  }
-  return parsed
-}
 
 type MultipartFormDataResult =
   | { ok: true; formData: FormData }

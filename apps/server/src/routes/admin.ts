@@ -228,7 +228,15 @@ export const adminRoute = new Hono()
     zValidator("json", MachineLearningConfigPatchSchema),
     (c) => {
       const patch = c.req.valid("json")
-      const next = { ...configStore.get("machineLearning"), ...patch }
+      const current = configStore.get("machineLearning")
+      const next = {
+        ...current,
+        ...patch,
+        gameClassifier: {
+          ...current.gameClassifier,
+          ...patch.gameClassifier,
+        },
+      }
       configStore.set("machineLearning", next)
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     }

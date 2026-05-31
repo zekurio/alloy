@@ -1,4 +1,5 @@
 import * as React from "react"
+import { PlusIcon, SaveIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -311,7 +312,17 @@ export function EncoderVariantDialog({
                 Cancel
               </Button>
               <Button type="submit" variant="primary">
-                {isNew ? "Add variant" : "Save variant"}
+                {isNew ? (
+                  <>
+                    <PlusIcon />
+                    Add variant
+                  </>
+                ) : (
+                  <>
+                    <SaveIcon />
+                    Save
+                  </>
+                )}
               </Button>
             </ResponsiveDialogFooter>
           </form>
