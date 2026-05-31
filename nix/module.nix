@@ -20,6 +20,7 @@ let
 
   configDir = dirOf cfg.configFile;
   encodeDir = "${cfg.cacheDir}/encode";
+  isDatabaseUnixSocket = lib.hasPrefix "/" cfg.database.host;
   machineLearningBaseUrl =
     if cfg.machine-learning.baseUrl != null then
       cfg.machine-learning.baseUrl
@@ -30,22 +31,6 @@ let
       null
     else
       jsonFormat.generate "alloy-runtime-config.json" cfg.initialRuntimeConfig;
-
-  localDatabaseUrl = "postgres:///${cfg.database.name}";
-  staticDatabaseUrl = if cfg.database.url != null then cfg.database.url else localDatabaseUrl;
-
-  startScript = pkgs.writeShellScript "alloy-start" ''
-    set -euo pipefail
-
-    ${lib.optionalString (cfg.database.urlFile != null) ''
-      export DATABASE_URL="$(< ${lib.escapeShellArg cfg.database.urlFile})"
-    ''}
-    ${lib.optionalString (cfg.database.urlFile == null) ''
-      export DATABASE_URL=${lib.escapeShellArg staticDatabaseUrl}
-    ''}
-
-    exec ${lib.escapeShellArg cfg.package}/bin/alloy
-  '';
 
   preStart = ''
     install -d -m 0750 ${lib.escapeShellArg configDir}
@@ -59,6 +44,28 @@ let
   '';
 in
 {
+  imports = [
+    (lib.mkRenamedOptionModule
+      [ "services" "alloy-clips" "database" "createLocally" ]
+      [ "services" "alloy-clips" "database" "enable" ]
+    )
+    (lib.mkRemovedOptionModule [ "services" "alloy-clips" "database" "url" ] ''
+      Configure services.alloy-clips.database.host, port, name, and user instead.
+      The module now derives DATABASE_URL like the Immich module. For unusual
+      setups, override DATABASE_URL through services.alloy-clips.environment or
+      a systemd service override.
+    '')
+    (lib.mkRemovedOptionModule [ "services" "alloy-clips" "database" "urlFile" ] ''
+      Configure services.alloy-clips.database.host, port, name, and user instead.
+      If you need secret database credentials, provide PGPASSWORD or DATABASE_URL
+      with a systemd service override such as EnvironmentFile or LoadCredential.
+    '')
+    (lib.mkRemovedOptionModule [ "services" "alloy-clips" "database" "socketDir" ] ''
+      Use services.alloy-clips.database.host for both PostgreSQL hostnames and
+      Unix socket directories.
+    '')
+  ];
+
   options.services.alloy-clips = {
     enable = lib.mkEnableOption "Alloy";
 
@@ -172,10 +179,14 @@ in
     };
 
     database = {
-      createLocally = lib.mkOption {
+      enable = lib.mkEnableOption "the PostgreSQL database for use with Alloy" // {
+        default = true;
+      };
+
+      createDB = lib.mkOption {
         type = lib.types.bool;
         default = true;
-        description = "Enable and provision a local PostgreSQL database for Alloy.";
+        description = "Whether to automatically create the Alloy PostgreSQL database and role.";
       };
 
       name = lib.mkOption {
@@ -190,23 +201,20 @@ in
         description = "PostgreSQL role name.";
       };
 
-      socketDir = lib.mkOption {
-        type = lib.types.path;
+      host = lib.mkOption {
+        type = lib.types.str;
         default = "/run/postgresql";
-        description = "PostgreSQL socket directory for local peer-auth connections.";
+        example = "127.0.0.1";
+        description = ''
+          Hostname or address of the PostgreSQL server. If this is an absolute
+          path, it is treated as a Unix socket directory.
+        '';
       };
 
-      url = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
-        default = null;
-        example = "postgres://alloy@db.example.com:5432/alloy";
-        description = "Explicit DATABASE_URL. Overrides the generated local socket URL.";
-      };
-
-      urlFile = lib.mkOption {
-        type = lib.types.nullOr lib.types.path;
-        default = null;
-        description = "File containing DATABASE_URL. Takes precedence over database.url.";
+      port = lib.mkOption {
+        type = lib.types.port;
+        default = 5432;
+        description = "Port of the PostgreSQL server.";
       };
     };
 
@@ -276,20 +284,10 @@ in
         message = "services.alloy-clips.publicServerUrl must be set for production deployments.";
       }
       {
-        assertion = !(cfg.database.createLocally && cfg.database.url != null);
-        message = "services.alloy-clips.database.url cannot be set when database.createLocally is true.";
-      }
-      {
-        assertion = !(cfg.database.createLocally && cfg.database.urlFile != null);
-        message = "services.alloy-clips.database.urlFile cannot be set when database.createLocally is true.";
-      }
-      {
-        assertion = cfg.database.createLocally || cfg.database.url != null || cfg.database.urlFile != null;
-        message = "services.alloy-clips.database.url or database.urlFile must be set when database.createLocally is false.";
-      }
-      {
-        assertion = !cfg.database.createLocally || cfg.user == cfg.database.user;
-        message = "services.alloy-clips.user must match services.alloy-clips.database.user when database.createLocally is true.";
+        assertion =
+          !(cfg.database.enable && cfg.database.createDB && isDatabaseUnixSocket)
+          || cfg.user == cfg.database.user;
+        message = "services.alloy-clips.user must match services.alloy-clips.database.user when creating a peer-authenticated local PostgreSQL database.";
       }
     ];
 
@@ -301,14 +299,17 @@ in
       home = cfg.stateDir;
     };
 
-    services.postgresql = lib.mkIf cfg.database.createLocally {
+    services.postgresql = lib.mkIf cfg.database.enable {
       enable = true;
-      settings.unix_socket_directories = cfg.database.socketDir;
-      ensureDatabases = [ cfg.database.name ];
-      ensureUsers = [
+      settings = lib.mkIf isDatabaseUnixSocket {
+        unix_socket_directories = cfg.database.host;
+      };
+      ensureDatabases = lib.mkIf cfg.database.createDB [ cfg.database.name ];
+      ensureUsers = lib.mkIf cfg.database.createDB [
         {
           name = cfg.database.user;
           ensureDBOwnership = true;
+          ensureClauses.login = true;
         }
       ];
     };
@@ -328,36 +329,39 @@ in
     systemd.services.alloy-clips = {
       description = "Alloy clip sharing server";
       wantedBy = [ "multi-user.target" ];
+      requires = lib.optional cfg.database.enable "postgresql.target";
       wants =
         [ "network-online.target" ]
-        ++ lib.optional cfg.database.createLocally "postgresql.service"
+        ++ lib.optional cfg.database.enable "postgresql.target"
         ++ lib.optional cfg.machine-learning.enable "alloy-machine-learning.service";
-      after = [ "network-online.target" ] ++ lib.optional cfg.database.createLocally "postgresql.service";
+      after = [ "network-online.target" ] ++ lib.optional cfg.database.enable "postgresql.target";
 
       environment = {
         NODE_ENV = "production";
+        DATABASE_URL = "postgresql:///${cfg.database.name}";
         PORT = toString cfg.port;
         PUBLIC_SERVER_URL = cfg.publicServerUrl;
         TRUSTED_ORIGINS = lib.concatStringsSep "," ([ cfg.publicServerUrl ] ++ cfg.trustedOrigins);
         ALLOY_CONFIG_FILE = cfg.configFile;
         ALLOY_STORAGE_DIR = cfg.storageDir;
         ENCODE_SCRATCH_DIR = encodeDir;
+        PGHOST = cfg.database.host;
+        PGUSER = cfg.database.user;
+        PGDATABASE = cfg.database.name;
+      }
+      // lib.optionalAttrs (!isDatabaseUnixSocket) {
+        PGPORT = toString cfg.database.port;
       }
       // lib.optionalAttrs cfg.machine-learning.enable {
         MACHINE_LEARNING_ENABLED = "true";
         MACHINE_LEARNING_URL = machineLearningBaseUrl;
-      }
-      // lib.optionalAttrs (cfg.database.url == null && cfg.database.urlFile == null) {
-        PGHOST = cfg.database.socketDir;
-        PGUSER = cfg.database.user;
-        PGDATABASE = cfg.database.name;
       }
       // cfg.environment;
 
       inherit preStart;
 
       serviceConfig = {
-        ExecStart = startScript;
+        ExecStart = lib.getExe cfg.package;
         User = cfg.user;
         Group = cfg.group;
         WorkingDirectory = cfg.stateDir;
