@@ -22,6 +22,7 @@
       let
         pkgs = import nixpkgs { inherit system; };
         alloy = pkgs.callPackage ./nix/package.nix { inherit version; };
+        alloy-machine-learning = pkgs.callPackage ./nix/machine-learning.nix { inherit version; };
         nativeLibs = with pkgs; [
           stdenv.cc.cc.lib
           zlib
@@ -31,7 +32,7 @@
       {
         packages = {
           default = alloy;
-          inherit alloy;
+          inherit alloy alloy-machine-learning;
         };
 
         checks.default = alloy;

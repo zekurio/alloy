@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import signal
 import subprocess
+import sys
 from ipaddress import ip_address
 from pathlib import Path
 
@@ -28,7 +29,7 @@ def main() -> int:
     try:
         with subprocess.Popen(
             [
-                "python",
+                sys.executable,
                 "-m",
                 "gunicorn",
                 "alloy_ml.main:app",

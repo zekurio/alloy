@@ -14,9 +14,17 @@ let
   packageForSystem =
     self.packages.${pkgs.stdenv.hostPlatform.system}.default
       or (throw "alloy only packages x86_64-linux for now");
+  machineLearningPackageForSystem =
+    self.packages.${pkgs.stdenv.hostPlatform.system}.alloy-machine-learning
+      or (throw "alloy machine learning only packages x86_64-linux for now");
 
   configDir = dirOf cfg.configFile;
   encodeDir = "${cfg.cacheDir}/encode";
+  machineLearningBaseUrl =
+    if cfg.machine-learning.baseUrl != null then
+      cfg.machine-learning.baseUrl
+    else
+      "http://127.0.0.1:${toString cfg.machine-learning.port}";
   bootstrapConfig =
     if cfg.initialRuntimeConfig == null then
       null
@@ -189,6 +197,60 @@ in
         description = "File containing DATABASE_URL. Takes precedence over database.url.";
       };
     };
+
+    machine-learning = {
+      enable = lib.mkEnableOption "Alloy's machine learning inference service" // {
+        default = true;
+      };
+
+      package = lib.mkOption {
+        type = lib.types.package;
+        default = machineLearningPackageForSystem;
+        defaultText =
+          lib.literalExpression
+            "inputs.alloy.packages.\${pkgs.stdenv.hostPlatform.system}.alloy-machine-learning";
+        description = "Alloy machine learning package to run.";
+      };
+
+      host = lib.mkOption {
+        type = lib.types.str;
+        default = "127.0.0.1";
+        description = "Address the Alloy machine learning service binds to.";
+      };
+
+      port = lib.mkOption {
+        type = lib.types.port;
+        default = 3003;
+        description = "TCP port the Alloy machine learning service listens on.";
+      };
+
+      baseUrl = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "http://ml.example.com:3003";
+        description = ''
+          URL the Alloy server uses to reach the machine learning service. Leave
+          null when using the local service managed by this module.
+        '';
+      };
+
+      cacheDir = lib.mkOption {
+        type = lib.types.path;
+        default = "${config.services.alloy-clips.cacheDir}/machine-learning";
+        defaultText =
+          lib.literalExpression ''"\${config.services.alloy-clips.cacheDir}/machine-learning"'';
+        description = "Mutable cache directory for model downloads and inference cache.";
+      };
+
+      environment = lib.mkOption {
+        type = lib.types.attrsOf lib.types.str;
+        default = { };
+        example = {
+          MACHINE_LEARNING_GAME_CLASSIFIER_VERSION = "v1-broad-efficientnet-b2-20260530-202943";
+        };
+        description = "Additional environment variables for the Alloy machine learning service.";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -247,12 +309,17 @@ in
       "d ${configDir} 0750 ${cfg.user} ${cfg.group} - -"
       "d ${cfg.storageDir} 0750 ${cfg.user} ${cfg.group} - -"
       "d ${encodeDir} 0750 ${cfg.user} ${cfg.group} - -"
-    ];
+    ]
+    ++ lib.optional cfg.machine-learning.enable
+      "d ${cfg.machine-learning.cacheDir} 0750 ${cfg.user} ${cfg.group} - -";
 
     systemd.services.alloy-clips = {
       description = "Alloy clip sharing server";
       wantedBy = [ "multi-user.target" ];
-      wants = [ "network-online.target" ] ++ lib.optional cfg.database.createLocally "postgresql.service";
+      wants =
+        [ "network-online.target" ]
+        ++ lib.optional cfg.database.createLocally "postgresql.service"
+        ++ lib.optional cfg.machine-learning.enable "alloy-machine-learning.service";
       after = [ "network-online.target" ] ++ lib.optional cfg.database.createLocally "postgresql.service";
 
       environment = {
@@ -263,6 +330,10 @@ in
         ALLOY_CONFIG_FILE = cfg.configFile;
         ALLOY_STORAGE_DIR = cfg.storageDir;
         ENCODE_SCRATCH_DIR = encodeDir;
+      }
+      // lib.optionalAttrs cfg.machine-learning.enable {
+        MACHINE_LEARNING_ENABLED = "true";
+        MACHINE_LEARNING_URL = machineLearningBaseUrl;
       }
       // lib.optionalAttrs (cfg.database.url == null && cfg.database.urlFile == null) {
         PGHOST = cfg.database.socketDir;
@@ -291,6 +362,43 @@ in
           cfg.cacheDir
           configDir
           cfg.storageDir
+        ];
+      };
+    };
+
+    systemd.services.alloy-machine-learning = lib.mkIf cfg.machine-learning.enable {
+      description = "Alloy machine learning inference service";
+      wantedBy = [ "multi-user.target" ];
+      wants = [ "network-online.target" ];
+      after = [ "network-online.target" ];
+
+      environment = {
+        ALLOY_ML_HOST = cfg.machine-learning.host;
+        ALLOY_ML_PORT = toString cfg.machine-learning.port;
+        HF_HOME = "${cfg.machine-learning.cacheDir}/huggingface";
+        HF_HUB_CACHE = "${cfg.machine-learning.cacheDir}/huggingface/hub";
+        HF_HUB_DISABLE_PROGRESS_BARS = "1";
+        HOME = cfg.machine-learning.cacheDir;
+        MACHINE_LEARNING_CACHE_FOLDER = cfg.machine-learning.cacheDir;
+        XDG_CACHE_HOME = cfg.machine-learning.cacheDir;
+      }
+      // cfg.machine-learning.environment;
+
+      serviceConfig = {
+        ExecStart = lib.getExe cfg.machine-learning.package;
+        User = cfg.user;
+        Group = cfg.group;
+        WorkingDirectory = cfg.stateDir;
+        Restart = "on-failure";
+        RestartSec = 5;
+        UMask = "0077";
+
+        NoNewPrivileges = true;
+        PrivateTmp = true;
+        ProtectHome = true;
+        ProtectSystem = "strict";
+        ReadWritePaths = lib.unique [
+          cfg.machine-learning.cacheDir
         ];
       };
     };
