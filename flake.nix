@@ -40,6 +40,7 @@
             postgresql_17
             util-linux
             jellyfin-ffmpeg
+            imagemagick
           ] ++ nativeLibs;
 
           LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath nativeLibs;
