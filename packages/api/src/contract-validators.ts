@@ -66,6 +66,9 @@ export function validateQueueClips(value: unknown): QueueClip[] {
     if (typeof row.encodeProgress !== "number") {
       throw new Error("Invalid queue response: encodeProgress must be numeric")
     }
+    if (typeof row.hasThumb !== "boolean") {
+      throw new Error("Invalid queue response: hasThumb must be boolean")
+    }
   }
   return value as QueueClip[]
 }
@@ -244,11 +247,6 @@ export function validateAdminRuntimeConfig(value: unknown): AdminRuntimeConfig {
   ) {
     throw new Error(
       "Invalid admin game classifier config: checkpointPath must be string or null"
-    )
-  }
-  if (typeof gameClassifier.topK !== "number") {
-    throw new Error(
-      "Invalid admin game classifier config: topK must be numeric"
     )
   }
   return value as AdminRuntimeConfig

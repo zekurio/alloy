@@ -5,23 +5,17 @@ import {
   ClapperboardIcon,
   DatabaseIcon,
   DownloadIcon,
-  GaugeIcon,
   ImageIcon,
-  KeyRoundIcon,
   PaletteIcon,
   RotateCcwIcon,
+  ShieldIcon,
   UploadIcon,
   UsersIcon,
   WrenchIcon,
 } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
-import {
-  Section,
-  SectionContent,
-  SectionHeader,
-  SectionTitle,
-} from "@workspace/ui/components/section"
+import { Section, SectionContent } from "@workspace/ui/components/section"
 import { Switch } from "@workspace/ui/components/switch"
 import { toast } from "@workspace/ui/lib/toast"
 
@@ -156,7 +150,7 @@ function ToggleRow({
   )
 }
 
-function AuthSettingsSection({
+function AuthenticationSettingsSection({
   config,
   setConfig,
   onToggleOpenRegistrations,
@@ -171,17 +165,13 @@ function AuthSettingsSection({
 }) {
   return (
     <SettingsSection
-      icon={KeyRoundIcon}
+      icon={ShieldIcon}
       title="Authentication"
-      description="Configure sign-in methods and access controls."
+      description="Control sign-in providers, registrations, passkeys, and public browsing."
     >
       <div className="flex flex-col gap-4">
-        <OAuthProviderCard config={config} onChange={setConfig} hideHeader />
         <Section>
-          <SectionHeader>
-            <SectionTitle>Access controls</SectionTitle>
-          </SectionHeader>
-          <SectionContent className="flex flex-col">
+          <SectionContent className="flex flex-col py-0">
             <ToggleRow
               title="Passkeys"
               description="Allow passkey sign-in and passkey-based account creation on supported browsers."
@@ -206,6 +196,8 @@ function AuthSettingsSection({
             />
           </SectionContent>
         </Section>
+        <hr className="border-border" />
+        <OAuthProviderCard config={config} onChange={setConfig} hideHeader />
       </div>
     </SettingsSection>
   )
@@ -221,33 +213,11 @@ function EncoderSettingsSection({
   return (
     <SettingsSection
       icon={ClapperboardIcon}
-      title="Encoder"
-      description="Configure video encoding and hardware acceleration."
+      title="Encoding pipeline"
+      description="Edit hardware acceleration, processing, and playback variants."
     >
       <EncoderConfigCard
         encoder={config.encoder}
-        onChange={(next) => setConfig(next)}
-        hideHeader
-      />
-    </SettingsSection>
-  )
-}
-
-function LimitsSettingsSection({
-  config,
-  setConfig,
-}: {
-  config: AdminRuntimeConfig
-  setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>
-}) {
-  return (
-    <SettingsSection
-      icon={GaugeIcon}
-      title="Limits"
-      description="Set upload size and storage quota defaults."
-    >
-      <LimitsConfigCard
-        limits={config.limits}
         onChange={(next) => setConfig(next)}
         hideHeader
       />
@@ -265,8 +235,8 @@ function MachineLearningSettingsSection({
   return (
     <SettingsSection
       icon={BrainCircuitIcon}
-      title="Machine learning"
-      description="Configure advisory inference and model source."
+      title="ML game suggestions"
+      description="Edit inference service settings and the classifier model."
     >
       <MachineLearningConfigCard
         machineLearning={config.machineLearning}
@@ -288,13 +258,21 @@ function StorageSettingsSection({
     <SettingsSection
       icon={DatabaseIcon}
       title="Storage"
-      description="Configure where clips and uploads are stored."
+      description="Edit upload caps, default quota, queue concurrency, and the clip storage backend."
     >
-      <StorageConfigCard
-        storage={config.storage}
-        onChange={(next) => setConfig(next)}
-        hideHeader
-      />
+      <div className="flex flex-col gap-4">
+        <LimitsConfigCard
+          limits={config.limits}
+          onChange={(next) => setConfig(next)}
+          hideHeader
+        />
+        <hr className="border-border" />
+        <StorageConfigCard
+          storage={config.storage}
+          onChange={(next) => setConfig(next)}
+          hideHeader
+        />
+      </div>
     </SettingsSection>
   )
 }
@@ -309,8 +287,8 @@ function SteamGridDBSettingsSection({
   return (
     <SettingsSection
       icon={ImageIcon}
-      title="SteamGridDB"
-      description="Game artwork and metadata from SteamGridDB."
+      title="Game artwork"
+      description="Edit the SteamGridDB API key used for cover art and metadata."
     >
       <IntegrationsConfigCard
         integrations={config.integrations}
@@ -380,8 +358,8 @@ function AppearanceSettingsSection({
   return (
     <SettingsSection
       icon={PaletteIcon}
-      title="Appearance"
-      description="Configure login page presentation."
+      title="Login appearance"
+      description="Edit the generated clip backdrop shown on the login page."
     >
       <Section>
         <SectionContent className="flex flex-col gap-4">
@@ -492,8 +470,8 @@ function ConfigTransferSection({
   return (
     <SettingsSection
       icon={WrenchIcon}
-      title="Configuration"
-      description="Export or import server configuration as JSON."
+      title="Config transfer"
+      description="Export or replace server runtime configuration as JSON."
     >
       <div className="flex flex-col">
         <div className="flex items-start justify-between gap-4 border-b border-border py-3 first:pt-0">
@@ -555,7 +533,7 @@ export function AdminSettingsSections({ userId }: { userId: string }) {
 
   if (loadError) {
     return (
-      <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+      <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive sm:col-span-2">
         {loadError}
       </div>
     )
@@ -564,7 +542,7 @@ export function AdminSettingsSections({ userId }: { userId: string }) {
 
   return (
     <>
-      <AuthSettingsSection
+      <AuthenticationSettingsSection
         config={config}
         setConfig={setConfig}
         onToggleOpenRegistrations={onToggleOpenRegistrations}
@@ -573,14 +551,13 @@ export function AdminSettingsSections({ userId }: { userId: string }) {
       />
       <EncoderSettingsSection config={config} setConfig={setConfig} />
       <MachineLearningSettingsSection config={config} setConfig={setConfig} />
-      <LimitsSettingsSection config={config} setConfig={setConfig} />
       <StorageSettingsSection config={config} setConfig={setConfig} />
       <AppearanceSettingsSection config={config} setConfig={setConfig} />
       <SteamGridDBSettingsSection config={config} setConfig={setConfig} />
       <SettingsSection
         icon={UsersIcon}
         title="Users"
-        description="Manage user accounts and permissions."
+        description="Edit user accounts, roles, and moderation state."
       >
         <AdminUsersCard currentUserId={userId} hideHeader />
       </SettingsSection>

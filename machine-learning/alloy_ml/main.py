@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
@@ -8,14 +6,13 @@ from pathlib import Path
 from typing import Any, AsyncGenerator, Callable
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import ORJSONResponse, PlainTextResponse
+from fastapi.responses import PlainTextResponse
 
 from alloy_ml.config import log, settings
 from alloy_ml.models.game_classifier import (
     ClassifierUnavailableError,
     GameClassifierSpec,
     InvalidFrameError,
-    game_classifier_spec_from_settings,
 )
 from alloy_ml.models.registry import ModelRegistry
 from alloy_ml.schemas import (
@@ -25,7 +22,14 @@ from alloy_ml.schemas import (
     HealthResponse,
 )
 
-default_game_classifier_spec = game_classifier_spec_from_settings(settings)
+default_game_classifier_spec = GameClassifierSpec(
+    model_name=settings.game_classifier_name,
+    model_version=settings.game_classifier_version,
+    repo_id=settings.game_classifier_repo_id,
+    filename=settings.game_classifier_filename,
+    revision=settings.game_classifier_revision,
+    checkpoint_path=settings.game_classifier_checkpoint,
+)
 model_registry = ModelRegistry(settings)
 thread_pool: ThreadPoolExecutor | None = None
 
@@ -33,6 +37,21 @@ thread_pool: ThreadPoolExecutor | None = None
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
     global thread_pool
+    log.info(
+        "ML service configuration: "
+        f"cache={settings.cache_folder}, device={settings.device}, "
+        f"workers={settings.workers}, request_threads={settings.request_threads}, "
+        f"preload_game_classifier={settings.preload_game_classifier}"
+    )
+    log.info(
+        "Default game classifier: "
+        f"name={default_game_classifier_spec.model_name}, "
+        f"version={default_game_classifier_spec.model_version}, "
+        f"repo={default_game_classifier_spec.repo_id}, "
+        f"filename={default_game_classifier_spec.filename}, "
+        f"revision={default_game_classifier_spec.revision}, "
+        f"checkpoint_override={default_game_classifier_spec.checkpoint_path}"
+    )
     if settings.request_threads > 0:
         thread_pool = ThreadPoolExecutor(settings.request_threads)
         log.info(
@@ -54,8 +73,8 @@ app = FastAPI(lifespan=lifespan)
 
 
 @app.get("/")
-async def root() -> ORJSONResponse:
-    return ORJSONResponse({"message": "Alloy machine learning"})
+async def root() -> dict[str, str]:
+    return {"message": "Alloy machine learning"}
 
 
 @app.get("/ping")
@@ -63,11 +82,17 @@ def ping() -> PlainTextResponse:
     return PlainTextResponse("pong")
 
 
-@app.get("/health")
-def health() -> ORJSONResponse:
+@app.get("/health", response_model=HealthResponse)
+def health() -> HealthResponse:
     default_classifier = model_registry.get_game_classifier(default_game_classifier_spec)
     loaded_classifiers = model_registry.loaded_game_classifiers()
-    response = HealthResponse(
+    log.info(
+        "Health check: "
+        f"default_loaded={default_classifier.loaded}, "
+        f"default_cached={default_classifier.checkpoint_cached}, "
+        f"registered_classifiers={len(loaded_classifiers)}"
+    )
+    return HealthResponse(
         status="ok",
         classifierLoaded=default_classifier.loaded,
         checkpointCached=default_classifier.checkpoint_cached,
@@ -86,28 +111,32 @@ def health() -> ORJSONResponse:
             for model in loaded_classifiers
         ],
     )
-    return ORJSONResponse(response.model_dump(by_alias=True))
 
 
-@app.post("/predict")
-@app.post("/v1/game-classifier/predict")
+@app.post("/predict", response_model=GameClassifierResponse)
+@app.post("/v1/game-classifier/predict", response_model=GameClassifierResponse)
 async def predict_game(
     frames: list[UploadFile] = File(...),
-    top_k: int | None = Form(default=None),
     model_name: str | None = Form(default=None),
     model_version: str | None = Form(default=None),
     repo_id: str | None = Form(default=None),
     filename: str | None = Form(default=None),
     revision: str | None = Form(default=None),
     checkpoint_path: str | None = Form(default=None),
-) -> ORJSONResponse:
-    if top_k is not None and top_k < 1:
-        raise HTTPException(400, "top_k must be positive")
-
+) -> GameClassifierResponse:
     payloads: list[bytes] = []
     for frame in frames:
         payload = await frame.read()
         payloads.append(payload)
+    total_bytes = sum(len(payload) for payload in payloads)
+    log.info(
+        "Game classifier request received: "
+        f"frames={len(payloads)}, bytes={total_bytes}, "
+        f"repo_override={_optional_string(repo_id)}, "
+        f"filename_override={_optional_string(filename)}, "
+        f"revision_override={_optional_string(revision)}, "
+        f"checkpoint_override={_optional_string(checkpoint_path)}"
+    )
 
     try:
         spec = make_game_classifier_spec(
@@ -119,7 +148,7 @@ async def predict_game(
             checkpoint_path=checkpoint_path,
         )
         classifier = model_registry.get_game_classifier(spec)
-        result = await run(classifier.predict_bytes, payloads, top_k=top_k)
+        result = await run(classifier.predict_bytes, payloads)
     except InvalidFrameError as err:
         raise HTTPException(400, str(err)) from err
     except ClassifierUnavailableError as err:
@@ -133,7 +162,21 @@ async def predict_game(
             for prediction in result.predictions
         ],
     )
-    return ORJSONResponse(response.model_dump(by_alias=True))
+    if response.predictions:
+        top = response.predictions[0]
+        log.info(
+            "Game classifier response ready: "
+            f"model={response.model_name}, version={response.model_version}, "
+            f"top_label={top.label}, top_score={top.score:.4f}, "
+            f"predictions={len(response.predictions)}"
+        )
+    else:
+        log.info(
+            "Game classifier response ready: "
+            f"model={response.model_name}, version={response.model_version}, "
+            "predictions=0"
+        )
+    return response
 
 
 def make_game_classifier_spec(

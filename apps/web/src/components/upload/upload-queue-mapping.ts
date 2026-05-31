@@ -83,7 +83,8 @@ export interface ServerRowHandlers {
   onThumbLoad?: () => void
 }
 
-function queueThumbnailUrl(row: QueueClip): string {
+function queueThumbnailUrl(row: QueueClip): string | null {
+  if (!row.hasThumb) return null
   const url = new URL(clipThumbnailUrl(row.id, apiOrigin()))
   url.searchParams.set("v", row.status)
   return url.toString()

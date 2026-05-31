@@ -1,4 +1,5 @@
 import * as React from "react"
+import { SaveIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -256,6 +257,7 @@ export function ClipEditDialog({
             onClick={handleSave}
             disabled={!dirty || titleInvalid || saving}
           >
+            <SaveIcon />
             {saving ? "Saving…" : "Save"}
           </Button>
         </ResponsiveDialogFooter>

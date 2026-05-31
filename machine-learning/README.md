@@ -33,7 +33,7 @@ checkpoint has already been cached locally.
 `POST /predict`
 
 Multipart form endpoint. Send JPEG or PNG frames using the repeated `frames`
-field. Optional form fields: `top_k`, `model_name`, `model_version`, `repo_id`,
+field. Optional form fields: `model_name`, `model_version`, `repo_id`,
 `filename`, `revision`, and `checkpoint_path`.
 
 The response is ranked, confidence-scored, and marked advisory:
@@ -70,7 +70,6 @@ Environment variables:
 | `MACHINE_LEARNING_GAME_CLASSIFIER_CHECKPOINT` | unset | Optional local checkpoint override for development |
 | `MACHINE_LEARNING_GAME_CLASSIFIER_NAME` | `alloy-game-classifier` | Response model name |
 | `MACHINE_LEARNING_GAME_CLASSIFIER_VERSION` | `alloy-clipnet-b2-v1` | Response model version |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_TOP_K` | `1` | Default number of predictions |
 | `MACHINE_LEARNING_PRELOAD_GAME_CLASSIFIER` | `false` | Download and load the classifier at service startup |
 | `MACHINE_LEARNING_DEVICE` | `auto` | `auto`, `cpu`, `cuda`, or `mps` |
 | `MACHINE_LEARNING_WORKERS` | `1` | Gunicorn worker count |
@@ -97,21 +96,12 @@ It mirrors the direct command above and keeps the model cache in
 `data/ml-cache`. Use `MACHINE_LEARNING_UV_SYNC=0 deno task dev:ml` after the
 first sync if you only want to restart the service.
 
-For Docker-based development, use the compose profile from the repository root:
-
-```bash
-deno task ml:up
-```
-
-Use `deno task ml:start` for detached mode and `deno task ml:stop` to stop the
-container.
-
 The checked-in Dockerfile currently targets CPU inference. CUDA/ROCm images can
 be added as separate device variants later, following Immich's pattern.
 
 The checkpoint is downloaded lazily by `huggingface_hub` on first classifier
 load and reused from the Immich-style path
-`MACHINE_LEARNING_CACHE_FOLDER/game-classification/<model>/classifier/model.pt`
+`MACHINE_LEARNING_CACHE_FOLDER/game-classification/<model>__<revision>/classifier/model.pt`
 afterward. The adjacent `source.json` records the Hugging Face repo, filename,
 and revision; if that source changes, Alloy clears and redownloads the model
 folder. Set `MACHINE_LEARNING_PRELOAD_GAME_CLASSIFIER=true` to download and load

@@ -201,7 +201,6 @@ const GameClassifierModelConfigSchema = z.object({
     .max(256)
     .default(DEFAULT_GAME_CLASSIFIER_REVISION),
   checkpointPath: z.string().trim().min(1).max(1024).nullable().default(null),
-  topK: z.number().int().min(1).max(20).default(1),
 })
 
 const MachineLearningConfigSchema = z.object({

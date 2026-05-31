@@ -1,4 +1,5 @@
 import * as React from "react"
+import { SaveIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -41,22 +42,51 @@ function copyConfig(
   }
 }
 
+function trimOrNull(value: string | null | undefined): string | null {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : null
+}
+
+function basename(value: string): string {
+  return value.replace(/\/+$/, "").split(/[\\/]/).pop() ?? value
+}
+
+function stripExtension(value: string): string {
+  return value.replace(/\.[^.]+$/, "")
+}
+
+function derivedModelName(
+  classifier: AdminMachineLearningConfig["gameClassifier"]
+): string {
+  const checkpointPath = trimOrNull(classifier.checkpointPath)
+  if (checkpointPath) return stripExtension(basename(checkpointPath))
+
+  const repoName = basename(classifier.repoId.trim())
+  return repoName || "game-classifier"
+}
+
+function derivedModelVersion(
+  classifier: AdminMachineLearningConfig["gameClassifier"]
+): string | null {
+  if (trimOrNull(classifier.checkpointPath)) return null
+  return classifier.revision.trim() || null
+}
+
 function normalizedConfig(
   machineLearning: AdminMachineLearningConfig
 ): AdminMachineLearningConfig {
+  const classifier = machineLearning.gameClassifier
   return {
     enabled: machineLearning.enabled,
     baseUrl: machineLearning.baseUrl.trim(),
     requestTimeoutMs: machineLearning.requestTimeoutMs,
     gameClassifier: {
-      modelName: machineLearning.gameClassifier.modelName.trim(),
-      modelVersion: machineLearning.gameClassifier.modelVersion?.trim() || null,
-      repoId: machineLearning.gameClassifier.repoId.trim(),
-      filename: machineLearning.gameClassifier.filename.trim(),
-      revision: machineLearning.gameClassifier.revision.trim(),
-      checkpointPath:
-        machineLearning.gameClassifier.checkpointPath?.trim() || null,
-      topK: machineLearning.gameClassifier.topK,
+      modelName: derivedModelName(classifier),
+      modelVersion: derivedModelVersion(classifier),
+      repoId: classifier.repoId.trim(),
+      filename: classifier.filename.trim(),
+      revision: classifier.revision.trim(),
+      checkpointPath: trimOrNull(classifier.checkpointPath),
     },
   }
 }
@@ -134,15 +164,14 @@ export function MachineLearningConfigCard({
         )}
         <fieldset disabled={pending} className="contents">
           <SectionContent className="flex flex-col gap-0">
-            <FormGroup
-              title="Service"
-              description="HTTP runtime used for advisory inference."
-            >
+            <FormGroup>
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <div className="text-sm font-medium">Enabled</div>
+                  <div className="text-sm font-medium">
+                    Upload game suggestions
+                  </div>
                   <p className="mt-0.5 text-xs text-foreground-dim">
-                    Show game suggestions during clip upload.
+                    Use ML predictions in the clip upload game picker.
                   </p>
                 </div>
                 <Switch
@@ -208,36 +237,8 @@ export function MachineLearningConfigCard({
 
             <FormGroup
               title="Game classifier"
-              description="Hugging Face model reference or local checkpoint override."
+              description="Model source used for upload suggestions."
             >
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field>
-                  <FieldLabel htmlFor="ml-model-name" required>
-                    Response model name
-                  </FieldLabel>
-                  <Input
-                    id="ml-model-name"
-                    required
-                    value={form.gameClassifier.modelName}
-                    onChange={(e) => setClassifier("modelName", e.target.value)}
-                  />
-                </Field>
-
-                <Field>
-                  <FieldLabel htmlFor="ml-model-version">
-                    Response model version
-                  </FieldLabel>
-                  <Input
-                    id="ml-model-version"
-                    value={form.gameClassifier.modelVersion ?? ""}
-                    onChange={(e) =>
-                      setClassifier("modelVersion", e.target.value)
-                    }
-                    placeholder="Use revision"
-                  />
-                </Field>
-              </div>
-
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field>
                   <FieldLabel htmlFor="ml-repo-id" required>
@@ -253,7 +254,7 @@ export function MachineLearningConfigCard({
 
                 <Field>
                   <FieldLabel htmlFor="ml-filename" required>
-                    Checkpoint filename
+                    Checkpoint file
                   </FieldLabel>
                   <Input
                     id="ml-filename"
@@ -264,49 +265,21 @@ export function MachineLearningConfigCard({
                 </Field>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_8rem]">
-                <Field>
-                  <FieldLabel htmlFor="ml-revision" required>
-                    Revision
-                  </FieldLabel>
-                  <Input
-                    id="ml-revision"
-                    required
-                    value={form.gameClassifier.revision}
-                    onChange={(e) => setClassifier("revision", e.target.value)}
-                  />
-                </Field>
-
-                <Field>
-                  <FieldLabel htmlFor="ml-top-k" required>
-                    Top K
-                  </FieldLabel>
-                  <Input
-                    id="ml-top-k"
-                    type="number"
-                    min={1}
-                    max={20}
-                    step={1}
-                    required
-                    value={form.gameClassifier.topK}
-                    onChange={(e) =>
-                      setClassifier(
-                        "topK",
-                        clampInt(
-                          e.target.value,
-                          1,
-                          20,
-                          form.gameClassifier.topK
-                        )
-                      )
-                    }
-                  />
-                </Field>
-              </div>
+              <Field>
+                <FieldLabel htmlFor="ml-revision" required>
+                  Revision
+                </FieldLabel>
+                <Input
+                  id="ml-revision"
+                  required
+                  value={form.gameClassifier.revision}
+                  onChange={(e) => setClassifier("revision", e.target.value)}
+                />
+              </Field>
 
               <Field>
                 <FieldLabel htmlFor="ml-checkpoint-path">
-                  Local checkpoint path
+                  Local checkpoint
                 </FieldLabel>
                 <Input
                   id="ml-checkpoint-path"
@@ -314,7 +287,7 @@ export function MachineLearningConfigCard({
                   onChange={(e) =>
                     setClassifier("checkpointPath", e.target.value)
                   }
-                  placeholder="Use Hugging Face download"
+                  placeholder="Blank uses Hugging Face"
                 />
                 <FieldDescription>
                   Path inside the ML service environment. Blank uses the repo
@@ -343,7 +316,8 @@ export function MachineLearningConfigCard({
                 size="sm"
                 disabled={pending || !isDirty}
               >
-                {pending ? "Saving..." : "Save machine learning"}
+                <SaveIcon />
+                {pending ? "Saving…" : "Save"}
               </Button>
             </div>
           </SectionFooter>

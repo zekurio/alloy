@@ -3,8 +3,8 @@ import { Switch as SwitchPrimitive } from "@base-ui/react/switch"
 import { cn } from "@workspace/ui/lib/utils"
 
 /**
- * Alloy Switch — 28×16 pill, tokenised so the thumb animates on the accent
- * track.
+ * Alloy Switch — 36×20 pill (28×16 in `sm`), tokenised so the thumb animates on
+ * the accent track.
  */
 function Switch({
   className,
@@ -22,8 +22,8 @@ function Switch({
         "aria-invalid:ring-2 aria-invalid:ring-destructive",
         "data-checked:bg-accent",
         "data-disabled:cursor-not-allowed data-disabled:opacity-50",
-        "data-[size=default]:h-4 data-[size=default]:w-7",
-        "data-[size=sm]:h-3.5 data-[size=sm]:w-6",
+        "data-[size=default]:h-5 data-[size=default]:w-9",
+        "data-[size=sm]:h-4 data-[size=sm]:w-7",
         className
       )}
       {...props}
@@ -33,10 +33,10 @@ function Switch({
         className={cn(
           "pointer-events-none block rounded-full bg-neutral-700",
           "transition-transform duration-[var(--duration-base)] ease-[var(--ease-out)]",
-          "group-data-[size=default]/switch:size-3 group-data-[size=sm]/switch:size-[10px]",
+          "group-data-[size=default]/switch:size-4 group-data-[size=sm]/switch:size-3",
           "ml-[2px]",
-          "group-data-[size=default]/switch:group-data-checked/switch:translate-x-3",
-          "group-data-[size=sm]/switch:group-data-checked/switch:translate-x-[10px]",
+          "group-data-[size=default]/switch:group-data-checked/switch:translate-x-4",
+          "group-data-[size=sm]/switch:group-data-checked/switch:translate-x-3",
           "group-data-checked/switch:bg-accent-foreground"
         )}
       />

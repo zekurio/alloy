@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import concurrent.futures
 import logging
 import os
@@ -9,7 +7,6 @@ from pathlib import Path
 from socket import socket
 
 from gunicorn.arbiter import Arbiter
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from rich.console import Console
 from rich.logging import RichHandler
@@ -43,7 +40,6 @@ class Settings(BaseSettings):
     game_classifier_revision: str = DEFAULT_GAME_CLASSIFIER_REVISION
     game_classifier_name: str = DEFAULT_GAME_CLASSIFIER_NAME
     game_classifier_version: str | None = DEFAULT_GAME_CLASSIFIER_VERSION
-    game_classifier_top_k: int = Field(default=1, ge=1)
     preload_game_classifier: bool = False
 
 

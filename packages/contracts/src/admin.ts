@@ -111,7 +111,6 @@ export interface AdminGameClassifierModelConfig {
   filename: string
   revision: string
   checkpointPath: string | null
-  topK: number
 }
 
 export interface ServerSecretsConfig {

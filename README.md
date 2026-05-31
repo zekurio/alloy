@@ -8,7 +8,7 @@ It is still a work in progress. Self-hosting is not polished yet, and Docker sup
 
 ## Quick dev setup
 
-If you use Nix, the fastest way to get started is with the flake:
+Use the Nix dev shell:
 
 ```bash
 nix develop
@@ -23,60 +23,44 @@ Then install dependencies:
 deno install
 ```
 
-## Local database
-
-By default, `nix develop` handles most of the setup:
-
-- Initializes a local PostgreSQL 17 cluster in `.pg`
-- Starts it on `127.0.0.1:5432` if it is not already running
-- Creates the `alloy` database
-- Exports `DATABASE_URL`, `PGHOST`, `PGPORT`, `PGUSER`, and `PGDATABASE`
-
-`.pg` is already gitignored in this repository.
-
-Open a shell with:
-
-```bash
-psql "$DATABASE_URL"
-```
-
-Stop the local database started from the flake shell with:
-
-```bash
-alloy_pg_stop
-```
-
-If you prefer Docker for just the database, `compose.yaml` starts a PostgreSQL 17 instance with matching defaults:
-
-```bash
-docker compose up -d
-psql postgresql://postgres:postgres@localhost:5432/alloy
-```
-
-## Run the app
-
-Apply the database schema:
-
-```bash
-deno task db:push
-```
-
-The server runs startup migrations only when `NODE_ENV=production`, which is
-what the Docker image sets. Local development keeps `NODE_ENV=development` and
-uses `db:push` instead, so Drizzle's dev push workflow does not collide with the
-production migration journal.
-
-Start everything:
+Start the app:
 
 ```bash
 deno task dev
 ```
 
-This runs the web app on http://localhost:5173, the server on
-http://localhost:3000, and the optional ML service on http://localhost:3003.
+This starts local PostgreSQL, applies the dev schema with Drizzle, then runs the
+API server and Vite dev server. Open http://localhost:5173.
+
+## Local services
+
+The dev shell provides `deno`, `uv`, Python 3.11, `psql`, PostgreSQL 17, and
+`ffmpeg`. The dev scripts use those tools directly:
+
+- PostgreSQL data lives in `.pg`
+- PostgreSQL listens on `127.0.0.1:5432`
+- The default database is `alloy`
+- Runtime app data and ML cache live under `data/`
+
+Useful service commands:
+
+```bash
+deno task pg:status
+deno task pg:stop
+psql "$DATABASE_URL"
+```
 
 In development, the frontend and API stay split so Vite can provide fast HMR.
-The dev scripts provide the local server URL and trusted origin defaults.
+The dev scripts provide the local database URL, server URL, and trusted origin
+defaults.
+
+`deno task dev` runs `db:push` before starting the app. Use
+`deno task dev:quick` when you only want to restart Hono and Vite without
+touching the schema.
+
+The server runs startup migrations only when `NODE_ENV=production`. Local
+development keeps `NODE_ENV=development` and uses Drizzle's dev push workflow,
+so production migrations do not collide with local schema iteration.
 
 ## Optional machine learning service
 
@@ -99,27 +83,20 @@ For local Python development, run just the ML service:
 deno task dev:ml
 ```
 
-Or start the web app, API server, and ML service together with the standard dev
-task:
+Or start the web app, API server, and ML service together:
 
 ```bash
-deno task dev
+deno task dev:all
 ```
+
+You can also run `deno task dev -- --ml`. The ML service is optional in the
+dev supervisor; if it exits, the web app and API keep running.
 
 The `dev:ml` task follows Immich's service workflow: it enters
 `machine-learning/`, runs `uv sync --extra cpu`, sets
 `MACHINE_LEARNING_CACHE_FOLDER=../data/ml-cache`, and starts
 `python -m alloy_ml`. Set `MACHINE_LEARNING_UV_SYNC=0` to skip dependency sync
 after the first run.
-
-For container development, use the ML compose profile:
-
-```bash
-deno task ml:up
-```
-
-Use `deno task ml:start` to run it detached and `deno task ml:stop` to stop
-only the ML container.
 
 The service listens on http://localhost:3003 and exposes `/ping`, `/health`,
 `/predict`, and `/v1/game-classifier/predict`. See
@@ -130,7 +107,7 @@ The Alloy server exposes the classifier as an authenticated advisory API:
 
 - `GET /api/ml/config` returns the client-safe frame sampling limits.
 - `POST /api/ml/game-suggestions` accepts `multipart/form-data` with repeated
-  JPEG or PNG `frames` fields and optional `topK`.
+  JPEG or PNG `frames` fields.
 
 ## Deployment
 
