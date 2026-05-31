@@ -59,6 +59,8 @@ python.pkgs.buildPythonApplication {
 
   postFixup = ''
     wrapProgram "$out/bin/alloy-machine-learning" \
+      --prefix PATH : ${lib.makeBinPath [ python.pkgs.gunicorn ]} \
+      --prefix PYTHONPATH : "$out/${python.sitePackages}:${python.pkgs.makePythonPath dependencies}" \
       --set-default ALLOY_ML_HOST 127.0.0.1 \
       --set-default ALLOY_ML_PORT 3003 \
       --set-default HF_HOME /var/cache/alloy/machine-learning/huggingface \
