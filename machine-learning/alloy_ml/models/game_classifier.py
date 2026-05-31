@@ -156,7 +156,8 @@ class GameClassifier:
         repo_name = self.spec.repo_id.strip().removeprefix("https://huggingface.co/")
         repo_name = repo_name.rstrip("/").split("/")[-1]
         revision = clean_revision_name(self.spec.revision)
-        return f"{clean_model_name(repo_name)}__{revision}"
+        filename = clean_model_name(self.spec.filename)
+        return f"{clean_model_name(repo_name)}__{revision}__{filename}"
 
     @property
     def checkpoint_source(self) -> str:
