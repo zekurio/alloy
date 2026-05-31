@@ -24,6 +24,8 @@
         alloy = pkgs.callPackage ./nix/package.nix { inherit version; };
         nativeLibs = with pkgs; [
           stdenv.cc.cc.lib
+          zlib
+          zstd
         ];
       in
       {
@@ -37,6 +39,8 @@
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             deno
+            uv
+            python311
             postgresql_17
             util-linux
             jellyfin-ffmpeg

@@ -157,6 +157,35 @@ const IntegrationsConfigSchema = z.object({
   steamgriddbApiKey: z.string().default(""),
 })
 
+function envFlag(name: string, fallback: boolean): boolean {
+  const raw = Deno.env.get(name)
+  if (raw === undefined) return fallback
+  return ["1", "true", "yes", "on"].includes(raw.trim().toLowerCase())
+}
+
+function normalizeBaseUrl(value: string): string {
+  return value.replace(/\/+$/, "")
+}
+
+const MachineLearningConfigSchema = z.object({
+  enabled: z.boolean().default(envFlag("MACHINE_LEARNING_ENABLED", true)),
+  baseUrl: z
+    .string()
+    .url()
+    .default(Deno.env.get("MACHINE_LEARNING_URL") ?? "http://localhost:3003")
+    .transform(normalizeBaseUrl),
+  requestTimeoutMs: z.number().int().min(1_000).max(300_000).default(60_000),
+  maxAnalyzeBytes: z
+    .number()
+    .int()
+    .positive()
+    .max(4 * 1024 * 1024 * 1024)
+    .default(512 * 1024 * 1024),
+  frameCount: z.number().int().min(1).max(24).default(12),
+  frameWidth: z.number().int().min(128).max(1280).default(512),
+  topK: z.number().int().min(1).max(20).default(5),
+})
+
 const ServerSecretsConfigSchema = z.object({
   viewerCookieSecret: z.string().min(32).default(randomSecret),
 })
@@ -256,6 +285,9 @@ export const RuntimeConfigSchema = z.object({
   integrations: IntegrationsConfigSchema.default(
     IntegrationsConfigSchema.parse({})
   ),
+  machineLearning: MachineLearningConfigSchema.default(
+    MachineLearningConfigSchema.parse({})
+  ),
   appearance: AppearanceConfigSchema.default(AppearanceConfigSchema.parse({})),
   secrets: ServerSecretsConfigSchema.default(
     ServerSecretsConfigSchema.parse({})
@@ -270,6 +302,8 @@ export const RuntimeConfigSchema = z.object({
 export const EncoderConfigPatchSchema = EncoderConfigInnerSchema.partial()
 export const LimitsConfigPatchSchema = LimitsConfigSchema.partial()
 export const IntegrationsConfigPatchSchema = IntegrationsConfigSchema.partial()
+export const MachineLearningConfigPatchSchema =
+  MachineLearningConfigSchema.partial()
 export const AppearanceConfigPatchSchema = AppearanceConfigSchema.partial()
 export const FsStorageConfigPatchSchema = FsStorageConfigSchema.partial()
 export const S3StorageConfigPatchSchema =

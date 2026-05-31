@@ -16,5 +16,21 @@ services:
       timeout: 5s
       retries: 10
 
+  machine-learning:
+    build:
+      context: ./machine-learning
+      args:
+        DEVICE: cpu
+    profiles: ["ml"]
+    restart: unless-stopped
+    environment:
+      ALLOY_ML_HOST: 0.0.0.0
+      ALLOY_ML_PORT: 3003
+      MACHINE_LEARNING_GAME_CLASSIFIER_VERSION: v1-broad-efficientnet-b2-20260530-202943
+    ports:
+      - "3003:3003"
+    volumes:
+      - ./data/ml-cache:/cache
+
 volumes:
   postgres-data:

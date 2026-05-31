@@ -73,6 +73,33 @@ export function useResolveGameMutation() {
   })
 }
 
+/**
+ * Resolve a free-text game name (e.g. an ML suggestion label) into a full
+ * GameRow — canonical name plus logo/icon art — by running it through the
+ * SGDB search → resolve handshake and taking the top hit. Returns `null` when
+ * SGDB has nothing for the name so callers can quietly drop the suggestion.
+ */
+export function useResolveGameByNameQuery(
+  name: string | undefined,
+  { enabled = true }: { enabled?: boolean } = {}
+): UseQueryResult<GameRow | null> {
+  const trimmed = name?.trim() ?? ""
+  return useQuery({
+    queryKey: [...gameKeys.all, "resolve-by-name", trimmed] as const,
+    enabled: enabled && trimmed.length > 0,
+    // The label → game mapping is stable; never re-resolve the same name.
+    staleTime: Infinity,
+    retry: false,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      const results = await api.games.search(trimmed)
+      const top = results[0]
+      if (!top) return null
+      return api.games.resolve(top.id)
+    },
+  })
+}
+
 export function useGamesListQuery(): UseQueryResult<GameListRow[]> {
   return useQuery({
     queryKey: gameKeys.list(),
