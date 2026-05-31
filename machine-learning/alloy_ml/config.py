@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     game_classifier_name: str = "alloy-game-classifier"
     game_classifier_version: str | None = None
     game_classifier_top_k: int = Field(default=5, ge=1, le=20)
+    game_classifier_max_frames: int = Field(default=24, ge=1, le=256)
+    game_classifier_max_frame_bytes: int = Field(default=10 * 1024 * 1024, ge=1)
+    game_classifier_max_request_bytes: int = Field(
+        default=512 * 1024 * 1024,
+        ge=1,
+    )
     preload_game_classifier: bool = False
 
 

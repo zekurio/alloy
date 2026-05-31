@@ -74,28 +74,25 @@ export function useResolveGameMutation() {
 }
 
 /**
- * Resolve a free-text game name (e.g. an ML suggestion label) into a full
- * GameRow — canonical name plus logo/icon art — by running it through the
- * SGDB search → resolve handshake and taking the top hit. Returns `null` when
- * SGDB has nothing for the name so callers can quietly drop the suggestion.
+ * Resolve a free-text game name (e.g. an ML suggestion label) into an SGDB
+ * search preview without upserting a local game row. Accepting the suggestion
+ * should call `/games/resolve`; previewing it should not mutate server state.
  */
-export function useResolveGameByNameQuery(
+export function useGamePreviewByNameQuery(
   name: string | undefined,
   { enabled = true }: { enabled?: boolean } = {}
-): UseQueryResult<GameRow | null> {
+): UseQueryResult<SteamGridDBSearchResult | null> {
   const trimmed = name?.trim() ?? ""
   return useQuery({
-    queryKey: [...gameKeys.all, "resolve-by-name", trimmed] as const,
+    queryKey: [...gameKeys.all, "preview-by-name", trimmed] as const,
     enabled: enabled && trimmed.length > 0,
-    // The label → game mapping is stable; never re-resolve the same name.
+    // The label → top SGDB hit mapping is stable enough to cache per session.
     staleTime: Infinity,
     retry: false,
     refetchOnWindowFocus: false,
     queryFn: async () => {
       const results = await api.games.search(trimmed)
-      const top = results[0]
-      if (!top) return null
-      return api.games.resolve(top.id)
+      return results[0] ?? null
     },
   })
 }

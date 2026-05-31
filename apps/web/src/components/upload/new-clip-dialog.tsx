@@ -31,7 +31,10 @@ import { GameCombobox } from "@/components/game/game-combobox"
 import { GameSuggestion } from "@/components/game/game-suggestion"
 import { MentionPicker } from "@/components/search/mention-picker"
 import { VideoPlayer } from "@/components/video/video-player"
-import { useResolveGameByNameQuery } from "@/lib/game-queries"
+import {
+  useGamePreviewByNameQuery,
+  useResolveGameMutation,
+} from "@/lib/game-queries"
 import { useMlConfigQuery } from "@/lib/ml-queries"
 import { useGameSuggestionQuery } from "./use-game-suggestion"
 import {
@@ -313,16 +316,16 @@ function LoadedState({
     mlConfigQuery.data,
     { enabled: mlEnabled && !suggestionDismissed }
   )
-  // Resolve the top prediction into a full game (canonical name + logo art)
-  // so the in-input suggestion shows the real SteamGridDB entry, not the raw
-  // model label. Accept then commits an already-resolved row instantly.
+  // Search the top prediction for preview art/name without upserting a game
+  // row. Accepting the suggestion resolves and commits the row explicitly.
   const topLabel = suggestionQuery.data?.[0]?.label
-  const resolveQuery = useResolveGameByNameQuery(topLabel, {
+  const previewQuery = useGamePreviewByNameQuery(topLabel, {
     enabled: mlEnabled && !suggestionDismissed,
   })
-  const suggestedGame = resolveQuery.data
+  const resolveGameMutation = useResolveGameMutation()
+  const suggestedGame = previewQuery.data
   const suggestionAnalyzing =
-    suggestionQuery.isLoading || (Boolean(topLabel) && resolveQuery.isLoading)
+    suggestionQuery.isLoading || (Boolean(topLabel) && previewQuery.isLoading)
 
   return (
     <form
@@ -375,9 +378,22 @@ function LoadedState({
                   <GameSuggestion
                     status="ready"
                     game={suggestedGame}
+                    accepting={resolveGameMutation.isPending}
                     onAccept={() => {
-                      field.handleChange(suggestedGame)
-                      setSuggestionDismissed(true)
+                      resolveGameMutation.mutate(
+                        { steamgriddbId: suggestedGame.id },
+                        {
+                          onSuccess: (game) => {
+                            field.handleChange(game)
+                            setSuggestionDismissed(true)
+                          },
+                          onError: (error) => {
+                            toast.error(
+                              error.message || "Could not use suggestion"
+                            )
+                          },
+                        }
+                      )
                     }}
                     onDecline={() => {
                       field.handleChange(null)

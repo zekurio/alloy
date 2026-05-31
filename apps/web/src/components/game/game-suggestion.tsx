@@ -1,6 +1,6 @@
 import { CheckIcon, SparklesIcon, XIcon } from "lucide-react"
 
-import type { GameRow } from "@workspace/api"
+import type { GameRow, SteamGridDBSearchResult } from "@workspace/api"
 import { Button } from "@workspace/ui/components/button"
 import { GameIcon } from "@workspace/ui/components/game-icon"
 import { cn } from "@workspace/ui/lib/utils"
@@ -10,21 +10,30 @@ import { useCyclingVerb } from "./game-suggestion-verbs"
 interface GameSuggestionProps {
   /** `analyzing` while frames/resolve are in flight, `ready` once art lands. */
   status: "analyzing" | "ready"
-  /** The resolved suggestion. Present when `status === "ready"`. */
-  game?: GameRow | null
+  /** The SGDB-backed suggestion preview. Present when `status === "ready"`. */
+  game?: GameSuggestionGame | null
+  accepting?: boolean
   onAccept: () => void
   onDecline: () => void
+}
+
+type GameSuggestionGame = Pick<
+  GameRow | SteamGridDBSearchResult,
+  "name" | "iconUrl"
+> & {
+  logoUrl?: string | null
 }
 
 /**
  * Advisory game guess rendered *inside* the SteamGridDB field (as an overlay
  * matching the input's frame). Shows a twinkling "thinking" state while the
- * model works, then the resolved game's logo + canonical name, which the user
- * can accept (commits the game) or decline (clears the field).
+ * model works, then the SGDB search preview, which the user can accept
+ * (commits the game) or decline.
  */
 export function GameSuggestion({
   status,
   game,
+  accepting = false,
   onAccept,
   onDecline,
 }: GameSuggestionProps) {
@@ -60,6 +69,7 @@ export function GameSuggestion({
             variant="accent-outline"
             size="icon-sm"
             onClick={onAccept}
+            disabled={accepting}
             aria-label={`Use ${game?.name ?? "suggested game"}`}
           >
             <CheckIcon className="size-3.5" />
@@ -71,6 +81,7 @@ export function GameSuggestion({
         variant="ghost"
         size="icon-sm"
         onClick={onDecline}
+        disabled={accepting}
         aria-label="Dismiss suggestion"
       >
         <XIcon className="size-3.5" />

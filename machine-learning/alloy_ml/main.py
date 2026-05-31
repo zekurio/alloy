@@ -6,9 +6,9 @@ from contextlib import asynccontextmanager
 from functools import partial
 from typing import Any, AsyncGenerator, Callable
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import ORJSONResponse, PlainTextResponse
-from starlette.formparsers import MultiPartParser
+from starlette.formparsers import MultiPartException, MultiPartParser
 
 from alloy_ml.config import log, settings
 from alloy_ml.models.game_classifier import (
@@ -19,6 +19,54 @@ from alloy_ml.models.game_classifier import (
 from alloy_ml.schemas import GameClassifierResponse, GamePrediction, HealthResponse
 
 MultiPartParser.spool_max_size = 2**26
+_multipart_parser_init = MultiPartParser.__init__
+_multipart_parser_on_part_data = MultiPartParser.on_part_data
+
+
+def install_multipart_limits() -> None:
+    def limited_init(
+        self: MultiPartParser,
+        *args: Any,
+        max_files: int | float = 1000,
+        max_fields: int | float = 1000,
+        max_part_size: int = 1024 * 1024,
+        **kwargs: Any,
+    ) -> None:
+        _multipart_parser_init(
+            self,
+            *args,
+            max_files=min(max_files, settings.game_classifier_max_frames),
+            max_fields=max_fields,
+            max_part_size=max_part_size,
+            **kwargs,
+        )
+        self._alloy_file_bytes = 0
+
+    def limited_on_part_data(
+        self: MultiPartParser,
+        data: bytes,
+        start: int,
+        end: int,
+    ) -> None:
+        chunk_size = end - start
+        current_file = self._current_part.file
+        if current_file is not None:
+            current_size = current_file.size or 0
+            if current_size + chunk_size > settings.game_classifier_max_frame_bytes:
+                raise MultiPartException("Frame exceeds maximum size.")
+
+            total_size = getattr(self, "_alloy_file_bytes", 0) + chunk_size
+            if total_size > settings.game_classifier_max_request_bytes:
+                raise MultiPartException("Frame payload exceeds maximum size.")
+            self._alloy_file_bytes = total_size
+
+        _multipart_parser_on_part_data(self, data, start, end)
+
+    MultiPartParser.__init__ = limited_init
+    MultiPartParser.on_part_data = limited_on_part_data
+
+
+install_multipart_limits()
 
 classifier = GameClassifier(settings)
 thread_pool: ThreadPoolExecutor | None = None
@@ -44,6 +92,45 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(lifespan=lifespan)
+
+
+@app.middleware("http")
+async def reject_oversized_requests(request: Request, call_next: Callable[..., Any]):
+    if request.url.path not in {"/predict", "/v1/game-classifier/predict"}:
+        return await call_next(request)
+
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            byte_length = int(content_length)
+        except ValueError:
+            byte_length = -1
+        if (
+            byte_length < 0
+            or byte_length > settings.game_classifier_max_request_bytes
+        ):
+            return ORJSONResponse(
+                {"detail": "Frame payload exceeds maximum size."},
+                status_code=413,
+            )
+
+    return await call_next(request)
+
+
+@app.exception_handler(MultiPartException)
+async def multipart_exception_handler(
+    _: Request,
+    exc: MultiPartException,
+) -> ORJSONResponse:
+    detail = str(exc)
+    status_code = (
+        413
+        if detail.startswith("Frame ")
+        or detail.startswith("Too many files")
+        or "maximum size" in detail
+        else 400
+    )
+    return ORJSONResponse({"detail": detail}, status_code=status_code)
 
 
 @app.get("/")
@@ -76,9 +163,19 @@ async def predict_game(
 ) -> ORJSONResponse:
     if top_k is not None and not 1 <= top_k <= 20:
         raise HTTPException(400, "top_k must be between 1 and 20")
+    if len(frames) > settings.game_classifier_max_frames:
+        raise HTTPException(
+            413,
+            f"Expected at most {settings.game_classifier_max_frames} frames.",
+        )
 
     payloads: list[bytes] = []
     for frame in frames:
+        if (
+            frame.size is not None
+            and frame.size > settings.game_classifier_max_frame_bytes
+        ):
+            raise HTTPException(413, "Frame exceeds maximum size.")
         payload = await frame.read()
         payloads.append(payload)
 
