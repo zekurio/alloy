@@ -1,6 +1,9 @@
 {
-  "version": "0.0.3",
-  "workspace": ["apps/*", "packages/*"],
+  "version": "0.0.4",
+  "workspace": [
+    "apps/*",
+    "packages/*"
+  ],
   "nodeModulesDir": "auto",
   "imports": {
     "@base-ui/react": "npm:@base-ui/react@1.4.1",
@@ -67,6 +70,8 @@
     "typecheck": "deno check scripts/*.ts && deno task --filter '*' typecheck"
   },
   "allowScripts": {
-    "deny": ["npm:esbuild@0.25.12"]
+    "deny": [
+      "npm:esbuild@0.25.12"
+    ]
   }
 }
