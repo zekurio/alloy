@@ -10,7 +10,7 @@
     inherit lib;
     root = ../.;
   },
-  denoDepsHash ? "sha256-YzrYdzTy0hPwILtOfpNMjnAwgwneQqAKhXI7dJJ6RSc=",
+  denoDepsHash ? "sha256-+j+Zcep7xR6PvrvdtVRJ3kC6wuwB405OMOW3X03D0yU=",
 }:
 
 let
