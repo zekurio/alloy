@@ -87,7 +87,11 @@ advisory: it should produce ranked suggestions, not silently choose or overwrite
 the clip's game.
 
 The classifier checkpoint is pulled at runtime from Hugging Face and cached
-under `data/ml-cache`; it is not baked into the image.
+under `data/ml-cache`; it is not baked into the image. The default model is
+pinned to Hugging Face commit
+`05b8d2af2b704a21366e58e9fd6bef5cef2847cb`, and admins can change the game
+classifier repo, revision, filename, or local checkpoint path from runtime
+configuration.
 
 For local Python development, run just the ML service:
 

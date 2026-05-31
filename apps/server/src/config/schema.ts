@@ -167,6 +167,43 @@ function normalizeBaseUrl(value: string): string {
   return value.replace(/\/+$/, "")
 }
 
+const DEFAULT_GAME_CLASSIFIER_REPO_ID = "zekurio/alloy-clipnet-b2-v1"
+const DEFAULT_GAME_CLASSIFIER_FILENAME = "alloy-clipnet-b2-v1.pt"
+const DEFAULT_GAME_CLASSIFIER_REVISION =
+  "05b8d2af2b704a21366e58e9fd6bef5cef2847cb"
+const DEFAULT_GAME_CLASSIFIER_VERSION = "alloy-clipnet-b2-v1"
+
+const GameClassifierModelConfigSchema = z.object({
+  modelName: z.string().trim().min(1).max(128).default("alloy-game-classifier"),
+  modelVersion: z
+    .string()
+    .trim()
+    .min(1)
+    .max(128)
+    .nullable()
+    .default(DEFAULT_GAME_CLASSIFIER_VERSION),
+  repoId: z
+    .string()
+    .trim()
+    .min(1)
+    .max(256)
+    .default(DEFAULT_GAME_CLASSIFIER_REPO_ID),
+  filename: z
+    .string()
+    .trim()
+    .min(1)
+    .max(256)
+    .default(DEFAULT_GAME_CLASSIFIER_FILENAME),
+  revision: z
+    .string()
+    .trim()
+    .min(1)
+    .max(256)
+    .default(DEFAULT_GAME_CLASSIFIER_REVISION),
+  checkpointPath: z.string().trim().min(1).max(1024).nullable().default(null),
+  topK: z.number().int().min(1).max(20).default(1),
+})
+
 const MachineLearningConfigSchema = z.object({
   enabled: z.boolean().default(envFlag("MACHINE_LEARNING_ENABLED", false)),
   baseUrl: z
@@ -175,6 +212,9 @@ const MachineLearningConfigSchema = z.object({
     .default(Deno.env.get("MACHINE_LEARNING_URL") ?? "http://localhost:3003")
     .transform(normalizeBaseUrl),
   requestTimeoutMs: z.number().int().min(1_000).max(300_000).default(60_000),
+  gameClassifier: GameClassifierModelConfigSchema.default(
+    GameClassifierModelConfigSchema.parse({})
+  ),
 })
 
 const ServerSecretsConfigSchema = z.object({
@@ -294,7 +334,9 @@ export const EncoderConfigPatchSchema = EncoderConfigInnerSchema.partial()
 export const LimitsConfigPatchSchema = LimitsConfigSchema.partial()
 export const IntegrationsConfigPatchSchema = IntegrationsConfigSchema.partial()
 export const MachineLearningConfigPatchSchema =
-  MachineLearningConfigSchema.partial()
+  MachineLearningConfigSchema.partial().extend({
+    gameClassifier: GameClassifierModelConfigSchema.partial().optional(),
+  })
 export const AppearanceConfigPatchSchema = AppearanceConfigSchema.partial()
 export const FsStorageConfigPatchSchema = FsStorageConfigSchema.partial()
 export const S3StorageConfigPatchSchema =

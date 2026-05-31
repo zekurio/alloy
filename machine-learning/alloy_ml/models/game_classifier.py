@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import io
+import json
 import threading
 from dataclasses import dataclass
 from pathlib import Path
+from shutil import copy2, rmtree
 from typing import Any
 
-from huggingface_hub import snapshot_download
+from huggingface_hub import hf_hub_download
 import torch
 from PIL import Image, UnidentifiedImageError
 from torchvision import transforms
@@ -19,6 +21,11 @@ Image.MAX_IMAGE_PIXELS = None
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
+CHECKPOINT_FILENAME = "model.pt"
+SOURCE_METADATA_FILENAME = "source.json"
+MODEL_TASK = "game-classification"
+MODEL_TYPE = "classifier"
+_UNSET = object()
 
 
 class ClassifierUnavailableError(RuntimeError):
@@ -42,18 +49,68 @@ class PredictionResult:
     predictions: list[Prediction]
 
 
+@dataclass(frozen=True)
+class GameClassifierSpec:
+    model_name: str
+    model_version: str | None
+    repo_id: str
+    filename: str
+    revision: str
+    checkpoint_path: Path | None = None
+
+    @property
+    def cache_key(self) -> str:
+        if self.checkpoint_path is not None:
+            return f"local:{self.checkpoint_path}"
+        return f"hf:{self.repo_id}@{self.revision}/{self.filename}"
+
+    def with_overrides(
+        self,
+        *,
+        model_name: str | None = None,
+        model_version: str | None | object = _UNSET,
+        repo_id: str | None = None,
+        filename: str | None = None,
+        revision: str | None = None,
+        checkpoint_path: Path | None = None,
+        clear_checkpoint_path: bool = False,
+    ) -> GameClassifierSpec:
+        next_model_version = (
+            self.model_version if model_version is _UNSET else model_version
+        )
+        return GameClassifierSpec(
+            model_name=model_name or self.model_name,
+            model_version=next_model_version
+            if next_model_version is None or isinstance(next_model_version, str)
+            else self.model_version,
+            repo_id=repo_id or self.repo_id,
+            filename=filename or self.filename,
+            revision=revision or self.revision,
+            checkpoint_path=None
+            if clear_checkpoint_path
+            else checkpoint_path or self.checkpoint_path,
+        )
+
+
+def game_classifier_spec_from_settings(settings: Settings) -> GameClassifierSpec:
+    return GameClassifierSpec(
+        model_name=settings.game_classifier_name,
+        model_version=settings.game_classifier_version,
+        repo_id=settings.game_classifier_repo_id,
+        filename=settings.game_classifier_filename,
+        revision=settings.game_classifier_revision,
+        checkpoint_path=settings.game_classifier_checkpoint,
+    )
+
+
 class GameClassifier:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, spec: GameClassifierSpec) -> None:
         self.settings = settings
-        self.checkpoint_path: Path | None = settings.game_classifier_checkpoint
-        self.repo_id = settings.game_classifier_repo_id
-        self.filename = settings.game_classifier_filename
-        self.revision = settings.game_classifier_revision
-        self.model_name = settings.game_classifier_name
-        self.configured_model_version = settings.game_classifier_version
+        self.spec = spec
         self.default_top_k = settings.game_classifier_top_k
         self.device = _resolve_device(settings.device)
         self.lock = threading.Lock()
+        self.load_attempts = 0
         self.model: torch.nn.Module | None = None
         self.classes: list[str] = []
         self.model_version: str | None = None
@@ -68,29 +125,42 @@ class GameClassifier:
 
     @property
     def checkpoint_cached(self) -> bool:
-        return self.resolved_checkpoint_path.is_file()
+        if self.spec.checkpoint_path is not None:
+            return self.resolved_checkpoint_path.is_file()
+        return (
+            self.resolved_checkpoint_path.is_file()
+            and self.source_metadata_matches()
+        )
 
     @property
     def resolved_checkpoint_path(self) -> Path:
-        if self.checkpoint_path is not None:
-            return self.checkpoint_path
-        return self.cache_dir / self.filename
+        if self.spec.checkpoint_path is not None:
+            return self.spec.checkpoint_path
+        return self.model_dir / CHECKPOINT_FILENAME
 
     @property
     def cache_dir(self) -> Path:
-        return (
-            self.settings.cache_folder
-            / "game-classifier"
-            / clean_model_name(self.repo_id)
-        )
+        return self.settings.cache_folder / MODEL_TASK / self.cache_model_name
+
+    @property
+    def model_dir(self) -> Path:
+        return self.cache_dir / MODEL_TYPE
+
+    @property
+    def source_metadata_path(self) -> Path:
+        return self.model_dir / SOURCE_METADATA_FILENAME
+
+    @property
+    def cache_model_name(self) -> str:
+        repo_name = self.spec.repo_id.strip().removeprefix("https://huggingface.co/")
+        repo_name = repo_name.rstrip("/").split("/")[-1]
+        return clean_model_name(repo_name)
 
     @property
     def checkpoint_source(self) -> str:
-        return (
-            str(self.checkpoint_path)
-            if self.checkpoint_path is not None and self.checkpoint_path.is_file()
-            else f"hf://{self.repo_id}@{self.revision}/{self.filename}"
-        )
+        if self.spec.checkpoint_path is not None:
+            return str(self.spec.checkpoint_path)
+        return f"hf://{self.spec.repo_id}@{self.spec.revision}/{self.spec.filename}"
 
     def predict_bytes(
         self,
@@ -129,7 +199,7 @@ class GameClassifier:
             for score, index in zip(scores.tolist(), indices.tolist(), strict=True)
         ]
         return PredictionResult(
-            model_name=self.model_name,
+            model_name=self.spec.model_name,
             model_version=self.model_version,
             predictions=predictions,
         )
@@ -141,8 +211,21 @@ class GameClassifier:
         with self.lock:
             if self.model is not None:
                 return
+            self.load_attempts += 1
             checkpoint_path = self.resolve_checkpoint_path()
-            checkpoint = _load_checkpoint(checkpoint_path)
+            try:
+                checkpoint = _load_checkpoint(checkpoint_path)
+            except (EOFError, OSError, RuntimeError) as err:
+                if self.spec.checkpoint_path is not None or self.load_attempts > 1:
+                    raise
+                log.warning(
+                    "Failed to load cached game classifier checkpoint. "
+                    "Clearing cache and downloading again.",
+                    exc_info=True,
+                )
+                self.clear_cache()
+                checkpoint_path = self.resolve_checkpoint_path()
+                checkpoint = _load_checkpoint(checkpoint_path)
             model_config_payload = dict(checkpoint["model_config"])
             model_config_payload["pretrained"] = False
             model_config = ClipCnnConfig(**model_config_payload)
@@ -160,40 +243,105 @@ class GameClassifier:
             self.normalize = bool(train_config.get("normalize", True))
             self.transform = _make_transform(self.image_size, self.normalize)
             self.classes = classes
-            self.model_version = self.configured_model_version or self.revision
+            self.model_version = self.spec.model_version or self.spec.revision
             self.model = model
 
     def resolve_checkpoint_path(self) -> Path:
         checkpoint_path = self.resolved_checkpoint_path
+        if self.spec.checkpoint_path is not None:
+            if checkpoint_path.is_file():
+                return checkpoint_path
+            raise ClassifierUnavailableError(
+                f"Configured game classifier checkpoint does not exist: {checkpoint_path}"
+            )
+
         if checkpoint_path.is_file():
-            self.checkpoint_path = checkpoint_path
-            return checkpoint_path
+            if self.source_metadata_matches():
+                return checkpoint_path
+            log.info(
+                "Cached game classifier checkpoint source does not match "
+                "configuration. Clearing cache before download."
+            )
+            self.clear_cache()
 
         try:
             log.info(
                 "Downloading game classifier model "
-                f"'{self.repo_id}' to {self.cache_dir}. This may take a while."
+                f"'{self.spec.repo_id}' to {self.model_dir}. This may take a while."
             )
-            snapshot_download(
-                self.repo_id,
-                revision=self.revision,
-                cache_dir=self.cache_dir,
-                local_dir=self.cache_dir,
+            download_dir = self.cache_dir / ".download"
+            remove_dir_if_exists(download_dir)
+            downloaded = hf_hub_download(
+                repo_id=self.spec.repo_id,
+                filename=self.spec.filename,
+                revision=self.spec.revision,
+                local_dir=download_dir,
             )
+            self.model_dir.mkdir(parents=True, exist_ok=True)
+            tmp_path = checkpoint_path.with_suffix(f"{checkpoint_path.suffix}.tmp")
+            copy2(downloaded, tmp_path)
+            tmp_path.replace(checkpoint_path)
+            self.write_source_metadata()
+            remove_dir_if_exists(download_dir)
         except Exception as err:
+            remove_dir_if_exists(self.cache_dir / ".download")
             raise ClassifierUnavailableError(
                 "Could not download game classifier checkpoint from "
-                f"Hugging Face repo {self.repo_id}: {err}"
+                f"Hugging Face repo {self.spec.repo_id}: {err}"
             ) from err
 
         if not checkpoint_path.is_file():
             raise ClassifierUnavailableError(
                 "Downloaded game classifier repo did not contain "
-                f"checkpoint file {self.filename}"
+                f"checkpoint file {self.spec.filename}"
             )
 
-        self.checkpoint_path = checkpoint_path
         return checkpoint_path
+
+    def source_metadata(self) -> dict[str, str]:
+        return {
+            "source": "hugging-face",
+            "repoId": self.spec.repo_id,
+            "filename": self.spec.filename,
+            "revision": self.spec.revision,
+        }
+
+    def source_metadata_matches(self) -> bool:
+        try:
+            payload = json.loads(
+                self.source_metadata_path.read_text(encoding="utf-8")
+            )
+        except (OSError, json.JSONDecodeError):
+            return False
+        if not isinstance(payload, dict):
+            return False
+        expected = self.source_metadata()
+        return all(payload.get(key) == value for key, value in expected.items())
+
+    def write_source_metadata(self) -> None:
+        self.model_dir.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(self.source_metadata(), sort_keys=True)
+        tmp_path = self.source_metadata_path.with_suffix(
+            f"{self.source_metadata_path.suffix}.tmp"
+        )
+        tmp_path.write_text(f"{payload}\n", encoding="utf-8")
+        tmp_path.replace(self.source_metadata_path)
+
+    def clear_cache(self) -> None:
+        if self.spec.checkpoint_path is not None:
+            return
+        if not self.cache_dir.exists():
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+            return
+        if not rmtree.avoids_symlink_attacks:
+            raise ClassifierUnavailableError(
+                "Could not safely clear model cache on this platform"
+            )
+        if self.cache_dir.is_dir():
+            rmtree(self.cache_dir)
+        else:
+            self.cache_dir.unlink()
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
 
 
 def _load_checkpoint(path: Path) -> dict[str, Any]:
@@ -203,6 +351,11 @@ def _load_checkpoint(path: Path) -> dict[str, Any]:
         return torch.load(path, map_location="cpu", weights_only=False)
     except TypeError:
         return torch.load(path, map_location="cpu")
+
+
+def remove_dir_if_exists(path: Path) -> None:
+    if path.exists():
+        rmtree(path)
 
 
 def _resolve_device(spec: str) -> torch.device:

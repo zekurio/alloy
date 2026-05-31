@@ -41,9 +41,15 @@ export async function predictGameFromFrameBytes(input: {
       `frame-${i}.jpg`
     )
   }
-  if (input.topK !== undefined) {
-    form.set("top_k", String(input.topK))
-  }
+  const classifier = input.config.gameClassifier
+  const topK = input.topK ?? classifier.topK
+  form.set("top_k", String(topK))
+  form.set("model_name", classifier.modelName)
+  form.set("model_version", classifier.modelVersion ?? "")
+  form.set("repo_id", classifier.repoId)
+  form.set("filename", classifier.filename)
+  form.set("revision", classifier.revision)
+  form.set("checkpoint_path", classifier.checkpointPath ?? "")
 
   const controller = new AbortController()
   const timeout = setTimeout(
@@ -93,7 +99,7 @@ export async function predictGameFromFrameBytes(input: {
     )
   }
 
-  return parseGameClassifierResult(payload, input.topK)
+  return parseGameClassifierResult(payload, topK)
 }
 
 function parseGameClassifierResult(

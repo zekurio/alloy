@@ -1,6 +1,7 @@
 import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
+  BrainCircuitIcon,
   ClapperboardIcon,
   DatabaseIcon,
   DownloadIcon,
@@ -29,6 +30,7 @@ import { LoginArtwork } from "@/components/auth/login-artwork"
 import { EncoderConfigCard } from "@/components/routes/admin-settings/encoder-config-card"
 import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integrations-config-card"
 import { LimitsConfigCard } from "@/components/routes/admin-settings/limits-config-card"
+import { MachineLearningConfigCard } from "@/components/routes/admin-settings/machine-learning-config-card"
 import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-provider-card"
 import { StorageConfigCard } from "@/components/routes/admin-settings/storage-config-card"
 import { SettingsSection } from "@/components/routes/settings/settings-section"
@@ -246,6 +248,28 @@ function LimitsSettingsSection({
     >
       <LimitsConfigCard
         limits={config.limits}
+        onChange={(next) => setConfig(next)}
+        hideHeader
+      />
+    </SettingsSection>
+  )
+}
+
+function MachineLearningSettingsSection({
+  config,
+  setConfig,
+}: {
+  config: AdminRuntimeConfig
+  setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>
+}) {
+  return (
+    <SettingsSection
+      icon={BrainCircuitIcon}
+      title="Machine learning"
+      description="Configure advisory inference and model source."
+    >
+      <MachineLearningConfigCard
+        machineLearning={config.machineLearning}
         onChange={(next) => setConfig(next)}
         hideHeader
       />
@@ -548,6 +572,7 @@ export function AdminSettingsSections({ userId }: { userId: string }) {
         onToggleRequireAuthToBrowse={onToggleRequireAuthToBrowse}
       />
       <EncoderSettingsSection config={config} setConfig={setConfig} />
+      <MachineLearningSettingsSection config={config} setConfig={setConfig} />
       <LimitsSettingsSection config={config} setConfig={setConfig} />
       <StorageSettingsSection config={config} setConfig={setConfig} />
       <AppearanceSettingsSection config={config} setConfig={setConfig} />
