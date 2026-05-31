@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     game_classifier_top_k: int = Field(default=5, ge=1, le=20)
     game_classifier_max_frames: int = Field(default=24, ge=1, le=256)
     game_classifier_max_frame_bytes: int = Field(default=10 * 1024 * 1024, ge=1)
+    game_classifier_max_frame_width: int = Field(default=4096, ge=1)
+    game_classifier_max_frame_height: int = Field(default=4096, ge=1)
+    game_classifier_max_frame_pixels: int = Field(
+        default=16 * 1024 * 1024,
+        ge=1,
+    )
     game_classifier_max_request_bytes: int = Field(
         default=512 * 1024 * 1024,
         ge=1,

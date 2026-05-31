@@ -50,6 +50,9 @@ class GameClassifier:
         self.model_name = settings.game_classifier_name
         self.configured_model_version = settings.game_classifier_version
         self.default_top_k = settings.game_classifier_top_k
+        self.max_frame_width = settings.game_classifier_max_frame_width
+        self.max_frame_height = settings.game_classifier_max_frame_height
+        self.max_frame_pixels = settings.game_classifier_max_frame_pixels
         self.device = _resolve_device(settings.device)
         self.lock = threading.Lock()
         self.model: torch.nn.Module | None = None
@@ -96,7 +99,15 @@ class GameClassifier:
         *,
         top_k: int | None = None,
     ) -> PredictionResult:
-        frames = [decode_frame(payload) for payload in frame_payloads]
+        frames = [
+            decode_frame(
+                payload,
+                max_width=self.max_frame_width,
+                max_height=self.max_frame_height,
+                max_pixels=self.max_frame_pixels,
+            )
+            for payload in frame_payloads
+        ]
         return self.predict(frames, top_k=top_k)
 
     def predict(
@@ -224,16 +235,51 @@ def _make_transform(image_size: int, normalize: bool):
     return transforms.Compose(steps)
 
 
-def decode_frame(payload: bytes) -> Image.Image:
+def decode_frame(
+    payload: bytes,
+    *,
+    max_width: int,
+    max_height: int,
+    max_pixels: int,
+) -> Image.Image:
     if not payload:
         raise InvalidFrameError("Frame payload is empty")
     try:
         with Image.open(io.BytesIO(payload)) as image:
-            if image.width <= 0 or image.height <= 0:
-                raise InvalidFrameError("Frame has zero width or height")
+            _validate_frame_dimensions(
+                image.width,
+                image.height,
+                max_width=max_width,
+                max_height=max_height,
+                max_pixels=max_pixels,
+            )
             return image.convert("RGB")
+    except Image.DecompressionBombError as err:
+        raise InvalidFrameError("Frame dimensions are too large") from err
     except UnidentifiedImageError as err:
         raise InvalidFrameError("Frame is not a readable image") from err
+
+
+def _validate_frame_dimensions(
+    width: int,
+    height: int,
+    *,
+    max_width: int,
+    max_height: int,
+    max_pixels: int,
+) -> None:
+    if width <= 0 or height <= 0:
+        raise InvalidFrameError("Frame has zero width or height")
+    if width > max_width or height > max_height:
+        raise InvalidFrameError(
+            f"Frame dimensions {width}x{height} exceed the maximum "
+            f"{max_width}x{max_height}"
+        )
+    pixels = width * height
+    if pixels > max_pixels:
+        raise InvalidFrameError(
+            f"Frame has {pixels} pixels, exceeding the maximum {max_pixels}"
+        )
 
 
 def _sample_frames(frames: list[Image.Image], count: int) -> list[Image.Image]:
