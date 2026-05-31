@@ -61,7 +61,7 @@ Environment variables:
 | Variable | Default | Description |
 | --- | --- | --- |
 | `ALLOY_ML_HOST` | `0.0.0.0` | Bind host |
-| `ALLOY_ML_PORT` | `3003` | Bind port |
+| `ALLOY_ML_PORT` | `2662` | Bind port |
 | `ALLOY_ML_LOG_LEVEL` | `info` | Log level |
 | `MACHINE_LEARNING_CACHE_FOLDER` | `/cache` | Runtime cache root |
 | `MACHINE_LEARNING_GAME_CLASSIFIER_REPO_ID` | `zekurio/alloy-clipnet-b2-v1` | Hugging Face model repo |

@@ -1,5 +1,5 @@
-const DEFAULT_SERVER_URL = "http://localhost:3000"
-const DEFAULT_SERVER_PORT = "3000"
+const DEFAULT_SERVER_URL = "http://localhost:2552"
+const DEFAULT_SERVER_PORT = "2552"
 
 function normalizeOrigin(value: string): string {
   const url = new URL(value)

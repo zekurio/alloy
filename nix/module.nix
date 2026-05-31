@@ -102,7 +102,7 @@ in
 
     port = lib.mkOption {
       type = lib.types.port;
-      default = 3000;
+      default = 2552;
       description = "TCP port Alloy listens on.";
     };
 
@@ -232,14 +232,14 @@ in
 
       port = lib.mkOption {
         type = lib.types.port;
-        default = 3003;
+        default = 2662;
         description = "TCP port the Alloy machine learning service listens on.";
       };
 
       baseUrl = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
         default = null;
-        example = "http://ml.example.com:3003";
+        example = "http://ml.example.com:2662";
         description = ''
           URL the Alloy server uses to reach the machine learning service. Leave
           null when using the local service managed by this module.
