@@ -20,6 +20,38 @@ let
 
   configDir = dirOf cfg.configFile;
   encodeDir = "${cfg.cacheDir}/encode";
+  systemdDirectoryName =
+    root: path:
+    let
+      pathString = toString path;
+      prefix = "${root}/";
+    in
+    if lib.hasPrefix prefix pathString then
+      lib.removePrefix prefix pathString
+    else
+      null;
+  managedStateDirectory = systemdDirectoryName "/var/lib" cfg.stateDir;
+  managedCacheDirectory = systemdDirectoryName "/var/cache" cfg.cacheDir;
+  pathIsUnder =
+    parent: child:
+    let
+      parentString = toString parent;
+      childString = toString child;
+    in
+    childString == parentString || lib.hasPrefix "${parentString}/" childString;
+  serverExternalWritePaths = lib.unique (
+    lib.optionals (managedStateDirectory == null) [ cfg.stateDir ]
+    ++ lib.optionals (managedCacheDirectory == null) [ cfg.cacheDir ]
+    ++ lib.optionals (!(pathIsUnder cfg.stateDir configDir)) [ configDir ]
+    ++ lib.optionals (!(pathIsUnder cfg.stateDir cfg.storageDir)) [ cfg.storageDir ]
+  );
+  machineLearningExternalWritePaths = lib.unique (
+    lib.optionals (managedStateDirectory == null) [ cfg.stateDir ]
+    ++ lib.optionals (managedCacheDirectory == null) [ cfg.cacheDir ]
+    ++ lib.optionals (!(pathIsUnder cfg.cacheDir cfg.machine-learning.cacheDir)) [
+      cfg.machine-learning.cacheDir
+    ]
+  );
   isDatabaseUnixSocket = lib.hasPrefix "/" cfg.database.host;
   machineLearningConnectHost =
     let
@@ -47,13 +79,7 @@ let
       null
     else
       jsonFormat.generate "alloy-runtime-config.json" cfg.initialRuntimeConfig;
-
-  preStart = ''
-    install -d -m 0750 ${lib.escapeShellArg configDir}
-    install -d -m 0750 ${lib.escapeShellArg cfg.storageDir}
-    install -d -m 0750 ${lib.escapeShellArg encodeDir}
-  ''
-  + lib.optionalString (bootstrapConfig != null) ''
+  preStart = lib.optionalString (bootstrapConfig != null) ''
     if [ ! -e ${lib.escapeShellArg cfg.configFile} ]; then
       install -m 0640 ${lib.escapeShellArg bootstrapConfig} ${lib.escapeShellArg cfg.configFile}
     fi
@@ -152,20 +178,31 @@ in
     stateDir = lib.mkOption {
       type = lib.types.path;
       default = "/var/lib/alloy";
-      description = "Mutable Alloy state directory.";
+      description = ''
+        Mutable Alloy state directory. Paths below /var/lib are managed with
+        systemd StateDirectory. Other paths must be created by the operator.
+      '';
     };
 
     cacheDir = lib.mkOption {
       type = lib.types.path;
       default = "/var/cache/alloy";
-      description = "Mutable Alloy cache directory for encoder scratch data.";
+      description = ''
+        Mutable Alloy cache directory for encoder scratch data. Paths below
+        /var/cache are managed with systemd CacheDirectory. Other paths must be
+        created by the operator.
+      '';
     };
 
     storageDir = lib.mkOption {
       type = lib.types.path;
       default = "${config.services.alloy-clips.stateDir}/storage";
       defaultText = lib.literalExpression ''"\${config.services.alloy-clips.stateDir}/storage"'';
-      description = "Filesystem storage root used when Alloy bootstraps runtime config.";
+      description = ''
+        Filesystem storage root used when Alloy bootstraps runtime config. If
+        this is outside stateDir, create it manually and make it writable by the
+        Alloy service user.
+      '';
     };
 
     configFile = lib.mkOption {
@@ -332,15 +369,8 @@ in
 
     networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [ cfg.port ];
 
-    systemd.tmpfiles.rules = [
-      "d ${cfg.stateDir} 0750 ${cfg.user} ${cfg.group} - -"
-      "d ${cfg.cacheDir} 0750 ${cfg.user} ${cfg.group} - -"
-      "d ${configDir} 0750 ${cfg.user} ${cfg.group} - -"
-      "d ${cfg.storageDir} 0750 ${cfg.user} ${cfg.group} - -"
-      "d ${encodeDir} 0750 ${cfg.user} ${cfg.group} - -"
-    ]
-    ++ lib.optional cfg.machine-learning.enable
-      "d ${cfg.machine-learning.cacheDir} 0750 ${cfg.user} ${cfg.group} - -";
+    systemd.tmpfiles.rules = lib.optional (!(pathIsUnder cfg.stateDir cfg.storageDir))
+      "e ${cfg.storageDir} 0750 ${cfg.user} ${cfg.group} - -";
 
     systemd.services.alloy-clips = {
       description = "Alloy clip sharing server";
@@ -391,12 +421,15 @@ in
         ProtectSystem = "strict";
         ProtectHome = true;
         DeviceAllow = lib.mkIf (cfg.accelerationDevices != null) cfg.accelerationDevices;
-        ReadWritePaths = lib.unique [
-          cfg.stateDir
-          cfg.cacheDir
-          configDir
-          cfg.storageDir
-        ];
+        StateDirectory = lib.mkIf (managedStateDirectory != null) managedStateDirectory;
+        CacheDirectory = lib.mkIf (managedCacheDirectory != null) managedCacheDirectory;
+        ReadWritePaths = serverExternalWritePaths;
+      }
+      // lib.optionalAttrs (managedStateDirectory != null) {
+        StateDirectoryMode = "0750";
+      }
+      // lib.optionalAttrs (managedCacheDirectory != null) {
+        CacheDirectoryMode = "0750";
       };
     };
 
@@ -433,9 +466,15 @@ in
         ProtectSystem = "strict";
         ProtectHome = true;
         DeviceAllow = lib.mkIf (cfg.accelerationDevices != null) cfg.accelerationDevices;
-        ReadWritePaths = lib.unique [
-          cfg.machine-learning.cacheDir
-        ];
+        StateDirectory = lib.mkIf (managedStateDirectory != null) managedStateDirectory;
+        CacheDirectory = lib.mkIf (managedCacheDirectory != null) managedCacheDirectory;
+        ReadWritePaths = machineLearningExternalWritePaths;
+      }
+      // lib.optionalAttrs (managedStateDirectory != null) {
+        StateDirectoryMode = "0750";
+      }
+      // lib.optionalAttrs (managedCacheDirectory != null) {
+        CacheDirectoryMode = "0750";
       };
     };
   };
