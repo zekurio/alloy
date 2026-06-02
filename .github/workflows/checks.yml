@@ -22,7 +22,7 @@ jobs:
       - name: Set up Deno
         uses: denoland/setup-deno@v2
         with:
-          deno-version: v2.7.14
+          deno-version: v2.8.0
 
       - name: Install dependencies
         run: deno install --frozen
@@ -48,8 +48,17 @@ jobs:
       - name: Set up Nix
         uses: cachix/install-nix-action@v31
 
+      - name: Set up Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: alloy
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
       - name: Evaluate Nix flake
         run: nix --extra-experimental-features "nix-command flakes" flake check --no-build
 
       - name: Build Nix package
         run: nix --extra-experimental-features "nix-command flakes" build .#alloy --no-link
+
+      - name: Build Nix server image
+        run: nix --extra-experimental-features "nix-command flakes" build .#alloy-image --no-link

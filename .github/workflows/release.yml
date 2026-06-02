@@ -81,10 +81,16 @@ jobs:
       - name: Set up Deno
         uses: denoland/setup-deno@v2
         with:
-          deno-version: v2.7.14
+          deno-version: v2.8.0
 
       - name: Set up Nix
         uses: cachix/install-nix-action@v31
+
+      - name: Set up Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: alloy
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - name: Update Deno version
         if: github.event_name == 'workflow_dispatch'
@@ -192,13 +198,10 @@ jobs:
           echo "tag=$previous_tag" >> "$GITHUB_OUTPUT"
 
       - name: Publish server release image
-        uses: ./.github/actions/publish-image
+        uses: ./.github/actions/publish-nix-image
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          file: apps/server/Dockerfile
-          build-args: |
-            APP_VERSION=${{ steps.meta.outputs.version }}
           tags: |
             type=raw,value=${{ steps.meta.outputs.tag }}
             type=raw,value=latest,enable=${{ steps.meta.outputs.make_latest == 'true' }}
