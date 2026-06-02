@@ -101,18 +101,19 @@ export function CommentAuthHint({ canSignUp }: { canSignUp: boolean }) {
         >
           Log in
         </Link>
-        {canSignUp ? (
-          <>
-            {" or "}
-            <Link
-              to="/sign-up"
-              className="font-medium text-foreground hover:underline"
-            >
-              create an account
-            </Link>
-          </>
-        ) : null}{" "}
-        to comment
+        {canSignUp
+          ? (
+            <>
+              {" or "}
+              <Link
+                to="/sign-up"
+                className="font-medium text-foreground hover:underline"
+              >
+                create an account
+              </Link>
+            </>
+          )
+          : null} to comment
       </p>
     </div>
   )
@@ -150,38 +151,42 @@ export function CommentComposer({
       className={cn(
         "flex flex-col gap-2 rounded-md border border-border bg-input p-2",
         "transition-[border-color,background-color] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-        "focus-within:border-accent-border focus-within:bg-surface-raised"
+        "focus-within:border-accent-border focus-within:bg-surface-raised",
       )}
     >
-      {replyingToName ? (
-        <div className="flex items-center justify-between gap-2 rounded-sm bg-surface-raised px-2 py-1 text-xs text-foreground-faint">
-          <span className="min-w-0 truncate">
-            Replying to{" "}
-            <span className="font-medium text-foreground">
-              {replyingToName}
+      {replyingToName
+        ? (
+          <div className="flex items-center justify-between gap-2 rounded-sm bg-surface-raised px-2 py-1 text-xs text-foreground-faint">
+            <span className="min-w-0 truncate">
+              Replying to{" "}
+              <span className="font-medium text-foreground">
+                {replyingToName}
+              </span>
             </span>
-          </span>
-          {onCancelReply ? (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              type="button"
-              aria-label="Cancel reply"
-              onClick={onCancelReply}
-              disabled={submitting}
-              className="size-6 shrink-0"
-            >
-              <XIcon className="size-3.5" />
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
+            {onCancelReply
+              ? (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  type="button"
+                  aria-label="Cancel reply"
+                  onClick={onCancelReply}
+                  disabled={submitting}
+                  className="size-6 shrink-0"
+                >
+                  <XIcon className="size-3.5" />
+                </Button>
+              )
+              : null}
+          </div>
+        )
+        : null}
 
       <div className="flex items-start gap-2">
         <Avatar size="md" className="mt-0.5" style={meAvatarStyle}>
-          {me.avatar.src ? (
-            <AvatarImage src={me.avatar.src} alt={me.name} />
-          ) : null}
+          {me.avatar.src
+            ? <AvatarImage src={me.avatar.src} alt={me.name} />
+            : null}
           <AvatarFallback style={meAvatarStyle}>
             {me.avatar.initials}
           </AvatarFallback>
@@ -197,7 +202,7 @@ export function CommentComposer({
           maxLength={COMMENT_BODY_MAX_LENGTH}
           className={cn(
             "min-h-[32px] flex-1 resize-none bg-transparent text-sm text-foreground outline-none",
-            "placeholder:text-foreground-faint"
+            "placeholder:text-foreground-faint",
           )}
         />
       </div>
@@ -215,17 +220,19 @@ export function CommentComposer({
         </div>
 
         <div className="flex items-center gap-1.5">
-          {draft.length > 0 ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              type="button"
-              onClick={onClear}
-              disabled={submitting}
-            >
-              Cancel
-            </Button>
-          ) : null}
+          {draft.length > 0
+            ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                onClick={onClear}
+                disabled={submitting}
+              >
+                Cancel
+              </Button>
+            )
+            : null}
           <Button
             variant="primary"
             size="sm"
@@ -264,29 +271,31 @@ export function CommentBody({
           "text-[0.9375rem] leading-[1.55] text-foreground-muted",
           "[overflow-wrap:anywhere] break-words whitespace-pre-wrap",
           deleted && "text-foreground-faint italic",
-          isLong && !expanded && "line-clamp-4"
+          isLong && !expanded && "line-clamp-4",
         )}
       >
         {body}
-        {edited ? (
-          <span className="ml-1 text-xs text-foreground-faint">(edited)</span>
-        ) : null}
+        {edited
+          ? <span className="ml-1 text-xs text-foreground-faint">(edited)</span>
+          : null}
       </p>
-      {isLong ? (
-        <button
-          type="button"
-          onClick={onToggle}
-          className={cn(
-            "-mt-0.5 self-start rounded-md px-1.5 py-0.5",
-            "text-xs font-medium text-accent",
-            "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-            "hover:bg-accent-soft",
-            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
-          )}
-        >
-          {expanded ? "Show less" : "Show more"}
-        </button>
-      ) : null}
+      {isLong
+        ? (
+          <button
+            type="button"
+            onClick={onToggle}
+            className={cn(
+              "-mt-0.5 self-start rounded-md px-1.5 py-0.5",
+              "text-xs font-medium text-accent",
+              "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+              "hover:bg-accent-soft",
+              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
+            )}
+          >
+            {expanded ? "Show less" : "Show more"}
+          </button>
+        )
+        : null}
     </>
   )
 }
@@ -324,95 +333,113 @@ export function CommentActions({
 }) {
   return (
     <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-      {showLike ? (
-        <CommentLikeButton
-          liked={liked}
-          likeCount={likeCount}
-          onClick={onToggleLike}
-        />
-      ) : null}
+      {showLike
+        ? (
+          <CommentLikeButton
+            liked={liked}
+            likeCount={likeCount}
+            onClick={onToggleLike}
+          />
+        )
+        : null}
 
       {showLike && likedByAuthor ? <AuthorLikeBadge /> : null}
 
-      {canReply ? (
-        <button
-          type="button"
-          onClick={onStartReply}
-          className={cn(
-            "shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium whitespace-nowrap",
-            "text-foreground-faint transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-            "hover:bg-surface-raised hover:text-foreground",
-            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
-          )}
-        >
-          Reply
-        </button>
-      ) : null}
+      {canReply
+        ? (
+          <button
+            type="button"
+            onClick={onStartReply}
+            className={cn(
+              "shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium whitespace-nowrap",
+              "text-foreground-faint transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+              "hover:bg-surface-raised hover:text-foreground",
+              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
+            )}
+          >
+            Reply
+          </button>
+        )
+        : null}
 
-      {canPin ? (
-        <button
-          type="button"
-          onClick={onPinToggle}
-          className={cn(
-            "inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs leading-4 font-medium whitespace-nowrap tabular-nums",
-            "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-            pinned
-              ? "text-accent hover:bg-accent-soft"
-              : "text-foreground-faint hover:bg-surface-raised hover:text-foreground",
-            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
-          )}
-        >
-          {pinned ? (
-            <>
-              <PinOffIcon className="size-3" /> Unpin
-            </>
-          ) : (
-            <>
-              <PinIcon className="size-3" /> Pin
-            </>
-          )}
-        </button>
-      ) : pinned ? (
-        <span className="inline-flex items-center gap-1 rounded-md bg-accent-soft px-1.5 py-0.5 text-xs leading-4 font-semibold text-accent">
-          <PinIcon className="size-3" />
-          Pinned by author
-        </span>
-      ) : null}
+      {canPin
+        ? (
+          <button
+            type="button"
+            onClick={onPinToggle}
+            className={cn(
+              "inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs leading-4 font-medium whitespace-nowrap tabular-nums",
+              "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+              pinned
+                ? "text-accent hover:bg-accent-soft"
+                : "text-foreground-faint hover:bg-surface-raised hover:text-foreground",
+              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
+            )}
+          >
+            {pinned
+              ? (
+                <>
+                  <PinOffIcon className="size-3" /> Unpin
+                </>
+              )
+              : (
+                <>
+                  <PinIcon className="size-3" /> Pin
+                </>
+              )}
+          </button>
+        )
+        : pinned
+        ? (
+          <span className="inline-flex items-center gap-1 rounded-md bg-accent-soft px-1.5 py-0.5 text-xs leading-4 font-semibold text-accent">
+            <PinIcon className="size-3" />
+            Pinned by author
+          </span>
+        )
+        : null}
 
-      {replyCount > 0 ? (
-        <button
-          type="button"
-          onClick={onToggleReplies}
-          aria-label={`${repliesOpen ? "Hide" : "View"} ${replyCount} ${
-            replyCount === 1 ? "reply" : "replies"
-          }`}
-          className={cn(
-            "inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs leading-4 font-medium whitespace-nowrap tabular-nums",
-            "text-accent transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-            "hover:bg-accent-soft",
-            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
-          )}
-        >
-          {compactReplies ? (
-            repliesOpen ? (
-              "Hide"
-            ) : (
-              <>
-                <MessageSquareIcon className="size-3" />
-                {formatCount(replyCount)}
-              </>
-            )
-          ) : repliesOpen ? (
-            `Hide ${formatCount(replyCount)} ${
+      {replyCount > 0
+        ? (
+          <button
+            type="button"
+            onClick={onToggleReplies}
+            aria-label={`${repliesOpen ? "Hide" : "View"} ${replyCount} ${
               replyCount === 1 ? "reply" : "replies"
-            }`
-          ) : (
-            `View ${formatCount(replyCount)} ${
-              replyCount === 1 ? "reply" : "replies"
-            }`
-          )}
-        </button>
-      ) : null}
+            }`}
+            className={cn(
+              "inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs leading-4 font-medium whitespace-nowrap tabular-nums",
+              "text-accent transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+              "hover:bg-accent-soft",
+              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
+            )}
+          >
+            {compactReplies
+              ? (
+                repliesOpen
+                  ? (
+                    "Hide"
+                  )
+                  : (
+                    <>
+                      <MessageSquareIcon className="size-3" />
+                      {formatCount(replyCount)}
+                    </>
+                  )
+              )
+              : repliesOpen
+              ? (
+                `Hide ${formatCount(replyCount)} ${
+                  replyCount === 1 ? "reply" : "replies"
+                }`
+              )
+              : (
+                `View ${formatCount(replyCount)} ${
+                  replyCount === 1 ? "reply" : "replies"
+                }`
+              )}
+          </button>
+        )
+        : null}
     </div>
   )
 }
@@ -437,7 +464,7 @@ function CommentLikeButton({
         "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
         liked ? "text-accent" : "text-foreground-faint hover:text-foreground",
         "hover:bg-surface-raised",
-        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none"
+        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
       )}
     >
       <HeartIcon className={cn("size-3", liked && "fill-current")} />
@@ -497,14 +524,16 @@ export function CommentMenu({
           <DropdownMenuItem onClick={onCopyLink}>
             <LinkIcon /> Copy link
           </DropdownMenuItem>
-          {canDelete ? (
-            <DropdownMenuItem
-              variant="destructive"
-              onClick={() => setAlertOpen(true)}
-            >
-              <Trash2Icon /> Delete
-            </DropdownMenuItem>
-          ) : null}
+          {canDelete
+            ? (
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => setAlertOpen(true)}
+              >
+                <Trash2Icon /> Delete
+              </DropdownMenuItem>
+            )
+            : null}
         </DropdownMenuContent>
       </DropdownMenu>
 

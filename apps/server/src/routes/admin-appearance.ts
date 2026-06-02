@@ -18,8 +18,8 @@ async function selectRandomPublicSplashClipIds(): Promise<string[]> {
         eq(clip.status, "ready"),
         eq(clip.privacy, "public"),
         isNotNull(clip.thumbKey),
-        isNull(user.disabledAt)
-      )
+        isNull(user.disabledAt),
+      ),
     )
     .orderBy(sql`random()`)
     .limit(LOGIN_SPLASH_CLIP_LIMIT)

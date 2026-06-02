@@ -4,9 +4,9 @@ import { ImageIcon, Minus, Plus } from "lucide-react"
 import {
   Dialog,
   DialogBody,
+  DialogContent,
   DialogFooter,
   DialogHeader,
-  DialogContent,
   DialogTitle,
 } from "@workspace/ui/components/dialog"
 import { Button } from "@workspace/ui/components/button"
@@ -19,7 +19,9 @@ import {
   clamp,
   clampImageOffset,
   CROP_CONFIG,
+  type CropMode,
   DEFAULT_PREVIEW_ZOOM,
+  type DragState,
   fallbackStageSize,
   getCropFrame,
   getImageBox,
@@ -27,17 +29,15 @@ import {
   getLiveCropGeometry,
   getMinimumZoom,
   isCropCovered,
+  type LoadedImage,
   loadImage,
   MAX_PREVIEW_ZOOM,
+  type Point,
   pointsEqual,
   preferredOutputType,
   readElementSize,
   readFileAsDataUrl,
   readImageDimensions,
-  type CropMode,
-  type DragState,
-  type LoadedImage,
-  type Point,
 } from "./profile-image-crop-utils"
 
 export function ProfileImageCropDialog({
@@ -72,7 +72,7 @@ export function ProfileImageCropDialog({
   const controlsDisabled = !cropReady || applying || cropPending
   const effectiveStageSize = React.useMemo(
     () => (stageReady ? stageSize : fallbackStageSize(mode)),
-    [mode, stageSize]
+    [mode, stageSize],
   )
   const containedImageBox = React.useMemo(() => {
     if (!loadedImage) return null
@@ -81,11 +81,11 @@ export function ProfileImageCropDialog({
   const cropFrame = React.useMemo(
     () =>
       getCropFrame(effectiveStageSize, config.aspect, mode, containedImageBox),
-    [config.aspect, containedImageBox, effectiveStageSize, mode]
+    [config.aspect, containedImageBox, effectiveStageSize, mode],
   )
   const minimumZoom = React.useMemo(
     () => getMinimumZoom(mode, containedImageBox, cropFrame),
-    [containedImageBox, cropFrame, mode]
+    [containedImageBox, cropFrame, mode],
   )
 
   React.useEffect(() => {
@@ -190,7 +190,7 @@ export function ProfileImageCropDialog({
 
       return clampImageOffset(next, cropFrame, imageBox)
     },
-    [cropFrame, imageBox]
+    [cropFrame, imageBox],
   )
 
   React.useEffect(() => {
@@ -226,8 +226,8 @@ export function ProfileImageCropDialog({
           y: drag.startOffset.y + event.clientY - drag.origin.y,
         },
         liveCropFrame,
-        liveImageBox
-      )
+        liveImageBox,
+      ),
     )
   }
 
@@ -253,17 +253,17 @@ export function ProfileImageCropDialog({
       const renderedContainedImageBox = getImageBox(
         loadedImage,
         renderedStageSize,
-        1
+        1,
       )
       const renderedCropFrame = getCropFrame(
         renderedStageSize,
         config.aspect,
         mode,
-        renderedContainedImageBox
+        renderedContainedImageBox,
       )
       const renderedImageBox = getImageBox(loadedImage, renderedStageSize, zoom)
-      const imageLeft =
-        (renderedStageSize.width - renderedImageBox.width) / 2 + offset.x
+      const imageLeft = (renderedStageSize.width - renderedImageBox.width) / 2 +
+        offset.x
       const imageTop =
         (renderedStageSize.height - renderedImageBox.height) / 2 + offset.y
       const cropLeft = renderedCropFrame.x - imageLeft
@@ -288,7 +288,7 @@ export function ProfileImageCropDialog({
         0,
         0,
         config.outputWidth,
-        config.outputHeight
+        config.outputHeight,
       )
 
       const blob = await canvasToBlob(canvas, preferredOutputType(file.type))
@@ -311,7 +311,7 @@ export function ProfileImageCropDialog({
     if (nextStageSize) {
       setStageSize((current) =>
         current.height === nextStageSize.height &&
-        current.width === nextStageSize.width
+          current.width === nextStageSize.width
           ? current
           : nextStageSize
       )
@@ -327,8 +327,8 @@ export function ProfileImageCropDialog({
   function handleZoomChange(value: number | readonly number[]) {
     const rawZoom = Array.isArray(value) ? (value[0] ?? 1) : value
     const nextZoom = clamp(rawZoom, minimumZoom, MAX_PREVIEW_ZOOM)
-    const liveStageSize =
-      readElementSize(stageRef.current) ?? effectiveStageSize
+    const liveStageSize = readElementSize(stageRef.current) ??
+      effectiveStageSize
     const { cropFrame: liveCropFrame, imageBox: liveImageBox } =
       getLiveCropGeometry(loadedImage, liveStageSize, config, mode, nextZoom)
 
@@ -338,14 +338,12 @@ export function ProfileImageCropDialog({
     )
   }
 
-  const imagePlacement =
-    cropReady && imageBox
-      ? getImagePlacement(effectiveStageSize, imageBox, offset)
-      : null
-  const cropCovered =
-    cropReady && imagePlacement
-      ? isCropCovered(cropFrame, imagePlacement)
-      : false
+  const imagePlacement = cropReady && imageBox
+    ? getImagePlacement(effectiveStageSize, imageBox, offset)
+    : null
+  const cropCovered = cropReady && imagePlacement
+    ? isCropCovered(cropFrame, imagePlacement)
+    : false
   const applyDisabled = !cropCovered || applying || cropPending
 
   return (
@@ -362,60 +360,62 @@ export function ProfileImageCropDialog({
           <div
             className={cn(
               "relative mx-auto w-full max-w-[560px] overflow-hidden rounded-md bg-surface-sunken",
-              mode === "avatar" ? "aspect-[4/3]" : "aspect-video"
+              mode === "avatar" ? "aspect-[4/3]" : "aspect-video",
             )}
             ref={setStageElement}
           >
-            {cropReady && imagePlacement ? (
-              <div
-                role="application"
-                aria-label="Drag image to reposition crop"
-                className="absolute inset-0 cursor-grab touch-none overflow-hidden active:cursor-grabbing"
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={finishDrag}
-                onPointerCancel={finishDrag}
-              >
-                <img
-                  alt=""
-                  draggable={false}
-                  src={loadedImage.src}
-                  className="pointer-events-none absolute max-w-none opacity-45 select-none"
-                  style={{
-                    height: imagePlacement.height,
-                    left: imagePlacement.left,
-                    top: imagePlacement.top,
-                    width: imagePlacement.width,
-                  }}
-                />
+            {cropReady && imagePlacement
+              ? (
                 <div
-                  className="pointer-events-none absolute overflow-hidden ring-3 ring-accent ring-inset"
-                  style={{
-                    height: cropFrame.height,
-                    left: cropFrame.x,
-                    top: cropFrame.y,
-                    width: cropFrame.width,
-                  }}
+                  role="application"
+                  aria-label="Drag image to reposition crop"
+                  className="absolute inset-0 cursor-grab touch-none overflow-hidden active:cursor-grabbing"
+                  onPointerDown={handlePointerDown}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={finishDrag}
+                  onPointerCancel={finishDrag}
                 >
                   <img
                     alt=""
                     draggable={false}
                     src={loadedImage.src}
-                    className="pointer-events-none absolute max-w-none select-none"
+                    className="pointer-events-none absolute max-w-none opacity-45 select-none"
                     style={{
                       height: imagePlacement.height,
-                      left: imagePlacement.left - cropFrame.x,
-                      top: imagePlacement.top - cropFrame.y,
+                      left: imagePlacement.left,
+                      top: imagePlacement.top,
                       width: imagePlacement.width,
                     }}
                   />
+                  <div
+                    className="pointer-events-none absolute overflow-hidden ring-3 ring-accent ring-inset"
+                    style={{
+                      height: cropFrame.height,
+                      left: cropFrame.x,
+                      top: cropFrame.y,
+                      width: cropFrame.width,
+                    }}
+                  >
+                    <img
+                      alt=""
+                      draggable={false}
+                      src={loadedImage.src}
+                      className="pointer-events-none absolute max-w-none select-none"
+                      style={{
+                        height: imagePlacement.height,
+                        left: imagePlacement.left - cropFrame.x,
+                        top: imagePlacement.top - cropFrame.y,
+                        width: imagePlacement.width,
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="absolute inset-0 grid place-items-center bg-surface-sunken text-foreground-faint">
-                <ImageIcon className="size-8" />
-              </div>
-            )}
+              )
+              : (
+                <div className="absolute inset-0 grid place-items-center bg-surface-sunken text-foreground-faint">
+                  <ImageIcon className="size-8" />
+                </div>
+              )}
           </div>
 
           <div className="flex items-center gap-3">

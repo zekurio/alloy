@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
-import { USER_ROLES, user } from "@workspace/db/auth-schema"
+import { user, USER_ROLES } from "@workspace/db/auth-schema"
 
 import { assertCanRemoveAdmin, createUserIdentity } from "../auth/identity"
 import { deleteAllSessionsForUser } from "../auth/session"
@@ -42,7 +42,7 @@ const UserPatch = z
   .refine(
     (patch) =>
       patch.role !== undefined || patch.storageQuotaBytes !== undefined,
-    { message: "No updates provided" }
+    { message: "No updates provided" },
   )
 
 async function updateAdminUser(id: string, patch: z.infer<typeof UserPatch>) {
@@ -118,5 +118,5 @@ export const adminUsersRoute = new Hono()
       } catch (cause) {
         return badRequestFromCause(c, cause, "Couldn't update user.")
       }
-    }
+    },
   )

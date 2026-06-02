@@ -12,7 +12,7 @@ export function UploadFlowProvider({
 
   const value = React.useMemo(
     () => ({ queueOpen, setQueueOpen, activeCount, setActiveCount }),
-    [queueOpen, activeCount]
+    [queueOpen, activeCount],
   )
 
   return (

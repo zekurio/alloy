@@ -3,9 +3,9 @@ type ZipEntry = {
   stream:
     | ReadableStream<Uint8Array>
     | (() =>
-        | ReadableStream<Uint8Array>
-        | null
-        | Promise<ReadableStream<Uint8Array> | null>)
+      | ReadableStream<Uint8Array>
+      | null
+      | Promise<ReadableStream<Uint8Array> | null>)
 }
 
 type CentralEntry = {
@@ -38,8 +38,7 @@ function dosDateTime(date = new Date()): { date: number; time: number } {
   const year = Math.max(1980, date.getFullYear())
   return {
     date: ((year - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate(),
-    time:
-      (date.getHours() << 11) |
+    time: (date.getHours() << 11) |
       (date.getMinutes() << 5) |
       Math.floor(date.getSeconds() / 2),
   }
@@ -156,7 +155,7 @@ function endOfCentralDirectory(count: number, size: number, offset: number) {
 function zip64EndOfCentralDirectory(
   count: number,
   size: number,
-  offset: number
+  offset: number,
 ): Uint8Array {
   const buf = new Uint8Array(56)
   const view = new DataView(buf.buffer)
@@ -185,13 +184,13 @@ function safeZipFilename(filename: string): string {
 }
 
 async function openEntryStream(
-  entry: ZipEntry
+  entry: ZipEntry,
 ): Promise<ReadableStream<Uint8Array> | null> {
   return typeof entry.stream === "function" ? entry.stream() : entry.stream
 }
 
 async function* zipChunks(
-  entries: ZipEntry[]
+  entries: ZipEntry[],
 ): AsyncGenerator<Uint8Array, void, void> {
   let offset = 0
   const central: CentralEntry[] = []
@@ -200,9 +199,11 @@ async function* zipChunks(
     const stream = await openEntryStream(entry)
     if (!stream) continue
 
-    const filename = `${String(index + 1).padStart(3, "0")}-${safeZipFilename(
-      entry.filename
-    )}`
+    const filename = `${String(index + 1).padStart(3, "0")}-${
+      safeZipFilename(
+        entry.filename,
+      )
+    }`
     const filenameBytes = bytes(filename)
     const start = offset
     const header = localHeader(filenameBytes)
@@ -236,7 +237,7 @@ async function* zipChunks(
   const zip64Eocd = zip64EndOfCentralDirectory(
     central.length,
     centralSize,
-    centralOffset
+    centralOffset,
   )
   offset += zip64Eocd.length
   yield zip64Eocd
@@ -246,7 +247,7 @@ async function* zipChunks(
 }
 
 export function createZipStream(
-  entries: ZipEntry[]
+  entries: ZipEntry[],
 ): ReadableStream<Uint8Array> {
   const iterator = zipChunks(entries)
   return new ReadableStream<Uint8Array>({

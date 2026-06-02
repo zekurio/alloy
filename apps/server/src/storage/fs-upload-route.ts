@@ -22,7 +22,7 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
   const token = c.req.param("token")
   const decoded = await decodeUploadToken(
     token,
-    configStore.get("storage").fs.hmacSecret
+    configStore.get("storage").fs.hmacSecret,
   )
   if (!decoded.ok) {
     return unauthorized(c, "Invalid upload ticket")
@@ -44,8 +44,8 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
         eq(clipUploadTicket.contentType, expectedContentType),
         eq(clipUploadTicket.expectedBytes, maxBytes),
         isNull(clipUploadTicket.usedAt),
-        gt(clipUploadTicket.expiresAt, new Date())
-      )
+        gt(clipUploadTicket.expiresAt, new Date()),
+      ),
     )
     .limit(1)
   if (!ticket) {
@@ -126,14 +126,14 @@ function dirname(value: string): string {
 
 async function removeTempUploadDir(
   path: string,
-  reason: string
+  reason: string,
 ): Promise<void> {
   try {
     await Deno.remove(path, { recursive: true })
   } catch (err) {
     logger.warn(
       `[api/assets/upload] failed to remove temporary upload directory after ${reason}:`,
-      err
+      err,
     )
   }
 }

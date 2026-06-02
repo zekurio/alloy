@@ -1,12 +1,12 @@
 import {
-  keepPreviousData,
+  type InfiniteData,
   infiniteQueryOptions,
+  keepPreviousData,
+  type QueryClient,
+  type QueryFilters,
   useInfiniteQuery,
   useMutation,
   useQueryClient,
-  type InfiniteData,
-  type QueryClient,
-  type QueryFilters,
 } from "@tanstack/react-query"
 
 import type { CommentPage, CommentRow, CommentSort } from "@workspace/api"
@@ -37,7 +37,7 @@ function commentListFilter(clipId: string): QueryFilters {
 export function useCommentsQuery(
   clipId: string,
   sort: CommentSort = "top",
-  { limit = 30 }: { limit?: number } = {}
+  { limit = 30 }: { limit?: number } = {},
 ) {
   return useInfiniteQuery(commentListQueryOptions(clipId, sort, limit))
 }
@@ -45,7 +45,7 @@ export function useCommentsQuery(
 export function commentListQueryOptions(
   clipId: string,
   sort: CommentSort = "top",
-  limit = 30
+  limit = 30,
 ) {
   return infiniteQueryOptions({
     queryKey: commentKeys.list(clipId, sort, limit),
@@ -69,7 +69,7 @@ type CommentListData = InfiniteData<CommentPage, string | null> | undefined
 
 function mapComments(
   data: CommentListData,
-  fn: (c: CommentRow) => CommentRow
+  fn: (c: CommentRow) => CommentRow,
 ): CommentListData {
   if (!data) return data
   const mapComment = (comment: CommentRow): CommentRow => {
@@ -91,7 +91,7 @@ function mapComments(
 function forEachCommentsQuery(
   qc: QueryClient,
   clipId: string,
-  fn: (prev: CommentListData) => CommentListData
+  fn: (prev: CommentListData) => CommentListData,
 ) {
   qc.setQueriesData<CommentListData>(commentListFilter(clipId), fn)
 }
@@ -128,10 +128,14 @@ export function useDeleteCommentMutation(clipId: string) {
     mutationFn: (input: { commentId: string }) =>
       api.comments.delete(input.commentId).then(() => input),
     onSuccess: (_res, { commentId }) => {
-      forEachCommentsQuery(qc, clipId, (old) =>
-        mapComments(old, (c) =>
-          c.id === commentId ? softDeletedComment(c) : c
-        )
+      forEachCommentsQuery(
+        qc,
+        clipId,
+        (old) =>
+          mapComments(
+            old,
+            (c) => c.id === commentId ? softDeletedComment(c) : c,
+          ),
       )
       invalidateComments(qc, clipId)
     },
@@ -145,22 +149,24 @@ export function useToggleCommentLikeMutation(clipId: string) {
       input.nextLiked
         ? api.comments.like(input.commentId).then((r) => ({ ...r, ...input }))
         : api.comments
-            .unlike(input.commentId)
-            .then((r) => ({ ...r, ...input })),
+          .unlike(input.commentId)
+          .then((r) => ({ ...r, ...input })),
     onMutate: async ({ commentId, nextLiked }) => {
       const listFilter = commentListFilter(clipId)
       await qc.cancelQueries(listFilter)
       const snapshot = qc.getQueriesData<CommentListData>(listFilter)
-      forEachCommentsQuery(qc, clipId, (old) =>
-        mapComments(old, (c) =>
-          c.id === commentId
-            ? {
+      forEachCommentsQuery(
+        qc,
+        clipId,
+        (old) =>
+          mapComments(old, (c) =>
+            c.id === commentId
+              ? {
                 ...c,
                 likedByViewer: nextLiked,
                 likeCount: Math.max(0, c.likeCount + (nextLiked ? 1 : -1)),
               }
-            : c
-        )
+              : c),
       )
       return { snapshot }
     },
@@ -169,12 +175,17 @@ export function useToggleCommentLikeMutation(clipId: string) {
       for (const [key, data] of ctx.snapshot) qc.setQueryData(key, data)
     },
     onSuccess: (res) => {
-      forEachCommentsQuery(qc, clipId, (old) =>
-        mapComments(old, (c) =>
-          c.id === res.commentId
-            ? { ...c, likedByViewer: res.liked, likeCount: res.likeCount }
-            : c
-        )
+      forEachCommentsQuery(
+        qc,
+        clipId,
+        (old) =>
+          mapComments(
+            old,
+            (c) =>
+              c.id === res.commentId
+                ? { ...c, likedByViewer: res.liked, likeCount: res.likeCount }
+                : c,
+          ),
       )
     },
   })

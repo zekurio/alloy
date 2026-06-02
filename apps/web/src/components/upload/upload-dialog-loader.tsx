@@ -10,7 +10,7 @@ export const NewClipDialog = React.lazy(() =>
 
 export function useWarmEditor(
   queueOpen: boolean,
-  setMounted: (mounted: boolean) => void
+  setMounted: (mounted: boolean) => void,
 ) {
   React.useEffect(() => {
     if (!queueOpen) return

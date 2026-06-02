@@ -6,7 +6,10 @@ export const DEFAULT_WEB_PORT = 5173
 export const DEFAULT_ML_PORT = 2662
 
 const DEFAULT_DATABASE_HOST = "127.0.0.1"
-const DEFAULT_TRUSTED_ORIGINS = `http://localhost:${DEFAULT_WEB_PORT},http://127.0.0.1:${DEFAULT_WEB_PORT}`
+const DEFAULT_TRUSTED_ORIGINS =
+  `http://localhost:${DEFAULT_WEB_PORT},http://127.0.0.1:${DEFAULT_WEB_PORT}`
+const DEV_DATA_DIR = `${Deno.cwd()}/data`
+const DEV_SERVER_DATA_DIR = `${DEV_DATA_DIR}/server`
 
 type PostgresConnection = {
   database: string
@@ -18,19 +21,24 @@ type PostgresConnection = {
 export function getDevEnv(includeMl: boolean): Record<string, string> {
   const apiPort = readPortEnv("PORT", DEFAULT_API_PORT)
   const env: Record<string, string> = {
+    ALLOY_CONFIG_FILE: Deno.env.get("ALLOY_CONFIG_FILE") ??
+      `${DEV_SERVER_DATA_DIR}/runtime-config.json`,
+    ALLOY_STORAGE_DIR: Deno.env.get("ALLOY_STORAGE_DIR") ??
+      `${DEV_SERVER_DATA_DIR}/storage`,
     DATABASE_URL: Deno.env.get("DATABASE_URL") ?? defaultDatabaseUrl(),
+    ENCODE_SCRATCH_DIR: Deno.env.get("ENCODE_SCRATCH_DIR") ??
+      `${DEV_SERVER_DATA_DIR}/scratch`,
+    MACHINE_LEARNING_ENABLED: Deno.env.get("MACHINE_LEARNING_ENABLED") ??
+      (includeMl ? "1" : "0"),
     NODE_ENV: Deno.env.get("NODE_ENV") ?? "development",
     PORT: String(apiPort),
-    PUBLIC_SERVER_URL:
-      Deno.env.get("PUBLIC_SERVER_URL") ?? `http://localhost:${apiPort}`,
+    PUBLIC_SERVER_URL: Deno.env.get("PUBLIC_SERVER_URL") ??
+      `http://localhost:${apiPort}`,
     TRUSTED_ORIGINS: Deno.env.get("TRUSTED_ORIGINS") ?? DEFAULT_TRUSTED_ORIGINS,
   }
 
   if (includeMl) {
-    env.MACHINE_LEARNING_ENABLED =
-      Deno.env.get("MACHINE_LEARNING_ENABLED") ?? "1"
-    env.MACHINE_LEARNING_URL =
-      Deno.env.get("MACHINE_LEARNING_URL") ??
+    env.MACHINE_LEARNING_URL = Deno.env.get("MACHINE_LEARNING_URL") ??
       `http://localhost:${readPortEnv("ALLOY_ML_PORT", DEFAULT_ML_PORT)}`
   }
 
@@ -49,6 +57,11 @@ export async function ensureDevPostgres(databaseUrl: string): Promise<void> {
   }
 
   if (await isPostgresReady(connection)) {
+    writeLine(
+      Deno.stderr,
+      "pg",
+      `using existing local PostgreSQL at ${connection.host}:${connection.port}.`,
+    )
     return
   }
 
@@ -56,12 +69,12 @@ export async function ensureDevPostgres(databaseUrl: string): Promise<void> {
     writeLine(
       Deno.stderr,
       "pg",
-      `PostgreSQL is not reachable at ${connection.host}:${connection.port}, and local PostgreSQL tools are missing. Enter the Nix dev shell with 'nix develop'.`
+      `Local PostgreSQL setup needs PostgreSQL tools for ${connection.host}:${connection.port}. Enter the Nix dev shell with 'nix develop'.`,
     )
     Deno.exit(1)
   }
 
-  writeLine(Deno.stderr, "pg", "starting local PostgreSQL.")
+  writeLine(Deno.stderr, "pg", "ensuring local PostgreSQL is ready.")
   await runLoggedCommand("pg", "scripts/dev-postgres.sh", ["start"], {
     env: {
       DATABASE_URL: databaseUrl,
@@ -73,9 +86,9 @@ export async function ensureDevPostgres(databaseUrl: string): Promise<void> {
   })
 }
 
-export async function assertPortsAvailable(
-  processes: DevProcess[]
-): Promise<void> {
+export function assertPortsAvailable(
+  processes: DevProcess[],
+): void {
   if (Deno.env.get("ALLOY_DEV_PORT_CHECK") === "0") {
     return
   }
@@ -87,11 +100,11 @@ export async function assertPortsAvailable(
     }
 
     checkedPorts.add(process.port)
-    if (await isPortInUse(process.port)) {
+    if (isPortInUse(process.port)) {
       writeLine(
         Deno.stderr,
         "dev",
-        `${process.label} port ${process.port} is already in use; stop that process or set ALLOY_DEV_PORT_CHECK=0 to skip this preflight.`
+        `${process.label} port ${process.port} is already in use; stop that process or set ALLOY_DEV_PORT_CHECK=0 to skip this preflight.`,
       )
       Deno.exit(1)
     }
@@ -115,8 +128,8 @@ function parsePostgresUrl(value: string): PostgresConnection | null {
     }
 
     return {
-      database:
-        decodeURIComponent(url.pathname.replace(/^\//, "")) || "postgres",
+      database: decodeURIComponent(url.pathname.replace(/^\//, "")) ||
+        "postgres",
       host: normalizePostgresHost(url.hostname),
       port: url.port || "5432",
       user: decodeURIComponent(url.username || "postgres"),
@@ -155,35 +168,35 @@ export function readPortEnv(name: string, fallback: number): number {
   return port
 }
 
-async function isPostgresReady(
-  connection: PostgresConnection
-): Promise<boolean> {
-  if (!(await commandExists("pg_isready"))) {
-    return false
-  }
-
-  const status = await new Deno.Command("pg_isready", {
-    args: [
-      "-h",
-      connection.host,
-      "-p",
-      connection.port,
-      "-U",
-      connection.user,
-      "-d",
-      connection.database,
-    ],
-    stdout: "null",
-    stderr: "null",
-  }).spawn().status
-
-  return status.success
-}
-
 async function hasLocalPostgresTools(): Promise<boolean> {
   const required = ["createdb", "initdb", "pg_ctl", "pg_isready", "psql"]
   const results = await Promise.all(required.map(commandExists))
   return results.every(Boolean)
+}
+
+async function isPostgresReady(
+  connection: PostgresConnection,
+): Promise<boolean> {
+  if (await commandExists("pg_isready")) {
+    const status = await new Deno.Command("pg_isready", {
+      args: [
+        "-h",
+        connection.host,
+        "-p",
+        connection.port,
+        "-U",
+        connection.user,
+        "-d",
+        connection.database,
+      ],
+      stdout: "null",
+      stderr: "null",
+    }).spawn().status
+
+    return status.success
+  }
+
+  return await canConnect(connection.host, Number(connection.port))
 }
 
 async function commandExists(command: string): Promise<boolean> {
@@ -196,17 +209,37 @@ async function commandExists(command: string): Promise<boolean> {
   return status.success
 }
 
-async function isPortInUse(port: number): Promise<boolean> {
+async function canConnect(hostname: string, port: number): Promise<boolean> {
+  try {
+    const conn = await Deno.connect({
+      hostname,
+      port,
+      transport: "tcp",
+    })
+    conn.close()
+    return true
+  } catch (err) {
+    if (
+      err instanceof Deno.errors.ConnectionRefused ||
+      err instanceof Deno.errors.AddrNotAvailable
+    ) {
+      return false
+    }
+    throw err
+  }
+}
+
+function isPortInUse(port: number): boolean {
   const hosts = ["127.0.0.1", "0.0.0.0"]
   for (const hostname of hosts) {
-    if (!(await canListen(hostname, port))) {
+    if (!canListen(hostname, port)) {
       return true
     }
   }
   return false
 }
 
-async function canListen(hostname: string, port: number): Promise<boolean> {
+function canListen(hostname: string, port: number): boolean {
   let listener: Deno.Listener | null = null
   try {
     listener = Deno.listen({

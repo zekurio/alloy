@@ -7,10 +7,10 @@ import {
   stopChildren,
 } from "./dev-process.ts"
 import {
+  assertPortsAvailable,
   DEFAULT_API_PORT,
   DEFAULT_ML_PORT,
   DEFAULT_WEB_PORT,
-  assertPortsAvailable,
   ensureDevPostgres,
   getDevEnv,
   readPortEnv,
@@ -23,21 +23,23 @@ if (args.has("--help") || args.has("-h")) {
 }
 
 const invalidArgs = args.difference(
-  new Set(["--help", "--ml", "--no-db-push", "-h"])
+  new Set(["--help", "--ml", "--no-ml", "--no-db-push", "-h"]),
 )
 if (invalidArgs.size > 0) {
   writeLine(
     Deno.stderr,
     "dev",
-    `unknown option: ${[...invalidArgs].join(", ")}`
+    `unknown option: ${[...invalidArgs].join(", ")}`,
   )
   printUsage()
   Deno.exit(1)
 }
 
-const includeMl = args.has("--ml") || Deno.env.get("ALLOY_DEV_ML") === "1"
-const pushDatabase =
-  !args.has("--no-db-push") && Deno.env.get("ALLOY_DEV_DB_PUSH") !== "0"
+const includeMl = args.has("--no-ml")
+  ? false
+  : args.has("--ml") || Deno.env.get("ALLOY_DEV_ML") !== "0"
+const pushDatabase = !args.has("--no-db-push") &&
+  Deno.env.get("ALLOY_DEV_DB_PUSH") !== "0"
 const devEnv = getDevEnv(includeMl)
 const processes = buildProcessList(includeMl, devEnv)
 const releaseDevLock = await acquireDevLock()
@@ -51,7 +53,7 @@ try {
       env: devEnv,
     })
   }
-  await assertPortsAvailable(processes)
+  assertPortsAvailable(processes)
 } catch (err) {
   releaseDevLock()
   if (err instanceof CommandFailedError) {
@@ -61,7 +63,7 @@ try {
 }
 
 running = new Set<RunningDevProcess>(
-  processes.map((process) => startProcess(process))
+  processes.map((process) => startProcess(process)),
 )
 
 try {
@@ -83,7 +85,7 @@ while (running.size > 0) {
     [...running].map(async (process) => {
       const status = await process.status
       return { process, status }
-    })
+    }),
   )
 
   running.delete(firstExit.process)
@@ -100,7 +102,7 @@ while (running.size > 0) {
     writeLine(
       Deno.stderr,
       "dev",
-      `${firstExit.process.label} ${reason}; continuing without it.`
+      `${firstExit.process.label} ${reason}; continuing without it.`,
     )
     continue
   }
@@ -108,7 +110,7 @@ while (running.size > 0) {
   writeLine(
     Deno.stderr,
     "dev",
-    `${firstExit.process.label} ${reason}; stopping remaining dev processes.`
+    `${firstExit.process.label} ${reason}; stopping remaining dev processes.`,
   )
   await stopChildren(running, "SIGTERM")
   releaseDevLock()
@@ -119,7 +121,7 @@ releaseDevLock()
 
 function buildProcessList(
   includeMachineLearning: boolean,
-  env: Record<string, string>
+  env: Record<string, string>,
 ): DevProcess[] {
   const processes: DevProcess[] = [
     {
@@ -163,16 +165,16 @@ function printUsage() {
   writeLine(
     Deno.stdout,
     "dev",
-    "Usage: deno task dev [-- --ml] [-- --no-db-push]"
+    "Usage: deno task dev [-- --no-ml] [-- --no-db-push]",
   )
   writeLine(
     Deno.stdout,
     "dev",
-    "  --ml           also start the optional ML service."
+    "  --no-ml        skip starting the optional ML service.",
   )
   writeLine(
     Deno.stdout,
     "dev",
-    "  --no-db-push   skip applying the database schema before starting."
+    "  --no-db-push   skip applying the database schema before starting.",
   )
 }

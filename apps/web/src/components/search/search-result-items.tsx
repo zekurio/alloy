@@ -8,11 +8,15 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 
 import {
-  clipThumbnailUrl,
   type ClipGameRef,
-  type GameListRow,
   type ClipRow,
+  clipThumbnailUrl,
+  type GameListRow,
 } from "@workspace/api"
+import {
+  CLIP_MEDIA_CLASS,
+  CLIP_MEDIA_VIEWPORT_CLASS,
+} from "@workspace/ui/lib/media-frame"
 import { clipGameLabel, hueForGame } from "@/lib/clip-format"
 import { apiOrigin } from "@/lib/env"
 import { formatCount } from "@/lib/number-format"
@@ -31,7 +35,7 @@ export function GroupLabel({
       className={cn(
         "flex items-center gap-1.5 px-3 pt-2 pb-1",
         "text-xs font-semibold tracking-wide text-foreground-muted uppercase",
-        "[&_svg]:size-3"
+        "[&_svg]:size-3",
       )}
     >
       {icon}
@@ -68,7 +72,7 @@ function RowButton({
         "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
         active ? "bg-accent-soft" : "bg-transparent",
         "hover:bg-accent-soft focus-visible:bg-accent-soft",
-        "focus-visible:outline-none"
+        "focus-visible:outline-none",
       )}
     >
       {children}
@@ -93,23 +97,28 @@ export function ClipRowItem({
   const label = clipGameLabel(row)
   return (
     <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>
-      <div className="relative aspect-video w-16 shrink-0 overflow-hidden rounded-sm bg-surface-sunken">
-        {thumb ? (
-          <img
-            src={thumb}
-            alt=""
-            loading="lazy"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <ThumbPlaceholder gameRef={row.gameRef} label={label} />
+      <div
+        className={cn(
+          CLIP_MEDIA_VIEWPORT_CLASS,
+          "w-16 shrink-0 rounded-sm bg-surface-sunken",
         )}
+      >
+        {thumb
+          ? (
+            <img
+              src={thumb}
+              alt=""
+              loading="lazy"
+              className={CLIP_MEDIA_CLASS}
+            />
+          )
+          : <ThumbPlaceholder gameRef={row.gameRef} label={label} />}
       </div>
       <div className="min-w-0 flex-1">
         <div
           className={cn(
             "truncate text-sm font-medium",
-            active ? "text-accent" : "text-foreground"
+            active ? "text-accent" : "text-foreground",
           )}
         >
           {row.title}
@@ -140,22 +149,22 @@ export function GameRowItem({
   return (
     <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>
       <div className="relative aspect-video w-16 shrink-0 overflow-hidden rounded-sm bg-surface-sunken">
-        {row.heroUrl ? (
-          <img
-            src={row.heroUrl}
-            alt=""
-            loading="lazy"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <GameThumbPlaceholder name={row.name} />
-        )}
+        {row.heroUrl
+          ? (
+            <img
+              src={row.heroUrl}
+              alt=""
+              loading="lazy"
+              className="h-full w-full object-cover"
+            />
+          )
+          : <GameThumbPlaceholder name={row.name} />}
       </div>
       <div className="min-w-0 flex-1">
         <div
           className={cn(
             "truncate text-sm font-medium",
-            active ? "text-accent" : "text-foreground"
+            active ? "text-accent" : "text-foreground",
           )}
         >
           {row.name}
@@ -200,7 +209,7 @@ export function UserRowItem({
         <div
           className={cn(
             "truncate text-sm font-medium",
-            active ? "text-accent" : "text-foreground"
+            active ? "text-accent" : "text-foreground",
           )}
         >
           {chip.name}
@@ -239,7 +248,8 @@ function ThumbPlaceholder({
     <div
       className="h-full w-full"
       style={{
-        background: `linear-gradient(140deg, oklch(0.3 0.12 ${hue}), oklch(0.15 0.06 ${hue}))`,
+        background:
+          `linear-gradient(140deg, oklch(0.3 0.12 ${hue}), oklch(0.15 0.06 ${hue}))`,
       }}
     />
   )
@@ -251,7 +261,8 @@ function GameThumbPlaceholder({ name }: { name: string }) {
     <div
       className="h-full w-full"
       style={{
-        background: `linear-gradient(140deg, oklch(0.32 0.14 ${hue}), oklch(0.16 0.06 ${hue}))`,
+        background:
+          `linear-gradient(140deg, oklch(0.32 0.14 ${hue}), oklch(0.16 0.06 ${hue}))`,
       }}
     />
   )

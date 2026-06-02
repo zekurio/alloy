@@ -41,7 +41,7 @@ function UserAvatarButton({
         "hover:ring-2 hover:ring-border-strong",
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
         "data-popup-open:ring-2 data-popup-open:ring-accent",
-        className
+        className,
       )}
       {...props}
     >

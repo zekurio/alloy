@@ -45,7 +45,7 @@ async function runReaper(): Promise<void> {
 
 async function reapPending(): Promise<void> {
   const pendingCutoff = new Date(
-    Date.now() - configStore.get("limits").uploadTtlSec * 1000
+    Date.now() - configStore.get("limits").uploadTtlSec * 1000,
   )
   const stale = await db
     .select({
@@ -62,7 +62,7 @@ async function reapPending(): Promise<void> {
       .where(eq(clipUploadTicket.clipId, row.id))
     await deleteScratchUploads(
       tickets.map((ticket) => ticket.storageKey),
-      `stale clip ${row.id} upload`
+      `stale clip ${row.id} upload`,
     )
     await db.delete(clip).where(eq(clip.id, row.id))
     publishClipRemove(row.authorId, row.id)
@@ -82,8 +82,8 @@ async function reapExpiredUploadTickets(): Promise<void> {
       and(
         isNull(clipUploadTicket.usedAt),
         eq(clip.status, "pending"),
-        lt(clipUploadTicket.expiresAt, new Date())
-      )
+        lt(clipUploadTicket.expiresAt, new Date()),
+      ),
     )
 
   for (const ticket of expiredTickets) {
@@ -92,7 +92,7 @@ async function reapExpiredUploadTickets(): Promise<void> {
     } catch (err) {
       logger.warn(
         `[queue/reap] could not delete expired staged object ${ticket.storageKey}:`,
-        err
+        err,
       )
       continue
     }
@@ -111,14 +111,14 @@ async function requeueStuckProcessing(): Promise<void> {
           and(
             eq(clip.status, "ready"),
             lt(clip.encodeProgress, 100),
-            isNull(clip.failureReason)
-          )
+            isNull(clip.failureReason),
+          ),
         ),
         lt(
           clip.updatedAt,
-          sql`now() - interval '${sql.raw(UPLOADED_MAX_AGE_INTERVAL)}'`
-        )
-      )
+          sql`now() - interval '${sql.raw(UPLOADED_MAX_AGE_INTERVAL)}'`,
+        ),
+      ),
     )
 
   for (const row of stuck) {

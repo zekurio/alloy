@@ -20,7 +20,7 @@ function AppShell({ className, ...props }: React.ComponentProps<"div">) {
         "[&_[data-slot=app-bottom-nav]]:[grid-area:bottomnav]",
         "[&_[data-slot=app-header]]:[grid-area:header]",
         "[&_[data-slot=app-main]]:[grid-area:main]",
-        className
+        className,
       )}
       {...props}
     />
@@ -37,7 +37,7 @@ function AppMain({ className, ...props }: React.ComponentProps<"main">) {
       data-slot="app-main"
       className={cn(
         "overflow-x-hidden overflow-y-auto px-4 py-4 md:px-8 md:py-6",
-        className
+        className,
       )}
       {...props}
     />
@@ -65,4 +65,4 @@ function DividerV({
   )
 }
 
-export { AppShell, AppMain, DividerV }
+export { AppMain, AppShell, DividerV }

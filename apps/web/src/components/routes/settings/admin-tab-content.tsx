@@ -5,6 +5,7 @@ import {
   ClapperboardIcon,
   DatabaseIcon,
   DownloadIcon,
+  GaugeIcon,
   ImageIcon,
   PaletteIcon,
   RotateCcwIcon,
@@ -28,7 +29,7 @@ import { MachineLearningConfigCard } from "@/components/routes/admin-settings/ma
 import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-provider-card"
 import { StorageConfigCard } from "@/components/routes/admin-settings/storage-config-card"
 import { SettingsSection } from "@/components/routes/settings/settings-section"
-import { loginSplashImageUrl, type AdminRuntimeConfig } from "@workspace/api"
+import { type AdminRuntimeConfig, loginSplashImageUrl } from "@workspace/api"
 import { api } from "@/lib/api"
 import { adminRuntimeConfigQueryOptions } from "@/lib/admin-query-keys"
 import { startBlobDownload } from "@/lib/browser-download"
@@ -58,13 +59,13 @@ type BoolToggleKey =
   | "requireAuthToBrowse"
 
 function useAdminToggles(
-  setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>
+  setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>,
 ) {
   const [pendingKey, setPendingKey] = React.useState<BoolToggleKey | null>(null)
   const patch = async (
     key: BoolToggleKey,
     next: boolean,
-    successMsg: string
+    successMsg: string,
   ) => {
     if (pendingKey) return
     let previous: AdminRuntimeConfig | null = null
@@ -91,30 +92,30 @@ function useAdminToggles(
       patch(
         "openRegistrations",
         next,
-        next ? "Registrations open" : "Registrations closed"
+        next ? "Registrations open" : "Registrations closed",
       ),
     onTogglePasskey: (next: boolean) =>
       patch(
         "passkeyEnabled",
         next,
-        next ? "Passkeys enabled" : "Passkeys disabled"
+        next ? "Passkeys enabled" : "Passkeys disabled",
       ),
     onToggleRequireAuthToBrowse: (next: boolean) =>
       patch(
         "requireAuthToBrowse",
         next,
-        next ? "Sign-in required to browse" : "Public browsing enabled"
+        next ? "Sign-in required to browse" : "Public browsing enabled",
       ),
   }
 }
 
 function hasEnabledOAuthProvider(config: AdminRuntimeConfig): boolean {
-  return config.oauthProvider?.enabled === true
+  return config.oauthProviders.some((provider) => provider.enabled)
 }
 
 function hasAnotherSignInMethod(
   config: AdminRuntimeConfig,
-  excluding: "passkey" | "oauth"
+  excluding: "passkey" | "oauth",
 ): boolean {
   return (
     (excluding !== "passkey" && config.passkeyEnabled) ||
@@ -180,11 +181,9 @@ function AuthenticationSettingsSection({
               description="Allow passkey sign-in and passkey-based account creation on supported browsers."
               checked={config.passkeyEnabled}
               onCheckedChange={onTogglePasskey}
-              disabled={
-                togglePending ||
+              disabled={togglePending ||
                 (config.passkeyEnabled &&
-                  !hasAnotherSignInMethod(config, "passkey"))
-              }
+                  !hasAnotherSignInMethod(config, "passkey"))}
             />
             <ToggleRow
               title="Open registrations"
@@ -253,6 +252,28 @@ function MachineLearningSettingsSection({
   )
 }
 
+function LimitsSettingsSection({
+  config,
+  setConfig,
+}: {
+  config: AdminRuntimeConfig
+  setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>
+}) {
+  return (
+    <SettingsSection
+      icon={GaugeIcon}
+      title="Limits"
+      description="Edit upload caps, default storage quota, and encode queue concurrency."
+    >
+      <LimitsConfigCard
+        limits={config.limits}
+        onChange={(next) => setConfig(next)}
+        hideHeader
+      />
+    </SettingsSection>
+  )
+}
+
 function StorageSettingsSection({
   config,
   setConfig,
@@ -263,22 +284,14 @@ function StorageSettingsSection({
   return (
     <SettingsSection
       icon={DatabaseIcon}
-      title="Storage"
-      description="Edit upload caps, default quota, queue concurrency, and the clip storage backend."
+      title="Storage backend"
+      description="Edit where clips are stored — local filesystem or S3-compatible."
     >
-      <div className="flex flex-col gap-4">
-        <LimitsConfigCard
-          limits={config.limits}
-          onChange={(next) => setConfig(next)}
-          hideHeader
-        />
-        <hr className="border-border" />
-        <StorageConfigCard
-          storage={config.storage}
-          onChange={(next) => setConfig(next)}
-          hideHeader
-        />
-      </div>
+      <StorageConfigCard
+        storage={config.storage}
+        onChange={(next) => setConfig(next)}
+        hideHeader
+      />
     </SettingsSection>
   )
 }
@@ -360,13 +373,13 @@ function AppearanceSettingsSection({
       <Section>
         <SectionContent className="flex flex-col gap-4">
           <div className="relative aspect-video overflow-hidden rounded-md border border-border bg-surface">
-            {previewImageUrl ? (
-              <LoginArtwork imageUrl={previewImageUrl} />
-            ) : (
-              <div className="flex h-full items-center justify-center px-4 text-center text-sm text-foreground-muted">
-                Enable or regenerate the login backdrop to pick public clips.
-              </div>
-            )}
+            {previewImageUrl
+              ? <LoginArtwork imageUrl={previewImageUrl} />
+              : (
+                <div className="flex h-full items-center justify-center px-4 text-center text-sm text-foreground-muted">
+                  Enable or regenerate the login backdrop to pick public clips.
+                </div>
+              )}
           </div>
           <div className="flex items-start justify-between gap-4 py-3 not-last:border-b not-last:border-border first:pt-0">
             <div className="min-w-0">
@@ -374,11 +387,13 @@ function AppearanceSettingsSection({
               <p className="mt-0.5 text-xs text-foreground-dim">
                 Use a generated collage from random public clip thumbnails.
               </p>
-              {splash.generatedAt ? (
-                <p className="mt-1 text-xs text-foreground-muted">
-                  Last generated {formatDateTime(splash.generatedAt)}
-                </p>
-              ) : null}
+              {splash.generatedAt
+                ? (
+                  <p className="mt-1 text-xs text-foreground-muted">
+                    Last generated {formatDateTime(splash.generatedAt)}
+                  </p>
+                )
+                : null}
             </div>
             <Switch
               checked={splash.enabled}
@@ -427,7 +442,7 @@ function ConfigTransferSection({
       const blob = new Blob([json], { type: "application/json" })
       const started = startBlobDownload(
         blob,
-        `alloy-config-${isoDateStamp()}.json`
+        `alloy-config-${isoDateStamp()}.json`,
       )
       if (!started) throw new Error("Export download failed")
       toast.success("Configuration exported")
@@ -529,7 +544,7 @@ export function AdminSettingsSections({ userId }: { userId: string }) {
 
   if (loadError) {
     return (
-      <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive sm:col-span-2">
+      <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
         {loadError}
       </div>
     )
@@ -548,6 +563,7 @@ export function AdminSettingsSections({ userId }: { userId: string }) {
       />
       <EncoderSettingsSection config={config} setConfig={setConfig} />
       <MachineLearningSettingsSection config={config} setConfig={setConfig} />
+      <LimitsSettingsSection config={config} setConfig={setConfig} />
       <StorageSettingsSection config={config} setConfig={setConfig} />
       <AppearanceSettingsSection config={config} setConfig={setConfig} />
       <SteamGridDBSettingsSection config={config} setConfig={setConfig} />

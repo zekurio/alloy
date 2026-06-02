@@ -33,7 +33,7 @@ function displayUsername(username: string): string {
 }
 
 export function userImageSrc(
-  src: string | null | undefined
+  src: string | null | undefined,
 ): string | undefined {
   const value = src?.trim()
   if (!value) return undefined
@@ -62,7 +62,7 @@ export function userImageSrc(
     if (urlPathPrefix) {
       const normalized = normalizeUserAssetPath(
         `${url.pathname}${url.search}${url.hash}`,
-        urlPathPrefix
+        urlPathPrefix,
       )
       userImageSrcCache.set(value, normalized)
       return normalized
@@ -76,10 +76,9 @@ export function userImageSrc(
 }
 
 function normalizeUserAssetPath(value: string, prefix: string): string {
-  const nextPath =
-    prefix === LEGACY_USER_ASSET_PATH_PREFIX
-      ? `${USER_ASSET_PATH_PREFIX}${value.slice(prefix.length)}`
-      : value
+  const nextPath = prefix === LEGACY_USER_ASSET_PATH_PREFIX
+    ? `${USER_ASSET_PATH_PREFIX}${value.slice(prefix.length)}`
+    : value
   return resolvePublicUrl(nextPath, apiOrigin())
 }
 
@@ -93,8 +92,9 @@ export function displayName(user: DisplayUser | null | undefined): string {
   if (user.displayUsername && user.displayUsername.trim()) {
     return displayUsername(user.displayUsername)
   }
-  if (user.username && user.username.trim())
+  if (user.username && user.username.trim()) {
     return displayUsername(user.username)
+  }
   if (user.email) return user.email.split("@")[0] ?? "user"
   return "user"
 }
@@ -127,7 +127,7 @@ export type UserAvatar = {
 }
 
 function userAvatarSrc(
-  user: DisplayUser | null | undefined
+  user: DisplayUser | null | undefined,
 ): string | undefined {
   return userImageSrc(user?.image)
 }
@@ -153,13 +153,13 @@ export type UserChipData = {
 }
 
 export function userChipData(
-  user: DisplayUser | null | undefined
+  user: DisplayUser | null | undefined,
 ): UserChipData {
   return { name: displayName(user), avatar: userAvatar(user) }
 }
 
 export function useUserChipData(
-  user: DisplayUser | null | undefined
+  user: DisplayUser | null | undefined,
 ): UserChipData {
   return userChipData(user)
 }
@@ -185,17 +185,19 @@ export function UserBanner({
       aria-hidden
       className={cn(
         "absolute inset-0 overflow-hidden rounded-[inherit]",
-        className
+        className,
       )}
       style={{ backgroundColor: banner.bg }}
     >
-      {banner.src ? (
-        <UserBannerImage
-          src={banner.src}
-          fallbackSrc={avatarFallbackSrc}
-          hasDedicatedBanner={hasDedicatedBanner}
-        />
-      ) : null}
+      {banner.src
+        ? (
+          <UserBannerImage
+            src={banner.src}
+            fallbackSrc={avatarFallbackSrc}
+            hasDedicatedBanner={hasDedicatedBanner}
+          />
+        )
+        : null}
     </div>
   )
 }
@@ -211,7 +213,7 @@ function UserBannerImage({
 }) {
   const [activeSrc, setActiveSrc] = React.useState(src)
   const [status, setStatus] = React.useState<"loading" | "loaded" | "error">(
-    () => (loadedUserBannerSrcs.has(src) ? "loaded" : "loading")
+    () => (loadedUserBannerSrcs.has(src) ? "loaded" : "loading"),
   )
   const activeHasDedicatedBanner = hasDedicatedBanner && activeSrc === src
 
@@ -250,15 +252,17 @@ function UserBannerImage({
           status === "loaded" ? "opacity-100" : "opacity-0",
           activeHasDedicatedBanner
             ? "brightness-90"
-            : "scale-150 brightness-75 saturate-150"
+            : "scale-150 brightness-75 saturate-150",
         )}
       />
-      {status === "loading" ? (
-        <div
-          aria-hidden
-          className="absolute inset-0 rounded-[inherit] bg-muted"
-        />
-      ) : null}
+      {status === "loading"
+        ? (
+          <div
+            aria-hidden
+            className="absolute inset-0 rounded-[inherit] bg-muted"
+          />
+        )
+        : null}
     </>
   )
 }

@@ -21,7 +21,7 @@ export function publishRuntimeConfigUpdate(event: RuntimeConfigEvent): void {
 }
 
 function subscribeRuntimeConfigUpdates(
-  listener: RuntimeConfigListener
+  listener: RuntimeConfigListener,
 ): () => void {
   listeners.add(listener)
   return () => {
@@ -37,7 +37,7 @@ export function RuntimeConfigEvents() {
       subscribeRuntimeConfigUpdates((event) => {
         if (event.authConfigChanged) void router.invalidate()
       }),
-    [router]
+    [router],
   )
 
   return null

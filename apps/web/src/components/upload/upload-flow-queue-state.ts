@@ -16,11 +16,11 @@ import {
   useUploadQueueQuery,
 } from "@/lib/clip-queries"
 import { removeUploadQueueClip } from "@/lib/clip-queue-stream"
-import { uploadToTicket, type QueueClip } from "@workspace/api"
+import { type QueueClip, uploadToTicket } from "@workspace/api"
 import {
+  type ActiveUpload,
   localToQueueItem,
   serverToQueueItem,
-  type ActiveUpload,
 } from "./upload-queue-mapping"
 import type { PublishPayload } from "./new-clip-helpers"
 import type { QueueItem } from "./upload-queue"
@@ -28,7 +28,7 @@ import { useDismissedClips } from "./use-dismissed-clips"
 
 async function deleteUploadClipBestEffort(
   clipId: string,
-  reason: string
+  reason: string,
 ): Promise<boolean> {
   try {
     await api.clips.delete(clipId)
@@ -36,7 +36,7 @@ async function deleteUploadClipBestEffort(
   } catch (cause) {
     clientLogger.warn(
       `[upload] Failed to delete clip ${clipId} after ${reason}.`,
-      cause
+      cause,
     )
     return false
   }
@@ -48,7 +48,7 @@ async function markUploadFailedBestEffort(clipId: string): Promise<void> {
   } catch (cause) {
     clientLogger.warn(
       `[upload] Failed to mark clip ${clipId} as failed after upload error.`,
-      cause
+      cause,
     )
   }
 }
@@ -57,7 +57,7 @@ async function performUpload(
   payload: PublishPayload,
   entry: ActiveUpload,
   bump: () => void,
-  invalidateClips: () => void
+  invalidateClips: () => void,
 ): Promise<void> {
   const { clipId, ticket } = await api.clips.initiate({
     filename: payload.file.name,
@@ -69,10 +69,9 @@ async function performUpload(
     privacy: payload.privacy,
     trimStartMs: payload.trimStartMs ?? undefined,
     trimEndMs: payload.trimEndMs ?? undefined,
-    mentionedUserIds:
-      payload.mentionedUserIds.length > 0
-        ? payload.mentionedUserIds
-        : undefined,
+    mentionedUserIds: payload.mentionedUserIds.length > 0
+      ? payload.mentionedUserIds
+      : undefined,
   })
 
   entry.clipId = clipId
@@ -87,7 +86,7 @@ async function performUpload(
       entry.bytesTotal = total
       bump()
     },
-    entry.abort.signal
+    entry.abort.signal,
   )
 
   entry.status = "finalizing"
@@ -101,7 +100,7 @@ function useServerQueueSync(
   serverQueue: QueueClip[],
   activeRef: React.MutableRefObject<Map<string, ActiveUpload>>,
   retainedThumbsRef: React.MutableRefObject<Map<string, string>>,
-  bump: () => void
+  bump: () => void,
 ) {
   const invalidateClips = useInvalidateClips()
   const readyNotifiedRef = React.useRef<Set<string>>(new Set())
@@ -141,7 +140,7 @@ function useServerQueueSync(
 function useCancelRow(
   activeRef: React.MutableRefObject<Map<string, ActiveUpload>>,
   retainedThumbsRef: React.MutableRefObject<Map<string, string>>,
-  bump: () => void
+  bump: () => void,
 ) {
   const queryClient = useQueryClient()
   const invalidateClips = useInvalidateClips()
@@ -167,24 +166,25 @@ function useCancelRow(
           revokeObjectUrl(retained, "retained upload thumbnail URL")
           retainedThumbsRef.current.delete(clipId)
         }
-        queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), (old) =>
-          removeUploadQueueClip(old, clipId)
+        queryClient.setQueryData<QueueClip[]>(
+          clipKeys.queue(),
+          (old) => removeUploadQueueClip(old, clipId),
         )
         void deleteUploadClipBestEffort(clipId, "queue cancel").then(
           (deleted) => {
             if (deleted) invalidateClips()
-          }
+          },
         )
       }
     },
-    [invalidateClips, queryClient, bump, activeRef, retainedThumbsRef]
+    [invalidateClips, queryClient, bump, activeRef, retainedThumbsRef],
   )
 }
 
 function useRunUpload(
   activeRef: React.MutableRefObject<Map<string, ActiveUpload>>,
   retainedThumbsRef: React.MutableRefObject<Map<string, string>>,
-  bump: () => void
+  bump: () => void,
 ) {
   const invalidateClips = useInvalidateClips()
   return React.useCallback(
@@ -231,13 +231,13 @@ function useRunUpload(
         throw err
       }
     },
-    [invalidateClips, bump, activeRef, retainedThumbsRef]
+    [invalidateClips, bump, activeRef, retainedThumbsRef],
   )
 }
 
 export function useUploadQueueState(
   queueOpen: boolean,
-  onOpenClip: (row: QueueClip) => void
+  onOpenClip: (row: QueueClip) => void,
 ) {
   const activeRef = React.useRef<Map<string, ActiveUpload>>(new Map())
   const retainedThumbsRef = React.useRef<Map<string, string>>(new Map())
@@ -251,7 +251,7 @@ export function useUploadQueueState(
   const queueStreamFailed = stream.initialError
   const serverQueue = React.useMemo<QueueClip[]>(
     () => serverQueueData ?? [],
-    [serverQueueData]
+    [serverQueueData],
   )
 
   React.useEffect(() => {
@@ -278,17 +278,17 @@ export function useUploadQueueState(
       retainedThumbsRef.current.delete(clipId)
       bump()
     },
-    [bump]
+    [bump],
   )
   const { dismissed, dismiss, dismissMany } = useDismissedClips(
     serverQueue,
-    serverQueueHydrated
+    serverQueueHydrated,
   )
 
   const queue: QueueItem[] = React.useMemo(() => {
     const localEntries = Array.from(activeRef.current.values())
     const localClipIds = new Set(
-      localEntries.map((e) => e.clipId).filter((x): x is string => Boolean(x))
+      localEntries.map((e) => e.clipId).filter((x): x is string => Boolean(x)),
     )
     const fromLocal = localEntries.map((e) =>
       localToQueueItem(e, () => cancelRow(e.localId, e.clipId ?? null))
@@ -299,15 +299,15 @@ export function useUploadQueueState(
         serverToQueueItem(row, {
           onCancel: () => cancelRow(null, row.id),
           onOpen: row.status === "ready" ? () => onOpenClip(row) : undefined,
-          onCopyLink:
-            row.status === "ready" ? () => copyClipLink(row) : undefined,
-          onDismiss:
-            row.status === "ready"
-              ? () => {
-                  releaseRetainedThumb(row.id)
-                  dismiss(row.id)
-                }
-              : undefined,
+          onCopyLink: row.status === "ready"
+            ? () => copyClipLink(row)
+            : undefined,
+          onDismiss: row.status === "ready"
+            ? () => {
+              releaseRetainedThumb(row.id)
+              dismiss(row.id)
+            }
+            : undefined,
           thumbFallbackUrl: retainedThumbsRef.current.get(row.id),
           onThumbLoad: () => releaseRetainedThumb(row.id),
         })
@@ -323,7 +323,7 @@ export function useUploadQueueState(
   ])
 
   const activeCount = queue.filter(
-    (q) => q.status !== "published" && q.status !== "failed"
+    (q) => q.status !== "published" && q.status !== "failed",
   ).length
 
   const clearCompleted = React.useCallback(() => {

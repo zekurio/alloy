@@ -3,8 +3,7 @@ import { migrate } from "drizzle-orm/postgres-js/migrator"
 import postgres from "postgres"
 import { logger } from "@workspace/logging"
 
-const migrationsFolder =
-  Deno.env.get("ALLOY_MIGRATIONS_DIR") ??
+const migrationsFolder = Deno.env.get("ALLOY_MIGRATIONS_DIR") ??
   new URL("../drizzle", import.meta.url).pathname
 
 export async function migrateDatabase(databaseUrl: string) {

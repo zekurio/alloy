@@ -1,5 +1,5 @@
 import { limitQueryParam, zValidator } from "./validation"
-import { and, eq, exists, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm"
+import { and, eq, exists, isNull, lt, ne, or, type SQL, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
@@ -136,15 +136,14 @@ function feedPage<T extends FeedPageRow>(rows: T[], limit: number, asOf: Date) {
     items: pageRows.map(({ rankScore: _rankScore, ...row }) =>
       toPublicClipRow(row)
     ),
-    nextCursor:
-      rows.length > limit && tail
-        ? encodeFeedCursor({
-            score: tail.rankScore,
-            createdAt: dateFromDateLike(tail.createdAt),
-            id: tail.id,
-            asOf,
-          })
-        : null,
+    nextCursor: rows.length > limit && tail
+      ? encodeFeedCursor({
+        score: tail.rankScore,
+        createdAt: dateFromDateLike(tail.createdAt),
+        id: tail.id,
+        asOf,
+      })
+      : null,
   }
 }
 
@@ -204,9 +203,9 @@ export const feedRoute = new Hono()
           .where(
             and(
               eq(follow.followerId, followingViewerId),
-              eq(follow.followingId, clip.authorId)
-            )
-          )
+              eq(follow.followingId, clip.authorId),
+            ),
+          ),
       )
       const gameFollowed = requiredSql(
         and(
@@ -218,15 +217,15 @@ export const feedRoute = new Hono()
               .where(
                 and(
                   eq(gameFollow.userId, followingViewerId),
-                  eq(gameFollow.gameId, clip.gameId)
-                )
-              )
-          )
+                  eq(gameFollow.gameId, clip.gameId),
+                ),
+              ),
+          ),
         ),
-        "following feed game filter"
+        "following feed game filter",
       )
       conditions.push(
-        requiredSql(or(userFollowed, gameFollowed), "following feed filter")
+        requiredSql(or(userFollowed, gameFollowed), "following feed filter"),
       )
     }
 
@@ -242,13 +241,13 @@ export const feedRoute = new Hono()
                 lt(clip.createdAt, cursor.createdAt),
                 and(
                   eq(clip.createdAt, cursor.createdAt),
-                  sql`${clip.id} > ${cursor.id}`
-                )
-              )
-            )
+                  sql`${clip.id} > ${cursor.id}`,
+                ),
+              ),
+            ),
           ),
-          "feed cursor"
-        )
+          "feed cursor",
+        ),
       )
     }
 
@@ -265,7 +264,6 @@ export const feedRoute = new Hono()
 
     return c.json(feedPage(rows, limit, asOf))
   })
-
   .get("/chips", zValidator("query", ChipsQuery), async (c) => {
     const { limit } = c.req.valid("query")
 

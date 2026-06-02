@@ -16,7 +16,7 @@ type UserTargetResult = { target: UserRow } | { response: Response }
 
 export async function hasBlockingRelationship(
   viewerId: string,
-  targetId: string
+  targetId: string,
 ): Promise<boolean> {
   const [row] = await db
     .select({ id: block.id })
@@ -24,8 +24,8 @@ export async function hasBlockingRelationship(
     .where(
       or(
         and(eq(block.blockerId, viewerId), eq(block.blockedId, targetId)),
-        and(eq(block.blockerId, targetId), eq(block.blockedId, viewerId))
-      )
+        and(eq(block.blockerId, targetId), eq(block.blockedId, viewerId)),
+      ),
     )
     .limit(1)
   return row !== undefined
@@ -33,7 +33,7 @@ export async function hasBlockingRelationship(
 
 export async function resolveUserTarget(
   c: Context,
-  username: string
+  username: string,
 ): Promise<UserTargetResult> {
   const target = await resolveTarget(username)
   if (!target) return { response: notFound(c) }
@@ -47,7 +47,7 @@ export async function resolveRelationshipTarget(
     viewerId: string
     selfError?: string
     rejectBlockedRelationship?: boolean
-  }
+  },
 ): Promise<UserTargetResult> {
   const result = await resolveUserTarget(c, input.username)
   if ("response" in result) return result
@@ -72,7 +72,7 @@ export async function resolveRelationshipTarget(
 export async function deleteViewerBlock(
   c: Context,
   username: string,
-  viewerId: string
+  viewerId: string,
 ) {
   const result = await resolveRelationshipTarget(c, { username, viewerId })
   if ("response" in result) return result.response
@@ -80,7 +80,7 @@ export async function deleteViewerBlock(
   await db
     .delete(block)
     .where(
-      and(eq(block.blockerId, viewerId), eq(block.blockedId, result.target.id))
+      and(eq(block.blockerId, viewerId), eq(block.blockedId, result.target.id)),
     )
   return booleanFlag(c, "blocked", false)
 }

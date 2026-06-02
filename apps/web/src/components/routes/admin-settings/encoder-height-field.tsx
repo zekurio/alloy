@@ -34,8 +34,7 @@ export function EncoderHeightField({
   }, [customDraft])
 
   const parsedDraft = parseInteger(customDraft)
-  const customInvalid =
-    isBlank(customDraft) ||
+  const customInvalid = isBlank(customDraft) ||
     parsedDraft === null ||
     !isEvenIntegerInRange(parsedDraft, ENCODER_HEIGHT_MIN, ENCODER_HEIGHT_MAX)
 
@@ -80,12 +79,14 @@ export function EncoderHeightField({
         </span>
       </div>
 
-      {showDescription ? (
-        <FieldDescription>
-          Use any even output height between {ENCODER_HEIGHT_MIN}p and{" "}
-          {ENCODER_HEIGHT_MAX}p.
-        </FieldDescription>
-      ) : null}
+      {showDescription
+        ? (
+          <FieldDescription>
+            Use any even output height between {ENCODER_HEIGHT_MIN}p and{" "}
+            {ENCODER_HEIGHT_MAX}p.
+          </FieldDescription>
+        )
+        : null}
     </>
   )
 }

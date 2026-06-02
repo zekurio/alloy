@@ -67,7 +67,7 @@ function safeJoin(root: string, requestPath: string): string | null {
 async function resolveWebMount(): Promise<WebMount | null> {
   const distDir = resolve(
     process.cwd(),
-    env.WEB_DIST_DIR ?? DEFAULT_WEB_DIST_DIR
+    env.WEB_DIST_DIR ?? DEFAULT_WEB_DIST_DIR,
   )
   const indexPath = join(distDir, "index.html")
   const indexExists = await fileExists(indexPath)
@@ -122,8 +122,7 @@ async function clipHead(pathname: string): Promise<string> {
     if (!row) return ""
 
     const origin = env.PUBLIC_SERVER_URL
-    const description =
-      row.description?.trim() ||
+    const description = row.description?.trim() ||
       `${row.authorUsername} shared a ${
         row.gameRef?.name ?? row.game ?? "game"
       } clip on alloy.`
@@ -146,20 +145,18 @@ async function clipHead(pathname: string): Promise<string> {
       ...(poster ? [metaProperty("og:image", poster)] : []),
       ...(videoUrl
         ? [
-            metaProperty("og:video", videoUrl),
-            metaProperty("og:video:url", videoUrl),
-            ...(videoUrl.startsWith("https:")
-              ? [metaProperty("og:video:secure_url", videoUrl)]
-              : []),
-            metaProperty(
-              "og:video:type",
-              row.openGraphContentType ?? "video/mp4"
-            ),
-            ...(width ? [metaProperty("og:video:width", String(width))] : []),
-            ...(height
-              ? [metaProperty("og:video:height", String(height))]
-              : []),
-          ]
+          metaProperty("og:video", videoUrl),
+          metaProperty("og:video:url", videoUrl),
+          ...(videoUrl.startsWith("https:")
+            ? [metaProperty("og:video:secure_url", videoUrl)]
+            : []),
+          metaProperty(
+            "og:video:type",
+            row.openGraphContentType ?? "video/mp4",
+          ),
+          ...(width ? [metaProperty("og:video:width", String(width))] : []),
+          ...(height ? [metaProperty("og:video:height", String(height))] : []),
+        ]
         : []),
       metaName("twitter:card", "summary_large_image"),
       metaName("twitter:title", row.title),
@@ -184,7 +181,7 @@ export async function mountWeb(app: Hono): Promise<Hono> {
       throw new Error(
         `Web build not found at ${
           env.WEB_DIST_DIR ?? DEFAULT_WEB_DIST_DIR
-        }; run the web build or set WEB_DIST_DIR.`
+        }; run the web build or set WEB_DIST_DIR.`,
       )
     }
     return app
@@ -194,7 +191,7 @@ export async function mountWeb(app: Hono): Promise<Hono> {
   async function serveFile(
     c: Context,
     requestPath: string,
-    cacheControl: string
+    cacheControl: string,
   ) {
     const path = safeJoin(webMount.distDir, requestPath)
     if (!path) return c.notFound()
@@ -216,16 +213,22 @@ export async function mountWeb(app: Hono): Promise<Hono> {
     return serveFile(c, `/assets/${rel}`, "public, max-age=31536000, immutable")
   })
 
-  app.on(["GET", "HEAD"], "/logo.png", (c) =>
-    serveFile(c, "/logo.png", "public, max-age=86400")
+  app.on(
+    ["GET", "HEAD"],
+    "/logo.png",
+    (c) => serveFile(c, "/logo.png", "public, max-age=86400"),
   )
 
-  app.on(["GET", "HEAD"], "/favicon.ico", (c) =>
-    serveFile(c, "/logo.png", "public, max-age=86400")
+  app.on(
+    ["GET", "HEAD"],
+    "/favicon.ico",
+    (c) => serveFile(c, "/logo.png", "public, max-age=86400"),
   )
 
-  app.on(["GET", "HEAD"], "/robots.txt", (c) =>
-    serveFile(c, "/robots.txt", "public, max-age=86400")
+  app.on(
+    ["GET", "HEAD"],
+    "/robots.txt",
+    (c) => serveFile(c, "/robots.txt", "public, max-age=86400"),
   )
 
   app.on(["GET", "HEAD"], "*", async (c) => {

@@ -38,7 +38,7 @@ function serialize(row: {
 /** Viewer's 50 most recent clips — the snapshot sent on queue opens and on
  *  SSE (re)connects. Single source of truth for the queue shape. */
 export async function selectQueueRowsForAuthor(
-  authorId: string
+  authorId: string,
 ): Promise<QueueClip[]> {
   const rows = await db
     .select(queueSelectShape)
@@ -51,7 +51,7 @@ export async function selectQueueRowsForAuthor(
 }
 
 export async function selectQueueRowById(
-  clipId: string
+  clipId: string,
 ): Promise<QueueClip | null> {
   const [row] = await db
     .select(queueSelectShape)

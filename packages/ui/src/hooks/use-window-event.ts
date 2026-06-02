@@ -6,7 +6,7 @@ export function useWindowEvent<K extends keyof WindowEventMap>(
   type: K,
   listener: (event: WindowEventMap[K]) => void,
   options?: boolean | AddEventListenerOptions,
-  enabled = true
+  enabled = true,
 ): void {
   React.useEffect(() => {
     if (!enabled || typeof window === "undefined") return

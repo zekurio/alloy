@@ -38,8 +38,9 @@ export async function canModerateComment({
   headers: Headers
 }) {
   const row = await selectCommentModerationTarget(commentId)
-  if (!row)
+  if (!row) {
     return { ok: false as const, error: "Not found", status: 404 as const }
+  }
 
   const clipAuthorId = await selectClipAuthorId(row.clipId)
   const session = await getSession(headers)
@@ -73,8 +74,9 @@ export async function pinTopLevelComment({
   viewerId: string
 }) {
   const row = await selectCommentModerationTarget(commentId)
-  if (!row)
+  if (!row) {
     return { ok: false as const, error: "Not found", status: 404 as const }
+  }
   if (row.parentId !== null) {
     return {
       ok: false as const,
@@ -84,8 +86,9 @@ export async function pinTopLevelComment({
   }
 
   const clipAuthorId = await selectClipAuthorId(row.clipId)
-  if (!clipAuthorId)
+  if (!clipAuthorId) {
     return { ok: false as const, error: "Not found", status: 404 as const }
+  }
   if (clipAuthorId !== viewerId) {
     return { ok: false as const, error: "Forbidden", status: 403 as const }
   }
@@ -97,8 +100,8 @@ export async function pinTopLevelComment({
       .where(
         and(
           eq(clipComment.clipId, row.clipId),
-          sql`${clipComment.pinnedAt} IS NOT NULL`
-        )
+          sql`${clipComment.pinnedAt} IS NOT NULL`,
+        ),
       )
     await tx
       .update(clipComment)
@@ -116,12 +119,14 @@ export async function unpinComment({
   viewerId: string
 }) {
   const row = await selectCommentModerationTarget(commentId)
-  if (!row)
+  if (!row) {
     return { ok: false as const, error: "Not found", status: 404 as const }
+  }
 
   const clipAuthorId = await selectClipAuthorId(row.clipId)
-  if (!clipAuthorId)
+  if (!clipAuthorId) {
     return { ok: false as const, error: "Not found", status: 404 as const }
+  }
   if (clipAuthorId !== viewerId) {
     return { ok: false as const, error: "Forbidden", status: 403 as const }
   }

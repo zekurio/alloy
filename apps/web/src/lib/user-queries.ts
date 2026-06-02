@@ -1,10 +1,10 @@
 import {
+  type QueryClient,
   queryOptions,
   useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
-  type QueryClient,
 } from "@tanstack/react-query"
 
 import type {
@@ -55,7 +55,7 @@ export function useTaggedClipsQuery(handle: string) {
 
 export function useProfileGamesInfiniteQuery(
   handle: string,
-  { limit = 24 }: { limit?: number } = {}
+  { limit = 24 }: { limit?: number } = {},
 ) {
   return useInfiniteQuery({
     queryKey: userKeys.profileGamesInfinite(handle, limit),
@@ -75,7 +75,7 @@ export function useProfileGamesInfiniteQuery(
 
 export function useUserFollowersQuery(
   handle: string,
-  { enabled }: { enabled: boolean }
+  { enabled }: { enabled: boolean },
 ) {
   return useQuery({
     queryKey: userKeys.followers(handle),
@@ -87,7 +87,7 @@ export function useUserFollowersQuery(
 
 export function useUserFollowingQuery(
   handle: string,
-  { enabled }: { enabled: boolean }
+  { enabled }: { enabled: boolean },
 ) {
   return useQuery({
     queryKey: userKeys.following(handle),
@@ -126,49 +126,55 @@ export function userProfileViewerQueryOptions(handle: string) {
 function setProfileViewerInCache(
   qc: QueryClient,
   handle: string,
-  viewer: ProfileViewer
+  viewer: ProfileViewer,
 ) {
-  qc.setQueryData<UserProfileViewer>(userKeys.profileViewer(handle), (old) =>
-    old ? { ...old, viewer } : { viewer, counts: null }
+  qc.setQueryData<UserProfileViewer>(
+    userKeys.profileViewer(handle),
+    (old) => old ? { ...old, viewer } : { viewer, counts: null },
   )
 }
 
 function adjustProfileFollowerCountInCache(
   qc: QueryClient,
   handle: string,
-  delta: number
+  delta: number,
 ) {
   qc.setQueryData<UserProfile>(userKeys.profile(handle), (old) =>
     old
       ? {
+        ...old,
+        counts: {
+          ...old.counts,
+          followers: Math.max(0, old.counts.followers + delta),
+        },
+      }
+      : old)
+  qc.setQueryData<UserProfileViewer>(
+    userKeys.profileViewer(handle),
+    (old) =>
+      old?.counts
+        ? {
           ...old,
           counts: {
             ...old.counts,
             followers: Math.max(0, old.counts.followers + delta),
           },
         }
-      : old
-  )
-  qc.setQueryData<UserProfileViewer>(userKeys.profileViewer(handle), (old) =>
-    old?.counts
-      ? {
-          ...old,
-          counts: {
-            ...old.counts,
-            followers: Math.max(0, old.counts.followers + delta),
-          },
-        }
-      : old
+        : old,
   )
 }
 
 function setProfileFollowingInCache(
   qc: QueryClient,
   handle: string,
-  next: boolean
+  next: boolean,
 ) {
-  qc.setQueryData<UserProfileViewer>(userKeys.profileViewer(handle), (old) =>
-    old?.viewer ? { ...old, viewer: { ...old.viewer, isFollowing: next } } : old
+  qc.setQueryData<UserProfileViewer>(
+    userKeys.profileViewer(handle),
+    (old) =>
+      old?.viewer
+        ? { ...old, viewer: { ...old.viewer, isFollowing: next } }
+        : old,
   )
 }
 
@@ -186,7 +192,7 @@ export function useProfileCachePatchers(handle: string) {
 }
 
 export async function invalidateProfileIdentityCaches(
-  qc: QueryClient
+  qc: QueryClient,
 ): Promise<void> {
   await Promise.all([
     qc.invalidateQueries({ queryKey: userKeys.all }),

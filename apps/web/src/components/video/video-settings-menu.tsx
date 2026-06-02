@@ -60,15 +60,15 @@ export function VideoSettingsMenu({
 }) {
   const [view, setView] = React.useState<SettingsView>("main")
   const selectableOptions = qualityOptions.filter(
-    (quality) => quality.selectable !== false
+    (quality) => quality.selectable !== false,
   )
-  const hasQualityChoices =
-    selectableOptions.length > 1 && Boolean(onSelectQuality)
+  const hasQualityChoices = selectableOptions.length > 1 &&
+    Boolean(onSelectQuality)
   const downloadOptions = qualityOptions.filter(hasDownloadUrl)
   const hasDownloads = downloadOptions.length > 0
   const selectedQuality =
     selectableOptions.find((quality) => quality.id === selectedQualityId) ??
-    selectableOptions[0]
+      selectableOptions[0]
   if (!hasQualityChoices && !hasDownloads) return null
 
   function handleOpenChange(open: boolean) {
@@ -101,30 +101,36 @@ export function VideoSettingsMenu({
         style={contentStyle}
         portalContainer={portalContainer}
       >
-        {view === "main" ? (
-          <MainSettingsView
-            selectedQuality={selectedQuality}
-            hasQualityChoices={hasQualityChoices}
-            hasDownloads={hasDownloads}
-            onQualityClick={() => setView("quality")}
-            onDownloadClick={() => setView("download")}
-          />
-        ) : null}
-        {view === "quality" ? (
-          <QualitySettingsView
-            options={selectableOptions}
-            selectedQualityId={selectedQuality?.id}
-            onBack={() => setView("main")}
-            onSelectQuality={onSelectQuality}
-          />
-        ) : null}
-        {view === "download" ? (
-          <DownloadSettingsView
-            options={downloadOptions}
-            onBack={() => setView("main")}
-            onDownload={startDownload}
-          />
-        ) : null}
+        {view === "main"
+          ? (
+            <MainSettingsView
+              selectedQuality={selectedQuality}
+              hasQualityChoices={hasQualityChoices}
+              hasDownloads={hasDownloads}
+              onQualityClick={() => setView("quality")}
+              onDownloadClick={() => setView("download")}
+            />
+          )
+          : null}
+        {view === "quality"
+          ? (
+            <QualitySettingsView
+              options={selectableOptions}
+              selectedQualityId={selectedQuality?.id}
+              onBack={() => setView("main")}
+              onSelectQuality={onSelectQuality}
+            />
+          )
+          : null}
+        {view === "download"
+          ? (
+            <DownloadSettingsView
+              options={downloadOptions}
+              onBack={() => setView("main")}
+              onDownload={startDownload}
+            />
+          )
+          : null}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -145,23 +151,27 @@ function MainSettingsView({
 }) {
   return (
     <div className={panelClass}>
-      {hasQualityChoices ? (
-        <MenuNavigationRow
-          icon={<GaugeIcon className={iconClass} />}
-          label="Quality"
-          value={qualitySummary(selectedQuality)}
-          onClick={onQualityClick}
-        />
-      ) : null}
+      {hasQualityChoices
+        ? (
+          <MenuNavigationRow
+            icon={<GaugeIcon className={iconClass} />}
+            label="Quality"
+            value={qualitySummary(selectedQuality)}
+            onClick={onQualityClick}
+          />
+        )
+        : null}
 
-      {hasDownloads ? (
-        <MenuNavigationRow
-          icon={<DownloadIcon className={iconClass} />}
-          label="Download"
-          value="Choose version"
-          onClick={onDownloadClick}
-        />
-      ) : null}
+      {hasDownloads
+        ? (
+          <MenuNavigationRow
+            icon={<DownloadIcon className={iconClass} />}
+            label="Download"
+            value="Choose version"
+            onClick={onDownloadClick}
+          />
+        )
+        : null}
     </div>
   )
 }
@@ -190,7 +200,7 @@ function QualitySettingsView({
               className={cn(
                 menuRowClass,
                 selected &&
-                  "bg-white/20 text-foreground focus-visible:bg-white/25"
+                  "bg-white/20 text-foreground focus-visible:bg-white/25",
               )}
               onClick={() => onSelectQuality?.(quality.id)}
             >
@@ -289,15 +299,17 @@ function QualityLabel({
     <span
       className={cn(
         "flex min-w-0 flex-1",
-        showDetail ? "flex-col gap-0.5" : "items-center"
+        showDetail ? "flex-col gap-0.5" : "items-center",
       )}
     >
       <span className="truncate text-foreground">{quality.label}</span>
-      {showDetail && quality.detail ? (
-        <span className="truncate text-xs text-foreground/55">
-          {quality.detail}
-        </span>
-      ) : null}
+      {showDetail && quality.detail
+        ? (
+          <span className="truncate text-xs text-foreground/55">
+            {quality.detail}
+          </span>
+        )
+        : null}
     </span>
   )
 }
@@ -308,7 +320,7 @@ function qualitySummary(quality: QualityOption | undefined): string {
 }
 
 function hasDownloadUrl(
-  quality: QualityOption
+  quality: QualityOption,
 ): quality is DownloadableQualityOption {
   return (
     typeof quality.downloadUrl === "string" &&

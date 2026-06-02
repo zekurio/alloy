@@ -43,7 +43,7 @@ export function EmptyState({
         "flex flex-col items-center justify-center gap-3 rounded-md",
         "text-center",
         sizeClasses[size],
-        className
+        className,
       )}
       {...props}
     >
@@ -51,7 +51,7 @@ export function EmptyState({
         aria-hidden
         className={cn(
           "font-mono leading-none text-foreground-faint select-none",
-          faceSizeClasses[size]
+          faceSizeClasses[size],
         )}
       >
         {face}

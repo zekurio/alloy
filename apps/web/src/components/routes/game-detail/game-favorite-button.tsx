@@ -83,7 +83,7 @@ export function GameFavoriteButton({
             onError: (cause) => {
               toast.error(errorMessage(cause, "Something went wrong"))
             },
-          }
+          },
         )
       }}
       disabled={mutation.isPending}

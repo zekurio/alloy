@@ -44,10 +44,11 @@ export function FeedChipBar({ filter, onChange }: FeedChipBarProps) {
           <CarouselItem className="basis-auto pl-2">
             <Chip
               size="xl"
-              data-active={
-                isActive(filter, { kind: "foryou" }) ? "true" : undefined
-              }
-              onClick={() => onChange({ kind: "foryou" })}
+              data-active={isActive(filter, { kind: "foryou" })
+                ? "true"
+                : undefined}
+              onClick={() =>
+                onChange({ kind: "foryou" })}
             >
               <FlameIcon />
               For you
@@ -56,33 +57,34 @@ export function FeedChipBar({ filter, onChange }: FeedChipBarProps) {
           <CarouselItem className="basis-auto pl-2">
             <Chip
               size="xl"
-              data-active={
-                isActive(filter, { kind: "following" }) ? "true" : undefined
-              }
+              data-active={isActive(filter, { kind: "following" })
+                ? "true"
+                : undefined}
               onClick={() => onChange({ kind: "following" })}
             >
               <UsersIcon />
               Following
             </Chip>
           </CarouselItem>
-          {filter.kind === "hashtag" ? (
-            <CarouselItem className="basis-auto pl-2">
-              <Chip size="xl" data-active="true" title={`#${filter.tag}`}>
-                <HashIcon />#{filter.tag}
-              </Chip>
-            </CarouselItem>
-          ) : null}
+          {filter.kind === "hashtag"
+            ? (
+              <CarouselItem className="basis-auto pl-2">
+                <Chip size="xl" data-active="true" title={`#${filter.tag}`}>
+                  <HashIcon />#{filter.tag}
+                </Chip>
+              </CarouselItem>
+            )
+            : null}
 
           {games.map((g) => (
             <CarouselItem key={g.id} className="basis-auto pl-2">
               <Chip
                 size="xl"
-                data-active={
-                  isActive(filter, { kind: "game", gameId: g.id })
-                    ? "true"
-                    : undefined
-                }
-                onClick={() => onChange({ kind: "game", gameId: g.id })}
+                data-active={isActive(filter, { kind: "game", gameId: g.id })
+                  ? "true"
+                  : undefined}
+                onClick={() =>
+                  onChange({ kind: "game", gameId: g.id })}
                 title={g.name}
               >
                 <GameIcon src={g.iconUrl ?? g.logoUrl} name={g.name} />

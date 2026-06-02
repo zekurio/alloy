@@ -11,7 +11,7 @@ type ProfileAllSearch = {
 
 export function profileAllSearchFor(
   sort: ProfileAllSort,
-  gameSlug: string | null
+  gameSlug: string | null,
 ): ProfileAllSearch {
   return {
     ...(sort !== "recent" ? { sort } : {}),
@@ -20,7 +20,7 @@ export function profileAllSearchFor(
 }
 
 export function parseProfileAllSearch(
-  search: Record<string, unknown>
+  search: Record<string, unknown>,
 ): ProfileAllSearch {
   const sort = searchEnum(search.sort, SORT_KEYS)
   const game = searchString(search.game)

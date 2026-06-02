@@ -47,17 +47,17 @@ export const user = pgTable(
     uniqueIndex("user_username_lower_unique").on(sql`lower(${t.username})`),
     check(
       "user_role_check",
-      sql`${t.role} in (${sql.raw(sqlStringList(USER_ROLES))})`
+      sql`${t.role} in (${sql.raw(sqlStringList(USER_ROLES))})`,
     ),
     check(
       "user_status_check",
-      sql`${t.status} in (${sql.raw(sqlStringList(USER_STATUSES))})`
+      sql`${t.status} in (${sql.raw(sqlStringList(USER_STATUSES))})`,
     ),
     check(
       "user_storage_quota_bytes_safe_check",
-      sql`${t.storageQuotaBytes} is null or (${t.storageQuotaBytes} > 0 and ${t.storageQuotaBytes} <= 9007199254740991)`
+      sql`${t.storageQuotaBytes} is null or (${t.storageQuotaBytes} > 0 and ${t.storageQuotaBytes} <= 9007199254740991)`,
     ),
-  ]
+  ],
 )
 
 export const authSession = pgTable("auth_session", {
@@ -114,9 +114,9 @@ export const authAccount = pgTable(
   (t) => [
     uniqueIndex("auth_account_provider_account_idx").on(
       t.providerId,
-      t.providerAccountId
+      t.providerAccountId,
     ),
-  ]
+  ],
 )
 
 export const authChallenge = pgTable("auth_challenge", {

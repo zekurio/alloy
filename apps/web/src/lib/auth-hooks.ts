@@ -2,9 +2,9 @@ import * as React from "react"
 import { useLocation, useNavigate } from "@tanstack/react-router"
 
 import {
+  type Session,
   useSuspenseAuthConfig,
   useSuspenseSession,
-  type Session,
 } from "./session-suspense"
 import { browseAuthTarget, isAdmin, shouldForceOnboarding } from "./auth-access"
 
@@ -45,8 +45,8 @@ export function useRequireAuthStrict(): Session | null {
     config.adminAccountRequired || shouldForceOnboarding(config, session)
       ? "/setup"
       : session
-        ? null
-        : "/login"
+      ? null
+      : "/login"
 
   React.useEffect(() => {
     if (target) void navigate({ to: target, replace: true })

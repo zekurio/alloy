@@ -8,6 +8,11 @@ import {
 } from "lucide-react"
 
 import { GameIcon } from "@workspace/ui/components/game-icon"
+import {
+  CLIP_MEDIA_CLASS,
+  CLIP_MEDIA_VIEWPORT_CLASS,
+  CLIP_VIDEO_MEDIA_CLASS,
+} from "@workspace/ui/lib/media-frame"
 import { stableHue } from "@workspace/ui/lib/stable-hash"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -76,8 +81,8 @@ function ClipCard({
   metaVariant = "default",
   ...props
 }: ClipCardProps) {
-  const commentCount =
-    comments ?? Math.max(0, Math.floor((Number.parseFloat(likes) || 0) / 8))
+  const commentCount = comments ??
+    Math.max(0, Math.floor((Number.parseFloat(likes) || 0) / 8))
 
   const privacyBadge = renderPrivacyBadge(privacy)
 
@@ -99,59 +104,65 @@ function ClipCard({
         buttonRef={thumbnailRef}
       />
       <div className="flex flex-col gap-1.5">
-        {metaVariant === "showcase" ? (
-          <div className="truncate text-base font-semibold tracking-[-0.015em] text-foreground sm:text-lg">
-            {titleContent ?? title}
-          </div>
-        ) : (
-          <div className="flex min-w-0 items-center gap-2 text-base leading-5 sm:text-lg sm:leading-6">
-            <div className="min-w-0 flex-1 truncate font-semibold tracking-[-0.015em] text-foreground">
+        {metaVariant === "showcase"
+          ? (
+            <div className="truncate text-lg leading-6 font-semibold tracking-[-0.015em] text-foreground">
               {titleContent ?? title}
             </div>
-            <span className="inline-flex shrink-0 items-center gap-3 text-sm leading-none tracking-[0.04em] text-foreground-faint tabular-nums">
-              <span className="inline-flex items-center gap-1.5">
-                <EyeIcon className="size-4" />
-                {views}
+          )
+          : (
+            <div className="flex min-w-0 items-center gap-2 text-lg leading-6">
+              <div className="min-w-0 flex-1 truncate font-semibold tracking-[-0.015em] text-foreground">
+                {titleContent ?? title}
+              </div>
+              <span className="inline-flex shrink-0 items-center gap-3 text-sm leading-none tracking-[0.04em] text-foreground-faint tabular-nums">
+                <span className="inline-flex items-center gap-1.5">
+                  <EyeIcon className="size-4" />
+                  {views}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <HeartIcon className="size-4" />
+                  {likes}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <MessageSquareIcon className="size-4" />
+                  {commentCount}
+                </span>
               </span>
-              <span className="inline-flex items-center gap-1.5">
-                <HeartIcon className="size-4" />
-                {likes}
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <MessageSquareIcon className="size-4" />
-                {commentCount}
-              </span>
-            </span>
-          </div>
-        )}
-        <div className="flex min-w-0 items-center gap-2 text-md leading-5">
-          {author ? (
-            <div className="flex min-w-0 flex-1 items-center gap-2 text-foreground-dim">
-              <ClipCardAvatar
-                author={author}
-                authorSeed={authorSeed}
-                authorImage={authorImage}
-                authorInitials={authorInitials}
-                authorAvatarBg={authorAvatarBg}
-                authorAvatarFg={authorAvatarFg}
-              />
-              <span className="flex min-w-0 items-center gap-2 overflow-hidden">
-                <AuthorLabel author={author} href={authorHref} />
-                <span className="shrink-0 text-foreground-faint">·</span>
+            </div>
+          )}
+        <div className="flex min-w-0 items-center gap-2 text-sm leading-5">
+          {author
+            ? (
+              <div className="flex min-w-0 flex-1 items-center gap-2 text-foreground-dim">
+                <ClipCardAvatar
+                  author={author}
+                  authorSeed={authorSeed}
+                  authorImage={authorImage}
+                  authorInitials={authorInitials}
+                  authorAvatarBg={authorAvatarBg}
+                  authorAvatarFg={authorAvatarFg}
+                />
+                <span className="flex min-w-0 items-center gap-2 overflow-hidden">
+                  <AuthorLabel author={author} href={authorHref} />
+                  <span className="shrink-0 text-foreground-faint">·</span>
+                  <GameLabel game={game} icon={gameIcon} href={gameHref} />
+                </span>
+              </div>
+            )
+            : (
+              <div className="min-w-0 flex-1 text-accent">
                 <GameLabel game={game} icon={gameIcon} href={gameHref} />
+              </div>
+            )}
+          {metaVariant === "showcase"
+            ? null
+            : (
+              <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 text-sm leading-4 tracking-[0.04em] text-foreground-faint">
+                {privacyBadge}
+                {postedAt}
               </span>
-            </div>
-          ) : (
-            <div className="min-w-0 flex-1 text-accent">
-              <GameLabel game={game} icon={gameIcon} href={gameHref} />
-            </div>
-          )}
-          {metaVariant === "showcase" ? null : (
-            <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 text-sm leading-4 tracking-[0.04em] text-foreground-faint">
-              {privacyBadge}
-              {postedAt}
-            </span>
-          )}
+            )}
         </div>
       </div>
     </article>
@@ -304,10 +315,11 @@ function ClipCardThumb({
   const interactive = Boolean(onClick)
   const fallback = renderThumbnailFallback(accentHue)
   const surfaceClass = cn(
-    "group/clip-thumb relative aspect-video w-full appearance-none overflow-hidden rounded-md border-0 bg-[oklch(12%_0.01_250)] p-0 text-left",
+    "group/clip-thumb w-full appearance-none rounded-md border-0 p-0 text-left",
+    CLIP_MEDIA_VIEWPORT_CLASS,
     "transition-[transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
     interactive &&
-      "cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none data-[pointer-activated=true]:focus-visible:ring-0 data-[pointer-activated=true]:focus-visible:ring-offset-0"
+      "cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none data-[pointer-activated=true]:focus-visible:ring-0 data-[pointer-activated=true]:focus-visible:ring-offset-0",
   )
   const hoverHandlers = {
     onPointerEnter: (e: React.PointerEvent) => {
@@ -340,52 +352,60 @@ function ClipCardThumb({
     <>
       {fallback}
 
-      {thumbnail && !thumbnailFailed ? (
-        <img
-          src={thumbnail}
-          alt={title}
-          className={cn(
-            "absolute -inset-px size-[calc(100%+2px)] object-cover transition-opacity duration-200 ease-out",
-            thumbnailLoaded ? "opacity-100" : "opacity-0"
-          )}
-          // Cards load in a scrolling grid — let the browser lazy-load
-          // anything outside the initial viewport.
-          loading="lazy"
-          decoding="async"
-          onLoad={() => setThumbnailLoaded(true)}
-          onError={() => {
-            setThumbnailLoaded(false)
-            setThumbnailFailed(true)
-          }}
-        />
-      ) : null}
+      {thumbnail && !thumbnailFailed
+        ? (
+          <img
+            src={thumbnail}
+            alt={title}
+            className={cn(
+              CLIP_MEDIA_CLASS,
+              "transition-opacity duration-200 ease-out",
+              thumbnailLoaded ? "opacity-100" : "opacity-0",
+            )}
+            // Cards load in a scrolling grid — let the browser lazy-load
+            // anything outside the initial viewport.
+            loading="lazy"
+            decoding="async"
+            onLoad={() => setThumbnailLoaded(true)}
+            onError={() => {
+              setThumbnailLoaded(false)
+              setThumbnailFailed(true)
+            }}
+          />
+        )
+        : null}
 
-      {/* Hover preview overlay. Mounted only when we actually have a
+      {
+        /* Hover preview overlay. Mounted only when we actually have a
           stream URL — keeps the DOM light for mock decks and
           still-encoding rows. We intentionally avoid `crossOrigin`
           here: the request starts same-origin so cookies still reach
           the auth gate, and S3-backed redirects then remain compatible
-          with buckets that do not allow credentialed CORS media loads. */}
-      {canPreview && previewMounted ? (
-        <video
-          ref={videoRef}
-          src={streamUrl}
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          onLoadedData={startPreview}
-          onCanPlay={startPreview}
-          onPlaying={revealPreview}
-          onTimeUpdate={revealPreview}
-          aria-hidden
-          className={cn(
-            "absolute -inset-px size-[calc(100%+2px)] bg-[oklch(12%_0.01_250)] object-cover",
-            "transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-            previewing ? "opacity-100" : "pointer-events-none opacity-0"
-          )}
-        />
-      ) : null}
+          with buckets that do not allow credentialed CORS media loads. */
+      }
+      {canPreview && previewMounted
+        ? (
+          <video
+            ref={videoRef}
+            src={streamUrl}
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            onLoadedData={startPreview}
+            onCanPlay={startPreview}
+            onPlaying={revealPreview}
+            onTimeUpdate={revealPreview}
+            aria-hidden
+            className={cn(
+              CLIP_VIDEO_MEDIA_CLASS,
+              "bg-[oklch(12%_0.01_250)]",
+              "transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+              previewing ? "opacity-100" : "pointer-events-none opacity-0",
+            )}
+          />
+        )
+        : null}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 -bottom-px z-10 h-px bg-[oklch(12%_0.01_250)]"
@@ -423,7 +443,8 @@ function renderThumbnailFallback(accentHue: number | undefined) {
         aria-hidden
         className="absolute inset-0"
         style={{
-          background: `linear-gradient(135deg, oklch(0.3 0.1 ${accentHue}) 0%, oklch(0.15 0.05 ${accentHue}) 70%, oklch(0.08 0 0) 100%)`,
+          background:
+            `linear-gradient(135deg, oklch(0.3 0.1 ${accentHue}) 0%, oklch(0.15 0.05 ${accentHue}) 70%, oklch(0.08 0 0) 100%)`,
         }}
       />
     )
@@ -434,7 +455,7 @@ function renderThumbnailFallback(accentHue: number | undefined) {
       aria-hidden
       className={cn(
         "absolute inset-0 grid place-items-center",
-        "font-mono text-2xs tracking-[0.1em] text-foreground-faint uppercase"
+        "font-mono text-2xs tracking-[0.1em] text-foreground-faint uppercase",
       )}
       style={{
         background:
@@ -455,11 +476,16 @@ function AuthorLabel({
 }) {
   const className = cn(
     "max-w-[45%] shrink-0 truncate leading-4 font-medium text-foreground-muted",
-    href && "hover:underline focus-visible:underline focus-visible:outline-none"
+    href &&
+      "hover:underline focus-visible:underline focus-visible:outline-none",
   )
   if (href) {
     return (
-      <a href={href} onClick={(e) => e.stopPropagation()} className={className}>
+      <a
+        href={href}
+        onClick={(e) => e.stopPropagation()}
+        className={className}
+      >
         {author}
       </a>
     )
@@ -502,25 +528,25 @@ function ClipCardAvatar({
       aria-hidden
       className={cn(
         "inline-flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-[3px]",
-        "text-[9px] leading-3 font-semibold"
+        "text-[9px] leading-3 font-semibold",
       )}
       style={{
         background: fallbackBg,
         color: fallbackFg,
       }}
     >
-      {authorImage && !imageFailed ? (
-        <img
-          src={authorImage}
-          alt=""
-          className="size-full object-cover"
-          loading="lazy"
-          decoding="async"
-          onError={() => setImageFailed(true)}
-        />
-      ) : (
-        initials
-      )}
+      {authorImage && !imageFailed
+        ? (
+          <img
+            src={authorImage}
+            alt=""
+            className="size-full object-cover"
+            loading="lazy"
+            decoding="async"
+            onError={() => setImageFailed(true)}
+          />
+        )
+        : initials}
     </span>
   )
 }
@@ -536,7 +562,8 @@ function GameLabel({
 }) {
   const className = cn(
     "inline-flex min-w-0 items-center gap-1.5 truncate leading-4 text-accent",
-    href && "hover:underline focus-visible:underline focus-visible:outline-none"
+    href &&
+      "hover:underline focus-visible:underline focus-visible:outline-none",
   )
   const content = (
     <>
@@ -546,7 +573,11 @@ function GameLabel({
   )
   if (href) {
     return (
-      <a href={href} onClick={(e) => e.stopPropagation()} className={className}>
+      <a
+        href={href}
+        onClick={(e) => e.stopPropagation()}
+        className={className}
+      >
         {content}
       </a>
     )
@@ -555,12 +586,13 @@ function GameLabel({
 }
 
 function renderPrivacyBadge(
-  privacy: ClipCardProps["privacy"]
+  privacy: ClipCardProps["privacy"],
 ): React.ReactNode {
   if (!privacy || privacy === "public") return null
   const Icon = privacy === "private" ? LockIcon : LinkIcon
-  const label =
-    privacy === "private" ? "Private — only you" : "Unlisted — only via link"
+  const label = privacy === "private"
+    ? "Private — only you"
+    : "Unlisted — only via link"
   return (
     <span
       className="inline-flex items-center text-foreground-faint"

@@ -51,7 +51,7 @@ function oauthStateCookiePath(providerId: string): string {
 
 export function readOAuthStateCookie(
   c: Context,
-  providerId: string
+  providerId: string,
 ): string | null {
   return getCookie(c, oauthStateCookieName(providerId)) ?? null
 }
@@ -59,7 +59,7 @@ export function readOAuthStateCookie(
 export function setOAuthStateCookie(
   c: Context,
   providerId: string,
-  value: string
+  value: string,
 ): void {
   setCookie(c, oauthStateCookieName(providerId), value, {
     httpOnly: true,

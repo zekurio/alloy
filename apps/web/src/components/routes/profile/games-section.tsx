@@ -2,8 +2,8 @@ import * as React from "react"
 import { GamepadIcon } from "lucide-react"
 
 import {
-  GameCarouselSection,
   type GameCarouselEntry,
+  GameCarouselSection,
 } from "@/components/game/game-carousel-section"
 import { useProfileGamesInfiniteQuery } from "@/lib/user-queries"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
@@ -41,8 +41,7 @@ export function GamesSection({ username }: GamesSectionProps) {
       renderLink={(game) =>
         game.slug
           ? { kind: "user-clips", username, slug: game.slug }
-          : undefined
-      }
+          : undefined}
       hasNextPage={gamesQuery.hasNextPage}
       isFetchingNextPage={gamesQuery.isFetchingNextPage}
       onEndReached={() => {

@@ -42,7 +42,7 @@ export class S3StorageDriver implements StorageDriver {
       (!accessKeyId && secretAccessKey)
     ) {
       throw new Error(
-        "S3 storage runtime config must include both accessKeyId and secretAccessKey, or neither."
+        "S3 storage runtime config must include both accessKeyId and secretAccessKey, or neither.",
       )
     }
     return {
@@ -55,11 +55,11 @@ export class S3StorageDriver implements StorageDriver {
 
   private getClient(opts: S3DriverOptions): AwsClient {
     const accessKeyId = opts.accessKeyId ?? Deno.env.get("AWS_ACCESS_KEY_ID")
-    const secretAccessKey =
-      opts.secretAccessKey ?? Deno.env.get("AWS_SECRET_ACCESS_KEY")
+    const secretAccessKey = opts.secretAccessKey ??
+      Deno.env.get("AWS_SECRET_ACCESS_KEY")
     if (!accessKeyId || !secretAccessKey) {
       throw new Error(
-        "S3 storage requires accessKeyId and secretAccessKey, or AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY."
+        "S3 storage requires accessKeyId and secretAccessKey, or AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY.",
       )
     }
 
@@ -90,7 +90,7 @@ export class S3StorageDriver implements StorageDriver {
   async put(
     key: string,
     body: Uint8Array | ReadableStream<Uint8Array>,
-    contentType: string
+    contentType: string,
   ): Promise<{ size: number }> {
     const opts = this.getOptions()
     if (body instanceof Uint8Array) {
@@ -108,7 +108,7 @@ export class S3StorageDriver implements StorageDriver {
     key: string,
     body: ReadableStream<Uint8Array>,
     contentType: string,
-    contentLength?: number
+    contentLength?: number,
   ): Promise<void> {
     const client = this.getClient(opts)
     const headers: Record<string, string> = {
@@ -130,7 +130,7 @@ export class S3StorageDriver implements StorageDriver {
     opts: S3DriverOptions,
     key: string,
     body: Uint8Array,
-    contentType: string
+    contentType: string,
   ): Promise<void> {
     const client = this.getClient(opts)
     await signedStreamPut(
@@ -141,7 +141,7 @@ export class S3StorageDriver implements StorageDriver {
         "Content-Type": contentType,
       },
       streamBytes(body),
-      key
+      key,
     )
   }
 
@@ -149,7 +149,7 @@ export class S3StorageDriver implements StorageDriver {
     const opts = this.getOptions()
     const client = this.getClient(opts)
     const stat = await client.fetch(
-      new Request(objectUrl(opts, key), { method: "HEAD" })
+      new Request(objectUrl(opts, key), { method: "HEAD" }),
     )
     if (stat.status === 404) return null
     await assertOk(stat, `stat ${key}`)
@@ -157,8 +157,8 @@ export class S3StorageDriver implements StorageDriver {
     return {
       stream: (opts) => this.openStream(key, opts?.start, opts?.end),
       size: Number(stat.headers.get("Content-Length") ?? 0),
-      contentType:
-        stat.headers.get("Content-Type") ?? "application/octet-stream",
+      contentType: stat.headers.get("Content-Type") ??
+        "application/octet-stream",
       lastModified: parseHttpDate(stat.headers.get("Last-Modified")),
     }
   }
@@ -188,7 +188,7 @@ export class S3StorageDriver implements StorageDriver {
     const opts = this.getOptions()
     const client = this.getClient(opts)
     const res = await client.fetch(
-      new Request(objectUrl(opts, key), { method: "DELETE" })
+      new Request(objectUrl(opts, key), { method: "DELETE" }),
     )
     if (res.status === 404) return
     await assertOk(res, `delete ${key}`)
@@ -207,7 +207,7 @@ export class S3StorageDriver implements StorageDriver {
   async uploadFromFile(
     localPath: string,
     key: string,
-    contentType: string
+    contentType: string,
   ): Promise<{ size: number }> {
     const stat = await Deno.stat(localPath)
     const opts = this.getOptions()
@@ -228,18 +228,20 @@ export class S3StorageDriver implements StorageDriver {
         method: "PUT",
         headers: {
           "Content-Type": input.contentType,
-          "x-amz-copy-source": `${opts.bucket}/${encodeCopySourceKey(
-            input.fromKey
-          )}`,
+          "x-amz-copy-source": `${opts.bucket}/${
+            encodeCopySourceKey(
+              input.fromKey,
+            )
+          }`,
           "x-amz-metadata-directive": "REPLACE",
         },
-      })
+      }),
     )
     if (copyRes.ok) {
       const resolved = await this.resolve(input.toKey)
       if (!resolved) {
         throw new Error(
-          `s3: copied object ${input.toKey} could not be resolved`
+          `s3: copied object ${input.toKey} could not be resolved`,
         )
       }
       return { size: resolved.size }
@@ -255,14 +257,14 @@ export class S3StorageDriver implements StorageDriver {
       input.toKey,
       source.stream(),
       input.contentType,
-      source.size
+      source.size,
     )
     return { size: source.size }
   }
 
   async mintDownloadUrl(
     key: string,
-    input: MintDownloadUrlInput
+    input: MintDownloadUrlInput,
   ): Promise<DownloadUrl | null> {
     const opts = this.getOptions()
     const client = this.getClient(opts)
@@ -274,7 +276,7 @@ export class S3StorageDriver implements StorageDriver {
     if (input.responseContentDisposition) {
       url.searchParams.set(
         "response-content-disposition",
-        input.responseContentDisposition
+        input.responseContentDisposition,
       )
     }
     if (input.responseCacheControl) {
@@ -293,7 +295,7 @@ export class S3StorageDriver implements StorageDriver {
   private openStream(
     key: string,
     start: number | undefined,
-    end: number | undefined
+    end: number | undefined,
   ): ReadableStream<Uint8Array> {
     const opts = this.getOptions()
     const client = this.getClient(opts)
@@ -306,16 +308,15 @@ export class S3StorageDriver implements StorageDriver {
       if (reader) return reader
       if (opening) return opening
       opening = (async () => {
-        const range =
-          start === undefined
-            ? undefined
-            : `bytes=${start}-${end === undefined ? "" : end}`
+        const range = start === undefined
+          ? undefined
+          : `bytes=${start}-${end === undefined ? "" : end}`
         const result = await client.fetch(
           new Request(objectUrl(opts, key), {
             method: "GET",
             headers: range ? { Range: range } : undefined,
             signal: abortController.signal,
-          })
+          }),
         )
         await assertOk(result, `read ${key}`)
         if (!result.body) {
@@ -384,7 +385,7 @@ async function assertOk(res: Response, operation: string): Promise<void> {
   throw new Error(
     `s3: ${operation} failed with ${res.status} ${res.statusText}${
       detail ? `: ${detail}` : ""
-    }`
+    }`,
   )
 }
 

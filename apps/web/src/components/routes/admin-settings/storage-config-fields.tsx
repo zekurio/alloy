@@ -223,56 +223,58 @@ export function S3Fields({
                 className="pl-3.5"
                 autoComplete="new-password"
                 value={form.secretAccessKey}
-                placeholder={
-                  secretConfigured ? "Leave blank to keep current" : ""
-                }
+                placeholder={secretConfigured
+                  ? "Leave blank to keep current"
+                  : ""}
                 onChange={(e) => onChange("secretAccessKey", e.target.value)}
               />
-              {secretConfigured ? (
-                <InputGroupAddon align="inline-end">
-                  <AlertDialog>
-                    <AlertDialogTrigger
-                      render={
-                        <InputGroupButton
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          className="text-danger hover:text-danger"
-                          aria-label="Remove S3 secret access key"
-                          title="Remove secret access key"
-                          disabled={pending || isDirty}
-                        />
-                      }
-                    >
-                      <Trash2Icon />
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          Remove S3 secret access key?
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This removes the stored static credential. S3 access
-                          will use instance-role or workload identity
-                          credentials until a new secret is added.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel disabled={pending}>
-                          Cancel
-                        </AlertDialogCancel>
-                        <AlertDialogAction
-                          variant="destructive"
-                          onClick={onClearSecret}
-                          disabled={pending}
-                        >
-                          {pending ? "Removing..." : "Remove secret"}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </InputGroupAddon>
-              ) : null}
+              {secretConfigured
+                ? (
+                  <InputGroupAddon align="inline-end">
+                    <AlertDialog>
+                      <AlertDialogTrigger
+                        render={
+                          <InputGroupButton
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            className="text-danger hover:text-danger"
+                            aria-label="Remove S3 secret access key"
+                            title="Remove secret access key"
+                            disabled={pending || isDirty}
+                          />
+                        }
+                      >
+                        <Trash2Icon />
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            Remove S3 secret access key?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This removes the stored static credential. S3 access
+                            will use instance-role or workload identity
+                            credentials until a new secret is added.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel disabled={pending}>
+                            Cancel
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            variant="destructive"
+                            onClick={onClearSecret}
+                            disabled={pending}
+                          >
+                            {pending ? "Removing..." : "Remove secret"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </InputGroupAddon>
+                )
+                : null}
             </InputGroup>
             <FieldDescription>
               {secretConfigured
@@ -311,8 +313,7 @@ export function S3Fields({
               <Checkbox
                 checked={form.forcePathStyle}
                 onCheckedChange={(checked) =>
-                  onChange("forcePathStyle", checked === true)
-                }
+                  onChange("forcePathStyle", checked === true)}
               />
               <FieldLabel htmlFor="storage-s3-path-style" className="mb-0">
                 Force path-style

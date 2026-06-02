@@ -6,10 +6,10 @@ import type {
   ClipRow,
   InitiateClipInput,
   InitiateClipResponse,
-  UpdateClipInput,
-  UploadTicket,
   QueueClip,
   QueueEvent,
+  UpdateClipInput,
+  UploadTicket,
 } from "@workspace/contracts"
 import {
   parseErrorMessagePayload,
@@ -34,8 +34,8 @@ import {
   validateClipPage,
   validateClipRow,
   validateInitiateClipResponse,
-  validateQueueEvent,
   validateQueueClips,
+  validateQueueEvent,
 } from "./contract-validators"
 
 const UPLOAD_TIMEOUT_GRACE_MS = 30_000
@@ -86,36 +86,36 @@ export function uploadQueueStreamUrl(origin?: string): string {
 export function clipStreamUrl(
   clipId: string,
   variantId?: string,
-  origin?: string
+  origin?: string,
 ): string {
   return resolvePublicUrlWithQuery(
     publicClipPath(clipId, "/stream"),
     { variant: variantId },
-    origin
+    origin,
   )
 }
 
 export function clipThumbnailUrl(
   clipId: string,
   origin?: string,
-  version?: string
+  version?: string,
 ): string {
   return resolvePublicUrlWithQuery(
     publicClipPath(clipId, "/thumbnail"),
     { v: version },
-    origin
+    origin,
   )
 }
 
 export function clipDownloadUrl(
   clipId: string,
   variantId: string,
-  origin?: string
+  origin?: string,
 ): string {
   return resolvePublicUrlWithQuery(
     publicClipPath(clipId, "/download"),
     { variant: variantId },
-    origin
+    origin,
   )
 }
 
@@ -123,7 +123,7 @@ export function uploadToTicket(
   ticket: UploadTicket,
   body: Blob,
   onProgress: (loaded: number, total: number) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest()
@@ -143,7 +143,7 @@ export function uploadToTicket(
         xhr.setRequestHeader(name, value)
       }
       const hasContentType = Object.keys(ticket.headers).some(
-        (name) => name.toLowerCase() === "content-type"
+        (name) => name.toLowerCase() === "content-type",
       )
       if (!hasContentType && body.type) {
         xhr.setRequestHeader("Content-Type", body.type)
@@ -160,8 +160,7 @@ export function uploadToTicket(
       if (xhr.status >= 200 && xhr.status < 300) {
         settle(resolve)
       } else {
-        const message =
-          parseErrorMessagePayload(xhr.responseText) ??
+        const message = parseErrorMessagePayload(xhr.responseText) ??
           `${xhr.status} ${xhr.statusText}`
         settle(() => reject(new Error(message)))
       }
@@ -181,7 +180,7 @@ export function uploadToTicket(
     try {
       xhr.timeout = Math.max(
         MIN_UPLOAD_TIMEOUT_MS,
-        ticket.expiresAt * 1000 - Date.now() + UPLOAD_TIMEOUT_GRACE_MS
+        ticket.expiresAt * 1000 - Date.now() + UPLOAD_TIMEOUT_GRACE_MS,
       )
       xhr.send(body)
     } catch (err) {
@@ -192,7 +191,7 @@ export function uploadToTicket(
 
 async function fetchClipPage(
   context: ApiContext,
-  params: ClipFeedParams = {}
+  params: ClipFeedParams = {},
 ): Promise<ClipPage> {
   const res = await context.rpc.api.clips.$get({
     query: queryParams({
@@ -208,31 +207,26 @@ async function fetchClipPage(
 
 async function fetchClips(
   context: ApiContext,
-  params: ClipFeedParams = {}
+  params: ClipFeedParams = {},
 ): Promise<ClipRow[]> {
   return (await fetchClipPage(context, params)).items
-}
-
-async function fetchUploadQueue(context: ApiContext): Promise<QueueClip[]> {
-  const res = await context.rpc.api.clips.queue.$get()
-  return readJsonOrThrow(res, validateQueueClips)
 }
 
 async function fetchClipById(
   context: ApiContext,
   clipId: string,
-  init?: RequestInit
+  init?: RequestInit,
 ): Promise<ClipRow> {
   const res = await context.rpc.api.clips[":id"].$get(
     { param: { id: clipId } },
-    { init }
+    { init },
   )
   return readJsonOrThrow(res, validateClipRow)
 }
 
 async function initiateClip(
   context: ApiContext,
-  input: InitiateClipInput
+  input: InitiateClipInput,
 ): Promise<InitiateClipResponse> {
   const res = await context.rpc.api.clips.initiate.$post({ json: input })
   return readJsonOrThrow(res, validateInitiateClipResponse)
@@ -240,7 +234,7 @@ async function initiateClip(
 
 async function finalizeClip(
   context: ApiContext,
-  clipId: string
+  clipId: string,
 ): Promise<ClipRow> {
   const res = await context.rpc.api.clips[":id"].finalize.$post({
     param: { id: clipId },
@@ -250,7 +244,7 @@ async function finalizeClip(
 
 async function markUploadFailed(
   context: ApiContext,
-  clipId: string
+  clipId: string,
 ): Promise<void> {
   const res = await context.rpc.api.clips[":id"].fail.$post({
     param: { id: clipId },
@@ -268,7 +262,7 @@ async function deleteClip(context: ApiContext, clipId: string): Promise<void> {
 async function updateClip(
   context: ApiContext,
   clipId: string,
-  input: UpdateClipInput
+  input: UpdateClipInput,
 ): Promise<ClipRow> {
   const res = await context.rpc.api.clips[":id"].$patch({
     param: { id: clipId },
@@ -279,7 +273,7 @@ async function updateClip(
 
 async function fetchLikeState(
   context: ApiContext,
-  clipId: string
+  clipId: string,
 ): Promise<{ liked: boolean }> {
   const res = await context.rpc.api.clips[":id"].like.$get({
     param: { id: clipId },
@@ -290,7 +284,7 @@ async function fetchLikeState(
 async function setClipLike(
   context: ApiContext,
   clipId: string,
-  liked: boolean
+  liked: boolean,
 ): Promise<ClipLikeState> {
   return readPostDeleteJson(
     liked,
@@ -304,13 +298,13 @@ async function setClipLike(
           param: { id: clipId },
         }),
     },
-    validateClipLikeState
+    validateClipLikeState,
   )
 }
 
 async function recordClipView(
   context: ApiContext,
-  clipId: string
+  clipId: string,
 ): Promise<void> {
   const res = await context.rpc.api.clips[":id"].view.$post({
     param: { id: clipId },
@@ -322,7 +316,6 @@ export function createClipsApi(context: ApiContext) {
   return {
     fetch: (params: ClipFeedParams = {}) => fetchClips(context, params),
     fetchPage: (params: ClipFeedParams = {}) => fetchClipPage(context, params),
-    fetchQueue: () => fetchUploadQueue(context),
     fetchById: (clipId: string, init?: RequestInit) =>
       fetchClipById(context, clipId, init),
     initiate: (input: InitiateClipInput) => initiateClip(context, input),

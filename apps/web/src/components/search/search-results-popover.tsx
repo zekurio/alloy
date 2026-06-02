@@ -12,7 +12,7 @@ import type { ClipRow, GameListRow } from "@workspace/api"
 import type { AppSearch } from "@/lib/app-search"
 import { errorMessage } from "@/lib/error-message"
 import { useAppSearch } from "./app-search"
-import { useSearchQuery, type UserListRow } from "@/lib/search-api"
+import { type UserListRow, useSearchQuery } from "@/lib/search-api"
 import {
   ClipRowItem,
   EmptyBlock,
@@ -35,7 +35,7 @@ function useSearchPopoverState(
   flat: FlatItem[],
   open: boolean,
   clear: () => void,
-  setOpen: (value: boolean) => void
+  setOpen: (value: boolean) => void,
 ) {
   const navigate = useNavigate()
   const [activeIndex, setActiveIndex] = React.useState(0)
@@ -59,15 +59,15 @@ function useSearchPopoverState(
         search: (prev: AppSearch) => ({ ...prev, clip: row.id }),
         ...(slug
           ? {
-              mask: {
-                to: "/g/$slug/c/$clipId",
-                params: { slug, clipId: row.id },
-              },
-            }
+            mask: {
+              to: "/g/$slug/c/$clipId",
+              params: { slug, clipId: row.id },
+            },
+          }
           : {}),
       })
     },
-    [clear, closePopover, navigate]
+    [clear, closePopover, navigate],
   )
 
   const commitGame = React.useCallback(
@@ -78,7 +78,7 @@ function useSearchPopoverState(
       // new page" while navigation is in flight.
       void navigate({ to: "/g/$slug", params: { slug: row.slug } })
     },
-    [clear, closePopover, navigate]
+    [clear, closePopover, navigate],
   )
 
   const commitUser = React.useCallback(
@@ -90,14 +90,14 @@ function useSearchPopoverState(
         params: { username: row.username },
       })
     },
-    [clear, closePopover, navigate]
+    [clear, closePopover, navigate],
   )
 
   const onKeyDown = React.useCallback(
     (event: KeyboardEvent) => {
       const target = event.target
       const wrapper = rootRef.current?.closest<HTMLElement>(
-        '[data-slot="app-header-search"]'
+        '[data-slot="app-header-search"]',
       )
       if (!(target instanceof Node) || !wrapper?.contains(target)) return
       if (event.key === "Escape") {
@@ -121,7 +121,7 @@ function useSearchPopoverState(
         else commitUser(item.row)
       }
     },
-    [flat, activeIndex, clear, commitClip, commitGame, commitUser]
+    [flat, activeIndex, clear, commitClip, commitGame, commitUser],
   )
 
   // Window-scoped so ↓/↑/Esc work even when focus is still in the input.
@@ -133,12 +133,12 @@ function useSearchPopoverState(
       const target = event.target
       if (!(target instanceof Node)) return
       const wrapper = rootRef.current?.closest<HTMLElement>(
-        '[data-slot="app-header-search"]'
+        '[data-slot="app-header-search"]',
       )
       if (wrapper && wrapper.contains(target)) return
       closePopover()
     },
-    [closePopover]
+    [closePopover],
   )
   useDocumentEvent("pointerdown", onPointerDown, undefined, open)
 
@@ -154,7 +154,7 @@ function useSearchPopoverState(
 
 function useFlatSearchResults(
   data: ReturnType<typeof useSearchQuery>["data"],
-  listboxId: string
+  listboxId: string,
 ): FlatItem[] {
   return React.useMemo<FlatItem[]>(() => {
     if (!data) return []
@@ -185,11 +185,11 @@ function useSearchInputA11y(
   bridgeRef: React.RefObject<HTMLSpanElement | null>,
   showPopover: boolean,
   listboxId: string,
-  activeOptionId: string | undefined
+  activeOptionId: string | undefined,
 ): void {
   React.useEffect(() => {
     const wrapper = bridgeRef.current?.closest<HTMLElement>(
-      '[data-slot="app-header-search"]'
+      '[data-slot="app-header-search"]',
     )
     const input = wrapper?.querySelector<HTMLInputElement>("input")
     if (!input) return
@@ -202,9 +202,9 @@ function useSearchInputA11y(
     if (showPopover) input.setAttribute("aria-controls", listboxId)
     else input.removeAttribute("aria-controls")
 
-    if (activeOptionId)
+    if (activeOptionId) {
       input.setAttribute("aria-activedescendant", activeOptionId)
-    else input.removeAttribute("aria-activedescendant")
+    } else input.removeAttribute("aria-activedescendant")
 
     return () => {
       input.removeAttribute("role")
@@ -238,47 +238,48 @@ export function SearchResultsPopover() {
   } = useSearchPopoverState(flat, open, clear, setOpen)
 
   const showPopover = open && query.trim().length > 0
-  const activeOptionId =
-    showPopover && flat.length > 0 ? flat[activeIndex]?.optionId : undefined
+  const activeOptionId = showPopover && flat.length > 0
+    ? flat[activeIndex]?.optionId
+    : undefined
 
   useSearchInputA11y(bridgeRef, showPopover, listboxId, activeOptionId)
 
   return (
     <>
       <span ref={bridgeRef} hidden />
-      {showPopover ? (
-        <div
-          id={listboxId}
-          ref={rootRef}
-          role="listbox"
-          aria-label="Search results"
-          className={cn(
-            "absolute top-[calc(100%+0.5rem)] right-0 left-0 z-50",
-            "alloy-blur overflow-hidden rounded-md border",
-            "animate-in duration-100 fade-in-0 zoom-in-95"
-          )}
-          style={
-            {
+      {showPopover
+        ? (
+          <div
+            id={listboxId}
+            ref={rootRef}
+            role="listbox"
+            aria-label="Search results"
+            className={cn(
+              "absolute top-[calc(100%+0.5rem)] right-0 left-0 z-50",
+              "alloy-blur overflow-hidden rounded-md border",
+              "animate-in duration-100 fade-in-0 zoom-in-95",
+            )}
+            style={{
               "--alloy-blur-opacity": "82%",
               "--alloy-blur-blur": "28px",
               "--alloy-blur-shadow": "0 24px 60px -28px rgb(0 0 0 / 0.78)",
-            } as React.CSSProperties
-          }
-          onMouseDown={(event) => event.preventDefault()}
-        >
-          <SearchResultsBody
-            query={deferredQuery}
-            isFetching={isFetching}
-            error={error}
-            flat={flat}
-            activeIndex={activeIndex}
-            onHover={setActiveIndex}
-            onCommitClip={commitClip}
-            onCommitGame={commitGame}
-            onCommitUser={commitUser}
-          />
-        </div>
-      ) : null}
+            } as React.CSSProperties}
+            onMouseDown={(event) => event.preventDefault()}
+          >
+            <SearchResultsBody
+              query={deferredQuery}
+              isFetching={isFetching}
+              error={error}
+              flat={flat}
+              activeIndex={activeIndex}
+              onHover={setActiveIndex}
+              onCommitClip={commitClip}
+              onCommitGame={commitGame}
+              onCommitUser={commitUser}
+            />
+          </div>
+        )
+        : null}
     </>
   )
 }
@@ -329,19 +330,21 @@ function SearchResultsBody({
       <EmptyBlock
         icon={<SearchIcon />}
         title="No matches"
-        hint={`Nothing found for ${quote(query)}. Try a different title, game, or creator.`}
+        hint={`Nothing found for ${
+          quote(query)
+        }. Try a different title, game, or creator.`}
       />
     )
   }
 
   const games = flat.filter(
-    (i): i is Extract<FlatItem, { kind: "game" }> => i.kind === "game"
+    (i): i is Extract<FlatItem, { kind: "game" }> => i.kind === "game",
   )
   const users = flat.filter(
-    (i): i is Extract<FlatItem, { kind: "user" }> => i.kind === "user"
+    (i): i is Extract<FlatItem, { kind: "user" }> => i.kind === "user",
   )
   const clips = flat.filter(
-    (i): i is Extract<FlatItem, { kind: "clip" }> => i.kind === "clip"
+    (i): i is Extract<FlatItem, { kind: "clip" }> => i.kind === "clip",
   )
   const firstUserIndex = games.length
   const firstClipIndex = games.length + users.length
@@ -351,72 +354,78 @@ function SearchResultsBody({
       className={cn(
         "flex max-h-[70vh] flex-col overflow-y-auto pt-0.5",
         // Subtle header-row typographic style used across the app.
-        "font-sans"
+        "font-sans",
       )}
     >
-      {games.length > 0 ? (
-        <section>
-          <GroupLabel icon={<GamepadIcon />}>Games</GroupLabel>
-          <ul>
-            {games.map((item, localIdx) => {
-              const globalIdx = localIdx
-              return (
-                <li key={item.id}>
-                  <GameRowItem
-                    id={item.optionId}
-                    row={item.row}
-                    active={activeIndex === globalIdx}
-                    onHover={() => onHover(globalIdx)}
-                    onSelect={() => onCommitGame(item.row)}
-                  />
-                </li>
-              )
-            })}
-          </ul>
-        </section>
-      ) : null}
-      {users.length > 0 ? (
-        <section>
-          <GroupLabel icon={<UserIcon />}>Users</GroupLabel>
-          <ul>
-            {users.map((item, localIdx) => {
-              const globalIdx = firstUserIndex + localIdx
-              return (
-                <li key={item.id}>
-                  <UserRowItem
-                    id={item.optionId}
-                    row={item.row}
-                    active={activeIndex === globalIdx}
-                    onHover={() => onHover(globalIdx)}
-                    onSelect={() => onCommitUser(item.row)}
-                  />
-                </li>
-              )
-            })}
-          </ul>
-        </section>
-      ) : null}
-      {clips.length > 0 ? (
-        <section>
-          <GroupLabel icon={<FilmIcon />}>Clips</GroupLabel>
-          <ul>
-            {clips.map((item, localIdx) => {
-              const globalIdx = firstClipIndex + localIdx
-              return (
-                <li key={item.id}>
-                  <ClipRowItem
-                    id={item.optionId}
-                    row={item.row}
-                    active={activeIndex === globalIdx}
-                    onHover={() => onHover(globalIdx)}
-                    onSelect={() => onCommitClip(item.row)}
-                  />
-                </li>
-              )
-            })}
-          </ul>
-        </section>
-      ) : null}
+      {games.length > 0
+        ? (
+          <section>
+            <GroupLabel icon={<GamepadIcon />}>Games</GroupLabel>
+            <ul>
+              {games.map((item, localIdx) => {
+                const globalIdx = localIdx
+                return (
+                  <li key={item.id}>
+                    <GameRowItem
+                      id={item.optionId}
+                      row={item.row}
+                      active={activeIndex === globalIdx}
+                      onHover={() => onHover(globalIdx)}
+                      onSelect={() => onCommitGame(item.row)}
+                    />
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        )
+        : null}
+      {users.length > 0
+        ? (
+          <section>
+            <GroupLabel icon={<UserIcon />}>Users</GroupLabel>
+            <ul>
+              {users.map((item, localIdx) => {
+                const globalIdx = firstUserIndex + localIdx
+                return (
+                  <li key={item.id}>
+                    <UserRowItem
+                      id={item.optionId}
+                      row={item.row}
+                      active={activeIndex === globalIdx}
+                      onHover={() => onHover(globalIdx)}
+                      onSelect={() => onCommitUser(item.row)}
+                    />
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        )
+        : null}
+      {clips.length > 0
+        ? (
+          <section>
+            <GroupLabel icon={<FilmIcon />}>Clips</GroupLabel>
+            <ul>
+              {clips.map((item, localIdx) => {
+                const globalIdx = firstClipIndex + localIdx
+                return (
+                  <li key={item.id}>
+                    <ClipRowItem
+                      id={item.optionId}
+                      row={item.row}
+                      active={activeIndex === globalIdx}
+                      onHover={() => onHover(globalIdx)}
+                      onSelect={() => onCommitClip(item.row)}
+                    />
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        )
+        : null}
     </div>
   )
 }

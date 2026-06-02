@@ -12,8 +12,8 @@ import { Spinner } from "@workspace/ui/components/spinner"
 import { ClipCardTrigger } from "@/components/clip/clip-card-trigger"
 import { ClipGrid } from "@/components/clip/clip-grid"
 import {
-  ClipListProvider,
   type ClipListEntry,
+  ClipListProvider,
 } from "@/components/clip/clip-list-context"
 import { TopClipsCarousel } from "@/components/clip/top-clips-carousel"
 import { EmptyState } from "@/components/feedback/empty-state"
@@ -90,7 +90,7 @@ function ProfileTopClipsBody({
         gameSlug: row.gameRef?.slug ?? null,
         row,
       })),
-    [clips]
+    [clips],
   )
 
   if (clips === null && error) {

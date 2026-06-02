@@ -21,7 +21,7 @@ import { searchRoute } from "./routes/search"
 import { setupRoute } from "./routes/setup"
 import { csrf } from "./routes/auth-route-helpers"
 import { usersRoute } from "./routes/users"
-import { usersUploadRoute, userAssetsRoute } from "./routes/users-upload"
+import { userAssetsRoute, usersUploadRoute } from "./routes/users-upload"
 import { storageRoute } from "./storage/fs-upload-route"
 import { mountWeb } from "./web"
 
@@ -66,8 +66,9 @@ const requireAuthToBrowse = createMiddleware(async (c, next) => {
     return
   }
 
-  const isBrowseRequest =
-    BROWSE_API_PREFIXES.some((prefix) => path.startsWith(prefix)) ||
+  const isBrowseRequest = BROWSE_API_PREFIXES.some((prefix) =>
+    path.startsWith(prefix)
+  ) ||
     BROWSE_API_PATTERNS.some((pattern) => pattern.test(path))
   if (!isBrowseRequest) {
     await next()
@@ -87,14 +88,14 @@ const requireAuthToBrowse = createMiddleware(async (c, next) => {
 const apiApp = new Hono()
   .use(
     "*",
-    honoLogger((line) => logger.info(line))
+    honoLogger((line) => logger.info(line)),
   )
   .use(
     "*",
     cors({
       origin: env.TRUSTED_ORIGINS,
       credentials: true,
-    })
+    }),
   )
   .use("/api/*", csrf)
   .use("/api/*", requireAuthToBrowse)

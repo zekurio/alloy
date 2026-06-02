@@ -11,10 +11,9 @@ type ClipRow = typeof clip.$inferSelect
 
 export function resolveTrim(
   row: ClipRow,
-  durationMs: number
+  durationMs: number,
 ): { startMs: number | null; endMs: number | null } {
-  const trimRequested =
-    row.trimStartMs != null &&
+  const trimRequested = row.trimStartMs != null &&
     row.trimEndMs != null &&
     row.trimStartMs >= 0 &&
     row.trimEndMs > row.trimStartMs
@@ -28,7 +27,7 @@ export function resolveTrim(
 export async function ensureClipStillPresent(
   clipId: string,
   runId: string,
-  signal: AbortSignal
+  signal: AbortSignal,
 ): Promise<void> {
   signal.throwIfAborted()
   const [row] = await db
@@ -41,8 +40,7 @@ export async function ensureClipStillPresent(
 }
 
 export async function makeScratchDir(clipId: string): Promise<string> {
-  const base =
-    env.ENCODE_SCRATCH_DIR ??
+  const base = env.ENCODE_SCRATCH_DIR ??
     join(Deno.env.get("TMPDIR") ?? "/tmp", "alloy-encode")
   await Deno.mkdir(base, { recursive: true })
   return Deno.makeTempDir({ dir: base, prefix: `${clipId}-` })

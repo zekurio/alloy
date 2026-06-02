@@ -70,7 +70,7 @@ export function ProfileActions({
         onError: (cause) => {
           toast.error(errorMessage(cause, "Something went wrong"))
         },
-      }
+      },
     )
   }
 

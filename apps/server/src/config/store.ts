@@ -22,9 +22,11 @@ import {
 } from "./schema"
 import {
   OAuthProviderSchema,
+  OAuthProvidersSchema,
   type OAuthProviderSubmission,
   OAuthProviderSubmissionSchema,
 } from "./oauth-schema"
+import { migrateRuntimeConfig } from "./migrations"
 
 export {
   ENCODER_CODECS,
@@ -36,7 +38,11 @@ export const HWACCEL_KINDS = ENCODER_HWACCELS
 export type HwaccelKind = EncoderHwaccel
 export type { UsernameClaim } from "@workspace/contracts"
 
-export { OAuthProviderSchema, OAuthProviderSubmissionSchema }
+export {
+  OAuthProviderSchema,
+  OAuthProvidersSchema,
+  OAuthProviderSubmissionSchema,
+}
 export type { OAuthProviderSubmission }
 export {
   AppearanceConfigPatchSchema,
@@ -73,8 +79,36 @@ function resolveConfigPath(): string {
 const CONFIG_PATH = resolveConfigPath()
 
 type LoadResult =
-  | { ok: true; config: RuntimeConfig; created: boolean }
+  | { ok: true; config: RuntimeConfig; created: boolean; migrated: boolean }
   | { ok: false; error: string }
+
+type ParseResult =
+  | { ok: true; config: RuntimeConfig; migrated: boolean }
+  | { ok: false; error: string }
+
+function parseRuntimeConfigInput(raw: unknown): ParseResult {
+  const migration = migrateRuntimeConfig(raw)
+  if (!migration.ok) return migration
+
+  const result = RuntimeConfigSchema.safeParse(migration.config)
+  if (!result.success) {
+    return {
+      ok: false,
+      error: JSON.stringify(result.error.flatten()),
+    }
+  }
+  return {
+    ok: true,
+    config: result.data,
+    migrated: migration.migrated,
+  }
+}
+
+export function parseRuntimeConfig(value: unknown): RuntimeConfig {
+  const result = parseRuntimeConfigInput(value)
+  if (!result.ok) throw new Error(result.error)
+  return result.config
+}
 
 function loadFromDisk(): LoadResult {
   try {
@@ -83,6 +117,7 @@ function loadFromDisk(): LoadResult {
         ok: true,
         config: bootstrapDefaultConfig(),
         created: true,
+        migrated: false,
       }
     }
   } catch (err) {
@@ -91,6 +126,7 @@ function loadFromDisk(): LoadResult {
         ok: true,
         config: bootstrapDefaultConfig(),
         created: true,
+        migrated: false,
       }
     }
     return {
@@ -102,14 +138,14 @@ function loadFromDisk(): LoadResult {
   try {
     const raw = Deno.readTextFileSync(CONFIG_PATH)
     const json = JSON.parse(raw)
-    const result = RuntimeConfigSchema.safeParse(json)
-    if (!result.success) {
-      return {
-        ok: false,
-        error: JSON.stringify(result.error.flatten()),
-      }
+    const result = parseRuntimeConfigInput(json)
+    if (!result.ok) return result
+    return {
+      ok: true,
+      config: result.config,
+      created: false,
+      migrated: result.migrated,
     }
-    return { ok: true, config: result.data, created: false }
   } catch (err) {
     return {
       ok: false,
@@ -130,13 +166,13 @@ const initialLoad = loadFromDisk()
 if (!initialLoad.ok) {
   logger.error(
     `[config-store] ${CONFIG_PATH} failed validation:`,
-    initialLoad.error
+    initialLoad.error,
   )
   Deno.exit(1)
 }
 
 let state: RuntimeConfig = initialLoad.config
-if (initialLoad.created) {
+if (initialLoad.created || initialLoad.migrated) {
   writeToDisk(state)
 }
 
@@ -158,7 +194,7 @@ state = freezeRuntimeConfig(state)
 
 type Listener = (
   next: Readonly<RuntimeConfig>,
-  prev: Readonly<RuntimeConfig>
+  prev: Readonly<RuntimeConfig>,
 ) => void
 const listeners = new Set<Listener>()
 
@@ -186,6 +222,7 @@ function reloadFromDisk(): boolean {
     return false
   }
   apply(result.config, false)
+  if (result.migrated) writeToDisk(state)
   return true
 }
 
@@ -222,6 +259,7 @@ interface ConfigStore {
   getAll(): Readonly<RuntimeConfig>
   set<K extends keyof RuntimeConfig>(key: K, value: RuntimeConfig[K]): void
   patch(patch: Partial<RuntimeConfig>): void
+  replace(value: unknown): void
   reload(): boolean
   subscribe(fn: Listener): () => void
   readonly filePath: string
@@ -239,6 +277,9 @@ export const configStore: ConfigStore = {
   },
   patch(patch) {
     commit(RuntimeConfigSchema.parse({ ...state, ...patch }))
+  },
+  replace(value) {
+    commit(parseRuntimeConfig(value))
   },
   reload() {
     return reloadFromDisk()

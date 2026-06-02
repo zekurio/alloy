@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 
 import { SectionTitle } from "@workspace/ui/components/section-head"
+import { Separator } from "@workspace/ui/components/separator"
 import { toast } from "@workspace/ui/lib/toast"
 
 import type { PublicAuthConfig } from "@workspace/api"
@@ -35,7 +36,7 @@ import { useIsAdmin, useRequireAuthStrict } from "@/lib/auth-hooks"
 import { errorMessage } from "@/lib/error-message"
 import { useSuspenseAuthConfig } from "@/lib/session-suspense"
 
-export const Route = createFileRoute("/(app)/_app/_settings/user-settings")({
+export const Route = createFileRoute("/(app)/_app/_settings/settings")({
   component: ProfilePage,
 })
 
@@ -64,8 +65,7 @@ function useSecurityData(config: PublicAuthConfig) {
   return {
     accounts: accountsQuery.data ?? null,
     passkeys: config.passkeyEnabled ? (passkeysQuery.data ?? null) : null,
-    loading:
-      accountsQuery.isPending ||
+    loading: accountsQuery.isPending ||
       (config.passkeyEnabled && passkeysQuery.isPending),
     refreshAccounts: async () => {
       await accountsQuery.refetch()
@@ -98,9 +98,8 @@ function SecurityContent({ config }: { config: PublicAuthConfig }) {
           <LinkedAccountsCard
             accounts={accounts}
             config={config}
-            hasPasskeySignIn={
-              config.passkeyEnabled && (passkeys?.length ?? 0) > 0
-            }
+            hasPasskeySignIn={config.passkeyEnabled &&
+              (passkeys?.length ?? 0) > 0}
             onRefresh={refreshAccounts}
           />
         </div>
@@ -128,11 +127,12 @@ function ProfilePage() {
         Settings
       </SectionTitle>
 
-      <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
+      <div className="flex flex-col gap-3">
         <SettingsSection
           icon={UserIcon}
           title="Profile identity"
           description="Edit your name, username, email, avatar, and banner."
+          defaultOpen
         >
           <ProfileCard
             key={user.id}
@@ -149,6 +149,7 @@ function ProfilePage() {
           icon={ShieldIcon}
           title="Sign-in security"
           description="Manage linked accounts and passkeys for this account."
+          defaultOpen
         >
           <SecurityContent config={config} />
         </SettingsSection>
@@ -175,14 +176,18 @@ function ProfilePage() {
       </div>
 
       {isAdmin && (
-        <div className="flex flex-col gap-3">
-          <p className="px-1 text-xs font-medium tracking-widest text-foreground-dim uppercase">
-            Administration
-          </p>
-          <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
+        <>
+          <div className="flex items-center gap-3">
+            <Separator className="flex-1" />
+            <span className="text-xs font-medium tracking-wider text-foreground-muted uppercase">
+              Administration
+            </span>
+            <Separator className="flex-1" />
+          </div>
+          <div className="flex flex-col gap-3">
             <AdminSettingsSections userId={user.id} />
           </div>
-        </div>
+        </>
       )}
     </div>
   )

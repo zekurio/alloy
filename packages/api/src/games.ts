@@ -37,7 +37,7 @@ export function gameGridUrl(slug: string, origin?: string): string {
 }
 
 async function fetchSteamGridDBStatus(
-  context: ApiContext
+  context: ApiContext,
 ): Promise<SteamGridDBStatus> {
   const res = await context.rpc.api.games.status.$get()
   return readJsonOrThrow(res, validateSteamGridDBStatus)
@@ -45,7 +45,7 @@ async function fetchSteamGridDBStatus(
 
 async function searchGames(
   context: ApiContext,
-  query: string
+  query: string,
 ): Promise<SteamGridDBSearchResult[]> {
   const res = await context.rpc.api.games.search.$get({
     query: { q: query },
@@ -55,7 +55,7 @@ async function searchGames(
 
 async function resolveGame(
   context: ApiContext,
-  steamgriddbId: number
+  steamgriddbId: number,
 ): Promise<GameRow> {
   const res = await context.rpc.api.games.resolve.$post({
     json: { steamgriddbId },
@@ -65,7 +65,7 @@ async function resolveGame(
 
 async function fetchAllGames(
   context: ApiContext,
-  params: { limit?: number; offset?: number } = {}
+  params: { limit?: number; offset?: number } = {},
 ): Promise<GameListRow[]> {
   const res = await context.rpc.api.games.$get({
     query: queryParams(params),
@@ -75,7 +75,7 @@ async function fetchAllGames(
 
 async function fetchGameBySlug(
   context: ApiContext,
-  slug: string
+  slug: string,
 ): Promise<GameDetail> {
   const res = await context.rpc.api.games[":slug"].$get({
     param: { slug },
@@ -86,17 +86,17 @@ async function fetchGameBySlug(
 async function setGameFollow(
   context: ApiContext,
   slug: string,
-  following: true
+  following: true,
 ): Promise<{ following: true }>
 async function setGameFollow(
   context: ApiContext,
   slug: string,
-  following: false
+  following: false,
 ): Promise<{ following: false }>
 async function setGameFollow(
   context: ApiContext,
   slug: string,
-  following: boolean
+  following: boolean,
 ): Promise<{ following: boolean }> {
   const response = await readPostDeleteJson(
     following,
@@ -106,7 +106,7 @@ async function setGameFollow(
       delete: () =>
         context.rpc.api.games[":slug"].follow.$delete({ param: { slug } }),
     },
-    booleanFlagResponseValidator("following", following)
+    booleanFlagResponseValidator("following", following),
   )
   return { following: response.following }
 }
@@ -114,7 +114,7 @@ async function setGameFollow(
 async function fetchGameClips(
   context: ApiContext,
   slug: string,
-  params: GameClipsParams = {}
+  params: GameClipsParams = {},
 ): Promise<ClipRow[]> {
   return (await fetchGameClipPage(context, slug, params)).items
 }
@@ -122,7 +122,7 @@ async function fetchGameClips(
 async function fetchGameClipPage(
   context: ApiContext,
   slug: string,
-  params: GameClipsParams = {}
+  params: GameClipsParams = {},
 ): Promise<ClipPage> {
   const res = await context.rpc.api.games[":slug"].clips.$get({
     param: { slug },
@@ -138,7 +138,7 @@ async function fetchGameClipPage(
 async function fetchGameTopClips(
   context: ApiContext,
   slug: string,
-  limit = 5
+  limit = 5,
 ): Promise<ClipRow[]> {
   const res = await context.rpc.api.games[":slug"]["top-clips"].$get({
     param: { slug },

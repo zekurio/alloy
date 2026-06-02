@@ -37,10 +37,12 @@ function PaginationItem({ ...props }: React.ComponentProps<"li">) {
   return <li data-slot="pagination-item" {...props} />
 }
 
-type PaginationLinkProps = {
-  isActive?: boolean
-} & Pick<React.ComponentProps<typeof Button>, "size"> &
-  React.ComponentProps<"a">
+type PaginationLinkProps =
+  & {
+    isActive?: boolean
+  }
+  & Pick<React.ComponentProps<typeof Button>, "size">
+  & React.ComponentProps<"a">
 
 function PaginationLink({
   className,
@@ -82,7 +84,7 @@ function PaginationDirectionLink({
       size="default"
       className={cn(
         iconPosition === "start" ? "pl-1.5!" : "pr-1.5!",
-        className
+        className,
       )}
       {...props}
     >
@@ -101,7 +103,7 @@ function renderPaginationDirectionLink(
     React.ComponentProps<typeof PaginationLink>,
     "children" | "className"
   >,
-  icon: React.ReactNode
+  icon: React.ReactNode,
 ) {
   return (
     <PaginationDirectionLink
@@ -138,7 +140,7 @@ function createPaginationDirectionComponent({
       text,
       className,
       props,
-      icon
+      icon,
     )
   }
 }
@@ -167,7 +169,7 @@ function PaginationEllipsis({
       data-slot="pagination-ellipsis"
       className={cn(
         "flex size-8 items-center justify-center [&_svg:not([class*='size-'])]:size-4",
-        className
+        className,
       )}
       {...props}
     >

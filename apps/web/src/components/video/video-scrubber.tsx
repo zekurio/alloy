@@ -23,6 +23,12 @@ export function VideoScrubber({
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
   const buffered = duration > 0 ? (bufferedEnd / duration) * 100 : 0
 
+  // Shared geometry for the three stacked bar layers (track → buffer →
+  // progress). The edge variant hugs the bottom as a thin 2px rail.
+  const barLayerClass = variant === "edge"
+    ? "bottom-0 h-[2px]"
+    : "top-1/2 h-[4px] -translate-y-1/2"
+
   const secFromClientX = React.useCallback(
     (clientX: number): number => {
       const rail = railRef.current
@@ -31,7 +37,7 @@ export function VideoScrubber({
       const pct = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
       return pct * duration
     },
-    [duration]
+    [duration],
   )
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -86,27 +92,41 @@ export function VideoScrubber({
         "bg-transparent",
         variant !== "edge" &&
           "transition-[height] duration-[var(--duration-fast)] ease-[var(--ease-out)] focus-visible:h-2",
-        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
       )}
     >
+      {/* Layer 1 — full track (the whole bar). */}
+      <div
+        aria-hidden
+        className={cn(
+          "absolute left-0 w-full rounded-full",
+          barLayerClass,
+          variant === "edge" ? "bg-white/15" : "bg-white/20",
+        )}
+      />
+      {
+        /* Layer 2 — buffered range. Kept dim so the played bar clearly reads
+          as the brightest of the three layers. */
+      }
       <div
         aria-hidden
         className={cn(
           "absolute left-0 rounded-full",
-          variant === "edge"
-            ? "bottom-0 h-[2px]"
-            : "top-1/2 h-[4px] -translate-y-1/2",
-          variant === "edge" ? "bg-white/20" : "bg-white/25"
+          barLayerClass,
+          variant === "edge" ? "bg-white/25" : "bg-white/30",
         )}
         style={{ width: `${buffered}%` }}
       />
+      {
+        /* Layer 3 — played progress. An accent glow lifts it off the buffered
+          range even when the underlying frame is bright. */
+      }
       <div
         aria-hidden
         className={cn(
           "absolute left-0 rounded-full bg-accent",
-          variant === "edge"
-            ? "bottom-0 h-[2px]"
-            : "top-1/2 h-[4px] -translate-y-1/2"
+          barLayerClass,
+          variant !== "edge" && "shadow-[0_0_8px_var(--accent-glow)]",
         )}
         style={{ width: `${progress}%` }}
       />
@@ -118,7 +138,7 @@ export function VideoScrubber({
             "bg-accent",
             variant === "translucent"
               ? "opacity-100"
-              : "opacity-0 transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)] group-hover/scrub:opacity-100 group-focus-visible/scrub:opacity-100"
+              : "opacity-0 transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)] group-hover/scrub:opacity-100 group-focus-visible/scrub:opacity-100",
           )}
           style={{ left: `${progress}%` }}
         />

@@ -25,7 +25,7 @@ function GameTile({
       data-slot="game-tile"
       className={cn(
         "group/game-tile flex cursor-pointer flex-col gap-3",
-        className
+        className,
       )}
       {...props}
     >
@@ -33,26 +33,27 @@ function GameTile({
         className={cn(
           "relative aspect-[3/4] overflow-hidden rounded-md bg-neutral-200",
           "transition-[box-shadow,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-          "group-hover/game-tile:shadow-[0_0_0_1px_var(--accent-border)]"
+          "group-hover/game-tile:shadow-[0_0_0_1px_var(--accent-border)]",
         )}
       >
-        {cover ? (
-          <img src={cover} alt={name} className="size-full object-cover" />
-        ) : (
-          <div
-            aria-hidden
-            className={cn(
-              "absolute inset-0 grid place-items-center p-2 text-center",
-              "font-mono text-sm font-semibold tracking-[0.02em]"
-            )}
-            style={{
-              background: `radial-gradient(120% 80% at 30% 20%, oklch(0.32 0.14 ${hue}), oklch(0.08 0.04 ${hue}))`,
-              color: `oklch(0.85 0.1 ${hue})`,
-            }}
-          >
-            {name}
-          </div>
-        )}
+        {cover
+          ? <img src={cover} alt={name} className="size-full object-cover" />
+          : (
+            <div
+              aria-hidden
+              className={cn(
+                "absolute inset-0 grid place-items-center p-2 text-center",
+                "font-mono text-sm font-semibold tracking-[0.02em]",
+              )}
+              style={{
+                background:
+                  `radial-gradient(120% 80% at 30% 20%, oklch(0.32 0.14 ${hue}), oklch(0.08 0.04 ${hue}))`,
+                color: `oklch(0.85 0.1 ${hue})`,
+              }}
+            >
+              {name}
+            </div>
+          )}
       </div>
       <div className="flex flex-col gap-1">
         <div className="truncate text-sm font-semibold text-foreground">

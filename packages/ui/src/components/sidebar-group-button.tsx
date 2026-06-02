@@ -9,7 +9,7 @@ export function createSidebarGroupButtonComponent(
     sidebar: string
     slot: string
   },
-  defaultClassName: string
+  defaultClassName: string,
 ) {
   return function SidebarGroupButtonComponent({
     className,
@@ -22,7 +22,7 @@ export function createSidebarGroupButtonComponent(
         {
           className: cn(defaultClassName, className),
         },
-        props
+        props,
       ),
       render,
       state,

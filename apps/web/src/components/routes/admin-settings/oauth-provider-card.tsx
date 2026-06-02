@@ -48,17 +48,22 @@ export function OAuthProviderCard({
 }: OAuthProviderCardProps) {
   const [draft, setDraft] = React.useState<AdminOAuthProvider | null>(null)
   const [editing, setEditing] = React.useState(false)
+  const [editingProviderId, setEditingProviderId] = React.useState<
+    string | null
+  >(null)
   const [pendingAction, setPendingAction] = React.useState<string | null>(null)
 
-  const provider = config.oauthProvider
+  const providers = config.oauthProviders
 
   async function persistProvider(
-    next: AdminOAuthProvider | null,
-    successMessage: string
+    nextProviders: AdminOAuthProvider[],
+    successMessage: string,
   ) {
     setPendingAction(successMessage)
     try {
-      const updated = await api.admin.saveOAuthConfig({ oauthProvider: next })
+      const updated = await api.admin.saveOAuthConfig({
+        oauthProviders: nextProviders,
+      })
       publishRuntimeConfigUpdate({ authConfigChanged: true })
       onChange(updated)
       toast.success(successMessage)
@@ -73,12 +78,13 @@ export function OAuthProviderCard({
 
   function openCreate() {
     setEditing(false)
+    setEditingProviderId(null)
     setDraft(emptyProvider())
   }
 
-  function openEdit() {
-    if (!provider) return
+  function openEditProvider(provider: AdminOAuthProvider) {
     setEditing(true)
+    setEditingProviderId(provider.providerId)
     setDraft({ ...provider })
   }
 
@@ -86,45 +92,69 @@ export function OAuthProviderCard({
     if (pendingAction) return
     setDraft(null)
     setEditing(false)
+    setEditingProviderId(null)
   }
 
-  async function toggleEnabled(enabled: boolean) {
-    if (pendingAction || !provider) return
+  async function toggleEnabled(providerId: string, enabled: boolean) {
+    if (pendingAction) return
     await persistProvider(
-      { ...provider, enabled },
-      enabled ? "Provider enabled" : "Provider disabled"
+      providers.map((provider) =>
+        provider.providerId === providerId ? { ...provider, enabled } : provider
+      ),
+      enabled ? "Provider enabled" : "Provider disabled",
     )
   }
 
-  async function removeProvider() {
+  async function removeProvider(providerId: string) {
     if (pendingAction) return
-    await persistProvider(null, "Provider removed")
+    await persistProvider(
+      providers.filter((provider) => provider.providerId !== providerId),
+      "Provider removed",
+    )
   }
 
   async function saveProvider(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!draft || pendingAction) return
-    if (editing && provider && oauthProvidersEqual(draft, provider)) {
+    const currentProvider = providers.find((provider) =>
+      provider.providerId === editingProviderId
+    )
+    if (
+      editing && currentProvider && oauthProvidersEqual(draft, currentProvider)
+    ) {
       closeDialog()
       return
     }
+    const submissionProvider = toSubmissionProvider(draft)
+    const nextProviders = editing
+      ? providers.map((provider) =>
+        provider.providerId === editingProviderId
+          ? submissionProvider
+          : provider
+      )
+      : [...providers, submissionProvider]
     const ok = await persistProvider(
-      toSubmissionProvider(draft),
-      editing ? "Provider updated" : "Provider added"
+      nextProviders,
+      editing ? "Provider updated" : "Provider added",
     )
     if (ok) closeDialog()
   }
 
   function setDraftField<K extends keyof AdminOAuthProvider>(
     key: K,
-    value: AdminOAuthProvider[K]
+    value: AdminOAuthProvider[K],
   ) {
     setDraft((current) => (current ? { ...current, [key]: value } : current))
   }
 
   const disabled = pendingAction !== null
-  const providerChanged =
-    !editing || !draft || !provider || !oauthProvidersEqual(draft, provider)
+  const currentProvider = draft
+    ? providers.find((provider) => provider.providerId === editingProviderId)
+    : undefined
+  const providerChanged = !editing || !draft || !currentProvider ||
+    !oauthProvidersEqual(draft, currentProvider)
+  const enabledProviderCount = providers.filter((provider) => provider.enabled)
+    .length
 
   return (
     <>
@@ -134,89 +164,147 @@ export function OAuthProviderCard({
             <SectionTitle>OIDC / OAuth provider</SectionTitle>
           </SectionHeader>
         )}
-        <SectionContent className="flex items-center justify-between gap-4 py-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-border">
-              <UserKeyIcon className="size-4" />
-            </span>
-            <div className="min-w-0">
-              <div className="truncate text-sm font-medium">
-                {provider ? provider.displayName : "OAuth provider"}
-              </div>
-              <p className="truncate text-xs text-foreground-dim">
-                {provider
-                  ? provider.providerId
-                  : "Configure a generic OIDC/OAuth2 provider (e.g. PocketID)."}
-              </p>
-            </div>
-          </div>
+        <SectionContent className="flex flex-col gap-3 py-3">
+          {providers.length > 0
+            ? (
+              <>
+                <ul className="flex flex-col divide-y divide-border">
+                  {providers.map((provider) => (
+                    <li
+                      key={provider.providerId}
+                      className="flex items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0"
+                    >
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <span
+                          className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border"
+                          style={{
+                            backgroundColor: provider.buttonColor,
+                            color: provider.buttonTextColor,
+                          }}
+                        >
+                          {provider.iconUrl
+                            ? (
+                              <img
+                                src={provider.iconUrl}
+                                alt=""
+                                className="size-4 object-contain"
+                              />
+                            )
+                            : <UserKeyIcon className="size-4" />}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium">
+                            {provider.displayName}
+                          </div>
+                          <p className="truncate text-xs text-foreground-dim">
+                            {provider.providerId}
+                          </p>
+                        </div>
+                      </div>
 
-          {provider ? (
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={provider.enabled}
-                disabled={
-                  disabled || (provider.enabled && !config.passkeyEnabled)
-                }
-                onCheckedChange={toggleEnabled}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                disabled={disabled}
-                onClick={openEdit}
-              >
-                <PencilIcon />
-              </Button>
-              <AlertDialog>
-                <AlertDialogTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      disabled={disabled}
-                    >
-                      <Trash2Icon />
-                    </Button>
-                  }
-                />
-                <AlertDialogContent>
-                  <AlertDialogHeader className="place-items-start text-left">
-                    <AlertDialogTitle>Remove OAuth provider?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This disables sign-in through {provider.displayName}. You
-                      can add it back later.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter className="flex-row justify-end">
-                    <AlertDialogCancel disabled={disabled}>
-                      Cancel
-                    </AlertDialogCancel>
-                    <AlertDialogAction
-                      variant="destructive"
-                      onClick={removeProvider}
-                      disabled={disabled}
-                    >
-                      {disabled ? "Removing…" : "Remove provider"}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          ) : (
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              disabled={disabled}
-              onClick={openCreate}
-            >
-              <PlusIcon />
-              Add provider
-            </Button>
-          )}
+                      <div className="flex items-center gap-1">
+                        <Switch
+                          checked={provider.enabled}
+                          disabled={disabled ||
+                            (provider.enabled &&
+                              enabledProviderCount <= 1 &&
+                              !config.passkeyEnabled)}
+                          onCheckedChange={(enabled) =>
+                            void toggleEnabled(provider.providerId, enabled)}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          disabled={disabled}
+                          onClick={() => openEditProvider(provider)}
+                        >
+                          <PencilIcon />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger
+                            render={
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                disabled={disabled}
+                              >
+                                <Trash2Icon />
+                              </Button>
+                            }
+                          />
+                          <AlertDialogContent>
+                            <AlertDialogHeader className="place-items-start text-left">
+                              <AlertDialogTitle>
+                                Remove OAuth provider?
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This disables sign-in through{" "}
+                                {provider.displayName}. You can add it back
+                                later.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter className="flex-row justify-end">
+                              <AlertDialogCancel disabled={disabled}>
+                                Cancel
+                              </AlertDialogCancel>
+                              <AlertDialogAction
+                                variant="destructive"
+                                onClick={() =>
+                                  removeProvider(provider.providerId)}
+                                disabled={disabled}
+                              >
+                                {disabled ? "Removing…" : "Remove provider"}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={disabled}
+                    onClick={openCreate}
+                  >
+                    <PlusIcon />
+                    Add provider
+                  </Button>
+                </div>
+              </>
+            )
+            : (
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border">
+                    <UserKeyIcon className="size-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">
+                      OAuth providers
+                    </div>
+                    <p className="truncate text-xs text-foreground-dim">
+                      Configure generic OIDC/OAuth2 providers.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  disabled={disabled}
+                  onClick={openCreate}
+                >
+                  <PlusIcon />
+                  Add provider
+                </Button>
+              </div>
+            )}
         </SectionContent>
       </Section>
 

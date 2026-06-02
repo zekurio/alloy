@@ -5,12 +5,14 @@ import {
   randomPKCECodeVerifier,
   randomState,
 } from "openid-client"
-import { and, eq } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import type { Context } from "hono"
 
 import { authAccount, authChallenge, user } from "@workspace/db/auth-schema"
+import { logger } from "@workspace/logging"
 
 import { db } from "../db"
+import { errorDetail } from "../runtime/error-message"
 import {
   clearOAuthStateCookie,
   readOAuthStateCookie,
@@ -19,12 +21,12 @@ import {
 import { linkAccountToUser, resolveSignInUser } from "./oauth-accounts"
 import {
   callbackURLForProvider,
+  callbackURLWithOAuthError,
   fetchLinkedUserInfo,
   normalizeCallbackURL,
   oauthClient,
   requireEnabledProvider,
   scopesForProvider,
-  callbackURLWithOAuthError,
 } from "./oauth-client"
 import {
   consumeOAuthChallenge,
@@ -32,7 +34,7 @@ import {
   OAUTH_PURPOSE,
   OAUTH_STATE_TTL_MS,
 } from "./oauth-challenges"
-import { getEnabledProviderConfig, imageFromProfile } from "./oauth-config"
+import { getEnabledProviderConfigs, imageFromProfile } from "./oauth-config"
 import { profileFromTokens, storedTokens } from "./oauth-profile"
 import type { OAuthChallengePayload, OAuthMode } from "./oauth-types"
 import { createSession, getSession } from "./session"
@@ -65,8 +67,9 @@ async function startOAuthFlow(input: {
 
   const state = randomState()
   const browserNonce = randomState()
-  const codeVerifier =
-    provider.pkce === false ? undefined : randomPKCECodeVerifier()
+  const codeVerifier = provider.pkce === false
+    ? undefined
+    : randomPKCECodeVerifier()
   const callbackURL = normalizeCallbackURL(input.callbackURL)
   const config = await oauthClient(provider)
   const scope = scopesForProvider(provider)
@@ -108,7 +111,7 @@ async function startOAuthFlow(input: {
 
 export async function finishOAuthCallback(
   c: Context,
-  providerId: string
+  providerId: string,
 ): Promise<{ redirectTo: string }> {
   const provider = requireEnabledProvider(providerId)
   const currentURL = new URL(c.req.url)
@@ -160,6 +163,10 @@ export async function finishOAuthCallback(
     setSessionCookies(c, token)
     return { redirectTo: payload.callbackURL }
   } catch (cause) {
+    logger.warn(
+      `[oauth] ${payload.mode} callback failed for ${provider.providerId}:`,
+      errorDetail(cause, "Unknown OAuth callback error"),
+    )
     return {
       redirectTo: callbackURLWithOAuthError(payload.callbackURL, cause),
     }
@@ -170,40 +177,43 @@ export async function syncLinkedOAuthImage(userId: string): Promise<{
   image: string | null
   synced: boolean
 }> {
-  const provider = getEnabledProviderConfig()
-  if (!provider) return { image: null, synced: false }
+  const providers = getEnabledProviderConfigs()
+  if (providers.length === 0) return { image: null, synced: false }
+  const providerById = new Map(
+    providers.map((provider) => [provider.providerId, provider]),
+  )
 
-  const [account] = await db
+  const accounts = await db
     .select()
     .from(authAccount)
-    .where(
-      and(
-        eq(authAccount.userId, userId),
-        eq(authAccount.providerId, provider.providerId)
-      )
+    .where(eq(authAccount.userId, userId))
+
+  for (const account of accounts) {
+    const provider = providerById.get(account.providerId)
+    if (!provider || !account.accessToken) continue
+    if (
+      account.accessTokenExpiresAt &&
+      account.accessTokenExpiresAt.getTime() <= Date.now()
+    ) {
+      continue
+    }
+
+    const userInfo = await fetchLinkedUserInfo(
+      provider,
+      account.accessToken,
+      account.providerAccountId,
     )
-    .limit(1)
-  if (!account?.accessToken) return { image: null, synced: false }
-  if (
-    account.accessTokenExpiresAt &&
-    account.accessTokenExpiresAt.getTime() <= Date.now()
-  ) {
-    return { image: null, synced: false }
+    if (!userInfo) continue
+
+    const image = imageFromProfile(userInfo)
+    if (!image) continue
+
+    await db
+      .update(user)
+      .set({ image, updatedAt: new Date() })
+      .where(eq(user.id, userId))
+    return { image, synced: true }
   }
 
-  const userInfo = await fetchLinkedUserInfo(
-    provider,
-    account.accessToken,
-    account.providerAccountId
-  )
-  if (!userInfo) return { image: null, synced: false }
-
-  const image = imageFromProfile(userInfo)
-  if (!image) return { image: null, synced: false }
-
-  await db
-    .update(user)
-    .set({ image, updatedAt: new Date() })
-    .where(eq(user.id, userId))
-  return { image, synced: true }
+  return { image: null, synced: false }
 }

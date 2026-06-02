@@ -16,7 +16,7 @@ const server = Deno.serve(
       logger.info(`[server] listening on ${hostname}:${port}`)
     },
   },
-  app.fetch
+  app.fetch,
 )
 
 void startQueue().catch((err) => {

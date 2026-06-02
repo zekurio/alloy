@@ -78,11 +78,13 @@ function UserMenuInner() {
           <span className="truncate text-sm font-semibold text-foreground">
             {primaryLabel}
           </span>
-          {email ? (
-            <span className="truncate text-xs text-foreground-faint">
-              {email}
-            </span>
-          ) : null}
+          {email
+            ? (
+              <span className="truncate text-xs text-foreground-faint">
+                {email}
+              </span>
+            )
+            : null}
         </div>
         <DropdownMenuSeparator />
         <div className="px-3 py-2">

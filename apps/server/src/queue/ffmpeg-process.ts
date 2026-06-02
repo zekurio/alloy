@@ -15,7 +15,7 @@ interface RunProcessOptions {
 export async function runCapture(
   bin: string,
   args: ReadonlyArray<string>,
-  opts: RunProcessOptions = {}
+  opts: RunProcessOptions = {},
 ): Promise<CaptureResult> {
   const startedAt = Date.now()
   try {
@@ -32,7 +32,9 @@ export async function runCapture(
     }
     logProcessFailure(bin, opts.label, startedAt, output.code, stderr)
     throw new Error(
-      `${bin} exited ${output.code}: ${stderr.trim().slice(-500) || "(no stderr)"}`
+      `${bin} exited ${output.code}: ${
+        stderr.trim().slice(-500) || "(no stderr)"
+      }`,
     )
   } catch (err) {
     logProcessError(bin, opts.label, startedAt, err as Error)
@@ -44,7 +46,7 @@ export async function runWithProgress(
   bin: string,
   args: ReadonlyArray<string>,
   onLine: (line: string) => void,
-  opts: RunProcessOptions = {}
+  opts: RunProcessOptions = {},
 ): Promise<void> {
   const { signal } = opts
   if (signal?.aborted) throw abortError()
@@ -92,7 +94,7 @@ export async function runWithProgress(
     }
     logProcessFailure(bin, opts.label, startedAt, status.code, stderrTail)
     throw new Error(
-      `${bin} exited ${status.code}: ${stderrTail.trim().slice(-500)}`
+      `${bin} exited ${status.code}: ${stderrTail.trim().slice(-500)}`,
     )
   } catch (err) {
     signal?.removeEventListener("abort", onAbort)
@@ -101,7 +103,7 @@ export async function runWithProgress(
         bin,
         opts.label,
         startedAt,
-        toError(err, "Process failed")
+        toError(err, "Process failed"),
       )
     }
     throw err
@@ -119,11 +121,13 @@ function logProcessFailure(
   label: string | undefined,
   startedAt: number,
   code: number | null,
-  stderr: string
+  stderr: string,
 ): void {
   const tail = stderr.trim().slice(-1000) || "(no stderr)"
   logger.error(
-    `[ffmpeg] ${processName(bin, label)} failed after ${Date.now() - startedAt}ms with exit ${code}: ${tail}`
+    `[ffmpeg] ${processName(bin, label)} failed after ${
+      Date.now() - startedAt
+    }ms with exit ${code}: ${tail}`,
   )
 }
 
@@ -131,11 +135,13 @@ function logProcessError(
   bin: string,
   label: string | undefined,
   startedAt: number,
-  err: Error
+  err: Error,
 ): void {
   logger.error(
-    `[ffmpeg] ${processName(bin, label)} errored after ${Date.now() - startedAt}ms:`,
-    err
+    `[ffmpeg] ${processName(bin, label)} errored after ${
+      Date.now() - startedAt
+    }ms:`,
+    err,
   )
 }
 

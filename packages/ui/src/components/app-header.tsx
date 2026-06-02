@@ -23,7 +23,7 @@ function AppHeader({ className, ...props }: React.ComponentProps<"header">) {
         "max-sm:[&:has([data-slot=app-header-search]:focus-within)_[data-slot=app-header-actions]]:pointer-events-none",
         "max-sm:[&:has([data-slot=app-header-search]:focus-within)_[data-slot=app-header-actions]]:opacity-0",
         "h-[var(--header-h)] border-b border-border bg-surface",
-        className
+        className,
       )}
       {...props}
     />
@@ -41,7 +41,7 @@ function AppHeaderBrand({
       data-slot="app-header-brand"
       className={cn(
         "flex min-w-0 items-center gap-2 justify-self-start font-sans text-md font-bold tracking-normal",
-        className
+        className,
       )}
       {...props}
     >
@@ -51,10 +51,11 @@ function AppHeaderBrand({
   )
 }
 
-interface AppHeaderSearchProps extends Omit<
-  React.ComponentProps<"input">,
-  "size" | "type" | "children"
-> {
+interface AppHeaderSearchProps extends
+  Omit<
+    React.ComponentProps<"input">,
+    "size" | "type" | "children"
+  > {
   hint?: React.ReactNode
   icon?: React.ReactNode
   containerClassName?: string
@@ -80,11 +81,11 @@ const AppHeaderSearch = React.forwardRef<
     children,
     ...props
   },
-  ref
+  ref,
 ) {
   const resolvedHint = hint ?? <DefaultSearchHint />
-  const hasValue =
-    onClear != null && typeof value === "string" && value.length > 0
+  const hasValue = onClear != null && typeof value === "string" &&
+    value.length > 0
 
   return (
     <div
@@ -92,7 +93,7 @@ const AppHeaderSearch = React.forwardRef<
       className={cn(
         "relative w-full max-w-[28rem] min-w-0 justify-self-center",
         "max-sm:focus-within:z-30",
-        containerClassName
+        containerClassName,
       )}
     >
       <div className="group/search relative flex h-8 w-full items-center">
@@ -104,7 +105,7 @@ const AppHeaderSearch = React.forwardRef<
             // focused — another visual cue the field is active.
             "text-foreground-faint [&_svg]:size-3.5",
             "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-            "group-focus-within/search:text-accent"
+            "group-focus-within/search:text-accent",
           )}
         >
           {icon ?? <SearchIcon />}
@@ -121,35 +122,39 @@ const AppHeaderSearch = React.forwardRef<
             "outline-none",
             "focus:border-accent focus:bg-surface-raised",
             "focus:shadow-[0_0_0_3px_var(--accent-soft)]",
-            className
+            className,
           )}
           {...props}
         />
-        {hasValue ? (
-          <button
-            type="button"
-            aria-label={clearAriaLabel}
-            onClick={onClear}
-            className={cn(
-              "absolute top-1/2 right-1.5 -translate-y-1/2",
-              "grid size-6 place-items-center rounded-sm",
-              // Brand-blue-aware hover: soft fill from the accent family
-              // instead of the off-white the native browser X paints.
-              "text-foreground-faint",
-              "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-              "hover:bg-accent-soft hover:text-accent",
-              "focus-visible:bg-accent-soft focus-visible:text-accent",
-              "focus-visible:ring-2 focus-visible:ring-accent-border focus-visible:outline-none",
-              "[&_svg]:size-3"
-            )}
-          >
-            <XIcon />
-          </button>
-        ) : resolvedHint ? (
-          <Kbd className="absolute top-1/2 right-2 hidden -translate-y-1/2 sm:inline-flex">
-            {resolvedHint}
-          </Kbd>
-        ) : null}
+        {hasValue
+          ? (
+            <button
+              type="button"
+              aria-label={clearAriaLabel}
+              onClick={onClear}
+              className={cn(
+                "absolute top-1/2 right-1.5 -translate-y-1/2",
+                "grid size-6 place-items-center rounded-sm",
+                // Brand-blue-aware hover: soft fill from the accent family
+                // instead of the off-white the native browser X paints.
+                "text-foreground-faint",
+                "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+                "hover:bg-accent-soft hover:text-accent",
+                "focus-visible:bg-accent-soft focus-visible:text-accent",
+                "focus-visible:ring-2 focus-visible:ring-accent-border focus-visible:outline-none",
+                "[&_svg]:size-3",
+              )}
+            >
+              <XIcon />
+            </button>
+          )
+          : resolvedHint
+          ? (
+            <Kbd className="absolute top-1/2 right-2 hidden -translate-y-1/2 sm:inline-flex">
+              {resolvedHint}
+            </Kbd>
+          )
+          : null}
       </div>
       {children}
     </div>
@@ -168,8 +173,8 @@ function useIsMacPlatform() {
           userAgentData?: { platform?: string }
         }
       ).userAgentData?.platform ??
-      navigator.platform ??
-      ""
+        navigator.platform ??
+        ""
     setIsMac(/mac|iphone|ipad|ipod/i.test(platform))
   }, [])
   return isMac
@@ -197,4 +202,4 @@ function AppHeaderActions({
   )
 }
 
-export { AppHeader, AppHeaderBrand, AppHeaderSearch, AppHeaderActions }
+export { AppHeader, AppHeaderActions, AppHeaderBrand, AppHeaderSearch }

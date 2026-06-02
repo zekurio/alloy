@@ -27,8 +27,8 @@ import {
   resolveTrim,
 } from "./encode-run-helpers"
 import {
-  encodePlaybackVariants,
   type Asset,
+  encodePlaybackVariants,
   publishOpenGraph,
   publishRemuxedSource,
 } from "./encode-publish"
@@ -39,7 +39,7 @@ export async function runEncodeInner(
   clipId: string,
   row: ClipRow,
   runId: string,
-  signal: AbortSignal
+  signal: AbortSignal,
 ): Promise<void> {
   const scratchDir = await makeScratchDir(clipId)
   const uploadedKeys: string[] = []
@@ -68,7 +68,7 @@ export async function runEncodeInner(
     await Deno.remove(scratchDir, { recursive: true }).catch((err) => {
       logger.warn(
         `[queue] failed to remove encode scratch dir ${scratchDir}:`,
-        err
+        err,
       )
     })
   }
@@ -119,20 +119,19 @@ async function runPipelineInScratch({
 
   const probed = await probe(sourcePath)
   const trim = resolveTrim(row, probed.durationMs)
-  const outputDurationMs =
-    trim.startMs != null && trim.endMs != null
-      ? Math.max(1, trim.endMs - trim.startMs)
-      : probed.durationMs
+  const outputDurationMs = trim.startMs != null && trim.endMs != null
+    ? Math.max(1, trim.endMs - trim.startMs)
+    : probed.durationMs
 
   const encoderConfig = configStore.get("encoder")
   const variantPlan = encoderConfig.enabled
     ? buildVariantPlan(
-        clipId,
-        probed.height,
-        encoderConfig.variants,
-        encoderConfig.defaultVariantId,
-        runId
-      )
+      clipId,
+      probed.height,
+      encoderConfig.variants,
+      encoderConfig.defaultVariantId,
+      runId,
+    )
     : { specs: [], skipped: [] }
   const variantSpecs = variantPlan.specs
 
@@ -147,8 +146,8 @@ async function runPipelineInScratch({
     writeProgress(
       Math.min(
         99,
-        Math.floor(((completedWork + variantPct / 100) / totalWork) * 100)
-      )
+        Math.floor(((completedWork + variantPct / 100) / totalWork) * 100),
+      ),
     )
   }
 
@@ -157,12 +156,12 @@ async function runPipelineInScratch({
   const sourceUpload = row.sourceKey
     ? { size: row.sourceSizeBytes ?? (await Deno.stat(sourcePath)).size }
     : await publishRemuxedSource({
-        sourcePath,
-        scratchDir,
-        trim,
-        signal,
-        sourceKey,
-      })
+      sourcePath,
+      scratchDir,
+      trim,
+      signal,
+      sourceKey,
+    })
   if (!row.sourceKey) uploadedKeys.push(sourceKey)
   const sourceAsset = {
     storageKey: sourceKey,
@@ -201,8 +200,8 @@ async function runPipelineInScratch({
   await ensureClipStillPresent(clipId, runId, signal)
   const thumbKey = clipAssetKey(clipId, "thumb")
   const thumbPath = join(scratchDir, "thumb.jpg")
-  const thumbAtMs =
-    (trim.startMs ?? 0) + Math.min(outputDurationMs - 1, outputDurationMs / 3)
+  const thumbAtMs = (trim.startMs ?? 0) +
+    Math.min(outputDurationMs - 1, outputDurationMs / 3)
   await thumbnail(sourcePath, thumbPath, {
     atMs: Math.max(0, thumbAtMs),
     signal,
@@ -270,7 +269,7 @@ async function runPipelineInScratch({
   // runId, so a re-encode that drops or re-keys a profile would otherwise leak
   // the prior files. Best-effort cleanup, logged on failure.
   await pruneStaleVariants(row, reusedBySpecIndex)
-  await deleteScratchUpload(await selectScratchUploadKey(clipId))
+  await cleanupCompletedScratchUpload(clipId)
   completeWork()
   void publishClipUpsert(row.authorId, clipId)
   if (
@@ -288,16 +287,39 @@ async function selectScratchUploadKey(clipId: string): Promise<string | null> {
     .where(
       and(
         eq(clipUploadTicket.clipId, clipId),
-        eq(clipUploadTicket.role, "video")
-      )
+        eq(clipUploadTicket.role, "video"),
+      ),
     )
     .limit(1)
   return ticket?.storageKey ?? null
 }
 
+async function cleanupCompletedScratchUpload(clipId: string): Promise<void> {
+  const uploadKey = await selectScratchUploadKey(clipId)
+  if (!uploadKey) return
+  try {
+    await deleteScratchUpload(uploadKey)
+  } catch (err) {
+    logger.warn(
+      `[queue] failed to delete completed scratch upload ${uploadKey}:`,
+      err,
+    )
+    return
+  }
+  await db
+    .delete(clipUploadTicket)
+    .where(
+      and(
+        eq(clipUploadTicket.clipId, clipId),
+        eq(clipUploadTicket.role, "video"),
+        eq(clipUploadTicket.storageKey, uploadKey),
+      ),
+    )
+}
+
 async function cleanupFailedRun(
   uploadedKeys: readonly string[],
-  retainedSourceKey: string | null
+  retainedSourceKey: string | null,
 ): Promise<void> {
   await Promise.all(
     [...new Set(uploadedKeys)]
@@ -308,9 +330,9 @@ async function cleanupFailedRun(
         } catch (err) {
           logger.warn(
             `[queue] failed to delete failed encode asset ${key}:`,
-            err
+            err,
           )
         }
-      })
+      }),
   )
 }

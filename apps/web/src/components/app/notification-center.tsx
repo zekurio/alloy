@@ -31,6 +31,10 @@ import {
 } from "@workspace/ui/components/popover"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
+import {
+  CLIP_MEDIA_CLASS,
+  CLIP_MEDIA_VIEWPORT_CLASS,
+} from "@workspace/ui/lib/media-frame"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { EmptyState } from "@/components/feedback/empty-state"
@@ -50,8 +54,8 @@ import {
   useDeleteNotificationMutation,
   useMarkAllNotificationsReadMutation,
   useMarkNotificationReadMutation,
-  useNotificationStream,
   useNotificationsQuery,
+  useNotificationStream,
 } from "@/lib/notification-queries"
 
 const NOTIFICATION_GLASS_STYLE = {
@@ -78,7 +82,7 @@ export function NotificationCenter() {
     (surface: FloatingSurface) => {
       if (surface !== "notifications") setOpen(false)
     },
-    []
+    [],
   )
   useFloatingSurfaceOpenListener(handleFloatingSurfaceOpen)
 
@@ -94,12 +98,14 @@ export function NotificationCenter() {
     <Button variant="ghost" size="icon" aria-label="Notifications">
       <span className="relative inline-flex">
         <BellIcon className="size-5" />
-        {unreadCount > 0 ? (
-          <span
-            aria-hidden
-            className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-accent"
-          />
-        ) : null}
+        {unreadCount > 0
+          ? (
+            <span
+              aria-hidden
+              className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-accent"
+            />
+          )
+          : null}
       </span>
     </Button>
   )
@@ -123,7 +129,7 @@ export function NotificationCenter() {
           className={cn(
             "top-[calc(var(--header-h)+0.5rem)] right-4 left-4 z-50 w-auto max-w-none rounded-2xl border p-3",
             "max-h-[calc(100dvh-var(--header-h)-var(--bottomnav-h)-env(safe-area-inset-bottom)-1.5rem)]",
-            "alloy-blur"
+            "alloy-blur",
           )}
           style={NOTIFICATION_GLASS_STYLE}
           aria-describedby={undefined}
@@ -143,7 +149,7 @@ export function NotificationCenter() {
         sideOffset={8}
         className={cn(
           "w-[380px] max-w-[calc(100vw-1.5rem)] border p-3 ring-0",
-          "alloy-blur duration-0 data-open:animate-none data-closed:animate-none"
+          "alloy-blur duration-0 data-open:animate-none data-closed:animate-none",
         )}
         style={NOTIFICATION_GLASS_STYLE}
         aria-describedby={undefined}
@@ -178,46 +184,50 @@ function NotificationCenterContent({
       </header>
 
       <div className="-mx-1 flex max-h-[min(520px,calc(100dvh-14rem))] flex-col overflow-y-auto">
-        {isLoading ? (
-          <NotificationLoadingState />
-        ) : items.length === 0 ? (
-          <NotificationEmptyState />
-        ) : (
-          items.map((item, index) => (
-            <NotificationRow
-              key={item.id}
-              item={item}
-              first={index === 0}
-              onClose={onClose}
-            />
-          ))
-        )}
+        {isLoading
+          ? <NotificationLoadingState />
+          : items.length === 0
+          ? <NotificationEmptyState />
+          : (
+            items.map((item, index) => (
+              <NotificationRow
+                key={item.id}
+                item={item}
+                first={index === 0}
+                onClose={onClose}
+              />
+            ))
+          )}
       </div>
 
       <div className="flex justify-end border-t border-border pt-2">
         <div className="flex items-center gap-2">
-          {unreadCount > 0 ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={markAllRead.isPending}
-              onClick={() => markAllRead.mutate()}
-              className="text-foreground-muted"
-            >
-              Mark all read
-            </Button>
-          ) : null}
-          {items.length > 0 ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={clearNotifications.isPending}
-              onClick={() => clearNotifications.mutate()}
-              className="text-foreground-muted"
-            >
-              Clear all
-            </Button>
-          ) : null}
+          {unreadCount > 0
+            ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={markAllRead.isPending}
+                onClick={() => markAllRead.mutate()}
+                className="text-foreground-muted"
+              >
+                Mark all read
+              </Button>
+            )
+            : null}
+          {items.length > 0
+            ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={clearNotifications.isPending}
+                onClick={() => clearNotifications.mutate()}
+                className="text-foreground-muted"
+              >
+                Clear all
+              </Button>
+            )
+            : null}
           <Button
             variant="ghost"
             size="sm"
@@ -253,10 +263,9 @@ function NotificationRow({
     onClose()
   }
 
-  const thumbSrc =
-    item.clip && item.clip.hasThumb
-      ? clipThumbnailUrl(item.clip.id, apiOrigin())
-      : null
+  const thumbSrc = item.clip && item.clip.hasThumb
+    ? clipThumbnailUrl(item.clip.id, apiOrigin())
+    : null
 
   return (
     <article
@@ -265,56 +274,64 @@ function NotificationRow({
         "transition-[background-color] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
         "hover:bg-surface-raised/60",
         !first &&
-          "before:pointer-events-none before:absolute before:inset-x-2 before:-top-px before:h-px before:bg-border"
+          "before:pointer-events-none before:absolute before:inset-x-2 before:-top-px before:h-px before:bg-border",
       )}
     >
       <NotificationLeading item={item} unread={unread} />
 
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        {href ? (
-          <Link
-            to={href}
-            className="line-clamp-2 text-sm leading-snug font-semibold tracking-[-0.01em] text-foreground hover:underline"
-            onClick={handleNavigate}
-          >
-            {text.title}
-          </Link>
-        ) : (
-          <span className="line-clamp-2 text-sm leading-snug font-semibold tracking-[-0.01em] text-foreground">
-            {text.title}
-          </span>
-        )}
-        <div className="flex min-w-0 items-center gap-1.5 text-xs text-foreground-muted">
-          {text.body ? (
-            <span className="line-clamp-1 min-w-0">{text.body}</span>
-          ) : null}
-          {text.body ? (
-            <span aria-hidden className="text-foreground-faint">
-              ·
+        {href
+          ? (
+            <Link
+              to={href}
+              className="line-clamp-2 text-sm leading-snug font-semibold tracking-[-0.01em] text-foreground hover:underline"
+              onClick={handleNavigate}
+            >
+              {text.title}
+            </Link>
+          )
+          : (
+            <span className="line-clamp-2 text-sm leading-snug font-semibold tracking-[-0.01em] text-foreground">
+              {text.title}
             </span>
-          ) : null}
+          )}
+        <div className="flex min-w-0 items-center gap-1.5 text-xs text-foreground-muted">
+          {text.body
+            ? <span className="line-clamp-1 min-w-0">{text.body}</span>
+            : null}
+          {text.body
+            ? (
+              <span aria-hidden className="text-foreground-faint">
+                ·
+              </span>
+            )
+            : null}
           <span className="shrink-0 tabular-nums">
             {formatRelativeTime(item.createdAt)}
           </span>
         </div>
       </div>
 
-      {thumbSrc ? (
-        href ? (
-          <Link
-            to={href}
-            aria-label={text.title}
-            onClick={handleNavigate}
-            className="shrink-0"
-          >
-            <NotificationThumb src={thumbSrc} />
-          </Link>
-        ) : (
-          <div className="shrink-0">
-            <NotificationThumb src={thumbSrc} />
-          </div>
+      {thumbSrc
+        ? (
+          href
+            ? (
+              <Link
+                to={href}
+                aria-label={text.title}
+                onClick={handleNavigate}
+                className="shrink-0"
+              >
+                <NotificationThumb src={thumbSrc} />
+              </Link>
+            )
+            : (
+              <div className="shrink-0">
+                <NotificationThumb src={thumbSrc} />
+              </div>
+            )
         )
-      ) : null}
+        : null}
 
       <div
         className={cn(
@@ -322,20 +339,22 @@ function NotificationRow({
           "shadow-[0_4px_12px_-4px_rgb(0_0_0_/_0.35)] ring-1 ring-border",
           "opacity-0 transition-opacity duration-[var(--duration-fast)]",
           "group-hover/notification:opacity-100 focus-within:opacity-100",
-          "max-sm:static max-sm:mt-0.5 max-sm:opacity-100"
+          "max-sm:static max-sm:mt-0.5 max-sm:opacity-100",
         )}
       >
-        {unread ? (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Mark as read: ${text.title}`}
-            disabled={markRead.isPending}
-            onClick={() => markRead.mutate(item.id)}
-          >
-            <CheckIcon />
-          </Button>
-        ) : null}
+        {unread
+          ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Mark as read: ${text.title}`}
+              disabled={markRead.isPending}
+              onClick={() => markRead.mutate(item.id)}
+            >
+              <CheckIcon />
+            </Button>
+          )
+          : null}
         <Button
           variant="ghost"
           size="icon-sm"
@@ -352,13 +371,18 @@ function NotificationRow({
 
 function NotificationThumb({ src }: { src: string }) {
   return (
-    <div className="relative aspect-video w-16 overflow-hidden rounded-sm bg-surface-raised">
+    <div
+      className={cn(
+        CLIP_MEDIA_VIEWPORT_CLASS,
+        "w-16 rounded-sm bg-surface-raised",
+      )}
+    >
       <img
         src={src}
         alt=""
         loading="lazy"
         decoding="async"
-        className="size-full object-cover"
+        className={CLIP_MEDIA_CLASS}
       />
     </div>
   )
@@ -373,38 +397,42 @@ function NotificationLeading({
 }) {
   const Icon = ICON_BY_KIND[item.type]
 
-  const tile = item.actor ? (
-    (() => {
-      const name = displayName(item.actor)
-      const avatar = userAvatar(item.actor)
-      return (
-        <Avatar
-          size="md"
-          className="shrink-0"
-          style={{ background: avatar.bg, color: avatar.fg }}
-        >
-          {avatar.src ? <AvatarImage src={avatar.src} alt={name} /> : null}
-          <AvatarFallback style={{ background: avatar.bg, color: avatar.fg }}>
-            {avatar.initials}
-          </AvatarFallback>
-        </Avatar>
-      )
-    })()
-  ) : (
-    <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-surface-raised text-foreground-muted">
-      <Icon className="size-3.5" />
-    </div>
-  )
+  const tile = item.actor
+    ? (
+      (() => {
+        const name = displayName(item.actor)
+        const avatar = userAvatar(item.actor)
+        return (
+          <Avatar
+            size="md"
+            className="shrink-0"
+            style={{ background: avatar.bg, color: avatar.fg }}
+          >
+            {avatar.src ? <AvatarImage src={avatar.src} alt={name} /> : null}
+            <AvatarFallback style={{ background: avatar.bg, color: avatar.fg }}>
+              {avatar.initials}
+            </AvatarFallback>
+          </Avatar>
+        )
+      })()
+    )
+    : (
+      <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-surface-raised text-foreground-muted">
+        <Icon className="size-3.5" />
+      </div>
+    )
 
   return (
     <div className="relative mt-0.5 shrink-0">
       {tile}
-      {unread ? (
-        <span
-          aria-hidden
-          className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-accent"
-        />
-      ) : null}
+      {unread
+        ? (
+          <span
+            aria-hidden
+            className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-accent"
+          />
+        )
+        : null}
     </div>
   )
 }

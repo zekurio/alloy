@@ -38,7 +38,9 @@ export function ReEncodeClipsButton() {
         toast.info("No clips to re-encode")
       } else {
         toast.success(
-          `Enqueued ${enqueued} ${enqueued === 1 ? "clip" : "clips"} for re-encoding`
+          `Enqueued ${enqueued} ${
+            enqueued === 1 ? "clip" : "clips"
+          } for re-encoding`,
         )
       }
       setOpen(false)

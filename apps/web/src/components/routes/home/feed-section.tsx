@@ -19,7 +19,7 @@ const FEED_PAGE_LIMIT = 20
 function useInfiniteScrollSentinel(
   fetchNextPage: () => Promise<unknown>,
   hasNextPage: boolean,
-  isFetchingNextPage: boolean
+  isFetchingNextPage: boolean,
 ) {
   const fetchNextRef = React.useRef(fetchNextPage)
   fetchNextRef.current = fetchNextPage
@@ -39,7 +39,7 @@ function useInfiniteScrollSentinel(
         if (isFetchingNextRef.current || !hasNextRef.current) return
         void fetchNextRef.current()
       },
-      { rootMargin: "800px" }
+      { rootMargin: "800px" },
     )
     observer.observe(el)
     return () => observer.disconnect()
@@ -98,7 +98,7 @@ function FeedSentinelStatus({
       <span
         className={cn(
           "inline-flex items-center gap-2 text-xs",
-          "tracking-wide text-foreground-faint uppercase"
+          "tracking-wide text-foreground-faint uppercase",
         )}
       >
         <Spinner className="size-3" />
@@ -113,7 +113,7 @@ function FeedSentinelStatus({
         className={cn(
           "rounded-md px-2 py-1 text-xs font-medium tracking-wide text-accent uppercase",
           "hover:bg-accent-soft",
-          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         )}
       >
         Retry
@@ -201,16 +201,15 @@ function useFeedSectionState(filter: FeedFilter) {
 
   const rows = React.useMemo(
     () => (data ? data.pages.flatMap((page) => page.items) : []),
-    [data]
+    [data],
   )
   const hasData = data !== undefined
 
   const initialLoad = isPending && rows.length === 0
   const hasRows = rows.length > 0
-  const isRefreshing =
-    hasRows && (isFetching || isPlaceholderData) && !isFetchingNextPage
-  const showSentinel =
-    hasNextPage !== false ||
+  const isRefreshing = hasRows && (isFetching || isPlaceholderData) &&
+    !isFetchingNextPage
+  const showSentinel = hasNextPage !== false ||
     isFetchingNextPage ||
     isRefreshing ||
     (Boolean(error) && hasRows)
@@ -237,7 +236,7 @@ export function FeedSection({ filter, viewerId }: FeedSectionProps) {
   const sentinelRef = useInfiniteScrollSentinel(
     state.fetchNextPage,
     Boolean(state.hasNextPage),
-    state.isFetchingNextPage
+    state.isFetchingNextPage,
   )
 
   return (
@@ -245,7 +244,7 @@ export function FeedSection({ filter, viewerId }: FeedSectionProps) {
       <div
         className={cn(
           "transition-opacity duration-150",
-          state.isRefreshing && "opacity-70"
+          state.isRefreshing && "opacity-70",
         )}
       >
         <FeedSectionBody
@@ -260,21 +259,23 @@ export function FeedSection({ filter, viewerId }: FeedSectionProps) {
         />
       </div>
 
-      {state.showSentinel ? (
-        <div
-          ref={sentinelRef}
-          aria-hidden
-          className="mt-6 flex min-h-6 items-center justify-center"
-        >
-          <FeedSentinelStatus
-            isRefreshing={state.isRefreshing}
-            isFetchingNextPage={state.isFetchingNextPage}
-            hasRows={state.hasRows}
-            error={state.error}
-            onRetry={() => void state.refetch()}
-          />
-        </div>
-      ) : null}
+      {state.showSentinel
+        ? (
+          <div
+            ref={sentinelRef}
+            aria-hidden
+            className="mt-6 flex min-h-6 items-center justify-center"
+          >
+            <FeedSentinelStatus
+              isRefreshing={state.isRefreshing}
+              isFetchingNextPage={state.isFetchingNextPage}
+              hasRows={state.hasRows}
+              error={state.error}
+              onRetry={() => void state.refetch()}
+            />
+          </div>
+        )
+        : null}
     </section>
   )
 }

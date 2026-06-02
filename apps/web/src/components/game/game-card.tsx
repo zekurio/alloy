@@ -26,8 +26,9 @@ type GameCardProps = {
 
 function GameCardBody({ game }: { game: GameCardData }) {
   const hue = hueForGame(game.name)
-  const gridSrc =
-    game.gridUrl && game.slug ? gameGridUrl(game.slug, apiOrigin()) : null
+  const gridSrc = game.gridUrl && game.slug
+    ? gameGridUrl(game.slug, apiOrigin())
+    : null
 
   if (gridSrc) {
     return (
@@ -47,7 +48,8 @@ function GameCardBody({ game }: { game: GameCardData }) {
       aria-hidden
       className="absolute inset-0"
       style={{
-        background: `radial-gradient(120% 80% at 30% 20%, oklch(0.32 0.14 ${hue}), oklch(0.08 0.04 ${hue}))`,
+        background:
+          `radial-gradient(120% 80% at 30% 20%, oklch(0.32 0.14 ${hue}), oklch(0.08 0.04 ${hue}))`,
       }}
     />
   )
@@ -55,11 +57,11 @@ function GameCardBody({ game }: { game: GameCardData }) {
 
 export function GameCard({ game, link, className }: GameCardProps) {
   const surface = cn(
-    "group/game-card relative block aspect-[2/3] overflow-hidden rounded-md [mask-image:linear-gradient(black,black)]",
+    "group/game-card relative block aspect-[2/3] overflow-hidden rounded-md [-webkit-mask-image:linear-gradient(black,black)] [mask-image:linear-gradient(black,black)]",
     "bg-neutral-900",
     "transition-[box-shadow,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-    className
+    className,
   )
 
   if (link?.kind === "game") {

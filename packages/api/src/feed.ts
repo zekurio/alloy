@@ -1,7 +1,7 @@
 import type { ApiContext } from "./client"
 import type {
-  FeedPage,
   FeedChipsResponse,
+  FeedPage,
   FeedPageParams,
 } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
@@ -25,8 +25,9 @@ export function createFeedApi(context: ApiContext) {
       const res = await context.rpc.api.feed.$get({
         query: queryParams({
           filter: params.filter.kind,
-          gameId:
-            params.filter.kind === "game" ? params.filter.gameId : undefined,
+          gameId: params.filter.kind === "game"
+            ? params.filter.gameId
+            : undefined,
           tag: params.filter.kind === "hashtag" ? params.filter.tag : undefined,
           limit: params.limit,
           cursor: params.cursor,

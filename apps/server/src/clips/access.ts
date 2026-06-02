@@ -153,7 +153,7 @@ export function applyClipPrivacyHeaders(c: Context, access: ClipAccessAllowed) {
 function canReadStatus(
   status: string,
   readiness: ClipAccessReadiness,
-  canBypassVisibility: boolean
+  canBypassVisibility: boolean,
 ): boolean {
   if (status === "ready") return true
   return readiness === "ready-or-owner-admin" && canBypassVisibility
@@ -161,7 +161,7 @@ function canReadStatus(
 
 function privateDenied(
   privateFailure: ClipPrivateFailure,
-  viewer: ClipViewer
+  viewer: ClipViewer,
 ): ClipAccessDenied {
   if (privateFailure === "not-found") {
     return denied("Not found", 404, true)
@@ -172,7 +172,7 @@ function privateDenied(
 function denied(
   error: string,
   status: ClipAccessStatus,
-  isPrivate = false
+  isPrivate = false,
 ): ClipAccessDenied {
   return { accessible: false, error, status, isPrivate }
 }

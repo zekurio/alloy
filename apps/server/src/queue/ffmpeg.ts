@@ -25,7 +25,7 @@ export async function encode(
     trimStartMs?: number | null
     trimEndMs?: number | null
     signal?: AbortSignal
-  }
+  },
 ): Promise<void> {
   const args = buildEncodeArgs(srcPath, outPath, opts)
 
@@ -33,19 +33,19 @@ export async function encode(
     env.FFMPEG_BIN,
     args,
     (line) => {
-      const m =
-        /^out_time_us=(-?\d+)/m.exec(line) ?? /^out_time_ms=(-?\d+)/m.exec(line)
+      const m = /^out_time_us=(-?\d+)/m.exec(line) ??
+        /^out_time_ms=(-?\d+)/m.exec(line)
       if (!m) return
       const microseconds = Number.parseInt(m[1] ?? "0", 10)
       if (!Number.isFinite(microseconds) || microseconds < 0) return
       const ms = microseconds / 1000
       const pct = Math.min(
         99,
-        Math.max(0, Math.floor((ms / opts.durationMs) * 100))
+        Math.max(0, Math.floor((ms / opts.durationMs) * 100)),
       )
       opts.onProgress(pct)
     },
-    { label: `encode ${opts.targetHeight}p`, signal: opts.signal }
+    { label: `encode ${opts.targetHeight}p`, signal: opts.signal },
   )
 }
 
@@ -56,13 +56,13 @@ export async function remuxToMp4(
     trimStartMs?: number | null
     trimEndMs?: number | null
     signal?: AbortSignal
-  }
+  },
 ): Promise<void> {
   await runWithProgress(
     env.FFMPEG_BIN,
     buildRemuxArgs(srcPath, outPath, opts),
     () => undefined,
-    { label: "remux source", signal: opts.signal }
+    { label: "remux source", signal: opts.signal },
   )
 }
 
@@ -72,7 +72,7 @@ export async function thumbnail(
   opts: {
     atMs: number
     signal?: AbortSignal
-  }
+  },
 ): Promise<void> {
   await runWithProgress(
     env.FFMPEG_BIN,
@@ -92,7 +92,7 @@ export async function thumbnail(
       outPath,
     ],
     () => undefined,
-    { label: "thumbnail", signal: opts.signal }
+    { label: "thumbnail", signal: opts.signal },
   )
 }
 

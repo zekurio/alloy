@@ -138,8 +138,7 @@ function ClipMeta({
   const followMutation = useToggleUserFollowMutation(uploader.handle)
   const followPending = followMutation.isPending
   const isFollowing = profileViewer?.isFollowing ?? false
-  const canFollow =
-    viewerId !== null &&
+  const canFollow = viewerId !== null &&
     profileViewer !== undefined &&
     profileViewer !== null &&
     !profileViewer.isSelf &&
@@ -151,7 +150,7 @@ function ClipMeta({
       { clipId, nextLiked: !liked },
       {
         onError: () => toast.error("Couldn't update like"),
-      }
+      },
     )
   }, [canLike, clipId, liked, likeMutation])
 
@@ -164,7 +163,7 @@ function ClipMeta({
           onDeleted?.()
         },
         onError: () => toast.error("Couldn't delete clip"),
-      }
+      },
     )
   }, [clipId, deleteMutation, onDeleted])
 
@@ -194,7 +193,7 @@ function ClipMeta({
         onError: (cause) => {
           toast.error(errorMessage(cause, "Something went wrong"))
         },
-      }
+      },
     )
   }
 
@@ -232,34 +231,36 @@ function ClipMeta({
           >
             <Share2Icon />
           </Button>
-          {canManage ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Clip actions"
+          {canManage
+            ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Clip actions"
+                    >
+                      <MoreHorizontalIcon className="rotate-90" />
+                    </Button>
+                  }
+                />
+                <DropdownMenuContent align="end" className="min-w-[150px]">
+                  <DropdownMenuItem onClick={onEdit}>
+                    <PencilIcon /> Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    disabled={deleting}
+                    onClick={() => setDeleteDialogOpen(true)}
                   >
-                    <MoreHorizontalIcon className="rotate-90" />
-                  </Button>
-                }
-              />
-              <DropdownMenuContent align="end" className="min-w-[150px]">
-                <DropdownMenuItem onClick={onEdit}>
-                  <PencilIcon /> Edit
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  variant="destructive"
-                  disabled={deleting}
-                  onClick={() => setDeleteDialogOpen(true)}
-                >
-                  <Trash2Icon /> Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
+                    <Trash2Icon /> Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )
+            : null}
         </div>
       </div>
 
@@ -273,13 +274,13 @@ function ClipMeta({
             className={cn(
               "shrink-0 rounded-md",
               "transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
+              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
             )}
           >
             <Avatar size="xl" style={avatarStyle}>
-              {uploader.avatar.src ? (
-                <AvatarImage src={uploader.avatar.src} alt={uploader.name} />
-              ) : null}
+              {uploader.avatar.src
+                ? <AvatarImage src={uploader.avatar.src} alt={uploader.name} />
+                : null}
               <AvatarFallback style={avatarStyle}>
                 {uploader.avatar.initials}
               </AvatarFallback>
@@ -295,44 +296,50 @@ function ClipMeta({
                   "inline-flex items-center gap-1.5 text-lg font-semibold tracking-[-0.01em] text-foreground",
                   "hover:text-accent",
                   "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-                  "focus-visible:text-accent focus-visible:outline-none"
+                  "focus-visible:text-accent focus-visible:outline-none",
                 )}
               >
                 <span className="truncate">@{uploader.name}</span>
               </Link>
-              {canFollow ? (
-                <Button
-                  type="button"
-                  variant={isFollowing ? "ghost" : "primary"}
-                  size="sm"
-                  onClick={() => void handleFollow()}
-                  disabled={followPending}
-                >
-                  {isFollowing ? <UserMinusIcon /> : <UserPlusIcon />}
-                  {followPending ? "…" : isFollowing ? "Following" : "Follow"}
-                </Button>
-              ) : null}
+              {canFollow
+                ? (
+                  <Button
+                    type="button"
+                    variant={isFollowing ? "ghost" : "primary"}
+                    size="sm"
+                    onClick={() => void handleFollow()}
+                    disabled={followPending}
+                  >
+                    {isFollowing ? <UserMinusIcon /> : <UserPlusIcon />}
+                    {followPending ? "…" : isFollowing ? "Following" : "Follow"}
+                  </Button>
+                )
+                : null}
             </div>
-            {followerCount !== null ? (
-              <div className="mt-0.5 text-xs text-foreground-faint">
-                <span className="text-foreground-muted">
-                  {formatCount(followerCount)}
-                </span>{" "}
-                followers
-              </div>
-            ) : null}
+            {followerCount !== null
+              ? (
+                <div className="mt-0.5 text-xs text-foreground-faint">
+                  <span className="text-foreground-muted">
+                    {formatCount(followerCount)}
+                  </span>{" "}
+                  followers
+                </div>
+              )
+              : null}
           </div>
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-1">
           <ClipGameBadge game={game} gameRef={gameRef} />
           <div className="flex items-center gap-1.5 pt-0.5 text-xs leading-4 text-foreground-faint">
-            {privacy !== "public" ? (
-              <>
-                <ClipPrivacyBadge privacy={privacy} />
-                <span>•</span>
-              </>
-            ) : null}
+            {privacy !== "public"
+              ? (
+                <>
+                  <ClipPrivacyBadge privacy={privacy} />
+                  <span>•</span>
+                </>
+              )
+              : null}
             <span>{views} views</span>
             <span>•</span>
             <span>{postedAt}</span>
@@ -342,11 +349,13 @@ function ClipMeta({
 
       {mentions.length > 0 ? <ClipMentionsRow mentions={mentions} /> : null}
 
-      {hasDescription ? (
-        <p className="max-w-3xl text-sm leading-relaxed whitespace-pre-wrap text-foreground-muted">
-          {renderHashtagTokens(description ?? "", { linkHashtags: true })}
-        </p>
-      ) : null}
+      {hasDescription
+        ? (
+          <p className="max-w-3xl text-sm leading-relaxed whitespace-pre-wrap text-foreground-muted">
+            {renderHashtagTokens(description ?? "", { linkHashtags: true })}
+          </p>
+        )
+        : null}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
@@ -400,7 +409,7 @@ function ClipGameBadge({
         onError: (cause) => {
           toast.error(errorMessage(cause, "Something went wrong"))
         },
-      }
+      },
     )
   }
 
@@ -412,31 +421,29 @@ function ClipGameBadge({
   )
 
   const base = cn(
-    "inline-flex h-8 items-center overflow-hidden rounded-lg border border-border bg-surface-raised"
+    "inline-flex h-8 items-center overflow-hidden rounded-lg border border-border bg-surface-raised",
   )
 
   const starBtn = (
     <button
       type="button"
       disabled={!canToggle || favoriteMutation.isPending}
-      title={
-        !gameRef
-          ? "Game details unavailable"
-          : viewer === null
-            ? "Sign in to favourite"
-            : isFavorite
-              ? "Remove from favourites"
-              : "Add to favourites"
-      }
-      aria-label={
-        isFavorite ? "Remove game from favourites" : "Add game to favourites"
-      }
+      title={!gameRef
+        ? "Game details unavailable"
+        : viewer === null
+        ? "Sign in to favourite"
+        : isFavorite
+        ? "Remove from favourites"
+        : "Add to favourites"}
+      aria-label={isFavorite
+        ? "Remove game from favourites"
+        : "Add game to favourites"}
       onClick={toggleFavorite}
       className={cn(
         "inline-flex h-full items-center justify-center px-2.5 transition-colors",
         "text-foreground-faint hover:bg-white/5 hover:text-foreground",
         "disabled:pointer-events-none disabled:opacity-50",
-        isFavorite && "text-accent"
+        isFavorite && "text-accent",
       )}
     >
       <StarIcon className={cn("size-4", isFavorite && "fill-current")} />

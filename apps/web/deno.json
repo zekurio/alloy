@@ -35,8 +35,8 @@
     "dev": "deno run -A npm:vite@^8.0.10 dev --port 5173 --strictPort",
     "build": "deno run -A npm:vite@^8.0.10 build",
     "preview": "deno run -A npm:vite@^8.0.10 preview --port 5173 --strictPort",
-    "lint": "deno run -A npm:oxlint@^1.61.0 src vite.config.ts",
-    "fmt": "deno run -A npm:oxfmt@^0.46.0 --write src vite.config.ts deno.json tsconfig.json components.json",
+    "lint": "deno lint src vite.config.ts",
+    "fmt": "deno fmt src vite.config.ts deno.json tsconfig.json components.json",
     "format": "deno task fmt",
     "typecheck": "deno check src vite.config.ts"
   }

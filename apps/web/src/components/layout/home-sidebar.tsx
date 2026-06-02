@@ -32,14 +32,11 @@ function useNavFlags(): NavFlags {
   return useRouterState({
     select: (s) => ({
       isHome: s.location.pathname === "/",
-      isGames:
-        s.location.pathname === "/games" ||
+      isGames: s.location.pathname === "/games" ||
         s.location.pathname.startsWith("/g/"),
-      isSettings:
-        s.location.pathname.startsWith("/user-settings") ||
-        s.location.pathname.startsWith("/settings"),
-      profileHandle:
-        parseProfilePathname(s.location.pathname)?.username ?? null,
+      isSettings: s.location.pathname.startsWith("/settings"),
+      profileHandle: parseProfilePathname(s.location.pathname)?.username ??
+        null,
     }),
     structuralSharing: true,
   })
@@ -47,7 +44,7 @@ function useNavFlags(): NavFlags {
 
 function isOwnProfilePath(
   routeProfileHandle: string | null,
-  sessionProfileHandle: string | null
+  sessionProfileHandle: string | null,
 ): boolean {
   return (
     !!routeProfileHandle &&
@@ -92,26 +89,28 @@ function SidebarTop() {
       <AppSidebarItem active={isHome} title="Home" render={<Link to="/" />}>
         <HomeIcon />
       </AppSidebarItem>
-      {profileHandle ? (
-        <AppSidebarItem
-          active={isLibrary}
-          title="Library"
-          render={
-            <Link to="/u/$username" params={{ username: profileHandle }} />
-          }
-        >
-          <LibraryIcon />
-        </AppSidebarItem>
-      ) : (
-        <AppSidebarItem
-          title="Library"
-          aria-disabled
-          tabIndex={-1}
-          className="pointer-events-none opacity-60"
-        >
-          <LibraryIcon />
-        </AppSidebarItem>
-      )}
+      {profileHandle
+        ? (
+          <AppSidebarItem
+            active={isLibrary}
+            title="Library"
+            render={
+              <Link to="/u/$username" params={{ username: profileHandle }} />
+            }
+          >
+            <LibraryIcon />
+          </AppSidebarItem>
+        )
+        : (
+          <AppSidebarItem
+            title="Library"
+            aria-disabled
+            tabIndex={-1}
+            className="pointer-events-none opacity-60"
+          >
+            <LibraryIcon />
+          </AppSidebarItem>
+        )}
       <AppSidebarItem
         active={isGames}
         title="Games"
@@ -144,7 +143,7 @@ function SidebarSettings() {
     <AppSidebarItem
       active={isSettings}
       title="Settings"
-      render={<Link to="/user-settings" />}
+      render={<Link to="/settings" />}
     >
       <SettingsIcon />
     </AppSidebarItem>
@@ -192,48 +191,52 @@ function BottomNavItems() {
       <AppBottomNavItem active={isHome} title="Home" render={<Link to="/" />}>
         <HomeIcon />
       </AppBottomNavItem>
-      {profileHandle ? (
-        <AppBottomNavItem
-          active={isLibrary}
-          title="Library"
-          render={
-            <Link to="/u/$username" params={{ username: profileHandle }} />
-          }
-        >
-          <LibraryIcon />
-        </AppBottomNavItem>
-      ) : (
-        <AppBottomNavItem
-          title="Library"
-          aria-disabled
-          tabIndex={-1}
-          className="pointer-events-none opacity-60"
-        >
-          <LibraryIcon />
-        </AppBottomNavItem>
-      )}
-      {session ? (
-        <AppBottomNavItem
-          active={queueOpen}
-          title="Upload"
-          onClick={(event) => {
-            event.currentTarget.blur()
-            setQueueOpen(true)
-          }}
-          className="before:!hidden [&_svg]:!size-4"
-        >
-          <NavUploadIcon />
-        </AppBottomNavItem>
-      ) : (
-        <AppBottomNavItem
-          title="Upload"
-          aria-disabled
-          tabIndex={-1}
-          className="pointer-events-none opacity-60 before:!hidden [&_svg]:!size-4"
-        >
-          <NavUploadIcon />
-        </AppBottomNavItem>
-      )}
+      {profileHandle
+        ? (
+          <AppBottomNavItem
+            active={isLibrary}
+            title="Library"
+            render={
+              <Link to="/u/$username" params={{ username: profileHandle }} />
+            }
+          >
+            <LibraryIcon />
+          </AppBottomNavItem>
+        )
+        : (
+          <AppBottomNavItem
+            title="Library"
+            aria-disabled
+            tabIndex={-1}
+            className="pointer-events-none opacity-60"
+          >
+            <LibraryIcon />
+          </AppBottomNavItem>
+        )}
+      {session
+        ? (
+          <AppBottomNavItem
+            active={queueOpen}
+            title="Upload"
+            onClick={(event) => {
+              event.currentTarget.blur()
+              setQueueOpen(true)
+            }}
+            className="before:!hidden [&_svg]:!size-4"
+          >
+            <NavUploadIcon />
+          </AppBottomNavItem>
+        )
+        : (
+          <AppBottomNavItem
+            title="Upload"
+            aria-disabled
+            tabIndex={-1}
+            className="pointer-events-none opacity-60 before:!hidden [&_svg]:!size-4"
+          >
+            <NavUploadIcon />
+          </AppBottomNavItem>
+        )}
       <AppBottomNavItem
         active={isGames}
         title="Games"
@@ -245,14 +248,14 @@ function BottomNavItems() {
         title="Settings"
         {...(session
           ? {
-              active: isSettings,
-              render: <Link to="/user-settings" />,
-            }
+            active: isSettings,
+            render: <Link to="/settings" />,
+          }
           : {
-              "aria-disabled": true,
-              tabIndex: -1,
-              className: "pointer-events-none opacity-60",
-            })}
+            "aria-disabled": true,
+            tabIndex: -1,
+            className: "pointer-events-none opacity-60",
+          })}
       >
         <SettingsIcon />
       </AppBottomNavItem>

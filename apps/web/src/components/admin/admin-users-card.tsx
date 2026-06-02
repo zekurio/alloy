@@ -134,15 +134,17 @@ function useDeleteAdminUser({
 }
 
 function setAdminUserCacheRow(queryClient: QueryClient, updated: AdminUserRow) {
-  queryClient.setQueryData<AdminUsersResponse>(adminKeys.users(), (current) =>
-    current
-      ? {
+  queryClient.setQueryData<AdminUsersResponse>(
+    adminKeys.users(),
+    (current) =>
+      current
+        ? {
           ...current,
           users: current.users.map((row) =>
             row.id === updated.id ? updated : row
           ),
         }
-      : current
+        : current,
   )
 }
 
@@ -155,7 +157,7 @@ function adminUserEditableFields(user: AdminUserRow): AdminUserEditableFields {
 
 function adminUserFieldsEqual(
   left: AdminUserEditableFields,
-  right: AdminUserEditableFields
+  right: AdminUserEditableFields,
 ): boolean {
   return (
     left.role === right.role &&
@@ -175,7 +177,7 @@ function useUpdateAdminUser({
   const queryClient = useQueryClient()
   return async (
     user: AdminUserRow,
-    next: AdminUserEditableFields
+    next: AdminUserEditableFields,
   ): Promise<boolean> => {
     if (busyId) return false
     const current = adminUserEditableFields(user)
@@ -185,7 +187,7 @@ function useUpdateAdminUser({
 
     if (user.id === currentUserId && roleChanged && next.role !== "admin") {
       toast.error(
-        "Demote yourself from the profile page after promoting another admin first."
+        "Demote yourself from the profile page after promoting another admin first.",
       )
       return false
     }
@@ -256,38 +258,40 @@ export function AdminUsersCard({
     </ResponsiveDialog>
   )
 
-  const content = loadError ? (
-    <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-      {loadError}
-    </div>
-  ) : users === null ? (
-    <div className="grid place-items-center py-3 text-foreground-muted">
-      <Spinner className="size-4" />
-    </div>
-  ) : users.length === 0 ? (
-    <p className="text-sm text-foreground-muted">No users yet.</p>
-  ) : (
-    <UsersTable
-      users={users}
-      currentUserId={currentUserId}
-      busyId={busyId}
-      onUpdate={onUpdate}
-      onDelete={onDelete}
-      action={
-        hideHeader
+  const content = loadError
+    ? (
+      <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+        {loadError}
+      </div>
+    )
+    : users === null
+    ? (
+      <div className="grid place-items-center py-3 text-foreground-muted">
+        <Spinner className="size-4" />
+      </div>
+    )
+    : users.length === 0
+    ? <p className="text-sm text-foreground-muted">No users yet.</p>
+    : (
+      <UsersTable
+        users={users}
+        currentUserId={currentUserId}
+        busyId={busyId}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        action={hideHeader
           ? seedDialog(
-              <ResponsiveDialogTrigger
-                render={
-                  <Button variant="ghost" size="icon-sm" aria-label="Seed user">
-                    <UserPlusIcon className="size-4" />
-                  </Button>
-                }
-              />
-            )
-          : undefined
-      }
-    />
-  )
+            <ResponsiveDialogTrigger
+              render={
+                <Button variant="ghost" size="icon-sm" aria-label="Seed user">
+                  <UserPlusIcon className="size-4" />
+                </Button>
+              }
+            />,
+          )
+          : undefined}
+      />
+    )
 
   if (hideHeader) {
     return content
@@ -303,7 +307,7 @@ export function AdminUsersCard({
           >
             <UserPlusIcon />
             Seed user
-          </ResponsiveDialogTrigger>
+          </ResponsiveDialogTrigger>,
         )}
       </SectionHeader>
       <SectionContent>{content}</SectionContent>
@@ -324,7 +328,7 @@ function UsersTable({
   busyId: string | null
   onUpdate: (
     user: AdminUserRow,
-    next: AdminUserEditableFields
+    next: AdminUserEditableFields,
   ) => Promise<boolean>
   onDelete: (user: AdminUserRow) => void
   action?: React.ReactNode
@@ -369,7 +373,7 @@ function UserTableRow({
   busy: boolean
   onUpdate: (
     user: AdminUserRow,
-    next: AdminUserEditableFields
+    next: AdminUserEditableFields,
   ) => Promise<boolean>
   onDelete: (user: AdminUserRow) => void
 }) {
@@ -390,11 +394,13 @@ function UserTableRow({
           </Avatar>
           <div className="flex items-center gap-2">
             <span className="font-medium">{name}</span>
-            {isSelf ? (
-              <Badge variant="outline" className="text-xs">
-                You
-              </Badge>
-            ) : null}
+            {isSelf
+              ? (
+                <Badge variant="outline" className="text-xs">
+                  You
+                </Badge>
+              )
+              : null}
           </div>
         </div>
       </TableCell>
@@ -471,7 +477,7 @@ function EditUserDialog({
   busy: boolean
   onUpdate: (
     user: AdminUserRow,
-    next: AdminUserEditableFields
+    next: AdminUserEditableFields,
   ) => Promise<boolean>
 }) {
   const [open, setOpen] = React.useState(false)

@@ -1,22 +1,19 @@
 import {
-  CLIP_PRIVACY,
-  CLIP_STATUS,
-  ENCODER_CODECS,
-  ENCODER_HEIGHT_MAX,
-  ENCODER_HEIGHT_MIN,
-  ENCODER_HWACCELS,
-  NOTIFICATION_TYPES,
-  STORAGE_DRIVERS,
-  USER_ROLES,
   type AdminEncoderCapabilities,
   type AdminRuntimeConfig,
   type AdminUsersResponse,
   type AdminUserStorageRow,
+  CLIP_PRIVACY,
+  CLIP_STATUS,
   type ClipLikeState,
   type ClipPage,
   type ClipRow,
   type CommentPage,
   type CommentRow,
+  ENCODER_CODECS,
+  ENCODER_HEIGHT_MAX,
+  ENCODER_HEIGHT_MIN,
+  ENCODER_HWACCELS,
   type FeedChipGame,
   type FeedChipsResponse,
   type FeedPage,
@@ -26,8 +23,9 @@ import {
   type InitiateClipResponse,
   type LoginSplashClip,
   type MlGameSuggestionResponse,
-  type NotificationRow,
+  NOTIFICATION_TYPES,
   type NotificationEvent,
+  type NotificationRow,
   type NotificationsResponse,
   type ProfileCounts,
   type ProfileGameRow,
@@ -39,11 +37,14 @@ import {
   type PublicUser,
   type QueueClip,
   type QueueEvent,
+  RUNTIME_CONFIG_VERSION,
   type RuntimeConfig,
   type SearchResults,
   type SteamGridDBSearchResult,
   type SteamGridDBStatus,
+  STORAGE_DRIVERS,
   type UploadTicket,
+  USER_ROLES,
   type UserListRow,
   type UserProfile,
   type UserProfileViewer,
@@ -59,17 +60,17 @@ import {
   validateEvenIntegerInRange,
   validateIntegerInRange,
   validateIsoDateString,
-  validateNullableString,
-  validateNullableDateString,
-  validateNullableEnumString,
-  validateNullableRequiredString,
   validateNonNegativeInteger,
   validateNonNegativeNumber,
+  validateNullableDateString,
+  validateNullableEnumString,
   validateNullableNonNegativeInteger,
   validateNullablePositiveInteger,
+  validateNullableRequiredString,
+  validateNullableString,
+  validateNullableUrlString,
   validateOptionalString,
   validateOptionalUrlString,
-  validateNullableUrlString,
   validatePositiveInteger,
   validateRequiredString,
   validateString,
@@ -114,22 +115,22 @@ function validateClipEncodedVariant(value: unknown) {
   for (const key of ["id", "label", "contentType"] as const) {
     validateRequiredString(
       variant[key],
-      `Invalid clip variant response: ${key} is required`
+      `Invalid clip variant response: ${key} is required`,
     )
   }
   for (const key of ["width", "height"] as const) {
     validatePositiveInteger(
       variant[key],
-      `Invalid clip variant response: ${key} must be a positive integer`
+      `Invalid clip variant response: ${key} must be a positive integer`,
     )
   }
   validateNonNegativeInteger(
     variant.sizeBytes,
-    "Invalid clip variant response: sizeBytes must be a non-negative integer"
+    "Invalid clip variant response: sizeBytes must be a non-negative integer",
   )
   validateBoolean(
     variant.isDefault,
-    "Invalid clip variant response: isDefault must be boolean"
+    "Invalid clip variant response: isDefault must be boolean",
   )
   if (variant.settings !== undefined) {
     validateClipVariantSettings(variant.settings)
@@ -141,44 +142,46 @@ function validateClipEncodedVariant(value: unknown) {
 
 function validateClipVariantSettings(value: unknown) {
   const settings = objectRecord(value, "clip variant settings")
-  for (const key of [
-    "hwaccel",
-    "codec",
-    "extraInputArgs",
-    "extraOutputArgs",
-  ] as const) {
+  for (
+    const key of [
+      "hwaccel",
+      "codec",
+      "extraInputArgs",
+      "extraOutputArgs",
+    ] as const
+  ) {
     validateString(
       settings[key],
-      `Invalid clip variant settings response: ${key} must be a string`
+      `Invalid clip variant settings response: ${key} must be a string`,
     )
   }
   if (settings.audioCodec !== "aac" && settings.audioCodec !== "none") {
     throw new Error(
-      "Invalid clip variant settings response: audioCodec invalid"
+      "Invalid clip variant settings response: audioCodec invalid",
     )
   }
   for (const key of ["quality", "audioBitrateKbps"] as const) {
     validateNonNegativeInteger(
       settings[key],
-      `Invalid clip variant settings response: ${key} must be a non-negative integer`
+      `Invalid clip variant settings response: ${key} must be a non-negative integer`,
     )
   }
   validatePositiveInteger(
     settings.height,
-    "Invalid clip variant settings response: height must be a positive integer"
+    "Invalid clip variant settings response: height must be a positive integer",
   )
   validateNullableNonNegativeInteger(
     settings.trimStartMs,
-    "Invalid clip variant settings response: trimStartMs must be a non-negative integer or null"
+    "Invalid clip variant settings response: trimStartMs must be a non-negative integer or null",
   )
   validateNullableNonNegativeInteger(
     settings.trimEndMs,
-    "Invalid clip variant settings response: trimEndMs must be a non-negative integer or null"
+    "Invalid clip variant settings response: trimEndMs must be a non-negative integer or null",
   )
   if (settings.preset !== undefined) {
     validateString(
       settings.preset,
-      "Invalid clip variant settings response: preset must be a string"
+      "Invalid clip variant settings response: preset must be a string",
     )
   }
 }
@@ -187,11 +190,11 @@ function validateClipRemuxSettings(value: unknown) {
   const settings = objectRecord(value, "clip remux settings")
   validateNullableNonNegativeInteger(
     settings.trimStartMs,
-    "Invalid clip remux settings response: trimStartMs must be a non-negative integer or null"
+    "Invalid clip remux settings response: trimStartMs must be a non-negative integer or null",
   )
   validateNullableNonNegativeInteger(
     settings.trimEndMs,
-    "Invalid clip remux settings response: trimEndMs must be a non-negative integer or null"
+    "Invalid clip remux settings response: trimEndMs must be a non-negative integer or null",
   )
 }
 
@@ -207,92 +210,98 @@ export function validateClipRow(value: unknown): ClipRow {
 }
 
 function validateClipIdentityFields(row: Record<string, unknown>) {
-  for (const key of [
-    "id",
-    "authorId",
-    "title",
-    "gameId",
-    "authorUsername",
-    "authorName",
-  ] as const) {
+  for (
+    const key of [
+      "id",
+      "authorId",
+      "title",
+      "gameId",
+      "authorUsername",
+      "authorName",
+    ] as const
+  ) {
     validateRequiredString(
       row[key],
-      `Invalid clip response: ${key} is required`
+      `Invalid clip response: ${key} is required`,
     )
   }
 }
 
 function validateClipMetadataFields(row: Record<string, unknown>) {
-  for (const key of [
-    "description",
-    "game",
-    "sourceContentType",
-    "openGraphContentType",
-    "failureReason",
-    "authorImage",
-  ] as const) {
+  for (
+    const key of [
+      "description",
+      "game",
+      "sourceContentType",
+      "openGraphContentType",
+      "failureReason",
+      "authorImage",
+    ] as const
+  ) {
     validateNullableString(
       row[key],
-      `Invalid clip response: ${key} must be string or null`
+      `Invalid clip response: ${key} must be string or null`,
     )
   }
   validateEnumString(
     row.privacy,
     CLIP_PRIVACY_SET,
-    "Invalid clip response: privacy is invalid"
+    "Invalid clip response: privacy is invalid",
   )
   validateEnumString(
     row.status,
     CLIP_STATUS_SET,
-    "Invalid clip response: status is invalid"
+    "Invalid clip response: status is invalid",
   )
 }
 
 function validateClipCounters(row: Record<string, unknown>) {
-  for (const key of [
-    "sourceSizeBytes",
-    "openGraphSizeBytes",
-    "durationMs",
-    "trimStartMs",
-    "trimEndMs",
-  ] as const) {
+  for (
+    const key of [
+      "sourceSizeBytes",
+      "openGraphSizeBytes",
+      "durationMs",
+      "trimStartMs",
+      "trimEndMs",
+    ] as const
+  ) {
     validateNullableNonNegativeInteger(
       row[key],
-      `Invalid clip response: ${key} must be a non-negative integer or null`
+      `Invalid clip response: ${key} must be a non-negative integer or null`,
     )
   }
   for (const key of ["width", "height"] as const) {
     validateNullablePositiveInteger(
       row[key],
-      `Invalid clip response: ${key} must be a positive integer or null`
+      `Invalid clip response: ${key} must be a positive integer or null`,
     )
   }
   for (const key of ["viewCount", "likeCount", "commentCount"] as const) {
     validateNonNegativeInteger(
       row[key],
-      `Invalid clip response: ${key} must be a non-negative integer`
+      `Invalid clip response: ${key} must be a non-negative integer`,
     )
   }
   validateIntegerInRange(
     row.encodeProgress,
     0,
     100,
-    "Invalid clip response: encodeProgress must be an integer between 0 and 100"
+    "Invalid clip response: encodeProgress must be an integer between 0 and 100",
   )
 }
 
 function validateClipTimestamps(row: Record<string, unknown>) {
   validateIsoDateString(
     row.createdAt,
-    "Invalid clip response: createdAt must be a date string"
+    "Invalid clip response: createdAt must be a date string",
   )
   validateIsoDateString(
     row.updatedAt,
-    "Invalid clip response: updatedAt must be a date string"
+    "Invalid clip response: updatedAt must be a date string",
   )
   validateNullableString(
     row.thumbKey,
-    "Invalid clip response: thumbKey must be string or null"
+    "Invalid clip response: thumbKey must be string or null",
   )
 }
 
@@ -303,12 +312,12 @@ function validateClipRelationships(row: Record<string, unknown>) {
   if (row.mentions !== undefined) {
     validateArray(
       row.mentions,
-      "Invalid clip response: mentions must be an array"
+      "Invalid clip response: mentions must be an array",
     ).map((mention) => validateUserSummary(mention, "clip mention"))
   }
   validateArray(
     row.variants,
-    "Invalid clip response: variants must be an array"
+    "Invalid clip response: variants must be an array",
   ).map(validateClipEncodedVariant)
 }
 
@@ -320,11 +329,11 @@ export function validateClipPage(value: unknown): ClipPage {
   const page = objectRecord(value, "clips")
   validateArray(
     page.items,
-    "Invalid clips response: items must be an array"
+    "Invalid clips response: items must be an array",
   ).map(validateClipRow)
   validateNullableRequiredString(
     page.nextCursor,
-    "Invalid clips response: nextCursor must be a non-empty string or null"
+    "Invalid clips response: nextCursor must be a non-empty string or null",
   )
   return value as ClipPage
 }
@@ -335,30 +344,30 @@ function validateQueueClip(value: unknown): QueueClip {
   validateRequiredString(row.title, "Invalid queue response: title is required")
   validateRequiredString(
     row.gameSlug,
-    "Invalid queue response: gameSlug is required"
+    "Invalid queue response: gameSlug is required",
   )
   validateEnumString(
     row.status,
     CLIP_STATUS_SET,
-    "Invalid queue response: status is invalid"
+    "Invalid queue response: status is invalid",
   )
   validateIntegerInRange(
     row.encodeProgress,
     0,
     100,
-    "Invalid queue response: encodeProgress must be an integer between 0 and 100"
+    "Invalid queue response: encodeProgress must be an integer between 0 and 100",
   )
   validateNullableString(
     row.failureReason,
-    "Invalid queue response: failureReason must be string or null"
+    "Invalid queue response: failureReason must be string or null",
   )
   validateIsoDateString(
     row.createdAt,
-    "Invalid queue response: createdAt must be a date string"
+    "Invalid queue response: createdAt must be a date string",
   )
   validateBoolean(
     row.hasThumb,
-    "Invalid queue response: hasThumb must be boolean"
+    "Invalid queue response: hasThumb must be boolean",
   )
   return value as QueueClip
 }
@@ -376,19 +385,19 @@ export function validateQueueEvent(value: unknown): QueueEvent {
     case "progress":
       validateRequiredString(
         event.id,
-        "Invalid queue event response: id is required"
+        "Invalid queue event response: id is required",
       )
       validateIntegerInRange(
         event.encodeProgress,
         0,
         100,
-        "Invalid queue event response: encodeProgress must be an integer between 0 and 100"
+        "Invalid queue event response: encodeProgress must be an integer between 0 and 100",
       )
       return value as QueueEvent
     case "remove":
       validateRequiredString(
         event.id,
-        "Invalid queue event response: id is required"
+        "Invalid queue event response: id is required",
       )
       return value as QueueEvent
     default:
@@ -397,12 +406,12 @@ export function validateQueueEvent(value: unknown): QueueEvent {
 }
 
 export function validateInitiateClipResponse(
-  value: unknown
+  value: unknown,
 ): InitiateClipResponse {
   const response = objectRecord(value, "initiate clip")
   validateRequiredString(
     response.clipId,
-    "Invalid initiate clip response: clipId is required"
+    "Invalid initiate clip response: clipId is required",
   )
   validateUploadTicket(response.ticket)
   return value as InitiateClipResponse
@@ -412,7 +421,7 @@ function validateUploadTicket(value: unknown): UploadTicket {
   const ticket = objectRecord(value, "upload ticket")
   validateUrlString(
     ticket.uploadUrl,
-    "Invalid upload ticket response: uploadUrl must be a URL"
+    "Invalid upload ticket response: uploadUrl must be a URL",
   )
   if (ticket.method !== "PUT" && ticket.method !== "POST") {
     throw new Error("Invalid upload ticket response: method is invalid")
@@ -420,11 +429,11 @@ function validateUploadTicket(value: unknown): UploadTicket {
   validateStringRecord(
     ticket.headers,
     "upload ticket headers",
-    "Invalid upload ticket response: headers must be string values"
+    "Invalid upload ticket response: headers must be string values",
   )
   validateNonNegativeInteger(
     ticket.expiresAt,
-    "Invalid upload ticket response: expiresAt must be a non-negative integer"
+    "Invalid upload ticket response: expiresAt must be a non-negative integer",
   )
   return value as UploadTicket
 }
@@ -438,27 +447,27 @@ function validateLikeState(value: unknown, label: "clip" | "comment"): void {
   const response = objectRecord(value, `${label} like`)
   validateBoolean(
     response.liked,
-    `Invalid ${label} like response: liked must be boolean`
+    `Invalid ${label} like response: liked must be boolean`,
   )
   validateNonNegativeInteger(
     response.likeCount,
-    `Invalid ${label} like response: likeCount must be a non-negative integer`
+    `Invalid ${label} like response: likeCount must be a non-negative integer`,
   )
 }
 
 export function validateBooleanFlag<T extends string>(
   value: unknown,
-  key: T
+  key: T,
 ): Record<T, boolean>
 export function validateBooleanFlag<T extends string, V extends boolean>(
   value: unknown,
   key: T,
-  expected: V
+  expected: V,
 ): Record<T, V>
 export function validateBooleanFlag<T extends string>(
   value: unknown,
   key: T,
-  expected?: boolean
+  expected?: boolean,
 ): Record<T, boolean> {
   const response = objectRecord(value, key)
   if (
@@ -473,7 +482,7 @@ export function validateBooleanFlag<T extends string>(
 }
 
 export function booleanFlagResponseValidator<T extends string>(
-  key: T
+  key: T,
 ): (value: unknown) => Record<T, boolean>
 export function booleanFlagResponseValidator<
   T extends string,
@@ -481,7 +490,7 @@ export function booleanFlagResponseValidator<
 >(key: T, expected: V): (value: unknown) => Record<T, V>
 export function booleanFlagResponseValidator<T extends string>(
   key: T,
-  expected?: boolean
+  expected?: boolean,
 ): (value: unknown) => Record<T, boolean> {
   return (value: unknown) =>
     expected === undefined
@@ -493,11 +502,11 @@ export function validateFeedPage(value: unknown): FeedPage {
   const page = objectRecord(value, "feed")
   validateArray(
     page.items,
-    "Invalid feed response: items must be an array"
+    "Invalid feed response: items must be an array",
   ).map(validateClipRow)
   validateNullableRequiredString(
     page.nextCursor,
-    "Invalid feed response: nextCursor must be a non-empty string or null"
+    "Invalid feed response: nextCursor must be a non-empty string or null",
   )
   return value as FeedPage
 }
@@ -507,22 +516,22 @@ function validateFeedChipGame(value: unknown): FeedChipGame {
   for (const key of ["id", "slug", "name"] as const) {
     validateRequiredString(
       row[key],
-      `Invalid feed chips response: ${key} is required`
+      `Invalid feed chips response: ${key} is required`,
     )
   }
   for (const key of ["iconUrl", "logoUrl"] as const) {
     validateNullableUrlString(
       row[key],
-      `Invalid feed chips response: ${key} must be a URL or null`
+      `Invalid feed chips response: ${key} must be a URL or null`,
     )
   }
   validateNonNegativeNumber(
     row.interaction,
-    "Invalid feed chips response: interaction must be numeric"
+    "Invalid feed chips response: interaction must be numeric",
   )
   validateNonNegativeInteger(
     row.clipCount,
-    "Invalid feed chips response: clipCount must be a non-negative integer"
+    "Invalid feed chips response: clipCount must be a non-negative integer",
   )
   return value as FeedChipGame
 }
@@ -531,7 +540,7 @@ export function validateFeedChipsResponse(value: unknown): FeedChipsResponse {
   const response = objectRecord(value, "feed chips")
   validateArray(
     response.games,
-    "Invalid feed chips response: games must be an array"
+    "Invalid feed chips response: games must be an array",
   ).map(validateFeedChipGame)
   return value as FeedChipsResponse
 }
@@ -540,26 +549,26 @@ export function validateSearchResults(value: unknown): SearchResults {
   const results = objectRecord(value, "search")
   validateArray(
     results.clips,
-    "Invalid search response: clips must be an array"
+    "Invalid search response: clips must be an array",
   ).map(validateClipRow)
   validateArray(
     results.games,
-    "Invalid search response: games must be an array"
+    "Invalid search response: games must be an array",
   ).map(validateGameListRow)
   validateArray(
     results.users,
-    "Invalid search response: users must be an array"
+    "Invalid search response: users must be an array",
   ).map(validateUserListRow)
   return value as SearchResults
 }
 
 export function validateNotificationsResponse(
-  value: unknown
+  value: unknown,
 ): NotificationsResponse {
   const response = objectRecord(value, "notifications")
   validateArray(
     response.items,
-    "Invalid notifications response: items must be an array"
+    "Invalid notifications response: items must be an array",
   ).map(validateNotificationRow)
   validateUnreadCount(response, "notifications")
   return value as NotificationsResponse
@@ -567,23 +576,23 @@ export function validateNotificationsResponse(
 
 export function validateUserSummary(
   value: unknown,
-  label = "user"
+  label = "user",
 ): UserSummary {
   const row = objectRecord(value, label)
   for (const key of ["id", "username"] as const) {
     validateRequiredString(
       row[key],
-      `Invalid ${label} response: ${key} is required`
+      `Invalid ${label} response: ${key} is required`,
     )
   }
   validateString(
     row.displayUsername,
-    `Invalid ${label} response: displayUsername is required`
+    `Invalid ${label} response: displayUsername is required`,
   )
   validateString(row.name, `Invalid ${label} response: name is required`)
   validateNullableString(
     row.image,
-    `Invalid ${label} response: image must be string or null`
+    `Invalid ${label} response: image must be string or null`,
   )
   return value as UserSummary
 }
@@ -599,11 +608,11 @@ function validateUserListRow(value: unknown): UserListRow {
   validateUserSummary(row, "user list")
   validateIsoDateString(
     row.createdAt,
-    "Invalid user list response: createdAt must be a date string"
+    "Invalid user list response: createdAt must be a date string",
   )
   validateNonNegativeInteger(
     row.clipCount,
-    "Invalid user list response: clipCount must be a non-negative integer"
+    "Invalid user list response: clipCount must be a non-negative integer",
   )
   return value as UserListRow
 }
@@ -613,12 +622,12 @@ function validateNotificationClipRef(value: unknown) {
   for (const key of ["id", "title", "gameSlug"] as const) {
     validateRequiredString(
       clip[key],
-      `Invalid notification clip response: ${key} is required`
+      `Invalid notification clip response: ${key} is required`,
     )
   }
   validateBoolean(
     clip.hasThumb,
-    "Invalid notification clip response: hasThumb must be boolean"
+    "Invalid notification clip response: hasThumb must be boolean",
   )
 }
 
@@ -626,11 +635,11 @@ function validateNotificationCommentRef(value: unknown) {
   const comment = objectRecord(value, "notification comment")
   validateRequiredString(
     comment.id,
-    "Invalid notification comment response: id is required"
+    "Invalid notification comment response: id is required",
   )
   validateString(
     comment.body,
-    "Invalid notification comment response: body is required"
+    "Invalid notification comment response: body is required",
   )
 }
 
@@ -638,23 +647,23 @@ export function validateNotificationRow(value: unknown): NotificationRow {
   const row = objectRecord(value, "notification")
   validateRequiredString(
     row.id,
-    "Invalid notification response: id is required"
+    "Invalid notification response: id is required",
   )
   validateEnumString(
     row.type,
     NOTIFICATION_TYPE_SET,
-    "Invalid notification response: type is invalid"
+    "Invalid notification response: type is invalid",
   )
   if (row.actor !== null) validateUserSummary(row.actor, "notification actor")
   if (row.clip !== null) validateNotificationClipRef(row.clip)
   if (row.comment !== null) validateNotificationCommentRef(row.comment)
   validateNullableDateString(
     row.readAt,
-    "Invalid notification response: readAt must be a date string or null"
+    "Invalid notification response: readAt must be a date string or null",
   )
   validateIsoDateString(
     row.createdAt,
-    "Invalid notification response: createdAt must be a date string"
+    "Invalid notification response: createdAt must be a date string",
   )
   return value as NotificationRow
 }
@@ -666,7 +675,7 @@ export function validateNotificationsReadAllResponse(value: unknown): {
   const response = objectRecord(value, "mark all notifications read")
   validateIsoDateString(
     response.readAt,
-    "Invalid mark all notifications read response: readAt must be a date string"
+    "Invalid mark all notifications read response: readAt must be a date string",
   )
   validateUnreadCount(response, "mark all notifications read")
   return value as { readAt: string; unreadCount: number }
@@ -686,11 +695,11 @@ export function validateNotificationsDeleteResponse(value: unknown): {
 
 function validateUnreadCount(
   value: Record<string, unknown>,
-  label: string
+  label: string,
 ): void {
   validateNonNegativeInteger(
     value.unreadCount,
-    `Invalid ${label} response: unreadCount must be a non-negative integer`
+    `Invalid ${label} response: unreadCount must be a non-negative integer`,
   )
 }
 
@@ -707,25 +716,25 @@ export function validateNotificationEvent(value: unknown): NotificationEvent {
     case "read":
       validateRequiredString(
         event.id,
-        "Invalid notification event response: id is required"
+        "Invalid notification event response: id is required",
       )
       validateIsoDateString(
         event.readAt,
-        "Invalid notification event response: readAt must be a date string"
+        "Invalid notification event response: readAt must be a date string",
       )
       validateUnreadCount(event, "notification event")
       return value as NotificationEvent
     case "read_all":
       validateIsoDateString(
         event.readAt,
-        "Invalid notification event response: readAt must be a date string"
+        "Invalid notification event response: readAt must be a date string",
       )
       validateUnreadCount(event, "notification event")
       return value as NotificationEvent
     case "remove":
       validateRequiredString(
         event.id,
-        "Invalid notification event response: id is required"
+        "Invalid notification event response: id is required",
       )
       validateUnreadCount(event, "notification event")
       return value as NotificationEvent
@@ -761,20 +770,20 @@ export function validateReactivateAccountResponse(value: unknown): {
 function validateAccountDisabledAt(
   value: unknown,
   label: string,
-  mode: "nullable" | "date" | "null"
+  mode: "nullable" | "date" | "null",
 ): void {
   const response = objectRecord(value, label)
   if (mode === "nullable") {
     validateNullableDateString(
       response.disabledAt,
-      `Invalid ${label} response: disabledAt must be a date string or null`
+      `Invalid ${label} response: disabledAt must be a date string or null`,
     )
     return
   }
   if (mode === "date") {
     validateIsoDateString(
       response.disabledAt,
-      `Invalid ${label} response: disabledAt must be a date string`
+      `Invalid ${label} response: disabledAt must be a date string`,
     )
     return
   }
@@ -795,9 +804,19 @@ function validatePublicAuthProvider(value: unknown): PublicAuthProvider {
   for (const key of ["providerId", "displayName"] as const) {
     validateRequiredString(
       provider[key],
-      `Invalid auth config response: provider.${key} is required`
+      `Invalid auth config response: provider.${key} is required`,
     )
   }
+  for (const key of ["buttonColor", "buttonTextColor"] as const) {
+    validateOptionalString(
+      provider[key],
+      `Invalid auth config response: provider.${key} must be a string`,
+    )
+  }
+  validateOptionalUrlString(
+    provider.iconUrl,
+    "Invalid auth config response: provider.iconUrl must be a URL",
+  )
   return value as PublicAuthProvider
 }
 
@@ -806,35 +825,35 @@ function validateLoginSplashClip(value: unknown): LoginSplashClip {
   for (const key of ["id", "title"] as const) {
     validateRequiredString(
       clip[key],
-      `Invalid auth config response: loginSplash.${key} is required`
+      `Invalid auth config response: loginSplash.${key} is required`,
     )
   }
   validateNullableString(
     clip.game,
-    "Invalid auth config response: loginSplash.game must be string or null"
+    "Invalid auth config response: loginSplash.game must be string or null",
   )
   return value as LoginSplashClip
 }
 
 function validatePublicLoginSplashConfig(
-  value: unknown
+  value: unknown,
 ): PublicLoginSplashConfig {
   const splash = objectRecord(value, "login splash")
   validateBoolean(
     splash.enabled,
-    "Invalid auth config response: loginSplash.enabled must be boolean"
+    "Invalid auth config response: loginSplash.enabled must be boolean",
   )
   validateNullableDateString(
     splash.generatedAt,
-    "Invalid auth config response: loginSplash.generatedAt must be a date string or null"
+    "Invalid auth config response: loginSplash.generatedAt must be a date string or null",
   )
   validateNullableString(
     splash.imageUrl,
-    "Invalid auth config response: loginSplash.imageUrl must be string or null"
+    "Invalid auth config response: loginSplash.imageUrl must be string or null",
   )
   validateArray(
     splash.clips,
-    "Invalid auth config response: loginSplash.clips must be an array"
+    "Invalid auth config response: loginSplash.clips must be an array",
   ).map(validateLoginSplashClip)
   return value as PublicLoginSplashConfig
 }
@@ -844,51 +863,54 @@ export function validatePublicAuthConfig(value: unknown): PublicAuthConfig {
   for (const key of ["adminAccountRequired", "setupRequired"] as const) {
     validateBoolean(
       config[key],
-      `Invalid auth config response: ${key} must be boolean`
+      `Invalid auth config response: ${key} must be boolean`,
     )
   }
   for (const key of PUBLIC_AUTH_BOOLEAN_FIELDS) {
     validateBoolean(
       config[key],
-      `Invalid auth config response: ${key} must be boolean`
+      `Invalid auth config response: ${key} must be boolean`,
     )
   }
-  if (config.provider !== null) validatePublicAuthProvider(config.provider)
+  validateArray(
+    config.providers,
+    "Invalid auth config response: providers must be an array",
+  ).map(validatePublicAuthProvider)
   validatePublicLoginSplashConfig(config.loginSplash)
   return value as PublicAuthConfig
 }
 
 export function validateAdminUserStorageRow(
-  value: unknown
+  value: unknown,
 ): AdminUserStorageRow {
   const row = objectRecord(value, "admin user")
   for (const key of ["id", "username", "email", "createdAt"] as const) {
     validateRequiredString(
       row[key],
-      `Invalid admin user response: ${key} is required`
+      `Invalid admin user response: ${key} is required`,
     )
   }
   validateIsoDateString(
     row.createdAt,
-    "Invalid admin user response: createdAt must be a date string"
+    "Invalid admin user response: createdAt must be a date string",
   )
   validateString(row.name, "Invalid admin user response: name is required")
   validateNullableString(
     row.image,
-    "Invalid admin user response: image must be string or null"
+    "Invalid admin user response: image must be string or null",
   )
   validateNullableEnumString(
     row.role,
     USER_ROLE_SET,
-    "Invalid admin user response: role is invalid"
+    "Invalid admin user response: role is invalid",
   )
   validateNullablePositiveInteger(
     row.storageQuotaBytes,
-    "Invalid admin user response: storageQuotaBytes must be a positive integer or null"
+    "Invalid admin user response: storageQuotaBytes must be a positive integer or null",
   )
   validateNonNegativeInteger(
     row.storageUsedBytes,
-    "Invalid admin user response: storageUsedBytes must be a non-negative integer"
+    "Invalid admin user response: storageUsedBytes must be a non-negative integer",
   )
   return value as AdminUserStorageRow
 }
@@ -897,47 +919,48 @@ export function validateAdminUsersResponse(value: unknown): AdminUsersResponse {
   const response = objectRecord(value, "admin users")
   validateArray(
     response.users,
-    "Invalid admin users response: users must be an array"
+    "Invalid admin users response: users must be an array",
   ).map(validateAdminUserStorageRow)
   return value as AdminUsersResponse
 }
 
 export function validateCommentRow(value: unknown): CommentRow {
   const row = objectRecord(value, "comment")
-  for (const key of ["id", "clipId", "body"] as const) {
+  for (const key of ["id", "clipId"] as const) {
     validateRequiredString(
       row[key],
-      `Invalid comment response: ${key} is required`
+      `Invalid comment response: ${key} is required`,
     )
   }
+  validateString(row.body, "Invalid comment response: body is required")
   validateNullableString(
     row.parentId,
-    "Invalid comment response: parentId must be string or null"
+    "Invalid comment response: parentId must be string or null",
   )
   validateNonNegativeInteger(
     row.likeCount,
-    "Invalid comment response: likeCount must be a non-negative integer"
+    "Invalid comment response: likeCount must be a non-negative integer",
   )
   for (const key of ["pinned", "likedByViewer", "likedByAuthor"] as const) {
     validateBoolean(
       row[key],
-      `Invalid comment response: ${key} must be boolean`
+      `Invalid comment response: ${key} must be boolean`,
     )
   }
   validateIsoDateString(
     row.createdAt,
-    "Invalid comment response: createdAt must be a date string"
+    "Invalid comment response: createdAt must be a date string",
   )
   for (const key of ["pinnedAt", "editedAt"] as const) {
     validateNullableDateString(
       row[key],
-      `Invalid comment response: ${key} must be a date string or null`
+      `Invalid comment response: ${key} must be a date string or null`,
     )
   }
   validateUserSummary(row.author, "comment author")
   validateArray(
     row.replies,
-    "Invalid comment response: replies must be an array"
+    "Invalid comment response: replies must be an array",
   ).map(validateCommentRow)
   return value as CommentRow
 }
@@ -946,11 +969,11 @@ export function validateCommentPage(value: unknown): CommentPage {
   const page = objectRecord(value, "comments")
   validateArray(
     page.items,
-    "Invalid comments response: items must be an array"
+    "Invalid comments response: items must be an array",
   ).map(validateCommentRow)
   validateNullableRequiredString(
     page.nextCursor,
-    "Invalid comments response: nextCursor must be a non-empty string or null"
+    "Invalid comments response: nextCursor must be a non-empty string or null",
   )
   return value as CommentPage
 }
@@ -964,12 +987,12 @@ export function validateCommentUpdateResponse(value: unknown): {
   for (const key of ["id", "body"] as const) {
     validateRequiredString(
       row[key],
-      `Invalid comment update response: ${key} is required`
+      `Invalid comment update response: ${key} is required`,
     )
   }
   validateNullableDateString(
     row.editedAt,
-    "Invalid comment update response: editedAt must be a date string or null"
+    "Invalid comment update response: editedAt must be a date string or null",
   )
   return value as { id: string; body: string; editedAt: string | null }
 }
@@ -987,25 +1010,25 @@ export function validatePublicUser(value: unknown): PublicUser {
   for (const key of ["id", "username", "createdAt", "updatedAt"] as const) {
     validateRequiredString(
       row[key],
-      `Invalid user response: ${key} is required`
+      `Invalid user response: ${key} is required`,
     )
   }
   validateString(row.name, "Invalid user response: name is required")
   validateNullableString(
     row.image,
-    "Invalid user response: image must be string or null"
+    "Invalid user response: image must be string or null",
   )
   validateNullableString(
     row.banner,
-    "Invalid user response: banner must be string or null"
+    "Invalid user response: banner must be string or null",
   )
   validateIsoDateString(
     row.createdAt,
-    "Invalid user response: createdAt must be a date string"
+    "Invalid user response: createdAt must be a date string",
   )
   validateIsoDateString(
     row.updatedAt,
-    "Invalid user response: updatedAt must be a date string"
+    "Invalid user response: updatedAt must be a date string",
   )
   return value as PublicUser
 }
@@ -1015,7 +1038,7 @@ function validateProfileCounts(value: unknown): ProfileCounts {
   for (const key of ["clips", "followers", "following"] as const) {
     validateNonNegativeInteger(
       counts[key],
-      `Invalid profile counts response: ${key} must be a non-negative integer`
+      `Invalid profile counts response: ${key} must be a non-negative integer`,
     )
   }
   return value as ProfileCounts
@@ -1023,15 +1046,17 @@ function validateProfileCounts(value: unknown): ProfileCounts {
 
 function validateProfileViewer(value: unknown): ProfileViewer {
   const viewer = objectRecord(value, "profile viewer")
-  for (const key of [
-    "isSelf",
-    "isFollowing",
-    "isBlocked",
-    "isBlockedBy",
-  ] as const) {
+  for (
+    const key of [
+      "isSelf",
+      "isFollowing",
+      "isBlocked",
+      "isBlockedBy",
+    ] as const
+  ) {
     validateBoolean(
       viewer[key],
-      `Invalid profile viewer response: ${key} must be boolean`
+      `Invalid profile viewer response: ${key} must be boolean`,
     )
   }
   return value as ProfileViewer
@@ -1056,18 +1081,18 @@ function validateProfileGameRow(value: unknown): ProfileGameRow {
   validateGameRowFields(row, "profile game")
   validateNonNegativeInteger(
     row.clipCount,
-    "Invalid profile game response: clipCount must be a non-negative integer"
+    "Invalid profile game response: clipCount must be a non-negative integer",
   )
   validateIsoDateString(
     row.lastClippedAt,
-    "Invalid profile game response: lastClippedAt must be a date string"
+    "Invalid profile game response: lastClippedAt must be a date string",
   )
   return value as ProfileGameRow
 }
 
 export function validateProfileGameRows(value: unknown): ProfileGameRow[] {
   return validateArray(value, "Invalid profile games response").map(
-    validateProfileGameRow
+    validateProfileGameRow,
   )
 }
 
@@ -1075,11 +1100,11 @@ export function validateUserStorageUsage(value: unknown): UserStorageUsage {
   const usage = objectRecord(value, "storage usage")
   validateNonNegativeInteger(
     usage.usedBytes,
-    "Invalid storage usage response: usedBytes must be a non-negative integer"
+    "Invalid storage usage response: usedBytes must be a non-negative integer",
   )
   validateNullablePositiveInteger(
     usage.quotaBytes,
-    "Invalid storage usage response: quotaBytes must be a positive integer or null"
+    "Invalid storage usage response: quotaBytes must be a positive integer or null",
   )
   return value as UserStorageUsage
 }
@@ -1088,21 +1113,21 @@ function validateGameRowFields(row: Record<string, unknown>, label: string) {
   for (const key of ["id", "name", "slug"] as const) {
     validateRequiredString(
       row[key],
-      `Invalid ${label} response: ${key} is required`
+      `Invalid ${label} response: ${key} is required`,
     )
   }
   validatePositiveInteger(
     row.steamgriddbId,
-    `Invalid ${label} response: steamgriddbId must be a positive integer`
+    `Invalid ${label} response: steamgriddbId must be a positive integer`,
   )
   validateNullableDateString(
     row.releaseDate,
-    `Invalid ${label} response: releaseDate must be a date string or null`
+    `Invalid ${label} response: releaseDate must be a date string or null`,
   )
   for (const key of ["heroUrl", "gridUrl", "logoUrl", "iconUrl"] as const) {
     validateNullableUrlString(
       row[key],
-      `Invalid ${label} response: ${key} must be a URL or null`
+      `Invalid ${label} response: ${key} must be a URL or null`,
     )
   }
 }
@@ -1118,7 +1143,7 @@ function validateGameListRow(value: unknown): GameListRow {
   validateGameRowFields(row, "game")
   validateNonNegativeInteger(
     row.clipCount,
-    "Invalid game response: clipCount must be a non-negative integer"
+    "Invalid game response: clipCount must be a non-negative integer",
   )
   return value as GameListRow
 }
@@ -1134,12 +1159,12 @@ export function validateGameDetail(value: unknown): GameDetail {
     const viewer = objectRecord(row.viewer, "game detail viewer")
     validateBoolean(
       viewer.isFollowing,
-      "Invalid game detail response: viewer.isFollowing must be boolean"
+      "Invalid game detail response: viewer.isFollowing must be boolean",
     )
   }
   validateNonNegativeInteger(
     row.favouritesCount,
-    "Invalid game detail response: favouritesCount must be a non-negative integer"
+    "Invalid game detail response: favouritesCount must be a non-negative integer",
   )
   return value as GameDetail
 }
@@ -1148,80 +1173,80 @@ export function validateSteamGridDBStatus(value: unknown): SteamGridDBStatus {
   const status = objectRecord(value, "SteamGridDB status")
   validateBoolean(
     status.steamgriddbConfigured,
-    "Invalid SteamGridDB status response: steamgriddbConfigured must be boolean"
+    "Invalid SteamGridDB status response: steamgriddbConfigured must be boolean",
   )
   return value as SteamGridDBStatus
 }
 
 function validateSteamGridDBSearchResult(
-  value: unknown
+  value: unknown,
 ): SteamGridDBSearchResult {
   const row = objectRecord(value, "game search")
   validatePositiveInteger(
     row.id,
-    "Invalid game search response: id must be a positive integer"
+    "Invalid game search response: id must be a positive integer",
   )
   validateRequiredString(
     row.name,
-    "Invalid game search response: name is required"
+    "Invalid game search response: name is required",
   )
   if (row.release_date !== undefined) {
     validatePositiveInteger(
       row.release_date,
-      "Invalid game search response: release_date must be a positive integer"
+      "Invalid game search response: release_date must be a positive integer",
     )
   }
   if (row.types !== undefined) {
     validateStringArray(
       row.types,
-      "Invalid game search response: types must be an array of strings"
+      "Invalid game search response: types must be an array of strings",
     )
   }
   if (row.verified !== undefined) {
     validateBoolean(
       row.verified,
-      "Invalid game search response: verified must be boolean"
+      "Invalid game search response: verified must be boolean",
     )
   }
   if (row.iconUrl !== undefined) {
     validateNullableUrlString(
       row.iconUrl,
-      "Invalid game search response: iconUrl must be a URL or null"
+      "Invalid game search response: iconUrl must be a URL or null",
     )
   }
   return value as SteamGridDBSearchResult
 }
 
 export function validateSteamGridDBSearchResults(
-  value: unknown
+  value: unknown,
 ): SteamGridDBSearchResult[] {
   return validateArray(value, "Invalid game search response").map(
-    validateSteamGridDBSearchResult
+    validateSteamGridDBSearchResult,
   )
 }
 
 export function validateAdminEncoderCapabilities(
-  value: unknown
+  value: unknown,
 ): AdminEncoderCapabilities {
   const capabilities = objectRecord(value, "encoder capabilities")
   validateBoolean(
     capabilities.ffmpegOk,
-    "Invalid encoder capabilities response: ffmpegOk must be boolean"
+    "Invalid encoder capabilities response: ffmpegOk must be boolean",
   )
   validateNullableString(
     capabilities.ffmpegVersion,
-    "Invalid encoder capabilities response: ffmpegVersion must be string or null"
+    "Invalid encoder capabilities response: ffmpegVersion must be string or null",
   )
   const available = objectRecord(
     capabilities.available,
-    "encoder capabilities available"
+    "encoder capabilities available",
   )
   for (const hwaccel of ENCODER_HWACCELS) {
     const hw = objectRecord(available[hwaccel], "encoder capabilities hwaccel")
     for (const codec of ["h264", "hevc", "av1"] as const) {
       validateBoolean(
         hw[codec],
-        `Invalid encoder capabilities response: ${hwaccel}.${codec} must be boolean`
+        `Invalid encoder capabilities response: ${hwaccel}.${codec} must be boolean`,
       )
     }
   }
@@ -1239,28 +1264,30 @@ export function validatePublicMlConfig(value: unknown): PublicMlConfig {
   const config = objectRecord(value, "machine learning config")
   validateBoolean(
     config.enabled,
-    "Invalid machine learning config: enabled must be boolean"
+    "Invalid machine learning config: enabled must be boolean",
   )
   const gameSuggestion = objectRecord(
     config.gameSuggestion,
-    "machine learning game suggestion config"
+    "machine learning game suggestion config",
   )
-  for (const key of [
-    "frameCount",
-    "frameMaxWidth",
-    "maxFrames",
-    "maxFrameBytes",
-  ] as const) {
+  for (
+    const key of [
+      "frameCount",
+      "frameMaxWidth",
+      "maxFrames",
+      "maxFrameBytes",
+    ] as const
+  ) {
     validatePositiveInteger(
       gameSuggestion[key],
-      `Invalid machine learning config: gameSuggestion.${key} must be a positive integer`
+      `Invalid machine learning config: gameSuggestion.${key} must be a positive integer`,
     )
   }
   return value as PublicMlConfig
 }
 
 export function validateMlGameSuggestionResponse(
-  value: unknown
+  value: unknown,
 ): MlGameSuggestionResponse {
   const response = objectRecord(value, "machine learning game suggestions")
   if (response.kind !== "game-suggestion" || response.advisory !== true) {
@@ -1268,28 +1295,28 @@ export function validateMlGameSuggestionResponse(
   }
   validateRequiredString(
     response.modelName,
-    "Invalid machine learning response: modelName is required"
+    "Invalid machine learning response: modelName is required",
   )
   validateNullableRequiredString(
     response.modelVersion,
-    "Invalid machine learning response: invalid modelVersion"
+    "Invalid machine learning response: invalid modelVersion",
   )
   const predictions = validateArray(
     response.predictions,
-    "Invalid machine learning response: predictions must be an array"
+    "Invalid machine learning response: predictions must be an array",
   )
   for (const [index, item] of predictions.entries()) {
     const prediction = objectRecord(item, "machine learning prediction")
     validatePositiveInteger(
       prediction.rank,
-      "Invalid machine learning response: rank must be a positive integer"
+      "Invalid machine learning response: rank must be a positive integer",
     )
     if (prediction.rank !== index + 1) {
       throw new Error("Invalid machine learning response: rank is out of order")
     }
     validateRequiredString(
       prediction.label,
-      "Invalid machine learning response: label is required"
+      "Invalid machine learning response: label is required",
     )
     if (
       typeof prediction.score !== "number" ||
@@ -1298,7 +1325,7 @@ export function validateMlGameSuggestionResponse(
       prediction.score > 1
     ) {
       throw new Error(
-        "Invalid machine learning response: score must be between 0 and 1"
+        "Invalid machine learning response: score must be between 0 and 1",
       )
     }
   }
@@ -1310,44 +1337,56 @@ function validateRuntimeOAuthProvider(value: unknown, label: string) {
   for (const key of ["providerId", "displayName", "clientId"] as const) {
     validateRequiredString(
       provider[key],
-      `Invalid ${label} config: ${key} is required`
+      `Invalid ${label} config: ${key} is required`,
     )
   }
   validateString(
     provider.clientSecret,
-    `Invalid ${label} config: clientSecret must be a string`
+    `Invalid ${label} config: clientSecret must be a string`,
   )
   if (provider.scopes !== undefined) {
     validateStringArray(
       provider.scopes,
-      `Invalid ${label} config: scopes must be an array of strings`
+      `Invalid ${label} config: scopes must be an array of strings`,
     )
   }
   validateBoolean(
     provider.enabled,
-    `Invalid ${label} config: enabled must be boolean`
+    `Invalid ${label} config: enabled must be boolean`,
   )
-  for (const key of [
-    "discoveryUrl",
-    "authorizationUrl",
-    "tokenUrl",
-    "userInfoUrl",
-  ] as const) {
+  for (const key of ["buttonColor", "buttonTextColor"] as const) {
+    validateOptionalString(
+      provider[key],
+      `Invalid ${label} config: ${key} must be a string`,
+    )
+  }
+  validateOptionalUrlString(
+    provider.iconUrl,
+    `Invalid ${label} config: iconUrl must be a URL`,
+  )
+  for (
+    const key of [
+      "discoveryUrl",
+      "authorizationUrl",
+      "tokenUrl",
+      "userInfoUrl",
+    ] as const
+  ) {
     validateOptionalUrlString(
       provider[key],
-      `Invalid ${label} config: ${key} must be a URL`
+      `Invalid ${label} config: ${key} must be a URL`,
     )
   }
   if (provider.pkce !== undefined) {
     validateBoolean(
       provider.pkce,
-      `Invalid ${label} config: pkce must be boolean`
+      `Invalid ${label} config: pkce must be boolean`,
     )
   }
   for (const key of ["usernameClaim", "quotaClaim", "roleClaim"] as const) {
     validateRequiredString(
       provider[key],
-      `Invalid ${label} config: ${key} is required`
+      `Invalid ${label} config: ${key} is required`,
     )
   }
 }
@@ -1357,42 +1396,42 @@ function validateAdminEncoderVariant(value: unknown) {
   for (const key of ["id", "name"] as const) {
     validateRequiredString(
       variant[key],
-      `Invalid admin encoder variant config: ${key} is required`
+      `Invalid admin encoder variant config: ${key} is required`,
     )
   }
   validateEnumString(
     variant.codec,
     ENCODER_CODEC_SET,
-    "Invalid admin encoder variant config: codec is invalid"
+    "Invalid admin encoder variant config: codec is invalid",
   )
   validateEvenIntegerInRange(
     variant.height,
     ENCODER_HEIGHT_MIN,
     ENCODER_HEIGHT_MAX,
-    `Invalid admin encoder variant config: height must be an even integer between ${ENCODER_HEIGHT_MIN} and ${ENCODER_HEIGHT_MAX}`
+    `Invalid admin encoder variant config: height must be an even integer between ${ENCODER_HEIGHT_MIN} and ${ENCODER_HEIGHT_MAX}`,
   )
   validateIntegerInRange(
     variant.quality,
     0,
     51,
-    "Invalid admin encoder variant config: quality must be between 0 and 51"
+    "Invalid admin encoder variant config: quality must be between 0 and 51",
   )
   validateIntegerInRange(
     variant.audioBitrateKbps,
     64,
     256,
-    "Invalid admin encoder variant config: audioBitrateKbps must be between 64 and 256"
+    "Invalid admin encoder variant config: audioBitrateKbps must be between 64 and 256",
   )
   if (variant.preset !== undefined) {
     validateRequiredString(
       variant.preset,
-      "Invalid admin encoder variant config: preset must be a non-empty string"
+      "Invalid admin encoder variant config: preset must be a non-empty string",
     )
   }
   for (const key of ["extraInputArgs", "extraOutputArgs"] as const) {
     validateString(
       variant[key],
-      `Invalid admin encoder variant config: ${key} must be a string`
+      `Invalid admin encoder variant config: ${key} must be a string`,
     )
   }
 }
@@ -1401,26 +1440,26 @@ function validateAdminEncoderConfig(value: unknown) {
   const encoder = objectRecord(value, "admin encoder config")
   validateBoolean(
     encoder.enabled,
-    "Invalid admin encoder config: enabled must be boolean"
+    "Invalid admin encoder config: enabled must be boolean",
   )
   validateEnumString(
     encoder.hwaccel,
     ENCODER_HWACCEL_SET,
-    "Invalid admin encoder config: hwaccel is invalid"
+    "Invalid admin encoder config: hwaccel is invalid",
   )
   for (const key of ["qsvDevice", "vaapiDevice"] as const) {
     validateRequiredString(
       encoder[key],
-      `Invalid admin encoder config: ${key} is required`
+      `Invalid admin encoder config: ${key} is required`,
     )
   }
   validateNullableRequiredString(
     encoder.defaultVariantId,
-    "Invalid admin encoder config: defaultVariantId must be non-empty or null"
+    "Invalid admin encoder config: defaultVariantId must be non-empty or null",
   )
   validateArray(
     encoder.variants,
-    "Invalid admin encoder config: variants must be an array"
+    "Invalid admin encoder config: variants must be an array",
   ).map(validateAdminEncoderVariant)
 }
 
@@ -1428,19 +1467,19 @@ function validateAdminLimitsConfig(value: unknown) {
   const limits = objectRecord(value, "admin limits config")
   validatePositiveInteger(
     limits.maxUploadBytes,
-    "Invalid admin limits config: maxUploadBytes must be a positive integer"
+    "Invalid admin limits config: maxUploadBytes must be a positive integer",
   )
   validateNullablePositiveInteger(
     limits.defaultStorageQuotaBytes,
-    "Invalid admin limits config: defaultStorageQuotaBytes must be a positive integer or null"
+    "Invalid admin limits config: defaultStorageQuotaBytes must be a positive integer or null",
   )
   validatePositiveInteger(
     limits.uploadTtlSec,
-    "Invalid admin limits config: uploadTtlSec must be a positive integer"
+    "Invalid admin limits config: uploadTtlSec must be a positive integer",
   )
   validatePositiveInteger(
     limits.queueConcurrency,
-    "Invalid admin limits config: queueConcurrency must be a positive integer"
+    "Invalid admin limits config: queueConcurrency must be a positive integer",
   )
 }
 
@@ -1448,7 +1487,7 @@ function validateAdminIntegrationsConfig(value: unknown) {
   const integrations = objectRecord(value, "admin integrations config")
   validateString(
     integrations.steamgriddbApiKey,
-    "Invalid admin integrations config: steamgriddbApiKey must be a string"
+    "Invalid admin integrations config: steamgriddbApiKey must be a string",
   )
 }
 
@@ -1457,16 +1496,16 @@ function validateAdminGameClassifierConfig(value: unknown) {
   for (const key of ["modelName", "repoId", "filename", "revision"] as const) {
     validateRequiredString(
       gameClassifier[key],
-      `Invalid admin game classifier config: ${key} is required`
+      `Invalid admin game classifier config: ${key} is required`,
     )
   }
   validateNullableRequiredString(
     gameClassifier.modelVersion,
-    "Invalid admin game classifier config: modelVersion must be non-empty or null"
+    "Invalid admin game classifier config: modelVersion must be non-empty or null",
   )
   validateNullableRequiredString(
     gameClassifier.checkpointPath,
-    "Invalid admin game classifier config: checkpointPath must be non-empty or null"
+    "Invalid admin game classifier config: checkpointPath must be non-empty or null",
   )
 }
 
@@ -1474,15 +1513,15 @@ function validateAdminMachineLearningConfig(value: unknown) {
   const machineLearning = objectRecord(value, "admin machine learning config")
   validateBoolean(
     machineLearning.enabled,
-    "Invalid admin machine learning config: enabled must be boolean"
+    "Invalid admin machine learning config: enabled must be boolean",
   )
   validateUrlString(
     machineLearning.baseUrl,
-    "Invalid admin machine learning config: baseUrl must be a URL"
+    "Invalid admin machine learning config: baseUrl must be a URL",
   )
   validatePositiveInteger(
     machineLearning.requestTimeoutMs,
-    "Invalid admin machine learning config: requestTimeoutMs must be a positive integer"
+    "Invalid admin machine learning config: requestTimeoutMs must be a positive integer",
   )
   validateAdminGameClassifierConfig(machineLearning.gameClassifier)
 }
@@ -1491,24 +1530,26 @@ function validateAdminAppearanceConfig(value: unknown) {
   const appearance = objectRecord(value, "admin appearance config")
   const loginSplash = objectRecord(
     appearance.loginSplash,
-    "admin login splash config"
+    "admin login splash config",
   )
   validateBoolean(
     loginSplash.enabled,
-    "Invalid admin login splash config: enabled must be boolean"
+    "Invalid admin login splash config: enabled must be boolean",
   )
-  for (const clipId of validateArray(
-    loginSplash.clipIds,
-    "Invalid admin login splash config: clipIds must be an array"
-  )) {
+  for (
+    const clipId of validateArray(
+      loginSplash.clipIds,
+      "Invalid admin login splash config: clipIds must be an array",
+    )
+  ) {
     validateRequiredString(
       clipId,
-      "Invalid admin login splash config: clipIds must contain strings"
+      "Invalid admin login splash config: clipIds must contain strings",
     )
   }
   validateNullableDateString(
     loginSplash.generatedAt,
-    "Invalid admin login splash config: generatedAt must be a date string or null"
+    "Invalid admin login splash config: generatedAt must be a date string or null",
   )
 }
 
@@ -1517,53 +1558,53 @@ function validateAdminStorageConfig(value: unknown) {
   validateEnumString(
     storage.driver,
     STORAGE_DRIVER_SET,
-    "Invalid admin storage config: driver is invalid"
+    "Invalid admin storage config: driver is invalid",
   )
   const fs = objectRecord(storage.fs, "admin filesystem storage config")
   validateRequiredString(
     fs.root,
-    "Invalid admin filesystem storage config: root is required"
+    "Invalid admin filesystem storage config: root is required",
   )
   validateUrlString(
     fs.publicBaseUrl,
-    "Invalid admin filesystem storage config: publicBaseUrl must be a URL"
+    "Invalid admin filesystem storage config: publicBaseUrl must be a URL",
   )
   validateString(
     fs.hmacSecret,
-    "Invalid admin filesystem storage config: hmacSecret must be a string"
+    "Invalid admin filesystem storage config: hmacSecret must be a string",
   )
 
   const s3 = objectRecord(storage.s3, "admin S3 storage config")
   for (const key of ["bucket", "region"] as const) {
     validateString(
       s3[key],
-      `Invalid admin S3 storage config: ${key} must be a string`
+      `Invalid admin S3 storage config: ${key} must be a string`,
     )
   }
   validateOptionalUrlString(
     s3.endpoint,
-    "Invalid admin S3 storage config: endpoint must be a URL"
+    "Invalid admin S3 storage config: endpoint must be a URL",
   )
   validateOptionalString(
     s3.accessKeyId,
-    "Invalid admin S3 storage config: accessKeyId must be a string"
+    "Invalid admin S3 storage config: accessKeyId must be a string",
   )
   validateOptionalString(
     s3.secretAccessKey,
-    "Invalid admin S3 storage config: secretAccessKey must be a string"
+    "Invalid admin S3 storage config: secretAccessKey must be a string",
   )
   validateBoolean(
     s3.forcePathStyle,
-    "Invalid admin S3 storage config: forcePathStyle must be boolean"
+    "Invalid admin S3 storage config: forcePathStyle must be boolean",
   )
   validatePositiveInteger(
     s3.presignExpiresSec,
-    "Invalid admin S3 storage config: presignExpiresSec must be a positive integer"
+    "Invalid admin S3 storage config: presignExpiresSec must be a positive integer",
   )
   if (storage.driver === "s3") {
     validateRequiredString(
       s3.bucket,
-      "Invalid admin S3 storage config: bucket is required when storage driver is s3"
+      "Invalid admin S3 storage config: bucket is required when storage driver is s3",
     )
   }
 }
@@ -1572,26 +1613,35 @@ function validateAdminSecretsConfig(value: unknown) {
   const secrets = objectRecord(value, "admin secrets config")
   validateString(
     secrets.viewerCookieSecret,
-    "Invalid admin secrets config: viewerCookieSecret must be a string"
+    "Invalid admin secrets config: viewerCookieSecret must be a string",
   )
 }
 
 function validateRuntimeConfigFields(
   config: Record<string, unknown>,
-  label: string
+  label: string,
 ) {
+  validatePositiveInteger(
+    config.runtimeConfigVersion,
+    `Invalid ${label} config: runtimeConfigVersion must be a positive integer`,
+  )
+  if (config.runtimeConfigVersion !== RUNTIME_CONFIG_VERSION) {
+    throw new Error(
+      `Invalid ${label} config: runtimeConfigVersion must be ${RUNTIME_CONFIG_VERSION}`,
+    )
+  }
   for (const key of RUNTIME_CONFIG_BOOLEAN_FIELDS) {
     validateBoolean(
       config[key],
-      `Invalid ${label} config: ${key} must be boolean`
+      `Invalid ${label} config: ${key} must be boolean`,
     )
   }
-  if (config.oauthProvider !== null) {
-    validateRuntimeOAuthProvider(
-      config.oauthProvider,
-      `${label} OAuth provider`
-    )
-  }
+  validateArray(
+    config.oauthProviders,
+    `Invalid ${label} config: oauthProviders must be an array`,
+  ).map((provider) =>
+    validateRuntimeOAuthProvider(provider, `${label} OAuth provider`)
+  )
   validateAdminEncoderConfig(config.encoder)
   validateAdminLimitsConfig(config.limits)
   validateAdminIntegrationsConfig(config.integrations)
@@ -1612,7 +1662,7 @@ export function validateAdminRuntimeConfig(value: unknown): AdminRuntimeConfig {
   validateRuntimeConfigFields(config, "admin runtime")
   validateUrlString(
     config.authBaseURL,
-    "Invalid admin runtime config: authBaseURL must be a URL"
+    "Invalid admin runtime config: authBaseURL must be a URL",
   )
   return value as AdminRuntimeConfig
 }

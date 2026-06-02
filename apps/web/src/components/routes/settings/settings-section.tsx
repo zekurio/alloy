@@ -40,7 +40,7 @@ export function SettingsSection({
           <ChevronDownIcon
             className={cn(
               "size-4 shrink-0 text-foreground-dim transition-transform duration-200",
-              open && "rotate-180"
+              open && "rotate-180",
             )}
           />
         </div>

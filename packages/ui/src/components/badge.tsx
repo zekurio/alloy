@@ -10,7 +10,7 @@ const badgeVariants = cva(
     "font-mono text-2xs leading-3 font-medium tracking-[0.06em] uppercase",
     "transition-colors",
     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:outline-none",
-    "[&>svg]:pointer-events-none [&>svg]:size-2.5"
+    "[&>svg]:pointer-events-none [&>svg]:size-2.5",
   ),
   {
     variants: {
@@ -27,7 +27,7 @@ const badgeVariants = cva(
           "border-[oklch(0.65_0.25_25/0.4)] bg-[oklch(0.65_0.25_25/0.12)] text-live",
           // pulsing dot — leading pseudo
           "before:size-1.5 before:rounded-full before:bg-live before:content-['']",
-          "before:animate-pulse-dot before:shadow-[0_0_6px_var(--live)]"
+          "before:animate-pulse-dot before:shadow-[0_0_6px_var(--live)]",
         ),
         // shadcn aliases
         secondary: "border-border bg-surface-raised text-foreground-muted",
@@ -35,13 +35,14 @@ const badgeVariants = cva(
           "border-[oklch(0.65_0.24_25/0.4)] bg-[oklch(0.65_0.24_25/0.12)] text-danger",
         outline: "border-border-strong bg-transparent text-foreground",
         ghost: "border-transparent bg-transparent text-foreground-muted",
-        link: "border-transparent bg-transparent text-accent underline-offset-4 hover:underline",
+        link:
+          "border-transparent bg-transparent text-accent underline-offset-4 hover:underline",
       },
     },
     defaultVariants: {
       variant: "default",
     },
-  }
+  },
 )
 
 function Badge({
@@ -54,7 +55,7 @@ function Badge({
     defaultTagName: "span",
     props: mergeProps<"span">(
       { className: cn(badgeVariants({ variant }), className) },
-      props
+      props,
     ),
     render,
     state: { slot: "badge", variant },

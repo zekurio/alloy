@@ -8,11 +8,13 @@ type StorageUsageDb = Pick<typeof db, "select">
 
 export async function selectSourceStorageUsedBytes(
   database: StorageUsageDb,
-  userId: string
+  userId: string,
 ): Promise<number> {
   const [row] = await database
     .select({
-      usedBytes: sql<number>`coalesce(sum(${clip.sourceSizeBytes}), 0)::double precision`,
+      usedBytes: sql<
+        number
+      >`coalesce(sum(${clip.sourceSizeBytes}), 0)::double precision`,
     })
     .from(clip)
     .where(and(eq(clip.authorId, userId), ne(clip.status, "failed")))
@@ -22,14 +24,16 @@ export async function selectSourceStorageUsedBytes(
 
 export async function selectSourceStorageUsedBytesByUserIds(
   database: StorageUsageDb,
-  userIds: string[]
+  userIds: string[],
 ): Promise<Map<string, number>> {
   if (userIds.length === 0) return new Map()
 
   const rows = await database
     .select({
       userId: clip.authorId,
-      usedBytes: sql<number>`coalesce(sum(${clip.sourceSizeBytes}), 0)::double precision`,
+      usedBytes: sql<
+        number
+      >`coalesce(sum(${clip.sourceSizeBytes}), 0)::double precision`,
     })
     .from(clip)
     .where(and(inArray(clip.authorId, userIds), ne(clip.status, "failed")))

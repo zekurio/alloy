@@ -30,10 +30,10 @@ import {
   CommentIdParam,
   CreateBody,
   InvalidCommentCursorError,
-  ListQuery,
-  UpdateBody,
   listClipComments,
+  ListQuery,
   resolveCommentEngagementTarget,
+  UpdateBody,
 } from "./clip-comments-helpers"
 import { serialiseUserSummary, userSummarySelectShape } from "./users-helpers"
 import {
@@ -69,7 +69,7 @@ export const clipCommentsRoutes = new Hono()
             cursor,
             viewerId: access.viewer?.id ?? null,
             clipAuthorId: access.row.authorId,
-          })
+          }),
         )
       } catch (err) {
         if (err instanceof InvalidCommentCursorError) {
@@ -77,9 +77,8 @@ export const clipCommentsRoutes = new Hono()
         }
         throw err
       }
-    }
+    },
   )
-
   .post(
     "/:id/comments",
     requireSession,
@@ -170,21 +169,18 @@ export const clipCommentsRoutes = new Hono()
         likedByAuthor: false,
         createdAt: isoDate(inserted.createdAt),
         editedAt: null,
-        author: authorRow
-          ? serialiseUserSummary(authorRow)
-          : {
-              id: viewerId,
-              username: "",
-              displayUsername: "",
-              name: "",
-              image: null,
-            },
+        author: authorRow ? serialiseUserSummary(authorRow) : {
+          id: viewerId,
+          username: "",
+          displayUsername: "",
+          name: "",
+          image: null,
+        },
         replies: [],
       }
       return c.json(out, 201)
-    }
+    },
   )
-
   .patch(
     "/comments/:commentId",
     requireSession,
@@ -222,9 +218,8 @@ export const clipCommentsRoutes = new Hono()
         body: updated.body,
         editedAt: nullableIsoDate(updated.editedAt),
       })
-    }
+    },
   )
-
   .delete(
     "/comments/:commentId",
     requireSession,
@@ -244,9 +239,8 @@ export const clipCommentsRoutes = new Hono()
 
       await softDeleteComment(target.row.id)
       return deleted(c)
-    }
+    },
   )
-
   .post(
     "/comments/:commentId/like",
     requireSession,
@@ -257,7 +251,7 @@ export const clipCommentsRoutes = new Hono()
 
       const target = await resolveCommentEngagementTarget(
         commentId,
-        c.req.raw.headers
+        c.req.raw.headers,
       )
       if (!target.accessible) {
         return clipAccessResponse(c, target)
@@ -322,9 +316,8 @@ export const clipCommentsRoutes = new Hono()
         })
       }
       return likeState(c, result.liked, result.likeCount)
-    }
+    },
   )
-
   .delete(
     "/comments/:commentId/like",
     requireSession,
@@ -335,7 +328,7 @@ export const clipCommentsRoutes = new Hono()
 
       const target = await resolveCommentEngagementTarget(
         commentId,
-        c.req.raw.headers
+        c.req.raw.headers,
       )
       if (!target.accessible) {
         return clipAccessResponse(c, target)
@@ -347,8 +340,8 @@ export const clipCommentsRoutes = new Hono()
           .where(
             and(
               eq(clipCommentLike.commentId, commentId),
-              eq(clipCommentLike.userId, viewerId)
-            )
+              eq(clipCommentLike.userId, viewerId),
+            ),
           )
           .returning({ commentId: clipCommentLike.commentId })
         if (removed.length === 0) {
@@ -368,9 +361,8 @@ export const clipCommentsRoutes = new Hono()
       })
       if (!result) return notFound(c)
       return likeState(c, result.liked, result.likeCount)
-    }
+    },
   )
-
   .post(
     "/comments/:commentId/pin",
     requireSession,
@@ -391,9 +383,8 @@ export const clipCommentsRoutes = new Hono()
         commentId,
       })
       return booleanFlag(c, "pinned", true)
-    }
+    },
   )
-
   .delete(
     "/comments/:commentId/pin",
     requireSession,
@@ -407,5 +398,5 @@ export const clipCommentsRoutes = new Hono()
         return errorResult(c, result)
       }
       return booleanFlag(c, "pinned", false)
-    }
+    },
   )

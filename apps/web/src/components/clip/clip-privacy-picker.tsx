@@ -33,7 +33,7 @@ function PrivacyOptionButton({
         "h-auto flex-1 flex-col gap-1 rounded-md border px-2 py-2 text-xs",
         active
           ? "border-accent-border bg-accent-soft text-accent hover:border-accent-border hover:bg-accent-soft hover:text-accent"
-          : "border-input bg-surface-raised text-foreground-muted hover:bg-surface-raised hover:text-foreground"
+          : "border-input bg-surface-raised text-foreground-muted hover:bg-surface-raised hover:text-foreground",
       )}
     >
       <Icon className="size-3.5" />

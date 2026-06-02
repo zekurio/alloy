@@ -68,7 +68,7 @@ function ClipModalRoute() {
         replace: true,
       })
     },
-    [router, slug]
+    [router, slug],
   )
 
   return (

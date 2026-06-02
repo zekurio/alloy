@@ -54,7 +54,7 @@ export function AllClipsSection({
       if (!ref) continue
       const existing = map.get(ref.slug)
       if (existing) existing.count += 1
-      else
+      else {
         map.set(ref.slug, {
           slug: ref.slug,
           name: ref.name,
@@ -62,6 +62,7 @@ export function AllClipsSection({
           iconUrl: ref.iconUrl,
           logoUrl: ref.logoUrl,
         })
+      }
     }
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name))
   }, [clips])
@@ -90,12 +91,14 @@ export function AllClipsSection({
           </SectionTitle>
         </div>
         <SectionActions>
-          {visible ? (
-            <SectionMeta>
-              {formatCount(visible.length)}{" "}
-              {visible.length === 1 ? "clip" : "clips"}
-            </SectionMeta>
-          ) : null}
+          {visible
+            ? (
+              <SectionMeta>
+                {formatCount(visible.length)}{" "}
+                {visible.length === 1 ? "clip" : "clips"}
+              </SectionMeta>
+            )
+            : null}
         </SectionActions>
       </SectionHead>
 
@@ -113,16 +116,12 @@ export function AllClipsSection({
         errorSeed="profile-all-error"
         errorTitle="Couldn't load clips"
         emptySeed={`profile-all-empty-${gameSlug ?? "none"}`}
-        emptyTitle={
-          gameSlug
-            ? `No clips for ${selectedGameName ?? "this game"} yet`
-            : "No clips uploaded yet"
-        }
-        emptyHint={
-          gameSlug
-            ? "Try a different game or clear the filter."
-            : "Clips from this user will show up here once they upload."
-        }
+        emptyTitle={gameSlug
+          ? `No clips for ${selectedGameName ?? "this game"} yet`
+          : "No clips uploaded yet"}
+        emptyHint={gameSlug
+          ? "Try a different game or clear the filter."
+          : "Clips from this user will show up here once they upload."}
         listKey={`profile:${username}:all:${sort}:${gameSlug ?? ""}`}
         isOwnedByViewer={() => isSelf}
       />
@@ -142,13 +141,15 @@ function sortClips(clips: UserClip[], sort: ProfileAllSort): UserClip[] {
     case "top":
       copy.sort(
         (a, b) =>
-          b.likeCount - a.likeCount || compareDateDesc(a.createdAt, b.createdAt)
+          b.likeCount - a.likeCount ||
+          compareDateDesc(a.createdAt, b.createdAt),
       )
       break
     case "views":
       copy.sort(
         (a, b) =>
-          b.viewCount - a.viewCount || compareDateDesc(a.createdAt, b.createdAt)
+          b.viewCount - a.viewCount ||
+          compareDateDesc(a.createdAt, b.createdAt),
       )
       break
   }

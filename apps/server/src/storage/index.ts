@@ -19,7 +19,7 @@ function buildStorage(config: StorageConfig): StorageDriver {
       // Exhaustiveness check: adding a new storage driver variant without
       const exhaustive: never = config
       throw new Error(
-        `Unsupported storage driver: ${JSON.stringify(exhaustive)}`
+        `Unsupported storage driver: ${JSON.stringify(exhaustive)}`,
       )
     }
   }

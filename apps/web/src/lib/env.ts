@@ -37,8 +37,8 @@ function webServerUrl(): string {
 
   return (
     nonEmpty(process.env.INTERNAL_API_URL) ??
-    nonEmpty(process.env.VITE_SERVER_URL) ??
-    DEFAULT_SERVER_URL
+      nonEmpty(process.env.VITE_SERVER_URL) ??
+      DEFAULT_SERVER_URL
   )
 }
 
@@ -49,6 +49,6 @@ export function apiOrigin(): string {
 export function publicOrigin(): string {
   if (typeof window !== "undefined") return window.location.origin
   return normalizeOrigin(
-    nonEmpty(process.env.PUBLIC_SERVER_URL) ?? webServerUrl()
+    nonEmpty(process.env.PUBLIC_SERVER_URL) ?? webServerUrl(),
   )
 }

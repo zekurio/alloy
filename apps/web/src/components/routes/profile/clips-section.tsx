@@ -31,8 +31,9 @@ export function ClipsSection({
     title: "Couldn't load clips",
     toastId: `profile-${variant}-clips-error`,
   })
-  const visibleClips =
-    variant === "recent" && clips ? clips.slice(0, 12) : clips
+  const visibleClips = variant === "recent" && clips
+    ? clips.slice(0, 12)
+    : clips
 
   return (
     <section>
@@ -44,12 +45,14 @@ export function ClipsSection({
           </SectionTitle>
         </div>
         <SectionActions>
-          {visibleClips ? (
-            <SectionMeta>
-              {formatCount(visibleClips.length)}{" "}
-              {visibleClips.length === 1 ? "clip" : "clips"}
-            </SectionMeta>
-          ) : null}
+          {visibleClips
+            ? (
+              <SectionMeta>
+                {formatCount(visibleClips.length)}{" "}
+                {visibleClips.length === 1 ? "clip" : "clips"}
+              </SectionMeta>
+            )
+            : null}
         </SectionActions>
       </SectionHead>
 

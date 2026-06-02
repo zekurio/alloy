@@ -23,7 +23,7 @@ export function MediaEditOverlay({
         tone === "shade"
           ? "bg-[oklch(12%_0.01_250)]/50"
           : "bg-[oklch(12%_0.01_250)]/50 ring-1 ring-white/20 ring-inset",
-        radius === "lg" ? "rounded-lg" : "rounded-md"
+        radius === "lg" ? "rounded-lg" : "rounded-md",
       )}
     >
       <span
@@ -31,7 +31,7 @@ export function MediaEditOverlay({
           "inline-flex size-8 items-center justify-center rounded-full",
           tone === "shade"
             ? "bg-transparent"
-            : "bg-[oklch(12%_0.01_250)]/45 shadow-[0_2px_10px_oklch(0_0_0_/_0.24)] backdrop-blur-sm"
+            : "bg-[oklch(12%_0.01_250)]/45 shadow-[0_2px_10px_oklch(0_0_0_/_0.24)] backdrop-blur-sm",
         )}
       >
         {children}

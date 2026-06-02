@@ -3,7 +3,7 @@ type EventSourceMessageListener = (event: MessageEvent<string>) => void
 export function bindEventSourceListeners(
   source: EventSource,
   listeners: Record<string, EventSourceMessageListener>,
-  onError?: (event: Event) => void
+  onError?: (event: Event) => void,
 ): () => void {
   const entries = Object.entries(listeners)
   for (const [type, listener] of entries) {

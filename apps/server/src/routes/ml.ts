@@ -1,4 +1,4 @@
-import { Hono, type Context } from "hono"
+import { type Context, Hono } from "hono"
 
 import {
   ML_GAME_SUGGESTION_FRAME_COUNT,
@@ -26,17 +26,18 @@ type MlRouteErrorStatus = 400 | 413 | 502 | 503
 export const mlRoute = new Hono()
   .get("/config", requireSession, (c) => {
     const { enabled } = configStore.get("machineLearning")
-    return c.json({
-      enabled,
-      gameSuggestion: {
-        frameCount: ML_GAME_SUGGESTION_FRAME_COUNT,
-        frameMaxWidth: ML_GAME_SUGGESTION_FRAME_MAX_WIDTH,
-        maxFrames: ML_GAME_SUGGESTION_MAX_FRAMES,
-        maxFrameBytes: ML_GAME_SUGGESTION_MAX_FRAME_BYTES,
-      },
-    } satisfies PublicMlConfig)
+    return c.json(
+      {
+        enabled,
+        gameSuggestion: {
+          frameCount: ML_GAME_SUGGESTION_FRAME_COUNT,
+          frameMaxWidth: ML_GAME_SUGGESTION_FRAME_MAX_WIDTH,
+          maxFrames: ML_GAME_SUGGESTION_MAX_FRAMES,
+          maxFrameBytes: ML_GAME_SUGGESTION_MAX_FRAME_BYTES,
+        },
+      } satisfies PublicMlConfig,
+    )
   })
-
   .post("/game-suggestions", requireSession, async (c) => {
     const config = configStore.get("machineLearning")
     if (!config.enabled) {
@@ -61,23 +62,23 @@ export const mlRoute = new Hono()
     if (frames.length > ML_GAME_SUGGESTION_MAX_FRAMES) {
       return payloadTooLarge(
         c,
-        `Expected at most ${ML_GAME_SUGGESTION_MAX_FRAMES} frames`
+        `Expected at most ${ML_GAME_SUGGESTION_MAX_FRAMES} frames`,
       )
     }
     const oversizedFrame = frames.find(
-      (frame) => frame.size > ML_GAME_SUGGESTION_MAX_FRAME_BYTES
+      (frame) => frame.size > ML_GAME_SUGGESTION_MAX_FRAME_BYTES,
     )
     if (oversizedFrame) {
       return payloadTooLarge(
         c,
-        `Each frame must be ${ML_GAME_SUGGESTION_MAX_FRAME_BYTES} bytes or smaller`
+        `Each frame must be ${ML_GAME_SUGGESTION_MAX_FRAME_BYTES} bytes or smaller`,
       )
     }
 
     let frameBytes: Uint8Array[]
     try {
       frameBytes = await Promise.all(
-        frames.map(async (f) => new Uint8Array(await f.arrayBuffer()))
+        frames.map(async (f) => new Uint8Array(await f.arrayBuffer())),
       )
     } catch (cause) {
       return mlErrorResponse(c, cause)
@@ -99,7 +100,7 @@ type MultipartFormDataResult =
   | { ok: false; status: 400 | 413; error: string }
 
 async function readMultipartFormData(
-  request: Request
+  request: Request,
 ): Promise<MultipartFormDataResult> {
   if (!isMultipartFormData(request.headers.get("content-type"))) {
     return {
@@ -117,7 +118,8 @@ async function readMultipartFormData(
     return {
       ok: false,
       status: 413,
-      error: `ML frame upload must be ${ML_GAME_SUGGESTION_MAX_REQUEST_BYTES} bytes or smaller`,
+      error:
+        `ML frame upload must be ${ML_GAME_SUGGESTION_MAX_REQUEST_BYTES} bytes or smaller`,
     }
   }
 
@@ -147,7 +149,7 @@ function mlErrorResponse(c: Context, cause: unknown) {
         ? "Machine learning unavailable"
         : "Frames could not be analyzed",
       cause.message,
-      statusCode
+      statusCode,
     )
   }
   const detail = errorDetail(cause, "Unknown error")

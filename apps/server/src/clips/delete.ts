@@ -10,7 +10,7 @@ import { storage } from "../storage"
 import { deleteScratchUploads } from "../uploads/scratch"
 
 export async function deleteClipRowAndAssets(
-  row: typeof clip.$inferSelect
+  row: typeof clip.$inferSelect,
 ): Promise<void> {
   await cancelEncode(row.id)
   const tickets = await db
@@ -34,7 +34,7 @@ export async function deleteClipRowAndAssets(
   }
   await deleteScratchUploads(
     tickets.map((ticket) => ticket.storageKey),
-    `clip ${row.id} staged upload`
+    `clip ${row.id} staged upload`,
   )
 
   publishClipRemove(row.authorId, row.id)

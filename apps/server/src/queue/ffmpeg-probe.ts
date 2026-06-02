@@ -28,7 +28,7 @@ export async function probe(srcPath: string): Promise<ProbeResult> {
       "-show_format",
       srcPath,
     ],
-    { label: "probe" }
+    { label: "probe" },
   )
 
   let parsed: ProbeJson
@@ -45,7 +45,7 @@ export async function probe(srcPath: string): Promise<ProbeResult> {
   // Duration sometimes only appears at the format level (mkv/mp4 with
   // unknown stream duration). Fall back through both.
   const durationSec = Number.parseFloat(
-    videoStream.duration ?? parsed.format?.duration ?? "0"
+    videoStream.duration ?? parsed.format?.duration ?? "0",
   )
   if (!Number.isFinite(durationSec) || durationSec <= 0) {
     throw new Error("Could not determine duration from probe output")

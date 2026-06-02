@@ -1,18 +1,7 @@
 import * as React from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { SaveIcon, Trash2Icon } from "lucide-react"
+import { SaveIcon } from "lucide-react"
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
 import {
   Section,
@@ -28,16 +17,14 @@ import {
 } from "@workspace/ui/components/field"
 import {
   InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
 import { toast } from "@workspace/ui/lib/toast"
 
 import {
-  INTEGRATIONS_REDACTED,
   type AdminIntegrationsConfig,
   type AdminRuntimeConfig,
+  INTEGRATIONS_REDACTED,
 } from "@workspace/api"
 
 import { api } from "@/lib/api"
@@ -60,7 +47,7 @@ type IntegrationsConfigCardProps = {
 
 function updateSteamGridDBStatus(
   queryClient: ReturnType<typeof useQueryClient>,
-  steamgriddbConfigured: boolean
+  steamgriddbConfigured: boolean,
 ) {
   queryClient.setQueryData(gameKeys.status(), { steamgriddbConfigured })
   void queryClient.invalidateQueries({ queryKey: gameKeys.status() })
@@ -80,13 +67,12 @@ export function IntegrationsConfigCard({
 }: IntegrationsConfigCardProps) {
   const queryClient = useQueryClient()
   const blankForm = (
-    src: AdminIntegrationsConfig
+    src: AdminIntegrationsConfig,
   ): AdminIntegrationsConfig => ({
     ...src,
-    steamgriddbApiKey:
-      src.steamgriddbApiKey === INTEGRATIONS_REDACTED
-        ? ""
-        : src.steamgriddbApiKey,
+    steamgriddbApiKey: src.steamgriddbApiKey === INTEGRATIONS_REDACTED
+      ? ""
+      : src.steamgriddbApiKey,
   })
 
   const [form, setForm] = React.useState<AdminIntegrationsConfig>(() =>
@@ -95,7 +81,7 @@ export function IntegrationsConfigCard({
   const [pending, setPending] = React.useState(false)
   const initialForm = React.useMemo(
     () => blankForm(integrations),
-    [integrations]
+    [integrations],
   )
 
   React.useEffect(() => {
@@ -104,8 +90,7 @@ export function IntegrationsConfigCard({
 
   const steamgriddbConfigured =
     integrations.steamgriddbApiKey === INTEGRATIONS_REDACTED
-  const isDirty =
-    normalizeSteamGridDBApiKey(form.steamgriddbApiKey) !==
+  const isDirty = normalizeSteamGridDBApiKey(form.steamgriddbApiKey) !==
     normalizeSteamGridDBApiKey(initialForm.steamgriddbApiKey)
 
   function resetForm() {
@@ -123,7 +108,7 @@ export function IntegrationsConfigCard({
     try {
       const patch: Partial<AdminIntegrationsConfig> = {}
       const steamgriddbApiKey = normalizeSteamGridDBApiKey(
-        form.steamgriddbApiKey
+        form.steamgriddbApiKey,
       )
       if (steamgriddbApiKey) {
         patch.steamgriddbApiKey = steamgriddbApiKey
@@ -139,23 +124,6 @@ export function IntegrationsConfigCard({
       onSaved?.()
     } catch (cause) {
       toast.error(errorMessage(cause, "Couldn't update integrations"))
-    } finally {
-      setPending(false)
-    }
-  }
-
-  async function onClearSteamGridDB() {
-    if (pending) return
-    setPending(true)
-    try {
-      const next = await api.admin.updateIntegrationsConfig({
-        steamgriddbApiKey: "",
-      })
-      onChange(next)
-      updateSteamGridDBStatus(queryClient, false)
-      toast.success("SteamGridDB key removed")
-    } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't remove key"))
     } finally {
       setPending(false)
     }
@@ -181,60 +149,15 @@ export function IntegrationsConfigCard({
                   className="pl-3.5"
                   autoComplete="new-password"
                   value={form.steamgriddbApiKey}
-                  placeholder={
-                    steamgriddbConfigured ? "Leave blank to keep current" : ""
-                  }
+                  placeholder={steamgriddbConfigured
+                    ? "Leave blank to keep current"
+                    : ""}
                   onChange={(e) =>
                     setForm((f) => ({
                       ...f,
                       steamgriddbApiKey: e.target.value,
-                    }))
-                  }
+                    }))}
                 />
-                {steamgriddbConfigured ? (
-                  <InputGroupAddon align="inline-end">
-                    <AlertDialog>
-                      <AlertDialogTrigger
-                        render={
-                          <InputGroupButton
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            className="text-danger hover:text-danger"
-                            aria-label="Remove SteamGridDB key"
-                            title="Remove key"
-                            disabled={pending || isDirty}
-                          />
-                        }
-                      >
-                        <Trash2Icon />
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>
-                            Remove SteamGridDB key?
-                          </AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This disables the game picker and cover art
-                            integration until a new key is added.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel disabled={pending}>
-                            Cancel
-                          </AlertDialogCancel>
-                          <AlertDialogAction
-                            variant="destructive"
-                            onClick={onClearSteamGridDB}
-                            disabled={pending}
-                          >
-                            {pending ? "Removing…" : "Remove key"}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </InputGroupAddon>
-                ) : null}
               </InputGroup>
               <FieldDescription>
                 {steamgriddbConfigured

@@ -12,14 +12,14 @@ function warnStorageFailure(
   kind: BrowserStorageKind,
   action: string,
   key: string,
-  cause: unknown
+  cause: unknown,
 ): void {
   const warningKey = `${kind}:${action}`
   if (warnedStorageFailures.has(warningKey)) return
   warnedStorageFailures.add(warningKey)
   clientLogger.warn(
     `[storage] ${storageLabel(kind)} ${action} failed for ${key}.`,
-    cause
+    cause,
   )
 }
 
@@ -47,7 +47,7 @@ function readStorageItem(kind: BrowserStorageKind, key: string): string | null {
 function writeStorageItem(
   kind: BrowserStorageKind,
   key: string,
-  value: string
+  value: string,
 ): boolean {
   const storage = browserStorage(kind)
   if (!storage) return false

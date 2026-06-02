@@ -63,7 +63,7 @@ export function pointsEqual(a: Point, b: Point) {
 export function clampImageOffset(
   next: Point,
   cropFrame: CropFrame,
-  imageBox: { height: number; width: number } | null
+  imageBox: { height: number; width: number } | null,
 ) {
   if (!imageBox) return { x: 0, y: 0 }
 
@@ -71,8 +71,8 @@ export function clampImageOffset(
   const stageCenterY = cropFrame.stageHeight / 2
   const minX = cropFrame.x + cropFrame.width - stageCenterX - imageBox.width / 2
   const maxX = cropFrame.x - stageCenterX + imageBox.width / 2
-  const minY =
-    cropFrame.y + cropFrame.height - stageCenterY - imageBox.height / 2
+  const minY = cropFrame.y + cropFrame.height - stageCenterY -
+    imageBox.height / 2
   const maxY = cropFrame.y - stageCenterY + imageBox.height / 2
 
   return {
@@ -90,7 +90,7 @@ function clampRange(value: number, min: number, max: number) {
 export function getMinimumZoom(
   mode: CropMode,
   containedImageBox: { height: number; width: number } | null,
-  cropFrame: CropFrame
+  cropFrame: CropFrame,
 ) {
   if (mode !== "avatar" || !containedImageBox) {
     return DEFAULT_PREVIEW_ZOOM
@@ -99,10 +99,10 @@ export function getMinimumZoom(
   return clamp(
     Math.max(
       cropFrame.width / containedImageBox.width,
-      cropFrame.height / containedImageBox.height
+      cropFrame.height / containedImageBox.height,
     ),
     0,
-    DEFAULT_PREVIEW_ZOOM
+    DEFAULT_PREVIEW_ZOOM,
   )
 }
 
@@ -111,7 +111,7 @@ export function getLiveCropGeometry(
   stage: { height: number; width: number },
   config: CropConfig,
   mode: CropMode,
-  zoom: number
+  zoom: number,
 ) {
   const containedImageBox = image ? getImageBox(image, stage, 1) : null
   return {
@@ -129,11 +129,11 @@ export function fallbackStageSize(mode: CropMode) {
 export function getImageBox(
   image: Pick<LoadedImage, "height" | "width">,
   stage: { height: number; width: number },
-  zoom: number
+  zoom: number,
 ) {
   const baseScale = Math.min(
     stage.width / image.width,
-    stage.height / image.height
+    stage.height / image.height,
   )
   return {
     height: image.height * baseScale * zoom,
@@ -144,7 +144,7 @@ export function getImageBox(
 export function getImagePlacement(
   stage: { height: number; width: number },
   imageBox: { height: number; width: number },
-  offset: Point
+  offset: Point,
 ) {
   return {
     height: imageBox.height,
@@ -158,19 +158,21 @@ export function getCropFrame(
   stage: { height: number; width: number },
   aspect: number,
   mode: CropMode,
-  containedImageBox: { height: number; width: number } | null
+  containedImageBox: { height: number; width: number } | null,
 ): CropFrame {
-  const preferredMaxWidth =
-    mode === "avatar" ? stage.height * 0.78 : stage.width
-  const preferredMaxHeight =
-    mode === "avatar" ? stage.height * 0.78 : stage.height * 0.54
+  const preferredMaxWidth = mode === "avatar"
+    ? stage.height * 0.78
+    : stage.width
+  const preferredMaxHeight = mode === "avatar"
+    ? stage.height * 0.78
+    : stage.height * 0.54
   const maxWidth = Math.min(
     preferredMaxWidth,
-    containedImageBox?.width ?? preferredMaxWidth
+    containedImageBox?.width ?? preferredMaxWidth,
   )
   const maxHeight = Math.min(
     preferredMaxHeight,
-    containedImageBox?.height ?? preferredMaxHeight
+    containedImageBox?.height ?? preferredMaxHeight,
   )
   let width = Math.min(stage.width, maxWidth)
   let height = width / aspect
@@ -192,7 +194,7 @@ export function getCropFrame(
 
 export function isCropCovered(
   cropFrame: CropFrame,
-  image: { height: number; left: number; top: number; width: number }
+  image: { height: number; left: number; top: number; width: number },
 ) {
   const imageRight = image.left + image.width
   const imageBottom = image.top + image.height

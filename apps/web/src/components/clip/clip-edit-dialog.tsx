@@ -117,8 +117,7 @@ export function ClipEditDialog({
   const gameChanged = (game?.id ?? null) !== (row.gameRef?.id ?? null)
   const mentionsChanged = !sameIdSet(mentionIds, originalMentionIds)
 
-  const dirty =
-    titleChanged ||
+  const dirty = titleChanged ||
     descriptionChanged ||
     privacyChanged ||
     gameChanged ||
@@ -141,7 +140,7 @@ export function ClipEditDialog({
           onOpenChange(false)
         },
         onError: () => toast.error("Couldn't save changes"),
-      }
+      },
     )
   }, [
     dirty,
@@ -167,7 +166,7 @@ export function ClipEditDialog({
       <ResponsiveDialogContent
         variant="secondary"
         className={cn(
-          "flex max-h-[min(90dvh,820px)] flex-col gap-0 bg-surface p-0 md:max-w-2xl"
+          "flex max-h-[min(90dvh,820px)] flex-col gap-0 bg-surface p-0 md:max-w-2xl",
         )}
       >
         <ResponsiveDialogHeader>
@@ -186,11 +185,13 @@ export function ClipEditDialog({
                 disabled={saving}
                 aria-invalid={titleInvalid}
               />
-              {titleInvalid ? (
-                <span className="text-xs text-destructive">
-                  Title can't be empty.
-                </span>
-              ) : null}
+              {titleInvalid
+                ? (
+                  <span className="text-xs text-destructive">
+                    Title can't be empty.
+                  </span>
+                )
+                : null}
             </Field>
 
             <Field className="gap-1.5">
@@ -243,7 +244,7 @@ export function ClipEditDialog({
         <ResponsiveDialogFooter
           className={cn(
             "px-4 pt-3 sm:px-6",
-            "pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
+            "pb-[calc(1.25rem+env(safe-area-inset-bottom))]",
           )}
         >
           <Button

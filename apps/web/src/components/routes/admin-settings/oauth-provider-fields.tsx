@@ -31,9 +31,8 @@ export function OAuthCallbackField({
             copyToClipboard(
               value,
               "Callback URL copied",
-              "Couldn't copy callback URL"
-            )
-          }
+              "Couldn't copy callback URL",
+            )}
         >
           <CopyIcon />
         </Button>
@@ -45,7 +44,7 @@ export function OAuthCallbackField({
 async function copyToClipboard(
   value: string,
   successMessage: string,
-  errorMessage: string
+  errorMessage: string,
 ) {
   const copied = await copyTextToClipboard(value, {
     action: "copy OAuth callback URL",

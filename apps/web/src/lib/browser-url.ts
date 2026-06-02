@@ -9,7 +9,7 @@ export function consumeCurrentQueryParam(key: string): string | null {
   window.history.replaceState(
     null,
     "",
-    `${url.pathname}${url.search}${url.hash}`
+    `${url.pathname}${url.search}${url.hash}`,
   )
   return value
 }
@@ -35,7 +35,7 @@ export function currentUrlWithoutSearchOrHash(): string | null {
 
 export function currentUrlWithQueryParam(
   key: string,
-  value: string
+  value: string,
 ): string | null {
   if (typeof window === "undefined") return null
 

@@ -62,24 +62,28 @@ function RouteErrorState({
           </Link>
         </div>
 
-        {isDev && details ? (
-          <div className="w-full max-w-sm pt-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              aria-expanded={showDetails}
-              onClick={() => setShowDetails((value) => !value)}
-            >
-              {showDetails ? "Hide details" : "Show details"}
-            </Button>
-            {showDetails ? (
-              <pre className="mt-2 max-h-56 overflow-auto rounded-lg border border-dashed border-border p-3 text-left font-mono text-xs leading-relaxed whitespace-pre-wrap text-foreground-dim">
+        {isDev && details
+          ? (
+            <div className="w-full max-w-sm pt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-expanded={showDetails}
+                onClick={() => setShowDetails((value) => !value)}
+              >
+                {showDetails ? "Hide details" : "Show details"}
+              </Button>
+              {showDetails
+                ? (
+                  <pre className="mt-2 max-h-56 overflow-auto rounded-lg border border-dashed border-border p-3 text-left font-mono text-xs leading-relaxed whitespace-pre-wrap text-foreground-dim">
                 {details}
-              </pre>
-            ) : null}
-          </div>
-        ) : null}
+                  </pre>
+                )
+                : null}
+            </div>
+          )
+          : null}
       </div>
     </RouteStateFrame>
   )
@@ -109,16 +113,18 @@ function RouteNotFoundState({
             <Home className="size-3.5" aria-hidden />
             Go home
           </Link>
-          {canGoBack ? (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={goBackInBrowserHistory}
-            >
-              <ArrowLeft className="size-3.5" aria-hidden />
-              Go back
-            </Button>
-          ) : null}
+          {canGoBack
+            ? (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={goBackInBrowserHistory}
+              >
+                <ArrowLeft className="size-3.5" aria-hidden />
+                Go back
+              </Button>
+            )
+            : null}
         </div>
       </div>
     </RouteStateFrame>
@@ -138,7 +144,7 @@ function RouteStateFrame({
     <Component
       className={cn(
         "flex w-full items-center justify-center bg-background text-foreground",
-        variant === "screen" ? "min-h-[100svh] p-6" : "min-h-full py-16"
+        variant === "screen" ? "min-h-[100svh] p-6" : "min-h-full py-16",
       )}
     >
       {children}
@@ -148,7 +154,7 @@ function RouteStateFrame({
 
 function getErrorDetails(
   error: unknown,
-  info?: { componentStack: string }
+  info?: { componentStack: string },
 ): string | null {
   const message = getErrorMessage(error)
   const stack = error instanceof Error ? error.stack : null

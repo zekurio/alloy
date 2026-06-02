@@ -19,7 +19,7 @@ export function useGameSuggestionQuery(
   file: File,
   fileKey: string,
   config: PublicMlConfig | undefined,
-  { enabled }: { enabled: boolean }
+  { enabled }: { enabled: boolean },
 ): UseQueryResult<MlGameSuggestionPrediction[]> {
   return useQuery({
     queryKey: mlKeys.suggestion(fileKey),

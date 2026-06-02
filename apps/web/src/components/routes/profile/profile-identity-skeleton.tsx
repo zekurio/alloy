@@ -19,7 +19,7 @@ export function ProfileIdentitySkeleton() {
             className={cn(
               "!size-16 shrink-0 rounded-full ring-[3px] ring-background",
               "sm:!size-24 sm:ring-4",
-              "-mt-8 sm:-mt-12"
+              "-mt-8 sm:-mt-12",
             )}
           />
 

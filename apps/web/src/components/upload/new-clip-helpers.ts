@@ -3,7 +3,7 @@ import {
   type AcceptedContentType,
   type ClipPrivacy,
 } from "@workspace/api"
-import { probeFile, type ProbedFile } from "./new-clip-media"
+import { type ProbedFile, probeFile } from "./new-clip-media"
 
 /** Metadata derived from a real File for display in the modal header. */
 export interface SelectedFile {
@@ -58,7 +58,9 @@ const EXTENSION_TO_CONTENT_TYPE: Record<string, AcceptedContentType> = {
   webm: "video/webm",
 }
 
-export const ACCEPT_LIST = `${ACCEPTED_CLIP_CONTENT_TYPES.join(",")},.mp4,.m4v,.mov,.mkv,.webm`
+export const ACCEPT_LIST = `${
+  ACCEPTED_CLIP_CONTENT_TYPES.join(",")
+},.mp4,.m4v,.mov,.mkv,.webm`
 
 function resolveContentType(file: File): AcceptedContentType | null {
   const byMime = CONTENT_TYPE_ALIASES[file.type]
@@ -68,7 +70,7 @@ function resolveContentType(file: File): AcceptedContentType | null {
 }
 
 export async function prepareSelectedClipFile(
-  file: File
+  file: File,
 ): Promise<SelectedFile> {
   const contentType = resolveContentType(file)
   if (!contentType) throw new Error("Unsupported file type")
@@ -82,4 +84,4 @@ export function stripExtension(filename: string): string {
 }
 
 export { captureFrames, captureThumbnail } from "./new-clip-media"
-export { probeFile, type ProbedFile }
+export { type ProbedFile, probeFile }

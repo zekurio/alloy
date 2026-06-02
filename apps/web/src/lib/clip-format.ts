@@ -9,7 +9,7 @@ import { stableHue } from "@workspace/ui/lib/stable-hash"
 import { formatRelativeTime } from "./date-format"
 import { apiOrigin } from "./env"
 import { formatCount } from "./number-format"
-import { userAvatar, type UserAvatar } from "./user-display"
+import { type UserAvatar, userAvatar } from "./user-display"
 
 export function hueForGame(game: string | null | undefined): number {
   if (!game) return 220

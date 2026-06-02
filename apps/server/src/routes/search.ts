@@ -58,9 +58,9 @@ export const searchRoute = new Hono().get(
               ilike(user.displayUsername, pattern),
               ilike(user.username, pattern),
               ilike(game.name, pattern),
-              ilike(clip.game, pattern)
-            )
-          )
+              ilike(clip.game, pattern),
+            ),
+          ),
         )
         .orderBy(matchRank, desc(clip.createdAt))
         .limit(limit),
@@ -84,15 +84,15 @@ export const searchRoute = new Hono().get(
           and(
             eq(clip.gameId, game.id),
             eq(clip.status, "ready"),
-            inArray(clip.privacy, ["public", "unlisted"])
-          )
+            inArray(clip.privacy, ["public", "unlisted"]),
+          ),
         )
         .innerJoin(user, eq(clip.authorId, user.id))
         .where(
           and(
             or(ilike(game.name, pattern), ilike(game.slug, pattern)),
-            isNull(user.disabledAt)
-          )
+            isNull(user.disabledAt),
+          ),
         )
         .groupBy(game.id)
         .orderBy(sql`count(${clip.id}) desc`, game.name)
@@ -110,18 +110,18 @@ export const searchRoute = new Hono().get(
           and(
             eq(clip.authorId, user.id),
             eq(clip.status, "ready"),
-            inArray(clip.privacy, ["public", "unlisted"])
-          )
+            inArray(clip.privacy, ["public", "unlisted"]),
+          ),
         )
         .where(
           and(
             or(
               ilike(user.name, pattern),
               ilike(user.displayUsername, pattern),
-              ilike(user.username, pattern)
+              ilike(user.username, pattern),
             ),
-            isNull(user.disabledAt)
-          )
+            isNull(user.disabledAt),
+          ),
         )
         .groupBy(user.id)
         .orderBy(sql`count(${clip.id}) desc`, user.username)
@@ -133,5 +133,5 @@ export const searchRoute = new Hono().get(
       games: games.map(serialiseGameListRow),
       users: users.map(serialiseUserListRow),
     })
-  }
+  },
 )

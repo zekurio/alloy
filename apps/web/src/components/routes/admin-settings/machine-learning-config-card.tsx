@@ -40,7 +40,7 @@ type MachineLearningConfigCardProps = {
 }
 
 function copyConfig(
-  machineLearning: AdminMachineLearningConfig
+  machineLearning: AdminMachineLearningConfig,
 ): AdminMachineLearningConfig {
   return {
     ...machineLearning,
@@ -57,7 +57,7 @@ function stripExtension(value: string): string {
 }
 
 function derivedModelName(
-  classifier: AdminMachineLearningConfig["gameClassifier"]
+  classifier: AdminMachineLearningConfig["gameClassifier"],
 ): string {
   const checkpointPath = emptyToNull(classifier.checkpointPath)
   if (checkpointPath) return stripExtension(basename(checkpointPath))
@@ -67,14 +67,14 @@ function derivedModelName(
 }
 
 function derivedModelVersion(
-  classifier: AdminMachineLearningConfig["gameClassifier"]
+  classifier: AdminMachineLearningConfig["gameClassifier"],
 ): string | null {
   if (emptyToNull(classifier.checkpointPath)) return null
   return requiredTrimmedString(classifier.revision)
 }
 
 function normalizedConfig(
-  machineLearning: AdminMachineLearningConfig
+  machineLearning: AdminMachineLearningConfig,
 ): AdminMachineLearningConfig {
   const classifier = machineLearning.gameClassifier
   return {
@@ -93,7 +93,7 @@ function normalizedConfig(
 }
 
 function buildMachineLearningPatch(
-  machineLearning: AdminMachineLearningConfig
+  machineLearning: AdminMachineLearningConfig,
 ): AdminMachineLearningConfig | null {
   const baseUrl = requiredTrimmedString(machineLearning.baseUrl)
   if (!baseUrl) {
@@ -135,11 +135,11 @@ function buildMachineLearningPatch(
 
 function configsEqual(
   left: AdminMachineLearningConfig,
-  right: AdminMachineLearningConfig
+  right: AdminMachineLearningConfig,
 ): boolean {
   return (
     JSON.stringify(normalizedConfig(left)) ===
-    JSON.stringify(normalizedConfig(right))
+      JSON.stringify(normalizedConfig(right))
   )
 }
 
@@ -216,8 +216,7 @@ export function MachineLearningConfigCard({
                 <Switch
                   checked={form.enabled}
                   onCheckedChange={(enabled) =>
-                    setForm((current) => ({ ...current, enabled }))
-                  }
+                    setForm((current) => ({ ...current, enabled }))}
                 />
               </div>
 
@@ -235,8 +234,7 @@ export function MachineLearningConfigCard({
                       setForm((current) => ({
                         ...current,
                         baseUrl: e.target.value,
-                      }))
-                    }
+                      }))}
                   />
                   <FieldDescription>
                     Server-to-server URL for the Python ML service.
@@ -262,10 +260,9 @@ export function MachineLearningConfigCard({
                           e.target.value,
                           1_000,
                           300_000,
-                          current.requestTimeoutMs
+                          current.requestTimeoutMs,
                         ),
-                      }))
-                    }
+                      }))}
                   />
                   <FieldDescription>
                     Upper bound for each inference request.
@@ -324,8 +321,7 @@ export function MachineLearningConfigCard({
                   id="ml-checkpoint-path"
                   value={form.gameClassifier.checkpointPath ?? ""}
                   onChange={(e) =>
-                    setClassifier("checkpointPath", e.target.value)
-                  }
+                    setClassifier("checkpointPath", e.target.value)}
                   placeholder="Blank uses Hugging Face"
                 />
                 <FieldDescription>

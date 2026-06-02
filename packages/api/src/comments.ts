@@ -23,7 +23,7 @@ async function fetchComments(
   context: ApiContext,
   clipId: string,
   sort: CommentSort = "top",
-  params: { limit?: number; cursor?: string | null } = {}
+  params: { limit?: number; cursor?: string | null } = {},
 ): Promise<CommentPage> {
   const res = await context.rpc.api.clips[":id"].comments.$get({
     param: { id: clipId },
@@ -38,7 +38,7 @@ async function fetchComments(
 
 async function createComment(
   context: ApiContext,
-  input: { clipId: string; body: string; parentId?: string }
+  input: { clipId: string; body: string; parentId?: string },
 ): Promise<CommentRow> {
   const res = await context.rpc.api.clips[":id"].comments.$post({
     param: { id: input.clipId },
@@ -50,7 +50,7 @@ async function createComment(
 async function updateComment(
   context: ApiContext,
   commentId: string,
-  body: string
+  body: string,
 ): Promise<{ id: string; body: string; editedAt: string | null }> {
   const res = await context.rpc.api.clips.comments[":commentId"].$patch({
     param: { commentId },
@@ -61,7 +61,7 @@ async function updateComment(
 
 async function deleteComment(
   context: ApiContext,
-  commentId: string
+  commentId: string,
 ): Promise<void> {
   const res = await context.rpc.api.clips.comments[":commentId"].$delete({
     param: { commentId },
@@ -72,7 +72,7 @@ async function deleteComment(
 async function setCommentLike(
   context: ApiContext,
   commentId: string,
-  liked: boolean
+  liked: boolean,
 ): Promise<{ liked: boolean; likeCount: number }> {
   return readPostDeleteJson(
     liked,
@@ -86,14 +86,14 @@ async function setCommentLike(
           param: { commentId },
         }),
     },
-    validateCommentLikeState
+    validateCommentLikeState,
   )
 }
 
 async function setCommentPinned(
   context: ApiContext,
   commentId: string,
-  pinned: boolean
+  pinned: boolean,
 ): Promise<{ pinned: boolean }> {
   const response = await readPostDeleteJson(
     pinned,
@@ -107,7 +107,7 @@ async function setCommentPinned(
           param: { commentId },
         }),
     },
-    booleanFlagResponseValidator("pinned", pinned)
+    booleanFlagResponseValidator("pinned", pinned),
   )
   return { pinned: response.pinned }
 }
@@ -117,7 +117,7 @@ export function createCommentsApi(context: ApiContext) {
     fetch: (
       clipId: string,
       sort: CommentSort = "top",
-      params: { limit?: number; cursor?: string | null } = {}
+      params: { limit?: number; cursor?: string | null } = {},
     ) => fetchComments(context, clipId, sort, params),
     create: (input: { clipId: string; body: string; parentId?: string }) =>
       createComment(context, input),

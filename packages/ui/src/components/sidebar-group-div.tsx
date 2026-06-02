@@ -9,7 +9,7 @@ export function createSidebarGroupDivComponent(
     sidebar: string
     slot: string
   },
-  defaultClassName: string
+  defaultClassName: string,
 ) {
   return function SidebarGroupDivComponent({
     className,
@@ -22,7 +22,7 @@ export function createSidebarGroupDivComponent(
         {
           className: cn(defaultClassName, className),
         },
-        props
+        props,
       ),
       render,
       state,

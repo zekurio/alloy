@@ -99,7 +99,7 @@ export async function loadSession(): Promise<SessionData> {
       sessionLoadWarningLogged = true
       clientLogger.warn(
         "[auth] Failed to load session; using anonymous state.",
-        cause
+        cause,
       )
     }
     return null

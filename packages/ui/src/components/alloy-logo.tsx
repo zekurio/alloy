@@ -31,7 +31,7 @@ function AlloyLogo({
       <span
         className={cn(
           "font-mono leading-none font-bold tracking-normal text-foreground",
-          textClassName
+          textClassName,
         )}
         style={{ fontSize: Math.round(size * 0.56) }}
       >

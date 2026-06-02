@@ -1,22 +1,22 @@
 import {
-  generateAuthenticationOptions,
-  generateRegistrationOptions,
-  verifyAuthenticationResponse,
-  verifyRegistrationResponse,
   type AuthenticationResponseJSON,
   type AuthenticatorTransportFuture,
+  generateAuthenticationOptions,
+  generateRegistrationOptions,
   type RegistrationResponseJSON,
   type Uint8Array_,
+  verifyAuthenticationResponse,
+  verifyRegistrationResponse,
 } from "@simplewebauthn/server"
 import { and, eq, gt, lt } from "drizzle-orm"
 import { Buffer } from "node:buffer"
 
 import {
   authChallenge,
-  user,
-  userPasskey,
   type User,
+  user,
   type UserPasskey,
+  userPasskey,
 } from "@workspace/db/auth-schema"
 
 import { db } from "../db"
@@ -54,19 +54,19 @@ const AUTHENTICATOR_TRANSPORTS = new Set<string>([
 ])
 
 function isAuthenticatorTransport(
-  value: string
+  value: string,
 ): value is AuthenticatorTransportFuture {
   return AUTHENTICATOR_TRANSPORTS.has(value)
 }
 
 function transports(
-  row: UserPasskey
+  row: UserPasskey,
 ): AuthenticatorTransportFuture[] | undefined {
   return row.transports
     ? row.transports
-        .split(",")
-        .map((part) => part.trim())
-        .filter(isAuthenticatorTransport)
+      .split(",")
+      .map((part) => part.trim())
+      .filter(isAuthenticatorTransport)
     : undefined
 }
 
@@ -85,8 +85,8 @@ async function consumeChallenge(input: {
       and(
         eq(authChallenge.id, input.challengeId),
         eq(authChallenge.purpose, input.purpose),
-        gt(authChallenge.expiresAt, new Date())
-      )
+        gt(authChallenge.expiresAt, new Date()),
+      ),
     )
     .returning()
   if (!challenge) throw new Error(input.expiredMessage)
@@ -101,11 +101,10 @@ export async function beginPasskeyRegistration(input: {
   }
 }) {
   await deleteExpiredChallenges()
-  const excludeCredentials =
-    input.user.passkeys?.map((row) => ({
-      id: row.credentialId,
-      transports: transports(row),
-    })) ?? []
+  const excludeCredentials = input.user.passkeys?.map((row) => ({
+    id: row.credentialId,
+    transports: transports(row),
+  })) ?? []
   const options = await generateRegistrationOptions({
     rpName: RP_NAME,
     rpID: rpId(),
@@ -223,7 +222,7 @@ export function passkeyPublicKey(publicKey: Uint8Array): string {
 }
 
 export function serializeTransports(
-  value: string[] | undefined
+  value: string[] | undefined,
 ): string | null {
   return value && value.length > 0 ? value.join(",") : null
 }

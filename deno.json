@@ -2,6 +2,35 @@
   "version": "0.0.4",
   "workspace": ["apps/*", "packages/*"],
   "nodeModulesDir": "auto",
+  "fmt": {
+    "lineWidth": 80,
+    "indentWidth": 2,
+    "semiColons": false,
+    "singleQuote": false,
+    "exclude": [
+      "apps/web/src/routeTree.gen.ts",
+      "machine-learning/.venv",
+      "node_modules"
+    ]
+  },
+  "lint": {
+    "exclude": [
+      "apps/web/src/routeTree.gen.ts",
+      "machine-learning/.venv",
+      "node_modules"
+    ],
+    "rules": {
+      "exclude": [
+        "no-slow-types",
+        "no-sloppy-imports",
+        "no-process-global",
+        "no-window",
+        "no-window-prefix",
+        "require-await",
+        "verbatim-module-syntax"
+      ]
+    }
+  },
   "imports": {
     "@base-ui/react": "npm:@base-ui/react@1.4.1",
     "@fontsource-variable/dm-sans": "npm:@fontsource-variable/dm-sans@5.2.8",
@@ -46,7 +75,7 @@
     "start:prod": "WEB_DIST_DIR=${WEB_DIST_DIR:-../../apps/web/dist} deno task --cwd apps/server start:prod",
     "serve": "deno task start",
     "dev": "deno run --allow-run --allow-read --allow-env --allow-net=127.0.0.1,0.0.0.0 --allow-write=.alloy-dev.lock scripts/dev.ts",
-    "dev:all": "deno task dev -- --ml",
+    "dev:all": "deno task dev",
     "dev:quick": "deno task dev -- --no-db-push",
     "dev:api": "deno task --quiet --cwd apps/server dev",
     "dev:web": "deno task --quiet --cwd apps/web dev",
@@ -59,10 +88,10 @@
     "db:migrate": "deno task --cwd packages/db db:migrate",
     "db:push": "deno task --cwd packages/db db:push",
     "db:studio": "deno task --cwd packages/db db:studio",
-    "fmt": "deno run -A npm:oxfmt@^0.46.0 --write deno.json tsconfig.json .oxlintrc.json scripts/*.ts && deno task --filter '*' fmt",
-    "lint": "sh -n scripts/dev-ml.sh scripts/dev-server.sh apps/server/docker/*.sh && bash -n scripts/dev-postgres.sh && deno run -A npm:oxlint@^1.61.0 scripts/*.ts && deno task --filter '*' lint",
-    "lint:github": "sh -n scripts/dev-ml.sh scripts/dev-server.sh apps/server/docker/*.sh && bash -n scripts/dev-postgres.sh && deno run -A npm:oxlint@^1.61.0 scripts/*.ts --deny-warnings --format=github && deno task --filter '*' lint --deny-warnings --format=github",
-    "lint:ci": "sh -n scripts/dev-ml.sh scripts/dev-server.sh apps/server/docker/*.sh && bash -n scripts/dev-postgres.sh && deno run -A npm:oxlint@^1.61.0 scripts/*.ts --deny-warnings && deno task --filter '*' lint --deny-warnings",
+    "fmt": "deno fmt && deno task --filter '*' fmt",
+    "lint": "sh -n scripts/dev-ml.sh scripts/dev-server.sh apps/server/docker/*.sh && bash -n scripts/dev-postgres.sh && deno lint scripts/*.ts && deno task --filter '*' lint",
+    "lint:github": "sh -n scripts/dev-ml.sh scripts/dev-server.sh apps/server/docker/*.sh && bash -n scripts/dev-postgres.sh && deno lint --compact scripts/*.ts && deno task --filter '*' lint",
+    "lint:ci": "deno task lint",
     "format": "deno task fmt",
     "typecheck": "deno check scripts/*.ts && deno task --filter '*' typecheck"
   },

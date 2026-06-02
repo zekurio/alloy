@@ -48,9 +48,9 @@ import {
   ACCEPT_LIST,
   captureThumbnail,
   prepareSelectedClipFile,
-  stripExtension,
   type PublishPayload,
   type SelectedFile,
+  stripExtension,
   type Visibility,
 } from "./new-clip-helpers"
 
@@ -77,7 +77,7 @@ export function NewClipDialog({
   // File input kept for the Replace button in LoadedState.
   const inputRef = React.useRef<HTMLInputElement>(null)
   const [selectedFile, setSelectedFile] = React.useState<SelectedFile | null>(
-    null
+    null,
   )
   const [publishing, setPublishing] = React.useState(false)
 
@@ -120,7 +120,7 @@ export function NewClipDialog({
         void handleFileChosen(file)
       })
     },
-    [handleFileChosen]
+    [handleFileChosen],
   )
 
   const handlePublish = React.useCallback(
@@ -134,7 +134,7 @@ export function NewClipDialog({
         setPublishing(false)
       }
     },
-    [onPublish]
+    [onPublish],
   )
 
   // Use the initial file as a synchronous fallback so the modal renders
@@ -154,53 +154,57 @@ export function NewClipDialog({
         className="hidden"
         onChange={handleInputChange}
       />
-      {isMobile ? (
-        <div className="shrink-0 px-4 pt-4 pb-4">
-          <DrawerTitle className="text-lg leading-tight font-semibold tracking-[var(--tracking-tight)] text-foreground">
-            New clip
-          </DrawerTitle>
-        </div>
-      ) : (
-        <DialogHeader className="shrink-0">
-          <DialogTitle>New clip</DialogTitle>
-        </DialogHeader>
-      )}
+      {isMobile
+        ? (
+          <div className="shrink-0 px-4 pt-4 pb-4">
+            <DrawerTitle className="text-lg leading-tight font-semibold tracking-[var(--tracking-tight)] text-foreground">
+              New clip
+            </DrawerTitle>
+          </div>
+        )
+        : (
+          <DialogHeader className="shrink-0">
+            <DialogTitle>New clip</DialogTitle>
+          </DialogHeader>
+        )}
 
-      {activeFile ? (
-        <LoadedState
-          key={activeFileKey}
-          file={activeFile}
-          publishing={publishing}
-          onPublish={handlePublish}
-          onReplace={handleReplaceClick}
-          closeAction={
-            isMobile ? (
-              <DrawerClose asChild>
-                <Button
-                  variant="ghost"
-                  size="default"
-                  disabled={publishing}
-                  className="w-full min-w-0"
-                >
-                  Cancel
-                </Button>
-              </DrawerClose>
-            ) : (
-              <DialogClose
-                render={
+      {activeFile
+        ? (
+          <LoadedState
+            key={activeFileKey}
+            file={activeFile}
+            publishing={publishing}
+            onPublish={handlePublish}
+            onReplace={handleReplaceClick}
+            closeAction={isMobile
+              ? (
+                <DrawerClose asChild>
                   <Button
                     variant="ghost"
                     size="default"
                     disabled={publishing}
-                  />
-                }
-              >
-                Cancel
-              </DialogClose>
-            )
-          }
-        />
-      ) : null}
+                    className="w-full min-w-0"
+                  >
+                    Cancel
+                  </Button>
+                </DrawerClose>
+              )
+              : (
+                <DialogClose
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="default"
+                      disabled={publishing}
+                    />
+                  }
+                >
+                  Cancel
+                </DialogClose>
+              )}
+          />
+        )
+        : null}
     </>
   )
 
@@ -235,7 +239,7 @@ export function NewClipDialog({
         centered={!isMobile}
         className={cn(
           "flex flex-col overflow-hidden",
-          "max-h-[min(90vh,900px)] max-w-[min(96vw,1200px)]"
+          "max-h-[min(90vh,900px)] max-w-[min(96vw,1200px)]",
         )}
         aria-describedby={undefined}
       >
@@ -305,7 +309,8 @@ function LoadedState({
 
   // Advisory ML game guess. Frames are captured once per staged file; include
   // the browser File timestamp so Replace does not reuse a stale query entry.
-  const fileKey = `${file.name}:${file.sizeBytes}:${file.durationMs}:${file.file.lastModified}`
+  const fileKey =
+    `${file.name}:${file.sizeBytes}:${file.durationMs}:${file.file.lastModified}`
   const mlConfigQuery = useMlConfigQuery()
   const mlEnabled = mlConfigQuery.data?.enabled === true
   const [suggestionDismissed, setSuggestionDismissed] = React.useState(false)
@@ -313,7 +318,7 @@ function LoadedState({
     file.file,
     fileKey,
     mlConfigQuery.data,
-    { enabled: mlEnabled && !suggestionDismissed }
+    { enabled: mlEnabled && !suggestionDismissed },
   )
   // Search the top prediction for preview art/name without upserting a game
   // row. Accepting the suggestion resolves and commits the row explicitly.
@@ -323,8 +328,8 @@ function LoadedState({
   })
   const resolveGameMutation = useResolveGameMutation()
   const suggestedGame = previewQuery.data
-  const suggestionAnalyzing =
-    suggestionQuery.isLoading || (Boolean(topLabel) && previewQuery.isLoading)
+  const suggestionAnalyzing = suggestionQuery.isLoading ||
+    (Boolean(topLabel) && previewQuery.isLoading)
 
   const replaceButton = (
     <Button
@@ -346,8 +351,7 @@ function LoadedState({
           state.isSubmitting,
           state.values.title,
           state.values.game,
-        ] as const
-      }
+        ] as const}
     >
       {([canSubmit, isSubmitting, titleValue, gameValue]) => {
         const missingMetadata = titleValue.trim().length === 0 || !gameValue
@@ -356,21 +360,19 @@ function LoadedState({
             type="submit"
             variant="primary"
             size="default"
-            disabled={
-              publishing ||
+            disabled={publishing ||
               capturing ||
               isSubmitting ||
               !canSubmit ||
-              missingMetadata
-            }
+              missingMetadata}
             className={cn(isMobile && "col-span-2 w-full min-w-0")}
           >
             <UploadIcon />
             {capturing || isSubmitting
               ? "Preparing…"
               : publishing
-                ? "Uploading…"
-                : "Upload"}
+              ? "Uploading…"
+              : "Upload"}
           </Button>
         )
       }}
@@ -391,7 +393,7 @@ function LoadedState({
           "flex-1 px-4 py-3 sm:px-6 sm:py-4",
           isMobile ? "overflow-y-scroll" : "overflow-y-auto",
           isMobile && "px-4",
-          "grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]"
+          "grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]",
         )}
       >
         <section className="flex min-w-0 flex-col gap-3">
@@ -406,14 +408,14 @@ function LoadedState({
             }}
           >
             {(field) => {
-              const invalid =
-                form.state.submissionAttempts > 0 && !field.state.meta.isValid
+              const invalid = form.state.submissionAttempts > 0 &&
+                !field.state.meta.isValid
 
               // Only surface a guess while the field is still empty and the
               // user hasn't dismissed it. Accept commits the resolved game;
               // decline clears the field and steps aside.
-              const showSuggestion =
-                mlEnabled && !suggestionDismissed && !field.state.value
+              const showSuggestion = mlEnabled && !suggestionDismissed &&
+                !field.state.value
               let suggestionNode: React.ReactNode = null
               if (showSuggestion && suggestionAnalyzing) {
                 suggestionNode = (
@@ -439,10 +441,10 @@ function LoadedState({
                           },
                           onError: (error) => {
                             toast.error(
-                              errorMessage(error, "Could not use suggestion")
+                              errorMessage(error, "Could not use suggestion"),
                             )
                           },
-                        }
+                        },
                       )
                     }}
                     onDecline={() => {
@@ -478,14 +480,14 @@ function LoadedState({
             validators={{
               onChange: ({ value }) =>
                 validateRequiredString(value, "Title") ??
-                (value.trim().length > CLIP_TITLE_MAX
-                  ? `Title can be at most ${CLIP_TITLE_MAX} characters`
-                  : undefined),
+                  (value.trim().length > CLIP_TITLE_MAX
+                    ? `Title can be at most ${CLIP_TITLE_MAX} characters`
+                    : undefined),
             }}
           >
             {(field) => {
-              const invalid =
-                form.state.submissionAttempts > 0 && !field.state.meta.isValid
+              const invalid = form.state.submissionAttempts > 0 &&
+                !field.state.meta.isValid
               return (
                 <Field>
                   <FieldLabel htmlFor="clip-title" required>
@@ -498,7 +500,7 @@ function LoadedState({
                     onChange={(e) => field.handleChange(e.target.value)}
                     maxLength={CLIP_TITLE_MAX}
                     aria-invalid={invalid || undefined}
-                    aria-required={true}
+                    aria-required
                   />
                 </Field>
               )
@@ -548,35 +550,39 @@ function LoadedState({
             )}
           </form.Field>
 
-          {/* Desktop actions live at the bottom of the form column so they
-              align with the video's bottom edge — no empty footer band. */}
-          {!isMobile ? (
-            <div className="mt-auto flex flex-wrap items-center justify-end gap-2 pt-2">
-              {replaceButton}
-              {closeAction}
-              {submitButton}
-            </div>
-          ) : null}
+          {
+            /* Desktop actions live at the bottom of the form column so they
+              align with the video's bottom edge — no empty footer band. */
+          }
+          {!isMobile
+            ? (
+              <div className="mt-auto flex flex-wrap items-center justify-end gap-2 pt-2">
+                {replaceButton}
+                {closeAction}
+                {submitButton}
+              </div>
+            )
+            : null}
         </section>
       </DialogBody>
 
-      {isMobile ? (
-        <DialogFooter className="grid shrink-0 grid-cols-2 flex-wrap gap-2 px-4 pt-3 pb-5">
-          {replaceButton}
-          {closeAction}
-          {submitButton}
-        </DialogFooter>
-      ) : null}
+      {isMobile
+        ? (
+          <DialogFooter className="grid shrink-0 grid-cols-2 flex-wrap gap-2 px-4 pt-3 pb-5">
+            {replaceButton}
+            {closeAction}
+            {submitButton}
+          </DialogFooter>
+        )
+        : null}
     </form>
   )
 }
 
 function ClipPreview({ file }: { file: SelectedFile }) {
   return (
-    // Square corners on purpose: Chromium promotes the video to its own layer
-    // that paints ~1px past any rounded box, leaving grimy corners. A flush
-    // 16:9 rectangle with the player's own dark fill (which absorbs
-    // `object-contain` letterboxing) is the only reliably clean look.
+    // Keep upload previews square-edged; Chromium can paint promoted video
+    // layers past rounded ancestors.
     <div className="aspect-video">
       <VideoPlayer
         src={file.file}

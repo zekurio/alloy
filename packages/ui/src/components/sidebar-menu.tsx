@@ -56,7 +56,7 @@ const sidebarMenuButtonVariants = cva(
       variant: "default",
       size: "default",
     },
-  }
+  },
 )
 
 const sidebarMenuButtonFocusClasses =
@@ -66,7 +66,7 @@ function renderSidebarMenuList(
   slot: string,
   sidebar: string,
   defaultClassName: string,
-  { className, ...props }: React.ComponentProps<"ul">
+  { className, ...props }: React.ComponentProps<"ul">,
 ) {
   return (
     <ul
@@ -81,20 +81,20 @@ function renderSidebarMenuList(
 function mergeSidebarMenuControlProps(
   config:
     | {
-        defaultTagName: "a"
-        props: React.ComponentProps<"a">
-      }
+      defaultTagName: "a"
+      props: React.ComponentProps<"a">
+    }
     | {
-        defaultTagName: "button"
-        props: React.ComponentProps<"button">
-      }
+      defaultTagName: "button"
+      props: React.ComponentProps<"button">
+    },
 ) {
   if (config.defaultTagName === "button") {
     return mergeProps<"button">(
       {
         className: cn(config.props.className),
       },
-      config.props
+      config.props,
     )
   }
 
@@ -102,32 +102,32 @@ function mergeSidebarMenuControlProps(
     {
       className: cn(config.props.className),
     },
-    config.props
+    config.props,
   )
 }
 
 function renderSidebarMenuControl(
   config:
     | {
-        defaultTagName: "a"
-        props: React.ComponentProps<"a">
-        render: useRender.ComponentProps<"a">["render"]
-        state: {
-          active: boolean
-          sidebar: string
-          size: "md" | "sm"
-          slot: string
-        }
+      defaultTagName: "a"
+      props: React.ComponentProps<"a">
+      render: useRender.ComponentProps<"a">["render"]
+      state: {
+        active: boolean
+        sidebar: string
+        size: "md" | "sm"
+        slot: string
       }
+    }
     | {
-        defaultTagName: "button"
-        props: React.ComponentProps<"button">
-        render: useRender.ComponentProps<"button">["render"]
-        state: {
-          sidebar: string
-          slot: string
-        }
+      defaultTagName: "button"
+      props: React.ComponentProps<"button">
+      render: useRender.ComponentProps<"button">["render"]
+      state: {
+        sidebar: string
+        slot: string
       }
+    },
 ) {
   return useRender({
     defaultTagName: config.defaultTagName,
@@ -145,11 +145,14 @@ function SidebarMenuButton({
   tooltip,
   className,
   ...props
-}: useRender.ComponentProps<"button"> &
-  React.ComponentProps<"button"> & {
+}:
+  & useRender.ComponentProps<"button">
+  & React.ComponentProps<"button">
+  & {
     isActive?: boolean
     tooltip?: string | React.ComponentProps<typeof TooltipContent>
-  } & VariantProps<typeof sidebarMenuButtonVariants>) {
+  }
+  & VariantProps<typeof sidebarMenuButtonVariants>) {
   const { isMobile, state } = useSidebar()
   const comp = useRender({
     defaultTagName: "button",
@@ -157,7 +160,7 @@ function SidebarMenuButton({
       {
         className: cn(sidebarMenuButtonVariants({ variant, size }), className),
       },
-      props
+      props,
     ),
     render: !tooltip ? render : <TooltipTrigger render={render} />,
     state: {
@@ -196,8 +199,10 @@ function SidebarMenuAction({
   render,
   showOnHover = false,
   ...props
-}: useRender.ComponentProps<"button"> &
-  React.ComponentProps<"button"> & {
+}:
+  & useRender.ComponentProps<"button">
+  & React.ComponentProps<"button">
+  & {
     showOnHover?: boolean
   }) {
   return renderSidebarMenuControl({
@@ -208,7 +213,7 @@ function SidebarMenuAction({
         "absolute top-1.5 right-1 flex aspect-square w-5 items-center justify-center rounded-md p-0 text-sidebar-foreground ring-sidebar-ring outline-hidden transition-transform group-data-[collapsible=icon]:hidden peer-hover/menu-button:text-sidebar-accent-foreground peer-data-[size=default]/menu-button:top-1.5 peer-data-[size=lg]/menu-button:top-2.5 peer-data-[size=sm]/menu-button:top-1 after:absolute after:-inset-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 md:after:hidden [&>svg]:size-4 [&>svg]:shrink-0",
         showOnHover &&
           "group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 peer-data-active/menu-button:text-sidebar-accent-foreground aria-expanded:opacity-100 md:opacity-0",
-        className
+        className,
       ),
     },
     render,
@@ -229,7 +234,7 @@ function SidebarMenuBadge({
       data-sidebar="menu-badge"
       className={cn(
         "pointer-events-none absolute right-1 flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-xs font-medium text-sidebar-foreground tabular-nums select-none group-data-[collapsible=icon]:hidden peer-hover/menu-button:text-sidebar-accent-foreground peer-data-[size=default]/menu-button:top-1.5 peer-data-[size=lg]/menu-button:top-2.5 peer-data-[size=sm]/menu-button:top-1 peer-data-active/menu-button:text-sidebar-accent-foreground",
-        className
+        className,
       )}
       {...props}
     />
@@ -249,7 +254,7 @@ function SidebarMenuSkeleton({
       data-sidebar="menu-skeleton"
       className={cn(
         "flex h-8 items-center justify-center rounded-md px-2",
-        className
+        className,
       )}
       {...props}
     >
@@ -263,7 +268,7 @@ function SidebarMenuSub({ className, ...props }: React.ComponentProps<"ul">) {
     "sidebar-menu-sub",
     "menu-sub",
     "mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-sidebar-border px-2.5 py-0.5 group-data-[collapsible=icon]:hidden",
-    { className, ...props }
+    { className, ...props },
   )
 }
 
@@ -287,8 +292,10 @@ function SidebarMenuSubButton({
   isActive = false,
   className,
   ...props
-}: useRender.ComponentProps<"a"> &
-  React.ComponentProps<"a"> & {
+}:
+  & useRender.ComponentProps<"a">
+  & React.ComponentProps<"a">
+  & {
     size?: "sm" | "md"
     isActive?: boolean
   }) {
@@ -298,7 +305,7 @@ function SidebarMenuSubButton({
       ...props,
       className: cn(
         `flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sidebar-foreground ring-sidebar-ring outline-hidden group-data-[collapsible=icon]:hidden ${sidebarMenuButtonFocusClasses} data-[size=md]:text-sm data-[size=sm]:text-xs data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground`,
-        className
+        className,
       ),
     },
     render,

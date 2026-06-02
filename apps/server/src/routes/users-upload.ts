@@ -82,7 +82,9 @@ async function readAll(stream: ReadableStream<Uint8Array>): Promise<Buffer> {
 
 function assetEtag(key: string, resolved: ResolvedObject): string {
   const modified = resolved.lastModified?.getTime() ?? 0
-  return `"${Buffer.from(`${key}:${resolved.size}:${modified}`).toString("base64url")}"`
+  return `"${
+    Buffer.from(`${key}:${resolved.size}:${modified}`).toString("base64url")
+  }"`
 }
 
 async function fetchRow(userId: string): Promise<UserRow | null> {
@@ -97,13 +99,13 @@ async function fetchUpdatedPublicUser(userId: string) {
 
 async function deleteOldAssets(
   userId: string,
-  role: UserAssetRole
+  role: UserAssetRole,
 ): Promise<void> {
   const exts = [
     ...new Set([...Object.values(EXT_FOR_CONTENT_TYPE), USER_ASSET_EXT]),
   ]
   await Promise.all(
-    exts.map((ext) => storage.delete(userAssetKey(userId, role, ext)))
+    exts.map((ext) => storage.delete(userAssetKey(userId, role, ext))),
   )
 }
 
@@ -120,7 +122,7 @@ async function which(binary: string): Promise<string | null> {
 }
 
 async function imageMagickArgs(
-  target: (typeof USER_ASSET_TARGETS)[UserAssetRole]
+  target: (typeof USER_ASSET_TARGETS)[UserAssetRole],
 ): Promise<string[]> {
   const magick = await which("magick")
   if (magick) {
@@ -151,7 +153,7 @@ async function imageMagickArgs(
 
 async function resizeUserAsset(
   bytes: Buffer,
-  role: UserAssetRole
+  role: UserAssetRole,
 ): Promise<Buffer> {
   const target = USER_ASSET_TARGETS[role]
   const [command, ...args] = await imageMagickArgs(target)
@@ -175,9 +177,9 @@ async function resizeUserAsset(
 
 type UserAssetUpdateResult =
   | {
-      ok: true
-      user: NonNullable<Awaited<ReturnType<typeof fetchUpdatedPublicUser>>>
-    }
+    ok: true
+    user: NonNullable<Awaited<ReturnType<typeof fetchUpdatedPublicUser>>>
+  }
   | { ok: false; status: 400 | 413 | 500; error: string }
 
 async function uploadUserAsset(input: {
@@ -210,7 +212,7 @@ async function uploadUserAsset(input: {
   } catch (cause) {
     logger.error(
       `[users/upload] failed to process ${input.role} upload:`,
-      cause
+      cause,
     )
     return { ok: false, status: 400, error: "Could not process image" }
   }
@@ -238,7 +240,7 @@ async function uploadUserAsset(input: {
 
 async function removeUserAsset(
   viewerId: string,
-  role: UserAssetRole
+  role: UserAssetRole,
 ): Promise<UserAssetUpdateResult> {
   await deleteOldAssets(viewerId, role)
   const patch: Partial<typeof user.$inferInsert> = { updatedAt: new Date() }
@@ -259,7 +261,7 @@ async function removeUserAsset(
 async function uploadUserAssetResponse(
   viewerId: string,
   role: UserAssetRole,
-  body: UserAssetUploadBody
+  body: UserAssetUploadBody,
 ) {
   const result = await uploadUserAsset({
     viewerId,
@@ -281,12 +283,11 @@ export const usersUploadRoute = new Hono<{
       const result = await uploadUserAssetResponse(
         c.var.viewerId,
         "avatar",
-        c.req.valid("json")
+        c.req.valid("json"),
       )
       return result.ok ? c.json(result.user) : errorResult(c, result)
-    }
+    },
   )
-
   .post(
     "/me/banner/upload",
     requireSession,
@@ -295,17 +296,15 @@ export const usersUploadRoute = new Hono<{
       const result = await uploadUserAssetResponse(
         c.var.viewerId,
         "banner",
-        c.req.valid("json")
+        c.req.valid("json"),
       )
       return result.ok ? c.json(result.user) : errorResult(c, result)
-    }
+    },
   )
-
   .delete("/me/avatar", requireSession, async (c) => {
     const result = await removeUserAsset(c.var.viewerId, "avatar")
     return result.ok ? c.json(result.user) : errorResult(c, result)
   })
-
   .delete("/me/banner", requireSession, async (c) => {
     const result = await removeUserAsset(c.var.viewerId, "banner")
     return result.ok ? c.json(result.user) : errorResult(c, result)
@@ -353,7 +352,7 @@ export const userAssetsRoute = new Hono().get("/:key{.+}", async (c) => {
   return c.body(
     buf.buffer.slice(
       buf.byteOffset,
-      buf.byteOffset + buf.byteLength
-    ) as ArrayBuffer
+      buf.byteOffset + buf.byteLength,
+    ) as ArrayBuffer,
   )
 })

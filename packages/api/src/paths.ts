@@ -8,7 +8,7 @@ export function resolvePublicUrl(path: string, origin?: string): string {
 export function resolvePublicUrlWithQuery(
   path: string,
   query: Record<string, QueryParamValue>,
-  origin?: string
+  origin?: string,
 ): string {
   const search = new URLSearchParams(queryParams(query))
   const suffix = search.size > 0 ? `?${search}` : ""
@@ -16,7 +16,7 @@ export function resolvePublicUrlWithQuery(
 }
 
 export function queryParams(
-  input: Record<string, QueryParamValue>
+  input: Record<string, QueryParamValue>,
 ): Record<string, string> {
   const query: Record<string, string> = {}
   for (const [key, value] of Object.entries(input)) {

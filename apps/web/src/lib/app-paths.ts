@@ -15,11 +15,11 @@ export function gameHref(slug: string): string {
 export function clipHref(
   gameSlug: string,
   clipId: string,
-  options: { commentId?: string | null } = {}
+  options: { commentId?: string | null } = {},
 ): string {
   return resolvePublicUrlWithQuery(
     `${gameHref(gameSlug)}/c/${encodedPathSegment(clipId)}`,
-    { comment: options.commentId ?? undefined }
+    { comment: options.commentId ?? undefined },
   )
 }
 
@@ -27,7 +27,7 @@ export function absoluteClipHref(
   gameSlug: string,
   clipId: string,
   origin: string,
-  options: { commentId?: string | null } = {}
+  options: { commentId?: string | null } = {},
 ): string {
   return resolvePublicUrl(clipHref(gameSlug, clipId, options), origin)
 }

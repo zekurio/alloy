@@ -10,7 +10,7 @@ type UseQueryErrorToastOptions = {
 
 export function useQueryErrorToast(
   error: Error | null | undefined,
-  { title, toastId }: UseQueryErrorToastOptions
+  { title, toastId }: UseQueryErrorToastOptions,
 ) {
   const lastToastKey = React.useRef<string | null>(null)
 

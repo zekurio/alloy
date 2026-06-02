@@ -12,32 +12,33 @@ export function randomBase64Url(byteLength: number): string {
 export async function sha256Base64Url(value: string): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
-    textEncoder.encode(value)
+    textEncoder.encode(value),
   )
   return bytesToBase64Url(new Uint8Array(digest))
 }
 
 export async function hmacSha256(
   payload: string | Uint8Array,
-  secret: string
+  secret: string,
 ): Promise<Uint8Array> {
   const key = await crypto.subtle.importKey(
     "raw",
     textEncoder.encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"]
+    ["sign"],
   )
-  const payloadBytes =
-    typeof payload === "string" ? textEncoder.encode(payload) : payload
+  const payloadBytes = typeof payload === "string"
+    ? textEncoder.encode(payload)
+    : payload
   return new Uint8Array(
-    await crypto.subtle.sign("HMAC", key, bytesToArrayBuffer(payloadBytes))
+    await crypto.subtle.sign("HMAC", key, bytesToArrayBuffer(payloadBytes)),
   )
 }
 
 export function constantTimeEqual(
   left: Uint8Array,
-  right: Uint8Array
+  right: Uint8Array,
 ): boolean {
   if (left.byteLength !== right.byteLength) return false
   let diff = 0
@@ -50,6 +51,6 @@ export function constantTimeEqual(
 function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(
     bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength
+    bytes.byteOffset + bytes.byteLength,
   ) as ArrayBuffer
 }

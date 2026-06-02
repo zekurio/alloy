@@ -47,7 +47,7 @@ export function pickEmptyStateKaomoji(seed?: string | number): string {
   if (seed !== undefined) {
     return (
       EMPTY_STATE_KAOMOJI[stableHash(seed) % EMPTY_STATE_KAOMOJI.length] ??
-      DEFAULT_EMPTY_STATE_KAOMOJI
+        DEFAULT_EMPTY_STATE_KAOMOJI
     )
   }
 

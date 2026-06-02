@@ -16,17 +16,15 @@ import {
   selectClipById,
   toPublicClipRow,
 } from "../clips/select"
-import { selectQueueRowsForAuthor } from "../clips/queue-select"
-import { requireSession } from "../auth/require-session"
 import { invalidCursor, notFound } from "../runtime/http-response"
 import { clipCommentsRoutes } from "./clip-comments"
 import { clipsEngagementRoutes } from "./clips-engagement"
 import {
   clipListCursorCondition,
   clipListOrderBy,
+  clipListPage,
   IdParam,
   ListQuery,
-  clipListPage,
   parseClipListCursor,
   WINDOW_MS,
 } from "./clips-helpers"
@@ -49,7 +47,7 @@ export const clips = new Hono()
     ]
     if (window && window !== "all") {
       conditions.push(
-        gte(clip.createdAt, new Date(Date.now() - WINDOW_MS[window]))
+        gte(clip.createdAt, new Date(Date.now() - WINDOW_MS[window])),
       )
     }
     const cursorCondition = clipListCursorCondition(parsedCursor, sort)
@@ -69,13 +67,6 @@ export const clips = new Hono()
 
     return c.json(clipListPage(rows, limit, sort))
   })
-
-  .get("/queue", requireSession, async (c) => {
-    const viewerId = c.var.viewerId
-    const rows = await selectQueueRowsForAuthor(viewerId)
-    return c.json(rows)
-  })
-
   .get("/:id", zValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
     const access = await resolveClipAccess({
@@ -90,7 +81,6 @@ export const clips = new Hono()
     if (!row) return notFound(c)
     return c.json(toPublicClipRow(row))
   })
-
   .route("/", clipsUploadRoutes)
   .route("/", clipsEngagementRoutes)
   .route("/", clipsPlaybackRoutes)

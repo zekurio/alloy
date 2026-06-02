@@ -15,7 +15,7 @@ function decodePathSegment(segment: string): string {
       warnedMalformedSegments.add(segment)
       clientLogger.warn(
         "[routing] Failed to decode profile path segment.",
-        cause
+        cause,
       )
     }
     return segment

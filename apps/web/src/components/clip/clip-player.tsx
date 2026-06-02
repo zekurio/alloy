@@ -2,10 +2,10 @@ import * as React from "react"
 
 import {
   clipDownloadUrl,
-  clipStreamUrl,
-  clipThumbnailUrl,
   type ClipEncodedVariant,
   type ClipStatus,
+  clipStreamUrl,
+  clipThumbnailUrl,
 } from "@workspace/api"
 import { VideoPlayer } from "@/components/video/video-player"
 import { apiOrigin } from "@/lib/env"
@@ -16,8 +16,6 @@ interface ClipPlayerProps {
   clipId: string
   /** MIME type of the uploaded source, used for the source download option. */
   sourceContentType?: string | null
-  width?: number | null
-  height?: number | null
   thumbnail?: string | null
   variants?: ClipEncodedVariant[]
   status?: ClipStatus
@@ -29,21 +27,11 @@ interface ClipPlayerProps {
   chromeSize?: "default" | "compact"
   autoPlay?: boolean
   enableHorizontalSeekShortcuts?: boolean
-  /** Override the aspect ratio derived from source dimensions. */
+  /** Override the default 16:9 playback viewport. */
   aspectRatio?: number
 }
 
 const DEFAULT_ASPECT_RATIO = 16 / 9
-
-function aspectRatioFromDimensions(
-  width: number | null | undefined,
-  height: number | null | undefined
-): number {
-  if (!width || !height || width <= 0 || height <= 0) {
-    return DEFAULT_ASPECT_RATIO
-  }
-  return width / height
-}
 
 function canPlayNativeVideo(contentType: string | null | undefined): boolean {
   if (!contentType || typeof document === "undefined") return false
@@ -63,8 +51,6 @@ function variantDetail(variant: ClipEncodedVariant): string {
 function ClipPlayer({
   clipId,
   sourceContentType,
-  width,
-  height,
   thumbnail,
   variants = [],
   status,
@@ -78,10 +64,9 @@ function ClipPlayer({
   enableHorizontalSeekShortcuts,
   aspectRatio: aspectRatioProp,
 }: ClipPlayerProps) {
-  const poster =
-    thumbnail === undefined
-      ? clipThumbnailUrl(clipId, apiOrigin())
-      : (thumbnail ?? undefined)
+  const poster = thumbnail === undefined
+    ? clipThumbnailUrl(clipId, apiOrigin())
+    : (thumbnail ?? undefined)
   const sortedVariants = React.useMemo(
     () =>
       variants
@@ -90,20 +75,21 @@ function ClipPlayer({
           (a, b) =>
             b.height - a.height ||
             a.label.localeCompare(b.label) ||
-            a.id.localeCompare(b.id)
+            a.id.localeCompare(b.id),
         ),
-    [variants]
+    [variants],
   )
 
   const defaultEncodedId =
     sortedVariants.find((variant) => variant.isDefault)?.id ??
-    sortedVariants[0]?.id ??
-    null
+      sortedVariants[0]?.id ??
+      null
   const sourcePlayable = canPlayNativeVideo(sourceContentType)
-  const preferredQualityId =
-    defaultEncodedId ?? (sourcePlayable ? "source" : "")
-  const [selectedQualityId, setSelectedQualityId] =
-    React.useState(preferredQualityId)
+  const preferredQualityId = defaultEncodedId ??
+    (sourcePlayable ? "source" : "")
+  const [selectedQualityId, setSelectedQualityId] = React.useState(
+    preferredQualityId,
+  )
 
   React.useEffect(() => {
     setSelectedQualityId(preferredQualityId)
@@ -111,8 +97,9 @@ function ClipPlayer({
 
   React.useEffect(() => {
     if (selectedQualityId === defaultEncodedId) return
-    const stillAvailable =
-      sortedVariants.some((variant) => variant.id === selectedQualityId) ||
+    const stillAvailable = sortedVariants.some((variant) =>
+      variant.id === selectedQualityId
+    ) ||
       (selectedQualityId === "source" && sourcePlayable)
     if (!stillAvailable) setSelectedQualityId(preferredQualityId)
   }, [
@@ -126,14 +113,14 @@ function ClipPlayer({
   const qualityOptions = [
     ...(sourceContentType
       ? [
-          {
-            id: "source",
-            label: "Source",
-            detail: sourcePlayable ? "Original upload" : "Download only",
-            downloadUrl: clipDownloadUrl(clipId, "source", apiOrigin()),
-            selectable: sourcePlayable,
-          },
-        ]
+        {
+          id: "source",
+          label: "Source",
+          detail: sourcePlayable ? "Original upload" : "Download only",
+          downloadUrl: clipDownloadUrl(clipId, "source", apiOrigin()),
+          selectable: sourcePlayable,
+        },
+      ]
       : []),
     ...sortedVariants.map((variant) => ({
       id: variant.id,
@@ -142,8 +129,7 @@ function ClipPlayer({
       downloadUrl: clipDownloadUrl(clipId, variant.id, apiOrigin()),
     })),
   ]
-  const sourceAspectRatio =
-    aspectRatioProp ?? aspectRatioFromDimensions(width, height)
+  const aspectRatio = aspectRatioProp ?? DEFAULT_ASPECT_RATIO
 
   if (!defaultEncodedId && !sourcePlayable) {
     const unavailable = status === "failed"
@@ -151,10 +137,10 @@ function ClipPlayer({
       <div
         className={className}
         style={{
-          aspectRatio: sourceAspectRatio,
+          aspectRatio,
           maxHeight: maxDisplayHeight,
           width: maxDisplayHeight
-            ? `min(100%, calc(${maxDisplayHeight} * ${sourceAspectRatio}))`
+            ? `min(100%, calc(${maxDisplayHeight} * ${aspectRatio}))`
             : undefined,
         }}
       >
@@ -166,18 +152,6 @@ function ClipPlayer({
       </div>
     )
   }
-
-  const selectedVariant =
-    selectedQualityId === "source"
-      ? null
-      : (sortedVariants.find((variant) => variant.id === selectedQualityId) ??
-        null)
-  const aspectRatio =
-    aspectRatioProp ??
-    aspectRatioFromDimensions(
-      selectedVariant?.width ?? width,
-      selectedVariant?.height ?? height
-    )
 
   return (
     <VideoPlayer

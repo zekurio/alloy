@@ -6,7 +6,7 @@ export function searchString(value: unknown): string | undefined {
 
 export function searchEnum<T extends string>(
   value: unknown,
-  allowed: readonly T[]
+  allowed: readonly T[],
 ): T | undefined {
   if (typeof value !== "string") return undefined
   return allowed.includes(value as T) ? (value as T) : undefined

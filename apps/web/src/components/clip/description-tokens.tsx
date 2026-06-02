@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router"
 
 export function renderHashtagTokens(
   raw: string,
-  { linkHashtags }: { linkHashtags: boolean }
+  { linkHashtags }: { linkHashtags: boolean },
 ): React.ReactNode[] {
   const pattern = /#([\p{L}\p{N}_]+)/gu
   const nodes: React.ReactNode[] = []
@@ -25,13 +25,13 @@ export function renderHashtagTokens(
           className="text-accent hover:underline"
         >
           #{tag}
-        </Link>
+        </Link>,
       )
     } else {
       nodes.push(
         <span key={`tag-${key++}`} className="text-accent">
           #{tag}
-        </span>
+        </span>,
       )
     }
     lastIndex = end

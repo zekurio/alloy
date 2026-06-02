@@ -14,7 +14,7 @@ function isShareCancelled(cause: unknown): boolean {
 
 export async function shareUrlWithFallback(
   url: string,
-  options: ShareUrlOptions = {}
+  options: ShareUrlOptions = {},
 ): Promise<ShareResult> {
   const action = options.action ?? "share link"
   const share = globalThis.navigator?.share

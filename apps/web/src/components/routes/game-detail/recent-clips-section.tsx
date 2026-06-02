@@ -43,12 +43,14 @@ export function RecentClipsSection({
           </SectionTitle>
         </div>
         <SectionActions>
-          {visibleRows && visibleRows.length > 0 ? (
-            <SectionMeta>
-              {formatCount(visibleRows.length)}{" "}
-              {visibleRows.length === 1 ? "clip" : "clips"}
-            </SectionMeta>
-          ) : null}
+          {visibleRows && visibleRows.length > 0
+            ? (
+              <SectionMeta>
+                {formatCount(visibleRows.length)}{" "}
+                {visibleRows.length === 1 ? "clip" : "clips"}
+              </SectionMeta>
+            )
+            : null}
         </SectionActions>
       </SectionHead>
 

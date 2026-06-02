@@ -2,9 +2,12 @@
 
 Alloy is an open-source alternative to Medal.tv.
 
-It is still a work in progress. Self-hosting is not polished yet, and Docker support exists but will be improved.
+It is still a work in progress. Self-hosting is not polished yet, and Docker
+support exists but will be improved.
 
-> **AI Disclaimer & Warning:** This is a personal project developed in my free time. I use AI to assist with development. I do my best to follow best practices and keep the code maintainable.
+> **AI Disclaimer & Warning:** This is a personal project developed in my free
+> time. I use AI to assist with development. I do my best to follow best
+> practices and keep the code maintainable.
 
 ## Quick dev setup
 
@@ -40,7 +43,9 @@ The dev shell provides `deno`, `uv`, Python 3.11, `psql`, PostgreSQL 17, and
 - PostgreSQL data lives in `.pg`
 - PostgreSQL listens on `127.0.0.1:5432`
 - The default database is `alloy`
-- Runtime app data and ML cache live under `data/`
+- Server runtime config lives at `data/server/runtime-config.json`
+- Server filesystem storage lives under `data/server/storage`
+- ML runtime data lives under `data/ml`
 
 Useful service commands:
 
@@ -63,7 +68,7 @@ The server runs startup migrations only when `NODE_ENV=production`. Local
 development keeps `NODE_ENV=development` and uses Drizzle's dev push workflow,
 so production migrations do not collide with local schema iteration.
 
-## Optional machine learning service
+## Machine learning service
 
 Alloy includes an Immich-style Python service at `machine-learning/` for runtime
 inference. The app server talks to it over HTTP, and the service owns model
@@ -72,11 +77,10 @@ advisory: it should produce ranked suggestions, not silently choose or overwrite
 the clip's game.
 
 The classifier checkpoint is pulled at runtime from Hugging Face and cached
-under `data/ml-cache`; it is not baked into the image. The default model is
-pinned to Hugging Face commit
-`05b8d2af2b704a21366e58e9fd6bef5cef2847cb`, and admins can change the game
-classifier repo, revision, filename, or local checkpoint path from runtime
-configuration.
+under `data/ml`; it is not baked into the image. The default model is pinned to
+Hugging Face commit `05b8d2af2b704a21366e58e9fd6bef5cef2847cb`, and admins can
+change the game classifier repo, revision, filename, or local checkpoint path
+from runtime configuration.
 
 For local Python development, run just the ML service:
 
@@ -84,22 +88,21 @@ For local Python development, run just the ML service:
 deno task dev:ml
 ```
 
-Or start the web app, API server, and ML service together:
+The main dev supervisor starts the web app, API server, and ML service together:
 
 ```bash
-deno task dev:all
+deno task dev
 ```
 
-You can also run `deno task dev -- --ml`. The ML service is optional in the
-dev supervisor; if it exits, the web app and API keep running.
+Use `deno task dev -- --no-ml` to skip the ML service. The ML service is
+optional in the dev supervisor; if it exits, the web app and API keep running.
 
 The `dev:ml` task follows Immich's service workflow: it enters
 `machine-learning/`, runs `uv sync --extra cpu`, sets
-`MACHINE_LEARNING_CACHE_FOLDER=../data/ml-cache`, and starts
-`python -m alloy_ml`. Set `ALLOY_ML_PORT` to move the service and
-`MACHINE_LEARNING_UV_SYNC=0` to skip dependency sync after the first run. When
-the dev supervisor starts ML, the API's default `MACHINE_LEARNING_URL` follows
-the same ML port.
+`MACHINE_LEARNING_CACHE_FOLDER=../data/ml`, and starts `python -m alloy_ml`. Set
+`ALLOY_ML_PORT` to move the service and `MACHINE_LEARNING_UV_SYNC=0` to skip
+dependency sync after the first run. When the dev supervisor starts ML, the
+API's default `MACHINE_LEARNING_URL` follows the same ML port.
 
 The service listens on http://localhost:2662 and exposes `/ping`, `/health`,
 `/predict`, and `/v1/game-classifier/predict`. See
@@ -140,13 +143,12 @@ Then import the module:
 }
 ```
 
-The module enables PostgreSQL and creates the Alloy database by default,
-creates `/var/lib/alloy` and `/var/cache/alloy`, sets `ALLOY_CONFIG_FILE`,
-`ALLOY_STORAGE_DIR`,
-`ENCODE_SCRATCH_DIR`, and wraps the packaged server with the built web assets,
-migrations, and ffmpeg paths. `initialRuntimeConfig` can be used as an optional
-one-shot JSON bootstrap config; otherwise Alloy creates the mutable runtime JSON
-with fresh secrets on first boot.
+The module enables PostgreSQL and creates the Alloy database by default, creates
+`/var/lib/alloy` and `/var/cache/alloy`, sets `ALLOY_CONFIG_FILE`,
+`ALLOY_STORAGE_DIR`, `ENCODE_SCRATCH_DIR`, and wraps the packaged server with
+the built web assets, migrations, and ffmpeg paths. `initialRuntimeConfig` can
+be used as an optional one-shot JSON bootstrap config; otherwise Alloy creates
+the mutable runtime JSON with fresh secrets on first boot.
 
 Build the web app and server:
 

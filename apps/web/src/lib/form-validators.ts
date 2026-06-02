@@ -8,7 +8,7 @@ const USERNAME_DISALLOWED_RE = /[\p{Cc}\p{Cs}/\\]/u
 
 export function validateRequiredString(
   value: string,
-  label: string
+  label: string,
 ): string | undefined {
   return value.trim().length === 0 ? `${label} is required` : undefined
 }

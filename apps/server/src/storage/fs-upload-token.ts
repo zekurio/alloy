@@ -22,7 +22,7 @@ const textDecoder = new TextDecoder()
 
 async function signToken(
   payload: UploadTokenPayload,
-  secret: string
+  secret: string,
 ): Promise<string> {
   const json = textEncoder.encode(JSON.stringify(payload))
   const sig = await hmacSha256(json, secret)
@@ -79,7 +79,7 @@ function parseUploadTokenPayload(value: unknown): UploadTokenPayload | null {
 
 export async function decodeUploadToken(
   token: string,
-  secret: string
+  secret: string,
 ): Promise<DecodedToken> {
   const dot = token.indexOf(".")
   if (dot <= 0 || dot === token.length - 1) {

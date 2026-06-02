@@ -1,9 +1,9 @@
 import { AwsClient } from "aws4fetch"
 import { once } from "node:events"
 import {
-  request as httpRequest,
   type ClientRequest,
   type IncomingMessage,
+  request as httpRequest,
 } from "node:http"
 import { request as httpsRequest } from "node:https"
 
@@ -14,7 +14,7 @@ export async function signedStreamPut(
   url: URL,
   headers: Record<string, string>,
   body: ReadableStream<Uint8Array>,
-  key: string
+  key: string,
 ): Promise<void> {
   const signed = await client.sign(new Request(url, { method: "PUT", headers }))
   const res = await putWithContentLength(signed.url, signed.headers, body)
@@ -22,14 +22,14 @@ export async function signedStreamPut(
   throw new Error(
     `s3: upload ${key} failed with ${res.status} ${res.statusText}${
       res.body ? `: ${res.body}` : ""
-    }`
+    }`,
   )
 }
 
 function putWithContentLength(
   url: string,
   headers: Headers,
-  body: ReadableStream<Uint8Array>
+  body: ReadableStream<Uint8Array>,
 ): Promise<{ status: number; statusText: string; body: string }> {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url)
@@ -42,7 +42,7 @@ function putWithContentLength(
       },
       (res) => {
         void readNodeResponse(res).then(resolve, reject)
-      }
+      },
     )
     req.on("error", reject)
     void writeStreamToRequest(body, req).catch((err) => {
@@ -54,7 +54,7 @@ function putWithContentLength(
 
 async function writeStreamToRequest(
   body: ReadableStream<Uint8Array>,
-  req: ClientRequest
+  req: ClientRequest,
 ): Promise<void> {
   const reader = body.getReader()
   try {
@@ -72,7 +72,7 @@ async function writeStreamToRequest(
 }
 
 function readNodeResponse(
-  res: IncomingMessage
+  res: IncomingMessage,
 ): Promise<{ status: number; statusText: string; body: string }> {
   return new Promise((resolve, reject) => {
     const chunks: Uint8Array[] = []
@@ -96,7 +96,7 @@ function readNodeResponse(
 }
 
 export async function readStream(
-  body: ReadableStream<Uint8Array>
+  body: ReadableStream<Uint8Array>,
 ): Promise<Uint8Array> {
   const chunks: Uint8Array[] = []
   let size = 0

@@ -71,4 +71,4 @@ function SectionFooter({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-export { Section, SectionHeader, SectionTitle, SectionContent, SectionFooter }
+export { Section, SectionContent, SectionFooter, SectionHeader, SectionTitle }

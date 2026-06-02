@@ -51,7 +51,7 @@ export interface StorageDriver {
   put(
     key: string,
     body: Uint8Array | ReadableStream<Uint8Array>,
-    contentType: string
+    contentType: string,
   ): Promise<{ size: number }>
 
   /**
@@ -80,7 +80,7 @@ export interface StorageDriver {
   uploadFromFile(
     localPath: string,
     key: string,
-    contentType: string
+    contentType: string,
   ): Promise<{ size: number }>
 
   /** Copy an existing object to another key, replacing Content-Type metadata. */
@@ -97,7 +97,7 @@ export interface StorageDriver {
    */
   mintDownloadUrl(
     key: string,
-    input: MintDownloadUrlInput
+    input: MintDownloadUrlInput,
   ): Promise<DownloadUrl | null>
 }
 
@@ -124,7 +124,7 @@ export function clipAssetKey(clipId: string, role: ClipAssetRole): string {
 export function clipVideoVariantKey(
   clipId: string,
   variantId: string,
-  runId?: string
+  runId?: string,
 ): string {
   const safeVariantId = variantId
     .replace(/[^a-z0-9]+/gi, "-")
@@ -154,7 +154,7 @@ export type UserAssetRole = "avatar" | "banner"
 export function userAssetKey(
   userId: string,
   role: UserAssetRole,
-  ext: string
+  ext: string,
 ): string {
   return `${userAssetDir(userId)}/${role}${ext}`
 }

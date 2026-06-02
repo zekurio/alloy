@@ -54,7 +54,7 @@ export function usePlayThreshold({
       const base = Number.isFinite(duration) && duration > 0 ? duration : 60
       const threshold = Math.min(
         PLAY_THRESHOLD_CAP_SEC,
-        base * PLAY_THRESHOLD_FRACTION
+        base * PLAY_THRESHOLD_FRACTION,
       )
       if (accumulatedMsRef.current / 1000 >= threshold) {
         firedRef.current = true

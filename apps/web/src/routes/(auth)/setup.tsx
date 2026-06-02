@@ -242,7 +242,7 @@ function AdminSetupStepContent({
 
   function handleNext() {
     const formEl = document.getElementById(
-      SETUP_STEPS[step].formId
+      SETUP_STEPS[step].formId,
     ) as HTMLFormElement | null
     if (formEl) {
       formEl.requestSubmit()
@@ -324,7 +324,7 @@ function AdminSetupStepContent({
 }
 
 function getStepDone(
-  config: AdminRuntimeConfig
+  config: AdminRuntimeConfig,
 ): [boolean, boolean, boolean, boolean] {
   return [
     // Storage is considered done if it has a configured driver
@@ -332,7 +332,7 @@ function getStepDone(
     // Encoding is done when enabled with at least one variant
     true,
     // OIDC is optional; it is done once a provider is configured.
-    config.oauthProvider !== null,
+    config.oauthProviders.length > 0,
     // SteamGridDB is done when the key is set (redacted = "***")
     config.integrations.steamgriddbApiKey === "***",
   ]
@@ -361,12 +361,14 @@ function StepIndicator({
             }`}
           >
             <item.icon
-              className={`size-4 ${isCurrent ? "text-accent" : "text-foreground-muted"}`}
+              className={`size-4 ${
+                isCurrent ? "text-accent" : "text-foreground-muted"
+              }`}
             />
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {isDone ? (
-              <CheckCircle2Icon className="size-4 text-success" />
-            ) : null}
+            {isDone
+              ? <CheckCircle2Icon className="size-4 text-success" />
+              : null}
           </div>
         )
       })}
@@ -392,8 +394,8 @@ function EncoderOnboardingCard({
   const [pending, setPending] = React.useState(false)
   const capsQuery = useQuery(adminEncoderCapabilitiesQueryOptions())
   const caps = capsQuery.data
-  const showSuggestion =
-    !config.encoder.enabled || config.encoder.variants.length === 0
+  const showSuggestion = !config.encoder.enabled ||
+    config.encoder.variants.length === 0
 
   async function applyDefaultProfile() {
     if (pending) return

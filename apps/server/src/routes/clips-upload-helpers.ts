@@ -16,10 +16,10 @@ type QuotaDb = Pick<typeof db, "execute" | "select">
 
 export async function selectLockedQuotaState(
   database: QuotaDb,
-  viewerId: string
+  viewerId: string,
 ) {
   await database.execute(
-    sql`select "id" from "user" where "id" = ${viewerId} for update`
+    sql`select "id" from "user" where "id" = ${viewerId} for update`,
   )
   const [quotaRow] = await database
     .select({ storageQuotaBytes: user.storageQuotaBytes })
@@ -33,7 +33,7 @@ export async function selectLockedQuotaState(
 
 export async function resolveMentionIds(
   rawIds: ReadonlyArray<string>,
-  authorId: string
+  authorId: string,
 ): Promise<string[]> {
   const deduped = [...new Set(rawIds)].filter((id) => id !== authorId)
   if (deduped.length === 0) return []
@@ -47,7 +47,7 @@ export async function resolveMentionIds(
 export async function markUploadFailed(
   authorId: string,
   clipId: string,
-  reason: string
+  reason: string,
 ): Promise<void> {
   await db
     .update(clip)
@@ -99,8 +99,8 @@ export async function assertUsableUploadTicket(input: {
         eq(clipUploadTicket.contentType, input.contentType),
         eq(clipUploadTicket.expectedBytes, input.expectedBytes),
         eq(clipUploadTicket.role, input.role),
-        gt(clipUploadTicket.expiresAt, new Date())
-      )
+        gt(clipUploadTicket.expiresAt, new Date()),
+      ),
     )
     .limit(1)
   return Boolean(ticket)

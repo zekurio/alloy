@@ -9,7 +9,7 @@ export function recordClipViewBestEffort(clipId: string): void {
     loggedViewFailures.add(clipId)
     clientLogger.warn(
       `[clips] Failed to record view for clip ${clipId}.`,
-      cause
+      cause,
     )
   })
 }

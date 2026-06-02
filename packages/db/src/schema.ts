@@ -17,11 +17,11 @@ import {
 import {
   CLIP_PRIVACY,
   CLIP_STATUS,
-  NOTIFICATION_TYPES,
-  UPLOAD_TICKET_ROLE,
   type ClipPrivacy,
   type ClipStatus,
+  NOTIFICATION_TYPES,
   type NotificationType,
+  UPLOAD_TICKET_ROLE,
   type UploadTicketRole,
 } from "@workspace/contracts"
 import { user } from "./auth-schema"
@@ -59,7 +59,7 @@ export const game = pgTable(
     // Lookup by name for the admin UI / debugging; the production read
     // path hits `steamgriddbId` (upsert) or `slug` (routes).
     index("game_name_idx").on(t.name),
-  ]
+  ],
 )
 
 export const clip = pgTable(
@@ -128,21 +128,21 @@ export const clip = pgTable(
     index("clip_game_created_idx").on(t.gameId, t.createdAt),
     check(
       "clip_privacy_check",
-      sql`${t.privacy} in (${sql.raw(sqlStringList(CLIP_PRIVACY))})`
+      sql`${t.privacy} in (${sql.raw(sqlStringList(CLIP_PRIVACY))})`,
     ),
     check(
       "clip_status_check",
-      sql`${t.status} in (${sql.raw(sqlStringList(CLIP_STATUS))})`
+      sql`${t.status} in (${sql.raw(sqlStringList(CLIP_STATUS))})`,
     ),
     check(
       "clip_source_size_bytes_safe_check",
-      sql`${t.sourceSizeBytes} is null or (${t.sourceSizeBytes} >= 0 and ${t.sourceSizeBytes} <= 9007199254740991)`
+      sql`${t.sourceSizeBytes} is null or (${t.sourceSizeBytes} >= 0 and ${t.sourceSizeBytes} <= 9007199254740991)`,
     ),
     check(
       "clip_open_graph_size_bytes_safe_check",
-      sql`${t.openGraphSizeBytes} is null or (${t.openGraphSizeBytes} >= 0 and ${t.openGraphSizeBytes} <= 9007199254740991)`
+      sql`${t.openGraphSizeBytes} is null or (${t.openGraphSizeBytes} >= 0 and ${t.openGraphSizeBytes} <= 9007199254740991)`,
     ),
-  ]
+  ],
 )
 
 export const clipUploadTicket = pgTable(
@@ -166,13 +166,13 @@ export const clipUploadTicket = pgTable(
     index("clip_upload_ticket_used_idx").on(t.usedAt),
     check(
       "clip_upload_ticket_role_check",
-      sql`${t.role} in (${sql.raw(sqlStringList(UPLOAD_TICKET_ROLE))})`
+      sql`${t.role} in (${sql.raw(sqlStringList(UPLOAD_TICKET_ROLE))})`,
     ),
     check(
       "clip_upload_ticket_expected_bytes_safe_check",
-      sql`${t.expectedBytes} > 0 and ${t.expectedBytes} <= 9007199254740991`
+      sql`${t.expectedBytes} > 0 and ${t.expectedBytes} <= 9007199254740991`,
     ),
-  ]
+  ],
 )
 
 export const clipLike = pgTable(
@@ -190,7 +190,7 @@ export const clipLike = pgTable(
     primaryKey({ columns: [t.clipId, t.userId] }),
     // Inverse lookup: "clips this user liked" for a future liked-feed.
     index("clip_like_user_idx").on(t.userId),
-  ]
+  ],
 )
 
 export const clipComment = pgTable(
@@ -227,7 +227,7 @@ export const clipComment = pgTable(
     uniqueIndex("clip_comment_one_pin_per_clip_idx")
       .on(t.clipId)
       .where(sql`${t.pinnedAt} IS NOT NULL`),
-  ]
+  ],
 )
 
 export const clipCommentLike = pgTable(
@@ -246,7 +246,7 @@ export const clipCommentLike = pgTable(
     // Reverse lookup: "did the clip author like this comment?" — the
     // list query joins on (commentId, clip.authorId).
     index("clip_comment_like_user_idx").on(t.userId),
-  ]
+  ],
 )
 
 export const clipMention = pgTable(
@@ -262,7 +262,7 @@ export const clipMention = pgTable(
   (t) => [
     primaryKey({ columns: [t.clipId, t.mentionedUserId] }),
     index("clip_mention_user_idx").on(t.mentionedUserId),
-  ]
+  ],
 )
 
 export const follow = pgTable(
@@ -280,7 +280,7 @@ export const follow = pgTable(
   (t) => [
     uniqueIndex("follow_pair_idx").on(t.followerId, t.followingId),
     index("follow_following_idx").on(t.followingId),
-  ]
+  ],
 )
 
 export const gameFollow = pgTable(
@@ -300,7 +300,7 @@ export const gameFollow = pgTable(
     // Reverse lookup for the feed-ranking join ("is this clip's game
     // followed by the viewer?"), and for per-game follower counts.
     index("game_follow_game_idx").on(t.gameId),
-  ]
+  ],
 )
 
 export const clipView = pgTable(
@@ -321,7 +321,7 @@ export const clipView = pgTable(
     primaryKey({ columns: [t.clipId, t.viewerKey] }),
     // Chip bar: "games the viewer has watched clips in".
     index("clip_view_user_clip_idx").on(t.userId, t.clipId),
-  ]
+  ],
 )
 
 export const block = pgTable(
@@ -336,7 +336,7 @@ export const block = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("block_pair_idx").on(t.blockerId, t.blockedId)]
+  (t) => [uniqueIndex("block_pair_idx").on(t.blockerId, t.blockedId)],
 )
 
 export const notification = pgTable(
@@ -366,9 +366,9 @@ export const notification = pgTable(
       .where(sql`${t.readAt} IS NULL`),
     check(
       "notification_type_check",
-      sql`${t.type} in (${sql.raw(sqlStringList(NOTIFICATION_TYPES))})`
+      sql`${t.type} in (${sql.raw(sqlStringList(NOTIFICATION_TYPES))})`,
     ),
-  ]
+  ],
 )
 
 export const domainSchema = {

@@ -13,7 +13,7 @@ const chipVariants = cva(
     "data-active:border-accent-border data-active:bg-accent-soft data-active:text-accent",
     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
     "disabled:pointer-events-none disabled:opacity-50",
-    "[&_svg]:pointer-events-none [&_svg]:shrink-0"
+    "[&_svg]:pointer-events-none [&_svg]:shrink-0",
   ),
   {
     variants: {
@@ -22,13 +22,14 @@ const chipVariants = cva(
           "h-6 px-2.5 text-xs leading-4 [&_svg:not([class*='size-'])]:size-3.5",
         sm: "h-5 px-2 text-2xs leading-3 [&_svg:not([class*='size-'])]:size-3",
         lg: "h-7 px-3 text-sm leading-4 [&_svg:not([class*='size-'])]:size-4",
-        xl: "h-8 rounded-lg px-2.5 text-sm leading-4 font-semibold [&_svg:not([class*='size-'])]:size-4",
+        xl:
+          "h-8 rounded-lg px-2.5 text-sm leading-4 font-semibold [&_svg:not([class*='size-'])]:size-4",
       },
     },
     defaultVariants: {
       size: "default",
     },
-  }
+  },
 )
 
 function Chip({
@@ -41,7 +42,7 @@ function Chip({
     defaultTagName: "button",
     props: mergeProps<"button">(
       { className: cn(chipVariants({ size }), className), type: "button" },
-      props
+      props,
     ),
     render,
     state: { slot: "chip", size },

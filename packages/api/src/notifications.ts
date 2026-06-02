@@ -38,12 +38,12 @@ export function notificationStreamUrl({
   return resolvePublicUrlWithQuery(
     "/api/events/notifications",
     { snapshot: includeSnapshot ? undefined : "false" },
-    origin
+    origin,
   )
 }
 
 export function parseNotificationEventPayload(
-  data: string
+  data: string,
 ): NotificationEvent | null {
   return parseJsonPayload(data, validateNotificationEvent)
 }
@@ -51,7 +51,7 @@ export function parseNotificationEventPayload(
 export function createNotificationsApi(context: ApiContext) {
   return {
     async fetch(
-      limit = NOTIFICATIONS_DEFAULT_LIMIT
+      limit = NOTIFICATIONS_DEFAULT_LIMIT,
     ): Promise<NotificationsResponse> {
       const res = await context.rpc.api.notifications.$get({
         query: { limit: String(limit) },

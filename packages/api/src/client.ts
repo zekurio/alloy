@@ -1,4 +1,4 @@
-import { hc, type ClientRequestOptions } from "hono/client"
+import { type ClientRequestOptions, hc } from "hono/client"
 import type { AppType } from "@workspace/server/app"
 import { queryParams, type QueryParamValue } from "./paths"
 
@@ -32,7 +32,7 @@ export interface ApiContext {
 function buildUrl(
   baseURL: string,
   path: string,
-  query?: Record<string, QueryParamValue>
+  query?: Record<string, QueryParamValue>,
 ): string {
   const url = new URL(path, baseURL)
   for (const [key, value] of Object.entries(queryParams(query ?? {}))) {
@@ -43,7 +43,7 @@ function buildUrl(
 
 function mergeHeaders(
   defaults: HeadersInit | undefined,
-  override: HeadersInit | undefined
+  override: HeadersInit | undefined,
 ): Headers {
   const headers = new Headers(defaults)
   for (const [key, value] of new Headers(override)) {
@@ -54,7 +54,7 @@ function mergeHeaders(
 
 export function createApiClient(
   baseURL: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
 ): ApiClient {
   return {
     request(path, options = {}) {

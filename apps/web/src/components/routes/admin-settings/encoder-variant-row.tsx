@@ -79,12 +79,12 @@ export function VariantRow({
           size="icon-sm"
           onClick={onSetDefault}
           disabled={isDefault}
-          aria-label={
-            isDefault ? "Default playback variant" : "Set as default playback"
-          }
-          title={
-            isDefault ? "Default playback variant" : "Set as default playback"
-          }
+          aria-label={isDefault
+            ? "Default playback variant"
+            : "Set as default playback"}
+          title={isDefault
+            ? "Default playback variant"
+            : "Set as default playback"}
         >
           <StarIcon
             className={isDefault ? "size-3.5 fill-current" : "size-3.5"}
@@ -120,7 +120,8 @@ export function VariantRow({
               <AlertDialogDescription>
                 {variant.name
                   ? `“${variant.name}” will be removed from the variant ladder.`
-                  : "This variant will be removed from the variant ladder."}{" "}
+                  : "This variant will be removed from the variant ladder."}
+                {" "}
                 Existing clips keep their current renditions until re-encoded.
               </AlertDialogDescription>
             </AlertDialogHeader>

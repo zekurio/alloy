@@ -7,11 +7,11 @@ import {
 } from "@tanstack/react-query"
 
 import {
-  notificationStreamUrl,
-  parseNotificationEventPayload,
   type NotificationEvent,
   type NotificationRow,
   type NotificationsResponse,
+  notificationStreamUrl,
+  parseNotificationEventPayload,
 } from "@workspace/api"
 import { toast } from "@workspace/ui/lib/toast"
 
@@ -57,8 +57,9 @@ export function useMarkAllNotificationsReadMutation() {
   return useMutation({
     mutationFn: () => api.notifications.markAllRead(),
     onSuccess: ({ readAt, unreadCount }) => {
-      qc.setQueryData<NotificationsResponse>(notificationKeys.list(), (old) =>
-        markAllNotificationsReadInCache(old, readAt, unreadCount)
+      qc.setQueryData<NotificationsResponse>(
+        notificationKeys.list(),
+        (old) => markAllNotificationsReadInCache(old, readAt, unreadCount),
       )
     },
   })
@@ -70,8 +71,9 @@ export function useDeleteNotificationMutation() {
     mutationFn: (id: string) =>
       api.notifications.delete(id).then((result) => ({ ...result, id })),
     onSuccess: ({ id, unreadCount }) => {
-      qc.setQueryData<NotificationsResponse>(notificationKeys.list(), (old) =>
-        removeNotificationFromCache(old, id, unreadCount)
+      qc.setQueryData<NotificationsResponse>(
+        notificationKeys.list(),
+        (old) => removeNotificationFromCache(old, id, unreadCount),
       )
     },
   })
@@ -82,8 +84,9 @@ export function useClearNotificationsMutation() {
   return useMutation({
     mutationFn: () => api.notifications.clear(),
     onSuccess: ({ unreadCount }) => {
-      qc.setQueryData<NotificationsResponse>(notificationKeys.list(), (old) =>
-        clearNotificationsInCache(old, unreadCount)
+      qc.setQueryData<NotificationsResponse>(
+        notificationKeys.list(),
+        (old) => clearNotificationsInCache(old, unreadCount),
       )
     },
   })
@@ -113,7 +116,7 @@ export function useNotificationStream({
         .catch((cause) => {
           clientLogger.warn(
             "[notifications] Failed to refresh notification list.",
-            cause
+            cause,
           )
         })
         .finally(() => {
@@ -126,7 +129,7 @@ export function useNotificationStream({
       if (!event) return
       queryClient.setQueryData<NotificationsResponse>(
         notificationKeys.list(),
-        (old) => applyNotificationEvent(old, event)
+        (old) => applyNotificationEvent(old, event),
       )
       if (event.type === "upsert") {
         toastNotification(event.notification)
@@ -143,7 +146,7 @@ export function useNotificationStream({
         remove: handleEvent,
         clear: handleEvent,
       },
-      refreshFromFetch
+      refreshFromFetch,
     )
 
     return () => {
@@ -155,7 +158,7 @@ export function useNotificationStream({
 
 function parseNotificationEvent(
   data: string,
-  refreshFromFetch: () => void
+  refreshFromFetch: () => void,
 ): NotificationEvent | null {
   const event = parseNotificationEventPayload(data)
   if (event) return event
@@ -166,7 +169,7 @@ function parseNotificationEvent(
 
 function applyNotificationEvent(
   old: NotificationsResponse | undefined,
-  event: NotificationEvent
+  event: NotificationEvent,
 ): NotificationsResponse | undefined {
   switch (event.type) {
     case "snapshot":
@@ -175,20 +178,20 @@ function applyNotificationEvent(
       return upsertNotificationInCache(
         old,
         event.notification,
-        event.unreadCount
+        event.unreadCount,
       )
     case "read":
       return markNotificationReadInCache(
         old,
         event.id,
         event.readAt,
-        event.unreadCount
+        event.unreadCount,
       )
     case "read_all":
       return markAllNotificationsReadInCache(
         old,
         event.readAt,
-        event.unreadCount
+        event.unreadCount,
       )
     case "remove":
       return removeNotificationFromCache(old, event.id, event.unreadCount)
@@ -199,11 +202,11 @@ function applyNotificationEvent(
 
 function replaceNotificationRow(
   old: NotificationsResponse | undefined,
-  row: NotificationRow
+  row: NotificationRow,
 ): NotificationsResponse | undefined {
   if (!old) return old
   const wasUnread = old.items.some(
-    (item) => item.id === row.id && item.readAt === null
+    (item) => item.id === row.id && item.readAt === null,
   )
   return {
     unreadCount: wasUnread ? Math.max(0, old.unreadCount - 1) : old.unreadCount,
@@ -214,14 +217,15 @@ function replaceNotificationRow(
 function upsertNotificationInCache(
   old: NotificationsResponse | undefined,
   notification: NotificationRow,
-  unreadCount: number
+  unreadCount: number,
 ): NotificationsResponse {
   const current = old ?? { items: [], unreadCount }
   const existing = current.items.findIndex(
-    (item) => item.id === notification.id
+    (item) => item.id === notification.id,
   )
-  if (existing === -1)
+  if (existing === -1) {
     return { unreadCount, items: [notification, ...current.items] }
+  }
   const items = current.items.slice()
   items[existing] = notification
   return { unreadCount, items }
@@ -231,21 +235,19 @@ function markNotificationReadInCache(
   old: NotificationsResponse | undefined,
   id: string,
   readAt: string,
-  unreadCount: number
+  unreadCount: number,
 ): NotificationsResponse | undefined {
   if (!old) return old
   return {
     unreadCount,
-    items: old.items.map((item) =>
-      item.id === id ? { ...item, readAt } : item
-    ),
+    items: old.items.map((item) => item.id === id ? { ...item, readAt } : item),
   }
 }
 
 function markAllNotificationsReadInCache(
   old: NotificationsResponse | undefined,
   readAt: string,
-  unreadCount: number
+  unreadCount: number,
 ): NotificationsResponse | undefined {
   if (!old) return old
   return {
@@ -257,7 +259,7 @@ function markAllNotificationsReadInCache(
 function removeNotificationFromCache(
   old: NotificationsResponse | undefined,
   id: string,
-  unreadCount: number
+  unreadCount: number,
 ): NotificationsResponse | undefined {
   if (!old) return old
   return {
@@ -268,7 +270,7 @@ function removeNotificationFromCache(
 
 function clearNotificationsInCache(
   old: NotificationsResponse | undefined,
-  unreadCount: number
+  unreadCount: number,
 ): NotificationsResponse | undefined {
   return old ? { unreadCount, items: [] } : old
 }
@@ -291,8 +293,7 @@ export function notificationText(row: NotificationRow): {
   /** Optional secondary line, used for context (e.g. comment body excerpt). */
   body: string | null
 } {
-  const actor =
-    row.actor?.name ||
+  const actor = row.actor?.name ||
     row.actor?.displayUsername ||
     row.actor?.username ||
     "Someone"

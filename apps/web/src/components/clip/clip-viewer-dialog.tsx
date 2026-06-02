@@ -13,7 +13,7 @@ import { useMediaQuery } from "@workspace/ui/hooks/use-media-query"
 import { useWindowEvent } from "@workspace/ui/hooks/use-window-event"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { clipThumbnailUrl, type ClipRow } from "@workspace/api"
+import { type ClipRow, clipThumbnailUrl } from "@workspace/api"
 
 import { clipGameLabel } from "@/lib/clip-format"
 import {
@@ -31,9 +31,9 @@ import { userAvatar } from "@/lib/user-display"
 import { ClipComments } from "./clip-comments"
 import { ClipEditDialog } from "./clip-edit-dialog"
 import {
+  type ClipListEntry,
   setActiveClipList,
   useActiveClipList,
-  type ClipListEntry,
 } from "./clip-list-context"
 import { ClipMeta } from "./clip-meta"
 import { ClipPlayer } from "./clip-player"
@@ -82,7 +82,7 @@ export function ClipViewerDialog({
       seedClipDetail(queryClient, entry)
       onNavigate(entry)
     },
-    [onNavigate, queryClient]
+    [onNavigate, queryClient],
   )
 
   const onKey = React.useCallback(
@@ -97,7 +97,7 @@ export function ClipViewerDialog({
         navigateTo(next)
       }
     },
-    [prev, next, navigateTo]
+    [prev, next, navigateTo],
   )
   useWindowEvent("keydown", onKey, true, open)
 
@@ -120,31 +120,35 @@ export function ClipViewerDialog({
         if (!nextOpen) closeViewer()
       }}
     >
-      {open ? (
-        query.data ? (
-          !isDesktop ? (
-            <MobileClipViewerBody
-              row={query.data}
-              onDeleted={closeViewer}
-              prev={prev}
-              next={next}
-              onNavigate={onNavigate ? navigateTo : null}
-              focusedCommentId={focusedCommentId}
-            />
-          ) : (
-            <ClipViewerDialogBody
-              row={query.data}
-              onDeleted={closeViewer}
-              prev={prev}
-              next={next}
-              onNavigate={onNavigate ? navigateTo : null}
-              focusedCommentId={focusedCommentId}
-            />
-          )
-        ) : (
-          <ClipViewerDialogFallback />
+      {open
+        ? (
+          query.data
+            ? (
+              !isDesktop
+                ? (
+                  <MobileClipViewerBody
+                    row={query.data}
+                    onDeleted={closeViewer}
+                    prev={prev}
+                    next={next}
+                    onNavigate={onNavigate ? navigateTo : null}
+                    focusedCommentId={focusedCommentId}
+                  />
+                )
+                : (
+                  <ClipViewerDialogBody
+                    row={query.data}
+                    onDeleted={closeViewer}
+                    prev={prev}
+                    next={next}
+                    onNavigate={onNavigate ? navigateTo : null}
+                    focusedCommentId={focusedCommentId}
+                  />
+                )
+            )
+            : <ClipViewerDialogFallback />
         )
-      ) : null}
+        : null}
     </Dialog>
   )
 }
@@ -164,7 +168,7 @@ function isEditableKeyTarget(target: EventTarget | null): boolean {
 
 function seedClipDetail(
   queryClient: ReturnType<typeof useQueryClient>,
-  entry: ClipListEntry
+  entry: ClipListEntry,
 ) {
   const row = entry.row
   if (!row) return
@@ -212,15 +216,13 @@ function ClipViewerDialogBody({
     <>
       <DialogViewportContent
         initialFocus={initialFocusRef}
-        style={
-          {
-            "--clip-modal-margin-x": "16px",
-            "--clip-modal-margin-y": "16px",
-            "--clip-modal-nav-gutter": "72px",
-            "--clip-modal-sidebar": "400px",
-            "--clip-modal-meta": "13rem",
-          } as React.CSSProperties
-        }
+        style={{
+          "--clip-modal-margin-x": "16px",
+          "--clip-modal-margin-y": "16px",
+          "--clip-modal-nav-gutter": "72px",
+          "--clip-modal-sidebar": "400px",
+          "--clip-modal-meta": "13rem",
+        } as React.CSSProperties}
         className={cn(
           // Below lg this branch is normally hidden by MobileClipViewerBody, but
           // we keep a sensible fallback in case the breakpoint check disagrees.
@@ -233,7 +235,7 @@ function ClipViewerDialogBody({
           // xl: wider sidebar + extra horizontal gutter, still slim vertically.
           "xl:[--clip-modal-margin-x:200px] xl:[--clip-modal-margin-y:24px] xl:[--clip-modal-meta:14rem] xl:[--clip-modal-sidebar:448px]",
           // 2xl: max breathing room for chevrons + meta on ultrawide.
-          "2xl:[--clip-modal-margin-x:256px] 2xl:[--clip-modal-margin-y:28px]"
+          "2xl:[--clip-modal-margin-x:256px] 2xl:[--clip-modal-margin-y:28px]",
         )}
       >
         <DialogClose
@@ -249,44 +251,52 @@ function ClipViewerDialogBody({
         >
           <XIcon />
         </DialogClose>
-        {showPrev ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => (prev && onNavigate ? onNavigate(prev) : undefined)}
-            aria-label="Previous clip"
-            disabled={prevDisabled}
-            className={cn(
-              "absolute top-1/2 left-[calc((var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))*-1)] z-40 h-12 w-[calc(var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
-              "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
-              "hidden lg:inline-flex"
-            )}
-          >
-            <ChevronLeftIcon />
-          </Button>
-        ) : null}
-        {showNext ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => (next && onNavigate ? onNavigate(next) : undefined)}
-            aria-label="Next clip"
-            disabled={nextDisabled}
-            className={cn(
-              "absolute top-1/2 right-[calc((var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))*-1)] z-40 h-12 w-[calc(var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
-              "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
-              "hidden lg:inline-flex"
-            )}
-          >
-            <ChevronRightIcon />
-          </Button>
-        ) : null}
+        {showPrev
+          ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => (prev && onNavigate
+                ? onNavigate(prev)
+                : undefined)}
+              aria-label="Previous clip"
+              disabled={prevDisabled}
+              className={cn(
+                "absolute top-1/2 left-[calc((var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))*-1)] z-40 h-12 w-[calc(var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
+                "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
+                "hidden lg:inline-flex",
+              )}
+            >
+              <ChevronLeftIcon />
+            </Button>
+          )
+          : null}
+        {showNext
+          ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => (next && onNavigate
+                ? onNavigate(next)
+                : undefined)}
+              aria-label="Next clip"
+              disabled={nextDisabled}
+              className={cn(
+                "absolute top-1/2 right-[calc((var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))*-1)] z-40 h-12 w-[calc(var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
+                "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
+                "hidden lg:inline-flex",
+              )}
+            >
+              <ChevronRightIcon />
+            </Button>
+          )
+          : null}
         <div
           className={cn(
             "grid h-full min-h-0 overflow-hidden rounded-[20px] bg-surface",
-            "lg:grid-cols-[minmax(0,1fr)_var(--clip-modal-sidebar)]"
+            "lg:grid-cols-[minmax(0,1fr)_var(--clip-modal-sidebar)]",
           )}
         >
           <div className="grid min-h-0 grid-rows-[auto_auto] bg-surface p-4 sm:p-6 lg:grid-rows-[auto_minmax(0,1fr)] lg:p-0">
@@ -298,8 +308,6 @@ function ClipViewerDialogBody({
               <ClipPlayer
                 clipId={row.id}
                 sourceContentType={row.sourceContentType}
-                width={row.width}
-                height={row.height}
                 thumbnail={thumbnail}
                 variants={row.variants}
                 status={row.status}
