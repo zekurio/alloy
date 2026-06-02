@@ -466,7 +466,7 @@ export function LoadOverlay({ status }: { status: LoadStatus }) {
     >
       {status.kind === "loading"
         ? (
-          <span className="grid size-10 place-items-center rounded-full border border-border-strong bg-surface-raised/95 shadow-md backdrop-blur-sm">
+          <span className="grid size-10 place-items-center">
             <Spinner className="size-5" />
           </span>
         )

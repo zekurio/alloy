@@ -160,17 +160,13 @@ This command:
 
 1. Starts local PostgreSQL through devenv if it is not already running.
 2. Applies the dev schema with `deno task db:push`.
-3. Starts the API server, Vite web app, and optional ML service.
+3. Starts the API server, Vite web app, and ML service.
 
 Open http://localhost:5173.
 
 Useful development commands:
 
 ```bash
-deno task dev:quick        # skip db:push
-deno task dev:no-ml        # skip the ML service
-deno task dev:no-ml:quick  # skip both ML and db:push
-deno task dev:ml           # run only the ML service
 deno task pg:status        # check local PostgreSQL
 deno task pg:stop          # stop devenv processes
 psql "$DATABASE_URL"       # connect to the dev database

@@ -1,10 +1,7 @@
-import * as React from "react"
-
-import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
-
 export type SourceSpec =
   | { kind: "url"; url: string }
   | { kind: "file"; file: File }
+  | { kind: "hls"; url: string }
 
 export function toSourceSpec(src: string | File): SourceSpec {
   return typeof src === "string"
@@ -13,30 +10,14 @@ export function toSourceSpec(src: string | File): SourceSpec {
 }
 
 export function sourceSpecKey(spec: SourceSpec): string {
-  return spec.kind === "url"
-    ? `url:${spec.url}`
-    : `file:${spec.file.name}:${spec.file.size}:${spec.file.lastModified}`
-}
-
-export function useMediaUrl(spec: SourceSpec): string | null {
-  const [objectUrl, setObjectUrl] = React.useState<string | null>(null)
-
-  React.useEffect(() => {
-    if (spec.kind === "url") {
-      setObjectUrl(null)
-      return
-    }
-
-    const url = createObjectUrl(spec.file, "media source URL")
-    if (!url) {
-      setObjectUrl(null)
-      return
-    }
-    setObjectUrl(url)
-    return () => revokeObjectUrl(url, "media source URL")
-  }, [spec])
-
-  return spec.kind === "url" ? spec.url : objectUrl
+  switch (spec.kind) {
+    case "url":
+      return `url:${spec.url}`
+    case "hls":
+      return `hls:${spec.url}`
+    case "file":
+      return `file:${spec.file.name}:${spec.file.size}:${spec.file.lastModified}`
+  }
 }
 
 export function mediaErrorMessage(video: HTMLVideoElement | null): string {

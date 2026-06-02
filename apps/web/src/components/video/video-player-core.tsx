@@ -21,7 +21,8 @@ import {
   shouldHandleGlobalVideoShortcut,
   type VideoKeyCommand,
 } from "./video-player-shell"
-import { mediaErrorMessage, type SourceSpec, useMediaUrl } from "./video-source"
+import { mediaErrorMessage, type SourceSpec } from "./video-source"
+import { type HlsLevelSelection, useMediaEngine } from "./video-media-engine"
 import type { SharedPlayerProps } from "./video-player-types"
 
 let activeVideoPlayerId: string | null = null
@@ -36,6 +37,10 @@ type PlayerCoreProps = SharedPlayerProps & {
   loop: boolean
   initialMuted: boolean
   playbackRate: number
+  /** Selected HLS rendition when `spec` is an HLS source. */
+  hlsLevelHeight?: HlsLevelSelection
+  /** Called when adaptive playback fails, so the caller can fall back. */
+  onHlsFatalError?: (message: string) => void
 }
 
 export function PlayerCore({
@@ -63,15 +68,29 @@ export function PlayerCore({
   onSelectQuality,
   enableHorizontalSeekShortcuts = true,
   playbackRate,
+  hlsLevelHeight = "auto",
+  onHlsFatalError,
 }: PlayerCoreProps) {
-  const mediaUrl = useMediaUrl(spec)
   const playerId = React.useId()
   const videoRef = React.useRef<HTMLVideoElement | null>(null)
+  const { src: mediaUrl } = useMediaEngine(
+    videoRef,
+    spec,
+    hlsLevelHeight,
+    onHlsFatalError,
+  )
   const containerRef = React.useRef<HTMLDivElement | null>(null)
   const playingRef = React.useRef(false)
   const volumeRef = React.useRef(1)
   const mutedRef = React.useRef(initialMuted)
   const chromeHideTimerRef = React.useRef<number | null>(null)
+  // Last observed playback position, tracked continuously so a source swap can
+  // capture it before the browser resets the element's `currentTime` to 0.
+  const lastTimeRef = React.useRef(0)
+  // When set, the next loaded source should seek back to this position (and
+  // resume if it was playing) — used to make a quality switch feel seamless.
+  const resumeRef = React.useRef<{ time: number; play: boolean } | null>(null)
+  const prevIdentityRef = React.useRef<string | null>(null)
 
   const [status, setStatus] = React.useState<LoadStatus>({ kind: "loading" })
   const [duration, setDuration] = React.useState(0)
@@ -117,6 +136,7 @@ export function PlayerCore({
     if (!video) return
     const nextTime = video.currentTime || 0
     const nextDuration = Number.isFinite(video.duration) ? video.duration : 0
+    lastTimeRef.current = nextTime
     setCurrentTime(nextTime)
     setDuration(nextDuration)
     onTimeUpdateRef.current?.(nextTime)
@@ -146,14 +166,33 @@ export function PlayerCore({
   }, [initialMuted])
 
   React.useEffect(() => {
+    // A changed `identity` means a different clip; a changed `mediaUrl` with the
+    // same identity is a quality switch (a new rendition of the same clip).
+    const isNewMedia = prevIdentityRef.current !== identity
+    prevIdentityRef.current = identity
+
     setStatus({ kind: "loading" })
-    setDuration(0)
-    setCurrentTime(0)
     setBufferedEnd(0)
     setHasRenderedFrame(false)
-    setPlayingState(false)
     clearChromeHideTimer()
     setChromeVisible(!(isCoarsePointer && autoPlay))
+
+    if (isNewMedia) {
+      // Brand-new clip: start from the beginning.
+      resumeRef.current = null
+      lastTimeRef.current = 0
+      setDuration(0)
+      setCurrentTime(0)
+      setPlayingState(false)
+    } else {
+      // Same clip, different rendition: resume where the viewer was. Capture
+      // the position/playing state now, before the element load resets them,
+      // and leave the scrubber untouched so the UI doesn't jump to zero.
+      resumeRef.current = {
+        time: lastTimeRef.current,
+        play: playingRef.current,
+      }
+    }
   }, [
     autoPlay,
     clearChromeHideTimer,
@@ -451,14 +490,35 @@ export function PlayerCore({
       ? element.duration
       : 0
     setDuration(nextDuration)
-    setCurrentTime(element.currentTime || 0)
     setBufferedEnd(0)
     element.volume = volumeRef.current
     element.muted = mutedRef.current
     element.playbackRate = playbackRate
     setStatus({ kind: "ready" })
+
+    const resume = resumeRef.current
+    resumeRef.current = null
+    if (resume && resume.time > 0) {
+      // Restore the position from before a quality switch, then continue
+      // playing if the viewer was. The poster stays up until the seeked frame
+      // decodes, so there is no black flash.
+      const target = nextDuration > 0
+        ? Math.min(resume.time, nextDuration)
+        : resume.time
+      try {
+        element.currentTime = target
+      } catch {
+        // Seeking can throw if the element is not yet seekable; the timeupdate
+        // loop will reconcile the scrubber regardless.
+      }
+      lastTimeRef.current = target
+      setCurrentTime(target)
+      if (resume.play) void playInternal(false)
+    } else {
+      setCurrentTime(element.currentTime || 0)
+      if (autoPlay) void playInternal(false)
+    }
     syncBuffered()
-    if (autoPlay) void playInternal(false)
   }, [autoPlay, playbackRate, playInternal, syncBuffered])
 
   const handleLoadedData = React.useCallback(() => {

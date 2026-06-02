@@ -14,31 +14,6 @@ let
   ];
   dataDir = "${config.devenv.root}/data";
   serverData = "${dataDir}/server";
-  apiPort = 2552;
-  apiProcess =
-    name:
-    {
-      dbPush ? true,
-      ml ? true,
-    }:
-    {
-      after = [
-        (if dbPush then "alloy:db-push" else "devenv:processes:postgres")
-      ];
-      exec = ''
-        export PORT="''${PORT:-${toString apiPort}}"
-        export PUBLIC_SERVER_URL="''${PUBLIC_SERVER_URL:-http://localhost:$PORT}"
-        export MACHINE_LEARNING_ENABLED="${if ml then "1" else "0"}"
-        ${lib.optionalString ml ''
-          export MACHINE_LEARNING_URL="''${MACHINE_LEARNING_URL:-http://localhost:''${ALLOY_ML_PORT:-2662}}"
-        ''}
-        exec deno task --quiet --cwd apps/server dev
-      '';
-      ready.http.get = {
-        port = apiPort;
-        path = "/health";
-      };
-    };
 in
 {
   # https://devenv.sh/languages/
@@ -104,8 +79,8 @@ in
   '';
 
   # https://devenv.sh/tasks/
-  # The normal API process waits for this task; quick API variants depend only on
-  # PostgreSQL so they can restart without touching the schema.
+  # The API process waits for this task so the dev schema is current before the
+  # server starts.
   tasks."alloy:db-push" = {
     after = [ "devenv:processes:postgres" ];
     exec = "deno task db:push";
@@ -115,12 +90,19 @@ in
   # devenv owns the dev process graph. Deno tasks in deno.json are thin aliases
   # that select which processes to start.
   processes = {
-    api = apiProcess "api" { };
-    api-quick = apiProcess "api-quick" { dbPush = false; };
-    api-no-ml = apiProcess "api-no-ml" { ml = false; };
-    api-no-ml-quick = apiProcess "api-no-ml-quick" {
-      dbPush = false;
-      ml = false;
+    api = {
+      after = [ "alloy:db-push" ];
+      exec = ''
+        export PORT="''${PORT:-2552}"
+        export PUBLIC_SERVER_URL="''${PUBLIC_SERVER_URL:-http://localhost:$PORT}"
+        export MACHINE_LEARNING_ENABLED="1"
+        export MACHINE_LEARNING_URL="''${MACHINE_LEARNING_URL:-http://localhost:''${ALLOY_ML_PORT:-2662}}"
+        exec deno task --quiet --cwd apps/server dev
+      '';
+      ready.http.get = {
+        port = 2552;
+        path = "/health";
+      };
     };
 
     web = {

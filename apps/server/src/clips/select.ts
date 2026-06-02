@@ -84,7 +84,7 @@ export function toPublicClipRow<
     sourceKey: string | null
     openGraphKey: string | null
     thumbKey: string | null
-    variants: readonly { storageKey: string }[]
+    variants: readonly { storageKey: string; hls?: unknown }[]
   },
 >(row: T) {
   const {
@@ -96,8 +96,12 @@ export function toPublicClipRow<
   return {
     ...rest,
     thumbKey: row.thumbKey ? "thumbnail" : null,
+    // The HLS playlist text stays server-side; the client only needs to know
+    // adaptive streaming is available, so collapse it to a single flag and
+    // drop the per-variant `storageKey`/`hls` payloads.
+    hlsReady: variants.some((variant) => Boolean(variant.hls)),
     variants: variants.map(
-      ({ storageKey: _variantStorageKey, ...variant }) => ({
+      ({ storageKey: _variantStorageKey, hls: _hls, ...variant }) => ({
         ...variant,
       }),
     ),

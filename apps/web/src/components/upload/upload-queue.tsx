@@ -63,6 +63,7 @@ interface UploadQueueContentProps {
 }
 
 const PAGE_SIZE = 6
+const THUMB_RETRY_DELAYS_MS = [500, 1000, 2000, 4000, 8000] as const
 
 export function UploadQueueContent({
   queue,
@@ -301,13 +302,31 @@ function QueueThumb({
 }) {
   const [errored, setErrored] = React.useState(false)
   const [loadedSrc, setLoadedSrc] = React.useState<string | null>(null)
+  const [retryAttempt, setRetryAttempt] = React.useState(0)
+  const retryTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  )
+
+  const clearRetryTimer = React.useCallback(() => {
+    if (!retryTimerRef.current) return
+    clearTimeout(retryTimerRef.current)
+    retryTimerRef.current = null
+  }, [])
+
   React.useEffect(() => {
+    clearRetryTimer()
     setErrored(false)
     setLoadedSrc(null)
-  }, [thumbUrl])
+    setRetryAttempt(0)
+  }, [clearRetryTimer, thumbUrl])
+
+  React.useEffect(() => clearRetryTimer, [clearRetryTimer])
 
   const fallbackSrc = fallbackUrl && (!thumbUrl || loadedSrc !== thumbUrl)
     ? fallbackUrl
+    : null
+  const serverThumbSrc = thumbUrl && !errored
+    ? retryableImageUrl(thumbUrl, retryAttempt)
     : null
 
   return (
@@ -332,24 +351,49 @@ function QueueThumb({
           />
         )
         : null}
-      {thumbUrl && !errored
+      {serverThumbSrc
         ? (
           <img
-            src={thumbUrl}
+            src={serverThumbSrc}
             alt=""
-            className={cn(CLIP_MEDIA_CLASS, fallbackSrc && "opacity-0")}
+            className={cn(
+              CLIP_MEDIA_CLASS,
+              loadedSrc !== thumbUrl && "opacity-0",
+            )}
             loading="lazy"
             decoding="async"
             onLoad={() => {
+              clearRetryTimer()
               setLoadedSrc(thumbUrl)
+              setErrored(false)
               onLoad?.()
             }}
-            onError={() => setErrored(true)}
+            onError={() => {
+              const retryDelay = THUMB_RETRY_DELAYS_MS[retryAttempt]
+              if (retryDelay === undefined) {
+                setErrored(true)
+                return
+              }
+              if (retryTimerRef.current) return
+              retryTimerRef.current = setTimeout(() => {
+                retryTimerRef.current = null
+                setRetryAttempt((attempt) => attempt + 1)
+              }, retryDelay)
+            }}
           />
         )
         : null}
     </div>
   )
+}
+
+function retryableImageUrl(src: string, attempt: number): string {
+  if (attempt === 0) return src
+  const hashIndex = src.indexOf("#")
+  const base = hashIndex === -1 ? src : src.slice(0, hashIndex)
+  const hash = hashIndex === -1 ? "" : src.slice(hashIndex)
+  const separator = base.includes("?") ? "&" : "?"
+  return `${base}${separator}retry=${attempt}${hash}`
 }
 
 function RowAction({ item }: { item: QueueItem }) {

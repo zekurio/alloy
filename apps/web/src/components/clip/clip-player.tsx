@@ -3,13 +3,22 @@ import * as React from "react"
 import {
   clipDownloadUrl,
   type ClipEncodedVariant,
+  clipHlsMasterUrl,
   type ClipStatus,
   clipStreamUrl,
   clipThumbnailUrl,
 } from "@workspace/api"
 import { VideoPlayer } from "@/components/video/video-player"
+import {
+  type HlsLevelSelection,
+  mseHlsSupported,
+  nativeHlsSupported,
+} from "@/components/video/video-media-engine"
 import { apiOrigin } from "@/lib/env"
 import { formatBytes } from "@/lib/storage-format"
+
+const AUTO_QUALITY_ID = "auto"
+const SOURCE_QUALITY_ID = "source"
 
 interface ClipPlayerProps {
   /** Real clip id: drives the stream URL and the default poster. */
@@ -19,6 +28,8 @@ interface ClipPlayerProps {
   thumbnail?: string | null
   variants?: ClipEncodedVariant[]
   status?: ClipStatus
+  /** Whether the clip has HLS renditions available for adaptive playback. */
+  hlsReady?: boolean
   encodeProgress?: number
   onPlayThreshold?: () => void
   onEnded?: () => void
@@ -54,6 +65,7 @@ function ClipPlayer({
   thumbnail,
   variants = [],
   status,
+  hlsReady = false,
   encodeProgress: _encodeProgress = 0,
   onPlayThreshold,
   onEnded,
@@ -85,8 +97,18 @@ function ClipPlayer({
       sortedVariants[0]?.id ??
       null
   const sourcePlayable = canPlayNativeVideo(sourceContentType)
-  const preferredQualityId = defaultEncodedId ??
-    (sourcePlayable ? "source" : "")
+
+  // Adaptive streaming is offered when the clip was encoded with HLS and the
+  // browser can play it (via hls.js or natively). A fatal HLS error flips the
+  // player back to progressive for the rest of the session.
+  const [hlsFailed, setHlsFailed] = React.useState(false)
+  React.useEffect(() => setHlsFailed(false), [clipId])
+  const hlsUsable = hlsReady && sortedVariants.length > 0 && !hlsFailed &&
+    (mseHlsSupported() || nativeHlsSupported())
+
+  const preferredQualityId = hlsUsable
+    ? AUTO_QUALITY_ID
+    : defaultEncodedId ?? (sourcePlayable ? SOURCE_QUALITY_ID : "")
   const [selectedQualityId, setSelectedQualityId] = React.useState(
     preferredQualityId,
   )
@@ -96,14 +118,13 @@ function ClipPlayer({
   }, [clipId, preferredQualityId])
 
   React.useEffect(() => {
-    if (selectedQualityId === defaultEncodedId) return
-    const stillAvailable = sortedVariants.some((variant) =>
-      variant.id === selectedQualityId
-    ) ||
-      (selectedQualityId === "source" && sourcePlayable)
+    const stillAvailable =
+      (selectedQualityId === AUTO_QUALITY_ID && hlsUsable) ||
+      sortedVariants.some((variant) => variant.id === selectedQualityId) ||
+      (selectedQualityId === SOURCE_QUALITY_ID && sourcePlayable)
     if (!stillAvailable) setSelectedQualityId(preferredQualityId)
   }, [
-    defaultEncodedId,
+    hlsUsable,
     preferredQualityId,
     selectedQualityId,
     sortedVariants,
@@ -114,13 +135,16 @@ function ClipPlayer({
     ...(sourceContentType
       ? [
         {
-          id: "source",
+          id: SOURCE_QUALITY_ID,
           label: "Source",
           detail: sourcePlayable ? "Original upload" : "Download only",
           downloadUrl: clipDownloadUrl(clipId, "source", apiOrigin()),
           selectable: sourcePlayable,
         },
       ]
+      : []),
+    ...(hlsUsable
+      ? [{ id: AUTO_QUALITY_ID, label: "Auto", detail: "Adaptive" }]
       : []),
     ...sortedVariants.map((variant) => ({
       id: variant.id,
@@ -129,6 +153,29 @@ function ClipPlayer({
       downloadUrl: clipDownloadUrl(clipId, variant.id, apiOrigin()),
     })),
   ]
+
+  // Resolve the selection into a concrete playback source. HLS renditions and
+  // "Auto" share one master URL (so switching among them never reloads); only
+  // a level hint changes. "Source" — and any selection on a browser that can't
+  // pin an HLS level — falls back to a progressive variant.
+  const selectedVariant = sortedVariants.find((v) => v.id === selectedQualityId)
+  let hlsMasterUrl: string | undefined
+  let hlsLevelHeight: HlsLevelSelection = "auto"
+  let progressiveVariantId = selectedQualityId
+  if (hlsUsable && selectedQualityId !== SOURCE_QUALITY_ID) {
+    if (selectedQualityId === AUTO_QUALITY_ID) {
+      hlsMasterUrl = clipHlsMasterUrl(clipId, apiOrigin())
+    } else if (selectedVariant && mseHlsSupported()) {
+      hlsMasterUrl = clipHlsMasterUrl(clipId, apiOrigin())
+      hlsLevelHeight = selectedVariant.height
+    } else if (selectedVariant) {
+      progressiveVariantId = selectedVariant.id
+    }
+  }
+  const progressiveSrcId = progressiveVariantId === AUTO_QUALITY_ID
+    ? (defaultEncodedId ?? SOURCE_QUALITY_ID)
+    : progressiveVariantId
+
   const aspectRatio = aspectRatioProp ?? DEFAULT_ASPECT_RATIO
 
   if (!defaultEncodedId && !sourcePlayable) {
@@ -155,13 +202,16 @@ function ClipPlayer({
 
   return (
     <VideoPlayer
-      src={clipStreamUrl(clipId, selectedQualityId, apiOrigin())}
+      src={clipStreamUrl(clipId, progressiveSrcId, apiOrigin())}
+      hlsMasterUrl={hlsMasterUrl}
+      hlsLevelHeight={hlsLevelHeight}
+      onHlsFatalError={() => setHlsFailed(true)}
       poster={poster}
       aspectRatio={aspectRatio}
       maxDisplayHeight={maxDisplayHeight}
       chromeSize={chromeSize}
       className={className}
-      sourceIdentity={`${clipId}:${selectedQualityId}`}
+      sourceIdentity={clipId}
       qualityOptions={qualityOptions}
       selectedQualityId={selectedQualityId}
       onSelectQuality={setSelectedQualityId}

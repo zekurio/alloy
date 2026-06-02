@@ -12,15 +12,66 @@ import { storage } from "../storage"
 import { notFound } from "../runtime/http-response"
 import { pipeReadable } from "../runtime/streaming"
 import {
+  buildHlsMasterPlaylist,
   contentDisposition,
   downloadFilename,
   DownloadQuery,
   findEncodedVariant,
+  HlsVariantParam,
   IdParam,
   parseRange,
   readAll,
   StreamQuery,
 } from "./clips-helpers"
+import type { Context } from "hono"
+import type { ClipPrivacy } from "@workspace/contracts"
+
+/** Cache-Control for playback bytes/manifests, keyed on clip privacy. */
+function mediaCacheControl(privacy: ClipPrivacy): string {
+  return privacy === "public"
+    ? "public, max-age=300"
+    : privacy === "private"
+    ? "no-store"
+    : "private, max-age=300"
+}
+
+/** Stream an already-resolved object, honouring an optional `Range` request.
+ *  Never redirects, so it is safe for hls.js segment fetches (same-origin). */
+function streamResolved(
+  c: Context,
+  resolved: NonNullable<Awaited<ReturnType<typeof storage.resolve>>>,
+  contentType: string,
+  cacheControl: string,
+): Response {
+  const range = parseRange(c.req.header("range"), resolved.size)
+  if (range) {
+    const length = range.end - range.start + 1
+    const body = resolved.stream({ start: range.start, end: range.end })
+    c.header("Content-Type", contentType)
+    c.header(
+      "Content-Range",
+      `bytes ${range.start}-${range.end}/${resolved.size}`,
+    )
+    c.header("Content-Length", String(length))
+    c.header("Accept-Ranges", "bytes")
+    c.header("Cache-Control", cacheControl)
+    c.status(206)
+    if (c.req.method === "HEAD") return c.body(null)
+    return stream(c, async (s) => {
+      await pipeReadable(s, body)
+    })
+  }
+
+  const body = resolved.stream()
+  c.header("Content-Type", contentType)
+  c.header("Content-Length", String(resolved.size))
+  c.header("Accept-Ranges", "bytes")
+  c.header("Cache-Control", cacheControl)
+  if (c.req.method === "HEAD") return c.body(null)
+  return stream(c, async (s) => {
+    await pipeReadable(s, body)
+  })
+}
 
 export const clipsPlaybackRoutes = new Hono()
   .get(
@@ -62,11 +113,7 @@ export const clipsPlaybackRoutes = new Hono()
         return notFound(c, "Unknown quality")
       }
 
-      const cacheControl = row.privacy === "public"
-        ? "public, max-age=300"
-        : row.privacy === "private"
-        ? "no-store"
-        : "private, max-age=300"
+      const cacheControl = mediaCacheControl(row.privacy)
 
       if (!access.isPrivate && c.req.method !== "HEAD") {
         const direct = await storage.mintDownloadUrl(selected.key, {
@@ -88,36 +135,96 @@ export const clipsPlaybackRoutes = new Hono()
         return notFound(c, "Stream unavailable")
       }
 
-      const range = parseRange(c.req.header("range"), resolved.size)
-      const contentType = selected.contentType || resolved.contentType
+      return streamResolved(
+        c,
+        resolved,
+        selected.contentType || resolved.contentType,
+        cacheControl,
+      )
+    },
+  )
+  /**
+   * HLS master playlist — lists every CMAF rendition with the BANDWIDTH/CODECS
+   * line ffmpeg computed at encode time. Synthesized on demand; nothing extra
+   * is stored. Returns 404 for clips encoded before HLS existed, so the player
+   * falls back to progressive `/stream`.
+   */
+  .get("/:id/hls/master.m3u8", zValidator("param", IdParam), async (c) => {
+    const { id } = c.req.valid("param")
+    const access = await resolveClipAccess({
+      id,
+      headers: c.req.raw.headers,
+      policy: "stream",
+    })
+    if (!access.accessible) return clipAccessResponse(c, access)
+    applyClipPrivacyHeaders(c, access)
+    const row = access.row
 
-      if (range) {
-        const length = range.end - range.start + 1
-        const body = resolved.stream({ start: range.start, end: range.end })
-        c.header("Content-Type", contentType)
-        c.header(
-          "Content-Range",
-          `bytes ${range.start}-${range.end}/${resolved.size}`,
-        )
-        c.header("Content-Length", String(length))
-        c.header("Accept-Ranges", "bytes")
-        c.header("Cache-Control", cacheControl)
-        c.status(206)
-        if (c.req.method === "HEAD") return c.body(null)
-        return stream(c, async (s) => {
-          await pipeReadable(s, body)
-        })
-      }
+    const master = buildHlsMasterPlaylist(row.variants)
+    if (!master) return notFound(c, "HLS unavailable")
 
-      const body = resolved.stream()
-      c.header("Content-Type", contentType)
-      c.header("Content-Length", String(resolved.size))
-      c.header("Accept-Ranges", "bytes")
-      c.header("Cache-Control", cacheControl)
-      if (c.req.method === "HEAD") return c.body(null)
-      return stream(c, async (s) => {
-        await pipeReadable(s, body)
+    c.header("Content-Type", "application/vnd.apple.mpegurl")
+    c.header("Cache-Control", mediaCacheControl(row.privacy))
+    if (c.req.method === "HEAD") return c.body(null)
+    return c.body(master)
+  })
+  /** HLS media playlist for one rendition — the byte-range playlist ffmpeg
+   *  produced, served verbatim. Its `media.m4s` references resolve to the
+   *  sibling media route below. */
+  .get(
+    "/:id/hls/:variant/playlist.m3u8",
+    zValidator("param", HlsVariantParam),
+    async (c) => {
+      const { id, variant: variantId } = c.req.valid("param")
+      const access = await resolveClipAccess({
+        id,
+        headers: c.req.raw.headers,
+        policy: "stream",
       })
+      if (!access.accessible) return clipAccessResponse(c, access)
+      applyClipPrivacyHeaders(c, access)
+
+      const variant = access.row.variants.find(
+        (candidate) => candidate.id === variantId && candidate.hls,
+      )
+      if (!variant?.hls) return notFound(c, "HLS variant unavailable")
+
+      c.header("Content-Type", "application/vnd.apple.mpegurl")
+      c.header("Cache-Control", mediaCacheControl(access.row.privacy))
+      if (c.req.method === "HEAD") return c.body(null)
+      return c.body(variant.hls.playlist)
+    },
+  )
+  /** HLS media segments — byte ranges of the single CMAF file. Always streamed
+   *  same-origin (never redirected) so hls.js fetches aren't blocked by the
+   *  storage backend's cross-origin policy. */
+  .get(
+    "/:id/hls/:variant/media.m4s",
+    zValidator("param", HlsVariantParam),
+    async (c) => {
+      const { id, variant: variantId } = c.req.valid("param")
+      const access = await resolveClipAccess({
+        id,
+        headers: c.req.raw.headers,
+        policy: "stream",
+      })
+      if (!access.accessible) return clipAccessResponse(c, access)
+      applyClipPrivacyHeaders(c, access)
+
+      const variant = access.row.variants.find(
+        (candidate) => candidate.id === variantId && candidate.hls,
+      )
+      if (!variant) return notFound(c, "HLS media unavailable")
+
+      const resolved = await storage.resolve(variant.storageKey)
+      if (!resolved) return notFound(c, "HLS media unavailable")
+
+      return streamResolved(
+        c,
+        resolved,
+        "video/mp4",
+        mediaCacheControl(access.row.privacy),
+      )
     },
   )
   /**

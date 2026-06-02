@@ -34,6 +34,18 @@ export interface ClipEncodedVariant {
     trimStartMs: number | null
     trimEndMs: number | null
   }
+  /**
+   * HLS streaming metadata, present when the rendition was encoded as a
+   * single-file CMAF (byte-range fMP4). `storageKey` then points at that
+   * one file, which doubles as the progressive download. Absent on older
+   * progressive-only variants, which fall back to direct `/stream`.
+   */
+  hls?: {
+    /** Media playlist text; references the media by bare `media.m4s`. */
+    playlist: string
+    /** EXT-X-STREAM-INF attributes for the combined master playlist. */
+    streamInf: string
+  }
 }
 
 export type Game = typeof game.$inferSelect

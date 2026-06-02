@@ -321,6 +321,7 @@ function MobileClipViewerBody({
               thumbnail={thumbnail}
               variants={row.variants}
               status={row.status}
+              hlsReady={row.hlsReady}
               encodeProgress={row.encodeProgress}
               maxDisplayHeight={isLandscape
                 ? "100dvh"

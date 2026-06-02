@@ -3,7 +3,8 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
-    "lib": ["ES2023", "DOM", "deno.ns"],
+    "lib": ["ES2023", "DOM"],
+    "types": ["deno"],
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
