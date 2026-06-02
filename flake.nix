@@ -24,63 +24,16 @@
         alloy = pkgs.callPackage ./nix/package.nix { inherit version; };
         alloy-machine-learning = pkgs.callPackage ./nix/machine-learning.nix { inherit version; };
         alloy-image = pkgs.callPackage ./nix/docker.nix { inherit alloy version; };
-        nativeLibs = with pkgs; [
-          stdenv.cc.cc.lib
-          zlib
-          zstd
-        ];
       in
       {
+        # The dev environment lives in devenv.nix (https://devenv.sh); this flake
+        # is the packaging/CI/NixOS entrypoint only.
         packages = {
           default = alloy;
           inherit alloy alloy-machine-learning alloy-image;
         };
 
         checks.default = alloy;
-
-        devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            deno
-            uv
-            python311
-            postgresql_17
-            util-linux
-            jellyfin-ffmpeg
-            imagemagick
-          ] ++ nativeLibs;
-
-          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath nativeLibs;
-
-          shellHook = ''
-            export ALLOY_ROOT="$PWD"
-            export PGROOT="$PWD/.pg"
-            export PGDATA="$PGROOT/data"
-            export PGSOCKETDIR="$PGROOT/sockets"
-            export PG_MAJOR="17"
-            export PGHOST="127.0.0.1"
-            export PGPORT="5432"
-            export PGUSER="postgres"
-            export PGDATABASE="alloy"
-            export DATABASE_URL="postgres://$PGUSER@$PGHOST:$PGPORT/$PGDATABASE"
-
-            mkdir -p "$PGROOT" "$PGSOCKETDIR"
-
-            alloy_pg_start() {
-              "$ALLOY_ROOT/scripts/dev-postgres.sh" start
-            }
-            export -f alloy_pg_start
-
-            alloy_pg_stop() {
-              "$ALLOY_ROOT/scripts/dev-postgres.sh" stop
-            }
-            export -f alloy_pg_stop
-
-            alloy_pg_status() {
-              "$ALLOY_ROOT/scripts/dev-postgres.sh" status
-            }
-            export -f alloy_pg_status
-          '';
-        };
       }
     )
     // {
