@@ -1,5 +1,7 @@
 import { clipThumbnailUrl, type QueueClip } from "@workspace/api"
+import { stableHue } from "@workspace/ui/lib/stable-hash"
 import { apiOrigin } from "@/lib/env"
+import { formatBytes } from "@/lib/storage-format"
 import type { QueueItem, QueueItemStatus } from "./upload-queue"
 
 export interface ActiveUpload {
@@ -12,23 +14,7 @@ export interface ActiveUpload {
   status: "initiating" | "uploading" | "finalizing" | "error"
   errorMessage?: string
   abort: AbortController
-  thumbUrl: string
-}
-
-export function hueFor(seed: string): number {
-  let h = 0
-  for (let i = 0; i < seed.length; i++) {
-    h = (h * 31 + seed.charCodeAt(i)) >>> 0
-  }
-  return h % 360
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
-  if (bytes < 1024 * 1024 * 1024)
-    return `${(bytes / (1024 * 1024)).toFixed(0)} MB`
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
+  thumbUrl: string | null
 }
 
 export function localToQueueItem(
@@ -74,7 +60,7 @@ export function localToQueueItem(
   }
 }
 
-export interface ServerRowHandlers {
+interface ServerRowHandlers {
   onCancel: () => void
   onOpen?: () => void
   onCopyLink?: () => void
@@ -85,9 +71,7 @@ export interface ServerRowHandlers {
 
 function queueThumbnailUrl(row: QueueClip): string | null {
   if (!row.hasThumb) return null
-  const url = new URL(clipThumbnailUrl(row.id, apiOrigin()))
-  url.searchParams.set("v", row.status)
-  return url.toString()
+  return clipThumbnailUrl(row.id, apiOrigin(), row.status)
 }
 
 export function serverToQueueItem(
@@ -126,7 +110,7 @@ export function serverToQueueItem(
           ? 100
           : 0,
     detail,
-    hue: hueFor(row.id),
+    hue: stableHue(row.id),
     thumbUrl: queueThumbnailUrl(row),
     thumbFallbackUrl: handlers.thumbFallbackUrl,
     onThumbLoad: handlers.onThumbLoad,

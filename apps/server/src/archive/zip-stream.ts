@@ -30,7 +30,7 @@ for (let n = 0; n < 256; n++) {
 
 function updateCrc(crc: number, chunk: Uint8Array): number {
   let c = crc
-  for (const byte of chunk) c = CRC_TABLE[(c ^ byte) & 0xff]! ^ (c >>> 8)
+  for (const byte of chunk) c = (CRC_TABLE[(c ^ byte) & 0xff] ?? 0) ^ (c >>> 8)
   return c
 }
 

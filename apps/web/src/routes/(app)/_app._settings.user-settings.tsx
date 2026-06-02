@@ -23,16 +23,16 @@ import {
 import {
   LinkedAccountsCard,
   shouldShowLinkedAccountsCard,
-  type LinkedAccount,
 } from "@/components/routes/settings/linked-accounts-card"
-import {
-  PasskeysCard,
-  type Passkey,
-} from "@/components/routes/settings/passkeys-card"
+import { PasskeysCard } from "@/components/routes/settings/passkeys-card"
 import { ProfileCard } from "@/components/routes/settings/profile-card"
 import { SettingsSection } from "@/components/routes/settings/settings-section"
-import { authClient } from "@/lib/auth-client"
+import {
+  linkedAccountsQueryOptions,
+  passkeysQueryOptions,
+} from "@/lib/auth-query-keys"
 import { useIsAdmin, useRequireAuthStrict } from "@/lib/auth-hooks"
+import { errorMessage } from "@/lib/error-message"
 import { useSuspenseAuthConfig } from "@/lib/session-suspense"
 
 export const Route = createFileRoute("/(app)/_app/_settings/user-settings")({
@@ -41,30 +41,24 @@ export const Route = createFileRoute("/(app)/_app/_settings/user-settings")({
 
 function useSecurityData(config: PublicAuthConfig) {
   const accountsQuery = useQuery({
-    queryKey: ["auth", "accounts"],
-    queryFn: async () => {
-      const { data, error } = await authClient.listAccounts()
-      if (error) throw new Error(error.message ?? "Couldn't load accounts")
-      return (data ?? []) as LinkedAccount[]
-    },
+    ...linkedAccountsQueryOptions(),
   })
 
   const passkeysQuery = useQuery({
-    queryKey: ["auth", "passkeys"],
+    ...passkeysQueryOptions(),
     enabled: config.passkeyEnabled,
-    queryFn: async () => {
-      const { data, error } = await authClient.passkey.listUserPasskeys()
-      if (error) throw new Error(error.message ?? "Couldn't load passkeys")
-      return (data ?? []) as Passkey[]
-    },
   })
 
   React.useEffect(() => {
-    if (accountsQuery.error) toast.error(accountsQuery.error.message)
+    if (accountsQuery.error) {
+      toast.error(errorMessage(accountsQuery.error, "Couldn't load accounts"))
+    }
   }, [accountsQuery.error])
 
   React.useEffect(() => {
-    if (passkeysQuery.error) toast.error(passkeysQuery.error.message)
+    if (passkeysQuery.error) {
+      toast.error(errorMessage(passkeysQuery.error, "Couldn't load passkeys"))
+    }
   }, [passkeysQuery.error])
 
   return {
@@ -113,7 +107,7 @@ function SecurityContent({ config }: { config: PublicAuthConfig }) {
       )}
       {showLinkedAccounts && showPasskeys && <hr className="border-border" />}
       {showPasskeys && (
-        <PasskeysCard passkeys={passkeys!} onRefresh={refreshPasskeys} />
+        <PasskeysCard passkeys={passkeys ?? []} onRefresh={refreshPasskeys} />
       )}
     </div>
   )

@@ -1,10 +1,19 @@
 import { Hono } from "hono"
 import { and, eq, gt, isNull } from "drizzle-orm"
 import { clipUploadTicket } from "@workspace/db/schema"
+import { logger } from "@workspace/logging"
 
 import { decodeUploadToken } from "./fs-driver"
 import { db } from "../db"
 import { configStore } from "../config/store"
+import {
+  badRequest,
+  conflict,
+  internalServerError,
+  noContent,
+  payloadTooLarge,
+  unauthorized,
+} from "../runtime/http-response"
 import { ensureScratchParent } from "../uploads/scratch"
 
 type DenoFsFile = Awaited<ReturnType<typeof Deno.open>>
@@ -16,7 +25,7 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
     configStore.get("storage").fs.hmacSecret
   )
   if (!decoded.ok) {
-    return c.json({ error: "Invalid upload ticket" }, 401)
+    return unauthorized(c, "Invalid upload ticket")
   }
   const {
     k: key,
@@ -40,22 +49,16 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
     )
     .limit(1)
   if (!ticket) {
-    return c.json(
-      { error: "Upload ticket has expired or already been used" },
-      401
-    )
+    return unauthorized(c, "Upload ticket has expired or already been used")
   }
 
   const contentType = c.req.header("content-type")
   if (contentType && contentType !== expectedContentType) {
-    return c.json(
-      { error: "Content-Type does not match the upload ticket" },
-      400
-    )
+    return badRequest(c, "Content-Type does not match the upload ticket")
   }
 
   if (!c.req.raw.body) {
-    return c.json({ error: "Empty upload body" }, 400)
+    return badRequest(c, "Empty upload body")
   }
 
   const fullDst = await ensureScratchParent(key)
@@ -72,6 +75,7 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
     truncate: true,
   })
 
+  let writeFailure: unknown = null
   try {
     for await (const chunk of c.req.raw.body) {
       bytesWritten += chunk.byteLength
@@ -82,40 +86,56 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
       await writeAll(file, chunk)
     }
   } catch (err) {
-    await Deno.remove(tmpDir, { recursive: true }).catch(() => undefined)
-    if (limitTripped) {
-      return c.json({ error: "Upload exceeded maximum size" }, 413)
-    }
-    // eslint-disable-next-line no-console
-    console.error("[api/assets/upload] write failed:", err)
-    return c.json({ error: "Upload write failed" }, 500)
+    writeFailure = err
   } finally {
     file.close()
+  }
+
+  if (writeFailure) {
+    await removeTempUploadDir(tmpDir, "write failure")
+    if (limitTripped) {
+      return payloadTooLarge(c, "Upload exceeded maximum size")
+    }
+    logger.error("[api/assets/upload] write failed:", writeFailure)
+    return internalServerError(c, "Upload write failed")
   }
 
   try {
     await Deno.link(tmpFile, fullDst)
   } catch (err) {
-    await Deno.remove(tmpDir, { recursive: true }).catch(() => undefined)
+    await removeTempUploadDir(tmpDir, "publish failure")
     if (err instanceof Deno.errors.AlreadyExists) {
-      return c.json({ error: "Upload ticket has already been used" }, 409)
+      return conflict(c, "Upload ticket has already been used")
     }
-    // eslint-disable-next-line no-console
-    console.error("[api/assets/upload] publish failed:", err)
-    return c.json({ error: "Upload publish failed" }, 500)
+    logger.error("[api/assets/upload] publish failed:", err)
+    return internalServerError(c, "Upload publish failed")
   }
-  await Deno.remove(tmpDir, { recursive: true }).catch(() => undefined)
+  await removeTempUploadDir(tmpDir, "publish success")
   await db
     .update(clipUploadTicket)
     .set({ usedAt: new Date() })
     .where(eq(clipUploadTicket.id, ticket.id))
 
-  return c.body(null, 204)
+  return noContent(c)
 })
 
 function dirname(value: string): string {
   const index = value.lastIndexOf("/")
   return index <= 0 ? "/" : value.slice(0, index)
+}
+
+async function removeTempUploadDir(
+  path: string,
+  reason: string
+): Promise<void> {
+  try {
+    await Deno.remove(path, { recursive: true })
+  } catch (err) {
+    logger.warn(
+      `[api/assets/upload] failed to remove temporary upload directory after ${reason}:`,
+      err
+    )
+  }
 }
 
 async function writeAll(file: DenoFsFile, chunk: Uint8Array): Promise<void> {

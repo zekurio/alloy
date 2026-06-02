@@ -26,6 +26,10 @@ export type UserRole = (typeof USER_ROLES)[number]
 export const USER_STATUSES = ["active", "disabled"] as const
 export type UserStatus = (typeof USER_STATUSES)[number]
 
+export const USERNAME_MIN_LENGTH = 1
+export const USERNAME_MAX_LENGTH = 24
+export const USER_DISPLAY_NAME_MAX_LENGTH = 100
+
 export interface ClipVariantSettings {
   hwaccel: string
   codec: string

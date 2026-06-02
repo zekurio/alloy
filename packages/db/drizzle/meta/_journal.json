@@ -15,6 +15,13 @@
       "when": 1779980104423,
       "tag": "0001_silent_marten_broadcloak",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780300906363,
+      "tag": "0002_fancy_thunderbolt_ross",
+      "breakpoints": true
     }
   ]
 }

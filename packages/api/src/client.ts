@@ -1,5 +1,6 @@
 import { hc, type ClientRequestOptions } from "hono/client"
 import type { AppType } from "@workspace/server/app"
+import { queryParams, type QueryParamValue } from "./paths"
 
 export interface CreateApiOptions {
   baseURL: string
@@ -9,7 +10,7 @@ export interface CreateApiOptions {
 
 export interface ApiRequestOptions {
   method?: string
-  query?: Record<string, string | undefined>
+  query?: Record<string, QueryParamValue>
   json?: unknown
   init?: RequestInit
 }
@@ -31,11 +32,11 @@ export interface ApiContext {
 function buildUrl(
   baseURL: string,
   path: string,
-  query?: Record<string, string | undefined>
+  query?: Record<string, QueryParamValue>
 ): string {
   const url = new URL(path, baseURL)
-  for (const [key, value] of Object.entries(query ?? {})) {
-    if (value !== undefined) url.searchParams.set(key, value)
+  for (const [key, value] of Object.entries(queryParams(query ?? {}))) {
+    url.searchParams.set(key, value)
   }
   return url.toString()
 }

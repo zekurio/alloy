@@ -45,8 +45,8 @@ The response is ranked, confidence-scored, and marked advisory:
   "modelName": "alloy-game-classifier",
   "modelVersion": "alloy-clipnet-b2-v1",
   "predictions": [
-    { "label": "valorant", "score": 0.94 },
-    { "label": "counter-strike-2", "score": 0.03 }
+    { "rank": 1, "label": "valorant", "score": 0.94 },
+    { "rank": 2, "label": "counter-strike-2", "score": 0.03 }
   ]
 }
 ```
@@ -70,6 +70,9 @@ Environment variables:
 | `MACHINE_LEARNING_GAME_CLASSIFIER_CHECKPOINT` | unset | Optional local checkpoint override for development |
 | `MACHINE_LEARNING_GAME_CLASSIFIER_NAME` | `alloy-game-classifier` | Response model name |
 | `MACHINE_LEARNING_GAME_CLASSIFIER_VERSION` | `alloy-clipnet-b2-v1` | Response model version |
+| `MACHINE_LEARNING_GAME_CLASSIFIER_TOP_K` | `5` | Number of ranked predictions to return |
+| `MACHINE_LEARNING_GAME_CLASSIFIER_MAX_FRAMES` | `16` | Maximum direct-service frame count per request |
+| `MACHINE_LEARNING_GAME_CLASSIFIER_MAX_FRAME_BYTES` | `1048576` | Maximum direct-service bytes per frame |
 | `MACHINE_LEARNING_PRELOAD_GAME_CLASSIFIER` | `false` | Download and load the classifier at service startup |
 | `MACHINE_LEARNING_DEVICE` | `auto` | `auto`, `cpu`, `cuda`, or `mps` |
 | `MACHINE_LEARNING_WORKERS` | `1` | Gunicorn worker count |
@@ -93,8 +96,9 @@ deno task dev:ml
 ```
 
 It mirrors the direct command above and keeps the model cache in
-`data/ml-cache`. Use `MACHINE_LEARNING_UV_SYNC=0 deno task dev:ml` after the
-first sync if you only want to restart the service.
+`data/ml-cache`. Use `ALLOY_ML_PORT` to change the local port, and use
+`MACHINE_LEARNING_UV_SYNC=0 deno task dev:ml` after the first sync if you only
+want to restart the service.
 
 The checked-in Dockerfile currently targets CPU inference. CUDA/ROCm images can
 be added as separate device variants later, following Immich's pattern.

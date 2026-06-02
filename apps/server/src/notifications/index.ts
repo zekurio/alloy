@@ -4,9 +4,13 @@ import type {
   NotificationRow,
   NotificationType,
   NotificationsResponse,
-  UserSummary,
+} from "@workspace/contracts"
+import {
+  NOTIFICATIONS_DEFAULT_LIMIT,
+  NOTIFICATIONS_MAX_LIMIT,
 } from "@workspace/contracts"
 import { user } from "@workspace/db/auth-schema"
+import { logger } from "@workspace/logging"
 import {
   clip,
   clipComment,
@@ -16,6 +20,7 @@ import {
 } from "@workspace/db/schema"
 
 import { db } from "../db"
+import { isoDate, nullableIsoDate } from "../runtime/date"
 import {
   publishNotificationRemove,
   publishNotificationRead,
@@ -23,9 +28,8 @@ import {
   publishNotificationsReadAll,
   publishNotificationUpsert,
 } from "./events"
+import { serialiseNullableUserSummary } from "../routes/users-helpers"
 
-const DEFAULT_LIMIT = 20
-const MAX_LIMIT = 50
 const NEW_VIDEO_FANOUT_BATCH_SIZE = 10
 const NEW_VIDEO_FANOUT_PAGE_SIZE = 100
 
@@ -38,26 +42,12 @@ interface CreateNotificationInput {
   suppressErrors?: boolean
 }
 
-function iso(value: Date | string | null): string | null {
-  if (value === null) return null
-  return value instanceof Date ? value.toISOString() : value
-}
+type NotificationDeleteResult = { deleted: true; unreadCount: number }
 
-function actorShape(row: {
-  actorId: string | null
-  actorUsername: string | null
-  actorDisplayUsername: string | null
-  actorName: string | null
-  actorImage: string | null
-}): UserSummary | null {
-  if (!row.actorId) return null
-  return {
-    id: row.actorId,
-    username: row.actorUsername ?? "",
-    displayUsername: row.actorDisplayUsername ?? "",
-    name: row.actorName ?? "",
-    image: row.actorImage,
-  }
+function notificationDeleteResult(
+  unreadCount: number
+): NotificationDeleteResult {
+  return { deleted: true, unreadCount }
 }
 
 function serialize(row: {
@@ -80,7 +70,13 @@ function serialize(row: {
   return {
     id: row.id,
     type: row.type,
-    actor: actorShape(row),
+    actor: serialiseNullableUserSummary({
+      id: row.actorId,
+      username: row.actorUsername,
+      displayUsername: row.actorDisplayUsername,
+      name: row.actorName,
+      image: row.actorImage,
+    }),
     clip:
       row.clipId && row.clipTitle && row.gameSlug
         ? {
@@ -94,8 +90,8 @@ function serialize(row: {
       row.commentId && row.commentBody
         ? { id: row.commentId, body: row.commentBody }
         : null,
-    readAt: iso(row.readAt),
-    createdAt: iso(row.createdAt)!,
+    readAt: nullableIsoDate(row.readAt),
+    createdAt: isoDate(row.createdAt),
   }
 }
 
@@ -157,9 +153,9 @@ async function selectNotificationById(
 
 export async function listNotifications(
   recipientId: string,
-  limit = DEFAULT_LIMIT
+  limit = NOTIFICATIONS_DEFAULT_LIMIT
 ): Promise<NotificationsResponse> {
-  const boundedLimit = Math.min(Math.max(1, limit), MAX_LIMIT)
+  const boundedLimit = Math.min(Math.max(1, limit), NOTIFICATIONS_MAX_LIMIT)
   const [rows, unread] = await Promise.all([
     notificationDetailsQuery()
       .where(eq(notification.recipientId, recipientId))
@@ -199,8 +195,7 @@ export async function createNotification(
   } catch (err) {
     if (input.suppressErrors === false) throw err
     // Notification writes should not make the primary user action fail.
-    // eslint-disable-next-line no-console
-    console.warn("[notifications] failed to create notification:", err)
+    logger.warn("[notifications] failed to create notification:", err)
     return null
   }
 }
@@ -223,7 +218,7 @@ export async function markNotificationRead(
     selectNotificationById(id, recipientId),
     unreadCount(recipientId),
   ])
-  publishNotificationRead(recipientId, id, readAt.toISOString(), unread)
+  publishNotificationRead(recipientId, id, isoDate(readAt), unread)
   return row
 }
 
@@ -241,7 +236,7 @@ export async function markAllNotificationsRead(
       )
     )
   const unread = await unreadCount(recipientId)
-  const isoReadAt = readAt.toISOString()
+  const isoReadAt = isoDate(readAt)
   publishNotificationsReadAll(recipientId, isoReadAt, unread)
   return { readAt: isoReadAt, unreadCount: unread }
 }
@@ -249,7 +244,7 @@ export async function markAllNotificationsRead(
 export async function deleteNotification(
   recipientId: string,
   id: string
-): Promise<{ deleted: true; unreadCount: number } | null> {
+): Promise<NotificationDeleteResult | null> {
   const removed = await db
     .delete(notification)
     .where(
@@ -260,7 +255,7 @@ export async function deleteNotification(
 
   const unread = await unreadCount(recipientId)
   publishNotificationRemove(recipientId, id, unread)
-  return { deleted: true, unreadCount: unread }
+  return notificationDeleteResult(unread)
 }
 
 export async function notifyFollowersOfNewClip(input: {
@@ -301,16 +296,15 @@ export async function notifyFollowersOfNewClip(input: {
       if (followers.length < NEW_VIDEO_FANOUT_PAGE_SIZE) return
     }
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.warn("[notifications] new-video fanout failed:", err)
+    logger.warn("[notifications] new-video fanout failed:", err)
   }
 }
 
 export async function clearNotifications(
   recipientId: string
-): Promise<{ deleted: true; unreadCount: number }> {
+): Promise<NotificationDeleteResult> {
   await db.delete(notification).where(eq(notification.recipientId, recipientId))
   const unread = await unreadCount(recipientId)
   publishNotificationsClear(recipientId, unread)
-  return { deleted: true, unreadCount: unread }
+  return notificationDeleteResult(unread)
 }

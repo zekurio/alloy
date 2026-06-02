@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm"
 
 import { authAccount, user } from "@workspace/db/auth-schema"
+import { logger } from "@workspace/logging"
 
 import { configStore, type OAuthProviderConfig } from "../config/store"
 import { db } from "../db"
@@ -169,7 +170,7 @@ async function syncOAuthUserRole(
     try {
       await assertCanRemoveAdmin(userId)
     } catch (cause) {
-      console.warn("[auth/oauth] skipped OAuth role demotion:", cause)
+      logger.warn("[auth/oauth] skipped OAuth role demotion:", cause)
       return
     }
   }

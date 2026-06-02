@@ -1,6 +1,7 @@
 import { AwsClient } from "aws4fetch"
 
 import { dirname } from "../runtime/path"
+import { responseTextOrEmpty } from "../runtime/response-text"
 import type {
   DownloadUrl,
   MintDownloadUrlInput,
@@ -379,7 +380,7 @@ function normalizeOptional(value: string | undefined): string | undefined {
 
 async function assertOk(res: Response, operation: string): Promise<void> {
   if (res.ok) return
-  const detail = await res.text().catch(() => "")
+  const detail = await responseTextOrEmpty(res, `s3 ${operation}`)
   throw new Error(
     `s3: ${operation} failed with ${res.status} ${res.statusText}${
       detail ? `: ${detail}` : ""

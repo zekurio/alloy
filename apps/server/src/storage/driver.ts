@@ -1,4 +1,4 @@
-import type { AcceptedContentType, UploadTicket } from "@workspace/contracts"
+import type { UploadTicket } from "@workspace/contracts"
 
 export interface ResolvedObject {
   stream: (opts?: {
@@ -108,7 +108,7 @@ function clipAssetDir(clipId: string): string {
   return `clips/${aa}/${bb}/${clipId}`
 }
 
-export type ClipAssetRole = "source" | "video" | "thumb" | "thumb-small"
+type ClipAssetRole = "source" | "video" | "thumb" | "thumb-small"
 
 const CLIP_ASSET_EXTENSION: Record<ClipAssetRole, string> = {
   source: "",
@@ -119,39 +119,6 @@ const CLIP_ASSET_EXTENSION: Record<ClipAssetRole, string> = {
 
 export function clipAssetKey(clipId: string, role: ClipAssetRole): string {
   return `${clipAssetDir(clipId)}/${role}${CLIP_ASSET_EXTENSION[role]}`
-}
-
-function clipSourceExtension(contentType: AcceptedContentType): string {
-  switch (contentType) {
-    case "video/mp4":
-      return ".mp4"
-    case "video/quicktime":
-      return ".mov"
-    case "video/x-matroska":
-      return ".mkv"
-    case "video/webm":
-      return ".webm"
-  }
-}
-
-export function clipSourceAssetKey(
-  clipId: string,
-  contentType: AcceptedContentType
-): string {
-  return `${clipAssetDir(clipId)}/source${clipSourceExtension(contentType)}`
-}
-
-export function clipStagingVideoKey(
-  clipId: string,
-  contentType: AcceptedContentType
-): string {
-  return `${clipAssetDir(clipId)}/staging/source${clipSourceExtension(
-    contentType
-  )}`
-}
-
-export function clipStagingThumbKey(clipId: string): string {
-  return `${clipAssetDir(clipId)}/staging/thumb.jpg`
 }
 
 export function clipVideoVariantKey(

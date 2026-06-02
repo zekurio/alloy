@@ -29,25 +29,29 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import { clipThumbnailUrl, type ClipRow } from "@workspace/api"
 
-import { api } from "@/lib/api"
 import { clipGameLabel } from "@/lib/clip-format"
 import { useSession } from "@/lib/auth-client"
+import { shareUrlWithFallback } from "@/lib/browser-share"
+import {
+  readSessionStorageItem,
+  writeSessionStorageItem,
+} from "@/lib/browser-storage"
+import { currentUrlWithoutSearchOrHash } from "@/lib/browser-url"
 import { apiOrigin } from "@/lib/env"
+import { exitFullscreenBestEffort } from "@/lib/fullscreen"
 import {
   useDeleteClipMutation,
   useLikeStateQuery,
   useToggleLikeMutation,
 } from "@/lib/clip-queries"
+import { recordClipViewBestEffort } from "@/lib/clip-view-tracking"
 import { userAvatar } from "@/lib/user-display"
 
 import { ClipComments } from "./clip-comments"
 import { ClipEditDialog } from "./clip-edit-dialog"
 import type { ClipListEntry } from "./clip-list-context"
 import { ClipMentionsRow } from "./clip-mentions-row"
-import {
-  renderDescriptionTokens,
-  renderHashtagTokens,
-} from "./description-tokens"
+import { renderHashtagTokens } from "./description-tokens"
 import { ClipPlayer } from "./clip-player"
 import { ClipAuthorLink, MobileActionsRail } from "./clip-viewer-mobile-actions"
 
@@ -132,12 +136,8 @@ function MobileClipViewerBody({
   React.useEffect(() => {
     if (!canNav || (!prev && !next)) return
 
-    try {
-      if (sessionStorage.getItem(MOBILE_SWIPE_HINT_SEEN_KEY) === "true") return
-      sessionStorage.setItem(MOBILE_SWIPE_HINT_SEEN_KEY, "true")
-    } catch {
-      // Storage may be blocked in private or embedded contexts.
-    }
+    if (readSessionStorageItem(MOBILE_SWIPE_HINT_SEEN_KEY) === "true") return
+    writeSessionStorageItem(MOBILE_SWIPE_HINT_SEEN_KEY, "true")
 
     setShowSwipeHint(true)
     const timer = window.setTimeout(() => setShowSwipeHint(false), 2400)
@@ -148,13 +148,17 @@ function MobileClipViewerBody({
   const touchRef = React.useRef<{ y: number; t: number } | null>(null)
 
   const onTouchStart = React.useCallback((e: React.TouchEvent) => {
-    touchRef.current = { y: e.touches[0]!.clientY, t: Date.now() }
+    const touch = e.touches.item(0)
+    if (!touch) return
+    touchRef.current = { y: touch.clientY, t: Date.now() }
   }, [])
 
   const onTouchEnd = React.useCallback(
     (e: React.TouchEvent) => {
       if (!touchRef.current) return
-      const dy = e.changedTouches[0]!.clientY - touchRef.current.y
+      const touch = e.changedTouches.item(0)
+      if (!touch) return
+      const dy = touch.clientY - touchRef.current.y
       const dt = Date.now() - touchRef.current.t
       touchRef.current = null
       if (dt > 400 || Math.abs(dy) < 60) return
@@ -174,16 +178,22 @@ function MobileClipViewerBody({
   }, [canLike, row.id, liked, likeMut])
 
   const handleShare = React.useCallback(async () => {
-    const url = new URL(window.location.href)
-    url.search = ""
-    url.hash = ""
-    try {
-      await navigator.clipboard.writeText(url.toString())
-      toast.success("Link copied")
-    } catch {
-      toast.error("Couldn't copy link")
+    const url = currentUrlWithoutSearchOrHash()
+    if (url === null) {
+      toast.error("Couldn't share clip")
+      return
     }
-  }, [])
+
+    const result = await shareUrlWithFallback(url, {
+      title: row.title,
+      action: "share clip link",
+    })
+    if (result === "copied") {
+      toast.success("Link copied")
+    } else if (result === "failed") {
+      toast.error("Couldn't share clip")
+    }
+  }, [row.title])
 
   const handleDelete = React.useCallback(() => {
     deleteMutation.mutate(
@@ -205,10 +215,7 @@ function MobileClipViewerBody({
 
   React.useEffect(() => {
     return () => {
-      if (typeof document === "undefined") return
-      if (document.fullscreenElement) {
-        void document.exitFullscreen?.().catch(() => undefined)
-      }
+      exitFullscreenBestEffort("mobile clip viewer cleanup")
     }
   }, [])
 
@@ -316,7 +323,7 @@ function MobileClipViewerBody({
                 isLandscape ? "100dvh" : "min(72dvh, calc(100dvh - 18rem))"
               }
               chromeSize="compact"
-              onPlayThreshold={() => void api.clips.recordView(row.id)}
+              onPlayThreshold={() => recordClipViewBestEffort(row.id)}
               autoPlay
               enableHorizontalSeekShortcuts={false}
             />
@@ -390,7 +397,7 @@ function MobileClipViewerBody({
               {/* Description */}
               {row.description ? (
                 <p className="line-clamp-3 text-sm leading-relaxed whitespace-pre-wrap text-white/65">
-                  {renderDescriptionTokens(row.description, {
+                  {renderHashtagTokens(row.description, {
                     linkHashtags: true,
                   })}
                 </p>
@@ -452,4 +459,4 @@ function MobileClipViewerBody({
   )
 }
 
-export { MobileClipViewerBody, type MobileClipViewerBodyProps }
+export { MobileClipViewerBody }

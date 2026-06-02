@@ -12,6 +12,8 @@ import {
 import { toast } from "@workspace/ui/lib/toast"
 
 import { api } from "@/lib/api"
+import { errorMessage } from "@/lib/error-message"
+import { isAllowedString, requiredTrimmedString, trimString } from "./shared"
 
 export const HWACCEL_LABELS: Record<EncoderHwaccel, string> = {
   none: "None",
@@ -27,10 +29,7 @@ export const HWACCEL_LABELS: Record<EncoderHwaccel, string> = {
 export function isEncoderHwaccel(
   value: string | number | null
 ): value is EncoderHwaccel {
-  return (
-    typeof value === "string" &&
-    ENCODER_HWACCELS.includes(value as EncoderHwaccel)
-  )
+  return isAllowedString(value, ENCODER_HWACCELS)
 }
 
 export function variantCodecAvailable(
@@ -78,6 +77,38 @@ export function variantIdFromName(name: string, usedIds: Set<string>): string {
   return id
 }
 
+export function normalizeEncoderVariant(
+  variant: AdminEncoderVariant
+): AdminEncoderVariant {
+  const preset = requiredTrimmedString(variant.preset)
+  return {
+    ...variant,
+    name: trimString(variant.name),
+    preset: preset ?? undefined,
+  }
+}
+
+function normalizeEncoderConfig(
+  config: AdminEncoderConfig
+): AdminEncoderConfig {
+  return {
+    ...config,
+    qsvDevice: trimString(config.qsvDevice),
+    vaapiDevice: trimString(config.vaapiDevice),
+    variants: config.variants.map(normalizeEncoderVariant),
+  }
+}
+
+export function encoderConfigsEqual(
+  left: AdminEncoderConfig,
+  right: AdminEncoderConfig
+): boolean {
+  return (
+    JSON.stringify(normalizeEncoderConfig(left)) ===
+    JSON.stringify(normalizeEncoderConfig(right))
+  )
+}
+
 export async function saveEncoderConfig({
   form,
   onChange,
@@ -91,14 +122,14 @@ export async function saveEncoderConfig({
 }) {
   setPending(true)
   try {
-    const next = await api.admin.updateEncoderConfig(form)
+    const next = await api.admin.updateEncoderConfig(
+      normalizeEncoderConfig(form)
+    )
     onChange(next)
     toast.success("Encoder updated")
     onSaved?.()
   } catch (cause) {
-    toast.error(
-      cause instanceof Error ? cause.message : "Couldn't update encoder"
-    )
+    toast.error(errorMessage(cause, "Couldn't update encoder"))
   } finally {
     setPending(false)
   }

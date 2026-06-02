@@ -15,7 +15,10 @@ import {
   SortDropdown,
   type SortDropdownOption,
 } from "@/components/clip/sort-dropdown"
-import type { ProfileAllSort } from "@/routes/(app)/_app.u.$username.all"
+import {
+  profileAllSearchFor,
+  type ProfileAllSort,
+} from "@/lib/profile-all-search"
 
 type GameOption = {
   slug: string
@@ -49,20 +52,11 @@ export function ClipsFilterBar({
 }: ClipsFilterBarProps) {
   const navigate = useNavigate()
 
-  // Search params omit defaults so the URL stays clean ("/all" is a valid
-  // canonical form — sort=recent, game=null).
-  const searchFor = (nextSort: ProfileAllSort, nextGameSlug: string | null) => {
-    const out: { sort?: ProfileAllSort; game?: string } = {}
-    if (nextSort !== "recent") out.sort = nextSort
-    if (nextGameSlug) out.game = nextGameSlug
-    return out
-  }
-
   const clearGame = () => {
     void navigate({
       to: "/u/$username/all",
       params: { username },
-      search: searchFor(sort, null),
+      search: profileAllSearchFor(sort, null),
       replace: true,
     })
   }
@@ -78,7 +72,7 @@ export function ClipsFilterBar({
           <Link
             to="/u/$username/all"
             params={{ username }}
-            search={searchFor(opt.key, gameSlug)}
+            search={profileAllSearchFor(opt.key, gameSlug)}
             data-active={active ? "true" : undefined}
           />
         )}
@@ -126,7 +120,7 @@ export function ClipsFilterBar({
                       <Link
                         to="/u/$username/all"
                         params={{ username }}
-                        search={searchFor(sort, g.slug)}
+                        search={profileAllSearchFor(sort, g.slug)}
                       />
                     }
                   >

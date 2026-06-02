@@ -16,13 +16,11 @@ import {
 } from "@workspace/ui/components/dropdown-menu"
 import { cn } from "@workspace/ui/lib/utils"
 
-export type QualityOption = {
-  id: string
-  label: string
-  detail?: string
-  downloadUrl?: string
-  selectable?: boolean
-}
+import { startBrowserDownload } from "@/lib/browser-download"
+
+import type { QualityOption } from "./video-player-types"
+
+type DownloadableQualityOption = QualityOption & { downloadUrl: string }
 
 const glassMenuClass =
   "!w-[min(300px,calc(var(--available-width,100vw)-8px))] min-w-[min(220px,calc(var(--available-width,100vw)-8px))] max-w-[calc(var(--available-width,100vw)-8px)] rounded-xl border-white/[0.08] bg-popover/[0.88] p-0 text-foreground shadow-[0_18px_48px_-24px_rgb(0_0_0_/_0.55)] backdrop-blur-xl"
@@ -66,7 +64,7 @@ export function VideoSettingsMenu({
   )
   const hasQualityChoices =
     selectableOptions.length > 1 && Boolean(onSelectQuality)
-  const downloadOptions = qualityOptions.filter((q) => q.downloadUrl)
+  const downloadOptions = qualityOptions.filter(hasDownloadUrl)
   const hasDownloads = downloadOptions.length > 0
   const selectedQuality =
     selectableOptions.find((quality) => quality.id === selectedQualityId) ??
@@ -213,7 +211,7 @@ function DownloadSettingsView({
   onBack,
   onDownload,
 }: {
-  options: QualityOption[]
+  options: DownloadableQualityOption[]
   onBack: () => void
   onDownload: (url: string) => void
 }) {
@@ -226,7 +224,7 @@ function DownloadSettingsView({
             key={quality.id}
             type="button"
             className={menuRowClass}
-            onClick={() => onDownload(quality.downloadUrl!)}
+            onClick={() => onDownload(quality.downloadUrl)}
           >
             <span className="flex w-6 shrink-0 items-center justify-center">
               <DownloadIcon className={iconClass} />
@@ -309,12 +307,15 @@ function qualitySummary(quality: QualityOption | undefined): string {
   return quality.label
 }
 
+function hasDownloadUrl(
+  quality: QualityOption
+): quality is DownloadableQualityOption {
+  return (
+    typeof quality.downloadUrl === "string" &&
+    quality.downloadUrl.trim().length > 0
+  )
+}
+
 function startDownload(url: string): void {
-  const anchor = document.createElement("a")
-  anchor.href = url
-  anchor.rel = "noopener"
-  anchor.style.display = "none"
-  document.body.append(anchor)
-  anchor.click()
-  anchor.remove()
+  startBrowserDownload(url, { rel: "noopener" })
 }

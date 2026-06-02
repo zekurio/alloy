@@ -5,16 +5,19 @@ import { Image } from "@matmen/imagescript"
 import {
   LOGIN_SPLASH_IMAGE_PATH,
   LOGIN_SPLASH_LAYOUT_VERSION,
+  loginSplashImagePath,
   type PublicAuthConfig,
 } from "@workspace/contracts"
 import { user } from "@workspace/db/auth-schema"
 import { clip } from "@workspace/db/schema"
+import { logger } from "@workspace/logging"
 
 import { db } from "../db"
 import { env } from "../env"
 import { configStore } from "../config/store"
 import { getPublicProvider } from "../auth/oauth-config"
 import { getSetupStatus } from "../auth/user-bootstrap"
+import { notFound } from "../runtime/http-response"
 import { storage } from "../storage"
 import { readAll } from "./clips-helpers"
 
@@ -53,15 +56,6 @@ function imageBody(image: Uint8Array): ArrayBuffer {
     image.byteOffset,
     image.byteOffset + image.byteLength
   ) as ArrayBuffer
-}
-
-function loginSplashImageUrl(generatedAt: string | null): string {
-  const parsed = generatedAt ? Date.parse(generatedAt) : Date.now()
-  const version = Number.isFinite(parsed) ? parsed : Date.now()
-  return new URL(
-    `${LOGIN_SPLASH_IMAGE_PATH}?v=${version}`,
-    env.PUBLIC_SERVER_URL
-  ).toString()
 }
 
 function loginSplashCacheKey(rows: SplashClipRow[]): string {
@@ -109,9 +103,7 @@ function splashShadeOverlay(): SplashImage {
 async function buildLoginSplashImage(
   assets: SplashClipAsset[]
 ): Promise<Uint8Array | null> {
-  const tiles = await Promise.all(
-    assets.map((asset) => buildTile(asset).catch(() => null))
-  )
+  const tiles = await Promise.all(assets.map(buildTileOrNull))
   const usableTiles = tiles.filter((tile): tile is SplashImage => tile !== null)
   if (usableTiles.length === 0) return null
 
@@ -168,6 +160,20 @@ async function buildLoginSplashImage(
     .composite(backdrop, 0, 0)
     .composite(splashShadeOverlay(), 0, 0)
     .encodeJPEG(86)
+}
+
+async function buildTileOrNull(
+  asset: SplashClipAsset
+): Promise<SplashImage | null> {
+  try {
+    return await buildTile(asset)
+  } catch (err) {
+    logger.warn(
+      `[auth-config] failed to build login splash tile ${asset.id}:`,
+      err
+    )
+    return null
+  }
 }
 
 async function selectLoginSplashRows(): Promise<SplashClipRow[]> {
@@ -230,7 +236,10 @@ export const authConfigRoute = new Hono()
         generatedAt: loginSplash.generatedAt,
         imageUrl:
           loginSplash.enabled && splashRows.length > 0
-            ? loginSplashImageUrl(loginSplash.generatedAt)
+            ? new URL(
+                loginSplashImagePath(loginSplash.generatedAt),
+                env.PUBLIC_SERVER_URL
+              ).toString()
             : null,
         clips: [],
       },
@@ -243,7 +252,7 @@ export const authConfigRoute = new Hono()
   })
   .get(LOGIN_SPLASH_IMAGE_PATH.replace("/api/auth-config", ""), async (c) => {
     const rows = await selectLoginSplashRows()
-    if (rows.length === 0) return c.json({ error: "Not found" }, 404)
+    if (rows.length === 0) return notFound(c)
 
     const cacheKey = loginSplashCacheKey(rows)
     if (splashCache?.key === cacheKey) {
@@ -254,10 +263,10 @@ export const authConfigRoute = new Hono()
     }
 
     const assets = await selectLoginSplashAssets(rows)
-    if (assets.length === 0) return c.json({ error: "Not found" }, 404)
+    if (assets.length === 0) return notFound(c)
 
     const image = await buildLoginSplashImage(assets)
-    if (!image) return c.json({ error: "Not found" }, 404)
+    if (!image) return notFound(c)
     if (image.byteLength <= SPLASH_CACHE_MAX_BYTES) {
       splashCache = { key: cacheKey, image }
     }

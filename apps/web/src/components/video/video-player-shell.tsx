@@ -3,9 +3,11 @@ import { MaximizeIcon, PauseIcon, PlayIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
+import { useDocumentEvent } from "@workspace/ui/hooks/use-document-event"
 import { useMediaQuery } from "@workspace/ui/hooks/use-media-query"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { isFullscreenElement, isFullscreenSupported } from "@/lib/fullscreen"
 import { VideoScrubber } from "./video-scrubber"
 import { VideoSettingsMenu } from "./video-settings-menu"
 import { VolumeControl } from "./video-volume-control"
@@ -14,6 +16,7 @@ import {
   shouldHandleVideoShortcut,
   type VideoKeyCommand,
 } from "./video-keyboard"
+import type { QualityOption } from "./video-player-types"
 
 export {
   handleVideoKeyCommand,
@@ -24,7 +27,7 @@ export {
 
 /* ─── Reusable video-chrome primitives ─────────────────────────────── */
 
-export const videoChromeIconClass =
+const videoChromeIconClass =
   "size-[52px] rounded-full text-foreground shadow-none hover:bg-transparent hover:text-foreground hover:shadow-none focus-visible:ring-ring"
 
 // A soft dark drop-shadow keeps the white glyphs legible over bright video
@@ -141,18 +144,14 @@ export function ChromeShell({
     [aspectRatio, isFullscreen, maxDisplayHeight]
   )
 
-  React.useEffect(() => {
-    if (typeof document === "undefined") return
-
-    const onFullscreenChange = () => {
-      setIsFullscreen(document.fullscreenElement === containerRef.current)
-    }
-
-    onFullscreenChange()
-    document.addEventListener("fullscreenchange", onFullscreenChange)
-    return () =>
-      document.removeEventListener("fullscreenchange", onFullscreenChange)
+  const onFullscreenChange = React.useCallback(() => {
+    setIsFullscreen(isFullscreenElement(containerRef.current))
   }, [containerRef])
+
+  React.useEffect(() => {
+    onFullscreenChange()
+  }, [onFullscreenChange])
+  useDocumentEvent("fullscreenchange", onFullscreenChange)
 
   const onKeyDown = React.useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -309,13 +308,7 @@ export function ChromeBar({
   onToggleMute: () => void
   onVolumeChange: (v: number) => void
   onSeek: (sec: number) => void
-  qualityOptions?: Array<{
-    id: string
-    label: string
-    detail?: string
-    downloadUrl?: string
-    selectable?: boolean
-  }>
+  qualityOptions?: QualityOption[]
   selectedQualityId?: string
   onSelectQuality?: (qualityId: string) => void
   onToggleFullscreen: () => void
@@ -331,18 +324,17 @@ export function ChromeBar({
 
   React.useEffect(() => {
     if (typeof document === "undefined") return
-    setFullscreenSupported(Boolean(document.fullscreenEnabled))
+    setFullscreenSupported(isFullscreenSupported())
   }, [])
 
-  React.useEffect(() => {
-    if (typeof document === "undefined") return
-    const onChange = () => {
-      setIsFullscreen(document.fullscreenElement === containerRef.current)
-    }
-    onChange()
-    document.addEventListener("fullscreenchange", onChange)
-    return () => document.removeEventListener("fullscreenchange", onChange)
+  const onFullscreenChange = React.useCallback(() => {
+    setIsFullscreen(isFullscreenElement(containerRef.current))
   }, [containerRef])
+
+  React.useEffect(() => {
+    onFullscreenChange()
+  }, [onFullscreenChange])
+  useDocumentEvent("fullscreenchange", onFullscreenChange)
 
   return (
     <>

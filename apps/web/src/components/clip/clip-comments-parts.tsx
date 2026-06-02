@@ -38,6 +38,8 @@ import {
 } from "@workspace/ui/components/dropdown-menu"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { COMMENT_BODY_MAX_LENGTH } from "@workspace/api"
+
 import { formatCount } from "@/lib/number-format"
 import type { UserChipData } from "@/lib/user-display"
 
@@ -192,6 +194,7 @@ export function CommentComposer({
           value={draft}
           onChange={(e) => onDraftChange(e.target.value)}
           rows={2}
+          maxLength={COMMENT_BODY_MAX_LENGTH}
           className={cn(
             "min-h-[32px] flex-1 resize-none bg-transparent text-sm text-foreground outline-none",
             "placeholder:text-foreground-faint"
@@ -414,7 +417,7 @@ export function CommentActions({
   )
 }
 
-export function CommentLikeButton({
+function CommentLikeButton({
   liked,
   likeCount,
   onClick,
@@ -443,7 +446,7 @@ export function CommentLikeButton({
   )
 }
 
-export function AuthorLikeBadge() {
+function AuthorLikeBadge() {
   return (
     <span
       className="inline-flex items-center gap-1 rounded-md bg-accent-soft px-1.5 py-0.5 text-xs leading-4 font-semibold text-accent"

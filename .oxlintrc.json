@@ -37,6 +37,12 @@
       }
     },
     {
+      "files": ["packages/logging/**/*.{ts,tsx}"],
+      "globals": {
+        "Deno": "readonly"
+      }
+    },
+    {
       "files": ["scripts/**/*.ts"],
       "globals": {
         "Deno": "readonly"

@@ -41,7 +41,9 @@ import {
 } from "@workspace/api"
 
 import { api } from "@/lib/api"
+import { errorMessage } from "@/lib/error-message"
 import { gameKeys } from "@/lib/game-queries"
+import { requiredTrimmedString } from "./shared"
 
 type IntegrationsConfigCardProps = {
   integrations: AdminIntegrationsConfig
@@ -62,6 +64,10 @@ function updateSteamGridDBStatus(
 ) {
   queryClient.setQueryData(gameKeys.status(), { steamgriddbConfigured })
   void queryClient.invalidateQueries({ queryKey: gameKeys.status() })
+}
+
+function normalizeSteamGridDBApiKey(value: string): string | null {
+  return requiredTrimmedString(value)
 }
 
 export function IntegrationsConfigCard({
@@ -98,7 +104,9 @@ export function IntegrationsConfigCard({
 
   const steamgriddbConfigured =
     integrations.steamgriddbApiKey === INTEGRATIONS_REDACTED
-  const isDirty = form.steamgriddbApiKey !== initialForm.steamgriddbApiKey
+  const isDirty =
+    normalizeSteamGridDBApiKey(form.steamgriddbApiKey) !==
+    normalizeSteamGridDBApiKey(initialForm.steamgriddbApiKey)
 
   function resetForm() {
     setForm(initialForm)
@@ -114,8 +122,11 @@ export function IntegrationsConfigCard({
     setPending(true)
     try {
       const patch: Partial<AdminIntegrationsConfig> = {}
-      if (form.steamgriddbApiKey !== "") {
-        patch.steamgriddbApiKey = form.steamgriddbApiKey
+      const steamgriddbApiKey = normalizeSteamGridDBApiKey(
+        form.steamgriddbApiKey
+      )
+      if (steamgriddbApiKey) {
+        patch.steamgriddbApiKey = steamgriddbApiKey
       }
       if (Object.keys(patch).length === 0) {
         toast.info("No changes to save")
@@ -127,9 +138,7 @@ export function IntegrationsConfigCard({
       toast.success("Integrations updated")
       onSaved?.()
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't update integrations"
-      )
+      toast.error(errorMessage(cause, "Couldn't update integrations"))
     } finally {
       setPending(false)
     }
@@ -146,9 +155,7 @@ export function IntegrationsConfigCard({
       updateSteamGridDBStatus(queryClient, false)
       toast.success("SteamGridDB key removed")
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't remove key"
-      )
+      toast.error(errorMessage(cause, "Couldn't remove key"))
     } finally {
       setPending(false)
     }

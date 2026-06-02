@@ -21,11 +21,27 @@ let
   configDir = dirOf cfg.configFile;
   encodeDir = "${cfg.cacheDir}/encode";
   isDatabaseUnixSocket = lib.hasPrefix "/" cfg.database.host;
+  machineLearningConnectHost =
+    let
+      host =
+        if cfg.machine-learning.host == "0.0.0.0" then
+          "127.0.0.1"
+        else if cfg.machine-learning.host == "::" then
+          "::1"
+        else
+          cfg.machine-learning.host;
+    in
+    if lib.hasPrefix "[" host then
+      host
+    else if lib.hasInfix ":" host then
+      "[${host}]"
+    else
+      host;
   machineLearningBaseUrl =
     if cfg.machine-learning.baseUrl != null then
       cfg.machine-learning.baseUrl
     else
-      "http://127.0.0.1:${toString cfg.machine-learning.port}";
+      "http://${machineLearningConnectHost}:${toString cfg.machine-learning.port}";
   bootstrapConfig =
     if cfg.initialRuntimeConfig == null then
       null

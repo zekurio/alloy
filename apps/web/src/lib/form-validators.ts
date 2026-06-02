@@ -1,8 +1,10 @@
+import { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "@workspace/api/auth"
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u
 
-export const USERNAME_MIN_LEN = 1
-export const USERNAME_MAX_LEN = 24
-export const USERNAME_DISALLOWED_RE = /[\p{Cc}\p{Cs}/\\]/u
+const USERNAME_MIN_LEN = USERNAME_MIN_LENGTH
+const USERNAME_MAX_LEN = USERNAME_MAX_LENGTH
+const USERNAME_DISALLOWED_RE = /[\p{Cc}\p{Cs}/\\]/u
 
 export function validateRequiredString(
   value: string,

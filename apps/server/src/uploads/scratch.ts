@@ -1,9 +1,10 @@
 import type { AcceptedContentType, UploadTicket } from "@workspace/contracts"
+import { logger } from "@workspace/logging"
 
 import { configStore } from "../config/store"
 import { env } from "../env"
 import { dirname, join, relative, resolve } from "../runtime/path"
-import { signToken } from "../storage/fs-driver"
+import { mintFsUploadTicket } from "../storage/fs-upload-token"
 
 export function clipScratchUploadKey(
   clipId: string,
@@ -31,8 +32,8 @@ export async function mintScratchUploadUrl(input: {
   clipId: string
 }): Promise<UploadTicket> {
   const expiresAt = Math.floor(Date.now() / 1000) + input.expiresInSec
-  const token = await signToken(
-    {
+  return mintFsUploadTicket({
+    payload: {
       k: input.key,
       ct: input.contentType,
       mb: input.maxBytes,
@@ -40,15 +41,9 @@ export async function mintScratchUploadUrl(input: {
       uid: input.userId,
       cid: input.clipId,
     },
-    configStore.get("storage").fs.hmacSecret
-  )
-  const baseUrl = env.PUBLIC_SERVER_URL.replace(/\/+$/, "")
-  return {
-    uploadUrl: `${baseUrl}/api/assets/upload/${token}`,
-    method: "POST",
-    headers: { "Content-Type": input.contentType },
-    expiresAt,
-  }
+    publicBaseUrl: env.PUBLIC_SERVER_URL,
+    secret: configStore.get("storage").fs.hmacSecret,
+  })
 }
 
 export async function deleteScratchUpload(key: string | null): Promise<void> {
@@ -56,6 +51,22 @@ export async function deleteScratchUpload(key: string | null): Promise<void> {
   await Deno.remove(scratchUploadPath(key)).catch((err) => {
     if (!(err instanceof Deno.errors.NotFound)) throw err
   })
+}
+
+export async function deleteScratchUploads(
+  keys: Iterable<string | null>,
+  label: string
+): Promise<void> {
+  await Promise.all(
+    Array.from(keys, async (key) => {
+      if (!key) return
+      try {
+        await deleteScratchUpload(key)
+      } catch (err) {
+        logger.warn(`[scratch] failed to delete ${label} ${key}:`, err)
+      }
+    })
+  )
 }
 
 export async function ensureScratchParent(key: string): Promise<string> {

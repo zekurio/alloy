@@ -1,6 +1,14 @@
+import { useWindowEvent } from "@workspace/ui/hooks/use-window-event"
+
 export type FloatingSurface = "notifications" | "uploads"
 
 const FLOATING_SURFACE_OPEN_EVENT = "alloy:floating-surface-open"
+
+declare global {
+  interface WindowEventMap {
+    [FLOATING_SURFACE_OPEN_EVENT]: CustomEvent<FloatingSurface>
+  }
+}
 
 export function announceFloatingSurfaceOpen(surface: FloatingSurface) {
   window.dispatchEvent(
@@ -10,13 +18,10 @@ export function announceFloatingSurfaceOpen(surface: FloatingSurface) {
   )
 }
 
-export function subscribeToFloatingSurfaceOpen(
+export function useFloatingSurfaceOpenListener(
   callback: (surface: FloatingSurface) => void
 ) {
-  const listener = (event: Event) => {
-    callback((event as CustomEvent<FloatingSurface>).detail)
-  }
-
-  window.addEventListener(FLOATING_SURFACE_OPEN_EVENT, listener)
-  return () => window.removeEventListener(FLOATING_SURFACE_OPEN_EVENT, listener)
+  useWindowEvent(FLOATING_SURFACE_OPEN_EVENT, (event) => {
+    callback(event.detail)
+  })
 }

@@ -1,7 +1,7 @@
 import { env } from "../env"
 import { runCapture } from "./ffmpeg-process"
 
-export interface ProbeResult {
+interface ProbeResult {
   durationMs: number
   width: number
   height: number

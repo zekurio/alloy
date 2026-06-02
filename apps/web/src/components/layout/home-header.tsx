@@ -5,6 +5,7 @@ import {
   AppHeaderBrand,
   AppHeaderSearch,
 } from "@workspace/ui/components/app-header"
+import { useWindowEvent } from "@workspace/ui/hooks/use-window-event"
 
 import { NotificationCenter } from "@/components/app/notification-center"
 import { useAppSearch } from "@/components/search/app-search"
@@ -15,22 +16,15 @@ export function HomeHeader() {
   const { query, setQuery, clear, setOpen } = useAppSearch()
   const inputRef = React.useRef<HTMLInputElement>(null)
 
-  React.useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        !(event.metaKey || event.ctrlKey) ||
-        event.key.toLowerCase() !== "k"
-      ) {
-        return
-      }
-      event.preventDefault()
-      inputRef.current?.focus()
-      inputRef.current?.select()
+  const onKeyDown = React.useCallback((event: KeyboardEvent) => {
+    if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") {
+      return
     }
-
-    window.addEventListener("keydown", onKeyDown)
-    return () => window.removeEventListener("keydown", onKeyDown)
+    event.preventDefault()
+    inputRef.current?.focus()
+    inputRef.current?.select()
   }, [])
+  useWindowEvent("keydown", onKeyDown)
 
   return (
     <AppHeader>

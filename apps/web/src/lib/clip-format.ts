@@ -5,44 +5,18 @@ import type {
   ClipRow,
 } from "@workspace/api"
 import { clipStreamUrl, clipThumbnailUrl } from "@workspace/api"
+import { stableHue } from "@workspace/ui/lib/stable-hash"
+import { formatRelativeTime } from "./date-format"
 import { apiOrigin } from "./env"
 import { formatCount } from "./number-format"
-import { userImageSrc } from "./user-display"
-
-export { formatCount } from "./number-format"
-
-export function formatRelativeTime(
-  iso: string,
-  now: number = Date.now()
-): string {
-  const then = new Date(iso).getTime()
-  if (!Number.isFinite(then)) return ""
-  const delta = Math.max(0, now - then)
-  const minute = 60_000
-  const hour = 60 * minute
-  const day = 24 * hour
-  if (delta < minute) return "just now"
-  if (delta < hour) return `${Math.floor(delta / minute)}m ago`
-  if (delta < day) return `${Math.floor(delta / hour)}h ago`
-  if (delta < 7 * day) return `${Math.floor(delta / day)}d ago`
-  // Longer than a week — render the date itself. `toLocaleDateString`
-  // respects the viewer's locale; no explicit locale arg for that reason.
-  return new Date(iso).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  })
-}
+import { userAvatar, type UserAvatar } from "./user-display"
 
 export function hueForGame(game: string | null | undefined): number {
   if (!game) return 220
-  let h = 0
-  for (let i = 0; i < game.length; i++) {
-    h = (h * 31 + game.charCodeAt(i)) >>> 0
-  }
-  return h % 360
+  return stableHue(game)
 }
 
-export interface ClipCardData {
+interface ClipCardData {
   clipId: string
   title: string
   game: string
@@ -55,6 +29,7 @@ export interface ClipCardData {
   authorId: string
   /** Uploader's avatar image URL when set — `null` when none is available. */
   authorImage: string | null
+  authorAvatar: UserAvatar
   views: string
   likes: string
   comments: string
@@ -75,14 +50,14 @@ export function clipGameLabel(row: Pick<ClipRow, "gameRef" | "game">): string {
   return row.gameRef?.name ?? row.game ?? "Uncategorised"
 }
 
-function versionedClipThumbnailUrl(row: Pick<ClipRow, "id" | "updatedAt">) {
-  const url = new URL(clipThumbnailUrl(row.id, apiOrigin()))
-  url.searchParams.set("v", row.updatedAt)
-  return url.toString()
-}
-
 export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
   const game = clipGameLabel(row)
+  const authorAvatar = userAvatar({
+    id: row.authorId,
+    name: row.authorName,
+    username: row.authorUsername,
+    image: row.authorImage,
+  })
   return {
     clipId: row.id,
     title: row.title,
@@ -92,12 +67,15 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
     author: row.authorName || row.authorUsername,
     authorUsername: row.authorUsername,
     authorId: row.authorId,
-    authorImage: userImageSrc(row.authorImage) ?? null,
+    authorImage: authorAvatar.src ?? null,
+    authorAvatar,
     views: formatCount(row.viewCount),
     likes: formatCount(row.likeCount),
     comments: formatCount(row.commentCount),
     postedAt: formatRelativeTime(row.createdAt, now),
-    thumbnail: row.thumbKey ? versionedClipThumbnailUrl(row) : undefined,
+    thumbnail: row.thumbKey
+      ? clipThumbnailUrl(row.id, apiOrigin(), row.updatedAt)
+      : undefined,
     streamUrl: clipStreamUrl(row.id, undefined, apiOrigin()),
     variants: row.variants,
     accentHue: hueForGame(game),

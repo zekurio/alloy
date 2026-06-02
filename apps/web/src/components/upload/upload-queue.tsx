@@ -38,7 +38,6 @@ export interface QueueItem {
   onThumbLoad?: () => void
   /** Optional callbacks the FlowController wires per row. */
   onCancel?: () => void
-  onRetry?: () => void
   onOpen?: () => void
   onCopyLink?: () => void
   /** Removes a finished (published) row from the local view only. */
@@ -225,7 +224,7 @@ function QueueRow({ item, first }: { item: QueueItem; first: boolean }) {
           onLoad={item.onThumbLoad}
         />
 
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5 pr-9">
           <div className="flex min-w-0 items-baseline gap-2">
             <span className="truncate text-sm font-semibold tracking-[-0.01em] text-foreground">
               {item.title}
@@ -241,6 +240,16 @@ function QueueRow({ item, first }: { item: QueueItem; first: boolean }) {
               </span>
             ) : null}
           </div>
+          {item.detail ? (
+            <p
+              className={cn(
+                "line-clamp-2 text-xs leading-snug font-medium text-foreground-muted",
+                item.status === "failed" && "text-destructive/90"
+              )}
+            >
+              {item.detail}
+            </p>
+          ) : null}
         </div>
 
         <div
@@ -282,9 +291,8 @@ function QueueThumb({
     setLoadedSrc(null)
   }, [thumbUrl])
 
-  const showFallback = Boolean(
-    fallbackUrl && (!thumbUrl || loadedSrc !== thumbUrl)
-  )
+  const fallbackSrc =
+    fallbackUrl && (!thumbUrl || loadedSrc !== thumbUrl) ? fallbackUrl : null
 
   return (
     <div
@@ -294,9 +302,9 @@ function QueueThumb({
         background: `linear-gradient(135deg, oklch(0.3 0.1 ${hue}) 0%, oklch(0.15 0.05 ${hue}) 70%, oklch(0.08 0 0) 100%)`,
       }}
     >
-      {showFallback ? (
+      {fallbackSrc ? (
         <img
-          src={fallbackUrl!}
+          src={fallbackSrc}
           alt=""
           className="absolute inset-0 size-full object-cover"
           decoding="async"
@@ -306,7 +314,7 @@ function QueueThumb({
         <img
           src={thumbUrl}
           alt=""
-          className={cn("size-full object-cover", showFallback && "opacity-0")}
+          className={cn("size-full object-cover", fallbackSrc && "opacity-0")}
           loading="lazy"
           decoding="async"
           onLoad={() => {

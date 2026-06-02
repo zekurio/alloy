@@ -1,16 +1,23 @@
-import { zValidator } from "@hono/zod-validator"
+import { zValidator } from "./validation"
 import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
 
 import { clip, clipMention, clipUploadTicket, game } from "@workspace/db/schema"
+import { logger } from "@workspace/logging"
 
 import { db } from "../db"
-import { getSession } from "../auth/session"
 import { publishClipUpsert } from "../clips/events"
 import { deleteClipRowAndAssets } from "../clips/delete"
-import { selectClipById, toPublicClipRow } from "../clips/select"
 import { configStore } from "../config/store"
 import { requireSession } from "../auth/require-session"
+import {
+  badRequest,
+  conflict,
+  deleted,
+  gone,
+  serviceUnavailable,
+  success,
+} from "../runtime/http-response"
 import { isConfigured as isSteamGridDBConfigured } from "../games/steamgriddb"
 import { enqueueEncode } from "../queue"
 import {
@@ -28,6 +35,33 @@ import {
   selectLockedQuotaState,
   type InitiateQuotaResult,
 } from "./clips-upload-helpers"
+import {
+  selectClipForMutation,
+  updatedClipResponse,
+} from "./clips-upload-access"
+
+async function cleanupFailedInitiate(
+  clipId: string,
+  uploadKey: string
+): Promise<void> {
+  try {
+    await db.delete(clip).where(eq(clip.id, clipId))
+  } catch (err) {
+    logger.warn(
+      `[clips/upload] failed to delete clip ${clipId} after initiate failure:`,
+      err
+    )
+  }
+
+  try {
+    await deleteScratchUpload(uploadKey)
+  } catch (err) {
+    logger.warn(
+      `[clips/upload] failed to delete scratch upload ${uploadKey} after initiate failure:`,
+      err
+    )
+  }
+}
 
 async function selectVideoUploadTicketStorageKey(
   clipId: string
@@ -59,7 +93,7 @@ export const clipsUploadRoutes = new Hono()
       const privacy = body.privacy === "private" ? "private" : body.privacy
 
       if (!isSteamGridDBConfigured()) {
-        return c.json({ error: "SteamGridDB is not configured" }, 400)
+        return serviceUnavailable(c, "SteamGridDB is not configured")
       }
 
       const [gameRow] = await db
@@ -67,7 +101,7 @@ export const clipsUploadRoutes = new Hono()
         .from(game)
         .where(eq(game.id, body.gameId))
         .limit(1)
-      if (!gameRow) return c.json({ error: "Unknown game" }, 400)
+      if (!gameRow) return badRequest(c, "Unknown game")
 
       const mentionedIds = body.mentionedUserIds
         ? await resolveMentionIds(body.mentionedUserIds, viewerId)
@@ -144,11 +178,7 @@ export const clipsUploadRoutes = new Hono()
         })
         return c.json({ clipId, ticket })
       } catch (err) {
-        await db
-          .delete(clip)
-          .where(eq(clip.id, clipId))
-          .catch(() => undefined)
-        await deleteScratchUpload(uploadKey).catch(() => undefined)
+        await cleanupFailedInitiate(clipId, uploadKey)
         throw err
       }
     }
@@ -162,34 +192,33 @@ export const clipsUploadRoutes = new Hono()
       const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")
 
-      const [row] = await db.select().from(clip).where(eq(clip.id, id)).limit(1)
-      if (!row) return c.json({ error: "Not found" }, 404)
-      if (row.authorId !== viewerId) return c.json({ error: "Forbidden" }, 403)
-      if (row.status !== "pending") {
-        return c.json({ error: `Clip is already ${row.status}` }, 409)
-      }
+      const access = await selectClipForMutation(c, {
+        id,
+        viewerId,
+        statuses: ["pending"],
+      })
+      if ("response" in access) return access.response
+      const row = access.row
 
       const storageKey = await selectVideoUploadTicketStorageKey(id)
-      if (
-        !storageKey ||
-        !row.sourceContentType ||
-        row.sourceSizeBytes == null
-      ) {
+      const sourceContentType = row.sourceContentType
+      const sourceSizeBytes = row.sourceSizeBytes
+      if (!storageKey || !sourceContentType || sourceSizeBytes == null) {
         await markUploadFailed(row.authorId, id, "Upload ticket missing")
-        return c.json({ error: "Upload ticket missing" }, 400)
+        return badRequest(c, "Upload ticket missing")
       }
 
       const videoTicketOk = await assertUsableUploadTicket({
         clipId: id,
         storageKey,
-        contentType: row.sourceContentType,
-        expectedBytes: row.sourceSizeBytes,
+        contentType: sourceContentType,
+        expectedBytes: sourceSizeBytes,
         role: "video",
       })
       if (!videoTicketOk) {
         await deleteScratchUpload(storageKey)
         await markUploadFailed(row.authorId, id, "Upload ticket expired")
-        return c.json({ error: "Upload ticket expired" }, 410)
+        return gone(c, "Upload ticket expired")
       }
 
       const uploadStat = await Deno.stat(scratchUploadPath(storageKey)).catch(
@@ -201,17 +230,17 @@ export const clipsUploadRoutes = new Hono()
       if (!uploadStat?.isFile) {
         await deleteScratchUpload(storageKey)
         await markUploadFailed(row.authorId, id, "Upload bytes are missing")
-        return c.json({ error: "Upload bytes are missing" }, 400)
+        return badRequest(c, "Upload bytes are missing")
       }
 
-      if (uploadStat.size !== row.sourceSizeBytes) {
+      if (uploadStat.size !== sourceSizeBytes) {
         await deleteScratchUpload(storageKey)
         await markUploadFailed(
           row.authorId,
           id,
           "Upload size did not match declared size"
         )
-        return c.json({ error: "Upload size did not match declared size" }, 400)
+        return badRequest(c, "Upload size did not match declared size")
       }
 
       const quotaResult = await db.transaction<InitiateQuotaResult>(
@@ -222,7 +251,7 @@ export const clipsUploadRoutes = new Hono()
           )
           if (
             quotaBytes !== null &&
-            usedBytes - row.sourceSizeBytes! + uploadStat.size > quotaBytes
+            usedBytes - sourceSizeBytes + uploadStat.size > quotaBytes
           ) {
             return { ok: false, usedBytes, quotaBytes }
           }
@@ -258,14 +287,13 @@ export const clipsUploadRoutes = new Hono()
         )
         .returning({ id: clip.id })
       if (!transitioned) {
-        return c.json({ error: "Clip is already being finalized" }, 409)
+        return conflict(c, "Clip is already being finalized")
       }
 
       void publishClipUpsert(viewerId, id)
       enqueueEncode(id)
 
-      const updated = await selectClipById(id)
-      return c.json(updated ? toPublicClipRow(updated) : null)
+      return updatedClipResponse(c, id)
     }
   )
 
@@ -277,16 +305,17 @@ export const clipsUploadRoutes = new Hono()
       const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")
 
-      const [row] = await db.select().from(clip).where(eq(clip.id, id)).limit(1)
-      if (!row) return c.json({ error: "Not found" }, 404)
-      if (row.authorId !== viewerId) return c.json({ error: "Forbidden" }, 403)
-      if (row.status !== "pending" && row.status !== "processing") {
-        return c.json({ error: `Clip is already ${row.status}` }, 409)
-      }
+      const access = await selectClipForMutation(c, {
+        id,
+        viewerId,
+        statuses: ["pending", "processing"],
+      })
+      if ("response" in access) return access.response
+      const row = access.row
 
       await deleteScratchUpload(await selectVideoUploadTicketStorageKey(id))
       await markUploadFailed(row.authorId, id, "Upload failed")
-      return c.json({ success: true })
+      return success(c)
     }
   )
 
@@ -300,16 +329,13 @@ export const clipsUploadRoutes = new Hono()
       const { id } = c.req.valid("param")
       const body = c.req.valid("json")
 
-      const session = await getSession(c)
-      const isAdmin =
-        (session?.user as { role?: string | null } | undefined)?.role ===
-        "admin"
-
-      const [row] = await db.select().from(clip).where(eq(clip.id, id)).limit(1)
-      if (!row) return c.json({ error: "Not found" }, 404)
-      if (row.authorId !== viewerId && !isAdmin) {
-        return c.json({ error: "Forbidden" }, 403)
-      }
+      const access = await selectClipForMutation(c, {
+        id,
+        viewerId,
+        allowAdmin: true,
+      })
+      if ("response" in access) return access.response
+      const row = access.row
 
       const patch: Partial<typeof clip.$inferInsert> = {
         updatedAt: new Date(),
@@ -324,7 +350,7 @@ export const clipsUploadRoutes = new Hono()
           .from(game)
           .where(eq(game.id, body.gameId))
           .limit(1)
-        if (!gameRow) return c.json({ error: "Unknown game" }, 400)
+        if (!gameRow) return badRequest(c, "Unknown game")
         patch.gameId = body.gameId
         patch.game = null
       }
@@ -350,8 +376,7 @@ export const clipsUploadRoutes = new Hono()
 
       void publishClipUpsert(row.authorId, id)
 
-      const updated = await selectClipById(id)
-      return c.json(updated ? toPublicClipRow(updated) : null)
+      return updatedClipResponse(c, id)
     }
   )
 
@@ -359,16 +384,14 @@ export const clipsUploadRoutes = new Hono()
     const viewerId = c.var.viewerId
     const { id } = c.req.valid("param")
 
-    const session = await getSession(c)
-    const isAdmin =
-      (session?.user as { role?: string | null } | undefined)?.role === "admin"
-
-    const [row] = await db.select().from(clip).where(eq(clip.id, id)).limit(1)
-    if (!row) return c.json({ error: "Not found" }, 404)
-    if (row.authorId !== viewerId && !isAdmin) {
-      return c.json({ error: "Forbidden" }, 403)
-    }
+    const access = await selectClipForMutation(c, {
+      id,
+      viewerId,
+      allowAdmin: true,
+    })
+    if ("response" in access) return access.response
+    const row = access.row
 
     await deleteClipRowAndAssets(row)
-    return c.json({ deleted: true })
+    return deleted(c)
   })

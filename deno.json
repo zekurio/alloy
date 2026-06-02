@@ -60,9 +60,9 @@
     "db:push": "deno task --cwd packages/db db:push",
     "db:studio": "deno task --cwd packages/db db:studio",
     "fmt": "deno run -A npm:oxfmt@^0.46.0 --write deno.json tsconfig.json .oxlintrc.json scripts/*.ts && deno task --filter '*' fmt",
-    "lint": "sh -n scripts/dev-ml.sh scripts/dev-postgres.sh scripts/dev-server.sh && deno run -A npm:oxlint@^1.61.0 scripts/*.ts && deno task --filter '*' lint",
-    "lint:github": "sh -n scripts/dev-ml.sh scripts/dev-postgres.sh scripts/dev-server.sh && deno run -A npm:oxlint@^1.61.0 scripts/*.ts --deny-warnings --format=github && deno task --filter '*' lint --deny-warnings --format=github",
-    "lint:ci": "sh -n scripts/dev-ml.sh scripts/dev-postgres.sh scripts/dev-server.sh && deno run -A npm:oxlint@^1.61.0 scripts/*.ts --deny-warnings && deno task --filter '*' lint --deny-warnings",
+    "lint": "sh -n scripts/dev-ml.sh scripts/dev-server.sh apps/server/docker/*.sh && bash -n scripts/dev-postgres.sh && deno run -A npm:oxlint@^1.61.0 scripts/*.ts && deno task --filter '*' lint",
+    "lint:github": "sh -n scripts/dev-ml.sh scripts/dev-server.sh apps/server/docker/*.sh && bash -n scripts/dev-postgres.sh && deno run -A npm:oxlint@^1.61.0 scripts/*.ts --deny-warnings --format=github && deno task --filter '*' lint --deny-warnings --format=github",
+    "lint:ci": "sh -n scripts/dev-ml.sh scripts/dev-server.sh apps/server/docker/*.sh && bash -n scripts/dev-postgres.sh && deno run -A npm:oxlint@^1.61.0 scripts/*.ts --deny-warnings && deno task --filter '*' lint --deny-warnings",
     "format": "deno task fmt",
     "typecheck": "deno check scripts/*.ts && deno task --filter '*' typecheck"
   },

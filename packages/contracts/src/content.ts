@@ -26,6 +26,14 @@ export interface UserSummary {
   image: string | null
 }
 
+export const USER_ASSET_PATH_PREFIX = "/api/assets/users/"
+export const LEGACY_USER_ASSET_PATH_PREFIX = "/storage/user-assets/"
+
+export function userAssetImagePath(key: string, updatedAt: Date): string {
+  const version = updatedAt.getTime().toString(36)
+  return `${USER_ASSET_PATH_PREFIX}${key}?v=${version}`
+}
+
 export interface ClipGameRef {
   id: string
   steamgriddbId: number
@@ -77,12 +85,20 @@ export interface ClipRow {
 export type ClipFeedWindow = "today" | "week" | "month" | "year" | "all"
 export type ClipFeedSort = "top" | "recent"
 
+export const CLIP_TITLE_MAX_LENGTH = 100
+export const CLIP_DESCRIPTION_MAX_LENGTH = 2000
+
 export interface ClipFeedParams {
   window?: ClipFeedWindow
   sort?: ClipFeedSort
   limit?: number
-  cursor?: string
+  cursor?: string | null
   hashtag?: string
+}
+
+export interface ClipPage {
+  items: ClipRow[]
+  nextCursor: string | null
 }
 
 export interface InitiateClipInput {
@@ -160,6 +176,9 @@ export interface NotificationsResponse {
   unreadCount: number
 }
 
+export const NOTIFICATIONS_DEFAULT_LIMIT = 20
+export const NOTIFICATIONS_MAX_LIMIT = 50
+
 export type NotificationEvent =
   | { type: "snapshot"; payload: NotificationsResponse }
   | { type: "upsert"; notification: NotificationRow; unreadCount: number }
@@ -169,6 +188,8 @@ export type NotificationEvent =
   | { type: "clear"; unreadCount: number }
 
 export type CommentAuthor = UserSummary
+
+export const COMMENT_BODY_MAX_LENGTH = 2000
 
 export interface CommentRow {
   id: string
@@ -280,7 +301,7 @@ export interface GameDetail extends GameRow {
 export interface GameClipsParams {
   sort?: "top" | "recent"
   limit?: number
-  cursor?: string
+  cursor?: string | null
 }
 
 export interface SteamGridDBStatus {

@@ -5,7 +5,6 @@ import type { SharedPlayerProps } from "./video-player-types"
 import { sourceSpecKey, toSourceSpec } from "./video-source"
 
 export { VolumeControl } from "./video-volume-control"
-export type { VideoPlayerHandle } from "./video-player-types"
 
 interface VideoPlayerProps extends SharedPlayerProps {
   src: string | File

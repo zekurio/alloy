@@ -199,4 +199,4 @@ function ClipPlayer({
   )
 }
 
-export { ClipPlayer, type ClipPlayerProps }
+export { ClipPlayer }

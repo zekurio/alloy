@@ -26,6 +26,9 @@ export function GamesSection({ username }: GamesSectionProps) {
   return (
     <GameCarouselSection
       entries={games}
+      error={gamesQuery.error}
+      errorSeed={`profile-${username}-games-error`}
+      errorTitle="Couldn't load games"
       title={
         <>
           <GamepadIcon className="text-accent" />

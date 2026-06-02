@@ -7,6 +7,8 @@ import {
 } from "node:http"
 import { request as httpsRequest } from "node:https"
 
+import { toError } from "../runtime/error-message"
+
 export async function signedStreamPut(
   client: AwsClient,
   url: URL,
@@ -44,7 +46,7 @@ function putWithContentLength(
     )
     req.on("error", reject)
     void writeStreamToRequest(body, req).catch((err) => {
-      req.destroy(err instanceof Error ? err : new Error(String(err)))
+      req.destroy(toError(err, "Could not stream request body"))
       reject(err)
     })
   })

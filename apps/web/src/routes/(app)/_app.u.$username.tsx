@@ -9,7 +9,6 @@ import { ProfileIdentitySkeleton } from "@/components/routes/profile/profile-ide
 import { ProfileTabsNav } from "@/components/routes/profile/profile-tabs-nav"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { useUserClipsQuery, userClipsQueryOptions } from "@/lib/clip-queries"
-import { api } from "@/lib/api"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import {
   useProfileCachePatchers,
@@ -25,14 +24,8 @@ export const Route = createFileRoute("/(app)/_app/u/$username")({
     const clipsOptions = userClipsQueryOptions(params.username)
     const viewerOptions = userProfileViewerQueryOptions(params.username)
     const profile = await context.queryClient.ensureQueryData(profileOptions)
-    await context.queryClient.ensureQueryData({
-      ...viewerOptions,
-      queryFn: () => api.users.fetchProfileViewer(params.username),
-    })
-    void context.queryClient.prefetchQuery({
-      ...clipsOptions,
-      queryFn: () => api.users.fetchClips(params.username),
-    })
+    await context.queryClient.ensureQueryData(viewerOptions)
+    void context.queryClient.prefetchQuery(clipsOptions)
     return { profile }
   },
   component: UserProfileLayout,

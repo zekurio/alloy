@@ -14,7 +14,7 @@ import {
 } from "drizzle-orm"
 import { z } from "zod"
 
-import type { PublicUser } from "@workspace/contracts"
+import type { PublicUser, UserListRow, UserSummary } from "@workspace/contracts"
 import { user } from "@workspace/db/auth-schema"
 import {
   block,
@@ -26,19 +26,27 @@ import {
 } from "@workspace/db/schema"
 
 import { db } from "../db"
+import { requiredSql } from "../db/sql"
 import { getSession } from "../auth/session"
 import { clipSelectShape, toPublicClipRow } from "../clips/select"
+import { isoDate } from "../runtime/date"
+import { serialiseProfileGameRow } from "./games-helpers"
+import {
+  limitQueryParam,
+  offsetQueryParam,
+  requiredTrimmedString,
+} from "./validation"
 
 export const UsernameParam = z.object({ username: z.string().min(1) })
 
 export const SearchQuery = z.object({
-  q: z.string().min(1).max(64),
-  limit: z.coerce.number().int().positive().max(20).default(8),
+  q: requiredTrimmedString(64),
+  limit: limitQueryParam(20, 8),
 })
 
 export const UserGamesQuery = z.object({
-  limit: z.coerce.number().int().positive().max(48).default(24),
-  offset: z.coerce.number().int().min(0).default(0),
+  limit: limitQueryParam(48, 24),
+  offset: offsetQueryParam(),
 })
 
 export function toLikePattern(raw: string): string {
@@ -47,6 +55,56 @@ export function toLikePattern(raw: string): string {
     .replace(/%/g, "\\%")
     .replace(/_/g, "\\_")
   return `%${escaped}%`
+}
+
+export const userSummarySelectShape = {
+  id: user.id,
+  username: user.username,
+  displayUsername: user.displayUsername,
+  name: user.name,
+  image: user.image,
+}
+
+type UserSummaryFields = Pick<
+  typeof user.$inferSelect,
+  "id" | "username" | "displayUsername" | "name" | "image"
+>
+
+export function serialiseUserSummary(row: UserSummaryFields): UserSummary {
+  return {
+    id: row.id,
+    username: row.username,
+    displayUsername: row.displayUsername,
+    name: row.name,
+    image: row.image,
+  }
+}
+
+export function serialiseNullableUserSummary(row: {
+  id: string | null
+  username: string | null
+  displayUsername: string | null
+  name: string | null
+  image: string | null
+}): UserSummary | null {
+  if (!row.id) return null
+  return serialiseUserSummary({
+    id: row.id,
+    username: row.username ?? "",
+    displayUsername: row.displayUsername ?? "",
+    name: row.name ?? "",
+    image: row.image,
+  })
+}
+
+export function serialiseUserListRow(
+  row: UserSummaryFields & { createdAt: Date | string; clipCount: number }
+): UserListRow {
+  return {
+    ...serialiseUserSummary(row),
+    createdAt: isoDate(row.createdAt),
+    clipCount: row.clipCount,
+  }
 }
 
 export async function searchVisibleUsers({
@@ -60,11 +118,14 @@ export async function searchVisibleUsers({
 }) {
   const pattern = toLikePattern(q.trim())
   const conditions: SQL[] = [
-    or(
-      ilike(user.name, pattern),
-      ilike(user.displayUsername, pattern),
-      ilike(user.username, pattern)
-    )!,
+    requiredSql(
+      or(
+        ilike(user.name, pattern),
+        ilike(user.displayUsername, pattern),
+        ilike(user.username, pattern)
+      ),
+      "user search text filter"
+    ),
   ]
   if (viewerId) {
     conditions.push(ne(user.id, viewerId))
@@ -85,18 +146,16 @@ export async function searchVisibleUsers({
   }
   conditions.push(isNull(user.disabledAt))
 
-  return db
+  const rows = await db
     .select({
-      id: user.id,
-      username: user.username,
-      displayUsername: user.displayUsername,
-      name: user.name,
-      image: user.image,
+      ...userSummarySelectShape,
     })
     .from(user)
     .where(and(...conditions))
     .orderBy(user.username)
     .limit(limit)
+
+  return rows.map(serialiseUserSummary)
 }
 
 export type UserRow = typeof user.$inferSelect
@@ -108,8 +167,8 @@ export function toPublicUser(row: UserRow): PublicUser {
     name: row.name ?? "",
     image: row.image,
     banner: row.banner,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
+    createdAt: isoDate(row.createdAt),
+    updatedAt: isoDate(row.updatedAt),
   }
 }
 
@@ -173,22 +232,7 @@ export async function listUserGames(
     .limit(limit)
     .offset(offset)
 
-  return rows.map((gameRow) => ({
-    id: gameRow.id,
-    steamgriddbId: gameRow.steamgriddbId,
-    name: gameRow.name,
-    slug: gameRow.slug,
-    releaseDate: gameRow.releaseDate ? gameRow.releaseDate.toISOString() : null,
-    heroUrl: gameRow.heroUrl,
-    gridUrl: gameRow.gridUrl,
-    logoUrl: gameRow.logoUrl,
-    iconUrl: gameRow.iconUrl,
-    clipCount: gameRow.clipCount,
-    lastClippedAt:
-      gameRow.lastClippedAt instanceof Date
-        ? gameRow.lastClippedAt.toISOString()
-        : String(gameRow.lastClippedAt),
-  }))
+  return rows.map(serialiseProfileGameRow)
 }
 
 async function visibleReadyClipConditions(
@@ -263,36 +307,30 @@ export async function listLikedClips(row: UserRow, headers: Headers) {
   return rows.map(toPublicClipRow)
 }
 
-export function listFollowers(row: UserRow) {
-  return db
+export async function listFollowers(row: UserRow) {
+  const rows = await db
     .select({
-      id: user.id,
-      username: user.username,
-      displayUsername: user.displayUsername,
-      name: user.name,
-      image: user.image,
+      ...userSummarySelectShape,
     })
     .from(follow)
     .innerJoin(user, eq(user.id, follow.followerId))
     .where(and(eq(follow.followingId, row.id), isNull(user.disabledAt)))
     .orderBy(user.username)
     .limit(200)
+  return rows.map(serialiseUserSummary)
 }
 
-export function listFollowing(row: UserRow) {
-  return db
+export async function listFollowing(row: UserRow) {
+  const rows = await db
     .select({
-      id: user.id,
-      username: user.username,
-      displayUsername: user.displayUsername,
-      name: user.name,
-      image: user.image,
+      ...userSummarySelectShape,
     })
     .from(follow)
     .innerJoin(user, eq(user.id, follow.followingId))
     .where(and(eq(follow.followerId, row.id), isNull(user.disabledAt)))
     .orderBy(user.username)
     .limit(200)
+  return rows.map(serialiseUserSummary)
 }
 
 export async function resolveViewerState(

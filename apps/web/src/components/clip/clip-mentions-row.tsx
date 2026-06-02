@@ -21,8 +21,9 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import type { ClipMentionRef } from "@workspace/api"
 
-import { api } from "@/lib/api"
+import { errorMessage } from "@/lib/error-message"
 import { userChipData } from "@/lib/user-display"
+import { useToggleUserFollowMutation } from "@/lib/user-queries"
 
 function UserAvatar({
   user,
@@ -55,7 +56,8 @@ function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
   const [open, setOpen] = React.useState(false)
   if (mentions.length === 0) return null
 
-  const first = mentions[0]!
+  const first = mentions[0]
+  if (!first) return null
   const others = mentions.length - 1
   const preview = mentions.slice(0, 3)
   const firstHandle = first.displayUsername || first.username
@@ -146,23 +148,22 @@ function MentionRow({
   // Tracks only in-dialog toggles — we don't pre-fetch the viewer's real
   // follow state per row, so the button always starts in "Follow" mode.
   const [following, setFollowing] = React.useState(false)
-  const [pending, setPending] = React.useState(false)
+  const followMutation = useToggleUserFollowMutation(user.username)
   const chip = userChipData(user)
   const handle = user.displayUsername || user.username
 
-  const toggle = async () => {
-    setPending(true)
+  const toggle = () => {
     const nextFollowing = !following
     setFollowing(nextFollowing)
-    try {
-      if (nextFollowing) await api.users.follow(user.username)
-      else await api.users.unfollow(user.username)
-    } catch (err) {
-      setFollowing(!nextFollowing)
-      toast.error(err instanceof Error ? err.message : "Something went wrong")
-    } finally {
-      setPending(false)
-    }
+    followMutation.mutate(
+      { next: nextFollowing },
+      {
+        onError: (err) => {
+          setFollowing(!nextFollowing)
+          toast.error(errorMessage(err, "Something went wrong"))
+        },
+      }
+    )
   }
 
   return (
@@ -187,8 +188,8 @@ function MentionRow({
         type="button"
         size="sm"
         variant={following ? "ghost" : "primary"}
-        disabled={pending}
-        onClick={() => void toggle()}
+        disabled={followMutation.isPending}
+        onClick={toggle}
       >
         <UserPlusIcon className="size-3.5" />
         {following ? "Following" : "Follow"}

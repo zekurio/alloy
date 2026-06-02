@@ -3,7 +3,7 @@ import { useNavigate, useSearch } from "@tanstack/react-router"
 import { AppMain } from "@workspace/ui/components/app-shell"
 
 import { useRequireAuth } from "@/lib/auth-hooks"
-import type { HomeSearch } from "@/routes/(app)/_app.index"
+import type { HomeSearch } from "@/lib/home-search"
 import type { ClipFeedWindow, FeedFilter } from "@workspace/api"
 import { FeedChipBar } from "./feed-chip-bar"
 import { FeedSection } from "./feed-section"
@@ -30,7 +30,7 @@ export function HomePageInner() {
   function setFilter(next: FeedFilter) {
     void navigate({
       to: "/",
-      search: (prev) => ({
+      search: (prev: HomeSearch) => ({
         ...prev,
         tag: next.kind === "hashtag" ? next.tag : undefined,
         game: next.kind === "game" ? next.gameId : undefined,

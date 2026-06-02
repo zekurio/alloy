@@ -5,7 +5,7 @@ import { clip, clipComment } from "@workspace/db/schema"
 import { db } from "../db"
 import { getSession } from "../auth/session"
 
-export async function selectCommentModerationTarget(commentId: string) {
+async function selectCommentModerationTarget(commentId: string) {
   const [row] = await db
     .select({
       id: clipComment.id,
@@ -19,7 +19,7 @@ export async function selectCommentModerationTarget(commentId: string) {
   return row ?? null
 }
 
-export async function selectClipAuthorId(clipId: string) {
+async function selectClipAuthorId(clipId: string) {
   const [row] = await db
     .select({ authorId: clip.authorId })
     .from(clip)
@@ -38,7 +38,8 @@ export async function canModerateComment({
   headers: Headers
 }) {
   const row = await selectCommentModerationTarget(commentId)
-  if (!row) return { ok: false as const, error: "Not found", status: 404 }
+  if (!row)
+    return { ok: false as const, error: "Not found", status: 404 as const }
 
   const clipAuthorId = await selectClipAuthorId(row.clipId)
   const session = await getSession(headers)
@@ -47,7 +48,7 @@ export async function canModerateComment({
   const isCommentAuthor = row.authorId === viewerId
   const isClipAuthor = clipAuthorId === viewerId
   if (!isCommentAuthor && !isClipAuthor && !isAdmin) {
-    return { ok: false as const, error: "Forbidden", status: 403 }
+    return { ok: false as const, error: "Forbidden", status: 403 as const }
   }
 
   return { ok: true as const, row }
@@ -72,20 +73,21 @@ export async function pinTopLevelComment({
   viewerId: string
 }) {
   const row = await selectCommentModerationTarget(commentId)
-  if (!row) return { ok: false as const, error: "Not found", status: 404 }
+  if (!row)
+    return { ok: false as const, error: "Not found", status: 404 as const }
   if (row.parentId !== null) {
     return {
       ok: false as const,
       error: "Only top-level comments can be pinned",
-      status: 400,
+      status: 400 as const,
     }
   }
 
   const clipAuthorId = await selectClipAuthorId(row.clipId)
   if (!clipAuthorId)
-    return { ok: false as const, error: "Not found", status: 404 }
+    return { ok: false as const, error: "Not found", status: 404 as const }
   if (clipAuthorId !== viewerId) {
-    return { ok: false as const, error: "Forbidden", status: 403 }
+    return { ok: false as const, error: "Forbidden", status: 403 as const }
   }
 
   await db.transaction(async (tx) => {
@@ -114,13 +116,14 @@ export async function unpinComment({
   viewerId: string
 }) {
   const row = await selectCommentModerationTarget(commentId)
-  if (!row) return { ok: false as const, error: "Not found", status: 404 }
+  if (!row)
+    return { ok: false as const, error: "Not found", status: 404 as const }
 
   const clipAuthorId = await selectClipAuthorId(row.clipId)
   if (!clipAuthorId)
-    return { ok: false as const, error: "Not found", status: 404 }
+    return { ok: false as const, error: "Not found", status: 404 as const }
   if (clipAuthorId !== viewerId) {
-    return { ok: false as const, error: "Forbidden", status: 403 }
+    return { ok: false as const, error: "Forbidden", status: 403 as const }
   }
 
   await db

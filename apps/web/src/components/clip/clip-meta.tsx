@@ -40,27 +40,26 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import type { ClipGameRef, ClipMentionRef, ClipPrivacy } from "@workspace/api"
 
-import { api } from "@/lib/api"
 import { useSession } from "@/lib/auth-client"
+import { shareUrlWithFallback } from "@/lib/browser-share"
+import { currentUrlWithoutSearchOrHash } from "@/lib/browser-url"
 import { PRIVACY_BY_VALUE } from "@/lib/clip-fields"
 import {
   useDeleteClipMutation,
   useLikeStateQuery,
   useToggleLikeMutation,
 } from "@/lib/clip-queries"
-import { formatCount } from "@/lib/clip-format"
+import { errorMessage } from "@/lib/error-message"
 import { useGameQuery, useToggleGameFavoriteMutation } from "@/lib/game-queries"
+import { formatCount } from "@/lib/number-format"
 import {
-  useProfileCachePatchers,
+  useToggleUserFollowMutation,
   useUserProfileQuery,
   useUserProfileViewerQuery,
 } from "@/lib/user-queries"
 
 import { ClipMentionsRow } from "./clip-mentions-row"
-import {
-  renderDescriptionTokens,
-  renderHashtagTokens,
-} from "./description-tokens"
+import { renderHashtagTokens } from "./description-tokens"
 
 interface ClipMetaProps {
   /** Clip id — powers each field's PATCH and the delete action. */
@@ -136,9 +135,8 @@ function ClipMeta({
   const profileData = profileQuery.data
   const followerCount = profileData?.counts.followers ?? null
   const profileViewer = profileViewerQuery.data?.viewer
-  const { setViewer, bumpFollowers } = useProfileCachePatchers(uploader.handle)
-
-  const [followPending, setFollowPending] = React.useState(false)
+  const followMutation = useToggleUserFollowMutation(uploader.handle)
+  const followPending = followMutation.isPending
   const isFollowing = profileViewer?.isFollowing ?? false
   const canFollow =
     viewerId !== null &&
@@ -171,37 +169,33 @@ function ClipMeta({
   }, [clipId, deleteMutation, onDeleted])
 
   const handleShare = React.useCallback(async () => {
-    const url = new URL(window.location.href)
-    url.search = ""
-    url.hash = ""
+    const url = currentUrlWithoutSearchOrHash()
+    if (url === null) {
+      toast.error("Couldn't share clip")
+      return
+    }
 
-    try {
-      await navigator.clipboard.writeText(url.toString())
+    const result = await shareUrlWithFallback(url, {
+      title,
+      action: "share clip link",
+    })
+    if (result === "copied") {
       toast.success("Link copied")
-    } catch {
-      toast.error("Couldn't copy link")
+    } else if (result === "failed") {
+      toast.error("Couldn't share clip")
     }
-  }, [])
+  }, [title])
 
-  async function handleFollow() {
+  function handleFollow() {
     if (followPending || !profileViewer) return
-    setFollowPending(true)
-    const prev = profileViewer
-    const optimistic = { ...prev, isFollowing: !isFollowing }
-    setViewer(optimistic)
-    bumpFollowers(isFollowing ? -1 : 1)
-    try {
-      if (isFollowing) await api.users.unfollow(uploader.handle)
-      else await api.users.follow(uploader.handle)
-    } catch (cause) {
-      setViewer(prev)
-      bumpFollowers(isFollowing ? 1 : -1)
-      toast.error(
-        cause instanceof Error ? cause.message : "Something went wrong"
-      )
-    } finally {
-      setFollowPending(false)
-    }
+    followMutation.mutate(
+      { next: !isFollowing },
+      {
+        onError: (cause) => {
+          toast.error(errorMessage(cause, "Something went wrong"))
+        },
+      }
+    )
   }
 
   const avatarStyle = {
@@ -350,7 +344,7 @@ function ClipMeta({
 
       {hasDescription ? (
         <p className="max-w-3xl text-sm leading-relaxed whitespace-pre-wrap text-foreground-muted">
-          {renderDescriptionTokens(description!, { linkHashtags: true })}
+          {renderHashtagTokens(description ?? "", { linkHashtags: true })}
         </p>
       ) : null}
 
@@ -404,9 +398,7 @@ function ClipGameBadge({
       { slug: gameRef.slug, next: !isFavorite },
       {
         onError: (cause) => {
-          toast.error(
-            cause instanceof Error ? cause.message : "Something went wrong"
-          )
+          toast.error(errorMessage(cause, "Something went wrong"))
         },
       }
     )
@@ -493,4 +485,4 @@ function ClipPrivacyBadge({ privacy }: { privacy: ClipPrivacy }) {
   )
 }
 
-export { ClipMeta, type ClipMetaProps }
+export { ClipMeta }

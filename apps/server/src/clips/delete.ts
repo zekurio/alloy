@@ -1,12 +1,13 @@
 import { eq } from "drizzle-orm"
 
 import { clip, clipUploadTicket } from "@workspace/db/schema"
+import { logger } from "@workspace/logging"
 
 import { db } from "../db"
 import { publishClipRemove } from "./events"
 import { cancelEncode } from "../queue/encode-worker"
 import { storage } from "../storage"
-import { deleteScratchUpload } from "../uploads/scratch"
+import { deleteScratchUploads } from "../uploads/scratch"
 
 export async function deleteClipRowAndAssets(
   row: typeof clip.$inferSelect
@@ -28,12 +29,12 @@ export async function deleteClipRowAndAssets(
     try {
       await storage.delete(key)
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn(`[clips] failed to delete ${key}:`, err)
+      logger.warn(`[clips] failed to delete ${key}:`, err)
     }
   }
-  await Promise.allSettled(
-    tickets.map((ticket) => deleteScratchUpload(ticket.storageKey))
+  await deleteScratchUploads(
+    tickets.map((ticket) => ticket.storageKey),
+    `clip ${row.id} staged upload`
   )
 
   publishClipRemove(row.authorId, row.id)

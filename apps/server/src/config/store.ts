@@ -3,7 +3,9 @@ import {
   type EncoderHwaccel,
   type RuntimeConfig,
 } from "@workspace/contracts"
+import { logger } from "@workspace/logging"
 import { env } from "../env"
+import { errorDetail } from "../runtime/error-message"
 import { dirname, resolve } from "../runtime/path"
 
 import {
@@ -93,7 +95,7 @@ function loadFromDisk(): LoadResult {
     }
     return {
       ok: false,
-      error: err instanceof Error ? err.message : String(err),
+      error: errorDetail(err, "Could not inspect runtime config"),
     }
   }
 
@@ -111,7 +113,7 @@ function loadFromDisk(): LoadResult {
   } catch (err) {
     return {
       ok: false,
-      error: err instanceof Error ? err.message : String(err),
+      error: errorDetail(err, "Could not load runtime config"),
     }
   }
 }
@@ -126,18 +128,33 @@ function writeToDisk(next: RuntimeConfig): void {
 
 const initialLoad = loadFromDisk()
 if (!initialLoad.ok) {
-  // eslint-disable-next-line no-console
-  console.error(
+  logger.error(
     `[config-store] ${CONFIG_PATH} failed validation:`,
     initialLoad.error
   )
-  process.exit(1)
+  Deno.exit(1)
 }
 
 let state: RuntimeConfig = initialLoad.config
 if (initialLoad.created) {
   writeToDisk(state)
 }
+
+function freezeRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
+  return deepFreeze(config)
+}
+
+function deepFreeze<T>(value: T): T {
+  if (!value || typeof value !== "object" || Object.isFrozen(value)) {
+    return value
+  }
+  for (const child of Object.values(value)) {
+    deepFreeze(child)
+  }
+  return Object.freeze(value)
+}
+
+state = freezeRuntimeConfig(state)
 
 type Listener = (
   next: Readonly<RuntimeConfig>,
@@ -148,13 +165,12 @@ const listeners = new Set<Listener>()
 function apply(next: RuntimeConfig, persist: boolean): void {
   const prev = state
   if (persist) writeToDisk(next)
-  state = next
+  state = freezeRuntimeConfig(next)
   for (const listener of listeners) {
     try {
       listener(state, prev)
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error("[config-store] listener threw:", err)
+      logger.error("[config-store] listener threw:", err)
     }
   }
 }
@@ -166,11 +182,7 @@ function commit(next: RuntimeConfig): void {
 function reloadFromDisk(): boolean {
   const result = loadFromDisk()
   if (!result.ok) {
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[config-store] ignoring invalid ${CONFIG_PATH}:`,
-      result.error
-    )
+    logger.warn(`[config-store] ignoring invalid ${CONFIG_PATH}:`, result.error)
     return false
   }
   apply(result.config, false)
@@ -198,15 +210,14 @@ function startConfigFileWatcher(): void {
         }, 50)
       }
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn("[config-store] config watcher stopped:", err)
+      logger.warn("[config-store] config watcher stopped:", err)
     }
   })()
 }
 
 startConfigFileWatcher()
 
-export interface ConfigStore {
+interface ConfigStore {
   get<K extends keyof RuntimeConfig>(key: K): RuntimeConfig[K]
   getAll(): Readonly<RuntimeConfig>
   set<K extends keyof RuntimeConfig>(key: K, value: RuntimeConfig[K]): void
@@ -221,7 +232,7 @@ export const configStore: ConfigStore = {
     return state[key]
   },
   getAll() {
-    return { ...state }
+    return structuredClone(state)
   },
   set(key, value) {
     commit(RuntimeConfigSchema.parse({ ...state, [key]: value }))

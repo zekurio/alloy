@@ -13,8 +13,9 @@ import {
   type GameListRow,
   type ClipRow,
 } from "@workspace/api"
-import { clipGameLabel, formatCount, hueForGame } from "@/lib/clip-format"
+import { clipGameLabel, hueForGame } from "@/lib/clip-format"
 import { apiOrigin } from "@/lib/env"
+import { formatCount } from "@/lib/number-format"
 import type { UserListRow } from "@/lib/search-api"
 import { userChipData } from "@/lib/user-display"
 

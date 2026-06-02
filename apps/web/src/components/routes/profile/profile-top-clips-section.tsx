@@ -17,27 +17,28 @@ import {
 } from "@/components/clip/clip-list-context"
 import { TopClipsCarousel } from "@/components/clip/top-clips-carousel"
 import { EmptyState } from "@/components/feedback/empty-state"
+import { dateTime } from "@/lib/date-format"
 import type { UserClip } from "@workspace/api"
 
 type ProfileTopClipsSectionProps = {
   username: string
   clips: UserClip[] | null
+  error: unknown
   isSelf: boolean
 }
 
 const TOP_LIMIT = 5
 
 function rankScore(clip: UserClip, now: number): number {
-  const ageDays = Math.max(
-    0,
-    (now - new Date(clip.createdAt).getTime()) / 86_400_000
-  )
+  const createdAt = dateTime(clip.createdAt) ?? now
+  const ageDays = Math.max(0, (now - createdAt) / 86_400_000)
   return (clip.viewCount + clip.likeCount * 3) / Math.pow(ageDays + 2, 1.5)
 }
 
 export function ProfileTopClipsSection({
   username,
   clips,
+  error,
   isSelf,
 }: ProfileTopClipsSectionProps) {
   const topClips = React.useMemo<UserClip[] | null>(() => {
@@ -62,6 +63,7 @@ export function ProfileTopClipsSection({
       <ProfileTopClipsBody
         username={username}
         clips={topClips}
+        error={error}
         isSelf={isSelf}
       />
     </section>
@@ -71,12 +73,14 @@ export function ProfileTopClipsSection({
 type ProfileTopClipsBodyProps = {
   username: string
   clips: UserClip[] | null
+  error: unknown
   isSelf: boolean
 }
 
 function ProfileTopClipsBody({
   username,
   clips,
+  error,
   isSelf,
 }: ProfileTopClipsBodyProps) {
   const entries = React.useMemo<ClipListEntry[]>(
@@ -88,6 +92,16 @@ function ProfileTopClipsBody({
       })),
     [clips]
   )
+
+  if (clips === null && error) {
+    return (
+      <EmptyState
+        seed={`profile-${username}-top-error`}
+        size="md"
+        title="Couldn't load top clips"
+      />
+    )
+  }
 
   if (clips === null) {
     return <TopClipsSkeletons />

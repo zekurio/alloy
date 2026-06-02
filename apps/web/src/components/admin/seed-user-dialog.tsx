@@ -26,7 +26,8 @@ import {
 } from "@workspace/ui/components/select"
 import { toast } from "@workspace/ui/lib/toast"
 
-import { authClient } from "@/lib/auth-client"
+import { api } from "@/lib/api"
+import { errorMessage } from "@/lib/error-message"
 import { validateEmail, validateUsername } from "@/lib/form-validators"
 
 export function SeedUserDialog({
@@ -42,17 +43,18 @@ export function SeedUserDialog({
     } as { username: string; email: string; role: "user" | "admin" },
     onSubmit: async ({ value }) => {
       try {
-        const { error } = await authClient.admin.createUser({
-          name: value.username.trim(),
+        const username = value.username.trim()
+        await api.admin.createUser({
+          name: username,
+          username,
           email: value.email.trim(),
           role: value.role,
         })
-        if (error) throw new Error(error.message ?? "Create failed")
         toast.success("User seeded")
         form.reset()
         await onCreated()
-      } catch {
-        toast.error("Couldn't seed user")
+      } catch (cause) {
+        toast.error(errorMessage(cause, "Couldn't seed user"))
       }
     },
   })
@@ -77,7 +79,7 @@ export function SeedUserDialog({
           <form.Field
             name="username"
             validators={{
-              onChange: ({ value }) => validateUsername(value.trim()),
+              onChange: ({ value }) => validateUsername(value),
             }}
           >
             {(field) => {

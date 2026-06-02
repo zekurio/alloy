@@ -24,8 +24,14 @@ import type {
 } from "@workspace/api"
 
 import { api } from "@/lib/api"
+import { errorMessage } from "@/lib/error-message"
 import { FormGroup } from "./form-group"
-import { clampInt } from "./shared"
+import {
+  clampInt,
+  emptyToNull,
+  requiredTrimmedString,
+  trimString,
+} from "./shared"
 
 type MachineLearningConfigCardProps = {
   machineLearning: AdminMachineLearningConfig
@@ -42,11 +48,6 @@ function copyConfig(
   }
 }
 
-function trimOrNull(value: string | null | undefined): string | null {
-  const trimmed = value?.trim()
-  return trimmed ? trimmed : null
-}
-
 function basename(value: string): string {
   return value.replace(/\/+$/, "").split(/[\\/]/).pop() ?? value
 }
@@ -58,18 +59,18 @@ function stripExtension(value: string): string {
 function derivedModelName(
   classifier: AdminMachineLearningConfig["gameClassifier"]
 ): string {
-  const checkpointPath = trimOrNull(classifier.checkpointPath)
+  const checkpointPath = emptyToNull(classifier.checkpointPath)
   if (checkpointPath) return stripExtension(basename(checkpointPath))
 
-  const repoName = basename(classifier.repoId.trim())
+  const repoName = basename(trimString(classifier.repoId))
   return repoName || "game-classifier"
 }
 
 function derivedModelVersion(
   classifier: AdminMachineLearningConfig["gameClassifier"]
 ): string | null {
-  if (trimOrNull(classifier.checkpointPath)) return null
-  return classifier.revision.trim() || null
+  if (emptyToNull(classifier.checkpointPath)) return null
+  return requiredTrimmedString(classifier.revision)
 }
 
 function normalizedConfig(
@@ -78,15 +79,56 @@ function normalizedConfig(
   const classifier = machineLearning.gameClassifier
   return {
     enabled: machineLearning.enabled,
-    baseUrl: machineLearning.baseUrl.trim(),
+    baseUrl: trimString(machineLearning.baseUrl),
     requestTimeoutMs: machineLearning.requestTimeoutMs,
     gameClassifier: {
       modelName: derivedModelName(classifier),
       modelVersion: derivedModelVersion(classifier),
-      repoId: classifier.repoId.trim(),
-      filename: classifier.filename.trim(),
-      revision: classifier.revision.trim(),
-      checkpointPath: trimOrNull(classifier.checkpointPath),
+      repoId: trimString(classifier.repoId),
+      filename: trimString(classifier.filename),
+      revision: trimString(classifier.revision),
+      checkpointPath: emptyToNull(classifier.checkpointPath),
+    },
+  }
+}
+
+function buildMachineLearningPatch(
+  machineLearning: AdminMachineLearningConfig
+): AdminMachineLearningConfig | null {
+  const baseUrl = requiredTrimmedString(machineLearning.baseUrl)
+  if (!baseUrl) {
+    toast.error("Machine learning base URL is required.")
+    return null
+  }
+
+  const classifier = machineLearning.gameClassifier
+  const repoId = requiredTrimmedString(classifier.repoId)
+  if (!repoId) {
+    toast.error("Hugging Face repo is required.")
+    return null
+  }
+
+  const filename = requiredTrimmedString(classifier.filename)
+  if (!filename) {
+    toast.error("Checkpoint file is required.")
+    return null
+  }
+
+  const revision = requiredTrimmedString(classifier.revision)
+  if (!revision) {
+    toast.error("Revision is required.")
+    return null
+  }
+
+  const normalized = normalizedConfig(machineLearning)
+  return {
+    ...normalized,
+    baseUrl,
+    gameClassifier: {
+      ...normalized.gameClassifier,
+      repoId,
+      filename,
+      revision,
     },
   }
 }
@@ -137,18 +179,15 @@ export function MachineLearningConfigCard({
     e.preventDefault()
     if (pending || !isDirty) return
 
-    const patch = normalizedConfig(form)
+    const patch = buildMachineLearningPatch(form)
+    if (!patch) return
     setPending(true)
     try {
       const next = await api.admin.updateMachineLearningConfig(patch)
       onChange(next)
       toast.success("Machine learning updated")
     } catch (cause) {
-      toast.error(
-        cause instanceof Error
-          ? cause.message
-          : "Couldn't update machine learning"
-      )
+      toast.error(errorMessage(cause, "Couldn't update machine learning"))
     } finally {
       setPending(false)
     }

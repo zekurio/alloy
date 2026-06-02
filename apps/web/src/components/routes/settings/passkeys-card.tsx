@@ -27,16 +27,16 @@ import {
 import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { toast } from "@workspace/ui/lib/toast"
 
+import type { Passkey as ApiPasskey } from "@workspace/api/auth"
+
 import { LimitedInput } from "@/components/form/limited-field"
 import { authClient } from "@/lib/auth-client"
+import { reportAuthFlowFailure } from "@/lib/auth-flow"
+import { formatCalendarDate } from "@/lib/date-format"
+import { errorMessage } from "@/lib/error-message"
 import { addPasskeyWithLabel } from "@/lib/passkeys"
 
-export type Passkey = {
-  id: string
-  name?: string | null
-  createdAt: string | Date
-  deviceType?: string
-}
+export type Passkey = ApiPasskey
 
 export function PasskeysCard({
   passkeys,
@@ -55,15 +55,13 @@ export function PasskeysCard({
         id: passkey.id,
       })
       if (error) {
-        toast.error(error.message ?? "Couldn't remove passkey")
+        toast.error(errorMessage(error, "Couldn't remove passkey"))
         return
       }
       toast.success("Passkey removed")
       await onRefresh()
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Something went wrong"
-      )
+      toast.error(errorMessage(cause, "Something went wrong"))
     } finally {
       setDeletingId(null)
     }
@@ -117,7 +115,7 @@ function AddPasskeyDialog({ onAdded }: { onAdded: () => Promise<void> }) {
         label: name,
       })
       if (error) {
-        toast.error(error.message ?? "Couldn't register passkey")
+        toast.error(errorMessage(error, "Couldn't register passkey"))
         return
       }
       toast.success("Passkey added")
@@ -126,7 +124,11 @@ function AddPasskeyDialog({ onAdded }: { onAdded: () => Promise<void> }) {
       await onAdded()
     } catch (cause) {
       toast.error(
-        cause instanceof Error ? cause.message : "Passkey registration failed"
+        reportAuthFlowFailure(
+          "passkey registration",
+          "Passkey registration failed",
+          cause
+        )
       )
     } finally {
       setAdding(false)
@@ -200,7 +202,7 @@ function PasskeyRow({
       <div className="min-w-0">
         <div className="text-sm font-medium">{passkey.name || "Passkey"}</div>
         <p className="text-xs text-foreground-dim">
-          Added {formatDate(passkey.createdAt)}
+          Added {formatCalendarDate(passkey.createdAt)}
         </p>
       </div>
       <AlertDialog>
@@ -238,14 +240,4 @@ function PasskeyRow({
       </AlertDialog>
     </li>
   )
-}
-
-function formatDate(value: string | Date): string {
-  const date = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(date.getTime())) return ""
-  return date.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  })
 }

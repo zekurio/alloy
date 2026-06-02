@@ -5,21 +5,16 @@ import { HttpError } from "@workspace/api"
 
 import { ClipViewerDialog } from "@/components/clip/clip-viewer-dialog"
 import { api } from "@/lib/api"
-import { clipKeys } from "@/lib/clip-queries"
-
-interface ClipRouteSearch {
-  comment?: string
-}
+import { goBackInBrowserHistory } from "@/lib/browser-url"
+import { parseClipRouteSearch } from "@/lib/clip-route-search"
+import { seedClipDetailInCache } from "@/lib/clip-queries"
 
 export const Route = createFileRoute("/(app)/_app/g/$slug/c/$clipId")({
-  validateSearch: (search: Record<string, unknown>): ClipRouteSearch => {
-    const comment = search.comment
-    return typeof comment === "string" && comment.length > 0 ? { comment } : {}
-  },
+  validateSearch: parseClipRouteSearch,
   loader: async ({ context, params }) => {
     try {
       const clip = await api.clips.fetchById(params.clipId)
-      context.queryClient.setQueryData(clipKeys.detail(params.clipId), clip)
+      seedClipDetailInCache(context.queryClient, clip)
       return { clip }
     } catch (error) {
       if (
@@ -52,9 +47,7 @@ function ClipModalRoute() {
     setModalClipId(null)
     // Prefer browser back so the previous screen (if any) is preserved
     // verbatim. Cold loads fall through to the game page.
-    if (router.history.length > 1) {
-      router.history.back()
-    } else {
+    if (!goBackInBrowserHistory()) {
       void router.navigate({
         to: "/g/$slug",
         params: { slug },

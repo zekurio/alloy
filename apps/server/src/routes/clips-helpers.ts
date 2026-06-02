@@ -1,34 +1,167 @@
-import { eq } from "drizzle-orm"
 import { z } from "zod"
+import { and, desc, eq, lt, or, sql, type SQL } from "drizzle-orm"
 
-import { ACCEPTED_CLIP_CONTENT_TYPES } from "@workspace/contracts"
-import { user } from "@workspace/db/auth-schema"
+import {
+  ACCEPTED_CLIP_CONTENT_TYPES,
+  CLIP_DESCRIPTION_MAX_LENGTH,
+  CLIP_TITLE_MAX_LENGTH,
+} from "@workspace/contracts"
 import {
   CLIP_PRIVACY,
   clip,
   type ClipEncodedVariant,
 } from "@workspace/db/schema"
 
-import { db } from "../db"
-import { getSession } from "../auth/session"
 import { configStore } from "../config/store"
+import { toPublicClipRow } from "../clips/select"
+import { requiredSql } from "../db/sql"
+import { isoDate } from "../runtime/date"
+import {
+  cursorDate,
+  cursorNonNegativeInteger,
+  cursorRequiredString,
+  decodeCursorPayload,
+  encodeCursorPayload,
+} from "./cursor-codec"
+import {
+  limitQueryParam,
+  optionalBlankToNullTrimmedString,
+  optionalTrimmedString,
+  requiredTrimmedString,
+} from "./validation"
 
 export const IdParam = z.object({ id: z.uuid() })
-export const StreamQuery = z.object({ variant: z.string().min(1).optional() })
+export const StreamQuery = z.object({ variant: optionalTrimmedString() })
 export const DownloadQuery = z.object({
-  variant: z.string().min(1).optional(),
+  variant: optionalTrimmedString(),
 })
 
 export const ListQuery = z.object({
   window: z.enum(["today", "week", "month", "year", "all"]).optional(),
   sort: z.enum(["top", "recent"]).default("recent"),
-  limit: z.coerce.number().int().positive().max(100).default(50),
-  cursor: z.iso.datetime().optional(),
+  limit: limitQueryParam(100, 50),
+  cursor: z.string().optional(),
   hashtag: z
     .string()
     .regex(/^[\p{L}\p{N}_]+$/u)
     .optional(),
 })
+
+type ClipListSort = "top" | "recent"
+
+type ClipListCursorPayload = {
+  v: 1
+  sort: ClipListSort
+  createdAt: string
+  id: string
+  likeCount?: number
+}
+
+type ParsedClipListCursor = {
+  createdAt: Date
+  id: string | null
+  likeCount: number | null
+}
+
+type ClipListCursorRow = {
+  id: string
+  createdAt: Date | string
+  likeCount: number
+}
+
+type ClipListPageRow = ClipListCursorRow & {
+  sourceKey: string | null
+  openGraphKey: string | null
+  thumbKey: string | null
+  variants: readonly { storageKey: string }[]
+}
+
+function parseLegacyClipListCursor(value: string): ParsedClipListCursor | null {
+  const createdAt = cursorDate(value)
+  return createdAt ? { createdAt, id: null, likeCount: null } : null
+}
+
+export function parseClipListCursor(
+  value: string | undefined,
+  sort: ClipListSort
+): ParsedClipListCursor | null {
+  if (!value) return null
+  const payload = decodeCursorPayload(value)
+  if (!payload) return parseLegacyClipListCursor(value)
+  const createdAt = cursorDate(payload.createdAt)
+  const id = cursorRequiredString(payload.id)
+  if (payload.v !== 1 || payload.sort !== sort || !createdAt || !id) {
+    return null
+  }
+  if (sort === "top") {
+    const likeCount = cursorNonNegativeInteger(payload.likeCount)
+    if (likeCount === null) return null
+    return { createdAt, id, likeCount }
+  }
+  return { createdAt, id, likeCount: null }
+}
+
+function encodeClipListCursor(
+  row: ClipListCursorRow,
+  sort: ClipListSort
+): string {
+  const payload: ClipListCursorPayload = {
+    v: 1,
+    sort,
+    createdAt: isoDate(row.createdAt),
+    id: row.id,
+    ...(sort === "top" ? { likeCount: row.likeCount } : {}),
+  }
+  return encodeCursorPayload(payload)
+}
+
+export function clipListCursorCondition(
+  cursor: ParsedClipListCursor | null,
+  sort: ClipListSort
+): SQL | null {
+  if (!cursor) return null
+  if (!cursor.id) return lt(clip.createdAt, cursor.createdAt)
+
+  const afterCreatedAt = requiredSql(
+    or(
+      lt(clip.createdAt, cursor.createdAt),
+      and(eq(clip.createdAt, cursor.createdAt), sql`${clip.id} > ${cursor.id}`)
+    ),
+    "clip cursor createdAt"
+  )
+
+  if (sort === "top") {
+    return requiredSql(
+      or(
+        lt(clip.likeCount, cursor.likeCount ?? 0),
+        and(eq(clip.likeCount, cursor.likeCount ?? 0), afterCreatedAt)
+      ),
+      "top clips cursor"
+    )
+  }
+
+  return afterCreatedAt
+}
+
+export function clipListOrderBy(sort: ClipListSort) {
+  return sort === "top"
+    ? [desc(clip.likeCount), desc(clip.createdAt), clip.id]
+    : [desc(clip.createdAt), clip.id]
+}
+
+export function clipListPage<T extends ClipListPageRow>(
+  rows: T[],
+  limit: number,
+  sort: ClipListSort
+) {
+  const pageRows = rows.slice(0, limit)
+  const tail = pageRows[pageRows.length - 1]
+  return {
+    items: pageRows.map(toPublicClipRow),
+    nextCursor:
+      rows.length > limit && tail ? encodeClipListCursor(tail, sort) : null,
+  }
+}
 
 // Epoch offsets for the window filter. Kept in one place so both the feed
 // read and any future analytics rollups agree on what "today" means.
@@ -44,8 +177,8 @@ export const InitiateBody = z
     filename: z.string().min(1).max(255),
     contentType: z.enum(ACCEPTED_CLIP_CONTENT_TYPES),
     sizeBytes: z.number().int().positive(),
-    title: z.string().min(1).max(100),
-    description: z.string().max(2000).optional(),
+    title: requiredTrimmedString(CLIP_TITLE_MAX_LENGTH),
+    description: optionalBlankToNullTrimmedString(CLIP_DESCRIPTION_MAX_LENGTH),
     gameId: z.uuid(),
     privacy: z.enum(CLIP_PRIVACY).default("public"),
     trimStartMs: z.number().int().min(0).optional(),
@@ -69,91 +202,12 @@ export const InitiateBody = z
   )
 
 export const UpdateBody = z.object({
-  title: z.string().min(1).max(100).optional(),
-  description: z.string().max(2000).optional(),
+  title: requiredTrimmedString(CLIP_TITLE_MAX_LENGTH).optional(),
+  description: optionalBlankToNullTrimmedString(CLIP_DESCRIPTION_MAX_LENGTH),
   gameId: z.uuid().optional(),
   privacy: z.enum(CLIP_PRIVACY).optional(),
   mentionedUserIds: z.array(z.uuid()).optional(),
 })
-
-export async function peekViewer(
-  headers: Headers
-): Promise<{ id: string; role: string | null } | null> {
-  const session = await getSession(headers)
-  if (!session) return null
-  return {
-    id: session.user.id,
-    role: (session.user as { role?: string | null }).role ?? null,
-  }
-}
-
-export async function resolveEngagementTarget(
-  id: string,
-  headers: Headers
-): Promise<
-  | { authorId: string; likeCount: number; accessible: true }
-  | { likeCount?: never; accessible: false; response: Response }
-> {
-  const [row] = await db
-    .select({
-      id: clip.id,
-      authorId: clip.authorId,
-      status: clip.status,
-      privacy: clip.privacy,
-      likeCount: clip.likeCount,
-      authorDisabledAt: user.disabledAt,
-    })
-    .from(clip)
-    .innerJoin(user, eq(clip.authorId, user.id))
-    .where(eq(clip.id, id))
-    .limit(1)
-  if (!row) {
-    return {
-      accessible: false,
-      response: new Response(JSON.stringify({ error: "Not found" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      }),
-    }
-  }
-
-  if (row.status !== "ready") {
-    return {
-      accessible: false,
-      response: new Response(JSON.stringify({ error: "Not found" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      }),
-    }
-  }
-
-  const viewer = await peekViewer(headers)
-  const isOwner = viewer?.id === row.authorId
-  const isAdmin = viewer?.role === "admin"
-  if (row.authorDisabledAt && !isOwner && !isAdmin) {
-    return {
-      accessible: false,
-      response: new Response(JSON.stringify({ error: "Not found" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      }),
-    }
-  }
-  if (row.privacy === "private" && !isOwner && !isAdmin) {
-    return {
-      accessible: false,
-      response: new Response(
-        JSON.stringify({ error: viewer ? "Forbidden" : "Unauthorized" }),
-        {
-          status: viewer ? 403 : 401,
-          headers: { "Content-Type": "application/json" },
-        }
-      ),
-    }
-  }
-
-  return { accessible: true, authorId: row.authorId, likeCount: row.likeCount }
-}
 
 /** Parse an HTTP `Range: bytes=A-B` header into inclusive byte offsets. */
 export function parseRange(
@@ -190,11 +244,9 @@ export function parseRange(
   return { start, end }
 }
 
-export type PlaybackClipRow = typeof clip.$inferSelect
+type PlaybackClipRow = typeof clip.$inferSelect
 
-export function encodedVariantsForRow(
-  row: PlaybackClipRow
-): ClipEncodedVariant[] {
+function encodedVariantsForRow(row: PlaybackClipRow): ClipEncodedVariant[] {
   return row.variants
 }
 

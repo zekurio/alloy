@@ -1,4 +1,8 @@
-import { zValidator } from "@hono/zod-validator"
+import {
+  optionalNullableTrimmedString,
+  requiredTrimmedString,
+  zValidator,
+} from "./validation"
 import { eq } from "drizzle-orm"
 import { Hono, type Context } from "hono"
 import { z } from "zod"
@@ -8,6 +12,7 @@ import { authAccount } from "@workspace/db/auth-schema"
 import { db } from "../db"
 import { clearOAuthStateCookie, setOAuthStateCookie } from "../auth/cookies"
 import { unlinkOAuthAccountPreservingSignIn } from "../auth/identity"
+import { publicLinkedAccountRow } from "../auth/security-responses"
 import {
   fallbackOAuthErrorRedirect,
   finishOAuthCallback,
@@ -15,16 +20,22 @@ import {
   startOAuthSignIn,
 } from "../auth/oauth"
 import { requireSession } from "../auth/session"
-import { errorMessage } from "./auth-route-helpers"
+import {
+  badRequest,
+  badRequestFromCause,
+  notFound,
+  success,
+  urlResponse,
+} from "../runtime/http-response"
 
 const UnlinkAccountBody = z.object({
-  providerId: z.string().min(1),
-  accountId: z.string().min(1),
+  providerId: requiredTrimmedString(),
+  accountId: requiredTrimmedString(),
 })
 
 const OAuthStartBody = z.object({
-  providerId: z.string().min(1),
-  callbackURL: z.string().optional().nullable(),
+  providerId: requiredTrimmedString(),
+  callbackURL: optionalNullableTrimmedString(),
 })
 
 async function startOAuthResponse(
@@ -41,9 +52,9 @@ async function startOAuthResponse(
         )
       : await startOAuthSignIn(input)
     setOAuthStateCookie(c, input.providerId, result.browserNonce)
-    return c.json({ url: result.url })
+    return urlResponse(c, result.url)
   } catch (cause) {
-    return c.json({ error: errorMessage(cause, fallback) }, 400)
+    return badRequestFromCause(c, cause, fallback)
   }
 }
 
@@ -60,7 +71,7 @@ export const authOAuthRoute = new Hono()
       .from(authAccount)
       .where(eq(authAccount.userId, c.var.viewerId))
       .orderBy(authAccount.createdAt)
-    return c.json(rows)
+    return c.json(rows.map(publicLinkedAccountRow))
   })
   .post("/oauth/sign-in", zValidator("json", OAuthStartBody), async (c) => {
     return startOAuthResponse(
@@ -103,15 +114,12 @@ export const authOAuthRoute = new Hono()
         providerAccountId: body.accountId,
       })
       if (result === "last-sign-in-method") {
-        return c.json(
-          {
-            error: "Add another sign-in method before unlinking this account.",
-          },
-          400
+        return badRequest(
+          c,
+          "Add another sign-in method before unlinking this account."
         )
       }
-      if (result === "not-found")
-        return c.json({ error: "Account not found." }, 404)
-      return c.json({ success: true })
+      if (result === "not-found") return notFound(c)
+      return success(c)
     }
   )

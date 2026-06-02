@@ -1,3 +1,7 @@
+import { base64UrlToBytes, bytesToBase64Url } from "../encoding/base64url"
+import { constantTimeEqual, hmacSha256 } from "../runtime/crypto"
+import type { UploadTicket } from "./driver"
+
 export interface UploadTokenPayload {
   /** key - opaque storage key the bytes will land at */
   k: string
@@ -16,18 +20,62 @@ export interface UploadTokenPayload {
 const textEncoder = new TextEncoder()
 const textDecoder = new TextDecoder()
 
-export async function signToken(
+async function signToken(
   payload: UploadTokenPayload,
   secret: string
 ): Promise<string> {
   const json = textEncoder.encode(JSON.stringify(payload))
   const sig = await hmacSha256(json, secret)
-  return `${base64UrlEncode(json)}.${base64UrlEncode(sig)}`
+  return `${bytesToBase64Url(json)}.${bytesToBase64Url(sig)}`
 }
 
-export type DecodedToken =
+export async function mintFsUploadTicket(input: {
+  payload: UploadTokenPayload
+  publicBaseUrl: string
+  secret: string
+}): Promise<UploadTicket> {
+  const token = await signToken(input.payload, input.secret)
+  const baseUrl = input.publicBaseUrl.replace(/\/+$/, "")
+  return {
+    uploadUrl: `${baseUrl}/api/assets/upload/${token}`,
+    method: "POST",
+    headers: { "Content-Type": input.payload.ct },
+    expiresAt: input.payload.exp,
+  }
+}
+
+type DecodedToken =
   | { ok: true; payload: UploadTokenPayload }
   | { ok: false; reason: "malformed" | "bad-signature" | "expired" }
+
+function parseUploadTokenPayload(value: unknown): UploadTokenPayload | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const payload = value as Record<string, unknown>
+  const { k, ct, mb, exp, uid, cid } = payload
+  if (
+    typeof k !== "string" ||
+    !k.trim() ||
+    typeof ct !== "string" ||
+    !ct.trim() ||
+    typeof uid !== "string" ||
+    !uid.trim() ||
+    typeof cid !== "string" ||
+    !cid.trim()
+  ) {
+    return null
+  }
+  if (
+    typeof mb !== "number" ||
+    !Number.isSafeInteger(mb) ||
+    mb <= 0 ||
+    typeof exp !== "number" ||
+    !Number.isSafeInteger(exp) ||
+    exp <= 0
+  ) {
+    return null
+  }
+  return { k, ct, mb, exp, uid, cid }
+}
 
 export async function decodeUploadToken(
   token: string,
@@ -43,8 +91,8 @@ export async function decodeUploadToken(
   let payloadBytes: Uint8Array
   let sigBytes: Uint8Array
   try {
-    payloadBytes = base64UrlDecode(payloadB64)
-    sigBytes = base64UrlDecode(sigB64)
+    payloadBytes = base64UrlToBytes(payloadB64)
+    sigBytes = base64UrlToBytes(sigB64)
   } catch {
     return { ok: false, reason: "malformed" }
   }
@@ -53,87 +101,24 @@ export async function decodeUploadToken(
   }
 
   const expected = await hmacSha256(payloadBytes, secret)
-  // `timingSafeEqual` requires equal-length buffers; the byte-length
+  // `constantTimeEqual` requires equal-length buffers; the byte-length
   // check above gates that. Wrong-length sigs already returned malformed.
   if (!constantTimeEqual(expected, sigBytes)) {
     return { ok: false, reason: "bad-signature" }
   }
 
-  let payload: UploadTokenPayload
+  let rawPayload: unknown
   try {
-    payload = JSON.parse(textDecoder.decode(payloadBytes)) as UploadTokenPayload
+    rawPayload = JSON.parse(textDecoder.decode(payloadBytes)) as unknown
   } catch {
     return { ok: false, reason: "malformed" }
   }
-  if (
-    typeof payload.k !== "string" ||
-    typeof payload.ct !== "string" ||
-    typeof payload.mb !== "number" ||
-    typeof payload.exp !== "number" ||
-    typeof payload.uid !== "string" ||
-    typeof payload.cid !== "string"
-  ) {
+  const payload = parseUploadTokenPayload(rawPayload)
+  if (!payload) {
     return { ok: false, reason: "malformed" }
   }
   if (payload.exp < Math.floor(Date.now() / 1000)) {
     return { ok: false, reason: "expired" }
   }
   return { ok: true, payload }
-}
-
-async function hmacSha256(
-  payload: Uint8Array,
-  secret: string
-): Promise<Uint8Array> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    textEncoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  )
-  return new Uint8Array(
-    await crypto.subtle.sign("HMAC", key, bytesToArrayBuffer(payload))
-  )
-}
-
-function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-  return bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength
-  ) as ArrayBuffer
-}
-
-function base64UrlEncode(bytes: Uint8Array): string {
-  let binary = ""
-  for (const byte of bytes) binary += String.fromCharCode(byte)
-  return btoa(binary)
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replace(/=+$/, "")
-}
-
-function base64UrlDecode(value: string): Uint8Array {
-  if (!/^[A-Za-z0-9_-]*$/.test(value)) {
-    throw new Error("Invalid base64url")
-  }
-  const padded = value
-    .replaceAll("-", "+")
-    .replaceAll("_", "/")
-    .padEnd(Math.ceil(value.length / 4) * 4, "=")
-  const binary = atob(padded)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i)
-  }
-  return bytes
-}
-
-function constantTimeEqual(left: Uint8Array, right: Uint8Array): boolean {
-  if (left.byteLength !== right.byteLength) return false
-  let diff = 0
-  for (let i = 0; i < left.byteLength; i++) {
-    diff |= left[i] ^ right[i]
-  }
-  return diff === 0
 }

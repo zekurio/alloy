@@ -17,16 +17,18 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import {
   announceFloatingSurfaceOpen,
-  subscribeToFloatingSurfaceOpen,
+  type FloatingSurface,
+  useFloatingSurfaceOpenListener,
 } from "@/components/app/floating-surface-events"
+import type { AppSearch } from "@/lib/app-search"
+import { errorMessage } from "@/lib/error-message"
 import { useSuspenseSession } from "@/lib/session-suspense"
 import { FloatingUploadButton } from "./floating-upload-button"
 import { useUploadFlowControls } from "./use-upload-flow-controls"
 import { type QueueClip } from "@workspace/api"
 import {
   ACCEPT_LIST,
-  probeFile,
-  resolveContentType,
+  prepareSelectedClipFile,
   type PublishPayload,
   type SelectedFile,
 } from "./new-clip-helpers"
@@ -57,18 +59,12 @@ function useNewClipPicker(onPicked: () => void) {
       const file = e.target.files?.[0]
       e.target.value = ""
       if (!file) return
-      const contentType = resolveContentType(file)
-      if (!contentType) {
-        toast.error("Unsupported file type")
-        return
-      }
       try {
-        const meta = await probeFile(file)
-        setInitialFile({ ...meta, contentType })
+        setInitialFile(await prepareSelectedClipFile(file))
         onPicked()
         setNewClipOpen(true)
-      } catch {
-        toast.error("Couldn't read video metadata")
+      } catch (cause) {
+        toast.error(errorMessage(cause, "Couldn't prepare clip"))
       }
     },
     [onPicked]
@@ -143,11 +139,13 @@ function UploadQueuePopover({
     />
   )
 
-  React.useEffect(() => {
-    return subscribeToFloatingSurfaceOpen((surface) => {
+  const handleFloatingSurfaceOpen = React.useCallback(
+    (surface: FloatingSurface) => {
       if (surface !== "uploads") setQueueOpen(false)
-    })
-  }, [setQueueOpen])
+    },
+    [setQueueOpen]
+  )
+  useFloatingSurfaceOpenListener(handleFloatingSurfaceOpen)
 
   React.useEffect(() => {
     if (queueOpen) announceFloatingSurfaceOpen("uploads")
@@ -226,7 +224,7 @@ function AuthedUploadFlow() {
       setQueueOpen(false)
       void navigate({
         to: ".",
-        search: (prev) => ({ ...prev, clip: row.id }),
+        search: (prev: AppSearch) => ({ ...prev, clip: row.id }),
         mask: {
           to: "/g/$slug/c/$clipId",
           params: { slug: row.gameSlug, clipId: row.id },

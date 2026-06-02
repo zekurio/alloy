@@ -23,7 +23,12 @@ import type {
 } from "@workspace/api"
 
 import { useUpdateClipMutation } from "@/lib/clip-queries"
-import { CLIP_DESCRIPTION_MAX, CLIP_TITLE_MAX } from "@/lib/clip-fields"
+import {
+  CLIP_DESCRIPTION_MAX,
+  CLIP_TITLE_MAX,
+  normalizeClipDescription,
+  normalizeClipTitle,
+} from "@/lib/clip-fields"
 
 import { ClipPrivacyPicker } from "./clip-privacy-picker"
 import { LimitedInput, LimitedTextarea } from "@/components/form/limited-field"
@@ -100,8 +105,8 @@ export function ClipEditDialog({
 
   const saving = mutation.isPending
 
-  const trimmedTitle = title.trim()
-  const trimmedDescription = description.trim()
+  const trimmedTitle = normalizeClipTitle(title)
+  const trimmedDescription = normalizeClipDescription(description)
   const currentDescription = row.description ?? ""
   const originalMentionIds = (row.mentions ?? []).map((m) => m.id)
   const mentionIds = mentions.map((m) => m.id)

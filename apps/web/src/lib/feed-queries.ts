@@ -1,9 +1,7 @@
 import {
   keepPreviousData,
   useInfiniteQuery,
-  useMutation,
   useQuery,
-  useQueryClient,
 } from "@tanstack/react-query"
 
 import type { FeedFilter, FeedPageParams } from "@workspace/api"
@@ -47,21 +45,5 @@ export function useFeedChipsQuery() {
     queryFn: () => api.feed.fetchChips(),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
-  })
-}
-
-export function useToggleGameFollowMutation() {
-  const qc = useQueryClient()
-
-  return useMutation<
-    { following: boolean },
-    Error,
-    { slug: string; next: boolean }
-  >({
-    mutationFn: ({ slug, next }) =>
-      next ? api.games.favorite(slug) : api.games.unfavorite(slug),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: feedKeys.all })
-    },
   })
 }

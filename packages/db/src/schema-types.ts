@@ -12,20 +12,9 @@ import type {
   gameFollow,
   notification,
 } from "./schema"
+import type { ClipVariantSettings } from "@workspace/contracts"
 
-export interface ClipVariantSettings {
-  hwaccel: string
-  codec: string
-  audioCodec: "aac" | "none"
-  quality: number
-  preset?: string
-  audioBitrateKbps: number
-  extraInputArgs: string
-  extraOutputArgs: string
-  height: number
-  trimStartMs: number | null
-  trimEndMs: number | null
-}
+export type { ClipVariantSettings } from "@workspace/contracts"
 
 export interface ClipEncodedVariant {
   id: string

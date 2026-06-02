@@ -2,6 +2,7 @@ import { createMiddleware } from "hono/factory"
 
 import { env } from "../env"
 import { configStore } from "../config/store"
+import { forbidden } from "../runtime/http-response"
 
 const MUTATING_METHODS = new Set(["POST", "PATCH", "DELETE", "PUT"])
 const CSRF_EXEMPT_PATHS = ["/api/assets/upload/"]
@@ -23,20 +24,16 @@ export const csrf = createMiddleware(async (c, next) => {
   const allowedOrigins = trustedOrigins()
   const origin = c.req.header("origin")
   if (origin && !allowedOrigins.has(origin)) {
-    return c.json({ error: "Forbidden" }, 403)
+    return forbidden(c)
   }
 
   const fetchSite = c.req.header("sec-fetch-site")
   if (fetchSite === "cross-site" || fetchSite === "none") {
-    return c.json({ error: "Forbidden" }, 403)
+    return forbidden(c)
   }
 
   await next()
 })
-
-export function errorMessage(cause: unknown, fallback: string): string {
-  return cause instanceof Error ? cause.message : fallback
-}
 
 export async function canOpenPasskeyRegistration(): Promise<boolean> {
   return (

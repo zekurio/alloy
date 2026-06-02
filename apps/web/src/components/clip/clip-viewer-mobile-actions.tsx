@@ -23,7 +23,7 @@ import {
 } from "@workspace/ui/components/dropdown-menu"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { formatCount } from "@/lib/clip-format"
+import { formatCount } from "@/lib/number-format"
 import { userAvatar } from "@/lib/user-display"
 
 type ClipAuthorLinkProps = {
@@ -134,7 +134,7 @@ function ClipActionsMenu({
   )
 }
 
-export type MobileActionsRailProps = {
+type MobileActionsRailProps = {
   liked: boolean
   canLike: boolean
   canManage: boolean

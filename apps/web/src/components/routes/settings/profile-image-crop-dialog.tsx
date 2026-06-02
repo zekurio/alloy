@@ -13,6 +13,7 @@ import { Button } from "@workspace/ui/components/button"
 import { Slider } from "@workspace/ui/components/slider"
 import { toast } from "@workspace/ui/lib/toast"
 import { cn } from "@workspace/ui/lib/utils"
+import { errorMessage } from "@/lib/error-message"
 import {
   canvasToBlob,
   clamp,
@@ -126,9 +127,7 @@ export function ProfileImageCropDialog({
     load().catch((cause) => {
       if (active) {
         setLoadedImage(null)
-        toast.error(
-          cause instanceof Error ? cause.message : "Couldn't load image"
-        )
+        toast.error(errorMessage(cause, "Couldn't load image"))
       }
     })
 
@@ -303,9 +302,7 @@ export function ProfileImageCropDialog({
     try {
       await handleApply()
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't crop image"
-      )
+      toast.error(errorMessage(cause, "Couldn't crop image"))
     }
   }
 

@@ -1,15 +1,14 @@
 import { eq, sql } from "drizzle-orm"
 
 import { user } from "@workspace/db/auth-schema"
+import { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "@workspace/contracts"
 
 import { db } from "../db"
 
-export const USERNAME_MAX_LEN = 24
-export const USERNAME_MIN_LEN = 1
 const USERNAME_DISALLOWED_RE = /[\p{Cc}\p{Cs}/\\]/u
 const USERNAME_DOT_SEGMENTS = new Set([".", ".."])
-const MAX_LEN = USERNAME_MAX_LEN
-const MIN_LEN = USERNAME_MIN_LEN
+const MAX_LEN = USERNAME_MAX_LENGTH
+const MIN_LEN = USERNAME_MIN_LENGTH
 const MAX_SUFFIX = 100
 
 export function normalizeUsername(input: string): string {
@@ -44,7 +43,7 @@ export function slugifyUsername(input: string): string {
   )
 }
 
-export function baseSlugFromUser(hints: {
+function baseSlugFromUser(hints: {
   name?: string | null
   email?: string | null
 }): string {

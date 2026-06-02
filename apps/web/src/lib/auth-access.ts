@@ -3,13 +3,13 @@ import type { PublicAuthConfig } from "@workspace/api"
 import { isDevSetupForced } from "./flags"
 import type { Session } from "./session-suspense"
 
-export type AuthRouteTarget = "/setup" | "/login" | null
+type AuthRouteTarget = "/setup" | "/login" | null
 
 export function isAdmin(session: Session | null): boolean {
   return (session?.user as { role?: string } | undefined)?.role === "admin"
 }
 
-export function isClipPermalink(pathname: string): boolean {
+function isClipPermalink(pathname: string): boolean {
   return /^\/g\/[^/]+\/c\/[^/]+\/?$/.test(pathname)
 }
 

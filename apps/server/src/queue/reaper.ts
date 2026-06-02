@@ -1,14 +1,13 @@
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm"
 
 import { clip, clipUploadTicket } from "@workspace/db/schema"
+import { logger } from "@workspace/logging"
 
 import { db } from "../db"
 import { publishClipRemove } from "../clips/events"
 import { configStore } from "../config/store"
-import { deleteScratchUpload } from "../uploads/scratch"
+import { deleteScratchUpload, deleteScratchUploads } from "../uploads/scratch"
 import { enqueueEncode } from "./encode-worker"
-
-export const REAP_JOB = "clip.reap" as const
 
 const UPLOADED_MAX_AGE_INTERVAL = "24 hours"
 const REAP_INTERVAL_MS = 10 * 60 * 1000
@@ -38,8 +37,7 @@ async function runReaper(): Promise<void> {
     await reapExpiredUploadTickets()
     await requeueStuckProcessing()
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error("[queue/reap] failed:", err)
+    logger.error("[queue/reap] failed:", err)
   } finally {
     reaperRunning = false
   }
@@ -62,14 +60,12 @@ async function reapPending(): Promise<void> {
       .select({ storageKey: clipUploadTicket.storageKey })
       .from(clipUploadTicket)
       .where(eq(clipUploadTicket.clipId, row.id))
-    await Promise.allSettled(
-      tickets.map((ticket) => deleteScratchUpload(ticket.storageKey))
+    await deleteScratchUploads(
+      tickets.map((ticket) => ticket.storageKey),
+      `stale clip ${row.id} upload`
     )
     await db.delete(clip).where(eq(clip.id, row.id))
     publishClipRemove(row.authorId, row.id)
-  }
-  if (stale.length > 0) {
-    // eslint-disable-next-line no-console
   }
 }
 
@@ -94,8 +90,7 @@ async function reapExpiredUploadTickets(): Promise<void> {
     try {
       await deleteScratchUpload(ticket.storageKey)
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn(
+      logger.warn(
         `[queue/reap] could not delete expired staged object ${ticket.storageKey}:`,
         err
       )
@@ -128,8 +123,5 @@ async function requeueStuckProcessing(): Promise<void> {
 
   for (const row of stuck) {
     enqueueEncode(row.id)
-  }
-  if (stuck.length > 0) {
-    // eslint-disable-next-line no-console
   }
 }

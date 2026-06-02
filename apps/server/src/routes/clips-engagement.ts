@@ -1,13 +1,15 @@
-import { zValidator } from "@hono/zod-validator"
+import { zValidator } from "./validation"
 import { and, eq, sql, type SQL } from "drizzle-orm"
 import { Hono } from "hono"
 
 import { clip, clipLike, clipView } from "@workspace/db/schema"
 
 import { db } from "../db"
+import { clipAccessResponse, resolveClipAccess } from "../clips/access"
 import { requireSession } from "../auth/require-session"
 import { applyViewerCookie, resolveViewer } from "../auth/viewer-key"
-import { IdParam, resolveEngagementTarget } from "./clips-helpers"
+import { booleanFlag, likeState, noContent } from "../runtime/http-response"
+import { IdParam } from "./clips-helpers"
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -42,12 +44,19 @@ export const clipsEngagementRoutes = new Hono()
   .get("/:id/like", requireSession, zValidator("param", IdParam), async (c) => {
     const viewerId = c.var.viewerId
     const { id } = c.req.valid("param")
+    const target = await resolveClipAccess({
+      id,
+      headers: c.req.raw.headers,
+      policy: "engagement",
+    })
+    if (!target.accessible) return clipAccessResponse(c, target)
+
     const [row] = await db
       .select({ clipId: clipLike.clipId })
       .from(clipLike)
       .where(and(eq(clipLike.clipId, id), eq(clipLike.userId, viewerId)))
       .limit(1)
-    return c.json({ liked: row !== undefined })
+    return booleanFlag(c, "liked", row !== undefined)
   })
 
   .post(
@@ -58,8 +67,12 @@ export const clipsEngagementRoutes = new Hono()
       const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")
 
-      const target = await resolveEngagementTarget(id, c.req.raw.headers)
-      if (!target.accessible) return target.response
+      const target = await resolveClipAccess({
+        id,
+        headers: c.req.raw.headers,
+        policy: "engagement",
+      })
+      if (!target.accessible) return clipAccessResponse(c, target)
 
       const likeCount = await db.transaction(async (tx) => {
         const inserted = await tx
@@ -73,7 +86,7 @@ export const clipsEngagementRoutes = new Hono()
         return readLikeCount(tx, id, 0)
       })
 
-      return c.json({ liked: true, likeCount })
+      return likeState(c, true, likeCount)
     }
   )
 
@@ -84,8 +97,12 @@ export const clipsEngagementRoutes = new Hono()
     async (c) => {
       const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")
-      const target = await resolveEngagementTarget(id, c.req.raw.headers)
-      if (!target.accessible) return target.response
+      const target = await resolveClipAccess({
+        id,
+        headers: c.req.raw.headers,
+        policy: "engagement",
+      })
+      if (!target.accessible) return clipAccessResponse(c, target)
 
       const likeCount = await db.transaction(async (tx) => {
         const removed = await tx
@@ -100,18 +117,22 @@ export const clipsEngagementRoutes = new Hono()
             0
           )
         }
-        return readLikeCount(tx, id, target.likeCount)
+        return readLikeCount(tx, id, target.row.likeCount)
       })
 
-      return c.json({ liked: false, likeCount })
+      return likeState(c, false, likeCount)
     }
   )
 
   .post("/:id/view", zValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
 
-    const target = await resolveEngagementTarget(id, c.req.raw.headers)
-    if (!target.accessible) return target.response
+    const target = await resolveClipAccess({
+      id,
+      headers: c.req.raw.headers,
+      policy: "engagement",
+    })
+    if (!target.accessible) return clipAccessResponse(c, target)
 
     const viewer = await resolveViewer(c)
 
@@ -133,5 +154,5 @@ export const clipsEngagementRoutes = new Hono()
 
     applyViewerCookie(c, viewer.cookieToSet)
 
-    return c.body(null, 204)
+    return noContent(c)
   })

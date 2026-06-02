@@ -2,6 +2,7 @@ import {
   type ClipEncodedVariant,
   type ClipVariantSettings,
 } from "@workspace/db/schema"
+import { logger } from "@workspace/logging"
 
 import { storage } from "../storage"
 import { codecNameFor } from "./ffmpeg"
@@ -19,11 +20,11 @@ export async function planReuse(
     priorByVariantId.set(prev.id, prev)
   }
 
-  for (let i = 0; i < variantSpecs.length; i++) {
-    const spec = variantSpecs[i]!
+  for (const [i, spec] of variantSpecs.entries()) {
     const prev = priorByVariantId.get(spec.id)
     if (!prev?.settings) continue
-    if (!settingsEqual(prev.settings, targetSettings[i]!)) continue
+    const target = targetSettings[i]
+    if (!target || !settingsEqual(prev.settings, target)) continue
     const fileHit = await storage.resolve(prev.storageKey)
     if (!fileHit) continue
     reusedBySpecIndex.set(i, prev)
@@ -44,8 +45,7 @@ export async function pruneStaleVariants(
   for (const prev of row.variants) {
     if (reusedKeys.has(prev.storageKey)) continue
     await storage.delete(prev.storageKey).catch((err: unknown) => {
-      // eslint-disable-next-line no-console
-      console.warn(
+      logger.warn(
         `[encode-worker] failed to remove stale variant ${prev.storageKey}:`,
         err
       )
@@ -74,7 +74,7 @@ export function resolveVariantSettings(
   }
 }
 
-export function settingsEqual(
+function settingsEqual(
   a: ClipVariantSettings,
   b: ClipVariantSettings
 ): boolean {

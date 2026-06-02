@@ -1,8 +1,14 @@
-import { zValidator } from "@hono/zod-validator"
+import { limitQueryParam, zValidator } from "./validation"
 import { Hono } from "hono"
 import { z } from "zod"
 
+import {
+  NOTIFICATIONS_DEFAULT_LIMIT,
+  NOTIFICATIONS_MAX_LIMIT,
+} from "@workspace/contracts"
+
 import { requireSession } from "../auth/require-session"
+import { notFound } from "../runtime/http-response"
 import {
   clearNotifications,
   deleteNotification,
@@ -12,7 +18,7 @@ import {
 } from "../notifications"
 
 const ListQuery = z.object({
-  limit: z.coerce.number().int().min(1).max(50).optional(),
+  limit: limitQueryParam(NOTIFICATIONS_MAX_LIMIT, NOTIFICATIONS_DEFAULT_LIMIT),
 })
 
 const IdParam = z.object({ id: z.uuid() })
@@ -38,7 +44,7 @@ export const notificationsRoute = new Hono()
     async (c) => {
       const { id } = c.req.valid("param")
       const row = await markNotificationRead(c.var.viewerId, id)
-      if (!row) return c.json({ error: "Not found" }, 404)
+      if (!row) return notFound(c)
       return c.json(row)
     }
   )
@@ -46,6 +52,6 @@ export const notificationsRoute = new Hono()
   .delete("/:id", requireSession, zValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
     const result = await deleteNotification(c.var.viewerId, id)
-    if (!result) return c.json({ error: "Not found" }, 404)
+    if (!result) return notFound(c)
     return c.json(result)
   })

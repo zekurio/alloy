@@ -23,6 +23,7 @@ function ProfileFeedTab() {
       <ProfileTopClipsSection
         username={username}
         clips={clips}
+        error={clipsError}
         isSelf={isSelf}
       />
       <GamesSection username={username} />

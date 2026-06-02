@@ -1,18 +1,29 @@
-import { zValidator } from "@hono/zod-validator"
+import { zValidator } from "./validation"
 import { eq } from "drizzle-orm"
 import { Hono } from "hono"
 import { Buffer } from "node:buffer"
 import { z } from "zod"
 
 import { user } from "@workspace/db/auth-schema"
-import { ACCEPTED_IMAGE_CONTENT_TYPES } from "@workspace/contracts"
+import {
+  ACCEPTED_IMAGE_CONTENT_TYPES,
+  userAssetImagePath,
+} from "@workspace/contracts"
+import { logger } from "@workspace/logging"
 
 import { db } from "../db"
 import { requireSession } from "../auth/require-session"
 import { validateImageBytes } from "../media/image-validation"
+import { errorResult, notFound } from "../runtime/http-response"
 import { storage, userAssetKey } from "../storage"
 import type { ResolvedObject } from "../storage/driver"
 import { toPublicUser, type UserRow } from "./users-helpers"
+
+type UserAssetRole = "avatar" | "banner"
+type UserAssetUploadBody = {
+  data: string
+  contentType: (typeof ACCEPTED_IMAGE_CONTENT_TYPES)[number]
+}
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024 // 5 MB
 const MAX_BANNER_BYTES = 10 * 1024 * 1024 // 10 MB
@@ -28,6 +39,14 @@ const USER_ASSET_TARGETS = {
   avatar: { width: 512, height: 512 },
   banner: { width: 1500, height: 375 },
 } as const
+
+const USER_ASSET_LIMITS: Record<
+  UserAssetRole,
+  { label: string; maxBytes: number }
+> = {
+  avatar: { label: "Avatar", maxBytes: MAX_AVATAR_BYTES },
+  banner: { label: "Banner", maxBytes: MAX_BANNER_BYTES },
+}
 
 const EXT_FOR_CONTENT_TYPE: Record<string, string> = {
   "image/jpeg": ".jpg",
@@ -61,10 +80,6 @@ async function readAll(stream: ReadableStream<Uint8Array>): Promise<Buffer> {
   return out
 }
 
-function assetUrl(key: string, updatedAt: Date): string {
-  return `/api/assets/users/${key}?v=${updatedAt.getTime().toString(36)}`
-}
-
 function assetEtag(key: string, resolved: ResolvedObject): string {
   const modified = resolved.lastModified?.getTime() ?? 0
   return `"${Buffer.from(`${key}:${resolved.size}:${modified}`).toString("base64url")}"`
@@ -75,9 +90,14 @@ async function fetchRow(userId: string): Promise<UserRow | null> {
   return row ?? null
 }
 
+async function fetchUpdatedPublicUser(userId: string) {
+  const row = await fetchRow(userId)
+  return row ? toPublicUser(row) : null
+}
+
 async function deleteOldAssets(
   userId: string,
-  role: "avatar" | "banner"
+  role: UserAssetRole
 ): Promise<void> {
   const exts = [
     ...new Set([...Object.values(EXT_FOR_CONTENT_TYPE), USER_ASSET_EXT]),
@@ -100,7 +120,7 @@ async function which(binary: string): Promise<string | null> {
 }
 
 async function imageMagickArgs(
-  target: (typeof USER_ASSET_TARGETS)["avatar" | "banner"]
+  target: (typeof USER_ASSET_TARGETS)[UserAssetRole]
 ): Promise<string[]> {
   const magick = await which("magick")
   if (magick) {
@@ -131,7 +151,7 @@ async function imageMagickArgs(
 
 async function resizeUserAsset(
   bytes: Buffer,
-  role: "avatar" | "banner"
+  role: UserAssetRole
 ): Promise<Buffer> {
   const target = USER_ASSET_TARGETS[role]
   const [command, ...args] = await imageMagickArgs(target)
@@ -153,6 +173,103 @@ async function resizeUserAsset(
   return Buffer.from(stdout)
 }
 
+type UserAssetUpdateResult =
+  | {
+      ok: true
+      user: NonNullable<Awaited<ReturnType<typeof fetchUpdatedPublicUser>>>
+    }
+  | { ok: false; status: 400 | 413 | 500; error: string }
+
+async function uploadUserAsset(input: {
+  viewerId: string
+  role: UserAssetRole
+  data: string
+  contentType: string
+}): Promise<UserAssetUpdateResult> {
+  const limit = USER_ASSET_LIMITS[input.role]
+  const buf = Buffer.from(input.data, "base64")
+  if (buf.byteLength === 0) {
+    return { ok: false, status: 400, error: "Empty image data" }
+  }
+  if (buf.byteLength > limit.maxBytes) {
+    return {
+      ok: false,
+      status: 413,
+      error: `${limit.label} too large. Max ${limit.maxBytes / 1024 / 1024} MB`,
+    }
+  }
+
+  const validation = validateImageBytes(buf, input.contentType)
+  if (!validation.ok) {
+    return { ok: false, status: 400, error: validation.error }
+  }
+
+  let resized: Buffer
+  try {
+    resized = await resizeUserAsset(buf, input.role)
+  } catch (cause) {
+    logger.error(
+      `[users/upload] failed to process ${input.role} upload:`,
+      cause
+    )
+    return { ok: false, status: 400, error: "Could not process image" }
+  }
+
+  const key = userAssetKey(input.viewerId, input.role, USER_ASSET_EXT)
+  await deleteOldAssets(input.viewerId, input.role)
+  await storage.put(key, resized, USER_ASSET_CONTENT_TYPE)
+
+  const updatedAt = new Date()
+  const patch: Partial<typeof user.$inferInsert> = { updatedAt }
+  if (input.role === "avatar") {
+    patch.image = userAssetImagePath(key, updatedAt)
+  } else {
+    patch.banner = userAssetImagePath(key, updatedAt)
+  }
+
+  await db.update(user).set(patch).where(eq(user.id, input.viewerId))
+
+  const updated = await fetchUpdatedPublicUser(input.viewerId)
+  if (!updated) {
+    return { ok: false, status: 500, error: "User update did not persist" }
+  }
+  return { ok: true, user: updated }
+}
+
+async function removeUserAsset(
+  viewerId: string,
+  role: UserAssetRole
+): Promise<UserAssetUpdateResult> {
+  await deleteOldAssets(viewerId, role)
+  const patch: Partial<typeof user.$inferInsert> = { updatedAt: new Date() }
+  if (role === "avatar") {
+    patch.image = null
+  } else {
+    patch.banner = null
+  }
+  await db.update(user).set(patch).where(eq(user.id, viewerId))
+
+  const updated = await fetchUpdatedPublicUser(viewerId)
+  if (!updated) {
+    return { ok: false, status: 500, error: "User update did not persist" }
+  }
+  return { ok: true, user: updated }
+}
+
+async function uploadUserAssetResponse(
+  viewerId: string,
+  role: UserAssetRole,
+  body: UserAssetUploadBody
+) {
+  const result = await uploadUserAsset({
+    viewerId,
+    role,
+    data: body.data,
+    contentType: body.contentType,
+  })
+  return result
+}
+
 export const usersUploadRoute = new Hono<{
   Variables: { viewerId: string }
 }>()
@@ -161,48 +278,12 @@ export const usersUploadRoute = new Hono<{
     requireSession,
     zValidator("json", AvatarUploadBody),
     async (c) => {
-      const viewerId = c.var.viewerId
-      const { data, contentType } = c.req.valid("json")
-
-      const buf = Buffer.from(data, "base64")
-      if (buf.byteLength === 0) {
-        return c.json({ error: "Empty image data" }, 400)
-      }
-      if (buf.byteLength > MAX_AVATAR_BYTES) {
-        return c.json(
-          {
-            error: `Avatar too large. Max ${MAX_AVATAR_BYTES / 1024 / 1024} MB`,
-          },
-          413
-        )
-      }
-      const validation = validateImageBytes(buf, contentType)
-      if (!validation.ok) {
-        return c.json({ error: validation.error }, 400)
-      }
-
-      let resized: Buffer
-      try {
-        resized = await resizeUserAsset(buf, "avatar")
-      } catch (cause) {
-        console.error("Failed to process avatar upload", cause)
-        return c.json({ error: "Could not process image" }, 400)
-      }
-
-      const key = userAssetKey(viewerId, "avatar", USER_ASSET_EXT)
-
-      await deleteOldAssets(viewerId, "avatar")
-      await storage.put(key, resized, USER_ASSET_CONTENT_TYPE)
-
-      const updatedAt = new Date()
-      const url = assetUrl(key, updatedAt)
-      await db
-        .update(user)
-        .set({ image: url, updatedAt })
-        .where(eq(user.id, viewerId))
-
-      const row = await fetchRow(viewerId)
-      return c.json(toPublicUser(row!))
+      const result = await uploadUserAssetResponse(
+        c.var.viewerId,
+        "avatar",
+        c.req.valid("json")
+      )
+      return result.ok ? c.json(result.user) : errorResult(c, result)
     }
   )
 
@@ -211,77 +292,29 @@ export const usersUploadRoute = new Hono<{
     requireSession,
     zValidator("json", BannerUploadBody),
     async (c) => {
-      const viewerId = c.var.viewerId
-      const { data, contentType } = c.req.valid("json")
-
-      const buf = Buffer.from(data, "base64")
-      if (buf.byteLength === 0) {
-        return c.json({ error: "Empty image data" }, 400)
-      }
-      if (buf.byteLength > MAX_BANNER_BYTES) {
-        return c.json(
-          {
-            error: `Banner too large. Max ${MAX_BANNER_BYTES / 1024 / 1024} MB`,
-          },
-          413
-        )
-      }
-      const validation = validateImageBytes(buf, contentType)
-      if (!validation.ok) {
-        return c.json({ error: validation.error }, 400)
-      }
-
-      let resized: Buffer
-      try {
-        resized = await resizeUserAsset(buf, "banner")
-      } catch (cause) {
-        console.error("Failed to process banner upload", cause)
-        return c.json({ error: "Could not process image" }, 400)
-      }
-
-      const key = userAssetKey(viewerId, "banner", USER_ASSET_EXT)
-
-      await deleteOldAssets(viewerId, "banner")
-      await storage.put(key, resized, USER_ASSET_CONTENT_TYPE)
-
-      const updatedAt = new Date()
-      const url = assetUrl(key, updatedAt)
-      await db
-        .update(user)
-        .set({ banner: url, updatedAt })
-        .where(eq(user.id, viewerId))
-
-      const row = await fetchRow(viewerId)
-      return c.json(toPublicUser(row!))
+      const result = await uploadUserAssetResponse(
+        c.var.viewerId,
+        "banner",
+        c.req.valid("json")
+      )
+      return result.ok ? c.json(result.user) : errorResult(c, result)
     }
   )
 
   .delete("/me/avatar", requireSession, async (c) => {
-    const viewerId = c.var.viewerId
-    await deleteOldAssets(viewerId, "avatar")
-    await db
-      .update(user)
-      .set({ image: null, updatedAt: new Date() })
-      .where(eq(user.id, viewerId))
-    const row = await fetchRow(viewerId)
-    return c.json(toPublicUser(row!))
+    const result = await removeUserAsset(c.var.viewerId, "avatar")
+    return result.ok ? c.json(result.user) : errorResult(c, result)
   })
 
   .delete("/me/banner", requireSession, async (c) => {
-    const viewerId = c.var.viewerId
-    await deleteOldAssets(viewerId, "banner")
-    await db
-      .update(user)
-      .set({ banner: null, updatedAt: new Date() })
-      .where(eq(user.id, viewerId))
-    const row = await fetchRow(viewerId)
-    return c.json(toPublicUser(row!))
+    const result = await removeUserAsset(c.var.viewerId, "banner")
+    return result.ok ? c.json(result.user) : errorResult(c, result)
   })
 
 export const userAssetsRoute = new Hono().get("/:key{.+}", async (c) => {
   const key = c.req.param("key") ?? ""
   if (!key || !USER_ASSET_KEY_RE.test(key)) {
-    return c.json({ error: "Not found" }, 404)
+    return notFound(c)
   }
 
   const direct = await storage.mintDownloadUrl(key, {
@@ -294,7 +327,7 @@ export const userAssetsRoute = new Hono().get("/:key{.+}", async (c) => {
   }
 
   const resolved = await storage.resolve(key)
-  if (!resolved) return c.json({ error: "Not found" }, 404)
+  if (!resolved) return notFound(c)
   const etag = assetEtag(key, resolved)
 
   c.header("ETag", etag)

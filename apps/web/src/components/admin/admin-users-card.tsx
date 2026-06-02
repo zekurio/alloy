@@ -1,5 +1,9 @@
 import * as React from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  type QueryClient,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { PencilIcon, SaveIcon, Trash2Icon, UserPlusIcon } from "lucide-react"
 
 import {
@@ -62,22 +66,26 @@ import {
   TableRow,
 } from "@workspace/ui/components/table"
 
-import { authClient } from "@/lib/auth-client"
 import { api } from "@/lib/api"
 import { SeedUserDialog } from "@/components/admin/seed-user-dialog"
+import { adminKeys, adminUsersQueryOptions } from "@/lib/admin-query-keys"
 import {
   formatBytes,
   formatQuotaGiB,
   parseQuotaGiB,
   storageUsagePercent,
 } from "@/lib/storage-format"
+import { errorMessage } from "@/lib/error-message"
+import { userKeys } from "@/lib/user-queries"
 import { displayName, userAvatar } from "@/lib/user-display"
 import type { AdminUsersResponse, AdminUserStorageRow } from "@workspace/api"
 import { normalizeRole } from "./admin-user-role"
 
 type AdminUserRow = AdminUserStorageRow
-const adminUsersQueryKey = ["admin", "users"] as const
-const currentUserStorageQueryKey = ["user", "storage"] as const
+type AdminUserEditableFields = {
+  role: "admin" | "user"
+  storageQuotaBytes: number | null
+}
 
 interface AdminUsersCardProps {
   currentUserId: string
@@ -86,18 +94,13 @@ interface AdminUsersCardProps {
 }
 
 function useAdminUsersQuery() {
-  const usersQuery = useQuery({
-    queryKey: adminUsersQueryKey,
-    queryFn: () => api.admin.fetchUsers(),
-  })
+  const usersQuery = useQuery(adminUsersQueryOptions())
   const { refetch } = usersQuery
   const refresh = React.useCallback(async () => {
     await refetch()
   }, [refetch])
   const loadError = usersQuery.error
-    ? usersQuery.error instanceof Error
-      ? usersQuery.error.message
-      : "Failed to load users"
+    ? errorMessage(usersQuery.error, "Failed to load users")
     : null
 
   return {
@@ -119,19 +122,48 @@ function useDeleteAdminUser({
     if (busyId) return
     setBusyId(user.id)
     try {
-      const { error } = await authClient.admin.removeUser({ userId: user.id })
-      if (error) throw new Error(error.message ?? "Delete failed")
+      await api.admin.deleteUser(user.id)
       toast.success("User removed")
-      await queryClient.invalidateQueries({ queryKey: adminUsersQueryKey })
-    } catch {
-      toast.error("Couldn't remove user")
+      await queryClient.invalidateQueries({ queryKey: adminKeys.users() })
+    } catch (cause) {
+      toast.error(errorMessage(cause, "Couldn't remove user"))
     } finally {
       setBusyId(null)
     }
   }
 }
 
-function useChangeAdminUserRole({
+function setAdminUserCacheRow(queryClient: QueryClient, updated: AdminUserRow) {
+  queryClient.setQueryData<AdminUsersResponse>(adminKeys.users(), (current) =>
+    current
+      ? {
+          ...current,
+          users: current.users.map((row) =>
+            row.id === updated.id ? updated : row
+          ),
+        }
+      : current
+  )
+}
+
+function adminUserEditableFields(user: AdminUserRow): AdminUserEditableFields {
+  return {
+    role: normalizeRole(user.role),
+    storageQuotaBytes: user.storageQuotaBytes,
+  }
+}
+
+function adminUserFieldsEqual(
+  left: AdminUserEditableFields,
+  right: AdminUserEditableFields
+): boolean {
+  return (
+    left.role === right.role &&
+    left.storageQuotaBytes === right.storageQuotaBytes
+  )
+}
+
+function useUpdateAdminUser({
   busyId,
   currentUserId,
   setBusyId,
@@ -141,74 +173,40 @@ function useChangeAdminUserRole({
   setBusyId: React.Dispatch<React.SetStateAction<string | null>>
 }) {
   const queryClient = useQueryClient()
-  return async (user: AdminUserRow, nextRole: "admin" | "user") => {
-    if (busyId) return
-    const current = normalizeRole(user.role)
-    if (current === nextRole) return
-    if (user.id === currentUserId && nextRole !== "admin") {
+  return async (
+    user: AdminUserRow,
+    next: AdminUserEditableFields
+  ): Promise<boolean> => {
+    if (busyId) return false
+    const current = adminUserEditableFields(user)
+    const roleChanged = current.role !== next.role
+    const quotaChanged = current.storageQuotaBytes !== next.storageQuotaBytes
+    if (!roleChanged && !quotaChanged) return true
+
+    if (user.id === currentUserId && roleChanged && next.role !== "admin") {
       toast.error(
         "Demote yourself from the profile page after promoting another admin first."
       )
-      return
+      return false
     }
-    setBusyId(user.id)
-    try {
-      const { error } = await authClient.admin.setRole({
-        userId: user.id,
-        role: nextRole,
-      })
-      if (error) throw new Error(error.message ?? "Role update failed")
-      toast.success(
-        nextRole === "admin" ? "Promoted to admin" : "Reverted to user"
-      )
-      await queryClient.invalidateQueries({ queryKey: adminUsersQueryKey })
-    } catch {
-      toast.error("Couldn't update role")
-    } finally {
-      setBusyId(null)
-    }
-  }
-}
 
-function useChangeAdminUserQuota({
-  busyId,
-  currentUserId,
-  setBusyId,
-}: {
-  busyId: string | null
-  currentUserId: string
-  setBusyId: React.Dispatch<React.SetStateAction<string | null>>
-}) {
-  const queryClient = useQueryClient()
-  return async (user: AdminUserRow, storageQuotaBytes: number | null) => {
-    if (busyId) return
     setBusyId(user.id)
     try {
-      const updated = await api.admin.updateUserStorageQuota(user.id, {
-        storageQuotaBytes,
+      const updated = await api.admin.updateUser(user.id, {
+        ...(roleChanged ? { role: next.role } : {}),
+        ...(quotaChanged ? { storageQuotaBytes: next.storageQuotaBytes } : {}),
       })
-      queryClient.setQueryData<AdminUsersResponse>(
-        adminUsersQueryKey,
-        (current) =>
-          current
-            ? {
-                ...current,
-                users: current.users.map((row) =>
-                  row.id === updated.id ? updated : row
-                ),
-              }
-            : current
-      )
-      if (updated.id === currentUserId) {
-        void queryClient.invalidateQueries({
-          queryKey: currentUserStorageQueryKey,
+      setAdminUserCacheRow(queryClient, updated)
+      if (updated.id === currentUserId && quotaChanged) {
+        await queryClient.invalidateQueries({
+          queryKey: userKeys.storage(),
         })
       }
-      toast.success("Storage quota updated")
+      toast.success("User updated")
+      return true
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't update storage quota"
-      )
+      toast.error(errorMessage(cause, "Couldn't update user"))
+      return false
     } finally {
       setBusyId(null)
     }
@@ -219,11 +217,7 @@ function useAdminUserMutations(currentUserId: string) {
   const [busyId, setBusyId] = React.useState<string | null>(null)
   const mutationState = { busyId, setBusyId }
   const onDelete = useDeleteAdminUser(mutationState)
-  const onChangeQuota = useChangeAdminUserQuota({
-    ...mutationState,
-    currentUserId,
-  })
-  const onChangeRole = useChangeAdminUserRole({
+  const onUpdate = useUpdateAdminUser({
     ...mutationState,
     currentUserId,
   })
@@ -231,8 +225,7 @@ function useAdminUserMutations(currentUserId: string) {
   return {
     busyId,
     onDelete,
-    onChangeRole,
-    onChangeQuota,
+    onUpdate,
   }
 }
 
@@ -247,15 +240,8 @@ export function AdminUsersCard({
   currentUserId,
   hideHeader,
 }: AdminUsersCardProps) {
-  const {
-    users,
-    loadError,
-    busyId,
-    refresh,
-    onDelete,
-    onChangeRole,
-    onChangeQuota,
-  } = useAdminUsers(currentUserId)
+  const { users, loadError, busyId, refresh, onDelete, onUpdate } =
+    useAdminUsers(currentUserId)
   const [seedOpen, setSeedOpen] = React.useState(false)
 
   const seedDialog = (trigger: React.ReactNode) => (
@@ -285,8 +271,7 @@ export function AdminUsersCard({
       users={users}
       currentUserId={currentUserId}
       busyId={busyId}
-      onChangeRole={onChangeRole}
-      onChangeQuota={onChangeQuota}
+      onUpdate={onUpdate}
       onDelete={onDelete}
       action={
         hideHeader
@@ -330,16 +315,17 @@ function UsersTable({
   users,
   currentUserId,
   busyId,
-  onChangeRole,
-  onChangeQuota,
+  onUpdate,
   onDelete,
   action,
 }: {
   users: AdminUserRow[]
   currentUserId: string
   busyId: string | null
-  onChangeRole: (user: AdminUserRow, nextRole: "admin" | "user") => void
-  onChangeQuota: (user: AdminUserRow, storageQuotaBytes: number | null) => void
+  onUpdate: (
+    user: AdminUserRow,
+    next: AdminUserEditableFields
+  ) => Promise<boolean>
   onDelete: (user: AdminUserRow) => void
   action?: React.ReactNode
 }) {
@@ -362,8 +348,7 @@ function UsersTable({
             user={user}
             currentUserId={currentUserId}
             busy={busyId === user.id}
-            onChangeRole={onChangeRole}
-            onChangeQuota={onChangeQuota}
+            onUpdate={onUpdate}
             onDelete={onDelete}
           />
         ))}
@@ -376,15 +361,16 @@ function UserTableRow({
   user,
   currentUserId,
   busy,
-  onChangeRole,
-  onChangeQuota,
+  onUpdate,
   onDelete,
 }: {
   user: AdminUserRow
   currentUserId: string
   busy: boolean
-  onChangeRole: (user: AdminUserRow, nextRole: "admin" | "user") => void
-  onChangeQuota: (user: AdminUserRow, storageQuotaBytes: number | null) => void
+  onUpdate: (
+    user: AdminUserRow,
+    next: AdminUserEditableFields
+  ) => Promise<boolean>
   onDelete: (user: AdminUserRow) => void
 }) {
   const isSelf = user.id === currentUserId
@@ -418,12 +404,7 @@ function UserTableRow({
       </TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-1">
-          <EditUserDialog
-            user={user}
-            busy={busy}
-            onChangeQuota={onChangeQuota}
-            onChangeRole={onChangeRole}
-          />
+          <EditUserDialog user={user} busy={busy} onUpdate={onUpdate} />
           <AlertDialog>
             <AlertDialogTrigger
               render={
@@ -484,17 +465,34 @@ function StorageUsageCell({ user }: { user: AdminUserRow }) {
 function EditUserDialog({
   user,
   busy,
-  onChangeQuota,
-  onChangeRole,
+  onUpdate,
 }: {
   user: AdminUserRow
   busy: boolean
-  onChangeQuota: (user: AdminUserRow, storageQuotaBytes: number | null) => void
-  onChangeRole: (user: AdminUserRow, nextRole: "admin" | "user") => void
+  onUpdate: (
+    user: AdminUserRow,
+    next: AdminUserEditableFields
+  ) => Promise<boolean>
 }) {
   const [open, setOpen] = React.useState(false)
   const [quotaGiB, setQuotaGiB] = React.useState("")
   const [role, setRole] = React.useState<"admin" | "user">("user")
+  const [submitting, setSubmitting] = React.useState(false)
+  const saving = busy || submitting
+  const parsedQuota = React.useMemo(() => {
+    try {
+      return { ok: true as const, value: parseQuotaGiB(quotaGiB) }
+    } catch {
+      return { ok: false as const }
+    }
+  }, [quotaGiB])
+  const currentFields = adminUserEditableFields(user)
+  const nextFields = parsedQuota.ok
+    ? { role, storageQuotaBytes: parsedQuota.value }
+    : null
+  const dirty = nextFields
+    ? !adminUserFieldsEqual(currentFields, nextFields)
+    : true
 
   React.useEffect(() => {
     if (open) {
@@ -503,14 +501,28 @@ function EditUserDialog({
     }
   }, [open, user.storageQuotaBytes, user.role])
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    try {
-      onChangeQuota(user, parseQuotaGiB(quotaGiB))
-      onChangeRole(user, role)
+    if (saving) return
+    if (nextFields && !dirty) {
       setOpen(false)
+      return
+    }
+
+    let storageQuotaBytes: number | null
+    try {
+      storageQuotaBytes = parseQuotaGiB(quotaGiB)
     } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : "Invalid quota")
+      toast.error(errorMessage(cause, "Invalid quota"))
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const saved = await onUpdate(user, { role, storageQuotaBytes })
+      if (saved) setOpen(false)
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -542,7 +554,7 @@ function EditUserDialog({
               <Select
                 value={role}
                 onValueChange={(v) => setRole(v as "admin" | "user")}
-                disabled={busy}
+                disabled={saving}
               >
                 <SelectTrigger id={`role-${user.id}`}>
                   <SelectValue />
@@ -564,7 +576,7 @@ function EditUserDialog({
                 step={1}
                 value={quotaGiB}
                 placeholder="Unlimited"
-                disabled={busy}
+                disabled={saving}
                 onChange={(e) => setQuotaGiB(e.target.value)}
               />
               <FieldDescription>
@@ -579,15 +591,20 @@ function EditUserDialog({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  disabled={busy}
+                  disabled={saving}
                 />
               }
             >
               Cancel
             </ResponsiveDialogClose>
-            <Button type="submit" variant="primary" size="sm" disabled={busy}>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={saving || !dirty}
+            >
               <SaveIcon />
-              {busy ? "Saving…" : "Save"}
+              {saving ? "Saving…" : "Save"}
             </Button>
           </ResponsiveDialogFooter>
         </form>

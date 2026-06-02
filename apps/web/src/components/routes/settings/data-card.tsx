@@ -18,6 +18,8 @@ import { toast } from "@workspace/ui/lib/toast"
 
 import { StorageQuota } from "@/components/storage-quota"
 import { api } from "@/lib/api"
+import { startBrowserDownload } from "@/lib/browser-download"
+import { errorMessage } from "@/lib/error-message"
 import { getQueryClient } from "@/lib/query-client"
 
 function DataActionRow({
@@ -60,9 +62,7 @@ function useDeleteAllClipsAction() {
         deleted === 1 ? "Deleted 1 clip" : `Deleted ${deleted} clips`
       )
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't delete clips"
-      )
+      toast.error(errorMessage(cause, "Couldn't delete clips"))
     } finally {
       setPending(false)
     }
@@ -73,7 +73,10 @@ function useDeleteAllClipsAction() {
 
 function DownloadClipsRow() {
   function onDownloadAllClips() {
-    window.location.assign(api.users.downloadAllClipsUrl())
+    const started = startBrowserDownload(api.users.downloadAllClipsUrl(), {
+      rel: "noopener",
+    })
+    if (!started) toast.error("Couldn't start download")
   }
 
   return (

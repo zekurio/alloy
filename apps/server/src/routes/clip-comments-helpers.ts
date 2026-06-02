@@ -1,55 +1,50 @@
 import { and, desc, eq, inArray, isNull, or, sql, type SQL } from "drizzle-orm"
 import { z } from "zod"
 
-import type { CommentPage, CommentRow } from "@workspace/contracts"
+import {
+  COMMENT_BODY_MAX_LENGTH,
+  type CommentPage,
+  type CommentRow,
+  type UserSummary,
+} from "@workspace/contracts"
 import { user } from "@workspace/db/auth-schema"
-import { clip, clipComment, clipCommentLike } from "@workspace/db/schema"
+import { clipComment, clipCommentLike } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { base64UrlDecodeText, base64UrlEncodeText } from "../encoding/base64url"
-import { resolveEngagementTarget } from "./clips-helpers"
-
-export const BODY_MAX = 2000
+import { resolveClipAccess } from "../clips/access"
+import { dateLikeTime, isoDate, nullableIsoDate } from "../runtime/date"
+import {
+  cursorDate,
+  cursorNonNegativeInteger,
+  cursorRequiredString,
+  decodeCursorPayload,
+  encodeCursorPayload,
+} from "./cursor-codec"
+import { serialiseUserSummary, userSummarySelectShape } from "./users-helpers"
+import { limitQueryParam, requiredTrimmedString } from "./validation"
 
 export const CreateBody = z.object({
-  body: z.string().trim().min(1).max(BODY_MAX),
+  body: requiredTrimmedString(COMMENT_BODY_MAX_LENGTH),
   parentId: z.uuid().optional(),
 })
 
 export const UpdateBody = z.object({
-  body: z.string().trim().min(1).max(BODY_MAX),
+  body: requiredTrimmedString(COMMENT_BODY_MAX_LENGTH),
 })
 
 export const ListQuery = z.object({
   sort: z.enum(["top", "new"]).default("top"),
-  limit: z.coerce.number().int().positive().max(100).default(30),
+  limit: limitQueryParam(100, 30),
   cursor: z.string().optional(),
 })
 
 export const CommentIdParam = z.object({ commentId: z.uuid() })
 
-export const authorShape = {
-  id: user.id,
-  username: user.username,
-  displayUsername: user.displayUsername,
-  name: user.name,
-  image: user.image,
-} as const
-
-export async function selectClipAccess(clipId: string) {
-  const [row] = await db
-    .select({
-      id: clip.id,
-      authorId: clip.authorId,
-      status: clip.status,
-      privacy: clip.privacy,
-      authorDisabledAt: user.disabledAt,
-    })
-    .from(clip)
-    .innerJoin(user, eq(clip.authorId, user.id))
-    .where(eq(clip.id, clipId))
-    .limit(1)
-  return row ?? null
+export class InvalidCommentCursorError extends Error {
+  constructor() {
+    super("Invalid cursor")
+    this.name = "InvalidCommentCursorError"
+  }
 }
 
 export async function resolveCommentEngagementTarget(
@@ -61,8 +56,19 @@ export async function resolveCommentEngagementTarget(
     .from(clipComment)
     .where(eq(clipComment.id, commentId))
     .limit(1)
-  if (!row) return { accessible: false as const, response: null }
-  const target = await resolveEngagementTarget(row.clipId, headers)
+  if (!row) {
+    return {
+      accessible: false as const,
+      error: "Not found",
+      status: 404 as const,
+      isPrivate: false,
+    }
+  }
+  const target = await resolveClipAccess({
+    id: row.clipId,
+    headers,
+    policy: "engagement",
+  })
   if (!target.accessible) return target
   return { accessible: true as const }
 }
@@ -84,7 +90,7 @@ export async function listClipComments({
 }): Promise<CommentPage> {
   const parsedCursor = parseCommentCursor(cursor)
   if (cursor && !parsedCursor) {
-    throw new Error("Invalid cursor")
+    throw new InvalidCommentCursorError()
   }
 
   const topLevelConditions: SQL[] = [
@@ -145,7 +151,7 @@ const commentSelectShape = {
   pinnedAt: clipComment.pinnedAt,
   createdAt: clipComment.createdAt,
   editedAt: clipComment.editedAt,
-  author: authorShape,
+  author: userSummarySelectShape,
 } as const
 
 type CommentRowRecord = {
@@ -157,16 +163,17 @@ type CommentRowRecord = {
   pinnedAt: Date | null
   createdAt: Date
   editedAt: Date | null
-  author: {
-    id: string
-    username: string
-    displayUsername: string
-    name: string
-    image: string | null
-  }
+  author: UserSummary
 }
 
 type CommentCursor = {
+  pinned: boolean
+  likeCount: number
+  createdAt: Date
+  id: string
+}
+
+type CommentCursorPayload = {
   pinned: boolean
   likeCount: number
   createdAt: string
@@ -175,43 +182,34 @@ type CommentCursor = {
 
 function parseCommentCursor(value: string | undefined): CommentCursor | null {
   if (!value) return null
-  try {
-    const parsed = JSON.parse(
-      base64UrlDecodeText(value)
-    ) as Partial<CommentCursor>
-    if (
-      typeof parsed.pinned !== "boolean" ||
-      typeof parsed.likeCount !== "number" ||
-      !Number.isFinite(parsed.likeCount) ||
-      typeof parsed.createdAt !== "string" ||
-      Number.isNaN(new Date(parsed.createdAt).getTime()) ||
-      typeof parsed.id !== "string"
-    ) {
-      return null
-    }
-    return {
-      pinned: parsed.pinned,
-      likeCount: parsed.likeCount,
-      createdAt: parsed.createdAt,
-      id: parsed.id,
-    }
-  } catch {
+  const parsed = decodeCursorPayload(value)
+  if (!parsed) return null
+  const likeCount = cursorNonNegativeInteger(parsed.likeCount)
+  const createdAt = cursorDate(parsed.createdAt)
+  const id = cursorRequiredString(parsed.id)
+  if (
+    typeof parsed.pinned !== "boolean" ||
+    likeCount === null ||
+    !createdAt ||
+    !id
+  ) {
     return null
+  }
+  return {
+    pinned: parsed.pinned,
+    likeCount,
+    createdAt,
+    id,
   }
 }
 
 function encodeCommentCursor(row: CommentRowRecord): string {
-  return base64UrlEncodeText(
-    JSON.stringify({
-      pinned: row.pinnedAt !== null,
-      likeCount: row.likeCount,
-      createdAt:
-        row.createdAt instanceof Date
-          ? row.createdAt.toISOString()
-          : String(row.createdAt),
-      id: row.id,
-    } satisfies CommentCursor)
-  )
+  return encodeCursorPayload({
+    pinned: row.pinnedAt !== null,
+    likeCount: row.likeCount,
+    createdAt: isoDate(row.createdAt),
+    id: row.id,
+  } satisfies CommentCursorPayload)
 }
 
 function commentOrderBy(sort: "top" | "new") {
@@ -228,12 +226,11 @@ function commentOrderBy(sort: "top" | "new") {
 
 function commentCursorCondition(cursor: CommentCursor, sort: "top" | "new") {
   const pinnedValue = cursor.pinned ? 1 : 0
-  const createdAt = new Date(cursor.createdAt)
   const pinnedRank = sql<number>`case when ${clipComment.pinnedAt} is null then 0 else 1 end`
   const afterCreatedAt = or(
-    sql`${clipComment.createdAt} < ${createdAt}`,
+    sql`${clipComment.createdAt} < ${cursor.createdAt}`,
     and(
-      eq(clipComment.createdAt, createdAt),
+      eq(clipComment.createdAt, cursor.createdAt),
       sql`${clipComment.id} > ${cursor.id}`
     )
   )
@@ -283,27 +280,19 @@ async function buildCommentTree(
       body: r.body,
       likeCount: r.likeCount,
       pinned: r.pinnedAt !== null,
-      pinnedAt:
-        r.pinnedAt instanceof Date ? r.pinnedAt.toISOString() : r.pinnedAt,
+      pinnedAt: nullableIsoDate(r.pinnedAt),
       likedByViewer: likedByViewer.has(r.id),
       likedByAuthor: likedByAuthor.has(r.id),
-      createdAt:
-        r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
-      editedAt:
-        r.editedAt instanceof Date ? r.editedAt.toISOString() : r.editedAt,
-      author: {
-        id: r.author.id,
-        username: r.author.username,
-        displayUsername: r.author.displayUsername,
-        name: r.author.name,
-        image: r.author.image,
-      },
+      createdAt: isoDate(r.createdAt),
+      editedAt: nullableIsoDate(r.editedAt),
+      author: serialiseUserSummary(r.author),
       replies: [],
     })
   }
   for (const node of byId.values()) {
-    if (node.parentId && byId.has(node.parentId)) {
-      byId.get(node.parentId)!.replies.push(node)
+    const parent = node.parentId ? byId.get(node.parentId) : null
+    if (parent) {
+      parent.replies.push(node)
     } else {
       tops.push(node)
     }
@@ -311,8 +300,7 @@ async function buildCommentTree(
 
   const sortReplies = (comment: CommentRow) => {
     comment.replies.sort(
-      (a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      (a, b) => dateLikeTime(a.createdAt) - dateLikeTime(b.createdAt)
     )
     for (const reply of comment.replies) sortReplies(reply)
   }
@@ -324,7 +312,7 @@ async function buildCommentTree(
     if (sort === "top") {
       if (b.likeCount !== a.likeCount) return b.likeCount - a.likeCount
     }
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    return dateLikeTime(b.createdAt) - dateLikeTime(a.createdAt)
   })
 
   return tops

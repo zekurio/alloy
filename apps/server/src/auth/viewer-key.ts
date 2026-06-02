@@ -2,14 +2,14 @@ import { getCookie, setCookie } from "hono/cookie"
 import type { Context } from "hono"
 
 import { configStore } from "../config/store"
+import { constantTimeEqual, hmacSha256 } from "../runtime/crypto"
 import { getSession } from "./session"
 import { base64UrlToBytes, bytesToBase64Url } from "./tokens"
 
 const COOKIE_NAME = "alloy_viewer"
 const COOKIE_MAX_AGE_SEC = 365 * 24 * 60 * 60
-const textEncoder = new TextEncoder()
 
-export interface ResolvedViewer {
+interface ResolvedViewer {
   /**
    * Opaque, namespaced key suitable for hashing into a cache key. Never
    * collides between signed-in and anonymous viewers.
@@ -63,7 +63,7 @@ export function applyViewerCookie(c: Context, value: string | null): void {
 }
 
 async function signCookie(uuid: string): Promise<string> {
-  const mac = await hmac(uuid)
+  const mac = await viewerCookieMac(uuid)
   return `${uuid}.${mac}`
 }
 
@@ -72,39 +72,24 @@ async function verifyCookie(raw: string): Promise<string | null> {
   if (dot <= 0 || dot === raw.length - 1) return null
   const uuid = raw.slice(0, dot)
   const provided = raw.slice(dot + 1)
-  const expected = await hmac(uuid)
+  const expected = await viewerCookieMacBytes(uuid)
   let providedBytes: Uint8Array
   try {
     providedBytes = base64UrlToBytes(provided)
   } catch {
     return null
   }
-  if (!timingSafeEqual(providedBytes, base64UrlToBytes(expected))) {
+  if (!constantTimeEqual(providedBytes, expected)) {
     return null
   }
   return uuid
 }
 
-async function hmac(value: string): Promise<string> {
-  const { viewerCookieSecret } = configStore.get("secrets")
-  const key = await crypto.subtle.importKey(
-    "raw",
-    textEncoder.encode(viewerCookieSecret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  )
-  const signature = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    textEncoder.encode(value)
-  )
-  return bytesToBase64Url(new Uint8Array(signature))
+async function viewerCookieMac(value: string): Promise<string> {
+  return bytesToBase64Url(await viewerCookieMacBytes(value))
 }
 
-function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.length !== b.length) return false
-  let diff = 0
-  for (let i = 0; i < a.length; i++) diff |= a[i]! ^ b[i]!
-  return diff === 0
+async function viewerCookieMacBytes(value: string): Promise<Uint8Array> {
+  const { viewerCookieSecret } = configStore.get("secrets")
+  return hmacSha256(value, viewerCookieSecret)
 }

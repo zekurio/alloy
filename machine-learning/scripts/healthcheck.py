@@ -17,6 +17,8 @@ def is_ipv6(value: str) -> bool:
 
 if host == "0.0.0.0":
     host = "localhost"
+if host == "::":
+    host = "::1"
 if is_ipv6(host):
     host = f"[{host}]"
 

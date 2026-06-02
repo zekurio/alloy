@@ -1,4 +1,5 @@
 import type { AdminEncoderCapabilities as EncoderCapabilities } from "@workspace/contracts"
+import { logger } from "@workspace/logging"
 
 import { env } from "../env"
 import { HWACCEL_KINDS } from "../config/store"
@@ -30,10 +31,10 @@ async function probeEncoderCapabilities(): Promise<EncoderCapabilities> {
     v4l2m2m: { h264: false, hevc: false, av1: false },
   }
 
-  const stdout = await runCapture(env.FFMPEG_BIN, [
+  const stdout = await optionalCapture("encoder list", [
     "-hide_banner",
     "-encoders",
-  ]).catch(() => null)
+  ])
   if (!stdout) return { ffmpegOk: false, ffmpegVersion: null, available: empty }
 
   const names = new Set<string>()
@@ -51,15 +52,27 @@ async function probeEncoderCapabilities(): Promise<EncoderCapabilities> {
     }
   }
 
-  const versionStdout = await runCapture(env.FFMPEG_BIN, [
+  const versionStdout = await optionalCapture("version", [
     "-hide_banner",
     "-version",
-  ]).catch(() => null)
+  ])
   const ffmpegVersion = versionStdout
     ? (versionStdout.split("\n")[0] ?? "").trim() || null
     : null
 
   return { ffmpegOk: true, ffmpegVersion, available }
+}
+
+async function optionalCapture(
+  label: string,
+  args: ReadonlyArray<string>
+): Promise<string | null> {
+  try {
+    return await runCapture(env.FFMPEG_BIN, args)
+  } catch (err) {
+    logger.warn(`[admin/encoder] ffmpeg ${label} probe failed:`, err)
+    return null
+  }
 }
 
 async function runCapture(

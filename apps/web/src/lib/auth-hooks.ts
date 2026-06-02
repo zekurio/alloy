@@ -8,10 +8,6 @@ import {
 } from "./session-suspense"
 import { browseAuthTarget, isAdmin, shouldForceOnboarding } from "./auth-access"
 
-export function useAuth(): Session | null {
-  return useSuspenseSession()
-}
-
 /** Reactive admin flag. Suspends on first fetch. */
 export function useIsAdmin(): boolean {
   return isAdmin(useSuspenseSession())
@@ -57,20 +53,6 @@ export function useRequireAuthStrict(): Session | null {
   }, [target, navigate])
 
   return target ? null : session
-}
-
-export function useRequireAdmin(): Session | null {
-  const session = useRequireAuthStrict()
-  const navigate = useNavigate()
-  const allowed = session ? isAdmin(session) : true
-
-  React.useEffect(() => {
-    if (session && !allowed) {
-      void navigate({ to: "/", replace: true })
-    }
-  }, [session, allowed, navigate])
-
-  return session && allowed ? session : null
 }
 
 export function useRedirectIfAuthed(to: string = "/"): boolean {

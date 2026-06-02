@@ -116,8 +116,10 @@ function quotaFromProfile(
       : typeof value === "string"
         ? Number(value)
         : Number.NaN
-  if (!Number.isFinite(gib) || gib < 0) return undefined
-  return Math.min(Number.MAX_SAFE_INTEGER, Math.round(gib * GIB))
+  if (!Number.isFinite(gib) || gib <= 0) return undefined
+  const bytes = Math.round(gib * GIB)
+  if (!Number.isSafeInteger(bytes) || bytes <= 0) return undefined
+  return bytes
 }
 
 export function defaultOAuthStorageQuota(): number | null {

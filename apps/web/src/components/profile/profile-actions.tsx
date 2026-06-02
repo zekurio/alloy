@@ -8,6 +8,8 @@ import { toast } from "@workspace/ui/lib/toast"
 import type { ProfileViewer } from "@workspace/api"
 
 import { api } from "@/lib/api"
+import { errorMessage } from "@/lib/error-message"
+import { useToggleUserFollowMutation } from "@/lib/user-queries"
 
 export function ProfileActions({
   targetHandle,
@@ -19,7 +21,9 @@ export function ProfileActions({
   onChange: (next: ProfileViewer) => void
 }) {
   const navigate = useNavigate()
-  const [pending, setPending] = React.useState(false)
+  const followMutation = useToggleUserFollowMutation(targetHandle)
+  const [unblockPending, setUnblockPending] = React.useState(false)
+  const pending = unblockPending || followMutation.isPending
 
   if (viewer === undefined) {
     return (
@@ -55,45 +59,34 @@ export function ProfileActions({
   // Self-profile: no follow controls.
   if (viewer.isSelf) return null
 
-  const { isFollowing, isBlocked, isBlockedBy } = viewer
+  const activeViewer = viewer
+  const { isFollowing, isBlocked, isBlockedBy } = activeViewer
 
-  async function runFollow() {
+  function runFollow() {
     if (pending) return
-    setPending(true)
-    const prev = viewer!
-    const optimistic: ProfileViewer = { ...prev, isFollowing: !isFollowing }
-    onChange(optimistic)
-    try {
-      if (isFollowing) {
-        await api.users.unfollow(targetHandle)
-      } else {
-        await api.users.follow(targetHandle)
+    followMutation.mutate(
+      { next: !isFollowing },
+      {
+        onError: (cause) => {
+          toast.error(errorMessage(cause, "Something went wrong"))
+        },
       }
-    } catch (cause) {
-      onChange(prev) // roll back
-      toast.error(
-        cause instanceof Error ? cause.message : "Something went wrong"
-      )
-    } finally {
-      setPending(false)
-    }
+    )
   }
 
   async function runUnblock() {
     if (pending) return
-    setPending(true)
-    const prev = viewer!
+    setUnblockPending(true)
+    const prev = activeViewer
     onChange({ ...prev, isBlocked: false })
     try {
       await api.users.unblock(targetHandle)
       toast.success("User unblocked")
     } catch (cause) {
       onChange(prev)
-      toast.error(
-        cause instanceof Error ? cause.message : "Something went wrong"
-      )
+      toast.error(errorMessage(cause, "Something went wrong"))
     } finally {
-      setPending(false)
+      setUnblockPending(false)
     }
   }
 

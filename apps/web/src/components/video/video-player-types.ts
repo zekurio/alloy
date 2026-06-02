@@ -1,6 +1,6 @@
 import * as React from "react"
 
-export interface VideoPlayerHandle {
+interface VideoPlayerHandle {
   play(): Promise<void>
   pause(): void
   seek(seconds: number): void
@@ -9,6 +9,14 @@ export interface VideoPlayerHandle {
   setVolume(volume: number): void
   setMuted(muted: boolean): void
   setPlaybackRate(rate: number): void
+}
+
+export type QualityOption = {
+  id: string
+  label: string
+  detail?: string
+  downloadUrl?: string
+  selectable?: boolean
 }
 
 export type SharedPlayerProps = {
@@ -26,13 +34,7 @@ export type SharedPlayerProps = {
     start: number
     end: number
   }
-  qualityOptions?: Array<{
-    id: string
-    label: string
-    detail?: string
-    downloadUrl?: string
-    selectable?: boolean
-  }>
+  qualityOptions?: QualityOption[]
   selectedQualityId?: string
   onSelectQuality?: (qualityId: string) => void
   enableHorizontalSeekShortcuts?: boolean

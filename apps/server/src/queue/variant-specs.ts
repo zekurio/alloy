@@ -2,7 +2,7 @@ import type { EncoderVariant } from "@workspace/contracts"
 import { clipVideoVariantKey } from "../storage/driver"
 
 /** Per-variant override resolved from the runtime config. */
-export interface VariantOverride {
+interface VariantOverride {
   codec: EncoderVariant["codec"]
   quality: EncoderVariant["quality"]
   preset: EncoderVariant["preset"]
@@ -20,7 +20,7 @@ export interface VariantSpec {
   override: VariantOverride
 }
 
-export interface VariantPlan {
+interface VariantPlan {
   specs: VariantSpec[]
   skipped: Array<{ id: string; label: string; height: number; reason: string }>
 }
@@ -87,20 +87,4 @@ export function buildVariantPlan(
       a.id.localeCompare(b.id)
   )
   return { specs, skipped }
-}
-
-export function buildVariantSpecs(
-  clipId: string,
-  sourceHeight: number,
-  configuredVariants: ReadonlyArray<EncoderVariant>,
-  defaultVariantId: string | null,
-  runId?: string
-): VariantSpec[] {
-  return buildVariantPlan(
-    clipId,
-    sourceHeight,
-    configuredVariants,
-    defaultVariantId,
-    runId
-  ).specs
 }

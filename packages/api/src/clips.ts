@@ -2,27 +2,50 @@ import type { ApiContext } from "./client"
 import type {
   ClipFeedParams,
   ClipLikeState,
+  ClipPage,
   ClipRow,
   InitiateClipInput,
   InitiateClipResponse,
   UpdateClipInput,
   UploadTicket,
   QueueClip,
+  QueueEvent,
 } from "@workspace/contracts"
-import { readJsonOrThrow } from "./http"
 import {
-  validateBooleanFlag,
+  parseErrorMessagePayload,
+  parseJsonPayload,
+  readJsonOrThrow,
+  readNoContentOrThrow,
+} from "./http"
+import { toError } from "./error"
+import {
+  encodedPathSegment,
+  queryParams,
+  resolvePublicUrlWithQuery,
+} from "./paths"
+import {
+  readBooleanFlagJson,
+  readDeletedJson,
+  readPostDeleteJson,
+  readSuccessJson,
+} from "./mutations"
+import {
   validateClipLikeState,
+  validateClipPage,
   validateClipRow,
-  validateClipRows,
   validateInitiateClipResponse,
+  validateQueueEvent,
   validateQueueClips,
 } from "./contract-validators"
 
 const UPLOAD_TIMEOUT_GRACE_MS = 30_000
 const MIN_UPLOAD_TIMEOUT_MS = 30_000
 
-export { ACCEPTED_CLIP_CONTENT_TYPES } from "@workspace/contracts"
+export {
+  ACCEPTED_CLIP_CONTENT_TYPES,
+  CLIP_DESCRIPTION_MAX_LENGTH,
+  CLIP_TITLE_MAX_LENGTH,
+} from "@workspace/contracts"
 export type {
   AcceptedContentType,
   ClipEncodedVariant,
@@ -32,6 +55,7 @@ export type {
   ClipGameRef,
   ClipLikeState,
   ClipMentionRef,
+  ClipPage,
   ClipPrivacy,
   ClipRow,
   ClipStatus,
@@ -43,13 +67,20 @@ export type {
   UploadTicket,
 } from "@workspace/contracts"
 
-function withOrigin(path: string, origin?: string): string {
-  if (!origin) return path
-  return new URL(path, origin).toString()
+function publicClipPath(clipId: string, suffix: string): string {
+  return `/api/clips/${encodedPathSegment(clipId)}${suffix}`
 }
 
-function publicClipPath(clipId: string, suffix: string): string {
-  return `/api/clips/${encodeURIComponent(clipId)}${suffix}`
+export function parseQueueSnapshotPayload(data: string): QueueClip[] | null {
+  return parseJsonPayload(data, validateQueueClips)
+}
+
+export function parseQueueEventPayload(data: string): QueueEvent | null {
+  return parseJsonPayload(data, validateQueueEvent)
+}
+
+export function uploadQueueStreamUrl(origin?: string): string {
+  return resolvePublicUrlWithQuery("/api/events/clips/queue", {}, origin)
 }
 
 export function clipStreamUrl(
@@ -57,15 +88,23 @@ export function clipStreamUrl(
   variantId?: string,
   origin?: string
 ): string {
-  const path = publicClipPath(clipId, "/stream")
-  if (!variantId) return withOrigin(path, origin)
-
-  const search = new URLSearchParams({ variant: variantId }).toString()
-  return withOrigin(`${path}?${search}`, origin)
+  return resolvePublicUrlWithQuery(
+    publicClipPath(clipId, "/stream"),
+    { variant: variantId },
+    origin
+  )
 }
 
-export function clipThumbnailUrl(clipId: string, origin?: string): string {
-  return withOrigin(publicClipPath(clipId, "/thumbnail"), origin)
+export function clipThumbnailUrl(
+  clipId: string,
+  origin?: string,
+  version?: string
+): string {
+  return resolvePublicUrlWithQuery(
+    publicClipPath(clipId, "/thumbnail"),
+    { v: version },
+    origin
+  )
 }
 
 export function clipDownloadUrl(
@@ -73,8 +112,11 @@ export function clipDownloadUrl(
   variantId: string,
   origin?: string
 ): string {
-  const search = new URLSearchParams({ variant: variantId }).toString()
-  return withOrigin(`${publicClipPath(clipId, "/download")}?${search}`, origin)
+  return resolvePublicUrlWithQuery(
+    publicClipPath(clipId, "/download"),
+    { variant: variantId },
+    origin
+  )
 }
 
 export function uploadToTicket(
@@ -107,13 +149,7 @@ export function uploadToTicket(
         xhr.setRequestHeader("Content-Type", body.type)
       }
     } catch (err) {
-      settle(() =>
-        reject(
-          err instanceof Error
-            ? err
-            : new Error("Could not prepare upload request")
-        )
-      )
+      settle(() => reject(toError(err, "Could not prepare upload request")))
       return
     }
 
@@ -124,13 +160,9 @@ export function uploadToTicket(
       if (xhr.status >= 200 && xhr.status < 300) {
         settle(resolve)
       } else {
-        let message = `${xhr.status} ${xhr.statusText}`
-        try {
-          const payload = JSON.parse(xhr.responseText) as { error?: string }
-          if (payload.error) message = payload.error
-        } catch {
-          // Keep the status line when the upstream body isn't JSON.
-        }
+        const message =
+          parseErrorMessagePayload(xhr.responseText) ??
+          `${xhr.status} ${xhr.statusText}`
         settle(() => reject(new Error(message)))
       }
     }
@@ -153,26 +185,32 @@ export function uploadToTicket(
       )
       xhr.send(body)
     } catch (err) {
-      settle(() =>
-        reject(err instanceof Error ? err : new Error("Could not start upload"))
-      )
+      settle(() => reject(toError(err, "Could not start upload")))
     }
   })
+}
+
+async function fetchClipPage(
+  context: ApiContext,
+  params: ClipFeedParams = {}
+): Promise<ClipPage> {
+  const res = await context.rpc.api.clips.$get({
+    query: queryParams({
+      window: params.window,
+      sort: params.sort,
+      limit: params.limit,
+      cursor: params.cursor,
+      hashtag: params.hashtag,
+    }),
+  })
+  return readJsonOrThrow(res, validateClipPage)
 }
 
 async function fetchClips(
   context: ApiContext,
   params: ClipFeedParams = {}
 ): Promise<ClipRow[]> {
-  const query: Record<string, string> = {}
-  if (params.window) query.window = params.window
-  if (params.sort) query.sort = params.sort
-  if (params.limit !== undefined) query.limit = String(params.limit)
-  if (params.cursor) query.cursor = params.cursor
-  if (params.hashtag) query.hashtag = params.hashtag
-
-  const res = await context.rpc.api.clips.$get({ query })
-  return readJsonOrThrow(res, validateClipRows)
+  return (await fetchClipPage(context, params)).items
 }
 
 async function fetchUploadQueue(context: ApiContext): Promise<QueueClip[]> {
@@ -217,14 +255,14 @@ async function markUploadFailed(
   const res = await context.rpc.api.clips[":id"].fail.$post({
     param: { id: clipId },
   })
-  validateBooleanFlag(await readJsonOrThrow<unknown>(res), "success")
+  await readSuccessJson(res)
 }
 
 async function deleteClip(context: ApiContext, clipId: string): Promise<void> {
   const res = await context.rpc.api.clips[":id"].$delete({
     param: { id: clipId },
   })
-  validateBooleanFlag(await readJsonOrThrow<unknown>(res), "deleted")
+  await readDeletedJson(res)
 }
 
 async function updateClip(
@@ -246,11 +284,7 @@ async function fetchLikeState(
   const res = await context.rpc.api.clips[":id"].like.$get({
     param: { id: clipId },
   })
-  const response = validateBooleanFlag(
-    await readJsonOrThrow<unknown>(res),
-    "liked"
-  )
-  return { liked: response.liked }
+  return readBooleanFlagJson(res, "liked")
 }
 
 async function setClipLike(
@@ -258,32 +292,36 @@ async function setClipLike(
   clipId: string,
   liked: boolean
 ): Promise<ClipLikeState> {
-  const res = liked
-    ? await context.rpc.api.clips[":id"].like.$post({
-        param: { id: clipId },
-      })
-    : await context.rpc.api.clips[":id"].like.$delete({
-        param: { id: clipId },
-      })
-  return readJsonOrThrow(res, validateClipLikeState)
+  return readPostDeleteJson(
+    liked,
+    {
+      post: () =>
+        context.rpc.api.clips[":id"].like.$post({
+          param: { id: clipId },
+        }),
+      delete: () =>
+        context.rpc.api.clips[":id"].like.$delete({
+          param: { id: clipId },
+        }),
+    },
+    validateClipLikeState
+  )
 }
 
 async function recordClipView(
   context: ApiContext,
   clipId: string
 ): Promise<void> {
-  try {
-    await context.rpc.api.clips[":id"].view.$post({
-      param: { id: clipId },
-    })
-  } catch {
-    // View tracking is best-effort.
-  }
+  const res = await context.rpc.api.clips[":id"].view.$post({
+    param: { id: clipId },
+  })
+  await readNoContentOrThrow(res)
 }
 
 export function createClipsApi(context: ApiContext) {
   return {
     fetch: (params: ClipFeedParams = {}) => fetchClips(context, params),
+    fetchPage: (params: ClipFeedParams = {}) => fetchClipPage(context, params),
     fetchQueue: () => fetchUploadQueue(context),
     fetchById: (clipId: string, init?: RequestInit) =>
       fetchClipById(context, clipId, init),

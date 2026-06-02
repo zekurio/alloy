@@ -4,6 +4,7 @@ import { user } from "@workspace/db/auth-schema"
 import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
+import { isoDate } from "../runtime/date"
 
 const LOGIN_SPLASH_CLIP_LIMIT = 24
 
@@ -29,6 +30,6 @@ export async function generateLoginSplashPatch(enabled = true) {
   return {
     enabled,
     clipIds: await selectRandomPublicSplashClipIds(),
-    generatedAt: new Date().toISOString(),
+    generatedAt: isoDate(new Date()),
   }
 }

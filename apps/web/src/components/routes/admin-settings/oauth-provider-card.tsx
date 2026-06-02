@@ -25,9 +25,14 @@ import { toast } from "@workspace/ui/lib/toast"
 import type { AdminOAuthProvider, AdminRuntimeConfig } from "@workspace/api"
 
 import { api } from "@/lib/api"
+import { errorMessage } from "@/lib/error-message"
 import { publishRuntimeConfigUpdate } from "@/lib/runtime-config-events"
 import { OAuthCustomProviderDialog } from "./oauth-custom-provider-dialog"
-import { emptyProvider, toSubmissionProvider } from "./shared"
+import {
+  emptyProvider,
+  oauthProvidersEqual,
+  toSubmissionProvider,
+} from "./shared"
 
 type OAuthProviderCardProps = {
   config: AdminRuntimeConfig
@@ -59,9 +64,7 @@ export function OAuthProviderCard({
       toast.success(successMessage)
       return true
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't save OAuth settings"
-      )
+      toast.error(errorMessage(cause, "Couldn't save OAuth settings"))
       return false
     } finally {
       setPendingAction(null)
@@ -101,6 +104,10 @@ export function OAuthProviderCard({
   async function saveProvider(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!draft || pendingAction) return
+    if (editing && provider && oauthProvidersEqual(draft, provider)) {
+      closeDialog()
+      return
+    }
     const ok = await persistProvider(
       toSubmissionProvider(draft),
       editing ? "Provider updated" : "Provider added"
@@ -116,6 +123,8 @@ export function OAuthProviderCard({
   }
 
   const disabled = pendingAction !== null
+  const providerChanged =
+    !editing || !draft || !provider || !oauthProvidersEqual(draft, provider)
 
   return (
     <>
@@ -215,6 +224,7 @@ export function OAuthProviderCard({
         authBaseURL={config.authBaseURL}
         draft={draft}
         editing={editing}
+        canSubmit={providerChanged}
         pendingAction={pendingAction}
         onOpenChange={(open) => !open && closeDialog()}
         onSubmit={saveProvider}

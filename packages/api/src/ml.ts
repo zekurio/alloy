@@ -16,7 +16,7 @@ export type {
 } from "@workspace/contracts"
 
 async function fetchMlConfig(context: ApiContext): Promise<PublicMlConfig> {
-  const res = await context.client.request("/api/ml/config")
+  const res = await context.rpc.api.ml.config.$get()
   return readJsonOrThrow(res, validatePublicMlConfig)
 }
 
@@ -25,14 +25,14 @@ async function suggestGames(
   frames: Blob[]
 ): Promise<MlGameSuggestionResponse> {
   const body = new FormData()
-  for (let i = 0; i < frames.length; i++) {
-    body.append("frames", frames[i]!, `frame-${i}.jpg`)
+  for (const [i, frame] of frames.entries()) {
+    body.append("frames", frame, `frame-${i}.jpg`)
   }
 
-  const res = await context.client.request("/api/ml/game-suggestions", {
-    method: "POST",
-    init: { body },
-  })
+  const res = await context.rpc.api.ml["game-suggestions"].$post(
+    {},
+    { init: { body } }
+  )
 
   return readJsonOrThrow(res, validateMlGameSuggestionResponse)
 }

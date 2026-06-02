@@ -1,11 +1,13 @@
 import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { createMiddleware } from "hono/factory"
-import { logger } from "hono/logger"
+import { logger as honoLogger } from "hono/logger"
+import { logger } from "@workspace/logging"
 
 import { env } from "./env"
 import { configStore } from "./config/store"
 import { getSession } from "./auth/session"
+import { internalServerError, unauthorized } from "./runtime/http-response"
 import { adminRoute } from "./routes/admin"
 import { authRoute } from "./routes/auth"
 import { authConfigRoute } from "./routes/auth-config"
@@ -74,7 +76,7 @@ const requireAuthToBrowse = createMiddleware(async (c, next) => {
 
   const session = await getSession(c)
   if (!session || session.user.status !== "active") {
-    return c.json({ error: "Unauthorized" }, 401)
+    return unauthorized(c)
   }
 
   await next()
@@ -83,7 +85,10 @@ const requireAuthToBrowse = createMiddleware(async (c, next) => {
 // Chain the route calls so the inferred type includes every route — the
 // @workspace/api package consumes `AppType` via hono/client for RPC.
 const apiApp = new Hono()
-  .use("*", logger())
+  .use(
+    "*",
+    honoLogger((line) => logger.info(line))
+  )
   .use(
     "*",
     cors({
@@ -110,10 +115,9 @@ const apiApp = new Hono()
   .route("/api/assets", storageRoute)
   .route("/api/assets/users", userAssetsRoute)
   .onError((err, c) => {
-    // eslint-disable-next-line no-console
-    console.error("[api] unhandled request error:", err)
+    logger.error("[api] unhandled request error:", err)
 
-    return c.json({ error: "Internal Server Error" }, 500)
+    return internalServerError(c)
   })
 
 export const app = await mountWeb(apiApp)

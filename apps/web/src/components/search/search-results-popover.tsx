@@ -3,10 +3,14 @@ import { useNavigate } from "@tanstack/react-router"
 import { FilmIcon, GamepadIcon, SearchIcon, UserIcon } from "lucide-react"
 
 import { Spinner } from "@workspace/ui/components/spinner"
+import { useDocumentEvent } from "@workspace/ui/hooks/use-document-event"
+import { useWindowEvent } from "@workspace/ui/hooks/use-window-event"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type { ClipRow, GameListRow } from "@workspace/api"
 
+import type { AppSearch } from "@/lib/app-search"
+import { errorMessage } from "@/lib/error-message"
 import { useAppSearch } from "./app-search"
 import { useSearchQuery, type UserListRow } from "@/lib/search-api"
 import {
@@ -52,7 +56,7 @@ function useSearchPopoverState(
       const slug = row.gameRef?.slug
       void navigate({
         to: ".",
-        search: (prev) => ({ ...prev, clip: row.id }),
+        search: (prev: AppSearch) => ({ ...prev, clip: row.id }),
         ...(slug
           ? {
               mask: {
@@ -89,11 +93,8 @@ function useSearchPopoverState(
     [clear, closePopover, navigate]
   )
 
-  // Window-scoped so ↓/↑/Esc work even when focus is still in the input.
-  // Gated on `open` so other surfaces aren't intercepted.
-  React.useEffect(() => {
-    if (!open) return
-    const onKeyDown = (event: KeyboardEvent) => {
+  const onKeyDown = React.useCallback(
+    (event: KeyboardEvent) => {
       const target = event.target
       const wrapper = rootRef.current?.closest<HTMLElement>(
         '[data-slot="app-header-search"]'
@@ -119,14 +120,16 @@ function useSearchPopoverState(
         else if (item.kind === "game") commitGame(item.row)
         else commitUser(item.row)
       }
-    }
-    window.addEventListener("keydown", onKeyDown)
-    return () => window.removeEventListener("keydown", onKeyDown)
-  }, [open, flat, activeIndex, clear, commitClip, commitGame, commitUser])
+    },
+    [flat, activeIndex, clear, commitClip, commitGame, commitUser]
+  )
 
-  React.useEffect(() => {
-    if (!open) return
-    const onPointerDown = (event: PointerEvent) => {
+  // Window-scoped so ↓/↑/Esc work even when focus is still in the input.
+  // Gated on `open` so other surfaces aren't intercepted.
+  useWindowEvent("keydown", onKeyDown, undefined, open)
+
+  const onPointerDown = React.useCallback(
+    (event: PointerEvent) => {
       const target = event.target
       if (!(target instanceof Node)) return
       const wrapper = rootRef.current?.closest<HTMLElement>(
@@ -134,10 +137,10 @@ function useSearchPopoverState(
       )
       if (wrapper && wrapper.contains(target)) return
       closePopover()
-    }
-    document.addEventListener("pointerdown", onPointerDown)
-    return () => document.removeEventListener("pointerdown", onPointerDown)
-  }, [open, closePopover])
+    },
+    [closePopover]
+  )
+  useDocumentEvent("pointerdown", onPointerDown, undefined, open)
 
   return {
     activeIndex,
@@ -309,7 +312,7 @@ function SearchResultsBody({
       <EmptyBlock
         icon={<SearchIcon />}
         title="Couldn't search"
-        hint={error.message}
+        hint={errorMessage(error, "Search failed")}
       />
     )
   }

@@ -7,6 +7,7 @@ import { toast } from "@workspace/ui/lib/toast"
 
 import { AuthSubmitButton, FormInputField } from "../auth/auth-form-fields"
 import { authClient } from "@/lib/auth-client"
+import { completeAuthSessionFlow, reportAuthFlowFailure } from "@/lib/auth-flow"
 import { validateEmail, validateUsername } from "@/lib/form-validators"
 import { invalidateAuthConfig } from "@/lib/session-suspense"
 
@@ -56,11 +57,18 @@ function usePasskeySignUpSubmit({
         }
         if (successMessage) toast.success(successMessage)
         invalidateAuthConfig()
-        await authClient.getSession()
-        await router.invalidate()
-        await navigate({ to: redirectTo })
-      } catch {
-        toast.error("Unexpected error")
+        await completeAuthSessionFlow({
+          invalidateRouter: () => router.invalidate(),
+          navigate: () => navigate({ to: redirectTo }),
+        })
+      } catch (cause) {
+        toast.error(
+          reportAuthFlowFailure(
+            "passkey sign-up",
+            "Couldn't finish passkey account setup",
+            cause
+          )
+        )
       }
     },
     [navigate, redirectTo, router, successMessage]
@@ -220,7 +228,7 @@ export function PasskeySignUpForm(props: PasskeySignUpFormProps) {
       <form.Field
         name="username"
         validators={{
-          onChange: ({ value }) => validateUsername(value.trim()),
+          onChange: ({ value }) => validateUsername(value),
         }}
       >
         {(field) => (

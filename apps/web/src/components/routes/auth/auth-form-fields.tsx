@@ -29,22 +29,6 @@ type BaseFieldProps = {
   value: string
 }
 
-export type AuthFieldMetaState = {
-  errors: Array<unknown>
-  isTouched: boolean
-  isValid: boolean
-}
-
-export type AuthStringFieldController = {
-  handleBlur: () => void
-  handleChange: (value: string) => void
-  name: string
-  state: {
-    meta: AuthFieldMetaState
-    value: string
-  }
-}
-
 type TextFieldProps = BaseFieldProps &
   Pick<
     React.ComponentProps<typeof InputGroupInput>,

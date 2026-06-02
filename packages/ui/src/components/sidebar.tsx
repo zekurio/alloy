@@ -4,6 +4,7 @@ import * as React from "react"
 
 import { PanelLeftIcon } from "lucide-react"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
+import { useWindowEvent } from "@workspace/ui/hooks/use-window-event"
 import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
@@ -80,8 +81,8 @@ function SidebarProvider({
       : setOpen((previousOpen) => !previousOpen)
   }, [isMobile, setOpen, setOpenMobile])
 
-  React.useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
+  const handleKeyDown = React.useCallback(
+    (event: KeyboardEvent) => {
       if (
         event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
         (event.metaKey || event.ctrlKey)
@@ -89,11 +90,10 @@ function SidebarProvider({
         event.preventDefault()
         toggleSidebar()
       }
-    }
-
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [toggleSidebar])
+    },
+    [toggleSidebar]
+  )
+  useWindowEvent("keydown", handleKeyDown)
 
   const state = open ? "expanded" : "collapsed"
 

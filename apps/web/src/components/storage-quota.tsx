@@ -5,10 +5,11 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import { api } from "@/lib/api"
 import { formatBytes, storageUsagePercent } from "@/lib/storage-format"
+import { userKeys } from "@/lib/user-queries"
 
 function useStorageUsage() {
   return useQuery({
-    queryKey: ["user", "storage"],
+    queryKey: userKeys.storage(),
     queryFn: () => api.users.fetchStorageUsage(),
     staleTime: 30_000,
   })

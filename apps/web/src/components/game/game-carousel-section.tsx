@@ -24,6 +24,9 @@ export type GameCarouselEntry = GameCardData & { clipCount: number }
 
 type GameCarouselSectionProps = {
   entries: GameCarouselEntry[] | null
+  error?: unknown
+  errorTitle?: string
+  errorSeed?: string
   title: React.ReactNode
   emptyTitle: string
   emptyHint: string
@@ -36,6 +39,9 @@ type GameCarouselSectionProps = {
 
 export function GameCarouselSection({
   entries,
+  error = null,
+  errorTitle = "Couldn't load games",
+  errorSeed = "games-error",
   title,
   emptyTitle,
   emptyHint,
@@ -99,7 +105,9 @@ export function GameCarouselSection({
         </SectionActions>
       </SectionHead>
 
-      {entries === null ? (
+      {entries === null && error ? (
+        <EmptyState seed={errorSeed} size="md" title={errorTitle} />
+      ) : entries === null ? (
         <div className="flex items-center justify-center py-12">
           <Spinner className="size-6" />
         </div>

@@ -17,6 +17,7 @@ import type {
 } from "@workspace/api"
 
 import { api } from "./api"
+import { feedKeys } from "./feed-queries"
 
 export const gameKeys = {
   all: ["games"] as const,
@@ -24,6 +25,8 @@ export const gameKeys = {
   status: () => [...gameKeys.all, "status"] as const,
   /** SGDB autocomplete proxy — branches per normalised query string. */
   search: (query: string) => [...gameKeys.all, "search", query] as const,
+  previewByName: (name: string) =>
+    [...gameKeys.all, "preview-by-name", name] as const,
   /** `/games` landscape grid. One global cache entry. */
   list: () => [...gameKeys.all, "list"] as const,
   /** Per-slug detail for the banner header on `/g/:slug`. */
@@ -84,7 +87,7 @@ export function useGamePreviewByNameQuery(
 ): UseQueryResult<SteamGridDBSearchResult | null> {
   const trimmed = name?.trim() ?? ""
   return useQuery({
-    queryKey: [...gameKeys.all, "preview-by-name", trimmed] as const,
+    queryKey: gameKeys.previewByName(trimmed),
     enabled: enabled && trimmed.length > 0,
     // The label → top SGDB hit mapping is stable enough to cache per session.
     staleTime: Infinity,
@@ -150,7 +153,7 @@ export function useToggleGameFavoriteMutation() {
     }
   >({
     mutationFn: ({ slug, next }) =>
-      next ? api.games.favorite(slug) : api.games.unfavorite(slug),
+      next ? api.games.follow(slug) : api.games.unfollow(slug),
     onMutate: async ({ slug, next }) => {
       const detailKey = gameKeys.detail(slug)
       await qc.cancelQueries({ queryKey: detailKey })
@@ -174,12 +177,7 @@ export function useToggleGameFavoriteMutation() {
     },
     onSettled: (_data, _error, variables) => {
       void qc.invalidateQueries({ queryKey: gameKeys.detail(variables.slug) })
-      void qc.invalidateQueries({ queryKey: ["feed"] })
+      void qc.invalidateQueries({ queryKey: feedKeys.all })
     },
   })
-}
-
-export function useInvalidateGames() {
-  const qc = useQueryClient()
-  return () => qc.invalidateQueries({ queryKey: gameKeys.all })
 }

@@ -1,4 +1,6 @@
-export const EMPTY_STATE_KAOMOJI = [
+import { stableHash } from "@workspace/ui/lib/stable-hash"
+
+const EMPTY_STATE_KAOMOJI = [
   "(◞‸◟；)",
   "( • ᴖ • ｡)",
   "( ;´ - `;)",
@@ -8,25 +10,20 @@ export const EMPTY_STATE_KAOMOJI = [
   "(；￣Д￣)",
 ] as const
 
+const DEFAULT_EMPTY_STATE_KAOMOJI = "(◞‸◟；)"
+
 let rotation: number[] = []
 let lastPickedIndex: number | undefined
-
-function hashSeed(seed: string | number): number {
-  const s = typeof seed === "number" ? String(seed) : seed
-  let h = 0
-  for (let i = 0; i < s.length; i++) {
-    h = (h * 31 + s.charCodeAt(i)) >>> 0
-  }
-  return h
-}
 
 function shuffleIndices(): number[] {
   const indices = Array.from(EMPTY_STATE_KAOMOJI, (_, index) => index)
 
   for (let i = indices.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
-    const tmp = indices[i]!
-    indices[i] = indices[j]!
+    const tmp = indices[i]
+    const swap = indices[j]
+    if (tmp === undefined || swap === undefined) continue
+    indices[i] = swap
     indices[j] = tmp
   }
 
@@ -36,9 +33,11 @@ function shuffleIndices(): number[] {
     indices[0] === lastPickedIndex
   ) {
     const swapIndex = indices.findIndex((index) => index !== lastPickedIndex)
-    const tmp = indices[0]!
-    indices[0] = indices[swapIndex]!
-    indices[swapIndex] = tmp
+    const first = indices[0]
+    const swap = indices[swapIndex]
+    if (first === undefined || swap === undefined) return indices
+    indices[0] = swap
+    indices[swapIndex] = first
   }
 
   return indices
@@ -46,15 +45,19 @@ function shuffleIndices(): number[] {
 
 export function pickEmptyStateKaomoji(seed?: string | number): string {
   if (seed !== undefined) {
-    return EMPTY_STATE_KAOMOJI[hashSeed(seed) % EMPTY_STATE_KAOMOJI.length]!
+    return (
+      EMPTY_STATE_KAOMOJI[stableHash(seed) % EMPTY_STATE_KAOMOJI.length] ??
+      DEFAULT_EMPTY_STATE_KAOMOJI
+    )
   }
 
   if (rotation.length === 0) {
     rotation = shuffleIndices()
   }
 
-  const index = rotation.shift()!
+  const index = rotation.shift()
+  if (index === undefined) return DEFAULT_EMPTY_STATE_KAOMOJI
   lastPickedIndex = index
 
-  return EMPTY_STATE_KAOMOJI[index]!
+  return EMPTY_STATE_KAOMOJI[index] ?? DEFAULT_EMPTY_STATE_KAOMOJI
 }

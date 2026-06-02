@@ -4,6 +4,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@workspace/ui/lib/utils"
 import { Label } from "@workspace/ui/components/label"
 import { Separator } from "@workspace/ui/components/separator"
+import { messageFromUnknown } from "@workspace/ui/lib/error-message"
 
 function FieldStateMarker({ children }: { children: React.ReactNode }) {
   return (
@@ -283,24 +284,8 @@ function FieldError({
     }
 
     const normalizedErrors = errors.flatMap((error) => {
-      if (typeof error === "string") {
-        return [{ message: error }]
-      }
-
-      if (error instanceof Error) {
-        return [{ message: error.message }]
-      }
-
-      if (
-        error &&
-        typeof error === "object" &&
-        "message" in error &&
-        typeof error.message === "string"
-      ) {
-        return [{ message: error.message }]
-      }
-
-      return []
+      const message = messageFromUnknown(error)
+      return message ? [{ message }] : []
     })
 
     const uniqueErrors = [

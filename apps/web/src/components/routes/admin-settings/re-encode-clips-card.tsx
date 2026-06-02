@@ -16,6 +16,7 @@ import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
 
 import { api } from "@/lib/api"
+import { errorMessage } from "@/lib/error-message"
 
 export function ReEncodeClipsButton() {
   const [pending, setPending] = React.useState(false)
@@ -42,9 +43,7 @@ export function ReEncodeClipsButton() {
       }
       setOpen(false)
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't queue re-encode"
-      )
+      toast.error(errorMessage(cause, "Couldn't queue re-encode"))
     } finally {
       setPending(false)
     }

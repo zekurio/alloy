@@ -5,6 +5,7 @@ import { useRouter } from "@tanstack/react-router"
 import { Pencil, SaveIcon } from "lucide-react"
 import { useClickAnchor } from "@/hooks/use-click-anchor"
 
+import { USER_DISPLAY_NAME_MAX_LENGTH } from "@workspace/api/auth"
 import {
   Avatar,
   AvatarFallback,
@@ -27,15 +28,17 @@ import { LimitedInput } from "@/components/form/limited-field"
 import { api } from "@/lib/api"
 import { authClient, useSession } from "@/lib/auth-client"
 import { PROFILE_BANNER_ASPECT } from "@/lib/banner-layout"
-import { clipKeys } from "@/lib/clip-queries"
-import { feedKeys } from "@/lib/feed-queries"
+import { errorMessage } from "@/lib/error-message"
 import {
   validateEmail,
   validateRequiredString,
   validateUsername,
 } from "@/lib/form-validators"
-import { gameKeys } from "@/lib/game-queries"
-import { searchKeys } from "@/lib/search-api"
+import {
+  normalizeProfileIdentity,
+  profileIdentityChanged,
+  profileIdentityPatch,
+} from "@/lib/profile-identity"
 import {
   UserBanner,
   displayName,
@@ -49,7 +52,7 @@ import {
 import { ProfileImageCropDialog } from "./profile-image-crop-dialog"
 import { ProfileTextField } from "./profile-text-field"
 
-import { userKeys } from "@/lib/user-queries"
+import { invalidateProfileIdentityCaches } from "@/lib/user-queries"
 
 type ProfileCardProps = {
   userId: string
@@ -78,43 +81,31 @@ export function ProfileCard({
     image: profileImage || null,
     banner: profileBanner || null,
   }
+  const initialIdentity = {
+    email,
+    name: initialName,
+    username: initialUsername,
+  }
   const hasBanner = !!userImageSrc(profileBanner)
   const form = useForm({
-    defaultValues: {
-      email,
-      name: initialName,
-      username: initialUsername,
-    } as { email: string; name: string; username: string },
+    defaultValues: initialIdentity,
     onSubmit: async ({ value }) => {
-      const trimmedEmail = value.email.trim()
-      const trimmedName = value.name.trim()
-      const trimmedUsername = value.username.trim()
-      const emailDirty =
-        trimmedEmail.toLowerCase() !== email.trim().toLowerCase()
-      const nameDirty = trimmedName !== initialName.trim()
-      const usernameDirty = trimmedUsername !== initialUsername.trim()
-
-      if (!emailDirty && !nameDirty && !usernameDirty) {
+      const patch = profileIdentityPatch(value, initialIdentity)
+      if (Object.keys(patch).length === 0) {
         return
       }
 
       try {
-        const { error } = await authClient.updateUser({
-          ...(emailDirty ? { email: trimmedEmail } : {}),
-          ...(nameDirty ? { name: trimmedName } : {}),
-          ...(usernameDirty ? { username: trimmedUsername } : {}),
-        })
+        const { error } = await authClient.updateUser(patch)
         if (error) {
-          toast.error(error.message ?? "Couldn't save")
+          toast.error(errorMessage(error, "Couldn't save"))
           return
         }
 
         toast.success("Saved")
-        await router.invalidate()
+        await refreshProfile()
       } catch (cause) {
-        toast.error(
-          cause instanceof Error ? cause.message : "Something went wrong"
-        )
+        toast.error(errorMessage(cause, "Something went wrong"))
       }
     },
   })
@@ -147,13 +138,7 @@ export function ProfileCard({
 
   async function refreshProfile() {
     await refetchSession()
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: userKeys.all }),
-      queryClient.invalidateQueries({ queryKey: clipKeys.all }),
-      queryClient.invalidateQueries({ queryKey: feedKeys.all }),
-      queryClient.invalidateQueries({ queryKey: gameKeys.all }),
-      queryClient.invalidateQueries({ queryKey: searchKeys.all }),
-    ])
+    await invalidateProfileIdentityCaches(queryClient)
     await router.invalidate()
   }
 
@@ -192,7 +177,7 @@ export function ProfileCard({
       await refreshProfile()
       return true
     } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : "Upload failed")
+      toast.error(errorMessage(cause, "Upload failed"))
       return false
     } finally {
       setUploading(false)
@@ -207,9 +192,7 @@ export function ProfileCard({
       toast.success("Avatar removed")
       await refreshProfile()
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't remove avatar"
-      )
+      toast.error(errorMessage(cause, "Couldn't remove avatar"))
     } finally {
       setUploading(false)
     }
@@ -223,9 +206,7 @@ export function ProfileCard({
       toast.success("Banner removed")
       await refreshProfile()
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't remove banner"
-      )
+      toast.error(errorMessage(cause, "Couldn't remove banner"))
     } finally {
       setUploading(false)
     }
@@ -259,7 +240,7 @@ export function ProfileCard({
       name: "username",
       onChangeValue: undefined,
       type: "text",
-      validate: (value: string) => validateUsername(value.trim()),
+      validate: validateUsername,
     },
     {
       autoComplete: "email",
@@ -357,16 +338,21 @@ export function ProfileCard({
               }
             >
               {([currentEmail, currentName]) => {
+                const normalizedIdentity = normalizeProfileIdentity({
+                  email: currentEmail,
+                  name: currentName,
+                  username: initialUsername,
+                })
                 const previewName = displayName({
                   id: userId,
-                  name: currentName.trim() || null,
-                  email: currentEmail.trim() || email,
+                  name: normalizedIdentity.name || null,
+                  email: normalizedIdentity.email || email,
                   image: profileImage || null,
                 })
                 const avatar = userAvatar({
                   id: userId,
-                  name: currentName.trim() || null,
-                  email: currentEmail.trim() || email,
+                  name: normalizedIdentity.name || null,
+                  email: normalizedIdentity.email || email,
                   image: profileImage || null,
                 })
                 const hasAvatar = !!avatar.src
@@ -440,7 +426,7 @@ export function ProfileCard({
                         {previewName}
                       </span>
                       <span className="text-sm text-foreground-faint">
-                        {currentEmail.trim() || email}
+                        {normalizedIdentity.email || email}
                       </span>
                       <span className="text-xs text-foreground-faint">
                         Avatars are resized to 512x512. Use a square image to
@@ -475,7 +461,7 @@ export function ProfileCard({
                       type="text"
                       autoComplete="name"
                       value={field.state.value}
-                      maxLength={128}
+                      maxLength={USER_DISPLAY_NAME_MAX_LENGTH}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
                       disabled={form.state.isSubmitting}
@@ -536,11 +522,14 @@ export function ProfileCard({
                 canSubmit,
                 isSubmitting,
               ]) => {
-                const dirty =
-                  currentName.trim() !== initialName.trim() ||
-                  currentUsername.trim() !== initialUsername.trim() ||
-                  currentEmail.trim().toLowerCase() !==
-                    email.trim().toLowerCase()
+                const dirty = profileIdentityChanged(
+                  {
+                    email: currentEmail,
+                    name: currentName,
+                    username: currentUsername,
+                  },
+                  initialIdentity
+                )
 
                 return (
                   <Button

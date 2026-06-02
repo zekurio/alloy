@@ -191,7 +191,7 @@ jobs:
           previous_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$RELEASE_TAG^" 2>/dev/null || true)"
           echo "tag=$previous_tag" >> "$GITHUB_OUTPUT"
 
-      - name: Publish release images
+      - name: Publish server release image
         uses: ./.github/actions/publish-image
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -199,6 +199,19 @@ jobs:
           file: apps/server/Dockerfile
           build-args: |
             APP_VERSION=${{ steps.meta.outputs.version }}
+          tags: |
+            type=raw,value=${{ steps.meta.outputs.tag }}
+            type=raw,value=latest,enable=${{ steps.meta.outputs.make_latest == 'true' }}
+
+      - name: Publish machine learning release image
+        uses: ./.github/actions/publish-image
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-machine-learning
+          context: machine-learning
+          file: machine-learning/Dockerfile
+          build-args: |
+            DEVICE=cpu
           tags: |
             type=raw,value=${{ steps.meta.outputs.tag }}
             type=raw,value=latest,enable=${{ steps.meta.outputs.make_latest == 'true' }}

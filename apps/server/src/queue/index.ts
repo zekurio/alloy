@@ -4,7 +4,6 @@ import { startReaperWorker, stopReaperWorker } from "./reaper"
 export async function startQueue(): Promise<void> {
   await startEncodeWorker()
   await startReaperWorker()
-  // eslint-disable-next-line no-console
 }
 
 export async function stopQueue(): Promise<void> {
@@ -12,4 +11,4 @@ export async function stopQueue(): Promise<void> {
   await stopEncodeWorker()
 }
 
-export { ENCODE_JOB, enqueueEncode } from "./encode-worker"
+export { enqueueEncode } from "./encode-worker"

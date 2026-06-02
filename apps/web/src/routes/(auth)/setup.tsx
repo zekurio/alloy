@@ -31,6 +31,11 @@ import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integ
 import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-provider-card"
 import { StorageConfigCard } from "@/components/routes/admin-settings/storage-config-card"
 import { api } from "@/lib/api"
+import {
+  adminEncoderCapabilitiesQueryOptions,
+  adminRuntimeConfigQueryOptions,
+} from "@/lib/admin-query-keys"
+import { errorMessage } from "@/lib/error-message"
 import { isDevSetupForced } from "@/lib/flags"
 import {
   invalidateAuthConfig,
@@ -186,19 +191,14 @@ function useAdminSetupSteps() {
   const navigate = useNavigate()
   const [step, setStep] = React.useState<SetupStep>(0)
   const [config, setConfig] = React.useState<AdminRuntimeConfig | null>(null)
-  const configQuery = useQuery({
-    queryKey: ["setup", "admin-runtime-config"],
-    queryFn: () => api.admin.fetchRuntimeConfig(),
-  })
+  const configQuery = useQuery(adminRuntimeConfigQueryOptions())
 
   React.useEffect(() => {
     if (configQuery.data) setConfig(configQuery.data)
   }, [configQuery.data])
 
   const loadError = configQuery.error
-    ? configQuery.error instanceof Error
-      ? configQuery.error.message
-      : "Couldn't load setup"
+    ? errorMessage(configQuery.error, "Couldn't load setup")
     : null
 
   async function completeSetup() {
@@ -208,9 +208,7 @@ function useAdminSetupSteps() {
       toast.success("Setup complete")
       void navigate({ to: "/" })
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't complete setup"
-      )
+      toast.error(errorMessage(cause, "Couldn't complete setup"))
     }
   }
 
@@ -392,11 +390,7 @@ function EncoderOnboardingCard({
   onEncoderSaved?: () => void
 }) {
   const [pending, setPending] = React.useState(false)
-  const capsQuery = useQuery({
-    queryKey: ["admin", "encoder-capabilities"],
-    queryFn: () => api.admin.fetchEncoderCapabilities(),
-    staleTime: 5 * 60_000,
-  })
+  const capsQuery = useQuery(adminEncoderCapabilitiesQueryOptions())
   const caps = capsQuery.data
   const showSuggestion =
     !config.encoder.enabled || config.encoder.variants.length === 0
@@ -420,9 +414,7 @@ function EncoderOnboardingCard({
       onChange(next)
       toast.success("Default encoder variant applied")
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't update encoder"
-      )
+      toast.error(errorMessage(cause, "Couldn't update encoder"))
     } finally {
       setPending(false)
     }

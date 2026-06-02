@@ -1,13 +1,16 @@
-import { zValidator } from "@hono/zod-validator"
-import { eq } from "drizzle-orm"
+import { zValidator } from "./validation"
 import { Hono } from "hono"
 import { stream } from "hono/streaming"
+import { logger } from "@workspace/logging"
 
-import { user } from "@workspace/db/auth-schema"
-import { clip } from "@workspace/db/schema"
-
-import { db } from "../db"
+import {
+  applyClipPrivacyHeaders,
+  clipAccessResponse,
+  resolveClipAccess,
+} from "../clips/access"
 import { storage } from "../storage"
+import { notFound } from "../runtime/http-response"
+import { cancelReadableOnAbort } from "../runtime/streaming"
 import {
   contentDisposition,
   DownloadQuery,
@@ -15,23 +18,9 @@ import {
   findEncodedVariant,
   IdParam,
   parseRange,
-  peekViewer,
   readAll,
   StreamQuery,
 } from "./clips-helpers"
-
-async function selectPlaybackClip(id: string) {
-  const [row] = await db
-    .select({
-      clip,
-      authorDisabledAt: user.disabledAt,
-    })
-    .from(clip)
-    .innerJoin(user, eq(clip.authorId, user.id))
-    .where(eq(clip.id, id))
-    .limit(1)
-  return row ?? null
-}
 
 export const clipsPlaybackRoutes = new Hono()
   .get(
@@ -41,30 +30,14 @@ export const clipsPlaybackRoutes = new Hono()
     async (c) => {
       const { id } = c.req.valid("param")
       const { variant: requestedVariant } = c.req.valid("query")
-      const selectedRow = await selectPlaybackClip(id)
-      const row = selectedRow?.clip
-      if (!row) return c.json({ error: "Not found" }, 404)
-
-      const viewer = await peekViewer(c.req.raw.headers)
-      const isOwner = viewer?.id === row.authorId
-      const isAdmin = viewer?.role === "admin"
-      const isPrivate = row.privacy === "private"
-
-      if (isPrivate) {
-        c.header("Cache-Control", "no-store")
-      }
-
-      if (selectedRow.authorDisabledAt && !isOwner && !isAdmin) {
-        return c.json({ error: "Not found" }, 404)
-      }
-      if (isPrivate && !isOwner && !isAdmin) {
-        return viewer
-          ? c.json({ error: "Forbidden" }, 403)
-          : c.json({ error: "Unauthorized" }, 401)
-      }
-      if (row.status !== "ready") {
-        return c.json({ error: "Clip not ready" }, 404)
-      }
+      const access = await resolveClipAccess({
+        id,
+        headers: c.req.raw.headers,
+        policy: "stream",
+      })
+      if (!access.accessible) return clipAccessResponse(c, access)
+      applyClipPrivacyHeaders(c, access)
+      const row = access.row
 
       const variant =
         requestedVariant === "source"
@@ -88,7 +61,7 @@ export const clipsPlaybackRoutes = new Hono()
             : null
 
       if (!selected) {
-        return c.json({ error: "Unknown quality" }, 404)
+        return notFound(c, "Unknown quality")
       }
 
       const cacheControl =
@@ -98,7 +71,7 @@ export const clipsPlaybackRoutes = new Hono()
             ? "no-store"
             : "private, max-age=300"
 
-      if (!isPrivate && c.req.method !== "HEAD") {
+      if (!access.isPrivate && c.req.method !== "HEAD") {
         const direct = await storage.mintDownloadUrl(selected.key, {
           expiresInSec: 900,
           responseContentType: selected.contentType || undefined,
@@ -112,11 +85,10 @@ export const clipsPlaybackRoutes = new Hono()
 
       const resolved = await storage.resolve(selected.key)
       if (!resolved) {
-        // eslint-disable-next-line no-console
-        console.error(
+        logger.error(
           `[clips] bytes missing for ready clip ${id} (${selected.id})`
         )
-        return c.json({ error: "Stream unavailable" }, 404)
+        return notFound(c, "Stream unavailable")
       }
 
       const range = parseRange(c.req.header("range"), resolved.size)
@@ -136,7 +108,7 @@ export const clipsPlaybackRoutes = new Hono()
         c.status(206)
         if (c.req.method === "HEAD") return c.body(null)
         return stream(c, async (s) => {
-          s.onAbort(() => body.cancel().catch(() => undefined))
+          cancelReadableOnAbort(s, body, `clip ${id} stream range`)
           await s.pipe(body)
         })
       }
@@ -148,7 +120,7 @@ export const clipsPlaybackRoutes = new Hono()
       c.header("Cache-Control", cacheControl)
       if (c.req.method === "HEAD") return c.body(null)
       return stream(c, async (s) => {
-        s.onAbort(() => body.cancel().catch(() => undefined))
+        cancelReadableOnAbort(s, body, `clip ${id} stream`)
         await s.pipe(body)
       })
     }
@@ -163,33 +135,17 @@ export const clipsPlaybackRoutes = new Hono()
   .get("/:id/thumbnail", zValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
 
-    const selectedRow = await selectPlaybackClip(id)
-    const row = selectedRow?.clip
-    if (!row) return c.json({ error: "Not found" }, 404)
-
-    const viewer = await peekViewer(c.req.raw.headers)
-    const isOwner = viewer?.id === row.authorId
-    const isAdmin = viewer?.role === "admin"
-    const isPrivate = row.privacy === "private"
-
-    if (isPrivate) {
-      c.header("Cache-Control", "no-store")
-    }
-
-    if (selectedRow.authorDisabledAt && !isOwner && !isAdmin) {
-      return c.json({ error: "Not found" }, 404)
-    }
-    if (isPrivate && !isOwner && !isAdmin) {
-      return viewer
-        ? c.json({ error: "Forbidden" }, 403)
-        : c.json({ error: "Unauthorized" }, 401)
-    }
-    if (row.status !== "ready" && !isOwner && !isAdmin) {
-      return c.json({ error: "Not found" }, 404)
-    }
+    const access = await resolveClipAccess({
+      id,
+      headers: c.req.raw.headers,
+      policy: "ownerAsset",
+    })
+    if (!access.accessible) return clipAccessResponse(c, access)
+    applyClipPrivacyHeaders(c, access)
+    const row = access.row
 
     const key = row.thumbKey
-    if (!key) return c.json({ error: "No thumbnail" }, 404)
+    if (!key) return notFound(c, "No thumbnail")
 
     const thumbCacheControl =
       row.privacy === "public" && row.status === "ready"
@@ -198,7 +154,7 @@ export const clipsPlaybackRoutes = new Hono()
           ? "no-store"
           : "private, max-age=86400"
 
-    if (!isPrivate && c.req.method !== "HEAD") {
+    if (!access.isPrivate && c.req.method !== "HEAD") {
       const direct = await storage.mintDownloadUrl(key, {
         expiresInSec: 900,
         responseCacheControl: thumbCacheControl,
@@ -210,7 +166,7 @@ export const clipsPlaybackRoutes = new Hono()
     }
 
     const resolved = await storage.resolve(key)
-    if (!resolved) return c.json({ error: "No thumbnail" }, 404)
+    if (!resolved) return notFound(c, "No thumbnail")
 
     c.header("Content-Type", resolved.contentType)
     c.header("Content-Length", String(resolved.size))
@@ -228,18 +184,16 @@ export const clipsPlaybackRoutes = new Hono()
 
   .get("/:id/opengraph", zValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
-    const selectedRow = await selectPlaybackClip(id)
-    const row = selectedRow?.clip
-    if (!row) return c.json({ error: "Not found" }, 404)
+    const access = await resolveClipAccess({
+      id,
+      headers: c.req.raw.headers,
+      policy: "openGraphAsset",
+    })
+    if (!access.accessible) return clipAccessResponse(c, access)
+    const row = access.row
 
-    if (row.status !== "ready" || !row.openGraphKey) {
-      return c.json({ error: "Not found" }, 404)
-    }
-    if (row.privacy === "private") {
-      return c.json({ error: "Not found" }, 404)
-    }
-    if (selectedRow.authorDisabledAt) {
-      return c.json({ error: "Not found" }, 404)
+    if (!row.openGraphKey) {
+      return notFound(c)
     }
 
     const direct = await storage.mintDownloadUrl(row.openGraphKey, {
@@ -253,7 +207,7 @@ export const clipsPlaybackRoutes = new Hono()
     }
 
     const resolved = await storage.resolve(row.openGraphKey)
-    if (!resolved) return c.json({ error: "OpenGraph unavailable" }, 404)
+    if (!resolved) return notFound(c, "OpenGraph unavailable")
     c.header("Content-Type", row.openGraphContentType ?? resolved.contentType)
     c.header("Content-Length", String(resolved.size))
     c.header("Accept-Ranges", "bytes")
@@ -261,7 +215,7 @@ export const clipsPlaybackRoutes = new Hono()
     if (c.req.method === "HEAD") return c.body(null)
     const body = resolved.stream()
     return stream(c, async (s) => {
-      s.onAbort(() => body.cancel().catch(() => undefined))
+      cancelReadableOnAbort(s, body, `clip ${id} OpenGraph media`)
       await s.pipe(body)
     })
   })
@@ -274,30 +228,14 @@ export const clipsPlaybackRoutes = new Hono()
       const { id } = c.req.valid("param")
       const { variant: requestedVariant } = c.req.valid("query")
 
-      const selectedRow = await selectPlaybackClip(id)
-      const row = selectedRow?.clip
-      if (!row) return c.json({ error: "Not found" }, 404)
-
-      const viewer = await peekViewer(c.req.raw.headers)
-      const isOwner = viewer?.id === row.authorId
-      const isAdmin = viewer?.role === "admin"
-      const isPrivate = row.privacy === "private"
-
-      if (isPrivate) {
-        c.header("Cache-Control", "no-store")
-      }
-
-      if (selectedRow.authorDisabledAt && !isOwner && !isAdmin) {
-        return c.json({ error: "Not found" }, 404)
-      }
-      if (isPrivate && !isOwner && !isAdmin) {
-        return viewer
-          ? c.json({ error: "Forbidden" }, 403)
-          : c.json({ error: "Unauthorized" }, 401)
-      }
-      if (row.status !== "ready" && !isOwner && !isAdmin) {
-        return c.json({ error: "Not found" }, 404)
-      }
+      const access = await resolveClipAccess({
+        id,
+        headers: c.req.raw.headers,
+        policy: "ownerAsset",
+      })
+      if (!access.accessible) return clipAccessResponse(c, access)
+      applyClipPrivacyHeaders(c, access)
+      const row = access.row
 
       const encodedVariant =
         row.status === "ready" && requestedVariant !== "source"
@@ -321,7 +259,7 @@ export const clipsPlaybackRoutes = new Hono()
             : null
 
       if (!selected) {
-        return c.json({ error: "Unknown download variant" }, 404)
+        return notFound(c, "Unknown download variant")
       }
 
       const dlCacheControl =
@@ -331,7 +269,7 @@ export const clipsPlaybackRoutes = new Hono()
             ? "no-store"
             : "private, max-age=300"
 
-      if (!isPrivate && c.req.method !== "HEAD") {
+      if (!access.isPrivate && c.req.method !== "HEAD") {
         const direct = await storage.mintDownloadUrl(selected.key, {
           expiresInSec: 900,
           responseContentType: selected.contentType || undefined,
@@ -346,7 +284,7 @@ export const clipsPlaybackRoutes = new Hono()
 
       const resolved = await storage.resolve(selected.key)
       if (!resolved) {
-        return c.json({ error: "Download unavailable" }, 404)
+        return notFound(c, "Download unavailable")
       }
 
       c.header("Content-Type", selected.contentType || resolved.contentType)
@@ -357,7 +295,7 @@ export const clipsPlaybackRoutes = new Hono()
 
       const body = resolved.stream()
       return stream(c, async (s) => {
-        s.onAbort(() => body.cancel().catch(() => undefined))
+        cancelReadableOnAbort(s, body, `clip ${id} download`)
         await s.pipe(body)
       })
     }

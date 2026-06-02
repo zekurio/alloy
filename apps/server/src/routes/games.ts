@@ -1,6 +1,6 @@
-import { zValidator } from "@hono/zod-validator"
-import { and, desc, eq, inArray, isNull, lt, sql, type SQL } from "drizzle-orm"
-import { Hono } from "hono"
+import { zValidator } from "./validation"
+import { and, desc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm"
+import { Hono, type Context } from "hono"
 
 import { user } from "@workspace/db/auth-schema"
 import { clip, game, gameFollow } from "@workspace/db/schema"
@@ -10,6 +10,21 @@ import { getSession } from "../auth/session"
 import { clipSelectShape, toPublicClipRow } from "../clips/select"
 import { generateUniqueGameSlug } from "../games/slug"
 import { requireSession } from "../auth/require-session"
+import {
+  badGateway,
+  booleanFlag,
+  errorResult,
+  internalServerError,
+  invalidCursor,
+  notFound,
+  steamGridDBStatus,
+} from "../runtime/http-response"
+import {
+  clipListCursorCondition,
+  clipListOrderBy,
+  clipListPage,
+  parseClipListCursor,
+} from "./clips-helpers"
 import {
   enrichSearchResultsWithIcons,
   getGameAssets,
@@ -25,12 +40,43 @@ import {
   SlugParam,
   TopQuery,
   serialiseGame,
+  serialiseGameListRow,
   sgdbErrorResponse,
 } from "./games-helpers"
 
+type GameImageAsset = {
+  column: "heroUrl" | "gridUrl"
+  label: "hero" | "grid"
+}
+
+async function proxyGameImageAsset(
+  c: Context,
+  slug: string,
+  asset: GameImageAsset
+) {
+  const [row] = await db
+    .select({ url: game[asset.column] })
+    .from(game)
+    .where(eq(game.slug, slug))
+    .limit(1)
+  if (!row?.url) return notFound(c)
+
+  const upstream = await fetch(row.url)
+  if (!upstream.ok || !upstream.body) {
+    return badGateway(c, `Upstream ${asset.label} unavailable`)
+  }
+
+  return new Response(upstream.body, {
+    headers: {
+      "content-type": upstream.headers.get("content-type") ?? "image/*",
+      "cache-control": "public, max-age=86400",
+    },
+  })
+}
+
 export const gamesRoute = new Hono()
   .get("/status", (c) => {
-    return c.json({ steamgriddbConfigured: isConfigured() })
+    return steamGridDBStatus(c, isConfigured())
   })
 
   .get(
@@ -47,8 +93,7 @@ export const gamesRoute = new Hono()
         )
         return c.json(enriched)
       } catch (err) {
-        const { status, error } = sgdbErrorResponse(err)
-        return c.json({ error }, status)
+        return errorResult(c, sgdbErrorResponse(err))
       }
     }
   )
@@ -75,11 +120,10 @@ export const gamesRoute = new Hono()
           getGameAssets(steamgriddbId),
         ])
       } catch (err) {
-        const { status, error } = sgdbErrorResponse(err)
-        return c.json({ error }, status)
+        return errorResult(c, sgdbErrorResponse(err))
       }
       if (!detail) {
-        return c.json({ error: "Unknown SteamGridDB game id" }, 404)
+        return notFound(c, "Unknown SteamGridDB game id")
       }
 
       const slug = await generateUniqueGameSlug(detail.name)
@@ -111,7 +155,7 @@ export const gamesRoute = new Hono()
         .where(eq(game.steamgriddbId, steamgriddbId))
         .limit(1)
       if (!raced) {
-        return c.json({ error: "Failed to upsert game" }, 500)
+        return internalServerError(c, "Failed to upsert game")
       }
       return c.json(serialiseGame(raced))
     }
@@ -148,20 +192,7 @@ export const gamesRoute = new Hono()
       .limit(limit)
       .offset(offset)
 
-    return c.json(
-      rows.map((row) => ({
-        id: row.id,
-        steamgriddbId: row.steamgriddbId,
-        name: row.name,
-        slug: row.slug,
-        releaseDate: row.releaseDate ? row.releaseDate.toISOString() : null,
-        heroUrl: row.heroUrl,
-        gridUrl: row.gridUrl,
-        logoUrl: row.logoUrl,
-        iconUrl: row.iconUrl,
-        clipCount: row.clipCount,
-      }))
-    )
+    return c.json(rows.map(serialiseGameListRow))
   })
 
   .get("/:slug", zValidator("param", SlugParam), async (c) => {
@@ -171,7 +202,7 @@ export const gamesRoute = new Hono()
       .from(game)
       .where(eq(game.slug, slug))
       .limit(1)
-    if (!row) return c.json({ error: "Not found" }, 404)
+    if (!row) return notFound(c)
 
     const session = await getSession(c)
     let viewer: { isFollowing: boolean } | null = null
@@ -200,46 +231,12 @@ export const gamesRoute = new Hono()
 
   .get("/:slug/hero", zValidator("param", SlugParam), async (c) => {
     const { slug } = c.req.valid("param")
-    const [row] = await db
-      .select({ heroUrl: game.heroUrl })
-      .from(game)
-      .where(eq(game.slug, slug))
-      .limit(1)
-    if (!row || !row.heroUrl) return c.json({ error: "Not found" }, 404)
-
-    const upstream = await fetch(row.heroUrl)
-    if (!upstream.ok || !upstream.body) {
-      return c.json({ error: "Upstream hero unavailable" }, 502)
-    }
-
-    return new Response(upstream.body, {
-      headers: {
-        "content-type": upstream.headers.get("content-type") ?? "image/*",
-        "cache-control": "public, max-age=86400",
-      },
-    })
+    return proxyGameImageAsset(c, slug, { column: "heroUrl", label: "hero" })
   })
 
   .get("/:slug/grid", zValidator("param", SlugParam), async (c) => {
     const { slug } = c.req.valid("param")
-    const [row] = await db
-      .select({ gridUrl: game.gridUrl })
-      .from(game)
-      .where(eq(game.slug, slug))
-      .limit(1)
-    if (!row || !row.gridUrl) return c.json({ error: "Not found" }, 404)
-
-    const upstream = await fetch(row.gridUrl)
-    if (!upstream.ok || !upstream.body) {
-      return c.json({ error: "Upstream grid unavailable" }, 502)
-    }
-
-    return new Response(upstream.body, {
-      headers: {
-        "content-type": upstream.headers.get("content-type") ?? "image/*",
-        "cache-control": "public, max-age=86400",
-      },
-    })
+    return proxyGameImageAsset(c, slug, { column: "gridUrl", label: "grid" })
   })
 
   .post(
@@ -255,14 +252,14 @@ export const gamesRoute = new Hono()
         .from(game)
         .where(eq(game.slug, slug))
         .limit(1)
-      if (!gameRow) return c.json({ error: "Not found" }, 404)
+      if (!gameRow) return notFound(c)
 
       await db
         .insert(gameFollow)
         .values({ userId: viewerId, gameId: gameRow.id })
         .onConflictDoNothing()
 
-      return c.json({ following: true })
+      return booleanFlag(c, "following", true)
     }
   )
 
@@ -279,7 +276,7 @@ export const gamesRoute = new Hono()
         .from(game)
         .where(eq(game.slug, slug))
         .limit(1)
-      if (!gameRow) return c.json({ error: "Not found" }, 404)
+      if (!gameRow) return notFound(c)
 
       await db
         .delete(gameFollow)
@@ -290,7 +287,7 @@ export const gamesRoute = new Hono()
           )
         )
 
-      return c.json({ following: false })
+      return booleanFlag(c, "following", false)
     }
   )
 
@@ -301,13 +298,17 @@ export const gamesRoute = new Hono()
     async (c) => {
       const { slug } = c.req.valid("param")
       const { sort, cursor, limit } = c.req.valid("query")
+      const parsedCursor = parseClipListCursor(cursor, sort)
+      if (cursor && !parsedCursor) {
+        return invalidCursor(c)
+      }
 
       const [gameRow] = await db
         .select({ id: game.id })
         .from(game)
         .where(eq(game.slug, slug))
         .limit(1)
-      if (!gameRow) return c.json({ error: "Not found" }, 404)
+      if (!gameRow) return notFound(c)
 
       const conditions: SQL[] = [
         eq(clip.gameId, gameRow.id),
@@ -315,14 +316,8 @@ export const gamesRoute = new Hono()
         inArray(clip.privacy, ["public", "unlisted"]),
         isNull(user.disabledAt),
       ]
-      if (cursor) {
-        conditions.push(lt(clip.createdAt, new Date(cursor)))
-      }
-
-      const orderBy =
-        sort === "top"
-          ? [desc(clip.likeCount), desc(clip.createdAt)]
-          : [desc(clip.createdAt)]
+      const cursorCondition = clipListCursorCondition(parsedCursor, sort)
+      if (cursorCondition) conditions.push(cursorCondition)
 
       const rows = await db
         .select(clipSelectShape)
@@ -330,10 +325,10 @@ export const gamesRoute = new Hono()
         .innerJoin(user, eq(clip.authorId, user.id))
         .leftJoin(game, eq(clip.gameId, game.id))
         .where(and(...conditions))
-        .orderBy(...orderBy)
-        .limit(limit)
+        .orderBy(...clipListOrderBy(sort))
+        .limit(limit + 1)
 
-      return c.json(rows.map(toPublicClipRow))
+      return c.json(clipListPage(rows, limit, sort))
     }
   )
 
@@ -350,7 +345,7 @@ export const gamesRoute = new Hono()
         .from(game)
         .where(eq(game.slug, slug))
         .limit(1)
-      if (!gameRow) return c.json({ error: "Not found" }, 404)
+      if (!gameRow) return notFound(c)
 
       const score = sql<number>`
         ((${clip.viewCount} + ${clip.likeCount} * 3)::float)

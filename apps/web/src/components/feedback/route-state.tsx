@@ -9,7 +9,13 @@ import type {
 import { AlloyLogoMark } from "@workspace/ui/components/alloy-logo"
 import { Button } from "@workspace/ui/components/button"
 import { buttonVariants } from "@workspace/ui/lib/button-variants"
+import { messageFromUnknown } from "@workspace/ui/lib/error-message"
 import { cn } from "@workspace/ui/lib/utils"
+
+import {
+  canGoBackInBrowserHistory,
+  goBackInBrowserHistory,
+} from "@/lib/browser-url"
 
 type RouteStateVariant = "screen" | "panel"
 
@@ -82,7 +88,7 @@ function RouteErrorState({
 function RouteNotFoundState({
   variant = "screen",
 }: RouteNotFoundStateProps): React.ReactElement {
-  const canGoBack = typeof window !== "undefined" && window.history.length > 1
+  const canGoBack = canGoBackInBrowserHistory()
 
   return (
     <RouteStateFrame variant={variant}>
@@ -107,7 +113,7 @@ function RouteNotFoundState({
             <Button
               type="button"
               variant="ghost"
-              onClick={() => window.history.back()}
+              onClick={goBackInBrowserHistory}
             >
               <ArrowLeft className="size-3.5" aria-hidden />
               Go back
@@ -157,14 +163,9 @@ function getErrorDetails(
 }
 
 function getErrorMessage(error: unknown): string | null {
-  if (error instanceof Error) {
-    return error.message || error.name
-  }
-  if (typeof error === "string") {
-    return error
-  }
-  return null
+  return (
+    messageFromUnknown(error) ?? (error instanceof Error ? error.name : null)
+  )
 }
 
 export { RouteErrorState, RouteNotFoundState }
-export type { RouteErrorStateProps, RouteNotFoundStateProps }

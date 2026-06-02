@@ -1,5 +1,7 @@
 import type { SelectedFile } from "./new-clip-helpers"
-import { formatBytes, formatDuration } from "./new-clip-format"
+import { formatMediaDurationMs } from "@/lib/media-time"
+import { requireObjectUrl, revokeObjectUrl } from "@/lib/object-url"
+import { formatBytes } from "@/lib/storage-format"
 
 const VIDEO_LOAD_TIMEOUT_MS = 15000
 const THUMB_MAX_BYTES = 2 * 1024 * 1024
@@ -161,7 +163,7 @@ export function probeFile(file: File): Promise<ProbedFile> {
         size: formatBytes(file.size),
         resolution: `${width}×${height}`,
         fps: "—FPS",
-        duration: formatDuration(durationMs),
+        duration: formatMediaDurationMs(durationMs),
         durationMs,
         width,
         height,
@@ -182,7 +184,7 @@ function createVideoSession(
   file: File,
   preload: HTMLVideoElement["preload"]
 ): VideoSession {
-  const url = URL.createObjectURL(file)
+  const url = requireObjectUrl(file, "video file URL")
   const video = document.createElement("video")
   video.preload = preload
   video.muted = true
@@ -192,7 +194,7 @@ function createVideoSession(
   return {
     video,
     cleanup: () => {
-      URL.revokeObjectURL(url)
+      revokeObjectUrl(url, "video file URL")
       video.removeAttribute("src")
       try {
         video.load()

@@ -1,17 +1,23 @@
 import * as React from "react"
 import { useQueryClient } from "@tanstack/react-query"
 
+import { stableHue } from "@workspace/ui/lib/stable-hash"
 import { toast } from "@workspace/ui/lib/toast"
 
 import { api } from "@/lib/api"
+import { absoluteClipHref } from "@/lib/app-paths"
+import { copyTextToClipboard } from "@/lib/clipboard"
+import { clientLogger } from "@/lib/client-log"
+import { publicOrigin } from "@/lib/env"
+import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 import {
   clipKeys,
   useInvalidateClips,
   useUploadQueueQuery,
 } from "@/lib/clip-queries"
+import { removeUploadQueueClip } from "@/lib/clip-queue-stream"
 import { uploadToTicket, type QueueClip } from "@workspace/api"
 import {
-  hueFor,
   localToQueueItem,
   serverToQueueItem,
   type ActiveUpload,
@@ -19,6 +25,33 @@ import {
 import type { PublishPayload } from "./new-clip-helpers"
 import type { QueueItem } from "./upload-queue"
 import { useDismissedClips } from "./use-dismissed-clips"
+
+async function deleteUploadClipBestEffort(
+  clipId: string,
+  reason: string
+): Promise<boolean> {
+  try {
+    await api.clips.delete(clipId)
+    return true
+  } catch (cause) {
+    clientLogger.warn(
+      `[upload] Failed to delete clip ${clipId} after ${reason}.`,
+      cause
+    )
+    return false
+  }
+}
+
+async function markUploadFailedBestEffort(clipId: string): Promise<void> {
+  try {
+    await api.clips.markUploadFailed(clipId)
+  } catch (cause) {
+    clientLogger.warn(
+      `[upload] Failed to mark clip ${clipId} as failed after upload error.`,
+      cause
+    )
+  }
+}
 
 async function performUpload(
   payload: PublishPayload,
@@ -84,9 +117,11 @@ function useServerQueueSync(
       ) {
         const retained = retainedThumbsRef.current.get(active.clipId)
         if (retained && retained !== active.thumbUrl) {
-          URL.revokeObjectURL(retained)
+          revokeObjectUrl(retained, "retained upload thumbnail URL")
         }
-        retainedThumbsRef.current.set(active.clipId, active.thumbUrl)
+        if (active.thumbUrl) {
+          retainedThumbsRef.current.set(active.clipId, active.thumbUrl)
+        }
         activeRef.current.delete(localId)
         changed = true
       }
@@ -100,8 +135,7 @@ function useServerQueueSync(
       }
     }
     if (becameReady) void invalidateClips()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverQueue])
+  }, [activeRef, retainedThumbsRef, bump, invalidateClips, serverQueue])
 }
 
 function useCancelRow(
@@ -118,11 +152,11 @@ function useCancelRow(
         if (entry) {
           entry.abort.abort()
           if (entry.status !== "uploading") {
-            URL.revokeObjectURL(entry.thumbUrl)
+            revokeObjectUrl(entry.thumbUrl, "local upload thumbnail URL")
             activeRef.current.delete(localId)
             bump()
             if (entry.clipId) {
-              void api.clips.delete(entry.clipId).catch(() => undefined)
+              void deleteUploadClipBestEffort(entry.clipId, "local cancel")
             }
           }
         }
@@ -130,16 +164,17 @@ function useCancelRow(
       if (clipId) {
         const retained = retainedThumbsRef.current.get(clipId)
         if (retained) {
-          URL.revokeObjectURL(retained)
+          revokeObjectUrl(retained, "retained upload thumbnail URL")
           retainedThumbsRef.current.delete(clipId)
         }
         queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), (old) =>
-          old ? old.filter((r) => r.id !== clipId) : old
+          removeUploadQueueClip(old, clipId)
         )
-        void api.clips
-          .delete(clipId)
-          .then(() => invalidateClips())
-          .catch(() => undefined)
+        void deleteUploadClipBestEffort(clipId, "queue cancel").then(
+          (deleted) => {
+            if (deleted) invalidateClips()
+          }
+        )
       }
     },
     [invalidateClips, queryClient, bump, activeRef, retainedThumbsRef]
@@ -158,37 +193,37 @@ function useRunUpload(
       const entry: ActiveUpload = {
         localId,
         title: payload.title,
-        hue: hueFor(payload.title),
+        hue: stableHue(payload.title),
         bytesTotal: payload.sizeBytes,
         bytesLoaded: 0,
         status: "initiating",
         abort: new AbortController(),
-        thumbUrl: URL.createObjectURL(payload.thumbBlob),
+        thumbUrl: createObjectUrl(payload.thumbBlob, "upload thumbnail URL"),
       }
       activeRef.current.set(localId, entry)
       bump()
 
       try {
         await performUpload(payload, entry, bump, invalidateClips)
-        if (entry.clipId) {
+        if (entry.clipId && entry.thumbUrl) {
           retainedThumbsRef.current.set(entry.clipId, entry.thumbUrl)
         } else {
-          URL.revokeObjectURL(entry.thumbUrl)
+          revokeObjectUrl(entry.thumbUrl, "local upload thumbnail URL")
         }
         activeRef.current.delete(localId)
         bump()
       } catch (err) {
         if ((err as Error).name === "AbortError") {
-          URL.revokeObjectURL(entry.thumbUrl)
+          revokeObjectUrl(entry.thumbUrl, "local upload thumbnail URL")
           activeRef.current.delete(localId)
           bump()
           if (entry.clipId) {
-            void api.clips.delete(entry.clipId).catch(() => undefined)
+            void deleteUploadClipBestEffort(entry.clipId, "upload abort")
           }
           return
         }
         if (entry.clipId) {
-          void api.clips.markUploadFailed(entry.clipId).catch(() => undefined)
+          void markUploadFailedBestEffort(entry.clipId)
         }
         entry.status = "error"
         entry.errorMessage = (err as Error).message
@@ -222,11 +257,11 @@ export function useUploadQueueState(
   React.useEffect(() => {
     return () => {
       for (const active of activeRef.current.values()) {
-        URL.revokeObjectURL(active.thumbUrl)
+        revokeObjectUrl(active.thumbUrl, "local upload thumbnail URL")
       }
       activeRef.current.clear()
       for (const url of retainedThumbsRef.current.values()) {
-        URL.revokeObjectURL(url)
+        revokeObjectUrl(url, "retained upload thumbnail URL")
       }
       retainedThumbsRef.current.clear()
     }
@@ -239,13 +274,16 @@ export function useUploadQueueState(
     (clipId: string) => {
       const retained = retainedThumbsRef.current.get(clipId)
       if (!retained) return
-      URL.revokeObjectURL(retained)
+      revokeObjectUrl(retained, "retained upload thumbnail URL")
       retainedThumbsRef.current.delete(clipId)
       bump()
     },
     [bump]
   )
-  const { dismissed, dismiss, dismissMany } = useDismissedClips(serverQueue)
+  const { dismissed, dismiss, dismissMany } = useDismissedClips(
+    serverQueue,
+    serverQueueHydrated
+  )
 
   const queue: QueueItem[] = React.useMemo(() => {
     const localEntries = Array.from(activeRef.current.values())
@@ -309,14 +347,16 @@ export function useUploadQueueState(
 }
 
 function clipLinkFor(row: QueueClip): string {
-  return `${window.location.origin}/g/${row.gameSlug}/c/${row.id}`
+  return absoluteClipHref(row.gameSlug, row.id, publicOrigin())
 }
 
 async function copyClipLink(row: QueueClip): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(clipLinkFor(row))
+  const copied = await copyTextToClipboard(clipLinkFor(row), {
+    action: "copy uploaded clip link",
+  })
+  if (copied) {
     toast.success("Link copied")
-  } catch {
+  } else {
     toast.error("Couldn't copy link")
   }
 }

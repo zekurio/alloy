@@ -1,31 +1,42 @@
 import {
   startAuthentication,
   startRegistration,
-  type PublicKeyCredentialCreationOptionsJSON,
-  type PublicKeyCredentialRequestOptionsJSON,
   type RegistrationResponseJSON,
 } from "@simplewebauthn/browser"
-import type { AdminUserStorageRow } from "@workspace/contracts"
 
 import {
   errorFrom,
+  type AuthRedirect,
   type AuthResult,
-  type AuthUser,
   type LinkedAccount,
   type Passkey,
   type RequestFn,
   type SessionData,
   type SessionStore,
 } from "./auth"
+import { AUTH_PATHS } from "./auth-paths"
+import {
+  type JsonValidator,
+  validateLinkedAccounts,
+  validateOAuthStartResponse,
+  validatePasskey,
+  validatePasskeyAuthenticationOptionsResponse,
+  validatePasskeyRegistrationOptionsResponse,
+  validatePasskeys,
+  validateSessionData,
+  validateSuccessResponse,
+  validateUserUpdateResponse,
+} from "./auth-validators"
 
 async function jsonResult<T>(
   request: RequestFn,
   path: string,
   init: RequestInit,
-  fallback: string
+  fallback: string,
+  validate: JsonValidator<T>
 ): AuthResult<T> {
   try {
-    return { data: await request<T>(path, init), error: null }
+    return { data: await request(path, init, validate), error: null }
   } catch (cause) {
     return { data: null, error: errorFrom(cause, fallback) }
   }
@@ -36,19 +47,21 @@ async function passkeySignIn(
   store: SessionStore
 ): AuthResult<SessionData> {
   try {
-    const start = await request<{
-      challengeId: string
-      options: PublicKeyCredentialRequestOptionsJSON
-    }>("/api/auth/passkey/sign-in/options", { method: "POST" })
+    const start = await request(
+      AUTH_PATHS.passkeySignInOptions,
+      { method: "POST" },
+      validatePasskeyAuthenticationOptionsResponse
+    )
     const response = await startAuthentication({
       optionsJSON: start.options,
     })
-    const data = await request<SessionData>(
-      "/api/auth/passkey/sign-in/verify",
+    const data = await request(
+      AUTH_PATHS.passkeySignInVerify,
       {
         method: "POST",
         body: JSON.stringify({ challengeId: start.challengeId, response }),
-      }
+      },
+      validateSessionData
     )
     store.set(data)
     return { data, error: null }
@@ -64,10 +77,11 @@ async function passkeySignUp(
 ): AuthResult<SessionData> {
   try {
     const data = await completeRegistrationChallenge<SessionData>(request, {
-      optionsPath: "/api/auth/passkey/sign-up/options",
-      verifyPath: "/api/auth/passkey/sign-up/verify",
+      optionsPath: AUTH_PATHS.passkeySignUpOptions,
+      verifyPath: AUTH_PATHS.passkeySignUpVerify,
       method: "POST",
       body: input,
+      validateResult: validateSessionData,
     })
     store.set(data)
     return { data, error: null }
@@ -82,10 +96,11 @@ async function addPasskey(
 ): AuthResult<Passkey> {
   try {
     const data = await completeRegistrationChallenge<Passkey>(request, {
-      optionsPath: "/api/auth/passkeys/options",
-      verifyPath: "/api/auth/passkeys/verify",
+      optionsPath: AUTH_PATHS.passkeyOptions,
+      verifyPath: AUTH_PATHS.passkeyVerify,
       method: "POST",
       extraVerifyBody: { name: input.name },
+      validateResult: validatePasskey,
     })
     return { data, error: null }
   } catch (cause) {
@@ -101,37 +116,52 @@ async function completeRegistrationChallenge<T>(
     method,
     body,
     extraVerifyBody,
+    validateResult,
   }: {
     optionsPath: string
     verifyPath: string
     method: "POST"
     body?: unknown
     extraVerifyBody?: Record<string, unknown>
+    validateResult: JsonValidator<T>
   }
 ): Promise<T> {
-  const start = await request<{
-    challengeId: string
-    options: PublicKeyCredentialCreationOptionsJSON
-  }>(optionsPath, {
-    method,
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  })
+  const start = await request(
+    optionsPath,
+    {
+      method,
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    },
+    validatePasskeyRegistrationOptionsResponse
+  )
   const response: RegistrationResponseJSON = await startRegistration({
     optionsJSON: start.options,
   })
-  return request<T>(verifyPath, {
-    method: "POST",
-    body: JSON.stringify({
-      challengeId: start.challengeId,
-      response,
-      ...extraVerifyBody,
-    }),
-  })
+  return request(
+    verifyPath,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        challengeId: start.challengeId,
+        response,
+        ...extraVerifyBody,
+      }),
+    },
+    validateResult
+  )
 }
 
-function createPasskeyActions(request: RequestFn, store: SessionStore) {
-  const result = <T>(path: string, init: RequestInit, fallback: string) =>
-    jsonResult<T>(request, path, init, fallback)
+function createPasskeyActions(
+  request: RequestFn,
+  store: SessionStore,
+  redirect: AuthRedirect
+) {
+  const result = <T>(
+    path: string,
+    init: RequestInit,
+    fallback: string,
+    validate: JsonValidator<T>
+  ) => jsonResult<T>(request, path, init, fallback, validate)
   const signUpWithPasskey = (input: { email: string; username: string }) =>
     passkeySignUp(request, store, input)
 
@@ -141,7 +171,8 @@ function createPasskeyActions(request: RequestFn, store: SessionStore) {
       oauth2: (input: { providerId: string; callbackURL?: string }) =>
         startOAuthRedirect(
           request,
-          "/api/auth/oauth/sign-in",
+          redirect,
+          AUTH_PATHS.oauthSignIn,
           input,
           "Could not start OAuth sign-in"
         ),
@@ -154,26 +185,37 @@ function createPasskeyActions(request: RequestFn, store: SessionStore) {
       addPasskey: (input: { name?: string | null }) =>
         addPasskey(request, input),
       listUserPasskeys: () =>
-        result<Passkey[]>("/api/auth/passkeys", {}, "Could not load passkeys"),
+        result(
+          AUTH_PATHS.passkeys,
+          {},
+          "Could not load passkeys",
+          validatePasskeys
+        ),
       updatePasskey: (input: { id: string; name?: string | null }) =>
-        result<Passkey>(
-          `/api/auth/passkeys/${encodeURIComponent(input.id)}`,
+        result(
+          AUTH_PATHS.passkey(input.id),
           { method: "PATCH", body: JSON.stringify({ name: input.name }) },
-          "Could not update passkey"
+          "Could not update passkey",
+          validatePasskey
         ),
       deletePasskey: (input: { id: string }) =>
-        result<{ success: true }>(
-          `/api/auth/passkeys/${encodeURIComponent(input.id)}`,
+        result(
+          AUTH_PATHS.passkey(input.id),
           { method: "DELETE" },
-          "Could not delete passkey"
+          "Could not delete passkey",
+          validateSuccessResponse
         ),
     },
   }
 }
 
 function createUserActions(request: RequestFn, store: SessionStore) {
-  const result = <T>(path: string, init: RequestInit, fallback: string) =>
-    jsonResult<T>(request, path, init, fallback)
+  const result = <T>(
+    path: string,
+    init: RequestInit,
+    fallback: string,
+    validate: JsonValidator<T>
+  ) => jsonResult<T>(request, path, init, fallback, validate)
 
   return {
     updateUser: async (input: {
@@ -181,63 +223,73 @@ function createUserActions(request: RequestFn, store: SessionStore) {
       name?: string
       username?: string
     }) => {
-      const update = await result<{ user: AuthUser }>(
-        "/api/auth/user",
+      const update = await result(
+        AUTH_PATHS.user,
         { method: "PATCH", body: JSON.stringify(input) },
-        "Could not update user"
+        "Could not update user",
+        validateUserUpdateResponse
       )
       if (!update.error) await store.refetch()
       return update
     },
     deleteUser: () =>
-      result<{ success: true }>(
-        "/api/auth/user",
+      result(
+        AUTH_PATHS.user,
         { method: "DELETE" },
-        "Could not delete user"
+        "Could not delete user",
+        validateSuccessResponse
       ).then((deleteResult) => {
         if (!deleteResult.error) store.set(null)
         return deleteResult
       }),
     listAccounts: () =>
       result<LinkedAccount[]>(
-        "/api/auth/accounts",
+        AUTH_PATHS.accounts,
         {},
-        "Could not load accounts"
+        "Could not load accounts",
+        validateLinkedAccounts
       ),
     unlinkAccount: (input: { providerId: string; accountId: string }) =>
-      result<{ success: true }>(
-        "/api/auth/accounts/unlink",
+      result(
+        AUTH_PATHS.accountsUnlink,
         { method: "POST", body: JSON.stringify(input) },
-        "Could not unlink account"
+        "Could not unlink account",
+        validateSuccessResponse
       ),
   }
 }
 
 async function startOAuthRedirect(
   request: RequestFn,
+  redirect: AuthRedirect,
   path: string,
   input: { providerId: string; callbackURL?: string },
   fallback: string
 ): AuthResult<never> {
   try {
-    const data = await request<{ url: string }>(path, {
-      method: "POST",
-      body: JSON.stringify(input),
-    })
-    window.location.assign(data.url)
+    const data = await request(
+      path,
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+      validateOAuthStartResponse
+    )
+    redirect(data.url)
     return { data: null, error: null }
   } catch (cause) {
     return { data: null, error: errorFrom(cause, fallback) }
   }
 }
 
-function createOAuthActions(request: RequestFn) {
+function createOAuthActions(request: RequestFn, redirect: AuthRedirect) {
   return {
     oauth2: {
       link: (input: { providerId: string; callbackURL?: string }) =>
         startOAuthRedirect(
           request,
-          "/api/auth/oauth/link",
+          redirect,
+          AUTH_PATHS.oauthLink,
           input,
           "Could not start OAuth link"
         ),
@@ -245,44 +297,14 @@ function createOAuthActions(request: RequestFn) {
   }
 }
 
-function createAdminActions(request: RequestFn) {
-  const result = <T>(path: string, init: RequestInit, fallback: string) =>
-    jsonResult<T>(request, path, init, fallback)
-
+export function createAuthActions(
+  request: RequestFn,
+  store: SessionStore,
+  redirect: AuthRedirect
+) {
   return {
-    admin: {
-      createUser: (input: {
-        email: string
-        name?: string
-        username?: string
-        role?: "user" | "admin"
-      }) =>
-        result<AdminUserStorageRow>(
-          "/api/admin/users",
-          { method: "POST", body: JSON.stringify(input) },
-          "Could not create user"
-        ),
-      removeUser: (input: { userId: string }) =>
-        result<{ success: true }>(
-          `/api/admin/users/${encodeURIComponent(input.userId)}`,
-          { method: "DELETE" },
-          "Could not remove user"
-        ),
-      setRole: (input: { userId: string; role: "user" | "admin" }) =>
-        result<AdminUserStorageRow>(
-          `/api/admin/users/${encodeURIComponent(input.userId)}/role`,
-          { method: "PATCH", body: JSON.stringify({ role: input.role }) },
-          "Could not update role"
-        ),
-    },
-  }
-}
-
-export function createAuthActions(request: RequestFn, store: SessionStore) {
-  return {
-    ...createPasskeyActions(request, store),
+    ...createPasskeyActions(request, store, redirect),
     ...createUserActions(request, store),
-    ...createOAuthActions(request),
-    ...createAdminActions(request),
+    ...createOAuthActions(request, redirect),
   }
 }

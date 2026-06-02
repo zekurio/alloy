@@ -1,0 +1,32 @@
+import { queryOptions } from "@tanstack/react-query"
+
+import { authClient } from "./auth-client"
+import { errorMessage } from "./error-message"
+
+const authKeys = {
+  all: ["auth"] as const,
+  accounts: () => [...authKeys.all, "accounts"] as const,
+  passkeys: () => [...authKeys.all, "passkeys"] as const,
+}
+
+export function linkedAccountsQueryOptions() {
+  return queryOptions({
+    queryKey: authKeys.accounts(),
+    queryFn: async () => {
+      const { data, error } = await authClient.listAccounts()
+      if (error) throw new Error(errorMessage(error, "Couldn't load accounts"))
+      return data ?? []
+    },
+  })
+}
+
+export function passkeysQueryOptions() {
+  return queryOptions({
+    queryKey: authKeys.passkeys(),
+    queryFn: async () => {
+      const { data, error } = await authClient.passkey.listUserPasskeys()
+      if (error) throw new Error(errorMessage(error, "Couldn't load passkeys"))
+      return data ?? []
+    },
+  })
+}

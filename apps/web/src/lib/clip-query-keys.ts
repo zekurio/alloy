@@ -12,8 +12,8 @@ export const clipKeys = {
     [...clipKeys.lists(), "user", { handle }] as const,
   userLikedList: (handle: string) =>
     [...clipKeys.lists(), "user-liked", { handle }] as const,
-  /** Infinite recent feed. Separate branch because its data shape is
-   *  `InfiniteData<ClipRow[]>`, not `ClipRow[]`. */
+  /** Infinite recent feed. Separate branch because its data shape is paged,
+   *  not a plain `ClipRow[]` list. */
   infinite: () => [...clipKeys.all, "infinite"] as const,
   recentInfinite: (limit: number) =>
     [...clipKeys.infinite(), "recent", { limit }] as const,
@@ -21,5 +21,6 @@ export const clipKeys = {
   queue: () => [...clipKeys.all, "queue"] as const,
   /** Per-viewer like state for a single clip. */
   like: (clipId: string) => [...clipKeys.all, "like", { clipId }] as const,
+  details: () => [...clipKeys.all, "detail"] as const,
   detail: (clipId: string) => [...clipKeys.all, "detail", { clipId }] as const,
 }

@@ -24,6 +24,7 @@ export * from "./games"
 export * from "./http"
 export * from "./ml"
 export * from "./notifications"
+export * from "./paths"
 export * from "./search"
 export * from "./users"
 

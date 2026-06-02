@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm"
 
 import { clip, clipUploadTicket } from "@workspace/db/schema"
 import type { AcceptedContentType } from "@workspace/contracts"
+import { logger } from "@workspace/logging"
 
 import { db } from "../db"
 import { publishClipUpsert } from "../clips/events"
@@ -14,7 +15,11 @@ import { deleteScratchUpload, scratchUploadPath } from "../uploads/scratch"
 import { abortEncode } from "./encode-abort"
 import { makeProgressWriter } from "./encode-progress"
 import { probe, thumbnail } from "./ffmpeg"
-import { planReuse, resolveVariantSettings } from "./encode-variant-helpers"
+import {
+  planReuse,
+  pruneStaleVariants,
+  resolveVariantSettings,
+} from "./encode-variant-helpers"
 import { buildVariantPlan } from "./variant-specs"
 import {
   ensureClipStillPresent,
@@ -60,8 +65,11 @@ export async function runEncodeInner(
     }
     throw err
   } finally {
-    await Deno.remove(scratchDir, { recursive: true }).catch(() => {
-      // Best-effort: a stray scratch dir is a capacity issue, not data loss.
+    await Deno.remove(scratchDir, { recursive: true }).catch((err) => {
+      logger.warn(
+        `[queue] failed to remove encode scratch dir ${scratchDir}:`,
+        err
+      )
     })
   }
 }
@@ -122,7 +130,8 @@ async function runPipelineInScratch({
         clipId,
         probed.height,
         encoderConfig.variants,
-        encoderConfig.defaultVariantId
+        encoderConfig.defaultVariantId,
+        runId
       )
     : { specs: [], skipped: [] }
   const variantSpecs = variantPlan.specs
@@ -256,6 +265,11 @@ async function runPipelineInScratch({
     return { previous, updated }
   })
   if (!publishState.updated) throw abortEncode()
+  // The clip row now points at `encodedVariants`; any previous variant whose
+  // run-scoped storage key was not reused is orphaned. Variant keys embed the
+  // runId, so a re-encode that drops or re-keys a profile would otherwise leak
+  // the prior files. Best-effort cleanup, logged on failure.
+  await pruneStaleVariants(row, reusedBySpecIndex)
   await deleteScratchUpload(await selectScratchUploadKey(clipId))
   completeWork()
   void publishClipUpsert(row.authorId, clipId)
@@ -285,9 +299,18 @@ async function cleanupFailedRun(
   uploadedKeys: readonly string[],
   retainedSourceKey: string | null
 ): Promise<void> {
-  await Promise.allSettled(
+  await Promise.all(
     [...new Set(uploadedKeys)]
       .filter((key) => key !== retainedSourceKey)
-      .map((key) => storage.delete(key))
+      .map(async (key) => {
+        try {
+          await storage.delete(key)
+        } catch (err) {
+          logger.warn(
+            `[queue] failed to delete failed encode asset ${key}:`,
+            err
+          )
+        }
+      })
   )
 }

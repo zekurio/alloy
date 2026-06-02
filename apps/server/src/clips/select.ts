@@ -51,9 +51,7 @@ export const clipSelectShape = {
   },
 } as const
 
-export async function selectClipMentions(
-  clipId: string
-): Promise<ClipMentionRef[]> {
+async function selectClipMentions(clipId: string): Promise<ClipMentionRef[]> {
   return db
     .select({
       id: user.id,

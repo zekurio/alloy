@@ -7,17 +7,15 @@ import { Section, SectionContent } from "@workspace/ui/components/section"
 import { toast } from "@workspace/ui/lib/toast"
 
 import type { PublicAuthConfig } from "@workspace/api"
+import type { LinkedAccount as ApiLinkedAccount } from "@workspace/api/auth"
 
 import { authClient, useSession } from "@/lib/auth-client"
+import { authCallbackUrl, reportAuthFlowFailure } from "@/lib/auth-flow"
 import { api } from "@/lib/api"
+import { consumeCurrentQueryParam } from "@/lib/browser-url"
+import { errorMessage } from "@/lib/error-message"
 
-export type LinkedAccount = {
-  id: string
-  providerId: string
-  accountId: string
-  email: string | null
-  createdAt: string | Date
-}
+export type LinkedAccount = ApiLinkedAccount
 
 type Provider = NonNullable<PublicAuthConfig["provider"]>
 const OAUTH_LINKED_QUERY_KEY = "oauthLinked"
@@ -93,19 +91,9 @@ function useLinkedAccountActions({
   const [unlinkingId, setUnlinkingId] = React.useState<string | null>(null)
 
   React.useEffect(() => {
-    if (typeof window === "undefined") return
-
-    const url = new URL(window.location.href)
-    if (url.searchParams.get(OAUTH_LINKED_QUERY_KEY) !== "1") return
+    if (consumeCurrentQueryParam(OAUTH_LINKED_QUERY_KEY) !== "1") return
 
     let active = true
-
-    url.searchParams.delete(OAUTH_LINKED_QUERY_KEY)
-    window.history.replaceState(
-      null,
-      "",
-      `${url.pathname}${url.search}${url.hash}`
-    )
 
     void (async () => {
       try {
@@ -116,9 +104,7 @@ function useLinkedAccountActions({
       } catch (cause) {
         if (active) {
           toast.error(
-            cause instanceof Error
-              ? cause.message
-              : "Couldn't sync linked account profile"
+            errorMessage(cause, "Couldn't sync linked account profile")
           )
         }
       }
@@ -136,15 +122,17 @@ function useLinkedAccountActions({
       try {
         const { error } = await authClient.oauth2.link({
           providerId: provider.providerId,
-          callbackURL: `${window.location.origin}/user-settings?${OAUTH_LINKED_QUERY_KEY}=1`,
+          callbackURL: authCallbackUrl(
+            `/user-settings?${OAUTH_LINKED_QUERY_KEY}=1`
+          ),
         })
         if (error) {
-          toast.error(error.message ?? "Couldn't start link flow")
+          toast.error(errorMessage(error, "Couldn't start link flow"))
           setLinkingProviderId(null)
         }
       } catch (cause) {
         toast.error(
-          cause instanceof Error ? cause.message : "Couldn't start link flow"
+          reportAuthFlowFailure("OAuth link", "Couldn't start link flow", cause)
         )
         setLinkingProviderId(null)
       }
@@ -168,14 +156,14 @@ function useLinkedAccountActions({
           accountId: account.accountId,
         })
         if (error) {
-          toast.error(error.message ?? "Couldn't unlink")
+          toast.error(errorMessage(error, "Couldn't unlink"))
           return
         }
         toast.success("Account unlinked")
         await refresh()
         await router.invalidate()
       } catch (cause) {
-        toast.error(cause instanceof Error ? cause.message : "Couldn't unlink")
+        toast.error(errorMessage(cause, "Couldn't unlink"))
       } finally {
         setUnlinkingId(null)
       }

@@ -1,3 +1,4 @@
+import { useId } from "react"
 import { SaveIcon, Trash2Icon } from "lucide-react"
 
 import {
@@ -146,6 +147,9 @@ export function S3Fields({
   onChange: <K extends keyof S3Form>(key: K, value: S3Form[K]) => void
   onClearSecret: () => void
 }) {
+  const accessKeyInputId = useId()
+  const secretKeyInputId = useId()
+
   return (
     <>
       <FormGroup
@@ -199,11 +203,9 @@ export function S3Fields({
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <Field>
-            <FieldLabel htmlFor="storage-s3-access-key">
-              Access key ID
-            </FieldLabel>
+            <FieldLabel htmlFor={accessKeyInputId}>Access key ID</FieldLabel>
             <Input
-              id="storage-s3-access-key"
+              id={accessKeyInputId}
               value={form.accessKeyId}
               autoComplete="off"
               onChange={(e) => onChange("accessKeyId", e.target.value)}
@@ -211,12 +213,12 @@ export function S3Fields({
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="storage-s3-secret-key">
+            <FieldLabel htmlFor={secretKeyInputId}>
               Secret access key
             </FieldLabel>
             <InputGroup>
               <InputGroupInput
-                id="storage-s3-secret-key"
+                id={secretKeyInputId}
                 type="password"
                 className="pl-3.5"
                 autoComplete="new-password"

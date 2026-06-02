@@ -1,4 +1,4 @@
-import { and, eq, gt, lt } from "drizzle-orm"
+import { and, eq, gt } from "drizzle-orm"
 import { createMiddleware } from "hono/factory"
 import type { Context } from "hono"
 
@@ -10,15 +10,16 @@ import {
 } from "@workspace/db/auth-schema"
 
 import { db } from "../db"
+import { forbidden, unauthorized } from "../runtime/http-response"
 import { readSessionCookie } from "./cookies"
 import { generateSessionToken, hashSessionToken } from "./tokens"
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
 const SESSION_TOUCH_MS = 60 * 60 * 1000
 
-export type AuthUser = User
+type AuthUser = User
 
-export type SessionData = {
+type SessionData = {
   session: AuthSession
   user: AuthUser
 }
@@ -120,15 +121,11 @@ export async function deleteAllSessionsForUser(userId: string): Promise<void> {
   await db.delete(authSession).where(eq(authSession.userId, userId))
 }
 
-export async function deleteExpiredSessions(): Promise<void> {
-  await db.delete(authSession).where(lt(authSession.expiresAt, new Date()))
-}
-
 export const requireAnySession = createMiddleware<{
   Variables: { viewerId: string; session: SessionData }
 }>(async (c, next) => {
   const session = await getSession(c)
-  if (!session) return c.json({ error: "Unauthorized" }, 401)
+  if (!session) return unauthorized(c)
   c.set("viewerId", session.user.id)
   c.set("session", session)
   await next()
@@ -138,9 +135,8 @@ export const requireSession = createMiddleware<{
   Variables: { viewerId: string; session: SessionData }
 }>(async (c, next) => {
   const session = await getSession(c)
-  if (!session) return c.json({ error: "Unauthorized" }, 401)
-  if (session.user.status !== "active")
-    return c.json({ error: "Forbidden" }, 403)
+  if (!session) return unauthorized(c)
+  if (session.user.status !== "active") return forbidden(c)
   c.set("viewerId", session.user.id)
   c.set("session", session)
   await next()
@@ -150,10 +146,9 @@ export const requireAdmin = createMiddleware<{
   Variables: { adminUserId: string; session: SessionData }
 }>(async (c, next) => {
   const session = await getSession(c)
-  if (!session) return c.json({ error: "Unauthorized" }, 401)
-  if (session.user.status !== "active")
-    return c.json({ error: "Forbidden" }, 403)
-  if (session.user.role !== "admin") return c.json({ error: "Forbidden" }, 403)
+  if (!session) return unauthorized(c)
+  if (session.user.status !== "active") return forbidden(c)
+  if (session.user.role !== "admin") return forbidden(c)
   c.set("adminUserId", session.user.id)
   c.set("session", session)
   await next()

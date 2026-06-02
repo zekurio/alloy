@@ -20,6 +20,13 @@ import { toast } from "@workspace/ui/lib/toast"
 import type { AdminLimitsConfig, AdminRuntimeConfig } from "@workspace/api"
 
 import { api } from "@/lib/api"
+import { errorMessage } from "@/lib/error-message"
+import {
+  formatMiB,
+  formatQuotaGiB,
+  parsePositiveMiB,
+  parseQuotaGiB,
+} from "@/lib/storage-format"
 import { clampInt } from "./shared"
 import { FormGroup } from "./form-group"
 
@@ -28,14 +35,6 @@ type LimitsConfigCardProps = {
   onChange: (next: AdminRuntimeConfig) => void
   /** Hide the section header (useful when already wrapped in a titled collapsible). */
   hideHeader?: boolean
-}
-
-function formatMaxUploadMiB(maxUploadBytes: number) {
-  return String(Math.round(maxUploadBytes / (1024 * 1024)))
-}
-
-function formatQuotaGiB(quotaBytes: number | null) {
-  return quotaBytes === null ? "" : String(quotaBytes / 1024 / 1024 / 1024)
 }
 
 function LimitsFields({
@@ -212,41 +211,67 @@ function parseLimitsPatch({
   maxUploadMiB: string
   storageQuotaGiB: string
 }): Partial<AdminLimitsConfig> | null {
-  const parsedMiB = Number(maxUploadMiB)
-  if (!Number.isFinite(parsedMiB) || parsedMiB <= 0) {
-    toast.error("Max upload size must be a positive number of MiB.")
+  let maxUploadBytes: number
+  let defaultStorageQuotaBytes: number | null
+  try {
+    maxUploadBytes = parsePositiveMiB(maxUploadMiB)
+    defaultStorageQuotaBytes = parseQuotaGiB(storageQuotaGiB)
+  } catch (cause) {
+    toast.error(errorMessage(cause, "Invalid limit."))
     return null
   }
-  const parsedQuotaGiB =
-    storageQuotaGiB.trim().length === 0 ? null : Number(storageQuotaGiB)
-  if (
-    parsedQuotaGiB !== null &&
-    (!Number.isFinite(parsedQuotaGiB) || parsedQuotaGiB <= 0)
-  ) {
-    toast.error("Default storage quota must be blank or a positive GiB value.")
-    return null
-  }
+
   return {
     ...form,
-    maxUploadBytes: Math.round(parsedMiB * 1024 * 1024),
-    defaultStorageQuotaBytes:
-      parsedQuotaGiB === null
-        ? null
-        : Math.round(parsedQuotaGiB * 1024 * 1024 * 1024),
+    maxUploadBytes,
+    defaultStorageQuotaBytes,
   }
+}
+
+function parseLimitsPatchQuiet({
+  form,
+  maxUploadMiB,
+  storageQuotaGiB,
+}: {
+  form: AdminLimitsConfig
+  maxUploadMiB: string
+  storageQuotaGiB: string
+}): Partial<AdminLimitsConfig> | null {
+  try {
+    return {
+      ...form,
+      maxUploadBytes: parsePositiveMiB(maxUploadMiB),
+      defaultStorageQuotaBytes: parseQuotaGiB(storageQuotaGiB),
+    }
+  } catch {
+    return null
+  }
+}
+
+function limitsConfigEquals(
+  current: Partial<AdminLimitsConfig> | null,
+  saved: AdminLimitsConfig
+): boolean {
+  if (!current) return false
+  return (
+    current.maxUploadBytes === saved.maxUploadBytes &&
+    current.defaultStorageQuotaBytes === saved.defaultStorageQuotaBytes &&
+    current.uploadTtlSec === saved.uploadTtlSec &&
+    current.queueConcurrency === saved.queueConcurrency
+  )
 }
 
 function useLimitsConfigForm({ limits, onChange }: LimitsConfigCardProps) {
   const [form, setForm] = React.useState<AdminLimitsConfig>(limits)
   const [pending, setPending] = React.useState(false)
   const [maxUploadMiB, setMaxUploadMiB] = React.useState<string>(() =>
-    formatMaxUploadMiB(limits.maxUploadBytes)
+    formatMiB(limits.maxUploadBytes)
   )
   const [storageQuotaGiB, setStorageQuotaGiB] = React.useState<string>(() =>
     formatQuotaGiB(limits.defaultStorageQuotaBytes)
   )
   const initialMaxUploadMiB = React.useMemo(
-    () => formatMaxUploadMiB(limits.maxUploadBytes),
+    () => formatMiB(limits.maxUploadBytes),
     [limits.maxUploadBytes]
   )
   const initialStorageQuotaGiB = React.useMemo(
@@ -278,25 +303,25 @@ function useLimitsConfigForm({ limits, onChange }: LimitsConfigCardProps) {
     if (pending) return
     const patch = parseLimitsPatch({ form, maxUploadMiB, storageQuotaGiB })
     if (!patch) return
+    if (limitsConfigEquals(patch, limits)) return
     setPending(true)
     try {
       const next = await api.admin.updateLimitsConfig(patch)
       onChange(next)
       toast.success("Limits updated")
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't update limits"
-      )
+      toast.error(errorMessage(cause, "Couldn't update limits"))
     } finally {
       setPending(false)
     }
   }
 
-  const isDirty =
-    form.uploadTtlSec !== limits.uploadTtlSec ||
-    form.queueConcurrency !== limits.queueConcurrency ||
-    maxUploadMiB !== initialMaxUploadMiB ||
-    storageQuotaGiB !== initialStorageQuotaGiB
+  const comparablePatch = parseLimitsPatchQuiet({
+    form,
+    maxUploadMiB,
+    storageQuotaGiB,
+  })
+  const isDirty = !limitsConfigEquals(comparablePatch, limits)
 
   return {
     form,

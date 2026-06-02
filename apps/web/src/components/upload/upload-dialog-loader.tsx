@@ -1,5 +1,7 @@
 import * as React from "react"
 
+import { scheduleBrowserIdleTask } from "@/lib/browser-idle"
+
 export const loadNewClipDialog = () => import("./new-clip-dialog")
 
 export const NewClipDialog = React.lazy(() =>
@@ -16,12 +18,9 @@ export function useWarmEditor(
       setMounted(true)
       void loadNewClipDialog()
     }
-    if (typeof window === "undefined") return
-    if ("requestIdleCallback" in window) {
-      const id = window.requestIdleCallback(warmEditor, { timeout: 1200 })
-      return () => window.cancelIdleCallback(id)
-    }
-    const timeout = globalThis.setTimeout(warmEditor, 250)
-    return () => globalThis.clearTimeout(timeout)
+    return scheduleBrowserIdleTask(warmEditor, {
+      timeoutMs: 1200,
+      fallbackDelayMs: 250,
+    })
   }, [queueOpen, setMounted])
 }

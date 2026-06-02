@@ -21,9 +21,10 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import type { ProfileCounts, UserSearchResult } from "@workspace/api"
 
-import { api } from "@/lib/api"
+import { errorMessage } from "@/lib/error-message"
 import { userAvatar } from "@/lib/user-display"
 import {
+  useToggleUserFollowMutation,
   useUserFollowersQuery,
   useUserFollowingQuery,
 } from "@/lib/user-queries"
@@ -139,7 +140,7 @@ function FollowRow({
   onNavigate: () => void
 }) {
   const [following, setFollowing] = React.useState(initiallyFollowing)
-  const [pending, setPending] = React.useState(false)
+  const followMutation = useToggleUserFollowMutation(user.username)
   const handle = user.displayUsername || user.username
   const displayName = user.name || `@${handle}`
   const avatar = userAvatar(user)
@@ -149,19 +150,18 @@ function FollowRow({
     setFollowing(initiallyFollowing)
   }, [initiallyFollowing, user.id])
 
-  const toggle = async () => {
-    setPending(true)
+  const toggle = () => {
     const next = !following
     setFollowing(next)
-    try {
-      if (next) await api.users.follow(user.username)
-      else await api.users.unfollow(user.username)
-    } catch (err) {
-      setFollowing(!next)
-      toast.error(err instanceof Error ? err.message : "Something went wrong")
-    } finally {
-      setPending(false)
-    }
+    followMutation.mutate(
+      { next },
+      {
+        onError: (err) => {
+          setFollowing(!next)
+          toast.error(errorMessage(err, "Something went wrong"))
+        },
+      }
+    )
   }
 
   return (
@@ -191,8 +191,8 @@ function FollowRow({
         type="button"
         size="sm"
         variant={following ? "ghost" : "primary"}
-        disabled={pending}
-        onClick={() => void toggle()}
+        disabled={followMutation.isPending}
+        onClick={toggle}
       >
         <UserPlusIcon className="size-3.5" />
         {following ? "Following" : "Follow"}

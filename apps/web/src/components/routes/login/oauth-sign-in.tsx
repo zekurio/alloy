@@ -4,6 +4,8 @@ import { toast } from "@workspace/ui/lib/toast"
 
 import { OAuthButton } from "@/components/auth/oauth-button"
 import { authClient } from "@/lib/auth-client"
+import { authCallbackUrl, reportAuthFlowFailure } from "@/lib/auth-flow"
+import { errorMessage } from "@/lib/error-message"
 
 type OAuthSignInProps = {
   providerId: string
@@ -19,11 +21,13 @@ export function OAuthSignIn({ providerId, displayName }: OAuthSignInProps) {
     try {
       const { error } = await authClient.signIn.oauth2({
         providerId,
-        callbackURL: `${window.location.origin}/`,
+        callbackURL: authCallbackUrl("/"),
       })
-      if (error) toast.error(error.message)
-    } catch {
-      toast.error("OAuth sign-in failed")
+      if (error) toast.error(errorMessage(error, "OAuth sign-in failed"))
+    } catch (cause) {
+      toast.error(
+        reportAuthFlowFailure("OAuth sign-in", "OAuth sign-in failed", cause)
+      )
     } finally {
       setPending(false)
     }
