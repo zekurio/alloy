@@ -6,6 +6,30 @@
     "./auth-schema": "./src/auth-schema.ts",
     "./contracts": "./src/contracts.ts"
   },
+  "compilerOptions": {
+    "module": "ESNext",
+    "lib": ["ES2023", "DOM", "deno.ns"],
+    "moduleResolution": "bundler",
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "paths": {
+      "drizzle-orm": [
+        "../../node_modules/.deno/drizzle-orm@0.45.2/node_modules/drizzle-orm"
+      ],
+      "drizzle-orm/*": [
+        "../../node_modules/.deno/drizzle-orm@0.45.2/node_modules/drizzle-orm/*"
+      ],
+      "postgres": [
+        "../../node_modules/.deno/postgres@3.4.7/node_modules/postgres"
+      ],
+      "@workspace/contracts": ["../contracts/src/index.ts"],
+      "@workspace/contracts/*": ["../contracts/src/*"]
+    }
+  },
   "tasks": {
     "db:generate": "deno run -A npm:drizzle-kit@0.31.10 generate",
     "db:migrate": "deno run -A npm:drizzle-kit@0.31.10 migrate",

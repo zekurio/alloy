@@ -43,7 +43,8 @@ export async function runEncodeInner(
 ): Promise<void> {
   const scratchDir = await makeScratchDir(clipId)
   const uploadedKeys: string[] = []
-  let retainedSourceKey: string | null = null
+  const retainedKeys = new Set<string>()
+  if (row.thumbKey) retainedKeys.add(row.thumbKey)
   let sourcePublishedForRetry = !!row.sourceKey
   try {
     await runPipelineInScratch({
@@ -54,12 +55,13 @@ export async function runEncodeInner(
       scratchDir,
       uploadedKeys,
       retainSourceAsset: (asset) => {
-        retainedSourceKey = asset.storageKey
+        retainedKeys.add(asset.storageKey)
         sourcePublishedForRetry = true
       },
+      retainPublishedKey: (key) => retainedKeys.add(key),
     })
   } catch (err) {
-    await cleanupFailedRun(uploadedKeys, retainedSourceKey)
+    await cleanupFailedRun(uploadedKeys, retainedKeys)
     if (sourcePublishedForRetry) {
       await deleteScratchUpload(await selectScratchUploadKey(clipId))
     }
@@ -82,6 +84,7 @@ async function runPipelineInScratch({
   scratchDir,
   uploadedKeys,
   retainSourceAsset,
+  retainPublishedKey,
 }: {
   clipId: string
   row: ClipRow
@@ -90,6 +93,7 @@ async function runPipelineInScratch({
   scratchDir: string
   uploadedKeys: string[]
   retainSourceAsset: (asset: Asset) => void
+  retainPublishedKey: (key: string) => void
 }): Promise<void> {
   const sourceContentType = row.sourceContentType as AcceptedContentType | null
   if (!sourceContentType) throw new Error("Clip is missing source content type")
@@ -208,6 +212,17 @@ async function runPipelineInScratch({
   })
   await storage.uploadFromFile(thumbPath, thumbKey, "image/jpeg")
   uploadedKeys.push(thumbKey)
+  const [thumbPublished] = await db
+    .update(clip)
+    .set({
+      thumbKey,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
+    .returning({ id: clip.id })
+  if (!thumbPublished) throw abortEncode()
+  retainPublishedKey(thumbKey)
+  void publishClipUpsert(row.authorId, clipId)
   completeWork()
 
   const targetSettings = variantSpecs.map((spec) =>
@@ -319,11 +334,11 @@ async function cleanupCompletedScratchUpload(clipId: string): Promise<void> {
 
 async function cleanupFailedRun(
   uploadedKeys: readonly string[],
-  retainedSourceKey: string | null,
+  retainedKeys: ReadonlySet<string>,
 ): Promise<void> {
   await Promise.all(
     [...new Set(uploadedKeys)]
-      .filter((key) => key !== retainedSourceKey)
+      .filter((key) => !retainedKeys.has(key))
       .map(async (key) => {
         try {
           await storage.delete(key)

@@ -3,7 +3,8 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
-    "lib": ["ES2023", "DOM", "DOM.Iterable", "DOM.AsyncIterable", "deno.ns"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable", "DOM.AsyncIterable"],
+    "types": ["deno"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",
@@ -33,7 +34,9 @@
       "@workspace/contracts": ["../../packages/contracts/src/index.ts"],
       "@workspace/contracts/*": ["../../packages/contracts/src/*"],
       "@workspace/db": ["../../packages/db/src/index.ts"],
-      "@workspace/db/*": ["../../packages/db/src/*"]
+      "@workspace/db/*": ["../../packages/db/src/*"],
+      "@workspace/logging": ["../../packages/logging/src/index.ts"],
+      "@workspace/logging/*": ["../../packages/logging/src/*"]
     }
   }
 }

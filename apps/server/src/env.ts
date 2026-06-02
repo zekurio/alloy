@@ -1,5 +1,4 @@
 import { z } from "zod"
-import { logger } from "@workspace/logging"
 
 // Deploy-time env only. Anything an admin should be able to change at
 // runtime (OAuth provider, open-registrations) lives in `config/store.ts`.
@@ -83,27 +82,26 @@ const EnvSchema = z.object({
   FFPROBE_BIN: z.string().default("ffprobe"),
 })
 
-const parsed = EnvSchema.safeParse(Deno.env.toObject())
+function readEnv(): z.infer<typeof EnvSchema> {
+  const parsed = EnvSchema.safeParse(Deno.env.toObject())
 
-if (!parsed.success) {
-  const fieldErrors = parsed.error.flatten().fieldErrors
-  logger.error(
-    "[server/env] Invalid environment variables:\n" +
-      JSON.stringify(fieldErrors, null, 2),
-  )
-  Deno.exit(1)
-  throw new Error("Invalid environment variables")
+  if (!parsed.success) {
+    throw new Error(
+      "[server/env] Invalid environment variables:\n" +
+        JSON.stringify(parsed.error.flatten().fieldErrors, null, 2),
+    )
+  }
+
+  if (
+    parsed.data.NODE_ENV === "production" &&
+    isLoopbackHostname(new URL(parsed.data.PUBLIC_SERVER_URL).hostname)
+  ) {
+    throw new Error(
+      "[server/env] PUBLIC_SERVER_URL must be the externally reachable origin in production.",
+    )
+  }
+
+  return parsed.data
 }
 
-if (
-  parsed.data.NODE_ENV === "production" &&
-  isLoopbackHostname(new URL(parsed.data.PUBLIC_SERVER_URL).hostname)
-) {
-  logger.error(
-    "[server/env] PUBLIC_SERVER_URL must be the externally reachable origin in production.",
-  )
-  Deno.exit(1)
-  throw new Error("Invalid production PUBLIC_SERVER_URL")
-}
-
-export const env = parsed.data
+export const env = readEnv()

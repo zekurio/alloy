@@ -109,8 +109,12 @@ async function removeEmptyScratchParents(
 }
 
 function isDirectoryNotEmptyError(err: unknown): boolean {
-  return err instanceof Error &&
-    (err.name === "DirectoryNotEmpty" || err.name === "NotEmpty")
+  if (!(err instanceof Error)) return false
+  const message = err.message.toLowerCase()
+  return err.name === "DirectoryNotEmpty" ||
+    err.name === "NotEmpty" ||
+    message.includes("directory not empty") ||
+    message.includes("directory is not empty")
 }
 
 function sourceExtension(contentType: AcceptedContentType): string {

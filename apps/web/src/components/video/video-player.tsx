@@ -1,13 +1,19 @@
 import * as React from "react"
 
 import { PlayerCore } from "./video-player-core"
+import type { HlsLevelSelection } from "./video-media-engine"
 import type { SharedPlayerProps } from "./video-player-types"
-import { sourceSpecKey, toSourceSpec } from "./video-source"
+import { type SourceSpec, sourceSpecKey, toSourceSpec } from "./video-source"
 
 export { VolumeControl } from "./video-volume-control"
 
 interface VideoPlayerProps extends SharedPlayerProps {
   src: string | File
+  /** When set, playback uses this HLS master playlist instead of `src`. */
+  hlsMasterUrl?: string
+  /** Selected HLS rendition (target height, or "auto"). */
+  hlsLevelHeight?: HlsLevelSelection
+  onHlsFatalError?: (message: string) => void
   poster?: string
   aspectRatio?: number
   sourceIdentity?: string
@@ -20,6 +26,7 @@ interface VideoPlayerProps extends SharedPlayerProps {
 
 export function VideoPlayer({
   src,
+  hlsMasterUrl,
   sourceIdentity,
   aspectRatio,
   controls = true,
@@ -29,7 +36,10 @@ export function VideoPlayer({
   playbackRate = 1,
   ...rest
 }: VideoPlayerProps) {
-  const spec = React.useMemo(() => toSourceSpec(src), [src])
+  const spec = React.useMemo<SourceSpec>(
+    () => hlsMasterUrl ? { kind: "hls", url: hlsMasterUrl } : toSourceSpec(src),
+    [hlsMasterUrl, src],
+  )
   const specKey = sourceSpecKey(spec)
   const identity = sourceIdentity ?? specKey
 

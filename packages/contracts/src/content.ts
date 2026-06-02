@@ -66,6 +66,9 @@ export interface ClipRow {
   trimStartMs: number | null
   trimEndMs: number | null
   variants: ClipEncodedVariant[]
+  /** True when at least one variant has HLS artifacts, so the player can use
+   *  adaptive streaming instead of a progressive source. */
+  hlsReady: boolean
   thumbKey: string | null
   viewCount: number
   likeCount: number

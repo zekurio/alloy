@@ -3,6 +3,35 @@
   "exports": {
     "./app": "./src/app.ts"
   },
+  "compilerOptions": {
+    "module": "ESNext",
+    "lib": ["ES2023", "DOM", "DOM.Iterable", "DOM.AsyncIterable", "deno.ns"],
+    "moduleResolution": "bundler",
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "drizzle-orm": [
+        "../../node_modules/.deno/drizzle-orm@0.45.2/node_modules/drizzle-orm"
+      ],
+      "drizzle-orm/*": [
+        "../../node_modules/.deno/drizzle-orm@0.45.2/node_modules/drizzle-orm/*"
+      ],
+      "postgres": [
+        "../../node_modules/.deno/postgres@3.4.7/node_modules/postgres"
+      ],
+      "@workspace/contracts": ["../../packages/contracts/src/index.ts"],
+      "@workspace/contracts/*": ["../../packages/contracts/src/*"],
+      "@workspace/db": ["../../packages/db/src/index.ts"],
+      "@workspace/db/*": ["../../packages/db/src/*"],
+      "@workspace/logging": ["../../packages/logging/src/index.ts"],
+      "@workspace/logging/*": ["../../packages/logging/src/*"]
+    }
+  },
   "tasks": {
     "dev": "deno run --watch --no-clear-screen --allow-env --allow-net --allow-read --allow-write --allow-run --allow-ffi src/index.ts",
     "start:prod": "NODE_ENV=production deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-ffi --allow-sys=osRelease src/index.ts",

@@ -7,7 +7,7 @@ import { configStore } from "../config/store"
 import { join } from "../runtime/path"
 import { clipOpenGraphVideoKey, storage } from "../storage"
 import { ensureClipStillPresent } from "./encode-run-helpers"
-import { codecNameFor, encode, probe, remuxToMp4 } from "./ffmpeg"
+import { codecNameFor, encode, encodeHls, probe, remuxToMp4 } from "./ffmpeg"
 import type { VariantSpec } from "./variant-specs"
 
 export type Asset = {
@@ -124,8 +124,9 @@ export async function encodePlaybackVariants(opts: {
       continue
     }
 
-    const variantPath = join(opts.scratchDir, `${spec.id}.mp4`)
-    await encode(opts.sourcePath, variantPath, {
+    const variantDir = join(opts.scratchDir, spec.id)
+    await Deno.mkdir(variantDir, { recursive: true })
+    const artifacts = await encodeHls(opts.sourcePath, variantDir, {
       config: {
         hwaccel: config.hwaccel,
         encoder: codecNameFor(config.hwaccel, spec.override.codec),
@@ -146,9 +147,11 @@ export async function encodePlaybackVariants(opts: {
     })
 
     await ensureClipStillPresent(opts.clipId, opts.runId, opts.signal)
-    const variantProbe = await probe(variantPath)
+    // The CMAF file probes and serves as a normal MP4, so it doubles as the
+    // progressive download under the same storage key.
+    const variantProbe = await probe(artifacts.mediaPath)
     const { size } = await storage.uploadFromFile(
-      variantPath,
+      artifacts.mediaPath,
       spec.storageKey,
       "video/mp4",
     )
@@ -163,6 +166,7 @@ export async function encodePlaybackVariants(opts: {
       sizeBytes: size,
       isDefault: spec.isDefault,
       settings: opts.settings[index],
+      hls: { playlist: artifacts.playlist, streamInf: artifacts.streamInf },
     })
     opts.completeWork()
   }

@@ -32,6 +32,10 @@ import {
 
 export const IdParam = z.object({ id: z.uuid() })
 export const StreamQuery = z.object({ variant: optionalTrimmedString() })
+export const HlsVariantParam = z.object({
+  id: z.uuid(),
+  variant: z.string().min(1).max(200),
+})
 export const DownloadQuery = z.object({
   variant: optionalTrimmedString(),
 })
@@ -249,6 +253,30 @@ type PlaybackClipRow = typeof clip.$inferSelect
 
 function encodedVariantsForRow(row: PlaybackClipRow): ClipEncodedVariant[] {
   return row.variants
+}
+
+/**
+ * Assemble an HLS master playlist from the renditions that carry HLS metadata,
+ * highest resolution first. Returns null when none do (pre-HLS clips), letting
+ * the caller 404 so the player falls back to progressive streaming. Each child
+ * URI is relative, resolving to `/:id/hls/:variant/playlist.m3u8`.
+ */
+export function buildHlsMasterPlaylist(
+  variants: ReadonlyArray<
+    Pick<ClipEncodedVariant, "id" | "height" | "hls">
+  >,
+): string | null {
+  const hlsVariants = variants
+    .filter((variant) => variant.hls)
+    .sort((a, b) => b.height - a.height)
+  if (hlsVariants.length === 0) return null
+
+  const lines = ["#EXTM3U", "#EXT-X-VERSION:7", "#EXT-X-INDEPENDENT-SEGMENTS"]
+  for (const variant of hlsVariants) {
+    lines.push(`#EXT-X-STREAM-INF:${variant.hls?.streamInf ?? ""}`)
+    lines.push(`${encodeURIComponent(variant.id)}/playlist.m3u8`)
+  }
+  return `${lines.join("\n")}\n`
 }
 
 export function findEncodedVariant(

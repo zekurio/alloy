@@ -10,6 +10,9 @@ interface CaptureResult {
 interface RunProcessOptions {
   label?: string
   signal?: AbortSignal
+  /** Working directory for the child process. Lets ffmpeg emit playlists
+   *  that reference their sibling media files by bare relative name. */
+  cwd?: string
 }
 
 export async function runCapture(
@@ -21,6 +24,7 @@ export async function runCapture(
   try {
     const output = await new Deno.Command(bin, {
       args: [...args],
+      cwd: opts.cwd,
       stdin: "null",
       stdout: "piped",
       stderr: "piped",
@@ -53,6 +57,7 @@ export async function runWithProgress(
   const startedAt = Date.now()
   const command = new Deno.Command(bin, {
     args: [...args],
+    cwd: opts.cwd,
     stdin: "null",
     stdout: "null",
     stderr: "piped",

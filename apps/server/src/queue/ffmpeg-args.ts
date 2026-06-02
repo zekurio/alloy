@@ -43,16 +43,22 @@ export function buildRemuxArgs(
   ]
 }
 
-export function buildEncodeArgs(
-  srcPath: string,
-  outPath: string,
-  opts: {
-    config: ResolvedEncoderConfig
-    targetHeight: number
-    trimStartMs?: number | null
-    trimEndMs?: number | null
-  },
-): string[] {
+/** Target HLS segment length, in seconds. Keyframes are forced on this
+ *  boundary so every segment starts at an IDR frame and is independently
+ *  decodable — the requirement for byte-range CMAF segments. */
+export const HLS_SEGMENT_SECONDS = 4
+
+interface EncodeOpts {
+  config: ResolvedEncoderConfig
+  targetHeight: number
+  trimStartMs?: number | null
+  trimEndMs?: number | null
+}
+
+/** Shared ffmpeg argument pieces for an encode, independent of the muxer
+ *  tail. Both the progressive MP4 and the CMAF/HLS builders assemble their
+ *  output from these so the codec/filter/audio handling stays in one place. */
+function buildEncodeParts(srcPath: string, opts: EncodeOpts) {
   const { config } = opts
   const { trimSeek, trimDuration } = buildTrimArgs(opts)
 
@@ -74,18 +80,37 @@ export function buildEncodeArgs(
     "48000",
   ]
 
-  return [
-    "-hide_banner",
-    "-y",
-    ...trimSeek,
-    ...hardwareArgs,
-    ...extraInputArgs,
-    "-i",
+  return {
+    head: [
+      "-hide_banner",
+      "-y",
+      ...trimSeek,
+      ...hardwareArgs,
+      ...extraInputArgs,
+      "-i",
+      srcPath,
+      ...trimDuration,
+      "-vf",
+      filterChain,
+      ...codecArgs,
+    ],
+    audioArgs,
+    remainingExtraOutputArgs,
+  }
+}
+
+export function buildEncodeArgs(
+  srcPath: string,
+  outPath: string,
+  opts: EncodeOpts,
+): string[] {
+  const { head, audioArgs, remainingExtraOutputArgs } = buildEncodeParts(
     srcPath,
-    ...trimDuration,
-    "-vf",
-    filterChain,
-    ...codecArgs,
+    opts,
+  )
+
+  return [
+    ...head,
     "-movflags",
     "+faststart",
     ...audioArgs,
@@ -94,6 +119,55 @@ export function buildEncodeArgs(
     "pipe:2",
     "-nostats",
     outPath,
+  ]
+}
+
+/**
+ * Build args that encode into a single-file CMAF (fragmented MP4) plus a
+ * byte-range HLS media playlist and a single-rendition master. ffmpeg writes
+ * `mediaFilename` (init + all fragments), `playlistFilename` (referencing the
+ * media by bare relative name), and `masterFilename` into the process cwd.
+ */
+export function buildHlsArgs(
+  srcPath: string,
+  layout: {
+    mediaFilename: string
+    playlistFilename: string
+    masterFilename: string
+  },
+  opts: EncodeOpts,
+): string[] {
+  const { head, audioArgs, remainingExtraOutputArgs } = buildEncodeParts(
+    srcPath,
+    opts,
+  )
+
+  return [
+    ...head,
+    "-force_key_frames",
+    `expr:gte(t,n_forced*${HLS_SEGMENT_SECONDS})`,
+    ...audioArgs,
+    ...remainingExtraOutputArgs,
+    "-f",
+    "hls",
+    "-hls_time",
+    String(HLS_SEGMENT_SECONDS),
+    "-hls_playlist_type",
+    "vod",
+    "-hls_segment_type",
+    "fmp4",
+    "-hls_flags",
+    "single_file+independent_segments",
+    "-hls_fmp4_init_filename",
+    layout.mediaFilename,
+    "-hls_segment_filename",
+    layout.mediaFilename,
+    "-master_pl_name",
+    layout.masterFilename,
+    "-progress",
+    "pipe:2",
+    "-nostats",
+    layout.playlistFilename,
   ]
 }
 

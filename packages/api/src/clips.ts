@@ -95,6 +95,14 @@ export function clipStreamUrl(
   )
 }
 
+export function clipHlsMasterUrl(clipId: string, origin?: string): string {
+  return resolvePublicUrlWithQuery(
+    publicClipPath(clipId, "/hls/master.m3u8"),
+    {},
+    origin,
+  )
+}
+
 export function clipThumbnailUrl(
   clipId: string,
   origin?: string,

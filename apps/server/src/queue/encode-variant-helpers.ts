@@ -23,6 +23,9 @@ export async function planReuse(
   for (const [i, spec] of variantSpecs.entries()) {
     const prev = priorByVariantId.get(spec.id)
     if (!prev?.settings) continue
+    // Pre-HLS variants must be re-encoded so they pick up the CMAF/playlist
+    // artifacts; only reuse renditions that already carry HLS metadata.
+    if (!prev.hls) continue
     const target = targetSettings[i]
     if (!target || !settingsEqual(prev.settings, target)) continue
     const fileHit = await storage.resolve(prev.storageKey)
