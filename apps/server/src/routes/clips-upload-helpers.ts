@@ -1,4 +1,4 @@
-import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm"
+import { and, eq, gt, inArray, sql } from "drizzle-orm"
 
 import { user } from "@workspace/db/auth-schema"
 import { clip, clipUploadTicket } from "@workspace/db/schema"
@@ -80,18 +80,6 @@ export async function createUploadTickets(input: {
     expectedBytes: input.videoBytes,
     expiresAt: input.expiresAt,
   })
-}
-
-export async function markUploadTicketUsed(storageKey: string): Promise<void> {
-  await db
-    .update(clipUploadTicket)
-    .set({ usedAt: new Date() })
-    .where(
-      and(
-        eq(clipUploadTicket.storageKey, storageKey),
-        isNull(clipUploadTicket.usedAt)
-      )
-    )
 }
 
 export async function assertUsableUploadTicket(input: {

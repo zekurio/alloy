@@ -6,11 +6,11 @@ import type {
   StorageDriver,
   UploadTicket,
 } from "./driver"
-import { signToken, type UploadTokenPayload } from "./fs-upload-token"
+import { mintFsUploadTicket, type UploadTokenPayload } from "./fs-upload-token"
 
-export { decodeUploadToken, signToken } from "./fs-upload-token"
+export { decodeUploadToken } from "./fs-upload-token"
 
-export interface FsDriverOptions {
+interface FsDriverOptions {
   root: string
   publicBaseUrl: string
   hmacSecret: string
@@ -90,14 +90,11 @@ export class FsStorageDriver implements StorageDriver {
       uid: input.userId,
       cid: input.clipId,
     }
-    const token = await signToken(payload, this.opts.hmacSecret)
-    const baseUrl = this.opts.publicBaseUrl.replace(/\/+$/, "")
-    return {
-      uploadUrl: `${baseUrl}/api/assets/upload/${token}`,
-      method: "POST",
-      headers: { "Content-Type": input.contentType },
-      expiresAt,
-    }
+    return mintFsUploadTicket({
+      payload,
+      publicBaseUrl: this.opts.publicBaseUrl,
+      secret: this.opts.hmacSecret,
+    })
   }
 
   async downloadToFile(key: string, destPath: string): Promise<void> {

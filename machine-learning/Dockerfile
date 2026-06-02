@@ -18,10 +18,24 @@ RUN apt-get update \
 COPY --from=ghcr.io/astral-sh/uv:0.8.15 /uv /uvx /bin/
 
 COPY pyproject.toml uv.lock README.md ./
-COPY alloy_ml alloy_ml
 
 RUN python -m venv /opt/venv \
-  && uv sync --active --frozen --extra "${DEVICE}" --no-dev --compile-bytecode --no-progress --link-mode copy
+  && uv sync --active --frozen --extra "${DEVICE}" --no-dev --no-install-project --no-progress --link-mode copy
+
+COPY alloy_ml alloy_ml
+
+RUN uv sync --active --frozen --extra "${DEVICE}" --no-dev --no-progress --link-mode copy --no-editable
+
+RUN find /opt/venv/lib/python3.11/site-packages \
+    -type d \( -name __pycache__ -o -name test -o -name tests \) -prune -exec rm -rf {} + \
+  && rm -rf \
+    /opt/venv/lib/python3.11/site-packages/pip \
+    /opt/venv/lib/python3.11/site-packages/pip-*.dist-info \
+    /opt/venv/lib/python3.11/site-packages/setuptools \
+    /opt/venv/lib/python3.11/site-packages/setuptools-*.dist-info \
+    /opt/venv/bin/pip \
+    /opt/venv/bin/pip3 \
+    /opt/venv/bin/pip3.*
 
 FROM python:3.11-slim-bookworm AS prod
 
@@ -33,7 +47,6 @@ ENV ALLOY_ML_HOST=0.0.0.0 \
     HF_HUB_DISABLE_PROGRESS_BARS=1 \
     PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH=/usr/src \
     PYTHONUNBUFFERED=1 \
     VIRTUAL_ENV=/opt/venv
 
@@ -47,7 +60,6 @@ RUN apt-get update \
 
 COPY --from=builder /opt/venv /opt/venv
 COPY scripts/healthcheck.py scripts/healthcheck.py
-COPY alloy_ml alloy_ml
 
 EXPOSE 2662
 

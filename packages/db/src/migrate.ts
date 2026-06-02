@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/postgres-js"
 import { migrate } from "drizzle-orm/postgres-js/migrator"
 import postgres from "postgres"
+import { logger } from "@workspace/logging"
 
 const migrationsFolder =
   Deno.env.get("ALLOY_MIGRATIONS_DIR") ??
@@ -28,8 +29,7 @@ export async function migrateDatabase(databaseUrl: string) {
 async function main() {
   const url = Deno.env.get("DATABASE_URL")
   if (!url) {
-    // eslint-disable-next-line no-console
-    console.error("[db/migrate] DATABASE_URL is required")
+    logger.error("[db/migrate] DATABASE_URL is required")
     Deno.exit(1)
     return
   }

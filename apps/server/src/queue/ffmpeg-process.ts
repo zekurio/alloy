@@ -1,4 +1,8 @@
-export interface CaptureResult {
+import { logger } from "@workspace/logging"
+
+import { isAbortError, toError } from "../runtime/error-message"
+
+interface CaptureResult {
   stdout: string
   stderr: string
 }
@@ -92,8 +96,13 @@ export async function runWithProgress(
     )
   } catch (err) {
     signal?.removeEventListener("abort", onAbort)
-    if ((err as Error).name !== "AbortError") {
-      logProcessError(bin, opts.label, startedAt, err as Error)
+    if (!isAbortError(err)) {
+      logProcessError(
+        bin,
+        opts.label,
+        startedAt,
+        toError(err, "Process failed")
+      )
     }
     throw err
   }
@@ -113,7 +122,7 @@ function logProcessFailure(
   stderr: string
 ): void {
   const tail = stderr.trim().slice(-1000) || "(no stderr)"
-  console.error(
+  logger.error(
     `[ffmpeg] ${processName(bin, label)} failed after ${Date.now() - startedAt}ms with exit ${code}: ${tail}`
   )
 }
@@ -124,7 +133,7 @@ function logProcessError(
   startedAt: number,
   err: Error
 ): void {
-  console.error(
+  logger.error(
     `[ffmpeg] ${processName(bin, label)} errored after ${Date.now() - startedAt}ms:`,
     err
   )

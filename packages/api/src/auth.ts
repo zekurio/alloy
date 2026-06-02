@@ -1,10 +1,29 @@
 import * as React from "react"
 import { createAuthActions } from "./auth-actions"
+import { AUTH_PATHS } from "./auth-paths"
+import {
+  type JsonValidator,
+  validateSessionDataOrNull,
+  validateSuccessResponse,
+} from "./auth-validators"
 import { createApiClient } from "./client"
+import { errorMessage, toError } from "./error"
 import { readJsonOrThrow } from "./http"
+
+export {
+  USERNAME_MAX_LENGTH,
+  USERNAME_MIN_LENGTH,
+  USER_DISPLAY_NAME_MAX_LENGTH,
+} from "@workspace/contracts"
 
 type AuthError = { message: string }
 type AuthResult<T> = Promise<{ data: T | null; error: AuthError | null }>
+type AuthRedirect = (url: string) => void
+
+export interface CreateAuthOptions {
+  baseURL: string
+  redirect?: AuthRedirect
+}
 
 export type AuthUser = {
   id: string
@@ -38,8 +57,8 @@ export type SessionData = {
 export type Passkey = {
   id: string
   name: string | null
-  createdAt: string | Date
-  deviceType?: string
+  createdAt: string
+  deviceType: string
 }
 
 export type LinkedAccount = {
@@ -47,7 +66,7 @@ export type LinkedAccount = {
   providerId: string
   accountId: string
   email: string | null
-  createdAt: string | Date
+  createdAt: string
 }
 
 type StoreState = {
@@ -57,13 +76,18 @@ type StoreState = {
 }
 
 type SessionStore = ReturnType<typeof createSessionStore>
-type RequestFn = <T>(path: string, init?: RequestInit) => Promise<T>
+type RequestFn = <T>(
+  path: string,
+  init: RequestInit,
+  validate: JsonValidator<T>
+) => Promise<T>
 
 export type { AuthError, AuthResult, RequestFn, SessionStore }
+export type { AuthRedirect }
 
 export function errorFrom(cause: unknown, fallback: string): AuthError {
   return {
-    message: cause instanceof Error ? cause.message : fallback,
+    message: errorMessage(cause, fallback),
   }
 }
 
@@ -86,8 +110,7 @@ function createSessionStore(fetchSession: () => Promise<SessionData | null>) {
       emit()
       return { data }
     } catch (cause) {
-      const error =
-        cause instanceof Error ? cause : new Error("Could not load session")
+      const error = toError(cause, "Could not load session")
       state = { ...state, isPending: false, error }
       emit()
       throw error
@@ -113,18 +136,34 @@ function createSessionStore(fetchSession: () => Promise<SessionData | null>) {
 
 export type AuthClient = ReturnType<typeof createAuth>
 
-export function createAuth(baseURL: string) {
+function defaultAuthRedirect(url: string): void {
+  if (typeof window === "undefined") {
+    throw new Error("OAuth redirects require a browser redirect handler")
+  }
+  window.location.assign(url)
+}
+
+export function createAuth(baseURL: string): ReturnType<typeof createAuthClient>
+export function createAuth(
+  options: CreateAuthOptions
+): ReturnType<typeof createAuthClient>
+export function createAuth(input: string | CreateAuthOptions) {
+  return createAuthClient(input)
+}
+
+function createAuthClient(input: string | CreateAuthOptions) {
+  const baseURL = typeof input === "string" ? input : input.baseURL
+  const redirect =
+    typeof input === "string"
+      ? defaultAuthRedirect
+      : (input.redirect ?? defaultAuthRedirect)
   const client = createApiClient(baseURL)
 
-  function validateAuthResponse<T>(value: unknown): T {
-    if (value === null) return value as T
-    if (typeof value !== "object") {
-      throw new Error("Invalid auth response")
-    }
-    return value as T
-  }
-
-  async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  async function request<T>(
+    path: string,
+    init: RequestInit,
+    validate: JsonValidator<T>
+  ): Promise<T> {
     const headers = new Headers(init.headers)
     if (init.body && !headers.has("Content-Type")) {
       headers.set("Content-Type", "application/json")
@@ -132,11 +171,11 @@ export function createAuth(baseURL: string) {
     const res = await client.request(path, {
       init: { ...init, headers },
     })
-    return readJsonOrThrow(res, validateAuthResponse<T>)
+    return readJsonOrThrow(res, validate)
   }
 
   async function fetchSession(): Promise<SessionData | null> {
-    return request<SessionData | null>("/api/auth/session")
+    return request(AUTH_PATHS.session, {}, validateSessionDataOrNull)
   }
 
   const store = createSessionStore(fetchSession)
@@ -161,9 +200,11 @@ export function createAuth(baseURL: string) {
 
   async function signOut(): AuthResult<{ success: true }> {
     try {
-      const data = await request<{ success: true }>("/api/auth/sign-out", {
-        method: "POST",
-      })
+      const data = await request(
+        AUTH_PATHS.signOut,
+        { method: "POST" },
+        validateSuccessResponse
+      )
       store.set(null)
       return { data, error: null }
     } catch (cause) {
@@ -181,6 +222,6 @@ export function createAuth(baseURL: string) {
       subscribe: store.subscribe,
       refetch: store.refetch,
     },
-    ...createAuthActions(request, store),
+    ...createAuthActions(request, store, redirect),
   }
 }

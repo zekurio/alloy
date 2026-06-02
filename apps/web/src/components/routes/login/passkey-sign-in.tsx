@@ -6,6 +6,8 @@ import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
 
 import { authClient } from "@/lib/auth-client"
+import { completeAuthSessionFlow, reportAuthFlowFailure } from "@/lib/auth-flow"
+import { errorMessage } from "@/lib/error-message"
 
 export function PasskeySignIn() {
   const [pending, setPending] = React.useState(false)
@@ -18,15 +20,22 @@ export function PasskeySignIn() {
     try {
       const { error } = await authClient.signIn.passkey()
       if (error) {
-        toast.error(error.message ?? "Passkey sign-in failed")
+        toast.error(errorMessage(error, "Passkey sign-in failed"))
         setPending(false)
         return
       }
-      await authClient.getSession()
-      await router.invalidate()
-      await navigate({ to: "/" })
-    } catch {
-      toast.error("Passkey sign-in failed")
+      await completeAuthSessionFlow({
+        invalidateRouter: () => router.invalidate(),
+        navigate: () => navigate({ to: "/" }),
+      })
+    } catch (cause) {
+      toast.error(
+        reportAuthFlowFailure(
+          "passkey sign-in",
+          "Passkey sign-in failed",
+          cause
+        )
+      )
       setPending(false)
     }
   }

@@ -8,19 +8,25 @@ import {
 import { toast } from "@workspace/ui/lib/toast"
 
 import {
-  INTEGRATIONS_REDACTED,
-  STORAGE_DRIVERS,
   type AdminFsStorageConfig,
   type AdminRuntimeConfig,
   type AdminS3StorageConfig,
   type AdminStorageConfig,
   type AdminStorageConfigPatch,
+  INTEGRATIONS_REDACTED,
 } from "@workspace/api"
+import type { StorageDriverKind } from "@workspace/contracts"
 
-export type StorageDriverKind = (typeof STORAGE_DRIVERS)[number]
+export type { StorageDriverKind } from "@workspace/contracts"
 
 import { api } from "@/lib/api"
-import { clampInt } from "./shared"
+import { errorMessage } from "@/lib/error-message"
+import {
+  clampInt,
+  emptyToNull,
+  requiredTrimmedString,
+  trimString,
+} from "./shared"
 import {
   DriverPicker,
   FsFields,
@@ -66,6 +72,24 @@ interface StorageForm {
   s3: S3Form
 }
 
+interface ComparableStorageForm {
+  driver: StorageDriverKind
+  fs: {
+    root: string
+    publicBaseUrl: string
+    hmacSecret: string
+  }
+  s3: {
+    bucket: string
+    region: string
+    endpoint: string | null
+    accessKeyId: string | null
+    secretAccessKey: string | null
+    forcePathStyle: boolean
+    presignExpiresSec: number
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -107,42 +131,43 @@ function buildPatch(
   initial: StorageForm,
   s3SecretConfigured: boolean
 ): AdminStorageConfigPatch | null {
+  const fsRoot = requiredTrimmedString(form.fs.root)
+  const fsPublicBaseUrl = requiredTrimmedString(form.fs.publicBaseUrl)
+  const s3Bucket = requiredTrimmedString(form.s3.bucket)
+  const s3Region = requiredTrimmedString(form.s3.region)
+
   if (form.driver === "fs") {
-    if (form.fs.root.trim().length === 0) {
+    if (!fsRoot) {
       toast.error("Filesystem root path is required.")
       return null
     }
-    if (form.fs.publicBaseUrl.trim().length === 0) {
+    if (!fsPublicBaseUrl) {
       toast.error("Public base URL is required.")
       return null
     }
   }
 
   if (form.driver === "s3") {
-    if (form.s3.bucket.trim().length === 0) {
+    if (!s3Bucket) {
       toast.error("S3 bucket is required.")
       return null
     }
-    if (form.s3.region.trim().length === 0) {
+    if (!s3Region) {
       toast.error("S3 region is required.")
       return null
     }
   }
 
   const presignSec = clampInt(form.s3.presignExpiresSec, 60, 86_400, 3600)
-  const s3AccessKeyId = form.s3.accessKeyId.trim()
-  const s3SecretAccessKey = form.s3.secretAccessKey.trim()
+  const s3AccessKeyId = requiredTrimmedString(form.s3.accessKeyId)
+  const s3SecretAccessKey = requiredTrimmedString(form.s3.secretAccessKey)
 
   if (form.driver === "s3") {
-    if (s3AccessKeyId.length === 0 && s3SecretAccessKey.length > 0) {
+    if (!s3AccessKeyId && s3SecretAccessKey) {
       toast.error("S3 access key ID is required when a secret is provided.")
       return null
     }
-    if (
-      s3AccessKeyId.length > 0 &&
-      s3SecretAccessKey.length === 0 &&
-      !s3SecretConfigured
-    ) {
+    if (s3AccessKeyId && !s3SecretAccessKey && !s3SecretConfigured) {
       toast.error(
         "S3 secret access key is required when an access key ID is provided."
       )
@@ -155,8 +180,8 @@ function buildPatch(
   // Build FS patch — omit hmacSecret if untouched so the server keeps the
   // existing value.
   const fsPatch: AdminStorageConfigPatch["fs"] = {
-    root: form.fs.root.trim(),
-    publicBaseUrl: form.fs.publicBaseUrl.trim(),
+    root: fsRoot ?? trimString(form.fs.root),
+    publicBaseUrl: fsPublicBaseUrl ?? trimString(form.fs.publicBaseUrl),
   }
   if (
     form.fs.hmacSecret !== initial.fs.hmacSecret &&
@@ -167,19 +192,18 @@ function buildPatch(
   patch.fs = fsPatch
 
   const s3Patch: AdminStorageConfigPatch["s3"] = {
-    bucket: form.s3.bucket.trim(),
-    region: form.s3.region.trim(),
-    endpoint:
-      form.s3.endpoint.trim().length > 0 ? form.s3.endpoint.trim() : null,
-    accessKeyId: s3AccessKeyId.length > 0 ? s3AccessKeyId : null,
+    bucket: s3Bucket ?? trimString(form.s3.bucket),
+    region: s3Region ?? trimString(form.s3.region),
+    endpoint: emptyToNull(form.s3.endpoint),
+    accessKeyId: s3AccessKeyId,
     forcePathStyle: form.s3.forcePathStyle,
     presignExpiresSec: presignSec,
   }
-  if (s3AccessKeyId.length === 0) {
+  if (!s3AccessKeyId) {
     s3Patch.secretAccessKey = null
   } else if (
     form.s3.secretAccessKey !== initial.s3.secretAccessKey &&
-    s3SecretAccessKey !== ""
+    s3SecretAccessKey
   ) {
     s3Patch.secretAccessKey = s3SecretAccessKey
   }
@@ -188,8 +212,31 @@ function buildPatch(
   return patch
 }
 
+function comparableStorageForm(form: StorageForm): ComparableStorageForm {
+  return {
+    driver: form.driver,
+    fs: {
+      root: trimString(form.fs.root),
+      publicBaseUrl: trimString(form.fs.publicBaseUrl),
+      hmacSecret: form.fs.hmacSecret,
+    },
+    s3: {
+      bucket: trimString(form.s3.bucket),
+      region: trimString(form.s3.region),
+      endpoint: emptyToNull(form.s3.endpoint),
+      accessKeyId: requiredTrimmedString(form.s3.accessKeyId),
+      secretAccessKey: requiredTrimmedString(form.s3.secretAccessKey),
+      forcePathStyle: form.s3.forcePathStyle,
+      presignExpiresSec: clampInt(form.s3.presignExpiresSec, 60, 86_400, 3600),
+    },
+  }
+}
+
 function formEquals(a: StorageForm, b: StorageForm): boolean {
-  return JSON.stringify(a) === JSON.stringify(b)
+  return (
+    JSON.stringify(comparableStorageForm(a)) ===
+    JSON.stringify(comparableStorageForm(b))
+  )
 }
 
 /* ------------------------------------------------------------------ */
@@ -244,9 +291,7 @@ function useStorageConfigForm({
       onSaved?.()
       toast.success("Storage updated")
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't update storage"
-      )
+      toast.error(errorMessage(cause, "Couldn't update storage"))
     } finally {
       setPending(false)
     }
@@ -262,11 +307,7 @@ function useStorageConfigForm({
       onChange(next)
       toast.success("S3 secret access key removed")
     } catch (cause) {
-      toast.error(
-        cause instanceof Error
-          ? cause.message
-          : "Couldn't remove S3 secret access key"
-      )
+      toast.error(errorMessage(cause, "Couldn't remove S3 secret access key"))
     } finally {
       setPending(false)
     }

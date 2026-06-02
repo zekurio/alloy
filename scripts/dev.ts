@@ -7,9 +7,13 @@ import {
   stopChildren,
 } from "./dev-process.ts"
 import {
+  DEFAULT_API_PORT,
+  DEFAULT_ML_PORT,
+  DEFAULT_WEB_PORT,
   assertPortsAvailable,
   ensureDevPostgres,
   getDevEnv,
+  readPortEnv,
 } from "./dev-preflight.ts"
 
 const args = new Set(Deno.args.filter((arg) => arg !== "--"))
@@ -122,12 +126,12 @@ function buildProcessList(
       label: "api",
       args: ["task", "--quiet", "--cwd", "apps/server", "dev"],
       env,
-      port: Number(Deno.env.get("PORT") ?? "2552"),
+      port: readPortEnv("PORT", DEFAULT_API_PORT),
     },
     {
       label: "web",
       args: ["task", "--quiet", "--cwd", "apps/web", "dev"],
-      port: 5173,
+      port: DEFAULT_WEB_PORT,
     },
   ]
 
@@ -136,7 +140,7 @@ function buildProcessList(
       label: "ml",
       args: ["task", "--quiet", "dev:ml"],
       optional: true,
-      port: Number(Deno.env.get("ALLOY_ML_PORT") ?? "2662"),
+      port: readPortEnv("ALLOY_ML_PORT", DEFAULT_ML_PORT),
     })
   }
 

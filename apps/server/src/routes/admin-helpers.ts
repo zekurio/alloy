@@ -7,21 +7,17 @@ import { env } from "../env"
 import {
   OAuthProviderSchema,
   OAuthProviderSubmissionSchema,
-  configStore,
   type OAuthProviderConfig,
   type RuntimeConfig,
   type StorageConfig,
 } from "../config/store"
+import { isoDate } from "../runtime/date"
 import { selectSourceStorageUsedBytesByUserIds } from "../storage/quota"
 
 export const REDACTED_SENTINEL = "***"
 
 type OAuthProviderAdminSubmission = Record<string, unknown> & {
   providerId?: string
-}
-
-export function errorMessage(cause: unknown, fallback: string): string {
-  return cause instanceof Error ? cause.message : fallback
 }
 
 function redactSecrets(
@@ -130,7 +126,7 @@ export async function selectAdminUserStorageRows(targetUserIds?: string[]) {
 
   return rows.map((row) => ({
     ...row,
-    createdAt: row.createdAt.toISOString(),
+    createdAt: isoDate(row.createdAt),
     storageUsedBytes: usage.get(row.id) ?? 0,
   }))
 }
@@ -147,12 +143,25 @@ function sanitizeScopes(scopes: string[] | undefined): string[] | undefined {
   return next && next.length > 0 ? next : undefined
 }
 
-export function finalizeOAuthProviderSubmission(
-  provider: OAuthProviderAdminSubmission,
-  existing: OAuthProviderConfig | null
-): OAuthProviderConfig {
-  const parsedProvider = OAuthProviderSubmissionSchema.parse({
+function normalizeOptionalString(value: unknown): unknown {
+  if (typeof value !== "string") return value
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
+function normalizeOAuthProviderSubmission(
+  provider: OAuthProviderAdminSubmission
+): Record<string, unknown> {
+  return {
     ...provider,
+    providerId:
+      typeof provider.providerId === "string"
+        ? provider.providerId.trim()
+        : provider.providerId,
+    displayName:
+      typeof provider.displayName === "string"
+        ? provider.displayName.trim()
+        : provider.displayName,
     clientId:
       typeof provider.clientId === "string"
         ? provider.clientId.trim()
@@ -168,7 +177,23 @@ export function finalizeOAuthProviderSubmission(
           )
         : undefined
     ),
-  })
+    discoveryUrl: normalizeOptionalString(provider.discoveryUrl),
+    authorizationUrl: normalizeOptionalString(provider.authorizationUrl),
+    tokenUrl: normalizeOptionalString(provider.tokenUrl),
+    userInfoUrl: normalizeOptionalString(provider.userInfoUrl),
+    usernameClaim: normalizeOptionalString(provider.usernameClaim),
+    quotaClaim: normalizeOptionalString(provider.quotaClaim),
+    roleClaim: normalizeOptionalString(provider.roleClaim),
+  }
+}
+
+export function finalizeOAuthProviderSubmission(
+  provider: OAuthProviderAdminSubmission,
+  existing: OAuthProviderConfig | null
+): OAuthProviderConfig {
+  const parsedProvider = OAuthProviderSubmissionSchema.parse(
+    normalizeOAuthProviderSubmission(provider)
+  )
   const clientSecret =
     parsedProvider.clientSecret.length > 0
       ? parsedProvider.clientSecret
@@ -184,10 +209,6 @@ export function finalizeOAuthProviderSubmission(
     ...parsedProvider,
     clientSecret,
   }) as OAuthProviderConfig
-}
-
-export function patchRuntimeConfig(patch: Partial<RuntimeConfig>): void {
-  configStore.patch(patch)
 }
 
 type StorageConfigPatch = {

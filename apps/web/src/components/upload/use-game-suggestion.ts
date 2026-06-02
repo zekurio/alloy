@@ -7,9 +7,6 @@ import { mlKeys } from "@/lib/ml-queries"
 
 import { captureFrames } from "./new-clip-helpers"
 
-const GAME_SUGGESTION_FRAME_COUNT = 12
-const GAME_SUGGESTION_FRAME_WIDTH = 512
-
 /**
  * Captures frames from the staged file and asks the ML service to guess the
  * game. Returns predictions sorted best-first. Advisory only: any failure
@@ -34,12 +31,12 @@ export function useGameSuggestionQuery(
     queryFn: async () => {
       if (!config) return []
       const frames = await captureFrames(file, {
-        count: GAME_SUGGESTION_FRAME_COUNT,
-        maxWidth: GAME_SUGGESTION_FRAME_WIDTH,
+        count: config.gameSuggestion.frameCount,
+        maxWidth: config.gameSuggestion.frameMaxWidth,
       })
       if (frames.length === 0) return []
       const res = await api.ml.suggestGames(frames)
-      return [...res.predictions].sort((a, b) => b.score - a.score)
+      return [...res.predictions].sort((a, b) => a.rank - b.rank)
     },
   })
 }

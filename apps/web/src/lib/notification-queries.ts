@@ -1,28 +1,42 @@
 import * as React from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 
-import type {
-  NotificationEvent,
-  NotificationRow,
-  NotificationsResponse,
+import {
+  notificationStreamUrl,
+  parseNotificationEventPayload,
+  type NotificationEvent,
+  type NotificationRow,
+  type NotificationsResponse,
 } from "@workspace/api"
 import { toast } from "@workspace/ui/lib/toast"
 
 import { api } from "./api"
+import { clipHref, userProfileHref } from "./app-paths"
+import { clientLogger } from "./client-log"
 import { apiOrigin } from "./env"
+import { bindEventSourceListeners } from "./event-source-listeners"
 
-const STREAM_URL = "/api/events/notifications"
-
-export const notificationKeys = {
+const notificationKeys = {
   all: ["notifications"] as const,
   list: () => [...notificationKeys.all, "list"] as const,
 }
 
 export function useNotificationsQuery({ enabled }: { enabled: boolean }) {
   return useQuery({
+    ...notificationListQueryOptions(),
+    enabled,
+  })
+}
+
+function notificationListQueryOptions() {
+  return queryOptions({
     queryKey: notificationKeys.list(),
     queryFn: () => api.notifications.fetch(),
-    enabled,
   })
 }
 
@@ -32,16 +46,7 @@ export function useMarkNotificationReadMutation() {
     mutationFn: (id: string) => api.notifications.markRead(id),
     onSuccess: (row) => {
       qc.setQueryData<NotificationsResponse>(notificationKeys.list(), (old) => {
-        if (!old) return old
-        const wasUnread = old.items.some(
-          (item) => item.id === row.id && item.readAt === null
-        )
-        return {
-          unreadCount: wasUnread
-            ? Math.max(0, old.unreadCount - 1)
-            : old.unreadCount,
-          items: old.items.map((item) => (item.id === row.id ? row : item)),
-        }
+        return replaceNotificationRow(old, row)
       })
     },
   })
@@ -53,14 +58,7 @@ export function useMarkAllNotificationsReadMutation() {
     mutationFn: () => api.notifications.markAllRead(),
     onSuccess: ({ readAt, unreadCount }) => {
       qc.setQueryData<NotificationsResponse>(notificationKeys.list(), (old) =>
-        old
-          ? {
-              unreadCount,
-              items: old.items.map((item) =>
-                item.readAt ? item : { ...item, readAt }
-              ),
-            }
-          : old
+        markAllNotificationsReadInCache(old, readAt, unreadCount)
       )
     },
   })
@@ -73,12 +71,7 @@ export function useDeleteNotificationMutation() {
       api.notifications.delete(id).then((result) => ({ ...result, id })),
     onSuccess: ({ id, unreadCount }) => {
       qc.setQueryData<NotificationsResponse>(notificationKeys.list(), (old) =>
-        old
-          ? {
-              unreadCount,
-              items: old.items.filter((item) => item.id !== id),
-            }
-          : old
+        removeNotificationFromCache(old, id, unreadCount)
       )
     },
   })
@@ -90,7 +83,7 @@ export function useClearNotificationsMutation() {
     mutationFn: () => api.notifications.clear(),
     onSuccess: ({ unreadCount }) => {
       qc.setQueryData<NotificationsResponse>(notificationKeys.list(), (old) =>
-        old ? { unreadCount, items: [] } : old
+        clearNotificationsInCache(old, unreadCount)
       )
     },
   })
@@ -108,8 +101,7 @@ export function useNotificationStream({
   React.useEffect(() => {
     if (!enabled) return
 
-    const url = new URL(STREAM_URL, apiOrigin())
-    if (!includeSnapshot) url.searchParams.set("snapshot", "false")
+    const url = notificationStreamUrl({ includeSnapshot, origin: apiOrigin() })
     const source = new EventSource(url, { withCredentials: true })
     let refreshRequested = false
     const refreshFromFetch = () => {
@@ -117,12 +109,9 @@ export function useNotificationStream({
       refreshRequested = true
       void queryClient.invalidateQueries({ queryKey: notificationKeys.list() })
       void queryClient
-        .fetchQuery({
-          queryKey: notificationKeys.list(),
-          queryFn: () => api.notifications.fetch(),
-        })
+        .fetchQuery(notificationListQueryOptions())
         .catch((cause) => {
-          console.warn(
+          clientLogger.warn(
             "[notifications] Failed to refresh notification list.",
             cause
           )
@@ -144,22 +133,21 @@ export function useNotificationStream({
       }
     }
 
-    source.addEventListener("snapshot", handleEvent)
-    source.addEventListener("upsert", handleEvent)
-    source.addEventListener("read", handleEvent)
-    source.addEventListener("read_all", handleEvent)
-    source.addEventListener("remove", handleEvent)
-    source.addEventListener("clear", handleEvent)
-    source.addEventListener("error", refreshFromFetch)
+    const removeListeners = bindEventSourceListeners(
+      source,
+      {
+        snapshot: handleEvent,
+        upsert: handleEvent,
+        read: handleEvent,
+        read_all: handleEvent,
+        remove: handleEvent,
+        clear: handleEvent,
+      },
+      refreshFromFetch
+    )
 
     return () => {
-      source.removeEventListener("snapshot", handleEvent)
-      source.removeEventListener("upsert", handleEvent)
-      source.removeEventListener("read", handleEvent)
-      source.removeEventListener("read_all", handleEvent)
-      source.removeEventListener("remove", handleEvent)
-      source.removeEventListener("clear", handleEvent)
-      source.removeEventListener("error", refreshFromFetch)
+      removeListeners()
       source.close()
     }
   }, [enabled, includeSnapshot, queryClient])
@@ -169,13 +157,11 @@ function parseNotificationEvent(
   data: string,
   refreshFromFetch: () => void
 ): NotificationEvent | null {
-  try {
-    return JSON.parse(data) as NotificationEvent
-  } catch (cause) {
-    console.warn("[notifications] Ignoring malformed SSE payload.", cause)
-    refreshFromFetch()
-    return null
-  }
+  const event = parseNotificationEventPayload(data)
+  if (event) return event
+  clientLogger.warn("[notifications] Ignoring malformed SSE payload.")
+  refreshFromFetch()
+  return null
 }
 
 function applyNotificationEvent(
@@ -185,49 +171,106 @@ function applyNotificationEvent(
   switch (event.type) {
     case "snapshot":
       return event.payload
-    case "upsert": {
-      const current = old ?? { items: [], unreadCount: event.unreadCount }
-      const existing = current.items.findIndex(
-        (item) => item.id === event.notification.id
+    case "upsert":
+      return upsertNotificationInCache(
+        old,
+        event.notification,
+        event.unreadCount
       )
-      if (existing === -1) {
-        return {
-          unreadCount: event.unreadCount,
-          items: [event.notification, ...current.items],
-        }
-      }
-      const items = current.items.slice()
-      items[existing] = event.notification
-      return { unreadCount: event.unreadCount, items }
-    }
     case "read":
-      return old
-        ? {
-            unreadCount: event.unreadCount,
-            items: old.items.map((item) =>
-              item.id === event.id ? { ...item, readAt: event.readAt } : item
-            ),
-          }
-        : old
+      return markNotificationReadInCache(
+        old,
+        event.id,
+        event.readAt,
+        event.unreadCount
+      )
     case "read_all":
-      return old
-        ? {
-            unreadCount: event.unreadCount,
-            items: old.items.map((item) =>
-              item.readAt ? item : { ...item, readAt: event.readAt }
-            ),
-          }
-        : old
+      return markAllNotificationsReadInCache(
+        old,
+        event.readAt,
+        event.unreadCount
+      )
     case "remove":
-      return old
-        ? {
-            unreadCount: event.unreadCount,
-            items: old.items.filter((item) => item.id !== event.id),
-          }
-        : old
+      return removeNotificationFromCache(old, event.id, event.unreadCount)
     case "clear":
-      return old ? { unreadCount: event.unreadCount, items: [] } : old
+      return clearNotificationsInCache(old, event.unreadCount)
   }
+}
+
+function replaceNotificationRow(
+  old: NotificationsResponse | undefined,
+  row: NotificationRow
+): NotificationsResponse | undefined {
+  if (!old) return old
+  const wasUnread = old.items.some(
+    (item) => item.id === row.id && item.readAt === null
+  )
+  return {
+    unreadCount: wasUnread ? Math.max(0, old.unreadCount - 1) : old.unreadCount,
+    items: old.items.map((item) => (item.id === row.id ? row : item)),
+  }
+}
+
+function upsertNotificationInCache(
+  old: NotificationsResponse | undefined,
+  notification: NotificationRow,
+  unreadCount: number
+): NotificationsResponse {
+  const current = old ?? { items: [], unreadCount }
+  const existing = current.items.findIndex(
+    (item) => item.id === notification.id
+  )
+  if (existing === -1)
+    return { unreadCount, items: [notification, ...current.items] }
+  const items = current.items.slice()
+  items[existing] = notification
+  return { unreadCount, items }
+}
+
+function markNotificationReadInCache(
+  old: NotificationsResponse | undefined,
+  id: string,
+  readAt: string,
+  unreadCount: number
+): NotificationsResponse | undefined {
+  if (!old) return old
+  return {
+    unreadCount,
+    items: old.items.map((item) =>
+      item.id === id ? { ...item, readAt } : item
+    ),
+  }
+}
+
+function markAllNotificationsReadInCache(
+  old: NotificationsResponse | undefined,
+  readAt: string,
+  unreadCount: number
+): NotificationsResponse | undefined {
+  if (!old) return old
+  return {
+    unreadCount,
+    items: old.items.map((item) => (item.readAt ? item : { ...item, readAt })),
+  }
+}
+
+function removeNotificationFromCache(
+  old: NotificationsResponse | undefined,
+  id: string,
+  unreadCount: number
+): NotificationsResponse | undefined {
+  if (!old) return old
+  return {
+    unreadCount,
+    items: old.items.filter((item) => item.id !== id),
+  }
+}
+
+function clearNotificationsInCache(
+  old: NotificationsResponse | undefined,
+  unreadCount: number
+): NotificationsResponse | undefined {
+  return old ? { unreadCount, items: [] } : old
 }
 
 function toastNotification(row: NotificationRow) {
@@ -260,7 +303,7 @@ export function notificationText(row: NotificationRow): {
       return {
         kind: "Upload failed",
         title: clipTitle,
-        body: "Tap to retry from the upload queue.",
+        body: "Check uploads for details.",
       }
     case "new_follower":
       return {
@@ -302,15 +345,15 @@ export function notificationText(row: NotificationRow): {
 }
 
 export function notificationHref(row: NotificationRow): string | null {
+  if (row.type === "clip_upload_failed") return null
   if (row.type === "new_follower" && row.actor) {
-    return `/u/${encodeURIComponent(row.actor.username)}`
+    return userProfileHref(row.actor.username)
   }
   if (row.type === "new_video" && row.clip) {
-    return `/g/${row.clip.gameSlug}/c/${row.clip.id}`
+    return clipHref(row.clip.gameSlug, row.clip.id)
   }
   if (!row.clip) return null
-  const clipHref = `/g/${row.clip.gameSlug}/c/${row.clip.id}`
-  return row.comment
-    ? `${clipHref}?comment=${encodeURIComponent(row.comment.id)}`
-    : clipHref
+  return clipHref(row.clip.gameSlug, row.clip.id, {
+    commentId: row.comment?.id,
+  })
 }

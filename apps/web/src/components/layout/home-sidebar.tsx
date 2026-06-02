@@ -18,6 +18,7 @@ import {
 } from "@workspace/ui/components/app-sidebar"
 
 import { useSuspenseSession } from "@/lib/session-suspense"
+import { parseProfilePathname } from "@/lib/profile-path"
 import { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
 
 interface NavFlags {
@@ -37,23 +38,11 @@ function useNavFlags(): NavFlags {
       isSettings:
         s.location.pathname.startsWith("/user-settings") ||
         s.location.pathname.startsWith("/settings"),
-      profileHandle: getProfileHandleFromPathname(s.location.pathname),
+      profileHandle:
+        parseProfilePathname(s.location.pathname)?.username ?? null,
     }),
     structuralSharing: true,
   })
-}
-
-function getProfileHandleFromPathname(pathname: string): string | null {
-  const match = /^\/u\/([^/]+)/.exec(pathname)
-  return match?.[1] ? decodePathSegment(match[1]) : null
-}
-
-function decodePathSegment(segment: string): string {
-  try {
-    return decodeURIComponent(segment)
-  } catch {
-    return segment
-  }
 }
 
 function isOwnProfilePath(

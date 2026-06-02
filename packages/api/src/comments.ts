@@ -1,7 +1,15 @@
 import type { ApiContext } from "./client"
 import type { CommentPage, CommentRow, CommentSort } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
-import { validateBooleanFlag, validateObject } from "./contract-validators"
+import { readDeletedJson, readPostDeleteJson } from "./mutations"
+import { queryParams } from "./paths"
+import {
+  booleanFlagResponseValidator,
+  validateCommentLikeState,
+  validateCommentPage,
+  validateCommentRow,
+  validateCommentUpdateResponse,
+} from "./contract-validators"
 
 export type {
   CommentAuthor,
@@ -9,6 +17,7 @@ export type {
   CommentRow,
   CommentSort,
 } from "@workspace/contracts"
+export { COMMENT_BODY_MAX_LENGTH } from "@workspace/contracts"
 
 async function fetchComments(
   context: ApiContext,
@@ -16,16 +25,15 @@ async function fetchComments(
   sort: CommentSort = "top",
   params: { limit?: number; cursor?: string | null } = {}
 ): Promise<CommentPage> {
-  const query: Record<string, string> = { sort }
-  if (params.limit !== undefined) query.limit = String(params.limit)
-  if (params.cursor) query.cursor = params.cursor
   const res = await context.rpc.api.clips[":id"].comments.$get({
     param: { id: clipId },
-    query,
+    query: queryParams({
+      sort,
+      limit: params.limit,
+      cursor: params.cursor,
+    }),
   })
-  return readJsonOrThrow(res, (value) =>
-    validateObject<CommentPage>(value, "comments")
-  )
+  return readJsonOrThrow(res, validateCommentPage)
 }
 
 async function createComment(
@@ -36,9 +44,7 @@ async function createComment(
     param: { id: input.clipId },
     json: { body: input.body, parentId: input.parentId },
   })
-  return readJsonOrThrow(res, (value) =>
-    validateObject<CommentRow>(value, "comment")
-  )
+  return readJsonOrThrow(res, validateCommentRow)
 }
 
 async function updateComment(
@@ -50,12 +56,7 @@ async function updateComment(
     param: { commentId },
     json: { body },
   })
-  return readJsonOrThrow(res, (value) =>
-    validateObject<{ id: string; body: string; editedAt: string | null }>(
-      value,
-      "comment update"
-    )
-  )
+  return readJsonOrThrow(res, validateCommentUpdateResponse)
 }
 
 async function deleteComment(
@@ -65,7 +66,7 @@ async function deleteComment(
   const res = await context.rpc.api.clips.comments[":commentId"].$delete({
     param: { commentId },
   })
-  validateBooleanFlag(await readJsonOrThrow<unknown>(res), "deleted", true)
+  await readDeletedJson(res)
 }
 
 async function setCommentLike(
@@ -73,15 +74,19 @@ async function setCommentLike(
   commentId: string,
   liked: boolean
 ): Promise<{ liked: boolean; likeCount: number }> {
-  const res = liked
-    ? await context.rpc.api.clips.comments[":commentId"].like.$post({
-        param: { commentId },
-      })
-    : await context.rpc.api.clips.comments[":commentId"].like.$delete({
-        param: { commentId },
-      })
-  return readJsonOrThrow(res, (value) =>
-    validateObject<{ liked: boolean; likeCount: number }>(value, "comment like")
+  return readPostDeleteJson(
+    liked,
+    {
+      post: () =>
+        context.rpc.api.clips.comments[":commentId"].like.$post({
+          param: { commentId },
+        }),
+      delete: () =>
+        context.rpc.api.clips.comments[":commentId"].like.$delete({
+          param: { commentId },
+        }),
+    },
+    validateCommentLikeState
   )
 }
 
@@ -90,17 +95,19 @@ async function setCommentPinned(
   commentId: string,
   pinned: boolean
 ): Promise<{ pinned: boolean }> {
-  const res = pinned
-    ? await context.rpc.api.clips.comments[":commentId"].pin.$post({
-        param: { commentId },
-      })
-    : await context.rpc.api.clips.comments[":commentId"].pin.$delete({
-        param: { commentId },
-      })
-  const response = validateBooleanFlag(
-    await readJsonOrThrow<unknown>(res),
-    "pinned",
-    pinned
+  const response = await readPostDeleteJson(
+    pinned,
+    {
+      post: () =>
+        context.rpc.api.clips.comments[":commentId"].pin.$post({
+          param: { commentId },
+        }),
+      delete: () =>
+        context.rpc.api.clips.comments[":commentId"].pin.$delete({
+          param: { commentId },
+        }),
+    },
+    booleanFlagResponseValidator("pinned", pinned)
   )
   return { pinned: response.pinned }
 }

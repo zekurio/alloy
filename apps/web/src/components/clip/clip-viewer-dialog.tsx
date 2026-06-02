@@ -10,19 +10,22 @@ import {
 } from "@workspace/ui/components/dialog"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { useMediaQuery } from "@workspace/ui/hooks/use-media-query"
+import { useWindowEvent } from "@workspace/ui/hooks/use-window-event"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { clipThumbnailUrl, type ClipRow } from "@workspace/api"
 
-import { api } from "@/lib/api"
+import { clipGameLabel } from "@/lib/clip-format"
 import {
-  clipGameLabel,
-  formatCount,
-  formatRelativeTime,
-} from "@/lib/clip-format"
-import { clipKeys, useClipQuery } from "@/lib/clip-queries"
-import { commentKeys } from "@/lib/comment-queries"
+  clipDetailQueryOptions,
+  seedClipDetailInCache,
+  useClipQuery,
+} from "@/lib/clip-queries"
+import { recordClipViewBestEffort } from "@/lib/clip-view-tracking"
+import { commentListQueryOptions } from "@/lib/comment-queries"
+import { formatRelativeTime } from "@/lib/date-format"
 import { apiOrigin } from "@/lib/env"
+import { formatCount } from "@/lib/number-format"
 import { userAvatar } from "@/lib/user-display"
 
 import { ClipComments } from "./clip-comments"
@@ -82,9 +85,8 @@ export function ClipViewerDialog({
     [onNavigate, queryClient]
   )
 
-  React.useEffect(() => {
-    if (!open) return
-    const onKey = (event: KeyboardEvent) => {
+  const onKey = React.useCallback(
+    (event: KeyboardEvent) => {
       if (event.defaultPrevented) return
       if (isEditableKeyTarget(event.target)) return
       if (event.key === "ArrowLeft" && prev) {
@@ -94,10 +96,10 @@ export function ClipViewerDialog({
         event.preventDefault()
         navigateTo(next)
       }
-    }
-    window.addEventListener("keydown", onKey, { capture: true })
-    return () => window.removeEventListener("keydown", onKey, { capture: true })
-  }, [open, prev, next, navigateTo])
+    },
+    [prev, next, navigateTo]
+  )
+  useWindowEvent("keydown", onKey, true, open)
 
   React.useEffect(() => {
     if (!open) return
@@ -106,19 +108,8 @@ export function ClipViewerDialog({
     )
     for (const entry of neighbours) {
       seedClipDetail(queryClient, entry)
-      void queryClient.prefetchQuery({
-        queryKey: clipKeys.detail(entry.id),
-        queryFn: () => api.clips.fetchById(entry.id),
-      })
-      void queryClient.prefetchInfiniteQuery({
-        queryKey: commentKeys.list(entry.id, "top", 30),
-        queryFn: ({ pageParam }) =>
-          api.comments.fetch(entry.id, "top", {
-            limit: 30,
-            cursor: pageParam,
-          }),
-        initialPageParam: null as string | null,
-      })
+      void queryClient.prefetchQuery(clipDetailQueryOptions(entry.id))
+      void queryClient.prefetchInfiniteQuery(commentListQueryOptions(entry.id))
     }
   }, [open, prev, next, queryClient])
 
@@ -177,10 +168,7 @@ function seedClipDetail(
 ) {
   const row = entry.row
   if (!row) return
-  queryClient.setQueryData<ClipRow>(
-    clipKeys.detail(entry.id),
-    (current) => current ?? row
-  )
+  seedClipDetailInCache(queryClient, row)
 }
 
 interface ClipViewerDialogBodyProps {
@@ -318,7 +306,7 @@ function ClipViewerDialogBody({
                 encodeProgress={row.encodeProgress}
                 aspectRatio={16 / 9}
                 className="h-full w-full overflow-hidden rounded-[14px] shadow-[0_30px_90px_-42px_rgba(0,0,0,0.92)] ring-1 ring-white/10 ring-inset lg:rounded-none lg:shadow-none lg:ring-0"
-                onPlayThreshold={() => void api.clips.recordView(row.id)}
+                onPlayThreshold={() => recordClipViewBestEffort(row.id)}
                 autoPlay
                 enableHorizontalSeekShortcuts={false}
               />

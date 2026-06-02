@@ -36,8 +36,10 @@ import { cn } from "@workspace/ui/lib/utils"
 import { EmptyState } from "@/components/feedback/empty-state"
 import {
   announceFloatingSurfaceOpen,
-  subscribeToFloatingSurfaceOpen,
+  type FloatingSurface,
+  useFloatingSurfaceOpenListener,
 } from "@/components/app/floating-surface-events"
+import { formatRelativeTime } from "@/lib/date-format"
 import { apiOrigin } from "@/lib/env"
 import { useSuspenseSession } from "@/lib/session-suspense"
 import { displayName, userAvatar } from "@/lib/user-display"
@@ -72,11 +74,13 @@ export function NotificationCenter() {
   const query = useNotificationsQuery({ enabled: false })
   useNotificationStream({ enabled })
 
-  React.useEffect(() => {
-    return subscribeToFloatingSurfaceOpen((surface) => {
+  const handleFloatingSurfaceOpen = React.useCallback(
+    (surface: FloatingSurface) => {
       if (surface !== "notifications") setOpen(false)
-    })
-  }, [])
+    },
+    []
+  )
+  useFloatingSurfaceOpenListener(handleFloatingSurfaceOpen)
 
   React.useEffect(() => {
     if (open) announceFloatingSurfaceOpen("notifications")
@@ -433,23 +437,3 @@ const ICON_BY_KIND = {
   comment_pinned: PinIcon,
   comment_liked_by_author: HeartIcon,
 } as const
-
-function formatRelativeTime(value: string): string {
-  const deltaSeconds = Math.round(
-    (new Date(value).getTime() - Date.now()) / 1000
-  )
-  const abs = Math.abs(deltaSeconds)
-  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" })
-
-  if (abs < 60) return rtf.format(deltaSeconds, "second")
-  const deltaMinutes = Math.round(deltaSeconds / 60)
-  if (Math.abs(deltaMinutes) < 60) return rtf.format(deltaMinutes, "minute")
-  const deltaHours = Math.round(deltaMinutes / 60)
-  if (Math.abs(deltaHours) < 24) return rtf.format(deltaHours, "hour")
-  const deltaDays = Math.round(deltaHours / 24)
-  if (Math.abs(deltaDays) < 7) return rtf.format(deltaDays, "day")
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-  }).format(new Date(value))
-}

@@ -6,14 +6,19 @@ import type { ClipRow } from "@workspace/api"
 
 import { ClipCard } from "@workspace/ui/components/clip-card"
 
-import { api } from "@/lib/api"
+import type { AppSearch } from "@/lib/app-search"
+import { gameHref, userProfileHref } from "@/lib/app-paths"
+import { clientLogger } from "@/lib/client-log"
 import { toClipCardData } from "@/lib/clip-format"
-import { clipKeys } from "@/lib/clip-queries"
+import {
+  clipDetailQueryOptions,
+  seedClipDetailInCache,
+} from "@/lib/clip-queries"
 
 import { setActiveClipList, useClipList } from "./clip-list-context"
 import { renderHashtagTokens } from "./description-tokens"
 
-export interface ClipCardTriggerProps {
+interface ClipCardTriggerProps {
   row: ClipRow
   /** True only when the viewer owns the clip — surfaces the privacy pill. */
   owned?: boolean
@@ -33,20 +38,14 @@ export const ClipCardTrigger = React.memo(function ClipCardTrigger({
   const card = React.useMemo(() => toClipCardData(row), [row])
 
   const gameSlug = card.gameRef?.slug ?? null
-  const gameHref = gameSlug ? `/g/${gameSlug}` : null
+  const gameLink = gameSlug ? gameHref(gameSlug) : null
   const authorHref = card.authorUsername
-    ? `/u/${encodeURIComponent(card.authorUsername)}`
+    ? userProfileHref(card.authorUsername)
     : null
 
   const preloadClip = React.useCallback(() => {
-    queryClient.setQueryData<ClipRow>(
-      clipKeys.detail(row.id),
-      (current) => current ?? row
-    )
-    void queryClient.prefetchQuery({
-      queryKey: clipKeys.detail(row.id),
-      queryFn: () => api.clips.fetchById(row.id),
-    })
+    seedClipDetailInCache(queryClient, row)
+    void queryClient.prefetchQuery(clipDetailQueryOptions(row.id))
   }, [queryClient, row])
 
   const handleThumbnailClick = React.useCallback(() => {
@@ -55,13 +54,17 @@ export const ClipCardTrigger = React.memo(function ClipCardTrigger({
     setActiveClipList(list)
     void navigate({
       to: ".",
-      search: (prev) => ({ ...prev, clip: card.clipId }),
+      search: (prev: AppSearch) => ({ ...prev, clip: card.clipId }),
       mask: {
         to: "/g/$slug/c/$clipId",
         params: { slug: gameSlug, clipId: card.clipId },
       },
     })
   }, [navigate, gameSlug, card.clipId, list, preloadClip])
+
+  const handlePreviewError = React.useCallback((cause: unknown) => {
+    clientLogger.warn("[clip-card] Hover preview playback failed.", cause)
+  }, [])
 
   return (
     <ClipCard
@@ -71,10 +74,13 @@ export const ClipCardTrigger = React.memo(function ClipCardTrigger({
       author={card.author}
       authorSeed={card.authorId}
       authorImage={card.authorImage}
+      authorInitials={card.authorAvatar.initials}
+      authorAvatarBg={card.authorAvatar.bg}
+      authorAvatarFg={card.authorAvatar.fg}
       authorHref={authorHref}
       game={card.game}
       gameIcon={card.gameRef?.iconUrl ?? null}
-      gameHref={gameHref}
+      gameHref={gameLink}
       views={card.views}
       likes={card.likes}
       comments={card.comments}
@@ -86,6 +92,7 @@ export const ClipCardTrigger = React.memo(function ClipCardTrigger({
       metaVariant={metaVariant}
       onThumbnailClick={handleThumbnailClick}
       onThumbnailIntent={preloadClip}
+      onPreviewError={handlePreviewError}
       thumbnailLabel={`Play clip: ${card.title}`}
     />
   )

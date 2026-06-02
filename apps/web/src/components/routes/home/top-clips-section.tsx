@@ -24,6 +24,7 @@ import {
 } from "@/components/clip/clip-list-context"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { useTopClipsQuery } from "@/lib/clip-queries"
+import type { HomeSearch } from "@/lib/home-search"
 import type { ClipFeedWindow } from "@workspace/api"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
@@ -77,7 +78,7 @@ export function TopClipsSection({
             renderOptionLink={(opt, active) => (
               <Link
                 to="/"
-                search={(prev) => ({
+                search={(prev: HomeSearch) => ({
                   ...prev,
                   // "today" is the default — keep it out of the URL.
                   window: opt.key === "today" ? undefined : opt.key,

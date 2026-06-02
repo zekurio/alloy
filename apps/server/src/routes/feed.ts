@@ -1,4 +1,4 @@
-import { zValidator } from "@hono/zod-validator"
+import { limitQueryParam, zValidator } from "./validation"
 import { and, eq, exists, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
@@ -14,9 +14,18 @@ import {
 } from "@workspace/db/schema"
 
 import { db } from "../db"
+import { requiredSql } from "../db/sql"
 import { getSession } from "../auth/session"
 import { clipSelectShape, toPublicClipRow } from "../clips/select"
-import { base64UrlDecodeText, base64UrlEncodeText } from "../encoding/base64url"
+import { dateFromDateLike, isoDate } from "../runtime/date"
+import { badRequest, invalidCursor } from "../runtime/http-response"
+import {
+  cursorDate,
+  cursorFiniteNumber,
+  cursorRequiredString,
+  decodeCursorPayload,
+  encodeCursorPayload,
+} from "./cursor-codec"
 import { hashtagTextFilter } from "./hashtag-filter"
 
 const FilterEnum = z.enum(["foryou", "following", "game", "hashtag"])
@@ -29,7 +38,7 @@ const FeedQuery = z
       .string()
       .regex(/^[\p{L}\p{N}_]+$/u)
       .optional(),
-    limit: z.coerce.number().int().positive().max(50).default(20),
+    limit: limitQueryParam(50, 20),
     cursor: z.string().optional(),
   })
   .refine((v) => v.filter !== "game" || v.gameId !== undefined, {
@@ -42,42 +51,50 @@ const FeedQuery = z
   })
 
 const ChipsQuery = z.object({
-  limit: z.coerce.number().int().positive().max(40).default(20),
+  limit: limitQueryParam(40, 20),
 })
 
 type FeedCursor = {
   score: number
-  createdAt: string
+  createdAt: Date
   id: string
-  asOf: string
+  asOf: Date
+}
+
+type FeedPageRow = {
+  id: string
+  createdAt: Date | string
+  rankScore: number
+  sourceKey: string | null
+  openGraphKey: string | null
+  thumbKey: string | null
+  variants: readonly { storageKey: string }[]
 }
 
 function parseFeedCursor(value: string | undefined): FeedCursor | null {
   if (!value) return null
-  try {
-    const parsed = JSON.parse(base64UrlDecodeText(value)) as Partial<FeedCursor>
-    if (
-      typeof parsed.score !== "number" ||
-      !Number.isFinite(parsed.score) ||
-      typeof parsed.createdAt !== "string" ||
-      typeof parsed.id !== "string" ||
-      typeof parsed.asOf !== "string"
-    ) {
-      return null
-    }
-    return {
-      score: parsed.score,
-      createdAt: parsed.createdAt,
-      id: parsed.id,
-      asOf: parsed.asOf,
-    }
-  } catch {
-    return null
+  const parsed = decodeCursorPayload(value)
+  if (!parsed) return null
+  const score = cursorFiniteNumber(parsed.score)
+  const createdAt = cursorDate(parsed.createdAt)
+  const id = cursorRequiredString(parsed.id)
+  const asOf = cursorDate(parsed.asOf)
+  if (score === null || !createdAt || !id || !asOf) return null
+  return {
+    score,
+    createdAt,
+    id,
+    asOf,
   }
 }
 
 function encodeFeedCursor(cursor: FeedCursor): string {
-  return base64UrlEncodeText(JSON.stringify(cursor))
+  return encodeCursorPayload({
+    score: cursor.score,
+    createdAt: isoDate(cursor.createdAt),
+    id: cursor.id,
+    asOf: isoDate(cursor.asOf),
+  })
 }
 
 function rankScore(viewerId: string | null, asOf: string) {
@@ -112,6 +129,25 @@ function rankScore(viewerId: string | null, asOf: string) {
   `
 }
 
+function feedPage<T extends FeedPageRow>(rows: T[], limit: number, asOf: Date) {
+  const pageRows = rows.slice(0, limit)
+  const tail = pageRows[pageRows.length - 1]
+  return {
+    items: pageRows.map(({ rankScore: _rankScore, ...row }) =>
+      toPublicClipRow(row)
+    ),
+    nextCursor:
+      rows.length > limit && tail
+        ? encodeFeedCursor({
+            score: tail.rankScore,
+            createdAt: dateFromDateLike(tail.createdAt),
+            id: tail.id,
+            asOf,
+          })
+        : null,
+  }
+}
+
 export const feedRoute = new Hono()
   .get("/", zValidator("query", FeedQuery), async (c) => {
     const {
@@ -122,10 +158,8 @@ export const feedRoute = new Hono()
       cursor: rawCursor,
     } = c.req.valid("query")
     const cursor = parseFeedCursor(rawCursor)
-    const asOf = cursor ? new Date(cursor.asOf) : new Date()
-    if (Number.isNaN(asOf.getTime())) {
-      return c.json({ error: "Invalid cursor" }, 400)
-    }
+    if (rawCursor && !cursor) return invalidCursor(c)
+    const asOf = cursor?.asOf ?? new Date()
 
     const session = await getSession(c)
     const viewerId = session?.user.id ?? null
@@ -133,7 +167,7 @@ export const feedRoute = new Hono()
     if (filter === "following" && !viewerId) {
       // Nothing to personalise for anon — return an empty page rather
       // than leaking unrelated clips from the foryou corpus.
-      return c.json({ items: [], nextCursor: null })
+      return c.json(feedPage([], limit, asOf))
     }
 
     const conditions: SQL[] = [
@@ -149,68 +183,72 @@ export const feedRoute = new Hono()
     }
 
     if (filter === "game") {
-      conditions.push(eq(clip.gameId, gameId!))
+      if (!gameId) return badRequest(c, "gameId is required")
+      conditions.push(eq(clip.gameId, gameId))
     }
 
     if (filter === "hashtag") {
-      conditions.push(hashtagTextFilter(tag!))
+      if (!tag) return badRequest(c, "tag is required")
+      conditions.push(hashtagTextFilter(tag))
     }
 
     if (filter === "following") {
       // Either the clip author is followed, or the clip's game is
       // favourited. Anon already returned above, so viewerId is set.
+      const followingViewerId = viewerId
+      if (!followingViewerId) return c.json(feedPage([], limit, asOf))
       const userFollowed = exists(
         db
           .select({ one: sql`1` })
           .from(follow)
           .where(
             and(
-              eq(follow.followerId, viewerId!),
+              eq(follow.followerId, followingViewerId),
               eq(follow.followingId, clip.authorId)
             )
           )
       )
-      const gameFollowed = and(
-        sql`${clip.gameId} IS NOT NULL`,
-        exists(
-          db
-            .select({ one: sql`1` })
-            .from(gameFollow)
-            .where(
-              and(
-                eq(gameFollow.userId, viewerId!),
-                eq(gameFollow.gameId, clip.gameId)
+      const gameFollowed = requiredSql(
+        and(
+          sql`${clip.gameId} IS NOT NULL`,
+          exists(
+            db
+              .select({ one: sql`1` })
+              .from(gameFollow)
+              .where(
+                and(
+                  eq(gameFollow.userId, followingViewerId),
+                  eq(gameFollow.gameId, clip.gameId)
+                )
               )
-            )
-        )
-      )!
-      const combined = or(userFollowed, gameFollowed)
-      if (combined) conditions.push(combined)
+          )
+        ),
+        "following feed game filter"
+      )
+      conditions.push(
+        requiredSql(or(userFollowed, gameFollowed), "following feed filter")
+      )
     }
 
-    const score = rankScore(viewerId, asOf.toISOString())
-    if (rawCursor && !cursor) {
-      return c.json({ error: "Invalid cursor" }, 400)
-    }
+    const score = rankScore(viewerId, isoDate(asOf))
     if (cursor) {
-      const cursorCreatedAt = new Date(cursor.createdAt)
-      if (Number.isNaN(cursorCreatedAt.getTime())) {
-        return c.json({ error: "Invalid cursor" }, 400)
-      }
       conditions.push(
-        or(
-          lt(score, cursor.score),
-          and(
-            sql`abs(${score} - ${cursor.score}) < 0.000000000001`,
-            or(
-              lt(clip.createdAt, cursorCreatedAt),
-              and(
-                eq(clip.createdAt, cursorCreatedAt),
-                sql`${clip.id} > ${cursor.id}`
+        requiredSql(
+          or(
+            lt(score, cursor.score),
+            and(
+              sql`abs(${score} - ${cursor.score}) < 0.000000000001`,
+              or(
+                lt(clip.createdAt, cursor.createdAt),
+                and(
+                  eq(clip.createdAt, cursor.createdAt),
+                  sql`${clip.id} > ${cursor.id}`
+                )
               )
             )
-          )
-        )!
+          ),
+          "feed cursor"
+        )
       )
     }
 
@@ -223,28 +261,9 @@ export const feedRoute = new Hono()
       // createdAt DESC and id ASC break ties deterministically so
       // neighbouring pages don't duplicate rows when scores collide.
       .orderBy(sql`${score} desc`, sql`${clip.createdAt} desc`, clip.id)
-      .limit(limit)
+      .limit(limit + 1)
 
-    const tail = rows[rows.length - 1]
-    const nextCursor =
-      rows.length === limit && tail
-        ? encodeFeedCursor({
-            score: tail.rankScore,
-            createdAt:
-              tail.createdAt instanceof Date
-                ? tail.createdAt.toISOString()
-                : String(tail.createdAt),
-            id: tail.id,
-            asOf: asOf.toISOString(),
-          })
-        : null
-
-    return c.json({
-      items: rows.map(({ rankScore: _rankScore, ...row }) =>
-        toPublicClipRow(row)
-      ),
-      nextCursor,
-    })
+    return c.json(feedPage(rows, limit, asOf))
   })
 
   .get("/chips", zValidator("query", ChipsQuery), async (c) => {

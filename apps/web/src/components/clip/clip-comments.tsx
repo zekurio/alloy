@@ -10,7 +10,8 @@ import { toast } from "@workspace/ui/lib/toast"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { useSession } from "@/lib/auth-client"
-import { formatRelativeTime } from "@/lib/clip-format"
+import { currentUrlWithQueryParam } from "@/lib/browser-url"
+import { copyTextToClipboard } from "@/lib/clipboard"
 import {
   useCommentsQuery,
   useCreateCommentMutation,
@@ -18,8 +19,10 @@ import {
   useToggleCommentLikeMutation,
   useTogglePinCommentMutation,
 } from "@/lib/comment-queries"
+import { formatRelativeTime } from "@/lib/date-format"
+import { errorMessage } from "@/lib/error-message"
 import { useSuspenseAuthConfig } from "@/lib/session-suspense"
-import type { CommentRow } from "@workspace/api"
+import { COMMENT_BODY_MAX_LENGTH, type CommentRow } from "@workspace/api"
 import { displayName, userAvatar, useUserChipData } from "@/lib/user-display"
 import {
   CommentActions,
@@ -128,7 +131,9 @@ function ClipComments({
   const canSignUp =
     authConfig.openRegistrations &&
     (authConfig.passkeyEnabled || authConfig.provider !== null)
-  const canSubmit = draft.trim().length > 0 && isSignedIn
+  const bodyLength = draft.trim().length
+  const canSubmit =
+    bodyLength > 0 && bodyLength <= COMMENT_BODY_MAX_LENGTH && isSignedIn
 
   function toggleReplies(commentId: string) {
     setOpenReplyIds((current) => {
@@ -152,14 +157,16 @@ function ClipComments({
   }
 
   async function copyCommentLink(commentId: string) {
-    const url = new URL(window.location.href)
-    url.hash = ""
-    url.searchParams.set("comment", commentId)
+    const url = currentUrlWithQueryParam("comment", commentId)
 
-    try {
-      await navigator.clipboard.writeText(url.toString())
+    const copied =
+      url !== null &&
+      (await copyTextToClipboard(url, {
+        action: "copy comment link",
+      }))
+    if (copied) {
       toast.success("Comment link copied")
-    } catch {
+    } else {
       toast.error("Couldn't copy comment link")
     }
   }
@@ -180,11 +187,10 @@ function ClipComments({
       setDraft("")
     } catch (err) {
       toast.error(
-        err instanceof Error
-          ? err.message
-          : replyTarget
-            ? "Couldn't post reply"
-            : "Couldn't post comment"
+        errorMessage(
+          err,
+          replyTarget ? "Couldn't post reply" : "Couldn't post comment"
+        )
       )
     }
   }
@@ -262,6 +268,29 @@ function ClipComments({
         {commentsQuery.isLoading ? (
           <div className="flex h-full items-center justify-center p-6">
             <Spinner />
+          </div>
+        ) : commentsQuery.error && comments.length === 0 ? (
+          <div className="flex h-full items-center justify-center p-6">
+            <EmptyState
+              seed={`comments-${clipId}-error`}
+              size="lg"
+              title="Couldn't load comments"
+              hint="Try again in a moment."
+              action={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={commentsQuery.isFetching}
+                  onClick={() => void commentsQuery.refetch()}
+                >
+                  {commentsQuery.isFetching ? (
+                    <Spinner className="size-4" />
+                  ) : null}
+                  Retry
+                </Button>
+              }
+            />
           </div>
         ) : comments.length === 0 ? (
           <div className="flex h-full items-center justify-center p-6">
@@ -405,7 +434,7 @@ function CommentRowView({
       { commentId: comment.id, nextPinned: !comment.pinned },
       {
         onError: (err) => {
-          toast.error(err instanceof Error ? err.message : "Couldn't pin")
+          toast.error(errorMessage(err, "Couldn't pin"))
         },
       }
     )
@@ -416,7 +445,7 @@ function CommentRowView({
       { commentId: comment.id },
       {
         onError: (err) => {
-          toast.error(err instanceof Error ? err.message : "Couldn't delete")
+          toast.error(errorMessage(err, "Couldn't delete"))
         },
       }
     )
@@ -538,4 +567,4 @@ function CommentRowView({
   )
 }
 
-export { ClipComments, type ClipCommentsProps }
+export { ClipComments }

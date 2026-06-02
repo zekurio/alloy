@@ -15,14 +15,13 @@ from .errors import ClassifierUnavailableError, InvalidFrameError
 from .game_classifier_helpers import (
     clean_revision_name,
     decode_frame,
+    exclusive_file_lock,
     load_checkpoint,
     make_transform,
     remove_dir_if_exists,
     resolve_device,
     sample_frames,
 )
-
-Image.MAX_IMAGE_PIXELS = None
 
 CHECKPOINT_FILENAME = "model.pt"
 SOURCE_METADATA_FILENAME = "source.json"
@@ -99,6 +98,17 @@ class GameClassifierSpec:
         )
 
 
+def parse_classes(value: object) -> list[str]:
+    if not isinstance(value, list):
+        raise ValueError("classes must be a list")
+    classes = [item.strip() for item in value if isinstance(item, str)]
+    if len(classes) != len(value) or not all(classes):
+        raise ValueError("classes must contain non-empty strings")
+    if not classes:
+        raise ClassifierUnavailableError("Checkpoint has no classes")
+    return classes
+
+
 class GameClassifier:
     def __init__(self, settings: Settings, spec: GameClassifierSpec) -> None:
         self.settings = settings
@@ -141,7 +151,15 @@ class GameClassifier:
 
     @property
     def cache_dir(self) -> Path:
-        return self.settings.cache_folder / MODEL_TASK / self.cache_model_name
+        return self.cache_root_dir / self.cache_model_name
+
+    @property
+    def cache_root_dir(self) -> Path:
+        return self.settings.cache_folder / MODEL_TASK
+
+    @property
+    def cache_lock_path(self) -> Path:
+        return self.cache_root_dir / f"{self.cache_model_name}.lock"
 
     @property
     def model_dir(self) -> Path:
@@ -188,7 +206,7 @@ class GameClassifier:
         if self.model is None:
             raise ClassifierUnavailableError("Game classifier failed to load")
 
-        limit = min(1, len(self.classes))
+        limit = min(self.settings.game_classifier_top_k, len(self.classes))
         selected_frames = sample_frames(frames, self.expected_frames)
         log.info(
             "Running game classifier inference: "
@@ -256,25 +274,38 @@ class GameClassifier:
                 self.clear_cache()
                 checkpoint_path = self.resolve_checkpoint_path()
                 checkpoint = load_checkpoint(checkpoint_path)
-            model_config_payload = dict(checkpoint["model_config"])
-            model_config_payload["pretrained"] = False
-            model_config = ClipCnnConfig(**model_config_payload)
-            classes = list(checkpoint["classes"])
-            if not classes:
-                raise ClassifierUnavailableError("Checkpoint has no classes")
+            try:
+                model_config_payload = dict(checkpoint["model_config"])
+                model_config_payload["pretrained"] = False
+                model_config = ClipCnnConfig(**model_config_payload)
+                classes = parse_classes(checkpoint["classes"])
 
-            model = ClipCnnClassifier(model_config).to(self.device)
-            model.load_state_dict(checkpoint["model"])
-            model.eval()
+                model = ClipCnnClassifier(model_config).to(self.device)
+                model.load_state_dict(checkpoint["model"])
+                model.eval()
 
-            train_config = dict(checkpoint.get("train_config", {}))
-            self.expected_frames = int(train_config.get("num_frames", 12))
-            self.image_size = int(train_config.get("image_size", 224))
-            self.normalize = bool(train_config.get("normalize", True))
-            self.transform = make_transform(self.image_size, self.normalize)
-            self.classes = classes
-            self.model_version = self.spec.model_version or self.spec.revision
-            self.model = model
+                train_config = dict(checkpoint.get("train_config", {}))
+                self.expected_frames = int(train_config.get("num_frames", 12))
+                self.image_size = int(train_config.get("image_size", 224))
+                if self.expected_frames <= 0:
+                    raise ValueError("train_config.num_frames must be positive")
+                if self.image_size <= 0:
+                    raise ValueError("train_config.image_size must be positive")
+                self.normalize = bool(train_config.get("normalize", True))
+                self.transform = make_transform(self.image_size, self.normalize)
+                self.classes = classes
+                self.model_version = self.spec.model_version or self.spec.revision
+                self.model = model
+            except (
+                AttributeError,
+                KeyError,
+                TypeError,
+                ValueError,
+                RuntimeError,
+            ) as err:
+                raise ClassifierUnavailableError(
+                    f"Game classifier checkpoint is invalid: {err}"
+                ) from err
             log.info(
                 "Game classifier loaded: "
                 f"model={self.spec.model_name}, version={self.model_version}, "
@@ -293,48 +324,52 @@ class GameClassifier:
                 f"Configured game classifier checkpoint does not exist: {checkpoint_path}"
             )
 
-        if checkpoint_path.is_file():
-            if self.source_metadata_matches():
-                log.info(f"Using cached game classifier checkpoint: {checkpoint_path}")
-                return checkpoint_path
-            log.info(
-                "Cached game classifier checkpoint source does not match "
-                "configuration. Clearing cache before download."
-            )
-            self.clear_cache()
+        with exclusive_file_lock(self.cache_lock_path):
+            if checkpoint_path.is_file():
+                if self.source_metadata_matches():
+                    log.info(
+                        f"Using cached game classifier checkpoint: {checkpoint_path}"
+                    )
+                    return checkpoint_path
+                log.info(
+                    "Cached game classifier checkpoint source does not match "
+                    "configuration. Clearing cache before download."
+                )
+                self._clear_cache_unlocked()
 
-        try:
-            log.info(
-                "Downloading game classifier model "
-                f"'{self.spec.repo_id}' to {self.model_dir}. This may take a while."
-            )
-            download_dir = self.cache_dir / ".download"
-            remove_dir_if_exists(download_dir)
-            downloaded = hf_hub_download(
-                repo_id=self.spec.repo_id,
-                filename=self.spec.filename,
-                revision=self.spec.revision,
-                local_dir=download_dir,
-            )
-            self.model_dir.mkdir(parents=True, exist_ok=True)
-            tmp_path = checkpoint_path.with_suffix(f"{checkpoint_path.suffix}.tmp")
-            copy2(downloaded, tmp_path)
-            tmp_path.replace(checkpoint_path)
-            self.write_source_metadata()
-            remove_dir_if_exists(download_dir)
-            log.info(f"Downloaded game classifier checkpoint: {checkpoint_path}")
-        except Exception as err:
-            remove_dir_if_exists(self.cache_dir / ".download")
-            raise ClassifierUnavailableError(
-                "Could not download game classifier checkpoint from "
-                f"Hugging Face repo {self.spec.repo_id}: {err}"
-            ) from err
+            try:
+                log.info(
+                    "Downloading game classifier model "
+                    f"'{self.spec.repo_id}' to {self.model_dir}. "
+                    "This may take a while."
+                )
+                download_dir = self.cache_dir / ".download"
+                remove_dir_if_exists(download_dir)
+                downloaded = hf_hub_download(
+                    repo_id=self.spec.repo_id,
+                    filename=self.spec.filename,
+                    revision=self.spec.revision,
+                    local_dir=download_dir,
+                )
+                self.model_dir.mkdir(parents=True, exist_ok=True)
+                tmp_path = checkpoint_path.with_suffix(f"{checkpoint_path.suffix}.tmp")
+                copy2(downloaded, tmp_path)
+                tmp_path.replace(checkpoint_path)
+                self.write_source_metadata()
+                remove_dir_if_exists(download_dir)
+                log.info(f"Downloaded game classifier checkpoint: {checkpoint_path}")
+            except Exception as err:
+                remove_dir_if_exists(self.cache_dir / ".download")
+                raise ClassifierUnavailableError(
+                    "Could not download game classifier checkpoint from "
+                    f"Hugging Face repo {self.spec.repo_id}: {err}"
+                ) from err
 
-        if not checkpoint_path.is_file():
-            raise ClassifierUnavailableError(
-                "Downloaded game classifier repo did not contain "
-                f"checkpoint file {self.spec.filename}"
-            )
+            if not checkpoint_path.is_file():
+                raise ClassifierUnavailableError(
+                    "Downloaded game classifier repo did not contain "
+                    f"checkpoint file {self.spec.filename}"
+                )
 
         return checkpoint_path
 
@@ -370,6 +405,10 @@ class GameClassifier:
     def clear_cache(self) -> None:
         if self.spec.checkpoint_path is not None:
             return
+        with exclusive_file_lock(self.cache_lock_path):
+            self._clear_cache_unlocked()
+
+    def _clear_cache_unlocked(self) -> None:
         if not self.cache_dir.exists():
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             return

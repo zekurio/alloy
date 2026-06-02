@@ -32,6 +32,11 @@ default_game_classifier_spec = GameClassifierSpec(
 )
 model_registry = ModelRegistry(settings)
 thread_pool: ThreadPoolExecutor | None = None
+UPLOAD_READ_CHUNK_BYTES = 64 * 1024
+
+
+class PayloadTooLargeError(ValueError):
+    pass
 
 
 @asynccontextmanager
@@ -41,6 +46,9 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
         "ML service configuration: "
         f"cache={settings.cache_folder}, device={settings.device}, "
         f"workers={settings.workers}, request_threads={settings.request_threads}, "
+        f"game_classifier_top_k={settings.game_classifier_top_k}, "
+        f"game_classifier_max_frames={settings.game_classifier_max_frames}, "
+        f"game_classifier_max_frame_bytes={settings.game_classifier_max_frame_bytes}, "
         f"preload_game_classifier={settings.preload_game_classifier}"
     )
     log.info(
@@ -124,10 +132,21 @@ async def predict_game(
     revision: str | None = Form(default=None),
     checkpoint_path: str | None = Form(default=None),
 ) -> GameClassifierResponse:
+    if not frames:
+        raise HTTPException(400, "At least one frame is required")
+    if len(frames) > settings.game_classifier_max_frames:
+        raise HTTPException(
+            413,
+            f"Expected at most {settings.game_classifier_max_frames} frames",
+        )
+
     payloads: list[bytes] = []
-    for frame in frames:
-        payload = await frame.read()
-        payloads.append(payload)
+    try:
+        for frame in frames:
+            payloads.append(await read_frame_payload(frame))
+    except PayloadTooLargeError as err:
+        raise HTTPException(413, str(err)) from err
+
     total_bytes = sum(len(payload) for payload in payloads)
     log.info(
         "Game classifier request received: "
@@ -158,8 +177,12 @@ async def predict_game(
         modelName=result.model_name,
         modelVersion=result.model_version,
         predictions=[
-            GamePrediction(label=prediction.label, score=prediction.score)
-            for prediction in result.predictions
+            GamePrediction(
+                rank=index + 1,
+                label=prediction.label,
+                score=prediction.score,
+            )
+            for index, prediction in enumerate(result.predictions)
         ],
     )
     if response.predictions:
@@ -210,6 +233,30 @@ def _optional_string(value: str | None) -> str | None:
         return None
     stripped = value.strip()
     return stripped or None
+
+
+async def read_frame_payload(frame: UploadFile) -> bytes:
+    max_bytes = settings.game_classifier_max_frame_bytes
+    size = getattr(frame, "size", None)
+    if isinstance(size, int) and size > max_bytes:
+        raise PayloadTooLargeError(f"Each frame must be {max_bytes} bytes or smaller")
+
+    payload = bytearray()
+    while True:
+        remaining = max_bytes - len(payload) + 1
+        if remaining <= 0:
+            raise PayloadTooLargeError(
+                f"Each frame must be {max_bytes} bytes or smaller"
+            )
+        chunk = await frame.read(min(UPLOAD_READ_CHUNK_BYTES, remaining))
+        if not chunk:
+            break
+        payload.extend(chunk)
+        if len(payload) > max_bytes:
+            raise PayloadTooLargeError(
+                f"Each frame must be {max_bytes} bytes or smaller"
+            )
+    return bytes(payload)
 
 
 async def run(func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:

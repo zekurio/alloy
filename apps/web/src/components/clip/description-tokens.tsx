@@ -14,7 +14,8 @@ export function renderHashtagTokens(
     const start = match.index
     const end = pattern.lastIndex
     if (start > lastIndex) nodes.push(raw.slice(lastIndex, start))
-    const tag = match[1]!
+    const tag = match[1]
+    if (!tag) continue
     if (linkHashtags) {
       nodes.push(
         <Link
@@ -38,5 +39,3 @@ export function renderHashtagTokens(
   if (lastIndex < raw.length) nodes.push(raw.slice(lastIndex))
   return nodes
 }
-
-export const renderDescriptionTokens = renderHashtagTokens

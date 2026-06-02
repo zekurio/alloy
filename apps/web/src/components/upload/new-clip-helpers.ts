@@ -3,6 +3,7 @@ import {
   type AcceptedContentType,
   type ClipPrivacy,
 } from "@workspace/api"
+import { probeFile, type ProbedFile } from "./new-clip-media"
 
 /** Metadata derived from a real File for display in the modal header. */
 export interface SelectedFile {
@@ -59,11 +60,20 @@ const EXTENSION_TO_CONTENT_TYPE: Record<string, AcceptedContentType> = {
 
 export const ACCEPT_LIST = `${ACCEPTED_CLIP_CONTENT_TYPES.join(",")},.mp4,.m4v,.mov,.mkv,.webm`
 
-export function resolveContentType(file: File): AcceptedContentType | null {
+function resolveContentType(file: File): AcceptedContentType | null {
   const byMime = CONTENT_TYPE_ALIASES[file.type]
   if (byMime) return byMime
   const ext = file.name.split(".").pop()?.toLowerCase() ?? ""
   return EXTENSION_TO_CONTENT_TYPE[ext] ?? null
+}
+
+export async function prepareSelectedClipFile(
+  file: File
+): Promise<SelectedFile> {
+  const contentType = resolveContentType(file)
+  if (!contentType) throw new Error("Unsupported file type")
+  const meta = await probeFile(file)
+  return { ...meta, contentType }
 }
 
 export function stripExtension(filename: string): string {
@@ -71,10 +81,5 @@ export function stripExtension(filename: string): string {
   return idx > 0 ? filename.slice(0, idx) : filename
 }
 
-export { formatBytes, formatDuration } from "./new-clip-format"
-export {
-  captureFrames,
-  captureThumbnail,
-  probeFile,
-  type ProbedFile,
-} from "./new-clip-media"
+export { captureFrames, captureThumbnail } from "./new-clip-media"
+export { probeFile, type ProbedFile }

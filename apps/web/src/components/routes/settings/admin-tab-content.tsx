@@ -28,21 +28,17 @@ import { MachineLearningConfigCard } from "@/components/routes/admin-settings/ma
 import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-provider-card"
 import { StorageConfigCard } from "@/components/routes/admin-settings/storage-config-card"
 import { SettingsSection } from "@/components/routes/settings/settings-section"
-import {
-  LOGIN_SPLASH_IMAGE_PATH,
-  type AdminRuntimeConfig,
-} from "@workspace/api"
+import { loginSplashImageUrl, type AdminRuntimeConfig } from "@workspace/api"
 import { api } from "@/lib/api"
+import { adminRuntimeConfigQueryOptions } from "@/lib/admin-query-keys"
+import { startBlobDownload } from "@/lib/browser-download"
+import { formatDateTime, isoDateStamp } from "@/lib/date-format"
 import { apiOrigin } from "@/lib/env"
+import { errorMessage } from "@/lib/error-message"
 import { publishRuntimeConfigUpdate } from "@/lib/runtime-config-events"
 
-const adminRuntimeConfigQueryKey = ["admin", "runtime-config"] as const
-
 function useAdminConfig() {
-  const configQuery = useQuery({
-    queryKey: adminRuntimeConfigQueryKey,
-    queryFn: () => api.admin.fetchRuntimeConfig(),
-  })
+  const configQuery = useQuery(adminRuntimeConfigQueryOptions())
   const [config, setConfig] = React.useState<AdminRuntimeConfig | null>(null)
 
   React.useEffect(() => {
@@ -50,9 +46,7 @@ function useAdminConfig() {
   }, [configQuery.data])
 
   const loadError = configQuery.error
-    ? configQuery.error instanceof Error
-      ? configQuery.error.message
-      : "Couldn't load settings"
+    ? errorMessage(configQuery.error, "Couldn't load settings")
     : null
 
   return { config, setConfig, loadError }
@@ -66,12 +60,15 @@ type BoolToggleKey =
 function useAdminToggles(
   setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>
 ) {
+  const [pendingKey, setPendingKey] = React.useState<BoolToggleKey | null>(null)
   const patch = async (
     key: BoolToggleKey,
     next: boolean,
     successMsg: string
   ) => {
+    if (pendingKey) return
     let previous: AdminRuntimeConfig | null = null
+    setPendingKey(key)
     setConfig((prev) => {
       previous = prev
       return prev ? { ...prev, [key]: next } : prev
@@ -83,10 +80,13 @@ function useAdminToggles(
       toast.success(successMsg)
     } catch (cause) {
       setConfig(previous)
-      toast.error(cause instanceof Error ? cause.message : "Update failed")
+      toast.error(errorMessage(cause, "Update failed"))
+    } finally {
+      setPendingKey(null)
     }
   }
   return {
+    pendingKey,
     onToggleOpenRegistrations: (next: boolean) =>
       patch(
         "openRegistrations",
@@ -156,13 +156,16 @@ function AuthenticationSettingsSection({
   onToggleOpenRegistrations,
   onTogglePasskey,
   onToggleRequireAuthToBrowse,
+  pendingToggleKey,
 }: {
   config: AdminRuntimeConfig
   setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>
   onToggleOpenRegistrations: (next: boolean) => void
   onTogglePasskey: (next: boolean) => void
   onToggleRequireAuthToBrowse: (next: boolean) => void
+  pendingToggleKey: BoolToggleKey | null
 }) {
+  const togglePending = pendingToggleKey !== null
   return (
     <SettingsSection
       icon={ShieldIcon}
@@ -178,8 +181,9 @@ function AuthenticationSettingsSection({
               checked={config.passkeyEnabled}
               onCheckedChange={onTogglePasskey}
               disabled={
-                config.passkeyEnabled &&
-                !hasAnotherSignInMethod(config, "passkey")
+                togglePending ||
+                (config.passkeyEnabled &&
+                  !hasAnotherSignInMethod(config, "passkey"))
               }
             />
             <ToggleRow
@@ -187,12 +191,14 @@ function AuthenticationSettingsSection({
               description="Allow new accounts through enabled sign-up methods. OAuth uses this to auto-create accounts on first sign-in."
               checked={config.openRegistrations}
               onCheckedChange={onToggleOpenRegistrations}
+              disabled={togglePending}
             />
             <ToggleRow
               title="Require sign-in to browse"
               description="Off lets anyone view clips, games, and profiles. Uploads still need an account."
               checked={config.requireAuthToBrowse}
               onCheckedChange={onToggleRequireAuthToBrowse}
+              disabled={togglePending}
             />
           </SectionContent>
         </Section>
@@ -310,13 +316,7 @@ function AppearanceSettingsSection({
   const splash = config.appearance.loginSplash
   const previewImageUrl = React.useMemo(() => {
     if (splash.clipIds.length === 0) return null
-    const parsed = splash.generatedAt
-      ? Date.parse(splash.generatedAt)
-      : Date.now()
-    const version = Number.isFinite(parsed) ? parsed : Date.now()
-    const path = `${LOGIN_SPLASH_IMAGE_PATH}?v=${version}`
-    const origin = apiOrigin()
-    return origin ? new URL(path, origin).toString() : path
+    return loginSplashImageUrl(apiOrigin(), splash.generatedAt)
   }, [splash.clipIds.length, splash.generatedAt])
 
   async function updateSplashEnabled(next: boolean) {
@@ -330,9 +330,7 @@ function AppearanceSettingsSection({
       publishRuntimeConfigUpdate({ authConfigChanged: true })
       toast.success(next ? "Login backdrop enabled" : "Login backdrop disabled")
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't update backdrop"
-      )
+      toast.error(errorMessage(cause, "Couldn't update backdrop"))
     } finally {
       setPending(false)
     }
@@ -347,9 +345,7 @@ function AppearanceSettingsSection({
       publishRuntimeConfigUpdate({ authConfigChanged: true })
       toast.success("Login backdrop regenerated")
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't regenerate backdrop"
-      )
+      toast.error(errorMessage(cause, "Couldn't regenerate backdrop"))
     } finally {
       setPending(false)
     }
@@ -380,7 +376,7 @@ function AppearanceSettingsSection({
               </p>
               {splash.generatedAt ? (
                 <p className="mt-1 text-xs text-foreground-muted">
-                  Last generated {new Date(splash.generatedAt).toLocaleString()}
+                  Last generated {formatDateTime(splash.generatedAt)}
                 </p>
               ) : null}
             </div>
@@ -429,15 +425,14 @@ function ConfigTransferSection({
       const data = await api.admin.exportRuntimeConfig()
       const json = JSON.stringify(data, null, 2)
       const blob = new Blob([json], { type: "application/json" })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `alloy-config-${new Date().toISOString().slice(0, 10)}.json`
-      a.click()
-      URL.revokeObjectURL(url)
+      const started = startBlobDownload(
+        blob,
+        `alloy-config-${isoDateStamp()}.json`
+      )
+      if (!started) throw new Error("Export download failed")
       toast.success("Configuration exported")
     } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : "Export failed")
+      toast.error(errorMessage(cause, "Export failed"))
     } finally {
       setExporting(false)
     }
@@ -461,7 +456,7 @@ function ConfigTransferSection({
       setConfig(updated)
       toast.success("Configuration imported")
     } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : "Import failed")
+      toast.error(errorMessage(cause, "Import failed"))
     } finally {
       setImporting(false)
     }
@@ -526,6 +521,7 @@ function ConfigTransferSection({
 export function AdminSettingsSections({ userId }: { userId: string }) {
   const { config, setConfig, loadError } = useAdminConfig()
   const {
+    pendingKey: pendingToggleKey,
     onToggleOpenRegistrations,
     onTogglePasskey,
     onToggleRequireAuthToBrowse,
@@ -548,6 +544,7 @@ export function AdminSettingsSections({ userId }: { userId: string }) {
         onToggleOpenRegistrations={onToggleOpenRegistrations}
         onTogglePasskey={onTogglePasskey}
         onToggleRequireAuthToBrowse={onToggleRequireAuthToBrowse}
+        pendingToggleKey={pendingToggleKey}
       />
       <EncoderSettingsSection config={config} setConfig={setConfig} />
       <MachineLearningSettingsSection config={config} setConfig={setConfig} />

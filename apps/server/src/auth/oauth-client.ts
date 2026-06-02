@@ -9,9 +9,11 @@ import {
   type ServerMetadata,
   type UserInfoResponse,
 } from "openid-client"
+import { logger } from "@workspace/logging"
 
 import type { OAuthProviderConfig } from "../config/store"
 import { env } from "../env"
+import { errorDetail, errorMessage } from "../runtime/error-message"
 import { getEnabledProviderConfig } from "./oauth-config"
 
 const oauthClientCache = new Map<string, Promise<Configuration>>()
@@ -90,9 +92,9 @@ export async function fetchLinkedUserInfo(
     const config = await oauthClient(provider)
     return await fetchUserInfo(config, accessToken, providerAccountId)
   } catch (cause) {
-    console.warn(
+    logger.warn(
       "[oauth] could not sync linked profile:",
-      cause instanceof Error ? cause.message : cause
+      errorDetail(cause, "Unknown error")
     )
     return null
   }
@@ -184,7 +186,7 @@ function oauthErrorMessage(cause: unknown): string {
     )
   }
 
-  return cause instanceof Error ? cause.message : "OAuth sign-in failed."
+  return errorMessage(cause, "OAuth sign-in failed.")
 }
 
 function providerErrorMessage(

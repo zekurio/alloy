@@ -1,4 +1,6 @@
 import io
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from shutil import rmtree
 from typing import Any
@@ -11,8 +13,16 @@ from alloy_ml.config import clean_model_name
 
 from .errors import ClassifierUnavailableError, InvalidFrameError
 
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - Windows fallback for local imports.
+    fcntl = None
+
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
+MAX_FRAME_PIXELS = 4096 * 4096
+
+Image.MAX_IMAGE_PIXELS = MAX_FRAME_PIXELS
 
 
 def load_checkpoint(path: Path) -> dict[str, Any]:
@@ -34,6 +44,19 @@ def clean_revision_name(revision: str) -> str:
 def remove_dir_if_exists(path: Path) -> None:
     if path.exists():
         rmtree(path)
+
+
+@contextmanager
+def exclusive_file_lock(path: Path) -> Iterator[None]:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as lock_file:
+        if fcntl is not None:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            if fcntl is not None:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def resolve_device(spec: str) -> torch.device:
@@ -64,8 +87,14 @@ def decode_frame(payload: bytes) -> Image.Image:
         with Image.open(io.BytesIO(payload)) as image:
             if image.width <= 0 or image.height <= 0:
                 raise InvalidFrameError("Frame has zero width or height")
+            if image.width * image.height > MAX_FRAME_PIXELS:
+                raise InvalidFrameError("Frame dimensions are too large")
             return image.convert("RGB")
+    except Image.DecompressionBombError as err:
+        raise InvalidFrameError("Frame dimensions are too large") from err
     except UnidentifiedImageError as err:
+        raise InvalidFrameError("Frame is not a readable image") from err
+    except OSError as err:
         raise InvalidFrameError("Frame is not a readable image") from err
 
 

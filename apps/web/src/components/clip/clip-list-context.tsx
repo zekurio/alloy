@@ -8,7 +8,7 @@ export interface ClipListEntry {
   row?: ClipRow
 }
 
-export interface ClipListContextValue {
+interface ClipListContextValue {
   /** Ordered entries for the list the current modal is part of. */
   entries: readonly ClipListEntry[]
   /** Stable key so consumers can tell lists apart. */
@@ -27,8 +27,8 @@ function buildList(
   // neighbour lookups.
   const snapshot = entries.slice()
   const index = new Map<string, number>()
-  for (let i = 0; i < snapshot.length; i++) {
-    index.set(snapshot[i]!.id, i)
+  for (const [i, entry] of snapshot.entries()) {
+    index.set(entry.id, i)
   }
   return {
     entries: snapshot,

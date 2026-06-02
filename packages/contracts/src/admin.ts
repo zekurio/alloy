@@ -44,7 +44,6 @@ export const ENCODER_HWACCELS = [
 ] as const
 
 export type EncoderHwaccel = (typeof ENCODER_HWACCELS)[number]
-export type HwaccelKind = EncoderHwaccel
 
 export const ENCODER_CODECS = ["h264", "hevc", "av1"] as const
 
@@ -132,6 +131,12 @@ export interface LoginSplashConfig {
 export const LOGIN_SPLASH_LAYOUT_VERSION = 2
 export const LOGIN_SPLASH_IMAGE_PATH = `/api/auth-config/login-splash-v${LOGIN_SPLASH_LAYOUT_VERSION}.jpg`
 
+export function loginSplashImagePath(generatedAt: string | null): string {
+  const parsed = generatedAt ? Date.parse(generatedAt) : Date.now()
+  const version = Number.isFinite(parsed) ? parsed : Date.now()
+  return `${LOGIN_SPLASH_IMAGE_PATH}?v=${version}`
+}
+
 export interface PublicLoginSplashConfig {
   enabled: boolean
   generatedAt: string | null
@@ -217,8 +222,9 @@ export interface AdminUsersResponse {
   users: AdminUserStorageRow[]
 }
 
-export interface AdminUpdateUserStorageQuotaInput {
-  storageQuotaBytes: number | null
+export interface AdminUpdateUserInput {
+  role?: "user" | "admin"
+  storageQuotaBytes?: number | null
 }
 
 export interface RuntimeConfig {

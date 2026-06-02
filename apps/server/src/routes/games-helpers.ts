@@ -1,4 +1,4 @@
-import type { GameRow } from "@workspace/contracts"
+import type { GameListRow, GameRow, ProfileGameRow } from "@workspace/contracts"
 import { game } from "@workspace/db/schema"
 import { z } from "zod"
 
@@ -6,6 +6,13 @@ import {
   SteamGridDBError,
   SteamGridDBNotConfiguredError,
 } from "../games/steamgriddb"
+import { isoDate, nullableIsoDate } from "../runtime/date"
+import { errorMessage } from "../runtime/error-message"
+import {
+  limitQueryParam,
+  offsetQueryParam,
+  requiredTrimmedString,
+} from "./validation"
 
 export const SlugParam = z.object({
   slug: z
@@ -16,7 +23,7 @@ export const SlugParam = z.object({
 })
 
 export const SearchQuery = z.object({
-  q: z.string().min(1).max(120),
+  q: requiredTrimmedString(120),
 })
 
 export const ResolveBody = z.object({
@@ -25,31 +32,62 @@ export const ResolveBody = z.object({
 
 export const ClipsQuery = z.object({
   sort: z.enum(["top", "recent"]).default("recent"),
-  limit: z.coerce.number().int().positive().max(100).default(50),
-  cursor: z.iso.datetime().optional(),
+  limit: limitQueryParam(100, 50),
+  cursor: z.string().optional(),
 })
 
 export const TopQuery = z.object({
-  limit: z.coerce.number().int().positive().max(20).default(5),
+  limit: limitQueryParam(20, 5),
 })
 
 export const GamesListQuery = z.object({
-  limit: z.coerce.number().int().positive().max(100).default(100),
-  offset: z.coerce.number().int().min(0).default(0),
+  limit: limitQueryParam(100, 100),
+  offset: offsetQueryParam(),
 })
 
-export function serialiseGame(row: typeof game.$inferSelect) {
+type GameRowFields = Pick<
+  typeof game.$inferSelect,
+  | "id"
+  | "steamgriddbId"
+  | "name"
+  | "slug"
+  | "releaseDate"
+  | "heroUrl"
+  | "gridUrl"
+  | "logoUrl"
+  | "iconUrl"
+>
+
+export function serialiseGame(row: GameRowFields): GameRow {
   return {
     id: row.id,
     steamgriddbId: row.steamgriddbId,
     name: row.name,
     slug: row.slug,
-    releaseDate: row.releaseDate ? row.releaseDate.toISOString() : null,
+    releaseDate: nullableIsoDate(row.releaseDate),
     heroUrl: row.heroUrl,
     gridUrl: row.gridUrl,
     logoUrl: row.logoUrl,
     iconUrl: row.iconUrl,
-  } satisfies GameRow
+  }
+}
+
+export function serialiseGameListRow(
+  row: GameRowFields & { clipCount: number }
+): GameListRow {
+  return {
+    ...serialiseGame(row),
+    clipCount: row.clipCount,
+  }
+}
+
+export function serialiseProfileGameRow(
+  row: GameRowFields & { clipCount: number; lastClippedAt: Date | string }
+): ProfileGameRow {
+  return {
+    ...serialiseGameListRow(row),
+    lastClippedAt: isoDate(row.lastClippedAt),
+  }
 }
 
 export function sgdbErrorResponse(
@@ -62,10 +100,17 @@ export function sgdbErrorResponse(
     return { status: 503, error: err.message }
   }
   if (err instanceof SteamGridDBError) {
-    return { status: 502, error: err.message }
+    const status =
+      err.status === null ||
+      err.status >= 500 ||
+      err.status === 401 ||
+      err.status === 403
+        ? 503
+        : 502
+    return { status, error: err.message }
   }
   return {
     status: 500,
-    error: err instanceof Error ? err.message : "Unknown error",
+    error: errorMessage(err, "Unknown error"),
   }
 }

@@ -5,6 +5,8 @@ import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
 
+import { copyTextToClipboard } from "@/lib/clipboard"
+
 export function OAuthCallbackField({
   id,
   label,
@@ -45,10 +47,12 @@ async function copyToClipboard(
   successMessage: string,
   errorMessage: string
 ) {
-  try {
-    await navigator.clipboard.writeText(value)
+  const copied = await copyTextToClipboard(value, {
+    action: "copy OAuth callback URL",
+  })
+  if (copied) {
     toast.success(successMessage)
-  } catch {
+  } else {
     toast.error(errorMessage)
   }
 }

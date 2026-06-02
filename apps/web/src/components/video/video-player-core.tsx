@@ -1,6 +1,14 @@
 import * as React from "react"
+import { useDocumentEvent } from "@workspace/ui/hooks/use-document-event"
 import { useMediaQuery } from "@workspace/ui/hooks/use-media-query"
+import { useWindowEvent } from "@workspace/ui/hooks/use-window-event"
 
+import {
+  exitFullscreenBestEffort,
+  isFullscreenElement,
+  requestFullscreenBestEffort,
+} from "@/lib/fullscreen"
+import { errorMessage } from "@/lib/error-message"
 import { usePlayThreshold } from "./video-player-hooks"
 import { VideoFrame } from "./video-player-video"
 import {
@@ -170,7 +178,7 @@ export function PlayerCore({
       await video.play()
     } catch (err) {
       if (!reportBlocked) return
-      const message = err instanceof Error ? err.message : String(err)
+      const message = errorMessage(err, "Playback failed")
       setStatus({ kind: "error", message })
       onPlaybackErrorRef.current?.(message)
     }
@@ -315,28 +323,23 @@ export function PlayerCore({
   const toggleFullscreen = React.useCallback(() => {
     const el = containerRef.current
     if (!el) return
-    if (document.fullscreenElement === el) {
-      void document.exitFullscreen().catch(() => undefined)
+    if (isFullscreenElement(el)) {
+      exitFullscreenBestEffort("video player")
     } else {
-      void el.requestFullscreen().catch(() => undefined)
+      requestFullscreenBestEffort(el, "video player")
     }
   }, [])
 
-  React.useEffect(() => {
-    if (typeof document === "undefined") return
-
-    const onFullscreenChange = () => {
-      const nextIsFullscreen =
-        document.fullscreenElement === containerRef.current
-      if (nextIsFullscreen && isCoarsePointer) screen.orientation?.unlock?.()
-      setChromeVisible(true)
-    }
-
-    onFullscreenChange()
-    document.addEventListener("fullscreenchange", onFullscreenChange)
-    return () =>
-      document.removeEventListener("fullscreenchange", onFullscreenChange)
+  const onFullscreenChange = React.useCallback(() => {
+    const nextIsFullscreen = isFullscreenElement(containerRef.current)
+    if (nextIsFullscreen && isCoarsePointer) screen.orientation?.unlock?.()
+    setChromeVisible(true)
   }, [isCoarsePointer])
+
+  React.useEffect(() => {
+    onFullscreenChange()
+  }, [onFullscreenChange])
+  useDocumentEvent("fullscreenchange", onFullscreenChange)
 
   const keyCommand = React.useMemo<VideoKeyCommand>(
     () => ({
@@ -371,8 +374,8 @@ export function PlayerCore({
     ]
   )
 
-  React.useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
+  const onKeyDown = React.useCallback(
+    (event: KeyboardEvent) => {
       if (activeVideoPlayerId !== playerId) return
       if (
         !shouldHandleGlobalVideoShortcut(event.target, containerRef.current)
@@ -386,12 +389,10 @@ export function PlayerCore({
       ) {
         containerRef.current?.focus({ preventScroll: true })
       }
-    }
-
-    window.addEventListener("keydown", onKeyDown, { capture: true })
-    return () =>
-      window.removeEventListener("keydown", onKeyDown, { capture: true })
-  }, [enableHorizontalSeekShortcuts, keyCommand, playerId])
+    },
+    [enableHorizontalSeekShortcuts, keyCommand, playerId]
+  )
+  useWindowEvent("keydown", onKeyDown, true)
 
   React.useEffect(() => {
     if (!autoPlay && controls) return

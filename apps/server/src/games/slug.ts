@@ -8,7 +8,7 @@ const MAX_LEN = 48
 const MIN_LEN = 1
 const MAX_SUFFIX = 200
 
-export function slugifyGame(input: string): string {
+function slugifyGame(input: string): string {
   return input
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")

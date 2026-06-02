@@ -5,8 +5,9 @@ import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { formatCount } from "@/lib/clip-format"
+import { errorMessage } from "@/lib/error-message"
 import { useToggleGameFavoriteMutation } from "@/lib/game-queries"
+import { formatCount } from "@/lib/number-format"
 
 type GameFavoriteButtonProps = {
   slug: string
@@ -80,9 +81,7 @@ export function GameFavoriteButton({
           { slug, next: !isStarred },
           {
             onError: (cause) => {
-              toast.error(
-                cause instanceof Error ? cause.message : "Something went wrong"
-              )
+              toast.error(errorMessage(cause, "Something went wrong"))
             },
           }
         )

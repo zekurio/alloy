@@ -15,8 +15,7 @@ import { toast } from "@workspace/ui/lib/toast"
 import { UserAvatarButton } from "@workspace/ui/components/user-avatar-button"
 
 import { StorageQuotaCompact } from "@/components/storage-quota"
-import { signOut } from "@/lib/auth-client"
-import { resetClientState } from "@/lib/query-client"
+import { completeSignOutFlow, reportAuthFlowFailure } from "@/lib/auth-flow"
 import { useSuspenseSession } from "@/lib/session-suspense"
 import { useUserChipData } from "@/lib/user-display"
 
@@ -51,11 +50,11 @@ function UserMenuInner() {
   const primaryLabel = handle ? `@${handle}` : chip.name
   async function onSignOut() {
     try {
-      await signOut()
-      resetClientState()
-      await router.invalidate()
-    } catch {
-      toast.error("Couldn't sign out")
+      await completeSignOutFlow({
+        invalidateRouter: () => router.invalidate(),
+      })
+    } catch (cause) {
+      toast.error(reportAuthFlowFailure("sign-out", "Couldn't sign out", cause))
     }
   }
 

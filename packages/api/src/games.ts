@@ -1,5 +1,6 @@
 import type { ApiContext } from "./client"
 import type {
+  ClipPage,
   ClipRow,
   GameClipsParams,
   GameDetail,
@@ -9,11 +10,17 @@ import type {
   SteamGridDBStatus,
 } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
+import { readPostDeleteJson } from "./mutations"
+import { encodedPathSegment, queryParams, resolvePublicUrl } from "./paths"
 import {
-  validateBooleanFlag,
+  booleanFlagResponseValidator,
+  validateClipPage,
   validateClipRows,
-  validateObject,
-  validateObjectArray,
+  validateGameDetail,
+  validateGameListRows,
+  validateGameRow,
+  validateSteamGridDBSearchResults,
+  validateSteamGridDBStatus,
 } from "./contract-validators"
 
 export type {
@@ -25,13 +32,15 @@ export type {
   SteamGridDBStatus,
 } from "@workspace/contracts"
 
+export function gameGridUrl(slug: string, origin?: string): string {
+  return resolvePublicUrl(`/api/games/${encodedPathSegment(slug)}/grid`, origin)
+}
+
 async function fetchSteamGridDBStatus(
   context: ApiContext
 ): Promise<SteamGridDBStatus> {
   const res = await context.rpc.api.games.status.$get()
-  return readJsonOrThrow(res, (value) =>
-    validateObject<SteamGridDBStatus>(value, "SteamGridDB status")
-  )
+  return readJsonOrThrow(res, validateSteamGridDBStatus)
 }
 
 async function searchGames(
@@ -41,9 +50,7 @@ async function searchGames(
   const res = await context.rpc.api.games.search.$get({
     query: { q: query },
   })
-  return readJsonOrThrow(res, (value) =>
-    validateObjectArray<SteamGridDBSearchResult>(value, "game search")
-  )
+  return readJsonOrThrow(res, validateSteamGridDBSearchResults)
 }
 
 async function resolveGame(
@@ -53,7 +60,7 @@ async function resolveGame(
   const res = await context.rpc.api.games.resolve.$post({
     json: { steamgriddbId },
   })
-  return readJsonOrThrow(res, (value) => validateObject<GameRow>(value, "game"))
+  return readJsonOrThrow(res, validateGameRow)
 }
 
 async function fetchAllGames(
@@ -61,14 +68,9 @@ async function fetchAllGames(
   params: { limit?: number; offset?: number } = {}
 ): Promise<GameListRow[]> {
   const res = await context.rpc.api.games.$get({
-    query: {
-      ...(params.limit !== undefined ? { limit: String(params.limit) } : {}),
-      ...(params.offset !== undefined ? { offset: String(params.offset) } : {}),
-    },
+    query: queryParams(params),
   })
-  return readJsonOrThrow(res, (value) =>
-    validateObjectArray<GameListRow>(value, "games")
-  )
+  return readJsonOrThrow(res, validateGameListRows)
 }
 
 async function fetchGameBySlug(
@@ -78,23 +80,33 @@ async function fetchGameBySlug(
   const res = await context.rpc.api.games[":slug"].$get({
     param: { slug },
   })
-  return readJsonOrThrow(res, (value) =>
-    validateObject<GameDetail>(value, "game detail")
-  )
+  return readJsonOrThrow(res, validateGameDetail)
 }
 
 async function setGameFollow(
   context: ApiContext,
   slug: string,
+  following: true
+): Promise<{ following: true }>
+async function setGameFollow(
+  context: ApiContext,
+  slug: string,
+  following: false
+): Promise<{ following: false }>
+async function setGameFollow(
+  context: ApiContext,
+  slug: string,
   following: boolean
 ): Promise<{ following: boolean }> {
-  const res = following
-    ? await context.rpc.api.games[":slug"].follow.$post({ param: { slug } })
-    : await context.rpc.api.games[":slug"].follow.$delete({ param: { slug } })
-  const response = validateBooleanFlag(
-    await readJsonOrThrow<unknown>(res),
-    "following",
-    following
+  const response = await readPostDeleteJson(
+    following,
+    {
+      post: () =>
+        context.rpc.api.games[":slug"].follow.$post({ param: { slug } }),
+      delete: () =>
+        context.rpc.api.games[":slug"].follow.$delete({ param: { slug } }),
+    },
+    booleanFlagResponseValidator("following", following)
   )
   return { following: response.following }
 }
@@ -104,15 +116,23 @@ async function fetchGameClips(
   slug: string,
   params: GameClipsParams = {}
 ): Promise<ClipRow[]> {
-  const query: Record<string, string> = {}
-  if (params.sort) query.sort = params.sort
-  if (params.limit !== undefined) query.limit = String(params.limit)
-  if (params.cursor) query.cursor = params.cursor
+  return (await fetchGameClipPage(context, slug, params)).items
+}
+
+async function fetchGameClipPage(
+  context: ApiContext,
+  slug: string,
+  params: GameClipsParams = {}
+): Promise<ClipPage> {
   const res = await context.rpc.api.games[":slug"].clips.$get({
     param: { slug },
-    query,
+    query: queryParams({
+      sort: params.sort,
+      limit: params.limit,
+      cursor: params.cursor,
+    }),
   })
-  return readJsonOrThrow(res, validateClipRows)
+  return readJsonOrThrow(res, validateClipPage)
 }
 
 async function fetchGameTopClips(
@@ -135,16 +155,14 @@ export function createGamesApi(context: ApiContext) {
     fetchAll: (params: { limit?: number; offset?: number } = {}) =>
       fetchAllGames(context, params),
     fetchBySlug: (slug: string) => fetchGameBySlug(context, slug),
-    favorite: (slug: string) =>
-      setGameFollow(context, slug, true) as Promise<{ following: true }>,
-    unfavorite: (slug: string) =>
-      setGameFollow(context, slug, false) as Promise<{ following: false }>,
-    follow: (slug: string) =>
-      setGameFollow(context, slug, true) as Promise<{ following: true }>,
-    unfollow: (slug: string) =>
-      setGameFollow(context, slug, false) as Promise<{ following: false }>,
+    favorite: (slug: string) => setGameFollow(context, slug, true),
+    unfavorite: (slug: string) => setGameFollow(context, slug, false),
+    follow: (slug: string) => setGameFollow(context, slug, true),
+    unfollow: (slug: string) => setGameFollow(context, slug, false),
     fetchClips: (slug: string, params: GameClipsParams = {}) =>
       fetchGameClips(context, slug, params),
+    fetchClipsPage: (slug: string, params: GameClipsParams = {}) =>
+      fetchGameClipPage(context, slug, params),
     fetchTopClips: (slug: string, limit = 5) =>
       fetchGameTopClips(context, slug, limit),
   }

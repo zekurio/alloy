@@ -14,7 +14,7 @@ import { useUserSearchQuery } from "@/lib/user-queries"
 import { useDebouncedValue } from "@/lib/use-debounced-value"
 import type { UserSearchResult } from "@workspace/api"
 
-export interface MentionPickerProps {
+interface MentionPickerProps {
   value: UserSearchResult[]
   onChange: (next: UserSearchResult[]) => void
   disabled?: boolean

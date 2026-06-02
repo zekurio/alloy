@@ -6,7 +6,7 @@ import * as React from "react"
  * spirit of Claude Code's spinner verbs — never a literal description of the
  * work, always a little wink.
  */
-export const SUGGESTION_VERBS = [
+const SUGGESTION_VERBS = [
   "Squinting at pixels",
   "Divining the game",
   "Scrying the footage",
@@ -40,5 +40,5 @@ export function useCyclingVerb(active: boolean): string {
     return () => window.clearInterval(id)
   }, [active])
 
-  return SUGGESTION_VERBS[index]!
+  return SUGGESTION_VERBS[index] ?? SUGGESTION_VERBS[0]
 }

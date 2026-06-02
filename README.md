@@ -52,7 +52,8 @@ psql "$DATABASE_URL"
 
 In development, the frontend and API stay split so Vite can provide fast HMR.
 The dev scripts provide the local database URL, server URL, and trusted origin
-defaults.
+defaults. If you override `PORT`, the default `PUBLIC_SERVER_URL` follows that
+port.
 
 `deno task dev` runs `db:push` before starting the app. Use
 `deno task dev:quick` when you only want to restart Hono and Vite without
@@ -95,8 +96,10 @@ dev supervisor; if it exits, the web app and API keep running.
 The `dev:ml` task follows Immich's service workflow: it enters
 `machine-learning/`, runs `uv sync --extra cpu`, sets
 `MACHINE_LEARNING_CACHE_FOLDER=../data/ml-cache`, and starts
-`python -m alloy_ml`. Set `MACHINE_LEARNING_UV_SYNC=0` to skip dependency sync
-after the first run.
+`python -m alloy_ml`. Set `ALLOY_ML_PORT` to move the service and
+`MACHINE_LEARNING_UV_SYNC=0` to skip dependency sync after the first run. When
+the dev supervisor starts ML, the API's default `MACHINE_LEARNING_URL` follows
+the same ML port.
 
 The service listens on http://localhost:2662 and exposes `/ping`, `/health`,
 `/predict`, and `/v1/game-classifier/predict`. See
@@ -165,12 +168,13 @@ deno task start:prod
 Startup rejects localhost or loopback values so OAuth callbacks, WebAuthn,
 generated media URLs, CORS, and secure cookies use the deployment host.
 
-For Docker deployments, mount persistent storage for runtime config and encoder
-scratch data:
+For Docker deployments, mount persistent storage for runtime config, uploaded
+media, and encoder scratch data:
 
 ```bash
--v alloy-config:/var/lib/alloy
--v alloy-encode:/var/cache/alloy
+-v alloy-config:/config
+-v alloy-storage:/data
+-v alloy-encode:/cache/encode
 ```
 
 ## Contributing

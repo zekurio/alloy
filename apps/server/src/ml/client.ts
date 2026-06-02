@@ -3,7 +3,10 @@ import type {
   MlGameSuggestionPrediction,
 } from "@workspace/contracts"
 
-export interface GameClassifierResult {
+import { isAbortError, prefixedErrorMessage } from "../runtime/error-message"
+import { responseTextOrEmpty } from "../runtime/response-text"
+
+interface GameClassifierResult {
   kind: "game-suggestion"
   advisory: true
   modelName: string
@@ -66,9 +69,11 @@ export async function predictGameFromFrameBytes(input: {
       throw new MachineLearningError("Machine learning request timed out.")
     }
     throw new MachineLearningError(
-      cause instanceof Error
-        ? `Machine learning request failed: ${cause.message}`
-        : "Machine learning request failed."
+      prefixedErrorMessage(
+        cause,
+        "Machine learning request failed",
+        "Machine learning request failed."
+      )
     )
   } finally {
     clearTimeout(timeout)
@@ -77,7 +82,7 @@ export async function predictGameFromFrameBytes(input: {
   if (!response.ok) {
     throw new MachineLearningError(
       await upstreamErrorMessage(response),
-      response.status === 400 ? 400 : 503
+      response.status === 400 || response.status === 413 ? response.status : 503
     )
   }
 
@@ -86,9 +91,11 @@ export async function predictGameFromFrameBytes(input: {
     payload = await response.json()
   } catch (cause) {
     throw new MachineLearningError(
-      cause instanceof Error
-        ? `Machine learning returned invalid JSON: ${cause.message}`
-        : "Machine learning returned invalid JSON.",
+      prefixedErrorMessage(
+        cause,
+        "Machine learning returned invalid JSON",
+        "Machine learning returned invalid JSON."
+      ),
       502
     )
   }
@@ -103,31 +110,24 @@ function blobSafeBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
 }
 
 function parseGameClassifierResult(value: unknown): GameClassifierResult {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new MachineLearningError(
-      "Machine learning response was not an object.",
-      502
-    )
-  }
-  const obj = value as Record<string, unknown>
+  const obj = mlResponseObject(
+    value,
+    "Machine learning response was not an object."
+  )
   if (obj.kind !== "game-suggestion" || obj.advisory !== true) {
     throw new MachineLearningError(
       "Machine learning response was not a game suggestion.",
       502
     )
   }
-  if (typeof obj.modelName !== "string" || obj.modelName.trim().length === 0) {
-    throw new MachineLearningError(
-      "Machine learning response was missing modelName.",
-      502
-    )
-  }
-  if (obj.modelVersion !== null && typeof obj.modelVersion !== "string") {
-    throw new MachineLearningError(
-      "Machine learning response had an invalid modelVersion.",
-      502
-    )
-  }
+  const modelName = requiredMlResponseString(
+    obj.modelName,
+    "Machine learning response was missing modelName."
+  )
+  const modelVersion = nullableRequiredMlResponseString(
+    obj.modelVersion,
+    "Machine learning response had an invalid modelVersion."
+  )
   if (!Array.isArray(obj.predictions)) {
     throw new MachineLearningError(
       "Machine learning response was missing predictions.",
@@ -136,22 +136,25 @@ function parseGameClassifierResult(value: unknown): GameClassifierResult {
   }
 
   const predictions = obj.predictions.map((item, index) => {
-    if (!item || typeof item !== "object" || Array.isArray(item)) {
-      throw new MachineLearningError(
-        "Machine learning response contained an invalid prediction.",
-        502
-      )
-    }
-    const prediction = item as Record<string, unknown>
+    const prediction = mlResponseObject(
+      item,
+      "Machine learning response contained an invalid prediction."
+    )
+    const expectedRank = index + 1
     if (
-      typeof prediction.label !== "string" ||
-      prediction.label.trim().length === 0
+      typeof prediction.rank !== "number" ||
+      !Number.isSafeInteger(prediction.rank) ||
+      prediction.rank !== expectedRank
     ) {
       throw new MachineLearningError(
-        "Machine learning response contained an invalid label.",
+        "Machine learning response contained an invalid rank.",
         502
       )
     }
+    const label = requiredMlResponseString(
+      prediction.label,
+      "Machine learning response contained an invalid label."
+    )
     if (
       typeof prediction.score !== "number" ||
       !Number.isFinite(prediction.score) ||
@@ -164,8 +167,8 @@ function parseGameClassifierResult(value: unknown): GameClassifierResult {
       )
     }
     return {
-      rank: index + 1,
-      label: prediction.label,
+      rank: prediction.rank,
+      label,
       score: prediction.score,
     }
   })
@@ -173,18 +176,45 @@ function parseGameClassifierResult(value: unknown): GameClassifierResult {
   return {
     kind: "game-suggestion",
     advisory: true,
-    modelName: obj.modelName,
-    modelVersion: obj.modelVersion as string | null,
+    modelName,
+    modelVersion,
     predictions,
   }
+}
+
+function mlResponseObject(
+  value: unknown,
+  message: string
+): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new MachineLearningError(message, 502)
+  }
+  return value as Record<string, unknown>
+}
+
+function requiredMlResponseString(value: unknown, message: string): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new MachineLearningError(message, 502)
+  }
+  return value.trim()
+}
+
+function nullableRequiredMlResponseString(
+  value: unknown,
+  message: string
+): string | null {
+  if (value === null) return null
+  return requiredMlResponseString(value, message)
 }
 
 async function upstreamErrorMessage(response: Response): Promise<string> {
   const fallback =
     response.status === 400
       ? "Machine learning rejected the frames."
-      : "Machine learning is unavailable."
-  const text = await response.text().catch(() => "")
+      : response.status === 413
+        ? "Machine learning rejected an oversized request."
+        : "Machine learning is unavailable."
+  const text = await responseTextOrEmpty(response, "machine learning error")
   if (!text.trim()) return fallback
   try {
     const parsed = JSON.parse(text) as unknown
@@ -196,8 +226,4 @@ async function upstreamErrorMessage(response: Response): Promise<string> {
     // Plain-text upstream errors are still useful, as long as they are short.
   }
   return text.trim().slice(0, 500)
-}
-
-function isAbortError(cause: unknown): boolean {
-  return cause instanceof DOMException && cause.name === "AbortError"
 }

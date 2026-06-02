@@ -4,6 +4,73 @@ set -euo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
+apply_database_url() {
+  if [ -z "${DATABASE_URL:-}" ]; then
+    return
+  fi
+
+  local parsed
+  if ! parsed="$(
+    deno eval --ext=ts "$(cat <<'TS'
+const raw = Deno.env.get("DATABASE_URL") ?? "";
+let url: URL;
+
+try {
+  url = new URL(raw);
+} catch (err) {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`Invalid DATABASE_URL: ${message}`);
+  Deno.exit(1);
+}
+
+if (url.protocol !== "postgres:" && url.protocol !== "postgresql:") {
+  console.error("DATABASE_URL must use postgres:// or postgresql://.");
+  Deno.exit(1);
+}
+
+const values = [
+  url.hostname.replace(/^\[(.*)\]$/, "$1") || "127.0.0.1",
+  url.port || "5432",
+  decodeURIComponent(url.username || "postgres"),
+  decodeURIComponent(url.pathname.replace(/^\/+/, "")) || "postgres",
+];
+
+for (const value of values) {
+  if (/[\r\n]/.test(value)) {
+    console.error("DATABASE_URL components must not contain newlines.");
+    Deno.exit(1);
+  }
+  console.log(value);
+}
+TS
+)"
+  )"; then
+    exit 1
+  fi
+
+  local -a fields
+  mapfile -t fields <<<"$parsed"
+  if [ "${#fields[@]}" -ne 4 ]; then
+    echo "Could not parse DATABASE_URL." >&2
+    exit 1
+  fi
+
+  PGHOST="${fields[0]}"
+  PGPORT="${fields[1]}"
+  PGUSER="${fields[2]}"
+  PGDATABASE="${fields[3]}"
+}
+
+validate_port() {
+  local name="$1"
+  local value="$2"
+
+  if [[ ! "$value" =~ ^[0-9]+$ ]] || ((value < 1 || value > 65535)); then
+    echo "$name must be a TCP port number between 1 and 65535." >&2
+    exit 1
+  fi
+}
+
 PGROOT="${PGROOT:-$ROOT_DIR/.pg}"
 PGDATA="${PGDATA:-$PGROOT/data}"
 PGSOCKETDIR="${PGSOCKETDIR:-$PGROOT/sockets}"
@@ -14,7 +81,12 @@ PGUSER="${PGUSER:-postgres}"
 PGDATABASE="${PGDATABASE:-alloy}"
 DATABASE_URL="${DATABASE_URL:-postgres://$PGUSER@$PGHOST:$PGPORT/$PGDATABASE}"
 
+apply_database_url
+validate_port PGPORT "$PGPORT"
+
 export PGROOT PGDATA PGSOCKETDIR PG_MAJOR PGHOST PGPORT PGUSER PGDATABASE DATABASE_URL
+
+DEV_PG_LOCK_HELD=0
 
 usage() {
   echo "Usage: $0 <start|stop|status>"
@@ -41,14 +113,16 @@ ensure_layout() {
 }
 
 release_lock() {
-  if [ -e "/proc/$$/fd/9" ]; then
+  if [ "$DEV_PG_LOCK_HELD" = "1" ]; then
     flock -u 9 || true
     exec 9>&-
+    DEV_PG_LOCK_HELD=0
   fi
 }
 
 prepare_data_dir() {
   exec 9>"$PGROOT/.setup.lock"
+  DEV_PG_LOCK_HELD=1
   flock 9
 
   if [ -f "$PGDATA/PG_VERSION" ]; then
@@ -81,15 +155,18 @@ wait_for_ready() {
 }
 
 ensure_database() {
-  if ! psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d postgres -Atqc \
-    "SELECT 1 FROM pg_database WHERE datname = '$PGDATABASE'" | grep -q 1; then
+  if ! database_exists; then
     if ! createdb -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" "$PGDATABASE"; then
-      if ! psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d postgres -Atqc \
-        "SELECT 1 FROM pg_database WHERE datname = '$PGDATABASE'" | grep -q 1; then
+      if ! database_exists; then
         exit 1
       fi
     fi
   fi
+}
+
+database_exists() {
+  psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d postgres -v dbname="$PGDATABASE" -Atqc \
+    "SELECT 1 FROM pg_database WHERE datname = :'dbname'" | grep -q 1
 }
 
 start_db() {

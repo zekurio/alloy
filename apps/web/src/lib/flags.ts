@@ -14,14 +14,6 @@ const devFlagDefinitions = {
   },
 } as const satisfies Record<string, FlagDefinition>
 
-const featureFlagDefinitions = {} as const satisfies Record<
-  string,
-  FlagDefinition
->
-
-export type DevFlagName = keyof typeof devFlagDefinitions
-export type FeatureFlagName = keyof typeof featureFlagDefinitions
-
 function flagEnvValue(name: string): string | undefined {
   if (typeof window !== "undefined") {
     const value = import.meta.env[name]
@@ -49,17 +41,8 @@ function readFlagGroup<T extends Record<string, FlagDefinition>>(
   ) as { readonly [K in keyof T]: boolean }
 }
 
-export const devFlags = readFlagGroup(devFlagDefinitions)
-export const featureFlags = readFlagGroup(featureFlagDefinitions)
+const devFlags = readFlagGroup(devFlagDefinitions)
 
 export function isDevSetupForced(): boolean {
   return devFlags.forceSetup || devFlags.forceOnboarding
-}
-
-export function isDevFlagEnabled(name: DevFlagName): boolean {
-  return devFlags[name]
-}
-
-export function isFeatureFlagEnabled(name: FeatureFlagName): boolean {
-  return featureFlags[name]
 }

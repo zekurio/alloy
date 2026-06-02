@@ -1,10 +1,16 @@
 import * as React from "react"
 
 import { cn } from "@workspace/ui/lib/utils"
+import { stableHue } from "@workspace/ui/lib/stable-hash"
+import {
+  LEGACY_USER_ASSET_PATH_PREFIX,
+  resolvePublicUrl,
+  USER_ASSET_PATH_PREFIX,
+} from "@workspace/api"
 
 import { apiOrigin } from "./env"
 
-type AuthUser = {
+type DisplayUser = {
   id?: string
   name?: string | null
   username?: string | null
@@ -15,8 +21,8 @@ type AuthUser = {
 }
 
 const USER_ASSET_PATH_PREFIXES = [
-  "/api/assets/users/",
-  "/storage/user-assets/",
+  USER_ASSET_PATH_PREFIX,
+  LEGACY_USER_ASSET_PATH_PREFIX,
 ] as const
 const userImageSrcCache = new Map<string, string>()
 const loadedUserBannerSrcs = new Set<string>()
@@ -71,17 +77,17 @@ export function userImageSrc(
 
 function normalizeUserAssetPath(value: string, prefix: string): string {
   const nextPath =
-    prefix === "/storage/user-assets/"
-      ? `/api/assets/users/${value.slice(prefix.length)}`
+    prefix === LEGACY_USER_ASSET_PATH_PREFIX
+      ? `${USER_ASSET_PATH_PREFIX}${value.slice(prefix.length)}`
       : value
-  return new URL(nextPath, apiOrigin()).toString()
+  return resolvePublicUrl(nextPath, apiOrigin())
 }
 
 /**
  * Pulls a stable display name. Prefers the free-form `name` (what the user
  * actually wants to be called), then the handle, then the email local part.
  */
-export function displayName(user: AuthUser | null | undefined): string {
+export function displayName(user: DisplayUser | null | undefined): string {
   if (!user) return "user"
   if (user.name && user.name.trim()) return user.name.trim()
   if (user.displayUsername && user.displayUsername.trim()) {
@@ -94,26 +100,19 @@ export function displayName(user: AuthUser | null | undefined): string {
 }
 
 /** Up to two uppercase letters from the display name. */
-export function displayInitials(name: string): string {
+function displayInitials(name: string): string {
   const parts = name.split(/[\s._-]+/).filter(Boolean)
   if (parts.length === 0) return "?"
   if (parts.length === 1) {
-    return parts[0]!.slice(0, 2).toUpperCase()
+    return (parts[0] ?? "?").slice(0, 2).toUpperCase()
   }
-  return (parts[0]![0]! + parts[1]![0]!).toUpperCase()
-}
-
-function hashString(input: string): number {
-  let h = 0
-  for (let i = 0; i < input.length; i++) {
-    h = (h * 31 + input.charCodeAt(i)) >>> 0
-  }
-  return h
+  const [first = "?", second = ""] = parts
+  return `${first[0] ?? "?"}${second[0] ?? ""}`.toUpperCase()
 }
 
 /** Avatar tint derived from user id (or name as fallback) so each user is visually distinct. */
-export function avatarTint(seed: string): { bg: string; fg: string } {
-  const hue = hashString(seed || "user") % 360
+function avatarTint(seed: string): { bg: string; fg: string } {
+  const hue = stableHue(seed || "user")
   return {
     bg: `oklch(0.32 0.18 ${hue})`,
     fg: `oklch(0.92 0.1 ${hue})`,
@@ -127,8 +126,8 @@ export type UserAvatar = {
   fg: string
 }
 
-export function userAvatarSrc(
-  user: AuthUser | null | undefined
+function userAvatarSrc(
+  user: DisplayUser | null | undefined
 ): string | undefined {
   return userImageSrc(user?.image)
 }
@@ -137,7 +136,7 @@ export function userAvatarSrc(
  * Everything needed to render an avatar for a user. `src` may be undefined
  * (show `initials` in an `AvatarFallback` with the `bg`/`fg` tint).
  */
-export function userAvatar(user: AuthUser | null | undefined): UserAvatar {
+export function userAvatar(user: DisplayUser | null | undefined): UserAvatar {
   const name = displayName(user)
   const { bg, fg } = avatarTint(user?.id ?? name)
   return {
@@ -148,31 +147,19 @@ export function userAvatar(user: AuthUser | null | undefined): UserAvatar {
   }
 }
 
-export type UserBannerData = {
-  src?: string
-  bg: string
-}
-
-export function userBanner(user: AuthUser | null | undefined): UserBannerData {
-  const name = displayName(user)
-  const { bg } = avatarTint(user?.id ?? name)
-  return {
-    src: userImageSrc(user?.banner) ?? userAvatarSrc(user),
-    bg,
-  }
-}
-
 export type UserChipData = {
   name: string
   avatar: UserAvatar
 }
 
-export function userChipData(user: AuthUser | null | undefined): UserChipData {
+export function userChipData(
+  user: DisplayUser | null | undefined
+): UserChipData {
   return { name: displayName(user), avatar: userAvatar(user) }
 }
 
 export function useUserChipData(
-  user: AuthUser | null | undefined
+  user: DisplayUser | null | undefined
 ): UserChipData {
   return userChipData(user)
 }
@@ -181,10 +168,11 @@ export function UserBanner({
   user,
   className,
 }: {
-  user: AuthUser | null | undefined
+  user: DisplayUser | null | undefined
   className?: string
 }) {
   const dedicatedBannerSrc = userImageSrc(user?.banner)
+  const avatarFallbackSrc = dedicatedBannerSrc ? userAvatarSrc(user) : undefined
   const banner = {
     src: dedicatedBannerSrc ?? userAvatarSrc(user),
     bg: avatarTint(user?.id ?? displayName(user)).bg,
@@ -204,6 +192,7 @@ export function UserBanner({
       {banner.src ? (
         <UserBannerImage
           src={banner.src}
+          fallbackSrc={avatarFallbackSrc}
           hasDedicatedBanner={hasDedicatedBanner}
         />
       ) : null}
@@ -213,37 +202,53 @@ export function UserBanner({
 
 function UserBannerImage({
   src,
+  fallbackSrc,
   hasDedicatedBanner,
 }: {
   src: string
+  fallbackSrc?: string
   hasDedicatedBanner: boolean
 }) {
+  const [activeSrc, setActiveSrc] = React.useState(src)
   const [status, setStatus] = React.useState<"loading" | "loaded" | "error">(
     () => (loadedUserBannerSrcs.has(src) ? "loaded" : "loading")
   )
+  const activeHasDedicatedBanner = hasDedicatedBanner && activeSrc === src
 
   React.useEffect(() => {
+    setActiveSrc(src)
     setStatus(loadedUserBannerSrcs.has(src) ? "loaded" : "loading")
   }, [src])
+
+  function switchToFallback() {
+    if (!fallbackSrc || fallbackSrc === activeSrc) return false
+    setActiveSrc(fallbackSrc)
+    setStatus(loadedUserBannerSrcs.has(fallbackSrc) ? "loaded" : "loading")
+    return true
+  }
 
   return (
     <>
       <img
-        src={src}
+        key={activeSrc}
+        src={activeSrc}
         alt=""
         aria-hidden
         decoding="async"
-        fetchPriority={hasDedicatedBanner ? "high" : "low"}
-        loading={hasDedicatedBanner ? "eager" : "lazy"}
+        fetchPriority={activeHasDedicatedBanner ? "high" : "low"}
+        loading={activeHasDedicatedBanner ? "eager" : "lazy"}
         onLoad={() => {
-          loadedUserBannerSrcs.add(src)
+          loadedUserBannerSrcs.add(activeSrc)
           setStatus("loaded")
         }}
-        onError={() => setStatus("error")}
+        onError={() => {
+          if (activeSrc === src && switchToFallback()) return
+          setStatus("error")
+        }}
         className={cn(
           "absolute inset-0 size-full rounded-[inherit] object-cover transition-opacity duration-150",
           status === "loaded" ? "opacity-100" : "opacity-0",
-          hasDedicatedBanner
+          activeHasDedicatedBanner
             ? "brightness-90"
             : "scale-150 brightness-75 saturate-150"
         )}

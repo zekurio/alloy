@@ -1,3 +1,5 @@
+import * as React from "react"
+
 import { cn } from "@workspace/ui/lib/utils"
 
 import type { GameDetail } from "@workspace/api"
@@ -12,6 +14,12 @@ type GameHeaderBannerProps = {
 
 export function GameHeaderBanner({ game }: GameHeaderBannerProps) {
   const hue = hueForGame(game.name)
+  const [failedHeroUrl, setFailedHeroUrl] = React.useState<string | null>(null)
+  const [failedLogoUrl, setFailedLogoUrl] = React.useState<string | null>(null)
+  const heroUrl =
+    game.heroUrl && failedHeroUrl !== game.heroUrl ? game.heroUrl : null
+  const logoUrl =
+    game.logoUrl && failedLogoUrl !== game.logoUrl ? game.logoUrl : null
 
   return (
     <section
@@ -21,12 +29,13 @@ export function GameHeaderBanner({ game }: GameHeaderBannerProps) {
         "w-full"
       )}
     >
-      {game.heroUrl ? (
+      {heroUrl ? (
         <img
-          src={game.heroUrl}
+          src={heroUrl}
           alt={game.name}
           className="absolute inset-0 size-full object-cover"
           decoding="async"
+          onError={() => setFailedHeroUrl(heroUrl)}
         />
       ) : (
         <div
@@ -44,15 +53,16 @@ export function GameHeaderBanner({ game }: GameHeaderBannerProps) {
 
       <div className="absolute inset-x-0 bottom-0 flex items-end gap-3 p-4 sm:gap-4 sm:p-6">
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          {game.logoUrl ? (
+          {logoUrl ? (
             <img
-              src={game.logoUrl}
+              src={logoUrl}
               alt={game.name}
               className={cn(
                 "h-12 w-auto max-w-[min(420px,60vw)] object-contain object-left",
                 "drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)] sm:h-16"
               )}
               decoding="async"
+              onError={() => setFailedLogoUrl(logoUrl)}
             />
           ) : (
             <h1

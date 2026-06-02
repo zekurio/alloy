@@ -1,5 +1,7 @@
 import * as React from "react"
 
+import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
+
 export type SourceSpec =
   | { kind: "url"; url: string }
   | { kind: "file"; file: File }
@@ -25,9 +27,13 @@ export function useMediaUrl(spec: SourceSpec): string | null {
       return
     }
 
-    const url = URL.createObjectURL(spec.file)
+    const url = createObjectUrl(spec.file, "media source URL")
+    if (!url) {
+      setObjectUrl(null)
+      return
+    }
     setObjectUrl(url)
-    return () => URL.revokeObjectURL(url)
+    return () => revokeObjectUrl(url, "media source URL")
   }, [spec])
 
   return spec.kind === "url" ? spec.url : objectUrl

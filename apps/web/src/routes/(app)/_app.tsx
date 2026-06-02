@@ -13,24 +13,13 @@ import { HomeHeader } from "@/components/layout/home-header"
 import { HomeSidebar } from "@/components/layout/home-sidebar"
 import { UploadFlow } from "@/components/upload/upload-flow"
 import { UploadFlowProvider } from "@/components/upload/upload-flow-controls"
+import { parseAppSearch, type AppSearch } from "@/lib/app-search"
 import { requireBrowseAuthBeforeLoad } from "@/lib/auth-guards"
 import { useBrowseAuthGate } from "@/lib/auth-hooks"
 
-interface AppSearch {
-  clip?: string
-  comment?: string
-}
-
 export const Route = createFileRoute("/(app)/_app")({
   beforeLoad: requireBrowseAuthBeforeLoad,
-  validateSearch: (search: Record<string, unknown>): AppSearch => {
-    const clip = search.clip
-    const comment = search.comment
-    return {
-      ...(typeof clip === "string" && clip.length > 0 ? { clip } : {}),
-      ...(typeof comment === "string" && comment.length > 0 ? { comment } : {}),
-    }
-  },
+  validateSearch: parseAppSearch,
   errorComponent: AppRouteErrorState,
   notFoundComponent: AppRouteNotFoundState,
   component: AppLayout,

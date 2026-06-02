@@ -29,7 +29,7 @@ type GameComboboxItem = SteamGridDBSearchResult & {
 
 const PAGE_SIZE = 6
 
-export interface GameComboboxProps {
+interface GameComboboxProps {
   /** Currently picked game, or null when unset. */
   value: GameRow | null
   onChange: (next: GameRow | null) => void

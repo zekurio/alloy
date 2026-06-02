@@ -1,6 +1,7 @@
 import { and, eq, lt } from "drizzle-orm"
 
 import { clip } from "@workspace/db/schema"
+import { logger } from "@workspace/logging"
 
 import { db } from "../db"
 import { publishClipProgress } from "../clips/events"
@@ -32,8 +33,7 @@ export function makeProgressWriter(
         if (rows.length > 0) publishClipProgress(authorId, clipId, pct)
       })
       .catch((err: unknown) => {
-        // eslint-disable-next-line no-console
-        console.error(
+        logger.error(
           `[encode-worker] progress update failed for ${clipId}:`,
           err
         )

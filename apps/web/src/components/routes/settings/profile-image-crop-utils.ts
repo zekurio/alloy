@@ -1,6 +1,6 @@
 export type CropMode = "avatar" | "banner"
 
-export type CropConfig = {
+type CropConfig = {
   aspect: number
   label: string
   outputHeight: number
@@ -43,7 +43,7 @@ export type DragState = {
   startOffset: Point
 }
 
-export type CropFrame = {
+type CropFrame = {
   height: number
   stageHeight: number
   stageWidth: number

@@ -9,10 +9,11 @@ import {
 } from "@workspace/ui/components/section-head"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
+import { compareDateAsc, compareDateDesc } from "@/lib/date-format"
 import { formatCount } from "@/lib/number-format"
+import type { ProfileAllSort } from "@/lib/profile-all-search"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import type { UserClip } from "@workspace/api"
-import type { ProfileAllSort } from "@/routes/(app)/_app.u.$username.all"
 import { ClipsFilterBar } from "./clips-filter-bar"
 
 type AllClipsSectionProps = {
@@ -133,21 +134,21 @@ function sortClips(clips: UserClip[], sort: ProfileAllSort): UserClip[] {
   const copy = clips.slice()
   switch (sort) {
     case "recent":
-      copy.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      copy.sort((a, b) => compareDateDesc(a.createdAt, b.createdAt))
       break
     case "oldest":
-      copy.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      copy.sort((a, b) => compareDateAsc(a.createdAt, b.createdAt))
       break
     case "top":
       copy.sort(
         (a, b) =>
-          b.likeCount - a.likeCount || b.createdAt.localeCompare(a.createdAt)
+          b.likeCount - a.likeCount || compareDateDesc(a.createdAt, b.createdAt)
       )
       break
     case "views":
       copy.sort(
         (a, b) =>
-          b.viewCount - a.viewCount || b.createdAt.localeCompare(a.createdAt)
+          b.viewCount - a.viewCount || compareDateDesc(a.createdAt, b.createdAt)
       )
       break
   }

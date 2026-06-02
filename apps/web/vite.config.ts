@@ -3,6 +3,7 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import viteReact from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 import { fileURLToPath, URL } from "node:url"
+import { clientLogger } from "./src/lib/client-log"
 
 const DEFAULT_SERVER_URL = "http://localhost:2552"
 const workspaceRoot = fileURLToPath(new URL("../..", import.meta.url))
@@ -38,7 +39,7 @@ function apiProxy(mode: string): ProxyOptions {
       proxy.on("error", (err, _req, res) => {
         // Vite otherwise turns backend connection failures into an opaque 502,
         // which hides the actual dev-server dependency.
-        console.error(`[vite] API proxy failed for ${apiTarget}:`, err)
+        clientLogger.error(`[vite] API proxy failed for ${apiTarget}:`, err)
 
         if ("writeHead" in res && !res.headersSent) {
           res.writeHead(503, { "Content-Type": "application/json" })

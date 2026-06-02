@@ -10,10 +10,9 @@ export {
   buildEncodeArgs,
   buildRemuxArgs,
   codecNameFor,
-  parseExtraArgs,
   type ResolvedEncoderConfig,
 } from "./ffmpeg-args"
-export { probe, type ProbeResult } from "./ffmpeg-probe"
+export { probe } from "./ffmpeg-probe"
 
 export async function encode(
   srcPath: string,

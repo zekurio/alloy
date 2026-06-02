@@ -1,4 +1,8 @@
-import { zValidator } from "@hono/zod-validator"
+import {
+  limitQueryParam,
+  requiredTrimmedString,
+  zValidator,
+} from "./validation"
 import { and, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
@@ -8,26 +12,24 @@ import { clip, game } from "@workspace/db/schema"
 
 import { db } from "../db"
 import { clipSelectShape, toPublicClipRow } from "../clips/select"
+import { serialiseGameListRow } from "./games-helpers"
+import {
+  serialiseUserListRow,
+  toLikePattern,
+  userSummarySelectShape,
+} from "./users-helpers"
 
 const SearchQuery = z.object({
-  q: z.string().min(1).max(120),
-  limit: z.coerce.number().int().positive().max(20).default(8),
+  q: requiredTrimmedString(120),
+  limit: limitQueryParam(20, 8),
 })
-
-function toLikePattern(raw: string): string {
-  const escaped = raw
-    .replace(/\\/g, "\\\\")
-    .replace(/%/g, "\\%")
-    .replace(/_/g, "\\_")
-  return `%${escaped}%`
-}
 
 export const searchRoute = new Hono().get(
   "/",
   zValidator("query", SearchQuery),
   async (c) => {
     const { q, limit } = c.req.valid("query")
-    const pattern = toLikePattern(q.trim())
+    const pattern = toLikePattern(q)
 
     const matchRank = sql<number>`CASE
       WHEN ${clip.title} ILIKE ${pattern} THEN 0
@@ -98,11 +100,7 @@ export const searchRoute = new Hono().get(
 
       db
         .select({
-          id: user.id,
-          username: user.username,
-          displayUsername: user.displayUsername,
-          name: user.name,
-          image: user.image,
+          ...userSummarySelectShape,
           createdAt: user.createdAt,
           clipCount: sql<number>`count(${clip.id})::int`,
         })
@@ -132,27 +130,8 @@ export const searchRoute = new Hono().get(
 
     return c.json({
       clips: clips.map(toPublicClipRow),
-      games: games.map((row) => ({
-        id: row.id,
-        steamgriddbId: row.steamgriddbId,
-        name: row.name,
-        slug: row.slug,
-        releaseDate: row.releaseDate ? row.releaseDate.toISOString() : null,
-        heroUrl: row.heroUrl,
-        gridUrl: row.gridUrl,
-        logoUrl: row.logoUrl,
-        iconUrl: row.iconUrl,
-        clipCount: row.clipCount,
-      })),
-      users: users.map((row) => ({
-        id: row.id,
-        username: row.username,
-        displayUsername: row.displayUsername,
-        name: row.name,
-        image: row.image,
-        createdAt: row.createdAt.toISOString(),
-        clipCount: row.clipCount,
-      })),
+      games: games.map(serialiseGameListRow),
+      users: users.map(serialiseUserListRow),
     })
   }
 )

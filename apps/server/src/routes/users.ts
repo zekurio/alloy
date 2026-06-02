@@ -1,4 +1,4 @@
-import { zValidator } from "@hono/zod-validator"
+import { limitQueryParam, zValidator } from "./validation"
 import { and, eq, or } from "drizzle-orm"
 import { Hono } from "hono"
 import { stream } from "hono/streaming"
@@ -20,28 +20,39 @@ import { contentDisposition, downloadFilename } from "./clips-helpers"
 import { createZipStream } from "../archive/zip-stream"
 import { syncLinkedOAuthImage } from "../auth/oauth-profile-sync"
 import { createNotification } from "../notifications"
+import { isoDate, nullableIsoDate } from "../runtime/date"
+import {
+  accountState,
+  batchProgress,
+  booleanFlag,
+} from "../runtime/http-response"
+import { cancelReadableOnAbort } from "../runtime/streaming"
 import { requireSession } from "../auth/require-session"
 import { selectSourceStorageUsedBytes } from "../storage/quota"
 import { storage } from "../storage"
 import {
-  SearchQuery,
-  UserGamesQuery,
-  UsernameParam,
   listFollowers,
   listFollowing,
   listLikedClips,
   listTaggedClips,
-  listUserGames,
   listUserClips,
-  resolveTarget,
+  listUserGames,
   resolveViewerState,
+  SearchQuery,
   searchVisibleUsers,
   selectProfileCounts,
   toPublicUser,
+  UserGamesQuery,
+  UsernameParam,
 } from "./users-helpers"
+import {
+  deleteViewerBlock,
+  resolveRelationshipTarget,
+  resolveUserTarget,
+} from "./users-relationship"
 
 const ClipBatchQuery = z.object({
-  limit: z.coerce.number().int().positive().max(100).default(100),
+  limit: limitQueryParam(100, 100),
 })
 
 export const usersRoute = new Hono()
@@ -55,18 +66,14 @@ export const usersRoute = new Hono()
     })
     return c.json(rows)
   })
-
   .get("/me/account", requireSession, async (c) => {
     const [row] = await db
       .select({ disabledAt: user.disabledAt })
       .from(user)
       .where(eq(user.id, c.var.viewerId))
       .limit(1)
-    return c.json({
-      disabledAt: row?.disabledAt ? row.disabledAt.toISOString() : null,
-    })
+    return accountState(c, nullableIsoDate(row?.disabledAt ?? null))
   })
-
   .get("/me/storage", requireSession, async (c) => {
     const viewerId = c.var.viewerId
     const [row, usedBytes] = await Promise.all([
@@ -82,7 +89,6 @@ export const usersRoute = new Hono()
       quotaBytes: row[0]?.quotaBytes ?? null,
     })
   })
-
   .post("/me/disable", requireSession, async (c) => {
     const viewerId = c.var.viewerId
     const now = new Date()
@@ -93,18 +99,16 @@ export const usersRoute = new Hono()
       .where(eq(user.id, viewerId))
     await deleteAllSessionsForUser(viewerId)
     clearSessionCookies(c)
-    return c.json({ disabledAt: now.toISOString() })
+    return accountState(c, isoDate(now))
   })
-
   .post("/me/reactivate", requireAnySession, async (c) => {
     const now = new Date()
     await db
       .update(user)
       .set({ disabledAt: null, status: "active", updatedAt: now })
       .where(eq(user.id, c.var.viewerId))
-    return c.json({ disabledAt: null })
+    return accountState(c, null)
   })
-
   .get("/me/clips/download", requireSession, async (c) => {
     const rows = await db
       .select()
@@ -132,11 +136,10 @@ export const usersRoute = new Hono()
 
     const zip = createZipStream(entries)
     return stream(c, async (s) => {
-      s.onAbort(() => zip.cancel().catch(() => undefined))
+      cancelReadableOnAbort(s, zip, "user clip archive")
       await s.pipe(zip)
     })
   })
-
   .delete(
     "/me/clips",
     requireSession,
@@ -148,24 +151,24 @@ export const usersRoute = new Hono()
         .from(clip)
         .where(eq(clip.authorId, c.var.viewerId))
         .orderBy(clip.createdAt)
-        .limit(limit)
+        .limit(limit + 1)
+      const batch = rows.slice(0, limit)
 
-      for (const row of rows) {
+      for (const row of batch) {
         await deleteClipRowAndAssets(row)
       }
 
-      return c.json({ deleted: rows.length, hasMore: rows.length === limit })
+      return batchProgress(c, "deleted", batch.length, rows.length > limit)
     }
   )
-
   .post("/me/sync-oauth-profile", requireSession, async (c) => {
     return c.json(await syncLinkedOAuthImage(c.var.viewerId))
   })
-
   .get("/:username", zValidator("param", UsernameParam), async (c) => {
     const { username } = c.req.valid("param")
-    const row = await resolveTarget(username)
-    if (!row) return c.json({ error: "Not found" }, 404)
+    const result = await resolveUserTarget(c, username)
+    if ("response" in result) return result.response
+    const row = result.target
     const counts = await selectProfileCounts(row.id, {
       includeRestrictedClips: false,
     })
@@ -175,12 +178,12 @@ export const usersRoute = new Hono()
       counts,
     })
   })
-
   .get("/:username/viewer", zValidator("param", UsernameParam), async (c) => {
     const { username } = c.req.valid("param")
     const sessionPromise = getSession(c)
-    const row = await resolveTarget(username)
-    if (!row) return c.json({ error: "Not found" }, 404)
+    const result = await resolveUserTarget(c, username)
+    if ("response" in result) return result.response
+    const row = result.target
 
     const session = await sessionPromise
     if (!session) return c.json({ viewer: null, counts: null })
@@ -201,15 +204,14 @@ export const usersRoute = new Hono()
       counts,
     })
   })
-
   .get("/:username/clips", zValidator("param", UsernameParam), async (c) => {
     const { username } = c.req.valid("param")
-    const row = await resolveTarget(username)
-    if (!row) return c.json({ error: "Not found" }, 404)
+    const result = await resolveUserTarget(c, username)
+    if ("response" in result) return result.response
+    const row = result.target
 
     return c.json(await listUserClips(row, c.req.raw.headers))
   })
-
   .get(
     "/:username/games",
     zValidator("param", UsernameParam),
@@ -217,53 +219,53 @@ export const usersRoute = new Hono()
     async (c) => {
       const { username } = c.req.valid("param")
       const query = c.req.valid("query")
-      const row = await resolveTarget(username)
-      if (!row) return c.json({ error: "Not found" }, 404)
+      const result = await resolveUserTarget(c, username)
+      if ("response" in result) return result.response
+      const row = result.target
 
       return c.json(await listUserGames(row, c.req.raw.headers, query))
     }
   )
-
   .get("/:username/tagged", zValidator("param", UsernameParam), async (c) => {
     const { username } = c.req.valid("param")
-    const row = await resolveTarget(username)
-    if (!row) return c.json({ error: "Not found" }, 404)
+    const result = await resolveUserTarget(c, username)
+    if ("response" in result) return result.response
+    const row = result.target
 
     return c.json(await listTaggedClips(row, c.req.raw.headers))
   })
-
   .get("/:username/liked", zValidator("param", UsernameParam), async (c) => {
     const { username } = c.req.valid("param")
-    const row = await resolveTarget(username)
-    if (!row) return c.json({ error: "Not found" }, 404)
+    const result = await resolveUserTarget(c, username)
+    if ("response" in result) return result.response
+    const row = result.target
 
     return c.json(await listLikedClips(row, c.req.raw.headers))
   })
-
   .get(
     "/:username/followers",
     zValidator("param", UsernameParam),
     async (c) => {
       const { username } = c.req.valid("param")
-      const row = await resolveTarget(username)
-      if (!row) return c.json({ error: "Not found" }, 404)
+      const result = await resolveUserTarget(c, username)
+      if ("response" in result) return result.response
+      const row = result.target
 
       return c.json(await listFollowers(row))
     }
   )
-
   .get(
     "/:username/following",
     zValidator("param", UsernameParam),
     async (c) => {
       const { username } = c.req.valid("param")
-      const row = await resolveTarget(username)
-      if (!row) return c.json({ error: "Not found" }, 404)
+      const result = await resolveUserTarget(c, username)
+      if ("response" in result) return result.response
+      const row = result.target
 
       return c.json(await listFollowing(row))
     }
   )
-
   .post(
     "/:username/follow",
     requireSession,
@@ -272,27 +274,15 @@ export const usersRoute = new Hono()
       const { username } = c.req.valid("param")
       const viewerId = c.var.viewerId
 
-      const target = await resolveTarget(username)
-      if (!target) return c.json({ error: "Not found" }, 404)
+      const result = await resolveRelationshipTarget(c, {
+        username,
+        viewerId,
+        selfError: "You can't follow yourself.",
+        rejectBlockedRelationship: true,
+      })
+      if ("response" in result) return result.response
+      const target = result.target
       const targetId = target.id
-
-      if (viewerId === targetId) {
-        return c.json({ error: "You can't follow yourself." }, 400)
-      }
-
-      const blockRows = await db
-        .select({ id: block.id })
-        .from(block)
-        .where(
-          or(
-            and(eq(block.blockerId, viewerId), eq(block.blockedId, targetId)),
-            and(eq(block.blockerId, targetId), eq(block.blockedId, viewerId))
-          )
-        )
-        .limit(1)
-      if (blockRows.length > 0) {
-        return c.json({ error: "Can't follow a blocked user." }, 403)
-      }
 
       const inserted = await db
         .insert(follow)
@@ -312,10 +302,9 @@ export const usersRoute = new Hono()
         })
       }
 
-      return c.json({ following: true })
+      return booleanFlag(c, "following", true)
     }
   )
-
   .delete(
     "/:username/follow",
     requireSession,
@@ -323,8 +312,9 @@ export const usersRoute = new Hono()
     async (c) => {
       const { username } = c.req.valid("param")
       const viewerId = c.var.viewerId
-      const target = await resolveTarget(username)
-      if (!target) return c.json({ error: "Not found" }, 404)
+      const result = await resolveRelationshipTarget(c, { username, viewerId })
+      if ("response" in result) return result.response
+      const target = result.target
 
       await db
         .delete(follow)
@@ -334,10 +324,9 @@ export const usersRoute = new Hono()
             eq(follow.followingId, target.id)
           )
         )
-      return c.json({ following: false })
+      return booleanFlag(c, "following", false)
     }
   )
-
   .post(
     "/:username/block",
     requireSession,
@@ -345,11 +334,13 @@ export const usersRoute = new Hono()
     async (c) => {
       const { username } = c.req.valid("param")
       const viewerId = c.var.viewerId
-      const target = await resolveTarget(username)
-      if (!target) return c.json({ error: "Not found" }, 404)
-      if (target.id === viewerId) {
-        return c.json({ error: "You can't block yourself." }, 400)
-      }
+      const result = await resolveRelationshipTarget(c, {
+        username,
+        viewerId,
+        selfError: "You can't block yourself.",
+      })
+      if ("response" in result) return result.response
+      const target = result.target
 
       await db
         .insert(block)
@@ -375,25 +366,15 @@ export const usersRoute = new Hono()
           )
         )
 
-      return c.json({ blocked: true })
+      return booleanFlag(c, "blocked", true)
     }
   )
-
   .delete(
     "/:username/block",
     requireSession,
     zValidator("param", UsernameParam),
     async (c) => {
       const { username } = c.req.valid("param")
-      const viewerId = c.var.viewerId
-      const target = await resolveTarget(username)
-      if (!target) return c.json({ error: "Not found" }, 404)
-
-      await db
-        .delete(block)
-        .where(
-          and(eq(block.blockerId, viewerId), eq(block.blockedId, target.id))
-        )
-      return c.json({ blocked: false })
+      return deleteViewerBlock(c, username, c.var.viewerId)
     }
   )

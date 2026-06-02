@@ -5,7 +5,11 @@ import type {
   FeedPageParams,
 } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
-import { validateFeedPage, validateObject } from "./contract-validators"
+import { queryParams } from "./paths"
+import {
+  validateFeedChipsResponse,
+  validateFeedPage,
+} from "./contract-validators"
 
 export type {
   FeedChipGame,
@@ -18,23 +22,22 @@ export type {
 export function createFeedApi(context: ApiContext) {
   return {
     async fetch(params: FeedPageParams): Promise<FeedPage> {
-      const query: Record<string, string> = {
-        filter: params.filter.kind,
-      }
-      if (params.filter.kind === "game") query.gameId = params.filter.gameId
-      if (params.filter.kind === "hashtag") query.tag = params.filter.tag
-      if (params.limit !== undefined) query.limit = String(params.limit)
-      if (params.cursor) query.cursor = params.cursor
-
-      const res = await context.rpc.api.feed.$get({ query })
+      const res = await context.rpc.api.feed.$get({
+        query: queryParams({
+          filter: params.filter.kind,
+          gameId:
+            params.filter.kind === "game" ? params.filter.gameId : undefined,
+          tag: params.filter.kind === "hashtag" ? params.filter.tag : undefined,
+          limit: params.limit,
+          cursor: params.cursor,
+        }),
+      })
       return readJsonOrThrow(res, validateFeedPage)
     },
 
     async fetchChips(): Promise<FeedChipsResponse> {
       const res = await context.rpc.api.feed.chips.$get({ query: {} })
-      return readJsonOrThrow(res, (value) =>
-        validateObject<FeedChipsResponse>(value, "feed chips")
-      )
+      return readJsonOrThrow(res, validateFeedChipsResponse)
     },
   }
 }

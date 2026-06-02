@@ -5,6 +5,7 @@ import type { PublicAuthConfig } from "@workspace/api"
 
 import { api } from "./api"
 import { authClient, useSession } from "./auth-client"
+import { clientLogger } from "./client-log"
 
 type SessionData = ReturnType<typeof useSession>["data"]
 
@@ -22,6 +23,7 @@ type RouteAuthConfigState = {
 
 let sessionInitialPromise: Promise<void> | null = null
 let configPromiseCache: Promise<PublicAuthConfig> | null = null
+let sessionLoadWarningLogged = false
 
 function useRouteSession(): RouteSessionState {
   return useRouterState({
@@ -92,7 +94,14 @@ export async function loadSession(): Promise<SessionData> {
   try {
     const { data } = await authClient.getSession()
     return data
-  } catch {
+  } catch (cause) {
+    if (!sessionLoadWarningLogged) {
+      sessionLoadWarningLogged = true
+      clientLogger.warn(
+        "[auth] Failed to load session; using anonymous state.",
+        cause
+      )
+    }
     return null
   }
 }

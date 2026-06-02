@@ -19,6 +19,8 @@ import { toast } from "@workspace/ui/lib/toast"
 
 import { api } from "@/lib/api"
 import { authClient, signOut } from "@/lib/auth-client"
+import { clientLogger } from "@/lib/client-log"
+import { errorMessage } from "@/lib/error-message"
 import { resetClientState } from "@/lib/query-client"
 
 function AccountActionRow({
@@ -43,21 +45,46 @@ function AccountActionRow({
 
 function useAccountDisabledState() {
   const [disabledAt, setDisabledAt] = React.useState<string | null>(null)
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
+  const mountedRef = React.useRef(false)
 
-  React.useEffect(() => {
-    let active = true
-    api.users
-      .fetchAccountState()
-      .then((state) => {
-        if (active) setDisabledAt(state.disabledAt)
-      })
-      .catch(() => undefined)
-    return () => {
-      active = false
+  const load = React.useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const state = await api.users.fetchAccountState()
+      if (!mountedRef.current) return
+      setDisabledAt(state.disabledAt)
+    } catch (cause) {
+      if (!mountedRef.current) return
+      setError(errorMessage(cause, "Couldn't load account status"))
+      clientLogger.warn("[account] Failed to load account status.", cause)
+    } finally {
+      if (mountedRef.current) setLoading(false)
     }
   }, [])
 
-  return { disabledAt, setDisabledAt }
+  React.useEffect(() => {
+    mountedRef.current = true
+    void load()
+    return () => {
+      mountedRef.current = false
+    }
+  }, [load])
+
+  const setKnownDisabledAt = React.useCallback((next: string | null) => {
+    setError(null)
+    setDisabledAt(next)
+  }, [])
+
+  return {
+    disabledAt,
+    error,
+    loading,
+    reload: load,
+    setDisabledAt: setKnownDisabledAt,
+  }
 }
 
 function useAccountDangerActions() {
@@ -66,7 +93,8 @@ function useAccountDangerActions() {
   const [pendingAction, setPendingAction] = React.useState<
     "disable" | "reactivate" | "delete" | null
   >(null)
-  const { disabledAt, setDisabledAt } = useAccountDisabledState()
+  const { disabledAt, error, loading, reload, setDisabledAt } =
+    useAccountDisabledState()
 
   const pending = pendingAction !== null
 
@@ -77,14 +105,16 @@ function useAccountDangerActions() {
       const state = await api.users.disableAccount()
       setDisabledAt(state.disabledAt)
       toast.success("Account disabled")
-      await signOut().catch(() => undefined)
+      try {
+        await signOut()
+      } catch (cause) {
+        clientLogger.warn("[account] Failed to sign out after disable.", cause)
+      }
       resetClientState()
       await router.invalidate()
       await navigate({ to: "/login" })
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't disable account"
-      )
+      toast.error(errorMessage(cause, "Couldn't disable account"))
     } finally {
       setPendingAction(null)
     }
@@ -99,9 +129,7 @@ function useAccountDangerActions() {
       toast.success("Account reactivated")
       await router.invalidate()
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't reactivate account"
-      )
+      toast.error(errorMessage(cause, "Couldn't reactivate account"))
     } finally {
       setPendingAction(null)
     }
@@ -113,16 +141,14 @@ function useAccountDangerActions() {
     try {
       const { error } = await authClient.deleteUser()
       if (error) {
-        toast.error(error.message ?? "Couldn't delete account")
+        toast.error(errorMessage(error, "Couldn't delete account"))
         return
       }
       toast.success("Account deleted")
       await router.invalidate()
       await navigate({ to: "/login" })
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Something went wrong"
-      )
+      toast.error(errorMessage(cause, "Something went wrong"))
     } finally {
       setPendingAction(null)
     }
@@ -130,6 +156,9 @@ function useAccountDangerActions() {
 
   return {
     disabledAt,
+    accountStateError: error,
+    accountStateLoading: loading,
+    reloadAccountState: reload,
     pending,
     pendingAction,
     onDisable,
@@ -140,17 +169,54 @@ function useAccountDangerActions() {
 
 function DisableAccountRow({
   disabledAt,
+  accountStateError,
+  accountStateLoading,
+  reloadAccountState,
   pending,
   pendingAction,
   onDisable,
   onReactivate,
 }: {
   disabledAt: string | null
+  accountStateError: string | null
+  accountStateLoading: boolean
+  reloadAccountState: () => Promise<void>
   pending: boolean
   pendingAction: "disable" | "reactivate" | "delete" | null
   onDisable: () => Promise<void>
   onReactivate: () => Promise<void>
 }) {
+  if (accountStateError) {
+    return (
+      <AccountActionRow title="Account status" description={accountStateError}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={reloadAccountState}
+          disabled={pending || accountStateLoading}
+        >
+          <RotateCcwIcon />
+          {accountStateLoading ? "Loading..." : "Retry"}
+        </Button>
+      </AccountActionRow>
+    )
+  }
+
+  if (accountStateLoading) {
+    return (
+      <AccountActionRow
+        title="Account status"
+        description="Loading current account status."
+      >
+        <Button type="button" variant="outline" size="sm" disabled>
+          <RotateCcwIcon />
+          Loading...
+        </Button>
+      </AccountActionRow>
+    )
+  }
+
   return (
     <AccountActionRow
       title={disabledAt ? "Reactivate account" : "Disable account"}

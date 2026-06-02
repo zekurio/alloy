@@ -176,7 +176,7 @@ function qualityArgsForEncoder(encoder: string, quality: string): string[] {
   return []
 }
 
-export function parseExtraArgs(raw: string): string[] {
+function parseExtraArgs(raw: string): string[] {
   const args: string[] = []
   let current = ""
   let quote: "'" | '"' | null = null
@@ -225,7 +225,8 @@ function extractVideoFilterArgs(args: string[]): {
   const remainingArgs: string[] = []
 
   for (let i = 0; i < args.length; i++) {
-    const arg = args[i]!
+    const arg = args[i]
+    if (arg === undefined) continue
     const inlineValue = videoFilterOptionInlineValue(arg)
     if (inlineValue != null) {
       videoFilter = unwrapFilterValue(inlineValue)

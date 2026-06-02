@@ -72,27 +72,3 @@ export function usePlayThreshold({
     }
   }, [playing, duration])
 }
-
-export function formatTime(totalSec: number): string {
-  if (!Number.isFinite(totalSec) || totalSec < 0) return "0:00"
-  const total = Math.floor(totalSec)
-  const h = Math.floor(total / 3600)
-  const m = Math.floor((total % 3600) / 60)
-  const s = total % 60
-  const ss = s.toString().padStart(2, "0")
-  if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${ss}`
-  return `${m}:${ss}`
-}
-
-/** Format `timeSec` using the same digit-width as `referenceSec` so the
- *  string never changes length during playback. */
-export function formatTimeStable(
-  timeSec: number,
-  referenceSec: number
-): string {
-  const ref = formatTime(referenceSec)
-  const val = formatTime(timeSec)
-  if (val.length >= ref.length) return val
-  // Pad the minutes portion to match the reference length
-  return val.padStart(ref.length, "0")
-}

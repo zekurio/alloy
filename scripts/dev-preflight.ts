@@ -1,8 +1,12 @@
 import { runLoggedCommand, writeLine } from "./dev-io.ts"
 import type { DevProcess } from "./dev-process.ts"
 
-const DEFAULT_PUBLIC_SERVER_URL = "http://localhost:2552"
-const DEFAULT_TRUSTED_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
+export const DEFAULT_API_PORT = 2552
+export const DEFAULT_WEB_PORT = 5173
+export const DEFAULT_ML_PORT = 2662
+
+const DEFAULT_DATABASE_HOST = "127.0.0.1"
+const DEFAULT_TRUSTED_ORIGINS = `http://localhost:${DEFAULT_WEB_PORT},http://127.0.0.1:${DEFAULT_WEB_PORT}`
 
 type PostgresConnection = {
   database: string
@@ -12,12 +16,13 @@ type PostgresConnection = {
 }
 
 export function getDevEnv(includeMl: boolean): Record<string, string> {
+  const apiPort = readPortEnv("PORT", DEFAULT_API_PORT)
   const env: Record<string, string> = {
     DATABASE_URL: Deno.env.get("DATABASE_URL") ?? defaultDatabaseUrl(),
     NODE_ENV: Deno.env.get("NODE_ENV") ?? "development",
-    PORT: Deno.env.get("PORT") ?? "2552",
+    PORT: String(apiPort),
     PUBLIC_SERVER_URL:
-      Deno.env.get("PUBLIC_SERVER_URL") ?? DEFAULT_PUBLIC_SERVER_URL,
+      Deno.env.get("PUBLIC_SERVER_URL") ?? `http://localhost:${apiPort}`,
     TRUSTED_ORIGINS: Deno.env.get("TRUSTED_ORIGINS") ?? DEFAULT_TRUSTED_ORIGINS,
   }
 
@@ -25,7 +30,8 @@ export function getDevEnv(includeMl: boolean): Record<string, string> {
     env.MACHINE_LEARNING_ENABLED =
       Deno.env.get("MACHINE_LEARNING_ENABLED") ?? "1"
     env.MACHINE_LEARNING_URL =
-      Deno.env.get("MACHINE_LEARNING_URL") ?? "http://localhost:2662"
+      Deno.env.get("MACHINE_LEARNING_URL") ??
+      `http://localhost:${readPortEnv("ALLOY_ML_PORT", DEFAULT_ML_PORT)}`
   }
 
   return env
@@ -57,7 +63,13 @@ export async function ensureDevPostgres(databaseUrl: string): Promise<void> {
 
   writeLine(Deno.stderr, "pg", "starting local PostgreSQL.")
   await runLoggedCommand("pg", "scripts/dev-postgres.sh", ["start"], {
-    env: { DATABASE_URL: databaseUrl },
+    env: {
+      DATABASE_URL: databaseUrl,
+      PGDATABASE: connection.database,
+      PGHOST: connection.host,
+      PGPORT: connection.port,
+      PGUSER: connection.user,
+    },
   })
 }
 
@@ -70,7 +82,7 @@ export async function assertPortsAvailable(
 
   const checkedPorts = new Set<number>()
   for (const process of processes) {
-    if (!process.port || checkedPorts.has(process.port)) {
+    if (process.port === undefined || checkedPorts.has(process.port)) {
       continue
     }
 
@@ -89,7 +101,7 @@ export async function assertPortsAvailable(
 function defaultDatabaseUrl(): string {
   const url = new URL("postgres://localhost")
   url.username = Deno.env.get("PGUSER") ?? "postgres"
-  url.hostname = Deno.env.get("PGHOST") ?? "localhost"
+  url.hostname = Deno.env.get("PGHOST") ?? DEFAULT_DATABASE_HOST
   url.port = Deno.env.get("PGPORT") ?? "5432"
   url.pathname = Deno.env.get("PGDATABASE") ?? "alloy"
   return url.toString()
@@ -103,8 +115,9 @@ function parsePostgresUrl(value: string): PostgresConnection | null {
     }
 
     return {
-      database: url.pathname.replace(/^\//, "") || "postgres",
-      host: url.hostname || "localhost",
+      database:
+        decodeURIComponent(url.pathname.replace(/^\//, "")) || "postgres",
+      host: normalizePostgresHost(url.hostname),
       port: url.port || "5432",
       user: decodeURIComponent(url.username || "postgres"),
     }
@@ -115,6 +128,31 @@ function parsePostgresUrl(value: string): PostgresConnection | null {
 
 function isLocalhost(host: string): boolean {
   return host === "localhost" || host === "127.0.0.1" || host === "::1"
+}
+
+function normalizePostgresHost(host: string): string {
+  const normalized = host.replace(/^\[(.*)\]$/, "$1")
+  return normalized || DEFAULT_DATABASE_HOST
+}
+
+export function readPortEnv(name: string, fallback: number): number {
+  const raw = Deno.env.get(name)
+  if (raw === undefined) {
+    return fallback
+  }
+
+  if (!/^\d+$/.test(raw)) {
+    writeLine(Deno.stderr, "dev", `${name} must be a TCP port number.`)
+    Deno.exit(1)
+  }
+
+  const port = Number(raw)
+  if (port < 1 || port > 65535) {
+    writeLine(Deno.stderr, "dev", `${name} must be between 1 and 65535.`)
+    Deno.exit(1)
+  }
+
+  return port
 }
 
 async function isPostgresReady(

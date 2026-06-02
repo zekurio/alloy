@@ -1,10 +1,10 @@
 #!/usr/bin/env sh
 set -eu
 
-: "${DATABASE_URL:=postgres://postgres@localhost:5432/alloy}"
+: "${DATABASE_URL:=postgres://postgres@127.0.0.1:5432/alloy}"
 : "${NODE_ENV:=development}"
 : "${PORT:=2552}"
-: "${PUBLIC_SERVER_URL:=http://localhost:2552}"
+: "${PUBLIC_SERVER_URL:=http://localhost:$PORT}"
 : "${TRUSTED_ORIGINS:=http://localhost:5173,http://127.0.0.1:5173}"
 
 export DATABASE_URL NODE_ENV PORT PUBLIC_SERVER_URL TRUSTED_ORIGINS

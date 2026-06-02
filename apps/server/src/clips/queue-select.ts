@@ -4,6 +4,7 @@ import type { QueueClip } from "@workspace/contracts"
 import { clip, game } from "@workspace/db/schema"
 
 import { db } from "../db"
+import { isoDate } from "../runtime/date"
 
 const queueSelectShape = {
   id: clip.id,
@@ -16,24 +17,21 @@ const queueSelectShape = {
   createdAt: clip.createdAt,
 } as const
 
-function serialize(
-  row: {
-    id: string
-    gameSlug: string
-    title: string
-    status: (typeof clip.$inferSelect)["status"]
-    encodeProgress: number
-    failureReason: string | null
-    thumbKey: string | null
-    createdAt: Date
-  } | null
-): QueueClip | null {
-  if (!row) return null
+function serialize(row: {
+  id: string
+  gameSlug: string
+  title: string
+  status: (typeof clip.$inferSelect)["status"]
+  encodeProgress: number
+  failureReason: string | null
+  thumbKey: string | null
+  createdAt: Date
+}): QueueClip {
   const { thumbKey, createdAt, ...publicRow } = row
   return {
     ...publicRow,
     hasThumb: thumbKey !== null,
-    createdAt: createdAt.toISOString(),
+    createdAt: isoDate(createdAt),
   }
 }
 
@@ -49,7 +47,7 @@ export async function selectQueueRowsForAuthor(
     .where(eq(clip.authorId, authorId))
     .orderBy(desc(clip.createdAt))
     .limit(50)
-  return rows.map((row) => serialize(row)!)
+  return rows.map((row) => serialize(row))
 }
 
 export async function selectQueueRowById(
@@ -61,5 +59,5 @@ export async function selectQueueRowById(
     .innerJoin(game, eq(clip.gameId, game.id))
     .where(eq(clip.id, clipId))
     .limit(1)
-  return serialize(row ?? null)
+  return row ? serialize(row) : null
 }

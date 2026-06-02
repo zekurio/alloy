@@ -48,23 +48,7 @@ class ReloadableStorageDriver implements StorageDriver {
     activeStorage.mintDownloadUrl(...args)
 }
 
-export function getStorageDriver(): StorageDriver {
-  return activeStorage
-}
-
-export function getStorageConfig(): StorageConfig {
-  return configStore.get("storage")
-}
-
 export const storage: StorageDriver = new ReloadableStorageDriver()
 
 export type { StorageDriver, UploadTicket, UserAssetRole } from "./driver"
-export {
-  clipAssetKey,
-  clipOpenGraphVideoKey,
-  clipSourceAssetKey,
-  clipStagingThumbKey,
-  clipStagingVideoKey,
-  clipVideoVariantKey,
-  userAssetKey,
-} from "./driver"
+export { clipAssetKey, clipOpenGraphVideoKey, userAssetKey } from "./driver"

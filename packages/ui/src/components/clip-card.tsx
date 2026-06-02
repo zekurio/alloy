@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 
 import { GameIcon } from "@workspace/ui/components/game-icon"
+import { stableHue } from "@workspace/ui/lib/stable-hash"
 import { cn } from "@workspace/ui/lib/utils"
 
 interface ClipCardProps extends React.ComponentProps<"article"> {
@@ -16,6 +17,9 @@ interface ClipCardProps extends React.ComponentProps<"article"> {
   author: string
   authorSeed?: string
   authorImage?: string | null
+  authorInitials?: string
+  authorAvatarBg?: string
+  authorAvatarFg?: string
   authorHref?: string | null
   game: string
   gameIcon?: string | null
@@ -32,6 +36,8 @@ interface ClipCardProps extends React.ComponentProps<"article"> {
   onThumbnailClick?: () => void
   /** Fires on hover/focus/press so callers can warm data before open. */
   onThumbnailIntent?: () => void
+  /** Fires when hover-preview video playback is rejected by the browser. */
+  onPreviewError?: (cause: unknown) => void
   /** Accessible label for the thumbnail button. */
   thumbnailLabel?: string
   thumbnailRef?: React.Ref<HTMLButtonElement>
@@ -47,6 +53,9 @@ function ClipCard({
   author,
   authorSeed,
   authorImage,
+  authorInitials,
+  authorAvatarBg,
+  authorAvatarFg,
   authorHref,
   game,
   gameIcon,
@@ -61,6 +70,7 @@ function ClipCard({
   privacy,
   onThumbnailClick,
   onThumbnailIntent,
+  onPreviewError,
   thumbnailLabel,
   thumbnailRef,
   metaVariant = "default",
@@ -84,6 +94,7 @@ function ClipCard({
         streamUrl={streamUrl}
         onClick={onThumbnailClick}
         onIntent={onThumbnailIntent}
+        onPreviewError={onPreviewError}
         label={thumbnailLabel ?? title}
         buttonRef={thumbnailRef}
       />
@@ -120,6 +131,9 @@ function ClipCard({
                 author={author}
                 authorSeed={authorSeed}
                 authorImage={authorImage}
+                authorInitials={authorInitials}
+                authorAvatarBg={authorAvatarBg}
+                authorAvatarFg={authorAvatarFg}
               />
               <span className="flex min-w-0 items-center gap-2 overflow-hidden">
                 <AuthorLabel author={author} href={authorHref} />
@@ -151,6 +165,7 @@ function ClipCardThumb({
   streamUrl,
   onClick,
   onIntent,
+  onPreviewError,
   label,
   buttonRef,
 }: {
@@ -160,6 +175,7 @@ function ClipCardThumb({
   streamUrl: string | undefined
   onClick?: () => void
   onIntent?: () => void
+  onPreviewError?: (cause: unknown) => void
   label?: string
   buttonRef?: React.Ref<HTMLButtonElement>
 }) {
@@ -246,10 +262,11 @@ function ClipCardThumb({
     void v
       .play()
       .then(revealPreview)
-      .catch(() => {
+      .catch((cause: unknown) => {
+        onPreviewError?.(cause)
         setPreviewing(false)
       })
-  }, [revealPreview])
+  }, [onPreviewError, revealPreview])
 
   React.useEffect(() => {
     if (!previewMounted || !hoveredRef.current) return
@@ -454,18 +471,32 @@ function ClipCardAvatar({
   author,
   authorSeed,
   authorImage,
+  authorInitials,
+  authorAvatarBg,
+  authorAvatarFg,
 }: {
   author: string
   authorSeed: string | undefined
   authorImage: string | null | undefined
+  authorInitials: string | undefined
+  authorAvatarBg: string | undefined
+  authorAvatarFg: string | undefined
 }) {
-  const initials = author.slice(0, 2).toUpperCase() || "?"
+  const [imageFailed, setImageFailed] = React.useState(false)
+
+  React.useEffect(() => {
+    setImageFailed(false)
+  }, [authorImage])
+
+  const initials = authorInitials ?? (author.slice(0, 2).toUpperCase() || "?")
   const seed = authorSeed || author || "user"
-  let hash = 0
-  for (let i = 0; i < seed.length; i++) {
-    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0
+  let fallbackBg = authorAvatarBg
+  let fallbackFg = authorAvatarFg
+  if (!fallbackBg || !fallbackFg) {
+    const hue = stableHue(seed)
+    fallbackBg = `oklch(0.32 0.18 ${hue})`
+    fallbackFg = `oklch(0.92 0.1 ${hue})`
   }
-  const hue = hash % 360
   return (
     <span
       aria-hidden
@@ -474,17 +505,18 @@ function ClipCardAvatar({
         "text-[9px] leading-3 font-semibold"
       )}
       style={{
-        background: `oklch(0.32 0.18 ${hue})`,
-        color: `oklch(0.92 0.1 ${hue})`,
+        background: fallbackBg,
+        color: fallbackFg,
       }}
     >
-      {authorImage ? (
+      {authorImage && !imageFailed ? (
         <img
           src={authorImage}
           alt=""
           className="size-full object-cover"
           loading="lazy"
           decoding="async"
+          onError={() => setImageFailed(true)}
         />
       ) : (
         initials

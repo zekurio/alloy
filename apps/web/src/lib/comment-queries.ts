@@ -1,28 +1,37 @@
 import {
   keepPreviousData,
+  infiniteQueryOptions,
   useInfiniteQuery,
   useMutation,
   useQueryClient,
   type InfiniteData,
   type QueryClient,
+  type QueryFilters,
 } from "@tanstack/react-query"
 
-import type {
-  ClipRow,
-  CommentPage,
-  CommentRow,
-  CommentSort,
-} from "@workspace/api"
+import type { CommentPage, CommentRow, CommentSort } from "@workspace/api"
 
 import { api } from "./api"
-import { clipKeys } from "./clip-queries"
+import { adjustClipCountsInCaches } from "./clip-queries"
+import { isoDateString } from "./date-format"
 
-export const commentKeys = {
+const commentKeys = {
   all: ["comments"] as const,
   list: (clipId: string, sort: CommentSort, limit: number) =>
     [...commentKeys.all, "list", { clipId, sort, limit }] as const,
-  clipLists: (clipId: string) =>
-    [...commentKeys.all, "list", { clipId }] as const,
+}
+
+function commentListFilter(clipId: string): QueryFilters {
+  return {
+    predicate: (q) => {
+      const [root, kind, payload] = q.queryKey
+      const queryClipId =
+        payload && typeof payload === "object" && "clipId" in payload
+          ? payload.clipId
+          : undefined
+      return root === "comments" && kind === "list" && queryClipId === clipId
+    },
+  }
 }
 
 export function useCommentsQuery(
@@ -30,7 +39,15 @@ export function useCommentsQuery(
   sort: CommentSort = "top",
   { limit = 30 }: { limit?: number } = {}
 ) {
-  return useInfiniteQuery({
+  return useInfiniteQuery(commentListQueryOptions(clipId, sort, limit))
+}
+
+export function commentListQueryOptions(
+  clipId: string,
+  sort: CommentSort = "top",
+  limit = 30
+) {
+  return infiniteQueryOptions({
     queryKey: commentKeys.list(clipId, sort, limit),
     queryFn: ({ pageParam }) =>
       api.comments.fetch(clipId, sort, {
@@ -45,38 +62,7 @@ export function useCommentsQuery(
 }
 
 function invalidateComments(qc: QueryClient, clipId: string) {
-  void qc.invalidateQueries({
-    predicate: (q) => {
-      const [root, kind, payload] = q.queryKey
-      const queryClipId =
-        payload && typeof payload === "object" && "clipId" in payload
-          ? payload.clipId
-          : undefined
-      return root === "comments" && kind === "list" && queryClipId === clipId
-    },
-  })
-}
-
-function bumpClipCommentCount(qc: QueryClient, clipId: string, delta: number) {
-  const apply = (row: ClipRow): ClipRow =>
-    row.id === clipId
-      ? { ...row, commentCount: Math.max(0, row.commentCount + delta) }
-      : row
-  qc.setQueryData<ClipRow | undefined>(clipKeys.detail(clipId), (old) =>
-    old ? apply(old) : old
-  )
-  qc.setQueriesData<ClipRow[] | undefined>(
-    { queryKey: clipKeys.lists() },
-    (old) => old?.map(apply)
-  )
-  qc.setQueriesData<InfiniteData<ClipRow[], string | null> | undefined>(
-    { queryKey: clipKeys.infinite() },
-    (old) =>
-      old && {
-        ...old,
-        pages: old.pages.map((page) => page.map(apply)),
-      }
-  )
+  void qc.invalidateQueries(commentListFilter(clipId))
 }
 
 type CommentListData = InfiniteData<CommentPage, string | null> | undefined
@@ -107,10 +93,17 @@ function forEachCommentsQuery(
   clipId: string,
   fn: (prev: CommentListData) => CommentListData
 ) {
-  qc.setQueriesData<CommentListData>(
-    { queryKey: commentKeys.clipLists(clipId) },
-    fn
-  )
+  qc.setQueriesData<CommentListData>(commentListFilter(clipId), fn)
+}
+
+function softDeletedComment(row: CommentRow): CommentRow {
+  return {
+    ...row,
+    body: "",
+    editedAt: isoDateString(),
+    pinned: false,
+    pinnedAt: null,
+  }
 }
 
 export function useCreateCommentMutation(clipId: string) {
@@ -123,25 +116,8 @@ export function useCreateCommentMutation(clipId: string) {
         parentId: input.parentId,
       }),
     onSuccess: () => {
-      bumpClipCommentCount(qc, clipId, 1)
+      adjustClipCountsInCaches(qc, clipId, { commentCount: 1 })
       invalidateComments(qc, clipId)
-    },
-  })
-}
-
-export function useUpdateCommentMutation(clipId: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (input: { commentId: string; body: string }) =>
-      api.comments.update(input.commentId, input.body),
-    onSuccess: (res, { commentId }) => {
-      forEachCommentsQuery(qc, clipId, (old) =>
-        mapComments(old, (c) =>
-          c.id === commentId
-            ? { ...c, body: res.body, editedAt: res.editedAt }
-            : c
-        )
-      )
     },
   })
 }
@@ -154,9 +130,7 @@ export function useDeleteCommentMutation(clipId: string) {
     onSuccess: (_res, { commentId }) => {
       forEachCommentsQuery(qc, clipId, (old) =>
         mapComments(old, (c) =>
-          c.id === commentId
-            ? { ...c, body: "", editedAt: new Date().toISOString() }
-            : c
+          c.id === commentId ? softDeletedComment(c) : c
         )
       )
       invalidateComments(qc, clipId)
@@ -174,10 +148,9 @@ export function useToggleCommentLikeMutation(clipId: string) {
             .unlike(input.commentId)
             .then((r) => ({ ...r, ...input })),
     onMutate: async ({ commentId, nextLiked }) => {
-      await qc.cancelQueries({ queryKey: commentKeys.clipLists(clipId) })
-      const snapshot = qc.getQueriesData<CommentListData>({
-        queryKey: commentKeys.clipLists(clipId),
-      })
+      const listFilter = commentListFilter(clipId)
+      await qc.cancelQueries(listFilter)
+      const snapshot = qc.getQueriesData<CommentListData>(listFilter)
       forEachCommentsQuery(qc, clipId, (old) =>
         mapComments(old, (c) =>
           c.id === commentId

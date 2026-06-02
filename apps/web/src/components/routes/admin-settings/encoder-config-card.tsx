@@ -35,7 +35,8 @@ import {
   type AdminRuntimeConfig,
 } from "@workspace/api"
 
-import { api } from "@/lib/api"
+import { adminEncoderCapabilitiesQueryOptions } from "@/lib/admin-query-keys"
+import { errorMessage } from "@/lib/error-message"
 import { EncoderVariantDialog } from "./encoder-variant-dialog"
 import { FormGroup } from "./form-group"
 import { ReEncodeClipsButton } from "./re-encode-clips-card"
@@ -43,12 +44,15 @@ import { VariantRow } from "./encoder-variant-row"
 import { FfmpegBadge } from "./encoder-ffmpeg-badge"
 import {
   HWACCEL_LABELS,
+  encoderConfigsEqual,
   isEncoderHwaccel,
+  normalizeEncoderVariant,
   saveEncoderConfig,
   uniqueVariantName,
   variantCodecAvailable,
   variantIdFromName,
 } from "./encoder-config-helpers"
+import { isBlank, isEvenIntegerInRange } from "./shared"
 
 type EncoderConfigCardProps = {
   encoder: AdminEncoderConfig
@@ -77,16 +81,10 @@ export function EncoderConfigCard({
   const [form, setForm] = React.useState<AdminEncoderConfig>(encoder)
   const [pending, setPending] = React.useState(false)
   const [dialogState, setDialogState] = React.useState<DialogState>(null)
-  const capsQuery = useQuery({
-    queryKey: ["admin", "encoder-capabilities"],
-    queryFn: () => api.admin.fetchEncoderCapabilities(),
-    staleTime: 5 * 60_000,
-  })
+  const capsQuery = useQuery(adminEncoderCapabilitiesQueryOptions())
   const caps = capsQuery.data ?? null
   const capsError = capsQuery.error
-    ? capsQuery.error instanceof Error
-      ? capsQuery.error.message
-      : "Couldn't probe ffmpeg capabilities"
+    ? errorMessage(capsQuery.error, "Couldn't probe ffmpeg capabilities")
     : null
 
   React.useEffect(() => {
@@ -166,7 +164,7 @@ export function EncoderConfigCard({
         .map((existing) => existing.id)
     )
     const normalizedVariant = {
-      ...variant,
+      ...normalizeEncoderVariant(variant),
       id: variant.id || variantIdFromName(variant.name, usedIds),
     }
     if (dialogState === -1) {
@@ -224,17 +222,12 @@ export function EncoderConfigCard({
       return
     }
     for (const variant of form.variants) {
-      if (variant.name.trim() === "") {
+      if (isBlank(variant.name)) {
         toast.error("Every variant needs a name.")
         return
       }
       const h = variant.height
-      if (
-        !Number.isInteger(h) ||
-        h < ENCODER_HEIGHT_MIN ||
-        h > ENCODER_HEIGHT_MAX ||
-        h % 2 !== 0
-      ) {
+      if (!isEvenIntegerInRange(h, ENCODER_HEIGHT_MIN, ENCODER_HEIGHT_MAX)) {
         toast.error(
           `Variant heights must be even integers between ${ENCODER_HEIGHT_MIN} and ${ENCODER_HEIGHT_MAX}.`
         )
@@ -248,16 +241,17 @@ export function EncoderConfigCard({
     await saveEncoderConfig({ form, onChange, setPending, onSaved })
   }
 
-  const isDirty = JSON.stringify(form) !== JSON.stringify(encoder)
-  const hasInvalidVariantName = form.variants.some(
-    (variant) => variant.name.trim() === ""
+  const isDirty = !encoderConfigsEqual(form, encoder)
+  const hasInvalidVariantName = form.variants.some((variant) =>
+    isBlank(variant.name)
   )
   const hasInvalidHeight = form.variants.some(
     (variant) =>
-      !Number.isInteger(variant.height) ||
-      variant.height < ENCODER_HEIGHT_MIN ||
-      variant.height > ENCODER_HEIGHT_MAX ||
-      variant.height % 2 !== 0
+      !isEvenIntegerInRange(
+        variant.height,
+        ENCODER_HEIGHT_MIN,
+        ENCODER_HEIGHT_MAX
+      )
   )
   const unsupportedVariant = form.variants.find(
     (variant) => !variantCodecAvailable(caps, form.hwaccel, variant)

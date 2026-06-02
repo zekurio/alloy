@@ -4,6 +4,7 @@ import { FieldDescription } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 
 import { ENCODER_HEIGHT_MAX, ENCODER_HEIGHT_MIN } from "@workspace/api"
+import { isBlank, isEvenIntegerInRange, parseInteger } from "./shared"
 
 export function EncoderHeightField({
   id,
@@ -32,13 +33,11 @@ export function EncoderHeightField({
     }
   }, [customDraft])
 
-  const parsedDraft = Number.parseInt(customDraft, 10)
+  const parsedDraft = parseInteger(customDraft)
   const customInvalid =
-    customDraft.trim() === "" ||
-    !Number.isFinite(parsedDraft) ||
-    parsedDraft < ENCODER_HEIGHT_MIN ||
-    parsedDraft > ENCODER_HEIGHT_MAX ||
-    parsedDraft % 2 !== 0
+    isBlank(customDraft) ||
+    parsedDraft === null ||
+    !isEvenIntegerInRange(parsedDraft, ENCODER_HEIGHT_MIN, ENCODER_HEIGHT_MAX)
 
   return (
     <>
@@ -56,8 +55,8 @@ export function EncoderHeightField({
           onChange={(e) => {
             const raw = e.target.value
             setCustomDraft(raw)
-            const parsed = Number.parseInt(raw, 10)
-            if (raw === "" || !Number.isFinite(parsed)) return
+            const parsed = parseInteger(raw)
+            if (parsed === null) return
             onChange(parsed)
           }}
           onBlur={() => {

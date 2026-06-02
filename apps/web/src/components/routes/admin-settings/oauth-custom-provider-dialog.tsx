@@ -38,6 +38,7 @@ export function OAuthCustomProviderDialog({
   authBaseURL,
   draft,
   editing,
+  canSubmit,
   pendingAction,
   onOpenChange,
   onSubmit,
@@ -46,6 +47,7 @@ export function OAuthCustomProviderDialog({
   authBaseURL: string
   draft: AdminOAuthProvider | null
   editing: boolean
+  canSubmit: boolean
   pendingAction: string | null
   onOpenChange: (open: boolean) => void
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void
@@ -328,7 +330,7 @@ export function OAuthCustomProviderDialog({
               <Button
                 type="submit"
                 variant="primary"
-                disabled={pendingAction !== null}
+                disabled={pendingAction !== null || !canSubmit}
               >
                 {editing ? (
                   <>

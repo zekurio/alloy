@@ -2,6 +2,7 @@ import type { Context, Hono } from "hono"
 
 import { eq } from "drizzle-orm"
 import { user } from "@workspace/db/auth-schema"
+import { logger } from "@workspace/logging"
 
 import { db } from "./db"
 import { env } from "./env"
@@ -166,8 +167,7 @@ async function clipHead(pathname: string): Promise<string> {
       ...(poster ? [metaName("twitter:image", poster)] : []),
     ].join("\n    ")
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error("[web] failed to build clip metadata:", error)
+    logger.error("[web] failed to build clip metadata:", error)
     return ""
   }
 }

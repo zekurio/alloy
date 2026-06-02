@@ -1,15 +1,16 @@
 import { and, eq, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm"
 
 import { clip, clipUploadTicket } from "@workspace/db/schema"
+import { logger } from "@workspace/logging"
 
 import { db } from "../db"
+import { requiredSql } from "../db/sql"
 import { publishClipUpsertById } from "../clips/events"
 import { configStore } from "../config/store"
 import { createNotification } from "../notifications"
-import { deleteScratchUpload } from "../uploads/scratch"
+import { errorMessage, isAbortError } from "../runtime/error-message"
+import { deleteScratchUploads } from "../uploads/scratch"
 import { runEncodeInner } from "./encode-run"
-
-export const ENCODE_JOB = "clip.encode" as const
 
 const RETRY_LIMIT = 2
 const ENCODE_LEASE_STALE_INTERVAL = "2 minutes"
@@ -83,8 +84,7 @@ async function pump(): Promise<void> {
   if (pumpPromise) return pumpPromise
   pumpPromise = pumpInner()
     .catch((err) => {
-      // eslint-disable-next-line no-console
-      console.error("[queue] encode worker pump failed:", err)
+      logger.error("[queue] encode worker pump failed:", err)
       schedulePump(POLL_INTERVAL_MS)
     })
     .finally(() => {
@@ -146,9 +146,8 @@ async function processClip(clipId: string): Promise<void> {
   try {
     await runEncode(clipId)
   } catch (err) {
-    if ((err as Error).name === "AbortError") return
-    // eslint-disable-next-line no-console
-    console.error(`[queue] encode job failed for ${clipId}:`, err)
+    if (isAbortError(err)) return
+    logger.error(`[queue] encode job failed for ${clipId}:`, err)
   } finally {
     inFlightClipIds.delete(clipId)
   }
@@ -181,7 +180,7 @@ async function runEncode(clipId: string): Promise<void> {
   try {
     await runEncodeInner(clipId, row, runId, abort.signal)
   } catch (err) {
-    if ((err as Error).name === "AbortError") {
+    if (isAbortError(err)) {
       if (stopping) {
         await releaseEncodeLease(
           clipId,
@@ -190,7 +189,7 @@ async function runEncode(clipId: string): Promise<void> {
         )
       }
     } else {
-      const reason = err instanceof Error ? err.message : "Encode failed"
+      const reason = errorMessage(err, "Encode failed")
       if (row.encodeAttempt > RETRY_LIMIT) {
         await markFailedUnlessReady(clipId, reason)
       } else {
@@ -222,8 +221,7 @@ function startEncodeLeaseHeartbeat(
         if (rows.length === 0) abort.abort()
       })
       .catch((err: unknown) => {
-        // eslint-disable-next-line no-console
-        console.error(
+        logger.error(
           `[queue] encode lease heartbeat failed for ${clipId}:`,
           err
         )
@@ -238,17 +236,23 @@ function startEncodeLeaseHeartbeat(
 
 function encodeLeaseConditions(): [SQL, SQL] {
   return [
-    or(
-      eq(clip.status, "processing"),
-      and(eq(clip.status, "ready"), lt(clip.encodeProgress, 100))
-    )!,
-    or(
-      isNull(clip.encodeLockedAt),
-      lt(
-        clip.encodeLockedAt,
-        sql`now() - interval '${sql.raw(ENCODE_LEASE_STALE_INTERVAL)}'`
-      )
-    )!,
+    requiredSql(
+      or(
+        eq(clip.status, "processing"),
+        and(eq(clip.status, "ready"), lt(clip.encodeProgress, 100))
+      ),
+      "encode lease status"
+    ),
+    requiredSql(
+      or(
+        isNull(clip.encodeLockedAt),
+        lt(
+          clip.encodeLockedAt,
+          sql`now() - interval '${sql.raw(ENCODE_LEASE_STALE_INTERVAL)}'`
+        )
+      ),
+      "encode lease freshness"
+    ),
   ]
 }
 
@@ -310,8 +314,7 @@ async function markFailedUnlessReady(
       })
     }
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error(`[queue] failed to mark clip ${clipId} as failed:`, err)
+    logger.error(`[queue] failed to mark clip ${clipId} as failed:`, err)
   }
 }
 
@@ -323,8 +326,9 @@ async function cleanupTerminalScratchUploads(clipId: string): Promise<void> {
     })
     .from(clipUploadTicket)
     .where(eq(clipUploadTicket.clipId, clipId))
-  await Promise.allSettled(
-    tickets.map((ticket) => deleteScratchUpload(ticket.storageKey))
+  await deleteScratchUploads(
+    tickets.map((ticket) => ticket.storageKey),
+    `terminal clip ${clipId} upload`
   )
   await db.delete(clipUploadTicket).where(eq(clipUploadTicket.clipId, clipId))
 }
@@ -342,7 +346,6 @@ async function recordFailureReason(
       })
       .where(eq(clip.id, clipId))
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.warn(`[queue] failed to record failure reason for ${clipId}:`, err)
+    logger.warn(`[queue] failed to record failure reason for ${clipId}:`, err)
   }
 }

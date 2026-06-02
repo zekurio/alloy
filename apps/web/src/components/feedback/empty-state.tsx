@@ -26,7 +26,7 @@ const faceSizeClasses: Record<NonNullable<EmptyStateProps["size"]>, string> = {
 }
 
 export function EmptyState({
-  seed: _seed,
+  seed,
   title,
   hint,
   action,
@@ -34,7 +34,7 @@ export function EmptyState({
   className,
   ...props
 }: EmptyStateProps) {
-  const [face] = React.useState(() => pickEmptyStateKaomoji())
+  const face = React.useMemo(() => pickEmptyStateKaomoji(seed), [seed])
 
   return (
     <div

@@ -4,6 +4,7 @@ import { TabsCount } from "@workspace/ui/components/tabs"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { formatCount } from "@/lib/number-format"
+import { parseProfilePathname } from "@/lib/profile-path"
 
 type ProfileTabsNavProps = {
   username: string
@@ -28,18 +29,10 @@ const TABS: ReadonlyArray<Tab> = [
   { segment: "tagged", label: "Tagged", to: "/u/$username/tagged" },
 ]
 
-function decodePathSegment(segment: string): string {
-  try {
-    return decodeURIComponent(segment)
-  } catch {
-    return segment
-  }
-}
-
 function activeProfileSegment(pathname: string, username: string): TabSegment {
-  const match = /^\/u\/([^/]+)(?:\/([^/]+))?/.exec(pathname)
-  if (!match || decodePathSegment(match[1] ?? "") !== username) return "feed"
-  const segment = match[2]
+  const parsed = parseProfilePathname(pathname)
+  if (!parsed || parsed.username !== username) return "feed"
+  const segment = parsed.segment
   return TABS.some((tab) => tab.segment === segment)
     ? (segment as TabSegment)
     : "feed"

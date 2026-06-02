@@ -1,5 +1,4 @@
 import {
-  useInfiniteQuery,
   useMutation,
   queryOptions,
   useQuery,
@@ -10,6 +9,7 @@ import {
 
 import type {
   ClipFeedWindow,
+  ClipPage,
   ClipRow,
   QueueClip,
   UpdateClipInput,
@@ -18,12 +18,19 @@ import type {
 
 import { api } from "./api"
 import { clipKeys } from "./clip-query-keys"
-import { useUploadQueueStream } from "./clip-queue-stream"
+import {
+  uploadQueueQueryOptions,
+  useUploadQueueStream,
+} from "./clip-queue-stream"
 
 export { clipKeys }
 
 export function useClipQuery(clipId: string) {
-  return useQuery({
+  return useQuery(clipDetailQueryOptions(clipId))
+}
+
+export function clipDetailQueryOptions(clipId: string) {
+  return queryOptions({
     queryKey: clipKeys.detail(clipId),
     queryFn: () => api.clips.fetchById(clipId),
     enabled: clipId.length > 0,
@@ -40,6 +47,10 @@ export function useClipQuery(clipId: string) {
   })
 }
 
+export function seedClipDetailInCache(qc: QueryClient, row: ClipRow) {
+  qc.setQueryData<ClipRow>(clipKeys.detail(row.id), (current) => current ?? row)
+}
+
 export function useTopClipsQuery(
   window: ClipFeedWindow,
   { limit = 5, hashtag }: { limit?: number; hashtag?: string } = {}
@@ -49,26 +60,6 @@ export function useTopClipsQuery(
       ? clipKeys.topHashtagList(window, limit, hashtag)
       : clipKeys.topList(window, limit),
     queryFn: () => api.clips.fetch({ window, sort: "top", limit, hashtag }),
-  })
-}
-
-export function useRecentClipsInfiniteQuery({
-  limit = 20,
-}: { limit?: number } = {}) {
-  return useInfiniteQuery({
-    queryKey: clipKeys.recentInfinite(limit),
-    queryFn: ({ pageParam }) =>
-      api.clips.fetch({
-        sort: "recent",
-        limit,
-        cursor: pageParam ?? undefined,
-      }),
-    initialPageParam: null as string | null,
-    getNextPageParam: (last) => {
-      if (last.length < limit) return undefined
-      const tail = last[last.length - 1]
-      return tail ? tail.createdAt : undefined
-    },
   })
 }
 
@@ -95,11 +86,8 @@ export function useUserLikedClipsQuery(handle: string) {
 export function useUploadQueueQuery({ enabled }: { enabled: boolean }) {
   const stream = useUploadQueueStream({ enabled })
   const query = useQuery({
-    queryKey: clipKeys.queue(),
-    queryFn: () => api.clips.fetchQueue(),
+    ...uploadQueueQueryOptions(),
     enabled,
-    refetchInterval: 15_000,
-    staleTime: 5_000,
   })
   return { ...query, stream }
 }
@@ -113,14 +101,17 @@ function patchClipInCaches(
     { queryKey: clipKeys.lists() },
     (old) => old?.map((r) => (r.id === clipId ? { ...r, ...patch } : r))
   )
-  qc.setQueriesData<InfiniteData<ClipRow[], string | null> | undefined>(
+  qc.setQueriesData<InfiniteData<ClipPage, string | null> | undefined>(
     { queryKey: clipKeys.infinite() },
     (old) =>
       old && {
         ...old,
-        pages: old.pages.map((page) =>
-          page.map((r) => (r.id === clipId ? { ...r, ...patch } : r))
-        ),
+        pages: old.pages.map((page) => ({
+          ...page,
+          items: page.items.map((r) =>
+            r.id === clipId ? { ...r, ...patch } : r
+          ),
+        })),
       }
   )
   qc.setQueryData<ClipRow | undefined>(
@@ -134,12 +125,15 @@ function removeClipFromCaches(qc: QueryClient, clipId: string) {
     { queryKey: clipKeys.lists() },
     (old) => old?.filter((r) => r.id !== clipId)
   )
-  qc.setQueriesData<InfiniteData<ClipRow[], string | null> | undefined>(
+  qc.setQueriesData<InfiniteData<ClipPage, string | null> | undefined>(
     { queryKey: clipKeys.infinite() },
     (old) =>
       old && {
         ...old,
-        pages: old.pages.map((page) => page.filter((r) => r.id !== clipId)),
+        pages: old.pages.map((page) => ({
+          ...page,
+          items: page.items.filter((r) => r.id !== clipId),
+        })),
       }
   )
   qc.removeQueries({ queryKey: clipKeys.detail(clipId) })
@@ -149,7 +143,7 @@ function removeClipFromCaches(qc: QueryClient, clipId: string) {
 interface ClipsSnapshot {
   lists: Array<[readonly unknown[], ClipRow[] | undefined]>
   infinite: Array<
-    [readonly unknown[], InfiniteData<ClipRow[], string | null> | undefined]
+    [readonly unknown[], InfiniteData<ClipPage, string | null> | undefined]
   >
   details: Array<[readonly unknown[], ClipRow | undefined]>
 }
@@ -157,11 +151,11 @@ interface ClipsSnapshot {
 function snapshotClips(qc: QueryClient): ClipsSnapshot {
   return {
     lists: qc.getQueriesData<ClipRow[]>({ queryKey: clipKeys.lists() }),
-    infinite: qc.getQueriesData<InfiniteData<ClipRow[], string | null>>({
+    infinite: qc.getQueriesData<InfiniteData<ClipPage, string | null>>({
       queryKey: clipKeys.infinite(),
     }),
     details: qc.getQueriesData<ClipRow>({
-      queryKey: [...clipKeys.all, "detail"],
+      queryKey: clipKeys.details(),
     }),
   }
 }
@@ -272,7 +266,7 @@ export function useToggleLikeMutation() {
       })
 
       const delta = nextLiked ? 1 : -1
-      patchClipCounts(qc, clipId, { likeCount: delta })
+      adjustClipCountsInCaches(qc, clipId, { likeCount: delta })
 
       return { previousLiked, clipsSnapshot }
     },
@@ -294,15 +288,16 @@ export function useToggleLikeMutation() {
   })
 }
 
-function patchClipCounts(
+export function adjustClipCountsInCaches(
   qc: QueryClient,
   clipId: string,
-  deltas: { likeCount?: number; viewCount?: number }
+  deltas: { commentCount?: number; likeCount?: number; viewCount?: number }
 ) {
   const apply = (row: ClipRow): ClipRow => {
     if (row.id !== clipId) return row
     return {
       ...row,
+      commentCount: Math.max(0, row.commentCount + (deltas.commentCount ?? 0)),
       likeCount: Math.max(0, row.likeCount + (deltas.likeCount ?? 0)),
       viewCount: Math.max(0, row.viewCount + (deltas.viewCount ?? 0)),
     }
@@ -311,12 +306,15 @@ function patchClipCounts(
     { queryKey: clipKeys.lists() },
     (old) => old?.map(apply)
   )
-  qc.setQueriesData<InfiniteData<ClipRow[], string | null> | undefined>(
+  qc.setQueriesData<InfiniteData<ClipPage, string | null> | undefined>(
     { queryKey: clipKeys.infinite() },
     (old) =>
       old && {
         ...old,
-        pages: old.pages.map((page) => page.map(apply)),
+        pages: old.pages.map((page) => ({
+          ...page,
+          items: page.items.map(apply),
+        })),
       }
   )
   qc.setQueryData<ClipRow | undefined>(clipKeys.detail(clipId), (old) =>

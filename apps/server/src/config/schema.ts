@@ -1,6 +1,11 @@
 import { z } from "zod"
 
 import {
+  DEFAULT_GAME_CLASSIFIER_FILENAME,
+  DEFAULT_GAME_CLASSIFIER_MODEL_NAME,
+  DEFAULT_GAME_CLASSIFIER_MODEL_VERSION,
+  DEFAULT_GAME_CLASSIFIER_REPO_ID,
+  DEFAULT_GAME_CLASSIFIER_REVISION,
   ENCODER_CODECS,
   ENCODER_HEIGHT_MAX,
   ENCODER_HEIGHT_MIN,
@@ -10,6 +15,7 @@ import {
 } from "@workspace/contracts"
 
 import { env } from "../env"
+import { randomBase64Url } from "../runtime/crypto"
 import { OAuthProviderSchema } from "./oauth-schema"
 
 const LEGACY_DEFAULT_MACHINE_LEARNING_URLS = new Set([
@@ -20,13 +26,7 @@ const DEFAULT_MACHINE_LEARNING_URL =
   Deno.env.get("MACHINE_LEARNING_URL") ?? "http://localhost:2662"
 
 function randomSecret(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(32))
-  let binary = ""
-  for (const byte of bytes) binary += String.fromCharCode(byte)
-  return btoa(binary)
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replace(/=+$/, "")
+  return randomBase64Url(32)
 }
 
 const EncoderVariantSchema = z.preprocess(
@@ -174,21 +174,20 @@ function normalizeBaseUrl(value: string): string {
   return value.replace(/\/+$/, "")
 }
 
-const DEFAULT_GAME_CLASSIFIER_REPO_ID = "zekurio/alloy-clipnet-b2-v1"
-const DEFAULT_GAME_CLASSIFIER_FILENAME = "alloy-clipnet-b2-v1.pt"
-const DEFAULT_GAME_CLASSIFIER_REVISION =
-  "05b8d2af2b704a21366e58e9fd6bef5cef2847cb"
-const DEFAULT_GAME_CLASSIFIER_VERSION = "alloy-clipnet-b2-v1"
-
 const GameClassifierModelConfigSchema = z.object({
-  modelName: z.string().trim().min(1).max(128).default("alloy-game-classifier"),
+  modelName: z
+    .string()
+    .trim()
+    .min(1)
+    .max(128)
+    .default(DEFAULT_GAME_CLASSIFIER_MODEL_NAME),
   modelVersion: z
     .string()
     .trim()
     .min(1)
     .max(128)
     .nullable()
-    .default(DEFAULT_GAME_CLASSIFIER_VERSION),
+    .default(DEFAULT_GAME_CLASSIFIER_MODEL_VERSION),
   repoId: z
     .string()
     .trim()
@@ -382,7 +381,7 @@ export const StorageConfigPatchSchema = z.object({
   s3: S3StorageConfigPatchSchema.optional(),
 })
 
-export const DEFAULT_CONFIG: RuntimeConfig = RuntimeConfigSchema.parse({
+const DEFAULT_CONFIG: RuntimeConfig = RuntimeConfigSchema.parse({
   storage: {
     driver: "fs",
     fs: DEFAULT_FS_STORAGE_CONFIG,

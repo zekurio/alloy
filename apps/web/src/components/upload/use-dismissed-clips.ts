@@ -1,40 +1,59 @@
 import * as React from "react"
 
 import type { QueueClip } from "@workspace/api"
+import {
+  readLocalStorageItem,
+  removeLocalStorageItem,
+  writeLocalStorageItem,
+} from "@/lib/browser-storage"
+import { clientLogger } from "@/lib/client-log"
 
 const DISMISSED_KEY = "alloy:queue-dismissed"
 
+function clearDismissed(): void {
+  removeLocalStorageItem(DISMISSED_KEY)
+}
+
 function loadDismissed(): Set<string> {
-  if (typeof window === "undefined") return new Set()
+  const raw = readLocalStorageItem(DISMISSED_KEY)
+  if (!raw) return new Set()
+
+  let parsed: unknown
   try {
-    const raw = window.localStorage.getItem(DISMISSED_KEY)
-    if (!raw) return new Set()
-    const parsed = JSON.parse(raw) as unknown
-    return Array.isArray(parsed)
-      ? new Set(parsed.filter((v) => typeof v === "string"))
-      : new Set()
-  } catch {
+    parsed = JSON.parse(raw) as unknown
+  } catch (cause) {
+    clientLogger.warn(
+      "[upload-queue] Dismissed clip cache was malformed.",
+      cause
+    )
+    clearDismissed()
     return new Set()
   }
+
+  if (!Array.isArray(parsed)) {
+    clearDismissed()
+    return new Set()
+  }
+
+  const ids = new Set(parsed.filter((v) => typeof v === "string"))
+  if (ids.size !== parsed.length) saveDismissed(ids)
+  return ids
 }
 
 function saveDismissed(ids: Set<string>): void {
-  if (typeof window === "undefined") return
-  try {
-    window.localStorage.setItem(DISMISSED_KEY, JSON.stringify([...ids]))
-  } catch {
-    // Quota/private mode — dismissals just won't persist across reloads.
-  }
+  writeLocalStorageItem(DISMISSED_KEY, JSON.stringify([...ids]))
 }
 
-export function useDismissedClips(serverQueue: QueueClip[]) {
+export function useDismissedClips(
+  serverQueue: QueueClip[],
+  serverQueueHydrated: boolean
+) {
   const [dismissed, setDismissed] = React.useState<Set<string>>(() =>
     loadDismissed()
   )
 
-  // Prune IDs the server no longer returns so localStorage stays bounded.
   React.useEffect(() => {
-    if (dismissed.size === 0 || serverQueue.length === 0) return
+    if (!serverQueueHydrated || dismissed.size === 0) return
     const live = new Set(serverQueue.map((r) => r.id))
     let changed = false
     const next = new Set<string>()
@@ -46,7 +65,7 @@ export function useDismissedClips(serverQueue: QueueClip[]) {
       setDismissed(next)
       saveDismissed(next)
     }
-  }, [serverQueue, dismissed])
+  }, [serverQueue, serverQueueHydrated, dismissed])
 
   const dismiss = React.useCallback((id: string) => {
     setDismissed((prev) => {
@@ -62,7 +81,13 @@ export function useDismissedClips(serverQueue: QueueClip[]) {
     if (ids.length === 0) return
     setDismissed((prev) => {
       const next = new Set(prev)
-      for (const id of ids) next.add(id)
+      let changed = false
+      for (const id of ids) {
+        if (next.has(id)) continue
+        next.add(id)
+        changed = true
+      }
+      if (!changed) return prev
       saveDismissed(next)
       return next
     })

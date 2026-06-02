@@ -1,6 +1,6 @@
-import { zValidator } from "@hono/zod-validator"
+import { zValidator } from "./validation"
 import { inArray } from "drizzle-orm"
-import { Hono, type Context } from "hono"
+import { Hono } from "hono"
 import { z } from "zod"
 
 import { clip } from "@workspace/db/schema"
@@ -8,6 +8,11 @@ import { clip } from "@workspace/db/schema"
 import { db } from "../db"
 import { hasAdminSignInMethodForConfig } from "../auth/identity"
 import { requireAdmin } from "../auth/session"
+import {
+  badRequest,
+  badRequestFromCause,
+  batchProgress,
+} from "../runtime/http-response"
 import {
   EncoderConfigPatchSchema,
   IntegrationsConfigPatchSchema,
@@ -23,7 +28,6 @@ import { generateLoginSplashPatch } from "./admin-appearance"
 import {
   REDACTED_SENTINEL,
   adminRuntimeConfigResponse,
-  errorMessage,
   finalizeOAuthProviderSubmission,
   hasEnabledSignInMethod,
   mergeStorageConfigPatch,
@@ -58,10 +62,6 @@ const OAuthConfigSubmissionSchema = z.object({
   oauthProvider: OAuthProviderAdminSubmissionSchema.nullable(),
 })
 
-function badRequest(c: Context, cause: unknown, fallback: string) {
-  return c.json({ error: errorMessage(cause, fallback) }, 400)
-}
-
 async function signInConfigError(config: {
   passkeyEnabled: boolean
   oauthProvider: { enabled: boolean; providerId: string } | null
@@ -83,7 +83,7 @@ export const adminRoute = new Hono()
   })
   .post("/runtime-config/reload", (c) => {
     if (!configStore.reload()) {
-      return c.json({ error: "Runtime config file failed validation." }, 400)
+      return badRequest(c, "Runtime config file failed validation.")
     }
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
@@ -96,10 +96,10 @@ export const adminRoute = new Hono()
     try {
       body = await c.req.json()
     } catch {
-      return c.json({ error: "Invalid JSON." }, 400)
+      return badRequest(c, "Invalid JSON.")
     }
     if (!body || typeof body !== "object" || Array.isArray(body)) {
-      return c.json({ error: "Expected a JSON object." }, 400)
+      return badRequest(c, "Expected a JSON object.")
     }
     const input = body as Record<string, unknown>
     const current = configStore.getAll()
@@ -111,12 +111,12 @@ export const adminRoute = new Hono()
       }
       const authError = await signInConfigError(next)
       if (authError) {
-        return c.json({ error: authError }, 400)
+        return badRequest(c, authError)
       }
       configStore.patch(input as Partial<RuntimeConfig>)
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     } catch (cause) {
-      return badRequest(c, cause, "Invalid configuration.")
+      return badRequestFromCause(c, cause, "Invalid configuration.")
     }
   })
   .patch(
@@ -131,7 +131,7 @@ export const adminRoute = new Hono()
       }
       const authError = await signInConfigError(next)
       if (authError) {
-        return c.json({ error: authError }, 400)
+        return badRequest(c, authError)
       }
       const patch: Partial<{
         setupComplete: boolean
@@ -170,11 +170,15 @@ export const adminRoute = new Hono()
           oauthProvider: nextProvider,
         })
         if (authError) {
-          return c.json({ error: authError }, 400)
+          return badRequest(c, authError)
         }
         configStore.patch({ oauthProvider: nextProvider })
       } catch (cause) {
-        return badRequest(c, cause, "Couldn't save OAuth configuration.")
+        return badRequestFromCause(
+          c,
+          cause,
+          "Couldn't save OAuth configuration."
+        )
       }
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     }
@@ -279,7 +283,11 @@ export const adminRoute = new Hono()
     try {
       configStore.set("storage", next)
     } catch (cause) {
-      return badRequest(c, cause, "Couldn't save storage configuration.")
+      return badRequestFromCause(
+        c,
+        cause,
+        "Couldn't save storage configuration."
+      )
     }
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
@@ -294,11 +302,12 @@ export const adminRoute = new Hono()
       .from(clip)
       .where(inArray(clip.status, ["ready", "failed"]))
       .orderBy(clip.createdAt)
-      .limit(RE_ENCODE_BATCH_LIMIT)
-    if (rows.length === 0) {
-      return c.json({ enqueued: 0, hasMore: false })
+      .limit(RE_ENCODE_BATCH_LIMIT + 1)
+    const batch = rows.slice(0, RE_ENCODE_BATCH_LIMIT)
+    if (batch.length === 0) {
+      return batchProgress(c, "enqueued", 0, false)
     }
-    const ids = rows.map((r) => r.id)
+    const ids = batch.map((r) => r.id)
     await db
       .update(clip)
       .set({
@@ -315,8 +324,10 @@ export const adminRoute = new Hono()
     for (const id of ids) {
       enqueueEncode(id)
     }
-    return c.json({
-      enqueued: ids.length,
-      hasMore: ids.length === RE_ENCODE_BATCH_LIMIT,
-    })
+    return batchProgress(
+      c,
+      "enqueued",
+      ids.length,
+      rows.length > RE_ENCODE_BATCH_LIMIT
+    )
   })

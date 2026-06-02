@@ -1,8 +1,10 @@
 import {
   queryOptions,
   useInfiniteQuery,
+  useMutation,
   useQuery,
   useQueryClient,
+  type QueryClient,
 } from "@tanstack/react-query"
 
 import type {
@@ -12,6 +14,10 @@ import type {
 } from "@workspace/api"
 
 import { api } from "./api"
+import { clipKeys } from "./clip-query-keys"
+import { feedKeys } from "./feed-queries"
+import { gameKeys } from "./game-queries"
+import { searchKeys } from "./search-api"
 
 export const userKeys = {
   all: ["user"] as const,
@@ -19,6 +25,7 @@ export const userKeys = {
   profileViewer: (handle: string) =>
     [...userKeys.all, "profile-viewer", handle] as const,
   search: (q: string) => [...userKeys.all, "search", q] as const,
+  storage: () => [...userKeys.all, "storage"] as const,
   tagged: (handle: string) => [...userKeys.all, "tagged", handle] as const,
   profileGamesInfinite: (handle: string, limit: number) =>
     [...userKeys.all, "profile-games-infinite", { handle, limit }] as const,
@@ -116,40 +123,121 @@ export function userProfileViewerQueryOptions(handle: string) {
   })
 }
 
+function setProfileViewerInCache(
+  qc: QueryClient,
+  handle: string,
+  viewer: ProfileViewer
+) {
+  qc.setQueryData<UserProfileViewer>(userKeys.profileViewer(handle), (old) =>
+    old ? { ...old, viewer } : { viewer, counts: null }
+  )
+}
+
+function adjustProfileFollowerCountInCache(
+  qc: QueryClient,
+  handle: string,
+  delta: number
+) {
+  qc.setQueryData<UserProfile>(userKeys.profile(handle), (old) =>
+    old
+      ? {
+          ...old,
+          counts: {
+            ...old.counts,
+            followers: Math.max(0, old.counts.followers + delta),
+          },
+        }
+      : old
+  )
+  qc.setQueryData<UserProfileViewer>(userKeys.profileViewer(handle), (old) =>
+    old?.counts
+      ? {
+          ...old,
+          counts: {
+            ...old.counts,
+            followers: Math.max(0, old.counts.followers + delta),
+          },
+        }
+      : old
+  )
+}
+
+function setProfileFollowingInCache(
+  qc: QueryClient,
+  handle: string,
+  next: boolean
+) {
+  qc.setQueryData<UserProfileViewer>(userKeys.profileViewer(handle), (old) =>
+    old?.viewer ? { ...old, viewer: { ...old.viewer, isFollowing: next } } : old
+  )
+}
+
 export function useProfileCachePatchers(handle: string) {
   const qc = useQueryClient()
-  const profileKey = userKeys.profile(handle)
-  const viewerKey = userKeys.profileViewer(handle)
 
   return {
     setViewer: (viewer: ProfileViewer) => {
-      qc.setQueryData<UserProfileViewer>(viewerKey, (old) =>
-        old ? { ...old, viewer } : { viewer, counts: null }
-      )
+      setProfileViewerInCache(qc, handle, viewer)
     },
     bumpFollowers: (delta: number) => {
-      qc.setQueryData<UserProfile>(profileKey, (old) =>
-        old
-          ? {
-              ...old,
-              counts: {
-                ...old.counts,
-                followers: Math.max(0, old.counts.followers + delta),
-              },
-            }
-          : old
-      )
-      qc.setQueryData<UserProfileViewer>(viewerKey, (old) =>
-        old?.counts
-          ? {
-              ...old,
-              counts: {
-                ...old.counts,
-                followers: Math.max(0, old.counts.followers + delta),
-              },
-            }
-          : old
-      )
+      adjustProfileFollowerCountInCache(qc, handle, delta)
     },
   }
+}
+
+export async function invalidateProfileIdentityCaches(
+  qc: QueryClient
+): Promise<void> {
+  await Promise.all([
+    qc.invalidateQueries({ queryKey: userKeys.all }),
+    qc.invalidateQueries({ queryKey: clipKeys.all }),
+    qc.invalidateQueries({ queryKey: feedKeys.all }),
+    qc.invalidateQueries({ queryKey: gameKeys.all }),
+    qc.invalidateQueries({ queryKey: searchKeys.all }),
+  ])
+}
+
+type UserFollowSnapshot = {
+  profileKey: ReturnType<typeof userKeys.profile>
+  viewerKey: ReturnType<typeof userKeys.profileViewer>
+  previousProfile: UserProfile | undefined
+  previousViewer: UserProfileViewer | undefined
+}
+
+export function useToggleUserFollowMutation(handle: string) {
+  const qc = useQueryClient()
+
+  return useMutation<void, Error, { next: boolean }, UserFollowSnapshot>({
+    mutationFn: ({ next }) =>
+      next ? api.users.follow(handle) : api.users.unfollow(handle),
+    onMutate: async ({ next }) => {
+      const profileKey = userKeys.profile(handle)
+      const viewerKey = userKeys.profileViewer(handle)
+      await Promise.all([
+        qc.cancelQueries({ queryKey: profileKey }),
+        qc.cancelQueries({ queryKey: viewerKey }),
+      ])
+      const previousProfile = qc.getQueryData<UserProfile>(profileKey)
+      const previousViewer = qc.getQueryData<UserProfileViewer>(viewerKey)
+      const wasFollowing = previousViewer?.viewer?.isFollowing ?? false
+      const delta = next === wasFollowing ? 0 : next ? 1 : -1
+
+      setProfileFollowingInCache(qc, handle, next)
+      adjustProfileFollowerCountInCache(qc, handle, delta)
+
+      return { profileKey, viewerKey, previousProfile, previousViewer }
+    },
+    onError: (_error, _variables, context) => {
+      if (!context) return
+      qc.setQueryData(context.profileKey, context.previousProfile)
+      qc.setQueryData(context.viewerKey, context.previousViewer)
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: userKeys.profile(handle) })
+      void qc.invalidateQueries({ queryKey: userKeys.profileViewer(handle) })
+      void qc.invalidateQueries({ queryKey: userKeys.followers(handle) })
+      void qc.invalidateQueries({ queryKey: userKeys.following(handle) })
+      void qc.invalidateQueries({ queryKey: feedKeys.all })
+    },
+  })
 }

@@ -7,16 +7,25 @@ import type {
   AdminMachineLearningConfig,
   AdminOAuthProvider,
   AdminRuntimeConfig,
+  AdminUpdateUserInput,
   AdminStorageConfigPatch,
-  AdminUpdateUserStorageQuotaInput,
   AdminUserStorageRow,
   AdminUsersResponse,
+  RuntimeConfig,
 } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
+import { readSuccessJson } from "./mutations"
+import { resolvePublicUrl } from "./paths"
 import {
+  validateAdminEncoderCapabilities,
+  validateAdminReEncodeResponse,
   validateAdminRuntimeConfig,
-  validateObject,
+  validateAdminUsersResponse,
+  validateAdminUserStorageRow,
+  validateRuntimeConfigExport,
 } from "./contract-validators"
+
+import { loginSplashImagePath } from "@workspace/contracts"
 
 export {
   ENCODER_CODECS,
@@ -25,6 +34,7 @@ export {
   ENCODER_HWACCELS,
   INTEGRATIONS_REDACTED,
   LOGIN_SPLASH_IMAGE_PATH,
+  loginSplashImagePath,
   LOGIN_SPLASH_LAYOUT_VERSION,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
@@ -47,14 +57,22 @@ export type {
   AdminFsStorageConfigPatch,
   AdminS3StorageConfig,
   AdminS3StorageConfigPatch,
-  AdminUpdateUserStorageQuotaInput,
+  AdminUpdateUserInput,
   AdminUsersResponse,
   AdminUserStorageRow,
   AppearanceConfig,
   EncoderCodec,
   EncoderHwaccel,
+  RuntimeConfig,
   UsernameClaim,
 } from "@workspace/contracts"
+
+export function loginSplashImageUrl(
+  origin: string | undefined,
+  generatedAt: string | null
+): string {
+  return resolvePublicUrl(loginSplashImagePath(generatedAt), origin)
+}
 
 type RuntimeConfigPatch = {
   setupComplete?: boolean
@@ -67,6 +85,13 @@ type AppearanceConfigPatch = {
   loginSplash?: {
     enabled?: boolean
   }
+}
+
+type AdminCreateUserInput = {
+  email: string
+  name?: string
+  username?: string
+  role?: "user" | "admin"
 }
 
 async function fetchRuntimeConfig(
@@ -93,11 +118,11 @@ async function reloadRuntimeConfig(
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
-async function exportRuntimeConfig(context: ApiContext): Promise<unknown> {
+async function exportRuntimeConfig(
+  context: ApiContext
+): Promise<RuntimeConfig> {
   const res = await context.rpc.api.admin["runtime-config"].export.$get()
-  return readJsonOrThrow(res, (value) =>
-    validateObject<unknown>(value, "runtime config export")
-  )
+  return readJsonOrThrow(res, validateRuntimeConfigExport)
 }
 
 async function importRuntimeConfig(
@@ -143,21 +168,14 @@ async function fetchEncoderCapabilities(
   context: ApiContext
 ): Promise<AdminEncoderCapabilities> {
   const res = await context.rpc.api.admin.encoder.capabilities.$get()
-  return readJsonOrThrow(res, (value) =>
-    validateObject<AdminEncoderCapabilities>(value, "encoder capabilities")
-  )
+  return readJsonOrThrow(res, validateAdminEncoderCapabilities)
 }
 
 async function reEncodeAllClips(
   context: ApiContext
 ): Promise<{ enqueued: number; hasMore: boolean }> {
   const res = await context.rpc.api.admin.clips["re-encode"].$post()
-  return readJsonOrThrow(res, (value) =>
-    validateObject<{ enqueued: number; hasMore: boolean }>(
-      value,
-      "re-encode response"
-    )
-  )
+  return readJsonOrThrow(res, validateAdminReEncodeResponse)
 }
 
 async function regenerateLoginSplash(
@@ -170,23 +188,34 @@ async function regenerateLoginSplash(
 
 async function fetchUsers(context: ApiContext): Promise<AdminUsersResponse> {
   const res = await context.rpc.api.admin.users.$get()
-  return readJsonOrThrow(res, (value) =>
-    validateObject<AdminUsersResponse>(value, "admin users")
-  )
+  return readJsonOrThrow(res, validateAdminUsersResponse)
 }
 
-async function updateUserStorageQuota(
+async function createUser(
+  context: ApiContext,
+  input: AdminCreateUserInput
+): Promise<AdminUserStorageRow> {
+  const res = await context.rpc.api.admin.users.$post({ json: input })
+  return readJsonOrThrow(res, validateAdminUserStorageRow)
+}
+
+async function updateUser(
   context: ApiContext,
   userId: string,
-  input: AdminUpdateUserStorageQuotaInput
+  input: AdminUpdateUserInput
 ): Promise<AdminUserStorageRow> {
-  const res = await context.rpc.api.admin.users[":id"]["storage-quota"].$patch({
+  const res = await context.rpc.api.admin.users[":id"].$patch({
     param: { id: userId },
     json: input,
   })
-  return readJsonOrThrow(res, (value) =>
-    validateObject<AdminUserStorageRow>(value, "admin user storage")
-  )
+  return readJsonOrThrow(res, validateAdminUserStorageRow)
+}
+
+async function deleteUser(context: ApiContext, userId: string): Promise<void> {
+  const res = await context.rpc.api.admin.users[":id"].$delete({
+    param: { id: userId },
+  })
+  await readSuccessJson(res)
 }
 
 export function createAdminApi(context: ApiContext) {
@@ -216,9 +245,9 @@ export function createAdminApi(context: ApiContext) {
     fetchEncoderCapabilities: () => fetchEncoderCapabilities(context),
     reEncodeAllClips: () => reEncodeAllClips(context),
     fetchUsers: () => fetchUsers(context),
-    updateUserStorageQuota: (
-      userId: string,
-      input: AdminUpdateUserStorageQuotaInput
-    ) => updateUserStorageQuota(context, userId, input),
+    createUser: (input: AdminCreateUserInput) => createUser(context, input),
+    updateUser: (userId: string, input: AdminUpdateUserInput) =>
+      updateUser(context, userId, input),
+    deleteUser: (userId: string) => deleteUser(context, userId),
   }
 }

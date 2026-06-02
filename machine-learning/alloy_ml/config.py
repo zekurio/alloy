@@ -7,6 +7,7 @@ from pathlib import Path
 from socket import socket
 
 from gunicorn.arbiter import Arbiter
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from rich.console import Console
 from rich.logging import RichHandler
@@ -29,10 +30,10 @@ class Settings(BaseSettings):
     )
 
     cache_folder: Path = Path("/cache")
-    workers: int = 1
-    worker_timeout: int = 300
-    http_keepalive_timeout_s: int = 2
-    request_threads: int = os.cpu_count() or 4
+    workers: int = Field(default=1, ge=1)
+    worker_timeout: int = Field(default=300, ge=1)
+    http_keepalive_timeout_s: int = Field(default=2, ge=1)
+    request_threads: int = Field(default_factory=lambda: os.cpu_count() or 4, ge=0)
     device: str = "auto"
     game_classifier_checkpoint: Path | None = None
     game_classifier_repo_id: str = DEFAULT_GAME_CLASSIFIER_REPO_ID
@@ -40,6 +41,13 @@ class Settings(BaseSettings):
     game_classifier_revision: str = DEFAULT_GAME_CLASSIFIER_REVISION
     game_classifier_name: str = DEFAULT_GAME_CLASSIFIER_NAME
     game_classifier_version: str | None = DEFAULT_GAME_CLASSIFIER_VERSION
+    game_classifier_top_k: int = Field(default=5, ge=1, le=20)
+    game_classifier_max_frames: int = Field(default=16, ge=1, le=128)
+    game_classifier_max_frame_bytes: int = Field(
+        default=1024 * 1024,
+        ge=1024,
+        le=64 * 1024 * 1024,
+    )
     preload_game_classifier: bool = False
 
 

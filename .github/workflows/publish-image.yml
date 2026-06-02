@@ -57,7 +57,7 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=nightly-v$version" >> "$GITHUB_OUTPUT"
 
-      - name: Publish image
+      - name: Publish server image
         uses: ./.github/actions/publish-image
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -65,6 +65,19 @@ jobs:
           file: apps/server/Dockerfile
           build-args: |
             APP_VERSION=${{ steps.meta.outputs.version }}
+          tags: |
+            type=raw,value=nightly
+            type=raw,value=${{ steps.meta.outputs.tag }}
+
+      - name: Publish machine learning image
+        uses: ./.github/actions/publish-image
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-machine-learning
+          context: machine-learning
+          file: machine-learning/Dockerfile
+          build-args: |
+            DEVICE=cpu
           tags: |
             type=raw,value=nightly
             type=raw,value=${{ steps.meta.outputs.tag }}

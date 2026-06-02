@@ -34,7 +34,7 @@ import {
 } from "@workspace/api"
 import { LimitedInput } from "@/components/form/limited-field"
 import { EncoderHeightField } from "./encoder-height-field"
-import { clampInt } from "./shared"
+import { clampInt, isAllowedString, isBlank } from "./shared"
 
 type EncoderVariantDialogProps = {
   variant: AdminEncoderVariant | null
@@ -52,9 +52,7 @@ const CODEC_LABELS: Record<EncoderCodec, string> = {
 }
 
 function isEncoderCodec(value: string | number | null): value is EncoderCodec {
-  return (
-    typeof value === "string" && ENCODER_CODECS.includes(value as EncoderCodec)
-  )
+  return isAllowedString(value, ENCODER_CODECS)
 }
 
 export function EncoderVariantDialog({
@@ -126,7 +124,7 @@ export function EncoderVariantDialog({
                   required
                   maxLength={64}
                   placeholder="1080p H.264 web"
-                  aria-invalid={draft.name.trim() === "" || undefined}
+                  aria-invalid={isBlank(draft.name) || undefined}
                   onChange={(e) => set("name", e.target.value)}
                 />
                 <FieldDescription className="text-xs leading-tight">
@@ -223,7 +221,7 @@ export function EncoderVariantDialog({
                     placeholder="Optional ffmpeg preset"
                     onChange={(e) => {
                       const next = e.target.value
-                      set("preset", next.trim() === "" ? undefined : next)
+                      set("preset", isBlank(next) ? undefined : next)
                     }}
                   />
                   <FieldDescription className="text-xs leading-tight">

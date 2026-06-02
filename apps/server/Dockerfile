@@ -1,23 +1,16 @@
-FROM denoland/deno:2.7.14 AS base
+FROM denoland/deno:2.7.14 AS deno-base
 
 USER root
 
-COPY apps/server/docker/install-ffmpeg-hwaccel-deps.sh /tmp/install-ffmpeg-hwaccel-deps.sh
-
-RUN sh /tmp/install-ffmpeg-hwaccel-deps.sh \
-  && rm /tmp/install-ffmpeg-hwaccel-deps.sh \
-  && mkdir -p /app /config /cache/encode /data \
-  && chown -R deno:deno /app /config /cache /data
-
-ENV FFMPEG_BIN=/usr/lib/jellyfin-ffmpeg/ffmpeg
-ENV FFPROBE_BIN=/usr/lib/jellyfin-ffmpeg/ffprobe
 ENV DENO_NO_PROMPT=1
 
 WORKDIR /app
 
+RUN chown deno:deno /app
+
 USER deno
 
-FROM base AS deps
+FROM deno-base AS deps
 
 USER root
 
@@ -37,14 +30,36 @@ COPY --chown=deno:deno packages/ui/deno.json packages/ui/deno.json
 
 RUN deno install --frozen
 
-FROM deps AS server
+FROM deno-base AS server-deps
+
+COPY --chown=deno:deno deno.server.json deno.server.lock ./
+COPY --chown=deno:deno apps/server/deno.json apps/server/deno.json
+COPY --chown=deno:deno packages/contracts/deno.json packages/contracts/deno.json
+COPY --chown=deno:deno packages/db/deno.json packages/db/deno.json
+COPY --chown=deno:deno packages/logging/deno.json packages/logging/deno.json
+
+RUN deno install \
+  --config deno.server.json \
+  --lock deno.server.lock \
+  --frozen
+
+FROM deps AS server-check
 
 COPY --chown=deno:deno . .
 
-RUN deno task --cwd apps/server build \
-  && deno compile \
+RUN deno task --cwd apps/server build
+
+FROM server-deps AS server
+
+COPY --chown=deno:deno . .
+COPY --chown=deno:deno --from=server-check /app/apps/server/dist/server-cache-ok /tmp/server-cache-ok
+
+RUN deno compile \
+    --config deno.server.json \
+    --lock deno.server.lock \
     --cached-only \
     --frozen \
+    --no-check \
     --unstable-sloppy-imports \
     --output /app/alloy \
     --allow-env \
@@ -62,34 +77,25 @@ COPY --chown=deno:deno . .
 
 RUN deno task --cwd apps/web build
 
-FROM base AS runtime
+FROM debian:bookworm-slim AS runtime
 
 USER root
 
 ARG APP_VERSION=dev
 ENV APP_VERSION=$APP_VERSION
 
-COPY --chown=deno:deno --from=deps /app/deno.json /app/deno.lock /app/
-COPY --chown=deno:deno --from=deps /app/apps/server/deno.json /app/apps/server/deno.json
-COPY --chown=deno:deno --from=deps /app/apps/web/deno.json /app/apps/web/deno.json
+COPY apps/server/docker/install-ffmpeg-hwaccel-deps.sh /tmp/install-ffmpeg-hwaccel-deps.sh
 
-COPY --chown=deno:deno --from=deps /app/packages/api/deno.json /app/packages/api/deno.json
-COPY --chown=deno:deno --from=deps /app/packages/contracts/deno.json /app/packages/contracts/deno.json
-COPY --chown=deno:deno --from=deps /app/packages/db/deno.json /app/packages/db/deno.json
-COPY --chown=deno:deno --from=deps /app/packages/ui/deno.json /app/packages/ui/deno.json
+RUN groupadd --system --gid 1993 deno \
+  && useradd --system --uid 1993 --gid deno --home-dir /app --shell /usr/sbin/nologin deno \
+  && sh /tmp/install-ffmpeg-hwaccel-deps.sh \
+  && rm /tmp/install-ffmpeg-hwaccel-deps.sh \
+  && mkdir -p /app /config /cache/encode /data \
+  && chown -R deno:deno /app /config /cache /data
 
 COPY --chown=root:root --from=server /app/alloy /usr/local/bin/alloy
-COPY --chown=deno:deno --from=server /deno-dir /deno-dir
 
-COPY --chown=deno:deno --from=server /app/apps/server/src /app/apps/server/src
-COPY --chown=deno:deno --from=server /app/apps/server/tsconfig.json /app/apps/server/tsconfig.json
-
-COPY --chown=deno:deno --from=server /app/packages/contracts/src /app/packages/contracts/src
-COPY --chown=deno:deno --from=server /app/packages/contracts/tsconfig.json /app/packages/contracts/tsconfig.json
-
-COPY --chown=deno:deno --from=server /app/packages/db/src /app/packages/db/src
 COPY --chown=deno:deno --from=server /app/packages/db/drizzle /app/packages/db/drizzle
-COPY --chown=deno:deno --from=server /app/packages/db/tsconfig.json /app/packages/db/tsconfig.json
 
 COPY --from=web /app/apps/web/dist /build/www
 
@@ -100,10 +106,13 @@ WORKDIR /app/apps/server
 
 ENV NODE_ENV=production
 ENV PORT=2552
+ENV FFMPEG_BIN=/usr/lib/jellyfin-ffmpeg/ffmpeg
+ENV FFPROBE_BIN=/usr/lib/jellyfin-ffmpeg/ffprobe
 ENV WEB_DIST_DIR=/build/www
 ENV ALLOY_MIGRATIONS_DIR=/app/packages/db/drizzle
 
 ENV ALLOY_CONFIG_FILE=/config/runtime-config.json
+ENV ALLOY_STORAGE_DIR=/data/storage
 ENV ENCODE_SCRATCH_DIR=/cache/encode
 
 EXPOSE 2552

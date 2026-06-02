@@ -13,11 +13,13 @@ import {
 import { toast } from "@workspace/ui/lib/toast"
 
 import { api } from "@/lib/api"
+import { errorMessage } from "@/lib/error-message"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
-function isDisabledSessionUser(user: unknown): boolean {
-  if (!user || typeof user !== "object") return false
-  return Boolean((user as { disabledAt?: string | Date | null }).disabledAt)
+function isDisabledSessionUser(
+  user: { disabledAt: string | null } | null | undefined
+): boolean {
+  return Boolean(user?.disabledAt)
 }
 
 export function ReactivateAccountPrompt() {
@@ -43,9 +45,7 @@ export function ReactivateAccountPrompt() {
       setOpen(false)
       await router.invalidate()
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Couldn't reactivate account"
-      )
+      toast.error(errorMessage(cause, "Couldn't reactivate account"))
     } finally {
       setPending(false)
     }

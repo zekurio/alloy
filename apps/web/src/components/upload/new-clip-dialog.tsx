@@ -22,7 +22,12 @@ import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { CLIP_DESCRIPTION_MAX, CLIP_TITLE_MAX } from "@/lib/clip-fields"
+import {
+  CLIP_DESCRIPTION_MAX,
+  CLIP_TITLE_MAX,
+  normalizeClipTitle,
+  nullableClipDescription,
+} from "@/lib/clip-fields"
 import { validateRequiredString } from "@/lib/form-validators"
 import type { GameRow, UserSearchResult } from "@workspace/api"
 
@@ -36,13 +41,13 @@ import {
   useGamePreviewByNameQuery,
   useResolveGameMutation,
 } from "@/lib/game-queries"
+import { errorMessage } from "@/lib/error-message"
 import { useMlConfigQuery } from "@/lib/ml-queries"
 import { useGameSuggestionQuery } from "./use-game-suggestion"
 import {
   ACCEPT_LIST,
   captureThumbnail,
-  probeFile,
-  resolveContentType,
+  prepareSelectedClipFile,
   stripExtension,
   type PublishPayload,
   type SelectedFile,
@@ -94,16 +99,10 @@ export function NewClipDialog({
   // Called by the Replace button — let the user swap the file in-place
   // without leaving the modal.
   const handleFileChosen = React.useCallback(async (file: File) => {
-    const contentType = resolveContentType(file)
-    if (!contentType) {
-      toast.error("Unsupported file type")
-      return
-    }
     try {
-      const meta = await probeFile(file)
-      setSelectedFile({ ...meta, contentType })
-    } catch {
-      toast.error("Couldn't read video metadata")
+      setSelectedFile(await prepareSelectedClipFile(file))
+    } catch (cause) {
+      toast.error(errorMessage(cause, "Couldn't prepare clip"))
     }
   }, [])
 
@@ -129,8 +128,8 @@ export function NewClipDialog({
       setPublishing(true)
       try {
         await onPublish(payload)
-      } catch {
-        toast.error("Couldn't publish clip")
+      } catch (cause) {
+        toast.error(errorMessage(cause, "Couldn't publish clip"))
       } finally {
         setPublishing(false)
       }
@@ -269,7 +268,8 @@ function LoadedState({
       visibility: "unlisted" as Visibility,
     },
     onSubmit: async ({ value }) => {
-      if (!value.game || value.title.trim().length === 0) return
+      const title = normalizeClipTitle(value.title)
+      if (!value.game || title.length === 0) return
       setCapturing(true)
       let thumbBlob: Blob
       try {
@@ -277,9 +277,7 @@ function LoadedState({
         thumbBlob = await captureThumbnail(file.file, posterAtMs)
       } catch (err) {
         setCapturing(false)
-        toast.error(
-          err instanceof Error ? err.message : "Could not capture thumbnail"
-        )
+        toast.error(errorMessage(err, "Could not capture thumbnail"))
         return
       } finally {
         setCapturing(false)
@@ -287,8 +285,8 @@ function LoadedState({
       onPublish({
         file: file.file,
         contentType: file.contentType,
-        title: value.title.trim(),
-        description: value.description.trim() || null,
+        title,
+        description: nullableClipDescription(value.description),
         gameId: value.game.id,
         privacy: value.visibility,
         width: file.width,
@@ -441,7 +439,7 @@ function LoadedState({
                           },
                           onError: (error) => {
                             toast.error(
-                              error.message || "Could not use suggestion"
+                              errorMessage(error, "Could not use suggestion")
                             )
                           },
                         }

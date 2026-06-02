@@ -1,4 +1,4 @@
-import { zValidator } from "@hono/zod-validator"
+import { zValidator } from "./validation"
 import { and, eq, sql } from "drizzle-orm"
 import { Hono } from "hono"
 
@@ -7,19 +7,35 @@ import { user } from "@workspace/db/auth-schema"
 import { clip, clipComment, clipCommentLike } from "@workspace/db/schema"
 
 import { db } from "../db"
+import {
+  applyClipPrivacyHeaders,
+  clipAccessResponse,
+  resolveClipAccess,
+} from "../clips/access"
 import { createNotification } from "../notifications"
 import { requireSession } from "../auth/require-session"
-import { IdParam, peekViewer, resolveEngagementTarget } from "./clips-helpers"
+import { isoDate, nullableIsoDate } from "../runtime/date"
+import {
+  booleanFlag,
+  deleted,
+  errorResult,
+  forbidden,
+  internalServerError,
+  invalidCursor,
+  likeState,
+  notFound,
+} from "../runtime/http-response"
+import { IdParam } from "./clips-helpers"
 import {
   CommentIdParam,
   CreateBody,
+  InvalidCommentCursorError,
   ListQuery,
   UpdateBody,
-  authorShape,
   listClipComments,
   resolveCommentEngagementTarget,
-  selectClipAccess,
 } from "./clip-comments-helpers"
+import { serialiseUserSummary, userSummarySelectShape } from "./users-helpers"
 import {
   canModerateComment,
   pinTopLevelComment,
@@ -36,17 +52,13 @@ export const clipCommentsRoutes = new Hono()
       const { id } = c.req.valid("param")
       const { sort, limit, cursor } = c.req.valid("query")
 
-      const target = await selectClipAccess(id)
-      if (!target) return c.json({ error: "Not found" }, 404)
-      const viewer = await peekViewer(c.req.raw.headers)
-      const isOwner = viewer?.id === target.authorId
-      const isAdmin = viewer?.role === "admin"
-      if (target.authorDisabledAt && !isOwner && !isAdmin) {
-        return c.json({ error: "Not found" }, 404)
-      }
-      if (target.privacy === "private" && !isOwner && !isAdmin) {
-        return c.json({ error: "Not found" }, 404)
-      }
+      const access = await resolveClipAccess({
+        id,
+        headers: c.req.raw.headers,
+        policy: "metadata",
+      })
+      if (!access.accessible) return clipAccessResponse(c, access)
+      applyClipPrivacyHeaders(c, access)
 
       try {
         return c.json(
@@ -55,13 +67,13 @@ export const clipCommentsRoutes = new Hono()
             sort,
             limit,
             cursor,
-            viewerId: viewer?.id ?? null,
-            clipAuthorId: target.authorId,
+            viewerId: access.viewer?.id ?? null,
+            clipAuthorId: access.row.authorId,
           })
         )
       } catch (err) {
-        if (err instanceof Error && err.message === "Invalid cursor") {
-          return c.json({ error: "Invalid cursor" }, 400)
+        if (err instanceof InvalidCommentCursorError) {
+          return invalidCursor(c)
         }
         throw err
       }
@@ -78,8 +90,12 @@ export const clipCommentsRoutes = new Hono()
       const { id } = c.req.valid("param")
       const { body, parentId } = c.req.valid("json")
 
-      const target = await resolveEngagementTarget(id, c.req.raw.headers)
-      if (!target.accessible) return target.response
+      const access = await resolveClipAccess({
+        id,
+        headers: c.req.raw.headers,
+        policy: "engagement",
+      })
+      if (!access.accessible) return clipAccessResponse(c, access)
 
       let resolvedParentId: string | null = null
       let parentAuthorId: string | null = null
@@ -95,7 +111,7 @@ export const clipCommentsRoutes = new Hono()
           .where(eq(clipComment.id, parentId))
           .limit(1)
         if (!parent || parent.clipId !== id) {
-          return c.json({ error: "Parent comment not found" }, 404)
+          return notFound(c, "Parent comment not found")
         }
         resolvedParentId = parent.id
         parentAuthorId = parent.authorId
@@ -117,16 +133,16 @@ export const clipCommentsRoutes = new Hono()
           .where(eq(clip.id, id))
         return rows
       })
-      if (!inserted) return c.json({ error: "Insert failed" }, 500)
+      if (!inserted) return internalServerError(c, "Insert failed")
 
       void createNotification({
-        recipientId: target.authorId,
+        recipientId: access.row.authorId,
         actorId: viewerId,
         type: "clip_comment",
         clipId: id,
         commentId: inserted.id,
       })
-      if (parentAuthorId && parentAuthorId !== target.authorId) {
+      if (parentAuthorId && parentAuthorId !== access.row.authorId) {
         void createNotification({
           recipientId: parentAuthorId,
           actorId: viewerId,
@@ -137,7 +153,7 @@ export const clipCommentsRoutes = new Hono()
       }
 
       const [authorRow] = await db
-        .select(authorShape)
+        .select(userSummarySelectShape)
         .from(user)
         .where(eq(user.id, viewerId))
         .limit(1)
@@ -152,15 +168,17 @@ export const clipCommentsRoutes = new Hono()
         pinnedAt: null,
         likedByViewer: false,
         likedByAuthor: false,
-        createdAt: inserted.createdAt.toISOString(),
+        createdAt: isoDate(inserted.createdAt),
         editedAt: null,
-        author: {
-          id: authorRow?.id ?? viewerId,
-          username: authorRow?.username ?? "",
-          displayUsername: authorRow?.displayUsername ?? "",
-          name: authorRow?.name ?? "",
-          image: authorRow?.image ?? null,
-        },
+        author: authorRow
+          ? serialiseUserSummary(authorRow)
+          : {
+              id: viewerId,
+              username: "",
+              displayUsername: "",
+              name: "",
+              image: null,
+            },
         replies: [],
       }
       return c.json(out, 201)
@@ -182,9 +200,9 @@ export const clipCommentsRoutes = new Hono()
         .from(clipComment)
         .where(eq(clipComment.id, commentId))
         .limit(1)
-      if (!existing) return c.json({ error: "Not found" }, 404)
+      if (!existing) return notFound(c)
       if (existing.authorId !== viewerId) {
-        return c.json({ error: "Forbidden" }, 403)
+        return forbidden(c)
       }
 
       const [updated] = await db
@@ -196,10 +214,13 @@ export const clipCommentsRoutes = new Hono()
           body: clipComment.body,
           editedAt: clipComment.editedAt,
         })
+      if (!updated) {
+        return internalServerError(c, "Comment update did not persist")
+      }
       return c.json({
-        id: updated!.id,
-        body: updated!.body,
-        editedAt: updated!.editedAt?.toISOString() ?? null,
+        id: updated.id,
+        body: updated.body,
+        editedAt: nullableIsoDate(updated.editedAt),
       })
     }
   )
@@ -218,11 +239,11 @@ export const clipCommentsRoutes = new Hono()
         headers: c.req.raw.headers,
       })
       if (!target.ok) {
-        return c.json({ error: target.error }, target.status as 403 | 404)
+        return errorResult(c, target)
       }
 
       await softDeleteComment(target.row.id)
-      return c.json({ deleted: true })
+      return deleted(c)
     }
   )
 
@@ -239,7 +260,7 @@ export const clipCommentsRoutes = new Hono()
         c.req.raw.headers
       )
       if (!target.accessible) {
-        return target.response ?? c.json({ error: "Not found" }, 404)
+        return clipAccessResponse(c, target)
       }
 
       const result = await db.transaction(async (tx) => {
@@ -286,7 +307,7 @@ export const clipCommentsRoutes = new Hono()
           row: { ...row, clipAuthorId: clipRow?.authorId ?? null },
         }
       })
-      if (!result) return c.json({ error: "Not found" }, 404)
+      if (!result) return notFound(c)
       if (
         result.inserted &&
         result.row.clipAuthorId === viewerId &&
@@ -300,7 +321,7 @@ export const clipCommentsRoutes = new Hono()
           commentId,
         })
       }
-      return c.json({ liked: result.liked, likeCount: result.likeCount })
+      return likeState(c, result.liked, result.likeCount)
     }
   )
 
@@ -317,7 +338,7 @@ export const clipCommentsRoutes = new Hono()
         c.req.raw.headers
       )
       if (!target.accessible) {
-        return target.response ?? c.json({ error: "Not found" }, 404)
+        return clipAccessResponse(c, target)
       }
 
       const result = await db.transaction(async (tx) => {
@@ -345,8 +366,8 @@ export const clipCommentsRoutes = new Hono()
           .returning({ likeCount: clipComment.likeCount })
         return row ? { liked: false, likeCount: row.likeCount } : null
       })
-      if (!result) return c.json({ error: "Not found" }, 404)
-      return c.json(result)
+      if (!result) return notFound(c)
+      return likeState(c, result.liked, result.likeCount)
     }
   )
 
@@ -360,7 +381,7 @@ export const clipCommentsRoutes = new Hono()
 
       const result = await pinTopLevelComment({ commentId, viewerId })
       if (!result.ok) {
-        return c.json({ error: result.error }, result.status as 400 | 403 | 404)
+        return errorResult(c, result)
       }
       void createNotification({
         recipientId: result.row.authorId,
@@ -369,7 +390,7 @@ export const clipCommentsRoutes = new Hono()
         clipId: result.row.clipId,
         commentId,
       })
-      return c.json({ pinned: true })
+      return booleanFlag(c, "pinned", true)
     }
   )
 
@@ -383,8 +404,8 @@ export const clipCommentsRoutes = new Hono()
 
       const result = await unpinComment({ commentId, viewerId })
       if (!result.ok) {
-        return c.json({ error: result.error }, result.status as 403 | 404)
+        return errorResult(c, result)
       }
-      return c.json({ pinned: false })
+      return booleanFlag(c, "pinned", false)
     }
   )
