@@ -4,7 +4,7 @@
     "./app": "./src/app.ts"
   },
   "tasks": {
-    "dev": "../../scripts/dev-server.sh",
+    "dev": "deno run --watch --no-clear-screen --allow-env --allow-net --allow-read --allow-write --allow-run --allow-ffi src/index.ts",
     "start:prod": "NODE_ENV=production deno run --allow-env --allow-net --allow-read --allow-write --allow-run --allow-ffi --allow-sys=osRelease src/index.ts",
     "build": "deno check src && mkdir -p dist && deno cache src/index.ts && touch dist/server-cache-ok",
     "lint": "deno lint src",

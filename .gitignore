@@ -31,9 +31,13 @@ npm-debug.log*
 *.pem
 .direnv/
 
-# Local postgres (initdb data dir for dev)
-.pg
-.alloy-dev.lock
+# devenv local state
+.devenv/
+.devenv.flake.nix
+devenv.local.nix
+
+# Legacy local postgres state from the pre-devenv dev tooling
+.pg/
 
 # Runtime config store (JSON-backed, mutable via admin UI)
 data/
