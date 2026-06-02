@@ -1,0 +1,66 @@
+name: Publish Nix Container Image
+description: Build a container image with Nix (streamLayeredImage) and publish it to GHCR
+
+inputs:
+  github-token:
+    description: GitHub token used for GHCR login
+    required: true
+  images:
+    description: Target image name list for docker metadata action
+    required: true
+  tags:
+    description: Tag rules for docker metadata action
+    required: true
+  flake-attribute:
+    description: Flake attribute that builds the streamable OCI image
+    required: false
+    default: .#alloy-image
+  push:
+    description: Whether to push the built image
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Log in to GHCR
+      uses: docker/login-action@v4
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ inputs.github-token }}
+
+    - name: Extract image metadata
+      id: meta
+      uses: docker/metadata-action@v6
+      with:
+        images: ${{ inputs.images }}
+        tags: ${{ inputs.tags }}
+
+    - name: Build image with Nix and load into Docker
+      id: build
+      shell: bash
+      run: |
+        nix --extra-experimental-features "nix-command flakes" \
+          build "${{ inputs.flake-attribute }}" -L --out-link image-stream
+        loaded="$(./image-stream | docker load | sed -n 's/^Loaded image: //p' | head -n1)"
+        if [ -z "$loaded" ]; then
+          echo "Could not determine loaded image reference" >&2
+          exit 1
+        fi
+        echo "loaded=$loaded" >> "$GITHUB_OUTPUT"
+
+    - name: Tag and push
+      shell: bash
+      env:
+        LOADED: ${{ steps.build.outputs.loaded }}
+        TAGS: ${{ steps.meta.outputs.tags }}
+        PUSH: ${{ inputs.push }}
+      run: |
+        while IFS= read -r ref; do
+          [ -z "$ref" ] && continue
+          docker tag "$LOADED" "$ref"
+          if [ "$PUSH" = "true" ]; then
+            docker push "$ref"
+          fi
+        done <<< "$TAGS"

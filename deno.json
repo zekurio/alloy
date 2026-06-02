@@ -92,8 +92,8 @@
     "db:push": "deno task --cwd packages/db db:push",
     "db:studio": "deno task --cwd packages/db db:studio",
     "fmt": "deno fmt && deno task --filter '*' fmt",
-    "lint": "sh -n scripts/dev-ml.sh scripts/dev-server.sh apps/server/docker/*.sh && bash -n scripts/dev-postgres.sh && deno lint scripts/*.ts && deno task --filter '*' lint",
-    "lint:github": "sh -n scripts/dev-ml.sh scripts/dev-server.sh apps/server/docker/*.sh && bash -n scripts/dev-postgres.sh && deno lint --compact scripts/*.ts && deno task --filter '*' lint",
+    "lint": "sh -n scripts/dev-ml.sh scripts/dev-server.sh && bash -n scripts/dev-postgres.sh && deno lint scripts/*.ts && deno task --filter '*' lint",
+    "lint:github": "sh -n scripts/dev-ml.sh scripts/dev-server.sh && bash -n scripts/dev-postgres.sh && deno lint --compact scripts/*.ts && deno task --filter '*' lint",
     "lint:ci": "deno task lint",
     "format": "deno task fmt",
     "typecheck": "deno check scripts/*.ts && deno task --filter '*' typecheck"

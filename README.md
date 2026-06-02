@@ -20,6 +20,9 @@ nix develop
 This shell provides `deno`, `uv`, Python 3.11, `psql`, PostgreSQL 17, and
 `ffmpeg`.
 
+To pull prebuilt builds from Alloy's binary cache instead of compiling locally,
+run `cachix use alloy` once (or see [Deployment](#nixos) for the NixOS settings).
+
 Then install dependencies:
 
 ```bash
@@ -120,15 +123,34 @@ The Alloy server exposes the classifier as an authenticated advisory API:
 ### NixOS
 
 The flake exposes an `x86_64-linux` package and NixOS module. Pin Alloy to a
-release tag and make it follow your system `nixpkgs` input so the same Alloy
-module can be used with either the current stable channel or unstable:
+release tag:
 
 ```nix
 inputs.alloy.url = "github:zekurio/alloy/v0.0.1";
-inputs.alloy.inputs.nixpkgs.follows = "nixpkgs";
 ```
 
+Alloy deliberately builds against its own pinned `nixpkgs` (from the flake
+lock). Do **not** set `inputs.alloy.inputs.nixpkgs.follows = "nixpkgs"`: the
+server is produced with `deno compile`, whose runtime (`denort`) is fetched for
+one exact Deno version, so building against a different `nixpkgs`/Deno fails with
+a hash mismatch. Keeping Alloy on its own lock makes the build reproducible and
+lets it reuse the upstream binary cache.
+
 The Nix package version follows the tagged `deno.json` version.
+
+Alloy publishes a [Cachix](https://www.cachix.org/) binary cache. The flake does
+not configure it automatically (that would prompt every consumer to trust the
+substituter), so opt in explicitly to pull prebuilt binaries instead of
+compiling locally. On NixOS:
+
+```nix
+nix.settings = {
+  substituters = [ "https://alloy.cachix.org" ];
+  trusted-public-keys = [
+    "alloy.cachix.org-1:wXlNsjaHLyuPuGbiUb+O5C7sIzUSXqR8rMvI1DOpYVw="
+  ];
+};
+```
 
 Then import the module:
 
@@ -169,6 +191,15 @@ deno task start:prod
 `PUBLIC_SERVER_URL` must be the externally reachable origin in production.
 Startup rejects localhost or loopback values so OAuth callbacks, WebAuthn,
 generated media URLs, CORS, and secure cookies use the deployment host.
+
+The server container image is built with Nix (`dockerTools`) rather than a
+Dockerfile and published to `ghcr.io/zekurio/alloy`. To build it locally and
+load it into Docker:
+
+```bash
+nix build .#alloy-image
+./result | docker load
+```
 
 For Docker deployments, mount persistent storage for runtime config, uploaded
 media, and encoder scratch data:

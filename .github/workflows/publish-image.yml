@@ -29,7 +29,16 @@ jobs:
       - name: Set up Deno
         uses: denoland/setup-deno@v2
         with:
-          deno-version: v2.7.14
+          deno-version: v2.8.0
+
+      - name: Set up Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Set up Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: alloy
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - name: Resolve nightly version
         id: meta
@@ -57,14 +66,27 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=nightly-v$version" >> "$GITHUB_OUTPUT"
 
+      - name: Stamp nightly version into deno.json
+        shell: bash
+        env:
+          NIGHTLY_VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          # Ephemeral (never committed): the Nix image reads its version from
+          # deno.json, so stamp it here to make APP_VERSION and the OCI version
+          # label report the nightly version.
+          # shellcheck disable=SC2016
+          deno eval '
+          import { readFileSync, writeFileSync } from "node:fs";
+          const config = JSON.parse(readFileSync("deno.json", "utf8"));
+          config.version = Deno.env.get("NIGHTLY_VERSION");
+          writeFileSync("deno.json", `${JSON.stringify(config, null, 2)}\n`);
+          '
+
       - name: Publish server image
-        uses: ./.github/actions/publish-image
+        uses: ./.github/actions/publish-nix-image
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          file: apps/server/Dockerfile
-          build-args: |
-            APP_VERSION=${{ steps.meta.outputs.version }}
           tags: |
             type=raw,value=nightly
             type=raw,value=${{ steps.meta.outputs.tag }}
