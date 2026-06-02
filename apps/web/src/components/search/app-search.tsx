@@ -21,7 +21,7 @@ export function AppSearchProvider({ children }: { children: React.ReactNode }) {
   const deferredQueryRaw = React.useDeferredValue(debouncedQuery)
   const deferredQuery = React.useMemo(
     () => deferredQueryRaw.trim(),
-    [deferredQueryRaw]
+    [deferredQueryRaw],
   )
 
   const setQuery = React.useCallback((next: string) => {
@@ -43,7 +43,7 @@ export function AppSearchProvider({ children }: { children: React.ReactNode }) {
       open,
       setOpen,
     }),
-    [query, deferredQuery, setQuery, clear, open]
+    [query, deferredQuery, setQuery, clear, open],
   )
 
   return (

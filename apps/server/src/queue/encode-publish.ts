@@ -68,10 +68,9 @@ export async function publishOpenGraph({
       vaapiDevice: config.vaapiDevice,
     },
     targetHeight,
-    durationMs:
-      trim.startMs != null && trim.endMs != null
-        ? Math.max(1, trim.endMs - trim.startMs)
-        : probed.durationMs,
+    durationMs: trim.startMs != null && trim.endMs != null
+      ? Math.max(1, trim.endMs - trim.startMs)
+      : probed.durationMs,
     onProgress: () => undefined,
     trimStartMs: trim.startMs,
     trimEndMs: trim.endMs,
@@ -82,7 +81,7 @@ export async function publishOpenGraph({
   const { size } = await storage.uploadFromFile(
     outPath,
     storageKey,
-    "video/mp4"
+    "video/mp4",
   )
   return {
     storageKey,
@@ -151,7 +150,7 @@ export async function encodePlaybackVariants(opts: {
     const { size } = await storage.uploadFromFile(
       variantPath,
       spec.storageKey,
-      "video/mp4"
+      "video/mp4",
     )
     opts.onVariantUploaded(spec.storageKey)
     encodedVariants.push({

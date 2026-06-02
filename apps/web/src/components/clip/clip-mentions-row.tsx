@@ -35,9 +35,9 @@ function UserAvatar({
   const chip = userChipData(user)
   return (
     <Avatar size={size}>
-      {chip.avatar.src ? (
-        <AvatarImage src={chip.avatar.src} alt={chip.name} />
-      ) : null}
+      {chip.avatar.src
+        ? <AvatarImage src={chip.avatar.src} alt={chip.name} />
+        : null}
       <AvatarFallback
         style={{ backgroundColor: chip.avatar.bg, color: chip.avatar.fg }}
       >
@@ -71,14 +71,12 @@ function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
           className={cn(
             "rounded-md",
             "transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-            "hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            "hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
           )}
           aria-label="View tagged users"
         >
           <AvatarGroup>
-            {preview.map((u) => (
-              <UserAvatar key={u.id} user={u} size="sm" />
-            ))}
+            {preview.map((u) => <UserAvatar key={u.id} user={u} size="sm" />)}
           </AvatarGroup>
         </button>
         <span className="text-xs text-foreground-muted">
@@ -89,7 +87,7 @@ function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
             className={cn(
               "font-medium text-foreground",
               "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-              "hover:text-accent focus-visible:text-accent focus-visible:outline-none"
+              "hover:text-accent focus-visible:text-accent focus-visible:outline-none",
             )}
           >
             @{firstHandle}
@@ -162,7 +160,7 @@ function MentionRow({
           setFollowing(!nextFollowing)
           toast.error(errorMessage(err, "Something went wrong"))
         },
-      }
+      },
     )
   }
 

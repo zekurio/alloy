@@ -17,14 +17,14 @@ import { errorMessage } from "@/lib/error-message"
 
 export type LinkedAccount = ApiLinkedAccount
 
-type Provider = NonNullable<PublicAuthConfig["provider"]>
+type Provider = PublicAuthConfig["providers"][number]
 const OAUTH_LINKED_QUERY_KEY = "oauthLinked"
 
 export function shouldShowLinkedAccountsCard(
   config: PublicAuthConfig,
-  accounts: LinkedAccount[]
+  accounts: LinkedAccount[],
 ): boolean {
-  if (config.provider !== null) return true
+  if (config.providers.length > 0) return true
   return accounts.some((account) => account.providerId !== "credential")
 }
 
@@ -104,7 +104,7 @@ function useLinkedAccountActions({
       } catch (cause) {
         if (active) {
           toast.error(
-            errorMessage(cause, "Couldn't sync linked account profile")
+            errorMessage(cause, "Couldn't sync linked account profile"),
           )
         }
       }
@@ -123,7 +123,7 @@ function useLinkedAccountActions({
         const { error } = await authClient.oauth2.link({
           providerId: provider.providerId,
           callbackURL: authCallbackUrl(
-            `/user-settings?${OAUTH_LINKED_QUERY_KEY}=1`
+            `/settings?${OAUTH_LINKED_QUERY_KEY}=1`,
           ),
         })
         if (error) {
@@ -132,12 +132,16 @@ function useLinkedAccountActions({
         }
       } catch (cause) {
         toast.error(
-          reportAuthFlowFailure("OAuth link", "Couldn't start link flow", cause)
+          reportAuthFlowFailure(
+            "OAuth link",
+            "Couldn't start link flow",
+            cause,
+          ),
         )
         setLinkingProviderId(null)
       }
     },
-    [linkingProviderId]
+    [linkingProviderId],
   )
 
   const onUnlink = React.useCallback(
@@ -145,7 +149,7 @@ function useLinkedAccountActions({
       if (unlinkingId) return
       if (!canRemoveAccount(account, accounts, config, hasPasskeySignIn)) {
         toast.error(
-          "This is your last enabled sign-in method. Link another before removing it."
+          "This is your last enabled sign-in method. Link another before removing it.",
         )
         return
       }
@@ -168,7 +172,7 @@ function useLinkedAccountActions({
         setUnlinkingId(null)
       }
     },
-    [accounts, config, hasPasskeySignIn, refresh, router, unlinkingId]
+    [accounts, config, hasPasskeySignIn, refresh, router, unlinkingId],
   )
 
   return {
@@ -198,46 +202,48 @@ function AccountsList({
   onLink,
   onUnlink,
 }: AccountsListProps) {
-  const providerAccount = config.provider
-    ? accounts.find(
-        (account) => account.providerId === config.provider?.providerId
-      )
-    : undefined
+  const configuredProviderIds = new Set(
+    config.providers.map((provider) => provider.providerId),
+  )
   const staleOAuthAccounts = accounts.filter(
     (account) =>
       account.providerId !== "credential" &&
-      account.providerId !== config.provider?.providerId
+      !configuredProviderIds.has(account.providerId),
   )
 
   return (
     <ul className="flex flex-col divide-y divide-border">
-      {config.provider ? (
-        providerAccount ? (
-          <AccountRow
-            key={providerAccount.id}
-            label={config.provider.displayName}
-            sublabel={linkedAccountLabel(providerAccount)}
-            busy={unlinkingId === providerAccount.id}
-            canUnlink={canRemoveAccount(
-              providerAccount,
-              accounts,
-              config,
-              hasPasskeySignIn
-            )}
-            onAction={() => onUnlink(providerAccount)}
-            showIcon
-          />
-        ) : (
-          <LinkRow
-            key={config.provider.providerId}
-            label={config.provider.displayName}
-            busy={linkingProviderId === config.provider.providerId}
-            onLink={() =>
-              config.provider ? onLink(config.provider) : undefined
-            }
-          />
+      {config.providers.map((provider) => {
+        const providerAccount = accounts.find(
+          (account) => account.providerId === provider.providerId,
         )
-      ) : null}
+        return providerAccount
+          ? (
+            <AccountRow
+              key={providerAccount.id}
+              label={provider.displayName}
+              sublabel={linkedAccountLabel(providerAccount)}
+              busy={unlinkingId === providerAccount.id}
+              canUnlink={canRemoveAccount(
+                providerAccount,
+                accounts,
+                config,
+                hasPasskeySignIn,
+              )}
+              onAction={() => onUnlink(providerAccount)}
+              provider={provider}
+            />
+          )
+          : (
+            <LinkRow
+              key={provider.providerId}
+              provider={provider}
+              label={provider.displayName}
+              busy={linkingProviderId === provider.providerId}
+              onLink={() => onLink(provider)}
+            />
+          )
+      })}
 
       {staleOAuthAccounts.map((account) => (
         <AccountRow
@@ -249,10 +255,9 @@ function AccountsList({
             account,
             accounts,
             config,
-            hasPasskeySignIn
+            hasPasskeySignIn,
           )}
           onAction={() => onUnlink(account)}
-          showIcon
         />
       ))}
     </ul>
@@ -263,13 +268,16 @@ function linkedAccountLabel(account: LinkedAccount): string {
   return account.email ? `Connected as ${account.email}` : "Connected"
 }
 
-function LinkRow(props: { label: string; busy: boolean; onLink: () => void }) {
+function LinkRow(props: {
+  provider: Provider
+  label: string
+  busy: boolean
+  onLink: () => void
+}) {
   return (
     <li className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
       <div className="flex min-w-0 items-center gap-3">
-        <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border">
-          <UserKeyIcon className="size-4" />
-        </span>
+        <ProviderIcon provider={props.provider} />
         <div className="min-w-0">
           <div className="text-sm font-medium">{props.label}</div>
           <p className="text-xs text-foreground-dim">Not linked</p>
@@ -295,18 +303,14 @@ type AccountRowProps = {
   busy: boolean
   canUnlink: boolean
   onAction: () => void
-  showIcon?: boolean
+  provider?: Provider
 }
 
 function AccountRow(props: AccountRowProps) {
   return (
     <li className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
       <div className="flex min-w-0 items-center gap-3">
-        {props.showIcon ? (
-          <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border">
-            <UserKeyIcon className="size-4" />
-          </span>
-        ) : null}
+        <ProviderIcon provider={props.provider} />
         <div className="min-w-0">
           <div className="text-sm font-medium">{props.label}</div>
           <p className="text-xs text-foreground-dim">{props.sublabel}</p>
@@ -318,11 +322,9 @@ function AccountRow(props: AccountRowProps) {
         size="sm"
         disabled={props.busy || !props.canUnlink}
         onClick={props.onAction}
-        title={
-          props.canUnlink
-            ? undefined
-            : "Link another enabled sign-in method before removing this one"
-        }
+        title={props.canUnlink
+          ? undefined
+          : "Link another enabled sign-in method before removing this one"}
       >
         <Link2OffIcon />
         {props.busy ? "Removing…" : "Unlink"}
@@ -331,11 +333,33 @@ function AccountRow(props: AccountRowProps) {
   )
 }
 
+function ProviderIcon({ provider }: { provider?: Provider }) {
+  return (
+    <span
+      className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border"
+      style={{
+        backgroundColor: provider?.buttonColor,
+        color: provider?.buttonTextColor,
+      }}
+    >
+      {provider?.iconUrl
+        ? (
+          <img
+            src={provider.iconUrl}
+            alt=""
+            className="size-4 object-contain"
+          />
+        )
+        : <UserKeyIcon className="size-4" />}
+    </span>
+  )
+}
+
 function canRemoveAccount(
   target: LinkedAccount,
   accounts: LinkedAccount[],
   config: PublicAuthConfig,
-  hasPasskeySignIn: boolean
+  hasPasskeySignIn: boolean,
 ): boolean {
   if (hasPasskeySignIn) return true
 
@@ -345,8 +369,10 @@ function canRemoveAccount(
 
 function accountSupportsSignIn(
   account: LinkedAccount,
-  config: PublicAuthConfig
+  config: PublicAuthConfig,
 ): boolean {
   if (account.providerId === "credential") return false
-  return config.provider?.providerId === account.providerId
+  return config.providers.some((provider) =>
+    provider.providerId === account.providerId
+  )
 }

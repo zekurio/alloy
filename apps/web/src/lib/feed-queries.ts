@@ -23,16 +23,18 @@ export const feedKeys = {
 
 export function useFeedInfiniteQuery(
   filter: FeedFilter,
-  { limit = 20 }: { limit?: number } = {}
+  { limit = 20 }: { limit?: number } = {},
 ) {
   return useInfiniteQuery({
     queryKey: feedKeys.list(filter, limit),
     queryFn: ({ pageParam }) =>
-      api.feed.fetch({
-        filter,
-        limit,
-        cursor: pageParam,
-      } satisfies FeedPageParams),
+      api.feed.fetch(
+        {
+          filter,
+          limit,
+          cursor: pageParam,
+        } satisfies FeedPageParams,
+      ),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     placeholderData: keepPreviousData,

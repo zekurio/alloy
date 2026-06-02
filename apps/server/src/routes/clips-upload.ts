@@ -30,10 +30,10 @@ import { IdParam, InitiateBody, UpdateBody } from "./clips-helpers"
 import {
   assertUsableUploadTicket,
   createUploadTickets,
+  type InitiateQuotaResult,
   markUploadFailed,
   resolveMentionIds,
   selectLockedQuotaState,
-  type InitiateQuotaResult,
 } from "./clips-upload-helpers"
 import {
   selectClipForMutation,
@@ -42,14 +42,14 @@ import {
 
 async function cleanupFailedInitiate(
   clipId: string,
-  uploadKey: string
+  uploadKey: string,
 ): Promise<void> {
   try {
     await db.delete(clip).where(eq(clip.id, clipId))
   } catch (err) {
     logger.warn(
       `[clips/upload] failed to delete clip ${clipId} after initiate failure:`,
-      err
+      err,
     )
   }
 
@@ -58,13 +58,13 @@ async function cleanupFailedInitiate(
   } catch (err) {
     logger.warn(
       `[clips/upload] failed to delete scratch upload ${uploadKey} after initiate failure:`,
-      err
+      err,
     )
   }
 }
 
 async function selectVideoUploadTicketStorageKey(
-  clipId: string
+  clipId: string,
 ): Promise<string | null> {
   const [ticketRow] = await db
     .select({ storageKey: clipUploadTicket.storageKey })
@@ -72,8 +72,8 @@ async function selectVideoUploadTicketStorageKey(
     .where(
       and(
         eq(clipUploadTicket.clipId, clipId),
-        eq(clipUploadTicket.role, "video")
-      )
+        eq(clipUploadTicket.role, "video"),
+      ),
     )
     .limit(1)
   return ticketRow?.storageKey ?? null
@@ -111,7 +111,7 @@ export const clipsUploadRoutes = new Hono()
         async (tx) => {
           const { quotaBytes, usedBytes } = await selectLockedQuotaState(
             tx,
-            viewerId
+            viewerId,
           )
           if (quotaBytes !== null && usedBytes + body.sizeBytes > quotaBytes) {
             return { ok: false, usedBytes, quotaBytes }
@@ -137,12 +137,12 @@ export const clipsUploadRoutes = new Hono()
               mentionedIds.map((mentionedUserId) => ({
                 clipId,
                 mentionedUserId,
-              }))
+              })),
             )
           }
 
           return { ok: true }
-        }
+        },
       )
 
       if (!quotaResult.ok) {
@@ -152,7 +152,7 @@ export const clipsUploadRoutes = new Hono()
             usedBytes: quotaResult.usedBytes,
             quotaBytes: quotaResult.quotaBytes,
           },
-          413
+          413,
         )
       }
 
@@ -181,9 +181,8 @@ export const clipsUploadRoutes = new Hono()
         await cleanupFailedInitiate(clipId, uploadKey)
         throw err
       }
-    }
+    },
   )
-
   .post(
     "/:id/finalize",
     requireSession,
@@ -225,7 +224,7 @@ export const clipsUploadRoutes = new Hono()
         (err) => {
           if (err instanceof Deno.errors.NotFound) return null
           throw err
-        }
+        },
       )
       if (!uploadStat?.isFile) {
         await deleteScratchUpload(storageKey)
@@ -238,7 +237,7 @@ export const clipsUploadRoutes = new Hono()
         await markUploadFailed(
           row.authorId,
           id,
-          "Upload size did not match declared size"
+          "Upload size did not match declared size",
         )
         return badRequest(c, "Upload size did not match declared size")
       }
@@ -247,7 +246,7 @@ export const clipsUploadRoutes = new Hono()
         async (tx) => {
           const { quotaBytes, usedBytes } = await selectLockedQuotaState(
             tx,
-            viewerId
+            viewerId,
           )
           if (
             quotaBytes !== null &&
@@ -256,7 +255,7 @@ export const clipsUploadRoutes = new Hono()
             return { ok: false, usedBytes, quotaBytes }
           }
           return { ok: true }
-        }
+        },
       )
       if (!quotaResult.ok) {
         await deleteScratchUpload(storageKey)
@@ -267,7 +266,7 @@ export const clipsUploadRoutes = new Hono()
             usedBytes: quotaResult.usedBytes,
             quotaBytes: quotaResult.quotaBytes,
           },
-          413
+          413,
         )
       }
 
@@ -282,8 +281,8 @@ export const clipsUploadRoutes = new Hono()
           and(
             eq(clip.id, id),
             eq(clip.authorId, viewerId),
-            eq(clip.status, "pending")
-          )
+            eq(clip.status, "pending"),
+          ),
         )
         .returning({ id: clip.id })
       if (!transitioned) {
@@ -294,9 +293,8 @@ export const clipsUploadRoutes = new Hono()
       enqueueEncode(id)
 
       return updatedClipResponse(c, id)
-    }
+    },
   )
-
   .post(
     "/:id/fail",
     requireSession,
@@ -316,9 +314,8 @@ export const clipsUploadRoutes = new Hono()
       await deleteScratchUpload(await selectVideoUploadTicketStorageKey(id))
       await markUploadFailed(row.authorId, id, "Upload failed")
       return success(c)
-    }
+    },
   )
-
   .patch(
     "/:id",
     requireSession,
@@ -361,7 +358,7 @@ export const clipsUploadRoutes = new Hono()
       if (body.mentionedUserIds !== undefined) {
         const mentionedIds = await resolveMentionIds(
           body.mentionedUserIds,
-          row.authorId
+          row.authorId,
         )
         await db.delete(clipMention).where(eq(clipMention.clipId, id))
         if (mentionedIds.length > 0) {
@@ -369,7 +366,7 @@ export const clipsUploadRoutes = new Hono()
             mentionedIds.map((mentionedUserId) => ({
               clipId: id,
               mentionedUserId,
-            }))
+            })),
           )
         }
       }
@@ -377,9 +374,8 @@ export const clipsUploadRoutes = new Hono()
       void publishClipUpsert(row.authorId, id)
 
       return updatedClipResponse(c, id)
-    }
+    },
   )
-
   .delete("/:id", requireSession, zValidator("param", IdParam), async (c) => {
     const viewerId = c.var.viewerId
     const { id } = c.req.valid("param")

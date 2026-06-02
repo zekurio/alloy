@@ -59,7 +59,7 @@ function useDeleteAllClipsAction() {
       }
       await getQueryClient().invalidateQueries()
       toast.success(
-        deleted === 1 ? "Deleted 1 clip" : `Deleted ${deleted} clips`
+        deleted === 1 ? "Deleted 1 clip" : `Deleted ${deleted} clips`,
       )
     } catch (cause) {
       toast.error(errorMessage(cause, "Couldn't delete clips"))
@@ -112,7 +112,7 @@ function DeleteClipsRow({
       <AlertDialog>
         <AlertDialogTrigger
           render={
-            <Button type="button" variant="destructive" size="sm">
+            <Button type="button" variant="danger" size="sm">
               <Trash2Icon />
               Delete clips
             </Button>

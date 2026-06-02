@@ -14,9 +14,8 @@ export const Route = createFileRoute("/(auth)/sign-up")({
     if (config.setupRequired) {
       throw redirect({ to: "/login" })
     }
-    const canSignUp =
-      config.openRegistrations &&
-      (config.passkeyEnabled || config.provider !== null)
+    const canSignUp = config.openRegistrations &&
+      (config.passkeyEnabled || config.providers.length > 0)
     if (!canSignUp) {
       throw redirect({ to: "/login" })
     }

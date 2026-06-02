@@ -30,7 +30,7 @@ function UserChip({
         "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
         "hover:border-border-strong",
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
-        className
+        className,
       )}
       {...props}
     >
@@ -42,9 +42,9 @@ function UserChip({
         }}
       >
         <span aria-hidden>{avatar.initials}</span>
-        {avatar.src ? (
-          <UserChipImage key={avatar.src} src={avatar.src} />
-        ) : null}
+        {avatar.src
+          ? <UserChipImage key={avatar.src} src={avatar.src} />
+          : null}
       </span>
       <span className="text-xs leading-4 font-semibold">{name}</span>
       {children ?? (
@@ -66,7 +66,7 @@ function UserChipImage({ src }: { src: string }) {
       alt=""
       className={cn(
         "absolute inset-0 size-full object-cover",
-        loaded ? "opacity-100" : "opacity-0"
+        loaded ? "opacity-100" : "opacity-0",
       )}
       onLoad={() => setLoaded(true)}
       onError={() => setFailed(true)}

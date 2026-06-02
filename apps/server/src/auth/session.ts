@@ -3,10 +3,10 @@ import { createMiddleware } from "hono/factory"
 import type { Context } from "hono"
 
 import {
-  authSession,
-  user,
   type AuthSession,
+  authSession,
   type User,
+  user,
 } from "@workspace/db/auth-schema"
 
 import { db } from "../db"
@@ -27,14 +27,14 @@ type SessionData = {
 function requestIp(c: Context): string | null {
   return (
     c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
-    c.req.header("x-real-ip") ??
-    null
+      c.req.header("x-real-ip") ??
+      null
   )
 }
 
 export async function createSession(
   c: Context,
-  userId: string
+  userId: string,
 ): Promise<{ token: string; data: SessionData }> {
   const token = generateSessionToken()
   const now = new Date()
@@ -57,7 +57,7 @@ export async function createSession(
 }
 
 async function selectSessionByHash(
-  tokenHash: string
+  tokenHash: string,
 ): Promise<SessionData | null> {
   const now = new Date()
   const [row] = await db
@@ -65,7 +65,7 @@ async function selectSessionByHash(
     .from(authSession)
     .innerJoin(user, eq(user.id, authSession.userId))
     .where(
-      and(eq(authSession.tokenHash, tokenHash), gt(authSession.expiresAt, now))
+      and(eq(authSession.tokenHash, tokenHash), gt(authSession.expiresAt, now)),
     )
     .limit(1)
   if (!row) return null
@@ -82,12 +82,11 @@ async function selectSessionByHash(
 }
 
 export async function getSession(
-  headers: Headers | Context
+  headers: Headers | Context,
 ): Promise<SessionData | null> {
-  const token =
-    "req" in headers
-      ? readSessionCookie(headers)
-      : cookieTokenFromHeaders(headers)
+  const token = "req" in headers
+    ? readSessionCookie(headers)
+    : cookieTokenFromHeaders(headers)
   if (!token) return null
   const data = await selectSessionByHash(await hashSessionToken(token))
   if (!data) return null

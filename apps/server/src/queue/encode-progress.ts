@@ -9,7 +9,7 @@ import { publishClipProgress } from "../clips/events"
 export function makeProgressWriter(
   clipId: string,
   authorId: string,
-  runId: string
+  runId: string,
 ): (pct: number) => void {
   let lastWrittenPct = 0
   let lastWriteAt = 0
@@ -25,8 +25,8 @@ export function makeProgressWriter(
         and(
           eq(clip.id, clipId),
           eq(clip.encodeRunId, runId),
-          lt(clip.encodeProgress, pct)
-        )
+          lt(clip.encodeProgress, pct),
+        ),
       )
       .returning({ id: clip.id })
       .then((rows) => {
@@ -35,7 +35,7 @@ export function makeProgressWriter(
       .catch((err: unknown) => {
         logger.error(
           `[encode-worker] progress update failed for ${clipId}:`,
-          err
+          err,
         )
       })
   }

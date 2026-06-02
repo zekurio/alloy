@@ -32,10 +32,10 @@ import {
   type PublishPayload,
   type SelectedFile,
 } from "./new-clip-helpers"
-import { UploadQueueContent, type QueueItem } from "./upload-queue"
+import { type QueueItem, UploadQueueContent } from "./upload-queue"
 import {
-  NewClipDialog,
   loadNewClipDialog,
+  NewClipDialog,
   useWarmEditor,
 } from "./upload-dialog-loader"
 import { useUploadQueueState } from "./upload-flow-queue-state"
@@ -44,7 +44,7 @@ function useNewClipPicker(onPicked: () => void) {
   const [newClipOpen, setNewClipOpen] = React.useState(false)
   const [newClipModalMounted, setNewClipModalMounted] = React.useState(false)
   const [initialFile, setInitialFile] = React.useState<SelectedFile | null>(
-    null
+    null,
   )
   const inputRef = React.useRef<HTMLInputElement>(null)
 
@@ -67,7 +67,7 @@ function useNewClipPicker(onPicked: () => void) {
         toast.error(errorMessage(cause, "Couldn't prepare clip"))
       }
     },
-    [onPicked]
+    [onPicked],
   )
 
   return {
@@ -143,7 +143,7 @@ function UploadQueuePopover({
     (surface: FloatingSurface) => {
       if (surface !== "uploads") setQueueOpen(false)
     },
-    [setQueueOpen]
+    [setQueueOpen],
   )
   useFloatingSurfaceOpenListener(handleFloatingSurfaceOpen)
 
@@ -161,7 +161,7 @@ function UploadQueuePopover({
           className={cn(
             "right-3 bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+0.75rem)] left-3 z-50 w-auto max-w-none rounded-2xl border p-3",
             "max-h-[calc(100dvh-var(--header-h)-var(--bottomnav-h)-env(safe-area-inset-bottom)-1.5rem)]",
-            "alloy-blur"
+            "alloy-blur",
           )}
           style={queueGlassStyle}
           aria-describedby={undefined}
@@ -193,21 +193,19 @@ function UploadQueuePopover({
           "w-[420px] max-w-[calc(100vw-1.5rem)] border p-3 ring-0",
           "alloy-blur",
           "data-open:animate-[alloy-fab-morph-in_320ms_var(--ease-out)_forwards]",
-          "data-closed:animate-[alloy-fab-morph-out_180ms_var(--ease-out)_forwards]"
+          "data-closed:animate-[alloy-fab-morph-out_180ms_var(--ease-out)_forwards]",
         )}
-        style={
-          {
-            position: "fixed",
-            right: "0.75rem",
-            bottom: isMobile
-              ? "calc(var(--bottomnav-h) + env(safe-area-inset-bottom) + 0.75rem)"
-              : "0.75rem",
-            top: "auto",
-            left: isMobile ? "0.75rem" : "auto",
-            transformOrigin: isMobile ? "bottom center" : "bottom right",
-            ...queueGlassStyle,
-          } as React.CSSProperties
-        }
+        style={{
+          position: "fixed",
+          right: "0.75rem",
+          bottom: isMobile
+            ? "calc(var(--bottomnav-h) + env(safe-area-inset-bottom) + 0.75rem)"
+            : "0.75rem",
+          top: "auto",
+          left: isMobile ? "0.75rem" : "auto",
+          transformOrigin: isMobile ? "bottom center" : "bottom right",
+          ...queueGlassStyle,
+        } as React.CSSProperties}
         aria-describedby={undefined}
       >
         {content}
@@ -231,7 +229,7 @@ function AuthedUploadFlow() {
         },
       })
     },
-    [navigate]
+    [navigate],
   )
   const {
     runUpload,
@@ -268,7 +266,7 @@ function AuthedUploadFlow() {
         // Error lives on the queue row's `failed` status.
       }
     },
-    [runUpload, setNewClipOpen, setQueueOpen]
+    [runUpload, setNewClipOpen, setQueueOpen],
   )
 
   return (
@@ -290,16 +288,18 @@ function AuthedUploadFlow() {
         onNewClip={handleNewClip}
         onClearCompleted={clearCompleted}
       />
-      {newClipModalMounted ? (
-        <React.Suspense fallback={null}>
-          <NewClipDialog
-            open={newClipOpen}
-            onOpenChange={setNewClipOpen}
-            onPublish={handlePublish}
-            initialFile={initialFile ?? undefined}
-          />
-        </React.Suspense>
-      ) : null}
+      {newClipModalMounted
+        ? (
+          <React.Suspense fallback={null}>
+            <NewClipDialog
+              open={newClipOpen}
+              onOpenChange={setNewClipOpen}
+              onPublish={handlePublish}
+              initialFile={initialFile ?? undefined}
+            />
+          </React.Suspense>
+        )
+        : null}
     </>
   )
 }

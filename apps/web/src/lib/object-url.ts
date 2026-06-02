@@ -4,7 +4,7 @@ type ObjectUrlSource = Blob | MediaSource
 
 export function createObjectUrl(
   source: ObjectUrlSource,
-  label: string
+  label: string,
 ): string | null {
   try {
     return URL.createObjectURL(source)
@@ -16,7 +16,7 @@ export function createObjectUrl(
 
 export function requireObjectUrl(
   source: ObjectUrlSource,
-  label: string
+  label: string,
 ): string {
   const url = createObjectUrl(source, label)
   if (!url) throw new Error(`Could not create ${label}`)
@@ -25,7 +25,7 @@ export function requireObjectUrl(
 
 export function revokeObjectUrl(
   url: string | null | undefined,
-  label: string
+  label: string,
 ): void {
   if (!url) return
   try {

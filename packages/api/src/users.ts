@@ -46,11 +46,11 @@ export {
 } from "@workspace/contracts"
 
 const ACCEPTED_IMAGE_CONTENT_TYPE_SET: ReadonlySet<string> = new Set(
-  ACCEPTED_IMAGE_CONTENT_TYPES
+  ACCEPTED_IMAGE_CONTENT_TYPES,
 )
 
 function isAcceptedImageContentType(
-  value: string
+  value: string,
 ): value is AcceptedImageContentType {
   return ACCEPTED_IMAGE_CONTENT_TYPE_SET.has(value)
 }
@@ -76,14 +76,14 @@ async function blobToBase64(blob: Blob): Promise<string> {
 
 async function uploadAvatarImage(
   context: ApiContext,
-  blob: Blob
+  blob: Blob,
 ): Promise<PublicUser> {
   return uploadUserImage(context, blob, "avatar")
 }
 
 async function uploadBannerImage(
   context: ApiContext,
-  blob: Blob
+  blob: Blob,
 ): Promise<PublicUser> {
   return uploadUserImage(context, blob, "banner")
 }
@@ -91,7 +91,7 @@ async function uploadBannerImage(
 async function uploadUserImage(
   context: ApiContext,
   blob: Blob,
-  kind: "avatar" | "banner"
+  kind: "avatar" | "banner",
 ): Promise<PublicUser> {
   const data = await blobToBase64(blob)
   const contentType = getUploadContentType(blob)
@@ -99,10 +99,9 @@ async function uploadUserImage(
     data,
     contentType,
   }
-  const res =
-    kind === "avatar"
-      ? await context.rpc.api.users.me.avatar.upload.$post({ json })
-      : await context.rpc.api.users.me.banner.upload.$post({ json })
+  const res = kind === "avatar"
+    ? await context.rpc.api.users.me.avatar.upload.$post({ json })
+    : await context.rpc.api.users.me.banner.upload.$post({ json })
   return readJsonOrThrow(res, validatePublicUser)
 }
 
@@ -118,7 +117,7 @@ async function deleteBanner(context: ApiContext): Promise<PublicUser> {
 
 async function getProfile(
   context: ApiContext,
-  handle: string
+  handle: string,
 ): Promise<UserProfile> {
   const res = await context.rpc.api.users[":username"].$get({
     param: usernameParam(handle),
@@ -129,11 +128,11 @@ async function getProfile(
 async function getProfileViewer(
   context: ApiContext,
   handle: string,
-  init?: RequestInit
+  init?: RequestInit,
 ): Promise<UserProfileViewer> {
   const res = await context.rpc.api.users[":username"].viewer.$get(
     { param: usernameParam(handle) },
-    { init }
+    { init },
   )
   return readJsonOrThrow(res, validateUserProfileViewer)
 }
@@ -141,11 +140,11 @@ async function getProfileViewer(
 async function getClips(
   context: ApiContext,
   handle: string,
-  init?: RequestInit
+  init?: RequestInit,
 ): Promise<UserClip[]> {
   const res = await context.rpc.api.users[":username"].clips.$get(
     { param: usernameParam(handle) },
-    { init }
+    { init },
   )
   return readJsonOrThrow(res, validateClipRows)
 }
@@ -153,7 +152,7 @@ async function getClips(
 async function getProfileGames(
   context: ApiContext,
   handle: string,
-  params: { limit?: number; offset?: number } = {}
+  params: { limit?: number; offset?: number } = {},
 ): Promise<ProfileGameRow[]> {
   const res = await context.rpc.api.users[":username"].games.$get({
     param: usernameParam(handle),
@@ -164,14 +163,14 @@ async function getProfileGames(
 
 async function getTaggedClips(
   context: ApiContext,
-  handle: string
+  handle: string,
 ): Promise<UserClip[]> {
   return getUserClipsArray(context, handle, "tagged")
 }
 
 async function getLikedClips(
   context: ApiContext,
-  handle: string
+  handle: string,
 ): Promise<UserClip[]> {
   return getUserClipsArray(context, handle, "liked")
 }
@@ -179,7 +178,7 @@ async function getLikedClips(
 async function searchUsers(
   context: ApiContext,
   q: string,
-  limit = 8
+  limit = 8,
 ): Promise<UserSearchResult[]> {
   const res = await context.rpc.api.users.search.$get({
     query: { q, limit: String(limit) },
@@ -189,14 +188,14 @@ async function searchUsers(
 
 async function getFollowers(
   context: ApiContext,
-  handle: string
+  handle: string,
 ): Promise<UserSearchResult[]> {
   return getUserConnections(context, handle, "followers")
 }
 
 async function getFollowing(
   context: ApiContext,
-  handle: string
+  handle: string,
 ): Promise<UserSearchResult[]> {
   return getUserConnections(context, handle, "following")
 }
@@ -204,7 +203,7 @@ async function getFollowing(
 async function getUserConnections(
   context: ApiContext,
   handle: string,
-  pathSegment: "followers" | "following"
+  pathSegment: "followers" | "following",
 ): Promise<UserSearchResult[]> {
   const endpoint = context.rpc.api.users[":username"][pathSegment]
   const res = await endpoint.$get({ param: usernameParam(handle) })
@@ -214,7 +213,7 @@ async function getUserConnections(
 async function getUserClipsArray(
   context: ApiContext,
   handle: string,
-  pathSegment: "tagged" | "liked"
+  pathSegment: "tagged" | "liked",
 ): Promise<UserClip[]> {
   const endpoint = context.rpc.api.users[":username"][pathSegment]
   const res = await endpoint.$get({ param: usernameParam(handle) })
@@ -238,7 +237,7 @@ async function setUserFlag(input: {
       post: () => endpoint.$post(params),
       delete: () => endpoint.$delete(params),
     },
-    booleanFlagResponseValidator(input.key, input.next)
+    booleanFlagResponseValidator(input.key, input.next),
   )
 }
 
@@ -254,7 +253,7 @@ async function followUser(context: ApiContext, handle: string): Promise<void> {
 
 async function unfollowUser(
   context: ApiContext,
-  handle: string
+  handle: string,
 ): Promise<void> {
   await setUserFlag({
     context,
@@ -291,7 +290,7 @@ async function requestOAuthProfileSync(context: ApiContext): Promise<void> {
 }
 
 async function getAccountState(
-  context: ApiContext
+  context: ApiContext,
 ): Promise<{ disabledAt: string | null }> {
   const res = await context.rpc.api.users.me.account.$get()
   return readJsonOrThrow(res, validateAccountStateResponse)
@@ -303,14 +302,14 @@ async function getStorageUsage(context: ApiContext): Promise<UserStorageUsage> {
 }
 
 async function disableAccount(
-  context: ApiContext
+  context: ApiContext,
 ): Promise<{ disabledAt: string }> {
   const res = await context.rpc.api.users.me.disable.$post()
   return readJsonOrThrow(res, validateDisableAccountResponse)
 }
 
 async function reactivateAccount(
-  context: ApiContext
+  context: ApiContext,
 ): Promise<{ disabledAt: null }> {
   const res = await context.rpc.api.users.me.reactivate.$post()
   return readJsonOrThrow(res, validateReactivateAccountResponse)
@@ -321,7 +320,7 @@ function downloadAllClipsUrl(context: ApiContext): string {
 }
 
 async function deleteAllClips(
-  context: ApiContext
+  context: ApiContext,
 ): Promise<{ deleted: number; hasMore: boolean }> {
   const res = await context.rpc.api.users.me.clips.$delete({ query: {} })
   return readJsonOrThrow(res, validateDeleteClipsResponse)
@@ -340,7 +339,7 @@ export function createUsersApi(context: ApiContext) {
       getClips(context, handle, init),
     fetchProfileGames: (
       handle: string,
-      params: { limit?: number; offset?: number } = {}
+      params: { limit?: number; offset?: number } = {},
     ) => getProfileGames(context, handle, params),
     fetchTaggedClips: (handle: string) => getTaggedClips(context, handle),
     fetchLikedClips: (handle: string) => getLikedClips(context, handle),

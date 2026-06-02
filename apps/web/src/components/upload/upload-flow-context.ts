@@ -8,5 +8,5 @@ export interface UploadFlowControls {
 }
 
 export const UploadFlowContext = React.createContext<UploadFlowControls | null>(
-  null
+  null,
 )

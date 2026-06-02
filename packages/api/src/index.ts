@@ -1,8 +1,8 @@
 import { createAdminApi } from "./admin"
 import { createAuthConfigApi } from "./auth-config"
 import {
-  createApiContext,
   type ApiContext,
+  createApiContext,
   type CreateApiOptions,
 } from "./client"
 import { createClipsApi } from "./clips"
@@ -45,12 +45,11 @@ export function createApi(baseURL: string, init?: RequestInit): AlloyApi
 export function createApi(options: CreateApiOptions): AlloyApi
 export function createApi(
   input: string | CreateApiOptions,
-  init?: RequestInit
+  init?: RequestInit,
 ): AlloyApi {
-  const context =
-    typeof input === "string"
-      ? createApiContext({ baseURL: input, init })
-      : createApiContext(input)
+  const context = typeof input === "string"
+    ? createApiContext({ baseURL: input, init })
+    : createApiContext(input)
 
   return {
     ...context,

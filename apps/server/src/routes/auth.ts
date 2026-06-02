@@ -13,9 +13,9 @@ import { Hono } from "hono"
 import { z } from "zod"
 
 import {
+  USER_DISPLAY_NAME_MAX_LENGTH,
   USERNAME_MAX_LENGTH,
   USERNAME_MIN_LENGTH,
-  USER_DISPLAY_NAME_MAX_LENGTH,
 } from "@workspace/contracts"
 import { user, userPasskey } from "@workspace/db/auth-schema"
 
@@ -109,7 +109,7 @@ export const authRoute = new Hono()
           if (existing) {
             return badRequest(
               c,
-              "An account already exists for that email address."
+              "An account already exists for that email address.",
             )
           }
         }
@@ -123,10 +123,9 @@ export const authRoute = new Hono()
           user: {
             id: existing && setupFirstAdmin ? existing.id : crypto.randomUUID(),
             email,
-            name:
-              existing && setupFirstAdmin
-                ? existing.name || username
-                : username,
+            name: existing && setupFirstAdmin
+              ? existing.name || username
+              : username,
             username,
           },
         })
@@ -134,7 +133,7 @@ export const authRoute = new Hono()
       } catch (cause) {
         return badRequestFromCause(c, cause, "Could not start sign-up.")
       }
-    }
+    },
   )
   .post(
     "/passkey/sign-up/verify",
@@ -162,7 +161,7 @@ export const authRoute = new Hono()
       } catch (cause) {
         return badRequestFromCause(c, cause, "Could not verify passkey.")
       }
-    }
+    },
   )
   .post("/passkey/sign-in/options", async (c) => {
     try {
@@ -196,7 +195,7 @@ export const authRoute = new Hono()
       } catch (cause) {
         return badRequestFromCause(c, cause, "Passkey sign-in failed.")
       }
-    }
+    },
   )
   .get("/passkeys", requireSession, async (c) => {
     const rows = await db
@@ -222,13 +221,13 @@ export const authRoute = new Hono()
           identifier: c.var.viewerId,
           payload: { userId: c.var.viewerId },
           user: { ...c.var.session.user, passkeys },
-        })
+        }),
       )
     } catch (cause) {
       return badRequestFromCause(
         c,
         cause,
-        "Could not start passkey registration."
+        "Could not start passkey registration.",
       )
     }
   })
@@ -267,7 +266,7 @@ export const authRoute = new Hono()
       } catch (cause) {
         return badRequestFromCause(c, cause, "Could not add passkey.")
       }
-    }
+    },
   )
   .patch(
     "/passkeys/:id",
@@ -281,12 +280,12 @@ export const authRoute = new Hono()
         .update(userPasskey)
         .set({ name: name ?? null, updatedAt: new Date() })
         .where(
-          and(eq(userPasskey.id, id), eq(userPasskey.userId, c.var.viewerId))
+          and(eq(userPasskey.id, id), eq(userPasskey.userId, c.var.viewerId)),
         )
         .returning()
       if (!updated) return notFound(c, "Passkey not found.")
       return c.json(publicPasskeyRow(updated))
-    }
+    },
   )
   .delete(
     "/passkeys/:id",
@@ -301,12 +300,12 @@ export const authRoute = new Hono()
       if (result === "last-sign-in-method") {
         return badRequest(
           c,
-          "Add another sign-in method before removing this passkey."
+          "Add another sign-in method before removing this passkey.",
         )
       }
       if (result === "not-found") return notFound(c, "Passkey not found.")
       return success(c)
-    }
+    },
   )
   .patch(
     "/user",
@@ -316,13 +315,13 @@ export const authRoute = new Hono()
       try {
         const updated = await updateUserIdentity(
           c.var.viewerId,
-          c.req.valid("json")
+          c.req.valid("json"),
         )
         return c.json({ user: updated })
       } catch (cause) {
         return badRequestFromCause(c, cause, "Could not update user.")
       }
-    }
+    },
   )
   .delete("/user", requireSession, async (c) => {
     try {

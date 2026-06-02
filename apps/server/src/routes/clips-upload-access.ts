@@ -39,7 +39,7 @@ export async function selectClipForMutation(
     viewerId: string
     allowAdmin?: boolean
     statuses?: readonly string[]
-  }
+  },
 ): Promise<ClipMutationAccess> {
   const [row] = await db
     .select()
@@ -48,8 +48,7 @@ export async function selectClipForMutation(
     .limit(1)
   if (!row) return { response: notFound(c) }
 
-  const canMutate =
-    row.authorId === input.viewerId ||
+  const canMutate = row.authorId === input.viewerId ||
     (input.allowAdmin === true && (await canAdminMutateClip(c)))
   if (!canMutate) return { response: forbidden(c) }
 

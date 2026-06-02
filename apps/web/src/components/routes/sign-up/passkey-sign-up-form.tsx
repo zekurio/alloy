@@ -33,7 +33,7 @@ type StringFieldController = {
 }
 
 type PasskeySignUpFormProps = {
-  redirectTo?: "/" | "/setup" | "/user-settings"
+  redirectTo?: "/" | "/setup" | "/settings"
   successMessage?: string
 }
 
@@ -66,18 +66,18 @@ function usePasskeySignUpSubmit({
           reportAuthFlowFailure(
             "passkey sign-up",
             "Couldn't finish passkey account setup",
-            cause
-          )
+            cause,
+          ),
         )
       }
     },
-    [navigate, redirectTo, router, successMessage]
+    [navigate, redirectTo, router, successMessage],
   )
 }
 
 function getFieldValidationState(
   meta: FieldMetaState,
-  submissionAttempts: number
+  submissionAttempts: number,
 ) {
   const showError = meta.isTouched || submissionAttempts > 0
   return {
@@ -147,7 +147,7 @@ function UsernameField(props: {
 }) {
   const { errors, invalid } = getFieldValidationState(
     props.field.state.meta,
-    props.submissionAttempts
+    props.submissionAttempts,
   )
 
   return (
@@ -174,7 +174,7 @@ function EmailField(props: {
 }) {
   const { errors, invalid } = getFieldValidationState(
     props.field.state.meta,
-    props.submissionAttempts
+    props.submissionAttempts,
   )
 
   return (

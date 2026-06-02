@@ -15,7 +15,7 @@ export function normalizeUsername(input: string): string {
   const username = input.trim()
   if (username.length < MIN_LEN || username.length > MAX_LEN) {
     throw new Error(
-      `Username must be between ${MIN_LEN} and ${MAX_LEN} characters.`
+      `Username must be between ${MIN_LEN} and ${MAX_LEN} characters.`,
     )
   }
   if (USERNAME_DISALLOWED_RE.test(username)) {

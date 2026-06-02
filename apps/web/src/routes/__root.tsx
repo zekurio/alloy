@@ -1,6 +1,6 @@
 import * as React from "react"
 import type { QueryClient } from "@tanstack/react-query"
-import { Outlet, createRootRouteWithContext } from "@tanstack/react-router"
+import { createRootRouteWithContext, Outlet } from "@tanstack/react-router"
 
 import { ClientOnly } from "@/components/app/client-only"
 import {
@@ -45,8 +45,10 @@ function RootLayout() {
           <ReactivateAccountPrompt />
         </React.Suspense>
       </ClientOnly>
-      {/* Global toast portal — rendered once at the root so every route
-          can call `toast.*` without mounting its own provider. */}
+      {
+        /* Global toast portal — rendered once at the root so every route
+          can call `toast.*` without mounting its own provider. */
+      }
       <React.Suspense fallback={null}>
         <Toaster />
       </React.Suspense>

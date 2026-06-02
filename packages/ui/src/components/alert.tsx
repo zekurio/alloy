@@ -15,7 +15,7 @@ const alertVariants = cva(
     defaultVariants: {
       variant: "default",
     },
-  }
+  },
 )
 
 function Alert({
@@ -36,7 +36,7 @@ function Alert({
 function renderAlertSection(
   slot: string,
   defaultClassName: string,
-  { className, ...props }: React.ComponentProps<"div">
+  { className, ...props }: React.ComponentProps<"div">,
 ) {
   return (
     <div
@@ -51,7 +51,7 @@ function AlertTitle({ className, ...props }: React.ComponentProps<"div">) {
   return renderAlertSection(
     "alert-title",
     "font-medium group-has-[>svg]/alert:col-start-2 [&_a]:underline [&_a]:underline-offset-3 [&_a]:hover:text-foreground",
-    { className, ...props }
+    { className, ...props },
   )
 }
 
@@ -62,7 +62,7 @@ function AlertDescription({
   return renderAlertSection(
     "alert-description",
     "text-sm text-balance text-muted-foreground md:text-pretty [&_a]:underline [&_a]:underline-offset-3 [&_a]:hover:text-foreground [&_p:not(:last-child)]:mb-4",
-    { className, ...props }
+    { className, ...props },
   )
 }
 
@@ -76,4 +76,4 @@ function AlertAction({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-export { Alert, AlertTitle, AlertDescription, AlertAction }
+export { Alert, AlertAction, AlertDescription, AlertTitle }

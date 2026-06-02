@@ -20,9 +20,10 @@ export function LoginPageInner({ config }: LoginPageInnerProps) {
   if (!canRender) return null
   if (config.passkeyEnabled && !passkeyReady) return null
 
-  const { provider, openRegistrations, passkeyEnabled } = config
+  const { providers, openRegistrations, passkeyEnabled } = config
   const showPasskeySignIn = passkeyEnabled && passkeySupported
-  const canSignUp = openRegistrations && (passkeyEnabled || provider !== null)
+  const canSignUp = openRegistrations &&
+    (passkeyEnabled || providers.length > 0)
   return (
     <AuthPageFrame splash={config.loginSplash}>
       <div className="mb-8 space-y-1.5">
@@ -33,32 +34,33 @@ export function LoginPageInner({ config }: LoginPageInnerProps) {
 
       <div className="flex flex-col gap-3">
         {showPasskeySignIn ? <PasskeySignIn /> : null}
-        {provider ? (
-          <OAuthSignIn
-            providerId={provider.providerId}
-            displayName={provider.displayName}
-          />
-        ) : null}
+        {providers.map((provider) => (
+          <OAuthSignIn key={provider.providerId} provider={provider} />
+        ))}
       </div>
 
-      {passkeyEnabled && passkeyReady && !passkeySupported ? (
-        <p className="mt-4 text-sm text-foreground-muted">
-          Passkey sign-in is enabled, but this browser does not support
-          passkeys.
-        </p>
-      ) : null}
+      {passkeyEnabled && passkeyReady && !passkeySupported
+        ? (
+          <p className="mt-4 text-sm text-foreground-muted">
+            Passkey sign-in is enabled, but this browser does not support
+            passkeys.
+          </p>
+        )
+        : null}
 
-      {canSignUp ? (
-        <p className="mt-6 text-center text-sm text-foreground-muted">
-          Don't have an account?{" "}
-          <Link
-            to="/sign-up"
-            className="font-medium text-foreground underline-offset-4 hover:text-accent hover:underline"
-          >
-            Create one
-          </Link>
-        </p>
-      ) : null}
+      {canSignUp
+        ? (
+          <p className="mt-6 text-center text-sm text-foreground-muted">
+            Don't have an account?{" "}
+            <Link
+              to="/sign-up"
+              className="font-medium text-foreground underline-offset-4 hover:text-accent hover:underline"
+            >
+              Create one
+            </Link>
+          </p>
+        )
+        : null}
     </AuthPageFrame>
   )
 }

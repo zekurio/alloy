@@ -18,7 +18,7 @@ function SectionEyebrow({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="section-eyebrow"
       className={cn(
         "mb-1 font-mono text-2xs tracking-[0.12em] text-foreground-faint uppercase",
-        className
+        className,
       )}
       {...props}
     />
@@ -32,7 +32,7 @@ function SectionTitle({ className, ...props }: React.ComponentProps<"div">) {
       className={cn(
         "flex items-center gap-2 text-xl leading-7 font-semibold tracking-[-0.02em] text-foreground",
         "[&_svg]:size-5 [&_svg]:shrink-0",
-        className
+        className,
       )}
       {...props}
     />
@@ -65,7 +65,7 @@ function SectionMeta({ className, ...props }: React.ComponentProps<"span">) {
       data-slot="section-meta"
       className={cn(
         "text-xs font-semibold text-foreground-muted tabular-nums",
-        className
+        className,
       )}
       {...props}
     />
@@ -73,10 +73,10 @@ function SectionMeta({ className, ...props }: React.ComponentProps<"span">) {
 }
 
 export {
-  SectionHead,
-  SectionEyebrow,
-  SectionTitle,
-  SectionSub,
   SectionActions,
+  SectionEyebrow,
+  SectionHead,
   SectionMeta,
+  SectionSub,
+  SectionTitle,
 }

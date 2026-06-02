@@ -6,6 +6,7 @@ import {
 } from "@workspace/contracts"
 
 const ProviderIdPattern = /^[a-z0-9-]+$/
+const HexColorPattern = /^#[0-9a-fA-F]{6}$/
 
 const OAuthProviderBaseSchema = z.object({
   providerId: z
@@ -18,6 +19,9 @@ const OAuthProviderBaseSchema = z.object({
   clientSecret: z.string(),
   scopes: z.array(z.string().min(1)).optional(),
   enabled: z.boolean().default(true),
+  buttonColor: z.string().regex(HexColorPattern).optional(),
+  buttonTextColor: z.string().regex(HexColorPattern).optional(),
+  iconUrl: z.string().url().optional(),
   discoveryUrl: z.string().url().optional(),
   authorizationUrl: z.string().url().optional(),
   tokenUrl: z.string().url().optional(),
@@ -37,7 +41,7 @@ const endpointsMessage =
 function validateOAuthProvider(
   provider: z.infer<typeof OAuthProviderBaseSchema>,
   ctx: z.RefinementCtx,
-  requireSecret: boolean
+  requireSecret: boolean,
 ): void {
   if (requireSecret && provider.clientSecret.length === 0) {
     ctx.addIssue({
@@ -64,13 +68,29 @@ function validateOAuthProvider(
 }
 
 export const OAuthProviderSchema = OAuthProviderBaseSchema.superRefine(
-  (provider, ctx) => validateOAuthProvider(provider, ctx, true)
+  (provider, ctx) => validateOAuthProvider(provider, ctx, true),
 )
 
-export const OAuthProviderSubmissionSchema =
-  OAuthProviderBaseSchema.superRefine((provider, ctx) =>
-    validateOAuthProvider(provider, ctx, false)
-  )
+export const OAuthProviderSubmissionSchema = OAuthProviderBaseSchema
+  .superRefine((provider, ctx) => validateOAuthProvider(provider, ctx, false))
+
+export const OAuthProvidersSchema = z
+  .array(OAuthProviderSchema)
+  .max(16)
+  .superRefine((providers, ctx) => {
+    const seen = new Set<string>()
+    for (const [index, provider] of providers.entries()) {
+      if (!seen.has(provider.providerId)) {
+        seen.add(provider.providerId)
+        continue
+      }
+      ctx.addIssue({
+        code: "custom",
+        path: [index, "providerId"],
+        message: "Provider ID must be unique.",
+      })
+    }
+  })
 
 export type OAuthProviderSubmission = z.infer<
   typeof OAuthProviderSubmissionSchema

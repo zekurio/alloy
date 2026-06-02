@@ -11,9 +11,9 @@ import { errorMessage, toError } from "./error"
 import { readJsonOrThrow } from "./http"
 
 export {
+  USER_DISPLAY_NAME_MAX_LENGTH,
   USERNAME_MAX_LENGTH,
   USERNAME_MIN_LENGTH,
-  USER_DISPLAY_NAME_MAX_LENGTH,
 } from "@workspace/contracts"
 
 type AuthError = { message: string }
@@ -79,7 +79,7 @@ type SessionStore = ReturnType<typeof createSessionStore>
 type RequestFn = <T>(
   path: string,
   init: RequestInit,
-  validate: JsonValidator<T>
+  validate: JsonValidator<T>,
 ) => Promise<T>
 
 export type { AuthError, AuthResult, RequestFn, SessionStore }
@@ -100,7 +100,7 @@ function createSessionStore(fetchSession: () => Promise<SessionData | null>) {
   }
 
   async function refetch(
-    _options?: unknown
+    _options?: unknown,
   ): Promise<{ data: SessionData | null }> {
     state = { ...state, isPending: true, error: null }
     emit()
@@ -145,7 +145,7 @@ function defaultAuthRedirect(url: string): void {
 
 export function createAuth(baseURL: string): ReturnType<typeof createAuthClient>
 export function createAuth(
-  options: CreateAuthOptions
+  options: CreateAuthOptions,
 ): ReturnType<typeof createAuthClient>
 export function createAuth(input: string | CreateAuthOptions) {
   return createAuthClient(input)
@@ -153,16 +153,15 @@ export function createAuth(input: string | CreateAuthOptions) {
 
 function createAuthClient(input: string | CreateAuthOptions) {
   const baseURL = typeof input === "string" ? input : input.baseURL
-  const redirect =
-    typeof input === "string"
-      ? defaultAuthRedirect
-      : (input.redirect ?? defaultAuthRedirect)
+  const redirect = typeof input === "string"
+    ? defaultAuthRedirect
+    : (input.redirect ?? defaultAuthRedirect)
   const client = createApiClient(baseURL)
 
   async function request<T>(
     path: string,
     init: RequestInit,
-    validate: JsonValidator<T>
+    validate: JsonValidator<T>,
   ): Promise<T> {
     const headers = new Headers(init.headers)
     if (init.body && !headers.has("Content-Type")) {
@@ -184,7 +183,7 @@ function createAuthClient(input: string | CreateAuthOptions) {
     const snapshot = React.useSyncExternalStore(
       store.subscribe,
       store.getSnapshot,
-      store.getSnapshot
+      store.getSnapshot,
     )
     return { ...snapshot, refetch: store.refetch }
   }
@@ -203,7 +202,7 @@ function createAuthClient(input: string | CreateAuthOptions) {
       const data = await request(
         AUTH_PATHS.signOut,
         { method: "POST" },
-        validateSuccessResponse
+        validateSuccessResponse,
       )
       store.set(null)
       return { data, error: null }

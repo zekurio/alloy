@@ -84,9 +84,9 @@ function MobileActionButton({
       aria-label={ariaLabel}
     >
       {icon}
-      {count != null ? (
-        <span className={countClassName}>{formatCount(count)}</span>
-      ) : null}
+      {count != null
+        ? <span className={countClassName}>{formatCount(count)}</span>
+        : null}
     </button>
   )
 }
@@ -178,7 +178,7 @@ export function MobileActionsRail({
           <HeartIcon
             className={cn(
               iconSizeClassName,
-              liked ? "fill-red-500 text-red-500" : "text-white"
+              liked ? "fill-red-500 text-red-500" : "text-white",
             )}
           />
         }
@@ -198,14 +198,16 @@ export function MobileActionsRail({
         ariaLabel="Share"
         icon={<Share2Icon className={cn(iconSizeClassName, "text-white")} />}
       />
-      {canManage ? (
-        <ClipActionsMenu
-          deleting={deleting}
-          iconClassName={cn(iconSizeClassName, "rotate-90")}
-          onEdit={onEdit}
-          onDelete={onDelete}
-        />
-      ) : null}
+      {canManage
+        ? (
+          <ClipActionsMenu
+            deleting={deleting}
+            iconClassName={cn(iconSizeClassName, "rotate-90")}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
+        )
+        : null}
     </>
   )
 }

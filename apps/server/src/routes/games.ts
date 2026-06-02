@@ -1,6 +1,6 @@
 import { zValidator } from "./validation"
-import { and, desc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm"
-import { Hono, type Context } from "hono"
+import { and, desc, eq, inArray, isNull, type SQL, sql } from "drizzle-orm"
+import { type Context, Hono } from "hono"
 
 import { user } from "@workspace/db/auth-schema"
 import { clip, game, gameFollow } from "@workspace/db/schema"
@@ -37,11 +37,11 @@ import {
   GamesListQuery,
   ResolveBody,
   SearchQuery,
-  SlugParam,
-  TopQuery,
   serialiseGame,
   serialiseGameListRow,
   sgdbErrorResponse,
+  SlugParam,
+  TopQuery,
 } from "./games-helpers"
 
 type GameImageAsset = {
@@ -52,7 +52,7 @@ type GameImageAsset = {
 async function proxyGameImageAsset(
   c: Context,
   slug: string,
-  asset: GameImageAsset
+  asset: GameImageAsset,
 ) {
   const [row] = await db
     .select({ url: game[asset.column] })
@@ -78,7 +78,6 @@ export const gamesRoute = new Hono()
   .get("/status", (c) => {
     return steamGridDBStatus(c, isConfigured())
   })
-
   .get(
     "/search",
     requireSession,
@@ -89,15 +88,14 @@ export const gamesRoute = new Hono()
         const results = await searchGames(q)
         const enriched = await enrichSearchResultsWithIcons(
           results,
-          results.length
+          results.length,
         )
         return c.json(enriched)
       } catch (err) {
         return errorResult(c, sgdbErrorResponse(err))
       }
-    }
+    },
   )
-
   .post(
     "/resolve",
     requireSession,
@@ -127,10 +125,9 @@ export const gamesRoute = new Hono()
       }
 
       const slug = await generateUniqueGameSlug(detail.name)
-      const releaseDate =
-        detail.release_date != null
-          ? new Date(detail.release_date * 1000)
-          : null
+      const releaseDate = detail.release_date != null
+        ? new Date(detail.release_date * 1000)
+        : null
 
       const [inserted] = await db
         .insert(game)
@@ -158,9 +155,8 @@ export const gamesRoute = new Hono()
         return internalServerError(c, "Failed to upsert game")
       }
       return c.json(serialiseGame(raced))
-    }
+    },
   )
-
   .get("/", zValidator("query", GamesListQuery), async (c) => {
     const { limit, offset } = c.req.valid("query")
     const rows = await db
@@ -182,8 +178,8 @@ export const gamesRoute = new Hono()
         and(
           eq(clip.gameId, game.id),
           eq(clip.status, "ready"),
-          inArray(clip.privacy, ["public", "unlisted"])
-        )
+          inArray(clip.privacy, ["public", "unlisted"]),
+        ),
       )
       .innerJoin(user, eq(clip.authorId, user.id))
       .where(isNull(user.disabledAt))
@@ -194,7 +190,6 @@ export const gamesRoute = new Hono()
 
     return c.json(rows.map(serialiseGameListRow))
   })
-
   .get("/:slug", zValidator("param", SlugParam), async (c) => {
     const { slug } = c.req.valid("param")
     const [row] = await db
@@ -213,8 +208,8 @@ export const gamesRoute = new Hono()
         .where(
           and(
             eq(gameFollow.userId, session.user.id),
-            eq(gameFollow.gameId, row.id)
-          )
+            eq(gameFollow.gameId, row.id),
+          ),
         )
         .limit(1)
       viewer = { isFollowing: followRow !== undefined }
@@ -228,17 +223,14 @@ export const gamesRoute = new Hono()
 
     return c.json({ ...serialiseGame(row), viewer, favouritesCount })
   })
-
   .get("/:slug/hero", zValidator("param", SlugParam), async (c) => {
     const { slug } = c.req.valid("param")
     return proxyGameImageAsset(c, slug, { column: "heroUrl", label: "hero" })
   })
-
   .get("/:slug/grid", zValidator("param", SlugParam), async (c) => {
     const { slug } = c.req.valid("param")
     return proxyGameImageAsset(c, slug, { column: "gridUrl", label: "grid" })
   })
-
   .post(
     "/:slug/follow",
     requireSession,
@@ -260,9 +252,8 @@ export const gamesRoute = new Hono()
         .onConflictDoNothing()
 
       return booleanFlag(c, "following", true)
-    }
+    },
   )
-
   .delete(
     "/:slug/follow",
     requireSession,
@@ -283,14 +274,13 @@ export const gamesRoute = new Hono()
         .where(
           and(
             eq(gameFollow.userId, viewerId),
-            eq(gameFollow.gameId, gameRow.id)
-          )
+            eq(gameFollow.gameId, gameRow.id),
+          ),
         )
 
       return booleanFlag(c, "following", false)
-    }
+    },
   )
-
   .get(
     "/:slug/clips",
     zValidator("param", SlugParam),
@@ -329,9 +319,8 @@ export const gamesRoute = new Hono()
         .limit(limit + 1)
 
       return c.json(clipListPage(rows, limit, sort))
-    }
+    },
   )
-
   .get(
     "/:slug/top-clips",
     zValidator("param", SlugParam),
@@ -365,12 +354,12 @@ export const gamesRoute = new Hono()
             eq(clip.gameId, gameRow.id),
             eq(clip.status, "ready"),
             inArray(clip.privacy, ["public", "unlisted"]),
-            isNull(user.disabledAt)
-          )
+            isNull(user.disabledAt),
+          ),
         )
         .orderBy(desc(score))
         .limit(limit)
 
       return c.json(rows.map(toPublicClipRow))
-    }
+    },
   )

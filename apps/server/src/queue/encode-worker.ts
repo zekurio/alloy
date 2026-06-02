@@ -1,4 +1,4 @@
-import { and, eq, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm"
+import { and, eq, isNull, lt, ne, or, type SQL, sql } from "drizzle-orm"
 
 import { clip, clipUploadTicket } from "@workspace/db/schema"
 import { logger } from "@workspace/logging"
@@ -130,10 +130,10 @@ async function nextClipId(): Promise<string | null> {
           isNull(clip.failureReason),
           lt(
             clip.updatedAt,
-            sql`now() - interval '${sql.raw(RETRY_DELAY_INTERVAL)}'`
-          )
-        )
-      )
+            sql`now() - interval '${sql.raw(RETRY_DELAY_INTERVAL)}'`,
+          ),
+        ),
+      ),
     )
     .orderBy(clip.updatedAt)
     .limit(configStore.get("limits").queueConcurrency + inFlightClipIds.size)
@@ -185,7 +185,7 @@ async function runEncode(clipId: string): Promise<void> {
         await releaseEncodeLease(
           clipId,
           runId,
-          "Encode interrupted by shutdown"
+          "Encode interrupted by shutdown",
         )
       }
     } else {
@@ -207,7 +207,7 @@ async function runEncode(clipId: string): Promise<void> {
 function startEncodeLeaseHeartbeat(
   clipId: string,
   runId: string,
-  abort: AbortController
+  abort: AbortController,
 ): () => void {
   let pending = false
   const beat = () => {
@@ -223,7 +223,7 @@ function startEncodeLeaseHeartbeat(
       .catch((err: unknown) => {
         logger.error(
           `[queue] encode lease heartbeat failed for ${clipId}:`,
-          err
+          err,
         )
       })
       .finally(() => {
@@ -239,19 +239,19 @@ function encodeLeaseConditions(): [SQL, SQL] {
     requiredSql(
       or(
         eq(clip.status, "processing"),
-        and(eq(clip.status, "ready"), lt(clip.encodeProgress, 100))
+        and(eq(clip.status, "ready"), lt(clip.encodeProgress, 100)),
       ),
-      "encode lease status"
+      "encode lease status",
     ),
     requiredSql(
       or(
         isNull(clip.encodeLockedAt),
         lt(
           clip.encodeLockedAt,
-          sql`now() - interval '${sql.raw(ENCODE_LEASE_STALE_INTERVAL)}'`
-        )
+          sql`now() - interval '${sql.raw(ENCODE_LEASE_STALE_INTERVAL)}'`,
+        ),
       ),
-      "encode lease freshness"
+      "encode lease freshness",
     ),
   ]
 }
@@ -259,7 +259,7 @@ function encodeLeaseConditions(): [SQL, SQL] {
 async function releaseEncodeLease(
   clipId: string,
   runId: string,
-  reason: string
+  reason: string,
 ): Promise<void> {
   await db
     .update(clip)
@@ -273,14 +273,14 @@ async function releaseEncodeLease(
       and(
         eq(clip.id, clipId),
         eq(clip.encodeRunId, runId),
-        ne(clip.status, "ready")
-      )
+        ne(clip.status, "ready"),
+      ),
     )
 }
 
 async function markFailedUnlessReady(
   clipId: string,
-  reason: string
+  reason: string,
 ): Promise<void> {
   try {
     const [owner] = await db
@@ -328,14 +328,14 @@ async function cleanupTerminalScratchUploads(clipId: string): Promise<void> {
     .where(eq(clipUploadTicket.clipId, clipId))
   await deleteScratchUploads(
     tickets.map((ticket) => ticket.storageKey),
-    `terminal clip ${clipId} upload`
+    `terminal clip ${clipId} upload`,
   )
   await db.delete(clipUploadTicket).where(eq(clipUploadTicket.clipId, clipId))
 }
 
 async function recordFailureReason(
   clipId: string,
-  reason: string
+  reason: string,
 ): Promise<void> {
   try {
     await db

@@ -14,7 +14,7 @@ export type VideoKeyCommand = {
 
 export function shouldHandleVideoShortcut(
   target: EventTarget,
-  currentTarget: HTMLDivElement
+  currentTarget: HTMLDivElement,
 ): boolean {
   if (target === currentTarget) return true
   if (!(target instanceof HTMLElement)) return false
@@ -37,7 +37,7 @@ export function shouldHandleVideoShortcut(
 
 export function shouldHandleGlobalVideoShortcut(
   target: EventTarget | null,
-  playerRoot: HTMLElement | null
+  playerRoot: HTMLElement | null,
 ) {
   if (!(target instanceof HTMLElement)) return true
   if (target.closest("[data-video-shortcut-scope='ignore']")) return false
@@ -55,7 +55,7 @@ export function shouldHandleGlobalVideoShortcut(
 
   const isPlayerControl = Boolean(
     playerRoot?.contains(target) ||
-    target.closest("[data-video-player-control]")
+      target.closest("[data-video-player-control]"),
   )
 
   if (tag === "BUTTON" && !isPlayerControl) return false
@@ -68,7 +68,7 @@ export function shouldHandleGlobalVideoShortcut(
 export function handleVideoKeyCommand(
   e: KeyboardEvent,
   command: VideoKeyCommand,
-  options: { enableHorizontalSeek?: boolean } = {}
+  options: { enableHorizontalSeek?: boolean } = {},
 ): boolean {
   if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return false
   const key = e.key.toLowerCase()

@@ -4,8 +4,8 @@
     ".": "./src/index.ts"
   },
   "tasks": {
-    "lint": "deno run -A npm:oxlint@^1.61.0 src",
-    "fmt": "deno run -A npm:oxfmt@^0.46.0 --write src deno.json tsconfig.json",
+    "lint": "deno lint src",
+    "fmt": "deno fmt src deno.json tsconfig.json",
     "format": "deno task fmt",
     "typecheck": "deno check src"
   }

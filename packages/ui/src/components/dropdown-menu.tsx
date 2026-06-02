@@ -25,11 +25,13 @@ function DropdownMenuContent({
   portalContainer,
   className,
   ...props
-}: MenuPrimitive.Popup.Props &
-  Pick<
+}:
+  & MenuPrimitive.Popup.Props
+  & Pick<
     MenuPrimitive.Positioner.Props,
     "align" | "alignOffset" | "side" | "sideOffset" | "anchor"
-  > & {
+  >
+  & {
     portalContainer?: MenuPrimitive.Portal.Props["container"]
   }) {
   return (
@@ -53,7 +55,7 @@ function DropdownMenuContent({
             "data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2",
             "data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95",
             "data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-            className
+            className,
           )}
           {...props}
         />
@@ -80,7 +82,7 @@ function DropdownMenuLabel({
       className={cn(
         "px-2.5 py-1 font-mono text-2xs tracking-[0.1em] text-foreground-faint uppercase",
         "data-inset:pl-6",
-        className
+        className,
       )}
       {...props}
     />
@@ -113,7 +115,7 @@ function DropdownMenuItem({
         "data-[variant=destructive]:data-highlighted:bg-[oklch(0.65_0.24_25/0.14)] data-[variant=destructive]:data-highlighted:text-danger",
         "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-foreground-dim",
         "data-[variant=destructive]:[&_svg]:text-danger",
-        className
+        className,
       )}
       {...props}
     />
@@ -142,7 +144,7 @@ function DropdownMenuSubTrigger({
         "data-popup-open:bg-neutral-150 data-popup-open:text-foreground data-open:bg-neutral-150 data-open:text-foreground",
         "data-inset:pl-6",
         "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
-        className
+        className,
       )}
       {...props}
     >
@@ -194,7 +196,7 @@ function DropdownMenuCheckboxItem({
         "data-inset:pl-6",
         "data-disabled:pointer-events-none data-disabled:opacity-50",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className
+        className,
       )}
       checked={checked}
       {...props}
@@ -239,7 +241,7 @@ function DropdownMenuRadioItem({
         "data-inset:pl-6",
         "data-disabled:pointer-events-none data-disabled:opacity-50",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className
+        className,
       )}
       {...props}
     >
@@ -279,7 +281,7 @@ function DropdownMenuShortcut({
       className={cn(
         "ml-auto font-mono text-2xs tracking-[0.06em] text-foreground-faint uppercase",
         "group-focus/dropdown-menu-item:text-foreground-muted",
-        className
+        className,
       )}
       {...props}
     />
@@ -288,18 +290,18 @@ function DropdownMenuShortcut({
 
 export {
   DropdownMenu,
-  DropdownMenuPortal,
-  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
-  DropdownMenuLabel,
   DropdownMenuItem,
-  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuPortal,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuSub,
-  DropdownMenuSubTrigger,
   DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
 }

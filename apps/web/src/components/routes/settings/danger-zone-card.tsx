@@ -220,52 +220,52 @@ function DisableAccountRow({
   return (
     <AccountActionRow
       title={disabledAt ? "Reactivate account" : "Disable account"}
-      description={
-        disabledAt
-          ? "Make your profile and clips visible again."
-          : "Hide your profile and clips until you reactivate your account."
-      }
+      description={disabledAt
+        ? "Make your profile and clips visible again."
+        : "Hide your profile and clips until you reactivate your account."}
     >
-      {disabledAt ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onReactivate}
-          disabled={pending}
-        >
-          <RotateCcwIcon />
-          {pendingAction === "reactivate" ? "Reactivating..." : "Reactivate"}
-        </Button>
-      ) : (
-        <AlertDialog>
-          <AlertDialogTrigger
-            render={
-              <Button type="button" variant="outline" size="sm">
-                <EyeOffIcon />
-                Disable
-              </Button>
-            }
-          />
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Disable your account?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Your profile and clips will be hidden until you sign back in and
-                reactivate.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={onDisable} disabled={pending}>
-                {pendingAction === "disable"
-                  ? "Disabling..."
-                  : "Disable account"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
+      {disabledAt
+        ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onReactivate}
+            disabled={pending}
+          >
+            <RotateCcwIcon />
+            {pendingAction === "reactivate" ? "Reactivating..." : "Reactivate"}
+          </Button>
+        )
+        : (
+          <AlertDialog>
+            <AlertDialogTrigger
+              render={
+                <Button type="button" variant="outline" size="sm">
+                  <EyeOffIcon />
+                  Disable
+                </Button>
+              }
+            />
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Disable your account?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Your profile and clips will be hidden until you sign back in
+                  and reactivate.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={onDisable} disabled={pending}>
+                  {pendingAction === "disable"
+                    ? "Disabling..."
+                    : "Disable account"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
     </AccountActionRow>
   )
 }
@@ -287,7 +287,7 @@ function DeleteAccountRow({
       <AlertDialog>
         <AlertDialogTrigger
           render={
-            <Button type="button" variant="destructive" size="sm">
+            <Button type="button" variant="danger" size="sm">
               <Trash2Icon />
               Delete account
             </Button>

@@ -26,7 +26,7 @@ function normalizeTrustedOrigins(value: string): string[] {
       .split(",")
       .map((origin) => origin.trim())
       .filter(Boolean)
-      .map(normalizeOrigin)
+      .map(normalizeOrigin),
   )
   origins.add(normalizeOrigin(defaultPublicServerUrl))
   return [...origins]
@@ -52,8 +52,8 @@ function isLoopbackIpv4(hostname: string): boolean {
   })
 }
 
-const defaultPublicServerUrl =
-  Deno.env.get("PUBLIC_SERVER_URL") ?? "http://localhost:2552"
+const defaultPublicServerUrl = Deno.env.get("PUBLIC_SERVER_URL") ??
+  "http://localhost:2552"
 
 const EnvSchema = z.object({
   NODE_ENV: z
@@ -89,7 +89,7 @@ if (!parsed.success) {
   const fieldErrors = parsed.error.flatten().fieldErrors
   logger.error(
     "[server/env] Invalid environment variables:\n" +
-      JSON.stringify(fieldErrors, null, 2)
+      JSON.stringify(fieldErrors, null, 2),
   )
   Deno.exit(1)
   throw new Error("Invalid environment variables")
@@ -100,7 +100,7 @@ if (
   isLoopbackHostname(new URL(parsed.data.PUBLIC_SERVER_URL).hostname)
 ) {
   logger.error(
-    "[server/env] PUBLIC_SERVER_URL must be the externally reachable origin in production."
+    "[server/env] PUBLIC_SERVER_URL must be the externally reachable origin in production.",
   )
   Deno.exit(1)
   throw new Error("Invalid production PUBLIC_SERVER_URL")

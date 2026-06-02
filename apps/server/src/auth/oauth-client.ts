@@ -1,13 +1,13 @@
 import {
+  allowInsecureRequests,
   AuthorizationResponseError,
   ClientSecretPost,
   Configuration,
-  ResponseBodyError,
-  allowInsecureRequests,
   discovery,
   fetchUserInfo,
+  ResponseBodyError,
   type ServerMetadata,
-  type UserInfoResponse,
+  skipSubjectCheck,
 } from "openid-client"
 import { logger } from "@workspace/logging"
 
@@ -19,17 +19,17 @@ import { getEnabledProviderConfig } from "./oauth-config"
 const oauthClientCache = new Map<string, Promise<Configuration>>()
 
 export function requireEnabledProvider(
-  providerId: string
+  providerId: string,
 ): OAuthProviderConfig {
-  const provider = getEnabledProviderConfig()
-  if (!provider || provider.providerId !== providerId) {
+  const provider = getEnabledProviderConfig(providerId)
+  if (!provider) {
     throw new Error("OAuth provider is not enabled.")
   }
   return provider
 }
 
 export async function oauthClient(
-  provider: OAuthProviderConfig
+  provider: OAuthProviderConfig,
 ): Promise<Configuration> {
   const key = oauthClientCacheKey(provider)
   const cached = oauthClientCache.get(key)
@@ -44,7 +44,7 @@ export async function oauthClient(
 }
 
 async function createOAuthClient(
-  provider: OAuthProviderConfig
+  provider: OAuthProviderConfig,
 ): Promise<Configuration> {
   const metadata = {
     client_secret: provider.clientSecret,
@@ -55,7 +55,7 @@ async function createOAuthClient(
       provider.clientId,
       metadata,
       ClientSecretPost(provider.clientSecret),
-      insecureOptions(provider.discoveryUrl)
+      insecureOptions(provider.discoveryUrl),
     )
   }
 
@@ -77,7 +77,7 @@ async function createOAuthClient(
     server,
     provider.clientId,
     metadata,
-    ClientSecretPost(provider.clientSecret)
+    ClientSecretPost(provider.clientSecret),
   )
   if (usesInsecureEndpoint(provider)) allowInsecureRequests(config)
   return config
@@ -86,18 +86,51 @@ async function createOAuthClient(
 export async function fetchLinkedUserInfo(
   provider: OAuthProviderConfig,
   accessToken: string,
-  providerAccountId: string
-): Promise<UserInfoResponse | null> {
+  providerAccountId: string,
+): Promise<Record<string, unknown> | null> {
   try {
     const config = await oauthClient(provider)
-    return await fetchUserInfo(config, accessToken, providerAccountId)
+    return await fetchOAuthUserInfo(
+      config,
+      provider,
+      accessToken,
+      providerAccountId,
+    )
   } catch (cause) {
     logger.warn(
       "[oauth] could not sync linked profile:",
-      errorDetail(cause, "Unknown error")
+      errorDetail(cause, "Unknown error"),
     )
     return null
   }
+}
+
+export async function fetchOAuthUserInfo(
+  config: Configuration,
+  provider: OAuthProviderConfig,
+  accessToken: string,
+  expectedSubject: string | typeof skipSubjectCheck,
+): Promise<Record<string, unknown>> {
+  if (providerUsesOpenId(provider)) {
+    return await fetchUserInfo(config, accessToken, expectedSubject)
+  }
+
+  if (!provider.userInfoUrl) return {}
+
+  const res = await fetch(provider.userInfoUrl, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  })
+  if (!res.ok) {
+    throw new Error(
+      `OAuth provider user info request failed with HTTP ${res.status}.`,
+    )
+  }
+  const body = await res.json()
+  return body && typeof body === "object" && !Array.isArray(body)
+    ? body as Record<string, unknown>
+    : {}
 }
 
 function oauthClientCacheKey(provider: OAuthProviderConfig): string {
@@ -132,6 +165,10 @@ export function scopesForProvider(provider: OAuthProviderConfig): string {
   return scopes && scopes.length > 0 ? scopes.join(" ") : "openid profile email"
 }
 
+function providerUsesOpenId(provider: OAuthProviderConfig): boolean {
+  return scopesForProvider(provider).split(/\s+/).includes("openid")
+}
+
 export function callbackURLForProvider(providerId: string): string {
   return `${env.PUBLIC_SERVER_URL}/api/auth/oauth2/callback/${providerId}`
 }
@@ -155,13 +192,13 @@ export function normalizeCallbackURL(value: string | null | undefined): string {
 export function fallbackOAuthErrorRedirect(cause: unknown): string {
   return callbackURLWithOAuthError(
     new URL("/login", env.PUBLIC_SERVER_URL).toString(),
-    cause
+    cause,
   )
 }
 
 export function callbackURLWithOAuthError(
   callbackURL: string,
-  cause: unknown
+  cause: unknown,
 ): string {
   const url = new URL(callbackURL)
   url.searchParams.set("oauth_error", oauthErrorMessage(cause))
@@ -174,7 +211,7 @@ function oauthErrorMessage(cause: unknown): string {
       "OAuth provider rejected the request",
       cause.error,
       cause.error_description,
-      cause.status
+      cause.status,
     )
   }
 
@@ -182,7 +219,7 @@ function oauthErrorMessage(cause: unknown): string {
     return providerErrorMessage(
       "OAuth provider rejected the sign-in",
       cause.error,
-      cause.error_description
+      cause.error_description,
     )
   }
 
@@ -193,7 +230,7 @@ function providerErrorMessage(
   prefix: string,
   error: string,
   description?: string,
-  status?: number
+  status?: number,
 ): string {
   const detail = description ? `${error}: ${description}` : error
   return status ? `${prefix} (${status}): ${detail}` : `${prefix}: ${detail}`

@@ -21,7 +21,7 @@ interface ClipListContextValue {
 
 function buildList(
   listKey: string,
-  entries: readonly ClipListEntry[]
+  entries: readonly ClipListEntry[],
 ): ClipListContextValue {
   // Snapshot so later mutations of the caller's array don't corrupt our
   // neighbour lookups.
@@ -59,7 +59,7 @@ export function ClipListProvider({
 }) {
   const value = React.useMemo(
     () => buildList(listKey, entries),
-    [entries, listKey]
+    [entries, listKey],
   )
   return (
     <ClipListContext.Provider value={value}>
@@ -104,6 +104,6 @@ export function useActiveClipList(): ClipListContextValue | null {
     },
     () => activeList,
     // SSR — no active list before hydration.
-    () => null
+    () => null,
   )
 }

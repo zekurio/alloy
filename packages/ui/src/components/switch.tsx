@@ -24,7 +24,7 @@ function Switch({
         "data-disabled:cursor-not-allowed data-disabled:opacity-50",
         "data-[size=default]:h-5 data-[size=default]:w-9",
         "data-[size=sm]:h-4 data-[size=sm]:w-7",
-        className
+        className,
       )}
       {...props}
     >
@@ -37,7 +37,7 @@ function Switch({
           "ml-[2px]",
           "group-data-[size=default]/switch:group-data-checked/switch:translate-x-4",
           "group-data-[size=sm]/switch:group-data-checked/switch:translate-x-3",
-          "group-data-checked/switch:bg-accent-foreground"
+          "group-data-checked/switch:bg-accent-foreground",
         )}
       />
     </SwitchPrimitive.Root>

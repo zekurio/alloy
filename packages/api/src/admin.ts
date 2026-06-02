@@ -7,10 +7,10 @@ import type {
   AdminMachineLearningConfig,
   AdminOAuthProvider,
   AdminRuntimeConfig,
-  AdminUpdateUserInput,
   AdminStorageConfigPatch,
-  AdminUserStorageRow,
+  AdminUpdateUserInput,
   AdminUsersResponse,
+  AdminUserStorageRow,
   RuntimeConfig,
 } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
@@ -34,8 +34,8 @@ export {
   ENCODER_HWACCELS,
   INTEGRATIONS_REDACTED,
   LOGIN_SPLASH_IMAGE_PATH,
-  loginSplashImagePath,
   LOGIN_SPLASH_LAYOUT_VERSION,
+  loginSplashImagePath,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
   STORAGE_DRIVERS,
@@ -45,18 +45,18 @@ export type {
   AdminEncoderCapabilities,
   AdminEncoderConfig,
   AdminEncoderVariant,
+  AdminFsStorageConfig,
+  AdminFsStorageConfigPatch,
   AdminGameClassifierModelConfig,
   AdminIntegrationsConfig,
   AdminLimitsConfig,
   AdminMachineLearningConfig,
   AdminOAuthProvider,
   AdminRuntimeConfig,
-  AdminStorageConfig,
-  AdminStorageConfigPatch,
-  AdminFsStorageConfig,
-  AdminFsStorageConfigPatch,
   AdminS3StorageConfig,
   AdminS3StorageConfigPatch,
+  AdminStorageConfig,
+  AdminStorageConfigPatch,
   AdminUpdateUserInput,
   AdminUsersResponse,
   AdminUserStorageRow,
@@ -69,7 +69,7 @@ export type {
 
 export function loginSplashImageUrl(
   origin: string | undefined,
-  generatedAt: string | null
+  generatedAt: string | null,
 ): string {
   return resolvePublicUrl(loginSplashImagePath(generatedAt), origin)
 }
@@ -95,7 +95,7 @@ type AdminCreateUserInput = {
 }
 
 async function fetchRuntimeConfig(
-  context: ApiContext
+  context: ApiContext,
 ): Promise<AdminRuntimeConfig> {
   const res = await context.rpc.api.admin["runtime-config"].$get()
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
@@ -103,7 +103,7 @@ async function fetchRuntimeConfig(
 
 async function updateRuntimeConfig(
   context: ApiContext,
-  input: RuntimeConfigPatch
+  input: RuntimeConfigPatch,
 ): Promise<AdminRuntimeConfig> {
   const res = await context.rpc.api.admin["runtime-config"].$patch({
     json: input,
@@ -112,14 +112,14 @@ async function updateRuntimeConfig(
 }
 
 async function reloadRuntimeConfig(
-  context: ApiContext
+  context: ApiContext,
 ): Promise<AdminRuntimeConfig> {
   const res = await context.rpc.api.admin["runtime-config"].reload.$post()
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
 async function exportRuntimeConfig(
-  context: ApiContext
+  context: ApiContext,
 ): Promise<RuntimeConfig> {
   const res = await context.rpc.api.admin["runtime-config"].export.$get()
   return readJsonOrThrow(res, validateRuntimeConfigExport)
@@ -127,7 +127,7 @@ async function exportRuntimeConfig(
 
 async function importRuntimeConfig(
   context: ApiContext,
-  config: unknown
+  config: unknown,
 ): Promise<AdminRuntimeConfig> {
   const res = await context.rpc.api.admin["runtime-config"].import.$put({
     json: config,
@@ -137,11 +137,11 @@ async function importRuntimeConfig(
 
 async function saveOAuthConfig(
   context: ApiContext,
-  input: { oauthProvider: AdminOAuthProvider | null }
+  input: { oauthProviders: AdminOAuthProvider[] },
 ): Promise<AdminRuntimeConfig> {
   const res = await context.rpc.api.admin["oauth-config"].$put({
     json: {
-      oauthProvider: input.oauthProvider ? { ...input.oauthProvider } : null,
+      oauthProviders: input.oauthProviders.map((provider) => ({ ...provider })),
     },
   })
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
@@ -158,31 +158,31 @@ type RuntimeConfigSection =
 async function patchRuntimeSection<T>(
   context: ApiContext,
   section: RuntimeConfigSection,
-  patch: Partial<T>
+  patch: Partial<T>,
 ): Promise<AdminRuntimeConfig> {
   const res = await context.rpc.api.admin[section].$patch({ json: patch })
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
 async function fetchEncoderCapabilities(
-  context: ApiContext
+  context: ApiContext,
 ): Promise<AdminEncoderCapabilities> {
   const res = await context.rpc.api.admin.encoder.capabilities.$get()
   return readJsonOrThrow(res, validateAdminEncoderCapabilities)
 }
 
 async function reEncodeAllClips(
-  context: ApiContext
+  context: ApiContext,
 ): Promise<{ enqueued: number; hasMore: boolean }> {
   const res = await context.rpc.api.admin.clips["re-encode"].$post()
   return readJsonOrThrow(res, validateAdminReEncodeResponse)
 }
 
 async function regenerateLoginSplash(
-  context: ApiContext
+  context: ApiContext,
 ): Promise<AdminRuntimeConfig> {
-  const res =
-    await context.rpc.api.admin.appearance["login-splash"].regenerate.$post()
+  const res = await context.rpc.api.admin.appearance["login-splash"].regenerate
+    .$post()
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
@@ -193,7 +193,7 @@ async function fetchUsers(context: ApiContext): Promise<AdminUsersResponse> {
 
 async function createUser(
   context: ApiContext,
-  input: AdminCreateUserInput
+  input: AdminCreateUserInput,
 ): Promise<AdminUserStorageRow> {
   const res = await context.rpc.api.admin.users.$post({ json: input })
   return readJsonOrThrow(res, validateAdminUserStorageRow)
@@ -202,7 +202,7 @@ async function createUser(
 async function updateUser(
   context: ApiContext,
   userId: string,
-  input: AdminUpdateUserInput
+  input: AdminUpdateUserInput,
 ): Promise<AdminUserStorageRow> {
   const res = await context.rpc.api.admin.users[":id"].$patch({
     param: { id: userId },
@@ -227,7 +227,7 @@ export function createAdminApi(context: ApiContext) {
     exportRuntimeConfig: () => exportRuntimeConfig(context),
     importRuntimeConfig: (config: unknown) =>
       importRuntimeConfig(context, config),
-    saveOAuthConfig: (input: { oauthProvider: AdminOAuthProvider | null }) =>
+    saveOAuthConfig: (input: { oauthProviders: AdminOAuthProvider[] }) =>
       saveOAuthConfig(context, input),
     updateEncoderConfig: (patch: Partial<AdminEncoderConfig>) =>
       patchRuntimeSection(context, "encoder", patch),

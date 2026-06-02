@@ -73,7 +73,7 @@ export function serialiseGame(row: GameRowFields): GameRow {
 }
 
 export function serialiseGameListRow(
-  row: GameRowFields & { clipCount: number }
+  row: GameRowFields & { clipCount: number },
 ): GameListRow {
   return {
     ...serialiseGame(row),
@@ -82,7 +82,7 @@ export function serialiseGameListRow(
 }
 
 export function serialiseProfileGameRow(
-  row: GameRowFields & { clipCount: number; lastClippedAt: Date | string }
+  row: GameRowFields & { clipCount: number; lastClippedAt: Date | string },
 ): ProfileGameRow {
   return {
     ...serialiseGameListRow(row),
@@ -91,7 +91,7 @@ export function serialiseProfileGameRow(
 }
 
 export function sgdbErrorResponse(
-  err: unknown
+  err: unknown,
 ):
   | { status: 503; error: string }
   | { status: 502; error: string }
@@ -100,13 +100,12 @@ export function sgdbErrorResponse(
     return { status: 503, error: err.message }
   }
   if (err instanceof SteamGridDBError) {
-    const status =
-      err.status === null ||
-      err.status >= 500 ||
-      err.status === 401 ||
-      err.status === 403
-        ? 503
-        : 502
+    const status = err.status === null ||
+        err.status >= 500 ||
+        err.status === 401 ||
+        err.status === 403
+      ? 503
+      : 502
     return { status, error: err.message }
   }
   return {

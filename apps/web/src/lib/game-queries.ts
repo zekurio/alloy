@@ -51,7 +51,7 @@ export function useSteamGridDBStatusQuery(): UseQueryResult<SteamGridDBStatus> {
 
 export function useSearchGamesQuery(
   query: string,
-  { enabled = true }: { enabled?: boolean } = {}
+  { enabled = true }: { enabled?: boolean } = {},
 ): UseQueryResult<SteamGridDBSearchResult[]> {
   const trimmed = query.trim()
   return useQuery({
@@ -83,7 +83,7 @@ export function useResolveGameMutation() {
  */
 export function useGamePreviewByNameQuery(
   name: string | undefined,
-  { enabled = true }: { enabled?: boolean } = {}
+  { enabled = true }: { enabled?: boolean } = {},
 ): UseQueryResult<SteamGridDBSearchResult | null> {
   const trimmed = name?.trim() ?? ""
   return useQuery({
@@ -120,7 +120,7 @@ export function useGameQuery(slug: string): UseQueryResult<GameDetail> {
 
 export function useGameClipsQuery(
   slug: string,
-  params: GameClipsParams = {}
+  params: GameClipsParams = {},
 ): UseQueryResult<ClipRow[]> {
   return useQuery({
     queryKey: gameKeys.clips(slug, params),
@@ -131,7 +131,7 @@ export function useGameClipsQuery(
 
 export function useGameTopClipsQuery(
   slug: string,
-  { limit = 5 }: { limit?: number } = {}
+  { limit = 5 }: { limit?: number } = {},
 ): UseQueryResult<ClipRow[]> {
   return useQuery({
     queryKey: gameKeys.topClips(slug, limit),

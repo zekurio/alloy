@@ -27,16 +27,18 @@ const USER_STATUS_SET: ReadonlySet<string> = new Set(USER_STATUSES)
 
 export function validateAuthUser(value: unknown): AuthUser {
   const user = objectRecord(value, "auth user")
-  for (const key of [
-    "id",
-    "email",
-    "username",
-    "createdAt",
-    "updatedAt",
-  ] as const) {
+  for (
+    const key of [
+      "id",
+      "email",
+      "username",
+      "createdAt",
+      "updatedAt",
+    ] as const
+  ) {
     validateRequiredString(
       user[key],
-      `Invalid auth user response: ${key} is required`
+      `Invalid auth user response: ${key} is required`,
     )
   }
   for (const key of ["displayUsername", "name"] as const) {
@@ -44,41 +46,41 @@ export function validateAuthUser(value: unknown): AuthUser {
   }
   validateBoolean(
     user.emailVerified,
-    "Invalid auth user response: emailVerified must be boolean"
+    "Invalid auth user response: emailVerified must be boolean",
   )
   validateNullableString(
     user.image,
-    "Invalid auth user response: image must be string or null"
+    "Invalid auth user response: image must be string or null",
   )
   validateNullableString(
     user.banner,
-    "Invalid auth user response: banner must be string or null"
+    "Invalid auth user response: banner must be string or null",
   )
   validateEnumString(
     user.role,
     USER_ROLE_SET,
-    "Invalid auth user response: role is invalid"
+    "Invalid auth user response: role is invalid",
   )
   validateEnumString(
     user.status,
     USER_STATUS_SET,
-    "Invalid auth user response: status is invalid"
+    "Invalid auth user response: status is invalid",
   )
   validateNullableDateString(
     user.disabledAt,
-    "Invalid auth user response: disabledAt must be a date string or null"
+    "Invalid auth user response: disabledAt must be a date string or null",
   )
   validateNullablePositiveInteger(
     user.storageQuotaBytes,
-    "Invalid auth user response: storageQuotaBytes must be a positive integer or null"
+    "Invalid auth user response: storageQuotaBytes must be a positive integer or null",
   )
   validateIsoDateString(
     user.createdAt,
-    "Invalid auth user response: createdAt must be a date string"
+    "Invalid auth user response: createdAt must be a date string",
   )
   validateIsoDateString(
     user.updatedAt,
-    "Invalid auth user response: updatedAt must be a date string"
+    "Invalid auth user response: updatedAt must be a date string",
   )
   return value as AuthUser
 }
@@ -88,24 +90,24 @@ function validateSessionRow(value: unknown): SessionData["session"] {
   for (const key of ["id", "userId", "createdAt", "updatedAt"] as const) {
     validateRequiredString(
       session[key],
-      `Invalid auth session response: ${key} is required`
+      `Invalid auth session response: ${key} is required`,
     )
   }
   validateNullableDateString(
     session.expiresAt,
-    "Invalid auth session response: expiresAt must be a date string or null"
+    "Invalid auth session response: expiresAt must be a date string or null",
   )
   validateNullableDateString(
     session.lastSeenAt,
-    "Invalid auth session response: lastSeenAt must be a date string or null"
+    "Invalid auth session response: lastSeenAt must be a date string or null",
   )
   validateIsoDateString(
     session.createdAt,
-    "Invalid auth session response: createdAt must be a date string"
+    "Invalid auth session response: createdAt must be a date string",
   )
   validateIsoDateString(
     session.updatedAt,
-    "Invalid auth session response: updatedAt must be a date string"
+    "Invalid auth session response: updatedAt must be a date string",
   )
   return value as SessionData["session"]
 }
@@ -126,7 +128,7 @@ function validatePasskeyChallenge(value: unknown) {
   const response = objectRecord(value, "passkey challenge")
   validateRequiredString(
     response.challengeId,
-    "Invalid passkey challenge response: challengeId is required"
+    "Invalid passkey challenge response: challengeId is required",
   )
   objectRecord(response.options, "passkey challenge options")
   return response
@@ -159,15 +161,15 @@ export function validatePasskey(value: unknown): Passkey {
   validateRequiredString(passkey.id, "Invalid passkey response: id is required")
   validateNullableString(
     passkey.name,
-    "Invalid passkey response: name must be string or null"
+    "Invalid passkey response: name must be string or null",
   )
   validateIsoDateString(
     passkey.createdAt,
-    "Invalid passkey response: createdAt must be a date string"
+    "Invalid passkey response: createdAt must be a date string",
   )
   validateRequiredString(
     passkey.deviceType,
-    "Invalid passkey response: deviceType is required"
+    "Invalid passkey response: deviceType is required",
   )
   return value as Passkey
 }
@@ -181,23 +183,23 @@ export function validateLinkedAccount(value: unknown): LinkedAccount {
   for (const key of ["id", "providerId", "accountId"] as const) {
     validateRequiredString(
       account[key],
-      `Invalid linked account response: ${key} is required`
+      `Invalid linked account response: ${key} is required`,
     )
   }
   validateNullableString(
     account.email,
-    "Invalid linked account response: email must be string or null"
+    "Invalid linked account response: email must be string or null",
   )
   validateIsoDateString(
     account.createdAt,
-    "Invalid linked account response: createdAt must be a date string"
+    "Invalid linked account response: createdAt must be a date string",
   )
   return value as LinkedAccount
 }
 
 export function validateLinkedAccounts(value: unknown): LinkedAccount[] {
   return validateArray(value, "Invalid linked accounts response").map(
-    validateLinkedAccount
+    validateLinkedAccount,
   )
 }
 
@@ -205,7 +207,7 @@ export function validateOAuthStartResponse(value: unknown): { url: string } {
   const response = objectRecord(value, "OAuth start")
   validateUrlString(
     response.url,
-    "Invalid OAuth start response: url must be a URL"
+    "Invalid OAuth start response: url must be a URL",
   )
   return value as { url: string }
 }

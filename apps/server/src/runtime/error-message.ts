@@ -16,7 +16,7 @@ export function errorDetail(cause: unknown, fallback: string): string {
 export function prefixedErrorMessage(
   cause: unknown,
   prefix: string,
-  fallback: string
+  fallback: string,
 ): string {
   if (!(cause instanceof Error)) return fallback
 

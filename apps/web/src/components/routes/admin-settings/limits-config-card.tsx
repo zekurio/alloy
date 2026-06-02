@@ -50,7 +50,7 @@ function LimitsFields({
   storageQuotaGiB: string
   onFieldChange: <K extends keyof AdminLimitsConfig>(
     key: K,
-    value: AdminLimitsConfig[K]
+    value: AdminLimitsConfig[K],
   ) => void
   onMaxUploadChange: (value: string) => void
   onStorageQuotaChange: (value: string) => void
@@ -96,9 +96,8 @@ function LimitsFields({
               onChange={(e) =>
                 onFieldChange(
                   "uploadTtlSec",
-                  clampInt(e.target.value, 60, 86_400, form.uploadTtlSec)
-                )
-              }
+                  clampInt(e.target.value, 60, 86_400, form.uploadTtlSec),
+                )}
             />
             <FieldDescription>
               Upload URL lifetime. 15 min suits slow connections.
@@ -149,9 +148,8 @@ function LimitsFields({
             onChange={(e) =>
               onFieldChange(
                 "queueConcurrency",
-                clampInt(e.target.value, 1, 16, form.queueConcurrency)
-              )
-            }
+                clampInt(e.target.value, 1, 16, form.queueConcurrency),
+              )}
           />
           <FieldDescription className="flex items-start gap-1.5">
             <AlertCircleIcon className="mt-0.5 size-3.5 shrink-0" />
@@ -250,7 +248,7 @@ function parseLimitsPatchQuiet({
 
 function limitsConfigEquals(
   current: Partial<AdminLimitsConfig> | null,
-  saved: AdminLimitsConfig
+  saved: AdminLimitsConfig,
 ): boolean {
   if (!current) return false
   return (
@@ -272,11 +270,11 @@ function useLimitsConfigForm({ limits, onChange }: LimitsConfigCardProps) {
   )
   const initialMaxUploadMiB = React.useMemo(
     () => formatMiB(limits.maxUploadBytes),
-    [limits.maxUploadBytes]
+    [limits.maxUploadBytes],
   )
   const initialStorageQuotaGiB = React.useMemo(
     () => formatQuotaGiB(limits.defaultStorageQuotaBytes),
-    [limits.defaultStorageQuotaBytes]
+    [limits.defaultStorageQuotaBytes],
   )
 
   React.useEffect(() => {
@@ -287,7 +285,7 @@ function useLimitsConfigForm({ limits, onChange }: LimitsConfigCardProps) {
 
   function set<K extends keyof AdminLimitsConfig>(
     key: K,
-    value: AdminLimitsConfig[K]
+    value: AdminLimitsConfig[K],
   ) {
     setForm((f) => ({ ...f, [key]: value }))
   }

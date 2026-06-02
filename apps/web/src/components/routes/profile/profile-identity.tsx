@@ -7,7 +7,7 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import { ProfileActions } from "@/components/profile/profile-actions"
 import { APP_BANNER_HEIGHT_CLASS } from "@/lib/banner-layout"
-import { UserBanner, userAvatar } from "@/lib/user-display"
+import { userAvatar, UserBanner } from "@/lib/user-display"
 import type { ProfileCounts, ProfileViewer, PublicUser } from "@workspace/api"
 import { IdentityStats } from "./identity-stats"
 
@@ -32,23 +32,25 @@ export function ProfileIdentity({
   const { user, counts } = profile
   const handle = user.username
   const avatar = userAvatar(user)
-  const showProfileAction =
-    viewer === undefined || !viewer || (!viewer.isSelf && !viewer.isBlockedBy)
+  const showProfileAction = viewer === undefined || !viewer ||
+    (!viewer.isSelf && !viewer.isBlockedBy)
 
-  const actionNode = showProfileAction ? (
-    <ProfileActions
-      targetHandle={handle}
-      viewer={viewer}
-      onChange={(next) => {
-        const wasFollowing = viewer?.isFollowing ?? false
-        const willFollow = next.isFollowing
-        if (wasFollowing !== willFollow) {
-          onFollowerDelta(willFollow ? 1 : -1)
-        }
-        onViewerChange(next)
-      }}
-    />
-  ) : null
+  const actionNode = showProfileAction
+    ? (
+      <ProfileActions
+        targetHandle={handle}
+        viewer={viewer}
+        onChange={(next) => {
+          const wasFollowing = viewer?.isFollowing ?? false
+          const willFollow = next.isFollowing
+          if (wasFollowing !== willFollow) {
+            onFollowerDelta(willFollow ? 1 : -1)
+          }
+          onViewerChange(next)
+        }}
+      />
+    )
+    : null
 
   return (
     <div className="flex w-full flex-col">
@@ -56,7 +58,7 @@ export function ProfileIdentity({
       <section
         className={cn(
           "relative w-full overflow-hidden",
-          APP_BANNER_HEIGHT_CLASS
+          APP_BANNER_HEIGHT_CLASS,
         )}
       >
         <UserBanner user={user} />
@@ -72,17 +74,19 @@ export function ProfileIdentity({
             className={cn(
               "!size-16 shrink-0 !text-lg ring-[3px] ring-background",
               "sm:!size-24 sm:!text-[28px] sm:ring-4",
-              "-mt-8 sm:-mt-12"
+              "-mt-8 sm:-mt-12",
             )}
           >
-            {avatar.src ? (
-              <AvatarImage
-                src={avatar.src}
-                alt={handle}
-                fetchPriority="high"
-                loading="eager"
-              />
-            ) : null}
+            {avatar.src
+              ? (
+                <AvatarImage
+                  src={avatar.src}
+                  alt={handle}
+                  fetchPriority="high"
+                  loading="eager"
+                />
+              )
+              : null}
             <AvatarFallback style={{ background: avatar.bg, color: avatar.fg }}>
               {avatar.initials}
             </AvatarFallback>
@@ -96,11 +100,13 @@ export function ProfileIdentity({
                 <h1 className="truncate text-lg font-semibold tracking-[-0.02em] text-foreground sm:text-2xl">
                   {user.name || `@${handle}`}
                 </h1>
-                {user.name ? (
-                  <span className="truncate text-sm font-medium text-foreground-muted">
-                    @{handle}
-                  </span>
-                ) : null}
+                {user.name
+                  ? (
+                    <span className="truncate text-sm font-medium text-foreground-muted">
+                      @{handle}
+                    </span>
+                  )
+                  : null}
               </div>
 
               {/* Stats */}

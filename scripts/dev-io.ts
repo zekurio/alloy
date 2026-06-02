@@ -8,7 +8,7 @@ const decoder = new TextDecoder()
 export class CommandFailedError extends Error {
   constructor(
     readonly label: string,
-    readonly code: number
+    readonly code: number,
   ) {
     super(`${label} command failed with code ${code}`)
     this.name = "CommandFailedError"
@@ -19,7 +19,7 @@ export async function runLoggedCommand(
   label: string,
   command: string,
   args: string[],
-  options: { env?: Record<string, string> } = {}
+  options: { env?: Record<string, string> } = {},
 ): Promise<void> {
   const child = new Deno.Command(command, {
     args,
@@ -42,7 +42,7 @@ export async function runLoggedCommand(
 export async function pipeOutput(
   label: string,
   readable: ReadableStream<Uint8Array>,
-  writable: SyncWriter
+  writable: SyncWriter,
 ) {
   let pending = ""
 
@@ -60,7 +60,7 @@ export async function pipeOutput(
 function flushCompleteLines(
   label: string,
   writable: SyncWriter,
-  output: string
+  output: string,
 ) {
   const lines = output.split(/\r?\n/)
   const pending = lines.pop() ?? ""
@@ -74,6 +74,6 @@ function flushCompleteLines(
 
 export function writeLine(writable: SyncWriter, label: string, line: string) {
   writable.writeSync(
-    encoder.encode(line.length === 0 ? "\n" : `[${label}] ${line}\n`)
+    encoder.encode(line.length === 0 ? "\n" : `[${label}] ${line}\n`),
   )
 }

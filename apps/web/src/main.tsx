@@ -15,5 +15,5 @@ if (!root) {
 createRoot(root).render(
   <React.StrictMode>
     <RouterProvider router={getRouter()} />
-  </React.StrictMode>
+  </React.StrictMode>,
 )

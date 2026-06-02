@@ -34,7 +34,7 @@ export async function completeSignOutFlow({
 export function reportAuthFlowFailure(
   action: string,
   fallbackMessage: string,
-  cause: unknown
+  cause: unknown,
 ): string {
   clientLogger.warn(`[auth] ${action} failed.`, cause)
   return fallbackMessage

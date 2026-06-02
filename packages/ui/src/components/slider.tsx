@@ -16,8 +16,8 @@ function Slider({
   const _values = Array.isArray(value)
     ? value
     : Array.isArray(defaultValue)
-      ? defaultValue
-      : [min]
+    ? defaultValue
+    : [min]
 
   return (
     <SliderPrimitive.Root
@@ -34,7 +34,7 @@ function Slider({
         className={cn(
           "relative flex w-full touch-none items-center select-none",
           "data-disabled:opacity-50",
-          "data-vertical:h-full data-vertical:min-h-40 data-vertical:w-auto data-vertical:flex-col"
+          "data-vertical:h-full data-vertical:min-h-40 data-vertical:w-auto data-vertical:flex-col",
         )}
       >
         <SliderPrimitive.Track
@@ -42,7 +42,7 @@ function Slider({
           className={cn(
             "relative grow overflow-hidden rounded-full bg-neutral-200 select-none",
             "data-horizontal:h-1 data-horizontal:w-full",
-            "data-vertical:h-full data-vertical:w-1"
+            "data-vertical:h-full data-vertical:w-1",
           )}
         >
           <SliderPrimitive.Indicator
@@ -50,21 +50,24 @@ function Slider({
             className="bg-accent select-none data-horizontal:h-full data-vertical:w-full"
           />
         </SliderPrimitive.Track>
-        {Array.from({ length: _values.length }, (_, index) => (
-          <SliderPrimitive.Thumb
-            key={index}
-            data-slot="slider-thumb"
-            className={cn(
-              "relative block size-3 shrink-0 rounded-full border-2 border-accent bg-foreground",
-              "transition-[box-shadow] select-none",
-              "after:absolute after:-inset-2",
-              "hover:ring-4 hover:ring-accent-soft",
-              "focus-visible:ring-4 focus-visible:ring-accent-soft focus-visible:outline-none",
-              "active:ring-4 active:ring-accent-soft",
-              "disabled:pointer-events-none disabled:opacity-50"
-            )}
-          />
-        ))}
+        {Array.from(
+          { length: _values.length },
+          (_, index) => (
+            <SliderPrimitive.Thumb
+              key={index}
+              data-slot="slider-thumb"
+              className={cn(
+                "relative block size-3 shrink-0 rounded-full border-2 border-accent bg-foreground",
+                "transition-[box-shadow] select-none",
+                "after:absolute after:-inset-2",
+                "hover:ring-4 hover:ring-accent-soft",
+                "focus-visible:ring-4 focus-visible:ring-accent-soft focus-visible:outline-none",
+                "active:ring-4 active:ring-accent-soft",
+                "disabled:pointer-events-none disabled:opacity-50",
+              )}
+            />
+          ),
+        )}
       </SliderPrimitive.Control>
     </SliderPrimitive.Root>
   )

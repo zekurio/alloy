@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { and, desc, eq, lt, or, sql, type SQL } from "drizzle-orm"
+import { and, desc, eq, lt, or, type SQL, sql } from "drizzle-orm"
 
 import {
   ACCEPTED_CLIP_CONTENT_TYPES,
@@ -7,8 +7,8 @@ import {
   CLIP_TITLE_MAX_LENGTH,
 } from "@workspace/contracts"
 import {
-  CLIP_PRIVACY,
   clip,
+  CLIP_PRIVACY,
   type ClipEncodedVariant,
 } from "@workspace/db/schema"
 
@@ -83,7 +83,7 @@ function parseLegacyClipListCursor(value: string): ParsedClipListCursor | null {
 
 export function parseClipListCursor(
   value: string | undefined,
-  sort: ClipListSort
+  sort: ClipListSort,
 ): ParsedClipListCursor | null {
   if (!value) return null
   const payload = decodeCursorPayload(value)
@@ -103,7 +103,7 @@ export function parseClipListCursor(
 
 function encodeClipListCursor(
   row: ClipListCursorRow,
-  sort: ClipListSort
+  sort: ClipListSort,
 ): string {
   const payload: ClipListCursorPayload = {
     v: 1,
@@ -117,7 +117,7 @@ function encodeClipListCursor(
 
 export function clipListCursorCondition(
   cursor: ParsedClipListCursor | null,
-  sort: ClipListSort
+  sort: ClipListSort,
 ): SQL | null {
   if (!cursor) return null
   if (!cursor.id) return lt(clip.createdAt, cursor.createdAt)
@@ -125,18 +125,18 @@ export function clipListCursorCondition(
   const afterCreatedAt = requiredSql(
     or(
       lt(clip.createdAt, cursor.createdAt),
-      and(eq(clip.createdAt, cursor.createdAt), sql`${clip.id} > ${cursor.id}`)
+      and(eq(clip.createdAt, cursor.createdAt), sql`${clip.id} > ${cursor.id}`),
     ),
-    "clip cursor createdAt"
+    "clip cursor createdAt",
   )
 
   if (sort === "top") {
     return requiredSql(
       or(
         lt(clip.likeCount, cursor.likeCount ?? 0),
-        and(eq(clip.likeCount, cursor.likeCount ?? 0), afterCreatedAt)
+        and(eq(clip.likeCount, cursor.likeCount ?? 0), afterCreatedAt),
       ),
-      "top clips cursor"
+      "top clips cursor",
     )
   }
 
@@ -152,14 +152,15 @@ export function clipListOrderBy(sort: ClipListSort) {
 export function clipListPage<T extends ClipListPageRow>(
   rows: T[],
   limit: number,
-  sort: ClipListSort
+  sort: ClipListSort,
 ) {
   const pageRows = rows.slice(0, limit)
   const tail = pageRows[pageRows.length - 1]
   return {
     items: pageRows.map(toPublicClipRow),
-    nextCursor:
-      rows.length > limit && tail ? encodeClipListCursor(tail, sort) : null,
+    nextCursor: rows.length > limit && tail
+      ? encodeClipListCursor(tail, sort)
+      : null,
   }
 }
 
@@ -198,7 +199,7 @@ export const InitiateBody = z
     {
       message: "trimStartMs and trimEndMs must both be set with end > start",
       path: ["trimEndMs"],
-    }
+    },
   )
 
 export const UpdateBody = z.object({
@@ -212,7 +213,7 @@ export const UpdateBody = z.object({
 /** Parse an HTTP `Range: bytes=A-B` header into inclusive byte offsets. */
 export function parseRange(
   rangeHeader: string | undefined,
-  size: number
+  size: number,
 ): { start: number; end: number } | null {
   if (!rangeHeader) return null
   const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim())
@@ -252,7 +253,7 @@ function encodedVariantsForRow(row: PlaybackClipRow): ClipEncodedVariant[] {
 
 export function findEncodedVariant(
   row: PlaybackClipRow,
-  variantId: string | undefined
+  variantId: string | undefined,
 ): ClipEncodedVariant | null {
   const variants = encodedVariantsForRow(row)
   if (!variantId) {
@@ -278,22 +279,26 @@ function extensionForContentType(contentType: string): string {
 
 export function contentDisposition(filename: string): string {
   const safeAscii = filename.replace(/[^A-Za-z0-9._-]+/g, "_")
-  return `attachment; filename="${safeAscii}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+  return `attachment; filename="${safeAscii}"; filename*=UTF-8''${
+    encodeURIComponent(filename)
+  }`
 }
 
 export function downloadFilename(
   row: PlaybackClipRow,
-  variant: "source" | ClipEncodedVariant
+  variant: "source" | ClipEncodedVariant,
 ): string {
   const base = row.title.trim().replace(/[/\\?%*:|"<>]/g, "-") || row.id
   if (variant === "source") {
-    return `${base}-source.${extensionForContentType(row.sourceContentType ?? "")}`
+    return `${base}-source.${
+      extensionForContentType(row.sourceContentType ?? "")
+    }`
   }
   return `${base}-${variant.id}.${extensionForContentType(variant.contentType)}`
 }
 
 export async function readAll(
-  stream: ReadableStream<Uint8Array>
+  stream: ReadableStream<Uint8Array>,
 ): Promise<Uint8Array> {
   const chunks: Uint8Array[] = []
   let size = 0

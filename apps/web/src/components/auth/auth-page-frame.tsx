@@ -22,12 +22,14 @@ export function AuthPageFrame({ splash, children }: AuthPageFrameProps) {
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         {showArtwork ? <LoginArtwork imageUrl={splash.imageUrl!} /> : null}
       </div>
-      {showArtwork ? (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 bg-background/80 backdrop-blur-xl"
-        />
-      ) : null}
+      {showArtwork
+        ? (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-background/80 backdrop-blur-xl"
+          />
+        )
+        : null}
 
       <header className="absolute top-8 left-6 z-10 flex items-center sm:left-10">
         <Link to="/" className="inline-flex items-center">

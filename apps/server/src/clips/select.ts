@@ -99,7 +99,7 @@ export function toPublicClipRow<
     variants: variants.map(
       ({ storageKey: _variantStorageKey, ...variant }) => ({
         ...variant,
-      })
+      }),
     ),
   }
 }

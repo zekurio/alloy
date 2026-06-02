@@ -18,7 +18,7 @@ function Card({
       className={cn(
         "group/card flex flex-col overflow-hidden rounded-md border border-border bg-surface text-card-foreground",
         "*:[img:first-child]:rounded-t-md *:[img:last-child]:rounded-b-md",
-        className
+        className,
       )}
       {...props}
     />
@@ -28,7 +28,7 @@ function Card({
 function renderCardSection(
   slot: string,
   defaultClassName: string,
-  { className, ...props }: React.ComponentProps<"div">
+  { className, ...props }: React.ComponentProps<"div">,
 ) {
   return (
     <div
@@ -43,7 +43,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   return renderCardSection(
     "card-header",
     "border-b border-border px-5 py-4 flex items-start justify-between gap-3 group-data-[size=sm]/card:px-4 group-data-[size=sm]/card:py-3",
-    { className, ...props }
+    { className, ...props },
   )
 }
 
@@ -54,7 +54,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
       className={cn(
         "text-md leading-tight font-semibold tracking-[-0.005em]",
         "group-data-[size=sm]/card:text-sm",
-        className
+        className,
       )}
       {...props}
     />
@@ -85,7 +85,7 @@ function CardContent({ className, ...props }: React.ComponentProps<"div">) {
   return renderCardSection(
     "card-content",
     "px-5 py-5 group-data-[size=sm]/card:px-4 group-data-[size=sm]/card:py-4",
-    { className, ...props }
+    { className, ...props },
   )
 }
 
@@ -93,16 +93,16 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
   return renderCardSection(
     "card-footer",
     "flex items-center justify-end gap-2 border-t border-border bg-background px-5 py-4 group-data-[size=sm]/card:px-4 group-data-[size=sm]/card:py-3",
-    { className, ...props }
+    { className, ...props },
   )
 }
 
 export {
   Card,
-  CardHeader,
-  CardFooter,
-  CardTitle,
   CardAction,
-  CardDescription,
   CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
 }

@@ -21,26 +21,25 @@ export type ProbedFile = Omit<SelectedFile, "contentType">
 export async function captureThumbnail(
   file: File,
   atMs: number,
-  fallbackAtMs?: number
+  fallbackAtMs?: number,
 ): Promise<Blob> {
   const { video, cleanup } = createVideoSession(file, "auto")
 
   try {
     await loadVideoMetadata(
       video,
-      "Could not load video metadata for thumbnail capture"
+      "Could not load video metadata for thumbnail capture",
     )
 
     const duration = Number.isFinite(video.duration) ? video.duration : null
     const minTime = duration !== null && duration > 0.1 ? 0.001 : 0
-    const maxTime =
-      duration === null
-        ? Math.max(0, atMs / 1000)
-        : Math.max(0, duration - 0.05)
+    const maxTime = duration === null
+      ? Math.max(0, atMs / 1000)
+      : Math.max(0, duration - 0.05)
     const candidateTimes = uniqueThumbnailTimes(
       [atMs, fallbackAtMs, 1000, 100, 0],
       minTime,
-      maxTime
+      maxTime,
     )
     let lastError: unknown = null
 
@@ -50,7 +49,7 @@ export async function captureThumbnail(
           await seekVideo(
             video,
             targetTime,
-            "Seek failed during thumbnail capture"
+            "Seek failed during thumbnail capture",
           )
         ) {
           return await drawThumbnail(video)
@@ -60,7 +59,7 @@ export async function captureThumbnail(
           video,
           "loadeddata",
           "Could not load video frame for thumbnail capture",
-          () => video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
+          () => video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA,
         )
         return await drawThumbnail(video)
       } catch (err) {
@@ -84,7 +83,7 @@ export async function captureThumbnail(
  */
 export async function captureFrames(
   file: File,
-  { count, maxWidth }: { count: number; maxWidth: number }
+  { count, maxWidth }: { count: number; maxWidth: number },
 ): Promise<Blob[]> {
   if (count <= 0) return []
 
@@ -93,7 +92,7 @@ export async function captureFrames(
   try {
     await loadVideoMetadata(
       video,
-      "Could not load video metadata for frame capture"
+      "Could not load video metadata for frame capture",
     )
 
     const srcW = video.videoWidth
@@ -130,7 +129,7 @@ export function probeFile(file: File): Promise<ProbedFile> {
   return new Promise<ProbedFile>((resolve, reject) => {
     const { video, cleanup: cleanupVideo } = createVideoSession(
       file,
-      "metadata"
+      "metadata",
     )
     let settled = false
     let timeoutId = 0
@@ -182,7 +181,7 @@ export function probeFile(file: File): Promise<ProbedFile> {
 
 function createVideoSession(
   file: File,
-  preload: HTMLVideoElement["preload"]
+  preload: HTMLVideoElement["preload"],
 ): VideoSession {
   const url = requireObjectUrl(file, "video file URL")
   const video = document.createElement("video")
@@ -207,13 +206,13 @@ function createVideoSession(
 
 async function loadVideoMetadata(
   video: HTMLVideoElement,
-  failureMessage: string
+  failureMessage: string,
 ): Promise<void> {
   const metadataLoaded = waitForVideoEvent(
     video,
     "loadedmetadata",
     failureMessage,
-    () => video.readyState >= HTMLMediaElement.HAVE_METADATA
+    () => video.readyState >= HTMLMediaElement.HAVE_METADATA,
   )
   video.load()
   await metadataLoaded
@@ -228,7 +227,7 @@ function waitForVideoEvent(
   video: HTMLVideoElement,
   eventName: VideoEventName,
   failureMessage: string,
-  isAlreadyReady?: () => boolean
+  isAlreadyReady?: () => boolean,
 ): Promise<void> {
   if (isAlreadyReady?.()) return Promise.resolve()
 
@@ -259,7 +258,7 @@ function waitForVideoEvent(
 async function seekVideo(
   video: HTMLVideoElement,
   targetTime: number,
-  failureMessage: string
+  failureMessage: string,
 ): Promise<boolean> {
   if (Math.abs(video.currentTime - targetTime) <= 0.0005) {
     return false
@@ -274,7 +273,7 @@ async function seekVideo(
 function thumbnailSize(
   sourceWidth: number,
   sourceHeight: number,
-  maxDimension: number
+  maxDimension: number,
 ): { width: number; height: number } {
   const scale = Math.min(1, maxDimension / Math.max(sourceWidth, sourceHeight))
   return {
@@ -285,7 +284,7 @@ function thumbnailSize(
 
 function encodeCanvasAsJpeg(
   canvas: HTMLCanvasElement,
-  quality: number
+  quality: number,
 ): Promise<Blob> {
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
@@ -294,7 +293,7 @@ function encodeCanvasAsJpeg(
         else reject(new Error("canvas.toBlob returned null"))
       },
       "image/jpeg",
-      quality
+      quality,
     )
   })
 }
@@ -329,7 +328,7 @@ async function drawThumbnail(video: HTMLVideoElement): Promise<Blob> {
 
 function evenlySpacedFrameTimes(
   durationSeconds: number,
-  count: number
+  count: number,
 ): number[] {
   if (durationSeconds <= 0.1) return [0]
   const times: number[] = []
@@ -343,7 +342,7 @@ function evenlySpacedFrameTimes(
 function uniqueThumbnailTimes(
   timesMs: Array<number | null | undefined>,
   minSeconds: number,
-  maxSeconds: number
+  maxSeconds: number,
 ): number[] {
   const result: number[] = []
   for (const ms of timesMs) {

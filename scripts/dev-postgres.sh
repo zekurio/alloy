@@ -156,7 +156,7 @@ wait_for_ready() {
 
 ensure_database() {
   if ! database_exists; then
-    if ! createdb -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" "$PGDATABASE"; then
+    if ! createdb -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -- "$PGDATABASE"; then
       if ! database_exists; then
         exit 1
       fi
@@ -165,8 +165,9 @@ ensure_database() {
 }
 
 database_exists() {
-  psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d postgres -v dbname="$PGDATABASE" -Atqc \
-    "SELECT 1 FROM pg_database WHERE datname = :'dbname'" | grep -q 1
+  psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d postgres -v ON_ERROR_STOP=1 -v dbname="$PGDATABASE" -Atq <<'SQL' | grep -qx 1
+SELECT 1 FROM pg_database WHERE datname = :'dbname';
+SQL
 }
 
 start_db() {

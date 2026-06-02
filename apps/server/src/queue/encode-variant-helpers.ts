@@ -12,7 +12,7 @@ import type { VariantSpec } from "./variant-specs"
 export async function planReuse(
   row: { variants: ClipEncodedVariant[] },
   variantSpecs: VariantSpec[],
-  targetSettings: ClipVariantSettings[]
+  targetSettings: ClipVariantSettings[],
 ): Promise<Map<number, ClipEncodedVariant>> {
   const reusedBySpecIndex = new Map<number, ClipEncodedVariant>()
   const priorByVariantId = new Map<string, ClipEncodedVariant>()
@@ -35,10 +35,10 @@ export async function planReuse(
 export async function pruneStaleVariants(
   row: { variants: ClipEncodedVariant[]; storageKey?: string },
   reusedBySpecIndex: Map<number, ClipEncodedVariant>,
-  retainedVariants: readonly ClipEncodedVariant[] = []
+  retainedVariants: readonly ClipEncodedVariant[] = [],
 ): Promise<void> {
   const reusedKeys = new Set(
-    Array.from(reusedBySpecIndex.values()).map((v) => v.storageKey)
+    Array.from(reusedBySpecIndex.values()).map((v) => v.storageKey),
   )
   if (row.storageKey) reusedKeys.add(row.storageKey)
   for (const variant of retainedVariants) reusedKeys.add(variant.storageKey)
@@ -47,7 +47,7 @@ export async function pruneStaleVariants(
     await storage.delete(prev.storageKey).catch((err: unknown) => {
       logger.warn(
         `[encode-worker] failed to remove stale variant ${prev.storageKey}:`,
-        err
+        err,
       )
     })
   }
@@ -57,7 +57,7 @@ export function resolveVariantSettings(
   spec: VariantSpec,
   config: EncoderConfig,
   trimStartMs: number | null,
-  trimEndMs: number | null
+  trimEndMs: number | null,
 ): ClipVariantSettings {
   return {
     hwaccel: config.hwaccel,
@@ -76,7 +76,7 @@ export function resolveVariantSettings(
 
 function settingsEqual(
   a: ClipVariantSettings,
-  b: ClipVariantSettings
+  b: ClipVariantSettings,
 ): boolean {
   return (
     a.codec === b.codec &&

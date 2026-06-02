@@ -40,9 +40,9 @@ import {
   profileIdentityPatch,
 } from "@/lib/profile-identity"
 import {
-  UserBanner,
   displayName,
   userAvatar,
+  UserBanner,
   userImageSrc,
 } from "@/lib/user-display"
 import {
@@ -149,7 +149,7 @@ export function ProfileCard({
 
   function handleFileSelect(
     e: React.ChangeEvent<HTMLInputElement>,
-    mode: "avatar" | "banner"
+    mode: "avatar" | "banner",
   ) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -161,7 +161,7 @@ export function ProfileCard({
 
   async function handleImageUpload(
     blob: Blob,
-    mode: "avatar" | "banner"
+    mode: "avatar" | "banner",
   ): Promise<boolean> {
     setUploading(true)
     try {
@@ -285,45 +285,47 @@ export function ProfileCard({
         <Section>
           <SectionContent className="flex flex-col gap-4">
             {/* Banner preview */}
-            <div className="relative overflow-hidden rounded-lg">
+            <div>
               <div
-                className="relative min-h-[80px]"
+                className="relative min-h-[80px] overflow-hidden rounded-lg"
                 style={{ aspectRatio: PROFILE_BANNER_ASPECT }}
               >
                 <UserBanner user={bannerUser} />
-                {hasBanner ? (
-                  <DropdownMenu
-                    open={bannerAnchor.open}
-                    onOpenChange={bannerAnchor.onOpenChange}
-                  >
-                    <DropdownMenuTrigger
+                {hasBanner
+                  ? (
+                    <DropdownMenu
+                      open={bannerAnchor.open}
+                      onOpenChange={bannerAnchor.onOpenChange}
+                    >
+                      <DropdownMenuTrigger
+                        disabled={uploading}
+                        className="group absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                        onPointerDown={bannerAnchor.onTriggerPointerDown}
+                      >
+                        <MediaEditOverlay radius="lg">
+                          <Pencil className="size-4 text-white" />
+                        </MediaEditOverlay>
+                      </DropdownMenuTrigger>
+                      <MediaDropdownContent
+                        anchor={bannerAnchor.anchor}
+                        kind="banner"
+                        onUpload={() => openFilePicker("banner")}
+                        onRemove={handleRemoveBanner}
+                      />
+                    </DropdownMenu>
+                  )
+                  : (
+                    <button
+                      type="button"
                       disabled={uploading}
+                      onClick={() => openFilePicker("banner")}
                       className="group absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                      onPointerDown={bannerAnchor.onTriggerPointerDown}
                     >
                       <MediaEditOverlay radius="lg">
                         <Pencil className="size-4 text-white" />
                       </MediaEditOverlay>
-                    </DropdownMenuTrigger>
-                    <MediaDropdownContent
-                      anchor={bannerAnchor.anchor}
-                      kind="banner"
-                      onUpload={() => openFilePicker("banner")}
-                      onRemove={handleRemoveBanner}
-                    />
-                  </DropdownMenu>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={uploading}
-                    onClick={() => openFilePicker("banner")}
-                    className="group absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                  >
-                    <MediaEditOverlay radius="lg">
-                      <Pencil className="size-4 text-white" />
-                    </MediaEditOverlay>
-                  </button>
-                )}
+                    </button>
+                  )}
               </div>
               <p className="mt-2 text-xs text-foreground-faint">
                 Banners are resized to 1500x375. Use a 4:1 image to avoid
@@ -334,8 +336,7 @@ export function ProfileCard({
             {/* Avatar + identity */}
             <form.Subscribe
               selector={(state) =>
-                [state.values.email, state.values.name] as const
-              }
+                [state.values.email, state.values.name] as const}
             >
               {([currentEmail, currentName]) => {
                 const normalizedIdentity = normalizeProfileIdentity({
@@ -359,26 +360,62 @@ export function ProfileCard({
 
                 return (
                   <div className="flex items-center gap-4">
-                    {hasAvatar ? (
-                      <DropdownMenu
-                        open={avatarAnchor.open}
-                        onOpenChange={avatarAnchor.onOpenChange}
-                      >
-                        <DropdownMenuTrigger
+                    {hasAvatar
+                      ? (
+                        <DropdownMenu
+                          open={avatarAnchor.open}
+                          onOpenChange={avatarAnchor.onOpenChange}
+                        >
+                          <DropdownMenuTrigger
+                            disabled={uploading}
+                            className="group relative inline-flex size-12 shrink-0 overflow-hidden rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                            onPointerDown={avatarAnchor.onTriggerPointerDown}
+                          >
+                            <Avatar
+                              size="xl"
+                              style={{
+                                background: avatar.bg,
+                                color: avatar.fg,
+                              }}
+                            >
+                              <AvatarImage
+                                src={avatar.src}
+                                alt={previewName}
+                                fetchPriority="high"
+                                loading="eager"
+                              />
+                              <AvatarFallback
+                                style={{
+                                  background: avatar.bg,
+                                  color: avatar.fg,
+                                }}
+                              >
+                                {avatar.initials}
+                              </AvatarFallback>
+                            </Avatar>
+                            <MediaEditOverlay radius="md">
+                              <Pencil className="size-4 text-white" />
+                            </MediaEditOverlay>
+                          </DropdownMenuTrigger>
+                          <MediaDropdownContent
+                            anchor={avatarAnchor.anchor}
+                            kind="avatar"
+                            onUpload={() => openFilePicker("avatar")}
+                            onRemove={handleRemoveAvatar}
+                          />
+                        </DropdownMenu>
+                      )
+                      : (
+                        <button
+                          type="button"
                           disabled={uploading}
-                          className="group relative inline-flex size-12 shrink-0 overflow-hidden rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                          onPointerDown={avatarAnchor.onTriggerPointerDown}
+                          onClick={() => openFilePicker("avatar")}
+                          className="group relative size-12 shrink-0 overflow-hidden rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                         >
                           <Avatar
                             size="xl"
                             style={{ background: avatar.bg, color: avatar.fg }}
                           >
-                            <AvatarImage
-                              src={avatar.src}
-                              alt={previewName}
-                              fetchPriority="high"
-                              loading="eager"
-                            />
                             <AvatarFallback
                               style={{
                                 background: avatar.bg,
@@ -391,36 +428,8 @@ export function ProfileCard({
                           <MediaEditOverlay radius="md">
                             <Pencil className="size-4 text-white" />
                           </MediaEditOverlay>
-                        </DropdownMenuTrigger>
-                        <MediaDropdownContent
-                          anchor={avatarAnchor.anchor}
-                          kind="avatar"
-                          onUpload={() => openFilePicker("avatar")}
-                          onRemove={handleRemoveAvatar}
-                        />
-                      </DropdownMenu>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={uploading}
-                        onClick={() => openFilePicker("avatar")}
-                        className="group relative size-12 shrink-0 overflow-hidden rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                      >
-                        <Avatar
-                          size="xl"
-                          style={{ background: avatar.bg, color: avatar.fg }}
-                        >
-                          <AvatarFallback
-                            style={{ background: avatar.bg, color: avatar.fg }}
-                          >
-                            {avatar.initials}
-                          </AvatarFallback>
-                        </Avatar>
-                        <MediaEditOverlay radius="md">
-                          <Pencil className="size-4 text-white" />
-                        </MediaEditOverlay>
-                      </button>
-                    )}
+                        </button>
+                      )}
                     <div className="flex flex-col gap-0.5">
                       <span className="text-sm font-medium text-foreground">
                         {previewName}
@@ -446,8 +455,7 @@ export function ProfileCard({
               }}
             >
               {(field) => {
-                const showError =
-                  field.state.meta.isTouched ||
+                const showError = field.state.meta.isTouched ||
                   form.state.submissionAttempts > 0
                 const invalid = showError && !field.state.meta.isValid
 
@@ -466,9 +474,9 @@ export function ProfileCard({
                       onChange={(e) => field.handleChange(e.target.value)}
                       disabled={form.state.isSubmitting}
                       aria-invalid={invalid || undefined}
-                      aria-describedby={
-                        invalid ? `${field.name}-error` : undefined
-                      }
+                      aria-describedby={invalid
+                        ? `${field.name}-error`
+                        : undefined}
                     />
                     <FieldError
                       id={`${field.name}-error`}
@@ -512,8 +520,7 @@ export function ProfileCard({
                   state.values.email,
                   state.canSubmit,
                   state.isSubmitting,
-                ] as const
-              }
+                ] as const}
             >
               {([
                 currentName,
@@ -528,7 +535,7 @@ export function ProfileCard({
                     name: currentName,
                     username: currentUsername,
                   },
-                  initialIdentity
+                  initialIdentity,
                 )
 
                 return (

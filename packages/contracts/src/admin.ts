@@ -20,6 +20,9 @@ export interface OAuthProviderConfig {
   clientSecret: string
   scopes?: string[]
   enabled: boolean
+  buttonColor?: string
+  buttonTextColor?: string
+  iconUrl?: string
   discoveryUrl?: string
   authorizationUrl?: string
   tokenUrl?: string
@@ -129,7 +132,8 @@ export interface LoginSplashConfig {
 }
 
 export const LOGIN_SPLASH_LAYOUT_VERSION = 2
-export const LOGIN_SPLASH_IMAGE_PATH = `/api/auth-config/login-splash-v${LOGIN_SPLASH_LAYOUT_VERSION}.jpg`
+export const LOGIN_SPLASH_IMAGE_PATH =
+  `/api/auth-config/login-splash-v${LOGIN_SPLASH_LAYOUT_VERSION}.jpg`
 
 export function loginSplashImagePath(generatedAt: string | null): string {
   const parsed = generatedAt ? Date.parse(generatedAt) : Date.now()
@@ -169,27 +173,29 @@ export interface AdminS3StorageConfig {
 
 export type AdminStorageConfig =
   | {
-      driver: "fs"
-      fs: AdminFsStorageConfig
-      s3: AdminS3StorageConfig
-    }
+    driver: "fs"
+    fs: AdminFsStorageConfig
+    s3: AdminS3StorageConfig
+  }
   | {
-      driver: "s3"
-      fs: AdminFsStorageConfig
-      s3: AdminS3StorageConfig
-    }
+    driver: "s3"
+    fs: AdminFsStorageConfig
+    s3: AdminS3StorageConfig
+  }
 
 export type StorageConfig = AdminStorageConfig
 
 export type AdminFsStorageConfigPatch = Partial<AdminFsStorageConfig>
 
-export type AdminS3StorageConfigPatch = Partial<
-  Omit<AdminS3StorageConfig, "endpoint" | "accessKeyId" | "secretAccessKey">
-> & {
-  endpoint?: string | null
-  accessKeyId?: string | null
-  secretAccessKey?: string | null
-}
+export type AdminS3StorageConfigPatch =
+  & Partial<
+    Omit<AdminS3StorageConfig, "endpoint" | "accessKeyId" | "secretAccessKey">
+  >
+  & {
+    endpoint?: string | null
+    accessKeyId?: string | null
+    secretAccessKey?: string | null
+  }
 
 export interface AdminStorageConfigPatch {
   driver?: StorageDriverKind
@@ -227,12 +233,15 @@ export interface AdminUpdateUserInput {
   storageQuotaBytes?: number | null
 }
 
+export const RUNTIME_CONFIG_VERSION = 1
+
 export interface RuntimeConfig {
+  runtimeConfigVersion: number
   openRegistrations: boolean
   setupComplete: boolean
   passkeyEnabled: boolean
   requireAuthToBrowse: boolean
-  oauthProvider: OAuthProviderConfig | null
+  oauthProviders: OAuthProviderConfig[]
   encoder: EncoderConfig
   limits: LimitsConfig
   integrations: IntegrationsConfig
@@ -249,6 +258,9 @@ export interface AdminRuntimeConfig extends RuntimeConfig {
 export interface PublicAuthProvider {
   providerId: string
   displayName: string
+  buttonColor?: string
+  buttonTextColor?: string
+  iconUrl?: string
 }
 
 export interface PublicAuthConfig {
@@ -257,6 +269,6 @@ export interface PublicAuthConfig {
   openRegistrations: boolean
   passkeyEnabled: boolean
   requireAuthToBrowse: boolean
-  provider: PublicAuthProvider | null
+  providers: PublicAuthProvider[]
   loginSplash: PublicLoginSplashConfig
 }

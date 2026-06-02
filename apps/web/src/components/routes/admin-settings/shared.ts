@@ -1,7 +1,7 @@
 import {
+  type AdminOAuthProvider,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
-  type AdminOAuthProvider,
 } from "@workspace/api"
 
 export function emptyProvider(): AdminOAuthProvider {
@@ -12,6 +12,9 @@ export function emptyProvider(): AdminOAuthProvider {
     clientSecret: "",
     scopes: ["openid", "profile", "email"],
     enabled: true,
+    buttonColor: "",
+    buttonTextColor: "",
+    iconUrl: "",
     discoveryUrl: "",
     authorizationUrl: "",
     tokenUrl: "",
@@ -33,7 +36,7 @@ function normalizeProviderId(providerId: string): string {
 
 export function callbackURLForProvider(
   authBaseURL: string,
-  providerId: string
+  providerId: string,
 ): string {
   const normalizedProviderId = normalizeProviderId(providerId)
   return `${normalizeAuthBaseURL(authBaseURL)}/api/auth/oauth2/callback/${
@@ -42,7 +45,7 @@ export function callbackURLForProvider(
 }
 
 export function toSubmissionProvider(
-  provider: AdminOAuthProvider
+  provider: AdminOAuthProvider,
 ): AdminOAuthProvider {
   return {
     ...provider,
@@ -50,6 +53,9 @@ export function toSubmissionProvider(
     displayName: provider.displayName.trim(),
     clientId: provider.clientId.trim(),
     clientSecret: provider.clientSecret.trim(),
+    buttonColor: normalizeHexColor(provider.buttonColor),
+    buttonTextColor: normalizeHexColor(provider.buttonTextColor),
+    iconUrl: emptyToUndefined(provider.iconUrl),
     scopes: normalizeScopes(provider.scopes),
     discoveryUrl: emptyToUndefined(provider.discoveryUrl),
     authorizationUrl: emptyToUndefined(provider.authorizationUrl),
@@ -63,11 +69,11 @@ export function toSubmissionProvider(
 
 export function oauthProvidersEqual(
   left: AdminOAuthProvider,
-  right: AdminOAuthProvider
+  right: AdminOAuthProvider,
 ): boolean {
   return (
     JSON.stringify(toSubmissionProvider(left)) ===
-    JSON.stringify(toSubmissionProvider(right))
+      JSON.stringify(toSubmissionProvider(right))
   )
 }
 
@@ -75,6 +81,12 @@ function emptyToUndefined(value: string | undefined): string | undefined {
   if (value === undefined) return undefined
   const trimmed = value.trim()
   return trimmed.length === 0 ? undefined : trimmed
+}
+
+function normalizeHexColor(value: string | undefined): string | undefined {
+  const trimmed = emptyToUndefined(value)
+  if (!trimmed) return undefined
+  return trimmed.startsWith("#") ? trimmed : `#${trimmed}`
 }
 
 export function emptyToNull(value: string | null | undefined): string | null {
@@ -87,7 +99,7 @@ export function trimString(value: string): string {
 }
 
 export function requiredTrimmedString(
-  value: string | null | undefined
+  value: string | null | undefined,
 ): string | null {
   const trimmed = value?.trim()
   return trimmed && trimmed.length > 0 ? trimmed : null
@@ -98,7 +110,7 @@ export function isBlank(value: string | null | undefined): boolean {
 }
 
 export function normalizeScopes(
-  scopes: readonly string[] | undefined
+  scopes: readonly string[] | undefined,
 ): string[] | undefined {
   const normalized = scopes?.map((scope) => scope.trim()).filter(Boolean)
   return normalized && normalized.length > 0 ? normalized : undefined
@@ -106,7 +118,7 @@ export function normalizeScopes(
 
 export function isAllowedString<T extends string>(
   value: unknown,
-  allowed: readonly T[]
+  allowed: readonly T[],
 ): value is T {
   return typeof value === "string" && allowed.includes(value as T)
 }
@@ -121,7 +133,7 @@ export function parseInteger(raw: string): number | null {
 export function isEvenIntegerInRange(
   value: number,
   min: number,
-  max: number
+  max: number,
 ): boolean {
   return (
     Number.isInteger(value) && value >= min && value <= max && value % 2 === 0
@@ -132,7 +144,7 @@ export function clampInt(
   raw: string,
   min: number,
   max: number,
-  fallback: number
+  fallback: number,
 ): number {
   const n = parseInteger(raw)
   if (n === null) return fallback

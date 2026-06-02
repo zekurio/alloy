@@ -29,8 +29,9 @@ type BaseFieldProps = {
   value: string
 }
 
-type TextFieldProps = BaseFieldProps &
-  Pick<
+type TextFieldProps =
+  & BaseFieldProps
+  & Pick<
     React.ComponentProps<typeof InputGroupInput>,
     | "autoCapitalize"
     | "autoComplete"
@@ -135,26 +136,28 @@ function AuthInputGroupField({
   trailingAddon,
   type,
   value,
-}: Pick<
-  TextFieldProps,
-  | "autoCapitalize"
-  | "autoComplete"
-  | "autoCorrect"
-  | "disabled"
-  | "icon"
-  | "id"
-  | "inputMode"
-  | "invalid"
-  | "onBlur"
-  | "onChange"
-  | "placeholder"
-  | "required"
-  | "spellCheck"
-  | "type"
-  | "value"
-> & {
-  trailingAddon?: React.ReactNode
-}) {
+}:
+  & Pick<
+    TextFieldProps,
+    | "autoCapitalize"
+    | "autoComplete"
+    | "autoCorrect"
+    | "disabled"
+    | "icon"
+    | "id"
+    | "inputMode"
+    | "invalid"
+    | "onBlur"
+    | "onChange"
+    | "placeholder"
+    | "required"
+    | "spellCheck"
+    | "type"
+    | "value"
+  >
+  & {
+    trailingAddon?: React.ReactNode
+  }) {
   return (
     <InputGroup>
       <InputGroupAddon>{icon}</InputGroupAddon>
@@ -192,7 +195,7 @@ function renderAuthInputFieldFrame(
     TextFieldProps,
     "description" | "errors" | "headerAction" | "id" | "label" | "required"
   >,
-  children: React.ReactNode
+  children: React.ReactNode,
 ) {
   return (
     <AuthFieldFrame
@@ -213,11 +216,11 @@ function renderAuthTextLikeField(
     TextFieldProps,
     "description" | "errors" | "headerAction" | "id" | "label" | "required"
   >,
-  inputProps: React.ComponentProps<typeof AuthInputGroupField>
+  inputProps: React.ComponentProps<typeof AuthInputGroupField>,
 ) {
   return renderAuthInputFieldFrame(
     frameProps,
-    <AuthInputGroupField {...inputProps} />
+    <AuthInputGroupField {...inputProps} />,
   )
 }
 
@@ -303,7 +306,7 @@ function renderAuthTextField(
   extraInputProps: Omit<
     React.ComponentProps<typeof AuthInputGroupField>,
     keyof ReturnType<typeof createAuthInputGroupBaseProps>
-  >
+  >,
 ) {
   return renderAuthTextLikeField(frameProps, {
     ...baseInputProps,
@@ -313,11 +316,11 @@ function renderAuthTextField(
 
 function createAuthInputField<TProps extends TextFieldProps>(
   buildExtraInputProps: (
-    props: TProps
+    props: TProps,
   ) => Omit<
     React.ComponentProps<typeof AuthInputGroupField>,
     keyof ReturnType<typeof createAuthInputGroupBaseProps>
-  >
+  >,
 ) {
   return function AuthInputField(props: TProps) {
     const { baseInputProps, frameProps } = createAuthTextFieldProps(props)
@@ -325,7 +328,7 @@ function createAuthInputField<TProps extends TextFieldProps>(
     return renderAuthTextField(
       frameProps,
       baseInputProps,
-      buildExtraInputProps(props)
+      buildExtraInputProps(props),
     )
   }
 }
@@ -345,7 +348,7 @@ export const FormInputField = createAuthInputField<TextFieldProps>(
     inputMode,
     spellCheck,
     type,
-  })
+  }),
 )
 
 export function AuthSubmitButton({

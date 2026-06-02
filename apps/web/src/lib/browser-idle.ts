@@ -5,7 +5,7 @@ interface BrowserIdleTaskOptions {
 
 export function scheduleBrowserIdleTask(
   task: () => void,
-  options: BrowserIdleTaskOptions = {}
+  options: BrowserIdleTaskOptions = {},
 ): () => void {
   if (typeof window === "undefined") return () => undefined
 

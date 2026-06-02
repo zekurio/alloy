@@ -8,7 +8,7 @@ import { mintFsUploadTicket } from "../storage/fs-upload-token"
 
 export function clipScratchUploadKey(
   clipId: string,
-  contentType: AcceptedContentType
+  contentType: AcceptedContentType,
 ): string {
   return `clip-uploads/${clipId}/source${sourceExtension(contentType)}`
 }
@@ -48,14 +48,17 @@ export async function mintScratchUploadUrl(input: {
 
 export async function deleteScratchUpload(key: string | null): Promise<void> {
   if (!key) return
-  await Deno.remove(scratchUploadPath(key)).catch((err) => {
+  const root = scratchRoot()
+  const path = scratchUploadPath(key)
+  await Deno.remove(path).catch((err) => {
     if (!(err instanceof Deno.errors.NotFound)) throw err
   })
+  await removeEmptyScratchParents(dirname(path), root)
 }
 
 export async function deleteScratchUploads(
   keys: Iterable<string | null>,
-  label: string
+  label: string,
 ): Promise<void> {
   await Promise.all(
     Array.from(keys, async (key) => {
@@ -65,7 +68,7 @@ export async function deleteScratchUploads(
       } catch (err) {
         logger.warn(`[scratch] failed to delete ${label} ${key}:`, err)
       }
-    })
+    }),
   )
 }
 
@@ -77,9 +80,37 @@ export async function ensureScratchParent(key: string): Promise<string> {
 
 function scratchRoot(): string {
   return resolve(
-    env.ENCODE_SCRATCH_DIR ?? join(Deno.cwd(), "data", "scratch"),
-    "uploads"
+    env.ENCODE_SCRATCH_DIR ?? join(Deno.cwd(), "data", "server", "scratch"),
+    "uploads",
   )
+}
+
+async function removeEmptyScratchParents(
+  startPath: string,
+  root: string,
+): Promise<void> {
+  let path = startPath
+  while (path !== root) {
+    const rel = relative(root, path)
+    if (rel.startsWith("..") || rel.startsWith("/") || rel === "") return
+    try {
+      await Deno.remove(path)
+    } catch (err) {
+      if (
+        err instanceof Deno.errors.NotFound ||
+        isDirectoryNotEmptyError(err)
+      ) {
+        return
+      }
+      throw err
+    }
+    path = dirname(path)
+  }
+}
+
+function isDirectoryNotEmptyError(err: unknown): boolean {
+  return err instanceof Error &&
+    (err.name === "DirectoryNotEmpty" || err.name === "NotEmpty")
 }
 
 function sourceExtension(contentType: AcceptedContentType): string {

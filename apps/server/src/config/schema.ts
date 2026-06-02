@@ -10,54 +10,42 @@ import {
   ENCODER_HEIGHT_MAX,
   ENCODER_HEIGHT_MIN,
   ENCODER_HWACCELS,
-  STORAGE_DRIVERS,
+  RUNTIME_CONFIG_VERSION,
   type RuntimeConfig,
+  STORAGE_DRIVERS,
 } from "@workspace/contracts"
 
 import { env } from "../env"
 import { randomBase64Url } from "../runtime/crypto"
-import { OAuthProviderSchema } from "./oauth-schema"
+import { OAuthProvidersSchema } from "./oauth-schema"
 
-const LEGACY_DEFAULT_MACHINE_LEARNING_URLS = new Set([
-  "http://localhost:3003",
-  "http://localhost:3004",
-])
-const DEFAULT_MACHINE_LEARNING_URL =
-  Deno.env.get("MACHINE_LEARNING_URL") ?? "http://localhost:2662"
+const DEFAULT_MACHINE_LEARNING_URL = Deno.env.get("MACHINE_LEARNING_URL") ??
+  "http://localhost:2662"
 
 function randomSecret(): string {
   return randomBase64Url(32)
 }
 
-const EncoderVariantSchema = z.preprocess(
-  (raw) => {
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw
-    const variant = { ...(raw as Record<string, unknown>) }
-    if (variant.extraInputArgs === undefined) variant.extraInputArgs = ""
-    if (variant.extraOutputArgs === undefined) variant.extraOutputArgs = ""
-    return variant
-  },
-  z.object({
-    id: z
-      .string()
-      .min(1)
-      .max(80)
-      .regex(/^[a-z0-9][a-z0-9-]*$/),
-    name: z.string().min(1).max(64),
-    codec: z.enum(ENCODER_CODECS).default("h264"),
-    height: z
-      .number()
-      .int()
-      .min(ENCODER_HEIGHT_MIN)
-      .max(ENCODER_HEIGHT_MAX)
-      .multipleOf(2),
-    quality: z.number().int().min(0).max(51),
-    preset: z.string().min(1).max(64).optional(),
-    audioBitrateKbps: z.number().int().min(64).max(256),
-    extraInputArgs: z.string().max(2048).default(""),
-    extraOutputArgs: z.string().max(4096).default(""),
-  })
-)
+const EncoderVariantSchema = z.object({
+  id: z
+    .string()
+    .min(1)
+    .max(80)
+    .regex(/^[a-z0-9][a-z0-9-]*$/),
+  name: z.string().min(1).max(64),
+  codec: z.enum(ENCODER_CODECS).default("h264"),
+  height: z
+    .number()
+    .int()
+    .min(ENCODER_HEIGHT_MIN)
+    .max(ENCODER_HEIGHT_MAX)
+    .multipleOf(2),
+  quality: z.number().int().min(0).max(51),
+  preset: z.string().min(1).max(64).optional(),
+  audioBitrateKbps: z.number().int().min(64).max(256),
+  extraInputArgs: z.string().max(2048).default(""),
+  extraOutputArgs: z.string().max(4096).default(""),
+})
 
 const EncoderConfigInnerSchema = z.object({
   enabled: z.boolean().default(false),
@@ -74,68 +62,7 @@ const EncoderConfigInnerSchema = z.object({
   variants: z.array(EncoderVariantSchema).default([]),
 })
 
-const EncoderConfigSchema = z.preprocess((raw) => {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw
-  const config = { ...(raw as Record<string, unknown>) }
-  if (Array.isArray(config.variants)) {
-    const usedIds = new Set<string>()
-    config.variants = config.variants.map((rawVariant) => {
-      if (
-        !rawVariant ||
-        typeof rawVariant !== "object" ||
-        Array.isArray(rawVariant)
-      ) {
-        return rawVariant
-      }
-      const variant = { ...(rawVariant as Record<string, unknown>) }
-      if (typeof variant.id !== "string" || variant.id.trim() === "") {
-        variant.id = buildVariantId(variant.name, usedIds)
-      } else {
-        variant.id = normalizeVariantId(variant.id, usedIds)
-      }
-      return variant
-    })
-  }
-  if (config.defaultVariantId === undefined) {
-    const firstVariant = Array.isArray(config.variants)
-      ? (config.variants[0] as Record<string, unknown> | undefined)
-      : undefined
-    config.defaultVariantId =
-      typeof firstVariant?.id === "string" ? firstVariant.id : null
-  }
-  return config
-}, EncoderConfigInnerSchema)
-
-function buildVariantId(name: unknown, usedIds: Set<string>): string {
-  const base =
-    typeof name === "string"
-      ? name
-          .trim()
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-+|-+$/g, "")
-      : ""
-  return normalizeVariantId(base || "variant", usedIds)
-}
-
-function normalizeVariantId(raw: string, usedIds: Set<string>): string {
-  const base =
-    raw
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 80) || "variant"
-  let id = base
-  let suffix = 2
-  while (usedIds.has(id)) {
-    const suffixText = `-${suffix}`
-    id = `${base.slice(0, 80 - suffixText.length)}${suffixText}`
-    suffix += 1
-  }
-  usedIds.add(id)
-  return id
-}
+const EncoderConfigSchema = EncoderConfigInnerSchema
 
 const LimitsConfigSchema = z.object({
   maxUploadBytes: z
@@ -210,7 +137,7 @@ const GameClassifierModelConfigSchema = z.object({
 })
 
 const MachineLearningConfigSchema = z.object({
-  enabled: z.boolean().default(envFlag("MACHINE_LEARNING_ENABLED", false)),
+  enabled: z.boolean().default(envFlag("MACHINE_LEARNING_ENABLED", true)),
   baseUrl: z
     .string()
     .url()
@@ -218,7 +145,7 @@ const MachineLearningConfigSchema = z.object({
     .transform(normalizeBaseUrl),
   requestTimeoutMs: z.number().int().min(1_000).max(300_000).default(60_000),
   gameClassifier: GameClassifierModelConfigSchema.default(
-    GameClassifierModelConfigSchema.parse({})
+    GameClassifierModelConfigSchema.parse({}),
   ),
 })
 
@@ -234,7 +161,7 @@ const LoginSplashConfigSchema = z.object({
 
 const AppearanceConfigSchema = z.object({
   loginSplash: LoginSplashConfigSchema.default(
-    LoginSplashConfigSchema.parse({})
+    LoginSplashConfigSchema.parse({}),
   ),
 })
 
@@ -250,7 +177,7 @@ const FsStorageConfigSchema = z.object({
   root: z
     .string()
     .min(1)
-    .default(env.ALLOY_STORAGE_DIR ?? "./data/storage"),
+    .default(env.ALLOY_STORAGE_DIR ?? "./data/server/storage"),
   publicBaseUrl: z
     .string()
     .url()
@@ -271,10 +198,9 @@ const S3StorageConfigBaseSchema = z.object({
 
 const S3StorageConfigSchema = S3StorageConfigBaseSchema.superRefine(
   (config, ctx) => {
-    const hasAccessKey =
-      config.accessKeyId !== undefined && config.accessKeyId.trim().length > 0
-    const hasSecret =
-      config.secretAccessKey !== undefined &&
+    const hasAccessKey = config.accessKeyId !== undefined &&
+      config.accessKeyId.trim().length > 0
+    const hasSecret = config.secretAccessKey !== undefined &&
       config.secretAccessKey.trim().length > 0
 
     if (hasAccessKey === hasSecret) return
@@ -285,7 +211,7 @@ const S3StorageConfigSchema = S3StorageConfigBaseSchema.superRefine(
       message:
         "S3 access key ID and secret access key must be configured together.",
     })
-  }
+  },
 )
 
 const DEFAULT_FS_STORAGE_CONFIG = FsStorageConfigSchema.parse({
@@ -310,67 +236,47 @@ const StorageConfigSchema = z
     }
   })
 
-export const RuntimeConfigSchema = z.preprocess(
-  (raw) => {
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw
-    const config = { ...(raw as Record<string, unknown>) }
-    if (
-      config.machineLearning &&
-      typeof config.machineLearning === "object" &&
-      !Array.isArray(config.machineLearning)
-    ) {
-      const machineLearning = {
-        ...(config.machineLearning as Record<string, unknown>),
-      }
-      if (
-        typeof machineLearning.baseUrl === "string" &&
-        LEGACY_DEFAULT_MACHINE_LEARNING_URLS.has(machineLearning.baseUrl)
-      ) {
-        machineLearning.baseUrl = DEFAULT_MACHINE_LEARNING_URL
-      }
-      config.machineLearning = machineLearning
-    }
-    return config
-  },
-  z.object({
-    openRegistrations: z.boolean().default(false),
-    setupComplete: z.boolean().default(false),
-    passkeyEnabled: z.boolean().default(true),
-    requireAuthToBrowse: z.boolean().default(true),
-    oauthProvider: OAuthProviderSchema.nullable().default(null),
-    encoder: EncoderConfigSchema.default(EncoderConfigInnerSchema.parse({})),
-    limits: LimitsConfigSchema.default(LimitsConfigSchema.parse({})),
-    integrations: IntegrationsConfigSchema.default(
-      IntegrationsConfigSchema.parse({})
-    ),
-    machineLearning: MachineLearningConfigSchema.default(
-      MachineLearningConfigSchema.parse({})
-    ),
-    appearance: AppearanceConfigSchema.default(
-      AppearanceConfigSchema.parse({})
-    ),
-    secrets: ServerSecretsConfigSchema.default(
-      ServerSecretsConfigSchema.parse({})
-    ),
-    storage: StorageConfigSchema.default({
-      driver: "fs",
-      fs: DEFAULT_FS_STORAGE_CONFIG,
-      s3: DEFAULT_S3_STORAGE_CONFIG,
-    }),
-  })
-)
+export const RuntimeConfigSchema = z.object({
+  runtimeConfigVersion: z.literal(RUNTIME_CONFIG_VERSION).default(
+    RUNTIME_CONFIG_VERSION,
+  ),
+  openRegistrations: z.boolean().default(false),
+  setupComplete: z.boolean().default(false),
+  passkeyEnabled: z.boolean().default(true),
+  requireAuthToBrowse: z.boolean().default(true),
+  oauthProviders: OAuthProvidersSchema.default([]),
+  encoder: EncoderConfigSchema.default(EncoderConfigInnerSchema.parse({})),
+  limits: LimitsConfigSchema.default(LimitsConfigSchema.parse({})),
+  integrations: IntegrationsConfigSchema.default(
+    IntegrationsConfigSchema.parse({}),
+  ),
+  machineLearning: MachineLearningConfigSchema.default(
+    MachineLearningConfigSchema.parse({}),
+  ),
+  appearance: AppearanceConfigSchema.default(
+    AppearanceConfigSchema.parse({}),
+  ),
+  secrets: ServerSecretsConfigSchema.default(
+    ServerSecretsConfigSchema.parse({}),
+  ),
+  storage: StorageConfigSchema.default({
+    driver: "fs",
+    fs: DEFAULT_FS_STORAGE_CONFIG,
+    s3: DEFAULT_S3_STORAGE_CONFIG,
+  }),
+})
 
 export const EncoderConfigPatchSchema = EncoderConfigInnerSchema.partial()
 export const LimitsConfigPatchSchema = LimitsConfigSchema.partial()
 export const IntegrationsConfigPatchSchema = IntegrationsConfigSchema.partial()
-export const MachineLearningConfigPatchSchema =
-  MachineLearningConfigSchema.partial().extend({
+export const MachineLearningConfigPatchSchema = MachineLearningConfigSchema
+  .partial().extend({
     gameClassifier: GameClassifierModelConfigSchema.partial().optional(),
   })
 export const AppearanceConfigPatchSchema = AppearanceConfigSchema.partial()
 export const FsStorageConfigPatchSchema = FsStorageConfigSchema.partial()
-export const S3StorageConfigPatchSchema =
-  S3StorageConfigBaseSchema.partial().extend({
+export const S3StorageConfigPatchSchema = S3StorageConfigBaseSchema.partial()
+  .extend({
     endpoint: z.string().url().nullable().optional(),
     accessKeyId: z.string().nullable().optional(),
     secretAccessKey: z.string().nullable().optional(),

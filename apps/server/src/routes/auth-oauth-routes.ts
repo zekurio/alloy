@@ -4,7 +4,7 @@ import {
   zValidator,
 } from "./validation"
 import { eq } from "drizzle-orm"
-import { Hono, type Context } from "hono"
+import { type Context, Hono } from "hono"
 import { z } from "zod"
 
 import { authAccount } from "@workspace/db/auth-schema"
@@ -41,15 +41,15 @@ const OAuthStartBody = z.object({
 async function startOAuthResponse(
   c: Context,
   input: z.infer<typeof OAuthStartBody> & { userId?: string },
-  fallback: string
+  fallback: string,
 ) {
   try {
     const result = input.userId
       ? await startOAuthLink(
-          input as z.infer<typeof OAuthStartBody> & {
-            userId: string
-          }
-        )
+        input as z.infer<typeof OAuthStartBody> & {
+          userId: string
+        },
+      )
       : await startOAuthSignIn(input)
     setOAuthStateCookie(c, input.providerId, result.browserNonce)
     return urlResponse(c, result.url)
@@ -77,7 +77,7 @@ export const authOAuthRoute = new Hono()
     return startOAuthResponse(
       c,
       c.req.valid("json"),
-      "Could not start OAuth sign-in."
+      "Could not start OAuth sign-in.",
     )
   })
   .post(
@@ -88,9 +88,9 @@ export const authOAuthRoute = new Hono()
       return startOAuthResponse(
         c,
         { ...c.req.valid("json"), userId: c.var.viewerId },
-        "Could not start OAuth link."
+        "Could not start OAuth link.",
       )
-    }
+    },
   )
   .get("/oauth2/callback/:providerId", async (c) => {
     const providerId = c.req.param("providerId")
@@ -116,10 +116,10 @@ export const authOAuthRoute = new Hono()
       if (result === "last-sign-in-method") {
         return badRequest(
           c,
-          "Add another sign-in method before unlinking this account."
+          "Add another sign-in method before unlinking this account.",
         )
       }
       if (result === "not-found") return notFound(c)
       return success(c)
-    }
+    },
   )

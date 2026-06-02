@@ -17,11 +17,11 @@ import {
   ChromeShell,
   handleVideoKeyCommand,
   LoadOverlay,
-  shouldHandleGlobalVideoShortcut,
   type LoadStatus,
+  shouldHandleGlobalVideoShortcut,
   type VideoKeyCommand,
 } from "./video-player-shell"
-import { mediaErrorMessage, useMediaUrl, type SourceSpec } from "./video-source"
+import { mediaErrorMessage, type SourceSpec, useMediaUrl } from "./video-source"
 import type { SharedPlayerProps } from "./video-player-types"
 
 let activeVideoPlayerId: string | null = null
@@ -98,7 +98,7 @@ export function PlayerCore({
         chromeHideTimerRef.current = null
       }, delayMs)
     },
-    [clearChromeHideTimer, isCoarsePointer]
+    [clearChromeHideTimer, isCoarsePointer],
   )
 
   const onTimeUpdateRef = React.useRef(onTimeUpdate)
@@ -196,18 +196,18 @@ export function PlayerCore({
       const min = Math.max(0, shortcutBounds?.start ?? 0)
       const max = Math.max(
         min,
-        Math.min(dur > 0 ? dur : targetSec, shortcutBounds?.end ?? dur)
+        Math.min(dur > 0 ? dur : targetSec, shortcutBounds?.end ?? dur),
       )
       const clamped = Math.max(
         min,
-        Math.min(max, Number.isFinite(targetSec) ? targetSec : 0)
+        Math.min(max, Number.isFinite(targetSec) ? targetSec : 0),
       )
       video.currentTime = clamped
       setCurrentTime(clamped)
       onTimeUpdateRef.current?.(clamped)
       if (keepPlaying) void playInternal()
     },
-    [playInternal, shortcutBounds?.end, shortcutBounds?.start]
+    [playInternal, shortcutBounds?.end, shortcutBounds?.start],
   )
 
   React.useEffect(() => {
@@ -265,7 +265,7 @@ export function PlayerCore({
         if (video) video.playbackRate = rate
       },
     }),
-    [pauseInternal, playInternal, seekInternal]
+    [pauseInternal, playInternal, seekInternal],
   )
 
   const togglePlay = React.useCallback(() => {
@@ -308,7 +308,7 @@ export function PlayerCore({
     (delta: number) => {
       setVolume(volumeRef.current + delta)
     },
-    [setVolume]
+    [setVolume],
   )
 
   const seekBy = React.useCallback(
@@ -317,7 +317,7 @@ export function PlayerCore({
       if (!video) return
       seekInternal((video.currentTime || 0) + deltaSec)
     },
-    [seekInternal]
+    [seekInternal],
   )
 
   const toggleFullscreen = React.useCallback(() => {
@@ -350,11 +350,10 @@ export function PlayerCore({
         seekInternal(Number.isFinite(seconds) ? seconds : duration),
       seekPercent: (percent) => {
         const start = Math.max(0, shortcutBounds?.start ?? 0)
-        const end =
-          shortcutBounds?.end !== undefined &&
-          Number.isFinite(shortcutBounds.end)
-            ? shortcutBounds.end
-            : duration
+        const end = shortcutBounds?.end !== undefined &&
+            Number.isFinite(shortcutBounds.end)
+          ? shortcutBounds.end
+          : duration
         const span = Math.max(0, end - start)
         seekInternal(start + span * Math.min(1, Math.max(0, percent)))
       },
@@ -371,7 +370,7 @@ export function PlayerCore({
       toggleMute,
       togglePlay,
       volumeBy,
-    ]
+    ],
   )
 
   const onKeyDown = React.useCallback(
@@ -390,7 +389,7 @@ export function PlayerCore({
         containerRef.current?.focus({ preventScroll: true })
       }
     },
-    [enableHorizontalSeekShortcuts, keyCommand, playerId]
+    [enableHorizontalSeekShortcuts, keyCommand, playerId],
   )
   useWindowEvent("keydown", onKeyDown, true)
 
@@ -508,11 +507,11 @@ export function PlayerCore({
       onVideoClick,
       scheduleChromeHide,
       togglePlay,
-    ]
+    ],
   )
 
   const renderVideo = (
-    clickHandler?: React.MouseEventHandler<HTMLVideoElement>
+    clickHandler?: React.MouseEventHandler<HTMLVideoElement>,
   ) => (
     <VideoFrame
       videoRef={videoRef}

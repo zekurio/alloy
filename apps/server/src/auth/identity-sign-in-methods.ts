@@ -1,4 +1,4 @@
-import { and, count, eq, sql } from "drizzle-orm"
+import { and, count, eq, inArray, sql } from "drizzle-orm"
 
 import { authAccount, user, userPasskey } from "@workspace/db/auth-schema"
 
@@ -19,10 +19,12 @@ export async function countUserPasskeys(userId: string): Promise<number> {
 async function countEnabledOAuthAccounts(
   userId: string,
   excludeAccount?: { providerId: string; providerAccountId: string },
-  executor: AuthExecutor = db
+  executor: AuthExecutor = db,
 ): Promise<number> {
-  const provider = configStore.get("oauthProvider")
-  if (!provider?.enabled) return 0
+  const providerIds = configStore.get("oauthProviders")
+    .filter((provider) => provider.enabled)
+    .map((provider) => provider.providerId)
+  if (providerIds.length === 0) return 0
 
   const rows = await executor
     .select({
@@ -33,15 +35,15 @@ async function countEnabledOAuthAccounts(
     .where(
       and(
         eq(authAccount.userId, userId),
-        eq(authAccount.providerId, provider.providerId)
-      )
+        inArray(authAccount.providerId, providerIds),
+      ),
     )
 
   return rows.filter(
     (row) =>
       !excludeAccount ||
       row.providerId !== excludeAccount.providerId ||
-      row.providerAccountId !== excludeAccount.providerAccountId
+      row.providerAccountId !== excludeAccount.providerAccountId,
   ).length
 }
 
@@ -51,7 +53,7 @@ export async function userHasEnabledSignInMethod(
     excludeAccount?: { providerId: string; providerAccountId: string }
     excludePasskeyId?: string
     executor?: AuthExecutor
-  } = {}
+  } = {},
 ): Promise<boolean> {
   const executor = options.executor ?? db
   if (configStore.get("passkeyEnabled")) {
@@ -68,14 +70,14 @@ export async function userHasEnabledSignInMethod(
     (await countEnabledOAuthAccounts(
       userId,
       options.excludeAccount,
-      executor
+      executor,
     )) > 0
   )
 }
 
 async function lockUserSignInMethods(
   tx: AuthTransaction,
-  userId: string
+  userId: string,
 ): Promise<void> {
   await tx.execute(sql`
     select ${user.id}
@@ -106,8 +108,8 @@ export async function deleteUserPasskeyPreservingSignIn(input: {
       .where(
         and(
           eq(userPasskey.id, input.passkeyId),
-          eq(userPasskey.userId, input.userId)
-        )
+          eq(userPasskey.userId, input.userId),
+        ),
       )
       .returning({ id: userPasskey.id })
 
@@ -141,8 +143,8 @@ export async function unlinkOAuthAccountPreservingSignIn(input: {
         and(
           eq(authAccount.userId, input.userId),
           eq(authAccount.providerId, input.providerId),
-          eq(authAccount.providerAccountId, input.providerAccountId)
-        )
+          eq(authAccount.providerAccountId, input.providerAccountId),
+        ),
       )
       .returning({ id: authAccount.id })
 

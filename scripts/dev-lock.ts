@@ -41,7 +41,7 @@ export async function acquireDevLock(): Promise<() => void> {
         writeLine(
           Deno.stderr,
           "dev",
-          `another dev supervisor is already running with pid ${lockedPid}; stop it first or remove ${DEV_LOCK_FILE} if that process is gone.`
+          `another dev supervisor is already running with pid ${lockedPid}; stop it first or remove ${DEV_LOCK_FILE} if that process is gone.`,
         )
         Deno.exit(1)
       }

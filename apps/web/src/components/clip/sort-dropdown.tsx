@@ -30,7 +30,7 @@ type SortDropdownProps<K extends string> = {
    */
   renderOptionLink: (
     option: SortDropdownOption<K>,
-    active: boolean
+    active: boolean,
   ) => React.ReactElement
 }
 

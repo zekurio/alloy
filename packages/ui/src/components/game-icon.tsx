@@ -6,7 +6,7 @@ import { cn } from "@workspace/ui/lib/utils"
 const gameIconVariants = cva(
   cn(
     "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-sm",
-    "bg-surface-muted font-mono leading-3 text-foreground-faint uppercase"
+    "bg-surface-muted font-mono leading-3 text-foreground-faint uppercase",
   ),
   {
     variants: {
@@ -17,7 +17,7 @@ const gameIconVariants = cva(
       },
     },
     defaultVariants: { size: "md" },
-  }
+  },
 )
 
 interface GameIconProps
@@ -43,16 +43,18 @@ function GameIcon({ src, name, size, className, ...props }: GameIconProps) {
       className={cn(gameIconVariants({ size }), className)}
       {...props}
     >
-      {src && ok ? (
-        <img
-          src={src}
-          alt=""
-          className="size-full object-cover"
-          onError={() => setOk(false)}
-        />
-      ) : (
-        name.slice(0, 1)
-      )}
+      {src && ok
+        ? (
+          <img
+            src={src}
+            alt=""
+            className="size-full object-cover"
+            onError={() => setOk(false)}
+          />
+        )
+        : (
+          name.slice(0, 1)
+        )}
     </span>
   )
 }

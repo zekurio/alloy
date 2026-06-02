@@ -10,7 +10,7 @@ type FormValidityControl = Element & {
 }
 
 function isFormValidityControl(
-  control: Element
+  control: Element,
 ): control is FormValidityControl {
   return "validity" in control && "willValidate" in control
 }
@@ -36,7 +36,7 @@ function hasInvalidFormControl(form: HTMLFormElement) {
 
 function useSubmitButtonValidity(
   buttonRef: React.RefObject<HTMLButtonElement | null>,
-  enabled: boolean
+  enabled: boolean,
 ) {
   const [formInvalid, setFormInvalid] = React.useState(false)
 
@@ -112,7 +112,7 @@ function Button({
         ref.current = node
       }
     },
-    [ref]
+    [ref],
   )
   const disableWhenFormInvalid = type === "submit"
   const formInvalid = useSubmitButtonValidity(buttonRef, disableWhenFormInvalid)

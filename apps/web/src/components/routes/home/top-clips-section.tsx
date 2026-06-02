@@ -19,8 +19,8 @@ import {
 } from "@/components/clip/sort-dropdown"
 import { TopClipsCarousel } from "@/components/clip/top-clips-carousel"
 import {
-  ClipListProvider,
   type ClipListEntry,
+  ClipListProvider,
 } from "@/components/clip/clip-list-context"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { useTopClipsQuery } from "@/lib/clip-queries"
@@ -115,7 +115,7 @@ function TopClipsBody({
         gameSlug: row.gameRef?.slug ?? null,
         row,
       })),
-    [rows]
+    [rows],
   )
 
   if (rows) {
@@ -124,9 +124,9 @@ function TopClipsBody({
         <EmptyState
           seed={`top-${window}-empty`}
           size="md"
-          title={
-            hashtag ? `No top clips tagged #${hashtag}` : emptyTopTitle(window)
-          }
+          title={hashtag
+            ? `No top clips tagged #${hashtag}`
+            : emptyTopTitle(window)}
           hint="Check back in a bit or upload your own."
         />
       )

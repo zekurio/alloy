@@ -57,7 +57,7 @@ export function formatDateTime(value: DateInput): string {
 
 export function formatRelativeTime(
   value: DateInput,
-  now: number = Date.now()
+  now: number = Date.now(),
 ): string {
   const date = validDate(value)
   if (!date) return ""

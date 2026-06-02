@@ -8,7 +8,7 @@ const MAX_IMAGE_PIXELS = 24_000_000
 
 export function validateImageBytes(
   bytes: Buffer,
-  expectedContentType: string
+  expectedContentType: string,
 ): ImageValidationResult {
   if (bytes.byteLength === 0) return { ok: false, error: "Empty image data" }
 
@@ -27,7 +27,7 @@ export function validateImageBytes(
 }
 
 function parseJpeg(
-  bytes: Buffer
+  bytes: Buffer,
 ): { width: number; height: number; contentType: string } | null {
   if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null
   let offset = 2
@@ -58,7 +58,7 @@ function parseJpeg(
 }
 
 function parsePng(
-  bytes: Buffer
+  bytes: Buffer,
 ): { width: number; height: number; contentType: string } | null {
   const pngSig = "89504e470d0a1a0a"
   if (bytes.length < 24 || bytes.subarray(0, 8).toString("hex") !== pngSig) {
@@ -73,7 +73,7 @@ function parsePng(
 }
 
 function parseWebp(
-  bytes: Buffer
+  bytes: Buffer,
 ): { width: number; height: number; contentType: string } | null {
   if (
     bytes.length < 16 ||

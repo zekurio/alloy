@@ -1,11 +1,11 @@
 import type * as React from "react"
 
 import {
-  ENCODER_HWACCELS,
   type AdminEncoderCapabilities,
   type AdminEncoderConfig,
   type AdminEncoderVariant,
   type AdminRuntimeConfig,
+  ENCODER_HWACCELS,
   type EncoderHwaccel,
 } from "@workspace/api"
 
@@ -27,7 +27,7 @@ export const HWACCEL_LABELS: Record<EncoderHwaccel, string> = {
 }
 
 export function isEncoderHwaccel(
-  value: string | number | null
+  value: string | number | null,
 ): value is EncoderHwaccel {
   return isAllowedString(value, ENCODER_HWACCELS)
 }
@@ -35,7 +35,7 @@ export function isEncoderHwaccel(
 export function variantCodecAvailable(
   caps: AdminEncoderCapabilities | null,
   hwaccel: EncoderHwaccel,
-  variant: AdminEncoderVariant
+  variant: AdminEncoderVariant,
 ): boolean {
   return caps?.ffmpegOk
     ? (caps.available[hwaccel]?.[variant.codec] ?? false)
@@ -49,7 +49,7 @@ export function variantCodecAvailable(
  */
 export function uniqueVariantName(
   name: string,
-  usedNames: Set<string>
+  usedNames: Set<string>,
 ): string {
   const base = name.trim() || "Variant"
   let candidate = `${base} copy`
@@ -62,12 +62,11 @@ export function uniqueVariantName(
 }
 
 export function variantIdFromName(name: string, usedIds: Set<string>): string {
-  const base =
-    name
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "variant"
+  const base = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "variant"
   let id = base
   let suffix = 2
   while (usedIds.has(id)) {
@@ -78,7 +77,7 @@ export function variantIdFromName(name: string, usedIds: Set<string>): string {
 }
 
 export function normalizeEncoderVariant(
-  variant: AdminEncoderVariant
+  variant: AdminEncoderVariant,
 ): AdminEncoderVariant {
   const preset = requiredTrimmedString(variant.preset)
   return {
@@ -89,7 +88,7 @@ export function normalizeEncoderVariant(
 }
 
 function normalizeEncoderConfig(
-  config: AdminEncoderConfig
+  config: AdminEncoderConfig,
 ): AdminEncoderConfig {
   return {
     ...config,
@@ -101,11 +100,11 @@ function normalizeEncoderConfig(
 
 export function encoderConfigsEqual(
   left: AdminEncoderConfig,
-  right: AdminEncoderConfig
+  right: AdminEncoderConfig,
 ): boolean {
   return (
     JSON.stringify(normalizeEncoderConfig(left)) ===
-    JSON.stringify(normalizeEncoderConfig(right))
+      JSON.stringify(normalizeEncoderConfig(right))
   )
 }
 
@@ -123,7 +122,7 @@ export async function saveEncoderConfig({
   setPending(true)
   try {
     const next = await api.admin.updateEncoderConfig(
-      normalizeEncoderConfig(form)
+      normalizeEncoderConfig(form),
     )
     onChange(next)
     toast.success("Encoder updated")

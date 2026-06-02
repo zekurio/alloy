@@ -15,7 +15,7 @@ import { logger } from "@workspace/logging"
 import { db } from "../db"
 import { env } from "../env"
 import { configStore } from "../config/store"
-import { getPublicProvider } from "../auth/oauth-config"
+import { getPublicProviders } from "../auth/oauth-config"
 import { getSetupStatus } from "../auth/user-bootstrap"
 import { notFound } from "../runtime/http-response"
 import { storage } from "../storage"
@@ -54,16 +54,18 @@ let splashShadeCache: SplashImage | null = null
 function imageBody(image: Uint8Array): ArrayBuffer {
   return image.buffer.slice(
     image.byteOffset,
-    image.byteOffset + image.byteLength
+    image.byteOffset + image.byteLength,
   ) as ArrayBuffer
 }
 
 function loginSplashCacheKey(rows: SplashClipRow[]): string {
-  const generatedAt =
-    configStore.get("appearance").loginSplash.generatedAt ?? "pending"
-  return `${LOGIN_SPLASH_LAYOUT_VERSION}:${generatedAt}:${rows
-    .map((row) => `${row.id}:${row.thumbKey}`)
-    .join(",")}`
+  const generatedAt = configStore.get("appearance").loginSplash.generatedAt ??
+    "pending"
+  return `${LOGIN_SPLASH_LAYOUT_VERSION}:${generatedAt}:${
+    rows
+      .map((row) => `${row.id}:${row.thumbKey}`)
+      .join(",")
+  }`
 }
 
 function createSolidImage(width: number, height: number): SplashImage {
@@ -91,7 +93,7 @@ function splashShadeOverlay(): SplashImage {
       const bottomShade = Math.max(0, (y / SPLASH_HEIGHT - 0.58) * 70)
       const vignette = Math.min(120, distance * 88)
       image.bitmap[index + 3] = Math.round(
-        56 + rightShade + bottomShade + vignette
+        56 + rightShade + bottomShade + vignette,
       )
     }
   }
@@ -101,7 +103,7 @@ function splashShadeOverlay(): SplashImage {
 }
 
 async function buildLoginSplashImage(
-  assets: SplashClipAsset[]
+  assets: SplashClipAsset[],
 ): Promise<Uint8Array | null> {
   const tiles = await Promise.all(assets.map(buildTileOrNull))
   const usableTiles = tiles.filter((tile): tile is SplashImage => tile !== null)
@@ -115,10 +117,10 @@ async function buildLoginSplashImage(
     SPLASH_WIDTH * Math.abs(Math.sin(rotationRadians)) +
     SPLASH_HEIGHT * Math.abs(Math.cos(rotationRadians))
   const gridWidth = Math.ceil(
-    rotationCoverWidth + (TILE_WIDTH + TILE_GAP) * TILE_GRID_MARGIN_STEPS
+    rotationCoverWidth + (TILE_WIDTH + TILE_GAP) * TILE_GRID_MARGIN_STEPS,
   )
   const gridHeight = Math.ceil(
-    rotationCoverHeight + (TILE_HEIGHT + TILE_GAP) * TILE_GRID_MARGIN_STEPS
+    rotationCoverHeight + (TILE_HEIGHT + TILE_GAP) * TILE_GRID_MARGIN_STEPS,
   )
   const columnCount =
     Math.ceil((gridWidth + TILE_GAP) / (TILE_WIDTH + TILE_GAP)) + 1
@@ -133,11 +135,11 @@ async function buildLoginSplashImage(
   let tileIndex = 0
   for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
     const top = startTop + rowIndex * (TILE_HEIGHT + TILE_GAP)
-    const rowShift =
-      TILE_ROW_SHIFT * (TILE_ROW_SHIFTS[rowIndex % TILE_ROW_SHIFTS.length] ?? 0)
+    const rowShift = TILE_ROW_SHIFT *
+      (TILE_ROW_SHIFTS[rowIndex % TILE_ROW_SHIFTS.length] ?? 0)
     for (let columnIndex = 0; columnIndex < columnCount; columnIndex++) {
       const left = Math.round(
-        startLeft + rowShift + columnIndex * (TILE_WIDTH + TILE_GAP)
+        startLeft + rowShift + columnIndex * (TILE_WIDTH + TILE_GAP),
       )
       const tile = usableTiles[tileIndex % usableTiles.length]
       if (!tile) continue
@@ -153,7 +155,7 @@ async function buildLoginSplashImage(
     Math.floor((backdrop.width - SPLASH_WIDTH) / 2),
     Math.floor((backdrop.height - SPLASH_HEIGHT) / 2),
     SPLASH_WIDTH,
-    SPLASH_HEIGHT
+    SPLASH_HEIGHT,
   )
 
   return await createSolidImage(SPLASH_WIDTH, SPLASH_HEIGHT)
@@ -163,14 +165,14 @@ async function buildLoginSplashImage(
 }
 
 async function buildTileOrNull(
-  asset: SplashClipAsset
+  asset: SplashClipAsset,
 ): Promise<SplashImage | null> {
   try {
     return await buildTile(asset)
   } catch (err) {
     logger.warn(
       `[auth-config] failed to build login splash tile ${asset.id}:`,
-      err
+      err,
     )
     return null
   }
@@ -195,8 +197,8 @@ async function selectLoginSplashRows(): Promise<SplashClipRow[]> {
         eq(clip.status, "ready"),
         eq(clip.privacy, "public"),
         isNotNull(clip.thumbKey),
-        isNull(user.disabledAt)
-      )
+        isNull(user.disabledAt),
+      ),
     )
 
   const byId = new Map(rows.map((row) => [row.id, row]))
@@ -207,7 +209,7 @@ async function selectLoginSplashRows(): Promise<SplashClipRow[]> {
 }
 
 async function selectLoginSplashAssets(
-  rows: SplashClipRow[]
+  rows: SplashClipRow[],
 ): Promise<SplashClipAsset[]> {
   const assets: SplashClipAsset[] = []
   for (const row of rows.slice(0, MAX_SPLASH_TILES)) {
@@ -225,25 +227,26 @@ export const authConfigRoute = new Hono()
     const loginSplash = configStore.get("appearance").loginSplash
     const splashRows = await selectLoginSplashRows()
 
-    return c.json({
-      ...setupStatus,
-      openRegistrations: configStore.get("openRegistrations"),
-      passkeyEnabled: configStore.get("passkeyEnabled"),
-      requireAuthToBrowse: configStore.get("requireAuthToBrowse"),
-      provider: getPublicProvider(),
-      loginSplash: {
-        enabled: loginSplash.enabled,
-        generatedAt: loginSplash.generatedAt,
-        imageUrl:
-          loginSplash.enabled && splashRows.length > 0
+    return c.json(
+      {
+        ...setupStatus,
+        openRegistrations: configStore.get("openRegistrations"),
+        passkeyEnabled: configStore.get("passkeyEnabled"),
+        requireAuthToBrowse: configStore.get("requireAuthToBrowse"),
+        providers: getPublicProviders(),
+        loginSplash: {
+          enabled: loginSplash.enabled,
+          generatedAt: loginSplash.generatedAt,
+          imageUrl: loginSplash.enabled && splashRows.length > 0
             ? new URL(
-                loginSplashImagePath(loginSplash.generatedAt),
-                env.PUBLIC_SERVER_URL
-              ).toString()
+              loginSplashImagePath(loginSplash.generatedAt),
+              env.PUBLIC_SERVER_URL,
+            ).toString()
             : null,
-        clips: [],
-      },
-    } satisfies PublicAuthConfig)
+          clips: [],
+        },
+      } satisfies PublicAuthConfig,
+    )
   })
   .get(LEGACY_SPLASH_IMAGE_PATH, (c) => {
     const url = new URL(c.req.url)

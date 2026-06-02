@@ -69,13 +69,13 @@ export function ProfileTabsNav({ username, clipsCount }: ProfileTabsNavProps) {
               "after:absolute after:right-0 after:-bottom-px after:left-0 after:h-px after:content-['']",
               "after:bg-accent after:opacity-0",
               "after:shadow-[0_0_8px_var(--accent-glow)]",
-              "data-active:after:opacity-100"
+              "data-active:after:opacity-100",
             )}
           >
             {tab.label}
-            {tab.segment === "all" && clipsCount !== null ? (
-              <TabsCount>{formatCount(clipsCount)}</TabsCount>
-            ) : null}
+            {tab.segment === "all" && clipsCount !== null
+              ? <TabsCount>{formatCount(clipsCount)}</TabsCount>
+              : null}
           </Link>
         )
       })}

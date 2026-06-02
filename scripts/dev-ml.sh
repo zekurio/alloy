@@ -6,7 +6,7 @@ cd "$ROOT_DIR/machine-learning"
 
 : "${ALLOY_ML_HOST:=0.0.0.0}"
 : "${ALLOY_ML_PORT:=2662}"
-: "${MACHINE_LEARNING_CACHE_FOLDER:=../data/ml-cache}"
+: "${MACHINE_LEARNING_CACHE_FOLDER:=../data/ml}"
 : "${MACHINE_LEARNING_UV_EXTRA:=cpu}"
 : "${MACHINE_LEARNING_UV_SYNC:=1}"
 

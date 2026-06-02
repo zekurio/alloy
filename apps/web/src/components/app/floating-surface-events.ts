@@ -14,12 +14,12 @@ export function announceFloatingSurfaceOpen(surface: FloatingSurface) {
   window.dispatchEvent(
     new CustomEvent<FloatingSurface>(FLOATING_SURFACE_OPEN_EVENT, {
       detail: surface,
-    })
+    }),
   )
 }
 
 export function useFloatingSurfaceOpenListener(
-  callback: (surface: FloatingSurface) => void
+  callback: (surface: FloatingSurface) => void,
 ) {
   useWindowEvent(FLOATING_SURFACE_OPEN_EVENT, (event) => {
     callback(event.detail)

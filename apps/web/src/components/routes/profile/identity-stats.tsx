@@ -53,7 +53,7 @@ function FollowStatButton({
       className={cn(
         "rounded-sm",
         "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-        "hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        "hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
       )}
     >
       <StatInline value={value} label={label} />
@@ -75,8 +75,9 @@ export function IdentityStats({ handle, counts }: IdentityStatsProps) {
   })
 
   const list = view === "followers" ? followersQuery.data : followingQuery.data
-  const loading =
-    view === "followers" ? followersQuery.isLoading : followingQuery.isLoading
+  const loading = view === "followers"
+    ? followersQuery.isLoading
+    : followingQuery.isLoading
 
   return (
     <>
@@ -101,28 +102,32 @@ export function IdentityStats({ handle, counts }: IdentityStatsProps) {
             </DialogTitle>
           </DialogHeader>
           <DialogBody className="max-h-[60vh] overflow-y-auto px-2 py-2">
-            {loading ? (
-              <div className="grid place-items-center px-2 py-4 text-foreground-faint">
-                <Spinner />
-              </div>
-            ) : list && list.length > 0 ? (
-              <ul className="flex flex-col">
-                {list.map((u) => (
-                  <FollowRow
-                    key={u.id}
-                    user={u}
-                    initiallyFollowing={view === "following"}
-                    onNavigate={() => setOpen(null)}
-                  />
-                ))}
-              </ul>
-            ) : (
-              <p className="px-2 py-4 text-center text-sm text-foreground-faint">
-                {view === "followers"
-                  ? "No followers yet."
-                  : "Not following anyone yet."}
-              </p>
-            )}
+            {loading
+              ? (
+                <div className="grid place-items-center px-2 py-4 text-foreground-faint">
+                  <Spinner />
+                </div>
+              )
+              : list && list.length > 0
+              ? (
+                <ul className="flex flex-col">
+                  {list.map((u) => (
+                    <FollowRow
+                      key={u.id}
+                      user={u}
+                      initiallyFollowing={view === "following"}
+                      onNavigate={() => setOpen(null)}
+                    />
+                  ))}
+                </ul>
+              )
+              : (
+                <p className="px-2 py-4 text-center text-sm text-foreground-faint">
+                  {view === "followers"
+                    ? "No followers yet."
+                    : "Not following anyone yet."}
+                </p>
+              )}
           </DialogBody>
         </DialogContent>
       </Dialog>
@@ -160,7 +165,7 @@ function FollowRow({
           setFollowing(!next)
           toast.error(errorMessage(err, "Something went wrong"))
         },
-      }
+      },
     )
   }
 
@@ -173,9 +178,9 @@ function FollowRow({
         className="flex min-w-0 flex-1 items-center gap-3"
       >
         <Avatar size="md" style={avatarStyle}>
-          {avatar.src ? (
-            <AvatarImage src={avatar.src} alt={displayName} />
-          ) : null}
+          {avatar.src
+            ? <AvatarImage src={avatar.src} alt={displayName} />
+            : null}
           <AvatarFallback style={avatarStyle}>{avatar.initials}</AvatarFallback>
         </Avatar>
         <span className="min-w-0 flex-1">

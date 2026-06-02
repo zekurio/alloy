@@ -17,7 +17,7 @@ import { errorMessage } from "@/lib/error-message"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
 function isDisabledSessionUser(
-  user: { disabledAt: string | null } | null | undefined
+  user: { disabledAt: string | null } | null | undefined,
 ): boolean {
   return Boolean(user?.disabledAt)
 }

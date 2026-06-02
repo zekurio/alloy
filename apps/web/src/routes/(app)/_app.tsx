@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Outlet, createFileRoute, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
 
 import { AppMain, AppShell } from "@workspace/ui/components/app-shell"
 
@@ -13,7 +13,7 @@ import { HomeHeader } from "@/components/layout/home-header"
 import { HomeSidebar } from "@/components/layout/home-sidebar"
 import { UploadFlow } from "@/components/upload/upload-flow"
 import { UploadFlowProvider } from "@/components/upload/upload-flow-controls"
-import { parseAppSearch, type AppSearch } from "@/lib/app-search"
+import { type AppSearch, parseAppSearch } from "@/lib/app-search"
 import { requireBrowseAuthBeforeLoad } from "@/lib/auth-guards"
 import { useBrowseAuthGate } from "@/lib/auth-hooks"
 
@@ -53,35 +53,37 @@ function AppLayout() {
         }),
         ...(entry.gameSlug
           ? {
-              mask: {
-                to: "/g/$slug/c/$clipId",
-                params: { slug: entry.gameSlug, clipId: entry.id },
-              },
-            }
+            mask: {
+              to: "/g/$slug/c/$clipId",
+              params: { slug: entry.gameSlug, clipId: entry.id },
+            },
+          }
           : {}),
         replace: true,
       })
     },
-    [navigate]
+    [navigate],
   )
 
-  return allowed ? (
-    <AppSearchProvider>
-      <UploadFlowProvider>
-        <AppShell>
-          <AppChrome />
-          <Outlet />
-          <UploadFlow />
-        </AppShell>
-      </UploadFlowProvider>
-      <ClipViewerDialog
-        clipId={clip ?? null}
-        focusedCommentId={comment ?? null}
-        onClose={handleCloseClipModal}
-        onNavigate={handleNavigateClip}
-      />
-    </AppSearchProvider>
-  ) : null
+  return allowed
+    ? (
+      <AppSearchProvider>
+        <UploadFlowProvider>
+          <AppShell>
+            <AppChrome />
+            <Outlet />
+            <UploadFlow />
+          </AppShell>
+        </UploadFlowProvider>
+        <ClipViewerDialog
+          clipId={clip ?? null}
+          focusedCommentId={comment ?? null}
+          onClose={handleCloseClipModal}
+          onNavigate={handleNavigateClip}
+        />
+      </AppSearchProvider>
+    )
+    : null
 }
 
 const AppChrome = React.memo(function AppChrome() {
@@ -94,7 +96,7 @@ const AppChrome = React.memo(function AppChrome() {
 })
 
 function AppRouteErrorState(
-  props: React.ComponentProps<typeof RouteErrorState>
+  props: React.ComponentProps<typeof RouteErrorState>,
 ) {
   return (
     <AppRouteStateShell>
@@ -104,7 +106,7 @@ function AppRouteErrorState(
 }
 
 function AppRouteNotFoundState(
-  props: React.ComponentProps<typeof RouteNotFoundState>
+  props: React.ComponentProps<typeof RouteNotFoundState>,
 ) {
   return (
     <AppRouteStateShell>

@@ -22,7 +22,7 @@ export const zValidator = ((
   target: ZValidatorArgs[0],
   schema: ZValidatorArgs[1],
   hook?: ZValidatorArgs[2],
-  options?: ZValidatorArgs[3]
+  options?: ZValidatorArgs[3],
 ) =>
   baseZValidator(
     target,
@@ -33,7 +33,7 @@ export const zValidator = ((
       }
       return hook?.(result, c)
     },
-    options
+    options,
   )) as ZValidator
 
 export function limitQueryParam(max: number, defaultValue: number) {

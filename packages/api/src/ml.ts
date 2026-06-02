@@ -22,7 +22,7 @@ async function fetchMlConfig(context: ApiContext): Promise<PublicMlConfig> {
 
 async function suggestGames(
   context: ApiContext,
-  frames: Blob[]
+  frames: Blob[],
 ): Promise<MlGameSuggestionResponse> {
   const body = new FormData()
   for (const [i, frame] of frames.entries()) {
@@ -31,7 +31,7 @@ async function suggestGames(
 
   const res = await context.rpc.api.ml["game-suggestions"].$post(
     {},
-    { init: { body } }
+    { init: { body } },
   )
 
   return readJsonOrThrow(res, validateMlGameSuggestionResponse)

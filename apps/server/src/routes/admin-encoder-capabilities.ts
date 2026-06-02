@@ -65,7 +65,7 @@ async function probeEncoderCapabilities(): Promise<EncoderCapabilities> {
 
 async function optionalCapture(
   label: string,
-  args: ReadonlyArray<string>
+  args: ReadonlyArray<string>,
 ): Promise<string | null> {
   try {
     return await runCapture(env.FFMPEG_BIN, args)
@@ -77,7 +77,7 @@ async function optionalCapture(
 
 async function runCapture(
   bin: string,
-  args: ReadonlyArray<string>
+  args: ReadonlyArray<string>,
 ): Promise<string> {
   const output = await new Deno.Command(bin, {
     args: [...args],

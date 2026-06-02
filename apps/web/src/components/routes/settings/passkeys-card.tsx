@@ -80,22 +80,24 @@ export function PasskeysCard({
           <AddPasskeyDialog onAdded={onRefresh} />
         </div>
 
-        {passkeys.length > 0 ? (
-          <ul className="flex flex-col divide-y divide-border">
-            {passkeys.map((passkey) => (
-              <PasskeyRow
-                key={passkey.id}
-                passkey={passkey}
-                removing={deletingId === passkey.id}
-                onDelete={() => onDelete(passkey)}
-              />
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-foreground-muted">
-            No passkeys yet. Add one for faster, password-free sign-in.
-          </p>
-        )}
+        {passkeys.length > 0
+          ? (
+            <ul className="flex flex-col divide-y divide-border">
+              {passkeys.map((passkey) => (
+                <PasskeyRow
+                  key={passkey.id}
+                  passkey={passkey}
+                  removing={deletingId === passkey.id}
+                  onDelete={() => onDelete(passkey)}
+                />
+              ))}
+            </ul>
+          )
+          : (
+            <p className="text-sm text-foreground-muted">
+              No passkeys yet. Add one for faster, password-free sign-in.
+            </p>
+          )}
       </SectionContent>
     </Section>
   )
@@ -127,8 +129,8 @@ function AddPasskeyDialog({ onAdded }: { onAdded: () => Promise<void> }) {
         reportAuthFlowFailure(
           "passkey registration",
           "Passkey registration failed",
-          cause
-        )
+          cause,
+        ),
       )
     } finally {
       setAdding(false)

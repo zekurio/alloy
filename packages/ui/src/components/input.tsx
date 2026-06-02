@@ -30,7 +30,7 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
         "[&:-webkit-autofill:hover]:[box-shadow:0_0_0_1000px_var(--surface-raised)_inset]",
         "[&:-webkit-autofill:focus]:[box-shadow:0_0_0_1000px_var(--surface-raised)_inset]",
         "[&:-webkit-autofill:focus]:[-webkit-text-fill-color:var(--foreground)]",
-        className
+        className,
       )}
       {...props}
     />

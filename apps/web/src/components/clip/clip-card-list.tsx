@@ -3,7 +3,7 @@ import * as React from "react"
 import type { ClipRow } from "@workspace/api"
 
 import { ClipCardTrigger } from "./clip-card-trigger"
-import { ClipListProvider, type ClipListEntry } from "./clip-list-context"
+import { type ClipListEntry, ClipListProvider } from "./clip-list-context"
 import { ClipGrid } from "./clip-grid"
 
 type ClipCardListProps = {
@@ -25,7 +25,7 @@ export function ClipCardList({
         gameSlug: row.gameRef?.slug ?? null,
         row,
       })),
-    [rows]
+    [rows],
   )
   const grid = (
     <ClipGrid>

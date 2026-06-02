@@ -16,7 +16,7 @@ function EmptySection({
 function renderEmptySection(
   slot: string,
   defaultClassName: string,
-  props: React.ComponentProps<"div">
+  props: React.ComponentProps<"div">,
 ) {
   return (
     <EmptySection
@@ -33,7 +33,7 @@ function Empty({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="empty"
       className={cn(
         "flex w-full min-w-0 flex-1 flex-col items-center justify-center gap-4 rounded-xl border-dashed p-6 text-center text-balance",
-        className
+        className,
       )}
       {...props}
     />
@@ -47,7 +47,7 @@ function EmptyHeader({ className, ...props }: React.ComponentProps<"div">) {
     {
       className,
       ...props,
-    }
+    },
   )
 }
 
@@ -57,13 +57,14 @@ const emptyMediaVariants = cva(
     variants: {
       variant: {
         default: "bg-transparent",
-        icon: "flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground [&_svg:not([class*='size-'])]:size-4",
+        icon:
+          "flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground [&_svg:not([class*='size-'])]:size-4",
       },
     },
     defaultVariants: {
       variant: "default",
     },
-  }
+  },
 )
 
 function EmptyMedia({
@@ -88,7 +89,7 @@ function EmptyTitle({ className, ...props }: React.ComponentProps<"div">) {
     {
       className,
       ...props,
-    }
+    },
   )
 }
 
@@ -99,7 +100,7 @@ function EmptyDescription({ className, ...props }: React.ComponentProps<"p">) {
       slot="empty-description"
       className={cn(
         "text-sm/relaxed text-muted-foreground [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
-        className
+        className,
       )}
       {...props}
     />
@@ -113,15 +114,15 @@ function EmptyContent({ className, ...props }: React.ComponentProps<"div">) {
     {
       className,
       ...props,
-    }
+    },
   )
 }
 
 export {
   Empty,
-  EmptyHeader,
-  EmptyTitle,
-  EmptyDescription,
   EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
   EmptyMedia,
+  EmptyTitle,
 }

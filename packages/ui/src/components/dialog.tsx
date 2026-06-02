@@ -30,7 +30,7 @@ function DialogOverlay({
       className={cn(
         MODAL_OVERLAY_CLASS_NAME,
         "duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
-        className
+        className,
       )}
       {...props}
     />
@@ -65,7 +65,7 @@ function DialogContent({
           disableZoom
             ? "data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
             : "data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-          className
+          className,
         )}
         {...props}
       />
@@ -83,7 +83,7 @@ function DialogViewportContent({
       className={cn(
         "h-[calc(100vh-32px)] w-[calc(100vw-32px)] max-w-none overflow-hidden rounded-[28px] p-0",
         "lg:h-[calc(100vh-48px)] lg:w-[calc(100vw-200px)]",
-        className
+        className,
       )}
       {...props}
     />
@@ -93,7 +93,7 @@ function DialogViewportContent({
 function renderDialogSection(
   slot: string,
   defaultClassName: string,
-  { className, ...props }: React.ComponentProps<"div">
+  { className, ...props }: React.ComponentProps<"div">,
 ) {
   return (
     <div
@@ -108,7 +108,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return renderDialogSection(
     "dialog-header",
     "flex flex-col gap-1.5 px-6 pt-5 group-data-[variant=secondary]/dialog-content:px-5 group-data-[variant=secondary]/dialog-content:pt-4 sm:group-data-[variant=secondary]/dialog-content:px-6",
-    { className, ...props }
+    { className, ...props },
   )
 }
 
@@ -116,7 +116,7 @@ function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
   return renderDialogSection(
     "dialog-body",
     "px-6 py-4 group-data-[variant=secondary]/dialog-content:px-5 sm:group-data-[variant=secondary]/dialog-content:px-6",
-    { className, ...props }
+    { className, ...props },
   )
 }
 
@@ -124,7 +124,7 @@ function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
   return renderDialogSection(
     "dialog-footer",
     "flex items-center justify-end gap-2 px-6 pb-5 group-data-[variant=secondary]/dialog-content:px-5 group-data-[variant=secondary]/dialog-content:pb-4 sm:group-data-[variant=secondary]/dialog-content:px-6 [&_[data-slot=button][data-variant=outline]]:!border-transparent [&_[data-slot=button][data-variant=outline]]:!bg-transparent [&_[data-slot=button][data-variant=outline]]:!text-foreground-muted [&_[data-slot=button][data-variant=outline]]:hover:!bg-surface-raised [&_[data-slot=button][data-variant=outline]]:hover:!text-foreground [&_[data-slot=button][data-variant=secondary]]:!border-transparent [&_[data-slot=button][data-variant=secondary]]:!bg-transparent [&_[data-slot=button][data-variant=secondary]]:!text-foreground-muted [&_[data-slot=button][data-variant=secondary]]:hover:!bg-surface-raised [&_[data-slot=button][data-variant=secondary]]:hover:!text-foreground",
-    { className, ...props }
+    { className, ...props },
   )
 }
 
@@ -134,7 +134,7 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
       data-slot="dialog-title"
       className={cn(
         "text-lg leading-tight font-semibold tracking-[var(--tracking-tight)] text-foreground",
-        className
+        className,
       )}
       {...props}
     />
@@ -151,7 +151,7 @@ function DialogDescription({
       className={cn(
         "text-sm text-foreground-dim",
         "[&_a]:text-accent [&_a]:underline-offset-4 hover:[&_a]:underline",
-        className
+        className,
       )}
       {...props}
     />
@@ -160,12 +160,12 @@ function DialogDescription({
 
 export {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogBody,
   DialogOverlay,
   DialogPortal,
   DialogTitle,

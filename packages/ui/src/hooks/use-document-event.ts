@@ -6,7 +6,7 @@ export function useDocumentEvent<K extends keyof DocumentEventMap>(
   type: K,
   listener: (event: DocumentEventMap[K]) => void,
   options?: boolean | AddEventListenerOptions,
-  enabled = true
+  enabled = true,
 ): void {
   React.useEffect(() => {
     if (!enabled || typeof document === "undefined") return

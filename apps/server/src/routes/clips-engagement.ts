@@ -1,5 +1,5 @@
 import { zValidator } from "./validation"
-import { and, eq, sql, type SQL } from "drizzle-orm"
+import { and, eq, type SQL, sql } from "drizzle-orm"
 import { Hono } from "hono"
 
 import { clip, clipLike, clipView } from "@workspace/db/schema"
@@ -17,7 +17,7 @@ async function applyLikeCountDelta(
   tx: Tx,
   clipId: string,
   delta: SQL,
-  fallback: number
+  fallback: number,
 ): Promise<number> {
   const [row] = await tx
     .update(clip)
@@ -30,7 +30,7 @@ async function applyLikeCountDelta(
 async function readLikeCount(
   tx: Tx,
   clipId: string,
-  fallback: number
+  fallback: number,
 ): Promise<number> {
   const [row] = await tx
     .select({ likeCount: clip.likeCount })
@@ -58,7 +58,6 @@ export const clipsEngagementRoutes = new Hono()
       .limit(1)
     return booleanFlag(c, "liked", row !== undefined)
   })
-
   .post(
     "/:id/like",
     requireSession,
@@ -87,9 +86,8 @@ export const clipsEngagementRoutes = new Hono()
       })
 
       return likeState(c, true, likeCount)
-    }
+    },
   )
-
   .delete(
     "/:id/like",
     requireSession,
@@ -114,16 +112,15 @@ export const clipsEngagementRoutes = new Hono()
             tx,
             id,
             sql`GREATEST(0, ${clip.likeCount} - 1)`,
-            0
+            0,
           )
         }
         return readLikeCount(tx, id, target.row.likeCount)
       })
 
       return likeState(c, false, likeCount)
-    }
+    },
   )
-
   .post("/:id/view", zValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
 

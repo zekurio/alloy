@@ -5,9 +5,9 @@ import { user } from "@workspace/db/auth-schema"
 import { db } from "../db"
 import { env } from "../env"
 import {
+  type OAuthProviderConfig,
   OAuthProviderSchema,
   OAuthProviderSubmissionSchema,
-  type OAuthProviderConfig,
   type RuntimeConfig,
   type StorageConfig,
 } from "../config/store"
@@ -21,7 +21,7 @@ type OAuthProviderAdminSubmission = Record<string, unknown> & {
 }
 
 function redactSecrets(
-  config: Readonly<RuntimeConfig>
+  config: Readonly<RuntimeConfig>,
 ): Readonly<RuntimeConfig> {
   return {
     ...config,
@@ -37,9 +37,10 @@ function redactSecrets(
         ? REDACTED_SENTINEL
         : "",
     },
-    oauthProvider: config.oauthProvider
-      ? { ...config.oauthProvider, clientSecret: "" }
-      : null,
+    oauthProviders: config.oauthProviders.map((provider) => ({
+      ...provider,
+      clientSecret: "",
+    })),
     storage: {
       ...config.storage,
       fs: {
@@ -65,7 +66,7 @@ export function adminRuntimeConfigResponse(config: Readonly<RuntimeConfig>) {
 
 export function preserveRedactedSecrets(
   input: Record<string, unknown>,
-  current: RuntimeConfig
+  current: RuntimeConfig,
 ): void {
   if (input.integrations && typeof input.integrations === "object") {
     const integrations = input.integrations as Record<string, unknown>
@@ -79,10 +80,23 @@ export function preserveRedactedSecrets(
       secrets.viewerCookieSecret = current.secrets.viewerCookieSecret
     }
   }
-  if (input.oauthProvider && typeof input.oauthProvider === "object") {
-    const provider = input.oauthProvider as Record<string, unknown>
-    if (!provider.clientSecret || provider.clientSecret === "") {
-      provider.clientSecret = current.oauthProvider?.clientSecret ?? ""
+  if (Array.isArray(input.oauthProviders)) {
+    const currentById = new Map(
+      current.oauthProviders.map((provider) => [provider.providerId, provider]),
+    )
+    for (const provider of input.oauthProviders) {
+      if (
+        !provider || typeof provider !== "object" || Array.isArray(provider)
+      ) {
+        continue
+      }
+      const row = provider as Record<string, unknown>
+      const providerId = typeof row.providerId === "string"
+        ? row.providerId
+        : ""
+      if (!row.clientSecret || row.clientSecret === "") {
+        row.clientSecret = currentById.get(providerId)?.clientSecret ?? ""
+      }
     }
   }
   if (input.storage && typeof input.storage === "object") {
@@ -121,7 +135,7 @@ export async function selectAdminUserStorageRows(targetUserIds?: string[]) {
 
   const usage = await selectSourceStorageUsedBytesByUserIds(
     db,
-    rows.map((row) => row.id)
+    rows.map((row) => row.id),
   )
 
   return rows.map((row) => ({
@@ -133,9 +147,10 @@ export async function selectAdminUserStorageRows(targetUserIds?: string[]) {
 
 export function hasEnabledSignInMethod(config: {
   passkeyEnabled: boolean
-  oauthProvider: { enabled: boolean } | null
+  oauthProviders: { enabled: boolean }[]
 }): boolean {
-  return config.passkeyEnabled || config.oauthProvider?.enabled === true
+  return config.passkeyEnabled ||
+    config.oauthProviders.some((provider) => provider.enabled)
 }
 
 function sanitizeScopes(scopes: string[] | undefined): string[] | undefined {
@@ -149,33 +164,38 @@ function normalizeOptionalString(value: unknown): unknown {
   return trimmed.length > 0 ? trimmed : undefined
 }
 
+function normalizeOptionalHexColor(value: unknown): unknown {
+  const trimmed = normalizeOptionalString(value)
+  if (typeof trimmed !== "string") return trimmed
+  return trimmed.startsWith("#") ? trimmed : `#${trimmed}`
+}
+
 function normalizeOAuthProviderSubmission(
-  provider: OAuthProviderAdminSubmission
+  provider: OAuthProviderAdminSubmission,
 ): Record<string, unknown> {
   return {
     ...provider,
-    providerId:
-      typeof provider.providerId === "string"
-        ? provider.providerId.trim()
-        : provider.providerId,
-    displayName:
-      typeof provider.displayName === "string"
-        ? provider.displayName.trim()
-        : provider.displayName,
-    clientId:
-      typeof provider.clientId === "string"
-        ? provider.clientId.trim()
-        : provider.clientId,
-    clientSecret:
-      typeof provider.clientSecret === "string"
-        ? provider.clientSecret.trim()
-        : provider.clientSecret,
+    providerId: typeof provider.providerId === "string"
+      ? provider.providerId.trim()
+      : provider.providerId,
+    displayName: typeof provider.displayName === "string"
+      ? provider.displayName.trim()
+      : provider.displayName,
+    clientId: typeof provider.clientId === "string"
+      ? provider.clientId.trim()
+      : provider.clientId,
+    clientSecret: typeof provider.clientSecret === "string"
+      ? provider.clientSecret.trim()
+      : provider.clientSecret,
+    buttonColor: normalizeOptionalHexColor(provider.buttonColor),
+    buttonTextColor: normalizeOptionalHexColor(provider.buttonTextColor),
+    iconUrl: normalizeOptionalString(provider.iconUrl),
     scopes: sanitizeScopes(
       Array.isArray(provider.scopes)
         ? provider.scopes.filter(
-            (scope): scope is string => typeof scope === "string"
-          )
-        : undefined
+          (scope): scope is string => typeof scope === "string",
+        )
+        : undefined,
     ),
     discoveryUrl: normalizeOptionalString(provider.discoveryUrl),
     authorizationUrl: normalizeOptionalString(provider.authorizationUrl),
@@ -189,20 +209,22 @@ function normalizeOAuthProviderSubmission(
 
 export function finalizeOAuthProviderSubmission(
   provider: OAuthProviderAdminSubmission,
-  existing: OAuthProviderConfig | null
+  existingProviders: OAuthProviderConfig[],
 ): OAuthProviderConfig {
   const parsedProvider = OAuthProviderSubmissionSchema.parse(
-    normalizeOAuthProviderSubmission(provider)
+    normalizeOAuthProviderSubmission(provider),
   )
-  const clientSecret =
-    parsedProvider.clientSecret.length > 0
-      ? parsedProvider.clientSecret
-      : existing?.providerId === parsedProvider.providerId
-        ? existing.clientSecret
-        : ""
+  const existing = existingProviders.find((candidate) =>
+    candidate.providerId === parsedProvider.providerId
+  )
+  const clientSecret = parsedProvider.clientSecret.length > 0
+    ? parsedProvider.clientSecret
+    : existing
+    ? existing.clientSecret
+    : ""
   if (clientSecret.length === 0) {
     throw new Error(
-      `Client secret is required for ${parsedProvider.displayName}.`
+      `Client secret is required for ${parsedProvider.displayName}.`,
     )
   }
   return OAuthProviderSchema.parse({
@@ -214,18 +236,20 @@ export function finalizeOAuthProviderSubmission(
 type StorageConfigPatch = {
   driver?: StorageConfig["driver"]
   fs?: Partial<StorageConfig["fs"]>
-  s3?: Partial<
-    Omit<StorageConfig["s3"], "endpoint" | "accessKeyId" | "secretAccessKey">
-  > & {
-    endpoint?: string | null
-    accessKeyId?: string | null
-    secretAccessKey?: string | null
-  }
+  s3?:
+    & Partial<
+      Omit<StorageConfig["s3"], "endpoint" | "accessKeyId" | "secretAccessKey">
+    >
+    & {
+      endpoint?: string | null
+      accessKeyId?: string | null
+      secretAccessKey?: string | null
+    }
 }
 
 export function mergeStorageConfigPatch(
   current: StorageConfig,
-  patch: StorageConfigPatch
+  patch: StorageConfigPatch,
 ): StorageConfig {
   const next = structuredClone(current)
   next.driver = patch.driver ?? current.driver

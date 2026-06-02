@@ -129,7 +129,7 @@ function toForm(storage: AdminStorageConfig): StorageForm {
 function buildPatch(
   form: StorageForm,
   initial: StorageForm,
-  s3SecretConfigured: boolean
+  s3SecretConfigured: boolean,
 ): AdminStorageConfigPatch | null {
   const fsRoot = requiredTrimmedString(form.fs.root)
   const fsPublicBaseUrl = requiredTrimmedString(form.fs.publicBaseUrl)
@@ -169,7 +169,7 @@ function buildPatch(
     }
     if (s3AccessKeyId && !s3SecretAccessKey && !s3SecretConfigured) {
       toast.error(
-        "S3 secret access key is required when an access key ID is provided."
+        "S3 secret access key is required when an access key ID is provided.",
       )
       return null
     }
@@ -235,7 +235,7 @@ function comparableStorageForm(form: StorageForm): ComparableStorageForm {
 function formEquals(a: StorageForm, b: StorageForm): boolean {
   return (
     JSON.stringify(comparableStorageForm(a)) ===
-    JSON.stringify(comparableStorageForm(b))
+      JSON.stringify(comparableStorageForm(b))
   )
 }
 
@@ -347,22 +347,24 @@ export function StorageConfigCard(props: StorageConfigCardProps) {
               onChange={state.setDriver}
             />
 
-            {state.form.driver === "fs" ? (
-              <FsFields
-                form={state.form.fs}
-                hmacConfigured={hmacConfigured}
-                onChange={state.setFs}
-              />
-            ) : (
-              <S3Fields
-                form={state.form.s3}
-                secretConfigured={secretConfigured}
-                pending={state.pending}
-                isDirty={state.isDirty}
-                onChange={state.setS3}
-                onClearSecret={state.onClearS3Secret}
-              />
-            )}
+            {state.form.driver === "fs"
+              ? (
+                <FsFields
+                  form={state.form.fs}
+                  hmacConfigured={hmacConfigured}
+                  onChange={state.setFs}
+                />
+              )
+              : (
+                <S3Fields
+                  form={state.form.s3}
+                  secretConfigured={secretConfigured}
+                  pending={state.pending}
+                  isDirty={state.isDirty}
+                  onChange={state.setS3}
+                  onClearSecret={state.onClearS3Secret}
+                />
+              )}
           </SectionContent>
 
           {!props.hideActions && (

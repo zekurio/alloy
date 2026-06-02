@@ -20,7 +20,7 @@ const REQUEST_TIMEOUT_MS = 10_000
 export class SteamGridDBError extends Error {
   constructor(
     message: string,
-    public readonly status: number | null
+    public readonly status: number | null,
   ) {
     super(message)
     this.name = "SteamGridDBError"
@@ -85,7 +85,7 @@ function getApiKey(): string {
 async function sgdbFetch<T>(
   path: string,
   envelope: z.ZodType<{ success: boolean; errors?: string[]; data?: T }>,
-  query?: Record<string, string>
+  query?: Record<string, string>,
 ): Promise<T | null> {
   const apiKey = getApiKey()
   const url = new URL(`${STEAMGRIDDB_API_PATH}${path}`, STEAMGRIDDB_ORIGIN)
@@ -108,7 +108,7 @@ async function sgdbFetch<T>(
     }
     throw new SteamGridDBError(
       errorMessage(err, "SteamGridDB request failed"),
-      null
+      null,
     )
   } finally {
     clearTimeout(timeout)
@@ -118,7 +118,7 @@ async function sgdbFetch<T>(
   if (!res.ok) {
     throw new SteamGridDBError(
       `SteamGridDB responded ${res.status} ${res.statusText}`,
-      res.status
+      res.status,
     )
   }
 
@@ -128,14 +128,14 @@ async function sgdbFetch<T>(
   } catch (err) {
     throw new SteamGridDBError(
       errorMessage(err, "SteamGridDB returned invalid JSON"),
-      res.status
+      res.status,
     )
   }
   const parsed = envelope.safeParse(json)
   if (!parsed.success) {
     throw new SteamGridDBError(
       `Unexpected SteamGridDB response shape: ${parsed.error.message}`,
-      res.status
+      res.status,
     )
   }
   if (!parsed.data.success) {
@@ -148,13 +148,13 @@ async function sgdbFetch<T>(
 }
 
 export async function searchGames(
-  query: string
+  query: string,
 ): Promise<SteamGridDBSearchResult[]> {
   const trimmed = query.trim()
   if (trimmed.length === 0) return []
   const data = await sgdbFetch(
     `/search/autocomplete/${encodeURIComponent(trimmed)}`,
-    SearchEnvelope
+    SearchEnvelope,
   )
   return data ?? []
 }
@@ -183,8 +183,10 @@ function cacheSet(id: number, url: string | null) {
 async function resolveIconUrl(id: number): Promise<string | null> {
   const cached = cacheGet(id)
   if (cached !== undefined) return cached
-  const asset = await optionalSteamGridDBAsset("icon", id, () =>
-    getFirstIcon(id)
+  const asset = await optionalSteamGridDBAsset(
+    "icon",
+    id,
+    () => getFirstIcon(id),
   )
   const url = asset?.url ?? null
   cacheSet(id, url)
@@ -194,14 +196,14 @@ async function resolveIconUrl(id: number): Promise<string | null> {
 async function optionalSteamGridDBAsset<T>(
   label: string,
   steamgriddbId: number,
-  load: () => Promise<T | null>
+  load: () => Promise<T | null>,
 ): Promise<T | null> {
   try {
     return await load()
   } catch (err) {
     logger.warn(
       `[steamgriddb] failed to fetch ${label} for ${steamgriddbId}:`,
-      err
+      err,
     )
     return null
   }
@@ -209,7 +211,7 @@ async function optionalSteamGridDBAsset<T>(
 
 export async function enrichSearchResultsWithIcons(
   results: SteamGridDBSearchResult[],
-  topN: number
+  topN: number,
 ): Promise<Array<SteamGridDBSearchResult & { iconUrl: string | null }>> {
   const head = results.slice(0, topN)
   const tail = results.slice(topN)
@@ -221,49 +223,49 @@ export async function enrichSearchResultsWithIcons(
 }
 
 export async function getGameById(
-  steamgriddbId: number
+  steamgriddbId: number,
 ): Promise<SteamGridDBGameDetail | null> {
   return await sgdbFetch(`/games/id/${steamgriddbId}`, GameDetailEnvelope)
 }
 
 async function getFirstHero(
-  steamgriddbId: number
+  steamgriddbId: number,
 ): Promise<SteamGridDBAsset | null> {
   const data = await sgdbFetch(
     `/heroes/game/${steamgriddbId}`,
     AssetListEnvelope,
-    { dimensions: HERO_DIMENSIONS }
+    { dimensions: HERO_DIMENSIONS },
   )
   return data?.[0] ?? null
 }
 
 async function getFirstGrid(
-  steamgriddbId: number
+  steamgriddbId: number,
 ): Promise<SteamGridDBAsset | null> {
   const data = await sgdbFetch(
     `/grids/game/${steamgriddbId}`,
     AssetListEnvelope,
-    { dimensions: GRID_DIMENSIONS }
+    { dimensions: GRID_DIMENSIONS },
   )
   return data?.[0] ?? null
 }
 
 async function getFirstLogo(
-  steamgriddbId: number
+  steamgriddbId: number,
 ): Promise<SteamGridDBAsset | null> {
   const data = await sgdbFetch(
     `/logos/game/${steamgriddbId}`,
-    AssetListEnvelope
+    AssetListEnvelope,
   )
   return data?.[0] ?? null
 }
 
 async function getFirstIcon(
-  steamgriddbId: number
+  steamgriddbId: number,
 ): Promise<SteamGridDBAsset | null> {
   const data = await sgdbFetch(
     `/icons/game/${steamgriddbId}`,
-    AssetListEnvelope
+    AssetListEnvelope,
   )
   return data?.[0] ?? null
 }
@@ -275,17 +277,25 @@ export async function getGameAssets(steamgriddbId: number): Promise<{
   iconUrl: string | null
 }> {
   const [hero, grid, logo, icon] = await Promise.all([
-    optionalSteamGridDBAsset("hero", steamgriddbId, () =>
-      getFirstHero(steamgriddbId)
+    optionalSteamGridDBAsset(
+      "hero",
+      steamgriddbId,
+      () => getFirstHero(steamgriddbId),
     ),
-    optionalSteamGridDBAsset("grid", steamgriddbId, () =>
-      getFirstGrid(steamgriddbId)
+    optionalSteamGridDBAsset(
+      "grid",
+      steamgriddbId,
+      () => getFirstGrid(steamgriddbId),
     ),
-    optionalSteamGridDBAsset("logo", steamgriddbId, () =>
-      getFirstLogo(steamgriddbId)
+    optionalSteamGridDBAsset(
+      "logo",
+      steamgriddbId,
+      () => getFirstLogo(steamgriddbId),
     ),
-    optionalSteamGridDBAsset("icon", steamgriddbId, () =>
-      getFirstIcon(steamgriddbId)
+    optionalSteamGridDBAsset(
+      "icon",
+      steamgriddbId,
+      () => getFirstIcon(steamgriddbId),
     ),
   ])
   return {

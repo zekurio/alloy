@@ -17,7 +17,7 @@ export async function resolveSignInUser(input: {
 }): Promise<string> {
   const existingAccount = await findLinkedAccount(
     input.provider.providerId,
-    input.profile.providerAccountId
+    input.profile.providerAccountId,
   )
   if (existingAccount) {
     await updateLinkedAccount(existingAccount.id, input.profile, input.tokens)
@@ -32,16 +32,17 @@ export async function resolveSignInUser(input: {
   const existingUser = await findUserByEmail(input.profile.email)
   if (existingUser && !input.profile.emailVerified) {
     throw new Error(
-      "An account already exists for that email. Sign in and link this provider from settings."
+      "An account already exists for that email. Sign in and link this provider from settings.",
     )
   }
   if (!existingUser && !configStore.get("openRegistrations")) {
-    throw new Error("Sign-up is currently closed.")
+    throw new Error(
+      "No Alloy account is linked to this OAuth account. Sign in with another method and link it from settings.",
+    )
   }
 
   const userId = await db.transaction(async (tx) => {
-    const row =
-      existingUser ??
+    const row = existingUser ??
       (await createOAuthUser(input.profile, async (values) => {
         const [created] = await tx.insert(user).values(values).returning()
         if (!created) throw new Error("Could not create user.")
@@ -55,8 +56,8 @@ export async function resolveSignInUser(input: {
           row.id,
           input.provider.providerId,
           input.profile,
-          input.tokens
-        )
+          input.tokens,
+        ),
       )
       .onConflictDoNothing()
       .returning({ id: authAccount.id })
@@ -64,7 +65,7 @@ export async function resolveSignInUser(input: {
     if (!linked) {
       const account = await findLinkedAccount(
         input.provider.providerId,
-        input.profile.providerAccountId
+        input.profile.providerAccountId,
       )
       if (!account) throw new Error("Could not link OAuth account.")
       if (account.userId !== row.id) {
@@ -88,7 +89,7 @@ export async function linkAccountToUser(input: {
 }): Promise<void> {
   const existing = await findLinkedAccount(
     input.provider.providerId,
-    input.profile.providerAccountId
+    input.profile.providerAccountId,
   )
   if (existing && existing.userId !== input.userId) {
     throw new Error("OAuth account is already linked to another user.")
@@ -105,8 +106,8 @@ export async function linkAccountToUser(input: {
         input.userId,
         input.provider.providerId,
         input.profile,
-        input.tokens
-      )
+        input.tokens,
+      ),
     )
   if (input.profile.picture) {
     await db
@@ -119,7 +120,7 @@ export async function linkAccountToUser(input: {
 
 async function findLinkedAccount(
   providerId: string,
-  providerAccountId: string
+  providerAccountId: string,
 ) {
   const [account] = await db
     .select()
@@ -127,8 +128,8 @@ async function findLinkedAccount(
     .where(
       and(
         eq(authAccount.providerId, providerId),
-        eq(authAccount.providerAccountId, providerAccountId)
-      )
+        eq(authAccount.providerAccountId, providerAccountId),
+      ),
     )
     .limit(1)
   return account ?? null
@@ -137,7 +138,7 @@ async function findLinkedAccount(
 async function updateLinkedAccount(
   accountId: string,
   profile: OAuthProfile,
-  tokens: StoredTokens
+  tokens: StoredTokens,
 ): Promise<void> {
   await db
     .update(authAccount)
@@ -155,7 +156,7 @@ async function updateLinkedAccount(
 
 async function syncOAuthUserRole(
   userId: string,
-  profile: OAuthProfile
+  profile: OAuthProfile,
 ): Promise<void> {
   if (profile.role === undefined) return
 
@@ -184,8 +185,8 @@ async function syncOAuthUserRole(
 async function createOAuthUser(
   profile: OAuthProfile,
   insert: (
-    values: typeof user.$inferInsert
-  ) => Promise<typeof user.$inferSelect>
+    values: typeof user.$inferInsert,
+  ) => Promise<typeof user.$inferSelect>,
 ) {
   if (!profile.email) {
     throw new Error("OAuth profile is missing an email address.")
@@ -203,10 +204,9 @@ async function createOAuthUser(
     name: profile.name,
     image: profile.picture,
     role: profile.role ?? "user",
-    storageQuotaBytes:
-      profile.storageQuotaBytes === undefined
-        ? defaultOAuthStorageQuota()
-        : profile.storageQuotaBytes,
+    storageQuotaBytes: profile.storageQuotaBytes === undefined
+      ? defaultOAuthStorageQuota()
+      : profile.storageQuotaBytes,
   })
 }
 
@@ -214,7 +214,7 @@ function accountValues(
   userId: string,
   providerId: string,
   profile: OAuthProfile,
-  tokens: StoredTokens
+  tokens: StoredTokens,
 ): typeof authAccount.$inferInsert {
   return {
     userId,

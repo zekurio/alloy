@@ -11,8 +11,8 @@
     "db:migrate": "deno run -A npm:drizzle-kit@0.31.10 migrate",
     "db:push": "deno run -A npm:drizzle-kit@0.31.10 push",
     "db:studio": "deno run -A npm:drizzle-kit@0.31.10 studio",
-    "lint": "deno run -A npm:oxlint@^1.61.0 src drizzle.config.ts",
-    "fmt": "deno run -A npm:oxfmt@^0.46.0 --write src drizzle.config.ts deno.json tsconfig.json",
+    "lint": "deno lint src drizzle.config.ts",
+    "fmt": "deno fmt src drizzle.config.ts deno.json tsconfig.json",
     "format": "deno task fmt",
     "typecheck": "deno check src drizzle.config.ts"
   }

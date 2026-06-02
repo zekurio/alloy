@@ -32,7 +32,7 @@ export class FsStorageDriver implements StorageDriver {
   async put(
     key: string,
     body: Uint8Array | ReadableStream<Uint8Array>,
-    _contentType: string
+    _contentType: string,
   ): Promise<{ size: number }> {
     const dst = this.fullPath(key)
     await Deno.mkdir(dirname(dst), { recursive: true })
@@ -115,7 +115,7 @@ export class FsStorageDriver implements StorageDriver {
   async uploadFromFile(
     localPath: string,
     key: string,
-    _contentType: string
+    _contentType: string,
   ): Promise<{ size: number }> {
     const dst = this.fullPath(key)
     await Deno.mkdir(dirname(dst), { recursive: true })
@@ -157,7 +157,7 @@ export class FsStorageDriver implements StorageDriver {
 
   async mintDownloadUrl(
     _key: string,
-    _input: MintDownloadUrlInput
+    _input: MintDownloadUrlInput,
   ): Promise<DownloadUrl | null> {
     // Fs driver has no presigned-URL concept — callers fall back to
     // streaming through resolve().
@@ -200,7 +200,7 @@ export class FsStorageDriver implements StorageDriver {
 function fspCreateReadStream(
   path: string,
   start: number | undefined,
-  end: number | undefined
+  end: number | undefined,
 ): ReadableStream<Uint8Array> {
   const file = Deno.openSync(path, { read: true })
   if (start !== undefined) file.seekSync(start, Deno.SeekMode.Start)

@@ -1,10 +1,10 @@
 import {
-  useMutation,
-  queryOptions,
-  useQuery,
-  useQueryClient,
   type InfiniteData,
   type QueryClient,
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
 } from "@tanstack/react-query"
 
 import type {
@@ -18,10 +18,7 @@ import type {
 
 import { api } from "./api"
 import { clipKeys } from "./clip-query-keys"
-import {
-  uploadQueueQueryOptions,
-  useUploadQueueStream,
-} from "./clip-queue-stream"
+import { useUploadQueueStream } from "./clip-queue-stream"
 
 export { clipKeys }
 
@@ -53,7 +50,7 @@ export function seedClipDetailInCache(qc: QueryClient, row: ClipRow) {
 
 export function useTopClipsQuery(
   window: ClipFeedWindow,
-  { limit = 5, hashtag }: { limit?: number; hashtag?: string } = {}
+  { limit = 5, hashtag }: { limit?: number; hashtag?: string } = {},
 ) {
   return useQuery({
     queryKey: hashtag
@@ -86,8 +83,10 @@ export function useUserLikedClipsQuery(handle: string) {
 export function useUploadQueueQuery({ enabled }: { enabled: boolean }) {
   const stream = useUploadQueueStream({ enabled })
   const query = useQuery({
-    ...uploadQueueQueryOptions(),
-    enabled,
+    queryKey: clipKeys.queue(),
+    queryFn: async (): Promise<QueueClip[]> => [],
+    enabled: false,
+    staleTime: Infinity,
   })
   return { ...query, stream }
 }
@@ -95,11 +94,11 @@ export function useUploadQueueQuery({ enabled }: { enabled: boolean }) {
 function patchClipInCaches(
   qc: QueryClient,
   clipId: string,
-  patch: Partial<ClipRow>
+  patch: Partial<ClipRow>,
 ) {
   qc.setQueriesData<ClipRow[] | undefined>(
     { queryKey: clipKeys.lists() },
-    (old) => old?.map((r) => (r.id === clipId ? { ...r, ...patch } : r))
+    (old) => old?.map((r) => (r.id === clipId ? { ...r, ...patch } : r)),
   )
   qc.setQueriesData<InfiniteData<ClipPage, string | null> | undefined>(
     { queryKey: clipKeys.infinite() },
@@ -112,18 +111,18 @@ function patchClipInCaches(
             r.id === clipId ? { ...r, ...patch } : r
           ),
         })),
-      }
+      },
   )
   qc.setQueryData<ClipRow | undefined>(
     clipKeys.detail(clipId),
-    (old) => old && { ...old, ...patch }
+    (old) => old && { ...old, ...patch },
   )
 }
 
 function removeClipFromCaches(qc: QueryClient, clipId: string) {
   qc.setQueriesData<ClipRow[] | undefined>(
     { queryKey: clipKeys.lists() },
-    (old) => old?.filter((r) => r.id !== clipId)
+    (old) => old?.filter((r) => r.id !== clipId),
   )
   qc.setQueriesData<InfiniteData<ClipPage, string | null> | undefined>(
     { queryKey: clipKeys.infinite() },
@@ -134,7 +133,7 @@ function removeClipFromCaches(qc: QueryClient, clipId: string) {
           ...page,
           items: page.items.filter((r) => r.id !== clipId),
         })),
-      }
+      },
   )
   qc.removeQueries({ queryKey: clipKeys.detail(clipId) })
 }
@@ -222,7 +221,7 @@ export function useDeleteClipMutation() {
 
 export function useLikeStateQuery(
   clipId: string,
-  { enabled = true }: { enabled?: boolean } = {}
+  { enabled = true }: { enabled?: boolean } = {},
 ) {
   return useQuery({
     queryKey: clipKeys.like(clipId),
@@ -258,7 +257,7 @@ export function useToggleLikeMutation() {
 
       const previousLiked =
         qc.getQueryData<{ liked: boolean }>(clipKeys.like(clipId))?.liked ??
-        !nextLiked
+          !nextLiked
       const clipsSnapshot = snapshotClips(qc)
 
       qc.setQueryData<{ liked: boolean }>(clipKeys.like(clipId), {
@@ -291,7 +290,7 @@ export function useToggleLikeMutation() {
 export function adjustClipCountsInCaches(
   qc: QueryClient,
   clipId: string,
-  deltas: { commentCount?: number; likeCount?: number; viewCount?: number }
+  deltas: { commentCount?: number; likeCount?: number; viewCount?: number },
 ) {
   const apply = (row: ClipRow): ClipRow => {
     if (row.id !== clipId) return row
@@ -304,7 +303,7 @@ export function adjustClipCountsInCaches(
   }
   qc.setQueriesData<ClipRow[] | undefined>(
     { queryKey: clipKeys.lists() },
-    (old) => old?.map(apply)
+    (old) => old?.map(apply),
   )
   qc.setQueriesData<InfiniteData<ClipPage, string | null> | undefined>(
     { queryKey: clipKeys.infinite() },
@@ -315,10 +314,11 @@ export function adjustClipCountsInCaches(
           ...page,
           items: page.items.map(apply),
         })),
-      }
+      },
   )
-  qc.setQueryData<ClipRow | undefined>(clipKeys.detail(clipId), (old) =>
-    old ? apply(old) : old
+  qc.setQueryData<ClipRow | undefined>(
+    clipKeys.detail(clipId),
+    (old) => old ? apply(old) : old,
   )
 }
 

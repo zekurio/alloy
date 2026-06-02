@@ -28,15 +28,12 @@ export const notificationsRoute = new Hono()
     const { limit } = c.req.valid("query")
     return c.json(await listNotifications(c.var.viewerId, limit))
   })
-
   .patch("/read-all", requireSession, async (c) => {
     return c.json(await markAllNotificationsRead(c.var.viewerId))
   })
-
   .delete("/", requireSession, async (c) => {
     return c.json(await clearNotifications(c.var.viewerId))
   })
-
   .patch(
     "/:id/read",
     requireSession,
@@ -46,9 +43,8 @@ export const notificationsRoute = new Hono()
       const row = await markNotificationRead(c.var.viewerId, id)
       if (!row) return notFound(c)
       return c.json(row)
-    }
+    },
   )
-
   .delete("/:id", requireSession, zValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
     const result = await deleteNotification(c.var.viewerId, id)

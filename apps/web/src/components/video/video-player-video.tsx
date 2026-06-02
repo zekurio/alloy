@@ -1,4 +1,9 @@
 import * as React from "react"
+import {
+  CLIP_MEDIA_BACKGROUND_CLASS,
+  CLIP_MEDIA_CLASS,
+  CLIP_VIDEO_MEDIA_CLASS,
+} from "@workspace/ui/lib/media-frame"
 import { cn } from "@workspace/ui/lib/utils"
 
 type VideoFrameProps = {
@@ -44,20 +49,25 @@ export function VideoFrame({
 }: VideoFrameProps) {
   return (
     <>
-      <div aria-hidden className="absolute inset-0 bg-[oklch(12%_0.01_250)]" />
-      {posterVisible ? (
-        <img
-          src={poster}
-          alt=""
-          aria-hidden
-          className={cn(
-            "absolute inset-0 size-full object-contain object-center",
-            "transition-opacity duration-200 ease-out"
-          )}
-          decoding="async"
-          fetchPriority="high"
-        />
-      ) : null}
+      <div
+        aria-hidden
+        className={cn("absolute inset-0", CLIP_MEDIA_BACKGROUND_CLASS)}
+      />
+      {posterVisible
+        ? (
+          <img
+            src={poster}
+            alt=""
+            aria-hidden
+            className={cn(
+              CLIP_MEDIA_CLASS,
+              "transition-opacity duration-200 ease-out",
+            )}
+            decoding="async"
+            fetchPriority="high"
+          />
+        )
+        : null}
       <video
         ref={videoRef}
         src={mediaUrl ?? undefined}
@@ -78,15 +88,10 @@ export function VideoFrame({
         onPause={onPause}
         onEnded={onEnded}
         onError={onError}
-        // A non-zero `clip-path` inset stops Chromium from promoting the video
-        // to a hardware *underlay* — a plane that punches a transparent hole
-        // through the page layers, ignores ancestor `overflow`/`clip-path`, and
-        // rounds ~1px past the box, showing as a bright hairline of uncovered
-        // video beneath the chrome. A real clip region forces the normal raster
-        // path so the edge stays inside the box. The inset must be non-zero:
-        // `inset(0)` clips nothing and is optimised away, leaving the underlay
-        // in place. 1px is below perceptible crop for object-contain content.
-        className="absolute inset-0 block h-full w-full object-contain object-center [clip-path:inset(1px)]"
+        // A non-zero clip region keeps Chromium from painting promoted video
+        // layers past the rounded viewport. The shared media overscan hides
+        // the inset itself.
+        className={cn("block", CLIP_VIDEO_MEDIA_CLASS)}
       />
     </>
   )

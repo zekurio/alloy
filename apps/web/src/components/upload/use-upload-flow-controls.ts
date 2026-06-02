@@ -9,7 +9,7 @@ export function useUploadFlowControls(): UploadFlowControls {
   const value = React.useContext(UploadFlowContext)
   if (!value) {
     throw new Error(
-      "useUploadFlowControls must be used within UploadFlowProvider"
+      "useUploadFlowControls must be used within UploadFlowProvider",
     )
   }
   return value

@@ -26,9 +26,9 @@ import {
 import { Textarea } from "@workspace/ui/components/textarea"
 
 import {
-  ENCODER_CODECS,
   type AdminEncoderCapabilities,
   type AdminEncoderVariant,
+  ENCODER_CODECS,
   type EncoderCodec,
   type EncoderHwaccel,
 } from "@workspace/api"
@@ -84,7 +84,7 @@ export function EncoderVariantDialog({
 
   function set<K extends keyof AdminEncoderVariant>(
     key: K,
-    value: AdminEncoderVariant[K]
+    value: AdminEncoderVariant[K],
   ) {
     setDraft((d) => (d ? { ...d, [key]: value } : d))
   }
@@ -97,7 +97,7 @@ export function EncoderVariantDialog({
       audioDraft,
       64,
       256,
-      draft.audioBitrateKbps
+      draft.audioBitrateKbps,
     )
     onSave({ ...draft, quality, audioBitrateKbps })
   }
@@ -111,220 +111,227 @@ export function EncoderVariantDialog({
           </ResponsiveDialogTitle>
         </ResponsiveDialogHeader>
 
-        {draft ? (
-          <form id="encoder-variant-form" onSubmit={handleSubmit}>
-            <ResponsiveDialogBody className="flex flex-col gap-4">
-              <Field>
-                <FieldLabel htmlFor="variant-name" required>
-                  Variant name
-                </FieldLabel>
-                <LimitedInput
-                  id="variant-name"
-                  value={draft.name}
-                  required
-                  maxLength={64}
-                  placeholder="1080p H.264 web"
-                  aria-invalid={isBlank(draft.name) || undefined}
-                  onChange={(e) => set("name", e.target.value)}
-                />
-                <FieldDescription className="text-xs leading-tight">
-                  Used as the player label and in the stored MP4 filename.
-                </FieldDescription>
-              </Field>
-
-              <div className="grid gap-4 sm:grid-cols-2">
+        {draft
+          ? (
+            <form id="encoder-variant-form" onSubmit={handleSubmit}>
+              <ResponsiveDialogBody className="flex flex-col gap-4">
                 <Field>
-                  <FieldLabel htmlFor="variant-height" required>
-                    Vertical resolution
+                  <FieldLabel htmlFor="variant-name" required>
+                    Variant name
                   </FieldLabel>
-                  <EncoderHeightField
-                    id="variant-height"
-                    value={draft.height}
-                    showDescription={false}
-                    onChange={(next) => set("height", next)}
+                  <LimitedInput
+                    id="variant-name"
+                    value={draft.name}
+                    required
+                    maxLength={64}
+                    placeholder="1080p H.264 web"
+                    aria-invalid={isBlank(draft.name) || undefined}
+                    onChange={(e) => set("name", e.target.value)}
                   />
+                  <FieldDescription className="text-xs leading-tight">
+                    Used as the player label and in the stored MP4 filename.
+                  </FieldDescription>
                 </Field>
-              </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field>
-                  <FieldLabel htmlFor="variant-codec" required>
-                    Video codec
-                  </FieldLabel>
-                  <Select
-                    value={draft.codec}
-                    onValueChange={(value) => {
-                      if (isEncoderCodec(value)) set("codec", value)
-                    }}
-                  >
-                    <SelectTrigger id="variant-codec" className="w-full">
-                      <SelectValue>{CODEC_LABELS[draft.codec]}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent align="start">
-                      {ENCODER_CODECS.map((codec) => (
-                        <SelectItem
-                          key={codec}
-                          value={codec}
-                          disabled={
-                            capabilities?.ffmpegOk
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="variant-height" required>
+                      Vertical resolution
+                    </FieldLabel>
+                    <EncoderHeightField
+                      id="variant-height"
+                      value={draft.height}
+                      showDescription={false}
+                      onChange={(next) => set("height", next)}
+                    />
+                  </Field>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="variant-codec" required>
+                      Video codec
+                    </FieldLabel>
+                    <Select
+                      value={draft.codec}
+                      onValueChange={(value) => {
+                        if (isEncoderCodec(value)) set("codec", value)
+                      }}
+                    >
+                      <SelectTrigger id="variant-codec" className="w-full">
+                        <SelectValue>{CODEC_LABELS[draft.codec]}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent align="start">
+                        {ENCODER_CODECS.map((codec) => (
+                          <SelectItem
+                            key={codec}
+                            value={codec}
+                            disabled={capabilities?.ffmpegOk
                               ? !capabilities.available[hwaccel][codec]
-                              : false
-                          }
-                        >
-                          {CODEC_LABELS[codec]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FieldDescription className="text-xs leading-tight">
-                    Combined with the global hardware acceleration setting.
-                  </FieldDescription>
-                </Field>
+                              : false}
+                          >
+                            {CODEC_LABELS[codec]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FieldDescription className="text-xs leading-tight">
+                      Combined with the global hardware acceleration setting.
+                    </FieldDescription>
+                  </Field>
 
-                <Field>
-                  <FieldLabel htmlFor="variant-quality" required>
-                    Quality
-                  </FieldLabel>
-                  <Input
-                    id="variant-quality"
-                    type="number"
-                    min={0}
-                    max={51}
-                    step={1}
-                    value={qualityDraft}
-                    required
-                    onChange={(e) => {
-                      const raw = e.target.value
-                      setQualityDraft(raw)
-                      if (raw === "") return
-                      set("quality", clampInt(raw, 0, 51, draft.quality))
-                    }}
-                    onBlur={() => {
-                      if (qualityDraft === "") {
-                        setQualityDraft(String(draft.quality))
-                        return
-                      }
-                      const next = clampInt(qualityDraft, 0, 51, draft.quality)
-                      set("quality", next)
-                      setQualityDraft(String(next))
-                    }}
-                  />
-                </Field>
-              </div>
+                  <Field>
+                    <FieldLabel htmlFor="variant-quality" required>
+                      Quality
+                    </FieldLabel>
+                    <Input
+                      id="variant-quality"
+                      type="number"
+                      min={0}
+                      max={51}
+                      step={1}
+                      value={qualityDraft}
+                      required
+                      onChange={(e) => {
+                        const raw = e.target.value
+                        setQualityDraft(raw)
+                        if (raw === "") return
+                        set("quality", clampInt(raw, 0, 51, draft.quality))
+                      }}
+                      onBlur={() => {
+                        if (qualityDraft === "") {
+                          setQualityDraft(String(draft.quality))
+                          return
+                        }
+                        const next = clampInt(
+                          qualityDraft,
+                          0,
+                          51,
+                          draft.quality,
+                        )
+                        set("quality", next)
+                        setQualityDraft(String(next))
+                      }}
+                    />
+                  </Field>
+                </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field>
-                  <FieldLabel htmlFor="variant-preset">Preset</FieldLabel>
-                  <Input
-                    id="variant-preset"
-                    value={draft.preset ?? ""}
-                    placeholder="Optional ffmpeg preset"
-                    onChange={(e) => {
-                      const next = e.target.value
-                      set("preset", isBlank(next) ? undefined : next)
-                    }}
-                  />
-                  <FieldDescription className="text-xs leading-tight">
-                    Passed as <code>-preset</code>. Leave blank to omit.
-                  </FieldDescription>
-                </Field>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="variant-preset">Preset</FieldLabel>
+                    <Input
+                      id="variant-preset"
+                      value={draft.preset ?? ""}
+                      placeholder="Optional ffmpeg preset"
+                      onChange={(e) => {
+                        const next = e.target.value
+                        set("preset", isBlank(next) ? undefined : next)
+                      }}
+                    />
+                    <FieldDescription className="text-xs leading-tight">
+                      Passed as <code>-preset</code>. Leave blank to omit.
+                    </FieldDescription>
+                  </Field>
 
-                <Field>
-                  <FieldLabel htmlFor="variant-audio" required>
-                    Audio bitrate (kbps)
-                  </FieldLabel>
-                  <Input
-                    id="variant-audio"
-                    type="number"
-                    min={64}
-                    max={256}
-                    step={8}
-                    value={audioDraft}
-                    required
-                    onChange={(e) => {
-                      const raw = e.target.value
-                      setAudioDraft(raw)
-                      if (raw === "") return
-                      set(
-                        "audioBitrateKbps",
-                        clampInt(raw, 64, 256, draft.audioBitrateKbps)
-                      )
-                    }}
-                    onBlur={() => {
-                      if (audioDraft === "") {
-                        setAudioDraft(String(draft.audioBitrateKbps))
-                        return
-                      }
-                      const next = clampInt(
-                        audioDraft,
-                        64,
-                        256,
-                        draft.audioBitrateKbps
-                      )
-                      set("audioBitrateKbps", next)
-                      setAudioDraft(String(next))
-                    }}
-                  />
-                </Field>
-              </div>
+                  <Field>
+                    <FieldLabel htmlFor="variant-audio" required>
+                      Audio bitrate (kbps)
+                    </FieldLabel>
+                    <Input
+                      id="variant-audio"
+                      type="number"
+                      min={64}
+                      max={256}
+                      step={8}
+                      value={audioDraft}
+                      required
+                      onChange={(e) => {
+                        const raw = e.target.value
+                        setAudioDraft(raw)
+                        if (raw === "") return
+                        set(
+                          "audioBitrateKbps",
+                          clampInt(raw, 64, 256, draft.audioBitrateKbps),
+                        )
+                      }}
+                      onBlur={() => {
+                        if (audioDraft === "") {
+                          setAudioDraft(String(draft.audioBitrateKbps))
+                          return
+                        }
+                        const next = clampInt(
+                          audioDraft,
+                          64,
+                          256,
+                          draft.audioBitrateKbps,
+                        )
+                        set("audioBitrateKbps", next)
+                        setAudioDraft(String(next))
+                      }}
+                    />
+                  </Field>
+                </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field>
-                  <FieldLabel htmlFor="variant-extra-input-args">
-                    Extra input args
-                  </FieldLabel>
-                  <Textarea
-                    id="variant-extra-input-args"
-                    value={draft.extraInputArgs}
-                    placeholder="-probesize 100M -analyzeduration 100M"
-                    onChange={(e) => set("extraInputArgs", e.target.value)}
-                  />
-                  <FieldDescription className="text-xs leading-tight">
-                    Inserted before <code>-i</code>.
-                  </FieldDescription>
-                </Field>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="variant-extra-input-args">
+                      Extra input args
+                    </FieldLabel>
+                    <Textarea
+                      id="variant-extra-input-args"
+                      value={draft.extraInputArgs}
+                      placeholder="-probesize 100M -analyzeduration 100M"
+                      onChange={(e) => set("extraInputArgs", e.target.value)}
+                    />
+                    <FieldDescription className="text-xs leading-tight">
+                      Inserted before <code>-i</code>.
+                    </FieldDescription>
+                  </Field>
 
-                <Field>
-                  <FieldLabel htmlFor="variant-extra-output-args">
-                    Extra output args
-                  </FieldLabel>
-                  <Textarea
-                    id="variant-extra-output-args"
-                    value={draft.extraOutputArgs}
-                    placeholder='-vf "scale=1280:-2,fps=60" -movflags +faststart'
-                    onChange={(e) => set("extraOutputArgs", e.target.value)}
-                  />
-                  <FieldDescription className="text-xs leading-tight">
-                    Inserted after generated video, audio, and muxing args.
-                  </FieldDescription>
-                </Field>
-              </div>
-            </ResponsiveDialogBody>
+                  <Field>
+                    <FieldLabel htmlFor="variant-extra-output-args">
+                      Extra output args
+                    </FieldLabel>
+                    <Textarea
+                      id="variant-extra-output-args"
+                      value={draft.extraOutputArgs}
+                      placeholder='-vf "scale=1280:-2,fps=60" -movflags +faststart'
+                      onChange={(e) => set("extraOutputArgs", e.target.value)}
+                    />
+                    <FieldDescription className="text-xs leading-tight">
+                      Inserted after generated video, audio, and muxing args.
+                    </FieldDescription>
+                  </Field>
+                </div>
+              </ResponsiveDialogBody>
 
-            <ResponsiveDialogFooter>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => onOpenChange(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" variant="primary">
-                {isNew ? (
-                  <>
-                    <PlusIcon />
-                    Add variant
-                  </>
-                ) : (
-                  <>
-                    <SaveIcon />
-                    Save
-                  </>
-                )}
-              </Button>
-            </ResponsiveDialogFooter>
-          </form>
-        ) : null}
+              <ResponsiveDialogFooter>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => onOpenChange(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" variant="primary">
+                  {isNew
+                    ? (
+                      <>
+                        <PlusIcon />
+                        Add variant
+                      </>
+                    )
+                    : (
+                      <>
+                        <SaveIcon />
+                        Save
+                      </>
+                    )}
+                </Button>
+              </ResponsiveDialogFooter>
+            </form>
+          )
+          : null}
       </ResponsiveDialogContent>
     </ResponsiveDialog>
   )

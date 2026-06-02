@@ -47,15 +47,17 @@ function ResponsiveDialog({
 
   return (
     <ResponsiveDialogContext.Provider value={isMobile}>
-      {isMobile ? (
-        <Drawer open={open} onOpenChange={onOpenChange}>
-          {children}
-        </Drawer>
-      ) : (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-          {children}
-        </Dialog>
-      )}
+      {isMobile
+        ? (
+          <Drawer open={open} onOpenChange={onOpenChange}>
+            {children}
+          </Drawer>
+        )
+        : (
+          <Dialog open={open} onOpenChange={onOpenChange}>
+            {children}
+          </Dialog>
+        )}
     </ResponsiveDialogContext.Provider>
   )
 }
@@ -79,7 +81,7 @@ function ResponsiveDialogContent({
         className={cn(
           "max-h-[92dvh] bg-surface",
           "[&>form]:flex [&>form]:min-h-0 [&>form]:flex-1 [&>form]:flex-col",
-          className
+          className,
         )}
         style={style}
       >
@@ -144,7 +146,7 @@ function ResponsiveDialogFooter({
       <DrawerFooter
         className={cn(
           "flex-row justify-end gap-2 [&>button]:flex-1",
-          className
+          className,
         )}
         {...props}
       />
@@ -166,7 +168,7 @@ function ResponsiveDialogTitle({
       <DrawerTitle
         className={cn(
           "text-lg leading-tight font-semibold tracking-[var(--tracking-tight)] text-foreground",
-          className
+          className,
         )}
         {...props}
       >
@@ -206,12 +208,13 @@ function ResponsiveDialogDescription({
   )
 }
 
-type ResponsiveDialogTriggerProps = DialogPrimitive.Trigger.Props &
-  React.ComponentProps<typeof DrawerPrimitive.Trigger>
+type ResponsiveDialogTriggerProps =
+  & DialogPrimitive.Trigger.Props
+  & React.ComponentProps<typeof DrawerPrimitive.Trigger>
 
 function renderDrawerChild(
   render: DialogPrimitive.Trigger.Props["render"],
-  children: React.ReactNode
+  children: React.ReactNode,
 ) {
   if (React.isValidElement<{ children?: React.ReactNode }>(render)) {
     if (render.props.children !== undefined || children === undefined) {
@@ -248,8 +251,9 @@ function ResponsiveDialogTrigger({
   )
 }
 
-type ResponsiveDialogCloseProps = DialogPrimitive.Close.Props &
-  React.ComponentProps<typeof DrawerPrimitive.Close>
+type ResponsiveDialogCloseProps =
+  & DialogPrimitive.Close.Props
+  & React.ComponentProps<typeof DrawerPrimitive.Close>
 
 function ResponsiveDialogClose({
   render,

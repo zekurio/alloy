@@ -45,7 +45,7 @@ export function startProcess(process: DevProcess): RunningDevProcess {
 
 export async function stopChildren(
   running: Set<RunningDevProcess>,
-  signal: Deno.Signal
+  signal: Deno.Signal,
 ) {
   for (const process of running) {
     stopProcess(process, signal)

@@ -1,5 +1,5 @@
 import * as React from "react"
-import { toast as sonnerToast, type ExternalToast } from "sonner"
+import { type ExternalToast, toast as sonnerToast } from "sonner"
 import { Button } from "@workspace/ui/components/button"
 
 let toastCounter = 0
@@ -14,13 +14,13 @@ function getCloseAction(id: string | number) {
   return React.createElement(
     Button,
     { size: "sm", onClick: () => sonnerToast.dismiss(id) },
-    "Close"
+    "Close",
   )
 }
 
 function withCloseAction(
   id: string | number,
-  data?: ExternalToast
+  data?: ExternalToast,
 ): ExternalToast {
   return {
     ...data,
@@ -66,7 +66,7 @@ const toast = Object.assign(
     },
     getHistory: sonnerToast.getHistory,
     getToasts: sonnerToast.getToasts,
-  }
+  },
 )
 
 export { toast }

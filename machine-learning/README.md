@@ -58,26 +58,26 @@ explicit server-to-server path.
 
 Environment variables:
 
-| Variable | Default | Description |
-| --- | --- | --- |
-| `ALLOY_ML_HOST` | `0.0.0.0` | Bind host |
-| `ALLOY_ML_PORT` | `2662` | Bind port |
-| `ALLOY_ML_LOG_LEVEL` | `info` | Log level |
-| `MACHINE_LEARNING_CACHE_FOLDER` | `/cache` | Runtime cache root |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_REPO_ID` | `zekurio/alloy-clipnet-b2-v1` | Hugging Face model repo |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_FILENAME` | `alloy-clipnet-b2-v1.pt` | Checkpoint file inside the Hugging Face repo |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_REVISION` | `05b8d2af2b704a21366e58e9fd6bef5cef2847cb` | Hugging Face revision, tag, branch, or commit |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_CHECKPOINT` | unset | Optional local checkpoint override for development |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_NAME` | `alloy-game-classifier` | Response model name |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_VERSION` | `alloy-clipnet-b2-v1` | Response model version |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_TOP_K` | `5` | Number of ranked predictions to return |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_MAX_FRAMES` | `16` | Maximum direct-service frame count per request |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_MAX_FRAME_BYTES` | `1048576` | Maximum direct-service bytes per frame |
-| `MACHINE_LEARNING_PRELOAD_GAME_CLASSIFIER` | `false` | Download and load the classifier at service startup |
-| `MACHINE_LEARNING_DEVICE` | `auto` | `auto`, `cpu`, `cuda`, or `mps` |
-| `MACHINE_LEARNING_WORKERS` | `1` | Gunicorn worker count |
-| `MACHINE_LEARNING_REQUEST_THREADS` | host CPU count | Thread pool size for blocking decode/inference work |
-| `HF_TOKEN` | unset | Optional Hugging Face token for private model repos |
+| Variable                                           | Default                                    | Description                                         |
+| -------------------------------------------------- | ------------------------------------------ | --------------------------------------------------- |
+| `ALLOY_ML_HOST`                                    | `0.0.0.0`                                  | Bind host                                           |
+| `ALLOY_ML_PORT`                                    | `2662`                                     | Bind port                                           |
+| `ALLOY_ML_LOG_LEVEL`                               | `info`                                     | Log level                                           |
+| `MACHINE_LEARNING_CACHE_FOLDER`                    | `/cache`                                   | Runtime cache root                                  |
+| `MACHINE_LEARNING_GAME_CLASSIFIER_REPO_ID`         | `zekurio/alloy-clipnet-b2-v1`              | Hugging Face model repo                             |
+| `MACHINE_LEARNING_GAME_CLASSIFIER_FILENAME`        | `alloy-clipnet-b2-v1.pt`                   | Checkpoint file inside the Hugging Face repo        |
+| `MACHINE_LEARNING_GAME_CLASSIFIER_REVISION`        | `05b8d2af2b704a21366e58e9fd6bef5cef2847cb` | Hugging Face revision, tag, branch, or commit       |
+| `MACHINE_LEARNING_GAME_CLASSIFIER_CHECKPOINT`      | unset                                      | Optional local checkpoint override for development  |
+| `MACHINE_LEARNING_GAME_CLASSIFIER_NAME`            | `alloy-game-classifier`                    | Response model name                                 |
+| `MACHINE_LEARNING_GAME_CLASSIFIER_VERSION`         | `alloy-clipnet-b2-v1`                      | Response model version                              |
+| `MACHINE_LEARNING_GAME_CLASSIFIER_TOP_K`           | `5`                                        | Number of ranked predictions to return              |
+| `MACHINE_LEARNING_GAME_CLASSIFIER_MAX_FRAMES`      | `16`                                       | Maximum direct-service frame count per request      |
+| `MACHINE_LEARNING_GAME_CLASSIFIER_MAX_FRAME_BYTES` | `1048576`                                  | Maximum direct-service bytes per frame              |
+| `MACHINE_LEARNING_PRELOAD_GAME_CLASSIFIER`         | `false`                                    | Download and load the classifier at service startup |
+| `MACHINE_LEARNING_DEVICE`                          | `auto`                                     | `auto`, `cpu`, `cuda`, or `mps`                     |
+| `MACHINE_LEARNING_WORKERS`                         | `1`                                        | Gunicorn worker count                               |
+| `MACHINE_LEARNING_REQUEST_THREADS`                 | host CPU count                             | Thread pool size for blocking decode/inference work |
+| `HF_TOKEN`                                         | unset                                      | Optional Hugging Face token for private model repos |
 
 ## Local Run
 
@@ -86,7 +86,7 @@ Install with uv directly:
 ```bash
 cd machine-learning
 uv sync --extra cpu
-MACHINE_LEARNING_CACHE_FOLDER=../data/ml-cache uv run python -m alloy_ml
+MACHINE_LEARNING_CACHE_FOLDER=../data/ml uv run python -m alloy_ml
 ```
 
 From the repository root, the equivalent first-class dev command is:
@@ -95,8 +95,8 @@ From the repository root, the equivalent first-class dev command is:
 deno task dev:ml
 ```
 
-It mirrors the direct command above and keeps the model cache in
-`data/ml-cache`. Use `ALLOY_ML_PORT` to change the local port, and use
+It mirrors the direct command above and keeps ML runtime data in `data/ml`. Use
+`ALLOY_ML_PORT` to change the local port, and use
 `MACHINE_LEARNING_UV_SYNC=0 deno task dev:ml` after the first sync if you only
 want to restart the service.
 
@@ -114,7 +114,7 @@ checkpoint.
 
 The app server can also pass a classifier model reference per request. This is
 how Alloy's runtime config makes the model adjustable without restarting the ML
-service: the registry keeps one in-memory classifier per
-repo/revision/filename or local checkpoint path. A `MACHINE_LEARNING_*`
-environment variable still sets the direct-service default, and the server-side
-runtime config controls what normal upload suggestions use.
+service: the registry keeps one in-memory classifier per repo/revision/filename
+or local checkpoint path. A `MACHINE_LEARNING_*` environment variable still sets
+the direct-service default, and the server-side runtime config controls what
+normal upload suggestions use.

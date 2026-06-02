@@ -83,8 +83,8 @@ export function SeedUserDialog({
             }}
           >
             {(field) => {
-              const showError =
-                field.state.meta.isTouched || form.state.submissionAttempts > 0
+              const showError = field.state.meta.isTouched ||
+                form.state.submissionAttempts > 0
               const invalid = showError && !field.state.meta.isValid
 
               return (
@@ -103,9 +103,9 @@ export function SeedUserDialog({
                     spellCheck={false}
                     disabled={form.state.isSubmitting}
                     aria-invalid={invalid || undefined}
-                    aria-describedby={
-                      invalid ? `${field.name}-error` : undefined
-                    }
+                    aria-describedby={invalid
+                      ? `${field.name}-error`
+                      : undefined}
                   />
                   <FieldDescription>
                     Used to sign in. Slashes are not allowed.
@@ -125,8 +125,8 @@ export function SeedUserDialog({
             }}
           >
             {(field) => {
-              const showError =
-                field.state.meta.isTouched || form.state.submissionAttempts > 0
+              const showError = field.state.meta.isTouched ||
+                form.state.submissionAttempts > 0
               const invalid = showError && !field.state.meta.isValid
 
               return (
@@ -142,9 +142,9 @@ export function SeedUserDialog({
                     onChange={(e) => field.handleChange(e.target.value)}
                     disabled={form.state.isSubmitting}
                     aria-invalid={invalid || undefined}
-                    aria-describedby={
-                      invalid ? `${field.name}-error` : undefined
-                    }
+                    aria-describedby={invalid
+                      ? `${field.name}-error`
+                      : undefined}
                   />
                   <FieldDescription>
                     Must match the email returned by the OAuth provider.
@@ -164,8 +164,7 @@ export function SeedUserDialog({
                 <Select
                   value={field.state.value}
                   onValueChange={(value) =>
-                    field.handleChange(value as "user" | "admin")
-                  }
+                    field.handleChange(value as "user" | "admin")}
                   disabled={form.state.isSubmitting}
                 >
                   <SelectTrigger id={field.name}>

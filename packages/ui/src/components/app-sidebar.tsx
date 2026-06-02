@@ -11,7 +11,7 @@ function AppSidebar({ className, ...props }: React.ComponentProps<"aside">) {
       className={cn(
         "relative z-10 flex h-full flex-col overflow-hidden",
         "w-[var(--sidebar-rail)] border-r border-border bg-surface-sunken py-3",
-        className
+        className,
       )}
       {...props}
     />
@@ -37,7 +37,7 @@ type NavItemProps = useRender.ComponentProps<"button"> & { active?: boolean }
 
 function useNavItem(
   style: NavItemStyle,
-  { className, active, title, render, ...props }: NavItemProps
+  { className, active, title, render, ...props }: NavItemProps,
 ) {
   return useRender({
     defaultTagName: "button",
@@ -48,7 +48,7 @@ function useNavItem(
         "aria-label": title,
         className: cn(style.className, className),
       },
-      props
+      props,
     ),
     render,
     state: { slot: style.slot, active: active ?? false },
@@ -69,7 +69,7 @@ const SIDEBAR_ITEM_STYLE: NavItemStyle = {
     "data-active:before:h-4 data-active:before:w-[2px] data-active:before:-translate-y-1/2",
     "data-active:before:bg-accent data-active:before:shadow-[0_0_6px_var(--accent-glow)]",
     "data-active:before:content-['']",
-    "[&_svg]:size-5 [&_svg]:shrink-0"
+    "[&_svg]:size-5 [&_svg]:shrink-0",
   ),
 }
 
@@ -88,7 +88,7 @@ const BOTTOM_NAV_ITEM_STYLE: NavItemStyle = {
     "data-active:before:rounded-full data-active:before:bg-accent",
     "data-active:before:shadow-[0_0_8px_var(--accent-glow)]",
     "data-active:before:content-['']",
-    "[&_svg]:size-6 [&_svg]:shrink-0"
+    "[&_svg]:size-6 [&_svg]:shrink-0",
   ),
 }
 
@@ -105,7 +105,7 @@ function AppSidebarFooter({
       data-slot="app-sidebar-footer"
       className={cn(
         "mt-auto border-t border-border px-1.5 pt-2 pb-0",
-        className
+        className,
       )}
       {...props}
     />
@@ -120,7 +120,7 @@ function AppBottomNav({ className, ...props }: React.ComponentProps<"nav">) {
         "relative z-10 flex items-stretch justify-around gap-1",
         "h-full border-t border-border bg-surface-sunken",
         "px-2 pb-[env(safe-area-inset-bottom,0px)]",
-        className
+        className,
       )}
       {...props}
     />
@@ -132,10 +132,10 @@ function AppBottomNavItem(props: NavItemProps) {
 }
 
 export {
-  AppSidebar,
-  AppSidebarGroup,
-  AppSidebarItem,
-  AppSidebarFooter,
   AppBottomNav,
   AppBottomNavItem,
+  AppSidebar,
+  AppSidebarFooter,
+  AppSidebarGroup,
+  AppSidebarItem,
 }

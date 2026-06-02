@@ -9,8 +9,8 @@ import {
   ne,
   notInArray,
   or,
-  sql,
   type SQL,
+  sql,
 } from "drizzle-orm"
 import { z } from "zod"
 
@@ -98,7 +98,7 @@ export function serialiseNullableUserSummary(row: {
 }
 
 export function serialiseUserListRow(
-  row: UserSummaryFields & { createdAt: Date | string; clipCount: number }
+  row: UserSummaryFields & { createdAt: Date | string; clipCount: number },
 ): UserListRow {
   return {
     ...serialiseUserSummary(row),
@@ -122,9 +122,9 @@ export async function searchVisibleUsers({
       or(
         ilike(user.name, pattern),
         ilike(user.displayUsername, pattern),
-        ilike(user.username, pattern)
+        ilike(user.username, pattern),
       ),
-      "user search text filter"
+      "user search text filter",
     ),
   ]
   if (viewerId) {
@@ -179,8 +179,8 @@ export async function resolveTarget(segment: string): Promise<UserRow | null> {
     .where(
       and(
         eq(sql`lower(${user.username})`, segment.toLowerCase()),
-        isNull(user.disabledAt)
-      )
+        isNull(user.disabledAt),
+      ),
     )
     .limit(1)
   return row ?? null
@@ -203,7 +203,7 @@ export async function listUserClips(row: UserRow, headers: Headers) {
 export async function listUserGames(
   row: UserRow,
   headers: Headers,
-  { limit, offset }: z.infer<typeof UserGamesQuery>
+  { limit, offset }: z.infer<typeof UserGamesQuery>,
 ) {
   const conditions = await visibleReadyClipConditions(row, headers)
 
@@ -237,7 +237,7 @@ export async function listUserGames(
 
 async function visibleReadyClipConditions(
   row: UserRow,
-  headers: Headers
+  headers: Headers,
 ): Promise<SQL[]> {
   const session = await getSession(headers)
   const isOwner = session?.user.id === row.id
@@ -335,13 +335,15 @@ export async function listFollowing(row: UserRow) {
 
 export async function resolveViewerState(
   viewerId: string | null,
-  targetId: string
-): Promise<{
-  isSelf: boolean
-  isFollowing: boolean
-  isBlocked: boolean
-  isBlockedBy: boolean
-} | null> {
+  targetId: string,
+): Promise<
+  {
+    isSelf: boolean
+    isFollowing: boolean
+    isBlocked: boolean
+    isBlockedBy: boolean
+  } | null
+> {
   if (!viewerId) return null
 
   const isSelf = viewerId === targetId
@@ -359,7 +361,7 @@ export async function resolveViewerState(
       .select({ id: follow.id })
       .from(follow)
       .where(
-        and(eq(follow.followerId, viewerId), eq(follow.followingId, targetId))
+        and(eq(follow.followerId, viewerId), eq(follow.followingId, targetId)),
       )
       .limit(1),
     db
@@ -371,8 +373,8 @@ export async function resolveViewerState(
       .where(
         or(
           and(eq(block.blockerId, viewerId), eq(block.blockedId, targetId)),
-          and(eq(block.blockerId, targetId), eq(block.blockedId, viewerId))
-        )
+          and(eq(block.blockerId, targetId), eq(block.blockedId, viewerId)),
+        ),
       ),
   ])
 
@@ -386,7 +388,7 @@ export async function resolveViewerState(
 
 export async function selectProfileCounts(
   targetId: string,
-  { includeRestrictedClips }: { includeRestrictedClips: boolean }
+  { includeRestrictedClips }: { includeRestrictedClips: boolean },
 ) {
   const clipConditions: SQL[] = [
     eq(clip.authorId, targetId),

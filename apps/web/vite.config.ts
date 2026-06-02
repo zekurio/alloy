@@ -49,7 +49,7 @@ function apiProxy(mode: string): ProxyOptions {
           JSON.stringify({
             error: "API server unavailable",
             message: `Could not reach Alloy server at ${apiTarget}.`,
-          })
+          }),
         )
       })
     },

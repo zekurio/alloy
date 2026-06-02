@@ -14,7 +14,7 @@ export function useClickAnchor() {
           height: 1,
         }),
     }),
-    [point]
+    [point],
   )
 
   const onOpenChange = React.useCallback((nextOpen: boolean) => {

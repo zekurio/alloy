@@ -8,7 +8,7 @@ interface BrowserDownloadOptions {
 
 export function startBrowserDownload(
   url: string,
-  options: BrowserDownloadOptions = {}
+  options: BrowserDownloadOptions = {},
 ): boolean {
   try {
     const anchor = document.createElement("a")

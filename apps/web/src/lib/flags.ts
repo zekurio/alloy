@@ -31,13 +31,13 @@ function readBooleanFlag(definition: FlagDefinition): boolean {
 }
 
 function readFlagGroup<T extends Record<string, FlagDefinition>>(
-  definitions: T
+  definitions: T,
 ): { readonly [K in keyof T]: boolean } {
   return Object.fromEntries(
     Object.entries(definitions).map(([name, definition]) => [
       name,
       readBooleanFlag(definition),
-    ])
+    ]),
   ) as { readonly [K in keyof T]: boolean }
 }
 

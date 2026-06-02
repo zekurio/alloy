@@ -3,7 +3,7 @@ import { base64UrlDecodeText, base64UrlEncodeText } from "../encoding/base64url"
 type CursorPayload = Record<string, unknown>
 
 export function decodeCursorPayload(
-  value: string | undefined
+  value: string | undefined,
 ): CursorPayload | null {
   if (!value) return null
   try {

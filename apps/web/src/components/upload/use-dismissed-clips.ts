@@ -24,7 +24,7 @@ function loadDismissed(): Set<string> {
   } catch (cause) {
     clientLogger.warn(
       "[upload-queue] Dismissed clip cache was malformed.",
-      cause
+      cause,
     )
     clearDismissed()
     return new Set()
@@ -46,7 +46,7 @@ function saveDismissed(ids: Set<string>): void {
 
 export function useDismissedClips(
   serverQueue: QueueClip[],
-  serverQueueHydrated: boolean
+  serverQueueHydrated: boolean,
 ) {
   const [dismissed, setDismissed] = React.useState<Set<string>>(() =>
     loadDismissed()

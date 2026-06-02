@@ -14,24 +14,25 @@ import {
   batchProgress,
 } from "../runtime/http-response"
 import {
+  configStore,
   EncoderConfigPatchSchema,
   IntegrationsConfigPatchSchema,
   LimitsConfigPatchSchema,
   MachineLearningConfigPatchSchema,
+  OAuthProvidersSchema,
+  parseRuntimeConfig,
   StorageConfigPatchSchema,
-  configStore,
-  type RuntimeConfig,
 } from "../config/store"
 import { enqueueEncode } from "../queue"
 import { getEncoderCapabilities } from "./admin-encoder-capabilities"
 import { generateLoginSplashPatch } from "./admin-appearance"
 import {
-  REDACTED_SENTINEL,
   adminRuntimeConfigResponse,
   finalizeOAuthProviderSubmission,
   hasEnabledSignInMethod,
   mergeStorageConfigPatch,
   preserveRedactedSecrets,
+  REDACTED_SENTINEL,
 } from "./admin-helpers"
 import { adminUsersRoute } from "./admin-users"
 
@@ -59,12 +60,12 @@ const OAuthProviderAdminSubmissionSchema = z
   .passthrough()
 
 const OAuthConfigSubmissionSchema = z.object({
-  oauthProvider: OAuthProviderAdminSubmissionSchema.nullable(),
+  oauthProviders: z.array(OAuthProviderAdminSubmissionSchema).max(16),
 })
 
 async function signInConfigError(config: {
   passkeyEnabled: boolean
-  oauthProvider: { enabled: boolean; providerId: string } | null
+  oauthProviders: { enabled: boolean; providerId: string }[]
 }): Promise<string | null> {
   if (!hasEnabledSignInMethod(config)) {
     return "Keep at least one sign-in method enabled."
@@ -105,15 +106,12 @@ export const adminRoute = new Hono()
     const current = configStore.getAll()
     preserveRedactedSecrets(input, current)
     try {
-      const next = {
-        ...current,
-        ...input,
-      }
+      const next = parseRuntimeConfig(input)
       const authError = await signInConfigError(next)
       if (authError) {
         return badRequest(c, authError)
       }
-      configStore.patch(input as Partial<RuntimeConfig>)
+      configStore.replace(next)
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     } catch (cause) {
       return badRequestFromCause(c, cause, "Invalid configuration.")
@@ -153,37 +151,38 @@ export const adminRoute = new Hono()
       }
       if (Object.keys(patch).length > 0) configStore.patch(patch)
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
-    }
+    },
   )
   .put(
     "/oauth-config",
     zValidator("json", OAuthConfigSubmissionSchema),
     async (c) => {
       const submission = c.req.valid("json")
-      const existing = configStore.get("oauthProvider")
+      const existing = configStore.get("oauthProviders")
       try {
-        const nextProvider = submission.oauthProvider
-          ? finalizeOAuthProviderSubmission(submission.oauthProvider, existing)
-          : null
+        const nextProviders = OAuthProvidersSchema.parse(
+          submission.oauthProviders.map((provider) =>
+            finalizeOAuthProviderSubmission(provider, existing)
+          ),
+        )
         const authError = await signInConfigError({
           passkeyEnabled: configStore.get("passkeyEnabled"),
-          oauthProvider: nextProvider,
+          oauthProviders: nextProviders,
         })
         if (authError) {
           return badRequest(c, authError)
         }
-        configStore.patch({ oauthProvider: nextProvider })
+        configStore.patch({ oauthProviders: nextProviders })
       } catch (cause) {
         return badRequestFromCause(
           c,
           cause,
-          "Couldn't save OAuth configuration."
+          "Couldn't save OAuth configuration.",
         )
       }
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
-    }
+    },
   )
-
   /**
    * PATCH /encoder — update the encoder profile. Partial — admins usually
    * flip one knob at a time. Changes apply to the next encode job; jobs
@@ -195,7 +194,6 @@ export const adminRoute = new Hono()
     configStore.set("encoder", next)
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
-
   /**
    * PATCH /limits — update upload + queue limits. `maxUploadBytes` and
    * `uploadTtlSec` are picked up on the next `/initiate` call.
@@ -208,7 +206,6 @@ export const adminRoute = new Hono()
     configStore.set("limits", next)
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
-
   .patch(
     "/integrations",
     zValidator("json", IntegrationsConfigPatchSchema),
@@ -217,16 +214,14 @@ export const adminRoute = new Hono()
       const current = configStore.get("integrations")
       const next: typeof current = { ...current }
       if (patch.steamgriddbApiKey !== undefined) {
-        next.steamgriddbApiKey =
-          patch.steamgriddbApiKey === REDACTED_SENTINEL
-            ? current.steamgriddbApiKey
-            : patch.steamgriddbApiKey
+        next.steamgriddbApiKey = patch.steamgriddbApiKey === REDACTED_SENTINEL
+          ? current.steamgriddbApiKey
+          : patch.steamgriddbApiKey
       }
       configStore.set("integrations", next)
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
-    }
+    },
   )
-
   .patch(
     "/machine-learning",
     zValidator("json", MachineLearningConfigPatchSchema),
@@ -243,24 +238,21 @@ export const adminRoute = new Hono()
       }
       configStore.set("machineLearning", next)
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
-    }
+    },
   )
-
   .patch("/appearance", zValidator("json", AppearancePatch), async (c) => {
     const patch = c.req.valid("json")
     const current = configStore.get("appearance")
     const next = { ...current, loginSplash: { ...current.loginSplash } }
     if (patch.loginSplash?.enabled !== undefined) {
       const enabled = patch.loginSplash.enabled
-      next.loginSplash =
-        enabled && next.loginSplash.clipIds.length === 0
-          ? await generateLoginSplashPatch(true)
-          : { ...next.loginSplash, enabled }
+      next.loginSplash = enabled && next.loginSplash.clipIds.length === 0
+        ? await generateLoginSplashPatch(true)
+        : { ...next.loginSplash, enabled }
     }
     configStore.set("appearance", next)
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
-
   .post("/appearance/login-splash/regenerate", async (c) => {
     const current = configStore.get("appearance")
     configStore.set("appearance", {
@@ -269,7 +261,6 @@ export const adminRoute = new Hono()
     })
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
-
   /**
    * PATCH /storage — update the active storage driver configuration. The
    * server rebuilds the driver immediately for new operations; in-flight
@@ -286,16 +277,14 @@ export const adminRoute = new Hono()
       return badRequestFromCause(
         c,
         cause,
-        "Couldn't save storage configuration."
+        "Couldn't save storage configuration.",
       )
     }
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
-
   .get("/encoder/capabilities", async (c) => {
     return c.json(await getEncoderCapabilities())
   })
-
   .post("/clips/re-encode", async (c) => {
     const rows = await db
       .select({ id: clip.id })
@@ -328,6 +317,6 @@ export const adminRoute = new Hono()
       c,
       "enqueued",
       ids.length,
-      rows.length > RE_ENCODE_BATCH_LIMIT
+      rows.length > RE_ENCODE_BATCH_LIMIT,
     )
   })

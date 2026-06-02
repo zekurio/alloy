@@ -19,12 +19,11 @@ export interface ActiveUpload {
 
 export function localToQueueItem(
   e: ActiveUpload,
-  onCancel: () => void
+  onCancel: () => void,
 ): QueueItem {
-  const pct =
-    e.bytesTotal > 0
-      ? Math.min(99, Math.floor((e.bytesLoaded / e.bytesTotal) * 100))
-      : 0
+  const pct = e.bytesTotal > 0
+    ? Math.min(99, Math.floor((e.bytesLoaded / e.bytesTotal) * 100))
+    : 0
   let status: QueueItemStatus
   let detail: string
   switch (e.status) {
@@ -34,10 +33,9 @@ export function localToQueueItem(
       break
     case "uploading":
       status = "uploading"
-      detail =
-        e.bytesTotal > 0
-          ? `${formatBytes(e.bytesLoaded)} / ${formatBytes(e.bytesTotal)}`
-          : "Uploading…"
+      detail = e.bytesTotal > 0
+        ? `${formatBytes(e.bytesLoaded)} / ${formatBytes(e.bytesTotal)}`
+        : "Uploading…"
       break
     case "finalizing":
       status = "uploading"
@@ -76,7 +74,7 @@ function queueThumbnailUrl(row: QueueClip): string | null {
 
 export function serverToQueueItem(
   row: QueueClip,
-  handlers: ServerRowHandlers
+  handlers: ServerRowHandlers,
 ): QueueItem {
   let status: QueueItemStatus
   let detail: string
@@ -91,8 +89,9 @@ export function serverToQueueItem(
       break
     case "ready":
       status = row.encodeProgress < 100 ? "encoding" : "published"
-      detail =
-        row.encodeProgress < 100 ? "Publishing playback variants" : "Ready"
+      detail = row.encodeProgress < 100
+        ? "Publishing playback variants"
+        : "Ready"
       break
     case "failed":
       status = "failed"
@@ -103,12 +102,11 @@ export function serverToQueueItem(
     id: row.id,
     title: row.title,
     status,
-    progress:
-      status === "encoding"
-        ? row.encodeProgress
-        : status === "published"
-          ? 100
-          : 0,
+    progress: status === "encoding"
+      ? row.encodeProgress
+      : status === "published"
+      ? 100
+      : 0,
     detail,
     hue: stableHue(row.id),
     thumbUrl: queueThumbnailUrl(row),

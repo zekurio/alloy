@@ -15,7 +15,7 @@ function isClipPermalink(pathname: string): boolean {
 
 export function shouldForceOnboarding(
   config: PublicAuthConfig,
-  session: Session | null
+  session: Session | null,
 ): boolean {
   return (
     (config.setupRequired || isDevSetupForced()) &&
@@ -27,7 +27,7 @@ export function shouldForceOnboarding(
 export function browseAuthTarget(
   session: Session | null,
   config: PublicAuthConfig,
-  pathname: string
+  pathname: string,
 ): AuthRouteTarget {
   if (config.adminAccountRequired) return "/setup"
   if (shouldForceOnboarding(config, session)) return "/setup"

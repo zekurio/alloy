@@ -10,11 +10,11 @@ import {
 } from "../clips/access"
 import { storage } from "../storage"
 import { notFound } from "../runtime/http-response"
-import { cancelReadableOnAbort } from "../runtime/streaming"
+import { pipeReadable } from "../runtime/streaming"
 import {
   contentDisposition,
-  DownloadQuery,
   downloadFilename,
+  DownloadQuery,
   findEncodedVariant,
   IdParam,
   parseRange,
@@ -39,37 +39,34 @@ export const clipsPlaybackRoutes = new Hono()
       applyClipPrivacyHeaders(c, access)
       const row = access.row
 
-      const variant =
-        requestedVariant === "source"
-          ? null
-          : findEncodedVariant(row, requestedVariant)
-      const selected =
-        requestedVariant === "source"
-          ? row.sourceKey && row.sourceContentType
-            ? {
-                key: row.sourceKey,
-                contentType: row.sourceContentType,
-                id: "source",
-              }
-            : null
-          : variant
-            ? {
-                key: variant.storageKey,
-                contentType: variant.contentType,
-                id: variant.id,
-              }
-            : null
+      const variant = requestedVariant === "source"
+        ? null
+        : findEncodedVariant(row, requestedVariant)
+      const selected = requestedVariant === "source"
+        ? row.sourceKey && row.sourceContentType
+          ? {
+            key: row.sourceKey,
+            contentType: row.sourceContentType,
+            id: "source",
+          }
+          : null
+        : variant
+        ? {
+          key: variant.storageKey,
+          contentType: variant.contentType,
+          id: variant.id,
+        }
+        : null
 
       if (!selected) {
         return notFound(c, "Unknown quality")
       }
 
-      const cacheControl =
-        row.privacy === "public"
-          ? "public, max-age=300"
-          : row.privacy === "private"
-            ? "no-store"
-            : "private, max-age=300"
+      const cacheControl = row.privacy === "public"
+        ? "public, max-age=300"
+        : row.privacy === "private"
+        ? "no-store"
+        : "private, max-age=300"
 
       if (!access.isPrivate && c.req.method !== "HEAD") {
         const direct = await storage.mintDownloadUrl(selected.key, {
@@ -86,7 +83,7 @@ export const clipsPlaybackRoutes = new Hono()
       const resolved = await storage.resolve(selected.key)
       if (!resolved) {
         logger.error(
-          `[clips] bytes missing for ready clip ${id} (${selected.id})`
+          `[clips] bytes missing for ready clip ${id} (${selected.id})`,
         )
         return notFound(c, "Stream unavailable")
       }
@@ -100,7 +97,7 @@ export const clipsPlaybackRoutes = new Hono()
         c.header("Content-Type", contentType)
         c.header(
           "Content-Range",
-          `bytes ${range.start}-${range.end}/${resolved.size}`
+          `bytes ${range.start}-${range.end}/${resolved.size}`,
         )
         c.header("Content-Length", String(length))
         c.header("Accept-Ranges", "bytes")
@@ -108,8 +105,7 @@ export const clipsPlaybackRoutes = new Hono()
         c.status(206)
         if (c.req.method === "HEAD") return c.body(null)
         return stream(c, async (s) => {
-          cancelReadableOnAbort(s, body, `clip ${id} stream range`)
-          await s.pipe(body)
+          await pipeReadable(s, body)
         })
       }
 
@@ -120,12 +116,10 @@ export const clipsPlaybackRoutes = new Hono()
       c.header("Cache-Control", cacheControl)
       if (c.req.method === "HEAD") return c.body(null)
       return stream(c, async (s) => {
-        cancelReadableOnAbort(s, body, `clip ${id} stream`)
-        await s.pipe(body)
+        await pipeReadable(s, body)
       })
-    }
+    },
   )
-
   /**
    * GET /api/clips/:id/thumbnail — poster image for the player and
    * queue/grid cards. Returns 404 when the encoder couldn't produce
@@ -147,12 +141,11 @@ export const clipsPlaybackRoutes = new Hono()
     const key = row.thumbKey
     if (!key) return notFound(c, "No thumbnail")
 
-    const thumbCacheControl =
-      row.privacy === "public" && row.status === "ready"
-        ? "public, max-age=86400"
-        : row.privacy === "private"
-          ? "no-store"
-          : "private, max-age=86400"
+    const thumbCacheControl = row.privacy === "public" && row.status === "ready"
+      ? "public, max-age=86400"
+      : row.privacy === "private"
+      ? "no-store"
+      : "private, max-age=86400"
 
     if (!access.isPrivate && c.req.method !== "HEAD") {
       const direct = await storage.mintDownloadUrl(key, {
@@ -177,11 +170,10 @@ export const clipsPlaybackRoutes = new Hono()
     return c.body(
       buf.buffer.slice(
         buf.byteOffset,
-        buf.byteOffset + buf.byteLength
-      ) as ArrayBuffer
+        buf.byteOffset + buf.byteLength,
+      ) as ArrayBuffer,
     )
   })
-
   .get("/:id/opengraph", zValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
     const access = await resolveClipAccess({
@@ -215,11 +207,9 @@ export const clipsPlaybackRoutes = new Hono()
     if (c.req.method === "HEAD") return c.body(null)
     const body = resolved.stream()
     return stream(c, async (s) => {
-      cancelReadableOnAbort(s, body, `clip ${id} OpenGraph media`)
-      await s.pipe(body)
+      await pipeReadable(s, body)
     })
   })
-
   .get(
     "/:id/download",
     zValidator("param", IdParam),
@@ -241,33 +231,31 @@ export const clipsPlaybackRoutes = new Hono()
         row.status === "ready" && requestedVariant !== "source"
           ? findEncodedVariant(row, requestedVariant)
           : null
-      const selected =
-        requestedVariant === "source"
-          ? row.sourceKey && row.sourceContentType
-            ? {
-                key: row.sourceKey,
-                contentType: row.sourceContentType,
-                filename: downloadFilename(row, "source"),
-              }
-            : null
-          : encodedVariant
-            ? {
-                key: encodedVariant.storageKey,
-                contentType: encodedVariant.contentType,
-                filename: downloadFilename(row, encodedVariant),
-              }
-            : null
+      const selected = requestedVariant === "source"
+        ? row.sourceKey && row.sourceContentType
+          ? {
+            key: row.sourceKey,
+            contentType: row.sourceContentType,
+            filename: downloadFilename(row, "source"),
+          }
+          : null
+        : encodedVariant
+        ? {
+          key: encodedVariant.storageKey,
+          contentType: encodedVariant.contentType,
+          filename: downloadFilename(row, encodedVariant),
+        }
+        : null
 
       if (!selected) {
         return notFound(c, "Unknown download variant")
       }
 
-      const dlCacheControl =
-        row.privacy === "public"
-          ? "public, max-age=300"
-          : row.privacy === "private"
-            ? "no-store"
-            : "private, max-age=300"
+      const dlCacheControl = row.privacy === "public"
+        ? "public, max-age=300"
+        : row.privacy === "private"
+        ? "no-store"
+        : "private, max-age=300"
 
       if (!access.isPrivate && c.req.method !== "HEAD") {
         const direct = await storage.mintDownloadUrl(selected.key, {
@@ -295,8 +283,7 @@ export const clipsPlaybackRoutes = new Hono()
 
       const body = resolved.stream()
       return stream(c, async (s) => {
-        cancelReadableOnAbort(s, body, `clip ${id} download`)
-        await s.pipe(body)
+        await pipeReadable(s, body)
       })
-    }
+    },
   )

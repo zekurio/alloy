@@ -2,7 +2,7 @@ import { logger } from "@workspace/logging"
 
 export async function responseTextOrEmpty(
   response: Response,
-  operation: string
+  operation: string,
 ): Promise<string> {
   try {
     return await response.text()

@@ -10,7 +10,7 @@ const loggedClipboardFailures = new Set<string>()
 function logClipboardFailure(
   action: string,
   dedupeKey: string,
-  cause: unknown
+  cause: unknown,
 ) {
   if (loggedClipboardFailures.has(dedupeKey)) return
   loggedClipboardFailures.add(dedupeKey)
@@ -19,7 +19,7 @@ function logClipboardFailure(
 
 export async function copyTextToClipboard(
   text: string,
-  options: CopyTextOptions = {}
+  options: CopyTextOptions = {},
 ): Promise<boolean> {
   const action = options.action ?? "copy text"
   const dedupeKey = options.dedupeKey ?? action
@@ -29,7 +29,7 @@ export async function copyTextToClipboard(
     logClipboardFailure(
       action,
       dedupeKey,
-      new Error("Clipboard API is not available.")
+      new Error("Clipboard API is not available."),
     )
     return false
   }

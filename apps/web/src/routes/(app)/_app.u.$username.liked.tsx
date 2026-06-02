@@ -41,12 +41,14 @@ function ProfileLikedTab() {
           </SectionTitle>
         </div>
         <SectionActions>
-          {clips ? (
-            <SectionMeta>
-              {formatCount(clips.length)}{" "}
-              {clips.length === 1 ? "clip" : "clips"}
-            </SectionMeta>
-          ) : null}
+          {clips
+            ? (
+              <SectionMeta>
+                {formatCount(clips.length)}{" "}
+                {clips.length === 1 ? "clip" : "clips"}
+              </SectionMeta>
+            )
+            : null}
         </SectionActions>
       </SectionHead>
 

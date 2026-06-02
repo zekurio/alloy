@@ -1,6 +1,6 @@
 export function objectRecord(
   value: unknown,
-  label: string
+  label: string,
 ): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`Invalid ${label} response`)
@@ -22,7 +22,7 @@ export function validateStringArray(value: unknown, message: string): string[] {
 export function validateStringRecord(
   value: unknown,
   label: string,
-  message: string
+  message: string,
 ): Record<string, string> {
   const record = objectRecord(value, label)
   for (const [key, item] of Object.entries(record)) {
@@ -34,16 +34,16 @@ export function validateStringRecord(
 export function validateBatchProgress<T extends string>(
   value: unknown,
   label: string,
-  countKey: T
+  countKey: T,
 ): Record<T, number> & { hasMore: boolean } {
   const response = objectRecord(value, label)
   validateNonNegativeInteger(
     response[countKey],
-    `Invalid ${label} response: ${countKey} must be a non-negative integer`
+    `Invalid ${label} response: ${countKey} must be a non-negative integer`,
   )
   validateBoolean(
     response.hasMore,
-    `Invalid ${label} response: hasMore must be boolean`
+    `Invalid ${label} response: hasMore must be boolean`,
   )
   return value as Record<T, number> & { hasMore: boolean }
 }
@@ -54,7 +54,7 @@ export function validateBoolean(value: unknown, message: string) {
 
 export function validateString(
   value: unknown,
-  message: string
+  message: string,
 ): asserts value is string {
   if (typeof value !== "string") throw new Error(message)
 }
@@ -62,7 +62,7 @@ export function validateString(
 export function validateEnumString(
   value: unknown,
   allowedValues: ReadonlySet<string>,
-  message: string
+  message: string,
 ): asserts value is string {
   if (typeof value !== "string" || !allowedValues.has(value)) {
     throw new Error(message)
@@ -72,14 +72,14 @@ export function validateEnumString(
 export function validateNullableEnumString(
   value: unknown,
   allowedValues: ReadonlySet<string>,
-  message: string
+  message: string,
 ): asserts value is string | null {
   if (value !== null) validateEnumString(value, allowedValues, message)
 }
 
 export function validateRequiredString(
   value: unknown,
-  message: string
+  message: string,
 ): asserts value is string {
   if (typeof value !== "string" || !value.trim()) throw new Error(message)
 }
@@ -90,7 +90,7 @@ export function validateOptionalString(value: unknown, message: string) {
 
 export function validateUrlString(
   value: unknown,
-  message: string
+  message: string,
 ): asserts value is string {
   if (typeof value !== "string") throw new Error(message)
   try {
@@ -106,28 +106,28 @@ export function validateOptionalUrlString(value: unknown, message: string) {
 
 export function validateNullableUrlString(
   value: unknown,
-  message: string
+  message: string,
 ): asserts value is string | null {
   if (value !== null) validateUrlString(value, message)
 }
 
 export function validateNullableString(
   value: unknown,
-  message: string
+  message: string,
 ): asserts value is string | null {
   if (value !== null) validateString(value, message)
 }
 
 export function validateNullableRequiredString(
   value: unknown,
-  message: string
+  message: string,
 ): asserts value is string | null {
   if (value !== null) validateRequiredString(value, message)
 }
 
 export function validateNumber(
   value: unknown,
-  message: string
+  message: string,
 ): asserts value is number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     throw new Error(message)
@@ -150,14 +150,14 @@ export function validateNonNegativeInteger(value: unknown, message: string) {
 
 export function validateNullableNonNegativeInteger(
   value: unknown,
-  message: string
+  message: string,
 ) {
   if (value !== null) validateNonNegativeInteger(value, message)
 }
 
 export function validateNullablePositiveInteger(
   value: unknown,
-  message: string
+  message: string,
 ) {
   if (value !== null) validatePositiveInteger(value, message)
 }
@@ -166,7 +166,7 @@ export function validateIntegerInRange(
   value: unknown,
   min: number,
   max: number,
-  message: string
+  message: string,
 ) {
   validateNumber(value, message)
   if (!Number.isInteger(value) || value < min || value > max) {
@@ -178,7 +178,7 @@ export function validateEvenIntegerInRange(
   value: unknown,
   min: number,
   max: number,
-  message: string
+  message: string,
 ) {
   validateIntegerInRange(value, min, max, message)
   const numberValue = value as number
@@ -189,7 +189,7 @@ export function validateEvenIntegerInRange(
 
 export function validateNonNegativeNumber(
   value: unknown,
-  message: string
+  message: string,
 ): number {
   validateNumber(value, message)
   if (value < 0) {
@@ -205,7 +205,7 @@ function isCanonicalIsoDateString(value: string): boolean {
 
 export function validateIsoDateString(
   value: unknown,
-  message: string
+  message: string,
 ): asserts value is string {
   if (
     typeof value !== "string" ||

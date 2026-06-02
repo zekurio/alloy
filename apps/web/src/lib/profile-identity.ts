@@ -5,7 +5,7 @@ type ProfileIdentityFields = {
 }
 
 export function normalizeProfileIdentity(
-  value: ProfileIdentityFields
+  value: ProfileIdentityFields,
 ): ProfileIdentityFields {
   return {
     email: value.email.trim(),
@@ -16,7 +16,7 @@ export function normalizeProfileIdentity(
 
 export function profileIdentityPatch(
   current: ProfileIdentityFields,
-  initial: ProfileIdentityFields
+  initial: ProfileIdentityFields,
 ): Partial<ProfileIdentityFields> {
   const normalizedCurrent = normalizeProfileIdentity(current)
   const normalizedInitial = normalizeProfileIdentity(initial)
@@ -24,7 +24,7 @@ export function profileIdentityPatch(
 
   if (
     normalizedCurrent.email.toLowerCase() !==
-    normalizedInitial.email.toLowerCase()
+      normalizedInitial.email.toLowerCase()
   ) {
     patch.email = normalizedCurrent.email
   }
@@ -40,7 +40,7 @@ export function profileIdentityPatch(
 
 export function profileIdentityChanged(
   current: ProfileIdentityFields,
-  initial: ProfileIdentityFields
+  initial: ProfileIdentityFields,
 ): boolean {
   return Object.keys(profileIdentityPatch(current, initial)).length > 0
 }

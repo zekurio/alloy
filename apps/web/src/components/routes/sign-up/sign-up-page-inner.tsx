@@ -25,8 +25,8 @@ export function SignUpPageInner({ config }: SignUpPageInnerProps) {
 
   const canPasskeySignUp = config.openRegistrations && config.passkeyEnabled
   const showPasskeySignUp = canPasskeySignUp && passkeySupported
-  const oauthProvider = config.openRegistrations ? config.provider : null
-  const canOAuthSignUp = oauthProvider !== null
+  const oauthProviders = config.openRegistrations ? config.providers : []
+  const canOAuthSignUp = oauthProviders.length > 0
   const showSeparator = showPasskeySignUp && canOAuthSignUp
 
   return (
@@ -35,37 +35,47 @@ export function SignUpPageInner({ config }: SignUpPageInnerProps) {
         <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
           Create your account
         </h2>
-        <p className="text-sm text-foreground-muted">
-          Choose an enabled sign-up method.
-        </p>
       </div>
 
-      <div className="flex flex-col gap-6">
-        {showPasskeySignUp ? <PasskeySignUpForm /> : null}
+      <div className="flex flex-col gap-5">
+        {showPasskeySignUp
+          ? (
+            <div className="flex flex-col gap-3">
+              <PasskeySignUpForm />
+            </div>
+          )
+          : null}
 
-        {canPasskeySignUp && passkeyReady && !passkeySupported ? (
-          <p className="text-sm text-foreground-muted">
-            Passkey sign-up is enabled, but this browser does not support
-            passkeys.
-          </p>
-        ) : null}
+        {canPasskeySignUp && passkeyReady && !passkeySupported
+          ? (
+            <p className="text-sm text-foreground-muted">
+              Passkey sign-up is enabled, but this browser does not support
+              passkeys.
+            </p>
+          )
+          : null}
 
-        {showSeparator ? (
-          <div className="flex items-center gap-3">
-            <Separator className="flex-1" />
-            <span className="text-xs font-medium tracking-wider text-foreground-muted uppercase">
-              or
-            </span>
-            <Separator className="flex-1" />
-          </div>
-        ) : null}
+        {showSeparator
+          ? (
+            <div className="flex items-center gap-3">
+              <Separator className="flex-1" />
+              <span className="text-xs font-medium tracking-wider text-foreground-muted uppercase">
+                or
+              </span>
+              <Separator className="flex-1" />
+            </div>
+          )
+          : null}
 
-        {canOAuthSignUp ? (
-          <OAuthSignIn
-            providerId={oauthProvider.providerId}
-            displayName={oauthProvider.displayName}
-          />
-        ) : null}
+        {canOAuthSignUp
+          ? (
+            <div className="flex flex-col gap-3">
+              {oauthProviders.map((provider) => (
+                <OAuthSignIn key={provider.providerId} provider={provider} />
+              ))}
+            </div>
+          )
+          : null}
       </div>
 
       <p className="mt-6 text-sm text-foreground-muted">

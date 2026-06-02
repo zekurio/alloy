@@ -18,7 +18,7 @@ export function buildRemuxArgs(
   opts: {
     trimStartMs?: number | null
     trimEndMs?: number | null
-  }
+  },
 ): string[] {
   const { trimSeek, trimDuration } = buildTrimArgs(opts)
 
@@ -51,7 +51,7 @@ export function buildEncodeArgs(
     targetHeight: number
     trimStartMs?: number | null
     trimEndMs?: number | null
-  }
+  },
 ): string[] {
   const { config } = opts
   const { trimSeek, trimDuration } = buildTrimArgs(opts)
@@ -101,8 +101,7 @@ function buildTrimArgs(opts: {
   trimStartMs?: number | null
   trimEndMs?: number | null
 }): { trimSeek: string[]; trimDuration: string[] } {
-  const hasTrim =
-    opts.trimStartMs != null &&
+  const hasTrim = opts.trimStartMs != null &&
     opts.trimEndMs != null &&
     opts.trimEndMs > opts.trimStartMs
   if (!hasTrim) return { trimSeek: [], trimDuration: [] }
@@ -133,7 +132,7 @@ function buildHardwareArgs(config: ResolvedEncoderConfig): string[] {
 
 function buildFilterChain(
   targetHeight: number,
-  config: ResolvedEncoderConfig
+  config: ResolvedEncoderConfig,
 ): string {
   const scale = `scale=-2:${targetHeight}:force_original_aspect_ratio=decrease`
   if (config.encoder.trim().endsWith("_vaapi")) {
@@ -167,11 +166,13 @@ function qualityArgsForEncoder(encoder: string, quality: string): string[] {
   if (encoder === "libx265" || encoder === "libsvtav1") {
     return ["-crf", quality, "-pix_fmt", "yuv420p"]
   }
-  if (encoder.endsWith("_nvenc"))
+  if (encoder.endsWith("_nvenc")) {
     return ["-rc", "vbr", "-cq", quality, "-b:v", "0"]
+  }
   if (encoder.endsWith("_qsv")) return ["-global_quality", quality]
-  if (encoder.endsWith("_amf"))
+  if (encoder.endsWith("_amf")) {
     return ["-rc", "cqp", "-qp_i", quality, "-qp_p", quality]
+  }
   if (encoder.endsWith("_vaapi")) return ["-qp", quality]
   return []
 }
@@ -273,7 +274,7 @@ function videoFilterOptionInlineValue(arg: string): string | null {
 
 export function codecNameFor(
   hwaccel: HwaccelKind,
-  codec: EncoderCodec
+  codec: EncoderCodec,
 ): string {
   if (hwaccel === "none") {
     switch (codec) {

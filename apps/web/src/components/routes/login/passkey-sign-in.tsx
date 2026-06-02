@@ -33,8 +33,8 @@ export function PasskeySignIn() {
         reportAuthFlowFailure(
           "passkey sign-in",
           "Passkey sign-in failed",
-          cause
-        )
+          cause,
+        ),
       )
       setPending(false)
     }

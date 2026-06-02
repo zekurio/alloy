@@ -13,7 +13,7 @@ function Tabs({
       data-orientation={orientation}
       className={cn(
         "group/tabs flex gap-2 data-horizontal:flex-col",
-        className
+        className,
       )}
       {...props}
     />
@@ -32,7 +32,7 @@ const tabsListVariants = cva(
     defaultVariants: {
       variant: "line",
     },
-  }
+  },
 )
 
 function TabsList({
@@ -71,7 +71,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
         // Segmented (default) variant
         "in-data-[variant=default]:h-[calc(100%-1px)] in-data-[variant=default]:flex-1 in-data-[variant=default]:justify-center in-data-[variant=default]:rounded-md in-data-[variant=default]:px-1.5 in-data-[variant=default]:py-0.5",
         "in-data-[variant=default]:data-active:bg-background in-data-[variant=default]:data-active:shadow-sm",
-        className
+        className,
       )}
       {...props}
     />
@@ -96,11 +96,11 @@ function TabsCount({ className, ...props }: React.ComponentProps<"span">) {
       className={cn(
         "inline-flex items-center justify-center rounded-sm px-1.5 py-px",
         "bg-surface-raised text-2xs font-semibold text-foreground-muted",
-        className
+        className,
       )}
       {...props}
     />
   )
 }
 
-export { Tabs, TabsList, TabsTrigger, TabsContent, TabsCount, tabsListVariants }
+export { Tabs, TabsContent, TabsCount, TabsList, tabsListVariants, TabsTrigger }

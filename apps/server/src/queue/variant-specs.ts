@@ -30,7 +30,7 @@ export function buildVariantPlan(
   sourceHeight: number,
   configuredVariants: ReadonlyArray<EncoderVariant>,
   defaultVariantId: string | null,
-  runId?: string
+  runId?: string,
 ): VariantPlan {
   const specs: VariantSpec[] = []
   const skipped: VariantPlan["skipped"] = []
@@ -38,7 +38,7 @@ export function buildVariantPlan(
     (variant) =>
       variant.id === defaultVariantId &&
       variant.height > 0 &&
-      variant.height <= sourceHeight
+      variant.height <= sourceHeight,
   )
 
   for (const configured of configuredVariants) {
@@ -66,8 +66,7 @@ export function buildVariantPlan(
       label: configured.name,
       height: configured.height,
       storageKey: clipVideoVariantKey(clipId, configured.id, runId),
-      isDefault:
-        configured.id === defaultVariantId ||
+      isDefault: configured.id === defaultVariantId ||
         (!defaultVariantIsAvailable && isFirstAvailable),
       override: {
         codec: configured.codec,
@@ -84,7 +83,7 @@ export function buildVariantPlan(
     (a, b) =>
       b.height - a.height ||
       a.label.localeCompare(b.label) ||
-      a.id.localeCompare(b.id)
+      a.id.localeCompare(b.id),
   )
   return { specs, skipped }
 }

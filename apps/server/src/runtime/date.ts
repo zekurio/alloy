@@ -1,7 +1,9 @@
 type DateLike = Date | string
 
 export function isoDate(value: DateLike): string {
-  return value instanceof Date ? value.toISOString() : value
+  return value instanceof Date
+    ? value.toISOString()
+    : new Date(value).toISOString()
 }
 
 export function dateFromDateLike(value: DateLike): Date {

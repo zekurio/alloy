@@ -30,7 +30,7 @@ function streamSleep(stream: StreamSleeper): (ms: number) => Promise<void> {
 
 async function writeQueueSnapshot(
   writeSSE: (message: { event: string; data: string }) => Promise<void>,
-  viewerId: string
+  viewerId: string,
 ): Promise<void> {
   const snapshot = await selectQueueRowsForAuthor(viewerId)
   await writeSSE({
@@ -42,7 +42,7 @@ async function writeQueueSnapshot(
 async function writeEventBatch<T>(
   writeSSE: (message: { event: string; data: string }) => Promise<void>,
   batch: T[],
-  eventName: (event: T) => string
+  eventName: (event: T) => string,
 ) {
   for (const event of batch) {
     await writeSSE({
@@ -55,7 +55,7 @@ async function writeEventBatch<T>(
 async function writePendingEvents<T>(
   writeSSE: (message: { event: string; data: string }) => Promise<void>,
   pending: T[],
-  eventName: (event: T) => string
+  eventName: (event: T) => string,
 ) {
   if (pending.length === 0) return false
   const batch = pending.splice(0, pending.length)
@@ -91,7 +91,7 @@ async function runPendingEventStream<T>(input: {
       await writePendingEvents(
         input.stream.writeSSE.bind(input.stream),
         input.pending,
-        input.eventName
+        input.eventName,
       )
     ) {
       continue
@@ -119,7 +119,7 @@ export const eventsRoute = new Hono().get(
     c.header("Content-Encoding", "identity")
 
     return streamSSE(c, async (stream) => {
-      let pending: QueueEvent[] = []
+      const pending: QueueEvent[] = []
       let wake: (() => void) | null = null
 
       const unsubscribe = subscribeToAuthorQueue(viewerId, (event) => {
@@ -143,14 +143,13 @@ export const eventsRoute = new Hono().get(
             wake = next
           },
           eventName: (event) => event.type,
-          writeIdle: () =>
-            writeQueueSnapshot(stream.writeSSE.bind(stream), viewerId),
+          writeIdle: () => stream.writeSSE({ event: "heartbeat", data: "" }),
         })
       } finally {
         unsubscribe()
       }
     })
-  }
+  },
 )
 
 eventsRoute.get(
@@ -167,7 +166,7 @@ eventsRoute.get(
     c.header("Content-Encoding", "identity")
 
     return streamSSE(c, async (stream) => {
-      let pending: NotificationEvent[] = []
+      const pending: NotificationEvent[] = []
       let wake: (() => void) | null = null
 
       const unsubscribe = subscribeToNotifications(viewerId, (event) => {
@@ -203,5 +202,5 @@ eventsRoute.get(
         unsubscribe()
       }
     })
-  }
+  },
 )

@@ -12,7 +12,7 @@ function Kbd({ className, ...props }: React.ComponentProps<"kbd">) {
         "rounded-md border border-border bg-surface-raised",
         "font-mono text-2xs leading-3 font-medium text-foreground-muted select-none",
         "[&_svg:not([class*='size-'])]:size-3",
-        className
+        className,
       )}
       {...props}
     />

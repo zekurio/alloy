@@ -18,13 +18,12 @@ import { Route as appAppGamesRouteImport } from './routes/(app)/_app.games'
 import { Route as appAppSettingsRouteImport } from './routes/(app)/_app._settings'
 import { Route as appAppUUsernameRouteImport } from './routes/(app)/_app.u.$username'
 import { Route as appAppGSlugRouteImport } from './routes/(app)/_app.g.$slug'
-import { Route as appAppSettingsUserSettingsRouteImport } from './routes/(app)/_app._settings.user-settings'
+import { Route as appAppSettingsSettingsRouteImport } from './routes/(app)/_app._settings.settings'
 import { Route as appAppUUsernameIndexRouteImport } from './routes/(app)/_app.u.$username.index'
 import { Route as appAppUUsernameTaggedRouteImport } from './routes/(app)/_app.u.$username.tagged'
 import { Route as appAppUUsernameLikedRouteImport } from './routes/(app)/_app.u.$username.liked'
 import { Route as appAppUUsernameFeedRouteImport } from './routes/(app)/_app.u.$username.feed'
 import { Route as appAppUUsernameAllRouteImport } from './routes/(app)/_app.u.$username.all'
-import { Route as appAppSettingsSettingsAdminRouteImport } from './routes/(app)/_app._settings.settings.admin'
 import { Route as appAppGSlugCClipIdRouteImport } from './routes/(app)/_app.g.$slug.c.$clipId'
 
 const authSignUpRoute = authSignUpRouteImport.update({
@@ -70,12 +69,11 @@ const appAppGSlugRoute = appAppGSlugRouteImport.update({
   path: '/g/$slug',
   getParentRoute: () => appAppRoute,
 } as any)
-const appAppSettingsUserSettingsRoute =
-  appAppSettingsUserSettingsRouteImport.update({
-    id: '/user-settings',
-    path: '/user-settings',
-    getParentRoute: () => appAppSettingsRoute,
-  } as any)
+const appAppSettingsSettingsRoute = appAppSettingsSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => appAppSettingsRoute,
+} as any)
 const appAppUUsernameIndexRoute = appAppUUsernameIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -101,12 +99,6 @@ const appAppUUsernameAllRoute = appAppUUsernameAllRouteImport.update({
   path: '/all',
   getParentRoute: () => appAppUUsernameRoute,
 } as any)
-const appAppSettingsSettingsAdminRoute =
-  appAppSettingsSettingsAdminRouteImport.update({
-    id: '/settings/admin',
-    path: '/settings/admin',
-    getParentRoute: () => appAppSettingsRoute,
-  } as any)
 const appAppGSlugCClipIdRoute = appAppGSlugCClipIdRouteImport.update({
   id: '/c/$clipId',
   path: '/c/$clipId',
@@ -119,10 +111,9 @@ export interface FileRoutesByFullPath {
   '/sign-up': typeof authSignUpRoute
   '/games': typeof appAppGamesRoute
   '/': typeof appAppIndexRoute
-  '/user-settings': typeof appAppSettingsUserSettingsRoute
+  '/settings': typeof appAppSettingsSettingsRoute
   '/g/$slug': typeof appAppGSlugRouteWithChildren
   '/u/$username': typeof appAppUUsernameRouteWithChildren
-  '/settings/admin': typeof appAppSettingsSettingsAdminRoute
   '/u/$username/all': typeof appAppUUsernameAllRoute
   '/u/$username/feed': typeof appAppUUsernameFeedRoute
   '/u/$username/liked': typeof appAppUUsernameLikedRoute
@@ -136,9 +127,8 @@ export interface FileRoutesByTo {
   '/sign-up': typeof authSignUpRoute
   '/games': typeof appAppGamesRoute
   '/': typeof appAppIndexRoute
-  '/user-settings': typeof appAppSettingsUserSettingsRoute
+  '/settings': typeof appAppSettingsSettingsRoute
   '/g/$slug': typeof appAppGSlugRouteWithChildren
-  '/settings/admin': typeof appAppSettingsSettingsAdminRoute
   '/u/$username/all': typeof appAppUUsernameAllRoute
   '/u/$username/feed': typeof appAppUUsernameFeedRoute
   '/u/$username/liked': typeof appAppUUsernameLikedRoute
@@ -155,10 +145,9 @@ export interface FileRoutesById {
   '/(app)/_app/_settings': typeof appAppSettingsRouteWithChildren
   '/(app)/_app/games': typeof appAppGamesRoute
   '/(app)/_app/': typeof appAppIndexRoute
-  '/(app)/_app/_settings/user-settings': typeof appAppSettingsUserSettingsRoute
+  '/(app)/_app/_settings/settings': typeof appAppSettingsSettingsRoute
   '/(app)/_app/g/$slug': typeof appAppGSlugRouteWithChildren
   '/(app)/_app/u/$username': typeof appAppUUsernameRouteWithChildren
-  '/(app)/_app/_settings/settings/admin': typeof appAppSettingsSettingsAdminRoute
   '/(app)/_app/u/$username/all': typeof appAppUUsernameAllRoute
   '/(app)/_app/u/$username/feed': typeof appAppUUsernameFeedRoute
   '/(app)/_app/u/$username/liked': typeof appAppUUsernameLikedRoute
@@ -174,10 +163,9 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/games'
     | '/'
-    | '/user-settings'
+    | '/settings'
     | '/g/$slug'
     | '/u/$username'
-    | '/settings/admin'
     | '/u/$username/all'
     | '/u/$username/feed'
     | '/u/$username/liked'
@@ -191,9 +179,8 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/games'
     | '/'
-    | '/user-settings'
+    | '/settings'
     | '/g/$slug'
-    | '/settings/admin'
     | '/u/$username/all'
     | '/u/$username/feed'
     | '/u/$username/liked'
@@ -209,10 +196,9 @@ export interface FileRouteTypes {
     | '/(app)/_app/_settings'
     | '/(app)/_app/games'
     | '/(app)/_app/'
-    | '/(app)/_app/_settings/user-settings'
+    | '/(app)/_app/_settings/settings'
     | '/(app)/_app/g/$slug'
     | '/(app)/_app/u/$username'
-    | '/(app)/_app/_settings/settings/admin'
     | '/(app)/_app/u/$username/all'
     | '/(app)/_app/u/$username/feed'
     | '/(app)/_app/u/$username/liked'
@@ -293,11 +279,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof appAppGSlugRouteImport
       parentRoute: typeof appAppRoute
     }
-    '/(app)/_app/_settings/user-settings': {
-      id: '/(app)/_app/_settings/user-settings'
-      path: '/user-settings'
-      fullPath: '/user-settings'
-      preLoaderRoute: typeof appAppSettingsUserSettingsRouteImport
+    '/(app)/_app/_settings/settings': {
+      id: '/(app)/_app/_settings/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof appAppSettingsSettingsRouteImport
       parentRoute: typeof appAppSettingsRoute
     }
     '/(app)/_app/u/$username/': {
@@ -335,13 +321,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof appAppUUsernameAllRouteImport
       parentRoute: typeof appAppUUsernameRoute
     }
-    '/(app)/_app/_settings/settings/admin': {
-      id: '/(app)/_app/_settings/settings/admin'
-      path: '/settings/admin'
-      fullPath: '/settings/admin'
-      preLoaderRoute: typeof appAppSettingsSettingsAdminRouteImport
-      parentRoute: typeof appAppSettingsRoute
-    }
     '/(app)/_app/g/$slug/c/$clipId': {
       id: '/(app)/_app/g/$slug/c/$clipId'
       path: '/c/$clipId'
@@ -353,13 +332,11 @@ declare module '@tanstack/react-router' {
 }
 
 interface appAppSettingsRouteChildren {
-  appAppSettingsUserSettingsRoute: typeof appAppSettingsUserSettingsRoute
-  appAppSettingsSettingsAdminRoute: typeof appAppSettingsSettingsAdminRoute
+  appAppSettingsSettingsRoute: typeof appAppSettingsSettingsRoute
 }
 
 const appAppSettingsRouteChildren: appAppSettingsRouteChildren = {
-  appAppSettingsUserSettingsRoute: appAppSettingsUserSettingsRoute,
-  appAppSettingsSettingsAdminRoute: appAppSettingsSettingsAdminRoute,
+  appAppSettingsSettingsRoute: appAppSettingsSettingsRoute,
 }
 
 const appAppSettingsRouteWithChildren = appAppSettingsRoute._addFileChildren(

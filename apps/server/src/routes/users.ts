@@ -26,7 +26,7 @@ import {
   batchProgress,
   booleanFlag,
 } from "../runtime/http-response"
-import { cancelReadableOnAbort } from "../runtime/streaming"
+import { pipeReadable } from "../runtime/streaming"
 import { requireSession } from "../auth/require-session"
 import { selectSourceStorageUsedBytes } from "../storage/quota"
 import { storage } from "../storage"
@@ -129,15 +129,14 @@ export const usersRoute = new Hono()
     c.header(
       "Content-Disposition",
       contentDisposition(
-        `alloy-clips-${new Date().toISOString().slice(0, 10)}.zip`
-      )
+        `alloy-clips-${new Date().toISOString().slice(0, 10)}.zip`,
+      ),
     )
     c.header("Cache-Control", "no-store")
 
     const zip = createZipStream(entries)
     return stream(c, async (s) => {
-      cancelReadableOnAbort(s, zip, "user clip archive")
-      await s.pipe(zip)
+      await pipeReadable(s, zip)
     })
   })
   .delete(
@@ -159,7 +158,7 @@ export const usersRoute = new Hono()
       }
 
       return batchProgress(c, "deleted", batch.length, rows.length > limit)
-    }
+    },
   )
   .post("/me/sync-oauth-profile", requireSession, async (c) => {
     return c.json(await syncLinkedOAuthImage(c.var.viewerId))
@@ -224,7 +223,7 @@ export const usersRoute = new Hono()
       const row = result.target
 
       return c.json(await listUserGames(row, c.req.raw.headers, query))
-    }
+    },
   )
   .get("/:username/tagged", zValidator("param", UsernameParam), async (c) => {
     const { username } = c.req.valid("param")
@@ -252,7 +251,7 @@ export const usersRoute = new Hono()
       const row = result.target
 
       return c.json(await listFollowers(row))
-    }
+    },
   )
   .get(
     "/:username/following",
@@ -264,7 +263,7 @@ export const usersRoute = new Hono()
       const row = result.target
 
       return c.json(await listFollowing(row))
-    }
+    },
   )
   .post(
     "/:username/follow",
@@ -303,7 +302,7 @@ export const usersRoute = new Hono()
       }
 
       return booleanFlag(c, "following", true)
-    }
+    },
   )
   .delete(
     "/:username/follow",
@@ -321,11 +320,11 @@ export const usersRoute = new Hono()
         .where(
           and(
             eq(follow.followerId, viewerId),
-            eq(follow.followingId, target.id)
-          )
+            eq(follow.followingId, target.id),
+          ),
         )
       return booleanFlag(c, "following", false)
-    }
+    },
   )
   .post(
     "/:username/block",
@@ -357,17 +356,17 @@ export const usersRoute = new Hono()
           or(
             and(
               eq(follow.followerId, viewerId),
-              eq(follow.followingId, target.id)
+              eq(follow.followingId, target.id),
             ),
             and(
               eq(follow.followerId, target.id),
-              eq(follow.followingId, viewerId)
-            )
-          )
+              eq(follow.followingId, viewerId),
+            ),
+          ),
         )
 
       return booleanFlag(c, "blocked", true)
-    }
+    },
   )
   .delete(
     "/:username/block",
@@ -376,5 +375,5 @@ export const usersRoute = new Hono()
     async (c) => {
       const { username } = c.req.valid("param")
       return deleteViewerBlock(c, username, c.var.viewerId)
-    }
+    },
   )

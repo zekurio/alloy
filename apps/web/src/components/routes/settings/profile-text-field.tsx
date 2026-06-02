@@ -60,15 +60,14 @@ export function ProfileTextField({
         value={field.state.value}
         onBlur={field.handleBlur}
         onChange={(e) =>
-          field.handleChange(onChangeValue?.(e.target.value) ?? e.target.value)
-        }
+          field.handleChange(onChangeValue?.(e.target.value) ?? e.target.value)}
         disabled={isSubmitting}
         aria-invalid={invalid || undefined}
         aria-describedby={invalid ? `${field.name}-error` : hintId}
       />
-      {description ? (
-        <FieldDescription id={hintId}>{description}</FieldDescription>
-      ) : null}
+      {description
+        ? <FieldDescription id={hintId}>{description}</FieldDescription>
+        : null}
       <FieldError
         id={`${field.name}-error`}
         errors={showError ? field.state.meta.errors : undefined}

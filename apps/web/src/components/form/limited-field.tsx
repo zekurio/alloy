@@ -31,7 +31,7 @@ const LimitedInput = React.forwardRef<
   React.ComponentProps<typeof InputGroupInput> & { groupClassName?: string }
 >(function LimitedInput(
   { className, groupClassName, maxLength, value, ...props },
-  ref
+  ref,
 ) {
   const max = typeof maxLength === "number" ? maxLength : undefined
 
@@ -44,14 +44,16 @@ const LimitedInput = React.forwardRef<
         className={cn("px-3", max !== undefined && "pr-0", className)}
         {...props}
       />
-      {max !== undefined ? (
-        <InputGroupAddon
-          align="inline-end"
-          className="pointer-events-none pl-2"
-        >
-          <LimitCounter current={characterCount(value)} max={max} />
-        </InputGroupAddon>
-      ) : null}
+      {max !== undefined
+        ? (
+          <InputGroupAddon
+            align="inline-end"
+            className="pointer-events-none pl-2"
+          >
+            <LimitCounter current={characterCount(value)} max={max} />
+          </InputGroupAddon>
+        )
+        : null}
     </InputGroup>
   )
 })
@@ -61,7 +63,7 @@ const LimitedTextarea = React.forwardRef<
   React.ComponentProps<typeof InputGroupTextarea> & { groupClassName?: string }
 >(function LimitedTextarea(
   { className, groupClassName, maxLength, value, ...props },
-  ref
+  ref,
 ) {
   const max = typeof maxLength === "number" ? maxLength : undefined
 
@@ -74,11 +76,16 @@ const LimitedTextarea = React.forwardRef<
         className={cn("px-3.5", max !== undefined && "pb-0", className)}
         {...props}
       />
-      {max !== undefined ? (
-        <InputGroupAddon align="block-end" className="pointer-events-none pt-1">
-          <LimitCounter current={characterCount(value)} max={max} />
-        </InputGroupAddon>
-      ) : null}
+      {max !== undefined
+        ? (
+          <InputGroupAddon
+            align="block-end"
+            className="pointer-events-none pt-1"
+          >
+            <LimitCounter current={characterCount(value)} max={max} />
+          </InputGroupAddon>
+        )
+        : null}
     </InputGroup>
   )
 })

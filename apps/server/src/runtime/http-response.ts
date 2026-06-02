@@ -6,7 +6,7 @@ import { errorMessage } from "./error-message"
 function errorResponse(
   c: Context,
   error: string,
-  status: ContentfulStatusCode
+  status: ContentfulStatusCode,
 ) {
   return c.json({ error }, status)
 }
@@ -15,14 +15,14 @@ export function detailedErrorResponse(
   c: Context,
   error: string,
   detail: string,
-  status: ContentfulStatusCode
+  status: ContentfulStatusCode,
 ) {
   return c.json({ error, detail }, status)
 }
 
 export function errorResult(
   c: Context,
-  result: { error: string; status: ContentfulStatusCode }
+  result: { error: string; status: ContentfulStatusCode },
 ) {
   return errorResponse(c, result.error, result.status)
 }
@@ -30,7 +30,7 @@ export function errorResult(
 export function booleanFlag<T extends string>(
   c: Context,
   key: T,
-  value: boolean
+  value: boolean,
 ) {
   return c.json({ [key]: value } as Record<T, boolean>)
 }
@@ -39,11 +39,13 @@ export function batchProgress<T extends string>(
   c: Context,
   countKey: T,
   count: number,
-  hasMore: boolean
+  hasMore: boolean,
 ) {
-  return c.json({ [countKey]: count, hasMore } as Record<T, number> & {
-    hasMore: boolean
-  })
+  return c.json(
+    { [countKey]: count, hasMore } as Record<T, number> & {
+      hasMore: boolean
+    },
+  )
 }
 
 export function likeState(c: Context, liked: boolean, likeCount: number) {
@@ -113,7 +115,7 @@ export function serviceUnavailable(c: Context, error: string) {
 export function badRequestFromCause(
   c: Context,
   cause: unknown,
-  fallback: string
+  fallback: string,
 ) {
   return badRequest(c, errorMessage(cause, fallback))
 }
@@ -124,7 +126,7 @@ export function invalidCursor(c: Context) {
 
 export function internalServerError(
   c: Context,
-  error = "Internal Server Error"
+  error = "Internal Server Error",
 ) {
   return errorResponse(c, error, 500)
 }

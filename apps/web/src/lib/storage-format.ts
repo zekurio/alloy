@@ -54,7 +54,7 @@ export function parseQuotaGiB(value: string): number | null {
 
 export function storageUsagePercent(
   usedBytes: number,
-  quotaBytes: number | null
+  quotaBytes: number | null,
 ): number {
   if (quotaBytes === null || quotaBytes <= 0) return 0
   return Math.min(100, Math.round((usedBytes / quotaBytes) * 100))

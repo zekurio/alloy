@@ -1,11 +1,11 @@
-import { and, eq, ne, sql } from "drizzle-orm"
+import { and, eq, inArray, ne, sql } from "drizzle-orm"
 
 import {
   authAccount,
-  user,
-  userPasskey,
   type NewUser,
   type User,
+  user,
+  userPasskey,
 } from "@workspace/db/auth-schema"
 
 import { db } from "../db"
@@ -31,12 +31,13 @@ export type AuthTransaction = Parameters<
 >[0]
 type AuthDbExecutor = typeof db | AuthTransaction
 
-const SETUP_ADVISORY_LOCK = sql`select pg_advisory_xact_lock(hashtext('alloy:first-admin-setup'))`
+const SETUP_ADVISORY_LOCK =
+  sql`select pg_advisory_xact_lock(hashtext('alloy:first-admin-setup'))`
 
 async function assertUsernameAvailable(
   executor: AuthDbExecutor,
   username: string,
-  excludeUserId?: string
+  excludeUserId?: string,
 ): Promise<void> {
   const conditions = [eq(sql`lower(${user.username})`, username.toLowerCase())]
   if (excludeUserId) conditions.push(ne(user.id, excludeUserId))
@@ -50,18 +51,18 @@ async function assertUsernameAvailable(
 
 type SignInMethodConfig = {
   passkeyEnabled: boolean
-  oauthProvider: { enabled: boolean; providerId: string } | null
+  oauthProviders: { enabled: boolean; providerId: string }[]
 }
 
 async function hasAdminSignInMethod(): Promise<boolean> {
   return hasAdminSignInMethodForConfig({
     passkeyEnabled: configStore.get("passkeyEnabled"),
-    oauthProvider: configStore.get("oauthProvider"),
+    oauthProviders: configStore.get("oauthProviders"),
   })
 }
 
 export async function hasAdminSignInMethodForConfig(
-  config: SignInMethodConfig
+  config: SignInMethodConfig,
 ): Promise<boolean> {
   return hasAdminSignInMethodWith(db, config)
 }
@@ -69,7 +70,7 @@ export async function hasAdminSignInMethodForConfig(
 async function hasAdminSignInMethodWith(
   executor: AuthDbExecutor,
   config: SignInMethodConfig,
-  options: { excludeUserId?: string } = {}
+  options: { excludeUserId?: string } = {},
 ): Promise<boolean> {
   const conditions = [eq(user.role, "admin"), eq(user.status, "active")]
   if (options.excludeUserId) {
@@ -86,14 +87,16 @@ async function hasAdminSignInMethodWith(
     if (passkeyRows.length > 0) return true
   }
 
-  const provider = config.oauthProvider
-  if (!provider?.enabled) return false
+  const providerIds = config.oauthProviders
+    .filter((provider) => provider.enabled)
+    .map((provider) => provider.providerId)
+  if (providerIds.length === 0) return false
 
   const oauthRows = await executor
     .select({ id: user.id })
     .from(user)
     .innerJoin(authAccount, eq(authAccount.userId, user.id))
-    .where(and(...conditions, eq(authAccount.providerId, provider.providerId)))
+    .where(and(...conditions, inArray(authAccount.providerId, providerIds)))
     .limit(1)
   return oauthRows.length > 0
 }
@@ -103,20 +106,20 @@ export async function setupRequired(): Promise<boolean> {
 }
 
 async function hasOtherAdminSignInMethod(
-  excludeUserId: string
+  excludeUserId: string,
 ): Promise<boolean> {
   return hasAdminSignInMethodWith(
     db,
     {
       passkeyEnabled: configStore.get("passkeyEnabled"),
-      oauthProvider: configStore.get("oauthProvider"),
+      oauthProviders: configStore.get("oauthProviders"),
     },
-    { excludeUserId }
+    { excludeUserId },
   )
 }
 
 export async function assertCanRemoveAdmin(
-  targetUserId: string
+  targetUserId: string,
 ): Promise<void> {
   const [row] = await db
     .select({ role: user.role })
@@ -126,7 +129,7 @@ export async function assertCanRemoveAdmin(
   if (row?.role !== "admin") return
   if (await hasOtherAdminSignInMethod(targetUserId)) return
   throw new Error(
-    "Cannot remove the last admin with a sign-in method. Add a sign-in method to another admin first."
+    "Cannot remove the last admin with a sign-in method. Add a sign-in method to another admin first.",
   )
 }
 
@@ -146,7 +149,7 @@ async function createUserIdentityWith(
     username?: string
     name?: string
     role?: "user" | "admin"
-  }
+  },
 ): Promise<User> {
   const email = normalizeEmail(input.email)
   const username = input.username
@@ -180,7 +183,7 @@ async function createOrClaimSetupUserWith(
   input: {
     email: string
     username: string
-  }
+  },
 ): Promise<{ user: User; created: boolean }> {
   const email = normalizeEmail(input.email)
   const [existing] = await executor
@@ -224,7 +227,7 @@ export async function createRegistrationUserInTransaction(
     email: string
     username: string
     setupFirstAdmin: boolean
-  }
+  },
 ): Promise<{ user: User; created: boolean }> {
   const email = normalizeEmail(input.email)
   const username = validateUsername(input.username)
@@ -234,7 +237,7 @@ export async function createRegistrationUserInTransaction(
     if (
       await hasAdminSignInMethodWith(tx, {
         passkeyEnabled: configStore.get("passkeyEnabled"),
-        oauthProvider: configStore.get("oauthProvider"),
+        oauthProviders: configStore.get("oauthProviders"),
       })
     ) {
       throw new Error("Initial setup is already complete.")
@@ -269,7 +272,7 @@ export async function createRegistrationUserInTransaction(
 
 export async function updateUserIdentity(
   userId: string,
-  input: { email?: string; name?: string; username?: string }
+  input: { email?: string; name?: string; username?: string },
 ): Promise<User> {
   const patch: Partial<NewUser> = { updatedAt: new Date() }
   if (input.email !== undefined) {

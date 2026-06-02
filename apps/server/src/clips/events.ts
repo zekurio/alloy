@@ -14,14 +14,17 @@ function channel(authorId: string): string {
 
 export async function publishClipUpsert(
   authorId: string,
-  clipId: string
+  clipId: string,
 ): Promise<void> {
   const row = await selectQueueRowById(clipId)
   if (!row) return
-  publish(channel(authorId), {
-    type: "upsert",
-    clip: row,
-  } satisfies QueueEvent)
+  publish(
+    channel(authorId),
+    {
+      type: "upsert",
+      clip: row,
+    } satisfies QueueEvent,
+  )
 }
 
 export async function publishClipUpsertById(clipId: string): Promise<void> {
@@ -38,26 +41,32 @@ export async function publishClipUpsertById(clipId: string): Promise<void> {
 export function publishClipProgress(
   authorId: string,
   clipId: string,
-  encodeProgress: number
+  encodeProgress: number,
 ): void {
-  publish(channel(authorId), {
-    type: "progress",
-    id: clipId,
-    encodeProgress,
-  } satisfies QueueEvent)
+  publish(
+    channel(authorId),
+    {
+      type: "progress",
+      id: clipId,
+      encodeProgress,
+    } satisfies QueueEvent,
+  )
 }
 
 export function publishClipRemove(authorId: string, clipId: string): void {
-  publish(channel(authorId), {
-    type: "remove",
-    id: clipId,
-  } satisfies QueueEvent)
+  publish(
+    channel(authorId),
+    {
+      type: "remove",
+      id: clipId,
+    } satisfies QueueEvent,
+  )
 }
 
 /** Subscribe to one author's queue events. Returns an unsubscribe fn. */
 export function subscribeToAuthorQueue(
   authorId: string,
-  handler: (event: QueueEvent) => void
+  handler: (event: QueueEvent) => void,
 ): () => void {
   const ch = channel(authorId)
   let channelSubscribers = subscribers.get(ch)

@@ -1,4 +1,4 @@
-import { or, sql, type SQL } from "drizzle-orm"
+import { or, type SQL, sql } from "drizzle-orm"
 
 import { clip } from "@workspace/db/schema"
 
@@ -16,8 +16,8 @@ export function hashtagTextFilter(tag: string): SQL {
   return requiredSql(
     or(
       sql`${clip.title} ~* ${pattern}`,
-      sql`coalesce(${clip.description}, '') ~* ${pattern}`
+      sql`coalesce(${clip.description}, '') ~* ${pattern}`,
     ),
-    "hashtag text filter"
+    "hashtag text filter",
   )
 }

@@ -16,7 +16,7 @@ export const searchKeys = {
 
 export function useSearchQuery(
   query: string,
-  { enabled = true, limit = 8 }: { enabled?: boolean; limit?: number } = {}
+  { enabled = true, limit = 8 }: { enabled?: boolean; limit?: number } = {},
 ): UseQueryResult<SearchResults> {
   const trimmed = query.trim()
   return useQuery({

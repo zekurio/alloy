@@ -1,7 +1,7 @@
 import { clientLogger } from "./client-log"
 
 export function isFullscreenElement(
-  target: Element | null | undefined
+  target: Element | null | undefined,
 ): boolean {
   if (typeof document === "undefined") return false
   return Boolean(target && document.fullscreenElement === target)
@@ -14,7 +14,7 @@ export function isFullscreenSupported(): boolean {
 
 export function requestFullscreenBestEffort(
   target: Element,
-  label: string
+  label: string,
 ): void {
   if (typeof target.requestFullscreen !== "function") return
   void target.requestFullscreen().catch((cause) => {

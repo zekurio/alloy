@@ -1,13 +1,13 @@
 import {
+  type RegistrationResponseJSON,
   startAuthentication,
   startRegistration,
-  type RegistrationResponseJSON,
 } from "@simplewebauthn/browser"
 
 import {
-  errorFrom,
   type AuthRedirect,
   type AuthResult,
+  errorFrom,
   type LinkedAccount,
   type Passkey,
   type RequestFn,
@@ -33,7 +33,7 @@ async function jsonResult<T>(
   path: string,
   init: RequestInit,
   fallback: string,
-  validate: JsonValidator<T>
+  validate: JsonValidator<T>,
 ): AuthResult<T> {
   try {
     return { data: await request(path, init, validate), error: null }
@@ -44,13 +44,13 @@ async function jsonResult<T>(
 
 async function passkeySignIn(
   request: RequestFn,
-  store: SessionStore
+  store: SessionStore,
 ): AuthResult<SessionData> {
   try {
     const start = await request(
       AUTH_PATHS.passkeySignInOptions,
       { method: "POST" },
-      validatePasskeyAuthenticationOptionsResponse
+      validatePasskeyAuthenticationOptionsResponse,
     )
     const response = await startAuthentication({
       optionsJSON: start.options,
@@ -61,7 +61,7 @@ async function passkeySignIn(
         method: "POST",
         body: JSON.stringify({ challengeId: start.challengeId, response }),
       },
-      validateSessionData
+      validateSessionData,
     )
     store.set(data)
     return { data, error: null }
@@ -73,7 +73,7 @@ async function passkeySignIn(
 async function passkeySignUp(
   request: RequestFn,
   store: SessionStore,
-  input: { email: string; username: string }
+  input: { email: string; username: string },
 ): AuthResult<SessionData> {
   try {
     const data = await completeRegistrationChallenge<SessionData>(request, {
@@ -92,7 +92,7 @@ async function passkeySignUp(
 
 async function addPasskey(
   request: RequestFn,
-  input: { name?: string | null }
+  input: { name?: string | null },
 ): AuthResult<Passkey> {
   try {
     const data = await completeRegistrationChallenge<Passkey>(request, {
@@ -124,7 +124,7 @@ async function completeRegistrationChallenge<T>(
     body?: unknown
     extraVerifyBody?: Record<string, unknown>
     validateResult: JsonValidator<T>
-  }
+  },
 ): Promise<T> {
   const start = await request(
     optionsPath,
@@ -132,7 +132,7 @@ async function completeRegistrationChallenge<T>(
       method,
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     },
-    validatePasskeyRegistrationOptionsResponse
+    validatePasskeyRegistrationOptionsResponse,
   )
   const response: RegistrationResponseJSON = await startRegistration({
     optionsJSON: start.options,
@@ -147,20 +147,20 @@ async function completeRegistrationChallenge<T>(
         ...extraVerifyBody,
       }),
     },
-    validateResult
+    validateResult,
   )
 }
 
 function createPasskeyActions(
   request: RequestFn,
   store: SessionStore,
-  redirect: AuthRedirect
+  redirect: AuthRedirect,
 ) {
   const result = <T>(
     path: string,
     init: RequestInit,
     fallback: string,
-    validate: JsonValidator<T>
+    validate: JsonValidator<T>,
   ) => jsonResult<T>(request, path, init, fallback, validate)
   const signUpWithPasskey = (input: { email: string; username: string }) =>
     passkeySignUp(request, store, input)
@@ -174,7 +174,7 @@ function createPasskeyActions(
           redirect,
           AUTH_PATHS.oauthSignIn,
           input,
-          "Could not start OAuth sign-in"
+          "Could not start OAuth sign-in",
         ),
     },
     signUp: {
@@ -189,21 +189,21 @@ function createPasskeyActions(
           AUTH_PATHS.passkeys,
           {},
           "Could not load passkeys",
-          validatePasskeys
+          validatePasskeys,
         ),
       updatePasskey: (input: { id: string; name?: string | null }) =>
         result(
           AUTH_PATHS.passkey(input.id),
           { method: "PATCH", body: JSON.stringify({ name: input.name }) },
           "Could not update passkey",
-          validatePasskey
+          validatePasskey,
         ),
       deletePasskey: (input: { id: string }) =>
         result(
           AUTH_PATHS.passkey(input.id),
           { method: "DELETE" },
           "Could not delete passkey",
-          validateSuccessResponse
+          validateSuccessResponse,
         ),
     },
   }
@@ -214,7 +214,7 @@ function createUserActions(request: RequestFn, store: SessionStore) {
     path: string,
     init: RequestInit,
     fallback: string,
-    validate: JsonValidator<T>
+    validate: JsonValidator<T>,
   ) => jsonResult<T>(request, path, init, fallback, validate)
 
   return {
@@ -227,7 +227,7 @@ function createUserActions(request: RequestFn, store: SessionStore) {
         AUTH_PATHS.user,
         { method: "PATCH", body: JSON.stringify(input) },
         "Could not update user",
-        validateUserUpdateResponse
+        validateUserUpdateResponse,
       )
       if (!update.error) await store.refetch()
       return update
@@ -237,7 +237,7 @@ function createUserActions(request: RequestFn, store: SessionStore) {
         AUTH_PATHS.user,
         { method: "DELETE" },
         "Could not delete user",
-        validateSuccessResponse
+        validateSuccessResponse,
       ).then((deleteResult) => {
         if (!deleteResult.error) store.set(null)
         return deleteResult
@@ -247,14 +247,14 @@ function createUserActions(request: RequestFn, store: SessionStore) {
         AUTH_PATHS.accounts,
         {},
         "Could not load accounts",
-        validateLinkedAccounts
+        validateLinkedAccounts,
       ),
     unlinkAccount: (input: { providerId: string; accountId: string }) =>
       result(
         AUTH_PATHS.accountsUnlink,
         { method: "POST", body: JSON.stringify(input) },
         "Could not unlink account",
-        validateSuccessResponse
+        validateSuccessResponse,
       ),
   }
 }
@@ -264,7 +264,7 @@ async function startOAuthRedirect(
   redirect: AuthRedirect,
   path: string,
   input: { providerId: string; callbackURL?: string },
-  fallback: string
+  fallback: string,
 ): AuthResult<never> {
   try {
     const data = await request(
@@ -273,7 +273,7 @@ async function startOAuthRedirect(
         method: "POST",
         body: JSON.stringify(input),
       },
-      validateOAuthStartResponse
+      validateOAuthStartResponse,
     )
     redirect(data.url)
     return { data: null, error: null }
@@ -291,7 +291,7 @@ function createOAuthActions(request: RequestFn, redirect: AuthRedirect) {
           redirect,
           AUTH_PATHS.oauthLink,
           input,
-          "Could not start OAuth link"
+          "Could not start OAuth link",
         ),
     },
   }
@@ -300,7 +300,7 @@ function createOAuthActions(request: RequestFn, redirect: AuthRedirect) {
 export function createAuthActions(
   request: RequestFn,
   store: SessionStore,
-  redirect: AuthRedirect
+  redirect: AuthRedirect,
 ) {
   return {
     ...createPasskeyActions(request, store, redirect),

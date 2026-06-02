@@ -2,8 +2,8 @@ import { and, count, desc, eq, gt, isNull } from "drizzle-orm"
 
 import type {
   NotificationRow,
-  NotificationType,
   NotificationsResponse,
+  NotificationType,
 } from "@workspace/contracts"
 import {
   NOTIFICATIONS_DEFAULT_LIMIT,
@@ -22,8 +22,8 @@ import {
 import { db } from "../db"
 import { isoDate, nullableIsoDate } from "../runtime/date"
 import {
-  publishNotificationRemove,
   publishNotificationRead,
+  publishNotificationRemove,
   publishNotificationsClear,
   publishNotificationsReadAll,
   publishNotificationUpsert,
@@ -45,7 +45,7 @@ interface CreateNotificationInput {
 type NotificationDeleteResult = { deleted: true; unreadCount: number }
 
 function notificationDeleteResult(
-  unreadCount: number
+  unreadCount: number,
 ): NotificationDeleteResult {
   return { deleted: true, unreadCount }
 }
@@ -77,19 +77,17 @@ function serialize(row: {
       name: row.actorName,
       image: row.actorImage,
     }),
-    clip:
-      row.clipId && row.clipTitle && row.gameSlug
-        ? {
-            id: row.clipId,
-            title: row.clipTitle,
-            gameSlug: row.gameSlug,
-            hasThumb: row.clipThumbKey !== null,
-          }
-        : null,
-    comment:
-      row.commentId && row.commentBody
-        ? { id: row.commentId, body: row.commentBody }
-        : null,
+    clip: row.clipId && row.clipTitle && row.gameSlug
+      ? {
+        id: row.clipId,
+        title: row.clipTitle,
+        gameSlug: row.gameSlug,
+        hasThumb: row.clipThumbKey !== null,
+      }
+      : null,
+    comment: row.commentId && row.commentBody
+      ? { id: row.commentId, body: row.commentBody }
+      : null,
     readAt: nullableIsoDate(row.readAt),
     createdAt: isoDate(row.createdAt),
   }
@@ -132,19 +130,19 @@ async function unreadCount(recipientId: string): Promise<number> {
     .where(
       and(
         eq(notification.recipientId, recipientId),
-        isNull(notification.readAt)
-      )
+        isNull(notification.readAt),
+      ),
     )
   return row?.value ?? 0
 }
 
 async function selectNotificationById(
   id: string,
-  recipientId: string
+  recipientId: string,
 ): Promise<NotificationRow | null> {
   const [row] = await notificationDetailsQuery()
     .where(
-      and(eq(notification.id, id), eq(notification.recipientId, recipientId))
+      and(eq(notification.id, id), eq(notification.recipientId, recipientId)),
     )
     .limit(1)
 
@@ -153,7 +151,7 @@ async function selectNotificationById(
 
 export async function listNotifications(
   recipientId: string,
-  limit = NOTIFICATIONS_DEFAULT_LIMIT
+  limit = NOTIFICATIONS_DEFAULT_LIMIT,
 ): Promise<NotificationsResponse> {
   const boundedLimit = Math.min(Math.max(1, limit), NOTIFICATIONS_MAX_LIMIT)
   const [rows, unread] = await Promise.all([
@@ -168,7 +166,7 @@ export async function listNotifications(
 }
 
 export async function createNotification(
-  input: CreateNotificationInput
+  input: CreateNotificationInput,
 ): Promise<NotificationRow | null> {
   try {
     if (input.actorId && input.actorId === input.recipientId) return null
@@ -202,14 +200,14 @@ export async function createNotification(
 
 export async function markNotificationRead(
   recipientId: string,
-  id: string
+  id: string,
 ): Promise<NotificationRow | null> {
   const readAt = new Date()
   const [updated] = await db
     .update(notification)
     .set({ readAt })
     .where(
-      and(eq(notification.id, id), eq(notification.recipientId, recipientId))
+      and(eq(notification.id, id), eq(notification.recipientId, recipientId)),
     )
     .returning({ id: notification.id })
   if (!updated) return null
@@ -223,7 +221,7 @@ export async function markNotificationRead(
 }
 
 export async function markAllNotificationsRead(
-  recipientId: string
+  recipientId: string,
 ): Promise<{ readAt: string; unreadCount: number }> {
   const readAt = new Date()
   await db
@@ -232,8 +230,8 @@ export async function markAllNotificationsRead(
     .where(
       and(
         eq(notification.recipientId, recipientId),
-        isNull(notification.readAt)
-      )
+        isNull(notification.readAt),
+      ),
     )
   const unread = await unreadCount(recipientId)
   const isoReadAt = isoDate(readAt)
@@ -243,12 +241,12 @@ export async function markAllNotificationsRead(
 
 export async function deleteNotification(
   recipientId: string,
-  id: string
+  id: string,
 ): Promise<NotificationDeleteResult | null> {
   const removed = await db
     .delete(notification)
     .where(
-      and(eq(notification.id, id), eq(notification.recipientId, recipientId))
+      and(eq(notification.id, id), eq(notification.recipientId, recipientId)),
     )
     .returning({ id: notification.id })
   if (removed.length === 0) return null
@@ -271,7 +269,7 @@ export async function notifyFollowersOfNewClip(input: {
         .where(
           cursor
             ? and(eq(follow.followingId, input.authorId), gt(follow.id, cursor))
-            : eq(follow.followingId, input.authorId)
+            : eq(follow.followingId, input.authorId),
         )
         .orderBy(follow.id)
         .limit(NEW_VIDEO_FANOUT_PAGE_SIZE)
@@ -288,7 +286,7 @@ export async function notifyFollowersOfNewClip(input: {
               type: "new_video",
               clipId: input.clipId,
             })
-          )
+          ),
         )
       }
 
@@ -301,7 +299,7 @@ export async function notifyFollowersOfNewClip(input: {
 }
 
 export async function clearNotifications(
-  recipientId: string
+  recipientId: string,
 ): Promise<NotificationDeleteResult> {
   await db.delete(notification).where(eq(notification.recipientId, recipientId))
   const unread = await unreadCount(recipientId)

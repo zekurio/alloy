@@ -1,7 +1,6 @@
 import {
-  fetchUserInfo,
-  skipSubjectCheck,
   type Configuration,
+  skipSubjectCheck,
   type TokenEndpointResponse,
   type UserInfoResponse,
 } from "openid-client"
@@ -15,6 +14,7 @@ import {
 
 import { configStore, type OAuthProviderConfig } from "../config/store"
 import { normalizeEmail } from "./identity"
+import { fetchOAuthUserInfo } from "./oauth-client"
 import { imageFromProfile } from "./oauth-config"
 import type { OAuthProfile, StoredTokens } from "./oauth-types"
 
@@ -25,16 +25,22 @@ export async function profileFromTokens(
   provider: OAuthProviderConfig,
   tokens: TokenEndpointResponse & {
     claims(): Record<string, unknown> | undefined
-  }
+  },
 ): Promise<OAuthProfile> {
   const claims = tokens.claims() ?? {}
-  const expectedSubject =
-    typeof claims.sub === "string" ? claims.sub : skipSubjectCheck
+  const expectedSubject = typeof claims.sub === "string"
+    ? claims.sub
+    : skipSubjectCheck
   const userInfo = tokens.access_token
-    ? await fetchUserInfo(config, tokens.access_token, expectedSubject)
+    ? await fetchOAuthUserInfo(
+      config,
+      provider,
+      tokens.access_token,
+      expectedSubject,
+    )
     : ({} as UserInfoResponse)
   const raw = { ...claims, ...userInfo }
-  const providerAccountId = stringClaim(raw, "sub")
+  const providerAccountId = stringClaim(raw, "sub") ?? stringClaim(raw, "id")
   const email = stringClaim(raw, "email")
   const usernameHint = stringClaim(raw, provider.usernameClaim ?? "")
 
@@ -42,9 +48,8 @@ export async function profileFromTokens(
 
   return {
     email: email ? normalizeEmail(email) : null,
-    emailVerified: raw.email_verified === true,
-    name:
-      stringClaim(raw, "name") ??
+    emailVerified: raw.email_verified === true || raw.verified === true,
+    name: stringClaim(raw, "name") ??
       stringClaim(raw, "display_name") ??
       stringClaim(raw, "nickname") ??
       usernameHint ??
@@ -60,22 +65,23 @@ export async function profileFromTokens(
 }
 
 export function storedTokens(
-  tokens: TokenEndpointResponse & { expiresIn(): number | undefined }
+  tokens: TokenEndpointResponse & { expiresIn(): number | undefined },
 ): StoredTokens {
   const expiresIn = tokens.expiresIn()
   return {
     accessToken: tokens.access_token ?? null,
     refreshToken: tokens.refresh_token ?? null,
     idToken: tokens.id_token ?? null,
-    accessTokenExpiresAt:
-      expiresIn === undefined ? null : new Date(Date.now() + expiresIn * 1000),
+    accessTokenExpiresAt: expiresIn === undefined
+      ? null
+      : new Date(Date.now() + expiresIn * 1000),
     scope: tokens.scope ?? null,
   }
 }
 
 function stringClaim(
   profile: Record<string, unknown>,
-  key: string
+  key: string,
 ): string | null {
   if (!key) return null
   const value = profile[key]
@@ -86,7 +92,7 @@ function stringClaim(
 
 function roleFromProfile(
   profile: Record<string, unknown>,
-  claim = OAUTH_ROLE_CLAIM_DEFAULT
+  claim = OAUTH_ROLE_CLAIM_DEFAULT,
 ): UserRole | undefined {
   const value = profile[claim]
   if (typeof value === "string") return roleFromString(value) ?? undefined
@@ -106,16 +112,15 @@ function roleFromString(value: string): UserRole | null {
 
 function quotaFromProfile(
   profile: Record<string, unknown>,
-  claim = OAUTH_QUOTA_CLAIM_DEFAULT
+  claim = OAUTH_QUOTA_CLAIM_DEFAULT,
 ): number | null | undefined {
   const value = profile[claim]
   if (value === undefined || value === null || value === "") return undefined
-  const gib =
-    typeof value === "number"
-      ? value
-      : typeof value === "string"
-        ? Number(value)
-        : Number.NaN
+  const gib = typeof value === "number"
+    ? value
+    : typeof value === "string"
+    ? Number(value)
+    : Number.NaN
   if (!Number.isFinite(gib) || gib <= 0) return undefined
   const bytes = Math.round(gib * GIB)
   if (!Number.isSafeInteger(bytes) || bytes <= 0) return undefined

@@ -27,12 +27,12 @@ import { toast } from "@workspace/ui/lib/toast"
 import { Switch } from "@workspace/ui/components/switch"
 
 import {
-  ENCODER_HEIGHT_MAX,
-  ENCODER_HEIGHT_MIN,
-  ENCODER_HWACCELS,
   type AdminEncoderConfig,
   type AdminEncoderVariant,
   type AdminRuntimeConfig,
+  ENCODER_HEIGHT_MAX,
+  ENCODER_HEIGHT_MIN,
+  ENCODER_HWACCELS,
 } from "@workspace/api"
 
 import { adminEncoderCapabilitiesQueryOptions } from "@/lib/admin-query-keys"
@@ -43,8 +43,8 @@ import { ReEncodeClipsButton } from "./re-encode-clips-card"
 import { VariantRow } from "./encoder-variant-row"
 import { FfmpegBadge } from "./encoder-ffmpeg-badge"
 import {
-  HWACCEL_LABELS,
   encoderConfigsEqual,
+  HWACCEL_LABELS,
   isEncoderHwaccel,
   normalizeEncoderVariant,
   saveEncoderConfig,
@@ -97,7 +97,7 @@ export function EncoderConfigCard({
 
   function set<K extends keyof AdminEncoderConfig>(
     key: K,
-    value: AdminEncoderConfig[K]
+    value: AdminEncoderConfig[K],
   ) {
     setForm((f) => ({ ...f, [key]: value }))
   }
@@ -113,10 +113,9 @@ export function EncoderConfigCard({
     setForm((f) => {
       const removed = f.variants[index]
       const variants = f.variants.filter((_, i) => i !== index)
-      const nextDefault =
-        removed?.id === f.defaultVariantId
-          ? (variants[0]?.id ?? null)
-          : f.defaultVariantId
+      const nextDefault = removed?.id === f.defaultVariantId
+        ? (variants[0]?.id ?? null)
+        : f.defaultVariantId
       return {
         ...f,
         defaultVariantId: nextDefault,
@@ -135,7 +134,7 @@ export function EncoderConfigCard({
       if (!source) return f
       const usedIds = new Set(f.variants.map((v) => v.id))
       const usedNames = new Set(
-        f.variants.map((v) => v.name.trim().toLowerCase())
+        f.variants.map((v) => v.name.trim().toLowerCase()),
       )
       const name = uniqueVariantName(source.name, usedNames)
       const copy: AdminEncoderVariant = {
@@ -161,7 +160,7 @@ export function EncoderConfigCard({
     const usedIds = new Set(
       form.variants
         .filter((_, i) => i !== dialogState)
-        .map((existing) => existing.id)
+        .map((existing) => existing.id),
     )
     const normalizedVariant = {
       ...normalizeEncoderVariant(variant),
@@ -177,10 +176,9 @@ export function EncoderConfigCard({
     } else if (dialogState !== null) {
       setForm((f) => ({
         ...f,
-        defaultVariantId:
-          f.variants[dialogState]?.id === f.defaultVariantId
-            ? normalizedVariant.id
-            : f.defaultVariantId,
+        defaultVariantId: f.variants[dialogState]?.id === f.defaultVariantId
+          ? normalizedVariant.id
+          : f.defaultVariantId,
         variants: f.variants.map((v, i) =>
           i === dialogState ? normalizedVariant : v
         ),
@@ -198,21 +196,20 @@ export function EncoderConfigCard({
     }
   }
 
-  const dialogVariant: AdminEncoderVariant | null =
-    dialogState === -1
-      ? {
-          id: "",
-          name: "",
-          codec: "h264",
-          height: 1080,
-          quality: 23,
-          audioBitrateKbps: 256,
-          extraInputArgs: "",
-          extraOutputArgs: "",
-        }
-      : dialogState !== null
-        ? (form.variants[dialogState] ?? null)
-        : null
+  const dialogVariant: AdminEncoderVariant | null = dialogState === -1
+    ? {
+      id: "",
+      name: "",
+      codec: "h264",
+      height: 1080,
+      quality: 23,
+      audioBitrateKbps: 256,
+      extraInputArgs: "",
+      extraOutputArgs: "",
+    }
+    : dialogState !== null
+    ? (form.variants[dialogState] ?? null)
+    : null
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -229,7 +226,7 @@ export function EncoderConfigCard({
       const h = variant.height
       if (!isEvenIntegerInRange(h, ENCODER_HEIGHT_MIN, ENCODER_HEIGHT_MAX)) {
         toast.error(
-          `Variant heights must be even integers between ${ENCODER_HEIGHT_MIN} and ${ENCODER_HEIGHT_MAX}.`
+          `Variant heights must be even integers between ${ENCODER_HEIGHT_MIN} and ${ENCODER_HEIGHT_MAX}.`,
         )
         return
       }
@@ -250,30 +247,28 @@ export function EncoderConfigCard({
       !isEvenIntegerInRange(
         variant.height,
         ENCODER_HEIGHT_MIN,
-        ENCODER_HEIGHT_MAX
-      )
+        ENCODER_HEIGHT_MAX,
+      ),
   )
   const unsupportedVariant = form.variants.find(
-    (variant) => !variantCodecAvailable(caps, form.hwaccel, variant)
+    (variant) => !variantCodecAvailable(caps, form.hwaccel, variant),
   )
-  const selectedDevice =
-    form.hwaccel === "qsv"
-      ? {
-          key: "qsvDevice" as const,
-          id: "encoder-qsv-device",
-          label: "QSV device",
-          description: "Device path used for Intel Quick Sync encodes.",
-        }
-      : form.hwaccel === "vaapi"
-        ? {
-            key: "vaapiDevice" as const,
-            id: "encoder-vaapi-device",
-            label: "VAAPI device",
-            description: "Device path used for VAAPI hardware encodes.",
-          }
-        : null
-  const canSubmit =
-    isDirty &&
+  const selectedDevice = form.hwaccel === "qsv"
+    ? {
+      key: "qsvDevice" as const,
+      id: "encoder-qsv-device",
+      label: "QSV device",
+      description: "Device path used for Intel Quick Sync encodes.",
+    }
+    : form.hwaccel === "vaapi"
+    ? {
+      key: "vaapiDevice" as const,
+      id: "encoder-vaapi-device",
+      label: "VAAPI device",
+      description: "Device path used for VAAPI hardware encodes.",
+    }
+    : null
+  const canSubmit = isDirty &&
     !pending &&
     (!form.enabled ||
       (!unsupportedVariant && !hasInvalidVariantName && !hasInvalidHeight))
@@ -320,33 +315,38 @@ export function EncoderConfigCard({
                   </Select>
                 </Field>
 
-                {selectedDevice ? (
-                  <Field>
-                    <FieldLabel htmlFor={selectedDevice.id}>
-                      {selectedDevice.label}
-                    </FieldLabel>
-                    <Input
-                      id={selectedDevice.id}
-                      value={form[selectedDevice.key]}
-                      placeholder="/dev/dri/renderD128"
-                      onChange={(e) => set(selectedDevice.key, e.target.value)}
-                    />
-                    <FieldDescription>
-                      {selectedDevice.description}
-                    </FieldDescription>
-                  </Field>
-                ) : null}
+                {selectedDevice
+                  ? (
+                    <Field>
+                      <FieldLabel htmlFor={selectedDevice.id}>
+                        {selectedDevice.label}
+                      </FieldLabel>
+                      <Input
+                        id={selectedDevice.id}
+                        value={form[selectedDevice.key]}
+                        placeholder="/dev/dri/renderD128"
+                        onChange={(e) =>
+                          set(selectedDevice.key, e.target.value)}
+                      />
+                      <FieldDescription>
+                        {selectedDevice.description}
+                      </FieldDescription>
+                    </Field>
+                  )
+                  : null}
 
-                {unsupportedVariant ? (
-                  <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
-                    <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
-                    <span>
-                      The detected ffmpeg build does not report support for
-                      every configured variant codec with{" "}
-                      {HWACCEL_LABELS[form.hwaccel]}.
-                    </span>
-                  </div>
-                ) : null}
+                {unsupportedVariant
+                  ? (
+                    <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
+                      <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
+                      <span>
+                        The detected ffmpeg build does not report support for
+                        every configured variant codec with{" "}
+                        {HWACCEL_LABELS[form.hwaccel]}.
+                      </span>
+                    </div>
+                  )
+                  : null}
               </FormGroup>
 
               {/* ── Processing pipeline ── */}
@@ -374,54 +374,60 @@ export function EncoderConfigCard({
               </FormGroup>
 
               {/* ── Variant ladder ── */}
-              {form.enabled ? (
-                <FormGroup
-                  title="Variant ladder"
-                  description="Renditions generated for each uploaded clip. Star a variant to set the default playback quality."
-                  action={
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={openNewVariant}
-                      disabled={pending}
-                    >
-                      <PlusIcon />
-                      Add variant
-                    </Button>
-                  }
-                >
-                  {form.variants.length > 0 ? (
-                    <div className="flex flex-col gap-0.5">
-                      {sortedVariants.map(({ variant, index }) => (
-                        <VariantRow
-                          key={`${variant.name}-${variant.height}-${index}`}
-                          variant={variant}
-                          isDefault={variant.id === form.defaultVariantId}
-                          canDelete
-                          onEdit={() => openEditVariant(index)}
-                          onSetDefault={() => setDefaultVariant(index)}
-                          onDuplicate={() => duplicateVariant(index)}
-                          onDelete={() => removeVariant(index)}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="py-3 text-center text-sm text-muted-foreground">
-                      No variants configured. Add one to get started.
-                    </p>
-                  )}
-                </FormGroup>
-              ) : null}
+              {form.enabled
+                ? (
+                  <FormGroup
+                    title="Variant ladder"
+                    description="Renditions generated for each uploaded clip. Star a variant to set the default playback quality."
+                    action={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={openNewVariant}
+                        disabled={pending}
+                      >
+                        <PlusIcon />
+                        Add variant
+                      </Button>
+                    }
+                  >
+                    {form.variants.length > 0
+                      ? (
+                        <div className="flex flex-col gap-0.5">
+                          {sortedVariants.map(({ variant, index }) => (
+                            <VariantRow
+                              key={`${variant.name}-${variant.height}-${index}`}
+                              variant={variant}
+                              isDefault={variant.id === form.defaultVariantId}
+                              canDelete
+                              onEdit={() => openEditVariant(index)}
+                              onSetDefault={() => setDefaultVariant(index)}
+                              onDuplicate={() => duplicateVariant(index)}
+                              onDelete={() => removeVariant(index)}
+                            />
+                          ))}
+                        </div>
+                      )
+                      : (
+                        <p className="py-3 text-center text-sm text-muted-foreground">
+                          No variants configured. Add one to get started.
+                        </p>
+                      )}
+                  </FormGroup>
+                )
+                : null}
 
               {/* ── Re-encode (admin settings only) ── */}
-              {form.enabled && !hideActions ? (
-                <FormGroup
-                  title="Re-encode existing clips"
-                  description="Queue current clips against the saved variant ladder."
-                  action={<ReEncodeClipsButton />}
-                />
-              ) : null}
+              {form.enabled && !hideActions
+                ? (
+                  <FormGroup
+                    title="Re-encode existing clips"
+                    description="Queue current clips against the saved variant ladder."
+                    action={<ReEncodeClipsButton />}
+                  />
+                )
+                : null}
             </SectionContent>
 
             {!hideActions && (
