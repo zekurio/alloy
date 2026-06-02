@@ -258,14 +258,9 @@ function QueueRow({ item, first }: { item: QueueItem; first: boolean }) {
               )
               : null}
           </div>
-          {item.detail
+          {item.status === "failed" && item.detail
             ? (
-              <p
-                className={cn(
-                  "line-clamp-2 text-xs leading-snug font-medium text-foreground-muted",
-                  item.status === "failed" && "text-destructive/90",
-                )}
-              >
+              <p className="line-clamp-2 text-xs leading-snug font-medium text-destructive/90">
                 {item.detail}
               </p>
             )
