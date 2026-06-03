@@ -4,6 +4,7 @@ import { logger } from "@workspace/logging"
 import { app } from "./app"
 import { env } from "./env"
 import { startQueue, stopQueue } from "./queue"
+import { requestShutdown } from "./runtime/shutdown"
 
 if (env.NODE_ENV === "production") {
   await migrateDatabase(env.DATABASE_URL)
@@ -27,6 +28,7 @@ let shuttingDown = false
 const shutdown = () => {
   if (shuttingDown) return
   shuttingDown = true
+  requestShutdown()
   // Stop the queue first so in-flight encodes get a chance to finish
   // (or at least to flush their progress) before the HTTP server goes
   // away. The queue stop path waits for in-flight workers to clear.
