@@ -4,6 +4,7 @@ import { logger } from "@workspace/logging"
 import { app } from "./app"
 import { env } from "./env"
 import { startQueue, stopQueue } from "./queue"
+import { startChallengeSweeper, stopChallengeSweeper } from "./auth/webauthn"
 import { ensureLoginSplashImage } from "./routes/admin-appearance"
 import { requestShutdown } from "./runtime/shutdown"
 
@@ -25,6 +26,9 @@ void startQueue().catch((err) => {
   logger.error("[queue] failed to start:", err)
 })
 
+// Background TTL cleanup for auth challenges, kept off the request path.
+startChallengeSweeper()
+
 // Heal the login splash image if it is enabled but missing from storage (e.g.
 // after upgrading from the pre-v2 config that generated it on demand). Runs
 // off the request path; admins can still regenerate manually if this fails.
@@ -37,6 +41,7 @@ const shutdown = () => {
   if (shuttingDown) return
   shuttingDown = true
   requestShutdown()
+  stopChallengeSweeper()
   // Stop the queue first so in-flight encodes get a chance to finish
   // (or at least to flush their progress) before the HTTP server goes
   // away. The queue stop path waits for in-flight workers to clear.

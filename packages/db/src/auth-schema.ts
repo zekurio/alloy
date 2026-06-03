@@ -3,6 +3,7 @@ import {
   bigint,
   boolean,
   check,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -130,7 +131,11 @@ export const authChallenge = pgTable("auth_challenge", {
     .default({}),
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-})
+}, (t) => [
+  // High-churn table swept by `expires_at`; without this the TTL cleanup is a
+  // sequential scan on every passkey challenge create.
+  index("auth_challenge_expires_at_idx").on(t.expiresAt),
+])
 
 export const authSchema = {
   user,
