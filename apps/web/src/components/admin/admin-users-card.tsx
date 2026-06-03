@@ -4,7 +4,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import { PencilIcon, SaveIcon, Trash2Icon, UserPlusIcon } from "lucide-react"
+import { PencilIcon, SaveIcon, Trash2Icon } from "lucide-react"
 
 import {
   AlertDialog,
@@ -24,6 +24,7 @@ import {
 } from "@workspace/ui/components/avatar"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
+import { List, ListItem } from "@workspace/ui/components/list"
 import {
   Section,
   SectionContent,
@@ -47,7 +48,6 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import { Progress } from "@workspace/ui/components/progress"
 import {
   Select,
   SelectContent,
@@ -57,24 +57,10 @@ import {
 } from "@workspace/ui/components/select"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { toast } from "@workspace/ui/lib/toast"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@workspace/ui/components/table"
 
 import { api } from "@/lib/api"
-import { SeedUserDialog } from "@/components/admin/seed-user-dialog"
 import { adminKeys, adminUsersQueryOptions } from "@/lib/admin-query-keys"
-import {
-  formatBytes,
-  formatQuotaGiB,
-  parseQuotaGiB,
-  storageUsagePercent,
-} from "@/lib/storage-format"
+import { formatQuotaGiB, parseQuotaGiB } from "@/lib/storage-format"
 import { errorMessage } from "@/lib/error-message"
 import { userKeys } from "@/lib/user-queries"
 import { displayName, userAvatar } from "@/lib/user-display"
@@ -242,20 +228,8 @@ export function AdminUsersCard({
   currentUserId,
   hideHeader,
 }: AdminUsersCardProps) {
-  const { users, loadError, busyId, refresh, onDelete, onUpdate } =
-    useAdminUsers(currentUserId)
-  const [seedOpen, setSeedOpen] = React.useState(false)
-
-  const seedDialog = (trigger: React.ReactNode) => (
-    <ResponsiveDialog open={seedOpen} onOpenChange={setSeedOpen}>
-      {trigger}
-      <SeedUserDialog
-        onCreated={async () => {
-          setSeedOpen(false)
-          await refresh()
-        }}
-      />
-    </ResponsiveDialog>
+  const { users, loadError, busyId, onDelete, onUpdate } = useAdminUsers(
+    currentUserId,
   )
 
   const content = loadError
@@ -273,23 +247,12 @@ export function AdminUsersCard({
     : users.length === 0
     ? <p className="text-sm text-foreground-muted">No users yet.</p>
     : (
-      <UsersTable
+      <UsersList
         users={users}
         currentUserId={currentUserId}
         busyId={busyId}
         onUpdate={onUpdate}
         onDelete={onDelete}
-        action={hideHeader
-          ? seedDialog(
-            <ResponsiveDialogTrigger
-              render={
-                <Button variant="ghost" size="icon-sm" aria-label="Seed user">
-                  <UserPlusIcon className="size-4" />
-                </Button>
-              }
-            />,
-          )
-          : undefined}
       />
     )
 
@@ -301,27 +264,18 @@ export function AdminUsersCard({
     <Section>
       <SectionHeader>
         <SectionTitle>Users</SectionTitle>
-        {seedDialog(
-          <ResponsiveDialogTrigger
-            render={<Button variant="primary" size="sm" />}
-          >
-            <UserPlusIcon />
-            Seed user
-          </ResponsiveDialogTrigger>,
-        )}
       </SectionHeader>
       <SectionContent>{content}</SectionContent>
     </Section>
   )
 }
 
-function UsersTable({
+function UsersList({
   users,
   currentUserId,
   busyId,
   onUpdate,
   onDelete,
-  action,
 }: {
   users: AdminUserRow[]
   currentUserId: string
@@ -331,37 +285,24 @@ function UsersTable({
     next: AdminUserEditableFields,
   ) => Promise<boolean>
   onDelete: (user: AdminUserRow) => void
-  action?: React.ReactNode
 }) {
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>User</TableHead>
-          <TableHead>Email</TableHead>
-          <TableHead className="w-[240px]">Storage</TableHead>
-          <TableHead className="w-[104px]">
-            {action && <div className="flex justify-end">{action}</div>}
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {users.map((user) => (
-          <UserTableRow
-            key={user.id}
-            user={user}
-            currentUserId={currentUserId}
-            busy={busyId === user.id}
-            onUpdate={onUpdate}
-            onDelete={onDelete}
-          />
-        ))}
-      </TableBody>
-    </Table>
+    <List>
+      {users.map((user) => (
+        <UserListRow
+          key={user.id}
+          user={user}
+          currentUserId={currentUserId}
+          busy={busyId === user.id}
+          onUpdate={onUpdate}
+          onDelete={onDelete}
+        />
+      ))}
+    </List>
   )
 }
 
-function UserTableRow({
+function UserListRow({
   user,
   currentUserId,
   busy,
@@ -383,88 +324,65 @@ function UserTableRow({
   const avatarStyle = { background: avatar.bg, color: avatar.fg }
 
   return (
-    <TableRow>
-      <TableCell>
-        <div className="flex items-center gap-2">
-          <Avatar className="size-7" style={avatarStyle}>
-            {avatar.src ? <AvatarImage src={avatar.src} alt={name} /> : null}
-            <AvatarFallback style={avatarStyle}>
-              {avatar.initials}
-            </AvatarFallback>
-          </Avatar>
+    <ListItem>
+      <div className="flex min-w-0 flex-1 items-center gap-2.5">
+        <Avatar className="size-8 shrink-0" style={avatarStyle}>
+          {avatar.src ? <AvatarImage src={avatar.src} alt={name} /> : null}
+          <AvatarFallback style={avatarStyle}>
+            {avatar.initials}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-medium">{name}</span>
+            <span className="truncate text-sm font-medium">{name}</span>
             {isSelf
               ? (
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline" className="shrink-0 text-xs">
                   You
                 </Badge>
               )
               : null}
           </div>
+          <p className="truncate text-xs text-foreground-dim">{user.email}</p>
         </div>
-      </TableCell>
-      <TableCell className="text-foreground-muted">{user.email}</TableCell>
-      <TableCell>
-        <StorageUsageCell user={user} />
-      </TableCell>
-      <TableCell className="text-right">
-        <div className="flex justify-end gap-1">
-          <EditUserDialog user={user} busy={busy} onUpdate={onUpdate} />
-          <AlertDialog>
-            <AlertDialogTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Delete user"
-                  disabled={busy || isSelf}
-                >
-                  <Trash2Icon className="size-4" />
-                </Button>
-              }
-            />
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete {user.email}?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This removes their sessions and clips. It can't be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  variant="destructive"
-                  onClick={() => onDelete(user)}
-                  disabled={busy}
-                >
-                  {busy ? "Deleting…" : "Delete"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      </TableCell>
-    </TableRow>
-  )
-}
-
-function StorageUsageCell({ user }: { user: AdminUserRow }) {
-  const pct = storageUsagePercent(user.storageUsedBytes, user.storageQuotaBytes)
-  return (
-    <div className="flex min-w-0 flex-col gap-1.5">
-      <div className="flex items-center justify-between gap-2 text-xs">
-        <span className="truncate text-foreground-muted">
-          {formatBytes(user.storageUsedBytes)}
-        </span>
-        <span className="shrink-0 text-foreground-faint tabular-nums">
-          {user.storageQuotaBytes === null
-            ? "Unlimited"
-            : formatBytes(user.storageQuotaBytes)}
-        </span>
       </div>
-      <Progress value={pct} />
-    </div>
+
+      <div className="flex shrink-0 items-center">
+        <EditUserDialog user={user} busy={busy} onUpdate={onUpdate} />
+        <AlertDialog>
+          <AlertDialogTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Delete user"
+                disabled={busy || isSelf}
+              >
+                <Trash2Icon className="size-3.5" />
+              </Button>
+            }
+          />
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete {user.email}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This removes their sessions and clips. It can't be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                onClick={() => onDelete(user)}
+                disabled={busy}
+              >
+                {busy ? "Deleting…" : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </ListItem>
   )
 }
 
@@ -542,7 +460,7 @@ function EditUserDialog({
             aria-label="Edit user"
             disabled={busy}
           >
-            <PencilIcon className="size-4" />
+            <PencilIcon className="size-3.5" />
           </Button>
         }
       />

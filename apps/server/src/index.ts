@@ -4,6 +4,7 @@ import { logger } from "@workspace/logging"
 import { app } from "./app"
 import { env } from "./env"
 import { startQueue, stopQueue } from "./queue"
+import { ensureLoginSplashImage } from "./routes/admin-appearance"
 import { requestShutdown } from "./runtime/shutdown"
 
 if (env.NODE_ENV === "production") {
@@ -22,6 +23,13 @@ const server = Deno.serve(
 
 void startQueue().catch((err) => {
   logger.error("[queue] failed to start:", err)
+})
+
+// Heal the login splash image if it is enabled but missing from storage (e.g.
+// after upgrading from the pre-v2 config that generated it on demand). Runs
+// off the request path; admins can still regenerate manually if this fails.
+void ensureLoginSplashImage().catch((err) => {
+  logger.error("[admin-appearance] failed to ensure login splash image:", err)
 })
 
 let shuttingDown = false

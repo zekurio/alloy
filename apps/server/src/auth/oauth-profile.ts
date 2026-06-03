@@ -15,7 +15,6 @@ import {
 import { configStore, type OAuthProviderConfig } from "../config/store"
 import { normalizeEmail } from "./identity"
 import { fetchOAuthUserInfo } from "./oauth-client"
-import { imageFromProfile } from "./oauth-config"
 import type { OAuthProfile, StoredTokens } from "./oauth-types"
 
 const GIB = 1024 ** 3
@@ -55,7 +54,6 @@ export async function profileFromTokens(
       usernameHint ??
       email ??
       "Alloy user",
-    picture: imageFromProfile(raw) ?? null,
     providerAccountId,
     raw,
     role: roleFromProfile(raw, provider.roleClaim),

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { AlertTriangleIcon, PlusIcon, SaveIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
+import { List } from "@workspace/ui/components/list"
 import {
   Section,
   SectionContent,
@@ -394,7 +395,7 @@ export function EncoderConfigCard({
                   >
                     {form.variants.length > 0
                       ? (
-                        <div className="flex flex-col gap-0.5">
+                        <List>
                           {sortedVariants.map(({ variant, index }) => (
                             <VariantRow
                               key={`${variant.name}-${variant.height}-${index}`}
@@ -407,7 +408,7 @@ export function EncoderConfigCard({
                               onDelete={() => removeVariant(index)}
                             />
                           ))}
-                        </div>
+                        </List>
                       )
                       : (
                         <p className="py-3 text-center text-sm text-muted-foreground">

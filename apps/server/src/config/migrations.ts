@@ -107,6 +107,20 @@ function migrateMachineLearningConfig(config: JsonRecord): void {
   config.machineLearning = machineLearning
 }
 
+function migrateLoginSplashConfig(config: JsonRecord): void {
+  if (!isRecord(config.appearance)) return
+  const appearance = { ...config.appearance }
+  if (!isRecord(appearance.loginSplash)) {
+    config.appearance = appearance
+    return
+  }
+
+  appearance.loginSplash = {
+    enabled: appearance.loginSplash.enabled === true,
+  }
+  config.appearance = appearance
+}
+
 function migrateUnversionedConfig(config: JsonRecord): void {
   if (config.oauthProviders === undefined) {
     config.oauthProviders = config.oauthProvider ? [config.oauthProvider] : []
@@ -115,7 +129,13 @@ function migrateUnversionedConfig(config: JsonRecord): void {
 
   migrateEncoderConfig(config)
   migrateMachineLearningConfig(config)
+  migrateLoginSplashConfig(config)
 
+  config.runtimeConfigVersion = CURRENT_RUNTIME_CONFIG_VERSION
+}
+
+function migrateVersion1Config(config: JsonRecord): void {
+  migrateLoginSplashConfig(config)
   config.runtimeConfigVersion = CURRENT_RUNTIME_CONFIG_VERSION
 }
 
@@ -146,6 +166,15 @@ export function migrateRuntimeConfig(
     return { ok: true, config, migrated: false }
   }
 
-  migrateUnversionedConfig(config)
+  if (version === 0) {
+    migrateUnversionedConfig(config)
+    return { ok: true, config, migrated: true }
+  }
+
+  if (version === 1) {
+    migrateVersion1Config(config)
+    return { ok: true, config, migrated: true }
+  }
+
   return { ok: true, config, migrated: true }
 }

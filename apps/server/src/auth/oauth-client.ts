@@ -9,11 +9,10 @@ import {
   type ServerMetadata,
   skipSubjectCheck,
 } from "openid-client"
-import { logger } from "@workspace/logging"
 
 import type { OAuthProviderConfig } from "../config/store"
 import { env } from "../env"
-import { errorDetail, errorMessage } from "../runtime/error-message"
+import { errorMessage } from "../runtime/error-message"
 import { getEnabledProviderConfig } from "./oauth-config"
 
 const oauthClientCache = new Map<string, Promise<Configuration>>()
@@ -81,28 +80,6 @@ async function createOAuthClient(
   )
   if (usesInsecureEndpoint(provider)) allowInsecureRequests(config)
   return config
-}
-
-export async function fetchLinkedUserInfo(
-  provider: OAuthProviderConfig,
-  accessToken: string,
-  providerAccountId: string,
-): Promise<Record<string, unknown> | null> {
-  try {
-    const config = await oauthClient(provider)
-    return await fetchOAuthUserInfo(
-      config,
-      provider,
-      accessToken,
-      providerAccountId,
-    )
-  } catch (cause) {
-    logger.warn(
-      "[oauth] could not sync linked profile:",
-      errorDetail(cause, "Unknown error"),
-    )
-    return null
-  }
 }
 
 export async function fetchOAuthUserInfo(

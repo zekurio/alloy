@@ -155,8 +155,8 @@ const ServerSecretsConfigSchema = z.object({
 
 const LoginSplashConfigSchema = z.object({
   enabled: z.boolean().default(false),
-  clipIds: z.array(z.string().uuid()).max(48).default([]),
-  generatedAt: z.string().datetime().nullable().default(null),
+  blurPx: z.number().min(0).max(48).default(24),
+  darkenOpacity: z.number().min(0).max(1).default(0.8),
 })
 
 const AppearanceConfigSchema = z.object({

@@ -5,10 +5,9 @@ import {
   randomPKCECodeVerifier,
   randomState,
 } from "openid-client"
-import { eq } from "drizzle-orm"
 import type { Context } from "hono"
 
-import { authAccount, authChallenge, user } from "@workspace/db/auth-schema"
+import { authChallenge } from "@workspace/db/auth-schema"
 import { logger } from "@workspace/logging"
 
 import { db } from "../db"
@@ -22,7 +21,6 @@ import { linkAccountToUser, resolveSignInUser } from "./oauth-accounts"
 import {
   callbackURLForProvider,
   callbackURLWithOAuthError,
-  fetchLinkedUserInfo,
   normalizeCallbackURL,
   oauthClient,
   requireEnabledProvider,
@@ -34,7 +32,6 @@ import {
   OAUTH_PURPOSE,
   OAUTH_STATE_TTL_MS,
 } from "./oauth-challenges"
-import { getEnabledProviderConfigs, imageFromProfile } from "./oauth-config"
 import { profileFromTokens, storedTokens } from "./oauth-profile"
 import type { OAuthChallengePayload, OAuthMode } from "./oauth-types"
 import { createSession, getSession } from "./session"
@@ -171,49 +168,4 @@ export async function finishOAuthCallback(
       redirectTo: callbackURLWithOAuthError(payload.callbackURL, cause),
     }
   }
-}
-
-export async function syncLinkedOAuthImage(userId: string): Promise<{
-  image: string | null
-  synced: boolean
-}> {
-  const providers = getEnabledProviderConfigs()
-  if (providers.length === 0) return { image: null, synced: false }
-  const providerById = new Map(
-    providers.map((provider) => [provider.providerId, provider]),
-  )
-
-  const accounts = await db
-    .select()
-    .from(authAccount)
-    .where(eq(authAccount.userId, userId))
-
-  for (const account of accounts) {
-    const provider = providerById.get(account.providerId)
-    if (!provider || !account.accessToken) continue
-    if (
-      account.accessTokenExpiresAt &&
-      account.accessTokenExpiresAt.getTime() <= Date.now()
-    ) {
-      continue
-    }
-
-    const userInfo = await fetchLinkedUserInfo(
-      provider,
-      account.accessToken,
-      account.providerAccountId,
-    )
-    if (!userInfo) continue
-
-    const image = imageFromProfile(userInfo)
-    if (!image) continue
-
-    await db
-      .update(user)
-      .set({ image, updatedAt: new Date() })
-      .where(eq(user.id, userId))
-    return { image, synced: true }
-  }
-
-  return { image: null, synced: false }
 }

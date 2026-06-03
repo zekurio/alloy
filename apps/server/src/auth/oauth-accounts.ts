@@ -109,12 +109,6 @@ export async function linkAccountToUser(input: {
         input.tokens,
       ),
     )
-  if (input.profile.picture) {
-    await db
-      .update(user)
-      .set({ image: input.profile.picture, updatedAt: new Date() })
-      .where(eq(user.id, input.userId))
-  }
   await syncOAuthUserRole(input.userId, input.profile)
 }
 
@@ -202,7 +196,6 @@ async function createOAuthUser(
     emailVerified: profile.emailVerified,
     username,
     name: profile.name,
-    image: profile.picture,
     role: profile.role ?? "user",
     storageQuotaBytes: profile.storageQuotaBytes === undefined
       ? defaultOAuthStorageQuota()

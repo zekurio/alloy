@@ -245,26 +245,27 @@ function ThumbPlaceholder({
       />
     )
   }
-  const hue = hueForGame(label)
-  return (
-    <div
-      className="h-full w-full"
-      style={{
-        background:
-          `linear-gradient(140deg, oklch(0.3 0.12 ${hue}), oklch(0.15 0.06 ${hue}))`,
-      }}
-    />
-  )
+  return <GameGradientPlaceholder name={label} startLightness={0.3} />
 }
 
 function GameThumbPlaceholder({ name }: { name: string }) {
+  return <GameGradientPlaceholder name={name} startLightness={0.32} />
+}
+
+function GameGradientPlaceholder({
+  name,
+  startLightness,
+}: {
+  name: string
+  startLightness: number
+}) {
   const hue = hueForGame(name)
   return (
     <div
       className="h-full w-full"
       style={{
         background:
-          `linear-gradient(140deg, oklch(0.32 0.14 ${hue}), oklch(0.16 0.06 ${hue}))`,
+          `linear-gradient(140deg, oklch(${startLightness} 0.14 ${hue}), oklch(0.16 0.06 ${hue}))`,
       }}
     />
   )

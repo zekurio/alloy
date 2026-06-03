@@ -1,18 +1,17 @@
 import { zValidator } from "./validation"
 import { eq } from "drizzle-orm"
-import { Hono } from "hono"
+import { type Context, Hono } from "hono"
+import type { ContentfulStatusCode } from "hono/utils/http-status"
 import { Buffer } from "node:buffer"
 import { z } from "zod"
 
 import { user } from "@workspace/db/auth-schema"
-import {
-  ACCEPTED_IMAGE_CONTENT_TYPES,
-  userAssetImagePath,
-} from "@workspace/contracts"
+import { userAssetImagePath } from "@workspace/contracts"
 import { logger } from "@workspace/logging"
 
 import { db } from "../db"
 import { requireSession } from "../auth/require-session"
+import { runImageMagick } from "../media/imagemagick"
 import { validateImageBytes } from "../media/image-validation"
 import { errorResult, notFound } from "../runtime/http-response"
 import { storage, userAssetKey } from "../storage"
@@ -20,18 +19,11 @@ import type { ResolvedObject } from "../storage/driver"
 import { toPublicUser, type UserRow } from "./users-helpers"
 
 type UserAssetRole = "avatar" | "banner"
-type UserAssetUploadBody = {
-  data: string
-  contentType: (typeof ACCEPTED_IMAGE_CONTENT_TYPES)[number]
-}
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024 // 5 MB
 const MAX_BANNER_BYTES = 10 * 1024 * 1024 // 10 MB
 const USER_ASSET_CONTENT_TYPE = "image/webp"
 const USER_ASSET_EXT = ".webp"
-const BASE64_OVERHEAD = 4 / 3
-const MAX_AVATAR_DATA_CHARS = Math.ceil(MAX_AVATAR_BYTES * BASE64_OVERHEAD) + 4
-const MAX_BANNER_DATA_CHARS = Math.ceil(MAX_BANNER_BYTES * BASE64_OVERHEAD) + 4
 const USER_ASSET_KEY_RE =
   /^users\/[0-9a-f]{2}\/[0-9a-f]{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:avatar|banner)\.webp$/i
 
@@ -54,15 +46,30 @@ const EXT_FOR_CONTENT_TYPE: Record<string, string> = {
   "image/webp": ".webp",
 }
 
-const AvatarUploadBody = z.object({
-  data: z.string().min(1).max(MAX_AVATAR_DATA_CHARS),
-  contentType: z.enum(ACCEPTED_IMAGE_CONTENT_TYPES),
+const UserAssetUploadForm = z.object({
+  file: z.instanceof(File, { message: "Expected an uploaded image file" }),
 })
 
-const BannerUploadBody = z.object({
-  data: z.string().min(1).max(MAX_BANNER_DATA_CHARS),
-  contentType: z.enum(ACCEPTED_IMAGE_CONTENT_TYPES),
-})
+function validateUserAssetFile(
+  role: UserAssetRole,
+  file: File,
+): UserAssetUpdateResult | null {
+  const limit = USER_ASSET_LIMITS[role]
+  if (file.size === 0) {
+    return { ok: false, status: 400, error: "Empty image data" }
+  }
+  if (file.size > limit.maxBytes) {
+    return {
+      ok: false,
+      status: 413,
+      error: `${limit.label} too large. Max ${limit.maxBytes / 1024 / 1024} MB`,
+    }
+  }
+  if (!Object.hasOwn(EXT_FOR_CONTENT_TYPE, file.type)) {
+    return { ok: false, status: 400, error: "Unsupported image type" }
+  }
+  return null
+}
 
 async function readAll(stream: ReadableStream<Uint8Array>): Promise<Buffer> {
   const chunks: Uint8Array[] = []
@@ -109,70 +116,18 @@ async function deleteOldAssets(
   )
 }
 
-async function which(binary: string): Promise<string | null> {
-  const command = new Deno.Command("which", {
-    args: [binary],
-    stdout: "piped",
-    stderr: "null",
-  })
-  const output = await command.output()
-  if (!output.success) return null
-  const path = new TextDecoder().decode(output.stdout).trim()
-  return path.length > 0 ? path : null
-}
-
-async function imageMagickArgs(
-  target: (typeof USER_ASSET_TARGETS)[UserAssetRole],
-): Promise<string[]> {
-  const magick = await which("magick")
-  if (magick) {
-    return [
-      magick,
-      "-",
-      "-auto-orient",
-      "-resize",
-      `${target.width}x${target.height}!`,
-      "webp:-",
-    ]
-  }
-
-  const convert = await which("convert")
-  if (convert) {
-    return [
-      convert,
-      "-",
-      "-auto-orient",
-      "-resize",
-      `${target.width}x${target.height}!`,
-      "webp:-",
-    ]
-  }
-
-  throw new Error("ImageMagick is not installed")
-}
-
 async function resizeUserAsset(
   bytes: Buffer,
   role: UserAssetRole,
 ): Promise<Buffer> {
   const target = USER_ASSET_TARGETS[role]
-  const [command, ...args] = await imageMagickArgs(target)
-  const child = new Deno.Command(command, {
-    args,
-    stdin: "piped",
-    stdout: "piped",
-    stderr: "piped",
-  })
-  const process = child.spawn()
-  const writer = process.stdin.getWriter()
-  await writer.write(bytes)
-  await writer.close()
-  const { stdout, stderr, success } = await process.output()
-  if (!success) {
-    const message = new TextDecoder().decode(stderr).trim()
-    throw new Error(message || "ImageMagick failed")
-  }
-  return Buffer.from(stdout)
+  return await runImageMagick([
+    "-",
+    "-auto-orient",
+    "-resize",
+    `${target.width}x${target.height}!`,
+    "webp:-",
+  ], bytes)
 }
 
 type UserAssetUpdateResult =
@@ -185,11 +140,11 @@ type UserAssetUpdateResult =
 async function uploadUserAsset(input: {
   viewerId: string
   role: UserAssetRole
-  data: string
+  bytes: Uint8Array
   contentType: string
 }): Promise<UserAssetUpdateResult> {
   const limit = USER_ASSET_LIMITS[input.role]
-  const buf = Buffer.from(input.data, "base64")
+  const buf = Buffer.from(input.bytes)
   if (buf.byteLength === 0) {
     return { ok: false, status: 400, error: "Empty image data" }
   }
@@ -261,15 +216,39 @@ async function removeUserAsset(
 async function uploadUserAssetResponse(
   viewerId: string,
   role: UserAssetRole,
-  body: UserAssetUploadBody,
+  file: File,
 ) {
-  const result = await uploadUserAsset({
+  const invalid = validateUserAssetFile(role, file)
+  if (invalid) return invalid
+
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  return uploadUserAsset({
     viewerId,
     role,
-    data: body.data,
-    contentType: body.contentType,
+    bytes,
+    contentType: file.type,
   })
-  return result
+}
+
+type UserAssetMutation<U> =
+  | { ok: true; user: U }
+  | { ok: false; error: string; status: ContentfulStatusCode }
+
+async function respondUserAsset<U>(
+  c: Context,
+  pending: Promise<UserAssetMutation<U>>,
+) {
+  const result = await pending
+  return result.ok ? c.json(result.user) : errorResult(c, result)
+}
+
+function respondUploadedUserAsset(
+  c: Context,
+  viewerId: string,
+  role: UserAssetRole,
+  file: File,
+) {
+  return respondUserAsset(c, uploadUserAssetResponse(viewerId, role, file))
 }
 
 export const usersUploadRoute = new Hono<{
@@ -278,37 +257,34 @@ export const usersUploadRoute = new Hono<{
   .post(
     "/me/avatar/upload",
     requireSession,
-    zValidator("json", AvatarUploadBody),
-    async (c) => {
-      const result = await uploadUserAssetResponse(
-        c.var.viewerId,
-        "avatar",
-        c.req.valid("json"),
-      )
-      return result.ok ? c.json(result.user) : errorResult(c, result)
+    zValidator("form", UserAssetUploadForm),
+    (c) => {
+      const { file } = c.req.valid("form")
+      return respondUploadedUserAsset(c, c.var.viewerId, "avatar", file)
     },
   )
   .post(
     "/me/banner/upload",
     requireSession,
-    zValidator("json", BannerUploadBody),
-    async (c) => {
-      const result = await uploadUserAssetResponse(
+    zValidator("form", UserAssetUploadForm),
+    (c) =>
+      respondUploadedUserAsset(
+        c,
         c.var.viewerId,
         "banner",
-        c.req.valid("json"),
-      )
-      return result.ok ? c.json(result.user) : errorResult(c, result)
-    },
+        c.req.valid("form").file,
+      ),
   )
-  .delete("/me/avatar", requireSession, async (c) => {
-    const result = await removeUserAsset(c.var.viewerId, "avatar")
-    return result.ok ? c.json(result.user) : errorResult(c, result)
-  })
-  .delete("/me/banner", requireSession, async (c) => {
-    const result = await removeUserAsset(c.var.viewerId, "banner")
-    return result.ok ? c.json(result.user) : errorResult(c, result)
-  })
+  .delete(
+    "/me/avatar",
+    requireSession,
+    (c) => respondUserAsset(c, removeUserAsset(c.var.viewerId, "avatar")),
+  )
+  .delete(
+    "/me/banner",
+    requireSession,
+    (c) => respondUserAsset(c, removeUserAsset(c.var.viewerId, "banner")),
+  )
 
 export const userAssetsRoute = new Hono().get("/:key{.+}", async (c) => {
   const key = c.req.param("key") ?? ""

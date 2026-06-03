@@ -4,7 +4,6 @@ import { readJsonOrThrow } from "./http"
 import { validatePublicAuthConfig } from "./contract-validators"
 
 export type {
-  LoginSplashClip,
   PublicAuthConfig,
   PublicAuthProvider,
   PublicLoginSplashConfig,

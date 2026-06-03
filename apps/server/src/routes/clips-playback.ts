@@ -26,6 +26,32 @@ import {
 import type { Context } from "hono"
 import type { ClipPrivacy } from "@workspace/contracts"
 
+/**
+ * Resolves stream access for an HLS variant route and locates the requested
+ * rendition. Returns an early `response` (access denied) or the matched
+ * `variant` (possibly `undefined` when the rendition is missing), so callers
+ * can apply their own not-found semantics.
+ */
+async function resolveHlsVariantAccess(
+  c: Context,
+  id: string,
+  variantId: string,
+) {
+  const access = await resolveClipAccess({
+    id,
+    headers: c.req.raw.headers,
+    policy: "stream",
+  })
+  if (!access.accessible) {
+    return { response: clipAccessResponse(c, access) } as const
+  }
+  applyClipPrivacyHeaders(c, access)
+  const variant = access.row.variants.find(
+    (candidate) => candidate.id === variantId && candidate.hls,
+  )
+  return { access, variant } as const
+}
+
 /** Cache-Control for playback bytes/manifests, keyed on clip privacy. */
 function mediaCacheControl(privacy: ClipPrivacy): string {
   return privacy === "public"
@@ -176,17 +202,9 @@ export const clipsPlaybackRoutes = new Hono()
     zValidator("param", HlsVariantParam),
     async (c) => {
       const { id, variant: variantId } = c.req.valid("param")
-      const access = await resolveClipAccess({
-        id,
-        headers: c.req.raw.headers,
-        policy: "stream",
-      })
-      if (!access.accessible) return clipAccessResponse(c, access)
-      applyClipPrivacyHeaders(c, access)
-
-      const variant = access.row.variants.find(
-        (candidate) => candidate.id === variantId && candidate.hls,
-      )
+      const resolved = await resolveHlsVariantAccess(c, id, variantId)
+      if ("response" in resolved) return resolved.response
+      const { access, variant } = resolved
       if (!variant?.hls) return notFound(c, "HLS variant unavailable")
 
       c.header("Content-Type", "application/vnd.apple.mpegurl")

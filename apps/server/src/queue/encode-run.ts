@@ -15,11 +15,7 @@ import { deleteScratchUpload, scratchUploadPath } from "../uploads/scratch"
 import { abortEncode } from "./encode-abort"
 import { makeProgressWriter } from "./encode-progress"
 import { probe, thumbnail } from "./ffmpeg"
-import {
-  planReuse,
-  pruneStaleVariants,
-  resolveVariantSettings,
-} from "./encode-variant-helpers"
+import { planReuse, resolveVariantSettings } from "./encode-variant-helpers"
 import { buildVariantPlan } from "./variant-specs"
 import {
   ensureClipStillPresent,
@@ -203,14 +199,14 @@ async function runPipelineInScratch({
 
   await ensureClipStillPresent(clipId, runId, signal)
   const thumbKey = clipAssetKey(clipId, "thumb")
-  const thumbPath = join(scratchDir, "thumb.jpg")
+  const thumbPath = join(scratchDir, "thumb.webp")
   const thumbAtMs = (trim.startMs ?? 0) +
     Math.min(outputDurationMs - 1, outputDurationMs / 3)
   await thumbnail(sourcePath, thumbPath, {
     atMs: Math.max(0, thumbAtMs),
     signal,
   })
-  await storage.uploadFromFile(thumbPath, thumbKey, "image/jpeg")
+  await storage.uploadFromFile(thumbPath, thumbKey, "image/webp")
   uploadedKeys.push(thumbKey)
   const [thumbPublished] = await db
     .update(clip)
@@ -279,11 +275,15 @@ async function runPipelineInScratch({
     return { previous, updated }
   })
   if (!publishState.updated) throw abortEncode()
-  // The clip row now points at `encodedVariants`; any previous variant whose
-  // run-scoped storage key was not reused is orphaned. Variant keys embed the
-  // runId, so a re-encode that drops or re-keys a profile would otherwise leak
-  // the prior files. Best-effort cleanup, logged on failure.
-  await pruneStaleVariants(row, reusedBySpecIndex)
+  // The clip row now points at the newly published assets. Any previous
+  // non-source artifact that was not retained is orphaned; prune it
+  // best-effort after the successful publish.
+  await pruneStaleClipAssets(row, [
+    sourceAsset.storageKey,
+    openGraph.storageKey,
+    thumbKey,
+    ...encodedVariants.map((variant) => variant.storageKey),
+  ])
   await cleanupCompletedScratchUpload(clipId)
   completeWork()
   void publishClipUpsert(row.authorId, clipId)
@@ -293,6 +293,35 @@ async function runPipelineInScratch({
   ) {
     void notifyFollowersOfNewClip({ authorId: row.authorId, clipId })
   }
+}
+
+async function pruneStaleClipAssets(
+  row: Pick<ClipRow, "openGraphKey" | "thumbKey" | "variants">,
+  retainedKeys: Iterable<string>,
+): Promise<void> {
+  const retained = new Set(retainedKeys)
+  const previousKeys = new Set([
+    row.openGraphKey,
+    row.thumbKey,
+    ...row.variants.map((variant) => variant.storageKey),
+  ])
+  previousKeys.delete(null)
+
+  await Promise.all(
+    [...previousKeys]
+      .filter((key): key is string => key !== null)
+      .filter((key) => !retained.has(key))
+      .map(async (key) => {
+        try {
+          await storage.delete(key)
+        } catch (err) {
+          logger.warn(
+            `[queue] failed to delete stale clip asset ${key}:`,
+            err,
+          )
+        }
+      }),
+  )
 }
 
 async function selectScratchUploadKey(clipId: string): Promise<string | null> {

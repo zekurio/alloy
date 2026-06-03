@@ -28,6 +28,25 @@ async function selectClipAuthorId(clipId: string) {
   return row?.authorId ?? null
 }
 
+async function loadModerationTarget(commentId: string) {
+  const row = await selectCommentModerationTarget(commentId)
+  if (!row) {
+    return { ok: false as const, error: "Not found", status: 404 as const }
+  }
+  return { ok: true as const, row }
+}
+
+async function requireClipOwner(clipId: string, viewerId: string) {
+  const clipAuthorId = await selectClipAuthorId(clipId)
+  if (!clipAuthorId) {
+    return { ok: false as const, error: "Not found", status: 404 as const }
+  }
+  if (clipAuthorId !== viewerId) {
+    return { ok: false as const, error: "Forbidden", status: 403 as const }
+  }
+  return { ok: true as const }
+}
+
 export async function canModerateComment({
   commentId,
   viewerId,
@@ -37,10 +56,9 @@ export async function canModerateComment({
   viewerId: string
   headers: Headers
 }) {
-  const row = await selectCommentModerationTarget(commentId)
-  if (!row) {
-    return { ok: false as const, error: "Not found", status: 404 as const }
-  }
+  const target = await loadModerationTarget(commentId)
+  if (!target.ok) return target
+  const { row } = target
 
   const clipAuthorId = await selectClipAuthorId(row.clipId)
   const session = await getSession(headers)
@@ -73,10 +91,9 @@ export async function pinTopLevelComment({
   commentId: string
   viewerId: string
 }) {
-  const row = await selectCommentModerationTarget(commentId)
-  if (!row) {
-    return { ok: false as const, error: "Not found", status: 404 as const }
-  }
+  const target = await loadModerationTarget(commentId)
+  if (!target.ok) return target
+  const { row } = target
   if (row.parentId !== null) {
     return {
       ok: false as const,
@@ -85,13 +102,8 @@ export async function pinTopLevelComment({
     }
   }
 
-  const clipAuthorId = await selectClipAuthorId(row.clipId)
-  if (!clipAuthorId) {
-    return { ok: false as const, error: "Not found", status: 404 as const }
-  }
-  if (clipAuthorId !== viewerId) {
-    return { ok: false as const, error: "Forbidden", status: 403 as const }
-  }
+  const owner = await requireClipOwner(row.clipId, viewerId)
+  if (!owner.ok) return owner
 
   await db.transaction(async (tx) => {
     await tx
@@ -118,18 +130,11 @@ export async function unpinComment({
   commentId: string
   viewerId: string
 }) {
-  const row = await selectCommentModerationTarget(commentId)
-  if (!row) {
-    return { ok: false as const, error: "Not found", status: 404 as const }
-  }
+  const target = await loadModerationTarget(commentId)
+  if (!target.ok) return target
 
-  const clipAuthorId = await selectClipAuthorId(row.clipId)
-  if (!clipAuthorId) {
-    return { ok: false as const, error: "Not found", status: 404 as const }
-  }
-  if (clipAuthorId !== viewerId) {
-    return { ok: false as const, error: "Forbidden", status: 403 as const }
-  }
+  const owner = await requireClipOwner(target.row.clipId, viewerId)
+  if (!owner.ok) return owner
 
   await db
     .update(clipComment)

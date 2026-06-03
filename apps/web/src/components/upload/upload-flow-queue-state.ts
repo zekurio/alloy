@@ -59,7 +59,7 @@ async function performUpload(
   bump: () => void,
   invalidateClips: () => void,
 ): Promise<void> {
-  const { clipId, ticket } = await api.clips.initiate({
+  const initiate = await api.clips.initiate({
     filename: payload.file.name,
     contentType: payload.contentType,
     sizeBytes: payload.sizeBytes,
@@ -73,13 +73,14 @@ async function performUpload(
       ? payload.mentionedUserIds
       : undefined,
   })
+  const { clipId } = initiate
 
   entry.clipId = clipId
   entry.status = "uploading"
   bump()
 
   await uploadToTicket(
-    ticket,
+    initiate.ticket,
     payload.file,
     (loaded, total) => {
       entry.bytesLoaded = loaded

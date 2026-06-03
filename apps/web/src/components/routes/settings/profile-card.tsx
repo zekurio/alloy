@@ -63,6 +63,91 @@ type ProfileCardProps = {
   email: string
 }
 
+type ProfileAvatarPreviewProps = {
+  avatar: ReturnType<typeof userAvatar>
+  previewName: string
+  showImage: boolean
+}
+
+function ProfileAvatarPreview({
+  avatar,
+  previewName,
+  showImage,
+}: ProfileAvatarPreviewProps) {
+  const style = { background: avatar.bg, color: avatar.fg }
+
+  return (
+    <Avatar size="xl" style={style}>
+      {showImage && avatar.src
+        ? (
+          <AvatarImage
+            src={avatar.src}
+            alt={previewName}
+            fetchPriority="high"
+            loading="eager"
+          />
+        )
+        : null}
+      <AvatarFallback style={style}>
+        {avatar.initials}
+      </AvatarFallback>
+    </Avatar>
+  )
+}
+
+function renderProfileMediaMenu({
+  anchor,
+  kind,
+  onUpload,
+  onRemove,
+}: React.ComponentProps<typeof MediaDropdownContent>) {
+  return (
+    <MediaDropdownContent
+      anchor={anchor}
+      kind={kind}
+      onUpload={onUpload}
+      onRemove={onRemove}
+    />
+  )
+}
+
+function profileMediaMenuProps(
+  anchor: React.ComponentProps<typeof MediaDropdownContent>["anchor"],
+  kind: "avatar" | "banner",
+  onUpload: () => void,
+  onRemove: () => void,
+): React.ComponentProps<typeof MediaDropdownContent> {
+  return { anchor, kind, onUpload, onRemove }
+}
+
+function ProfileMediaEditButton({
+  className,
+  disabled,
+  onClick,
+  radius,
+  children,
+}: {
+  className: string
+  disabled: boolean
+  onClick: () => void
+  radius: React.ComponentProps<typeof MediaEditOverlay>["radius"]
+  children?: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={className}
+    >
+      {children}
+      <MediaEditOverlay radius={radius}>
+        <Pencil className="size-4 text-white" />
+      </MediaEditOverlay>
+    </button>
+  )
+}
+
 export function ProfileCard({
   userId,
   initialName,
@@ -232,6 +317,40 @@ export function ProfileCard({
     </>
   )
 
+  function mediaMenu(kind: "avatar" | "banner") {
+    return kind === "avatar"
+      ? renderProfileMediaMenu(profileMediaMenuProps(
+        avatarAnchor.anchor,
+        kind,
+        () => openFilePicker(kind),
+        handleRemoveAvatar,
+      ))
+      : renderProfileMediaMenu(profileMediaMenuProps(
+        bannerAnchor.anchor,
+        kind,
+        () => openFilePicker(kind),
+        handleRemoveBanner,
+      ))
+  }
+
+  function mediaEditButton(
+    kind: "avatar" | "banner",
+    children?: React.ReactNode,
+  ) {
+    return (
+      <ProfileMediaEditButton
+        disabled={uploading}
+        onClick={() => openFilePicker(kind)}
+        className={kind === "avatar"
+          ? "group relative size-12 shrink-0 overflow-hidden rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          : "group absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"}
+        radius={kind === "avatar" ? "md" : "lg"}
+      >
+        {children}
+      </ProfileMediaEditButton>
+    )
+  }
+
   const identityTextFields = [
     {
       autoComplete: "username",
@@ -306,26 +425,10 @@ export function ProfileCard({
                           <Pencil className="size-4 text-white" />
                         </MediaEditOverlay>
                       </DropdownMenuTrigger>
-                      <MediaDropdownContent
-                        anchor={bannerAnchor.anchor}
-                        kind="banner"
-                        onUpload={() => openFilePicker("banner")}
-                        onRemove={handleRemoveBanner}
-                      />
+                      {mediaMenu("banner")}
                     </DropdownMenu>
                   )
-                  : (
-                    <button
-                      type="button"
-                      disabled={uploading}
-                      onClick={() => openFilePicker("banner")}
-                      className="group absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                    >
-                      <MediaEditOverlay radius="lg">
-                        <Pencil className="size-4 text-white" />
-                      </MediaEditOverlay>
-                    </button>
-                  )}
+                  : mediaEditButton("banner")}
               </div>
               <p className="mt-2 text-xs text-foreground-faint">
                 Banners are resized to 1500x375. Use a 4:1 image to avoid
@@ -371,64 +474,25 @@ export function ProfileCard({
                             className="group relative inline-flex size-12 shrink-0 overflow-hidden rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                             onPointerDown={avatarAnchor.onTriggerPointerDown}
                           >
-                            <Avatar
-                              size="xl"
-                              style={{
-                                background: avatar.bg,
-                                color: avatar.fg,
-                              }}
-                            >
-                              <AvatarImage
-                                src={avatar.src}
-                                alt={previewName}
-                                fetchPriority="high"
-                                loading="eager"
-                              />
-                              <AvatarFallback
-                                style={{
-                                  background: avatar.bg,
-                                  color: avatar.fg,
-                                }}
-                              >
-                                {avatar.initials}
-                              </AvatarFallback>
-                            </Avatar>
+                            <ProfileAvatarPreview
+                              avatar={avatar}
+                              previewName={previewName}
+                              showImage
+                            />
                             <MediaEditOverlay radius="md">
                               <Pencil className="size-4 text-white" />
                             </MediaEditOverlay>
                           </DropdownMenuTrigger>
-                          <MediaDropdownContent
-                            anchor={avatarAnchor.anchor}
-                            kind="avatar"
-                            onUpload={() => openFilePicker("avatar")}
-                            onRemove={handleRemoveAvatar}
-                          />
+                          {mediaMenu("avatar")}
                         </DropdownMenu>
                       )
-                      : (
-                        <button
-                          type="button"
-                          disabled={uploading}
-                          onClick={() => openFilePicker("avatar")}
-                          className="group relative size-12 shrink-0 overflow-hidden rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                        >
-                          <Avatar
-                            size="xl"
-                            style={{ background: avatar.bg, color: avatar.fg }}
-                          >
-                            <AvatarFallback
-                              style={{
-                                background: avatar.bg,
-                                color: avatar.fg,
-                              }}
-                            >
-                              {avatar.initials}
-                            </AvatarFallback>
-                          </Avatar>
-                          <MediaEditOverlay radius="md">
-                            <Pencil className="size-4 text-white" />
-                          </MediaEditOverlay>
-                        </button>
+                      : mediaEditButton(
+                        "avatar",
+                        <ProfileAvatarPreview
+                          avatar={avatar}
+                          previewName={previewName}
+                          showImage={false}
+                        />,
                       )}
                     <div className="flex flex-col gap-0.5">
                       <span className="text-sm font-medium text-foreground">

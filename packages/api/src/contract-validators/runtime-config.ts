@@ -1,0 +1,352 @@
+import {
+  type AdminRuntimeConfig,
+  ENCODER_CODECS,
+  ENCODER_HEIGHT_MAX,
+  ENCODER_HEIGHT_MIN,
+  ENCODER_HWACCELS,
+  RUNTIME_CONFIG_VERSION,
+  type RuntimeConfig,
+  STORAGE_DRIVERS,
+} from "@workspace/contracts"
+import {
+  objectRecord,
+  validateArray,
+  validateBoolean,
+  validateEnumString,
+  validateEvenIntegerInRange,
+  validateIntegerInRange,
+  validateNullablePositiveInteger,
+  validateNullableRequiredString,
+  validateOptionalString,
+  validateOptionalUrlString,
+  validatePositiveInteger,
+  validateRequiredString,
+  validateString,
+  validateStringArray,
+  validateUrlString,
+} from "../runtime-validation"
+import { validateAuthProviderColors, validateBackdropTreatment } from "./shared"
+const ENCODER_CODEC_SET: ReadonlySet<string> = new Set(ENCODER_CODECS)
+const ENCODER_HWACCEL_SET: ReadonlySet<string> = new Set(ENCODER_HWACCELS)
+const STORAGE_DRIVER_SET: ReadonlySet<string> = new Set(STORAGE_DRIVERS)
+const RUNTIME_CONFIG_BOOLEAN_FIELDS = [
+  "openRegistrations",
+  "setupComplete",
+  "passkeyEnabled",
+  "requireAuthToBrowse",
+] as const
+function validateRuntimeOAuthProvider(value: unknown, label: string) {
+  const provider = objectRecord(value, label)
+  for (const key of ["providerId", "displayName", "clientId"] as const) {
+    validateRequiredString(
+      provider[key],
+      `Invalid ${label} config: ${key} is required`,
+    )
+  }
+  validateString(
+    provider.clientSecret,
+    `Invalid ${label} config: clientSecret must be a string`,
+  )
+  if (provider.scopes !== undefined) {
+    validateStringArray(
+      provider.scopes,
+      `Invalid ${label} config: scopes must be an array of strings`,
+    )
+  }
+  validateBoolean(
+    provider.enabled,
+    `Invalid ${label} config: enabled must be boolean`,
+  )
+  validateAuthProviderColors(provider, `${label} config`)
+  validateOptionalUrlString(
+    provider.iconUrl,
+    `Invalid ${label} config: iconUrl must be a URL`,
+  )
+  for (
+    const key of [
+      "discoveryUrl",
+      "authorizationUrl",
+      "tokenUrl",
+      "userInfoUrl",
+    ] as const
+  ) {
+    validateOptionalUrlString(
+      provider[key],
+      `Invalid ${label} config: ${key} must be a URL`,
+    )
+  }
+  if (provider.pkce !== undefined) {
+    validateBoolean(
+      provider.pkce,
+      `Invalid ${label} config: pkce must be boolean`,
+    )
+  }
+  for (const key of ["usernameClaim", "quotaClaim", "roleClaim"] as const) {
+    validateRequiredString(
+      provider[key],
+      `Invalid ${label} config: ${key} is required`,
+    )
+  }
+}
+
+function validateAdminEncoderVariant(value: unknown) {
+  const variant = objectRecord(value, "admin encoder variant")
+  for (const key of ["id", "name"] as const) {
+    validateRequiredString(
+      variant[key],
+      `Invalid admin encoder variant config: ${key} is required`,
+    )
+  }
+  validateEnumString(
+    variant.codec,
+    ENCODER_CODEC_SET,
+    "Invalid admin encoder variant config: codec is invalid",
+  )
+  validateEvenIntegerInRange(
+    variant.height,
+    ENCODER_HEIGHT_MIN,
+    ENCODER_HEIGHT_MAX,
+    `Invalid admin encoder variant config: height must be an even integer between ${ENCODER_HEIGHT_MIN} and ${ENCODER_HEIGHT_MAX}`,
+  )
+  validateIntegerInRange(
+    variant.quality,
+    0,
+    51,
+    "Invalid admin encoder variant config: quality must be between 0 and 51",
+  )
+  validateIntegerInRange(
+    variant.audioBitrateKbps,
+    64,
+    256,
+    "Invalid admin encoder variant config: audioBitrateKbps must be between 64 and 256",
+  )
+  if (variant.preset !== undefined) {
+    validateRequiredString(
+      variant.preset,
+      "Invalid admin encoder variant config: preset must be a non-empty string",
+    )
+  }
+  for (const key of ["extraInputArgs", "extraOutputArgs"] as const) {
+    validateString(
+      variant[key],
+      `Invalid admin encoder variant config: ${key} must be a string`,
+    )
+  }
+}
+
+function validateAdminEncoderConfig(value: unknown) {
+  const encoder = objectRecord(value, "admin encoder config")
+  validateBoolean(
+    encoder.enabled,
+    "Invalid admin encoder config: enabled must be boolean",
+  )
+  validateEnumString(
+    encoder.hwaccel,
+    ENCODER_HWACCEL_SET,
+    "Invalid admin encoder config: hwaccel is invalid",
+  )
+  for (const key of ["qsvDevice", "vaapiDevice"] as const) {
+    validateRequiredString(
+      encoder[key],
+      `Invalid admin encoder config: ${key} is required`,
+    )
+  }
+  validateNullableRequiredString(
+    encoder.defaultVariantId,
+    "Invalid admin encoder config: defaultVariantId must be non-empty or null",
+  )
+  validateArray(
+    encoder.variants,
+    "Invalid admin encoder config: variants must be an array",
+  ).map(validateAdminEncoderVariant)
+}
+
+function validateAdminLimitsConfig(value: unknown) {
+  const limits = objectRecord(value, "admin limits config")
+  validatePositiveInteger(
+    limits.maxUploadBytes,
+    "Invalid admin limits config: maxUploadBytes must be a positive integer",
+  )
+  validateNullablePositiveInteger(
+    limits.defaultStorageQuotaBytes,
+    "Invalid admin limits config: defaultStorageQuotaBytes must be a positive integer or null",
+  )
+  validatePositiveInteger(
+    limits.uploadTtlSec,
+    "Invalid admin limits config: uploadTtlSec must be a positive integer",
+  )
+  validatePositiveInteger(
+    limits.queueConcurrency,
+    "Invalid admin limits config: queueConcurrency must be a positive integer",
+  )
+}
+
+function validateAdminIntegrationsConfig(value: unknown) {
+  const integrations = objectRecord(value, "admin integrations config")
+  validateString(
+    integrations.steamgriddbApiKey,
+    "Invalid admin integrations config: steamgriddbApiKey must be a string",
+  )
+}
+
+function validateAdminGameClassifierConfig(value: unknown) {
+  const gameClassifier = objectRecord(value, "admin game classifier config")
+  for (const key of ["modelName", "repoId", "filename", "revision"] as const) {
+    validateRequiredString(
+      gameClassifier[key],
+      `Invalid admin game classifier config: ${key} is required`,
+    )
+  }
+  validateNullableRequiredString(
+    gameClassifier.modelVersion,
+    "Invalid admin game classifier config: modelVersion must be non-empty or null",
+  )
+  validateNullableRequiredString(
+    gameClassifier.checkpointPath,
+    "Invalid admin game classifier config: checkpointPath must be non-empty or null",
+  )
+}
+
+function validateAdminMachineLearningConfig(value: unknown) {
+  const machineLearning = objectRecord(value, "admin machine learning config")
+  validateBoolean(
+    machineLearning.enabled,
+    "Invalid admin machine learning config: enabled must be boolean",
+  )
+  validateUrlString(
+    machineLearning.baseUrl,
+    "Invalid admin machine learning config: baseUrl must be a URL",
+  )
+  validatePositiveInteger(
+    machineLearning.requestTimeoutMs,
+    "Invalid admin machine learning config: requestTimeoutMs must be a positive integer",
+  )
+  validateAdminGameClassifierConfig(machineLearning.gameClassifier)
+}
+
+function validateAdminAppearanceConfig(value: unknown) {
+  const appearance = objectRecord(value, "admin appearance config")
+  const loginSplash = objectRecord(
+    appearance.loginSplash,
+    "admin login splash config",
+  )
+  validateBoolean(
+    loginSplash.enabled,
+    "Invalid admin login splash config: enabled must be boolean",
+  )
+  validateBackdropTreatment(loginSplash, "admin login splash config")
+}
+
+function validateAdminStorageConfig(value: unknown) {
+  const storage = objectRecord(value, "admin storage config")
+  validateEnumString(
+    storage.driver,
+    STORAGE_DRIVER_SET,
+    "Invalid admin storage config: driver is invalid",
+  )
+  const fs = objectRecord(storage.fs, "admin filesystem storage config")
+  validateRequiredString(
+    fs.root,
+    "Invalid admin filesystem storage config: root is required",
+  )
+  validateUrlString(
+    fs.publicBaseUrl,
+    "Invalid admin filesystem storage config: publicBaseUrl must be a URL",
+  )
+  validateString(
+    fs.hmacSecret,
+    "Invalid admin filesystem storage config: hmacSecret must be a string",
+  )
+
+  const s3 = objectRecord(storage.s3, "admin S3 storage config")
+  for (const key of ["bucket", "region"] as const) {
+    validateString(
+      s3[key],
+      `Invalid admin S3 storage config: ${key} must be a string`,
+    )
+  }
+  validateOptionalUrlString(
+    s3.endpoint,
+    "Invalid admin S3 storage config: endpoint must be a URL",
+  )
+  validateOptionalString(
+    s3.accessKeyId,
+    "Invalid admin S3 storage config: accessKeyId must be a string",
+  )
+  validateOptionalString(
+    s3.secretAccessKey,
+    "Invalid admin S3 storage config: secretAccessKey must be a string",
+  )
+  validateBoolean(
+    s3.forcePathStyle,
+    "Invalid admin S3 storage config: forcePathStyle must be boolean",
+  )
+  validatePositiveInteger(
+    s3.presignExpiresSec,
+    "Invalid admin S3 storage config: presignExpiresSec must be a positive integer",
+  )
+  if (storage.driver === "s3") {
+    validateRequiredString(
+      s3.bucket,
+      "Invalid admin S3 storage config: bucket is required when storage driver is s3",
+    )
+  }
+}
+
+function validateAdminSecretsConfig(value: unknown) {
+  const secrets = objectRecord(value, "admin secrets config")
+  validateString(
+    secrets.viewerCookieSecret,
+    "Invalid admin secrets config: viewerCookieSecret must be a string",
+  )
+}
+
+function validateRuntimeConfigFields(
+  config: Record<string, unknown>,
+  label: string,
+) {
+  validatePositiveInteger(
+    config.runtimeConfigVersion,
+    `Invalid ${label} config: runtimeConfigVersion must be a positive integer`,
+  )
+  if (config.runtimeConfigVersion !== RUNTIME_CONFIG_VERSION) {
+    throw new Error(
+      `Invalid ${label} config: runtimeConfigVersion must be ${RUNTIME_CONFIG_VERSION}`,
+    )
+  }
+  for (const key of RUNTIME_CONFIG_BOOLEAN_FIELDS) {
+    validateBoolean(
+      config[key],
+      `Invalid ${label} config: ${key} must be boolean`,
+    )
+  }
+  validateArray(
+    config.oauthProviders,
+    `Invalid ${label} config: oauthProviders must be an array`,
+  ).map((provider) =>
+    validateRuntimeOAuthProvider(provider, `${label} OAuth provider`)
+  )
+  validateAdminEncoderConfig(config.encoder)
+  validateAdminLimitsConfig(config.limits)
+  validateAdminIntegrationsConfig(config.integrations)
+  validateAdminMachineLearningConfig(config.machineLearning)
+  validateAdminAppearanceConfig(config.appearance)
+  validateAdminStorageConfig(config.storage)
+  validateAdminSecretsConfig(config.secrets)
+}
+
+export function validateRuntimeConfigExport(value: unknown): RuntimeConfig {
+  const config = objectRecord(value, "runtime config export")
+  validateRuntimeConfigFields(config, "runtime config export")
+  return value as RuntimeConfig
+}
+
+export function validateAdminRuntimeConfig(value: unknown): AdminRuntimeConfig {
+  const config = objectRecord(value, "admin runtime")
+  validateRuntimeConfigFields(config, "admin runtime")
+  validateUrlString(
+    config.authBaseURL,
+    "Invalid admin runtime config: authBaseURL must be a URL",
+  )
+  return value as AdminRuntimeConfig
+}

@@ -119,33 +119,23 @@ export interface ServerSecretsConfig {
   viewerCookieSecret: string
 }
 
-export interface LoginSplashClip {
-  id: string
-  title: string
-  game: string | null
-}
-
 export interface LoginSplashConfig {
   enabled: boolean
-  clipIds: string[]
-  generatedAt: string | null
+  blurPx: number
+  darkenOpacity: number
 }
 
-export const LOGIN_SPLASH_LAYOUT_VERSION = 2
-export const LOGIN_SPLASH_IMAGE_PATH =
-  `/api/auth-config/login-splash-v${LOGIN_SPLASH_LAYOUT_VERSION}.jpg`
+export const LOGIN_SPLASH_IMAGE_PATH = "/api/auth-config/splashscreen.jpg"
 
-export function loginSplashImagePath(generatedAt: string | null): string {
-  const parsed = generatedAt ? Date.parse(generatedAt) : Date.now()
-  const version = Number.isFinite(parsed) ? parsed : Date.now()
-  return `${LOGIN_SPLASH_IMAGE_PATH}?v=${version}`
+export function loginSplashImagePath(): string {
+  return LOGIN_SPLASH_IMAGE_PATH
 }
 
 export interface PublicLoginSplashConfig {
   enabled: boolean
-  generatedAt: string | null
+  blurPx: number
+  darkenOpacity: number
   imageUrl: string | null
-  clips: LoginSplashClip[]
 }
 
 export interface AppearanceConfig {
@@ -233,7 +223,7 @@ export interface AdminUpdateUserInput {
   storageQuotaBytes?: number | null
 }
 
-export const RUNTIME_CONFIG_VERSION = 1
+export const RUNTIME_CONFIG_VERSION = 2
 
 export interface RuntimeConfig {
   runtimeConfigVersion: number
