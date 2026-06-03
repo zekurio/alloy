@@ -7,7 +7,6 @@ CREATE TABLE "block" (
 --> statement-breakpoint
 CREATE TABLE "clip" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"slug" text NOT NULL,
 	"author_id" uuid NOT NULL,
 	"title" text NOT NULL,
 	"description" text,
@@ -38,7 +37,6 @@ CREATE TABLE "clip" (
 	"failure_reason" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "clip_slug_unique" UNIQUE("slug"),
 	CONSTRAINT "clip_privacy_check" CHECK ("clip"."privacy" in ('public', 'unlisted', 'private')),
 	CONSTRAINT "clip_status_check" CHECK ("clip"."status" in ('pending', 'processing', 'ready', 'failed')),
 	CONSTRAINT "clip_source_size_bytes_safe_check" CHECK ("clip"."source_size_bytes" is null or ("clip"."source_size_bytes" >= 0 and "clip"."source_size_bytes" <= 9007199254740991)),
@@ -199,7 +197,7 @@ CREATE TABLE "user" (
 	CONSTRAINT "user_email_unique" UNIQUE("email"),
 	CONSTRAINT "user_role_check" CHECK ("user"."role" in ('user', 'admin')),
 	CONSTRAINT "user_status_check" CHECK ("user"."status" in ('active', 'disabled')),
-	CONSTRAINT "user_storage_quota_bytes_safe_check" CHECK ("user"."storage_quota_bytes" is null or ("user"."storage_quota_bytes" >= 0 and "user"."storage_quota_bytes" <= 9007199254740991))
+	CONSTRAINT "user_storage_quota_bytes_safe_check" CHECK ("user"."storage_quota_bytes" is null or ("user"."storage_quota_bytes" > 0 and "user"."storage_quota_bytes" <= 9007199254740991))
 );
 --> statement-breakpoint
 CREATE TABLE "user_passkey" (

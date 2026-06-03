@@ -2,11 +2,6 @@ import { RUNTIME_CONFIG_VERSION } from "@workspace/contracts"
 
 export const CURRENT_RUNTIME_CONFIG_VERSION = RUNTIME_CONFIG_VERSION
 
-const LEGACY_DEFAULT_MACHINE_LEARNING_URLS = new Set([
-  "http://localhost:3003",
-  "http://localhost:3004",
-])
-
 type JsonRecord = Record<string, unknown>
 
 export type RuntimeConfigMigrationResult =
@@ -34,111 +29,16 @@ function readConfigVersion(config: JsonRecord): number {
   return config.runtimeConfigVersion
 }
 
-function buildVariantId(name: unknown, usedIds: Set<string>): string {
-  const base = typeof name === "string"
-    ? name
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-    : ""
-  return normalizeVariantId(base || "variant", usedIds)
-}
-
-function normalizeVariantId(raw: string, usedIds: Set<string>): string {
-  const base = raw
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80) || "variant"
-  let id = base
-  let suffix = 2
-  while (usedIds.has(id)) {
-    const suffixText = `-${suffix}`
-    id = `${base.slice(0, 80 - suffixText.length)}${suffixText}`
-    suffix += 1
-  }
-  usedIds.add(id)
-  return id
-}
-
-function migrateEncoderConfig(config: JsonRecord): void {
-  if (!isRecord(config.encoder)) return
-  const encoder = config.encoder
-  if (!Array.isArray(encoder.variants)) {
-    if (encoder.defaultVariantId === undefined) encoder.defaultVariantId = null
-    return
-  }
-
-  const usedIds = new Set<string>()
-  const variants = encoder.variants.map((rawVariant) => {
-    if (!isRecord(rawVariant)) return rawVariant
-    const variant = { ...rawVariant }
-    if (typeof variant.id !== "string" || variant.id.trim() === "") {
-      variant.id = buildVariantId(variant.name, usedIds)
-    } else {
-      variant.id = normalizeVariantId(variant.id, usedIds)
-    }
-    if (variant.extraInputArgs === undefined) variant.extraInputArgs = ""
-    if (variant.extraOutputArgs === undefined) variant.extraOutputArgs = ""
-    return variant
-  })
-  encoder.variants = variants
-
-  if (encoder.defaultVariantId === undefined) {
-    const firstVariant = variants.find(isRecord)
-    encoder.defaultVariantId = typeof firstVariant?.id === "string"
-      ? firstVariant.id
-      : null
-  }
-}
-
-function migrateMachineLearningConfig(config: JsonRecord): void {
-  if (!isRecord(config.machineLearning)) return
-  const machineLearning = { ...config.machineLearning }
-  if (
-    typeof machineLearning.baseUrl === "string" &&
-    LEGACY_DEFAULT_MACHINE_LEARNING_URLS.has(machineLearning.baseUrl)
-  ) {
-    machineLearning.baseUrl = Deno.env.get("MACHINE_LEARNING_URL") ??
-      "http://localhost:2662"
-  }
-  config.machineLearning = machineLearning
-}
-
-function migrateLoginSplashConfig(config: JsonRecord): void {
-  if (!isRecord(config.appearance)) return
-  const appearance = { ...config.appearance }
-  if (!isRecord(appearance.loginSplash)) {
-    config.appearance = appearance
-    return
-  }
-
-  appearance.loginSplash = {
-    enabled: appearance.loginSplash.enabled === true,
-  }
-  config.appearance = appearance
-}
-
-function migrateUnversionedConfig(config: JsonRecord): void {
-  if (config.oauthProviders === undefined) {
-    config.oauthProviders = config.oauthProvider ? [config.oauthProvider] : []
-  }
-  delete config.oauthProvider
-
-  migrateEncoderConfig(config)
-  migrateMachineLearningConfig(config)
-  migrateLoginSplashConfig(config)
-
-  config.runtimeConfigVersion = CURRENT_RUNTIME_CONFIG_VERSION
-}
-
-function migrateVersion1Config(config: JsonRecord): void {
-  migrateLoginSplashConfig(config)
-  config.runtimeConfigVersion = CURRENT_RUNTIME_CONFIG_VERSION
-}
-
+/**
+ * Runtime config migration entry point. The migration history was squashed for
+ * the v0.0.1 baseline, so there are no legacy upgrade steps yet: a config at the
+ * current version passes through untouched, a newer version is rejected, and an
+ * older/unversioned config is simply stamped to the current version (the schema
+ * fills in any missing defaults on parse).
+ *
+ * When the schema next changes in a backward-incompatible way, bump
+ * RUNTIME_CONFIG_VERSION and add the real upgrade step(s) here.
+ */
 export function migrateRuntimeConfig(
   raw: unknown,
 ): RuntimeConfigMigrationResult {
@@ -166,15 +66,6 @@ export function migrateRuntimeConfig(
     return { ok: true, config, migrated: false }
   }
 
-  if (version === 0) {
-    migrateUnversionedConfig(config)
-    return { ok: true, config, migrated: true }
-  }
-
-  if (version === 1) {
-    migrateVersion1Config(config)
-    return { ok: true, config, migrated: true }
-  }
-
+  config.runtimeConfigVersion = CURRENT_RUNTIME_CONFIG_VERSION
   return { ok: true, config, migrated: true }
 }

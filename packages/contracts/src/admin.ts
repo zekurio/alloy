@@ -173,7 +173,7 @@ export interface AdminUpdateUserInput {
   storageQuotaBytes?: number | null
 }
 
-export const RUNTIME_CONFIG_VERSION = 2
+export const RUNTIME_CONFIG_VERSION = 1
 
 export interface RuntimeConfig {
   runtimeConfigVersion: number
