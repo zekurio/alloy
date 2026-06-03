@@ -69,7 +69,7 @@ interface ServerRowHandlers {
 
 function queueThumbnailUrl(row: QueueClip): string | null {
   if (!row.hasThumb) return null
-  return clipThumbnailUrl(row.id, apiOrigin(), row.status)
+  return clipThumbnailUrl(row.id, apiOrigin(), row.updatedAt)
 }
 
 export function serverToQueueItem(

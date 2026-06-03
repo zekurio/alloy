@@ -15,6 +15,7 @@ const queueSelectShape = {
   failureReason: clip.failureReason,
   thumbKey: clip.thumbKey,
   createdAt: clip.createdAt,
+  updatedAt: clip.updatedAt,
 } as const
 
 function serialize(row: {
@@ -26,12 +27,14 @@ function serialize(row: {
   failureReason: string | null
   thumbKey: string | null
   createdAt: Date
+  updatedAt: Date
 }): QueueClip {
-  const { thumbKey, createdAt, ...publicRow } = row
+  const { thumbKey, createdAt, updatedAt, ...publicRow } = row
   return {
     ...publicRow,
     hasThumb: thumbKey !== null,
     createdAt: isoDate(createdAt),
+    updatedAt: isoDate(updatedAt),
   }
 }
 
