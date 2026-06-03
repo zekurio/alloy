@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1778874646973,
-      "tag": "0000_white_moira_mactaggert",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1779980104423,
-      "tag": "0001_silent_marten_broadcloak",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1780300906363,
-      "tag": "0002_fancy_thunderbolt_ross",
+      "when": 1780507432215,
+      "tag": "0000_init",
       "breakpoints": true
     }
   ]
