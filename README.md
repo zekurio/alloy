@@ -1,21 +1,6 @@
 # alloy
 
-Alloy is an open-source, self-hostable alternative to Medal.tv. It is built for
-recording-adjacent clip sharing: upload game clips, encode them for playback,
-organize them by game and profile, and share them through a web app you control.
-
-This is still an early work in progress. Expect rough edges, especially around
-self-hosting ergonomics and Docker. The project currently includes:
-
-- Clip upload, processing, playback, feeds, search, comments, notifications, and
-  profile pages.
-- Admin-managed runtime settings for OAuth, upload limits, storage, encoding,
-  and machine learning.
-- Filesystem or S3-compatible storage for clip assets.
-- PostgreSQL-backed server state and Drizzle migrations.
-- Optional Immich-style Python machine learning service for advisory game
-  suggestions.
-- Nix packaging, a NixOS module, and a Nix-built container image.
+Alloy is an open-source, self-hostable alternative to Medal.tv, without recording (coming soon?).
 
 > **AI Disclaimer & Warning:** This is a personal project developed in my free
 > time. I use AI to assist with development. I do my best to follow best
@@ -164,36 +149,6 @@ This command:
 
 Open http://localhost:5173.
 
-Useful development commands:
-
-```bash
-deno task pg:status        # check local PostgreSQL
-deno task pg:stop          # stop devenv processes
-psql "$DATABASE_URL"       # connect to the dev database
-```
-
-Local state lives in:
-
-- `.devenv/state/postgres` for PostgreSQL.
-- `data/server/runtime-config.json` for mutable server runtime config.
-- `data/server/storage` for filesystem clip storage.
-- `data/server/scratch` for encoder scratch data.
-- `data/ml` for ML model/cache data.
-
-In development, the frontend and API stay split so Vite can provide fast HMR.
-devenv provides the local database URL, trusted origin defaults, service
-dependencies, port checks, and process management.
-
-The server runs startup migrations only when `NODE_ENV=production`. Local
-development keeps `NODE_ENV=development` and uses Drizzle's dev push workflow,
-so production migrations do not collide with local schema iteration.
-
-The ML service lives in `machine-learning/`. It owns its own uv environment,
-downloads the classifier checkpoint at runtime from Hugging Face, and caches
-models under `data/ml`. Set `MACHINE_LEARNING_UV_SYNC=0` to skip dependency sync
-after the first run, `MACHINE_LEARNING_UV_EXTRA` to choose a different uv extra,
-and `ALLOY_ML_PORT` to move the service.
-
 Before considering a change complete, run:
 
 ```bash
@@ -204,4 +159,4 @@ deno task typecheck
 
 ## Contributing
 
-Contributions are not being accepted at this time.
+Contributions are being accepted.
