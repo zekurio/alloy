@@ -128,6 +128,66 @@ async function runPendingEventStream<T>(input: {
   }
 }
 
+async function runHeartbeatEventStream<T>(input: {
+  stream: {
+    aborted: boolean
+    sleep(ms: number): PromiseLike<unknown>
+    writeSSE: (message: { event: string; data: string }) => Promise<void>
+  }
+  pending: T[]
+  setWake: (wake: (() => void) | null) => void
+  eventName: (event: T) => string
+}) {
+  await runPendingEventStream({
+    ...input,
+    sleep: streamSleep(input.stream),
+    writeIdle: () => input.stream.writeSSE({ event: "heartbeat", data: "" }),
+    signal: shutdownSignal,
+  })
+}
+
+async function streamSubscribedEvents<T>(input: {
+  stream: {
+    aborted: boolean
+    sleep(ms: number): PromiseLike<unknown>
+    onAbort(callback: () => void): void
+    writeSSE: (message: { event: string; data: string }) => Promise<void>
+  }
+  pending: T[]
+  subscribe: (push: (event: T) => void) => () => void
+  writeSnapshot: () => Promise<void>
+  eventName: (event: T) => string
+}) {
+  let wake: (() => void) | null = null
+  const wakeOnShutdown = () => wake?.()
+  const unsubscribe = input.subscribe((event) => {
+    input.pending.push(event)
+    wake?.()
+  })
+  shutdownSignal.addEventListener("abort", wakeOnShutdown, { once: true })
+
+  input.stream.onAbort(() => {
+    unsubscribe()
+    shutdownSignal.removeEventListener("abort", wakeOnShutdown)
+    wake?.()
+  })
+
+  try {
+    await input.writeSnapshot()
+    await runHeartbeatEventStream({
+      stream: input.stream,
+      pending: input.pending,
+      setWake: (next) => {
+        wake = next
+      },
+      eventName: input.eventName,
+    })
+  } finally {
+    shutdownSignal.removeEventListener("abort", wakeOnShutdown)
+    unsubscribe()
+  }
+}
+
 export const eventsRoute = new Hono().get(
   "/clips/queue",
   requireSession,
@@ -140,39 +200,14 @@ export const eventsRoute = new Hono().get(
 
     return streamSSE(c, async (stream) => {
       const pending: QueueEvent[] = []
-      let wake: (() => void) | null = null
-      const wakeOnShutdown = () => wake?.()
-
-      const unsubscribe = subscribeToAuthorQueue(viewerId, (event) => {
-        pending.push(event)
-        wake?.()
+      await streamSubscribedEvents({
+        stream,
+        pending,
+        subscribe: (push) => subscribeToAuthorQueue(viewerId, push),
+        writeSnapshot: () =>
+          writeQueueSnapshot(stream.writeSSE.bind(stream), viewerId),
+        eventName: (event) => event.type,
       })
-      shutdownSignal.addEventListener("abort", wakeOnShutdown, { once: true })
-
-      stream.onAbort(() => {
-        unsubscribe()
-        shutdownSignal.removeEventListener("abort", wakeOnShutdown)
-        wake?.()
-      })
-
-      try {
-        await writeQueueSnapshot(stream.writeSSE.bind(stream), viewerId)
-
-        await runPendingEventStream({
-          stream,
-          sleep: streamSleep(stream),
-          pending,
-          setWake: (next) => {
-            wake = next
-          },
-          eventName: (event) => event.type,
-          writeIdle: () => stream.writeSSE({ event: "heartbeat", data: "" }),
-          signal: shutdownSignal,
-        })
-      } finally {
-        shutdownSignal.removeEventListener("abort", wakeOnShutdown)
-        unsubscribe()
-      }
     })
   },
 )
@@ -192,45 +227,21 @@ eventsRoute.get(
 
     return streamSSE(c, async (stream) => {
       const pending: NotificationEvent[] = []
-      let wake: (() => void) | null = null
-      const wakeOnShutdown = () => wake?.()
-
-      const unsubscribe = subscribeToNotifications(viewerId, (event) => {
-        pending.push(event)
-        wake?.()
+      await streamSubscribedEvents({
+        stream,
+        pending,
+        subscribe: (push) => subscribeToNotifications(viewerId, push),
+        writeSnapshot: async () => {
+          if (includeSnapshot) {
+            const snapshot = await listNotifications(viewerId)
+            await stream.writeSSE({
+              event: "snapshot",
+              data: JSON.stringify({ type: "snapshot", payload: snapshot }),
+            })
+          }
+        },
+        eventName: (event) => event.type,
       })
-      shutdownSignal.addEventListener("abort", wakeOnShutdown, { once: true })
-
-      stream.onAbort(() => {
-        unsubscribe()
-        shutdownSignal.removeEventListener("abort", wakeOnShutdown)
-        wake?.()
-      })
-
-      try {
-        if (includeSnapshot) {
-          const snapshot = await listNotifications(viewerId)
-          await stream.writeSSE({
-            event: "snapshot",
-            data: JSON.stringify({ type: "snapshot", payload: snapshot }),
-          })
-        }
-
-        await runPendingEventStream({
-          stream,
-          sleep: streamSleep(stream),
-          pending,
-          setWake: (next) => {
-            wake = next
-          },
-          eventName: (event) => event.type,
-          writeIdle: () => stream.writeSSE({ event: "heartbeat", data: "" }),
-          signal: shutdownSignal,
-        })
-      } finally {
-        shutdownSignal.removeEventListener("abort", wakeOnShutdown)
-        unsubscribe()
-      }
     })
   },
 )

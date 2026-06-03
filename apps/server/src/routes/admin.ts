@@ -3,6 +3,7 @@ import { inArray } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
+import { ACCEPTED_IMAGE_CONTENT_TYPES } from "@workspace/contracts"
 import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
@@ -25,7 +26,11 @@ import {
 } from "../config/store"
 import { enqueueEncode } from "../queue"
 import { getEncoderCapabilities } from "./admin-encoder-capabilities"
-import { generateLoginSplashPatch } from "./admin-appearance"
+import {
+  ensureLoginSplashImage,
+  generateLoginSplashPatch,
+  storeUploadedLoginSplashImage,
+} from "./admin-appearance"
 import {
   adminRuntimeConfigResponse,
   finalizeOAuthProviderSubmission,
@@ -37,6 +42,7 @@ import {
 import { adminUsersRoute } from "./admin-users"
 
 const RE_ENCODE_BATCH_LIMIT = 100
+const MAX_LOGIN_SPLASH_UPLOAD_BYTES = 12 * 1024 * 1024
 
 const RuntimeConfigPatch = z.object({
   setupComplete: z.boolean().optional(),
@@ -49,8 +55,25 @@ const AppearancePatch = z.object({
   loginSplash: z
     .object({
       enabled: z.boolean().optional(),
+      blurPx: z.number().min(0).max(48).optional(),
+      darkenOpacity: z.number().min(0).max(1).optional(),
     })
     .optional(),
+})
+
+const LoginSplashUploadForm = z.object({
+  file: z
+    .instanceof(File, { message: "Expected an uploaded image file" })
+    .refine((file) => file.size > 0, "Image file is empty")
+    .refine(
+      (file) => file.size <= MAX_LOGIN_SPLASH_UPLOAD_BYTES,
+      "Login backdrop must be 12 MB or smaller",
+    )
+    .refine(
+      (file) =>
+        (ACCEPTED_IMAGE_CONTENT_TYPES as readonly string[]).includes(file.type),
+      "Unsupported image type",
+    ),
 })
 
 const OAuthProviderAdminSubmissionSchema = z
@@ -82,9 +105,12 @@ export const adminRoute = new Hono()
   .get("/runtime-config", (c) => {
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
-  .post("/runtime-config/reload", (c) => {
+  .post("/runtime-config/reload", async (c) => {
     if (!configStore.reload()) {
       return badRequest(c, "Runtime config file failed validation.")
+    }
+    if (configStore.get("appearance").loginSplash.enabled) {
+      await ensureLoginSplashImage()
     }
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
@@ -112,6 +138,7 @@ export const adminRoute = new Hono()
         return badRequest(c, authError)
       }
       configStore.replace(next)
+      if (next.appearance.loginSplash.enabled) await ensureLoginSplashImage()
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     } catch (cause) {
       return badRequestFromCause(c, cause, "Invalid configuration.")
@@ -245,22 +272,51 @@ export const adminRoute = new Hono()
     const current = configStore.get("appearance")
     const next = { ...current, loginSplash: { ...current.loginSplash } }
     if (patch.loginSplash?.enabled !== undefined) {
-      const enabled = patch.loginSplash.enabled
-      next.loginSplash = enabled && next.loginSplash.clipIds.length === 0
-        ? await generateLoginSplashPatch(true)
-        : { ...next.loginSplash, enabled }
+      next.loginSplash.enabled = patch.loginSplash.enabled
+    }
+    if (patch.loginSplash?.blurPx !== undefined) {
+      next.loginSplash.blurPx = patch.loginSplash.blurPx
+    }
+    if (patch.loginSplash?.darkenOpacity !== undefined) {
+      next.loginSplash.darkenOpacity = patch.loginSplash.darkenOpacity
     }
     configStore.set("appearance", next)
+    // Enabling the backdrop only flips the flag; make sure a renderable image
+    // exists so /api/auth-config doesn't report it enabled with nothing to show.
+    // No-op when already present (and when disabled).
+    if (next.loginSplash.enabled) await ensureLoginSplashImage()
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
   .post("/appearance/login-splash/regenerate", async (c) => {
     const current = configStore.get("appearance")
     configStore.set("appearance", {
       ...current,
-      loginSplash: await generateLoginSplashPatch(current.loginSplash.enabled),
+      loginSplash: await generateLoginSplashPatch(
+        current.loginSplash.enabled,
+        current.loginSplash,
+      ),
     })
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
+  .post(
+    "/appearance/login-splash/upload",
+    zValidator("form", LoginSplashUploadForm),
+    async (c) => {
+      const { file } = c.req.valid("form")
+      const current = configStore.get("appearance")
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer())
+        await storeUploadedLoginSplashImage({ bytes, contentType: file.type })
+      } catch (cause) {
+        return badRequestFromCause(c, cause, "Couldn't upload login backdrop.")
+      }
+      configStore.set("appearance", {
+        ...current,
+        loginSplash: { ...current.loginSplash, enabled: true },
+      })
+      return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+    },
+  )
   /**
    * PATCH /storage — update the active storage driver configuration. The
    * server rebuilds the driver immediately for new operations; in-flight

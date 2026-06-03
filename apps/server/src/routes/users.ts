@@ -18,7 +18,6 @@ import { assertCanRemoveAdmin } from "../auth/identity"
 import { deleteClipRowAndAssets } from "../clips/delete"
 import { contentDisposition, downloadFilename } from "./clips-helpers"
 import { createZipStream } from "../archive/zip-stream"
-import { syncLinkedOAuthImage } from "../auth/oauth-profile-sync"
 import { createNotification } from "../notifications"
 import { isoDate, nullableIsoDate } from "../runtime/date"
 import {
@@ -160,9 +159,6 @@ export const usersRoute = new Hono()
       return batchProgress(c, "deleted", batch.length, rows.length > limit)
     },
   )
-  .post("/me/sync-oauth-profile", requireSession, async (c) => {
-    return c.json(await syncLinkedOAuthImage(c.var.viewerId))
-  })
   .get("/:username", zValidator("param", UsernameParam), async (c) => {
     const { username } = c.req.valid("param")
     const result = await resolveUserTarget(c, username)

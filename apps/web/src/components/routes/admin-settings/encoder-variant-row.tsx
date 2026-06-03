@@ -12,6 +12,7 @@ import {
   AlertDialogTrigger,
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
+import { ListItem } from "@workspace/ui/components/list"
 
 import type { AdminEncoderVariant, EncoderCodec } from "@workspace/api"
 
@@ -49,17 +50,15 @@ export function VariantRow({
   ].filter(Boolean)
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="min-w-0 flex-1 rounded-md px-2 py-1.5">
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium">
-            {variant.name || (
-              <span className="text-muted-foreground italic">Unnamed</span>
-            )}
-          </div>
-          <div className="truncate text-xs text-muted-foreground">
-            {specs.join("  ")}
-          </div>
+    <ListItem className="gap-2">
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-medium">
+          {variant.name || (
+            <span className="text-muted-foreground italic">Unnamed</span>
+          )}
+        </div>
+        <div className="truncate text-xs text-muted-foreground">
+          {specs.join("  ")}
         </div>
       </div>
 
@@ -134,6 +133,6 @@ export function VariantRow({
           </AlertDialogContent>
         </AlertDialog>
       </div>
-    </div>
+    </ListItem>
   )
 }

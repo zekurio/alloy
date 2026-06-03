@@ -1,17 +1,15 @@
 import type { ApiContext } from "./client"
-import {
-  ACCEPTED_IMAGE_CONTENT_TYPES,
-  type AcceptedImageContentType,
-  type ProfileGameRow,
-  type PublicUser,
-  type UserClip,
-  type UserProfile,
-  type UserProfileViewer,
-  type UserSearchResult,
-  type UserStorageUsage,
+import type {
+  ProfileGameRow,
+  PublicUser,
+  UserClip,
+  UserProfile,
+  UserProfileViewer,
+  UserSearchResult,
+  UserStorageUsage,
 } from "@workspace/contracts"
 import { readJsonOrThrow } from "./http"
-import { readBooleanFlagJson, readPostDeleteJson } from "./mutations"
+import { readPostDeleteJson } from "./mutations"
 import { encodedPathSegment, queryParams, resolvePublicUrl } from "./paths"
 import {
   booleanFlagResponseValidator,
@@ -45,33 +43,8 @@ export {
   userAssetImagePath,
 } from "@workspace/contracts"
 
-const ACCEPTED_IMAGE_CONTENT_TYPE_SET: ReadonlySet<string> = new Set(
-  ACCEPTED_IMAGE_CONTENT_TYPES,
-)
-
-function isAcceptedImageContentType(
-  value: string,
-): value is AcceptedImageContentType {
-  return ACCEPTED_IMAGE_CONTENT_TYPE_SET.has(value)
-}
-
-function getUploadContentType(blob: Blob): AcceptedImageContentType {
-  if (isAcceptedImageContentType(blob.type)) return blob.type
-  throw new Error("Unsupported image type")
-}
-
 function usernameParam(handle: string): { username: string } {
   return { username: encodedPathSegment(handle) }
-}
-
-async function blobToBase64(blob: Blob): Promise<string> {
-  const buf = await blob.arrayBuffer()
-  const bytes = new Uint8Array(buf)
-  let binary = ""
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte)
-  }
-  return btoa(binary)
 }
 
 async function uploadAvatarImage(
@@ -93,15 +66,12 @@ async function uploadUserImage(
   blob: Blob,
   kind: "avatar" | "banner",
 ): Promise<PublicUser> {
-  const data = await blobToBase64(blob)
-  const contentType = getUploadContentType(blob)
-  const json: { data: string; contentType: AcceptedImageContentType } = {
-    data,
-    contentType,
-  }
+  const file = blob instanceof File
+    ? blob
+    : new File([blob], kind, { type: blob.type })
   const res = kind === "avatar"
-    ? await context.rpc.api.users.me.avatar.upload.$post({ json })
-    : await context.rpc.api.users.me.banner.upload.$post({ json })
+    ? await context.rpc.api.users.me.avatar.upload.$post({ form: { file } })
+    : await context.rpc.api.users.me.banner.upload.$post({ form: { file } })
   return readJsonOrThrow(res, validatePublicUser)
 }
 
@@ -284,11 +254,6 @@ async function unblockUser(context: ApiContext, handle: string): Promise<void> {
   })
 }
 
-async function requestOAuthProfileSync(context: ApiContext): Promise<void> {
-  const res = await context.rpc.api.users.me["sync-oauth-profile"].$post()
-  await readBooleanFlagJson(res, "synced")
-}
-
 async function getAccountState(
   context: ApiContext,
 ): Promise<{ disabledAt: string | null }> {
@@ -350,7 +315,6 @@ export function createUsersApi(context: ApiContext) {
     unfollow: (handle: string) => unfollowUser(context, handle),
     block: (handle: string) => blockUser(context, handle),
     unblock: (handle: string) => unblockUser(context, handle),
-    syncOAuthProfile: () => requestOAuthProfileSync(context),
     fetchAccountState: () => getAccountState(context),
     fetchStorageUsage: () => getStorageUsage(context),
     disableAccount: () => disableAccount(context),

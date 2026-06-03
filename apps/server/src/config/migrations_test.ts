@@ -95,6 +95,33 @@ Deno.test("migrateRuntimeConfig leaves current configs unchanged", () => {
   assert(result.config !== config, "migration should not return caller object")
 })
 
+Deno.test("migrateRuntimeConfig removes legacy login splash selection metadata", () => {
+  const result = migrateRuntimeConfig({
+    runtimeConfigVersion: 1,
+    appearance: {
+      loginSplash: {
+        enabled: true,
+        clipIds: ["00000000-0000-0000-0000-000000000000"],
+        generatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    },
+  })
+
+  assert(result.ok, "migration should succeed")
+  assert(result.migrated, "version 1 config should be marked migrated")
+
+  const config = result.config as Record<string, unknown>
+  const appearance = config.appearance as Record<string, unknown>
+  const loginSplash = appearance.loginSplash as Record<string, unknown>
+  assert(
+    config.runtimeConfigVersion === RUNTIME_CONFIG_VERSION,
+    "migration should stamp the current runtime config version",
+  )
+  assert(loginSplash.enabled === true, "enabled state should be preserved")
+  assert(!("clipIds" in loginSplash), "clipIds should be removed")
+  assert(!("generatedAt" in loginSplash), "generatedAt should be removed")
+})
+
 Deno.test("migrateRuntimeConfig rejects newer config versions", () => {
   const result = migrateRuntimeConfig({
     runtimeConfigVersion: RUNTIME_CONFIG_VERSION + 1,

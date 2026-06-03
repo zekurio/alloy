@@ -34,7 +34,6 @@ export {
   ENCODER_HWACCELS,
   INTEGRATIONS_REDACTED,
   LOGIN_SPLASH_IMAGE_PATH,
-  LOGIN_SPLASH_LAYOUT_VERSION,
   loginSplashImagePath,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
@@ -69,9 +68,8 @@ export type {
 
 export function loginSplashImageUrl(
   origin: string | undefined,
-  generatedAt: string | null,
 ): string {
-  return resolvePublicUrl(loginSplashImagePath(generatedAt), origin)
+  return resolvePublicUrl(loginSplashImagePath(), origin)
 }
 
 type RuntimeConfigPatch = {
@@ -84,6 +82,8 @@ type RuntimeConfigPatch = {
 type AppearanceConfigPatch = {
   loginSplash?: {
     enabled?: boolean
+    blurPx?: number
+    darkenOpacity?: number
   }
 }
 
@@ -186,6 +186,17 @@ async function regenerateLoginSplash(
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
+async function uploadLoginSplash(
+  context: ApiContext,
+  file: File,
+): Promise<AdminRuntimeConfig> {
+  const res = await context.rpc.api.admin.appearance["login-splash"].upload
+    .$post({
+      form: { file },
+    })
+  return readJsonOrThrow(res, validateAdminRuntimeConfig)
+}
+
 async function fetchUsers(context: ApiContext): Promise<AdminUsersResponse> {
   const res = await context.rpc.api.admin.users.$get()
   return readJsonOrThrow(res, validateAdminUsersResponse)
@@ -240,6 +251,7 @@ export function createAdminApi(context: ApiContext) {
     updateAppearanceConfig: (patch: AppearanceConfigPatch) =>
       patchRuntimeSection(context, "appearance", patch),
     regenerateLoginSplash: () => regenerateLoginSplash(context),
+    uploadLoginSplash: (file: File) => uploadLoginSplash(context, file),
     updateStorageConfig: (patch: AdminStorageConfigPatch) =>
       patchRuntimeSection(context, "storage", patch),
     fetchEncoderCapabilities: () => fetchEncoderCapabilities(context),

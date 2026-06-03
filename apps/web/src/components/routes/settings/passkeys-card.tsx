@@ -1,7 +1,8 @@
 import * as React from "react"
-import { PlusIcon, Trash2Icon } from "lucide-react"
+import { PencilIcon, PlusIcon, SaveIcon, Trash2Icon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
+import { List, ListItem } from "@workspace/ui/components/list"
 import { Section, SectionContent } from "@workspace/ui/components/section"
 import {
   AlertDialog,
@@ -82,16 +83,17 @@ export function PasskeysCard({
 
         {passkeys.length > 0
           ? (
-            <ul className="flex flex-col divide-y divide-border">
+            <List>
               {passkeys.map((passkey) => (
                 <PasskeyRow
                   key={passkey.id}
                   passkey={passkey}
                   removing={deletingId === passkey.id}
                   onDelete={() => onDelete(passkey)}
+                  onRefresh={onRefresh}
                 />
               ))}
-            </ul>
+            </List>
           )
           : (
             <p className="text-sm text-foreground-muted">
@@ -141,7 +143,7 @@ function AddPasskeyDialog({ onAdded }: { onAdded: () => Promise<void> }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button type="button" variant="primary" size="sm">
+          <Button type="button" variant="outline" size="sm">
             <PlusIcon />
             Add passkey
           </Button>
@@ -194,52 +196,167 @@ function PasskeyRow({
   passkey,
   removing,
   onDelete,
+  onRefresh,
 }: {
   passkey: Passkey
   removing: boolean
   onDelete: () => void
+  onRefresh: () => Promise<void>
 }) {
   return (
-    <li className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
-      <div className="min-w-0">
-        <div className="text-sm font-medium">{passkey.name || "Passkey"}</div>
-        <p className="text-xs text-foreground-dim">
+    <ListItem>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-medium">
+          {passkey.name || "Passkey"}
+        </div>
+        <p className="truncate text-xs text-foreground-dim">
           Added {formatCalendarDate(passkey.createdAt)}
         </p>
       </div>
-      <AlertDialog>
-        <AlertDialogTrigger
-          render={
+      <div className="flex shrink-0 items-center">
+        <EditPasskeyDialog passkey={passkey} onUpdated={onRefresh} />
+        <AlertDialog>
+          <AlertDialogTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Remove passkey"
+                disabled={removing}
+              >
+                <Trash2Icon className="size-3.5" />
+              </Button>
+            }
+          />
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove this passkey?</AlertDialogTitle>
+              <AlertDialogDescription>
+                You may need another sign-in method to access your account.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={removing}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                onClick={onDelete}
+                disabled={removing}
+              >
+                {removing ? "Removing…" : "Remove passkey"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </ListItem>
+  )
+}
+
+function EditPasskeyDialog({
+  passkey,
+  onUpdated,
+}: {
+  passkey: Passkey
+  onUpdated: () => Promise<void>
+}) {
+  const [open, setOpen] = React.useState(false)
+  const [name, setName] = React.useState(passkey.name ?? "")
+  const [saving, setSaving] = React.useState(false)
+  const currentName = passkey.name ?? ""
+  const dirty = name.trim() !== currentName
+
+  React.useEffect(() => {
+    if (open) setName(currentName)
+  }, [open, currentName])
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (saving) return
+    if (!dirty) {
+      setOpen(false)
+      return
+    }
+    setSaving(true)
+    try {
+      const { error } = await authClient.passkey.updatePasskey({
+        id: passkey.id,
+        name: name.trim() || undefined,
+      })
+      if (error) {
+        toast.error(errorMessage(error, "Couldn't rename passkey"))
+        return
+      }
+      toast.success("Passkey renamed")
+      setOpen(false)
+      await onUpdated()
+    } catch (cause) {
+      toast.error(errorMessage(cause, "Something went wrong"))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Rename passkey"
+          >
+            <PencilIcon className="size-3.5" />
+          </Button>
+        }
+      />
+      <DialogContent variant="secondary">
+        <form onSubmit={onSubmit}>
+          <DialogHeader>
+            <DialogTitle>Rename passkey</DialogTitle>
+            <DialogDescription>
+              Give this passkey a name so you can recognise it later.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogBody>
+            <Field>
+              <FieldLabel htmlFor={`passkey-name-${passkey.id}`}>
+                Name
+              </FieldLabel>
+              <LimitedInput
+                id={`passkey-name-${passkey.id}`}
+                type="text"
+                value={name}
+                maxLength={64}
+                placeholder="e.g. Laptop, YubiKey"
+                onChange={(e) => setName(e.target.value)}
+                disabled={saving}
+              />
+            </Field>
+          </DialogBody>
+          <DialogFooter>
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               size="sm"
-              disabled={removing}
+              disabled={saving}
+              onClick={() => setOpen(false)}
             >
-              <Trash2Icon />
-              Remove
+              Cancel
             </Button>
-          }
-        />
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove this passkey?</AlertDialogTitle>
-            <AlertDialogDescription>
-              You may need another sign-in method to access your account.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={removing}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={onDelete}
-              disabled={removing}
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={saving || !dirty}
             >
-              {removing ? "Removing…" : "Remove passkey"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </li>
+              <SaveIcon />
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }

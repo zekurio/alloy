@@ -8,6 +8,14 @@ import type { SourceSpec } from "./video-source"
 /** Selected HLS rendition: a target height in pixels, or adaptive ("auto"). */
 export type HlsLevelSelection = number | "auto"
 
+declare global {
+  // Safari/iOS expose Managed Media Source instead of MediaSource; it isn't in
+  // the standard DOM lib, so we declare it as an optional global here.
+  interface Window {
+    ManagedMediaSource?: typeof MediaSource
+  }
+}
+
 // A representative H.264 + AAC codec string. If the browser can build an MSE
 // SourceBuffer for it, hls.js can drive playback and we get seamless manual
 // level switching; otherwise we fall back to native HLS (Safari/iOS).
@@ -21,9 +29,7 @@ let nativeCache: boolean | null = null
 export function mseHlsSupported(): boolean {
   if (mseCache !== null) return mseCache
   if (typeof window === "undefined") return (mseCache = false)
-  const MS = window.MediaSource ??
-    (window as unknown as { ManagedMediaSource?: typeof MediaSource })
-      .ManagedMediaSource
+  const MS = window.MediaSource ?? window.ManagedMediaSource
   mseCache = Boolean(
     MS && typeof MS.isTypeSupported === "function" &&
       MS.isTypeSupported(PROBE_CODECS),

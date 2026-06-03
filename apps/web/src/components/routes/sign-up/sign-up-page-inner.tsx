@@ -15,14 +15,18 @@ type SignUpPageInnerProps = {
   config: PublicAuthConfig
 }
 
-export function SignUpPageInner({ config }: SignUpPageInnerProps) {
-  const canRender = useRedirectIfAuthed("/")
-  const { supported: passkeySupported, ready: passkeyReady } =
-    usePasskeySupport()
-
-  if (!canRender) return null
-  if (config.passkeyEnabled && !passkeyReady) return null
-
+/**
+ * Presentational sign-up card body. Renders the configured sign-up methods.
+ * Shared by the real sign-up page and the admin login-appearance preview, so it
+ * must stay free of redirect/navigation side effects.
+ */
+export function SignUpForm({
+  config,
+  passkeySupported,
+}: {
+  config: PublicAuthConfig
+  passkeySupported: boolean
+}) {
   const canPasskeySignUp = config.openRegistrations && config.passkeyEnabled
   const showPasskeySignUp = canPasskeySignUp && passkeySupported
   const oauthProviders = config.openRegistrations ? config.providers : []
@@ -30,7 +34,7 @@ export function SignUpPageInner({ config }: SignUpPageInnerProps) {
   const showSeparator = showPasskeySignUp && canOAuthSignUp
 
   return (
-    <AuthPageFrame splash={config.loginSplash}>
+    <>
       <div className="mb-8 space-y-1.5">
         <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
           Create your account
@@ -46,7 +50,7 @@ export function SignUpPageInner({ config }: SignUpPageInnerProps) {
           )
           : null}
 
-        {canPasskeySignUp && passkeyReady && !passkeySupported
+        {canPasskeySignUp && !passkeySupported
           ? (
             <p className="text-sm text-foreground-muted">
               Passkey sign-up is enabled, but this browser does not support
@@ -87,6 +91,21 @@ export function SignUpPageInner({ config }: SignUpPageInnerProps) {
           Sign in
         </Link>
       </p>
+    </>
+  )
+}
+
+export function SignUpPageInner({ config }: SignUpPageInnerProps) {
+  const canRender = useRedirectIfAuthed("/")
+  const { supported: passkeySupported, ready: passkeyReady } =
+    usePasskeySupport()
+
+  if (!canRender) return null
+  if (config.passkeyEnabled && !passkeyReady) return null
+
+  return (
+    <AuthPageFrame splash={config.loginSplash}>
+      <SignUpForm config={config} passkeySupported={passkeySupported} />
     </AuthPageFrame>
   )
 }

@@ -13,6 +13,7 @@ import {
   AlertDialogTrigger,
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
+import { List, ListItem } from "@workspace/ui/components/list"
 import {
   Section,
   SectionContent,
@@ -27,6 +28,7 @@ import type { AdminOAuthProvider, AdminRuntimeConfig } from "@workspace/api"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 import { publishRuntimeConfigUpdate } from "@/lib/runtime-config-events"
+import { FormGroup } from "./form-group"
 import { OAuthCustomProviderDialog } from "./oauth-custom-provider-dialog"
 import {
   emptyProvider,
@@ -164,17 +166,29 @@ export function OAuthProviderCard({
             <SectionTitle>OIDC / OAuth provider</SectionTitle>
           </SectionHeader>
         )}
-        <SectionContent className="flex flex-col gap-3 py-3">
-          {providers.length > 0
-            ? (
-              <>
-                <ul className="flex flex-col divide-y divide-border">
+        <SectionContent className="py-0">
+          <FormGroup
+            title="OAuth providers"
+            description="Configure generic OIDC/OAuth2 providers."
+            action={
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={disabled}
+                onClick={openCreate}
+              >
+                <PlusIcon />
+                Add provider
+              </Button>
+            }
+          >
+            {providers.length > 0
+              ? (
+                <List>
                   {providers.map((provider) => (
-                    <li
-                      key={provider.providerId}
-                      className="flex items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0"
-                    >
-                      <div className="flex min-w-0 items-center gap-2.5">
+                    <ListItem key={provider.providerId}>
+                      <div className="flex min-w-0 flex-1 items-center gap-2.5">
                         <span
                           className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border"
                           style={{
@@ -202,7 +216,7 @@ export function OAuthProviderCard({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1">
+                      <div className="flex shrink-0 items-center gap-1">
                         <Switch
                           checked={provider.enabled}
                           disabled={disabled ||
@@ -217,7 +231,8 @@ export function OAuthProviderCard({
                           variant="ghost"
                           size="icon-sm"
                           disabled={disabled}
-                          onClick={() => openEditProvider(provider)}
+                          onClick={() =>
+                            openEditProvider(provider)}
                         >
                           <PencilIcon />
                         </Button>
@@ -261,50 +276,16 @@ export function OAuthProviderCard({
                           </AlertDialogContent>
                         </AlertDialog>
                       </div>
-                    </li>
+                    </ListItem>
                   ))}
-                </ul>
-                <div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={disabled}
-                    onClick={openCreate}
-                  >
-                    <PlusIcon />
-                    Add provider
-                  </Button>
-                </div>
-              </>
-            )
-            : (
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border">
-                    <UserKeyIcon className="size-4" />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium">
-                      OAuth providers
-                    </div>
-                    <p className="truncate text-xs text-foreground-dim">
-                      Configure generic OIDC/OAuth2 providers.
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  disabled={disabled}
-                  onClick={openCreate}
-                >
-                  <PlusIcon />
-                  Add provider
-                </Button>
-              </div>
-            )}
+                </List>
+              )
+              : (
+                <p className="py-3 text-center text-sm text-foreground-dim">
+                  No providers configured. Add one to get started.
+                </p>
+              )}
+          </FormGroup>
         </SectionContent>
       </Section>
 

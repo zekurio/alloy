@@ -26,6 +26,39 @@ function LimitCounter({ current, max }: { current: number; max: number }) {
   )
 }
 
+function renderLimitCounter(
+  value: React.ComponentProps<"input">["value"],
+  max: number | undefined,
+  addonProps: React.ComponentProps<typeof InputGroupAddon>,
+) {
+  return max !== undefined
+    ? (
+      <InputGroupAddon {...addonProps}>
+        <LimitCounter current={characterCount(value)} max={max} />
+      </InputGroupAddon>
+    )
+    : null
+}
+
+function maxFromLength(maxLength: string | number | undefined) {
+  return typeof maxLength === "number" ? maxLength : undefined
+}
+
+function renderLimitedField(input: {
+  groupClassName?: string
+  control: React.ReactNode
+  value: React.ComponentProps<"input">["value"]
+  max: number | undefined
+  addonProps: React.ComponentProps<typeof InputGroupAddon>
+}) {
+  return (
+    <InputGroup className={input.groupClassName}>
+      {input.control}
+      {renderLimitCounter(input.value, input.max, input.addonProps)}
+    </InputGroup>
+  )
+}
+
 const LimitedInput = React.forwardRef<
   HTMLInputElement,
   React.ComponentProps<typeof InputGroupInput> & { groupClassName?: string }
@@ -33,10 +66,16 @@ const LimitedInput = React.forwardRef<
   { className, groupClassName, maxLength, value, ...props },
   ref,
 ) {
-  const max = typeof maxLength === "number" ? maxLength : undefined
-
-  return (
-    <InputGroup className={groupClassName}>
+  const max = maxFromLength(maxLength)
+  return renderLimitedField({
+    groupClassName,
+    value,
+    max,
+    addonProps: {
+      align: "inline-end",
+      className: "pointer-events-none pl-2",
+    },
+    control: (
       <InputGroupInput
         ref={ref}
         value={value}
@@ -44,18 +83,8 @@ const LimitedInput = React.forwardRef<
         className={cn("px-3", max !== undefined && "pr-0", className)}
         {...props}
       />
-      {max !== undefined
-        ? (
-          <InputGroupAddon
-            align="inline-end"
-            className="pointer-events-none pl-2"
-          >
-            <LimitCounter current={characterCount(value)} max={max} />
-          </InputGroupAddon>
-        )
-        : null}
-    </InputGroup>
-  )
+    ),
+  })
 })
 
 const LimitedTextarea = React.forwardRef<
@@ -65,10 +94,16 @@ const LimitedTextarea = React.forwardRef<
   { className, groupClassName, maxLength, value, ...props },
   ref,
 ) {
-  const max = typeof maxLength === "number" ? maxLength : undefined
-
-  return (
-    <InputGroup className={cn("h-auto", groupClassName)}>
+  const max = maxFromLength(maxLength)
+  return renderLimitedField({
+    groupClassName: cn("h-auto", groupClassName),
+    value,
+    max,
+    addonProps: {
+      align: "block-end",
+      className: "pointer-events-none pt-1",
+    },
+    control: (
       <InputGroupTextarea
         ref={ref}
         value={value}
@@ -76,18 +111,8 @@ const LimitedTextarea = React.forwardRef<
         className={cn("px-3.5", max !== undefined && "pb-0", className)}
         {...props}
       />
-      {max !== undefined
-        ? (
-          <InputGroupAddon
-            align="block-end"
-            className="pointer-events-none pt-1"
-          >
-            <LimitCounter current={characterCount(value)} max={max} />
-          </InputGroupAddon>
-        )
-        : null}
-    </InputGroup>
-  )
+    ),
+  })
 })
 
 export { LimitedInput, LimitedTextarea }

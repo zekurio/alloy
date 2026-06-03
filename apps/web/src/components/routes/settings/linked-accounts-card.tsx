@@ -3,6 +3,7 @@ import { useRouter } from "@tanstack/react-router"
 import { Link2OffIcon, LinkIcon, UserKeyIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
+import { List, ListItem } from "@workspace/ui/components/list"
 import { Section, SectionContent } from "@workspace/ui/components/section"
 import { toast } from "@workspace/ui/lib/toast"
 
@@ -11,7 +12,6 @@ import type { LinkedAccount as ApiLinkedAccount } from "@workspace/api/auth"
 
 import { authClient, useSession } from "@/lib/auth-client"
 import { authCallbackUrl, reportAuthFlowFailure } from "@/lib/auth-flow"
-import { api } from "@/lib/api"
 import { consumeCurrentQueryParam } from "@/lib/browser-url"
 import { errorMessage } from "@/lib/error-message"
 
@@ -97,15 +97,12 @@ function useLinkedAccountActions({
 
     void (async () => {
       try {
-        await api.users.syncOAuthProfile()
         await refresh()
         await refetchSession({ query: { disableCookieCache: true } })
         await router.invalidate()
       } catch (cause) {
         if (active) {
-          toast.error(
-            errorMessage(cause, "Couldn't sync linked account profile"),
-          )
+          toast.error(errorMessage(cause, "Couldn't refresh linked accounts"))
         }
       }
     })()
@@ -212,7 +209,7 @@ function AccountsList({
   )
 
   return (
-    <ul className="flex flex-col divide-y divide-border">
+    <List>
       {config.providers.map((provider) => {
         const providerAccount = accounts.find(
           (account) => account.providerId === provider.providerId,
@@ -260,7 +257,7 @@ function AccountsList({
           onAction={() => onUnlink(account)}
         />
       ))}
-    </ul>
+    </List>
   )
 }
 
@@ -275,8 +272,8 @@ function LinkRow(props: {
   onLink: () => void
 }) {
   return (
-    <li className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
-      <div className="flex min-w-0 items-center gap-3">
+    <ListItem>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <ProviderIcon provider={props.provider} />
         <div className="min-w-0">
           <div className="text-sm font-medium">{props.label}</div>
@@ -287,13 +284,14 @@ function LinkRow(props: {
         type="button"
         variant="outline"
         size="sm"
+        className="shrink-0"
         disabled={props.busy}
         onClick={props.onLink}
       >
         <LinkIcon />
         {props.busy ? "Redirecting…" : "Link"}
       </Button>
-    </li>
+    </ListItem>
   )
 }
 
@@ -308,8 +306,8 @@ type AccountRowProps = {
 
 function AccountRow(props: AccountRowProps) {
   return (
-    <li className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
-      <div className="flex min-w-0 items-center gap-3">
+    <ListItem>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <ProviderIcon provider={props.provider} />
         <div className="min-w-0">
           <div className="text-sm font-medium">{props.label}</div>
@@ -320,6 +318,7 @@ function AccountRow(props: AccountRowProps) {
         type="button"
         variant="outline"
         size="sm"
+        className="shrink-0"
         disabled={props.busy || !props.canUnlink}
         onClick={props.onAction}
         title={props.canUnlink
@@ -329,7 +328,7 @@ function AccountRow(props: AccountRowProps) {
         <Link2OffIcon />
         {props.busy ? "Removing…" : "Unlink"}
       </Button>
-    </li>
+    </ListItem>
   )
 }
 

@@ -13,19 +13,25 @@ type LoginPageInnerProps = {
   config: PublicAuthConfig
 }
 
-export function LoginPageInner({ config }: LoginPageInnerProps) {
-  const canRender = useRedirectIfAuthed("/")
-  const { ready: passkeyReady, supported: passkeySupported } =
-    usePasskeySupport()
-  if (!canRender) return null
-  if (config.passkeyEnabled && !passkeyReady) return null
-
+/**
+ * Presentational sign-in card body. Renders the configured sign-in methods.
+ * Shared by the real login page and the admin login-appearance preview, so it
+ * must stay free of redirect/navigation side effects.
+ */
+export function LoginForm({
+  config,
+  passkeySupported,
+}: {
+  config: PublicAuthConfig
+  passkeySupported: boolean
+}) {
   const { providers, openRegistrations, passkeyEnabled } = config
   const showPasskeySignIn = passkeyEnabled && passkeySupported
   const canSignUp = openRegistrations &&
     (passkeyEnabled || providers.length > 0)
+
   return (
-    <AuthPageFrame splash={config.loginSplash}>
+    <>
       <div className="mb-8 space-y-1.5">
         <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
           Sign in
@@ -39,7 +45,7 @@ export function LoginPageInner({ config }: LoginPageInnerProps) {
         ))}
       </div>
 
-      {passkeyEnabled && passkeyReady && !passkeySupported
+      {passkeyEnabled && !passkeySupported
         ? (
           <p className="mt-4 text-sm text-foreground-muted">
             Passkey sign-in is enabled, but this browser does not support
@@ -61,6 +67,20 @@ export function LoginPageInner({ config }: LoginPageInnerProps) {
           </p>
         )
         : null}
+    </>
+  )
+}
+
+export function LoginPageInner({ config }: LoginPageInnerProps) {
+  const canRender = useRedirectIfAuthed("/")
+  const { ready: passkeyReady, supported: passkeySupported } =
+    usePasskeySupport()
+  if (!canRender) return null
+  if (config.passkeyEnabled && !passkeyReady) return null
+
+  return (
+    <AuthPageFrame splash={config.loginSplash}>
+      <LoginForm config={config} passkeySupported={passkeySupported} />
     </AuthPageFrame>
   )
 }
