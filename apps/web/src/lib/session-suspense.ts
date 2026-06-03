@@ -106,16 +106,32 @@ export async function loadSession(): Promise<SessionData> {
   }
 }
 
+/**
+ * Read the public auth config inlined into the document by the server (see
+ * `web.ts`). Consumed once: after an invalidation we must re-fetch rather than
+ * reuse the now-stale boot snapshot.
+ */
+function readBootstrapAuthConfig(): PublicAuthConfig | null {
+  const holder = globalThis as { __ALLOY_PUBLIC_CONFIG__?: PublicAuthConfig }
+  const config = holder.__ALLOY_PUBLIC_CONFIG__
+  if (!config) return null
+  delete holder.__ALLOY_PUBLIC_CONFIG__
+  return config
+}
+
 export function loadAuthConfig(): Promise<PublicAuthConfig> {
   if (typeof window === "undefined") {
     return api.authConfig.fetch()
   }
 
   if (!configPromiseCache) {
-    configPromiseCache = api.authConfig.fetch().catch((err) => {
-      configPromiseCache = null
-      throw err
-    })
+    const bootstrap = readBootstrapAuthConfig()
+    configPromiseCache = bootstrap
+      ? Promise.resolve(bootstrap)
+      : api.authConfig.fetch().catch((err) => {
+        configPromiseCache = null
+        throw err
+      })
   }
   return configPromiseCache
 }

@@ -4,14 +4,18 @@ import { eq } from "drizzle-orm"
 import { user } from "@workspace/db/auth-schema"
 import { logger } from "@workspace/logging"
 
+import type { PublicAuthConfig } from "@workspace/contracts"
+
 import { db } from "./db"
 import { env } from "./env"
 import { configStore } from "./config/store"
 import { getSession } from "./auth/session"
+import { buildPublicAuthConfig } from "./auth/public-config"
 import { selectClipById } from "./clips/select"
 import { isAbsolute, join, relative, resolve } from "./runtime/path"
 
 const HEAD_MARKER = "<!-- alloy:head -->"
+const BOOTSTRAP_MARKER = "<!-- alloy:bootstrap -->"
 const CLIP_PERMALINK_RE = /^\/g\/[^/]+\/c\/([^/]+)\/?$/
 const DEFAULT_WEB_DIST_DIR = "../../build/www"
 const PUBLIC_WEB_PATHS = new Set(["/login", "/setup", "/sign-up"])
@@ -174,6 +178,21 @@ function withInjectedHead(indexHtml: string, head: string): string {
   return indexHtml.replace(HEAD_MARKER, `${head}\n    ${HEAD_MARKER}`)
 }
 
+/**
+ * Inline the public auth config into the app shell so the client has it before
+ * React boots — no blocking `/api/auth-config` round-trip on first paint. Only
+ * public (non-secret) data goes here; `<` is escaped to prevent a `</script>`
+ * breakout.
+ */
+function bootstrapScript(config: PublicAuthConfig): string {
+  const json = JSON.stringify(config).replaceAll("<", "\\u003c")
+  return `<script>globalThis.__ALLOY_PUBLIC_CONFIG__=${json}</script>`
+}
+
+function withInjectedBootstrap(indexHtml: string, script: string): string {
+  return indexHtml.replace(BOOTSTRAP_MARKER, script)
+}
+
 export async function mountWeb(app: Hono): Promise<Hono> {
   const mount = await resolveWebMount()
   if (!mount) {
@@ -248,10 +267,13 @@ export async function mountWeb(app: Hono): Promise<Hono> {
       }
     }
 
-    const html = withInjectedHead(webMount.indexHtml, head)
     c.header("Content-Type", "text/html; charset=utf-8")
     c.header("Cache-Control", "no-cache")
     if (c.req.method === "HEAD") return c.body(null)
+    const html = withInjectedBootstrap(
+      withInjectedHead(webMount.indexHtml, head),
+      bootstrapScript(await buildPublicAuthConfig()),
+    )
     return c.html(html)
   })
 
