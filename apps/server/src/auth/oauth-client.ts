@@ -11,6 +11,7 @@ import {
 } from "openid-client"
 
 import type { OAuthProviderConfig } from "../config/store"
+import { secretStore } from "../config/secret-store"
 import { env } from "../env"
 import { errorMessage } from "../runtime/error-message"
 import { getEnabledProviderConfig } from "./oauth-config"
@@ -45,15 +46,16 @@ export async function oauthClient(
 async function createOAuthClient(
   provider: OAuthProviderConfig,
 ): Promise<Configuration> {
+  const clientSecret = secretStore.oauthClientSecret(provider.providerId)
   const metadata = {
-    client_secret: provider.clientSecret,
+    client_secret: clientSecret,
   }
   if (provider.discoveryUrl) {
     return discovery(
       new URL(provider.discoveryUrl),
       provider.clientId,
       metadata,
-      ClientSecretPost(provider.clientSecret),
+      ClientSecretPost(clientSecret),
       insecureOptions(provider.discoveryUrl),
     )
   }
@@ -76,7 +78,7 @@ async function createOAuthClient(
     server,
     provider.clientId,
     metadata,
-    ClientSecretPost(provider.clientSecret),
+    ClientSecretPost(clientSecret),
   )
   if (usesInsecureEndpoint(provider)) allowInsecureRequests(config)
   return config
@@ -114,7 +116,7 @@ function oauthClientCacheKey(provider: OAuthProviderConfig): string {
   return JSON.stringify({
     authorizationUrl: provider.authorizationUrl,
     clientId: provider.clientId,
-    clientSecret: provider.clientSecret,
+    clientSecret: secretStore.oauthClientSecret(provider.providerId),
     discoveryUrl: provider.discoveryUrl,
     providerId: provider.providerId,
     tokenUrl: provider.tokenUrl,

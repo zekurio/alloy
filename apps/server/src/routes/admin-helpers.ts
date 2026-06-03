@@ -1,6 +1,10 @@
 import { desc, inArray } from "drizzle-orm"
 
 import { user } from "@workspace/db/auth-schema"
+import type {
+  AdminOAuthProvider,
+  AdminRuntimeConfig,
+} from "@workspace/contracts"
 
 import { db } from "../db"
 import { env } from "../env"
@@ -10,86 +14,38 @@ import {
   OAuthProviderSubmissionSchema,
   type RuntimeConfig,
 } from "../config/store"
+import { secretStore } from "../config/secret-store"
 import { isoDate } from "../runtime/date"
 import { selectSourceStorageUsedBytesByUserIds } from "../storage/quota"
-
-export const REDACTED_SENTINEL = "***"
 
 type OAuthProviderAdminSubmission = Record<string, unknown> & {
   providerId?: string
 }
 
-function redactSecrets(
+function toAdminOAuthProvider(
+  provider: OAuthProviderConfig,
+): AdminOAuthProvider {
+  return {
+    ...provider,
+    clientSecretSet: secretStore.hasOAuthClientSecret(provider.providerId),
+  }
+}
+
+/**
+ * Build the admin runtime config response from the (secret-free) stored config
+ * plus secret-presence flags. The return type carries no secret values, so no
+ * secret can be leaked here by construction.
+ */
+export function adminRuntimeConfigResponse(
   config: Readonly<RuntimeConfig>,
-): Readonly<RuntimeConfig> {
+): AdminRuntimeConfig {
   return {
     ...config,
+    oauthProviders: config.oauthProviders.map(toAdminOAuthProvider),
     integrations: {
-      ...config.integrations,
-      steamgriddbApiKey: config.integrations.steamgriddbApiKey
-        ? REDACTED_SENTINEL
-        : "",
+      steamgriddbApiKeySet: secretStore.get("steamgriddbApiKey").length > 0,
     },
-    secrets: {
-      ...config.secrets,
-      viewerCookieSecret: config.secrets.viewerCookieSecret
-        ? REDACTED_SENTINEL
-        : "",
-      uploadHmacSecret: config.secrets.uploadHmacSecret
-        ? REDACTED_SENTINEL
-        : "",
-    },
-    oauthProviders: config.oauthProviders.map((provider) => ({
-      ...provider,
-      clientSecret: "",
-    })),
-  }
-}
-
-export function adminRuntimeConfigResponse(config: Readonly<RuntimeConfig>) {
-  return {
-    ...redactSecrets(config),
     authBaseURL: env.PUBLIC_SERVER_URL,
-  }
-}
-
-export function preserveRedactedSecrets(
-  input: Record<string, unknown>,
-  current: RuntimeConfig,
-): void {
-  if (input.integrations && typeof input.integrations === "object") {
-    const integrations = input.integrations as Record<string, unknown>
-    if (integrations.steamgriddbApiKey === REDACTED_SENTINEL) {
-      integrations.steamgriddbApiKey = current.integrations.steamgriddbApiKey
-    }
-  }
-  if (input.secrets && typeof input.secrets === "object") {
-    const secrets = input.secrets as Record<string, unknown>
-    if (secrets.viewerCookieSecret === REDACTED_SENTINEL) {
-      secrets.viewerCookieSecret = current.secrets.viewerCookieSecret
-    }
-    if (secrets.uploadHmacSecret === REDACTED_SENTINEL) {
-      secrets.uploadHmacSecret = current.secrets.uploadHmacSecret
-    }
-  }
-  if (Array.isArray(input.oauthProviders)) {
-    const currentById = new Map(
-      current.oauthProviders.map((provider) => [provider.providerId, provider]),
-    )
-    for (const provider of input.oauthProviders) {
-      if (
-        !provider || typeof provider !== "object" || Array.isArray(provider)
-      ) {
-        continue
-      }
-      const row = provider as Record<string, unknown>
-      const providerId = typeof row.providerId === "string"
-        ? row.providerId
-        : ""
-      if (!row.clientSecret || row.clientSecret === "") {
-        row.clientSecret = currentById.get(providerId)?.clientSecret ?? ""
-      }
-    }
   }
 }
 
@@ -184,28 +140,30 @@ function normalizeOAuthProviderSubmission(
   }
 }
 
+export type FinalizedOAuthProvider = {
+  /** Stored metadata (no secret). */
+  provider: OAuthProviderConfig
+  /** New client secret to persist, or undefined to keep the existing one. */
+  newClientSecret?: string
+}
+
+/**
+ * Normalize and validate an admin OAuth submission into stored metadata plus an
+ * optional new client secret. The secret is split out here so it can be written
+ * to the secret store and never re-enters the stored config.
+ */
 export function finalizeOAuthProviderSubmission(
   provider: OAuthProviderAdminSubmission,
-  existingProviders: OAuthProviderConfig[],
-): OAuthProviderConfig {
-  const parsedProvider = OAuthProviderSubmissionSchema.parse(
+): FinalizedOAuthProvider {
+  const parsed = OAuthProviderSubmissionSchema.parse(
     normalizeOAuthProviderSubmission(provider),
   )
-  const existing = existingProviders.find((candidate) =>
-    candidate.providerId === parsedProvider.providerId
-  )
-  const clientSecret = parsedProvider.clientSecret.length > 0
-    ? parsedProvider.clientSecret
-    : existing
-    ? existing.clientSecret
-    : ""
-  if (clientSecret.length === 0) {
-    throw new Error(
-      `Client secret is required for ${parsedProvider.displayName}.`,
-    )
+  const { clientSecret, ...metadata } = parsed
+  const trimmedSecret = clientSecret?.trim()
+  return {
+    provider: OAuthProviderSchema.parse(metadata) as OAuthProviderConfig,
+    newClientSecret: trimmedSecret && trimmedSecret.length > 0
+      ? trimmedSecret
+      : undefined,
   }
-  return OAuthProviderSchema.parse({
-    ...parsedProvider,
-    clientSecret,
-  }) as OAuthProviderConfig
 }

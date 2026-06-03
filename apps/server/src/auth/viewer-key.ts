@@ -1,7 +1,7 @@
 import { getCookie, setCookie } from "hono/cookie"
 import type { Context } from "hono"
 
-import { configStore } from "../config/store"
+import { secretStore } from "../config/secret-store"
 import { constantTimeEqual, hmacSha256 } from "../runtime/crypto"
 import { getSession } from "./session"
 import { base64UrlToBytes, bytesToBase64Url } from "./tokens"
@@ -90,6 +90,5 @@ async function viewerCookieMac(value: string): Promise<string> {
 }
 
 async function viewerCookieMacBytes(value: string): Promise<Uint8Array> {
-  const { viewerCookieSecret } = configStore.get("secrets")
-  return hmacSha256(value, viewerCookieSecret)
+  return hmacSha256(value, secretStore.get("viewerCookieSecret"))
 }

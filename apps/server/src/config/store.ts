@@ -8,11 +8,16 @@ import { errorDetail } from "../runtime/error-message"
 import { CONFIG_PATH } from "../runtime/dirs"
 import { dirname } from "../runtime/path"
 
+// Side-effect import: guarantees the secret store initializes (and seeds itself
+// from any legacy inline secrets in config.json) BEFORE this module strips
+// those secret keys and rewrites the file.
+import "./secret-store"
+
 import {
   AppearanceConfigPatchSchema,
   bootstrapDefaultConfig,
   EncoderConfigPatchSchema,
-  IntegrationsConfigPatchSchema,
+  IntegrationsSecretPatchSchema,
   LimitsConfigPatchSchema,
   MachineLearningConfigPatchSchema,
   RuntimeConfigSchema,
@@ -44,7 +49,7 @@ export type { OAuthProviderSubmission }
 export {
   AppearanceConfigPatchSchema,
   EncoderConfigPatchSchema,
-  IntegrationsConfigPatchSchema,
+  IntegrationsSecretPatchSchema,
   LimitsConfigPatchSchema,
   MachineLearningConfigPatchSchema,
 }
@@ -54,7 +59,6 @@ export type {
   EncoderCodec,
   EncoderConfig,
   EncoderVariant,
-  IntegrationsConfig,
   LimitsConfig,
   MachineLearningConfig,
   OAuthProviderConfig,
@@ -62,8 +66,32 @@ export type {
 } from "@workspace/contracts"
 
 type LoadResult =
-  | { ok: true; config: RuntimeConfig; created: boolean; migrated: boolean }
+  | {
+    ok: true
+    config: RuntimeConfig
+    created: boolean
+    migrated: boolean
+    strippedSecrets: boolean
+  }
   | { ok: false; error: string }
+
+/**
+ * True when a raw config carries secret keys that have since moved to the
+ * secret store. The schema strips them on parse; this flags that we should
+ * back up and rewrite the file so they don't linger on disk.
+ */
+function hasLegacySecretKeys(raw: unknown): boolean {
+  if (!raw || typeof raw !== "object") return false
+  const config = raw as Record<string, unknown>
+  if ("secrets" in config || "integrations" in config) return true
+  if (Array.isArray(config.oauthProviders)) {
+    return config.oauthProviders.some((provider) =>
+      Boolean(provider) && typeof provider === "object" &&
+      "clientSecret" in (provider as Record<string, unknown>)
+    )
+  }
+  return false
+}
 
 type ParseResult =
   | { ok: true; config: RuntimeConfig; migrated: boolean }
@@ -101,6 +129,7 @@ function loadFromDisk(): LoadResult {
         config: bootstrapDefaultConfig(),
         created: true,
         migrated: false,
+        strippedSecrets: false,
       }
     }
   } catch (err) {
@@ -110,6 +139,7 @@ function loadFromDisk(): LoadResult {
         config: bootstrapDefaultConfig(),
         created: true,
         migrated: false,
+        strippedSecrets: false,
       }
     }
     return {
@@ -128,6 +158,7 @@ function loadFromDisk(): LoadResult {
       config: result.config,
       created: false,
       migrated: result.migrated,
+      strippedSecrets: hasLegacySecretKeys(json),
     }
   } catch (err) {
     return {
@@ -155,7 +186,22 @@ if (!initialLoad.ok) {
 }
 
 let state: RuntimeConfig = initialLoad.config
-if (initialLoad.created || initialLoad.migrated) {
+if (initialLoad.strippedSecrets) {
+  // Preserve the pre-split file (secrets and all) before rewriting it without
+  // the secret keys, which now live in the secret store.
+  try {
+    Deno.copyFileSync(CONFIG_PATH, `${CONFIG_PATH}.bak`)
+    logger.info(
+      `[config-store] migrated inline secrets out of ${CONFIG_PATH}; ` +
+        `backed up original to ${CONFIG_PATH}.bak`,
+    )
+  } catch (err) {
+    logger.warn("[config-store] could not back up pre-split config:", err)
+  }
+}
+if (
+  initialLoad.created || initialLoad.migrated || initialLoad.strippedSecrets
+) {
   writeToDisk(state)
 }
 

@@ -85,10 +85,6 @@ const LimitsConfigSchema = z.object({
   queueConcurrency: z.number().int().min(1).max(16).default(1),
 })
 
-const IntegrationsConfigSchema = z.object({
-  steamgriddbApiKey: z.string().default(""),
-})
-
 function envFlag(name: string, fallback: boolean): boolean {
   const raw = Deno.env.get(name)
   if (raw === undefined) return fallback
@@ -147,12 +143,20 @@ const MachineLearningConfigSchema = z.object({
   ),
 })
 
-const ServerSecretsConfigSchema = z.object({
+/**
+ * Server-only secret material, persisted to `secrets.json` separately from the
+ * runtime config. Nothing here is ever included in an HTTP response.
+ */
+export const ServerSecretsSchema = z.object({
   viewerCookieSecret: z.string().min(32).default(randomSecret),
   // Signs short-lived FS upload tickets. Persisted so in-flight tickets survive
   // restarts. (Previously lived under storage.fs.hmacSecret.)
   uploadHmacSecret: z.string().min(32).default(randomSecret),
+  steamgriddbApiKey: z.string().default(""),
+  oauthClientSecrets: z.record(z.string(), z.string()).default({}),
 })
+
+export type ServerSecrets = z.infer<typeof ServerSecretsSchema>
 
 const LoginSplashConfigSchema = z.object({
   enabled: z.boolean().default(false),
@@ -177,23 +181,20 @@ export const RuntimeConfigSchema = z.object({
   oauthProviders: OAuthProvidersSchema.default([]),
   encoder: EncoderConfigSchema.default(EncoderConfigInnerSchema.parse({})),
   limits: LimitsConfigSchema.default(LimitsConfigSchema.parse({})),
-  integrations: IntegrationsConfigSchema.default(
-    IntegrationsConfigSchema.parse({}),
-  ),
   machineLearning: MachineLearningConfigSchema.default(
     MachineLearningConfigSchema.parse({}),
   ),
   appearance: AppearanceConfigSchema.default(
     AppearanceConfigSchema.parse({}),
   ),
-  secrets: ServerSecretsConfigSchema.default(
-    ServerSecretsConfigSchema.parse({}),
-  ),
 })
 
 export const EncoderConfigPatchSchema = EncoderConfigInnerSchema.partial()
 export const LimitsConfigPatchSchema = LimitsConfigSchema.partial()
-export const IntegrationsConfigPatchSchema = IntegrationsConfigSchema.partial()
+/** Write-only patch for the (secret) SteamGridDB key. */
+export const IntegrationsSecretPatchSchema = z.object({
+  steamgriddbApiKey: z.string().optional(),
+})
 export const MachineLearningConfigPatchSchema = MachineLearningConfigSchema
   .partial().extend({
     gameClassifier: GameClassifierModelConfigSchema.partial().optional(),

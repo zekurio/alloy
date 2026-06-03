@@ -5,7 +5,7 @@ import { logger } from "@workspace/logging"
 
 import { decodeUploadToken } from "./fs-driver"
 import { db } from "../db"
-import { configStore } from "../config/store"
+import { secretStore } from "../config/secret-store"
 import {
   badRequest,
   conflict,
@@ -22,7 +22,7 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
   const token = c.req.param("token")
   const decoded = await decodeUploadToken(
     token,
-    configStore.get("secrets").uploadHmacSecret,
+    secretStore.get("uploadHmacSecret"),
   )
   if (!decoded.ok) {
     return unauthorized(c, "Invalid upload ticket")

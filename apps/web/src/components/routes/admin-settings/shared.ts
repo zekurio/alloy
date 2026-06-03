@@ -10,6 +10,7 @@ export function emptyProvider(): AdminOAuthProvider {
     displayName: "Custom OIDC",
     clientId: "",
     clientSecret: "",
+    clientSecretSet: false,
     scopes: ["openid", "profile", "email"],
     enabled: true,
     buttonColor: "",
@@ -52,7 +53,8 @@ export function toSubmissionProvider(
     providerId: normalizeProviderId(provider.providerId),
     displayName: provider.displayName.trim(),
     clientId: provider.clientId.trim(),
-    clientSecret: provider.clientSecret.trim(),
+    // Write-only: blank means "keep the existing secret".
+    clientSecret: emptyToUndefined(provider.clientSecret),
     buttonColor: normalizeHexColor(provider.buttonColor),
     buttonTextColor: normalizeHexColor(provider.buttonTextColor),
     iconUrl: emptyToUndefined(provider.iconUrl),

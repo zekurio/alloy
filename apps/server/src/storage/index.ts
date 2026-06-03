@@ -1,10 +1,10 @@
-import { configStore } from "../config/store"
+import { secretStore } from "../config/secret-store"
 import { env } from "../env"
 import { CLIPS_DIR, DATA_DIR } from "../runtime/dirs"
 import type { StorageDriver } from "./driver"
 import { FsStorageDriver } from "./fs-driver"
 
-const uploadHmacSecret = configStore.get("secrets").uploadHmacSecret
+const uploadHmacSecret = secretStore.get("uploadHmacSecret")
 
 /**
  * Bulk clip media: source, encoded variants, thumbnails, opengraph. Lives at

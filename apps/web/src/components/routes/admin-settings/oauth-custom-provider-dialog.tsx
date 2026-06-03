@@ -191,8 +191,8 @@ export function OAuthCustomProviderDialog({
                     <Input
                       id="oauth-client-secret"
                       type="password"
-                      value={draft.clientSecret}
-                      placeholder={editing
+                      value={draft.clientSecret ?? ""}
+                      placeholder={draft.clientSecretSet
                         ? "Leave blank to keep current secret"
                         : ""}
                       disabled={pendingAction !== null}

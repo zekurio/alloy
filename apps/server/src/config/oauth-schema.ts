@@ -16,7 +16,6 @@ const OAuthProviderBaseSchema = z.object({
     .regex(ProviderIdPattern, "lowercase letters, digits, and dashes only"),
   displayName: z.string().min(1).max(64),
   clientId: z.string().min(1),
-  clientSecret: z.string(),
   scopes: z.array(z.string().min(1)).optional(),
   enabled: z.boolean().default(true),
   buttonColor: z.string().regex(HexColorPattern).optional(),
@@ -41,16 +40,7 @@ const endpointsMessage =
 function validateOAuthProvider(
   provider: z.infer<typeof OAuthProviderBaseSchema>,
   ctx: z.RefinementCtx,
-  requireSecret: boolean,
 ): void {
-  if (requireSecret && provider.clientSecret.length === 0) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["clientSecret"],
-      message: "Client secret is required",
-    })
-  }
-
   if (!hasEndpoints(provider)) {
     ctx.addIssue({
       code: "custom",
@@ -67,12 +57,18 @@ function validateOAuthProvider(
   }
 }
 
+/** Stored provider metadata (no secret — secrets live in the secret store). */
 export const OAuthProviderSchema = OAuthProviderBaseSchema.superRefine(
-  (provider, ctx) => validateOAuthProvider(provider, ctx, true),
+  validateOAuthProvider,
 )
 
+/**
+ * Admin submission: provider metadata plus an optional write-only
+ * `clientSecret`. Absent/empty means "keep the existing secret".
+ */
 export const OAuthProviderSubmissionSchema = OAuthProviderBaseSchema
-  .superRefine((provider, ctx) => validateOAuthProvider(provider, ctx, false))
+  .extend({ clientSecret: z.string().optional() })
+  .superRefine(validateOAuthProvider)
 
 export const OAuthProvidersSchema = z
   .array(OAuthProviderSchema)
