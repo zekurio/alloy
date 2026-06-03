@@ -23,7 +23,11 @@ import {
   OAuthProvidersSchema,
   parseRuntimeConfig,
 } from "../config/store"
-import { secretStore } from "../config/secret-store"
+import {
+  isOAuthProviderUsable,
+  readInlineSecrets,
+  secretStore,
+} from "../config/secret-store"
 import { enqueueEncode } from "../queue"
 import { getEncoderCapabilities } from "./admin-encoder-capabilities"
 import {
@@ -33,7 +37,6 @@ import {
 } from "./admin-appearance"
 import {
   adminRuntimeConfigResponse,
-  extractImportedOAuthSecrets,
   finalizeOAuthProviderSubmission,
   hasEnabledSignInMethod,
 } from "./admin-helpers"
@@ -84,14 +87,27 @@ const OAuthConfigSubmissionSchema = z.object({
   oauthProviders: z.array(OAuthProviderAdminSubmissionSchema).max(16),
 })
 
-async function signInConfigError(config: {
-  passkeyEnabled: boolean
-  oauthProviders: { enabled: boolean; providerId: string }[]
-}): Promise<string | null> {
-  if (!hasEnabledSignInMethod(config)) {
+async function signInConfigError(
+  config: {
+    passkeyEnabled: boolean
+    oauthProviders: { enabled: boolean; providerId: string }[]
+  },
+  pendingSecret: (providerId: string) => boolean = () => false,
+): Promise<string | null> {
+  // An OAuth provider only counts as a sign-in method if it's actually usable
+  // (enabled AND has a secret — stored or about to be written). Filtering here
+  // keeps this lockout guard in sync with what the consumer layer will serve, so
+  // an enabled-but-secretless provider can't masquerade as a working method.
+  const usable = {
+    passkeyEnabled: config.passkeyEnabled,
+    oauthProviders: config.oauthProviders.filter((provider) =>
+      isOAuthProviderUsable(provider, pendingSecret)
+    ),
+  }
+  if (!hasEnabledSignInMethod(usable)) {
     return "Keep at least one sign-in method enabled."
   }
-  if (!(await hasAdminSignInMethodForConfig(config))) {
+  if (!(await hasAdminSignInMethodForConfig(usable))) {
     return "Keep at least one active admin sign-in method before disabling passkeys or OAuth."
   }
   return null
@@ -129,52 +145,37 @@ export const adminRoute = new Hono()
     const input = body as Record<string, unknown>
     try {
       // Parse first (strips any legacy secret keys), then restore admin-managed
-      // secrets a full/legacy backup carried inline so a restore doesn't break
-      // OAuth. Server-internal secrets (cookie/upload HMAC) are NOT imported.
+      // secrets a full/legacy backup carried inline. Server-internal secrets
+      // (cookie/upload HMAC) are NOT imported.
       const next = parseRuntimeConfig(input)
       const nextProviderIds = new Set(
         next.oauthProviders.map((provider) => provider.providerId),
       )
-      const importedSecrets = extractImportedOAuthSecrets(
-        input,
-        nextProviderIds,
-      )
-
-      // Reject enabled providers that would end up with no secret (neither
-      // imported nor already stored): mirrors the /oauth-config guard and avoids
-      // enabling a broken provider that could lock admins out of sign-in.
-      const missingSecret = next.oauthProviders.filter((provider) =>
-        provider.enabled &&
-        !importedSecrets.has(provider.providerId) &&
-        !secretStore.hasOAuthClientSecret(provider.providerId)
-      )
-      if (missingSecret.length > 0) {
-        return badRequest(
-          c,
-          `Missing client secret for enabled OAuth provider(s): ${
-            missingSecret.map((provider) => provider.displayName).join(", ")
-          }. Include the secret in the import or disable the provider.`,
-        )
+      const inline = readInlineSecrets(input)
+      const importedOAuth: Record<string, string> = {}
+      for (const [id, secret] of Object.entries(inline.oauthClientSecrets)) {
+        if (nextProviderIds.has(id)) importedOAuth[id] = secret
       }
 
-      const authError = await signInConfigError(next)
+      // Only block the import if it would leave no usable sign-in method
+      // (counting secrets about to be imported). Secretless-but-enabled
+      // providers are otherwise accepted — they're filtered out at the consumer
+      // layer until a secret is added, so a secret-free backup still restores.
+      const authError = await signInConfigError(
+        next,
+        (providerId) => providerId in importedOAuth,
+      )
       if (authError) {
         return badRequest(c, authError)
       }
 
       configStore.replace(next)
-      for (const [providerId, secret] of importedSecrets) {
-        secretStore.setOAuthClientSecret(providerId, secret)
-      }
-      const steamgriddbApiKey =
-        (input.integrations as Record<string, unknown> | undefined)
-          ?.steamgriddbApiKey
-      if (
-        typeof steamgriddbApiKey === "string" && steamgriddbApiKey.length > 0
-      ) {
-        secretStore.setSteamgriddbApiKey(steamgriddbApiKey)
-      }
-      secretStore.retainOAuthProviders([...nextProviderIds])
+      // Single write: prune secrets for removed providers, overlay imported ones.
+      secretStore.update({
+        setOAuth: importedOAuth,
+        setSteamgriddbApiKey: inline.steamgriddbApiKey,
+        retainOAuth: nextProviderIds,
+      })
       if (next.appearance.loginSplash.enabled) await ensureLoginSplashImage()
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     } catch (cause) {
@@ -229,11 +230,22 @@ export const adminRoute = new Hono()
         const nextProviders = OAuthProvidersSchema.parse(
           finalized.map((entry) => entry.provider),
         )
-        // An enabled provider needs a secret — newly supplied or already stored.
+        const newSecrets: Record<string, string> = {}
         for (const entry of finalized) {
-          const hasSecret = entry.newClientSecret !== undefined ||
-            secretStore.hasOAuthClientSecret(entry.provider.providerId)
-          if (entry.provider.enabled && !hasSecret) {
+          if (entry.newClientSecret !== undefined) {
+            newSecrets[entry.provider.providerId] = entry.newClientSecret
+          }
+        }
+        const hasPendingSecret = (providerId: string) =>
+          providerId in newSecrets
+        // UX guard: enabling a provider requires a secret (new or already
+        // stored) so the admin gets immediate feedback rather than a silently
+        // non-functional button.
+        for (const entry of finalized) {
+          if (
+            entry.provider.enabled &&
+            !isOAuthProviderUsable(entry.provider, hasPendingSecret)
+          ) {
             return badRequest(
               c,
               `Client secret is required for ${entry.provider.displayName}.`,
@@ -243,22 +255,16 @@ export const adminRoute = new Hono()
         const authError = await signInConfigError({
           passkeyEnabled: configStore.get("passkeyEnabled"),
           oauthProviders: nextProviders,
-        })
+        }, hasPendingSecret)
         if (authError) {
           return badRequest(c, authError)
         }
-        for (const entry of finalized) {
-          if (entry.newClientSecret !== undefined) {
-            secretStore.setOAuthClientSecret(
-              entry.provider.providerId,
-              entry.newClientSecret,
-            )
-          }
-        }
         configStore.patch({ oauthProviders: nextProviders })
-        secretStore.retainOAuthProviders(
-          nextProviders.map((provider) => provider.providerId),
-        )
+        // Single write: prune removed providers' secrets, overlay the new ones.
+        secretStore.update({
+          setOAuth: newSecrets,
+          retainOAuth: nextProviders.map((provider) => provider.providerId),
+        })
       } catch (cause) {
         return badRequestFromCause(
           c,

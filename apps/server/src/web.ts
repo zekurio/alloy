@@ -185,7 +185,12 @@ function withInjectedHead(indexHtml: string, head: string): string {
  * breakout.
  */
 function bootstrapScript(config: PublicAuthConfig): string {
-  const json = JSON.stringify(config).replaceAll("<", "\\u003c")
+  // Escape `<` (blocks </script> breakout) and U+2028/U+2029, which are legal in
+  // JSON but illegal as raw line terminators in a JS string on older engines.
+  const json = JSON.stringify(config)
+    .replaceAll("<", "\\u003c")
+    .replaceAll("\u2028", "\\u2028")
+    .replaceAll("\u2029", "\\u2029")
   return `<script>globalThis.__ALLOY_PUBLIC_CONFIG__=${json}</script>`
 }
 

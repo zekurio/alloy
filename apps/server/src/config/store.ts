@@ -255,23 +255,11 @@ function reloadFromDisk(): boolean {
     logger.warn(`[config-store] ignoring invalid ${CONFIG_PATH}:`, result.error)
     return false
   }
-  // Migrate any inline admin-managed secrets a hand-edited/restored file carried,
-  // then refuse to apply a config that enables an OAuth provider with no stored
-  // secret — an enabled-but-secretless provider breaks sign-in and can lock
-  // admins out. Keeps the running config unchanged on rejection.
+  // Migrate any inline admin-managed secrets a hand-edited/restored file
+  // carried. We don't reject secretless-but-enabled providers here: they are
+  // filtered out at the consumer layer (isOAuthProviderUsable), so they're
+  // simply not served rather than breaking sign-in.
   secretStore.ingestConfigSecrets(result.raw)
-  const missingSecret = result.config.oauthProviders.filter((provider) =>
-    provider.enabled && !secretStore.hasOAuthClientSecret(provider.providerId)
-  )
-  if (missingSecret.length > 0) {
-    logger.warn(
-      `[config-store] ignoring reload of ${CONFIG_PATH}: enabled OAuth ` +
-        `provider(s) missing a stored secret: ${
-          missingSecret.map((provider) => provider.providerId).join(", ")
-        }`,
-    )
-    return false
-  }
   apply(result.config, false)
   if (result.migrated) writeToDisk(state)
   return true
