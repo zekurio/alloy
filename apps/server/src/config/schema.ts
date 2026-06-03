@@ -12,10 +12,8 @@ import {
   ENCODER_HWACCELS,
   RUNTIME_CONFIG_VERSION,
   type RuntimeConfig,
-  STORAGE_DRIVERS,
 } from "@workspace/contracts"
 
-import { env } from "../env"
 import { randomBase64Url } from "../runtime/crypto"
 import { OAuthProvidersSchema } from "./oauth-schema"
 
@@ -151,6 +149,9 @@ const MachineLearningConfigSchema = z.object({
 
 const ServerSecretsConfigSchema = z.object({
   viewerCookieSecret: z.string().min(32).default(randomSecret),
+  // Signs short-lived FS upload tickets. Persisted so in-flight tickets survive
+  // restarts. (Previously lived under storage.fs.hmacSecret.)
+  uploadHmacSecret: z.string().min(32).default(randomSecret),
 })
 
 const LoginSplashConfigSchema = z.object({
@@ -164,77 +165,6 @@ const AppearanceConfigSchema = z.object({
     LoginSplashConfigSchema.parse({}),
   ),
 })
-
-function normalizePublicUrl(value: string): string {
-  const url = new URL(value)
-  url.pathname = url.pathname.replace(/\/api\/?$/, "") || "/"
-  url.search = ""
-  url.hash = ""
-  return url.toString().replace(/\/$/, "")
-}
-
-const FsStorageConfigSchema = z.object({
-  root: z
-    .string()
-    .min(1)
-    .default(env.ALLOY_STORAGE_DIR ?? "./data/server/storage"),
-  publicBaseUrl: z
-    .string()
-    .url()
-    .default(env.PUBLIC_SERVER_URL)
-    .transform(normalizePublicUrl),
-  hmacSecret: z.string().min(32),
-})
-
-const S3StorageConfigBaseSchema = z.object({
-  bucket: z.string().default(""),
-  region: z.string().default("auto"),
-  endpoint: z.string().url().optional(),
-  accessKeyId: z.string().optional(),
-  secretAccessKey: z.string().optional(),
-  forcePathStyle: z.boolean().default(false),
-  presignExpiresSec: z.number().int().positive().default(900),
-})
-
-const S3StorageConfigSchema = S3StorageConfigBaseSchema.superRefine(
-  (config, ctx) => {
-    const hasAccessKey = config.accessKeyId !== undefined &&
-      config.accessKeyId.trim().length > 0
-    const hasSecret = config.secretAccessKey !== undefined &&
-      config.secretAccessKey.trim().length > 0
-
-    if (hasAccessKey === hasSecret) return
-
-    ctx.addIssue({
-      code: "custom",
-      path: hasAccessKey ? ["secretAccessKey"] : ["accessKeyId"],
-      message:
-        "S3 access key ID and secret access key must be configured together.",
-    })
-  },
-)
-
-const DEFAULT_FS_STORAGE_CONFIG = FsStorageConfigSchema.parse({
-  hmacSecret: randomSecret(),
-})
-
-const DEFAULT_S3_STORAGE_CONFIG = S3StorageConfigSchema.parse({})
-
-const StorageConfigSchema = z
-  .object({
-    driver: z.enum(STORAGE_DRIVERS).default("fs"),
-    fs: FsStorageConfigSchema.default(DEFAULT_FS_STORAGE_CONFIG),
-    s3: S3StorageConfigSchema.default(DEFAULT_S3_STORAGE_CONFIG),
-  })
-  .superRefine((config, ctx) => {
-    if (config.driver === "s3" && config.s3.bucket.trim().length === 0) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["s3", "bucket"],
-        message: "S3 bucket is required when storage driver is s3.",
-      })
-    }
-  })
 
 export const RuntimeConfigSchema = z.object({
   runtimeConfigVersion: z.literal(RUNTIME_CONFIG_VERSION).default(
@@ -259,11 +189,6 @@ export const RuntimeConfigSchema = z.object({
   secrets: ServerSecretsConfigSchema.default(
     ServerSecretsConfigSchema.parse({}),
   ),
-  storage: StorageConfigSchema.default({
-    driver: "fs",
-    fs: DEFAULT_FS_STORAGE_CONFIG,
-    s3: DEFAULT_S3_STORAGE_CONFIG,
-  }),
 })
 
 export const EncoderConfigPatchSchema = EncoderConfigInnerSchema.partial()
@@ -274,26 +199,8 @@ export const MachineLearningConfigPatchSchema = MachineLearningConfigSchema
     gameClassifier: GameClassifierModelConfigSchema.partial().optional(),
   })
 export const AppearanceConfigPatchSchema = AppearanceConfigSchema.partial()
-export const FsStorageConfigPatchSchema = FsStorageConfigSchema.partial()
-export const S3StorageConfigPatchSchema = S3StorageConfigBaseSchema.partial()
-  .extend({
-    endpoint: z.string().url().nullable().optional(),
-    accessKeyId: z.string().nullable().optional(),
-    secretAccessKey: z.string().nullable().optional(),
-  })
-export const StorageConfigPatchSchema = z.object({
-  driver: z.enum(STORAGE_DRIVERS).optional(),
-  fs: FsStorageConfigPatchSchema.optional(),
-  s3: S3StorageConfigPatchSchema.optional(),
-})
 
-const DEFAULT_CONFIG: RuntimeConfig = RuntimeConfigSchema.parse({
-  storage: {
-    driver: "fs",
-    fs: DEFAULT_FS_STORAGE_CONFIG,
-    s3: DEFAULT_S3_STORAGE_CONFIG,
-  },
-})
+const DEFAULT_CONFIG: RuntimeConfig = RuntimeConfigSchema.parse({})
 
 export function bootstrapDefaultConfig(): RuntimeConfig {
   const parsed = RuntimeConfigSchema.safeParse({})

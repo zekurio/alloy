@@ -117,6 +117,7 @@ export interface AdminGameClassifierModelConfig {
 
 export interface ServerSecretsConfig {
   viewerCookieSecret: string
+  uploadHmacSecret: string
 }
 
 export interface LoginSplashConfig {
@@ -125,7 +126,7 @@ export interface LoginSplashConfig {
   darkenOpacity: number
 }
 
-export const LOGIN_SPLASH_IMAGE_PATH = "/api/auth-config/splashscreen.jpg"
+export const LOGIN_SPLASH_IMAGE_PATH = "/api/auth-config/splashscreen.webp"
 
 export function loginSplashImagePath(): string {
   return LOGIN_SPLASH_IMAGE_PATH
@@ -140,57 +141,6 @@ export interface PublicLoginSplashConfig {
 
 export interface AppearanceConfig {
   loginSplash: LoginSplashConfig
-}
-
-export const STORAGE_DRIVERS = ["fs", "s3"] as const
-export type StorageDriverKind = (typeof STORAGE_DRIVERS)[number]
-
-export interface AdminFsStorageConfig {
-  root: string
-  publicBaseUrl: string
-  hmacSecret: string
-}
-
-export interface AdminS3StorageConfig {
-  bucket: string
-  region: string
-  endpoint?: string
-  accessKeyId?: string
-  secretAccessKey?: string
-  forcePathStyle: boolean
-  presignExpiresSec: number
-}
-
-export type AdminStorageConfig =
-  | {
-    driver: "fs"
-    fs: AdminFsStorageConfig
-    s3: AdminS3StorageConfig
-  }
-  | {
-    driver: "s3"
-    fs: AdminFsStorageConfig
-    s3: AdminS3StorageConfig
-  }
-
-export type StorageConfig = AdminStorageConfig
-
-export type AdminFsStorageConfigPatch = Partial<AdminFsStorageConfig>
-
-export type AdminS3StorageConfigPatch =
-  & Partial<
-    Omit<AdminS3StorageConfig, "endpoint" | "accessKeyId" | "secretAccessKey">
-  >
-  & {
-    endpoint?: string | null
-    accessKeyId?: string | null
-    secretAccessKey?: string | null
-  }
-
-export interface AdminStorageConfigPatch {
-  driver?: StorageDriverKind
-  fs?: AdminFsStorageConfigPatch
-  s3?: AdminS3StorageConfigPatch
 }
 
 export interface AdminEncoderCapabilities {
@@ -237,7 +187,6 @@ export interface RuntimeConfig {
   integrations: IntegrationsConfig
   machineLearning: MachineLearningConfig
   appearance: AppearanceConfig
-  storage: StorageConfig
   secrets: ServerSecretsConfig
 }
 

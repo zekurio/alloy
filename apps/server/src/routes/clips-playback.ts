@@ -8,7 +8,7 @@ import {
   clipAccessResponse,
   resolveClipAccess,
 } from "../clips/access"
-import { storage } from "../storage"
+import { clipStorage } from "../storage"
 import { notFound } from "../runtime/http-response"
 import { pipeReadable } from "../runtime/streaming"
 import {
@@ -65,7 +65,7 @@ function mediaCacheControl(privacy: ClipPrivacy): string {
  *  Never redirects, so it is safe for hls.js segment fetches (same-origin). */
 function streamResolved(
   c: Context,
-  resolved: NonNullable<Awaited<ReturnType<typeof storage.resolve>>>,
+  resolved: NonNullable<Awaited<ReturnType<typeof clipStorage.resolve>>>,
   contentType: string,
   cacheControl: string,
 ): Response {
@@ -141,19 +141,7 @@ export const clipsPlaybackRoutes = new Hono()
 
       const cacheControl = mediaCacheControl(row.privacy)
 
-      if (!access.isPrivate && c.req.method !== "HEAD") {
-        const direct = await storage.mintDownloadUrl(selected.key, {
-          expiresInSec: 900,
-          responseContentType: selected.contentType || undefined,
-          responseCacheControl: cacheControl,
-        })
-        if (direct) {
-          c.header("Cache-Control", "private, max-age=60")
-          return c.redirect(direct.url, 302)
-        }
-      }
-
-      const resolved = await storage.resolve(selected.key)
+      const resolved = await clipStorage.resolve(selected.key)
       if (!resolved) {
         logger.error(
           `[clips] bytes missing for ready clip ${id} (${selected.id})`,
@@ -234,7 +222,7 @@ export const clipsPlaybackRoutes = new Hono()
       )
       if (!variant) return notFound(c, "HLS media unavailable")
 
-      const resolved = await storage.resolve(variant.storageKey)
+      const resolved = await clipStorage.resolve(variant.storageKey)
       if (!resolved) return notFound(c, "HLS media unavailable")
 
       return streamResolved(
@@ -272,18 +260,7 @@ export const clipsPlaybackRoutes = new Hono()
       ? "no-store"
       : "private, max-age=86400"
 
-    if (!access.isPrivate && c.req.method !== "HEAD") {
-      const direct = await storage.mintDownloadUrl(key, {
-        expiresInSec: 900,
-        responseCacheControl: thumbCacheControl,
-      })
-      if (direct) {
-        c.header("Cache-Control", "private, max-age=60")
-        return c.redirect(direct.url, 302)
-      }
-    }
-
-    const resolved = await storage.resolve(key)
+    const resolved = await clipStorage.resolve(key)
     if (!resolved) return notFound(c, "No thumbnail")
 
     c.header("Content-Type", resolved.contentType)
@@ -313,17 +290,7 @@ export const clipsPlaybackRoutes = new Hono()
       return notFound(c)
     }
 
-    const direct = await storage.mintDownloadUrl(row.openGraphKey, {
-      expiresInSec: 900,
-      responseContentType: row.openGraphContentType ?? "video/mp4",
-      responseCacheControl: "public, max-age=300",
-    })
-    if (direct && c.req.method !== "HEAD") {
-      c.header("Cache-Control", "private, max-age=60")
-      return c.redirect(direct.url, 302)
-    }
-
-    const resolved = await storage.resolve(row.openGraphKey)
+    const resolved = await clipStorage.resolve(row.openGraphKey)
     if (!resolved) return notFound(c, "OpenGraph unavailable")
     c.header("Content-Type", row.openGraphContentType ?? resolved.contentType)
     c.header("Content-Length", String(resolved.size))
@@ -382,20 +349,7 @@ export const clipsPlaybackRoutes = new Hono()
         ? "no-store"
         : "private, max-age=300"
 
-      if (!access.isPrivate && c.req.method !== "HEAD") {
-        const direct = await storage.mintDownloadUrl(selected.key, {
-          expiresInSec: 900,
-          responseContentType: selected.contentType || undefined,
-          responseContentDisposition: contentDisposition(selected.filename),
-          responseCacheControl: dlCacheControl,
-        })
-        if (direct) {
-          c.header("Cache-Control", "private, max-age=60")
-          return c.redirect(direct.url, 302)
-        }
-      }
-
-      const resolved = await storage.resolve(selected.key)
+      const resolved = await clipStorage.resolve(selected.key)
       if (!resolved) {
         return notFound(c, "Download unavailable")
       }

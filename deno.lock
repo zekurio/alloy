@@ -19,7 +19,6 @@
     "npm:@types/react-dom@19.2.3": "19.2.3_@types+react@19.2.14",
     "npm:@types/react@19.2.14": "19.2.14",
     "npm:@vitejs/plugin-react@5.2.0": "5.2.0_vite@8.0.10__@types+node@25.6.0_@types+node@25.6.0",
-    "npm:aws4fetch@1.0.20": "1.0.20",
     "npm:class-variance-authority@0.7.1": "0.7.1",
     "npm:clsx@2.1.1": "2.1.1",
     "npm:drizzle-kit@0.31.10": "0.31.10",
@@ -1436,9 +1435,6 @@
         "tslib@2.8.1"
       ]
     },
-    "aws4fetch@1.0.20": {
-      "integrity": "sha512-/djoAN709iY65ETD6LKCtyyEI04XIBP5xVvfmNxsEP0uJB5tyaGBztSryRr4HqMStr9R06PisQE7m9zDTXKu6g=="
-    },
     "babel-dead-code-elimination@1.0.12": {
       "integrity": "sha512-GERT7L2TiYcYDtYk1IpD+ASAYXjKbLTDPhBtYj7X1NuRMDTMtAx9kyBenub1Ev41lo91OHCKdmP+egTDmfQ7Ig==",
       "dependencies": [
@@ -2189,7 +2185,6 @@
       "npm:@types/react-dom@19.2.3",
       "npm:@types/react@19.2.14",
       "npm:@vitejs/plugin-react@5.2.0",
-      "npm:aws4fetch@1.0.20",
       "npm:class-variance-authority@0.7.1",
       "npm:clsx@2.1.1",
       "npm:drizzle-kit@0.31.10",

@@ -6,7 +6,6 @@ import {
   ENCODER_HWACCELS,
   RUNTIME_CONFIG_VERSION,
   type RuntimeConfig,
-  STORAGE_DRIVERS,
 } from "@workspace/contracts"
 import {
   objectRecord,
@@ -17,7 +16,6 @@ import {
   validateIntegerInRange,
   validateNullablePositiveInteger,
   validateNullableRequiredString,
-  validateOptionalString,
   validateOptionalUrlString,
   validatePositiveInteger,
   validateRequiredString,
@@ -28,7 +26,6 @@ import {
 import { validateAuthProviderColors, validateBackdropTreatment } from "./shared"
 const ENCODER_CODEC_SET: ReadonlySet<string> = new Set(ENCODER_CODECS)
 const ENCODER_HWACCEL_SET: ReadonlySet<string> = new Set(ENCODER_HWACCELS)
-const STORAGE_DRIVER_SET: ReadonlySet<string> = new Set(STORAGE_DRIVERS)
 const RUNTIME_CONFIG_BOOLEAN_FIELDS = [
   "openRegistrations",
   "setupComplete",
@@ -237,67 +234,15 @@ function validateAdminAppearanceConfig(value: unknown) {
   validateBackdropTreatment(loginSplash, "admin login splash config")
 }
 
-function validateAdminStorageConfig(value: unknown) {
-  const storage = objectRecord(value, "admin storage config")
-  validateEnumString(
-    storage.driver,
-    STORAGE_DRIVER_SET,
-    "Invalid admin storage config: driver is invalid",
-  )
-  const fs = objectRecord(storage.fs, "admin filesystem storage config")
-  validateRequiredString(
-    fs.root,
-    "Invalid admin filesystem storage config: root is required",
-  )
-  validateUrlString(
-    fs.publicBaseUrl,
-    "Invalid admin filesystem storage config: publicBaseUrl must be a URL",
-  )
-  validateString(
-    fs.hmacSecret,
-    "Invalid admin filesystem storage config: hmacSecret must be a string",
-  )
-
-  const s3 = objectRecord(storage.s3, "admin S3 storage config")
-  for (const key of ["bucket", "region"] as const) {
-    validateString(
-      s3[key],
-      `Invalid admin S3 storage config: ${key} must be a string`,
-    )
-  }
-  validateOptionalUrlString(
-    s3.endpoint,
-    "Invalid admin S3 storage config: endpoint must be a URL",
-  )
-  validateOptionalString(
-    s3.accessKeyId,
-    "Invalid admin S3 storage config: accessKeyId must be a string",
-  )
-  validateOptionalString(
-    s3.secretAccessKey,
-    "Invalid admin S3 storage config: secretAccessKey must be a string",
-  )
-  validateBoolean(
-    s3.forcePathStyle,
-    "Invalid admin S3 storage config: forcePathStyle must be boolean",
-  )
-  validatePositiveInteger(
-    s3.presignExpiresSec,
-    "Invalid admin S3 storage config: presignExpiresSec must be a positive integer",
-  )
-  if (storage.driver === "s3") {
-    validateRequiredString(
-      s3.bucket,
-      "Invalid admin S3 storage config: bucket is required when storage driver is s3",
-    )
-  }
-}
-
 function validateAdminSecretsConfig(value: unknown) {
   const secrets = objectRecord(value, "admin secrets config")
   validateString(
     secrets.viewerCookieSecret,
     "Invalid admin secrets config: viewerCookieSecret must be a string",
+  )
+  validateString(
+    secrets.uploadHmacSecret,
+    "Invalid admin secrets config: uploadHmacSecret must be a string",
   )
 }
 
@@ -331,7 +276,6 @@ function validateRuntimeConfigFields(
   validateAdminIntegrationsConfig(config.integrations)
   validateAdminMachineLearningConfig(config.machineLearning)
   validateAdminAppearanceConfig(config.appearance)
-  validateAdminStorageConfig(config.storage)
   validateAdminSecretsConfig(config.secrets)
 }
 

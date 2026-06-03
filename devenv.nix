@@ -13,7 +13,6 @@ let
     zstd
   ];
   dataDir = "${config.devenv.root}/data";
-  serverData = "${dataDir}/server";
 in
 {
   # https://devenv.sh/languages/
@@ -46,9 +45,9 @@ in
     # Dev serves the web app from Vite (5173); the server adds its own public
     # origin to the trusted set on top of this.
     TRUSTED_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173";
-    ALLOY_CONFIG_FILE = "${serverData}/runtime-config.json";
-    ALLOY_STORAGE_DIR = "${serverData}/storage";
-    ENCODE_SCRATCH_DIR = "${serverData}/scratch";
+    ALLOY_DATA_DIR = dataDir;
+    ALLOY_CLIPS_DIR = "${dataDir}/clips";
+    ALLOY_ENCODE_DIR = "${dataDir}/encode";
     ALLOY_ML_HOST = "0.0.0.0";
     ALLOY_ML_PORT = "2662";
     MACHINE_LEARNING_CACHE_FOLDER = "${dataDir}/ml";

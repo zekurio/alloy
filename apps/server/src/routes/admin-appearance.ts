@@ -11,11 +11,12 @@ import { configStore } from "../config/store"
 import { db } from "../db"
 import { runImageMagick } from "../media/imagemagick"
 import { validateImageBytes } from "../media/image-validation"
-import { storage } from "../storage"
+import { clipStorage, dataStorage } from "../storage"
 import { readAll } from "./clips-helpers"
 
 const LOGIN_SPLASH_CLIP_LIMIT = 24
-const SPLASH_CONTENT_TYPE = "image/jpeg"
+const SPLASH_CONTENT_TYPE = "image/webp"
+const SPLASH_WEBP_QUALITY = 82
 const SPLASH_WIDTH = 1920
 const SPLASH_HEIGHT = 1080
 const MAX_SPLASH_TILES = 24
@@ -27,7 +28,7 @@ const TILE_GRID_MARGIN_STEPS = 2
 const TILE_ROW_SHIFT = 184
 const TILE_ROW_SHIFTS = [0, 0.58, 0.22, 0.74, 0.39] as const
 
-export const LOGIN_SPLASH_STORAGE_KEY = "system/splashscreen.jpg"
+export const LOGIN_SPLASH_STORAGE_KEY = "splash/splashscreen.webp"
 
 export const LOGIN_SPLASH_CONTENT_TYPE = SPLASH_CONTENT_TYPE
 
@@ -79,6 +80,17 @@ async function decodeSplashSource(bytes: Uint8Array): Promise<SplashImage> {
       throw cause
     }
   }
+}
+
+// imagescript can only emit PNG/JPEG, so round-trip the composed image through
+// ImageMagick (already a runtime dep, same path as user avatars) to get WebP.
+// Only runs at generation time, never on the request path.
+async function encodeSplashWebp(image: SplashImage): Promise<Uint8Array> {
+  const png = await image.encode()
+  return await runImageMagick(
+    ["png:-", "-quality", String(SPLASH_WEBP_QUALITY), "webp:-"],
+    png,
+  )
 }
 
 async function buildTile(asset: SplashClipAsset): Promise<SplashImage> {
@@ -181,17 +193,17 @@ async function buildLoginSplashImage(
     SPLASH_HEIGHT,
   )
 
-  return await createSolidImage(SPLASH_WIDTH, SPLASH_HEIGHT)
+  const composed = createSolidImage(SPLASH_WIDTH, SPLASH_HEIGHT)
     .composite(backdrop, 0, 0)
     .composite(splashShadeOverlay(), 0, 0)
-    .encodeJPEG(86)
+  return await encodeSplashWebp(composed)
 }
 
 async function buildUploadedLoginSplashImage(
   bytes: Buffer,
 ): Promise<Uint8Array> {
   const image = await decodeSplashSource(bytes)
-  return await image.cover(SPLASH_WIDTH, SPLASH_HEIGHT).encodeJPEG(88)
+  return await encodeSplashWebp(image.cover(SPLASH_WIDTH, SPLASH_HEIGHT))
 }
 
 async function selectLoginSplashAssets(
@@ -199,7 +211,7 @@ async function selectLoginSplashAssets(
 ): Promise<SplashClipAsset[]> {
   const assets: SplashClipAsset[] = []
   for (const row of rows.slice(0, MAX_SPLASH_TILES)) {
-    const resolved = await storage.resolve(row.thumbKey)
+    const resolved = await clipStorage.resolve(row.thumbKey)
     if (!resolved) continue
     const bytes = await readAll(resolved.stream())
     assets.push({ ...row, bytes })
@@ -242,18 +254,18 @@ export async function storeLoginSplashImage(
   rows: SplashClipRow[],
 ): Promise<boolean> {
   if (rows.length === 0) {
-    await storage.delete(LOGIN_SPLASH_STORAGE_KEY)
+    await dataStorage.delete(LOGIN_SPLASH_STORAGE_KEY)
     return false
   }
 
   const assets = await selectLoginSplashAssets(rows)
   const image = await buildLoginSplashImage(assets)
   if (!image) {
-    await storage.delete(LOGIN_SPLASH_STORAGE_KEY)
+    await dataStorage.delete(LOGIN_SPLASH_STORAGE_KEY)
     return false
   }
 
-  await storage.put(LOGIN_SPLASH_STORAGE_KEY, image, SPLASH_CONTENT_TYPE)
+  await dataStorage.put(LOGIN_SPLASH_STORAGE_KEY, image, SPLASH_CONTENT_TYPE)
   return true
 }
 
@@ -268,7 +280,7 @@ export async function storeUploadedLoginSplashImage(input: {
   }
 
   const image = await buildUploadedLoginSplashImage(bytes)
-  await storage.put(LOGIN_SPLASH_STORAGE_KEY, image, SPLASH_CONTENT_TYPE)
+  await dataStorage.put(LOGIN_SPLASH_STORAGE_KEY, image, SPLASH_CONTENT_TYPE)
 }
 
 export async function generateLoginSplashPatch(
@@ -288,16 +300,16 @@ export async function generateLoginSplashPatch(
 }
 
 /**
- * Heals the persisted login splash image when the config says it is enabled
- * but no image exists at the storage key. This covers upgrades from the
- * pre-v2 config (where the image was generated on demand and never persisted),
- * layout-version bumps, and storage loss. Safe to call at startup; it is a
- * no-op when the splash is disabled or the image is already present.
+ * Heals the persisted login splash image when the config says it is enabled but
+ * no image exists in the data store. This covers fresh installs, upgrades that
+ * relocated the splash (it is regenerated in the new spot rather than migrated),
+ * format changes, and storage loss. Safe to call at startup; it is a no-op when
+ * the splash is disabled or the image is already present.
  */
 export async function ensureLoginSplashImage(): Promise<void> {
   const loginSplash = configStore.get("appearance").loginSplash
   if (!loginSplash.enabled) return
-  if (await storage.resolve(LOGIN_SPLASH_STORAGE_KEY)) return
+  if (await dataStorage.resolve(LOGIN_SPLASH_STORAGE_KEY)) return
 
   logger.info(
     "[admin-appearance] login splash enabled without a stored image; regenerating",

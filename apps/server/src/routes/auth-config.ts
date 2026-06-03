@@ -13,7 +13,7 @@ import { getPublicProviders } from "../auth/oauth-config"
 import { getSetupStatus } from "../auth/user-bootstrap"
 import { notFound } from "../runtime/http-response"
 import { pipeReadable } from "../runtime/streaming"
-import { storage } from "../storage"
+import { dataStorage } from "../storage"
 import {
   LOGIN_SPLASH_CONTENT_TYPE,
   LOGIN_SPLASH_STORAGE_KEY,
@@ -25,10 +25,10 @@ export const authConfigRoute = new Hono()
   .get("/", async (c) => {
     const setupStatus = await getSetupStatus()
     const loginSplash = configStore.get("appearance").loginSplash
-    const splashImage = loginSplash.enabled
-      ? await storage.resolve(LOGIN_SPLASH_STORAGE_KEY)
-      : null
 
+    // No storage I/O on this hot path: trust the `enabled` flag and emit the
+    // image URL. The splash-serving endpoint below 404s if the file is somehow
+    // missing, and `ensureLoginSplashImage()` heals it at boot.
     return c.json(
       {
         ...setupStatus,
@@ -40,7 +40,7 @@ export const authConfigRoute = new Hono()
           enabled: loginSplash.enabled,
           blurPx: loginSplash.blurPx,
           darkenOpacity: loginSplash.darkenOpacity,
-          imageUrl: loginSplash.enabled && splashImage
+          imageUrl: loginSplash.enabled
             ? new URL(
               loginSplashImagePath(),
               env.PUBLIC_SERVER_URL,
@@ -59,7 +59,7 @@ export const authConfigRoute = new Hono()
     const loginSplash = configStore.get("appearance").loginSplash
     if (!loginSplash.enabled) return notFound(c)
 
-    const resolved = await storage.resolve(LOGIN_SPLASH_STORAGE_KEY)
+    const resolved = await dataStorage.resolve(LOGIN_SPLASH_STORAGE_KEY)
     if (!resolved) return notFound(c)
 
     c.header("Content-Type", LOGIN_SPLASH_CONTENT_TYPE)

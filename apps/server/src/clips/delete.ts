@@ -6,7 +6,7 @@ import { logger } from "@workspace/logging"
 import { db } from "../db"
 import { publishClipRemove } from "./events"
 import { cancelEncode } from "../queue/encode-worker"
-import { storage } from "../storage"
+import { clipStorage } from "../storage"
 import { deleteScratchUploads } from "../uploads/scratch"
 
 export async function deleteClipRowAndAssets(
@@ -27,7 +27,7 @@ export async function deleteClipRowAndAssets(
   ].filter((key): key is string => Boolean(key))
   for (const key of keys) {
     try {
-      await storage.delete(key)
+      await clipStorage.delete(key)
     } catch (err) {
       logger.warn(`[clips] failed to delete ${key}:`, err)
     }

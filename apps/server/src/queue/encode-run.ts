@@ -10,7 +10,7 @@ import { notifyFollowersOfNewClip } from "../notifications"
 import { configStore } from "../config/store"
 import { join } from "../runtime/path"
 
-import { clipAssetKey, storage } from "../storage"
+import { clipAssetKey, clipStorage } from "../storage"
 import { deleteScratchUpload, scratchUploadPath } from "../uploads/scratch"
 import { abortEncode } from "./encode-abort"
 import { makeProgressWriter } from "./encode-progress"
@@ -96,7 +96,7 @@ async function runPipelineInScratch({
 
   const sourcePath = join(scratchDir, "source")
   if (row.sourceKey) {
-    await storage.downloadToFile(row.sourceKey, sourcePath)
+    await clipStorage.downloadToFile(row.sourceKey, sourcePath)
   } else {
     const uploadKey = await selectScratchUploadKey(clipId)
     if (!uploadKey) throw new Error("Uploaded source is missing")
@@ -206,7 +206,7 @@ async function runPipelineInScratch({
     atMs: Math.max(0, thumbAtMs),
     signal,
   })
-  await storage.uploadFromFile(thumbPath, thumbKey, "image/webp")
+  await clipStorage.uploadFromFile(thumbPath, thumbKey, "image/webp")
   uploadedKeys.push(thumbKey)
   const [thumbPublished] = await db
     .update(clip)
@@ -313,7 +313,7 @@ async function pruneStaleClipAssets(
       .filter((key) => !retained.has(key))
       .map(async (key) => {
         try {
-          await storage.delete(key)
+          await clipStorage.delete(key)
         } catch (err) {
           logger.warn(
             `[queue] failed to delete stale clip asset ${key}:`,
@@ -370,7 +370,7 @@ async function cleanupFailedRun(
       .filter((key) => !retainedKeys.has(key))
       .map(async (key) => {
         try {
-          await storage.delete(key)
+          await clipStorage.delete(key)
         } catch (err) {
           logger.warn(
             `[queue] failed to delete failed encode asset ${key}:`,

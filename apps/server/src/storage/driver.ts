@@ -28,21 +28,6 @@ export interface MintUploadUrlInput {
   clipId: string
 }
 
-export interface DownloadUrl {
-  url: string
-  expiresAt: number
-}
-
-export interface MintDownloadUrlInput {
-  expiresInSec: number
-  /** Overrides the `Content-Type` the object would otherwise serve with. */
-  responseContentType?: string
-  /** Attachment filename override (Content-Disposition). */
-  responseContentDisposition?: string
-  /** Cache-Control header to send with the signed response. */
-  responseCacheControl?: string
-}
-
 export interface StorageDriver {
   /**
    * Server-side write. Returns the byte length actually written so the
@@ -89,23 +74,15 @@ export interface StorageDriver {
     toKey: string
     contentType: string
   }): Promise<{ size: number }>
-
-  /**
-   * Return a short-lived URL the browser can GET to read the object,
-   * or `null` when the driver wants callers to stream through the
-   * server instead. Playback/download routes 302 when non-null.
-   */
-  mintDownloadUrl(
-    key: string,
-    input: MintDownloadUrlInput,
-  ): Promise<DownloadUrl | null>
 }
 
 function clipAssetDir(clipId: string): string {
   const hex = clipId.replace(/-/g, "")
   const aa = hex.slice(0, 2)
   const bb = hex.slice(2, 4)
-  return `clips/${aa}/${bb}/${clipId}`
+  // Keys are relative to the clip-store root (ALLOY_CLIPS_DIR), which already
+  // means "clips", so no `clips/` prefix here.
+  return `${aa}/${bb}/${clipId}`
 }
 
 type ClipAssetRole = "source" | "video" | "thumb" | "thumb-small"

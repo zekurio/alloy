@@ -45,10 +45,16 @@ let
     ++ lib.optionals (!(pathIsUnder cfg.stateDir configDir)) [ configDir ]
     ++ lib.optionals (!(pathIsUnder cfg.stateDir cfg.storageDir)) [ cfg.storageDir ]
   );
+  # The ML cache defaults under the data dir (stateDir); only add it as an
+  # external write path when it lives outside both managed directories, since
+  # StateDirectory/CacheDirectory already grant write access to their subtrees.
+  machineLearningCacheManaged =
+    pathIsUnder cfg.stateDir cfg.machine-learning.cacheDir
+    || pathIsUnder cfg.cacheDir cfg.machine-learning.cacheDir;
   machineLearningExternalWritePaths = lib.unique (
     lib.optionals (managedStateDirectory == null) [ cfg.stateDir ]
     ++ lib.optionals (managedCacheDirectory == null) [ cfg.cacheDir ]
-    ++ lib.optionals (!(pathIsUnder cfg.cacheDir cfg.machine-learning.cacheDir)) [
+    ++ lib.optionals (!machineLearningCacheManaged) [
       cfg.machine-learning.cacheDir
     ]
   );
@@ -207,9 +213,13 @@ in
 
     configFile = lib.mkOption {
       type = lib.types.path;
-      default = "${config.services.alloy-clips.stateDir}/runtime-config.json";
-      defaultText = lib.literalExpression ''"\${config.services.alloy-clips.stateDir}/runtime-config.json"'';
-      description = "Mutable JSON runtime config file used by Alloy and the admin UI.";
+      default = "${config.services.alloy-clips.stateDir}/config.json";
+      defaultText = lib.literalExpression ''"\${config.services.alloy-clips.stateDir}/config.json"'';
+      description = ''
+        Mutable JSON runtime config file used by Alloy and the admin UI. Alloy
+        always reads `config.json` from the data dir (stateDir); keep this in
+        sync if you override it.
+      '';
     };
 
     initialRuntimeConfig = lib.mkOption {
@@ -309,10 +319,14 @@ in
 
       cacheDir = lib.mkOption {
         type = lib.types.path;
-        default = "${config.services.alloy-clips.cacheDir}/machine-learning";
+        default = "${config.services.alloy-clips.stateDir}/ml";
         defaultText =
-          lib.literalExpression ''"\${config.services.alloy-clips.cacheDir}/machine-learning"'';
-        description = "Mutable cache directory for model downloads and inference cache.";
+          lib.literalExpression ''"\${config.services.alloy-clips.stateDir}/ml"'';
+        description = ''
+          Directory for ML model downloads and inference cache. Lives under the
+          data dir (stateDir) by default so large model weights persist across
+          cache wipes and re-downloads are avoided.
+        '';
       };
 
       environment = lib.mkOption {
@@ -388,9 +402,12 @@ in
         PORT = toString cfg.port;
         PUBLIC_SERVER_URL = cfg.publicServerUrl;
         TRUSTED_ORIGINS = lib.concatStringsSep "," ([ cfg.publicServerUrl ] ++ cfg.trustedOrigins);
-        ALLOY_CONFIG_FILE = cfg.configFile;
-        ALLOY_STORAGE_DIR = cfg.storageDir;
-        ENCODE_SCRATCH_DIR = encodeDir;
+        # App-owned data (config.json, splash, user assets, ML cache) lives in
+        # the persistent state dir; bulk clips live in storageDir; encode scratch
+        # is wipeable cache.
+        ALLOY_DATA_DIR = cfg.stateDir;
+        ALLOY_CLIPS_DIR = cfg.storageDir;
+        ALLOY_ENCODE_DIR = encodeDir;
         PGHOST = cfg.database.host;
         PGUSER = cfg.database.user;
         PGDATABASE = cfg.database.name;

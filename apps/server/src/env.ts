@@ -72,11 +72,15 @@ const EnvSchema = z.object({
     .default(defaultPublicServerUrl)
     .transform(normalizeTrustedOrigins),
 
-  // Runtime config file path.
-  ALLOY_CONFIG_FILE: z.string().optional(),
-  ALLOY_STORAGE_DIR: z.string().optional(),
-
-  ENCODE_SCRATCH_DIR: z.string().optional(),
+  // App-owned data: config.json, login splash, user avatars/banners, and the
+  // ML model cache all live under this dir. Always local; keep it on fast disk.
+  ALLOY_DATA_DIR: z.string().optional(),
+  // Bulk clip media. The only "big" location; point it at a large volume.
+  // Defaults to `${ALLOY_DATA_DIR}/clips`.
+  ALLOY_CLIPS_DIR: z.string().optional(),
+  // Ephemeral transcode scratch. Defaults to `${ALLOY_DATA_DIR}/encode`; can be
+  // pointed at system tmp (e.g. /tmp/alloy) or tmpfs.
+  ALLOY_ENCODE_DIR: z.string().optional(),
 
   FFMPEG_BIN: z.string().default("ffmpeg"),
   FFPROBE_BIN: z.string().default("ffprobe"),

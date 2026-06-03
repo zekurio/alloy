@@ -22,7 +22,7 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
   const token = c.req.param("token")
   const decoded = await decodeUploadToken(
     token,
-    configStore.get("storage").fs.hmacSecret,
+    configStore.get("secrets").uploadHmacSecret,
   )
   if (!decoded.ok) {
     return unauthorized(c, "Invalid upload ticket")

@@ -9,7 +9,6 @@ import {
   OAuthProviderSchema,
   OAuthProviderSubmissionSchema,
   type RuntimeConfig,
-  type StorageConfig,
 } from "../config/store"
 import { isoDate } from "../runtime/date"
 import { selectSourceStorageUsedBytesByUserIds } from "../storage/quota"
@@ -36,24 +35,14 @@ function redactSecrets(
       viewerCookieSecret: config.secrets.viewerCookieSecret
         ? REDACTED_SENTINEL
         : "",
+      uploadHmacSecret: config.secrets.uploadHmacSecret
+        ? REDACTED_SENTINEL
+        : "",
     },
     oauthProviders: config.oauthProviders.map((provider) => ({
       ...provider,
       clientSecret: "",
     })),
-    storage: {
-      ...config.storage,
-      fs: {
-        ...config.storage.fs,
-        hmacSecret: config.storage.fs.hmacSecret ? REDACTED_SENTINEL : "",
-      },
-      s3: {
-        ...config.storage.s3,
-        secretAccessKey: config.storage.s3.secretAccessKey
-          ? REDACTED_SENTINEL
-          : "",
-      },
-    },
   }
 }
 
@@ -79,6 +68,9 @@ export function preserveRedactedSecrets(
     if (secrets.viewerCookieSecret === REDACTED_SENTINEL) {
       secrets.viewerCookieSecret = current.secrets.viewerCookieSecret
     }
+    if (secrets.uploadHmacSecret === REDACTED_SENTINEL) {
+      secrets.uploadHmacSecret = current.secrets.uploadHmacSecret
+    }
   }
   if (Array.isArray(input.oauthProviders)) {
     const currentById = new Map(
@@ -96,21 +88,6 @@ export function preserveRedactedSecrets(
         : ""
       if (!row.clientSecret || row.clientSecret === "") {
         row.clientSecret = currentById.get(providerId)?.clientSecret ?? ""
-      }
-    }
-  }
-  if (input.storage && typeof input.storage === "object") {
-    const storage = input.storage as Record<string, unknown>
-    if (storage.fs && typeof storage.fs === "object") {
-      const fs = storage.fs as Record<string, unknown>
-      if (fs.hmacSecret === REDACTED_SENTINEL) {
-        fs.hmacSecret = current.storage.fs.hmacSecret
-      }
-    }
-    if (storage.s3 && typeof storage.s3 === "object") {
-      const s3 = storage.s3 as Record<string, unknown>
-      if (s3.secretAccessKey === REDACTED_SENTINEL) {
-        s3.secretAccessKey = current.storage.s3.secretAccessKey
       }
     }
   }
@@ -231,65 +208,4 @@ export function finalizeOAuthProviderSubmission(
     ...parsedProvider,
     clientSecret,
   }) as OAuthProviderConfig
-}
-
-type StorageConfigPatch = {
-  driver?: StorageConfig["driver"]
-  fs?: Partial<StorageConfig["fs"]>
-  s3?:
-    & Partial<
-      Omit<StorageConfig["s3"], "endpoint" | "accessKeyId" | "secretAccessKey">
-    >
-    & {
-      endpoint?: string | null
-      accessKeyId?: string | null
-      secretAccessKey?: string | null
-    }
-}
-
-export function mergeStorageConfigPatch(
-  current: StorageConfig,
-  patch: StorageConfigPatch,
-): StorageConfig {
-  const next = structuredClone(current)
-  next.driver = patch.driver ?? current.driver
-  next.fs = { ...current.fs, ...patch.fs }
-
-  if (patch.s3?.bucket !== undefined) next.s3.bucket = patch.s3.bucket
-  if (patch.s3?.region !== undefined) next.s3.region = patch.s3.region
-  if (patch.s3?.forcePathStyle !== undefined) {
-    next.s3.forcePathStyle = patch.s3.forcePathStyle
-  }
-  if (patch.s3?.presignExpiresSec !== undefined) {
-    next.s3.presignExpiresSec = patch.s3.presignExpiresSec
-  }
-
-  if (patch.s3?.endpoint === null) {
-    delete next.s3.endpoint
-  } else if (patch.s3?.endpoint !== undefined) {
-    next.s3.endpoint = patch.s3.endpoint
-  }
-  if (patch.s3?.accessKeyId === null) {
-    delete next.s3.accessKeyId
-  } else if (patch.s3?.accessKeyId !== undefined) {
-    next.s3.accessKeyId = patch.s3.accessKeyId
-  }
-  if (
-    patch.fs?.hmacSecret === undefined ||
-    patch.fs.hmacSecret === REDACTED_SENTINEL
-  ) {
-    next.fs.hmacSecret = current.fs.hmacSecret
-  }
-  if (
-    patch.s3?.secretAccessKey === undefined ||
-    patch.s3.secretAccessKey === REDACTED_SENTINEL
-  ) {
-    next.s3.secretAccessKey = current.s3.secretAccessKey
-  } else if (patch.s3?.secretAccessKey === null) {
-    delete next.s3.secretAccessKey
-  } else {
-    next.s3.secretAccessKey = patch.s3.secretAccessKey
-  }
-
-  return next
 }

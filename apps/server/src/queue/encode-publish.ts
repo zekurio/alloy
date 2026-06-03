@@ -5,7 +5,7 @@ import type {
 
 import { configStore } from "../config/store"
 import { join } from "../runtime/path"
-import { clipOpenGraphVideoKey, storage } from "../storage"
+import { clipOpenGraphVideoKey, clipStorage } from "../storage"
 import { ensureClipStillPresent } from "./encode-run-helpers"
 import { codecNameFor, encode, encodeHls, probe, remuxToMp4 } from "./ffmpeg"
 import type { VariantSpec } from "./variant-specs"
@@ -35,7 +35,11 @@ export async function publishRemuxedSource({
     trimEndMs: trim.endMs,
     signal,
   })
-  return await storage.uploadFromFile(remuxedSourcePath, sourceKey, "video/mp4")
+  return await clipStorage.uploadFromFile(
+    remuxedSourcePath,
+    sourceKey,
+    "video/mp4",
+  )
 }
 
 export async function publishOpenGraph({
@@ -78,7 +82,7 @@ export async function publishOpenGraph({
   })
   const variantProbe = await probe(outPath)
   const storageKey = clipOpenGraphVideoKey(clipId)
-  const { size } = await storage.uploadFromFile(
+  const { size } = await clipStorage.uploadFromFile(
     outPath,
     storageKey,
     "video/mp4",
@@ -150,7 +154,7 @@ export async function encodePlaybackVariants(opts: {
     // The CMAF file probes and serves as a normal MP4, so it doubles as the
     // progressive download under the same storage key.
     const variantProbe = await probe(artifacts.mediaPath)
-    const { size } = await storage.uploadFromFile(
+    const { size } = await clipStorage.uploadFromFile(
       artifacts.mediaPath,
       spec.storageKey,
       "video/mp4",

@@ -28,7 +28,7 @@ import {
 import { pipeReadable } from "../runtime/streaming"
 import { requireSession } from "../auth/require-session"
 import { selectSourceStorageUsedBytes } from "../storage/quota"
-import { storage } from "../storage"
+import { clipStorage } from "../storage"
 import {
   listFollowers,
   listFollowing,
@@ -119,7 +119,7 @@ export const usersRoute = new Hono()
       filename: downloadFilename(row, "source"),
       stream: async () => {
         if (!row.sourceKey) return null
-        const resolved = await storage.resolve(row.sourceKey)
+        const resolved = await clipStorage.resolve(row.sourceKey)
         return resolved?.stream() ?? null
       },
     }))

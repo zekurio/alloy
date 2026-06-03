@@ -22,7 +22,6 @@ import {
   MachineLearningConfigPatchSchema,
   OAuthProvidersSchema,
   parseRuntimeConfig,
-  StorageConfigPatchSchema,
 } from "../config/store"
 import { enqueueEncode } from "../queue"
 import { getEncoderCapabilities } from "./admin-encoder-capabilities"
@@ -35,7 +34,6 @@ import {
   adminRuntimeConfigResponse,
   finalizeOAuthProviderSubmission,
   hasEnabledSignInMethod,
-  mergeStorageConfigPatch,
   preserveRedactedSecrets,
   REDACTED_SENTINEL,
 } from "./admin-helpers"
@@ -317,27 +315,6 @@ export const adminRoute = new Hono()
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     },
   )
-  /**
-   * PATCH /storage — update the active storage driver configuration. The
-   * server rebuilds the driver immediately for new operations; in-flight
-   * uploads/downloads continue on the driver instance they already entered.
-   */
-  .patch("/storage", zValidator("json", StorageConfigPatchSchema), (c) => {
-    const patch = c.req.valid("json")
-    const current = configStore.get("storage")
-    const next = mergeStorageConfigPatch(current, patch)
-
-    try {
-      configStore.set("storage", next)
-    } catch (cause) {
-      return badRequestFromCause(
-        c,
-        cause,
-        "Couldn't save storage configuration.",
-      )
-    }
-    return c.json(adminRuntimeConfigResponse(configStore.getAll()))
-  })
   .get("/encoder/capabilities", async (c) => {
     return c.json(await getEncoderCapabilities())
   })
