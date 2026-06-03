@@ -10,6 +10,7 @@ import {
 } from "@simplewebauthn/server"
 import { and, eq, gt, lt } from "drizzle-orm"
 import { Buffer } from "node:buffer"
+import { logger } from "@workspace/logging"
 
 import {
   authChallenge,
@@ -74,6 +75,34 @@ async function deleteExpiredChallenges(): Promise<void> {
   await db.delete(authChallenge).where(lt(authChallenge.expiresAt, new Date()))
 }
 
+const CHALLENGE_SWEEP_INTERVAL_MS = 5 * 60 * 1000
+let sweepTimer: ReturnType<typeof setInterval> | null = null
+
+function sweepExpiredChallenges(): void {
+  void deleteExpiredChallenges().catch((err) =>
+    logger.error("[webauthn] expired challenge sweep failed:", err)
+  )
+}
+
+/**
+ * Periodically purge expired challenges in the background. Keeping this OFF the
+ * request path is what makes passkey sign-in fast: `consumeChallenge` already
+ * rejects expired rows, so cleanup is pure housekeeping, not correctness.
+ */
+export function startChallengeSweeper(): void {
+  if (sweepTimer) return
+  sweepExpiredChallenges()
+  sweepTimer = setInterval(sweepExpiredChallenges, CHALLENGE_SWEEP_INTERVAL_MS)
+  // Don't keep the process alive just for the sweeper.
+  Deno.unrefTimer(sweepTimer)
+}
+
+export function stopChallengeSweeper(): void {
+  if (!sweepTimer) return
+  clearInterval(sweepTimer)
+  sweepTimer = null
+}
+
 async function consumeChallenge(input: {
   challengeId: string
   purpose: string
@@ -100,7 +129,6 @@ export async function beginPasskeyRegistration(input: {
     passkeys?: UserPasskey[]
   }
 }) {
-  await deleteExpiredChallenges()
   const excludeCredentials = input.user.passkeys?.map((row) => ({
     id: row.credentialId,
     transports: transports(row),
@@ -160,7 +188,6 @@ export async function beginPasskeyAuthentication() {
   if (!configStore.get("passkeyEnabled")) {
     throw new Error("Passkey sign-in is currently disabled.")
   }
-  await deleteExpiredChallenges()
   const options = await generateAuthenticationOptions({
     rpID: rpId(),
     userVerification: "required",

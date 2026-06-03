@@ -8,6 +8,13 @@
       "when": 1780507432215,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780521497724,
+      "tag": "0001_add_auth_challenge_expires_idx",
+      "breakpoints": true
     }
   ]
 }
