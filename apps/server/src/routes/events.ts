@@ -11,6 +11,7 @@ import {
 } from "../notifications/events"
 import { listNotifications } from "../notifications"
 import { requireSession } from "../auth/require-session"
+import { shutdownSignal } from "../runtime/shutdown"
 
 const HEARTBEAT_MS = 25_000
 
@@ -66,13 +67,26 @@ async function writePendingEvents<T>(
 async function waitForEventsOrHeartbeat(input: {
   sleep: (ms: number) => Promise<void>
   setWake: (wake: (() => void) | null) => void
+  signal: AbortSignal
 }) {
+  if (input.signal.aborted) return
   const heartbeat = input.sleep(HEARTBEAT_MS)
   const nextEvent = new Promise<void>((resolve) => {
     input.setWake(resolve)
   })
-  await Promise.race([heartbeat, nextEvent])
-  input.setWake(null)
+  let resolveShutdown: (() => void) | null = null
+  const shutdown = new Promise<void>((resolve) => {
+    resolveShutdown = resolve
+    input.signal.addEventListener("abort", resolveShutdown, { once: true })
+  })
+  try {
+    await Promise.race([heartbeat, nextEvent, shutdown])
+  } finally {
+    if (resolveShutdown) {
+      input.signal.removeEventListener("abort", resolveShutdown)
+    }
+    input.setWake(null)
+  }
 }
 
 async function runPendingEventStream<T>(input: {
@@ -85,8 +99,9 @@ async function runPendingEventStream<T>(input: {
   setWake: (wake: (() => void) | null) => void
   eventName: (event: T) => string
   writeIdle: () => Promise<void>
+  signal: AbortSignal
 }) {
-  while (!input.stream.aborted) {
+  while (!input.stream.aborted && !input.signal.aborted) {
     if (
       await writePendingEvents(
         input.stream.writeSSE.bind(input.stream),
@@ -100,9 +115,14 @@ async function runPendingEventStream<T>(input: {
     await waitForEventsOrHeartbeat({
       sleep: input.sleep,
       setWake: input.setWake,
+      signal: input.signal,
     })
 
-    if (input.pending.length === 0 && !input.stream.aborted) {
+    if (
+      input.pending.length === 0 &&
+      !input.stream.aborted &&
+      !input.signal.aborted
+    ) {
       await input.writeIdle()
     }
   }
@@ -121,14 +141,17 @@ export const eventsRoute = new Hono().get(
     return streamSSE(c, async (stream) => {
       const pending: QueueEvent[] = []
       let wake: (() => void) | null = null
+      const wakeOnShutdown = () => wake?.()
 
       const unsubscribe = subscribeToAuthorQueue(viewerId, (event) => {
         pending.push(event)
         wake?.()
       })
+      shutdownSignal.addEventListener("abort", wakeOnShutdown, { once: true })
 
       stream.onAbort(() => {
         unsubscribe()
+        shutdownSignal.removeEventListener("abort", wakeOnShutdown)
         wake?.()
       })
 
@@ -144,8 +167,10 @@ export const eventsRoute = new Hono().get(
           },
           eventName: (event) => event.type,
           writeIdle: () => stream.writeSSE({ event: "heartbeat", data: "" }),
+          signal: shutdownSignal,
         })
       } finally {
+        shutdownSignal.removeEventListener("abort", wakeOnShutdown)
         unsubscribe()
       }
     })
@@ -168,14 +193,17 @@ eventsRoute.get(
     return streamSSE(c, async (stream) => {
       const pending: NotificationEvent[] = []
       let wake: (() => void) | null = null
+      const wakeOnShutdown = () => wake?.()
 
       const unsubscribe = subscribeToNotifications(viewerId, (event) => {
         pending.push(event)
         wake?.()
       })
+      shutdownSignal.addEventListener("abort", wakeOnShutdown, { once: true })
 
       stream.onAbort(() => {
         unsubscribe()
+        shutdownSignal.removeEventListener("abort", wakeOnShutdown)
         wake?.()
       })
 
@@ -197,8 +225,10 @@ eventsRoute.get(
           },
           eventName: (event) => event.type,
           writeIdle: () => stream.writeSSE({ event: "heartbeat", data: "" }),
+          signal: shutdownSignal,
         })
       } finally {
+        shutdownSignal.removeEventListener("abort", wakeOnShutdown)
         unsubscribe()
       }
     })
