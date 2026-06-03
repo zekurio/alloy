@@ -151,7 +151,7 @@ export const secretStore = {
    * here, and it's a no-op when nothing inline is present (avoids churn on the
    * watcher's self-triggered reloads).
    */
-  ingestConfigSecrets(raw: unknown): void {
+  ingestConfigSecrets(raw: unknown = readJsonFile(CONFIG_PATH)): void {
     if (!raw || typeof raw !== "object") return
     const config = raw as Record<string, unknown>
 
@@ -188,3 +188,10 @@ export const secretStore = {
     if (changed) commit({ ...state, oauthClientSecrets, steamgriddbApiKey })
   },
 } as const
+
+// On every boot, migrate inline admin-managed secrets that a restored or
+// hand-edited config.json carries BEFORE the config store strips those keys and
+// rewrites the file. No-op when secrets.json was just seeded from the same file
+// above; this covers the case where secrets.json already existed (so the seed
+// path was skipped) but config.json was restored with inline secrets.
+secretStore.ingestConfigSecrets()
