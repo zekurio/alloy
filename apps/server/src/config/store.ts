@@ -8,10 +8,10 @@ import { errorDetail } from "../runtime/error-message"
 import { CONFIG_PATH } from "../runtime/dirs"
 import { dirname } from "../runtime/path"
 
-// Side-effect import: guarantees the secret store initializes (and seeds itself
-// from any legacy inline secrets in config.json) BEFORE this module strips
-// those secret keys and rewrites the file.
-import "./secret-store"
+// Imported before this module's body runs, so the secret store initializes (and
+// seeds itself from any legacy inline secrets in config.json) BEFORE this module
+// strips those secret keys and rewrites the file.
+import { secretStore } from "./secret-store"
 
 import {
   AppearanceConfigPatchSchema,
@@ -72,6 +72,8 @@ type LoadResult =
     created: boolean
     migrated: boolean
     strippedSecrets: boolean
+    /** Raw parsed JSON as read from disk (null when the file didn't exist). */
+    raw: unknown
   }
   | { ok: false; error: string }
 
@@ -130,6 +132,7 @@ function loadFromDisk(): LoadResult {
         created: true,
         migrated: false,
         strippedSecrets: false,
+        raw: null,
       }
     }
   } catch (err) {
@@ -140,6 +143,7 @@ function loadFromDisk(): LoadResult {
         created: true,
         migrated: false,
         strippedSecrets: false,
+        raw: null,
       }
     }
     return {
@@ -159,6 +163,7 @@ function loadFromDisk(): LoadResult {
       created: false,
       migrated: result.migrated,
       strippedSecrets: hasLegacySecretKeys(json),
+      raw: json,
     }
   } catch (err) {
     return {
@@ -248,6 +253,23 @@ function reloadFromDisk(): boolean {
   const result = loadFromDisk()
   if (!result.ok) {
     logger.warn(`[config-store] ignoring invalid ${CONFIG_PATH}:`, result.error)
+    return false
+  }
+  // Migrate any inline admin-managed secrets a hand-edited/restored file carried,
+  // then refuse to apply a config that enables an OAuth provider with no stored
+  // secret — an enabled-but-secretless provider breaks sign-in and can lock
+  // admins out. Keeps the running config unchanged on rejection.
+  secretStore.ingestConfigSecrets(result.raw)
+  const missingSecret = result.config.oauthProviders.filter((provider) =>
+    provider.enabled && !secretStore.hasOAuthClientSecret(provider.providerId)
+  )
+  if (missingSecret.length > 0) {
+    logger.warn(
+      `[config-store] ignoring reload of ${CONFIG_PATH}: enabled OAuth ` +
+        `provider(s) missing a stored secret: ${
+          missingSecret.map((provider) => provider.providerId).join(", ")
+        }`,
+    )
     return false
   }
   apply(result.config, false)

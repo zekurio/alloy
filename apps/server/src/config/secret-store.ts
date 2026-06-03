@@ -144,4 +144,47 @@ export const secretStore = {
   setSteamgriddbApiKey(key: string): void {
     commit({ ...state, steamgriddbApiKey: key })
   },
+  /**
+   * Merge admin-managed secrets (OAuth client secrets, SteamGridDB key) that a
+   * reloaded or hand-edited config.json carried inline, so a restore/edit keeps
+   * working. Server-internal secrets (cookie/upload HMAC) are never touched
+   * here, and it's a no-op when nothing inline is present (avoids churn on the
+   * watcher's self-triggered reloads).
+   */
+  ingestConfigSecrets(raw: unknown): void {
+    if (!raw || typeof raw !== "object") return
+    const config = raw as Record<string, unknown>
+
+    let changed = false
+    const oauthClientSecrets = { ...state.oauthClientSecrets }
+    if (Array.isArray(config.oauthProviders)) {
+      for (const provider of config.oauthProviders) {
+        if (!provider || typeof provider !== "object") continue
+        const row = provider as Record<string, unknown>
+        if (
+          typeof row.providerId === "string" &&
+          typeof row.clientSecret === "string" &&
+          row.clientSecret.length > 0 &&
+          oauthClientSecrets[row.providerId] !== row.clientSecret
+        ) {
+          oauthClientSecrets[row.providerId] = row.clientSecret
+          changed = true
+        }
+      }
+    }
+
+    let steamgriddbApiKey = state.steamgriddbApiKey
+    const integrations = config.integrations
+    if (integrations && typeof integrations === "object") {
+      const key = (integrations as Record<string, unknown>).steamgriddbApiKey
+      if (
+        typeof key === "string" && key.length > 0 && key !== steamgriddbApiKey
+      ) {
+        steamgriddbApiKey = key
+        changed = true
+      }
+    }
+
+    if (changed) commit({ ...state, oauthClientSecrets, steamgriddbApiKey })
+  },
 } as const
