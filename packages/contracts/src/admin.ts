@@ -13,11 +13,15 @@ export type UsernameClaim = string
 export const OAUTH_QUOTA_CLAIM_DEFAULT = "alloy_quota"
 export const OAUTH_ROLE_CLAIM_DEFAULT = "alloy_role"
 
+/**
+ * Stored OAuth provider metadata. Note the absence of `clientSecret`: provider
+ * secrets live in the server-only secret store, never in this struct, so no
+ * config read path can serialize them by accident.
+ */
 export interface OAuthProviderConfig {
   providerId: string
   displayName: string
   clientId: string
-  clientSecret: string
   scopes?: string[]
   enabled: boolean
   buttonColor?: string
@@ -33,7 +37,15 @@ export interface OAuthProviderConfig {
   roleClaim?: string
 }
 
-export type AdminOAuthProvider = OAuthProviderConfig
+/**
+ * Admin-facing OAuth provider. `clientSecretSet` reports whether a secret is
+ * configured (read), and `clientSecret` carries a new value when the admin is
+ * setting one (write-only — it is never populated on responses).
+ */
+export type AdminOAuthProvider = OAuthProviderConfig & {
+  clientSecretSet: boolean
+  clientSecret?: string
+}
 
 export const ENCODER_HWACCELS = [
   "none",
@@ -89,13 +101,13 @@ export interface AdminLimitsConfig {
 
 export type LimitsConfig = AdminLimitsConfig
 
-export const INTEGRATIONS_REDACTED = "***"
-
+/**
+ * Integrations as exposed to admins: secret values are reported only as
+ * presence flags, never echoed back.
+ */
 export interface AdminIntegrationsConfig {
-  steamgriddbApiKey: string
+  steamgriddbApiKeySet: boolean
 }
-
-export type IntegrationsConfig = AdminIntegrationsConfig
 
 export interface AdminMachineLearningConfig {
   enabled: boolean
@@ -115,9 +127,17 @@ export interface AdminGameClassifierModelConfig {
   checkpointPath: string | null
 }
 
+/**
+ * Server-only secret material. Persisted apart from {@link RuntimeConfig} and
+ * never serialized to any HTTP response — there is no response type that
+ * contains these fields.
+ */
 export interface ServerSecretsConfig {
   viewerCookieSecret: string
   uploadHmacSecret: string
+  steamgriddbApiKey: string
+  /** OAuth client secrets keyed by `providerId`. */
+  oauthClientSecrets: Record<string, string>
 }
 
 export interface LoginSplashConfig {
@@ -175,6 +195,12 @@ export interface AdminUpdateUserInput {
 
 export const RUNTIME_CONFIG_VERSION = 1
 
+/**
+ * Persisted, non-secret runtime configuration (the `config.json` contents).
+ * Secret material lives in {@link ServerSecretsConfig}, stored separately, so
+ * this object — and anything derived from it, including `export` — is safe to
+ * serialize by construction.
+ */
 export interface RuntimeConfig {
   runtimeConfigVersion: number
   openRegistrations: boolean
@@ -184,13 +210,18 @@ export interface RuntimeConfig {
   oauthProviders: OAuthProviderConfig[]
   encoder: EncoderConfig
   limits: LimitsConfig
-  integrations: IntegrationsConfig
   machineLearning: MachineLearningConfig
   appearance: AppearanceConfig
-  secrets: ServerSecretsConfig
 }
 
-export interface AdminRuntimeConfig extends RuntimeConfig {
+/**
+ * Admin runtime config response. Built from {@link RuntimeConfig} plus
+ * secret-presence flags — it carries no secret values.
+ */
+export interface AdminRuntimeConfig
+  extends Omit<RuntimeConfig, "oauthProviders"> {
+  oauthProviders: AdminOAuthProvider[]
+  integrations: AdminIntegrationsConfig
   authBaseURL: string
 }
 

@@ -1,7 +1,7 @@
 import type { AcceptedContentType, UploadTicket } from "@workspace/contracts"
 import { logger } from "@workspace/logging"
 
-import { configStore } from "../config/store"
+import { secretStore } from "../config/secret-store"
 import { env } from "../env"
 import { ENCODE_DIR } from "../runtime/dirs"
 import { dirname, relative, resolve } from "../runtime/path"
@@ -43,7 +43,7 @@ export async function mintScratchUploadUrl(input: {
       cid: input.clipId,
     },
     publicBaseUrl: env.PUBLIC_SERVER_URL,
-    secret: configStore.get("secrets").uploadHmacSecret,
+    secret: secretStore.get("uploadHmacSecret"),
   })
 }
 

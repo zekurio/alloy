@@ -2,7 +2,6 @@ import type { ApiContext } from "./client"
 import type {
   AdminEncoderCapabilities,
   AdminEncoderConfig,
-  AdminIntegrationsConfig,
   AdminLimitsConfig,
   AdminMachineLearningConfig,
   AdminOAuthProvider,
@@ -31,7 +30,6 @@ export {
   ENCODER_HEIGHT_MAX,
   ENCODER_HEIGHT_MIN,
   ENCODER_HWACCELS,
-  INTEGRATIONS_REDACTED,
   LOGIN_SPLASH_IMAGE_PATH,
   loginSplashImagePath,
   OAUTH_QUOTA_CLAIM_DEFAULT,
@@ -235,8 +233,12 @@ export function createAdminApi(context: ApiContext) {
       patchRuntimeSection(context, "encoder", patch),
     updateLimitsConfig: (patch: Partial<AdminLimitsConfig>) =>
       patchRuntimeSection(context, "limits", patch),
-    updateIntegrationsConfig: (patch: Partial<AdminIntegrationsConfig>) =>
-      patchRuntimeSection(context, "integrations", patch),
+    updateIntegrationsConfig: (patch: { steamgriddbApiKey?: string }) =>
+      patchRuntimeSection<{ steamgriddbApiKey?: string }>(
+        context,
+        "integrations",
+        patch,
+      ),
     updateMachineLearningConfig: (patch: Partial<AdminMachineLearningConfig>) =>
       patchRuntimeSection(context, "machine-learning", patch),
     updateAppearanceConfig: (patch: AppearanceConfigPatch) =>

@@ -18,6 +18,9 @@ export const DATA_DIR = dirFromEnv(
 /** Runtime config file, always alongside the rest of the app data. */
 export const CONFIG_PATH = `${DATA_DIR}/config.json`
 
+/** Server secret material, persisted apart from the runtime config. */
+export const SECRETS_PATH = `${DATA_DIR}/secrets.json`
+
 /** Bulk clip media root. Defaults under the data dir; override for a big disk. */
 export const CLIPS_DIR = dirFromEnv(env.ALLOY_CLIPS_DIR, `${DATA_DIR}/clips`)
 

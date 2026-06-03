@@ -6,7 +6,7 @@ import type {
   SteamGridDBSearchResult,
 } from "@workspace/contracts"
 import { logger } from "@workspace/logging"
-import { configStore } from "../config/store"
+import { secretStore } from "../config/secret-store"
 import { errorMessage, isAbortError } from "../runtime/error-message"
 
 const STEAMGRIDDB_ORIGIN = "https://www.steamgriddb.com"
@@ -75,7 +75,7 @@ const GameDetailEnvelope = EnvelopeSchema(GameDetailSchema)
 const AssetListEnvelope = EnvelopeSchema(z.array(AssetSchema))
 
 function getApiKey(): string {
-  const key = configStore.get("integrations").steamgriddbApiKey
+  const key = secretStore.get("steamgriddbApiKey")
   if (!key || key.length === 0) {
     throw new SteamGridDBNotConfiguredError()
   }
@@ -307,6 +307,6 @@ export async function getGameAssets(steamgriddbId: number): Promise<{
 }
 
 export function isConfigured(): boolean {
-  const key = configStore.get("integrations").steamgriddbApiKey
+  const key = secretStore.get("steamgriddbApiKey")
   return typeof key === "string" && key.length > 0
 }

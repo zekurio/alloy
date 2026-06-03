@@ -40,10 +40,6 @@ function validateRuntimeOAuthProvider(value: unknown, label: string) {
       `Invalid ${label} config: ${key} is required`,
     )
   }
-  validateString(
-    provider.clientSecret,
-    `Invalid ${label} config: clientSecret must be a string`,
-  )
   if (provider.scopes !== undefined) {
     validateStringArray(
       provider.scopes,
@@ -180,9 +176,9 @@ function validateAdminLimitsConfig(value: unknown) {
 
 function validateAdminIntegrationsConfig(value: unknown) {
   const integrations = objectRecord(value, "admin integrations config")
-  validateString(
-    integrations.steamgriddbApiKey,
-    "Invalid admin integrations config: steamgriddbApiKey must be a string",
+  validateBoolean(
+    integrations.steamgriddbApiKeySet,
+    "Invalid admin integrations config: steamgriddbApiKeySet must be boolean",
   )
 }
 
@@ -234,18 +230,10 @@ function validateAdminAppearanceConfig(value: unknown) {
   validateBackdropTreatment(loginSplash, "admin login splash config")
 }
 
-function validateAdminSecretsConfig(value: unknown) {
-  const secrets = objectRecord(value, "admin secrets config")
-  validateString(
-    secrets.viewerCookieSecret,
-    "Invalid admin secrets config: viewerCookieSecret must be a string",
-  )
-  validateString(
-    secrets.uploadHmacSecret,
-    "Invalid admin secrets config: uploadHmacSecret must be a string",
-  )
-}
-
+/**
+ * Shared, secret-free fields common to the exported config and the admin
+ * response. Neither shape carries secret values — secrets live server-side.
+ */
 function validateRuntimeConfigFields(
   config: Record<string, unknown>,
   label: string,
@@ -273,10 +261,8 @@ function validateRuntimeConfigFields(
   )
   validateAdminEncoderConfig(config.encoder)
   validateAdminLimitsConfig(config.limits)
-  validateAdminIntegrationsConfig(config.integrations)
   validateAdminMachineLearningConfig(config.machineLearning)
   validateAdminAppearanceConfig(config.appearance)
-  validateAdminSecretsConfig(config.secrets)
 }
 
 export function validateRuntimeConfigExport(value: unknown): RuntimeConfig {
@@ -288,6 +274,13 @@ export function validateRuntimeConfigExport(value: unknown): RuntimeConfig {
 export function validateAdminRuntimeConfig(value: unknown): AdminRuntimeConfig {
   const config = objectRecord(value, "admin runtime")
   validateRuntimeConfigFields(config, "admin runtime")
+  for (const provider of validateArray(config.oauthProviders, "")) {
+    validateBoolean(
+      objectRecord(provider, "admin OAuth provider").clientSecretSet,
+      "Invalid admin runtime config: clientSecretSet must be boolean",
+    )
+  }
+  validateAdminIntegrationsConfig(config.integrations)
   validateUrlString(
     config.authBaseURL,
     "Invalid admin runtime config: authBaseURL must be a URL",

@@ -339,7 +339,8 @@ export function ConfigTransferSection({
           <div className="min-w-0">
             <div className="text-sm font-medium">Export</div>
             <p className="mt-0.5 text-xs text-foreground-dim">
-              Download the current server configuration including secrets.
+              Download the current server configuration. Secrets are not
+              included.
             </p>
           </div>
           <Button

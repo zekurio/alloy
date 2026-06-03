@@ -313,8 +313,8 @@ function getStepDone(
     true,
     // OIDC is optional; it is done once a provider is configured.
     config.oauthProviders.length > 0,
-    // SteamGridDB is done when the key is set (redacted = "***")
-    config.integrations.steamgriddbApiKey === "***",
+    // SteamGridDB is done once a key is configured.
+    config.integrations.steamgriddbApiKeySet,
   ]
 }
 

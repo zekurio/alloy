@@ -21,16 +21,14 @@ import {
 } from "@workspace/ui/components/input-group"
 import { toast } from "@workspace/ui/lib/toast"
 
-import {
-  type AdminIntegrationsConfig,
-  type AdminRuntimeConfig,
-  INTEGRATIONS_REDACTED,
+import type {
+  AdminIntegrationsConfig,
+  AdminRuntimeConfig,
 } from "@workspace/api"
 
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 import { gameKeys } from "@/lib/game-queries"
-import { requiredTrimmedString } from "./shared"
 
 type IntegrationsConfigCardProps = {
   integrations: AdminIntegrationsConfig
@@ -53,10 +51,6 @@ function updateSteamGridDBStatus(
   void queryClient.invalidateQueries({ queryKey: gameKeys.status() })
 }
 
-function normalizeSteamGridDBApiKey(value: string): string | null {
-  return requiredTrimmedString(value)
-}
-
 export function IntegrationsConfigCard({
   integrations,
   onChange,
@@ -66,35 +60,21 @@ export function IntegrationsConfigCard({
   formId,
 }: IntegrationsConfigCardProps) {
   const queryClient = useQueryClient()
-  const blankForm = (
-    src: AdminIntegrationsConfig,
-  ): AdminIntegrationsConfig => ({
-    ...src,
-    steamgriddbApiKey: src.steamgriddbApiKey === INTEGRATIONS_REDACTED
-      ? ""
-      : src.steamgriddbApiKey,
-  })
-
-  const [form, setForm] = React.useState<AdminIntegrationsConfig>(() =>
-    blankForm(integrations)
-  )
+  // The stored key is a secret and never sent to the client. The field holds a
+  // new value to write; blank means "keep the current key".
+  const [apiKey, setApiKey] = React.useState("")
   const [pending, setPending] = React.useState(false)
-  const initialForm = React.useMemo(
-    () => blankForm(integrations),
-    [integrations],
-  )
 
+  // Clear the write field whenever the configured state changes (e.g. on save).
   React.useEffect(() => {
-    setForm(initialForm)
-  }, [initialForm])
+    setApiKey("")
+  }, [integrations.steamgriddbApiKeySet])
 
-  const steamgriddbConfigured =
-    integrations.steamgriddbApiKey === INTEGRATIONS_REDACTED
-  const isDirty = normalizeSteamGridDBApiKey(form.steamgriddbApiKey) !==
-    normalizeSteamGridDBApiKey(initialForm.steamgriddbApiKey)
+  const steamgriddbConfigured = integrations.steamgriddbApiKeySet
+  const isDirty = apiKey.trim().length > 0
 
   function resetForm() {
-    setForm(initialForm)
+    setApiKey("")
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -106,18 +86,9 @@ export function IntegrationsConfigCard({
     }
     setPending(true)
     try {
-      const patch: Partial<AdminIntegrationsConfig> = {}
-      const steamgriddbApiKey = normalizeSteamGridDBApiKey(
-        form.steamgriddbApiKey,
-      )
-      if (steamgriddbApiKey) {
-        patch.steamgriddbApiKey = steamgriddbApiKey
-      }
-      if (Object.keys(patch).length === 0) {
-        toast.info("No changes to save")
-        return
-      }
-      const next = await api.admin.updateIntegrationsConfig(patch)
+      const next = await api.admin.updateIntegrationsConfig({
+        steamgriddbApiKey: apiKey.trim(),
+      })
       onChange(next)
       updateSteamGridDBStatus(queryClient, true)
       toast.success("Integrations updated")
@@ -148,15 +119,11 @@ export function IntegrationsConfigCard({
                   type="password"
                   className="pl-3.5"
                   autoComplete="new-password"
-                  value={form.steamgriddbApiKey}
+                  value={apiKey}
                   placeholder={steamgriddbConfigured
                     ? "Leave blank to keep current"
                     : ""}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      steamgriddbApiKey: e.target.value,
-                    }))}
+                  onChange={(e) => setApiKey(e.target.value)}
                 />
               </InputGroup>
               <FieldDescription>

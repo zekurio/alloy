@@ -17,12 +17,13 @@ import {
 import {
   configStore,
   EncoderConfigPatchSchema,
-  IntegrationsConfigPatchSchema,
+  IntegrationsSecretPatchSchema,
   LimitsConfigPatchSchema,
   MachineLearningConfigPatchSchema,
   OAuthProvidersSchema,
   parseRuntimeConfig,
 } from "../config/store"
+import { secretStore } from "../config/secret-store"
 import { enqueueEncode } from "../queue"
 import { getEncoderCapabilities } from "./admin-encoder-capabilities"
 import {
@@ -34,8 +35,6 @@ import {
   adminRuntimeConfigResponse,
   finalizeOAuthProviderSubmission,
   hasEnabledSignInMethod,
-  preserveRedactedSecrets,
-  REDACTED_SENTINEL,
 } from "./admin-helpers"
 import { adminUsersRoute } from "./admin-users"
 
@@ -127,15 +126,19 @@ export const adminRoute = new Hono()
       return badRequest(c, "Expected a JSON object.")
     }
     const input = body as Record<string, unknown>
-    const current = configStore.getAll()
-    preserveRedactedSecrets(input, current)
     try {
+      // Secrets are never part of an exported/imported config: legacy secret
+      // keys (if present) are stripped on parse, and the secret store is left
+      // untouched apart from pruning providers that no longer exist.
       const next = parseRuntimeConfig(input)
       const authError = await signInConfigError(next)
       if (authError) {
         return badRequest(c, authError)
       }
       configStore.replace(next)
+      secretStore.retainOAuthProviders(
+        next.oauthProviders.map((provider) => provider.providerId),
+      )
       if (next.appearance.loginSplash.enabled) await ensureLoginSplashImage()
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     } catch (cause) {
@@ -183,13 +186,24 @@ export const adminRoute = new Hono()
     zValidator("json", OAuthConfigSubmissionSchema),
     async (c) => {
       const submission = c.req.valid("json")
-      const existing = configStore.get("oauthProviders")
       try {
-        const nextProviders = OAuthProvidersSchema.parse(
-          submission.oauthProviders.map((provider) =>
-            finalizeOAuthProviderSubmission(provider, existing)
-          ),
+        const finalized = submission.oauthProviders.map(
+          finalizeOAuthProviderSubmission,
         )
+        const nextProviders = OAuthProvidersSchema.parse(
+          finalized.map((entry) => entry.provider),
+        )
+        // An enabled provider needs a secret — newly supplied or already stored.
+        for (const entry of finalized) {
+          const hasSecret = entry.newClientSecret !== undefined ||
+            secretStore.hasOAuthClientSecret(entry.provider.providerId)
+          if (entry.provider.enabled && !hasSecret) {
+            return badRequest(
+              c,
+              `Client secret is required for ${entry.provider.displayName}.`,
+            )
+          }
+        }
         const authError = await signInConfigError({
           passkeyEnabled: configStore.get("passkeyEnabled"),
           oauthProviders: nextProviders,
@@ -197,7 +211,18 @@ export const adminRoute = new Hono()
         if (authError) {
           return badRequest(c, authError)
         }
+        for (const entry of finalized) {
+          if (entry.newClientSecret !== undefined) {
+            secretStore.setOAuthClientSecret(
+              entry.provider.providerId,
+              entry.newClientSecret,
+            )
+          }
+        }
         configStore.patch({ oauthProviders: nextProviders })
+        secretStore.retainOAuthProviders(
+          nextProviders.map((provider) => provider.providerId),
+        )
       } catch (cause) {
         return badRequestFromCause(
           c,
@@ -233,17 +258,14 @@ export const adminRoute = new Hono()
   })
   .patch(
     "/integrations",
-    zValidator("json", IntegrationsConfigPatchSchema),
+    zValidator("json", IntegrationsSecretPatchSchema),
     (c) => {
       const patch = c.req.valid("json")
-      const current = configStore.get("integrations")
-      const next: typeof current = { ...current }
+      // The SteamGridDB key is a secret; an empty string clears it. Absent
+      // means "leave unchanged".
       if (patch.steamgriddbApiKey !== undefined) {
-        next.steamgriddbApiKey = patch.steamgriddbApiKey === REDACTED_SENTINEL
-          ? current.steamgriddbApiKey
-          : patch.steamgriddbApiKey
+        secretStore.setSteamgriddbApiKey(patch.steamgriddbApiKey.trim())
       }
-      configStore.set("integrations", next)
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     },
   )
