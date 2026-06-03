@@ -33,6 +33,7 @@ import {
 } from "./admin-appearance"
 import {
   adminRuntimeConfigResponse,
+  extractImportedOAuthSecrets,
   finalizeOAuthProviderSubmission,
   hasEnabledSignInMethod,
 } from "./admin-helpers"
@@ -127,18 +128,53 @@ export const adminRoute = new Hono()
     }
     const input = body as Record<string, unknown>
     try {
-      // Secrets are never part of an exported/imported config: legacy secret
-      // keys (if present) are stripped on parse, and the secret store is left
-      // untouched apart from pruning providers that no longer exist.
+      // Parse first (strips any legacy secret keys), then restore admin-managed
+      // secrets a full/legacy backup carried inline so a restore doesn't break
+      // OAuth. Server-internal secrets (cookie/upload HMAC) are NOT imported.
       const next = parseRuntimeConfig(input)
+      const nextProviderIds = new Set(
+        next.oauthProviders.map((provider) => provider.providerId),
+      )
+      const importedSecrets = extractImportedOAuthSecrets(
+        input,
+        nextProviderIds,
+      )
+
+      // Reject enabled providers that would end up with no secret (neither
+      // imported nor already stored): mirrors the /oauth-config guard and avoids
+      // enabling a broken provider that could lock admins out of sign-in.
+      const missingSecret = next.oauthProviders.filter((provider) =>
+        provider.enabled &&
+        !importedSecrets.has(provider.providerId) &&
+        !secretStore.hasOAuthClientSecret(provider.providerId)
+      )
+      if (missingSecret.length > 0) {
+        return badRequest(
+          c,
+          `Missing client secret for enabled OAuth provider(s): ${
+            missingSecret.map((provider) => provider.displayName).join(", ")
+          }. Include the secret in the import or disable the provider.`,
+        )
+      }
+
       const authError = await signInConfigError(next)
       if (authError) {
         return badRequest(c, authError)
       }
+
       configStore.replace(next)
-      secretStore.retainOAuthProviders(
-        next.oauthProviders.map((provider) => provider.providerId),
-      )
+      for (const [providerId, secret] of importedSecrets) {
+        secretStore.setOAuthClientSecret(providerId, secret)
+      }
+      const steamgriddbApiKey =
+        (input.integrations as Record<string, unknown> | undefined)
+          ?.steamgriddbApiKey
+      if (
+        typeof steamgriddbApiKey === "string" && steamgriddbApiKey.length > 0
+      ) {
+        secretStore.setSteamgriddbApiKey(steamgriddbApiKey)
+      }
+      secretStore.retainOAuthProviders([...nextProviderIds])
       if (next.appearance.loginSplash.enabled) await ensureLoginSplashImage()
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     } catch (cause) {

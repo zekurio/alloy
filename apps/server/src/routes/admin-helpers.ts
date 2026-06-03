@@ -140,6 +140,32 @@ function normalizeOAuthProviderSubmission(
   }
 }
 
+/**
+ * Pull OAuth client secrets that a full/legacy config backup carried inline, so
+ * an import can restore them before they're stripped from the stored config.
+ * Limited to providers that survive the parse, to avoid orphan secrets.
+ */
+export function extractImportedOAuthSecrets(
+  input: Record<string, unknown>,
+  knownProviderIds: ReadonlySet<string>,
+): Map<string, string> {
+  const secrets = new Map<string, string>()
+  if (!Array.isArray(input.oauthProviders)) return secrets
+  for (const provider of input.oauthProviders) {
+    if (!provider || typeof provider !== "object") continue
+    const row = provider as Record<string, unknown>
+    if (
+      typeof row.providerId === "string" &&
+      knownProviderIds.has(row.providerId) &&
+      typeof row.clientSecret === "string" &&
+      row.clientSecret.length > 0
+    ) {
+      secrets.set(row.providerId, row.clientSecret)
+    }
+  }
+  return secrets
+}
+
 export type FinalizedOAuthProvider = {
   /** Stored metadata (no secret). */
   provider: OAuthProviderConfig
