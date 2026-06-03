@@ -99,6 +99,17 @@ const apiApp = new Hono()
   )
   .use("/api/*", csrf)
   .use("/api/*", requireAuthToBrowse)
+  // Secure-by-default: every API response is private and uncacheable unless the
+  // handler explicitly sets its own Cache-Control (public clip media, games,
+  // avatars). This makes leaking an authenticated response through a shared
+  // cache impossible to do by omission — the failure mode that exposed config.
+  .use("/api/*", async (c, next) => {
+    await next()
+    if (!c.res.headers.has("Cache-Control")) {
+      c.header("Cache-Control", "private, no-store")
+      c.header("Vary", "Cookie")
+    }
+  })
   .get("/health", (c) => c.json({ status: "ok" }))
   .route("/api/auth", authRoute)
   .route("/api/auth-config", authConfigRoute)
