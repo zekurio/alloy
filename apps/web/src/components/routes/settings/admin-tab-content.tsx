@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query"
 import {
   BrainCircuitIcon,
   ClapperboardIcon,
-  DatabaseIcon,
   GaugeIcon,
   ImageIcon,
   ShieldIcon,
@@ -20,7 +19,6 @@ import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integ
 import { LimitsConfigCard } from "@/components/routes/admin-settings/limits-config-card"
 import { MachineLearningConfigCard } from "@/components/routes/admin-settings/machine-learning-config-card"
 import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-provider-card"
-import { StorageConfigCard } from "@/components/routes/admin-settings/storage-config-card"
 import {
   AppearanceSettingsSection,
   ConfigTransferSection,
@@ -268,28 +266,6 @@ function LimitsSettingsSection({
   )
 }
 
-function StorageSettingsSection({
-  config,
-  setConfig,
-}: {
-  config: AdminRuntimeConfig
-  setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>
-}) {
-  return (
-    <SettingsSection
-      icon={DatabaseIcon}
-      title="Storage backend"
-      description="Edit where clips are stored — local filesystem or S3-compatible."
-    >
-      <StorageConfigCard
-        storage={config.storage}
-        onChange={(next) => setConfig(next)}
-        hideHeader
-      />
-    </SettingsSection>
-  )
-}
-
 function SteamGridDBSettingsSection({
   config,
   setConfig,
@@ -343,7 +319,6 @@ export function AdminSettingsSections({ userId }: { userId: string }) {
       <EncoderSettingsSection config={config} setConfig={setConfig} />
       <MachineLearningSettingsSection config={config} setConfig={setConfig} />
       <LimitsSettingsSection config={config} setConfig={setConfig} />
-      <StorageSettingsSection config={config} setConfig={setConfig} />
       <AppearanceSettingsSection config={config} setConfig={setConfig} />
       <SteamGridDBSettingsSection config={config} setConfig={setConfig} />
       <SettingsSection

@@ -14,7 +14,7 @@ import { requireSession } from "../auth/require-session"
 import { runImageMagick } from "../media/imagemagick"
 import { validateImageBytes } from "../media/image-validation"
 import { errorResult, notFound } from "../runtime/http-response"
-import { storage, userAssetKey } from "../storage"
+import { dataStorage, userAssetKey } from "../storage"
 import type { ResolvedObject } from "../storage/driver"
 import { toPublicUser, type UserRow } from "./users-helpers"
 
@@ -112,7 +112,7 @@ async function deleteOldAssets(
     ...new Set([...Object.values(EXT_FOR_CONTENT_TYPE), USER_ASSET_EXT]),
   ]
   await Promise.all(
-    exts.map((ext) => storage.delete(userAssetKey(userId, role, ext))),
+    exts.map((ext) => dataStorage.delete(userAssetKey(userId, role, ext))),
   )
 }
 
@@ -174,7 +174,7 @@ async function uploadUserAsset(input: {
 
   const key = userAssetKey(input.viewerId, input.role, USER_ASSET_EXT)
   await deleteOldAssets(input.viewerId, input.role)
-  await storage.put(key, resized, USER_ASSET_CONTENT_TYPE)
+  await dataStorage.put(key, resized, USER_ASSET_CONTENT_TYPE)
 
   const updatedAt = new Date()
   const patch: Partial<typeof user.$inferInsert> = { updatedAt }
@@ -292,16 +292,7 @@ export const userAssetsRoute = new Hono().get("/:key{.+}", async (c) => {
     return notFound(c)
   }
 
-  const direct = await storage.mintDownloadUrl(key, {
-    expiresInSec: 900,
-    responseCacheControl: "public, max-age=86400, immutable",
-  })
-  if (direct) {
-    c.header("Cache-Control", "public, max-age=60")
-    return c.redirect(direct.url, 302)
-  }
-
-  const resolved = await storage.resolve(key)
+  const resolved = await dataStorage.resolve(key)
   if (!resolved) return notFound(c)
   const etag = assetEtag(key, resolved)
 

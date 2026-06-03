@@ -3,7 +3,7 @@ import {
   type ClipVariantSettings,
 } from "@workspace/db/schema"
 
-import { storage } from "../storage"
+import { clipStorage } from "../storage"
 import { codecNameFor } from "./ffmpeg"
 import type { EncoderConfig } from "../config/store"
 import type { VariantSpec } from "./variant-specs"
@@ -27,7 +27,7 @@ export async function planReuse(
     if (!prev.hls) continue
     const target = targetSettings[i]
     if (!target || !settingsEqual(prev.settings, target)) continue
-    const fileHit = await storage.resolve(prev.storageKey)
+    const fileHit = await clipStorage.resolve(prev.storageKey)
     if (!fileHit) continue
     reusedBySpecIndex.set(i, prev)
   }

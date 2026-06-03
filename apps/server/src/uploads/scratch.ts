@@ -3,7 +3,8 @@ import { logger } from "@workspace/logging"
 
 import { configStore } from "../config/store"
 import { env } from "../env"
-import { dirname, join, relative, resolve } from "../runtime/path"
+import { ENCODE_DIR } from "../runtime/dirs"
+import { dirname, relative, resolve } from "../runtime/path"
 import { mintFsUploadTicket } from "../storage/fs-upload-token"
 
 export function clipScratchUploadKey(
@@ -42,7 +43,7 @@ export async function mintScratchUploadUrl(input: {
       cid: input.clipId,
     },
     publicBaseUrl: env.PUBLIC_SERVER_URL,
-    secret: configStore.get("storage").fs.hmacSecret,
+    secret: configStore.get("secrets").uploadHmacSecret,
   })
 }
 
@@ -79,10 +80,7 @@ export async function ensureScratchParent(key: string): Promise<string> {
 }
 
 function scratchRoot(): string {
-  return resolve(
-    env.ENCODE_SCRATCH_DIR ?? join(Deno.cwd(), "data", "server", "scratch"),
-    "uploads",
-  )
+  return resolve(ENCODE_DIR, "uploads")
 }
 
 async function removeEmptyScratchParents(

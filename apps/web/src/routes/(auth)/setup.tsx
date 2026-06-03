@@ -10,7 +10,6 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   CheckCircle2Icon,
-  DatabaseIcon,
   FilmIcon,
   InfoIcon,
   LinkIcon,
@@ -29,7 +28,6 @@ import type {
 import { EncoderConfigCard } from "@/components/routes/admin-settings/encoder-config-card"
 import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integrations-config-card"
 import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-provider-card"
-import { StorageConfigCard } from "@/components/routes/admin-settings/storage-config-card"
 import { api } from "@/lib/api"
 import {
   adminEncoderCapabilitiesQueryOptions,
@@ -134,12 +132,6 @@ const defaultEncoderVariant: AdminEncoderVariant = {
 
 const SETUP_STEPS = [
   {
-    icon: DatabaseIcon,
-    label: "Storage",
-    description: "Configure where clips and uploads are stored.",
-    formId: "setup-storage",
-  },
-  {
     icon: FilmIcon,
     label: "Encoding",
     description: "Configure video encoding and hardware acceleration.",
@@ -159,9 +151,9 @@ const SETUP_STEPS = [
   },
 ] as const
 
-type SetupStep = 0 | 1 | 2 | 3
+type SetupStep = 0 | 1 | 2
 
-const SETUP_LAST_STEP: SetupStep = 3
+const SETUP_LAST_STEP: SetupStep = 2
 
 function AdminSetupSteps() {
   const setup = useAdminSetupSteps()
@@ -267,33 +259,23 @@ function AdminSetupStepContent({
 
       <div className="flex flex-col gap-5">
         {step === 0 && (
-          <StorageConfigCard
-            storage={config.storage}
-            onChange={(next) => setConfig(next)}
-            onSaved={() => advanceStep(0)}
-            formId="setup-storage"
-            hideActions
-            hideHeader
-          />
-        )}
-        {step === 1 && (
           <EncoderOnboardingCard
             config={config}
             onChange={(next) => setConfig(next)}
             encoderFormId="setup-encoder"
             hideEncoderActions
             hideEncoderHeader
-            onEncoderSaved={() => advanceStep(1)}
+            onEncoderSaved={() => advanceStep(0)}
           />
         )}
-        {step === 2 && (
+        {step === 1 && (
           <OAuthProviderCard config={config} onChange={setConfig} hideHeader />
         )}
-        {step === 3 && (
+        {step === 2 && (
           <IntegrationsConfigCard
             integrations={config.integrations}
             onChange={(next) => setConfig(next)}
-            onSaved={() => advanceStep(3)}
+            onSaved={() => advanceStep(2)}
             formId="setup-integrations"
             hideActions
             hideHeader
@@ -325,10 +307,8 @@ function AdminSetupStepContent({
 
 function getStepDone(
   config: AdminRuntimeConfig,
-): [boolean, boolean, boolean, boolean] {
+): [boolean, boolean, boolean] {
   return [
-    // Storage is considered done if it has a configured driver
-    true,
     // Encoding is done when enabled with at least one variant
     true,
     // OIDC is optional; it is done once a provider is configured.
@@ -343,7 +323,7 @@ function StepIndicator({
   stepDone,
 }: {
   currentStep: SetupStep
-  stepDone: [boolean, boolean, boolean, boolean]
+  stepDone: [boolean, boolean, boolean]
 }) {
   return (
     <div className="grid gap-2 sm:grid-cols-4">

@@ -3,8 +3,7 @@ import { and, eq } from "drizzle-orm"
 import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { env } from "../env"
-import { join } from "../runtime/path"
+import { ENCODE_DIR } from "../runtime/dirs"
 import { abortEncode } from "./encode-abort"
 
 type ClipRow = typeof clip.$inferSelect
@@ -40,8 +39,6 @@ export async function ensureClipStillPresent(
 }
 
 export async function makeScratchDir(clipId: string): Promise<string> {
-  const base = env.ENCODE_SCRATCH_DIR ??
-    join(Deno.env.get("TMPDIR") ?? "/tmp", "alloy-encode")
-  await Deno.mkdir(base, { recursive: true })
-  return Deno.makeTempDir({ dir: base, prefix: `${clipId}-` })
+  await Deno.mkdir(ENCODE_DIR, { recursive: true })
+  return Deno.makeTempDir({ dir: ENCODE_DIR, prefix: `${clipId}-` })
 }

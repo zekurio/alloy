@@ -4,21 +4,18 @@ import {
   type RuntimeConfig,
 } from "@workspace/contracts"
 import { logger } from "@workspace/logging"
-import { env } from "../env"
 import { errorDetail } from "../runtime/error-message"
-import { dirname, resolve } from "../runtime/path"
+import { CONFIG_PATH } from "../runtime/dirs"
+import { dirname } from "../runtime/path"
 
 import {
   AppearanceConfigPatchSchema,
   bootstrapDefaultConfig,
   EncoderConfigPatchSchema,
-  FsStorageConfigPatchSchema,
   IntegrationsConfigPatchSchema,
   LimitsConfigPatchSchema,
   MachineLearningConfigPatchSchema,
   RuntimeConfigSchema,
-  S3StorageConfigPatchSchema,
-  StorageConfigPatchSchema,
 } from "./schema"
 import {
   OAuthProviderSchema,
@@ -47,12 +44,9 @@ export type { OAuthProviderSubmission }
 export {
   AppearanceConfigPatchSchema,
   EncoderConfigPatchSchema,
-  FsStorageConfigPatchSchema,
   IntegrationsConfigPatchSchema,
   LimitsConfigPatchSchema,
   MachineLearningConfigPatchSchema,
-  S3StorageConfigPatchSchema,
-  StorageConfigPatchSchema,
 }
 
 export type {
@@ -65,18 +59,7 @@ export type {
   MachineLearningConfig,
   OAuthProviderConfig,
   RuntimeConfig,
-  StorageConfig,
 } from "@workspace/contracts"
-
-function resolveConfigPath(): string {
-  const configuredPath = env.ALLOY_CONFIG_FILE
-  if (configuredPath && configuredPath.length > 0) {
-    return resolve(configuredPath)
-  }
-  return resolve(Deno.cwd(), "data/runtime-config.json")
-}
-
-const CONFIG_PATH = resolveConfigPath()
 
 type LoadResult =
   | { ok: true; config: RuntimeConfig; created: boolean; migrated: boolean }

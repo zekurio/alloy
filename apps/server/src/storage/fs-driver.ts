@@ -1,6 +1,4 @@
 import type {
-  DownloadUrl,
-  MintDownloadUrlInput,
   MintUploadUrlInput,
   ResolvedObject,
   StorageDriver,
@@ -153,15 +151,6 @@ export class FsStorageDriver implements StorageDriver {
     }
     const stat = await Deno.stat(dst)
     return { size: stat.size }
-  }
-
-  async mintDownloadUrl(
-    _key: string,
-    _input: MintDownloadUrlInput,
-  ): Promise<DownloadUrl | null> {
-    // Fs driver has no presigned-URL concept — callers fall back to
-    // streaming through resolve().
-    return null
   }
 
   async delete(key: string): Promise<void> {

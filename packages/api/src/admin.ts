@@ -7,7 +7,6 @@ import type {
   AdminMachineLearningConfig,
   AdminOAuthProvider,
   AdminRuntimeConfig,
-  AdminStorageConfigPatch,
   AdminUpdateUserInput,
   AdminUsersResponse,
   AdminUserStorageRow,
@@ -37,25 +36,18 @@ export {
   loginSplashImagePath,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
-  STORAGE_DRIVERS,
   USERNAME_CLAIM_SUGGESTIONS,
 } from "@workspace/contracts"
 export type {
   AdminEncoderCapabilities,
   AdminEncoderConfig,
   AdminEncoderVariant,
-  AdminFsStorageConfig,
-  AdminFsStorageConfigPatch,
   AdminGameClassifierModelConfig,
   AdminIntegrationsConfig,
   AdminLimitsConfig,
   AdminMachineLearningConfig,
   AdminOAuthProvider,
   AdminRuntimeConfig,
-  AdminS3StorageConfig,
-  AdminS3StorageConfigPatch,
-  AdminStorageConfig,
-  AdminStorageConfigPatch,
   AdminUpdateUserInput,
   AdminUsersResponse,
   AdminUserStorageRow,
@@ -153,7 +145,6 @@ type RuntimeConfigSection =
   | "integrations"
   | "machine-learning"
   | "appearance"
-  | "storage"
 
 async function patchRuntimeSection<T>(
   context: ApiContext,
@@ -252,8 +243,6 @@ export function createAdminApi(context: ApiContext) {
       patchRuntimeSection(context, "appearance", patch),
     regenerateLoginSplash: () => regenerateLoginSplash(context),
     uploadLoginSplash: (file: File) => uploadLoginSplash(context, file),
-    updateStorageConfig: (patch: AdminStorageConfigPatch) =>
-      patchRuntimeSection(context, "storage", patch),
     fetchEncoderCapabilities: () => fetchEncoderCapabilities(context),
     reEncodeAllClips: () => reEncodeAllClips(context),
     fetchUsers: () => fetchUsers(context),
