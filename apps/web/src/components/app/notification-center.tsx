@@ -264,7 +264,7 @@ function NotificationRow({
   }
 
   const thumbSrc = item.clip && item.clip.hasThumb
-    ? clipThumbnailUrl(item.clip.id, apiOrigin())
+    ? clipThumbnailUrl(item.clip.id, apiOrigin(), item.clip.updatedAt)
     : null
 
   return (

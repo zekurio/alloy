@@ -63,6 +63,7 @@ function serialize(row: {
   clipId: string | null
   clipTitle: string | null
   clipThumbKey: string | null
+  clipUpdatedAt: Date | string | null
   gameSlug: string | null
   commentId: string | null
   commentBody: string | null
@@ -77,12 +78,13 @@ function serialize(row: {
       name: row.actorName,
       image: row.actorImage,
     }),
-    clip: row.clipId && row.clipTitle && row.gameSlug
+    clip: row.clipId && row.clipTitle && row.gameSlug && row.clipUpdatedAt
       ? {
         id: row.clipId,
         title: row.clipTitle,
         gameSlug: row.gameSlug,
         hasThumb: row.clipThumbKey !== null,
+        updatedAt: isoDate(row.clipUpdatedAt),
       }
       : null,
     comment: row.commentId && row.commentBody
@@ -107,6 +109,7 @@ function selectNotificationFields() {
     clipId: clip.id,
     clipTitle: clip.title,
     clipThumbKey: clip.thumbKey,
+    clipUpdatedAt: clip.updatedAt,
     gameSlug: game.slug,
     commentId: clipComment.id,
     commentBody: clipComment.body,

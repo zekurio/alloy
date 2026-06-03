@@ -143,6 +143,7 @@ export interface QueueClip {
   failureReason: string | null
   hasThumb: boolean
   createdAt: IsoDateString
+  updatedAt: IsoDateString
   gameSlug: string
 }
 
@@ -157,6 +158,7 @@ export interface NotificationClipRef {
   gameSlug: string
   /** True when the clip has a generated thumbnail available for preview. */
   hasThumb: boolean
+  updatedAt: IsoDateString
 }
 
 export interface NotificationCommentRef {

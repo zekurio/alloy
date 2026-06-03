@@ -203,7 +203,9 @@ function ClipViewerDialogBody({
     image: row.authorImage,
   })
   const gameLabel = clipGameLabel(row)
-  const thumbnail = row.thumbKey ? clipThumbnailUrl(row.id, apiOrigin()) : null
+  const thumbnail = row.thumbKey
+    ? clipThumbnailUrl(row.id, apiOrigin(), row.updatedAt)
+    : null
   const initialFocusRef = React.useRef<HTMLDivElement>(null)
 
   const canNavigate = Boolean(onNavigate)

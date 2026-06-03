@@ -93,7 +93,9 @@ export function ClipRowItem({
   onHover: () => void
   onSelect: () => void
 }) {
-  const thumb = row.thumbKey ? clipThumbnailUrl(row.id, apiOrigin()) : null
+  const thumb = row.thumbKey
+    ? clipThumbnailUrl(row.id, apiOrigin(), row.updatedAt)
+    : null
   const label = clipGameLabel(row)
   return (
     <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>

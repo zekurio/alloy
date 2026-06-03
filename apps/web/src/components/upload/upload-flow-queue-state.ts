@@ -104,6 +104,7 @@ function useServerQueueSync(
 ) {
   const invalidateClips = useInvalidateClips()
   const readyNotifiedRef = React.useRef<Set<string>>(new Set())
+  const thumbNotifiedRef = React.useRef<Set<string>>(new Set())
   React.useEffect(() => {
     if (serverQueue.length === 0) return
     const seen = new Set(serverQueue.map((r) => r.id))
@@ -126,14 +127,18 @@ function useServerQueueSync(
       }
     }
     if (changed) bump()
-    let becameReady = false
+    let shouldInvalidateClips = false
     for (const row of serverQueue) {
+      if (row.hasThumb && !thumbNotifiedRef.current.has(row.id)) {
+        thumbNotifiedRef.current.add(row.id)
+        shouldInvalidateClips = true
+      }
       if (row.status === "ready" && !readyNotifiedRef.current.has(row.id)) {
         readyNotifiedRef.current.add(row.id)
-        becameReady = true
+        shouldInvalidateClips = true
       }
     }
-    if (becameReady) void invalidateClips()
+    if (shouldInvalidateClips) void invalidateClips()
   }, [activeRef, retainedThumbsRef, bump, invalidateClips, serverQueue])
 }
 

@@ -365,6 +365,10 @@ function validateQueueClip(value: unknown): QueueClip {
     row.createdAt,
     "Invalid queue response: createdAt must be a date string",
   )
+  validateIsoDateString(
+    row.updatedAt,
+    "Invalid queue response: updatedAt must be a date string",
+  )
   validateBoolean(
     row.hasThumb,
     "Invalid queue response: hasThumb must be boolean",
@@ -628,6 +632,10 @@ function validateNotificationClipRef(value: unknown) {
   validateBoolean(
     clip.hasThumb,
     "Invalid notification clip response: hasThumb must be boolean",
+  )
+  validateIsoDateString(
+    clip.updatedAt,
+    "Invalid notification clip response: updatedAt must be a date string",
   )
 }
 
