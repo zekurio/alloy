@@ -1,30 +1,39 @@
-name: Publish Nightly Container Image
+name: Publish Staging Container Image
 
 on:
-  schedule:
-    - cron: "0 3 * * *"
+  push:
+    branches:
+      - staging
   workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag, or SHA to publish as staging
+        required: false
+        default: staging
+        type: string
 
 permissions:
   contents: read
   packages: write
+
+concurrency:
+  group: staging-image-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-push:
+  publish:
+    name: Publish staging images
     runs-on: ubuntu-latest
-    concurrency:
-      group: publish-nightly-image
-      cancel-in-progress: true
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
-          ref: main
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
 
       - name: Set up Deno
         uses: denoland/setup-deno@v2
@@ -40,10 +49,13 @@ jobs:
           name: zekurio
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
-      - name: Resolve nightly version
+      - name: Resolve staging metadata
         id: meta
         shell: bash
         run: |
+          short_sha="$(git rev-parse --short=12 HEAD)"
+          export SHORT_SHA="$short_sha"
+
           # shellcheck disable=SC2016
           version="$(deno eval '
           import { readFileSync } from "node:fs";
@@ -58,27 +70,27 @@ jobs:
           }
 
           const [, major, minor, patch] = match;
-          const date = new Date().toISOString().slice(0, 10).replaceAll("-", "");
-          console.log(`${major}.${minor}.${Number(patch) + 1}-nightly.${date}.${Deno.env.get("GITHUB_RUN_NUMBER")}`);
-          '
-          )"
+          const runNumber = Deno.env.get("GITHUB_RUN_NUMBER");
+          const shortSha = Deno.env.get("SHORT_SHA");
+          console.log(`${major}.${minor}.${patch}-staging.${runNumber}.${shortSha}`);
+          ')"
 
+          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tag=nightly-v$version" >> "$GITHUB_OUTPUT"
-
-      - name: Stamp nightly version into deno.json
+          echo "sha_tag=staging-$short_sha" >> "$GITHUB_OUTPUT"
+      - name: Stamp staging version into deno.json
         shell: bash
         env:
-          NIGHTLY_VERSION: ${{ steps.meta.outputs.version }}
+          STAGING_VERSION: ${{ steps.meta.outputs.version }}
         run: |
           # Ephemeral (never committed): the Nix image reads its version from
           # deno.json, so stamp it here to make APP_VERSION and the OCI version
-          # label report the nightly version.
+          # label report the staging build version.
           # shellcheck disable=SC2016
           deno eval '
           import { readFileSync, writeFileSync } from "node:fs";
           const config = JSON.parse(readFileSync("deno.json", "utf8"));
-          config.version = Deno.env.get("NIGHTLY_VERSION");
+          config.version = Deno.env.get("STAGING_VERSION");
           writeFileSync("deno.json", `${JSON.stringify(config, null, 2)}\n`);
           '
 
@@ -88,8 +100,8 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=nightly
-            type=raw,value=${{ steps.meta.outputs.tag }}
+            type=raw,value=staging
+            type=raw,value=${{ steps.meta.outputs.sha_tag }}
 
       - name: Publish machine learning image
         uses: ./.github/actions/publish-image
@@ -101,5 +113,5 @@ jobs:
           build-args: |
             DEVICE=cpu
           tags: |
-            type=raw,value=nightly
-            type=raw,value=${{ steps.meta.outputs.tag }}
+            type=raw,value=staging
+            type=raw,value=${{ steps.meta.outputs.sha_tag }}

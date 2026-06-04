@@ -85,6 +85,7 @@
     "db:push": "deno task --cwd packages/db db:push",
     "db:studio": "deno task --cwd packages/db db:studio",
     "fmt": "deno fmt && deno task --filter '*' fmt",
+    "fmt:check": "deno fmt --check && deno task --filter '*' fmt:check",
     "lint": "deno task --filter '*' lint",
     "lint:github": "deno task --filter '*' lint",
     "lint:ci": "deno task lint",

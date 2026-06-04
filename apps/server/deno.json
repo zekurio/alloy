@@ -38,6 +38,7 @@
     "build": "deno check src && mkdir -p dist && deno cache src/index.ts && touch dist/server-cache-ok",
     "lint": "deno lint src",
     "fmt": "deno fmt src deno.json tsconfig.json",
+    "fmt:check": "deno fmt --check src deno.json tsconfig.json",
     "format": "deno task fmt",
     "typecheck": "deno check src",
     "db:generate": "deno task --cwd ../../packages/db db:generate",
