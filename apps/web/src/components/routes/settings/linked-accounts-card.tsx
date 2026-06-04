@@ -11,7 +11,7 @@ import type { PublicAuthConfig } from "@workspace/api"
 import type { LinkedAccount as ApiLinkedAccount } from "@workspace/api/auth"
 
 import { authClient, useSession } from "@/lib/auth-client"
-import { authCallbackUrl, reportAuthFlowFailure } from "@/lib/auth-flow"
+import { authCallbackUrl, toastAuthAttemptFailure } from "@/lib/auth-flow"
 import { consumeCurrentQueryParam } from "@/lib/browser-url"
 import { errorMessage } from "@/lib/error-message"
 
@@ -124,17 +124,15 @@ function useLinkedAccountActions({
           ),
         })
         if (error) {
-          toast.error(errorMessage(error, "Couldn't start link flow"))
+          toastAuthAttemptFailure(
+            "OAuth link",
+            "Couldn't start link flow",
+            error,
+          )
           setLinkingProviderId(null)
         }
       } catch (cause) {
-        toast.error(
-          reportAuthFlowFailure(
-            "OAuth link",
-            "Couldn't start link flow",
-            cause,
-          ),
-        )
+        toastAuthAttemptFailure("OAuth link", "Couldn't start link flow", cause)
         setLinkingProviderId(null)
       }
     },

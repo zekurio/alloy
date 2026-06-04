@@ -1,14 +1,8 @@
-export const USERNAME_CLAIM_SUGGESTIONS = [
-  "preferred_username",
-  "username",
-  "nickname",
-  "name",
-  "display_name",
-  "given_name",
-  "email",
-] as const
-
 export type UsernameClaim = string
+export type DisplayNameClaim = string
+
+export const OAUTH_USERNAME_CLAIM_DEFAULT = "preferred_username"
+export const OAUTH_DISPLAY_NAME_CLAIM_DEFAULT = "name"
 
 export const OAUTH_QUOTA_CLAIM_DEFAULT = "alloy_quota"
 export const OAUTH_ROLE_CLAIM_DEFAULT = "alloy_role"
@@ -33,6 +27,7 @@ export interface OAuthProviderConfig {
   userInfoUrl?: string
   pkce?: boolean
   usernameClaim?: UsernameClaim
+  displayNameClaim?: DisplayNameClaim
   quotaClaim?: string
   roleClaim?: string
 }

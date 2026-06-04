@@ -1,5 +1,8 @@
+import { toast } from "@workspace/ui/lib/toast"
+
 import { authClient } from "./auth-client"
 import { clientLogger } from "./client-log"
+import { errorMessage } from "./error-message"
 import { publicOrigin } from "./env"
 import { resetClientState } from "./query-client"
 
@@ -38,4 +41,60 @@ export function reportAuthFlowFailure(
 ): string {
   clientLogger.warn(`[auth] ${action} failed.`, cause)
   return fallbackMessage
+}
+
+function causeName(cause: unknown): string | null {
+  if (cause instanceof Error) return cause.name
+  if (
+    cause &&
+    typeof cause === "object" &&
+    "name" in cause &&
+    typeof cause.name === "string"
+  ) {
+    return cause.name
+  }
+  return null
+}
+
+function causeMessage(cause: unknown): string | null {
+  if (typeof cause === "string") return cause
+  if (cause instanceof Error) return cause.message
+  if (
+    cause &&
+    typeof cause === "object" &&
+    "message" in cause &&
+    typeof cause.message === "string"
+  ) {
+    return cause.message
+  }
+  return null
+}
+
+export function isAuthAttemptCancellation(cause: unknown): boolean {
+  const name = causeName(cause)
+  if (name === "AbortError" || name === "NotAllowedError") return true
+
+  const message = causeMessage(cause)?.toLowerCase()
+  if (!message) return false
+
+  return (
+    message.includes("access_denied") ||
+    message.includes("abort") ||
+    message.includes("cancel") ||
+    message.includes("not allowed") ||
+    message.includes("timed out")
+  )
+}
+
+export function toastAuthAttemptFailure(
+  action: string,
+  fallbackMessage: string,
+  cause: unknown,
+): void {
+  clientLogger.warn(`[auth] ${action} failed.`, cause)
+  if (isAuthAttemptCancellation(cause)) {
+    toast.warning("Auth attempt cancelled.")
+    return
+  }
+  toast.error(errorMessage(cause, fallbackMessage))
 }

@@ -41,11 +41,13 @@ export async function redirectToSetupBeforeLoad({
     return authContext(await loadAuthConfig(), null)
   }
 
-  const config = await loadAuthConfig()
+  const configPromise = loadAuthConfig()
+  const sessionPromise = loadSession()
+  const config = await configPromise
   if (config.adminAccountRequired) {
     throw redirect({ to: "/setup" })
   }
-  const session = await loadSession()
+  const session = await sessionPromise
   if (shouldForceOnboarding(config, session)) {
     throw redirect({ to: "/setup" })
   }

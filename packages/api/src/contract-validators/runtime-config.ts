@@ -74,7 +74,15 @@ function validateRuntimeOAuthProvider(value: unknown, label: string) {
       `Invalid ${label} config: pkce must be boolean`,
     )
   }
-  for (const key of ["usernameClaim", "quotaClaim", "roleClaim"] as const) {
+  for (const key of ["usernameClaim", "displayNameClaim"] as const) {
+    if (provider[key] !== undefined) {
+      validateRequiredString(
+        provider[key],
+        `Invalid ${label} config: ${key} must be a non-empty string`,
+      )
+    }
+  }
+  for (const key of ["quotaClaim", "roleClaim"] as const) {
     validateRequiredString(
       provider[key],
       `Invalid ${label} config: ${key} is required`,

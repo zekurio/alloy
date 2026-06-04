@@ -32,7 +32,7 @@ import type { Passkey as ApiPasskey } from "@workspace/api/auth"
 
 import { LimitedInput } from "@/components/form/limited-field"
 import { authClient } from "@/lib/auth-client"
-import { reportAuthFlowFailure } from "@/lib/auth-flow"
+import { toastAuthAttemptFailure } from "@/lib/auth-flow"
 import { formatCalendarDate } from "@/lib/date-format"
 import { errorMessage } from "@/lib/error-message"
 import { addPasskeyWithLabel } from "@/lib/passkeys"
@@ -119,7 +119,11 @@ function AddPasskeyDialog({ onAdded }: { onAdded: () => Promise<void> }) {
         label: name,
       })
       if (error) {
-        toast.error(errorMessage(error, "Couldn't register passkey"))
+        toastAuthAttemptFailure(
+          "passkey registration",
+          "Couldn't register passkey",
+          error,
+        )
         return
       }
       toast.success("Passkey added")
@@ -127,12 +131,10 @@ function AddPasskeyDialog({ onAdded }: { onAdded: () => Promise<void> }) {
       setName("")
       await onAdded()
     } catch (cause) {
-      toast.error(
-        reportAuthFlowFailure(
-          "passkey registration",
-          "Passkey registration failed",
-          cause,
-        ),
+      toastAuthAttemptFailure(
+        "passkey registration",
+        "Passkey registration failed",
+        cause,
       )
     } finally {
       setAdding(false)

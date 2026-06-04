@@ -17,17 +17,14 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@workspace/ui/components/native-select"
 import { Switch } from "@workspace/ui/components/switch"
 
 import {
   type AdminOAuthProvider,
+  OAUTH_DISPLAY_NAME_CLAIM_DEFAULT,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
-  USERNAME_CLAIM_SUGGESTIONS,
+  OAUTH_USERNAME_CLAIM_DEFAULT,
 } from "@workspace/api"
 import { LimitedInput } from "@/components/form/limited-field"
 import { OAuthCallbackField } from "./oauth-provider-fields"
@@ -144,9 +141,7 @@ export function OAuthCustomProviderDialog({
                   </Field>
 
                   <Field>
-                    <FieldLabel htmlFor="oauth-button-color">
-                      Button
-                    </FieldLabel>
+                    <FieldLabel htmlFor="oauth-button-color">Button</FieldLabel>
                     <HexColorInput
                       id="oauth-button-color"
                       value={draft.buttonColor ?? ""}
@@ -217,28 +212,35 @@ export function OAuthCustomProviderDialog({
                       onBlur={() =>
                         setScopeText(scopeInputValue(parseScopes(scopeText)))}
                     />
-                    <FieldDescription>
-                      Space-separated. Discord uses identify email.
-                    </FieldDescription>
+                    <FieldDescription>Space-separated.</FieldDescription>
                   </Field>
 
                   <Field>
                     <FieldLabel htmlFor="oauth-username-claim">
                       Username claim
                     </FieldLabel>
-                    <NativeSelect
+                    <Input
                       id="oauth-username-claim"
-                      value={draft.usernameClaim ?? "preferred_username"}
+                      value={draft.usernameClaim ?? ""}
+                      placeholder={OAUTH_USERNAME_CLAIM_DEFAULT}
                       disabled={pendingAction !== null}
                       onChange={(e) =>
                         onChange("usernameClaim", e.target.value)}
-                    >
-                      {USERNAME_CLAIM_SUGGESTIONS.map((claim) => (
-                        <NativeSelectOption key={claim} value={claim}>
-                          {claim}
-                        </NativeSelectOption>
-                      ))}
-                    </NativeSelect>
+                    />
+                  </Field>
+
+                  <Field>
+                    <FieldLabel htmlFor="oauth-display-name-claim">
+                      Display name claim
+                    </FieldLabel>
+                    <Input
+                      id="oauth-display-name-claim"
+                      value={draft.displayNameClaim ?? ""}
+                      placeholder={OAUTH_DISPLAY_NAME_CLAIM_DEFAULT}
+                      disabled={pendingAction !== null}
+                      onChange={(e) =>
+                        onChange("displayNameClaim", e.target.value)}
+                    />
                   </Field>
 
                   <Field>

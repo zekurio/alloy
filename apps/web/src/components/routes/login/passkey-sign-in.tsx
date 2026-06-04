@@ -3,11 +3,12 @@ import { useNavigate, useRouter } from "@tanstack/react-router"
 import { KeyRoundIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
-import { toast } from "@workspace/ui/lib/toast"
 
 import { authClient } from "@/lib/auth-client"
-import { completeAuthSessionFlow, reportAuthFlowFailure } from "@/lib/auth-flow"
-import { errorMessage } from "@/lib/error-message"
+import {
+  completeAuthSessionFlow,
+  toastAuthAttemptFailure,
+} from "@/lib/auth-flow"
 
 export function PasskeySignIn() {
   const [pending, setPending] = React.useState(false)
@@ -20,7 +21,11 @@ export function PasskeySignIn() {
     try {
       const { error } = await authClient.signIn.passkey()
       if (error) {
-        toast.error(errorMessage(error, "Passkey sign-in failed"))
+        toastAuthAttemptFailure(
+          "passkey sign-in",
+          "Passkey sign-in failed",
+          error,
+        )
         setPending(false)
         return
       }
@@ -29,12 +34,10 @@ export function PasskeySignIn() {
         navigate: () => navigate({ to: "/" }),
       })
     } catch (cause) {
-      toast.error(
-        reportAuthFlowFailure(
-          "passkey sign-in",
-          "Passkey sign-in failed",
-          cause,
-        ),
+      toastAuthAttemptFailure(
+        "passkey sign-in",
+        "Passkey sign-in failed",
+        cause,
       )
       setPending(false)
     }

@@ -1,7 +1,9 @@
 import {
   type AdminOAuthProvider,
+  OAUTH_DISPLAY_NAME_CLAIM_DEFAULT,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
+  OAUTH_USERNAME_CLAIM_DEFAULT,
 } from "@workspace/api"
 
 export function emptyProvider(): AdminOAuthProvider {
@@ -21,7 +23,8 @@ export function emptyProvider(): AdminOAuthProvider {
     tokenUrl: "",
     userInfoUrl: "",
     pkce: true,
-    usernameClaim: "preferred_username",
+    usernameClaim: OAUTH_USERNAME_CLAIM_DEFAULT,
+    displayNameClaim: OAUTH_DISPLAY_NAME_CLAIM_DEFAULT,
     quotaClaim: OAUTH_QUOTA_CLAIM_DEFAULT,
     roleClaim: OAUTH_ROLE_CLAIM_DEFAULT,
   }
@@ -64,6 +67,7 @@ export function toSubmissionProvider(
     tokenUrl: emptyToUndefined(provider.tokenUrl),
     userInfoUrl: emptyToUndefined(provider.userInfoUrl),
     usernameClaim: emptyToUndefined(provider.usernameClaim),
+    displayNameClaim: emptyToUndefined(provider.displayNameClaim),
     quotaClaim: emptyToUndefined(provider.quotaClaim),
     roleClaim: emptyToUndefined(provider.roleClaim),
   }

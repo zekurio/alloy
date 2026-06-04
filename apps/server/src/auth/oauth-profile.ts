@@ -6,8 +6,10 @@ import {
 } from "openid-client"
 
 import {
+  OAUTH_DISPLAY_NAME_CLAIM_DEFAULT,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
+  OAUTH_USERNAME_CLAIM_DEFAULT,
   USER_ROLES,
   type UserRole,
 } from "@workspace/contracts"
@@ -41,18 +43,28 @@ export async function profileFromTokens(
   const raw = { ...claims, ...userInfo }
   const providerAccountId = stringClaim(raw, "sub") ?? stringClaim(raw, "id")
   const email = stringClaim(raw, "email")
-  const usernameHint = stringClaim(raw, provider.usernameClaim ?? "")
+  const normalizedEmail = email ? normalizeEmail(email) : null
+  const usernameHint = stringClaim(
+    raw,
+    provider.usernameClaim ?? OAUTH_USERNAME_CLAIM_DEFAULT,
+  )
+  const displayNameClaim = provider.displayNameClaim ??
+    OAUTH_DISPLAY_NAME_CLAIM_DEFAULT
+  const displayName = stringClaim(raw, displayNameClaim)
+  const defaultDisplayNameFallback = displayNameClaim ===
+      OAUTH_DISPLAY_NAME_CLAIM_DEFAULT
+    ? stringClaim(raw, "display_name") ?? stringClaim(raw, "nickname")
+    : null
 
   if (!providerAccountId) throw new Error("OAuth profile is missing a subject.")
 
   return {
-    email: email ? normalizeEmail(email) : null,
+    email: normalizedEmail,
     emailVerified: raw.email_verified === true || raw.verified === true,
-    name: stringClaim(raw, "name") ??
-      stringClaim(raw, "display_name") ??
-      stringClaim(raw, "nickname") ??
+    name: displayName ??
+      defaultDisplayNameFallback ??
       usernameHint ??
-      email ??
+      normalizedEmail ??
       "Alloy user",
     providerAccountId,
     raw,

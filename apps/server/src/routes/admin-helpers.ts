@@ -127,6 +127,7 @@ function normalizeOAuthProviderSubmission(
     tokenUrl: normalizeOptionalString(provider.tokenUrl),
     userInfoUrl: normalizeOptionalString(provider.userInfoUrl),
     usernameClaim: normalizeOptionalString(provider.usernameClaim),
+    displayNameClaim: normalizeOptionalString(provider.displayNameClaim),
     quotaClaim: normalizeOptionalString(provider.quotaClaim),
     roleClaim: normalizeOptionalString(provider.roleClaim),
   }
