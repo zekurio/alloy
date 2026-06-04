@@ -45,9 +45,7 @@ import { errorMessage } from "@/lib/error-message"
 import { useMlConfigQuery } from "@/lib/ml-queries"
 import { useGameSuggestionQuery } from "./use-game-suggestion"
 import {
-  ACCEPT_LIST,
   captureThumbnail,
-  prepareSelectedClipFile,
   type PublishPayload,
   type SelectedFile,
   stripExtension,
@@ -74,8 +72,6 @@ export function NewClipDialog({
   initialFile,
 }: NewClipDialogProps) {
   const isMobile = useIsMobile()
-  // File input kept for the Replace button in LoadedState.
-  const inputRef = React.useRef<HTMLInputElement>(null)
   const [selectedFile, setSelectedFile] = React.useState<SelectedFile | null>(
     null,
   )
@@ -95,33 +91,6 @@ export function NewClipDialog({
       setPublishing(false)
     }
   }, [])
-
-  // Called by the Replace button — let the user swap the file in-place
-  // without leaving the modal.
-  const handleFileChosen = React.useCallback(async (file: File) => {
-    try {
-      setSelectedFile(await prepareSelectedClipFile(file))
-    } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't prepare clip"))
-    }
-  }, [])
-
-  const handleReplaceClick = React.useCallback(() => {
-    inputRef.current?.click()
-  }, [])
-
-  const handleInputChange = React.useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0]
-      // Reset immediately so re-selecting the same file still fires `change`.
-      e.target.value = ""
-      if (!file) return
-      requestAnimationFrame(() => {
-        void handleFileChosen(file)
-      })
-    },
-    [handleFileChosen],
-  )
 
   const handlePublish = React.useCallback(
     async (payload: PublishPayload) => {
@@ -146,14 +115,6 @@ export function NewClipDialog({
 
   const surfaceContent = (
     <>
-      {/* Hidden input used only for the Replace button in LoadedState. */}
-      <input
-        ref={inputRef}
-        type="file"
-        accept={ACCEPT_LIST}
-        className="hidden"
-        onChange={handleInputChange}
-      />
       {isMobile
         ? (
           <div className="shrink-0 px-4 pt-4 pb-4">
@@ -175,7 +136,6 @@ export function NewClipDialog({
             file={activeFile}
             publishing={publishing}
             onPublish={handlePublish}
-            onReplace={handleReplaceClick}
             closeAction={isMobile
               ? (
                 <DrawerClose asChild>
@@ -253,13 +213,11 @@ function LoadedState({
   file,
   publishing,
   onPublish,
-  onReplace,
   closeAction,
 }: {
   file: SelectedFile
   publishing: boolean
   onPublish: (payload: PublishPayload) => void
-  onReplace: () => void
   closeAction: React.ReactNode
 }) {
   const isMobile = useIsMobile()
@@ -331,18 +289,6 @@ function LoadedState({
   const suggestionAnalyzing = suggestionQuery.isLoading ||
     (Boolean(topLabel) && previewQuery.isLoading)
 
-  const replaceButton = (
-    <Button
-      variant="ghost"
-      size="default"
-      disabled={publishing}
-      onClick={onReplace}
-      className={cn(isMobile && "w-full min-w-0")}
-    >
-      Replace
-    </Button>
-  )
-
   const submitButton = (
     <form.Subscribe
       selector={(state) =>
@@ -365,7 +311,7 @@ function LoadedState({
               isSubmitting ||
               !canSubmit ||
               missingMetadata}
-            className={cn(isMobile && "col-span-2 w-full min-w-0")}
+            className={cn(isMobile && "w-full min-w-0")}
           >
             <UploadIcon />
             {capturing || isSubmitting
@@ -557,7 +503,6 @@ function LoadedState({
           {!isMobile
             ? (
               <div className="mt-auto flex flex-wrap items-center justify-end gap-2 pt-2">
-                {replaceButton}
                 {closeAction}
                 {submitButton}
               </div>
@@ -568,8 +513,7 @@ function LoadedState({
 
       {isMobile
         ? (
-          <DialogFooter className="grid shrink-0 grid-cols-2 flex-wrap gap-2 px-4 pt-3 pb-5">
-            {replaceButton}
+          <DialogFooter className="grid shrink-0 grid-cols-2 gap-2 px-4 pt-3 pb-5">
             {closeAction}
             {submitButton}
           </DialogFooter>

@@ -210,8 +210,8 @@ function EncoderSettingsSection({
   return (
     <SettingsSection
       icon={ClapperboardIcon}
-      title="Encoding pipeline"
-      description="Edit hardware acceleration, processing, and playback variants."
+      title="Playback transcoding"
+      description="Edit live transcoding and hardware acceleration."
     >
       <EncoderConfigCard
         encoder={config.encoder}

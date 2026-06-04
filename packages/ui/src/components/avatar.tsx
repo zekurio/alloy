@@ -8,7 +8,7 @@ const avatarRootSizeClasses = [
   "data-[size=md]:size-7 data-[size=md]:text-[11px] data-[size=md]:leading-4",
   "data-[size=lg]:size-9 data-[size=lg]:text-[13px] data-[size=lg]:leading-4",
   "data-[size=xl]:size-12 data-[size=xl]:text-[16px] data-[size=xl]:leading-5",
-  "data-[size=2xl]:size-24 data-[size=2xl]:rounded-lg data-[size=2xl]:text-[28px] data-[size=2xl]:leading-9",
+  "data-[size=2xl]:size-24 data-[size=2xl]:text-[28px] data-[size=2xl]:leading-9",
 ]
 
 const avatarBadgeSizeClasses = [
@@ -64,7 +64,7 @@ function Avatar({
       data-ring={ring || undefined}
       className={cn(
         "group/avatar relative inline-flex shrink-0 overflow-hidden select-none",
-        "items-center justify-center rounded-md bg-neutral-200 font-semibold text-foreground",
+        "items-center justify-center rounded-full bg-neutral-200 font-semibold text-foreground",
         ...avatarRootSizeClasses,
         "data-[ring=true]:shadow-[0_0_0_1.5px_var(--background),0_0_0_3px_var(--accent)]",
         className,
@@ -173,7 +173,7 @@ function AvatarGroupCount({
     <div
       data-slot="avatar-group-count"
       className={cn(
-        "relative inline-flex shrink-0 items-center justify-center rounded-md bg-surface-raised text-foreground-muted ring-2 ring-background select-none",
+        "relative inline-flex shrink-0 items-center justify-center rounded-full bg-surface-raised text-foreground-muted ring-2 ring-background select-none",
         "size-7 text-[10px] leading-3 group-has-data-[size=lg]/avatar-group:size-9 group-has-data-[size=sm]/avatar-group:size-5 group-has-data-[size=xl]/avatar-group:size-12",
         className,
       )}

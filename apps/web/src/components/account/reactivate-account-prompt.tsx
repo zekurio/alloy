@@ -60,7 +60,7 @@ export function ReactivateAccountPrompt() {
             Your profile and clips are hidden while your account is disabled.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter>
+        <AlertDialogFooter className="grid-cols-1">
           <AlertDialogAction onClick={onReactivate} disabled={pending}>
             {pending ? "Reactivating…" : "Reactivate account"}
           </AlertDialogAction>

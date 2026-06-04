@@ -124,13 +124,11 @@ function ProfileMediaEditButton({
   className,
   disabled,
   onClick,
-  radius,
   children,
 }: {
   className: string
   disabled: boolean
   onClick: () => void
-  radius: React.ComponentProps<typeof MediaEditOverlay>["radius"]
   children?: React.ReactNode
 }) {
   return (
@@ -141,7 +139,7 @@ function ProfileMediaEditButton({
       className={className}
     >
       {children}
-      <MediaEditOverlay radius={radius}>
+      <MediaEditOverlay>
         <Pencil className="size-4 text-white" />
       </MediaEditOverlay>
     </button>
@@ -342,9 +340,8 @@ export function ProfileCard({
         disabled={uploading}
         onClick={() => openFilePicker(kind)}
         className={kind === "avatar"
-          ? "group relative size-12 shrink-0 overflow-hidden rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          ? "group relative size-12 shrink-0 overflow-hidden rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           : "group absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"}
-        radius={kind === "avatar" ? "md" : "lg"}
       >
         {children}
       </ProfileMediaEditButton>
@@ -421,7 +418,7 @@ export function ProfileCard({
                         className="group absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                         onPointerDown={bannerAnchor.onTriggerPointerDown}
                       >
-                        <MediaEditOverlay radius="lg">
+                        <MediaEditOverlay>
                           <Pencil className="size-4 text-white" />
                         </MediaEditOverlay>
                       </DropdownMenuTrigger>
@@ -430,10 +427,6 @@ export function ProfileCard({
                   )
                   : mediaEditButton("banner")}
               </div>
-              <p className="mt-2 text-xs text-foreground-faint">
-                Banners are resized to 1500x375. Use a 4:1 image to avoid
-                distortion.
-              </p>
             </div>
 
             {/* Avatar + identity */}
@@ -471,7 +464,7 @@ export function ProfileCard({
                         >
                           <DropdownMenuTrigger
                             disabled={uploading}
-                            className="group relative inline-flex size-12 shrink-0 overflow-hidden rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                            className="group relative inline-flex size-12 shrink-0 overflow-hidden rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                             onPointerDown={avatarAnchor.onTriggerPointerDown}
                           >
                             <ProfileAvatarPreview
@@ -479,7 +472,7 @@ export function ProfileCard({
                               previewName={previewName}
                               showImage
                             />
-                            <MediaEditOverlay radius="md">
+                            <MediaEditOverlay>
                               <Pencil className="size-4 text-white" />
                             </MediaEditOverlay>
                           </DropdownMenuTrigger>
@@ -500,10 +493,6 @@ export function ProfileCard({
                       </span>
                       <span className="text-sm text-foreground-faint">
                         {normalizedIdentity.email || email}
-                      </span>
-                      <span className="text-xs text-foreground-faint">
-                        Avatars are resized to 512x512. Use a square image to
-                        avoid distortion.
                       </span>
                     </div>
                   </div>

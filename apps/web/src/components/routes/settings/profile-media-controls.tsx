@@ -8,22 +8,21 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 
 export function MediaEditOverlay({
-  radius,
   tone = "shade",
   children,
 }: {
-  radius: "md" | "lg"
   tone?: "shade" | "control"
   children: React.ReactNode
 }) {
   return (
     <div
       className={cn(
-        "absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100",
+        // Inherit the container's radius so the mask always matches the
+        // avatar/banner shape — no per-call radius to keep in sync.
+        "absolute inset-0 flex items-center justify-center rounded-[inherit] opacity-0 transition-opacity group-hover:opacity-100",
         tone === "shade"
           ? "bg-[oklch(12%_0.01_250)]/50"
           : "bg-[oklch(12%_0.01_250)]/50 ring-1 ring-white/20 ring-inset",
-        radius === "lg" ? "rounded-lg" : "rounded-md",
       )}
     >
       <span

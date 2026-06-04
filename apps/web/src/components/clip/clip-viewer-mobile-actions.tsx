@@ -47,7 +47,7 @@ export function ClipAuthorLink({
 }: ClipAuthorLinkProps) {
   return (
     <Link to="/u/$username" params={{ username: handle }} className={className}>
-      <Avatar size={size} style={avatarStyle} className="rounded-full">
+      <Avatar size={size} style={avatarStyle}>
         {avatar.src ? <AvatarImage src={avatar.src} alt={author} /> : null}
         <AvatarFallback style={avatarStyle}>{avatar.initials}</AvatarFallback>
       </Avatar>
