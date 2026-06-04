@@ -78,14 +78,6 @@ export async function selectAdminUserStorageRows(targetUserIds?: string[]) {
   }))
 }
 
-export function hasEnabledSignInMethod(config: {
-  passkeyEnabled: boolean
-  oauthProviders: { enabled: boolean }[]
-}): boolean {
-  return config.passkeyEnabled ||
-    config.oauthProviders.some((provider) => provider.enabled)
-}
-
 function sanitizeScopes(scopes: string[] | undefined): string[] | undefined {
   const next = scopes?.map((scope) => scope.trim()).filter(Boolean)
   return next && next.length > 0 ? next : undefined

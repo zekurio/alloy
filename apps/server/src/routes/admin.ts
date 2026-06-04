@@ -7,7 +7,7 @@ import { ACCEPTED_IMAGE_CONTENT_TYPES } from "@workspace/contracts"
 import { clip } from "@workspace/db/schema"
 
 import { db } from "../db"
-import { hasAdminSignInMethodForConfig } from "../auth/identity"
+import { signInConfigError } from "../auth/sign-in-config"
 import { requireAdmin } from "../auth/session"
 import {
   badRequest,
@@ -38,7 +38,6 @@ import {
 import {
   adminRuntimeConfigResponse,
   finalizeOAuthProviderSubmission,
-  hasEnabledSignInMethod,
 } from "./admin-helpers"
 import { adminUsersRoute } from "./admin-users"
 
@@ -87,32 +86,6 @@ const OAuthConfigSubmissionSchema = z.object({
   oauthProviders: z.array(OAuthProviderAdminSubmissionSchema).max(16),
 })
 
-async function signInConfigError(
-  config: {
-    passkeyEnabled: boolean
-    oauthProviders: { enabled: boolean; providerId: string }[]
-  },
-  pendingSecret: (providerId: string) => boolean = () => false,
-): Promise<string | null> {
-  // An OAuth provider only counts as a sign-in method if it's actually usable
-  // (enabled AND has a secret — stored or about to be written). Filtering here
-  // keeps this lockout guard in sync with what the consumer layer will serve, so
-  // an enabled-but-secretless provider can't masquerade as a working method.
-  const usable = {
-    passkeyEnabled: config.passkeyEnabled,
-    oauthProviders: config.oauthProviders.filter((provider) =>
-      isOAuthProviderUsable(provider, pendingSecret)
-    ),
-  }
-  if (!hasEnabledSignInMethod(usable)) {
-    return "Keep at least one sign-in method enabled."
-  }
-  if (!(await hasAdminSignInMethodForConfig(usable))) {
-    return "Keep at least one active admin sign-in method before disabling passkeys or OAuth."
-  }
-  return null
-}
-
 export const adminRoute = new Hono()
   .use("*", requireAdmin)
   .route("/", adminUsersRoute)
@@ -120,7 +93,7 @@ export const adminRoute = new Hono()
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
   .post("/runtime-config/reload", async (c) => {
-    if (!configStore.reload()) {
+    if (!(await configStore.reload())) {
       return badRequest(c, "Runtime config file failed validation.")
     }
     if (configStore.get("appearance").loginSplash.enabled) {

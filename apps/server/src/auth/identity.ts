@@ -1,15 +1,13 @@
-import { and, eq, inArray, ne, sql } from "drizzle-orm"
+import { and, eq, ne, sql } from "drizzle-orm"
 
-import {
-  authAccount,
-  type NewUser,
-  type User,
-  user,
-  userPasskey,
-} from "@workspace/db/auth-schema"
+import { type NewUser, type User, user } from "@workspace/db/auth-schema"
 
 import { db } from "../db"
 import { configStore } from "../config/store"
+import {
+  hasAdminSignInMethodForConfig,
+  hasAdminSignInMethodWith,
+} from "./sign-in-config"
 import { generateUniqueUsername, normalizeUsername } from "./username"
 export {
   countUserPasskeys,
@@ -49,56 +47,11 @@ async function assertUsernameAvailable(
   if (existing) throw new Error("Username is already taken.")
 }
 
-type SignInMethodConfig = {
-  passkeyEnabled: boolean
-  oauthProviders: { enabled: boolean; providerId: string }[]
-}
-
 async function hasAdminSignInMethod(): Promise<boolean> {
   return hasAdminSignInMethodForConfig({
     passkeyEnabled: configStore.get("passkeyEnabled"),
     oauthProviders: configStore.get("oauthProviders"),
   })
-}
-
-export async function hasAdminSignInMethodForConfig(
-  config: SignInMethodConfig,
-): Promise<boolean> {
-  return hasAdminSignInMethodWith(db, config)
-}
-
-async function hasAdminSignInMethodWith(
-  executor: AuthDbExecutor,
-  config: SignInMethodConfig,
-  options: { excludeUserId?: string } = {},
-): Promise<boolean> {
-  const conditions = [eq(user.role, "admin"), eq(user.status, "active")]
-  if (options.excludeUserId) {
-    conditions.push(ne(user.id, options.excludeUserId))
-  }
-
-  if (config.passkeyEnabled) {
-    const passkeyRows = await executor
-      .select({ id: user.id })
-      .from(user)
-      .innerJoin(userPasskey, eq(userPasskey.userId, user.id))
-      .where(and(...conditions))
-      .limit(1)
-    if (passkeyRows.length > 0) return true
-  }
-
-  const providerIds = config.oauthProviders
-    .filter((provider) => provider.enabled)
-    .map((provider) => provider.providerId)
-  if (providerIds.length === 0) return false
-
-  const oauthRows = await executor
-    .select({ id: user.id })
-    .from(user)
-    .innerJoin(authAccount, eq(authAccount.userId, user.id))
-    .where(and(...conditions, inArray(authAccount.providerId, providerIds)))
-    .limit(1)
-  return oauthRows.length > 0
 }
 
 export async function setupRequired(): Promise<boolean> {

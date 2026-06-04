@@ -1,36 +1,40 @@
-import { RUNTIME_CONFIG_VERSION } from "@workspace/contracts";
+import { RUNTIME_CONFIG_VERSION } from "@workspace/contracts"
 
-export const CURRENT_RUNTIME_CONFIG_VERSION = RUNTIME_CONFIG_VERSION;
+export const CURRENT_RUNTIME_CONFIG_VERSION = RUNTIME_CONFIG_VERSION
 
-type JsonRecord = Record<string, unknown>;
+type JsonRecord = Record<string, unknown>
 
 export type RuntimeConfigMigrationResult =
   | { ok: true; config: unknown; migrated: boolean }
-  | { ok: false; error: string };
+  | { ok: false; error: string }
 
 function isRecord(value: unknown): value is JsonRecord {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
 }
 
 function cloneRecord(raw: unknown): JsonRecord | null {
-  if (!isRecord(raw)) return null;
-  return structuredClone(raw) as JsonRecord;
+  if (!isRecord(raw)) return null
+  return structuredClone(raw) as JsonRecord
 }
 
 function readConfigVersion(config: JsonRecord): number {
-  if (config.runtimeConfigVersion === undefined) return 0;
+  if (config.runtimeConfigVersion === undefined) return 0
   if (
     typeof config.runtimeConfigVersion !== "number" ||
     !Number.isInteger(config.runtimeConfigVersion) ||
     config.runtimeConfigVersion < 0
   ) {
-    return Number.NaN;
+    return Number.NaN
   }
-  return config.runtimeConfigVersion;
+  return config.runtimeConfigVersion
 }
 
 /**
- * Runtime config migration entry point.
+ * Runtime config migration entry point. The config schema was squashed into the
+ * v0.0.1 baseline, so there are no legacy upgrade steps yet: a config at the
+ * current version passes through unchanged, a newer version is rejected, and an
+ * older/unversioned config is stamped to the current version before schema
+ * defaults are applied.
  *
  * When the schema next changes in a backward-incompatible way, bump
  * RUNTIME_CONFIG_VERSION and add the real upgrade step(s) here.
@@ -38,29 +42,30 @@ function readConfigVersion(config: JsonRecord): number {
 export function migrateRuntimeConfig(
   raw: unknown,
 ): RuntimeConfigMigrationResult {
-  const config = cloneRecord(raw);
+  const config = cloneRecord(raw)
   if (!config) {
-    return { ok: false, error: "Runtime config must be a JSON object." };
+    return { ok: false, error: "Runtime config must be a JSON object." }
   }
 
-  const version = readConfigVersion(config);
+  const version = readConfigVersion(config)
   if (Number.isNaN(version)) {
     return {
       ok: false,
       error: "runtimeConfigVersion must be a non-negative integer.",
-    };
+    }
   }
   if (version > CURRENT_RUNTIME_CONFIG_VERSION) {
     return {
       ok: false,
-      error: `runtimeConfigVersion ${version} is newer than supported version ${CURRENT_RUNTIME_CONFIG_VERSION}.`,
-    };
+      error:
+        `runtimeConfigVersion ${version} is newer than supported version ${CURRENT_RUNTIME_CONFIG_VERSION}.`,
+    }
   }
 
   if (version === CURRENT_RUNTIME_CONFIG_VERSION) {
-    return { ok: true, config, migrated: false };
+    return { ok: true, config, migrated: false }
   }
 
-  config.runtimeConfigVersion = CURRENT_RUNTIME_CONFIG_VERSION;
-  return { ok: true, config, migrated: true };
+  config.runtimeConfigVersion = CURRENT_RUNTIME_CONFIG_VERSION
+  return { ok: true, config, migrated: true }
 }
