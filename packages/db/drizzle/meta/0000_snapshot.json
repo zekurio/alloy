@@ -1,5 +1,5 @@
 {
-  "id": "7251cf07-14e5-419c-a2af-6cfca16ae6da",
+  "id": "a58eb89d-0533-4a80-9762-828883091c76",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1729,7 +1729,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "auth_challenge_expires_at_idx": {
+          "name": "auth_challenge_expires_at_idx",
+          "columns": [
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
