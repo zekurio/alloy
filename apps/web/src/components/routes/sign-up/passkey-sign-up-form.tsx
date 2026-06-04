@@ -262,6 +262,8 @@ export function PasskeySignUpForm(props: PasskeySignUpFormProps) {
           <AuthSubmitButton
             canSubmit={canSubmit}
             isSubmitting={isSubmitting}
+            onFocus={authClient.passkey.preload}
+            onPointerEnter={authClient.passkey.preload}
             pendingLabel="Waiting for authenticator…"
           >
             <SubmitButton />

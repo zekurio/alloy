@@ -48,6 +48,8 @@ export function PasskeySignIn() {
       className="w-full gap-3"
       disabled={pending}
       onClick={onSignIn}
+      onFocus={authClient.signIn.preloadPasskey}
+      onPointerEnter={authClient.signIn.preloadPasskey}
     >
       <KeyRoundIcon className="size-4" />
       <span className="truncate">

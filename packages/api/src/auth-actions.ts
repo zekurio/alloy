@@ -1,8 +1,4 @@
-import {
-  type RegistrationResponseJSON,
-  startAuthentication,
-  startRegistration,
-} from "@simplewebauthn/browser"
+import type { RegistrationResponseJSON } from "@simplewebauthn/browser"
 
 import {
   type AuthRedirect,
@@ -28,6 +24,25 @@ import {
   validateUserUpdateResponse,
 } from "./auth-validators"
 
+type WebAuthnBrowser = typeof import("@simplewebauthn/browser")
+
+let webAuthnBrowserPromise: Promise<WebAuthnBrowser> | null = null
+
+function loadWebAuthnBrowser(): Promise<WebAuthnBrowser> {
+  if (!webAuthnBrowserPromise) {
+    const promise = import("@simplewebauthn/browser")
+    webAuthnBrowserPromise = promise
+    void promise.catch(() => {
+      if (webAuthnBrowserPromise === promise) webAuthnBrowserPromise = null
+    })
+  }
+  return webAuthnBrowserPromise
+}
+
+function preloadWebAuthnBrowser(): void {
+  void loadWebAuthnBrowser()
+}
+
 async function jsonResult<T>(
   request: RequestFn,
   path: string,
@@ -47,11 +62,14 @@ async function passkeySignIn(
   store: SessionStore,
 ): AuthResult<SessionData> {
   try {
-    const start = await request(
-      AUTH_PATHS.passkeySignInOptions,
-      { method: "POST" },
-      validatePasskeyAuthenticationOptionsResponse,
-    )
+    const [start, { startAuthentication }] = await Promise.all([
+      request(
+        AUTH_PATHS.passkeySignInOptions,
+        { method: "POST" },
+        validatePasskeyAuthenticationOptionsResponse,
+      ),
+      loadWebAuthnBrowser(),
+    ])
     const response = await startAuthentication({
       optionsJSON: start.options,
     })
@@ -126,14 +144,17 @@ async function completeRegistrationChallenge<T>(
     validateResult: JsonValidator<T>
   },
 ): Promise<T> {
-  const start = await request(
-    optionsPath,
-    {
-      method,
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    },
-    validatePasskeyRegistrationOptionsResponse,
-  )
+  const [start, { startRegistration }] = await Promise.all([
+    request(
+      optionsPath,
+      {
+        method,
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      },
+      validatePasskeyRegistrationOptionsResponse,
+    ),
+    loadWebAuthnBrowser(),
+  ])
   const response: RegistrationResponseJSON = await startRegistration({
     optionsJSON: start.options,
   })
@@ -168,6 +189,7 @@ function createPasskeyActions(
   return {
     signIn: {
       passkey: () => passkeySignIn(request, store),
+      preloadPasskey: preloadWebAuthnBrowser,
       oauth2: (input: { providerId: string; callbackURL?: string }) =>
         startOAuthRedirect(
           request,
@@ -181,6 +203,7 @@ function createPasskeyActions(
       passkey: signUpWithPasskey,
     },
     passkey: {
+      preload: preloadWebAuthnBrowser,
       signUp: signUpWithPasskey,
       addPasskey: (input: { name?: string | null }) =>
         addPasskey(request, input),
