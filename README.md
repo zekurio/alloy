@@ -30,9 +30,9 @@ artifacts:
 
 ```nix
 nix.settings = {
-  substituters = [ "https://alloy.cachix.org" ];
+  substituters = [ "https://zekurio.cachix.org" ];
   trusted-public-keys = [
-    "alloy.cachix.org-1:wXlNsjaHLyuPuGbiUb+O5C7sIzUSXqR8rMvI1DOpYVw="
+    "zekurio.cachix.org-1:9ibXBAZj69Pg57FpygJiguefU5v93B7beAoQEQrtxw0="
   ];
 };
 ```
