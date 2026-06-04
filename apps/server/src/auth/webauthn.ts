@@ -15,7 +15,6 @@ import { logger } from "@workspace/logging"
 import {
   authChallenge,
   type User,
-  user,
   type UserPasskey,
   userPasskey,
 } from "@workspace/db/auth-schema"
@@ -28,6 +27,7 @@ import { base64UrlToBytes, bytesToBase64Url } from "./tokens"
 const RP_NAME = "alloy"
 const REGISTRATION_TTL_MS = 15 * 60 * 1000
 const AUTHENTICATION_TTL_MS = 5 * 60 * 1000
+const CHALLENGE_SWEEP_INTERVAL_MS = 5 * 60 * 1000
 
 type RegistrationPayload = {
   email?: string
@@ -75,7 +75,6 @@ async function deleteExpiredChallenges(): Promise<void> {
   await db.delete(authChallenge).where(lt(authChallenge.expiresAt, new Date()))
 }
 
-const CHALLENGE_SWEEP_INTERVAL_MS = 5 * 60 * 1000
 let sweepTimer: ReturnType<typeof setInterval> | null = null
 
 function sweepExpiredChallenges(): void {
@@ -103,6 +102,27 @@ export function stopChallengeSweeper(): void {
   sweepTimer = null
 }
 
+async function createChallenge(input: {
+  purpose: string
+  identifier: string
+  challenge: string
+  payload: Record<string, unknown>
+  ttlMs: number
+}): Promise<{ id: string }> {
+  const [challenge] = await db
+    .insert(authChallenge)
+    .values({
+      purpose: input.purpose,
+      identifier: input.identifier,
+      challenge: input.challenge,
+      payload: input.payload,
+      expiresAt: new Date(Date.now() + input.ttlMs),
+    })
+    .returning({ id: authChallenge.id })
+  if (!challenge) throw new Error("Could not create passkey challenge.")
+  return challenge
+}
+
 async function consumeChallenge(input: {
   challengeId: string
   purpose: string
@@ -117,7 +137,10 @@ async function consumeChallenge(input: {
         gt(authChallenge.expiresAt, new Date()),
       ),
     )
-    .returning()
+    .returning({
+      challenge: authChallenge.challenge,
+      payload: authChallenge.payload,
+    })
   if (!challenge) throw new Error(input.expiredMessage)
   return challenge
 }
@@ -147,17 +170,13 @@ export async function beginPasskeyRegistration(input: {
       userVerification: "required",
     },
   })
-  const [challenge] = await db
-    .insert(authChallenge)
-    .values({
-      purpose: "passkey-registration",
-      identifier: input.identifier,
-      challenge: options.challenge,
-      payload: input.payload,
-      expiresAt: new Date(Date.now() + REGISTRATION_TTL_MS),
-    })
-    .returning()
-  if (!challenge) throw new Error("Could not create passkey challenge.")
+  const challenge = await createChallenge({
+    purpose: "passkey-registration",
+    identifier: input.identifier,
+    challenge: options.challenge,
+    payload: input.payload,
+    ttlMs: REGISTRATION_TTL_MS,
+  })
   return { challengeId: challenge.id, options }
 }
 
@@ -192,17 +211,13 @@ export async function beginPasskeyAuthentication() {
     rpID: rpId(),
     userVerification: "required",
   })
-  const [challenge] = await db
-    .insert(authChallenge)
-    .values({
-      purpose: "passkey-authentication",
-      identifier: "discoverable",
-      challenge: options.challenge,
-      payload: {},
-      expiresAt: new Date(Date.now() + AUTHENTICATION_TTL_MS),
-    })
-    .returning()
-  if (!challenge) throw new Error("Could not create passkey challenge.")
+  const challenge = await createChallenge({
+    purpose: "passkey-authentication",
+    identifier: "discoverable",
+    challenge: options.challenge,
+    payload: {},
+    ttlMs: AUTHENTICATION_TTL_MS,
+  })
   return { challengeId: challenge.id, options }
 }
 
@@ -220,9 +235,8 @@ export async function verifyPasskeyAuthentication(input: {
   })
 
   const [credential] = await db
-    .select({ passkey: userPasskey, owner: user })
+    .select({ passkey: userPasskey })
     .from(userPasskey)
-    .innerJoin(user, eq(user.id, userPasskey.userId))
     .where(eq(userPasskey.credentialId, input.response.id))
     .limit(1)
   if (!credential) throw new Error("Passkey is not registered.")

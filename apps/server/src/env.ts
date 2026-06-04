@@ -31,6 +31,15 @@ function normalizeTrustedOrigins(value: string): string[] {
   return [...origins]
 }
 
+function isPostgresUrl(value: string): boolean {
+  try {
+    const protocol = new URL(value).protocol
+    return protocol === "postgres:" || protocol === "postgresql:"
+  } catch {
+    return false
+  }
+}
+
 function isLoopbackHostname(hostname: string): boolean {
   return (
     hostname === "localhost" ||
@@ -58,7 +67,13 @@ const EnvSchema = z.object({
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
-  DATABASE_URL: z.url(),
+  DATABASE_URL: z
+    .string()
+    .min(1)
+    .refine(
+      isPostgresUrl,
+      "DATABASE_URL must be a postgres:// or postgresql:// URL",
+    ),
   PUBLIC_SERVER_URL: z
     .url()
     .default(defaultPublicServerUrl)

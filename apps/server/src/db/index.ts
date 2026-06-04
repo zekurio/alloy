@@ -6,5 +6,5 @@ import { env } from "../env"
 export const { client, db } = createDb(env.DATABASE_URL)
 
 export async function warmDatabase(): Promise<void> {
-  await client`select 1`
+  await client.query("select 1")
 }

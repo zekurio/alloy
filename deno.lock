@@ -16,13 +16,14 @@
     "npm:@tanstack/router-plugin@1.167.22": "1.167.22_@tanstack+react-router@1.168.23__react@19.2.5__react-dom@19.2.5___react@19.2.5_vite@8.0.10__@types+node@25.6.0_@types+node@25.6.0",
     "npm:@types/deno@2.5.0": "2.5.0",
     "npm:@types/node@25.6.0": "25.6.0",
+    "npm:@types/pg@*": "8.20.0",
     "npm:@types/react-dom@19.2.3": "19.2.3_@types+react@19.2.14",
     "npm:@types/react@19.2.14": "19.2.14",
     "npm:@vitejs/plugin-react@5.2.0": "5.2.0_vite@8.0.10__@types+node@25.6.0_@types+node@25.6.0",
     "npm:class-variance-authority@0.7.1": "0.7.1",
     "npm:clsx@2.1.1": "2.1.1",
     "npm:drizzle-kit@0.31.10": "0.31.10",
-    "npm:drizzle-orm@0.45.2": "0.45.2_postgres@3.4.7",
+    "npm:drizzle-orm@0.45.2": "0.45.2_@types+pg@8.20.0_pg@8.21.0_postgres@3.4.7",
     "npm:embla-carousel-react@8.6.0": "8.6.0_react@19.2.5",
     "npm:hls.js@1.6.16": "1.6.16",
     "npm:hono@4.12.14": "4.12.14",
@@ -30,7 +31,8 @@
     "npm:openid-client@6.8.2": "6.8.2",
     "npm:oxfmt@0.46": "0.46.0",
     "npm:oxlint@^1.61.0": "1.64.0",
-    "npm:postgres@3.4.7": "3.4.7",
+    "npm:pg@*": "8.21.0",
+    "npm:pg@8.21.0": "8.21.0",
     "npm:react-dom@19.2.5": "19.2.5_react@19.2.5",
     "npm:react@19.2.5": "19.2.5",
     "npm:sonner@2.0.7": "2.0.7_react@19.2.5_react-dom@19.2.5__react@19.2.5",
@@ -1383,6 +1385,14 @@
         "undici-types"
       ]
     },
+    "@types/pg@8.20.0": {
+      "integrity": "sha512-bEPFOaMAHTEP1EzpvHTbmwR8UsFyHSKsRisLIHVMXnpNefSbGA1bD6CVy+qKjGSqmZqNqBDV2azOBo8TgkcVow==",
+      "dependencies": [
+        "@types/node",
+        "pg-protocol",
+        "pg-types"
+      ]
+    },
     "@types/react-dom@19.2.3_@types+react@19.2.14": {
       "integrity": "sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==",
       "dependencies": [
@@ -1532,12 +1542,16 @@
       ],
       "bin": true
     },
-    "drizzle-orm@0.45.2_postgres@3.4.7": {
+    "drizzle-orm@0.45.2_@types+pg@8.20.0_pg@8.21.0_postgres@3.4.7": {
       "integrity": "sha512-kY0BSaTNYWnoDMVoyY8uxmyHjpJW1geOmBMdSSicKo9CIIWkSxMIj2rkeSR51b8KAPB7m+qysjuHme5nKP+E5Q==",
       "dependencies": [
+        "@types/pg",
+        "pg",
         "postgres"
       ],
       "optionalPeers": [
+        "@types/pg",
+        "pg",
         "postgres"
       ]
     },
@@ -1861,6 +1875,53 @@
     "pathe@2.0.3": {
       "integrity": "sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w=="
     },
+    "pg-cloudflare@1.4.0": {
+      "integrity": "sha512-Vo7z/6rrQYxpNRylp4Tlob2elzbh+N/MOQbxFVWCxS7oEx6jF53GTJFxK2WWpKuBRkmiin4Mt+xofFDjx09R0A=="
+    },
+    "pg-connection-string@2.13.0": {
+      "integrity": "sha512-EMnU9E2fSULdsbErBbMaXJvFeD9B4+nPcM3f+4lsiCR0BHLPrLVjv3DbyM2hgQQviKJaTWIRRTjKjWlHg3p2ig=="
+    },
+    "pg-int8@1.0.1": {
+      "integrity": "sha512-WCtabS6t3c8SkpDBUlb1kjOs7l66xsGdKpIPZsg4wR+B3+u9UAum2odSsF9tnvxg80h4ZxLWMy4pRjOsFIqQpw=="
+    },
+    "pg-pool@3.14.0_pg@8.21.0": {
+      "integrity": "sha512-gKtPkFdQPU3DksooVLi9LsjZxrsBUZIpa+7aVx+LV5pNh0KzP4Zleud2po+ConrxbuXGBJ6Hfer6hdgpIBpBaw==",
+      "dependencies": [
+        "pg"
+      ]
+    },
+    "pg-protocol@1.14.0": {
+      "integrity": "sha512-n5taZ1kO3s9ngDTVxsEznOqCyToTgz0FLuPq0B33COy5pPpuWJpY3/2oRBVETuOgzdqRXfWpM9HIhp2LBBT1BA=="
+    },
+    "pg-types@2.2.0": {
+      "integrity": "sha512-qTAAlrEsl8s4OiEQY69wDvcMIdQN6wdz5ojQiOy6YRMuynxenON0O5oCpJI6lshc6scgAY8qvJ2On/p+CXY0GA==",
+      "dependencies": [
+        "pg-int8",
+        "postgres-array",
+        "postgres-bytea",
+        "postgres-date",
+        "postgres-interval"
+      ]
+    },
+    "pg@8.21.0": {
+      "integrity": "sha512-AUP1EYJuHraQGsVoCQVIcM7TEJVGtDzxWtGFZd8rds9d+CCXlU5Js1rYgfLNvxy9iJrpHjGrRjoi/3BT9fRyiA==",
+      "dependencies": [
+        "pg-connection-string",
+        "pg-pool",
+        "pg-protocol",
+        "pg-types",
+        "pgpass"
+      ],
+      "optionalDependencies": [
+        "pg-cloudflare"
+      ]
+    },
+    "pgpass@1.0.5": {
+      "integrity": "sha512-FdW9r/jQZhSeohs1Z3sI1yxFQNFvMcnmfuj4WBMUTxOrAyLMaTcE1aAMBiTlbMNaXvBCQuVi0R7hd8udDSP7ug==",
+      "dependencies": [
+        "split2"
+      ]
+    },
     "picocolors@1.1.1": {
       "integrity": "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="
     },
@@ -1876,6 +1937,21 @@
         "nanoid",
         "picocolors",
         "source-map-js"
+      ]
+    },
+    "postgres-array@2.0.0": {
+      "integrity": "sha512-VpZrUqU5A69eQyW2c5CA1jtLecCsN2U/bD6VilrFDWq5+5UIEVO7nazS3TEcHf1zuPYO/sqGvUvW62g86RXZuA=="
+    },
+    "postgres-bytea@1.0.1": {
+      "integrity": "sha512-5+5HqXnsZPE65IJZSMkZtURARZelel2oXUEO8rH83VS/hxH5vv1uHquPg5wZs8yMAfdv971IU+kcPUczi7NVBQ=="
+    },
+    "postgres-date@1.0.7": {
+      "integrity": "sha512-suDmjLVQg78nMK2UZ454hAG+OAW+HQPZ6n++TNDUX+L0+uUlLywnoxJKDou51Zm+zTCjrCl0Nq6J9C5hP9vK/Q=="
+    },
+    "postgres-interval@1.2.0": {
+      "integrity": "sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ==",
+      "dependencies": [
+        "xtend"
       ]
     },
     "postgres@3.4.7": {
@@ -2022,6 +2098,9 @@
     "source-map@0.6.1": {
       "integrity": "sha512-UjgapumWlbMhkBgzT7Ykc5YXUT46F0iKu8SGXq0bcwP5dz/h0Plj6enJqjz1Zbq2l5WaqYnrVbwWOWMyF3F47g=="
     },
+    "split2@4.2.0": {
+      "integrity": "sha512-UcjcJOWknrNkF6PLX83qcHM6KHgVKNkV62Y8a5uYDVv9ydGQVwAHMKqHdJje1VTWpljG0WYpCDhrCdAOYH4TWg=="
+    },
     "tailwind-merge@3.5.0": {
       "integrity": "sha512-I8K9wewnVDkL1NTGoqWmVEIlUcB9gFriAEkXkfCjX5ib8ezGxtR3xD7iZIxrfArjEsH7F1CHD4RFUtxefdqV/A=="
     },
@@ -2156,6 +2235,9 @@
     "webpack-virtual-modules@0.6.2": {
       "integrity": "sha512-66/V2i5hQanC51vBQKPH4aI8NMAcBW59FVBs+rC7eGHupMyfn34q7rZIE+ETlJ+XTevqfUhVVBgSUNSW2flEUQ=="
     },
+    "xtend@4.0.2": {
+      "integrity": "sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ=="
+    },
     "yallist@3.1.1": {
       "integrity": "sha512-a4UGQaWPH59mOXUYnAG2ewncQS4i4F43Tv3JoAM+s2VDAmS9NsK8GpDMLrCHPksFT7h3K6TOoUNn2pb7RoXx4g=="
     },
@@ -2194,7 +2276,7 @@
       "npm:hono@4.12.14",
       "npm:lucide-react@1.8.0",
       "npm:openid-client@6.8.2",
-      "npm:postgres@3.4.7",
+      "npm:pg@8.21.0",
       "npm:react-dom@19.2.5",
       "npm:react@19.2.5",
       "npm:sonner@2.0.7",
