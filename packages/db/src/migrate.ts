@@ -1,24 +1,25 @@
-import { drizzle } from "drizzle-orm/postgres-js"
-import { migrate } from "drizzle-orm/postgres-js/migrator"
-import postgres from "postgres"
+import { drizzle } from "drizzle-orm/node-postgres"
+import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { logger } from "@workspace/logging"
+
+import { createPostgresPool } from "./connection.ts"
 
 const migrationsFolder = Deno.env.get("ALLOY_MIGRATIONS_DIR") ??
   new URL("../drizzle", import.meta.url).pathname
 
 export async function migrateDatabase(databaseUrl: string) {
-  const client = postgres(databaseUrl, {
-    max: 1,
-  })
+  const client = createPostgresPool(databaseUrl, { max: 1 })
 
   try {
-    await client`select pg_advisory_lock(hashtext('alloy_migrations'))`
+    await client.query("select pg_advisory_lock(hashtext('alloy_migrations'))")
     try {
       await migrate(drizzle(client), {
         migrationsFolder,
       })
     } finally {
-      await client`select pg_advisory_unlock(hashtext('alloy_migrations'))`
+      await client.query(
+        "select pg_advisory_unlock(hashtext('alloy_migrations'))",
+      )
     }
   } finally {
     await client.end()

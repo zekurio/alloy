@@ -16,7 +16,7 @@
     inherit lib;
     root = ../.;
   },
-  denoDepsHash ? "sha256-Rv3sSYNBQH4eL4x/5HwygQ6v1mZwILIJGtOnKKwtYfs=",
+  denoDepsHash ? "sha256-z+2dHZzyEx1trC3JJ7UjWqNMHgVzTSe47M5+EySRij8=",
   # Must match the denort build for deno ${deno.version}. After bumping nixpkgs
   # (and therefore deno), refresh with:
   #   nix store prefetch-file \

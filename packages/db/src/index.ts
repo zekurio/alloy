@@ -1,10 +1,11 @@
-import { drizzle } from "drizzle-orm/postgres-js"
-import postgres from "postgres"
+import { drizzle } from "drizzle-orm/node-postgres"
 
 import { authSchema } from "./auth-schema"
+import { createPostgresPool } from "./connection.ts"
 import { domainSchema } from "./schema"
 
 export { authSchema, domainSchema }
+export { createPostgresPool } from "./connection.ts"
 export { migrateDatabase } from "./migrate"
 export * from "./auth-schema"
 export * from "./schema"
@@ -15,9 +16,7 @@ export const dbSchema = {
 } as const
 
 export function createDb(databaseUrl: string) {
-  const client = postgres(databaseUrl, {
-    max: 10,
-  })
+  const client = createPostgresPool(databaseUrl)
   const db = drizzle({
     client,
     schema: dbSchema,

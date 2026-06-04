@@ -59,6 +59,18 @@ let
     ]
   );
   isDatabaseUnixSocket = lib.hasPrefix "/" cfg.database.host;
+  databaseConnectHost =
+    if lib.hasPrefix "[" cfg.database.host then
+      cfg.database.host
+    else if lib.hasInfix ":" cfg.database.host then
+      "[${cfg.database.host}]"
+    else
+      cfg.database.host;
+  databaseUrl =
+    if isDatabaseUnixSocket then
+      "postgresql://${cfg.database.user}@localhost/${cfg.database.name}?host=${cfg.database.host}"
+    else
+      "postgresql://${cfg.database.user}@${databaseConnectHost}:${toString cfg.database.port}/${cfg.database.name}";
   machineLearningConnectHost =
     let
       host =
@@ -398,7 +410,7 @@ in
 
       environment = {
         NODE_ENV = "production";
-        DATABASE_URL = "postgresql:///${cfg.database.name}";
+        DATABASE_URL = databaseUrl;
         PORT = toString cfg.port;
         PUBLIC_SERVER_URL = cfg.publicServerUrl;
         TRUSTED_ORIGINS = lib.concatStringsSep "," ([ cfg.publicServerUrl ] ++ cfg.trustedOrigins);
