@@ -1,8 +1,10 @@
+import * as React from "react"
 import { Link } from "@tanstack/react-router"
 
 import type { PublicAuthConfig } from "@workspace/api"
 
 import { AuthPageFrame } from "@/components/auth/auth-page-frame"
+import { authClient } from "@/lib/auth-client"
 import { useRedirectIfAuthed } from "@/lib/auth-hooks"
 import { usePasskeySupport } from "@/lib/passkey-support"
 
@@ -20,13 +22,15 @@ type LoginPageInnerProps = {
  */
 export function LoginForm({
   config,
+  passkeyReady = true,
   passkeySupported,
 }: {
   config: PublicAuthConfig
+  passkeyReady?: boolean
   passkeySupported: boolean
 }) {
   const { providers, openRegistrations, passkeyEnabled } = config
-  const showPasskeySignIn = passkeyEnabled && passkeySupported
+  const showPasskeySignIn = passkeyReady && passkeyEnabled && passkeySupported
   const canSignUp = openRegistrations &&
     (passkeyEnabled || providers.length > 0)
 
@@ -45,7 +49,7 @@ export function LoginForm({
         ))}
       </div>
 
-      {passkeyEnabled && !passkeySupported
+      {passkeyReady && passkeyEnabled && !passkeySupported
         ? (
           <p className="mt-4 text-sm text-foreground-muted">
             Passkey sign-in is enabled, but this browser does not support
@@ -75,12 +79,22 @@ export function LoginPageInner({ config }: LoginPageInnerProps) {
   const canRender = useRedirectIfAuthed("/")
   const { ready: passkeyReady, supported: passkeySupported } =
     usePasskeySupport()
+
+  React.useEffect(() => {
+    if (config.passkeyEnabled && passkeyReady && passkeySupported) {
+      authClient.signIn.preloadPasskey()
+    }
+  }, [config.passkeyEnabled, passkeyReady, passkeySupported])
+
   if (!canRender) return null
-  if (config.passkeyEnabled && !passkeyReady) return null
 
   return (
     <AuthPageFrame splash={config.loginSplash}>
-      <LoginForm config={config} passkeySupported={passkeySupported} />
+      <LoginForm
+        config={config}
+        passkeyReady={passkeyReady}
+        passkeySupported={passkeySupported}
+      />
     </AuthPageFrame>
   )
 }

@@ -32,9 +32,10 @@ export {
   ENCODER_HWACCELS,
   LOGIN_SPLASH_IMAGE_PATH,
   loginSplashImagePath,
+  OAUTH_DISPLAY_NAME_CLAIM_DEFAULT,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
-  USERNAME_CLAIM_SUGGESTIONS,
+  OAUTH_USERNAME_CLAIM_DEFAULT,
 } from "@workspace/contracts"
 export type {
   AdminEncoderCapabilities,
@@ -50,6 +51,7 @@ export type {
   AdminUsersResponse,
   AdminUserStorageRow,
   AppearanceConfig,
+  DisplayNameClaim,
   EncoderCodec,
   EncoderHwaccel,
   RuntimeConfig,

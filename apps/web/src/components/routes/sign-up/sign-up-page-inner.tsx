@@ -1,3 +1,4 @@
+import * as React from "react"
 import { Link } from "@tanstack/react-router"
 
 import type { PublicAuthConfig } from "@workspace/api"
@@ -5,6 +6,7 @@ import type { PublicAuthConfig } from "@workspace/api"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { AuthPageFrame } from "@/components/auth/auth-page-frame"
+import { authClient } from "@/lib/auth-client"
 import { useRedirectIfAuthed } from "@/lib/auth-hooks"
 import { usePasskeySupport } from "@/lib/passkey-support"
 import { OAuthSignIn } from "../login/oauth-sign-in"
@@ -22,13 +24,16 @@ type SignUpPageInnerProps = {
  */
 export function SignUpForm({
   config,
+  passkeyReady = true,
   passkeySupported,
 }: {
   config: PublicAuthConfig
+  passkeyReady?: boolean
   passkeySupported: boolean
 }) {
   const canPasskeySignUp = config.openRegistrations && config.passkeyEnabled
-  const showPasskeySignUp = canPasskeySignUp && passkeySupported
+  const showPasskeySignUp = passkeyReady && canPasskeySignUp &&
+    passkeySupported
   const oauthProviders = config.openRegistrations ? config.providers : []
   const canOAuthSignUp = oauthProviders.length > 0
   const showSeparator = showPasskeySignUp && canOAuthSignUp
@@ -50,7 +55,7 @@ export function SignUpForm({
           )
           : null}
 
-        {canPasskeySignUp && !passkeySupported
+        {passkeyReady && canPasskeySignUp && !passkeySupported
           ? (
             <p className="text-sm text-foreground-muted">
               Passkey sign-up is enabled, but this browser does not support
@@ -100,12 +105,21 @@ export function SignUpPageInner({ config }: SignUpPageInnerProps) {
   const { supported: passkeySupported, ready: passkeyReady } =
     usePasskeySupport()
 
+  React.useEffect(() => {
+    if (config.passkeyEnabled && passkeyReady && passkeySupported) {
+      authClient.passkey.preload()
+    }
+  }, [config.passkeyEnabled, passkeyReady, passkeySupported])
+
   if (!canRender) return null
-  if (config.passkeyEnabled && !passkeyReady) return null
 
   return (
     <AuthPageFrame splash={config.loginSplash}>
-      <SignUpForm config={config} passkeySupported={passkeySupported} />
+      <SignUpForm
+        config={config}
+        passkeyReady={passkeyReady}
+        passkeySupported={passkeySupported}
+      />
     </AuthPageFrame>
   )
 }

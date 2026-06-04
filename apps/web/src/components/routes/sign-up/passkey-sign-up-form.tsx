@@ -7,7 +7,10 @@ import { toast } from "@workspace/ui/lib/toast"
 
 import { AuthSubmitButton, FormInputField } from "../auth/auth-form-fields"
 import { authClient } from "@/lib/auth-client"
-import { completeAuthSessionFlow, reportAuthFlowFailure } from "@/lib/auth-flow"
+import {
+  completeAuthSessionFlow,
+  toastAuthAttemptFailure,
+} from "@/lib/auth-flow"
 import { validateEmail, validateUsername } from "@/lib/form-validators"
 import { invalidateAuthConfig } from "@/lib/session-suspense"
 
@@ -52,7 +55,11 @@ function usePasskeySignUpSubmit({
           username: form.username.trim(),
         })
         if (error) {
-          toast.error("Couldn't create your passkey account")
+          toastAuthAttemptFailure(
+            "passkey sign-up",
+            "Couldn't create your passkey account",
+            error,
+          )
           return
         }
         if (successMessage) toast.success(successMessage)
@@ -62,12 +69,10 @@ function usePasskeySignUpSubmit({
           navigate: () => navigate({ to: redirectTo }),
         })
       } catch (cause) {
-        toast.error(
-          reportAuthFlowFailure(
-            "passkey sign-up",
-            "Couldn't finish passkey account setup",
-            cause,
-          ),
+        toastAuthAttemptFailure(
+          "passkey sign-up",
+          "Couldn't finish passkey account setup",
+          cause,
         )
       }
     },

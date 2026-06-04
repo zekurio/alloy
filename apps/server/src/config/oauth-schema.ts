@@ -1,8 +1,10 @@
 import { z } from "zod"
 
 import {
+  OAUTH_DISPLAY_NAME_CLAIM_DEFAULT,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
+  OAUTH_USERNAME_CLAIM_DEFAULT,
 } from "@workspace/contracts"
 
 const ProviderIdPattern = /^[a-z0-9-]+$/
@@ -26,7 +28,12 @@ const OAuthProviderBaseSchema = z.object({
   tokenUrl: z.string().url().optional(),
   userInfoUrl: z.string().url().optional(),
   pkce: z.boolean().default(true),
-  usernameClaim: z.string().min(1).max(128).default("preferred_username"),
+  usernameClaim: z.string().min(1).max(128).default(
+    OAUTH_USERNAME_CLAIM_DEFAULT,
+  ),
+  displayNameClaim: z.string().min(1).max(128).default(
+    OAUTH_DISPLAY_NAME_CLAIM_DEFAULT,
+  ),
   quotaClaim: z.string().min(1).max(128).default(OAUTH_QUOTA_CLAIM_DEFAULT),
   roleClaim: z.string().min(1).max(128).default(OAUTH_ROLE_CLAIM_DEFAULT),
 })
@@ -53,6 +60,16 @@ function validateOAuthProvider(
       code: "custom",
       path: ["usernameClaim"],
       message: "Username claim is required for custom providers.",
+    })
+  }
+  if (
+    !provider.displayNameClaim ||
+    provider.displayNameClaim.trim().length === 0
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["displayNameClaim"],
+      message: "Display name claim is required for custom providers.",
     })
   }
 }
