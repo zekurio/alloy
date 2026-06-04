@@ -355,11 +355,15 @@ export function AuthSubmitButton({
   canSubmit,
   children,
   isSubmitting,
+  onFocus,
+  onPointerEnter,
   pendingLabel,
 }: {
   canSubmit: boolean
   children: React.ReactNode
   isSubmitting: boolean
+  onFocus?: React.FocusEventHandler<HTMLButtonElement>
+  onPointerEnter?: React.PointerEventHandler<HTMLButtonElement>
   pendingLabel: string
 }) {
   return (
@@ -369,6 +373,8 @@ export function AuthSubmitButton({
       size="lg"
       className="w-full"
       disabled={!canSubmit}
+      onFocus={onFocus}
+      onPointerEnter={onPointerEnter}
     >
       {isSubmitting ? pendingLabel : children}
     </Button>

@@ -2,6 +2,7 @@ import { migrateDatabase } from "@workspace/db"
 import { logger } from "@workspace/logging"
 
 import { app } from "./app"
+import { warmDatabase } from "./db"
 import { env } from "./env"
 import { startQueue, stopQueue } from "./queue"
 import { startChallengeSweeper, stopChallengeSweeper } from "./auth/webauthn"
@@ -10,6 +11,13 @@ import { requestShutdown } from "./runtime/shutdown"
 
 if (env.NODE_ENV === "production") {
   await migrateDatabase(env.DATABASE_URL)
+}
+
+try {
+  await warmDatabase()
+} catch (err) {
+  logger.error("[db] failed to warm database connection:", err)
+  Deno.exit(1)
 }
 
 const server = Deno.serve(
