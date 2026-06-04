@@ -1,18 +1,28 @@
-name: Lint, Check and Build
+name: CI
 
 on:
   pull_request:
+    branches:
+      - main
+      - staging
   push:
+    branches:
+      - main
+      - staging
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: checks-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  basic-checks:
+  deno:
+    name: Deno checks
     runs-on: ubuntu-latest
 
     steps:
@@ -27,6 +37,9 @@ jobs:
       - name: Install dependencies
         run: deno install --frozen
 
+      - name: Check formatting
+        run: deno task fmt:check
+
       - name: Run lint
         run: deno task lint:github
 
@@ -38,7 +51,8 @@ jobs:
           NODE_ENV: production
         run: deno task build
 
-  nix-package:
+  nix:
+    name: Nix package
     runs-on: ubuntu-latest
 
     steps:

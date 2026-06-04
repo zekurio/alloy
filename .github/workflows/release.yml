@@ -4,19 +4,13 @@ on:
   push:
     tags:
       - "v*.*.*"
-  workflow_dispatch:
-    inputs:
-      version:
-        description: Release version (for example 1.6.0 or v1.6.0)
-        required: true
-        type: string
 
 permissions:
   contents: write
   packages: write
 
 concurrency:
-  group: release-${{ github.workflow }}
+  group: release-${{ github.ref_name }}
   cancel-in-progress: false
 
 env:
@@ -25,28 +19,28 @@ env:
 
 jobs:
   release:
+    name: Publish release
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout release tag
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || github.ref }}
           fetch-depth: 0
 
       - name: Resolve release version
         id: meta
         shell: bash
         run: |
-          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            raw="${{ github.event.inputs.version }}"
-          else
-            raw="${GITHUB_REF_NAME}"
-          fi
-
+          raw="${GITHUB_REF_NAME}"
           version="${raw#v}"
 
-          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+          if [[ "$raw" != v* ]]; then
+            echo "Release refs must be v-prefixed tags." >&2
+            exit 1
+          fi
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
             echo "Invalid release version: $raw" >&2
             exit 1
           fi
@@ -62,19 +56,14 @@ jobs:
             echo "make_latest=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Ensure release tag does not already exist
-        if: github.event_name == 'workflow_dispatch'
+      - name: Ensure tag points at main
         shell: bash
-        env:
-          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
         run: |
-          if git rev-parse "$RELEASE_TAG" >/dev/null 2>&1; then
-            echo "Tag $RELEASE_TAG already exists locally." >&2
-            exit 1
-          fi
+          git fetch origin "+refs/heads/main:refs/remotes/origin/main"
+          release_commit="$(git rev-list -n 1 "$GITHUB_REF_NAME")"
 
-          if git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
-            echo "Tag $RELEASE_TAG already exists on origin." >&2
+          if ! git merge-base --is-ancestor "$release_commit" origin/main; then
+            echo "Release tag $GITHUB_REF_NAME must point at a commit on main." >&2
             exit 1
           fi
 
@@ -92,35 +81,6 @@ jobs:
           name: zekurio
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
-      - name: Update Deno version
-        if: github.event_name == 'workflow_dispatch'
-        id: version_bump
-        shell: bash
-        env:
-          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
-        run: |
-          # shellcheck disable=SC2016
-          deno eval '
-          import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
-
-          function setOutput(name, value) {
-            appendFileSync(Deno.env.get("GITHUB_OUTPUT"), `${name}=${value}\n`);
-          }
-
-          const filePath = "deno.json";
-          const config = JSON.parse(readFileSync(filePath, "utf8"));
-
-          if (config.version === Deno.env.get("RELEASE_VERSION")) {
-            console.log(`deno.json is already at version ${config.version}.`);
-            setOutput("changed", "false");
-            Deno.exit(0);
-          }
-
-          config.version = Deno.env.get("RELEASE_VERSION");
-          writeFileSync(filePath, `${JSON.stringify(config, null, 2)}\n`);
-          setOutput("changed", "true");
-          '
-
       - name: Validate Deno version matches release
         shell: bash
         env:
@@ -133,29 +93,11 @@ jobs:
             exit 1
           fi
 
-      - name: Configure git author
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - name: Commit release version
-        if: github.event_name == 'workflow_dispatch'
-        id: git_release
-        shell: bash
-        env:
-          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
-          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
-        run: |
-          if [[ "${{ steps.version_bump.outputs.changed }}" == "true" ]]; then
-            git add deno.json
-            git commit -m "chore(release): prepare $RELEASE_TAG"
-          else
-            echo "deno.json already matches $RELEASE_VERSION; validating current main commit."
-          fi
-
       - name: Install dependencies
         run: deno install --frozen
+
+      - name: Check formatting
+        run: deno task fmt:check
 
       - name: Run lint
         run: deno task lint:github
@@ -174,14 +116,6 @@ jobs:
       - name: Build Nix package
         run: nix --extra-experimental-features "nix-command flakes" build .#alloy --no-link
 
-      - name: Create release tag
-        if: github.event_name == 'workflow_dispatch'
-        shell: bash
-        env:
-          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
-        run: |
-          git tag -a "$RELEASE_TAG" -m "Release $RELEASE_TAG"
-
       - name: Resolve release target
         id: release_target
         shell: bash
@@ -194,7 +128,8 @@ jobs:
         env:
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
         run: |
-          previous_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$RELEASE_TAG^" 2>/dev/null || true)"
+          release_commit="$(git rev-list -n 1 "$RELEASE_TAG")"
+          previous_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$release_commit^" 2>/dev/null || true)"
           echo "tag=$previous_tag" >> "$GITHUB_OUTPUT"
 
       - name: Publish server release image
@@ -218,14 +153,6 @@ jobs:
           tags: |
             type=raw,value=${{ steps.meta.outputs.tag }}
             type=raw,value=latest,enable=${{ steps.meta.outputs.make_latest == 'true' }}
-
-      - name: Push release commit and tag
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
-        run: |
-          git push origin HEAD:main
-          git push origin "$RELEASE_TAG"
 
       - name: Publish GitHub release
         if: steps.previous_tag.outputs.tag != ''

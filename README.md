@@ -9,13 +9,40 @@ recording (coming soon?).
 
 ## Install
 
+### Release Channels
+
+Alloy treats `main` as the stable, release-ready branch. Unpinned Nix users who
+track `github:zekurio/alloy` get the latest release-ready commit. For
+reproducible deployments, pin a release tag instead.
+
+- Stable branch: `main`
+- Exact release tags: `vX.Y.Z`
+- Stable container image: `ghcr.io/zekurio/alloy:latest`
+- Exact container image: `ghcr.io/zekurio/alloy:vX.Y.Z`
+- Staging branch and image: `staging`
+
+The `staging` branch is for integration testing before a release PR is merged to
+`main`. It is intentionally opt-in and can change ahead of the stable channel.
+
 ### NixOS
 
-The NixOS module is the preferred deployment path today. Add Alloy as a flake
-input:
+The NixOS module is the preferred deployment path today. To follow the latest
+release-ready commit, add Alloy as a flake input:
 
 ```nix
 inputs.alloy.url = "github:zekurio/alloy";
+```
+
+For a reproducible deployment, pin a release tag:
+
+```nix
+inputs.alloy.url = "github:zekurio/alloy/vX.Y.Z";
+```
+
+To test unreleased changes, opt into staging explicitly:
+
+```nix
+inputs.alloy.url = "github:zekurio/alloy/staging";
 ```
 
 Alloy deliberately builds against its own pinned `nixpkgs` from `flake.lock`. Do
@@ -68,7 +95,9 @@ media URLs, CORS, and secure cookies use the deployment host.
 The server container image is built with Nix (`dockerTools`) and published to
 `ghcr.io/zekurio/alloy`. Docker support exists, but is less polished than the
 NixOS module: you must provide PostgreSQL yourself, persist the mutable
-directories, and configure production URLs explicitly.
+directories, and configure production URLs explicitly. Use `latest` for the
+stable channel, `vX.Y.Z` for an exact release, or `staging` only when testing
+unreleased changes.
 
 Example:
 
@@ -161,3 +190,21 @@ deno task typecheck
 ## Contributing
 
 Contributions are being accepted.
+
+## Releasing
+
+Feature and fix PRs should target `staging`. After staging has been validated,
+run the **Prepare Release** workflow with the target version. It opens or
+updates a release PR from `staging` to `main` and bumps `deno.json`.
+
+After the release PR is merged, create a tag on the merge commit:
+
+```bash
+git checkout main
+git pull
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+git push origin vX.Y.Z
+```
+
+The **Release** workflow only publishes from `vX.Y.Z` tags that point at `main`.
+Stable releases publish `latest`; prereleases such as `vX.Y.Z-rc.1` do not.

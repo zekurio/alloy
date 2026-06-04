@@ -37,6 +37,7 @@
     "preview": "deno run -A npm:vite@^8.0.10 preview --port 5173 --strictPort",
     "lint": "deno lint src vite.config.ts",
     "fmt": "deno fmt src vite.config.ts deno.json tsconfig.json components.json",
+    "fmt:check": "deno fmt --check src vite.config.ts deno.json tsconfig.json components.json",
     "format": "deno task fmt",
     "typecheck": "deno check src vite.config.ts"
   }

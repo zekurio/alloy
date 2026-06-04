@@ -13,6 +13,7 @@
   "tasks": {
     "lint": "deno lint src",
     "fmt": "deno fmt src deno.json tsconfig.json",
+    "fmt:check": "deno fmt --check src deno.json tsconfig.json",
     "format": "deno task fmt",
     "typecheck": "deno check src"
   }

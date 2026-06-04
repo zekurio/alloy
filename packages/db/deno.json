@@ -37,6 +37,7 @@
     "db:studio": "deno run -A npm:drizzle-kit@0.31.10 studio",
     "lint": "deno lint src drizzle.config.ts",
     "fmt": "deno fmt src drizzle.config.ts deno.json tsconfig.json",
+    "fmt:check": "deno fmt --check src drizzle.config.ts deno.json tsconfig.json",
     "format": "deno task fmt",
     "typecheck": "deno check src drizzle.config.ts"
   }
