@@ -89,9 +89,7 @@ export function serverToQueueItem(
       break
     case "ready":
       status = row.encodeProgress < 100 ? "encoding" : "published"
-      detail = row.encodeProgress < 100
-        ? "Publishing playback variants"
-        : "Ready"
+      detail = row.encodeProgress < 100 ? "Processing playback assets" : "Ready"
       break
     case "failed":
       status = "failed"

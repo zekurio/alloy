@@ -42,13 +42,19 @@ export function HomePageInner() {
   const viewerId = session?.user.id
 
   return (
-    <AppMain>
+    <AppMain className="!pt-0">
       <div className="flex w-full flex-col">
-        <TopClipsSection
-          viewerId={viewerId}
-          window={window}
-          hashtag={search.tag}
-        />
+        {
+          /* Top padding lives here, not on AppMain, so the sticky chip bar can
+            pin flush under the header instead of leaving a gap above it. */
+        }
+        <div className="pt-4 md:pt-6">
+          <TopClipsSection
+            viewerId={viewerId}
+            window={window}
+            hashtag={search.tag}
+          />
+        </div>
         <FeedChipBar filter={filter} onChange={setFilter} />
         <FeedSection filter={filter} viewerId={viewerId} />
       </div>

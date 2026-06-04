@@ -1,11 +1,5 @@
 import * as React from "react"
-import {
-  EyeIcon,
-  HeartIcon,
-  LinkIcon,
-  LockIcon,
-  MessageSquareIcon,
-} from "lucide-react"
+import { LinkIcon, LockIcon } from "lucide-react"
 
 import { GameIcon } from "@workspace/ui/components/game-icon"
 import {
@@ -66,8 +60,10 @@ function ClipCard({
   gameIcon,
   gameHref,
   views,
-  likes,
-  comments,
+  // Likes and comments stay in the contract but are no longer shown on the
+  // card face — the meta line mirrors the channel-style "views · age" layout.
+  likes: _likes,
+  comments: _comments,
   postedAt = "2h ago",
   thumbnail,
   accentHue,
@@ -81,9 +77,6 @@ function ClipCard({
   metaVariant = "default",
   ...props
 }: ClipCardProps) {
-  const commentCount = comments ??
-    Math.max(0, Math.floor((Number.parseFloat(likes) || 0) / 8))
-
   const privacyBadge = renderPrivacyBadge(privacy)
 
   return (
@@ -103,65 +96,46 @@ function ClipCard({
         label={thumbnailLabel ?? title}
         buttonRef={thumbnailRef}
       />
-      <div className="flex flex-col gap-1.5">
-        {metaVariant === "showcase"
+      <div className="flex items-start gap-2.5">
+        {author
           ? (
-            <div className="truncate text-lg leading-6 font-semibold tracking-[-0.015em] text-foreground">
-              {titleContent ?? title}
-            </div>
+            <ClipCardAvatar
+              author={author}
+              authorSeed={authorSeed}
+              authorImage={authorImage}
+              authorInitials={authorInitials}
+              authorAvatarBg={authorAvatarBg}
+              authorAvatarFg={authorAvatarFg}
+            />
           )
-          : (
-            <div className="flex min-w-0 items-center gap-2 text-lg leading-6">
-              <div className="min-w-0 flex-1 truncate font-semibold tracking-[-0.015em] text-foreground">
-                {titleContent ?? title}
-              </div>
-              <span className="inline-flex shrink-0 items-center gap-3 text-sm leading-none tracking-[0.04em] text-foreground-faint tabular-nums">
-                <span className="inline-flex items-center gap-1.5">
-                  <EyeIcon className="size-4" />
-                  {views}
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <HeartIcon className="size-4" />
-                  {likes}
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <MessageSquareIcon className="size-4" />
-                  {commentCount}
-                </span>
-              </span>
-            </div>
-          )}
-        <div className="flex min-w-0 items-center gap-2 text-sm leading-5">
-          {author
-            ? (
-              <div className="flex min-w-0 flex-1 items-center gap-2 text-foreground-dim">
-                <ClipCardAvatar
-                  author={author}
-                  authorSeed={authorSeed}
-                  authorImage={authorImage}
-                  authorInitials={authorInitials}
-                  authorAvatarBg={authorAvatarBg}
-                  authorAvatarFg={authorAvatarFg}
-                />
-                <span className="flex min-w-0 items-center gap-2 overflow-hidden">
+          : null}
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          {/* Title owns its own row. */}
+          <div className="truncate text-lg leading-snug font-semibold tracking-[-0.015em] text-foreground">
+            {titleContent ?? title}
+          </div>
+
+          <div className="flex min-w-0 items-center gap-1.5 text-base leading-tight text-foreground-dim">
+            {author
+              ? (
+                <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
                   <AuthorLabel author={author} href={authorHref} />
                   <span className="shrink-0 text-foreground-faint">·</span>
                   <GameLabel game={game} icon={gameIcon} href={gameHref} />
                 </span>
-              </div>
-            )
-            : (
-              <div className="min-w-0 flex-1 text-accent">
-                <GameLabel game={game} icon={gameIcon} href={gameHref} />
-              </div>
-            )}
+              )
+              : <GameLabel game={game} icon={gameIcon} href={gameHref} />}
+          </div>
+
           {metaVariant === "showcase"
             ? null
             : (
-              <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 text-sm leading-4 tracking-[0.04em] text-foreground-faint">
+              <div className="flex min-w-0 items-center gap-1.5 text-sm leading-tight text-foreground-faint tabular-nums">
                 {privacyBadge}
-                {postedAt}
-              </span>
+                <span className="shrink-0">{views} views</span>
+                <span className="shrink-0">·</span>
+                <span className="truncate">{postedAt}</span>
+              </div>
             )}
         </div>
       </div>
@@ -475,7 +449,7 @@ function AuthorLabel({
   href: string | null | undefined
 }) {
   const className = cn(
-    "max-w-[45%] shrink-0 truncate leading-4 font-medium text-foreground-muted",
+    "max-w-[45%] shrink-0 truncate leading-tight font-medium text-foreground-muted",
     href &&
       "hover:underline focus-visible:underline focus-visible:outline-none",
   )
@@ -527,8 +501,8 @@ function ClipCardAvatar({
     <span
       aria-hidden
       className={cn(
-        "inline-flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-[3px]",
-        "text-[9px] leading-3 font-semibold",
+        "inline-flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full",
+        "text-[13px] leading-none font-semibold",
       )}
       style={{
         background: fallbackBg,
@@ -561,7 +535,7 @@ function GameLabel({
   href: string | null | undefined
 }) {
   const className = cn(
-    "inline-flex min-w-0 items-center gap-1.5 truncate leading-4 text-accent",
+    "inline-flex min-w-0 items-center gap-1.5 truncate leading-tight text-accent",
     href &&
       "hover:underline focus-visible:underline focus-visible:outline-none",
   )

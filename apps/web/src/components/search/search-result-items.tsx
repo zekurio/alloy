@@ -196,7 +196,7 @@ export function UserRowItem({
   const handle = row.displayUsername || row.username
   return (
     <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>
-      <Avatar size="lg" className="rounded-[3px]">
+      <Avatar size="lg" className="rounded-full">
         {chip.avatar.src ? <AvatarImage src={chip.avatar.src} alt="" /> : null}
         <AvatarFallback
           style={{

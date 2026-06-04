@@ -36,7 +36,7 @@ function UserAvatarButton({
       data-slot="user-avatar-button"
       aria-label={ariaLabel ?? name}
       className={cn(
-        "group inline-flex shrink-0 rounded-lg",
+        "group inline-flex shrink-0 rounded-full",
         "transition-shadow duration-[var(--duration-fast)] ease-[var(--ease-out)]",
         "hover:ring-2 hover:ring-border-strong",
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
@@ -45,7 +45,7 @@ function UserAvatarButton({
       )}
       {...props}
     >
-      <Avatar size="lg" className="rounded-lg" style={tintStyle}>
+      <Avatar size="lg" style={tintStyle}>
         {avatar.src ? <AvatarImage src={avatar.src} alt="" /> : null}
         <AvatarFallback style={tintStyle}>{avatar.initials}</AvatarFallback>
       </Avatar>
