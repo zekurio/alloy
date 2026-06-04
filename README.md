@@ -1,6 +1,7 @@
 # alloy
 
-Alloy is an open-source, self-hostable alternative to Medal.tv, without recording (coming soon?).
+Alloy is an open-source, self-hostable alternative to Medal.tv, without
+recording (coming soon?).
 
 > **AI Disclaimer & Warning:** This is a personal project developed in my free
 > time. I use AI to assist with development. I do my best to follow best

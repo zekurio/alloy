@@ -7,11 +7,12 @@ import { logger } from "@workspace/logging"
 import { errorDetail } from "../runtime/error-message"
 import { CONFIG_PATH } from "../runtime/dirs"
 import { dirname } from "../runtime/path"
+import { signInConfigError } from "../auth/sign-in-config"
 
 // Imported before this module's body runs, so the secret store initializes (and
 // seeds itself from any legacy inline secrets in config.json) BEFORE this module
 // strips those secret keys and rewrites the file.
-import { secretStore } from "./secret-store"
+import { readInlineSecrets, secretStore } from "./secret-store"
 
 import {
   AppearanceConfigPatchSchema,
@@ -249,19 +250,26 @@ function commit(next: RuntimeConfig): void {
   apply(next, true)
 }
 
-function reloadFromDisk(): boolean {
+async function reloadFromDisk(): Promise<boolean> {
   const result = loadFromDisk()
   if (!result.ok) {
     logger.warn(`[config-store] ignoring invalid ${CONFIG_PATH}:`, result.error)
     return false
   }
+  const inline = readInlineSecrets(result.raw)
+  const authError = await signInConfigError(
+    result.config,
+    (providerId) => providerId in inline.oauthClientSecrets,
+  )
+  if (authError) {
+    logger.warn(`[config-store] ignoring unsafe ${CONFIG_PATH}:`, authError)
+    return false
+  }
   // Migrate any inline admin-managed secrets a hand-edited/restored file
-  // carried. We don't reject secretless-but-enabled providers here: they are
-  // filtered out at the consumer layer (isOAuthProviderUsable), so they're
-  // simply not served rather than breaking sign-in.
+  // carried after validation accepts the reloaded config.
   secretStore.ingestConfigSecrets(result.raw)
   apply(result.config, false)
-  if (result.migrated) writeToDisk(state)
+  if (result.migrated || result.strippedSecrets) writeToDisk(state)
   return true
 }
 
@@ -282,7 +290,7 @@ function startConfigFileWatcher(): void {
         if (reloadTimer) clearTimeout(reloadTimer)
         reloadTimer = setTimeout(() => {
           reloadTimer = null
-          reloadFromDisk()
+          void reloadFromDisk()
         }, 50)
       }
     } catch (err) {
@@ -299,7 +307,7 @@ interface ConfigStore {
   set<K extends keyof RuntimeConfig>(key: K, value: RuntimeConfig[K]): void
   patch(patch: Partial<RuntimeConfig>): void
   replace(value: unknown): void
-  reload(): boolean
+  reload(): Promise<boolean>
   subscribe(fn: Listener): () => void
   readonly filePath: string
 }

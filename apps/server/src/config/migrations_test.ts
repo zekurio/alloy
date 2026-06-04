@@ -18,7 +18,7 @@ Deno.test("migrateRuntimeConfig leaves current configs unchanged", () => {
   assert(result.config !== config, "migration should not return caller object")
 })
 
-Deno.test("migrateRuntimeConfig stamps the current version on older configs", () => {
+Deno.test("migrateRuntimeConfig stamps the current version on pre-baseline configs", () => {
   const result = migrateRuntimeConfig({ runtimeConfigVersion: 0 })
 
   assert(result.ok, "migration should succeed")
@@ -31,7 +31,7 @@ Deno.test("migrateRuntimeConfig stamps the current version on older configs", ()
   )
 })
 
-Deno.test("migrateRuntimeConfig treats a missing version as legacy", () => {
+Deno.test("migrateRuntimeConfig stamps the current version on unversioned baseline configs", () => {
   const result = migrateRuntimeConfig({ oauthProviders: [] })
 
   assert(result.ok, "migration should succeed")
