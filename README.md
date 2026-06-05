@@ -20,9 +20,11 @@ reproducible deployments, pin a release tag instead.
 - Stable container image: `ghcr.io/zekurio/alloy:latest`
 - Exact container image: `ghcr.io/zekurio/alloy:vX.Y.Z`
 - Dev branch and image: `dev`
+- Nightly container image: `nightly`
 
 The `dev` branch is for integration testing before a release PR is merged to
 `main`. It is intentionally opt-in and can change ahead of the stable channel.
+The nightly container image is built from `dev`.
 
 ### NixOS
 
@@ -189,13 +191,18 @@ deno task typecheck
 
 ## Contributing
 
-Contributions are being accepted.
+Contributions are being accepted. CI runs lightweight formatting, lint, and
+typecheck checks for pull requests and pushes to `dev` and `main`.
 
 ## Releasing
 
 Feature and fix PRs should target `dev`. After dev has been validated, run the
 **Prepare Release** workflow with the target version. It opens or updates a
 release PR from `dev` to `main` and bumps `deno.json`.
+
+The **Publish Dev/Nightly Container Image** workflow publishes `nightly` and
+`nightly-<short-sha>` container tags from `dev` on its nightly schedule. Manual
+runs publish `dev` and `dev-<short-sha>` tags for the selected ref.
 
 After the release PR is merged, create a tag on the merge commit:
 

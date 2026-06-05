@@ -1,10 +1,12 @@
-name: Publish Dev Container Image
+name: Publish Dev/Nightly Container Image
 
 on:
+  schedule:
+    - cron: "23 3 * * *"
   workflow_dispatch:
     inputs:
       ref:
-        description: Branch, tag, or SHA to publish as dev
+        description: Branch, tag, or SHA to publish
         required: false
         default: dev
         type: string
@@ -14,7 +16,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: dev-image-${{ github.ref }}
+  group: dev-image-${{ github.event_name == 'workflow_dispatch' && inputs.ref || 'nightly' }}
   cancel-in-progress: true
 
 env:
@@ -30,7 +32,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || 'dev' }}
 
       - name: Set up Deno
         uses: denoland/setup-deno@v2
@@ -40,12 +42,19 @@ jobs:
       - name: Set up Nix
         uses: cachix/install-nix-action@v31
 
-      - name: Resolve dev metadata
+      - name: Resolve image metadata
         id: meta
         shell: bash
         run: |
           short_sha="$(git rev-parse --short=12 HEAD)"
+          channel="dev"
+
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+            channel="nightly"
+          fi
+
           export SHORT_SHA="$short_sha"
+          export CHANNEL="$channel"
 
           # shellcheck disable=SC2016
           version="$(deno eval '
@@ -61,27 +70,29 @@ jobs:
           }
 
           const [, major, minor, patch] = match;
+          const channel = Deno.env.get("CHANNEL");
           const runNumber = Deno.env.get("GITHUB_RUN_NUMBER");
           const shortSha = Deno.env.get("SHORT_SHA");
-          console.log(`${major}.${minor}.${patch}-dev.${runNumber}.${shortSha}`);
+          console.log(`${major}.${minor}.${patch}-${channel}.${runNumber}.${shortSha}`);
           ')"
 
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
           echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "sha_tag=dev-$short_sha" >> "$GITHUB_OUTPUT"
-      - name: Stamp dev version into deno.json
+          echo "sha_tag=$channel-$short_sha" >> "$GITHUB_OUTPUT"
+      - name: Stamp image version into deno.json
         shell: bash
         env:
-          DEV_VERSION: ${{ steps.meta.outputs.version }}
+          IMAGE_VERSION: ${{ steps.meta.outputs.version }}
         run: |
           # Ephemeral (never committed): the Nix image reads its version from
           # deno.json, so stamp it here to make APP_VERSION and the OCI version
-          # label report the dev build version.
+          # label report the generated container build version.
           # shellcheck disable=SC2016
           deno eval '
           import { readFileSync, writeFileSync } from "node:fs";
           const config = JSON.parse(readFileSync("deno.json", "utf8"));
-          config.version = Deno.env.get("DEV_VERSION");
+          config.version = Deno.env.get("IMAGE_VERSION");
           writeFileSync("deno.json", `${JSON.stringify(config, null, 2)}\n`);
           '
 
@@ -91,7 +102,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=dev
+            type=raw,value=${{ steps.meta.outputs.channel }}
             type=raw,value=${{ steps.meta.outputs.sha_tag }}
 
       - name: Publish machine learning image
@@ -104,5 +115,5 @@ jobs:
           build-args: |
             DEVICE=cpu
           tags: |
-            type=raw,value=dev
+            type=raw,value=${{ steps.meta.outputs.channel }}
             type=raw,value=${{ steps.meta.outputs.sha_tag }}
