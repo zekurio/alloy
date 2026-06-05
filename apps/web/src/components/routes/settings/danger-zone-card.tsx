@@ -22,6 +22,7 @@ import { authClient, signOut } from "@/lib/auth-client"
 import { clientLogger } from "@/lib/client-log"
 import { errorMessage } from "@/lib/error-message"
 import { resetClientState } from "@/lib/query-client"
+import { useSuspenseSession } from "@/lib/session-suspense"
 
 function AccountActionRow({
   title,
@@ -43,58 +44,19 @@ function AccountActionRow({
   )
 }
 
-function useAccountDisabledState() {
-  const [disabledAt, setDisabledAt] = React.useState<string | null>(null)
-  const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
-  const mountedRef = React.useRef(false)
-
-  const load = React.useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const state = await api.users.fetchAccountState()
-      if (!mountedRef.current) return
-      setDisabledAt(state.disabledAt)
-    } catch (cause) {
-      if (!mountedRef.current) return
-      setError(errorMessage(cause, "Couldn't load account status"))
-      clientLogger.warn("[account] Failed to load account status.", cause)
-    } finally {
-      if (mountedRef.current) setLoading(false)
-    }
-  }, [])
-
-  React.useEffect(() => {
-    mountedRef.current = true
-    void load()
-    return () => {
-      mountedRef.current = false
-    }
-  }, [load])
-
-  const setKnownDisabledAt = React.useCallback((next: string | null) => {
-    setError(null)
-    setDisabledAt(next)
-  }, [])
-
-  return {
-    disabledAt,
-    error,
-    loading,
-    reload: load,
-    setDisabledAt: setKnownDisabledAt,
-  }
-}
-
 function useAccountDangerActions() {
   const router = useRouter()
   const navigate = useNavigate()
+  const session = useSuspenseSession()
   const [pendingAction, setPendingAction] = React.useState<
     "disable" | "reactivate" | "delete" | null
   >(null)
-  const { disabledAt, error, loading, reload, setDisabledAt } =
-    useAccountDisabledState()
+  // The session user already carries `disabledAt`, so seed from it rather than
+  // an isolated fetch that flashes a loading row each time the card mounts. The
+  // handlers below keep it current after a disable/reactivate.
+  const [disabledAt, setDisabledAt] = React.useState<string | null>(
+    session?.user.disabledAt ?? null,
+  )
 
   const pending = pendingAction !== null
 
@@ -156,9 +118,6 @@ function useAccountDangerActions() {
 
   return {
     disabledAt,
-    accountStateError: error,
-    accountStateLoading: loading,
-    reloadAccountState: reload,
     pending,
     pendingAction,
     onDisable,
@@ -169,54 +128,17 @@ function useAccountDangerActions() {
 
 function DisableAccountRow({
   disabledAt,
-  accountStateError,
-  accountStateLoading,
-  reloadAccountState,
   pending,
   pendingAction,
   onDisable,
   onReactivate,
 }: {
   disabledAt: string | null
-  accountStateError: string | null
-  accountStateLoading: boolean
-  reloadAccountState: () => Promise<void>
   pending: boolean
   pendingAction: "disable" | "reactivate" | "delete" | null
   onDisable: () => Promise<void>
   onReactivate: () => Promise<void>
 }) {
-  if (accountStateError) {
-    return (
-      <AccountActionRow title="Account status" description={accountStateError}>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={reloadAccountState}
-          disabled={pending || accountStateLoading}
-        >
-          <RotateCcwIcon />
-          {accountStateLoading ? "Loading..." : "Retry"}
-        </Button>
-      </AccountActionRow>
-    )
-  }
-
-  if (accountStateLoading) {
-    return (
-      <AccountActionRow
-        title="Account status"
-        description="Loading current account status."
-      >
-        <Button type="button" variant="outline" size="sm" disabled>
-          <RotateCcwIcon />
-          Loading...
-        </Button>
-      </AccountActionRow>
-    )
-  }
-
   return (
     <AccountActionRow
       title={disabledAt ? "Reactivate account" : "Disable account"}

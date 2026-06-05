@@ -266,10 +266,8 @@ export const adminRoute = new Hono()
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
   /**
-   * PATCH /limits — update upload + queue limits. `maxUploadBytes` and
-   * `uploadTtlSec` are picked up on the next `/initiate` call.
-   * `queueConcurrency` is re-registered after currently running encode jobs
-   * finish, without requiring a server restart.
+   * PATCH /limits — update upload limits. `maxUploadBytes` and `uploadTtlSec`
+   * are picked up on the next `/initiate` call.
    */
   .patch("/limits", zValidator("json", LimitsConfigPatchSchema), (c) => {
     const patch = c.req.valid("json")

@@ -3,11 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { AlertTriangleIcon, SaveIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
-import {
-  Field,
-  FieldDescription,
-  FieldLabel,
-} from "@workspace/ui/components/field"
+import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 import {
   Section,
@@ -116,14 +112,12 @@ export function EncoderConfigCard({
       key: "qsvDevice" as const,
       id: "encoder-qsv-device",
       label: "QSV device",
-      description: "Render device path.",
     }
     : form.hwaccel === "vaapi"
     ? {
       key: "vaapiDevice" as const,
       id: "encoder-vaapi-device",
       label: "VAAPI device",
-      description: "Render device path.",
     }
     : null
 
@@ -152,15 +146,10 @@ export function EncoderConfigCard({
               description="Used when a viewer picks a lower bitrate than the original."
             >
               {hideHeader && <FfmpegBadge caps={caps} error={capsError} />}
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <FieldLabel htmlFor="encoder-enabled">
-                    Live transcoding
-                  </FieldLabel>
-                  <p className="text-xs text-muted-foreground">
-                    Direct-streams the original; lower bitrates on demand.
-                  </p>
-                </div>
+              <div className="flex items-center justify-between gap-3">
+                <FieldLabel htmlFor="encoder-enabled">
+                  Live transcoding
+                </FieldLabel>
                 <Switch
                   id="encoder-enabled"
                   checked={form.enabled}
@@ -207,9 +196,6 @@ export function EncoderConfigCard({
                       placeholder="/dev/dri/renderD128"
                       onChange={(e) => set(selectedDevice.key, e.target.value)}
                     />
-                    <FieldDescription>
-                      {selectedDevice.description}
-                    </FieldDescription>
                   </Field>
                 )
                 : null}
@@ -236,20 +222,11 @@ export function EncoderConfigCard({
 
             {showQsvLowPower
               ? (
-                <FormGroup
-                  title="Intel low-power"
-                  description="QSV option for H.264 and HEVC encoders."
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <FieldLabel htmlFor="encoder-intel-low-power-h264">
-                        H.264 low-power
-                      </FieldLabel>
-                      <p className="text-xs text-muted-foreground">
-                        Uses the Intel low-power path for compatible H.264 QSV
-                        encodes.
-                      </p>
-                    </div>
+                <FormGroup title="Intel low-power">
+                  <div className="flex items-center justify-between gap-3">
+                    <FieldLabel htmlFor="encoder-intel-low-power-h264">
+                      H.264 low-power
+                    </FieldLabel>
                     <Switch
                       id="encoder-intel-low-power-h264"
                       checked={form.intelLowPowerH264}
@@ -259,16 +236,10 @@ export function EncoderConfigCard({
                     />
                   </div>
 
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <FieldLabel htmlFor="encoder-intel-low-power-hevc">
-                        HEVC low-power
-                      </FieldLabel>
-                      <p className="text-xs text-muted-foreground">
-                        Uses the Intel low-power path for compatible HEVC QSV
-                        encodes.
-                      </p>
-                    </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <FieldLabel htmlFor="encoder-intel-low-power-hevc">
+                      HEVC low-power
+                    </FieldLabel>
                     <Switch
                       id="encoder-intel-low-power-hevc"
                       checked={form.intelLowPowerHevc}

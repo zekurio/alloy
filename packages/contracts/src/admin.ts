@@ -77,7 +77,6 @@ export interface AdminLimitsConfig {
   maxUploadBytes: number
   defaultStorageQuotaBytes: number | null
   uploadTtlSec: number
-  queueConcurrency: number
 }
 
 export type LimitsConfig = AdminLimitsConfig

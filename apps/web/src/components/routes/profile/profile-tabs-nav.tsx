@@ -1,14 +1,11 @@
 import { Link, useLocation } from "@tanstack/react-router"
 
-import { TabsCount } from "@workspace/ui/components/tabs"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { formatCount } from "@/lib/number-format"
 import { parseProfilePathname } from "@/lib/profile-path"
 
 type ProfileTabsNavProps = {
   username: string
-  clipsCount: number | null
 }
 
 type TabSegment = "feed" | "all" | "liked" | "tagged"
@@ -38,7 +35,7 @@ function activeProfileSegment(pathname: string, username: string): TabSegment {
     : "feed"
 }
 
-export function ProfileTabsNav({ username, clipsCount }: ProfileTabsNavProps) {
+export function ProfileTabsNav({ username }: ProfileTabsNavProps) {
   const { pathname } = useLocation()
   // `/u/:username` with no trailing segment defaults to feed (the index
   // route redirects there, but paint the right active state immediately).
@@ -73,9 +70,6 @@ export function ProfileTabsNav({ username, clipsCount }: ProfileTabsNavProps) {
             )}
           >
             {tab.label}
-            {tab.segment === "all" && clipsCount !== null
-              ? <TabsCount>{formatCount(clipsCount)}</TabsCount>
-              : null}
           </Link>
         )
       })}

@@ -10,7 +10,7 @@ import {
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
 import { compareDateAsc, compareDateDesc } from "@/lib/date-format"
-import { formatCount } from "@/lib/number-format"
+import { headerCountLabel } from "@/lib/number-format"
 import type { ProfileAllSort } from "@/lib/profile-all-search"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import type { UserClip } from "@workspace/api"
@@ -94,8 +94,7 @@ export function AllClipsSection({
           {visible
             ? (
               <SectionMeta>
-                {formatCount(visible.length)}{" "}
-                {visible.length === 1 ? "clip" : "clips"}
+                {headerCountLabel(visible.length, "clip")}
               </SectionMeta>
             )
             : null}

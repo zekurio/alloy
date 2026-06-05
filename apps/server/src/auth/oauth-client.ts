@@ -184,6 +184,26 @@ export function callbackURLWithOAuthError(
   return url.toString()
 }
 
+/**
+ * Build an error redirect aimed at the login page on the sign-in callback's
+ * own origin. A failed sign-in leaves the visitor logged out, so the original
+ * callback (typically the home feed) is the wrong target: on instances that
+ * require auth to browse it bounces straight to `/login` and drops the
+ * `oauth_error` query param on the way, swallowing the toast. Sending them to
+ * `/login` directly keeps the error visible regardless of browse policy.
+ */
+export function loginURLWithOAuthError(
+  callbackURL: string,
+  cause: unknown,
+): string {
+  const url = new URL(callbackURL)
+  url.pathname = "/login"
+  url.search = ""
+  url.hash = ""
+  url.searchParams.set("oauth_error", oauthErrorMessage(cause))
+  return url.toString()
+}
+
 function oauthErrorMessage(cause: unknown): string {
   if (cause instanceof ResponseBodyError) {
     return providerErrorMessage(
