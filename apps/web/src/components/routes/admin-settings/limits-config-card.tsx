@@ -1,10 +1,6 @@
 import type { AdminLimitsConfig, AdminRuntimeConfig } from "@workspace/api"
 import { Button } from "@workspace/ui/components/button"
-import {
-  Field,
-  FieldDescription,
-  FieldLabel,
-} from "@workspace/ui/components/field"
+import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 import {
   Section,
@@ -75,9 +71,6 @@ function LimitsFields({
               value={maxUploadMiB}
               onChange={(e) => onMaxUploadChange(e.target.value)}
             />
-            <FieldDescription>
-              Per-file upload cap. Server hard-limits at 64 GiB.
-            </FieldDescription>
           </Field>
 
           <Field>
@@ -114,9 +107,6 @@ function LimitsFields({
             placeholder="Unlimited"
             onChange={(e) => onStorageQuotaChange(e.target.value)}
           />
-          <FieldDescription>
-            Leave blank for unlimited storage.
-          </FieldDescription>
         </Field>
       </FormGroup>
     </SectionContent>

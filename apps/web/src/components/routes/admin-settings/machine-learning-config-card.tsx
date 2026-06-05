@@ -3,11 +3,7 @@ import type {
   AdminRuntimeConfig,
 } from "@workspace/api"
 import { Button } from "@workspace/ui/components/button"
-import {
-  Field,
-  FieldDescription,
-  FieldLabel,
-} from "@workspace/ui/components/field"
+import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 import {
   Section,
@@ -311,10 +307,6 @@ export function MachineLearningConfigCard({
                   }
                   placeholder="Blank uses Hugging Face"
                 />
-                <FieldDescription>
-                  Path inside the ML service environment. Blank uses the repo
-                  reference above.
-                </FieldDescription>
               </Field>
             </FormGroup>
           </SectionContent>

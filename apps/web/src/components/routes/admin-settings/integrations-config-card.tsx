@@ -4,11 +4,7 @@ import type {
   AdminRuntimeConfig,
 } from "@workspace/api"
 import { Button } from "@workspace/ui/components/button"
-import {
-  Field,
-  FieldDescription,
-  FieldLabel,
-} from "@workspace/ui/components/field"
+import { Field, FieldLabel } from "@workspace/ui/components/field"
 import {
   InputGroup,
   InputGroupInput,
@@ -124,11 +120,6 @@ export function IntegrationsConfigCard({
                   onChange={(e) => setApiKey(e.target.value)}
                 />
               </InputGroup>
-              <FieldDescription>
-                {steamgriddbConfigured
-                  ? "Configured. Type a new value to rotate."
-                  : "Not configured — game picker is disabled."}
-              </FieldDescription>
             </Field>
           </SectionContent>
 
