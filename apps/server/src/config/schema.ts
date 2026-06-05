@@ -52,7 +52,6 @@ const LimitsConfigSchema = z.object({
     .min(60)
     .max(24 * 60 * 60)
     .default(900),
-  queueConcurrency: z.number().int().min(1).max(16).default(1),
 })
 
 function envFlag(name: string, fallback: boolean): boolean {

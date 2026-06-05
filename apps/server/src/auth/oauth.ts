@@ -21,6 +21,7 @@ import { linkAccountToUser, resolveSignInUser } from "./oauth-accounts"
 import {
   callbackURLForProvider,
   callbackURLWithOAuthError,
+  loginURLWithOAuthError,
   normalizeCallbackURL,
   oauthClient,
   requireEnabledProvider,
@@ -164,8 +165,13 @@ export async function finishOAuthCallback(
       `[oauth] ${payload.mode} callback failed for ${provider.providerId}:`,
       errorDetail(cause, "Unknown OAuth callback error"),
     )
+    // A failed link keeps the user signed in, so send them back to where they
+    // started (settings). A failed sign-in leaves them logged out, so route to
+    // /login where the error toast can actually surface.
     return {
-      redirectTo: callbackURLWithOAuthError(payload.callbackURL, cause),
+      redirectTo: payload.mode === "link"
+        ? callbackURLWithOAuthError(payload.callbackURL, cause)
+        : loginURLWithOAuthError(payload.callbackURL, cause),
     }
   }
 }

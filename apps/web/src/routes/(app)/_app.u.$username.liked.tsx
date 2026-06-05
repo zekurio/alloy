@@ -10,7 +10,7 @@ import {
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
 import { useUserLikedClipsQuery } from "@/lib/clip-queries"
-import { formatCount } from "@/lib/number-format"
+import { headerCountLabel } from "@/lib/number-format"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import { useUserProfileViewerQuery } from "@/lib/user-queries"
 
@@ -44,8 +44,7 @@ function ProfileLikedTab() {
           {clips
             ? (
               <SectionMeta>
-                {formatCount(clips.length)}{" "}
-                {clips.length === 1 ? "clip" : "clips"}
+                {headerCountLabel(clips.length, "clip")}
               </SectionMeta>
             )
             : null}

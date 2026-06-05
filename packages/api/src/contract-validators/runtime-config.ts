@@ -130,10 +130,6 @@ function validateAdminLimitsConfig(value: unknown) {
     limits.uploadTtlSec,
     "Invalid admin limits config: uploadTtlSec must be a positive integer",
   )
-  validatePositiveInteger(
-    limits.queueConcurrency,
-    "Invalid admin limits config: queueConcurrency must be a positive integer",
-  )
 }
 
 function validateAdminIntegrationsConfig(value: unknown) {

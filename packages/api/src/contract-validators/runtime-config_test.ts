@@ -24,7 +24,6 @@ function adminRuntimeConfig() {
       maxUploadBytes: 4_294_967_296,
       defaultStorageQuotaBytes: null,
       uploadTtlSec: 900,
-      queueConcurrency: 1,
     },
     machineLearning: {
       enabled: false,

@@ -38,7 +38,7 @@ function UserProfileLayout() {
   const viewerQuery = useUserProfileViewerQuery(username)
   // Prime the clips cache from the layout — children read the same query key
   // via `useUserClipsQuery` and will get instant data on route change.
-  const clipsQuery = useUserClipsQuery(username)
+  useUserClipsQuery(username)
   const { setViewer, bumpFollowers } = useProfileCachePatchers(username)
   const baseProfile = profileQuery.data ?? null
   const viewer = viewerQuery.data?.viewer
@@ -53,7 +53,6 @@ function UserProfileLayout() {
     title: "Couldn't load profile",
     toastId: `profile-${username}-error`,
   })
-  const clipsCount = clipsQuery.data?.length ?? null
   const [revealed, setRevealed] = React.useState(false)
 
   // Reset the reveal gate on navigation between profiles — the query
@@ -92,7 +91,7 @@ function UserProfileLayout() {
             : <ProfileIdentitySkeleton />}
 
           <div className="px-4 pb-4 md:px-8 md:pb-6">
-            <ProfileTabsNav username={username} clipsCount={clipsCount} />
+            <ProfileTabsNav username={username} />
             <Outlet />
           </div>
         </div>

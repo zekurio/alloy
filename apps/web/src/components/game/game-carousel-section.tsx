@@ -17,7 +17,7 @@ import {
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { EmptyState } from "@/components/feedback/empty-state"
-import { formatCount } from "@/lib/number-format"
+import { headerCountLabel } from "@/lib/number-format"
 import { GameCard, type GameCardData, type GameCardLink } from "./game-card"
 
 export type GameCarouselEntry = GameCardData & { clipCount: number }
@@ -99,8 +99,7 @@ export function GameCarouselSection({
           {entries && entries.length > 0
             ? (
               <SectionMeta>
-                {formatCount(entries.length)}{" "}
-                {entries.length === 1 ? "game" : "games"}
+                {headerCountLabel(entries.length, "game")}
               </SectionMeta>
             )
             : null}

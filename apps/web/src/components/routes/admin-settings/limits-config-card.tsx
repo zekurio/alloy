@@ -1,5 +1,5 @@
 import * as React from "react"
-import { AlertCircleIcon, SaveIcon } from "lucide-react"
+import { SaveIcon } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -27,8 +27,8 @@ import {
   parsePositiveMiB,
   parseQuotaGiB,
 } from "@/lib/storage-format"
-import { clampInt } from "./shared"
 import { FormGroup } from "./form-group"
+import { NumberInput } from "./number-input"
 
 type LimitsConfigCardProps = {
   limits: AdminLimitsConfig
@@ -85,23 +85,15 @@ function LimitsFields({
             <FieldLabel htmlFor="limits-ttl" required>
               Upload ticket TTL (seconds)
             </FieldLabel>
-            <Input
+            <NumberInput
               id="limits-ttl"
-              type="number"
               min={60}
               max={86_400}
               step={30}
               required
               value={form.uploadTtlSec}
-              onChange={(e) =>
-                onFieldChange(
-                  "uploadTtlSec",
-                  clampInt(e.target.value, 60, 86_400, form.uploadTtlSec),
-                )}
+              onChange={(value) => onFieldChange("uploadTtlSec", value)}
             />
-            <FieldDescription>
-              Upload URL lifetime. 15 min suits slow connections.
-            </FieldDescription>
           </Field>
         </div>
       </FormGroup>
@@ -125,37 +117,6 @@ function LimitsFields({
           />
           <FieldDescription>
             Leave blank for unlimited storage.
-          </FieldDescription>
-        </Field>
-      </FormGroup>
-
-      <FormGroup
-        title="Encoding queue"
-        description="Parallel job limits for the video encoding pipeline."
-      >
-        <Field>
-          <FieldLabel htmlFor="limits-concurrency" required>
-            Queue concurrency
-          </FieldLabel>
-          <Input
-            id="limits-concurrency"
-            type="number"
-            min={1}
-            max={16}
-            step={1}
-            required
-            value={form.queueConcurrency}
-            onChange={(e) =>
-              onFieldChange(
-                "queueConcurrency",
-                clampInt(e.target.value, 1, 16, form.queueConcurrency),
-              )}
-          />
-          <FieldDescription className="flex items-start gap-1.5">
-            <AlertCircleIcon className="mt-0.5 size-3.5 shrink-0" />
-            <span>
-              Parallel encode jobs. Applies after currently running jobs finish.
-            </span>
           </FieldDescription>
         </Field>
       </FormGroup>
@@ -254,8 +215,7 @@ function limitsConfigEquals(
   return (
     current.maxUploadBytes === saved.maxUploadBytes &&
     current.defaultStorageQuotaBytes === saved.defaultStorageQuotaBytes &&
-    current.uploadTtlSec === saved.uploadTtlSec &&
-    current.queueConcurrency === saved.queueConcurrency
+    current.uploadTtlSec === saved.uploadTtlSec
   )
 }
 

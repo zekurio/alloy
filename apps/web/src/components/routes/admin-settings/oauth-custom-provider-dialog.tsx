@@ -135,9 +135,6 @@ export function OAuthCustomProviderDialog({
                       disabled={pendingAction !== null}
                       onChange={(e) => onChange("iconUrl", e.target.value)}
                     />
-                    <FieldDescription>
-                      Used on the public sign-in button.
-                    </FieldDescription>
                   </Field>
 
                   <Field>

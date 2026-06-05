@@ -64,7 +64,7 @@ function SectionMeta({ className, ...props }: React.ComponentProps<"span">) {
     <span
       data-slot="section-meta"
       className={cn(
-        "text-xs font-semibold text-foreground-muted tabular-nums",
+        "text-sm font-semibold text-foreground-muted tabular-nums",
         className,
       )}
       {...props}

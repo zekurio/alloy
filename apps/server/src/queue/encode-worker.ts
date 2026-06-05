@@ -6,7 +6,6 @@ import { logger } from "@workspace/logging"
 import { db } from "../db"
 import { requiredSql } from "../db/sql"
 import { publishClipUpsertById } from "../clips/events"
-import { configStore } from "../config/store"
 import { createNotification } from "../notifications"
 import { errorMessage, isAbortError } from "../runtime/error-message"
 import { deleteScratchUploads } from "../uploads/scratch"
@@ -27,7 +26,6 @@ const inFlightClipIds = new Set<string>()
 const runningJobs = new Set<Promise<void>>()
 let wakeTimer: ReturnType<typeof setTimeout> | null = null
 let pumpPromise: Promise<void> | null = null
-let unsubscribeConfig: (() => void) | null = null
 let started = false
 let stopping = false
 
@@ -47,10 +45,6 @@ export async function startEncodeWorker(): Promise<void> {
   if (started) return
   started = true
   stopping = false
-  unsubscribeConfig = configStore.subscribe((next, prev) => {
-    if (next.limits.queueConcurrency === prev.limits.queueConcurrency) return
-    schedulePump(0)
-  })
   schedulePump(0)
 }
 
@@ -62,8 +56,6 @@ export async function stopEncodeWorker(): Promise<void> {
     clearTimeout(wakeTimer)
     wakeTimer = null
   }
-  unsubscribeConfig?.()
-  unsubscribeConfig = null
   for (const entry of activeEncodes.values()) {
     entry.abort.abort()
   }
@@ -94,11 +86,11 @@ async function pump(): Promise<void> {
 }
 
 async function pumpInner(): Promise<void> {
-  while (
-    started &&
-    !stopping &&
-    runningJobs.size < configStore.get("limits").queueConcurrency
-  ) {
+  // No concurrency cap: encodes are rare (they only run when a clip needs a
+  // lower-bitrate variant), so we start every pending clip as we find it.
+  // `processClip` adds the id to `inFlightClipIds` synchronously, so the next
+  // `nextClipId()` won't hand back a clip that's already encoding.
+  while (started && !stopping) {
     const clipId = await nextClipId()
     if (!started || stopping) return
     if (!clipId) {
@@ -136,7 +128,9 @@ async function nextClipId(): Promise<string | null> {
       ),
     )
     .orderBy(clip.updatedAt)
-    .limit(configStore.get("limits").queueConcurrency + inFlightClipIds.size)
+    // We start one clip per loop turn, so we only need enough rows to skip
+    // past the ones already encoding and find the next free candidate.
+    .limit(inFlightClipIds.size + 1)
 
   return rows.find((row) => !inFlightClipIds.has(row.id))?.id ?? null
 }

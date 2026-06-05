@@ -11,7 +11,7 @@ import { Spinner } from "@workspace/ui/components/spinner"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { GameCard } from "@/components/game/game-card"
 import { useGamesListQuery } from "@/lib/game-queries"
-import { formatCount } from "@/lib/number-format"
+import { headerCountLabel } from "@/lib/number-format"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import { GamesGrid } from "./games-grid"
 
@@ -36,8 +36,7 @@ export function GamesSection() {
           {visibleGames && visibleGames.length > 0
             ? (
               <SectionMeta>
-                {formatCount(visibleGames.length)}{" "}
-                {visibleGames.length === 1 ? "game" : "games"}
+                {headerCountLabel(visibleGames.length, "game")}
               </SectionMeta>
             )
             : null}

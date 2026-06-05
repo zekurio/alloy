@@ -26,12 +26,8 @@ import type {
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 import { FormGroup } from "./form-group"
-import {
-  clampInt,
-  emptyToNull,
-  requiredTrimmedString,
-  trimString,
-} from "./shared"
+import { NumberInput } from "./number-input"
+import { emptyToNull, requiredTrimmedString, trimString } from "./shared"
 
 type MachineLearningConfigCardProps = {
   machineLearning: AdminMachineLearningConfig
@@ -236,37 +232,25 @@ export function MachineLearningConfigCard({
                         baseUrl: e.target.value,
                       }))}
                   />
-                  <FieldDescription>
-                    Server-to-server URL for the Python ML service.
-                  </FieldDescription>
                 </Field>
 
                 <Field>
                   <FieldLabel htmlFor="ml-timeout" required>
                     Request timeout (ms)
                   </FieldLabel>
-                  <Input
+                  <NumberInput
                     id="ml-timeout"
-                    type="number"
                     min={1_000}
                     max={300_000}
                     step={1_000}
                     required
                     value={form.requestTimeoutMs}
-                    onChange={(e) =>
+                    onChange={(value) =>
                       setForm((current) => ({
                         ...current,
-                        requestTimeoutMs: clampInt(
-                          e.target.value,
-                          1_000,
-                          300_000,
-                          current.requestTimeoutMs,
-                        ),
+                        requestTimeoutMs: value,
                       }))}
                   />
-                  <FieldDescription>
-                    Upper bound for each inference request.
-                  </FieldDescription>
                 </Field>
               </div>
             </FormGroup>

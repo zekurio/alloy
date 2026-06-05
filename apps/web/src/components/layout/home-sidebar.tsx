@@ -218,9 +218,13 @@ function BottomNavItems() {
           <AppBottomNavItem
             active={queueOpen}
             title="Upload"
+            data-upload-trigger=""
             onClick={(event) => {
               event.currentTarget.blur()
-              setQueueOpen(true)
+              // Toggle: tapping while the queue is open closes it. The dialog
+              // ignores the outside-press this same tap produces (see
+              // UploadQueuePopover), so this click is the sole source of truth.
+              setQueueOpen((open) => !open)
             }}
             className="before:!hidden [&_svg]:!size-4"
           >

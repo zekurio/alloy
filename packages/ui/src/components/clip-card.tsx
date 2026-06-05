@@ -82,7 +82,10 @@ function ClipCard({
   return (
     <article
       data-slot="clip-card"
-      className={cn("group/clip-card flex flex-col gap-3", className)}
+      className={cn(
+        "group/clip-card @container/clip-card flex flex-col gap-3",
+        className,
+      )}
       {...props}
     >
       <ClipCardThumb
@@ -110,12 +113,16 @@ function ClipCard({
           )
           : null}
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          {/* Title owns its own row. */}
-          <div className="truncate text-lg leading-snug font-semibold tracking-[-0.015em] text-foreground">
+          {
+            /* Title owns its own row. Type scales with the card width so the
+              meta block stays proportional whether the card sits in a dense
+              grid or a wide carousel slot. */
+          }
+          <div className="truncate text-[0.9375rem] leading-snug font-semibold tracking-[-0.015em] text-foreground @[360px]/clip-card:text-base @[480px]/clip-card:text-lg">
             {titleContent ?? title}
           </div>
 
-          <div className="flex min-w-0 items-center gap-1.5 text-base leading-tight text-foreground-dim">
+          <div className="flex min-w-0 items-center gap-1.5 text-sm leading-tight text-foreground-dim @[480px]/clip-card:text-base">
             {author
               ? (
                 <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
@@ -130,7 +137,7 @@ function ClipCard({
           {metaVariant === "showcase"
             ? null
             : (
-              <div className="flex min-w-0 items-center gap-1.5 text-sm leading-tight text-foreground-faint tabular-nums">
+              <div className="flex min-w-0 items-center gap-1.5 text-[0.8125rem] leading-tight text-foreground-faint tabular-nums @[480px]/clip-card:text-sm">
                 {privacyBadge}
                 <span className="shrink-0">{views} views</span>
                 <span className="shrink-0">·</span>
@@ -449,7 +456,7 @@ function AuthorLabel({
   href: string | null | undefined
 }) {
   const className = cn(
-    "max-w-[45%] shrink-0 truncate leading-tight font-medium text-foreground-muted",
+    "max-w-[65%] shrink truncate leading-tight font-medium text-foreground-muted",
     href &&
       "hover:underline focus-visible:underline focus-visible:outline-none",
   )
@@ -501,7 +508,7 @@ function ClipCardAvatar({
     <span
       aria-hidden
       className={cn(
-        "inline-flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full",
+        "inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full @[480px]/clip-card:size-9",
         "text-[13px] leading-none font-semibold",
       )}
       style={{

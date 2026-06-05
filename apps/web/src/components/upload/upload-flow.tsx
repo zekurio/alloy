@@ -97,6 +97,13 @@ function UploadFlowInner() {
   return <AuthedUploadFlow />
 }
 
+/** True when an event originated on the bottom-nav upload trigger button. */
+function pressedUploadTrigger(event: Event): boolean {
+  const target = event.target
+  return target instanceof Element &&
+    target.closest("[data-upload-trigger]") !== null
+}
+
 function UploadQueuePopover({
   queueOpen,
   setQueueOpen,
@@ -153,7 +160,24 @@ function UploadQueuePopover({
 
   if (isMobile) {
     return (
-      <Dialog modal={false} open={queueOpen} onOpenChange={setQueueOpen}>
+      <Dialog
+        modal={false}
+        open={queueOpen}
+        onOpenChange={(open, eventDetails) => {
+          // The bottom-nav upload trigger lives outside this non-modal dialog,
+          // so a tap to dismiss reaches us as an outside-press. Ignore that one
+          // case and let the trigger's own click toggle the queue closed —
+          // otherwise this close races the click's reopen and the modal flashes.
+          if (
+            !open &&
+            eventDetails.reason === "outside-press" &&
+            pressedUploadTrigger(eventDetails.event)
+          ) {
+            return
+          }
+          setQueueOpen(open)
+        }}
+      >
         <DialogContent
           disableZoom
           centered={false}

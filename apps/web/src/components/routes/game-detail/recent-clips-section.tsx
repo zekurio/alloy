@@ -9,7 +9,7 @@ import {
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
 import { useGameClipsQuery } from "@/lib/game-queries"
-import { formatCount } from "@/lib/number-format"
+import { headerCountLabel } from "@/lib/number-format"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 type RecentClipsSectionProps = {
@@ -46,8 +46,7 @@ export function RecentClipsSection({
           {visibleRows && visibleRows.length > 0
             ? (
               <SectionMeta>
-                {formatCount(visibleRows.length)}{" "}
-                {visibleRows.length === 1 ? "clip" : "clips"}
+                {headerCountLabel(visibleRows.length, "clip")}
               </SectionMeta>
             )
             : null}

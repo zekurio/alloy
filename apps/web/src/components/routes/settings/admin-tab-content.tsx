@@ -255,7 +255,7 @@ function LimitsSettingsSection({
     <SettingsSection
       icon={GaugeIcon}
       title="Limits"
-      description="Edit upload caps, default storage quota, and encode queue concurrency."
+      description="Edit upload caps and default storage quota."
     >
       <LimitsConfigCard
         limits={config.limits}
