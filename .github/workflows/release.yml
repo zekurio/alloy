@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -26,13 +32,14 @@ jobs:
       - name: Checkout release tag
         uses: actions/checkout@v5
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
           fetch-depth: 0
 
       - name: Resolve release version
         id: meta
         shell: bash
         run: |
-          raw="${GITHUB_REF_NAME}"
+          raw="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
           version="${raw#v}"
 
           if [[ "$raw" != v* ]]; then
@@ -60,10 +67,10 @@ jobs:
         shell: bash
         run: |
           git fetch origin "+refs/heads/main:refs/remotes/origin/main"
-          release_commit="$(git rev-list -n 1 "$GITHUB_REF_NAME")"
+          release_commit="$(git rev-list -n 1 "${{ steps.meta.outputs.tag }}")"
 
           if ! git merge-base --is-ancestor "$release_commit" origin/main; then
-            echo "Release tag $GITHUB_REF_NAME must point at a commit on main." >&2
+            echo "Release tag ${{ steps.meta.outputs.tag }} must point at a commit on main." >&2
             exit 1
           fi
 
