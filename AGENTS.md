@@ -4,8 +4,20 @@ This file provides guidance to AI agents running in this repo.
 
 ## Task Completion Requirements
 
-- All of `deno task fmt`, `deno task lint`, and `deno task typecheck` must pass
-  before considering a coding task completed.
+### Coding Tasks
+
+All of `deno task fmt`, `deno task lint`, and `deno task typecheck` must pass
+before considering a coding task completed.
+
+### Nix Tasks
+
+If updating our Nix packaging, flake or other Nix related things, run appropiate
+checks for these. Builds should only be issued when actually warranted.
+
+### Other Tasks
+
+If your task doesn't fit in either Coding or Nix land, it's up to the user to
+ask for verification. You may propose steps.
 
 ## Project Snapshot
 
