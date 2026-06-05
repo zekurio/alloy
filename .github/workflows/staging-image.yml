@@ -1,9 +1,6 @@
 name: Publish Staging Container Image
 
 on:
-  push:
-    branches:
-      - staging
   workflow_dispatch:
     inputs:
       ref:
