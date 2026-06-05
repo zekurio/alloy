@@ -9,6 +9,7 @@ import {
   type SteamGridDBSearchResult,
   type SteamGridDBStatus,
 } from "@workspace/contracts"
+
 import {
   objectRecord,
   validateArray,
@@ -161,14 +162,12 @@ export function validatePublicMlConfig(value: unknown): PublicMlConfig {
     config.gameSuggestion,
     "machine learning game suggestion config",
   )
-  for (
-    const key of [
-      "frameCount",
-      "frameMaxWidth",
-      "maxFrames",
-      "maxFrameBytes",
-    ] as const
-  ) {
+  for (const key of [
+    "frameCount",
+    "frameMaxWidth",
+    "maxFrames",
+    "maxFrameBytes",
+  ] as const) {
     validatePositiveInteger(
       gameSuggestion[key],
       `Invalid machine learning config: gameSuggestion.${key} must be a positive integer`,

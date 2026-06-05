@@ -1,8 +1,4 @@
-import * as React from "react"
 import { Combobox as ComboboxPrimitive } from "@base-ui/react"
-
-import { CheckIcon, ChevronDownIcon, XIcon } from "lucide-react"
-import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
 import {
   InputGroup,
@@ -10,6 +6,9 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
+import { cn } from "@workspace/ui/lib/utils"
+import { CheckIcon, ChevronDownIcon, XIcon } from "lucide-react"
+import * as React from "react"
 
 const Combobox = ComboboxPrimitive.Root
 
@@ -29,7 +28,7 @@ function ComboboxTrigger({
       {...props}
     >
       {children}
-      <ChevronDownIcon className="pointer-events-none size-4 text-muted-foreground" />
+      <ChevronDownIcon className="text-muted-foreground pointer-events-none size-4" />
     </ComboboxPrimitive.Trigger>
   )
 }
@@ -65,18 +64,16 @@ function ComboboxInput({
         {...props}
       />
       <InputGroupAddon align="inline-end">
-        {showTrigger
-          ? (
-            <InputGroupButton
-              size="icon-xs"
-              variant="ghost"
-              render={<ComboboxTrigger />}
-              data-slot="input-group-button"
-              className="group-has-data-[slot=combobox-clear]/input-group:hidden data-pressed:bg-transparent"
-              disabled={disabled}
-            />
-          )
-          : null}
+        {showTrigger ? (
+          <InputGroupButton
+            size="icon-xs"
+            variant="ghost"
+            render={<ComboboxTrigger />}
+            data-slot="input-group-button"
+            className="group-has-data-[slot=combobox-clear]/input-group:hidden data-pressed:bg-transparent"
+            disabled={disabled}
+          />
+        ) : null}
         {showClear ? <ComboboxClear disabled={disabled} /> : null}
       </InputGroupAddon>
       {children}
@@ -92,9 +89,8 @@ function ComboboxContent({
   alignOffset = 0,
   anchor,
   ...props
-}:
-  & ComboboxPrimitive.Popup.Props
-  & Pick<
+}: ComboboxPrimitive.Popup.Props &
+  Pick<
     ComboboxPrimitive.Positioner.Props,
     "side" | "align" | "sideOffset" | "alignOffset" | "anchor"
   >) {
@@ -219,9 +215,8 @@ function ComboboxSeparator({
 function ComboboxChips({
   className,
   ...props
-}:
-  & React.ComponentPropsWithRef<typeof ComboboxPrimitive.Chips>
-  & ComboboxPrimitive.Chips.Props) {
+}: React.ComponentPropsWithRef<typeof ComboboxPrimitive.Chips> &
+  ComboboxPrimitive.Chips.Props) {
   return (
     <ComboboxPrimitive.Chips
       data-slot="combobox-chips"
@@ -252,17 +247,15 @@ function ComboboxChip({
       {...props}
     >
       {children}
-      {showRemove
-        ? (
-          <ComboboxPrimitive.ChipRemove
-            render={<Button variant="ghost" size="icon-xs" />}
-            className="-ml-1 opacity-50 hover:opacity-100"
-            data-slot="combobox-chip-remove"
-          >
-            <XIcon className="pointer-events-none" />
-          </ComboboxPrimitive.ChipRemove>
-        )
-        : null}
+      {showRemove ? (
+        <ComboboxPrimitive.ChipRemove
+          render={<Button variant="ghost" size="icon-xs" />}
+          className="-ml-1 opacity-50 hover:opacity-100"
+          data-slot="combobox-chip-remove"
+        >
+          <XIcon className="pointer-events-none" />
+        </ComboboxPrimitive.ChipRemove>
+      ) : null}
     </ComboboxPrimitive.Chip>
   )
 }

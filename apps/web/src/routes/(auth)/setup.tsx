@@ -1,4 +1,3 @@
-import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
   createFileRoute,
@@ -6,6 +5,16 @@ import {
   redirect,
   useNavigate,
 } from "@tanstack/react-router"
+import {
+  type AdminEncoderCapabilities,
+  type AdminEncoderConfig,
+  type AdminRuntimeConfig,
+  type EncoderCodec,
+  type EncoderHwaccel,
+} from "@workspace/api"
+import { AlloyLogo } from "@workspace/ui/components/alloy-logo"
+import { Button } from "@workspace/ui/components/button"
+import { toast } from "@workspace/ui/lib/toast"
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -15,26 +24,16 @@ import {
   LinkIcon,
   UserKeyIcon,
 } from "lucide-react"
-
-import { AlloyLogo } from "@workspace/ui/components/alloy-logo"
-import { Button } from "@workspace/ui/components/button"
-import { toast } from "@workspace/ui/lib/toast"
-import {
-  type AdminEncoderCapabilities,
-  type AdminEncoderConfig,
-  type AdminRuntimeConfig,
-  type EncoderCodec,
-  type EncoderHwaccel,
-} from "@workspace/api"
+import * as React from "react"
 
 import { EncoderConfigCard } from "@/components/routes/admin-settings/encoder-config-card"
 import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integrations-config-card"
 import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-provider-card"
-import { api } from "@/lib/api"
 import {
   adminEncoderCapabilitiesQueryOptions,
   adminRuntimeConfigQueryOptions,
 } from "@/lib/admin-query-keys"
+import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 import { isDevSetupForced } from "@/lib/flags"
 import {
@@ -71,7 +70,7 @@ export const Route = createFileRoute("/(auth)/setup")({
 const PasskeySignUpForm = React.lazy(() =>
   import("@/components/routes/sign-up/passkey-sign-up-form").then((m) => ({
     default: m.PasskeySignUpForm,
-  }))
+  })),
 )
 
 const ONBOARDING_CODEC_PRIORITY: readonly EncoderCodec[] = [
@@ -100,7 +99,7 @@ function SetupPageInner() {
   const mode = config.adminAccountRequired ? "account" : "onboarding"
 
   return (
-    <div className="relative min-h-screen w-full bg-background text-foreground">
+    <div className="bg-background text-foreground relative min-h-screen w-full">
       <header className="absolute top-8 left-6 z-10 flex items-center sm:left-10">
         <Link to="/" className="inline-flex items-center">
           <AlloyLogo showText size={36} />
@@ -118,10 +117,10 @@ function AdminAccountStep() {
   return (
     <div className="w-full max-w-sm">
       <div className="mb-8 space-y-1.5">
-        <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
+        <h2 className="text-foreground text-2xl font-semibold tracking-[-0.02em]">
           Create the admin account
         </h2>
-        <p className="text-sm text-foreground-muted">
+        <p className="text-foreground-muted text-sm">
           Since you are the first user, this account is assigned the admin role.
           After the passkey is created, you can finish the instance setup.
         </p>
@@ -168,7 +167,7 @@ function AdminSetupSteps() {
 
   if (setup.loadError) {
     return (
-      <div className="w-full rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+      <div className="border-destructive/40 bg-destructive/5 text-destructive w-full rounded-md border p-3 text-sm">
         {setup.loadError}
       </div>
     )
@@ -255,10 +254,10 @@ function AdminSetupStepContent({
   return (
     <div className="w-full max-w-2xl space-y-6">
       <div className="space-y-1.5">
-        <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
+        <h2 className="text-foreground text-2xl font-semibold tracking-[-0.02em]">
           Finish instance setup
         </h2>
-        <p className="text-sm text-foreground-muted">
+        <p className="text-foreground-muted text-sm">
           {currentStep.description}
         </p>
       </div>
@@ -313,9 +312,7 @@ function AdminSetupStepContent({
   )
 }
 
-function getStepDone(
-  config: AdminRuntimeConfig,
-): [boolean, boolean, boolean] {
+function getStepDone(config: AdminRuntimeConfig): [boolean, boolean, boolean] {
   return [
     // Encoding is done when enabled with at least one variant
     true,
@@ -354,9 +351,9 @@ function StepIndicator({
               }`}
             />
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {isDone
-              ? <CheckCircle2Icon className="size-4 text-success" />
-              : null}
+            {isDone ? (
+              <CheckCircle2Icon className="text-success size-4" />
+            ) : null}
           </div>
         )
       })}
@@ -415,13 +412,13 @@ function EncoderOnboardingCard({
   return (
     <div className="flex flex-col gap-4">
       {showSuggestion && (
-        <div className="flex items-start gap-3 rounded-md border border-accent/30 bg-accent-soft px-4 py-3">
-          <InfoIcon className="mt-0.5 size-4 shrink-0 text-accent" />
-          <p className="min-w-0 text-sm text-foreground-muted">
+        <div className="border-accent/30 bg-accent-soft flex items-start gap-3 rounded-md border px-4 py-3">
+          <InfoIcon className="text-accent mt-0.5 size-4 shrink-0" />
+          <p className="text-foreground-muted min-w-0 text-sm">
             Not sure where to start?{" "}
             <button
               type="button"
-              className="inline font-medium text-accent underline underline-offset-2 transition-colors hover:text-accent-hover disabled:opacity-50"
+              className="text-accent hover:text-accent-hover inline font-medium underline underline-offset-2 transition-colors disabled:opacity-50"
               onClick={applyDefaultProfile}
               disabled={pending}
             >

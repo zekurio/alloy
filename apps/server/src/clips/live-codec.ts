@@ -30,9 +30,8 @@ export async function selectLiveCodec(
   hwaccel: HwaccelKind,
   requestedCodecs: readonly EncoderCodec[],
 ): Promise<{ codec: EncoderCodec; encoder: string } | null> {
-  const { getEncoderCapabilities } = await import(
-    "../routes/admin-encoder-capabilities.ts"
-  )
+  const { getEncoderCapabilities } =
+    await import("../routes/admin-encoder-capabilities.ts")
   const capabilities = await getEncoderCapabilities()
   return selectLiveCodecFromCapabilities(hwaccel, requestedCodecs, capabilities)
 }

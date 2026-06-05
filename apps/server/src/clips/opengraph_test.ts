@@ -1,10 +1,12 @@
+import { test } from "node:test"
+
 import { isOpenGraphCompatibleSource } from "./opengraph"
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
-Deno.test("isOpenGraphCompatibleSource accepts MP4 H.264 AAC sources", () => {
+test("isOpenGraphCompatibleSource accepts MP4 H.264 AAC sources", () => {
   assert(
     isOpenGraphCompatibleSource({
       sourceContentType: "video/mp4",
@@ -15,7 +17,7 @@ Deno.test("isOpenGraphCompatibleSource accepts MP4 H.264 AAC sources", () => {
   )
 })
 
-Deno.test("isOpenGraphCompatibleSource accepts silent MP4 H.264 sources", () => {
+test("isOpenGraphCompatibleSource accepts silent MP4 H.264 sources", () => {
   assert(
     isOpenGraphCompatibleSource({
       sourceContentType: "video/mp4",
@@ -26,7 +28,7 @@ Deno.test("isOpenGraphCompatibleSource accepts silent MP4 H.264 sources", () => 
   )
 })
 
-Deno.test("isOpenGraphCompatibleSource rejects incompatible containers and codecs", () => {
+test("isOpenGraphCompatibleSource rejects incompatible containers and codecs", () => {
   assert(
     !isOpenGraphCompatibleSource({
       sourceContentType: "video/x-matroska",

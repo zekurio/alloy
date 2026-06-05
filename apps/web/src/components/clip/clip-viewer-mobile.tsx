@@ -1,7 +1,5 @@
-import * as React from "react"
 import { Link } from "@tanstack/react-router"
-import { XIcon } from "lucide-react"
-
+import { type ClipRow, clipThumbnailUrl } from "@workspace/api"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,14 +24,13 @@ import { useMediaQuery } from "@workspace/ui/hooks/use-media-query"
 import { buttonVariants } from "@workspace/ui/lib/button-variants"
 import { toast } from "@workspace/ui/lib/toast"
 import { cn } from "@workspace/ui/lib/utils"
-
-import { type ClipRow, clipThumbnailUrl } from "@workspace/api"
+import { XIcon } from "lucide-react"
+import * as React from "react"
 
 import {
   mobileDrawerContentClass,
   MobileDrawerHandle,
 } from "@/components/app/mobile-drawer-surface"
-import { clipGameLabel } from "@/lib/clip-format"
 import { useSession } from "@/lib/auth-client"
 import { shareUrlWithFallback } from "@/lib/browser-share"
 import {
@@ -41,23 +38,24 @@ import {
   writeSessionStorageItem,
 } from "@/lib/browser-storage"
 import { currentUrlWithoutSearchOrHash } from "@/lib/browser-url"
-import { apiOrigin } from "@/lib/env"
-import { exitFullscreenBestEffort } from "@/lib/fullscreen"
+import { clipGameLabel } from "@/lib/clip-format"
 import {
   useDeleteClipMutation,
   useLikeStateQuery,
   useToggleLikeMutation,
 } from "@/lib/clip-queries"
 import { recordClipViewBestEffort } from "@/lib/clip-view-tracking"
+import { apiOrigin } from "@/lib/env"
+import { exitFullscreenBestEffort } from "@/lib/fullscreen"
 import { userAvatar } from "@/lib/user-display"
 
 import { ClipComments } from "./clip-comments"
 import { ClipEditDialog } from "./clip-edit-dialog"
 import type { ClipListEntry } from "./clip-list-context"
 import { ClipMentionsRow } from "./clip-mentions-row"
-import { renderHashtagTokens } from "./description-tokens"
 import { ClipPlayer } from "./clip-player"
 import { ClipAuthorLink, MobileActionsRail } from "./clip-viewer-mobile-actions"
+import { renderHashtagTokens } from "./description-tokens"
 
 const MOBILE_SWIPE_HINT_SEEN_KEY = "alloy.mobileClipSwipeHintSeen"
 
@@ -115,9 +113,10 @@ function MobileClipViewerBody({
   /* ---- like state ---- */
   const likeQuery = useLikeStateQuery(row.id, { enabled: canLike })
   const likeMut = useToggleLikeMutation()
-  const pendingLiked = likeMut.isPending && likeMut.variables?.clipId === row.id
-    ? likeMut.variables.nextLiked
-    : undefined
+  const pendingLiked =
+    likeMut.isPending && likeMut.variables?.clipId === row.id
+      ? likeMut.variables.nextLiked
+      : undefined
   const liked = pendingLiked ?? likeQuery.data?.liked ?? false
 
   /* ---- edit / delete ---- */
@@ -251,49 +250,43 @@ function MobileClipViewerBody({
           onTouchEnd={onTouchEnd}
         >
           {/* ---- Blurred thumbnail background (full-screen) ---- */}
-          {thumbnail
-            ? (
-              <img
-                src={thumbnail}
-                alt=""
-                aria-hidden
-                className="pointer-events-none absolute inset-0 z-0 size-full scale-[1.2] object-cover blur-2xl brightness-[0.35] saturate-150"
-              />
-            )
-            : null}
+          {thumbnail ? (
+            <img
+              src={thumbnail}
+              alt=""
+              aria-hidden
+              className="pointer-events-none absolute inset-0 z-0 size-full scale-[1.2] object-cover blur-2xl brightness-[0.35] saturate-150"
+            />
+          ) : null}
 
           {/* ---- Landscape metadata overlay ---- */}
-          {isLandscape
-            ? (
-              <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center gap-3 bg-gradient-to-b from-black/70 via-black/35 to-transparent pt-[max(0.75rem,calc(env(safe-area-inset-top)+0.25rem))] pr-[calc(max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))+3rem)] pb-10 pl-[max(0.75rem,calc(env(safe-area-inset-left)+0.25rem))]">
-                <ClipAuthorLink
-                  handle={handle}
-                  avatar={avatar}
-                  avatarStyle={avatarStyle}
-                  author={author}
-                  size="md"
-                  className="pointer-events-auto inline-flex shrink-0 items-center gap-2"
-                  textClassName="text-base font-semibold text-white"
-                />
-                <h2 className="line-clamp-1 min-w-0 flex-1 text-base font-semibold text-white/90">
-                  {renderHashtagTokens(row.title, { linkHashtags: true })}
-                </h2>
-              </div>
-            )
-            : null}
+          {isLandscape ? (
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center gap-3 bg-gradient-to-b from-black/70 via-black/35 to-transparent pt-[max(0.75rem,calc(env(safe-area-inset-top)+0.25rem))] pr-[calc(max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))+3rem)] pb-10 pl-[max(0.75rem,calc(env(safe-area-inset-left)+0.25rem))]">
+              <ClipAuthorLink
+                handle={handle}
+                avatar={avatar}
+                avatarStyle={avatarStyle}
+                author={author}
+                size="md"
+                className="pointer-events-auto inline-flex shrink-0 items-center gap-2"
+                textClassName="text-base font-semibold text-white"
+              />
+              <h2 className="line-clamp-1 min-w-0 flex-1 text-base font-semibold text-white/90">
+                {renderHashtagTokens(row.title, { linkHashtags: true })}
+              </h2>
+            </div>
+          ) : null}
 
           {/* ---- Landscape action rail ---- */}
-          {isLandscape
-            ? (
-              <div className="pointer-events-auto absolute right-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] bottom-[max(3.5rem,calc(env(safe-area-inset-bottom)+1rem))] z-20 flex w-9 flex-col items-center gap-4 drop-shadow-[0_1px_3px_rgba(0,0,0,0.65)]">
-                <MobileActionsRail
-                  {...actionRailProps}
-                  iconSizeClassName="size-6"
-                  countClassName="text-[11px] font-semibold text-white tabular-nums"
-                />
-              </div>
-            )
-            : null}
+          {isLandscape ? (
+            <div className="pointer-events-auto absolute right-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] bottom-[max(3.5rem,calc(env(safe-area-inset-bottom)+1rem))] z-20 flex w-9 flex-col items-center gap-4 drop-shadow-[0_1px_3px_rgba(0,0,0,0.65)]">
+              <MobileActionsRail
+                {...actionRailProps}
+                iconSizeClassName="size-6"
+                countClassName="text-[11px] font-semibold text-white tabular-nums"
+              />
+            </div>
+          ) : null}
 
           {/* ---- Close button ---- */}
           <DialogClose
@@ -308,9 +301,9 @@ function MobileClipViewerBody({
           </DialogClose>
 
           {/* ---- Top spacer (keeps the player higher while metadata stays bottom-pinned) ---- */}
-          {isLandscape
-            ? null
-            : <div className="h-[clamp(4rem,28dvh,16rem)] min-h-0 shrink" />}
+          {isLandscape ? null : (
+            <div className="h-[clamp(4rem,28dvh,16rem)] min-h-0 shrink" />
+          )}
 
           {/* ---- Video player ---- */}
           <div
@@ -330,9 +323,9 @@ function MobileClipViewerBody({
               playbackQualities={row.playbackQualities}
               status={row.status}
               encodeProgress={row.encodeProgress}
-              maxDisplayHeight={isLandscape
-                ? "100dvh"
-                : "min(72dvh, calc(100dvh - 18rem))"}
+              maxDisplayHeight={
+                isLandscape ? "100dvh" : "min(72dvh, calc(100dvh - 18rem))"
+              }
               chromeSize="compact"
               onPlayThreshold={() => recordClipViewBestEffort(row.id)}
               autoPlay
@@ -341,20 +334,18 @@ function MobileClipViewerBody({
             />
           </div>
 
-          {showSwipeHint && !isLandscape
-            ? (
-              <div
-                aria-hidden
-                className={cn(
-                  "pointer-events-none relative z-20 mx-auto mt-3 rounded-full border border-white/10 bg-[oklch(12%_0.01_250)]/35 px-3 py-1.5",
-                  "text-xs font-semibold tracking-wide text-white/75 shadow-[0_8px_30px_-14px_rgb(0_0_0_/_0.9)] backdrop-blur-md",
-                  "animate-in duration-200 fade-in-0 slide-in-from-bottom-1",
-                )}
-              >
-                Swipe to navigate
-              </div>
-            )
-            : null}
+          {showSwipeHint && !isLandscape ? (
+            <div
+              aria-hidden
+              className={cn(
+                "pointer-events-none relative z-20 mx-auto mt-3 rounded-full border border-white/10 bg-[oklch(12%_0.01_250)]/35 px-3 py-1.5",
+                "text-xs font-semibold tracking-wide text-white/75 shadow-[0_8px_30px_-14px_rgb(0_0_0_/_0.9)] backdrop-blur-md",
+                "animate-in duration-200 fade-in-0 slide-in-from-bottom-1",
+              )}
+            >
+              Swipe to navigate
+            </div>
+          ) : null}
 
           {isLandscape ? null : <div className="min-h-0 flex-1" />}
 
@@ -368,28 +359,26 @@ function MobileClipViewerBody({
             {/* Left: metadata cluster */}
             <div className="flex min-h-0 flex-1 flex-col justify-end gap-2.5 overflow-hidden pt-4 pr-2 pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,calc(env(safe-area-inset-left)+0.25rem))]">
               {/* Game badge */}
-              {gameRef
-                ? (
-                  <Link
-                    to="/g/$slug"
-                    params={{ slug: gameRef.slug }}
-                    className="inline-flex w-fit items-center gap-2"
-                  >
-                    <GameIcon
-                      src={gameIcon}
-                      name={gameLabel}
-                      className="size-6 rounded"
-                    />
-                    <span className="text-base font-semibold text-white/90">
-                      {gameLabel}
-                    </span>
-                  </Link>
-                )
-                : (
+              {gameRef ? (
+                <Link
+                  to="/g/$slug"
+                  params={{ slug: gameRef.slug }}
+                  className="inline-flex w-fit items-center gap-2"
+                >
+                  <GameIcon
+                    src={gameIcon}
+                    name={gameLabel}
+                    className="size-6 rounded"
+                  />
                   <span className="text-base font-semibold text-white/90">
                     {gameLabel}
                   </span>
-                )}
+                </Link>
+              ) : (
+                <span className="text-base font-semibold text-white/90">
+                  {gameLabel}
+                </span>
+              )}
 
               {/* Author with avatar */}
               <ClipAuthorLink
@@ -411,15 +400,13 @@ function MobileClipViewerBody({
               <ClipMentionsRow mentions={row.mentions ?? []} />
 
               {/* Description */}
-              {row.description
-                ? (
-                  <p className="line-clamp-3 text-sm leading-relaxed whitespace-pre-wrap text-white/65">
-                    {renderHashtagTokens(row.description, {
-                      linkHashtags: true,
-                    })}
-                  </p>
-                )
-                : null}
+              {row.description ? (
+                <p className="line-clamp-3 text-sm leading-relaxed whitespace-pre-wrap text-white/65">
+                  {renderHashtagTokens(row.description, {
+                    linkHashtags: true,
+                  })}
+                </p>
+              ) : null}
             </div>
 
             {/* Right: action buttons */}

@@ -1,10 +1,9 @@
+import type { ClipRow } from "@workspace/api"
 import * as React from "react"
 
-import type { ClipRow } from "@workspace/api"
-
 import { ClipCardTrigger } from "./clip-card-trigger"
-import { type ClipListEntry, ClipListProvider } from "./clip-list-context"
 import { ClipGrid } from "./clip-grid"
+import { type ClipListEntry, ClipListProvider } from "./clip-list-context"
 
 type ClipCardListProps = {
   rows: readonly ClipRow[]

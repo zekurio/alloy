@@ -1,6 +1,4 @@
-import * as React from "react"
-import { ImageIcon, Minus, Plus } from "lucide-react"
-
+import { Button } from "@workspace/ui/components/button"
 import {
   Dialog,
   DialogBody,
@@ -9,11 +7,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@workspace/ui/components/dialog"
-import { Button } from "@workspace/ui/components/button"
 import { Slider } from "@workspace/ui/components/slider"
 import { toast } from "@workspace/ui/lib/toast"
 import { cn } from "@workspace/ui/lib/utils"
+import { ImageIcon, Minus, Plus } from "lucide-react"
+import * as React from "react"
+
 import { errorMessage } from "@/lib/error-message"
+
 import {
   canvasToBlob,
   clamp,
@@ -262,8 +263,8 @@ export function ProfileImageCropDialog({
         renderedContainedImageBox,
       )
       const renderedImageBox = getImageBox(loadedImage, renderedStageSize, zoom)
-      const imageLeft = (renderedStageSize.width - renderedImageBox.width) / 2 +
-        offset.x
+      const imageLeft =
+        (renderedStageSize.width - renderedImageBox.width) / 2 + offset.x
       const imageTop =
         (renderedStageSize.height - renderedImageBox.height) / 2 + offset.y
       const cropLeft = renderedCropFrame.x - imageLeft
@@ -311,9 +312,9 @@ export function ProfileImageCropDialog({
     if (nextStageSize) {
       setStageSize((current) =>
         current.height === nextStageSize.height &&
-          current.width === nextStageSize.width
+        current.width === nextStageSize.width
           ? current
-          : nextStageSize
+          : nextStageSize,
       )
     }
     return nextStageSize
@@ -327,23 +328,25 @@ export function ProfileImageCropDialog({
   function handleZoomChange(value: number | readonly number[]) {
     const rawZoom = Array.isArray(value) ? (value[0] ?? 1) : value
     const nextZoom = clamp(rawZoom, minimumZoom, MAX_PREVIEW_ZOOM)
-    const liveStageSize = readElementSize(stageRef.current) ??
-      effectiveStageSize
+    const liveStageSize =
+      readElementSize(stageRef.current) ?? effectiveStageSize
     const { cropFrame: liveCropFrame, imageBox: liveImageBox } =
       getLiveCropGeometry(loadedImage, liveStageSize, config, mode, nextZoom)
 
     setZoom(nextZoom)
     setOffset((current) =>
-      clampImageOffset(current, liveCropFrame, liveImageBox)
+      clampImageOffset(current, liveCropFrame, liveImageBox),
     )
   }
 
-  const imagePlacement = cropReady && imageBox
-    ? getImagePlacement(effectiveStageSize, imageBox, offset)
-    : null
-  const cropCovered = cropReady && imagePlacement
-    ? isCropCovered(cropFrame, imagePlacement)
-    : false
+  const imagePlacement =
+    cropReady && imageBox
+      ? getImagePlacement(effectiveStageSize, imageBox, offset)
+      : null
+  const cropCovered =
+    cropReady && imagePlacement
+      ? isCropCovered(cropFrame, imagePlacement)
+      : false
   const applyDisabled = !cropCovered || applying || cropPending
 
   return (
@@ -364,62 +367,60 @@ export function ProfileImageCropDialog({
             )}
             ref={setStageElement}
           >
-            {cropReady && imagePlacement
-              ? (
+            {cropReady && imagePlacement ? (
+              <div
+                role="application"
+                aria-label="Drag image to reposition crop"
+                className="absolute inset-0 cursor-grab touch-none overflow-hidden active:cursor-grabbing"
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={finishDrag}
+                onPointerCancel={finishDrag}
+              >
+                <img
+                  alt=""
+                  draggable={false}
+                  src={loadedImage.src}
+                  className="pointer-events-none absolute max-w-none opacity-45 select-none"
+                  style={{
+                    height: imagePlacement.height,
+                    left: imagePlacement.left,
+                    top: imagePlacement.top,
+                    width: imagePlacement.width,
+                  }}
+                />
                 <div
-                  role="application"
-                  aria-label="Drag image to reposition crop"
-                  className="absolute inset-0 cursor-grab touch-none overflow-hidden active:cursor-grabbing"
-                  onPointerDown={handlePointerDown}
-                  onPointerMove={handlePointerMove}
-                  onPointerUp={finishDrag}
-                  onPointerCancel={finishDrag}
+                  className="ring-accent pointer-events-none absolute overflow-hidden ring-3 ring-inset"
+                  style={{
+                    height: cropFrame.height,
+                    left: cropFrame.x,
+                    top: cropFrame.y,
+                    width: cropFrame.width,
+                  }}
                 >
                   <img
                     alt=""
                     draggable={false}
                     src={loadedImage.src}
-                    className="pointer-events-none absolute max-w-none opacity-45 select-none"
+                    className="pointer-events-none absolute max-w-none select-none"
                     style={{
                       height: imagePlacement.height,
-                      left: imagePlacement.left,
-                      top: imagePlacement.top,
+                      left: imagePlacement.left - cropFrame.x,
+                      top: imagePlacement.top - cropFrame.y,
                       width: imagePlacement.width,
                     }}
                   />
-                  <div
-                    className="pointer-events-none absolute overflow-hidden ring-3 ring-accent ring-inset"
-                    style={{
-                      height: cropFrame.height,
-                      left: cropFrame.x,
-                      top: cropFrame.y,
-                      width: cropFrame.width,
-                    }}
-                  >
-                    <img
-                      alt=""
-                      draggable={false}
-                      src={loadedImage.src}
-                      className="pointer-events-none absolute max-w-none select-none"
-                      style={{
-                        height: imagePlacement.height,
-                        left: imagePlacement.left - cropFrame.x,
-                        top: imagePlacement.top - cropFrame.y,
-                        width: imagePlacement.width,
-                      }}
-                    />
-                  </div>
                 </div>
-              )
-              : (
-                <div className="absolute inset-0 grid place-items-center bg-surface-sunken text-foreground-faint">
-                  <ImageIcon className="size-8" />
-                </div>
-              )}
+              </div>
+            ) : (
+              <div className="bg-surface-sunken text-foreground-faint absolute inset-0 grid place-items-center">
+                <ImageIcon className="size-8" />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
-            <Minus className="size-4 shrink-0 text-foreground-faint" />
+            <Minus className="text-foreground-faint size-4 shrink-0" />
             <Slider
               aria-label="Zoom"
               min={minimumZoom}
@@ -429,7 +430,7 @@ export function ProfileImageCropDialog({
               onValueChange={handleZoomChange}
               disabled={controlsDisabled}
             />
-            <Plus className="size-4 shrink-0 text-foreground-faint" />
+            <Plus className="text-foreground-faint size-4 shrink-0" />
           </div>
         </DialogBody>
 

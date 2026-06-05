@@ -1,11 +1,10 @@
-import * as React from "react"
-import { ImageIcon, Trash2 } from "lucide-react"
-
 import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@workspace/ui/components/dropdown-menu"
 import { cn } from "@workspace/ui/lib/utils"
+import { ImageIcon, Trash2 } from "lucide-react"
+import * as React from "react"
 
 export function MediaEditOverlay({
   tone = "shade",
@@ -76,7 +75,7 @@ export function MediaDropdownContent({
   return (
     <DropdownMenuContent
       anchor={anchor ?? undefined}
-      className="alloy-blur w-auto border-white/8 text-foreground"
+      className="alloy-blur text-foreground w-auto border-white/8"
     >
       <MediaMenuItems kind={kind} onUpload={onUpload} onRemove={onRemove} />
     </DropdownMenuContent>

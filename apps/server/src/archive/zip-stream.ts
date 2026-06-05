@@ -3,9 +3,9 @@ type ZipEntry = {
   stream:
     | ReadableStream<Uint8Array>
     | (() =>
-      | ReadableStream<Uint8Array>
-      | null
-      | Promise<ReadableStream<Uint8Array> | null>)
+        | ReadableStream<Uint8Array>
+        | null
+        | Promise<ReadableStream<Uint8Array> | null>)
 }
 
 type CentralEntry = {
@@ -38,7 +38,8 @@ function dosDateTime(date = new Date()): { date: number; time: number } {
   const year = Math.max(1980, date.getFullYear())
   return {
     date: ((year - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate(),
-    time: (date.getHours() << 11) |
+    time:
+      (date.getHours() << 11) |
       (date.getMinutes() << 5) |
       Math.floor(date.getSeconds() / 2),
   }
@@ -199,11 +200,9 @@ async function* zipChunks(
     const stream = await openEntryStream(entry)
     if (!stream) continue
 
-    const filename = `${String(index + 1).padStart(3, "0")}-${
-      safeZipFilename(
-        entry.filename,
-      )
-    }`
+    const filename = `${String(index + 1).padStart(3, "0")}-${safeZipFilename(
+      entry.filename,
+    )}`
     const filenameBytes = bytes(filename)
     const start = offset
     const header = localHeader(filenameBytes)

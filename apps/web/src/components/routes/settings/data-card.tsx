@@ -1,6 +1,3 @@
-import * as React from "react"
-import { DownloadIcon, Trash2Icon } from "lucide-react"
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,6 +12,8 @@ import {
 import { Button } from "@workspace/ui/components/button"
 import { Section, SectionContent } from "@workspace/ui/components/section"
 import { toast } from "@workspace/ui/lib/toast"
+import { DownloadIcon, Trash2Icon } from "lucide-react"
+import * as React from "react"
 
 import { StorageQuota } from "@/components/storage-quota"
 import { api } from "@/lib/api"
@@ -35,7 +34,7 @@ function DataActionRow({
     <div className="flex items-center justify-between gap-4 py-4">
       <div className="min-w-0">
         <div className="text-sm font-medium">{title}</div>
-        <p className="mt-0.5 text-xs text-foreground-dim">{description}</p>
+        <p className="text-foreground-dim mt-0.5 text-xs">{description}</p>
       </div>
       {children}
     </div>
@@ -156,7 +155,7 @@ export function ClipDataCard() {
 
   return (
     <Section>
-      <SectionContent className="divide-y divide-border py-0">
+      <SectionContent className="divide-border divide-y py-0">
         <DownloadClipsRow />
         <DeleteClipsRow pending={pending} onDeleteAllClips={onDeleteAllClips} />
       </SectionContent>

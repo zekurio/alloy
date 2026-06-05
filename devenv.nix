@@ -5,8 +5,8 @@
   ...
 }:
 let
-  # Native libraries the Deno runtime/npm deps dlopen at dev time. Mirrors the
-  # set the packaged server links in nix/package.nix.
+  # Native libraries npm deps may dlopen at dev time. Mirrors the packaged
+  # server's runtime library assumptions in nix/package.nix.
   nativeLibs = with pkgs; [
     stdenv.cc.cc.lib
     zlib
@@ -16,10 +16,14 @@ let
 in
 {
   # https://devenv.sh/languages/
-  # Deno comes from the pinned nixpkgs (see devenv.yaml). Keep that channel in
-  # sync with flake.nix so the dev Deno matches the packaged/CI Deno; the server
-  # is `deno compile`d against a denort runtime pinned to one exact version.
-  languages.deno.enable = true;
+  languages.javascript = {
+    enable = true;
+    package = pkgs.nodejs_24;
+    pnpm = {
+      enable = true;
+      package = pkgs.pnpm;
+    };
+  };
 
   # https://devenv.sh/packages/
   # The machine-learning service owns its own uv-managed venv
@@ -82,12 +86,12 @@ in
   # server starts.
   tasks."alloy:db-push" = {
     after = [ "devenv:processes:postgres" ];
-    exec = "deno task db:push";
+    exec = "pnpm db:push";
   };
 
   # https://devenv.sh/processes/
-  # devenv owns the dev process graph. Deno tasks in deno.json are thin aliases
-  # that select which processes to start.
+  # devenv owns the dev process graph. pnpm scripts in package.json are thin
+  # aliases that select which processes to start.
   processes = {
     api = {
       after = [ "alloy:db-push" ];
@@ -96,7 +100,7 @@ in
         export PUBLIC_SERVER_URL="''${PUBLIC_SERVER_URL:-http://localhost:$PORT}"
         export MACHINE_LEARNING_ENABLED="1"
         export MACHINE_LEARNING_URL="''${MACHINE_LEARNING_URL:-http://localhost:''${ALLOY_ML_PORT:-2662}}"
-        exec deno task --quiet --cwd apps/server dev
+        exec pnpm --dir apps/server dev
       '';
       ready.http.get = {
         port = 2552;
@@ -106,7 +110,7 @@ in
 
     web = {
       ports.http.allocate = 5173;
-      exec = "deno task --quiet --cwd apps/web dev";
+      exec = "pnpm --dir apps/web dev";
       ready.http.get = {
         port = config.processes.web.ports.http.value;
         path = "/";

@@ -1,7 +1,4 @@
-import * as React from "react"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import { EyeOffIcon, RotateCcwIcon, Trash2Icon } from "lucide-react"
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,6 +13,8 @@ import {
 import { Button } from "@workspace/ui/components/button"
 import { Section, SectionContent } from "@workspace/ui/components/section"
 import { toast } from "@workspace/ui/lib/toast"
+import { EyeOffIcon, RotateCcwIcon, Trash2Icon } from "lucide-react"
+import * as React from "react"
 
 import { api } from "@/lib/api"
 import { authClient, signOut } from "@/lib/auth-client"
@@ -37,7 +36,7 @@ function AccountActionRow({
     <div className="flex items-center justify-between gap-4 py-4">
       <div className="min-w-0">
         <div className="text-sm font-medium">{title}</div>
-        <p className="mt-0.5 text-xs text-foreground-dim">{description}</p>
+        <p className="text-foreground-dim mt-0.5 text-xs">{description}</p>
       </div>
       {children}
     </div>
@@ -142,52 +141,52 @@ function DisableAccountRow({
   return (
     <AccountActionRow
       title={disabledAt ? "Reactivate account" : "Disable account"}
-      description={disabledAt
-        ? "Make your profile and clips visible again."
-        : "Hide your profile and clips until you reactivate your account."}
+      description={
+        disabledAt
+          ? "Make your profile and clips visible again."
+          : "Hide your profile and clips until you reactivate your account."
+      }
     >
-      {disabledAt
-        ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onReactivate}
-            disabled={pending}
-          >
-            <RotateCcwIcon />
-            {pendingAction === "reactivate" ? "Reactivating..." : "Reactivate"}
-          </Button>
-        )
-        : (
-          <AlertDialog>
-            <AlertDialogTrigger
-              render={
-                <Button type="button" variant="outline" size="sm">
-                  <EyeOffIcon />
-                  Disable
-                </Button>
-              }
-            />
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Disable your account?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Your profile and clips will be hidden until you sign back in
-                  and reactivate.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={onDisable} disabled={pending}>
-                  {pendingAction === "disable"
-                    ? "Disabling..."
-                    : "Disable account"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
+      {disabledAt ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onReactivate}
+          disabled={pending}
+        >
+          <RotateCcwIcon />
+          {pendingAction === "reactivate" ? "Reactivating..." : "Reactivate"}
+        </Button>
+      ) : (
+        <AlertDialog>
+          <AlertDialogTrigger
+            render={
+              <Button type="button" variant="outline" size="sm">
+                <EyeOffIcon />
+                Disable
+              </Button>
+            }
+          />
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Disable your account?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Your profile and clips will be hidden until you sign back in and
+                reactivate.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={onDisable} disabled={pending}>
+                {pendingAction === "disable"
+                  ? "Disabling..."
+                  : "Disable account"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </AccountActionRow>
   )
 }
@@ -243,7 +242,7 @@ export function DangerZoneCard() {
 
   return (
     <Section>
-      <SectionContent className="divide-y divide-border py-0">
+      <SectionContent className="divide-border divide-y py-0">
         <DisableAccountRow {...actions} />
         <DeleteAccountRow {...actions} />
       </SectionContent>

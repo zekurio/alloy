@@ -1,7 +1,6 @@
 import { Link } from "@tanstack/react-router"
-
-import { cn } from "@workspace/ui/lib/utils"
 import { gameGridUrl } from "@workspace/api"
+import { cn } from "@workspace/ui/lib/utils"
 
 import { hueForGame } from "@/lib/clip-format"
 import { apiOrigin } from "@/lib/env"
@@ -26,9 +25,8 @@ type GameCardProps = {
 
 function GameCardBody({ game }: { game: GameCardData }) {
   const hue = hueForGame(game.name)
-  const gridSrc = game.gridUrl && game.slug
-    ? gameGridUrl(game.slug, apiOrigin())
-    : null
+  const gridSrc =
+    game.gridUrl && game.slug ? gameGridUrl(game.slug, apiOrigin()) : null
 
   if (gridSrc) {
     return (
@@ -48,8 +46,7 @@ function GameCardBody({ game }: { game: GameCardData }) {
       aria-hidden
       className="absolute inset-0"
       style={{
-        background:
-          `radial-gradient(120% 80% at 30% 20%, oklch(0.32 0.14 ${hue}), oklch(0.08 0.04 ${hue}))`,
+        background: `radial-gradient(120% 80% at 30% 20%, oklch(0.32 0.14 ${hue}), oklch(0.08 0.04 ${hue}))`,
       }}
     />
   )

@@ -1,5 +1,3 @@
-import * as React from "react"
-
 import { Button } from "@workspace/ui/components/button"
 import {
   Field,
@@ -12,6 +10,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
+import * as React from "react"
 
 type BaseFieldProps = {
   description?: React.ReactNode
@@ -29,9 +28,8 @@ type BaseFieldProps = {
   value: string
 }
 
-type TextFieldProps =
-  & BaseFieldProps
-  & Pick<
+type TextFieldProps = BaseFieldProps &
+  Pick<
     React.ComponentProps<typeof InputGroupInput>,
     | "autoCapitalize"
     | "autoComplete"
@@ -136,28 +134,26 @@ function AuthInputGroupField({
   trailingAddon,
   type,
   value,
-}:
-  & Pick<
-    TextFieldProps,
-    | "autoCapitalize"
-    | "autoComplete"
-    | "autoCorrect"
-    | "disabled"
-    | "icon"
-    | "id"
-    | "inputMode"
-    | "invalid"
-    | "onBlur"
-    | "onChange"
-    | "placeholder"
-    | "required"
-    | "spellCheck"
-    | "type"
-    | "value"
-  >
-  & {
-    trailingAddon?: React.ReactNode
-  }) {
+}: Pick<
+  TextFieldProps,
+  | "autoCapitalize"
+  | "autoComplete"
+  | "autoCorrect"
+  | "disabled"
+  | "icon"
+  | "id"
+  | "inputMode"
+  | "invalid"
+  | "onBlur"
+  | "onChange"
+  | "placeholder"
+  | "required"
+  | "spellCheck"
+  | "type"
+  | "value"
+> & {
+  trailingAddon?: React.ReactNode
+}) {
   return (
     <InputGroup>
       <InputGroupAddon>{icon}</InputGroupAddon>

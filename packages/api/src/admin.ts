@@ -1,4 +1,3 @@
-import type { ApiContext } from "./client"
 import type {
   AdminEncoderCapabilities,
   AdminEncoderConfig,
@@ -11,9 +10,9 @@ import type {
   AdminUserStorageRow,
   RuntimeConfig,
 } from "@workspace/contracts"
-import { readJsonOrThrow } from "./http"
-import { readSuccessJson } from "./mutations"
-import { resolvePublicUrl } from "./paths"
+import { loginSplashImagePath } from "@workspace/contracts"
+
+import type { ApiContext } from "./client"
 import {
   validateAdminEncoderCapabilities,
   validateAdminReEncodeResponse,
@@ -22,8 +21,9 @@ import {
   validateAdminUserStorageRow,
   validateRuntimeConfigExport,
 } from "./contract-validators"
-
-import { loginSplashImagePath } from "@workspace/contracts"
+import { readJsonOrThrow } from "./http"
+import { readSuccessJson } from "./mutations"
+import { resolvePublicUrl } from "./paths"
 
 export {
   ENCODER_CODECS,
@@ -57,9 +57,7 @@ export type {
   UsernameClaim,
 } from "@workspace/contracts"
 
-export function loginSplashImageUrl(
-  origin: string | undefined,
-): string {
+export function loginSplashImageUrl(origin: string | undefined): string {
   return resolvePublicUrl(loginSplashImagePath(), origin)
 }
 
@@ -171,8 +169,8 @@ async function reEncodeAllClips(
 async function regenerateLoginSplash(
   context: ApiContext,
 ): Promise<AdminRuntimeConfig> {
-  const res = await context.rpc.api.admin.appearance["login-splash"].regenerate
-    .$post()
+  const res =
+    await context.rpc.api.admin.appearance["login-splash"].regenerate.$post()
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
@@ -180,10 +178,11 @@ async function uploadLoginSplash(
   context: ApiContext,
   file: File,
 ): Promise<AdminRuntimeConfig> {
-  const res = await context.rpc.api.admin.appearance["login-splash"].upload
-    .$post({
-      form: { file },
-    })
+  const res = await context.rpc.api.admin.appearance[
+    "login-splash"
+  ].upload.$post({
+    form: { file },
+  })
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 

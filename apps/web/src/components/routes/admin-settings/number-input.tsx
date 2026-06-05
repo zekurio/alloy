@@ -1,17 +1,17 @@
-import * as React from "react"
-
 import { Input } from "@workspace/ui/components/input"
+import * as React from "react"
 
 import { clampInt, parseInteger } from "./shared"
 
-type NumberInputProps =
-  & Omit<React.ComponentProps<typeof Input>, "value" | "onChange" | "type">
-  & {
-    value: number
-    min: number
-    max: number
-    onChange: (value: number) => void
-  }
+type NumberInputProps = Omit<
+  React.ComponentProps<typeof Input>,
+  "value" | "onChange" | "type"
+> & {
+  value: number
+  min: number
+  max: number
+  onChange: (value: number) => void
+}
 
 /**
  * Integer field that stays editable while you type.

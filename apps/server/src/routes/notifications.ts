@@ -1,14 +1,11 @@
-import { limitQueryParam, zValidator } from "./validation"
-import { Hono } from "hono"
-import { z } from "zod"
-
 import {
   NOTIFICATIONS_DEFAULT_LIMIT,
   NOTIFICATIONS_MAX_LIMIT,
 } from "@workspace/contracts"
+import { Hono } from "hono"
+import { z } from "zod"
 
 import { requireSession } from "../auth/require-session"
-import { notFound } from "../runtime/http-response"
 import {
   clearNotifications,
   deleteNotification,
@@ -16,6 +13,8 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from "../notifications"
+import { notFound } from "../runtime/http-response"
+import { limitQueryParam, zValidator } from "./validation"
 
 const ListQuery = z.object({
   limit: limitQueryParam(NOTIFICATIONS_MAX_LIMIT, NOTIFICATIONS_DEFAULT_LIMIT),

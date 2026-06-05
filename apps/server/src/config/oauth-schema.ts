@@ -1,11 +1,10 @@
-import { z } from "zod"
-
 import {
   OAUTH_DISPLAY_NAME_CLAIM_DEFAULT,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_USERNAME_CLAIM_DEFAULT,
 } from "@workspace/contracts"
+import { z } from "zod"
 
 const ProviderIdPattern = /^[a-z0-9-]+$/
 const HexColorPattern = /^#[0-9a-fA-F]{6}$/
@@ -28,12 +27,16 @@ const OAuthProviderBaseSchema = z.object({
   tokenUrl: z.string().url().optional(),
   userInfoUrl: z.string().url().optional(),
   pkce: z.boolean().default(true),
-  usernameClaim: z.string().min(1).max(128).default(
-    OAUTH_USERNAME_CLAIM_DEFAULT,
-  ),
-  displayNameClaim: z.string().min(1).max(128).default(
-    OAUTH_DISPLAY_NAME_CLAIM_DEFAULT,
-  ),
+  usernameClaim: z
+    .string()
+    .min(1)
+    .max(128)
+    .default(OAUTH_USERNAME_CLAIM_DEFAULT),
+  displayNameClaim: z
+    .string()
+    .min(1)
+    .max(128)
+    .default(OAUTH_DISPLAY_NAME_CLAIM_DEFAULT),
   quotaClaim: z.string().min(1).max(128).default(OAUTH_QUOTA_CLAIM_DEFAULT),
   roleClaim: z.string().min(1).max(128).default(OAUTH_ROLE_CLAIM_DEFAULT),
 })
@@ -83,9 +86,9 @@ export const OAuthProviderSchema = OAuthProviderBaseSchema.superRefine(
  * Admin submission: provider metadata plus an optional write-only
  * `clientSecret`. Absent/empty means "keep the existing secret".
  */
-export const OAuthProviderSubmissionSchema = OAuthProviderBaseSchema
-  .extend({ clientSecret: z.string().optional() })
-  .superRefine(validateOAuthProvider)
+export const OAuthProviderSubmissionSchema = OAuthProviderBaseSchema.extend({
+  clientSecret: z.string().optional(),
+}).superRefine(validateOAuthProvider)
 
 export const OAuthProvidersSchema = z
   .array(OAuthProviderSchema)

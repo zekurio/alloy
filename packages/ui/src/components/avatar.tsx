@@ -1,7 +1,6 @@
-import * as React from "react"
 import { Avatar as AvatarPrimitive } from "@base-ui/react/avatar"
-
 import { cn } from "@workspace/ui/lib/utils"
+import * as React from "react"
 
 const avatarRootSizeClasses = [
   "data-[size=sm]:size-5 data-[size=sm]:text-[9px] data-[size=sm]:leading-3",
@@ -83,7 +82,9 @@ function AvatarImage({
   ...props
 }: AvatarPrimitive.Image.Props) {
   const initialStatus = src
-    ? loadedAvatarImageSrcs.has(src) ? "loaded" : "loading"
+    ? loadedAvatarImageSrcs.has(src)
+      ? "loaded"
+      : "loading"
     : "idle"
   const [status, setStatus] = React.useState<
     "idle" | "loading" | "loaded" | "error"
@@ -112,15 +113,13 @@ function AvatarImage({
         className={cn("size-full object-cover", className)}
         {...props}
       />
-      {showLoadingMask
-        ? (
-          <span
-            aria-hidden
-            data-slot="avatar-image-loading"
-            className="absolute inset-0 z-10 bg-muted"
-          />
-        )
-        : null}
+      {showLoadingMask ? (
+        <span
+          aria-hidden
+          data-slot="avatar-image-loading"
+          className="bg-muted absolute inset-0 z-10"
+        />
+      ) : null}
     </>
   )
 }

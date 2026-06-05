@@ -2,7 +2,7 @@
   lib,
   makeWrapper,
   python3,
-  version ? (builtins.fromJSON (builtins.readFile ../deno.json)).version,
+  version ? (builtins.fromJSON (builtins.readFile ../package.json)).version,
   source ? import ./source.nix {
     inherit lib;
     root = ../.;

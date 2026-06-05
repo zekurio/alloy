@@ -1,3 +1,9 @@
+import {
+  USER_ROLES,
+  USER_STATUSES,
+  type UserRole,
+  type UserStatus,
+} from "@workspace/contracts"
 import { sql } from "drizzle-orm"
 import {
   bigint,
@@ -12,13 +18,6 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
-
-import {
-  USER_ROLES,
-  USER_STATUSES,
-  type UserRole,
-  type UserStatus,
-} from "@workspace/contracts"
 
 export { USER_ROLES, USER_STATUSES }
 
@@ -120,22 +119,26 @@ export const authAccount = pgTable(
   ],
 )
 
-export const authChallenge = pgTable("auth_challenge", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  purpose: text("purpose").notNull(),
-  identifier: text("identifier").notNull(),
-  challenge: text("challenge").notNull(),
-  payload: jsonb("payload")
-    .$type<Record<string, unknown>>()
-    .notNull()
-    .default({}),
-  expiresAt: timestamp("expires_at").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-}, (t) => [
-  // High-churn table swept by `expires_at`; without this the TTL cleanup is a
-  // sequential scan on every passkey challenge create.
-  index("auth_challenge_expires_at_idx").on(t.expiresAt),
-])
+export const authChallenge = pgTable(
+  "auth_challenge",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    purpose: text("purpose").notNull(),
+    identifier: text("identifier").notNull(),
+    challenge: text("challenge").notNull(),
+    payload: jsonb("payload")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    // High-churn table swept by `expires_at`; without this the TTL cleanup is a
+    // sequential scan on every passkey challenge create.
+    index("auth_challenge_expires_at_idx").on(t.expiresAt),
+  ],
+)
 
 export const authSchema = {
   user,

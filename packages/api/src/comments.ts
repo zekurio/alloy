@@ -1,8 +1,6 @@
-import type { ApiContext } from "./client"
 import type { CommentPage, CommentRow, CommentSort } from "@workspace/contracts"
-import { readJsonOrThrow } from "./http"
-import { readDeletedJson, readPostDeleteJson } from "./mutations"
-import { queryParams } from "./paths"
+
+import type { ApiContext } from "./client"
 import {
   booleanFlagResponseValidator,
   validateCommentLikeState,
@@ -10,6 +8,9 @@ import {
   validateCommentRow,
   validateCommentUpdateResponse,
 } from "./contract-validators"
+import { readJsonOrThrow } from "./http"
+import { readDeletedJson, readPostDeleteJson } from "./mutations"
+import { queryParams } from "./paths"
 
 export type {
   CommentAuthor,

@@ -1,8 +1,7 @@
-import * as React from "react"
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"
-
-import { CheckIcon, ChevronRightIcon } from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
+import { CheckIcon, ChevronRightIcon } from "lucide-react"
+import * as React from "react"
 
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
   return <MenuPrimitive.Root data-slot="dropdown-menu" {...props} />
@@ -25,13 +24,11 @@ function DropdownMenuContent({
   portalContainer,
   className,
   ...props
-}:
-  & MenuPrimitive.Popup.Props
-  & Pick<
+}: MenuPrimitive.Popup.Props &
+  Pick<
     MenuPrimitive.Positioner.Props,
     "align" | "alignOffset" | "side" | "sideOffset" | "anchor"
-  >
-  & {
+  > & {
     portalContainer?: MenuPrimitive.Portal.Props["container"]
   }) {
   return (
@@ -202,7 +199,7 @@ function DropdownMenuCheckboxItem({
       {...props}
     >
       <span
-        className="pointer-events-none absolute right-2 inline-flex items-center justify-center text-accent"
+        className="text-accent pointer-events-none absolute right-2 inline-flex items-center justify-center"
         data-slot="dropdown-menu-checkbox-item-indicator"
       >
         <MenuPrimitive.CheckboxItemIndicator>
@@ -246,7 +243,7 @@ function DropdownMenuRadioItem({
       {...props}
     >
       <span
-        className="pointer-events-none absolute right-2 inline-flex items-center justify-center text-accent"
+        className="text-accent pointer-events-none absolute right-2 inline-flex items-center justify-center"
         data-slot="dropdown-menu-radio-item-indicator"
       >
         <MenuPrimitive.RadioItemIndicator>

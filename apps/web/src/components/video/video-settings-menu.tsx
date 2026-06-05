@@ -1,13 +1,3 @@
-import {
-  CheckIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  DownloadIcon,
-  GaugeIcon,
-  SettingsIcon,
-} from "lucide-react"
-import * as React from "react"
-
 import { Button } from "@workspace/ui/components/button"
 import {
   Drawer,
@@ -22,6 +12,15 @@ import {
 } from "@workspace/ui/components/dropdown-menu"
 import { useMediaQuery } from "@workspace/ui/hooks/use-media-query"
 import { cn } from "@workspace/ui/lib/utils"
+import {
+  CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  DownloadIcon,
+  GaugeIcon,
+  SettingsIcon,
+} from "lucide-react"
+import * as React from "react"
 
 import {
   mobileDrawerContentClass,
@@ -93,18 +92,17 @@ export function VideoSettingsMenu({
   const selectableOptions = qualityOptions.filter(
     (quality) => quality.selectable !== false,
   )
-  const hasQualityChoices = selectableOptions.length > 1 &&
-    Boolean(onSelectQuality)
+  const hasQualityChoices =
+    selectableOptions.length > 1 && Boolean(onSelectQuality)
   const downloadOptions = qualityOptions.filter(hasDownloadUrl)
   const selectedQuality =
     selectableOptions.find((quality) => quality.id === selectedQualityId) ??
-      selectableOptions[0]
+    selectableOptions[0]
   if (!hasQualityChoices && downloadOptions.length === 0) return null
 
   // A single download variant collapses into a direct action — no submenu.
-  const singleDownload = downloadOptions.length === 1
-    ? downloadOptions[0]
-    : null
+  const singleDownload =
+    downloadOptions.length === 1 ? downloadOptions[0] : null
 
   const trigger = (
     <Button
@@ -326,40 +324,34 @@ function MainSettingsView({
 }) {
   return (
     <div className={dense ? panelClass : sheetPanelClass}>
-      {hasQualityChoices
-        ? (
-          <MenuRow
-            dense={dense}
-            icon={<GaugeIcon className={iconCls(dense)} />}
-            label="Quality"
-            value={qualitySummary(selectedQuality)}
-            onClick={onQualityClick}
-            showChevron
-          />
-        )
-        : null}
+      {hasQualityChoices ? (
+        <MenuRow
+          dense={dense}
+          icon={<GaugeIcon className={iconCls(dense)} />}
+          label="Quality"
+          value={qualitySummary(selectedQuality)}
+          onClick={onQualityClick}
+          showChevron
+        />
+      ) : null}
 
-      {singleDownload
-        ? (
-          <MenuRow
-            dense={dense}
-            icon={<DownloadIcon className={iconCls(dense)} />}
-            label="Download"
-            onClick={() => onDirectDownload(singleDownload.downloadUrl)}
-          />
-        )
-        : downloadOptions.length > 1
-        ? (
-          <MenuRow
-            dense={dense}
-            icon={<DownloadIcon className={iconCls(dense)} />}
-            label="Download"
-            value="Choose version"
-            onClick={onDownloadClick}
-            showChevron
-          />
-        )
-        : null}
+      {singleDownload ? (
+        <MenuRow
+          dense={dense}
+          icon={<DownloadIcon className={iconCls(dense)} />}
+          label="Download"
+          onClick={() => onDirectDownload(singleDownload.downloadUrl)}
+        />
+      ) : downloadOptions.length > 1 ? (
+        <MenuRow
+          dense={dense}
+          icon={<DownloadIcon className={iconCls(dense)} />}
+          label="Download"
+          value="Choose version"
+          onClick={onDownloadClick}
+          showChevron
+        />
+      ) : null}
     </div>
   )
 }
@@ -403,13 +395,11 @@ function QualitySettingsView({
                 {selected ? <CheckIcon className={iconCls(dense)} /> : null}
               </span>
               <QualityLabel quality={quality} showDetail={false} />
-              {selected && quality.selectionLabel
-                ? (
-                  <span className="max-w-[50%] min-w-0 truncate text-right text-foreground/60">
-                    {quality.selectionLabel}
-                  </span>
-                )
-                : null}
+              {selected && quality.selectionLabel ? (
+                <span className="text-foreground/60 max-w-[50%] min-w-0 truncate text-right">
+                  {quality.selectionLabel}
+                </span>
+              ) : null}
             </button>
           )
         })}
@@ -514,20 +504,16 @@ function MenuRow({
     <button type="button" className={rowClass(dense)} onClick={onClick}>
       {icon}
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      {value
-        ? (
-          <span className="max-w-[55%] min-w-0 truncate text-right text-foreground/60">
-            {value}
-          </span>
-        )
-        : null}
-      {showChevron
-        ? (
-          <ChevronRightIcon
-            className={cn(iconCls(dense), "text-foreground/60")}
-          />
-        )
-        : null}
+      {value ? (
+        <span className="text-foreground/60 max-w-[55%] min-w-0 truncate text-right">
+          {value}
+        </span>
+      ) : null}
+      {showChevron ? (
+        <ChevronRightIcon
+          className={cn(iconCls(dense), "text-foreground/60")}
+        />
+      ) : null}
     </button>
   )
 }
@@ -546,14 +532,12 @@ function QualityLabel({
         showDetail ? "flex-col gap-0.5" : "items-center",
       )}
     >
-      <span className="truncate text-foreground">{quality.label}</span>
-      {showDetail && quality.detail
-        ? (
-          <span className="truncate text-xs text-foreground/55">
-            {quality.detail}
-          </span>
-        )
-        : null}
+      <span className="text-foreground truncate">{quality.label}</span>
+      {showDetail && quality.detail ? (
+        <span className="text-foreground/55 truncate text-xs">
+          {quality.detail}
+        </span>
+      ) : null}
     </span>
   )
 }

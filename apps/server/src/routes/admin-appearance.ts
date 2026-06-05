@@ -1,16 +1,15 @@
-import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm"
-import { Image } from "@matmen/imagescript"
 import { Buffer } from "node:buffer"
 
 import { type LoginSplashConfig } from "@workspace/contracts"
 import { user } from "@workspace/db/auth-schema"
 import { clip } from "@workspace/db/schema"
 import { logger } from "@workspace/logging"
+import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm"
 
 import { configStore } from "../config/store"
 import { db } from "../db"
+import { parseImageBytes, validateImageBytes } from "../media/image-validation"
 import { runImageMagick } from "../media/imagemagick"
-import { validateImageBytes } from "../media/image-validation"
 import { clipStorage, dataStorage } from "../storage"
 import { readAll } from "./clips-helpers"
 
@@ -43,9 +42,9 @@ type SplashClipAsset = SplashClipRow & {
   bytes: Uint8Array
 }
 
-type SplashImage = InstanceType<typeof Image>
-
-let splashShadeCache: SplashImage | null = null
+type SplashTile = {
+  dataUri: string
+}
 
 async function selectRandomPublicSplashClipIds(): Promise<string[]> {
   const rows = await db
@@ -65,44 +64,16 @@ async function selectRandomPublicSplashClipIds(): Promise<string[]> {
   return rows.map((row) => row.id)
 }
 
-function createSolidImage(width: number, height: number): SplashImage {
-  return new Image(width, height).fill(Image.rgbToColor(5, 6, 9))
-}
-
-async function decodeSplashSource(bytes: Uint8Array): Promise<SplashImage> {
-  try {
-    return await Image.decode(bytes)
-  } catch (cause) {
-    const png = await runImageMagick(["-", "png:-"], bytes)
-    try {
-      return await Image.decode(png)
-    } catch {
-      throw cause
-    }
-  }
-}
-
-// imagescript can only emit PNG/JPEG, so round-trip the composed image through
-// ImageMagick (already a runtime dep, same path as user avatars) to get WebP.
-// Only runs at generation time, never on the request path.
-async function encodeSplashWebp(image: SplashImage): Promise<Uint8Array> {
-  const png = await image.encode()
-  return await runImageMagick(
-    ["png:-", "-quality", String(SPLASH_WEBP_QUALITY), "webp:-"],
-    png,
-  )
-}
-
-async function buildTile(asset: SplashClipAsset): Promise<SplashImage> {
-  const image = await decodeSplashSource(asset.bytes)
-  return image.cover(TILE_WIDTH, TILE_HEIGHT)
-}
-
 async function buildTileOrNull(
   asset: SplashClipAsset,
-): Promise<SplashImage | null> {
+): Promise<SplashTile | null> {
   try {
-    return await buildTile(asset)
+    const bytes = Buffer.from(asset.bytes)
+    const metadata = parseImageBytes(bytes)
+    if (!metadata) return null
+    return {
+      dataUri: `data:${metadata.contentType};base64,${bytes.toString("base64")}`,
+    }
   } catch (err) {
     logger.warn(
       `[admin-appearance] failed to build login splash tile ${asset.id}:`,
@@ -112,38 +83,35 @@ async function buildTileOrNull(
   }
 }
 
-function splashShadeOverlay(): SplashImage {
-  if (splashShadeCache) return splashShadeCache
-
-  const image = new Image(SPLASH_WIDTH, SPLASH_HEIGHT)
-  const centerX = SPLASH_WIDTH * 0.5
-  const centerY = SPLASH_HEIGHT * 0.48
-  const maxDistance = Math.hypot(centerX, centerY)
-
-  for (let y = 0; y < SPLASH_HEIGHT; y++) {
-    for (let x = 0; x < SPLASH_WIDTH; x++) {
-      const index = (y * SPLASH_WIDTH + x) * 4
-      const distance = Math.hypot(x - centerX, y - centerY) / maxDistance
-      const rightShade = Math.max(0, (x / SPLASH_WIDTH - 0.52) * 95)
-      const bottomShade = Math.max(0, (y / SPLASH_HEIGHT - 0.58) * 70)
-      const vignette = Math.min(120, distance * 88)
-      image.bitmap[index + 3] = Math.round(
-        56 + rightShade + bottomShade + vignette,
-      )
-    }
-  }
-
-  splashShadeCache = image
-  return image
+async function renderSplashSvgToWebp(svg: string): Promise<Uint8Array> {
+  return await runImageMagick(
+    ["svg:-", "-quality", String(SPLASH_WEBP_QUALITY), "webp:-"],
+    Buffer.from(svg),
+  )
 }
 
-async function buildLoginSplashImage(
-  assets: SplashClipAsset[],
-): Promise<Uint8Array | null> {
-  const tiles = await Promise.all(assets.map(buildTileOrNull))
-  const usableTiles = tiles.filter((tile): tile is SplashImage => tile !== null)
-  if (usableTiles.length === 0) return null
+async function renderImageBytesToSplashWebp(
+  bytes: Buffer,
+): Promise<Uint8Array> {
+  return await runImageMagick(
+    [
+      "-",
+      "-auto-orient",
+      "-resize",
+      `${SPLASH_WIDTH}x${SPLASH_HEIGHT}^`,
+      "-gravity",
+      "center",
+      "-extent",
+      `${SPLASH_WIDTH}x${SPLASH_HEIGHT}`,
+      "-quality",
+      String(SPLASH_WEBP_QUALITY),
+      "webp:-",
+    ],
+    bytes,
+  )
+}
 
+function buildSplashSvg(tiles: SplashTile[]): string {
   const rotationRadians = (TILE_ROTATION_DEGREES * Math.PI) / 180
   const rotationCoverWidth =
     SPLASH_WIDTH * Math.abs(Math.cos(rotationRadians)) +
@@ -165,45 +133,68 @@ async function buildLoginSplashImage(
   const contentHeight = rowCount * TILE_HEIGHT + (rowCount - 1) * TILE_GAP
   const startLeft = Math.floor((gridWidth - contentWidth) / 2)
   const startTop = Math.floor((gridHeight - contentHeight) / 2)
+  const gridLeft = Math.floor((SPLASH_WIDTH - gridWidth) / 2)
+  const gridTop = Math.floor((SPLASH_HEIGHT - gridHeight) / 2)
 
-  const backdrop = createSolidImage(gridWidth, gridHeight)
+  const images: string[] = []
   let tileIndex = 0
   for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
     const top = startTop + rowIndex * (TILE_HEIGHT + TILE_GAP)
-    const rowShift = TILE_ROW_SHIFT *
-      (TILE_ROW_SHIFTS[rowIndex % TILE_ROW_SHIFTS.length] ?? 0)
+    const rowShift =
+      TILE_ROW_SHIFT * (TILE_ROW_SHIFTS[rowIndex % TILE_ROW_SHIFTS.length] ?? 0)
     for (let columnIndex = 0; columnIndex < columnCount; columnIndex++) {
       const left = Math.round(
         startLeft + rowShift + columnIndex * (TILE_WIDTH + TILE_GAP),
       )
-      const tile = usableTiles[tileIndex % usableTiles.length]
+      const tile = tiles[tileIndex % tiles.length]
       if (!tile) continue
-      backdrop.composite(tile, left, top)
+      images.push(
+        `<image href="${tile.dataUri}" x="${left}" y="${top}" width="${TILE_WIDTH}" height="${TILE_HEIGHT}" preserveAspectRatio="xMidYMid slice"/>`,
+      )
       tileIndex++
     }
   }
 
-  if (tileIndex === 0) return null
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${SPLASH_WIDTH}" height="${SPLASH_HEIGHT}" viewBox="0 0 ${SPLASH_WIDTH} ${SPLASH_HEIGHT}">
+  <defs>
+    <radialGradient id="vignette" cx="50%" cy="48%" r="74%">
+      <stop offset="38%" stop-color="#050609" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#050609" stop-opacity="0.46"/>
+    </radialGradient>
+    <linearGradient id="rightShade" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="52%" stop-color="#050609" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#050609" stop-opacity="0.42"/>
+    </linearGradient>
+    <linearGradient id="bottomShade" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="58%" stop-color="#050609" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#050609" stop-opacity="0.36"/>
+    </linearGradient>
+  </defs>
+  <rect width="100%" height="100%" fill="#050609"/>
+  <g transform="translate(${gridLeft} ${gridTop}) rotate(${TILE_ROTATION_DEGREES} ${gridWidth / 2} ${gridHeight / 2})">
+    ${images.join("\n    ")}
+  </g>
+  <rect width="100%" height="100%" fill="#050609" opacity="0.22"/>
+  <rect width="100%" height="100%" fill="url(#vignette)"/>
+  <rect width="100%" height="100%" fill="url(#rightShade)"/>
+  <rect width="100%" height="100%" fill="url(#bottomShade)"/>
+</svg>`
+}
 
-  backdrop.rotate(TILE_ROTATION_DEGREES)
-  backdrop.crop(
-    Math.floor((backdrop.width - SPLASH_WIDTH) / 2),
-    Math.floor((backdrop.height - SPLASH_HEIGHT) / 2),
-    SPLASH_WIDTH,
-    SPLASH_HEIGHT,
-  )
+async function buildLoginSplashImage(
+  assets: SplashClipAsset[],
+): Promise<Uint8Array | null> {
+  const tiles = await Promise.all(assets.map(buildTileOrNull))
+  const usableTiles = tiles.filter((tile): tile is SplashTile => tile !== null)
+  if (usableTiles.length === 0) return null
 
-  const composed = createSolidImage(SPLASH_WIDTH, SPLASH_HEIGHT)
-    .composite(backdrop, 0, 0)
-    .composite(splashShadeOverlay(), 0, 0)
-  return await encodeSplashWebp(composed)
+  return await renderSplashSvgToWebp(buildSplashSvg(usableTiles))
 }
 
 async function buildUploadedLoginSplashImage(
   bytes: Buffer,
 ): Promise<Uint8Array> {
-  const image = await decodeSplashSource(bytes)
-  return await encodeSplashWebp(image.cover(SPLASH_WIDTH, SPLASH_HEIGHT))
+  return await renderImageBytesToSplashWebp(bytes)
 }
 
 async function selectLoginSplashAssets(

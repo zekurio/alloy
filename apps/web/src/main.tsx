@@ -1,6 +1,6 @@
+import { RouterProvider } from "@tanstack/react-router"
 import * as React from "react"
 import { createRoot } from "react-dom/client"
-import { RouterProvider } from "@tanstack/react-router"
 
 import "@workspace/ui/globals.css"
 

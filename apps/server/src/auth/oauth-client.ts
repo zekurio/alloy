@@ -10,8 +10,8 @@ import {
   skipSubjectCheck,
 } from "openid-client"
 
-import type { OAuthProviderConfig } from "../config/store"
 import { secretStore } from "../config/secret-store"
+import type { OAuthProviderConfig } from "../config/store"
 import { env } from "../env"
 import { errorMessage } from "../runtime/error-message"
 import { getEnabledProviderConfig } from "./oauth-config"
@@ -108,7 +108,7 @@ export async function fetchOAuthUserInfo(
   }
   const body = await res.json()
   return body && typeof body === "object" && !Array.isArray(body)
-    ? body as Record<string, unknown>
+    ? (body as Record<string, unknown>)
     : {}
 }
 

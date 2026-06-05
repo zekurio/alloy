@@ -1,7 +1,6 @@
-import { eq } from "drizzle-orm"
-
 import type { QueueEvent } from "@workspace/contracts"
 import { clip } from "@workspace/db/schema"
+import { eq } from "drizzle-orm"
 
 import { db } from "../db"
 import { selectQueueRowById } from "./queue-select"
@@ -18,13 +17,10 @@ export async function publishClipUpsert(
 ): Promise<void> {
   const row = await selectQueueRowById(clipId)
   if (!row) return
-  publish(
-    channel(authorId),
-    {
-      type: "upsert",
-      clip: row,
-    } satisfies QueueEvent,
-  )
+  publish(channel(authorId), {
+    type: "upsert",
+    clip: row,
+  } satisfies QueueEvent)
 }
 
 export async function publishClipUpsertById(clipId: string): Promise<void> {
@@ -43,24 +39,18 @@ export function publishClipProgress(
   clipId: string,
   encodeProgress: number,
 ): void {
-  publish(
-    channel(authorId),
-    {
-      type: "progress",
-      id: clipId,
-      encodeProgress,
-    } satisfies QueueEvent,
-  )
+  publish(channel(authorId), {
+    type: "progress",
+    id: clipId,
+    encodeProgress,
+  } satisfies QueueEvent)
 }
 
 export function publishClipRemove(authorId: string, clipId: string): void {
-  publish(
-    channel(authorId),
-    {
-      type: "remove",
-      id: clipId,
-    } satisfies QueueEvent,
-  )
+  publish(channel(authorId), {
+    type: "remove",
+    id: clipId,
+  } satisfies QueueEvent)
 }
 
 /** Subscribe to one author's queue events. Returns an unsubscribe fn. */

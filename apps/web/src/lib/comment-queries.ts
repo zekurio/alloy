@@ -8,7 +8,6 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query"
-
 import type { CommentPage, CommentRow, CommentSort } from "@workspace/api"
 
 import { api } from "./api"
@@ -128,14 +127,10 @@ export function useDeleteCommentMutation(clipId: string) {
     mutationFn: (input: { commentId: string }) =>
       api.comments.delete(input.commentId).then(() => input),
     onSuccess: (_res, { commentId }) => {
-      forEachCommentsQuery(
-        qc,
-        clipId,
-        (old) =>
-          mapComments(
-            old,
-            (c) => c.id === commentId ? softDeletedComment(c) : c,
-          ),
+      forEachCommentsQuery(qc, clipId, (old) =>
+        mapComments(old, (c) =>
+          c.id === commentId ? softDeletedComment(c) : c,
+        ),
       )
       invalidateComments(qc, clipId)
     },
@@ -149,24 +144,22 @@ export function useToggleCommentLikeMutation(clipId: string) {
       input.nextLiked
         ? api.comments.like(input.commentId).then((r) => ({ ...r, ...input }))
         : api.comments
-          .unlike(input.commentId)
-          .then((r) => ({ ...r, ...input })),
+            .unlike(input.commentId)
+            .then((r) => ({ ...r, ...input })),
     onMutate: async ({ commentId, nextLiked }) => {
       const listFilter = commentListFilter(clipId)
       await qc.cancelQueries(listFilter)
       const snapshot = qc.getQueriesData<CommentListData>(listFilter)
-      forEachCommentsQuery(
-        qc,
-        clipId,
-        (old) =>
-          mapComments(old, (c) =>
-            c.id === commentId
-              ? {
+      forEachCommentsQuery(qc, clipId, (old) =>
+        mapComments(old, (c) =>
+          c.id === commentId
+            ? {
                 ...c,
                 likedByViewer: nextLiked,
                 likeCount: Math.max(0, c.likeCount + (nextLiked ? 1 : -1)),
               }
-              : c),
+            : c,
+        ),
       )
       return { snapshot }
     },
@@ -175,17 +168,12 @@ export function useToggleCommentLikeMutation(clipId: string) {
       for (const [key, data] of ctx.snapshot) qc.setQueryData(key, data)
     },
     onSuccess: (res) => {
-      forEachCommentsQuery(
-        qc,
-        clipId,
-        (old) =>
-          mapComments(
-            old,
-            (c) =>
-              c.id === res.commentId
-                ? { ...c, likedByViewer: res.liked, likeCount: res.likeCount }
-                : c,
-          ),
+      forEachCommentsQuery(qc, clipId, (old) =>
+        mapComments(old, (c) =>
+          c.id === res.commentId
+            ? { ...c, likedByViewer: res.liked, likeCount: res.likeCount }
+            : c,
+        ),
       )
     },
   })

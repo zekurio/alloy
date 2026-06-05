@@ -6,7 +6,6 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-
 import type {
   ClipFeedWindow,
   ClipPage,
@@ -108,7 +107,7 @@ function patchClipInCaches(
         pages: old.pages.map((page) => ({
           ...page,
           items: page.items.map((r) =>
-            r.id === clipId ? { ...r, ...patch } : r
+            r.id === clipId ? { ...r, ...patch } : r,
           ),
         })),
       },
@@ -257,7 +256,7 @@ export function useToggleLikeMutation() {
 
       const previousLiked =
         qc.getQueryData<{ liked: boolean }>(clipKeys.like(clipId))?.liked ??
-          !nextLiked
+        !nextLiked
       const clipsSnapshot = snapshotClips(qc)
 
       qc.setQueryData<{ liked: boolean }>(clipKeys.like(clipId), {
@@ -316,9 +315,8 @@ export function adjustClipCountsInCaches(
         })),
       },
   )
-  qc.setQueryData<ClipRow | undefined>(
-    clipKeys.detail(clipId),
-    (old) => old ? apply(old) : old,
+  qc.setQueryData<ClipRow | undefined>(clipKeys.detail(clipId), (old) =>
+    old ? apply(old) : old,
   )
 }
 

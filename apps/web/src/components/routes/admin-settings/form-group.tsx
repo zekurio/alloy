@@ -23,21 +23,17 @@ export function FormGroup({
         className,
       )}
     >
-      {hasHeader
-        ? (
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 flex-col gap-0.5">
-              {title
-                ? <div className="text-sm font-medium">{title}</div>
-                : null}
-              {description
-                ? <p className="text-xs text-foreground-dim">{description}</p>
-                : null}
-            </div>
-            {action ? <div className="shrink-0">{action}</div> : null}
+      {hasHeader ? (
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            {title ? <div className="text-sm font-medium">{title}</div> : null}
+            {description ? (
+              <p className="text-foreground-dim text-xs">{description}</p>
+            ) : null}
           </div>
-        )
-        : null}
+          {action ? <div className="shrink-0">{action}</div> : null}
+        </div>
+      ) : null}
       {children}
     </div>
   )

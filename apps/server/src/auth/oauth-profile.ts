@@ -1,11 +1,4 @@
 import {
-  type Configuration,
-  skipSubjectCheck,
-  type TokenEndpointResponse,
-  type UserInfoResponse,
-} from "openid-client"
-
-import {
   OAUTH_DISPLAY_NAME_CLAIM_DEFAULT,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
@@ -13,6 +6,12 @@ import {
   USER_ROLES,
   type UserRole,
 } from "@workspace/contracts"
+import {
+  type Configuration,
+  skipSubjectCheck,
+  type TokenEndpointResponse,
+  type UserInfoResponse,
+} from "openid-client"
 
 import { configStore, type OAuthProviderConfig } from "../config/store"
 import { normalizeEmail } from "./identity"
@@ -29,16 +28,15 @@ export async function profileFromTokens(
   },
 ): Promise<OAuthProfile> {
   const claims = tokens.claims() ?? {}
-  const expectedSubject = typeof claims.sub === "string"
-    ? claims.sub
-    : skipSubjectCheck
+  const expectedSubject =
+    typeof claims.sub === "string" ? claims.sub : skipSubjectCheck
   const userInfo = tokens.access_token
     ? await fetchOAuthUserInfo(
-      config,
-      provider,
-      tokens.access_token,
-      expectedSubject,
-    )
+        config,
+        provider,
+        tokens.access_token,
+        expectedSubject,
+      )
     : ({} as UserInfoResponse)
   const raw = { ...claims, ...userInfo }
   const providerAccountId = stringClaim(raw, "sub") ?? stringClaim(raw, "id")
@@ -48,20 +46,21 @@ export async function profileFromTokens(
     raw,
     provider.usernameClaim ?? OAUTH_USERNAME_CLAIM_DEFAULT,
   )
-  const displayNameClaim = provider.displayNameClaim ??
-    OAUTH_DISPLAY_NAME_CLAIM_DEFAULT
+  const displayNameClaim =
+    provider.displayNameClaim ?? OAUTH_DISPLAY_NAME_CLAIM_DEFAULT
   const displayName = stringClaim(raw, displayNameClaim)
-  const defaultDisplayNameFallback = displayNameClaim ===
-      OAUTH_DISPLAY_NAME_CLAIM_DEFAULT
-    ? stringClaim(raw, "display_name") ?? stringClaim(raw, "nickname")
-    : null
+  const defaultDisplayNameFallback =
+    displayNameClaim === OAUTH_DISPLAY_NAME_CLAIM_DEFAULT
+      ? (stringClaim(raw, "display_name") ?? stringClaim(raw, "nickname"))
+      : null
 
   if (!providerAccountId) throw new Error("OAuth profile is missing a subject.")
 
   return {
     email: normalizedEmail,
     emailVerified: raw.email_verified === true || raw.verified === true,
-    name: displayName ??
+    name:
+      displayName ??
       defaultDisplayNameFallback ??
       usernameHint ??
       normalizedEmail ??
@@ -82,9 +81,8 @@ export function storedTokens(
     accessToken: tokens.access_token ?? null,
     refreshToken: tokens.refresh_token ?? null,
     idToken: tokens.id_token ?? null,
-    accessTokenExpiresAt: expiresIn === undefined
-      ? null
-      : new Date(Date.now() + expiresIn * 1000),
+    accessTokenExpiresAt:
+      expiresIn === undefined ? null : new Date(Date.now() + expiresIn * 1000),
     scope: tokens.scope ?? null,
   }
 }
@@ -126,11 +124,12 @@ function quotaFromProfile(
 ): number | null | undefined {
   const value = profile[claim]
   if (value === undefined || value === null || value === "") return undefined
-  const gib = typeof value === "number"
-    ? value
-    : typeof value === "string"
-    ? Number(value)
-    : Number.NaN
+  const gib =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : Number.NaN
   if (!Number.isFinite(gib) || gib <= 0) return undefined
   const bytes = Math.round(gib * GIB)
   if (!Number.isSafeInteger(bytes) || bytes <= 0) return undefined

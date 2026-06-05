@@ -4,6 +4,7 @@ import {
   RUNTIME_CONFIG_VERSION,
   type RuntimeConfig,
 } from "@workspace/contracts"
+
 import {
   objectRecord,
   validateArray,
@@ -56,14 +57,12 @@ function validateRuntimeOAuthProvider(value: unknown, label: string) {
     provider.iconUrl,
     `Invalid ${label} config: iconUrl must be a URL`,
   )
-  for (
-    const key of [
-      "discoveryUrl",
-      "authorizationUrl",
-      "tokenUrl",
-      "userInfoUrl",
-    ] as const
-  ) {
+  for (const key of [
+    "discoveryUrl",
+    "authorizationUrl",
+    "tokenUrl",
+    "userInfoUrl",
+  ] as const) {
     validateOptionalUrlString(
       provider[key],
       `Invalid ${label} config: ${key} must be a URL`,
@@ -215,7 +214,7 @@ function validateRuntimeConfigFields(
     config.oauthProviders,
     `Invalid ${label} config: oauthProviders must be an array`,
   ).map((provider) =>
-    validateRuntimeOAuthProvider(provider, `${label} OAuth provider`)
+    validateRuntimeOAuthProvider(provider, `${label} OAuth provider`),
   )
   validateAdminEncoderConfig(config.encoder)
   validateAdminLimitsConfig(config.limits)

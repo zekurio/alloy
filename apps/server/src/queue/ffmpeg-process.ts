@@ -1,3 +1,5 @@
+import { spawn } from "node:child_process"
+
 import { logger } from "@workspace/logging"
 
 import { isAbortError, toError } from "../runtime/error-message"
@@ -22,22 +24,15 @@ export async function runCapture(
 ): Promise<CaptureResult> {
   const startedAt = Date.now()
   try {
-    const output = await new Deno.Command(bin, {
-      args: [...args],
-      cwd: opts.cwd,
-      stdin: "null",
-      stdout: "piped",
-      stderr: "piped",
-    }).output()
-    const stdout = new TextDecoder().decode(output.stdout)
-    const stderr = new TextDecoder().decode(output.stderr)
-    if (output.success) {
+    const output = await runBufferedProcess(bin, args, opts.cwd)
+    if (output.code === 0) {
+      const { stdout, stderr } = output
       return { stdout, stderr }
     }
-    logProcessFailure(bin, opts.label, startedAt, output.code, stderr)
+    logProcessFailure(bin, opts.label, startedAt, output.code, output.stderr)
     throw new Error(
       `${bin} exited ${output.code}: ${
-        stderr.trim().slice(-500) || "(no stderr)"
+        output.stderr.trim().slice(-500) || "(no stderr)"
       }`,
     )
   } catch (err) {
@@ -55,14 +50,11 @@ export async function runWithProgress(
   const { signal } = opts
   if (signal?.aborted) throw abortError()
   const startedAt = Date.now()
-  const command = new Deno.Command(bin, {
-    args: [...args],
+  const proc = spawn(bin, [...args], {
     cwd: opts.cwd,
-    stdin: "null",
-    stdout: "null",
-    stderr: "piped",
+    stdio: ["ignore", "ignore", "pipe"],
   })
-  const proc = command.spawn()
+  const exit = waitForExit(proc)
   let aborted = false
   const onAbort = () => {
     aborted = true
@@ -90,17 +82,15 @@ export async function runWithProgress(
       stderrTail = (stderrTail + finalText).slice(-2000)
       buf += finalText
     }
-    const status = await proc.status
+    const code = await exit
     signal?.removeEventListener("abort", onAbort)
     if (aborted) throw abortError()
-    if (status.success) {
+    if (code === 0) {
       if (buf) onLine(buf)
       return
     }
-    logProcessFailure(bin, opts.label, startedAt, status.code, stderrTail)
-    throw new Error(
-      `${bin} exited ${status.code}: ${stderrTail.trim().slice(-500)}`,
-    )
+    logProcessFailure(bin, opts.label, startedAt, code, stderrTail)
+    throw new Error(`${bin} exited ${code}: ${stderrTail.trim().slice(-500)}`)
   } catch (err) {
     signal?.removeEventListener("abort", onAbort)
     if (!isAbortError(err)) {
@@ -113,6 +103,45 @@ export async function runWithProgress(
     }
     throw err
   }
+}
+
+async function runBufferedProcess(
+  bin: string,
+  args: ReadonlyArray<string>,
+  cwd: string | undefined,
+): Promise<{ code: number; stdout: string; stderr: string }> {
+  const proc = spawn(bin, [...args], {
+    cwd,
+    stdio: ["ignore", "pipe", "pipe"],
+  })
+  const exit = waitForExit(proc)
+  const decoder = new TextDecoder()
+  let stdout = ""
+  let stderr = ""
+  await Promise.all([
+    (async () => {
+      for await (const chunk of proc.stdout) {
+        stdout += decoder.decode(chunk, { stream: true })
+      }
+    })(),
+    (async () => {
+      for await (const chunk of proc.stderr) {
+        stderr += decoder.decode(chunk, { stream: true })
+      }
+    })(),
+  ])
+  return {
+    code: await exit,
+    stdout,
+    stderr,
+  }
+}
+
+function waitForExit(proc: ReturnType<typeof spawn>): Promise<number> {
+  return new Promise((resolve, reject) => {
+    proc.once("error", reject)
+    proc.once("close", (code) => resolve(code ?? 1))
+  })
 }
 
 function abortError(): Error {

@@ -1,9 +1,8 @@
-import { CheckIcon, SparklesIcon, XIcon } from "lucide-react"
-
 import type { GameRow, SteamGridDBSearchResult } from "@workspace/api"
 import { Button } from "@workspace/ui/components/button"
 import { GameIcon } from "@workspace/ui/components/game-icon"
 import { cn } from "@workspace/ui/lib/utils"
+import { CheckIcon, SparklesIcon, XIcon } from "lucide-react"
 
 import { useCyclingVerb } from "./game-suggestion-verbs"
 
@@ -17,14 +16,12 @@ interface GameSuggestionProps {
   onDecline: () => void
 }
 
-type GameSuggestionGame =
-  & Pick<
-    GameRow | SteamGridDBSearchResult,
-    "name" | "iconUrl"
-  >
-  & {
-    logoUrl?: string | null
-  }
+type GameSuggestionGame = Pick<
+  GameRow | SteamGridDBSearchResult,
+  "name" | "iconUrl"
+> & {
+  logoUrl?: string | null
+}
 
 /**
  * Advisory game guess rendered *inside* the SteamGridDB field (as an overlay
@@ -49,40 +46,35 @@ export function GameSuggestion({
       )}
       aria-live="polite"
     >
-      {status === "analyzing"
-        ? (
-          <>
-            <SparklesIcon className="size-4 shrink-0 text-accent" aria-hidden />
-            <span className="animate-text-shimmer min-w-0 flex-1 truncate text-sm font-medium">
-              {verb}…
-            </span>
-          </>
-        )
-        : (
-          <>
-            <SparklesIcon
-              className="size-3.5 shrink-0 text-accent"
-              aria-hidden
-            />
-            <GameIcon
-              src={game?.iconUrl ?? game?.logoUrl}
-              name={game?.name ?? "?"}
-            />
-            <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-              {game?.name}
-            </span>
-            <Button
-              type="button"
-              variant="accent-outline"
-              size="icon-sm"
-              onClick={onAccept}
-              disabled={accepting}
-              aria-label={`Use ${game?.name ?? "suggested game"}`}
-            >
-              <CheckIcon className="size-3.5" />
-            </Button>
-          </>
-        )}
+      {status === "analyzing" ? (
+        <>
+          <SparklesIcon className="text-accent size-4 shrink-0" aria-hidden />
+          <span className="animate-text-shimmer min-w-0 flex-1 truncate text-sm font-medium">
+            {verb}…
+          </span>
+        </>
+      ) : (
+        <>
+          <SparklesIcon className="text-accent size-3.5 shrink-0" aria-hidden />
+          <GameIcon
+            src={game?.iconUrl ?? game?.logoUrl}
+            name={game?.name ?? "?"}
+          />
+          <span className="text-foreground min-w-0 flex-1 truncate text-sm font-medium">
+            {game?.name}
+          </span>
+          <Button
+            type="button"
+            variant="accent-outline"
+            size="icon-sm"
+            onClick={onAccept}
+            disabled={accepting}
+            aria-label={`Use ${game?.name ?? "suggested game"}`}
+          >
+            <CheckIcon className="size-3.5" />
+          </Button>
+        </>
+      )}
       <Button
         type="button"
         variant="ghost"

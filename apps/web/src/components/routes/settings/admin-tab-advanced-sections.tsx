@@ -1,13 +1,4 @@
-import * as React from "react"
-import {
-  DownloadIcon,
-  PaletteIcon,
-  RotateCcwIcon,
-  SaveIcon,
-  UploadIcon,
-  WrenchIcon,
-} from "lucide-react"
-
+import { type AdminRuntimeConfig, loginSplashImageUrl } from "@workspace/api"
 import { Button } from "@workspace/ui/components/button"
 import {
   Section,
@@ -17,10 +8,18 @@ import {
 import { Slider } from "@workspace/ui/components/slider"
 import { Switch } from "@workspace/ui/components/switch"
 import { toast } from "@workspace/ui/lib/toast"
+import {
+  DownloadIcon,
+  PaletteIcon,
+  RotateCcwIcon,
+  SaveIcon,
+  UploadIcon,
+  WrenchIcon,
+} from "lucide-react"
+import * as React from "react"
 
 import { LoginAppearancePreview } from "@/components/routes/admin-settings/login-appearance-preview"
 import { SettingsSection } from "@/components/routes/settings/settings-section"
-import { type AdminRuntimeConfig, loginSplashImageUrl } from "@workspace/api"
 import { api } from "@/lib/api"
 import { startBlobDownload } from "@/lib/browser-download"
 import { isoDateStamp } from "@/lib/date-format"
@@ -52,17 +51,20 @@ export function AppearanceSettingsSection({
     const url = loginSplashImageUrl(apiOrigin())
     return splashRevision > 0 ? `${url}?v=${splashRevision}` : url
   }, [splash.enabled, splashRevision])
-  const previewSplash = React.useMemo(() => ({
-    ...splash,
-    blurPx: draftBlurPx,
-    darkenOpacity: draftDarkenOpacity,
-    imageUrl: previewImageUrl,
-  }), [draftBlurPx, draftDarkenOpacity, previewImageUrl, splash])
-  const treatmentChanged = draftBlurPx !== splash.blurPx ||
-    draftDarkenOpacity !== splash.darkenOpacity
+  const previewSplash = React.useMemo(
+    () => ({
+      ...splash,
+      blurPx: draftBlurPx,
+      darkenOpacity: draftDarkenOpacity,
+      imageUrl: previewImageUrl,
+    }),
+    [draftBlurPx, draftDarkenOpacity, previewImageUrl, splash],
+  )
+  const treatmentChanged =
+    draftBlurPx !== splash.blurPx || draftDarkenOpacity !== splash.darkenOpacity
 
   function sliderValue(value: number | readonly number[]): number {
-    return typeof value === "number" ? value : value[0] ?? 0
+    return typeof value === "number" ? value : (value[0] ?? 0)
   }
 
   React.useEffect(() => {
@@ -161,10 +163,10 @@ export function AppearanceSettingsSection({
             onChange={(event) => uploadSplash(event.currentTarget.files?.[0])}
           />
           <LoginAppearancePreview config={config} splash={previewSplash} />
-          <div className="flex items-start justify-between gap-4 py-3 not-last:border-b not-last:border-border first:pt-0">
+          <div className="not-last:border-border flex items-start justify-between gap-4 py-3 not-last:border-b first:pt-0">
             <div className="min-w-0">
               <div className="text-sm font-medium">Login backdrop</div>
-              <p className="mt-0.5 text-xs text-foreground-dim">
+              <p className="text-foreground-dim mt-0.5 text-xs">
                 Use a generated collage from random public clip thumbnails.
               </p>
             </div>
@@ -174,10 +176,10 @@ export function AppearanceSettingsSection({
               disabled={pending}
             />
           </div>
-          <div className="flex items-start justify-between gap-4 py-3 not-last:border-b not-last:border-border">
+          <div className="not-last:border-border flex items-start justify-between gap-4 py-3 not-last:border-b">
             <div className="min-w-0">
               <div className="text-sm font-medium">Regenerate</div>
-              <p className="mt-0.5 text-xs text-foreground-dim">
+              <p className="text-foreground-dim mt-0.5 text-xs">
                 Pick a new random set from public clips with thumbnails.
               </p>
             </div>
@@ -192,10 +194,10 @@ export function AppearanceSettingsSection({
               Regenerate
             </Button>
           </div>
-          <div className="flex items-start justify-between gap-4 py-3 not-last:border-b not-last:border-border">
+          <div className="not-last:border-border flex items-start justify-between gap-4 py-3 not-last:border-b">
             <div className="min-w-0">
               <div className="text-sm font-medium">Custom backdrop</div>
-              <p className="mt-0.5 text-xs text-foreground-dim">
+              <p className="text-foreground-dim mt-0.5 text-xs">
                 Upload a JPEG, PNG, or WebP image.
               </p>
             </div>
@@ -214,7 +216,7 @@ export function AppearanceSettingsSection({
             <div className="min-w-0 space-y-2">
               <div className="flex items-center justify-between gap-3 text-sm font-medium">
                 <span>Blur</span>
-                <span className="text-xs text-foreground-muted">
+                <span className="text-foreground-muted text-xs">
                   {draftBlurPx}px
                 </span>
               </div>
@@ -230,7 +232,7 @@ export function AppearanceSettingsSection({
             <div className="min-w-0 space-y-2">
               <div className="flex items-center justify-between gap-3 text-sm font-medium">
                 <span>Darkening</span>
-                <span className="text-xs text-foreground-muted">
+                <span className="text-foreground-muted text-xs">
                   {Math.round(draftDarkenOpacity * 100)}%
                 </span>
               </div>
@@ -241,7 +243,8 @@ export function AppearanceSettingsSection({
                 step={0.01}
                 disabled={pending}
                 onValueChange={(value) =>
-                  setDraftDarkenOpacity(sliderValue(value))}
+                  setDraftDarkenOpacity(sliderValue(value))
+                }
               />
             </div>
           </div>
@@ -335,10 +338,10 @@ export function ConfigTransferSection({
       description="Export or replace server runtime configuration as JSON."
     >
       <div className="flex flex-col">
-        <div className="flex items-start justify-between gap-4 border-b border-border py-3 first:pt-0">
+        <div className="border-border flex items-start justify-between gap-4 border-b py-3 first:pt-0">
           <div className="min-w-0">
             <div className="text-sm font-medium">Export</div>
-            <p className="mt-0.5 text-xs text-foreground-dim">
+            <p className="text-foreground-dim mt-0.5 text-xs">
               Download the current server configuration. Secrets are not
               included.
             </p>
@@ -357,7 +360,7 @@ export function ConfigTransferSection({
         <div className="flex items-start justify-between gap-4 py-3 last:pb-0">
           <div className="min-w-0">
             <div className="text-sm font-medium">Import</div>
-            <p className="mt-0.5 text-xs text-foreground-dim">
+            <p className="text-foreground-dim mt-0.5 text-xs">
               Replace the current configuration from a previously exported JSON
               file.
             </p>

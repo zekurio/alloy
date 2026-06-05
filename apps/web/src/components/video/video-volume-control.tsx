@@ -1,8 +1,7 @@
-import * as React from "react"
-import { Volume1Icon, Volume2Icon, VolumeXIcon } from "lucide-react"
-
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
+import { Volume1Icon, Volume2Icon, VolumeXIcon } from "lucide-react"
+import * as React from "react"
 
 export function VolumeControl({
   muted,
@@ -34,11 +33,12 @@ export function VolumeControl({
   const [dragging, setDragging] = React.useState(false)
 
   const effective = muted ? 0 : volume
-  const Icon = muted || volume === 0
-    ? VolumeXIcon
-    : volume < 0.5
-    ? Volume1Icon
-    : Volume2Icon
+  const Icon =
+    muted || volume === 0
+      ? VolumeXIcon
+      : volume < 0.5
+        ? Volume1Icon
+        : Volume2Icon
 
   const computeVolume = React.useCallback((clientY: number): number => {
     const rail = railRef.current
@@ -103,67 +103,65 @@ export function VolumeControl({
         />
       </Button>
 
-      {showSlider
-        ? (
+      {showSlider ? (
+        <div
+          ref={railRef}
+          data-dragging={dragging || undefined}
+          role="slider"
+          aria-label="Volume"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(effective * 100)}
+          tabIndex={0}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowLeft") {
+              e.preventDefault()
+              onVolumeChange(Math.max(0, effective - 0.1))
+            } else if (e.key === "ArrowRight") {
+              e.preventDefault()
+              onVolumeChange(Math.min(1, effective + 0.1))
+            } else if (e.key === "ArrowDown") {
+              e.preventDefault()
+              onVolumeChange(Math.max(0, effective - 0.1))
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault()
+              onVolumeChange(Math.min(1, effective + 0.1))
+            }
+          }}
+          className={cn(
+            "absolute bottom-[calc(100%+0.45rem)] left-1/2 z-10 flex h-32 w-10 -translate-x-1/2 cursor-pointer touch-none items-center justify-center overflow-visible rounded-full py-5",
+            "border border-white/15 bg-[oklch(12%_0.01_250)]/60 opacity-0 shadow-[0_18px_54px_-18px_rgb(0_0_0_/_0.72)] ring-1 ring-[oklch(12%_0.01_250)]/15 backdrop-blur-xl transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+            "pointer-events-none translate-y-0 group-hover/vol:pointer-events-auto group-hover/vol:-translate-y-1 group-hover/vol:opacity-100",
+            "focus-within:pointer-events-auto focus-within:-translate-y-1 focus-within:opacity-100",
+            "data-[dragging=true]:pointer-events-auto data-[dragging=true]:-translate-y-1 data-[dragging=true]:opacity-100",
+            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+            sliderClassName,
+          )}
+        >
           <div
-            ref={railRef}
-            data-dragging={dragging || undefined}
-            role="slider"
-            aria-label="Volume"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(effective * 100)}
-            tabIndex={0}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
-            onKeyDown={(e) => {
-              if (e.key === "ArrowLeft") {
-                e.preventDefault()
-                onVolumeChange(Math.max(0, effective - 0.1))
-              } else if (e.key === "ArrowRight") {
-                e.preventDefault()
-                onVolumeChange(Math.min(1, effective + 0.1))
-              } else if (e.key === "ArrowDown") {
-                e.preventDefault()
-                onVolumeChange(Math.max(0, effective - 0.1))
-              } else if (e.key === "ArrowUp") {
-                e.preventDefault()
-                onVolumeChange(Math.min(1, effective + 0.1))
-              }
+            aria-hidden
+            className="absolute inset-y-5 left-1/2 w-[3px] -translate-x-1/2 rounded-full bg-white/25"
+          />
+          <div
+            aria-hidden
+            className="bg-accent absolute bottom-5 left-1/2 w-[3px] -translate-x-1/2 rounded-full shadow-[0_0_14px_color-mix(in_oklab,var(--accent)_70%,transparent)]"
+            style={{ height: `calc(${effective} * (100% - 40px))` }}
+          />
+          <div
+            aria-hidden
+            // Same primitive as the progress scrubber's knob: a plain
+            // 10px accent dot, centred on its position.
+            className="bg-accent absolute left-1/2 size-[10px] -translate-x-1/2 translate-y-1/2 rounded-full"
+            style={{
+              bottom: `calc(20px + ${effective} * (100% - 40px))`,
             }}
-            className={cn(
-              "absolute bottom-[calc(100%+0.45rem)] left-1/2 z-10 flex h-32 w-10 -translate-x-1/2 cursor-pointer touch-none items-center justify-center overflow-visible rounded-full py-5",
-              "border border-white/15 bg-[oklch(12%_0.01_250)]/60 opacity-0 shadow-[0_18px_54px_-18px_rgb(0_0_0_/_0.72)] ring-1 ring-[oklch(12%_0.01_250)]/15 backdrop-blur-xl transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-              "pointer-events-none translate-y-0 group-hover/vol:pointer-events-auto group-hover/vol:-translate-y-1 group-hover/vol:opacity-100",
-              "focus-within:pointer-events-auto focus-within:-translate-y-1 focus-within:opacity-100",
-              "data-[dragging=true]:pointer-events-auto data-[dragging=true]:-translate-y-1 data-[dragging=true]:opacity-100",
-              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-              sliderClassName,
-            )}
-          >
-            <div
-              aria-hidden
-              className="absolute inset-y-5 left-1/2 w-[3px] -translate-x-1/2 rounded-full bg-white/25"
-            />
-            <div
-              aria-hidden
-              className="absolute bottom-5 left-1/2 w-[3px] -translate-x-1/2 rounded-full bg-accent shadow-[0_0_14px_color-mix(in_oklab,var(--accent)_70%,transparent)]"
-              style={{ height: `calc(${effective} * (100% - 40px))` }}
-            />
-            <div
-              aria-hidden
-              // Same primitive as the progress scrubber's knob: a plain
-              // 10px accent dot, centred on its position.
-              className="absolute left-1/2 size-[10px] -translate-x-1/2 translate-y-1/2 rounded-full bg-accent"
-              style={{
-                bottom: `calc(20px + ${effective} * (100% - 40px))`,
-              }}
-            />
-          </div>
-        )
-        : null}
+          />
+        </div>
+      ) : null}
     </div>
   )
 }

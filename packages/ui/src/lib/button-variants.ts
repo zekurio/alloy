@@ -1,5 +1,5 @@
-import { cva } from "class-variance-authority"
 import { cn } from "@workspace/ui/lib/utils"
+import { cva } from "class-variance-authority"
 
 const buttonVariants = cva(
   cn(
@@ -29,8 +29,7 @@ const buttonVariants = cva(
         // step (e.g. settings danger zone) where a solid fill would be too loud.
         danger:
           "border-[color-mix(in_oklab,var(--danger)_40%,transparent)] bg-transparent text-danger hover:bg-[color-mix(in_oklab,var(--danger)_14%,transparent)]",
-        link:
-          "border-transparent text-accent underline-offset-4 hover:underline",
+        link: "border-transparent text-accent underline-offset-4 hover:underline",
         // shadcn aliases
         default:
           "border-accent bg-accent text-accent-foreground hover:border-accent-hover hover:bg-accent-hover active:bg-accent-active",

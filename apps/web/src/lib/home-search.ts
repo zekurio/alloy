@@ -1,4 +1,5 @@
 import type { ClipFeedWindow } from "@workspace/api"
+
 import { searchEnum, searchString } from "./route-search"
 
 const WINDOW_KEYS = ["today", "week", "month", "year", "all"] as const

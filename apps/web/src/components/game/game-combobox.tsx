@@ -1,6 +1,4 @@
-import * as React from "react"
-import { AlertCircleIcon, SearchIcon } from "lucide-react"
-
+import type { GameRow, SteamGridDBSearchResult } from "@workspace/api"
 import {
   Combobox,
   ComboboxContent,
@@ -12,8 +10,9 @@ import {
 import { GameIcon } from "@workspace/ui/components/game-icon"
 import { InputGroupAddon } from "@workspace/ui/components/input-group"
 import { cn } from "@workspace/ui/lib/utils"
+import { AlertCircleIcon, SearchIcon } from "lucide-react"
+import * as React from "react"
 
-import type { GameRow, SteamGridDBSearchResult } from "@workspace/api"
 import {
   useGamesListQuery,
   useResolveGameMutation,
@@ -159,16 +158,17 @@ export function GameCombobox({
     const q = debouncedQuery.trim().toLowerCase()
 
     // Filter already-known games by the current query — zero network cost.
-    const localMatches: GameComboboxItem[] = q.length > 0
-      ? localGames
-        .filter((g) => g.name.toLowerCase().includes(q))
-        .map((g) => ({
-          id: g.steamgriddbId,
-          name: g.name,
-          iconUrl: g.iconUrl,
-          logoUrl: g.logoUrl,
-        }))
-      : []
+    const localMatches: GameComboboxItem[] =
+      q.length > 0
+        ? localGames
+            .filter((g) => g.name.toLowerCase().includes(q))
+            .map((g) => ({
+              id: g.steamgriddbId,
+              name: g.name,
+              iconUrl: g.iconUrl,
+              logoUrl: g.logoUrl,
+            }))
+        : []
 
     // Append SGDB results that aren't already covered by a local match
     // so the list never contains duplicates.
@@ -193,11 +193,11 @@ export function GameCombobox({
 
   const committedValue: GameComboboxItem | null = value
     ? {
-      id: value.steamgriddbId,
-      name: value.name,
-      iconUrl: value.iconUrl,
-      logoUrl: value.logoUrl,
-    }
+        id: value.steamgriddbId,
+        name: value.name,
+        iconUrl: value.iconUrl,
+        logoUrl: value.logoUrl,
+      }
     : null
 
   const controlledValue: GameComboboxItem | null = cleared
@@ -250,20 +250,18 @@ export function GameCombobox({
           aria-invalid={invalid || undefined}
           aria-required={required || undefined}
         >
-          {controlledValue
-            ? (
-              <InputGroupAddon align="inline-start">
-                <GameIcon
-                  src={controlledValue.iconUrl ?? controlledValue.logoUrl}
-                  name={controlledValue.name}
-                />
-              </InputGroupAddon>
-            )
-            : (
-              <InputGroupAddon align="inline-start">
-                <SearchIcon className="size-4 text-foreground-faint" />
-              </InputGroupAddon>
-            )}
+          {controlledValue ? (
+            <InputGroupAddon align="inline-start">
+              <GameIcon
+                src={controlledValue.iconUrl ?? controlledValue.logoUrl}
+                name={controlledValue.name}
+              />
+            </InputGroupAddon>
+          ) : (
+            <InputGroupAddon align="inline-start">
+              <SearchIcon className="text-foreground-faint size-4" />
+            </InputGroupAddon>
+          )}
         </ComboboxInput>
         <ComboboxContent
           side={side}
@@ -274,61 +272,57 @@ export function GameCombobox({
             {effectiveItems.length === 0
               ? null
               : effectiveItems.slice(0, visibleCount).map((item) => {
-                return (
-                  <ComboboxItem
-                    key={item.id}
-                    value={item}
-                    className="gap-1.5 py-2 pl-1"
-                  >
-                    <GameIcon
-                      src={item.iconUrl ?? item.logoUrl}
-                      name={item.name}
-                    />
-                    <span className="min-w-0 truncate text-sm text-foreground">
-                      {item.name}
-                    </span>
-                  </ComboboxItem>
-                )
-              })}
-            {effectiveItems.length > visibleCount
-              ? (
-                <button
-                  type="button"
-                  onMouseDown={(e) => {
-                    // Keep the input focused so the list doesn't close
-                    // before our state update flushes.
-                    e.preventDefault()
-                  }}
-                  onClick={() => {
-                    setVisibleCount((n) =>
-                      Math.min(n + PAGE_SIZE, effectiveItems.length)
-                    )
-                  }}
-                  className={cn(
-                    "flex w-full items-center justify-center rounded-md py-2 text-xs",
-                    "text-foreground-muted hover:bg-accent hover:text-accent-foreground",
-                  )}
-                >
-                  Show{" "}
-                  {Math.min(PAGE_SIZE, effectiveItems.length - visibleCount)}
-                  {" "}
-                  more
-                </button>
-              )
-              : null}
+                  return (
+                    <ComboboxItem
+                      key={item.id}
+                      value={item}
+                      className="gap-1.5 py-2 pl-1"
+                    >
+                      <GameIcon
+                        src={item.iconUrl ?? item.logoUrl}
+                        name={item.name}
+                      />
+                      <span className="text-foreground min-w-0 truncate text-sm">
+                        {item.name}
+                      </span>
+                    </ComboboxItem>
+                  )
+                })}
+            {effectiveItems.length > visibleCount ? (
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  // Keep the input focused so the list doesn't close
+                  // before our state update flushes.
+                  e.preventDefault()
+                }}
+                onClick={() => {
+                  setVisibleCount((n) =>
+                    Math.min(n + PAGE_SIZE, effectiveItems.length),
+                  )
+                }}
+                className={cn(
+                  "flex w-full items-center justify-center rounded-md py-2 text-xs",
+                  "text-foreground-muted hover:bg-accent hover:text-accent-foreground",
+                )}
+              >
+                Show {Math.min(PAGE_SIZE, effectiveItems.length - visibleCount)}{" "}
+                more
+              </button>
+            ) : null}
             <ComboboxEmpty>
               {hasError
                 ? "Couldn’t reach SteamGridDB"
                 : debouncedQuery.trim().length === 0
-                ? "Start typing to search"
-                : "No matches"}
+                  ? "Start typing to search"
+                  : "No matches"}
             </ComboboxEmpty>
           </ComboboxList>
         </ComboboxContent>
       </Combobox>
-      {suggestion
-        ? <div className="absolute inset-0 z-10">{suggestion}</div>
-        : null}
+      {suggestion ? (
+        <div className="absolute inset-0 z-10">{suggestion}</div>
+      ) : null}
     </div>
   )
 }

@@ -1,3 +1,5 @@
+import { Buffer } from "node:buffer"
+
 import {
   type AuthenticationResponseJSON,
   type AuthenticatorTransportFuture,
@@ -8,19 +10,17 @@ import {
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
 } from "@simplewebauthn/server"
-import { and, eq, gt, lt } from "drizzle-orm"
-import { Buffer } from "node:buffer"
-import { logger } from "@workspace/logging"
-
 import {
   authChallenge,
   type User,
   type UserPasskey,
   userPasskey,
 } from "@workspace/db/auth-schema"
+import { logger } from "@workspace/logging"
+import { and, eq, gt, lt } from "drizzle-orm"
 
-import { db } from "../db"
 import { configStore } from "../config/store"
+import { db } from "../db"
 import { env } from "../env"
 import { base64UrlToBytes, bytesToBase64Url } from "./tokens"
 
@@ -65,9 +65,9 @@ function transports(
 ): AuthenticatorTransportFuture[] | undefined {
   return row.transports
     ? row.transports
-      .split(",")
-      .map((part) => part.trim())
-      .filter(isAuthenticatorTransport)
+        .split(",")
+        .map((part) => part.trim())
+        .filter(isAuthenticatorTransport)
     : undefined
 }
 
@@ -79,7 +79,7 @@ let sweepTimer: ReturnType<typeof setInterval> | null = null
 
 function sweepExpiredChallenges(): void {
   void deleteExpiredChallenges().catch((err) =>
-    logger.error("[webauthn] expired challenge sweep failed:", err)
+    logger.error("[webauthn] expired challenge sweep failed:", err),
   )
 }
 
@@ -93,7 +93,7 @@ export function startChallengeSweeper(): void {
   sweepExpiredChallenges()
   sweepTimer = setInterval(sweepExpiredChallenges, CHALLENGE_SWEEP_INTERVAL_MS)
   // Don't keep the process alive just for the sweeper.
-  Deno.unrefTimer(sweepTimer)
+  sweepTimer.unref()
 }
 
 export function stopChallengeSweeper(): void {
@@ -152,10 +152,11 @@ export async function beginPasskeyRegistration(input: {
     passkeys?: UserPasskey[]
   }
 }) {
-  const excludeCredentials = input.user.passkeys?.map((row) => ({
-    id: row.credentialId,
-    transports: transports(row),
-  })) ?? []
+  const excludeCredentials =
+    input.user.passkeys?.map((row) => ({
+      id: row.credentialId,
+      transports: transports(row),
+    })) ?? []
   const options = await generateRegistrationOptions({
     rpName: RP_NAME,
     rpID: rpId(),

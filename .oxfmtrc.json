@@ -1,0 +1,31 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 80,
+  "tabWidth": 2,
+  "useTabs": false,
+  "semi": false,
+  "singleQuote": false,
+  "jsxSingleQuote": false,
+  "trailingComma": "all",
+  "arrowParens": "always",
+  "bracketSpacing": true,
+  "bracketSameLine": false,
+  "endOfLine": "lf",
+  "insertFinalNewline": true,
+  "sortImports": true,
+  "sortPackageJson": true,
+  "sortTailwindcss": true,
+  "ignorePatterns": [
+    ".devenv/**",
+    ".direnv/**",
+    ".git/**",
+    "apps/web/src/routeTree.gen.ts",
+    "apps/web/dist/**",
+    "build/**",
+    "data/**",
+    "dist/**",
+    "machine-learning/.venv/**",
+    "node_modules/**",
+    "pnpm-lock.yaml"
+  ]
+}

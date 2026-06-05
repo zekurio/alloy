@@ -1,23 +1,22 @@
-import {
-  limitQueryParam,
-  requiredTrimmedString,
-  zValidator,
-} from "./validation"
+import { user } from "@workspace/db/auth-schema"
+import { clip, game } from "@workspace/db/schema"
 import { and, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
-import { user } from "@workspace/db/auth-schema"
-import { clip, game } from "@workspace/db/schema"
-
-import { db } from "../db"
 import { clipSelectShape, toPublicClipRow } from "../clips/select"
+import { db } from "../db"
 import { serialiseGameListRow } from "./games-helpers"
 import {
   serialiseUserListRow,
   toLikePattern,
   userSummarySelectShape,
 } from "./users-helpers"
+import {
+  limitQueryParam,
+  requiredTrimmedString,
+  zValidator,
+} from "./validation"
 
 const SearchQuery = z.object({
   q: requiredTrimmedString(120),

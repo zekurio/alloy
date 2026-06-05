@@ -1,15 +1,18 @@
-import * as React from "react"
 import { useDocumentEvent } from "@workspace/ui/hooks/use-document-event"
 import { useMediaQuery } from "@workspace/ui/hooks/use-media-query"
+import * as React from "react"
 
+import { errorMessage } from "@/lib/error-message"
 import {
   exitFullscreenBestEffort,
   isFullscreenElement,
   requestFullscreenBestEffort,
 } from "@/lib/fullscreen"
-import { errorMessage } from "@/lib/error-message"
+
+import { useMediaEngine } from "./video-media-engine"
+import { useActiveVideoPlayer } from "./video-player-active"
+import type { PlayerCoreProps } from "./video-player-core-types"
 import { usePlayingTimeSync, usePlayThreshold } from "./video-player-hooks"
-import { VideoFrame } from "./video-player-video"
 import {
   BareShell,
   ChromeBar,
@@ -18,10 +21,8 @@ import {
   type LoadStatus,
   type VideoKeyCommand,
 } from "./video-player-shell"
+import { VideoFrame } from "./video-player-video"
 import { mediaErrorMessage } from "./video-source"
-import { useMediaEngine } from "./video-media-engine"
-import { useActiveVideoPlayer } from "./video-player-active"
-import type { PlayerCoreProps } from "./video-player-core-types"
 
 export function PlayerCore({
   spec,
@@ -363,10 +364,11 @@ export function PlayerCore({
         seekInternal(Number.isFinite(seconds) ? seconds : duration),
       seekPercent: (percent) => {
         const start = Math.max(0, shortcutBounds?.start ?? 0)
-        const end = shortcutBounds?.end !== undefined &&
-            Number.isFinite(shortcutBounds.end)
-          ? shortcutBounds.end
-          : duration
+        const end =
+          shortcutBounds?.end !== undefined &&
+          Number.isFinite(shortcutBounds.end)
+            ? shortcutBounds.end
+            : duration
         const span = Math.max(0, end - start)
         seekInternal(start + span * Math.min(1, Math.max(0, percent)))
       },
@@ -441,9 +443,8 @@ export function PlayerCore({
       // Restore the position from before a quality switch, then continue
       // playing if the viewer was. The poster stays up until the seeked frame
       // decodes, so there is no black flash.
-      const target = nextDuration > 0
-        ? Math.min(resume.time, nextDuration)
-        : resume.time
+      const target =
+        nextDuration > 0 ? Math.min(resume.time, nextDuration) : resume.time
       try {
         element.currentTime = target
       } catch {

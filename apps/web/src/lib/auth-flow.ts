@@ -2,8 +2,8 @@ import { toast } from "@workspace/ui/lib/toast"
 
 import { authClient } from "./auth-client"
 import { clientLogger } from "./client-log"
-import { errorMessage } from "./error-message"
 import { publicOrigin } from "./env"
+import { errorMessage } from "./error-message"
 import { resetClientState } from "./query-client"
 
 export function authCallbackUrl(path: string): string {

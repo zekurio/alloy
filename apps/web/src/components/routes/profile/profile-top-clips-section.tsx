@@ -1,12 +1,11 @@
-import * as React from "react"
-import { AwardIcon } from "lucide-react"
-
+import type { UserClip } from "@workspace/api"
 import {
   SectionHead,
   SectionTitle,
 } from "@workspace/ui/components/section-head"
-
 import { Spinner } from "@workspace/ui/components/spinner"
+import { AwardIcon } from "lucide-react"
+import * as React from "react"
 
 import {
   type ClipListEntry,
@@ -15,7 +14,6 @@ import {
 import { TopClipsRow } from "@/components/clip/top-clips-row"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { dateTime } from "@/lib/date-format"
-import type { UserClip } from "@workspace/api"
 
 type ProfileTopClipsSectionProps = {
   username: string
@@ -129,11 +127,7 @@ function TopClipsRows({
   clips: readonly UserClip[]
   isSelf: boolean
 }) {
-  return (
-    <TopClipsRow
-      items={clips.map((row) => ({ row, owned: isSelf }))}
-    />
-  )
+  return <TopClipsRow items={clips.map((row) => ({ row, owned: isSelf }))} />
 }
 
 function TopClipsSkeletons() {

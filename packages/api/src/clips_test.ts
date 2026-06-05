@@ -1,3 +1,5 @@
+import { test } from "node:test"
+
 import { clipStreamUrl } from "./clips"
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -8,14 +10,14 @@ function query(url: string): URLSearchParams {
   return new URL(url, "https://alloy.test").searchParams
 }
 
-Deno.test("clipStreamUrl omits live codec query when support is unknown", () => {
+test("clipStreamUrl omits live codec query when support is unknown", () => {
   const url = clipStreamUrl("clip-id", "source")
 
   assert(url === "/api/clips/clip-id/stream?variant=source", "unexpected URL")
   assert(!query(url).has("codecs"), "codec query should be omitted")
 })
 
-Deno.test("clipStreamUrl sends browser live codec support in priority order", () => {
+test("clipStreamUrl sends browser live codec support in priority order", () => {
   const url = clipStreamUrl("clip-id", "720p", undefined, [
     "av1",
     "hevc",
@@ -28,7 +30,7 @@ Deno.test("clipStreamUrl sends browser live codec support in priority order", ()
   )
 })
 
-Deno.test("clipStreamUrl sends codecs=none for explicit empty browser support", () => {
+test("clipStreamUrl sends codecs=none for explicit empty browser support", () => {
   const url = clipStreamUrl("clip-id", "720p", undefined, [])
 
   assert(

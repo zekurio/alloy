@@ -1,6 +1,5 @@
-import * as React from "react"
-
 import { cn } from "@workspace/ui/lib/utils"
+import * as React from "react"
 
 /**
  * Vertical list with a solid rail down the left edge, signalling that the rows

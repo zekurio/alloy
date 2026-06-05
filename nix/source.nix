@@ -17,6 +17,7 @@ lib.cleanSourceWith {
       || name == ".env"
       || name == ".git"
       || name == ".pg"
+      || name == ".turbo"
       || name == ".venv"
       || name == "__pycache__"
       || name == "build"

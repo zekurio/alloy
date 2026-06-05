@@ -7,9 +7,11 @@ export type OpenGraphSourceMetadata = {
 export function isOpenGraphCompatibleSource(
   row: OpenGraphSourceMetadata,
 ): boolean {
-  return row.sourceContentType === "video/mp4" &&
+  return (
+    row.sourceContentType === "video/mp4" &&
     isH264Codec(row.sourceVideoCodec) &&
     isOpenGraphAudioCodec(row.sourceAudioCodec)
+  )
 }
 
 function isH264Codec(codec: string | null): boolean {

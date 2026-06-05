@@ -1,7 +1,7 @@
 import { createMiddleware } from "hono/factory"
 
-import { env } from "../env"
 import { configStore } from "../config/store"
+import { env } from "../env"
 import { forbidden } from "../runtime/http-response"
 
 const MUTATING_METHODS = new Set(["POST", "PATCH", "DELETE", "PUT"])

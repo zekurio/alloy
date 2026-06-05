@@ -1,6 +1,5 @@
-import { and, count, eq, inArray, sql } from "drizzle-orm"
-
 import { authAccount, user, userPasskey } from "@workspace/db/auth-schema"
+import { and, count, eq, inArray, sql } from "drizzle-orm"
 
 import { configStore } from "../config/store"
 import { db } from "../db"
@@ -21,7 +20,8 @@ async function countEnabledOAuthAccounts(
   excludeAccount?: { providerId: string; providerAccountId: string },
   executor: AuthExecutor = db,
 ): Promise<number> {
-  const providerIds = configStore.get("oauthProviders")
+  const providerIds = configStore
+    .get("oauthProviders")
     .filter((provider) => provider.enabled)
     .map((provider) => provider.providerId)
   if (providerIds.length === 0) return 0

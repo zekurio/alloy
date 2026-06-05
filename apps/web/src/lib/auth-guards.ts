@@ -1,5 +1,4 @@
 import { redirect } from "@tanstack/react-router"
-
 import type { PublicAuthConfig } from "@workspace/api"
 
 import { browseAuthTarget, isAdmin, shouldForceOnboarding } from "./auth-access"

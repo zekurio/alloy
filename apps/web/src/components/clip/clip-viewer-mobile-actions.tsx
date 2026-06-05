@@ -1,14 +1,4 @@
-import * as React from "react"
 import { Link } from "@tanstack/react-router"
-import {
-  HeartIcon,
-  MessageSquareIcon,
-  MoreHorizontalIcon,
-  PencilIcon,
-  Share2Icon,
-  Trash2Icon,
-} from "lucide-react"
-
 import {
   Avatar,
   AvatarFallback,
@@ -22,6 +12,15 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 import { cn } from "@workspace/ui/lib/utils"
+import {
+  HeartIcon,
+  MessageSquareIcon,
+  MoreHorizontalIcon,
+  PencilIcon,
+  Share2Icon,
+  Trash2Icon,
+} from "lucide-react"
+import * as React from "react"
 
 import { formatCount } from "@/lib/number-format"
 import { userAvatar } from "@/lib/user-display"
@@ -84,9 +83,9 @@ function MobileActionButton({
       aria-label={ariaLabel}
     >
       {icon}
-      {count != null
-        ? <span className={countClassName}>{formatCount(count)}</span>
-        : null}
+      {count != null ? (
+        <span className={countClassName}>{formatCount(count)}</span>
+      ) : null}
     </button>
   )
 }
@@ -198,16 +197,14 @@ export function MobileActionsRail({
         ariaLabel="Share"
         icon={<Share2Icon className={cn(iconSizeClassName, "text-white")} />}
       />
-      {canManage
-        ? (
-          <ClipActionsMenu
-            deleting={deleting}
-            iconClassName={cn(iconSizeClassName, "rotate-90")}
-            onEdit={onEdit}
-            onDelete={onDelete}
-          />
-        )
-        : null}
+      {canManage ? (
+        <ClipActionsMenu
+          deleting={deleting}
+          iconClassName={cn(iconSizeClassName, "rotate-90")}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
+      ) : null}
     </>
   )
 }

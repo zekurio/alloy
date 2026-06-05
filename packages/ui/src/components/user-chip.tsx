@@ -1,7 +1,6 @@
-import * as React from "react"
-import { ChevronRightIcon } from "lucide-react"
-
 import { cn } from "@workspace/ui/lib/utils"
+import { ChevronRightIcon } from "lucide-react"
+import * as React from "react"
 
 interface UserChipProps extends React.ComponentProps<"button"> {
   name: string
@@ -42,13 +41,13 @@ function UserChip({
         }}
       >
         <span aria-hidden>{avatar.initials}</span>
-        {avatar.src
-          ? <UserChipImage key={avatar.src} src={avatar.src} />
-          : null}
+        {avatar.src ? (
+          <UserChipImage key={avatar.src} src={avatar.src} />
+        ) : null}
       </span>
       <span className="text-xs leading-4 font-semibold">{name}</span>
       {children ?? (
-        <ChevronRightIcon className="ml-1 size-3 rotate-90 text-foreground-faint" />
+        <ChevronRightIcon className="text-foreground-faint ml-1 size-3 rotate-90" />
       )}
     </button>
   )

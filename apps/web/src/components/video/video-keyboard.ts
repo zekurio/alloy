@@ -55,7 +55,7 @@ export function shouldHandleGlobalVideoShortcut(
 
   const isPlayerControl = Boolean(
     playerRoot?.contains(target) ||
-      target.closest("[data-video-player-control]"),
+    target.closest("[data-video-player-control]"),
   )
 
   if (tag === "BUTTON" && !isPlayerControl) return false

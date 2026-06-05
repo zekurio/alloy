@@ -1,3 +1,6 @@
+import { authChallenge } from "@workspace/db/auth-schema"
+import { logger } from "@workspace/logging"
+import type { Context } from "hono"
 import {
   authorizationCodeGrant,
   buildAuthorizationUrl,
@@ -5,10 +8,6 @@ import {
   randomPKCECodeVerifier,
   randomState,
 } from "openid-client"
-import type { Context } from "hono"
-
-import { authChallenge } from "@workspace/db/auth-schema"
-import { logger } from "@workspace/logging"
 
 import { db } from "../db"
 import { errorDetail } from "../runtime/error-message"
@@ -19,6 +18,12 @@ import {
 } from "./cookies"
 import { linkAccountToUser, resolveSignInUser } from "./oauth-accounts"
 import {
+  consumeOAuthChallenge,
+  deleteExpiredOAuthChallenges,
+  OAUTH_PURPOSE,
+  OAUTH_STATE_TTL_MS,
+} from "./oauth-challenges"
+import {
   callbackURLForProvider,
   callbackURLWithOAuthError,
   loginURLWithOAuthError,
@@ -27,12 +32,6 @@ import {
   requireEnabledProvider,
   scopesForProvider,
 } from "./oauth-client"
-import {
-  consumeOAuthChallenge,
-  deleteExpiredOAuthChallenges,
-  OAUTH_PURPOSE,
-  OAUTH_STATE_TTL_MS,
-} from "./oauth-challenges"
 import { profileFromTokens, storedTokens } from "./oauth-profile"
 import type { OAuthChallengePayload, OAuthMode } from "./oauth-types"
 import { createSession, getSession } from "./session"
@@ -65,9 +64,8 @@ async function startOAuthFlow(input: {
 
   const state = randomState()
   const browserNonce = randomState()
-  const codeVerifier = provider.pkce === false
-    ? undefined
-    : randomPKCECodeVerifier()
+  const codeVerifier =
+    provider.pkce === false ? undefined : randomPKCECodeVerifier()
   const callbackURL = normalizeCallbackURL(input.callbackURL)
   const config = await oauthClient(provider)
   const scope = scopesForProvider(provider)
@@ -169,9 +167,10 @@ export async function finishOAuthCallback(
     // started (settings). A failed sign-in leaves them logged out, so route to
     // /login where the error toast can actually surface.
     return {
-      redirectTo: payload.mode === "link"
-        ? callbackURLWithOAuthError(payload.callbackURL, cause)
-        : loginURLWithOAuthError(payload.callbackURL, cause),
+      redirectTo:
+        payload.mode === "link"
+          ? callbackURLWithOAuthError(payload.callbackURL, cause)
+          : loginURLWithOAuthError(payload.callbackURL, cause),
     }
   }
 }

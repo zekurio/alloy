@@ -1,7 +1,7 @@
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
-import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@workspace/ui/lib/utils"
+import { cva, type VariantProps } from "class-variance-authority"
 
 const chipVariants = cva(
   cn(
@@ -22,8 +22,7 @@ const chipVariants = cva(
           "h-6 px-2.5 text-xs leading-4 [&_svg:not([class*='size-'])]:size-3.5",
         sm: "h-5 px-2 text-2xs leading-3 [&_svg:not([class*='size-'])]:size-3",
         lg: "h-7 px-3 text-sm leading-4 [&_svg:not([class*='size-'])]:size-4",
-        xl:
-          "h-8 rounded-lg px-2.5 text-sm leading-4 font-semibold [&_svg:not([class*='size-'])]:size-4",
+        xl: "h-8 rounded-lg px-2.5 text-sm leading-4 font-semibold [&_svg:not([class*='size-'])]:size-4",
       },
     },
     defaultVariants: {

@@ -1,7 +1,8 @@
-import type { SelectedFile } from "./new-clip-helpers"
 import { formatMediaDurationMs } from "@/lib/media-time"
 import { requireObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 import { formatBytes } from "@/lib/storage-format"
+
+import type { SelectedFile } from "./new-clip-helpers"
 
 const VIDEO_LOAD_TIMEOUT_MS = 15000
 const THUMB_MAX_BYTES = 2 * 1024 * 1024
@@ -33,9 +34,10 @@ export async function captureThumbnail(
 
     const duration = Number.isFinite(video.duration) ? video.duration : null
     const minTime = duration !== null && duration > 0.1 ? 0.001 : 0
-    const maxTime = duration === null
-      ? Math.max(0, atMs / 1000)
-      : Math.max(0, duration - 0.05)
+    const maxTime =
+      duration === null
+        ? Math.max(0, atMs / 1000)
+        : Math.max(0, duration - 0.05)
     const candidateTimes = uniqueThumbnailTimes(
       [atMs, fallbackAtMs, 1000, 100, 0],
       minTime,

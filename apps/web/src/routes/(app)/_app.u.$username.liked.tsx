@@ -1,12 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { HeartIcon } from "lucide-react"
-
 import {
   SectionActions,
   SectionHead,
   SectionMeta,
   SectionTitle,
 } from "@workspace/ui/components/section-head"
+import { HeartIcon } from "lucide-react"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
 import { useUserLikedClipsQuery } from "@/lib/clip-queries"
@@ -41,13 +40,9 @@ function ProfileLikedTab() {
           </SectionTitle>
         </div>
         <SectionActions>
-          {clips
-            ? (
-              <SectionMeta>
-                {headerCountLabel(clips.length, "clip")}
-              </SectionMeta>
-            )
-            : null}
+          {clips ? (
+            <SectionMeta>{headerCountLabel(clips.length, "clip")}</SectionMeta>
+          ) : null}
         </SectionActions>
       </SectionHead>
 

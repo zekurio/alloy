@@ -1,4 +1,3 @@
-import * as React from "react"
 import {
   AppHeader,
   AppHeaderActions,
@@ -6,10 +5,12 @@ import {
   AppHeaderSearch,
 } from "@workspace/ui/components/app-header"
 import { useWindowEvent } from "@workspace/ui/hooks/use-window-event"
+import * as React from "react"
 
 import { NotificationCenter } from "@/components/app/notification-center"
 import { useAppSearch } from "@/components/search/app-search"
 import { SearchResultsPopover } from "@/components/search/search-results-popover"
+
 import { UserMenu } from "./user-menu"
 
 export function HomeHeader() {

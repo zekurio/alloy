@@ -1,7 +1,12 @@
-import * as React from "react"
-import { SaveIcon } from "lucide-react"
-
+import type {
+  ClipMentionRef,
+  ClipPrivacy,
+  ClipRow,
+  GameRow,
+  UserSearchResult,
+} from "@workspace/api"
 import { Button } from "@workspace/ui/components/button"
+import { Field, FieldLabel } from "@workspace/ui/components/field"
 import {
   ResponsiveDialog,
   ResponsiveDialogBody,
@@ -10,30 +15,23 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@workspace/ui/components/responsive-dialog"
-import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { toast } from "@workspace/ui/lib/toast"
 import { cn } from "@workspace/ui/lib/utils"
+import { SaveIcon } from "lucide-react"
+import * as React from "react"
 
-import type {
-  ClipMentionRef,
-  ClipPrivacy,
-  ClipRow,
-  GameRow,
-  UserSearchResult,
-} from "@workspace/api"
-
-import { useUpdateClipMutation } from "@/lib/clip-queries"
+import { LimitedInput, LimitedTextarea } from "@/components/form/limited-field"
+import { GameCombobox } from "@/components/game/game-combobox"
+import { MentionPicker } from "@/components/search/mention-picker"
 import {
   CLIP_DESCRIPTION_MAX,
   CLIP_TITLE_MAX,
   normalizeClipDescription,
   normalizeClipTitle,
 } from "@/lib/clip-fields"
+import { useUpdateClipMutation } from "@/lib/clip-queries"
 
 import { ClipPrivacyPicker } from "./clip-privacy-picker"
-import { LimitedInput, LimitedTextarea } from "@/components/form/limited-field"
-import { GameCombobox } from "@/components/game/game-combobox"
-import { MentionPicker } from "@/components/search/mention-picker"
 
 interface ClipEditDialogProps {
   open: boolean
@@ -83,10 +81,10 @@ export function ClipEditDialog({
   const [description, setDescription] = React.useState(row.description ?? "")
   const [privacy, setPrivacy] = React.useState<ClipPrivacy>(row.privacy)
   const [game, setGame] = React.useState<GameRow | null>(() =>
-    gameRowFromRef(row)
+    gameRowFromRef(row),
   )
   const [mentions, setMentions] = React.useState<UserSearchResult[]>(() =>
-    (row.mentions ?? []).map(mentionToSearchResult)
+    (row.mentions ?? []).map(mentionToSearchResult),
   )
   const mutation = useUpdateClipMutation()
 
@@ -117,7 +115,8 @@ export function ClipEditDialog({
   const gameChanged = (game?.id ?? null) !== (row.gameRef?.id ?? null)
   const mentionsChanged = !sameIdSet(mentionIds, originalMentionIds)
 
-  const dirty = titleChanged ||
+  const dirty =
+    titleChanged ||
     descriptionChanged ||
     privacyChanged ||
     gameChanged ||
@@ -185,13 +184,11 @@ export function ClipEditDialog({
                 disabled={saving}
                 aria-invalid={titleInvalid}
               />
-              {titleInvalid
-                ? (
-                  <span className="text-xs text-destructive">
-                    Title can't be empty.
-                  </span>
-                )
-                : null}
+              {titleInvalid ? (
+                <span className="text-destructive text-xs">
+                  Title can't be empty.
+                </span>
+              ) : null}
             </Field>
 
             <Field className="gap-1.5">

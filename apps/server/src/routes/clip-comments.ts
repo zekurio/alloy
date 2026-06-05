@@ -1,19 +1,17 @@
-import { zValidator } from "./validation"
-import { and, eq, sql } from "drizzle-orm"
-import { Hono } from "hono"
-
 import type { CommentRow } from "@workspace/contracts"
 import { user } from "@workspace/db/auth-schema"
 import { clip, clipComment, clipCommentLike } from "@workspace/db/schema"
+import { and, eq, sql } from "drizzle-orm"
+import { Hono } from "hono"
 
-import { db } from "../db"
+import { requireSession } from "../auth/require-session"
 import {
   applyClipPrivacyHeaders,
   clipAccessResponse,
   resolveClipAccess,
 } from "../clips/access"
+import { db } from "../db"
 import { createNotification } from "../notifications"
-import { requireSession } from "../auth/require-session"
 import { isoDate, nullableIsoDate } from "../runtime/date"
 import {
   booleanFlag,
@@ -25,7 +23,12 @@ import {
   likeState,
   notFound,
 } from "../runtime/http-response"
-import { IdParam } from "./clips-helpers"
+import {
+  canModerateComment,
+  pinTopLevelComment,
+  softDeleteComment,
+  unpinComment,
+} from "./clip-comment-moderation"
 import {
   CommentIdParam,
   CreateBody,
@@ -35,13 +38,9 @@ import {
   resolveCommentEngagementTarget,
   UpdateBody,
 } from "./clip-comments-helpers"
+import { IdParam } from "./clips-helpers"
 import { serialiseUserSummary, userSummarySelectShape } from "./users-helpers"
-import {
-  canModerateComment,
-  pinTopLevelComment,
-  softDeleteComment,
-  unpinComment,
-} from "./clip-comment-moderation"
+import { zValidator } from "./validation"
 
 export const clipCommentsRoutes = new Hono()
   .get(
@@ -169,13 +168,15 @@ export const clipCommentsRoutes = new Hono()
         likedByAuthor: false,
         createdAt: isoDate(inserted.createdAt),
         editedAt: null,
-        author: authorRow ? serialiseUserSummary(authorRow) : {
-          id: viewerId,
-          username: "",
-          displayUsername: "",
-          name: "",
-          image: null,
-        },
+        author: authorRow
+          ? serialiseUserSummary(authorRow)
+          : {
+              id: viewerId,
+              username: "",
+              displayUsername: "",
+              name: "",
+              image: null,
+            },
         replies: [],
       }
       return c.json(out, 201)

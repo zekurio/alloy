@@ -31,9 +31,10 @@ export function liveCodecsFromSupport({
   mediaSourceCanPlay?: (mimeType: string) => boolean
 }): EncoderCodec[] {
   return LIVE_CODEC_PROBES.filter(({ mimeTypes }) =>
-    mimeTypes.some((mimeType) =>
-      canPlayType(mimeType) !== "" || Boolean(mediaSourceCanPlay?.(mimeType))
-    )
+    mimeTypes.some(
+      (mimeType) =>
+        canPlayType(mimeType) !== "" || Boolean(mediaSourceCanPlay?.(mimeType)),
+    ),
   ).map(({ codec }) => codec)
 }
 
@@ -54,7 +55,8 @@ function browserMediaSourceCanPlay(mimeType: string): boolean {
   }
   const MS = mediaGlobals.MediaSource ?? mediaGlobals.ManagedMediaSource
   return Boolean(
-    MS && typeof MS.isTypeSupported === "function" &&
-      MS.isTypeSupported(mimeType),
+    MS &&
+    typeof MS.isTypeSupported === "function" &&
+    MS.isTypeSupported(mimeType),
   )
 }

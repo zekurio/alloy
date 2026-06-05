@@ -41,11 +41,9 @@ export function batchProgress<T extends string>(
   count: number,
   hasMore: boolean,
 ) {
-  return c.json(
-    { [countKey]: count, hasMore } as Record<T, number> & {
-      hasMore: boolean
-    },
-  )
+  return c.json({ [countKey]: count, hasMore } as Record<T, number> & {
+    hasMore: boolean
+  })
 }
 
 export function likeState(c: Context, liked: boolean, likeCount: number) {

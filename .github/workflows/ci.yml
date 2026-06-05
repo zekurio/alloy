@@ -19,27 +19,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deno:
-    name: Deno checks
+  checks:
+    name: pnpm checks
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Set up Deno
-        uses: denoland/setup-deno@v2
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
         with:
-          deno-version: v2.8.0
+          version: 11.4.0
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
 
       - name: Install dependencies
-        run: deno install --frozen
+        run: corepack pnpm install --frozen-lockfile
 
       - name: Check formatting
-        run: deno task fmt:check
+        run: corepack pnpm fmt:check
 
       - name: Run lint
-        run: deno task lint:github
+        run: corepack pnpm lint:github
 
       - name: Run typecheck
-        run: deno task typecheck
+        run: corepack pnpm typecheck

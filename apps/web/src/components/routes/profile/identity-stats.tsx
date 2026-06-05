@@ -1,7 +1,5 @@
-import * as React from "react"
 import { Link } from "@tanstack/react-router"
-import { UserPlusIcon } from "lucide-react"
-
+import type { ProfileCounts, UserSearchResult } from "@workspace/api"
 import {
   Avatar,
   AvatarFallback,
@@ -18,8 +16,8 @@ import {
 import { Spinner } from "@workspace/ui/components/spinner"
 import { toast } from "@workspace/ui/lib/toast"
 import { cn } from "@workspace/ui/lib/utils"
-
-import type { ProfileCounts, UserSearchResult } from "@workspace/api"
+import { UserPlusIcon } from "lucide-react"
+import * as React from "react"
 
 import { errorMessage } from "@/lib/error-message"
 import { userAvatar } from "@/lib/user-display"
@@ -28,6 +26,7 @@ import {
   useUserFollowersQuery,
   useUserFollowingQuery,
 } from "@/lib/user-queries"
+
 import { StatInline } from "./stat-inline"
 
 type FollowModal = "followers" | "following" | null
@@ -75,13 +74,12 @@ export function IdentityStats({ handle, counts }: IdentityStatsProps) {
   })
 
   const list = view === "followers" ? followersQuery.data : followingQuery.data
-  const loading = view === "followers"
-    ? followersQuery.isLoading
-    : followingQuery.isLoading
+  const loading =
+    view === "followers" ? followersQuery.isLoading : followingQuery.isLoading
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-medium text-foreground-muted">
+      <div className="text-foreground-muted flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-medium">
         <FollowStatButton
           value={counts.followers}
           label="followers"
@@ -102,32 +100,28 @@ export function IdentityStats({ handle, counts }: IdentityStatsProps) {
             </DialogTitle>
           </DialogHeader>
           <DialogBody className="max-h-[60vh] overflow-y-auto px-2 py-2">
-            {loading
-              ? (
-                <div className="grid place-items-center px-2 py-4 text-foreground-faint">
-                  <Spinner />
-                </div>
-              )
-              : list && list.length > 0
-              ? (
-                <ul className="flex flex-col">
-                  {list.map((u) => (
-                    <FollowRow
-                      key={u.id}
-                      user={u}
-                      initiallyFollowing={view === "following"}
-                      onNavigate={() => setOpen(null)}
-                    />
-                  ))}
-                </ul>
-              )
-              : (
-                <p className="px-2 py-4 text-center text-sm text-foreground-faint">
-                  {view === "followers"
-                    ? "No followers yet."
-                    : "Not following anyone yet."}
-                </p>
-              )}
+            {loading ? (
+              <div className="text-foreground-faint grid place-items-center px-2 py-4">
+                <Spinner />
+              </div>
+            ) : list && list.length > 0 ? (
+              <ul className="flex flex-col">
+                {list.map((u) => (
+                  <FollowRow
+                    key={u.id}
+                    user={u}
+                    initiallyFollowing={view === "following"}
+                    onNavigate={() => setOpen(null)}
+                  />
+                ))}
+              </ul>
+            ) : (
+              <p className="text-foreground-faint px-2 py-4 text-center text-sm">
+                {view === "followers"
+                  ? "No followers yet."
+                  : "Not following anyone yet."}
+              </p>
+            )}
           </DialogBody>
         </DialogContent>
       </Dialog>
@@ -170,7 +164,7 @@ function FollowRow({
   }
 
   return (
-    <li className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-surface-raised">
+    <li className="hover:bg-surface-raised flex items-center gap-3 rounded-md px-2 py-2">
       <Link
         to="/u/$username"
         params={{ username: user.username }}
@@ -178,16 +172,16 @@ function FollowRow({
         className="flex min-w-0 flex-1 items-center gap-3"
       >
         <Avatar size="md" style={avatarStyle}>
-          {avatar.src
-            ? <AvatarImage src={avatar.src} alt={displayName} />
-            : null}
+          {avatar.src ? (
+            <AvatarImage src={avatar.src} alt={displayName} />
+          ) : null}
           <AvatarFallback style={avatarStyle}>{avatar.initials}</AvatarFallback>
         </Avatar>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm text-foreground">
+          <span className="text-foreground block truncate text-sm">
             {displayName}
           </span>
-          <span className="block truncate text-xs text-foreground-faint">
+          <span className="text-foreground-faint block truncate text-xs">
             @{handle}
           </span>
         </span>

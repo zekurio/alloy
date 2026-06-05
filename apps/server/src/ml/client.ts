@@ -210,11 +210,12 @@ function nullableRequiredMlResponseString(
 }
 
 async function upstreamErrorMessage(response: Response): Promise<string> {
-  const fallback = response.status === 400
-    ? "Machine learning rejected the frames."
-    : response.status === 413
-    ? "Machine learning rejected an oversized request."
-    : "Machine learning is unavailable."
+  const fallback =
+    response.status === 400
+      ? "Machine learning rejected the frames."
+      : response.status === 413
+        ? "Machine learning rejected an oversized request."
+        : "Machine learning is unavailable."
   const text = await responseTextOrEmpty(response, "machine learning error")
   if (!text.trim()) return fallback
   try {

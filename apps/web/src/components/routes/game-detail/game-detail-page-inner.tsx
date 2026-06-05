@@ -1,6 +1,7 @@
 import { AppMain } from "@workspace/ui/components/app-shell"
 
 import { useRequireAuth } from "@/lib/auth-hooks"
+
 import { GameHeader } from "./game-header"
 import { RecentClipsSection } from "./recent-clips-section"
 import { TopClipsSection } from "./top-clips-section"

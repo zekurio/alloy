@@ -1,8 +1,7 @@
-import * as React from "react"
-import { UserKeyIcon } from "lucide-react"
-
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
+import { UserKeyIcon } from "lucide-react"
+import * as React from "react"
 
 interface OAuthButtonProps extends React.ComponentProps<"button"> {
   providerId: string
@@ -39,9 +38,11 @@ export function OAuthButton({
       }}
       {...props}
     >
-      {iconUrl
-        ? <img src={iconUrl} alt="" className="size-4 object-contain" />
-        : <UserKeyIcon className="size-4" />}
+      {iconUrl ? (
+        <img src={iconUrl} alt="" className="size-4 object-contain" />
+      ) : (
+        <UserKeyIcon className="size-4" />
+      )}
       <span className="truncate">
         {pendingLabel ?? `Continue with ${displayName}`}
       </span>

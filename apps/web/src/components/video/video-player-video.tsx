@@ -1,10 +1,10 @@
-import * as React from "react"
 import {
   CLIP_MEDIA_BACKGROUND_CLASS,
   CLIP_MEDIA_CLASS,
   CLIP_VIDEO_MEDIA_CLASS,
 } from "@workspace/ui/lib/media-frame"
 import { cn } from "@workspace/ui/lib/utils"
+import * as React from "react"
 
 type VideoFrameProps = {
   videoRef: React.Ref<HTMLVideoElement>
@@ -78,27 +78,23 @@ export function VideoFrame({
         // the inset itself.
         className={cn("block", CLIP_VIDEO_MEDIA_CLASS)}
       />
-      {
-        /* The poster overlays the video (it must paint on top of the element's
+      {/* The poster overlays the video (it must paint on top of the element's
           opaque background) and fades out once a real frame has decoded, so a
-          source swap shows the thumbnail instead of a black box. */
-      }
-      {poster
-        ? (
-          <img
-            src={poster}
-            alt=""
-            aria-hidden
-            className={cn(
-              CLIP_MEDIA_CLASS,
-              "pointer-events-none transition-opacity duration-200 ease-out",
-              posterVisible ? "opacity-100" : "opacity-0",
-            )}
-            decoding="async"
-            fetchPriority="high"
-          />
-        )
-        : null}
+          source swap shows the thumbnail instead of a black box. */}
+      {poster ? (
+        <img
+          src={poster}
+          alt=""
+          aria-hidden
+          className={cn(
+            CLIP_MEDIA_CLASS,
+            "pointer-events-none transition-opacity duration-200 ease-out",
+            posterVisible ? "opacity-100" : "opacity-0",
+          )}
+          decoding="async"
+          fetchPriority="high"
+        />
+      ) : null}
     </>
   )
 }

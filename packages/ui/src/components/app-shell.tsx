@@ -1,6 +1,5 @@
-import * as React from "react"
-
 import { cn } from "@workspace/ui/lib/utils"
+import * as React from "react"
 
 function AppShell({ className, ...props }: React.ComponentProps<"div">) {
   return (

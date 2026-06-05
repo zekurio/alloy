@@ -1,15 +1,14 @@
-import { z } from "zod"
-import { and, desc, eq, lt, or, type SQL, sql } from "drizzle-orm"
-
 import {
   ACCEPTED_CLIP_CONTENT_TYPES,
   CLIP_DESCRIPTION_MAX_LENGTH,
   CLIP_TITLE_MAX_LENGTH,
 } from "@workspace/contracts"
 import { clip, CLIP_PRIVACY } from "@workspace/db/schema"
+import { and, desc, eq, lt, or, type SQL, sql } from "drizzle-orm"
+import { z } from "zod"
 
-import { configStore } from "../config/store"
 import { toPublicClipRow } from "../clips/select"
+import { configStore } from "../config/store"
 import { requiredSql } from "../db/sql"
 import { isoDate } from "../runtime/date"
 import {
@@ -168,9 +167,8 @@ export function clipListPage<T extends ClipListPageRow>(
   const tail = pageRows[pageRows.length - 1]
   return {
     items: pageRows.map(toPublicClipRow),
-    nextCursor: rows.length > limit && tail
-      ? encodeClipListCursor(tail, sort)
-      : null,
+    nextCursor:
+      rows.length > limit && tail ? encodeClipListCursor(tail, sort) : null,
   }
 }
 
@@ -261,9 +259,9 @@ function extensionForContentType(contentType: string): string {
 
 export function contentDisposition(filename: string): string {
   const safeAscii = filename.replace(/[^A-Za-z0-9._-]+/g, "_")
-  return `attachment; filename="${safeAscii}"; filename*=UTF-8''${
-    encodeURIComponent(filename)
-  }`
+  return `attachment; filename="${safeAscii}"; filename*=UTF-8''${encodeURIComponent(
+    filename,
+  )}`
 }
 
 export function downloadFilename(
@@ -271,9 +269,9 @@ export function downloadFilename(
   variant: "source",
 ): string {
   const base = row.title.trim().replace(/[/\\?%*:|"<>]/g, "-") || row.id
-  return `${base}-${variant}.${
-    extensionForContentType(row.sourceContentType ?? "")
-  }`
+  return `${base}-${variant}.${extensionForContentType(
+    row.sourceContentType ?? "",
+  )}`
 }
 
 export async function readAll(

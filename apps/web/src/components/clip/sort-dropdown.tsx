@@ -1,6 +1,3 @@
-import * as React from "react"
-import { ChevronDownIcon } from "lucide-react"
-
 import { Chip } from "@workspace/ui/components/chip"
 import {
   DropdownMenu,
@@ -8,6 +5,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
+import { ChevronDownIcon } from "lucide-react"
+import * as React from "react"
 
 export const filterLabelClass =
   "inline-flex h-8 items-center pr-1 text-xs leading-4 font-semibold tracking-wide text-foreground-muted uppercase"

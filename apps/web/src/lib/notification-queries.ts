@@ -1,11 +1,9 @@
-import * as React from "react"
 import {
   queryOptions,
   useMutation,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-
 import {
   type NotificationEvent,
   type NotificationRow,
@@ -14,6 +12,7 @@ import {
   parseNotificationEventPayload,
 } from "@workspace/api"
 import { toast } from "@workspace/ui/lib/toast"
+import * as React from "react"
 
 import { api } from "./api"
 import { clipHref, userProfileHref } from "./app-paths"
@@ -57,9 +56,8 @@ export function useMarkAllNotificationsReadMutation() {
   return useMutation({
     mutationFn: () => api.notifications.markAllRead(),
     onSuccess: ({ readAt, unreadCount }) => {
-      qc.setQueryData<NotificationsResponse>(
-        notificationKeys.list(),
-        (old) => markAllNotificationsReadInCache(old, readAt, unreadCount),
+      qc.setQueryData<NotificationsResponse>(notificationKeys.list(), (old) =>
+        markAllNotificationsReadInCache(old, readAt, unreadCount),
       )
     },
   })
@@ -71,9 +69,8 @@ export function useDeleteNotificationMutation() {
     mutationFn: (id: string) =>
       api.notifications.delete(id).then((result) => ({ ...result, id })),
     onSuccess: ({ id, unreadCount }) => {
-      qc.setQueryData<NotificationsResponse>(
-        notificationKeys.list(),
-        (old) => removeNotificationFromCache(old, id, unreadCount),
+      qc.setQueryData<NotificationsResponse>(notificationKeys.list(), (old) =>
+        removeNotificationFromCache(old, id, unreadCount),
       )
     },
   })
@@ -84,9 +81,8 @@ export function useClearNotificationsMutation() {
   return useMutation({
     mutationFn: () => api.notifications.clear(),
     onSuccess: ({ unreadCount }) => {
-      qc.setQueryData<NotificationsResponse>(
-        notificationKeys.list(),
-        (old) => clearNotificationsInCache(old, unreadCount),
+      qc.setQueryData<NotificationsResponse>(notificationKeys.list(), (old) =>
+        clearNotificationsInCache(old, unreadCount),
       )
     },
   })
@@ -240,7 +236,9 @@ function markNotificationReadInCache(
   if (!old) return old
   return {
     unreadCount,
-    items: old.items.map((item) => item.id === id ? { ...item, readAt } : item),
+    items: old.items.map((item) =>
+      item.id === id ? { ...item, readAt } : item,
+    ),
   }
 }
 
@@ -293,7 +291,8 @@ export function notificationText(row: NotificationRow): {
   /** Optional secondary line, used for context (e.g. comment body excerpt). */
   body: string | null
 } {
-  const actor = row.actor?.name ||
+  const actor =
+    row.actor?.name ||
     row.actor?.displayUsername ||
     row.actor?.username ||
     "Someone"

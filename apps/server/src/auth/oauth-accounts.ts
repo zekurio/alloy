@@ -1,13 +1,12 @@
-import { and, eq } from "drizzle-orm"
-
 import { authAccount, user } from "@workspace/db/auth-schema"
 import { logger } from "@workspace/logging"
+import { and, eq } from "drizzle-orm"
 
 import { configStore, type OAuthProviderConfig } from "../config/store"
 import { db } from "../db"
 import { assertCanRemoveAdmin, findUserByEmail } from "./identity"
-import type { OAuthProfile, StoredTokens } from "./oauth-types"
 import { defaultOAuthStorageQuota } from "./oauth-profile"
+import type { OAuthProfile, StoredTokens } from "./oauth-types"
 import { generateUniqueUsername, slugifyUsername } from "./username"
 
 export async function resolveSignInUser(input: {
@@ -42,7 +41,8 @@ export async function resolveSignInUser(input: {
   }
 
   const userId = await db.transaction(async (tx) => {
-    const row = existingUser ??
+    const row =
+      existingUser ??
       (await createOAuthUser(input.profile, async (values) => {
         const [created] = await tx.insert(user).values(values).returning()
         if (!created) throw new Error("Could not create user.")
@@ -197,9 +197,10 @@ async function createOAuthUser(
     username,
     name: profile.name,
     role: profile.role ?? "user",
-    storageQuotaBytes: profile.storageQuotaBytes === undefined
-      ? defaultOAuthStorageQuota()
-      : profile.storageQuotaBytes,
+    storageQuotaBytes:
+      profile.storageQuotaBytes === undefined
+        ? defaultOAuthStorageQuota()
+        : profile.storageQuotaBytes,
   })
 }
 

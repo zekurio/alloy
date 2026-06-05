@@ -1,0 +1,35 @@
+{
+  "name": "alloy",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "devenv up --strict-ports api web ml",
+    "start": "pnpm --filter @workspace/server start",
+    "start:prod": "pnpm --filter @workspace/server start",
+    "db:generate": "pnpm --filter @workspace/db db:generate",
+    "db:migrate": "pnpm --filter @workspace/db db:migrate",
+    "db:push": "pnpm --filter @workspace/db db:push",
+    "db:studio": "pnpm --filter @workspace/db db:studio",
+    "fmt": "oxfmt .",
+    "fmt:check": "oxfmt --check .",
+    "lint": "oxlint .",
+    "lint:github": "pnpm lint",
+    "lint:ci": "pnpm lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test"
+  },
+  "devDependencies": {
+    "@types/node": "25.6.0",
+    "@types/pg": "8.20.0",
+    "oxfmt": "0.53.0",
+    "oxlint": "1.68.0",
+    "oxlint-tsgolint": "0.23.0",
+    "tsup": "8.5.1",
+    "tsx": "4.22.4",
+    "turbo": "2.9.16",
+    "typescript": "6.0.3"
+  },
+  "packageManager": "pnpm@11.4.0"
+}

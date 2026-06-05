@@ -1,7 +1,12 @@
-import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
-import { AlertTriangleIcon, SaveIcon } from "lucide-react"
-
+import {
+  type AdminEncoderCapabilities,
+  type AdminEncoderConfig,
+  type AdminRuntimeConfig,
+  ENCODER_CODECS,
+  ENCODER_HWACCELS,
+  type EncoderCodec,
+} from "@workspace/api"
 import { Button } from "@workspace/ui/components/button"
 import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
@@ -20,26 +25,20 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select"
 import { Switch } from "@workspace/ui/components/switch"
-
-import {
-  type AdminEncoderCapabilities,
-  type AdminEncoderConfig,
-  type AdminRuntimeConfig,
-  ENCODER_CODECS,
-  ENCODER_HWACCELS,
-  type EncoderCodec,
-} from "@workspace/api"
+import { AlertTriangleIcon, SaveIcon } from "lucide-react"
+import * as React from "react"
 
 import { adminEncoderCapabilitiesQueryOptions } from "@/lib/admin-query-keys"
 import { errorMessage } from "@/lib/error-message"
-import { FfmpegBadge } from "./encoder-ffmpeg-badge"
-import { FormGroup } from "./form-group"
+
 import {
   encoderConfigsEqual,
   HWACCEL_LABELS,
   isEncoderHwaccel,
   saveEncoderConfig,
 } from "./encoder-config-helpers"
+import { FfmpegBadge } from "./encoder-ffmpeg-badge"
+import { FormGroup } from "./form-group"
 
 const LIVE_CODEC_DISPLAY_ORDER: readonly EncoderCodec[] = [
   "av1",
@@ -107,23 +106,26 @@ export function EncoderConfigCard({
     await saveEncoderConfig({ form, onChange, setPending, onSaved })
   }
 
-  const selectedDevice = form.hwaccel === "qsv"
-    ? {
-      key: "qsvDevice" as const,
-      id: "encoder-qsv-device",
-      label: "QSV device",
-    }
-    : form.hwaccel === "vaapi"
-    ? {
-      key: "vaapiDevice" as const,
-      id: "encoder-vaapi-device",
-      label: "VAAPI device",
-    }
-    : null
+  const selectedDevice =
+    form.hwaccel === "qsv"
+      ? {
+          key: "qsvDevice" as const,
+          id: "encoder-qsv-device",
+          label: "QSV device",
+        }
+      : form.hwaccel === "vaapi"
+        ? {
+            key: "vaapiDevice" as const,
+            id: "encoder-vaapi-device",
+            label: "VAAPI device",
+          }
+        : null
 
-  const liveCodecUnavailable = form.enabled && caps?.ffmpegOk &&
-    !ENCODER_CODECS.some((codec) =>
-      caps.available[form.hwaccel]?.[codec] ?? false
+  const liveCodecUnavailable =
+    form.enabled &&
+    caps?.ffmpegOk &&
+    !ENCODER_CODECS.some(
+      (codec) => caps.available[form.hwaccel]?.[codec] ?? false,
     )
   const showQsvLowPower = form.hwaccel === "qsv"
   const isDirty = !encoderConfigsEqual(form, encoder)
@@ -184,21 +186,19 @@ export function EncoderConfigCard({
                 </Select>
               </Field>
 
-              {selectedDevice
-                ? (
-                  <Field>
-                    <FieldLabel htmlFor={selectedDevice.id}>
-                      {selectedDevice.label}
-                    </FieldLabel>
-                    <Input
-                      id={selectedDevice.id}
-                      value={form[selectedDevice.key]}
-                      placeholder="/dev/dri/renderD128"
-                      onChange={(e) => set(selectedDevice.key, e.target.value)}
-                    />
-                  </Field>
-                )
-                : null}
+              {selectedDevice ? (
+                <Field>
+                  <FieldLabel htmlFor={selectedDevice.id}>
+                    {selectedDevice.label}
+                  </FieldLabel>
+                  <Input
+                    id={selectedDevice.id}
+                    value={form[selectedDevice.key]}
+                    placeholder="/dev/dri/renderD128"
+                    onChange={(e) => set(selectedDevice.key, e.target.value)}
+                  />
+                </Field>
+              ) : null}
 
               <CodecAvailability
                 caps={caps}
@@ -206,51 +206,48 @@ export function EncoderConfigCard({
                 ffmpegError={capsError}
               />
 
-              {liveCodecUnavailable
-                ? (
-                  <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
-                    <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
-                    <span>
-                      The detected ffmpeg build can't encode AV1, HEVC, or H.264
-                      {" "}
-                      with {HWACCEL_LABELS[form.hwaccel]}.
-                    </span>
-                  </div>
-                )
-                : null}
+              {liveCodecUnavailable ? (
+                <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
+                  <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
+                  <span>
+                    The detected ffmpeg build can't encode AV1, HEVC, or H.264{" "}
+                    with {HWACCEL_LABELS[form.hwaccel]}.
+                  </span>
+                </div>
+              ) : null}
             </FormGroup>
 
-            {showQsvLowPower
-              ? (
-                <FormGroup title="Intel low-power">
-                  <div className="flex items-center justify-between gap-3">
-                    <FieldLabel htmlFor="encoder-intel-low-power-h264">
-                      H.264 low-power
-                    </FieldLabel>
-                    <Switch
-                      id="encoder-intel-low-power-h264"
-                      checked={form.intelLowPowerH264}
-                      onCheckedChange={(checked) =>
-                        set("intelLowPowerH264", checked)}
-                      aria-label="Enable Intel H.264 low-power encoding"
-                    />
-                  </div>
+            {showQsvLowPower ? (
+              <FormGroup title="Intel low-power">
+                <div className="flex items-center justify-between gap-3">
+                  <FieldLabel htmlFor="encoder-intel-low-power-h264">
+                    H.264 low-power
+                  </FieldLabel>
+                  <Switch
+                    id="encoder-intel-low-power-h264"
+                    checked={form.intelLowPowerH264}
+                    onCheckedChange={(checked) =>
+                      set("intelLowPowerH264", checked)
+                    }
+                    aria-label="Enable Intel H.264 low-power encoding"
+                  />
+                </div>
 
-                  <div className="flex items-center justify-between gap-3">
-                    <FieldLabel htmlFor="encoder-intel-low-power-hevc">
-                      HEVC low-power
-                    </FieldLabel>
-                    <Switch
-                      id="encoder-intel-low-power-hevc"
-                      checked={form.intelLowPowerHevc}
-                      onCheckedChange={(checked) =>
-                        set("intelLowPowerHevc", checked)}
-                      aria-label="Enable Intel HEVC low-power encoding"
-                    />
-                  </div>
-                </FormGroup>
-              )
-              : null}
+                <div className="flex items-center justify-between gap-3">
+                  <FieldLabel htmlFor="encoder-intel-low-power-hevc">
+                    HEVC low-power
+                  </FieldLabel>
+                  <Switch
+                    id="encoder-intel-low-power-hevc"
+                    checked={form.intelLowPowerHevc}
+                    onCheckedChange={(checked) =>
+                      set("intelLowPowerHevc", checked)
+                    }
+                    aria-label="Enable Intel HEVC low-power encoding"
+                  />
+                </div>
+              </FormGroup>
+            ) : null}
           </SectionContent>
 
           {!hideActions && (
@@ -307,7 +304,7 @@ function CodecAvailability({
             key={codec}
             data-supported={supported ? "true" : "false"}
             data-pending={pending ? "true" : "false"}
-            className="inline-flex h-7 items-center rounded-md border border-border bg-surface-raised px-2 text-xs font-medium text-foreground-muted data-[pending=true]:opacity-60 data-[supported=true]:border-success/35 data-[supported=true]:bg-success/10 data-[supported=true]:text-success data-[supported=false]:data-[pending=false]:border-border data-[supported=false]:data-[pending=false]:bg-surface-sunken data-[supported=false]:data-[pending=false]:text-foreground-faint"
+            className="border-border bg-surface-raised text-foreground-muted data-[supported=true]:border-success/35 data-[supported=true]:bg-success/10 data-[supported=true]:text-success data-[supported=false]:data-[pending=false]:border-border data-[supported=false]:data-[pending=false]:bg-surface-sunken data-[supported=false]:data-[pending=false]:text-foreground-faint inline-flex h-7 items-center rounded-md border px-2 text-xs font-medium data-[pending=true]:opacity-60"
           >
             {LIVE_CODEC_LABELS[codec]}
             {unavailable || (!pending && !supported) ? " unavailable" : ""}

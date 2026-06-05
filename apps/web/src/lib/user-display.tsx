@@ -1,12 +1,11 @@
-import * as React from "react"
-
-import { cn } from "@workspace/ui/lib/utils"
-import { stableHue } from "@workspace/ui/lib/stable-hash"
 import {
   LEGACY_USER_ASSET_PATH_PREFIX,
   resolvePublicUrl,
   USER_ASSET_PATH_PREFIX,
 } from "@workspace/api"
+import { stableHue } from "@workspace/ui/lib/stable-hash"
+import { cn } from "@workspace/ui/lib/utils"
+import * as React from "react"
 
 import { apiOrigin } from "./env"
 
@@ -41,7 +40,7 @@ export function userImageSrc(
   if (cached) return cached
 
   const matchingPathPrefix = USER_ASSET_PATH_PREFIXES.find((prefix) =>
-    value.startsWith(prefix)
+    value.startsWith(prefix),
   )
   if (matchingPathPrefix) {
     const normalized = normalizeUserAssetPath(value, matchingPathPrefix)
@@ -57,7 +56,7 @@ export function userImageSrc(
   try {
     const url = new URL(value)
     const urlPathPrefix = USER_ASSET_PATH_PREFIXES.find((prefix) =>
-      url.pathname.startsWith(prefix)
+      url.pathname.startsWith(prefix),
     )
     if (urlPathPrefix) {
       const normalized = normalizeUserAssetPath(
@@ -76,9 +75,10 @@ export function userImageSrc(
 }
 
 function normalizeUserAssetPath(value: string, prefix: string): string {
-  const nextPath = prefix === LEGACY_USER_ASSET_PATH_PREFIX
-    ? `${USER_ASSET_PATH_PREFIX}${value.slice(prefix.length)}`
-    : value
+  const nextPath =
+    prefix === LEGACY_USER_ASSET_PATH_PREFIX
+      ? `${USER_ASSET_PATH_PREFIX}${value.slice(prefix.length)}`
+      : value
   return resolvePublicUrl(nextPath, apiOrigin())
 }
 
@@ -189,15 +189,13 @@ export function UserBanner({
       )}
       style={{ backgroundColor: banner.bg }}
     >
-      {banner.src
-        ? (
-          <UserBannerImage
-            src={banner.src}
-            fallbackSrc={avatarFallbackSrc}
-            hasDedicatedBanner={hasDedicatedBanner}
-          />
-        )
-        : null}
+      {banner.src ? (
+        <UserBannerImage
+          src={banner.src}
+          fallbackSrc={avatarFallbackSrc}
+          hasDedicatedBanner={hasDedicatedBanner}
+        />
+      ) : null}
     </div>
   )
 }
@@ -255,14 +253,12 @@ function UserBannerImage({
             : "scale-150 brightness-75 saturate-150",
         )}
       />
-      {status === "loading"
-        ? (
-          <div
-            aria-hidden
-            className="absolute inset-0 rounded-[inherit] bg-muted"
-          />
-        )
-        : null}
+      {status === "loading" ? (
+        <div
+          aria-hidden
+          className="bg-muted absolute inset-0 rounded-[inherit]"
+        />
+      ) : null}
     </>
   )
 }

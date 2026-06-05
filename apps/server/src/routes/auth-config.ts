@@ -1,10 +1,9 @@
+import { LOGIN_SPLASH_IMAGE_PATH } from "@workspace/contracts"
 import { Hono } from "hono"
 import { stream } from "hono/streaming"
 
-import { LOGIN_SPLASH_IMAGE_PATH } from "@workspace/contracts"
-
-import { configStore } from "../config/store"
 import { buildPublicAuthConfig } from "../auth/public-config"
+import { configStore } from "../config/store"
 import { notFound } from "../runtime/http-response"
 import { pipeReadable } from "../runtime/streaming"
 import { dataStorage } from "../storage"

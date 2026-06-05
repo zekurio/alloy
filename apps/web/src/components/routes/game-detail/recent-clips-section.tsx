@@ -1,11 +1,10 @@
-import { FilmIcon } from "lucide-react"
-
 import {
   SectionActions,
   SectionHead,
   SectionMeta,
   SectionTitle,
 } from "@workspace/ui/components/section-head"
+import { FilmIcon } from "lucide-react"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
 import { useGameClipsQuery } from "@/lib/game-queries"
@@ -43,13 +42,11 @@ export function RecentClipsSection({
           </SectionTitle>
         </div>
         <SectionActions>
-          {visibleRows && visibleRows.length > 0
-            ? (
-              <SectionMeta>
-                {headerCountLabel(visibleRows.length, "clip")}
-              </SectionMeta>
-            )
-            : null}
+          {visibleRows && visibleRows.length > 0 ? (
+            <SectionMeta>
+              {headerCountLabel(visibleRows.length, "clip")}
+            </SectionMeta>
+          ) : null}
         </SectionActions>
       </SectionHead>
 

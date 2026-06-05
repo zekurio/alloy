@@ -1,13 +1,12 @@
-import * as React from "react"
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
-
 import { AppMain } from "@workspace/ui/components/app-shell"
+import * as React from "react"
 
+import { EmptyState } from "@/components/feedback/empty-state"
 import { BlockedGate } from "@/components/routes/profile/blocked-gate"
 import { ProfileIdentity } from "@/components/routes/profile/profile-identity"
 import { ProfileIdentitySkeleton } from "@/components/routes/profile/profile-identity-skeleton"
 import { ProfileTabsNav } from "@/components/routes/profile/profile-tabs-nav"
-import { EmptyState } from "@/components/feedback/empty-state"
 import { userClipsQueryOptions, useUserClipsQuery } from "@/lib/clip-queries"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import {
@@ -44,9 +43,9 @@ function UserProfileLayout() {
   const viewer = viewerQuery.data?.viewer
   const profile = baseProfile
     ? {
-      ...baseProfile,
-      counts: viewerQuery.data?.counts ?? baseProfile.counts,
-    }
+        ...baseProfile,
+        counts: viewerQuery.data?.counts ?? baseProfile.counts,
+      }
     : null
   const profileError = profileQuery.error ?? null
   useQueryErrorToast(profileError, {
@@ -71,24 +70,22 @@ function UserProfileLayout() {
           aria-hidden={gated ? true : undefined}
           className={gated ? "pointer-events-none select-none" : undefined}
         >
-          {profileError
-            ? (
-              <EmptyState
-                seed={`profile-error-${username}`}
-                size="lg"
-                title="Couldn't load profile"
-              />
-            )
-            : profile
-            ? (
-              <ProfileIdentity
-                profile={profile}
-                viewer={viewer}
-                onViewerChange={setViewer}
-                onFollowerDelta={bumpFollowers}
-              />
-            )
-            : <ProfileIdentitySkeleton />}
+          {profileError ? (
+            <EmptyState
+              seed={`profile-error-${username}`}
+              size="lg"
+              title="Couldn't load profile"
+            />
+          ) : profile ? (
+            <ProfileIdentity
+              profile={profile}
+              viewer={viewer}
+              onViewerChange={setViewer}
+              onFollowerDelta={bumpFollowers}
+            />
+          ) : (
+            <ProfileIdentitySkeleton />
+          )}
 
           <div className="px-4 pb-4 md:px-8 md:pb-6">
             <ProfileTabsNav username={username} />

@@ -6,6 +6,7 @@ import {
   type UserListRow,
   type UserSummary,
 } from "@workspace/contracts"
+
 import {
   objectRecord,
   validateArray,
@@ -58,7 +59,7 @@ export function validateUserSummary(
 
 export function validateUserSummaries(value: unknown): UserSummary[] {
   return validateArray(value, "Invalid users response").map((item) =>
-    validateUserSummary(item)
+    validateUserSummary(item),
   )
 }
 

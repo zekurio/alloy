@@ -1,9 +1,4 @@
-import * as React from "react"
 import { type QueryClient, useQueryClient } from "@tanstack/react-query"
-
-import { clipKeys } from "./clip-query-keys"
-import { apiOrigin } from "./env"
-import { bindEventSourceListeners } from "./event-source-listeners"
 import {
   parseQueueEventPayload,
   parseQueueSnapshotPayload,
@@ -11,6 +6,11 @@ import {
   type QueueEvent,
   uploadQueueStreamUrl,
 } from "@workspace/api"
+import * as React from "react"
+
+import { clipKeys } from "./clip-query-keys"
+import { apiOrigin } from "./env"
+import { bindEventSourceListeners } from "./event-source-listeners"
 
 function applyUploadQueueEvent(
   prev: QueueClip[] | undefined,
@@ -77,9 +77,8 @@ function bindUploadQueueStream(input: {
       setInitialError(true)
       return
     }
-    queryClient.setQueryData<QueueClip[]>(
-      clipKeys.queue(),
-      (prev) => applyUploadQueueEvent(prev, event),
+    queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), (prev) =>
+      applyUploadQueueEvent(prev, event),
     )
   }
 

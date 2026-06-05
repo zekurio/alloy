@@ -1,6 +1,5 @@
 import { Radio as RadioPrimitive } from "@base-ui/react/radio"
 import { RadioGroup as RadioGroupPrimitive } from "@base-ui/react/radio-group"
-
 import { cn } from "@workspace/ui/lib/utils"
 
 /**
@@ -36,7 +35,7 @@ function RadioGroupItem({ className, ...props }: RadioPrimitive.Root.Props) {
         data-slot="radio-group-indicator"
         className="flex size-full items-center justify-center"
       >
-        <span className="size-1.5 rounded-full bg-accent" />
+        <span className="bg-accent size-1.5 rounded-full" />
       </RadioPrimitive.Indicator>
     </RadioPrimitive.Root>
   )

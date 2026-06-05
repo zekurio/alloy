@@ -1,0 +1,127 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error",
+    "pedantic": "off",
+    "style": "off"
+  },
+  "plugins": [
+    "eslint",
+    "typescript",
+    "unicorn",
+    "oxc",
+    "import",
+    "promise",
+    "react",
+    "react-perf",
+    "jsx-a11y",
+    "vitest"
+  ],
+  "env": {
+    "browser": true,
+    "es2024": true,
+    "node": true
+  },
+  "settings": {
+    "react": {
+      "version": "19.2"
+    }
+  },
+  "options": {
+    "maxWarnings": 0,
+    "typeAware": true
+  },
+  "ignorePatterns": [
+    ".devenv/**",
+    ".direnv/**",
+    ".git/**",
+    "apps/web/src/routeTree.gen.ts",
+    "apps/web/dist/**",
+    "build/**",
+    "data/**",
+    "dist/**",
+    "machine-learning/.venv/**",
+    "node_modules/**"
+  ],
+  "rules": {
+    "func-style": "off",
+    "import/no-unassigned-import": "off",
+    "import/exports-last": "off",
+    "import/no-named-export": "off",
+    "import/prefer-default-export": "off",
+    "no-magic-numbers": "off",
+    "no-negated-condition": "off",
+    "no-nested-ternary": "off",
+    "no-ternary": "off",
+    "require-unicode-regexp": "off",
+    "sort-imports": "off",
+    "no-console": "error",
+    "no-await-in-loop": "off",
+    "no-new": "off",
+    "no-unmodified-loop-condition": "off",
+    "no-shadow": "off",
+    "no-underscore-dangle": "off",
+    "oxc/no-map-spread": "off",
+    "preserve-caught-error": "off",
+    "promise/always-return": "off",
+    "jsx-a11y/anchor-has-content": "off",
+    "jsx-a11y/click-events-have-key-events": "off",
+    "jsx-a11y/control-has-associated-label": "off",
+    "jsx-a11y/interactive-supports-focus": "off",
+    "jsx-a11y/label-has-associated-control": "off",
+    "jsx-a11y/media-has-caption": "off",
+    "jsx-a11y/no-noninteractive-element-interactions": "off",
+    "jsx-a11y/no-noninteractive-tabindex": "off",
+    "jsx-a11y/no-redundant-roles": "off",
+    "jsx-a11y/no-static-element-interactions": "off",
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "react/no-array-index-key": "off",
+    "react/no-object-type-as-default-prop": "off",
+    "react/jsx-no-constructed-context-values": "off",
+    "react/jsx-max-depth": "off",
+    "react/react-in-jsx-scope": "off",
+    "react-hooks/exhaustive-deps": "off",
+    "react-perf/jsx-no-jsx-as-prop": "off",
+    "react-perf/jsx-no-new-array-as-prop": "off",
+    "react-perf/jsx-no-new-function-as-prop": "off",
+    "react-perf/jsx-no-new-object-as-prop": "off",
+    "typescript/consistent-return": "off",
+    "typescript/consistent-type-definitions": "off",
+    "typescript/no-base-to-string": "off",
+    "typescript/no-confusing-void-expression": "off",
+    "typescript/no-floating-promises": "off",
+    "typescript/no-meaningless-void-operator": "off",
+    "typescript/no-redundant-type-constituents": "off",
+    "typescript/no-unnecessary-boolean-literal-compare": "off",
+    "typescript/no-unnecessary-template-expression": "off",
+    "typescript/no-unnecessary-type-assertion": "off",
+    "typescript/no-unnecessary-type-conversion": "off",
+    "typescript/no-unsafe-type-assertion": "off",
+    "typescript/prefer-readonly-parameter-types": "off",
+    "typescript/restrict-template-expressions": "off",
+    "typescript/strict-boolean-expressions": "off",
+    "typescript/strict-void-return": "off",
+    "typescript/unbound-method": "off",
+    "unicorn/consistent-function-scoping": "off",
+    "unicorn/no-array-sort": "off",
+    "unicorn/no-null": "off",
+    "unicorn/prefer-add-event-listener": "off",
+    "unicorn/prefer-set-has": "off"
+  },
+  "overrides": [
+    {
+      "files": ["**/*_test.ts", "**/*.test.ts", "**/*.config.ts"],
+      "rules": {
+        "no-console": "off"
+      }
+    },
+    {
+      "files": ["apps/web/**/*.tsx", "packages/ui/**/*.tsx"],
+      "env": {
+        "browser": true
+      }
+    }
+  ]
+}

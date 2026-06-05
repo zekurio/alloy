@@ -1,7 +1,7 @@
+import type { ClipPrivacy } from "@workspace/api"
 import { Toggle } from "@workspace/ui/components/toggle"
 import { cn } from "@workspace/ui/lib/utils"
 
-import type { ClipPrivacy } from "@workspace/api"
 import { PRIVACY_OPTIONS } from "@/lib/clip-fields"
 
 interface ClipPrivacyPickerProps {

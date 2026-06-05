@@ -1,9 +1,7 @@
-import * as React from "react"
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
-
 import { AppMain, AppShell } from "@workspace/ui/components/app-shell"
+import * as React from "react"
 
-import { AppSearchProvider } from "@/components/search/app-search"
 import { ClipViewerDialog } from "@/components/clip/clip-viewer-dialog"
 import {
   RouteErrorState,
@@ -11,6 +9,7 @@ import {
 } from "@/components/feedback/route-state"
 import { HomeHeader } from "@/components/layout/home-header"
 import { HomeSidebar } from "@/components/layout/home-sidebar"
+import { AppSearchProvider } from "@/components/search/app-search"
 import { UploadFlow } from "@/components/upload/upload-flow"
 import { UploadFlowProvider } from "@/components/upload/upload-flow-controls"
 import { type AppSearch, parseAppSearch } from "@/lib/app-search"
@@ -53,11 +52,11 @@ function AppLayout() {
         }),
         ...(entry.gameSlug
           ? {
-            mask: {
-              to: "/g/$slug/c/$clipId",
-              params: { slug: entry.gameSlug, clipId: entry.id },
-            },
-          }
+              mask: {
+                to: "/g/$slug/c/$clipId",
+                params: { slug: entry.gameSlug, clipId: entry.id },
+              },
+            }
           : {}),
         replace: true,
       })
@@ -65,25 +64,23 @@ function AppLayout() {
     [navigate],
   )
 
-  return allowed
-    ? (
-      <AppSearchProvider>
-        <UploadFlowProvider>
-          <AppShell>
-            <AppChrome />
-            <Outlet />
-            <UploadFlow />
-          </AppShell>
-        </UploadFlowProvider>
-        <ClipViewerDialog
-          clipId={clip ?? null}
-          focusedCommentId={comment ?? null}
-          onClose={handleCloseClipModal}
-          onNavigate={handleNavigateClip}
-        />
-      </AppSearchProvider>
-    )
-    : null
+  return allowed ? (
+    <AppSearchProvider>
+      <UploadFlowProvider>
+        <AppShell>
+          <AppChrome />
+          <Outlet />
+          <UploadFlow />
+        </AppShell>
+      </UploadFlowProvider>
+      <ClipViewerDialog
+        clipId={clip ?? null}
+        focusedCommentId={comment ?? null}
+        onClose={handleCloseClipModal}
+        onNavigate={handleNavigateClip}
+      />
+    </AppSearchProvider>
+  ) : null
 }
 
 const AppChrome = React.memo(function AppChrome() {

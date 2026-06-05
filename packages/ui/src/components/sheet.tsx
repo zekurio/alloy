@@ -1,11 +1,10 @@
 "use client"
 
-import * as React from "react"
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
-
-import { XIcon } from "lucide-react"
-import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
+import { cn } from "@workspace/ui/lib/utils"
+import { XIcon } from "lucide-react"
+import * as React from "react"
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
@@ -60,23 +59,21 @@ function SheetContent({
         {...props}
       >
         {children}
-        {showCloseButton
-          ? (
-            <SheetPrimitive.Close
-              data-slot="sheet-close"
-              render={
-                <Button
-                  variant="ghost"
-                  className="absolute top-3 right-3"
-                  size="icon-sm"
-                />
-              }
-            >
-              <XIcon />
-              <span className="sr-only">Close</span>
-            </SheetPrimitive.Close>
-          )
-          : null}
+        {showCloseButton ? (
+          <SheetPrimitive.Close
+            data-slot="sheet-close"
+            render={
+              <Button
+                variant="ghost"
+                className="absolute top-3 right-3"
+                size="icon-sm"
+              />
+            }
+          >
+            <XIcon />
+            <span className="sr-only">Close</span>
+          </SheetPrimitive.Close>
+        ) : null}
       </SheetPrimitive.Popup>
     </SheetPortal>
   )

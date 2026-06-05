@@ -27,15 +27,13 @@ const USER_STATUS_SET: ReadonlySet<string> = new Set(USER_STATUSES)
 
 export function validateAuthUser(value: unknown): AuthUser {
   const user = objectRecord(value, "auth user")
-  for (
-    const key of [
-      "id",
-      "email",
-      "username",
-      "createdAt",
-      "updatedAt",
-    ] as const
-  ) {
+  for (const key of [
+    "id",
+    "email",
+    "username",
+    "createdAt",
+    "updatedAt",
+  ] as const) {
     validateRequiredString(
       user[key],
       `Invalid auth user response: ${key} is required`,

@@ -5,7 +5,6 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from "@tanstack/react-query"
-
 import type {
   ClipRow,
   GameClipsParams,

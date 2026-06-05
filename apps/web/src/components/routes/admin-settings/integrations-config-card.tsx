@@ -1,15 +1,9 @@
-import * as React from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { SaveIcon } from "lucide-react"
-
+import type {
+  AdminIntegrationsConfig,
+  AdminRuntimeConfig,
+} from "@workspace/api"
 import { Button } from "@workspace/ui/components/button"
-import {
-  Section,
-  SectionContent,
-  SectionFooter,
-  SectionHeader,
-  SectionTitle,
-} from "@workspace/ui/components/section"
 import {
   Field,
   FieldDescription,
@@ -19,12 +13,16 @@ import {
   InputGroup,
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
+import {
+  Section,
+  SectionContent,
+  SectionFooter,
+  SectionHeader,
+  SectionTitle,
+} from "@workspace/ui/components/section"
 import { toast } from "@workspace/ui/lib/toast"
-
-import type {
-  AdminIntegrationsConfig,
-  AdminRuntimeConfig,
-} from "@workspace/api"
+import { SaveIcon } from "lucide-react"
+import * as React from "react"
 
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
@@ -120,9 +118,9 @@ export function IntegrationsConfigCard({
                   className="pl-3.5"
                   autoComplete="new-password"
                   value={apiKey}
-                  placeholder={steamgriddbConfigured
-                    ? "Leave blank to keep current"
-                    : ""}
+                  placeholder={
+                    steamgriddbConfigured ? "Leave blank to keep current" : ""
+                  }
                   onChange={(e) => setApiKey(e.target.value)}
                 />
               </InputGroup>

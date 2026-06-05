@@ -47,9 +47,10 @@ export function createApi(
   input: string | CreateApiOptions,
   init?: RequestInit,
 ): AlloyApi {
-  const context = typeof input === "string"
-    ? createApiContext({ baseURL: input, init })
-    : createApiContext(input)
+  const context =
+    typeof input === "string"
+      ? createApiContext({ baseURL: input, init })
+      : createApiContext(input)
 
   return {
     ...context,

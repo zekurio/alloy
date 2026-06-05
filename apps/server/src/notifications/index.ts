@@ -1,5 +1,3 @@
-import { and, count, desc, eq, gt, isNull } from "drizzle-orm"
-
 import type {
   NotificationRow,
   NotificationsResponse,
@@ -10,7 +8,6 @@ import {
   NOTIFICATIONS_MAX_LIMIT,
 } from "@workspace/contracts"
 import { user } from "@workspace/db/auth-schema"
-import { logger } from "@workspace/logging"
 import {
   clip,
   clipComment,
@@ -18,8 +15,11 @@ import {
   game,
   notification,
 } from "@workspace/db/schema"
+import { logger } from "@workspace/logging"
+import { and, count, desc, eq, gt, isNull } from "drizzle-orm"
 
 import { db } from "../db"
+import { serialiseNullableUserSummary } from "../routes/users-helpers"
 import { isoDate, nullableIsoDate } from "../runtime/date"
 import {
   publishNotificationRead,
@@ -28,7 +28,6 @@ import {
   publishNotificationsReadAll,
   publishNotificationUpsert,
 } from "./events"
-import { serialiseNullableUserSummary } from "../routes/users-helpers"
 
 const NEW_VIDEO_FANOUT_BATCH_SIZE = 10
 const NEW_VIDEO_FANOUT_PAGE_SIZE = 100
@@ -78,18 +77,20 @@ function serialize(row: {
       name: row.actorName,
       image: row.actorImage,
     }),
-    clip: row.clipId && row.clipTitle && row.gameSlug && row.clipUpdatedAt
-      ? {
-        id: row.clipId,
-        title: row.clipTitle,
-        gameSlug: row.gameSlug,
-        hasThumb: row.clipThumbKey !== null,
-        updatedAt: isoDate(row.clipUpdatedAt),
-      }
-      : null,
-    comment: row.commentId && row.commentBody
-      ? { id: row.commentId, body: row.commentBody }
-      : null,
+    clip:
+      row.clipId && row.clipTitle && row.gameSlug && row.clipUpdatedAt
+        ? {
+            id: row.clipId,
+            title: row.clipTitle,
+            gameSlug: row.gameSlug,
+            hasThumb: row.clipThumbKey !== null,
+            updatedAt: isoDate(row.clipUpdatedAt),
+          }
+        : null,
+    comment:
+      row.commentId && row.commentBody
+        ? { id: row.commentId, body: row.commentBody }
+        : null,
     readAt: nullableIsoDate(row.readAt),
     createdAt: isoDate(row.createdAt),
   }
@@ -288,7 +289,7 @@ export async function notifyFollowersOfNewClip(input: {
               actorId: input.authorId,
               type: "new_video",
               clipId: input.clipId,
-            })
+            }),
           ),
         )
       }

@@ -47,11 +47,9 @@ To test unreleased changes, opt into dev explicitly:
 inputs.alloy.url = "github:zekurio/alloy/dev";
 ```
 
-Alloy deliberately builds against its own pinned `nixpkgs` from `flake.lock`. Do
-**not** set `inputs.alloy.inputs.nixpkgs.follows = "nixpkgs"`: the server is
-produced with `deno compile`, whose runtime (`denort`) is fetched for one exact
-Deno version. Building against a different `nixpkgs`/Deno can fail with a hash
-mismatch.
+Alloy deliberately builds against its own pinned `nixpkgs` from `flake.lock`.
+The package build uses the pinned Node/pnpm toolchain and lockfile, so build
+inputs should be bumped together with `flake.lock` and `pnpm-lock.yaml`.
 
 Alloy publishes a [Cachix](https://www.cachix.org/) binary cache. The flake does
 not configure it automatically, so opt in explicitly if you want prebuilt
@@ -155,28 +153,27 @@ You can also enter it manually:
 devenv shell
 ```
 
-The devenv shell provides Deno, uv, Python 3.11, PostgreSQL 17 client tools,
-ffmpeg, ImageMagick, native runtime libraries, and the local PostgreSQL service.
-It pins `nixpkgs` through `devenv.lock`; keep that in sync with `flake.lock` so
-the local Deno version stays aligned with the packaged server's `denort`
-runtime.
+The devenv shell provides Node 24, pnpm, uv, Python 3.11, PostgreSQL 17 client
+tools, ffmpeg, ImageMagick, native runtime libraries, and the local PostgreSQL
+service. It pins `nixpkgs` through `devenv.lock`; keep that in sync with
+`flake.lock` so local tooling stays aligned with packaging.
 
-Install Deno dependencies:
+Install pnpm dependencies:
 
 ```bash
-deno install
+pnpm install
 ```
 
 Start the full dev loop:
 
 ```bash
-deno task dev
+pnpm dev
 ```
 
 This command:
 
 1. Starts local PostgreSQL through devenv if it is not already running.
-2. Applies the dev schema with `deno task db:push`.
+2. Applies the dev schema with `pnpm db:push`.
 3. Starts the API server, Vite web app, and ML service.
 
 Open http://localhost:5173.
@@ -184,9 +181,9 @@ Open http://localhost:5173.
 Before considering a change complete, run:
 
 ```bash
-deno task fmt
-deno task lint
-deno task typecheck
+pnpm fmt
+pnpm lint
+pnpm typecheck
 ```
 
 ## Contributing
@@ -198,7 +195,7 @@ typecheck checks for pull requests and pushes to `dev` and `main`.
 
 Feature and fix PRs should target `dev`. After dev has been validated, run the
 **Prepare Release** workflow with the target version. It opens or updates a
-release PR from `dev` to `main` and bumps `deno.json`.
+release PR from `dev` to `main` and bumps `package.json`.
 
 The **Publish Dev/Nightly Container Image** workflow publishes `nightly` and
 `nightly-<short-sha>` container tags from `dev` on its nightly schedule. Manual

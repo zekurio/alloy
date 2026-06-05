@@ -66,7 +66,7 @@ export function optionalBlankToNullTrimmedString(max: number) {
     .max(max)
     .optional()
     .transform((value) =>
-      value === undefined ? undefined : value.length > 0 ? value : null
+      value === undefined ? undefined : value.length > 0 ? value : null,
     )
 }
 
@@ -78,7 +78,11 @@ export function optionalNullableBlankToNullTrimmedString(max: number) {
     .optional()
     .nullable()
     .transform((value) =>
-      value === undefined ? undefined : value && value.length > 0 ? value : null
+      value === undefined
+        ? undefined
+        : value && value.length > 0
+          ? value
+          : null,
     )
 }
 

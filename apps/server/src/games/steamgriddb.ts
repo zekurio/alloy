@@ -1,11 +1,11 @@
-import { z } from "zod"
-
 import type {
   SteamGridDBAsset,
   SteamGridDBGameDetail,
   SteamGridDBSearchResult,
 } from "@workspace/contracts"
 import { logger } from "@workspace/logging"
+import { z } from "zod"
+
 import { secretStore } from "../config/secret-store"
 import { errorMessage, isAbortError } from "../runtime/error-message"
 
@@ -183,10 +183,8 @@ function cacheSet(id: number, url: string | null) {
 async function resolveIconUrl(id: number): Promise<string | null> {
   const cached = cacheGet(id)
   if (cached !== undefined) return cached
-  const asset = await optionalSteamGridDBAsset(
-    "icon",
-    id,
-    () => getFirstIcon(id),
+  const asset = await optionalSteamGridDBAsset("icon", id, () =>
+    getFirstIcon(id),
   )
   const url = asset?.url ?? null
   cacheSet(id, url)
@@ -277,25 +275,17 @@ export async function getGameAssets(steamgriddbId: number): Promise<{
   iconUrl: string | null
 }> {
   const [hero, grid, logo, icon] = await Promise.all([
-    optionalSteamGridDBAsset(
-      "hero",
-      steamgriddbId,
-      () => getFirstHero(steamgriddbId),
+    optionalSteamGridDBAsset("hero", steamgriddbId, () =>
+      getFirstHero(steamgriddbId),
     ),
-    optionalSteamGridDBAsset(
-      "grid",
-      steamgriddbId,
-      () => getFirstGrid(steamgriddbId),
+    optionalSteamGridDBAsset("grid", steamgriddbId, () =>
+      getFirstGrid(steamgriddbId),
     ),
-    optionalSteamGridDBAsset(
-      "logo",
-      steamgriddbId,
-      () => getFirstLogo(steamgriddbId),
+    optionalSteamGridDBAsset("logo", steamgriddbId, () =>
+      getFirstLogo(steamgriddbId),
     ),
-    optionalSteamGridDBAsset(
-      "icon",
-      steamgriddbId,
-      () => getFirstIcon(steamgriddbId),
+    optionalSteamGridDBAsset("icon", steamgriddbId, () =>
+      getFirstIcon(steamgriddbId),
     ),
   ])
   return {

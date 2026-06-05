@@ -1,6 +1,6 @@
+import { Button } from "@workspace/ui/components/button"
 import * as React from "react"
 import { type ExternalToast, toast as sonnerToast } from "sonner"
-import { Button } from "@workspace/ui/components/button"
 
 let toastCounter = 0
 

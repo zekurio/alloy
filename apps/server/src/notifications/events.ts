@@ -13,14 +13,11 @@ export function publishNotificationUpsert(
   notification: NotificationRow,
   unreadCount: number,
 ): void {
-  publish(
-    channel(recipientId),
-    {
-      type: "upsert",
-      notification,
-      unreadCount,
-    } satisfies NotificationEvent,
-  )
+  publish(channel(recipientId), {
+    type: "upsert",
+    notification,
+    unreadCount,
+  } satisfies NotificationEvent)
 }
 
 export function publishNotificationRead(
@@ -29,15 +26,12 @@ export function publishNotificationRead(
   readAt: string,
   unreadCount: number,
 ): void {
-  publish(
-    channel(recipientId),
-    {
-      type: "read",
-      id,
-      readAt,
-      unreadCount,
-    } satisfies NotificationEvent,
-  )
+  publish(channel(recipientId), {
+    type: "read",
+    id,
+    readAt,
+    unreadCount,
+  } satisfies NotificationEvent)
 }
 
 export function publishNotificationsReadAll(
@@ -45,14 +39,11 @@ export function publishNotificationsReadAll(
   readAt: string,
   unreadCount: number,
 ): void {
-  publish(
-    channel(recipientId),
-    {
-      type: "read_all",
-      readAt,
-      unreadCount,
-    } satisfies NotificationEvent,
-  )
+  publish(channel(recipientId), {
+    type: "read_all",
+    readAt,
+    unreadCount,
+  } satisfies NotificationEvent)
 }
 
 export function publishNotificationRemove(
@@ -60,27 +51,21 @@ export function publishNotificationRemove(
   id: string,
   unreadCount: number,
 ): void {
-  publish(
-    channel(recipientId),
-    {
-      type: "remove",
-      id,
-      unreadCount,
-    } satisfies NotificationEvent,
-  )
+  publish(channel(recipientId), {
+    type: "remove",
+    id,
+    unreadCount,
+  } satisfies NotificationEvent)
 }
 
 export function publishNotificationsClear(
   recipientId: string,
   unreadCount: number,
 ): void {
-  publish(
-    channel(recipientId),
-    {
-      type: "clear",
-      unreadCount,
-    } satisfies NotificationEvent,
-  )
+  publish(channel(recipientId), {
+    type: "clear",
+    unreadCount,
+  } satisfies NotificationEvent)
 }
 
 export function subscribeToNotifications(

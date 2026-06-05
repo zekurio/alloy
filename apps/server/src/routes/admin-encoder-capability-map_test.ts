@@ -1,3 +1,5 @@
+import { test } from "node:test"
+
 import {
   emptyEncoderAvailability,
   encoderAvailabilityFromNames,
@@ -8,7 +10,7 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
-Deno.test("encoderAvailabilityFromNames maps software encoder names", () => {
+test("encoderAvailabilityFromNames maps software encoder names", () => {
   const available = encoderAvailabilityFromNames(
     new Set(["libx264", "libx265", "libsvtav1"]),
   )
@@ -19,7 +21,7 @@ Deno.test("encoderAvailabilityFromNames maps software encoder names", () => {
   assert(!available.nvenc.h264, "NVENC should remain unavailable")
 })
 
-Deno.test("encoderAvailabilityFromNames maps hardware backend encoder names", () => {
+test("encoderAvailabilityFromNames maps hardware backend encoder names", () => {
   const available = encoderAvailabilityFromNames(
     new Set(["h264_qsv", "hevc_qsv", "av1_nvenc"]),
   )
@@ -30,7 +32,7 @@ Deno.test("encoderAvailabilityFromNames maps hardware backend encoder names", ()
   assert(available.nvenc.av1, "NVENC AV1 should be available")
 })
 
-Deno.test("emptyEncoderAvailability reports every backend unavailable", () => {
+test("emptyEncoderAvailability reports every backend unavailable", () => {
   const available = emptyEncoderAvailability()
 
   for (const codecs of Object.values(available)) {
@@ -40,7 +42,7 @@ Deno.test("emptyEncoderAvailability reports every backend unavailable", () => {
   }
 })
 
-Deno.test("encoderAvailabilityFromProbe requires QSV hwaccel", () => {
+test("encoderAvailabilityFromProbe requires QSV hwaccel", () => {
   const withoutHwaccel = encoderAvailabilityFromProbe({
     encoders: new Set(["h264_qsv"]),
     filters: new Set(),
@@ -56,7 +58,7 @@ Deno.test("encoderAvailabilityFromProbe requires QSV hwaccel", () => {
   assert(withHwaccel.qsv.h264, "QSV H.264 should be available with hwaccel")
 })
 
-Deno.test("encoderAvailabilityFromProbe requires VAAPI hwaccels and filters", () => {
+test("encoderAvailabilityFromProbe requires VAAPI hwaccels and filters", () => {
   const encoders = new Set(["hevc_vaapi"])
   const filters = new Set(["hwupload_vaapi"])
 
@@ -78,14 +80,10 @@ Deno.test("encoderAvailabilityFromProbe requires VAAPI hwaccels and filters", ()
   )
 })
 
-Deno.test("encoderAvailabilityFromProbe gates NVENC and RKMPP support", () => {
+test("encoderAvailabilityFromProbe gates NVENC and RKMPP support", () => {
   const available = encoderAvailabilityFromProbe({
     encoders: new Set(["av1_nvenc", "h264_rkmpp"]),
-    filters: new Set([
-      "scale_rkrga",
-      "vpp_rkrga",
-      "overlay_rkrga",
-    ]),
+    filters: new Set(["scale_rkrga", "vpp_rkrga", "overlay_rkrga"]),
     hwaccels: new Set(["cuda", "rkmpp"]),
   })
   const missingFilters = encoderAvailabilityFromProbe({
@@ -103,7 +101,7 @@ Deno.test("encoderAvailabilityFromProbe gates NVENC and RKMPP support", () => {
   assert(!missingFilters.rkmpp.h264, "RKMPP should require RKRGA filters")
 })
 
-Deno.test("encoderAvailabilityFromProbe does not require unused VideoToolbox filters", () => {
+test("encoderAvailabilityFromProbe does not require unused VideoToolbox filters", () => {
   const withoutFilters = encoderAvailabilityFromProbe({
     encoders: new Set(["h264_videotoolbox"]),
     filters: new Set(),

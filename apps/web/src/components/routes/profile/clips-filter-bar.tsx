@@ -1,6 +1,4 @@
 import { Link, useNavigate } from "@tanstack/react-router"
-import { ChevronDownIcon, XIcon } from "lucide-react"
-
 import { Chip } from "@workspace/ui/components/chip"
 import {
   DropdownMenu,
@@ -9,6 +7,7 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 import { GameIcon } from "@workspace/ui/components/game-icon"
+import { ChevronDownIcon, XIcon } from "lucide-react"
 
 import {
   filterLabelClass,
@@ -79,71 +78,67 @@ export function ClipsFilterBar({
       />
 
       {/* Vertical divider */}
-      {gameOptions.length > 0
-        ? <span aria-hidden className="h-5 w-px bg-border" />
-        : null}
+      {gameOptions.length > 0 ? (
+        <span aria-hidden className="bg-border h-5 w-px" />
+      ) : null}
 
       {/* Game filter */}
-      {gameOptions.length > 0
-        ? (
-          <div className="flex items-center gap-1.5">
-            <span className={filterLabelClass}>Game</span>
-            {gameSlug && selectedGame
-              ? (
-                <Chip
-                  size="xl"
-                  data-active="true"
-                  onClick={clearGame}
-                  aria-label={`Clear game filter: ${selectedGame.name}`}
-                  title={selectedGame.name}
-                >
-                  <GameIcon
-                    src={selectedGame.iconUrl ?? selectedGame.logoUrl}
-                    name={selectedGame.name}
-                  />
-                  {selectedGame.name}
-                  <XIcon />
-                </Chip>
-              )
-              : (
-                <DropdownMenu>
-                  <DropdownMenuTrigger
+      {gameOptions.length > 0 ? (
+        <div className="flex items-center gap-1.5">
+          <span className={filterLabelClass}>Game</span>
+          {gameSlug && selectedGame ? (
+            <Chip
+              size="xl"
+              data-active="true"
+              onClick={clearGame}
+              aria-label={`Clear game filter: ${selectedGame.name}`}
+              title={selectedGame.name}
+            >
+              <GameIcon
+                src={selectedGame.iconUrl ?? selectedGame.logoUrl}
+                name={selectedGame.name}
+              />
+              {selectedGame.name}
+              <XIcon />
+            </Chip>
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Chip size="xl">
+                    All games
+                    <ChevronDownIcon />
+                  </Chip>
+                }
+              />
+              <DropdownMenuContent className="max-h-64 w-56">
+                {gameOptions.map((g) => (
+                  <DropdownMenuItem
+                    key={g.slug}
                     render={
-                      <Chip size="xl">
-                        All games
-                        <ChevronDownIcon />
-                      </Chip>
+                      <Link
+                        to="/u/$username/all"
+                        params={{ username }}
+                        search={profileAllSearchFor(sort, g.slug)}
+                      />
                     }
-                  />
-                  <DropdownMenuContent className="max-h-64 w-56">
-                    {gameOptions.map((g) => (
-                      <DropdownMenuItem
-                        key={g.slug}
-                        render={
-                          <Link
-                            to="/u/$username/all"
-                            params={{ username }}
-                            search={profileAllSearchFor(sort, g.slug)}
-                          />
-                        }
-                      >
-                        <GameIcon
-                          src={g.iconUrl ?? g.logoUrl}
-                          name={g.name}
-                          size="sm"
-                        />
-                        <span className="truncate">{g.name}</span>
-                        <span className="ml-auto text-xs font-semibold text-foreground-muted tabular-nums">
-                          {g.count}
-                        </span>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-          </div>
-        )
-        : null}
+                  >
+                    <GameIcon
+                      src={g.iconUrl ?? g.logoUrl}
+                      name={g.name}
+                      size="sm"
+                    />
+                    <span className="truncate">{g.name}</span>
+                    <span className="text-foreground-muted ml-auto text-xs font-semibold tabular-nums">
+                      {g.count}
+                    </span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+      ) : null}
     </div>
   )
 }

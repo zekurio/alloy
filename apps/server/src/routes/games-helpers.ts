@@ -100,12 +100,13 @@ export function sgdbErrorResponse(
     return { status: 503, error: err.message }
   }
   if (err instanceof SteamGridDBError) {
-    const status = err.status === null ||
-        err.status >= 500 ||
-        err.status === 401 ||
-        err.status === 403
-      ? 503
-      : 502
+    const status =
+      err.status === null ||
+      err.status >= 500 ||
+      err.status === 401 ||
+      err.status === 403
+        ? 503
+        : 502
     return { status, error: err.message }
   }
   return {

@@ -12,7 +12,7 @@ function dirFromEnv(value: string | undefined, fallback: string): string {
 /** App-owned data root: config, login splash, user assets, ML cache. */
 export const DATA_DIR = dirFromEnv(
   env.ALLOY_DATA_DIR,
-  resolve(Deno.cwd(), "data"),
+  resolve(process.cwd(), "data"),
 )
 
 /** Runtime config file, always alongside the rest of the app data. */

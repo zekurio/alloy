@@ -1,6 +1,5 @@
-import * as React from "react"
-
 import { cn } from "@workspace/ui/lib/utils"
+import * as React from "react"
 
 import { pickEmptyStateKaomoji } from "@/lib/kaomoji"
 
@@ -57,8 +56,8 @@ export function EmptyState({
         {face}
       </span>
       <div className="flex flex-col gap-1 px-6">
-        <p className="text-sm font-medium text-foreground">{title}</p>
-        {hint ? <p className="text-sm text-foreground-dim">{hint}</p> : null}
+        <p className="text-foreground text-sm font-medium">{title}</p>
+        {hint ? <p className="text-foreground-dim text-sm">{hint}</p> : null}
       </div>
       {action ? <div className="mt-1">{action}</div> : null}
     </div>

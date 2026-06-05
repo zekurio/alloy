@@ -1,18 +1,18 @@
-import * as React from "react"
 import { useNavigate } from "@tanstack/react-router"
-import { FilmIcon, GamepadIcon, SearchIcon, UserIcon } from "lucide-react"
-
+import type { ClipRow, GameListRow } from "@workspace/api"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { useDocumentEvent } from "@workspace/ui/hooks/use-document-event"
 import { useWindowEvent } from "@workspace/ui/hooks/use-window-event"
 import { cn } from "@workspace/ui/lib/utils"
-
-import type { ClipRow, GameListRow } from "@workspace/api"
+import { FilmIcon, GamepadIcon, SearchIcon, UserIcon } from "lucide-react"
+import * as React from "react"
 
 import type { AppSearch } from "@/lib/app-search"
 import { errorMessage } from "@/lib/error-message"
-import { useAppSearch } from "./app-search"
 import { type UserListRow, useSearchQuery } from "@/lib/search-api"
+
+import { useAppSearch } from "./app-search"
+import { quote } from "./search-format"
 import {
   ClipRowItem,
   EmptyBlock,
@@ -20,7 +20,6 @@ import {
   GroupLabel,
   UserRowItem,
 } from "./search-result-items"
-import { quote } from "./search-format"
 
 type FlatItem =
   | { kind: "game"; id: string; optionId: string; row: GameListRow }
@@ -59,11 +58,11 @@ function useSearchPopoverState(
         search: (prev: AppSearch) => ({ ...prev, clip: row.id }),
         ...(slug
           ? {
-            mask: {
-              to: "/g/$slug/c/$clipId",
-              params: { slug, clipId: row.id },
-            },
-          }
+              mask: {
+                to: "/g/$slug/c/$clipId",
+                params: { slug, clipId: row.id },
+              },
+            }
           : {}),
       })
     },
@@ -238,48 +237,47 @@ export function SearchResultsPopover() {
   } = useSearchPopoverState(flat, open, clear, setOpen)
 
   const showPopover = open && query.trim().length > 0
-  const activeOptionId = showPopover && flat.length > 0
-    ? flat[activeIndex]?.optionId
-    : undefined
+  const activeOptionId =
+    showPopover && flat.length > 0 ? flat[activeIndex]?.optionId : undefined
 
   useSearchInputA11y(bridgeRef, showPopover, listboxId, activeOptionId)
 
   return (
     <>
       <span ref={bridgeRef} hidden />
-      {showPopover
-        ? (
-          <div
-            id={listboxId}
-            ref={rootRef}
-            role="listbox"
-            aria-label="Search results"
-            className={cn(
-              "absolute top-[calc(100%+0.5rem)] right-0 left-0 z-50",
-              "alloy-blur overflow-hidden rounded-md border",
-              "animate-in duration-100 fade-in-0 zoom-in-95",
-            )}
-            style={{
+      {showPopover ? (
+        <div
+          id={listboxId}
+          ref={rootRef}
+          role="listbox"
+          aria-label="Search results"
+          className={cn(
+            "absolute top-[calc(100%+0.5rem)] right-0 left-0 z-50",
+            "alloy-blur overflow-hidden rounded-md border",
+            "animate-in duration-100 fade-in-0 zoom-in-95",
+          )}
+          style={
+            {
               "--alloy-blur-opacity": "82%",
               "--alloy-blur-blur": "28px",
               "--alloy-blur-shadow": "0 24px 60px -28px rgb(0 0 0 / 0.78)",
-            } as React.CSSProperties}
-            onMouseDown={(event) => event.preventDefault()}
-          >
-            <SearchResultsBody
-              query={deferredQuery}
-              isFetching={isFetching}
-              error={error}
-              flat={flat}
-              activeIndex={activeIndex}
-              onHover={setActiveIndex}
-              onCommitClip={commitClip}
-              onCommitGame={commitGame}
-              onCommitUser={commitUser}
-            />
-          </div>
-        )
-        : null}
+            } as React.CSSProperties
+          }
+          onMouseDown={(event) => event.preventDefault()}
+        >
+          <SearchResultsBody
+            query={deferredQuery}
+            isFetching={isFetching}
+            error={error}
+            flat={flat}
+            activeIndex={activeIndex}
+            onHover={setActiveIndex}
+            onCommitClip={commitClip}
+            onCommitGame={commitGame}
+            onCommitUser={commitUser}
+          />
+        </div>
+      ) : null}
     </>
   )
 }
@@ -319,7 +317,7 @@ function SearchResultsBody({
   }
   if (!hasResults && isFetching) {
     return (
-      <div className="flex items-center gap-2.5 px-3 py-4 text-sm font-semibold text-foreground-muted">
+      <div className="text-foreground-muted flex items-center gap-2.5 px-3 py-4 text-sm font-semibold">
         <Spinner className="size-3.5" />
         Searching for {quote(query)}…
       </div>
@@ -330,9 +328,9 @@ function SearchResultsBody({
       <EmptyBlock
         icon={<SearchIcon />}
         title="No matches"
-        hint={`Nothing found for ${
-          quote(query)
-        }. Try a different title, game, or creator.`}
+        hint={`Nothing found for ${quote(
+          query,
+        )}. Try a different title, game, or creator.`}
       />
     )
   }
@@ -357,75 +355,69 @@ function SearchResultsBody({
         "font-sans",
       )}
     >
-      {games.length > 0
-        ? (
-          <section>
-            <GroupLabel icon={<GamepadIcon />}>Games</GroupLabel>
-            <ul>
-              {games.map((item, localIdx) => {
-                const globalIdx = localIdx
-                return (
-                  <li key={item.id}>
-                    <GameRowItem
-                      id={item.optionId}
-                      row={item.row}
-                      active={activeIndex === globalIdx}
-                      onHover={() => onHover(globalIdx)}
-                      onSelect={() => onCommitGame(item.row)}
-                    />
-                  </li>
-                )
-              })}
-            </ul>
-          </section>
-        )
-        : null}
-      {users.length > 0
-        ? (
-          <section>
-            <GroupLabel icon={<UserIcon />}>Users</GroupLabel>
-            <ul>
-              {users.map((item, localIdx) => {
-                const globalIdx = firstUserIndex + localIdx
-                return (
-                  <li key={item.id}>
-                    <UserRowItem
-                      id={item.optionId}
-                      row={item.row}
-                      active={activeIndex === globalIdx}
-                      onHover={() => onHover(globalIdx)}
-                      onSelect={() => onCommitUser(item.row)}
-                    />
-                  </li>
-                )
-              })}
-            </ul>
-          </section>
-        )
-        : null}
-      {clips.length > 0
-        ? (
-          <section>
-            <GroupLabel icon={<FilmIcon />}>Clips</GroupLabel>
-            <ul>
-              {clips.map((item, localIdx) => {
-                const globalIdx = firstClipIndex + localIdx
-                return (
-                  <li key={item.id}>
-                    <ClipRowItem
-                      id={item.optionId}
-                      row={item.row}
-                      active={activeIndex === globalIdx}
-                      onHover={() => onHover(globalIdx)}
-                      onSelect={() => onCommitClip(item.row)}
-                    />
-                  </li>
-                )
-              })}
-            </ul>
-          </section>
-        )
-        : null}
+      {games.length > 0 ? (
+        <section>
+          <GroupLabel icon={<GamepadIcon />}>Games</GroupLabel>
+          <ul>
+            {games.map((item, localIdx) => {
+              const globalIdx = localIdx
+              return (
+                <li key={item.id}>
+                  <GameRowItem
+                    id={item.optionId}
+                    row={item.row}
+                    active={activeIndex === globalIdx}
+                    onHover={() => onHover(globalIdx)}
+                    onSelect={() => onCommitGame(item.row)}
+                  />
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      ) : null}
+      {users.length > 0 ? (
+        <section>
+          <GroupLabel icon={<UserIcon />}>Users</GroupLabel>
+          <ul>
+            {users.map((item, localIdx) => {
+              const globalIdx = firstUserIndex + localIdx
+              return (
+                <li key={item.id}>
+                  <UserRowItem
+                    id={item.optionId}
+                    row={item.row}
+                    active={activeIndex === globalIdx}
+                    onHover={() => onHover(globalIdx)}
+                    onSelect={() => onCommitUser(item.row)}
+                  />
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      ) : null}
+      {clips.length > 0 ? (
+        <section>
+          <GroupLabel icon={<FilmIcon />}>Clips</GroupLabel>
+          <ul>
+            {clips.map((item, localIdx) => {
+              const globalIdx = firstClipIndex + localIdx
+              return (
+                <li key={item.id}>
+                  <ClipRowItem
+                    id={item.optionId}
+                    row={item.row}
+                    active={activeIndex === globalIdx}
+                    onHover={() => onHover(globalIdx)}
+                    onSelect={() => onCommitClip(item.row)}
+                  />
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      ) : null}
     </div>
   )
 }

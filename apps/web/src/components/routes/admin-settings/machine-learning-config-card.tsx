@@ -1,6 +1,7 @@
-import * as React from "react"
-import { SaveIcon } from "lucide-react"
-
+import type {
+  AdminMachineLearningConfig,
+  AdminRuntimeConfig,
+} from "@workspace/api"
 import { Button } from "@workspace/ui/components/button"
 import {
   Field,
@@ -17,14 +18,12 @@ import {
 } from "@workspace/ui/components/section"
 import { Switch } from "@workspace/ui/components/switch"
 import { toast } from "@workspace/ui/lib/toast"
-
-import type {
-  AdminMachineLearningConfig,
-  AdminRuntimeConfig,
-} from "@workspace/api"
+import { SaveIcon } from "lucide-react"
+import * as React from "react"
 
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
+
 import { FormGroup } from "./form-group"
 import { NumberInput } from "./number-input"
 import { emptyToNull, requiredTrimmedString, trimString } from "./shared"
@@ -135,7 +134,7 @@ function configsEqual(
 ): boolean {
   return (
     JSON.stringify(normalizedConfig(left)) ===
-      JSON.stringify(normalizedConfig(right))
+    JSON.stringify(normalizedConfig(right))
   )
 }
 
@@ -145,7 +144,7 @@ export function MachineLearningConfigCard({
   hideHeader,
 }: MachineLearningConfigCardProps) {
   const [form, setForm] = React.useState<AdminMachineLearningConfig>(() =>
-    copyConfig(machineLearning)
+    copyConfig(machineLearning),
   )
   const [pending, setPending] = React.useState(false)
 
@@ -205,14 +204,15 @@ export function MachineLearningConfigCard({
                   <div className="text-sm font-medium">
                     Upload game suggestions
                   </div>
-                  <p className="mt-0.5 text-xs text-foreground-dim">
+                  <p className="text-foreground-dim mt-0.5 text-xs">
                     Use ML predictions in the clip upload game picker.
                   </p>
                 </div>
                 <Switch
                   checked={form.enabled}
                   onCheckedChange={(enabled) =>
-                    setForm((current) => ({ ...current, enabled }))}
+                    setForm((current) => ({ ...current, enabled }))
+                  }
                 />
               </div>
 
@@ -230,7 +230,8 @@ export function MachineLearningConfigCard({
                       setForm((current) => ({
                         ...current,
                         baseUrl: e.target.value,
-                      }))}
+                      }))
+                    }
                   />
                 </Field>
 
@@ -249,7 +250,8 @@ export function MachineLearningConfigCard({
                       setForm((current) => ({
                         ...current,
                         requestTimeoutMs: value,
-                      }))}
+                      }))
+                    }
                   />
                 </Field>
               </div>
@@ -305,7 +307,8 @@ export function MachineLearningConfigCard({
                   id="ml-checkpoint-path"
                   value={form.gameClassifier.checkpointPath ?? ""}
                   onChange={(e) =>
-                    setClassifier("checkpointPath", e.target.value)}
+                    setClassifier("checkpointPath", e.target.value)
+                  }
                   placeholder="Blank uses Hugging Face"
                 />
                 <FieldDescription>

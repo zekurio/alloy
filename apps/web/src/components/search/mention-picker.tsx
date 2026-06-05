@@ -1,18 +1,17 @@
-import * as React from "react"
-import { XIcon } from "lucide-react"
-
+import type { UserSearchResult } from "@workspace/api"
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
 } from "@workspace/ui/components/avatar"
 import { cn } from "@workspace/ui/lib/utils"
+import { XIcon } from "lucide-react"
+import * as React from "react"
 
 import { useSession } from "@/lib/auth-client"
+import { useDebouncedValue } from "@/lib/use-debounced-value"
 import { userChipData } from "@/lib/user-display"
 import { useUserSearchQuery } from "@/lib/user-queries"
-import { useDebouncedValue } from "@/lib/use-debounced-value"
-import type { UserSearchResult } from "@workspace/api"
 
 interface MentionPickerProps {
   value: UserSearchResult[]
@@ -122,7 +121,7 @@ export function MentionPicker({
                 aria-label={`Remove @${handle}`}
                 onClick={() => removeUser(u.id)}
                 disabled={disabled}
-                className="text-accent-foreground/70 transition-colors hover:text-accent-foreground"
+                className="text-accent-foreground/70 hover:text-accent-foreground transition-colors"
               >
                 <XIcon className="size-3" />
               </button>
@@ -144,80 +143,71 @@ export function MentionPicker({
         />
       </div>
 
-      {showDropdown
-        ? (
-          <div
-            className={cn(
-              "absolute bottom-full z-50 mb-1 w-full rounded-md border border-border bg-surface-raised",
-              "shadow-md",
-            )}
-            role="listbox"
-          >
-            {candidates.length === 0
-              ? (
-                <div className="px-3 py-2 text-xs text-foreground-faint">
-                  {isSearching ? "Searching…" : "No matches"}
-                </div>
-              )
-              : (
-                candidates.map((user, idx) => {
-                  const active = idx === highlightIdx
-                  const chip = userChipData(user)
-                  const handle = user.displayUsername || user.username
-                  return (
-                    <button
-                      key={user.id}
-                      type="button"
-                      role="option"
-                      aria-selected={active}
-                      tabIndex={-1}
-                      onMouseEnter={() => setHighlightIdx(idx)}
-                      onMouseDown={(e) => {
-                        // mousedown so the blur doesn't fire before the pick.
-                        e.preventDefault()
-                        addUser(user)
+      {showDropdown ? (
+        <div
+          className={cn(
+            "absolute bottom-full z-50 mb-1 w-full rounded-md border border-border bg-surface-raised",
+            "shadow-md",
+          )}
+          role="listbox"
+        >
+          {candidates.length === 0 ? (
+            <div className="text-foreground-faint px-3 py-2 text-xs">
+              {isSearching ? "Searching…" : "No matches"}
+            </div>
+          ) : (
+            candidates.map((user, idx) => {
+              const active = idx === highlightIdx
+              const chip = userChipData(user)
+              const handle = user.displayUsername || user.username
+              return (
+                <button
+                  key={user.id}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  tabIndex={-1}
+                  onMouseEnter={() => setHighlightIdx(idx)}
+                  onMouseDown={(e) => {
+                    // mousedown so the blur doesn't fire before the pick.
+                    e.preventDefault()
+                    addUser(user)
+                  }}
+                  className={cn(
+                    "flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm",
+                    "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+                    active
+                      ? "bg-accent-soft text-accent"
+                      : "text-foreground hover:bg-surface-sunken",
+                  )}
+                >
+                  <Avatar size="sm">
+                    {chip.avatar.src ? (
+                      <AvatarImage src={chip.avatar.src} alt={chip.name} />
+                    ) : null}
+                    <AvatarFallback
+                      style={{
+                        backgroundColor: chip.avatar.bg,
+                        color: chip.avatar.fg,
                       }}
-                      className={cn(
-                        "flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm",
-                        "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-                        active
-                          ? "bg-accent-soft text-accent"
-                          : "text-foreground hover:bg-surface-sunken",
-                      )}
                     >
-                      <Avatar size="sm">
-                        {chip.avatar.src
-                          ? (
-                            <AvatarImage
-                              src={chip.avatar.src}
-                              alt={chip.name}
-                            />
-                          )
-                          : null}
-                        <AvatarFallback
-                          style={{
-                            backgroundColor: chip.avatar.bg,
-                            color: chip.avatar.fg,
-                          }}
-                        >
-                          {chip.avatar.initials}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">
-                          {chip.name}
-                        </span>
-                        <span className="block truncate text-xs text-foreground-faint">
-                          @{handle}
-                        </span>
-                      </span>
-                    </button>
-                  )
-                })
-              )}
-          </div>
-        )
-        : null}
+                      {chip.avatar.initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">
+                      {chip.name}
+                    </span>
+                    <span className="text-foreground-faint block truncate text-xs">
+                      @{handle}
+                    </span>
+                  </span>
+                </button>
+              )
+            })
+          )}
+        </div>
+      ) : null}
     </div>
   )
 }

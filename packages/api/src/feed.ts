@@ -1,15 +1,16 @@
-import type { ApiContext } from "./client"
 import type {
   FeedChipsResponse,
   FeedPage,
   FeedPageParams,
 } from "@workspace/contracts"
-import { readJsonOrThrow } from "./http"
-import { queryParams } from "./paths"
+
+import type { ApiContext } from "./client"
 import {
   validateFeedChipsResponse,
   validateFeedPage,
 } from "./contract-validators"
+import { readJsonOrThrow } from "./http"
+import { queryParams } from "./paths"
 
 export type {
   FeedChipGame,
@@ -25,9 +26,8 @@ export function createFeedApi(context: ApiContext) {
       const res = await context.rpc.api.feed.$get({
         query: queryParams({
           filter: params.filter.kind,
-          gameId: params.filter.kind === "game"
-            ? params.filter.gameId
-            : undefined,
+          gameId:
+            params.filter.kind === "game" ? params.filter.gameId : undefined,
           tag: params.filter.kind === "hashtag" ? params.filter.tag : undefined,
           limit: params.limit,
           cursor: params.cursor,

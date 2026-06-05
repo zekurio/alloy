@@ -1,11 +1,10 @@
 "use client"
 
-import * as React from "react"
 import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog"
-
-import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
 import { MODAL_OVERLAY_CLASS_NAME } from "@workspace/ui/lib/modal-overlay"
+import { cn } from "@workspace/ui/lib/utils"
+import * as React from "react"
 
 function AlertDialog({ ...props }: AlertDialogPrimitive.Root.Props) {
   return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />
@@ -160,9 +159,8 @@ function AlertDialogCancel({
   variant = "outline",
   size = "default",
   ...props
-}:
-  & AlertDialogPrimitive.Close.Props
-  & Pick<React.ComponentProps<typeof Button>, "variant" | "size">) {
+}: AlertDialogPrimitive.Close.Props &
+  Pick<React.ComponentProps<typeof Button>, "variant" | "size">) {
   return (
     <AlertDialogPrimitive.Close
       data-slot="alert-dialog-cancel"

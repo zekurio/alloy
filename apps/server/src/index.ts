@@ -1,11 +1,12 @@
+import { serve } from "@hono/node-server"
 import { migrateDatabase } from "@workspace/db"
 import { logger } from "@workspace/logging"
 
 import { app } from "./app"
+import { startChallengeSweeper, stopChallengeSweeper } from "./auth/webauthn"
 import { warmDatabase } from "./db"
 import { env } from "./env"
 import { startQueue, stopQueue } from "./queue"
-import { startChallengeSweeper, stopChallengeSweeper } from "./auth/webauthn"
 import { ensureLoginSplashImage } from "./routes/admin-appearance"
 import { requestShutdown } from "./runtime/shutdown"
 
@@ -17,17 +18,17 @@ try {
   await warmDatabase()
 } catch (err) {
   logger.error("[db] failed to warm database connection:", err)
-  Deno.exit(1)
+  process.exit(1)
 }
 
-const server = Deno.serve(
+const server = serve(
   {
+    fetch: app.fetch,
     port: env.PORT,
-    onListen({ hostname, port }) {
-      logger.info(`[server] listening on ${hostname}:${port}`)
-    },
   },
-  app.fetch,
+  ({ address, port }) => {
+    logger.info(`[server] listening on ${address}:${port}`)
+  },
 )
 
 void startQueue().catch((err) => {
@@ -58,9 +59,9 @@ const shutdown = () => {
       logger.error("[queue] failed to stop cleanly:", err)
     })
     .finally(() => {
-      void server.shutdown().finally(() => Deno.exit(0))
+      server.close(() => process.exit(0))
     })
 }
 
-Deno.addSignalListener("SIGINT", shutdown)
-Deno.addSignalListener("SIGTERM", shutdown)
+process.on("SIGINT", shutdown)
+process.on("SIGTERM", shutdown)

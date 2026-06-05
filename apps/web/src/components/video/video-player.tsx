@@ -1,7 +1,7 @@
 import * as React from "react"
 
-import { PlayerCore } from "./video-player-core"
 import type { HlsLevelSelection } from "./video-media-engine"
+import { PlayerCore } from "./video-player-core"
 import type { SharedPlayerProps } from "./video-player-types"
 import { type SourceSpec, sourceSpecKey, toSourceSpec } from "./video-source"
 
@@ -37,7 +37,8 @@ export function VideoPlayer({
   ...rest
 }: VideoPlayerProps) {
   const spec = React.useMemo<SourceSpec>(
-    () => hlsMasterUrl ? { kind: "hls", url: hlsMasterUrl } : toSourceSpec(src),
+    () =>
+      hlsMasterUrl ? { kind: "hls", url: hlsMasterUrl } : toSourceSpec(src),
     [hlsMasterUrl, src],
   )
   const specKey = sourceSpecKey(spec)

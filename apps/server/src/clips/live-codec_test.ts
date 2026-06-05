@@ -1,3 +1,5 @@
+import { test } from "node:test"
+
 import type {
   AdminEncoderCapabilities,
   EncoderCodec,
@@ -39,7 +41,7 @@ function capabilities(
   }
 }
 
-Deno.test("parseRequestedLiveCodecs keeps old clients on H.264", () => {
+test("parseRequestedLiveCodecs keeps old clients on H.264", () => {
   const parsed = parseRequestedLiveCodecs(undefined)
 
   assert(!parsed.explicitlyRequested, "missing query should be implicit")
@@ -47,21 +49,21 @@ Deno.test("parseRequestedLiveCodecs keeps old clients on H.264", () => {
   assert(parsed.codecs[0] === "h264", "missing query should request H.264")
 })
 
-Deno.test("parseRequestedLiveCodecs ignores unknown codecs", () => {
+test("parseRequestedLiveCodecs ignores unknown codecs", () => {
   const parsed = parseRequestedLiveCodecs("hevc, vp9, av1, none")
 
   assert(parsed.explicitlyRequested, "query should be explicit")
   assert(parsed.codecs.join(",") === "hevc,av1", "unknown codecs are ignored")
 })
 
-Deno.test("parseRequestedLiveCodecs preserves explicit empty codec support", () => {
+test("parseRequestedLiveCodecs preserves explicit empty codec support", () => {
   const parsed = parseRequestedLiveCodecs("none")
 
   assert(parsed.explicitlyRequested, "query should be explicit")
   assert(parsed.codecs.length === 0, "codecs=none should request no codecs")
 })
 
-Deno.test("selectLiveCodecFromCapabilities fails when ffmpeg is unavailable", () => {
+test("selectLiveCodecFromCapabilities fails when ffmpeg is unavailable", () => {
   const caps = capabilities("none", ["h264", "hevc", "av1"])
   caps.ffmpegOk = false
 
@@ -70,7 +72,7 @@ Deno.test("selectLiveCodecFromCapabilities fails when ffmpeg is unavailable", ()
   assert(selected === null, "unavailable ffmpeg should fail live selection")
 })
 
-Deno.test("selectLiveCodecFromCapabilities uses AV1, HEVC, H.264 priority", () => {
+test("selectLiveCodecFromCapabilities uses AV1, HEVC, H.264 priority", () => {
   const selected = selectLiveCodecFromCapabilities(
     "nvenc",
     ["h264", "av1", "hevc"],
@@ -84,7 +86,7 @@ Deno.test("selectLiveCodecFromCapabilities uses AV1, HEVC, H.264 priority", () =
   )
 })
 
-Deno.test("selectLiveCodecFromCapabilities does not fall back to another backend", () => {
+test("selectLiveCodecFromCapabilities does not fall back to another backend", () => {
   const caps = capabilities("qsv", ["h264"])
   caps.available.none.av1 = true
   caps.available.none.hevc = true
@@ -94,7 +96,7 @@ Deno.test("selectLiveCodecFromCapabilities does not fall back to another backend
   assert(selected === null, "missing configured-backend codecs should fail")
 })
 
-Deno.test("selectLiveCodecFromCapabilities returns lower priority configured codec", () => {
+test("selectLiveCodecFromCapabilities returns lower priority configured codec", () => {
   const selected = selectLiveCodecFromCapabilities(
     "vaapi",
     ["av1", "hevc", "h264"],

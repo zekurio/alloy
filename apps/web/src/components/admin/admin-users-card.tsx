@@ -1,11 +1,9 @@
-import * as React from "react"
 import {
   type QueryClient,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import { PencilIcon, SaveIcon, Trash2Icon } from "lucide-react"
-
+import type { AdminUsersResponse, AdminUserStorageRow } from "@workspace/api"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,13 +22,13 @@ import {
 } from "@workspace/ui/components/avatar"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
-import { List, ListItem } from "@workspace/ui/components/list"
 import {
-  Section,
-  SectionContent,
-  SectionHeader,
-  SectionTitle,
-} from "@workspace/ui/components/section"
+  Field,
+  FieldDescription,
+  FieldLabel,
+} from "@workspace/ui/components/field"
+import { Input } from "@workspace/ui/components/input"
+import { List, ListItem } from "@workspace/ui/components/list"
 import {
   ResponsiveDialog,
   ResponsiveDialogBody,
@@ -43,11 +41,11 @@ import {
   ResponsiveDialogTrigger,
 } from "@workspace/ui/components/responsive-dialog"
 import {
-  Field,
-  FieldDescription,
-  FieldLabel,
-} from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
+  Section,
+  SectionContent,
+  SectionHeader,
+  SectionTitle,
+} from "@workspace/ui/components/section"
 import {
   Select,
   SelectContent,
@@ -57,14 +55,16 @@ import {
 } from "@workspace/ui/components/select"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { toast } from "@workspace/ui/lib/toast"
+import { PencilIcon, SaveIcon, Trash2Icon } from "lucide-react"
+import * as React from "react"
 
-import { api } from "@/lib/api"
 import { adminKeys, adminUsersQueryOptions } from "@/lib/admin-query-keys"
-import { formatQuotaGiB, parseQuotaGiB } from "@/lib/storage-format"
+import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
-import { userKeys } from "@/lib/user-queries"
+import { formatQuotaGiB, parseQuotaGiB } from "@/lib/storage-format"
 import { displayName, userAvatar } from "@/lib/user-display"
-import type { AdminUsersResponse, AdminUserStorageRow } from "@workspace/api"
+import { userKeys } from "@/lib/user-queries"
+
 import { normalizeRole } from "./admin-user-role"
 
 type AdminUserRow = AdminUserStorageRow
@@ -120,17 +120,15 @@ function useDeleteAdminUser({
 }
 
 function setAdminUserCacheRow(queryClient: QueryClient, updated: AdminUserRow) {
-  queryClient.setQueryData<AdminUsersResponse>(
-    adminKeys.users(),
-    (current) =>
-      current
-        ? {
+  queryClient.setQueryData<AdminUsersResponse>(adminKeys.users(), (current) =>
+    current
+      ? {
           ...current,
           users: current.users.map((row) =>
-            row.id === updated.id ? updated : row
+            row.id === updated.id ? updated : row,
           ),
         }
-        : current,
+      : current,
   )
 }
 
@@ -228,33 +226,28 @@ export function AdminUsersCard({
   currentUserId,
   hideHeader,
 }: AdminUsersCardProps) {
-  const { users, loadError, busyId, onDelete, onUpdate } = useAdminUsers(
-    currentUserId,
-  )
+  const { users, loadError, busyId, onDelete, onUpdate } =
+    useAdminUsers(currentUserId)
 
-  const content = loadError
-    ? (
-      <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-        {loadError}
-      </div>
-    )
-    : users === null
-    ? (
-      <div className="grid place-items-center py-3 text-foreground-muted">
-        <Spinner className="size-4" />
-      </div>
-    )
-    : users.length === 0
-    ? <p className="text-sm text-foreground-muted">No users yet.</p>
-    : (
-      <UsersList
-        users={users}
-        currentUserId={currentUserId}
-        busyId={busyId}
-        onUpdate={onUpdate}
-        onDelete={onDelete}
-      />
-    )
+  const content = loadError ? (
+    <div className="border-destructive/40 bg-destructive/5 text-destructive rounded-md border p-3 text-sm">
+      {loadError}
+    </div>
+  ) : users === null ? (
+    <div className="text-foreground-muted grid place-items-center py-3">
+      <Spinner className="size-4" />
+    </div>
+  ) : users.length === 0 ? (
+    <p className="text-foreground-muted text-sm">No users yet.</p>
+  ) : (
+    <UsersList
+      users={users}
+      currentUserId={currentUserId}
+      busyId={busyId}
+      onUpdate={onUpdate}
+      onDelete={onDelete}
+    />
+  )
 
   if (hideHeader) {
     return content
@@ -328,22 +321,18 @@ function UserListRow({
       <div className="flex min-w-0 flex-1 items-center gap-2.5">
         <Avatar className="size-8 shrink-0" style={avatarStyle}>
           {avatar.src ? <AvatarImage src={avatar.src} alt={name} /> : null}
-          <AvatarFallback style={avatarStyle}>
-            {avatar.initials}
-          </AvatarFallback>
+          <AvatarFallback style={avatarStyle}>{avatar.initials}</AvatarFallback>
         </Avatar>
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="truncate text-sm font-medium">{name}</span>
-            {isSelf
-              ? (
-                <Badge variant="outline" className="shrink-0 text-xs">
-                  You
-                </Badge>
-              )
-              : null}
+            {isSelf ? (
+              <Badge variant="outline" className="shrink-0 text-xs">
+                You
+              </Badge>
+            ) : null}
           </div>
-          <p className="truncate text-xs text-foreground-dim">{user.email}</p>
+          <p className="text-foreground-dim truncate text-xs">{user.email}</p>
         </div>
       </div>
 

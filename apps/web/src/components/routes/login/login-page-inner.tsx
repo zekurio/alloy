@@ -1,7 +1,6 @@
-import * as React from "react"
 import { Link } from "@tanstack/react-router"
-
 import type { PublicAuthConfig } from "@workspace/api"
+import * as React from "react"
 
 import { AuthPageFrame } from "@/components/auth/auth-page-frame"
 import { authClient } from "@/lib/auth-client"
@@ -31,13 +30,13 @@ export function LoginForm({
 }) {
   const { providers, openRegistrations, passkeyEnabled } = config
   const showPasskeySignIn = passkeyReady && passkeyEnabled && passkeySupported
-  const canSignUp = openRegistrations &&
-    (passkeyEnabled || providers.length > 0)
+  const canSignUp =
+    openRegistrations && (passkeyEnabled || providers.length > 0)
 
   return (
     <>
       <div className="mb-8 space-y-1.5">
-        <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
+        <h2 className="text-foreground text-2xl font-semibold tracking-[-0.02em]">
           Sign in
         </h2>
       </div>
@@ -49,28 +48,24 @@ export function LoginForm({
         ))}
       </div>
 
-      {passkeyReady && passkeyEnabled && !passkeySupported
-        ? (
-          <p className="mt-4 text-sm text-foreground-muted">
-            Passkey sign-in is enabled, but this browser does not support
-            passkeys.
-          </p>
-        )
-        : null}
+      {passkeyReady && passkeyEnabled && !passkeySupported ? (
+        <p className="text-foreground-muted mt-4 text-sm">
+          Passkey sign-in is enabled, but this browser does not support
+          passkeys.
+        </p>
+      ) : null}
 
-      {canSignUp
-        ? (
-          <p className="mt-6 text-center text-sm text-foreground-muted">
-            Don't have an account?{" "}
-            <Link
-              to="/sign-up"
-              className="font-medium text-foreground underline-offset-4 hover:text-accent hover:underline"
-            >
-              Create one
-            </Link>
-          </p>
-        )
-        : null}
+      {canSignUp ? (
+        <p className="text-foreground-muted mt-6 text-center text-sm">
+          Don't have an account?{" "}
+          <Link
+            to="/sign-up"
+            className="text-foreground hover:text-accent font-medium underline-offset-4 hover:underline"
+          >
+            Create one
+          </Link>
+        </p>
+      ) : null}
     </>
   )
 }

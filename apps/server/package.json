@@ -1,0 +1,35 @@
+{
+  "name": "@workspace/server",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./app": "./src/app.ts"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --platform node --target node24 --sourcemap --out-dir dist",
+    "dev": "tsx watch --clear-screen=false src/index.ts",
+    "start": "NODE_ENV=production node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test \"src/**/*_test.ts\"",
+    "db:generate": "pnpm --filter @workspace/db db:generate",
+    "db:migrate": "pnpm --filter @workspace/db db:migrate",
+    "db:push": "pnpm --filter @workspace/db db:push",
+    "db:studio": "pnpm --filter @workspace/db db:studio"
+  },
+  "dependencies": {
+    "@hono/node-server": "latest",
+    "@hono/zod-validator": "0.7.6",
+    "@simplewebauthn/server": "13.3.0",
+    "@workspace/contracts": "workspace:*",
+    "@workspace/db": "workspace:*",
+    "@workspace/logging": "workspace:*",
+    "drizzle-orm": "0.45.2",
+    "hono": "4.12.14",
+    "openid-client": "6.8.2",
+    "pg": "8.21.0",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "tsx": "latest"
+  }
+}

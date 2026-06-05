@@ -1,10 +1,6 @@
-import * as React from "react"
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
-import { Pencil, SaveIcon } from "lucide-react"
-import { useClickAnchor } from "@/hooks/use-click-anchor"
-
 import { USER_DISPLAY_NAME_MAX_LENGTH } from "@workspace/api/auth"
 import {
   Avatar,
@@ -13,18 +9,21 @@ import {
 } from "@workspace/ui/components/avatar"
 import { Button } from "@workspace/ui/components/button"
 import {
-  Section,
-  SectionContent,
-  SectionFooter,
-} from "@workspace/ui/components/section"
-import {
   DropdownMenu,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 import { Field, FieldError, FieldLabel } from "@workspace/ui/components/field"
+import {
+  Section,
+  SectionContent,
+  SectionFooter,
+} from "@workspace/ui/components/section"
 import { toast } from "@workspace/ui/lib/toast"
+import { Pencil, SaveIcon } from "lucide-react"
+import * as React from "react"
 
 import { LimitedInput } from "@/components/form/limited-field"
+import { useClickAnchor } from "@/hooks/use-click-anchor"
 import { api } from "@/lib/api"
 import { authClient, useSession } from "@/lib/auth-client"
 import { PROFILE_BANNER_ASPECT } from "@/lib/banner-layout"
@@ -45,14 +44,14 @@ import {
   UserBanner,
   userImageSrc,
 } from "@/lib/user-display"
+import { invalidateProfileIdentityCaches } from "@/lib/user-queries"
+
+import { ProfileImageCropDialog } from "./profile-image-crop-dialog"
 import {
   MediaDropdownContent,
   MediaEditOverlay,
 } from "./profile-media-controls"
-import { ProfileImageCropDialog } from "./profile-image-crop-dialog"
 import { ProfileTextField } from "./profile-text-field"
-
-import { invalidateProfileIdentityCaches } from "@/lib/user-queries"
 
 type ProfileCardProps = {
   userId: string
@@ -78,19 +77,15 @@ function ProfileAvatarPreview({
 
   return (
     <Avatar size="xl" style={style}>
-      {showImage && avatar.src
-        ? (
-          <AvatarImage
-            src={avatar.src}
-            alt={previewName}
-            fetchPriority="high"
-            loading="eager"
-          />
-        )
-        : null}
-      <AvatarFallback style={style}>
-        {avatar.initials}
-      </AvatarFallback>
+      {showImage && avatar.src ? (
+        <AvatarImage
+          src={avatar.src}
+          alt={previewName}
+          fetchPriority="high"
+          loading="eager"
+        />
+      ) : null}
+      <AvatarFallback style={style}>{avatar.initials}</AvatarFallback>
     </Avatar>
   )
 }
@@ -317,18 +312,22 @@ export function ProfileCard({
 
   function mediaMenu(kind: "avatar" | "banner") {
     return kind === "avatar"
-      ? renderProfileMediaMenu(profileMediaMenuProps(
-        avatarAnchor.anchor,
-        kind,
-        () => openFilePicker(kind),
-        handleRemoveAvatar,
-      ))
-      : renderProfileMediaMenu(profileMediaMenuProps(
-        bannerAnchor.anchor,
-        kind,
-        () => openFilePicker(kind),
-        handleRemoveBanner,
-      ))
+      ? renderProfileMediaMenu(
+          profileMediaMenuProps(
+            avatarAnchor.anchor,
+            kind,
+            () => openFilePicker(kind),
+            handleRemoveAvatar,
+          ),
+        )
+      : renderProfileMediaMenu(
+          profileMediaMenuProps(
+            bannerAnchor.anchor,
+            kind,
+            () => openFilePicker(kind),
+            handleRemoveBanner,
+          ),
+        )
   }
 
   function mediaEditButton(
@@ -339,9 +338,11 @@ export function ProfileCard({
       <ProfileMediaEditButton
         disabled={uploading}
         onClick={() => openFilePicker(kind)}
-        className={kind === "avatar"
-          ? "group relative size-12 shrink-0 overflow-hidden rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          : "group absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"}
+        className={
+          kind === "avatar"
+            ? "group focus-visible:outline-accent relative size-12 shrink-0 overflow-hidden rounded-full focus-visible:outline-2 focus-visible:outline-offset-2"
+            : "group focus-visible:outline-accent absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2"
+        }
       >
         {children}
       </ProfileMediaEditButton>
@@ -407,32 +408,33 @@ export function ProfileCard({
                 style={{ aspectRatio: PROFILE_BANNER_ASPECT }}
               >
                 <UserBanner user={bannerUser} />
-                {hasBanner
-                  ? (
-                    <DropdownMenu
-                      open={bannerAnchor.open}
-                      onOpenChange={bannerAnchor.onOpenChange}
+                {hasBanner ? (
+                  <DropdownMenu
+                    open={bannerAnchor.open}
+                    onOpenChange={bannerAnchor.onOpenChange}
+                  >
+                    <DropdownMenuTrigger
+                      disabled={uploading}
+                      className="group focus-visible:outline-accent absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2"
+                      onPointerDown={bannerAnchor.onTriggerPointerDown}
                     >
-                      <DropdownMenuTrigger
-                        disabled={uploading}
-                        className="group absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                        onPointerDown={bannerAnchor.onTriggerPointerDown}
-                      >
-                        <MediaEditOverlay>
-                          <Pencil className="size-4 text-white" />
-                        </MediaEditOverlay>
-                      </DropdownMenuTrigger>
-                      {mediaMenu("banner")}
-                    </DropdownMenu>
-                  )
-                  : mediaEditButton("banner")}
+                      <MediaEditOverlay>
+                        <Pencil className="size-4 text-white" />
+                      </MediaEditOverlay>
+                    </DropdownMenuTrigger>
+                    {mediaMenu("banner")}
+                  </DropdownMenu>
+                ) : (
+                  mediaEditButton("banner")
+                )}
               </div>
             </div>
 
             {/* Avatar + identity */}
             <form.Subscribe
               selector={(state) =>
-                [state.values.email, state.values.name] as const}
+                [state.values.email, state.values.name] as const
+              }
             >
               {([currentEmail, currentName]) => {
                 const normalizedIdentity = normalizeProfileIdentity({
@@ -456,42 +458,42 @@ export function ProfileCard({
 
                 return (
                   <div className="flex items-center gap-4">
-                    {hasAvatar
-                      ? (
-                        <DropdownMenu
-                          open={avatarAnchor.open}
-                          onOpenChange={avatarAnchor.onOpenChange}
+                    {hasAvatar ? (
+                      <DropdownMenu
+                        open={avatarAnchor.open}
+                        onOpenChange={avatarAnchor.onOpenChange}
+                      >
+                        <DropdownMenuTrigger
+                          disabled={uploading}
+                          className="group focus-visible:outline-accent relative inline-flex size-12 shrink-0 overflow-hidden rounded-full focus-visible:outline-2 focus-visible:outline-offset-2"
+                          onPointerDown={avatarAnchor.onTriggerPointerDown}
                         >
-                          <DropdownMenuTrigger
-                            disabled={uploading}
-                            className="group relative inline-flex size-12 shrink-0 overflow-hidden rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                            onPointerDown={avatarAnchor.onTriggerPointerDown}
-                          >
-                            <ProfileAvatarPreview
-                              avatar={avatar}
-                              previewName={previewName}
-                              showImage
-                            />
-                            <MediaEditOverlay>
-                              <Pencil className="size-4 text-white" />
-                            </MediaEditOverlay>
-                          </DropdownMenuTrigger>
-                          {mediaMenu("avatar")}
-                        </DropdownMenu>
-                      )
-                      : mediaEditButton(
+                          <ProfileAvatarPreview
+                            avatar={avatar}
+                            previewName={previewName}
+                            showImage
+                          />
+                          <MediaEditOverlay>
+                            <Pencil className="size-4 text-white" />
+                          </MediaEditOverlay>
+                        </DropdownMenuTrigger>
+                        {mediaMenu("avatar")}
+                      </DropdownMenu>
+                    ) : (
+                      mediaEditButton(
                         "avatar",
                         <ProfileAvatarPreview
                           avatar={avatar}
                           previewName={previewName}
                           showImage={false}
                         />,
-                      )}
+                      )
+                    )}
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-sm font-medium text-foreground">
+                      <span className="text-foreground text-sm font-medium">
                         {previewName}
                       </span>
-                      <span className="text-sm text-foreground-faint">
+                      <span className="text-foreground-faint text-sm">
                         {normalizedIdentity.email || email}
                       </span>
                     </div>
@@ -508,7 +510,8 @@ export function ProfileCard({
               }}
             >
               {(field) => {
-                const showError = field.state.meta.isTouched ||
+                const showError =
+                  field.state.meta.isTouched ||
                   form.state.submissionAttempts > 0
                 const invalid = showError && !field.state.meta.isValid
 
@@ -527,9 +530,9 @@ export function ProfileCard({
                       onChange={(e) => field.handleChange(e.target.value)}
                       disabled={form.state.isSubmitting}
                       aria-invalid={invalid || undefined}
-                      aria-describedby={invalid
-                        ? `${field.name}-error`
-                        : undefined}
+                      aria-describedby={
+                        invalid ? `${field.name}-error` : undefined
+                      }
                     />
                     <FieldError
                       id={`${field.name}-error`}
@@ -573,7 +576,8 @@ export function ProfileCard({
                   state.values.email,
                   state.canSubmit,
                   state.isSubmitting,
-                ] as const}
+                ] as const
+              }
             >
               {([
                 currentName,

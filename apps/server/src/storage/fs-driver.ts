@@ -1,3 +1,17 @@
+import { createReadStream } from "node:fs"
+import {
+  copyFile,
+  link,
+  mkdir,
+  open,
+  rename,
+  rmdir,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises"
+import { Readable } from "node:stream"
+
 import type {
   MintUploadUrlInput,
   ResolvedObject,
@@ -33,19 +47,15 @@ export class FsStorageDriver implements StorageDriver {
     _contentType: string,
   ): Promise<{ size: number }> {
     const dst = this.fullPath(key)
-    await Deno.mkdir(dirname(dst), { recursive: true })
+    await mkdir(dirname(dst), { recursive: true })
 
     if (body instanceof Uint8Array) {
-      await Deno.writeFile(dst, body)
+      await writeFile(dst, body)
       return { size: body.byteLength }
     }
 
     let size = 0
-    const file = await Deno.open(dst, {
-      create: true,
-      write: true,
-      truncate: true,
-    })
+    const file = await open(dst, "w")
     try {
       for await (const chunk of body) {
         size += chunk.byteLength
@@ -59,22 +69,22 @@ export class FsStorageDriver implements StorageDriver {
 
   async resolve(key: string): Promise<ResolvedObject | null> {
     const full = this.fullPath(key)
-    let stat: Awaited<ReturnType<typeof Deno.stat>>
+    let stats: Awaited<ReturnType<typeof stat>>
     try {
-      stat = await Deno.stat(full)
+      stats = await stat(full)
     } catch (err) {
-      if (err instanceof Deno.errors.NotFound) return null
+      if (isOsErrorCode(err, "ENOENT")) return null
       throw err
     }
-    if (!stat.isFile) return null
+    if (!stats.isFile()) return null
 
     return {
       stream: (opts) => {
         return fspCreateReadStream(full, opts?.start, opts?.end)
       },
-      size: stat.size,
+      size: stats.size,
       contentType: contentTypeForExt(extname(full)),
-      lastModified: stat.mtime ?? null,
+      lastModified: stats.mtime ?? null,
     }
   }
 
@@ -97,17 +107,17 @@ export class FsStorageDriver implements StorageDriver {
 
   async downloadToFile(key: string, destPath: string): Promise<void> {
     const src = this.fullPath(key)
-    await Deno.mkdir(dirname(destPath), { recursive: true })
+    await mkdir(dirname(destPath), { recursive: true })
     try {
-      await Deno.remove(destPath).catch((err) => {
-        if (!(err instanceof Deno.errors.NotFound)) throw err
+      await rm(destPath).catch((err) => {
+        if (!isOsErrorCode(err, "ENOENT")) throw err
       })
-      await Deno.link(src, destPath)
+      await link(src, destPath)
       return
     } catch (err) {
       if (!isCopyFallbackError(err)) throw err
     }
-    await Deno.copyFile(src, destPath)
+    await copyFile(src, destPath)
   }
 
   async uploadFromFile(
@@ -116,18 +126,18 @@ export class FsStorageDriver implements StorageDriver {
     _contentType: string,
   ): Promise<{ size: number }> {
     const dst = this.fullPath(key)
-    await Deno.mkdir(dirname(dst), { recursive: true })
-    await Deno.remove(dst).catch((err) => {
-      if (!(err instanceof Deno.errors.NotFound)) throw err
+    await mkdir(dirname(dst), { recursive: true })
+    await rm(dst).catch((err) => {
+      if (!isOsErrorCode(err, "ENOENT")) throw err
     })
     try {
-      await Deno.link(localPath, dst)
+      await link(localPath, dst)
     } catch (err) {
       if (!isCopyFallbackError(err)) throw err
-      await Deno.copyFile(localPath, dst)
+      await copyFile(localPath, dst)
     }
-    const stat = await Deno.stat(dst)
-    return { size: stat.size }
+    const stats = await stat(dst)
+    return { size: stats.size }
   }
 
   async copy(input: {
@@ -137,28 +147,28 @@ export class FsStorageDriver implements StorageDriver {
   }): Promise<{ size: number }> {
     const src = this.fullPath(input.fromKey)
     const dst = this.fullPath(input.toKey)
-    await Deno.mkdir(dirname(dst), { recursive: true })
-    await Deno.remove(dst).catch((err) => {
-      if (!(err instanceof Deno.errors.NotFound)) throw err
+    await mkdir(dirname(dst), { recursive: true })
+    await rm(dst).catch((err) => {
+      if (!isOsErrorCode(err, "ENOENT")) throw err
     })
     try {
-      await Deno.link(src, dst)
+      await link(src, dst)
     } catch (err) {
       if (!isCopyFallbackError(err)) throw err
       const tmp = `${dst}.${crypto.randomUUID()}.tmp`
-      await Deno.copyFile(src, tmp)
-      await Deno.rename(tmp, dst)
+      await copyFile(src, tmp)
+      await rename(tmp, dst)
     }
-    const stat = await Deno.stat(dst)
-    return { size: stat.size }
+    const stats = await stat(dst)
+    return { size: stats.size }
   }
 
   async delete(key: string): Promise<void> {
     const full = this.fullPath(key)
     try {
-      await Deno.remove(full)
+      await rm(full)
     } catch (err) {
-      if (err instanceof Deno.errors.NotFound) return
+      if (isOsErrorCode(err, "ENOENT")) return
       throw err
     }
     await this.pruneEmptyAncestors(dirname(full))
@@ -170,10 +180,10 @@ export class FsStorageDriver implements StorageDriver {
     while (true) {
       if (current === root || !current.startsWith(`${root}/`)) return
       try {
-        await Deno.remove(current)
+        await rmdir(current)
       } catch (err) {
         if (
-          err instanceof Deno.errors.NotFound ||
+          isOsErrorCode(err, "ENOENT") ||
           isOsErrorCode(err, "ENOTEMPTY") ||
           isOsErrorCode(err, "EEXIST")
         ) {
@@ -191,43 +201,13 @@ function fspCreateReadStream(
   start: number | undefined,
   end: number | undefined,
 ): ReadableStream<Uint8Array> {
-  const file = Deno.openSync(path, { read: true })
-  if (start !== undefined) file.seekSync(start, Deno.SeekMode.Start)
-  const limit = end === undefined ? undefined : end - (start ?? 0) + 1
-  if (limit === undefined) return file.readable
-
-  let remaining = limit
-  return new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      if (remaining <= 0) return
-      try {
-        const chunk = new Uint8Array(Math.min(64 * 1024, remaining))
-        const bytesRead = await file.read(chunk)
-        if (bytesRead === null) {
-          remaining = 0
-          file.close()
-          controller.close()
-          return
-        }
-        remaining -= bytesRead
-        controller.enqueue(chunk.subarray(0, bytesRead))
-        if (remaining <= 0) {
-          file.close()
-          controller.close()
-        }
-      } catch (err) {
-        file.close()
-        throw err
-      }
-    },
-    cancel() {
-      file.close()
-    },
-  })
+  return Readable.toWeb(
+    createReadStream(path, { start, end }),
+  ) as ReadableStream<Uint8Array>
 }
 
 function normalizePath(value: string): string {
-  const absolute = value.startsWith("/") ? value : `${Deno.cwd()}/${value}`
+  const absolute = value.startsWith("/") ? value : `${process.cwd()}/${value}`
   const parts: string[] = []
   for (const part of absolute.split("/")) {
     if (!part || part === ".") continue
@@ -252,7 +232,8 @@ function extname(value: string): string {
 function isCopyFallbackError(err: unknown): boolean {
   return (
     isOsErrorCode(err, "EXDEV") ||
-    err instanceof Deno.errors.PermissionDenied ||
+    isOsErrorCode(err, "EACCES") ||
+    isOsErrorCode(err, "EPERM") ||
     isOsErrorCode(err, "ENOSYS")
   )
 }

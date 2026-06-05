@@ -1,8 +1,9 @@
-import * as React from "react"
 import type HlsType from "hls.js"
+import * as React from "react"
 
 import { clientLogger } from "@/lib/client-log"
 import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
+
 import type { SourceSpec } from "./video-source"
 
 /** Selected HLS rendition: a target height in pixels, or adaptive ("auto"). */
@@ -31,8 +32,9 @@ export function mseHlsSupported(): boolean {
   if (typeof window === "undefined") return (mseCache = false)
   const MS = window.MediaSource ?? window.ManagedMediaSource
   mseCache = Boolean(
-    MS && typeof MS.isTypeSupported === "function" &&
-      MS.isTypeSupported(PROBE_CODECS),
+    MS &&
+    typeof MS.isTypeSupported === "function" &&
+    MS.isTypeSupported(PROBE_CODECS),
   )
   return mseCache
 }

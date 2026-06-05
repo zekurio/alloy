@@ -19,10 +19,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-cpu = [
-  "torch>=2.5.0",
-  "torchvision>=0.20.0",
-]
+cpu = ["torch>=2.5.0", "torchvision>=0.20.0"]
 
 [project.scripts]
 alloy-machine-learning = "alloy_ml.__main__:main"

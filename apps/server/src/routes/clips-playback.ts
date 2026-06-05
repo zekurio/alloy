@@ -1,26 +1,30 @@
-import { zValidator } from "./validation"
+import { createReadStream } from "node:fs"
+import { mkdir, mkdtemp, rm, stat } from "node:fs/promises"
+import { Readable } from "node:stream"
+
+import type { ClipPlaybackQuality, ClipPrivacy } from "@workspace/contracts"
+import { logger } from "@workspace/logging"
 import { type Context, Hono } from "hono"
 import { stream } from "hono/streaming"
-import { logger } from "@workspace/logging"
 
 import {
   applyClipPrivacyHeaders,
   clipAccessResponse,
   resolveClipAccess,
 } from "../clips/access"
-import { clipStorage } from "../storage"
-import { configStore } from "../config/store"
+import { parseRequestedLiveCodecs, selectLiveCodec } from "../clips/live-codec"
+import { isOpenGraphCompatibleSource } from "../clips/opengraph"
 import {
   buildPlaybackQualities,
   findPlaybackQuality,
 } from "../clips/playback-quality"
-import { isOpenGraphCompatibleSource } from "../clips/opengraph"
-import { parseRequestedLiveCodecs, selectLiveCodec } from "../clips/live-codec"
+import { configStore } from "../config/store"
+import { codecNameFor, encode, liveTranscode, probe } from "../queue/ffmpeg"
 import { ENCODE_DIR } from "../runtime/dirs"
 import { notFound } from "../runtime/http-response"
 import { join } from "../runtime/path"
 import { pipeReadable } from "../runtime/streaming"
-import { codecNameFor, encode, liveTranscode, probe } from "../queue/ffmpeg"
+import { clipStorage } from "../storage"
 import {
   contentDisposition,
   downloadFilename,
@@ -30,7 +34,7 @@ import {
   readAll,
   StreamQuery,
 } from "./clips-helpers"
-import type { ClipPlaybackQuality, ClipPrivacy } from "@workspace/contracts"
+import { zValidator } from "./validation"
 
 type LiveTranscodeClipRow = {
   id: string
@@ -52,8 +56,8 @@ function mediaCacheControl(privacy: ClipPrivacy): string {
   return privacy === "public"
     ? "public, max-age=300"
     : privacy === "private"
-    ? "no-store"
-    : "private, max-age=300"
+      ? "no-store"
+      : "private, max-age=300"
 }
 
 /** Stream an already-resolved object, honouring an optional `Range` request.
@@ -116,16 +120,15 @@ async function streamLiveQuality(
     return notFound(c, message)
   }
 
-  await Deno.mkdir(ENCODE_DIR, { recursive: true })
-  const scratchDir = await Deno.makeTempDir({
-    dir: ENCODE_DIR,
-    prefix: `${row.id}-live-`,
-  })
+  await mkdir(ENCODE_DIR, { recursive: true })
+  const scratchDir = await mkdtemp(`${ENCODE_DIR}/${row.id}-live-`)
   const sourcePath = join(scratchDir, "source")
   try {
     await clipStorage.downloadToFile(sourceKey, sourcePath)
   } catch (err) {
-    await Deno.remove(scratchDir, { recursive: true }).catch(() => undefined)
+    await rm(scratchDir, { recursive: true, force: true }).catch(
+      () => undefined,
+    )
     logger.error(
       `[clips] failed to stage source for live transcode ${row.id}:`,
       err,
@@ -156,7 +159,9 @@ async function streamLiveQuality(
   if (c.req.method === "HEAD") {
     transcode.kill()
     void transcode.done.catch(() => undefined)
-    await Deno.remove(scratchDir, { recursive: true }).catch(() => undefined)
+    await rm(scratchDir, { recursive: true, force: true }).catch(
+      () => undefined,
+    )
     return c.body(null)
   }
 
@@ -174,7 +179,7 @@ async function streamLiveQuality(
       })
     } finally {
       transcode.kill()
-      await Deno.remove(scratchDir, { recursive: true }).catch((err) => {
+      await rm(scratchDir, { recursive: true, force: true }).catch((err) => {
         logger.warn(
           `[clips] failed to remove live transcode scratch ${scratchDir}:`,
           err,
@@ -208,19 +213,17 @@ async function streamOnDemandOpenGraphTranscode(
   const sourceKey = row.sourceKey
   if (!sourceKey) return notFound(c, "OpenGraph unavailable")
 
-  await Deno.mkdir(ENCODE_DIR, { recursive: true })
-  const scratchDir = await Deno.makeTempDir({
-    dir: ENCODE_DIR,
-    prefix: `${row.id}-og-`,
-  })
+  await mkdir(ENCODE_DIR, { recursive: true })
+  const scratchDir = await mkdtemp(`${ENCODE_DIR}/${row.id}-og-`)
   const sourcePath = join(scratchDir, "source")
   const outPath = join(scratchDir, "opengraph.mp4")
 
   try {
     await clipStorage.downloadToFile(sourceKey, sourcePath)
-    const probed = row.height && row.durationMs
-      ? { height: row.height, durationMs: row.durationMs }
-      : await probe(sourcePath)
+    const probed =
+      row.height && row.durationMs
+        ? { height: row.height, durationMs: row.durationMs }
+        : await probe(sourcePath)
     const config = configStore.get("encoder")
     await encode(sourcePath, outPath, {
       config: {
@@ -241,27 +244,26 @@ async function streamOnDemandOpenGraphTranscode(
       signal: c.req.raw.signal,
     })
 
-    const stat = await Deno.stat(outPath)
+    const outStat = await stat(outPath)
     c.header("Content-Type", "video/mp4")
-    c.header("Content-Length", String(stat.size))
+    c.header("Content-Length", String(outStat.size))
     c.header("Accept-Ranges", "none")
     c.header("Cache-Control", "public, max-age=300")
     if (c.req.method === "HEAD") {
-      await Deno.remove(scratchDir, { recursive: true }).catch(() => undefined)
+      await rm(scratchDir, { recursive: true, force: true }).catch(
+        () => undefined,
+      )
       return c.body(null)
     }
 
-    const file = await Deno.open(outPath, { read: true })
+    const file = createReadStream(outPath)
+    const readable = Readable.toWeb(file) as ReadableStream<Uint8Array>
     return stream(c, async (s) => {
       try {
-        await pipeReadable(s, file.readable)
+        await pipeReadable(s, readable)
       } finally {
-        try {
-          file.close()
-        } catch {
-          // The readable side may already have closed the file descriptor.
-        }
-        await Deno.remove(scratchDir, { recursive: true }).catch((err) => {
+        file.destroy()
+        await rm(scratchDir, { recursive: true, force: true }).catch((err) => {
           logger.warn(
             `[clips] failed to remove OpenGraph transcode scratch ${scratchDir}:`,
             err,
@@ -270,7 +272,9 @@ async function streamOnDemandOpenGraphTranscode(
       }
     })
   } catch (err) {
-    await Deno.remove(scratchDir, { recursive: true }).catch(() => undefined)
+    await rm(scratchDir, { recursive: true, force: true }).catch(
+      () => undefined,
+    )
     if (c.req.raw.signal.aborted) throw err
     logger.error(`[clips] OpenGraph transcode failed for ${row.id}:`, err)
     return notFound(c, "OpenGraph unavailable")
@@ -301,16 +305,18 @@ export const clipsPlaybackRoutes = new Hono()
         return await streamLiveQuality(c, row, liveQuality, codecs)
       }
 
-      const wantsSource = !requestedVariant ||
+      const wantsSource =
+        !requestedVariant ||
         requestedVariant === "auto" ||
         requestedVariant === "source"
-      const selected = wantsSource && row.sourceKey && row.sourceContentType
-        ? {
-          key: row.sourceKey,
-          contentType: row.sourceContentType,
-          id: "source",
-        }
-        : null
+      const selected =
+        wantsSource && row.sourceKey && row.sourceContentType
+          ? {
+              key: row.sourceKey,
+              contentType: row.sourceContentType,
+              id: "source",
+            }
+          : null
 
       if (!selected) {
         return notFound(c, "Unknown quality")
@@ -355,11 +361,12 @@ export const clipsPlaybackRoutes = new Hono()
     const key = row.thumbKey
     if (!key) return notFound(c, "No thumbnail")
 
-    const thumbCacheControl = row.privacy === "public" && row.status === "ready"
-      ? "public, max-age=86400"
-      : row.privacy === "private"
-      ? "no-store"
-      : "private, max-age=86400"
+    const thumbCacheControl =
+      row.privacy === "public" && row.status === "ready"
+        ? "public, max-age=86400"
+        : row.privacy === "private"
+          ? "no-store"
+          : "private, max-age=86400"
 
     const resolved = await clipStorage.resolve(key)
     if (!resolved) return notFound(c, "No thumbnail")
@@ -404,25 +411,27 @@ export const clipsPlaybackRoutes = new Hono()
       applyClipPrivacyHeaders(c, access)
       const row = access.row
 
-      const selected = requestedVariant === "source"
-        ? row.sourceKey && row.sourceContentType
-          ? {
-            key: row.sourceKey,
-            contentType: row.sourceContentType,
-            filename: downloadFilename(row, "source"),
-          }
+      const selected =
+        requestedVariant === "source"
+          ? row.sourceKey && row.sourceContentType
+            ? {
+                key: row.sourceKey,
+                contentType: row.sourceContentType,
+                filename: downloadFilename(row, "source"),
+              }
+            : null
           : null
-        : null
 
       if (!selected) {
         return notFound(c, "Unknown download")
       }
 
-      const dlCacheControl = row.privacy === "public"
-        ? "public, max-age=300"
-        : row.privacy === "private"
-        ? "no-store"
-        : "private, max-age=300"
+      const dlCacheControl =
+        row.privacy === "public"
+          ? "public, max-age=300"
+          : row.privacy === "private"
+            ? "no-store"
+            : "private, max-age=300"
 
       const resolved = await clipStorage.resolve(selected.key)
       if (!resolved) {

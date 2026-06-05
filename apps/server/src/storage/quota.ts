@@ -1,6 +1,5 @@
-import { and, eq, inArray, ne, sql } from "drizzle-orm"
-
 import { clip } from "@workspace/db/schema"
+import { and, eq, inArray, ne, sql } from "drizzle-orm"
 
 import type { db } from "../db"
 
@@ -12,9 +11,7 @@ export async function selectSourceStorageUsedBytes(
 ): Promise<number> {
   const [row] = await database
     .select({
-      usedBytes: sql<
-        number
-      >`coalesce(sum(${clip.sourceSizeBytes}), 0)::double precision`,
+      usedBytes: sql<number>`coalesce(sum(${clip.sourceSizeBytes}), 0)::double precision`,
     })
     .from(clip)
     .where(and(eq(clip.authorId, userId), ne(clip.status, "failed")))
@@ -31,9 +28,7 @@ export async function selectSourceStorageUsedBytesByUserIds(
   const rows = await database
     .select({
       userId: clip.authorId,
-      usedBytes: sql<
-        number
-      >`coalesce(sum(${clip.sourceSizeBytes}), 0)::double precision`,
+      usedBytes: sql<number>`coalesce(sum(${clip.sourceSizeBytes}), 0)::double precision`,
     })
     .from(clip)
     .where(and(inArray(clip.authorId, userIds), ne(clip.status, "failed")))

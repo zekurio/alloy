@@ -1,7 +1,6 @@
 import { defineConfig } from "drizzle-kit"
 
-const databaseUrl = Deno.env.get("DRIZZLE_DATABASE_URL") ??
-  Deno.env.get("DATABASE_URL")
+const databaseUrl = process.env.DRIZZLE_DATABASE_URL ?? process.env.DATABASE_URL
 
 if (!databaseUrl) {
   throw new Error(

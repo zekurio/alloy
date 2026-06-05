@@ -1,6 +1,5 @@
-import * as React from "react"
-
 import type { PublicAuthProvider } from "@workspace/api"
+import * as React from "react"
 
 import { OAuthButton } from "@/components/auth/oauth-button"
 import { authClient } from "@/lib/auth-client"

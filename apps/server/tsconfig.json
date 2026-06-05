@@ -1,39 +1,12 @@
 {
+  "extends": "../../tsconfig.base.json",
   "include": ["src/**/*.ts"],
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
     "lib": ["ES2023", "DOM", "DOM.Iterable", "DOM.AsyncIterable"],
-    "types": ["deno"],
-
-    /* Bundler mode */
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
-    "noEmit": true,
+    "types": ["node"],
     "resolveJsonModule": true,
-
-    /* Linting */
-    "skipLibCheck": true,
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true,
     "paths": {
-      "@/*": ["./src/*"],
-      "drizzle-orm": [
-        "../../node_modules/.deno/drizzle-orm@0.45.2/node_modules/drizzle-orm"
-      ],
-      "drizzle-orm/*": [
-        "../../node_modules/.deno/drizzle-orm@0.45.2/node_modules/drizzle-orm/*"
-      ],
-      "@workspace/contracts": ["../../packages/contracts/src/index.ts"],
-      "@workspace/contracts/*": ["../../packages/contracts/src/*"],
-      "@workspace/db": ["../../packages/db/src/index.ts"],
-      "@workspace/db/*": ["../../packages/db/src/*"],
-      "@workspace/logging": ["../../packages/logging/src/index.ts"],
-      "@workspace/logging/*": ["../../packages/logging/src/*"]
+      "@/*": ["./src/*"]
     }
   }
 }

@@ -1,5 +1,5 @@
-import { type JsonValidator, readJsonOrThrow } from "./http"
 import { booleanFlagResponseValidator } from "./contract-validators"
+import { type JsonValidator, readJsonOrThrow } from "./http"
 
 type PostDeleteRequests = {
   post: () => Promise<Response>
@@ -29,9 +29,10 @@ export function readBooleanFlagJson<T extends string>(
   key: T,
   expected?: boolean,
 ): Promise<Record<T, boolean>> {
-  const validate = expected === undefined
-    ? booleanFlagResponseValidator(key)
-    : booleanFlagResponseValidator(key, expected)
+  const validate =
+    expected === undefined
+      ? booleanFlagResponseValidator(key)
+      : booleanFlagResponseValidator(key, expected)
   return readJsonOrThrow(res, validate)
 }
 

@@ -1,11 +1,6 @@
 "use client"
 
-import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
-import { Drawer as DrawerPrimitive } from "vaul"
-
-import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
-
 import {
   Dialog,
   DialogBody,
@@ -27,7 +22,10 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@workspace/ui/components/drawer"
+import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
 import { cn } from "@workspace/ui/lib/utils"
+import * as React from "react"
+import { Drawer as DrawerPrimitive } from "vaul"
 
 const ResponsiveDialogContext = React.createContext(false)
 
@@ -48,22 +46,20 @@ function ResponsiveDialog({
 
   return (
     <ResponsiveDialogContext.Provider value={isMobile}>
-      {isMobile
-        ? (
-          <Drawer
-            open={open}
-            onOpenChange={onOpenChange}
-            direction="bottom"
-            handleOnly
-          >
-            {children}
-          </Drawer>
-        )
-        : (
-          <Dialog open={open} onOpenChange={onOpenChange}>
-            {children}
-          </Dialog>
-        )}
+      {isMobile ? (
+        <Drawer
+          open={open}
+          onOpenChange={onOpenChange}
+          direction="bottom"
+          handleOnly
+        >
+          {children}
+        </Drawer>
+      ) : (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+          {children}
+        </Dialog>
+      )}
     </ResponsiveDialogContext.Provider>
   )
 }
@@ -215,9 +211,8 @@ function ResponsiveDialogDescription({
   )
 }
 
-type ResponsiveDialogTriggerProps =
-  & DialogPrimitive.Trigger.Props
-  & React.ComponentProps<typeof DrawerPrimitive.Trigger>
+type ResponsiveDialogTriggerProps = DialogPrimitive.Trigger.Props &
+  React.ComponentProps<typeof DrawerPrimitive.Trigger>
 
 function renderDrawerChild(
   render: DialogPrimitive.Trigger.Props["render"],
@@ -258,9 +253,8 @@ function ResponsiveDialogTrigger({
   )
 }
 
-type ResponsiveDialogCloseProps =
-  & DialogPrimitive.Close.Props
-  & React.ComponentProps<typeof DrawerPrimitive.Close>
+type ResponsiveDialogCloseProps = DialogPrimitive.Close.Props &
+  React.ComponentProps<typeof DrawerPrimitive.Close>
 
 function ResponsiveDialogClose({
   render,

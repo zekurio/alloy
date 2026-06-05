@@ -1,3 +1,5 @@
+import { test } from "node:test"
+
 import {
   canPlaySourceFromSupport,
   sourceMimeCandidates,
@@ -7,7 +9,7 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
-Deno.test("sourceMimeCandidates probes container only without codec hints", () => {
+test("sourceMimeCandidates probes container only without codec hints", () => {
   const candidates = sourceMimeCandidates("video/x-matroska")
 
   assert(
@@ -16,7 +18,7 @@ Deno.test("sourceMimeCandidates probes container only without codec hints", () =
   )
 })
 
-Deno.test("sourceMimeCandidates probes container and codec combo first", () => {
+test("sourceMimeCandidates probes container and codec combo first", () => {
   const candidates = sourceMimeCandidates("video/x-matroska", {
     videoCodec: "hevc",
     audioCodec: "aac",
@@ -27,9 +29,7 @@ Deno.test("sourceMimeCandidates probes container and codec combo first", () => {
     "codec-specific Matroska probe should be first",
   )
   assert(
-    candidates.includes(
-      'video/x-matroska; codecs="hev1.1.L120,mp4a.40.2"',
-    ),
+    candidates.includes('video/x-matroska; codecs="hev1.1.L120,mp4a.40.2"'),
     "HEVC hev1 alias should be probed",
   )
   assert(
@@ -42,7 +42,7 @@ Deno.test("sourceMimeCandidates probes container and codec combo first", () => {
   )
 })
 
-Deno.test("sourceMimeCandidates normalizes common ffprobe codec names", () => {
+test("sourceMimeCandidates normalizes common ffprobe codec names", () => {
   const candidates = sourceMimeCandidates("video/mp4", {
     videoCodec: "h265",
     audioCodec: "mpeg4aac",
@@ -54,18 +54,22 @@ Deno.test("sourceMimeCandidates normalizes common ffprobe codec names", () => {
   )
 })
 
-Deno.test("canPlaySourceFromSupport accepts codec-specific browser support", () => {
-  const playable = canPlaySourceFromSupport("video/x-matroska", {
-    canPlayType: (mimeType) => mimeType.includes("hev1") ? "probably" : "",
-  }, {
-    videoCodec: "hevc",
-    audioCodec: "aac",
-  })
+test("canPlaySourceFromSupport accepts codec-specific browser support", () => {
+  const playable = canPlaySourceFromSupport(
+    "video/x-matroska",
+    {
+      canPlayType: (mimeType) => (mimeType.includes("hev1") ? "probably" : ""),
+    },
+    {
+      videoCodec: "hevc",
+      audioCodec: "aac",
+    },
+  )
 
   assert(playable, "codec-specific Matroska support should be detected")
 })
 
-Deno.test("sourceMimeCandidates includes Jellyfin-style VP9 and MP3 aliases", () => {
+test("sourceMimeCandidates includes Jellyfin-style VP9 and MP3 aliases", () => {
   const candidates = sourceMimeCandidates("video/webm", {
     videoCodec: "vp9",
     audioCodec: "mp3",
@@ -81,7 +85,7 @@ Deno.test("sourceMimeCandidates includes Jellyfin-style VP9 and MP3 aliases", ()
   )
 })
 
-Deno.test("sourceMimeCandidates includes MP4 and M4V container aliases", () => {
+test("sourceMimeCandidates includes MP4 and M4V container aliases", () => {
   const candidates = sourceMimeCandidates("video/mp4", {
     videoCodec: "h264",
     audioCodec: "aac",

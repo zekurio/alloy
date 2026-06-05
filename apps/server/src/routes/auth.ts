@@ -1,25 +1,17 @@
-import {
-  optionalNullableBlankToNullTrimmedString,
-  optionalTrimmedString,
-  requiredTrimmedString,
-  zValidator,
-} from "./validation"
 import type {
   AuthenticationResponseJSON,
   RegistrationResponseJSON,
 } from "@simplewebauthn/server"
-import { and, eq } from "drizzle-orm"
-import { Hono } from "hono"
-import { z } from "zod"
-
 import {
   USER_DISPLAY_NAME_MAX_LENGTH,
   USERNAME_MAX_LENGTH,
   USERNAME_MIN_LENGTH,
 } from "@workspace/contracts"
 import { user, userPasskey } from "@workspace/db/auth-schema"
+import { and, eq } from "drizzle-orm"
+import { Hono } from "hono"
+import { z } from "zod"
 
-import { db } from "../db"
 import { clearSessionCookies, setSessionCookies } from "../auth/cookies"
 import {
   assertCanRemoveAdmin,
@@ -30,13 +22,13 @@ import {
   updateUserIdentity,
   validateUsername,
 } from "../auth/identity"
+import { publicPasskeyRow } from "../auth/security-responses"
 import {
   createSession,
   deleteCurrentSession,
   getSession,
   requireSession,
 } from "../auth/session"
-import { publicPasskeyRow } from "../auth/security-responses"
 import {
   beginPasskeyAuthentication,
   beginPasskeyRegistration,
@@ -45,9 +37,7 @@ import {
   verifyPasskeyAuthentication,
   verifyPasskeyRegistration,
 } from "../auth/webauthn"
-import { authOAuthRoute } from "./auth-oauth-routes"
-import { completePasskeySignUp } from "./auth-passkey-signup"
-import { canOpenPasskeyRegistration, csrf } from "./auth-route-helpers"
+import { db } from "../db"
 import {
   badRequest,
   badRequestFromCause,
@@ -55,6 +45,15 @@ import {
   notFound,
   success,
 } from "../runtime/http-response"
+import { authOAuthRoute } from "./auth-oauth-routes"
+import { completePasskeySignUp } from "./auth-passkey-signup"
+import { canOpenPasskeyRegistration, csrf } from "./auth-route-helpers"
+import {
+  optionalNullableBlankToNullTrimmedString,
+  optionalTrimmedString,
+  requiredTrimmedString,
+  zValidator,
+} from "./validation"
 
 const SignUpOptionsBody = z.object({
   email: z.string().trim().email(),
@@ -123,9 +122,10 @@ export const authRoute = new Hono()
           user: {
             id: existing && setupFirstAdmin ? existing.id : crypto.randomUUID(),
             email,
-            name: existing && setupFirstAdmin
-              ? existing.name || username
-              : username,
+            name:
+              existing && setupFirstAdmin
+                ? existing.name || username
+                : username,
             username,
           },
         })
