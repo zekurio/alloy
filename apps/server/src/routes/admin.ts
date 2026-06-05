@@ -262,7 +262,19 @@ export const adminRoute = new Hono()
    */
   .patch("/encoder", zValidator("json", EncoderConfigPatchSchema), (c) => {
     const patch = c.req.valid("json")
-    const next = { ...configStore.get("encoder"), ...patch }
+    const current = configStore.get("encoder")
+    const next = {
+      ...current,
+      ...patch,
+      tonemapping: {
+        ...current.tonemapping,
+        ...patch.tonemapping,
+        vpp: {
+          ...current.tonemapping.vpp,
+          ...patch.tonemapping?.vpp,
+        },
+      },
+    }
     configStore.set("encoder", next)
     clearEncoderCapabilitiesCache()
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))

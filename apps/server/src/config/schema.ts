@@ -5,6 +5,9 @@ import {
   DEFAULT_GAME_CLASSIFIER_REPO_ID,
   DEFAULT_GAME_CLASSIFIER_REVISION,
   ENCODER_HWACCELS,
+  ENCODER_TONEMAPPING_ALGORITHMS,
+  ENCODER_TONEMAPPING_MODES,
+  ENCODER_TONEMAPPING_RANGES,
   RUNTIME_CONFIG_VERSION,
   type RuntimeConfig,
 } from "@workspace/contracts"
@@ -20,6 +23,31 @@ function randomSecret(): string {
   return randomBase64Url(32)
 }
 
+const EncoderVppTonemappingConfigBaseSchema = z.object({
+  enabled: z.boolean().default(true),
+  brightness: z.number().min(-100).max(100).default(16),
+  contrast: z.number().min(0).max(10).default(1),
+})
+
+const EncoderTonemappingConfigBaseSchema = z.object({
+  enabled: z.boolean().default(true),
+  algorithm: z.enum(ENCODER_TONEMAPPING_ALGORITHMS).default("bt2390"),
+  mode: z.enum(ENCODER_TONEMAPPING_MODES).default("auto"),
+  range: z.enum(ENCODER_TONEMAPPING_RANGES).default("auto"),
+  desat: z.number().min(0).max(10).default(0),
+  peak: z.number().min(0).max(10_000).default(100),
+  param: z.number().min(0).max(10).nullable().default(null),
+  threshold: z.number().min(0).max(1).default(0.2),
+  vpp: EncoderVppTonemappingConfigBaseSchema.default(
+    EncoderVppTonemappingConfigBaseSchema.parse({}),
+  ),
+})
+
+const EncoderTonemappingConfigSchema =
+  EncoderTonemappingConfigBaseSchema.default(
+    EncoderTonemappingConfigBaseSchema.parse({}),
+  )
+
 const EncoderConfigInnerSchema = z.object({
   enabled: z.boolean().default(true),
   hwaccel: z.enum(ENCODER_HWACCELS).default("none"),
@@ -27,6 +55,7 @@ const EncoderConfigInnerSchema = z.object({
   vaapiDevice: z.string().min(1).max(128).default("/dev/dri/renderD128"),
   intelLowPowerH264: z.boolean().default(false),
   intelLowPowerHevc: z.boolean().default(false),
+  tonemapping: EncoderTonemappingConfigSchema,
 })
 
 const EncoderConfigSchema = EncoderConfigInnerSchema
@@ -155,7 +184,14 @@ export const RuntimeConfigSchema = z.object({
   appearance: AppearanceConfigSchema.default(AppearanceConfigSchema.parse({})),
 })
 
-export const EncoderConfigPatchSchema = EncoderConfigInnerSchema.partial()
+export const EncoderConfigPatchSchema =
+  EncoderConfigInnerSchema.partial().extend({
+    tonemapping: EncoderTonemappingConfigBaseSchema.partial()
+      .extend({
+        vpp: EncoderVppTonemappingConfigBaseSchema.partial().optional(),
+      })
+      .optional(),
+  })
 export const LimitsConfigPatchSchema = LimitsConfigSchema.partial()
 /** Write-only patch for the (secret) SteamGridDB key. */
 export const IntegrationsSecretPatchSchema = z.object({

@@ -191,5 +191,13 @@ function liveAv1Crf(quality: string): string {
 }
 
 function hevcMp4Args(encoder: string): string[] {
-  return encoder.includes("hevc") ? HEVC_MP4_TAG_ARGS : NO_ARGS
+  return isHevcEncoder(encoder) ? HEVC_MP4_TAG_ARGS : NO_ARGS
+}
+
+/** Every HEVC encoder, including `libx265` whose name (unlike `hevc_qsv`,
+ *  `hevc_vaapi`, ...) doesn't contain "hevc". They all need `-tag:v hvc1` so
+ *  the fMP4 sample entry is `hvc1` rather than `hev1` — broader player support
+ *  (notably Safari) and a codec string that matches the master playlist. */
+function isHevcEncoder(encoder: string): boolean {
+  return encoder === "libx265" || encoder.includes("hevc")
 }

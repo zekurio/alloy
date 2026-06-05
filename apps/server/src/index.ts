@@ -4,10 +4,12 @@ import { logger } from "@workspace/logging"
 
 import { app } from "./app"
 import { startChallengeSweeper, stopChallengeSweeper } from "./auth/webauthn"
+import { startLiveHlsCache, stopLiveHlsCache } from "./clips/live-hls-cache"
 import { warmDatabase } from "./db"
 import { env } from "./env"
 import { startQueue, stopQueue } from "./queue"
 import { ensureLoginSplashImage } from "./routes/admin-appearance"
+import { warmEncoderCapabilities } from "./routes/admin-encoder-capabilities"
 import { requestShutdown } from "./runtime/shutdown"
 
 if (env.NODE_ENV === "production") {
@@ -35,6 +37,14 @@ void startQueue().catch((err) => {
   logger.error("[queue] failed to start:", err)
 })
 
+void startLiveHlsCache().catch((err) => {
+  logger.error("[clips] failed to start live HLS cache:", err)
+})
+
+// Probe encoder capabilities up front so the first stream request doesn't wait
+// on the multi-second encoder smoke tests (slowest path: live AV1 selection).
+warmEncoderCapabilities()
+
 // Background TTL cleanup for auth challenges, kept off the request path.
 startChallengeSweeper()
 
@@ -51,6 +61,7 @@ const shutdown = () => {
   shuttingDown = true
   requestShutdown()
   stopChallengeSweeper()
+  void stopLiveHlsCache()
   // Stop the queue first so in-flight encodes get a chance to finish
   // (or at least to flush their progress) before the HTTP server goes
   // away. The queue stop path waits for in-flight workers to clear.

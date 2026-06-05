@@ -62,6 +62,51 @@ export type EncoderCodec = (typeof ENCODER_CODECS)[number]
 export const ENCODER_HEIGHT_MIN = 144
 export const ENCODER_HEIGHT_MAX = 4320
 
+export const ENCODER_TONEMAPPING_ALGORITHMS = [
+  "none",
+  "linear",
+  "gamma",
+  "clip",
+  "reinhard",
+  "hable",
+  "mobius",
+  "bt2390",
+] as const
+
+export type EncoderTonemappingAlgorithm =
+  (typeof ENCODER_TONEMAPPING_ALGORITHMS)[number]
+
+export const ENCODER_TONEMAPPING_MODES = [
+  "auto",
+  "max",
+  "rgb",
+  "lum",
+  "itp",
+] as const
+
+export type EncoderTonemappingMode = (typeof ENCODER_TONEMAPPING_MODES)[number]
+
+export const ENCODER_TONEMAPPING_RANGES = ["auto", "limited", "full"] as const
+
+export type EncoderTonemappingRange =
+  (typeof ENCODER_TONEMAPPING_RANGES)[number]
+
+export interface EncoderTonemappingConfig {
+  enabled: boolean
+  algorithm: EncoderTonemappingAlgorithm
+  mode: EncoderTonemappingMode
+  range: EncoderTonemappingRange
+  desat: number
+  peak: number
+  param: number | null
+  threshold: number
+  vpp: {
+    enabled: boolean
+    brightness: number
+    contrast: number
+  }
+}
+
 export interface AdminEncoderConfig {
   enabled: boolean
   hwaccel: EncoderHwaccel
@@ -69,6 +114,7 @@ export interface AdminEncoderConfig {
   vaapiDevice: string
   intelLowPowerH264: boolean
   intelLowPowerHevc: boolean
+  tonemapping: EncoderTonemappingConfig
 }
 
 export type EncoderConfig = AdminEncoderConfig

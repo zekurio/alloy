@@ -17,18 +17,48 @@ import {
   encoderAvailabilityFromProbe,
 } from "./admin-encoder-capability-map"
 
+const CAPABILITY_TTL_MS = 5 * 60_000
+
 let capabilityCache: {
   expiresAt: number
   value: EncoderCapabilities
 } | null = null
+let capabilityRefresh: Promise<EncoderCapabilities> | null = null
 
+function refreshEncoderCapabilities(): Promise<EncoderCapabilities> {
+  if (!capabilityRefresh) {
+    capabilityRefresh = probeEncoderCapabilities()
+      .then((value) => {
+        capabilityCache = { value, expiresAt: Date.now() + CAPABILITY_TTL_MS }
+        return value
+      })
+      .finally(() => {
+        capabilityRefresh = null
+      })
+  }
+  return capabilityRefresh
+}
+
+/**
+ * Cached encoder capabilities. The probe smoke-tests every encoder (seconds of
+ * ffmpeg spawns), so once warm we serve the cached value immediately and
+ * refresh in the background when stale — a request never blocks on it except
+ * the very first cold call. Warmed at startup via {@link warmEncoderCapabilities}.
+ */
 export async function getEncoderCapabilities(): Promise<EncoderCapabilities> {
-  if (capabilityCache && capabilityCache.expiresAt > Date.now()) {
+  if (capabilityCache) {
+    if (capabilityCache.expiresAt <= Date.now()) {
+      refreshEncoderCapabilities().catch(() => undefined)
+    }
     return capabilityCache.value
   }
-  const value = await probeEncoderCapabilities()
-  capabilityCache = { value, expiresAt: Date.now() + 5 * 60_000 }
-  return value
+  return refreshEncoderCapabilities()
+}
+
+/** Kick off the first capability probe in the background so the first stream
+ *  request doesn't pay for it. Safe to call once at startup. */
+export function warmEncoderCapabilities(): void {
+  if (!capabilityCache) refreshEncoderCapabilities().catch(() => undefined)
 }
 
 export function clearEncoderCapabilitiesCache(): void {
@@ -160,15 +190,11 @@ function encoderSmokeTestArgs(
   } else if (hwaccel === "vaapi") {
     args.push("-vaapi_device", encoderConfig.vaapiDevice)
   }
-  args.push(
-    "-f",
-    "lavfi",
-    "-i",
-    "testsrc2=s=128x128:d=0.1",
-    "-frames:v",
-    "1",
-    "-an",
-  )
+  // Encode ~0.5s rather than a single frame: HEVC/AV1 encoders (notably the
+  // VAAPI/QSV ones) buffer a small lookahead and emit nothing for a 1-frame
+  // input, which false-negatives a working encoder. A handful of frames forces
+  // at least one output packet while staying fast.
+  args.push("-f", "lavfi", "-i", "testsrc2=s=256x256:d=0.5", "-an")
   if (hwaccel === "vaapi") {
     args.push("-vf", "format=nv12,hwupload_vaapi")
   }

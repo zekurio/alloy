@@ -102,6 +102,24 @@ export function clipStreamUrl(
   )
 }
 
+export function clipHlsMasterUrl(
+  clipId: string,
+  origin?: string,
+  liveCodecs?: readonly string[],
+  variantId?: string,
+): string {
+  const codecs = liveCodecs
+    ? liveCodecs.length > 0
+      ? liveCodecs.join(",")
+      : "none"
+    : undefined
+  return resolvePublicUrlWithQuery(
+    publicClipPath(clipId, "/hls/master.m3u8"),
+    { variant: variantId, codecs },
+    origin,
+  )
+}
+
 export function clipThumbnailUrl(
   clipId: string,
   origin?: string,

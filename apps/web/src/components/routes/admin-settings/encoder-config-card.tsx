@@ -5,7 +5,13 @@ import {
   type AdminRuntimeConfig,
   ENCODER_CODECS,
   ENCODER_HWACCELS,
+  ENCODER_TONEMAPPING_ALGORITHMS,
+  ENCODER_TONEMAPPING_MODES,
+  ENCODER_TONEMAPPING_RANGES,
   type EncoderCodec,
+  type EncoderTonemappingAlgorithm,
+  type EncoderTonemappingMode,
+  type EncoderTonemappingRange,
 } from "@workspace/api"
 import { Button } from "@workspace/ui/components/button"
 import { Field, FieldLabel } from "@workspace/ui/components/field"
@@ -52,6 +58,34 @@ const LIVE_CODEC_LABELS: Record<EncoderCodec, string> = {
   h264: "H.264",
 }
 
+const TONEMAPPING_ALGORITHM_LABELS: Record<
+  EncoderTonemappingAlgorithm,
+  string
+> = {
+  none: "None",
+  linear: "Linear",
+  gamma: "Gamma",
+  clip: "Clip",
+  reinhard: "Reinhard",
+  hable: "Hable",
+  mobius: "Mobius",
+  bt2390: "BT.2390",
+}
+
+const TONEMAPPING_MODE_LABELS: Record<EncoderTonemappingMode, string> = {
+  auto: "Auto",
+  max: "Max",
+  rgb: "RGB",
+  lum: "Luminance",
+  itp: "ICtCp",
+}
+
+const TONEMAPPING_RANGE_LABELS: Record<EncoderTonemappingRange, string> = {
+  auto: "Auto",
+  limited: "Limited",
+  full: "Full",
+}
+
 type EncoderConfigCardProps = {
   encoder: AdminEncoderConfig
   onChange: (next: AdminRuntimeConfig) => void
@@ -94,6 +128,34 @@ export function EncoderConfigCard({
     value: AdminEncoderConfig[K],
   ) {
     setForm((f) => ({ ...f, [key]: value }))
+  }
+
+  function setTonemapping<K extends keyof AdminEncoderConfig["tonemapping"]>(
+    key: K,
+    value: AdminEncoderConfig["tonemapping"][K],
+  ) {
+    setForm((f) => ({
+      ...f,
+      tonemapping: {
+        ...f.tonemapping,
+        [key]: value,
+      },
+    }))
+  }
+
+  function setVppTonemapping<
+    K extends keyof AdminEncoderConfig["tonemapping"]["vpp"],
+  >(key: K, value: AdminEncoderConfig["tonemapping"]["vpp"][K]) {
+    setForm((f) => ({
+      ...f,
+      tonemapping: {
+        ...f.tonemapping,
+        vpp: {
+          ...f.tonemapping.vpp,
+          [key]: value,
+        },
+      },
+    }))
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -248,6 +310,216 @@ export function EncoderConfigCard({
                 </div>
               </FormGroup>
             ) : null}
+
+            <FormGroup
+              title="Tone mapping"
+              description="HDR to SDR conversion for live transcodes."
+            >
+              <div className="flex items-center justify-between gap-3">
+                <FieldLabel htmlFor="encoder-tonemapping-enabled">
+                  Tone mapping
+                </FieldLabel>
+                <Switch
+                  id="encoder-tonemapping-enabled"
+                  checked={form.tonemapping.enabled}
+                  onCheckedChange={(checked) =>
+                    setTonemapping("enabled", checked)
+                  }
+                  aria-label="Enable HDR tone mapping"
+                />
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Field>
+                  <FieldLabel htmlFor="encoder-tonemapping-algorithm">
+                    Algorithm
+                  </FieldLabel>
+                  <Select
+                    value={form.tonemapping.algorithm}
+                    onValueChange={(value) => {
+                      if (isTonemappingAlgorithm(value)) {
+                        setTonemapping("algorithm", value)
+                      }
+                    }}
+                  >
+                    <SelectTrigger
+                      id="encoder-tonemapping-algorithm"
+                      className="w-full"
+                    >
+                      <SelectValue>
+                        {
+                          TONEMAPPING_ALGORITHM_LABELS[
+                            form.tonemapping.algorithm
+                          ]
+                        }
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent align="start">
+                      {ENCODER_TONEMAPPING_ALGORITHMS.map((algorithm) => (
+                        <SelectItem key={algorithm} value={algorithm}>
+                          {TONEMAPPING_ALGORITHM_LABELS[algorithm]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="encoder-tonemapping-mode">
+                    Mode
+                  </FieldLabel>
+                  <Select
+                    value={form.tonemapping.mode}
+                    onValueChange={(value) => {
+                      if (isTonemappingMode(value)) {
+                        setTonemapping("mode", value)
+                      }
+                    }}
+                  >
+                    <SelectTrigger
+                      id="encoder-tonemapping-mode"
+                      className="w-full"
+                    >
+                      <SelectValue>
+                        {TONEMAPPING_MODE_LABELS[form.tonemapping.mode]}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent align="start">
+                      {ENCODER_TONEMAPPING_MODES.map((mode) => (
+                        <SelectItem key={mode} value={mode}>
+                          {TONEMAPPING_MODE_LABELS[mode]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="encoder-tonemapping-range">
+                    Range
+                  </FieldLabel>
+                  <Select
+                    value={form.tonemapping.range}
+                    onValueChange={(value) => {
+                      if (isTonemappingRange(value)) {
+                        setTonemapping("range", value)
+                      }
+                    }}
+                  >
+                    <SelectTrigger
+                      id="encoder-tonemapping-range"
+                      className="w-full"
+                    >
+                      <SelectValue>
+                        {TONEMAPPING_RANGE_LABELS[form.tonemapping.range]}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent align="start">
+                      {ENCODER_TONEMAPPING_RANGES.map((range) => (
+                        <SelectItem key={range} value={range}>
+                          {TONEMAPPING_RANGE_LABELS[range]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-4">
+                <ToneMappingNumberField
+                  id="encoder-tonemapping-desat"
+                  label="Desat"
+                  value={form.tonemapping.desat}
+                  min={0}
+                  max={10}
+                  step={0.1}
+                  onChange={(value) => {
+                    if (value !== null) setTonemapping("desat", value)
+                  }}
+                />
+                <ToneMappingNumberField
+                  id="encoder-tonemapping-peak"
+                  label="Peak"
+                  value={form.tonemapping.peak}
+                  min={0}
+                  max={10_000}
+                  step={1}
+                  onChange={(value) => {
+                    if (value !== null) setTonemapping("peak", value)
+                  }}
+                />
+                <ToneMappingNumberField
+                  id="encoder-tonemapping-param"
+                  label="Param"
+                  value={form.tonemapping.param}
+                  min={0}
+                  max={10}
+                  step={0.1}
+                  nullable
+                  onChange={(value) => setTonemapping("param", value)}
+                />
+                <ToneMappingNumberField
+                  id="encoder-tonemapping-threshold"
+                  label="Threshold"
+                  value={form.tonemapping.threshold}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  onChange={(value) => {
+                    if (value !== null) setTonemapping("threshold", value)
+                  }}
+                />
+              </div>
+
+              {form.hwaccel === "qsv" ? (
+                <>
+                  <div className="flex items-center justify-between gap-3">
+                    <FieldLabel htmlFor="encoder-tonemapping-vpp-enabled">
+                      QSV VPP tone mapping
+                    </FieldLabel>
+                    <Switch
+                      id="encoder-tonemapping-vpp-enabled"
+                      checked={form.tonemapping.vpp.enabled}
+                      onCheckedChange={(checked) =>
+                        setVppTonemapping("enabled", checked)
+                      }
+                      aria-label="Enable QSV VPP tone mapping"
+                    />
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <ToneMappingNumberField
+                      id="encoder-tonemapping-vpp-brightness"
+                      label="VPP brightness"
+                      value={form.tonemapping.vpp.brightness}
+                      min={-100}
+                      max={100}
+                      step={1}
+                      hint="Recommended 16"
+                      onChange={(value) => {
+                        if (value !== null) {
+                          setVppTonemapping("brightness", value)
+                        }
+                      }}
+                    />
+                    <ToneMappingNumberField
+                      id="encoder-tonemapping-vpp-contrast"
+                      label="VPP contrast"
+                      value={form.tonemapping.vpp.contrast}
+                      min={0}
+                      max={10}
+                      step={0.1}
+                      hint="Recommended 1"
+                      onChange={(value) => {
+                        if (value !== null) {
+                          setVppTonemapping("contrast", value)
+                        }
+                      }}
+                    />
+                  </div>
+                </>
+              ) : null}
+            </FormGroup>
           </SectionContent>
 
           {!hideActions && (
@@ -312,5 +584,81 @@ function CodecAvailability({
         )
       })}
     </div>
+  )
+}
+
+function ToneMappingNumberField({
+  id,
+  label,
+  value,
+  min,
+  max,
+  step,
+  hint,
+  nullable = false,
+  onChange,
+}: {
+  id: string
+  label: string
+  value: number | null
+  min: number
+  max: number
+  step: number
+  hint?: string
+  nullable?: boolean
+  onChange: (value: number | null) => void
+}) {
+  return (
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <Input
+        id={id}
+        type="number"
+        min={min}
+        max={max}
+        step={step}
+        value={value ?? ""}
+        onChange={(event) => {
+          const raw = event.target.value
+          if (nullable && raw.trim() === "") {
+            onChange(null)
+            return
+          }
+          const next = Number(raw)
+          if (!Number.isFinite(next)) return
+          onChange(Math.min(max, Math.max(min, next)))
+        }}
+      />
+      {hint ? <p className="text-foreground-muted text-xs">{hint}</p> : null}
+    </Field>
+  )
+}
+
+function isTonemappingAlgorithm(
+  value: string | number | null,
+): value is EncoderTonemappingAlgorithm {
+  return (
+    typeof value === "string" &&
+    ENCODER_TONEMAPPING_ALGORITHMS.includes(
+      value as EncoderTonemappingAlgorithm,
+    )
+  )
+}
+
+function isTonemappingMode(
+  value: string | number | null,
+): value is EncoderTonemappingMode {
+  return (
+    typeof value === "string" &&
+    ENCODER_TONEMAPPING_MODES.includes(value as EncoderTonemappingMode)
+  )
+}
+
+function isTonemappingRange(
+  value: string | number | null,
+): value is EncoderTonemappingRange {
+  return (
+    typeof value === "string" &&
+    ENCODER_TONEMAPPING_RANGES.includes(value as EncoderTonemappingRange)
   )
 }

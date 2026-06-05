@@ -6,8 +6,14 @@ import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 
 import type { SourceSpec } from "./video-source"
 
-/** Selected HLS rendition: a target height in pixels, or adaptive ("auto"). */
-export type HlsLevelSelection = number | "auto"
+/** Selected HLS rendition, or adaptive ("auto"). */
+export type HlsLevelSelection =
+  | number
+  | "auto"
+  | {
+      height: number
+      bitrate?: number
+    }
 
 declare global {
   // Safari/iOS expose Managed Media Source instead of MediaSource; it isn't in
@@ -58,7 +64,13 @@ function applyLevel(hls: HlsType, level: HlsLevelSelection): void {
     hls.currentLevel = -1
     return
   }
-  const index = hls.levels.findIndex((candidate) => candidate.height === level)
+  const index = hls.levels.findIndex((candidate) => {
+    if (typeof level === "number") return candidate.height === level
+    return (
+      candidate.height === level.height &&
+      (level.bitrate === undefined || candidate.bitrate === level.bitrate)
+    )
+  })
   // Unknown height (e.g. manifest changed) falls back to adaptive rather than
   // pinning an out-of-range index.
   hls.currentLevel = index >= 0 ? index : -1
@@ -118,8 +130,15 @@ export function useMediaEngine(
           onFatalRef.current?.("This browser cannot play adaptive streams.")
           return
         }
-        instance = new Hls({ enableWorker: true })
+        instance = new Hls({
+          enableWorker: true,
+          xhrSetup: (xhr) => {
+            xhr.withCredentials = true
+          },
+        })
         hlsRef.current = instance
+        video.removeAttribute("src")
+        video.load()
         instance.on(Hls.Events.MANIFEST_PARSED, () => {
           if (instance) applyLevel(instance, levelRef.current)
         })

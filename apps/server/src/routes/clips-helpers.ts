@@ -30,9 +30,24 @@ export const StreamQuery = z.object({
   variant: optionalTrimmedString(),
   codecs: optionalTrimmedString(),
 })
+export const HlsStreamQuery = z.object({
+  variant: optionalTrimmedString(),
+  codecs: optionalTrimmedString(),
+})
+export const HlsSegmentQuery = HlsStreamQuery.extend({
+  runtimeTicks: z.coerce.number().int().min(0).optional(),
+  actualSegmentLengthTicks: z.coerce.number().int().min(0).optional(),
+})
 export const HlsVariantParam = z.object({
   id: z.uuid(),
   variant: z.string().min(1).max(200),
+})
+export const HlsCacheParam = z.object({
+  id: z.uuid(),
+  cacheKey: z.string().regex(/^[a-f0-9]{32}$/),
+})
+export const HlsSegmentParam = HlsCacheParam.extend({
+  segment: z.string().min(1).max(128),
 })
 export const DownloadQuery = z.object({
   variant: optionalTrimmedString(),

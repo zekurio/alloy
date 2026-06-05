@@ -1,5 +1,6 @@
 import {
   clipDownloadUrl,
+  clipHlsMasterUrl,
   type ClipPlaybackQuality,
   type ClipStatus,
   clipStreamUrl,
@@ -8,7 +9,12 @@ import {
 import { toast } from "@workspace/ui/lib/toast"
 import * as React from "react"
 
+import { mseHlsSupported } from "@/components/video/video-media-engine"
 import { VideoPlayer } from "@/components/video/video-player"
+import {
+  readLocalStorageItem,
+  writeLocalStorageItem,
+} from "@/lib/browser-storage"
 import { apiOrigin } from "@/lib/env"
 import { browserLiveCodecs } from "@/lib/live-codecs"
 import { canPlaySource } from "@/lib/source-playback"
@@ -16,6 +22,7 @@ import { formatBytes } from "@/lib/storage-format"
 
 const AUTO_QUALITY_ID = "auto"
 const SOURCE_QUALITY_ID = "source"
+const QUALITY_PREFERENCE_KEY = "alloy:clip-player-quality"
 
 interface ClipPlayerProps {
   /** Real clip id: drives the stream URL and the default poster. */
@@ -47,6 +54,33 @@ function qualityDetail(quality: ClipPlaybackQuality): string {
     ? `${quality.width}x${quality.height}`
     : `${quality.height}p`
   return `${dimensions} · ${formatBytes(Math.round(quality.bitrate / 8))}/s`
+}
+
+function loadQualityPreference(): string | null {
+  const value = readLocalStorageItem(QUALITY_PREFERENCE_KEY)?.trim()
+  return value ? value : null
+}
+
+function saveQualityPreference(qualityId: string): void {
+  writeLocalStorageItem(QUALITY_PREFERENCE_KEY, qualityId)
+}
+
+function resolveQualityPreference({
+  defaultQualityId,
+  preferredQualityId,
+  sourceAvailable,
+  qualities,
+}: {
+  defaultQualityId: string
+  preferredQualityId: string | null
+  sourceAvailable: boolean
+  qualities: readonly ClipPlaybackQuality[]
+}): string {
+  const candidate = preferredQualityId ?? defaultQualityId
+  if (candidate === AUTO_QUALITY_ID && sourceAvailable) return candidate
+  if (candidate === SOURCE_QUALITY_ID && sourceAvailable) return candidate
+  if (qualities.some((quality) => quality.id === candidate)) return candidate
+  return defaultQualityId
 }
 
 function ClipPlayer({
@@ -92,27 +126,51 @@ function ClipPlayer({
   const liveCodecs = React.useMemo(() => browserLiveCodecs(), [])
   const transcodeRetryQualityId = sortedQualities[0]?.id ?? null
 
-  const preferredQualityId = sourceContentType ? AUTO_QUALITY_ID : ""
-  const [selectedQualityId, setSelectedQualityId] =
-    React.useState(preferredQualityId)
+  const defaultQualityId = sourceContentType ? AUTO_QUALITY_ID : ""
+  const [qualityPreferenceId, setQualityPreferenceId] = React.useState<
+    string | null
+  >(() => loadQualityPreference())
+  const [selectedQualityId, setSelectedQualityId] = React.useState(() =>
+    resolveQualityPreference({
+      defaultQualityId,
+      preferredQualityId: qualityPreferenceId,
+      sourceAvailable: Boolean(sourceContentType),
+      qualities: sortedQualities,
+    }),
+  )
 
   React.useEffect(() => {
-    setSelectedQualityId(preferredQualityId)
-  }, [clipId, preferredQualityId])
-
-  React.useEffect(() => {
-    const stillAvailable =
-      (selectedQualityId === AUTO_QUALITY_ID && Boolean(sourceContentType)) ||
-      sortedQualities.some((quality) => quality.id === selectedQualityId) ||
-      (selectedQualityId === SOURCE_QUALITY_ID && Boolean(sourceContentType))
-    if (!stillAvailable) setSelectedQualityId(preferredQualityId)
+    setSelectedQualityId(
+      resolveQualityPreference({
+        defaultQualityId,
+        preferredQualityId: qualityPreferenceId,
+        sourceAvailable: Boolean(sourceContentType),
+        qualities: sortedQualities,
+      }),
+    )
   }, [
-    preferredQualityId,
-    selectedQualityId,
+    clipId,
+    defaultQualityId,
+    qualityPreferenceId,
     sortedQualities,
     sourceContentType,
-    sourcePlayable,
   ])
+
+  const handleSelectQuality = React.useCallback(
+    (qualityId: string) => {
+      setQualityPreferenceId(qualityId)
+      saveQualityPreference(qualityId)
+      setSelectedQualityId(
+        resolveQualityPreference({
+          defaultQualityId,
+          preferredQualityId: qualityId,
+          sourceAvailable: Boolean(sourceContentType),
+          qualities: sortedQualities,
+        }),
+      )
+    },
+    [defaultQualityId, sortedQualities, sourceContentType],
+  )
 
   const qualityOptions = [
     ...(sourceContentType
@@ -146,6 +204,27 @@ function ClipPlayer({
       ? SOURCE_QUALITY_ID
       : progressiveVariantId
   const usingSourceAttempt = progressiveSrcId === SOURCE_QUALITY_ID
+  const selectedLiveQuality =
+    progressiveSrcId === SOURCE_QUALITY_ID
+      ? null
+      : (sortedQualities.find((quality) => quality.id === progressiveSrcId) ??
+        null)
+  const useHlsLevelSwitching = selectedLiveQuality ? mseHlsSupported() : false
+  const hlsMasterUrl = selectedLiveQuality
+    ? clipHlsMasterUrl(
+        clipId,
+        apiOrigin(),
+        liveCodecs,
+        useHlsLevelSwitching ? undefined : selectedLiveQuality.id,
+      )
+    : undefined
+  const hlsLevelHeight =
+    useHlsLevelSwitching && selectedLiveQuality
+      ? {
+          height: selectedLiveQuality.height,
+          bitrate: selectedLiveQuality.bitrate,
+        }
+      : "auto"
   const handlePlaybackError = React.useCallback(
     (message: string) => {
       if (usingSourceAttempt && transcodeRetryQualityId) {
@@ -191,6 +270,8 @@ function ClipPlayer({
   return (
     <VideoPlayer
       src={clipStreamUrl(clipId, progressiveSrcId, apiOrigin(), liveCodecs)}
+      hlsMasterUrl={hlsMasterUrl}
+      hlsLevelHeight={hlsLevelHeight}
       poster={poster}
       aspectRatio={aspectRatio}
       maxDisplayHeight={maxDisplayHeight}
@@ -199,10 +280,11 @@ function ClipPlayer({
       sourceIdentity={clipId}
       qualityOptions={qualityOptions}
       selectedQualityId={selectedQualityId}
-      onSelectQuality={setSelectedQualityId}
+      onSelectQuality={handleSelectQuality}
       onPlayThreshold={onPlayThreshold}
       onEnded={onEnded}
       onPlaybackError={handlePlaybackError}
+      onHlsFatalError={handlePlaybackError}
       autoPlay={autoPlay}
       enableHorizontalSeekShortcuts={enableHorizontalSeekShortcuts}
     />

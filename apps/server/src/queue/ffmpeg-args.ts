@@ -1,5 +1,15 @@
+import type { EncoderTonemappingConfig } from "@workspace/contracts"
+
 export { codecNameFor } from "./ffmpeg-codecs"
 import { liveEncoderProfileFor } from "./ffmpeg-live-profiles"
+
+export interface SourceColorInfo {
+  primaries: string | null
+  transfer: string | null
+  space: string | null
+  range: string | null
+  isHdr: boolean
+}
 
 export interface ResolvedEncoderConfig {
   hwaccel: string
@@ -13,6 +23,8 @@ export interface ResolvedEncoderConfig {
   vaapiDevice: string
   intelLowPowerH264: boolean
   intelLowPowerHevc: boolean
+  tonemapping: EncoderTonemappingConfig
+  sourceColor?: SourceColorInfo
 }
 
 export interface LiveTranscodeOpts {
@@ -20,6 +32,14 @@ export interface LiveTranscodeOpts {
   targetHeight: number
   videoBitrate: number
   audioBitrate: number
+}
+
+export interface LiveHlsOpts extends LiveTranscodeOpts {
+  segmentLengthSec: number
+  startNumber: number
+  startTimeSec: number
+  segmentPattern: string
+  initFilename: string
 }
 
 interface EncodeOpts {
@@ -93,6 +113,64 @@ export function buildLiveTranscodeArgs(
   srcPath: string,
   opts: LiveTranscodeOpts,
 ): string[] {
+  return [
+    ...buildLiveOutputHead(srcPath, opts),
+    "-movflags",
+    "+frag_keyframe+empty_moov+default_base_moof",
+    "-f",
+    "mp4",
+    "pipe:1",
+  ]
+}
+
+export function buildLiveHlsArgs(
+  srcPath: string,
+  playlistPath: string,
+  opts: LiveHlsOpts,
+): string[] {
+  const segmentLength = String(Math.max(1, Math.floor(opts.segmentLengthSec)))
+  const startNumber = Math.max(0, Math.floor(opts.startNumber))
+  return [
+    ...buildLiveOutputHead(srcPath, opts),
+    // -copyts keeps source timestamps so a job resumed mid-stream (-ss on a
+    // later segment) emits PTS at the segment's real time instead of 0; without
+    // it hls.js places restarted segments at the wrong spot and stalls. The
+    // forced-keyframe schedule is offset by startNumber so cut points stay on
+    // absolute segment boundaries once timestamps are no longer zero-based.
+    "-copyts",
+    "-avoid_negative_ts",
+    "disabled",
+    "-force_key_frames",
+    `expr:gte(t,(n_forced+${startNumber})*${segmentLength})`,
+    "-f",
+    "hls",
+    "-max_delay",
+    "5000000",
+    "-hls_time",
+    segmentLength,
+    "-hls_segment_type",
+    "fmp4",
+    "-hls_fmp4_init_filename",
+    opts.initFilename,
+    "-start_number",
+    String(startNumber),
+    "-hls_segment_filename",
+    opts.segmentPattern,
+    "-hls_playlist_type",
+    "vod",
+    "-hls_list_size",
+    "0",
+    "-hls_segment_options",
+    "movflags=+frag_discont",
+    "-y",
+    playlistPath,
+  ]
+}
+
+function buildLiveOutputHead(
+  srcPath: string,
+  opts: LiveTranscodeOpts,
+): string[] {
   const { config } = opts
   const encoder = config.encoder.trim()
   const liveProfile = liveEncoderProfileFor(encoder)
@@ -107,6 +185,7 @@ export function buildLiveTranscodeArgs(
     "-hide_banner",
     "-nostdin",
     ...hardwareArgs,
+    ...(optsHasStart(opts) ? ["-ss", String(opts.startTimeSec)] : []),
     "-i",
     srcPath,
     "-map",
@@ -130,12 +209,13 @@ export function buildLiveTranscodeArgs(
     "2",
     "-ar",
     "48000",
-    "-movflags",
-    "+frag_keyframe+empty_moov+default_base_moof",
-    "-f",
-    "mp4",
-    "pipe:1",
   ]
+}
+
+function optsHasStart(
+  opts: LiveTranscodeOpts | LiveHlsOpts,
+): opts is LiveHlsOpts {
+  return "startTimeSec" in opts && opts.startTimeSec > 0
 }
 
 function buildHardwareArgs(config: ResolvedEncoderConfig): string[] {
@@ -143,6 +223,9 @@ function buildHardwareArgs(config: ResolvedEncoderConfig): string[] {
   const encoder = config.encoder.trim()
   const args: string[] = []
 
+  if (shouldTonemap(config) && !shouldUseQsvVppTonemapping(config)) {
+    args.push("-init_hw_device", "opencl=ocl", "-filter_hw_device", "ocl")
+  }
   if (encoder.endsWith("_qsv") || hwaccel === "qsv") {
     args.push("-qsv_device", config.qsvDevice)
   }
@@ -159,10 +242,106 @@ function buildFilterChain(
 ): string {
   const height = evenTargetHeight(targetHeight)
   const scale = `scale=-2:${height}:force_original_aspect_ratio=decrease`
-  if (config.encoder.trim().endsWith("_vaapi")) {
-    return `${scale},format=nv12,hwupload_vaapi`
+  if (shouldUseQsvVppTonemapping(config)) {
+    return buildQsvVppTonemappingFilter(height, config)
   }
-  return `${scale},format=yuv420p`
+  const toneMap = buildTonemappingFilter(config)
+  if (config.encoder.trim().endsWith("_vaapi")) {
+    return [toneMap, scale, "format=nv12", "hwupload_vaapi"]
+      .filter((part): part is string => Boolean(part))
+      .join(",")
+  }
+  return [toneMap, scale, "format=yuv420p"]
+    .filter((part): part is string => Boolean(part))
+    .join(",")
+}
+
+function buildQsvVppTonemappingFilter(
+  height: number,
+  config: ResolvedEncoderConfig,
+): string {
+  const vpp = config.tonemapping.vpp
+  const options = [
+    "w=-1",
+    `h=${height}`,
+    "format=nv12",
+    "tonemap=1",
+    "procamp=1",
+    `brightness=${formatFilterNumber(vpp.brightness)}`,
+    `contrast=${formatFilterNumber(vpp.contrast)}`,
+    "out_color_matrix=bt709",
+    "out_color_primaries=bt709",
+    "out_color_transfer=bt709",
+  ]
+  return [
+    sourceHdrSetParams(config.sourceColor ?? fallbackHdrColor),
+    "format=nv12",
+    "hwupload=extra_hw_frames=16",
+    "format=qsv",
+    `vpp_qsv=${options.join(":")}`,
+  ].join(",")
+}
+
+function buildTonemappingFilter(config: ResolvedEncoderConfig): string | null {
+  const toneMapping = config.tonemapping
+  const sourceColor = config.sourceColor
+  if (!toneMapping.enabled || !sourceColor?.isHdr) return null
+
+  const options = [
+    "format=yuv420p",
+    "p=bt709",
+    "t=bt709",
+    "m=bt709",
+    `tonemap=${toneMapping.algorithm}`,
+    `tonemap_mode=${toneMapping.mode}`,
+    `peak=${formatFilterNumber(toneMapping.peak)}`,
+    `desat=${formatFilterNumber(toneMapping.desat)}`,
+    `threshold=${formatFilterNumber(toneMapping.threshold)}`,
+    toneMapping.param === null
+      ? null
+      : `param=${formatFilterNumber(toneMapping.param)}`,
+    toneMapping.range === "auto" ? null : `r=${toneMapping.range}`,
+  ].filter((option): option is string => option !== null)
+
+  return [
+    sourceHdrSetParams(sourceColor),
+    "format=p010le",
+    "hwupload",
+    `tonemap_opencl=${options.join(":")}`,
+    "hwdownload",
+    "format=yuv420p",
+  ].join(",")
+}
+
+function shouldTonemap(config: ResolvedEncoderConfig): boolean {
+  return Boolean(config.tonemapping.enabled && config.sourceColor?.isHdr)
+}
+
+function shouldUseQsvVppTonemapping(config: ResolvedEncoderConfig): boolean {
+  return Boolean(
+    shouldTonemap(config) &&
+    config.tonemapping.vpp.enabled &&
+    config.encoder.trim().endsWith("_qsv"),
+  )
+}
+
+const fallbackHdrColor: SourceColorInfo = {
+  primaries: "bt2020",
+  transfer: "smpte2084",
+  space: "bt2020nc",
+  range: null,
+  isHdr: true,
+}
+
+function sourceHdrSetParams(color: SourceColorInfo): string {
+  const primaries = color.primaries ?? "bt2020"
+  const transfer = color.transfer ?? "smpte2084"
+  const space = color.space ?? "bt2020nc"
+  return `setparams=color_primaries=${primaries}:color_trc=${transfer}:colorspace=${space}`
+}
+
+function formatFilterNumber(value: number): string {
+  return Number.isInteger(value) ? value.toFixed(0) : String(value)
 }
 
 function evenTargetHeight(targetHeight: number): number {

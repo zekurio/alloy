@@ -1,6 +1,9 @@
 import {
   type AdminRuntimeConfig,
   ENCODER_HWACCELS,
+  ENCODER_TONEMAPPING_ALGORITHMS,
+  ENCODER_TONEMAPPING_MODES,
+  ENCODER_TONEMAPPING_RANGES,
   RUNTIME_CONFIG_VERSION,
   type RuntimeConfig,
 } from "@workspace/contracts"
@@ -12,6 +15,7 @@ import {
   validateEnumString,
   validateNullablePositiveInteger,
   validateNullableRequiredString,
+  validateNumber,
   validateOptionalUrlString,
   validatePositiveInteger,
   validateRequiredString,
@@ -20,6 +24,15 @@ import {
 } from "../runtime-validation"
 import { validateAuthProviderColors, validateBackdropTreatment } from "./shared"
 const ENCODER_HWACCEL_SET: ReadonlySet<string> = new Set(ENCODER_HWACCELS)
+const ENCODER_TONEMAPPING_ALGORITHM_SET: ReadonlySet<string> = new Set(
+  ENCODER_TONEMAPPING_ALGORITHMS,
+)
+const ENCODER_TONEMAPPING_MODE_SET: ReadonlySet<string> = new Set(
+  ENCODER_TONEMAPPING_MODES,
+)
+const ENCODER_TONEMAPPING_RANGE_SET: ReadonlySet<string> = new Set(
+  ENCODER_TONEMAPPING_RANGES,
+)
 const RUNTIME_CONFIG_BOOLEAN_FIELDS = [
   "openRegistrations",
   "setupComplete",
@@ -113,6 +126,64 @@ function validateAdminEncoderConfig(value: unknown) {
       `Invalid admin encoder config: ${key} must be boolean`,
     )
   }
+  validateEncoderTonemappingConfig(encoder.tonemapping)
+}
+
+function validateEncoderTonemappingConfig(value: unknown) {
+  const tonemapping = objectRecord(value, "admin encoder tone mapping config")
+  validateBoolean(
+    tonemapping.enabled,
+    "Invalid admin encoder tone mapping config: enabled must be boolean",
+  )
+  validateEnumString(
+    tonemapping.algorithm,
+    ENCODER_TONEMAPPING_ALGORITHM_SET,
+    "Invalid admin encoder tone mapping config: algorithm is invalid",
+  )
+  validateEnumString(
+    tonemapping.mode,
+    ENCODER_TONEMAPPING_MODE_SET,
+    "Invalid admin encoder tone mapping config: mode is invalid",
+  )
+  validateEnumString(
+    tonemapping.range,
+    ENCODER_TONEMAPPING_RANGE_SET,
+    "Invalid admin encoder tone mapping config: range is invalid",
+  )
+  validateNumber(
+    tonemapping.desat,
+    "Invalid admin encoder tone mapping config: desat must be numeric",
+  )
+  validateNumber(
+    tonemapping.peak,
+    "Invalid admin encoder tone mapping config: peak must be numeric",
+  )
+  if (tonemapping.param !== null) {
+    validateNumber(
+      tonemapping.param,
+      "Invalid admin encoder tone mapping config: param must be numeric or null",
+    )
+  }
+  validateNumber(
+    tonemapping.threshold,
+    "Invalid admin encoder tone mapping config: threshold must be numeric",
+  )
+  const vpp = objectRecord(
+    tonemapping.vpp,
+    "admin encoder VPP tone mapping config",
+  )
+  validateBoolean(
+    vpp.enabled,
+    "Invalid admin encoder VPP tone mapping config: enabled must be boolean",
+  )
+  validateNumber(
+    vpp.brightness,
+    "Invalid admin encoder VPP tone mapping config: brightness must be numeric",
+  )
+  validateNumber(
+    vpp.contrast,
+    "Invalid admin encoder VPP tone mapping config: contrast must be numeric",
+  )
 }
 
 function validateAdminLimitsConfig(value: unknown) {

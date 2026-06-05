@@ -3,6 +3,7 @@ import { test } from "node:test"
 import type { ResolvedEncoderConfig } from "./ffmpeg-args"
 import {
   buildEncodeArgs,
+  buildLiveHlsArgs,
   buildLiveTranscodeArgs,
   codecNameFor,
 } from "./ffmpeg-args"
@@ -78,6 +79,21 @@ function encoderConfig(
     vaapiDevice: "/dev/dri/renderD128",
     intelLowPowerH264: false,
     intelLowPowerHevc: false,
+    tonemapping: {
+      enabled: true,
+      algorithm: "bt2390",
+      mode: "auto",
+      range: "auto",
+      desat: 0,
+      peak: 100,
+      param: null,
+      threshold: 0.2,
+      vpp: {
+        enabled: true,
+        brightness: 16,
+        contrast: 1,
+      },
+    },
     ...overrides,
   }
 }
@@ -114,6 +130,34 @@ test("buildLiveTranscodeArgs uses capped CRF for SVT-AV1 live output", () => {
   assertIncludes(args, ["-crf", "35", "-maxrate", "600000"])
   assertIncludes(args, ["-bufsize", "1200000", "-pix_fmt", "yuv420p"])
   assertNotIncludes(args, ["-svtav1-params"])
+})
+
+test("buildLiveHlsArgs emits fMP4 HLS output with stable segment names", () => {
+  const args = buildLiveHlsArgs("source.mkv", "/cache/key/stream.m3u8", {
+    config: encoderConfig("libx264"),
+    targetHeight: 720,
+    videoBitrate: 600_000,
+    audioBitrate: 128_000,
+    segmentLengthSec: 3,
+    startNumber: 4,
+    startTimeSec: 12,
+    segmentPattern: "/cache/key/key%d.mp4",
+    initFilename: "key-init.mp4",
+  })
+
+  assertIncludes(args, ["-ss", "12", "-i", "source.mkv"])
+  assertIncludes(args, ["-copyts", "-avoid_negative_ts", "disabled"])
+  // Keyframe schedule is offset by startNumber so cut points stay on absolute
+  // segment boundaries when -copyts keeps timestamps non-zero-based.
+  assertIncludes(args, ["-force_key_frames", "expr:gte(t,(n_forced+4)*3)"])
+  assertIncludes(args, ["-f", "hls", "-max_delay", "5000000"])
+  assertIncludes(args, ["-hls_time", "3", "-hls_segment_type", "fmp4"])
+  assertIncludes(args, ["-hls_fmp4_init_filename", "key-init.mp4"])
+  assertIncludes(args, ["-start_number", "4"])
+  assertIncludes(args, ["-hls_segment_filename", "/cache/key/key%d.mp4"])
+  assertIncludes(args, ["-hls_playlist_type", "vod", "-hls_list_size", "0"])
+  assertIncludes(args, ["-hls_segment_options", "movflags=+frag_discont"])
+  assert(args.at(-1) === "/cache/key/stream.m3u8", "playlist should be last")
 })
 
 test("buildEncodeArgs rounds odd software target heights down", () => {
@@ -198,6 +242,15 @@ test("buildLiveTranscodeArgs applies NVENC live defaults and HEVC tag", () => {
   assertIncludes(args, ["-tag:v", "hvc1"])
 })
 
+test("buildLiveTranscodeArgs tags libx265 output as hvc1", () => {
+  // libx265's name lacks "hevc", so the tag was previously skipped, producing
+  // hev1 sample entries instead of the broadly-compatible hvc1.
+  const args = liveArgs("libx265")
+
+  assertIncludes(args, ["-c:v", "libx265", "-preset", "veryfast"])
+  assertIncludes(args, ["-tag:v", "hvc1"])
+})
+
 test("buildLiveTranscodeArgs uploads VAAPI frames and uses VBR mode", () => {
   const args = buildLiveTranscodeArgs("source.mkv", {
     config: encoderConfig("hevc_vaapi", { hwaccel: "vaapi" }),
@@ -213,6 +266,79 @@ test("buildLiveTranscodeArgs uploads VAAPI frames and uses VBR mode", () => {
   ])
   assertIncludes(args, ["-rc_mode", "VBR", "-b:v", "600000"])
   assertIncludes(args, ["-tag:v", "hvc1"])
+})
+
+test("buildLiveTranscodeArgs applies Jellyfin-style HDR tone mapping", () => {
+  const args = liveArgs("libx264", {
+    sourceColor: {
+      primaries: "bt2020",
+      transfer: "smpte2084",
+      space: "bt2020nc",
+      range: "tv",
+      isHdr: true,
+    },
+    tonemapping: {
+      enabled: true,
+      algorithm: "mobius",
+      mode: "auto",
+      range: "limited",
+      desat: 0.5,
+      peak: 100,
+      param: 0.3,
+      threshold: 0.2,
+      vpp: {
+        enabled: true,
+        brightness: 16,
+        contrast: 1,
+      },
+    },
+  })
+
+  assertIncludes(args, ["-init_hw_device", "opencl=ocl"])
+  assertIncludes(args, ["-filter_hw_device", "ocl"])
+  assertIncludes(args, [
+    "-vf",
+    "setparams=color_primaries=bt2020:color_trc=smpte2084:colorspace=bt2020nc,format=p010le,hwupload,tonemap_opencl=format=yuv420p:p=bt709:t=bt709:m=bt709:tonemap=mobius:tonemap_mode=auto:peak=100:desat=0.5:threshold=0.2:param=0.3:r=limited,hwdownload,format=yuv420p,scale=-2:720:force_original_aspect_ratio=decrease,format=yuv420p",
+  ])
+})
+
+test("buildLiveTranscodeArgs prefers QSV VPP tone mapping when enabled", () => {
+  const args = liveArgs("h264_qsv", {
+    hwaccel: "qsv",
+    sourceColor: {
+      primaries: "bt2020",
+      transfer: "smpte2084",
+      space: "bt2020nc",
+      range: "tv",
+      isHdr: true,
+    },
+  })
+
+  assertIncludes(args, ["-qsv_device", "/dev/dri/renderD128"])
+  assertIncludes(args, [
+    "-vf",
+    "setparams=color_primaries=bt2020:color_trc=smpte2084:colorspace=bt2020nc,format=nv12,hwupload=extra_hw_frames=16,format=qsv,vpp_qsv=w=-1:h=720:format=nv12:tonemap=1:procamp=1:brightness=16:contrast=1:out_color_matrix=bt709:out_color_primaries=bt709:out_color_transfer=bt709",
+  ])
+  assertNotIncludes(args, ["-init_hw_device", "opencl=ocl"])
+  assert(!args.join(" ").includes("tonemap_opencl"), "QSV VPP should win")
+})
+
+test("buildLiveTranscodeArgs skips tone mapping for SDR sources", () => {
+  const args = liveArgs("libx264", {
+    sourceColor: {
+      primaries: "bt709",
+      transfer: "bt709",
+      space: "bt709",
+      range: "tv",
+      isHdr: false,
+    },
+  })
+
+  assertIncludes(args, [
+    "-vf",
+    "scale=-2:720:force_original_aspect_ratio=decrease,format=yuv420p",
+  ])
+  assert(!args.join(" ").includes("tonemap_opencl"), "SDR should not tone map")
 })
 
 test("buildLiveTranscodeArgs applies AMF live CBR defaults", () => {

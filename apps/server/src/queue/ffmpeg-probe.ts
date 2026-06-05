@@ -10,6 +10,15 @@ interface ProbeResult {
   contentType: string
   videoCodec: string
   audioCodec: string | null
+  color: VideoColorInfo
+}
+
+export interface VideoColorInfo {
+  primaries: string | null
+  transfer: string | null
+  space: string | null
+  range: string | null
+  isHdr: boolean
 }
 
 /**
@@ -64,6 +73,7 @@ export async function probe(srcPath: string): Promise<ProbeResult> {
     audioCodec: audioStream?.codec_name
       ? String(audioStream.codec_name).toLowerCase()
       : null,
+    color: videoColorInfo(videoStream),
   }
 }
 
@@ -74,11 +84,53 @@ interface ProbeJson {
     width?: number | string
     height?: number | string
     duration?: string
+    color_primaries?: string
+    color_transfer?: string
+    color_space?: string
+    color_range?: string
   }>
   format?: {
     format_name?: string
     duration?: string
   }
+}
+
+function videoColorInfo(
+  stream: NonNullable<ProbeJson["streams"]>[number],
+): VideoColorInfo {
+  const primaries = normalizeColorValue(stream.color_primaries)
+  const transfer = normalizeColorValue(stream.color_transfer)
+  const space = normalizeColorValue(stream.color_space)
+  const range = normalizeColorValue(stream.color_range)
+  return {
+    primaries,
+    transfer,
+    space,
+    range,
+    isHdr: isHdrColor({ primaries, transfer, space }),
+  }
+}
+
+function normalizeColorValue(value: string | undefined): string | null {
+  const normalized = value?.trim().toLowerCase()
+  if (!normalized || normalized === "unknown" || normalized === "reserved") {
+    return null
+  }
+  return normalized
+}
+
+function isHdrColor(input: {
+  primaries: string | null
+  transfer: string | null
+  space: string | null
+}): boolean {
+  return (
+    input.transfer === "smpte2084" ||
+    input.transfer === "arib-std-b67" ||
+    input.primaries === "bt2020" ||
+    input.space === "bt2020nc" ||
+    input.space === "bt2020c"
+  )
 }
 
 function contentTypeForFormatName(name: string): string {

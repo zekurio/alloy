@@ -1,6 +1,6 @@
 import { test } from "node:test"
 
-import { clipStreamUrl } from "./clips"
+import { clipHlsMasterUrl, clipStreamUrl } from "./clips"
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -36,5 +36,15 @@ test("clipStreamUrl sends codecs=none for explicit empty browser support", () =>
   assert(
     query(url).get("codecs") === "none",
     "empty browser support should stay explicit",
+  )
+})
+
+test("clipHlsMasterUrl sends browser live codec support", () => {
+  const url = clipHlsMasterUrl("clip-id", undefined, ["hevc", "h264"], "br-1")
+
+  assert(
+    url ===
+      "/api/clips/clip-id/hls/master.m3u8?variant=br-1&codecs=hevc%2Ch264",
+    "HLS master URL should include encoded codec support",
   )
 })
