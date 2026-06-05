@@ -59,7 +59,7 @@ artifacts:
 nix.settings = {
   substituters = [ "https://zekurio.cachix.org" ];
   trusted-public-keys = [
-    "zekurio.cachix.org-1:9ibXBAZj69Pg57FpygJiguefU5v93B7beAoQEQrtxw0="
+    "zekurio.cachix.org-1:QfL4gb2uCVEmSOOx4fLGDpygY1ycH5oUS1nteYTAgHc="
   ];
 };
 ```

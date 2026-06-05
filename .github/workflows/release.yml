@@ -75,7 +75,8 @@ jobs:
       - name: Set up Nix
         uses: cachix/install-nix-action@v31
 
-      - name: Set up Cachix
+      - name: Set up Cachix for stable release cache
+        if: steps.meta.outputs.is_prerelease == 'false'
         uses: cachix/cachix-action@v15
         with:
           name: zekurio
