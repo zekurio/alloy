@@ -130,16 +130,6 @@ jobs:
         run: |
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Resolve previous release tag
-        id: previous_tag
-        shell: bash
-        env:
-          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
-        run: |
-          release_commit="$(git rev-list -n 1 "$RELEASE_TAG")"
-          previous_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$release_commit^" 2>/dev/null || true)"
-          echo "tag=$previous_tag" >> "$GITHUB_OUTPUT"
-
       - name: Publish server release image
         uses: ./.github/actions/publish-nix-image
         with:
@@ -163,19 +153,6 @@ jobs:
             type=raw,value=latest,enable=${{ steps.meta.outputs.make_latest == 'true' }}
 
       - name: Publish GitHub release
-        if: steps.previous_tag.outputs.tag != ''
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ steps.meta.outputs.tag }}
-          target_commitish: ${{ steps.release_target.outputs.sha }}
-          name: Alloy ${{ steps.meta.outputs.tag }}
-          generate_release_notes: true
-          previous_tag: ${{ steps.previous_tag.outputs.tag }}
-          prerelease: ${{ steps.meta.outputs.is_prerelease }}
-          make_latest: ${{ steps.meta.outputs.make_latest }}
-
-      - name: Publish first GitHub release
-        if: steps.previous_tag.outputs.tag == ''
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
