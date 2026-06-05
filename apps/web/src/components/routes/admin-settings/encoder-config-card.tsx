@@ -218,7 +218,7 @@ export function EncoderConfigCard({
             </FormGroup>
 
             {showQsvLowPower ? (
-              <FormGroup title="Intel low-power">
+              <FormGroup>
                 <div className="flex items-center justify-between gap-3">
                   <FieldLabel htmlFor="encoder-intel-low-power-h264">
                     H.264 low-power

@@ -68,6 +68,16 @@ type ProfileAvatarPreviewProps = {
   showImage: boolean
 }
 
+type IdentityTextFieldConfig = {
+  autoComplete: string
+  description?: React.ReactNode
+  label: string
+  name: "username" | "email"
+  onChangeValue?: (value: string) => string
+  type: "email" | "text"
+  validate: (value: string) => string | undefined
+}
+
 function ProfileAvatarPreview({
   avatar,
   previewName,
@@ -349,26 +359,23 @@ export function ProfileCard({
     )
   }
 
-  const identityTextFields = [
+  const identityTextFields: ReadonlyArray<IdentityTextFieldConfig> = [
     {
       autoComplete: "username",
-      description: undefined,
       label: "Username",
       name: "username",
-      onChangeValue: undefined,
       type: "text",
       validate: validateUsername,
     },
     {
       autoComplete: "email",
-      description: "Updates immediately without email verification.",
       label: "Email",
       name: "email",
       onChangeValue: undefined,
       type: "email",
       validate: validateEmail,
     },
-  ] as const
+  ]
 
   return (
     <>

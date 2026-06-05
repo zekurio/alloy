@@ -22,11 +22,7 @@ import {
 } from "@workspace/ui/components/avatar"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
-import {
-  Field,
-  FieldDescription,
-  FieldLabel,
-} from "@workspace/ui/components/field"
+import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 import { List, ListItem } from "@workspace/ui/components/list"
 import {
@@ -458,7 +454,7 @@ function EditUserDialog({
           <ResponsiveDialogHeader>
             <ResponsiveDialogTitle>Edit user</ResponsiveDialogTitle>
             <ResponsiveDialogDescription>
-              Update role and storage quota for {user.email}.
+              Update role and storage quota for {user.username}.
             </ResponsiveDialogDescription>
           </ResponsiveDialogHeader>
           <ResponsiveDialogBody className="flex flex-col gap-4">
@@ -492,9 +488,6 @@ function EditUserDialog({
                 disabled={saving}
                 onChange={(e) => setQuotaGiB(e.target.value)}
               />
-              <FieldDescription>
-                Leave blank for unlimited storage.
-              </FieldDescription>
             </Field>
           </ResponsiveDialogBody>
           <ResponsiveDialogFooter>

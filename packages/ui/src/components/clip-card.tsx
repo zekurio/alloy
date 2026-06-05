@@ -81,10 +81,7 @@ function ClipCard({
   return (
     <article
       data-slot="clip-card"
-      className={cn(
-        "group/clip-card @container/clip-card flex flex-col gap-3",
-        className,
-      )}
+      className={cn("group/clip-card flex flex-col gap-2.5", className)}
       {...props}
     >
       <ClipCardThumb
@@ -110,14 +107,15 @@ function ClipCard({
           />
         ) : null}
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          {/* Title owns its own row. Type scales with the card width so the
-              meta block stays proportional whether the card sits in a dense
-              grid or a wide carousel slot. */}
-          <div className="text-foreground truncate text-[0.9375rem] leading-snug font-semibold tracking-[-0.015em] @[360px]/clip-card:text-base @[480px]/clip-card:text-lg">
+          {/* Title owns its own row. Type is a fixed size — not scaled to the
+              card width — so the meta block reads identically whether the deck
+              shows 3 or 5 columns. The thumbnail above stays 16:9 and resizes
+              with the column count; the metadata deliberately does not. */}
+          <div className="text-foreground truncate text-[1.0625rem] leading-snug font-semibold tracking-[-0.015em]">
             {titleContent ?? title}
           </div>
 
-          <div className="text-foreground-dim flex min-w-0 items-center gap-1.5 text-sm leading-tight @[480px]/clip-card:text-base">
+          <div className="text-foreground-dim flex min-w-0 items-center gap-1.5 text-[0.9375rem] leading-tight">
             {author ? (
               <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
                 <AuthorLabel author={author} href={authorHref} />
@@ -130,7 +128,7 @@ function ClipCard({
           </div>
 
           {metaVariant === "showcase" ? null : (
-            <div className="text-foreground-faint flex min-w-0 items-center gap-1.5 text-[0.8125rem] leading-tight tabular-nums @[480px]/clip-card:text-sm">
+            <div className="text-foreground-faint flex min-w-0 items-center gap-1.5 text-sm leading-tight tabular-nums">
               {privacyBadge}
               <span className="shrink-0">{views} views</span>
               <span className="shrink-0">·</span>
@@ -490,8 +488,8 @@ function ClipCardAvatar({
     <span
       aria-hidden
       className={cn(
-        "inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full @[480px]/clip-card:size-9",
-        "text-[13px] leading-none font-semibold",
+        "inline-flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full",
+        "text-sm leading-none font-semibold",
       )}
       style={{
         background: fallbackBg,
