@@ -100,11 +100,6 @@ jobs:
       - name: Run typecheck
         run: deno task typecheck
 
-      - name: Run app build
-        env:
-          NODE_ENV: production
-        run: deno task build
-
       - name: Configure git author
         run: |
           git config user.name "github-actions[bot]"
