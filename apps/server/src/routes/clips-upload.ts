@@ -137,8 +137,6 @@ export const clipsUploadRoutes = new Hono()
             privacy,
             sourceContentType: body.contentType,
             sourceSizeBytes: body.sizeBytes,
-            trimStartMs: body.trimStartMs ?? null,
-            trimEndMs: body.trimEndMs ?? null,
             status: "pending",
           })
 

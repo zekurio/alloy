@@ -60,7 +60,6 @@ export type {
   AppearanceConfig,
   EncoderCodec,
   EncoderConfig,
-  EncoderVariant,
   LimitsConfig,
   MachineLearningConfig,
   OAuthProviderConfig,

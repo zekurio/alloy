@@ -6,9 +6,6 @@ import {
   DEFAULT_GAME_CLASSIFIER_MODEL_VERSION,
   DEFAULT_GAME_CLASSIFIER_REPO_ID,
   DEFAULT_GAME_CLASSIFIER_REVISION,
-  ENCODER_CODECS,
-  ENCODER_HEIGHT_MAX,
-  ENCODER_HEIGHT_MIN,
   ENCODER_HWACCELS,
   RUNTIME_CONFIG_VERSION,
   type RuntimeConfig,
@@ -24,40 +21,13 @@ function randomSecret(): string {
   return randomBase64Url(32)
 }
 
-const EncoderVariantSchema = z.object({
-  id: z
-    .string()
-    .min(1)
-    .max(80)
-    .regex(/^[a-z0-9][a-z0-9-]*$/),
-  name: z.string().min(1).max(64),
-  codec: z.enum(ENCODER_CODECS).default("h264"),
-  height: z
-    .number()
-    .int()
-    .min(ENCODER_HEIGHT_MIN)
-    .max(ENCODER_HEIGHT_MAX)
-    .multipleOf(2),
-  quality: z.number().int().min(0).max(51),
-  preset: z.string().min(1).max(64).optional(),
-  audioBitrateKbps: z.number().int().min(64).max(256),
-  extraInputArgs: z.string().max(2048).default(""),
-  extraOutputArgs: z.string().max(4096).default(""),
-})
-
 const EncoderConfigInnerSchema = z.object({
-  enabled: z.boolean().default(false),
+  enabled: z.boolean().default(true),
   hwaccel: z.enum(ENCODER_HWACCELS).default("none"),
   qsvDevice: z.string().min(1).max(128).default("/dev/dri/renderD128"),
   vaapiDevice: z.string().min(1).max(128).default("/dev/dri/renderD128"),
-  defaultVariantId: z
-    .string()
-    .min(1)
-    .max(80)
-    .regex(/^[a-z0-9][a-z0-9-]*$/)
-    .nullable()
-    .default(null),
-  variants: z.array(EncoderVariantSchema).default([]),
+  intelLowPowerH264: z.boolean().default(false),
+  intelLowPowerHevc: z.boolean().default(false),
 })
 
 const EncoderConfigSchema = EncoderConfigInnerSchema

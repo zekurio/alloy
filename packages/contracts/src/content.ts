@@ -1,6 +1,5 @@
 import type {
   AcceptedContentType,
-  ClipEncodedVariant,
   ClipPrivacy,
   ClipStatus,
   IsoDateString,
@@ -48,6 +47,16 @@ export interface ClipGameRef {
 
 export type ClipMentionRef = UserSummary
 
+export interface ClipPlaybackQuality {
+  id: string
+  label: string
+  bitrate: number
+  videoBitrate: number
+  audioBitrate: number
+  width: number | null
+  height: number
+}
+
 export interface ClipRow {
   id: string
   authorId: string
@@ -57,18 +66,15 @@ export interface ClipRow {
   gameId: string
   privacy: ClipPrivacy
   sourceContentType: string | null
+  sourceVideoCodec: string | null
+  sourceAudioCodec: string | null
   sourceSizeBytes: number | null
   openGraphContentType: string | null
   openGraphSizeBytes: number | null
   durationMs: number | null
   width: number | null
   height: number | null
-  trimStartMs: number | null
-  trimEndMs: number | null
-  variants: ClipEncodedVariant[]
-  /** True when at least one variant has HLS artifacts, so the player can use
-   *  adaptive streaming instead of a progressive source. */
-  hlsReady: boolean
+  playbackQualities: ClipPlaybackQuality[]
   thumbKey: string | null
   viewCount: number
   likeCount: number
@@ -112,8 +118,6 @@ export interface InitiateClipInput {
   description?: string
   gameId: string
   privacy?: ClipPrivacy
-  trimStartMs?: number
-  trimEndMs?: number
   mentionedUserIds?: string[]
 }
 

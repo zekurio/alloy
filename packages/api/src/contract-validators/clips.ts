@@ -7,7 +7,6 @@ import {
 import {
   objectRecord,
   validateArray,
-  validateBoolean,
   validateEnumString,
   validateIntegerInRange,
   validateIsoDateString,
@@ -18,7 +17,6 @@ import {
   validateNullableString,
   validatePositiveInteger,
   validateRequiredString,
-  validateString,
 } from "../runtime-validation"
 import { validateGameRowFields } from "./shared"
 import { validateUserSummary } from "./people-notifications"
@@ -35,92 +33,25 @@ function validateClipGameRef(value: unknown) {
   validateGameRowFields(row, "clip game")
 }
 
-function validateClipEncodedVariant(value: unknown) {
-  const variant = objectRecord(value, "clip variant")
-  assertNoStorageKey(variant, "clip variant")
-  for (const key of ["id", "label", "contentType"] as const) {
+function validateClipPlaybackQuality(value: unknown) {
+  const quality = objectRecord(value, "clip playback quality")
+  for (const key of ["id", "label"] as const) {
     validateRequiredString(
-      variant[key],
-      `Invalid clip variant response: ${key} is required`,
+      quality[key],
+      `Invalid clip playback quality response: ${key} is required`,
     )
   }
-  for (const key of ["width", "height"] as const) {
-    validatePositiveInteger(
-      variant[key],
-      `Invalid clip variant response: ${key} must be a positive integer`,
-    )
-  }
-  validateNonNegativeInteger(
-    variant.sizeBytes,
-    "Invalid clip variant response: sizeBytes must be a non-negative integer",
-  )
-  validateBoolean(
-    variant.isDefault,
-    "Invalid clip variant response: isDefault must be boolean",
-  )
-  if (variant.settings !== undefined) {
-    validateClipVariantSettings(variant.settings)
-  }
-  if (variant.remuxSettings !== undefined) {
-    validateClipRemuxSettings(variant.remuxSettings)
-  }
-}
-
-function validateClipVariantSettings(value: unknown) {
-  const settings = objectRecord(value, "clip variant settings")
   for (
-    const key of [
-      "hwaccel",
-      "codec",
-      "extraInputArgs",
-      "extraOutputArgs",
-    ] as const
+    const key of ["bitrate", "videoBitrate", "audioBitrate", "height"] as const
   ) {
-    validateString(
-      settings[key],
-      `Invalid clip variant settings response: ${key} must be a string`,
+    validatePositiveInteger(
+      quality[key],
+      `Invalid clip playback quality response: ${key} must be a positive integer`,
     )
   }
-  if (settings.audioCodec !== "aac" && settings.audioCodec !== "none") {
-    throw new Error(
-      "Invalid clip variant settings response: audioCodec invalid",
-    )
-  }
-  for (const key of ["quality", "audioBitrateKbps"] as const) {
-    validateNonNegativeInteger(
-      settings[key],
-      `Invalid clip variant settings response: ${key} must be a non-negative integer`,
-    )
-  }
-  validatePositiveInteger(
-    settings.height,
-    "Invalid clip variant settings response: height must be a positive integer",
-  )
-  validateNullableNonNegativeInteger(
-    settings.trimStartMs,
-    "Invalid clip variant settings response: trimStartMs must be a non-negative integer or null",
-  )
-  validateNullableNonNegativeInteger(
-    settings.trimEndMs,
-    "Invalid clip variant settings response: trimEndMs must be a non-negative integer or null",
-  )
-  if (settings.preset !== undefined) {
-    validateString(
-      settings.preset,
-      "Invalid clip variant settings response: preset must be a string",
-    )
-  }
-}
-
-function validateClipRemuxSettings(value: unknown) {
-  const settings = objectRecord(value, "clip remux settings")
-  validateNullableNonNegativeInteger(
-    settings.trimStartMs,
-    "Invalid clip remux settings response: trimStartMs must be a non-negative integer or null",
-  )
-  validateNullableNonNegativeInteger(
-    settings.trimEndMs,
-    "Invalid clip remux settings response: trimEndMs must be a non-negative integer or null",
+  validateNullablePositiveInteger(
+    quality.width,
+    "Invalid clip playback quality response: width must be a positive integer or null",
   )
 }
 
@@ -159,6 +90,8 @@ function validateClipMetadataFields(row: Record<string, unknown>) {
       "description",
       "game",
       "sourceContentType",
+      "sourceVideoCodec",
+      "sourceAudioCodec",
       "openGraphContentType",
       "failureReason",
       "authorImage",
@@ -187,8 +120,6 @@ function validateClipCounters(row: Record<string, unknown>) {
       "sourceSizeBytes",
       "openGraphSizeBytes",
       "durationMs",
-      "trimStartMs",
-      "trimEndMs",
     ] as const
   ) {
     validateNullableNonNegativeInteger(
@@ -242,9 +173,9 @@ function validateClipRelationships(row: Record<string, unknown>) {
     ).map((mention) => validateUserSummary(mention, "clip mention"))
   }
   validateArray(
-    row.variants,
-    "Invalid clip response: variants must be an array",
-  ).map(validateClipEncodedVariant)
+    row.playbackQualities,
+    "Invalid clip response: playbackQualities must be an array",
+  ).map(validateClipPlaybackQuality)
 }
 
 export function validateClipRows(value: unknown): ClipRow[] {

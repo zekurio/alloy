@@ -310,10 +310,11 @@ function ClipViewerDialogBody({
               <ClipPlayer
                 clipId={row.id}
                 sourceContentType={row.sourceContentType}
+                sourceVideoCodec={row.sourceVideoCodec}
+                sourceAudioCodec={row.sourceAudioCodec}
                 thumbnail={thumbnail}
-                variants={row.variants}
+                playbackQualities={row.playbackQualities}
                 status={row.status}
-                hlsReady={row.hlsReady}
                 encodeProgress={row.encodeProgress}
                 aspectRatio={16 / 9}
                 className="h-full w-full overflow-hidden rounded-[14px] shadow-[0_30px_90px_-42px_rgba(0,0,0,0.92)] ring-1 ring-white/10 ring-inset lg:rounded-none lg:shadow-none lg:ring-0"

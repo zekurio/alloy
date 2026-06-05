@@ -98,27 +98,6 @@ export function clipAssetKey(clipId: string, role: ClipAssetRole): string {
   return `${clipAssetDir(clipId)}/${role}${CLIP_ASSET_EXTENSION[role]}`
 }
 
-export function clipVideoVariantKey(
-  clipId: string,
-  variantId: string,
-  runId?: string,
-): string {
-  const safeVariantId = variantId
-    .replace(/[^a-z0-9]+/gi, "-")
-    .replace(/^-+|-+$/g, "")
-    .toLowerCase()
-  if (!safeVariantId) {
-    throw new Error("clipVideoVariantKey requires a non-empty variant id")
-  }
-  const runSuffix = runId ? `-${runId}` : ""
-  return `${clipAssetDir(clipId)}/video-${safeVariantId}${runSuffix}.mp4`
-}
-
-export function clipOpenGraphVideoKey(clipId: string, runId?: string): string {
-  const runSuffix = runId ? `-${runId}` : ""
-  return `${clipAssetDir(clipId)}/opengraph${runSuffix}.mp4`
-}
-
 function userAssetDir(userId: string): string {
   const hex = userId.replace(/-/g, "")
   const aa = hex.slice(0, 2)

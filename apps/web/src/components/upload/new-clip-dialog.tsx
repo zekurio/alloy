@@ -255,8 +255,6 @@ function LoadedState({
         height: file.height,
         durationMs: file.durationMs,
         sizeBytes: file.sizeBytes,
-        trimStartMs: null,
-        trimEndMs: null,
         thumbBlob,
         mentionedUserIds: value.mentions.map((u) => u.id),
       })

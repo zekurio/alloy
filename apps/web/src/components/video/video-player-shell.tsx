@@ -316,7 +316,9 @@ export function ChromeBar({
   const [isFullscreen, setIsFullscreen] = React.useState(false)
   const [settingsOpen, setSettingsOpen] = React.useState(false)
   const isCoarsePointer = useMediaQuery("(pointer: coarse)")
-  const settingsPortalContainer = containerRef.current
+  const settingsPortalContainer = isFullscreen
+    ? containerRef.current ?? undefined
+    : undefined
   const chromeInteractive = visible || settingsOpen
   const showEdgeScrubber = isCoarsePointer
   const edgeScrubberInteractive = !visible && !settingsOpen

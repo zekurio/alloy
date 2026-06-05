@@ -19,10 +19,12 @@ import {
 import { AlloyLogo } from "@workspace/ui/components/alloy-logo"
 import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
-import type {
-  AdminEncoderConfig,
-  AdminEncoderVariant,
-  AdminRuntimeConfig,
+import {
+  type AdminEncoderCapabilities,
+  type AdminEncoderConfig,
+  type AdminRuntimeConfig,
+  type EncoderCodec,
+  type EncoderHwaccel,
 } from "@workspace/api"
 
 import { EncoderConfigCard } from "@/components/routes/admin-settings/encoder-config-card"
@@ -72,6 +74,23 @@ const PasskeySignUpForm = React.lazy(() =>
   }))
 )
 
+const ONBOARDING_CODEC_PRIORITY: readonly EncoderCodec[] = [
+  "av1",
+  "hevc",
+  "h264",
+]
+
+const ONBOARDING_HWACCEL_PRIORITY: readonly EncoderHwaccel[] = [
+  "nvenc",
+  "qsv",
+  "amf",
+  "vaapi",
+  "videotoolbox",
+  "rkmpp",
+  "v4l2m2m",
+  "none",
+]
+
 function SetupPage() {
   return <SetupPageInner />
 }
@@ -118,23 +137,12 @@ function AdminAccountStep() {
   )
 }
 
-const defaultEncoderVariant: AdminEncoderVariant = {
-  id: "1080p-av1",
-  name: "1080p AV1",
-  codec: "av1",
-  height: 1080,
-  quality: 28,
-  audioBitrateKbps: 256,
-  extraInputArgs: "-probesize 50M -analyzeduration 50M -fflags +genpts",
-  extraOutputArgs:
-    '-vf "scale=1920:-2:flags=lanczos" -pix_fmt yuv420p10le -g 240 -svtav1-params tune=0:film-grain=0 -movflags +faststart',
-}
-
 const SETUP_STEPS = [
   {
     icon: FilmIcon,
-    label: "Encoding",
-    description: "Configure video encoding and hardware acceleration.",
+    label: "Transcoding",
+    description:
+      "Configure live playback transcoding and hardware acceleration.",
     formId: "setup-encoder",
   },
   {
@@ -374,27 +382,29 @@ function EncoderOnboardingCard({
   const [pending, setPending] = React.useState(false)
   const capsQuery = useQuery(adminEncoderCapabilitiesQueryOptions())
   const caps = capsQuery.data
-  const showSuggestion = !config.encoder.enabled ||
-    config.encoder.variants.length === 0
+  const showSuggestion = !config.encoder.enabled
 
   async function applyDefaultProfile() {
     if (pending) return
-    if (caps?.ffmpegOk && !caps.available.none.av1) {
-      toast.error("Detected ffmpeg does not report software AV1 support.")
+    const detectedHwaccel = caps?.ffmpegOk
+      ? bestDetectedOnboardingHwaccel(caps)
+      : "none"
+    if (!detectedHwaccel) {
+      toast.error(
+        "Detected ffmpeg does not report AV1, HEVC, or H.264 support.",
+      )
       return
     }
     setPending(true)
     const nextEncoder: AdminEncoderConfig = {
       ...config.encoder,
       enabled: true,
-      hwaccel: "none",
-      defaultVariantId: defaultEncoderVariant.id,
-      variants: [defaultEncoderVariant],
+      hwaccel: detectedHwaccel,
     }
     try {
       const next = await api.admin.updateEncoderConfig(nextEncoder)
       onChange(next)
-      toast.success("Default encoder variant applied")
+      toast.success("Live transcoding enabled")
     } catch (cause) {
       toast.error(errorMessage(cause, "Couldn't update encoder"))
     } finally {
@@ -415,11 +425,9 @@ function EncoderOnboardingCard({
               onClick={applyDefaultProfile}
               disabled={pending}
             >
-              {pending
-                ? "Applying…"
-                : "Apply the recommended 1080p AV1 profile"}
+              {pending ? "Applying..." : "Enable live transcoding"}
             </button>{" "}
-            for software encoding that works out of the box.
+            with the best detected backend.
           </p>
         </div>
       )}
@@ -434,4 +442,15 @@ function EncoderOnboardingCard({
       />
     </div>
   )
+}
+
+function bestDetectedOnboardingHwaccel(
+  caps: AdminEncoderCapabilities,
+): EncoderHwaccel | null {
+  for (const codec of ONBOARDING_CODEC_PRIORITY) {
+    for (const hwaccel of ONBOARDING_HWACCEL_PRIORITY) {
+      if (caps.available[hwaccel][codec]) return hwaccel
+    }
+  }
+  return null
 }

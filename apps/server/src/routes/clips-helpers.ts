@@ -6,11 +6,7 @@ import {
   CLIP_DESCRIPTION_MAX_LENGTH,
   CLIP_TITLE_MAX_LENGTH,
 } from "@workspace/contracts"
-import {
-  clip,
-  CLIP_PRIVACY,
-  type ClipEncodedVariant,
-} from "@workspace/db/schema"
+import { clip, CLIP_PRIVACY } from "@workspace/db/schema"
 
 import { configStore } from "../config/store"
 import { toPublicClipRow } from "../clips/select"
@@ -31,7 +27,10 @@ import {
 } from "./validation"
 
 export const IdParam = z.object({ id: z.uuid() })
-export const StreamQuery = z.object({ variant: optionalTrimmedString() })
+export const StreamQuery = z.object({
+  variant: optionalTrimmedString(),
+  codecs: optionalTrimmedString(),
+})
 export const HlsVariantParam = z.object({
   id: z.uuid(),
   variant: z.string().min(1).max(200),
@@ -75,7 +74,14 @@ type ClipListCursorRow = {
 
 type ClipListPageRow = ClipListCursorRow & {
   sourceKey: string | null
+  sourceContentType: string | null
+  sourceVideoCodec: string | null
+  sourceAudioCodec: string | null
   openGraphKey: string | null
+  sourceSizeBytes: number | null
+  durationMs: number | null
+  width: number | null
+  height: number | null
   thumbKey: string | null
   variants: readonly { storageKey: string }[]
 }
@@ -186,25 +192,12 @@ export const InitiateBody = z
     description: optionalBlankToNullTrimmedString(CLIP_DESCRIPTION_MAX_LENGTH),
     gameId: z.uuid(),
     privacy: z.enum(CLIP_PRIVACY).default("public"),
-    trimStartMs: z.number().int().min(0).optional(),
-    trimEndMs: z.number().int().positive().optional(),
     mentionedUserIds: z.array(z.uuid()).optional(),
   })
   .refine((b) => b.sizeBytes <= configStore.get("limits").maxUploadBytes, {
     message: "sizeBytes exceeds the configured maximum upload size",
     path: ["sizeBytes"],
   })
-  .refine(
-    (b) =>
-      (b.trimStartMs == null && b.trimEndMs == null) ||
-      (b.trimStartMs != null &&
-        b.trimEndMs != null &&
-        b.trimEndMs > b.trimStartMs),
-    {
-      message: "trimStartMs and trimEndMs must both be set with end > start",
-      path: ["trimEndMs"],
-    },
-  )
 
 export const UpdateBody = z.object({
   title: requiredTrimmedString(CLIP_TITLE_MAX_LENGTH).optional(),
@@ -251,45 +244,6 @@ export function parseRange(
 
 type PlaybackClipRow = typeof clip.$inferSelect
 
-function encodedVariantsForRow(row: PlaybackClipRow): ClipEncodedVariant[] {
-  return row.variants
-}
-
-/**
- * Assemble an HLS master playlist from the renditions that carry HLS metadata,
- * highest resolution first. Returns null when none do (pre-HLS clips), letting
- * the caller 404 so the player falls back to progressive streaming. Each child
- * URI is relative, resolving to `/:id/hls/:variant/playlist.m3u8`.
- */
-export function buildHlsMasterPlaylist(
-  variants: ReadonlyArray<
-    Pick<ClipEncodedVariant, "id" | "height" | "hls">
-  >,
-): string | null {
-  const hlsVariants = variants
-    .filter((variant) => variant.hls)
-    .sort((a, b) => b.height - a.height)
-  if (hlsVariants.length === 0) return null
-
-  const lines = ["#EXTM3U", "#EXT-X-VERSION:7", "#EXT-X-INDEPENDENT-SEGMENTS"]
-  for (const variant of hlsVariants) {
-    lines.push(`#EXT-X-STREAM-INF:${variant.hls?.streamInf ?? ""}`)
-    lines.push(`${encodeURIComponent(variant.id)}/playlist.m3u8`)
-  }
-  return `${lines.join("\n")}\n`
-}
-
-export function findEncodedVariant(
-  row: PlaybackClipRow,
-  variantId: string | undefined,
-): ClipEncodedVariant | null {
-  const variants = encodedVariantsForRow(row)
-  if (!variantId) {
-    return variants.find((variant) => variant.isDefault) ?? variants[0] ?? null
-  }
-  return variants.find((variant) => variant.id === variantId) ?? null
-}
-
 function extensionForContentType(contentType: string): string {
   switch (contentType) {
     case "video/mp4":
@@ -314,15 +268,12 @@ export function contentDisposition(filename: string): string {
 
 export function downloadFilename(
   row: PlaybackClipRow,
-  variant: "source" | ClipEncodedVariant,
+  variant: "source",
 ): string {
   const base = row.title.trim().replace(/[/\\?%*:|"<>]/g, "-") || row.id
-  if (variant === "source") {
-    return `${base}-source.${
-      extensionForContentType(row.sourceContentType ?? "")
-    }`
-  }
-  return `${base}-${variant.id}.${extensionForContentType(variant.contentType)}`
+  return `${base}-${variant}.${
+    extensionForContentType(row.sourceContentType ?? "")
+  }`
 }
 
 export async function readAll(

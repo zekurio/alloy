@@ -1,4 +1,5 @@
-import type { EncoderCodec, HwaccelKind } from "../config/store"
+export { codecNameFor } from "./ffmpeg-codecs"
+import { liveEncoderProfileFor } from "./ffmpeg-live-profiles"
 
 export interface ResolvedEncoderConfig {
   hwaccel: string
@@ -10,57 +11,25 @@ export interface ResolvedEncoderConfig {
   extraOutputArgs: string
   qsvDevice: string
   vaapiDevice: string
+  intelLowPowerH264: boolean
+  intelLowPowerHevc: boolean
 }
 
-export function buildRemuxArgs(
-  srcPath: string,
-  outPath: string,
-  opts: {
-    trimStartMs?: number | null
-    trimEndMs?: number | null
-  },
-): string[] {
-  const { trimSeek, trimDuration } = buildTrimArgs(opts)
-
-  return [
-    "-hide_banner",
-    "-y",
-    ...trimSeek,
-    "-i",
-    srcPath,
-    ...trimDuration,
-    "-map",
-    "0:v:0",
-    "-map",
-    "0:a?",
-    "-c",
-    "copy",
-    "-movflags",
-    "+faststart",
-    "-avoid_negative_ts",
-    "make_zero",
-    outPath,
-  ]
+export interface LiveTranscodeOpts {
+  config: ResolvedEncoderConfig
+  targetHeight: number
+  videoBitrate: number
+  audioBitrate: number
 }
-
-/** Target HLS segment length, in seconds. Keyframes are forced on this
- *  boundary so every segment starts at an IDR frame and is independently
- *  decodable — the requirement for byte-range CMAF segments. */
-export const HLS_SEGMENT_SECONDS = 4
 
 interface EncodeOpts {
   config: ResolvedEncoderConfig
   targetHeight: number
-  trimStartMs?: number | null
-  trimEndMs?: number | null
 }
 
-/** Shared ffmpeg argument pieces for an encode, independent of the muxer
- *  tail. Both the progressive MP4 and the CMAF/HLS builders assemble their
- *  output from these so the codec/filter/audio handling stays in one place. */
+/** Shared ffmpeg argument pieces for durable encodes. */
 function buildEncodeParts(srcPath: string, opts: EncodeOpts) {
   const { config } = opts
-  const { trimSeek, trimDuration } = buildTrimArgs(opts)
 
   const codecArgs = buildCodecArgs(config)
   const extraInputArgs = parseExtraArgs(config.extraInputArgs)
@@ -84,12 +53,10 @@ function buildEncodeParts(srcPath: string, opts: EncodeOpts) {
     head: [
       "-hide_banner",
       "-y",
-      ...trimSeek,
       ...hardwareArgs,
       ...extraInputArgs,
       "-i",
       srcPath,
-      ...trimDuration,
       "-vf",
       filterChain,
       ...codecArgs,
@@ -122,71 +89,53 @@ export function buildEncodeArgs(
   ]
 }
 
-/**
- * Build args that encode into a single-file CMAF (fragmented MP4) plus a
- * byte-range HLS media playlist and a single-rendition master. ffmpeg writes
- * `mediaFilename` (init + all fragments), `playlistFilename` (referencing the
- * media by bare relative name), and `masterFilename` into the process cwd.
- */
-export function buildHlsArgs(
+export function buildLiveTranscodeArgs(
   srcPath: string,
-  layout: {
-    mediaFilename: string
-    playlistFilename: string
-    masterFilename: string
-  },
-  opts: EncodeOpts,
+  opts: LiveTranscodeOpts,
 ): string[] {
-  const { head, audioArgs, remainingExtraOutputArgs } = buildEncodeParts(
-    srcPath,
-    opts,
+  const { config } = opts
+  const encoder = config.encoder.trim()
+  const liveProfile = liveEncoderProfileFor(encoder)
+  const hardwareArgs = buildHardwareArgs(config)
+  const filterChain = buildFilterChain(opts.targetHeight, config)
+  const bitrate = String(
+    Math.max(liveProfile.minBitrate, Math.round(opts.videoBitrate)),
   )
+  const audioBitrate = String(Math.max(32_000, Math.round(opts.audioBitrate)))
 
   return [
-    ...head,
-    "-force_key_frames",
-    `expr:gte(t,n_forced*${HLS_SEGMENT_SECONDS})`,
-    ...audioArgs,
-    ...remainingExtraOutputArgs,
+    "-hide_banner",
+    "-nostdin",
+    ...hardwareArgs,
+    "-i",
+    srcPath,
+    "-map",
+    "0:v:0",
+    "-map",
+    "0:a?",
+    "-sn",
+    "-dn",
+    "-vf",
+    filterChain,
+    ...(encoder ? ["-c:v", encoder] : []),
+    ...lowPowerArgs(config),
+    ...liveProfile.presetArgs(config.preset),
+    ...liveProfile.bitrateArgs(bitrate, String(config.quality)),
+    ...liveProfile.mp4Args,
+    "-c:a",
+    "aac",
+    "-b:a",
+    audioBitrate,
+    "-ac",
+    "2",
+    "-ar",
+    "48000",
+    "-movflags",
+    "+frag_keyframe+empty_moov+default_base_moof",
     "-f",
-    "hls",
-    "-hls_time",
-    String(HLS_SEGMENT_SECONDS),
-    "-hls_playlist_type",
-    "vod",
-    "-hls_segment_type",
-    "fmp4",
-    "-hls_flags",
-    "single_file+independent_segments",
-    "-hls_fmp4_init_filename",
-    layout.mediaFilename,
-    "-hls_segment_filename",
-    layout.mediaFilename,
-    "-master_pl_name",
-    layout.masterFilename,
-    "-progress",
-    "pipe:2",
-    "-nostats",
-    layout.playlistFilename,
+    "mp4",
+    "pipe:1",
   ]
-}
-
-function buildTrimArgs(opts: {
-  trimStartMs?: number | null
-  trimEndMs?: number | null
-}): { trimSeek: string[]; trimDuration: string[] } {
-  const hasTrim = opts.trimStartMs != null &&
-    opts.trimEndMs != null &&
-    opts.trimEndMs > opts.trimStartMs
-  if (!hasTrim) return { trimSeek: [], trimDuration: [] }
-
-  return {
-    trimSeek: ["-ss", msToFfmpegTimestamp(opts.trimStartMs ?? 0)],
-    trimDuration: [
-      "-t",
-      msToFfmpegTimestamp((opts.trimEndMs ?? 0) - (opts.trimStartMs ?? 0)),
-    ],
-  }
 }
 
 function buildHardwareArgs(config: ResolvedEncoderConfig): string[] {
@@ -208,11 +157,18 @@ function buildFilterChain(
   targetHeight: number,
   config: ResolvedEncoderConfig,
 ): string {
-  const scale = `scale=-2:${targetHeight}:force_original_aspect_ratio=decrease`
+  const height = evenTargetHeight(targetHeight)
+  const scale = `scale=-2:${height}:force_original_aspect_ratio=decrease`
   if (config.encoder.trim().endsWith("_vaapi")) {
-    return `${scale},format=nv12,hwupload`
+    return `${scale},format=nv12,hwupload_vaapi`
   }
   return `${scale},format=yuv420p`
+}
+
+function evenTargetHeight(targetHeight: number): number {
+  const rounded = Math.floor(targetHeight)
+  const even = rounded % 2 === 0 ? rounded : rounded - 1
+  return Math.max(2, even)
 }
 
 function buildCodecArgs(config: ResolvedEncoderConfig): string[] {
@@ -221,7 +177,24 @@ function buildCodecArgs(config: ResolvedEncoderConfig): string[] {
   const encoder = config.encoder.trim()
   if (!encoder) return []
 
-  return ["-c:v", encoder, ...presetArgs, ...qualityArgsForEncoder(encoder, q)]
+  return [
+    "-c:v",
+    encoder,
+    ...lowPowerArgs(config),
+    ...presetArgs,
+    ...qualityArgsForEncoder(encoder, q),
+  ]
+}
+
+function lowPowerArgs(config: ResolvedEncoderConfig): string[] {
+  const encoder = config.encoder.trim()
+  if (encoder === "h264_qsv" && config.intelLowPowerH264) {
+    return ["-low_power", "1"]
+  }
+  if (encoder === "hevc_qsv" && config.intelLowPowerHevc) {
+    return ["-low_power", "1"]
+  }
+  return []
 }
 
 function qualityArgsForEncoder(encoder: string, quality: string): string[] {
@@ -344,37 +317,4 @@ function videoFilterOptionInlineValue(arg: string): string | null {
   const option = arg.slice(0, equalsIndex)
   if (!isVideoFilterOption(option)) return null
   return arg.slice(equalsIndex + 1)
-}
-
-export function codecNameFor(
-  hwaccel: HwaccelKind,
-  codec: EncoderCodec,
-): string {
-  if (hwaccel === "none") {
-    switch (codec) {
-      case "h264":
-        return "libx264"
-      case "hevc":
-        return "libx265"
-      case "av1":
-        // SVT-AV1 is the only sane software AV1 option for server
-        // transcodes; libaom is about 10-50x slower for equivalent output.
-        return "libsvtav1"
-    }
-  }
-  return `${codec}_${hwaccel}`
-}
-
-function msToFfmpegTimestamp(ms: number): string {
-  const totalMs = Math.max(0, Math.round(ms))
-  const hours = Math.floor(totalMs / 3_600_000)
-  const minutes = Math.floor((totalMs % 3_600_000) / 60_000)
-  const seconds = Math.floor((totalMs % 60_000) / 1000)
-  const millis = totalMs % 1000
-  return (
-    `${hours.toString().padStart(2, "0")}:` +
-    `${minutes.toString().padStart(2, "0")}:` +
-    `${seconds.toString().padStart(2, "0")}.` +
-    `${millis.toString().padStart(3, "0")}`
-  )
 }

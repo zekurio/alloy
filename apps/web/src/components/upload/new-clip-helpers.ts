@@ -36,8 +36,6 @@ export interface PublishPayload {
   height: number
   durationMs: number
   sizeBytes: number
-  trimStartMs: number | null
-  trimEndMs: number | null
   thumbBlob: Blob
   mentionedUserIds: string[]
 }

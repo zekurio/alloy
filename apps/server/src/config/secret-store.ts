@@ -14,11 +14,6 @@ type InlineSecrets = {
   oauthClientSecrets: Record<string, string>
 }
 
-/**
- * Single source of truth for pulling secrets out of a raw (untyped) config
- * object — used by the boot seed, the reload/edit ingest, and config import, so
- * the extraction rules can't drift between paths.
- */
 export function readInlineSecrets(raw: unknown): InlineSecrets {
   const out: InlineSecrets = { oauthClientSecrets: {} }
   if (!raw || typeof raw !== "object") return out

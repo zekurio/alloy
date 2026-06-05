@@ -2,20 +2,17 @@ import * as React from "react"
 
 import {
   clipDownloadUrl,
-  type ClipEncodedVariant,
-  clipHlsMasterUrl,
+  type ClipPlaybackQuality,
   type ClipStatus,
   clipStreamUrl,
   clipThumbnailUrl,
 } from "@workspace/api"
 import { VideoPlayer } from "@/components/video/video-player"
-import {
-  type HlsLevelSelection,
-  mseHlsSupported,
-  nativeHlsSupported,
-} from "@/components/video/video-media-engine"
 import { apiOrigin } from "@/lib/env"
+import { browserLiveCodecs } from "@/lib/live-codecs"
+import { canPlaySource } from "@/lib/source-playback"
 import { formatBytes } from "@/lib/storage-format"
+import { toast } from "@workspace/ui/lib/toast"
 
 const AUTO_QUALITY_ID = "auto"
 const SOURCE_QUALITY_ID = "source"
@@ -25,14 +22,15 @@ interface ClipPlayerProps {
   clipId: string
   /** MIME type of the uploaded source, used for the source download option. */
   sourceContentType?: string | null
+  sourceVideoCodec?: string | null
+  sourceAudioCodec?: string | null
   thumbnail?: string | null
-  variants?: ClipEncodedVariant[]
+  playbackQualities?: ClipPlaybackQuality[]
   status?: ClipStatus
-  /** Whether the clip has HLS renditions available for adaptive playback. */
-  hlsReady?: boolean
   encodeProgress?: number
   onPlayThreshold?: () => void
   onEnded?: () => void
+  onPlaybackError?: (message: string) => void
   className?: string
   maxDisplayHeight?: string
   chromeSize?: "default" | "compact"
@@ -44,31 +42,25 @@ interface ClipPlayerProps {
 
 const DEFAULT_ASPECT_RATIO = 16 / 9
 
-function canPlayNativeVideo(contentType: string | null | undefined): boolean {
-  if (!contentType || typeof document === "undefined") return false
-  const video = document.createElement("video")
-  return video.canPlayType(contentType) !== ""
-}
-
-function variantDetail(variant: ClipEncodedVariant): string {
-  const parts = [
-    variant.settings?.codec?.toUpperCase(),
-    `${variant.width}x${variant.height}`,
-    formatBytes(variant.sizeBytes),
-  ].filter(Boolean)
-  return parts.join(" · ")
+function qualityDetail(quality: ClipPlaybackQuality): string {
+  const dimensions = quality.width
+    ? `${quality.width}x${quality.height}`
+    : `${quality.height}p`
+  return `${dimensions} · ${formatBytes(Math.round(quality.bitrate / 8))}/s`
 }
 
 function ClipPlayer({
   clipId,
   sourceContentType,
+  sourceVideoCodec,
+  sourceAudioCodec,
   thumbnail,
-  variants = [],
+  playbackQualities = [],
   status,
-  hlsReady = false,
   encodeProgress: _encodeProgress = 0,
   onPlayThreshold,
   onEnded,
+  onPlaybackError,
   className,
   maxDisplayHeight,
   chromeSize,
@@ -79,36 +71,27 @@ function ClipPlayer({
   const poster = thumbnail === undefined
     ? clipThumbnailUrl(clipId, apiOrigin())
     : (thumbnail ?? undefined)
-  const sortedVariants = React.useMemo(
+  const sortedQualities = React.useMemo(
     () =>
-      variants
+      playbackQualities
         .slice()
         .sort(
           (a, b) =>
+            b.bitrate - a.bitrate ||
             b.height - a.height ||
-            a.label.localeCompare(b.label) ||
             a.id.localeCompare(b.id),
         ),
-    [variants],
+    [playbackQualities],
   )
 
-  const defaultEncodedId =
-    sortedVariants.find((variant) => variant.isDefault)?.id ??
-      sortedVariants[0]?.id ??
-      null
-  const sourcePlayable = canPlayNativeVideo(sourceContentType)
+  const sourcePlayable = canPlaySource(sourceContentType, {
+    videoCodec: sourceVideoCodec,
+    audioCodec: sourceAudioCodec,
+  })
+  const liveCodecs = React.useMemo(() => browserLiveCodecs(), [])
+  const transcodeRetryQualityId = sortedQualities[0]?.id ?? null
 
-  // Adaptive streaming is offered when the clip was encoded with HLS and the
-  // browser can play it (via hls.js or natively). A fatal HLS error flips the
-  // player back to progressive for the rest of the session.
-  const [hlsFailed, setHlsFailed] = React.useState(false)
-  React.useEffect(() => setHlsFailed(false), [clipId])
-  const hlsUsable = hlsReady && sortedVariants.length > 0 && !hlsFailed &&
-    (mseHlsSupported() || nativeHlsSupported())
-
-  const preferredQualityId = hlsUsable
-    ? AUTO_QUALITY_ID
-    : defaultEncodedId ?? (sourcePlayable ? SOURCE_QUALITY_ID : "")
+  const preferredQualityId = sourceContentType ? AUTO_QUALITY_ID : ""
   const [selectedQualityId, setSelectedQualityId] = React.useState(
     preferredQualityId,
   )
@@ -119,66 +102,64 @@ function ClipPlayer({
 
   React.useEffect(() => {
     const stillAvailable =
-      (selectedQualityId === AUTO_QUALITY_ID && hlsUsable) ||
-      sortedVariants.some((variant) => variant.id === selectedQualityId) ||
-      (selectedQualityId === SOURCE_QUALITY_ID && sourcePlayable)
+      (selectedQualityId === AUTO_QUALITY_ID && Boolean(sourceContentType)) ||
+      sortedQualities.some((quality) => quality.id === selectedQualityId) ||
+      (selectedQualityId === SOURCE_QUALITY_ID && Boolean(sourceContentType))
     if (!stillAvailable) setSelectedQualityId(preferredQualityId)
   }, [
-    hlsUsable,
     preferredQualityId,
     selectedQualityId,
-    sortedVariants,
+    sortedQualities,
+    sourceContentType,
     sourcePlayable,
   ])
 
   const qualityOptions = [
     ...(sourceContentType
-      ? [
-        {
-          id: SOURCE_QUALITY_ID,
-          label: "Source",
-          detail: sourcePlayable ? "Original upload" : "Download only",
-          downloadUrl: clipDownloadUrl(clipId, "source", apiOrigin()),
-          selectable: sourcePlayable,
-        },
-      ]
+      ? [{
+        id: SOURCE_QUALITY_ID,
+        label: "Original",
+        detail: sourcePlayable ? "Direct stream" : "Direct play attempt",
+        downloadUrl: clipDownloadUrl(clipId, "source", apiOrigin()),
+      }, {
+        id: AUTO_QUALITY_ID,
+        label: "Auto",
+        detail: "Original quality",
+        selectionLabel: sortedQualities[0]?.label ?? "Original",
+      }]
       : []),
-    ...(hlsUsable
-      ? [{ id: AUTO_QUALITY_ID, label: "Auto", detail: "Adaptive" }]
-      : []),
-    ...sortedVariants.map((variant) => ({
-      id: variant.id,
-      label: variant.label,
-      detail: variantDetail(variant),
-      downloadUrl: clipDownloadUrl(clipId, variant.id, apiOrigin()),
+    ...sortedQualities.map((quality) => ({
+      id: quality.id,
+      label: quality.label,
+      detail: qualityDetail(quality),
     })),
   ]
 
-  // Resolve the selection into a concrete playback source. HLS renditions and
-  // "Auto" share one master URL (so switching among them never reloads); only
-  // a level hint changes. "Source" — and any selection on a browser that can't
-  // pin an HLS level — falls back to a progressive variant.
-  const selectedVariant = sortedVariants.find((v) => v.id === selectedQualityId)
-  let hlsMasterUrl: string | undefined
-  let hlsLevelHeight: HlsLevelSelection = "auto"
-  let progressiveVariantId = selectedQualityId
-  if (hlsUsable && selectedQualityId !== SOURCE_QUALITY_ID) {
-    if (selectedQualityId === AUTO_QUALITY_ID) {
-      hlsMasterUrl = clipHlsMasterUrl(clipId, apiOrigin())
-    } else if (selectedVariant && mseHlsSupported()) {
-      hlsMasterUrl = clipHlsMasterUrl(clipId, apiOrigin())
-      hlsLevelHeight = selectedVariant.height
-    } else if (selectedVariant) {
-      progressiveVariantId = selectedVariant.id
-    }
-  }
+  // Auto is the original object. Fixed bitrate IDs are transient live
+  // transcodes; they do not correspond to stored clip assets.
+  const progressiveVariantId = selectedQualityId || AUTO_QUALITY_ID
   const progressiveSrcId = progressiveVariantId === AUTO_QUALITY_ID
-    ? (defaultEncodedId ?? SOURCE_QUALITY_ID)
+    ? SOURCE_QUALITY_ID
     : progressiveVariantId
+  const usingSourceAttempt = progressiveSrcId === SOURCE_QUALITY_ID
+  const handlePlaybackError = React.useCallback((message: string) => {
+    if (usingSourceAttempt && transcodeRetryQualityId) {
+      setSelectedQualityId(transcodeRetryQualityId)
+      return
+    }
+    if (onPlaybackError) {
+      onPlaybackError(message)
+      return
+    }
+    toast.error(message, {
+      id: `clip-playback-${clipId}`,
+      duration: 10_000,
+    })
+  }, [clipId, onPlaybackError, transcodeRetryQualityId, usingSourceAttempt])
 
   const aspectRatio = aspectRatioProp ?? DEFAULT_ASPECT_RATIO
 
-  if (!defaultEncodedId && !sourcePlayable) {
+  if (!sourceContentType) {
     const unavailable = status === "failed"
     return (
       <div
@@ -202,10 +183,7 @@ function ClipPlayer({
 
   return (
     <VideoPlayer
-      src={clipStreamUrl(clipId, progressiveSrcId, apiOrigin())}
-      hlsMasterUrl={hlsMasterUrl}
-      hlsLevelHeight={hlsLevelHeight}
-      onHlsFatalError={() => setHlsFailed(true)}
+      src={clipStreamUrl(clipId, progressiveSrcId, apiOrigin(), liveCodecs)}
       poster={poster}
       aspectRatio={aspectRatio}
       maxDisplayHeight={maxDisplayHeight}
@@ -217,6 +195,7 @@ function ClipPlayer({
       onSelectQuality={setSelectedQualityId}
       onPlayThreshold={onPlayThreshold}
       onEnded={onEnded}
+      onPlaybackError={handlePlaybackError}
       autoPlay={autoPlay}
       enableHorizontalSeekShortcuts={enableHorizontalSeekShortcuts}
     />
