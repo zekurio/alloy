@@ -8,5 +8,5 @@ export default defineConfig({
   sourcemap: true,
   outDir: "dist",
   clean: true,
-  noExternal: ["@workspace/contracts", "@workspace/db", "@workspace/logging"],
+  noExternal: [/.*/],
 })
