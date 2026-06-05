@@ -6,7 +6,7 @@
     "./app": "./src/app.ts"
   },
   "scripts": {
-    "build": "tsup --config tsup.config.ts",
+    "build": "vite build",
     "dev": "tsx watch --clear-screen=false src/index.ts",
     "start": "NODE_ENV=production node dist/index.js",
     "typecheck": "tsc --noEmit",
@@ -17,7 +17,7 @@
     "db:studio": "pnpm --filter @workspace/db db:studio"
   },
   "dependencies": {
-    "@hono/node-server": "latest",
+    "@hono/node-server": "2.0.4",
     "@hono/zod-validator": "0.7.6",
     "@simplewebauthn/server": "13.3.0",
     "@workspace/contracts": "workspace:*",
@@ -30,6 +30,7 @@
     "zod": "4.3.6"
   },
   "devDependencies": {
-    "tsx": "latest"
+    "tsx": "latest",
+    "vite": "8.0.10"
   }
 }

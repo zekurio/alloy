@@ -52,13 +52,40 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   installPhase = ''
     runHook preInstall
 
-    mkdir -p "$out/bin" "$out/share/alloy/server" "$out/share/alloy/web"
-    cp -R apps/server/dist/* "$out/share/alloy/server/"
+    mkdir -p "$out/bin" "$out/share/alloy/server/node_modules" "$out/share/alloy/web"
+    cp -R apps/server/dist apps/server/package.json "$out/share/alloy/server/"
+    cp -R node_modules/.pnpm "$out/share/alloy/server/node_modules/.pnpm"
+    rm -rf "$out/share/alloy/server/node_modules/.pnpm/node_modules/@workspace"
+
+    linkNodeModule() {
+      local name="$1"
+      local src="apps/server/node_modules/$name"
+      local dest="$out/share/alloy/server/node_modules/$name"
+      local target
+      target="$(readlink "$src")"
+      target="$out/share/alloy/server/node_modules/.pnpm/''${target#*node_modules/.pnpm/}"
+      mkdir -p "$(dirname "$dest")"
+      ln -s "$target" "$dest"
+    }
+
+    for name in \
+      @hono/node-server \
+      @hono/zod-validator \
+      @simplewebauthn/server \
+      drizzle-orm \
+      hono \
+      openid-client \
+      pg \
+      zod
+    do
+      linkNodeModule "$name"
+    done
+
     cp -R apps/web/dist/* "$out/share/alloy/web/"
     cp -R packages/db/drizzle "$out/share/alloy/migrations"
 
     makeWrapper "${nodejs_24}/bin/node" "$out/bin/alloy" \
-      --add-flags "$out/share/alloy/server/index.js" \
+      --add-flags "$out/share/alloy/server/dist/index.js" \
       --prefix PATH : "${
         lib.makeBinPath [
           imagemagick
