@@ -1,6 +1,3 @@
-import { and, desc, eq, inArray, isNull, or, type SQL, sql } from "drizzle-orm"
-import { z } from "zod"
-
 import {
   COMMENT_BODY_MAX_LENGTH,
   type CommentPage,
@@ -9,9 +6,11 @@ import {
 } from "@workspace/contracts"
 import { user } from "@workspace/db/auth-schema"
 import { clipComment, clipCommentLike } from "@workspace/db/schema"
+import { and, desc, eq, inArray, isNull, or, type SQL, sql } from "drizzle-orm"
+import { z } from "zod"
 
-import { db } from "../db"
 import { resolveClipAccess } from "../clips/access"
+import { db } from "../db"
 import { dateLikeTime, isoDate, nullableIsoDate } from "../runtime/date"
 import {
   cursorDate,
@@ -133,9 +132,8 @@ export async function listClipComments({
   }
 
   const tail = pageItems[pageItems.length - 1]
-  const nextCursor = pageRows.length > limit && tail
-    ? encodeCommentCursor(tail)
-    : null
+  const nextCursor =
+    pageRows.length > limit && tail ? encodeCommentCursor(tail) : null
 
   return {
     items: await buildCommentTree(rows, viewerId, clipAuthorId, sort),
@@ -205,35 +203,29 @@ function parseCommentCursor(value: string | undefined): CommentCursor | null {
 }
 
 function encodeCommentCursor(row: CommentRowRecord): string {
-  return encodeCursorPayload(
-    {
-      pinned: row.pinnedAt !== null,
-      likeCount: row.likeCount,
-      createdAt: isoDate(row.createdAt),
-      id: row.id,
-    } satisfies CommentCursorPayload,
-  )
+  return encodeCursorPayload({
+    pinned: row.pinnedAt !== null,
+    likeCount: row.likeCount,
+    createdAt: isoDate(row.createdAt),
+    id: row.id,
+  } satisfies CommentCursorPayload)
 }
 
 function commentOrderBy(sort: "top" | "new") {
-  const pinnedRank = sql<
-    number
-  >`case when ${clipComment.pinnedAt} is null then 0 else 1 end`
+  const pinnedRank = sql<number>`case when ${clipComment.pinnedAt} is null then 0 else 1 end`
   return sort === "top"
     ? [
-      sql`${pinnedRank} desc`,
-      desc(clipComment.likeCount),
-      desc(clipComment.createdAt),
-      clipComment.id,
-    ]
+        sql`${pinnedRank} desc`,
+        desc(clipComment.likeCount),
+        desc(clipComment.createdAt),
+        clipComment.id,
+      ]
     : [sql`${pinnedRank} desc`, desc(clipComment.createdAt), clipComment.id]
 }
 
 function commentCursorCondition(cursor: CommentCursor, sort: "top" | "new") {
   const pinnedValue = cursor.pinned ? 1 : 0
-  const pinnedRank = sql<
-    number
-  >`case when ${clipComment.pinnedAt} is null then 0 else 1 end`
+  const pinnedRank = sql<number>`case when ${clipComment.pinnedAt} is null then 0 else 1 end`
   const afterCreatedAt = or(
     sql`${clipComment.createdAt} < ${cursor.createdAt}`,
     and(
@@ -241,12 +233,13 @@ function commentCursorCondition(cursor: CommentCursor, sort: "top" | "new") {
       sql`${clipComment.id} > ${cursor.id}`,
     ),
   )
-  const afterSort = sort === "top"
-    ? or(
-      sql`${clipComment.likeCount} < ${cursor.likeCount}`,
-      and(eq(clipComment.likeCount, cursor.likeCount), afterCreatedAt),
-    )
-    : afterCreatedAt
+  const afterSort =
+    sort === "top"
+      ? or(
+          sql`${clipComment.likeCount} < ${cursor.likeCount}`,
+          and(eq(clipComment.likeCount, cursor.likeCount), afterCreatedAt),
+        )
+      : afterCreatedAt
   return or(
     sql`${pinnedRank} < ${pinnedValue}`,
     and(sql`${pinnedRank} = ${pinnedValue}`, afterSort),

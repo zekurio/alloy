@@ -1,16 +1,15 @@
-import { useMemo } from "react"
-import { cva, type VariantProps } from "class-variance-authority"
-
-import { cn } from "@workspace/ui/lib/utils"
 import { Label } from "@workspace/ui/components/label"
 import { Separator } from "@workspace/ui/components/separator"
 import { messageFromUnknown } from "@workspace/ui/lib/error-message"
+import { cn } from "@workspace/ui/lib/utils"
+import { cva, type VariantProps } from "class-variance-authority"
+import { useMemo } from "react"
 
 function FieldStateMarker({ children }: { children: React.ReactNode }) {
   return (
     <span
       data-slot="field-state-marker"
-      className="inline-flex items-center rounded-full bg-surface-raised px-1.5 py-0.5 text-2xs font-medium tracking-[0.06em] text-foreground-muted uppercase"
+      className="bg-surface-raised text-2xs text-foreground-muted inline-flex items-center rounded-full px-1.5 py-0.5 font-medium tracking-[0.06em] uppercase"
     >
       {children}
     </span>
@@ -23,7 +22,7 @@ function FieldRequiredMarker() {
       <span
         aria-hidden="true"
         data-slot="field-required-marker"
-        className="text-base leading-none font-semibold text-foreground-muted transition-colors group-has-[:user-invalid]/field:text-destructive group-has-[[aria-invalid=true]]/field:text-destructive group-data-[invalid=true]/field:text-destructive"
+        className="text-foreground-muted group-has-[:user-invalid]/field:text-destructive group-has-[[aria-invalid=true]]/field:text-destructive group-data-[invalid=true]/field:text-destructive text-base leading-none font-semibold transition-colors"
       >
         *
       </span>
@@ -254,16 +253,14 @@ function FieldSeparator({
       {...props}
     >
       <Separator className="absolute inset-0 top-1/2" />
-      {children
-        ? (
-          <span
-            className="relative mx-auto block w-fit bg-background px-2 text-muted-foreground"
-            data-slot="field-separator-content"
-          >
-            {children}
-          </span>
-        )
-        : null}
+      {children ? (
+        <span
+          className="bg-background text-muted-foreground relative mx-auto block w-fit px-2"
+          data-slot="field-separator-content"
+        >
+          {children}
+        </span>
+      ) : null}
     </div>
   )
 }

@@ -1,5 +1,5 @@
-import * as React from "react"
 import { useWindowEvent } from "@workspace/ui/hooks/use-window-event"
+import * as React from "react"
 
 import {
   handleVideoKeyCommand,

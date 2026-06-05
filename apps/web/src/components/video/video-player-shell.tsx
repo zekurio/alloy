@@ -1,22 +1,22 @@
-import * as React from "react"
-import { MaximizeIcon, PauseIcon, PlayIcon } from "lucide-react"
-
 import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { useDocumentEvent } from "@workspace/ui/hooks/use-document-event"
 import { useMediaQuery } from "@workspace/ui/hooks/use-media-query"
 import { cn } from "@workspace/ui/lib/utils"
+import { MaximizeIcon, PauseIcon, PlayIcon } from "lucide-react"
+import * as React from "react"
 
 import { isFullscreenElement, isFullscreenSupported } from "@/lib/fullscreen"
-import { VideoScrubber } from "./video-scrubber"
-import { VideoSettingsMenu } from "./video-settings-menu"
-import { VolumeControl } from "./video-volume-control"
+
 import {
   handleVideoKeyCommand,
   shouldHandleVideoShortcut,
   type VideoKeyCommand,
 } from "./video-keyboard"
 import type { QualityOption } from "./video-player-types"
+import { VideoScrubber } from "./video-scrubber"
+import { VideoSettingsMenu } from "./video-settings-menu"
+import { VolumeControl } from "./video-volume-control"
 
 export {
   handleVideoKeyCommand,
@@ -317,7 +317,7 @@ export function ChromeBar({
   const [settingsOpen, setSettingsOpen] = React.useState(false)
   const isCoarsePointer = useMediaQuery("(pointer: coarse)")
   const settingsPortalContainer = isFullscreen
-    ? containerRef.current ?? undefined
+    ? (containerRef.current ?? undefined)
     : undefined
   const chromeInteractive = visible || settingsOpen
   const showEdgeScrubber = isCoarsePointer
@@ -339,26 +339,24 @@ export function ChromeBar({
 
   return (
     <>
-      {showEdgeScrubber && !chromeInteractive
-        ? (
-          <div
-            className={cn(
-              "absolute inset-x-0 bottom-0 z-30",
-              edgeScrubberInteractive
-                ? "pointer-events-auto"
-                : "pointer-events-none",
-            )}
-          >
-            <VideoScrubber
-              currentTime={currentTime}
-              duration={duration}
-              bufferedEnd={bufferedEnd}
-              onSeek={onSeek}
-              variant="edge"
-            />
-          </div>
-        )
-        : null}
+      {showEdgeScrubber && !chromeInteractive ? (
+        <div
+          className={cn(
+            "absolute inset-x-0 bottom-0 z-30",
+            edgeScrubberInteractive
+              ? "pointer-events-auto"
+              : "pointer-events-none",
+          )}
+        >
+          <VideoScrubber
+            currentTime={currentTime}
+            duration={duration}
+            bufferedEnd={bufferedEnd}
+            onSeek={onSeek}
+            variant="edge"
+          />
+        </div>
+      ) : null}
 
       <div
         aria-hidden={false}
@@ -390,9 +388,11 @@ export function ChromeBar({
               size === "compact" && "size-[56px]",
             )}
           >
-            {playing
-              ? <PauseIcon className={videoChromeGlyphClass} />
-              : <PlayIcon className={videoChromeGlyphClass} />}
+            {playing ? (
+              <PauseIcon className={videoChromeGlyphClass} />
+            ) : (
+              <PlayIcon className={videoChromeGlyphClass} />
+            )}
           </Button>
 
           <VolumeControl
@@ -431,23 +431,21 @@ export function ChromeBar({
             portalContainer={settingsPortalContainer}
           />
 
-          {fullscreenSupported
-            ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-                onClick={onToggleFullscreen}
-                className={cn(
-                  videoChromeIconClass,
-                  size === "compact" && "size-[56px]",
-                )}
-              >
-                <MaximizeIcon className={videoChromeGlyphClass} />
-              </Button>
-            )
-            : null}
+          {fullscreenSupported ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+              onClick={onToggleFullscreen}
+              className={cn(
+                videoChromeIconClass,
+                size === "compact" && "size-[56px]",
+              )}
+            >
+              <MaximizeIcon className={videoChromeGlyphClass} />
+            </Button>
+          ) : null}
         </div>
       </div>
     </>
@@ -466,17 +464,15 @@ export function LoadOverlay({ status }: { status: LoadStatus }) {
         status.kind === "loading" ? "bg-transparent" : "",
       )}
     >
-      {status.kind === "loading"
-        ? (
-          <span className="grid size-10 place-items-center">
-            <Spinner className="size-5" />
-          </span>
-        )
-        : (
-          <span className="max-w-[80%] rounded-xl border border-border-strong bg-surface-raised/95 px-3 py-2 text-foreground shadow-md backdrop-blur-sm">
-            {status.message}
-          </span>
-        )}
+      {status.kind === "loading" ? (
+        <span className="grid size-10 place-items-center">
+          <Spinner className="size-5" />
+        </span>
+      ) : (
+        <span className="border-border-strong bg-surface-raised/95 text-foreground max-w-[80%] rounded-xl border px-3 py-2 shadow-md backdrop-blur-sm">
+          {status.message}
+        </span>
+      )}
     </div>
   )
 }

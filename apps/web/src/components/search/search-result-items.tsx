@@ -1,12 +1,3 @@
-import * as React from "react"
-
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@workspace/ui/components/avatar"
-import { cn } from "@workspace/ui/lib/utils"
-
 import {
   type ClipGameRef,
   type ClipRow,
@@ -14,9 +5,17 @@ import {
   type GameListRow,
 } from "@workspace/api"
 import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@workspace/ui/components/avatar"
+import {
   CLIP_MEDIA_CLASS,
   CLIP_MEDIA_VIEWPORT_CLASS,
 } from "@workspace/ui/lib/media-frame"
+import { cn } from "@workspace/ui/lib/utils"
+import * as React from "react"
+
 import { clipGameLabel, hueForGame } from "@/lib/clip-format"
 import { apiOrigin } from "@/lib/env"
 import { formatCount } from "@/lib/number-format"
@@ -105,16 +104,11 @@ export function ClipRowItem({
           "w-16 shrink-0 rounded-sm bg-surface-sunken",
         )}
       >
-        {thumb
-          ? (
-            <img
-              src={thumb}
-              alt=""
-              loading="lazy"
-              className={CLIP_MEDIA_CLASS}
-            />
-          )
-          : <ThumbPlaceholder gameRef={row.gameRef} label={label} />}
+        {thumb ? (
+          <img src={thumb} alt="" loading="lazy" className={CLIP_MEDIA_CLASS} />
+        ) : (
+          <ThumbPlaceholder gameRef={row.gameRef} label={label} />
+        )}
       </div>
       <div className="min-w-0 flex-1">
         <div
@@ -125,7 +119,7 @@ export function ClipRowItem({
         >
           {row.title}
         </div>
-        <div className="flex items-center gap-2 truncate text-xs font-semibold text-foreground-muted">
+        <div className="text-foreground-muted flex items-center gap-2 truncate text-xs font-semibold">
           <span>{label}</span>
           <span>@{row.authorUsername}</span>
           <span>{formatCount(row.viewCount)} views</span>
@@ -150,17 +144,17 @@ export function GameRowItem({
 }) {
   return (
     <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>
-      <div className="relative aspect-video w-16 shrink-0 overflow-hidden rounded-sm bg-surface-sunken">
-        {row.heroUrl
-          ? (
-            <img
-              src={row.heroUrl}
-              alt=""
-              loading="lazy"
-              className="h-full w-full object-cover"
-            />
-          )
-          : <GameThumbPlaceholder name={row.name} />}
+      <div className="bg-surface-sunken relative aspect-video w-16 shrink-0 overflow-hidden rounded-sm">
+        {row.heroUrl ? (
+          <img
+            src={row.heroUrl}
+            alt=""
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <GameThumbPlaceholder name={row.name} />
+        )}
       </div>
       <div className="min-w-0 flex-1">
         <div
@@ -171,7 +165,7 @@ export function GameRowItem({
         >
           {row.name}
         </div>
-        <div className="truncate text-xs font-semibold text-foreground-muted">
+        <div className="text-foreground-muted truncate text-xs font-semibold">
           {formatCount(row.clipCount)} {row.clipCount === 1 ? "clip" : "clips"}
         </div>
       </div>
@@ -216,7 +210,7 @@ export function UserRowItem({
         >
           {chip.name}
         </div>
-        <div className="flex items-center gap-2 truncate text-xs font-semibold text-foreground-muted">
+        <div className="text-foreground-muted flex items-center gap-2 truncate text-xs font-semibold">
           <span>@{handle}</span>
           <span>
             {formatCount(row.clipCount)}{" "}
@@ -264,8 +258,7 @@ function GameGradientPlaceholder({
     <div
       className="h-full w-full"
       style={{
-        background:
-          `linear-gradient(140deg, oklch(${startLightness} 0.14 ${hue}), oklch(0.16 0.06 ${hue}))`,
+        background: `linear-gradient(140deg, oklch(${startLightness} 0.14 ${hue}), oklch(0.16 0.06 ${hue}))`,
       }}
     />
   )
@@ -282,12 +275,12 @@ export function EmptyBlock({
 }) {
   return (
     <div className="flex items-start gap-3 px-3 py-4">
-      <span className="mt-0.5 text-foreground-muted [&_svg]:size-4">
+      <span className="text-foreground-muted mt-0.5 [&_svg]:size-4">
         {icon}
       </span>
       <div className="flex flex-col gap-0.5">
-        <span className="text-sm font-semibold text-foreground">{title}</span>
-        <span className="text-xs font-semibold text-foreground-muted">
+        <span className="text-foreground text-sm font-semibold">{title}</span>
+        <span className="text-foreground-muted text-xs font-semibold">
           {hint}
         </span>
       </div>

@@ -79,7 +79,7 @@ export function oauthProvidersEqual(
 ): boolean {
   return (
     JSON.stringify(toSubmissionProvider(left)) ===
-      JSON.stringify(toSubmissionProvider(right))
+    JSON.stringify(toSubmissionProvider(right))
   )
 }
 

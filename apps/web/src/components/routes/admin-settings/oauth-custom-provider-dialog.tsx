@@ -1,7 +1,17 @@
-import * as React from "react"
-import { PlusIcon, SaveIcon } from "lucide-react"
-
+import {
+  type AdminOAuthProvider,
+  OAUTH_DISPLAY_NAME_CLAIM_DEFAULT,
+  OAUTH_QUOTA_CLAIM_DEFAULT,
+  OAUTH_ROLE_CLAIM_DEFAULT,
+  OAUTH_USERNAME_CLAIM_DEFAULT,
+} from "@workspace/api"
 import { Button } from "@workspace/ui/components/button"
+import {
+  Field,
+  FieldDescription,
+  FieldLabel,
+} from "@workspace/ui/components/field"
+import { Input } from "@workspace/ui/components/input"
 import {
   ResponsiveDialog,
   ResponsiveDialogBody,
@@ -11,22 +21,12 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@workspace/ui/components/responsive-dialog"
-import {
-  Field,
-  FieldDescription,
-  FieldLabel,
-} from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
 import { Switch } from "@workspace/ui/components/switch"
+import { PlusIcon, SaveIcon } from "lucide-react"
+import * as React from "react"
 
-import {
-  type AdminOAuthProvider,
-  OAUTH_DISPLAY_NAME_CLAIM_DEFAULT,
-  OAUTH_QUOTA_CLAIM_DEFAULT,
-  OAUTH_ROLE_CLAIM_DEFAULT,
-  OAUTH_USERNAME_CLAIM_DEFAULT,
-} from "@workspace/api"
 import { LimitedInput } from "@/components/form/limited-field"
+
 import { OAuthCallbackField } from "./oauth-provider-fields"
 import { parseScopes, scopeInputValue } from "./oauth-provider-scopes"
 import { callbackURLForProvider } from "./shared"
@@ -83,318 +83,315 @@ export function OAuthCustomProviderDialog({
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
-        {draft
-          ? (
-            <form id="oauth-provider-form" onSubmit={onSubmit}>
-              <ResponsiveDialogBody className="flex max-h-[calc(100dvh-11rem)] flex-col gap-4 overflow-y-scroll">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field>
-                    <FieldLabel htmlFor="oauth-display-name" required>
-                      Display name
-                    </FieldLabel>
-                    <LimitedInput
-                      id="oauth-display-name"
-                      value={draft.displayName}
-                      maxLength={64}
-                      required
-                      disabled={pendingAction !== null}
-                      onChange={(e) => onChange("displayName", e.target.value)}
-                    />
-                  </Field>
+        {draft ? (
+          <form id="oauth-provider-form" onSubmit={onSubmit}>
+            <ResponsiveDialogBody className="flex max-h-[calc(100dvh-11rem)] flex-col gap-4 overflow-y-scroll">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="oauth-display-name" required>
+                    Display name
+                  </FieldLabel>
+                  <LimitedInput
+                    id="oauth-display-name"
+                    value={draft.displayName}
+                    maxLength={64}
+                    required
+                    disabled={pendingAction !== null}
+                    onChange={(e) => onChange("displayName", e.target.value)}
+                  />
+                </Field>
 
-                  <Field>
-                    <FieldLabel htmlFor="oauth-provider-id" required>
-                      Provider ID
-                    </FieldLabel>
-                    <Input
-                      id="oauth-provider-id"
-                      value={draft.providerId}
-                      required
-                      pattern="^[a-z0-9-]+$"
-                      title="lowercase letters, digits, dashes"
-                      disabled={pendingAction !== null}
-                      onChange={(e) => onChange("providerId", e.target.value)}
-                    />
-                  </Field>
-                </div>
+                <Field>
+                  <FieldLabel htmlFor="oauth-provider-id" required>
+                    Provider ID
+                  </FieldLabel>
+                  <Input
+                    id="oauth-provider-id"
+                    value={draft.providerId}
+                    required
+                    pattern="^[a-z0-9-]+$"
+                    title="lowercase letters, digits, dashes"
+                    disabled={pendingAction !== null}
+                    onChange={(e) => onChange("providerId", e.target.value)}
+                  />
+                </Field>
+              </div>
 
-                <OAuthCallbackField
-                  id="oauth-callback-url"
-                  label="Callback URL"
-                  value={callbackURLForProvider(authBaseURL, draft.providerId)}
-                />
+              <OAuthCallbackField
+                id="oauth-callback-url"
+                label="Callback URL"
+                value={callbackURLForProvider(authBaseURL, draft.providerId)}
+              />
 
-                <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_8rem_8rem]">
-                  <Field>
-                    <FieldLabel htmlFor="oauth-icon-url">Icon URL</FieldLabel>
-                    <Input
-                      id="oauth-icon-url"
-                      type="url"
-                      value={draft.iconUrl ?? ""}
-                      placeholder="https://issuer/icon.svg"
-                      disabled={pendingAction !== null}
-                      onChange={(e) => onChange("iconUrl", e.target.value)}
-                    />
-                  </Field>
+              <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_8rem_8rem]">
+                <Field>
+                  <FieldLabel htmlFor="oauth-icon-url">Icon URL</FieldLabel>
+                  <Input
+                    id="oauth-icon-url"
+                    type="url"
+                    value={draft.iconUrl ?? ""}
+                    placeholder="https://issuer/icon.svg"
+                    disabled={pendingAction !== null}
+                    onChange={(e) => onChange("iconUrl", e.target.value)}
+                  />
+                </Field>
 
-                  <Field>
-                    <FieldLabel htmlFor="oauth-button-color">Button</FieldLabel>
-                    <HexColorInput
-                      id="oauth-button-color"
-                      value={draft.buttonColor ?? ""}
-                      fallback="#27272a"
-                      disabled={pendingAction !== null}
-                      onChange={(value) => onChange("buttonColor", value)}
-                    />
-                  </Field>
+                <Field>
+                  <FieldLabel htmlFor="oauth-button-color">Button</FieldLabel>
+                  <HexColorInput
+                    id="oauth-button-color"
+                    value={draft.buttonColor ?? ""}
+                    fallback="#27272a"
+                    disabled={pendingAction !== null}
+                    onChange={(value) => onChange("buttonColor", value)}
+                  />
+                </Field>
 
-                  <Field>
-                    <FieldLabel htmlFor="oauth-button-text-color">
-                      Text
-                    </FieldLabel>
-                    <HexColorInput
-                      id="oauth-button-text-color"
-                      value={draft.buttonTextColor ?? ""}
-                      fallback="#fafafa"
-                      disabled={pendingAction !== null}
-                      onChange={(value) => onChange("buttonTextColor", value)}
-                    />
-                  </Field>
-                </div>
+                <Field>
+                  <FieldLabel htmlFor="oauth-button-text-color">
+                    Text
+                  </FieldLabel>
+                  <HexColorInput
+                    id="oauth-button-text-color"
+                    value={draft.buttonTextColor ?? ""}
+                    fallback="#fafafa"
+                    disabled={pendingAction !== null}
+                    onChange={(value) => onChange("buttonTextColor", value)}
+                  />
+                </Field>
+              </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field>
-                    <FieldLabel htmlFor="oauth-client-id" required>
-                      Client ID
-                    </FieldLabel>
-                    <Input
-                      id="oauth-client-id"
-                      value={draft.clientId}
-                      required
-                      disabled={pendingAction !== null}
-                      onChange={(e) => onChange("clientId", e.target.value)}
-                    />
-                  </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="oauth-client-id" required>
+                    Client ID
+                  </FieldLabel>
+                  <Input
+                    id="oauth-client-id"
+                    value={draft.clientId}
+                    required
+                    disabled={pendingAction !== null}
+                    onChange={(e) => onChange("clientId", e.target.value)}
+                  />
+                </Field>
 
-                  <Field>
-                    <FieldLabel htmlFor="oauth-client-secret">
-                      Client secret
-                    </FieldLabel>
-                    <Input
-                      id="oauth-client-secret"
-                      type="password"
-                      value={draft.clientSecret ?? ""}
-                      placeholder={draft.clientSecretSet
+                <Field>
+                  <FieldLabel htmlFor="oauth-client-secret">
+                    Client secret
+                  </FieldLabel>
+                  <Input
+                    id="oauth-client-secret"
+                    type="password"
+                    value={draft.clientSecret ?? ""}
+                    placeholder={
+                      draft.clientSecretSet
                         ? "Leave blank to keep current secret"
-                        : ""}
-                      disabled={pendingAction !== null}
-                      onChange={(e) => onChange("clientSecret", e.target.value)}
-                    />
-                  </Field>
-                </div>
+                        : ""
+                    }
+                    disabled={pendingAction !== null}
+                    onChange={(e) => onChange("clientSecret", e.target.value)}
+                  />
+                </Field>
+              </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field>
-                    <FieldLabel htmlFor="oauth-scopes">Scopes</FieldLabel>
-                    <Input
-                      id="oauth-scopes"
-                      value={scopeText}
-                      placeholder="openid profile email"
-                      disabled={pendingAction !== null}
-                      onChange={(e) => {
-                        const next = e.target.value
-                        setScopeText(next)
-                        onChange("scopes", parseScopes(next))
-                      }}
-                      onBlur={() =>
-                        setScopeText(scopeInputValue(parseScopes(scopeText)))}
-                    />
-                    <FieldDescription>Space-separated.</FieldDescription>
-                  </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="oauth-scopes">Scopes</FieldLabel>
+                  <Input
+                    id="oauth-scopes"
+                    value={scopeText}
+                    placeholder="openid profile email"
+                    disabled={pendingAction !== null}
+                    onChange={(e) => {
+                      const next = e.target.value
+                      setScopeText(next)
+                      onChange("scopes", parseScopes(next))
+                    }}
+                    onBlur={() =>
+                      setScopeText(scopeInputValue(parseScopes(scopeText)))
+                    }
+                  />
+                  <FieldDescription>Space-separated.</FieldDescription>
+                </Field>
 
-                  <Field>
-                    <FieldLabel htmlFor="oauth-username-claim">
-                      Username claim
-                    </FieldLabel>
-                    <Input
-                      id="oauth-username-claim"
-                      value={draft.usernameClaim ?? ""}
-                      placeholder={OAUTH_USERNAME_CLAIM_DEFAULT}
-                      disabled={pendingAction !== null}
-                      onChange={(e) =>
-                        onChange("usernameClaim", e.target.value)}
-                    />
-                  </Field>
+                <Field>
+                  <FieldLabel htmlFor="oauth-username-claim">
+                    Username claim
+                  </FieldLabel>
+                  <Input
+                    id="oauth-username-claim"
+                    value={draft.usernameClaim ?? ""}
+                    placeholder={OAUTH_USERNAME_CLAIM_DEFAULT}
+                    disabled={pendingAction !== null}
+                    onChange={(e) => onChange("usernameClaim", e.target.value)}
+                  />
+                </Field>
 
-                  <Field>
-                    <FieldLabel htmlFor="oauth-display-name-claim">
-                      Display name claim
-                    </FieldLabel>
-                    <Input
-                      id="oauth-display-name-claim"
-                      value={draft.displayNameClaim ?? ""}
-                      placeholder={OAUTH_DISPLAY_NAME_CLAIM_DEFAULT}
-                      disabled={pendingAction !== null}
-                      onChange={(e) =>
-                        onChange("displayNameClaim", e.target.value)}
-                    />
-                  </Field>
+                <Field>
+                  <FieldLabel htmlFor="oauth-display-name-claim">
+                    Display name claim
+                  </FieldLabel>
+                  <Input
+                    id="oauth-display-name-claim"
+                    value={draft.displayNameClaim ?? ""}
+                    placeholder={OAUTH_DISPLAY_NAME_CLAIM_DEFAULT}
+                    disabled={pendingAction !== null}
+                    onChange={(e) =>
+                      onChange("displayNameClaim", e.target.value)
+                    }
+                  />
+                </Field>
 
-                  <Field>
-                    <FieldLabel htmlFor="oauth-quota-claim">
-                      Quota claim
-                    </FieldLabel>
-                    <Input
-                      id="oauth-quota-claim"
-                      value={draft.quotaClaim ?? ""}
-                      placeholder={OAUTH_QUOTA_CLAIM_DEFAULT}
-                      disabled={pendingAction !== null}
-                      onChange={(e) => onChange("quotaClaim", e.target.value)}
-                    />
-                    <FieldDescription>
-                      Claim value is interpreted as GiB. Defaults to{" "}
-                      {OAUTH_QUOTA_CLAIM_DEFAULT}.
-                    </FieldDescription>
-                  </Field>
+                <Field>
+                  <FieldLabel htmlFor="oauth-quota-claim">
+                    Quota claim
+                  </FieldLabel>
+                  <Input
+                    id="oauth-quota-claim"
+                    value={draft.quotaClaim ?? ""}
+                    placeholder={OAUTH_QUOTA_CLAIM_DEFAULT}
+                    disabled={pendingAction !== null}
+                    onChange={(e) => onChange("quotaClaim", e.target.value)}
+                  />
+                  <FieldDescription>
+                    Claim value is interpreted as GiB. Defaults to{" "}
+                    {OAUTH_QUOTA_CLAIM_DEFAULT}.
+                  </FieldDescription>
+                </Field>
 
-                  <Field>
-                    <FieldLabel htmlFor="oauth-role-claim">
-                      Role claim
-                    </FieldLabel>
-                    <Input
-                      id="oauth-role-claim"
-                      value={draft.roleClaim ?? ""}
-                      placeholder={OAUTH_ROLE_CLAIM_DEFAULT}
-                      disabled={pendingAction !== null}
-                      onChange={(e) => onChange("roleClaim", e.target.value)}
-                    />
-                    <FieldDescription>
-                      Claim value can be user or admin. Defaults to{" "}
-                      {OAUTH_ROLE_CLAIM_DEFAULT}.
-                    </FieldDescription>
-                  </Field>
-                </div>
+                <Field>
+                  <FieldLabel htmlFor="oauth-role-claim">Role claim</FieldLabel>
+                  <Input
+                    id="oauth-role-claim"
+                    value={draft.roleClaim ?? ""}
+                    placeholder={OAUTH_ROLE_CLAIM_DEFAULT}
+                    disabled={pendingAction !== null}
+                    onChange={(e) => onChange("roleClaim", e.target.value)}
+                  />
+                  <FieldDescription>
+                    Claim value can be user or admin. Defaults to{" "}
+                    {OAUTH_ROLE_CLAIM_DEFAULT}.
+                  </FieldDescription>
+                </Field>
+              </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field>
-                    <FieldLabel htmlFor="oauth-discovery-url">
-                      Discovery URL
-                    </FieldLabel>
-                    <Input
-                      id="oauth-discovery-url"
-                      value={draft.discoveryUrl ?? ""}
-                      placeholder="https://issuer/.well-known/openid-configuration"
-                      disabled={pendingAction !== null}
-                      onChange={(e) => onChange("discoveryUrl", e.target.value)}
-                    />
-                  </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="oauth-discovery-url">
+                    Discovery URL
+                  </FieldLabel>
+                  <Input
+                    id="oauth-discovery-url"
+                    value={draft.discoveryUrl ?? ""}
+                    placeholder="https://issuer/.well-known/openid-configuration"
+                    disabled={pendingAction !== null}
+                    onChange={(e) => onChange("discoveryUrl", e.target.value)}
+                  />
+                </Field>
 
-                  <Field>
-                    <FieldLabel htmlFor="oauth-authorization-url">
-                      Authorization URL
-                    </FieldLabel>
-                    <Input
-                      id="oauth-authorization-url"
-                      value={draft.authorizationUrl ?? ""}
-                      placeholder="https://issuer/oauth/authorize"
-                      disabled={pendingAction !== null}
-                      onChange={(e) =>
-                        onChange("authorizationUrl", e.target.value)}
-                    />
-                  </Field>
-                </div>
+                <Field>
+                  <FieldLabel htmlFor="oauth-authorization-url">
+                    Authorization URL
+                  </FieldLabel>
+                  <Input
+                    id="oauth-authorization-url"
+                    value={draft.authorizationUrl ?? ""}
+                    placeholder="https://issuer/oauth/authorize"
+                    disabled={pendingAction !== null}
+                    onChange={(e) =>
+                      onChange("authorizationUrl", e.target.value)
+                    }
+                  />
+                </Field>
+              </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field>
-                    <FieldLabel htmlFor="oauth-token-url">Token URL</FieldLabel>
-                    <Input
-                      id="oauth-token-url"
-                      value={draft.tokenUrl ?? ""}
-                      placeholder="https://issuer/oauth/token"
-                      disabled={pendingAction !== null}
-                      onChange={(e) => onChange("tokenUrl", e.target.value)}
-                    />
-                  </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="oauth-token-url">Token URL</FieldLabel>
+                  <Input
+                    id="oauth-token-url"
+                    value={draft.tokenUrl ?? ""}
+                    placeholder="https://issuer/oauth/token"
+                    disabled={pendingAction !== null}
+                    onChange={(e) => onChange("tokenUrl", e.target.value)}
+                  />
+                </Field>
 
-                  <Field>
-                    <FieldLabel htmlFor="oauth-userinfo-url">
-                      User info URL
-                    </FieldLabel>
-                    <Input
-                      id="oauth-userinfo-url"
-                      value={draft.userInfoUrl ?? ""}
-                      placeholder="https://issuer/oauth/userinfo"
-                      disabled={pendingAction !== null}
-                      onChange={(e) => onChange("userInfoUrl", e.target.value)}
-                    />
-                  </Field>
-                </div>
+                <Field>
+                  <FieldLabel htmlFor="oauth-userinfo-url">
+                    User info URL
+                  </FieldLabel>
+                  <Input
+                    id="oauth-userinfo-url"
+                    value={draft.userInfoUrl ?? ""}
+                    placeholder="https://issuer/oauth/userinfo"
+                    disabled={pendingAction !== null}
+                    onChange={(e) => onChange("userInfoUrl", e.target.value)}
+                  />
+                </Field>
+              </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="flex items-center justify-between rounded-md border border-border px-3 py-2">
-                    <div>
-                      <div className="text-sm font-medium">Enabled</div>
-                      <p className="text-xs text-foreground-dim">
-                        Show on the login page and allow sign-in.
-                      </p>
-                    </div>
-                    <Switch
-                      checked={draft.enabled}
-                      disabled={pendingAction !== null}
-                      onCheckedChange={(checked) =>
-                        onChange("enabled", checked)}
-                    />
-                  </label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="border-border flex items-center justify-between rounded-md border px-3 py-2">
+                  <div>
+                    <div className="text-sm font-medium">Enabled</div>
+                    <p className="text-foreground-dim text-xs">
+                      Show on the login page and allow sign-in.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={draft.enabled}
+                    disabled={pendingAction !== null}
+                    onCheckedChange={(checked) => onChange("enabled", checked)}
+                  />
+                </label>
 
-                  <label className="flex items-center justify-between rounded-md border border-border px-3 py-2">
-                    <div>
-                      <div className="text-sm font-medium">Use PKCE</div>
-                      <p className="text-xs text-foreground-dim">
-                        Keep this enabled unless the provider explicitly says
-                        otherwise.
-                      </p>
-                    </div>
-                    <Switch
-                      checked={draft.pkce ?? true}
-                      disabled={pendingAction !== null}
-                      onCheckedChange={(checked) => onChange("pkce", checked)}
-                    />
-                  </label>
-                </div>
-              </ResponsiveDialogBody>
+                <label className="border-border flex items-center justify-between rounded-md border px-3 py-2">
+                  <div>
+                    <div className="text-sm font-medium">Use PKCE</div>
+                    <p className="text-foreground-dim text-xs">
+                      Keep this enabled unless the provider explicitly says
+                      otherwise.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={draft.pkce ?? true}
+                    disabled={pendingAction !== null}
+                    onCheckedChange={(checked) => onChange("pkce", checked)}
+                  />
+                </label>
+              </div>
+            </ResponsiveDialogBody>
 
-              <ResponsiveDialogFooter>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => onOpenChange(false)}
-                  disabled={pendingAction !== null}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  disabled={pendingAction !== null || !canSubmit}
-                >
-                  {editing
-                    ? (
-                      <>
-                        <SaveIcon />
-                        Save
-                      </>
-                    )
-                    : (
-                      <>
-                        <PlusIcon />
-                        Add provider
-                      </>
-                    )}
-                </Button>
-              </ResponsiveDialogFooter>
-            </form>
-          )
-          : null}
+            <ResponsiveDialogFooter>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => onOpenChange(false)}
+                disabled={pendingAction !== null}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={pendingAction !== null || !canSubmit}
+              >
+                {editing ? (
+                  <>
+                    <SaveIcon />
+                    Save
+                  </>
+                ) : (
+                  <>
+                    <PlusIcon />
+                    Add provider
+                  </>
+                )}
+              </Button>
+            </ResponsiveDialogFooter>
+          </form>
+        ) : null}
       </ResponsiveDialogContent>
     </ResponsiveDialog>
   )

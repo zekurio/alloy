@@ -198,8 +198,10 @@ export interface RuntimeConfig {
  * Admin runtime config response. Built from {@link RuntimeConfig} plus
  * secret-presence flags — it carries no secret values.
  */
-export interface AdminRuntimeConfig
-  extends Omit<RuntimeConfig, "oauthProviders"> {
+export interface AdminRuntimeConfig extends Omit<
+  RuntimeConfig,
+  "oauthProviders"
+> {
   oauthProviders: AdminOAuthProvider[]
   integrations: AdminIntegrationsConfig
   authBaseURL: string

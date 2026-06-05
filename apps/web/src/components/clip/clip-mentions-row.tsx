@@ -1,7 +1,5 @@
-import * as React from "react"
 import { Link } from "@tanstack/react-router"
-import { UserPlusIcon } from "lucide-react"
-
+import type { ClipMentionRef } from "@workspace/api"
 import {
   Avatar,
   AvatarFallback,
@@ -18,8 +16,8 @@ import {
 } from "@workspace/ui/components/dialog"
 import { toast } from "@workspace/ui/lib/toast"
 import { cn } from "@workspace/ui/lib/utils"
-
-import type { ClipMentionRef } from "@workspace/api"
+import { UserPlusIcon } from "lucide-react"
+import * as React from "react"
 
 import { errorMessage } from "@/lib/error-message"
 import { userChipData } from "@/lib/user-display"
@@ -35,9 +33,9 @@ function UserAvatar({
   const chip = userChipData(user)
   return (
     <Avatar size={size}>
-      {chip.avatar.src
-        ? <AvatarImage src={chip.avatar.src} alt={chip.name} />
-        : null}
+      {chip.avatar.src ? (
+        <AvatarImage src={chip.avatar.src} alt={chip.name} />
+      ) : null}
       <AvatarFallback
         style={{ backgroundColor: chip.avatar.bg, color: chip.avatar.fg }}
       >
@@ -76,10 +74,12 @@ function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
           aria-label="View tagged users"
         >
           <AvatarGroup>
-            {preview.map((u) => <UserAvatar key={u.id} user={u} size="sm" />)}
+            {preview.map((u) => (
+              <UserAvatar key={u.id} user={u} size="sm" />
+            ))}
           </AvatarGroup>
         </button>
-        <span className="text-xs text-foreground-muted">
+        <span className="text-foreground-muted text-xs">
           with{" "}
           <Link
             to="/u/$username"
@@ -165,7 +165,7 @@ function MentionRow({
   }
 
   return (
-    <li className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-surface-raised">
+    <li className="hover:bg-surface-raised flex items-center gap-3 rounded-md px-2 py-2">
       <Link
         to="/u/$username"
         params={{ username: user.username }}
@@ -174,10 +174,10 @@ function MentionRow({
       >
         <UserAvatar user={user} size="md" />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm text-foreground">
+          <span className="text-foreground block truncate text-sm">
             {chip.name}
           </span>
-          <span className="block truncate text-xs text-foreground-faint">
+          <span className="text-foreground-faint block truncate text-xs">
             @{handle}
           </span>
         </span>

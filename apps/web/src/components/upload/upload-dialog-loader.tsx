@@ -5,7 +5,7 @@ import { scheduleBrowserIdleTask } from "@/lib/browser-idle"
 export const loadNewClipDialog = () => import("./new-clip-dialog")
 
 export const NewClipDialog = React.lazy(() =>
-  loadNewClipDialog().then((m) => ({ default: m.NewClipDialog }))
+  loadNewClipDialog().then((m) => ({ default: m.NewClipDialog })),
 )
 
 export function useWarmEditor(

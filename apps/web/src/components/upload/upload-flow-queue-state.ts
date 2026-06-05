@@ -1,29 +1,29 @@
-import * as React from "react"
 import { useQueryClient } from "@tanstack/react-query"
-
+import { type QueueClip, uploadToTicket } from "@workspace/api"
 import { stableHue } from "@workspace/ui/lib/stable-hash"
 import { toast } from "@workspace/ui/lib/toast"
+import * as React from "react"
 
 import { api } from "@/lib/api"
 import { absoluteClipHref } from "@/lib/app-paths"
-import { copyTextToClipboard } from "@/lib/clipboard"
 import { clientLogger } from "@/lib/client-log"
-import { publicOrigin } from "@/lib/env"
-import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 import {
   clipKeys,
   useInvalidateClips,
   useUploadQueueQuery,
 } from "@/lib/clip-queries"
 import { removeUploadQueueClip } from "@/lib/clip-queue-stream"
-import { type QueueClip, uploadToTicket } from "@workspace/api"
+import { copyTextToClipboard } from "@/lib/clipboard"
+import { publicOrigin } from "@/lib/env"
+import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
+
+import type { PublishPayload } from "./new-clip-helpers"
+import type { QueueItem } from "./upload-queue"
 import {
   type ActiveUpload,
   localToQueueItem,
   serverToQueueItem,
 } from "./upload-queue-mapping"
-import type { PublishPayload } from "./new-clip-helpers"
-import type { QueueItem } from "./upload-queue"
 import { useDismissedClips } from "./use-dismissed-clips"
 
 async function deleteUploadClipBestEffort(
@@ -67,9 +67,10 @@ async function performUpload(
     description: payload.description ?? undefined,
     gameId: payload.gameId,
     privacy: payload.privacy,
-    mentionedUserIds: payload.mentionedUserIds.length > 0
-      ? payload.mentionedUserIds
-      : undefined,
+    mentionedUserIds:
+      payload.mentionedUserIds.length > 0
+        ? payload.mentionedUserIds
+        : undefined,
   })
   const { clipId } = initiate
 
@@ -170,9 +171,8 @@ function useCancelRow(
           revokeObjectUrl(retained, "retained upload thumbnail URL")
           retainedThumbsRef.current.delete(clipId)
         }
-        queryClient.setQueryData<QueueClip[]>(
-          clipKeys.queue(),
-          (old) => removeUploadQueueClip(old, clipId),
+        queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), (old) =>
+          removeUploadQueueClip(old, clipId),
         )
         void deleteUploadClipBestEffort(clipId, "queue cancel").then(
           (deleted) => {
@@ -295,7 +295,7 @@ export function useUploadQueueState(
       localEntries.map((e) => e.clipId).filter((x): x is string => Boolean(x)),
     )
     const fromLocal = localEntries.map((e) =>
-      localToQueueItem(e, () => cancelRow(e.localId, e.clipId ?? null))
+      localToQueueItem(e, () => cancelRow(e.localId, e.clipId ?? null)),
     )
     const fromServer = serverQueue
       .filter((row) => !localClipIds.has(row.id) && !dismissed.has(row.id))
@@ -303,18 +303,18 @@ export function useUploadQueueState(
         serverToQueueItem(row, {
           onCancel: () => cancelRow(null, row.id),
           onOpen: row.status === "ready" ? () => onOpenClip(row) : undefined,
-          onCopyLink: row.status === "ready"
-            ? () => copyClipLink(row)
-            : undefined,
-          onDismiss: row.status === "ready"
-            ? () => {
-              releaseRetainedThumb(row.id)
-              dismiss(row.id)
-            }
-            : undefined,
+          onCopyLink:
+            row.status === "ready" ? () => copyClipLink(row) : undefined,
+          onDismiss:
+            row.status === "ready"
+              ? () => {
+                  releaseRetainedThumb(row.id)
+                  dismiss(row.id)
+                }
+              : undefined,
           thumbFallbackUrl: retainedThumbsRef.current.get(row.id),
           onThumbLoad: () => releaseRetainedThumb(row.id),
-        })
+        }),
       )
     return [...fromLocal, ...fromServer]
   }, [

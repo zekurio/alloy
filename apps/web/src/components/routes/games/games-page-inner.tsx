@@ -1,6 +1,7 @@
 import { AppMain } from "@workspace/ui/components/app-shell"
 
 import { useRequireAuth } from "@/lib/auth-hooks"
+
 import { GamesSection } from "./games-section"
 
 export function GamesPageInner() {

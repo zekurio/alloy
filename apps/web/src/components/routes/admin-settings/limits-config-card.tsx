@@ -1,7 +1,11 @@
-import * as React from "react"
-import { SaveIcon } from "lucide-react"
-
+import type { AdminLimitsConfig, AdminRuntimeConfig } from "@workspace/api"
 import { Button } from "@workspace/ui/components/button"
+import {
+  Field,
+  FieldDescription,
+  FieldLabel,
+} from "@workspace/ui/components/field"
+import { Input } from "@workspace/ui/components/input"
 import {
   Section,
   SectionContent,
@@ -9,15 +13,9 @@ import {
   SectionHeader,
   SectionTitle,
 } from "@workspace/ui/components/section"
-import {
-  Field,
-  FieldDescription,
-  FieldLabel,
-} from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
-
-import type { AdminLimitsConfig, AdminRuntimeConfig } from "@workspace/api"
+import { SaveIcon } from "lucide-react"
+import * as React from "react"
 
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
@@ -27,6 +25,7 @@ import {
   parsePositiveMiB,
   parseQuotaGiB,
 } from "@/lib/storage-format"
+
 import { FormGroup } from "./form-group"
 import { NumberInput } from "./number-input"
 
@@ -223,10 +222,10 @@ function useLimitsConfigForm({ limits, onChange }: LimitsConfigCardProps) {
   const [form, setForm] = React.useState<AdminLimitsConfig>(limits)
   const [pending, setPending] = React.useState(false)
   const [maxUploadMiB, setMaxUploadMiB] = React.useState<string>(() =>
-    formatMiB(limits.maxUploadBytes)
+    formatMiB(limits.maxUploadBytes),
   )
   const [storageQuotaGiB, setStorageQuotaGiB] = React.useState<string>(() =>
-    formatQuotaGiB(limits.defaultStorageQuotaBytes)
+    formatQuotaGiB(limits.defaultStorageQuotaBytes),
   )
   const initialMaxUploadMiB = React.useMemo(
     () => formatMiB(limits.maxUploadBytes),

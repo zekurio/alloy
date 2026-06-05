@@ -1,7 +1,9 @@
 import { clipThumbnailUrl, type QueueClip } from "@workspace/api"
 import { stableHue } from "@workspace/ui/lib/stable-hash"
+
 import { apiOrigin } from "@/lib/env"
 import { formatBytes } from "@/lib/storage-format"
+
 import type { QueueItem, QueueItemStatus } from "./upload-queue"
 
 export interface ActiveUpload {
@@ -21,9 +23,10 @@ export function localToQueueItem(
   e: ActiveUpload,
   onCancel: () => void,
 ): QueueItem {
-  const pct = e.bytesTotal > 0
-    ? Math.min(99, Math.floor((e.bytesLoaded / e.bytesTotal) * 100))
-    : 0
+  const pct =
+    e.bytesTotal > 0
+      ? Math.min(99, Math.floor((e.bytesLoaded / e.bytesTotal) * 100))
+      : 0
   let status: QueueItemStatus
   let detail: string
   switch (e.status) {
@@ -33,9 +36,10 @@ export function localToQueueItem(
       break
     case "uploading":
       status = "uploading"
-      detail = e.bytesTotal > 0
-        ? `${formatBytes(e.bytesLoaded)} / ${formatBytes(e.bytesTotal)}`
-        : "Uploading…"
+      detail =
+        e.bytesTotal > 0
+          ? `${formatBytes(e.bytesLoaded)} / ${formatBytes(e.bytesTotal)}`
+          : "Uploading…"
       break
     case "finalizing":
       status = "uploading"
@@ -100,11 +104,12 @@ export function serverToQueueItem(
     id: row.id,
     title: row.title,
     status,
-    progress: status === "encoding"
-      ? row.encodeProgress
-      : status === "published"
-      ? 100
-      : 0,
+    progress:
+      status === "encoding"
+        ? row.encodeProgress
+        : status === "published"
+          ? 100
+          : 0,
     detail,
     hue: stableHue(row.id),
     thumbUrl: queueThumbnailUrl(row),

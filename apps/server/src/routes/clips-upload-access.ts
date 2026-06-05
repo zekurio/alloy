@@ -1,11 +1,10 @@
+import { clip } from "@workspace/db/schema"
 import { eq } from "drizzle-orm"
 import type { Context } from "hono"
 
-import { clip } from "@workspace/db/schema"
-
-import { db } from "../db"
 import { getSession } from "../auth/session"
 import { selectClipById, toPublicClipRow } from "../clips/select"
+import { db } from "../db"
 import {
   conflict,
   forbidden,
@@ -48,7 +47,8 @@ export async function selectClipForMutation(
     .limit(1)
   if (!row) return { response: notFound(c) }
 
-  const canMutate = row.authorId === input.viewerId ||
+  const canMutate =
+    row.authorId === input.viewerId ||
     (input.allowAdmin === true && (await canAdminMutateClip(c)))
   if (!canMutate) return { response: forbidden(c) }
 

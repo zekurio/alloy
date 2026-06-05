@@ -9,12 +9,12 @@ export function StatInline({ value, label }: StatInlineProps) {
   return (
     <span className="inline-flex items-baseline gap-1">
       <span
-        className="text-sm font-semibold text-foreground tabular-nums"
+        className="text-foreground text-sm font-semibold tabular-nums"
         title={value.toLocaleString()}
       >
         {formatCount(value)}
       </span>
-      <span className="text-xs font-semibold tracking-wide text-foreground-muted uppercase">
+      <span className="text-foreground-muted text-xs font-semibold tracking-wide uppercase">
         {label}
       </span>
     </span>

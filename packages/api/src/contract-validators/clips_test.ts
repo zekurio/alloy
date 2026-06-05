@@ -1,3 +1,5 @@
+import { test } from "node:test"
+
 import { validateClipRow } from "./clips"
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -40,14 +42,14 @@ function clipRow(overrides: Record<string, unknown> = {}) {
   }
 }
 
-Deno.test("validateClipRow accepts source codec metadata", () => {
+test("validateClipRow accepts source codec metadata", () => {
   const row = validateClipRow(clipRow())
 
   assert(row.sourceVideoCodec === "hevc", "video codec should be preserved")
   assert(row.sourceAudioCodec === "aac", "audio codec should be preserved")
 })
 
-Deno.test("validateClipRow requires nullable source codec metadata fields", () => {
+test("validateClipRow requires nullable source codec metadata fields", () => {
   const { sourceVideoCodec: _sourceVideoCodec, ...row } = clipRow()
 
   try {

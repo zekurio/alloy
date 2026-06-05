@@ -1,5 +1,3 @@
-import * as React from "react"
-
 import {
   InputGroup,
   InputGroupAddon,
@@ -7,6 +5,7 @@ import {
   InputGroupTextarea,
 } from "@workspace/ui/components/input-group"
 import { cn } from "@workspace/ui/lib/utils"
+import * as React from "react"
 
 function characterCount(value: React.ComponentProps<"input">["value"]) {
   if (typeof value === "string" || typeof value === "number") {
@@ -18,7 +17,7 @@ function characterCount(value: React.ComponentProps<"input">["value"]) {
 function LimitCounter({ current, max }: { current: number; max: number }) {
   return (
     <span
-      className="text-xs font-semibold text-foreground-muted tabular-nums"
+      className="text-foreground-muted text-xs font-semibold tabular-nums"
       aria-hidden="true"
     >
       {current}/{max}
@@ -31,13 +30,11 @@ function renderLimitCounter(
   max: number | undefined,
   addonProps: React.ComponentProps<typeof InputGroupAddon>,
 ) {
-  return max !== undefined
-    ? (
-      <InputGroupAddon {...addonProps}>
-        <LimitCounter current={characterCount(value)} max={max} />
-      </InputGroupAddon>
-    )
-    : null
+  return max !== undefined ? (
+    <InputGroupAddon {...addonProps}>
+      <LimitCounter current={characterCount(value)} max={max} />
+    </InputGroupAddon>
+  ) : null
 }
 
 function maxFromLength(maxLength: string | number | undefined) {

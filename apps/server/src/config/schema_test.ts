@@ -1,10 +1,12 @@
+import { test } from "node:test"
+
 import { EncoderConfigPatchSchema, RuntimeConfigSchema } from "./schema"
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
-Deno.test("RuntimeConfigSchema defaults Intel low-power encoder options off", () => {
+test("RuntimeConfigSchema defaults Intel low-power encoder options off", () => {
   const parsed = RuntimeConfigSchema.parse({
     runtimeConfigVersion: 1,
     encoder: {
@@ -25,23 +27,17 @@ Deno.test("RuntimeConfigSchema defaults Intel low-power encoder options off", ()
   )
 })
 
-Deno.test("EncoderConfigPatchSchema accepts Intel low-power encoder booleans", () => {
+test("EncoderConfigPatchSchema accepts Intel low-power encoder booleans", () => {
   const parsed = EncoderConfigPatchSchema.parse({
     intelLowPowerH264: true,
     intelLowPowerHevc: false,
   })
 
-  assert(
-    parsed.intelLowPowerH264 === true,
-    "H.264 low-power should parse",
-  )
-  assert(
-    parsed.intelLowPowerHevc === false,
-    "HEVC low-power should parse",
-  )
+  assert(parsed.intelLowPowerH264 === true, "H.264 low-power should parse")
+  assert(parsed.intelLowPowerHevc === false, "HEVC low-power should parse")
 })
 
-Deno.test("EncoderConfigPatchSchema rejects string Intel low-power values", () => {
+test("EncoderConfigPatchSchema rejects string Intel low-power values", () => {
   const parsed = EncoderConfigPatchSchema.safeParse({
     intelLowPowerH264: "true",
   })

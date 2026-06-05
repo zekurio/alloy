@@ -1,11 +1,10 @@
-import * as React from "react"
-
+import type { ClipRow, FeedFilter } from "@workspace/api"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { cn } from "@workspace/ui/lib/utils"
+import * as React from "react"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
 import { EmptyState } from "@/components/feedback/empty-state"
-import type { ClipRow, FeedFilter } from "@workspace/api"
 import { useFeedInfiniteQuery } from "@/lib/feed-queries"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
@@ -207,9 +206,10 @@ function useFeedSectionState(filter: FeedFilter) {
 
   const initialLoad = isPending && rows.length === 0
   const hasRows = rows.length > 0
-  const isRefreshing = hasRows && (isFetching || isPlaceholderData) &&
-    !isFetchingNextPage
-  const showSentinel = hasNextPage !== false ||
+  const isRefreshing =
+    hasRows && (isFetching || isPlaceholderData) && !isFetchingNextPage
+  const showSentinel =
+    hasNextPage !== false ||
     isFetchingNextPage ||
     isRefreshing ||
     (Boolean(error) && hasRows)
@@ -259,23 +259,21 @@ export function FeedSection({ filter, viewerId }: FeedSectionProps) {
         />
       </div>
 
-      {state.showSentinel
-        ? (
-          <div
-            ref={sentinelRef}
-            aria-hidden
-            className="mt-6 flex min-h-6 items-center justify-center"
-          >
-            <FeedSentinelStatus
-              isRefreshing={state.isRefreshing}
-              isFetchingNextPage={state.isFetchingNextPage}
-              hasRows={state.hasRows}
-              error={state.error}
-              onRetry={() => void state.refetch()}
-            />
-          </div>
-        )
-        : null}
+      {state.showSentinel ? (
+        <div
+          ref={sentinelRef}
+          aria-hidden
+          className="mt-6 flex min-h-6 items-center justify-center"
+        >
+          <FeedSentinelStatus
+            isRefreshing={state.isRefreshing}
+            isFetchingNextPage={state.isFetchingNextPage}
+            hasRows={state.hasRows}
+            error={state.error}
+            onRetry={() => void state.refetch()}
+          />
+        </div>
+      ) : null}
     </section>
   )
 }

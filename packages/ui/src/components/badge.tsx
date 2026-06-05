@@ -1,7 +1,7 @@
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
-import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@workspace/ui/lib/utils"
+import { cva, type VariantProps } from "class-variance-authority"
 
 const badgeVariants = cva(
   cn(
@@ -35,8 +35,7 @@ const badgeVariants = cva(
           "border-[oklch(0.65_0.24_25/0.4)] bg-[oklch(0.65_0.24_25/0.12)] text-danger",
         outline: "border-border-strong bg-transparent text-foreground",
         ghost: "border-transparent bg-transparent text-foreground-muted",
-        link:
-          "border-transparent bg-transparent text-accent underline-offset-4 hover:underline",
+        link: "border-transparent bg-transparent text-accent underline-offset-4 hover:underline",
       },
     },
     defaultVariants: {

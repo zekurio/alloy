@@ -1,16 +1,15 @@
-import { FilmIcon } from "lucide-react"
-
+import type { UserClip } from "@workspace/api"
 import {
   SectionActions,
   SectionHead,
   SectionMeta,
   SectionTitle,
 } from "@workspace/ui/components/section-head"
+import { FilmIcon } from "lucide-react"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
 import { headerCountLabel } from "@/lib/number-format"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
-import type { UserClip } from "@workspace/api"
 
 type ClipsSectionProps = {
   username: string
@@ -31,9 +30,8 @@ export function ClipsSection({
     title: "Couldn't load clips",
     toastId: `profile-${variant}-clips-error`,
   })
-  const visibleClips = variant === "recent" && clips
-    ? clips.slice(0, 12)
-    : clips
+  const visibleClips =
+    variant === "recent" && clips ? clips.slice(0, 12) : clips
 
   return (
     <section>
@@ -45,13 +43,11 @@ export function ClipsSection({
           </SectionTitle>
         </div>
         <SectionActions>
-          {visibleClips
-            ? (
-              <SectionMeta>
-                {headerCountLabel(visibleClips.length, "clip")}
-              </SectionMeta>
-            )
-            : null}
+          {visibleClips ? (
+            <SectionMeta>
+              {headerCountLabel(visibleClips.length, "clip")}
+            </SectionMeta>
+          ) : null}
         </SectionActions>
       </SectionHead>
 

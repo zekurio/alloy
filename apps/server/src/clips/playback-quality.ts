@@ -33,26 +33,25 @@ export function buildPlaybackQualities(input: {
   if (!sourceHeight || !sourceBitrate) return []
 
   const sourceWidth = input.width && input.width > 0 ? input.width : null
-  return QUALITY_PRESETS
-    .filter((preset) =>
-      preset.bitrate <= sourceBitrate && preset.maxHeight <= sourceHeight
-    )
-    .map((preset) => {
-      const height = Math.min(preset.maxHeight, sourceHeight)
-      const audioBitrate = audioBitrateForTotal(preset.bitrate)
-      const videoBitrate = Math.max(100_000, preset.bitrate - audioBitrate)
-      return {
-        id: playbackQualityId(preset.bitrate),
-        label: `${height}p - ${formatBitrate(preset.bitrate)}`,
-        bitrate: preset.bitrate,
-        videoBitrate,
-        audioBitrate,
-        width: sourceWidth
-          ? even(Math.round(sourceWidth * height / sourceHeight))
-          : null,
-        height,
-      }
-    })
+  return QUALITY_PRESETS.filter(
+    (preset) =>
+      preset.bitrate <= sourceBitrate && preset.maxHeight <= sourceHeight,
+  ).map((preset) => {
+    const height = Math.min(preset.maxHeight, sourceHeight)
+    const audioBitrate = audioBitrateForTotal(preset.bitrate)
+    const videoBitrate = Math.max(100_000, preset.bitrate - audioBitrate)
+    return {
+      id: playbackQualityId(preset.bitrate),
+      label: `${height}p - ${formatBitrate(preset.bitrate)}`,
+      bitrate: preset.bitrate,
+      videoBitrate,
+      audioBitrate,
+      width: sourceWidth
+        ? even(Math.round((sourceWidth * height) / sourceHeight))
+        : null,
+      height,
+    }
+  })
 }
 
 export function findPlaybackQuality(

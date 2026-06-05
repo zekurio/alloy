@@ -57,8 +57,7 @@ export function migrateRuntimeConfig(
   if (version > CURRENT_RUNTIME_CONFIG_VERSION) {
     return {
       ok: false,
-      error:
-        `runtimeConfigVersion ${version} is newer than supported version ${CURRENT_RUNTIME_CONFIG_VERSION}.`,
+      error: `runtimeConfigVersion ${version} is newer than supported version ${CURRENT_RUNTIME_CONFIG_VERSION}.`,
     }
   }
 

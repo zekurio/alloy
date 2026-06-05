@@ -1,7 +1,5 @@
-import * as React from "react"
-import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
-
+import { type ClipRow, clipThumbnailUrl } from "@workspace/api"
 import { Button } from "@workspace/ui/components/button"
 import {
   Dialog,
@@ -12,8 +10,8 @@ import { Spinner } from "@workspace/ui/components/spinner"
 import { useMediaQuery } from "@workspace/ui/hooks/use-media-query"
 import { useWindowEvent } from "@workspace/ui/hooks/use-window-event"
 import { cn } from "@workspace/ui/lib/utils"
-
-import { type ClipRow, clipThumbnailUrl } from "@workspace/api"
+import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react"
+import * as React from "react"
 
 import { clipGameLabel } from "@/lib/clip-format"
 import {
@@ -104,7 +102,7 @@ export function ClipViewerDialog({
   React.useEffect(() => {
     if (!open) return
     const neighbours = [prev, next].filter((entry): entry is ClipListEntry =>
-      Boolean(entry)
+      Boolean(entry),
     )
     for (const entry of neighbours) {
       seedClipDetail(queryClient, entry)
@@ -120,35 +118,31 @@ export function ClipViewerDialog({
         if (!nextOpen) closeViewer()
       }}
     >
-      {open
-        ? (
-          query.data
-            ? (
-              !isDesktop
-                ? (
-                  <MobileClipViewerBody
-                    row={query.data}
-                    onDeleted={closeViewer}
-                    prev={prev}
-                    next={next}
-                    onNavigate={onNavigate ? navigateTo : null}
-                    focusedCommentId={focusedCommentId}
-                  />
-                )
-                : (
-                  <ClipViewerDialogBody
-                    row={query.data}
-                    onDeleted={closeViewer}
-                    prev={prev}
-                    next={next}
-                    onNavigate={onNavigate ? navigateTo : null}
-                    focusedCommentId={focusedCommentId}
-                  />
-                )
-            )
-            : <ClipViewerDialogFallback />
+      {open ? (
+        query.data ? (
+          !isDesktop ? (
+            <MobileClipViewerBody
+              row={query.data}
+              onDeleted={closeViewer}
+              prev={prev}
+              next={next}
+              onNavigate={onNavigate ? navigateTo : null}
+              focusedCommentId={focusedCommentId}
+            />
+          ) : (
+            <ClipViewerDialogBody
+              row={query.data}
+              onDeleted={closeViewer}
+              prev={prev}
+              next={next}
+              onNavigate={onNavigate ? navigateTo : null}
+              focusedCommentId={focusedCommentId}
+            />
+          )
+        ) : (
+          <ClipViewerDialogFallback />
         )
-        : null}
+      ) : null}
     </Dialog>
   )
 }
@@ -218,13 +212,15 @@ function ClipViewerDialogBody({
     <>
       <DialogViewportContent
         initialFocus={initialFocusRef}
-        style={{
-          "--clip-modal-margin-x": "16px",
-          "--clip-modal-margin-y": "16px",
-          "--clip-modal-nav-gutter": "72px",
-          "--clip-modal-sidebar": "400px",
-          "--clip-modal-meta": "13rem",
-        } as React.CSSProperties}
+        style={
+          {
+            "--clip-modal-margin-x": "16px",
+            "--clip-modal-margin-y": "16px",
+            "--clip-modal-nav-gutter": "72px",
+            "--clip-modal-sidebar": "400px",
+            "--clip-modal-meta": "13rem",
+          } as React.CSSProperties
+        }
         className={cn(
           // Below lg this branch is normally hidden by MobileClipViewerBody, but
           // we keep a sensible fallback in case the breakpoint check disagrees.
@@ -253,55 +249,47 @@ function ClipViewerDialogBody({
         >
           <XIcon />
         </DialogClose>
-        {showPrev
-          ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => (prev && onNavigate
-                ? onNavigate(prev)
-                : undefined)}
-              aria-label="Previous clip"
-              disabled={prevDisabled}
-              className={cn(
-                "absolute top-1/2 left-[calc((var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))*-1)] z-40 h-12 w-[calc(var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
-                "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
-                "hidden lg:inline-flex",
-              )}
-            >
-              <ChevronLeftIcon />
-            </Button>
-          )
-          : null}
-        {showNext
-          ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => (next && onNavigate
-                ? onNavigate(next)
-                : undefined)}
-              aria-label="Next clip"
-              disabled={nextDisabled}
-              className={cn(
-                "absolute top-1/2 right-[calc((var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))*-1)] z-40 h-12 w-[calc(var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
-                "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
-                "hidden lg:inline-flex",
-              )}
-            >
-              <ChevronRightIcon />
-            </Button>
-          )
-          : null}
+        {showPrev ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => (prev && onNavigate ? onNavigate(prev) : undefined)}
+            aria-label="Previous clip"
+            disabled={prevDisabled}
+            className={cn(
+              "absolute top-1/2 left-[calc((var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))*-1)] z-40 h-12 w-[calc(var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
+              "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
+              "hidden lg:inline-flex",
+            )}
+          >
+            <ChevronLeftIcon />
+          </Button>
+        ) : null}
+        {showNext ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => (next && onNavigate ? onNavigate(next) : undefined)}
+            aria-label="Next clip"
+            disabled={nextDisabled}
+            className={cn(
+              "absolute top-1/2 right-[calc((var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))*-1)] z-40 h-12 w-[calc(var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
+              "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
+              "hidden lg:inline-flex",
+            )}
+          >
+            <ChevronRightIcon />
+          </Button>
+        ) : null}
         <div
           className={cn(
             "grid h-full min-h-0 overflow-hidden rounded-[20px] bg-surface",
             "lg:grid-cols-[minmax(0,1fr)_var(--clip-modal-sidebar)]",
           )}
         >
-          <div className="grid min-h-0 grid-rows-[auto_auto] bg-surface p-4 sm:p-6 lg:grid-rows-[auto_minmax(0,1fr)] lg:p-0">
+          <div className="bg-surface grid min-h-0 grid-rows-[auto_auto] p-4 sm:p-6 lg:grid-rows-[auto_minmax(0,1fr)] lg:p-0">
             <div
               ref={initialFocusRef}
               tabIndex={-1}
@@ -369,7 +357,7 @@ function ClipViewerDialogBody({
 function ClipViewerDialogFallback() {
   return (
     <DialogViewportContent className="grid place-items-center">
-      <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-surface">
+      <div className="bg-surface flex h-full w-full flex-col items-center justify-center gap-3">
         <Spinner className="size-5" />
       </div>
     </DialogViewportContent>

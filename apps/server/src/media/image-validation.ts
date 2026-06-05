@@ -4,6 +4,12 @@ type ImageValidationResult =
   | { ok: true; width: number; height: number; contentType: string }
   | { ok: false; error: string }
 
+export type ImageMetadata = {
+  width: number
+  height: number
+  contentType: string
+}
+
 const MAX_IMAGE_PIXELS = 24_000_000
 
 export function validateImageBytes(
@@ -12,7 +18,7 @@ export function validateImageBytes(
 ): ImageValidationResult {
   if (bytes.byteLength === 0) return { ok: false, error: "Empty image data" }
 
-  const parsed = parseJpeg(bytes) ?? parsePng(bytes) ?? parseWebp(bytes) ?? null
+  const parsed = parseImageBytes(bytes)
   if (!parsed) return { ok: false, error: "Unsupported or invalid image data" }
   if (parsed.contentType !== expectedContentType) {
     return { ok: false, error: "Image content type did not match bytes" }
@@ -26,9 +32,11 @@ export function validateImageBytes(
   return { ok: true, ...parsed }
 }
 
-function parseJpeg(
-  bytes: Buffer,
-): { width: number; height: number; contentType: string } | null {
+export function parseImageBytes(bytes: Buffer): ImageMetadata | null {
+  return parseJpeg(bytes) ?? parsePng(bytes) ?? parseWebp(bytes) ?? null
+}
+
+function parseJpeg(bytes: Buffer): ImageMetadata | null {
   if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null
   let offset = 2
   while (offset + 9 < bytes.length) {
@@ -57,9 +65,7 @@ function parseJpeg(
   return null
 }
 
-function parsePng(
-  bytes: Buffer,
-): { width: number; height: number; contentType: string } | null {
+function parsePng(bytes: Buffer): ImageMetadata | null {
   const pngSig = "89504e470d0a1a0a"
   if (bytes.length < 24 || bytes.subarray(0, 8).toString("hex") !== pngSig) {
     return null
@@ -72,9 +78,7 @@ function parsePng(
   }
 }
 
-function parseWebp(
-  bytes: Buffer,
-): { width: number; height: number; contentType: string } | null {
+function parseWebp(bytes: Buffer): ImageMetadata | null {
   if (
     bytes.length < 16 ||
     bytes.subarray(0, 4).toString("ascii") !== "RIFF" ||

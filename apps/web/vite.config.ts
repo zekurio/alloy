@@ -1,8 +1,10 @@
-import { defineConfig, loadEnv, type ProxyOptions } from "vite"
+import { fileURLToPath, URL } from "node:url"
+
+import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import viteReact from "@vitejs/plugin-react"
-import tailwindcss from "@tailwindcss/vite"
-import { fileURLToPath, URL } from "node:url"
+import { defineConfig, loadEnv, type ProxyOptions } from "vite"
+
 import { clientLogger } from "./src/lib/client-log"
 
 const DEFAULT_SERVER_URL = "http://localhost:2552"
@@ -61,8 +63,8 @@ const config = defineConfig(({ mode }) => ({
   clearScreen: false,
   publicDir: "../../public",
   resolve: {
-    // Keep workspace path aliases in tsconfig/deno.json; Vite resolves them
-    // natively during dev and build.
+    // Keep workspace path aliases in tsconfig; Vite resolves them natively
+    // during dev and build.
     tsconfigPaths: true,
   },
   server: {

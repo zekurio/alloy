@@ -1,19 +1,19 @@
-import * as React from "react"
 import { useNavigate } from "@tanstack/react-router"
-
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@workspace/ui/components/popover"
+import { type QueueClip } from "@workspace/api"
 import {
   Dialog,
   DialogContent,
   DialogTitle,
 } from "@workspace/ui/components/dialog"
-import { toast } from "@workspace/ui/lib/toast"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@workspace/ui/components/popover"
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
+import { toast } from "@workspace/ui/lib/toast"
 import { cn } from "@workspace/ui/lib/utils"
+import * as React from "react"
 
 import {
   announceFloatingSurfaceOpen,
@@ -23,22 +23,22 @@ import {
 import type { AppSearch } from "@/lib/app-search"
 import { errorMessage } from "@/lib/error-message"
 import { useSuspenseSession } from "@/lib/session-suspense"
+
 import { FloatingUploadButton } from "./floating-upload-button"
-import { useUploadFlowControls } from "./use-upload-flow-controls"
-import { type QueueClip } from "@workspace/api"
 import {
   ACCEPT_LIST,
   prepareSelectedClipFile,
   type PublishPayload,
   type SelectedFile,
 } from "./new-clip-helpers"
-import { type QueueItem, UploadQueueContent } from "./upload-queue"
 import {
   loadNewClipDialog,
   NewClipDialog,
   useWarmEditor,
 } from "./upload-dialog-loader"
 import { useUploadQueueState } from "./upload-flow-queue-state"
+import { type QueueItem, UploadQueueContent } from "./upload-queue"
+import { useUploadFlowControls } from "./use-upload-flow-controls"
 
 function useNewClipPicker(onPicked: () => void) {
   const [newClipOpen, setNewClipOpen] = React.useState(false)
@@ -100,8 +100,10 @@ function UploadFlowInner() {
 /** True when an event originated on the bottom-nav upload trigger button. */
 function pressedUploadTrigger(event: Event): boolean {
   const target = event.target
-  return target instanceof Element &&
+  return (
+    target instanceof Element &&
     target.closest("[data-upload-trigger]") !== null
+  )
 }
 
 function UploadQueuePopover({
@@ -219,17 +221,19 @@ function UploadQueuePopover({
           "data-open:animate-[alloy-fab-morph-in_320ms_var(--ease-out)_forwards]",
           "data-closed:animate-[alloy-fab-morph-out_180ms_var(--ease-out)_forwards]",
         )}
-        style={{
-          position: "fixed",
-          right: "0.75rem",
-          bottom: isMobile
-            ? "calc(var(--bottomnav-h) + env(safe-area-inset-bottom) + 0.75rem)"
-            : "0.75rem",
-          top: "auto",
-          left: isMobile ? "0.75rem" : "auto",
-          transformOrigin: isMobile ? "bottom center" : "bottom right",
-          ...queueGlassStyle,
-        } as React.CSSProperties}
+        style={
+          {
+            position: "fixed",
+            right: "0.75rem",
+            bottom: isMobile
+              ? "calc(var(--bottomnav-h) + env(safe-area-inset-bottom) + 0.75rem)"
+              : "0.75rem",
+            top: "auto",
+            left: isMobile ? "0.75rem" : "auto",
+            transformOrigin: isMobile ? "bottom center" : "bottom right",
+            ...queueGlassStyle,
+          } as React.CSSProperties
+        }
         aria-describedby={undefined}
       >
         {content}
@@ -312,18 +316,16 @@ function AuthedUploadFlow() {
         onNewClip={handleNewClip}
         onClearCompleted={clearCompleted}
       />
-      {newClipModalMounted
-        ? (
-          <React.Suspense fallback={null}>
-            <NewClipDialog
-              open={newClipOpen}
-              onOpenChange={setNewClipOpen}
-              onPublish={handlePublish}
-              initialFile={initialFile ?? undefined}
-            />
-          </React.Suspense>
-        )
-        : null}
+      {newClipModalMounted ? (
+        <React.Suspense fallback={null}>
+          <NewClipDialog
+            open={newClipOpen}
+            onOpenChange={setNewClipOpen}
+            onPublish={handlePublish}
+            initialFile={initialFile ?? undefined}
+          />
+        </React.Suspense>
+      ) : null}
     </>
   )
 }

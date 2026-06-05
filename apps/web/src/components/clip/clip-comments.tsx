@@ -1,4 +1,4 @@
-import * as React from "react"
+import { COMMENT_BODY_MAX_LENGTH, type CommentRow } from "@workspace/api"
 import {
   Avatar,
   AvatarFallback,
@@ -8,7 +8,9 @@ import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { toast } from "@workspace/ui/lib/toast"
 import { cn } from "@workspace/ui/lib/utils"
+import * as React from "react"
 
+import { EmptyState } from "@/components/feedback/empty-state"
 import { useSession } from "@/lib/auth-client"
 import { currentUrlWithQueryParam } from "@/lib/browser-url"
 import { copyTextToClipboard } from "@/lib/clipboard"
@@ -22,8 +24,8 @@ import {
 import { formatRelativeTime } from "@/lib/date-format"
 import { errorMessage } from "@/lib/error-message"
 import { useSuspenseAuthConfig } from "@/lib/session-suspense"
-import { COMMENT_BODY_MAX_LENGTH, type CommentRow } from "@workspace/api"
 import { displayName, userAvatar, useUserChipData } from "@/lib/user-display"
+
 import {
   CommentActions,
   CommentAuthHint,
@@ -33,7 +35,6 @@ import {
   CommentsHeader,
   CommentsSortDropdown,
 } from "./clip-comments-parts"
-import { EmptyState } from "@/components/feedback/empty-state"
 
 const LONG_COMMENT_CHARS = 260
 // Beyond this depth replies stop indenting and continue inline, so deep
@@ -130,11 +131,12 @@ function ClipComments({
   )
 
   const isSignedIn = viewerId !== null
-  const canSignUp = authConfig.openRegistrations &&
+  const canSignUp =
+    authConfig.openRegistrations &&
     (authConfig.passkeyEnabled || authConfig.providers.length > 0)
   const bodyLength = draft.trim().length
-  const canSubmit = bodyLength > 0 && bodyLength <= COMMENT_BODY_MAX_LENGTH &&
-    isSignedIn
+  const canSubmit =
+    bodyLength > 0 && bodyLength <= COMMENT_BODY_MAX_LENGTH && isSignedIn
 
   function toggleReplies(commentId: string) {
     setOpenReplyIds((current) => {
@@ -160,7 +162,8 @@ function ClipComments({
   async function copyCommentLink(commentId: string) {
     const url = currentUrlWithQueryParam("comment", commentId)
 
-    const copied = url !== null &&
+    const copied =
+      url !== null &&
       (await copyTextToClipboard(url, {
         action: "copy comment link",
       }))
@@ -238,7 +241,7 @@ function ClipComments({
       setFlashingCommentId(focusedCommentId)
       window.setTimeout(() => {
         setFlashingCommentId((current) =>
-          current === focusedCommentId ? null : current
+          current === focusedCommentId ? null : current,
         )
       }, 2400)
     }
@@ -265,115 +268,109 @@ function ClipComments({
     >
       <div data-slot="clip-comments-scroll" className="min-h-0 overflow-y-auto">
         {comments.length > 0 ? <CommentsHeader count={totalCount} /> : null}
-        {commentsQuery.isLoading
-          ? (
-            <div className="flex h-full items-center justify-center p-6">
-              <Spinner />
-            </div>
-          )
-          : commentsQuery.error && comments.length === 0
-          ? (
-            <div className="flex h-full items-center justify-center p-6">
-              <EmptyState
-                seed={`comments-${clipId}-error`}
-                size="lg"
-                title="Couldn't load comments"
-                hint="Try again in a moment."
-                action={
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={commentsQuery.isFetching}
-                    onClick={() => void commentsQuery.refetch()}
-                  >
-                    {commentsQuery.isFetching
-                      ? <Spinner className="size-4" />
-                      : null}
-                    Retry
-                  </Button>
-                }
-              />
-            </div>
-          )
-          : comments.length === 0
-          ? (
-            <div className="flex h-full items-center justify-center p-6">
-              <EmptyState
-                seed={`comments-${clipId}`}
-                size="lg"
-                title="No comments yet"
-                hint="Be the first to leave your thoughts!"
-              />
-            </div>
-          )
-          : (
-            <>
-              <ul className="flex flex-col">
-                {comments.map((comment) => (
-                  <CommentRowView
-                    key={comment.id}
-                    comment={comment}
-                    clipId={clipId}
-                    clipAuthorId={clipAuthorId}
-                    viewerId={viewerId}
-                    depth={0}
-                    repliesOpen={isRepliesOpen(comment.id)}
-                    isRepliesOpen={isRepliesOpen}
-                    flashingCommentId={flashingCommentId}
-                    commentRefs={commentRefs}
-                    onToggleReplies={toggleReplies}
-                    onStartReply={startReply}
-                    onCopyLink={copyCommentLink}
-                  />
-                ))}
-              </ul>
-              {commentsQuery.hasNextPage
-                ? (
-                  <div className="flex justify-center p-3">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={commentsQuery.isFetchingNextPage}
-                      onClick={() => void commentsQuery.fetchNextPage()}
-                    >
-                      {commentsQuery.isFetchingNextPage
-                        ? <Spinner className="size-4" />
-                        : null}
-                      Load more
-                    </Button>
-                  </div>
-                )
-                : null}
-            </>
-          )}
+        {commentsQuery.isLoading ? (
+          <div className="flex h-full items-center justify-center p-6">
+            <Spinner />
+          </div>
+        ) : commentsQuery.error && comments.length === 0 ? (
+          <div className="flex h-full items-center justify-center p-6">
+            <EmptyState
+              seed={`comments-${clipId}-error`}
+              size="lg"
+              title="Couldn't load comments"
+              hint="Try again in a moment."
+              action={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={commentsQuery.isFetching}
+                  onClick={() => void commentsQuery.refetch()}
+                >
+                  {commentsQuery.isFetching ? (
+                    <Spinner className="size-4" />
+                  ) : null}
+                  Retry
+                </Button>
+              }
+            />
+          </div>
+        ) : comments.length === 0 ? (
+          <div className="flex h-full items-center justify-center p-6">
+            <EmptyState
+              seed={`comments-${clipId}`}
+              size="lg"
+              title="No comments yet"
+              hint="Be the first to leave your thoughts!"
+            />
+          </div>
+        ) : (
+          <>
+            <ul className="flex flex-col">
+              {comments.map((comment) => (
+                <CommentRowView
+                  key={comment.id}
+                  comment={comment}
+                  clipId={clipId}
+                  clipAuthorId={clipAuthorId}
+                  viewerId={viewerId}
+                  depth={0}
+                  repliesOpen={isRepliesOpen(comment.id)}
+                  isRepliesOpen={isRepliesOpen}
+                  flashingCommentId={flashingCommentId}
+                  commentRefs={commentRefs}
+                  onToggleReplies={toggleReplies}
+                  onStartReply={startReply}
+                  onCopyLink={copyCommentLink}
+                />
+              ))}
+            </ul>
+            {commentsQuery.hasNextPage ? (
+              <div className="flex justify-center p-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={commentsQuery.isFetchingNextPage}
+                  onClick={() => void commentsQuery.fetchNextPage()}
+                >
+                  {commentsQuery.isFetchingNextPage ? (
+                    <Spinner className="size-4" />
+                  ) : null}
+                  Load more
+                </Button>
+              </div>
+            ) : null}
+          </>
+        )}
       </div>
 
-      <div className="relative flex flex-col justify-end bg-surface p-3">
+      <div className="bg-surface relative flex flex-col justify-end p-3">
         <div className="mb-1.5">
           <CommentsSortDropdown sort={sort} onSortChange={setSort} />
         </div>
-        {isSignedIn
-          ? (
-            <CommentComposer
-              draft={draft}
-              me={me}
-              meAvatarStyle={meAvatarStyle}
-              inputRef={composerRef}
-              replyingToName={replyTarget?.authorName}
-              placeholder={replyTarget
+        {isSignedIn ? (
+          <CommentComposer
+            draft={draft}
+            me={me}
+            meAvatarStyle={meAvatarStyle}
+            inputRef={composerRef}
+            replyingToName={replyTarget?.authorName}
+            placeholder={
+              replyTarget
                 ? `Reply to ${replyTarget.authorName}…`
-                : "Add a comment…"}
-              submitting={create.isPending}
-              canSubmit={canSubmit}
-              onDraftChange={setDraft}
-              onClear={() => setDraft("")}
-              onCancelReply={cancelReply}
-              onSubmit={submitComment}
-            />
-          )
-          : <CommentAuthHint canSignUp={canSignUp} />}
+                : "Add a comment…"
+            }
+            submitting={create.isPending}
+            canSubmit={canSubmit}
+            onDraftChange={setDraft}
+            onClear={() => setDraft("")}
+            onCancelReply={cancelReply}
+            onSubmit={submitComment}
+          />
+        ) : (
+          <CommentAuthHint canSignUp={canSignUp} />
+        )}
       </div>
     </aside>
   )
@@ -483,25 +480,23 @@ function CommentRowView({
 
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-baseline gap-2 leading-4">
-          <span className="text-[0.9375rem] font-semibold text-foreground">
+          <span className="text-foreground text-[0.9375rem] font-semibold">
             {authorName}
           </span>
-          {comment.author.id === clipAuthorId
-            ? (
-              <span className="inline-flex items-center rounded-sm bg-accent-soft px-1.5 py-0.5 text-[0.6875rem] leading-3 font-semibold tracking-wide text-accent uppercase">
-                Author
-              </span>
-            )
-            : null}
-          <span className="text-xs text-foreground-faint">
+          {comment.author.id === clipAuthorId ? (
+            <span className="bg-accent-soft text-accent inline-flex items-center rounded-sm px-1.5 py-0.5 text-[0.6875rem] leading-3 font-semibold tracking-wide uppercase">
+              Author
+            </span>
+          ) : null}
+          <span className="text-foreground-faint text-xs">
             {formatRelativeTime(comment.createdAt)}
           </span>
           <CommentMenu
             canDelete={canDelete}
             deletePending={del.isPending}
-            deleteTitle={isTopLevel
-              ? "Delete this comment?"
-              : "Delete this reply?"}
+            deleteTitle={
+              isTopLevel ? "Delete this comment?" : "Delete this reply?"
+            }
             deleteDescription="This will remove the comment text. Replies will stay visible."
             deleteActionLabel={isTopLevel ? "Delete comment" : "Delete reply"}
             onCopyLink={() => onCopyLink(comment.id)}
@@ -520,8 +515,9 @@ function CommentRowView({
         <CommentActions
           liked={comment.likedByViewer}
           likeCount={comment.likeCount}
-          likedByAuthor={comment.likedByAuthor &&
-            comment.author.id !== clipAuthorId}
+          likedByAuthor={
+            comment.likedByAuthor && comment.author.id !== clipAuthorId
+          }
           replyCount={comment.replies.length}
           repliesOpen={repliesOpen}
           canReply={canReply}
@@ -533,49 +529,50 @@ function CommentRowView({
           onToggleLike={onToggleLike}
           onToggleReplies={() => onToggleReplies(comment.id)}
           onStartReply={() =>
-            onStartReply({ id: comment.id, authorName: authorName })}
+            onStartReply({ id: comment.id, authorName: authorName })
+          }
         />
 
         {repliesOpen && comment.replies.length > 0
           ? (() => {
-            const replyItems = comment.replies.map((reply) => (
-              <CommentRowView
-                key={reply.id}
-                comment={reply}
-                clipId={clipId}
-                clipAuthorId={clipAuthorId}
-                viewerId={viewerId}
-                depth={depth + 1}
-                repliesOpen={isRepliesOpen(reply.id)}
-                isRepliesOpen={isRepliesOpen}
-                flashingCommentId={flashingCommentId}
-                commentRefs={commentRefs}
-                onToggleReplies={onToggleReplies}
-                onStartReply={onStartReply}
-                onCopyLink={onCopyLink}
-              />
-            ))
+              const replyItems = comment.replies.map((reply) => (
+                <CommentRowView
+                  key={reply.id}
+                  comment={reply}
+                  clipId={clipId}
+                  clipAuthorId={clipAuthorId}
+                  viewerId={viewerId}
+                  depth={depth + 1}
+                  repliesOpen={isRepliesOpen(reply.id)}
+                  isRepliesOpen={isRepliesOpen}
+                  flashingCommentId={flashingCommentId}
+                  commentRefs={commentRefs}
+                  onToggleReplies={onToggleReplies}
+                  onStartReply={onStartReply}
+                  onCopyLink={onCopyLink}
+                />
+              ))
 
-            // Past the indent cap the thread runs out of horizontal room, so
-            // continue inline without another rail.
-            if (depth >= MAX_VISIBLE_REPLY_INDENT) {
-              return <ul className="mt-1.5 flex flex-col">{replyItems}</ul>
-            }
+              // Past the indent cap the thread runs out of horizontal room, so
+              // continue inline without another rail.
+              if (depth >= MAX_VISIBLE_REPLY_INDENT) {
+                return <ul className="mt-1.5 flex flex-col">{replyItems}</ul>
+              }
 
-            return (
-              <div className="relative mt-1.5">
-                <button
-                  type="button"
-                  onClick={() => onToggleReplies(comment.id)}
-                  aria-label="Collapse thread"
-                  className="group/thread absolute inset-y-0 left-0 z-10 flex w-4 cursor-pointer justify-center focus-visible:outline-none"
-                >
-                  <span className="h-full w-px rounded-full bg-border transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] group-hover/thread:bg-foreground-faint group-focus-visible/thread:bg-foreground-faint" />
-                </button>
-                <ul className="flex flex-col pl-4">{replyItems}</ul>
-              </div>
-            )
-          })()
+              return (
+                <div className="relative mt-1.5">
+                  <button
+                    type="button"
+                    onClick={() => onToggleReplies(comment.id)}
+                    aria-label="Collapse thread"
+                    className="group/thread absolute inset-y-0 left-0 z-10 flex w-4 cursor-pointer justify-center focus-visible:outline-none"
+                  >
+                    <span className="bg-border group-hover/thread:bg-foreground-faint group-focus-visible/thread:bg-foreground-faint h-full w-px rounded-full transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]" />
+                  </button>
+                  <ul className="flex flex-col pl-4">{replyItems}</ul>
+                </div>
+              )
+            })()
           : null}
       </div>
     </li>

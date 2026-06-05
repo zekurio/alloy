@@ -4,6 +4,7 @@ import {
   type ClipPage,
   type ClipRow,
 } from "@workspace/contracts"
+
 import {
   objectRecord,
   validateArray,
@@ -18,8 +19,8 @@ import {
   validatePositiveInteger,
   validateRequiredString,
 } from "../runtime-validation"
-import { validateGameRowFields } from "./shared"
 import { validateUserSummary } from "./people-notifications"
+import { validateGameRowFields } from "./shared"
 const CLIP_PRIVACY_SET: ReadonlySet<string> = new Set(CLIP_PRIVACY)
 const CLIP_STATUS_SET: ReadonlySet<string> = new Set(CLIP_STATUS)
 function assertNoStorageKey(value: Record<string, unknown>, label: string) {
@@ -41,9 +42,12 @@ function validateClipPlaybackQuality(value: unknown) {
       `Invalid clip playback quality response: ${key} is required`,
     )
   }
-  for (
-    const key of ["bitrate", "videoBitrate", "audioBitrate", "height"] as const
-  ) {
+  for (const key of [
+    "bitrate",
+    "videoBitrate",
+    "audioBitrate",
+    "height",
+  ] as const) {
     validatePositiveInteger(
       quality[key],
       `Invalid clip playback quality response: ${key} must be a positive integer`,
@@ -67,16 +71,14 @@ export function validateClipRow(value: unknown): ClipRow {
 }
 
 function validateClipIdentityFields(row: Record<string, unknown>) {
-  for (
-    const key of [
-      "id",
-      "authorId",
-      "title",
-      "gameId",
-      "authorUsername",
-      "authorName",
-    ] as const
-  ) {
+  for (const key of [
+    "id",
+    "authorId",
+    "title",
+    "gameId",
+    "authorUsername",
+    "authorName",
+  ] as const) {
     validateRequiredString(
       row[key],
       `Invalid clip response: ${key} is required`,
@@ -85,18 +87,16 @@ function validateClipIdentityFields(row: Record<string, unknown>) {
 }
 
 function validateClipMetadataFields(row: Record<string, unknown>) {
-  for (
-    const key of [
-      "description",
-      "game",
-      "sourceContentType",
-      "sourceVideoCodec",
-      "sourceAudioCodec",
-      "openGraphContentType",
-      "failureReason",
-      "authorImage",
-    ] as const
-  ) {
+  for (const key of [
+    "description",
+    "game",
+    "sourceContentType",
+    "sourceVideoCodec",
+    "sourceAudioCodec",
+    "openGraphContentType",
+    "failureReason",
+    "authorImage",
+  ] as const) {
     validateNullableString(
       row[key],
       `Invalid clip response: ${key} must be string or null`,
@@ -115,13 +115,11 @@ function validateClipMetadataFields(row: Record<string, unknown>) {
 }
 
 function validateClipCounters(row: Record<string, unknown>) {
-  for (
-    const key of [
-      "sourceSizeBytes",
-      "openGraphSizeBytes",
-      "durationMs",
-    ] as const
-  ) {
+  for (const key of [
+    "sourceSizeBytes",
+    "openGraphSizeBytes",
+    "durationMs",
+  ] as const) {
     validateNullableNonNegativeInteger(
       row[key],
       `Invalid clip response: ${key} must be a non-negative integer or null`,

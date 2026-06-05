@@ -35,7 +35,7 @@ export function resolve(...paths: string[]): string {
     if (isAbsolute(path)) return normalize(resolved)
   }
 
-  return normalize(`${Deno.cwd()}${SEP}${resolved}`)
+  return normalize(`${process.cwd()}${SEP}${resolved}`)
 }
 
 export function join(...paths: string[]): string {

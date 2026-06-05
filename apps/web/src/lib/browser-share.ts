@@ -1,5 +1,5 @@
-import { copyTextToClipboard } from "./clipboard"
 import { clientLogger } from "./client-log"
+import { copyTextToClipboard } from "./clipboard"
 
 type ShareResult = "shared" | "copied" | "cancelled" | "failed"
 

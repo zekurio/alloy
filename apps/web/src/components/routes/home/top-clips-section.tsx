@@ -1,28 +1,26 @@
-import * as React from "react"
 import { Link } from "@tanstack/react-router"
-import { AwardIcon } from "lucide-react"
-
+import type { ClipFeedWindow } from "@workspace/api"
 import {
   SectionActions,
   SectionHead,
   SectionTitle,
 } from "@workspace/ui/components/section-head"
-
 import { Spinner } from "@workspace/ui/components/spinner"
+import { AwardIcon } from "lucide-react"
+import * as React from "react"
 
+import {
+  type ClipListEntry,
+  ClipListProvider,
+} from "@/components/clip/clip-list-context"
 import {
   SortDropdown,
   type SortDropdownOption,
 } from "@/components/clip/sort-dropdown"
 import { TopClipsRow } from "@/components/clip/top-clips-row"
-import {
-  type ClipListEntry,
-  ClipListProvider,
-} from "@/components/clip/clip-list-context"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { useTopClipsQuery } from "@/lib/clip-queries"
 import type { HomeSearch } from "@/lib/home-search"
-import type { ClipFeedWindow } from "@workspace/api"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 type TopClipsSectionProps = {
@@ -121,9 +119,9 @@ function TopClipsBody({
         <EmptyState
           seed={`top-${window}-empty`}
           size="md"
-          title={hashtag
-            ? `No top clips tagged #${hashtag}`
-            : emptyTopTitle(window)}
+          title={
+            hashtag ? `No top clips tagged #${hashtag}` : emptyTopTitle(window)
+          }
           hint="Check back in a bit or upload your own."
         />
       )

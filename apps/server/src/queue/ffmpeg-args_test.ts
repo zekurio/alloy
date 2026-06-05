@@ -1,3 +1,5 @@
+import { test } from "node:test"
+
 import type { ResolvedEncoderConfig } from "./ffmpeg-args"
 import {
   buildEncodeArgs,
@@ -26,9 +28,9 @@ function assertNotIncludes(
   const needle = unexpected.join("\u0000")
   assert(
     !actual.includes(needle),
-    `expected args not to include ${JSON.stringify(unexpected)}\n${
-      args.join(" ")
-    }`,
+    `expected args not to include ${JSON.stringify(unexpected)}\n${args.join(
+      " ",
+    )}`,
   )
 }
 
@@ -80,16 +82,13 @@ function encoderConfig(
   }
 }
 
-Deno.test("codecNameFor maps software codecs to ffmpeg library encoders", () => {
+test("codecNameFor maps software codecs to ffmpeg library encoders", () => {
   assert(codecNameFor("none", "h264") === "libx264", "H.264 should use x264")
   assert(codecNameFor("none", "hevc") === "libx265", "HEVC should use x265")
-  assert(
-    codecNameFor("none", "av1") === "libsvtav1",
-    "AV1 should use SVT-AV1",
-  )
+  assert(codecNameFor("none", "av1") === "libsvtav1", "AV1 should use SVT-AV1")
 })
 
-Deno.test("codecNameFor maps hardware codecs to backend encoder names", () => {
+test("codecNameFor maps hardware codecs to backend encoder names", () => {
   assert(
     codecNameFor("nvenc", "av1") === "av1_nvenc",
     "NVENC AV1 name should be backend-derived",
@@ -108,7 +107,7 @@ Deno.test("codecNameFor maps hardware codecs to backend encoder names", () => {
   )
 })
 
-Deno.test("buildLiveTranscodeArgs uses capped CRF for SVT-AV1 live output", () => {
+test("buildLiveTranscodeArgs uses capped CRF for SVT-AV1 live output", () => {
   const args = liveArgs("libsvtav1")
 
   assertIncludes(args, ["-c:v", "libsvtav1", "-preset", "10"])
@@ -117,7 +116,7 @@ Deno.test("buildLiveTranscodeArgs uses capped CRF for SVT-AV1 live output", () =
   assertNotIncludes(args, ["-svtav1-params"])
 })
 
-Deno.test("buildEncodeArgs rounds odd software target heights down", () => {
+test("buildEncodeArgs rounds odd software target heights down", () => {
   const args = buildEncodeArgs("source.mkv", "out.mp4", {
     config: encoderConfig("libx264"),
     targetHeight: 1079,
@@ -129,7 +128,7 @@ Deno.test("buildEncodeArgs rounds odd software target heights down", () => {
   ])
 })
 
-Deno.test("buildLiveTranscodeArgs applies Jellyfin-style QSV rate control", () => {
+test("buildLiveTranscodeArgs applies Jellyfin-style QSV rate control", () => {
   const args = liveArgs("h264_qsv", { hwaccel: "qsv" })
 
   assertIncludes(args, ["-qsv_device", "/dev/dri/renderD128"])
@@ -138,7 +137,7 @@ Deno.test("buildLiveTranscodeArgs applies Jellyfin-style QSV rate control", () =
   assertIncludes(args, ["-maxrate", "1000001", "-rc_init_occupancy", "1000000"])
 })
 
-Deno.test("buildLiveTranscodeArgs generates stable QSV low-power H.264 command", () => {
+test("buildLiveTranscodeArgs generates stable QSV low-power H.264 command", () => {
   const args = liveArgs("h264_qsv", {
     hwaccel: "qsv",
     intelLowPowerH264: true,
@@ -191,7 +190,7 @@ Deno.test("buildLiveTranscodeArgs generates stable QSV low-power H.264 command",
   ])
 })
 
-Deno.test("buildLiveTranscodeArgs applies NVENC live defaults and HEVC tag", () => {
+test("buildLiveTranscodeArgs applies NVENC live defaults and HEVC tag", () => {
   const args = liveArgs("hevc_nvenc", { hwaccel: "nvenc" })
 
   assertIncludes(args, ["-c:v", "hevc_nvenc", "-preset", "p1"])
@@ -199,7 +198,7 @@ Deno.test("buildLiveTranscodeArgs applies NVENC live defaults and HEVC tag", () 
   assertIncludes(args, ["-tag:v", "hvc1"])
 })
 
-Deno.test("buildLiveTranscodeArgs uploads VAAPI frames and uses VBR mode", () => {
+test("buildLiveTranscodeArgs uploads VAAPI frames and uses VBR mode", () => {
   const args = buildLiveTranscodeArgs("source.mkv", {
     config: encoderConfig("hevc_vaapi", { hwaccel: "vaapi" }),
     targetHeight: 1079,
@@ -216,7 +215,7 @@ Deno.test("buildLiveTranscodeArgs uploads VAAPI frames and uses VBR mode", () =>
   assertIncludes(args, ["-tag:v", "hvc1"])
 })
 
-Deno.test("buildLiveTranscodeArgs applies AMF live CBR defaults", () => {
+test("buildLiveTranscodeArgs applies AMF live CBR defaults", () => {
   const args = liveArgs("hevc_amf", { hwaccel: "amf" })
 
   assertIncludes(args, ["-quality", "speed", "-header_insertion_mode", "gop"])
@@ -225,7 +224,7 @@ Deno.test("buildLiveTranscodeArgs applies AMF live CBR defaults", () => {
   assertIncludes(args, ["-tag:v", "hvc1"])
 })
 
-Deno.test("buildLiveTranscodeArgs applies AV1 AMF header insertion without H.26x CBR overrides", () => {
+test("buildLiveTranscodeArgs applies AV1 AMF header insertion without H.26x CBR overrides", () => {
   const args = liveArgs("av1_amf", { hwaccel: "amf" })
 
   assertIncludes(args, ["-c:v", "av1_amf", "-quality", "speed"])
@@ -235,7 +234,7 @@ Deno.test("buildLiveTranscodeArgs applies AV1 AMF header insertion without H.26x
   assertNotIncludes(args, ["-gops_per_idr"])
 })
 
-Deno.test("buildLiveTranscodeArgs applies AV1 QSV VBR without H.26x MBBRC", () => {
+test("buildLiveTranscodeArgs applies AV1 QSV VBR without H.26x MBBRC", () => {
   const args = liveArgs("av1_qsv", { hwaccel: "qsv" })
 
   assertIncludes(args, ["-c:v", "av1_qsv", "-preset", "veryfast"])
@@ -244,7 +243,7 @@ Deno.test("buildLiveTranscodeArgs applies AV1 QSV VBR without H.26x MBBRC", () =
   assertNotIncludes(args, ["-mbbrc", "1"])
 })
 
-Deno.test("buildLiveTranscodeArgs applies AV1 NVENC defaults without profile or level", () => {
+test("buildLiveTranscodeArgs applies AV1 NVENC defaults without profile or level", () => {
   const args = liveArgs("av1_nvenc", { hwaccel: "nvenc" })
 
   assertIncludes(args, ["-c:v", "av1_nvenc", "-preset", "p1"])
@@ -253,7 +252,7 @@ Deno.test("buildLiveTranscodeArgs applies AV1 NVENC defaults without profile or 
   assertNotIncludes(args, ["-level"])
 })
 
-Deno.test("buildLiveTranscodeArgs applies explicit RKMPP live defaults", () => {
+test("buildLiveTranscodeArgs applies explicit RKMPP live defaults", () => {
   const args = liveArgs("hevc_rkmpp", { hwaccel: "rkmpp" })
 
   assertIncludes(args, ["-c:v", "hevc_rkmpp"])
@@ -263,7 +262,7 @@ Deno.test("buildLiveTranscodeArgs applies explicit RKMPP live defaults", () => {
   assertNotIncludes(args, ["-preset"])
 })
 
-Deno.test("buildLiveTranscodeArgs applies explicit V4L2 live defaults", () => {
+test("buildLiveTranscodeArgs applies explicit V4L2 live defaults", () => {
   const args = liveArgs("h264_v4l2m2m", { hwaccel: "v4l2m2m" })
 
   assertIncludes(args, ["-c:v", "h264_v4l2m2m"])
@@ -272,7 +271,7 @@ Deno.test("buildLiveTranscodeArgs applies explicit V4L2 live defaults", () => {
   assertNotIncludes(args, ["-preset"])
 })
 
-Deno.test("buildLiveTranscodeArgs applies Intel low-power only to QSV H.264 and HEVC", () => {
+test("buildLiveTranscodeArgs applies Intel low-power only to QSV H.264 and HEVC", () => {
   const h264Args = liveArgs("h264_qsv", {
     hwaccel: "qsv",
     intelLowPowerH264: true,
@@ -294,7 +293,7 @@ Deno.test("buildLiveTranscodeArgs applies Intel low-power only to QSV H.264 and 
   assertNotIncludes(av1Args, ["-low_power", "1"])
 })
 
-Deno.test("buildEncodeArgs applies Intel low-power only to QSV H.264 and HEVC", () => {
+test("buildEncodeArgs applies Intel low-power only to QSV H.264 and HEVC", () => {
   const h264Args = encodeArgs("h264_qsv", {
     hwaccel: "qsv",
     intelLowPowerH264: true,

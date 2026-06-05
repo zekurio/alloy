@@ -1,3 +1,13 @@
+import type { PublicUser, UserListRow, UserSummary } from "@workspace/contracts"
+import { user } from "@workspace/db/auth-schema"
+import {
+  block,
+  clip,
+  clipLike,
+  clipMention,
+  follow,
+  game,
+} from "@workspace/db/schema"
 import {
   and,
   count,
@@ -14,21 +24,10 @@ import {
 } from "drizzle-orm"
 import { z } from "zod"
 
-import type { PublicUser, UserListRow, UserSummary } from "@workspace/contracts"
-import { user } from "@workspace/db/auth-schema"
-import {
-  block,
-  clip,
-  clipLike,
-  clipMention,
-  follow,
-  game,
-} from "@workspace/db/schema"
-
-import { db } from "../db"
-import { requiredSql } from "../db/sql"
 import { getSession } from "../auth/session"
 import { clipSelectShape, toPublicClipRow } from "../clips/select"
+import { db } from "../db"
+import { requiredSql } from "../db/sql"
 import { isoDate } from "../runtime/date"
 import { serialiseProfileGameRow } from "./games-helpers"
 import {
@@ -336,14 +335,12 @@ export async function listFollowing(row: UserRow) {
 export async function resolveViewerState(
   viewerId: string | null,
   targetId: string,
-): Promise<
-  {
-    isSelf: boolean
-    isFollowing: boolean
-    isBlocked: boolean
-    isBlockedBy: boolean
-  } | null
-> {
+): Promise<{
+  isSelf: boolean
+  isFollowing: boolean
+  isBlocked: boolean
+  isBlockedBy: boolean
+} | null> {
   if (!viewerId) return null
 
   const isSelf = viewerId === targetId

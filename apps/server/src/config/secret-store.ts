@@ -1,8 +1,16 @@
+import {
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  writeFileSync,
+} from "node:fs"
+
 import type { OAuthProviderConfig } from "@workspace/contracts"
 import { logger } from "@workspace/logging"
 
-import { errorDetail } from "../runtime/error-message"
 import { CONFIG_PATH, SECRETS_PATH } from "../runtime/dirs"
+import { errorDetail } from "../runtime/error-message"
 import { dirname } from "../runtime/path"
 import { type ServerSecrets, ServerSecretsSchema } from "./schema"
 
@@ -60,12 +68,12 @@ export function readInlineSecrets(raw: unknown): InlineSecrets {
 
 function readJsonFile(path: string): unknown | null {
   try {
-    if (!Deno.statSync(path).isFile) return null
+    if (!statSync(path).isFile()) return null
   } catch {
     return null
   }
   try {
-    return JSON.parse(Deno.readTextFileSync(path))
+    return JSON.parse(readFileSync(path, "utf8"))
   } catch (err) {
     logger.warn(`[secret-store] could not parse ${path}:`, errorDetail(err, ""))
     return null
@@ -73,11 +81,11 @@ function readJsonFile(path: string): unknown | null {
 }
 
 function writeToDisk(next: ServerSecrets): void {
-  Deno.mkdirSync(dirname(SECRETS_PATH), { recursive: true })
+  mkdirSync(dirname(SECRETS_PATH), { recursive: true })
   // Atomic: tmp + rename survives process death mid-write.
   const tmpPath = `${SECRETS_PATH}.tmp`
-  Deno.writeTextFileSync(tmpPath, `${JSON.stringify(next, null, 2)}\n`)
-  Deno.renameSync(tmpPath, SECRETS_PATH)
+  writeFileSync(tmpPath, `${JSON.stringify(next, null, 2)}\n`)
+  renameSync(tmpPath, SECRETS_PATH)
 }
 
 /**
@@ -108,22 +116,21 @@ function stableStringify(value: unknown): string {
   }
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`
   const obj = value as Record<string, unknown>
-  return `{${
-    Object.keys(obj).sort().map((k) =>
-      `${JSON.stringify(k)}:${stableStringify(obj[k])}`
-    ).join(",")
-  }}`
+  return `{${Object.keys(obj)
+    .sort()
+    .map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`)
+    .join(",")}}`
 }
 
 function loadInitialSecrets(): { secrets: ServerSecrets; persist: boolean } {
   let onDiskText: string | null = null
   try {
-    onDiskText = Deno.readTextFileSync(SECRETS_PATH)
+    onDiskText = readFileSync(SECRETS_PATH, "utf8")
   } catch (err) {
-    if (!(err instanceof Deno.errors.NotFound)) {
+    if (!isNodeErrorCode(err, "ENOENT")) {
       // Unreadable (permissions, I/O): don't fall through to regeneration.
       logger.error(`[secret-store] cannot read ${SECRETS_PATH}:`, err)
-      Deno.exit(1)
+      process.exit(1)
     }
   }
 
@@ -140,7 +147,7 @@ function loadInitialSecrets(): { secrets: ServerSecrets; persist: boolean } {
           `to avoid destroying existing secrets:`,
         errorDetail(err, ""),
       )
-      Deno.exit(1)
+      process.exit(1)
     }
     const result = ServerSecretsSchema.safeParse(parsed)
     if (!result.success) {
@@ -148,7 +155,7 @@ function loadInitialSecrets(): { secrets: ServerSecrets; persist: boolean } {
         `[secret-store] ${SECRETS_PATH} failed validation:`,
         JSON.stringify(result.error.flatten()),
       )
-      Deno.exit(1)
+      process.exit(1)
     }
     // Re-persist only when parsing actually changed content (filled defaults),
     // compared order-insensitively so key ordering alone never forces a rewrite.
@@ -162,6 +169,10 @@ function loadInitialSecrets(): { secrets: ServerSecrets; persist: boolean } {
     secrets: ServerSecretsSchema.parse(seedFromLegacyConfig()),
     persist: true,
   }
+}
+
+function isNodeErrorCode(err: unknown, code: string): boolean {
+  return (err as { code?: string } | null)?.code === code
 }
 
 const initial = loadInitialSecrets()
@@ -258,9 +269,11 @@ export function isOAuthProviderUsable(
   provider: Pick<OAuthProviderConfig, "providerId" | "enabled">,
   pendingSecret: (providerId: string) => boolean = () => false,
 ): boolean {
-  return provider.enabled &&
+  return (
+    provider.enabled &&
     (secretStore.hasOAuthClientSecret(provider.providerId) ||
       pendingSecret(provider.providerId))
+  )
 }
 
 // On every boot, migrate inline admin-managed secrets that a restored or

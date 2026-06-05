@@ -1,5 +1,6 @@
-import { type ClientRequestOptions, hc } from "hono/client"
 import type { AppType } from "@workspace/server/app"
+import { type ClientRequestOptions, hc } from "hono/client"
+
 import { queryParams, type QueryParamValue } from "./paths"
 
 export interface CreateApiOptions {

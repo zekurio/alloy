@@ -60,8 +60,8 @@ function isLoopbackIpv4(hostname: string): boolean {
   })
 }
 
-const defaultPublicServerUrl = Deno.env.get("PUBLIC_SERVER_URL") ??
-  "http://localhost:2552"
+const defaultPublicServerUrl =
+  process.env.PUBLIC_SERVER_URL ?? "http://localhost:2552"
 
 const EnvSchema = z.object({
   NODE_ENV: z
@@ -102,7 +102,7 @@ const EnvSchema = z.object({
 })
 
 function readEnv(): z.infer<typeof EnvSchema> {
-  const parsed = EnvSchema.safeParse(Deno.env.toObject())
+  const parsed = EnvSchema.safeParse(process.env)
 
   if (!parsed.success) {
     throw new Error(

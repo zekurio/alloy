@@ -1,25 +1,19 @@
-import {
-  optionalNullableTrimmedString,
-  requiredTrimmedString,
-  zValidator,
-} from "./validation"
+import { authAccount } from "@workspace/db/auth-schema"
 import { eq } from "drizzle-orm"
 import { type Context, Hono } from "hono"
 import { z } from "zod"
 
-import { authAccount } from "@workspace/db/auth-schema"
-
-import { db } from "../db"
 import { clearOAuthStateCookie, setOAuthStateCookie } from "../auth/cookies"
 import { unlinkOAuthAccountPreservingSignIn } from "../auth/identity"
-import { publicLinkedAccountRow } from "../auth/security-responses"
 import {
   fallbackOAuthErrorRedirect,
   finishOAuthCallback,
   startOAuthLink,
   startOAuthSignIn,
 } from "../auth/oauth"
+import { publicLinkedAccountRow } from "../auth/security-responses"
 import { requireSession } from "../auth/session"
+import { db } from "../db"
 import {
   badRequest,
   badRequestFromCause,
@@ -27,6 +21,11 @@ import {
   success,
   urlResponse,
 } from "../runtime/http-response"
+import {
+  optionalNullableTrimmedString,
+  requiredTrimmedString,
+  zValidator,
+} from "./validation"
 
 const UnlinkAccountBody = z.object({
   providerId: requiredTrimmedString(),
@@ -46,10 +45,10 @@ async function startOAuthResponse(
   try {
     const result = input.userId
       ? await startOAuthLink(
-        input as z.infer<typeof OAuthStartBody> & {
-          userId: string
-        },
-      )
+          input as z.infer<typeof OAuthStartBody> & {
+            userId: string
+          },
+        )
       : await startOAuthSignIn(input)
     setOAuthStateCookie(c, input.providerId, result.browserNonce)
     return urlResponse(c, result.url)

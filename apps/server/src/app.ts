@@ -1,16 +1,16 @@
+import { logger } from "@workspace/logging"
 import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { createMiddleware } from "hono/factory"
 import { logger as honoLogger } from "hono/logger"
-import { logger } from "@workspace/logging"
 
-import { env } from "./env"
-import { configStore } from "./config/store"
 import { getSession } from "./auth/session"
-import { internalServerError, unauthorized } from "./runtime/http-response"
+import { configStore } from "./config/store"
+import { env } from "./env"
 import { adminRoute } from "./routes/admin"
 import { authRoute } from "./routes/auth"
 import { authConfigRoute } from "./routes/auth-config"
+import { csrf } from "./routes/auth-route-helpers"
 import { clips } from "./routes/clips"
 import { eventsRoute } from "./routes/events"
 import { feedRoute } from "./routes/feed"
@@ -19,9 +19,9 @@ import { mlRoute } from "./routes/ml"
 import { notificationsRoute } from "./routes/notifications"
 import { searchRoute } from "./routes/search"
 import { setupRoute } from "./routes/setup"
-import { csrf } from "./routes/auth-route-helpers"
 import { usersRoute } from "./routes/users"
 import { userAssetsRoute, usersUploadRoute } from "./routes/users-upload"
+import { internalServerError, unauthorized } from "./runtime/http-response"
 import { storageRoute } from "./storage/fs-upload-route"
 import { mountWeb } from "./web"
 
@@ -66,9 +66,8 @@ const requireAuthToBrowse = createMiddleware(async (c, next) => {
     return
   }
 
-  const isBrowseRequest = BROWSE_API_PREFIXES.some((prefix) =>
-    path.startsWith(prefix)
-  ) ||
+  const isBrowseRequest =
+    BROWSE_API_PREFIXES.some((prefix) => path.startsWith(prefix)) ||
     BROWSE_API_PATTERNS.some((pattern) => pattern.test(path))
   if (!isBrowseRequest) {
     await next()

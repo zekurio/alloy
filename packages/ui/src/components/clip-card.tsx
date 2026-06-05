@@ -1,6 +1,3 @@
-import * as React from "react"
-import { LinkIcon, LockIcon } from "lucide-react"
-
 import { GameIcon } from "@workspace/ui/components/game-icon"
 import {
   CLIP_MEDIA_CLASS,
@@ -9,6 +6,8 @@ import {
 } from "@workspace/ui/lib/media-frame"
 import { stableHue } from "@workspace/ui/lib/stable-hash"
 import { cn } from "@workspace/ui/lib/utils"
+import { LinkIcon, LockIcon } from "lucide-react"
+import * as React from "react"
 
 interface ClipCardProps extends React.ComponentProps<"article"> {
   title: string
@@ -100,50 +99,44 @@ function ClipCard({
         buttonRef={thumbnailRef}
       />
       <div className="flex items-start gap-2.5">
-        {author
-          ? (
-            <ClipCardAvatar
-              author={author}
-              authorSeed={authorSeed}
-              authorImage={authorImage}
-              authorInitials={authorInitials}
-              authorAvatarBg={authorAvatarBg}
-              authorAvatarFg={authorAvatarFg}
-            />
-          )
-          : null}
+        {author ? (
+          <ClipCardAvatar
+            author={author}
+            authorSeed={authorSeed}
+            authorImage={authorImage}
+            authorInitials={authorInitials}
+            authorAvatarBg={authorAvatarBg}
+            authorAvatarFg={authorAvatarFg}
+          />
+        ) : null}
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          {
-            /* Title owns its own row. Type scales with the card width so the
+          {/* Title owns its own row. Type scales with the card width so the
               meta block stays proportional whether the card sits in a dense
-              grid or a wide carousel slot. */
-          }
-          <div className="truncate text-[0.9375rem] leading-snug font-semibold tracking-[-0.015em] text-foreground @[360px]/clip-card:text-base @[480px]/clip-card:text-lg">
+              grid or a wide carousel slot. */}
+          <div className="text-foreground truncate text-[0.9375rem] leading-snug font-semibold tracking-[-0.015em] @[360px]/clip-card:text-base @[480px]/clip-card:text-lg">
             {titleContent ?? title}
           </div>
 
-          <div className="flex min-w-0 items-center gap-1.5 text-sm leading-tight text-foreground-dim @[480px]/clip-card:text-base">
-            {author
-              ? (
-                <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-                  <AuthorLabel author={author} href={authorHref} />
-                  <span className="shrink-0 text-foreground-faint">·</span>
-                  <GameLabel game={game} icon={gameIcon} href={gameHref} />
-                </span>
-              )
-              : <GameLabel game={game} icon={gameIcon} href={gameHref} />}
+          <div className="text-foreground-dim flex min-w-0 items-center gap-1.5 text-sm leading-tight @[480px]/clip-card:text-base">
+            {author ? (
+              <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                <AuthorLabel author={author} href={authorHref} />
+                <span className="text-foreground-faint shrink-0">·</span>
+                <GameLabel game={game} icon={gameIcon} href={gameHref} />
+              </span>
+            ) : (
+              <GameLabel game={game} icon={gameIcon} href={gameHref} />
+            )}
           </div>
 
-          {metaVariant === "showcase"
-            ? null
-            : (
-              <div className="flex min-w-0 items-center gap-1.5 text-[0.8125rem] leading-tight text-foreground-faint tabular-nums @[480px]/clip-card:text-sm">
-                {privacyBadge}
-                <span className="shrink-0">{views} views</span>
-                <span className="shrink-0">·</span>
-                <span className="truncate">{postedAt}</span>
-              </div>
-            )}
+          {metaVariant === "showcase" ? null : (
+            <div className="text-foreground-faint flex min-w-0 items-center gap-1.5 text-[0.8125rem] leading-tight tabular-nums @[480px]/clip-card:text-sm">
+              {privacyBadge}
+              <span className="shrink-0">{views} views</span>
+              <span className="shrink-0">·</span>
+              <span className="truncate">{postedAt}</span>
+            </div>
+          )}
         </div>
       </div>
     </article>
@@ -333,60 +326,54 @@ function ClipCardThumb({
     <>
       {fallback}
 
-      {thumbnail && !thumbnailFailed
-        ? (
-          <img
-            src={thumbnail}
-            alt={title}
-            className={cn(
-              CLIP_MEDIA_CLASS,
-              "transition-opacity duration-200 ease-out",
-              thumbnailLoaded ? "opacity-100" : "opacity-0",
-            )}
-            // Cards load in a scrolling grid — let the browser lazy-load
-            // anything outside the initial viewport.
-            loading="lazy"
-            decoding="async"
-            onLoad={() => setThumbnailLoaded(true)}
-            onError={() => {
-              setThumbnailLoaded(false)
-              setThumbnailFailed(true)
-            }}
-          />
-        )
-        : null}
+      {thumbnail && !thumbnailFailed ? (
+        <img
+          src={thumbnail}
+          alt={title}
+          className={cn(
+            CLIP_MEDIA_CLASS,
+            "transition-opacity duration-200 ease-out",
+            thumbnailLoaded ? "opacity-100" : "opacity-0",
+          )}
+          // Cards load in a scrolling grid — let the browser lazy-load
+          // anything outside the initial viewport.
+          loading="lazy"
+          decoding="async"
+          onLoad={() => setThumbnailLoaded(true)}
+          onError={() => {
+            setThumbnailLoaded(false)
+            setThumbnailFailed(true)
+          }}
+        />
+      ) : null}
 
-      {
-        /* Hover preview overlay. Mounted only when we actually have a
+      {/* Hover preview overlay. Mounted only when we actually have a
           stream URL — keeps the DOM light for mock decks and
           still-encoding rows. We intentionally avoid `crossOrigin`
           here: the request starts same-origin so cookies still reach
           the auth gate, and S3-backed redirects then remain compatible
-          with buckets that do not allow credentialed CORS media loads. */
-      }
-      {canPreview && previewMounted
-        ? (
-          <video
-            ref={videoRef}
-            src={streamUrl}
-            muted
-            loop
-            playsInline
-            preload="metadata"
-            onLoadedData={startPreview}
-            onCanPlay={startPreview}
-            onPlaying={revealPreview}
-            onTimeUpdate={revealPreview}
-            aria-hidden
-            className={cn(
-              CLIP_VIDEO_MEDIA_CLASS,
-              "bg-[oklch(12%_0.01_250)]",
-              "transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-              previewing ? "opacity-100" : "pointer-events-none opacity-0",
-            )}
-          />
-        )
-        : null}
+          with buckets that do not allow credentialed CORS media loads. */}
+      {canPreview && previewMounted ? (
+        <video
+          ref={videoRef}
+          src={streamUrl}
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          onLoadedData={startPreview}
+          onCanPlay={startPreview}
+          onPlaying={revealPreview}
+          onTimeUpdate={revealPreview}
+          aria-hidden
+          className={cn(
+            CLIP_VIDEO_MEDIA_CLASS,
+            "bg-[oklch(12%_0.01_250)]",
+            "transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+            previewing ? "opacity-100" : "pointer-events-none opacity-0",
+          )}
+        />
+      ) : null}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 -bottom-px z-10 h-px bg-[oklch(12%_0.01_250)]"
@@ -424,8 +411,7 @@ function renderThumbnailFallback(accentHue: number | undefined) {
         aria-hidden
         className="absolute inset-0"
         style={{
-          background:
-            `linear-gradient(135deg, oklch(0.3 0.1 ${accentHue}) 0%, oklch(0.15 0.05 ${accentHue}) 70%, oklch(0.08 0 0) 100%)`,
+          background: `linear-gradient(135deg, oklch(0.3 0.1 ${accentHue}) 0%, oklch(0.15 0.05 ${accentHue}) 70%, oklch(0.08 0 0) 100%)`,
         }}
       />
     )
@@ -462,11 +448,7 @@ function AuthorLabel({
   )
   if (href) {
     return (
-      <a
-        href={href}
-        onClick={(e) => e.stopPropagation()}
-        className={className}
-      >
+      <a href={href} onClick={(e) => e.stopPropagation()} className={className}>
         {author}
       </a>
     )
@@ -516,18 +498,18 @@ function ClipCardAvatar({
         color: fallbackFg,
       }}
     >
-      {authorImage && !imageFailed
-        ? (
-          <img
-            src={authorImage}
-            alt=""
-            className="size-full object-cover"
-            loading="lazy"
-            decoding="async"
-            onError={() => setImageFailed(true)}
-          />
-        )
-        : initials}
+      {authorImage && !imageFailed ? (
+        <img
+          src={authorImage}
+          alt=""
+          className="size-full object-cover"
+          loading="lazy"
+          decoding="async"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        initials
+      )}
     </span>
   )
 }
@@ -554,11 +536,7 @@ function GameLabel({
   )
   if (href) {
     return (
-      <a
-        href={href}
-        onClick={(e) => e.stopPropagation()}
-        className={className}
-      >
+      <a href={href} onClick={(e) => e.stopPropagation()} className={className}>
         {content}
       </a>
     )
@@ -571,12 +549,11 @@ function renderPrivacyBadge(
 ): React.ReactNode {
   if (!privacy || privacy === "public") return null
   const Icon = privacy === "private" ? LockIcon : LinkIcon
-  const label = privacy === "private"
-    ? "Private — only you"
-    : "Unlisted — only via link"
+  const label =
+    privacy === "private" ? "Private — only you" : "Unlisted — only via link"
   return (
     <span
-      className="inline-flex items-center text-foreground-faint"
+      className="text-foreground-faint inline-flex items-center"
       title={label}
       aria-label={label}
     >

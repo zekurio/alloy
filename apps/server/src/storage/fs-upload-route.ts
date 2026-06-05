@@ -1,11 +1,12 @@
-import { Hono } from "hono"
-import { and, eq, gt, isNull } from "drizzle-orm"
+import { link, mkdir, open, rm } from "node:fs/promises"
+
 import { clipUploadTicket } from "@workspace/db/schema"
 import { logger } from "@workspace/logging"
+import { and, eq, gt, isNull } from "drizzle-orm"
+import { Hono } from "hono"
 
-import { decodeUploadToken } from "./fs-driver"
-import { db } from "../db"
 import { secretStore } from "../config/secret-store"
+import { db } from "../db"
 import {
   badRequest,
   conflict,
@@ -15,8 +16,9 @@ import {
   unauthorized,
 } from "../runtime/http-response"
 import { ensureScratchParent } from "../uploads/scratch"
+import { decodeUploadToken } from "./fs-driver"
 
-type DenoFsFile = Awaited<ReturnType<typeof Deno.open>>
+type FsFile = Awaited<ReturnType<typeof open>>
 
 export const storageRoute = new Hono().post("/upload/:token", async (c) => {
   const token = c.req.param("token")
@@ -63,17 +65,13 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
 
   const fullDst = await ensureScratchParent(key)
   const tmpDir = `${dirname(fullDst)}/.tmp-${token.slice(-32)}`
-  await Deno.mkdir(tmpDir, { recursive: true })
-  await Deno.mkdir(dirname(fullDst), { recursive: true })
+  await mkdir(tmpDir, { recursive: true })
+  await mkdir(dirname(fullDst), { recursive: true })
   const tmpFile = `${tmpDir}/blob`
 
   let bytesWritten = 0
   let limitTripped = false
-  const file = await Deno.open(tmpFile, {
-    create: true,
-    write: true,
-    truncate: true,
-  })
+  const file = await open(tmpFile, "w")
 
   let writeFailure: unknown = null
   try {
@@ -101,10 +99,10 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
   }
 
   try {
-    await Deno.link(tmpFile, fullDst)
+    await link(tmpFile, fullDst)
   } catch (err) {
     await removeTempUploadDir(tmpDir, "publish failure")
-    if (err instanceof Deno.errors.AlreadyExists) {
+    if (isNodeErrorCode(err, "EEXIST")) {
       return conflict(c, "Upload ticket has already been used")
     }
     logger.error("[api/assets/upload] publish failed:", err)
@@ -129,7 +127,7 @@ async function removeTempUploadDir(
   reason: string,
 ): Promise<void> {
   try {
-    await Deno.remove(path, { recursive: true })
+    await rm(path, { recursive: true, force: true })
   } catch (err) {
     logger.warn(
       `[api/assets/upload] failed to remove temporary upload directory after ${reason}:`,
@@ -138,13 +136,17 @@ async function removeTempUploadDir(
   }
 }
 
-async function writeAll(file: DenoFsFile, chunk: Uint8Array): Promise<void> {
+async function writeAll(file: FsFile, chunk: Uint8Array): Promise<void> {
   let offset = 0
   while (offset < chunk.byteLength) {
-    const written = await file.write(chunk.subarray(offset))
-    if (written <= 0) {
+    const { bytesWritten } = await file.write(chunk.subarray(offset))
+    if (bytesWritten <= 0) {
       throw new Error("file write made no progress")
     }
-    offset += written
+    offset += bytesWritten
   }
+}
+
+function isNodeErrorCode(err: unknown, code: string): boolean {
+  return (err as { code?: string } | null)?.code === code
 }

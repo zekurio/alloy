@@ -1,13 +1,4 @@
-import * as React from "react"
 import { Link, useRouterState } from "@tanstack/react-router"
-import {
-  GamepadIcon,
-  HomeIcon,
-  LibraryIcon,
-  PlusIcon,
-  SettingsIcon,
-} from "lucide-react"
-
 import {
   AppBottomNav,
   AppBottomNavItem,
@@ -16,10 +7,18 @@ import {
   AppSidebarGroup,
   AppSidebarItem,
 } from "@workspace/ui/components/app-sidebar"
+import {
+  GamepadIcon,
+  HomeIcon,
+  LibraryIcon,
+  PlusIcon,
+  SettingsIcon,
+} from "lucide-react"
+import * as React from "react"
 
-import { useSuspenseSession } from "@/lib/session-suspense"
-import { parseProfilePathname } from "@/lib/profile-path"
 import { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
+import { parseProfilePathname } from "@/lib/profile-path"
+import { useSuspenseSession } from "@/lib/session-suspense"
 
 interface NavFlags {
   isHome: boolean
@@ -32,11 +31,12 @@ function useNavFlags(): NavFlags {
   return useRouterState({
     select: (s) => ({
       isHome: s.location.pathname === "/",
-      isGames: s.location.pathname === "/games" ||
+      isGames:
+        s.location.pathname === "/games" ||
         s.location.pathname.startsWith("/g/"),
       isSettings: s.location.pathname.startsWith("/settings"),
-      profileHandle: parseProfilePathname(s.location.pathname)?.username ??
-        null,
+      profileHandle:
+        parseProfilePathname(s.location.pathname)?.username ?? null,
     }),
     structuralSharing: true,
   })
@@ -89,28 +89,26 @@ function SidebarTop() {
       <AppSidebarItem active={isHome} title="Home" render={<Link to="/" />}>
         <HomeIcon />
       </AppSidebarItem>
-      {profileHandle
-        ? (
-          <AppSidebarItem
-            active={isLibrary}
-            title="Library"
-            render={
-              <Link to="/u/$username" params={{ username: profileHandle }} />
-            }
-          >
-            <LibraryIcon />
-          </AppSidebarItem>
-        )
-        : (
-          <AppSidebarItem
-            title="Library"
-            aria-disabled
-            tabIndex={-1}
-            className="pointer-events-none opacity-60"
-          >
-            <LibraryIcon />
-          </AppSidebarItem>
-        )}
+      {profileHandle ? (
+        <AppSidebarItem
+          active={isLibrary}
+          title="Library"
+          render={
+            <Link to="/u/$username" params={{ username: profileHandle }} />
+          }
+        >
+          <LibraryIcon />
+        </AppSidebarItem>
+      ) : (
+        <AppSidebarItem
+          title="Library"
+          aria-disabled
+          tabIndex={-1}
+          className="pointer-events-none opacity-60"
+        >
+          <LibraryIcon />
+        </AppSidebarItem>
+      )}
       <AppSidebarItem
         active={isGames}
         title="Games"
@@ -191,56 +189,52 @@ function BottomNavItems() {
       <AppBottomNavItem active={isHome} title="Home" render={<Link to="/" />}>
         <HomeIcon />
       </AppBottomNavItem>
-      {profileHandle
-        ? (
-          <AppBottomNavItem
-            active={isLibrary}
-            title="Library"
-            render={
-              <Link to="/u/$username" params={{ username: profileHandle }} />
-            }
-          >
-            <LibraryIcon />
-          </AppBottomNavItem>
-        )
-        : (
-          <AppBottomNavItem
-            title="Library"
-            aria-disabled
-            tabIndex={-1}
-            className="pointer-events-none opacity-60"
-          >
-            <LibraryIcon />
-          </AppBottomNavItem>
-        )}
-      {session
-        ? (
-          <AppBottomNavItem
-            active={queueOpen}
-            title="Upload"
-            data-upload-trigger=""
-            onClick={(event) => {
-              event.currentTarget.blur()
-              // Toggle: tapping while the queue is open closes it. The dialog
-              // ignores the outside-press this same tap produces (see
-              // UploadQueuePopover), so this click is the sole source of truth.
-              setQueueOpen((open) => !open)
-            }}
-            className="before:!hidden [&_svg]:!size-4"
-          >
-            <NavUploadIcon />
-          </AppBottomNavItem>
-        )
-        : (
-          <AppBottomNavItem
-            title="Upload"
-            aria-disabled
-            tabIndex={-1}
-            className="pointer-events-none opacity-60 before:!hidden [&_svg]:!size-4"
-          >
-            <NavUploadIcon />
-          </AppBottomNavItem>
-        )}
+      {profileHandle ? (
+        <AppBottomNavItem
+          active={isLibrary}
+          title="Library"
+          render={
+            <Link to="/u/$username" params={{ username: profileHandle }} />
+          }
+        >
+          <LibraryIcon />
+        </AppBottomNavItem>
+      ) : (
+        <AppBottomNavItem
+          title="Library"
+          aria-disabled
+          tabIndex={-1}
+          className="pointer-events-none opacity-60"
+        >
+          <LibraryIcon />
+        </AppBottomNavItem>
+      )}
+      {session ? (
+        <AppBottomNavItem
+          active={queueOpen}
+          title="Upload"
+          data-upload-trigger=""
+          onClick={(event) => {
+            event.currentTarget.blur()
+            // Toggle: tapping while the queue is open closes it. The dialog
+            // ignores the outside-press this same tap produces (see
+            // UploadQueuePopover), so this click is the sole source of truth.
+            setQueueOpen((open) => !open)
+          }}
+          className="before:!hidden [&_svg]:!size-4"
+        >
+          <NavUploadIcon />
+        </AppBottomNavItem>
+      ) : (
+        <AppBottomNavItem
+          title="Upload"
+          aria-disabled
+          tabIndex={-1}
+          className="pointer-events-none opacity-60 before:!hidden [&_svg]:!size-4"
+        >
+          <NavUploadIcon />
+        </AppBottomNavItem>
+      )}
       <AppBottomNavItem
         active={isGames}
         title="Games"
@@ -252,14 +246,14 @@ function BottomNavItems() {
         title="Settings"
         {...(session
           ? {
-            active: isSettings,
-            render: <Link to="/settings" />,
-          }
+              active: isSettings,
+              render: <Link to="/settings" />,
+            }
           : {
-            "aria-disabled": true,
-            tabIndex: -1,
-            className: "pointer-events-none opacity-60",
-          })}
+              "aria-disabled": true,
+              tabIndex: -1,
+              className: "pointer-events-none opacity-60",
+            })}
       >
         <SettingsIcon />
       </AppBottomNavItem>
@@ -294,7 +288,7 @@ function BottomNavFallback() {
 
 function NavUploadIcon() {
   return (
-    <span className="flex size-7 items-center justify-center rounded-full bg-accent text-accent-foreground">
+    <span className="bg-accent text-accent-foreground flex size-7 items-center justify-center rounded-full">
       <PlusIcon strokeWidth={2.5} />
     </span>
   )

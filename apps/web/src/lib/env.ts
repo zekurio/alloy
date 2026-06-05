@@ -37,8 +37,8 @@ function webServerUrl(): string {
 
   return (
     nonEmpty(process.env.INTERNAL_API_URL) ??
-      nonEmpty(process.env.VITE_SERVER_URL) ??
-      DEFAULT_SERVER_URL
+    nonEmpty(process.env.VITE_SERVER_URL) ??
+    DEFAULT_SERVER_URL
   )
 }
 

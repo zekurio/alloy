@@ -1,8 +1,7 @@
-import * as React from "react"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import { KeyRoundIcon } from "lucide-react"
-
 import { Button } from "@workspace/ui/components/button"
+import { KeyRoundIcon } from "lucide-react"
+import * as React from "react"
 
 import { authClient } from "@/lib/auth-client"
 import {

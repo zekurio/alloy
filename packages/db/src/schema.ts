@@ -1,3 +1,13 @@
+import {
+  CLIP_PRIVACY,
+  CLIP_STATUS,
+  type ClipPrivacy,
+  type ClipStatus,
+  NOTIFICATION_TYPES,
+  type NotificationType,
+  UPLOAD_TICKET_ROLE,
+  type UploadTicketRole,
+} from "@workspace/contracts"
 import { sql } from "drizzle-orm"
 import {
   bigint,
@@ -14,16 +24,6 @@ import {
   uuid,
 } from "drizzle-orm/pg-core"
 
-import {
-  CLIP_PRIVACY,
-  CLIP_STATUS,
-  type ClipPrivacy,
-  type ClipStatus,
-  NOTIFICATION_TYPES,
-  type NotificationType,
-  UPLOAD_TICKET_ROLE,
-  type UploadTicketRole,
-} from "@workspace/contracts"
 import { user } from "./auth-schema"
 import type { ClipEncodedVariant } from "./schema-types"
 

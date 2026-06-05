@@ -1,9 +1,8 @@
-import { CopyIcon } from "lucide-react"
-
 import { Button } from "@workspace/ui/components/button"
 import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
+import { CopyIcon } from "lucide-react"
 
 import { copyTextToClipboard } from "@/lib/clipboard"
 
@@ -32,7 +31,8 @@ export function OAuthCallbackField({
               value,
               "Callback URL copied",
               "Couldn't copy callback URL",
-            )}
+            )
+          }
         >
           <CopyIcon />
         </Button>

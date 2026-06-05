@@ -1,6 +1,5 @@
-import * as React from "react"
-
 import { cn } from "@workspace/ui/lib/utils"
+import * as React from "react"
 
 export function VideoScrubber({
   currentTime,
@@ -25,9 +24,8 @@ export function VideoScrubber({
 
   // Shared geometry for the three stacked bar layers (track → buffer →
   // progress). The edge variant hugs the bottom as a thin 2px rail.
-  const barLayerClass = variant === "edge"
-    ? "bottom-0 h-[2px]"
-    : "top-1/2 h-[4px] -translate-y-1/2"
+  const barLayerClass =
+    variant === "edge" ? "bottom-0 h-[2px]" : "top-1/2 h-[4px] -translate-y-1/2"
 
   const secFromClientX = React.useCallback(
     (clientX: number): number => {
@@ -104,10 +102,8 @@ export function VideoScrubber({
           variant === "edge" ? "bg-white/15" : "bg-white/20",
         )}
       />
-      {
-        /* Layer 2 — buffered range. Kept dim so the played bar clearly reads
-          as the brightest of the three layers. */
-      }
+      {/* Layer 2 — buffered range. Kept dim so the played bar clearly reads
+          as the brightest of the three layers. */}
       <div
         aria-hidden
         className={cn(
@@ -117,10 +113,8 @@ export function VideoScrubber({
         )}
         style={{ width: `${buffered}%` }}
       />
-      {
-        /* Layer 3 — played progress. An accent glow lifts it off the buffered
-          range even when the underlying frame is bright. */
-      }
+      {/* Layer 3 — played progress. An accent glow lifts it off the buffered
+          range even when the underlying frame is bright. */}
       <div
         aria-hidden
         className={cn(

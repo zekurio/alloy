@@ -1,13 +1,11 @@
-import * as React from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-
 import type { ClipRow } from "@workspace/api"
-
 import { ClipCard } from "@workspace/ui/components/clip-card"
+import * as React from "react"
 
-import type { AppSearch } from "@/lib/app-search"
 import { gameHref, userProfileHref } from "@/lib/app-paths"
+import type { AppSearch } from "@/lib/app-search"
 import { clientLogger } from "@/lib/client-log"
 import { toClipCardData } from "@/lib/clip-format"
 import {

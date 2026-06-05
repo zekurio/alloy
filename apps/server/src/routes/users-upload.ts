@@ -1,22 +1,22 @@
-import { zValidator } from "./validation"
+import { Buffer } from "node:buffer"
+
+import { userAssetImagePath } from "@workspace/contracts"
+import { user } from "@workspace/db/auth-schema"
+import { logger } from "@workspace/logging"
 import { eq } from "drizzle-orm"
 import { type Context, Hono } from "hono"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
-import { Buffer } from "node:buffer"
 import { z } from "zod"
 
-import { user } from "@workspace/db/auth-schema"
-import { userAssetImagePath } from "@workspace/contracts"
-import { logger } from "@workspace/logging"
-
-import { db } from "../db"
 import { requireSession } from "../auth/require-session"
-import { runImageMagick } from "../media/imagemagick"
+import { db } from "../db"
 import { validateImageBytes } from "../media/image-validation"
+import { runImageMagick } from "../media/imagemagick"
 import { errorResult, notFound } from "../runtime/http-response"
 import { dataStorage, userAssetKey } from "../storage"
 import type { ResolvedObject } from "../storage/driver"
 import { toPublicUser, type UserRow } from "./users-helpers"
+import { zValidator } from "./validation"
 
 type UserAssetRole = "avatar" | "banner"
 
@@ -89,9 +89,9 @@ async function readAll(stream: ReadableStream<Uint8Array>): Promise<Buffer> {
 
 function assetEtag(key: string, resolved: ResolvedObject): string {
   const modified = resolved.lastModified?.getTime() ?? 0
-  return `"${
-    Buffer.from(`${key}:${resolved.size}:${modified}`).toString("base64url")
-  }"`
+  return `"${Buffer.from(`${key}:${resolved.size}:${modified}`).toString(
+    "base64url",
+  )}"`
 }
 
 async function fetchRow(userId: string): Promise<UserRow | null> {
@@ -121,20 +121,23 @@ async function resizeUserAsset(
   role: UserAssetRole,
 ): Promise<Buffer> {
   const target = USER_ASSET_TARGETS[role]
-  return await runImageMagick([
-    "-",
-    "-auto-orient",
-    "-resize",
-    `${target.width}x${target.height}!`,
-    "webp:-",
-  ], bytes)
+  return await runImageMagick(
+    [
+      "-",
+      "-auto-orient",
+      "-resize",
+      `${target.width}x${target.height}!`,
+      "webp:-",
+    ],
+    bytes,
+  )
 }
 
 type UserAssetUpdateResult =
   | {
-    ok: true
-    user: NonNullable<Awaited<ReturnType<typeof fetchUpdatedPublicUser>>>
-  }
+      ok: true
+      user: NonNullable<Awaited<ReturnType<typeof fetchUpdatedPublicUser>>>
+    }
   | { ok: false; status: 400 | 413 | 500; error: string }
 
 async function uploadUserAsset(input: {
@@ -275,15 +278,11 @@ export const usersUploadRoute = new Hono<{
         c.req.valid("form").file,
       ),
   )
-  .delete(
-    "/me/avatar",
-    requireSession,
-    (c) => respondUserAsset(c, removeUserAsset(c.var.viewerId, "avatar")),
+  .delete("/me/avatar", requireSession, (c) =>
+    respondUserAsset(c, removeUserAsset(c.var.viewerId, "avatar")),
   )
-  .delete(
-    "/me/banner",
-    requireSession,
-    (c) => respondUserAsset(c, removeUserAsset(c.var.viewerId, "banner")),
+  .delete("/me/banner", requireSession, (c) =>
+    respondUserAsset(c, removeUserAsset(c.var.viewerId, "banner")),
   )
 
 export const userAssetsRoute = new Hono().get("/:key{.+}", async (c) => {

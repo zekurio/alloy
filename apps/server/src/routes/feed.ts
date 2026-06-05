@@ -1,8 +1,3 @@
-import { limitQueryParam, zValidator } from "./validation"
-import { and, eq, exists, isNull, lt, ne, or, type SQL, sql } from "drizzle-orm"
-import { Hono } from "hono"
-import { z } from "zod"
-
 import { user } from "@workspace/db/auth-schema"
 import {
   clip,
@@ -12,11 +7,14 @@ import {
   game,
   gameFollow,
 } from "@workspace/db/schema"
+import { and, eq, exists, isNull, lt, ne, or, type SQL, sql } from "drizzle-orm"
+import { Hono } from "hono"
+import { z } from "zod"
 
-import { db } from "../db"
-import { requiredSql } from "../db/sql"
 import { getSession } from "../auth/session"
 import { clipSelectShape, toPublicClipRow } from "../clips/select"
+import { db } from "../db"
+import { requiredSql } from "../db/sql"
 import { dateFromDateLike, isoDate } from "../runtime/date"
 import { badRequest, invalidCursor } from "../runtime/http-response"
 import {
@@ -27,6 +25,7 @@ import {
   encodeCursorPayload,
 } from "./cursor-codec"
 import { hashtagTextFilter } from "./hashtag-filter"
+import { limitQueryParam, zValidator } from "./validation"
 
 const FilterEnum = z.enum(["foryou", "following", "game", "hashtag"])
 
@@ -141,16 +140,17 @@ function feedPage<T extends FeedPageRow>(rows: T[], limit: number, asOf: Date) {
   const tail = pageRows[pageRows.length - 1]
   return {
     items: pageRows.map(({ rankScore: _rankScore, ...row }) =>
-      toPublicClipRow(row)
+      toPublicClipRow(row),
     ),
-    nextCursor: rows.length > limit && tail
-      ? encodeFeedCursor({
-        score: tail.rankScore,
-        createdAt: dateFromDateLike(tail.createdAt),
-        id: tail.id,
-        asOf,
-      })
-      : null,
+    nextCursor:
+      rows.length > limit && tail
+        ? encodeFeedCursor({
+            score: tail.rankScore,
+            createdAt: dateFromDateLike(tail.createdAt),
+            id: tail.id,
+            asOf,
+          })
+        : null,
   }
 }
 

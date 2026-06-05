@@ -1,7 +1,6 @@
-import * as React from "react"
-
 import { DrawerHandle } from "@workspace/ui/components/drawer"
 import { cn } from "@workspace/ui/lib/utils"
+import * as React from "react"
 
 export const mobileDrawerContentClass =
   "max-h-[92dvh] border-t-white/[0.08] bg-surface text-foreground"

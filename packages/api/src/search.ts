@@ -1,7 +1,8 @@
-import type { ApiContext } from "./client"
 import type { SearchResults } from "@workspace/contracts"
-import { readJsonOrThrow } from "./http"
+
+import type { ApiContext } from "./client"
 import { validateSearchResults } from "./contract-validators"
+import { readJsonOrThrow } from "./http"
 
 export type { SearchResults, UserListRow } from "@workspace/contracts"
 

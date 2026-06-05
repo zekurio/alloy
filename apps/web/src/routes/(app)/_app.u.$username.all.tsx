@@ -1,5 +1,5 @@
-import * as React from "react"
 import { createFileRoute } from "@tanstack/react-router"
+import * as React from "react"
 
 import { AllClipsSection } from "@/components/routes/profile/all-clips-section"
 import { useUserClipsQuery } from "@/lib/clip-queries"

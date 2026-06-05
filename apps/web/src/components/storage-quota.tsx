@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query"
-
 import { Progress } from "@workspace/ui/components/progress"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -32,7 +31,7 @@ export function StorageQuota({ className }: { className?: string }) {
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
           <div className="text-sm font-medium">Storage</div>
-          <p className="mt-0.5 text-xs text-foreground-dim">
+          <p className="text-foreground-dim mt-0.5 text-xs">
             Source clips count toward your quota. Encoded copies do not.
           </p>
         </div>
@@ -54,7 +53,7 @@ export function StorageQuotaCompact({ className }: { className?: string }) {
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-foreground-muted">
+        <span className="text-foreground-muted text-xs font-medium">
           Storage
         </span>
         <span className="text-2xs text-foreground-faint tabular-nums">

@@ -1,15 +1,20 @@
-import { zValidator } from "./validation"
+import { user } from "@workspace/db/auth-schema"
+import { clip, game, gameFollow } from "@workspace/db/schema"
 import { and, desc, eq, inArray, isNull, type SQL, sql } from "drizzle-orm"
 import { type Context, Hono } from "hono"
 
-import { user } from "@workspace/db/auth-schema"
-import { clip, game, gameFollow } from "@workspace/db/schema"
-
-import { db } from "../db"
+import { requireSession } from "../auth/require-session"
 import { getSession } from "../auth/session"
 import { clipSelectShape, toPublicClipRow } from "../clips/select"
+import { db } from "../db"
 import { generateUniqueGameSlug } from "../games/slug"
-import { requireSession } from "../auth/require-session"
+import {
+  enrichSearchResultsWithIcons,
+  getGameAssets,
+  getGameById,
+  isConfigured,
+  searchGames,
+} from "../games/steamgriddb"
 import {
   badGateway,
   booleanFlag,
@@ -26,13 +31,6 @@ import {
   parseClipListCursor,
 } from "./clips-helpers"
 import {
-  enrichSearchResultsWithIcons,
-  getGameAssets,
-  getGameById,
-  isConfigured,
-  searchGames,
-} from "../games/steamgriddb"
-import {
   ClipsQuery,
   GamesListQuery,
   ResolveBody,
@@ -43,6 +41,7 @@ import {
   SlugParam,
   TopQuery,
 } from "./games-helpers"
+import { zValidator } from "./validation"
 
 type GameImageAsset = {
   column: "heroUrl" | "gridUrl"
@@ -125,9 +124,10 @@ export const gamesRoute = new Hono()
       }
 
       const slug = await generateUniqueGameSlug(detail.name)
-      const releaseDate = detail.release_date != null
-        ? new Date(detail.release_date * 1000)
-        : null
+      const releaseDate =
+        detail.release_date != null
+          ? new Date(detail.release_date * 1000)
+          : null
 
       const [inserted] = await db
         .insert(game)

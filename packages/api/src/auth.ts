@@ -1,4 +1,5 @@
 import * as React from "react"
+
 import { createAuthActions } from "./auth-actions"
 import { AUTH_PATHS } from "./auth-paths"
 import {
@@ -153,9 +154,10 @@ export function createAuth(input: string | CreateAuthOptions) {
 
 function createAuthClient(input: string | CreateAuthOptions) {
   const baseURL = typeof input === "string" ? input : input.baseURL
-  const redirect = typeof input === "string"
-    ? defaultAuthRedirect
-    : (input.redirect ?? defaultAuthRedirect)
+  const redirect =
+    typeof input === "string"
+      ? defaultAuthRedirect
+      : (input.redirect ?? defaultAuthRedirect)
   const client = createApiClient(baseURL)
 
   async function request<T>(

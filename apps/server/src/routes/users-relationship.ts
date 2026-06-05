@@ -1,7 +1,6 @@
+import { block } from "@workspace/db/schema"
 import { and, eq, or } from "drizzle-orm"
 import type { Context } from "hono"
-
-import { block } from "@workspace/db/schema"
 
 import { db } from "../db"
 import {

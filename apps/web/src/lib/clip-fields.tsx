@@ -1,10 +1,9 @@
-import { GlobeIcon, Link2Icon, LockIcon } from "lucide-react"
-
 import {
   CLIP_DESCRIPTION_MAX_LENGTH,
   CLIP_TITLE_MAX_LENGTH,
   type ClipPrivacy,
 } from "@workspace/api"
+import { GlobeIcon, Link2Icon, LockIcon } from "lucide-react"
 
 export const CLIP_TITLE_MAX = CLIP_TITLE_MAX_LENGTH
 export const CLIP_DESCRIPTION_MAX = CLIP_DESCRIPTION_MAX_LENGTH
@@ -34,8 +33,8 @@ export const PRIVACY_OPTIONS: readonly PrivacyOption[] = [
   { value: "private", label: "Private", icon: LockIcon },
 ] as const
 
-export const PRIVACY_BY_VALUE: Record<ClipPrivacy, PrivacyOption> = Object
-  .fromEntries(PRIVACY_OPTIONS.map((o) => [o.value, o])) as Record<
+export const PRIVACY_BY_VALUE: Record<ClipPrivacy, PrivacyOption> =
+  Object.fromEntries(PRIVACY_OPTIONS.map((o) => [o.value, o])) as Record<
     ClipPrivacy,
     PrivacyOption
   >

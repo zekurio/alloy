@@ -1,13 +1,12 @@
-import { eq } from "drizzle-orm"
-
 import { clip, clipUploadTicket } from "@workspace/db/schema"
 import { logger } from "@workspace/logging"
+import { eq } from "drizzle-orm"
 
 import { db } from "../db"
-import { publishClipRemove } from "./events"
 import { cancelEncode } from "../queue/encode-worker"
 import { clipStorage } from "../storage"
 import { deleteScratchUploads } from "../uploads/scratch"
+import { publishClipRemove } from "./events"
 
 export async function deleteClipRowAndAssets(
   row: typeof clip.$inferSelect,

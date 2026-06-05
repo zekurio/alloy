@@ -1,16 +1,15 @@
-import * as React from "react"
 import { Link } from "@tanstack/react-router"
-import { AlertTriangle, ArrowLeft, Home, RotateCw } from "lucide-react"
 import type {
   ErrorComponentProps,
   NotFoundRouteProps,
 } from "@tanstack/react-router"
-
 import { AlloyLogoMark } from "@workspace/ui/components/alloy-logo"
 import { Button } from "@workspace/ui/components/button"
 import { buttonVariants } from "@workspace/ui/lib/button-variants"
 import { messageFromUnknown } from "@workspace/ui/lib/error-message"
 import { cn } from "@workspace/ui/lib/utils"
+import { AlertTriangle, ArrowLeft, Home, RotateCw } from "lucide-react"
+import * as React from "react"
 
 import {
   canGoBackInBrowserHistory,
@@ -42,11 +41,11 @@ function RouteErrorState({
     <RouteStateFrame variant={variant}>
       <div className="flex flex-col items-center gap-4 text-center text-balance">
         <div className="flex flex-col gap-1.5">
-          <h1 className="flex items-center justify-center gap-2 text-lg font-semibold tracking-tight text-foreground">
-            <AlertTriangle className="size-4 text-danger" aria-hidden />
+          <h1 className="text-foreground flex items-center justify-center gap-2 text-lg font-semibold tracking-tight">
+            <AlertTriangle className="text-danger size-4" aria-hidden />
             Something went wrong
           </h1>
-          <p className="text-sm leading-relaxed text-foreground-muted">
+          <p className="text-foreground-muted text-sm leading-relaxed">
             This view failed to load. You can retry it or return home.
           </p>
         </div>
@@ -62,28 +61,24 @@ function RouteErrorState({
           </Link>
         </div>
 
-        {isDev && details
-          ? (
-            <div className="w-full max-w-sm pt-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                aria-expanded={showDetails}
-                onClick={() => setShowDetails((value) => !value)}
-              >
-                {showDetails ? "Hide details" : "Show details"}
-              </Button>
-              {showDetails
-                ? (
-                  <pre className="mt-2 max-h-56 overflow-auto rounded-lg border border-dashed border-border p-3 text-left font-mono text-xs leading-relaxed whitespace-pre-wrap text-foreground-dim">
+        {isDev && details ? (
+          <div className="w-full max-w-sm pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-expanded={showDetails}
+              onClick={() => setShowDetails((value) => !value)}
+            >
+              {showDetails ? "Hide details" : "Show details"}
+            </Button>
+            {showDetails ? (
+              <pre className="border-border text-foreground-dim mt-2 max-h-56 overflow-auto rounded-lg border border-dashed p-3 text-left font-mono text-xs leading-relaxed whitespace-pre-wrap">
                 {details}
-                  </pre>
-                )
-                : null}
-            </div>
-          )
-          : null}
+              </pre>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </RouteStateFrame>
   )
@@ -100,10 +95,10 @@ function RouteNotFoundState({
         <AlloyLogoMark size={40} />
 
         <div className="flex flex-col gap-1.5">
-          <h1 className="text-lg font-semibold tracking-tight text-foreground">
+          <h1 className="text-foreground text-lg font-semibold tracking-tight">
             Page not found
           </h1>
-          <p className="text-sm leading-relaxed text-foreground-muted">
+          <p className="text-foreground-muted text-sm leading-relaxed">
             The page may have moved, been deleted, or never existed.
           </p>
         </div>
@@ -113,18 +108,16 @@ function RouteNotFoundState({
             <Home className="size-3.5" aria-hidden />
             Go home
           </Link>
-          {canGoBack
-            ? (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={goBackInBrowserHistory}
-              >
-                <ArrowLeft className="size-3.5" aria-hidden />
-                Go back
-              </Button>
-            )
-            : null}
+          {canGoBack ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={goBackInBrowserHistory}
+            >
+              <ArrowLeft className="size-3.5" aria-hidden />
+              Go back
+            </Button>
+          ) : null}
         </div>
       </div>
     </RouteStateFrame>

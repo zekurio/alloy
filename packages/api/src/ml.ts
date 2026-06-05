@@ -1,8 +1,9 @@
-import type { ApiContext } from "./client"
 import type {
   MlGameSuggestionResponse,
   PublicMlConfig,
 } from "@workspace/contracts"
+
+import type { ApiContext } from "./client"
 import {
   validateMlGameSuggestionResponse,
   validatePublicMlConfig,

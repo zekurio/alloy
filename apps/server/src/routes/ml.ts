@@ -1,5 +1,3 @@
-import { type Context, Hono } from "hono"
-
 import {
   ML_GAME_SUGGESTION_FRAME_COUNT,
   ML_GAME_SUGGESTION_FRAME_MAX_WIDTH,
@@ -8,6 +6,7 @@ import {
   ML_GAME_SUGGESTION_MAX_REQUEST_BYTES,
   type PublicMlConfig,
 } from "@workspace/contracts"
+import { type Context, Hono } from "hono"
 
 import { requireSession } from "../auth/require-session"
 import { configStore } from "../config/store"
@@ -26,17 +25,15 @@ type MlRouteErrorStatus = 400 | 413 | 502 | 503
 export const mlRoute = new Hono()
   .get("/config", requireSession, (c) => {
     const { enabled } = configStore.get("machineLearning")
-    return c.json(
-      {
-        enabled,
-        gameSuggestion: {
-          frameCount: ML_GAME_SUGGESTION_FRAME_COUNT,
-          frameMaxWidth: ML_GAME_SUGGESTION_FRAME_MAX_WIDTH,
-          maxFrames: ML_GAME_SUGGESTION_MAX_FRAMES,
-          maxFrameBytes: ML_GAME_SUGGESTION_MAX_FRAME_BYTES,
-        },
-      } satisfies PublicMlConfig,
-    )
+    return c.json({
+      enabled,
+      gameSuggestion: {
+        frameCount: ML_GAME_SUGGESTION_FRAME_COUNT,
+        frameMaxWidth: ML_GAME_SUGGESTION_FRAME_MAX_WIDTH,
+        maxFrames: ML_GAME_SUGGESTION_MAX_FRAMES,
+        maxFrameBytes: ML_GAME_SUGGESTION_MAX_FRAME_BYTES,
+      },
+    } satisfies PublicMlConfig)
   })
   .post("/game-suggestions", requireSession, async (c) => {
     const config = configStore.get("machineLearning")
@@ -118,8 +115,7 @@ async function readMultipartFormData(
     return {
       ok: false,
       status: 413,
-      error:
-        `ML frame upload must be ${ML_GAME_SUGGESTION_MAX_REQUEST_BYTES} bytes or smaller`,
+      error: `ML frame upload must be ${ML_GAME_SUGGESTION_MAX_REQUEST_BYTES} bytes or smaller`,
     }
   }
 

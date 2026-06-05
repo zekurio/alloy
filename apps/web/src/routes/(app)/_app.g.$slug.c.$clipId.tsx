@@ -1,13 +1,12 @@
-import * as React from "react"
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router"
-
 import { HttpError } from "@workspace/api"
+import * as React from "react"
 
 import { ClipViewerDialog } from "@/components/clip/clip-viewer-dialog"
 import { api } from "@/lib/api"
 import { goBackInBrowserHistory } from "@/lib/browser-url"
-import { parseClipRouteSearch } from "@/lib/clip-route-search"
 import { seedClipDetailInCache } from "@/lib/clip-queries"
+import { parseClipRouteSearch } from "@/lib/clip-route-search"
 
 export const Route = createFileRoute("/(app)/_app/g/$slug/c/$clipId")({
   validateSearch: parseClipRouteSearch,

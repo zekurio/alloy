@@ -1,9 +1,8 @@
 import { useNavigate } from "@tanstack/react-router"
-import { StarIcon } from "lucide-react"
-
 import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
 import { cn } from "@workspace/ui/lib/utils"
+import { StarIcon } from "lucide-react"
 
 import { errorMessage } from "@/lib/error-message"
 import { useToggleGameFavoriteMutation } from "@/lib/game-queries"

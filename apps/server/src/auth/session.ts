@@ -1,13 +1,12 @@
-import { and, eq, gt } from "drizzle-orm"
-import { createMiddleware } from "hono/factory"
-import type { Context } from "hono"
-
 import {
   type AuthSession,
   authSession,
   type User,
   user,
 } from "@workspace/db/auth-schema"
+import { and, eq, gt } from "drizzle-orm"
+import type { Context } from "hono"
+import { createMiddleware } from "hono/factory"
 
 import { db } from "../db"
 import { forbidden, unauthorized } from "../runtime/http-response"
@@ -27,8 +26,8 @@ type SessionData = {
 function requestIp(c: Context): string | null {
   return (
     c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
-      c.req.header("x-real-ip") ??
-      null
+    c.req.header("x-real-ip") ??
+    null
   )
 }
 
@@ -84,9 +83,10 @@ async function selectSessionByHash(
 export async function getSession(
   headers: Headers | Context,
 ): Promise<SessionData | null> {
-  const token = "req" in headers
-    ? readSessionCookie(headers)
-    : cookieTokenFromHeaders(headers)
+  const token =
+    "req" in headers
+      ? readSessionCookie(headers)
+      : cookieTokenFromHeaders(headers)
   if (!token) return null
   const data = await selectSessionByHash(await hashSessionToken(token))
   if (!data) return null

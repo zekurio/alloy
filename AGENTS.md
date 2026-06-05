@@ -6,7 +6,7 @@ This file provides guidance to AI agents running in this repo.
 
 ### Coding Tasks
 
-All of `deno task fmt`, `deno task lint`, and `deno task typecheck` must pass
+All of `pnpm fmt`, `pnpm lint`, and `pnpm typecheck` must pass
 before considering a coding task completed.
 
 ### Nix Tasks

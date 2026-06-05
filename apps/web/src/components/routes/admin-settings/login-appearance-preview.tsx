@@ -1,6 +1,8 @@
-import * as React from "react"
-import { MaximizeIcon, XIcon } from "lucide-react"
-
+import type {
+  AdminRuntimeConfig,
+  PublicAuthConfig,
+  PublicLoginSplashConfig,
+} from "@workspace/api"
 import { Button } from "@workspace/ui/components/button"
 import {
   Dialog,
@@ -14,11 +16,8 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 import { cn } from "@workspace/ui/lib/utils"
-import type {
-  AdminRuntimeConfig,
-  PublicAuthConfig,
-  PublicLoginSplashConfig,
-} from "@workspace/api"
+import { MaximizeIcon, XIcon } from "lucide-react"
+import * as React from "react"
 
 import { AuthPageFrame } from "@/components/auth/auth-page-frame"
 import { LoginForm } from "@/components/routes/login/login-page-inner"
@@ -86,20 +85,18 @@ function ScaledViewport({
 
   return (
     <div ref={containerRef} className="absolute inset-0 overflow-hidden">
-      {scale > 0
-        ? (
-          <div
-            style={{
-              width,
-              height,
-              transform: `scale(${scale})`,
-              transformOrigin: "top left",
-            }}
-          >
-            {children}
-          </div>
-        )
-        : null}
+      {scale > 0 ? (
+        <div
+          style={{
+            width,
+            height,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+          }}
+        >
+          {children}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -115,9 +112,11 @@ function AuthPreviewContent({
 }) {
   return (
     <AuthPageFrame splash={config.loginSplash} fill={fill}>
-      {mode === "login"
-        ? <LoginForm config={config} passkeySupported />
-        : <SignUpForm config={config} passkeySupported />}
+      {mode === "login" ? (
+        <LoginForm config={config} passkeySupported />
+      ) : (
+        <SignUpForm config={config} passkeySupported />
+      )}
     </AuthPageFrame>
   )
 }
@@ -140,7 +139,7 @@ function ModeToggle({
   signUpDisabled?: boolean
 }) {
   return (
-    <div className="inline-flex rounded-md border border-border p-0.5">
+    <div className="border-border inline-flex rounded-md border p-0.5">
       <button
         type="button"
         aria-pressed={mode === "login"}
@@ -149,35 +148,29 @@ function ModeToggle({
       >
         Login
       </button>
-      {signUpDisabled
-        ? (
-          <Tooltip>
-            {
-              /* aria-disabled rather than the disabled attribute so the control
-                still emits hover events and can show the tooltip. */
-            }
-            <TooltipTrigger
-              aria-disabled
-              aria-pressed={mode === "sign-up"}
-              className={modeButtonClass(mode === "sign-up", true)}
-            >
-              Sign up
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              Sign-ups are disabled
-            </TooltipContent>
-          </Tooltip>
-        )
-        : (
-          <button
-            type="button"
+      {signUpDisabled ? (
+        <Tooltip>
+          {/* aria-disabled rather than the disabled attribute so the control
+                still emits hover events and can show the tooltip. */}
+          <TooltipTrigger
+            aria-disabled
             aria-pressed={mode === "sign-up"}
-            onClick={() => onChange("sign-up")}
-            className={modeButtonClass(mode === "sign-up")}
+            className={modeButtonClass(mode === "sign-up", true)}
           >
             Sign up
-          </button>
-        )}
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Sign-ups are disabled</TooltipContent>
+        </Tooltip>
+      ) : (
+        <button
+          type="button"
+          aria-pressed={mode === "sign-up"}
+          onClick={() => onChange("sign-up")}
+          className={modeButtonClass(mode === "sign-up")}
+        >
+          Sign up
+        </button>
+      )}
     </div>
   )
 }
@@ -199,7 +192,8 @@ export function LoginAppearancePreview({
 
   // Mirror the real sign-up page guard: with no sign-up methods the form would
   // render empty, so disable the sign-up preview entirely.
-  const canSignUp = authConfig.openRegistrations &&
+  const canSignUp =
+    authConfig.openRegistrations &&
     (authConfig.passkeyEnabled || authConfig.providers.length > 0)
 
   React.useEffect(() => {
@@ -225,12 +219,10 @@ export function LoginAppearancePreview({
         </Button>
       </div>
 
-      <div className="relative aspect-video overflow-hidden rounded-md border border-border bg-background">
+      <div className="border-border bg-background relative aspect-video overflow-hidden rounded-md border">
         <ScaledViewport width={PREVIEW_WIDTH} height={PREVIEW_HEIGHT}>
-          {
-            /* Non-interactive: the preview renders the real auth buttons, but
-              clicks must not start an actual sign-in flow. */
-          }
+          {/* Non-interactive: the preview renders the real auth buttons, but
+              clicks must not start an actual sign-in flow. */}
           <div className="pointer-events-none h-full w-full select-none">
             <AuthPreviewContent mode={mode} config={authConfig} fill />
           </div>
@@ -250,7 +242,7 @@ export function LoginAppearancePreview({
             <AuthPreviewContent mode={mode} config={authConfig} fill />
           </div>
           <DialogClose
-            className="absolute top-4 right-4 z-10 inline-flex size-9 items-center justify-center rounded-md border border-white/10 bg-background/72 text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-surface-raised"
+            className="bg-background/72 text-foreground hover:bg-surface-raised absolute top-4 right-4 z-10 inline-flex size-9 items-center justify-center rounded-md border border-white/10 shadow-sm backdrop-blur-sm transition-colors"
             aria-label="Close preview"
           >
             <XIcon className="size-4" />

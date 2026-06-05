@@ -1,12 +1,11 @@
-import * as React from "react"
-import { ChevronDownIcon, type LucideIcon } from "lucide-react"
-
-import { cn } from "@workspace/ui/lib/utils"
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@workspace/ui/components/collapsible"
+import { cn } from "@workspace/ui/lib/utils"
+import { ChevronDownIcon, type LucideIcon } from "lucide-react"
+import * as React from "react"
 
 interface SettingsSectionProps {
   icon?: LucideIcon
@@ -29,11 +28,11 @@ export function SettingsSection({
     <Collapsible
       open={open}
       onOpenChange={setOpen}
-      className="overflow-hidden rounded-md border border-border bg-surface"
+      className="border-border bg-surface overflow-hidden rounded-md border"
     >
       <CollapsibleTrigger className="flex w-full cursor-pointer flex-col px-4 py-3 text-left transition-colors hover:bg-white/[0.02]">
         <div className="flex w-full items-center gap-3">
-          {Icon && <Icon className="size-5 shrink-0 text-primary" />}
+          {Icon && <Icon className="text-primary size-5 shrink-0" />}
           <div className="min-w-0 flex-1">
             <div className="text-sm font-semibold">{title}</div>
           </div>
@@ -45,11 +44,11 @@ export function SettingsSection({
           />
         </div>
         {description && (
-          <p className="mt-1 text-xs text-foreground-dim">{description}</p>
+          <p className="text-foreground-dim mt-1 text-xs">{description}</p>
         )}
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="border-t border-border px-4 py-4">{children}</div>
+        <div className="border-border border-t px-4 py-4">{children}</div>
       </CollapsibleContent>
     </Collapsible>
   )

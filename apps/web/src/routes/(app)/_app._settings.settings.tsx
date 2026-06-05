@@ -1,6 +1,9 @@
-import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
+import type { PublicAuthConfig } from "@workspace/api"
+import { SectionTitle } from "@workspace/ui/components/section-head"
+import { Separator } from "@workspace/ui/components/separator"
+import { toast } from "@workspace/ui/lib/toast"
 import {
   AlertTriangleIcon,
   DatabaseIcon,
@@ -8,12 +11,7 @@ import {
   ShieldIcon,
   UserIcon,
 } from "lucide-react"
-
-import { SectionTitle } from "@workspace/ui/components/section-head"
-import { Separator } from "@workspace/ui/components/separator"
-import { toast } from "@workspace/ui/lib/toast"
-
-import type { PublicAuthConfig } from "@workspace/api"
+import * as React from "react"
 
 import { AdminSettingsSections } from "@/components/routes/settings/admin-tab-content"
 import { DangerZoneCard } from "@/components/routes/settings/danger-zone-card"
@@ -28,11 +26,11 @@ import {
 import { PasskeysCard } from "@/components/routes/settings/passkeys-card"
 import { ProfileCard } from "@/components/routes/settings/profile-card"
 import { SettingsSection } from "@/components/routes/settings/settings-section"
+import { useIsAdmin, useRequireAuthStrict } from "@/lib/auth-hooks"
 import {
   linkedAccountsQueryOptions,
   passkeysQueryOptions,
 } from "@/lib/auth-query-keys"
-import { useIsAdmin, useRequireAuthStrict } from "@/lib/auth-hooks"
 import { errorMessage } from "@/lib/error-message"
 import { useSuspenseAuthConfig } from "@/lib/session-suspense"
 
@@ -65,7 +63,8 @@ function useSecurityData(config: PublicAuthConfig) {
   return {
     accounts: accountsQuery.data ?? null,
     passkeys: config.passkeyEnabled ? (passkeysQuery.data ?? null) : null,
-    loading: accountsQuery.isPending ||
+    loading:
+      accountsQuery.isPending ||
       (config.passkeyEnabled && passkeysQuery.isPending),
     refreshAccounts: async () => {
       await accountsQuery.refetch()
@@ -91,15 +90,16 @@ function SecurityContent({ config }: { config: PublicAuthConfig }) {
         <div className="flex flex-col gap-3">
           <div>
             <h2 className="text-sm font-semibold">Sign-in methods</h2>
-            <p className="mt-0.5 text-xs text-foreground-dim">
+            <p className="text-foreground-dim mt-0.5 text-xs">
               Manage linked OAuth sign-in methods.
             </p>
           </div>
           <LinkedAccountsCard
             accounts={accounts}
             config={config}
-            hasPasskeySignIn={config.passkeyEnabled &&
-              (passkeys?.length ?? 0) > 0}
+            hasPasskeySignIn={
+              config.passkeyEnabled && (passkeys?.length ?? 0) > 0
+            }
             onRefresh={refreshAccounts}
           />
         </div>
@@ -179,7 +179,7 @@ function ProfilePage() {
         <>
           <div className="flex items-center gap-3">
             <Separator className="flex-1" />
-            <span className="text-xs font-medium tracking-wider text-foreground-muted uppercase">
+            <span className="text-foreground-muted text-xs font-medium tracking-wider uppercase">
               Administration
             </span>
             <Separator className="flex-1" />

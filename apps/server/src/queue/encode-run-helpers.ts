@@ -1,6 +1,7 @@
-import { and, eq } from "drizzle-orm"
+import { mkdir, mkdtemp } from "node:fs/promises"
 
 import { clip } from "@workspace/db/schema"
+import { and, eq } from "drizzle-orm"
 
 import { db } from "../db"
 import { ENCODE_DIR } from "../runtime/dirs"
@@ -22,6 +23,6 @@ export async function ensureClipStillPresent(
 }
 
 export async function makeScratchDir(clipId: string): Promise<string> {
-  await Deno.mkdir(ENCODE_DIR, { recursive: true })
-  return Deno.makeTempDir({ dir: ENCODE_DIR, prefix: `${clipId}-` })
+  await mkdir(ENCODE_DIR, { recursive: true })
+  return mkdtemp(`${ENCODE_DIR}/${clipId}-`)
 }

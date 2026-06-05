@@ -1,17 +1,17 @@
-import { zValidator } from "./validation"
 import { Hono } from "hono"
 import { streamSSE } from "hono/streaming"
 import { z } from "zod"
 
+import { requireSession } from "../auth/require-session"
 import { type QueueEvent, subscribeToAuthorQueue } from "../clips/events"
 import { selectQueueRowsForAuthor } from "../clips/queue-select"
+import { listNotifications } from "../notifications"
 import {
   type NotificationEvent,
   subscribeToNotifications,
 } from "../notifications/events"
-import { listNotifications } from "../notifications"
-import { requireSession } from "../auth/require-session"
 import { shutdownSignal } from "../runtime/shutdown"
+import { zValidator } from "./validation"
 
 const HEARTBEAT_MS = 25_000
 

@@ -1,11 +1,10 @@
-import { eq } from "drizzle-orm"
-
 import type { ClipMentionRef } from "@workspace/contracts"
 import { user } from "@workspace/db/auth-schema"
 import { clip, clipMention, game } from "@workspace/db/schema"
+import { eq } from "drizzle-orm"
 
-import { db } from "../db"
 import { configStore } from "../config/store"
+import { db } from "../db"
 import { buildPlaybackQualities } from "./playback-quality"
 
 export const clipSelectShape = {

@@ -15,7 +15,7 @@
     }:
     let
       systems = [ "x86_64-linux" ];
-      version = (builtins.fromJSON (builtins.readFile ./deno.json)).version;
+      version = (builtins.fromJSON (builtins.readFile ./package.json)).version;
     in
     flake-utils.lib.eachSystem systems (
       system:

@@ -1,20 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { TagIcon } from "lucide-react"
-
 import {
   SectionActions,
   SectionHead,
   SectionMeta,
   SectionTitle,
 } from "@workspace/ui/components/section-head"
+import { TagIcon } from "lucide-react"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
 import { headerCountLabel } from "@/lib/number-format"
+import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import {
   useTaggedClipsQuery,
   useUserProfileViewerQuery,
 } from "@/lib/user-queries"
-import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 export const Route = createFileRoute("/(app)/_app/u/$username/tagged")({
   component: ProfileTaggedTab,
@@ -43,13 +42,9 @@ function ProfileTaggedTab() {
           </SectionTitle>
         </div>
         <SectionActions>
-          {clips
-            ? (
-              <SectionMeta>
-                {headerCountLabel(clips.length, "clip")}
-              </SectionMeta>
-            )
-            : null}
+          {clips ? (
+            <SectionMeta>{headerCountLabel(clips.length, "clip")}</SectionMeta>
+          ) : null}
         </SectionActions>
       </SectionHead>
 

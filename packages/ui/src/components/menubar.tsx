@@ -1,11 +1,7 @@
 "use client"
 
-import * as React from "react"
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"
 import { Menubar as MenubarPrimitive } from "@base-ui/react/menubar"
-
-import { CheckIcon } from "lucide-react"
-import { cn } from "@workspace/ui/lib/utils"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +17,9 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
+import { cn } from "@workspace/ui/lib/utils"
+import { CheckIcon } from "lucide-react"
+import * as React from "react"
 
 function Menubar({ className, ...props }: MenubarPrimitive.Props) {
   return (
@@ -105,7 +104,7 @@ function MenubarItem({
       data-inset={inset}
       data-variant={variant}
       className={cn(
-        `group/menubar-item ${menubarSubTriggerClasses} ${menubarInsetClasses} not-data-[variant=destructive]:focus:**:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 data-disabled:opacity-50 data-[variant=destructive]:*:[svg]:text-destructive!`,
+        `group/menubar-item ${menubarSubTriggerClasses} ${menubarInsetClasses} not-data-[variant=destructive]:focus:**:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:*:[svg]:text-destructive! data-disabled:opacity-50`,
         className,
       )}
       {...props}

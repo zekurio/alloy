@@ -1,19 +1,16 @@
-import { zValidator } from "./validation"
+import { ACCEPTED_IMAGE_CONTENT_TYPES } from "@workspace/contracts"
+import { clip } from "@workspace/db/schema"
 import { inArray } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
-import { ACCEPTED_IMAGE_CONTENT_TYPES } from "@workspace/contracts"
-import { clip } from "@workspace/db/schema"
-
-import { db } from "../db"
-import { signInConfigError } from "../auth/sign-in-config"
 import { requireAdmin } from "../auth/session"
+import { signInConfigError } from "../auth/sign-in-config"
 import {
-  badRequest,
-  badRequestFromCause,
-  batchProgress,
-} from "../runtime/http-response"
+  isOAuthProviderUsable,
+  readInlineSecrets,
+  secretStore,
+} from "../config/secret-store"
 import {
   configStore,
   EncoderConfigPatchSchema,
@@ -23,26 +20,28 @@ import {
   OAuthProvidersSchema,
   parseRuntimeConfig,
 } from "../config/store"
-import {
-  isOAuthProviderUsable,
-  readInlineSecrets,
-  secretStore,
-} from "../config/secret-store"
+import { db } from "../db"
 import { enqueueEncode } from "../queue"
 import {
-  clearEncoderCapabilitiesCache,
-  getEncoderCapabilities,
-} from "./admin-encoder-capabilities"
+  badRequest,
+  badRequestFromCause,
+  batchProgress,
+} from "../runtime/http-response"
 import {
   ensureLoginSplashImage,
   generateLoginSplashPatch,
   storeUploadedLoginSplashImage,
 } from "./admin-appearance"
 import {
+  clearEncoderCapabilitiesCache,
+  getEncoderCapabilities,
+} from "./admin-encoder-capabilities"
+import {
   adminRuntimeConfigResponse,
   finalizeOAuthProviderSubmission,
 } from "./admin-helpers"
 import { adminUsersRoute } from "./admin-users"
+import { zValidator } from "./validation"
 
 const RE_ENCODE_BATCH_LIMIT = 100
 const MAX_LOGIN_SPLASH_UPLOAD_BYTES = 12 * 1024 * 1024
@@ -230,10 +229,13 @@ export const adminRoute = new Hono()
             )
           }
         }
-        const authError = await signInConfigError({
-          passkeyEnabled: configStore.get("passkeyEnabled"),
-          oauthProviders: nextProviders,
-        }, hasPendingSecret)
+        const authError = await signInConfigError(
+          {
+            passkeyEnabled: configStore.get("passkeyEnabled"),
+            oauthProviders: nextProviders,
+          },
+          hasPendingSecret,
+        )
         if (authError) {
           return badRequest(c, authError)
         }

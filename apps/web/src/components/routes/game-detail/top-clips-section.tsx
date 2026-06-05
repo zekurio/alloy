@@ -1,12 +1,11 @@
-import * as React from "react"
-import { AwardIcon } from "lucide-react"
-
+import type { ClipRow } from "@workspace/api"
 import {
   SectionHead,
   SectionTitle,
 } from "@workspace/ui/components/section-head"
-
 import { Spinner } from "@workspace/ui/components/spinner"
+import { AwardIcon } from "lucide-react"
+import * as React from "react"
 
 import {
   type ClipListEntry,
@@ -16,7 +15,6 @@ import { TopClipsRow } from "@/components/clip/top-clips-row"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { useGameTopClipsQuery } from "@/lib/game-queries"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
-import type { ClipRow } from "@workspace/api"
 
 type TopClipsSectionProps = {
   slug: string

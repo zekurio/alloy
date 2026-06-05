@@ -1,7 +1,8 @@
-import type { ApiContext } from "./client"
 import type { PublicAuthConfig } from "@workspace/contracts"
-import { readJsonOrThrow } from "./http"
+
+import type { ApiContext } from "./client"
 import { validatePublicAuthConfig } from "./contract-validators"
+import { readJsonOrThrow } from "./http"
 
 export type {
   PublicAuthConfig,

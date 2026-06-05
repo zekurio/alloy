@@ -1,3 +1,6 @@
+import { spawn } from "node:child_process"
+import { Readable } from "node:stream"
+
 import { env } from "../env"
 import {
   buildEncodeArgs,
@@ -29,8 +32,8 @@ function progressHandler(
   onProgress: (pct: number) => void,
 ): (line: string) => void {
   return (line) => {
-    const m = /^out_time_us=(-?\d+)/m.exec(line) ??
-      /^out_time_ms=(-?\d+)/m.exec(line)
+    const m =
+      /^out_time_us=(-?\d+)/m.exec(line) ?? /^out_time_ms=(-?\d+)/m.exec(line)
     if (!m) return
     const microseconds = Number.parseInt(m[1] ?? "0", 10)
     if (!Number.isFinite(microseconds) || microseconds < 0) return
@@ -61,41 +64,41 @@ export function liveTranscode(
   done: Promise<void>
   kill: () => void
 } {
-  const child = new Deno.Command(env.FFMPEG_BIN, {
-    args: buildLiveTranscodeArgs(srcPath, opts),
-    stdin: "null",
-    stdout: "piped",
-    stderr: "piped",
-  }).spawn()
+  const child = spawn(env.FFMPEG_BIN, buildLiveTranscodeArgs(srcPath, opts), {
+    stdio: ["ignore", "pipe", "pipe"],
+  })
+  const exit = new Promise<number>((resolve, reject) => {
+    child.once("error", reject)
+    child.once("close", (code) => resolve(code ?? 1))
+  })
 
   const decoder = new TextDecoder()
   let stderr = ""
-  const stderrDone = child.stderr
-    .pipeTo(
-      new WritableStream<Uint8Array>({
-        write(chunk) {
-          stderr += decoder.decode(chunk, { stream: true })
-          if (stderr.length > 8_192) stderr = stderr.slice(-8_192)
-        },
-        close() {
-          stderr += decoder.decode()
-        },
-      }),
-    )
-    .catch(() => undefined)
-  const done = child.status.then(async (status) => {
+  const stderrDone = (async () => {
+    if (!child.stderr) return
+    for await (const chunk of child.stderr) {
+      stderr += decoder.decode(chunk, { stream: true })
+      if (stderr.length > 8_192) stderr = stderr.slice(-8_192)
+    }
+    stderr += decoder.decode()
+  })().catch(() => undefined)
+  const done = exit.then(async (code) => {
     await stderrDone
-    if (!status.success) {
+    if (code !== 0) {
       const detail = stderr.trim()
       throw new Error(
-        `ffmpeg live transcode exited with code ${status.code}` +
+        `ffmpeg live transcode exited with code ${code}` +
           (detail ? `:\n${detail}` : ""),
       )
     }
   })
 
+  if (!child.stdout) {
+    throw new Error("ffmpeg stdout pipe unavailable")
+  }
+
   return {
-    stdout: child.stdout,
+    stdout: Readable.toWeb(child.stdout) as ReadableStream<Uint8Array>,
     done,
     kill: () => {
       try {

@@ -1,17 +1,19 @@
-import type { Context, Hono } from "hono"
-
-import { eq } from "drizzle-orm"
-import { user } from "@workspace/db/auth-schema"
-import { logger } from "@workspace/logging"
+import { createReadStream } from "node:fs"
+import { stat, readFile } from "node:fs/promises"
+import { Readable } from "node:stream"
 
 import type { PublicAuthConfig } from "@workspace/contracts"
+import { user } from "@workspace/db/auth-schema"
+import { logger } from "@workspace/logging"
+import { eq } from "drizzle-orm"
+import type { Context, Hono } from "hono"
 
+import { buildPublicAuthConfig } from "./auth/public-config"
+import { getSession } from "./auth/session"
+import { selectClipById } from "./clips/select"
+import { configStore } from "./config/store"
 import { db } from "./db"
 import { env } from "./env"
-import { configStore } from "./config/store"
-import { getSession } from "./auth/session"
-import { buildPublicAuthConfig } from "./auth/public-config"
-import { selectClipById } from "./clips/select"
 import { isAbsolute, join, relative, resolve } from "./runtime/path"
 
 const HEAD_MARKER = "<!-- alloy:head -->"
@@ -29,8 +31,8 @@ type WebMount = {
 
 async function fileExists(path: string): Promise<boolean> {
   try {
-    const s = await Deno.stat(path)
-    return s.isFile
+    const s = await stat(path)
+    return s.isFile()
   } catch {
     return false
   }
@@ -80,7 +82,7 @@ async function resolveWebMount(): Promise<WebMount | null> {
 
   return {
     distDir,
-    indexHtml: await Deno.readTextFile(indexPath),
+    indexHtml: await readFile(indexPath, "utf8"),
   }
 }
 
@@ -126,7 +128,8 @@ async function clipHead(pathname: string): Promise<string> {
     if (!row) return ""
 
     const origin = env.PUBLIC_SERVER_URL
-    const description = row.description?.trim() ||
+    const description =
+      row.description?.trim() ||
       `${row.authorUsername} shared a ${
         row.gameRef?.name ?? row.game ?? "game"
       } clip on alloy.`
@@ -149,18 +152,17 @@ async function clipHead(pathname: string): Promise<string> {
       ...(poster ? [metaProperty("og:image", poster)] : []),
       ...(videoUrl
         ? [
-          metaProperty("og:video", videoUrl),
-          metaProperty("og:video:url", videoUrl),
-          ...(videoUrl.startsWith("https:")
-            ? [metaProperty("og:video:secure_url", videoUrl)]
-            : []),
-          metaProperty(
-            "og:video:type",
-            "video/mp4",
-          ),
-          ...(width ? [metaProperty("og:video:width", String(width))] : []),
-          ...(height ? [metaProperty("og:video:height", String(height))] : []),
-        ]
+            metaProperty("og:video", videoUrl),
+            metaProperty("og:video:url", videoUrl),
+            ...(videoUrl.startsWith("https:")
+              ? [metaProperty("og:video:secure_url", videoUrl)]
+              : []),
+            metaProperty("og:video:type", "video/mp4"),
+            ...(width ? [metaProperty("og:video:width", String(width))] : []),
+            ...(height
+              ? [metaProperty("og:video:height", String(height))]
+              : []),
+          ]
         : []),
       metaName("twitter:card", "summary_large_image"),
       metaName("twitter:title", row.title),
@@ -220,16 +222,16 @@ export async function mountWeb(app: Hono): Promise<Hono> {
     const path = safeJoin(webMount.distDir, requestPath)
     if (!path) return c.notFound()
 
-    const s = await Deno.stat(path).catch(() => null)
-    if (!s?.isFile) return c.notFound()
+    const s = await stat(path).catch(() => null)
+    if (!s?.isFile()) return c.notFound()
 
     c.header("Content-Type", contentType(path))
     c.header("Content-Length", String(s.size))
     c.header("Cache-Control", cacheControl)
     if (c.req.method === "HEAD") return c.body(null)
 
-    const file = await Deno.open(path, { read: true })
-    return c.body(file.readable)
+    const stream = Readable.toWeb(createReadStream(path))
+    return c.body(stream as ReadableStream<Uint8Array>)
   }
 
   app.on(["GET", "HEAD"], "/assets/*", (c) => {
@@ -237,22 +239,16 @@ export async function mountWeb(app: Hono): Promise<Hono> {
     return serveFile(c, `/assets/${rel}`, "public, max-age=31536000, immutable")
   })
 
-  app.on(
-    ["GET", "HEAD"],
-    "/logo.png",
-    (c) => serveFile(c, "/logo.png", "public, max-age=86400"),
+  app.on(["GET", "HEAD"], "/logo.png", (c) =>
+    serveFile(c, "/logo.png", "public, max-age=86400"),
   )
 
-  app.on(
-    ["GET", "HEAD"],
-    "/favicon.ico",
-    (c) => serveFile(c, "/logo.png", "public, max-age=86400"),
+  app.on(["GET", "HEAD"], "/favicon.ico", (c) =>
+    serveFile(c, "/logo.png", "public, max-age=86400"),
   )
 
-  app.on(
-    ["GET", "HEAD"],
-    "/robots.txt",
-    (c) => serveFile(c, "/robots.txt", "public, max-age=86400"),
+  app.on(["GET", "HEAD"], "/robots.txt", (c) =>
+    serveFile(c, "/robots.txt", "public, max-age=86400"),
   )
 
   app.on(["GET", "HEAD"], "*", async (c) => {

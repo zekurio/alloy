@@ -1,8 +1,4 @@
-import * as React from "react"
 import { Link, useRouter } from "@tanstack/react-router"
-import { LogInIcon, LogOutIcon } from "lucide-react"
-
-import { buttonVariants } from "@workspace/ui/lib/button-variants"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,8 +7,11 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 import { Spinner } from "@workspace/ui/components/spinner"
-import { toast } from "@workspace/ui/lib/toast"
 import { UserAvatarButton } from "@workspace/ui/components/user-avatar-button"
+import { buttonVariants } from "@workspace/ui/lib/button-variants"
+import { toast } from "@workspace/ui/lib/toast"
+import { LogInIcon, LogOutIcon } from "lucide-react"
+import * as React from "react"
 
 import { StorageQuotaCompact } from "@/components/storage-quota"
 import { completeSignOutFlow, reportAuthFlowFailure } from "@/lib/auth-flow"
@@ -72,19 +71,17 @@ function UserMenuInner() {
       <DropdownMenuContent
         align="end"
         sideOffset={6}
-        className="alloy-blur min-w-[220px] border-white/8 text-foreground"
+        className="alloy-blur text-foreground min-w-[220px] border-white/8"
       >
         <div className="flex flex-col gap-0.5 px-3 py-2">
-          <span className="truncate text-sm font-semibold text-foreground">
+          <span className="text-foreground truncate text-sm font-semibold">
             {primaryLabel}
           </span>
-          {email
-            ? (
-              <span className="truncate text-xs text-foreground-faint">
-                {email}
-              </span>
-            )
-            : null}
+          {email ? (
+            <span className="text-foreground-faint truncate text-xs">
+              {email}
+            </span>
+          ) : null}
         </div>
         <DropdownMenuSeparator />
         <div className="px-3 py-2">

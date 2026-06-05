@@ -1,20 +1,19 @@
-import { desc, inArray } from "drizzle-orm"
-
-import { user } from "@workspace/db/auth-schema"
 import type {
   AdminOAuthProvider,
   AdminRuntimeConfig,
 } from "@workspace/contracts"
+import { user } from "@workspace/db/auth-schema"
+import { desc, inArray } from "drizzle-orm"
 
-import { db } from "../db"
-import { env } from "../env"
+import { secretStore } from "../config/secret-store"
 import {
   type OAuthProviderConfig,
   OAuthProviderSchema,
   OAuthProviderSubmissionSchema,
   type RuntimeConfig,
 } from "../config/store"
-import { secretStore } from "../config/secret-store"
+import { db } from "../db"
+import { env } from "../env"
 import { isoDate } from "../runtime/date"
 import { selectSourceStorageUsedBytesByUserIds } from "../storage/quota"
 
@@ -100,26 +99,30 @@ function normalizeOAuthProviderSubmission(
 ): Record<string, unknown> {
   return {
     ...provider,
-    providerId: typeof provider.providerId === "string"
-      ? provider.providerId.trim()
-      : provider.providerId,
-    displayName: typeof provider.displayName === "string"
-      ? provider.displayName.trim()
-      : provider.displayName,
-    clientId: typeof provider.clientId === "string"
-      ? provider.clientId.trim()
-      : provider.clientId,
-    clientSecret: typeof provider.clientSecret === "string"
-      ? provider.clientSecret.trim()
-      : provider.clientSecret,
+    providerId:
+      typeof provider.providerId === "string"
+        ? provider.providerId.trim()
+        : provider.providerId,
+    displayName:
+      typeof provider.displayName === "string"
+        ? provider.displayName.trim()
+        : provider.displayName,
+    clientId:
+      typeof provider.clientId === "string"
+        ? provider.clientId.trim()
+        : provider.clientId,
+    clientSecret:
+      typeof provider.clientSecret === "string"
+        ? provider.clientSecret.trim()
+        : provider.clientSecret,
     buttonColor: normalizeOptionalHexColor(provider.buttonColor),
     buttonTextColor: normalizeOptionalHexColor(provider.buttonTextColor),
     iconUrl: normalizeOptionalString(provider.iconUrl),
     scopes: sanitizeScopes(
       Array.isArray(provider.scopes)
         ? provider.scopes.filter(
-          (scope): scope is string => typeof scope === "string",
-        )
+            (scope): scope is string => typeof scope === "string",
+          )
         : undefined,
     ),
     discoveryUrl: normalizeOptionalString(provider.discoveryUrl),
@@ -155,8 +158,7 @@ export function finalizeOAuthProviderSubmission(
   const trimmedSecret = clientSecret?.trim()
   return {
     provider: OAuthProviderSchema.parse(metadata) as OAuthProviderConfig,
-    newClientSecret: trimmedSecret && trimmedSecret.length > 0
-      ? trimmedSecret
-      : undefined,
+    newClientSecret:
+      trimmedSecret && trimmedSecret.length > 0 ? trimmedSecret : undefined,
   }
 }

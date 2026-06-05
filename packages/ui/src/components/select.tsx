@@ -1,10 +1,9 @@
 "use client"
 
-import * as React from "react"
 import { Select as SelectPrimitive } from "@base-ui/react/select"
-
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import { cn } from "@workspace/ui/lib/utils"
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
+import * as React from "react"
 
 const Select = SelectPrimitive.Root
 
@@ -49,7 +48,7 @@ function SelectTrigger({
       {children}
       <SelectPrimitive.Icon
         render={
-          <ChevronDownIcon className="pointer-events-none size-4 text-muted-foreground" />
+          <ChevronDownIcon className="text-muted-foreground pointer-events-none size-4" />
         }
       />
     </SelectPrimitive.Trigger>
@@ -65,9 +64,8 @@ function SelectContent({
   alignOffset = 0,
   alignItemWithTrigger = true,
   ...props
-}:
-  & SelectPrimitive.Popup.Props
-  & Pick<
+}: SelectPrimitive.Popup.Props &
+  Pick<
     SelectPrimitive.Positioner.Props,
     "align" | "alignOffset" | "side" | "sideOffset" | "alignItemWithTrigger"
   >) {

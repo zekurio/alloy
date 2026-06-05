@@ -1,23 +1,23 @@
 import type { PublicAuthProvider } from "@workspace/contracts"
 
-import { configStore, type OAuthProviderConfig } from "../config/store"
 import { isOAuthProviderUsable } from "../config/secret-store"
+import { configStore, type OAuthProviderConfig } from "../config/store"
 
 // Only enabled providers with a stored secret are usable for sign-in (see
 // isOAuthProviderUsable). Enforcing it here means no config path (boot, reload,
 // import, hand-edit) can surface an enabled-but-secretless provider.
 export function getEnabledProviderConfigs(): OAuthProviderConfig[] {
-  return configStore.get("oauthProviders").filter((provider) =>
-    isOAuthProviderUsable(provider)
-  )
+  return configStore
+    .get("oauthProviders")
+    .filter((provider) => isOAuthProviderUsable(provider))
 }
 
 export function getEnabledProviderConfig(
   providerId: string,
 ): OAuthProviderConfig | null {
-  const provider = configStore.get("oauthProviders").find((candidate) =>
-    candidate.providerId === providerId
-  )
+  const provider = configStore
+    .get("oauthProviders")
+    .find((candidate) => candidate.providerId === providerId)
   return provider && isOAuthProviderUsable(provider) ? provider : null
 }
 

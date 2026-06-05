@@ -1,8 +1,8 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
-import * as React from "react"
 import { buttonVariants } from "@workspace/ui/lib/button-variants"
 import { cn } from "@workspace/ui/lib/utils"
 import type { VariantProps } from "class-variance-authority"
+import * as React from "react"
 
 type FormValidityControl = Element & {
   readonly validity: ValidityState

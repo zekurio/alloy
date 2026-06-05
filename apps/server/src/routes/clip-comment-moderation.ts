@@ -1,9 +1,8 @@
+import { clip, clipComment } from "@workspace/db/schema"
 import { and, eq, sql } from "drizzle-orm"
 
-import { clip, clipComment } from "@workspace/db/schema"
-
-import { db } from "../db"
 import { getSession } from "../auth/session"
+import { db } from "../db"
 
 async function selectCommentModerationTarget(commentId: string) {
   const [row] = await db

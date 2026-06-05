@@ -1,11 +1,9 @@
-import * as React from "react"
 import { useNavigate } from "@tanstack/react-router"
-import { ShieldOffIcon } from "lucide-react"
-
+import type { ProfileViewer } from "@workspace/api"
 import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
-
-import type { ProfileViewer } from "@workspace/api"
+import { ShieldOffIcon } from "lucide-react"
+import * as React from "react"
 
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"

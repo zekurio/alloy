@@ -15,6 +15,7 @@ import {
   type UserProfileViewer,
   type UserStorageUsage,
 } from "@workspace/contracts"
+
 import {
   objectRecord,
   validateArray,
@@ -30,13 +31,13 @@ import {
   validateRequiredString,
   validateString,
 } from "../runtime-validation"
+import { validateUserSummary } from "./people-notifications"
 import {
   validateAuthProviderColors,
   validateBackdropTreatment,
   validateGameRowFields,
   validateLikeState,
 } from "./shared"
-import { validateUserSummary } from "./people-notifications"
 const PUBLIC_AUTH_BOOLEAN_FIELDS = [
   "openRegistrations",
   "passkeyEnabled",
@@ -263,14 +264,12 @@ function validateProfileCounts(value: unknown): ProfileCounts {
 
 function validateProfileViewer(value: unknown): ProfileViewer {
   const viewer = objectRecord(value, "profile viewer")
-  for (
-    const key of [
-      "isSelf",
-      "isFollowing",
-      "isBlocked",
-      "isBlockedBy",
-    ] as const
-  ) {
+  for (const key of [
+    "isSelf",
+    "isFollowing",
+    "isBlocked",
+    "isBlockedBy",
+  ] as const) {
     validateBoolean(
       viewer[key],
       `Invalid profile viewer response: ${key} must be boolean`,

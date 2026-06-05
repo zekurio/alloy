@@ -1,9 +1,8 @@
+import { type NewUser, type User, user } from "@workspace/db/auth-schema"
 import { and, eq, ne, sql } from "drizzle-orm"
 
-import { type NewUser, type User, user } from "@workspace/db/auth-schema"
-
-import { db } from "../db"
 import { configStore } from "../config/store"
+import { db } from "../db"
 import {
   hasAdminSignInMethodForConfig,
   hasAdminSignInMethodWith,
@@ -29,8 +28,7 @@ export type AuthTransaction = Parameters<
 >[0]
 type AuthDbExecutor = typeof db | AuthTransaction
 
-const SETUP_ADVISORY_LOCK =
-  sql`select pg_advisory_xact_lock(hashtext('alloy:first-admin-setup'))`
+const SETUP_ADVISORY_LOCK = sql`select pg_advisory_xact_lock(hashtext('alloy:first-admin-setup'))`
 
 async function assertUsernameAvailable(
   executor: AuthDbExecutor,

@@ -1,9 +1,7 @@
-import { optionalTrimmedString, zValidator } from "./validation"
+import { user, USER_ROLES } from "@workspace/db/auth-schema"
 import { eq } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
-
-import { user, USER_ROLES } from "@workspace/db/auth-schema"
 
 import { assertCanRemoveAdmin, createUserIdentity } from "../auth/identity"
 import { deleteAllSessionsForUser } from "../auth/session"
@@ -15,6 +13,7 @@ import {
   success,
 } from "../runtime/http-response"
 import { selectAdminUserStorageRows } from "./admin-helpers"
+import { optionalTrimmedString, zValidator } from "./validation"
 
 const UserIdParam = z.object({
   id: z.string().uuid(),

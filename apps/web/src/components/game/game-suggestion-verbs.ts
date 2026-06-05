@@ -29,7 +29,7 @@ const VERB_INTERVAL_MS = 1800
  *  verb so two pickers don't visibly march in lockstep. */
 export function useCyclingVerb(active: boolean): string {
   const [index, setIndex] = React.useState(() =>
-    Math.floor(Math.random() * SUGGESTION_VERBS.length)
+    Math.floor(Math.random() * SUGGESTION_VERBS.length),
   )
 
   React.useEffect(() => {

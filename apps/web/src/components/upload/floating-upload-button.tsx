@@ -1,7 +1,6 @@
-import * as React from "react"
-import { ChevronDownIcon, UploadIcon } from "lucide-react"
-
 import { cn } from "@workspace/ui/lib/utils"
+import { ChevronDownIcon, UploadIcon } from "lucide-react"
+import * as React from "react"
 
 export function FloatingUploadButton({
   activeCount,
@@ -17,9 +16,11 @@ export function FloatingUploadButton({
   return (
     <button
       type="button"
-      aria-label={activeCount > 0
-        ? `Open uploads — ${activeCount} in progress`
-        : "Open uploads"}
+      aria-label={
+        activeCount > 0
+          ? `Open uploads — ${activeCount} in progress`
+          : "Open uploads"
+      }
       {...props}
       aria-hidden={isOpen || undefined}
       tabIndex={isOpen ? -1 : undefined}
@@ -41,13 +42,11 @@ export function FloatingUploadButton({
         className,
       )}
     >
-      {
-        /*
-         * Cross-rotate morph: UploadIcon rotates out + fades as
-         * ChevronDownIcon rotates in. Both icons share the same 5×5 slot
-         * (absolute + inset-0) so the button geometry doesn't jitter.
-         */
-      }
+      {/*
+       * Cross-rotate morph: UploadIcon rotates out + fades as
+       * ChevronDownIcon rotates in. Both icons share the same 5×5 slot
+       * (absolute + inset-0) so the button geometry doesn't jitter.
+       */}
       <span className="relative inline-flex size-5 items-center justify-center">
         <UploadIcon
           aria-hidden
@@ -68,22 +67,20 @@ export function FloatingUploadButton({
           )}
         />
       </span>
-      {activeCount > 0
-        ? (
-          <span
-            aria-hidden
-            className={cn(
-              "absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center px-1",
-              "rounded-full border-2 border-background bg-surface-raised",
-              "text-xs font-semibold text-foreground tabular-nums",
-              "transition-[transform,opacity] duration-[var(--duration-base)] ease-[var(--ease-out)]",
-              isOpen && "scale-75 opacity-0",
-            )}
-          >
-            {activeCount}
-          </span>
-        )
-        : null}
+      {activeCount > 0 ? (
+        <span
+          aria-hidden
+          className={cn(
+            "absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center px-1",
+            "rounded-full border-2 border-background bg-surface-raised",
+            "text-xs font-semibold text-foreground tabular-nums",
+            "transition-[transform,opacity] duration-[var(--duration-base)] ease-[var(--ease-out)]",
+            isOpen && "scale-75 opacity-0",
+          )}
+        >
+          {activeCount}
+        </span>
+      ) : null}
       {children}
     </button>
   )

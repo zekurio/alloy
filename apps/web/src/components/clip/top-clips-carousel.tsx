@@ -1,11 +1,10 @@
-import * as React from "react"
-
 import {
   Carousel,
   CarouselContent,
   CarouselNext,
   CarouselPrevious,
 } from "@workspace/ui/components/carousel"
+import * as React from "react"
 
 export function TopClipsCarousel({ children }: { children: React.ReactNode }) {
   return (

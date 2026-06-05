@@ -1,6 +1,5 @@
-# Pin devenv's nixpkgs to the same channel flake.nix tracks so the dev Deno
-# stays aligned with the packaged/CI Deno. Bump together with `nix flake update`
-# (and re-check the denort pin in nix/package.nix).
+# Pin devenv's nixpkgs to the same channel flake.nix tracks so local Node/pnpm
+# and packaging stay aligned. Bump together with `nix flake update`.
 inputs:
   nixpkgs:
     url: github:NixOS/nixpkgs/nixos-unstable

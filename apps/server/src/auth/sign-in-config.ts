@@ -1,6 +1,5 @@
-import { and, eq, inArray, ne } from "drizzle-orm"
-
 import { authAccount, user, userPasskey } from "@workspace/db/auth-schema"
+import { and, eq, inArray, ne } from "drizzle-orm"
 
 import { isOAuthProviderUsable } from "../config/secret-store"
 import { db } from "../db"
@@ -10,9 +9,7 @@ export type SignInMethodConfig = {
   oauthProviders: { enabled: boolean; providerId: string }[]
 }
 
-type AuthTransaction = Parameters<
-  Parameters<typeof db.transaction>[0]
->[0]
+type AuthTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 type AuthDbExecutor = typeof db | AuthTransaction
 
 export function usableSignInConfig(
@@ -22,14 +19,16 @@ export function usableSignInConfig(
   return {
     passkeyEnabled: config.passkeyEnabled,
     oauthProviders: config.oauthProviders.filter((provider) =>
-      isOAuthProviderUsable(provider, pendingSecret)
+      isOAuthProviderUsable(provider, pendingSecret),
     ),
   }
 }
 
 export function hasEnabledSignInMethod(config: SignInMethodConfig): boolean {
-  return config.passkeyEnabled ||
+  return (
+    config.passkeyEnabled ||
     config.oauthProviders.some((provider) => provider.enabled)
+  )
 }
 
 export async function hasAdminSignInMethodForConfig(

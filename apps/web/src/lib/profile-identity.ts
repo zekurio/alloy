@@ -24,7 +24,7 @@ export function profileIdentityPatch(
 
   if (
     normalizedCurrent.email.toLowerCase() !==
-      normalizedInitial.email.toLowerCase()
+    normalizedInitial.email.toLowerCase()
   ) {
     patch.email = normalizedCurrent.email
   }

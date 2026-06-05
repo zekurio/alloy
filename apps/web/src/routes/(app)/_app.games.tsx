@@ -1,5 +1,5 @@
-import * as React from "react"
 import { createFileRoute } from "@tanstack/react-router"
+import * as React from "react"
 
 import { GamesPageInner } from "@/components/routes/games/games-page-inner"
 

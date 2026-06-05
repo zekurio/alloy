@@ -1,4 +1,3 @@
-import type { ApiContext } from "./client"
 import type {
   ProfileGameRow,
   PublicUser,
@@ -8,9 +7,8 @@ import type {
   UserSearchResult,
   UserStorageUsage,
 } from "@workspace/contracts"
-import { readJsonOrThrow } from "./http"
-import { readPostDeleteJson } from "./mutations"
-import { encodedPathSegment, queryParams, resolvePublicUrl } from "./paths"
+
+import type { ApiContext } from "./client"
 import {
   booleanFlagResponseValidator,
   validateAccountStateResponse,
@@ -25,6 +23,9 @@ import {
   validateUserStorageUsage,
   validateUserSummaries,
 } from "./contract-validators"
+import { readJsonOrThrow } from "./http"
+import { readPostDeleteJson } from "./mutations"
+import { encodedPathSegment, queryParams, resolvePublicUrl } from "./paths"
 
 export type {
   ProfileCounts,
@@ -66,12 +67,12 @@ async function uploadUserImage(
   blob: Blob,
   kind: "avatar" | "banner",
 ): Promise<PublicUser> {
-  const file = blob instanceof File
-    ? blob
-    : new File([blob], kind, { type: blob.type })
-  const res = kind === "avatar"
-    ? await context.rpc.api.users.me.avatar.upload.$post({ form: { file } })
-    : await context.rpc.api.users.me.banner.upload.$post({ form: { file } })
+  const file =
+    blob instanceof File ? blob : new File([blob], kind, { type: blob.type })
+  const res =
+    kind === "avatar"
+      ? await context.rpc.api.users.me.avatar.upload.$post({ form: { file } })
+      : await context.rpc.api.users.me.banner.upload.$post({ form: { file } })
   return readJsonOrThrow(res, validatePublicUser)
 }
 

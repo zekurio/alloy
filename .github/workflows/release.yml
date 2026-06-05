@@ -74,10 +74,16 @@ jobs:
             exit 1
           fi
 
-      - name: Set up Deno
-        uses: denoland/setup-deno@v2
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
         with:
-          deno-version: v2.8.0
+          version: 11.4.0
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
 
       - name: Set up Nix
         uses: cachix/install-nix-action@v31
@@ -89,34 +95,34 @@ jobs:
           name: zekurio
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
-      - name: Validate Deno version matches release
+      - name: Validate package version matches release
         shell: bash
         env:
           RELEASE_VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          actual="$(deno eval 'import { readFileSync } from "node:fs"; console.log(JSON.parse(readFileSync("deno.json", "utf8")).version);')"
+          actual="$(node -e 'const fs = require("node:fs"); console.log(JSON.parse(fs.readFileSync("package.json", "utf8")).version);')"
 
           if [[ "$actual" != "$RELEASE_VERSION" ]]; then
-            echo "deno.json version $actual does not match release $RELEASE_VERSION." >&2
+            echo "package.json version $actual does not match release $RELEASE_VERSION." >&2
             exit 1
           fi
 
       - name: Install dependencies
-        run: deno install --frozen
+        run: corepack pnpm install --frozen-lockfile
 
       - name: Check formatting
-        run: deno task fmt:check
+        run: corepack pnpm fmt:check
 
       - name: Run lint
-        run: deno task lint:github
+        run: corepack pnpm lint:github
 
       - name: Run typecheck
-        run: deno task typecheck
+        run: corepack pnpm typecheck
 
       - name: Run app build
         env:
           NODE_ENV: production
-        run: deno task build
+        run: corepack pnpm build
 
       - name: Evaluate Nix flake
         run: nix --extra-experimental-features "nix-command flakes" flake check --no-build

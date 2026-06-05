@@ -1,5 +1,8 @@
-import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
+import type { AdminRuntimeConfig } from "@workspace/api"
+import { Section, SectionContent } from "@workspace/ui/components/section"
+import { Switch } from "@workspace/ui/components/switch"
+import { toast } from "@workspace/ui/lib/toast"
 import {
   BrainCircuitIcon,
   ClapperboardIcon,
@@ -8,10 +11,7 @@ import {
   ShieldIcon,
   UsersIcon,
 } from "lucide-react"
-
-import { Section, SectionContent } from "@workspace/ui/components/section"
-import { Switch } from "@workspace/ui/components/switch"
-import { toast } from "@workspace/ui/lib/toast"
+import * as React from "react"
 
 import { AdminUsersCard } from "@/components/admin/admin-users-card"
 import { EncoderConfigCard } from "@/components/routes/admin-settings/encoder-config-card"
@@ -24,9 +24,8 @@ import {
   ConfigTransferSection,
 } from "@/components/routes/settings/admin-tab-advanced-sections"
 import { SettingsSection } from "@/components/routes/settings/settings-section"
-import type { AdminRuntimeConfig } from "@workspace/api"
-import { api } from "@/lib/api"
 import { adminRuntimeConfigQueryOptions } from "@/lib/admin-query-keys"
+import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 import { publishRuntimeConfigUpdate } from "@/lib/runtime-config-events"
 
@@ -129,10 +128,10 @@ function ToggleRow({
   disabled?: boolean
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 py-3 not-last:border-b not-last:border-border first:pt-0 last:pb-0">
+    <div className="not-last:border-border flex items-start justify-between gap-4 py-3 not-last:border-b first:pt-0 last:pb-0">
       <div className="min-w-0">
         <div className="text-sm font-medium">{title}</div>
-        <p className="mt-0.5 text-xs text-foreground-dim">{description}</p>
+        <p className="text-foreground-dim mt-0.5 text-xs">{description}</p>
       </div>
       <Switch
         checked={checked}
@@ -173,9 +172,11 @@ function AuthenticationSettingsSection({
               description="Allow passkey sign-in and passkey-based account creation on supported browsers."
               checked={config.passkeyEnabled}
               onCheckedChange={onTogglePasskey}
-              disabled={togglePending ||
+              disabled={
+                togglePending ||
                 (config.passkeyEnabled &&
-                  !hasAnotherSignInMethod(config, "passkey"))}
+                  !hasAnotherSignInMethod(config, "passkey"))
+              }
             />
             <ToggleRow
               title="Open registrations"
@@ -299,7 +300,7 @@ export function AdminSettingsSections({ userId }: { userId: string }) {
 
   if (loadError) {
     return (
-      <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+      <div className="border-destructive/40 bg-destructive/5 text-destructive rounded-md border p-3 text-sm">
         {loadError}
       </div>
     )

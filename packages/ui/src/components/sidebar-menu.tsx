@@ -1,17 +1,16 @@
 "use client"
 
-import * as React from "react"
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
-import { cva, type VariantProps } from "class-variance-authority"
-
-import { cn } from "@workspace/ui/lib/utils"
 import { Spinner } from "@workspace/ui/components/spinner"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
+import { cn } from "@workspace/ui/lib/utils"
+import { cva, type VariantProps } from "class-variance-authority"
+import * as React from "react"
 
 import { useSidebar } from "./sidebar-context"
 
@@ -81,13 +80,13 @@ function renderSidebarMenuList(
 function mergeSidebarMenuControlProps(
   config:
     | {
-      defaultTagName: "a"
-      props: React.ComponentProps<"a">
-    }
+        defaultTagName: "a"
+        props: React.ComponentProps<"a">
+      }
     | {
-      defaultTagName: "button"
-      props: React.ComponentProps<"button">
-    },
+        defaultTagName: "button"
+        props: React.ComponentProps<"button">
+      },
 ) {
   if (config.defaultTagName === "button") {
     return mergeProps<"button">(
@@ -109,25 +108,25 @@ function mergeSidebarMenuControlProps(
 function renderSidebarMenuControl(
   config:
     | {
-      defaultTagName: "a"
-      props: React.ComponentProps<"a">
-      render: useRender.ComponentProps<"a">["render"]
-      state: {
-        active: boolean
-        sidebar: string
-        size: "md" | "sm"
-        slot: string
+        defaultTagName: "a"
+        props: React.ComponentProps<"a">
+        render: useRender.ComponentProps<"a">["render"]
+        state: {
+          active: boolean
+          sidebar: string
+          size: "md" | "sm"
+          slot: string
+        }
       }
-    }
     | {
-      defaultTagName: "button"
-      props: React.ComponentProps<"button">
-      render: useRender.ComponentProps<"button">["render"]
-      state: {
-        sidebar: string
-        slot: string
-      }
-    },
+        defaultTagName: "button"
+        props: React.ComponentProps<"button">
+        render: useRender.ComponentProps<"button">["render"]
+        state: {
+          sidebar: string
+          slot: string
+        }
+      },
 ) {
   return useRender({
     defaultTagName: config.defaultTagName,
@@ -145,14 +144,11 @@ function SidebarMenuButton({
   tooltip,
   className,
   ...props
-}:
-  & useRender.ComponentProps<"button">
-  & React.ComponentProps<"button">
-  & {
+}: useRender.ComponentProps<"button"> &
+  React.ComponentProps<"button"> & {
     isActive?: boolean
     tooltip?: string | React.ComponentProps<typeof TooltipContent>
-  }
-  & VariantProps<typeof sidebarMenuButtonVariants>) {
+  } & VariantProps<typeof sidebarMenuButtonVariants>) {
   const { isMobile, state } = useSidebar()
   const comp = useRender({
     defaultTagName: "button",
@@ -199,10 +195,8 @@ function SidebarMenuAction({
   render,
   showOnHover = false,
   ...props
-}:
-  & useRender.ComponentProps<"button">
-  & React.ComponentProps<"button">
-  & {
+}: useRender.ComponentProps<"button"> &
+  React.ComponentProps<"button"> & {
     showOnHover?: boolean
   }) {
   return renderSidebarMenuControl({
@@ -292,10 +286,8 @@ function SidebarMenuSubButton({
   isActive = false,
   className,
   ...props
-}:
-  & useRender.ComponentProps<"a">
-  & React.ComponentProps<"a">
-  & {
+}: useRender.ComponentProps<"a"> &
+  React.ComponentProps<"a"> & {
     size?: "sm" | "md"
     isActive?: boolean
   }) {

@@ -1,19 +1,32 @@
 import {
+  copyFileSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  watch,
+  writeFileSync,
+} from "node:fs"
+import { basename } from "node:path"
+
+import {
   ENCODER_HWACCELS,
   type EncoderHwaccel,
   type RuntimeConfig,
 } from "@workspace/contracts"
 import { logger } from "@workspace/logging"
-import { errorDetail } from "../runtime/error-message"
-import { CONFIG_PATH } from "../runtime/dirs"
-import { dirname } from "../runtime/path"
+
 import { signInConfigError } from "../auth/sign-in-config"
-
-// Imported before this module's body runs, so the secret store initializes (and
-// seeds itself from any legacy inline secrets in config.json) BEFORE this module
-// strips those secret keys and rewrites the file.
-import { readInlineSecrets, secretStore } from "./secret-store"
-
+import { CONFIG_PATH } from "../runtime/dirs"
+import { errorDetail } from "../runtime/error-message"
+import { dirname } from "../runtime/path"
+import { migrateRuntimeConfig } from "./migrations"
+import {
+  OAuthProviderSchema,
+  OAuthProvidersSchema,
+  type OAuthProviderSubmission,
+  OAuthProviderSubmissionSchema,
+} from "./oauth-schema"
 import {
   AppearanceConfigPatchSchema,
   bootstrapDefaultConfig,
@@ -23,13 +36,10 @@ import {
   MachineLearningConfigPatchSchema,
   RuntimeConfigSchema,
 } from "./schema"
-import {
-  OAuthProviderSchema,
-  OAuthProvidersSchema,
-  type OAuthProviderSubmission,
-  OAuthProviderSubmissionSchema,
-} from "./oauth-schema"
-import { migrateRuntimeConfig } from "./migrations"
+// Imported before this module's body runs, so the secret store initializes (and
+// seeds itself from any legacy inline secrets in config.json) BEFORE this module
+// strips those secret keys and rewrites the file.
+import { readInlineSecrets, secretStore } from "./secret-store"
 
 export {
   ENCODER_CODECS,
@@ -68,14 +78,14 @@ export type {
 
 type LoadResult =
   | {
-    ok: true
-    config: RuntimeConfig
-    created: boolean
-    migrated: boolean
-    strippedSecrets: boolean
-    /** Raw parsed JSON as read from disk (null when the file didn't exist). */
-    raw: unknown
-  }
+      ok: true
+      config: RuntimeConfig
+      created: boolean
+      migrated: boolean
+      strippedSecrets: boolean
+      /** Raw parsed JSON as read from disk (null when the file didn't exist). */
+      raw: unknown
+    }
   | { ok: false; error: string }
 
 /**
@@ -88,9 +98,11 @@ function hasLegacySecretKeys(raw: unknown): boolean {
   const config = raw as Record<string, unknown>
   if ("secrets" in config || "integrations" in config) return true
   if (Array.isArray(config.oauthProviders)) {
-    return config.oauthProviders.some((provider) =>
-      Boolean(provider) && typeof provider === "object" &&
-      "clientSecret" in (provider as Record<string, unknown>)
+    return config.oauthProviders.some(
+      (provider) =>
+        Boolean(provider) &&
+        typeof provider === "object" &&
+        "clientSecret" in (provider as Record<string, unknown>),
     )
   }
   return false
@@ -126,7 +138,7 @@ export function parseRuntimeConfig(value: unknown): RuntimeConfig {
 
 function loadFromDisk(): LoadResult {
   try {
-    if (!Deno.statSync(CONFIG_PATH).isFile) {
+    if (!statSync(CONFIG_PATH).isFile()) {
       return {
         ok: true,
         config: bootstrapDefaultConfig(),
@@ -137,7 +149,7 @@ function loadFromDisk(): LoadResult {
       }
     }
   } catch (err) {
-    if (err instanceof Deno.errors.NotFound) {
+    if (isNodeErrorCode(err, "ENOENT")) {
       return {
         ok: true,
         config: bootstrapDefaultConfig(),
@@ -154,7 +166,7 @@ function loadFromDisk(): LoadResult {
   }
 
   try {
-    const raw = Deno.readTextFileSync(CONFIG_PATH)
+    const raw = readFileSync(CONFIG_PATH, "utf8")
     const json = JSON.parse(raw)
     const result = parseRuntimeConfigInput(json)
     if (!result.ok) return result
@@ -175,11 +187,11 @@ function loadFromDisk(): LoadResult {
 }
 
 function writeToDisk(next: RuntimeConfig): void {
-  Deno.mkdirSync(dirname(CONFIG_PATH), { recursive: true })
+  mkdirSync(dirname(CONFIG_PATH), { recursive: true })
   // Atomic: tmp + rename survives process death mid-write.
   const tmpPath = `${CONFIG_PATH}.tmp`
-  Deno.writeTextFileSync(tmpPath, `${JSON.stringify(next, null, 2)}\n`)
-  Deno.renameSync(tmpPath, CONFIG_PATH)
+  writeFileSync(tmpPath, `${JSON.stringify(next, null, 2)}\n`)
+  renameSync(tmpPath, CONFIG_PATH)
 }
 
 const initialLoad = loadFromDisk()
@@ -188,7 +200,7 @@ if (!initialLoad.ok) {
     `[config-store] ${CONFIG_PATH} failed validation:`,
     initialLoad.error,
   )
-  Deno.exit(1)
+  process.exit(1)
 }
 
 let state: RuntimeConfig = initialLoad.config
@@ -196,7 +208,7 @@ if (initialLoad.strippedSecrets) {
   // Preserve the pre-split file (secrets and all) before rewriting it without
   // the secret keys, which now live in the secret store.
   try {
-    Deno.copyFileSync(CONFIG_PATH, `${CONFIG_PATH}.bak`)
+    copyFileSync(CONFIG_PATH, `${CONFIG_PATH}.bak`)
     logger.info(
       `[config-store] migrated inline secrets out of ${CONFIG_PATH}; ` +
         `backed up original to ${CONFIG_PATH}.bak`,
@@ -206,7 +218,9 @@ if (initialLoad.strippedSecrets) {
   }
 }
 if (
-  initialLoad.created || initialLoad.migrated || initialLoad.strippedSecrets
+  initialLoad.created ||
+  initialLoad.migrated ||
+  initialLoad.strippedSecrets
 ) {
   writeToDisk(state)
 }
@@ -275,28 +289,22 @@ async function reloadFromDisk(): Promise<boolean> {
 
 let reloadTimer: ReturnType<typeof setTimeout> | null = null
 function startConfigFileWatcher(): void {
-  const watcher = Deno.watchFs(CONFIG_PATH)
-  ;(async () => {
-    try {
-      for await (const event of watcher) {
-        if (
-          !event.paths.includes(CONFIG_PATH) ||
-          (event.kind !== "modify" &&
-            event.kind !== "create" &&
-            event.kind !== "remove")
-        ) {
-          continue
-        }
-        if (reloadTimer) clearTimeout(reloadTimer)
-        reloadTimer = setTimeout(() => {
-          reloadTimer = null
-          void reloadFromDisk()
-        }, 50)
-      }
-    } catch (err) {
+  try {
+    const fileName = basename(CONFIG_PATH)
+    const watcher = watch(dirname(CONFIG_PATH), (_event, changedFileName) => {
+      if (changedFileName && changedFileName !== fileName) return
+      if (reloadTimer) clearTimeout(reloadTimer)
+      reloadTimer = setTimeout(() => {
+        reloadTimer = null
+        void reloadFromDisk()
+      }, 50)
+    })
+    watcher.on("error", (err) => {
       logger.warn("[config-store] config watcher stopped:", err)
-    }
-  })()
+    })
+  } catch (err) {
+    logger.warn("[config-store] config watcher could not start:", err)
+  }
 }
 
 startConfigFileWatcher()
@@ -338,4 +346,8 @@ export const configStore: ConfigStore = {
   get filePath() {
     return CONFIG_PATH
   },
+}
+
+function isNodeErrorCode(err: unknown, code: string): boolean {
+  return (err as { code?: string } | null)?.code === code
 }

@@ -16,7 +16,7 @@ let
 
   # Ensure the mutable dirs exist, and when started as root, fix volume
   # ownership and drop to the unprivileged alloy user. The app itself creates
-  # any nested dirs (Deno.mkdir recursive) at runtime.
+  # any nested dirs recursively at runtime.
   entrypoint = writeShellApplication {
     name = "alloy-entrypoint";
     runtimeInputs = [

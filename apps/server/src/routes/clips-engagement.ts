@@ -1,15 +1,14 @@
-import { zValidator } from "./validation"
+import { clip, clipLike, clipView } from "@workspace/db/schema"
 import { and, eq, type SQL, sql } from "drizzle-orm"
 import { Hono } from "hono"
 
-import { clip, clipLike, clipView } from "@workspace/db/schema"
-
-import { db } from "../db"
-import { clipAccessResponse, resolveClipAccess } from "../clips/access"
 import { requireSession } from "../auth/require-session"
 import { applyViewerCookie, resolveViewer } from "../auth/viewer-key"
+import { clipAccessResponse, resolveClipAccess } from "../clips/access"
+import { db } from "../db"
 import { booleanFlag, likeState, noContent } from "../runtime/http-response"
 import { IdParam } from "./clips-helpers"
+import { zValidator } from "./validation"
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 

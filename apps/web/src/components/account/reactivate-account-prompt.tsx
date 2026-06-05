@@ -1,6 +1,4 @@
-import * as React from "react"
 import { useRouter } from "@tanstack/react-router"
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,6 +9,7 @@ import {
   AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog"
 import { toast } from "@workspace/ui/lib/toast"
+import * as React from "react"
 
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
@@ -26,7 +25,7 @@ export function ReactivateAccountPrompt() {
   const session = useSuspenseSession()
   const router = useRouter()
   const [open, setOpen] = React.useState(() =>
-    isDisabledSessionUser(session?.user)
+    isDisabledSessionUser(session?.user),
   )
   const [pending, setPending] = React.useState(false)
 

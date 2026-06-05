@@ -1,10 +1,13 @@
+import { pathToFileURL } from "node:url"
+
+import { logger } from "@workspace/logging"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
-import { logger } from "@workspace/logging"
 
 import { createPostgresPool } from "./connection.ts"
 
-const migrationsFolder = Deno.env.get("ALLOY_MIGRATIONS_DIR") ??
+const migrationsFolder =
+  process.env.ALLOY_MIGRATIONS_DIR ??
   new URL("../drizzle", import.meta.url).pathname
 
 export async function migrateDatabase(databaseUrl: string) {
@@ -27,16 +30,19 @@ export async function migrateDatabase(databaseUrl: string) {
 }
 
 async function main() {
-  const url = Deno.env.get("DATABASE_URL")
+  const url = process.env.DATABASE_URL
   if (!url) {
     logger.error("[db/migrate] DATABASE_URL is required")
-    Deno.exit(1)
+    process.exit(1)
     return
   }
 
   await migrateDatabase(url)
 }
 
-if (Deno.mainModule === import.meta.url) {
+if (
+  process.argv[1] &&
+  pathToFileURL(process.argv[1]).href === import.meta.url
+) {
   await main()
 }

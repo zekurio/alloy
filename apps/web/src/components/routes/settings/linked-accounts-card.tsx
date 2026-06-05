@@ -1,14 +1,12 @@
-import * as React from "react"
 import { useRouter } from "@tanstack/react-router"
-import { Link2OffIcon, LinkIcon, UserKeyIcon } from "lucide-react"
-
+import type { PublicAuthConfig } from "@workspace/api"
+import type { LinkedAccount as ApiLinkedAccount } from "@workspace/api/auth"
 import { Button } from "@workspace/ui/components/button"
 import { List, ListItem } from "@workspace/ui/components/list"
 import { Section, SectionContent } from "@workspace/ui/components/section"
 import { toast } from "@workspace/ui/lib/toast"
-
-import type { PublicAuthConfig } from "@workspace/api"
-import type { LinkedAccount as ApiLinkedAccount } from "@workspace/api/auth"
+import { Link2OffIcon, LinkIcon, UserKeyIcon } from "lucide-react"
+import * as React from "react"
 
 import { authClient, useSession } from "@/lib/auth-client"
 import { authCallbackUrl, toastAuthAttemptFailure } from "@/lib/auth-flow"
@@ -53,7 +51,7 @@ export function LinkedAccountsCard({
       <SectionContent className="flex flex-col gap-3 py-4">
         <div>
           <div className="text-sm font-medium">Linked accounts</div>
-          <p className="mt-0.5 text-xs text-foreground-dim">
+          <p className="text-foreground-dim mt-0.5 text-xs">
             Connect additional sign-in methods to your account.
           </p>
         </div>
@@ -119,9 +117,7 @@ function useLinkedAccountActions({
       try {
         const { error } = await authClient.oauth2.link({
           providerId: provider.providerId,
-          callbackURL: authCallbackUrl(
-            `/settings?${OAUTH_LINKED_QUERY_KEY}=1`,
-          ),
+          callbackURL: authCallbackUrl(`/settings?${OAUTH_LINKED_QUERY_KEY}=1`),
         })
         if (error) {
           toastAuthAttemptFailure(
@@ -212,32 +208,30 @@ function AccountsList({
         const providerAccount = accounts.find(
           (account) => account.providerId === provider.providerId,
         )
-        return providerAccount
-          ? (
-            <AccountRow
-              key={providerAccount.id}
-              label={provider.displayName}
-              sublabel={linkedAccountLabel(providerAccount)}
-              busy={unlinkingId === providerAccount.id}
-              canUnlink={canRemoveAccount(
-                providerAccount,
-                accounts,
-                config,
-                hasPasskeySignIn,
-              )}
-              onAction={() => onUnlink(providerAccount)}
-              provider={provider}
-            />
-          )
-          : (
-            <LinkRow
-              key={provider.providerId}
-              provider={provider}
-              label={provider.displayName}
-              busy={linkingProviderId === provider.providerId}
-              onLink={() => onLink(provider)}
-            />
-          )
+        return providerAccount ? (
+          <AccountRow
+            key={providerAccount.id}
+            label={provider.displayName}
+            sublabel={linkedAccountLabel(providerAccount)}
+            busy={unlinkingId === providerAccount.id}
+            canUnlink={canRemoveAccount(
+              providerAccount,
+              accounts,
+              config,
+              hasPasskeySignIn,
+            )}
+            onAction={() => onUnlink(providerAccount)}
+            provider={provider}
+          />
+        ) : (
+          <LinkRow
+            key={provider.providerId}
+            provider={provider}
+            label={provider.displayName}
+            busy={linkingProviderId === provider.providerId}
+            onLink={() => onLink(provider)}
+          />
+        )
       })}
 
       {staleOAuthAccounts.map((account) => (
@@ -275,7 +269,7 @@ function LinkRow(props: {
         <ProviderIcon provider={props.provider} />
         <div className="min-w-0">
           <div className="text-sm font-medium">{props.label}</div>
-          <p className="text-xs text-foreground-dim">Not linked</p>
+          <p className="text-foreground-dim text-xs">Not linked</p>
         </div>
       </div>
       <Button
@@ -309,7 +303,7 @@ function AccountRow(props: AccountRowProps) {
         <ProviderIcon provider={props.provider} />
         <div className="min-w-0">
           <div className="text-sm font-medium">{props.label}</div>
-          <p className="text-xs text-foreground-dim">{props.sublabel}</p>
+          <p className="text-foreground-dim text-xs">{props.sublabel}</p>
         </div>
       </div>
       <Button
@@ -319,9 +313,11 @@ function AccountRow(props: AccountRowProps) {
         className="shrink-0"
         disabled={props.busy || !props.canUnlink}
         onClick={props.onAction}
-        title={props.canUnlink
-          ? undefined
-          : "Link another enabled sign-in method before removing this one"}
+        title={
+          props.canUnlink
+            ? undefined
+            : "Link another enabled sign-in method before removing this one"
+        }
       >
         <Link2OffIcon />
         {props.busy ? "Removing…" : "Unlink"}
@@ -333,21 +329,17 @@ function AccountRow(props: AccountRowProps) {
 function ProviderIcon({ provider }: { provider?: Provider }) {
   return (
     <span
-      className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border"
+      className="border-border inline-flex size-8 shrink-0 items-center justify-center rounded-md border"
       style={{
         backgroundColor: provider?.buttonColor,
         color: provider?.buttonTextColor,
       }}
     >
-      {provider?.iconUrl
-        ? (
-          <img
-            src={provider.iconUrl}
-            alt=""
-            className="size-4 object-contain"
-          />
-        )
-        : <UserKeyIcon className="size-4" />}
+      {provider?.iconUrl ? (
+        <img src={provider.iconUrl} alt="" className="size-4 object-contain" />
+      ) : (
+        <UserKeyIcon className="size-4" />
+      )}
     </span>
   )
 }
@@ -369,7 +361,7 @@ function accountSupportsSignIn(
   config: PublicAuthConfig,
 ): boolean {
   if (account.providerId === "credential") return false
-  return config.providers.some((provider) =>
-    provider.providerId === account.providerId
+  return config.providers.some(
+    (provider) => provider.providerId === account.providerId,
   )
 }

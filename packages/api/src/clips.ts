@@ -1,4 +1,3 @@
-import type { ApiContext } from "./client"
 import type {
   ClipFeedParams,
   ClipLikeState,
@@ -11,24 +10,8 @@ import type {
   UpdateClipInput,
   UploadTicket,
 } from "@workspace/contracts"
-import {
-  parseErrorMessagePayload,
-  parseJsonPayload,
-  readJsonOrThrow,
-  readNoContentOrThrow,
-} from "./http"
-import { toError } from "./error"
-import {
-  encodedPathSegment,
-  queryParams,
-  resolvePublicUrlWithQuery,
-} from "./paths"
-import {
-  readBooleanFlagJson,
-  readDeletedJson,
-  readPostDeleteJson,
-  readSuccessJson,
-} from "./mutations"
+
+import type { ApiContext } from "./client"
 import {
   validateClipLikeState,
   validateClipPage,
@@ -37,6 +20,24 @@ import {
   validateQueueClips,
   validateQueueEvent,
 } from "./contract-validators"
+import { toError } from "./error"
+import {
+  parseErrorMessagePayload,
+  parseJsonPayload,
+  readJsonOrThrow,
+  readNoContentOrThrow,
+} from "./http"
+import {
+  readBooleanFlagJson,
+  readDeletedJson,
+  readPostDeleteJson,
+  readSuccessJson,
+} from "./mutations"
+import {
+  encodedPathSegment,
+  queryParams,
+  resolvePublicUrlWithQuery,
+} from "./paths"
 
 const UPLOAD_TIMEOUT_GRACE_MS = 30_000
 const MIN_UPLOAD_TIMEOUT_MS = 30_000
@@ -90,7 +91,9 @@ export function clipStreamUrl(
   liveCodecs?: readonly string[],
 ): string {
   const codecs = liveCodecs
-    ? liveCodecs.length > 0 ? liveCodecs.join(",") : "none"
+    ? liveCodecs.length > 0
+      ? liveCodecs.join(",")
+      : "none"
     : undefined
   return resolvePublicUrlWithQuery(
     publicClipPath(clipId, "/stream"),
@@ -164,7 +167,8 @@ export function uploadToTicket(
       if (xhr.status >= 200 && xhr.status < 300) {
         settle(resolve)
       } else {
-        const message = parseErrorMessagePayload(xhr.responseText) ??
+        const message =
+          parseErrorMessagePayload(xhr.responseText) ??
           `${xhr.status} ${xhr.statusText}`
         settle(() => reject(new Error(message)))
       }

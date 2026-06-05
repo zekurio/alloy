@@ -1,5 +1,4 @@
 import type { ClipRow } from "@workspace/api"
-
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"

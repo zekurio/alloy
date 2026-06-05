@@ -1,8 +1,7 @@
-import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
-
-import { cn } from "@workspace/ui/lib/utils"
 import { MODAL_OVERLAY_CLASS_NAME } from "@workspace/ui/lib/modal-overlay"
+import { cn } from "@workspace/ui/lib/utils"
+import * as React from "react"
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />

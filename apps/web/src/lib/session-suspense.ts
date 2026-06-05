@@ -1,7 +1,6 @@
-import { use } from "react"
 import { useRouterState } from "@tanstack/react-router"
-
 import type { PublicAuthConfig } from "@workspace/api"
+import { use } from "react"
 
 import { api } from "./api"
 import { authClient, useSession } from "./auth-client"
@@ -129,9 +128,9 @@ export function loadAuthConfig(): Promise<PublicAuthConfig> {
     configPromiseCache = bootstrap
       ? Promise.resolve(bootstrap)
       : api.authConfig.fetch().catch((err) => {
-        configPromiseCache = null
-        throw err
-      })
+          configPromiseCache = null
+          throw err
+        })
   }
   return configPromiseCache
 }

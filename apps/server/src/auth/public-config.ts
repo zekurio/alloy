@@ -3,8 +3,8 @@ import {
   type PublicAuthConfig,
 } from "@workspace/contracts"
 
-import { env } from "../env"
 import { configStore } from "../config/store"
+import { env } from "../env"
 import { getPublicProviders } from "./oauth-config"
 import { getSetupStatus } from "./user-bootstrap"
 

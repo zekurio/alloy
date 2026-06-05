@@ -20,7 +20,7 @@ function isJsonResponse(res: Response): boolean {
   return (
     (contentType?.includes("application/json") ||
       contentType?.includes("+json")) ??
-      false
+    false
   )
 }
 
@@ -51,9 +51,10 @@ function errorText(value: unknown): string | null {
   const issues = (value as { issues?: unknown }).issues
   if (Array.isArray(issues)) {
     for (const issue of issues) {
-      const issueMessage = issue && typeof issue === "object"
-        ? (issue as { message?: unknown }).message
-        : null
+      const issueMessage =
+        issue && typeof issue === "object"
+          ? (issue as { message?: unknown }).message
+          : null
       if (typeof issueMessage === "string" && issueMessage.trim()) {
         return issueMessage.trim()
       }
@@ -66,8 +67,8 @@ function errorText(value: unknown): string | null {
 function responseErrorMessage(res: Response, body: ErrorBody): string {
   return (
     errorText(body?.error) ??
-      errorText(body?.message) ??
-      `${res.status} ${res.statusText}`
+    errorText(body?.message) ??
+    `${res.status} ${res.statusText}`
   )
 }
 

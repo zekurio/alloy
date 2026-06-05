@@ -1,5 +1,4 @@
 import { useQuery, type UseQueryResult } from "@tanstack/react-query"
-
 import type { MlGameSuggestionPrediction, PublicMlConfig } from "@workspace/api"
 
 import { api } from "@/lib/api"

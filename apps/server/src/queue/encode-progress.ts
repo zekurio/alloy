@@ -1,10 +1,9 @@
-import { and, eq, lt } from "drizzle-orm"
-
 import { clip } from "@workspace/db/schema"
 import { logger } from "@workspace/logging"
+import { and, eq, lt } from "drizzle-orm"
 
-import { db } from "../db"
 import { publishClipProgress } from "../clips/events"
+import { db } from "../db"
 
 export function makeProgressWriter(
   clipId: string,

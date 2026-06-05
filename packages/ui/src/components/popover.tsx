@@ -1,7 +1,6 @@
-import * as React from "react"
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
-
 import { cn } from "@workspace/ui/lib/utils"
+import * as React from "react"
 
 function Popover({ ...props }: PopoverPrimitive.Root.Props) {
   return <PopoverPrimitive.Root data-slot="popover" {...props} />
@@ -18,9 +17,8 @@ function PopoverContent({
   side = "bottom",
   sideOffset = 4,
   ...props
-}:
-  & PopoverPrimitive.Popup.Props
-  & Pick<
+}: PopoverPrimitive.Popup.Props &
+  Pick<
     PopoverPrimitive.Positioner.Props,
     "align" | "alignOffset" | "side" | "sideOffset"
   >) {

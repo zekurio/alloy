@@ -1,9 +1,4 @@
-import * as React from "react"
-import { PencilIcon, PlusIcon, SaveIcon, Trash2Icon } from "lucide-react"
-
-import { Button } from "@workspace/ui/components/button"
-import { List, ListItem } from "@workspace/ui/components/list"
-import { Section, SectionContent } from "@workspace/ui/components/section"
+import type { Passkey as ApiPasskey } from "@workspace/api/auth"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,6 +10,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@workspace/ui/components/alert-dialog"
+import { Button } from "@workspace/ui/components/button"
 import {
   Dialog,
   DialogBody,
@@ -26,9 +22,11 @@ import {
   DialogTrigger,
 } from "@workspace/ui/components/dialog"
 import { Field, FieldLabel } from "@workspace/ui/components/field"
+import { List, ListItem } from "@workspace/ui/components/list"
+import { Section, SectionContent } from "@workspace/ui/components/section"
 import { toast } from "@workspace/ui/lib/toast"
-
-import type { Passkey as ApiPasskey } from "@workspace/api/auth"
+import { PencilIcon, PlusIcon, SaveIcon, Trash2Icon } from "lucide-react"
+import * as React from "react"
 
 import { LimitedInput } from "@/components/form/limited-field"
 import { authClient } from "@/lib/auth-client"
@@ -74,32 +72,30 @@ export function PasskeysCard({
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-sm font-medium">Passkeys</div>
-            <p className="mt-0.5 text-xs text-foreground-dim">
+            <p className="text-foreground-dim mt-0.5 text-xs">
               Sign in without a password using your device or hardware key.
             </p>
           </div>
           <AddPasskeyDialog onAdded={onRefresh} />
         </div>
 
-        {passkeys.length > 0
-          ? (
-            <List>
-              {passkeys.map((passkey) => (
-                <PasskeyRow
-                  key={passkey.id}
-                  passkey={passkey}
-                  removing={deletingId === passkey.id}
-                  onDelete={() => onDelete(passkey)}
-                  onRefresh={onRefresh}
-                />
-              ))}
-            </List>
-          )
-          : (
-            <p className="text-sm text-foreground-muted">
-              No passkeys yet. Add one for faster, password-free sign-in.
-            </p>
-          )}
+        {passkeys.length > 0 ? (
+          <List>
+            {passkeys.map((passkey) => (
+              <PasskeyRow
+                key={passkey.id}
+                passkey={passkey}
+                removing={deletingId === passkey.id}
+                onDelete={() => onDelete(passkey)}
+                onRefresh={onRefresh}
+              />
+            ))}
+          </List>
+        ) : (
+          <p className="text-foreground-muted text-sm">
+            No passkeys yet. Add one for faster, password-free sign-in.
+          </p>
+        )}
       </SectionContent>
     </Section>
   )
@@ -211,7 +207,7 @@ function PasskeyRow({
         <div className="truncate text-sm font-medium">
           {passkey.name || "Passkey"}
         </div>
-        <p className="truncate text-xs text-foreground-dim">
+        <p className="text-foreground-dim truncate text-xs">
           Added {formatCalendarDate(passkey.createdAt)}
         </p>
       </div>

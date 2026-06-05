@@ -34,10 +34,16 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || 'dev' }}
 
-      - name: Set up Deno
-        uses: denoland/setup-deno@v2
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
         with:
-          deno-version: v2.8.0
+          version: 11.4.0
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
 
       - name: Set up Nix
         uses: cachix/install-nix-action@v31
@@ -56,45 +62,43 @@ jobs:
           export SHORT_SHA="$short_sha"
           export CHANNEL="$channel"
 
-          # shellcheck disable=SC2016
-          version="$(deno eval '
-          import { readFileSync } from "node:fs";
-
-          const config = JSON.parse(readFileSync("deno.json", "utf8"));
+          version="$(node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const config = JSON.parse(readFileSync("package.json", "utf8"));
           const stableCore = String(config.version).replace(/[-+].*$/, "");
           const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(stableCore);
 
           if (!match) {
-            console.error(`Invalid deno.json version: ${config.version}`);
-            Deno.exit(1);
+            console.error(`Invalid package.json version: ${config.version}`);
+            process.exit(1);
           }
 
           const [, major, minor, patch] = match;
-          const channel = Deno.env.get("CHANNEL");
-          const runNumber = Deno.env.get("GITHUB_RUN_NUMBER");
-          const shortSha = Deno.env.get("SHORT_SHA");
+          const channel = process.env.CHANNEL;
+          const runNumber = process.env.GITHUB_RUN_NUMBER;
+          const shortSha = process.env.SHORT_SHA;
           console.log(`${major}.${minor}.${patch}-${channel}.${runNumber}.${shortSha}`);
-          ')"
+          NODE
+          )"
 
           echo "channel=$channel" >> "$GITHUB_OUTPUT"
           echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "sha_tag=$channel-$short_sha" >> "$GITHUB_OUTPUT"
-      - name: Stamp image version into deno.json
+      - name: Stamp image version into package.json
         shell: bash
         env:
           IMAGE_VERSION: ${{ steps.meta.outputs.version }}
         run: |
           # Ephemeral (never committed): the Nix image reads its version from
-          # deno.json, so stamp it here to make APP_VERSION and the OCI version
+          # package.json, so stamp it here to make APP_VERSION and the OCI version
           # label report the generated container build version.
-          # shellcheck disable=SC2016
-          deno eval '
-          import { readFileSync, writeFileSync } from "node:fs";
-          const config = JSON.parse(readFileSync("deno.json", "utf8"));
-          config.version = Deno.env.get("IMAGE_VERSION");
-          writeFileSync("deno.json", `${JSON.stringify(config, null, 2)}\n`);
-          '
+          node <<'NODE'
+          const { readFileSync, writeFileSync } = require("node:fs");
+          const config = JSON.parse(readFileSync("package.json", "utf8"));
+          config.version = process.env.IMAGE_VERSION;
+          writeFileSync("package.json", `${JSON.stringify(config, null, 2)}\n`);
+          NODE
 
       - name: Publish server image
         uses: ./.github/actions/publish-nix-image

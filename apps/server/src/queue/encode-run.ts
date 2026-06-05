@@ -1,21 +1,21 @@
+import { copyFile, rm, stat } from "node:fs/promises"
+
+import type { AcceptedContentType } from "@workspace/contracts"
+import { clip, clipUploadTicket } from "@workspace/db/schema"
+import { logger } from "@workspace/logging"
 import { and, eq } from "drizzle-orm"
 
-import { clip, clipUploadTicket } from "@workspace/db/schema"
-import type { AcceptedContentType } from "@workspace/contracts"
-import { logger } from "@workspace/logging"
-
-import { db } from "../db"
 import { publishClipUpsert } from "../clips/events"
+import { db } from "../db"
 import { notifyFollowersOfNewClip } from "../notifications"
 import { join } from "../runtime/path"
-
 import { clipAssetKey, clipStorage } from "../storage"
 import { deleteScratchUpload, scratchUploadPath } from "../uploads/scratch"
 import { abortEncode } from "./encode-abort"
 import { makeProgressWriter } from "./encode-progress"
-import { probe, thumbnail } from "./ffmpeg"
-import { ensureClipStillPresent, makeScratchDir } from "./encode-run-helpers"
 import { type Asset, publishOriginalSource } from "./encode-publish"
+import { ensureClipStillPresent, makeScratchDir } from "./encode-run-helpers"
+import { probe, thumbnail } from "./ffmpeg"
 
 type ClipRow = typeof clip.$inferSelect
 
@@ -52,7 +52,7 @@ export async function runEncodeInner(
     }
     throw err
   } finally {
-    await Deno.remove(scratchDir, { recursive: true }).catch((err) => {
+    await rm(scratchDir, { recursive: true, force: true }).catch((err) => {
       logger.warn(
         `[queue] failed to remove encode scratch dir ${scratchDir}:`,
         err,
@@ -89,7 +89,7 @@ async function runPipelineInScratch({
   } else {
     const uploadKey = await selectScratchUploadKey(clipId)
     if (!uploadKey) throw new Error("Uploaded source is missing")
-    await Deno.copyFile(scratchUploadPath(uploadKey), sourcePath)
+    await copyFile(scratchUploadPath(uploadKey), sourcePath)
   }
   await ensureClipStillPresent(clipId, runId, signal)
 
@@ -121,19 +121,19 @@ async function runPipelineInScratch({
   const canReuseSource = row.sourceKey === sourceKey
   const sourceAsset = canReuseSource
     ? {
-      storageKey: sourceKey,
-      contentType: sourceContentType,
-      sizeBytes: row.sourceSizeBytes ?? (await Deno.stat(sourcePath)).size,
-      width: probed.width,
-      height: probed.height,
-      videoCodec: probed.videoCodec,
-      audioCodec: probed.audioCodec,
-    }
+        storageKey: sourceKey,
+        contentType: sourceContentType,
+        sizeBytes: row.sourceSizeBytes ?? (await stat(sourcePath)).size,
+        width: probed.width,
+        height: probed.height,
+        videoCodec: probed.videoCodec,
+        audioCodec: probed.audioCodec,
+      }
     : await publishOriginalSource({
-      sourcePath,
-      sourceKey,
-      contentType: sourceContentType,
-    })
+        sourcePath,
+        sourceKey,
+        contentType: sourceContentType,
+      })
   if (!canReuseSource) uploadedKeys.push(sourceKey)
   const [sourcePublished] = await db
     .update(clip)
@@ -215,10 +215,7 @@ async function runPipelineInScratch({
   if (!publishState.updated) throw abortEncode()
   // The clip row now points at the newly published assets. Any previous asset
   // that was not retained is orphaned; prune it best-effort after publish.
-  await pruneStaleClipAssets(row, [
-    sourceAsset.storageKey,
-    thumbKey,
-  ])
+  await pruneStaleClipAssets(row, [sourceAsset.storageKey, thumbKey])
   await cleanupCompletedScratchUpload(clipId)
   completeWork()
   void publishClipUpsert(row.authorId, clipId)

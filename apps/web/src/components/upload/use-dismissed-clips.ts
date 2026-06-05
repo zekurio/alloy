@@ -1,6 +1,6 @@
+import type { QueueClip } from "@workspace/api"
 import * as React from "react"
 
-import type { QueueClip } from "@workspace/api"
 import {
   readLocalStorageItem,
   removeLocalStorageItem,
@@ -49,7 +49,7 @@ export function useDismissedClips(
   serverQueueHydrated: boolean,
 ) {
   const [dismissed, setDismissed] = React.useState<Set<string>>(() =>
-    loadDismissed()
+    loadDismissed(),
   )
 
   React.useEffect(() => {

@@ -1,13 +1,11 @@
-import { AlertCircleIcon, CheckCircle2Icon, XCircleIcon } from "lucide-react"
-
+import type { AdminEncoderCapabilities } from "@workspace/api"
 import { Spinner } from "@workspace/ui/components/spinner"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
-
-import type { AdminEncoderCapabilities } from "@workspace/api"
+import { AlertCircleIcon, CheckCircle2Icon, XCircleIcon } from "lucide-react"
 
 export function FfmpegBadge({
   caps,
@@ -19,10 +17,10 @@ export function FfmpegBadge({
   const tooltipText = error
     ? error
     : caps
-    ? caps.ffmpegOk
-      ? (caps.ffmpegVersion ?? "ffmpeg detected")
-      : "Not found — set FFMPEG_BIN or add ffmpeg to PATH"
-    : "Checking ffmpeg availability"
+      ? caps.ffmpegOk
+        ? (caps.ffmpegVersion ?? "ffmpeg detected")
+        : "Not found — set FFMPEG_BIN or add ffmpeg to PATH"
+      : "Checking ffmpeg availability"
   const failed = error !== null || caps?.ffmpegOk === false
 
   return (
@@ -34,16 +32,18 @@ export function FfmpegBadge({
             : "border-border bg-surface-raised"
         }`}
       >
-        <span className="font-mono font-medium text-foreground-muted">
+        <span className="text-foreground-muted font-mono font-medium">
           ffmpeg
         </span>
-        {error
-          ? <AlertCircleIcon className="size-3.5 text-destructive" />
-          : !caps
-          ? <Spinner className="size-3.5 text-foreground-muted" />
-          : caps.ffmpegOk
-          ? <CheckCircle2Icon className="size-3.5 text-success" />
-          : <XCircleIcon className="size-3.5 text-destructive" />}
+        {error ? (
+          <AlertCircleIcon className="text-destructive size-3.5" />
+        ) : !caps ? (
+          <Spinner className="text-foreground-muted size-3.5" />
+        ) : caps.ffmpegOk ? (
+          <CheckCircle2Icon className="text-success size-3.5" />
+        ) : (
+          <XCircleIcon className="text-destructive size-3.5" />
+        )}
       </TooltipTrigger>
       <TooltipContent side="bottom">{tooltipText}</TooltipContent>
     </Tooltip>

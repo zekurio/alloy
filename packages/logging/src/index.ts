@@ -1,4 +1,6 @@
-type LogWriter = Pick<typeof Deno.stdout, "writeSync">
+import { inspect } from "node:util"
+
+type LogWriter = Pick<NodeJS.WriteStream, "write">
 
 export interface Logger {
   info(...args: unknown[]): void
@@ -6,19 +8,17 @@ export interface Logger {
   error(...args: unknown[]): void
 }
 
-const encoder = new TextEncoder()
-
 function formatLogArg(value: unknown): string {
   if (typeof value === "string") return value
   if (value instanceof Error) {
     return value.stack ?? `${value.name}: ${value.message}`
   }
-  return Deno.inspect(value, { colors: false, depth: 6 })
+  return inspect(value, { colors: false, depth: 6 })
 }
 
 function writeLogLine(writer: LogWriter, args: unknown[]): void {
   try {
-    writer.writeSync(encoder.encode(`${args.map(formatLogArg).join(" ")}\n`))
+    writer.write(`${args.map(formatLogArg).join(" ")}\n`)
   } catch {
     // Logging must not make the primary operation fail.
   }
@@ -26,12 +26,12 @@ function writeLogLine(writer: LogWriter, args: unknown[]): void {
 
 export const logger: Logger = {
   info(...args) {
-    writeLogLine(Deno.stdout, args)
+    writeLogLine(process.stdout, args)
   },
   warn(...args) {
-    writeLogLine(Deno.stderr, args)
+    writeLogLine(process.stderr, args)
   },
   error(...args) {
-    writeLogLine(Deno.stderr, args)
+    writeLogLine(process.stderr, args)
   },
 }

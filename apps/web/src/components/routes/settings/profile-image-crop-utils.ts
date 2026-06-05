@@ -71,8 +71,8 @@ export function clampImageOffset(
   const stageCenterY = cropFrame.stageHeight / 2
   const minX = cropFrame.x + cropFrame.width - stageCenterX - imageBox.width / 2
   const maxX = cropFrame.x - stageCenterX + imageBox.width / 2
-  const minY = cropFrame.y + cropFrame.height - stageCenterY -
-    imageBox.height / 2
+  const minY =
+    cropFrame.y + cropFrame.height - stageCenterY - imageBox.height / 2
   const maxY = cropFrame.y - stageCenterY + imageBox.height / 2
 
   return {
@@ -160,12 +160,10 @@ export function getCropFrame(
   mode: CropMode,
   containedImageBox: { height: number; width: number } | null,
 ): CropFrame {
-  const preferredMaxWidth = mode === "avatar"
-    ? stage.height * 0.78
-    : stage.width
-  const preferredMaxHeight = mode === "avatar"
-    ? stage.height * 0.78
-    : stage.height * 0.54
+  const preferredMaxWidth =
+    mode === "avatar" ? stage.height * 0.78 : stage.width
+  const preferredMaxHeight =
+    mode === "avatar" ? stage.height * 0.78 : stage.height * 0.54
   const maxWidth = Math.min(
     preferredMaxWidth,
     containedImageBox?.width ?? preferredMaxWidth,

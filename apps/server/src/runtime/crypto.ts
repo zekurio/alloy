@@ -28,9 +28,8 @@ export async function hmacSha256(
     false,
     ["sign"],
   )
-  const payloadBytes = typeof payload === "string"
-    ? textEncoder.encode(payload)
-    : payload
+  const payloadBytes =
+    typeof payload === "string" ? textEncoder.encode(payload) : payload
   return new Uint8Array(
     await crypto.subtle.sign("HMAC", key, bytesToArrayBuffer(payloadBytes)),
   )

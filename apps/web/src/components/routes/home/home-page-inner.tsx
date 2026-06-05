@@ -1,10 +1,10 @@
 import { useNavigate, useSearch } from "@tanstack/react-router"
-
+import type { ClipFeedWindow, FeedFilter } from "@workspace/api"
 import { AppMain } from "@workspace/ui/components/app-shell"
 
 import { useRequireAuth } from "@/lib/auth-hooks"
 import type { HomeSearch } from "@/lib/home-search"
-import type { ClipFeedWindow, FeedFilter } from "@workspace/api"
+
 import { FeedChipBar } from "./feed-chip-bar"
 import { FeedSection } from "./feed-section"
 import { TopClipsSection } from "./top-clips-section"
@@ -44,10 +44,8 @@ export function HomePageInner() {
   return (
     <AppMain className="!pt-0">
       <div className="flex w-full flex-col">
-        {
-          /* Top padding lives here, not on AppMain, so the sticky chip bar can
-            pin flush under the header instead of leaving a gap above it. */
-        }
+        {/* Top padding lives here, not on AppMain, so the sticky chip bar can
+            pin flush under the header instead of leaving a gap above it. */}
         <div className="pt-4 md:pt-6">
           <TopClipsSection
             viewerId={viewerId}

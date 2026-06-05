@@ -1,5 +1,4 @@
 import { Link, useLocation } from "@tanstack/react-router"
-
 import { cn } from "@workspace/ui/lib/utils"
 
 import { parseProfilePathname } from "@/lib/profile-path"
@@ -45,7 +44,7 @@ export function ProfileTabsNav({ username }: ProfileTabsNavProps) {
     <nav
       data-slot="tabs-list"
       data-variant="line"
-      className="group/tabs-list mb-5 inline-flex w-full items-center gap-5 border-b border-border text-muted-foreground sm:mb-8"
+      className="group/tabs-list border-border text-muted-foreground mb-5 inline-flex w-full items-center gap-5 border-b sm:mb-8"
     >
       {TABS.map((tab) => {
         const isActive = tab.segment === active

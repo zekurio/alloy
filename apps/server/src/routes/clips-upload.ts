@@ -1,15 +1,17 @@
-import { zValidator } from "./validation"
-import { and, eq } from "drizzle-orm"
-import { Hono } from "hono"
+import { stat } from "node:fs/promises"
 
 import { clip, clipMention, clipUploadTicket, game } from "@workspace/db/schema"
 import { logger } from "@workspace/logging"
+import { and, eq } from "drizzle-orm"
+import { Hono } from "hono"
 
-import { db } from "../db"
-import { publishClipUpsert } from "../clips/events"
-import { deleteClipRowAndAssets } from "../clips/delete"
-import { configStore } from "../config/store"
 import { requireSession } from "../auth/require-session"
+import { deleteClipRowAndAssets } from "../clips/delete"
+import { publishClipUpsert } from "../clips/events"
+import { configStore } from "../config/store"
+import { db } from "../db"
+import { isConfigured as isSteamGridDBConfigured } from "../games/steamgriddb"
+import { enqueueEncode } from "../queue"
 import {
   badRequest,
   conflict,
@@ -18,8 +20,6 @@ import {
   serviceUnavailable,
   success,
 } from "../runtime/http-response"
-import { isConfigured as isSteamGridDBConfigured } from "../games/steamgriddb"
-import { enqueueEncode } from "../queue"
 import {
   clipScratchUploadKey,
   deleteScratchUpload,
@@ -28,6 +28,10 @@ import {
 } from "../uploads/scratch"
 import { IdParam, InitiateBody, UpdateBody } from "./clips-helpers"
 import {
+  selectClipForMutation,
+  updatedClipResponse,
+} from "./clips-upload-access"
+import {
   assertUsableUploadTicket,
   createUploadTickets,
   type InitiateQuotaResult,
@@ -35,10 +39,7 @@ import {
   resolveMentionIds,
   selectLockedQuotaState,
 } from "./clips-upload-helpers"
-import {
-  selectClipForMutation,
-  updatedClipResponse,
-} from "./clips-upload-access"
+import { zValidator } from "./validation"
 
 async function cleanupFailedInitiate(
   clipId: string,
@@ -228,13 +229,13 @@ export const clipsUploadRoutes = new Hono()
         return gone(c, "Upload ticket expired")
       }
 
-      const uploadStat = await Deno.stat(
+      const uploadStat = await stat(
         scratchUploadPath(videoTicket.storageKey),
       ).catch((err) => {
-        if (err instanceof Deno.errors.NotFound) return null
+        if (isNodeErrorCode(err, "ENOENT")) return null
         throw err
       })
-      if (!uploadStat?.isFile) {
+      if (!uploadStat?.isFile()) {
         await deleteScratchUpload(videoTicket.storageKey)
         await markUploadFailed(row.authorId, id, "Upload bytes are missing")
         return badRequest(c, "Upload bytes are missing")
@@ -401,3 +402,7 @@ export const clipsUploadRoutes = new Hono()
     await deleteClipRowAndAssets(row)
     return deleted(c)
   })
+
+function isNodeErrorCode(err: unknown, code: string): boolean {
+  return (err as { code?: string } | null)?.code === code
+}

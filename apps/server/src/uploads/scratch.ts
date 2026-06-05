@@ -1,3 +1,5 @@
+import { mkdir, rmdir, rm } from "node:fs/promises"
+
 import type { AcceptedContentType, UploadTicket } from "@workspace/contracts"
 import { logger } from "@workspace/logging"
 
@@ -51,8 +53,8 @@ export async function deleteScratchUpload(key: string | null): Promise<void> {
   if (!key) return
   const root = scratchRoot()
   const path = scratchUploadPath(key)
-  await Deno.remove(path).catch((err) => {
-    if (!(err instanceof Deno.errors.NotFound)) throw err
+  await rm(path).catch((err) => {
+    if (!isNodeErrorCode(err, "ENOENT")) throw err
   })
   await removeEmptyScratchParents(dirname(path), root)
 }
@@ -75,7 +77,7 @@ export async function deleteScratchUploads(
 
 export async function ensureScratchParent(key: string): Promise<string> {
   const path = scratchUploadPath(key)
-  await Deno.mkdir(dirname(path), { recursive: true })
+  await mkdir(dirname(path), { recursive: true })
   return path
 }
 
@@ -92,12 +94,9 @@ async function removeEmptyScratchParents(
     const rel = relative(root, path)
     if (rel.startsWith("..") || rel.startsWith("/") || rel === "") return
     try {
-      await Deno.remove(path)
+      await rmdir(path)
     } catch (err) {
-      if (
-        err instanceof Deno.errors.NotFound ||
-        isDirectoryNotEmptyError(err)
-      ) {
+      if (isNodeErrorCode(err, "ENOENT") || isDirectoryNotEmptyError(err)) {
         return
       }
       throw err
@@ -107,12 +106,11 @@ async function removeEmptyScratchParents(
 }
 
 function isDirectoryNotEmptyError(err: unknown): boolean {
-  if (!(err instanceof Error)) return false
-  const message = err.message.toLowerCase()
-  return err.name === "DirectoryNotEmpty" ||
-    err.name === "NotEmpty" ||
-    message.includes("directory not empty") ||
-    message.includes("directory is not empty")
+  return isNodeErrorCode(err, "ENOTEMPTY") || isNodeErrorCode(err, "EEXIST")
+}
+
+function isNodeErrorCode(err: unknown, code: string): boolean {
+  return (err as { code?: string } | null)?.code === code
 }
 
 function sourceExtension(contentType: AcceptedContentType): string {

@@ -1,5 +1,3 @@
-import { z } from "zod"
-
 import {
   DEFAULT_GAME_CLASSIFIER_FILENAME,
   DEFAULT_GAME_CLASSIFIER_MODEL_NAME,
@@ -10,12 +8,13 @@ import {
   RUNTIME_CONFIG_VERSION,
   type RuntimeConfig,
 } from "@workspace/contracts"
+import { z } from "zod"
 
 import { randomBase64Url } from "../runtime/crypto"
 import { OAuthProvidersSchema } from "./oauth-schema"
 
-const DEFAULT_MACHINE_LEARNING_URL = Deno.env.get("MACHINE_LEARNING_URL") ??
-  "http://localhost:2662"
+const DEFAULT_MACHINE_LEARNING_URL =
+  process.env.MACHINE_LEARNING_URL ?? "http://localhost:2662"
 
 function randomSecret(): string {
   return randomBase64Url(32)
@@ -55,7 +54,7 @@ const LimitsConfigSchema = z.object({
 })
 
 function envFlag(name: string, fallback: boolean): boolean {
-  const raw = Deno.env.get(name)
+  const raw = process.env[name]
   if (raw === undefined) return fallback
   return ["1", "true", "yes", "on"].includes(raw.trim().toLowerCase())
 }
@@ -140,9 +139,9 @@ const AppearanceConfigSchema = z.object({
 })
 
 export const RuntimeConfigSchema = z.object({
-  runtimeConfigVersion: z.literal(RUNTIME_CONFIG_VERSION).default(
-    RUNTIME_CONFIG_VERSION,
-  ),
+  runtimeConfigVersion: z
+    .literal(RUNTIME_CONFIG_VERSION)
+    .default(RUNTIME_CONFIG_VERSION),
   openRegistrations: z.boolean().default(false),
   setupComplete: z.boolean().default(false),
   passkeyEnabled: z.boolean().default(true),
@@ -153,9 +152,7 @@ export const RuntimeConfigSchema = z.object({
   machineLearning: MachineLearningConfigSchema.default(
     MachineLearningConfigSchema.parse({}),
   ),
-  appearance: AppearanceConfigSchema.default(
-    AppearanceConfigSchema.parse({}),
-  ),
+  appearance: AppearanceConfigSchema.default(AppearanceConfigSchema.parse({})),
 })
 
 export const EncoderConfigPatchSchema = EncoderConfigInnerSchema.partial()
@@ -164,8 +161,8 @@ export const LimitsConfigPatchSchema = LimitsConfigSchema.partial()
 export const IntegrationsSecretPatchSchema = z.object({
   steamgriddbApiKey: z.string().optional(),
 })
-export const MachineLearningConfigPatchSchema = MachineLearningConfigSchema
-  .partial().extend({
+export const MachineLearningConfigPatchSchema =
+  MachineLearningConfigSchema.partial().extend({
     gameClassifier: GameClassifierModelConfigSchema.partial().optional(),
   })
 export const AppearanceConfigPatchSchema = AppearanceConfigSchema.partial()

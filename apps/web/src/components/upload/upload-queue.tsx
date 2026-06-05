@@ -1,4 +1,10 @@
-import * as React from "react"
+import { Button } from "@workspace/ui/components/button"
+import { Progress } from "@workspace/ui/components/progress"
+import {
+  CLIP_MEDIA_CLASS,
+  CLIP_MEDIA_VIEWPORT_CLASS,
+} from "@workspace/ui/lib/media-frame"
+import { cn } from "@workspace/ui/lib/utils"
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -11,14 +17,7 @@ import {
   UploadIcon,
   XIcon,
 } from "lucide-react"
-
-import { Button } from "@workspace/ui/components/button"
-import { Progress } from "@workspace/ui/components/progress"
-import {
-  CLIP_MEDIA_CLASS,
-  CLIP_MEDIA_VIEWPORT_CLASS,
-} from "@workspace/ui/lib/media-frame"
-import { cn } from "@workspace/ui/lib/utils"
+import * as React from "react"
 
 export type QueueItemStatus =
   | "uploading"
@@ -88,122 +87,110 @@ export function UploadQueueContent({
   return (
     <div className="flex flex-col">
       <header className="mb-2 flex items-center justify-between px-1">
-        <h2 className="text-sm font-semibold text-foreground">Uploads</h2>
+        <h2 className="text-foreground text-sm font-semibold">Uploads</h2>
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-foreground-muted tabular-nums">
+          <span className="text-foreground-muted text-xs font-semibold tabular-nums">
             {isUnavailable && queue.length === 0
               ? "unavailable"
               : isLoading && queue.length === 0
-              ? "loading"
-              : queue.length === 0
-              ? "empty"
-              : `${queue.length} ${queue.length === 1 ? "item" : "items"}`}
+                ? "loading"
+                : queue.length === 0
+                  ? "empty"
+                  : `${queue.length} ${queue.length === 1 ? "item" : "items"}`}
           </span>
         </div>
       </header>
 
       <div className="-mx-1 flex flex-col">
-        {isUnavailable && queue.length === 0
-          ? (
-            <div className="mx-1 flex flex-col items-center justify-center gap-2 rounded-md border border-border px-6 py-8 text-center">
-              <CircleAlertIcon
-                aria-hidden
-                className="size-4 text-foreground-muted"
-              />
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground">
-                  Upload queue unavailable
-                </p>
-                <p className="text-xs font-semibold text-foreground-muted">
-                  Reopen uploads after the connection recovers.
-                </p>
-              </div>
-            </div>
-          )
-          : isLoading && queue.length === 0
-          ? (
-            <div className="mx-1 flex flex-col items-center justify-center gap-2 rounded-md border border-border px-6 py-8 text-center">
-              <Loader2Icon
-                aria-hidden
-                className="size-4 animate-spin text-foreground-muted"
-              />
-              <p className="text-sm font-medium text-foreground">
-                Loading uploads
+        {isUnavailable && queue.length === 0 ? (
+          <div className="border-border mx-1 flex flex-col items-center justify-center gap-2 rounded-md border px-6 py-8 text-center">
+            <CircleAlertIcon
+              aria-hidden
+              className="text-foreground-muted size-4"
+            />
+            <div className="space-y-1">
+              <p className="text-foreground text-sm font-medium">
+                Upload queue unavailable
+              </p>
+              <p className="text-foreground-muted text-xs font-semibold">
+                Reopen uploads after the connection recovers.
               </p>
             </div>
-          )
-          : queue.length === 0
-          ? (
-            <div className="mx-1 flex flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border px-6 py-8 text-center">
-              <p className="text-sm font-medium text-foreground">
-                Nothing in the queue
-              </p>
-              <p className="text-xs font-semibold text-foreground-muted">
-                Uploaded clips will show up here.
-              </p>
-            </div>
-          )
-          : (
-            visible.map((item, index) => (
-              <QueueRow key={item.id} item={item} first={index === 0} />
-            ))
-          )}
+          </div>
+        ) : isLoading && queue.length === 0 ? (
+          <div className="border-border mx-1 flex flex-col items-center justify-center gap-2 rounded-md border px-6 py-8 text-center">
+            <Loader2Icon
+              aria-hidden
+              className="text-foreground-muted size-4 animate-spin"
+            />
+            <p className="text-foreground text-sm font-medium">
+              Loading uploads
+            </p>
+          </div>
+        ) : queue.length === 0 ? (
+          <div className="border-border mx-1 flex flex-col items-center justify-center gap-1 rounded-md border border-dashed px-6 py-8 text-center">
+            <p className="text-foreground text-sm font-medium">
+              Nothing in the queue
+            </p>
+            <p className="text-foreground-muted text-xs font-semibold">
+              Uploaded clips will show up here.
+            </p>
+          </div>
+        ) : (
+          visible.map((item, index) => (
+            <QueueRow key={item.id} item={item} first={index === 0} />
+          ))
+        )}
       </div>
 
-      {pageCount > 1
-        ? (
-          <div className="mt-2 flex items-center justify-between gap-2 px-1 text-xs font-semibold text-foreground-muted">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Previous page"
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0}
-            >
-              <ChevronLeftIcon />
-            </Button>
-            <span className="tabular-nums">
-              {page + 1} / {pageCount}
-            </span>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Next page"
-              onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-              disabled={page >= pageCount - 1}
-            >
-              <ChevronRightIcon />
-            </Button>
-          </div>
-        )
-        : null}
+      {pageCount > 1 ? (
+        <div className="text-foreground-muted mt-2 flex items-center justify-between gap-2 px-1 text-xs font-semibold">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Previous page"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+          >
+            <ChevronLeftIcon />
+          </Button>
+          <span className="tabular-nums">
+            {page + 1} / {pageCount}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Next page"
+            onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+            disabled={page >= pageCount - 1}
+          >
+            <ChevronRightIcon />
+          </Button>
+        </div>
+      ) : null}
 
-      <div className="grid auto-cols-fr grid-flow-col items-center gap-2 border-t border-border pt-2">
-        {completedCount > 0 && onClearCompleted
-          ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClearCompleted}
-              className="w-full text-foreground-muted"
-            >
-              Clear completed
-            </Button>
-          )
-          : null}
-        {onClose
-          ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label="Close uploads"
-              onClick={onClose}
-              className="w-full text-foreground-muted"
-            >
-              Close
-            </Button>
-          )
-          : null}
+      <div className="border-border grid auto-cols-fr grid-flow-col items-center gap-2 border-t pt-2">
+        {completedCount > 0 && onClearCompleted ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClearCompleted}
+            className="text-foreground-muted w-full"
+          >
+            Clear completed
+          </Button>
+        ) : null}
+        {onClose ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Close uploads"
+            onClick={onClose}
+            className="text-foreground-muted w-full"
+          >
+            Close
+          </Button>
+        ) : null}
         <Button
           variant="primary"
           size="sm"
@@ -243,29 +230,25 @@ function QueueRow({ item, first }: { item: QueueItem; first: boolean }) {
 
         <div className="flex min-w-0 flex-1 flex-col gap-1.5 pr-9">
           <div className="flex min-w-0 items-baseline gap-2">
-            <span className="truncate text-sm font-semibold tracking-[-0.01em] text-foreground">
+            <span className="text-foreground truncate text-sm font-semibold tracking-[-0.01em]">
               {item.title}
             </span>
           </div>
-          <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-foreground-muted">
+          <div className="text-foreground-muted flex min-w-0 items-center gap-1.5 text-xs font-medium">
             <span className={cn("font-medium uppercase", tone.label)}>
               {STATUS_LABELS[item.status]}
             </span>
-            {showPct
-              ? (
-                <span className={cn("font-semibold tabular-nums", tone.label)}>
-                  {item.progress}%
-                </span>
-              )
-              : null}
+            {showPct ? (
+              <span className={cn("font-semibold tabular-nums", tone.label)}>
+                {item.progress}%
+              </span>
+            ) : null}
           </div>
-          {item.status === "failed" && item.detail
-            ? (
-              <p className="line-clamp-2 text-xs leading-snug font-medium text-destructive/90">
-                {item.detail}
-              </p>
-            )
-            : null}
+          {item.status === "failed" && item.detail ? (
+            <p className="text-destructive/90 line-clamp-2 text-xs leading-snug font-medium">
+              {item.detail}
+            </p>
+          ) : null}
         </div>
 
         <div
@@ -303,9 +286,7 @@ function QueueThumb({
   const [errored, setErrored] = React.useState(false)
   const [loadedSrc, setLoadedSrc] = React.useState<string | null>(null)
   const [retryAttempt, setRetryAttempt] = React.useState(0)
-  const retryTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  )
+  const retryTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const clearRetryTimer = React.useCallback(() => {
     if (!retryTimerRef.current) return
@@ -322,12 +303,10 @@ function QueueThumb({
 
   React.useEffect(() => clearRetryTimer, [clearRetryTimer])
 
-  const fallbackSrc = fallbackUrl && (!thumbUrl || loadedSrc !== thumbUrl)
-    ? fallbackUrl
-    : null
-  const serverThumbSrc = thumbUrl && !errored
-    ? retryableImageUrl(thumbUrl, retryAttempt)
-    : null
+  const fallbackSrc =
+    fallbackUrl && (!thumbUrl || loadedSrc !== thumbUrl) ? fallbackUrl : null
+  const serverThumbSrc =
+    thumbUrl && !errored ? retryableImageUrl(thumbUrl, retryAttempt) : null
 
   return (
     <div
@@ -337,52 +316,47 @@ function QueueThumb({
         "h-10 w-[calc(2.5rem*16/9)] shrink-0 rounded-sm",
       )}
       style={{
-        background:
-          `linear-gradient(135deg, oklch(0.3 0.1 ${hue}) 0%, oklch(0.15 0.05 ${hue}) 70%, oklch(0.08 0 0) 100%)`,
+        background: `linear-gradient(135deg, oklch(0.3 0.1 ${hue}) 0%, oklch(0.15 0.05 ${hue}) 70%, oklch(0.08 0 0) 100%)`,
       }}
     >
-      {fallbackSrc
-        ? (
-          <img
-            src={fallbackSrc}
-            alt=""
-            className={CLIP_MEDIA_CLASS}
-            decoding="async"
-          />
-        )
-        : null}
-      {serverThumbSrc
-        ? (
-          <img
-            src={serverThumbSrc}
-            alt=""
-            className={cn(
-              CLIP_MEDIA_CLASS,
-              loadedSrc !== thumbUrl && "opacity-0",
-            )}
-            loading="lazy"
-            decoding="async"
-            onLoad={() => {
-              clearRetryTimer()
-              setLoadedSrc(thumbUrl)
-              setErrored(false)
-              onLoad?.()
-            }}
-            onError={() => {
-              const retryDelay = THUMB_RETRY_DELAYS_MS[retryAttempt]
-              if (retryDelay === undefined) {
-                setErrored(true)
-                return
-              }
-              if (retryTimerRef.current) return
-              retryTimerRef.current = setTimeout(() => {
-                retryTimerRef.current = null
-                setRetryAttempt((attempt) => attempt + 1)
-              }, retryDelay)
-            }}
-          />
-        )
-        : null}
+      {fallbackSrc ? (
+        <img
+          src={fallbackSrc}
+          alt=""
+          className={CLIP_MEDIA_CLASS}
+          decoding="async"
+        />
+      ) : null}
+      {serverThumbSrc ? (
+        <img
+          src={serverThumbSrc}
+          alt=""
+          className={cn(
+            CLIP_MEDIA_CLASS,
+            loadedSrc !== thumbUrl && "opacity-0",
+          )}
+          loading="lazy"
+          decoding="async"
+          onLoad={() => {
+            clearRetryTimer()
+            setLoadedSrc(thumbUrl)
+            setErrored(false)
+            onLoad?.()
+          }}
+          onError={() => {
+            const retryDelay = THUMB_RETRY_DELAYS_MS[retryAttempt]
+            if (retryDelay === undefined) {
+              setErrored(true)
+              return
+            }
+            if (retryTimerRef.current) return
+            retryTimerRef.current = setTimeout(() => {
+              retryTimerRef.current = null
+              setRetryAttempt((attempt) => attempt + 1)
+            }, retryDelay)
+          }}
+        />
+      ) : null}
     </div>
   )
 }
@@ -411,9 +385,10 @@ function RowAction({ item }: { item: QueueItem }) {
     )
   }
   if (status === "encoding" || status === "queued" || status === "failed") {
-    const label = status === "failed"
-      ? `Remove failed clip ${title}`
-      : `Remove ${title} from queue`
+    const label =
+      status === "failed"
+        ? `Remove failed clip ${title}`
+        : `Remove ${title} from queue`
     return (
       <Button
         variant="ghost"
@@ -428,42 +403,36 @@ function RowAction({ item }: { item: QueueItem }) {
   if (status === "published") {
     return (
       <>
-        {item.onCopyLink
-          ? (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Copy link to ${title}`}
-              onClick={item.onCopyLink}
-            >
-              <CopyIcon />
-            </Button>
-          )
-          : null}
-        {item.onOpen
-          ? (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Open ${title}`}
-              onClick={item.onOpen}
-            >
-              <ExternalLinkIcon />
-            </Button>
-          )
-          : null}
-        {item.onDismiss
-          ? (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Dismiss ${title} from queue`}
-              onClick={item.onDismiss}
-            >
-              <XIcon />
-            </Button>
-          )
-          : null}
+        {item.onCopyLink ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Copy link to ${title}`}
+            onClick={item.onCopyLink}
+          >
+            <CopyIcon />
+          </Button>
+        ) : null}
+        {item.onOpen ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Open ${title}`}
+            onClick={item.onOpen}
+          >
+            <ExternalLinkIcon />
+          </Button>
+        ) : null}
+        {item.onDismiss ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Dismiss ${title} from queue`}
+            onClick={item.onDismiss}
+          >
+            <XIcon />
+          </Button>
+        ) : null}
       </>
     )
   }

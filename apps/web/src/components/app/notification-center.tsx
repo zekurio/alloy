@@ -1,17 +1,4 @@
-import * as React from "react"
 import { Link } from "@tanstack/react-router"
-import {
-  BellIcon,
-  CheckIcon,
-  CircleAlertIcon,
-  FilmIcon,
-  HeartIcon,
-  MessageSquareIcon,
-  PinIcon,
-  Trash2Icon,
-  UserPlusIcon,
-} from "lucide-react"
-
 import { clipThumbnailUrl, type NotificationRow } from "@workspace/api"
 import {
   Avatar,
@@ -36,17 +23,27 @@ import {
   CLIP_MEDIA_VIEWPORT_CLASS,
 } from "@workspace/ui/lib/media-frame"
 import { cn } from "@workspace/ui/lib/utils"
+import {
+  BellIcon,
+  CheckIcon,
+  CircleAlertIcon,
+  FilmIcon,
+  HeartIcon,
+  MessageSquareIcon,
+  PinIcon,
+  Trash2Icon,
+  UserPlusIcon,
+} from "lucide-react"
+import * as React from "react"
 
-import { EmptyState } from "@/components/feedback/empty-state"
 import {
   announceFloatingSurfaceOpen,
   type FloatingSurface,
   useFloatingSurfaceOpenListener,
 } from "@/components/app/floating-surface-events"
+import { EmptyState } from "@/components/feedback/empty-state"
 import { formatRelativeTime } from "@/lib/date-format"
 import { apiOrigin } from "@/lib/env"
-import { useSuspenseSession } from "@/lib/session-suspense"
-import { displayName, userAvatar } from "@/lib/user-display"
 import {
   notificationHref,
   notificationText,
@@ -57,6 +54,8 @@ import {
   useNotificationsQuery,
   useNotificationStream,
 } from "@/lib/notification-queries"
+import { useSuspenseSession } from "@/lib/session-suspense"
+import { displayName, userAvatar } from "@/lib/user-display"
 
 const NOTIFICATION_GLASS_STYLE = {
   /* Row tint stays opaque (rendered inside the blurred surface, no
@@ -98,14 +97,12 @@ export function NotificationCenter() {
     <Button variant="ghost" size="icon" aria-label="Notifications">
       <span className="relative inline-flex">
         <BellIcon className="size-5" />
-        {unreadCount > 0
-          ? (
-            <span
-              aria-hidden
-              className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-accent"
-            />
-          )
-          : null}
+        {unreadCount > 0 ? (
+          <span
+            aria-hidden
+            className="bg-accent absolute -top-0.5 -right-0.5 size-2 rounded-full"
+          />
+        ) : null}
       </span>
     </Button>
   )
@@ -177,57 +174,53 @@ function NotificationCenterContent({
   return (
     <section className="flex flex-col">
       <header className="mb-2 flex items-center justify-between px-1">
-        <h2 className="text-sm font-semibold text-foreground">Notifications</h2>
-        <span className="text-xs font-semibold text-foreground-muted tabular-nums">
+        <h2 className="text-foreground text-sm font-semibold">Notifications</h2>
+        <span className="text-foreground-muted text-xs font-semibold tabular-nums">
           {unreadCount === 0 ? "all read" : `${unreadCount} unread`}
         </span>
       </header>
 
       <div className="-mx-1 flex max-h-[min(520px,calc(100dvh-14rem))] flex-col overflow-y-auto">
-        {isLoading
-          ? <NotificationLoadingState />
-          : items.length === 0
-          ? <NotificationEmptyState />
-          : (
-            items.map((item, index) => (
-              <NotificationRow
-                key={item.id}
-                item={item}
-                first={index === 0}
-                onClose={onClose}
-              />
-            ))
-          )}
+        {isLoading ? (
+          <NotificationLoadingState />
+        ) : items.length === 0 ? (
+          <NotificationEmptyState />
+        ) : (
+          items.map((item, index) => (
+            <NotificationRow
+              key={item.id}
+              item={item}
+              first={index === 0}
+              onClose={onClose}
+            />
+          ))
+        )}
       </div>
 
-      <div className="flex justify-end border-t border-border pt-2">
+      <div className="border-border flex justify-end border-t pt-2">
         <div className="flex items-center gap-2">
-          {unreadCount > 0
-            ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={markAllRead.isPending}
-                onClick={() => markAllRead.mutate()}
-                className="text-foreground-muted"
-              >
-                Mark all read
-              </Button>
-            )
-            : null}
-          {items.length > 0
-            ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={clearNotifications.isPending}
-                onClick={() => clearNotifications.mutate()}
-                className="text-foreground-muted"
-              >
-                Clear all
-              </Button>
-            )
-            : null}
+          {unreadCount > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={markAllRead.isPending}
+              onClick={() => markAllRead.mutate()}
+              className="text-foreground-muted"
+            >
+              Mark all read
+            </Button>
+          ) : null}
+          {items.length > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={clearNotifications.isPending}
+              onClick={() => clearNotifications.mutate()}
+              className="text-foreground-muted"
+            >
+              Clear all
+            </Button>
+          ) : null}
           <Button
             variant="ghost"
             size="sm"
@@ -263,9 +256,10 @@ function NotificationRow({
     onClose()
   }
 
-  const thumbSrc = item.clip && item.clip.hasThumb
-    ? clipThumbnailUrl(item.clip.id, apiOrigin(), item.clip.updatedAt)
-    : null
+  const thumbSrc =
+    item.clip && item.clip.hasThumb
+      ? clipThumbnailUrl(item.clip.id, apiOrigin(), item.clip.updatedAt)
+      : null
 
   return (
     <article
@@ -280,58 +274,50 @@ function NotificationRow({
       <NotificationLeading item={item} unread={unread} />
 
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        {href
-          ? (
-            <Link
-              to={href}
-              className="line-clamp-2 text-sm leading-snug font-semibold tracking-[-0.01em] text-foreground hover:underline"
-              onClick={handleNavigate}
-            >
-              {text.title}
-            </Link>
-          )
-          : (
-            <span className="line-clamp-2 text-sm leading-snug font-semibold tracking-[-0.01em] text-foreground">
-              {text.title}
+        {href ? (
+          <Link
+            to={href}
+            className="text-foreground line-clamp-2 text-sm leading-snug font-semibold tracking-[-0.01em] hover:underline"
+            onClick={handleNavigate}
+          >
+            {text.title}
+          </Link>
+        ) : (
+          <span className="text-foreground line-clamp-2 text-sm leading-snug font-semibold tracking-[-0.01em]">
+            {text.title}
+          </span>
+        )}
+        <div className="text-foreground-muted flex min-w-0 items-center gap-1.5 text-xs">
+          {text.body ? (
+            <span className="line-clamp-1 min-w-0">{text.body}</span>
+          ) : null}
+          {text.body ? (
+            <span aria-hidden className="text-foreground-faint">
+              ·
             </span>
-          )}
-        <div className="flex min-w-0 items-center gap-1.5 text-xs text-foreground-muted">
-          {text.body
-            ? <span className="line-clamp-1 min-w-0">{text.body}</span>
-            : null}
-          {text.body
-            ? (
-              <span aria-hidden className="text-foreground-faint">
-                ·
-              </span>
-            )
-            : null}
+          ) : null}
           <span className="shrink-0 tabular-nums">
             {formatRelativeTime(item.createdAt)}
           </span>
         </div>
       </div>
 
-      {thumbSrc
-        ? (
-          href
-            ? (
-              <Link
-                to={href}
-                aria-label={text.title}
-                onClick={handleNavigate}
-                className="shrink-0"
-              >
-                <NotificationThumb src={thumbSrc} />
-              </Link>
-            )
-            : (
-              <div className="shrink-0">
-                <NotificationThumb src={thumbSrc} />
-              </div>
-            )
+      {thumbSrc ? (
+        href ? (
+          <Link
+            to={href}
+            aria-label={text.title}
+            onClick={handleNavigate}
+            className="shrink-0"
+          >
+            <NotificationThumb src={thumbSrc} />
+          </Link>
+        ) : (
+          <div className="shrink-0">
+            <NotificationThumb src={thumbSrc} />
+          </div>
         )
-        : null}
+      ) : null}
 
       <div
         className={cn(
@@ -342,19 +328,17 @@ function NotificationRow({
           "max-sm:static max-sm:mt-0.5 max-sm:opacity-100",
         )}
       >
-        {unread
-          ? (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Mark as read: ${text.title}`}
-              disabled={markRead.isPending}
-              onClick={() => markRead.mutate(item.id)}
-            >
-              <CheckIcon />
-            </Button>
-          )
-          : null}
+        {unread ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Mark as read: ${text.title}`}
+            disabled={markRead.isPending}
+            onClick={() => markRead.mutate(item.id)}
+          >
+            <CheckIcon />
+          </Button>
+        ) : null}
         <Button
           variant="ghost"
           size="icon-sm"
@@ -397,42 +381,38 @@ function NotificationLeading({
 }) {
   const Icon = ICON_BY_KIND[item.type]
 
-  const tile = item.actor
-    ? (
-      (() => {
-        const name = displayName(item.actor)
-        const avatar = userAvatar(item.actor)
-        return (
-          <Avatar
-            size="md"
-            className="shrink-0"
-            style={{ background: avatar.bg, color: avatar.fg }}
-          >
-            {avatar.src ? <AvatarImage src={avatar.src} alt={name} /> : null}
-            <AvatarFallback style={{ background: avatar.bg, color: avatar.fg }}>
-              {avatar.initials}
-            </AvatarFallback>
-          </Avatar>
-        )
-      })()
-    )
-    : (
-      <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-surface-raised text-foreground-muted">
-        <Icon className="size-3.5" />
-      </div>
-    )
+  const tile = item.actor ? (
+    (() => {
+      const name = displayName(item.actor)
+      const avatar = userAvatar(item.actor)
+      return (
+        <Avatar
+          size="md"
+          className="shrink-0"
+          style={{ background: avatar.bg, color: avatar.fg }}
+        >
+          {avatar.src ? <AvatarImage src={avatar.src} alt={name} /> : null}
+          <AvatarFallback style={{ background: avatar.bg, color: avatar.fg }}>
+            {avatar.initials}
+          </AvatarFallback>
+        </Avatar>
+      )
+    })()
+  ) : (
+    <div className="border-border bg-surface-raised text-foreground-muted flex size-7 shrink-0 items-center justify-center rounded-md border">
+      <Icon className="size-3.5" />
+    </div>
+  )
 
   return (
     <div className="relative mt-0.5 shrink-0">
       {tile}
-      {unread
-        ? (
-          <span
-            aria-hidden
-            className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-accent"
-          />
-        )
-        : null}
+      {unread ? (
+        <span
+          aria-hidden
+          className="bg-accent absolute -top-0.5 -right-0.5 size-2 rounded-full"
+        />
+      ) : null}
     </div>
   )
 }
@@ -440,7 +420,7 @@ function NotificationLeading({
 function NotificationEmptyState() {
   return (
     <EmptyState
-      className="border border-dashed border-border px-6"
+      className="border-border border border-dashed px-6"
       hint="New notifications will show up here."
       size="sm"
       title="Nothing here yet"
@@ -450,7 +430,7 @@ function NotificationEmptyState() {
 
 function NotificationLoadingState() {
   return (
-    <div className="grid place-items-center rounded-lg border border-border px-3 py-6 text-foreground-muted">
+    <div className="border-border text-foreground-muted grid place-items-center rounded-lg border px-3 py-6">
       <Spinner />
     </div>
   )

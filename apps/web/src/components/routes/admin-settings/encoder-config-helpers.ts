@@ -1,16 +1,15 @@
-import type * as React from "react"
-
 import {
   type AdminEncoderConfig,
   type AdminRuntimeConfig,
   ENCODER_HWACCELS,
   type EncoderHwaccel,
 } from "@workspace/api"
-
 import { toast } from "@workspace/ui/lib/toast"
+import type * as React from "react"
 
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
+
 import { isAllowedString, trimString } from "./shared"
 
 export const HWACCEL_LABELS: Record<EncoderHwaccel, string> = {
@@ -46,7 +45,7 @@ export function encoderConfigsEqual(
 ): boolean {
   return (
     JSON.stringify(normalizeEncoderConfig(left)) ===
-      JSON.stringify(normalizeEncoderConfig(right))
+    JSON.stringify(normalizeEncoderConfig(right))
   )
 }
 

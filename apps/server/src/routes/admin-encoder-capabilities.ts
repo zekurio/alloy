@@ -1,3 +1,5 @@
+import { spawn } from "node:child_process"
+
 import {
   type AdminEncoderCapabilities as EncoderCapabilities,
   ENCODER_CODECS,
@@ -152,11 +154,7 @@ function encoderSmokeTestArgs(
   encoder: string,
   encoderConfig: { qsvDevice: string; vaapiDevice: string },
 ): string[] {
-  const args = [
-    "-hide_banner",
-    "-loglevel",
-    "error",
-  ]
+  const args = ["-hide_banner", "-loglevel", "error"]
   if (hwaccel === "qsv") {
     args.push("-qsv_device", encoderConfig.qsvDevice)
   } else if (hwaccel === "vaapi") {
@@ -174,15 +172,7 @@ function encoderSmokeTestArgs(
   if (hwaccel === "vaapi") {
     args.push("-vf", "format=nv12,hwupload_vaapi")
   }
-  args.push(
-    "-c:v",
-    encoder,
-    "-b:v",
-    "1000000",
-    "-f",
-    "null",
-    "-",
-  )
+  args.push("-c:v", encoder, "-b:v", "1000000", "-f", "null", "-")
   return args
 }
 
@@ -193,15 +183,13 @@ async function runSmokeTest(
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 8_000)
   try {
-    const output = await new Deno.Command(bin, {
-      args: [...args],
-      stdin: "null",
-      stdout: "null",
-      stderr: "piped",
+    const output = await runProcess(bin, args, {
       signal: controller.signal,
-    }).output()
-    if (output.success) return { ok: true }
-    const stderr = new TextDecoder().decode(output.stderr).trim()
+      stdout: false,
+      stderr: true,
+    })
+    if (output.code === 0) return { ok: true }
+    const stderr = output.stderr.trim()
     return {
       ok: false,
       reason: summarizeFfmpegFailure(stderr) || `${bin} exited ${output.code}`,
@@ -267,14 +255,54 @@ async function runCapture(
   bin: string,
   args: ReadonlyArray<string>,
 ): Promise<string> {
-  const output = await new Deno.Command(bin, {
-    args: [...args],
-    stdin: "null",
-    stdout: "piped",
-    stderr: "null",
-  }).output()
-  if (!output.success) {
+  const output = await runProcess(bin, args, { stdout: true, stderr: false })
+  if (output.code !== 0) {
     throw new Error(`${bin} exited ${output.code}`)
   }
-  return new TextDecoder().decode(output.stdout)
+  return output.stdout
+}
+
+async function runProcess(
+  bin: string,
+  args: ReadonlyArray<string>,
+  opts: {
+    signal?: AbortSignal
+    stdout: boolean
+    stderr: boolean
+  },
+): Promise<{ code: number; stdout: string; stderr: string }> {
+  const child = spawn(bin, [...args], {
+    signal: opts.signal,
+    stdio: [
+      "ignore",
+      opts.stdout ? "pipe" : "ignore",
+      opts.stderr ? "pipe" : "ignore",
+    ],
+  })
+  const exit = new Promise<number>((resolve, reject) => {
+    child.once("error", reject)
+    child.once("close", (code) => resolve(code ?? 1))
+  })
+  const decoder = new TextDecoder()
+  let stdout = ""
+  let stderr = ""
+  await Promise.all([
+    (async () => {
+      if (!child.stdout) return
+      for await (const chunk of child.stdout) {
+        stdout += decoder.decode(chunk, { stream: true })
+      }
+    })(),
+    (async () => {
+      if (!child.stderr) return
+      for await (const chunk of child.stderr) {
+        stderr += decoder.decode(chunk, { stream: true })
+      }
+    })(),
+  ])
+  return {
+    code: await exit,
+    stdout,
+    stderr,
+  }
 }

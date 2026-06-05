@@ -1,3 +1,5 @@
+import { test } from "node:test"
+
 import { validateAdminRuntimeConfig } from "./runtime-config"
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -52,24 +54,18 @@ function adminRuntimeConfig() {
   }
 }
 
-Deno.test("validateAdminRuntimeConfig accepts Intel low-power encoder booleans", () => {
+test("validateAdminRuntimeConfig accepts Intel low-power encoder booleans", () => {
   const config = adminRuntimeConfig()
   config.encoder.intelLowPowerH264 = true
   config.encoder.intelLowPowerHevc = true
 
   const parsed = validateAdminRuntimeConfig(config)
 
-  assert(
-    parsed.encoder.intelLowPowerH264,
-    "H.264 low-power should round-trip",
-  )
-  assert(
-    parsed.encoder.intelLowPowerHevc,
-    "HEVC low-power should round-trip",
-  )
+  assert(parsed.encoder.intelLowPowerH264, "H.264 low-power should round-trip")
+  assert(parsed.encoder.intelLowPowerHevc, "HEVC low-power should round-trip")
 })
 
-Deno.test("validateAdminRuntimeConfig rejects missing Intel low-power encoder booleans", () => {
+test("validateAdminRuntimeConfig rejects missing Intel low-power encoder booleans", () => {
   const config = adminRuntimeConfig()
   delete (config.encoder as Partial<typeof config.encoder>).intelLowPowerH264
 

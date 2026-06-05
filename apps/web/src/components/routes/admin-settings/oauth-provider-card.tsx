@@ -1,6 +1,4 @@
-import * as React from "react"
-import { PencilIcon, PlusIcon, Trash2Icon, UserKeyIcon } from "lucide-react"
-
+import type { AdminOAuthProvider, AdminRuntimeConfig } from "@workspace/api"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,12 +20,13 @@ import {
 } from "@workspace/ui/components/section"
 import { Switch } from "@workspace/ui/components/switch"
 import { toast } from "@workspace/ui/lib/toast"
-
-import type { AdminOAuthProvider, AdminRuntimeConfig } from "@workspace/api"
+import { PencilIcon, PlusIcon, Trash2Icon, UserKeyIcon } from "lucide-react"
+import * as React from "react"
 
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 import { publishRuntimeConfigUpdate } from "@/lib/runtime-config-events"
+
 import { FormGroup } from "./form-group"
 import { OAuthCustomProviderDialog } from "./oauth-custom-provider-dialog"
 import {
@@ -101,7 +100,9 @@ export function OAuthProviderCard({
     if (pendingAction) return
     await persistProvider(
       providers.map((provider) =>
-        provider.providerId === providerId ? { ...provider, enabled } : provider
+        provider.providerId === providerId
+          ? { ...provider, enabled }
+          : provider,
       ),
       enabled ? "Provider enabled" : "Provider disabled",
     )
@@ -118,11 +119,13 @@ export function OAuthProviderCard({
   async function saveProvider(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!draft || pendingAction) return
-    const currentProvider = providers.find((provider) =>
-      provider.providerId === editingProviderId
+    const currentProvider = providers.find(
+      (provider) => provider.providerId === editingProviderId,
     )
     if (
-      editing && currentProvider && oauthProvidersEqual(draft, currentProvider)
+      editing &&
+      currentProvider &&
+      oauthProvidersEqual(draft, currentProvider)
     ) {
       closeDialog()
       return
@@ -130,10 +133,10 @@ export function OAuthProviderCard({
     const submissionProvider = toSubmissionProvider(draft)
     const nextProviders = editing
       ? providers.map((provider) =>
-        provider.providerId === editingProviderId
-          ? submissionProvider
-          : provider
-      )
+          provider.providerId === editingProviderId
+            ? submissionProvider
+            : provider,
+        )
       : [...providers, submissionProvider]
     const ok = await persistProvider(
       nextProviders,
@@ -153,10 +156,14 @@ export function OAuthProviderCard({
   const currentProvider = draft
     ? providers.find((provider) => provider.providerId === editingProviderId)
     : undefined
-  const providerChanged = !editing || !draft || !currentProvider ||
+  const providerChanged =
+    !editing ||
+    !draft ||
+    !currentProvider ||
     !oauthProvidersEqual(draft, currentProvider)
-  const enabledProviderCount = providers.filter((provider) => provider.enabled)
-    .length
+  const enabledProviderCount = providers.filter(
+    (provider) => provider.enabled,
+  ).length
 
   return (
     <>
@@ -183,108 +190,108 @@ export function OAuthProviderCard({
               </Button>
             }
           >
-            {providers.length > 0
-              ? (
-                <List>
-                  {providers.map((provider) => (
-                    <ListItem key={provider.providerId}>
-                      <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                        <span
-                          className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border"
-                          style={{
-                            backgroundColor: provider.buttonColor,
-                            color: provider.buttonTextColor,
-                          }}
-                        >
-                          {provider.iconUrl
-                            ? (
-                              <img
-                                src={provider.iconUrl}
-                                alt=""
-                                className="size-4 object-contain"
-                              />
-                            )
-                            : <UserKeyIcon className="size-4" />}
-                        </span>
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium">
-                            {provider.displayName}
-                          </div>
-                          <p className="truncate text-xs text-foreground-dim">
-                            {provider.providerId}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex shrink-0 items-center gap-1">
-                        <Switch
-                          checked={provider.enabled}
-                          disabled={disabled ||
-                            (provider.enabled &&
-                              enabledProviderCount <= 1 &&
-                              !config.passkeyEnabled)}
-                          onCheckedChange={(enabled) =>
-                            void toggleEnabled(provider.providerId, enabled)}
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          disabled={disabled}
-                          onClick={() =>
-                            openEditProvider(provider)}
-                        >
-                          <PencilIcon />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger
-                            render={
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                disabled={disabled}
-                              >
-                                <Trash2Icon />
-                              </Button>
-                            }
+            {providers.length > 0 ? (
+              <List>
+                {providers.map((provider) => (
+                  <ListItem key={provider.providerId}>
+                    <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                      <span
+                        className="border-border inline-flex size-8 shrink-0 items-center justify-center rounded-md border"
+                        style={{
+                          backgroundColor: provider.buttonColor,
+                          color: provider.buttonTextColor,
+                        }}
+                      >
+                        {provider.iconUrl ? (
+                          <img
+                            src={provider.iconUrl}
+                            alt=""
+                            className="size-4 object-contain"
                           />
-                          <AlertDialogContent>
-                            <AlertDialogHeader className="place-items-start text-left">
-                              <AlertDialogTitle>
-                                Remove OAuth provider?
-                              </AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This disables sign-in through{" "}
-                                {provider.displayName}. You can add it back
-                                later.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter className="flex-row justify-end">
-                              <AlertDialogCancel disabled={disabled}>
-                                Cancel
-                              </AlertDialogCancel>
-                              <AlertDialogAction
-                                variant="destructive"
-                                onClick={() =>
-                                  removeProvider(provider.providerId)}
-                                disabled={disabled}
-                              >
-                                {disabled ? "Removing…" : "Remove provider"}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        ) : (
+                          <UserKeyIcon className="size-4" />
+                        )}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">
+                          {provider.displayName}
+                        </div>
+                        <p className="text-foreground-dim truncate text-xs">
+                          {provider.providerId}
+                        </p>
                       </div>
-                    </ListItem>
-                  ))}
-                </List>
-              )
-              : (
-                <p className="py-3 text-center text-sm text-foreground-dim">
-                  No providers configured. Add one to get started.
-                </p>
-              )}
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Switch
+                        checked={provider.enabled}
+                        disabled={
+                          disabled ||
+                          (provider.enabled &&
+                            enabledProviderCount <= 1 &&
+                            !config.passkeyEnabled)
+                        }
+                        onCheckedChange={(enabled) =>
+                          void toggleEnabled(provider.providerId, enabled)
+                        }
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        disabled={disabled}
+                        onClick={() => openEditProvider(provider)}
+                      >
+                        <PencilIcon />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger
+                          render={
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              disabled={disabled}
+                            >
+                              <Trash2Icon />
+                            </Button>
+                          }
+                        />
+                        <AlertDialogContent>
+                          <AlertDialogHeader className="place-items-start text-left">
+                            <AlertDialogTitle>
+                              Remove OAuth provider?
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This disables sign-in through{" "}
+                              {provider.displayName}. You can add it back later.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter className="flex-row justify-end">
+                            <AlertDialogCancel disabled={disabled}>
+                              Cancel
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                              variant="destructive"
+                              onClick={() =>
+                                removeProvider(provider.providerId)
+                              }
+                              disabled={disabled}
+                            >
+                              {disabled ? "Removing…" : "Remove provider"}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </ListItem>
+                ))}
+              </List>
+            ) : (
+              <p className="text-foreground-dim py-3 text-center text-sm">
+                No providers configured. Add one to get started.
+              </p>
+            )}
           </FormGroup>
         </SectionContent>
       </Section>

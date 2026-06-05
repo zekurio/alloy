@@ -1,11 +1,8 @@
-import { zValidator } from "./validation"
+import { user } from "@workspace/db/auth-schema"
+import { clip, game } from "@workspace/db/schema"
 import { and, eq, gte, inArray, isNull, type SQL } from "drizzle-orm"
 import { Hono } from "hono"
 
-import { user } from "@workspace/db/auth-schema"
-import { clip, game } from "@workspace/db/schema"
-
-import { db } from "../db"
 import {
   applyClipPrivacyHeaders,
   clipAccessResponse,
@@ -16,6 +13,7 @@ import {
   selectClipById,
   toPublicClipRow,
 } from "../clips/select"
+import { db } from "../db"
 import { invalidCursor, notFound } from "../runtime/http-response"
 import { clipCommentsRoutes } from "./clip-comments"
 import { clipsEngagementRoutes } from "./clips-engagement"
@@ -31,6 +29,7 @@ import {
 import { clipsPlaybackRoutes } from "./clips-playback"
 import { clipsUploadRoutes } from "./clips-upload"
 import { hashtagTextFilter } from "./hashtag-filter"
+import { zValidator } from "./validation"
 
 export const clips = new Hono()
   .get("/", zValidator("query", ListQuery), async (c) => {

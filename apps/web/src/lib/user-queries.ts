@@ -6,7 +6,6 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-
 import type {
   ProfileViewer,
   UserProfile,
@@ -128,9 +127,8 @@ function setProfileViewerInCache(
   handle: string,
   viewer: ProfileViewer,
 ) {
-  qc.setQueryData<UserProfileViewer>(
-    userKeys.profileViewer(handle),
-    (old) => old ? { ...old, viewer } : { viewer, counts: null },
+  qc.setQueryData<UserProfileViewer>(userKeys.profileViewer(handle), (old) =>
+    old ? { ...old, viewer } : { viewer, counts: null },
   )
 }
 
@@ -142,25 +140,24 @@ function adjustProfileFollowerCountInCache(
   qc.setQueryData<UserProfile>(userKeys.profile(handle), (old) =>
     old
       ? {
-        ...old,
-        counts: {
-          ...old.counts,
-          followers: Math.max(0, old.counts.followers + delta),
-        },
-      }
-      : old)
-  qc.setQueryData<UserProfileViewer>(
-    userKeys.profileViewer(handle),
-    (old) =>
-      old?.counts
-        ? {
           ...old,
           counts: {
             ...old.counts,
             followers: Math.max(0, old.counts.followers + delta),
           },
         }
-        : old,
+      : old,
+  )
+  qc.setQueryData<UserProfileViewer>(userKeys.profileViewer(handle), (old) =>
+    old?.counts
+      ? {
+          ...old,
+          counts: {
+            ...old.counts,
+            followers: Math.max(0, old.counts.followers + delta),
+          },
+        }
+      : old,
   )
 }
 
@@ -169,12 +166,10 @@ function setProfileFollowingInCache(
   handle: string,
   next: boolean,
 ) {
-  qc.setQueryData<UserProfileViewer>(
-    userKeys.profileViewer(handle),
-    (old) =>
-      old?.viewer
-        ? { ...old, viewer: { ...old.viewer, isFollowing: next } }
-        : old,
+  qc.setQueryData<UserProfileViewer>(userKeys.profileViewer(handle), (old) =>
+    old?.viewer
+      ? { ...old, viewer: { ...old.viewer, isFollowing: next } }
+      : old,
   )
 }
 

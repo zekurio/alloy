@@ -1,7 +1,6 @@
-import * as React from "react"
-import { cva, type VariantProps } from "class-variance-authority"
-
 import { cn } from "@workspace/ui/lib/utils"
+import { cva, type VariantProps } from "class-variance-authority"
+import * as React from "react"
 
 const gameIconVariants = cva(
   cn(
@@ -43,18 +42,16 @@ function GameIcon({ src, name, size, className, ...props }: GameIconProps) {
       className={cn(gameIconVariants({ size }), className)}
       {...props}
     >
-      {src && ok
-        ? (
-          <img
-            src={src}
-            alt=""
-            className="size-full object-cover"
-            onError={() => setOk(false)}
-          />
-        )
-        : (
-          name.slice(0, 1)
-        )}
+      {src && ok ? (
+        <img
+          src={src}
+          alt=""
+          className="size-full object-cover"
+          onError={() => setOk(false)}
+        />
+      ) : (
+        name.slice(0, 1)
+      )}
     </span>
   )
 }

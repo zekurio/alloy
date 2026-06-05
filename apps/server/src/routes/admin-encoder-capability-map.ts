@@ -70,11 +70,15 @@ function isEncoderAvailable(
     case "qsv":
       return hasHwaccels(probe, "qsv")
     case "rkmpp":
-      return hasHwaccels(probe, "rkmpp") &&
+      return (
+        hasHwaccels(probe, "rkmpp") &&
         hasFilters(probe, "scale_rkrga", "vpp_rkrga", "overlay_rkrga")
+      )
     case "vaapi":
-      return hasHwaccels(probe, "drm", "vaapi") &&
+      return (
+        hasHwaccels(probe, "drm", "vaapi") &&
         hasFilters(probe, "hwupload_vaapi")
+      )
     case "videotoolbox":
       return hasHwaccels(probe, "videotoolbox")
   }

@@ -1,10 +1,5 @@
 "use client"
 
-import * as React from "react"
-import useEmblaCarousel from "embla-carousel-react"
-
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
-import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
 import {
   type CarouselApi,
@@ -12,6 +7,10 @@ import {
   type CarouselProps,
   useCarousel,
 } from "@workspace/ui/hooks/use-carousel"
+import { cn } from "@workspace/ui/lib/utils"
+import useEmblaCarousel from "embla-carousel-react"
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
+import * as React from "react"
 
 function Carousel({
   orientation = "horizontal",
@@ -180,8 +179,8 @@ function CarouselControl({
             ? "top-1/2 -left-12 -translate-y-1/2"
             : "top-1/2 -right-12 -translate-y-1/2"
           : position === "previous"
-          ? "-top-12 left-1/2 -translate-x-1/2 rotate-90"
-          : "-bottom-12 left-1/2 -translate-x-1/2 rotate-90",
+            ? "-top-12 left-1/2 -translate-x-1/2 rotate-90"
+            : "-bottom-12 left-1/2 -translate-x-1/2 rotate-90",
         className,
       )}
       disabled={disabled}

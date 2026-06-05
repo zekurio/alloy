@@ -1,7 +1,6 @@
 "use client"
 
 import { PreviewCard as PreviewCardPrimitive } from "@base-ui/react/preview-card"
-
 import { cn } from "@workspace/ui/lib/utils"
 
 function HoverCard({ ...props }: PreviewCardPrimitive.Root.Props) {
@@ -21,9 +20,8 @@ function HoverCardContent({
   align = "center",
   alignOffset = 4,
   ...props
-}:
-  & PreviewCardPrimitive.Popup.Props
-  & Pick<
+}: PreviewCardPrimitive.Popup.Props &
+  Pick<
     PreviewCardPrimitive.Positioner.Props,
     "align" | "alignOffset" | "side" | "sideOffset"
   >) {
