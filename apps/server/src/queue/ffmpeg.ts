@@ -4,7 +4,9 @@ import { Readable } from "node:stream"
 import { env } from "../env"
 import {
   buildEncodeArgs,
+  buildLiveHlsArgs,
   buildLiveTranscodeArgs,
+  type LiveHlsOpts,
   type LiveTranscodeOpts,
   type ResolvedEncoderConfig,
 } from "./ffmpeg-args"
@@ -12,8 +14,10 @@ import { runWithProgress } from "./ffmpeg-process"
 
 export {
   buildEncodeArgs,
+  buildLiveHlsArgs,
   buildLiveTranscodeArgs,
   codecNameFor,
+  type LiveHlsOpts,
   type ResolvedEncoderConfig,
 } from "./ffmpeg-args"
 export { probe } from "./ffmpeg-probe"
@@ -99,6 +103,59 @@ export function liveTranscode(
 
   return {
     stdout: Readable.toWeb(child.stdout) as ReadableStream<Uint8Array>,
+    done,
+    kill: () => {
+      try {
+        child.kill("SIGTERM")
+      } catch {
+        // The child may already have exited by the time cleanup runs.
+      }
+    },
+  }
+}
+
+export function liveHls(
+  srcPath: string,
+  playlistPath: string,
+  opts: LiveHlsOpts,
+): {
+  done: Promise<void>
+  kill: () => void
+} {
+  const child = spawn(
+    env.FFMPEG_BIN,
+    buildLiveHlsArgs(srcPath, playlistPath, opts),
+    {
+      stdio: ["ignore", "ignore", "pipe"],
+    },
+  )
+  const exit = new Promise<number>((resolve, reject) => {
+    child.once("error", reject)
+    child.once("close", (code) => resolve(code ?? 1))
+  })
+
+  const decoder = new TextDecoder()
+  let stderr = ""
+  const stderrDone = (async () => {
+    if (!child.stderr) return
+    for await (const chunk of child.stderr) {
+      stderr += decoder.decode(chunk, { stream: true })
+      if (stderr.length > 8_192) stderr = stderr.slice(-8_192)
+    }
+    stderr += decoder.decode()
+  })().catch(() => undefined)
+  const done = exit.then(async (code) => {
+    await stderrDone
+    if (code !== 0) {
+      const detail = stderr.trim()
+      throw new Error(
+        `ffmpeg live hls exited with code ${code}` +
+          (detail ? `:\n${detail}` : ""),
+      )
+    }
+  })
+
+  return {
     done,
     kill: () => {
       try {

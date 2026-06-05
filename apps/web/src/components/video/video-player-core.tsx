@@ -22,7 +22,7 @@ import {
   type VideoKeyCommand,
 } from "./video-player-shell"
 import { VideoFrame } from "./video-player-video"
-import { mediaErrorMessage } from "./video-source"
+import { mediaErrorMessage, sourceSpecKey } from "./video-source"
 
 export function PlayerCore({
   spec,
@@ -66,7 +66,11 @@ export function PlayerCore({
   const chromeHideTimerRef = React.useRef<number | null>(null)
   const lastTimeRef = React.useRef(0)
   const resumeRef = React.useRef<{ time: number; play: boolean } | null>(null)
-  const prevIdentityRef = React.useRef<string | null>(null)
+  const prevSourceRef = React.useRef<{
+    identity: string
+    specKey: string
+  } | null>(null)
+  const specKey = sourceSpecKey(spec)
 
   const [status, setStatus] = React.useState<LoadStatus>({ kind: "loading" })
   const [duration, setDuration] = React.useState(0)
@@ -142,10 +146,17 @@ export function PlayerCore({
   }, [initialMuted])
 
   React.useEffect(() => {
-    // A changed `identity` means a different clip; a changed `mediaUrl` with the
-    // same identity is a quality switch (a new rendition of the same clip).
-    const isNewMedia = prevIdentityRef.current !== identity
-    prevIdentityRef.current = identity
+    // A changed `identity` means a different clip. A changed SourceSpec with
+    // the same identity is a rendition/source swap for the same clip; this also
+    // covers hls.js playback, where `mediaUrl` stays null while the engine
+    // reloads a manifest.
+    const previous = prevSourceRef.current
+    const isNewMedia = !previous || previous.identity !== identity
+    const isSourceChange =
+      isNewMedia || !previous || previous.specKey !== specKey
+    prevSourceRef.current = { identity, specKey }
+
+    if (!isSourceChange) return
 
     setStatus({ kind: "loading" })
     setBufferedEnd(0)
@@ -174,8 +185,8 @@ export function PlayerCore({
     clearChromeHideTimer,
     identity,
     isCoarsePointer,
-    mediaUrl,
     setPlayingState,
+    specKey,
   ])
 
   const reportError = React.useCallback(() => {
