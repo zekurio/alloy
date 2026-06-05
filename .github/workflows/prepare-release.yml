@@ -10,7 +10,7 @@ on:
       source_branch:
         description: Branch to release from
         required: false
-        default: staging
+        default: dev
         type: string
 
 permissions:

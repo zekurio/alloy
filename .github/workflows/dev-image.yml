@@ -1,12 +1,12 @@
-name: Publish Staging Container Image
+name: Publish Dev Container Image
 
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Branch, tag, or SHA to publish as staging
+        description: Branch, tag, or SHA to publish as dev
         required: false
-        default: staging
+        default: dev
         type: string
 
 permissions:
@@ -14,7 +14,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: staging-image-${{ github.ref }}
+  group: dev-image-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -23,7 +23,7 @@ env:
 
 jobs:
   publish:
-    name: Publish staging images
+    name: Publish dev images
     runs-on: ubuntu-latest
 
     steps:
@@ -40,7 +40,7 @@ jobs:
       - name: Set up Nix
         uses: cachix/install-nix-action@v31
 
-      - name: Resolve staging metadata
+      - name: Resolve dev metadata
         id: meta
         shell: bash
         run: |
@@ -63,25 +63,25 @@ jobs:
           const [, major, minor, patch] = match;
           const runNumber = Deno.env.get("GITHUB_RUN_NUMBER");
           const shortSha = Deno.env.get("SHORT_SHA");
-          console.log(`${major}.${minor}.${patch}-staging.${runNumber}.${shortSha}`);
+          console.log(`${major}.${minor}.${patch}-dev.${runNumber}.${shortSha}`);
           ')"
 
           echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "sha_tag=staging-$short_sha" >> "$GITHUB_OUTPUT"
-      - name: Stamp staging version into deno.json
+          echo "sha_tag=dev-$short_sha" >> "$GITHUB_OUTPUT"
+      - name: Stamp dev version into deno.json
         shell: bash
         env:
-          STAGING_VERSION: ${{ steps.meta.outputs.version }}
+          DEV_VERSION: ${{ steps.meta.outputs.version }}
         run: |
           # Ephemeral (never committed): the Nix image reads its version from
           # deno.json, so stamp it here to make APP_VERSION and the OCI version
-          # label report the staging build version.
+          # label report the dev build version.
           # shellcheck disable=SC2016
           deno eval '
           import { readFileSync, writeFileSync } from "node:fs";
           const config = JSON.parse(readFileSync("deno.json", "utf8"));
-          config.version = Deno.env.get("STAGING_VERSION");
+          config.version = Deno.env.get("DEV_VERSION");
           writeFileSync("deno.json", `${JSON.stringify(config, null, 2)}\n`);
           '
 
@@ -91,7 +91,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=staging
+            type=raw,value=dev
             type=raw,value=${{ steps.meta.outputs.sha_tag }}
 
       - name: Publish machine learning image
@@ -104,5 +104,5 @@ jobs:
           build-args: |
             DEVICE=cpu
           tags: |
-            type=raw,value=staging
+            type=raw,value=dev
             type=raw,value=${{ steps.meta.outputs.sha_tag }}

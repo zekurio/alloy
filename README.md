@@ -19,9 +19,9 @@ reproducible deployments, pin a release tag instead.
 - Exact release tags: `vX.Y.Z`
 - Stable container image: `ghcr.io/zekurio/alloy:latest`
 - Exact container image: `ghcr.io/zekurio/alloy:vX.Y.Z`
-- Staging branch and image: `staging`
+- Dev branch and image: `dev`
 
-The `staging` branch is for integration testing before a release PR is merged to
+The `dev` branch is for integration testing before a release PR is merged to
 `main`. It is intentionally opt-in and can change ahead of the stable channel.
 
 ### NixOS
@@ -39,10 +39,10 @@ For a reproducible deployment, pin a release tag:
 inputs.alloy.url = "github:zekurio/alloy/vX.Y.Z";
 ```
 
-To test unreleased changes, opt into staging explicitly:
+To test unreleased changes, opt into dev explicitly:
 
 ```nix
-inputs.alloy.url = "github:zekurio/alloy/staging";
+inputs.alloy.url = "github:zekurio/alloy/dev";
 ```
 
 Alloy deliberately builds against its own pinned `nixpkgs` from `flake.lock`. Do
@@ -96,7 +96,7 @@ The server container image is built with Nix (`dockerTools`) and published to
 `ghcr.io/zekurio/alloy`. Docker support exists, but is less polished than the
 NixOS module: you must provide PostgreSQL yourself, persist the mutable
 directories, and configure production URLs explicitly. Use `latest` for the
-stable channel, `vX.Y.Z` for an exact release, or `staging` only when testing
+stable channel, `vX.Y.Z` for an exact release, or `dev` only when testing
 unreleased changes.
 
 Example:
@@ -193,9 +193,9 @@ Contributions are being accepted.
 
 ## Releasing
 
-Feature and fix PRs should target `staging`. After staging has been validated,
-run the **Prepare Release** workflow with the target version. It opens or
-updates a release PR from `staging` to `main` and bumps `deno.json`.
+Feature and fix PRs should target `dev`. After dev has been validated, run the
+**Prepare Release** workflow with the target version. It opens or updates a
+release PR from `dev` to `main` and bumps `deno.json`.
 
 After the release PR is merged, create a tag on the merge commit:
 
