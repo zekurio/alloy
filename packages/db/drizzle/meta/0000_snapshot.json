@@ -152,6 +152,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "source_video_codec": {
+          "name": "source_video_codec",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_audio_codec": {
+          "name": "source_audio_codec",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "source_size_bytes": {
           "name": "source_size_bytes",
           "type": "bigint",
@@ -190,18 +202,6 @@
         },
         "height": {
           "name": "height",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "trim_start_ms": {
-          "name": "trim_start_ms",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "trim_end_ms": {
-          "name": "trim_end_ms",
           "type": "integer",
           "primaryKey": false,
           "notNull": false

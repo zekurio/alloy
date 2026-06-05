@@ -7,7 +7,7 @@ import { FsStorageDriver } from "./fs-driver"
 const uploadHmacSecret = secretStore.get("uploadHmacSecret")
 
 /**
- * Bulk clip media: source, encoded variants, thumbnails, opengraph. Lives at
+ * Bulk clip media: source, thumbnails, opengraph, and legacy variants. Lives at
  * ALLOY_CLIPS_DIR — the single location meant for a large volume. Mints signed
  * browser upload tickets, so it carries the upload secret + public origin.
  */
@@ -29,9 +29,4 @@ export const dataStorage: StorageDriver = new FsStorageDriver({
 })
 
 export type { StorageDriver, UploadTicket, UserAssetRole } from "./driver"
-export {
-  clipAssetKey,
-  clipOpenGraphVideoKey,
-  clipVideoVariantKey,
-  userAssetKey,
-} from "./driver"
+export { clipAssetKey, userAssetKey } from "./driver"

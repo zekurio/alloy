@@ -5,6 +5,8 @@ import { user } from "@workspace/db/auth-schema"
 import { clip, clipMention, game } from "@workspace/db/schema"
 
 import { db } from "../db"
+import { configStore } from "../config/store"
+import { buildPlaybackQualities } from "./playback-quality"
 
 export const clipSelectShape = {
   id: clip.id,
@@ -16,6 +18,8 @@ export const clipSelectShape = {
   privacy: clip.privacy,
   sourceKey: clip.sourceKey,
   sourceContentType: clip.sourceContentType,
+  sourceVideoCodec: clip.sourceVideoCodec,
+  sourceAudioCodec: clip.sourceAudioCodec,
   sourceSizeBytes: clip.sourceSizeBytes,
   openGraphKey: clip.openGraphKey,
   openGraphContentType: clip.openGraphContentType,
@@ -23,8 +27,6 @@ export const clipSelectShape = {
   durationMs: clip.durationMs,
   width: clip.width,
   height: clip.height,
-  trimStartMs: clip.trimStartMs,
-  trimEndMs: clip.trimEndMs,
   variants: clip.variants,
   thumbKey: clip.thumbKey,
   viewCount: clip.viewCount,
@@ -82,7 +84,14 @@ export async function selectClipById(id: string) {
 export function toPublicClipRow<
   T extends {
     sourceKey: string | null
+    sourceContentType: string | null
+    sourceVideoCodec: string | null
+    sourceAudioCodec: string | null
     openGraphKey: string | null
+    sourceSizeBytes: number | null
+    durationMs: number | null
+    width: number | null
+    height: number | null
     thumbKey: string | null
     variants: readonly { storageKey: string; hls?: unknown }[]
   },
@@ -90,20 +99,14 @@ export function toPublicClipRow<
   const {
     sourceKey: _sourceKey,
     openGraphKey: _openGraphKey,
-    variants,
+    variants: _variants,
     ...rest
   } = row
   return {
     ...rest,
     thumbKey: row.thumbKey ? "thumbnail" : null,
-    // The HLS playlist text stays server-side; the client only needs to know
-    // adaptive streaming is available, so collapse it to a single flag and
-    // drop the per-variant `storageKey`/`hls` payloads.
-    hlsReady: variants.some((variant) => Boolean(variant.hls)),
-    variants: variants.map(
-      ({ storageKey: _variantStorageKey, hls: _hls, ...variant }) => ({
-        ...variant,
-      }),
-    ),
+    playbackQualities: configStore.get("encoder").enabled
+      ? buildPlaybackQualities(row)
+      : [],
   }
 }

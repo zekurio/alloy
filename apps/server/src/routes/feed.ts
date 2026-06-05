@@ -66,7 +66,14 @@ type FeedPageRow = {
   createdAt: Date | string
   rankScore: number
   sourceKey: string | null
+  sourceContentType: string | null
+  sourceVideoCodec: string | null
+  sourceAudioCodec: string | null
   openGraphKey: string | null
+  sourceSizeBytes: number | null
+  durationMs: number | null
+  width: number | null
+  height: number | null
   thumbKey: string | null
   variants: readonly { storageKey: string }[]
 }

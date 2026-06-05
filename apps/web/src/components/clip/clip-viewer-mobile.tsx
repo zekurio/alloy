@@ -29,6 +29,10 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import { type ClipRow, clipThumbnailUrl } from "@workspace/api"
 
+import {
+  mobileDrawerContentClass,
+  MobileDrawerHandle,
+} from "@/components/app/mobile-drawer-surface"
 import { clipGameLabel } from "@/lib/clip-format"
 import { useSession } from "@/lib/auth-client"
 import { shareUrlWithFallback } from "@/lib/browser-share"
@@ -320,10 +324,11 @@ function MobileClipViewerBody({
             <ClipPlayer
               clipId={row.id}
               sourceContentType={row.sourceContentType}
+              sourceVideoCodec={row.sourceVideoCodec}
+              sourceAudioCodec={row.sourceAudioCodec}
               thumbnail={thumbnail}
-              variants={row.variants}
+              playbackQualities={row.playbackQualities}
               status={row.status}
-              hlsReady={row.hlsReady}
               encodeProgress={row.encodeProgress}
               maxDisplayHeight={isLandscape
                 ? "100dvh"
@@ -332,6 +337,7 @@ function MobileClipViewerBody({
               onPlayThreshold={() => recordClipViewBestEffort(row.id)}
               autoPlay
               enableHorizontalSeekShortcuts={false}
+              className="rounded-lg data-[fullscreen=true]:rounded-none"
             />
           </div>
 
@@ -391,13 +397,13 @@ function MobileClipViewerBody({
                 avatar={avatar}
                 avatarStyle={avatarStyle}
                 author={author}
-                size="lg"
+                size="md"
                 className="inline-flex w-fit items-center gap-2"
                 textClassName="text-lg font-bold text-white"
               />
 
               {/* Title */}
-              <h2 className="line-clamp-2 text-md leading-tight font-bold text-white">
+              <h2 className="line-clamp-2 text-base leading-tight font-semibold text-white">
                 {renderHashtagTokens(row.title, { linkHashtags: true })}
               </h2>
 
@@ -431,9 +437,11 @@ function MobileClipViewerBody({
             open={commentsOpen}
             onOpenChange={setCommentsOpen}
             direction="bottom"
+            handleOnly
           >
-            <DrawerContent className="max-h-[92dvh] bg-surface">
+            <DrawerContent className={mobileDrawerContentClass}>
               <DrawerTitle className="sr-only">Comments</DrawerTitle>
+              <MobileDrawerHandle />
               <ClipComments
                 clipId={row.id}
                 clipAuthorId={row.authorId}

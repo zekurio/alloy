@@ -23,6 +23,7 @@ import {
   DrawerContent,
   DrawerDescription,
   DrawerFooter,
+  DrawerHandle,
   DrawerTitle,
   DrawerTrigger,
 } from "@workspace/ui/components/drawer"
@@ -49,7 +50,12 @@ function ResponsiveDialog({
     <ResponsiveDialogContext.Provider value={isMobile}>
       {isMobile
         ? (
-          <Drawer open={open} onOpenChange={onOpenChange}>
+          <Drawer
+            open={open}
+            onOpenChange={onOpenChange}
+            direction="bottom"
+            handleOnly
+          >
             {children}
           </Drawer>
         )
@@ -79,12 +85,13 @@ function ResponsiveDialogContent({
     return (
       <DrawerContent
         className={cn(
-          "max-h-[92dvh] bg-surface",
+          "max-h-[92dvh] border-t-white/[0.08] bg-surface text-foreground",
           "[&>form]:flex [&>form]:min-h-0 [&>form]:flex-1 [&>form]:flex-col",
           className,
         )}
         style={style}
       >
+        <DrawerHandle />
         {children}
       </DrawerContent>
     )

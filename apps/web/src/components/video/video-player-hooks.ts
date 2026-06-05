@@ -3,6 +3,22 @@ import * as React from "react"
 const PLAY_THRESHOLD_CAP_SEC = 10
 const PLAY_THRESHOLD_FRACTION = 0.5
 
+export function usePlayingTimeSync(
+  playing: boolean,
+  syncTime: () => void,
+): void {
+  React.useEffect(() => {
+    if (!playing) return
+    let rafId = 0
+    const tick = () => {
+      syncTime()
+      rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafId)
+  }, [playing, syncTime])
+}
+
 export function usePlayThreshold({
   playing,
   duration,

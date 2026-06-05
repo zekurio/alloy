@@ -12,9 +12,18 @@ import type {
   gameFollow,
   notification,
 } from "./schema"
-import type { ClipVariantSettings } from "@workspace/contracts"
 
-export type { ClipVariantSettings } from "@workspace/contracts"
+export interface ClipVariantSettings {
+  hwaccel: string
+  codec: string
+  audioCodec: "aac" | "none"
+  quality: number
+  preset?: string
+  audioBitrateKbps: number
+  extraInputArgs: string
+  extraOutputArgs: string
+  height: number
+}
 
 export interface ClipEncodedVariant {
   id: string
@@ -26,19 +35,12 @@ export interface ClipEncodedVariant {
   sizeBytes: number
   isDefault: boolean
   /**
-   * Optional because rows written before this field existed don't have
-   * it. Missing settings are treated as "unknown -> re-encode".
+   * Legacy stored rendition settings. New clips do not write variants; this is
+   * retained so old rows can be decoded and their assets can be cleaned up.
    */
   settings?: ClipVariantSettings
-  remuxSettings?: {
-    trimStartMs: number | null
-    trimEndMs: number | null
-  }
   /**
-   * HLS streaming metadata, present when the rendition was encoded as a
-   * single-file CMAF (byte-range fMP4). `storageKey` then points at that
-   * one file, which doubles as the progressive download. Absent on older
-   * progressive-only variants, which fall back to direct `/stream`.
+   * Legacy HLS streaming metadata from stored rendition experiments.
    */
   hls?: {
     /** Media playlist text; references the media by bare `media.m4s`. */

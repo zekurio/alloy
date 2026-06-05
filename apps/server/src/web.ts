@@ -133,7 +133,7 @@ async function clipHead(pathname: string): Promise<string> {
     const poster = row.thumbKey
       ? new URL(`/api/clips/${row.id}/thumbnail`, origin).toString()
       : null
-    const videoUrl = row.openGraphKey
+    const videoUrl = row.sourceKey
       ? new URL(`/api/clips/${row.id}/opengraph`, origin).toString()
       : null
     const width = row.width
@@ -156,7 +156,7 @@ async function clipHead(pathname: string): Promise<string> {
             : []),
           metaProperty(
             "og:video:type",
-            row.openGraphContentType ?? "video/mp4",
+            "video/mp4",
           ),
           ...(width ? [metaProperty("og:video:width", String(width))] : []),
           ...(height ? [metaProperty("og:video:height", String(height))] : []),

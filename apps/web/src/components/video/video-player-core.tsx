@@ -1,7 +1,6 @@
 import * as React from "react"
 import { useDocumentEvent } from "@workspace/ui/hooks/use-document-event"
 import { useMediaQuery } from "@workspace/ui/hooks/use-media-query"
-import { useWindowEvent } from "@workspace/ui/hooks/use-window-event"
 
 import {
   exitFullscreenBestEffort,
@@ -9,39 +8,20 @@ import {
   requestFullscreenBestEffort,
 } from "@/lib/fullscreen"
 import { errorMessage } from "@/lib/error-message"
-import { usePlayThreshold } from "./video-player-hooks"
+import { usePlayingTimeSync, usePlayThreshold } from "./video-player-hooks"
 import { VideoFrame } from "./video-player-video"
 import {
   BareShell,
   ChromeBar,
   ChromeShell,
-  handleVideoKeyCommand,
   LoadOverlay,
   type LoadStatus,
-  shouldHandleGlobalVideoShortcut,
   type VideoKeyCommand,
 } from "./video-player-shell"
-import { mediaErrorMessage, type SourceSpec } from "./video-source"
-import { type HlsLevelSelection, useMediaEngine } from "./video-media-engine"
-import type { SharedPlayerProps } from "./video-player-types"
-
-let activeVideoPlayerId: string | null = null
-
-type PlayerCoreProps = SharedPlayerProps & {
-  spec: SourceSpec
-  identity: string
-  poster?: string
-  aspectRatio?: number
-  controls: boolean
-  autoPlay: boolean
-  loop: boolean
-  initialMuted: boolean
-  playbackRate: number
-  /** Selected HLS rendition when `spec` is an HLS source. */
-  hlsLevelHeight?: HlsLevelSelection
-  /** Called when adaptive playback fails, so the caller can fall back. */
-  onHlsFatalError?: (message: string) => void
-}
+import { mediaErrorMessage } from "./video-source"
+import { useMediaEngine } from "./video-media-engine"
+import { useActiveVideoPlayer } from "./video-player-active"
+import type { PlayerCoreProps } from "./video-player-core-types"
 
 export function PlayerCore({
   spec,
@@ -71,7 +51,6 @@ export function PlayerCore({
   hlsLevelHeight = "auto",
   onHlsFatalError,
 }: PlayerCoreProps) {
-  const playerId = React.useId()
   const videoRef = React.useRef<HTMLVideoElement | null>(null)
   const { src: mediaUrl } = useMediaEngine(
     videoRef,
@@ -84,11 +63,7 @@ export function PlayerCore({
   const volumeRef = React.useRef(1)
   const mutedRef = React.useRef(initialMuted)
   const chromeHideTimerRef = React.useRef<number | null>(null)
-  // Last observed playback position, tracked continuously so a source swap can
-  // capture it before the browser resets the element's `currentTime` to 0.
   const lastTimeRef = React.useRef(0)
-  // When set, the next loaded source should seek back to this position (and
-  // resume if it was playing) — used to make a quality switch feel seamless.
   const resumeRef = React.useRef<{ time: number; play: boolean } | null>(null)
   const prevIdentityRef = React.useRef<string | null>(null)
 
@@ -205,9 +180,13 @@ export function PlayerCore({
   const reportError = React.useCallback(() => {
     const video = videoRef.current
     const message = mediaErrorMessage(video)
-    setStatus({ kind: "error", message })
     setPlayingState(false)
-    onPlaybackErrorRef.current?.(message)
+    if (onPlaybackErrorRef.current) {
+      setStatus({ kind: "ready" })
+      onPlaybackErrorRef.current(message)
+    } else {
+      setStatus({ kind: "error", message })
+    }
   }, [setPlayingState])
 
   const playInternal = React.useCallback(async (reportBlocked = true) => {
@@ -218,8 +197,12 @@ export function PlayerCore({
     } catch (err) {
       if (!reportBlocked) return
       const message = errorMessage(err, "Playback failed")
-      setStatus({ kind: "error", message })
-      onPlaybackErrorRef.current?.(message)
+      if (onPlaybackErrorRef.current) {
+        setStatus({ kind: "ready" })
+        onPlaybackErrorRef.current(message)
+      } else {
+        setStatus({ kind: "error", message })
+      }
     }
   }, [])
 
@@ -264,16 +247,7 @@ export function PlayerCore({
     video.playbackRate = playbackRate
   }, [playbackRate])
 
-  React.useEffect(() => {
-    if (!playing) return
-    let rafId = 0
-    const tick = () => {
-      syncTime()
-      rafId = requestAnimationFrame(tick)
-    }
-    rafId = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(rafId)
-  }, [playing, syncTime])
+  usePlayingTimeSync(playing, syncTime)
 
   React.useImperativeHandle(
     playerRef,
@@ -412,49 +386,14 @@ export function PlayerCore({
     ],
   )
 
-  const onKeyDown = React.useCallback(
-    (event: KeyboardEvent) => {
-      if (activeVideoPlayerId !== playerId) return
-      if (
-        !shouldHandleGlobalVideoShortcut(event.target, containerRef.current)
-      ) {
-        return
-      }
-      if (
-        handleVideoKeyCommand(event, keyCommand, {
-          enableHorizontalSeek: enableHorizontalSeekShortcuts,
-        })
-      ) {
-        containerRef.current?.focus({ preventScroll: true })
-      }
-    },
-    [enableHorizontalSeekShortcuts, keyCommand, playerId],
-  )
-  useWindowEvent("keydown", onKeyDown, true)
-
-  React.useEffect(() => {
-    if (!autoPlay && controls) return
-    activeVideoPlayerId = playerId
-    return () => {
-      if (activeVideoPlayerId === playerId) activeVideoPlayerId = null
-    }
-  }, [autoPlay, controls, playerId])
-
-  const focusPlayerContainer = React.useCallback(() => {
-    activeVideoPlayerId = playerId
-    containerRef.current?.focus({ preventScroll: true })
-  }, [playerId])
-
-  const activatePlayer = React.useCallback(() => {
-    activeVideoPlayerId = playerId
-  }, [playerId])
-
-  React.useEffect(() => {
-    return () => {
-      if (activeVideoPlayerId === playerId) activeVideoPlayerId = null
-      clearChromeHideTimer()
-    }
-  }, [clearChromeHideTimer, playerId])
+  const { activatePlayer, focusPlayerContainer } = useActiveVideoPlayer({
+    autoPlay,
+    controls,
+    containerRef,
+    clearChromeHideTimer,
+    enableHorizontalSeekShortcuts,
+    keyCommand,
+  })
 
   React.useEffect(() => {
     if (isCoarsePointer && autoPlay) {

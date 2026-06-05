@@ -83,6 +83,8 @@ export const clip = pgTable(
 
     sourceKey: text("source_key"),
     sourceContentType: text("source_content_type"),
+    sourceVideoCodec: text("source_video_codec"),
+    sourceAudioCodec: text("source_audio_codec"),
     sourceSizeBytes: bigint("source_size_bytes", { mode: "number" }),
     openGraphKey: text("open_graph_key"),
     openGraphContentType: text("open_graph_content_type"),
@@ -92,9 +94,6 @@ export const clip = pgTable(
     durationMs: integer("duration_ms"),
     width: integer("width"),
     height: integer("height"),
-
-    trimStartMs: integer("trim_start_ms"),
-    trimEndMs: integer("trim_end_ms"),
 
     variants: jsonb("variants")
       .$type<ClipEncodedVariant[]>()

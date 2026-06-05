@@ -1,44 +1,25 @@
 import { env } from "../env"
-import { join } from "../runtime/path"
 import {
   buildEncodeArgs,
-  buildHlsArgs,
-  buildRemuxArgs,
+  buildLiveTranscodeArgs,
+  type LiveTranscodeOpts,
   type ResolvedEncoderConfig,
 } from "./ffmpeg-args"
 import { runWithProgress } from "./ffmpeg-process"
 
 export {
   buildEncodeArgs,
-  buildRemuxArgs,
+  buildLiveTranscodeArgs,
   codecNameFor,
-  HLS_SEGMENT_SECONDS,
   type ResolvedEncoderConfig,
 } from "./ffmpeg-args"
 export { probe } from "./ffmpeg-probe"
-
-const HLS_MEDIA_FILENAME = "media.m4s"
-const HLS_PLAYLIST_FILENAME = "playlist.m3u8"
-const HLS_MASTER_FILENAME = "master.m3u8"
-
-export interface HlsArtifacts {
-  /** Local path to the single CMAF file (init segment + all fragments). */
-  mediaPath: string
-  /** Media playlist text; references the media file by bare relative name. */
-  playlist: string
-  /** The EXT-X-STREAM-INF attribute list ffmpeg computed (BANDWIDTH, CODECS,
-   *  RESOLUTION). Stored per variant so the combined master can be assembled
-   *  at serve time without re-deriving RFC 6381 codec strings by hand. */
-  streamInf: string
-}
 
 interface EncodeJob {
   config: ResolvedEncoderConfig
   targetHeight: number
   durationMs: number
   onProgress: (pct: number) => void
-  trimStartMs?: number | null
-  trimEndMs?: number | null
   signal?: AbortSignal
 }
 
@@ -72,68 +53,58 @@ export async function encode(
   )
 }
 
-/**
- * Encode into a single-file CMAF rendition with a byte-range HLS playlist.
- * ffmpeg runs with `workDir` as its cwd so the playlists reference the media
- * file by bare name; the caller uploads `mediaPath` and persists the playlist.
- */
-export async function encodeHls(
+export function liveTranscode(
   srcPath: string,
-  workDir: string,
-  opts: EncodeJob,
-): Promise<HlsArtifacts> {
-  await runWithProgress(
-    env.FFMPEG_BIN,
-    buildHlsArgs(srcPath, {
-      mediaFilename: HLS_MEDIA_FILENAME,
-      playlistFilename: HLS_PLAYLIST_FILENAME,
-      masterFilename: HLS_MASTER_FILENAME,
-    }, opts),
-    progressHandler(opts.durationMs, opts.onProgress),
-    {
-      label: `encode ${opts.targetHeight}p hls`,
-      signal: opts.signal,
-      cwd: workDir,
-    },
-  )
+  opts: LiveTranscodeOpts,
+): {
+  stdout: ReadableStream<Uint8Array>
+  done: Promise<void>
+  kill: () => void
+} {
+  const child = new Deno.Command(env.FFMPEG_BIN, {
+    args: buildLiveTranscodeArgs(srcPath, opts),
+    stdin: "null",
+    stdout: "piped",
+    stderr: "piped",
+  }).spawn()
 
-  const [playlist, master] = await Promise.all([
-    Deno.readTextFile(join(workDir, HLS_PLAYLIST_FILENAME)),
-    Deno.readTextFile(join(workDir, HLS_MASTER_FILENAME)),
-  ])
+  const decoder = new TextDecoder()
+  let stderr = ""
+  const stderrDone = child.stderr
+    .pipeTo(
+      new WritableStream<Uint8Array>({
+        write(chunk) {
+          stderr += decoder.decode(chunk, { stream: true })
+          if (stderr.length > 8_192) stderr = stderr.slice(-8_192)
+        },
+        close() {
+          stderr += decoder.decode()
+        },
+      }),
+    )
+    .catch(() => undefined)
+  const done = child.status.then(async (status) => {
+    await stderrDone
+    if (!status.success) {
+      const detail = stderr.trim()
+      throw new Error(
+        `ffmpeg live transcode exited with code ${status.code}` +
+          (detail ? `:\n${detail}` : ""),
+      )
+    }
+  })
 
   return {
-    mediaPath: join(workDir, HLS_MEDIA_FILENAME),
-    playlist,
-    streamInf: parseStreamInf(master),
+    stdout: child.stdout,
+    done,
+    kill: () => {
+      try {
+        child.kill("SIGTERM")
+      } catch {
+        // The child may already have exited by the time cleanup runs.
+      }
+    },
   }
-}
-
-/** Pull the attribute list off the single EXT-X-STREAM-INF line ffmpeg wrote
- *  into the per-rendition master playlist. */
-function parseStreamInf(master: string): string {
-  for (const line of master.split("\n")) {
-    const prefix = "#EXT-X-STREAM-INF:"
-    if (line.startsWith(prefix)) return line.slice(prefix.length).trim()
-  }
-  throw new Error("ffmpeg HLS master playlist had no EXT-X-STREAM-INF line")
-}
-
-export async function remuxToMp4(
-  srcPath: string,
-  outPath: string,
-  opts: {
-    trimStartMs?: number | null
-    trimEndMs?: number | null
-    signal?: AbortSignal
-  },
-): Promise<void> {
-  await runWithProgress(
-    env.FFMPEG_BIN,
-    buildRemuxArgs(srcPath, outPath, opts),
-    () => undefined,
-    { label: "remux source", signal: opts.signal },
-  )
 }
 
 export async function thumbnail(

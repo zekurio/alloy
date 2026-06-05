@@ -1,8 +1,5 @@
 import {
   type AdminRuntimeConfig,
-  ENCODER_CODECS,
-  ENCODER_HEIGHT_MAX,
-  ENCODER_HEIGHT_MIN,
   ENCODER_HWACCELS,
   RUNTIME_CONFIG_VERSION,
   type RuntimeConfig,
@@ -12,25 +9,29 @@ import {
   validateArray,
   validateBoolean,
   validateEnumString,
-  validateEvenIntegerInRange,
-  validateIntegerInRange,
   validateNullablePositiveInteger,
   validateNullableRequiredString,
   validateOptionalUrlString,
   validatePositiveInteger,
   validateRequiredString,
-  validateString,
   validateStringArray,
   validateUrlString,
 } from "../runtime-validation"
 import { validateAuthProviderColors, validateBackdropTreatment } from "./shared"
-const ENCODER_CODEC_SET: ReadonlySet<string> = new Set(ENCODER_CODECS)
 const ENCODER_HWACCEL_SET: ReadonlySet<string> = new Set(ENCODER_HWACCELS)
 const RUNTIME_CONFIG_BOOLEAN_FIELDS = [
   "openRegistrations",
   "setupComplete",
   "passkeyEnabled",
   "requireAuthToBrowse",
+] as const
+const ADMIN_ENCODER_REQUIRED_STRING_FIELDS = [
+  "qsvDevice",
+  "vaapiDevice",
+] as const
+const ADMIN_ENCODER_BOOLEAN_FIELDS = [
+  `intel${"LowPower"}H264`,
+  `intel${"LowPower"}Hevc`,
 ] as const
 function validateRuntimeOAuthProvider(value: unknown, label: string) {
   const provider = objectRecord(value, label)
@@ -90,51 +91,6 @@ function validateRuntimeOAuthProvider(value: unknown, label: string) {
   }
 }
 
-function validateAdminEncoderVariant(value: unknown) {
-  const variant = objectRecord(value, "admin encoder variant")
-  for (const key of ["id", "name"] as const) {
-    validateRequiredString(
-      variant[key],
-      `Invalid admin encoder variant config: ${key} is required`,
-    )
-  }
-  validateEnumString(
-    variant.codec,
-    ENCODER_CODEC_SET,
-    "Invalid admin encoder variant config: codec is invalid",
-  )
-  validateEvenIntegerInRange(
-    variant.height,
-    ENCODER_HEIGHT_MIN,
-    ENCODER_HEIGHT_MAX,
-    `Invalid admin encoder variant config: height must be an even integer between ${ENCODER_HEIGHT_MIN} and ${ENCODER_HEIGHT_MAX}`,
-  )
-  validateIntegerInRange(
-    variant.quality,
-    0,
-    51,
-    "Invalid admin encoder variant config: quality must be between 0 and 51",
-  )
-  validateIntegerInRange(
-    variant.audioBitrateKbps,
-    64,
-    256,
-    "Invalid admin encoder variant config: audioBitrateKbps must be between 64 and 256",
-  )
-  if (variant.preset !== undefined) {
-    validateRequiredString(
-      variant.preset,
-      "Invalid admin encoder variant config: preset must be a non-empty string",
-    )
-  }
-  for (const key of ["extraInputArgs", "extraOutputArgs"] as const) {
-    validateString(
-      variant[key],
-      `Invalid admin encoder variant config: ${key} must be a string`,
-    )
-  }
-}
-
 function validateAdminEncoderConfig(value: unknown) {
   const encoder = objectRecord(value, "admin encoder config")
   validateBoolean(
@@ -146,20 +102,18 @@ function validateAdminEncoderConfig(value: unknown) {
     ENCODER_HWACCEL_SET,
     "Invalid admin encoder config: hwaccel is invalid",
   )
-  for (const key of ["qsvDevice", "vaapiDevice"] as const) {
+  for (const key of ADMIN_ENCODER_REQUIRED_STRING_FIELDS) {
     validateRequiredString(
       encoder[key],
       `Invalid admin encoder config: ${key} is required`,
     )
   }
-  validateNullableRequiredString(
-    encoder.defaultVariantId,
-    "Invalid admin encoder config: defaultVariantId must be non-empty or null",
-  )
-  validateArray(
-    encoder.variants,
-    "Invalid admin encoder config: variants must be an array",
-  ).map(validateAdminEncoderVariant)
+  for (const key of ADMIN_ENCODER_BOOLEAN_FIELDS) {
+    validateBoolean(
+      encoder[key],
+      `Invalid admin encoder config: ${key} must be boolean`,
+    )
+  }
 }
 
 function validateAdminLimitsConfig(value: unknown) {

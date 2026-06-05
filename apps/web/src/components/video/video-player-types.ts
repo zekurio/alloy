@@ -15,6 +15,7 @@ export type QualityOption = {
   id: string
   label: string
   detail?: string
+  selectionLabel?: string
   downloadUrl?: string
   selectable?: boolean
 }

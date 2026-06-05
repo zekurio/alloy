@@ -29,7 +29,10 @@ import {
   secretStore,
 } from "../config/secret-store"
 import { enqueueEncode } from "../queue"
-import { getEncoderCapabilities } from "./admin-encoder-capabilities"
+import {
+  clearEncoderCapabilitiesCache,
+  getEncoderCapabilities,
+} from "./admin-encoder-capabilities"
 import {
   ensureLoginSplashImage,
   generateLoginSplashPatch,
@@ -96,6 +99,7 @@ export const adminRoute = new Hono()
     if (!(await configStore.reload())) {
       return badRequest(c, "Runtime config file failed validation.")
     }
+    clearEncoderCapabilitiesCache()
     if (configStore.get("appearance").loginSplash.enabled) {
       await ensureLoginSplashImage()
     }
@@ -143,6 +147,7 @@ export const adminRoute = new Hono()
       }
 
       configStore.replace(next)
+      clearEncoderCapabilitiesCache()
       // Single write: prune secrets for removed providers, overlay imported ones.
       secretStore.update({
         setOAuth: importedOAuth,
@@ -249,14 +254,15 @@ export const adminRoute = new Hono()
     },
   )
   /**
-   * PATCH /encoder — update the encoder profile. Partial — admins usually
-   * flip one knob at a time. Changes apply to the next encode job; jobs
-   * already running finish on the previous config.
+   * PATCH /encoder — update live transcoding settings. Partial — admins
+   * usually flip one knob at a time. Changes apply to future live transcodes;
+   * already running processes finish on the previous config.
    */
   .patch("/encoder", zValidator("json", EncoderConfigPatchSchema), (c) => {
     const patch = c.req.valid("json")
     const next = { ...configStore.get("encoder"), ...patch }
     configStore.set("encoder", next)
+    clearEncoderCapabilitiesCache()
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
   /**

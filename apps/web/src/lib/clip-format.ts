@@ -1,10 +1,10 @@
-import type {
-  ClipEncodedVariant,
-  ClipGameRef,
-  ClipPrivacy,
-  ClipRow,
+import {
+  type ClipGameRef,
+  type ClipPrivacy,
+  type ClipRow,
+  clipStreamUrl,
+  clipThumbnailUrl,
 } from "@workspace/api"
-import { clipStreamUrl, clipThumbnailUrl } from "@workspace/api"
 import { stableHue } from "@workspace/ui/lib/stable-hash"
 import { formatRelativeTime } from "./date-format"
 import { apiOrigin } from "./env"
@@ -38,8 +38,6 @@ interface ClipCardData {
   thumbnail?: string
   /** Stream URL used for the hover-to-play preview. */
   streamUrl: string
-  /** Encoded playback/download variants exposed in the player settings menu. */
-  variants: ClipEncodedVariant[]
   accentHue: number
   /** Stored privacy setting — whether the card surfaces it is up to the caller. */
   privacy: ClipPrivacy
@@ -77,7 +75,6 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
       ? clipThumbnailUrl(row.id, apiOrigin(), row.updatedAt)
       : undefined,
     streamUrl: clipStreamUrl(row.id, undefined, apiOrigin()),
-    variants: row.variants,
     accentHue: hueForGame(game),
     privacy: row.privacy,
     description: row.description,

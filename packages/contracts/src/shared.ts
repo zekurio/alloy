@@ -30,35 +30,6 @@ export const USERNAME_MIN_LENGTH = 1
 export const USERNAME_MAX_LENGTH = 24
 export const USER_DISPLAY_NAME_MAX_LENGTH = 100
 
-export interface ClipVariantSettings {
-  hwaccel: string
-  codec: string
-  audioCodec: "aac" | "none"
-  quality: number
-  preset?: string
-  audioBitrateKbps: number
-  extraInputArgs: string
-  extraOutputArgs: string
-  height: number
-  trimStartMs: number | null
-  trimEndMs: number | null
-}
-
-export interface ClipEncodedVariant {
-  id: string
-  label: string
-  contentType: string
-  width: number
-  height: number
-  sizeBytes: number
-  isDefault: boolean
-  settings?: ClipVariantSettings
-  remuxSettings?: {
-    trimStartMs: number | null
-    trimEndMs: number | null
-  }
-}
-
 export const ACCEPTED_IMAGE_CONTENT_TYPES = [
   "image/jpeg",
   "image/png",

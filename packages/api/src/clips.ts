@@ -48,7 +48,6 @@ export {
 } from "@workspace/contracts"
 export type {
   AcceptedContentType,
-  ClipEncodedVariant,
   ClipFeedParams,
   ClipFeedSort,
   ClipFeedWindow,
@@ -56,6 +55,7 @@ export type {
   ClipLikeState,
   ClipMentionRef,
   ClipPage,
+  ClipPlaybackQuality,
   ClipPrivacy,
   ClipRow,
   ClipStatus,
@@ -87,18 +87,14 @@ export function clipStreamUrl(
   clipId: string,
   variantId?: string,
   origin?: string,
+  liveCodecs?: readonly string[],
 ): string {
+  const codecs = liveCodecs
+    ? liveCodecs.length > 0 ? liveCodecs.join(",") : "none"
+    : undefined
   return resolvePublicUrlWithQuery(
     publicClipPath(clipId, "/stream"),
-    { variant: variantId },
-    origin,
-  )
-}
-
-export function clipHlsMasterUrl(clipId: string, origin?: string): string {
-  return resolvePublicUrlWithQuery(
-    publicClipPath(clipId, "/hls/master.m3u8"),
-    {},
+    { variant: variantId, codecs },
     origin,
   )
 }

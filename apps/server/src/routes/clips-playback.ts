@@ -1,5 +1,5 @@
 import { zValidator } from "./validation"
-import { Hono } from "hono"
+import { type Context, Hono } from "hono"
 import { stream } from "hono/streaming"
 import { logger } from "@workspace/logging"
 
@@ -9,47 +9,42 @@ import {
   resolveClipAccess,
 } from "../clips/access"
 import { clipStorage } from "../storage"
-import { notFound } from "../runtime/http-response"
-import { pipeReadable } from "../runtime/streaming"
+import { configStore } from "../config/store"
 import {
-  buildHlsMasterPlaylist,
+  buildPlaybackQualities,
+  findPlaybackQuality,
+} from "../clips/playback-quality"
+import { isOpenGraphCompatibleSource } from "../clips/opengraph"
+import { parseRequestedLiveCodecs, selectLiveCodec } from "../clips/live-codec"
+import { ENCODE_DIR } from "../runtime/dirs"
+import { notFound } from "../runtime/http-response"
+import { join } from "../runtime/path"
+import { pipeReadable } from "../runtime/streaming"
+import { codecNameFor, encode, liveTranscode, probe } from "../queue/ffmpeg"
+import {
   contentDisposition,
   downloadFilename,
   DownloadQuery,
-  findEncodedVariant,
-  HlsVariantParam,
   IdParam,
   parseRange,
   readAll,
   StreamQuery,
 } from "./clips-helpers"
-import type { Context } from "hono"
-import type { ClipPrivacy } from "@workspace/contracts"
+import type { ClipPlaybackQuality, ClipPrivacy } from "@workspace/contracts"
 
-/**
- * Resolves stream access for an HLS variant route and locates the requested
- * rendition. Returns an early `response` (access denied) or the matched
- * `variant` (possibly `undefined` when the rendition is missing), so callers
- * can apply their own not-found semantics.
- */
-async function resolveHlsVariantAccess(
-  c: Context,
-  id: string,
-  variantId: string,
-) {
-  const access = await resolveClipAccess({
-    id,
-    headers: c.req.raw.headers,
-    policy: "stream",
-  })
-  if (!access.accessible) {
-    return { response: clipAccessResponse(c, access) } as const
-  }
-  applyClipPrivacyHeaders(c, access)
-  const variant = access.row.variants.find(
-    (candidate) => candidate.id === variantId && candidate.hls,
-  )
-  return { access, variant } as const
+type LiveTranscodeClipRow = {
+  id: string
+  sourceKey: string | null
+}
+
+type OpenGraphClipRow = {
+  id: string
+  sourceKey: string | null
+  sourceContentType: string | null
+  sourceVideoCodec: string | null
+  sourceAudioCodec: string | null
+  durationMs: number | null
+  height: number | null
 }
 
 /** Cache-Control for playback bytes/manifests, keyed on clip privacy. */
@@ -99,6 +94,189 @@ function streamResolved(
   })
 }
 
+async function streamLiveQuality(
+  c: Context,
+  row: LiveTranscodeClipRow,
+  quality: ClipPlaybackQuality,
+  codecQuery: string | undefined,
+): Promise<Response> {
+  const sourceKey = row.sourceKey
+  if (!sourceKey) return notFound(c, "Source unavailable")
+
+  const encoderConfig = configStore.get("encoder")
+  const requestedCodecs = parseRequestedLiveCodecs(codecQuery)
+  const selectedCodec = await selectLiveCodec(
+    encoderConfig.hwaccel,
+    requestedCodecs.codecs,
+  )
+  if (!selectedCodec) {
+    const message = requestedCodecs.explicitlyRequested
+      ? "No mutually supported live codec"
+      : "Live transcoding codec unavailable"
+    return notFound(c, message)
+  }
+
+  await Deno.mkdir(ENCODE_DIR, { recursive: true })
+  const scratchDir = await Deno.makeTempDir({
+    dir: ENCODE_DIR,
+    prefix: `${row.id}-live-`,
+  })
+  const sourcePath = join(scratchDir, "source")
+  try {
+    await clipStorage.downloadToFile(sourceKey, sourcePath)
+  } catch (err) {
+    await Deno.remove(scratchDir, { recursive: true }).catch(() => undefined)
+    logger.error(
+      `[clips] failed to stage source for live transcode ${row.id}:`,
+      err,
+    )
+    return notFound(c, "Source unavailable")
+  }
+
+  const transcode = liveTranscode(sourcePath, {
+    config: {
+      hwaccel: encoderConfig.hwaccel,
+      encoder: selectedCodec.encoder,
+      quality: 23,
+      audioBitrateKbps: Math.round(quality.audioBitrate / 1000),
+      extraInputArgs: "",
+      extraOutputArgs: "",
+      qsvDevice: encoderConfig.qsvDevice,
+      vaapiDevice: encoderConfig.vaapiDevice,
+      intelLowPowerH264: encoderConfig.intelLowPowerH264,
+      intelLowPowerHevc: encoderConfig.intelLowPowerHevc,
+    },
+    targetHeight: quality.height,
+    videoBitrate: quality.videoBitrate,
+    audioBitrate: quality.audioBitrate,
+  })
+
+  c.header("Content-Type", "video/mp4")
+  c.header("Cache-Control", "no-store")
+  if (c.req.method === "HEAD") {
+    transcode.kill()
+    void transcode.done.catch(() => undefined)
+    await Deno.remove(scratchDir, { recursive: true }).catch(() => undefined)
+    return c.body(null)
+  }
+
+  return stream(c, async (s) => {
+    try {
+      await pipeReadable(s, transcode.stdout)
+      await transcode.done.catch((err) => {
+        if (!s.aborted) {
+          logger.error(
+            `[clips] live transcode failed for ${row.id} at ${quality.label}:`,
+            err,
+          )
+          throw err
+        }
+      })
+    } finally {
+      transcode.kill()
+      await Deno.remove(scratchDir, { recursive: true }).catch((err) => {
+        logger.warn(
+          `[clips] failed to remove live transcode scratch ${scratchDir}:`,
+          err,
+        )
+      })
+    }
+  })
+}
+
+async function streamOpenGraphVideo(
+  c: Context,
+  row: OpenGraphClipRow,
+): Promise<Response> {
+  const sourceKey = row.sourceKey
+  if (!sourceKey) return notFound(c, "OpenGraph unavailable")
+
+  const source = await clipStorage.resolve(sourceKey)
+  if (!source) return notFound(c, "OpenGraph unavailable")
+
+  if (isOpenGraphCompatibleSource(row)) {
+    return streamResolved(c, source, "video/mp4", "public, max-age=300")
+  }
+
+  return await streamOnDemandOpenGraphTranscode(c, row)
+}
+
+async function streamOnDemandOpenGraphTranscode(
+  c: Context,
+  row: OpenGraphClipRow,
+): Promise<Response> {
+  const sourceKey = row.sourceKey
+  if (!sourceKey) return notFound(c, "OpenGraph unavailable")
+
+  await Deno.mkdir(ENCODE_DIR, { recursive: true })
+  const scratchDir = await Deno.makeTempDir({
+    dir: ENCODE_DIR,
+    prefix: `${row.id}-og-`,
+  })
+  const sourcePath = join(scratchDir, "source")
+  const outPath = join(scratchDir, "opengraph.mp4")
+
+  try {
+    await clipStorage.downloadToFile(sourceKey, sourcePath)
+    const probed = row.height && row.durationMs
+      ? { height: row.height, durationMs: row.durationMs }
+      : await probe(sourcePath)
+    const config = configStore.get("encoder")
+    await encode(sourcePath, outPath, {
+      config: {
+        hwaccel: config.hwaccel,
+        encoder: codecNameFor(config.hwaccel, "h264"),
+        quality: 23,
+        audioBitrateKbps: 256,
+        extraInputArgs: "",
+        extraOutputArgs: "",
+        qsvDevice: config.qsvDevice,
+        vaapiDevice: config.vaapiDevice,
+        intelLowPowerH264: config.intelLowPowerH264,
+        intelLowPowerHevc: config.intelLowPowerHevc,
+      },
+      targetHeight: Math.min(probed.height, 1080),
+      durationMs: probed.durationMs,
+      onProgress: () => undefined,
+      signal: c.req.raw.signal,
+    })
+
+    const stat = await Deno.stat(outPath)
+    c.header("Content-Type", "video/mp4")
+    c.header("Content-Length", String(stat.size))
+    c.header("Accept-Ranges", "none")
+    c.header("Cache-Control", "public, max-age=300")
+    if (c.req.method === "HEAD") {
+      await Deno.remove(scratchDir, { recursive: true }).catch(() => undefined)
+      return c.body(null)
+    }
+
+    const file = await Deno.open(outPath, { read: true })
+    return stream(c, async (s) => {
+      try {
+        await pipeReadable(s, file.readable)
+      } finally {
+        try {
+          file.close()
+        } catch {
+          // The readable side may already have closed the file descriptor.
+        }
+        await Deno.remove(scratchDir, { recursive: true }).catch((err) => {
+          logger.warn(
+            `[clips] failed to remove OpenGraph transcode scratch ${scratchDir}:`,
+            err,
+          )
+        })
+      }
+    })
+  } catch (err) {
+    await Deno.remove(scratchDir, { recursive: true }).catch(() => undefined)
+    if (c.req.raw.signal.aborted) throw err
+    logger.error(`[clips] OpenGraph transcode failed for ${row.id}:`, err)
+    return notFound(c, "OpenGraph unavailable")
+  }
+}
+
 export const clipsPlaybackRoutes = new Hono()
   .get(
     "/:id/stream",
@@ -106,7 +284,7 @@ export const clipsPlaybackRoutes = new Hono()
     zValidator("query", StreamQuery),
     async (c) => {
       const { id } = c.req.valid("param")
-      const { variant: requestedVariant } = c.req.valid("query")
+      const { variant: requestedVariant, codecs } = c.req.valid("query")
       const access = await resolveClipAccess({
         id,
         headers: c.req.raw.headers,
@@ -116,22 +294,21 @@ export const clipsPlaybackRoutes = new Hono()
       applyClipPrivacyHeaders(c, access)
       const row = access.row
 
-      const variant = requestedVariant === "source"
-        ? null
-        : findEncodedVariant(row, requestedVariant)
-      const selected = requestedVariant === "source"
-        ? row.sourceKey && row.sourceContentType
-          ? {
-            key: row.sourceKey,
-            contentType: row.sourceContentType,
-            id: "source",
-          }
-          : null
-        : variant
+      const liveQuality = configStore.get("encoder").enabled
+        ? findPlaybackQuality(buildPlaybackQualities(row), requestedVariant)
+        : null
+      if (liveQuality) {
+        return await streamLiveQuality(c, row, liveQuality, codecs)
+      }
+
+      const wantsSource = !requestedVariant ||
+        requestedVariant === "auto" ||
+        requestedVariant === "source"
+      const selected = wantsSource && row.sourceKey && row.sourceContentType
         ? {
-          key: variant.storageKey,
-          contentType: variant.contentType,
-          id: variant.id,
+          key: row.sourceKey,
+          contentType: row.sourceContentType,
+          id: "source",
         }
         : null
 
@@ -154,82 +331,6 @@ export const clipsPlaybackRoutes = new Hono()
         resolved,
         selected.contentType || resolved.contentType,
         cacheControl,
-      )
-    },
-  )
-  /**
-   * HLS master playlist — lists every CMAF rendition with the BANDWIDTH/CODECS
-   * line ffmpeg computed at encode time. Synthesized on demand; nothing extra
-   * is stored. Returns 404 for clips encoded before HLS existed, so the player
-   * falls back to progressive `/stream`.
-   */
-  .get("/:id/hls/master.m3u8", zValidator("param", IdParam), async (c) => {
-    const { id } = c.req.valid("param")
-    const access = await resolveClipAccess({
-      id,
-      headers: c.req.raw.headers,
-      policy: "stream",
-    })
-    if (!access.accessible) return clipAccessResponse(c, access)
-    applyClipPrivacyHeaders(c, access)
-    const row = access.row
-
-    const master = buildHlsMasterPlaylist(row.variants)
-    if (!master) return notFound(c, "HLS unavailable")
-
-    c.header("Content-Type", "application/vnd.apple.mpegurl")
-    c.header("Cache-Control", mediaCacheControl(row.privacy))
-    if (c.req.method === "HEAD") return c.body(null)
-    return c.body(master)
-  })
-  /** HLS media playlist for one rendition — the byte-range playlist ffmpeg
-   *  produced, served verbatim. Its `media.m4s` references resolve to the
-   *  sibling media route below. */
-  .get(
-    "/:id/hls/:variant/playlist.m3u8",
-    zValidator("param", HlsVariantParam),
-    async (c) => {
-      const { id, variant: variantId } = c.req.valid("param")
-      const resolved = await resolveHlsVariantAccess(c, id, variantId)
-      if ("response" in resolved) return resolved.response
-      const { access, variant } = resolved
-      if (!variant?.hls) return notFound(c, "HLS variant unavailable")
-
-      c.header("Content-Type", "application/vnd.apple.mpegurl")
-      c.header("Cache-Control", mediaCacheControl(access.row.privacy))
-      if (c.req.method === "HEAD") return c.body(null)
-      return c.body(variant.hls.playlist)
-    },
-  )
-  /** HLS media segments — byte ranges of the single CMAF file. Always streamed
-   *  same-origin (never redirected) so hls.js fetches aren't blocked by the
-   *  storage backend's cross-origin policy. */
-  .get(
-    "/:id/hls/:variant/media.m4s",
-    zValidator("param", HlsVariantParam),
-    async (c) => {
-      const { id, variant: variantId } = c.req.valid("param")
-      const access = await resolveClipAccess({
-        id,
-        headers: c.req.raw.headers,
-        policy: "stream",
-      })
-      if (!access.accessible) return clipAccessResponse(c, access)
-      applyClipPrivacyHeaders(c, access)
-
-      const variant = access.row.variants.find(
-        (candidate) => candidate.id === variantId && candidate.hls,
-      )
-      if (!variant) return notFound(c, "HLS media unavailable")
-
-      const resolved = await clipStorage.resolve(variant.storageKey)
-      if (!resolved) return notFound(c, "HLS media unavailable")
-
-      return streamResolved(
-        c,
-        resolved,
-        "video/mp4",
-        mediaCacheControl(access.row.privacy),
       )
     },
   )
@@ -284,23 +385,7 @@ export const clipsPlaybackRoutes = new Hono()
       policy: "openGraphAsset",
     })
     if (!access.accessible) return clipAccessResponse(c, access)
-    const row = access.row
-
-    if (!row.openGraphKey) {
-      return notFound(c)
-    }
-
-    const resolved = await clipStorage.resolve(row.openGraphKey)
-    if (!resolved) return notFound(c, "OpenGraph unavailable")
-    c.header("Content-Type", row.openGraphContentType ?? resolved.contentType)
-    c.header("Content-Length", String(resolved.size))
-    c.header("Accept-Ranges", "bytes")
-    c.header("Cache-Control", "public, max-age=300")
-    if (c.req.method === "HEAD") return c.body(null)
-    const body = resolved.stream()
-    return stream(c, async (s) => {
-      await pipeReadable(s, body)
-    })
+    return await streamOpenGraphVideo(c, access.row)
   })
   .get(
     "/:id/download",
@@ -319,10 +404,6 @@ export const clipsPlaybackRoutes = new Hono()
       applyClipPrivacyHeaders(c, access)
       const row = access.row
 
-      const encodedVariant =
-        row.status === "ready" && requestedVariant !== "source"
-          ? findEncodedVariant(row, requestedVariant)
-          : null
       const selected = requestedVariant === "source"
         ? row.sourceKey && row.sourceContentType
           ? {
@@ -331,16 +412,10 @@ export const clipsPlaybackRoutes = new Hono()
             filename: downloadFilename(row, "source"),
           }
           : null
-        : encodedVariant
-        ? {
-          key: encodedVariant.storageKey,
-          contentType: encodedVariant.contentType,
-          filename: downloadFilename(row, encodedVariant),
-        }
         : null
 
       if (!selected) {
-        return notFound(c, "Unknown download variant")
+        return notFound(c, "Unknown download")
       }
 
       const dlCacheControl = row.privacy === "public"
