@@ -14,6 +14,14 @@ export function mainSession(): Session {
 }
 
 /**
+ * Drop cached remote web assets before loading a server after reconnect or
+ * upgrade. Keep cookies/storage intact so authenticated sessions survive.
+ */
+export function clearRemoteWebCache(): Promise<void> {
+  return mainSession().clearCache()
+}
+
+/**
  * The main partition loads server-provided web content. Keep browser
  * permissions deny-by-default; future native features should request OS
  * permissions from trusted main/preload code, not from remote page JS.

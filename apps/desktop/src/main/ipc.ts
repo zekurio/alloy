@@ -28,7 +28,7 @@ import {
   rememberServer,
   saveRecordingSettings,
 } from "./server-store"
-import { hasValidSession } from "./session"
+import { clearRemoteWebCache, hasValidSession } from "./session"
 import type { Windows } from "./windows"
 
 const SETUP_REQUIRED_ERROR =
@@ -91,6 +91,7 @@ function registerServerIpc(windows: Windows): void {
       }
 
       rememberServer(result.serverUrl)
+      await clearRemoteWebCache()
       windows.connectTo(result.serverUrl)
       return { ok: true, serverUrl: result.serverUrl }
     },
