@@ -10,11 +10,39 @@ import { clientLogger } from "./src/lib/client-log"
 const DEFAULT_SERVER_URL = "http://localhost:2552"
 const workspaceRoot = fileURLToPath(new URL("../..", import.meta.url))
 const ATOMIC_WRITE_TEMP_FILE = /[/\\][^/\\]+\.tmp\.[^/\\]+$/
+const REACT_CHUNK_PACKAGES = new Set([
+  "react",
+  "react-dom",
+  "scheduler",
+  "use-sync-external-store",
+])
 const EDITOR_TEMP_FILES = [
   ATOMIC_WRITE_TEMP_FILE,
   /[/\\]\.[^/\\]+\.sw[a-z]$/,
   /[/\\][^/\\]+~$/,
 ]
+
+function packageNameFromModuleId(id: string): string | null {
+  const normalizedId = id.replaceAll("\\", "/")
+  const lastNodeModulesIndex = normalizedId.lastIndexOf("/node_modules/")
+
+  if (lastNodeModulesIndex === -1) {
+    return null
+  }
+
+  const packagePath = normalizedId.slice(
+    lastNodeModulesIndex + "/node_modules/".length,
+  )
+  const [scopeOrName, name] = packagePath.split("/")
+
+  if (!scopeOrName) {
+    return null
+  }
+
+  return scopeOrName.startsWith("@") && name
+    ? `${scopeOrName}/${name}`
+    : scopeOrName
+}
 
 function normalizeServerUrl(value: string): string {
   const url = new URL(value)
@@ -87,6 +115,34 @@ const config = defineConfig(({ mode }) => ({
     host: true,
     port: 5173,
     strictPort: true,
+  },
+  build: {
+    rolldownOptions: {
+      output: {
+        // Keep lazy route chunks from importing Lucide factories through the app
+        // entry; recursive manual chunks can also make Lucide absorb React.
+        codeSplitting: {
+          includeDependenciesRecursively: false,
+          groups: [
+            {
+              name: "react",
+              test: (id) => {
+                const packageName = packageNameFromModuleId(id)
+                return (
+                  packageName !== null && REACT_CHUNK_PACKAGES.has(packageName)
+                )
+              },
+              priority: 20,
+            },
+            {
+              name: "lucide",
+              test: (id) => packageNameFromModuleId(id) === "lucide-react",
+              priority: 10,
+            },
+          ],
+        },
+      },
+    },
   },
   plugins: [
     tailwindcss(),
