@@ -1,7 +1,7 @@
 import { mkdir, rmdir, rm } from "node:fs/promises"
 
-import type { AcceptedContentType, UploadTicket } from "@workspace/contracts"
-import { logger } from "@workspace/logging"
+import type { AcceptedContentType, UploadTicket } from "alloy-contracts"
+import { logger } from "alloy-logging"
 
 import { secretStore } from "../config/secret-store"
 import { env } from "../env"

@@ -1,6 +1,6 @@
 import { Radio as RadioPrimitive } from "@base-ui/react/radio"
 import { RadioGroup as RadioGroupPrimitive } from "@base-ui/react/radio-group"
-import { cn } from "@workspace/ui/lib/utils"
+import { cn } from "alloy-ui/lib/utils"
 
 /**
  * Alloy Radio — 14×14 ring, filled with a 6×6 accent dot when checked.

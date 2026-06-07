@@ -1,4 +1,4 @@
-import { logger } from "@workspace/logging"
+import { logger } from "alloy-logging"
 
 export async function responseTextOrEmpty(
   response: Response,

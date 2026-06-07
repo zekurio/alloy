@@ -1,4 +1,4 @@
-import { user, USER_ROLES } from "@workspace/db/auth-schema"
+import { user, USER_ROLES } from "alloy-db/auth-schema"
 import { eq } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"

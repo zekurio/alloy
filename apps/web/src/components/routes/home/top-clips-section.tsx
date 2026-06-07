@@ -1,11 +1,11 @@
 import { Link } from "@tanstack/react-router"
-import type { ClipFeedWindow } from "@workspace/api"
+import type { ClipFeedWindow } from "alloy-api"
 import {
   SectionActions,
   SectionHead,
   SectionTitle,
-} from "@workspace/ui/components/section-head"
-import { Spinner } from "@workspace/ui/components/spinner"
+} from "alloy-ui/components/section-head"
+import { Spinner } from "alloy-ui/components/spinner"
 import { AwardIcon } from "lucide-react"
 import * as React from "react"
 

@@ -1,5 +1,5 @@
-import type { GameDetail } from "@workspace/api"
-import { cn } from "@workspace/ui/lib/utils"
+import type { GameDetail } from "alloy-api"
+import { cn } from "alloy-ui/lib/utils"
 import * as React from "react"
 
 import { APP_BANNER_HEIGHT_CLASS } from "@/lib/banner-layout"

@@ -8,7 +8,7 @@ import {
   type PublicMlConfig,
   type SteamGridDBSearchResult,
   type SteamGridDBStatus,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 
 import {
   objectRecord,

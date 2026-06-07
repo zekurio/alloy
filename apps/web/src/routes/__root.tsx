@@ -9,6 +9,7 @@ import {
   RouteNotFoundState,
 } from "@/components/feedback/route-state"
 import { redirectToSetupBeforeLoad } from "@/lib/auth-guards"
+import { alloyDesktop } from "@/lib/desktop"
 import { RuntimeConfigEvents } from "@/lib/runtime-config-events"
 
 export const Route = createRootRouteWithContext<{
@@ -29,12 +30,21 @@ const ReactivateAccountPrompt = React.lazy(() =>
 )
 
 const Toaster = React.lazy(() =>
-  import("@workspace/ui/components/sonner").then((m) => ({
+  import("alloy-ui/components/sonner").then((m) => ({
     default: m.Toaster,
   })),
 )
 
 function RootLayout() {
+  // In the desktop shell with the Windows Controls Overlay, flag the document
+  // so the app header becomes a draggable title bar (see globals.css).
+  React.useEffect(() => {
+    if (!alloyDesktop()?.titlebarOverlay) return
+    const root = document.documentElement
+    root.classList.add("is-desktop-titlebar")
+    return () => root.classList.remove("is-desktop-titlebar")
+  }, [])
+
   return (
     <>
       <Outlet />

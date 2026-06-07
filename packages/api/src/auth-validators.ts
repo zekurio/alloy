@@ -2,7 +2,7 @@ import type {
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/browser"
-import { USER_ROLES, USER_STATUSES } from "@workspace/contracts"
+import { USER_ROLES, USER_STATUSES } from "alloy-contracts"
 
 import type { AuthUser, LinkedAccount, Passkey, SessionData } from "./auth"
 import { booleanFlagResponseValidator } from "./contract-validators"

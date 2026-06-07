@@ -1,4 +1,4 @@
-import { Spinner } from "@workspace/ui/components/spinner"
+import { Spinner } from "alloy-ui/components/spinner"
 
 import { APP_BANNER_HEIGHT_CLASS } from "@/lib/banner-layout"
 

@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form"
-import type { GameRow, UserSearchResult } from "@workspace/api"
-import { Button } from "@workspace/ui/components/button"
+import type { GameRow, UserSearchResult } from "alloy-api"
+import { Button } from "alloy-ui/components/button"
 import {
   Dialog,
   DialogBody,
@@ -9,17 +9,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@workspace/ui/components/dialog"
+} from "alloy-ui/components/dialog"
 import {
   Drawer,
   DrawerClose,
   DrawerContent,
   DrawerTitle,
-} from "@workspace/ui/components/drawer"
-import { Field, FieldLabel } from "@workspace/ui/components/field"
-import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
-import { toast } from "@workspace/ui/lib/toast"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/components/drawer"
+import { Field, FieldLabel } from "alloy-ui/components/field"
+import { useIsMobile } from "alloy-ui/hooks/use-mobile"
+import { toast } from "alloy-ui/lib/toast"
+import { cn } from "alloy-ui/lib/utils"
 import { UploadIcon } from "lucide-react"
 import * as React from "react"
 

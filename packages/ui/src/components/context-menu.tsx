@@ -1,7 +1,7 @@
 "use client"
 
 import { ContextMenu as ContextMenuPrimitive } from "@base-ui/react/context-menu"
-import { cn } from "@workspace/ui/lib/utils"
+import { cn } from "alloy-ui/lib/utils"
 import { CheckIcon, ChevronRightIcon } from "lucide-react"
 import * as React from "react"
 

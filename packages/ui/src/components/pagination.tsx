@@ -1,5 +1,5 @@
-import { Button } from "@workspace/ui/components/button"
-import { cn } from "@workspace/ui/lib/utils"
+import { Button } from "alloy-ui/components/button"
+import { cn } from "alloy-ui/lib/utils"
 import {
   ChevronLeftIcon,
   ChevronRightIcon,

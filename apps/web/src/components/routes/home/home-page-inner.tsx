@@ -1,6 +1,6 @@
 import { useNavigate, useSearch } from "@tanstack/react-router"
-import type { ClipFeedWindow, FeedFilter } from "@workspace/api"
-import { AppMain } from "@workspace/ui/components/app-shell"
+import type { ClipFeedWindow, FeedFilter } from "alloy-api"
+import { AppMain } from "alloy-ui/components/app-shell"
 
 import { useRequireAuth } from "@/lib/auth-hooks"
 import type { HomeSearch } from "@/lib/home-search"

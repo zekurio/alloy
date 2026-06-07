@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { COMMENT_BODY_MAX_LENGTH } from "@workspace/api"
+import { COMMENT_BODY_MAX_LENGTH } from "alloy-api"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -9,20 +9,16 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@workspace/ui/components/alert-dialog"
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@workspace/ui/components/avatar"
-import { Button } from "@workspace/ui/components/button"
+} from "alloy-ui/components/alert-dialog"
+import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
+import { Button } from "alloy-ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/components/dropdown-menu"
+import { cn } from "alloy-ui/lib/utils"
 import {
   ArrowUpDownIcon,
   HeartIcon,

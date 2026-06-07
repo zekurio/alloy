@@ -13,8 +13,8 @@ import {
   ENCODER_HWACCELS,
   type EncoderHwaccel,
   type RuntimeConfig,
-} from "@workspace/contracts"
-import { logger } from "@workspace/logging"
+} from "alloy-contracts"
+import { logger } from "alloy-logging"
 
 import { signInConfigError } from "../auth/sign-in-config"
 import { CONFIG_PATH } from "../runtime/dirs"
@@ -47,10 +47,10 @@ export {
   ENCODER_HEIGHT_MIN,
   OAUTH_DISPLAY_NAME_CLAIM_DEFAULT,
   OAUTH_USERNAME_CLAIM_DEFAULT,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 export const HWACCEL_KINDS = ENCODER_HWACCELS
 export type HwaccelKind = EncoderHwaccel
-export type { UsernameClaim } from "@workspace/contracts"
+export type { UsernameClaim } from "alloy-contracts"
 
 export {
   OAuthProviderSchema,
@@ -74,7 +74,7 @@ export type {
   MachineLearningConfig,
   OAuthProviderConfig,
   RuntimeConfig,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 
 type LoadResult =
   | {

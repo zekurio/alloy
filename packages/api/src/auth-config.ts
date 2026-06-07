@@ -1,4 +1,4 @@
-import type { PublicAuthConfig } from "@workspace/contracts"
+import type { PublicAuthConfig } from "alloy-contracts"
 
 import type { ApiContext } from "./client"
 import { validatePublicAuthConfig } from "./contract-validators"
@@ -8,7 +8,7 @@ export type {
   PublicAuthConfig,
   PublicAuthProvider,
   PublicLoginSplashConfig,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 
 export function createAuthConfigApi(context: ApiContext) {
   return {

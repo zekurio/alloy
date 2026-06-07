@@ -1,7 +1,7 @@
 import { useNavigate } from "@tanstack/react-router"
-import { Button } from "@workspace/ui/components/button"
-import { toast } from "@workspace/ui/lib/toast"
-import { cn } from "@workspace/ui/lib/utils"
+import { Button } from "alloy-ui/components/button"
+import { toast } from "alloy-ui/lib/toast"
+import { cn } from "alloy-ui/lib/utils"
 import { StarIcon } from "lucide-react"
 
 import { errorMessage } from "@/lib/error-message"

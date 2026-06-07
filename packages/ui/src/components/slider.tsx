@@ -1,9 +1,6 @@
 import { Slider as SliderPrimitive } from "@base-ui/react/slider"
-import { cn } from "@workspace/ui/lib/utils"
+import { cn } from "alloy-ui/lib/utils"
 
-/**
- * Alloy Slider — 4px track, accent fill, 12px white thumb with accent ring.
- */
 function Slider({
   className,
   defaultValue,
@@ -39,14 +36,14 @@ function Slider({
         <SliderPrimitive.Track
           data-slot="slider-track"
           className={cn(
-            "relative grow overflow-hidden rounded-full bg-neutral-200 select-none",
+            "relative grow overflow-hidden rounded-full bg-white/20 select-none",
             "data-horizontal:h-1 data-horizontal:w-full",
             "data-vertical:h-full data-vertical:w-1",
           )}
         >
           <SliderPrimitive.Indicator
             data-slot="slider-range"
-            className="bg-accent select-none data-horizontal:h-full data-vertical:w-full"
+            className="bg-accent shadow-[0_0_8px_var(--accent-glow)] select-none data-horizontal:h-full data-vertical:w-full"
           />
         </SliderPrimitive.Track>
         {Array.from({ length: _values.length }, (_, index) => (
@@ -54,12 +51,12 @@ function Slider({
             key={index}
             data-slot="slider-thumb"
             className={cn(
-              "relative block size-3 shrink-0 rounded-full border-2 border-accent bg-foreground",
-              "transition-[box-shadow] select-none",
+              "bg-accent relative block size-[10px] shrink-0 rounded-full",
+              "transition-[box-shadow,transform] select-none",
               "after:absolute after:-inset-2",
-              "hover:ring-4 hover:ring-accent-soft",
+              "hover:scale-110 hover:ring-4 hover:ring-accent-soft",
               "focus-visible:ring-4 focus-visible:ring-accent-soft focus-visible:outline-none",
-              "active:ring-4 active:ring-accent-soft",
+              "active:scale-110 active:ring-4 active:ring-accent-soft",
               "disabled:pointer-events-none disabled:opacity-50",
             )}
           />

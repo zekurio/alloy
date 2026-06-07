@@ -8,7 +8,7 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query"
-import type { CommentPage, CommentRow, CommentSort } from "@workspace/api"
+import type { CommentPage, CommentRow, CommentSort } from "alloy-api"
 
 import { api } from "./api"
 import { adjustClipCountsInCaches } from "./clip-queries"

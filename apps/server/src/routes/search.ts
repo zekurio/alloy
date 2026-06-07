@@ -1,5 +1,5 @@
-import { user } from "@workspace/db/auth-schema"
-import { clip, game } from "@workspace/db/schema"
+import { user } from "alloy-db/auth-schema"
+import { clip, game } from "alloy-db/schema"
 import { and, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"

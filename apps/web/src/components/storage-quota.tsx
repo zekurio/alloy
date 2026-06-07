@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
-import { Progress } from "@workspace/ui/components/progress"
-import { cn } from "@workspace/ui/lib/utils"
+import { Progress } from "alloy-ui/components/progress"
+import { cn } from "alloy-ui/lib/utils"
 
 import { api } from "@/lib/api"
 import { formatBytes, storageUsagePercent } from "@/lib/storage-format"

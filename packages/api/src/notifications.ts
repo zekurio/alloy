@@ -2,8 +2,8 @@ import type {
   NotificationEvent,
   NotificationRow,
   NotificationsResponse,
-} from "@workspace/contracts"
-import { NOTIFICATIONS_DEFAULT_LIMIT } from "@workspace/contracts"
+} from "alloy-contracts"
+import { NOTIFICATIONS_DEFAULT_LIMIT } from "alloy-contracts"
 
 import type { ApiContext } from "./client"
 import {
@@ -23,11 +23,11 @@ export type {
   NotificationRow,
   NotificationsResponse,
   NotificationType,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 export {
   NOTIFICATIONS_DEFAULT_LIMIT,
   NOTIFICATIONS_MAX_LIMIT,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 
 export function notificationStreamUrl({
   includeSnapshot = true,

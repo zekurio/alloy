@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { type QueueClip, uploadToTicket } from "@workspace/api"
-import { stableHue } from "@workspace/ui/lib/stable-hash"
-import { toast } from "@workspace/ui/lib/toast"
+import { type QueueClip, uploadToTicket } from "alloy-api"
+import { stableHue } from "alloy-ui/lib/stable-hash"
+import { toast } from "alloy-ui/lib/toast"
 import * as React from "react"
 
 import { api } from "@/lib/api"

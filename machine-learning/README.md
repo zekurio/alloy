@@ -92,13 +92,13 @@ MACHINE_LEARNING_CACHE_FOLDER=../data/ml uv run python -m alloy_ml
 From the repository root, the equivalent first-class dev command is:
 
 ```bash
-devenv shell dev-ml
+pnpm dev:ml
 ```
 
 It mirrors the direct command above and keeps ML runtime data in `data/ml`. Use
 `ALLOY_ML_PORT` to change the local port, and use
-`MACHINE_LEARNING_UV_SYNC=0 devenv shell dev-ml` after the first sync if you only
-want to restart the service.
+`MACHINE_LEARNING_UV_SYNC=0 pnpm dev:ml` after the first sync if you only want to
+restart the service.
 
 The checked-in Dockerfile currently targets CPU inference. CUDA/ROCm images can
 be added as separate device variants later, following Immich's pattern.

@@ -4,7 +4,7 @@ import {
   SectionHead,
   SectionMeta,
   SectionTitle,
-} from "@workspace/ui/components/section-head"
+} from "alloy-ui/components/section-head"
 import { TagIcon } from "lucide-react"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"

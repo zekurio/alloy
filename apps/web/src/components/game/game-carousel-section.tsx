@@ -5,14 +5,14 @@ import {
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
-} from "@workspace/ui/components/carousel"
+} from "alloy-ui/components/carousel"
 import {
   SectionActions,
   SectionHead,
   SectionMeta,
   SectionTitle,
-} from "@workspace/ui/components/section-head"
-import { Spinner } from "@workspace/ui/components/spinner"
+} from "alloy-ui/components/section-head"
+import { Spinner } from "alloy-ui/components/spinner"
 import * as React from "react"
 
 import { EmptyState } from "@/components/feedback/empty-state"
@@ -21,6 +21,9 @@ import { headerCountLabel } from "@/lib/number-format"
 import { GameCard, type GameCardData, type GameCardLink } from "./game-card"
 
 export type GameCarouselEntry = GameCardData & { clipCount: number }
+
+const gameCarouselItemClassName =
+  "basis-[112px] pl-2.5 sm:basis-[128px] lg:basis-[144px] 2xl:basis-[156px]"
 
 type GameCarouselSectionProps = {
   entries: GameCarouselEntry[] | null
@@ -123,7 +126,7 @@ export function GameCarouselSection({
             {entries.map((entry) => (
               <CarouselItem
                 key={entry.slug ?? `name:${entry.name}`}
-                className="basis-1/3 pl-2.5 sm:basis-1/6 lg:basis-1/9 2xl:basis-1/12"
+                className={gameCarouselItemClassName}
               >
                 <GameCard
                   game={entry}
@@ -133,7 +136,7 @@ export function GameCarouselSection({
               </CarouselItem>
             ))}
             {isFetchingNextPage ? (
-              <CarouselItem className="basis-1/3 pl-2.5 sm:basis-1/6 lg:basis-1/9 2xl:basis-1/12">
+              <CarouselItem className={gameCarouselItemClassName}>
                 <div className="bg-muted/30 flex aspect-[2/3] items-center justify-center rounded-md">
                   <Spinner className="size-5" />
                 </div>

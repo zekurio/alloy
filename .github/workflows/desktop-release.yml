@@ -1,0 +1,154 @@
+name: Desktop Release
+
+on:
+  push:
+    tags:
+      - "desktop-v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Desktop release tag to publish
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Publish Windows desktop installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout desktop release tag
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Resolve desktop release version
+        id: meta
+        shell: bash
+        run: |
+          raw="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          version="${raw#desktop-v}"
+
+          if [[ "$raw" != desktop-v* ]]; then
+            echo "Desktop release refs must use desktop-v-prefixed tags." >&2
+            exit 1
+          fi
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            echo "Invalid desktop release version: $raw" >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=desktop-v$version" >> "$GITHUB_OUTPUT"
+
+          if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "make_latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "make_latest=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Ensure tag points at main
+        shell: bash
+        run: |
+          git fetch origin "+refs/heads/main:refs/remotes/origin/main"
+          release_commit="$(git rev-list -n 1 "${{ steps.meta.outputs.tag }}")"
+
+          if ! git merge-base --is-ancestor "$release_commit" origin/main; then
+            echo "Desktop release tag ${{ steps.meta.outputs.tag }} must point at a commit on main." >&2
+            exit 1
+          fi
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.4.0
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Validate desktop package version matches release
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          actual="$(node -e 'const fs = require("node:fs"); console.log(JSON.parse(fs.readFileSync("apps/desktop/package.json", "utf8")).version);')"
+
+          if [[ "$actual" != "$RELEASE_VERSION" ]]; then
+            echo "apps/desktop/package.json version $actual does not match desktop release $RELEASE_VERSION." >&2
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: corepack pnpm fmt:check
+
+      - name: Run lint
+        run: corepack pnpm lint:github
+
+      - name: Run typecheck
+        run: corepack pnpm typecheck
+
+      - name: Stage OBS runtime
+        shell: pwsh
+        env:
+          OBS_STUDIO_VERSION: 32.1.2
+        run: |
+          $ErrorActionPreference = "Stop"
+          $archive = Join-Path $env:RUNNER_TEMP "obs-studio.zip"
+          $runtimeDir = Join-Path $env:RUNNER_TEMP "obs-runtime"
+          $downloadUrl = "https://github.com/obsproject/obs-studio/releases/download/$env:OBS_STUDIO_VERSION/OBS-Studio-$env:OBS_STUDIO_VERSION-Windows-x64.zip"
+
+          Invoke-WebRequest -Uri $downloadUrl -OutFile $archive
+
+          if (Test-Path $runtimeDir) {
+            Remove-Item -LiteralPath $runtimeDir -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $runtimeDir | Out-Null
+          Expand-Archive -Path $archive -DestinationPath $runtimeDir
+
+          $obsDll = Join-Path $runtimeDir "bin\64bit\obs.dll"
+          if (!(Test-Path $obsDll)) {
+            Write-Error "Downloaded OBS runtime is invalid; missing $obsDll."
+          }
+
+          "ALLOY_OBS_RUNTIME_DIR=$runtimeDir" >> $env:GITHUB_ENV
+          "ALLOY_REQUIRE_OBS_RUNTIME=1" >> $env:GITHUB_ENV
+
+      - name: Build Windows desktop installer
+        env:
+          NODE_ENV: production
+        run: corepack pnpm --filter alloy-desktop dist:win:installer
+
+      - name: Resolve release target
+        id: release_target
+        shell: bash
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish desktop GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          target_commitish: ${{ steps.release_target.outputs.sha }}
+          name: Alloy Desktop ${{ steps.meta.outputs.tag }}
+          generate_release_notes: true
+          prerelease: ${{ steps.meta.outputs.is_prerelease }}
+          make_latest: ${{ steps.meta.outputs.make_latest }}
+          files: |
+            apps/desktop/release/*.exe

@@ -1,4 +1,4 @@
-import { game } from "@workspace/db/schema"
+import { game } from "alloy-db/schema"
 import { eq } from "drizzle-orm"
 
 import { db } from "../db"

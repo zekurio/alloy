@@ -4,8 +4,8 @@ import {
   type ClipRow,
   clipStreamUrl,
   clipThumbnailUrl,
-} from "@workspace/api"
-import { stableHue } from "@workspace/ui/lib/stable-hash"
+} from "alloy-api"
+import { stableHue } from "alloy-ui/lib/stable-hash"
 
 import { formatRelativeTime } from "./date-format"
 import { apiOrigin } from "./env"

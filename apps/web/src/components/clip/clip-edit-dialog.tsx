@@ -4,9 +4,9 @@ import type {
   ClipRow,
   GameRow,
   UserSearchResult,
-} from "@workspace/api"
-import { Button } from "@workspace/ui/components/button"
-import { Field, FieldLabel } from "@workspace/ui/components/field"
+} from "alloy-api"
+import { Button } from "alloy-ui/components/button"
+import { Field, FieldLabel } from "alloy-ui/components/field"
 import {
   ResponsiveDialog,
   ResponsiveDialogBody,
@@ -14,9 +14,9 @@ import {
   ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
-} from "@workspace/ui/components/responsive-dialog"
-import { toast } from "@workspace/ui/lib/toast"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/components/responsive-dialog"
+import { toast } from "alloy-ui/lib/toast"
+import { cn } from "alloy-ui/lib/utils"
 import { SaveIcon } from "lucide-react"
 import * as React from "react"
 

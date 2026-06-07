@@ -1,6 +1,6 @@
-import type { ClipPrivacy } from "@workspace/api"
-import { Toggle } from "@workspace/ui/components/toggle"
-import { cn } from "@workspace/ui/lib/utils"
+import type { ClipPrivacy } from "alloy-api"
+import { Toggle } from "alloy-ui/components/toggle"
+import { cn } from "alloy-ui/lib/utils"
 
 import { PRIVACY_OPTIONS } from "@/lib/clip-fields"
 

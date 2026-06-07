@@ -1,10 +1,10 @@
-import type { UserClip } from "@workspace/api"
+import type { UserClip } from "alloy-api"
 import {
   SectionActions,
   SectionHead,
   SectionMeta,
   SectionTitle,
-} from "@workspace/ui/components/section-head"
+} from "alloy-ui/components/section-head"
 import { FilmIcon } from "lucide-react"
 import * as React from "react"
 

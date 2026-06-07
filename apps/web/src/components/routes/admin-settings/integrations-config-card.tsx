@@ -1,22 +1,16 @@
 import { useQueryClient } from "@tanstack/react-query"
-import type {
-  AdminIntegrationsConfig,
-  AdminRuntimeConfig,
-} from "@workspace/api"
-import { Button } from "@workspace/ui/components/button"
-import { Field, FieldLabel } from "@workspace/ui/components/field"
-import {
-  InputGroup,
-  InputGroupInput,
-} from "@workspace/ui/components/input-group"
+import type { AdminIntegrationsConfig, AdminRuntimeConfig } from "alloy-api"
+import { Button } from "alloy-ui/components/button"
+import { Field, FieldLabel } from "alloy-ui/components/field"
+import { InputGroup, InputGroupInput } from "alloy-ui/components/input-group"
 import {
   Section,
   SectionContent,
   SectionFooter,
   SectionHeader,
   SectionTitle,
-} from "@workspace/ui/components/section"
-import { toast } from "@workspace/ui/lib/toast"
+} from "alloy-ui/components/section"
+import { toast } from "alloy-ui/lib/toast"
 import { SaveIcon } from "lucide-react"
 import * as React from "react"
 
@@ -35,6 +29,8 @@ type IntegrationsConfigCardProps = {
   hideHeader?: boolean
   /** HTML `id` for the `<form>` element, useful for external submit buttons. */
   formId?: string
+  /** Show the success toast after saving. */
+  toastOnSuccess?: boolean
 }
 
 function updateSteamGridDBStatus(
@@ -52,6 +48,7 @@ export function IntegrationsConfigCard({
   hideActions,
   hideHeader,
   formId,
+  toastOnSuccess = true,
 }: IntegrationsConfigCardProps) {
   const queryClient = useQueryClient()
   // The stored key is a secret and never sent to the client. The field holds a
@@ -85,7 +82,7 @@ export function IntegrationsConfigCard({
       })
       onChange(next)
       updateSteamGridDBStatus(queryClient, true)
-      toast.success("Integrations updated")
+      if (toastOnSuccess) toast.success("Integrations updated")
       onSaved?.()
     } catch (cause) {
       toast.error(errorMessage(cause, "Couldn't update integrations"))

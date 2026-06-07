@@ -1,28 +1,24 @@
 import { Link } from "@tanstack/react-router"
-import { clipThumbnailUrl, type NotificationRow } from "@workspace/api"
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@workspace/ui/components/avatar"
-import { Button } from "@workspace/ui/components/button"
+import { clipThumbnailUrl, type NotificationRow } from "alloy-api"
+import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
+import { Button } from "alloy-ui/components/button"
 import {
   Dialog,
   DialogContent,
   DialogTrigger,
-} from "@workspace/ui/components/dialog"
+} from "alloy-ui/components/dialog"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@workspace/ui/components/popover"
-import { Spinner } from "@workspace/ui/components/spinner"
-import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
+} from "alloy-ui/components/popover"
+import { Spinner } from "alloy-ui/components/spinner"
+import { useIsMobile } from "alloy-ui/hooks/use-mobile"
 import {
   CLIP_MEDIA_CLASS,
   CLIP_MEDIA_VIEWPORT_CLASS,
-} from "@workspace/ui/lib/media-frame"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/lib/media-frame"
+import { cn } from "alloy-ui/lib/utils"
 import {
   BellIcon,
   CheckIcon,

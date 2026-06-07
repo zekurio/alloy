@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router"
-import type { PublicAuthConfig } from "@workspace/api"
-import { Separator } from "@workspace/ui/components/separator"
+import type { PublicAuthConfig } from "alloy-api"
+import { Separator } from "alloy-ui/components/separator"
 import * as React from "react"
 
 import { AuthPageFrame } from "@/components/auth/auth-page-frame"

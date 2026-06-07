@@ -1,5 +1,5 @@
-import { ACCEPTED_IMAGE_CONTENT_TYPES } from "@workspace/contracts"
-import { clip } from "@workspace/db/schema"
+import { ACCEPTED_IMAGE_CONTENT_TYPES } from "alloy-contracts"
+import { clip } from "alloy-db/schema"
 import { inArray } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"

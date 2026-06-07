@@ -15,8 +15,8 @@ import {
   type User,
   type UserPasskey,
   userPasskey,
-} from "@workspace/db/auth-schema"
-import { logger } from "@workspace/logging"
+} from "alloy-db/auth-schema"
+import { logger } from "alloy-logging"
 import { and, eq, gt, lt } from "drizzle-orm"
 
 import { configStore } from "../config/store"

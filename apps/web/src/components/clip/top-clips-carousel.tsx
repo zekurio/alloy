@@ -3,7 +3,7 @@ import {
   CarouselContent,
   CarouselNext,
   CarouselPrevious,
-} from "@workspace/ui/components/carousel"
+} from "alloy-ui/components/carousel"
 import * as React from "react"
 
 export function TopClipsCarousel({ children }: { children: React.ReactNode }) {

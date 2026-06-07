@@ -1,5 +1,5 @@
-import { user } from "@workspace/db/auth-schema"
-import { clip, clipUploadTicket } from "@workspace/db/schema"
+import { user } from "alloy-db/auth-schema"
+import { clip, clipUploadTicket } from "alloy-db/schema"
 import { and, eq, gt, inArray, sql } from "drizzle-orm"
 
 import { publishClipUpsert } from "../clips/events"

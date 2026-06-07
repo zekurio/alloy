@@ -18,8 +18,16 @@ coverage
 # Build Outputs
 dist
 build
+out
 .output
 image-stream
+apps/desktop/assets/icon.ico
+apps/desktop/resources/sidecar/*
+!apps/desktop/resources/sidecar/.gitkeep
+apps/desktop/resources/obs-runtime/*
+!apps/desktop/resources/obs-runtime/.gitkeep
+apps/desktop/sidecar/target/
+apps/desktop/release/
 .nitro
 .tanstack
 .vite
@@ -43,3 +51,6 @@ devenv.local.nix
 
 # Runtime config store (JSON-backed, mutable via admin UI)
 data/
+
+# cloned repos to research
+.repos/

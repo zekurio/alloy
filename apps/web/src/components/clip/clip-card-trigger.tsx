@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import type { ClipRow } from "@workspace/api"
-import { ClipCard } from "@workspace/ui/components/clip-card"
+import type { ClipRow } from "alloy-api"
+import { ClipCard } from "alloy-ui/components/clip-card"
 import * as React from "react"
 
 import { gameHref, userProfileHref } from "@/lib/app-paths"

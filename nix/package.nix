@@ -14,7 +14,7 @@
     inherit lib;
     root = ../.;
   },
-  pnpmDepsHash ? "sha256-XD/u9QqTZbZp3Eb/0j9aXNJeOrGMY5pqcYIIbO7/fDs=",
+  pnpmDepsHash ? "sha256-Mwyb1MZfMaxvBjDC/aY8gPwX1mEhL6baO1q8k1UM1ZM=",
 }:
 
 stdenvNoCC.mkDerivation (finalAttrs: {
@@ -44,7 +44,8 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     export DO_NOT_TRACK=1
     mkdir -p "$HOME"
 
-    pnpm build
+    pnpm --filter alloy-server build
+    pnpm --filter alloy-web build
 
     runHook postBuild
   '';
@@ -55,7 +56,9 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     mkdir -p "$out/bin" "$out/share/alloy/server/node_modules" "$out/share/alloy/web"
     cp -R apps/server/dist apps/server/package.json "$out/share/alloy/server/"
     cp -R node_modules/.pnpm "$out/share/alloy/server/node_modules/.pnpm"
-    rm -rf "$out/share/alloy/server/node_modules/.pnpm/node_modules/@workspace"
+    rm -rf \
+      "$out/share/alloy/server/node_modules/.pnpm/node_modules/@workspace" \
+      "$out/share/alloy/server/node_modules/.pnpm/node_modules"/alloy-*
 
     linkNodeModule() {
       local name="$1"

@@ -1,4 +1,4 @@
-import { clip, clipComment } from "@workspace/db/schema"
+import { clip, clipComment } from "alloy-db/schema"
 import { and, eq, sql } from "drizzle-orm"
 
 import { getSession } from "../auth/session"

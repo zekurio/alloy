@@ -1,7 +1,7 @@
 import {
   type AdminEncoderCapabilities as EncoderCapabilities,
   ENCODER_HWACCELS,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 
 import { codecNameFor } from "../queue/ffmpeg-args"
 

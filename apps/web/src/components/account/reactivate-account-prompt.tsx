@@ -7,8 +7,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@workspace/ui/components/alert-dialog"
-import { toast } from "@workspace/ui/lib/toast"
+} from "alloy-ui/components/alert-dialog"
+import { toast } from "alloy-ui/lib/toast"
 import * as React from "react"
 
 import { api } from "@/lib/api"

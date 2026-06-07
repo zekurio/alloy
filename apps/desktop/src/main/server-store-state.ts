@@ -1,0 +1,72 @@
+import {
+  DEFAULT_RECORDING_SETTINGS,
+  normalizeRecordingSettings,
+  type RecordingSettings,
+} from "alloy-contracts"
+
+import type { SavedServer } from "../shared/ipc"
+
+export interface DesktopState {
+  lastServerUrl: string | null
+  servers: SavedServer[]
+  recording: RecordingSettings
+}
+
+export const MAX_SAVED_SERVERS = 8
+export const EMPTY_STATE: DesktopState = {
+  lastServerUrl: null,
+  servers: [],
+  recording: DEFAULT_RECORDING_SETTINGS,
+}
+
+export function normalizeState(parsed: Record<string, unknown>): DesktopState {
+  const legacyLast =
+    typeof parsed.lastServerUrl === "string" ? parsed.lastServerUrl : null
+  const servers = Array.isArray(parsed.servers)
+    ? parsed.servers
+        .map(normalizeSavedServer)
+        .filter((server): server is SavedServer => server !== null)
+    : []
+
+  const normalized = legacyLast ? upsertServer(servers, legacyLast) : servers
+  return {
+    lastServerUrl: normalized[0]?.serverUrl ?? legacyLast,
+    servers: dedupeServers(normalized).slice(0, MAX_SAVED_SERVERS),
+    recording: normalizeRecordingSettings(parsed.recording),
+  }
+}
+
+export function upsertServer(
+  servers: SavedServer[],
+  serverUrl: string,
+  now: Date = new Date(),
+): SavedServer[] {
+  return dedupeServers([
+    { serverUrl, lastConnectedAt: now.toISOString() },
+    ...servers.filter((server) => server.serverUrl !== serverUrl),
+  ]).slice(0, MAX_SAVED_SERVERS)
+}
+
+function normalizeSavedServer(value: unknown): SavedServer | null {
+  if (typeof value !== "object" || value === null) return null
+  const record = value as Record<string, unknown>
+  if (typeof record.serverUrl !== "string") return null
+  return {
+    serverUrl: record.serverUrl,
+    lastConnectedAt:
+      typeof record.lastConnectedAt === "string"
+        ? record.lastConnectedAt
+        : new Date(0).toISOString(),
+  }
+}
+
+function dedupeServers(servers: SavedServer[]): SavedServer[] {
+  const seen = new Set<string>()
+  const unique: SavedServer[] = []
+  for (const server of servers) {
+    if (seen.has(server.serverUrl)) continue
+    seen.add(server.serverUrl)
+    unique.push(server)
+  }
+  return unique
+}

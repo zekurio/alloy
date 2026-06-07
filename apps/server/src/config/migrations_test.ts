@@ -1,6 +1,6 @@
 import { test } from "node:test"
 
-import { RUNTIME_CONFIG_VERSION } from "@workspace/contracts"
+import { RUNTIME_CONFIG_VERSION } from "alloy-contracts"
 
 import { migrateRuntimeConfig } from "./migrations"
 

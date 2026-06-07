@@ -1,7 +1,7 @@
 import { stat } from "node:fs/promises"
 
-import { clip, clipMention, clipUploadTicket, game } from "@workspace/db/schema"
-import { logger } from "@workspace/logging"
+import { clip, clipMention, clipUploadTicket, game } from "alloy-db/schema"
+import { logger } from "alloy-logging"
 import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
 

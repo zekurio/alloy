@@ -1,4 +1,4 @@
-import { RUNTIME_CONFIG_VERSION } from "@workspace/contracts"
+import { RUNTIME_CONFIG_VERSION } from "alloy-contracts"
 
 export const CURRENT_RUNTIME_CONFIG_VERSION = RUNTIME_CONFIG_VERSION
 

@@ -1,8 +1,8 @@
 "use client"
 
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
-import { Button } from "@workspace/ui/components/button"
-import { cn } from "@workspace/ui/lib/utils"
+import { Button } from "alloy-ui/components/button"
+import { cn } from "alloy-ui/lib/utils"
 import { XIcon } from "lucide-react"
 import * as React from "react"
 

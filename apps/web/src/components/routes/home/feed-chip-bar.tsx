@@ -1,14 +1,14 @@
-import type { FeedFilter } from "@workspace/api"
+import type { FeedFilter } from "alloy-api"
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
-} from "@workspace/ui/components/carousel"
-import { Chip } from "@workspace/ui/components/chip"
-import { GameIcon } from "@workspace/ui/components/game-icon"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/components/carousel"
+import { Chip } from "alloy-ui/components/chip"
+import { GameIcon } from "alloy-ui/components/game-icon"
+import { cn } from "alloy-ui/lib/utils"
 import { FlameIcon, HashIcon, UsersIcon } from "lucide-react"
 
 import { useFeedChipsQuery } from "@/lib/feed-queries"

@@ -261,12 +261,19 @@ export interface PublicAuthProvider {
   iconUrl?: string
 }
 
+export const DESKTOP_AUTH_CAPABILITY_VERSION = 1
+
+export interface PublicDesktopAuthConfig {
+  version: number
+}
+
 export interface PublicAuthConfig {
   adminAccountRequired: boolean
   setupRequired: boolean
   openRegistrations: boolean
   passkeyEnabled: boolean
   requireAuthToBrowse: boolean
+  desktopAuth: PublicDesktopAuthConfig
   providers: PublicAuthProvider[]
   loginSplash: PublicLoginSplashConfig
 }

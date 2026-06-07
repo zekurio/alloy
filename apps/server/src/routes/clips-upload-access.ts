@@ -1,4 +1,4 @@
-import { clip } from "@workspace/db/schema"
+import { clip } from "alloy-db/schema"
 import { eq } from "drizzle-orm"
 import type { Context } from "hono"
 

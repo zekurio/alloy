@@ -2,7 +2,7 @@ import {
   CLIP_DESCRIPTION_MAX_LENGTH,
   CLIP_TITLE_MAX_LENGTH,
   type ClipPrivacy,
-} from "@workspace/api"
+} from "alloy-api"
 import { GlobeIcon, Link2Icon, LockIcon } from "lucide-react"
 
 export const CLIP_TITLE_MAX = CLIP_TITLE_MAX_LENGTH

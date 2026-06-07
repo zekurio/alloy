@@ -1,7 +1,7 @@
 import {
   NOTIFICATIONS_DEFAULT_LIMIT,
   NOTIFICATIONS_MAX_LIMIT,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 import { Hono } from "hono"
 import { z } from "zod"
 

@@ -1,16 +1,6 @@
-import { useQuery } from "@tanstack/react-query"
-import type { AdminRuntimeConfig } from "@workspace/api"
-import { Section, SectionContent } from "@workspace/ui/components/section"
-import { Switch } from "@workspace/ui/components/switch"
-import { toast } from "@workspace/ui/lib/toast"
-import {
-  BrainCircuitIcon,
-  ClapperboardIcon,
-  GaugeIcon,
-  ImageIcon,
-  ShieldIcon,
-  UsersIcon,
-} from "lucide-react"
+import type { AdminRuntimeConfig } from "alloy-api"
+import { Section, SectionContent } from "alloy-ui/components/section"
+import { Switch } from "alloy-ui/components/switch"
 import * as React from "react"
 
 import { AdminUsersCard } from "@/components/admin/admin-users-card"
@@ -20,83 +10,38 @@ import { LimitsConfigCard } from "@/components/routes/admin-settings/limits-conf
 import { MachineLearningConfigCard } from "@/components/routes/admin-settings/machine-learning-config-card"
 import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-provider-card"
 import {
-  AppearanceSettingsSection,
-  ConfigTransferSection,
+  type AdminConfigContextValue,
+  useAdminConfigContext,
+} from "@/components/routes/settings/admin-config-context"
+import {
+  AppearanceSettingsContent,
+  ConfigTransferContent,
 } from "@/components/routes/settings/admin-tab-advanced-sections"
-import { SettingsSection } from "@/components/routes/settings/settings-section"
-import { adminRuntimeConfigQueryOptions } from "@/lib/admin-query-keys"
-import { api } from "@/lib/api"
-import { errorMessage } from "@/lib/error-message"
-import { publishRuntimeConfigUpdate } from "@/lib/runtime-config-events"
+import { useRequireAuthStrict } from "@/lib/auth-hooks"
 
-function useAdminConfig() {
-  const configQuery = useQuery(adminRuntimeConfigQueryOptions())
-  const [config, setConfig] = React.useState<AdminRuntimeConfig | null>(null)
-
-  React.useEffect(() => {
-    if (configQuery.data) setConfig(configQuery.data)
-  }, [configQuery.data])
-
-  const loadError = configQuery.error
-    ? errorMessage(configQuery.error, "Couldn't load settings")
-    : null
-
-  return { config, setConfig, loadError }
+function AdminLoadError({ message }: { message: string }) {
+  return (
+    <div className="border-destructive/40 bg-destructive/5 text-destructive rounded-md border p-3 text-sm">
+      {message}
+    </div>
+  )
 }
 
-type BoolToggleKey =
-  | "openRegistrations"
-  | "passkeyEnabled"
-  | "requireAuthToBrowse"
-
-function useAdminToggles(
-  setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>,
+/**
+ * Wraps a panel body that needs the loaded admin config, handling the load-error
+ * and not-yet-loaded states so each panel stays focused on its own content.
+ */
+function withAdminConfig(
+  render: (
+    config: AdminRuntimeConfig,
+    ctx: AdminConfigContextValue,
+  ) => React.ReactNode,
 ) {
-  const [pendingKey, setPendingKey] = React.useState<BoolToggleKey | null>(null)
-  const patch = async (
-    key: BoolToggleKey,
-    next: boolean,
-    successMsg: string,
-  ) => {
-    if (pendingKey) return
-    let previous: AdminRuntimeConfig | null = null
-    setPendingKey(key)
-    setConfig((prev) => {
-      previous = prev
-      return prev ? { ...prev, [key]: next } : prev
-    })
-    try {
-      const updated = await api.admin.updateRuntimeConfig({ [key]: next })
-      publishRuntimeConfigUpdate({ authConfigChanged: true })
-      setConfig(updated)
-      toast.success(successMsg)
-    } catch (cause) {
-      setConfig(previous)
-      toast.error(errorMessage(cause, "Update failed"))
-    } finally {
-      setPendingKey(null)
-    }
-  }
-  return {
-    pendingKey,
-    onToggleOpenRegistrations: (next: boolean) =>
-      patch(
-        "openRegistrations",
-        next,
-        next ? "Registrations open" : "Registrations closed",
-      ),
-    onTogglePasskey: (next: boolean) =>
-      patch(
-        "passkeyEnabled",
-        next,
-        next ? "Passkeys enabled" : "Passkeys disabled",
-      ),
-    onToggleRequireAuthToBrowse: (next: boolean) =>
-      patch(
-        "requireAuthToBrowse",
-        next,
-        next ? "Sign-in required to browse" : "Public browsing enabled",
-      ),
+  return function AdminConfigPanel() {
+    const ctx = useAdminConfigContext()
+    if (ctx.loadError) return <AdminLoadError message={ctx.loadError} />
+    if (!ctx.config) return null
+    return <>{render(ctx.config, ctx)}</>
   }
 }
 
@@ -142,194 +87,87 @@ function ToggleRow({
   )
 }
 
-function AuthenticationSettingsSection({
-  config,
-  setConfig,
-  onToggleOpenRegistrations,
-  onTogglePasskey,
-  onToggleRequireAuthToBrowse,
-  pendingToggleKey,
-}: {
-  config: AdminRuntimeConfig
-  setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>
-  onToggleOpenRegistrations: (next: boolean) => void
-  onTogglePasskey: (next: boolean) => void
-  onToggleRequireAuthToBrowse: (next: boolean) => void
-  pendingToggleKey: BoolToggleKey | null
-}) {
-  const togglePending = pendingToggleKey !== null
+export const AdminAuthenticationPanel = withAdminConfig((config, ctx) => {
+  const togglePending = ctx.pendingToggleKey !== null
   return (
-    <SettingsSection
-      icon={ShieldIcon}
-      title="Authentication"
-      description="Control sign-in providers, registrations, passkeys, and public browsing."
-    >
-      <div className="flex flex-col gap-4">
-        <Section>
-          <SectionContent className="flex flex-col py-0">
-            <ToggleRow
-              title="Passkeys"
-              description="Allow passkey sign-in and passkey-based account creation on supported browsers."
-              checked={config.passkeyEnabled}
-              onCheckedChange={onTogglePasskey}
-              disabled={
-                togglePending ||
-                (config.passkeyEnabled &&
-                  !hasAnotherSignInMethod(config, "passkey"))
-              }
-            />
-            <ToggleRow
-              title="Open registrations"
-              description="Allow new accounts through enabled sign-up methods. OAuth uses this to auto-create accounts on first sign-in."
-              checked={config.openRegistrations}
-              onCheckedChange={onToggleOpenRegistrations}
-              disabled={togglePending}
-            />
-            <ToggleRow
-              title="Require sign-in to browse"
-              description="Off lets anyone view clips, games, and profiles. Uploads still need an account."
-              checked={config.requireAuthToBrowse}
-              onCheckedChange={onToggleRequireAuthToBrowse}
-              disabled={togglePending}
-            />
-          </SectionContent>
-        </Section>
-        <hr className="border-border" />
-        <OAuthProviderCard config={config} onChange={setConfig} hideHeader />
-      </div>
-    </SettingsSection>
+    <div className="flex flex-col gap-4">
+      <Section>
+        <SectionContent className="flex flex-col py-0">
+          <ToggleRow
+            title="Passkeys"
+            description="Allow passkey sign-in and passkey-based account creation on supported browsers."
+            checked={config.passkeyEnabled}
+            onCheckedChange={ctx.onTogglePasskey}
+            disabled={
+              togglePending ||
+              (config.passkeyEnabled &&
+                !hasAnotherSignInMethod(config, "passkey"))
+            }
+          />
+          <ToggleRow
+            title="Open registrations"
+            description="Allow new accounts through enabled sign-up methods. OAuth uses this to auto-create accounts on first sign-in."
+            checked={config.openRegistrations}
+            onCheckedChange={ctx.onToggleOpenRegistrations}
+            disabled={togglePending}
+          />
+          <ToggleRow
+            title="Require sign-in to browse"
+            description="Off lets anyone view clips, games, and profiles. Uploads still need an account."
+            checked={config.requireAuthToBrowse}
+            onCheckedChange={ctx.onToggleRequireAuthToBrowse}
+            disabled={togglePending}
+          />
+        </SectionContent>
+      </Section>
+      <hr className="border-border" />
+      <OAuthProviderCard config={config} onChange={ctx.setConfig} hideHeader />
+    </div>
   )
-}
+})
 
-function EncoderSettingsSection({
-  config,
-  setConfig,
-}: {
-  config: AdminRuntimeConfig
-  setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>
-}) {
-  return (
-    <SettingsSection
-      icon={ClapperboardIcon}
-      title="Playback transcoding"
-      description="Edit live transcoding and hardware acceleration."
-    >
-      <EncoderConfigCard
-        encoder={config.encoder}
-        onChange={(next) => setConfig(next)}
-        hideHeader
-      />
-    </SettingsSection>
-  )
-}
+export const AdminTranscodingPanel = withAdminConfig((config, ctx) => (
+  <EncoderConfigCard
+    encoder={config.encoder}
+    onChange={(next) => ctx.setConfig(next)}
+    hideHeader
+  />
+))
 
-function MachineLearningSettingsSection({
-  config,
-  setConfig,
-}: {
-  config: AdminRuntimeConfig
-  setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>
-}) {
-  return (
-    <SettingsSection
-      icon={BrainCircuitIcon}
-      title="ML game suggestions"
-      description="Edit inference service settings and the classifier model."
-    >
-      <MachineLearningConfigCard
-        machineLearning={config.machineLearning}
-        onChange={(next) => setConfig(next)}
-        hideHeader
-      />
-    </SettingsSection>
-  )
-}
+export const AdminMachineLearningPanel = withAdminConfig((config, ctx) => (
+  <MachineLearningConfigCard
+    machineLearning={config.machineLearning}
+    onChange={(next) => ctx.setConfig(next)}
+    hideHeader
+  />
+))
 
-function LimitsSettingsSection({
-  config,
-  setConfig,
-}: {
-  config: AdminRuntimeConfig
-  setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>
-}) {
-  return (
-    <SettingsSection
-      icon={GaugeIcon}
-      title="Limits"
-      description="Edit upload caps and default storage quota."
-    >
-      <LimitsConfigCard
-        limits={config.limits}
-        onChange={(next) => setConfig(next)}
-        hideHeader
-      />
-    </SettingsSection>
-  )
-}
+export const AdminLimitsPanel = withAdminConfig((config, ctx) => (
+  <LimitsConfigCard
+    limits={config.limits}
+    onChange={(next) => ctx.setConfig(next)}
+    hideHeader
+  />
+))
 
-function SteamGridDBSettingsSection({
-  config,
-  setConfig,
-}: {
-  config: AdminRuntimeConfig
-  setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>
-}) {
-  return (
-    <SettingsSection
-      icon={ImageIcon}
-      title="Game artwork"
-      description="Edit the SteamGridDB API key used for cover art and metadata."
-    >
-      <IntegrationsConfigCard
-        integrations={config.integrations}
-        onChange={(next) => setConfig(next)}
-        hideHeader
-      />
-    </SettingsSection>
-  )
-}
+export const AdminAppearancePanel = withAdminConfig((config, ctx) => (
+  <AppearanceSettingsContent config={config} setConfig={ctx.setConfig} />
+))
 
-export function AdminSettingsSections({ userId }: { userId: string }) {
-  const { config, setConfig, loadError } = useAdminConfig()
-  const {
-    pendingKey: pendingToggleKey,
-    onToggleOpenRegistrations,
-    onTogglePasskey,
-    onToggleRequireAuthToBrowse,
-  } = useAdminToggles(setConfig)
+export const AdminIntegrationsPanel = withAdminConfig((config, ctx) => (
+  <IntegrationsConfigCard
+    integrations={config.integrations}
+    onChange={(next) => ctx.setConfig(next)}
+  />
+))
 
-  if (loadError) {
-    return (
-      <div className="border-destructive/40 bg-destructive/5 text-destructive rounded-md border p-3 text-sm">
-        {loadError}
-      </div>
-    )
-  }
-  if (!config) return null
+export const AdminConfigTransferPanel = withAdminConfig((_config, ctx) => (
+  <ConfigTransferContent setConfig={ctx.setConfig} />
+))
 
-  return (
-    <>
-      <AuthenticationSettingsSection
-        config={config}
-        setConfig={setConfig}
-        onToggleOpenRegistrations={onToggleOpenRegistrations}
-        onTogglePasskey={onTogglePasskey}
-        onToggleRequireAuthToBrowse={onToggleRequireAuthToBrowse}
-        pendingToggleKey={pendingToggleKey}
-      />
-      <EncoderSettingsSection config={config} setConfig={setConfig} />
-      <MachineLearningSettingsSection config={config} setConfig={setConfig} />
-      <LimitsSettingsSection config={config} setConfig={setConfig} />
-      <AppearanceSettingsSection config={config} setConfig={setConfig} />
-      <SteamGridDBSettingsSection config={config} setConfig={setConfig} />
-      <SettingsSection
-        icon={UsersIcon}
-        title="Users"
-        description="Edit user accounts, roles, and moderation state."
-      >
-        <AdminUsersCard currentUserId={userId} hideHeader />
-      </SettingsSection>
-      <ConfigTransferSection setConfig={setConfig} />
-    </>
-  )
+export function AdminUsersPanel() {
+  const session = useRequireAuthStrict()
+  const userId = session?.user.id
+  if (!userId) return null
+  return <AdminUsersCard currentUserId={userId} hideHeader />
 }

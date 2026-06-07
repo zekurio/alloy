@@ -6,8 +6,8 @@ import {
   USER_DISPLAY_NAME_MAX_LENGTH,
   USERNAME_MAX_LENGTH,
   USERNAME_MIN_LENGTH,
-} from "@workspace/contracts"
-import { user, userPasskey } from "@workspace/db/auth-schema"
+} from "alloy-contracts"
+import { user, userPasskey } from "alloy-db/auth-schema"
 import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
@@ -45,6 +45,7 @@ import {
   notFound,
   success,
 } from "../runtime/http-response"
+import { authDesktopRoute } from "./auth-desktop"
 import { authOAuthRoute } from "./auth-oauth-routes"
 import { completePasskeySignUp } from "./auth-passkey-signup"
 import { canOpenPasskeyRegistration, csrf } from "./auth-route-helpers"
@@ -333,4 +334,5 @@ export const authRoute = new Hono()
       return badRequestFromCause(c, cause, "Could not delete user.")
     }
   })
+  .route("/desktop", authDesktopRoute)
   .route("/", authOAuthRoute)

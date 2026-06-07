@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@workspace/ui/components/dialog"
+} from "alloy-ui/components/dialog"
 import {
   Drawer,
   DrawerClose,
@@ -21,11 +21,10 @@ import {
   DrawerHandle,
   DrawerTitle,
   DrawerTrigger,
-} from "@workspace/ui/components/drawer"
-import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/components/drawer"
+import { useIsMobile } from "alloy-ui/hooks/use-mobile"
+import { cn } from "alloy-ui/lib/utils"
 import * as React from "react"
-import { Drawer as DrawerPrimitive } from "vaul"
 
 const ResponsiveDialogContext = React.createContext(false)
 
@@ -211,8 +210,9 @@ function ResponsiveDialogDescription({
   )
 }
 
-type ResponsiveDialogTriggerProps = DialogPrimitive.Trigger.Props &
-  React.ComponentProps<typeof DrawerPrimitive.Trigger>
+type ResponsiveDialogTriggerProps = DialogPrimitive.Trigger.Props & {
+  asChild?: boolean
+}
 
 function renderDrawerChild(
   render: DialogPrimitive.Trigger.Props["render"],
@@ -253,8 +253,9 @@ function ResponsiveDialogTrigger({
   )
 }
 
-type ResponsiveDialogCloseProps = DialogPrimitive.Close.Props &
-  React.ComponentProps<typeof DrawerPrimitive.Close>
+type ResponsiveDialogCloseProps = DialogPrimitive.Close.Props & {
+  asChild?: boolean
+}
 
 function ResponsiveDialogClose({
   render,

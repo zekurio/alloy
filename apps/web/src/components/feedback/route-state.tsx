@@ -3,11 +3,11 @@ import type {
   ErrorComponentProps,
   NotFoundRouteProps,
 } from "@tanstack/react-router"
-import { AlloyLogoMark } from "@workspace/ui/components/alloy-logo"
-import { Button } from "@workspace/ui/components/button"
-import { buttonVariants } from "@workspace/ui/lib/button-variants"
-import { messageFromUnknown } from "@workspace/ui/lib/error-message"
-import { cn } from "@workspace/ui/lib/utils"
+import { AlloyLogoMark } from "alloy-ui/components/alloy-logo"
+import { Button } from "alloy-ui/components/button"
+import { buttonVariants } from "alloy-ui/lib/button-variants"
+import { messageFromUnknown } from "alloy-ui/lib/error-message"
+import { cn } from "alloy-ui/lib/utils"
 import { AlertTriangle, ArrowLeft, Home, RotateCw } from "lucide-react"
 import * as React from "react"
 

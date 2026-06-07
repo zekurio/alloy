@@ -1,9 +1,8 @@
 import { useNavigate } from "@tanstack/react-router"
-import type { ClipRow, GameListRow } from "@workspace/api"
-import { Spinner } from "@workspace/ui/components/spinner"
-import { useDocumentEvent } from "@workspace/ui/hooks/use-document-event"
-import { useWindowEvent } from "@workspace/ui/hooks/use-window-event"
-import { cn } from "@workspace/ui/lib/utils"
+import type { ClipRow, GameListRow } from "alloy-api"
+import { useDocumentEvent } from "alloy-ui/hooks/use-document-event"
+import { useWindowEvent } from "alloy-ui/hooks/use-window-event"
+import { cn } from "alloy-ui/lib/utils"
 import { FilmIcon, GamepadIcon, SearchIcon, UserIcon } from "lucide-react"
 import * as React from "react"
 
@@ -18,6 +17,8 @@ import {
   EmptyBlock,
   GameRowItem,
   GroupLabel,
+  SearchLoadingBar,
+  SearchResultsSkeleton,
   UserRowItem,
 } from "./search-result-items"
 
@@ -221,6 +222,8 @@ export function SearchResultsPopover() {
   const bridgeRef = React.useRef<HTMLSpanElement | null>(null)
   const listboxId = React.useId()
 
+  const trimmedQuery = query.trim()
+
   const { data, isFetching, error } = useSearchQuery(deferredQuery, {
     enabled: open && deferredQuery.length > 0,
   })
@@ -236,9 +239,15 @@ export function SearchResultsPopover() {
     rootRef,
   } = useSearchPopoverState(flat, open, clear, setOpen)
 
-  const showPopover = open && query.trim().length > 0
+  const showPopover = open && trimmedQuery.length > 0
   const activeOptionId =
     showPopover && flat.length > 0 ? flat[activeIndex]?.optionId : undefined
+
+  // Pending covers both the debounce/deferral gap (the live query hasn't
+  // reached `deferredQuery` yet) and an in-flight request for the settled
+  // query. Treating the gap as pending stops the popover flashing "No matches"
+  // before the search has even started.
+  const pending = isFetching || trimmedQuery !== deferredQuery
 
   useSearchInputA11y(bridgeRef, showPopover, listboxId, activeOptionId)
 
@@ -265,9 +274,10 @@ export function SearchResultsPopover() {
           }
           onMouseDown={(event) => event.preventDefault()}
         >
+          {pending ? <SearchLoadingBar /> : null}
           <SearchResultsBody
             query={deferredQuery}
-            isFetching={isFetching}
+            pending={pending}
             error={error}
             flat={flat}
             activeIndex={activeIndex}
@@ -284,7 +294,7 @@ export function SearchResultsPopover() {
 
 type SearchResultsBodyProps = {
   query: string
-  isFetching: boolean
+  pending: boolean
   error: Error | null
   flat: FlatItem[]
   activeIndex: number
@@ -296,7 +306,7 @@ type SearchResultsBodyProps = {
 
 function SearchResultsBody({
   query,
-  isFetching,
+  pending,
   error,
   flat,
   activeIndex,
@@ -306,24 +316,22 @@ function SearchResultsBody({
   onCommitUser,
 }: SearchResultsBodyProps) {
   const hasResults = flat.length > 0
-  if (error && !hasResults) {
-    return (
-      <EmptyBlock
-        icon={<SearchIcon />}
-        title="Couldn't search"
-        hint={errorMessage(error, "Search failed")}
-      />
-    )
-  }
-  if (!hasResults && isFetching) {
-    return (
-      <div className="text-foreground-muted flex items-center gap-2.5 px-3 py-4 text-sm font-semibold">
-        <Spinner className="size-3.5" />
-        Searching for {quote(query)}…
-      </div>
-    )
-  }
+  // Stale-while-revalidate: as long as we have results (even from the previous
+  // keystroke, kept via `keepPreviousData`) we keep showing them. The loading
+  // bar at the popover's top edge is the only "fetching" signal, so typing
+  // never tears the list down. Skeletons and the empty/error states are
+  // reserved for when there is genuinely nothing to display.
   if (!hasResults) {
+    if (pending) return <SearchResultsSkeleton />
+    if (error) {
+      return (
+        <EmptyBlock
+          icon={<SearchIcon />}
+          title="Couldn't search"
+          hint={errorMessage(error, "Search failed")}
+        />
+      )
+    }
     return (
       <EmptyBlock
         icon={<SearchIcon />}

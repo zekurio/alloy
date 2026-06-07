@@ -1,7 +1,8 @@
 import { redirect } from "@tanstack/react-router"
-import type { PublicAuthConfig } from "@workspace/api"
+import type { PublicAuthConfig } from "alloy-api"
 
 import { browseAuthTarget, isAdmin, shouldForceOnboarding } from "./auth-access"
+import { sanitizeLoginRedirect } from "./login-redirect"
 import { loadAuthConfig, loadSession, type Session } from "./session-suspense"
 
 type AuthRouteContext = {
@@ -130,8 +131,10 @@ export async function requireAdminBeforeLoad({
 
 export async function redirectAuthedBeforeLoad({
   context,
+  search,
 }: {
   context: AuthRouteContext
+  search?: { redirect?: string }
 }) {
   const [config, session] = await Promise.all([
     loadContextAuthConfig(context),
@@ -147,6 +150,10 @@ export async function redirectAuthedBeforeLoad({
   }
 
   if (session) {
+    // Already signed in: honor a same-origin redirect target (the desktop
+    // browser-login handshake returns here) before falling back to home.
+    const target = sanitizeLoginRedirect(search?.redirect)
+    if (target) throw redirect({ href: target })
     throw redirect({ to: "/" })
   }
   return authContext(config, session)

@@ -7,7 +7,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@workspace/ui/components/alert-dialog"
+} from "alloy-ui/components/alert-dialog"
 
 type BlockedGateProps = {
   open: boolean

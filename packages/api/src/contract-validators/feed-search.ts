@@ -3,7 +3,7 @@ import {
   type FeedChipsResponse,
   type FeedPage,
   type SearchResults,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 
 import {
   objectRecord,

@@ -1,11 +1,11 @@
-import { GameIcon } from "@workspace/ui/components/game-icon"
+import { GameIcon } from "alloy-ui/components/game-icon"
 import {
   CLIP_MEDIA_CLASS,
+  CLIP_MEDIA_ROUNDED_CLASS,
   CLIP_MEDIA_VIEWPORT_CLASS,
-  CLIP_VIDEO_MEDIA_CLASS,
-} from "@workspace/ui/lib/media-frame"
-import { stableHue } from "@workspace/ui/lib/stable-hash"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/lib/media-frame"
+import { stableHue } from "alloy-ui/lib/stable-hash"
+import { cn } from "alloy-ui/lib/utils"
 import { LinkIcon, LockIcon } from "lucide-react"
 import * as React from "react"
 
@@ -65,7 +65,8 @@ function ClipCard({
   comments: _comments,
   postedAt = "2h ago",
   thumbnail,
-  accentHue,
+  // Retained on the contract for callers; the still fallback is plain black now.
+  accentHue: _accentHue,
   streamUrl,
   privacy,
   onThumbnailClick,
@@ -87,7 +88,6 @@ function ClipCard({
       <ClipCardThumb
         title={title}
         thumbnail={thumbnail}
-        accentHue={accentHue}
         streamUrl={streamUrl}
         onClick={onThumbnailClick}
         onIntent={onThumbnailIntent}
@@ -144,7 +144,6 @@ function ClipCard({
 function ClipCardThumb({
   title,
   thumbnail,
-  accentHue,
   streamUrl,
   onClick,
   onIntent,
@@ -154,7 +153,6 @@ function ClipCardThumb({
 }: {
   title: string
   thumbnail: string | undefined
-  accentHue: number | undefined
   streamUrl: string | undefined
   onClick?: () => void
   onIntent?: () => void
@@ -285,7 +283,7 @@ function ClipCardThumb({
   }
 
   const interactive = Boolean(onClick)
-  const fallback = renderThumbnailFallback(accentHue)
+  const fallback = renderThumbnailFallback()
   const surfaceClass = cn(
     "group/clip-thumb w-full appearance-none rounded-md border-0 p-0 text-left",
     CLIP_MEDIA_VIEWPORT_CLASS,
@@ -321,7 +319,9 @@ function ClipCardThumb({
   }
 
   const body = (
-    <>
+    // One mask rounds the whole frame, so the still and the preview video share
+    // identical corners — no per-element insets, no fringe, no shift.
+    <div className={cn("absolute inset-0", CLIP_MEDIA_ROUNDED_CLASS)}>
       {fallback}
 
       {thumbnail && !thumbnailFailed ? (
@@ -331,7 +331,11 @@ function ClipCardThumb({
           className={cn(
             CLIP_MEDIA_CLASS,
             "transition-opacity duration-200 ease-out",
-            thumbnailLoaded ? "opacity-100" : "opacity-0",
+            // Hide the still while the preview plays. The video sits on a 1px
+            // clip-path inset (to mask encoder edge lines); leaving the thumb
+            // visible underneath makes that inset read as a fringe around the
+            // playing clip.
+            thumbnailLoaded && !previewing ? "opacity-100" : "opacity-0",
           )}
           // Cards load in a scrolling grid — let the browser lazy-load
           // anything outside the initial viewport.
@@ -365,18 +369,13 @@ function ClipCardThumb({
           onTimeUpdate={revealPreview}
           aria-hidden
           className={cn(
-            CLIP_VIDEO_MEDIA_CLASS,
-            "bg-[oklch(12%_0.01_250)]",
+            CLIP_MEDIA_CLASS,
             "transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
             previewing ? "opacity-100" : "pointer-events-none opacity-0",
           )}
         />
       ) : null}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 -bottom-px z-10 h-px bg-[oklch(12%_0.01_250)]"
-      />
-    </>
+    </div>
   )
 
   if (interactive) {
@@ -402,34 +401,8 @@ function ClipCardThumb({
   )
 }
 
-function renderThumbnailFallback(accentHue: number | undefined) {
-  if (accentHue !== undefined) {
-    return (
-      <div
-        aria-hidden
-        className="absolute inset-0"
-        style={{
-          background: `linear-gradient(135deg, oklch(0.3 0.1 ${accentHue}) 0%, oklch(0.15 0.05 ${accentHue}) 70%, oklch(0.08 0 0) 100%)`,
-        }}
-      />
-    )
-  }
-
-  return (
-    <div
-      aria-hidden
-      className={cn(
-        "absolute inset-0 grid place-items-center",
-        "font-mono text-2xs tracking-[0.1em] text-foreground-faint uppercase",
-      )}
-      style={{
-        background:
-          "repeating-linear-gradient(45deg, oklch(0.18 0 0) 0 8px, oklch(0.16 0 0) 8px 16px)",
-      }}
-    >
-      clip preview
-    </div>
-  )
+function renderThumbnailFallback() {
+  return <div aria-hidden className="absolute inset-0 bg-black" />
 }
 
 function AuthorLabel({

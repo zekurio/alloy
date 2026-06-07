@@ -5,7 +5,7 @@ import {
   type QueueClip,
   type QueueEvent,
   type UploadTicket,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 
 import {
   objectRecord,

@@ -11,10 +11,10 @@ import {
   type AdminRuntimeConfig,
   type EncoderCodec,
   type EncoderHwaccel,
-} from "@workspace/api"
-import { AlloyLogo } from "@workspace/ui/components/alloy-logo"
-import { Button } from "@workspace/ui/components/button"
-import { toast } from "@workspace/ui/lib/toast"
+} from "alloy-api"
+import { AlloyLogo } from "alloy-ui/components/alloy-logo"
+import { Button } from "alloy-ui/components/button"
+import { toast } from "alloy-ui/lib/toast"
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -286,6 +286,7 @@ function AdminSetupStepContent({
             formId="setup-integrations"
             hideActions
             hideHeader
+            toastOnSuccess={false}
           />
         )}
       </div>
@@ -436,6 +437,7 @@ function EncoderOnboardingCard({
         hideHeader={hideEncoderHeader}
         hideActions={hideEncoderActions}
         onSaved={onEncoderSaved}
+        toastOnSuccess={false}
       />
     </div>
   )

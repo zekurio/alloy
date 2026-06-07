@@ -1,4 +1,4 @@
-import type { UploadTicket } from "@workspace/contracts"
+import type { UploadTicket } from "alloy-contracts"
 
 export interface ResolvedObject {
   stream: (opts?: {
@@ -115,4 +115,4 @@ export function userAssetKey(
   return `${userAssetDir(userId)}/${role}${ext}`
 }
 
-export type { UploadTicket } from "@workspace/contracts"
+export type { UploadTicket } from "alloy-contracts"

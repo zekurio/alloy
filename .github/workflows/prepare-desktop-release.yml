@@ -1,0 +1,163 @@
+name: Prepare Desktop Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Desktop release version (for example 0.1.0 or desktop-v0.1.0)
+        required: true
+        type: string
+      source_branch:
+        description: Branch to release from
+        required: false
+        default: dev
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: prepare-desktop-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Open desktop release PR
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source branch
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.source_branch }}
+          fetch-depth: 0
+
+      - name: Resolve desktop release version
+        id: meta
+        shell: bash
+        run: |
+          raw="${{ inputs.version }}"
+          version="${raw#desktop-v}"
+          version="${version#v}"
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            echo "Invalid desktop release version: $raw" >&2
+            exit 1
+          fi
+
+          tag="desktop-v$version"
+          branch="release/$tag"
+
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists locally." >&2
+            exit 1
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists on origin." >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.4.0
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Update desktop package version
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          node <<'NODE'
+          const { readFileSync, writeFileSync } = require("node:fs");
+          const filePath = "apps/desktop/package.json";
+          const config = JSON.parse(readFileSync(filePath, "utf8"));
+
+          if (config.version === process.env.RELEASE_VERSION) {
+            console.log(`apps/desktop/package.json is already at version ${config.version}.`);
+            process.exit(0);
+          }
+
+          config.version = process.env.RELEASE_VERSION;
+          writeFileSync(filePath, `${JSON.stringify(config, null, 2)}\n`);
+          NODE
+
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: corepack pnpm fmt:check
+
+      - name: Run lint
+        run: corepack pnpm lint:github
+
+      - name: Run typecheck
+        run: corepack pnpm typecheck
+
+      - name: Configure git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit desktop release version
+        shell: bash
+        env:
+          RELEASE_BRANCH: ${{ steps.meta.outputs.branch }}
+          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          git checkout -B "$RELEASE_BRANCH"
+
+          if git diff --quiet -- apps/desktop/package.json pnpm-lock.yaml; then
+            echo "No desktop release version commit needed."
+          else
+            git add apps/desktop/package.json pnpm-lock.yaml
+            git commit -m "chore(release): prepare $RELEASE_TAG"
+          fi
+
+      - name: Push release branch
+        env:
+          RELEASE_BRANCH: ${{ steps.meta.outputs.branch }}
+        run: |
+          git fetch origin "+refs/heads/$RELEASE_BRANCH:refs/remotes/origin/$RELEASE_BRANCH" || true
+          git push --force-with-lease origin "$RELEASE_BRANCH"
+
+      - name: Open or update desktop release PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_BRANCH: ${{ steps.meta.outputs.branch }}
+          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
+          SOURCE_BRANCH: ${{ inputs.source_branch }}
+        run: |
+          title="chore(release): prepare $RELEASE_TAG"
+          body="$(cat <<EOF
+          Prepares $RELEASE_TAG for desktop release.
+
+          Source branch: \`$SOURCE_BRANCH\`
+
+          After this PR is merged to \`main\`, create tag \`$RELEASE_TAG\` on the merge commit to publish the Windows desktop installer.
+          EOF
+          )"
+
+          if gh pr view "$RELEASE_BRANCH" --json number >/dev/null 2>&1; then
+            gh pr edit "$RELEASE_BRANCH" \
+              --base main \
+              --title "$title" \
+              --body "$body"
+          else
+            gh pr create \
+              --base main \
+              --head "$RELEASE_BRANCH" \
+              --title "$title" \
+              --body "$body"
+          fi

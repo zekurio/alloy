@@ -3,14 +3,15 @@ import {
   AppHeaderActions,
   AppHeaderBrand,
   AppHeaderSearch,
-} from "@workspace/ui/components/app-header"
-import { useWindowEvent } from "@workspace/ui/hooks/use-window-event"
+} from "alloy-ui/components/app-header"
+import { useWindowEvent } from "alloy-ui/hooks/use-window-event"
 import * as React from "react"
 
 import { NotificationCenter } from "@/components/app/notification-center"
 import { useAppSearch } from "@/components/search/app-search"
 import { SearchResultsPopover } from "@/components/search/search-results-popover"
 
+import { DesktopRecordingStatus } from "./desktop-recording-status"
 import { UserMenu } from "./user-menu"
 
 export function HomeHeader() {
@@ -53,6 +54,7 @@ export function HomeHeader() {
         <SearchResultsPopover />
       </AppHeaderSearch>
       <AppHeaderActions className="gap-2 sm:gap-3">
+        <DesktopRecordingStatus />
         <NotificationCenter />
         <UserMenu />
       </AppHeaderActions>

@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process"
 
-import { logger } from "@workspace/logging"
+import { logger } from "alloy-logging"
 
 import { isAbortError, toError } from "../runtime/error-message"
 

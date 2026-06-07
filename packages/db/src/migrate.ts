@@ -1,6 +1,6 @@
 import { pathToFileURL } from "node:url"
 
-import { logger } from "@workspace/logging"
+import { logger } from "alloy-logging"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 

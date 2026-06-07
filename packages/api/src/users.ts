@@ -6,7 +6,7 @@ import type {
   UserProfileViewer,
   UserSearchResult,
   UserStorageUsage,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 
 import type { ApiContext } from "./client"
 import {
@@ -37,12 +37,12 @@ export type {
   UserProfileViewer,
   UserSearchResult,
   UserStorageUsage,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 export {
   LEGACY_USER_ASSET_PATH_PREFIX,
   USER_ASSET_PATH_PREFIX,
   userAssetImagePath,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 
 function usernameParam(handle: string): { username: string } {
   return { username: encodedPathSegment(handle) }

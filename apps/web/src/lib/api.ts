@@ -1,4 +1,4 @@
-import { createApi } from "@workspace/api"
+import { createApi } from "alloy-api"
 
 import { apiOrigin, publicOrigin } from "./env"
 

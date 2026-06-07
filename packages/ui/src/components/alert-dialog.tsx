@@ -1,9 +1,9 @@
 "use client"
 
 import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog"
-import { Button } from "@workspace/ui/components/button"
-import { MODAL_OVERLAY_CLASS_NAME } from "@workspace/ui/lib/modal-overlay"
-import { cn } from "@workspace/ui/lib/utils"
+import { Button } from "alloy-ui/components/button"
+import { MODAL_OVERLAY_CLASS_NAME } from "alloy-ui/lib/modal-overlay"
+import { cn } from "alloy-ui/lib/utils"
 import * as React from "react"
 
 function AlertDialog({ ...props }: AlertDialogPrimitive.Root.Props) {

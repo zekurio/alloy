@@ -1,5 +1,5 @@
-import { DrawerHandle } from "@workspace/ui/components/drawer"
-import { cn } from "@workspace/ui/lib/utils"
+import { DrawerHandle } from "alloy-ui/components/drawer"
+import { cn } from "alloy-ui/lib/utils"
 import * as React from "react"
 
 export const mobileDrawerContentClass =

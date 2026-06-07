@@ -1,4 +1,4 @@
-import { authChallenge } from "@workspace/db/auth-schema"
+import { authChallenge } from "alloy-db/auth-schema"
 import { and, eq, gt, lt } from "drizzle-orm"
 
 import { db } from "../db"

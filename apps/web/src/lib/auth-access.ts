@@ -1,4 +1,4 @@
-import type { PublicAuthConfig } from "@workspace/api"
+import type { PublicAuthConfig } from "alloy-api"
 
 import { isDevSetupForced } from "./flags"
 import type { Session } from "./session-suspense"

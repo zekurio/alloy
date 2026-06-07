@@ -3,17 +3,14 @@ import {
   type ClipRow,
   clipThumbnailUrl,
   type GameListRow,
-} from "@workspace/api"
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@workspace/ui/components/avatar"
+} from "alloy-api"
+import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
+import { Skeleton } from "alloy-ui/components/skeleton"
 import {
   CLIP_MEDIA_CLASS,
   CLIP_MEDIA_VIEWPORT_CLASS,
-} from "@workspace/ui/lib/media-frame"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/lib/media-frame"
+import { cn } from "alloy-ui/lib/utils"
 import * as React from "react"
 
 import { clipGameLabel, hueForGame } from "@/lib/clip-format"
@@ -261,6 +258,43 @@ function GameGradientPlaceholder({
         background: `linear-gradient(140deg, oklch(${startLightness} 0.14 ${hue}), oklch(0.16 0.06 ${hue}))`,
       }}
     />
+  )
+}
+
+/**
+ * Thin indeterminate bar pinned to the top edge of the results popover. It
+ * conveys "a fresh search is in flight" without shifting layout or replacing
+ * already-rendered results, so typing stays visually quiet.
+ */
+export function SearchLoadingBar() {
+  return (
+    <div
+      className="pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden"
+      aria-hidden
+    >
+      <div className="animate-indeterminate bg-accent h-full w-1/4 rounded-full" />
+    </div>
+  )
+}
+
+/**
+ * Placeholder rows shown only on the first paint of a query — when there are
+ * no prior results to keep visible. Reads as "content arriving" rather than a
+ * spinner, which makes the popover feel instant while the request lands.
+ */
+export function SearchResultsSkeleton() {
+  return (
+    <div className="flex flex-col py-1" aria-hidden>
+      {Array.from({ length: 5 }, (_, i) => i).map((i) => (
+        <div key={i} className="flex items-center gap-3 px-3 py-2">
+          <Skeleton className="aspect-video w-16 shrink-0 rounded-sm" />
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <Skeleton className="h-3.5 w-2/5" />
+            <Skeleton className="h-3 w-3/5" />
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 

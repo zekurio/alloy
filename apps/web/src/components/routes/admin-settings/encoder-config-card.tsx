@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
 import {
-  type AdminEncoderCapabilities,
   type AdminEncoderConfig,
   type AdminRuntimeConfig,
   ENCODER_CODECS,
@@ -8,35 +7,41 @@ import {
   ENCODER_TONEMAPPING_ALGORITHMS,
   ENCODER_TONEMAPPING_MODES,
   ENCODER_TONEMAPPING_RANGES,
-  type EncoderCodec,
-  type EncoderTonemappingAlgorithm,
-  type EncoderTonemappingMode,
-  type EncoderTonemappingRange,
-} from "@workspace/api"
-import { Button } from "@workspace/ui/components/button"
-import { Field, FieldLabel } from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
+} from "alloy-api"
+import { Button } from "alloy-ui/components/button"
+import { Field, FieldLabel } from "alloy-ui/components/field"
+import { Input } from "alloy-ui/components/input"
 import {
   Section,
   SectionContent,
   SectionFooter,
   SectionHeader,
   SectionTitle,
-} from "@workspace/ui/components/section"
+} from "alloy-ui/components/section"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@workspace/ui/components/select"
-import { Switch } from "@workspace/ui/components/switch"
+} from "alloy-ui/components/select"
+import { Switch } from "alloy-ui/components/switch"
 import { AlertTriangleIcon, SaveIcon } from "lucide-react"
 import * as React from "react"
 
 import { adminEncoderCapabilitiesQueryOptions } from "@/lib/admin-query-keys"
 import { errorMessage } from "@/lib/error-message"
 
+import {
+  CodecAvailability,
+  isTonemappingAlgorithm,
+  isTonemappingMode,
+  isTonemappingRange,
+  TONEMAPPING_ALGORITHM_LABELS,
+  TONEMAPPING_MODE_LABELS,
+  TONEMAPPING_RANGE_LABELS,
+  ToneMappingNumberField,
+} from "./encoder-config-fields"
 import {
   encoderConfigsEqual,
   HWACCEL_LABELS,
@@ -45,46 +50,6 @@ import {
 } from "./encoder-config-helpers"
 import { FfmpegBadge } from "./encoder-ffmpeg-badge"
 import { FormGroup } from "./form-group"
-
-const LIVE_CODEC_DISPLAY_ORDER: readonly EncoderCodec[] = [
-  "av1",
-  "hevc",
-  "h264",
-]
-
-const LIVE_CODEC_LABELS: Record<EncoderCodec, string> = {
-  av1: "AV1",
-  hevc: "HEVC",
-  h264: "H.264",
-}
-
-const TONEMAPPING_ALGORITHM_LABELS: Record<
-  EncoderTonemappingAlgorithm,
-  string
-> = {
-  none: "None",
-  linear: "Linear",
-  gamma: "Gamma",
-  clip: "Clip",
-  reinhard: "Reinhard",
-  hable: "Hable",
-  mobius: "Mobius",
-  bt2390: "BT.2390",
-}
-
-const TONEMAPPING_MODE_LABELS: Record<EncoderTonemappingMode, string> = {
-  auto: "Auto",
-  max: "Max",
-  rgb: "RGB",
-  lum: "Luminance",
-  itp: "ICtCp",
-}
-
-const TONEMAPPING_RANGE_LABELS: Record<EncoderTonemappingRange, string> = {
-  auto: "Auto",
-  limited: "Limited",
-  full: "Full",
-}
 
 type EncoderConfigCardProps = {
   encoder: AdminEncoderConfig
@@ -97,6 +62,8 @@ type EncoderConfigCardProps = {
   hideHeader?: boolean
   /** HTML `id` for the `<form>` element, useful for external submit buttons. */
   formId?: string
+  /** Show the success toast after saving. */
+  toastOnSuccess?: boolean
 }
 
 export function EncoderConfigCard({
@@ -106,6 +73,7 @@ export function EncoderConfigCard({
   hideActions,
   hideHeader,
   formId,
+  toastOnSuccess,
 }: EncoderConfigCardProps) {
   const [form, setForm] = React.useState<AdminEncoderConfig>(encoder)
   const [pending, setPending] = React.useState(false)
@@ -165,7 +133,13 @@ export function EncoderConfigCard({
       onSaved?.()
       return
     }
-    await saveEncoderConfig({ form, onChange, setPending, onSaved })
+    await saveEncoderConfig({
+      form,
+      onChange,
+      setPending,
+      onSaved,
+      toastOnSuccess,
+    })
   }
 
   const selectedDevice =
@@ -551,114 +525,5 @@ export function EncoderConfigCard({
         </fieldset>
       </Section>
     </form>
-  )
-}
-
-function CodecAvailability({
-  caps,
-  hwaccel,
-  ffmpegError,
-}: {
-  caps: AdminEncoderCapabilities | null
-  hwaccel: AdminEncoderConfig["hwaccel"]
-  ffmpegError: string | null
-}) {
-  const availability = caps?.available[hwaccel] ?? null
-  const unavailable = ffmpegError !== null || caps?.ffmpegOk === false
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {LIVE_CODEC_DISPLAY_ORDER.map((codec) => {
-        const supported = Boolean(availability?.[codec])
-        const pending = !caps && !ffmpegError
-        return (
-          <span
-            key={codec}
-            data-supported={supported ? "true" : "false"}
-            data-pending={pending ? "true" : "false"}
-            className="border-border bg-surface-raised text-foreground-muted data-[supported=true]:border-success/35 data-[supported=true]:bg-success/10 data-[supported=true]:text-success data-[supported=false]:data-[pending=false]:border-border data-[supported=false]:data-[pending=false]:bg-surface-sunken data-[supported=false]:data-[pending=false]:text-foreground-faint inline-flex h-7 items-center rounded-md border px-2 text-xs font-medium data-[pending=true]:opacity-60"
-          >
-            {LIVE_CODEC_LABELS[codec]}
-            {unavailable || (!pending && !supported) ? " unavailable" : ""}
-          </span>
-        )
-      })}
-    </div>
-  )
-}
-
-function ToneMappingNumberField({
-  id,
-  label,
-  value,
-  min,
-  max,
-  step,
-  hint,
-  nullable = false,
-  onChange,
-}: {
-  id: string
-  label: string
-  value: number | null
-  min: number
-  max: number
-  step: number
-  hint?: string
-  nullable?: boolean
-  onChange: (value: number | null) => void
-}) {
-  return (
-    <Field>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Input
-        id={id}
-        type="number"
-        min={min}
-        max={max}
-        step={step}
-        value={value ?? ""}
-        onChange={(event) => {
-          const raw = event.target.value
-          if (nullable && raw.trim() === "") {
-            onChange(null)
-            return
-          }
-          const next = Number(raw)
-          if (!Number.isFinite(next)) return
-          onChange(Math.min(max, Math.max(min, next)))
-        }}
-      />
-      {hint ? <p className="text-foreground-muted text-xs">{hint}</p> : null}
-    </Field>
-  )
-}
-
-function isTonemappingAlgorithm(
-  value: string | number | null,
-): value is EncoderTonemappingAlgorithm {
-  return (
-    typeof value === "string" &&
-    ENCODER_TONEMAPPING_ALGORITHMS.includes(
-      value as EncoderTonemappingAlgorithm,
-    )
-  )
-}
-
-function isTonemappingMode(
-  value: string | number | null,
-): value is EncoderTonemappingMode {
-  return (
-    typeof value === "string" &&
-    ENCODER_TONEMAPPING_MODES.includes(value as EncoderTonemappingMode)
-  )
-}
-
-function isTonemappingRange(
-  value: string | number | null,
-): value is EncoderTonemappingRange {
-  return (
-    typeof value === "string" &&
-    ENCODER_TONEMAPPING_RANGES.includes(value as EncoderTonemappingRange)
   )
 }

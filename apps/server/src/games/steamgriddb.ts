@@ -2,8 +2,8 @@ import type {
   SteamGridDBAsset,
   SteamGridDBGameDetail,
   SteamGridDBSearchResult,
-} from "@workspace/contracts"
-import { logger } from "@workspace/logging"
+} from "alloy-contracts"
+import { logger } from "alloy-logging"
 import { z } from "zod"
 
 import { secretStore } from "../config/secret-store"

@@ -1,4 +1,4 @@
-import type { PublicAuthProvider } from "@workspace/contracts"
+import type { PublicAuthProvider } from "alloy-contracts"
 
 import { isOAuthProviderUsable } from "../config/secret-store"
 import { configStore, type OAuthProviderConfig } from "../config/store"

@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import { toast } from "@workspace/ui/lib/toast"
+import { toast } from "alloy-ui/lib/toast"
 import { ArrowRightIcon, KeyRoundIcon, MailIcon, UserIcon } from "lucide-react"
 import * as React from "react"
 

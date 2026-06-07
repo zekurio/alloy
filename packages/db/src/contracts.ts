@@ -1,1 +1,1 @@
-export * from "@workspace/contracts"
+export * from "alloy-contracts"

@@ -1,4 +1,4 @@
-import { Input } from "@workspace/ui/components/input"
+import { Input } from "alloy-ui/components/input"
 import * as React from "react"
 
 import { clampInt, parseInteger } from "./shared"

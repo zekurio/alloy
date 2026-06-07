@@ -76,26 +76,7 @@ export function liveTranscode(
     child.once("close", (code) => resolve(code ?? 1))
   })
 
-  const decoder = new TextDecoder()
-  let stderr = ""
-  const stderrDone = (async () => {
-    if (!child.stderr) return
-    for await (const chunk of child.stderr) {
-      stderr += decoder.decode(chunk, { stream: true })
-      if (stderr.length > 8_192) stderr = stderr.slice(-8_192)
-    }
-    stderr += decoder.decode()
-  })().catch(() => undefined)
-  const done = exit.then(async (code) => {
-    await stderrDone
-    if (code !== 0) {
-      const detail = stderr.trim()
-      throw new Error(
-        `ffmpeg live transcode exited with code ${code}` +
-          (detail ? `:\n${detail}` : ""),
-      )
-    }
-  })
+  const done = ffmpegDone(child, exit, "ffmpeg live transcode")
 
   if (!child.stdout) {
     throw new Error("ffmpeg stdout pipe unavailable")
@@ -134,26 +115,7 @@ export function liveHls(
     child.once("close", (code) => resolve(code ?? 1))
   })
 
-  const decoder = new TextDecoder()
-  let stderr = ""
-  const stderrDone = (async () => {
-    if (!child.stderr) return
-    for await (const chunk of child.stderr) {
-      stderr += decoder.decode(chunk, { stream: true })
-      if (stderr.length > 8_192) stderr = stderr.slice(-8_192)
-    }
-    stderr += decoder.decode()
-  })().catch(() => undefined)
-  const done = exit.then(async (code) => {
-    await stderrDone
-    if (code !== 0) {
-      const detail = stderr.trim()
-      throw new Error(
-        `ffmpeg live hls exited with code ${code}` +
-          (detail ? `:\n${detail}` : ""),
-      )
-    }
-  })
+  const done = ffmpegDone(child, exit, "ffmpeg live hls")
 
   return {
     done,
@@ -165,6 +127,40 @@ export function liveHls(
       }
     },
   }
+}
+
+function ffmpegDone(
+  child: { stderr: NodeJS.ReadableStream },
+  exit: Promise<number>,
+  label: string,
+): Promise<void> {
+  const stderr = collectTail(child.stderr)
+  return exit.then(async (code) => {
+    const detail = (await stderr).trim()
+    if (code !== 0) {
+      throw new Error(
+        `${label} exited with code ${code}` + (detail ? `:\n${detail}` : ""),
+      )
+    }
+  })
+}
+
+async function collectTail(
+  stream: NodeJS.ReadableStream,
+  maxBytes = 8_192,
+): Promise<string> {
+  const decoder = new TextDecoder()
+  let output = ""
+  try {
+    for await (const chunk of stream) {
+      output += decoder.decode(chunk as Buffer, { stream: true })
+      if (output.length > maxBytes) output = output.slice(-maxBytes)
+    }
+    output += decoder.decode()
+  } catch {
+    return output
+  }
+  return output
 }
 
 export async function thumbnail(

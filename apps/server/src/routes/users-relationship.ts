@@ -1,4 +1,4 @@
-import { block } from "@workspace/db/schema"
+import { block } from "alloy-db/schema"
 import { and, eq, or } from "drizzle-orm"
 import type { Context } from "hono"
 

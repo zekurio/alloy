@@ -1,10 +1,6 @@
-import type { ProfileCounts, ProfileViewer, PublicUser } from "@workspace/api"
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@workspace/ui/components/avatar"
-import { cn } from "@workspace/ui/lib/utils"
+import type { ProfileCounts, ProfileViewer, PublicUser } from "alloy-api"
+import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
+import { cn } from "alloy-ui/lib/utils"
 
 import { ProfileActions } from "@/components/profile/profile-actions"
 import { APP_BANNER_HEIGHT_CLASS } from "@/lib/banner-layout"

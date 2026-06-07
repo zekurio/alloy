@@ -3,7 +3,7 @@ import {
   authSession,
   type User,
   user,
-} from "@workspace/db/auth-schema"
+} from "alloy-db/auth-schema"
 import { and, eq, gt } from "drizzle-orm"
 import type { Context } from "hono"
 import { createMiddleware } from "hono/factory"

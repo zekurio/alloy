@@ -1,12 +1,12 @@
 import { Combobox as ComboboxPrimitive } from "@base-ui/react"
-import { Button } from "@workspace/ui/components/button"
+import { Button } from "alloy-ui/components/button"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-} from "@workspace/ui/components/input-group"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/components/input-group"
+import { cn } from "alloy-ui/lib/utils"
 import { CheckIcon, ChevronDownIcon, XIcon } from "lucide-react"
 import * as React from "react"
 

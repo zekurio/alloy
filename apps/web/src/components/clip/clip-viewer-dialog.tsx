@@ -1,15 +1,15 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { type ClipRow, clipThumbnailUrl } from "@workspace/api"
-import { Button } from "@workspace/ui/components/button"
+import { type ClipRow, clipThumbnailUrl } from "alloy-api"
+import { Button } from "alloy-ui/components/button"
 import {
   Dialog,
   DialogClose,
   DialogViewportContent,
-} from "@workspace/ui/components/dialog"
-import { Spinner } from "@workspace/ui/components/spinner"
-import { useMediaQuery } from "@workspace/ui/hooks/use-media-query"
-import { useWindowEvent } from "@workspace/ui/hooks/use-window-event"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/components/dialog"
+import { Spinner } from "alloy-ui/components/spinner"
+import { useMediaQuery } from "alloy-ui/hooks/use-media-query"
+import { useWindowEvent } from "alloy-ui/hooks/use-window-event"
+import { cn } from "alloy-ui/lib/utils"
 import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react"
 import * as React from "react"
 

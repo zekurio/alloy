@@ -1,4 +1,4 @@
-import type { PublicAuthProvider } from "@workspace/api"
+import type { PublicAuthProvider } from "alloy-api"
 import * as React from "react"
 
 import { OAuthButton } from "@/components/auth/oauth-button"
@@ -7,9 +7,11 @@ import { authCallbackUrl, toastAuthAttemptFailure } from "@/lib/auth-flow"
 
 type OAuthSignInProps = {
   provider: PublicAuthProvider
+  /** Same-origin return target (desktop browser-login handshake). */
+  redirectTo?: string
 }
 
-export function OAuthSignIn({ provider }: OAuthSignInProps) {
+export function OAuthSignIn({ provider, redirectTo }: OAuthSignInProps) {
   const [pending, setPending] = React.useState(false)
 
   async function onOAuth() {
@@ -18,7 +20,7 @@ export function OAuthSignIn({ provider }: OAuthSignInProps) {
     try {
       const { error } = await authClient.signIn.oauth2({
         providerId: provider.providerId,
-        callbackURL: authCallbackUrl("/"),
+        callbackURL: authCallbackUrl(redirectTo ?? "/"),
       })
       if (error) {
         toastAuthAttemptFailure("OAuth sign-in", "OAuth sign-in failed", error)

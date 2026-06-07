@@ -1,5 +1,5 @@
-import type { QueueEvent } from "@workspace/contracts"
-import { clip } from "@workspace/db/schema"
+import type { QueueEvent } from "alloy-contracts"
+import { clip } from "alloy-db/schema"
 import { eq } from "drizzle-orm"
 
 import { db } from "../db"
@@ -75,4 +75,4 @@ function publish(channelName: string, event: QueueEvent): void {
   for (const handler of subscribers.get(channelName) ?? []) handler(event)
 }
 
-export type { QueueEvent } from "@workspace/contracts"
+export type { QueueEvent } from "alloy-contracts"

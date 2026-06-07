@@ -3,7 +3,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import type { AdminUsersResponse, AdminUserStorageRow } from "@workspace/api"
+import type { AdminUsersResponse, AdminUserStorageRow } from "alloy-api"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,17 +14,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@workspace/ui/components/alert-dialog"
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@workspace/ui/components/avatar"
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
-import { Field, FieldLabel } from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
-import { List, ListItem } from "@workspace/ui/components/list"
+} from "alloy-ui/components/alert-dialog"
+import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
+import { Badge } from "alloy-ui/components/badge"
+import { Button } from "alloy-ui/components/button"
+import { Field, FieldLabel } from "alloy-ui/components/field"
+import { Input } from "alloy-ui/components/input"
+import { List, ListItem } from "alloy-ui/components/list"
 import {
   ResponsiveDialog,
   ResponsiveDialogBody,
@@ -35,22 +31,22 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
   ResponsiveDialogTrigger,
-} from "@workspace/ui/components/responsive-dialog"
+} from "alloy-ui/components/responsive-dialog"
 import {
   Section,
   SectionContent,
   SectionHeader,
   SectionTitle,
-} from "@workspace/ui/components/section"
+} from "alloy-ui/components/section"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@workspace/ui/components/select"
-import { Spinner } from "@workspace/ui/components/spinner"
-import { toast } from "@workspace/ui/lib/toast"
+} from "alloy-ui/components/select"
+import { Spinner } from "alloy-ui/components/spinner"
+import { toast } from "alloy-ui/lib/toast"
 import { PencilIcon, SaveIcon, Trash2Icon } from "lucide-react"
 import * as React from "react"
 

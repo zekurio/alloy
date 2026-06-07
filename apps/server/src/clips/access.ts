@@ -1,5 +1,5 @@
-import { user } from "@workspace/db/auth-schema"
-import { clip } from "@workspace/db/schema"
+import { user } from "alloy-db/auth-schema"
+import { clip } from "alloy-db/schema"
 import { eq } from "drizzle-orm"
 import type { Context } from "hono"
 

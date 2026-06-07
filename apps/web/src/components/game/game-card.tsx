@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router"
-import { gameGridUrl } from "@workspace/api"
-import { cn } from "@workspace/ui/lib/utils"
+import { gameGridUrl } from "alloy-api"
+import { cn } from "alloy-ui/lib/utils"
 
 import { hueForGame } from "@/lib/clip-format"
 import { apiOrigin } from "@/lib/env"

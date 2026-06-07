@@ -1,25 +1,17 @@
-import { type AdminRuntimeConfig, loginSplashImageUrl } from "@workspace/api"
-import { Button } from "@workspace/ui/components/button"
+import { type AdminRuntimeConfig, loginSplashImageUrl } from "alloy-api"
+import { Button } from "alloy-ui/components/button"
 import {
   Section,
   SectionContent,
   SectionFooter,
-} from "@workspace/ui/components/section"
-import { Slider } from "@workspace/ui/components/slider"
-import { Switch } from "@workspace/ui/components/switch"
-import { toast } from "@workspace/ui/lib/toast"
-import {
-  DownloadIcon,
-  PaletteIcon,
-  RotateCcwIcon,
-  SaveIcon,
-  UploadIcon,
-  WrenchIcon,
-} from "lucide-react"
+} from "alloy-ui/components/section"
+import { Slider } from "alloy-ui/components/slider"
+import { Switch } from "alloy-ui/components/switch"
+import { toast } from "alloy-ui/lib/toast"
+import { DownloadIcon, RotateCcwIcon, SaveIcon, UploadIcon } from "lucide-react"
 import * as React from "react"
 
 import { LoginAppearancePreview } from "@/components/routes/admin-settings/login-appearance-preview"
-import { SettingsSection } from "@/components/routes/settings/settings-section"
 import { api } from "@/lib/api"
 import { startBlobDownload } from "@/lib/browser-download"
 import { isoDateStamp } from "@/lib/date-format"
@@ -31,7 +23,7 @@ type AdminConfigSetter = React.Dispatch<
   React.SetStateAction<AdminRuntimeConfig | null>
 >
 
-export function AppearanceSettingsSection({
+export function AppearanceSettingsContent({
   config,
   setConfig,
 }: {
@@ -148,138 +140,132 @@ export function AppearanceSettingsSection({
   }
 
   return (
-    <SettingsSection
-      icon={PaletteIcon}
-      title="Login appearance"
-      description="Edit the generated clip backdrop shown on the login page."
-    >
-      <Section>
-        <SectionContent className="flex flex-col gap-4">
-          <input
-            ref={uploadInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            onChange={(event) => uploadSplash(event.currentTarget.files?.[0])}
+    <Section>
+      <SectionContent className="flex flex-col gap-4">
+        <input
+          ref={uploadInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={(event) => uploadSplash(event.currentTarget.files?.[0])}
+        />
+        <LoginAppearancePreview config={config} splash={previewSplash} />
+        <div className="not-last:border-border flex items-start justify-between gap-4 py-3 not-last:border-b first:pt-0">
+          <div className="min-w-0">
+            <div className="text-sm font-medium">Login backdrop</div>
+            <p className="text-foreground-dim mt-0.5 text-xs">
+              Use a generated collage from random public clip thumbnails.
+            </p>
+          </div>
+          <Switch
+            checked={splash.enabled}
+            onCheckedChange={updateSplashEnabled}
+            disabled={pending}
           />
-          <LoginAppearancePreview config={config} splash={previewSplash} />
-          <div className="not-last:border-border flex items-start justify-between gap-4 py-3 not-last:border-b first:pt-0">
-            <div className="min-w-0">
-              <div className="text-sm font-medium">Login backdrop</div>
-              <p className="text-foreground-dim mt-0.5 text-xs">
-                Use a generated collage from random public clip thumbnails.
-              </p>
+        </div>
+        <div className="not-last:border-border flex items-start justify-between gap-4 py-3 not-last:border-b">
+          <div className="min-w-0">
+            <div className="text-sm font-medium">Regenerate</div>
+            <p className="text-foreground-dim mt-0.5 text-xs">
+              Pick a new random set from public clips with thumbnails.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={regenerateSplash}
+            disabled={pending}
+          >
+            <RotateCcwIcon />
+            Regenerate
+          </Button>
+        </div>
+        <div className="not-last:border-border flex items-start justify-between gap-4 py-3 not-last:border-b">
+          <div className="min-w-0">
+            <div className="text-sm font-medium">Custom backdrop</div>
+            <p className="text-foreground-dim mt-0.5 text-xs">
+              Upload a JPEG, PNG, or WebP image.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={pending}
+            onClick={() => uploadInputRef.current?.click()}
+          >
+            <UploadIcon />
+            Upload
+          </Button>
+        </div>
+        <div className="grid gap-4 py-3 last:pb-0 sm:grid-cols-2">
+          <div className="min-w-0 space-y-2">
+            <div className="flex items-center justify-between gap-3 text-sm font-medium">
+              <span>Blur</span>
+              <span className="text-foreground-muted text-xs">
+                {draftBlurPx}px
+              </span>
             </div>
-            <Switch
-              checked={splash.enabled}
-              onCheckedChange={updateSplashEnabled}
+            <Slider
+              value={[draftBlurPx]}
+              min={0}
+              max={48}
+              step={1}
               disabled={pending}
+              onValueChange={(value) => setDraftBlurPx(sliderValue(value))}
             />
           </div>
-          <div className="not-last:border-border flex items-start justify-between gap-4 py-3 not-last:border-b">
-            <div className="min-w-0">
-              <div className="text-sm font-medium">Regenerate</div>
-              <p className="text-foreground-dim mt-0.5 text-xs">
-                Pick a new random set from public clips with thumbnails.
-              </p>
+          <div className="min-w-0 space-y-2">
+            <div className="flex items-center justify-between gap-3 text-sm font-medium">
+              <span>Darkening</span>
+              <span className="text-foreground-muted text-xs">
+                {Math.round(draftDarkenOpacity * 100)}%
+              </span>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={regenerateSplash}
+            <Slider
+              value={[draftDarkenOpacity]}
+              min={0}
+              max={1}
+              step={0.01}
               disabled={pending}
-            >
-              <RotateCcwIcon />
-              Regenerate
-            </Button>
+              onValueChange={(value) =>
+                setDraftDarkenOpacity(sliderValue(value))
+              }
+            />
           </div>
-          <div className="not-last:border-border flex items-start justify-between gap-4 py-3 not-last:border-b">
-            <div className="min-w-0">
-              <div className="text-sm font-medium">Custom backdrop</div>
-              <p className="text-foreground-dim mt-0.5 text-xs">
-                Upload a JPEG, PNG, or WebP image.
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={pending}
-              onClick={() => uploadInputRef.current?.click()}
-            >
-              <UploadIcon />
-              Upload
-            </Button>
-          </div>
-          <div className="grid gap-4 py-3 last:pb-0 sm:grid-cols-2">
-            <div className="min-w-0 space-y-2">
-              <div className="flex items-center justify-between gap-3 text-sm font-medium">
-                <span>Blur</span>
-                <span className="text-foreground-muted text-xs">
-                  {draftBlurPx}px
-                </span>
-              </div>
-              <Slider
-                value={[draftBlurPx]}
-                min={0}
-                max={48}
-                step={1}
-                disabled={pending}
-                onValueChange={(value) => setDraftBlurPx(sliderValue(value))}
-              />
-            </div>
-            <div className="min-w-0 space-y-2">
-              <div className="flex items-center justify-between gap-3 text-sm font-medium">
-                <span>Darkening</span>
-                <span className="text-foreground-muted text-xs">
-                  {Math.round(draftDarkenOpacity * 100)}%
-                </span>
-              </div>
-              <Slider
-                value={[draftDarkenOpacity]}
-                min={0}
-                max={1}
-                step={0.01}
-                disabled={pending}
-                onValueChange={(value) =>
-                  setDraftDarkenOpacity(sliderValue(value))
-                }
-              />
-            </div>
-          </div>
-        </SectionContent>
-        <SectionFooter>
-          <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
-            <Button
-              className="flex-1 sm:flex-initial"
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={cancelTreatment}
-              disabled={pending || !treatmentChanged}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="flex-1 sm:flex-initial"
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={saveTreatment}
-              disabled={pending || !treatmentChanged}
-            >
-              <SaveIcon />
-              {pending ? "Saving..." : "Save"}
-            </Button>
-          </div>
-        </SectionFooter>
-      </Section>
-    </SettingsSection>
+        </div>
+      </SectionContent>
+      <SectionFooter>
+        <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
+          <Button
+            className="flex-1 sm:flex-initial"
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={cancelTreatment}
+            disabled={pending || !treatmentChanged}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="flex-1 sm:flex-initial"
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={saveTreatment}
+            disabled={pending || !treatmentChanged}
+          >
+            <SaveIcon />
+            {pending ? "Saving..." : "Save"}
+          </Button>
+        </div>
+      </SectionFooter>
+    </Section>
   )
 }
 
-export function ConfigTransferSection({
+export function ConfigTransferContent({
   setConfig,
 }: {
   setConfig: AdminConfigSetter
@@ -332,58 +318,51 @@ export function ConfigTransferSection({
   }
 
   return (
-    <SettingsSection
-      icon={WrenchIcon}
-      title="Config transfer"
-      description="Export or replace server runtime configuration as JSON."
-    >
-      <div className="flex flex-col">
-        <div className="border-border flex items-start justify-between gap-4 border-b py-3 first:pt-0">
-          <div className="min-w-0">
-            <div className="text-sm font-medium">Export</div>
-            <p className="text-foreground-dim mt-0.5 text-xs">
-              Download the current server configuration. Secrets are not
-              included.
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onExport}
-            disabled={exporting}
-          >
-            <DownloadIcon />
-            {exporting ? "Exporting..." : "Export"}
-          </Button>
+    <div className="flex flex-col">
+      <div className="border-border flex items-start justify-between gap-4 border-b py-3 first:pt-0">
+        <div className="min-w-0">
+          <div className="text-sm font-medium">Export</div>
+          <p className="text-foreground-dim mt-0.5 text-xs">
+            Download the current server configuration. Secrets are not included.
+          </p>
         </div>
-        <div className="flex items-start justify-between gap-4 py-3 last:pb-0">
-          <div className="min-w-0">
-            <div className="text-sm font-medium">Import</div>
-            <p className="text-foreground-dim mt-0.5 text-xs">
-              Replace the current configuration from a previously exported JSON
-              file.
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={importing}
-          >
-            <UploadIcon />
-            {importing ? "Importing..." : "Import"}
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json,application/json"
-            className="hidden"
-            onChange={onFileSelected}
-          />
-        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onExport}
+          disabled={exporting}
+        >
+          <DownloadIcon />
+          {exporting ? "Exporting..." : "Export"}
+        </Button>
       </div>
-    </SettingsSection>
+      <div className="flex items-start justify-between gap-4 py-3 last:pb-0">
+        <div className="min-w-0">
+          <div className="text-sm font-medium">Import</div>
+          <p className="text-foreground-dim mt-0.5 text-xs">
+            Replace the current configuration from a previously exported JSON
+            file.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={importing}
+        >
+          <UploadIcon />
+          {importing ? "Importing..." : "Import"}
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json,application/json"
+          className="hidden"
+          onChange={onFileSelected}
+        />
+      </div>
+    </div>
   )
 }

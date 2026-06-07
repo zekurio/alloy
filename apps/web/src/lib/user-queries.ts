@@ -6,11 +6,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import type {
-  ProfileViewer,
-  UserProfile,
-  UserProfileViewer,
-} from "@workspace/api"
+import type { ProfileViewer, UserProfile, UserProfileViewer } from "alloy-api"
 
 import { api } from "./api"
 import { clipKeys } from "./clip-query-keys"

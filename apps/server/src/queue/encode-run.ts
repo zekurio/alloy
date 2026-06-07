@@ -1,8 +1,8 @@
 import { copyFile, rm, stat } from "node:fs/promises"
 
-import type { AcceptedContentType } from "@workspace/contracts"
-import { clip, clipUploadTicket } from "@workspace/db/schema"
-import { logger } from "@workspace/logging"
+import type { AcceptedContentType } from "alloy-contracts"
+import { clip, clipUploadTicket } from "alloy-db/schema"
+import { logger } from "alloy-logging"
 import { and, eq } from "drizzle-orm"
 
 import { publishClipUpsert } from "../clips/events"

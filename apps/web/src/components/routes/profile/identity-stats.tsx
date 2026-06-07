@@ -1,21 +1,17 @@
 import { Link } from "@tanstack/react-router"
-import type { ProfileCounts, UserSearchResult } from "@workspace/api"
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@workspace/ui/components/avatar"
-import { Button } from "@workspace/ui/components/button"
+import type { ProfileCounts, UserSearchResult } from "alloy-api"
+import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
+import { Button } from "alloy-ui/components/button"
 import {
   Dialog,
   DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@workspace/ui/components/dialog"
-import { Spinner } from "@workspace/ui/components/spinner"
-import { toast } from "@workspace/ui/lib/toast"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/components/dialog"
+import { Spinner } from "alloy-ui/components/spinner"
+import { toast } from "alloy-ui/lib/toast"
+import { cn } from "alloy-ui/lib/utils"
 import { UserPlusIcon } from "lucide-react"
 import * as React from "react"
 

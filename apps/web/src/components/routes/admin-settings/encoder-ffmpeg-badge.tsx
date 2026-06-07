@@ -1,10 +1,10 @@
-import type { AdminEncoderCapabilities } from "@workspace/api"
-import { Spinner } from "@workspace/ui/components/spinner"
+import type { AdminEncoderCapabilities } from "alloy-api"
+import { Spinner } from "alloy-ui/components/spinner"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@workspace/ui/components/tooltip"
+} from "alloy-ui/components/tooltip"
 import { AlertCircleIcon, CheckCircle2Icon, XCircleIcon } from "lucide-react"
 
 export function FfmpegBadge({

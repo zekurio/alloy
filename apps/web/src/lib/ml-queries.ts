@@ -1,5 +1,5 @@
 import { useQuery, type UseQueryResult } from "@tanstack/react-query"
-import type { PublicMlConfig } from "@workspace/api"
+import type { PublicMlConfig } from "alloy-api"
 
 import { api } from "./api"
 

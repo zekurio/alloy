@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router"
-import type { PublicLoginSplashConfig } from "@workspace/api"
-import { AlloyLogo } from "@workspace/ui/components/alloy-logo"
-import { cn } from "@workspace/ui/lib/utils"
+import type { PublicLoginSplashConfig } from "alloy-api"
+import { AlloyLogo } from "alloy-ui/components/alloy-logo"
+import { cn } from "alloy-ui/lib/utils"
 import type { ReactNode } from "react"
 
 import {

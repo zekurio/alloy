@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router"
-import { HttpError } from "@workspace/api"
+import { HttpError } from "alloy-api"
 import * as React from "react"
 
 import { ClipViewerDialog } from "@/components/clip/clip-viewer-dialog"

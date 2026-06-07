@@ -1,10 +1,6 @@
-import type { UserSearchResult } from "@workspace/api"
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@workspace/ui/components/avatar"
-import { cn } from "@workspace/ui/lib/utils"
+import type { UserSearchResult } from "alloy-api"
+import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
+import { cn } from "alloy-ui/lib/utils"
 import { XIcon } from "lucide-react"
 import * as React from "react"
 

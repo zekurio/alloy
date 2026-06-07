@@ -1,5 +1,5 @@
 import { useRouterState } from "@tanstack/react-router"
-import type { PublicAuthConfig } from "@workspace/api"
+import type { PublicAuthConfig } from "alloy-api"
 import { use } from "react"
 
 import { api } from "./api"

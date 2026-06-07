@@ -1,5 +1,5 @@
-import { authAccount, user } from "@workspace/db/auth-schema"
-import { logger } from "@workspace/logging"
+import { authAccount, user } from "alloy-db/auth-schema"
+import { logger } from "alloy-logging"
 import { and, eq } from "drizzle-orm"
 
 import { configStore, type OAuthProviderConfig } from "../config/store"

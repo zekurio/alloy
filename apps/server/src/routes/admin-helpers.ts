@@ -1,8 +1,5 @@
-import type {
-  AdminOAuthProvider,
-  AdminRuntimeConfig,
-} from "@workspace/contracts"
-import { user } from "@workspace/db/auth-schema"
+import type { AdminOAuthProvider, AdminRuntimeConfig } from "alloy-contracts"
+import { user } from "alloy-db/auth-schema"
 import { desc, inArray } from "drizzle-orm"
 
 import { secretStore } from "../config/secret-store"

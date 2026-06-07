@@ -1,4 +1,4 @@
-import { type NewUser, type User, user } from "@workspace/db/auth-schema"
+import { type NewUser, type User, user } from "alloy-db/auth-schema"
 import { and, eq, ne, sql } from "drizzle-orm"
 
 import { configStore } from "../config/store"

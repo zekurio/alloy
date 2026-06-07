@@ -1,5 +1,5 @@
 {
-  "name": "@workspace/db",
+  "name": "alloy-db",
   "private": true,
   "type": "module",
   "exports": {
@@ -18,8 +18,8 @@
     "test": "tsx --test \"src/**/*_test.ts\""
   },
   "dependencies": {
-    "@workspace/contracts": "workspace:*",
-    "@workspace/logging": "workspace:*",
+    "alloy-contracts": "workspace:*",
+    "alloy-logging": "workspace:*",
     "drizzle-kit": "0.31.10",
     "drizzle-orm": "0.45.2",
     "pg": "8.21.0"

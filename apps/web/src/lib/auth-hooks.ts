@@ -65,3 +65,26 @@ export function useRedirectIfAuthed(to: string = "/"): boolean {
 
   return !session
 }
+
+/**
+ * Like {@link useRedirectIfAuthed}, but supports a sanitized same-origin
+ * `redirect` target (e.g. the desktop browser-login
+ * `/api/auth/desktop/authorize` endpoint). A redirect target may be a
+ * non-router server path, so we use a hard navigation; the default `/` stays a
+ * client-side route change.
+ */
+export function useLoginRedirect(redirectTo: string | null): boolean {
+  const session = useSuspenseSession()
+  const navigate = useNavigate()
+
+  React.useEffect(() => {
+    if (!session) return
+    if (redirectTo) {
+      window.location.assign(redirectTo)
+    } else {
+      void navigate({ to: "/", replace: true })
+    }
+  }, [session, redirectTo, navigate])
+
+  return !session
+}

@@ -1,20 +1,26 @@
 import { createHash } from "node:crypto"
 import { createReadStream } from "node:fs"
-import { mkdir, readdir, readFile, rm, stat, access } from "node:fs/promises"
+import { mkdir, readdir, readFile, rm, stat } from "node:fs/promises"
 import { Readable } from "node:stream"
 
-import type { ClipPlaybackQuality, EncoderConfig } from "@workspace/contracts"
-import { logger } from "@workspace/logging"
+import type { ClipPlaybackQuality, EncoderConfig } from "alloy-contracts"
+import { logger } from "alloy-logging"
 
 import type { HwaccelKind } from "../config/store"
 import { liveHls, probe, type LiveHlsOpts } from "../queue/ffmpeg"
-import { ENCODE_DIR } from "../runtime/dirs"
 import { join } from "../runtime/path"
 import { clipStorage } from "../storage"
 import { parseHlsCodecsFromInit } from "./hls-codec"
+import { dirSize, fileExists, fileSizeOrZero } from "./live-hls-fs"
+import {
+  liveHlsPaths,
+  liveHlsRootDir,
+  liveHlsSegmentCount,
+  liveHlsSegmentFilename,
+  liveHlsSegmentLengthSec,
+  parseLiveHlsSegment,
+} from "./live-hls-playlist"
 
-const LIVE_HLS_DIR = join(ENCODE_DIR, "live")
-const SEGMENT_LENGTH_SEC = 3
 const JOB_IDLE_MS = 60_000
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000
 const CACHE_MAX_BYTES = 20 * 1024 * 1024 * 1024
@@ -54,9 +60,14 @@ const startLocks = new Map<string, Promise<LiveHlsJob>>()
 // addressed and deterministic, so it never goes stale for a given key.
 const codecStrings = new Map<string, string>()
 
-export function liveHlsSegmentLengthSec(): number {
-  return SEGMENT_LENGTH_SEC
-}
+export {
+  buildLiveHlsMediaPlaylist,
+  liveHlsPaths,
+  liveHlsSegmentCount,
+  liveHlsSegmentFilename,
+  liveHlsSegmentLengthSec,
+  parseLiveHlsSegment,
+} from "./live-hls-playlist"
 
 export function makeLiveHlsSpec(input: {
   clipId: string
@@ -86,7 +97,7 @@ export function makeLiveHlsSpec(input: {
     intelLowPowerH264: input.encoderConfig.intelLowPowerH264,
     intelLowPowerHevc: input.encoderConfig.intelLowPowerHevc,
     tonemapping: input.encoderConfig.tonemapping,
-    segmentLengthSec: SEGMENT_LENGTH_SEC,
+    segmentLengthSec: liveHlsSegmentLengthSec(),
   }
   const cacheKey = createHash("sha256")
     .update(JSON.stringify(keyInput))
@@ -101,88 +112,6 @@ export function makeLiveHlsSpec(input: {
     quality: input.quality,
     encoderConfig: input.encoderConfig,
   }
-}
-
-export function liveHlsPaths(cacheKey: string): {
-  dir: string
-  sourcePath: string
-  playlistPath: string
-  initFilename: string
-  initPath: string
-  segmentPattern: string
-} {
-  const dir = join(LIVE_HLS_DIR, cacheKey)
-  const initFilename = `${cacheKey}-init.mp4`
-  return {
-    dir,
-    sourcePath: join(dir, "source"),
-    playlistPath: join(dir, "stream.m3u8"),
-    initFilename,
-    initPath: join(dir, initFilename),
-    segmentPattern: join(dir, `${cacheKey}%d.mp4`),
-  }
-}
-
-export function liveHlsSegmentFilename(
-  cacheKey: string,
-  segmentIndex: number,
-): string {
-  return `${cacheKey}${segmentIndex}.mp4`
-}
-
-export function parseLiveHlsSegment(
-  cacheKey: string,
-  filename: string,
-): { kind: "init" } | { kind: "segment"; index: number } | null {
-  if (filename === `${cacheKey}-init.mp4`) return { kind: "init" }
-  const match = new RegExp(`^${cacheKey}(\\d+)\\.mp4$`).exec(filename)
-  if (!match) return null
-  const index = Number.parseInt(match[1] ?? "", 10)
-  if (!Number.isSafeInteger(index) || index < 0) return null
-  return { kind: "segment", index }
-}
-
-export function buildLiveHlsMediaPlaylist(input: {
-  spec: LiveHlsSpec
-  durationMs: number
-  querySuffix?: string
-}): string {
-  const segmentLengths = liveHlsSegmentLengths(input.durationMs)
-  const targetDuration = Math.ceil(
-    Math.max(...segmentLengths, SEGMENT_LENGTH_SEC),
-  )
-  const lines = [
-    "#EXTM3U",
-    "#EXT-X-VERSION:7",
-    `#EXT-X-TARGETDURATION:${targetDuration}`,
-    "#EXT-X-MEDIA-SEQUENCE:0",
-    `#EXT-X-MAP:URI="${input.spec.cacheKey}-init.mp4${timedQuerySuffix(
-      input.querySuffix,
-      0,
-      0,
-    )}"`,
-  ]
-  let runtimeTicks = 0
-  for (let i = 0; i < segmentLengths.length; i++) {
-    const segmentTicks = secondsToTicks(segmentLengths[i] ?? SEGMENT_LENGTH_SEC)
-    lines.push(
-      `#EXTINF:${segmentLengths[i]?.toFixed(3) ?? SEGMENT_LENGTH_SEC},`,
-    )
-    lines.push(
-      `${liveHlsSegmentFilename(input.spec.cacheKey, i)}${timedQuerySuffix(
-        input.querySuffix,
-        runtimeTicks,
-        segmentTicks,
-      )}`,
-    )
-    runtimeTicks += segmentTicks
-  }
-  lines.push("#EXT-X-ENDLIST")
-  return `${lines.join("\n")}\n`
-}
-
-export function liveHlsSegmentCount(durationMs: number): number {
-  return liveHlsSegmentLengths(durationMs).length
 }
 
 /** Start the transcode if needed and block until `filename` is fully written,
@@ -250,7 +179,7 @@ export function liveHlsCachedCodecs(cacheKey: string): string | null {
 }
 
 export async function startLiveHlsCache(): Promise<void> {
-  await mkdir(LIVE_HLS_DIR, { recursive: true })
+  await mkdir(liveHlsRootDir(), { recursive: true })
   await cleanupLiveHlsCache({ deleteAllPartial: true })
 }
 
@@ -312,7 +241,7 @@ async function startLiveHlsJob(
     targetHeight: spec.quality.height,
     videoBitrate: spec.quality.videoBitrate,
     audioBitrate: spec.quality.audioBitrate,
-    segmentLengthSec: SEGMENT_LENGTH_SEC,
+    segmentLengthSec: liveHlsSegmentLengthSec(),
     startNumber,
     startTimeSec,
     segmentPattern: paths.segmentPattern,
@@ -431,15 +360,15 @@ async function cleanupFailedJob(cacheKey: string): Promise<void> {
 async function cleanupLiveHlsCache(opts: {
   deleteAllPartial: boolean
 }): Promise<void> {
-  const entries = await readdir(LIVE_HLS_DIR, { withFileTypes: true }).catch(
-    () => [],
-  )
+  const entries = await readdir(liveHlsRootDir(), {
+    withFileTypes: true,
+  }).catch(() => [])
   const dirs = entries.filter((entry) => entry.isDirectory())
   const now = Date.now()
   const cacheEntries: CacheEntry[] = []
 
   for (const dirent of dirs) {
-    const path = join(LIVE_HLS_DIR, dirent.name)
+    const path = join(liveHlsRootDir(), dirent.name)
     const dirStat = await stat(path).catch(() => null)
     if (!dirStat) continue
     if (opts.deleteAllPartial || now - dirStat.mtimeMs > CACHE_TTL_MS) {
@@ -461,59 +390,6 @@ async function cleanupLiveHlsCache(opts: {
   }
 }
 
-async function dirSize(path: string): Promise<number> {
-  let total = 0
-  const entries = await readdir(path, { withFileTypes: true }).catch(() => [])
-  for (const entry of entries) {
-    const child = join(path, entry.name)
-    if (entry.isDirectory()) total += await dirSize(child)
-    else total += (await stat(child).catch(() => null))?.size ?? 0
-  }
-  return total
-}
-
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    await access(path)
-    return true
-  } catch {
-    return false
-  }
-}
-
-/** Byte size of `path`, or 0 when it is missing. Used to tell an opened-but-
- *  unwritten ffmpeg output file apart from a finished one. */
-async function fileSizeOrZero(path: string): Promise<number> {
-  try {
-    return (await stat(path)).size
-  } catch {
-    return 0
-  }
-}
-
 async function delay(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-function liveHlsSegmentLengths(durationMs: number): number[] {
-  const durationSec = Math.max(0.001, durationMs / 1000)
-  const whole = Math.floor(durationSec / SEGMENT_LENGTH_SEC)
-  const remaining = durationSec - whole * SEGMENT_LENGTH_SEC
-  const lengths = Array.from({ length: whole }, () => SEGMENT_LENGTH_SEC)
-  if (remaining > 0.001 || lengths.length === 0)
-    lengths.push(remaining || 0.001)
-  return lengths
-}
-
-function timedQuerySuffix(
-  baseQuerySuffix: string | undefined,
-  runtimeTicks: number,
-  actualSegmentLengthTicks: number,
-): string {
-  const separator = baseQuerySuffix ? "&" : "?"
-  return `${baseQuerySuffix ?? ""}${separator}runtimeTicks=${runtimeTicks}&actualSegmentLengthTicks=${actualSegmentLengthTicks}`
-}
-
-function secondsToTicks(seconds: number): number {
-  return Math.max(0, Math.round(seconds * 10_000_000))
 }

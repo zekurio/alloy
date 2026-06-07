@@ -6,8 +6,8 @@ import {
   writeFileSync,
 } from "node:fs"
 
-import type { OAuthProviderConfig } from "@workspace/contracts"
-import { logger } from "@workspace/logging"
+import type { OAuthProviderConfig } from "alloy-contracts"
+import { logger } from "alloy-logging"
 
 import { CONFIG_PATH, SECRETS_PATH } from "../runtime/dirs"
 import { errorDetail } from "../runtime/error-message"

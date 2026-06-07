@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
-import { AppMain, AppShell } from "@workspace/ui/components/app-shell"
+import { AppMain, AppShell } from "alloy-ui/components/app-shell"
 import * as React from "react"
 
 import { ClipViewerDialog } from "@/components/clip/clip-viewer-dialog"
@@ -9,6 +9,8 @@ import {
 } from "@/components/feedback/route-state"
 import { HomeHeader } from "@/components/layout/home-header"
 import { HomeSidebar } from "@/components/layout/home-sidebar"
+import { DesktopRecordingProvider } from "@/components/routes/settings/desktop-recording-context"
+import { SettingsDialog } from "@/components/routes/settings/settings-dialog"
 import { AppSearchProvider } from "@/components/search/app-search"
 import { UploadFlow } from "@/components/upload/upload-flow"
 import { UploadFlowProvider } from "@/components/upload/upload-flow-controls"
@@ -26,7 +28,7 @@ export const Route = createFileRoute("/(app)/_app")({
 
 function AppLayout() {
   const { allowed } = useBrowseAuthGate()
-  const { clip, comment } = Route.useSearch()
+  const { clip, comment, settings } = Route.useSearch()
   const navigate = useNavigate()
 
   const handleCloseClipModal = () => {
@@ -64,21 +66,47 @@ function AppLayout() {
     [navigate],
   )
 
+  const handleCloseSettings = React.useCallback(() => {
+    void navigate({
+      to: ".",
+      search: (prev: AppSearch) => ({ ...prev, settings: undefined }),
+      replace: true,
+    })
+  }, [navigate])
+
+  const handleNavigateSettings = React.useCallback(
+    (section: string) => {
+      void navigate({
+        to: ".",
+        search: (prev: AppSearch) => ({ ...prev, settings: section }),
+        replace: true,
+      })
+    },
+    [navigate],
+  )
+
   return allowed ? (
     <AppSearchProvider>
-      <UploadFlowProvider>
-        <AppShell>
-          <AppChrome />
-          <Outlet />
-          <UploadFlow />
-        </AppShell>
-      </UploadFlowProvider>
-      <ClipViewerDialog
-        clipId={clip ?? null}
-        focusedCommentId={comment ?? null}
-        onClose={handleCloseClipModal}
-        onNavigate={handleNavigateClip}
-      />
+      <DesktopRecordingProvider>
+        <UploadFlowProvider>
+          <AppShell>
+            <AppChrome />
+            <Outlet />
+            <UploadFlow />
+          </AppShell>
+        </UploadFlowProvider>
+        <ClipViewerDialog
+          clipId={clip ?? null}
+          focusedCommentId={comment ?? null}
+          onClose={handleCloseClipModal}
+          onNavigate={handleNavigateClip}
+        />
+        <SettingsDialog
+          section={settings ?? null}
+          onNavigate={handleNavigateSettings}
+          onClose={handleCloseSettings}
+        />
+      </DesktopRecordingProvider>
     </AppSearchProvider>
   ) : null
 }
@@ -115,12 +143,14 @@ function AppRouteNotFoundState(
 function AppRouteStateShell({ children }: { children: React.ReactNode }) {
   return (
     <AppSearchProvider>
-      <UploadFlowProvider>
-        <AppShell>
-          <AppChrome />
-          <AppMain>{children}</AppMain>
-        </AppShell>
-      </UploadFlowProvider>
+      <DesktopRecordingProvider>
+        <UploadFlowProvider>
+          <AppShell>
+            <AppChrome />
+            <AppMain>{children}</AppMain>
+          </AppShell>
+        </UploadFlowProvider>
+      </DesktopRecordingProvider>
     </AppSearchProvider>
   )
 }

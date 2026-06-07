@@ -1,5 +1,5 @@
-import type { GameListRow, GameRow, ProfileGameRow } from "@workspace/contracts"
-import { game } from "@workspace/db/schema"
+import type { GameListRow, GameRow, ProfileGameRow } from "alloy-contracts"
+import { game } from "alloy-db/schema"
 import { z } from "zod"
 
 import {

@@ -1,4 +1,4 @@
-import { Button } from "@workspace/ui/components/button"
+import { Button } from "alloy-ui/components/button"
 import * as React from "react"
 import { type ExternalToast, toast as sonnerToast } from "sonner"
 
@@ -22,11 +22,12 @@ function withCloseAction(
   id: string | number,
   data?: ExternalToast,
 ): ExternalToast {
+  const action = data?.action
   return {
     ...data,
     id,
-    action: getCloseAction(id),
-    cancel: undefined,
+    action: action ?? getCloseAction(id),
+    cancel: action ? getCloseAction(id) : undefined,
     closeButton: false,
   }
 }
