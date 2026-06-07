@@ -56,6 +56,13 @@ function contentType(path: string): string {
   return "application/octet-stream"
 }
 
+function webAssetCacheControl(path: string): string {
+  if (path.endsWith(".js") || path.endsWith(".mjs") || path.endsWith(".css")) {
+    return "public, no-cache"
+  }
+  return "public, max-age=31536000, immutable"
+}
+
 function safeJoin(root: string, requestPath: string): string | null {
   let decoded: string
   try {
@@ -236,7 +243,8 @@ export async function mountWeb(app: Hono): Promise<Hono> {
 
   app.on(["GET", "HEAD"], "/assets/*", (c) => {
     const rel = c.req.path.slice("/assets/".length)
-    return serveFile(c, `/assets/${rel}`, "public, max-age=31536000, immutable")
+    const path = `/assets/${rel}`
+    return serveFile(c, path, webAssetCacheControl(path))
   })
 
   app.on(["GET", "HEAD"], "/logo.png", (c) =>
