@@ -1,6 +1,6 @@
-import type { ClipMentionRef } from "@workspace/contracts"
-import { user } from "@workspace/db/auth-schema"
-import { clip, clipMention, game } from "@workspace/db/schema"
+import type { ClipMentionRef } from "alloy-contracts"
+import { user } from "alloy-db/auth-schema"
+import { clip, clipMention, game } from "alloy-db/schema"
 import { eq } from "drizzle-orm"
 
 import { configStore } from "../config/store"

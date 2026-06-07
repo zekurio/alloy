@@ -1,7 +1,8 @@
 import {
+  DESKTOP_AUTH_CAPABILITY_VERSION,
   loginSplashImagePath,
   type PublicAuthConfig,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 
 import { configStore } from "../config/store"
 import { env } from "../env"
@@ -28,6 +29,7 @@ export async function buildPublicAuthConfig(): Promise<PublicAuthConfig> {
     openRegistrations: configStore.get("openRegistrations"),
     passkeyEnabled: configStore.get("passkeyEnabled"),
     requireAuthToBrowse: configStore.get("requireAuthToBrowse"),
+    desktopAuth: { version: DESKTOP_AUTH_CAPABILITY_VERSION },
     providers: getPublicProviders(),
     loginSplash: {
       enabled: loginSplash.enabled,

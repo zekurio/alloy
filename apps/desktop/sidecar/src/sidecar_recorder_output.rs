@@ -1,0 +1,391 @@
+impl Recorder {
+    fn start_file_output(
+        &mut self,
+        settings: &RecordingSettings,
+        game: Option<&DetectedGame>,
+        kind: ActiveOutputKind,
+        capture: RecordingCapture,
+    ) -> Result<ActiveSession, String> {
+        let path = capture.filename.clone();
+        self.start_output(settings, game, kind, capture, OutputConfig::File { path })
+    }
+
+    fn start_output(
+        &mut self,
+        settings: &RecordingSettings,
+        game: Option<&DetectedGame>,
+        kind: ActiveOutputKind,
+        capture: RecordingCapture,
+        output_config: OutputConfig,
+    ) -> Result<ActiveSession, String> {
+        let source_kind = source_kind(settings, game);
+        let video_config = self.ensure_obs_for_source(settings, game, source_kind)?;
+        let obs = self
+            .obs
+            .as_ref()
+            .ok_or_else(|| "OBS is not initialized.".to_string())?;
+        let encoder_ids = self.available_encoder_set();
+        let video_encoder_id = choose_video_encoder(settings, &encoder_ids)
+            .ok_or_else(|| unavailable_video_encoder_message(settings))?;
+        let audio_encoder_id = choose_audio_encoder(&encoder_ids)
+            .ok_or_else(|| "No OBS audio encoder is available.".to_string())?;
+
+        let output_quality = effective_quality_for_base(settings, video_config.base);
+        let video_graph =
+            unsafe { create_video_graph(obs, game, source_kind, video_config.base)? };
+        unsafe {
+            (obs.obs_set_output_source)(0, video_graph.output_source);
+        }
+
+        let audio_sources = match unsafe { create_audio_sources(obs, settings, game) } {
+            Ok(audio_sources) => audio_sources,
+            Err(error) => {
+                unsafe {
+                    release_output_graph(
+                        obs,
+                        ptr::null_mut(),
+                        ptr::null_mut(),
+                        ptr::null_mut(),
+                        video_graph,
+                        Vec::new(),
+                    );
+                }
+                return Err(error);
+            }
+        };
+
+        let video_settings = unsafe { obs.create_data() };
+        let video_encoder = unsafe {
+            let result = (|| {
+                configure_video_encoder(obs, video_settings, settings, &output_quality)?;
+                create_video_encoder(obs, &video_encoder_id, video_settings)
+                    .map_err(|_| unavailable_video_encoder_message(settings))
+            })();
+            obs.release_data(video_settings);
+            result
+        };
+        let video_encoder = match video_encoder {
+            Ok(video_encoder) => video_encoder,
+            Err(error) => {
+                unsafe {
+                    release_output_graph(
+                        obs,
+                        ptr::null_mut(),
+                        ptr::null_mut(),
+                        ptr::null_mut(),
+                        video_graph,
+                        audio_sources,
+                    );
+                }
+                return Err(error);
+            }
+        };
+        unsafe { (obs.obs_encoder_set_video)(video_encoder, (obs.obs_get_video)()) };
+
+        let audio_settings = unsafe { obs.create_data() };
+        let audio_encoder = unsafe {
+            let result = (|| {
+                obs.set_int(audio_settings, "bitrate", 160)?;
+                create_audio_encoder(obs, &audio_encoder_id, audio_settings)
+            })();
+            obs.release_data(audio_settings);
+            result
+        };
+        let audio_encoder = match audio_encoder {
+            Ok(audio_encoder) => audio_encoder,
+            Err(error) => {
+                unsafe {
+                    release_output_graph(
+                        obs,
+                        ptr::null_mut(),
+                        video_encoder,
+                        ptr::null_mut(),
+                        video_graph,
+                        audio_sources,
+                    );
+                }
+                return Err(error);
+            }
+        };
+        unsafe { (obs.obs_encoder_set_audio)(audio_encoder, (obs.obs_get_audio)()) };
+
+        let output_settings = unsafe { obs.create_data() };
+        let output_id = match &output_config {
+            OutputConfig::File { path } => {
+                let result = unsafe {
+                    obs.set_string(output_settings, "path", path)?;
+                    obs.set_string(output_settings, "muxer_settings", "movflags=+faststart")
+                };
+                result.map(|_| "ffmpeg_muxer")
+            }
+            OutputConfig::ReplayBuffer {
+                scratch_directory,
+                output_directory: _,
+                storage,
+                replay_seconds: _,
+            } => {
+                if storage == &RecordingBufferStorage::Disk {
+                    let path = scratch_directory.join(format!(
+                        "{DISK_REPLAY_PREFIX}{}.mp4",
+                        timestamp_file_slug()
+                    ));
+                    let result = unsafe {
+                        obs.set_string(output_settings, "path", &path.to_string_lossy())?;
+                        obs.set_string(output_settings, "muxer_settings", "movflags=+faststart")?;
+                        obs.set_bool(output_settings, "split_file", true)?;
+                        obs.set_int(
+                            output_settings,
+                            "max_time_sec",
+                            i64::from(disk_replay_segment_seconds(
+                                settings.replay_buffer_seconds,
+                            )),
+                        )?;
+                        obs.set_int(output_settings, "max_size_mb", 0)
+                    };
+                    result.map(|_| "ffmpeg_muxer")
+                } else {
+                    let result = unsafe {
+                        obs.set_string(
+                            output_settings,
+                            "directory",
+                            &scratch_directory.to_string_lossy(),
+                        )?;
+                        obs.set_string(
+                            output_settings,
+                            "format",
+                            "alloy-replay-%CCYY%MM%DD-%hh%mm%ss",
+                        )?;
+                        obs.set_string(output_settings, "extension", "mp4")?;
+                        obs.set_int(
+                            output_settings,
+                            "max_time_sec",
+                            i64::from(settings.replay_buffer_seconds),
+                        )?;
+                        obs.set_int(
+                            output_settings,
+                            "max_size_mb",
+                            i64::from(estimated_replay_buffer_mb(settings)),
+                        )
+                    };
+                    result.map(|_| "replay_buffer")
+                }
+            }
+        };
+        let output_id = match output_id {
+            Ok(output_id) => output_id,
+            Err(error) => {
+                unsafe {
+                    obs.release_data(output_settings);
+                    release_output_graph(
+                        obs,
+                        ptr::null_mut(),
+                        video_encoder,
+                        audio_encoder,
+                        video_graph,
+                        audio_sources,
+                    );
+                }
+                return Err(error);
+            }
+        };
+        let output = match unsafe { create_output(obs, output_id, output_settings) } {
+            Ok(output) => output,
+            Err(error) => {
+                unsafe {
+                    obs.release_data(output_settings);
+                    release_output_graph(
+                        obs,
+                        ptr::null_mut(),
+                        video_encoder,
+                        audio_encoder,
+                        video_graph,
+                        audio_sources,
+                    );
+                }
+                return Err(error);
+            }
+        };
+        unsafe {
+            (obs.obs_output_update)(output, output_settings);
+            obs.release_data(output_settings);
+            (obs.obs_output_set_video_encoder)(output, video_encoder);
+            (obs.obs_output_set_audio_encoder)(output, audio_encoder, 0);
+        }
+
+        if unsafe { !(obs.obs_output_start)(output) } {
+            let error = output_last_error(obs, output)
+                .unwrap_or_else(|| "OBS output failed to start.".to_string());
+            unsafe {
+                release_output_graph(
+                    obs,
+                    output,
+                    video_encoder,
+                    audio_encoder,
+                    video_graph,
+                    audio_sources,
+                );
+            }
+            return Err(error);
+        }
+
+        let can_pause = unsafe { (obs.obs_output_can_pause)(output) };
+        Ok(ActiveSession {
+            kind,
+            output,
+            video_encoder,
+            audio_encoder,
+            video_graph,
+            video_config,
+            audio_sources,
+            source_kind,
+            output_config,
+            capture,
+            started_at: SystemTime::now(),
+            can_pause,
+            paused: false,
+            paused_at: None,
+            total_paused: Duration::ZERO,
+        })
+    }
+
+    unsafe fn stop_output(&self, session: ActiveSession) -> Result<(), String> {
+        let obs = self
+            .obs
+            .as_ref()
+            .ok_or_else(|| "OBS is not initialized.".to_string())?;
+        if session.paused && session.can_pause {
+            (obs.obs_output_pause)(session.output, false);
+        }
+        (obs.obs_output_stop)(session.output);
+
+        let deadline = SystemTime::now() + Duration::from_secs(8);
+        while (obs.obs_output_active)(session.output) {
+            if SystemTime::now() >= deadline {
+                (obs.obs_output_force_stop)(session.output);
+                break;
+            }
+            thread::sleep(Duration::from_millis(100));
+        }
+
+        release_output_graph(
+            obs,
+            session.output,
+            session.video_encoder,
+            session.audio_encoder,
+            session.video_graph,
+            session.audio_sources,
+        );
+        Ok(())
+    }
+
+    unsafe fn save_replay(&self, session: &ActiveSession) -> Result<String, String> {
+        if session.kind != ActiveOutputKind::ReplayBuffer {
+            return Err("Current OBS output is not a replay buffer.".to_string());
+        }
+        if let OutputConfig::ReplayBuffer {
+            scratch_directory,
+            output_directory,
+            storage,
+            replay_seconds,
+        } = &session.output_config
+        {
+            if storage == &RecordingBufferStorage::Disk {
+                return self.save_disk_replay(
+                    session,
+                    scratch_directory,
+                    output_directory,
+                    *replay_seconds,
+                );
+            }
+        } else {
+            return Err("Current OBS output is not a replay buffer.".to_string());
+        }
+        let output_directory = match &session.output_config {
+            OutputConfig::ReplayBuffer {
+                output_directory, ..
+            } => output_directory,
+            _ => unreachable!("replay buffer config checked above"),
+        };
+        let obs = self
+            .obs
+            .as_ref()
+            .ok_or_else(|| "OBS is not initialized.".to_string())?;
+        let handler = (obs.obs_output_get_proc_handler)(session.output);
+        if handler.is_null() {
+            return Err("OBS replay buffer has no procedure handler.".to_string());
+        }
+
+        let save_name = CString::new("save").expect("static string has no nul byte");
+        let mut save_data = CallData::default();
+        if !(obs.proc_handler_call)(handler, save_name.as_ptr(), &mut save_data) {
+            free_calldata(obs, &mut save_data);
+            return Err("OBS replay buffer failed to save.".to_string());
+        }
+        free_calldata(obs, &mut save_data);
+
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < deadline {
+            let mut data = CallData::default();
+            let get_last_replay =
+                CString::new("get_last_replay").expect("static string has no nul byte");
+            if (obs.proc_handler_call)(handler, get_last_replay.as_ptr(), &mut data) {
+                let key = CString::new("path").expect("static string has no nul byte");
+                let mut raw_path: *const c_char = ptr::null();
+                if (obs.calldata_get_string)(&data, key.as_ptr(), &mut raw_path)
+                    && !raw_path.is_null()
+                {
+                    let path = CStr::from_ptr(raw_path).to_string_lossy().into_owned();
+                    free_calldata(obs, &mut data);
+                    if !path.is_empty() {
+                        return move_saved_replay_to_output(
+                            &path,
+                            output_directory,
+                            session.capture.game.as_ref(),
+                        );
+                    }
+                }
+            }
+            free_calldata(obs, &mut data);
+            thread::sleep(Duration::from_millis(100));
+        }
+
+        Err("OBS saved replay, but did not report a file path.".to_string())
+    }
+
+    unsafe fn save_disk_replay(
+        &self,
+        session: &ActiveSession,
+        scratch_directory: &Path,
+        output_directory: &Path,
+        replay_seconds: u32,
+    ) -> Result<String, String> {
+        let segment = newest_disk_replay_segment(scratch_directory)
+            .ok_or_else(|| "Disk replay buffer has not created a segment yet.".to_string())?;
+        let obs = self
+            .obs
+            .as_ref()
+            .ok_or_else(|| "OBS is not initialized.".to_string())?;
+        let handler = (obs.obs_output_get_proc_handler)(session.output);
+        if handler.is_null() {
+            return Err("OBS disk replay output has no procedure handler.".to_string());
+        }
+
+        let split_file = CString::new("split_file").expect("static string has no nul byte");
+        let mut data = CallData::default();
+        if !(obs.proc_handler_call)(handler, split_file.as_ptr(), &mut data) {
+            free_calldata(obs, &mut data);
+            return Err("OBS disk replay buffer failed to split.".to_string());
+        }
+        free_calldata(obs, &mut data);
+
+        let path = save_disk_replay_clip(
+            scratch_directory,
+            output_directory,
+            session.capture.game.as_ref(),
+            replay_seconds,
+            &segment.path,
+        )?;
+        cleanup_disk_replay_segments(&session.output_config, Some(&path));
+        Ok(path)
+    }
+}

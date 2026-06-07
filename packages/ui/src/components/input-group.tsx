@@ -1,9 +1,9 @@
 "use client"
 
-import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
-import { Textarea } from "@workspace/ui/components/textarea"
-import { cn } from "@workspace/ui/lib/utils"
+import { Button } from "alloy-ui/components/button"
+import { Input } from "alloy-ui/components/input"
+import { Textarea } from "alloy-ui/components/textarea"
+import { cn } from "alloy-ui/lib/utils"
 import { cva, type VariantProps } from "class-variance-authority"
 import * as React from "react"
 

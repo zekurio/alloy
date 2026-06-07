@@ -1,5 +1,5 @@
-import { authChallenge } from "@workspace/db/auth-schema"
-import { logger } from "@workspace/logging"
+import { authChallenge } from "alloy-db/auth-schema"
+import { logger } from "alloy-logging"
 import type { Context } from "hono"
 import {
   authorizationCodeGrant,

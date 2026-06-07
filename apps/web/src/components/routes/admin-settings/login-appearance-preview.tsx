@@ -2,20 +2,21 @@ import type {
   AdminRuntimeConfig,
   PublicAuthConfig,
   PublicLoginSplashConfig,
-} from "@workspace/api"
-import { Button } from "@workspace/ui/components/button"
+} from "alloy-api"
+import { DESKTOP_AUTH_CAPABILITY_VERSION } from "alloy-contracts"
+import { Button } from "alloy-ui/components/button"
 import {
   Dialog,
   DialogClose,
   DialogContent,
   DialogTitle,
-} from "@workspace/ui/components/dialog"
+} from "alloy-ui/components/dialog"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@workspace/ui/components/tooltip"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/components/tooltip"
+import { cn } from "alloy-ui/lib/utils"
 import { MaximizeIcon, XIcon } from "lucide-react"
 import * as React from "react"
 
@@ -43,6 +44,7 @@ function toPublicAuthConfig(
     openRegistrations: config.openRegistrations,
     passkeyEnabled: config.passkeyEnabled,
     requireAuthToBrowse: config.requireAuthToBrowse,
+    desktopAuth: { version: DESKTOP_AUTH_CAPABILITY_VERSION },
     providers: config.oauthProviders
       .filter((provider) => provider.enabled)
       .map((provider) => ({

@@ -1,4 +1,4 @@
-import { clip, clipLike, clipView } from "@workspace/db/schema"
+import { clip, clipLike, clipView } from "alloy-db/schema"
 import { and, eq, type SQL, sql } from "drizzle-orm"
 import { Hono } from "hono"
 

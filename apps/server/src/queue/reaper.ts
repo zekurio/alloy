@@ -1,5 +1,5 @@
-import { clip, clipUploadTicket } from "@workspace/db/schema"
-import { logger } from "@workspace/logging"
+import { clip, clipUploadTicket } from "alloy-db/schema"
+import { logger } from "alloy-logging"
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm"
 
 import { publishClipRemove } from "../clips/events"

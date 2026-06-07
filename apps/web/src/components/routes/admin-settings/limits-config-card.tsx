@@ -1,15 +1,15 @@
-import type { AdminLimitsConfig, AdminRuntimeConfig } from "@workspace/api"
-import { Button } from "@workspace/ui/components/button"
-import { Field, FieldLabel } from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
+import type { AdminLimitsConfig, AdminRuntimeConfig } from "alloy-api"
+import { Button } from "alloy-ui/components/button"
+import { Field, FieldLabel } from "alloy-ui/components/field"
+import { Input } from "alloy-ui/components/input"
 import {
   Section,
   SectionContent,
   SectionFooter,
   SectionHeader,
   SectionTitle,
-} from "@workspace/ui/components/section"
-import { toast } from "@workspace/ui/lib/toast"
+} from "alloy-ui/components/section"
+import { toast } from "alloy-ui/lib/toast"
 import { SaveIcon } from "lucide-react"
 import * as React from "react"
 

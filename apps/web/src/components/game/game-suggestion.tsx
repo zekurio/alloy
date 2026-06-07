@@ -1,7 +1,7 @@
-import type { GameRow, SteamGridDBSearchResult } from "@workspace/api"
-import { Button } from "@workspace/ui/components/button"
-import { GameIcon } from "@workspace/ui/components/game-icon"
-import { cn } from "@workspace/ui/lib/utils"
+import type { GameRow, SteamGridDBSearchResult } from "alloy-api"
+import { Button } from "alloy-ui/components/button"
+import { GameIcon } from "alloy-ui/components/game-icon"
+import { cn } from "alloy-ui/lib/utils"
 import { CheckIcon, SparklesIcon, XIcon } from "lucide-react"
 
 import { useCyclingVerb } from "./game-suggestion-verbs"

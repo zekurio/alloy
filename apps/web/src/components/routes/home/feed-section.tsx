@@ -1,6 +1,6 @@
-import type { ClipRow, FeedFilter } from "@workspace/api"
-import { Spinner } from "@workspace/ui/components/spinner"
-import { cn } from "@workspace/ui/lib/utils"
+import type { ClipRow, FeedFilter } from "alloy-api"
+import { Spinner } from "alloy-ui/components/spinner"
+import { cn } from "alloy-ui/lib/utils"
 import * as React from "react"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"

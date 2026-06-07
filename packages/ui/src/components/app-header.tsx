@@ -1,6 +1,6 @@
-import { AlloyLogoMark } from "@workspace/ui/components/alloy-logo"
-import { Kbd } from "@workspace/ui/components/kbd"
-import { cn } from "@workspace/ui/lib/utils"
+import { AlloyLogoMark } from "alloy-ui/components/alloy-logo"
+import { Kbd } from "alloy-ui/components/kbd"
+import { cn } from "alloy-ui/lib/utils"
 import { SearchIcon, XIcon } from "lucide-react"
 import * as React from "react"
 

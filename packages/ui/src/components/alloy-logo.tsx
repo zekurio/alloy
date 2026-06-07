@@ -1,9 +1,10 @@
-import { cn } from "@workspace/ui/lib/utils"
+import { cn } from "alloy-ui/lib/utils"
 import * as React from "react"
 
 interface AlloyLogoProps extends React.HTMLAttributes<HTMLSpanElement> {
   size?: number
   showText?: boolean
+  markSrc?: string
   textClassName?: string
   spacing?: number
 }
@@ -11,13 +12,14 @@ interface AlloyLogoProps extends React.HTMLAttributes<HTMLSpanElement> {
 function AlloyLogo({
   size = 40,
   showText = false,
+  markSrc,
   textClassName,
   spacing = 10,
   className,
   ...props
 }: AlloyLogoProps) {
   if (!showText) {
-    return <AlloyLogoMark size={size} className={className} />
+    return <AlloyLogoMark src={markSrc} size={size} className={className} />
   }
 
   return (
@@ -26,7 +28,7 @@ function AlloyLogo({
       style={{ gap: spacing }}
       {...props}
     >
-      <AlloyLogoMark size={size} />
+      <AlloyLogoMark src={markSrc} size={size} />
       <span
         className={cn(
           "font-mono leading-none font-bold tracking-normal text-foreground",
@@ -41,13 +43,14 @@ function AlloyLogo({
 }
 
 function AlloyLogoMark({
+  src = "/logo.png",
   size = 40,
   className,
   ...props
 }: React.ImgHTMLAttributes<HTMLImageElement> & { size?: number }) {
   return (
     <img
-      src="/logo.png"
+      src={src}
       width={size}
       height={size}
       alt="alloy"

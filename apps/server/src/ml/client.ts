@@ -1,7 +1,7 @@
 import type {
   MachineLearningConfig,
   MlGameSuggestionPrediction,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 
 import { isAbortError, prefixedErrorMessage } from "../runtime/error-message"
 import { responseTextOrEmpty } from "../runtime/response-text"

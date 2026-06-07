@@ -1,5 +1,5 @@
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import { Button } from "@workspace/ui/components/button"
+import { Button } from "alloy-ui/components/button"
 import { KeyRoundIcon } from "lucide-react"
 import * as React from "react"
 
@@ -9,7 +9,7 @@ import {
   toastAuthAttemptFailure,
 } from "@/lib/auth-flow"
 
-export function PasskeySignIn() {
+export function PasskeySignIn({ redirectTo }: { redirectTo?: string }) {
   const [pending, setPending] = React.useState(false)
   const navigate = useNavigate()
   const router = useRouter()
@@ -30,7 +30,10 @@ export function PasskeySignIn() {
       }
       await completeAuthSessionFlow({
         invalidateRouter: () => router.invalidate(),
-        navigate: () => navigate({ to: "/" }),
+        navigate: () =>
+          redirectTo
+            ? window.location.assign(redirectTo)
+            : navigate({ to: "/" }),
       })
     } catch (cause) {
       toastAuthAttemptFailure(

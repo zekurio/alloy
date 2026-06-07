@@ -1,4 +1,4 @@
-import type { EncoderCodec } from "@workspace/contracts"
+import type { EncoderCodec } from "alloy-contracts"
 
 type LiveCodecProbe = {
   codec: EncoderCodec

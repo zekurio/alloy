@@ -1,5 +1,5 @@
 {
-  "name": "@workspace/api",
+  "name": "alloy-api",
   "private": true,
   "type": "module",
   "exports": {
@@ -14,9 +14,9 @@
   },
   "dependencies": {
     "@simplewebauthn/browser": "13.3.0",
-    "@workspace/contracts": "workspace:*",
-    "@workspace/server": "workspace:*",
-    "hono": "4.12.14",
+    "alloy-contracts": "workspace:*",
+    "alloy-server": "workspace:*",
+    "hono": "4.12.23",
     "react": "19.2.5",
     "zod": "4.3.6"
   },

@@ -2,8 +2,8 @@ import {
   ACCEPTED_CLIP_CONTENT_TYPES,
   CLIP_DESCRIPTION_MAX_LENGTH,
   CLIP_TITLE_MAX_LENGTH,
-} from "@workspace/contracts"
-import { clip, CLIP_PRIVACY } from "@workspace/db/schema"
+} from "alloy-contracts"
+import { clip, CLIP_PRIVACY } from "alloy-db/schema"
 import { and, desc, eq, lt, or, type SQL, sql } from "drizzle-orm"
 import { z } from "zod"
 
@@ -36,7 +36,6 @@ export const HlsStreamQuery = z.object({
 })
 export const HlsSegmentQuery = HlsStreamQuery.extend({
   runtimeTicks: z.coerce.number().int().min(0).optional(),
-  actualSegmentLengthTicks: z.coerce.number().int().min(0).optional(),
 })
 export const HlsVariantParam = z.object({
   id: z.uuid(),

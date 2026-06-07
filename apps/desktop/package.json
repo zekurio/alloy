@@ -1,0 +1,123 @@
+{
+  "name": "alloy-desktop",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Alloy desktop app",
+  "type": "module",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "pnpm prepare:assets && pnpm build:sidecar && pnpm ensure:electron && electron-vite dev",
+    "build": "pnpm prepare:assets && pnpm build:sidecar && electron-vite build",
+    "build:sidecar": "node scripts/build-sidecar.mjs",
+    "build:sidecar:release": "node scripts/build-sidecar.mjs --require-obs-runtime",
+    "build:win:release": "pnpm prepare:assets && pnpm build:sidecar:release && electron-vite build",
+    "ensure:electron": "node scripts/ensure-electron.mjs",
+    "prepare:assets": "node scripts/generate-windows-icon.mjs",
+    "prepare:icons": "pnpm prepare:assets",
+    "dist:linux": "pnpm prepare:assets && pnpm build && electron-builder --linux AppImage deb tar.gz --x64 --publish never",
+    "dist:win": "pnpm prepare:icons && pnpm build:win:release && electron-builder --win dir --x64 --publish never",
+    "dist:win:installer": "pnpm prepare:icons && pnpm build:win:release && electron-builder --win nsis --x64 --publish never",
+    "dist:all": "pnpm dist:linux && pnpm dist:win",
+    "preview": "pnpm prepare:assets && pnpm ensure:electron && electron-vite preview",
+    "test": "tsx --test \"src/**/*_test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "alloy-contracts": "workspace:*",
+    "alloy-logging": "workspace:*",
+    "alloy-ui": "workspace:*",
+    "lucide-react": "1.8.0",
+    "react": "19.2.5",
+    "react-dom": "19.2.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.2.4",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.2.0",
+    "electron": "42.3.3",
+    "electron-builder": "^26.15.0",
+    "electron-vite": "5.0.0",
+    "png-to-ico": "^3.0.1",
+    "vite": "8.0.10"
+  },
+  "build": {
+    "appId": "dev.zekurio.alloy.desktop",
+    "productName": "Alloy",
+    "directories": {
+      "buildResources": "assets",
+      "output": "release"
+    },
+    "files": [
+      "out/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "resources/sidecar",
+        "to": "sidecar",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "resources/obs-runtime",
+        "to": "obs-runtime",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Alloy-Desktop-${version}-${arch}.${ext}"
+    },
+    "linux": {
+      "icon": "assets/icon.png",
+      "category": "AudioVideo",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "tar.gz",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Alloy-Desktop-${version}-linux-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "warningsAsErrors": false
+    }
+  }
+}

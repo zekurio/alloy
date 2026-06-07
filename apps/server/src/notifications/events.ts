@@ -1,6 +1,6 @@
-import type { NotificationEvent, NotificationRow } from "@workspace/contracts"
+import type { NotificationEvent, NotificationRow } from "alloy-contracts"
 
-export type { NotificationEvent } from "@workspace/contracts"
+export type { NotificationEvent } from "alloy-contracts"
 
 const subscribers = new Map<string, Set<(event: NotificationEvent) => void>>()
 

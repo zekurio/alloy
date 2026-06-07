@@ -1,6 +1,6 @@
-import type { CommentRow } from "@workspace/contracts"
-import { user } from "@workspace/db/auth-schema"
-import { clip, clipComment, clipCommentLike } from "@workspace/db/schema"
+import type { CommentRow } from "alloy-contracts"
+import { user } from "alloy-db/auth-schema"
+import { clip, clipComment, clipCommentLike } from "alloy-db/schema"
 import { and, eq, sql } from "drizzle-orm"
 import { Hono } from "hono"
 

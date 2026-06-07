@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { type ClipRow, clipThumbnailUrl } from "@workspace/api"
+import { type ClipRow, clipThumbnailUrl } from "alloy-api"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -9,21 +9,14 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@workspace/ui/components/alert-dialog"
-import {
-  DialogClose,
-  DialogViewportContent,
-} from "@workspace/ui/components/dialog"
-import {
-  Drawer,
-  DrawerContent,
-  DrawerTitle,
-} from "@workspace/ui/components/drawer"
-import { GameIcon } from "@workspace/ui/components/game-icon"
-import { useMediaQuery } from "@workspace/ui/hooks/use-media-query"
-import { buttonVariants } from "@workspace/ui/lib/button-variants"
-import { toast } from "@workspace/ui/lib/toast"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/components/alert-dialog"
+import { DialogClose, DialogViewportContent } from "alloy-ui/components/dialog"
+import { Drawer, DrawerContent, DrawerTitle } from "alloy-ui/components/drawer"
+import { GameIcon } from "alloy-ui/components/game-icon"
+import { useMediaQuery } from "alloy-ui/hooks/use-media-query"
+import { buttonVariants } from "alloy-ui/lib/button-variants"
+import { toast } from "alloy-ui/lib/toast"
+import { cn } from "alloy-ui/lib/utils"
 import { XIcon } from "lucide-react"
 import * as React from "react"
 

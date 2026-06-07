@@ -1,17 +1,13 @@
 import { Link } from "@tanstack/react-router"
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@workspace/ui/components/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/components/dropdown-menu"
+import { cn } from "alloy-ui/lib/utils"
 import {
   HeartIcon,
   MessageSquareIcon,

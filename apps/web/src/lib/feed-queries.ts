@@ -3,7 +3,7 @@ import {
   useInfiniteQuery,
   useQuery,
 } from "@tanstack/react-query"
-import type { FeedFilter, FeedPageParams } from "@workspace/api"
+import type { FeedFilter, FeedPageParams } from "alloy-api"
 
 import { api } from "./api"
 

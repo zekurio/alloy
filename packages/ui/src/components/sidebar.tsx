@@ -1,18 +1,18 @@
 "use client"
 
-import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
-import { Separator } from "@workspace/ui/components/separator"
+import { Button } from "alloy-ui/components/button"
+import { Input } from "alloy-ui/components/input"
+import { Separator } from "alloy-ui/components/separator"
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@workspace/ui/components/sheet"
-import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
-import { useWindowEvent } from "@workspace/ui/hooks/use-window-event"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/components/sheet"
+import { useIsMobile } from "alloy-ui/hooks/use-mobile"
+import { useWindowEvent } from "alloy-ui/hooks/use-window-event"
+import { cn } from "alloy-ui/lib/utils"
 import { PanelLeftIcon } from "lucide-react"
 import * as React from "react"
 

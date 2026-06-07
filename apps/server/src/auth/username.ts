@@ -1,5 +1,5 @@
-import { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "@workspace/contracts"
-import { user } from "@workspace/db/auth-schema"
+import { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "alloy-contracts"
+import { user } from "alloy-db/auth-schema"
 import { eq, sql } from "drizzle-orm"
 
 import { db } from "../db"

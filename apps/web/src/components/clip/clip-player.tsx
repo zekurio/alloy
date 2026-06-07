@@ -5,8 +5,8 @@ import {
   type ClipStatus,
   clipStreamUrl,
   clipThumbnailUrl,
-} from "@workspace/api"
-import { toast } from "@workspace/ui/lib/toast"
+} from "alloy-api"
+import { toast } from "alloy-ui/lib/toast"
 import * as React from "react"
 
 import { mseHlsSupported } from "@/components/video/video-media-engine"

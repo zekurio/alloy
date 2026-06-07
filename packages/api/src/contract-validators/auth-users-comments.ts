@@ -4,6 +4,7 @@ import {
   type CommentPage,
   type CommentRow,
   type ProfileCounts,
+  type PublicDesktopAuthConfig,
   type ProfileGameRow,
   type ProfileViewer,
   type PublicAuthConfig,
@@ -14,7 +15,7 @@ import {
   type UserProfile,
   type UserProfileViewer,
   type UserStorageUsage,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 
 import {
   objectRecord,
@@ -60,6 +61,17 @@ function validatePublicAuthProvider(value: unknown): PublicAuthProvider {
   return value as PublicAuthProvider
 }
 
+function validatePublicDesktopAuthConfig(
+  value: unknown,
+): PublicDesktopAuthConfig {
+  const desktopAuth = objectRecord(value, "auth config desktopAuth")
+  validateNonNegativeInteger(
+    desktopAuth.version,
+    "Invalid auth config response: desktopAuth.version must be a non-negative integer",
+  )
+  return value as PublicDesktopAuthConfig
+}
+
 function validatePublicLoginSplashConfig(
   value: unknown,
 ): PublicLoginSplashConfig {
@@ -95,6 +107,7 @@ export function validatePublicAuthConfig(value: unknown): PublicAuthConfig {
     "Invalid auth config response: providers must be an array",
   ).map(validatePublicAuthProvider)
   validatePublicLoginSplashConfig(config.loginSplash)
+  validatePublicDesktopAuthConfig(config.desktopAuth)
   return value as PublicAuthConfig
 }
 

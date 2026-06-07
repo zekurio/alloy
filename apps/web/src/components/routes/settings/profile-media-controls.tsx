@@ -1,8 +1,8 @@
 import {
   DropdownMenuContent,
   DropdownMenuItem,
-} from "@workspace/ui/components/dropdown-menu"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/components/dropdown-menu"
+import { cn } from "alloy-ui/lib/utils"
 import { ImageIcon, Trash2 } from "lucide-react"
 import * as React from "react"
 

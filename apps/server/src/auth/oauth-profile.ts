@@ -5,7 +5,7 @@ import {
   OAUTH_USERNAME_CLAIM_DEFAULT,
   USER_ROLES,
   type UserRole,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 import {
   type Configuration,
   skipSubjectCheck,

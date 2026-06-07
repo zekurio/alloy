@@ -2,20 +2,14 @@ import type {
   NotificationRow,
   NotificationsResponse,
   NotificationType,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 import {
   NOTIFICATIONS_DEFAULT_LIMIT,
   NOTIFICATIONS_MAX_LIMIT,
-} from "@workspace/contracts"
-import { user } from "@workspace/db/auth-schema"
-import {
-  clip,
-  clipComment,
-  follow,
-  game,
-  notification,
-} from "@workspace/db/schema"
-import { logger } from "@workspace/logging"
+} from "alloy-contracts"
+import { user } from "alloy-db/auth-schema"
+import { clip, clipComment, follow, game, notification } from "alloy-db/schema"
+import { logger } from "alloy-logging"
 import { and, count, desc, eq, gt, isNull } from "drizzle-orm"
 
 import { db } from "../db"

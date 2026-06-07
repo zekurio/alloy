@@ -2,13 +2,13 @@
 
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
-import { Spinner } from "@workspace/ui/components/spinner"
+import { Spinner } from "alloy-ui/components/spinner"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@workspace/ui/components/tooltip"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/components/tooltip"
+import { cn } from "alloy-ui/lib/utils"
 import { cva, type VariantProps } from "class-variance-authority"
 import * as React from "react"
 

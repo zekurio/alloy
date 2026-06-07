@@ -1,5 +1,5 @@
 import { useLocation } from "@tanstack/react-router"
-import { toast } from "@workspace/ui/lib/toast"
+import { toast } from "alloy-ui/lib/toast"
 import * as React from "react"
 
 import { isAuthAttemptCancellation } from "@/lib/auth-flow"

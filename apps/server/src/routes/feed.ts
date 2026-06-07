@@ -1,4 +1,4 @@
-import { user } from "@workspace/db/auth-schema"
+import { user } from "alloy-db/auth-schema"
 import {
   clip,
   clipLike,
@@ -6,7 +6,7 @@ import {
   follow,
   game,
   gameFollow,
-} from "@workspace/db/schema"
+} from "alloy-db/schema"
 import { and, eq, exists, isNull, lt, ne, or, type SQL, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"

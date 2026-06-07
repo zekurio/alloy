@@ -3,8 +3,8 @@ import {
   InputGroupAddon,
   InputGroupInput,
   InputGroupTextarea,
-} from "@workspace/ui/components/input-group"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/components/input-group"
+import { cn } from "alloy-ui/lib/utils"
 import * as React from "react"
 
 function characterCount(value: React.ComponentProps<"input">["value"]) {

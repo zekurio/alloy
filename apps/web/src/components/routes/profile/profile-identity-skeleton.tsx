@@ -1,5 +1,5 @@
-import { Skeleton } from "@workspace/ui/components/skeleton"
-import { cn } from "@workspace/ui/lib/utils"
+import { Skeleton } from "alloy-ui/components/skeleton"
+import { cn } from "alloy-ui/lib/utils"
 
 import { APP_BANNER_HEIGHT_CLASS } from "@/lib/banner-layout"
 

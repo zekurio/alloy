@@ -8,10 +8,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@workspace/ui/components/alert-dialog"
-import { Button } from "@workspace/ui/components/button"
-import { Section, SectionContent } from "@workspace/ui/components/section"
-import { toast } from "@workspace/ui/lib/toast"
+} from "alloy-ui/components/alert-dialog"
+import { Button } from "alloy-ui/components/button"
+import { Section, SectionContent } from "alloy-ui/components/section"
+import { toast } from "alloy-ui/lib/toast"
 import { DownloadIcon, Trash2Icon } from "lucide-react"
 import * as React from "react"
 

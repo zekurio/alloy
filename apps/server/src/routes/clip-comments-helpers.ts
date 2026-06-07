@@ -3,9 +3,9 @@ import {
   type CommentPage,
   type CommentRow,
   type UserSummary,
-} from "@workspace/contracts"
-import { user } from "@workspace/db/auth-schema"
-import { clipComment, clipCommentLike } from "@workspace/db/schema"
+} from "alloy-contracts"
+import { user } from "alloy-db/auth-schema"
+import { clipComment, clipCommentLike } from "alloy-db/schema"
 import { and, desc, eq, inArray, isNull, or, type SQL, sql } from "drizzle-orm"
 import { z } from "zod"
 

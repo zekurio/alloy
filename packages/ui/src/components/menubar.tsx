@@ -16,8 +16,8 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/components/dropdown-menu"
+import { cn } from "alloy-ui/lib/utils"
 import { CheckIcon } from "lucide-react"
 import * as React from "react"
 

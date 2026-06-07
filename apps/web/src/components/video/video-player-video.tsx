@@ -2,8 +2,8 @@ import {
   CLIP_MEDIA_BACKGROUND_CLASS,
   CLIP_MEDIA_CLASS,
   CLIP_VIDEO_MEDIA_CLASS,
-} from "@workspace/ui/lib/media-frame"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/lib/media-frame"
+import { cn } from "alloy-ui/lib/utils"
 import * as React from "react"
 
 type VideoFrameProps = {

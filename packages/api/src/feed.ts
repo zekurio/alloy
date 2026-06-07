@@ -2,7 +2,7 @@ import type {
   FeedChipsResponse,
   FeedPage,
   FeedPageParams,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 
 import type { ApiContext } from "./client"
 import {
@@ -18,7 +18,7 @@ export type {
   FeedFilter,
   FeedPage,
   FeedPageParams,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 
 export function createFeedApi(context: ApiContext) {
   return {

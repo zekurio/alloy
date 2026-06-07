@@ -4,24 +4,19 @@ import {
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_USERNAME_CLAIM_DEFAULT,
-} from "@workspace/api"
-import { Button } from "@workspace/ui/components/button"
-import {
-  Field,
-  FieldDescription,
-  FieldLabel,
-} from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
+} from "alloy-api"
+import { Button } from "alloy-ui/components/button"
+import { Field, FieldDescription, FieldLabel } from "alloy-ui/components/field"
+import { Input } from "alloy-ui/components/input"
 import {
   ResponsiveDialog,
   ResponsiveDialogBody,
   ResponsiveDialogContent,
-  ResponsiveDialogDescription,
   ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
-} from "@workspace/ui/components/responsive-dialog"
-import { Switch } from "@workspace/ui/components/switch"
+} from "alloy-ui/components/responsive-dialog"
+import { Switch } from "alloy-ui/components/switch"
 import { PlusIcon, SaveIcon } from "lucide-react"
 import * as React from "react"
 
@@ -77,10 +72,6 @@ export function OAuthCustomProviderDialog({
           <ResponsiveDialogTitle>
             {editing ? "Edit OAuth provider" : "Add OAuth provider"}
           </ResponsiveDialogTitle>
-          <ResponsiveDialogDescription>
-            Technical admin surface. The callback URL is computed from the
-            current provider ID.
-          </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
         {draft ? (

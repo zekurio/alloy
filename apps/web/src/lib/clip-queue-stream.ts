@@ -5,7 +5,7 @@ import {
   type QueueClip,
   type QueueEvent,
   uploadQueueStreamUrl,
-} from "@workspace/api"
+} from "alloy-api"
 import * as React from "react"
 
 import { clipKeys } from "./clip-query-keys"

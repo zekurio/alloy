@@ -1,5 +1,5 @@
-import type { PublicUser, UserListRow, UserSummary } from "@workspace/contracts"
-import { user } from "@workspace/db/auth-schema"
+import type { PublicUser, UserListRow, UserSummary } from "alloy-contracts"
+import { user } from "alloy-db/auth-schema"
 import {
   block,
   clip,
@@ -7,7 +7,7 @@ import {
   clipMention,
   follow,
   game,
-} from "@workspace/db/schema"
+} from "alloy-db/schema"
 import {
   and,
   count,

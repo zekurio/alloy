@@ -1,5 +1,5 @@
-import { clip } from "@workspace/db/schema"
-import { logger } from "@workspace/logging"
+import { clip } from "alloy-db/schema"
+import { logger } from "alloy-logging"
 import { and, eq, lt } from "drizzle-orm"
 
 import { publishClipProgress } from "../clips/events"

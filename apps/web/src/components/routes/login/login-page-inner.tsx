@@ -1,10 +1,10 @@
 import { Link } from "@tanstack/react-router"
-import type { PublicAuthConfig } from "@workspace/api"
+import type { PublicAuthConfig } from "alloy-api"
 import * as React from "react"
 
 import { AuthPageFrame } from "@/components/auth/auth-page-frame"
 import { authClient } from "@/lib/auth-client"
-import { useRedirectIfAuthed } from "@/lib/auth-hooks"
+import { useLoginRedirect } from "@/lib/auth-hooks"
 import { usePasskeySupport } from "@/lib/passkey-support"
 
 import { OAuthSignIn } from "./oauth-sign-in"
@@ -12,6 +12,7 @@ import { PasskeySignIn } from "./passkey-sign-in"
 
 type LoginPageInnerProps = {
   config: PublicAuthConfig
+  redirectTo?: string
 }
 
 /**
@@ -23,10 +24,12 @@ export function LoginForm({
   config,
   passkeyReady = true,
   passkeySupported,
+  redirectTo,
 }: {
   config: PublicAuthConfig
   passkeyReady?: boolean
   passkeySupported: boolean
+  redirectTo?: string
 }) {
   const { providers, openRegistrations, passkeyEnabled } = config
   const showPasskeySignIn = passkeyReady && passkeyEnabled && passkeySupported
@@ -42,9 +45,13 @@ export function LoginForm({
       </div>
 
       <div className="flex flex-col gap-3">
-        {showPasskeySignIn ? <PasskeySignIn /> : null}
+        {showPasskeySignIn ? <PasskeySignIn redirectTo={redirectTo} /> : null}
         {providers.map((provider) => (
-          <OAuthSignIn key={provider.providerId} provider={provider} />
+          <OAuthSignIn
+            key={provider.providerId}
+            provider={provider}
+            redirectTo={redirectTo}
+          />
         ))}
       </div>
 
@@ -70,8 +77,8 @@ export function LoginForm({
   )
 }
 
-export function LoginPageInner({ config }: LoginPageInnerProps) {
-  const canRender = useRedirectIfAuthed("/")
+export function LoginPageInner({ config, redirectTo }: LoginPageInnerProps) {
+  const canRender = useLoginRedirect(redirectTo ?? null)
   const { ready: passkeyReady, supported: passkeySupported } =
     usePasskeySupport()
 
@@ -89,6 +96,7 @@ export function LoginPageInner({ config }: LoginPageInnerProps) {
         config={config}
         passkeyReady={passkeyReady}
         passkeySupported={passkeySupported}
+        redirectTo={redirectTo}
       />
     </AuthPageFrame>
   )

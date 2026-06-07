@@ -1,10 +1,10 @@
-import { Chip } from "@workspace/ui/components/chip"
+import { Chip } from "alloy-ui/components/chip"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu"
+} from "alloy-ui/components/dropdown-menu"
 import { ChevronDownIcon } from "lucide-react"
 import * as React from "react"
 

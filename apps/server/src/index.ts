@@ -1,6 +1,6 @@
 import { serve } from "@hono/node-server"
-import { migrateDatabase } from "@workspace/db"
-import { logger } from "@workspace/logging"
+import { migrateDatabase } from "alloy-db"
+import { logger } from "alloy-logging"
 
 import { app } from "./app"
 import { startChallengeSweeper, stopChallengeSweeper } from "./auth/webauthn"

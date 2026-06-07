@@ -5,7 +5,7 @@ import {
   ML_GAME_SUGGESTION_MAX_FRAMES,
   ML_GAME_SUGGESTION_MAX_REQUEST_BYTES,
   type PublicMlConfig,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 import { type Context, Hono } from "hono"
 
 import { requireSession } from "../auth/require-session"

@@ -1,4 +1,4 @@
-import type { QueueClip } from "@workspace/api"
+import type { QueueClip } from "alloy-api"
 import * as React from "react"
 
 import {

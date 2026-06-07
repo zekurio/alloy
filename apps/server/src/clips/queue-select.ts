@@ -1,5 +1,5 @@
-import type { QueueClip } from "@workspace/contracts"
-import { clip, game } from "@workspace/db/schema"
+import type { QueueClip } from "alloy-contracts"
+import { clip, game } from "alloy-db/schema"
 import { desc, eq } from "drizzle-orm"
 
 import { db } from "../db"

@@ -3,17 +3,10 @@ import {
   AppBottomNav,
   AppBottomNavItem,
   AppSidebar,
-  AppSidebarFooter,
   AppSidebarGroup,
   AppSidebarItem,
-} from "@workspace/ui/components/app-sidebar"
-import {
-  GamepadIcon,
-  HomeIcon,
-  LibraryIcon,
-  PlusIcon,
-  SettingsIcon,
-} from "lucide-react"
+} from "alloy-ui/components/app-sidebar"
+import { GamepadIcon, HomeIcon, LibraryIcon, PlusIcon } from "lucide-react"
 import * as React from "react"
 
 import { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
@@ -23,7 +16,6 @@ import { useSuspenseSession } from "@/lib/session-suspense"
 interface NavFlags {
   isHome: boolean
   isGames: boolean
-  isSettings: boolean
   profileHandle: string | null
 }
 
@@ -34,7 +26,6 @@ function useNavFlags(): NavFlags {
       isGames:
         s.location.pathname === "/games" ||
         s.location.pathname.startsWith("/g/"),
-      isSettings: s.location.pathname.startsWith("/settings"),
       profileHandle:
         parseProfilePathname(s.location.pathname)?.username ?? null,
     }),
@@ -62,11 +53,6 @@ export function HomeSidebar() {
             <SidebarTop />
           </React.Suspense>
         </AppSidebarGroup>
-        <AppSidebarFooter>
-          <React.Suspense fallback={<SidebarSettingsFallback />}>
-            <SidebarSettings />
-          </React.Suspense>
-        </AppSidebarFooter>
       </AppSidebar>
 
       <AppBottomNav className="md:hidden">
@@ -120,34 +106,6 @@ function SidebarTop() {
   )
 }
 
-function SidebarSettings() {
-  const { isSettings } = useNavFlags()
-  const session = useSuspenseSession()
-
-  if (!session) {
-    return (
-      <AppSidebarItem
-        title="Settings"
-        aria-disabled
-        tabIndex={-1}
-        className="pointer-events-none opacity-60"
-      >
-        <SettingsIcon />
-      </AppSidebarItem>
-    )
-  }
-
-  return (
-    <AppSidebarItem
-      active={isSettings}
-      title="Settings"
-      render={<Link to="/settings" />}
-    >
-      <SettingsIcon />
-    </AppSidebarItem>
-  )
-}
-
 function SidebarTopFallback() {
   return (
     <>
@@ -164,21 +122,8 @@ function SidebarTopFallback() {
   )
 }
 
-function SidebarSettingsFallback() {
-  return (
-    <AppSidebarItem title="Settings">
-      <SettingsIcon />
-    </AppSidebarItem>
-  )
-}
-
 function BottomNavItems() {
-  const {
-    isHome,
-    isGames,
-    isSettings,
-    profileHandle: routeProfileHandle,
-  } = useNavFlags()
+  const { isHome, isGames, profileHandle: routeProfileHandle } = useNavFlags()
   const session = useSuspenseSession()
   const profileHandle = session?.user.username ?? null
   const isLibrary = isOwnProfilePath(routeProfileHandle, profileHandle)
@@ -242,21 +187,6 @@ function BottomNavItems() {
       >
         <GamepadIcon />
       </AppBottomNavItem>
-      <AppBottomNavItem
-        title="Settings"
-        {...(session
-          ? {
-              active: isSettings,
-              render: <Link to="/settings" />,
-            }
-          : {
-              "aria-disabled": true,
-              tabIndex: -1,
-              className: "pointer-events-none opacity-60",
-            })}
-      >
-        <SettingsIcon />
-      </AppBottomNavItem>
     </>
   )
 }
@@ -278,9 +208,6 @@ function BottomNavFallback() {
       </AppBottomNavItem>
       <AppBottomNavItem title="Games">
         <GamepadIcon />
-      </AppBottomNavItem>
-      <AppBottomNavItem title="Settings">
-        <SettingsIcon />
       </AppBottomNavItem>
     </>
   )

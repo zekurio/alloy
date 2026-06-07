@@ -425,6 +425,90 @@
     }
   }
 
+  [data-slot="drawer-content"] {
+    transform: translate3d(
+      var(--drawer-swipe-movement-x, 0px),
+      calc(
+        var(--drawer-swipe-movement-y, 0px) +
+          var(--drawer-snap-point-offset, 0px)
+      ),
+      0
+    );
+    transition-property: transform, opacity;
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-out);
+  }
+
+  [data-slot="drawer-content"][data-swiping] {
+    transition-duration: 0ms;
+  }
+
+  [data-slot="drawer-content"][data-swipe-dismiss] {
+    transition-duration: var(--duration-slow);
+  }
+
+  [data-slot="drawer-content"][data-side="bottom"][data-starting-style],
+  [data-slot="drawer-content"][data-side="bottom"][data-ending-style],
+  [data-slot="drawer-content"][data-side="bottom"][data-swipe-dismiss] {
+    transform: translate3d(
+      var(--drawer-swipe-movement-x, 0px),
+      calc(
+        100% + var(--drawer-swipe-movement-y, 0px) +
+          var(--drawer-snap-point-offset, 0px)
+      ),
+      0
+    );
+  }
+
+  [data-slot="drawer-content"][data-side="top"][data-starting-style],
+  [data-slot="drawer-content"][data-side="top"][data-ending-style],
+  [data-slot="drawer-content"][data-side="top"][data-swipe-dismiss] {
+    transform: translate3d(
+      var(--drawer-swipe-movement-x, 0px),
+      calc(
+        -100% + var(--drawer-swipe-movement-y, 0px) -
+          var(--drawer-snap-point-offset, 0px)
+      ),
+      0
+    );
+  }
+
+  [data-slot="drawer-content"][data-side="left"] {
+    transform: translate3d(
+      var(--drawer-swipe-movement-x, 0px),
+      var(--drawer-swipe-movement-y, 0px),
+      0
+    );
+  }
+
+  [data-slot="drawer-content"][data-side="left"][data-starting-style],
+  [data-slot="drawer-content"][data-side="left"][data-ending-style],
+  [data-slot="drawer-content"][data-side="left"][data-swipe-dismiss] {
+    transform: translate3d(
+      calc(-100% + var(--drawer-swipe-movement-x, 0px)),
+      var(--drawer-swipe-movement-y, 0px),
+      0
+    );
+  }
+
+  [data-slot="drawer-content"][data-side="right"] {
+    transform: translate3d(
+      var(--drawer-swipe-movement-x, 0px),
+      var(--drawer-swipe-movement-y, 0px),
+      0
+    );
+  }
+
+  [data-slot="drawer-content"][data-side="right"][data-starting-style],
+  [data-slot="drawer-content"][data-side="right"][data-ending-style],
+  [data-slot="drawer-content"][data-side="right"][data-swipe-dismiss] {
+    transform: translate3d(
+      calc(100% + var(--drawer-swipe-movement-x, 0px)),
+      var(--drawer-swipe-movement-y, 0px),
+      0
+    );
+  }
+
   /* Live-dot pulse — used by badge[data-variant="live"] */
   @keyframes alloy-pulse {
     50% {
@@ -433,6 +517,29 @@
   }
   .animate-pulse-dot {
     animation: alloy-pulse 1.6s infinite;
+  }
+
+  /* Indeterminate progress sweep — a short segment slides across its track to
+     signal an in-flight request without reserving layout or stealing focus
+     the way a centred spinner does. Used by the header search popover. */
+  @keyframes alloy-indeterminate {
+    0% {
+      transform: translateX(-120%);
+    }
+    100% {
+      transform: translateX(420%);
+    }
+  }
+  .animate-indeterminate {
+    animation: alloy-indeterminate 1.05s var(--ease-out) infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-indeterminate {
+      animation: none;
+      width: 100%;
+      transform: none;
+      opacity: 0.5;
+    }
   }
 
   /* Sweep a soft accent highlight across the game-suggestion "thinking" verb
@@ -597,4 +704,61 @@
   order: 3;
   flex: none;
   margin-left: auto;
+}
+
+/* Desktop shell (Electron, Windows Controls Overlay): turn the app header into
+   a draggable title bar and reserve the native window-controls strip. Gated by
+   `is-desktop-titlebar` on <html>, set only when the desktop marker reports the
+   overlay is active — a no-op in the browser. */
+.is-desktop-titlebar [data-slot="app-header"] {
+  -webkit-app-region: drag;
+  /* Native min/max/close occupy `100vw - titlebar-area-width` on the right;
+     keep the 1.25rem the header already used as breathing room. */
+  padding-right: calc(100vw - env(titlebar-area-width, 100vw) + 1.25rem);
+}
+
+.is-desktop-titlebar [data-slot="app-header-search"] {
+  position: absolute;
+  top: 50%;
+  right: calc(
+    100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw)
+  );
+  left: env(titlebar-area-x, 0px);
+  width: min(28rem, max(12rem, calc(env(titlebar-area-width, 100vw) - 18rem)));
+  margin-inline: auto;
+  transform: translateY(-50%);
+}
+
+.is-desktop-titlebar [data-slot="app-header-actions"] {
+  align-self: stretch;
+  gap: 0;
+  height: 100%;
+}
+
+.is-desktop-titlebar
+  [data-slot="app-header-actions"]
+  > :where(button, a, [role="button"]) {
+  min-width: var(--header-h);
+  height: 100%;
+  min-height: var(--header-h);
+  border-color: transparent;
+  border-radius: 0;
+  background: var(--surface);
+  padding-inline: 0.75rem;
+}
+
+.is-desktop-titlebar
+  [data-slot="app-header-actions"]
+  > :where(button, a, [role="button"]):where(
+    :hover,
+    :focus-visible,
+    [data-popup-open]
+  ) {
+  background: var(--surface-raised);
+}
+
+.is-desktop-titlebar
+  [data-slot="app-header"]
+  :where(button, a, input, [role="button"], [data-slot="app-header-search"]) {
+  -webkit-app-region: no-drag;
 }

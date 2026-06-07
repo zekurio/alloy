@@ -3,8 +3,8 @@ import {
   SectionHead,
   SectionMeta,
   SectionTitle,
-} from "@workspace/ui/components/section-head"
-import { Spinner } from "@workspace/ui/components/spinner"
+} from "alloy-ui/components/section-head"
+import { Spinner } from "alloy-ui/components/spinner"
 import { GamepadIcon } from "lucide-react"
 
 import { EmptyState } from "@/components/feedback/empty-state"

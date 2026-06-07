@@ -1,17 +1,17 @@
-import { Button } from "@workspace/ui/components/button"
+import { Button } from "alloy-ui/components/button"
 import {
   Drawer,
   DrawerContent,
   DrawerTitle,
   DrawerTrigger,
-} from "@workspace/ui/components/drawer"
+} from "alloy-ui/components/drawer"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu"
-import { useMediaQuery } from "@workspace/ui/hooks/use-media-query"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/components/dropdown-menu"
+import { useMediaQuery } from "alloy-ui/hooks/use-media-query"
+import { cn } from "alloy-ui/lib/utils"
 import {
   CheckIcon,
   ChevronLeftIcon,

@@ -6,8 +6,8 @@ import {
   ENCODER_HWACCELS,
   type EncoderCodec,
   type EncoderHwaccel,
-} from "@workspace/contracts"
-import { logger } from "@workspace/logging"
+} from "alloy-contracts"
+import { logger } from "alloy-logging"
 
 import { configStore } from "../config/store"
 import { env } from "../env"

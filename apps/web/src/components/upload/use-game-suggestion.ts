@@ -1,5 +1,5 @@
 import { useQuery, type UseQueryResult } from "@tanstack/react-query"
-import type { MlGameSuggestionPrediction, PublicMlConfig } from "@workspace/api"
+import type { MlGameSuggestionPrediction, PublicMlConfig } from "alloy-api"
 
 import { api } from "@/lib/api"
 import { mlKeys } from "@/lib/ml-queries"

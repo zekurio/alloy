@@ -1,4 +1,4 @@
-import { LOGIN_SPLASH_IMAGE_PATH } from "@workspace/contracts"
+import { LOGIN_SPLASH_IMAGE_PATH } from "alloy-contracts"
 import { Hono } from "hono"
 import { stream } from "hono/streaming"
 

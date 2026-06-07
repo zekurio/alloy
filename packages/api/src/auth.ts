@@ -15,7 +15,7 @@ export {
   USER_DISPLAY_NAME_MAX_LENGTH,
   USERNAME_MAX_LENGTH,
   USERNAME_MIN_LENGTH,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 
 type AuthError = { message: string }
 type AuthResult<T> = Promise<{ data: T | null; error: AuthError | null }>

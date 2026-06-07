@@ -1,12 +1,12 @@
 import { Link, useNavigate } from "@tanstack/react-router"
-import { Chip } from "@workspace/ui/components/chip"
+import { Chip } from "alloy-ui/components/chip"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu"
-import { GameIcon } from "@workspace/ui/components/game-icon"
+} from "alloy-ui/components/dropdown-menu"
+import { GameIcon } from "alloy-ui/components/game-icon"
 import { ChevronDownIcon, XIcon } from "lucide-react"
 
 import {

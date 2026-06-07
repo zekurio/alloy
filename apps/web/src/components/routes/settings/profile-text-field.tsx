@@ -3,8 +3,8 @@ import {
   FieldDescription,
   FieldError,
   FieldLabel,
-} from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
+} from "alloy-ui/components/field"
+import { Input } from "alloy-ui/components/input"
 import * as React from "react"
 
 type ProfileFieldController = {

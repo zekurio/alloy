@@ -3,8 +3,8 @@ import {
   type AdminRuntimeConfig,
   ENCODER_HWACCELS,
   type EncoderHwaccel,
-} from "@workspace/api"
-import { toast } from "@workspace/ui/lib/toast"
+} from "alloy-api"
+import { toast } from "alloy-ui/lib/toast"
 import type * as React from "react"
 
 import { api } from "@/lib/api"
@@ -54,11 +54,13 @@ export async function saveEncoderConfig({
   onChange,
   setPending,
   onSaved,
+  toastOnSuccess = true,
 }: {
   form: AdminEncoderConfig
   onChange: (next: AdminRuntimeConfig) => void
   setPending: React.Dispatch<React.SetStateAction<boolean>>
   onSaved?: () => void
+  toastOnSuccess?: boolean
 }) {
   setPending(true)
   try {
@@ -66,7 +68,7 @@ export async function saveEncoderConfig({
       normalizeEncoderConfig(form),
     )
     onChange(next)
-    toast.success("Encoder updated")
+    if (toastOnSuccess) toast.success("Encoder updated")
     onSaved?.()
   } catch (cause) {
     toast.error(errorMessage(cause, "Couldn't update encoder"))

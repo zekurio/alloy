@@ -1,21 +1,21 @@
 import { Link } from "@tanstack/react-router"
-import type { ClipMentionRef } from "@workspace/api"
+import type { ClipMentionRef } from "alloy-api"
 import {
   Avatar,
   AvatarFallback,
   AvatarGroup,
   AvatarImage,
-} from "@workspace/ui/components/avatar"
-import { Button } from "@workspace/ui/components/button"
+} from "alloy-ui/components/avatar"
+import { Button } from "alloy-ui/components/button"
 import {
   Dialog,
   DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@workspace/ui/components/dialog"
-import { toast } from "@workspace/ui/lib/toast"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/components/dialog"
+import { toast } from "alloy-ui/lib/toast"
+import { cn } from "alloy-ui/lib/utils"
 import { UserPlusIcon } from "lucide-react"
 import * as React from "react"
 

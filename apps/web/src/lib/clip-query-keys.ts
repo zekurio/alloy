@@ -1,4 +1,4 @@
-import type { ClipFeedWindow } from "@workspace/api"
+import type { ClipFeedWindow } from "alloy-api"
 
 export const clipKeys = {
   all: ["clips"] as const,

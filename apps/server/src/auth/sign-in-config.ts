@@ -1,4 +1,4 @@
-import { authAccount, user, userPasskey } from "@workspace/db/auth-schema"
+import { authAccount, user, userPasskey } from "alloy-db/auth-schema"
 import { and, eq, inArray, ne } from "drizzle-orm"
 
 import { isOAuthProviderUsable } from "../config/secret-store"

@@ -1,5 +1,5 @@
 import type { RegistrationResponseJSON } from "@simplewebauthn/server"
-import { userPasskey } from "@workspace/db/auth-schema"
+import { userPasskey } from "alloy-db/auth-schema"
 
 import { createRegistrationUserInTransaction } from "../auth/identity"
 import { passkeyPublicKey, serializeTransports } from "../auth/webauthn"

@@ -5,7 +5,7 @@ import {
   type NotificationsResponse,
   type UserListRow,
   type UserSummary,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 
 import {
   objectRecord,

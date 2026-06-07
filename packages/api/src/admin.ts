@@ -9,8 +9,8 @@ import type {
   AdminUsersResponse,
   AdminUserStorageRow,
   RuntimeConfig,
-} from "@workspace/contracts"
-import { loginSplashImagePath } from "@workspace/contracts"
+} from "alloy-contracts"
+import { loginSplashImagePath } from "alloy-contracts"
 
 import type { ApiContext } from "./client"
 import {
@@ -39,7 +39,7 @@ export {
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_USERNAME_CLAIM_DEFAULT,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 export type {
   AdminEncoderCapabilities,
   AdminEncoderConfig,
@@ -61,7 +61,7 @@ export type {
   EncoderTonemappingRange,
   RuntimeConfig,
   UsernameClaim,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 
 export function loginSplashImageUrl(origin: string | undefined): string {
   return resolvePublicUrl(loginSplashImagePath(), origin)

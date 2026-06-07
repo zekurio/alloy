@@ -1,7 +1,4 @@
-import type {
-  MlGameSuggestionResponse,
-  PublicMlConfig,
-} from "@workspace/contracts"
+import type { MlGameSuggestionResponse, PublicMlConfig } from "alloy-contracts"
 
 import type { ApiContext } from "./client"
 import {
@@ -14,7 +11,7 @@ export type {
   MlGameSuggestionPrediction,
   MlGameSuggestionResponse,
   PublicMlConfig,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 
 async function fetchMlConfig(context: ApiContext): Promise<PublicMlConfig> {
   const res = await context.rpc.api.ml.config.$get()

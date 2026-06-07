@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
-import { AppMain } from "@workspace/ui/components/app-shell"
+import { AppMain } from "alloy-ui/components/app-shell"
 import * as React from "react"
 
 import { EmptyState } from "@/components/feedback/empty-state"

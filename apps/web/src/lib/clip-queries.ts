@@ -13,7 +13,7 @@ import type {
   QueueClip,
   UpdateClipInput,
   UserClip,
-} from "@workspace/api"
+} from "alloy-api"
 
 import { api } from "./api"
 import { clipKeys } from "./clip-query-keys"

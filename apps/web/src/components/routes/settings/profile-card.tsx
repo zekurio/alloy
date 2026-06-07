@@ -1,24 +1,20 @@
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
-import { USER_DISPLAY_NAME_MAX_LENGTH } from "@workspace/api/auth"
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@workspace/ui/components/avatar"
-import { Button } from "@workspace/ui/components/button"
+import { USER_DISPLAY_NAME_MAX_LENGTH } from "alloy-api/auth"
+import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
+import { Button } from "alloy-ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu"
-import { Field, FieldError, FieldLabel } from "@workspace/ui/components/field"
+} from "alloy-ui/components/dropdown-menu"
+import { Field, FieldError, FieldLabel } from "alloy-ui/components/field"
 import {
   Section,
   SectionContent,
   SectionFooter,
-} from "@workspace/ui/components/section"
-import { toast } from "@workspace/ui/lib/toast"
+} from "alloy-ui/components/section"
+import { toast } from "alloy-ui/lib/toast"
 import { Pencil, SaveIcon } from "lucide-react"
 import * as React from "react"
 

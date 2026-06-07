@@ -9,7 +9,7 @@ import type {
   QueueEvent,
   UpdateClipInput,
   UploadTicket,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 
 import type { ApiContext } from "./client"
 import {
@@ -46,7 +46,7 @@ export {
   ACCEPTED_CLIP_CONTENT_TYPES,
   CLIP_DESCRIPTION_MAX_LENGTH,
   CLIP_TITLE_MAX_LENGTH,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 export type {
   AcceptedContentType,
   ClipFeedParams,
@@ -66,7 +66,7 @@ export type {
   QueueEvent,
   UpdateClipInput,
   UploadTicket,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 
 function publicClipPath(clipId: string, suffix: string): string {
   return `/api/clips/${encodedPathSegment(clipId)}${suffix}`
@@ -90,14 +90,9 @@ export function clipStreamUrl(
   origin?: string,
   liveCodecs?: readonly string[],
 ): string {
-  const codecs = liveCodecs
-    ? liveCodecs.length > 0
-      ? liveCodecs.join(",")
-      : "none"
-    : undefined
   return resolvePublicUrlWithQuery(
     publicClipPath(clipId, "/stream"),
-    { variant: variantId, codecs },
+    { variant: variantId, codecs: liveCodecsParam(liveCodecs) },
     origin,
   )
 }
@@ -108,16 +103,16 @@ export function clipHlsMasterUrl(
   liveCodecs?: readonly string[],
   variantId?: string,
 ): string {
-  const codecs = liveCodecs
-    ? liveCodecs.length > 0
-      ? liveCodecs.join(",")
-      : "none"
-    : undefined
   return resolvePublicUrlWithQuery(
     publicClipPath(clipId, "/hls/master.m3u8"),
-    { variant: variantId, codecs },
+    { variant: variantId, codecs: liveCodecsParam(liveCodecs) },
     origin,
   )
+}
+
+function liveCodecsParam(liveCodecs?: readonly string[]): string | undefined {
+  if (!liveCodecs) return undefined
+  return liveCodecs.length > 0 ? liveCodecs.join(",") : "none"
 }
 
 export function clipThumbnailUrl(

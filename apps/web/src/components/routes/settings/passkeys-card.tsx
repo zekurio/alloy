@@ -1,4 +1,4 @@
-import type { Passkey as ApiPasskey } from "@workspace/api/auth"
+import type { Passkey as ApiPasskey } from "alloy-api/auth"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -9,8 +9,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@workspace/ui/components/alert-dialog"
-import { Button } from "@workspace/ui/components/button"
+} from "alloy-ui/components/alert-dialog"
+import { Button } from "alloy-ui/components/button"
 import {
   Dialog,
   DialogBody,
@@ -20,11 +20,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@workspace/ui/components/dialog"
-import { Field, FieldLabel } from "@workspace/ui/components/field"
-import { List, ListItem } from "@workspace/ui/components/list"
-import { Section, SectionContent } from "@workspace/ui/components/section"
-import { toast } from "@workspace/ui/lib/toast"
+} from "alloy-ui/components/dialog"
+import { Field, FieldLabel } from "alloy-ui/components/field"
+import { List, ListItem } from "alloy-ui/components/list"
+import { Section, SectionContent } from "alloy-ui/components/section"
+import { toast } from "alloy-ui/lib/toast"
 import { PencilIcon, PlusIcon, SaveIcon, Trash2Icon } from "lucide-react"
 import * as React from "react"
 

@@ -13,7 +13,7 @@ import type {
   GameRow,
   SteamGridDBSearchResult,
   SteamGridDBStatus,
-} from "@workspace/api"
+} from "alloy-api"
 
 import { api } from "./api"
 import { feedKeys } from "./feed-queries"

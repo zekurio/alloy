@@ -1,8 +1,8 @@
 import { Buffer } from "node:buffer"
 
-import { userAssetImagePath } from "@workspace/contracts"
-import { user } from "@workspace/db/auth-schema"
-import { logger } from "@workspace/logging"
+import { userAssetImagePath } from "alloy-contracts"
+import { user } from "alloy-db/auth-schema"
+import { logger } from "alloy-logging"
 import { eq } from "drizzle-orm"
 import { type Context, Hono } from "hono"
 import type { ContentfulStatusCode } from "hono/utils/http-status"

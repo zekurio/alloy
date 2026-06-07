@@ -1,10 +1,10 @@
-import { Button } from "@workspace/ui/components/button"
-import { Progress } from "@workspace/ui/components/progress"
+import { Button } from "alloy-ui/components/button"
+import { Progress } from "alloy-ui/components/progress"
 import {
   CLIP_MEDIA_CLASS,
   CLIP_MEDIA_VIEWPORT_CLASS,
-} from "@workspace/ui/lib/media-frame"
-import { cn } from "@workspace/ui/lib/utils"
+} from "alloy-ui/lib/media-frame"
+import { cn } from "alloy-ui/lib/utils"
 import {
   ChevronLeftIcon,
   ChevronRightIcon,

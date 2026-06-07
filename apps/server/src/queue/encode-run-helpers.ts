@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp } from "node:fs/promises"
 
-import { clip } from "@workspace/db/schema"
+import { clip } from "alloy-db/schema"
 import { and, eq } from "drizzle-orm"
 
 import { db } from "../db"

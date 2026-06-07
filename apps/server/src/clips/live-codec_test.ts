@@ -1,9 +1,6 @@
 import { test } from "node:test"
 
-import type {
-  AdminEncoderCapabilities,
-  EncoderCodec,
-} from "@workspace/contracts"
+import type { AdminEncoderCapabilities, EncoderCodec } from "alloy-contracts"
 
 import type { HwaccelKind } from "../config/store"
 import {

@@ -1,4 +1,4 @@
-import { authAccount } from "@workspace/db/auth-schema"
+import { authAccount } from "alloy-db/auth-schema"
 import { eq } from "drizzle-orm"
 import { type Context, Hono } from "hono"
 import { z } from "zod"

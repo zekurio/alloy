@@ -10,7 +10,7 @@ import {
   ENCODER_TONEMAPPING_RANGES,
   RUNTIME_CONFIG_VERSION,
   type RuntimeConfig,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 import { z } from "zod"
 
 import { randomBase64Url } from "../runtime/crypto"

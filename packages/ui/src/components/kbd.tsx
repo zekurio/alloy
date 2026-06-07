@@ -1,4 +1,4 @@
-import { cn } from "@workspace/ui/lib/utils"
+import { cn } from "alloy-ui/lib/utils"
 
 /**
  * Alloy Kbd — monospaced key cap. Matches `.kbd` in components.css.

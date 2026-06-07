@@ -1,13 +1,9 @@
-import { COMMENT_BODY_MAX_LENGTH, type CommentRow } from "@workspace/api"
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@workspace/ui/components/avatar"
-import { Button } from "@workspace/ui/components/button"
-import { Spinner } from "@workspace/ui/components/spinner"
-import { toast } from "@workspace/ui/lib/toast"
-import { cn } from "@workspace/ui/lib/utils"
+import { COMMENT_BODY_MAX_LENGTH, type CommentRow } from "alloy-api"
+import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
+import { Button } from "alloy-ui/components/button"
+import { Spinner } from "alloy-ui/components/spinner"
+import { toast } from "alloy-ui/lib/toast"
+import { cn } from "alloy-ui/lib/utils"
 import * as React from "react"
 
 import { EmptyState } from "@/components/feedback/empty-state"

@@ -3,7 +3,7 @@ import {
   CLIP_STATUS,
   type ClipPage,
   type ClipRow,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 
 import {
   objectRecord,

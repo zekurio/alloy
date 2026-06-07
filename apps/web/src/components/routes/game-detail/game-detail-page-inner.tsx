@@ -1,4 +1,4 @@
-import { AppMain } from "@workspace/ui/components/app-shell"
+import { AppMain } from "alloy-ui/components/app-shell"
 
 import { useRequireAuth } from "@/lib/auth-hooks"
 

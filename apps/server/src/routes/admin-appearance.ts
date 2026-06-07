@@ -1,9 +1,9 @@
 import { Buffer } from "node:buffer"
 
-import { type LoginSplashConfig } from "@workspace/contracts"
-import { user } from "@workspace/db/auth-schema"
-import { clip } from "@workspace/db/schema"
-import { logger } from "@workspace/logging"
+import { type LoginSplashConfig } from "alloy-contracts"
+import { user } from "alloy-db/auth-schema"
+import { clip } from "alloy-db/schema"
+import { logger } from "alloy-logging"
 import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm"
 
 import { configStore } from "../config/store"

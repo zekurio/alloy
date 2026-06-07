@@ -1,4 +1,4 @@
-import { clip } from "@workspace/db/schema"
+import { clip } from "alloy-db/schema"
 import { and, eq, inArray, ne, sql } from "drizzle-orm"
 
 import type { db } from "../db"

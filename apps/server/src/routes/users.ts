@@ -1,5 +1,5 @@
-import { user } from "@workspace/db/auth-schema"
-import { block, clip, follow } from "@workspace/db/schema"
+import { user } from "alloy-db/auth-schema"
+import { block, clip, follow } from "alloy-db/schema"
 import { and, eq, or } from "drizzle-orm"
 import { Hono } from "hono"
 import { stream } from "hono/streaming"

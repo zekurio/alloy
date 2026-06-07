@@ -1,4 +1,4 @@
-import { createDb } from "@workspace/db"
+import { createDb } from "alloy-db"
 
 import { env } from "../env"
 

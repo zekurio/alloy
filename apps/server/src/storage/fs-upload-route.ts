@@ -1,7 +1,7 @@
 import { link, mkdir, open, rm } from "node:fs/promises"
 
-import { clipUploadTicket } from "@workspace/db/schema"
-import { logger } from "@workspace/logging"
+import { clipUploadTicket } from "alloy-db/schema"
+import { logger } from "alloy-logging"
 import { and, eq, gt, isNull } from "drizzle-orm"
 import { Hono } from "hono"
 

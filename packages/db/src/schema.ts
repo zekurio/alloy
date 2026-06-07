@@ -7,7 +7,7 @@ import {
   type NotificationType,
   UPLOAD_TICKET_ROLE,
   type UploadTicketRole,
-} from "@workspace/contracts"
+} from "alloy-contracts"
 import { sql } from "drizzle-orm"
 import {
   bigint,
