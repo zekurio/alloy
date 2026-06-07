@@ -4,6 +4,7 @@ import { globalShortcut } from "electron"
 
 import { saveReplayClip } from "./recording"
 import { electronAccelerator } from "./recording-hotkey-accelerator"
+import { showRecordingHud } from "./recording-hud"
 import { getRecordingSettings } from "./server-store"
 
 const registeredAccelerators = new Set<string>()
@@ -24,6 +25,11 @@ export function configureRecordingHotkeys(
     registeredAccelerators.add(accelerator)
   } else {
     logger.warn(`[desktop] failed to register hotkey: ${accelerator}`)
+    showRecordingHud({
+      kind: "error",
+      title: "Hotkey unavailable",
+      detail: `${accelerator} is already in use`,
+    })
   }
 }
 

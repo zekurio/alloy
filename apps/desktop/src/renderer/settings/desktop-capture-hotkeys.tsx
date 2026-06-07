@@ -1,9 +1,8 @@
 import type { RecordingSettings } from "alloy-contracts"
 
-import { HotkeyInput } from "@/components/routes/settings/hotkey-input"
-import { SettingRow } from "@/components/routes/settings/setting-row"
-
 import { Subsection } from "./desktop-capture-sections"
+import { HotkeyInput } from "./hotkey-input"
+import { SettingRow } from "./setting-row"
 
 export function HotkeysSection({
   settings,

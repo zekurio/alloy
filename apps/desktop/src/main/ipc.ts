@@ -18,6 +18,7 @@ import {
   onRecordingEvent,
   resolveRevealableCapturePath,
   saveReplayClip,
+  stopRecording,
 } from "./recording"
 import { configureRecordingHotkeys } from "./recording-hotkeys"
 import {
@@ -105,10 +106,18 @@ function registerServerIpc(windows: Windows): void {
     requireDesktopSender(windows, event)
     return getSavedServers()
   })
+  ipcMain.handle(IPC.getCurrentServer, (event) => {
+    requireDesktopSender(windows, event)
+    return windows.currentServerUrl()
+  })
   ipcMain.handle(IPC.forgetServer, (event, url: unknown) => {
     requireDesktopSender(windows, event)
     if (typeof url !== "string") return getSavedServers()
     return forgetServer(url)
+  })
+  ipcMain.handle(IPC.openSettings, (event) => {
+    requireDesktopSender(windows, event)
+    windows.openSettings()
   })
 }
 
@@ -160,6 +169,10 @@ function registerRecordingIpc(windows: Windows): void {
     requireMainSender(windows, event)
     return saveReplayClip()
   })
+  ipcMain.handle(IPC.stopRecording, (event) => {
+    requireMainSender(windows, event)
+    return stopRecording()
+  })
   ipcMain.handle(IPC.revealRecordingCapture, (event, filename: unknown) => {
     requireMainSender(windows, event)
     if (typeof filename !== "string" || filename.length === 0) return
@@ -176,7 +189,7 @@ function requireOverlaySender(
 }
 
 function requireMainSender(windows: Windows, event: IpcMainInvokeEvent): void {
-  if (!windows.canUseMainBridge(event.sender, event.senderFrame?.url ?? "")) {
+  if (!windows.canUseAppBridge(event.sender, event.senderFrame?.url ?? "")) {
     throw unauthorizedIpcError()
   }
 }

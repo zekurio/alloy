@@ -23,14 +23,14 @@ import {
 } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
-import { useDesktopRecording } from "@/components/routes/settings/desktop-recording-context"
+import { DESKTOP_RECORDING_AUDIO_MODES } from "./desktop-bridge"
+import { useDesktopRecording } from "./desktop-recording-context"
 import {
   asLiteral,
   AUDIO_DEVICE_KIND_LABELS,
   AUDIO_MODE_LABELS,
-} from "@/components/routes/settings/desktop-recording-helpers"
-import { SettingRow } from "@/components/routes/settings/setting-row"
-import { DESKTOP_RECORDING_AUDIO_MODES } from "@/lib/desktop"
+} from "./desktop-recording-helpers"
+import { SettingRow } from "./setting-row"
 
 const AUDIO_DEVICE_GROUPS: Array<{
   kind: RecordingAudioDeviceKind

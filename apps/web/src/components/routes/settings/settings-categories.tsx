@@ -1,18 +1,17 @@
+import { Button } from "alloy-ui/components/button"
 import {
   AlertTriangleIcon,
   BrainCircuitIcon,
   ClapperboardIcon,
   DatabaseIcon,
   GaugeIcon,
+  MonitorCogIcon,
   type LucideIcon,
   PaletteIcon,
   PlugIcon,
-  ServerIcon,
   ShieldIcon,
   UserIcon,
   UsersIcon,
-  VideoIcon,
-  Volume2Icon,
   WrenchIcon,
 } from "lucide-react"
 import * as React from "react"
@@ -32,9 +31,6 @@ import {
   ClipDataCard,
   StorageUsageCard,
 } from "@/components/routes/settings/data-card"
-import { DesktopAudioSettings } from "@/components/routes/settings/desktop-audio-settings"
-import { DesktopCaptureSettings } from "@/components/routes/settings/desktop-capture-settings"
-import { DesktopServerSettings } from "@/components/routes/settings/desktop-server-settings"
 import { ProfileCard } from "@/components/routes/settings/profile-card"
 import { SecuritySettings } from "@/components/routes/settings/security-settings"
 import { useIsAdmin, useRequireAuthStrict } from "@/lib/auth-hooks"
@@ -89,6 +85,35 @@ function StoragePanel() {
       <StorageUsageCard />
       <hr className="border-border" />
       <ClipDataCard />
+    </div>
+  )
+}
+
+function DesktopPanel() {
+  const desktop = alloyDesktop()
+  if (!desktop) return null
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="border-border bg-background flex items-center justify-between gap-4 rounded-md border px-4 py-3">
+        <div className="min-w-0">
+          <div className="text-sm font-medium">Alloy desktop settings</div>
+          <p className="text-foreground-dim mt-0.5 text-xs">
+            Capture, audio, storage, hotkeys, and connected servers now live in
+            the desktop app.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => void desktop.openSettings()}
+          className="shrink-0"
+        >
+          <MonitorCogIcon className="size-4" />
+          Open
+        </Button>
+      </div>
     </div>
   )
 }
@@ -158,12 +183,12 @@ const ALL_CATEGORIES: SettingsCategory[] = [
     Panel: DangerZoneCard,
   },
   {
-    id: "desktop-capture",
-    label: "Capture",
-    title: "Capture & recording",
-    description:
-      "Control automatic game capture, replay clips, quality, and local storage.",
+    id: "desktop",
+    label: "Desktop app",
+    title: "Desktop app",
+    description: "Open native capture, audio, storage, and server settings.",
     keywords: [
+      "desktop app",
       "recording",
       "replay buffer",
       "quality",
@@ -173,18 +198,6 @@ const ALL_CATEGORIES: SettingsCategory[] = [
       "save full sessions",
       "desktop capture",
       "capture folder",
-    ],
-    icon: VideoIcon,
-    group: "desktop",
-    Panel: DesktopCaptureSettings,
-  },
-  {
-    id: "desktop-audio",
-    label: "Audio",
-    title: "Audio capture",
-    description:
-      "Choose which output devices, microphones, or applications are recorded and set their volume.",
-    keywords: [
       "audio",
       "output devices",
       "input devices",
@@ -192,20 +205,13 @@ const ALL_CATEGORIES: SettingsCategory[] = [
       "speakers",
       "volume",
       "applications",
+      "desktop servers",
+      "switch server",
+      "saved servers",
     ],
-    icon: Volume2Icon,
+    icon: MonitorCogIcon,
     group: "desktop",
-    Panel: DesktopAudioSettings,
-  },
-  {
-    id: "desktop-servers",
-    label: "Servers",
-    title: "Connected servers",
-    description: "Add, switch between, or forget the Alloy servers you use.",
-    keywords: ["desktop servers", "switch server", "saved servers"],
-    icon: ServerIcon,
-    group: "desktop",
-    Panel: DesktopServerSettings,
+    Panel: DesktopPanel,
   },
   {
     id: "authentication",

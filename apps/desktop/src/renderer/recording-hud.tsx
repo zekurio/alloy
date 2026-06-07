@@ -1,7 +1,7 @@
 import { Spinner } from "alloy-ui/components/spinner"
 import { cn } from "alloy-ui/lib/utils"
 import { CheckCircle2Icon, CircleAlertIcon } from "lucide-react"
-import { StrictMode, useEffect, useState } from "react"
+import { StrictMode, useEffect, useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 
 import type { RecordingHudState } from "../shared/ipc"
@@ -11,8 +11,16 @@ import "./recording-hud.css"
 
 function RecordingHudApp() {
   const [state, setState] = useState<RecordingHudState | null>(null)
+  const lastSoundKey = useRef<string | null>(null)
 
   useEffect(() => window.alloyRecordingHud.onState(setState), [])
+  useEffect(() => {
+    if (!state || state.kind === "saving") return
+    const soundKey = `${state.kind}:${state.title}:${state.detail ?? ""}`
+    if (lastSoundKey.current === soundKey) return
+    lastSoundKey.current = soundKey
+    void playHudTone(state.kind)
+  }, [state])
 
   const Icon =
     state?.kind === "saved"
@@ -67,6 +75,45 @@ function RecordingHudApp() {
       </div>
     </main>
   )
+}
+
+async function playHudTone(kind: RecordingHudState["kind"]) {
+  const AudioContext =
+    window.AudioContext ??
+    (
+      window as typeof window & {
+        webkitAudioContext?: typeof window.AudioContext
+      }
+    ).webkitAudioContext
+  if (!AudioContext) return
+
+  const context = new AudioContext()
+  try {
+    const gain = context.createGain()
+    gain.gain.setValueAtTime(0.0001, context.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.08, context.currentTime + 0.012)
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.22)
+    gain.connect(context.destination)
+
+    const oscillator = context.createOscillator()
+    oscillator.type = "sine"
+    oscillator.frequency.setValueAtTime(
+      kind === "saved" ? 880 : 220,
+      context.currentTime,
+    )
+    oscillator.frequency.exponentialRampToValueAtTime(
+      kind === "saved" ? 1320 : 165,
+      context.currentTime + 0.18,
+    )
+    oscillator.connect(gain)
+    oscillator.start()
+    oscillator.stop(context.currentTime + 0.24)
+    oscillator.addEventListener("ended", () => void context.close(), {
+      once: true,
+    })
+  } catch {
+    await context.close().catch(() => undefined)
+  }
 }
 
 const container = document.getElementById("root")

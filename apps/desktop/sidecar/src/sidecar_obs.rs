@@ -323,12 +323,16 @@ unsafe fn create_video_source(
     source_kind: OutputSourceKind,
 ) -> Result<*mut ObsSource, String> {
     if source_kind == OutputSourceKind::Display {
-        return create_source(
+        let source_settings = obs.create_data();
+        configure_display_capture_source(obs, source_settings)?;
+        let source = create_source(
             obs,
             platform_display_source_id(),
             "alloy_display_video",
-            None,
+            Some(source_settings),
         );
+        obs.release_data(source_settings);
+        return source;
     }
 
     let source_settings = obs.create_data();
@@ -345,6 +349,25 @@ unsafe fn create_video_source(
             "{error} OBS game capture is unavailable; make sure the win-capture plugin is bundled."
         )
     })
+}
+
+unsafe fn configure_display_capture_source(
+    obs: &LibObs,
+    data: *mut ObsData,
+) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        const OBS_DISPLAY_METHOD_DXGI: i64 = 1;
+
+        if let Some(display_id) = primary_display_id() {
+            obs.set_string(data, "monitor_id", &display_id)?;
+        }
+        obs.set_int(data, "method", OBS_DISPLAY_METHOD_DXGI)?;
+        obs.set_bool(data, "force_sdr", false)?;
+    }
+
+    obs.set_bool(data, "capture_cursor", true)?;
+    Ok(())
 }
 
 unsafe fn create_video_graph(

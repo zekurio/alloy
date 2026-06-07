@@ -22,23 +22,21 @@
     "test": "tsx --test \"src/**/*_test.ts\"",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
-    "alloy-contracts": "workspace:*",
-    "alloy-logging": "workspace:*",
-    "alloy-ui": "workspace:*",
-    "lucide-react": "1.8.0",
-    "react": "19.2.5",
-    "react-dom": "19.2.5"
-  },
   "devDependencies": {
     "@tailwindcss/vite": "4.2.4",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.2.0",
+    "alloy-contracts": "workspace:*",
+    "alloy-logging": "workspace:*",
+    "alloy-ui": "workspace:*",
     "electron": "42.3.3",
     "electron-builder": "^26.15.0",
     "electron-vite": "5.0.0",
+    "lucide-react": "1.8.0",
     "png-to-ico": "^3.0.1",
+    "react": "19.2.5",
+    "react-dom": "19.2.5",
     "vite": "8.0.10"
   },
   "build": {
@@ -115,7 +113,7 @@
     "nsis": {
       "oneClick": false,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
+      "allowToChangeInstallationDirectory": false,
       "deleteAppDataOnUninstall": false,
       "warningsAsErrors": false
     }

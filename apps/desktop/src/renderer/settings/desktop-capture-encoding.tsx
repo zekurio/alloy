@@ -13,6 +13,12 @@ import {
 } from "alloy-ui/components/select"
 
 import {
+  DESKTOP_RECORDING_BITRATES,
+  DESKTOP_RECORDING_ENCODERS,
+  DESKTOP_RECORDING_FRAME_RATES,
+  DESKTOP_RECORDING_RESOLUTIONS,
+} from "./desktop-bridge"
+import {
   asLiteral,
   asNumberLiteral,
   bitrateLabel,
@@ -20,13 +26,7 @@ import {
   ENCODER_LABELS,
   gpuLabel,
   RESOLUTION_LABELS,
-} from "@/components/routes/settings/desktop-recording-helpers"
-import {
-  DESKTOP_RECORDING_BITRATES,
-  DESKTOP_RECORDING_ENCODERS,
-  DESKTOP_RECORDING_FRAME_RATES,
-  DESKTOP_RECORDING_RESOLUTIONS,
-} from "@/lib/desktop"
+} from "./desktop-recording-helpers"
 
 export function EncodingSettingsGrid({
   settings,

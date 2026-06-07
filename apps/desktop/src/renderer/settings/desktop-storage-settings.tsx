@@ -1,15 +1,19 @@
 import { Button } from "alloy-ui/components/button"
 import { FolderOpenIcon } from "lucide-react"
 
-import { useDesktopRecording } from "@/components/routes/settings/desktop-recording-context"
-import { formatBytes } from "@/components/routes/settings/desktop-recording-helpers"
+import { useDesktopRecording } from "./desktop-recording-context"
+import { formatBytes } from "./desktop-recording-helpers"
 
-export function DesktopStorageSettings() {
+export function DesktopStorageSettings({
+  disabled: disabledProp = false,
+}: {
+  disabled?: boolean
+}) {
   const { settings, status, storageInfo, busy, chooseOutputFolder } =
     useDesktopRecording()
   if (!settings || !storageInfo) return null
 
-  const disabled = busy || status?.mode !== "idle"
+  const disabled = disabledProp || busy || status?.mode !== "idle"
   const folder = settings.outputFolder || storageInfo.outputFolder
   const { totalBytes, usedBytes, availableBytes, clipsBytes } = storageInfo
   const otherBytes = Math.max(0, usedBytes - clipsBytes)

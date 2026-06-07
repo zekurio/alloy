@@ -17,7 +17,9 @@ export const IPC = {
   connect: "alloy:connect",
   getLastServer: "alloy:get-last-server",
   getServers: "alloy:get-servers",
+  getCurrentServer: "alloy:get-current-server",
   forgetServer: "alloy:forget-server",
+  openSettings: "alloy:open-settings",
   getRecordingSettings: "alloy:get-recording-settings",
   setRecordingSettings: "alloy:set-recording-settings",
   getRecordingStatus: "alloy:get-recording-status",
@@ -25,6 +27,7 @@ export const IPC = {
   recordingEvent: "alloy:recording-event",
   selectOutputFolder: "alloy:select-output-folder",
   saveReplayClip: "alloy:save-replay-clip",
+  stopRecording: "alloy:stop-recording",
   revealRecordingCapture: "alloy:reveal-recording-capture",
   recordingHudState: "alloy:recording-hud-state",
 } as const
@@ -62,6 +65,7 @@ export interface AlloyNative {
 export interface AlloyDesktopServerApi {
   connect(url: string): Promise<ConnectResult>
   getServers(): Promise<SavedServer[]>
+  getCurrentServer(): Promise<string | null>
   forgetServer(url: string): Promise<SavedServer[]>
 }
 
@@ -74,6 +78,7 @@ export interface AlloyDesktopRecordingApi {
   /** Opens a native folder picker; returns the chosen path or null if cancelled. */
   selectOutputFolder(): Promise<string | null>
   saveReplayClip(): Promise<RecordingActionResult>
+  stopRecording(): Promise<RecordingActionResult>
   revealCapture(filename: string): Promise<void>
 }
 
@@ -84,6 +89,7 @@ export interface AlloyDesktopRecordingApi {
 export interface AlloyDesktopMarker {
   platform: string
   titlebarOverlay: boolean
+  openSettings(): Promise<void>
   servers: AlloyDesktopServerApi
   recording: AlloyDesktopRecordingApi
 }

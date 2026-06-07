@@ -1,7 +1,9 @@
+import { join } from "node:path"
+
 import { app, BrowserWindow, Menu } from "electron"
 
 import { registerIpc } from "./ipc"
-import { shutdownRecordingBackend } from "./recording"
+import { shutdownRecordingBackend, stopRecording } from "./recording"
 import {
   configureRecordingHotkeys,
   unregisterRecordingHotkeys,
@@ -9,11 +11,14 @@ import {
 import { destroyRecordingHud } from "./recording-hud"
 import { getLastServerUrl } from "./server-store"
 import { hasValidSession } from "./session"
+import { createAlloyTray } from "./tray"
 import { Windows } from "./windows"
 
 const WINDOWS_APP_USER_MODEL_ID = "dev.zekurio.alloy.desktop"
+const USER_DATA_DIR_NAME = "Alloy Desktop"
 
 app.setName("Alloy")
+configureAppPaths()
 
 if (process.platform === "win32") {
   app.setAppUserModelId(WINDOWS_APP_USER_MODEL_ID)
@@ -28,11 +33,7 @@ if (!app.requestSingleInstanceLock()) {
   const windows = new Windows()
 
   app.on("second-instance", () => {
-    const [existing] = BrowserWindow.getAllWindows()
-    if (existing) {
-      if (existing.isMinimized()) existing.restore()
-      existing.focus()
-    }
+    void showOrOpenInitialWindow(windows)
   })
 
   app.whenReady().then(async () => {
@@ -43,13 +44,26 @@ if (!app.requestSingleInstanceLock()) {
 
     registerIpc(windows)
     configureRecordingHotkeys()
+    createAlloyTray({
+      showAlloy: () => showOrOpenInitialWindow(windows),
+      openSettings: () => {
+        windows.openSettings()
+      },
+      stopRecording: async () => {
+        await stopRecording()
+      },
+      quit: () => {
+        windows.allowAppQuit()
+        app.quit()
+      },
+    })
     await openInitialWindow(windows)
 
     app.on("activate", () => {
       // macOS: re-open the connected app when possible, or the fallback connect
       // surface when no valid saved session exists.
       if (BrowserWindow.getAllWindows().length === 0) {
-        void openInitialWindow(windows)
+        void showOrOpenInitialWindow(windows)
       }
     })
   })
@@ -59,6 +73,7 @@ if (!app.requestSingleInstanceLock()) {
   })
 
   app.on("before-quit", () => {
+    windows.allowAppQuit()
     unregisterRecordingHotkeys()
     destroyRecordingHud()
     void shutdownRecordingBackend()
@@ -73,4 +88,15 @@ async function openInitialWindow(windows: Windows): Promise<void> {
   }
 
   windows.createOverlay()
+}
+
+async function showOrOpenInitialWindow(windows: Windows): Promise<void> {
+  if (windows.showPrimary()) return
+  await openInitialWindow(windows)
+}
+
+function configureAppPaths(): void {
+  const appData = app.getPath("appData")
+  const userDataPath = join(appData, USER_DATA_DIR_NAME)
+  app.setPath("userData", userDataPath)
 }

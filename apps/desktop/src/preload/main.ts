@@ -15,6 +15,7 @@ import { IPC } from "../shared/ipc"
 const servers: AlloyDesktopServerApi = {
   connect: (url) => ipcRenderer.invoke(IPC.connect, url),
   getServers: () => ipcRenderer.invoke(IPC.getServers),
+  getCurrentServer: () => ipcRenderer.invoke(IPC.getCurrentServer),
   forgetServer: (url) => ipcRenderer.invoke(IPC.forgetServer, url),
 }
 
@@ -33,6 +34,7 @@ const recording: AlloyDesktopRecordingApi = {
   },
   selectOutputFolder: () => ipcRenderer.invoke(IPC.selectOutputFolder),
   saveReplayClip: () => ipcRenderer.invoke(IPC.saveReplayClip),
+  stopRecording: () => ipcRenderer.invoke(IPC.stopRecording),
   revealCapture: (filename) =>
     ipcRenderer.invoke(IPC.revealRecordingCapture, filename),
 }
@@ -42,6 +44,7 @@ const marker: AlloyDesktopMarker = {
   // The main window uses the native OS frame, so the web app should not enable
   // Windows Controls Overlay header compensation.
   titlebarOverlay: false,
+  openSettings: () => ipcRenderer.invoke(IPC.openSettings),
   servers,
   recording,
 }
