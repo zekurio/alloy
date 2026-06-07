@@ -89,6 +89,21 @@ fn active_session_should_stop(session: &ActiveSession, settings: &RecordingSetti
     }
 }
 
+fn active_settings_require_restart(
+    current: &RecordingSettings,
+    next: &RecordingSettings,
+) -> bool {
+    current.audio_mode != next.audio_mode
+        || current.audio_devices != next.audio_devices
+        || current.audio_applications != next.audio_applications
+        || current.encoder != next.encoder
+        || current.gpu != next.gpu
+        || current.codec != next.codec
+        || effective_quality(current) != effective_quality(next)
+        || current.replay_buffer_seconds != next.replay_buffer_seconds
+        || current.buffer_storage != next.buffer_storage
+}
+
 fn cache_expired(last_refresh: Option<Instant>, ttl: Duration) -> bool {
     last_refresh.is_none_or(|last_refresh| last_refresh.elapsed() >= ttl)
 }

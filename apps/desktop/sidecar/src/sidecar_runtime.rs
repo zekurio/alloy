@@ -51,6 +51,7 @@ fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
         },
         "status" => response_ok(request.id, recorder.status()),
         "saveReplayClip" => response_ok(request.id, recorder.save_replay_clip()),
+        "stopRecording" => response_ok(request.id, recorder.stop_recording()),
         "shutdown" => {
             recorder.shutdown();
             response_ok(request.id, recorder.status())
@@ -90,13 +91,27 @@ fn primary_display_dimensions() -> Option<VideoDimensions> {
     platform_primary_display_dimensions()
 }
 
+fn primary_display_id() -> Option<String> {
+    platform_primary_display_id()
+}
+
 #[cfg(windows)]
 fn platform_primary_display_dimensions() -> Option<VideoDimensions> {
     windows_detector::primary_display_dimensions()
 }
 
+#[cfg(windows)]
+fn platform_primary_display_id() -> Option<String> {
+    windows_detector::primary_display_id()
+}
+
 #[cfg(not(windows))]
 fn platform_primary_display_dimensions() -> Option<VideoDimensions> {
+    None
+}
+
+#[cfg(not(windows))]
+fn platform_primary_display_id() -> Option<String> {
     None
 }
 
@@ -173,6 +188,8 @@ fn classify_game_candidate(
         "alloy",
         "electron",
         "alloy-recorder.exe",
+        "codex",
+        "codex.exe",
         "explorer.exe",
         "dwm.exe",
         "applicationframehost.exe",
@@ -188,6 +205,9 @@ fn classify_game_candidate(
         "teams.exe",
         "spotify.exe",
         "code.exe",
+        "code - insiders.exe",
+        "cursor.exe",
+        "windsurf.exe",
         "wezterm",
         "windowsterminal",
         "powershell",
@@ -220,6 +240,7 @@ fn classify_game_candidate(
         "console",
         "cheat",
         "overlay",
+        "devtools",
     ];
     if blocked_window_words.iter().any(|blocked| {
         title_lower.contains(blocked)
@@ -302,19 +323,22 @@ fn classify_game_candidate(
         "xna",
         "valve001",
     ];
-    if valid_window
-        && valid_aspect
-        && whitelisted_class_markers
-            .iter()
-            .any(|marker| class_name.replace(' ', "").contains(marker))
-    {
+    let normalized_class_name = class_name.replace(' ', "");
+    let has_game_window_class = whitelisted_class_markers
+        .iter()
+        .any(|marker| normalized_class_name.contains(marker));
+    if valid_window && valid_aspect && has_game_window_class {
         return Some(GameCandidateClassification {
             score: 72,
             name: None,
         });
     }
 
-    if fullscreen && valid_window {
+    if fullscreen
+        && valid_window
+        && valid_aspect
+        && has_probable_game_path_marker(path.unwrap_or_default())
+    {
         return Some(GameCandidateClassification {
             score: 55,
             name: None,
@@ -368,6 +392,23 @@ fn store_game_name_from_path(path: &str, markers: &[&str]) -> Option<String> {
             .next()
             .and_then(clean_game_name)
     })
+}
+
+fn has_probable_game_path_marker(path: &str) -> bool {
+    let normalized = path.replace('\\', "/").to_ascii_lowercase();
+    [
+        "/steamapps/common/",
+        "/epic games/",
+        "/gog galaxy/games/",
+        "/ea games/",
+        "/ubisoft/ubisoft game launcher/games/",
+        "/windowsapps/",
+        "/xboxgames/",
+        "/binaries/win64/",
+        "/binaries/win32/",
+    ]
+    .iter()
+    .any(|marker| normalized.contains(marker))
 }
 
 fn steam_game_name_from_path(path: &str) -> Option<String> {

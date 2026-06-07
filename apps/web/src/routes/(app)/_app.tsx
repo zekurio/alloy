@@ -9,7 +9,6 @@ import {
 } from "@/components/feedback/route-state"
 import { HomeHeader } from "@/components/layout/home-header"
 import { HomeSidebar } from "@/components/layout/home-sidebar"
-import { DesktopRecordingProvider } from "@/components/routes/settings/desktop-recording-context"
 import { SettingsDialog } from "@/components/routes/settings/settings-dialog"
 import { AppSearchProvider } from "@/components/search/app-search"
 import { UploadFlow } from "@/components/upload/upload-flow"
@@ -87,26 +86,24 @@ function AppLayout() {
 
   return allowed ? (
     <AppSearchProvider>
-      <DesktopRecordingProvider>
-        <UploadFlowProvider>
-          <AppShell>
-            <AppChrome />
-            <Outlet />
-            <UploadFlow />
-          </AppShell>
-        </UploadFlowProvider>
-        <ClipViewerDialog
-          clipId={clip ?? null}
-          focusedCommentId={comment ?? null}
-          onClose={handleCloseClipModal}
-          onNavigate={handleNavigateClip}
-        />
-        <SettingsDialog
-          section={settings ?? null}
-          onNavigate={handleNavigateSettings}
-          onClose={handleCloseSettings}
-        />
-      </DesktopRecordingProvider>
+      <UploadFlowProvider>
+        <AppShell>
+          <AppChrome />
+          <Outlet />
+          <UploadFlow />
+        </AppShell>
+      </UploadFlowProvider>
+      <ClipViewerDialog
+        clipId={clip ?? null}
+        focusedCommentId={comment ?? null}
+        onClose={handleCloseClipModal}
+        onNavigate={handleNavigateClip}
+      />
+      <SettingsDialog
+        section={settings ?? null}
+        onNavigate={handleNavigateSettings}
+        onClose={handleCloseSettings}
+      />
     </AppSearchProvider>
   ) : null
 }
@@ -143,14 +140,12 @@ function AppRouteNotFoundState(
 function AppRouteStateShell({ children }: { children: React.ReactNode }) {
   return (
     <AppSearchProvider>
-      <DesktopRecordingProvider>
-        <UploadFlowProvider>
-          <AppShell>
-            <AppChrome />
-            <AppMain>{children}</AppMain>
-          </AppShell>
-        </UploadFlowProvider>
-      </DesktopRecordingProvider>
+      <UploadFlowProvider>
+        <AppShell>
+          <AppChrome />
+          <AppMain>{children}</AppMain>
+        </AppShell>
+      </UploadFlowProvider>
     </AppSearchProvider>
   )
 }

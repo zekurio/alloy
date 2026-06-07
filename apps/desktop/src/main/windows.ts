@@ -15,7 +15,7 @@ import { canOpenExternally, sameOrigin } from "./url-policy"
 /** Resolved at runtime from the built output layout (see electron.vite.config). */
 const OVERLAY_PRELOAD = join(import.meta.dirname, "../preload/overlay.cjs")
 const MAIN_PRELOAD = join(import.meta.dirname, "../preload/main.cjs")
-const WINDOW_ICON = app.isPackaged
+export const WINDOW_ICON = app.isPackaged
   ? join(process.resourcesPath, "assets", "icon.png")
   : join(import.meta.dirname, "../../assets/icon.png")
 
@@ -29,7 +29,9 @@ const WINDOW_ICON = app.isPackaged
 export class Windows {
   private overlay: BrowserWindow | null = null
   private main: BrowserWindow | null = null
+  private settings: BrowserWindow | null = null
   private mainOrigin: string | null = null
+  private isQuitting = false
 
   createOverlay(): BrowserWindow {
     const win = new BrowserWindow({
@@ -84,11 +86,45 @@ export class Windows {
     )
   }
 
+  canUseSettingsBridge(sender: WebContents): boolean {
+    return BrowserWindow.fromWebContents(sender) === this.settings
+  }
+
+  canUseAppBridge(sender: WebContents, frameUrl: string): boolean {
+    return (
+      this.canUseMainBridge(sender, frameUrl) ||
+      this.canUseSettingsBridge(sender)
+    )
+  }
+
   canUseDesktopBridge(sender: WebContents, frameUrl: string): boolean {
     return (
       this.canUseOverlayBridge(sender) ||
-      this.canUseMainBridge(sender, frameUrl)
+      this.canUseMainBridge(sender, frameUrl) ||
+      this.canUseSettingsBridge(sender)
     )
+  }
+
+  currentServerUrl(): string | null {
+    return this.mainOrigin
+  }
+
+  openSettings(): void {
+    const win = this.ensureSettings()
+    win.show()
+    win.focus()
+  }
+
+  showPrimary(): boolean {
+    const win = this.main ?? this.overlay
+    if (!win || win.isDestroyed()) return false
+
+    showWindow(win)
+    return true
+  }
+
+  allowAppQuit(): void {
+    this.isQuitting = true
   }
 
   private ensureMain(): BrowserWindow {
@@ -124,11 +160,46 @@ export class Windows {
       this.handleNavigation(event, url)
     })
 
+    win.on("close", (event) => {
+      if (this.isQuitting) return
+
+      event.preventDefault()
+      win.hide()
+    })
     win.on("closed", () => {
       this.main = null
     })
 
     this.main = win
+    return win
+  }
+
+  private ensureSettings(): BrowserWindow {
+    if (this.settings && !this.settings.isDestroyed()) return this.settings
+
+    const win = new BrowserWindow({
+      width: 920,
+      height: 720,
+      minWidth: 760,
+      minHeight: 560,
+      icon: WINDOW_ICON,
+      show: false,
+      title: "Alloy Desktop Settings",
+      webPreferences: {
+        preload: MAIN_PRELOAD,
+        contextIsolation: true,
+        sandbox: true,
+        nodeIntegration: false,
+      },
+    })
+
+    win.once("ready-to-show", () => win.show())
+    win.on("closed", () => {
+      this.settings = null
+    })
+
+    loadRenderer(win, undefined, "desktop-settings.html")
+    this.settings = win
     return win
   }
 
@@ -139,6 +210,12 @@ export class Windows {
     event.preventDefault()
     if (canOpenExternally(url)) openExternal(url)
   }
+}
+
+function showWindow(win: BrowserWindow): void {
+  if (win.isMinimized()) win.restore()
+  win.show()
+  win.focus()
 }
 
 function openExternal(url: string): void {
@@ -155,6 +232,7 @@ function openExternal(url: string): void {
 function loadRenderer(
   win: BrowserWindow,
   query?: Record<string, string | undefined>,
+  html = "index.html",
 ): void {
   const params = Object.fromEntries(
     Object.entries(query ?? {}).filter((entry): entry is [string, string] =>
@@ -163,13 +241,13 @@ function loadRenderer(
   )
   const devUrl = process.env.ELECTRON_RENDERER_URL
   if (devUrl) {
-    const url = new URL(devUrl)
+    const url = new URL(html, devUrl.endsWith("/") ? devUrl : `${devUrl}/`)
     for (const [key, value] of Object.entries(params)) {
       url.searchParams.set(key, value)
     }
     win.loadURL(url.toString())
   } else {
-    win.loadFile(join(import.meta.dirname, "../renderer/index.html"), {
+    win.loadFile(join(import.meta.dirname, "../renderer", html), {
       query: params,
     })
   }

@@ -22,21 +22,25 @@ impl Recorder {
         };
 
         if self.mode != RecordingMode::Idle
-            && !self.can_apply_settings_while_active(
-                &settings,
+            && !self.can_reconfigure_active_output_paths(
                 &output_folder,
                 &replay_scratch_folder,
                 params.obs_runtime_dir.as_ref(),
             )
         {
-            let error = "Stop the current recording before changing capture settings.".to_string();
+            let error =
+                "Stop the current recording before changing capture folders or OBS runtime."
+                    .to_string();
             self.last_error = Some(error.clone());
             let status = self.status();
             emit_event(RecordingEvent::Error {
                 error,
                 status: status.clone(),
             });
-            return Err("Stop the current recording before changing capture settings.".to_string());
+            return Err(
+                "Stop the current recording before changing capture folders or OBS runtime."
+                    .to_string(),
+            );
         }
 
         let next_quality = effective_quality(&settings);
@@ -47,10 +51,14 @@ impl Recorder {
             .map(|settings| (effective_quality(settings), gpu_adapter(settings)))
             != Some((next_quality, next_adapter))
             || self.obs_runtime_dir != params.obs_runtime_dir;
-        let active_output_should_stop = self
-            .session
-            .as_ref()
-            .is_some_and(|session| active_session_should_stop(session, &settings));
+        let active_output_should_stop = self.session.as_ref().is_some_and(|session| {
+            active_session_should_stop(session, &settings)
+                || self
+                    .settings
+                    .as_ref()
+                    .is_some_and(|current| active_settings_require_restart(current, &settings))
+                || needs_reinit
+        });
 
         self.settings = Some(settings);
         self.output_folder = Some(output_folder);
@@ -161,31 +169,19 @@ impl Recorder {
         }
     }
 
-    fn can_apply_settings_while_active(
+    fn can_reconfigure_active_output_paths(
         &self,
-        next: &RecordingSettings,
         output_folder: &PathBuf,
         replay_scratch_folder: &PathBuf,
         obs_runtime_dir: Option<&PathBuf>,
     ) -> bool {
-        let Some(current) = self.settings.as_ref() else {
-            return true;
-        };
-
         if self.output_folder.as_ref() != Some(output_folder)
             || self.replay_scratch_folder.as_ref() != Some(replay_scratch_folder)
             || self.obs_runtime_dir.as_ref() != obs_runtime_dir
         {
             return false;
         }
-
-        let mut compatible = current.clone();
-        compatible.enabled = next.enabled;
-        compatible.trigger_mode = next.trigger_mode.clone();
-        compatible.record_desktop = next.record_desktop;
-        compatible.hotkeys = next.hotkeys.clone();
-        compatible.auto_categorize_games = next.auto_categorize_games;
-        compatible == *next
+        true
     }
 
     fn start_replay_buffer(&mut self) -> Result<(), String> {
@@ -319,6 +315,56 @@ impl Recorder {
             capture: Some(capture),
             error: None,
         }
+    }
+
+    fn stop_recording(&mut self) -> RecordingActionResult {
+        let Some(kind) = self.session.as_ref().map(|session| session.kind) else {
+            self.mode = RecordingMode::Idle;
+            return RecordingActionResult {
+                ok: true,
+                status: self.status(),
+                capture: None,
+                error: None,
+            };
+        };
+
+        match kind {
+            ActiveOutputKind::ReplayBuffer => match self.stop_active_replay_buffer() {
+                Ok(()) => RecordingActionResult {
+                    ok: true,
+                    status: self.status(),
+                    capture: None,
+                    error: None,
+                },
+                Err(error) => self.stop_action_error(error),
+            },
+            ActiveOutputKind::Session => match self.stop_active_file_output() {
+                Ok(capture) => {
+                    let status = self.status();
+                    emit_event(RecordingEvent::CaptureReady {
+                        capture: capture.clone(),
+                        status: status.clone(),
+                    });
+                    RecordingActionResult {
+                        ok: true,
+                        status,
+                        capture: Some(capture),
+                        error: None,
+                    }
+                }
+                Err(error) => self.stop_action_error(error),
+            },
+        }
+    }
+
+    fn stop_action_error(&mut self, error: String) -> RecordingActionResult {
+        self.last_error = Some(error.clone());
+        let result = self.action_error(&error);
+        emit_event(RecordingEvent::Error {
+            error,
+            status: result.status.clone(),
+        });
+        result
     }
 
     fn shutdown(&mut self) {

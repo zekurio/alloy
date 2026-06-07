@@ -113,6 +113,10 @@ export async function saveReplayClip(): Promise<RecordingActionResult> {
   return result
 }
 
+export async function stopRecording(): Promise<RecordingActionResult> {
+  return runRecordingAction("stopRecording")
+}
+
 export async function shutdownRecordingBackend(): Promise<void> {
   const client = sidecarClient
   sidecarClient = null
@@ -170,7 +174,7 @@ export function unavailableRecordingAction(
 }
 
 async function runRecordingAction(
-  method: "saveReplayClip",
+  method: "saveReplayClip" | "stopRecording",
 ): Promise<RecordingActionResult> {
   const client = getSidecarClient()
   if (!client) return unavailableRecordingAction()
@@ -353,7 +357,6 @@ function shouldShowSaveHud(status: RecordingStatus): boolean {
   return (
     status.backend === "ready" &&
     status.mode === "replay-buffer" &&
-    status.focused &&
     status.activeGameDetail !== null
   )
 }

@@ -10,7 +10,8 @@ import { Slider } from "alloy-ui/components/slider"
 import { CheckIcon } from "lucide-react"
 import { type Dispatch, type SetStateAction } from "react"
 
-import { Subsection } from "@/components/routes/settings/desktop-capture-sections"
+import { DESKTOP_RECORDING_BUFFER_STORAGE } from "./desktop-bridge"
+import { Subsection } from "./desktop-capture-sections"
 import {
   asLiteral,
   applyQualitySettings,
@@ -23,9 +24,8 @@ import {
   RESOLUTION_LABELS,
   selectedQualityPreset,
   type QualityPresetOption,
-} from "@/components/routes/settings/desktop-recording-helpers"
-import { SettingRow } from "@/components/routes/settings/setting-row"
-import { DESKTOP_RECORDING_BUFFER_STORAGE } from "@/lib/desktop"
+} from "./desktop-recording-helpers"
+import { SettingRow } from "./setting-row"
 
 export function QualitySection({
   settings,

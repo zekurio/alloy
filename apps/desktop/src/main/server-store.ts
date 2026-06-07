@@ -1,5 +1,5 @@
-import { readFileSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { dirname, join } from "node:path"
 
 import {
   normalizeRecordingSettings,
@@ -23,27 +23,38 @@ import {
  * client config, not a cache.
  */
 const STATE_FILE = "desktop-state.json"
+const LEGACY_USER_DATA_DIR_NAME = "Alloy"
 
-function stateFilePath(): string {
-  return join(app.getPath("userData"), STATE_FILE)
+function stateFilePaths(): string[] {
+  const primary = join(app.getPath("userData"), STATE_FILE)
+  const legacy = join(
+    app.getPath("appData"),
+    LEGACY_USER_DATA_DIR_NAME,
+    STATE_FILE,
+  )
+  return primary === legacy ? [primary] : [primary, legacy]
 }
 
 function readState(): DesktopState {
-  try {
-    const raw = readFileSync(stateFilePath(), "utf8")
-    const parsed: unknown = JSON.parse(raw)
-    if (typeof parsed === "object" && parsed !== null) {
-      return normalizeState(parsed as Record<string, unknown>)
+  for (const path of stateFilePaths()) {
+    try {
+      const raw = readFileSync(path, "utf8")
+      const parsed: unknown = JSON.parse(raw)
+      if (typeof parsed === "object" && parsed !== null) {
+        return normalizeState(parsed as Record<string, unknown>)
+      }
+    } catch {
+      // Missing or corrupt state is expected on first launch — try fallback.
     }
-  } catch {
-    // Missing or corrupt state is expected on first launch — fall through.
   }
   return EMPTY_STATE
 }
 
 function writeState(state: DesktopState): void {
   try {
-    writeFileSync(stateFilePath(), JSON.stringify(state, null, 2), "utf8")
+    const path = stateFilePaths()[0]
+    mkdirSync(dirname(path), { recursive: true })
+    writeFileSync(path, JSON.stringify(state, null, 2), "utf8")
   } catch (error) {
     logger.error("[desktop] failed to persist state:", error)
   }

@@ -677,6 +677,17 @@
         rect_dimensions(&rect)
     }
 
+    unsafe fn c_char_array_to_string(value: *const i8) -> Option<String> {
+        if value.is_null() {
+            return None;
+        }
+        CStr::from_ptr(value)
+            .to_str()
+            .ok()
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+    }
+
     fn rect_dimensions(rect: &RECT) -> Option<VideoDimensions> {
         let width = rect.right.checked_sub(rect.left)?;
         let height = rect.bottom.checked_sub(rect.top)?;

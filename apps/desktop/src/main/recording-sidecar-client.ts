@@ -17,7 +17,12 @@ export interface SidecarConfig {
   obsRuntimeDir: string | null
 }
 
-type SidecarMethod = "configure" | "status" | "saveReplayClip" | "shutdown"
+type SidecarMethod =
+  | "configure"
+  | "status"
+  | "saveReplayClip"
+  | "stopRecording"
+  | "shutdown"
 
 interface SidecarRequest {
   id: number

@@ -85,6 +85,7 @@ export default defineConfig({
       rollupOptions: {
         input: {
           overlay: fromHere("src/renderer/index.html"),
+          desktopSettings: fromHere("src/renderer/desktop-settings.html"),
           recordingHud: fromHere("src/renderer/recording-hud.html"),
         },
       },

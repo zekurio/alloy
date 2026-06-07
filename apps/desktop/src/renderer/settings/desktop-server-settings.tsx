@@ -6,7 +6,7 @@ import { cn } from "alloy-ui/lib/utils"
 import { CheckCircle2Icon, LogInIcon, PlusIcon, Trash2Icon } from "lucide-react"
 import * as React from "react"
 
-import { alloyDesktop, type DesktopSavedServer } from "@/lib/desktop"
+import { alloyDesktop, type DesktopSavedServer } from "./desktop-bridge"
 
 type Phase = "idle" | "loading" | "connecting"
 
@@ -17,7 +17,9 @@ export function DesktopServerSettings() {
   const [url, setUrl] = React.useState("")
   const [phase, setPhase] = React.useState<Phase>("loading")
   const [error, setError] = React.useState<string | null>(null)
-  const currentOrigin = React.useMemo(() => window.location.origin, [])
+  const [currentServerUrl, setCurrentServerUrl] = React.useState<string | null>(
+    null,
+  )
 
   React.useEffect(() => {
     let cancelled = false
@@ -26,9 +28,13 @@ export function DesktopServerSettings() {
       if (!serverApi) return
       setPhase("loading")
       try {
-        const savedServers = await serverApi.getServers()
+        const [savedServers, currentServer] = await Promise.all([
+          serverApi.getServers(),
+          serverApi.getCurrentServer(),
+        ])
         if (cancelled) return
         setServers(savedServers)
+        setCurrentServerUrl(currentServer)
         setError(null)
       } catch (cause) {
         if (!cancelled) setError(errorText(cause, "Couldn't load servers."))
@@ -58,7 +64,17 @@ export function DesktopServerSettings() {
       if (!result.ok) {
         setError(result.error)
         setPhase("idle")
+        return
       }
+
+      const [savedServers, currentServer] = await Promise.all([
+        activeServerApi.getServers(),
+        activeServerApi.getCurrentServer(),
+      ])
+      setServers(savedServers)
+      setCurrentServerUrl(currentServer ?? result.serverUrl)
+      setUrl("")
+      setPhase("idle")
     } catch (cause) {
       setError(errorText(cause, "Couldn't connect to server."))
       setPhase("idle")
@@ -116,7 +132,9 @@ export function DesktopServerSettings() {
           </div>
         ) : servers.length > 0 ? (
           servers.map((server) => {
-            const current = sameOrigin(server.serverUrl, currentOrigin)
+            const current =
+              currentServerUrl !== null &&
+              sameOrigin(server.serverUrl, currentServerUrl)
             return (
               <div
                 key={server.serverUrl}

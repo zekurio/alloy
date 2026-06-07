@@ -8,7 +8,7 @@ import type {
 import { toast } from "alloy-ui/lib/toast"
 import * as React from "react"
 
-import { alloyDesktop } from "@/lib/desktop"
+import { alloyDesktop } from "./desktop-bridge"
 
 type Phase = "loading" | "idle"
 type RecordingAction = "saveReplayClip"

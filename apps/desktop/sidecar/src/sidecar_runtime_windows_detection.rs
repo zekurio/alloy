@@ -4,8 +4,8 @@
     };
     use std::{
         collections::{HashMap, HashSet},
-        ffi::c_void,
-        mem::size_of,
+        ffi::{c_void, CStr},
+        mem::{size_of, zeroed},
         path::Path,
         ptr,
     };
@@ -14,7 +14,8 @@
         Foundation::{CloseHandle, HGLOBAL, HWND, LPARAM, POINT, RECT, STILL_ACTIVE},
         Graphics::{
             Gdi::{
-                GetMonitorInfoW, MonitorFromPoint, MonitorFromWindow, MONITORINFO,
+                EnumDisplayDevicesA, GetMonitorInfoA, GetMonitorInfoW, MonitorFromPoint,
+                MonitorFromWindow, DISPLAY_DEVICEA, MONITORINFO, MONITORINFOEXA,
                 MONITOR_DEFAULTTONEAREST, MONITOR_DEFAULTTOPRIMARY,
             },
             GdiPlus::{
@@ -44,7 +45,8 @@
             WindowsAndMessaging::{
                 DestroyIcon, EnumWindows, GetClassNameW, GetForegroundWindow, GetShellWindow,
                 GetWindowLongPtrW, GetWindowRect, GetWindowTextW, GetWindowThreadProcessId,
-                IsWindow, IsWindowVisible, HICON, GWL_EXSTYLE, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
+                IsWindow, IsWindowVisible, EDD_GET_DEVICE_INTERFACE_NAME, HICON, GWL_EXSTYLE,
+                WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
             },
         },
     };
@@ -139,6 +141,35 @@
                 return None;
             }
             rect_dimensions(&monitor_info.rcMonitor)
+        }
+    }
+
+    pub fn primary_display_id() -> Option<String> {
+        unsafe {
+            let monitor = MonitorFromPoint(POINT { x: 0, y: 0 }, MONITOR_DEFAULTTOPRIMARY);
+            if monitor.is_null() {
+                return None;
+            }
+
+            let mut monitor_info: MONITORINFOEXA = zeroed();
+            monitor_info.monitorInfo.cbSize = size_of::<MONITORINFOEXA>() as u32;
+            if GetMonitorInfoA(monitor, &mut monitor_info as *mut MONITORINFOEXA as *mut _) == 0 {
+                return None;
+            }
+
+            let mut device: DISPLAY_DEVICEA = zeroed();
+            device.cb = size_of::<DISPLAY_DEVICEA>() as u32;
+            if EnumDisplayDevicesA(
+                monitor_info.szDevice.as_ptr().cast(),
+                0,
+                &mut device,
+                EDD_GET_DEVICE_INTERFACE_NAME,
+            ) == 0
+            {
+                return c_char_array_to_string(monitor_info.szDevice.as_ptr());
+            }
+
+            c_char_array_to_string(device.DeviceID.as_ptr())
         }
     }
 

@@ -1,17 +1,11 @@
 import { Spinner } from "alloy-ui/components/spinner"
 
-import { EncodingSettingsGrid } from "@/components/routes/settings/desktop-capture-encoding"
-import { HotkeysSection } from "@/components/routes/settings/desktop-capture-hotkeys"
-import {
-  QualitySection,
-  ReplayBufferSection,
-} from "@/components/routes/settings/desktop-capture-quality"
-import {
-  ModeSection,
-  Subsection,
-} from "@/components/routes/settings/desktop-capture-sections"
-import { useDesktopRecording } from "@/components/routes/settings/desktop-recording-context"
-import { DesktopStorageSettings } from "@/components/routes/settings/desktop-storage-settings"
+import { EncodingSettingsGrid } from "./desktop-capture-encoding"
+import { HotkeysSection } from "./desktop-capture-hotkeys"
+import { QualitySection, ReplayBufferSection } from "./desktop-capture-quality"
+import { ModeSection, Subsection } from "./desktop-capture-sections"
+import { useDesktopRecording } from "./desktop-recording-context"
+import { DesktopStorageSettings } from "./desktop-storage-settings"
 
 export function DesktopCaptureSettings() {
   const { settings, status, busy, setSettings, save } = useDesktopRecording()
@@ -27,8 +21,8 @@ export function DesktopCaptureSettings() {
 
   const backendReady = status.backend === "ready"
   const recordingActive = status.mode !== "idle"
-  const settingsDisabled = busy || !backendReady || recordingActive
-  const captureToggleDisabled = busy || recordingActive
+  const settingsDisabled = busy || !backendReady
+  const captureToggleDisabled = busy || !backendReady
 
   return (
     <div className="flex flex-col gap-6">
@@ -72,7 +66,7 @@ export function DesktopCaptureSettings() {
       <hr className="border-border" />
 
       <Subsection title="Storage">
-        <DesktopStorageSettings />
+        <DesktopStorageSettings disabled={recordingActive} />
       </Subsection>
     </div>
   )

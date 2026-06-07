@@ -55,6 +55,49 @@ mod detection_tests {
     }
 
     #[test]
+    fn rejects_codex_even_when_fullscreen() {
+        let classification = classify_game_candidate(
+            Some(r"C:\Users\zekurio\AppData\Local\Programs\Codex\Codex.exe"),
+            Some("Codex.exe"),
+            Some("Codex"),
+            Some("Chrome_WidgetWin_1"),
+            true,
+            hd_window(),
+        );
+
+        assert!(classification.is_none());
+    }
+
+    #[test]
+    fn rejects_unknown_fullscreen_apps_without_game_markers() {
+        let classification = classify_game_candidate(
+            Some(r"C:\Tools\BigApp\BigApp.exe"),
+            Some("BigApp.exe"),
+            Some("Big App"),
+            Some("BigAppWindow"),
+            true,
+            hd_window(),
+        );
+
+        assert!(classification.is_none());
+    }
+
+    #[test]
+    fn classifies_fullscreen_game_install_paths() {
+        let classification = classify_game_candidate(
+            Some(r"C:\Games\ExampleGame\Binaries\Win64\Example.exe"),
+            Some("Example.exe"),
+            Some("Example"),
+            Some("ExampleWindow"),
+            true,
+            hd_window(),
+        )
+        .expect("fullscreen game install path should classify");
+
+        assert_eq!(classification.score, 55);
+    }
+
+    #[test]
     fn rejects_launcher_and_splash_windows() {
         let classification = classify_game_candidate(
             Some(r"C:\Games\Example\ExampleLauncher.exe"),

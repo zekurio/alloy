@@ -13,7 +13,7 @@ import {
 } from "lucide-react"
 import { type ReactNode } from "react"
 
-import { SettingRow } from "@/components/routes/settings/setting-row"
+import { SettingRow } from "./setting-row"
 
 const MODE_OPTIONS: Array<{
   id: RecordingTriggerMode
