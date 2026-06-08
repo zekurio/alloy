@@ -84,10 +84,11 @@ system OBS install.
 
 ## Release
 
-Desktop releases use `packages/desktop/package.json` for the app version and
-tags named `desktop-vX.Y.Z`. The workflow publishes the unsigned Windows NSIS
-installer, blockmap, updater metadata, and checksums from
-`packages/desktop/release`.
+Desktop ships with the primary Alloy app release under tags named `vX.Y.Z`.
+The release preparation workflow updates `packages/desktop/package.json`
+together with the root package version so the Electron installer matches the web
+and server release it is built against.
 
-Desktop releases do not publish server images, ML images, or recorder-only
-runtime artifacts.
+The unified release workflow publishes the unsigned Windows NSIS installer,
+blockmap, updater metadata, and checksums from `packages/desktop/release`
+alongside the server and machine-learning images.

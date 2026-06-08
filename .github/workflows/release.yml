@@ -16,7 +16,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: release-${{ github.ref_name }}
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 env:
@@ -25,8 +25,14 @@ env:
 
 jobs:
   release:
-    name: Publish release
+    name: Build and publish images
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+      is_prerelease: ${{ steps.meta.outputs.is_prerelease }}
+      make_latest: ${{ steps.meta.outputs.make_latest }}
+      target_sha: ${{ steps.release_target.outputs.sha }}
 
     steps:
       - name: Checkout release tag
@@ -158,12 +164,164 @@ jobs:
             type=raw,value=${{ steps.meta.outputs.tag }}
             type=raw,value=latest,enable=${{ steps.meta.outputs.make_latest == 'true' }}
 
+  desktop:
+    name: Build Windows desktop installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Resolve release version
+        id: meta
+        shell: bash
+        run: |
+          raw="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          version="${raw#v}"
+
+          if [[ "$raw" != v* ]]; then
+            echo "Release refs must be v-prefixed tags." >&2
+            exit 1
+          fi
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            echo "Invalid release version: $raw" >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure tag points at main
+        shell: bash
+        run: |
+          git fetch origin "+refs/heads/main:refs/remotes/origin/main"
+          release_commit="$(git rev-list -n 1 "${{ steps.meta.outputs.tag }}")"
+
+          if ! git merge-base --is-ancestor "$release_commit" origin/main; then
+            echo "Release tag ${{ steps.meta.outputs.tag }} must point at a commit on main." >&2
+            exit 1
+          fi
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.4.0
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Validate desktop package version matches release
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          actual="$(node -e 'const fs = require("node:fs"); console.log(JSON.parse(fs.readFileSync("packages/desktop/package.json", "utf8")).version);')"
+
+          if [[ "$actual" != "$RELEASE_VERSION" ]]; then
+            echo "packages/desktop/package.json version $actual does not match release $RELEASE_VERSION." >&2
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: Stage OBS runtime
+        shell: pwsh
+        env:
+          OBS_STUDIO_VERSION: 32.1.2
+        run: |
+          $ErrorActionPreference = "Stop"
+          $archive = Join-Path $env:RUNNER_TEMP "obs-studio.zip"
+          $runtimeDir = Join-Path $env:RUNNER_TEMP "obs-runtime"
+          $downloadUrl = "https://github.com/obsproject/obs-studio/releases/download/$env:OBS_STUDIO_VERSION/OBS-Studio-$env:OBS_STUDIO_VERSION-Windows-x64.zip"
+
+          Invoke-WebRequest -Uri $downloadUrl -OutFile $archive
+
+          if (Test-Path $runtimeDir) {
+            Remove-Item -LiteralPath $runtimeDir -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $runtimeDir | Out-Null
+          Expand-Archive -Path $archive -DestinationPath $runtimeDir
+
+          $obsDll = Join-Path $runtimeDir "bin\64bit\obs.dll"
+          if (!(Test-Path $obsDll)) {
+            Write-Error "Downloaded OBS runtime is invalid; missing $obsDll."
+          }
+
+          "ALLOY_OBS_RUNTIME_DIR=$runtimeDir" >> $env:GITHUB_ENV
+          "ALLOY_REQUIRE_OBS_RUNTIME=1" >> $env:GITHUB_ENV
+
+      - name: Build Windows desktop installer
+        env:
+          NODE_ENV: production
+        run: corepack pnpm --filter alloy-desktop dist:win:installer
+
+      - name: Generate desktop checksums
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $releaseDir = "packages/desktop/release"
+          $patterns = @("*.exe", "*.blockmap", "*.yml")
+          $files = foreach ($pattern in $patterns) {
+            Get-ChildItem -LiteralPath $releaseDir -Filter $pattern -File
+          }
+
+          if (-not ($files | Where-Object { $_.Extension -eq ".exe" })) {
+            Write-Error "No Windows installer was produced in $releaseDir."
+          }
+
+          $files |
+            Sort-Object Name |
+            ForEach-Object {
+              $hash = Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256
+              "$($hash.Hash.ToLowerInvariant())  $($_.Name)"
+            } |
+            Set-Content -LiteralPath (Join-Path $releaseDir "checksums.txt") -Encoding ascii
+
+      - name: Upload desktop release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-release-assets
+          path: |
+            packages/desktop/release/*.exe
+            packages/desktop/release/*.blockmap
+            packages/desktop/release/*.yml
+            packages/desktop/release/checksums.txt
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub release
+    runs-on: ubuntu-latest
+    needs:
+      - release
+      - desktop
+
+    steps:
+      - name: Download desktop release assets
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-release-assets
+          path: desktop-release-assets
+
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ steps.meta.outputs.tag }}
-          target_commitish: ${{ steps.release_target.outputs.sha }}
-          name: Alloy ${{ steps.meta.outputs.tag }}
+          tag_name: ${{ needs.release.outputs.tag }}
+          target_commitish: ${{ needs.release.outputs.target_sha }}
+          name: Alloy ${{ needs.release.outputs.tag }}
           generate_release_notes: true
-          prerelease: ${{ steps.meta.outputs.is_prerelease }}
-          make_latest: ${{ steps.meta.outputs.make_latest }}
+          prerelease: ${{ needs.release.outputs.is_prerelease }}
+          make_latest: ${{ needs.release.outputs.make_latest }}
+          files: |
+            desktop-release-assets/*.exe
+            desktop-release-assets/*.blockmap
+            desktop-release-assets/*.yml
+            desktop-release-assets/checksums.txt
+          fail_on_unmatched_files: true
