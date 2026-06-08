@@ -1,0 +1,12 @@
+{
+  "name": "alloy-recorder",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Alloy desktop recording sidecar",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:release": "node scripts/build.mjs --require-obs-runtime",
+    "test": "cargo test --manifest-path Cargo.toml"
+  }
+}

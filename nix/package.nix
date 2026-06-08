@@ -54,7 +54,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     runHook preInstall
 
     mkdir -p "$out/bin" "$out/share/alloy/server/node_modules" "$out/share/alloy/web"
-    cp -R apps/server/dist apps/server/package.json "$out/share/alloy/server/"
+    cp -R packages/server/dist packages/server/package.json "$out/share/alloy/server/"
     cp -R node_modules/.pnpm "$out/share/alloy/server/node_modules/.pnpm"
     rm -rf \
       "$out/share/alloy/server/node_modules/.pnpm/node_modules/@workspace" \
@@ -62,7 +62,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
     linkNodeModule() {
       local name="$1"
-      local src="apps/server/node_modules/$name"
+      local src="packages/server/node_modules/$name"
       local dest="$out/share/alloy/server/node_modules/$name"
       local target
       target="$(readlink "$src")"
@@ -84,7 +84,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
       linkNodeModule "$name"
     done
 
-    cp -R apps/web/dist/* "$out/share/alloy/web/"
+    cp -R packages/web/dist/* "$out/share/alloy/web/"
     cp -R packages/db/drizzle "$out/share/alloy/migrations"
 
     makeWrapper "${nodejs_24}/bin/node" "$out/bin/alloy" \

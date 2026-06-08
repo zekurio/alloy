@@ -1,23 +1,55 @@
 # Alloy Machine Learning
 
-This is the runtime inference service for Alloy, structured after Immich's
-`machine-learning/` service: a top-level Python service, a package directory,
-gunicorn/uvicorn entrypoint, Dockerfile, and a healthcheck script.
+Optional Python inference service for Alloy. Today it provides advisory game
+classification for uploaded clips; predictions are suggestions, not an automatic
+source of truth for `clip.gameId`.
 
-The first model is a game classifier. Its output is intentionally advisory:
-Alloy should present predictions as user-selectable game suggestions, not as an
-automatic source of truth for `clip.gameId`.
+The service is intentionally separate from the Node server so it can have its
+own Python dependency graph, runtime cache, workers, device selection, and
+container image.
 
 ## Layout
 
 ```text
 machine-learning/
-  alloy_ml/              Python package for the HTTP service
-    models/              Model loading and inference code
-  scripts/healthcheck.py Container healthcheck
-  Dockerfile             `alloy-machine-learning` image
-  pyproject.toml         Python dependencies and package metadata
+  alloy_ml/                 Python package for the HTTP service
+    main.py                 FastAPI app and route handlers
+    config.py               environment parsing
+    schemas.py              request/response models
+    models/                 model registry and classifier implementation
+  scripts/healthcheck.py    container healthcheck
+  Dockerfile                alloy-machine-learning image
+  pyproject.toml            uv project metadata and dependencies
+  uv.lock                   locked Python dependencies
 ```
+
+## Commands
+
+From `machine-learning/`:
+
+```bash
+uv sync --extra cpu
+uv run python -m alloy_ml
+uv run python scripts/healthcheck.py
+```
+
+From the repository root:
+
+```bash
+pnpm dev:ml
+```
+
+`pnpm dev:ml` starts the server, web app, and ML service. It keeps runtime model
+data in `data/ml`. Use `MACHINE_LEARNING_UV_SYNC=0 pnpm dev:ml` after the first
+sync if you want to restart without re-running `uv sync`.
+
+Build the CPU container image:
+
+```bash
+docker build -t alloy-machine-learning:local machine-learning
+```
+
+The release workflow publishes `ghcr.io/zekurio/alloy-machine-learning`.
 
 ## Runtime Contract
 
@@ -27,16 +59,16 @@ Returns `pong` when the HTTP process is alive.
 
 `GET /health`
 
-Returns service readiness metadata, including whether the configured classifier
-checkpoint has already been cached locally.
+Returns readiness metadata, including whether the configured classifier
+checkpoint is cached locally.
 
 `POST /predict`
 
-Multipart form endpoint. Send JPEG or PNG frames using the repeated `frames`
-field. Optional form fields: `model_name`, `model_version`, `repo_id`,
-`filename`, `revision`, and `checkpoint_path`.
+Multipart form endpoint. Send JPEG or PNG frames using repeated `frames` fields.
+Optional fields: `model_name`, `model_version`, `repo_id`, `filename`,
+`revision`, and `checkpoint_path`.
 
-The response is ranked, confidence-scored, and marked advisory:
+The response is ranked, confidence-scored, and advisory:
 
 ```json
 {
@@ -56,8 +88,6 @@ explicit server-to-server path.
 
 ## Configuration
 
-Environment variables:
-
 | Variable                                           | Default                                    | Description                                         |
 | -------------------------------------------------- | ------------------------------------------ | --------------------------------------------------- |
 | `ALLOY_ML_HOST`                                    | `0.0.0.0`                                  | Bind host                                           |
@@ -67,54 +97,37 @@ Environment variables:
 | `MACHINE_LEARNING_GAME_CLASSIFIER_REPO_ID`         | `zekurio/alloy-clipnet-b2-v1`              | Hugging Face model repo                             |
 | `MACHINE_LEARNING_GAME_CLASSIFIER_FILENAME`        | `alloy-clipnet-b2-v1.pt`                   | Checkpoint file inside the Hugging Face repo        |
 | `MACHINE_LEARNING_GAME_CLASSIFIER_REVISION`        | `05b8d2af2b704a21366e58e9fd6bef5cef2847cb` | Hugging Face revision, tag, branch, or commit       |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_CHECKPOINT`      | unset                                      | Optional local checkpoint override for development  |
+| `MACHINE_LEARNING_GAME_CLASSIFIER_CHECKPOINT`      | unset                                      | Optional local checkpoint override                  |
 | `MACHINE_LEARNING_GAME_CLASSIFIER_NAME`            | `alloy-game-classifier`                    | Response model name                                 |
 | `MACHINE_LEARNING_GAME_CLASSIFIER_VERSION`         | `alloy-clipnet-b2-v1`                      | Response model version                              |
-| `MACHINE_LEARNING_GAME_CLASSIFIER_TOP_K`           | `5`                                        | Number of ranked predictions to return              |
+| `MACHINE_LEARNING_GAME_CLASSIFIER_TOP_K`           | `5`                                        | Number of ranked predictions                        |
 | `MACHINE_LEARNING_GAME_CLASSIFIER_MAX_FRAMES`      | `16`                                       | Maximum direct-service frame count per request      |
 | `MACHINE_LEARNING_GAME_CLASSIFIER_MAX_FRAME_BYTES` | `1048576`                                  | Maximum direct-service bytes per frame              |
-| `MACHINE_LEARNING_PRELOAD_GAME_CLASSIFIER`         | `false`                                    | Download and load the classifier at service startup |
+| `MACHINE_LEARNING_PRELOAD_GAME_CLASSIFIER`         | `false`                                    | Download and load the classifier at startup         |
 | `MACHINE_LEARNING_DEVICE`                          | `auto`                                     | `auto`, `cpu`, `cuda`, or `mps`                     |
 | `MACHINE_LEARNING_WORKERS`                         | `1`                                        | Gunicorn worker count                               |
 | `MACHINE_LEARNING_REQUEST_THREADS`                 | host CPU count                             | Thread pool size for blocking decode/inference work |
 | `HF_TOKEN`                                         | unset                                      | Optional Hugging Face token for private model repos |
 
-## Local Run
-
-Install with uv directly:
-
-```bash
-cd machine-learning
-uv sync --extra cpu
-MACHINE_LEARNING_CACHE_FOLDER=../data/ml uv run python -m alloy_ml
-```
-
-From the repository root, the equivalent first-class dev command is:
-
-```bash
-pnpm dev:ml
-```
-
-It mirrors the direct command above and keeps ML runtime data in `data/ml`. Use
-`ALLOY_ML_PORT` to change the local port, and use
-`MACHINE_LEARNING_UV_SYNC=0 pnpm dev:ml` after the first sync if you only want to
-restart the service.
-
-The checked-in Dockerfile currently targets CPU inference. CUDA/ROCm images can
-be added as separate device variants later, following Immich's pattern.
+## Model Cache
 
 The checkpoint is downloaded lazily by `huggingface_hub` on first classifier
-load and reused from the Immich-style path
-`MACHINE_LEARNING_CACHE_FOLDER/game-classification/<model>__<revision>/classifier/model.pt`
-afterward. The adjacent `source.json` records the Hugging Face repo, filename,
-and revision; if that source changes, Alloy clears and redownloads the model
-folder. Set `MACHINE_LEARNING_PRELOAD_GAME_CLASSIFIER=true` to download and load
-it during service startup. The Docker image intentionally does not bake the
-checkpoint.
+load. It is reused from:
 
-The app server can also pass a classifier model reference per request. This is
-how Alloy's runtime config makes the model adjustable without restarting the ML
-service: the registry keeps one in-memory classifier per repo/revision/filename
-or local checkpoint path. A `MACHINE_LEARNING_*` environment variable still sets
-the direct-service default, and the server-side runtime config controls what
-normal upload suggestions use.
+```text
+MACHINE_LEARNING_CACHE_FOLDER/game-classification/<model>__<revision>/classifier/model.pt
+```
+
+The adjacent `source.json` records repo, filename, and revision. If that source
+changes, Alloy clears and redownloads the model folder.
+
+The Docker image intentionally does not bake a checkpoint. Set
+`MACHINE_LEARNING_PRELOAD_GAME_CLASSIFIER=true` if you want startup to download
+and load the configured model before the first request.
+
+## Server Integration
+
+The Node server can pass a classifier model reference per request. That lets
+Alloy runtime config adjust the model without restarting the ML service. The
+registry keeps one in-memory classifier per repo/revision/filename or local
+checkpoint path. Environment variables define the direct-service default.

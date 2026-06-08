@@ -42,7 +42,7 @@ in
     # NixOS-patched Electron for the desktop app. The npm `electron` package is
     # kept only for its TypeScript types (its prebuilt binary can't run on NixOS
     # without an FHS shim), so the runtime comes from here instead. Major must
-    # track the npm `electron` devDependency in apps/desktop.
+    # track the npm `electron` devDependency in packages/desktop.
     electron_42
   ] ++ nativeLibs;
 

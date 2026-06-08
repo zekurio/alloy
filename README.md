@@ -1,71 +1,108 @@
-# alloy
+# Alloy
 
-Alloy is an open-source, self-hostable alternative to Medal.tv, without
-recording (coming soon?).
+Alloy is an open-source, self-hostable alternative to Medal.tv. It is still an
+early WIP, with the strongest focus on predictable behavior, failure handling,
+performance, and maintainable boundaries between deployable pieces.
 
-> **AI Disclaimer & Warning:** This is a personal project developed in my free
-> time. I use AI to assist with development. I do my best to follow best
-> practices and keep the code maintainable.
+## Repository Guide
 
-## Install
+All TypeScript packages live under `packages/`. Deployable products and shared
+libraries are both treated as packages so the workspace graph stays explicit.
 
-### Release Channels
+| Path                 | Role                                                                                                                                    |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/server`    | Hono API server for auth, clips, uploads, playback, feeds, search, notifications, admin, storage, encoding jobs, and web asset serving. |
+| `packages/web`       | React/TanStack web app served by the server in production and by Vite during local development.                                         |
+| `packages/desktop`   | Electron desktop shell that connects to a self-hosted Alloy server and controls local recording.                                        |
+| `packages/recorder`  | Rust recording sidecar built as `alloy-recorder`; used by desktop and released independently.                                           |
+| `packages/api`       | Typed client helpers and runtime validators for browser and desktop clients calling the server API.                                     |
+| `packages/contracts` | Shared TypeScript contracts used across the server, web app, desktop app, and recorder-facing flows.                                    |
+| `packages/db`        | Drizzle schema, migrations, database contracts, and migration helpers.                                                                  |
+| `packages/ui`        | Shared React UI components, hooks, styles, and design utilities.                                                                        |
+| `packages/logging`   | Tiny shared logging facade.                                                                                                             |
+| `machine-learning`   | Optional Python inference service for advisory game classification.                                                                     |
+| `nix`                | Nix package, NixOS module, and Nix-built OCI image definitions.                                                                         |
 
-Alloy treats `main` as the stable, release-ready branch. Unpinned Nix users who
-track `github:zekurio/alloy` get the latest release-ready commit. For
-reproducible deployments, pin a release tag instead.
+## Local Development
 
-- Stable branch: `main`
-- Exact release tags: `vX.Y.Z`
-- Stable container image: `ghcr.io/zekurio/alloy:latest`
-- Exact container image: `ghcr.io/zekurio/alloy:vX.Y.Z`
-- Desktop release tags: `desktop-vX.Y.Z`
-- Dev branch and image: `dev`
-- Nightly container image: `nightly`
+Install Node 24, pnpm 11, Docker or Podman for local Postgres, and `uv` if you
+run the ML service. Then install dependencies:
 
-The `dev` branch is for integration testing before a release PR is merged to
-`main`. It is intentionally opt-in and can change ahead of the stable channel.
-The nightly container image is built from `dev`.
+```bash
+pnpm install
+```
+
+Start a local Postgres:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d postgres
+```
+
+Start the default dev loop:
+
+```bash
+pnpm dev
+```
+
+Useful root commands:
+
+```bash
+pnpm dev:server       # server only
+pnpm dev:web          # web only
+pnpm dev:ml           # server + web + machine-learning
+pnpm dev:desktop      # server + web + desktop
+pnpm dev:all          # server + web + machine-learning + desktop
+pnpm recorder:build   # build the Rust recorder sidecar
+```
+
+Nix users can use `devenv` instead of manually installing local tooling:
+
+```bash
+nix profile install nixpkgs#devenv nixpkgs#direnv
+direnv allow
+pnpm install
+pnpm dev
+```
+
+Stop the devenv-managed Postgres instance with:
+
+```bash
+alloy-postgres-stop
+```
+
+## Checks
+
+Before considering a code change complete:
+
+```bash
+pnpm fmt
+pnpm lint
+pnpm typecheck
+```
+
+For Rust recorder changes, also run:
+
+```bash
+pnpm --filter alloy-recorder test
+```
+
+For Nix package or container changes, run the relevant Nix checks:
+
+```bash
+nix --extra-experimental-features "nix-command flakes" flake check --no-build
+nix --extra-experimental-features "nix-command flakes" build .#alloy --no-link
+nix --extra-experimental-features "nix-command flakes" build .#alloy-image --no-link
+```
+
+## Deployment
 
 ### NixOS
 
-The NixOS module is the preferred deployment path today. To follow the latest
-release-ready commit, add Alloy as a flake input:
+The NixOS module is the preferred deployment path today.
 
 ```nix
 inputs.alloy.url = "github:zekurio/alloy";
 ```
-
-For a reproducible deployment, pin a release tag:
-
-```nix
-inputs.alloy.url = "github:zekurio/alloy/vX.Y.Z";
-```
-
-To test unreleased changes, opt into dev explicitly:
-
-```nix
-inputs.alloy.url = "github:zekurio/alloy/dev";
-```
-
-Alloy deliberately builds against its own pinned `nixpkgs` from `flake.lock`.
-The package build uses the pinned Node/pnpm toolchain and lockfile, so build
-inputs should be bumped together with `flake.lock` and `pnpm-lock.yaml`.
-
-Alloy publishes a [Cachix](https://www.cachix.org/) binary cache. The flake does
-not configure it automatically, so opt in explicitly if you want prebuilt
-artifacts:
-
-```nix
-nix.settings = {
-  substituters = [ "https://zekurio.cachix.org" ];
-  trusted-public-keys = [
-    "zekurio.cachix.org-1:QfL4gb2uCVEmSOOx4fLGDpygY1ycH5oUS1nteYTAgHc="
-  ];
-};
-```
-
-Then import the module:
 
 ```nix
 {
@@ -79,33 +116,31 @@ Then import the module:
 }
 ```
 
-The module manages the Alloy service, PostgreSQL database, persistent state,
-encoder cache, filesystem storage, production migrations, and the optional
-machine learning service. By default it uses:
+For reproducible deployments, pin a release tag:
 
-- `/var/lib/alloy` for runtime config and storage.
-- `/var/cache/alloy` for encoder and ML cache data.
-- `services.postgresql` for the local database.
+```nix
+inputs.alloy.url = "github:zekurio/alloy/vX.Y.Z";
+```
 
-`publicServerUrl` must be the externally reachable origin in production. Alloy
-rejects localhost or loopback production URLs so OAuth callbacks, WebAuthn,
-media URLs, CORS, and secure cookies use the deployment host.
+Optional Cachix cache:
+
+```nix
+nix.settings = {
+  substituters = [ "https://zekurio.cachix.org" ];
+  trusted-public-keys = [
+    "zekurio.cachix.org-1:QfL4gb2uCVEmSOOx4fLGDpygY1ycH5oUS1nteYTAgHc="
+  ];
+};
+```
 
 ### Docker
 
-The server container image is built with Nix (`dockerTools`) and published to
-`ghcr.io/zekurio/alloy`. Docker support exists, but is less polished than the
-NixOS module: you must provide PostgreSQL yourself, persist the mutable
-directories, and configure production URLs explicitly. Use `latest` for the
-stable channel, `vX.Y.Z` for an exact release, or `dev` only when testing
-unreleased changes.
-
-Example:
+Docker support exists, but is less polished than the NixOS module. Bring your
+own PostgreSQL and persist the mutable directories.
 
 ```bash
 docker run --rm \
   -p 2552:2552 \
-  -e NODE_ENV=production \
   -e DATABASE_URL=postgres://alloy:password@postgres:5432/alloy \
   -e PUBLIC_SERVER_URL=https://alloy.example.com \
   -e TRUSTED_ORIGINS=https://alloy.example.com \
@@ -115,199 +150,60 @@ docker run --rm \
   ghcr.io/zekurio/alloy:latest
 ```
 
-The image defaults to:
+Image tags:
 
-- `ALLOY_CONFIG_FILE=/config/runtime-config.json`
-- `ALLOY_STORAGE_DIR=/data/storage`
-- `ENCODE_SCRATCH_DIR=/cache/encode`
-- `PORT=2552`
+- `latest`: latest stable server release.
+- `vX.Y.Z`: exact server release.
+- `main`: manually published image from the main branch.
+- `nightly`: scheduled image from the main branch.
 
-To build and load the image locally:
+## Desktop Builds
 
-```bash
-nix build .#alloy-image
-./result | docker load
-```
-
-## Develop
-
-Development is split into two layers:
-
-- `pnpm` runs the Alloy dev processes: API server, web app, desktop app, and
-  machine learning service.
-- Docker or [devenv](https://devenv.sh/) provides infrastructure. Docker is the
-  portable path for non-Nix and Windows users. devenv is the Nix path and
-  provides Node 24, pnpm, Python/uv, native libraries, desktop tooling, and
-  Postgres.
-
-### Docker + pnpm
-
-Install Node 24, pnpm 11, Docker, and uv. Then start the dev Postgres service:
+Alloy Desktop currently targets Windows x64. Desktop builds bundle the recorder
+artifact from `packages/recorder/dist` as a fallback runtime.
 
 ```bash
-docker compose -f docker-compose.dev.yml up -d postgres
+pnpm desktop:build
+pnpm desktop:dist:win
+pnpm desktop:dist:win:installer
 ```
 
-The compose file publishes Postgres on a random localhost port so it does not
-reserve `5432`. The pnpm dev runner detects that port automatically when
-`DATABASE_URL` is not already set.
+Windows distribution builds require `ALLOY_OBS_RUNTIME_DIR` to point at an OBS
+Studio runtime root, or its `bin` / `bin/64bit` directory. Release builds fail
+unless the staged runtime contains `obs.dll`.
 
-Install dependencies and start the full dev loop:
+## Releases
 
-```bash
-pnpm install
-pnpm dev
-```
+All primary release streams are intentionally separate:
 
-### devenv + pnpm
+- Server tags: `vX.Y.Z`
+- Desktop tags: `desktop-vX.Y.Z`
+- Recorder tags: `recorder-vX.Y.Z`
 
-Install `devenv` and [direnv](https://direnv.net/) first; `devenv` must be
-available on `PATH` before `direnv allow` can load this repo's `.envrc`.
+Feature and fix PRs target `main`. Release preparation workflows run checks,
+commit the version bump, and push the prepared release back to `main`.
+Publishing happens from tags on `main`.
 
-One Nix-based install path:
+The server release publishes the Nix-built server image. The desktop release
+publishes the Windows installer, updater metadata, blockmap, and checksums. The
+recorder release publishes the sidecar runtime artifact and checksums for
+desktop runtime updates.
 
-```bash
-nix profile install nixpkgs#devenv nixpkgs#direnv
-```
+## Package READMEs
 
-After both tools are installed, allow the environment:
+Each package has a README with local commands and package-specific notes:
 
-```bash
-direnv allow
-```
+- `packages/api/README.md`
+- `packages/contracts/README.md`
+- `packages/db/README.md`
+- `packages/desktop/README.md`
+- `packages/logging/README.md`
+- `packages/recorder/README.md`
+- `packages/server/README.md`
+- `packages/ui/README.md`
+- `packages/web/README.md`
+- `machine-learning/README.md`
 
-You can also enter it manually:
+## License
 
-```bash
-devenv shell
-```
-
-The devenv shell provides Node 24, pnpm, uv, Python 3.11, PostgreSQL 17 client
-tools, ffmpeg, ImageMagick, native runtime libraries, and Electron for NixOS.
-On shell entry it starts or reuses a repo-local Postgres instance, binds it to a
-random localhost port, and exports `DATABASE_URL`/`DRIZZLE_DATABASE_URL` for the
-current shell. A file lock prevents multiple shells from starting multiple
-Postgres instances, and a PID marker makes stale state detectable. It pins
-`nixpkgs` through `devenv.lock`; keep that in sync with `flake.lock` so local
-tooling stays aligned with packaging.
-
-Stop the devenv-managed Postgres instance when you want to tear it down:
-
-```bash
-alloy-postgres-stop
-```
-
-Install pnpm dependencies:
-
-```bash
-pnpm install
-```
-
-Start the full dev loop:
-
-```bash
-pnpm dev
-```
-
-This command:
-
-1. Uses `DATABASE_URL` from the current environment, or the detected Docker
-   Postgres port.
-2. Applies the dev schema with `pnpm db:push`.
-3. Starts the API server, Vite web app, and ML service.
-
-Open http://localhost:5173.
-
-The Electron desktop shell is opt-in during development:
-
-```bash
-pnpm dev:desktop
-```
-
-To run every dev process together, including ML and Electron:
-
-```bash
-pnpm dev:all
-```
-
-Individual process commands are also available:
-
-```bash
-pnpm dev:server
-pnpm dev:web
-pnpm dev:ml
-```
-
-Build desktop app artifacts:
-
-```bash
-pnpm desktop:dist:linux # AppImage, deb, and tar.gz
-pnpm desktop:dist:win   # Windows unpacked app
-pnpm desktop:dist:win:installer # Windows NSIS installer
-pnpm desktop:dist:all
-```
-
-Windows desktop distribution builds require `ALLOY_OBS_RUNTIME_DIR` to point at
-an OBS Studio runtime root, or to its `bin` or `bin/64bit` directory. The build
-fails unless the staged runtime contains `obs.dll`; normal desktop development
-can still fall back to a system OBS install.
-
-Before considering a change complete, run:
-
-```bash
-pnpm fmt
-pnpm lint
-pnpm typecheck
-```
-
-## Contributing
-
-Contributions are being accepted. CI runs lightweight formatting, lint, and
-typecheck checks for pull requests and pushes to `dev` and `main`.
-
-## Releasing
-
-Feature and fix PRs should target `dev`. After dev has been validated, run the
-**Prepare Release** workflow with the target version. It opens or updates a
-release PR from `dev` to `main` and bumps `package.json`.
-
-The **Publish Dev/Nightly Container Image** workflow publishes `nightly` and
-`nightly-<short-sha>` container tags from `dev` on its nightly schedule. Manual
-runs publish `dev` and `dev-<short-sha>` tags for the selected ref.
-
-After the release PR is merged, create a tag on the merge commit:
-
-```bash
-git checkout main
-git pull
-git tag -a vX.Y.Z -m "Release vX.Y.Z"
-git push origin vX.Y.Z
-```
-
-The **Release** workflow only publishes from `vX.Y.Z` tags that point at `main`.
-Stable releases publish `latest`; prereleases such as `vX.Y.Z-rc.1` do not.
-
-### Desktop Releases
-
-The Electron desktop app has its own version in `apps/desktop/package.json` and
-ships from `desktop-vX.Y.Z` tags. This keeps desktop-only updates separate from
-server and machine learning releases.
-
-Run the **Prepare Desktop Release** workflow with the target desktop version. It
-opens or updates a release PR from `dev` to `main` and bumps only the desktop
-package version.
-
-After the desktop release PR is merged, create a desktop tag on the merge
-commit:
-
-```bash
-git checkout main
-git pull
-git tag -a desktop-vX.Y.Z -m "Release desktop-vX.Y.Z"
-git push origin desktop-vX.Y.Z
-```
-
-The **Desktop Release** workflow publishes an unsigned Windows x64 NSIS
-installer to GitHub Releases. The workflow stages a pinned OBS Studio portable
-runtime before packaging and fails if `obs.dll` is missing. SmartScreen warnings
-are expected until code signing is added.
+AGPL-3.0-only.

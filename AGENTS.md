@@ -46,13 +46,16 @@ local logic to solve a problem.
 
 ## Package Roles
 
-- `apps/server` - Hono API server for auth, clips, uploads, playback, feeds,
+- `packages/server` - Hono API server for auth, clips, uploads, playback, feeds,
   search, notifications, admin, storage, and encoding jobs.
-- `apps/web` - React/TanStack frontend for the Alloy web app.
+- `packages/web` - React/TanStack frontend for the Alloy web app.
+- `packages/desktop` - Electron desktop shell for connecting to an Alloy
+  server and controlling local recording.
+- `packages/recorder` - Rust recording sidecar built as `alloy-recorder`.
 - `packages/api` - Typed client helpers for calling the server API from the web
   app.
 - `packages/ui` - Shared React UI components, styles, hooks, and design
   utilities.
 - `packages/db` - Drizzle database schema, migrations, and database exports.
-- `packages/contracts` - Shared TypeScript contracts and types used across apps
-  and packages.
+- `packages/contracts` - Shared TypeScript contracts and types used across
+  packages.
