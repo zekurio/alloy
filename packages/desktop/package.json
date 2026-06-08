@@ -45,6 +45,13 @@
       "buildResources": "assets",
       "output": "release"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "zekurio",
+        "repo": "alloy"
+      }
+    ],
     "files": [
       "out/**",
       "package.json"

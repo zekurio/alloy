@@ -268,13 +268,16 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $releaseDir = "packages/desktop/release"
-          $patterns = @("*.exe", "*.blockmap", "*.yml")
+          $patterns = @("*.exe", "*.blockmap", "latest.yml")
           $files = foreach ($pattern in $patterns) {
             Get-ChildItem -LiteralPath $releaseDir -Filter $pattern -File
           }
 
           if (-not ($files | Where-Object { $_.Extension -eq ".exe" })) {
             Write-Error "No Windows installer was produced in $releaseDir."
+          }
+          if (-not ($files | Where-Object { $_.Name -eq "latest.yml" })) {
+            Write-Error "No Electron updater metadata was produced in $releaseDir."
           }
 
           $files |
@@ -292,7 +295,7 @@ jobs:
           path: |
             packages/desktop/release/*.exe
             packages/desktop/release/*.blockmap
-            packages/desktop/release/*.yml
+            packages/desktop/release/latest.yml
             packages/desktop/release/checksums.txt
           if-no-files-found: error
 
@@ -322,6 +325,6 @@ jobs:
           files: |
             desktop-release-assets/*.exe
             desktop-release-assets/*.blockmap
-            desktop-release-assets/*.yml
+            desktop-release-assets/latest.yml
             desktop-release-assets/checksums.txt
           fail_on_unmatched_files: true
