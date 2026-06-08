@@ -1,0 +1,97 @@
+{
+  "name": "alloy-desktop",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Alloy desktop app",
+  "type": "module",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "pnpm prepare:assets && pnpm build:recorder && pnpm ensure:electron && electron-vite dev",
+    "build": "pnpm prepare:assets && pnpm build:recorder && electron-vite build",
+    "build:recorder": "pnpm --filter alloy-recorder build",
+    "build:recorder:release": "pnpm --filter alloy-recorder build:release",
+    "build:win:release": "pnpm prepare:assets && pnpm build:recorder:release && electron-vite build",
+    "ensure:electron": "node scripts/ensure-electron.mjs",
+    "prepare:assets": "node scripts/generate-windows-icon.mjs",
+    "prepare:icons": "pnpm prepare:assets",
+    "dist:win": "pnpm prepare:icons && pnpm build:win:release && electron-builder --win dir --x64 --publish never",
+    "dist:win:installer": "pnpm prepare:icons && pnpm build:win:release && electron-builder --win nsis --x64 --publish never",
+    "preview": "pnpm prepare:assets && pnpm ensure:electron && electron-vite preview",
+    "test": "tsx --test \"src/**/*_test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.2.4",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.2.0",
+    "alloy-contracts": "workspace:*",
+    "alloy-logging": "workspace:*",
+    "alloy-recorder": "workspace:*",
+    "alloy-ui": "workspace:*",
+    "electron": "42.3.3",
+    "electron-builder": "^26.15.0",
+    "electron-vite": "5.0.0",
+    "lucide-react": "1.8.0",
+    "png-to-ico": "^3.0.1",
+    "react": "19.2.5",
+    "react-dom": "19.2.5",
+    "vite": "8.0.10"
+  },
+  "build": {
+    "appId": "dev.zekurio.alloy.desktop",
+    "productName": "Alloy",
+    "directories": {
+      "buildResources": "assets",
+      "output": "release"
+    },
+    "files": [
+      "out/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../recorder/dist/sidecar",
+        "to": "sidecar",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../recorder/dist/obs-runtime",
+        "to": "obs-runtime",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Alloy-Desktop-${version}-win-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "deleteAppDataOnUninstall": false,
+      "uninstallDisplayName": "Alloy ${version}",
+      "shortcutName": "Alloy",
+      "warningsAsErrors": false
+    }
+  }
+}

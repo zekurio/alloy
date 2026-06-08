@@ -10,12 +10,16 @@ on:
       source_branch:
         description: Branch to release from
         required: false
-        default: dev
+        default: main
+        type: string
+      target_branch:
+        description: Branch to commit the prepared desktop release to
+        required: false
+        default: main
         type: string
 
 permissions:
   contents: write
-  pull-requests: write
 
 concurrency:
   group: prepare-desktop-release-${{ inputs.version }}
@@ -23,7 +27,7 @@ concurrency:
 
 jobs:
   prepare:
-    name: Open desktop release PR
+    name: Commit desktop release version
     runs-on: ubuntu-latest
 
     steps:
@@ -47,7 +51,6 @@ jobs:
           fi
 
           tag="desktop-v$version"
-          branch="release/$tag"
 
           if git rev-parse "$tag" >/dev/null 2>&1; then
             echo "Tag $tag already exists locally." >&2
@@ -61,7 +64,6 @@ jobs:
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "branch=$branch" >> "$GITHUB_OUTPUT"
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -81,11 +83,11 @@ jobs:
         run: |
           node <<'NODE'
           const { readFileSync, writeFileSync } = require("node:fs");
-          const filePath = "apps/desktop/package.json";
+          const filePath = "packages/desktop/package.json";
           const config = JSON.parse(readFileSync(filePath, "utf8"));
 
           if (config.version === process.env.RELEASE_VERSION) {
-            console.log(`apps/desktop/package.json is already at version ${config.version}.`);
+            console.log(`packages/desktop/package.json is already at version ${config.version}.`);
             process.exit(0);
           }
 
@@ -113,51 +115,26 @@ jobs:
       - name: Commit desktop release version
         shell: bash
         env:
-          RELEASE_BRANCH: ${{ steps.meta.outputs.branch }}
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
         run: |
-          git checkout -B "$RELEASE_BRANCH"
-
-          if git diff --quiet -- apps/desktop/package.json pnpm-lock.yaml; then
+          if git diff --quiet -- packages/desktop/package.json pnpm-lock.yaml; then
             echo "No desktop release version commit needed."
           else
-            git add apps/desktop/package.json pnpm-lock.yaml
+            git add packages/desktop/package.json pnpm-lock.yaml
             git commit -m "chore(release): prepare $RELEASE_TAG"
           fi
 
-      - name: Push release branch
+      - name: Push prepared desktop release
+        shell: bash
         env:
-          RELEASE_BRANCH: ${{ steps.meta.outputs.branch }}
+          TARGET_BRANCH: ${{ inputs.target_branch }}
         run: |
-          git fetch origin "+refs/heads/$RELEASE_BRANCH:refs/remotes/origin/$RELEASE_BRANCH" || true
-          git push --force-with-lease origin "$RELEASE_BRANCH"
+          git fetch origin "+refs/heads/$TARGET_BRANCH:refs/remotes/origin/$TARGET_BRANCH"
 
-      - name: Open or update desktop release PR
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_BRANCH: ${{ steps.meta.outputs.branch }}
-          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
-          SOURCE_BRANCH: ${{ inputs.source_branch }}
-        run: |
-          title="chore(release): prepare $RELEASE_TAG"
-          body="$(cat <<EOF
-          Prepares $RELEASE_TAG for desktop release.
-
-          Source branch: \`$SOURCE_BRANCH\`
-
-          After this PR is merged to \`main\`, create tag \`$RELEASE_TAG\` on the merge commit to publish the Windows desktop installer.
-          EOF
-          )"
-
-          if gh pr view "$RELEASE_BRANCH" --json number >/dev/null 2>&1; then
-            gh pr edit "$RELEASE_BRANCH" \
-              --base main \
-              --title "$title" \
-              --body "$body"
-          else
-            gh pr create \
-              --base main \
-              --head "$RELEASE_BRANCH" \
-              --title "$title" \
-              --body "$body"
+          if ! git merge-base --is-ancestor "origin/$TARGET_BRANCH" HEAD; then
+            echo "Target branch $TARGET_BRANCH is not an ancestor of the prepared desktop release commit." >&2
+            echo "Merge or rebase ${{ inputs.source_branch }} first, then rerun this workflow." >&2
+            exit 1
           fi
+
+          git push origin "HEAD:$TARGET_BRANCH"

@@ -85,10 +85,10 @@ jobs:
         env:
           RELEASE_VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          actual="$(node -e 'const fs = require("node:fs"); console.log(JSON.parse(fs.readFileSync("apps/desktop/package.json", "utf8")).version);')"
+          actual="$(node -e 'const fs = require("node:fs"); console.log(JSON.parse(fs.readFileSync("packages/desktop/package.json", "utf8")).version);')"
 
           if [[ "$actual" != "$RELEASE_VERSION" ]]; then
-            echo "apps/desktop/package.json version $actual does not match desktop release $RELEASE_VERSION." >&2
+            echo "packages/desktop/package.json version $actual does not match desktop release $RELEASE_VERSION." >&2
             exit 1
           fi
 
@@ -135,6 +135,28 @@ jobs:
           NODE_ENV: production
         run: corepack pnpm --filter alloy-desktop dist:win:installer
 
+      - name: Generate desktop checksums
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $releaseDir = "packages/desktop/release"
+          $patterns = @("*.exe", "*.blockmap", "*.yml")
+          $files = foreach ($pattern in $patterns) {
+            Get-ChildItem -LiteralPath $releaseDir -Filter $pattern -File
+          }
+
+          if (-not ($files | Where-Object { $_.Extension -eq ".exe" })) {
+            Write-Error "No Windows installer was produced in $releaseDir."
+          }
+
+          $files |
+            Sort-Object Name |
+            ForEach-Object {
+              $hash = Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256
+              "$($hash.Hash.ToLowerInvariant())  $($_.Name)"
+            } |
+            Set-Content -LiteralPath (Join-Path $releaseDir "checksums.txt") -Encoding ascii
+
       - name: Resolve release target
         id: release_target
         shell: bash
@@ -151,4 +173,8 @@ jobs:
           prerelease: ${{ steps.meta.outputs.is_prerelease }}
           make_latest: ${{ steps.meta.outputs.make_latest }}
           files: |
-            apps/desktop/release/*.exe
+            packages/desktop/release/*.exe
+            packages/desktop/release/*.blockmap
+            packages/desktop/release/*.yml
+            packages/desktop/release/checksums.txt
+          fail_on_unmatched_files: true

@@ -61,21 +61,25 @@ export function normalizeRecordingSettings(value: unknown): RecordingSettings {
   const quality = normalizeQualitySettings(record, DEFAULT_RECORDING_SETTINGS)
   const customQuality = normalizeQualitySettings(record.customQuality, quality)
   const qualityProfile = normalizeQualityProfile(record.qualityProfile, quality)
+  const recordDesktop =
+    typeof record.recordDesktop === "boolean"
+      ? record.recordDesktop
+      : DEFAULT_RECORDING_SETTINGS.recordDesktop
+  const triggerMode = recordDesktop
+    ? "replay-buffer"
+    : normalizeLiteral(
+        record.triggerMode,
+        RECORDING_TRIGGER_MODES,
+        DEFAULT_RECORDING_SETTINGS.triggerMode,
+      )
 
   return {
     enabled:
       typeof record.enabled === "boolean"
         ? record.enabled
         : DEFAULT_RECORDING_SETTINGS.enabled,
-    triggerMode: normalizeLiteral(
-      record.triggerMode,
-      RECORDING_TRIGGER_MODES,
-      DEFAULT_RECORDING_SETTINGS.triggerMode,
-    ),
-    recordDesktop:
-      typeof record.recordDesktop === "boolean"
-        ? record.recordDesktop
-        : DEFAULT_RECORDING_SETTINGS.recordDesktop,
+    triggerMode,
+    recordDesktop,
     audioMode: normalizeLiteral(
       record.audioMode,
       RECORDING_AUDIO_MODES,

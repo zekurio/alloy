@@ -7,26 +7,25 @@ import { fileURLToPath } from "node:url"
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const dataDir = join(root, "data")
-const isWindows = process.platform === "win32"
 
 const processSpecs = {
   api: {
     command: "pnpm",
-    args: ["--dir", "apps/server", "dev"],
+    args: ["--dir", "packages/server", "dev"],
     needsDatabase: true,
   },
   server: {
     command: "pnpm",
-    args: ["--dir", "apps/server", "dev"],
+    args: ["--dir", "packages/server", "dev"],
     needsDatabase: true,
   },
   web: {
     command: "pnpm",
-    args: ["--dir", "apps/web", "dev"],
+    args: ["--dir", "packages/web", "dev"],
   },
   desktop: {
     command: "pnpm",
-    args: ["--dir", "apps/desktop", "dev"],
+    args: ["--dir", "packages/desktop", "dev"],
   },
   ml: {
     command: "uv",
@@ -37,7 +36,7 @@ const processSpecs = {
 }
 
 const selectedNames = process.argv.slice(2)
-const selected = selectedNames.length > 0 ? selectedNames : ["api", "web", "ml"]
+const selected = selectedNames.length > 0 ? selectedNames : ["server"]
 
 for (const name of selected) {
   if (!(name in processSpecs)) {
@@ -58,7 +57,9 @@ const env = {
   ALLOY_DATA_DIR: process.env.ALLOY_DATA_DIR ?? dataDir,
   ALLOY_CLIPS_DIR: process.env.ALLOY_CLIPS_DIR ?? join(dataDir, "clips"),
   ALLOY_ENCODE_DIR: process.env.ALLOY_ENCODE_DIR ?? join(dataDir, "encode"),
-  MACHINE_LEARNING_ENABLED: process.env.MACHINE_LEARNING_ENABLED ?? "1",
+  MACHINE_LEARNING_ENABLED:
+    process.env.MACHINE_LEARNING_ENABLED ??
+    (selected.includes("ml") ? "1" : "0"),
   MACHINE_LEARNING_URL:
     process.env.MACHINE_LEARNING_URL ?? "http://localhost:2662",
   ALLOY_ML_HOST: process.env.ALLOY_ML_HOST ?? "0.0.0.0",
@@ -68,7 +69,7 @@ const env = {
 }
 
 env.DATABASE_URL =
-  process.env.DATABASE_URL ?? dockerDatabaseUrl() ?? localDatabaseUrl("5432")
+  process.env.DATABASE_URL ?? composeDatabaseUrl() ?? localDatabaseUrl("5432")
 
 if (selected.some((name) => processSpecs[name].needsDatabase)) {
   await waitForDatabase(env.DATABASE_URL)
@@ -88,7 +89,6 @@ for (const name of selected) {
     cwd: spec.cwd ?? root,
     env,
     stdio: "inherit",
-    shell: isWindows,
   })
 
   children.push(child)
@@ -126,7 +126,6 @@ function runChecked(command, args, options) {
     cwd: options.cwd ?? root,
     env: options.env ?? process.env,
     stdio: "inherit",
-    shell: isWindows,
   })
 
   if (result.error) {
@@ -137,30 +136,38 @@ function runChecked(command, args, options) {
   }
 }
 
-function dockerDatabaseUrl() {
+function composeDatabaseUrl() {
   const composeFile = join(root, "docker-compose.dev.yml")
   if (!existsSync(composeFile)) return undefined
 
-  const result = spawnSync(
-    "docker",
-    ["compose", "-f", composeFile, "port", "postgres", "5432"],
-    {
-      cwd: root,
-      encoding: "utf8",
-      shell: isWindows,
-      stdio: ["ignore", "pipe", "ignore"],
-    },
-  )
+  const commands = [
+    ["docker", "compose"],
+    ["podman", "compose"],
+  ]
 
-  if (result.status !== 0) return undefined
+  for (const [command, ...baseArgs] of commands) {
+    const result = spawnSync(
+      command,
+      [...baseArgs, "-f", composeFile, "port", "postgres", "5432"],
+      {
+        cwd: root,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+    )
 
-  const endpoint = result.stdout.trim().split(/\r?\n/).at(-1)
-  if (!endpoint) return undefined
+    if (result.status !== 0) continue
 
-  const port = endpoint.match(/:(\d+)$/)?.[1]
-  if (!port) return undefined
+    const endpoint = result.stdout.trim().split(/\r?\n/).at(-1)
+    if (!endpoint) continue
 
-  return localDatabaseUrl(port)
+    const port = endpoint.match(/:(\d+)$/)?.[1]
+    if (!port) continue
+
+    return localDatabaseUrl(port)
+  }
+
+  return undefined
 }
 
 function localDatabaseUrl(port) {
