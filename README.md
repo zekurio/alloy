@@ -64,6 +64,19 @@ pnpm install
 pnpm dev
 ```
 
+If another service already uses Alloy's default dev ports, add an ignored
+`devenv.local.nix`:
+
+```nix
+{ lib, ... }:
+{
+  env.PORT = lib.mkForce "2652";
+  env.PUBLIC_SERVER_URL = lib.mkForce "http://localhost:2652";
+  env.MACHINE_LEARNING_URL = lib.mkForce "http://localhost:2762";
+  env.ALLOY_ML_PORT = lib.mkForce "2762";
+}
+```
+
 Stop the devenv-managed Postgres instance with:
 
 ```bash

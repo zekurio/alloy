@@ -15,6 +15,12 @@ let
   dataDir = "${config.devenv.root}/data";
 in
 {
+  imports = lib.optional (builtins.pathExists ./devenv.local.nix) ./devenv.local.nix;
+
+  # Avoid blocking shell startup on optional Cachix metadata checks. Nix's
+  # configured substituters are still used for actual builds.
+  cachix.enable = false;
+
   # https://devenv.sh/languages/
   languages.javascript = {
     enable = true;
