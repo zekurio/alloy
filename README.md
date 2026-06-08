@@ -14,7 +14,7 @@ libraries are both treated as packages so the workspace graph stays explicit.
 | `packages/server`    | Hono API server for auth, clips, uploads, playback, feeds, search, notifications, admin, storage, encoding jobs, and web asset serving. |
 | `packages/web`       | React/TanStack web app served by the server in production and by Vite during local development.                                         |
 | `packages/desktop`   | Electron desktop shell that connects to a self-hosted Alloy server and controls local recording.                                        |
-| `packages/recorder`  | Rust recording sidecar built as `alloy-recorder`; used by desktop and released independently.                                           |
+| `packages/recorder`  | Rust recording sidecar built as `alloy-recorder`; bundled by desktop and also available as a recorder-only runtime release.             |
 | `packages/api`       | Typed client helpers and runtime validators for browser and desktop clients calling the server API.                                     |
 | `packages/contracts` | Shared TypeScript contracts used across the server, web app, desktop app, and recorder-facing flows.                                    |
 | `packages/db`        | Drizzle schema, migrations, database contracts, and migration helpers.                                                                  |
@@ -165,8 +165,8 @@ docker run --rm \
 
 Image tags:
 
-- `latest`: latest stable server release.
-- `vX.Y.Z`: exact server release.
+- `latest`: latest stable app release.
+- `vX.Y.Z`: exact app release.
 - `main`: manually published image from the main branch.
 - `nightly`: scheduled image from the main branch.
 
@@ -187,20 +187,19 @@ unless the staged runtime contains `obs.dll`.
 
 ## Releases
 
-All primary release streams are intentionally separate:
+The primary Alloy app release is unified under tags named `vX.Y.Z`. The web app
+is served by the server and used heavily by the Electron shell, so the server,
+web, and desktop installer ship from the same release tag and version.
 
-- Server tags: `vX.Y.Z`
-- Desktop tags: `desktop-vX.Y.Z`
-- Recorder tags: `recorder-vX.Y.Z`
+Feature and fix PRs target `main`. The release preparation workflow runs checks,
+updates the root and desktop package versions together, commits the version
+bump, and pushes the prepared release back to `main`. Publishing happens from
+tags on `main`.
 
-Feature and fix PRs target `main`. Release preparation workflows run checks,
-commit the version bump, and push the prepared release back to `main`.
-Publishing happens from tags on `main`.
-
-The server release publishes the Nix-built server image. The desktop release
-publishes the Windows installer, updater metadata, blockmap, and checksums. The
-recorder release publishes the sidecar runtime artifact and checksums for
-desktop runtime updates.
+The app release publishes the Nix-built server image, the machine-learning
+image, the Windows desktop installer, updater metadata, blockmap, and desktop
+checksums. Recorder-only runtime releases remain separate under
+`recorder-vX.Y.Z` for desktop runtime update artifacts.
 
 ## Package READMEs
 

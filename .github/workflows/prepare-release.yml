@@ -75,23 +75,26 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      - name: Update package version
+      - name: Update package versions
         shell: bash
         env:
           RELEASE_VERSION: ${{ steps.meta.outputs.version }}
         run: |
           node <<'NODE'
           const { readFileSync, writeFileSync } = require("node:fs");
-          const filePath = "package.json";
-          const config = JSON.parse(readFileSync(filePath, "utf8"));
+          const filePaths = ["package.json", "packages/desktop/package.json"];
 
-          if (config.version === process.env.RELEASE_VERSION) {
-            console.log(`package.json is already at version ${config.version}.`);
-            process.exit(0);
+          for (const filePath of filePaths) {
+            const config = JSON.parse(readFileSync(filePath, "utf8"));
+
+            if (config.version === process.env.RELEASE_VERSION) {
+              console.log(`${filePath} is already at version ${config.version}.`);
+              continue;
+            }
+
+            config.version = process.env.RELEASE_VERSION;
+            writeFileSync(filePath, `${JSON.stringify(config, null, 2)}\n`);
           }
-
-          config.version = process.env.RELEASE_VERSION;
-          writeFileSync(filePath, `${JSON.stringify(config, null, 2)}\n`);
           NODE
 
       - name: Install dependencies
@@ -116,10 +119,10 @@ jobs:
         env:
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
         run: |
-          if git diff --quiet -- package.json pnpm-lock.yaml; then
+          if git diff --quiet -- package.json packages/desktop/package.json pnpm-lock.yaml; then
             echo "No release version commit needed."
           else
-            git add package.json pnpm-lock.yaml
+            git add package.json packages/desktop/package.json pnpm-lock.yaml
             git commit -m "chore(release): prepare $RELEASE_TAG"
           fi
 
