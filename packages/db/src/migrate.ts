@@ -1,4 +1,4 @@
-import { pathToFileURL } from "node:url"
+import { fileURLToPath, pathToFileURL } from "node:url"
 
 import { logger } from "alloy-logging"
 import { drizzle } from "drizzle-orm/node-postgres"
@@ -8,7 +8,7 @@ import { createPostgresPool } from "./connection.ts"
 
 const migrationsFolder =
   process.env.ALLOY_MIGRATIONS_DIR ??
-  new URL("../drizzle", import.meta.url).pathname
+  fileURLToPath(new URL("../drizzle", import.meta.url))
 
 export async function migrateDatabase(databaseUrl: string) {
   const client = createPostgresPool(databaseUrl, { max: 1 })
