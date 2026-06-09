@@ -33,6 +33,7 @@ import {
   LimitsConfigPatchSchema,
   MachineLearningConfigPatchSchema,
   RuntimeConfigSchema,
+  ScheduledTaskTriggersSchema,
 } from "./schema"
 
 export {
@@ -58,6 +59,7 @@ export {
   IntegrationsSecretPatchSchema,
   LimitsConfigPatchSchema,
   MachineLearningConfigPatchSchema,
+  ScheduledTaskTriggersSchema,
 }
 
 export type {

@@ -11,7 +11,7 @@ import { publishClipUpsert } from "../clips/events"
 import { configStore } from "../config/store"
 import { db } from "../db"
 import { isConfigured as isSteamGridDBConfigured } from "../games/steamgriddb"
-import { enqueueEncode } from "../queue"
+import { enqueueClipMediaProcessing } from "../queue"
 import {
   badRequest,
   conflict,
@@ -299,7 +299,7 @@ export const clipsUploadRoutes = new Hono()
       }
 
       void publishClipUpsert(viewerId, id)
-      enqueueEncode(id)
+      enqueueClipMediaProcessing(id)
 
       return updatedClipResponse(c, id)
     },

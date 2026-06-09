@@ -7,6 +7,7 @@ export const adminKeys = {
   encoderCapabilities: () =>
     [...adminKeys.all, "encoder-capabilities"] as const,
   runtimeConfig: () => [...adminKeys.all, "runtime-config"] as const,
+  scheduledTasks: () => [...adminKeys.all, "scheduled-tasks"] as const,
   users: () => [...adminKeys.all, "users"] as const,
 }
 
@@ -29,5 +30,12 @@ export function adminUsersQueryOptions() {
   return queryOptions({
     queryKey: adminKeys.users(),
     queryFn: () => api.admin.fetchUsers(),
+  })
+}
+
+export function adminScheduledTasksQueryOptions() {
+  return queryOptions({
+    queryKey: adminKeys.scheduledTasks(),
+    queryFn: () => api.admin.fetchScheduledTasks(),
   })
 }

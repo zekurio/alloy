@@ -323,6 +323,40 @@
           "method": "btree",
           "with": {}
         },
+        "clip_ready_visible_top_idx": {
+          "name": "clip_ready_visible_top_idx",
+          "columns": [
+            {
+              "expression": "view_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "like_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"clip\".\"status\" = 'ready' and \"clip\".\"privacy\" in ('public', 'unlisted')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "clip_status_idx": {
           "name": "clip_status_idx",
           "columns": [
@@ -355,6 +389,46 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "clip_ready_visible_game_top_idx": {
+          "name": "clip_ready_visible_game_top_idx",
+          "columns": [
+            {
+              "expression": "game_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "view_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "like_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"clip\".\"status\" = 'ready' and \"clip\".\"privacy\" in ('public', 'unlisted')",
           "concurrently": false,
           "method": "btree",
           "with": {}

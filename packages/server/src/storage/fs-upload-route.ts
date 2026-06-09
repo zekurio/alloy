@@ -15,6 +15,7 @@ import {
   payloadTooLarge,
   unauthorized,
 } from "../runtime/http-response"
+import { dirname } from "../runtime/path"
 import { ensureScratchParent } from "../uploads/scratch"
 import { decodeUploadToken } from "./fs-driver"
 
@@ -86,7 +87,7 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
   } catch (err) {
     writeFailure = err
   } finally {
-    file.close()
+    await file.close()
   }
 
   if (writeFailure) {
@@ -116,11 +117,6 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
 
   return noContent(c)
 })
-
-function dirname(value: string): string {
-  const index = value.lastIndexOf("/")
-  return index <= 0 ? "/" : value.slice(0, index)
-}
 
 async function removeTempUploadDir(
   path: string,

@@ -15,14 +15,22 @@ import {
   MachineLearningConfigPatchSchema,
   OAuthProvidersSchema,
   parseRuntimeConfig,
+  ScheduledTaskTriggersSchema,
 } from "../config/store"
 import { db } from "../db"
-import { enqueueEncode } from "../queue"
+import { enqueueClipMediaProcessing } from "../queue"
 import {
   badRequest,
   badRequestFromCause,
   batchProgress,
+  notFound,
 } from "../runtime/http-response"
+import {
+  scheduledTaskInfoById,
+  scheduledTaskInfos,
+  triggerScheduledTask,
+  updateScheduledTaskTriggers,
+} from "../scheduled-tasks"
 import {
   ensureLoginSplashImage,
   generateLoginSplashPatch,
@@ -82,6 +90,14 @@ const OAuthProviderAdminSubmissionSchema = z
 
 const OAuthConfigSubmissionSchema = z.object({
   oauthProviders: z.array(OAuthProviderAdminSubmissionSchema).max(16),
+})
+
+const ScheduledTaskParam = z.object({
+  id: z.string().min(1).max(128),
+})
+
+const ScheduledTaskTriggersUpdate = z.object({
+  triggers: ScheduledTaskTriggersSchema,
 })
 
 export const adminRoute = new Hono()
@@ -351,6 +367,37 @@ export const adminRoute = new Hono()
   .get("/encoder/capabilities", async (c) => {
     return c.json(await getEncoderCapabilities())
   })
+  .get("/scheduled-tasks", (c) => {
+    return c.json({ tasks: scheduledTaskInfos() })
+  })
+  .get("/scheduled-tasks/:id", zValidator("param", ScheduledTaskParam), (c) => {
+    const { id } = c.req.valid("param")
+    const task = scheduledTaskInfoById(id)
+    if (!task) return notFound(c, "Unknown scheduled task")
+    return c.json(task)
+  })
+  .post(
+    "/scheduled-tasks/:id/run",
+    zValidator("param", ScheduledTaskParam),
+    (c) => {
+      const { id } = c.req.valid("param")
+      const result = triggerScheduledTask(id)
+      if (!result) return notFound(c, "Unknown scheduled task")
+      return c.json(result, result.started ? 202 : 200)
+    },
+  )
+  .put(
+    "/scheduled-tasks/:id/triggers",
+    zValidator("param", ScheduledTaskParam),
+    zValidator("json", ScheduledTaskTriggersUpdate),
+    (c) => {
+      const { id } = c.req.valid("param")
+      const { triggers } = c.req.valid("json")
+      const task = updateScheduledTaskTriggers(id, triggers)
+      if (!task) return notFound(c, "Unknown scheduled task")
+      return c.json(task)
+    },
+  )
   .post("/clips/re-encode", async (c) => {
     const rows = await db
       .select({ id: clip.id })
@@ -377,7 +424,7 @@ export const adminRoute = new Hono()
       .where(inArray(clip.id, ids))
 
     for (const id of ids) {
-      enqueueEncode(id)
+      enqueueClipMediaProcessing(id)
     }
     return batchProgress(
       c,

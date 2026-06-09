@@ -11,6 +11,7 @@ import { startQueue, stopQueue } from "./queue"
 import { ensureLoginSplashImage } from "./routes/admin-appearance"
 import { warmEncoderCapabilities } from "./routes/admin-encoder-capabilities"
 import { requestShutdown } from "./runtime/shutdown"
+import { startScheduledTasks, stopScheduledTasks } from "./scheduled-tasks"
 
 if (env.NODE_ENV === "production") {
   await migrateDatabase(env.DATABASE_URL)
@@ -43,6 +44,8 @@ void startLiveHlsCache().catch((err) => {
   logger.error("[clips] failed to start live HLS cache:", err)
 })
 
+startScheduledTasks()
+
 // Probe encoder capabilities up front so the first stream request doesn't wait
 // on the multi-second encoder smoke tests (slowest path: live AV1 selection).
 warmEncoderCapabilities()
@@ -70,12 +73,20 @@ const shutdown = () => {
     process.exit(0)
   }, SHUTDOWN_GRACE_MS)
 
-  // Stop the queue first so in-flight encodes get a chance to finish
-  // (or at least to flush their progress) before the HTTP server goes
-  // away. The queue stop path waits for in-flight workers to clear.
-  void stopQueue()
-    .catch((err) => {
-      logger.error("[queue] failed to stop cleanly:", err)
+  // Stop background work before the HTTP server goes away so in-flight media
+  // jobs and scheduled tasks get a chance to flush state.
+  void Promise.allSettled([stopScheduledTasks(), stopQueue()])
+    .then((results) => {
+      const [scheduledResult, queueResult] = results
+      if (scheduledResult?.status === "rejected") {
+        logger.error(
+          "[scheduled-tasks] failed to stop cleanly:",
+          scheduledResult.reason,
+        )
+      }
+      if (queueResult?.status === "rejected") {
+        logger.error("[queue] failed to stop cleanly:", queueResult.reason)
+      }
     })
     .finally(() => {
       server.close(() => {

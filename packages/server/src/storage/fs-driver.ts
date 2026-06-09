@@ -12,6 +12,7 @@ import {
 } from "node:fs/promises"
 import { Readable } from "node:stream"
 
+import { dirname, isAbsolute, normalize, resolve } from "../runtime/path"
 import type {
   MintUploadUrlInput,
   ResolvedObject,
@@ -33,8 +34,17 @@ export class FsStorageDriver implements StorageDriver {
 
   /** Resolve a storageKey against the configured root. */
   fullPath(key: string): string {
-    const root = normalizePath(this.opts.root)
-    const resolved = normalizePath(`${root}/${key}`)
+    const normalizedKey = normalize(key)
+    if (
+      isAbsolute(key) ||
+      normalizedKey === ".." ||
+      normalizedKey.startsWith("../")
+    ) {
+      throw new Error("Storage key escapes storage root")
+    }
+
+    const root = normalize(resolve(this.opts.root))
+    const resolved = normalize(`${root}/${normalizedKey}`)
     if (resolved !== root && !resolved.startsWith(`${root}/`)) {
       throw new Error("Storage key escapes storage root")
     }
@@ -62,7 +72,7 @@ export class FsStorageDriver implements StorageDriver {
         await file.write(chunk)
       }
     } finally {
-      file.close()
+      await file.close()
     }
     return { size }
   }
@@ -175,8 +185,8 @@ export class FsStorageDriver implements StorageDriver {
   }
 
   private async pruneEmptyAncestors(startDir: string): Promise<void> {
-    const root = normalizePath(this.opts.root)
-    let current = normalizePath(startDir)
+    const root = normalize(resolve(this.opts.root))
+    let current = normalize(startDir)
     while (true) {
       if (current === root || !current.startsWith(`${root}/`)) return
       try {
@@ -204,23 +214,6 @@ function fspCreateReadStream(
   return Readable.toWeb(
     createReadStream(path, { start, end }),
   ) as ReadableStream<Uint8Array>
-}
-
-function normalizePath(value: string): string {
-  const absolute = value.startsWith("/") ? value : `${process.cwd()}/${value}`
-  const parts: string[] = []
-  for (const part of absolute.split("/")) {
-    if (!part || part === ".") continue
-    if (part === "..") parts.pop()
-    else parts.push(part)
-  }
-  return `/${parts.join("/")}`
-}
-
-function dirname(value: string): string {
-  const normalized = normalizePath(value)
-  const index = normalized.lastIndexOf("/")
-  return index <= 0 ? "/" : normalized.slice(0, index)
 }
 
 function extname(value: string): string {

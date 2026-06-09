@@ -14,6 +14,7 @@ function adminRuntimeConfig() {
     passkeyEnabled: true,
     requireAuthToBrowse: true,
     oauthProviders: [],
+    scheduledTasks: {},
     encoder: {
       enabled: true,
       hwaccel: "qsv",

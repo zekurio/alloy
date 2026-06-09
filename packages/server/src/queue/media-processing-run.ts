@@ -6,20 +6,21 @@ import { logger } from "alloy-logging"
 import { and, eq } from "drizzle-orm"
 
 import { publishClipUpsert } from "../clips/events"
+import { publishOpenGraphVariant } from "../clips/opengraph-variant"
 import { db } from "../db"
 import { notifyFollowersOfNewClip } from "../notifications"
 import { join } from "../runtime/path"
 import { clipAssetKey, clipStorage } from "../storage"
 import { deleteScratchUpload, scratchUploadPath } from "../uploads/scratch"
-import { abortEncode } from "./encode-abort"
-import { makeProgressWriter } from "./encode-progress"
-import { type Asset, publishOriginalSource } from "./encode-publish"
-import { ensureClipStillPresent, makeScratchDir } from "./encode-run-helpers"
 import { probe, thumbnail } from "./ffmpeg"
+import { abortMediaProcessing } from "./media-abort"
+import { makeMediaProgressWriter } from "./media-progress"
+import { type Asset, publishOriginalSource } from "./media-publish"
+import { ensureClipStillPresent, makeScratchDir } from "./media-run-helpers"
 
 type ClipRow = typeof clip.$inferSelect
 
-export async function runEncodeInner(
+export async function runMediaProcessingInner(
   clipId: string,
   row: ClipRow,
   runId: string,
@@ -30,6 +31,7 @@ export async function runEncodeInner(
   const retainedKeys = new Set<string>()
   if (row.sourceKey) retainedKeys.add(row.sourceKey)
   if (row.thumbKey) retainedKeys.add(row.thumbKey)
+  if (row.openGraphKey) retainedKeys.add(row.openGraphKey)
   let sourcePublishedForRetry = !!row.sourceKey
   try {
     await runPipelineInScratch({
@@ -54,7 +56,7 @@ export async function runEncodeInner(
   } finally {
     await rm(scratchDir, { recursive: true, force: true }).catch((err) => {
       logger.warn(
-        `[queue] failed to remove encode scratch dir ${scratchDir}:`,
+        `[queue] failed to remove media processing scratch dir ${scratchDir}:`,
         err,
       )
     })
@@ -103,15 +105,20 @@ async function runPipelineInScratch({
     })
     .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
     .returning({ id: clip.id })
-  if (!published) throw abortEncode()
+  if (!published) throw abortMediaProcessing()
   void publishClipUpsert(row.authorId, clipId)
 
   const probed = await probe(sourcePath)
   const outputDurationMs = probed.durationMs
 
-  const totalWork = 3
+  const totalWork = 4
   let completedWork = 0
-  const writeProgress = makeProgressWriter(clipId, row.authorId, runId)
+  const writeProgress = makeMediaProgressWriter(clipId, row.authorId, runId)
+  const writePartialProgress = (pct: number) => {
+    writeProgress(
+      Math.min(99, Math.floor(((completedWork + pct / 100) / totalWork) * 100)),
+    )
+  }
   const completeWork = () => {
     completedWork += 1
     writeProgress(Math.min(99, Math.floor((completedWork / totalWork) * 100)))
@@ -150,7 +157,7 @@ async function runPipelineInScratch({
     })
     .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
     .returning({ id: clip.id })
-  if (!sourcePublished) throw abortEncode()
+  if (!sourcePublished) throw abortMediaProcessing()
   retainSourceAsset(sourceAsset)
   completeWork()
 
@@ -172,8 +179,34 @@ async function runPipelineInScratch({
     })
     .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
     .returning({ id: clip.id })
-  if (!thumbPublished) throw abortEncode()
+  if (!thumbPublished) throw abortMediaProcessing()
   retainPublishedKey(thumbKey)
+  void publishClipUpsert(row.authorId, clipId)
+  completeWork()
+
+  await ensureClipStillPresent(clipId, runId, signal)
+  const openGraphPath = join(scratchDir, "opengraph.mp4")
+  const openGraphAsset = await publishOpenGraphVariant({
+    clipId,
+    sourcePath,
+    outPath: openGraphPath,
+    source: probed,
+    signal,
+    onProgress: writePartialProgress,
+  })
+  uploadedKeys.push(openGraphAsset.storageKey)
+  const [openGraphPublished] = await db
+    .update(clip)
+    .set({
+      openGraphKey: openGraphAsset.storageKey,
+      openGraphContentType: openGraphAsset.contentType,
+      openGraphSizeBytes: openGraphAsset.sizeBytes,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
+    .returning({ id: clip.id })
+  if (!openGraphPublished) throw abortMediaProcessing()
+  retainPublishedKey(openGraphAsset.storageKey)
   void publishClipUpsert(row.authorId, clipId)
   completeWork()
 
@@ -194,9 +227,9 @@ async function runPipelineInScratch({
         sourceVideoCodec: sourceAsset.videoCodec,
         sourceAudioCodec: sourceAsset.audioCodec,
         sourceSizeBytes: sourceAsset.sizeBytes,
-        openGraphKey: null,
-        openGraphContentType: null,
-        openGraphSizeBytes: null,
+        openGraphKey: openGraphAsset.storageKey,
+        openGraphContentType: openGraphAsset.contentType,
+        openGraphSizeBytes: openGraphAsset.sizeBytes,
         thumbKey,
         durationMs: outputDurationMs,
         width: sourceAsset.width,
@@ -212,10 +245,14 @@ async function runPipelineInScratch({
       .returning({ status: clip.status, privacy: clip.privacy })
     return { previous, updated }
   })
-  if (!publishState.updated) throw abortEncode()
+  if (!publishState.updated) throw abortMediaProcessing()
   // The clip row now points at the newly published assets. Any previous asset
   // that was not retained is orphaned; prune it best-effort after publish.
-  await pruneStaleClipAssets(row, [sourceAsset.storageKey, thumbKey])
+  await pruneStaleClipAssets(row, [
+    sourceAsset.storageKey,
+    openGraphAsset.storageKey,
+    thumbKey,
+  ])
   await cleanupCompletedScratchUpload(clipId)
   completeWork()
   void publishClipUpsert(row.authorId, clipId)
@@ -291,7 +328,7 @@ async function cleanupFailedRun(
   await deleteClipAssetsBestEffort(
     new Set(uploadedKeys),
     retainedKeys,
-    "failed encode asset",
+    "failed media processing asset",
   )
 }
 

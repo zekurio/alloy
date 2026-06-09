@@ -123,8 +123,26 @@ export const clip = pgTable(
     // Home feed hot path: "newest public (or public+unlisted) clips".
     // Filter on privacy, sort by createdAt — composite supports both.
     index("clip_privacy_created_idx").on(t.privacy, t.createdAt),
+    // Top clips: only ready public/unlisted rows participate, so keep the
+    // ranking columns first and in route order.
+    index("clip_ready_visible_top_idx")
+      .on(t.viewCount.desc(), t.likeCount.desc(), t.createdAt.desc(), t.id)
+      .where(
+        sql`${t.status} = 'ready' and ${t.privacy} in ('public', 'unlisted')`,
+      ),
     index("clip_status_idx").on(t.status),
     index("clip_game_created_idx").on(t.gameId, t.createdAt),
+    index("clip_ready_visible_game_top_idx")
+      .on(
+        t.gameId,
+        t.viewCount.desc(),
+        t.likeCount.desc(),
+        t.createdAt.desc(),
+        t.id,
+      )
+      .where(
+        sql`${t.status} = 'ready' and ${t.privacy} in ('public', 'unlisted')`,
+      ),
     check(
       "clip_privacy_check",
       sql`${t.privacy} in (${sql.raw(sqlStringList(CLIP_PRIVACY))})`,
