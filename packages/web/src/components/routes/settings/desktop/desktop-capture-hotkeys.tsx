@@ -17,7 +17,7 @@ export function HotkeysSection({
     <Subsection title="Hotkeys">
       <SettingRow
         title="Save replay clip"
-        description="Saves the current replay window while a game is being captured."
+        description="Saves the current replay window while capture is running."
       >
         <HotkeyInput
           value={settings.hotkeys.saveClip}

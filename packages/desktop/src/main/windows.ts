@@ -30,6 +30,8 @@ export class Windows {
   private overlay: BrowserWindow | null = null
   private main: BrowserWindow | null = null
   private mainOrigin: string | null = null
+  private staleMainOrigin: string | null = null
+  private staleMainOriginTimer: ReturnType<typeof setTimeout> | null = null
   private isQuitting = false
 
   createOverlay(): BrowserWindow {
@@ -63,10 +65,28 @@ export class Windows {
    * use, then hand the screen over from the overlay to the app.
    */
   connectTo(serverUrl: string): void {
-    this.mainOrigin = new URL(serverUrl).origin
+    const nextOrigin = new URL(serverUrl).origin
+    const previousOrigin = this.mainOrigin
+    if (
+      previousOrigin &&
+      previousOrigin !== nextOrigin &&
+      this.main &&
+      !this.main.isDestroyed()
+    ) {
+      this.allowStaleMainOrigin(previousOrigin)
+    }
+
+    this.mainOrigin = nextOrigin
     hardenMainSessionPermissions()
     const win = this.ensureMain()
-    win.loadURL(serverUrl)
+    void win
+      .loadURL(serverUrl)
+      .catch((error: unknown) => {
+        logger.warn("[desktop] failed to load server URL:", error)
+      })
+      .finally(() => {
+        if (previousOrigin) this.clearStaleMainOrigin(previousOrigin)
+      })
     win.show()
     win.focus()
     this.overlay?.close()
@@ -93,6 +113,16 @@ export class Windows {
     return (
       this.canUseOverlayBridge(sender) ||
       this.canUseMainBridge(sender, frameUrl)
+    )
+  }
+
+  canUseDesktopServerStateBridge(
+    sender: WebContents,
+    frameUrl: string,
+  ): boolean {
+    return (
+      this.canUseDesktopBridge(sender, frameUrl) ||
+      this.canUseStaleMainBridge(sender, frameUrl)
     )
   }
 
@@ -165,6 +195,7 @@ export class Windows {
     })
     win.on("closed", () => {
       this.main = null
+      this.clearStaleMainOrigin()
     })
 
     this.main = win
@@ -177,6 +208,35 @@ export class Windows {
 
     event.preventDefault()
     if (canOpenExternally(url)) openExternal(url)
+  }
+
+  private canUseStaleMainBridge(
+    sender: WebContents,
+    frameUrl: string,
+  ): boolean {
+    const origin = this.staleMainOrigin
+    return (
+      BrowserWindow.fromWebContents(sender) === this.main &&
+      origin !== null &&
+      sameOrigin(frameUrl, origin)
+    )
+  }
+
+  private allowStaleMainOrigin(origin: string): void {
+    this.staleMainOrigin = origin
+    if (this.staleMainOriginTimer) clearTimeout(this.staleMainOriginTimer)
+    this.staleMainOriginTimer = setTimeout(() => {
+      this.clearStaleMainOrigin(origin)
+    }, 10_000)
+  }
+
+  private clearStaleMainOrigin(origin?: string): void {
+    if (origin && this.staleMainOrigin !== origin) return
+    this.staleMainOrigin = null
+    if (this.staleMainOriginTimer) {
+      clearTimeout(this.staleMainOriginTimer)
+      this.staleMainOriginTimer = null
+    }
   }
 }
 

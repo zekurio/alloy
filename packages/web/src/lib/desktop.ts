@@ -1,6 +1,8 @@
 import type {
   RecordingActionResult,
   RecordingEvent,
+  RecordingGameProcess,
+  RecordingNotificationSoundEvent,
   RecordingSettings,
   RecordingStatus,
   RecordingStorageInfo,
@@ -29,6 +31,10 @@ export interface AlloyDesktopRecordingApi {
   getStorageInfo(): Promise<RecordingStorageInfo>
   onEvent(listener: (event: RecordingEvent) => void): () => void
   selectOutputFolder(): Promise<string | null>
+  selectNotificationSound(
+    sound: RecordingNotificationSoundEvent,
+  ): Promise<string | null>
+  listGameProcesses(): Promise<RecordingGameProcess[]>
   saveReplayClip(): Promise<RecordingActionResult>
   stopRecording(): Promise<RecordingActionResult>
   revealCapture(filename: string): Promise<void>

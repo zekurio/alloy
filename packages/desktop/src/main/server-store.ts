@@ -23,16 +23,9 @@ import {
  * client config, not a cache.
  */
 const STATE_FILE = "desktop-state.json"
-const LEGACY_USER_DATA_DIR_NAME = "Alloy"
-const LEGACY_DESKTOP_USER_DATA_DIR_NAME = "Alloy Desktop"
 
 function stateFilePaths(): string[] {
-  const primary = join(app.getPath("userData"), STATE_FILE)
-  const legacyPaths = [
-    join(app.getPath("appData"), LEGACY_DESKTOP_USER_DATA_DIR_NAME, STATE_FILE),
-    join(app.getPath("appData"), LEGACY_USER_DATA_DIR_NAME, STATE_FILE),
-  ]
-  return [primary, ...legacyPaths.filter((path) => path !== primary)]
+  return [join(app.getPath("userData"), STATE_FILE)]
 }
 
 function readState(): DesktopState {
@@ -60,9 +53,9 @@ function writeState(state: DesktopState): void {
   }
 }
 
-export function getLastServerUrl(): string | null {
+export function getStartupServerUrl(): string | null {
   const state = readState()
-  return state.servers[0]?.serverUrl ?? state.lastServerUrl
+  return state.servers[0]?.serverUrl ?? null
 }
 
 export function getSavedServers(): SavedServer[] {
@@ -72,7 +65,7 @@ export function getSavedServers(): SavedServer[] {
 export function rememberServer(serverUrl: string): SavedServer[] {
   const state = readState()
   const servers = upsertServer(state.servers, serverUrl)
-  writeState({ ...state, lastServerUrl: serverUrl, servers })
+  writeState({ ...state, servers })
   return servers
 }
 
@@ -81,11 +74,7 @@ export function forgetServer(serverUrl: string): SavedServer[] {
   const servers = state.servers.filter(
     (server) => server.serverUrl !== serverUrl,
   )
-  const lastServerUrl =
-    state.lastServerUrl === serverUrl
-      ? (servers[0]?.serverUrl ?? null)
-      : state.lastServerUrl
-  writeState({ ...state, lastServerUrl, servers })
+  writeState({ ...state, servers })
   return servers
 }
 

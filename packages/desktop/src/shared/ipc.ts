@@ -2,6 +2,8 @@ import type {
   PublicAuthConfig,
   RecordingActionResult,
   RecordingEvent,
+  RecordingGameProcess,
+  RecordingNotificationSoundEvent,
   RecordingSettings,
   RecordingStatus,
   RecordingStorageInfo,
@@ -15,7 +17,7 @@ import type {
 export const IPC = {
   probe: "alloy:probe",
   connect: "alloy:connect",
-  getLastServer: "alloy:get-last-server",
+  getStartupServer: "alloy:get-startup-server",
   getServers: "alloy:get-servers",
   getCurrentServer: "alloy:get-current-server",
   forgetServer: "alloy:forget-server",
@@ -26,10 +28,11 @@ export const IPC = {
   getRecordingStorageInfo: "alloy:get-recording-storage-info",
   recordingEvent: "alloy:recording-event",
   selectOutputFolder: "alloy:select-output-folder",
+  selectNotificationSound: "alloy:select-notification-sound",
+  listGameProcesses: "alloy:list-game-processes",
   saveReplayClip: "alloy:save-replay-clip",
   stopRecording: "alloy:stop-recording",
   revealRecordingCapture: "alloy:reveal-recording-capture",
-  recordingHudState: "alloy:recording-hud-state",
 } as const
 
 /** Result of probing a candidate server URL for a valid Alloy endpoint. */
@@ -57,7 +60,7 @@ export interface SavedServer {
 export interface AlloyNative {
   probe(url: string): Promise<ProbeResult>
   connect(url: string): Promise<ConnectResult>
-  getLastServer(): Promise<string | null>
+  getStartupServer(): Promise<string | null>
   getServers(): Promise<SavedServer[]>
   forgetServer(url: string): Promise<SavedServer[]>
 }
@@ -77,9 +80,15 @@ export interface AlloyDesktopRecordingApi {
   onEvent(listener: (event: RecordingEvent) => void): () => void
   /** Opens a native folder picker; returns the chosen path or null if cancelled. */
   selectOutputFolder(): Promise<string | null>
+  /** Returns running processes that can be added to the game allow list. */
+  listGameProcesses(): Promise<RecordingGameProcess[]>
   saveReplayClip(): Promise<RecordingActionResult>
   stopRecording(): Promise<RecordingActionResult>
   revealCapture(filename: string): Promise<void>
+  /** Opens a native audio file picker and applies the chosen notification sound. */
+  selectNotificationSound(
+    sound: RecordingNotificationSoundEvent,
+  ): Promise<string | null>
 }
 
 /**
@@ -92,16 +101,4 @@ export interface AlloyDesktopMarker {
   openSettings(): Promise<void>
   servers: AlloyDesktopServerApi
   recording: AlloyDesktopRecordingApi
-}
-
-export type RecordingHudKind = "saving" | "saved" | "error"
-
-export interface RecordingHudState {
-  kind: RecordingHudKind
-  title: string
-  detail?: string | null
-}
-
-export interface AlloyRecordingHud {
-  onState(listener: (state: RecordingHudState | null) => void): () => void
 }

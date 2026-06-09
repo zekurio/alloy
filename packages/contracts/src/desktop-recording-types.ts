@@ -42,9 +42,13 @@ export const RECORDING_RUN_STATES = [
   "stopping",
   "error",
 ] as const
-export const RECORDING_CAPTURE_SOURCES = ["game", "desktop"] as const
+export const RECORDING_CAPTURE_SOURCES = ["game", "display"] as const
 export const RECORDING_AUDIO_MODES = ["devices", "applications"] as const
 export const RECORDING_AUDIO_DEVICE_KINDS = ["output", "input"] as const
+export const RECORDING_NOTIFICATION_SOUND_EVENTS = [
+  "recordingStarted",
+  "clipSaved",
+] as const
 
 export type RecordingEncoder = (typeof RECORDING_ENCODERS)[number]
 export type RecordingCodec = (typeof RECORDING_CODECS)[number]
@@ -60,6 +64,8 @@ export type RecordingCaptureSource = (typeof RECORDING_CAPTURE_SOURCES)[number]
 export type RecordingAudioMode = (typeof RECORDING_AUDIO_MODES)[number]
 export type RecordingAudioDeviceKind =
   (typeof RECORDING_AUDIO_DEVICE_KINDS)[number]
+export type RecordingNotificationSoundEvent =
+  (typeof RECORDING_NOTIFICATION_SOUND_EVENTS)[number]
 
 export interface RecordingQualitySettings {
   resolution: RecordingResolution
@@ -97,6 +103,19 @@ export interface RecordingHotkeys {
   saveClip: string
 }
 
+export interface RecordingNotificationSoundSettings {
+  enabled: boolean
+  /** Playback loudness, 0-100. */
+  volume: number
+  /** Absolute path to a custom audio file; empty string = bundled default. */
+  path: string
+}
+
+export type RecordingNotificationSounds = Record<
+  RecordingNotificationSoundEvent,
+  RecordingNotificationSoundSettings
+>
+
 export interface RecordingAudioDeviceSelection {
   id: string
   label: string
@@ -116,15 +135,32 @@ export interface RecordingAudioApplicationSelection {
   volume: number
 }
 
+export interface RecordingAllowedGame {
+  id: string
+  name: string
+  executable: string | null
+  path: string | null
+  windowClass?: string | null
+  iconUrl?: string | null
+}
+
+export interface RecordingGameProcess {
+  id: string
+  name: string
+  processId: number
+  executable: string | null
+  path: string | null
+  windowTitle: string | null
+  iconUrl: string | null
+}
+
 export interface RecordingSettings {
   enabled: boolean
   triggerMode: RecordingTriggerMode
-  /**
-   * False = capture only the detected game and pause on alt-tab.
-   * True = keep recording when focus leaves the detected game by switching to
-   * desktop capture until the game is focused again.
-   */
-  recordDesktop: boolean
+  /** Manual include overrides for games the automatic detector misses. */
+  allowedGames: RecordingAllowedGame[]
+  /** Manual exclude overrides for apps the automatic detector should ignore. */
+  deniedGames: RecordingAllowedGame[]
   audioMode: RecordingAudioMode
   audioDevices: RecordingAudioDeviceSelection[]
   audioApplications: RecordingAudioApplicationSelection[]
@@ -142,7 +178,7 @@ export interface RecordingSettings {
   /** Absolute folder clips are written to; empty string = backend default. */
   outputFolder: string
   hotkeys: RecordingHotkeys
-  autoCategorizeGames: boolean
+  notificationSounds: RecordingNotificationSounds
 }
 
 export interface RecordingGame {
@@ -152,6 +188,7 @@ export interface RecordingGame {
   processId: number
   executable: string | null
   path: string | null
+  iconUrl?: string | null
   windowTitle?: string | null
   windowClass?: string | null
   startedAt: IsoDateString | null
@@ -187,7 +224,7 @@ export type RecordingBackendState = "missing" | "ready" | "error"
 
 export interface RecordingStatus {
   backend: RecordingBackendState
-  /** Current capture engine mode, kept compact for legacy settings UI. */
+  /** Current capture engine mode exposed to the desktop UI. */
   mode: RecordingMode
   triggerMode: RecordingTriggerMode
   runState: RecordingRunState
@@ -199,7 +236,7 @@ export interface RecordingStatus {
   replayBufferSeconds: number
   /** GPU devices the capture backend can encode with, if detected. */
   availableGpus: string[]
-  /** Video codecs the selected desktop encoder/GPU can create. */
+  /** Video codecs the selected recorder encoder/GPU can create. */
   availableCodecs: RecordingCodec[]
   /** Audio devices the capture backend can create OBS sources for. */
   availableAudioDevices: RecordingAudioDeviceSelection[]
@@ -213,6 +250,7 @@ export type RecordingActionResult =
   | { ok: false; error: string; status: RecordingStatus }
 
 export type RecordingEvent =
+  | { type: "settings"; settings: RecordingSettings }
   | { type: "status"; status: RecordingStatus }
   | { type: "game-started"; game: RecordingGame; status: RecordingStatus }
   | {

@@ -1,10 +1,11 @@
-import { Alert, AlertDescription } from "alloy-ui/components/alert"
 import { Button } from "alloy-ui/components/button"
 import { Input } from "alloy-ui/components/input"
 import { Spinner } from "alloy-ui/components/spinner"
+import { toast } from "alloy-ui/lib/toast"
 import { cn } from "alloy-ui/lib/utils"
 import { CheckCircle2Icon, LogInIcon, PlusIcon, Trash2Icon } from "lucide-react"
 import * as React from "react"
+import { flushSync } from "react-dom"
 
 import { alloyDesktop, type DesktopSavedServer } from "./desktop-bridge"
 
@@ -16,7 +17,9 @@ export function DesktopServerSettings() {
   const [servers, setServers] = React.useState<DesktopSavedServer[]>([])
   const [url, setUrl] = React.useState("")
   const [phase, setPhase] = React.useState<Phase>("loading")
-  const [error, setError] = React.useState<string | null>(null)
+  const [connectingServerUrl, setConnectingServerUrl] = React.useState<
+    string | null
+  >(null)
   const [currentServerUrl, setCurrentServerUrl] = React.useState<string | null>(
     null,
   )
@@ -35,9 +38,10 @@ export function DesktopServerSettings() {
         if (cancelled) return
         setServers(savedServers)
         setCurrentServerUrl(currentServer)
-        setError(null)
       } catch (cause) {
-        if (!cancelled) setError(errorText(cause, "Couldn't load servers."))
+        if (!cancelled) {
+          toast.error(errorText(cause, "Couldn't load servers."))
+        }
       } finally {
         if (!cancelled) setPhase("idle")
       }
@@ -55,28 +59,27 @@ export function DesktopServerSettings() {
 
   async function connectTo(serverUrl: string) {
     const nextUrl = serverUrl.trim()
-    if (!nextUrl || phase === "connecting") return
+    if (!nextUrl || connectingServerUrl !== null) return
 
-    setError(null)
-    setPhase("connecting")
+    flushSync(() => {
+      setConnectingServerUrl(nextUrl)
+      setPhase("connecting")
+    })
     try {
       const result = await activeServerApi.connect(nextUrl)
       if (!result.ok) {
-        setError(result.error)
+        toast.error(result.error)
+        setConnectingServerUrl(null)
         setPhase("idle")
         return
       }
 
-      const [savedServers, currentServer] = await Promise.all([
-        activeServerApi.getServers(),
-        activeServerApi.getCurrentServer(),
-      ])
-      setServers(savedServers)
-      setCurrentServerUrl(currentServer ?? result.serverUrl)
       setUrl("")
+      setConnectingServerUrl(null)
       setPhase("idle")
     } catch (cause) {
-      setError(errorText(cause, "Couldn't connect to server."))
+      toast.error(errorText(cause, "Couldn't connect to server."))
+      setConnectingServerUrl(null)
       setPhase("idle")
     }
   }
@@ -88,16 +91,15 @@ export function DesktopServerSettings() {
 
   async function forgetServer(serverUrl: string) {
     if (phase === "connecting") return
-    setError(null)
     try {
       const nextServers = await activeServerApi.forgetServer(serverUrl)
       setServers(nextServers)
     } catch (cause) {
-      setError(errorText(cause, "Couldn't forget server."))
+      toast.error(errorText(cause, "Couldn't forget server."))
     }
   }
 
-  const busy = phase === "connecting"
+  const busy = connectingServerUrl !== null
 
   return (
     <div className="flex flex-col gap-4">
@@ -113,16 +115,19 @@ export function DesktopServerSettings() {
           className="sm:flex-1"
         />
         <Button type="submit" disabled={busy || !url.trim()}>
-          {busy ? <Spinner /> : <PlusIcon className="size-4" />}
-          Add server
+          {busy && sameServerTarget(connectingServerUrl, url) ? (
+            <>
+              <Spinner />
+              Connecting...
+            </>
+          ) : (
+            <>
+              <PlusIcon className="size-4" />
+              Add server
+            </>
+          )}
         </Button>
       </form>
-
-      {error ? (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : null}
 
       <div className="flex flex-col gap-2">
         {phase === "loading" ? (
@@ -135,6 +140,10 @@ export function DesktopServerSettings() {
             const current =
               currentServerUrl !== null &&
               sameOrigin(server.serverUrl, currentServerUrl)
+            const connecting = sameServerTarget(
+              connectingServerUrl,
+              server.serverUrl,
+            )
             return (
               <div
                 key={server.serverUrl}
@@ -164,8 +173,17 @@ export function DesktopServerSettings() {
                   disabled={busy || current}
                   onClick={() => void connectTo(server.serverUrl)}
                 >
-                  <LogInIcon className="size-3.5" />
-                  Switch
+                  {connecting ? (
+                    <>
+                      <Spinner />
+                      Connecting...
+                    </>
+                  ) : (
+                    <>
+                      <LogInIcon className="size-3.5" />
+                      Switch
+                    </>
+                  )}
                 </Button>
                 <Button
                   type="button"
@@ -196,6 +214,10 @@ function sameOrigin(serverUrl: string, origin: string): boolean {
   } catch {
     return false
   }
+}
+
+function sameServerTarget(left: string | null, right: string): boolean {
+  return left !== null && left.trim() === right.trim()
 }
 
 function formatLastConnected(value: string): string {
