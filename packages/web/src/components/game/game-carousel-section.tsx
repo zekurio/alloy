@@ -21,9 +21,19 @@ import { headerCountLabel } from "@/lib/number-format"
 import { GameCard, type GameCardData, type GameCardLink } from "./game-card"
 
 export type GameCarouselEntry = GameCardData & { clipCount: number }
+type GameCarouselSize = "default" | "large"
 
-const gameCarouselItemClassName =
-  "basis-[112px] pl-2.5 sm:basis-[128px] lg:basis-[144px] 2xl:basis-[156px]"
+const gameCarouselItemClassNames: Record<GameCarouselSize, string> = {
+  default:
+    "basis-[112px] pl-2.5 sm:basis-[128px] lg:basis-[144px] 2xl:basis-[156px]",
+  large:
+    "basis-[152px] pl-3 sm:basis-[176px] lg:basis-[204px] 2xl:basis-[224px]",
+}
+
+const gameCarouselContentClassNames: Record<GameCarouselSize, string> = {
+  default: "-ml-2.5",
+  large: "-ml-3",
+}
 
 type GameCarouselSectionProps = {
   entries: GameCarouselEntry[] | null
@@ -38,6 +48,7 @@ type GameCarouselSectionProps = {
   hasNextPage?: boolean
   isFetchingNextPage?: boolean
   onEndReached?: () => void
+  size?: GameCarouselSize
 }
 
 export function GameCarouselSection({
@@ -53,8 +64,10 @@ export function GameCarouselSection({
   hasNextPage = false,
   isFetchingNextPage = false,
   onEndReached,
+  size = "default",
 }: GameCarouselSectionProps) {
   const [api, setApi] = React.useState<CarouselApi>()
+  const itemClassName = gameCarouselItemClassNames[size]
 
   const maybeLoadMore = React.useCallback(() => {
     if (
@@ -122,11 +135,11 @@ export function GameCarouselSection({
         />
       ) : (
         <Carousel className="group" opts={{ align: "start" }} setApi={setApi}>
-          <CarouselContent className="-ml-2.5">
+          <CarouselContent className={gameCarouselContentClassNames[size]}>
             {entries.map((entry) => (
               <CarouselItem
                 key={entry.slug ?? `name:${entry.name}`}
-                className={gameCarouselItemClassName}
+                className={itemClassName}
               >
                 <GameCard
                   game={entry}
@@ -136,7 +149,7 @@ export function GameCarouselSection({
               </CarouselItem>
             ))}
             {isFetchingNextPage ? (
-              <CarouselItem className={gameCarouselItemClassName}>
+              <CarouselItem className={itemClassName}>
                 <div className="bg-muted/30 flex aspect-[2/3] items-center justify-center rounded-md">
                   <Spinner className="size-5" />
                 </div>

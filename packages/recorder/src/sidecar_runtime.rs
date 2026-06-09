@@ -183,29 +183,51 @@ fn detected_game_from_parts(
     })
 }
 
-fn match_allowed_game<'a>(
+fn best_allowed_game_match<'a>(
     allowed_games: &'a [RecordingAllowedGame],
     path: Option<&str>,
     executable: Option<&str>,
     class_name: Option<&str>,
-) -> Option<&'a RecordingAllowedGame> {
+) -> Option<(&'a RecordingAllowedGame, i32)> {
     allowed_games
         .iter()
-        .filter(|game| allowed_game_matches(game, path, executable, class_name))
-        .max_by_key(|game| allowed_game_match_score(game, path, executable, class_name))
+        .filter_map(|game| {
+            let score = allowed_game_match_score(game, path, executable, class_name);
+            (score > 0).then_some((game, score))
+        })
+        .max_by_key(|(_, score)| *score)
 }
 
-fn normalized_path(path: &str) -> String {
-    path.replace('\\', "/")
+fn manual_allowed_game_match<'a>(
+    settings: &'a RecordingSettings,
+    path: Option<&str>,
+    executable: Option<&str>,
+    class_name: Option<&str>,
+) -> Option<(&'a RecordingAllowedGame, i32)> {
+    let allowed = best_allowed_game_match(&settings.allowed_games, path, executable, class_name)?;
+    let denied = best_allowed_game_match(&settings.denied_games, path, executable, class_name);
+    denied
+        .is_none_or(|(_, denied_score)| denied_score < allowed.1)
+        .then_some(allowed)
 }
 
-fn allowed_game_matches(
-    game: &RecordingAllowedGame,
+fn manual_game_denied(
+    settings: &RecordingSettings,
     path: Option<&str>,
     executable: Option<&str>,
     class_name: Option<&str>,
 ) -> bool {
-    allowed_game_match_score(game, path, executable, class_name) > 0
+    let Some((_, denied_score)) =
+        best_allowed_game_match(&settings.denied_games, path, executable, class_name)
+    else {
+        return false;
+    };
+    best_allowed_game_match(&settings.allowed_games, path, executable, class_name)
+        .is_none_or(|(_, allowed_score)| denied_score >= allowed_score)
+}
+
+fn normalized_path(path: &str) -> String {
+    path.replace('\\', "/")
 }
 
 fn detected_game_allowed(

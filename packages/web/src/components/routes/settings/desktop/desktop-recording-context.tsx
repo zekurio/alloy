@@ -3,6 +3,7 @@ import type {
   RecordingEvent,
   RecordingGameProcess,
   RecordingNotificationSoundEvent,
+  RecordingNotificationSoundLibrary,
   RecordingSettings,
   RecordingStatus,
   RecordingStorageInfo,
@@ -28,12 +29,19 @@ interface DesktopRecordingContextValue {
   runAction: (action: RecordingAction) => Promise<RecordingActionResult>
   /** Open the native folder picker and apply the chosen capture folder. */
   chooseOutputFolder: () => Promise<void>
-  /** Open the native audio picker and apply the chosen notification sound. */
-  chooseNotificationSound: (
+  /** List the audio files available in each event's notification sounds folder. */
+  listNotificationSounds: () => Promise<RecordingNotificationSoundLibrary>
+  /** Open an event's notification sounds folder so the user can add files. */
+  openNotificationSoundsFolder: (
     sound: RecordingNotificationSoundEvent,
   ) => Promise<void>
   /** Return running processes that can be added to the game allow list. */
   listGameProcesses: () => Promise<RecordingGameProcess[]>
+}
+
+const EMPTY_SOUND_LIBRARY: RecordingNotificationSoundLibrary = {
+  recordingStarted: [],
+  clipSaved: [],
 }
 
 const DesktopRecordingContext =
@@ -158,15 +166,23 @@ export function DesktopRecordingProvider({
     }
   }, [recording])
 
-  const chooseNotificationSound = React.useCallback(
+  const listNotificationSounds = React.useCallback(async () => {
+    if (!recording) return EMPTY_SOUND_LIBRARY
+    try {
+      return await recording.listNotificationSounds()
+    } catch (cause) {
+      toast.error(errorText(cause, "Couldn't load notification sounds."))
+      return EMPTY_SOUND_LIBRARY
+    }
+  }, [recording])
+
+  const openNotificationSoundsFolder = React.useCallback(
     async (sound: RecordingNotificationSoundEvent) => {
       if (!recording) return
       try {
-        const path = await recording.selectNotificationSound(sound)
-        if (!path) return
-        setSettings(await recording.getSettings())
+        await recording.openNotificationSoundsFolder(sound)
       } catch (cause) {
-        toast.error(errorText(cause, "Couldn't change the notification sound."))
+        toast.error(errorText(cause, "Couldn't open the sounds folder."))
       }
     },
     [recording],
@@ -216,7 +232,8 @@ export function DesktopRecordingProvider({
       save,
       runAction,
       chooseOutputFolder,
-      chooseNotificationSound,
+      listNotificationSounds,
+      openNotificationSoundsFolder,
       listGameProcesses,
     }),
     [
@@ -227,7 +244,8 @@ export function DesktopRecordingProvider({
       save,
       runAction,
       chooseOutputFolder,
-      chooseNotificationSound,
+      listNotificationSounds,
+      openNotificationSoundsFolder,
       listGameProcesses,
     ],
   )

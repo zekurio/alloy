@@ -28,8 +28,8 @@ import {
 } from "./recording"
 import { configureRecordingHotkeys } from "./recording-hotkeys"
 import {
-  isRecordingSoundFile,
-  RECORDING_SOUND_FILE_EXTENSIONS,
+  ensureNotificationSoundsDir,
+  listNotificationSoundLibrary,
 } from "./recording-notification-sounds"
 import {
   forgetServer,
@@ -129,6 +129,22 @@ function registerServerIpc(windows: Windows): void {
     requireDesktopSender(windows, event)
     windows.openSettings()
   })
+  ipcMain.handle(IPC.minimizeWindow, (event) => {
+    const window = requireControllableWindow(windows, event)
+    window.minimize()
+  })
+  ipcMain.handle(IPC.toggleMaximizeWindow, (event) => {
+    const window = requireControllableWindow(windows, event)
+    if (window.isMaximized()) {
+      window.unmaximize()
+    } else {
+      window.maximize()
+    }
+  })
+  ipcMain.handle(IPC.closeWindow, (event) => {
+    const window = requireControllableWindow(windows, event)
+    window.close()
+  })
 }
 
 function registerRecordingIpc(windows: Windows): void {
@@ -177,45 +193,17 @@ function registerRecordingIpc(windows: Windows): void {
       return folder
     },
   )
+  ipcMain.handle(IPC.listNotificationSounds, (event) => {
+    requireMainSender(windows, event)
+    return listNotificationSoundLibrary()
+  })
   ipcMain.handle(
-    IPC.selectNotificationSound,
-    async (event, sound: unknown): Promise<string | null> => {
+    IPC.openNotificationSoundsFolder,
+    async (event, sound: unknown): Promise<void> => {
       requireMainSender(windows, event)
-      if (!isNotificationSoundEvent(sound)) return null
-
-      const parent = BrowserWindow.fromWebContents(event.sender)
-      const options: Electron.OpenDialogOptions = {
-        title: "Choose notification sound",
-        properties: ["openFile"],
-        filters: [
-          {
-            name: "Audio files",
-            extensions: [...RECORDING_SOUND_FILE_EXTENSIONS],
-          },
-        ],
-      }
-      const result = await (parent
-        ? dialog.showOpenDialog(parent, options)
-        : dialog.showOpenDialog(options))
-      const path = result.filePaths[0]
-      if (result.canceled || !path || !isRecordingSoundFile(path)) return null
-
-      const current = getRecordingSettings()
-      const saved = saveRecordingSettings(
-        normalizeRecordingSettings({
-          ...current,
-          notificationSounds: {
-            ...current.notificationSounds,
-            [sound]: {
-              ...current.notificationSounds[sound],
-              enabled: true,
-              path,
-            },
-          },
-        }),
-      )
-      emitRecordingSettingsEvent()
-      return saved.notificationSounds[sound].path
+      if (!isNotificationSoundEvent(sound)) return
+      const openError = await shell.openPath(ensureNotificationSoundsDir(sound))
+      if (openError) throw new Error(openError)
     },
   )
   ipcMain.handle(IPC.listGameProcesses, async (event) => {
@@ -274,6 +262,16 @@ function requireDesktopServerStateSender(
   ) {
     throw unauthorizedIpcError()
   }
+}
+
+function requireControllableWindow(
+  windows: Windows,
+  event: IpcMainInvokeEvent,
+): BrowserWindow {
+  requireMainSender(windows, event)
+  const window = BrowserWindow.fromWebContents(event.sender)
+  if (!window) throw unauthorizedIpcError()
+  return window
 }
 
 function unauthorizedIpcError(): Error {

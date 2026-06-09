@@ -114,7 +114,14 @@ export function DesktopRecordingStatus() {
         align="end"
         side="bottom"
         sideOffset={8}
-        className="bg-surface-raised w-80 max-w-[calc(100vw-1.5rem)] gap-0 border p-0 ring-0"
+        className="alloy-blur w-80 max-w-[calc(100vw-1.5rem)] gap-0 border p-0 ring-0"
+        style={
+          {
+            "--alloy-blur-opacity": "78%",
+            "--alloy-blur-blur": "32px",
+            "--alloy-blur-shadow": "0 30px 80px -32px rgb(0 0 0 / 0.78)",
+          } as React.CSSProperties
+        }
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 px-3 pt-3 pb-4">

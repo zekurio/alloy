@@ -41,7 +41,7 @@ export function DesktopStorageSettings({
         </div>
       </div>
 
-      <div className="border-border bg-background flex flex-col gap-3 rounded-md border px-3 py-3">
+      <div className="flex flex-col gap-3">
         <div className="flex items-baseline justify-between">
           <span className="text-sm font-medium">Disk usage</span>
           <span className="text-foreground-dim text-xs">

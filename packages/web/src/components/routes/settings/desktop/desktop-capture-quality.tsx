@@ -39,43 +39,37 @@ export function QualitySection({
   const activePreset = selectedQualityPreset(settings)
 
   return (
-    <Subsection title="Quality">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {RECORDING_QUALITY_PRESETS.map((preset) => (
-          <PresetCard
-            key={preset.id}
-            label={preset.label}
-            spec={`${RESOLUTION_LABELS[preset.resolution]} · ${preset.fps} FPS`}
-            hourly={`≈ ${formatBytes(
-              estimateHourlyBytes(
-                preset.resolution,
-                preset.fps,
-                preset.bitrate,
-              ),
-            )}/hr`}
-            active={activePreset?.id === preset.id}
-            disabled={busy}
-            onSelect={() => void save(applyPreset(settings, preset))}
-          />
-        ))}
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {RECORDING_QUALITY_PRESETS.map((preset) => (
         <PresetCard
-          label={CUSTOM_QUALITY_LABEL}
-          spec={`${RESOLUTION_LABELS[settings.customQuality.resolution]} · ${
-            settings.customQuality.fps
-          } FPS`}
+          key={preset.id}
+          label={preset.label}
+          spec={`${RESOLUTION_LABELS[preset.resolution]} · ${preset.fps} FPS`}
           hourly={`≈ ${formatBytes(
-            estimateHourlyBytes(
-              settings.customQuality.resolution,
-              settings.customQuality.fps,
-              settings.customQuality.bitrate,
-            ),
+            estimateHourlyBytes(preset.resolution, preset.fps, preset.bitrate),
           )}/hr`}
-          active={settings.qualityProfile === "custom"}
+          active={activePreset?.id === preset.id}
           disabled={busy}
-          onSelect={() => void save(applyCustomProfile(settings))}
+          onSelect={() => void save(applyPreset(settings, preset))}
         />
-      </div>
-    </Subsection>
+      ))}
+      <PresetCard
+        label={CUSTOM_QUALITY_LABEL}
+        spec={`${RESOLUTION_LABELS[settings.customQuality.resolution]} · ${
+          settings.customQuality.fps
+        } FPS`}
+        hourly={`≈ ${formatBytes(
+          estimateHourlyBytes(
+            settings.customQuality.resolution,
+            settings.customQuality.fps,
+            settings.customQuality.bitrate,
+          ),
+        )}/hr`}
+        active={settings.qualityProfile === "custom"}
+        disabled={busy}
+        onSelect={() => void save(applyCustomProfile(settings))}
+      />
+    </div>
   )
 }
 

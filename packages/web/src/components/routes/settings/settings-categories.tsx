@@ -5,11 +5,13 @@ import {
   ClapperboardIcon,
   DatabaseIcon,
   GaugeIcon,
+  HardDriveIcon,
   type LucideIcon,
   PaletteIcon,
   PlugIcon,
   ServerIcon,
   ShieldIcon,
+  SlidersHorizontalIcon,
   UserIcon,
   UsersIcon,
   VideoIcon,
@@ -35,7 +37,11 @@ import {
   StorageUsageCard,
 } from "@/components/routes/settings/data-card"
 import { DesktopAudioSettings } from "@/components/routes/settings/desktop/desktop-audio-settings"
-import { DesktopCaptureSettings } from "@/components/routes/settings/desktop/desktop-capture-settings"
+import {
+  DesktopCaptureSettings,
+  DesktopStoragePanel,
+} from "@/components/routes/settings/desktop/desktop-capture-settings"
+import { DesktopQualitySettings } from "@/components/routes/settings/desktop/desktop-quality-settings"
 import { DesktopServerSettings } from "@/components/routes/settings/desktop/desktop-server-settings"
 import { ProfileCard } from "@/components/routes/settings/profile-card"
 import { SecuritySettings } from "@/components/routes/settings/security-settings"
@@ -163,23 +169,41 @@ const ALL_CATEGORIES: SettingsCategory[] = [
     id: "desktop",
     label: "Capture",
     title: "Capture",
-    description: "Automatic recording, replay buffer, quality, and storage.",
+    description: "Recording mode, game detection, hotkeys, and sounds.",
     keywords: [
       "desktop app",
       "recording",
       "replay buffer",
-      "quality",
-      "codec",
-      "encoder",
       "save hotkey",
       "save full sessions",
       "game detection",
       "manual overrides",
-      "capture folder",
+      "notification sounds",
+      "sound effect",
     ],
     icon: VideoIcon,
     group: "desktop",
     Panel: DesktopCaptureSettings,
+  },
+  {
+    id: "desktop-quality",
+    label: "Quality",
+    title: "Quality",
+    description: "Resolution, frame rate, encoder, and replay buffer.",
+    keywords: [
+      "quality",
+      "resolution",
+      "frame rate",
+      "fps",
+      "bitrate",
+      "codec",
+      "encoder",
+      "gpu",
+      "replay buffer",
+    ],
+    icon: SlidersHorizontalIcon,
+    group: "desktop",
+    Panel: DesktopQualitySettings,
   },
   {
     id: "desktop-audio",
@@ -198,6 +222,22 @@ const ALL_CATEGORIES: SettingsCategory[] = [
     icon: Volume2Icon,
     group: "desktop",
     Panel: DesktopAudioSettings,
+  },
+  {
+    id: "desktop-storage",
+    label: "Storage",
+    title: "Capture storage",
+    description: "Choose where clips are saved and review local disk usage.",
+    keywords: [
+      "capture folder",
+      "disk usage",
+      "storage",
+      "free space",
+      "clips folder",
+    ],
+    icon: HardDriveIcon,
+    group: "desktop",
+    Panel: DesktopStoragePanel,
   },
   {
     id: "desktop-servers",

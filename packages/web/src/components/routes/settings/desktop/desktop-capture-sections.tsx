@@ -40,8 +40,8 @@ export function ModeSection({
   save: (next: RecordingSettings) => Promise<void>
 }) {
   return (
-    <Subsection title="Capture">
-      <div className="border-border bg-background mb-3 flex flex-col rounded-md border p-3">
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-col">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
             <div className="text-sm font-semibold">Record with Alloy</div>
@@ -78,7 +78,7 @@ export function ModeSection({
         </div>
       </div>
 
-      <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {MODE_OPTIONS.map((mode) => (
           <ModeCard
             key={mode.id}
@@ -91,7 +91,7 @@ export function ModeSection({
           />
         ))}
       </div>
-    </Subsection>
+    </div>
   )
 }
 

@@ -1,7 +1,7 @@
-import { AlloyLogoMark } from "alloy-ui/components/alloy-logo"
+import { AlloyLogo } from "alloy-ui/components/alloy-logo"
 import { Kbd } from "alloy-ui/components/kbd"
 import { cn } from "alloy-ui/lib/utils"
-import { SearchIcon, XIcon } from "lucide-react"
+import { Maximize2Icon, MinusIcon, SearchIcon, XIcon } from "lucide-react"
 import * as React from "react"
 
 function AppHeader({ className, ...props }: React.ComponentProps<"header">) {
@@ -10,13 +10,11 @@ function AppHeader({ className, ...props }: React.ComponentProps<"header">) {
       data-slot="app-header"
       className={cn(
         "relative grid min-w-0 items-center gap-2 px-4 sm:gap-3 sm:px-5",
-        "[grid-template-columns:auto_minmax(0,1fr)_auto]",
+        "[grid-template-columns:auto_minmax(0,1fr)_auto_auto]",
         "[&_[data-slot=app-header-brand]]:col-start-1",
         "[&_[data-slot=app-header-search]]:col-start-2",
         "[&_[data-slot=app-header-actions]]:col-start-3",
-        // Mobile-only: when the search is focused, expand it edge-to-edge
-        // by collapsing the brand and actions tracks to zero width.
-        "max-sm:[&:has([data-slot=app-header-search]:focus-within)]:[grid-template-columns:0_minmax(0,1fr)_0]",
+        "[&_[data-slot=app-header-window-controls]]:col-start-4",
         "max-sm:[&:has([data-slot=app-header-search]:focus-within)_[data-slot=app-header-brand]]:pointer-events-none",
         "max-sm:[&:has([data-slot=app-header-search]:focus-within)_[data-slot=app-header-brand]]:opacity-0",
         "max-sm:[&:has([data-slot=app-header-search]:focus-within)_[data-slot=app-header-actions]]:pointer-events-none",
@@ -32,9 +30,10 @@ function AppHeader({ className, ...props }: React.ComponentProps<"header">) {
 function AppHeaderBrand({
   className,
   size = 32,
+  showText = false,
   children,
   ...props
-}: React.ComponentProps<"div"> & { size?: number }) {
+}: React.ComponentProps<"div"> & { size?: number; showText?: boolean }) {
   return (
     <div
       data-slot="app-header-brand"
@@ -44,7 +43,7 @@ function AppHeaderBrand({
       )}
       {...props}
     >
-      <AlloyLogoMark size={size} />
+      <AlloyLogo size={size} showText={showText} spacing={8} />
       {children}
     </div>
   )
@@ -196,4 +195,72 @@ function AppHeaderActions({
   )
 }
 
-export { AppHeader, AppHeaderActions, AppHeaderBrand, AppHeaderSearch }
+interface AppHeaderWindowControlsProps extends Omit<
+  React.ComponentProps<"div">,
+  "children"
+> {
+  onMinimize: () => void
+  onToggleMaximize: () => void
+  onClose: () => void
+}
+
+function AppHeaderWindowControls({
+  className,
+  onMinimize,
+  onToggleMaximize,
+  onClose,
+  ...props
+}: AppHeaderWindowControlsProps) {
+  return (
+    <div
+      data-slot="app-header-window-controls"
+      className={cn("flex h-full items-stretch justify-self-end", className)}
+      {...props}
+    >
+      <WindowControlButton aria-label="Minimize" onClick={onMinimize}>
+        <MinusIcon />
+      </WindowControlButton>
+      <WindowControlButton
+        aria-label="Maximize or restore"
+        onClick={onToggleMaximize}
+      >
+        <Maximize2Icon />
+      </WindowControlButton>
+      <WindowControlButton aria-label="Close" danger onClick={onClose}>
+        <XIcon />
+      </WindowControlButton>
+    </div>
+  )
+}
+
+function WindowControlButton({
+  className,
+  danger,
+  ...props
+}: React.ComponentProps<"button"> & { danger?: boolean }) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "grid h-full w-11 place-items-center text-foreground-muted",
+        "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+        "hover:bg-surface-raised hover:text-foreground",
+        "focus-visible:bg-surface-raised focus-visible:text-foreground",
+        "focus-visible:ring-0 focus-visible:outline-none",
+        "[&_svg]:size-3.5",
+        danger &&
+          "hover:bg-danger hover:text-white focus-visible:bg-danger focus-visible:text-white",
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
+export {
+  AppHeader,
+  AppHeaderActions,
+  AppHeaderBrand,
+  AppHeaderSearch,
+  AppHeaderWindowControls,
+}

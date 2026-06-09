@@ -75,7 +75,7 @@ const SIDEBAR_ITEM_STYLE: NavItemStyle = {
 const BOTTOM_NAV_ITEM_STYLE: NavItemStyle = {
   slot: "app-bottom-nav-item",
   className: cn(
-    "group/app-bottom-nav-item relative flex flex-1 items-center justify-center",
+    "group/app-bottom-nav-item relative flex min-w-0 items-center justify-center",
     "min-h-[48px] rounded-md text-foreground-muted",
     "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
     "not-data-active:hover:text-foreground",
@@ -116,7 +116,7 @@ function AppBottomNav({ className, ...props }: React.ComponentProps<"nav">) {
     <nav
       data-slot="app-bottom-nav"
       className={cn(
-        "relative z-10 flex items-stretch justify-around gap-1",
+        "relative z-10 grid grid-cols-5 items-stretch gap-1",
         "h-full border-t border-border bg-surface-sunken",
         "px-2 pb-[env(safe-area-inset-bottom,0px)]",
         className,

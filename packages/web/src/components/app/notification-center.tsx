@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router"
 import { clipThumbnailUrl, type NotificationRow } from "alloy-api"
+import { AppBottomNavItem } from "alloy-ui/components/app-sidebar"
 import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
 import { Button } from "alloy-ui/components/button"
 import {
@@ -65,7 +66,11 @@ const NOTIFICATION_GLASS_STYLE = {
   "--alloy-blur-shadow": "0 30px 80px -32px rgb(0 0 0 / 0.78)",
 } as React.CSSProperties
 
-export function NotificationCenter() {
+export function NotificationCenter({
+  variant = "header",
+}: {
+  variant?: "header" | "bottom-nav"
+}) {
   const isMobile = useIsMobile()
   const session = useSuspenseSession()
   const enabled = Boolean(session)
@@ -85,23 +90,31 @@ export function NotificationCenter() {
     if (open) announceFloatingSurfaceOpen("notifications")
   }, [open])
 
-  if (!enabled) return null
+  if (!enabled) {
+    return variant === "bottom-nav" ? (
+      <AppBottomNavItem
+        title="Notifications"
+        aria-disabled
+        tabIndex={-1}
+        className="pointer-events-none opacity-60"
+      >
+        <NotificationBell unreadCount={0} />
+      </AppBottomNavItem>
+    ) : null
+  }
 
   const unreadCount = query.data?.unreadCount ?? 0
 
-  const trigger = (
-    <Button variant="ghost" size="icon" aria-label="Notifications">
-      <span className="relative inline-flex">
-        <BellIcon className="size-5" />
-        {unreadCount > 0 ? (
-          <span
-            aria-hidden
-            className="bg-accent absolute -top-0.5 -right-0.5 size-2 rounded-full"
-          />
-        ) : null}
-      </span>
-    </Button>
-  )
+  const trigger =
+    variant === "bottom-nav" ? (
+      <AppBottomNavItem active={open} title="Notifications">
+        <NotificationBell unreadCount={unreadCount} />
+      </AppBottomNavItem>
+    ) : (
+      <Button variant="ghost" size="icon" aria-label="Notifications">
+        <NotificationBell unreadCount={unreadCount} />
+      </Button>
+    )
 
   const content = (
     <NotificationCenterContent
@@ -120,7 +133,10 @@ export function NotificationCenter() {
           centered={false}
           showOverlay={false}
           className={cn(
-            "top-[calc(var(--header-h)+0.5rem)] right-4 left-4 z-50 w-auto max-w-none rounded-2xl border p-3",
+            variant === "bottom-nav"
+              ? "right-3 bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+0.75rem)] left-3"
+              : "top-[calc(var(--header-h)+0.5rem)] right-4 left-4",
+            "z-50 w-auto max-w-none rounded-2xl border p-3",
             "max-h-[calc(100dvh-var(--header-h)-var(--bottomnav-h)-env(safe-area-inset-bottom)-1.5rem)]",
             "alloy-blur",
           )}
@@ -150,6 +166,20 @@ export function NotificationCenter() {
         {content}
       </PopoverContent>
     </Popover>
+  )
+}
+
+function NotificationBell({ unreadCount }: { unreadCount: number }) {
+  return (
+    <span className="relative inline-flex">
+      <BellIcon className="size-5" />
+      {unreadCount > 0 ? (
+        <span
+          aria-hidden
+          className="bg-accent absolute -top-0.5 -right-0.5 size-2 rounded-full"
+        />
+      ) : null}
+    </span>
   )
 }
 

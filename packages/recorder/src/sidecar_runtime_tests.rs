@@ -188,6 +188,80 @@ mod detection_tests {
     }
 
     #[test]
+    fn manual_allow_overrides_builtin_browser_blocklist() {
+        let settings = settings_with_rules(
+            vec![allowed_game(
+                "browser-chrome",
+                "Chrome",
+                Some("chrome.exe"),
+                None,
+            )],
+            vec![],
+        );
+
+        let detected = detected_with_settings(
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            "Google Chrome",
+            &settings,
+        )
+        .expect("manual allow-list entry should override built-in browser blocklist");
+
+        assert_eq!(detected.game.id.as_deref(), Some("browser-chrome"));
+        assert_eq!(detected.detection_score, 200);
+    }
+
+    #[test]
+    fn path_allow_beats_generic_executable_deny() {
+        let chrome_path = r"C:\Program Files\Google\Chrome\Application\chrome.exe";
+        let settings = settings_with_rules(
+            vec![allowed_game(
+                "browser-chrome-path",
+                "Chrome",
+                Some("chrome.exe"),
+                Some(chrome_path),
+            )],
+            vec![allowed_game(
+                "browser-chrome-exe",
+                "Chrome",
+                Some("chrome.exe"),
+                None,
+            )],
+        );
+
+        let detected = detected_with_settings(chrome_path, "Google Chrome", &settings)
+            .expect("specific manual allow should beat generic deny");
+
+        assert_eq!(
+            detected.game.id.as_deref(),
+            Some("browser-chrome-path")
+        );
+        assert!(detected_game_allowed(&detected, &settings));
+    }
+
+    #[test]
+    fn path_deny_beats_generic_executable_allow() {
+        let chrome_path = r"C:\Program Files\Google\Chrome\Application\chrome.exe";
+        let settings = settings_with_rules(
+            vec![allowed_game(
+                "browser-chrome-exe",
+                "Chrome",
+                Some("chrome.exe"),
+                None,
+            )],
+            vec![allowed_game(
+                "browser-chrome-path",
+                "Chrome",
+                Some("chrome.exe"),
+                Some(chrome_path),
+            )],
+        );
+
+        let detected = detected_with_settings(chrome_path, "Google Chrome", &settings);
+
+        assert!(detected.is_none());
+    }
+
+    #[test]
     fn path_allow_entries_do_not_match_other_paths_by_executable() {
         let settings = settings_with_rules(
             vec![allowed_game(
@@ -245,6 +319,31 @@ mod detection_tests {
         assert!(detected_game_allowed(&detected, &settings));
         let denied_settings = settings_with_rules(vec![], allowed);
         assert!(!detected_game_allowed(&detected, &denied_settings));
+    }
+
+    #[test]
+    fn manual_only_active_game_is_disallowed_after_allow_entry_removed() {
+        let settings = settings_with_rules(
+            vec![allowed_game(
+                "browser-chrome",
+                "Chrome",
+                Some("chrome.exe"),
+                None,
+            )],
+            vec![],
+        );
+        let detected = detected_with_settings(
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            "Google Chrome",
+            &settings,
+        )
+        .expect("manual browser allow should capture");
+
+        assert!(detected_game_allowed(&detected, &settings));
+        assert!(!detected_game_allowed(
+            &detected,
+            &RecordingSettings::default(),
+        ));
     }
 }
 

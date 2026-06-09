@@ -22,7 +22,7 @@ import {
  * partition (which holds the auth cookie). Kept deliberately minimal — this is
  * client config, not a cache.
  */
-const STATE_FILE = "desktop-state.json"
+const STATE_FILE = "preferences.json"
 
 function stateFilePaths(): string[] {
   return [join(app.getPath("userData"), STATE_FILE)]

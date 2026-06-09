@@ -116,6 +116,20 @@ export type RecordingNotificationSounds = Record<
   RecordingNotificationSoundSettings
 >
 
+/** A selectable sound file discovered in an event's notification sounds folder. */
+export interface RecordingNotificationSoundOption {
+  /** Absolute path to the audio file. */
+  path: string
+  /** File name shown in the picker dropdown. */
+  name: string
+}
+
+/** Available sound files per event, used to populate the sound pickers. */
+export type RecordingNotificationSoundLibrary = Record<
+  RecordingNotificationSoundEvent,
+  RecordingNotificationSoundOption[]
+>
+
 export interface RecordingAudioDeviceSelection {
   id: string
   label: string

@@ -1,7 +1,7 @@
 import { ACCEPTED_IMAGE_CONTENT_TYPES } from "alloy-contracts"
 import { clip } from "alloy-db/schema"
 import { inArray } from "drizzle-orm"
-import { Hono, type Context } from "hono"
+import { Hono } from "hono"
 import { z } from "zod"
 
 import { requireAdmin } from "../auth/session"
@@ -15,7 +15,6 @@ import {
   MachineLearningConfigPatchSchema,
   OAuthProvidersSchema,
   parseRuntimeConfig,
-  ScheduledTaskTriggersSchema,
 } from "../config/store"
 import { db } from "../db"
 import { enqueueClipMediaProcessing } from "../queue"
@@ -23,15 +22,7 @@ import {
   badRequest,
   badRequestFromCause,
   batchProgress,
-  notFound,
 } from "../runtime/http-response"
-import {
-  scheduledTaskInfoById,
-  scheduledTaskInfos,
-  type ScheduledTaskPayload,
-  triggerScheduledTask,
-  updateScheduledTaskTriggers,
-} from "../scheduled-tasks"
 import {
   ensureLoginSplashImage,
   generateLoginSplashPatch,
@@ -45,6 +36,7 @@ import {
   adminRuntimeConfigResponse,
   finalizeOAuthProviderSubmission,
 } from "./admin-helpers"
+import { adminScheduledTasksRoute } from "./admin-scheduled-tasks"
 import { adminUsersRoute } from "./admin-users"
 import { zValidator } from "./validation"
 
@@ -91,18 +83,6 @@ const OAuthProviderAdminSubmissionSchema = z
 
 const OAuthConfigSubmissionSchema = z.object({
   oauthProviders: z.array(OAuthProviderAdminSubmissionSchema).max(16),
-})
-
-const ScheduledTaskParam = z.object({
-  id: z.string().min(1).max(128),
-})
-
-const ScheduledTaskTriggersUpdate = z.object({
-  triggers: ScheduledTaskTriggersSchema,
-})
-
-const ScheduledTaskRunBody = z.object({
-  payload: z.record(z.string(), z.unknown()).optional(),
 })
 
 export const adminRoute = new Hono()
@@ -372,43 +352,7 @@ export const adminRoute = new Hono()
   .get("/encoder/capabilities", async (c) => {
     return c.json(await getEncoderCapabilities())
   })
-  .get("/scheduled-tasks", async (c) => {
-    return c.json({ tasks: await scheduledTaskInfos() })
-  })
-  .get(
-    "/scheduled-tasks/:id",
-    zValidator("param", ScheduledTaskParam),
-    async (c) => {
-      const { id } = c.req.valid("param")
-      const task = await scheduledTaskInfoById(id)
-      if (!task) return notFound(c, "Unknown scheduled task")
-      return c.json(task)
-    },
-  )
-  .post(
-    "/scheduled-tasks/:id/run",
-    zValidator("param", ScheduledTaskParam),
-    async (c) => {
-      const { id } = c.req.valid("param")
-      const payload = await readScheduledTaskPayload(c)
-      if ("response" in payload) return payload.response
-      const result = await triggerScheduledTask(id, payload.payload)
-      if (!result) return notFound(c, "Unknown scheduled task")
-      return c.json(result, result.started ? 202 : 200)
-    },
-  )
-  .put(
-    "/scheduled-tasks/:id/triggers",
-    zValidator("param", ScheduledTaskParam),
-    zValidator("json", ScheduledTaskTriggersUpdate),
-    async (c) => {
-      const { id } = c.req.valid("param")
-      const { triggers } = c.req.valid("json")
-      const task = await updateScheduledTaskTriggers(id, triggers)
-      if (!task) return notFound(c, "Unknown scheduled task")
-      return c.json(task)
-    },
-  )
+  .route("/scheduled-tasks", adminScheduledTasksRoute)
   .post("/clips/re-encode", async (c) => {
     const rows = await db
       .select({ id: clip.id })
@@ -444,25 +388,3 @@ export const adminRoute = new Hono()
       rows.length > RE_ENCODE_BATCH_LIMIT,
     )
   })
-
-async function readScheduledTaskPayload(
-  c: Context,
-): Promise<{ payload: ScheduledTaskPayload | null } | { response: Response }> {
-  const contentType = c.req.header("content-type")
-  if (!contentType?.toLowerCase().includes("application/json")) {
-    return { payload: null }
-  }
-
-  let body: unknown
-  try {
-    body = await c.req.json()
-  } catch {
-    return { response: badRequest(c, "Invalid JSON.") }
-  }
-
-  const parsed = ScheduledTaskRunBody.safeParse(body ?? {})
-  if (!parsed.success) {
-    return { response: badRequest(c, "Invalid scheduled task payload.") }
-  }
-  return { payload: parsed.data.payload ?? null }
-}

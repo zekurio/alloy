@@ -19,6 +19,11 @@ export const WINDOW_ICON = app.isPackaged
   ? join(process.resourcesPath, "assets", "icon.png")
   : join(import.meta.dirname, "../../assets/icon.png")
 
+const MAIN_WINDOW_WIDTH = 1280
+const MAIN_WINDOW_HEIGHT = 800
+const MAIN_WINDOW_MIN_WIDTH = 1024
+const MAIN_WINDOW_MIN_HEIGHT = 700
+
 /**
  * Owns the two window surfaces:
  *  - `overlay`: trusted, bundled connect screen; the only window granted the
@@ -158,8 +163,12 @@ export class Windows {
     if (this.main && !this.main.isDestroyed()) return this.main
 
     const win = new BrowserWindow({
-      width: 1280,
-      height: 800,
+      width: MAIN_WINDOW_WIDTH,
+      height: MAIN_WINDOW_HEIGHT,
+      minWidth: MAIN_WINDOW_MIN_WIDTH,
+      minHeight: MAIN_WINDOW_MIN_HEIGHT,
+      useContentSize: true,
+      frame: false,
       icon: WINDOW_ICON,
       show: false,
       title: "Alloy",

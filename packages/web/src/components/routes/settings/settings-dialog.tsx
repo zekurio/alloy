@@ -4,15 +4,6 @@ import {
   DialogContent,
   DialogTitle,
 } from "alloy-ui/components/dialog"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "alloy-ui/components/select"
 import { Spinner } from "alloy-ui/components/spinner"
 import { cn } from "alloy-ui/lib/utils"
 import { SearchIcon, XIcon } from "lucide-react"
@@ -73,7 +64,10 @@ export function SettingsDialog({
       <DialogContent
         variant="secondary"
         disableZoom
-        className="flex h-[84vh] max-h-[760px] w-[calc(100vw-2rem)] max-w-4xl gap-0 overflow-hidden p-0"
+        className={cn(
+          "flex h-[88vh] max-h-[860px] w-[calc(100vw-2rem)] max-w-4xl gap-0 overflow-hidden p-0",
+          "max-sm:h-[78dvh] max-sm:max-h-[680px] max-sm:max-w-[430px]",
+        )}
       >
         <DialogTitle className="sr-only">Settings</DialogTitle>
         {body}
@@ -127,7 +121,7 @@ function SettingsDialogContent({
   return (
     <>
       <nav className="border-border bg-background hidden w-60 shrink-0 flex-col gap-1 overflow-y-auto border-r p-4 sm:flex">
-        <div className="text-foreground px-2.5 pb-1 text-sm font-semibold">
+        <div className="text-foreground px-2.5 pb-2 text-lg font-semibold tracking-[var(--tracking-tight)]">
           Settings
         </div>
         <div className="relative pb-1">
@@ -191,38 +185,41 @@ function SettingsDialogContent({
       </nav>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="border-border border-b p-3 pr-14 sm:hidden">
-          <Select
-            value={active.id}
-            onValueChange={(value) => {
-              if (value !== null) onNavigate(value)
-            }}
+        <div className="border-border bg-background border-b pt-3 pr-12 sm:hidden">
+          <div className="text-foreground px-4 pb-2 text-lg font-semibold tracking-[var(--tracking-tight)]">
+            Settings
+          </div>
+          <div
+            role="tablist"
+            aria-label="Settings sections"
+            className="no-scrollbar flex gap-1 overflow-x-auto px-3 pb-2"
           >
-            <SelectTrigger aria-label="Settings section" className="w-full">
-              <SelectValue>{active.label}</SelectValue>
-            </SelectTrigger>
-            <SelectContent align="start">
-              {SETTINGS_GROUPS.map((group) => {
-                const items = categories.filter(
-                  (category) => category.group === group.id,
-                )
-                if (items.length === 0) return null
-                return (
-                  <SelectGroup key={group.id}>
-                    <SelectLabel>{group.label}</SelectLabel>
-                    {items.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                )
-              })}
-            </SelectContent>
-          </Select>
+            {categories.map((category) => {
+              const isActive = category.id === active.id
+              return (
+                <button
+                  key={category.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => onNavigate(category.id)}
+                  className={cn(
+                    "inline-flex h-8 shrink-0 items-center rounded-full px-3 text-sm",
+                    "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+                    "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
+                    isActive
+                      ? "bg-surface-raised text-foreground font-medium"
+                      : "text-foreground-dim hover:bg-white/[0.03] hover:text-foreground",
+                  )}
+                >
+                  <span>{category.label}</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto py-7 pr-12 pl-8">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:py-7 sm:pr-12 sm:pl-8">
           <SettingsPanel
             title={active.title ?? active.label}
             description={active.description}

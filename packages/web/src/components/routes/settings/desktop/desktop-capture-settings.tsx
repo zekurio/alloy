@@ -1,16 +1,14 @@
 import { Spinner } from "alloy-ui/components/spinner"
 
-import { EncodingSettingsGrid } from "./desktop-capture-encoding"
 import { AllowedGamesSection } from "./desktop-capture-games"
 import { HotkeysSection } from "./desktop-capture-hotkeys"
 import { NotificationSoundsSection } from "./desktop-capture-notifications"
-import { QualitySection, ReplayBufferSection } from "./desktop-capture-quality"
-import { ModeSection, Subsection } from "./desktop-capture-sections"
+import { ModeSection } from "./desktop-capture-sections"
 import { useDesktopRecording } from "./desktop-recording-context"
 import { DesktopStorageSettings } from "./desktop-storage-settings"
 
 export function DesktopCaptureSettings() {
-  const { settings, status, busy, setSettings, save } = useDesktopRecording()
+  const { settings, status, busy, save } = useDesktopRecording()
 
   if (!settings || !status) {
     return (
@@ -32,49 +30,30 @@ export function DesktopCaptureSettings() {
 
       <hr className="border-border" />
 
-      <Subsection title="Games">
-        <AllowedGamesSection settings={settings} busy={busy} save={save} />
-      </Subsection>
+      <AllowedGamesSection settings={settings} busy={busy} save={save} />
 
       <hr className="border-border" />
-
-      <QualitySection settings={settings} busy={busy} save={save} />
-
-      <hr className="border-border" />
-
-      <EncodingSettingsGrid
-        settings={settings}
-        status={status}
-        busy={busy}
-        save={save}
-      />
-
-      <hr className="border-border" />
-
-      {settings.triggerMode === "replay-buffer" ? (
-        <>
-          <ReplayBufferSection
-            settings={settings}
-            busy={busy}
-            setSettings={setSettings}
-            save={save}
-          />
-
-          <hr className="border-border" />
-        </>
-      ) : null}
 
       <HotkeysSection settings={settings} busy={busy} save={save} />
 
       <hr className="border-border" />
 
       <NotificationSoundsSection settings={settings} busy={busy} save={save} />
-
-      <hr className="border-border" />
-
-      <Subsection title="Storage">
-        <DesktopStorageSettings />
-      </Subsection>
     </div>
   )
+}
+
+export function DesktopStoragePanel() {
+  const { settings, storageInfo } = useDesktopRecording()
+
+  if (!settings || !storageInfo) {
+    return (
+      <div className="text-foreground-muted flex h-20 items-center justify-center gap-2 text-sm">
+        <Spinner />
+        Loading storage settings
+      </div>
+    )
+  }
+
+  return <DesktopStorageSettings />
 }

@@ -1,18 +1,5 @@
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  statfsSync,
-  statSync,
-} from "node:fs"
-import {
-  basename,
-  dirname,
-  isAbsolute,
-  join,
-  relative,
-  resolve,
-} from "node:path"
+import { existsSync } from "node:fs"
+import { basename, dirname, join, resolve } from "node:path"
 
 import type {
   RecordingActionResult,
@@ -20,7 +7,6 @@ import type {
   RecordingEvent,
   RecordingGameProcess,
   RecordingStatus,
-  RecordingStorageInfo,
 } from "alloy-contracts"
 import { logger } from "alloy-logging"
 import { app } from "electron"
@@ -30,11 +16,14 @@ import {
   RecordingSidecarClient,
   type SidecarConfig,
 } from "./recording-sidecar-client"
+import {
+  currentOutputFolder,
+  defaultReplayScratchFolder,
+} from "./recording-storage"
 import { getRecordingSettings } from "./server-store"
 
 const SIDECAR_MISSING =
   "Recording capture sidecar is not built yet. Run pnpm --filter alloy-recorder build."
-const GB = 1_000_000_000
 
 type RecordingEventListener = (event: RecordingEvent) => void
 
@@ -45,14 +34,12 @@ let lastClipSavedSoundKey: string | null = null
 let lastRecordingStatus: RecordingStatus | null = null
 let pendingReplaySaveRequestSounds = 0
 
-/** Default capture folder when the user hasn't picked one. */
-export function defaultOutputFolder(): string {
-  return join(app.getPath("videos"), "Alloy")
-}
-
-export function defaultReplayScratchFolder(): string {
-  return join(app.getPath("temp"), "Alloy", "replay-buffer")
-}
+export {
+  defaultOutputFolder,
+  defaultReplayScratchFolder,
+  getRecordingStorageInfo,
+  resolveRevealableCapturePath,
+} from "./recording-storage"
 
 export async function getRecordingStatus(): Promise<RecordingStatus> {
   const client = getSidecarClient()
@@ -69,21 +56,6 @@ export async function getRecordingStatus(): Promise<RecordingStatus> {
     )
     rememberRecordingStatus(status)
     return status
-  }
-}
-
-export async function getRecordingStorageInfo(): Promise<RecordingStorageInfo> {
-  const outputFolder = currentOutputFolder()
-  ensureFolder(outputFolder)
-
-  const fsInfo = readFilesystemInfo(outputFolder)
-  const clipsBytes = sumCaptureBytes(outputFolder)
-  return {
-    outputFolder,
-    totalBytes: fsInfo.totalBytes,
-    usedBytes: Math.max(0, fsInfo.totalBytes - fsInfo.availableBytes),
-    availableBytes: fsInfo.availableBytes,
-    clipsBytes,
   }
 }
 
@@ -144,22 +116,6 @@ export async function shutdownRecordingBackend(): Promise<void> {
   const client = sidecarClient
   sidecarClient = null
   await client?.shutdown()
-}
-
-export function resolveRevealableCapturePath(filename: string): string | null {
-  if (!/\.(mp4|mkv|mov|webm)$/i.test(filename)) return null
-
-  const outputFolder = resolve(currentOutputFolder())
-  const capturePath = resolve(filename)
-  const relativePath = relative(outputFolder, capturePath)
-  if (
-    relativePath.length === 0 ||
-    relativePath.startsWith("..") ||
-    isAbsolute(relativePath)
-  ) {
-    return null
-  }
-  return capturePath
 }
 
 export function unavailableRecordingStatus(
@@ -243,10 +199,6 @@ function currentSidecarConfig(): SidecarConfig {
     replayScratchFolder: defaultReplayScratchFolder(),
     obsRuntimeDir: obsRuntimeDir(),
   }
-}
-
-function currentOutputFolder(): string {
-  return getRecordingSettings().outputFolder || defaultOutputFolder()
 }
 
 function getSidecarClient(): RecordingSidecarClient | null {
@@ -421,47 +373,6 @@ function canReplayBufferSaveFromStatus(
 
 function rememberRecordingStatus(status: RecordingStatus): void {
   lastRecordingStatus = status
-}
-
-function ensureFolder(path: string) {
-  try {
-    mkdirSync(path, { recursive: true })
-  } catch (cause) {
-    logger.warn("[desktop] failed to create capture folder:", cause)
-  }
-}
-
-function readFilesystemInfo(path: string): {
-  totalBytes: number
-  availableBytes: number
-} {
-  try {
-    const info = statfsSync(path)
-    return {
-      totalBytes: Number(info.blocks) * Number(info.bsize),
-      availableBytes: Number(info.bavail) * Number(info.bsize),
-    }
-  } catch {
-    return {
-      totalBytes: 2_000 * GB,
-      availableBytes: 0,
-    }
-  }
-}
-
-function sumCaptureBytes(path: string): number {
-  try {
-    return readdirSync(path).reduce((total, entry) => {
-      const entryPath = join(path, entry)
-      const stat = statSync(entryPath)
-      if (stat.isDirectory()) return total + sumCaptureBytes(entryPath)
-      return stat.isFile() && /\.(mp4|mkv|mov|webm)$/i.test(entry)
-        ? total + stat.size
-        : total
-    }, 0)
-  } catch {
-    return 0
-  }
 }
 
 function errorText(cause: unknown, fallback: string): string {

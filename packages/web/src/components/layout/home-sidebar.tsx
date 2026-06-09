@@ -6,9 +6,16 @@ import {
   AppSidebarGroup,
   AppSidebarItem,
 } from "alloy-ui/components/app-sidebar"
-import { GamepadIcon, HomeIcon, LibraryIcon, PlusIcon } from "lucide-react"
+import {
+  BellIcon,
+  GamepadIcon,
+  HomeIcon,
+  LibraryIcon,
+  PlusIcon,
+} from "lucide-react"
 import * as React from "react"
 
+import { NotificationCenter } from "@/components/app/notification-center"
 import { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
 import { parseProfilePathname } from "@/lib/profile-path"
 import { useSuspenseSession } from "@/lib/session-suspense"
@@ -187,6 +194,7 @@ function BottomNavItems() {
       >
         <GamepadIcon />
       </AppBottomNavItem>
+      <NotificationCenter variant="bottom-nav" />
     </>
   )
 }
@@ -209,13 +217,16 @@ function BottomNavFallback() {
       <AppBottomNavItem title="Games">
         <GamepadIcon />
       </AppBottomNavItem>
+      <AppBottomNavItem title="Notifications">
+        <BellIcon />
+      </AppBottomNavItem>
     </>
   )
 }
 
 function NavUploadIcon() {
   return (
-    <span className="bg-accent text-accent-foreground flex size-7 items-center justify-center rounded-full">
+    <span className="bg-accent text-accent-foreground border-accent flex size-10 items-center justify-center rounded-full border shadow-md shadow-black/35">
       <PlusIcon strokeWidth={2.5} />
     </span>
   )
