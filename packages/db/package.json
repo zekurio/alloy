@@ -11,9 +11,9 @@
   "scripts": {
     "build": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio",
+    "db:migrate": "node ../../scripts/with-dev-env.mjs node ./node_modules/drizzle-kit/bin.cjs migrate",
+    "db:push": "node ../../scripts/with-dev-env.mjs node ./node_modules/drizzle-kit/bin.cjs push",
+    "db:studio": "node ../../scripts/with-dev-env.mjs node ./node_modules/drizzle-kit/bin.cjs studio",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"src/**/*_test.ts\""
   },

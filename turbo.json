@@ -1,5 +1,21 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "ALLOY_CLIPS_DIR",
+    "ALLOY_DATA_DIR",
+    "ALLOY_ENCODE_DIR",
+    "ALLOY_ML_HOST",
+    "ALLOY_ML_PORT",
+    "DATABASE_URL",
+    "FFMPEG_BIN",
+    "FFPROBE_BIN",
+    "MACHINE_LEARNING_ENABLED",
+    "MACHINE_LEARNING_URL",
+    "NODE_ENV",
+    "PORT",
+    "PUBLIC_SERVER_URL",
+    "TRUSTED_ORIGINS"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
