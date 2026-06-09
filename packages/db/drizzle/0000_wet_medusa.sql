@@ -140,6 +140,32 @@ CREATE TABLE "notification" (
 	CONSTRAINT "notification_type_check" CHECK ("notification"."type" in ('clip_upload_failed', 'new_follower', 'clip_comment', 'comment_reply', 'comment_pinned', 'comment_liked_by_author', 'new_video'))
 );
 --> statement-breakpoint
+CREATE TABLE "scheduled_task_lock" (
+	"task_id" text PRIMARY KEY NOT NULL,
+	"owner_id" text NOT NULL,
+	"run_id" uuid NOT NULL,
+	"heartbeat_at" timestamp DEFAULT now() NOT NULL,
+	"locked_until" timestamp NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "scheduled_task_run" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"task_id" text NOT NULL,
+	"trigger" text NOT NULL,
+	"status" text NOT NULL,
+	"started_at" timestamp DEFAULT now() NOT NULL,
+	"finished_at" timestamp,
+	"duration_ms" integer,
+	"payload" jsonb,
+	"result" jsonb,
+	"error" text,
+	CONSTRAINT "scheduled_task_run_trigger_check" CHECK ("scheduled_task_run"."trigger" in ('startup', 'cron', 'manual')),
+	CONSTRAINT "scheduled_task_run_status_check" CHECK ("scheduled_task_run"."status" in ('running', 'success', 'failed', 'cancelled')),
+	CONSTRAINT "scheduled_task_run_duration_ms_check" CHECK ("scheduled_task_run"."duration_ms" is null or "scheduled_task_run"."duration_ms" >= 0)
+);
+--> statement-breakpoint
 CREATE TABLE "auth_account" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -268,6 +294,8 @@ CREATE UNIQUE INDEX "game_follow_pair_idx" ON "game_follow" USING btree ("user_i
 CREATE INDEX "game_follow_game_idx" ON "game_follow" USING btree ("game_id");--> statement-breakpoint
 CREATE INDEX "notification_recipient_created_idx" ON "notification" USING btree ("recipient_id","created_at");--> statement-breakpoint
 CREATE INDEX "notification_recipient_unread_idx" ON "notification" USING btree ("recipient_id","created_at") WHERE "notification"."read_at" IS NULL;--> statement-breakpoint
+CREATE INDEX "scheduled_task_run_task_started_idx" ON "scheduled_task_run" USING btree ("task_id","started_at");--> statement-breakpoint
+CREATE INDEX "scheduled_task_run_status_idx" ON "scheduled_task_run" USING btree ("status");--> statement-breakpoint
 CREATE UNIQUE INDEX "auth_account_provider_account_idx" ON "auth_account" USING btree ("provider_id","provider_account_id");--> statement-breakpoint
 CREATE INDEX "auth_challenge_expires_at_idx" ON "auth_challenge" USING btree ("expires_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "user_username_lower_unique" ON "user" USING btree (lower("username"));

@@ -274,6 +274,12 @@ function validateScheduledTaskTrigger(value: unknown, label: string) {
       `Invalid ${label}: delayMs must be non-negative`,
     )
   }
+  if (trigger.jitterMs !== undefined) {
+    validateNonNegativeInteger(
+      trigger.jitterMs,
+      `Invalid ${label}: jitterMs must be non-negative`,
+    )
+  }
   if (trigger.type === "cron") {
     validateRequiredString(
       trigger.expression,

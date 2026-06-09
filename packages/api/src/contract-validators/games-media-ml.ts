@@ -231,6 +231,10 @@ export function validateAdminScheduledTaskRunResponse(
     response.started,
     "Invalid scheduled task run response: started must be boolean",
   )
+  validateBoolean(
+    response.queued,
+    "Invalid scheduled task run response: queued must be boolean",
+  )
   response.task = validateAdminScheduledTaskInfo(response.task)
   return value as AdminScheduledTaskRunResponse
 }
@@ -246,6 +250,12 @@ function validateScheduledTaskTrigger(value: unknown) {
     validateNonNegativeInteger(
       trigger.delayMs,
       "Invalid scheduled task trigger response: delayMs must be non-negative",
+    )
+  }
+  if (trigger.jitterMs !== undefined) {
+    validateNonNegativeInteger(
+      trigger.jitterMs,
+      "Invalid scheduled task trigger response: jitterMs must be non-negative",
     )
   }
   if (trigger.type === "cron") {

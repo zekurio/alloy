@@ -6,6 +6,7 @@ import type {
   AdminOAuthProvider,
   AdminRuntimeConfig,
   AdminScheduledTaskInfo,
+  AdminScheduledTaskPayload,
   AdminScheduledTaskRunResponse,
   AdminScheduledTasksResponse,
   AdminScheduledTaskTrigger,
@@ -56,6 +57,7 @@ export type {
   AdminMachineLearningConfig,
   AdminOAuthProvider,
   AdminRuntimeConfig,
+  AdminScheduledTaskPayload,
   AdminScheduledTaskResult,
   AdminScheduledTaskInfo,
   AdminScheduledTaskRunResponse,
@@ -204,10 +206,15 @@ async function fetchScheduledTask(
 async function runScheduledTask(
   context: ApiContext,
   taskId: string,
+  payload?: AdminScheduledTaskPayload,
 ): Promise<AdminScheduledTaskRunResponse> {
-  const res = await context.rpc.api.admin["scheduled-tasks"][":id"].run.$post({
-    param: { id: taskId },
-  })
+  const res = await context.request(
+    `/api/admin/scheduled-tasks/${encodeURIComponent(taskId)}/run`,
+    {
+      method: "POST",
+      json: payload === undefined ? undefined : { payload },
+    },
+  )
   return readJsonOrThrow(res, validateAdminScheduledTaskRunResponse)
 }
 
@@ -308,7 +315,8 @@ export function createAdminApi(context: ApiContext) {
     reEncodeAllClips: () => reEncodeAllClips(context),
     fetchScheduledTasks: () => fetchScheduledTasks(context),
     fetchScheduledTask: (taskId: string) => fetchScheduledTask(context, taskId),
-    runScheduledTask: (taskId: string) => runScheduledTask(context, taskId),
+    runScheduledTask: (taskId: string, payload?: AdminScheduledTaskPayload) =>
+      runScheduledTask(context, taskId, payload),
     updateScheduledTaskTriggers: (
       taskId: string,
       triggers: AdminScheduledTaskTrigger[],

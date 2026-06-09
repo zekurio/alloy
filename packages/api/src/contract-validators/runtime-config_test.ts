@@ -112,3 +112,19 @@ test("validateAdminRuntimeConfig rejects missing tone mapping config", () => {
 
   assert(failed, "missing tone mapping config should fail validation")
 })
+
+test("validateAdminRuntimeConfig accepts scheduled task jitter", () => {
+  const config = adminRuntimeConfig()
+  ;(config.scheduledTasks as Record<string, unknown>)[
+    "clip-storage-maintenance"
+  ] = [
+    { type: "startup", delayMs: 60_000, jitterMs: 30_000 },
+    { type: "cron", expression: "0 3 * * *", jitterMs: 120_000 },
+  ]
+
+  const parsed = validateAdminRuntimeConfig(config)
+  const triggers = parsed.scheduledTasks["clip-storage-maintenance"]
+
+  assert(triggers?.[0]?.jitterMs === 30_000, "startup jitter should round-trip")
+  assert(triggers?.[1]?.jitterMs === 120_000, "cron jitter should round-trip")
+})
