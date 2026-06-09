@@ -18,7 +18,7 @@ impl Recorder {
         capture: RecordingCapture,
         output_config: OutputConfig,
     ) -> Result<ActiveSession, String> {
-        let source_kind = source_kind(settings, game);
+        let mut source_kind = source_kind(settings, game);
         let video_config = self.ensure_obs_for_source(settings, game, source_kind)?;
         let obs = self
             .obs
@@ -31,7 +31,8 @@ impl Recorder {
             .ok_or_else(|| "No OBS audio encoder is available.".to_string())?;
 
         let output_quality = effective_quality_for_base(settings, video_config.base);
-        let video_graph =
+        let mut capture = capture;
+        let mut video_graph =
             unsafe { create_video_graph(obs, game, source_kind, video_config.base)? };
         unsafe {
             (obs.obs_set_output_source)(0, video_graph.output_source);
@@ -108,6 +109,29 @@ impl Recorder {
             }
         };
         unsafe { (obs.obs_encoder_set_audio)(audio_encoder, (obs.obs_get_audio)()) };
+
+        if let Err(error) = unsafe {
+            Self::ensure_game_capture_ready_or_fallback(
+                obs,
+                game,
+                video_config.base,
+                &mut source_kind,
+                &mut video_graph,
+                &mut capture,
+            )
+        } {
+            unsafe {
+                release_output_graph(
+                    obs,
+                    ptr::null_mut(),
+                    video_encoder,
+                    audio_encoder,
+                    video_graph,
+                    audio_sources,
+                );
+            }
+            return Err(error);
+        }
 
         let output_settings = unsafe { obs.create_data() };
         let output_id = match &output_config {
@@ -248,6 +272,45 @@ impl Recorder {
         })
     }
 
+    unsafe fn ensure_game_capture_ready_or_fallback(
+        obs: &LibObs,
+        game: Option<&DetectedGame>,
+        base_dimensions: VideoDimensions,
+        source_kind: &mut OutputSourceKind,
+        video_graph: &mut VideoGraph,
+        capture: &mut RecordingCapture,
+    ) -> Result<(), String> {
+        if *source_kind != OutputSourceKind::Game {
+            return Ok(());
+        }
+
+        if let Err(error) = wait_for_game_capture_hook(obs, video_graph.source, game) {
+            if game.is_some_and(|game| !is_detected_game_alive(game)) {
+                return Err(error);
+            }
+
+            eprintln!("[{SIDE_CAR_NAME}] {error} Attempting display capture fallback.");
+            let fallback_kind = OutputSourceKind::Display;
+            let fallback_graph = create_video_graph(obs, game, fallback_kind, base_dimensions)
+                .map_err(|fallback_error| {
+                    format!("{error} Display capture fallback also failed: {fallback_error}")
+                })?;
+
+            (obs.obs_set_output_source)(0, ptr::null_mut());
+            release_video_graph(obs, *video_graph);
+            *source_kind = fallback_kind;
+            *video_graph = fallback_graph;
+            (obs.obs_set_output_source)(0, video_graph.output_source);
+            capture.source = recording_source_from_kind(*source_kind);
+            eprintln!(
+                "[{SIDE_CAR_NAME}] display capture fallback is active for {}.",
+                game_capture_target_name(game)
+            );
+        }
+
+        Ok(())
+    }
+
     unsafe fn stop_output(&self, session: ActiveSession) -> Result<(), String> {
         let obs = self
             .obs
@@ -315,8 +378,12 @@ impl Recorder {
             return Err("OBS replay buffer has no procedure handler.".to_string());
         }
 
+        let previous_replay_path = unsafe { last_replay_path(obs, handler) };
         let save_name = CString::new("save").expect("static string has no nul byte");
         let mut save_data = CallData::default();
+        let saved_after = SystemTime::now()
+            .checked_sub(Duration::from_secs(2))
+            .unwrap_or(UNIX_EPOCH);
         if !(obs.proc_handler_call)(handler, save_name.as_ptr(), &mut save_data) {
             free_calldata(obs, &mut save_data);
             return Err("OBS replay buffer failed to save.".to_string());
@@ -325,28 +392,32 @@ impl Recorder {
 
         let deadline = Instant::now() + Duration::from_secs(5);
         while Instant::now() < deadline {
-            let mut data = CallData::default();
-            let get_last_replay =
-                CString::new("get_last_replay").expect("static string has no nul byte");
-            if (obs.proc_handler_call)(handler, get_last_replay.as_ptr(), &mut data) {
-                let key = CString::new("path").expect("static string has no nul byte");
-                let mut raw_path: *const c_char = ptr::null();
-                if (obs.calldata_get_string)(&data, key.as_ptr(), &mut raw_path)
-                    && !raw_path.is_null()
+            if let Some(path) = unsafe { last_replay_path(obs, handler) } {
+                let source = Path::new(&path);
+                if previous_replay_path.as_deref() != Some(path.as_str())
+                    || replay_file_modified_at_or_after(source, saved_after)
                 {
-                    let path = CStr::from_ptr(raw_path).to_string_lossy().into_owned();
-                    free_calldata(obs, &mut data);
-                    if !path.is_empty() {
-                        return move_saved_replay_to_output(
-                            &path,
-                            output_directory,
-                            session.capture.game.as_ref(),
-                        );
-                    }
+                    return move_saved_replay_to_output(
+                        &path,
+                        output_directory,
+                        session.capture.game.as_ref(),
+                    );
                 }
             }
-            free_calldata(obs, &mut data);
             thread::sleep(Duration::from_millis(100));
+        }
+
+        if let OutputConfig::ReplayBuffer {
+            scratch_directory, ..
+        } = &session.output_config
+        {
+            if let Some(replay) = newest_memory_replay_file(scratch_directory, saved_after) {
+                return move_saved_replay_to_output(
+                    &replay.path.to_string_lossy(),
+                    output_directory,
+                    session.capture.game.as_ref(),
+                );
+            }
         }
 
         Err("OBS saved replay, but did not report a file path.".to_string())
@@ -388,4 +459,26 @@ impl Recorder {
         cleanup_disk_replay_segments(&session.output_config, Some(&path));
         Ok(path)
     }
+}
+
+unsafe fn last_replay_path(obs: &LibObs, handler: *mut ProcHandler) -> Option<String> {
+    let mut data = CallData::default();
+    let get_last_replay = CString::new("get_last_replay").expect("static string has no nul byte");
+    if !(obs.proc_handler_call)(handler, get_last_replay.as_ptr(), &mut data) {
+        free_calldata(obs, &mut data);
+        return None;
+    }
+
+    let key = CString::new("path").expect("static string has no nul byte");
+    let mut raw_path: *const c_char = ptr::null();
+    let path = if (obs.calldata_get_string)(&data, key.as_ptr(), &mut raw_path)
+        && !raw_path.is_null()
+    {
+        let path = CStr::from_ptr(raw_path).to_string_lossy().into_owned();
+        (!path.is_empty()).then_some(path)
+    } else {
+        None
+    };
+    free_calldata(obs, &mut data);
+    path
 }

@@ -99,7 +99,8 @@ fn active_settings_require_restart(
         || current.encoder != next.encoder
         || current.gpu != next.gpu
         || current.codec != next.codec
-        || current.record_desktop != next.record_desktop
+        || current.allowed_games != next.allowed_games
+        || current.denied_games != next.denied_games
         || effective_quality(current) != effective_quality(next)
         || current.replay_buffer_seconds != next.replay_buffer_seconds
         || current.buffer_storage != next.buffer_storage

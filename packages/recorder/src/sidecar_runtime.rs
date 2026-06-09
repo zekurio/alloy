@@ -46,9 +46,9 @@ fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
                 protocol_version: RECORDER_PROTOCOL_VERSION,
                 capabilities: &[
                     "game-capture",
-                    "desktop-capture",
                     "audio-devices",
                     "audio-applications",
+                    "game-processes",
                     "replay-buffer",
                 ],
             },
@@ -65,6 +65,7 @@ fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
             ),
         },
         "status" => response_ok(request.id, recorder.status()),
+        "listGameProcesses" => response_ok(request.id, list_game_processes()),
         "saveReplayClip" => response_ok(request.id, recorder.save_replay_clip()),
         "stopRecording" => response_ok(request.id, recorder.stop_recording()),
         "shutdown" => {
@@ -79,202 +80,39 @@ fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
     }
 }
 
-const MIN_GAME_WINDOW_WIDTH: u32 = 320;
-const MIN_GAME_WINDOW_HEIGHT: u32 = 200;
-const MIN_GAME_WINDOW_AREA: u32 = 160_000;
-
-#[derive(Clone, Copy)]
-struct KnownGameDetection {
-    name: &'static str,
-    executables: &'static [&'static str],
-    path_markers: &'static [&'static str],
-}
-
-const KNOWN_GAME_DETECTIONS: &[KnownGameDetection] = &[
-    KnownGameDetection {
-        name: "Apex Legends",
-        executables: &["r5apex.exe"],
-        path_markers: &["/steamapps/common/apex legends/"],
-    },
-    KnownGameDetection {
-        name: "Counter-Strike 2",
-        executables: &["cs2.exe"],
-        path_markers: &["/steamapps/common/counter-strike global offensive/"],
-    },
-    KnownGameDetection {
-        name: "Dota 2",
-        executables: &["dota2.exe"],
-        path_markers: &["/steamapps/common/dota 2 beta/"],
-    },
-    KnownGameDetection {
-        name: "Elden Ring",
-        executables: &["eldenring.exe"],
-        path_markers: &["/steamapps/common/elden ring/"],
-    },
-    KnownGameDetection {
-        name: "Fortnite",
-        executables: &["fortniteclient-win64-shipping.exe"],
-        path_markers: &["/fortnite/fortnitegame/binaries/win64/"],
-    },
-    KnownGameDetection {
-        name: "Grand Theft Auto V",
-        executables: &["gta5.exe", "gta5_enhanced.exe"],
-        path_markers: &["/steamapps/common/grand theft auto v/", "/grand theft auto v/"],
-    },
-    KnownGameDetection {
-        name: "Helldivers 2",
-        executables: &["helldivers2.exe"],
-        path_markers: &["/steamapps/common/helldivers 2/"],
-    },
-    KnownGameDetection {
-        name: "League of Legends",
-        executables: &["league of legends.exe"],
-        path_markers: &["/riot games/league of legends/"],
-    },
-    KnownGameDetection {
-        name: "Minecraft",
-        executables: &["minecraft.windows.exe", "javaw.exe"],
-        path_markers: &["/.minecraft/", "/minecraft launcher/runtime/"],
-    },
-    KnownGameDetection {
-        name: "Overwatch 2",
-        executables: &["overwatch.exe"],
-        path_markers: &["/overwatch/"],
-    },
-    KnownGameDetection {
-        name: "Roblox",
-        executables: &["robloxplayerbeta.exe", "win10universal.exe"],
-        path_markers: &["/roblox/versions/", "/robloxcorporation/"],
-    },
-    KnownGameDetection {
-        name: "Rocket League",
-        executables: &["rocketleague.exe"],
-        path_markers: &["/rocketleague/binaries/win64/"],
-    },
-    KnownGameDetection {
-        name: "Valorant",
-        executables: &["valorant-win64-shipping.exe"],
-        path_markers: &["/riot games/valorant/live/shootergame/binaries/win64/"],
-    },
-];
-
-const NON_GAME_EXECUTABLES: &[&str] = &[
-    "1password",
-    "1password.exe",
-    "1password-browsersupport.exe",
-    "alloy",
-    "alloy.exe",
-    "alloy-recorder.exe",
-    "applicationframehost.exe",
-    "battle.net.exe",
-    "cmd.exe",
-    "codex",
-    "codex.exe",
-    "code - insiders.exe",
-    "code.exe",
-    "cursor.exe",
-    "discord.exe",
-    "dwm.exe",
-    "electron",
-    "electron.exe",
-    "epicgameslauncher.exe",
-    "explorer.exe",
-    "firefox.exe",
-    "gog galaxy",
-    "goggalaxy.exe",
-    "chrome.exe",
-    "msedge.exe",
-    "obs32.exe",
-    "obs64.exe",
-    "powershell",
-    "riotclientservices.exe",
-    "searchhost.exe",
-    "shellexperiencehost.exe",
-    "slack.exe",
-    "spotify.exe",
-    "startmenuexperiencehost.exe",
-    "steam.exe",
-    "teams.exe",
-    "textinputhost.exe",
-    "wezterm",
-    "windowsterminal",
-    "windsurf.exe",
-    "xboxapp.exe",
-    "xboxpcapp.exe",
-];
-
-const NON_GAME_PATH_MARKERS: &[&str] = &[
-    "/1password/",
-    "/appdata/local/programs/microsoft vs code/",
-    "/appdata/local/programs/codex/",
-    "/appdata/local/1password/",
-    "/appdata/local/discord/",
-    "/appdata/local/slack/",
-    "/common files/",
-    "/epic games/launcher/",
-    "/gog galaxy/",
-    "/google/chrome/",
-    "/internet explorer/",
-    "/microsoft/edge/application/",
-    "/microsoft/teams/",
-    "/obs-studio/",
-    "/riot client/",
-    "/steam/bin/",
-    "/steam/package/",
-    "/steam/steamapps/downloading/",
-    "/steam/steamapps/workshop/",
-    "/windows/system32/",
-    "/windows/syswow64/",
-];
-
-const BLOCKED_WINDOW_WORDS: &[&str] = &[
-    "splash",
-    "splashscreen",
-    "splashwindow",
-    "launcher",
-    "updater",
-    "setup",
-    "installer",
-    "crash",
-    "console",
-    "cheat",
-    "overlay",
-    "devtools",
-];
-
-const WHITELISTED_GAME_CLASS_MARKERS: &[&str] = &[
-    "steam_app_",
-    "unitywndclass",
-    "unrealwindow",
-    "riotwindowclass",
-    "cryengine",
-    "sdl_app",
-    "glfw",
-    "lwjgl",
-    "godot",
-    "winit",
-    "monogame",
-    "xna",
-    "valve001",
-];
-
-fn detect_game_activity(active_game: Option<&DetectedGame>) -> Option<GameDetection> {
-    platform_detect_game_activity(active_game)
+fn detect_game_activity(
+    active_game: Option<&DetectedGame>,
+    settings: &RecordingSettings,
+) -> Option<GameDetection> {
+    platform_detect_game_activity(active_game, settings)
 }
 
 fn is_detected_game_alive(game: &DetectedGame) -> bool {
     platform_process_alive(game.game.process_id)
 }
 
+fn refresh_capture_metadata(game: &mut DetectedGame) {
+    platform_refresh_capture_metadata(game);
+}
+
+fn platform_refresh_capture_metadata(game: &mut DetectedGame) {
+    windows_detector::refresh_capture_metadata(game);
+}
+
+fn application_icon_url(path: &str) -> Option<String> {
+    windows_detector::application_icon_data_url(path)
+}
+
+fn application_display_name(path: &str) -> Option<String> {
+    windows_detector::application_display_name(path)
+}
+
 fn platform_audio_applications() -> Vec<RecordingAudioApplicationSelection> {
-    #[cfg(windows)]
-    {
-        windows_detector::audio_applications()
-    }
-    #[cfg(not(windows))]
-    {
-        Vec::new()
-    }
+    windows_detector::audio_applications()
+}
+
+fn list_game_processes() -> Vec<RecordingGameProcess> {
+    windows_detector::game_processes()
 }
 
 fn primary_display_dimensions() -> Option<VideoDimensions> {
@@ -285,24 +123,12 @@ fn primary_display_id() -> Option<String> {
     platform_primary_display_id()
 }
 
-#[cfg(windows)]
 fn platform_primary_display_dimensions() -> Option<VideoDimensions> {
     windows_detector::primary_display_dimensions()
 }
 
-#[cfg(windows)]
 fn platform_primary_display_id() -> Option<String> {
     windows_detector::primary_display_id()
-}
-
-#[cfg(not(windows))]
-fn platform_primary_display_dimensions() -> Option<VideoDimensions> {
-    None
-}
-
-#[cfg(not(windows))]
-fn platform_primary_display_id() -> Option<String> {
-    None
 }
 
 fn detected_game_from_parts(
@@ -311,31 +137,36 @@ fn detected_game_from_parts(
     title: Option<String>,
     class_name: Option<String>,
     window_key: String,
+    window_handle: isize,
     fullscreen: bool,
     obs_window: Option<String>,
     capture_dimensions: Option<VideoDimensions>,
+    hdr_enabled: bool,
+    settings: &RecordingSettings,
 ) -> Option<DetectedGame> {
     let executable = path.as_deref().and_then(path_file_name);
-    let classification = classify_game_candidate(
+    let match_ = candidate_game_detection_match(
         path.as_deref(),
         executable.as_deref(),
         title.as_deref(),
         class_name.as_deref(),
-        fullscreen,
         capture_dimensions,
+        settings,
     )?;
-    let name = title
-        .clone()
-        .filter(|title| !title.trim().is_empty())
-        .or(classification.name)
-        .or_else(|| executable.clone())
-        .unwrap_or_else(|| format!("Game {process_id}"));
+    let name = readable_detected_game_name(
+        &match_,
+        path.as_deref(),
+        title.as_deref(),
+        executable.as_deref(),
+    );
+
     Some(DetectedGame {
         game: RecordingGame {
-            id: None,
+            id: match_.id,
             name,
             process_id,
             executable,
+            icon_url: path.as_deref().and_then(application_icon_url),
             path,
             window_title: title,
             window_class: class_name,
@@ -343,174 +174,45 @@ fn detected_game_from_parts(
         },
         obs_window,
         window_key,
+        window_handle,
+        fullscreen,
+        force_display_capture: match_.force_display_capture,
         capture_dimensions,
-        detection_score: classification.score,
+        hdr_enabled,
+        detection_score: match_.detection_score,
     })
 }
 
-#[derive(Clone, Debug)]
-struct GameCandidateClassification {
-    score: i32,
-    name: Option<String>,
-}
-
-fn classify_game_candidate(
+fn match_allowed_game<'a>(
+    allowed_games: &'a [RecordingAllowedGame],
     path: Option<&str>,
     executable: Option<&str>,
-    title: Option<&str>,
     class_name: Option<&str>,
-    fullscreen: bool,
-    dimensions: Option<VideoDimensions>,
-) -> Option<GameCandidateClassification> {
-    let executable = executable.unwrap_or_default().to_ascii_lowercase();
-    let normalized_path = normalized_path(path.unwrap_or_default());
-    let path_lower = normalized_path.to_ascii_lowercase();
-    let title_lower = title.unwrap_or_default().to_ascii_lowercase();
-    let class_name = class_name.unwrap_or_default().to_ascii_lowercase();
-    if executable.is_empty() && class_name.is_empty() && path_lower.is_empty() {
-        return None;
-    }
-
-    if path_lower.starts_with("c:/windows/") || path_lower.starts_with("/windows/") {
-        return None;
-    }
-
-    if is_known_non_game_candidate(&path_lower, &executable, &class_name) {
-        return None;
-    }
-
-    if BLOCKED_WINDOW_WORDS.iter().any(|blocked| {
-        title_lower.contains(blocked)
-            || class_name.contains(blocked)
-            || executable.contains(blocked)
-    }) {
-        return None;
-    }
-
-    let valid_window = dimensions.is_some_and(is_valid_game_window_dimensions);
-    let valid_aspect = dimensions.is_some_and(is_valid_game_aspect_ratio);
-
-    if let Some(name) = known_game_name_from_path(&path_lower, &executable) {
-        return Some(GameCandidateClassification {
-            score: if valid_window { 95 } else { 75 },
-            name: Some(name.to_string()),
-        });
-    }
-
-    if let Some(name) = steam_game_name_from_path(path.unwrap_or_default()) {
-        return Some(GameCandidateClassification {
-            score: if valid_window { 90 } else { 80 },
-            name: Some(name),
-        });
-    }
-
-    if let Some(name) = xbox_game_name_from_path(path.unwrap_or_default()) {
-        return Some(GameCandidateClassification {
-            score: if valid_window { 88 } else { 78 },
-            name: Some(name),
-        });
-    }
-
-    if let Some(name) = store_game_name_from_path(
-        path.unwrap_or_default(),
-        &[
-            "/epic games/",
-            "/gog galaxy/games/",
-            "/ea games/",
-            "/ubisoft/ubisoft game launcher/games/",
-        ],
-    ) {
-        return Some(GameCandidateClassification {
-            score: if valid_window { 84 } else { 72 },
-            name: Some(name),
-        });
-    }
-
-    let normalized_class_name = class_name.replace(' ', "");
-    let has_game_window_class = WHITELISTED_GAME_CLASS_MARKERS
+) -> Option<&'a RecordingAllowedGame> {
+    allowed_games
         .iter()
-        .any(|marker| normalized_class_name.contains(marker));
-    if valid_window && valid_aspect && has_game_window_class {
-        return Some(GameCandidateClassification {
-            score: 72,
-            name: None,
-        });
-    }
-
-    if fullscreen
-        && valid_window
-        && valid_aspect
-        && has_probable_game_path_marker(&path_lower)
-        && (has_game_window_class || has_game_executable_shape(&executable, &path_lower))
-    {
-        return Some(GameCandidateClassification {
-            score: 55,
-            name: None,
-        });
-    }
-
-    None
-}
-
-fn is_valid_game_window_dimensions(dimensions: VideoDimensions) -> bool {
-    dimensions.width >= MIN_GAME_WINDOW_WIDTH
-        && dimensions.height >= MIN_GAME_WINDOW_HEIGHT
-        && dimensions
-            .width
-            .saturating_mul(dimensions.height)
-            >= MIN_GAME_WINDOW_AREA
-}
-
-fn is_valid_game_aspect_ratio(dimensions: VideoDimensions) -> bool {
-    if dimensions.height == 0 {
-        return false;
-    }
-    let aspect_ratio = dimensions.width as f32 / dimensions.height as f32;
-    (1.20..=3.80).contains(&aspect_ratio)
+        .filter(|game| allowed_game_matches(game, path, executable, class_name))
+        .max_by_key(|game| allowed_game_match_score(game, path, executable, class_name))
 }
 
 fn normalized_path(path: &str) -> String {
     path.replace('\\', "/")
 }
 
-fn is_known_non_game_candidate(path_lower: &str, executable: &str, class_name: &str) -> bool {
-    if NON_GAME_EXECUTABLES
-        .iter()
-        .any(|blocked| executable == *blocked || class_name.contains(blocked))
-    {
-        return true;
-    }
-
-    NON_GAME_PATH_MARKERS
-        .iter()
-        .any(|marker| path_lower.contains(marker))
+fn allowed_game_matches(
+    game: &RecordingAllowedGame,
+    path: Option<&str>,
+    executable: Option<&str>,
+    class_name: Option<&str>,
+) -> bool {
+    allowed_game_match_score(game, path, executable, class_name) > 0
 }
 
-fn known_game_name_from_path(path_lower: &str, executable: &str) -> Option<&'static str> {
-    KNOWN_GAME_DETECTIONS.iter().find_map(|game| {
-        let executable_match = game
-            .executables
-            .iter()
-            .any(|candidate| executable == *candidate);
-        let path_match = game
-            .path_markers
-            .iter()
-            .any(|marker| path_lower.contains(marker));
-        (path_match || (executable_match && executable != "javaw.exe")).then_some(game.name)
-    })
-}
-
-fn has_game_executable_shape(executable: &str, path_lower: &str) -> bool {
-    if !executable.ends_with(".exe") {
-        return false;
-    }
-
-    let file_stem = executable.trim_end_matches(".exe");
-    let executable_looks_like_runtime =
-        matches!(file_stem, "game" | "client" | "shipping" | "win64" | "win32" | "main");
-    !executable_looks_like_runtime
-        && path_lower.contains("/binaries/")
-        && (path_lower.contains("/win64/") || path_lower.contains("/win32/"))
+fn detected_game_allowed(
+    detected: &DetectedGame,
+    settings: &RecordingSettings,
+) -> bool {
+    detected_game_still_allowed(detected, settings)
 }
 
 fn path_file_name(path: &str) -> Option<String> {
@@ -520,131 +222,43 @@ fn path_file_name(path: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-fn clean_game_name(value: &str) -> Option<String> {
-    let name = value.trim().trim_matches('"').trim();
-    if name.is_empty() {
-        None
-    } else {
-        Some(name.to_string())
-    }
-}
-
-fn store_game_name_from_path(path: &str, markers: &[&str]) -> Option<String> {
-    let normalized = path.replace('\\', "/");
-    let lower = normalized.to_ascii_lowercase();
-    markers.iter().find_map(|marker| {
-        let marker_index = lower.find(marker)?;
-        let start = marker_index + marker.len();
-        normalized[start..]
-            .split('/')
-            .next()
-            .and_then(clean_game_name)
-    })
-}
-
-fn has_probable_game_path_marker(path: &str) -> bool {
-    let normalized = path.replace('\\', "/").to_ascii_lowercase();
-    [
-        "/steamapps/common/",
-        "/epic games/",
-        "/gog galaxy/games/",
-        "/ea games/",
-        "/ubisoft/ubisoft game launcher/games/",
-        "/windowsapps/",
-        "/xboxgames/",
-        "/binaries/win64/",
-        "/binaries/win32/",
-    ]
-    .iter()
-    .any(|marker| normalized.contains(marker))
-}
-
-fn steam_game_name_from_path(path: &str) -> Option<String> {
-    let normalized = path.replace('\\', "/");
-    let lower = normalized.to_ascii_lowercase();
-    let marker = "/steamapps/common/";
-    let marker_index = lower.find(marker)?;
-    let install_dir_start = marker_index + marker.len();
-    let install_dir = normalized[install_dir_start..]
-        .split('/')
-        .next()
-        .and_then(clean_game_name)?;
-
-    let steamapps_dir = &normalized[..marker_index + "/steamapps".len()];
-    if let Ok(entries) = fs::read_dir(Path::new(steamapps_dir)) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.extension().and_then(|ext| ext.to_str()) != Some("acf") {
-                continue;
-            }
-            let Ok(contents) = fs::read_to_string(path) else {
-                continue;
-            };
-            let Some(acf_install_dir) = extract_acf_value(&contents, "installdir") else {
-                continue;
-            };
-            if acf_install_dir.eq_ignore_ascii_case(&install_dir) {
-                return extract_acf_value(&contents, "name").or(Some(install_dir));
-            }
-        }
-    }
-
-    Some(install_dir)
-}
-
-fn extract_acf_value(contents: &str, key: &str) -> Option<String> {
-    for line in contents.lines() {
-        let trimmed = line.trim();
-        let values = quoted_values(trimmed);
-        if values.first().copied() == Some(key) {
-            return values.get(1).and_then(|value| clean_game_name(value));
-        }
-    }
-    None
-}
-
-fn quoted_values(value: &str) -> Vec<&str> {
-    let mut values = Vec::new();
-    let mut rest = value;
-    while let Some(start) = rest.find('"') {
-        rest = &rest[start + 1..];
-        let Some(end) = rest.find('"') else {
-            break;
+fn allowed_game_match_score(
+    game: &RecordingAllowedGame,
+    path: Option<&str>,
+    executable: Option<&str>,
+    class_name: Option<&str>,
+) -> i32 {
+    if let Some(allowed_path) = game.path.as_deref() {
+        return if path.is_some_and(|candidate_path| paths_equal(allowed_path, candidate_path)) {
+            100
+        } else {
+            0
         };
-        values.push(&rest[..end]);
-        rest = &rest[end + 1..];
     }
-    values
-}
 
-fn xbox_game_name_from_path(path: &str) -> Option<String> {
-    let normalized = path.replace('\\', "/");
-    let lower = normalized.to_ascii_lowercase();
-    let marker = "/windowsapps/";
-    let marker_index = lower.find(marker)?;
-    let package_start = marker_index + marker.len();
-    let package_name = normalized[package_start..]
-        .split('/')
-        .next()
-        .and_then(clean_game_name)?;
-    let package_dir = &normalized[..package_start + package_name.len()];
-    let config_path = Path::new(package_dir).join("MicrosoftGame.config");
-    if let Ok(contents) = fs::read_to_string(config_path) {
-        if let Some(name) = extract_xml_attribute(&contents, "DefaultDisplayName") {
-            return Some(name);
+    if let (Some(allowed_executable), Some(candidate_executable)) =
+        (game.executable.as_deref(), executable)
+    {
+        if allowed_executable.eq_ignore_ascii_case(candidate_executable) {
+            return 80;
         }
     }
-    package_name
-        .split('_')
-        .next()
-        .and_then(clean_game_name)
+
+    if let (Some(allowed_class), Some(candidate_class)) =
+        (game.window_class.as_deref(), class_name)
+    {
+        if allowed_class.eq_ignore_ascii_case(candidate_class) {
+            return 60;
+        }
+    }
+
+    0
 }
 
-fn extract_xml_attribute(contents: &str, attribute: &str) -> Option<String> {
-    let needle = format!("{attribute}=\"");
-    let start = contents.find(&needle)? + needle.len();
-    let value = contents[start..].split('"').next()?;
-    clean_game_name(value)
+fn paths_equal(left: &str, right: &str) -> bool {
+    normalized_path(left)
+        .trim_end_matches('/')
+        .eq_ignore_ascii_case(normalized_path(right).trim_end_matches('/'))
 }
 
 fn file_slug(value: &str) -> String {
@@ -728,54 +342,15 @@ fn is_reserved_windows_name(value: &str) -> bool {
     )
 }
 
-#[cfg(windows)]
-fn platform_detect_game_activity(active_game: Option<&DetectedGame>) -> Option<GameDetection> {
-    windows_detector::detect_game_activity(active_game)
+fn platform_detect_game_activity(
+    active_game: Option<&DetectedGame>,
+    settings: &RecordingSettings,
+) -> Option<GameDetection> {
+    windows_detector::detect_game_activity(active_game, settings)
 }
 
-#[cfg(not(windows))]
-fn platform_detect_game_activity(active_game: Option<&DetectedGame>) -> Option<GameDetection> {
-    linux_detect_game_activity(active_game)
-}
-
-#[cfg(windows)]
 fn platform_process_alive(process_id: u32) -> bool {
     windows_detector::process_alive(process_id)
-}
-
-#[cfg(not(windows))]
-fn platform_process_alive(process_id: u32) -> bool {
-    Path::new(&format!("/proc/{process_id}")).exists()
-}
-
-#[cfg(not(windows))]
-fn linux_detect_game_activity(_active_game: Option<&DetectedGame>) -> Option<GameDetection> {
-    let active = command_output("sh", &["-c", "xprop -root _NET_ACTIVE_WINDOW 2>/dev/null"])
-        .and_then(|output| output.split_whitespace().last().map(str::to_string))?;
-    if active == "0x0" {
-        return None;
-    }
-    let props = command_output("xprop", &["-id", &active]).unwrap_or_default();
-    let process_id = extract_xprop_u32(&props, "_NET_WM_PID")?;
-    let title = extract_xprop_string(&props, "_NET_WM_NAME")
-        .or_else(|| extract_xprop_string(&props, "WM_NAME"));
-    let class_name = extract_xprop_class(&props);
-    let fullscreen = props.contains("_NET_WM_STATE_FULLSCREEN");
-    let path = fs::read_link(format!("/proc/{process_id}/exe"))
-        .ok()
-        .map(|path| path.to_string_lossy().into_owned());
-    let obs_window = Some(format!(
-        "{active}\r\n{}\r\n{}",
-        title.clone().unwrap_or_default(),
-        class_name.clone().unwrap_or_default()
-    ));
-    let game = detected_game_from_parts(
-        process_id, path, title, class_name, active, fullscreen, obs_window, None,
-    )?;
-    Some(GameDetection {
-        game,
-        focused: true,
-    })
 }
 
 fn command_output(command: &str, args: &[&str]) -> Option<String> {
@@ -786,34 +361,6 @@ fn command_output(command: &str, args: &[&str]) -> Option<String> {
     Some(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
-#[cfg(not(windows))]
-fn extract_xprop_u32(props: &str, key: &str) -> Option<u32> {
-    props
-        .lines()
-        .find(|line| line.starts_with(key))
-        .and_then(|line| line.split('=').nth(1))
-        .and_then(|value| value.trim().parse::<u32>().ok())
-}
-
-#[cfg(not(windows))]
-fn extract_xprop_string(props: &str, key: &str) -> Option<String> {
-    props
-        .lines()
-        .find(|line| line.starts_with(key))
-        .and_then(|line| line.split('"').nth(1))
-        .map(str::to_string)
-}
-
-#[cfg(not(windows))]
-fn extract_xprop_class(props: &str) -> Option<String> {
-    props
-        .lines()
-        .find(|line| line.starts_with("WM_CLASS"))
-        .and_then(|line| line.rsplit('"').nth(1))
-        .map(str::to_string)
-}
-
-#[cfg(windows)]
 include!("sidecar_runtime_windows.rs");
 include!("sidecar_runtime_tests.rs");
 fn main() {
