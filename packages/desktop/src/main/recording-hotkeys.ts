@@ -3,24 +3,33 @@ import { logger } from "alloy-logging"
 import { app, globalShortcut } from "electron"
 
 import {
+  addRecordingBookmark,
   cancelReplaySaveRequestedSoundSuppression,
   playReplaySaveRequestedSound,
   saveReplayClip,
+  takeRecordingScreenshot,
+  toggleLongRecording,
 } from "./recording"
 import { electronAccelerator } from "./recording-hotkey-accelerator"
 import { getRecordingSettings } from "./server-store"
 
+type HotkeyAction =
+  | { type: "clip"; durationSeconds: number }
+  | { type: "bookmark" }
+  | { type: "screenshot" }
+  | { type: "toggleLongRecording" }
+
 const HOTKEY_HEALTH_INTERVAL_MS = 30_000
-const SAVE_CLIP_HOTKEY_DEBOUNCE_MS = 2_000
+const HOTKEY_ACTION_DEBOUNCE_MS = 700
 
 const registeredAccelerators = new Set<string>()
 let pendingReadyRegistration = false
 let pendingSettings: RecordingSettings | null = null
 let activeSettings: RecordingSettings | null = null
-let activeAccelerator: string | null = null
+let activeActions = new Map<string, HotkeyAction[]>()
 let healthTimer: ReturnType<typeof setInterval> | null = null
-let saveClipHotkeyInFlight = false
-let lastSaveClipHotkeyAt = 0
+let actionInFlight = new Set<string>()
+let lastActionAt = new Map<string, number>()
 
 export function configureRecordingHotkeys(
   settings: RecordingSettings = getRecordingSettings(),
@@ -36,30 +45,23 @@ export function configureRecordingHotkeys(
 
   unregisterRecordingHotkeys()
   activeSettings = settings
+  activeActions = hotkeyActionMap(settings)
 
-  const accelerator = electronAccelerator(settings.hotkeys.saveClip)
-  if (!accelerator) {
-    if (settings.hotkeys.saveClip.trim().length > 0) {
-      logger.warn(
-        `[desktop] invalid recording hotkey: ${settings.hotkeys.saveClip}`,
-      )
+  for (const accelerator of activeActions.keys()) {
+    if (!registerAccelerator(accelerator)) {
+      logger.warn(`[desktop] failed to register hotkey: ${accelerator}`)
     }
-    return
   }
 
-  if (!registerSaveClipAccelerator(accelerator)) {
-    logger.warn(`[desktop] failed to register hotkey: ${accelerator}`)
-    return
-  }
-
-  activeAccelerator = accelerator
-  startHotkeyHealthCheck()
+  if (registeredAccelerators.size > 0) startHotkeyHealthCheck()
 }
 
 export function unregisterRecordingHotkeys(): void {
   pendingSettings = null
   activeSettings = null
-  activeAccelerator = null
+  activeActions = new Map()
+  actionInFlight = new Set()
+  lastActionAt = new Map()
   stopHotkeyHealthCheck()
   for (const accelerator of registeredAccelerators) {
     globalShortcut.unregister(accelerator)
@@ -67,34 +69,89 @@ export function unregisterRecordingHotkeys(): void {
   registeredAccelerators.clear()
 }
 
-async function runSaveClipHotkey(): Promise<void> {
+async function runHotkeyActions(accelerator: string): Promise<void> {
+  const actions = activeActions.get(accelerator) ?? []
+  const requestedAtUnixMs = Date.now()
+
+  await Promise.all(
+    actions.map((action) =>
+      runDebouncedAction(accelerator, action, requestedAtUnixMs),
+    ),
+  )
+}
+
+async function runDebouncedAction(
+  accelerator: string,
+  action: HotkeyAction,
+  requestedAtUnixMs: number,
+): Promise<void> {
+  const key = actionKey(accelerator, action)
   const now = Date.now()
-  if (now - lastSaveClipHotkeyAt < SAVE_CLIP_HOTKEY_DEBOUNCE_MS) return
-  if (saveClipHotkeyInFlight) return
+  if (now - (lastActionAt.get(key) ?? 0) < HOTKEY_ACTION_DEBOUNCE_MS) return
+  if (actionInFlight.has(key)) return
 
-  lastSaveClipHotkeyAt = now
-  saveClipHotkeyInFlight = true
-  const playedRequestSound = playReplaySaveRequestedSound()
-
+  lastActionAt.set(key, now)
+  actionInFlight.add(key)
   try {
-    const result = await saveReplayClip()
-    if (!result.ok) {
-      if (playedRequestSound) cancelReplaySaveRequestedSoundSuppression()
-      logger.warn(`[desktop] recording hotkey failed: ${result.error}`)
-    } else if (!result.capture && playedRequestSound) {
-      cancelReplaySaveRequestedSoundSuppression()
-    }
+    await runAction(action, requestedAtUnixMs)
   } finally {
-    saveClipHotkeyInFlight = false
+    actionInFlight.delete(key)
   }
 }
 
-function registerSaveClipAccelerator(accelerator: string): boolean {
+async function runAction(
+  action: HotkeyAction,
+  requestedAtUnixMs: number,
+): Promise<void> {
+  switch (action.type) {
+    case "clip": {
+      const playedRequestSound = playReplaySaveRequestedSound()
+      const result = await saveReplayClip({
+        requestedAtUnixMs,
+        durationSeconds: action.durationSeconds,
+      })
+      if (!result.ok) {
+        if (playedRequestSound) cancelReplaySaveRequestedSoundSuppression()
+        logger.warn(`[desktop] recording clip hotkey failed: ${result.error}`)
+      } else if (!result.capture && playedRequestSound) {
+        cancelReplaySaveRequestedSoundSuppression()
+      }
+      return
+    }
+    case "bookmark": {
+      const result = await addRecordingBookmark({ requestedAtUnixMs })
+      if (!result.ok) {
+        logger.warn(
+          `[desktop] recording bookmark hotkey failed: ${result.error}`,
+        )
+      }
+      return
+    }
+    case "screenshot": {
+      const result = await takeRecordingScreenshot({ requestedAtUnixMs })
+      if (!result.ok) {
+        logger.warn(
+          `[desktop] recording screenshot hotkey failed: ${result.error}`,
+        )
+      }
+      return
+    }
+    case "toggleLongRecording": {
+      const result = await toggleLongRecording({ requestedAtUnixMs })
+      if (!result.ok) {
+        logger.warn(`[desktop] long recording hotkey failed: ${result.error}`)
+      }
+      return
+    }
+  }
+}
+
+function registerAccelerator(accelerator: string): boolean {
   let registered = false
   try {
     registered = globalShortcut.register(
       accelerator,
-      () => void runSaveClipHotkey(),
+      () => void runHotkeyActions(accelerator),
     )
   } catch (cause) {
     logger.warn(`[desktop] failed to register hotkey: ${accelerator}`, cause)
@@ -104,6 +161,40 @@ function registerSaveClipAccelerator(accelerator: string): boolean {
   registeredAccelerators.add(accelerator)
   logger.info(`[desktop] recording hotkey registered: ${accelerator}`)
   return true
+}
+
+function hotkeyActionMap(
+  settings: RecordingSettings,
+): Map<string, HotkeyAction[]> {
+  const actions = new Map<string, HotkeyAction[]>()
+  const add = (hotkey: string, action: HotkeyAction) => {
+    const accelerator = electronAccelerator(hotkey)
+    if (!accelerator) {
+      if (hotkey.trim().length > 0) {
+        logger.warn(`[desktop] invalid recording hotkey: ${hotkey}`)
+      }
+      return
+    }
+    actions.set(accelerator, [...(actions.get(accelerator) ?? []), action])
+  }
+
+  for (const clip of settings.hotkeys.clips) {
+    add(clip.hotkey, {
+      type: "clip",
+      durationSeconds: clip.durationSeconds,
+    })
+  }
+  add(settings.hotkeys.bookmark, { type: "bookmark" })
+  add(settings.hotkeys.screenshot, { type: "screenshot" })
+  add(settings.hotkeys.toggleLongRecording, { type: "toggleLongRecording" })
+
+  return actions
+}
+
+function actionKey(accelerator: string, action: HotkeyAction): string {
+  return action.type === "clip"
+    ? `${accelerator}:clip:${action.durationSeconds}`
+    : `${accelerator}:${action.type}`
 }
 
 function startHotkeyHealthCheck(): void {
@@ -119,24 +210,25 @@ function stopHotkeyHealthCheck(): void {
 }
 
 function checkHotkeyRegistration(): void {
-  const accelerator = activeAccelerator
   const settings = activeSettings
-  if (!accelerator || !settings) return
+  if (!settings) return
 
-  if (
-    registeredAccelerators.has(accelerator) &&
-    globalShortcut.isRegistered(accelerator)
-  ) {
-    return
+  for (const accelerator of activeActions.keys()) {
+    if (
+      registeredAccelerators.has(accelerator) &&
+      globalShortcut.isRegistered(accelerator)
+    ) {
+      continue
+    }
+
+    registeredAccelerators.delete(accelerator)
+    logger.warn(
+      `[desktop] recording hotkey was no longer registered; retrying: ${accelerator}`,
+    )
+    if (registerAccelerator(accelerator)) continue
+
+    logger.warn(`[desktop] recording hotkey recovery failed: ${accelerator}`)
   }
-
-  registeredAccelerators.delete(accelerator)
-  logger.warn(
-    `[desktop] recording hotkey was no longer registered; retrying: ${settings.hotkeys.saveClip}`,
-  )
-  if (registerSaveClipAccelerator(accelerator)) return
-
-  logger.warn(`[desktop] recording hotkey recovery failed: ${accelerator}`)
 }
 
 async function configurePendingHotkeysWhenReady(): Promise<void> {

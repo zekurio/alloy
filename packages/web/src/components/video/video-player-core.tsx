@@ -28,6 +28,8 @@ export function PlayerCore({
   spec,
   identity,
   poster,
+  posterBlurHash,
+  fallbackSeed,
   aspectRatio,
   controls,
   autoPlay,
@@ -528,6 +530,8 @@ export function PlayerCore({
       videoRef={videoRef}
       mediaUrl={mediaUrl}
       poster={poster}
+      posterBlurHash={posterBlurHash}
+      fallbackSeed={fallbackSeed ?? identity}
       posterVisible={posterVisible}
       autoPlay={autoPlay}
       loop={loop}

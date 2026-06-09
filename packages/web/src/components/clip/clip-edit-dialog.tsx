@@ -49,7 +49,9 @@ function gameRowFromRef(row: ClipRow): GameRow | null {
     slug: ref.slug,
     releaseDate: ref.releaseDate,
     heroUrl: ref.heroUrl,
+    heroBlurHash: ref.heroBlurHash,
     gridUrl: ref.gridUrl,
+    gridBlurHash: ref.gridBlurHash,
     logoUrl: ref.logoUrl,
     iconUrl: ref.iconUrl,
   }

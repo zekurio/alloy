@@ -37,6 +37,8 @@ interface ClipCardData {
   postedAt: string
   /** Full-size poster URL; omitted when the clip has no `thumbKey` yet. */
   thumbnail?: string
+  thumbnailBlurHash: string | null
+  fallbackSeed: string | number
   /** Stream URL used for the hover-to-play preview. */
   streamUrl: string
   accentHue: number
@@ -75,6 +77,8 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
     thumbnail: row.thumbKey
       ? clipThumbnailUrl(row.id, apiOrigin(), row.updatedAt)
       : undefined,
+    thumbnailBlurHash: row.thumbBlurHash,
+    fallbackSeed: row.steamgriddbId,
     streamUrl: clipStreamUrl(row.id, undefined, apiOrigin()),
     accentHue: hueForGame(game),
     privacy: row.privacy,

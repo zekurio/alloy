@@ -75,6 +75,8 @@ function UserMenuInner() {
           <UserAvatarButton
             avatar={chip.avatar}
             name={chip.name}
+            size="md"
+            avatarClassName="size-8 [--avatar-size:2rem]"
             aria-label={`Open account menu for ${chip.name}`}
           />
         }
@@ -120,7 +122,7 @@ function UserAvatarSkeleton() {
   return (
     <div
       data-slot="user-avatar-skeleton"
-      className="inline-flex size-9 shrink-0 items-center justify-center"
+      className="inline-flex size-8 shrink-0 items-center justify-center"
       aria-hidden
     >
       <Spinner className="size-4" />

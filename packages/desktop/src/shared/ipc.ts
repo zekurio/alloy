@@ -1,10 +1,13 @@
 import type {
   PublicAuthConfig,
   RecordingActionResult,
+  RecordingActionRequest,
+  RecordingDisplay,
   RecordingEvent,
   RecordingGameProcess,
   RecordingNotificationSoundEvent,
   RecordingNotificationSoundLibrary,
+  SaveReplayClipRequest,
   RecordingSettings,
   RecordingStatus,
   RecordingStorageInfo,
@@ -32,7 +35,11 @@ export const IPC = {
   listNotificationSounds: "alloy:list-notification-sounds",
   openNotificationSoundsFolder: "alloy:open-notification-sounds-folder",
   listGameProcesses: "alloy:list-game-processes",
+  listRecordingDisplays: "alloy:list-recording-displays",
   saveReplayClip: "alloy:save-replay-clip",
+  addRecordingBookmark: "alloy:add-recording-bookmark",
+  takeRecordingScreenshot: "alloy:take-recording-screenshot",
+  toggleLongRecording: "alloy:toggle-long-recording",
   stopRecording: "alloy:stop-recording",
   revealRecordingCapture: "alloy:reveal-recording-capture",
   minimizeWindow: "alloy:minimize-window",
@@ -87,7 +94,16 @@ export interface AlloyDesktopRecordingApi {
   selectOutputFolder(): Promise<string | null>
   /** Returns running processes that can be added to the game allow list. */
   listGameProcesses(): Promise<RecordingGameProcess[]>
-  saveReplayClip(): Promise<RecordingActionResult>
+  /** Returns displays that can be selected for desktop capture. */
+  listDisplays(): Promise<RecordingDisplay[]>
+  saveReplayClip(request: SaveReplayClipRequest): Promise<RecordingActionResult>
+  addBookmark(request: RecordingActionRequest): Promise<RecordingActionResult>
+  takeScreenshot(
+    request: RecordingActionRequest,
+  ): Promise<RecordingActionResult>
+  toggleLongRecording(
+    request: RecordingActionRequest,
+  ): Promise<RecordingActionResult>
   stopRecording(): Promise<RecordingActionResult>
   revealCapture(filename: string): Promise<void>
   /** Lists the audio files available in each event's notification sounds folder. */

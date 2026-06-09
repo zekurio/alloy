@@ -87,8 +87,8 @@ export function ReplayBufferSection({
   return (
     <Subsection title="Replay buffer">
       <SettingRow
-        title="Clip length"
-        description="How much video the replay buffer keeps before you press clip."
+        title="Replay buffer"
+        description="The longest rolling window available to clip hotkeys."
         htmlFor="desktop-recording-buffer"
       >
         <div className="flex w-44 items-center gap-3 sm:w-56">

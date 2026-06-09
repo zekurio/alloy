@@ -17,7 +17,9 @@ export const gameSelectShape = {
   slug: game.slug,
   releaseDate: game.releaseDate,
   heroUrl: game.heroUrl,
+  heroBlurHash: game.heroBlurHash,
   gridUrl: game.gridUrl,
+  gridBlurHash: game.gridBlurHash,
   logoUrl: game.logoUrl,
   iconUrl: game.iconUrl,
 } as const
@@ -28,7 +30,9 @@ type GameMetadataRow = {
   slug: string
   releaseDate: Date | string | null
   heroUrl: string | null
+  heroBlurHash: string | null
   gridUrl: string | null
+  gridBlurHash: string | null
   logoUrl: string | null
   iconUrl: string | null
 }
@@ -56,7 +60,9 @@ export function gameRowFromSnapshot(
     slug: gameSlugWithId(resolvedName, steamgriddbId),
     releaseDate: null,
     heroUrl: null,
+    heroBlurHash: null,
     gridUrl: null,
+    gridBlurHash: null,
     logoUrl: null,
     iconUrl: null,
   }
@@ -77,7 +83,9 @@ export function serialiseGameRow(row: GameMetadataRow): GameRow {
     slug: row.slug,
     releaseDate: nullableIsoDate(row.releaseDate),
     heroUrl: row.heroUrl,
+    heroBlurHash: row.heroBlurHash,
     gridUrl: row.gridUrl,
+    gridBlurHash: row.gridBlurHash,
     logoUrl: row.logoUrl,
     iconUrl: row.iconUrl,
   }
@@ -101,7 +109,8 @@ async function selectCachedGameRef(
 async function loadSteamGridGameRef(
   steamgriddbId: number,
 ): Promise<GameRow | null> {
-  const [detail, assets] = await Promise.all([
+  const [previous, detail, assets] = await Promise.all([
+    selectCachedGameRef(steamgriddbId),
     getGameById(steamgriddbId),
     getGameAssets(steamgriddbId),
   ])
@@ -115,7 +124,15 @@ async function loadSteamGridGameRef(
     slug: gameSlugWithId(detail.name, detail.id),
     releaseDate,
     heroUrl: assets.heroUrl,
+    heroBlurHash:
+      assets.heroUrl === previous?.heroUrl
+        ? (assets.heroBlurHash ?? previous.heroBlurHash)
+        : assets.heroBlurHash,
     gridUrl: assets.gridUrl,
+    gridBlurHash:
+      assets.gridUrl === previous?.gridUrl
+        ? (assets.gridBlurHash ?? previous.gridBlurHash)
+        : assets.gridBlurHash,
     logoUrl: assets.logoUrl,
     iconUrl: assets.iconUrl,
     updatedAt: new Date(),
@@ -125,7 +142,9 @@ async function loadSteamGridGameRef(
     slug: values.slug,
     releaseDate: values.releaseDate,
     heroUrl: values.heroUrl,
+    heroBlurHash: values.heroBlurHash,
     gridUrl: values.gridUrl,
+    gridBlurHash: values.gridBlurHash,
     logoUrl: values.logoUrl,
     iconUrl: values.iconUrl,
     updatedAt: values.updatedAt,

@@ -23,6 +23,7 @@
     "alloy-contracts": "workspace:*",
     "alloy-db": "workspace:*",
     "alloy-logging": "workspace:*",
+    "blurhash": "^2.0.5",
     "croner": "10.0.1",
     "drizzle-orm": "0.45.2",
     "hono": "4.12.23",

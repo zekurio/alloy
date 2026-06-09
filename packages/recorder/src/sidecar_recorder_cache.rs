@@ -77,15 +77,26 @@ impl Recorder {
         last_refresh.is_none()
             || (self.mode == RecordingMode::Idle && cache_expired(last_refresh, ttl))
     }
-}
-fn active_session_should_stop(session: &ActiveSession, settings: &RecordingSettings) -> bool {
-    if !settings.enabled {
-        return true;
+
+    fn capture_owner_session(&self) -> Option<&ActiveSession> {
+        self.replay_session
+            .as_ref()
+            .filter(|session| session.owns_capture)
+            .or_else(|| {
+                self.long_session
+                    .as_ref()
+                    .filter(|session| session.owns_capture)
+            })
     }
 
+    fn has_active_outputs(&self) -> bool {
+        self.replay_session.is_some() || self.long_session.is_some()
+    }
+}
+fn active_session_should_stop(session: &ActiveSession, settings: &RecordingSettings) -> bool {
     match session.kind {
-        ActiveOutputKind::ReplayBuffer => settings.trigger_mode != RecordingTriggerMode::ReplayBuffer,
-        ActiveOutputKind::Session => settings.trigger_mode != RecordingTriggerMode::Session,
+        ActiveOutputKind::ReplayBuffer => !settings.enabled,
+        ActiveOutputKind::LongRecording => !settings.enabled,
     }
 }
 
@@ -96,6 +107,8 @@ fn active_settings_require_restart(
     current.audio_mode != next.audio_mode
         || current.audio_devices != next.audio_devices
         || current.audio_applications != next.audio_applications
+        || current.capture_mode != next.capture_mode
+        || current.selected_display_id != next.selected_display_id
         || current.encoder != next.encoder
         || current.gpu != next.gpu
         || current.codec != next.codec

@@ -1,9 +1,12 @@
 import type {
   RecordingActionResult,
+  RecordingActionRequest,
+  RecordingDisplay,
   RecordingEvent,
   RecordingGameProcess,
   RecordingNotificationSoundEvent,
   RecordingNotificationSoundLibrary,
+  SaveReplayClipRequest,
   RecordingSettings,
   RecordingStatus,
   RecordingStorageInfo,
@@ -37,7 +40,15 @@ export interface AlloyDesktopRecordingApi {
     sound: RecordingNotificationSoundEvent,
   ): Promise<void>
   listGameProcesses(): Promise<RecordingGameProcess[]>
-  saveReplayClip(): Promise<RecordingActionResult>
+  listDisplays(): Promise<RecordingDisplay[]>
+  saveReplayClip(request: SaveReplayClipRequest): Promise<RecordingActionResult>
+  addBookmark(request: RecordingActionRequest): Promise<RecordingActionResult>
+  takeScreenshot(
+    request: RecordingActionRequest,
+  ): Promise<RecordingActionResult>
+  toggleLongRecording(
+    request: RecordingActionRequest,
+  ): Promise<RecordingActionResult>
   stopRecording(): Promise<RecordingActionResult>
   revealCapture(filename: string): Promise<void>
 }

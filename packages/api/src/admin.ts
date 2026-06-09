@@ -322,7 +322,7 @@ export function createAdminApi(context: ApiContext) {
       triggers: AdminScheduledTaskTrigger[],
     ) => updateScheduledTaskTriggers(context, taskId, triggers),
     runClipStorageMaintenance: () =>
-      runScheduledTask(context, "clip-storage-maintenance"),
+      runScheduledTask(context, "clip-storage-cleanup"),
     fetchUsers: () => fetchUsers(context),
     createUser: (input: AdminCreateUserInput) => createUser(context, input),
     updateUser: (userId: string, input: AdminUpdateUserInput) =>

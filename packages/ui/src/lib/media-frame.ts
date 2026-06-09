@@ -1,8 +1,9 @@
-export const CLIP_MEDIA_BACKGROUND_CLASS = "bg-black"
+export const CLIP_MEDIA_BACKGROUND_CLASS = "bg-transparent"
 
 export const CLIP_MEDIA_VIEWPORT_CLASS = `relative aspect-video overflow-hidden ${CLIP_MEDIA_BACKGROUND_CLASS}`
 
-export const CLIP_MEDIA_CLASS = `absolute inset-0 size-full object-contain object-center ${CLIP_MEDIA_BACKGROUND_CLASS}`
+export const CLIP_MEDIA_CLASS =
+  "absolute inset-0 size-full object-contain object-center"
 
 // Rounds a media frame and everything stacked inside it (still + video) in one
 // pass. A plain border-radius + overflow-hidden lets Chromium paint promoted

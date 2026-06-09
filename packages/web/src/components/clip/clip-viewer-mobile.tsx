@@ -313,6 +313,8 @@ function MobileClipViewerBody({
               sourceVideoCodec={row.sourceVideoCodec}
               sourceAudioCodec={row.sourceAudioCodec}
               thumbnail={thumbnail}
+              thumbnailBlurHash={row.thumbBlurHash}
+              fallbackSeed={row.steamgriddbId}
               playbackQualities={row.playbackQualities}
               status={row.status}
               encodeProgress={row.encodeProgress}

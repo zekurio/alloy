@@ -7,14 +7,16 @@ import { AlloyLogoMark } from "alloy-ui/components/alloy-logo"
 import { Button } from "alloy-ui/components/button"
 import { buttonVariants } from "alloy-ui/lib/button-variants"
 import { messageFromUnknown } from "alloy-ui/lib/error-message"
+import { toast } from "alloy-ui/lib/toast"
 import { cn } from "alloy-ui/lib/utils"
-import { AlertTriangle, ArrowLeft, Home, RotateCw } from "lucide-react"
+import { ArrowLeft, Home } from "lucide-react"
 import * as React from "react"
 
 import {
   canGoBackInBrowserHistory,
   goBackInBrowserHistory,
 } from "@/lib/browser-url"
+import { copyTextToClipboard } from "@/lib/clipboard"
 
 type RouteStateVariant = "screen" | "panel"
 
@@ -26,59 +28,45 @@ type RouteNotFoundStateProps = NotFoundRouteProps & {
   variant?: RouteStateVariant
 }
 
-const isDev = import.meta.env.DEV
-
 function RouteErrorState({
   error,
   info,
   reset,
   variant = "screen",
 }: RouteErrorStateProps): React.ReactElement {
-  const [showDetails, setShowDetails] = React.useState(false)
+  const message = getErrorMessage(error) ?? "This view failed to load."
   const details = getErrorDetails(error, info)
+  const copyErrorDetails = React.useCallback(async () => {
+    const copied = await copyTextToClipboard(details ?? message, {
+      action: "copy route error details",
+    })
+    if (copied) {
+      toast.success("Error details copied")
+    } else {
+      toast.error("Couldn't copy error details")
+    }
+  }, [details, message])
 
   return (
     <RouteStateFrame variant={variant}>
-      <div className="flex flex-col items-center gap-4 text-center text-balance">
-        <div className="flex flex-col gap-1.5">
-          <h1 className="text-foreground flex items-center justify-center gap-2 text-lg font-semibold tracking-tight">
-            <AlertTriangle className="text-danger size-4" aria-hidden />
+      <div className="flex w-full max-w-md flex-col items-start gap-4 text-left">
+        <div className="flex w-full flex-col gap-2">
+          <h1 className="text-foreground text-lg font-semibold tracking-tight">
             Something went wrong
           </h1>
-          <p className="text-foreground-muted text-sm leading-relaxed">
-            This view failed to load. You can retry it or return home.
-          </p>
+          <pre className="border-border bg-surface-raised text-foreground-muted max-h-32 overflow-auto rounded-lg border px-3 py-2 text-left font-mono text-xs leading-relaxed whitespace-pre-wrap">
+            {message}
+          </pre>
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <Button type="button" variant="outline" onClick={reset}>
-            <RotateCw className="size-3.5" aria-hidden />
-            Try again
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" onClick={reset}>
+            Retry
           </Button>
-          <Link to="/" className={buttonVariants({ variant: "ghost" })}>
-            <Home className="size-3.5" aria-hidden />
-            Go home
-          </Link>
+          <Button type="button" variant="outline" onClick={copyErrorDetails}>
+            Copy error
+          </Button>
         </div>
-
-        {isDev && details ? (
-          <div className="w-full max-w-sm pt-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              aria-expanded={showDetails}
-              onClick={() => setShowDetails((value) => !value)}
-            >
-              {showDetails ? "Hide details" : "Show details"}
-            </Button>
-            {showDetails ? (
-              <pre className="border-border text-foreground-dim mt-2 max-h-56 overflow-auto rounded-lg border border-dashed p-3 text-left font-mono text-xs leading-relaxed whitespace-pre-wrap">
-                {details}
-              </pre>
-            ) : null}
-          </div>
-        ) : null}
       </div>
     </RouteStateFrame>
   )

@@ -15,6 +15,8 @@ interface VideoPlayerProps extends SharedPlayerProps {
   hlsLevelHeight?: HlsLevelSelection
   onHlsFatalError?: (message: string) => void
   poster?: string
+  posterBlurHash?: string | null
+  fallbackSeed?: string | number
   aspectRatio?: number
   sourceIdentity?: string
   controls?: boolean

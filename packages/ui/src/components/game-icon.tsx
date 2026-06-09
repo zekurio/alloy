@@ -1,3 +1,4 @@
+import { pastelAvatarColors } from "alloy-ui/lib/pastel"
 import { cn } from "alloy-ui/lib/utils"
 import { cva, type VariantProps } from "class-variance-authority"
 import * as React from "react"
@@ -29,8 +30,20 @@ interface GameIconProps
 
 // SGDB occasionally hands back a URL that 404s; fall back to the first
 // letter in a monospace badge on error.
-function GameIcon({ src, name, size, className, ...props }: GameIconProps) {
+function GameIcon({
+  src,
+  name,
+  size,
+  className,
+  style,
+  ...props
+}: GameIconProps) {
   const [ok, setOk] = React.useState(src != null)
+  const fallbackColors = pastelAvatarColors(name)
+  const fallbackStyle =
+    ok && src
+      ? style
+      : { background: fallbackColors.bg, color: fallbackColors.fg, ...style }
 
   React.useEffect(() => {
     setOk(src != null)
@@ -40,6 +53,7 @@ function GameIcon({ src, name, size, className, ...props }: GameIconProps) {
     <span
       aria-hidden
       className={cn(gameIconVariants({ size }), className)}
+      style={fallbackStyle}
       {...props}
     >
       {src && ok ? (

@@ -1,9 +1,12 @@
 import type {
   RecordingActionResult,
+  RecordingActionRequest,
+  RecordingDisplay,
   RecordingEvent,
   RecordingGameProcess,
   RecordingNotificationSoundEvent,
   RecordingNotificationSoundLibrary,
+  SaveReplayClipRequest,
   RecordingSettings,
   RecordingStatus,
   RecordingStorageInfo,
@@ -14,7 +17,11 @@ import * as React from "react"
 import { alloyDesktop } from "./desktop-bridge"
 
 type Phase = "loading" | "idle"
-type RecordingAction = "saveReplayClip"
+type RecordingAction =
+  | { type: "saveReplayClip"; request: SaveReplayClipRequest }
+  | { type: "addBookmark"; request: RecordingActionRequest }
+  | { type: "takeScreenshot"; request: RecordingActionRequest }
+  | { type: "toggleLongRecording"; request: RecordingActionRequest }
 
 interface DesktopRecordingContextValue {
   settings: RecordingSettings | null
@@ -37,11 +44,16 @@ interface DesktopRecordingContextValue {
   ) => Promise<void>
   /** Return running processes that can be added to the game allow list. */
   listGameProcesses: () => Promise<RecordingGameProcess[]>
+  /** Return displays that can be selected for desktop capture. */
+  listDisplays: () => Promise<RecordingDisplay[]>
 }
 
 const EMPTY_SOUND_LIBRARY: RecordingNotificationSoundLibrary = {
   recordingStarted: [],
+  manualRecordingStarted: [],
   clipSaved: [],
+  screenshotTaken: [],
+  bookmarkAdded: [],
 }
 
 const DesktopRecordingContext =
@@ -198,6 +210,16 @@ export function DesktopRecordingProvider({
     }
   }, [recording])
 
+  const listDisplays = React.useCallback(async () => {
+    if (!recording) return []
+    try {
+      return await recording.listDisplays()
+    } catch (cause) {
+      toast.error(errorText(cause, "Couldn't load displays."))
+      return []
+    }
+  }, [recording])
+
   const runAction = React.useCallback(
     async (action: RecordingAction): Promise<RecordingActionResult> => {
       if (!recording) {
@@ -207,7 +229,7 @@ export function DesktopRecordingProvider({
       }
 
       try {
-        const result = await recording[action]()
+        const result = await runRecordingAction(recording, action)
         setStatus(result.status)
         if (!result.ok) toast.error(result.error ?? "Recording action failed.")
         return result
@@ -235,6 +257,7 @@ export function DesktopRecordingProvider({
       listNotificationSounds,
       openNotificationSoundsFolder,
       listGameProcesses,
+      listDisplays,
     }),
     [
       settings,
@@ -247,6 +270,7 @@ export function DesktopRecordingProvider({
       listNotificationSounds,
       openNotificationSoundsFolder,
       listGameProcesses,
+      listDisplays,
     ],
   )
 
@@ -269,4 +293,20 @@ export function useDesktopRecording(): DesktopRecordingContextValue {
 
 function errorText(cause: unknown, fallback: string): string {
   return cause instanceof Error ? cause.message : fallback
+}
+
+async function runRecordingAction(
+  recording: NonNullable<ReturnType<typeof alloyDesktop>>["recording"],
+  action: RecordingAction,
+): Promise<RecordingActionResult> {
+  switch (action.type) {
+    case "saveReplayClip":
+      return recording.saveReplayClip(action.request)
+    case "addBookmark":
+      return recording.addBookmark(action.request)
+    case "takeScreenshot":
+      return recording.takeScreenshot(action.request)
+    case "toggleLongRecording":
+      return recording.toggleLongRecording(action.request)
+  }
 }

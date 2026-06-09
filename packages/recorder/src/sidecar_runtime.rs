@@ -49,6 +49,10 @@ fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
                     "audio-devices",
                     "audio-applications",
                     "game-processes",
+                    "display-capture",
+                    "displays",
+                    "long-recording",
+                    "bookmarks",
                     "replay-buffer",
                 ],
             },
@@ -66,7 +70,33 @@ fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
         },
         "status" => response_ok(request.id, recorder.status()),
         "listGameProcesses" => response_ok(request.id, list_game_processes()),
-        "saveReplayClip" => response_ok(request.id, recorder.save_replay_clip()),
+        "listDisplays" => response_ok(request.id, list_displays()),
+        "saveReplayClip" => match serde_json::from_value::<SaveReplayClipParams>(request.params) {
+            Ok(params) => response_ok(request.id, recorder.save_replay_clip(params)),
+            Err(error) => response_error(
+                request.id,
+                format!("Invalid replay clip params: {error}"),
+                recorder.status(),
+            ),
+        },
+        "addBookmark" => match serde_json::from_value::<RecordingActionRequest>(request.params) {
+            Ok(params) => response_ok(request.id, recorder.add_bookmark(params)),
+            Err(error) => response_error(
+                request.id,
+                format!("Invalid bookmark params: {error}"),
+                recorder.status(),
+            ),
+        },
+        "toggleLongRecording" => {
+            match serde_json::from_value::<RecordingActionRequest>(request.params) {
+                Ok(params) => response_ok(request.id, recorder.toggle_long_recording(params)),
+                Err(error) => response_error(
+                    request.id,
+                    format!("Invalid long recording params: {error}"),
+                    recorder.status(),
+                ),
+            }
+        }
         "stopRecording" => response_ok(request.id, recorder.stop_recording()),
         "shutdown" => {
             recorder.shutdown();
@@ -115,16 +145,37 @@ fn list_game_processes() -> Vec<RecordingGameProcess> {
     windows_detector::game_processes()
 }
 
-fn primary_display_dimensions() -> Option<VideoDimensions> {
-    platform_primary_display_dimensions()
+fn list_displays() -> Vec<RecordingDisplay> {
+    windows_detector::displays()
+}
+
+fn selected_display(settings: &RecordingSettings) -> Option<RecordingDisplay> {
+    let displays = list_displays();
+    if !settings.selected_display_id.trim().is_empty() {
+        if let Some(display) = displays
+            .iter()
+            .find(|display| display.id == settings.selected_display_id)
+            .cloned()
+        {
+            return Some(display);
+        }
+    }
+    displays
+        .iter()
+        .find(|display| display.primary)
+        .cloned()
+        .or_else(|| displays.into_iter().next())
+}
+
+fn selected_display_dimensions(settings: &RecordingSettings) -> Option<VideoDimensions> {
+    selected_display(settings).map(|display| VideoDimensions {
+        width: display.width,
+        height: display.height,
+    })
 }
 
 fn primary_display_id() -> Option<String> {
     platform_primary_display_id()
-}
-
-fn platform_primary_display_dimensions() -> Option<VideoDimensions> {
-    windows_detector::primary_display_dimensions()
 }
 
 fn platform_primary_display_id() -> Option<String> {

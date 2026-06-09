@@ -396,10 +396,6 @@ mod recording_tests {
         let game = detected_game();
 
         assert!(!should_pause_for_focus(&settings, Some(&game), false));
-        assert_eq!(
-            source_kind_for_focus(&settings, false),
-            OutputSourceKind::Game,
-        );
     }
 
     #[test]

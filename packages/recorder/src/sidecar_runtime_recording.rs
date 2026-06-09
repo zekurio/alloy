@@ -2,6 +2,10 @@ fn now_iso() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)
 }
 
+fn system_time_iso(value: SystemTime) -> String {
+    DateTime::<Utc>::from(value).to_rfc3339_opts(SecondsFormat::Millis, true)
+}
+
 fn timestamp_millis() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -241,6 +245,8 @@ fn move_saved_replay_to_output(
     path: &str,
     output_directory: &Path,
     game: Option<&RecordingGame>,
+    duration_seconds: u32,
+    replay_seconds: u32,
 ) -> Result<String, String> {
     let source = PathBuf::from(path);
     wait_for_stable_file(&source)?;
@@ -259,12 +265,40 @@ fn move_saved_replay_to_output(
         output = saved_recording_path(output_directory, "Clips", game);
     }
 
+    if duration_seconds < replay_seconds {
+        trim_replay_to_duration(&source, &output, duration_seconds)?;
+        let _ = fs::remove_file(&source);
+        return Ok(output.to_string_lossy().into_owned());
+    }
+
     match fs::rename(&source, &output) {
         Ok(()) => Ok(output.to_string_lossy().into_owned()),
         Err(_) => fs::copy(&source, &output)
             .and_then(|_| fs::remove_file(&source))
             .map(|_| output.to_string_lossy().into_owned())
             .map_err(|error| format!("Could not move replay clip out of scratch: {error}")),
+    }
+}
+
+fn trim_replay_to_duration(
+    source: &Path,
+    output: &Path,
+    duration_seconds: u32,
+) -> Result<(), String> {
+    let status = Command::new("ffmpeg")
+        .args(["-hide_banner", "-loglevel", "error", "-y", "-sseof"])
+        .arg(format!("-{}", duration_seconds.max(1)))
+        .arg("-i")
+        .arg(source)
+        .args(["-c", "copy"])
+        .arg(output)
+        .status()
+        .map_err(|error| format!("Could not run ffmpeg to trim replay clip: {error}"))?;
+
+    if status.success() {
+        wait_for_stable_file(output)
+    } else {
+        Err(format!("ffmpeg replay trim exited with status {status}."))
     }
 }
 
@@ -373,4 +407,94 @@ fn session_total_paused(session: &ActiveSession) -> Duration {
 fn session_duration_ms(started_at: SystemTime, total_paused: Duration) -> Option<u64> {
     let elapsed = started_at.elapsed().ok()?.saturating_sub(total_paused);
     u64::try_from(elapsed.as_millis()).ok()
+}
+
+fn unix_millis_to_system_time(value: u64) -> SystemTime {
+    UNIX_EPOCH + Duration::from_millis(value)
+}
+
+fn bookmark_position_ms(session: &ActiveSession, requested_at: SystemTime) -> u64 {
+    let elapsed = requested_at
+        .duration_since(session.started_at)
+        .unwrap_or_default()
+        .saturating_sub(session_total_paused(session));
+    u64::try_from(elapsed.as_millis()).unwrap_or(u64::MAX)
+}
+
+fn embed_bookmarks_as_chapters(
+    filename: &str,
+    bookmarks: &[RecordingBookmark],
+    duration_ms: Option<u64>,
+) -> Result<(), String> {
+    if bookmarks.is_empty() {
+        return Ok(());
+    }
+
+    let input = PathBuf::from(filename);
+    let metadata = input.with_extension("ffmetadata.txt");
+    let output = input.with_extension("chapters.mp4");
+    fs::write(
+        &metadata,
+        chapter_metadata(bookmarks, duration_ms.unwrap_or_else(|| {
+            bookmarks
+                .iter()
+                .map(|bookmark| bookmark.position_ms)
+                .max()
+                .unwrap_or_default()
+                .saturating_add(1)
+        })),
+    )
+    .map_err(|error| format!("Could not prepare bookmark metadata: {error}"))?;
+
+    let result = Command::new("ffmpeg")
+        .args(["-hide_banner", "-loglevel", "error", "-y", "-i"])
+        .arg(&input)
+        .arg("-i")
+        .arg(&metadata)
+        .args(["-map_metadata", "1", "-codec", "copy"])
+        .arg(&output)
+        .status()
+        .map_err(|error| format!("Could not run ffmpeg to embed chapters: {error}"))
+        .and_then(|status| {
+            if status.success() {
+                replace_file(&output, &input)
+            } else {
+                Err(format!("ffmpeg chapter embedding exited with status {status}."))
+            }
+        });
+    let _ = fs::remove_file(metadata);
+    if result.is_err() {
+        let _ = fs::remove_file(output);
+    }
+    result
+}
+
+fn chapter_metadata(bookmarks: &[RecordingBookmark], duration_ms: u64) -> String {
+    let mut sorted = bookmarks.to_vec();
+    sorted.sort_by_key(|bookmark| (bookmark.position_ms, bookmark.requested_at));
+    let mut metadata = String::from(";FFMETADATA1\n");
+
+    for (index, bookmark) in sorted.iter().enumerate() {
+        let start = bookmark.position_ms.min(duration_ms.saturating_sub(1));
+        let next = sorted
+            .get(index + 1)
+            .map(|next| next.position_ms)
+            .unwrap_or(duration_ms);
+        let end = next.max(start.saturating_add(1)).min(duration_ms.max(1));
+        metadata.push_str("[CHAPTER]\nTIMEBASE=1/1000\n");
+        metadata.push_str(&format!("START={start}\nEND={end}\n"));
+        metadata.push_str(&format!("title=Bookmark {}\n", index + 1));
+    }
+
+    metadata
+}
+
+fn replace_file(source: &Path, destination: &Path) -> Result<(), String> {
+    match fs::rename(source, destination) {
+        Ok(()) => Ok(()),
+        Err(_) => fs::copy(source, destination)
+            .and_then(|_| fs::remove_file(source))
+            .map(|_| ())
+            .map_err(|error| format!("Could not replace recording with chaptered MP4: {error}")),
+    }
 }

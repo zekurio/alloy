@@ -201,7 +201,7 @@ function ClipMeta({
     <section className="flex flex-col gap-2">
       {/* Title + top-right actions */}
       <div className="flex items-start justify-between gap-3">
-        <h1 className="text-foreground min-w-0 text-2xl leading-none font-semibold tracking-[-0.02em] sm:text-[2rem]">
+        <h1 className="text-foreground min-w-0 text-2xl leading-none font-bold tracking-[-0.02em] sm:text-[2rem]">
           {renderHashtagTokens(title, { linkHashtags: true })}
         </h1>
 
@@ -270,7 +270,11 @@ function ClipMeta({
               "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
             )}
           >
-            <Avatar size="xl" style={avatarStyle}>
+            <Avatar
+              size="xl"
+              className="size-11 [--avatar-size:2.75rem]"
+              style={avatarStyle}
+            >
               {uploader.avatar.src ? (
                 <AvatarImage src={uploader.avatar.src} alt={uploader.name} />
               ) : null}

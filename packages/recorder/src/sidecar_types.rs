@@ -88,7 +88,9 @@ struct SidecarVersion {
 #[serde(rename_all = "camelCase")]
 struct RecordingSettings {
     enabled: bool,
-    trigger_mode: RecordingTriggerMode,
+    capture_mode: RecordingCaptureMode,
+    selected_display_id: String,
+    long_recording: RecordingLongRecordingSettings,
     allowed_games: Vec<RecordingAllowedGame>,
     #[serde(default)]
     denied_games: Vec<RecordingAllowedGame>,
@@ -107,6 +109,12 @@ struct RecordingSettings {
     buffer_storage: RecordingBufferStorage,
     output_folder: String,
     hotkeys: RecordingHotkeys,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct RecordingLongRecordingSettings {
+    auto_record_games: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -136,6 +144,18 @@ struct RecordingGameProcess {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+struct RecordingDisplay {
+    id: String,
+    electron_id: Option<String>,
+    name: String,
+    width: u32,
+    height: u32,
+    primary: bool,
+    thumbnail_data_url: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 struct RecordingQualitySettings {
     resolution: RecordingResolution,
     fps: u32,
@@ -145,7 +165,18 @@ struct RecordingQualitySettings {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 struct RecordingHotkeys {
-    save_clip: String,
+    clips: Vec<RecordingClipHotkey>,
+    bookmark: String,
+    screenshot: String,
+    toggle_long_recording: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct RecordingClipHotkey {
+    id: String,
+    hotkey: String,
+    duration_seconds: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -202,9 +233,9 @@ struct RecordingGame {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
-enum RecordingTriggerMode {
-    ReplayBuffer,
-    Session,
+enum RecordingCaptureMode {
+    Game,
+    Display,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -271,7 +302,9 @@ struct RecordingCapture {
     height: Option<u32>,
     game: Option<RecordingGame>,
     source: RecordingCaptureSource,
-    trigger_mode: RecordingTriggerMode,
+    kind: RecordingCaptureKind,
+    chapter_status: RecordingChapterStatus,
+    chapter_error: Option<String>,
     created_at: String,
 }
 
@@ -283,15 +316,35 @@ enum RecordingCaptureSource {
     Display,
 }
 
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+#[allow(dead_code)]
+enum RecordingCaptureKind {
+    Replay,
+    LongRecording,
+    Screenshot,
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+enum RecordingChapterStatus {
+    None,
+    Ok,
+    Failed,
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct RecordingStatus {
     backend: RecordingBackendState,
     mode: RecordingMode,
-    trigger_mode: RecordingTriggerMode,
+    capture_mode: RecordingCaptureMode,
     run_state: RecordingRunState,
+    replay_active: bool,
+    long_recording_active: bool,
     active_game: Option<String>,
     active_game_detail: Option<RecordingGame>,
+    active_display: Option<RecordingDisplay>,
     focused: bool,
     current_source: Option<RecordingCaptureSource>,
     current_capture: Option<RecordingCapture>,
@@ -347,6 +400,9 @@ struct RecordingActionResult {
 #[serde(tag = "type", rename_all = "kebab-case")]
 enum RecordingEvent {
     Status {
+        status: RecordingStatus,
+    },
+    RecordingStarted {
         status: RecordingStatus,
     },
     GameStarted {
@@ -420,7 +476,7 @@ struct VideoGraph {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ActiveOutputKind {
-    Session,
+    LongRecording,
     ReplayBuffer,
 }
 
@@ -459,7 +515,10 @@ struct Recorder {
     cached_audio_applications_at: Option<Instant>,
     cached_audio_applications_game_key: Option<String>,
     mode: RecordingMode,
-    session: Option<ActiveSession>,
+    replay_session: Option<ActiveSession>,
+    long_session: Option<ActiveSession>,
+    manual_long_recording: bool,
+    active_display: Option<RecordingDisplay>,
     active_game: Option<DetectedGame>,
     focused: bool,
     missing_game_ticks: u8,
@@ -483,6 +542,27 @@ struct ActiveSession {
     paused: bool,
     paused_at: Option<SystemTime>,
     total_paused: Duration,
+    owns_capture: bool,
+    bookmarks: Vec<RecordingBookmark>,
+}
+
+#[derive(Clone, Debug)]
+struct RecordingBookmark {
+    requested_at: SystemTime,
+    position_ms: u64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RecordingActionRequest {
+    requested_at_unix_ms: u64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SaveReplayClipParams {
+    requested_at_unix_ms: u64,
+    duration_seconds: u32,
 }
 
 struct LibObs {
@@ -579,7 +659,11 @@ impl Default for RecordingSettings {
     fn default() -> Self {
         Self {
             enabled: false,
-            trigger_mode: RecordingTriggerMode::ReplayBuffer,
+            capture_mode: RecordingCaptureMode::Game,
+            selected_display_id: String::new(),
+            long_recording: RecordingLongRecordingSettings {
+                auto_record_games: false,
+            },
             allowed_games: Vec::new(),
             denied_games: Vec::new(),
             audio_mode: RecordingAudioMode::Devices,
@@ -600,11 +684,18 @@ impl Default for RecordingSettings {
                 fps: 60,
                 bitrate: RecordingBitrate::Auto("auto".to_string()),
             },
-            replay_buffer_seconds: 120,
+            replay_buffer_seconds: 90,
             buffer_storage: RecordingBufferStorage::Memory,
             output_folder: String::new(),
             hotkeys: RecordingHotkeys {
-                save_clip: "F8".to_string(),
+                clips: vec![RecordingClipHotkey {
+                    id: "default".to_string(),
+                    hotkey: "F8".to_string(),
+                    duration_seconds: 90,
+                }],
+                bookmark: "F8".to_string(),
+                screenshot: "F7".to_string(),
+                toggle_long_recording: "Alt+F7".to_string(),
             },
         }
     }

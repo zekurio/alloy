@@ -19,7 +19,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-use chrono::{SecondsFormat, Utc};
+use chrono::{DateTime, SecondsFormat, Utc};
 use libloading::{Library, Symbol};
 use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};

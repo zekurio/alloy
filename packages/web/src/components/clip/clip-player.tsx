@@ -6,6 +6,7 @@ import {
   clipStreamUrl,
   clipThumbnailUrl,
 } from "alloy-api"
+import { MediaPlaceholder } from "alloy-ui/components/media-placeholder"
 import { toast } from "alloy-ui/lib/toast"
 import * as React from "react"
 
@@ -32,6 +33,8 @@ interface ClipPlayerProps {
   sourceVideoCodec?: string | null
   sourceAudioCodec?: string | null
   thumbnail?: string | null
+  thumbnailBlurHash?: string | null
+  fallbackSeed?: string | number
   playbackQualities?: ClipPlaybackQuality[]
   status?: ClipStatus
   encodeProgress?: number
@@ -89,6 +92,8 @@ function ClipPlayer({
   sourceVideoCodec,
   sourceAudioCodec,
   thumbnail,
+  thumbnailBlurHash,
+  fallbackSeed,
   playbackQualities = [],
   status,
   encodeProgress: _encodeProgress = 0,
@@ -258,10 +263,16 @@ function ClipPlayer({
             : undefined,
         }}
       >
-        <div className="grid size-full place-items-center bg-[oklch(12%_0.01_250)] text-sm text-white/70">
-          {unavailable
-            ? "Playback unavailable."
-            : "Preparing playback version..."}
+        <div className="relative grid size-full place-items-center overflow-hidden text-sm text-white/80">
+          <MediaPlaceholder
+            seed={fallbackSeed ?? clipId}
+            blurHash={thumbnailBlurHash}
+          />
+          <span className="relative z-10">
+            {unavailable
+              ? "Playback unavailable."
+              : "Preparing playback version..."}
+          </span>
         </div>
       </div>
     )
@@ -273,6 +284,8 @@ function ClipPlayer({
       hlsMasterUrl={hlsMasterUrl}
       hlsLevelHeight={hlsLevelHeight}
       poster={poster}
+      posterBlurHash={thumbnailBlurHash}
+      fallbackSeed={fallbackSeed ?? clipId}
       aspectRatio={aspectRatio}
       maxDisplayHeight={maxDisplayHeight}
       chromeSize={chromeSize}

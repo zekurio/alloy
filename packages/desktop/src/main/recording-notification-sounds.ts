@@ -30,7 +30,10 @@ const DEFAULT_RECORDING_SOUND_FILES: Record<
   string
 > = {
   recordingStarted: "start_recording.wav",
+  manualRecordingStarted: "start_recording.wav",
   clipSaved: "bookmark.wav",
+  screenshotTaken: "bookmark.wav",
+  bookmarkAdded: "bookmark.wav",
 }
 
 let soundPlayerWindow: BrowserWindow | null = null

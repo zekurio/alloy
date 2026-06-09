@@ -34,10 +34,10 @@ type ClipFolder = {
   path: string
 }
 
-export const clipMaintenanceTask: ScheduledTask = {
-  id: "clip-storage-maintenance",
-  name: "Clip storage maintenance",
-  description: "Cleans clip folders and ensures stored OpenGraph variants.",
+export const clipStorageCleanupTask: ScheduledTask = {
+  id: "clip-storage-cleanup",
+  name: "Clip storage cleanup",
+  description: "Deletes orphaned clip folders and unreferenced clip assets.",
   triggers: [
     {
       type: "startup",
@@ -52,11 +52,33 @@ export const clipMaintenanceTask: ScheduledTask = {
   ],
   run: async ({ signal }): Promise<ScheduledTaskResult> => {
     const cleanup = await cleanupClipFolders(signal)
-    const opengraph = await ensureOpenGraphVariants(signal)
     return {
       clipFoldersScanned: cleanup.clipFoldersScanned,
       orphanClipFoldersDeleted: cleanup.orphanClipFoldersDeleted,
       orphanAssetsDeleted: cleanup.orphanAssetsDeleted,
+    }
+  },
+}
+
+export const clipOpenGraphMaintenanceTask: ScheduledTask = {
+  id: "clip-opengraph-maintenance",
+  name: "Clip OpenGraph maintenance",
+  description: "Ensures ready clips have stored OpenGraph variants.",
+  triggers: [
+    {
+      type: "startup",
+      delayMs: CLIP_MAINTENANCE_STARTUP_DELAY_MS,
+      jitterMs: CLIP_MAINTENANCE_STARTUP_JITTER_MS,
+    },
+    {
+      type: "cron",
+      expression: CLIP_MAINTENANCE_CRON,
+      jitterMs: CLIP_MAINTENANCE_CRON_JITTER_MS,
+    },
+  ],
+  run: async ({ signal }): Promise<ScheduledTaskResult> => {
+    const opengraph = await ensureOpenGraphVariants(signal)
+    return {
       readyClipsScanned: opengraph.readyClipsScanned,
       openGraphVariantsCreated: opengraph.openGraphVariantsCreated,
       openGraphVariantMetadataFixed: opengraph.openGraphVariantMetadataFixed,

@@ -40,7 +40,9 @@ export interface ClipGameRef {
   name: string
   releaseDate: IsoDateString | null
   heroUrl: string | null
+  heroBlurHash: string | null
   gridUrl: string | null
+  gridBlurHash: string | null
   logoUrl: string | null
   iconUrl: string | null
 }
@@ -76,6 +78,7 @@ export interface ClipRow {
   height: number | null
   playbackQualities: ClipPlaybackQuality[]
   thumbKey: string | null
+  thumbBlurHash: string | null
   viewCount: number
   likeCount: number
   commentCount: number
@@ -146,8 +149,10 @@ export interface QueueClip {
   encodeProgress: number
   failureReason: string | null
   hasThumb: boolean
+  thumbBlurHash: string | null
   createdAt: IsoDateString
   updatedAt: IsoDateString
+  steamgriddbId: number
   gameSlug: string
 }
 
@@ -162,6 +167,7 @@ export interface NotificationClipRef {
   gameSlug: string
   /** True when the clip has a generated thumbnail available for preview. */
   hasThumb: boolean
+  thumbBlurHash: string | null
   updatedAt: IsoDateString
 }
 
@@ -290,7 +296,9 @@ export interface GameRow {
   slug: string
   releaseDate: IsoDateString | null
   heroUrl: string | null
+  heroBlurHash: string | null
   gridUrl: string | null
+  gridBlurHash: string | null
   logoUrl: string | null
   iconUrl: string | null
 }

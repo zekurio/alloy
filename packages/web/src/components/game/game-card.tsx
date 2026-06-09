@@ -1,15 +1,17 @@
 import { Link } from "@tanstack/react-router"
 import { gameGridUrl } from "alloy-api"
+import { MediaPlaceholder } from "alloy-ui/components/media-placeholder"
 import { cn } from "alloy-ui/lib/utils"
 
-import { hueForGame } from "@/lib/clip-format"
 import { apiOrigin } from "@/lib/env"
 
 export type GameCardData = {
+  steamgriddbId: number
   name: string
   slug: string | null
   heroUrl: string | null
   gridUrl: string | null
+  gridBlurHash: string | null
   logoUrl: string | null
 }
 
@@ -24,31 +26,26 @@ type GameCardProps = {
 }
 
 function GameCardBody({ game }: { game: GameCardData }) {
-  const hue = hueForGame(game.name)
   const gridSrc =
     game.gridUrl && game.slug ? gameGridUrl(game.slug, apiOrigin()) : null
 
-  if (gridSrc) {
-    return (
-      <img
-        src={gridSrc}
-        alt=""
-        crossOrigin="use-credentials"
-        className="absolute inset-0 size-full object-cover"
-        loading="lazy"
-        decoding="async"
-      />
-    )
-  }
-
   return (
-    <div
-      aria-hidden
-      className="absolute inset-0"
-      style={{
-        background: `radial-gradient(120% 80% at 30% 20%, oklch(0.32 0.14 ${hue}), oklch(0.08 0.04 ${hue}))`,
-      }}
-    />
+    <>
+      <MediaPlaceholder
+        seed={game.steamgriddbId}
+        blurHash={game.gridBlurHash}
+      />
+      {gridSrc ? (
+        <img
+          src={gridSrc}
+          alt=""
+          crossOrigin="use-credentials"
+          className="absolute inset-0 size-full object-cover"
+          loading="lazy"
+          decoding="async"
+        />
+      ) : null}
+    </>
   )
 }
 

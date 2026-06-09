@@ -106,6 +106,23 @@ unsafe fn release_output_graph(
     release_audio_sources(obs, audio_sources);
 }
 
+unsafe fn release_output_only(
+    obs: &LibObs,
+    output: *mut ObsOutput,
+    video_encoder: *mut ObsEncoder,
+    audio_encoder: *mut ObsEncoder,
+) {
+    if !output.is_null() {
+        (obs.obs_output_release)(output);
+    }
+    if !video_encoder.is_null() {
+        (obs.obs_encoder_release)(video_encoder);
+    }
+    if !audio_encoder.is_null() {
+        (obs.obs_encoder_release)(audio_encoder);
+    }
+}
+
 unsafe fn release_video_graph(obs: &LibObs, graph: VideoGraph) {
     if !graph.scene.is_null() {
         (obs.obs_scene_release)(graph.scene);
@@ -332,12 +349,13 @@ const GAME_CAPTURE_HOOK_MAX_RETRIES: u32 = 20;
 
 unsafe fn create_video_source(
     obs: &LibObs,
+    settings: &RecordingSettings,
     game: Option<&DetectedGame>,
     source_kind: OutputSourceKind,
 ) -> Result<*mut ObsSource, String> {
     if source_kind == OutputSourceKind::Display {
         let source_settings = obs.create_data();
-        configure_display_capture_source(obs, source_settings)?;
+        configure_display_capture_source(obs, source_settings, settings)?;
         let source = create_source(
             obs,
             platform_display_source_id(),
@@ -524,10 +542,13 @@ unsafe fn game_capture_source_hooked(obs: &LibObs, source: *mut ObsSource) -> bo
 unsafe fn configure_display_capture_source(
     obs: &LibObs,
     data: *mut ObsData,
+    settings: &RecordingSettings,
 ) -> Result<(), String> {
     const OBS_DISPLAY_METHOD_DXGI: i64 = 1;
 
-    if let Some(display_id) = primary_display_id() {
+    if !settings.selected_display_id.trim().is_empty() {
+        obs.set_string(data, "monitor_id", &settings.selected_display_id)?;
+    } else if let Some(display_id) = primary_display_id() {
         obs.set_string(data, "monitor_id", &display_id)?;
     }
     obs.set_int(data, "method", OBS_DISPLAY_METHOD_DXGI)?;
@@ -539,11 +560,12 @@ unsafe fn configure_display_capture_source(
 
 unsafe fn create_video_graph(
     obs: &LibObs,
+    settings: &RecordingSettings,
     game: Option<&DetectedGame>,
     source_kind: OutputSourceKind,
     base_dimensions: VideoDimensions,
 ) -> Result<VideoGraph, String> {
-    let source = create_video_source(obs, game, source_kind)?;
+    let source = create_video_source(obs, settings, game, source_kind)?;
     create_scaled_video_scene(obs, source, source_kind, base_dimensions).map_err(|error| {
         if source_kind == OutputSourceKind::Game {
             disconnect_game_capture_signals(obs, source);
@@ -783,16 +805,14 @@ fn game_capture_mode(game: Option<&DetectedGame>) -> &'static str {
     }
 }
 
-fn source_kind(_settings: &RecordingSettings, game: Option<&DetectedGame>) -> OutputSourceKind {
-    if game.is_some_and(|game| game.force_display_capture) {
+fn source_kind(settings: &RecordingSettings, game: Option<&DetectedGame>) -> OutputSourceKind {
+    if settings.capture_mode == RecordingCaptureMode::Display
+        || game.is_some_and(|game| game.force_display_capture)
+    {
         OutputSourceKind::Display
     } else {
         OutputSourceKind::Game
     }
-}
-
-fn source_kind_for_focus(_settings: &RecordingSettings, _focused: bool) -> OutputSourceKind {
-    OutputSourceKind::Game
 }
 
 fn should_pause_for_focus(
@@ -921,7 +941,12 @@ fn capture_base_dimensions(
     game: Option<&DetectedGame>,
     source_kind: OutputSourceKind,
 ) -> VideoDimensions {
-    capture_base_dimensions_with_display(settings, game, source_kind, primary_display_dimensions())
+    capture_base_dimensions_with_display(
+        settings,
+        game,
+        source_kind,
+        selected_display_dimensions(settings),
+    )
 }
 
 fn capture_base_dimensions_with_display(

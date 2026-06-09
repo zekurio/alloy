@@ -33,6 +33,7 @@ export const clipSelectShape = {
   height: clip.height,
   variants: clip.variants,
   thumbKey: clip.thumbKey,
+  thumbBlurHash: clip.thumbBlurHash,
   viewCount: clip.viewCount,
   likeCount: clip.likeCount,
   commentCount: clip.commentCount,
@@ -87,6 +88,7 @@ export function toPublicClipRow<
     width: number | null
     height: number | null
     thumbKey: string | null
+    thumbBlurHash: string | null
     variants: readonly { storageKey: string; hls?: unknown }[]
     steamgriddbId: number
     game: string | null
@@ -109,6 +111,7 @@ export function toPublicClipRow<
           name: row.game,
         }),
     thumbKey: row.thumbKey ? "thumbnail" : null,
+    thumbBlurHash: row.thumbBlurHash,
     playbackQualities: configStore.get("encoder").enabled
       ? buildPlaybackQualities(row)
       : [],

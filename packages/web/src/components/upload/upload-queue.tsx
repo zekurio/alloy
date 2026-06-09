@@ -1,4 +1,5 @@
 import { Button } from "alloy-ui/components/button"
+import { MediaPlaceholder } from "alloy-ui/components/media-placeholder"
 import { Progress } from "alloy-ui/components/progress"
 import {
   CLIP_MEDIA_CLASS,
@@ -37,6 +38,7 @@ export interface QueueItem {
   /** Hue 0–360 — drives the thumbnail gradient placeholder. */
   hue: number
   thumbUrl?: string | null
+  thumbBlurHash?: string | null
   thumbFallbackUrl?: string | null
   onThumbLoad?: () => void
   /** Optional callbacks the FlowController wires per row. */
@@ -223,6 +225,7 @@ function QueueRow({ item, first }: { item: QueueItem; first: boolean }) {
       <div className="flex items-center gap-3">
         <QueueThumb
           thumbUrl={item.thumbUrl ?? null}
+          thumbBlurHash={item.thumbBlurHash ?? null}
           fallbackUrl={item.thumbFallbackUrl ?? null}
           hue={item.hue}
           onLoad={item.onThumbLoad}
@@ -274,11 +277,13 @@ function QueueRow({ item, first }: { item: QueueItem; first: boolean }) {
 
 function QueueThumb({
   thumbUrl,
+  thumbBlurHash,
   fallbackUrl,
   hue,
   onLoad,
 }: {
   thumbUrl: string | null
+  thumbBlurHash: string | null
   fallbackUrl: string | null
   hue: number
   onLoad?: () => void
@@ -315,10 +320,8 @@ function QueueThumb({
         CLIP_MEDIA_VIEWPORT_CLASS,
         "h-10 w-[calc(2.5rem*16/9)] shrink-0 rounded-sm",
       )}
-      style={{
-        background: `linear-gradient(135deg, oklch(0.3 0.1 ${hue}) 0%, oklch(0.15 0.05 ${hue}) 70%, oklch(0.08 0 0) 100%)`,
-      }}
     >
+      <MediaPlaceholder seed={hue} blurHash={thumbBlurHash} />
       {fallbackSrc ? (
         <img
           src={fallbackSrc}

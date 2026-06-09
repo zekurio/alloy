@@ -8,6 +8,7 @@ import { and, eq } from "drizzle-orm"
 import { publishClipUpsert } from "../clips/events"
 import { publishOpenGraphVariant } from "../clips/opengraph-variant"
 import { db } from "../db"
+import { imageBlurHash } from "../media/blurhash"
 import { notifyFollowersOfNewClip } from "../notifications"
 import { join } from "../runtime/path"
 import { clipAssetKey, clipStorage } from "../storage"
@@ -169,12 +170,14 @@ async function runPipelineInScratch({
     atMs: Math.max(0, thumbAtMs),
     signal,
   })
+  const thumbBlurHash = await computeThumbBlurHash(thumbPath, signal)
   await clipStorage.uploadFromFile(thumbPath, thumbKey, "image/webp")
   uploadedKeys.push(thumbKey)
   const [thumbPublished] = await db
     .update(clip)
     .set({
       thumbKey,
+      thumbBlurHash,
       updatedAt: new Date(),
     })
     .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
@@ -231,6 +234,7 @@ async function runPipelineInScratch({
         openGraphContentType: openGraphAsset.contentType,
         openGraphSizeBytes: openGraphAsset.sizeBytes,
         thumbKey,
+        thumbBlurHash,
         durationMs: outputDurationMs,
         width: sourceAsset.width,
         height: sourceAsset.height,
@@ -296,6 +300,23 @@ async function selectScratchUploadKey(clipId: string): Promise<string | null> {
     )
     .limit(1)
   return ticket?.storageKey ?? null
+}
+
+async function computeThumbBlurHash(
+  thumbPath: string,
+  signal: AbortSignal,
+): Promise<string | null> {
+  try {
+    return await imageBlurHash({
+      source: thumbPath,
+      label: "clip thumbnail blurhash",
+      signal,
+    })
+  } catch (err) {
+    if (signal.aborted) throw err
+    logger.warn("[queue] failed to compute thumbnail blurhash:", err)
+    return null
+  }
 }
 
 async function cleanupCompletedScratchUpload(clipId: string): Promise<void> {

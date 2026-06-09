@@ -7,6 +7,10 @@ impl Recorder {
         capture: RecordingCapture,
     ) -> Result<ActiveSession, String> {
         let path = capture.filename.clone();
+        if let Some(parent) = Path::new(&path).parent() {
+            fs::create_dir_all(parent)
+                .map_err(|error| format!("Could not create recording output folder: {error}"))?;
+        }
         self.start_output(settings, game, kind, capture, OutputConfig::File { path })
     }
 
@@ -19,7 +23,18 @@ impl Recorder {
         output_config: OutputConfig,
     ) -> Result<ActiveSession, String> {
         let mut source_kind = source_kind(settings, game);
-        let video_config = self.ensure_obs_for_source(settings, game, source_kind)?;
+        let shared_capture = self.capture_owner_session().map(|session| {
+            (
+                session.video_graph,
+                session.video_config,
+                session.audio_sources.clone(),
+                session.source_kind,
+            )
+        });
+        let video_config = shared_capture
+            .as_ref()
+            .map(|(_, video_config, _, _)| *video_config)
+            .unwrap_or(self.ensure_obs_for_source(settings, game, source_kind)?);
         let obs = self
             .obs
             .as_ref()
@@ -32,28 +47,37 @@ impl Recorder {
 
         let output_quality = effective_quality_for_base(settings, video_config.base);
         let mut capture = capture;
-        let mut video_graph =
-            unsafe { create_video_graph(obs, game, source_kind, video_config.base)? };
-        unsafe {
-            (obs.obs_set_output_source)(0, video_graph.output_source);
-        }
-
-        let audio_sources = match unsafe { create_audio_sources(obs, settings, game) } {
-            Ok(audio_sources) => audio_sources,
-            Err(error) => {
+        let owns_capture = shared_capture.is_none();
+        let (mut video_graph, audio_sources) =
+            if let Some((video_graph, _video_config, audio_sources, shared_kind)) = shared_capture {
+                source_kind = shared_kind;
+                capture.source = recording_source_from_kind(source_kind);
+                (video_graph, audio_sources)
+            } else {
+                let video_graph =
+                    unsafe { create_video_graph(obs, settings, game, source_kind, video_config.base)? };
                 unsafe {
-                    release_output_graph(
-                        obs,
-                        ptr::null_mut(),
-                        ptr::null_mut(),
-                        ptr::null_mut(),
-                        video_graph,
-                        Vec::new(),
-                    );
+                    (obs.obs_set_output_source)(0, video_graph.output_source);
                 }
-                return Err(error);
-            }
-        };
+
+                let audio_sources = match unsafe { create_audio_sources(obs, settings, game) } {
+                    Ok(audio_sources) => audio_sources,
+                    Err(error) => {
+                        unsafe {
+                            release_output_graph(
+                                obs,
+                                ptr::null_mut(),
+                                ptr::null_mut(),
+                                ptr::null_mut(),
+                                video_graph,
+                                Vec::new(),
+                            );
+                        }
+                        return Err(error);
+                    }
+                };
+                (video_graph, audio_sources)
+            };
 
         let video_settings = unsafe { obs.create_data() };
         let video_encoder = unsafe {
@@ -75,7 +99,7 @@ impl Recorder {
                         ptr::null_mut(),
                         ptr::null_mut(),
                         video_graph,
-                        audio_sources,
+                        if owns_capture { audio_sources } else { Vec::new() },
                     );
                 }
                 return Err(error);
@@ -102,7 +126,7 @@ impl Recorder {
                         video_encoder,
                         ptr::null_mut(),
                         video_graph,
-                        audio_sources,
+                        if owns_capture { audio_sources } else { Vec::new() },
                     );
                 }
                 return Err(error);
@@ -113,6 +137,7 @@ impl Recorder {
         if let Err(error) = unsafe {
             Self::ensure_game_capture_ready_or_fallback(
                 obs,
+                settings,
                 game,
                 video_config.base,
                 &mut source_kind,
@@ -127,7 +152,7 @@ impl Recorder {
                     video_encoder,
                     audio_encoder,
                     video_graph,
-                    audio_sources,
+                    if owns_capture { audio_sources } else { Vec::new() },
                 );
             }
             return Err(error);
@@ -206,7 +231,7 @@ impl Recorder {
                         video_encoder,
                         audio_encoder,
                         video_graph,
-                        audio_sources,
+                        if owns_capture { audio_sources } else { Vec::new() },
                     );
                 }
                 return Err(error);
@@ -223,7 +248,7 @@ impl Recorder {
                         video_encoder,
                         audio_encoder,
                         video_graph,
-                        audio_sources,
+                        if owns_capture { audio_sources } else { Vec::new() },
                     );
                 }
                 return Err(error);
@@ -246,7 +271,7 @@ impl Recorder {
                     video_encoder,
                     audio_encoder,
                     video_graph,
-                    audio_sources,
+                    if owns_capture { audio_sources } else { Vec::new() },
                 );
             }
             return Err(error);
@@ -269,11 +294,14 @@ impl Recorder {
             paused: false,
             paused_at: None,
             total_paused: Duration::ZERO,
+            owns_capture,
+            bookmarks: Vec::new(),
         })
     }
 
     unsafe fn ensure_game_capture_ready_or_fallback(
         obs: &LibObs,
+        settings: &RecordingSettings,
         game: Option<&DetectedGame>,
         base_dimensions: VideoDimensions,
         source_kind: &mut OutputSourceKind,
@@ -291,7 +319,7 @@ impl Recorder {
 
             eprintln!("[{SIDE_CAR_NAME}] {error} Attempting display capture fallback.");
             let fallback_kind = OutputSourceKind::Display;
-            let fallback_graph = create_video_graph(obs, game, fallback_kind, base_dimensions)
+            let fallback_graph = create_video_graph(obs, settings, game, fallback_kind, base_dimensions)
                 .map_err(|fallback_error| {
                     format!("{error} Display capture fallback also failed: {fallback_error}")
                 })?;
@@ -330,18 +358,26 @@ impl Recorder {
             thread::sleep(Duration::from_millis(100));
         }
 
-        release_output_graph(
-            obs,
-            session.output,
-            session.video_encoder,
-            session.audio_encoder,
-            session.video_graph,
-            session.audio_sources,
-        );
+        if session.owns_capture {
+            release_output_graph(
+                obs,
+                session.output,
+                session.video_encoder,
+                session.audio_encoder,
+                session.video_graph,
+                session.audio_sources,
+            );
+        } else {
+            release_output_only(obs, session.output, session.video_encoder, session.audio_encoder);
+        }
         Ok(())
     }
 
-    unsafe fn save_replay(&self, session: &ActiveSession) -> Result<String, String> {
+    unsafe fn save_replay(
+        &self,
+        session: &ActiveSession,
+        duration_seconds: u32,
+    ) -> Result<String, String> {
         if session.kind != ActiveOutputKind::ReplayBuffer {
             return Err("Current OBS output is not a replay buffer.".to_string());
         }
@@ -357,16 +393,18 @@ impl Recorder {
                     session,
                     scratch_directory,
                     output_directory,
-                    *replay_seconds,
+                    duration_seconds.min(*replay_seconds),
                 );
             }
         } else {
             return Err("Current OBS output is not a replay buffer.".to_string());
         }
-        let output_directory = match &session.output_config {
+        let (output_directory, replay_seconds) = match &session.output_config {
             OutputConfig::ReplayBuffer {
-                output_directory, ..
-            } => output_directory,
+                output_directory,
+                replay_seconds,
+                ..
+            } => (output_directory, *replay_seconds),
             _ => unreachable!("replay buffer config checked above"),
         };
         let obs = self
@@ -401,6 +439,8 @@ impl Recorder {
                         &path,
                         output_directory,
                         session.capture.game.as_ref(),
+                        duration_seconds,
+                        replay_seconds,
                     );
                 }
             }
@@ -416,6 +456,8 @@ impl Recorder {
                     &replay.path.to_string_lossy(),
                     output_directory,
                     session.capture.game.as_ref(),
+                    duration_seconds,
+                    replay_seconds,
                 );
             }
         }

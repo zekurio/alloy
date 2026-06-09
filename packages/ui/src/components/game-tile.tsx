@@ -1,3 +1,4 @@
+import { pastelAvatarColors, pastelMediaGradient } from "alloy-ui/lib/pastel"
 import { cn } from "alloy-ui/lib/utils"
 import { EyeIcon, FilmIcon } from "lucide-react"
 import * as React from "react"
@@ -19,6 +20,8 @@ function GameTile({
   cover,
   ...props
 }: GameTileProps) {
+  const fallbackColors = pastelAvatarColors(name || hue)
+
   return (
     <article
       data-slot="game-tile"
@@ -45,8 +48,8 @@ function GameTile({
               "font-mono text-sm font-semibold tracking-[0.02em]",
             )}
             style={{
-              background: `radial-gradient(120% 80% at 30% 20%, oklch(0.32 0.14 ${hue}), oklch(0.08 0.04 ${hue}))`,
-              color: `oklch(0.85 0.1 ${hue})`,
+              background: pastelMediaGradient(hue),
+              color: fallbackColors.fg,
             }}
           >
             {name}
