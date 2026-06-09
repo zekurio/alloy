@@ -336,14 +336,6 @@ export const gamesRoute = new Hono()
         .limit(1)
       if (!gameRow) return notFound(c)
 
-      const score = sql<number>`
-        ((${clip.viewCount} + ${clip.likeCount} * 3)::float)
-        / power(
-            extract(epoch from (now() - ${clip.createdAt})) / 86400.0 + 2.0,
-            1.5
-          )
-      `
-
       const rows = await db
         .select(clipSelectShape)
         .from(clip)
@@ -357,7 +349,12 @@ export const gamesRoute = new Hono()
             isNull(user.disabledAt),
           ),
         )
-        .orderBy(desc(score))
+        .orderBy(
+          desc(clip.viewCount),
+          desc(clip.likeCount),
+          desc(clip.createdAt),
+          clip.id,
+        )
         .limit(limit)
 
       return c.json(rows.map(toPublicClipRow))
