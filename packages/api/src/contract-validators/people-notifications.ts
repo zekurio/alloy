@@ -89,6 +89,10 @@ function validateNotificationClipRef(value: unknown) {
     clip.hasThumb,
     "Invalid notification clip response: hasThumb must be boolean",
   )
+  validateNullableString(
+    clip.thumbBlurHash,
+    "Invalid notification clip response: thumbBlurHash must be string or null",
+  )
   validateIsoDateString(
     clip.updatedAt,
     "Invalid notification clip response: updatedAt must be a date string",

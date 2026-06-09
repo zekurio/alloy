@@ -161,6 +161,10 @@ function validateClipTimestamps(row: Record<string, unknown>) {
     row.thumbKey,
     "Invalid clip response: thumbKey must be string or null",
   )
+  validateNullableString(
+    row.thumbBlurHash,
+    "Invalid clip response: thumbBlurHash must be string or null",
+  )
 }
 
 function validateClipRelationships(row: Record<string, unknown>) {

@@ -46,7 +46,9 @@ export const game = pgTable(
     slug: text("slug").notNull().unique(),
     releaseDate: timestamp("release_date"),
     heroUrl: text("hero_url"),
+    heroBlurHash: text("hero_blur_hash"),
     gridUrl: text("grid_url"),
+    gridBlurHash: text("grid_blur_hash"),
     logoUrl: text("logo_url"),
     iconUrl: text("icon_url"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -99,6 +101,7 @@ export const clip = pgTable(
     // Server-generated on finalize. A thumbnail failure leaves this null
     // rather than failing the whole clip — the UI falls back to a placeholder.
     thumbKey: text("thumb_key"),
+    thumbBlurHash: text("thumb_blur_hash"),
 
     viewCount: integer("view_count").notNull().default(0),
     likeCount: integer("like_count").notNull().default(0),

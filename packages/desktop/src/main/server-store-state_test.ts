@@ -35,8 +35,18 @@ test("normalizeState applies recording defaults", () => {
     "missing custom quality should use the default",
   )
   assert(
-    state.recording.triggerMode === DEFAULT_RECORDING_SETTINGS.triggerMode,
-    "missing trigger mode should use the default",
+    state.recording.captureMode === DEFAULT_RECORDING_SETTINGS.captureMode,
+    "missing capture mode should use the default",
+  )
+  assert(
+    state.recording.selectedDisplayId ===
+      DEFAULT_RECORDING_SETTINGS.selectedDisplayId,
+    "missing selected display should use the default",
+  )
+  assert(
+    state.recording.longRecording.autoRecordGames ===
+      DEFAULT_RECORDING_SETTINGS.longRecording.autoRecordGames,
+    "missing long recording settings should use the default",
   )
   assert(
     state.recording.enabled === DEFAULT_RECORDING_SETTINGS.enabled,
@@ -51,13 +61,37 @@ test("normalizeState applies recording defaults", () => {
     "missing denied games should use the default",
   )
   assert(
-    state.recording.hotkeys.saveClip ===
-      DEFAULT_RECORDING_SETTINGS.hotkeys.saveClip,
-    "missing save clip hotkey should use the default",
+    state.recording.hotkeys.clips[0]?.hotkey ===
+      DEFAULT_RECORDING_SETTINGS.hotkeys.clips[0]?.hotkey,
+    "missing clip hotkey should use the default",
+  )
+  assert(
+    state.recording.hotkeys.clips[0]?.durationSeconds ===
+      DEFAULT_RECORDING_SETTINGS.hotkeys.clips[0]?.durationSeconds,
+    "missing clip duration should use the default",
+  )
+  assert(
+    state.recording.hotkeys.bookmark ===
+      DEFAULT_RECORDING_SETTINGS.hotkeys.bookmark,
+    "missing bookmark hotkey should use the default",
+  )
+  assert(
+    state.recording.hotkeys.screenshot ===
+      DEFAULT_RECORDING_SETTINGS.hotkeys.screenshot,
+    "missing screenshot hotkey should use the default",
+  )
+  assert(
+    state.recording.hotkeys.toggleLongRecording ===
+      DEFAULT_RECORDING_SETTINGS.hotkeys.toggleLongRecording,
+    "missing long recording hotkey should use the default",
   )
   assert(
     state.recording.notificationSounds.recordingStarted.enabled === true,
     "missing recording start sound should be enabled by default",
+  )
+  assert(
+    state.recording.notificationSounds.manualRecordingStarted.path === "",
+    "missing manual recording start sound should use the bundled default",
   )
   assert(
     state.recording.notificationSounds.clipSaved.path === "",
@@ -67,13 +101,34 @@ test("normalizeState applies recording defaults", () => {
     state.recording.notificationSounds.clipSaved.volume === 100,
     "missing clip save sound volume should use the default",
   )
+  assert(
+    state.recording.notificationSounds.screenshotTaken.enabled === true,
+    "missing screenshot sound should be enabled by default",
+  )
+  assert(
+    state.recording.notificationSounds.bookmarkAdded.volume === 100,
+    "missing bookmark sound volume should use the default",
+  )
 })
 
 test("normalizeState sanitizes recording settings", () => {
   const state = normalizeState({
     recording: {
       enabled: false,
-      triggerMode: "session",
+      captureMode: "display",
+      selectedDisplayId: "display-2",
+      longRecording: {
+        autoRecordGames: true,
+      },
+      hotkeys: {
+        clips: [
+          { id: "quick", hotkey: "F8", durationSeconds: 45 },
+          { id: "long", hotkey: "Ctrl+F8", durationSeconds: 700 },
+        ],
+        bookmark: "F5",
+        screenshot: "F7",
+        toggleLongRecording: "Alt+F7",
+      },
       encoder: "software",
       codec: "vp9",
       resolution: "1440p",
@@ -104,6 +159,16 @@ test("normalizeState sanitizes recording settings", () => {
           enabled: true,
           volume: 43.6,
           path: "C:\\Sounds\\clip.mp3",
+        },
+        screenshotTaken: {
+          enabled: false,
+          volume: 12.4,
+          path: "C:\\Sounds\\shot.wav",
+        },
+        bookmarkAdded: {
+          enabled: true,
+          volume: 101,
+          path: "C:\\Sounds\\bookmark.ogg",
         },
       },
     },
@@ -139,8 +204,28 @@ test("normalizeState sanitizes recording settings", () => {
     "valid enabled toggle should remain",
   )
   assert(
-    state.recording.triggerMode === "session",
-    "valid trigger mode should remain",
+    state.recording.captureMode === "display",
+    "valid capture mode should remain",
+  )
+  assert(
+    state.recording.selectedDisplayId === "display-2",
+    "valid selected display should remain",
+  )
+  assert(
+    state.recording.longRecording.autoRecordGames === true,
+    "valid auto long recording setting should remain",
+  )
+  assert(
+    state.recording.hotkeys.clips[0]?.durationSeconds === 45,
+    "valid clip duration should remain",
+  )
+  assert(
+    state.recording.hotkeys.clips[1]?.durationSeconds === 600,
+    "clip duration should be capped",
+  )
+  assert(
+    state.recording.hotkeys.bookmark === "F5",
+    "valid bookmark hotkey should remain",
   )
   assert(
     state.recording.allowedGames[0]?.name === "Hades",
@@ -166,6 +251,23 @@ test("normalizeState sanitizes recording settings", () => {
     state.recording.notificationSounds.clipSaved.path ===
       "C:\\Sounds\\clip.mp3",
     "custom clip save sound should remain",
+  )
+  assert(
+    state.recording.notificationSounds.screenshotTaken.enabled === false,
+    "screenshot sound mute should remain",
+  )
+  assert(
+    state.recording.notificationSounds.screenshotTaken.volume === 12,
+    "screenshot sound volume should be rounded",
+  )
+  assert(
+    state.recording.notificationSounds.bookmarkAdded.volume === 100,
+    "bookmark sound volume should be clamped",
+  )
+  assert(
+    state.recording.notificationSounds.bookmarkAdded.path ===
+      "C:\\Sounds\\bookmark.ogg",
+    "custom bookmark sound should remain",
   )
 })
 

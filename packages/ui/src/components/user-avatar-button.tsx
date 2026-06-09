@@ -11,12 +11,16 @@ interface UserAvatarButtonProps extends React.ComponentProps<"button"> {
   }
   /** Accessible label describing whose avatar this is — fed to aria-label. */
   name: string
+  size?: React.ComponentProps<typeof Avatar>["size"]
+  avatarClassName?: string
 }
 
 function UserAvatarButton({
   className,
+  avatarClassName,
   avatar,
   name,
+  size = "lg",
   children,
   "aria-label": ariaLabel,
   ...props
@@ -40,7 +44,7 @@ function UserAvatarButton({
       )}
       {...props}
     >
-      <Avatar size="lg" style={tintStyle}>
+      <Avatar size={size} className={avatarClassName} style={tintStyle}>
         {avatar.src ? <AvatarImage src={avatar.src} alt="" /> : null}
         <AvatarFallback style={tintStyle}>{avatar.initials}</AvatarFallback>
       </Avatar>

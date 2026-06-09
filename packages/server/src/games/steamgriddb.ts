@@ -7,6 +7,7 @@ import { logger } from "alloy-logging"
 import { z } from "zod"
 
 import { secretStore } from "../config/secret-store"
+import { imageBlurHash } from "../media/blurhash"
 import { errorMessage, isAbortError } from "../runtime/error-message"
 
 const STEAMGRIDDB_ORIGIN = "https://www.steamgriddb.com"
@@ -270,7 +271,9 @@ async function getFirstIcon(
 
 export async function getGameAssets(steamgriddbId: number): Promise<{
   heroUrl: string | null
+  heroBlurHash: string | null
   gridUrl: string | null
+  gridBlurHash: string | null
   logoUrl: string | null
   iconUrl: string | null
 }> {
@@ -288,11 +291,37 @@ export async function getGameAssets(steamgriddbId: number): Promise<{
       getFirstIcon(steamgriddbId),
     ),
   ])
+  const [heroBlurHash, gridBlurHash] = await Promise.all([
+    computeGameAssetBlurHash("hero", steamgriddbId, hero?.url ?? null),
+    computeGameAssetBlurHash("grid", steamgriddbId, grid?.url ?? null),
+  ])
   return {
     heroUrl: hero?.url ?? null,
+    heroBlurHash,
     gridUrl: grid?.url ?? null,
+    gridBlurHash,
     logoUrl: logo?.url ?? null,
     iconUrl: icon?.url ?? null,
+  }
+}
+
+async function computeGameAssetBlurHash(
+  label: "hero" | "grid",
+  steamgriddbId: number,
+  url: string | null,
+): Promise<string | null> {
+  if (!url) return null
+  try {
+    return await imageBlurHash({
+      source: url,
+      label: `SteamGridDB ${label} blurhash`,
+    })
+  } catch (err) {
+    logger.warn(
+      `[steamgriddb] failed to compute ${label} blurhash for ${steamgriddbId}:`,
+      err,
+    )
+    return null
   }
 }
 

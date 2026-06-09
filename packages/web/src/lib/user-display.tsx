@@ -3,7 +3,7 @@ import {
   resolvePublicUrl,
   USER_ASSET_PATH_PREFIX,
 } from "alloy-api"
-import { stableHue } from "alloy-ui/lib/stable-hash"
+import { pastelAvatarColors, pastelBannerGradient } from "alloy-ui/lib/pastel"
 import { cn } from "alloy-ui/lib/utils"
 import * as React from "react"
 
@@ -112,11 +112,7 @@ function displayInitials(name: string): string {
 
 /** Avatar tint derived from user id (or name as fallback) so each user is visually distinct. */
 function avatarTint(seed: string): { bg: string; fg: string } {
-  const hue = stableHue(seed || "user")
-  return {
-    bg: `oklch(0.32 0.18 ${hue})`,
-    fg: `oklch(0.92 0.1 ${hue})`,
-  }
+  return pastelAvatarColors(seed || "user")
 }
 
 export type UserAvatar = {
@@ -175,7 +171,7 @@ export function UserBanner({
   const avatarFallbackSrc = dedicatedBannerSrc ? userAvatarSrc(user) : undefined
   const banner = {
     src: dedicatedBannerSrc ?? userAvatarSrc(user),
-    bg: avatarTint(user?.id ?? displayName(user)).bg,
+    bg: pastelBannerGradient(user?.id ?? displayName(user)),
   }
   // When using a dedicated banner image, render it clean. When falling back
   // to the avatar image, zoom & desaturate it so it reads as a backdrop.
@@ -187,7 +183,7 @@ export function UserBanner({
         "absolute inset-0 overflow-hidden rounded-[inherit]",
         className,
       )}
-      style={{ backgroundColor: banner.bg }}
+      style={{ background: banner.bg }}
     >
       {banner.src ? (
         <UserBannerImage

@@ -30,6 +30,10 @@ function validateQueueClip(value: unknown): QueueClip {
     row.gameSlug,
     "Invalid queue response: gameSlug is required",
   )
+  validateNonNegativeInteger(
+    row.steamgriddbId,
+    "Invalid queue response: steamgriddbId must be a non-negative integer",
+  )
   validateEnumString(
     row.status,
     CLIP_STATUS_SET,
@@ -56,6 +60,10 @@ function validateQueueClip(value: unknown): QueueClip {
   validateBoolean(
     row.hasThumb,
     "Invalid queue response: hasThumb must be boolean",
+  )
+  validateNullableString(
+    row.thumbBlurHash,
+    "Invalid queue response: thumbBlurHash must be string or null",
   )
   return value as QueueClip
 }

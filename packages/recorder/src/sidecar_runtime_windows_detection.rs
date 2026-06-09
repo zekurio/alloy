@@ -1,8 +1,8 @@
     use super::{
         audio_application_id_from_parts, clean_user_facing_process_name, detected_game_from_parts,
         normalized_path, user_facing_process_name, DetectedGame, GameDetection,
-        ProcessDisplayName, RecordingAudioApplicationSelection, RecordingGameProcess,
-        RecordingSettings, VideoDimensions, SIDE_CAR_NAME,
+        ProcessDisplayName, RecordingAudioApplicationSelection, RecordingDisplay,
+        RecordingGameProcess, RecordingSettings, VideoDimensions, SIDE_CAR_NAME,
     };
     use std::{
         collections::{HashMap, HashSet},
@@ -27,9 +27,10 @@
         },
         Graphics::{
             Gdi::{
-                EnumDisplayDevicesA, GetMonitorInfoA, GetMonitorInfoW, MonitorFromPoint,
-                MonitorFromWindow, DISPLAY_DEVICEA, MONITORINFO, MONITORINFOEXA,
-                MONITOR_DEFAULTTONEAREST, MONITOR_DEFAULTTOPRIMARY,
+                EnumDisplayDevicesA, EnumDisplayMonitors, GetMonitorInfoA, GetMonitorInfoW,
+                MonitorFromPoint, MonitorFromWindow, DISPLAY_DEVICEA, HDC, HMONITOR,
+                MONITORINFO, MONITORINFOEXA, MONITOR_DEFAULTTONEAREST,
+                MONITOR_DEFAULTTOPRIMARY,
             },
             GdiPlus::{
                 GdipCreateBitmapFromHICON, GdipDisposeImage, GdipSaveImageToStream,
@@ -62,9 +63,9 @@
             Shell::{SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_SMALLICON},
             WindowsAndMessaging::{
                 DestroyIcon, EnumWindows, GetClassNameW, GetClientRect, GetForegroundWindow,
-                GetShellWindow, GetSystemMetrics, GetWindowLongPtrW, GetWindowRect, GetWindowTextW,
+                GetShellWindow, GetWindowLongPtrW, GetWindowRect, GetWindowTextW,
                 GetWindowThreadProcessId, IsWindow, IsWindowVisible, EDD_GET_DEVICE_INTERFACE_NAME,
-                HICON, GWL_EXSTYLE, SM_CXSCREEN, SM_CYSCREEN, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
+                HICON, GWL_EXSTYLE, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
             },
         },
     };
@@ -147,39 +148,6 @@
         }
     }
 
-    pub fn primary_display_dimensions() -> Option<VideoDimensions> {
-        unsafe {
-            let monitor = MonitorFromPoint(POINT { x: 0, y: 0 }, MONITOR_DEFAULTTOPRIMARY);
-            if monitor.is_null() {
-                return None;
-            }
-            let mut monitor_info = MONITORINFO {
-                cbSize: size_of::<MONITORINFO>() as u32,
-                rcMonitor: RECT::default(),
-                rcWork: RECT::default(),
-                dwFlags: 0,
-            };
-            if GetMonitorInfoW(monitor, &mut monitor_info) == 0 {
-                return screen_dimensions();
-            }
-            rect_dimensions(&monitor_info.rcMonitor).or_else(screen_dimensions)
-        }
-    }
-
-    fn screen_dimensions() -> Option<VideoDimensions> {
-        unsafe {
-            let width = GetSystemMetrics(SM_CXSCREEN);
-            let height = GetSystemMetrics(SM_CYSCREEN);
-            if width <= 0 || height <= 0 {
-                return None;
-            }
-            Some(VideoDimensions {
-                width: width as u32,
-                height: height as u32,
-            })
-        }
-    }
-
     pub fn primary_display_id() -> Option<String> {
         unsafe {
             let monitor = MonitorFromPoint(POINT { x: 0, y: 0 }, MONITOR_DEFAULTTOPRIMARY);
@@ -207,6 +175,80 @@
 
             c_char_array_to_string(device.DeviceID.as_ptr())
         }
+    }
+
+    pub fn displays() -> Vec<RecordingDisplay> {
+        unsafe {
+            let mut context = DisplayEnumerationContext {
+                primary: MonitorFromPoint(POINT { x: 0, y: 0 }, MONITOR_DEFAULTTOPRIMARY),
+                displays: Vec::new(),
+            };
+            EnumDisplayMonitors(
+                ptr::null_mut(),
+                ptr::null(),
+                Some(collect_display_monitor),
+                (&mut context as *mut DisplayEnumerationContext) as LPARAM,
+            );
+            context.displays
+        }
+    }
+
+    struct DisplayEnumerationContext {
+        primary: HMONITOR,
+        displays: Vec<RecordingDisplay>,
+    }
+
+    unsafe extern "system" fn collect_display_monitor(
+        monitor: HMONITOR,
+        _hdc: HDC,
+        _rect: *mut RECT,
+        lparam: LPARAM,
+    ) -> BOOL {
+        let context = &mut *(lparam as *mut DisplayEnumerationContext);
+        let mut monitor_info: MONITORINFOEXA = zeroed();
+        monitor_info.monitorInfo.cbSize = size_of::<MONITORINFOEXA>() as u32;
+        if GetMonitorInfoA(monitor, &mut monitor_info as *mut MONITORINFOEXA as *mut _) == 0 {
+            return 1;
+        }
+
+        let device_name =
+            c_char_array_to_string(monitor_info.szDevice.as_ptr()).unwrap_or_default();
+        let mut device: DISPLAY_DEVICEA = zeroed();
+        device.cb = size_of::<DISPLAY_DEVICEA>() as u32;
+        let (id, name) = if EnumDisplayDevicesA(
+            monitor_info.szDevice.as_ptr().cast(),
+            0,
+            &mut device,
+            EDD_GET_DEVICE_INTERFACE_NAME,
+        ) != 0
+        {
+            (
+                c_char_array_to_string(device.DeviceID.as_ptr())
+                    .unwrap_or_else(|| device_name.clone()),
+                c_char_array_to_string(device.DeviceString.as_ptr())
+                    .unwrap_or_else(|| device_name.clone()),
+            )
+        } else {
+            (device_name.clone(), device_name.clone())
+        };
+
+        if let Some(dimensions) = rect_dimensions(&monitor_info.monitorInfo.rcMonitor) {
+            let index = context.displays.len() + 1;
+            context.displays.push(RecordingDisplay {
+                id,
+                electron_id: None,
+                name: if name.trim().is_empty() {
+                    format!("Display {index}")
+                } else {
+                    name
+                },
+                width: dimensions.width,
+                height: dimensions.height,
+                primary: monitor == context.primary,
+                thumbnail_data_url: None,
+            });
+        }
+        1
     }
 
     pub fn audio_applications() -> Vec<RecordingAudioApplicationSelection> {

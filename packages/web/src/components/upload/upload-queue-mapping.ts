@@ -58,6 +58,7 @@ export function localToQueueItem(
     detail,
     hue: e.hue,
     thumbUrl: e.thumbUrl,
+    thumbBlurHash: null,
     onCancel,
   }
 }
@@ -111,8 +112,9 @@ export function serverToQueueItem(
           ? 100
           : 0,
     detail,
-    hue: stableHue(row.id),
+    hue: stableHue(row.steamgriddbId),
     thumbUrl: queueThumbnailUrl(row),
+    thumbBlurHash: row.thumbBlurHash,
     thumbFallbackUrl: handlers.thumbFallbackUrl,
     onThumbLoad: handlers.onThumbLoad,
     onCancel: handlers.onCancel,

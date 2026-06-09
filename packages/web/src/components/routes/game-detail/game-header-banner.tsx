@@ -1,9 +1,9 @@
 import type { GameDetail } from "alloy-api"
+import { MediaPlaceholder } from "alloy-ui/components/media-placeholder"
 import { cn } from "alloy-ui/lib/utils"
 import * as React from "react"
 
 import { APP_BANNER_HEIGHT_CLASS } from "@/lib/banner-layout"
-import { hueForGame } from "@/lib/clip-format"
 
 import { GameFavoriteButton } from "./game-favorite-button"
 
@@ -12,7 +12,6 @@ type GameHeaderBannerProps = {
 }
 
 export function GameHeaderBanner({ game }: GameHeaderBannerProps) {
-  const hue = hueForGame(game.name)
   const [failedHeroUrl, setFailedHeroUrl] = React.useState<string | null>(null)
   const [failedLogoUrl, setFailedLogoUrl] = React.useState<string | null>(null)
   const heroUrl =
@@ -28,6 +27,10 @@ export function GameHeaderBanner({ game }: GameHeaderBannerProps) {
         "w-full",
       )}
     >
+      <MediaPlaceholder
+        seed={game.steamgriddbId}
+        blurHash={game.heroBlurHash}
+      />
       {heroUrl ? (
         <img
           src={heroUrl}
@@ -36,15 +39,7 @@ export function GameHeaderBanner({ game }: GameHeaderBannerProps) {
           decoding="async"
           onError={() => setFailedHeroUrl(heroUrl)}
         />
-      ) : (
-        <div
-          aria-hidden
-          className="absolute inset-0"
-          style={{
-            background: `radial-gradient(120% 80% at 30% 20%, oklch(0.32 0.14 ${hue}), oklch(0.08 0.04 ${hue}))`,
-          }}
-        />
-      )}
+      ) : null}
       <div
         aria-hidden
         className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/95 via-black/60 to-transparent"

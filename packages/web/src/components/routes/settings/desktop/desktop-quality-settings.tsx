@@ -32,18 +32,14 @@ export function DesktopQualitySettings() {
         />
       </Subsection>
 
-      {settings.triggerMode === "replay-buffer" ? (
-        <>
-          <hr className="border-border" />
+      <hr className="border-border" />
 
-          <ReplayBufferSection
-            settings={settings}
-            busy={busy}
-            setSettings={setSettings}
-            save={save}
-          />
-        </>
-      ) : null}
+      <ReplayBufferSection
+        settings={settings}
+        busy={busy}
+        setSettings={setSettings}
+        save={save}
+      />
     </div>
   )
 }

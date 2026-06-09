@@ -22,7 +22,10 @@ type SidecarMethod =
   | "configure"
   | "status"
   | "listGameProcesses"
+  | "listDisplays"
   | "saveReplayClip"
+  | "addBookmark"
+  | "toggleLongRecording"
   | "stopRecording"
   | "shutdown"
 

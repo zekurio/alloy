@@ -242,12 +242,12 @@ function WindowControlButton({
     <button
       type="button"
       className={cn(
-        "grid h-full w-11 place-items-center text-foreground-muted",
+        "grid h-full w-12 place-items-center text-foreground-muted",
         "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
         "hover:bg-surface-raised hover:text-foreground",
         "focus-visible:bg-surface-raised focus-visible:text-foreground",
         "focus-visible:ring-0 focus-visible:outline-none",
-        "[&_svg]:size-3.5",
+        "[&_svg]:size-4",
         danger &&
           "hover:bg-danger hover:text-white focus-visible:bg-danger focus-visible:text-white",
         className,

@@ -1,3 +1,4 @@
+import { MediaPlaceholder } from "alloy-ui/components/media-placeholder"
 import {
   CLIP_MEDIA_BACKGROUND_CLASS,
   CLIP_MEDIA_CLASS,
@@ -10,6 +11,8 @@ type VideoFrameProps = {
   videoRef: React.Ref<HTMLVideoElement>
   mediaUrl: string | null
   poster?: string
+  posterBlurHash?: string | null
+  fallbackSeed: string | number
   posterVisible: boolean
   autoPlay: boolean
   loop: boolean
@@ -31,6 +34,8 @@ export function VideoFrame({
   videoRef,
   mediaUrl,
   poster,
+  posterBlurHash,
+  fallbackSeed,
   posterVisible,
   autoPlay,
   loop,
@@ -53,6 +58,7 @@ export function VideoFrame({
         aria-hidden
         className={cn("absolute inset-0", CLIP_MEDIA_BACKGROUND_CLASS)}
       />
+      <MediaPlaceholder seed={fallbackSeed} blurHash={posterBlurHash} />
       <video
         ref={videoRef}
         src={mediaUrl ?? undefined}

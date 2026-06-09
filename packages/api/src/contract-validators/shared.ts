@@ -4,6 +4,7 @@ import {
   validateNonNegativeInteger,
   validateNonNegativeNumber,
   validateNullableDateString,
+  validateNullableString,
   validateNullableUrlString,
   validateOptionalString,
   validatePositiveInteger,
@@ -63,6 +64,12 @@ export function validateGameRowFields(
     validateNullableUrlString(
       row[key],
       `Invalid ${label} response: ${key} must be a URL or null`,
+    )
+  }
+  for (const key of ["heroBlurHash", "gridBlurHash"] as const) {
+    validateNullableString(
+      row[key],
+      `Invalid ${label} response: ${key} must be string or null`,
     )
   }
 }

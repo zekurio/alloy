@@ -1,10 +1,11 @@
 import { GameIcon } from "alloy-ui/components/game-icon"
+import { MediaPlaceholder } from "alloy-ui/components/media-placeholder"
 import {
   CLIP_MEDIA_CLASS,
   CLIP_MEDIA_ROUNDED_CLASS,
   CLIP_MEDIA_VIEWPORT_CLASS,
 } from "alloy-ui/lib/media-frame"
-import { stableHue } from "alloy-ui/lib/stable-hash"
+import { pastelAvatarColors } from "alloy-ui/lib/pastel"
 import { cn } from "alloy-ui/lib/utils"
 import { LinkIcon, LockIcon } from "lucide-react"
 import * as React from "react"
@@ -27,6 +28,8 @@ interface ClipCardProps extends React.ComponentProps<"article"> {
   comments?: string | number
   postedAt?: string
   thumbnail?: string
+  thumbnailBlurHash?: string | null
+  fallbackSeed?: string | number
   accentHue?: number
   streamUrl?: string
   privacy?: "public" | "unlisted" | "private"
@@ -65,7 +68,9 @@ function ClipCard({
   comments: _comments,
   postedAt = "2h ago",
   thumbnail,
-  // Retained on the contract for callers; the still fallback is plain black now.
+  thumbnailBlurHash,
+  fallbackSeed,
+  // Retained on the contract for callers; fallback color is now seed-driven.
   accentHue: _accentHue,
   streamUrl,
   privacy,
@@ -88,6 +93,8 @@ function ClipCard({
       <ClipCardThumb
         title={title}
         thumbnail={thumbnail}
+        thumbnailBlurHash={thumbnailBlurHash}
+        fallbackSeed={fallbackSeed ?? game}
         streamUrl={streamUrl}
         onClick={onThumbnailClick}
         onIntent={onThumbnailIntent}
@@ -144,6 +151,8 @@ function ClipCard({
 function ClipCardThumb({
   title,
   thumbnail,
+  thumbnailBlurHash,
+  fallbackSeed,
   streamUrl,
   onClick,
   onIntent,
@@ -153,6 +162,8 @@ function ClipCardThumb({
 }: {
   title: string
   thumbnail: string | undefined
+  thumbnailBlurHash: string | null | undefined
+  fallbackSeed: string | number
   streamUrl: string | undefined
   onClick?: () => void
   onIntent?: () => void
@@ -283,7 +294,7 @@ function ClipCardThumb({
   }
 
   const interactive = Boolean(onClick)
-  const fallback = renderThumbnailFallback()
+  const fallback = renderThumbnailFallback(thumbnailBlurHash, fallbackSeed)
   const surfaceClass = cn(
     "group/clip-thumb w-full appearance-none rounded-md border-0 p-0 text-left",
     CLIP_MEDIA_VIEWPORT_CLASS,
@@ -401,8 +412,11 @@ function ClipCardThumb({
   )
 }
 
-function renderThumbnailFallback() {
-  return <div aria-hidden className="absolute inset-0 bg-black" />
+function renderThumbnailFallback(
+  thumbnailBlurHash: string | null | undefined,
+  fallbackSeed: string | number,
+) {
+  return <MediaPlaceholder seed={fallbackSeed} blurHash={thumbnailBlurHash} />
 }
 
 function AuthorLabel({
@@ -453,9 +467,9 @@ function ClipCardAvatar({
   let fallbackBg = authorAvatarBg
   let fallbackFg = authorAvatarFg
   if (!fallbackBg || !fallbackFg) {
-    const hue = stableHue(seed)
-    fallbackBg = `oklch(0.32 0.18 ${hue})`
-    fallbackFg = `oklch(0.92 0.1 ${hue})`
+    const colors = pastelAvatarColors(seed)
+    fallbackBg = colors.bg
+    fallbackFg = colors.fg
   }
   return (
     <span

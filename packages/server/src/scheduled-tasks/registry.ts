@@ -1,3 +1,15 @@
-import { clipMaintenanceTask } from "./clip-maintenance"
+import {
+  clipBlurHashBackfillTask,
+  gameBlurHashBackfillTask,
+} from "./blurhash-backfill"
+import {
+  clipOpenGraphMaintenanceTask,
+  clipStorageCleanupTask,
+} from "./clip-maintenance"
 
-export const scheduledTasks = [clipMaintenanceTask]
+export const scheduledTasks = [
+  clipStorageCleanupTask,
+  clipOpenGraphMaintenanceTask,
+  clipBlurHashBackfillTask,
+  gameBlurHashBackfillTask,
+]

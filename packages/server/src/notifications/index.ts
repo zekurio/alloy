@@ -57,6 +57,7 @@ function serialize(row: {
   clipId: string | null
   clipTitle: string | null
   clipThumbKey: string | null
+  clipThumbBlurHash: string | null
   clipUpdatedAt: Date | string | null
   clipGame: string | null
   steamgriddbId: number | null
@@ -84,6 +85,7 @@ function serialize(row: {
             title: row.clipTitle,
             gameSlug: gameSlugWithId(gameName, row.steamgriddbId ?? 0),
             hasThumb: row.clipThumbKey !== null,
+            thumbBlurHash: row.clipThumbBlurHash,
             updatedAt: isoDate(row.clipUpdatedAt),
           }
         : null,
@@ -110,6 +112,7 @@ function selectNotificationFields() {
     clipId: clip.id,
     clipTitle: clip.title,
     clipThumbKey: clip.thumbKey,
+    clipThumbBlurHash: clip.thumbBlurHash,
     clipUpdatedAt: clip.updatedAt,
     clipGame: clip.game,
     steamgriddbId: clip.steamgriddbId,

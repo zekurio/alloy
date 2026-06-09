@@ -1,10 +1,6 @@
-import {
-  type ClipGameRef,
-  type ClipRow,
-  clipThumbnailUrl,
-  type GameListRow,
-} from "alloy-api"
+import { type ClipRow, clipThumbnailUrl, type GameListRow } from "alloy-api"
 import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
+import { MediaPlaceholder } from "alloy-ui/components/media-placeholder"
 import { Skeleton } from "alloy-ui/components/skeleton"
 import {
   CLIP_MEDIA_CLASS,
@@ -13,7 +9,7 @@ import {
 import { cn } from "alloy-ui/lib/utils"
 import * as React from "react"
 
-import { clipGameLabel, hueForGame } from "@/lib/clip-format"
+import { clipGameLabel } from "@/lib/clip-format"
 import { apiOrigin } from "@/lib/env"
 import { formatCount } from "@/lib/number-format"
 import type { UserListRow } from "@/lib/search-api"
@@ -101,11 +97,13 @@ export function ClipRowItem({
           "w-16 shrink-0 rounded-sm bg-surface-sunken",
         )}
       >
+        <MediaPlaceholder
+          seed={row.steamgriddbId}
+          blurHash={row.thumbBlurHash}
+        />
         {thumb ? (
           <img src={thumb} alt="" loading="lazy" className={CLIP_MEDIA_CLASS} />
-        ) : (
-          <ThumbPlaceholder gameRef={row.gameRef} label={label} />
-        )}
+        ) : null}
       </div>
       <div className="min-w-0 flex-1">
         <div
@@ -142,6 +140,10 @@ export function GameRowItem({
   return (
     <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>
       <div className="bg-surface-sunken relative aspect-video w-16 shrink-0 overflow-hidden rounded-sm">
+        <MediaPlaceholder
+          seed={row.steamgriddbId}
+          blurHash={row.heroBlurHash}
+        />
         {row.heroUrl ? (
           <img
             src={row.heroUrl}
@@ -149,9 +151,7 @@ export function GameRowItem({
             loading="lazy"
             className="h-full w-full object-cover"
           />
-        ) : (
-          <GameThumbPlaceholder name={row.name} />
-        )}
+        ) : null}
       </div>
       <div className="min-w-0 flex-1">
         <div
@@ -216,48 +216,6 @@ export function UserRowItem({
         </div>
       </div>
     </RowButton>
-  )
-}
-
-function ThumbPlaceholder({
-  gameRef,
-  label,
-}: {
-  gameRef: ClipGameRef | null
-  label: string
-}) {
-  if (gameRef?.heroUrl) {
-    return (
-      <img
-        src={gameRef.heroUrl}
-        alt=""
-        loading="lazy"
-        className="h-full w-full object-cover opacity-80"
-      />
-    )
-  }
-  return <GameGradientPlaceholder name={label} startLightness={0.3} />
-}
-
-function GameThumbPlaceholder({ name }: { name: string }) {
-  return <GameGradientPlaceholder name={name} startLightness={0.32} />
-}
-
-function GameGradientPlaceholder({
-  name,
-  startLightness,
-}: {
-  name: string
-  startLightness: number
-}) {
-  const hue = hueForGame(name)
-  return (
-    <div
-      className="h-full w-full"
-      style={{
-        background: `linear-gradient(140deg, oklch(${startLightness} 0.14 ${hue}), oklch(0.16 0.06 ${hue}))`,
-      }}
-    />
   )
 }
 

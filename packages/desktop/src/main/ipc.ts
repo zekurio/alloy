@@ -20,11 +20,15 @@ import {
   emitRecordingSettingsEvent,
   getRecordingStatus,
   getRecordingStorageInfo,
+  addRecordingBookmark,
   listGameProcesses,
+  listRecordingDisplays,
   onRecordingEvent,
   resolveRevealableCapturePath,
   saveReplayClip,
   stopRecording,
+  takeRecordingScreenshot,
+  toggleLongRecording,
 } from "./recording"
 import { configureRecordingHotkeys } from "./recording-hotkeys"
 import {
@@ -148,6 +152,14 @@ function registerServerIpc(windows: Windows): void {
 }
 
 function registerRecordingIpc(windows: Windows): void {
+  registerRecordingSettingsIpc(windows)
+  registerRecordingStorageIpc(windows)
+  registerRecordingSoundIpc(windows)
+  registerRecordingSourceIpc(windows)
+  registerRecordingActionIpc(windows)
+}
+
+function registerRecordingSettingsIpc(windows: Windows): void {
   ipcMain.handle(IPC.getRecordingSettings, (event) => {
     requireMainSender(windows, event)
     return getRecordingSettings()
@@ -164,6 +176,9 @@ function registerRecordingIpc(windows: Windows): void {
     requireMainSender(windows, event)
     return getRecordingStatus()
   })
+}
+
+function registerRecordingStorageIpc(windows: Windows): void {
   ipcMain.handle(IPC.getRecordingStorageInfo, (event) => {
     requireMainSender(windows, event)
     return getRecordingStorageInfo()
@@ -193,6 +208,9 @@ function registerRecordingIpc(windows: Windows): void {
       return folder
     },
   )
+}
+
+function registerRecordingSoundIpc(windows: Windows): void {
   ipcMain.handle(IPC.listNotificationSounds, (event) => {
     requireMainSender(windows, event)
     return listNotificationSoundLibrary()
@@ -206,13 +224,35 @@ function registerRecordingIpc(windows: Windows): void {
       if (openError) throw new Error(openError)
     },
   )
+}
+
+function registerRecordingSourceIpc(windows: Windows): void {
   ipcMain.handle(IPC.listGameProcesses, async (event) => {
     requireMainSender(windows, event)
     return listGameProcesses()
   })
-  ipcMain.handle(IPC.saveReplayClip, (event) => {
+  ipcMain.handle(IPC.listRecordingDisplays, async (event) => {
     requireMainSender(windows, event)
-    return saveReplayClip()
+    return listRecordingDisplays()
+  })
+}
+
+function registerRecordingActionIpc(windows: Windows): void {
+  ipcMain.handle(IPC.saveReplayClip, (event, request: unknown) => {
+    requireMainSender(windows, event)
+    return saveReplayClip(normalizeSaveReplayClipRequest(request))
+  })
+  ipcMain.handle(IPC.addRecordingBookmark, (event, request: unknown) => {
+    requireMainSender(windows, event)
+    return addRecordingBookmark(normalizeActionRequest(request))
+  })
+  ipcMain.handle(IPC.takeRecordingScreenshot, (event, request: unknown) => {
+    requireMainSender(windows, event)
+    return takeRecordingScreenshot(normalizeActionRequest(request))
+  })
+  ipcMain.handle(IPC.toggleLongRecording, (event, request: unknown) => {
+    requireMainSender(windows, event)
+    return toggleLongRecording(normalizeActionRequest(request))
   })
   ipcMain.handle(IPC.stopRecording, (event) => {
     requireMainSender(windows, event)
@@ -284,4 +324,41 @@ function isNotificationSoundEvent(
   return RECORDING_NOTIFICATION_SOUND_EVENTS.includes(
     value as RecordingNotificationSoundEvent,
   )
+}
+
+function normalizeActionRequest(value: unknown): { requestedAtUnixMs: number } {
+  const record =
+    typeof value === "object" && value !== null
+      ? (value as Record<string, unknown>)
+      : {}
+  return {
+    requestedAtUnixMs: normalizeUnixMs(record.requestedAtUnixMs),
+  }
+}
+
+function normalizeSaveReplayClipRequest(value: unknown): {
+  requestedAtUnixMs: number
+  durationSeconds: number
+} {
+  const request = normalizeActionRequest(value)
+  const record =
+    typeof value === "object" && value !== null
+      ? (value as Record<string, unknown>)
+      : {}
+  return {
+    ...request,
+    durationSeconds: normalizeDurationSeconds(record.durationSeconds),
+  }
+}
+
+function normalizeUnixMs(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.trunc(value)
+    : Date.now()
+}
+
+function normalizeDurationSeconds(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.min(600, Math.max(15, Math.round(value)))
+    : 90
 }

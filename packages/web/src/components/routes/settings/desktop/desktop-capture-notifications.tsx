@@ -31,7 +31,13 @@ const SOUND_ROWS: Array<{
   {
     id: "recordingStarted",
     title: "Recording started",
-    description: "Played when Alloy starts recording a detected game.",
+    description: "Played when the replay buffer starts for a detected game.",
+    defaultFile: "start_recording.wav",
+  },
+  {
+    id: "manualRecordingStarted",
+    title: "Manual recording started",
+    description: "Played when a manual long recording starts.",
     defaultFile: "start_recording.wav",
   },
   {
@@ -40,11 +46,26 @@ const SOUND_ROWS: Array<{
     description: "Played when the replay hotkey starts saving a clip.",
     defaultFile: "bookmark.wav",
   },
+  {
+    id: "screenshotTaken",
+    title: "Screenshot",
+    description: "Played when a recording screenshot is saved.",
+    defaultFile: "bookmark.wav",
+  },
+  {
+    id: "bookmarkAdded",
+    title: "Bookmark",
+    description: "Played when a bookmark is added to a manual recording.",
+    defaultFile: "bookmark.wav",
+  },
 ]
 
 const EMPTY_LIBRARY: RecordingNotificationSoundLibrary = {
   recordingStarted: [],
+  manualRecordingStarted: [],
   clipSaved: [],
+  screenshotTaken: [],
+  bookmarkAdded: [],
 }
 
 export function NotificationSoundsSection({

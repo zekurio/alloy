@@ -15,6 +15,7 @@ const queueSelectShape = {
   encodeProgress: clip.encodeProgress,
   failureReason: clip.failureReason,
   thumbKey: clip.thumbKey,
+  thumbBlurHash: clip.thumbBlurHash,
   createdAt: clip.createdAt,
   updatedAt: clip.updatedAt,
 } as const
@@ -26,18 +27,28 @@ function serialize(row: {
   encodeProgress: number
   failureReason: string | null
   thumbKey: string | null
+  thumbBlurHash: string | null
   game: string | null
   steamgriddbId: number
   createdAt: Date
   updatedAt: Date
 }): QueueClip {
-  const { thumbKey, createdAt, updatedAt, game, steamgriddbId, ...publicRow } =
-    row
+  const {
+    thumbKey,
+    thumbBlurHash,
+    createdAt,
+    updatedAt,
+    game,
+    steamgriddbId,
+    ...publicRow
+  } = row
   const gameName = game?.trim() || `Game ${steamgriddbId}`
   return {
     ...publicRow,
     gameSlug: gameSlugWithId(gameName, steamgriddbId),
     hasThumb: thumbKey !== null,
+    thumbBlurHash,
+    steamgriddbId,
     createdAt: isoDate(createdAt),
     updatedAt: isoDate(updatedAt),
   }

@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogTrigger,
 } from "alloy-ui/components/dialog"
+import { MediaPlaceholder } from "alloy-ui/components/media-placeholder"
 import {
   Popover,
   PopoverContent,
@@ -282,10 +283,9 @@ function NotificationRow({
     onClose()
   }
 
-  const thumbSrc =
-    item.clip && item.clip.hasThumb
-      ? clipThumbnailUrl(item.clip.id, apiOrigin(), item.clip.updatedAt)
-      : null
+  const thumbSrc = item.clip?.hasThumb
+    ? clipThumbnailUrl(item.clip.id, apiOrigin(), item.clip.updatedAt)
+    : null
 
   return (
     <article
@@ -328,7 +328,7 @@ function NotificationRow({
         </div>
       </div>
 
-      {thumbSrc ? (
+      {item.clip ? (
         href ? (
           <Link
             to={href}
@@ -336,11 +336,19 @@ function NotificationRow({
             onClick={handleNavigate}
             className="shrink-0"
           >
-            <NotificationThumb src={thumbSrc} />
+            <NotificationThumb
+              src={thumbSrc}
+              blurHash={item.clip.thumbBlurHash}
+              seed={item.clip.gameSlug}
+            />
           </Link>
         ) : (
           <div className="shrink-0">
-            <NotificationThumb src={thumbSrc} />
+            <NotificationThumb
+              src={thumbSrc}
+              blurHash={item.clip.thumbBlurHash}
+              seed={item.clip.gameSlug}
+            />
           </div>
         )
       ) : null}
@@ -379,7 +387,15 @@ function NotificationRow({
   )
 }
 
-function NotificationThumb({ src }: { src: string }) {
+function NotificationThumb({
+  src,
+  blurHash,
+  seed,
+}: {
+  src: string | null
+  blurHash: string | null
+  seed: string | number
+}) {
   return (
     <div
       className={cn(
@@ -387,13 +403,16 @@ function NotificationThumb({ src }: { src: string }) {
         "w-16 rounded-sm bg-surface-raised",
       )}
     >
-      <img
-        src={src}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        className={CLIP_MEDIA_CLASS}
-      />
+      <MediaPlaceholder seed={seed} blurHash={blurHash} />
+      {src ? (
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className={CLIP_MEDIA_CLASS}
+        />
+      ) : null}
     </div>
   )
 }
