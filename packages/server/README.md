@@ -16,7 +16,7 @@ packages/server/
   src/clips/            clip access, playback, HLS/live helpers
   src/storage/          storage drivers and upload token flow
   src/queue/            encoding queue and ffmpeg integration
-  src/config/           runtime config schema, migrations, store
+  src/config/           runtime config schema, secrets, store
   src/runtime/          path, shutdown, response, and process helpers
 ```
 

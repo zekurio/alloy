@@ -33,6 +33,8 @@ const server = serve(
   },
 )
 
+const SHUTDOWN_GRACE_MS = 5000
+
 void startQueue().catch((err) => {
   logger.error("[queue] failed to start:", err)
 })
@@ -62,6 +64,12 @@ const shutdown = () => {
   requestShutdown()
   stopChallengeSweeper()
   void stopLiveHlsCache()
+  const forceShutdown = setTimeout(() => {
+    logger.warn("[server] forcing shutdown after graceful deadline")
+    closeAllConnections(server)
+    process.exit(0)
+  }, SHUTDOWN_GRACE_MS)
+
   // Stop the queue first so in-flight encodes get a chance to finish
   // (or at least to flush their progress) before the HTTP server goes
   // away. The queue stop path waits for in-flight workers to clear.
@@ -70,9 +78,19 @@ const shutdown = () => {
       logger.error("[queue] failed to stop cleanly:", err)
     })
     .finally(() => {
-      server.close(() => process.exit(0))
+      server.close(() => {
+        clearTimeout(forceShutdown)
+        process.exit(0)
+      })
     })
 }
 
 process.on("SIGINT", shutdown)
 process.on("SIGTERM", shutdown)
+
+function closeAllConnections(value: unknown) {
+  const candidate = value as { closeAllConnections?: unknown }
+  if (typeof candidate.closeAllConnections === "function") {
+    candidate.closeAllConnections()
+  }
+}

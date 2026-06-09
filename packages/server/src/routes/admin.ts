@@ -6,11 +6,7 @@ import { z } from "zod"
 
 import { requireAdmin } from "../auth/session"
 import { signInConfigError } from "../auth/sign-in-config"
-import {
-  isOAuthProviderUsable,
-  readInlineSecrets,
-  secretStore,
-} from "../config/secret-store"
+import { isOAuthProviderUsable, secretStore } from "../config/secret-store"
 import {
   configStore,
   EncoderConfigPatchSchema,
@@ -120,37 +116,19 @@ export const adminRoute = new Hono()
     }
     const input = body as Record<string, unknown>
     try {
-      // Parse first (strips any legacy secret keys), then restore admin-managed
-      // secrets a full/legacy backup carried inline. Server-internal secrets
-      // (cookie/upload HMAC) are NOT imported.
       const next = parseRuntimeConfig(input)
       const nextProviderIds = new Set(
         next.oauthProviders.map((provider) => provider.providerId),
       )
-      const inline = readInlineSecrets(input)
-      const importedOAuth: Record<string, string> = {}
-      for (const [id, secret] of Object.entries(inline.oauthClientSecrets)) {
-        if (nextProviderIds.has(id)) importedOAuth[id] = secret
-      }
 
-      // Only block the import if it would leave no usable sign-in method
-      // (counting secrets about to be imported). Secretless-but-enabled
-      // providers are otherwise accepted — they're filtered out at the consumer
-      // layer until a secret is added, so a secret-free backup still restores.
-      const authError = await signInConfigError(
-        next,
-        (providerId) => providerId in importedOAuth,
-      )
+      const authError = await signInConfigError(next)
       if (authError) {
         return badRequest(c, authError)
       }
 
       configStore.replace(next)
       clearEncoderCapabilitiesCache()
-      // Single write: prune secrets for removed providers, overlay imported ones.
       secretStore.update({
-        setOAuth: importedOAuth,
-        setSteamgriddbApiKey: inline.steamgriddbApiKey,
         retainOAuth: nextProviderIds,
       })
       if (next.appearance.loginSplash.enabled) await ensureLoginSplashImage()

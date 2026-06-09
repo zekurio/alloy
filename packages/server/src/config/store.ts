@@ -1,5 +1,4 @@
 import {
-  copyFileSync,
   mkdirSync,
   readFileSync,
   renameSync,
@@ -20,7 +19,6 @@ import { signInConfigError } from "../auth/sign-in-config"
 import { CONFIG_PATH } from "../runtime/dirs"
 import { errorDetail } from "../runtime/error-message"
 import { dirname } from "../runtime/path"
-import { migrateRuntimeConfig } from "./migrations"
 import {
   OAuthProviderSchema,
   OAuthProvidersSchema,
@@ -36,10 +34,6 @@ import {
   MachineLearningConfigPatchSchema,
   RuntimeConfigSchema,
 } from "./schema"
-// Imported before this module's body runs, so the secret store initializes (and
-// seeds itself from any legacy inline secrets in config.json) BEFORE this module
-// strips those secret keys and rewrites the file.
-import { readInlineSecrets, secretStore } from "./secret-store"
 
 export {
   ENCODER_CODECS,
@@ -81,42 +75,17 @@ type LoadResult =
       ok: true
       config: RuntimeConfig
       created: boolean
-      migrated: boolean
-      strippedSecrets: boolean
       /** Raw parsed JSON as read from disk (null when the file didn't exist). */
       raw: unknown
     }
   | { ok: false; error: string }
 
-/**
- * True when a raw config carries secret keys that have since moved to the
- * secret store. The schema strips them on parse; this flags that we should
- * back up and rewrite the file so they don't linger on disk.
- */
-function hasLegacySecretKeys(raw: unknown): boolean {
-  if (!raw || typeof raw !== "object") return false
-  const config = raw as Record<string, unknown>
-  if ("secrets" in config || "integrations" in config) return true
-  if (Array.isArray(config.oauthProviders)) {
-    return config.oauthProviders.some(
-      (provider) =>
-        Boolean(provider) &&
-        typeof provider === "object" &&
-        "clientSecret" in (provider as Record<string, unknown>),
-    )
-  }
-  return false
-}
-
 type ParseResult =
-  | { ok: true; config: RuntimeConfig; migrated: boolean }
+  | { ok: true; config: RuntimeConfig }
   | { ok: false; error: string }
 
 function parseRuntimeConfigInput(raw: unknown): ParseResult {
-  const migration = migrateRuntimeConfig(raw)
-  if (!migration.ok) return migration
-
-  const result = RuntimeConfigSchema.safeParse(migration.config)
+  const result = RuntimeConfigSchema.safeParse(raw)
   if (!result.success) {
     return {
       ok: false,
@@ -126,7 +95,6 @@ function parseRuntimeConfigInput(raw: unknown): ParseResult {
   return {
     ok: true,
     config: result.data,
-    migrated: migration.migrated,
   }
 }
 
@@ -143,8 +111,6 @@ function loadFromDisk(): LoadResult {
         ok: true,
         config: bootstrapDefaultConfig(),
         created: true,
-        migrated: false,
-        strippedSecrets: false,
         raw: null,
       }
     }
@@ -154,8 +120,6 @@ function loadFromDisk(): LoadResult {
         ok: true,
         config: bootstrapDefaultConfig(),
         created: true,
-        migrated: false,
-        strippedSecrets: false,
         raw: null,
       }
     }
@@ -174,8 +138,6 @@ function loadFromDisk(): LoadResult {
       ok: true,
       config: result.config,
       created: false,
-      migrated: result.migrated,
-      strippedSecrets: hasLegacySecretKeys(json),
       raw: json,
     }
   } catch (err) {
@@ -204,24 +166,7 @@ if (!initialLoad.ok) {
 }
 
 let state: RuntimeConfig = initialLoad.config
-if (initialLoad.strippedSecrets) {
-  // Preserve the pre-split file (secrets and all) before rewriting it without
-  // the secret keys, which now live in the secret store.
-  try {
-    copyFileSync(CONFIG_PATH, `${CONFIG_PATH}.bak`)
-    logger.info(
-      `[config-store] migrated inline secrets out of ${CONFIG_PATH}; ` +
-        `backed up original to ${CONFIG_PATH}.bak`,
-    )
-  } catch (err) {
-    logger.warn("[config-store] could not back up pre-split config:", err)
-  }
-}
-if (
-  initialLoad.created ||
-  initialLoad.migrated ||
-  initialLoad.strippedSecrets
-) {
+if (initialLoad.created) {
   writeToDisk(state)
 }
 
@@ -270,20 +215,12 @@ async function reloadFromDisk(): Promise<boolean> {
     logger.warn(`[config-store] ignoring invalid ${CONFIG_PATH}:`, result.error)
     return false
   }
-  const inline = readInlineSecrets(result.raw)
-  const authError = await signInConfigError(
-    result.config,
-    (providerId) => providerId in inline.oauthClientSecrets,
-  )
+  const authError = await signInConfigError(result.config)
   if (authError) {
     logger.warn(`[config-store] ignoring unsafe ${CONFIG_PATH}:`, authError)
     return false
   }
-  // Migrate any inline admin-managed secrets a hand-edited/restored file
-  // carried after validation accepts the reloaded config.
-  secretStore.ingestConfigSecrets(result.raw)
   apply(result.config, false)
-  if (result.migrated || result.strippedSecrets) writeToDisk(state)
   return true
 }
 
