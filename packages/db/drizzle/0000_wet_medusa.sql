@@ -11,7 +11,7 @@ CREATE TABLE "clip" (
 	"title" text NOT NULL,
 	"description" text,
 	"game" text,
-	"game_id" uuid NOT NULL,
+	"steamgriddb_id" integer NOT NULL,
 	"privacy" text DEFAULT 'public' NOT NULL,
 	"source_key" text,
 	"source_content_type" text,
@@ -106,8 +106,7 @@ CREATE TABLE "follow" (
 );
 --> statement-breakpoint
 CREATE TABLE "game" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"steamgriddb_id" integer NOT NULL,
+	"steamgriddb_id" integer PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"slug" text NOT NULL,
 	"release_date" timestamp,
@@ -117,14 +116,13 @@ CREATE TABLE "game" (
 	"icon_url" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "game_steamgriddb_id_unique" UNIQUE("steamgriddb_id"),
 	CONSTRAINT "game_slug_unique" UNIQUE("slug")
 );
 --> statement-breakpoint
 CREATE TABLE "game_follow" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL,
-	"game_id" uuid NOT NULL,
+	"steamgriddb_id" integer NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -246,7 +244,7 @@ CREATE TABLE "user_passkey" (
 ALTER TABLE "block" ADD CONSTRAINT "block_blocker_id_user_id_fk" FOREIGN KEY ("blocker_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "block" ADD CONSTRAINT "block_blocked_id_user_id_fk" FOREIGN KEY ("blocked_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clip" ADD CONSTRAINT "clip_author_id_user_id_fk" FOREIGN KEY ("author_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "clip" ADD CONSTRAINT "clip_game_id_game_id_fk" FOREIGN KEY ("game_id") REFERENCES "public"."game"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "clip" ADD CONSTRAINT "clip_steamgriddb_id_game_steamgriddb_id_fk" FOREIGN KEY ("steamgriddb_id") REFERENCES "public"."game"("steamgriddb_id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clip_comment" ADD CONSTRAINT "clip_comment_clip_id_clip_id_fk" FOREIGN KEY ("clip_id") REFERENCES "public"."clip"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clip_comment" ADD CONSTRAINT "clip_comment_author_id_user_id_fk" FOREIGN KEY ("author_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clip_comment" ADD CONSTRAINT "clip_comment_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."clip_comment"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -262,7 +260,7 @@ ALTER TABLE "clip_view" ADD CONSTRAINT "clip_view_user_id_user_id_fk" FOREIGN KE
 ALTER TABLE "follow" ADD CONSTRAINT "follow_follower_id_user_id_fk" FOREIGN KEY ("follower_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "follow" ADD CONSTRAINT "follow_following_id_user_id_fk" FOREIGN KEY ("following_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "game_follow" ADD CONSTRAINT "game_follow_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "game_follow" ADD CONSTRAINT "game_follow_game_id_game_id_fk" FOREIGN KEY ("game_id") REFERENCES "public"."game"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "game_follow" ADD CONSTRAINT "game_follow_steamgriddb_id_game_steamgriddb_id_fk" FOREIGN KEY ("steamgriddb_id") REFERENCES "public"."game"("steamgriddb_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "notification" ADD CONSTRAINT "notification_recipient_id_user_id_fk" FOREIGN KEY ("recipient_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "notification" ADD CONSTRAINT "notification_actor_id_user_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "notification" ADD CONSTRAINT "notification_clip_id_clip_id_fk" FOREIGN KEY ("clip_id") REFERENCES "public"."clip"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -275,8 +273,8 @@ CREATE INDEX "clip_author_idx" ON "clip" USING btree ("author_id");--> statement
 CREATE INDEX "clip_privacy_created_idx" ON "clip" USING btree ("privacy","created_at");--> statement-breakpoint
 CREATE INDEX "clip_ready_visible_top_idx" ON "clip" USING btree ("view_count" DESC,"like_count" DESC,"created_at" DESC,"id") WHERE "clip"."status" = 'ready' and "clip"."privacy" in ('public', 'unlisted');--> statement-breakpoint
 CREATE INDEX "clip_status_idx" ON "clip" USING btree ("status");--> statement-breakpoint
-CREATE INDEX "clip_game_created_idx" ON "clip" USING btree ("game_id","created_at");--> statement-breakpoint
-CREATE INDEX "clip_ready_visible_game_top_idx" ON "clip" USING btree ("game_id","view_count" DESC,"like_count" DESC,"created_at" DESC,"id") WHERE "clip"."status" = 'ready' and "clip"."privacy" in ('public', 'unlisted');--> statement-breakpoint
+CREATE INDEX "clip_steamgriddb_created_idx" ON "clip" USING btree ("steamgriddb_id","created_at");--> statement-breakpoint
+CREATE INDEX "clip_ready_visible_steamgriddb_top_idx" ON "clip" USING btree ("steamgriddb_id","view_count" DESC,"like_count" DESC,"created_at" DESC,"id") WHERE "clip"."status" = 'ready' and "clip"."privacy" in ('public', 'unlisted');--> statement-breakpoint
 CREATE INDEX "clip_comment_clip_created_idx" ON "clip_comment" USING btree ("clip_id","created_at");--> statement-breakpoint
 CREATE INDEX "clip_comment_parent_idx" ON "clip_comment" USING btree ("parent_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "clip_comment_one_pin_per_clip_idx" ON "clip_comment" USING btree ("clip_id") WHERE "clip_comment"."pinned_at" IS NOT NULL;--> statement-breakpoint
@@ -290,8 +288,8 @@ CREATE INDEX "clip_view_user_clip_idx" ON "clip_view" USING btree ("user_id","cl
 CREATE UNIQUE INDEX "follow_pair_idx" ON "follow" USING btree ("follower_id","following_id");--> statement-breakpoint
 CREATE INDEX "follow_following_idx" ON "follow" USING btree ("following_id");--> statement-breakpoint
 CREATE INDEX "game_name_idx" ON "game" USING btree ("name");--> statement-breakpoint
-CREATE UNIQUE INDEX "game_follow_pair_idx" ON "game_follow" USING btree ("user_id","game_id");--> statement-breakpoint
-CREATE INDEX "game_follow_game_idx" ON "game_follow" USING btree ("game_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "game_follow_pair_idx" ON "game_follow" USING btree ("user_id","steamgriddb_id");--> statement-breakpoint
+CREATE INDEX "game_follow_steamgriddb_idx" ON "game_follow" USING btree ("steamgriddb_id");--> statement-breakpoint
 CREATE INDEX "notification_recipient_created_idx" ON "notification" USING btree ("recipient_id","created_at");--> statement-breakpoint
 CREATE INDEX "notification_recipient_unread_idx" ON "notification" USING btree ("recipient_id","created_at") WHERE "notification"."read_at" IS NULL;--> statement-breakpoint
 CREATE INDEX "scheduled_task_run_task_started_idx" ON "scheduled_task_run" USING btree ("task_id","started_at");--> statement-breakpoint

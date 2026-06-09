@@ -24,7 +24,7 @@ const CHEVRON_CLASS =
 function isActive(filter: FeedFilter, candidate: FeedFilter): boolean {
   if (filter.kind !== candidate.kind) return false
   if (filter.kind === "game" && candidate.kind === "game") {
-    return filter.gameId === candidate.gameId
+    return filter.steamgriddbId === candidate.steamgriddbId
   }
   if (filter.kind === "hashtag" && candidate.kind === "hashtag") {
     return filter.tag === candidate.tag
@@ -77,11 +77,16 @@ export function FeedChipBar({ filter, onChange }: FeedChipBarProps) {
               <Chip
                 size="xl"
                 data-active={
-                  isActive(filter, { kind: "game", gameId: g.id })
+                  isActive(filter, {
+                    kind: "game",
+                    steamgriddbId: g.steamgriddbId,
+                  })
                     ? "true"
                     : undefined
                 }
-                onClick={() => onChange({ kind: "game", gameId: g.id })}
+                onClick={() =>
+                  onChange({ kind: "game", steamgriddbId: g.steamgriddbId })
+                }
                 title={g.name}
               >
                 <GameIcon src={g.iconUrl ?? g.logoUrl} name={g.name} />

@@ -8,11 +8,12 @@ import {
   NOTIFICATIONS_MAX_LIMIT,
 } from "alloy-contracts"
 import { user } from "alloy-db/auth-schema"
-import { clip, clipComment, follow, game, notification } from "alloy-db/schema"
+import { clip, clipComment, follow, notification } from "alloy-db/schema"
 import { logger } from "alloy-logging"
 import { and, count, desc, eq, gt, isNull } from "drizzle-orm"
 
 import { db } from "../db"
+import { gameSlugWithId } from "../games/slug"
 import { serialiseNullableUserSummary } from "../routes/users-helpers"
 import { isoDate, nullableIsoDate } from "../runtime/date"
 import {
@@ -57,10 +58,15 @@ function serialize(row: {
   clipTitle: string | null
   clipThumbKey: string | null
   clipUpdatedAt: Date | string | null
-  gameSlug: string | null
+  clipGame: string | null
+  steamgriddbId: number | null
   commentId: string | null
   commentBody: string | null
 }): NotificationRow {
+  const gameName =
+    row.steamgriddbId === null
+      ? null
+      : row.clipGame?.trim() || `Game ${row.steamgriddbId}`
   return {
     id: row.id,
     type: row.type,
@@ -72,11 +78,11 @@ function serialize(row: {
       image: row.actorImage,
     }),
     clip:
-      row.clipId && row.clipTitle && row.gameSlug && row.clipUpdatedAt
+      row.clipId && row.clipTitle && gameName && row.clipUpdatedAt
         ? {
             id: row.clipId,
             title: row.clipTitle,
-            gameSlug: row.gameSlug,
+            gameSlug: gameSlugWithId(gameName, row.steamgriddbId ?? 0),
             hasThumb: row.clipThumbKey !== null,
             updatedAt: isoDate(row.clipUpdatedAt),
           }
@@ -105,7 +111,8 @@ function selectNotificationFields() {
     clipTitle: clip.title,
     clipThumbKey: clip.thumbKey,
     clipUpdatedAt: clip.updatedAt,
-    gameSlug: game.slug,
+    clipGame: clip.game,
+    steamgriddbId: clip.steamgriddbId,
     commentId: clipComment.id,
     commentBody: clipComment.body,
   }
@@ -117,7 +124,6 @@ function notificationDetailsQuery() {
     .from(notification)
     .leftJoin(user, eq(notification.actorId, user.id))
     .leftJoin(clip, eq(notification.clipId, clip.id))
-    .leftJoin(game, eq(clip.gameId, game.id))
     .leftJoin(clipComment, eq(notification.commentId, clipComment.id))
 }
 

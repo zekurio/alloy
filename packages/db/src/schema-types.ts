@@ -50,8 +50,6 @@ export interface ClipEncodedVariant {
   }
 }
 
-export type Game = typeof game.$inferSelect
-export type NewGame = typeof game.$inferInsert
 export type Clip = typeof clip.$inferSelect
 export type NewClip = typeof clip.$inferInsert
 export type ClipUploadTicket = typeof clipUploadTicket.$inferSelect
@@ -66,6 +64,8 @@ export type NewClipCommentLike = typeof clipCommentLike.$inferInsert
 export type ClipMention = typeof clipMention.$inferSelect
 export type Follow = typeof follow.$inferSelect
 export type NewFollow = typeof follow.$inferInsert
+export type Game = typeof game.$inferSelect
+export type NewGame = typeof game.$inferInsert
 export type GameFollow = typeof gameFollow.$inferSelect
 export type NewGameFollow = typeof gameFollow.$inferInsert
 export type Block = typeof block.$inferSelect

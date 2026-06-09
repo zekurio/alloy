@@ -100,6 +100,8 @@ type ClipListPageRow = ClipListCursorRow & {
   height: number | null
   thumbKey: string | null
   variants: readonly { storageKey: string }[]
+  steamgriddbId: number
+  game: string | null
 }
 
 function parseLegacyClipListCursor(value: string): ParsedClipListCursor | null {
@@ -221,7 +223,7 @@ export const InitiateBody = z
     sizeBytes: z.number().int().positive(),
     title: requiredTrimmedString(CLIP_TITLE_MAX_LENGTH),
     description: optionalBlankToNullTrimmedString(CLIP_DESCRIPTION_MAX_LENGTH),
-    gameId: z.uuid(),
+    steamgriddbId: z.number().int().positive(),
     privacy: z.enum(CLIP_PRIVACY).default("public"),
     mentionedUserIds: z.array(z.uuid()).optional(),
   })
@@ -233,7 +235,7 @@ export const InitiateBody = z
 export const UpdateBody = z.object({
   title: requiredTrimmedString(CLIP_TITLE_MAX_LENGTH).optional(),
   description: optionalBlankToNullTrimmedString(CLIP_DESCRIPTION_MAX_LENGTH),
-  gameId: z.uuid().optional(),
+  steamgriddbId: z.number().int().positive().optional(),
   privacy: z.enum(CLIP_PRIVACY).optional(),
   mentionedUserIds: z.array(z.uuid()).optional(),
 })

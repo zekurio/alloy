@@ -34,7 +34,7 @@ export function userAssetImagePath(key: string, updatedAt: Date): string {
 }
 
 export interface ClipGameRef {
-  id: string
+  id: number
   steamgriddbId: number
   slug: string
   name: string
@@ -63,7 +63,7 @@ export interface ClipRow {
   title: string
   description: string | null
   game: string | null
-  gameId: string
+  steamgriddbId: number
   privacy: ClipPrivacy
   sourceContentType: string | null
   sourceVideoCodec: string | null
@@ -116,7 +116,7 @@ export interface InitiateClipInput {
   sizeBytes: number
   title: string
   description?: string
-  gameId: string
+  steamgriddbId: number
   privacy?: ClipPrivacy
   mentionedUserIds?: string[]
 }
@@ -129,7 +129,7 @@ export interface InitiateClipResponse {
 export interface UpdateClipInput {
   title?: string
   description?: string
-  gameId?: string
+  steamgriddbId?: number
   privacy?: ClipPrivacy
   mentionedUserIds?: string[]
 }
@@ -226,7 +226,7 @@ export interface CommentPage {
 export type FeedFilter =
   | { kind: "foryou" }
   | { kind: "following" }
-  | { kind: "game"; gameId: string }
+  | { kind: "game"; steamgriddbId: number }
   | { kind: "hashtag"; tag: string }
 
 export interface FeedPageParams {
@@ -241,7 +241,8 @@ export interface FeedPage {
 }
 
 export interface FeedChipGame {
-  id: string
+  id: number
+  steamgriddbId: number
   slug: string
   name: string
   iconUrl: string | null
@@ -283,7 +284,7 @@ export interface SteamGridDBAsset {
 }
 
 export interface GameRow {
-  id: string
+  id: number
   steamgriddbId: number
   name: string
   slug: string

@@ -1,12 +1,11 @@
 import type { GameListRow, GameRow, ProfileGameRow } from "alloy-contracts"
-import { game } from "alloy-db/schema"
 import { z } from "zod"
 
 import {
   SteamGridDBError,
   SteamGridDBNotConfiguredError,
 } from "../games/steamgriddb"
-import { isoDate, nullableIsoDate } from "../runtime/date"
+import { isoDate } from "../runtime/date"
 import { errorMessage } from "../runtime/error-message"
 import {
   limitQueryParam,
@@ -45,35 +44,12 @@ export const GamesListQuery = z.object({
   offset: offsetQueryParam(),
 })
 
-type GameRowFields = Pick<
-  typeof game.$inferSelect,
-  | "id"
-  | "steamgriddbId"
-  | "name"
-  | "slug"
-  | "releaseDate"
-  | "heroUrl"
-  | "gridUrl"
-  | "logoUrl"
-  | "iconUrl"
->
-
-export function serialiseGame(row: GameRowFields): GameRow {
-  return {
-    id: row.id,
-    steamgriddbId: row.steamgriddbId,
-    name: row.name,
-    slug: row.slug,
-    releaseDate: nullableIsoDate(row.releaseDate),
-    heroUrl: row.heroUrl,
-    gridUrl: row.gridUrl,
-    logoUrl: row.logoUrl,
-    iconUrl: row.iconUrl,
-  }
+export function serialiseGame(row: GameRow): GameRow {
+  return row
 }
 
 export function serialiseGameListRow(
-  row: GameRowFields & { clipCount: number },
+  row: GameRow & { clipCount: number },
 ): GameListRow {
   return {
     ...serialiseGame(row),
@@ -82,7 +58,7 @@ export function serialiseGameListRow(
 }
 
 export function serialiseProfileGameRow(
-  row: GameRowFields & { clipCount: number; lastClippedAt: Date | string },
+  row: GameRow & { clipCount: number; lastClippedAt: Date | string },
 ): ProfileGameRow {
   return {
     ...serialiseGameListRow(row),

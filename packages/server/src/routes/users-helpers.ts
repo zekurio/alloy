@@ -28,6 +28,7 @@ import { getSession } from "../auth/session"
 import { clipSelectShape, toPublicClipRow } from "../clips/select"
 import { db } from "../db"
 import { requiredSql } from "../db/sql"
+import { gameSelectShape, serialiseGameRow } from "../games/ref"
 import { isoDate } from "../runtime/date"
 import { serialiseProfileGameRow } from "./games-helpers"
 import {
@@ -192,7 +193,7 @@ export async function listUserClips(row: UserRow, headers: Headers) {
     .select(clipSelectShape)
     .from(clip)
     .innerJoin(user, eq(clip.authorId, user.id))
-    .leftJoin(game, eq(clip.gameId, game.id))
+    .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
     .where(and(...conditions))
     .orderBy(desc(clip.createdAt))
     .limit(50)
@@ -210,28 +211,26 @@ export async function listUserGames(
 
   const rows = await db
     .select({
-      id: game.id,
-      steamgriddbId: game.steamgriddbId,
-      name: game.name,
-      slug: game.slug,
-      releaseDate: game.releaseDate,
-      heroUrl: game.heroUrl,
-      gridUrl: game.gridUrl,
-      logoUrl: game.logoUrl,
-      iconUrl: game.iconUrl,
+      ...gameSelectShape,
       clipCount: sql<number>`count(${clip.id})::int`,
       lastClippedAt,
     })
     .from(clip)
     .innerJoin(user, eq(clip.authorId, user.id))
-    .innerJoin(game, eq(clip.gameId, game.id))
+    .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
     .where(and(...conditions))
-    .groupBy(game.id)
-    .orderBy(sql`${lastClippedAt} desc`, game.name, game.id)
+    .groupBy(game.steamgriddbId)
+    .orderBy(sql`${lastClippedAt} desc`, game.name)
     .limit(limit)
     .offset(offset)
 
-  return rows.map(serialiseProfileGameRow)
+  const enriched = rows.map((row) => ({
+    ...serialiseGameRow(row),
+    clipCount: row.clipCount,
+    lastClippedAt: row.lastClippedAt,
+  }))
+
+  return enriched.map(serialiseProfileGameRow)
 }
 
 async function visibleReadyClipConditions(
@@ -272,7 +271,7 @@ export async function listTaggedClips(row: UserRow, headers: Headers) {
     .from(clipMention)
     .innerJoin(clip, eq(clipMention.clipId, clip.id))
     .innerJoin(user, eq(clip.authorId, user.id))
-    .leftJoin(game, eq(clip.gameId, game.id))
+    .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
     .where(and(...conditions))
     .orderBy(desc(clip.createdAt))
     .limit(50)
@@ -299,7 +298,7 @@ export async function listLikedClips(row: UserRow, headers: Headers) {
     .from(clipLike)
     .innerJoin(clip, eq(clipLike.clipId, clip.id))
     .innerJoin(user, eq(clip.authorId, user.id))
-    .leftJoin(game, eq(clip.gameId, game.id))
+    .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
     .where(and(...conditions))
     .orderBy(desc(clipLike.createdAt))
     .limit(50)

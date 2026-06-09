@@ -12,6 +12,7 @@ import {
   validateNonNegativeNumber,
   validateNullableRequiredString,
   validateNullableUrlString,
+  validatePositiveInteger,
   validateRequiredString,
 } from "../runtime-validation"
 import { validateClipRow } from "./clips"
@@ -32,7 +33,15 @@ export function validateFeedPage(value: unknown): FeedPage {
 
 function validateFeedChipGame(value: unknown): FeedChipGame {
   const row = objectRecord(value, "feed chip game")
-  for (const key of ["id", "slug", "name"] as const) {
+  validatePositiveInteger(
+    row.id,
+    "Invalid feed chips response: id must be a positive integer",
+  )
+  validatePositiveInteger(
+    row.steamgriddbId,
+    "Invalid feed chips response: steamgriddbId must be a positive integer",
+  )
+  for (const key of ["slug", "name"] as const) {
     validateRequiredString(
       row[key],
       `Invalid feed chips response: ${key} is required`,

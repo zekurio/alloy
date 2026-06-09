@@ -245,7 +245,7 @@ function LoadedState({
         contentType: file.contentType,
         title,
         description: nullableClipDescription(value.description),
-        gameId: value.game.id,
+        steamgriddbId: value.game.steamgriddbId,
         privacy: value.visibility,
         width: file.width,
         height: file.height,
