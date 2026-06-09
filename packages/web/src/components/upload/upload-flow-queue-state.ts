@@ -65,7 +65,7 @@ async function performUpload(
     sizeBytes: payload.sizeBytes,
     title: payload.title,
     description: payload.description ?? undefined,
-    gameId: payload.gameId,
+    steamgriddbId: payload.steamgriddbId,
     privacy: payload.privacy,
     mentionedUserIds:
       payload.mentionedUserIds.length > 0

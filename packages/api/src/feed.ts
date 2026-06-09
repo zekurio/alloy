@@ -26,8 +26,10 @@ export function createFeedApi(context: ApiContext) {
       const res = await context.rpc.api.feed.$get({
         query: queryParams({
           filter: params.filter.kind,
-          gameId:
-            params.filter.kind === "game" ? params.filter.gameId : undefined,
+          steamgriddbId:
+            params.filter.kind === "game"
+              ? params.filter.steamgriddbId
+              : undefined,
           tag: params.filter.kind === "hashtag" ? params.filter.tag : undefined,
           limit: params.limit,
           cursor: params.cursor,

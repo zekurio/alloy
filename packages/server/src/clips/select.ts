@@ -5,6 +5,11 @@ import { eq } from "drizzle-orm"
 
 import { configStore } from "../config/store"
 import { db } from "../db"
+import {
+  clipGameRefFromSnapshot,
+  gameSelectShape,
+  serialiseGameRow,
+} from "../games/ref"
 import { buildPlaybackQualities } from "./playback-quality"
 
 export const clipSelectShape = {
@@ -13,7 +18,7 @@ export const clipSelectShape = {
   title: clip.title,
   description: clip.description,
   game: clip.game,
-  gameId: clip.gameId,
+  steamgriddbId: clip.steamgriddbId,
   privacy: clip.privacy,
   sourceKey: clip.sourceKey,
   sourceContentType: clip.sourceContentType,
@@ -39,17 +44,7 @@ export const clipSelectShape = {
   authorUsername: user.username,
   authorName: user.name,
   authorImage: user.image,
-  gameRef: {
-    id: game.id,
-    steamgriddbId: game.steamgriddbId,
-    slug: game.slug,
-    name: game.name,
-    releaseDate: game.releaseDate,
-    heroUrl: game.heroUrl,
-    gridUrl: game.gridUrl,
-    logoUrl: game.logoUrl,
-    iconUrl: game.iconUrl,
-  },
+  gameRef: gameSelectShape,
 } as const
 
 async function selectClipMentions(clipId: string): Promise<ClipMentionRef[]> {
@@ -72,7 +67,7 @@ export async function selectClipById(id: string) {
     .select(clipSelectShape)
     .from(clip)
     .innerJoin(user, eq(clip.authorId, user.id))
-    .leftJoin(game, eq(clip.gameId, game.id))
+    .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
     .where(eq(clip.id, id))
     .limit(1)
   if (!row) return null
@@ -93,16 +88,26 @@ export function toPublicClipRow<
     height: number | null
     thumbKey: string | null
     variants: readonly { storageKey: string; hls?: unknown }[]
+    steamgriddbId: number
+    game: string | null
+    gameRef?: Parameters<typeof serialiseGameRow>[0] | null
   },
 >(row: T) {
   const {
     sourceKey: _sourceKey,
     openGraphKey: _openGraphKey,
     variants: _variants,
+    gameRef,
     ...rest
   } = row
   return {
     ...rest,
+    gameRef: gameRef
+      ? serialiseGameRow(gameRef)
+      : clipGameRefFromSnapshot({
+          steamgriddbId: row.steamgriddbId,
+          name: row.game,
+        }),
     thumbKey: row.thumbKey ? "thumbnail" : null,
     playbackQualities: configStore.get("encoder").enabled
       ? buildPlaybackQualities(row)

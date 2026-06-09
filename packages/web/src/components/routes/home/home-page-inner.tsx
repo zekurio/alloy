@@ -11,7 +11,12 @@ import { TopClipsSection } from "./top-clips-section"
 
 function filterFromSearch(search: HomeSearch): FeedFilter {
   if (search.tag) return { kind: "hashtag", tag: search.tag }
-  if (search.game) return { kind: "game", gameId: search.game }
+  if (search.game) {
+    const steamgriddbId = Number.parseInt(search.game, 10)
+    if (Number.isSafeInteger(steamgriddbId) && steamgriddbId > 0) {
+      return { kind: "game", steamgriddbId }
+    }
+  }
   if (search.feed === "following") return { kind: "following" }
   return { kind: "foryou" }
 }
@@ -33,7 +38,7 @@ export function HomePageInner() {
       search: (prev: HomeSearch) => ({
         ...prev,
         tag: next.kind === "hashtag" ? next.tag : undefined,
-        game: next.kind === "game" ? next.gameId : undefined,
+        game: next.kind === "game" ? String(next.steamgriddbId) : undefined,
         feed: next.kind === "following" ? ("following" as const) : undefined,
       }),
     })

@@ -14,6 +14,7 @@ import { selectClipById } from "./clips/select"
 import { configStore } from "./config/store"
 import { db } from "./db"
 import { env } from "./env"
+import { clipGameRefFromSnapshot } from "./games/ref"
 import { isAbsolute, join, relative, resolve } from "./runtime/path"
 
 const HEAD_MARKER = "<!-- alloy:head -->"
@@ -135,11 +136,13 @@ async function clipHead(pathname: string): Promise<string> {
     if (!row) return ""
 
     const origin = env.PUBLIC_SERVER_URL
+    const gameRef = clipGameRefFromSnapshot({
+      steamgriddbId: row.steamgriddbId,
+      name: row.game,
+    })
     const description =
       row.description?.trim() ||
-      `${row.authorUsername} shared a ${
-        row.gameRef?.name ?? row.game ?? "game"
-      } clip on alloy.`
+      `${row.authorUsername} shared a ${gameRef.name} clip on alloy.`
     const poster = row.thumbKey
       ? new URL(`/api/clips/${row.id}/thumbnail`, origin).toString()
       : null

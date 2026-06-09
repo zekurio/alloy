@@ -74,7 +74,7 @@ function emptyHint(filter: FeedFilter): string {
 }
 
 function filterId(filter: FeedFilter): string {
-  if (filter.kind === "game") return `game:${filter.gameId}`
+  if (filter.kind === "game") return `game:${filter.steamgriddbId}`
   if (filter.kind === "hashtag") return `hashtag:${filter.tag}`
   return filter.kind
 }

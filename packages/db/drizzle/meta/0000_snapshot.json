@@ -119,9 +119,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "game_id": {
-          "name": "game_id",
-          "type": "uuid",
+        "steamgriddb_id": {
+          "name": "steamgriddb_id",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
@@ -372,11 +372,11 @@
           "method": "btree",
           "with": {}
         },
-        "clip_game_created_idx": {
-          "name": "clip_game_created_idx",
+        "clip_steamgriddb_created_idx": {
+          "name": "clip_steamgriddb_created_idx",
           "columns": [
             {
-              "expression": "game_id",
+              "expression": "steamgriddb_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -393,11 +393,11 @@
           "method": "btree",
           "with": {}
         },
-        "clip_ready_visible_game_top_idx": {
-          "name": "clip_ready_visible_game_top_idx",
+        "clip_ready_visible_steamgriddb_top_idx": {
+          "name": "clip_ready_visible_steamgriddb_top_idx",
           "columns": [
             {
-              "expression": "game_id",
+              "expression": "steamgriddb_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -444,12 +444,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "clip_game_id_game_id_fk": {
-          "name": "clip_game_id_game_id_fk",
+        "clip_steamgriddb_id_game_steamgriddb_id_fk": {
+          "name": "clip_steamgriddb_id_game_steamgriddb_id_fk",
           "tableFrom": "clip",
           "tableTo": "game",
-          "columnsFrom": ["game_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": ["steamgriddb_id"],
+          "columnsTo": ["steamgriddb_id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -1160,17 +1160,10 @@
       "name": "game",
       "schema": "",
       "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
         "steamgriddb_id": {
           "name": "steamgriddb_id",
           "type": "integer",
-          "primaryKey": false,
+          "primaryKey": true,
           "notNull": true
         },
         "name": {
@@ -1250,11 +1243,6 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "game_steamgriddb_id_unique": {
-          "name": "game_steamgriddb_id_unique",
-          "nullsNotDistinct": false,
-          "columns": ["steamgriddb_id"]
-        },
         "game_slug_unique": {
           "name": "game_slug_unique",
           "nullsNotDistinct": false,
@@ -1282,9 +1270,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "game_id": {
-          "name": "game_id",
-          "type": "uuid",
+        "steamgriddb_id": {
+          "name": "steamgriddb_id",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
@@ -1307,7 +1295,7 @@
               "nulls": "last"
             },
             {
-              "expression": "game_id",
+              "expression": "steamgriddb_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1318,11 +1306,11 @@
           "method": "btree",
           "with": {}
         },
-        "game_follow_game_idx": {
-          "name": "game_follow_game_idx",
+        "game_follow_steamgriddb_idx": {
+          "name": "game_follow_steamgriddb_idx",
           "columns": [
             {
-              "expression": "game_id",
+              "expression": "steamgriddb_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1344,12 +1332,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "game_follow_game_id_game_id_fk": {
-          "name": "game_follow_game_id_game_id_fk",
+        "game_follow_steamgriddb_id_game_steamgriddb_id_fk": {
+          "name": "game_follow_steamgriddb_id_game_steamgriddb_id_fk",
           "tableFrom": "game_follow",
           "tableTo": "game",
-          "columnsFrom": ["game_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": ["steamgriddb_id"],
+          "columnsTo": ["steamgriddb_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

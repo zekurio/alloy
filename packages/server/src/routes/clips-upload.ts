@@ -1,6 +1,6 @@
 import { stat } from "node:fs/promises"
 
-import { clip, clipMention, clipUploadTicket, game } from "alloy-db/schema"
+import { clip, clipMention, clipUploadTicket } from "alloy-db/schema"
 import { logger } from "alloy-logging"
 import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
@@ -10,12 +10,14 @@ import { deleteClipRowAndAssets } from "../clips/delete"
 import { publishClipUpsert } from "../clips/events"
 import { configStore } from "../config/store"
 import { db } from "../db"
+import { getSteamGridGameRef } from "../games/ref"
 import { isConfigured as isSteamGridDBConfigured } from "../games/steamgriddb"
 import { enqueueClipMediaProcessing } from "../queue"
 import {
   badRequest,
   conflict,
   deleted,
+  errorResult,
   gone,
   serviceUnavailable,
   success,
@@ -39,6 +41,7 @@ import {
   resolveMentionIds,
   selectLockedQuotaState,
 } from "./clips-upload-helpers"
+import { sgdbErrorResponse } from "./games-helpers"
 import { zValidator } from "./validation"
 
 async function cleanupFailedInitiate(
@@ -107,12 +110,13 @@ export const clipsUploadRoutes = new Hono()
         return serviceUnavailable(c, "SteamGridDB is not configured")
       }
 
-      const [gameRow] = await db
-        .select({ id: game.id })
-        .from(game)
-        .where(eq(game.id, body.gameId))
-        .limit(1)
-      if (!gameRow) return badRequest(c, "Unknown game")
+      let gameRef: Awaited<ReturnType<typeof getSteamGridGameRef>>
+      try {
+        gameRef = await getSteamGridGameRef(body.steamgriddbId)
+      } catch (err) {
+        return errorResult(c, sgdbErrorResponse(err))
+      }
+      if (!gameRef) return badRequest(c, "Unknown game")
 
       const mentionedIds = body.mentionedUserIds
         ? await resolveMentionIds(body.mentionedUserIds, viewerId)
@@ -133,8 +137,8 @@ export const clipsUploadRoutes = new Hono()
             authorId: viewerId,
             title: body.title,
             description: body.description ?? null,
-            game: null,
-            gameId: body.gameId,
+            game: gameRef.name,
+            steamgriddbId: body.steamgriddbId,
             privacy,
             sourceContentType: body.contentType,
             sourceSizeBytes: body.sizeBytes,
@@ -352,15 +356,16 @@ export const clipsUploadRoutes = new Hono()
       if (body.description !== undefined) {
         patch.description = body.description === "" ? null : body.description
       }
-      if (body.gameId !== undefined) {
-        const [gameRow] = await db
-          .select({ id: game.id })
-          .from(game)
-          .where(eq(game.id, body.gameId))
-          .limit(1)
-        if (!gameRow) return badRequest(c, "Unknown game")
-        patch.gameId = body.gameId
-        patch.game = null
+      if (body.steamgriddbId !== undefined) {
+        let gameRef: Awaited<ReturnType<typeof getSteamGridGameRef>>
+        try {
+          gameRef = await getSteamGridGameRef(body.steamgriddbId)
+        } catch (err) {
+          return errorResult(c, sgdbErrorResponse(err))
+        }
+        if (!gameRef) return badRequest(c, "Unknown game")
+        patch.steamgriddbId = body.steamgriddbId
+        patch.game = gameRef.name
       }
       if (body.privacy !== undefined) patch.privacy = body.privacy
 

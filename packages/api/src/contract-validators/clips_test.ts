@@ -13,7 +13,7 @@ function clipRow(overrides: Record<string, unknown> = {}) {
     title: "Clip",
     description: null,
     game: null,
-    gameId: "game-id",
+    steamgriddbId: 42,
     privacy: "public",
     sourceContentType: "video/x-matroska",
     sourceVideoCodec: "hevc",

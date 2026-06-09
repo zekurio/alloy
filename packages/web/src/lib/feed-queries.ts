@@ -8,7 +8,7 @@ import type { FeedFilter, FeedPageParams } from "alloy-api"
 import { api } from "./api"
 
 function filterKey(filter: FeedFilter): readonly unknown[] {
-  if (filter.kind === "game") return ["game", filter.gameId] as const
+  if (filter.kind === "game") return ["game", filter.steamgriddbId] as const
   if (filter.kind === "hashtag") return ["hashtag", filter.tag] as const
   return [filter.kind] as const
 }

@@ -129,7 +129,7 @@ export function ClipEditDialog({
     if (titleChanged) input.title = trimmedTitle
     if (descriptionChanged) input.description = trimmedDescription
     if (privacyChanged) input.privacy = privacy
-    if (gameChanged && game) input.gameId = game.id
+    if (gameChanged && game) input.steamgriddbId = game.steamgriddbId
     if (mentionsChanged) input.mentionedUserIds = mentionIds
     mutation.mutate(
       { clipId: row.id, input },

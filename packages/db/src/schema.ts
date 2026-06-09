@@ -39,29 +39,20 @@ function sqlStringList(values: readonly string[]): string {
 export const game = pgTable(
   "game",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    steamgriddbId: integer("steamgriddb_id").notNull().unique(),
+    // SteamGridDB is the canonical game identity. This table is a durable
+    // metadata cache, not a second identity namespace.
+    steamgriddbId: integer("steamgriddb_id").primaryKey(),
     name: text("name").notNull(),
-    // URL-safe, unique. Dedupe happens on insert — if `slugify(name)`
-    // collides with an existing row we append `-2`, `-3`, … and retry.
     slug: text("slug").notNull().unique(),
     releaseDate: timestamp("release_date"),
     heroUrl: text("hero_url"),
-    // Vertical poster grid from SteamGridDB — used for game cards.
     gridUrl: text("grid_url"),
-    // Transparent logo — overlaid on top of the hero on /g/:slug.
-    // Nullable for the same reason.
     logoUrl: text("logo_url"),
-    // Small square art for the home-feed chip bar.
     iconUrl: text("icon_url"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
-  (t) => [
-    // Lookup by name for the admin UI / debugging; the production read
-    // path hits `steamgriddbId` (upsert) or `slug` (routes).
-    index("game_name_idx").on(t.name),
-  ],
+  (t) => [index("game_name_idx").on(t.name)],
 )
 
 export const clip = pgTable(
@@ -75,10 +66,13 @@ export const clip = pgTable(
 
     title: text("title").notNull(),
     description: text("description"),
+    // Non-authoritative display snapshot. SteamGridDB is the source of truth
+    // for game identity and metadata; this keeps clip rows usable when the
+    // external metadata path is temporarily unavailable.
     game: text("game"),
-    gameId: uuid("game_id")
+    steamgriddbId: integer("steamgriddb_id")
       .notNull()
-      .references(() => game.id, { onDelete: "restrict" }),
+      .references(() => game.steamgriddbId, { onDelete: "restrict" }),
 
     // One of `CLIP_PRIVACY`, validated via zod on write paths.
     privacy: text("privacy").$type<ClipPrivacy>().notNull().default("public"),
@@ -133,10 +127,10 @@ export const clip = pgTable(
         sql`${t.status} = 'ready' and ${t.privacy} in ('public', 'unlisted')`,
       ),
     index("clip_status_idx").on(t.status),
-    index("clip_game_created_idx").on(t.gameId, t.createdAt),
-    index("clip_ready_visible_game_top_idx")
+    index("clip_steamgriddb_created_idx").on(t.steamgriddbId, t.createdAt),
+    index("clip_ready_visible_steamgriddb_top_idx")
       .on(
-        t.gameId,
+        t.steamgriddbId,
         t.viewCount.desc(),
         t.likeCount.desc(),
         t.createdAt.desc(),
@@ -309,16 +303,16 @@ export const gameFollow = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    gameId: uuid("game_id")
+    steamgriddbId: integer("steamgriddb_id")
       .notNull()
-      .references(() => game.id, { onDelete: "cascade" }),
+      .references(() => game.steamgriddbId, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("game_follow_pair_idx").on(t.userId, t.gameId),
+    uniqueIndex("game_follow_pair_idx").on(t.userId, t.steamgriddbId),
     // Reverse lookup for the feed-ranking join ("is this clip's game
     // followed by the viewer?"), and for per-game follower counts.
-    index("game_follow_game_idx").on(t.gameId),
+    index("game_follow_steamgriddb_idx").on(t.steamgriddbId),
   ],
 )
 
@@ -435,7 +429,6 @@ export const scheduledTaskLock = pgTable("scheduled_task_lock", {
 })
 
 export const domainSchema = {
-  game,
   clip,
   clipUploadTicket,
   clipLike,
@@ -444,6 +437,7 @@ export const domainSchema = {
   clipCommentLike,
   clipMention,
   follow,
+  game,
   gameFollow,
   block,
   notification,

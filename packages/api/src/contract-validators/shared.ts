@@ -41,7 +41,11 @@ export function validateGameRowFields(
   row: Record<string, unknown>,
   label: string,
 ) {
-  for (const key of ["id", "name", "slug"] as const) {
+  validatePositiveInteger(
+    row.id,
+    `Invalid ${label} response: id must be a positive integer`,
+  )
+  for (const key of ["name", "slug"] as const) {
     validateRequiredString(
       row[key],
       `Invalid ${label} response: ${key} is required`,

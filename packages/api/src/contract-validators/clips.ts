@@ -75,7 +75,6 @@ function validateClipIdentityFields(row: Record<string, unknown>) {
     "id",
     "authorId",
     "title",
-    "gameId",
     "authorUsername",
     "authorName",
   ] as const) {
@@ -84,6 +83,10 @@ function validateClipIdentityFields(row: Record<string, unknown>) {
       `Invalid clip response: ${key} is required`,
     )
   }
+  validatePositiveInteger(
+    row.steamgriddbId,
+    "Invalid clip response: steamgriddbId must be a positive integer",
+  )
 }
 
 function validateClipMetadataFields(row: Record<string, unknown>) {

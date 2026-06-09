@@ -15,6 +15,7 @@ import { getSession } from "../auth/session"
 import { clipSelectShape, toPublicClipRow } from "../clips/select"
 import { db } from "../db"
 import { requiredSql } from "../db/sql"
+import { gameSelectShape, serialiseGameRow } from "../games/ref"
 import { dateFromDateLike, isoDate } from "../runtime/date"
 import { badRequest, invalidCursor } from "../runtime/http-response"
 import {
@@ -32,7 +33,7 @@ const FilterEnum = z.enum(["foryou", "following", "game", "hashtag"])
 const FeedQuery = z
   .object({
     filter: FilterEnum.default("foryou"),
-    gameId: z.uuid().optional(),
+    steamgriddbId: z.coerce.number().int().positive().optional(),
     tag: z
       .string()
       .regex(/^[\p{L}\p{N}_]+$/u)
@@ -40,9 +41,9 @@ const FeedQuery = z
     limit: limitQueryParam(50, 20),
     cursor: z.string().optional(),
   })
-  .refine((v) => v.filter !== "game" || v.gameId !== undefined, {
-    message: "gameId is required when filter=game",
-    path: ["gameId"],
+  .refine((v) => v.filter !== "game" || v.steamgriddbId !== undefined, {
+    message: "steamgriddbId is required when filter=game",
+    path: ["steamgriddbId"],
   })
   .refine((v) => v.filter !== "hashtag" || v.tag !== undefined, {
     message: "tag is required when filter=hashtag",
@@ -75,6 +76,8 @@ type FeedPageRow = {
   height: number | null
   thumbKey: string | null
   variants: readonly { storageKey: string }[]
+  steamgriddbId: number
+  game: string | null
 }
 
 function parseFeedCursor(value: string | undefined): FeedCursor | null {
@@ -124,11 +127,11 @@ function rankScore(viewerId: string | null, asOf: string) {
                  ) THEN 1 ELSE 0 END
           )
         + 0.5 * (
-            CASE WHEN ${vid}::uuid IS NULL OR ${clip.gameId} IS NULL THEN 0
+            CASE WHEN ${vid}::uuid IS NULL THEN 0
                  WHEN EXISTS (
                     SELECT 1 FROM ${gameFollow}
                     WHERE ${gameFollow.userId} = ${vid}::uuid
-                      AND ${gameFollow.gameId} = ${clip.gameId}
+                      AND ${gameFollow.steamgriddbId} = ${clip.steamgriddbId}
                  ) THEN 1 ELSE 0 END
           )
       )
@@ -158,7 +161,7 @@ export const feedRoute = new Hono()
   .get("/", zValidator("query", FeedQuery), async (c) => {
     const {
       filter,
-      gameId,
+      steamgriddbId,
       tag,
       limit,
       cursor: rawCursor,
@@ -189,8 +192,8 @@ export const feedRoute = new Hono()
     }
 
     if (filter === "game") {
-      if (!gameId) return badRequest(c, "gameId is required")
-      conditions.push(eq(clip.gameId, gameId))
+      if (!steamgriddbId) return badRequest(c, "steamgriddbId is required")
+      conditions.push(eq(clip.steamgriddbId, steamgriddbId))
     }
 
     if (filter === "hashtag") {
@@ -216,7 +219,6 @@ export const feedRoute = new Hono()
       )
       const gameFollowed = requiredSql(
         and(
-          sql`${clip.gameId} IS NOT NULL`,
           exists(
             db
               .select({ one: sql`1` })
@@ -224,7 +226,7 @@ export const feedRoute = new Hono()
               .where(
                 and(
                   eq(gameFollow.userId, followingViewerId),
-                  eq(gameFollow.gameId, clip.gameId),
+                  eq(gameFollow.steamgriddbId, clip.steamgriddbId),
                 ),
               ),
           ),
@@ -262,7 +264,7 @@ export const feedRoute = new Hono()
       .select({ ...clipSelectShape, rankScore: score })
       .from(clip)
       .innerJoin(user, eq(clip.authorId, user.id))
-      .leftJoin(game, eq(clip.gameId, game.id))
+      .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
       .where(and(...conditions))
       // createdAt DESC and id ASC break ties deterministically so
       // neighbouring pages don't duplicate rows when scores collide.
@@ -278,81 +280,65 @@ export const feedRoute = new Hono()
     const viewerId = session?.user.id ?? null
     const vid = viewerId ?? null
 
-    // Subquery: is there currently a visible clip in this game? Gates
-    // the outer select so empty games don't pollute the chip bar.
-    const hasVisibleClip = sql`
-      EXISTS (
-        SELECT 1 FROM ${clip}
-        WHERE ${clip.gameId} = ${game.id}
-          AND ${clip.status} = 'ready'
-          AND ${clip.privacy} = 'public'
-          AND EXISTS (
-            SELECT 1 FROM ${user}
-            WHERE ${user.id} = ${clip.authorId}
-              AND ${user.disabledAt} IS NULL
-          )
-      )
-    `
-
-    const selfCount = sql<number>`(
-      SELECT count(*)::int FROM ${clip}
-      WHERE ${clip.gameId} = ${game.id}
-        AND ${clip.authorId} = ${vid}::uuid
-        AND ${clip.status} = 'ready'
-    )`
-    const likedCount = sql<number>`(
-      SELECT count(*)::int FROM ${clipLike} cl
-      JOIN ${clip} c ON c.id = cl.clip_id
-      WHERE cl.user_id = ${vid}::uuid
-        AND c.game_id = ${game.id}
-        AND c.status = 'ready'
-    )`
-    const viewedCount = sql<number>`(
-      SELECT count(*)::int FROM ${clipView} cv
-      JOIN ${clip} c ON c.id = cv.clip_id
-      WHERE cv.user_id = ${vid}::uuid
-        AND c.game_id = ${game.id}
-        AND c.status = 'ready'
-    )`
-    const clipCount = sql<number>`(
-      SELECT count(*)::int FROM ${clip}
-      WHERE ${clip.gameId} = ${game.id}
-        AND ${clip.status} = 'ready'
-        AND ${clip.privacy} IN ('public', 'unlisted')
-        AND EXISTS (
-          SELECT 1 FROM ${user}
-          WHERE ${user.id} = ${clip.authorId}
-            AND ${user.disabledAt} IS NULL
-        )
-    )`
+    const selfCount = sql<number>`(count(distinct ${clip.id}) filter (
+      where ${clip.authorId} = ${vid}::uuid
+    ))::int`
+    const likedCount = sql<number>`(count(distinct ${clipLike.clipId}))::int`
+    const viewedCount = sql<number>`(count(distinct ${clipView.clipId}))::int`
+    const clipCount = sql<number>`(count(distinct ${clip.id}))::int`
     const interaction = sql<number>`(
-      3 * ${selfCount} + 2 * ${likedCount} + 1 * ${viewedCount}
+      (3 * (${selfCount}) + 2 * (${likedCount}) + (${viewedCount}))::double precision
     )`
 
     const rows = await db
       .select({
-        id: game.id,
-        slug: game.slug,
-        name: game.name,
-        iconUrl: game.iconUrl,
-        logoUrl: game.logoUrl,
+        ...gameSelectShape,
         interaction,
         clipCount,
       })
-      .from(game)
-      .where(hasVisibleClip)
+      .from(clip)
+      .innerJoin(user, eq(clip.authorId, user.id))
+      .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
+      .leftJoin(
+        clipLike,
+        and(
+          eq(clipLike.clipId, clip.id),
+          sql`${clipLike.userId} = ${vid}::uuid`,
+        ),
+      )
+      .leftJoin(
+        clipView,
+        and(
+          eq(clipView.clipId, clip.id),
+          sql`${clipView.userId} = ${vid}::uuid`,
+        ),
+      )
+      .where(
+        and(
+          eq(clip.status, "ready"),
+          eq(clip.privacy, "public"),
+          isNull(user.disabledAt),
+        ),
+      )
+      .groupBy(game.steamgriddbId)
       .orderBy(sql`${interaction} desc`, sql`${clipCount} desc`, game.name)
       .limit(limit)
 
-    return c.json({
-      games: rows.map((row) => ({
-        id: row.id,
-        slug: row.slug,
-        name: row.name,
-        iconUrl: row.iconUrl,
-        logoUrl: row.logoUrl,
+    const games = rows.map((row) => {
+      const ref = serialiseGameRow(row)
+      return {
+        id: ref.id,
+        steamgriddbId: ref.steamgriddbId,
+        slug: ref.slug,
+        name: ref.name,
+        iconUrl: ref.iconUrl,
+        logoUrl: ref.logoUrl,
         interaction: row.interaction,
         clipCount: row.clipCount,
-      })),
+      }
+    })
+
+    return c.json({
+      games,
     })
   })
