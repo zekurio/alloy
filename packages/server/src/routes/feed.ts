@@ -280,15 +280,20 @@ export const feedRoute = new Hono()
     const viewerId = session?.user.id ?? null
     const vid = viewerId ?? null
 
-    const selfCount = sql<number>`(count(distinct ${clip.id}) filter (
-      where ${clip.authorId} = ${vid}::uuid
-    ))::int`
     const likedCount = sql<number>`(count(distinct ${clipLike.clipId}))::int`
     const viewedCount = sql<number>`(count(distinct ${clipView.clipId}))::int`
     const clipCount = sql<number>`(count(distinct ${clip.id}))::int`
     const interaction = sql<number>`(
-      (3 * (${selfCount}) + 2 * (${likedCount}) + (${viewedCount}))::double precision
+      (2 * (${likedCount}) + (${viewedCount}))::double precision
     )`
+    const conditions: SQL[] = [
+      eq(clip.status, "ready"),
+      eq(clip.privacy, "public"),
+      isNull(user.disabledAt),
+    ]
+    if (viewerId) {
+      conditions.push(ne(clip.authorId, viewerId))
+    }
 
     const rows = await db
       .select({
@@ -313,13 +318,7 @@ export const feedRoute = new Hono()
           sql`${clipView.userId} = ${vid}::uuid`,
         ),
       )
-      .where(
-        and(
-          eq(clip.status, "ready"),
-          eq(clip.privacy, "public"),
-          isNull(user.disabledAt),
-        ),
-      )
+      .where(and(...conditions))
       .groupBy(game.steamgriddbId)
       .orderBy(sql`${interaction} desc`, sql`${clipCount} desc`, game.name)
       .limit(limit)

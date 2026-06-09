@@ -3,6 +3,7 @@ import {
   AppHeaderActions,
   AppHeaderBrand,
   AppHeaderSearch,
+  AppHeaderWindowControls,
 } from "alloy-ui/components/app-header"
 import { useWindowEvent } from "alloy-ui/hooks/use-window-event"
 import * as React from "react"
@@ -10,6 +11,7 @@ import * as React from "react"
 import { NotificationCenter } from "@/components/app/notification-center"
 import { useAppSearch } from "@/components/search/app-search"
 import { SearchResultsPopover } from "@/components/search/search-results-popover"
+import { alloyDesktop } from "@/lib/desktop"
 
 import { DesktopRecordingStatus } from "./desktop-recording-status"
 import { UserMenu } from "./user-menu"
@@ -17,6 +19,7 @@ import { UserMenu } from "./user-menu"
 export function HomeHeader() {
   const { query, setQuery, clear, setOpen } = useAppSearch()
   const inputRef = React.useRef<HTMLInputElement>(null)
+  const desktop = alloyDesktop()
 
   const onKeyDown = React.useCallback((event: KeyboardEvent) => {
     if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") {
@@ -30,7 +33,7 @@ export function HomeHeader() {
 
   return (
     <AppHeader>
-      <AppHeaderBrand />
+      <AppHeaderBrand showText={desktop?.titlebarOverlay} />
       <AppHeaderSearch
         ref={inputRef}
         value={query}
@@ -55,9 +58,24 @@ export function HomeHeader() {
       </AppHeaderSearch>
       <AppHeaderActions className="gap-2 sm:gap-3">
         <DesktopRecordingStatus />
-        <NotificationCenter />
+        <div className="hidden sm:block">
+          <NotificationCenter />
+        </div>
         <UserMenu />
       </AppHeaderActions>
+      {desktop?.titlebarOverlay ? (
+        <AppHeaderWindowControls
+          onMinimize={() => {
+            void desktop.minimizeWindow()
+          }}
+          onToggleMaximize={() => {
+            void desktop.toggleMaximizeWindow()
+          }}
+          onClose={() => {
+            void desktop.closeWindow()
+          }}
+        />
+      ) : null}
     </AppHeader>
   )
 }

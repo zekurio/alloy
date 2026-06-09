@@ -36,8 +36,8 @@ const Toaster = React.lazy(() =>
 )
 
 function RootLayout() {
-  // In the desktop shell with the Windows Controls Overlay, flag the document
-  // so the app header becomes a draggable title bar (see globals.css).
+  // In the desktop shell with custom chrome, flag the document so the app
+  // header becomes a draggable title bar (see globals.css).
   React.useEffect(() => {
     if (!alloyDesktop()?.titlebarOverlay) return
     const root = document.documentElement

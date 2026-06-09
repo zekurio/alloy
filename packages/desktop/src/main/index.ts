@@ -17,7 +17,6 @@ import { Windows } from "./windows"
 
 const WINDOWS_APP_USER_MODEL_ID = "dev.zekurio.alloy.desktop"
 const USER_DATA_DIR_NAME = "Alloy Desktop"
-const CONFIG_DIR_NAME = "config"
 const SESSION_DATA_DIR_NAME = "session"
 const LOGS_DIR_NAME = "logs"
 
@@ -105,15 +104,14 @@ function configureAppPaths(): void {
 
   const roamingRoot = join(roamingAppData, USER_DATA_DIR_NAME)
   const localRoot = join(localAppData, USER_DATA_DIR_NAME)
-  const userDataPath = join(roamingRoot, CONFIG_DIR_NAME)
   const sessionDataPath = join(localRoot, SESSION_DATA_DIR_NAME)
   const logsPath = join(localRoot, LOGS_DIR_NAME)
 
-  for (const path of [userDataPath, sessionDataPath, logsPath]) {
+  for (const path of [roamingRoot, sessionDataPath, logsPath]) {
     mkdirSync(path, { recursive: true })
   }
 
-  app.setPath("userData", userDataPath)
+  app.setPath("userData", roamingRoot)
   app.setPath("sessionData", sessionDataPath)
   app.setAppLogsPath(logsPath)
 }

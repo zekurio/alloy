@@ -30,6 +30,15 @@ const requireObsRuntime =
   process.argv.includes("--require-obs-runtime") ||
   process.env.ALLOY_REQUIRE_OBS_RUNTIME === "1"
 
+if (process.platform !== "win32") {
+  mkdirSync(sidecarResourcesDir, { recursive: true })
+  mkdirSync(obsResourcesDir, { recursive: true })
+  writeFileSync(join(sidecarResourcesDir, ".gitkeep"), "")
+  writeFileSync(join(obsResourcesDir, ".gitkeep"), "")
+  console.warn("Skipping alloy-recorder build: the sidecar is Windows-only.")
+  process.exit(0)
+}
+
 const obsRuntimeSource = resolveObsRuntimeSource()
 
 const cargoArgs = ["build", "--manifest-path", manifestPath, "--release"]

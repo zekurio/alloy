@@ -74,7 +74,7 @@ system OBS install.
 
 ## Runtime Paths
 
-- Roaming config: `%APPDATA%\Alloy Desktop\config`
+- Preferences: `%APPDATA%\Alloy Desktop\preferences.json`
 - Browser session/cache: `%LOCALAPPDATA%\Alloy Desktop\session`
 - Logs: `%LOCALAPPDATA%\Alloy Desktop\logs`
 - Replay scratch: `%TEMP%\Alloy\replay-buffer`

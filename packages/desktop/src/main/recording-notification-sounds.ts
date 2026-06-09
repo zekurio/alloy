@@ -1,11 +1,14 @@
-import { existsSync } from "node:fs"
+import { copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs"
 import { extname, isAbsolute, join } from "node:path"
 import { pathToFileURL } from "node:url"
 
 import type {
   RecordingNotificationSoundEvent,
+  RecordingNotificationSoundLibrary,
+  RecordingNotificationSoundOption,
   RecordingNotificationSoundSettings,
 } from "alloy-contracts"
+import { RECORDING_NOTIFICATION_SOUND_EVENTS } from "alloy-contracts"
 import { logger } from "alloy-logging"
 import { app, BrowserWindow } from "electron"
 
@@ -51,6 +54,62 @@ export function recordingNotificationSoundUrl(
 
 export function isRecordingSoundFile(path: string): boolean {
   return SUPPORTED_RECORDING_SOUND_EXTENSIONS.has(extname(path).toLowerCase())
+}
+
+/**
+ * Per-event folder users drop their own notification sounds into. Returned by
+ * {@link ensureNotificationSoundsDir} after it's created and seeded with the
+ * bundled default so the sound picker always has at least one entry.
+ */
+export function notificationSoundsDir(
+  sound: RecordingNotificationSoundEvent,
+): string {
+  return join(app.getPath("userData"), "sounds", sound)
+}
+
+export function ensureNotificationSoundsDir(
+  sound: RecordingNotificationSoundEvent,
+): string {
+  const dir = notificationSoundsDir(sound)
+  try {
+    mkdirSync(dir, { recursive: true })
+    const defaultFile = DEFAULT_RECORDING_SOUND_FILES[sound]
+    const seeded = join(dir, defaultFile)
+    if (!existsSync(seeded)) {
+      const source = join(recordingAssetsDir(), defaultFile)
+      if (existsSync(source)) copyFileSync(source, seeded)
+    }
+  } catch (cause) {
+    logger.warn(
+      `[desktop] failed to prepare notification sounds folder: ${sound}`,
+      cause,
+    )
+  }
+  return dir
+}
+
+/** Audio files available in an event's sounds folder, sorted by name. */
+export function listNotificationSoundFiles(
+  sound: RecordingNotificationSoundEvent,
+): RecordingNotificationSoundOption[] {
+  const dir = ensureNotificationSoundsDir(sound)
+  try {
+    return readdirSync(dir, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && isRecordingSoundFile(entry.name))
+      .map((entry) => ({ name: entry.name, path: join(dir, entry.name) }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  } catch (cause) {
+    logger.warn(`[desktop] failed to list notification sounds: ${sound}`, cause)
+    return []
+  }
+}
+
+export function listNotificationSoundLibrary(): RecordingNotificationSoundLibrary {
+  const library = {} as RecordingNotificationSoundLibrary
+  for (const sound of RECORDING_NOTIFICATION_SOUND_EVENTS) {
+    library[sound] = listNotificationSoundFiles(sound)
+  }
+  return library
 }
 
 export async function playRecordingNotificationSound(

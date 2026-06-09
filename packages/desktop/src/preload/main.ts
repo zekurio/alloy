@@ -33,8 +33,9 @@ const recording: AlloyDesktopRecordingApi = {
     return () => ipcRenderer.off(IPC.recordingEvent, handler)
   },
   selectOutputFolder: () => ipcRenderer.invoke(IPC.selectOutputFolder),
-  selectNotificationSound: (sound) =>
-    ipcRenderer.invoke(IPC.selectNotificationSound, sound),
+  listNotificationSounds: () => ipcRenderer.invoke(IPC.listNotificationSounds),
+  openNotificationSoundsFolder: (sound) =>
+    ipcRenderer.invoke(IPC.openNotificationSoundsFolder, sound),
   listGameProcesses: () => ipcRenderer.invoke(IPC.listGameProcesses),
   saveReplayClip: () => ipcRenderer.invoke(IPC.saveReplayClip),
   stopRecording: () => ipcRenderer.invoke(IPC.stopRecording),
@@ -44,9 +45,12 @@ const recording: AlloyDesktopRecordingApi = {
 
 const marker: AlloyDesktopMarker = {
   platform: process.platform,
-  // The main window uses the native OS frame, so the web app should not enable
-  // Windows Controls Overlay header compensation.
-  titlebarOverlay: false,
+  // The main window is frameless; the web app header provides the draggable
+  // title bar and custom window controls.
+  titlebarOverlay: true,
+  minimizeWindow: () => ipcRenderer.invoke(IPC.minimizeWindow),
+  toggleMaximizeWindow: () => ipcRenderer.invoke(IPC.toggleMaximizeWindow),
+  closeWindow: () => ipcRenderer.invoke(IPC.closeWindow),
   openSettings: () => ipcRenderer.invoke(IPC.openSettings),
   servers,
   recording,

@@ -95,18 +95,19 @@ fn candidate_game_detection_match(
     capture_dimensions: Option<VideoDimensions>,
     settings: &RecordingSettings,
 ) -> Option<CandidateGameMatch> {
-    if match_allowed_game(&settings.denied_games, path, executable, class_name).is_some() {
+    if manual_game_denied(settings, path, executable, class_name) {
         return None;
     }
 
-    if let Some(game) = match_allowed_game(&settings.allowed_games, path, executable, class_name) {
+    if let Some((game, match_score)) =
+        manual_allowed_game_match(settings, path, executable, class_name)
+    {
         return Some(CandidateGameMatch {
             id: Some(game.id.clone()),
             name: manual_game_name(game, path, title, executable),
             preserve_name: true,
             force_display_capture: false,
-            detection_score: MANUAL_ALLOW_SCORE
-                + allowed_game_match_score(game, path, executable, class_name),
+            detection_score: MANUAL_ALLOW_SCORE + match_score,
         });
     }
 
@@ -152,13 +153,15 @@ fn detected_game_still_allowed(
     detected: &DetectedGame,
     settings: &RecordingSettings,
 ) -> bool {
-    match_allowed_game(
-        &settings.denied_games,
+    candidate_game_detection_match(
         detected.game.path.as_deref(),
         detected.game.executable.as_deref(),
+        detected.game.window_title.as_deref(),
         detected.game.window_class.as_deref(),
+        detected.capture_dimensions,
+        settings,
     )
-    .is_none()
+    .is_some()
 }
 
 fn manual_game_name(

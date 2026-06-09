@@ -1,17 +1,26 @@
 import type {
   RecordingNotificationSoundEvent,
+  RecordingNotificationSoundLibrary,
+  RecordingNotificationSoundOption,
   RecordingNotificationSoundSettings,
   RecordingSettings,
 } from "alloy-contracts"
 import { Button } from "alloy-ui/components/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "alloy-ui/components/select"
 import { Slider } from "alloy-ui/components/slider"
 import { Switch } from "alloy-ui/components/switch"
-import { FolderOpenIcon, RotateCcwIcon } from "lucide-react"
-import { useState, type ReactNode } from "react"
+import { cn } from "alloy-ui/lib/utils"
+import { FolderOpenIcon } from "lucide-react"
+import { useEffect, useState } from "react"
 
 import { Subsection } from "./desktop-capture-sections"
 import { useDesktopRecording } from "./desktop-recording-context"
-import { SettingRow } from "./setting-row"
 
 const SOUND_ROWS: Array<{
   id: RecordingNotificationSoundEvent
@@ -33,6 +42,11 @@ const SOUND_ROWS: Array<{
   },
 ]
 
+const EMPTY_LIBRARY: RecordingNotificationSoundLibrary = {
+  recordingStarted: [],
+  clipSaved: [],
+}
+
 export function NotificationSoundsSection({
   settings,
   busy,
@@ -42,141 +56,203 @@ export function NotificationSoundsSection({
   busy: boolean
   save: (next: RecordingSettings) => Promise<void>
 }) {
-  const { chooseNotificationSound } = useDesktopRecording()
+  const { listNotificationSounds, openNotificationSoundsFolder } =
+    useDesktopRecording()
+  const [library, setLibrary] =
+    useState<RecordingNotificationSoundLibrary>(EMPTY_LIBRARY)
+
+  async function refreshLibrary() {
+    setLibrary(await listNotificationSounds())
+  }
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      const next = await listNotificationSounds()
+      if (!cancelled) setLibrary(next)
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [listNotificationSounds])
 
   return (
     <Subsection title="Sounds">
       <div className="flex flex-col">
-        {SOUND_ROWS.map((row) => {
-          const sound = settings.notificationSounds[row.id]
-          const description = (
-            <SoundDescription
-              description={row.description}
-              defaultFile={row.defaultFile}
-              path={sound.path}
-            />
-          )
-
-          return (
-            <SettingRow
-              key={row.id}
-              title={row.title}
-              description={description}
-              className="items-start"
-            >
-              <SoundControls
-                title={row.title}
-                sound={sound}
-                busy={busy}
-                onEnabledChange={(enabled) =>
-                  void saveSound(settings, save, row.id, { enabled })
-                }
-                onVolumeChange={(volume) =>
-                  void saveSound(settings, save, row.id, { volume })
-                }
-                onChoose={() => void chooseNotificationSound(row.id)}
-                onReset={() =>
-                  void saveSound(settings, save, row.id, { path: "" })
-                }
-              />
-            </SettingRow>
-          )
-        })}
+        {SOUND_ROWS.map((row) => (
+          <SoundCard
+            key={row.id}
+            title={row.title}
+            description={row.description}
+            defaultFile={row.defaultFile}
+            sound={settings.notificationSounds[row.id]}
+            options={library[row.id]}
+            busy={busy}
+            onEnabledChange={(enabled) =>
+              void saveSound(settings, save, row.id, { enabled })
+            }
+            onPathChange={(path) =>
+              void saveSound(settings, save, row.id, { path })
+            }
+            onVolumeChange={(volume) =>
+              void saveSound(settings, save, row.id, { volume })
+            }
+            onOpenFolder={() => void openNotificationSoundsFolder(row.id)}
+            onRefresh={() => void refreshLibrary()}
+          />
+        ))}
       </div>
     </Subsection>
   )
 }
 
-function SoundControls({
+function SoundCard({
   title,
+  description,
+  defaultFile,
   sound,
+  options,
   busy,
   onEnabledChange,
+  onPathChange,
   onVolumeChange,
-  onChoose,
-  onReset,
+  onOpenFolder,
+  onRefresh,
 }: {
   title: string
+  description: string
+  defaultFile: string
   sound: RecordingNotificationSoundSettings
+  options: RecordingNotificationSoundOption[]
   busy: boolean
   onEnabledChange: (enabled: boolean) => void
+  onPathChange: (path: string) => void
   onVolumeChange: (volume: number) => void
-  onChoose: () => void
-  onReset: () => void
+  onOpenFolder: () => void
+  onRefresh: () => void
 }) {
   const [draftVolume, setDraftVolume] = useState<number | null>(null)
   const displayVolume = draftVolume ?? sound.volume
 
+  // Empty path means "use the bundled default", which the folder is seeded
+  // with — so resolve the selected value to that default file when unset, and
+  // surface a custom path that lives outside the folder as its own entry.
+  const items = soundItems(options, sound.path)
+  const selectedValue =
+    sound.path || items.find((item) => item.name === defaultFile)?.path || ""
+
+  const controlsDisabled = busy || !sound.enabled
+
   return (
-    <div className="flex flex-col items-end gap-2">
-      <div className="flex items-center gap-2">
+    <div className="not-last:border-border flex flex-col gap-3 py-4 not-last:border-b first:pt-0 last:pb-0">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold">{title}</div>
+          <p className="text-foreground-dim mt-0.5 text-xs">{description}</p>
+        </div>
         <Switch
           checked={sound.enabled}
           disabled={busy}
           onCheckedChange={onEnabledChange}
         />
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          disabled={busy}
-          onClick={onChoose}
+      </div>
+
+      <div
+        className={cn(
+          "flex items-center justify-between gap-4 transition-opacity",
+          controlsDisabled && "opacity-50",
+        )}
+      >
+        <label
+          htmlFor={`sound-effect-${title}`}
+          className="text-foreground-muted text-xs font-medium"
         >
-          <FolderOpenIcon className="size-3.5" />
-          Change
-        </Button>
-        {sound.path ? (
+          Sound effect
+        </label>
+        <div className="flex items-center gap-2">
+          <Select
+            value={selectedValue}
+            disabled={controlsDisabled}
+            onValueChange={(value) => {
+              if (value) onPathChange(value)
+            }}
+            onOpenChange={(open) => {
+              if (open) onRefresh()
+            }}
+          >
+            <SelectTrigger
+              id={`sound-effect-${title}`}
+              size="sm"
+              className="w-48"
+            >
+              <SelectValue placeholder="No sounds found">
+                {soundName(selectedValue) || "No sounds found"}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent align="end">
+              {items.map((item) => (
+                <SelectItem key={item.path} value={item.path}>
+                  {item.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button
             type="button"
-            variant="ghost"
-            size="icon-sm"
+            variant="secondary"
+            size="sm"
             disabled={busy}
-            aria-label={`Reset ${title} sound`}
-            onClick={onReset}
+            onClick={onOpenFolder}
           >
-            <RotateCcwIcon className="size-3.5" />
+            <FolderOpenIcon className="size-3.5" />
+            Folder
           </Button>
-        ) : null}
+        </div>
       </div>
-      <div className="flex w-44 items-center gap-3 sm:w-56">
-        <Slider
-          min={0}
-          max={100}
-          step={1}
-          value={[displayVolume]}
-          disabled={busy || !sound.enabled}
-          onValueChange={(value) => setDraftVolume(sliderValue(value))}
-          onValueCommitted={(value) => {
-            setDraftVolume(null)
-            onVolumeChange(sliderValue(value))
-          }}
-          className="min-w-0 flex-1"
-        />
-        <span className="text-foreground-muted w-9 shrink-0 text-right text-xs tabular-nums">
-          {displayVolume}%
+
+      <div
+        className={cn(
+          "flex items-center justify-between gap-4 transition-opacity",
+          controlsDisabled && "opacity-50",
+        )}
+      >
+        <span className="text-foreground-muted text-xs font-medium">
+          Volume
         </span>
+        <div className="flex w-48 items-center gap-3">
+          <Slider
+            min={0}
+            max={100}
+            step={1}
+            value={[displayVolume]}
+            disabled={controlsDisabled}
+            onValueChange={(value) => setDraftVolume(sliderValue(value))}
+            onValueCommitted={(value) => {
+              setDraftVolume(null)
+              onVolumeChange(sliderValue(value))
+            }}
+            className="min-w-0 flex-1"
+          />
+          <span className="text-foreground-muted w-9 shrink-0 text-right text-xs tabular-nums">
+            {displayVolume}%
+          </span>
+        </div>
       </div>
     </div>
   )
 }
 
-function SoundDescription({
-  description,
-  defaultFile,
-  path,
-}: {
-  description: string
-  defaultFile: string
-  path: string
-}) {
-  return (
-    <>
-      {description}
-      <span className="mt-1 block max-w-[22rem] truncate">
-        {path ? fileName(path) : `Default: ${defaultFile}`}
-      </span>
-    </>
-  )
+/**
+ * Folder files plus, if the saved sound points outside the folder, the custom
+ * file so the dropdown can still show and keep it selected.
+ */
+function soundItems(
+  options: RecordingNotificationSoundOption[],
+  path: string,
+): RecordingNotificationSoundOption[] {
+  if (!path || options.some((option) => option.path === path)) return options
+  return [...options, { path, name: fileName(path) }]
 }
 
 function saveSound(
@@ -197,7 +273,11 @@ function saveSound(
   })
 }
 
-function fileName(path: string): ReactNode {
+function soundName(path: string): string {
+  return path ? fileName(path) : ""
+}
+
+function fileName(path: string): string {
   return path.replaceAll("\\", "/").split("/").pop() || path
 }
 

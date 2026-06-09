@@ -706,59 +706,70 @@
   margin-left: auto;
 }
 
-/* Desktop shell (Electron, Windows Controls Overlay): turn the app header into
-   a draggable title bar and reserve the native window-controls strip. Gated by
-   `is-desktop-titlebar` on <html>, set only when the desktop marker reports the
-   overlay is active — a no-op in the browser. */
+@media (width < 48rem) {
+  [data-slot="app-header"] {
+    grid-template-columns: 2rem minmax(0, 1fr) 2.25rem;
+  }
+
+  [data-slot="app-header-brand"] {
+    justify-self: end;
+  }
+
+  [data-slot="app-header-actions"] {
+    justify-self: center;
+  }
+
+  [data-slot="app-header"]:has([data-slot="app-header-search"]:focus-within) {
+    column-gap: 0;
+    grid-template-columns: 0 minmax(0, 1fr) 0 auto;
+    padding-inline: calc((var(--header-h) - 2rem) / 2);
+  }
+
+  [data-slot="app-header"]:has([data-slot="app-header-search"]:focus-within)
+    [data-slot="app-header-search"] {
+    max-width: none;
+  }
+
+  [data-slot="app-header"]:has([data-slot="app-header-search"]:focus-within)
+    :where([data-slot="app-header-brand"], [data-slot="app-header-actions"]) {
+    pointer-events: none;
+    opacity: 0;
+  }
+}
+
+/* Desktop shell (Electron frameless window): turn the app header into a
+   draggable title bar. Gated by `is-desktop-titlebar` on <html>, set only when
+   the desktop marker reports the custom chrome is active — a no-op in the
+   browser. */
 .is-desktop-titlebar [data-slot="app-header"] {
   -webkit-app-region: drag;
-  /* Native min/max/close occupy `100vw - titlebar-area-width` on the right;
-     keep the 1.25rem the header already used as breathing room. */
-  padding-right: calc(100vw - env(titlebar-area-width, 100vw) + 1.25rem);
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 0.75rem;
+  padding-right: 0;
+  padding-left: 1rem;
+}
+
+.is-desktop-titlebar [data-slot="app-header-brand"] {
+  justify-content: flex-start;
 }
 
 .is-desktop-titlebar [data-slot="app-header-search"] {
-  position: absolute;
-  top: 50%;
-  right: calc(
-    100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw)
-  );
-  left: env(titlebar-area-x, 0px);
-  width: min(28rem, max(12rem, calc(env(titlebar-area-width, 100vw) - 18rem)));
-  margin-inline: auto;
-  transform: translateY(-50%);
+  width: min(28rem, 100%);
 }
 
 .is-desktop-titlebar [data-slot="app-header-actions"] {
-  align-self: stretch;
-  gap: 0;
-  height: 100%;
-}
-
-.is-desktop-titlebar
-  [data-slot="app-header-actions"]
-  > :where(button, a, [role="button"]) {
-  min-width: var(--header-h);
-  height: 100%;
-  min-height: var(--header-h);
-  border-color: transparent;
-  border-radius: 0;
-  background: var(--surface);
-  padding-inline: 0.75rem;
-}
-
-.is-desktop-titlebar
-  [data-slot="app-header-actions"]
-  > :where(button, a, [role="button"]):where(
-    :hover,
-    :focus-visible,
-    [data-popup-open]
-  ) {
-  background: var(--surface-raised);
+  padding-right: 0.5rem;
 }
 
 .is-desktop-titlebar
   [data-slot="app-header"]
-  :where(button, a, input, [role="button"], [data-slot="app-header-search"]) {
+  :where(
+    button,
+    a,
+    input,
+    [role="button"],
+    [data-slot="app-header-search"],
+    [data-slot="app-header-window-controls"]
+  ) {
   -webkit-app-region: no-drag;
 }

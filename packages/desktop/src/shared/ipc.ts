@@ -4,6 +4,7 @@ import type {
   RecordingEvent,
   RecordingGameProcess,
   RecordingNotificationSoundEvent,
+  RecordingNotificationSoundLibrary,
   RecordingSettings,
   RecordingStatus,
   RecordingStorageInfo,
@@ -28,11 +29,15 @@ export const IPC = {
   getRecordingStorageInfo: "alloy:get-recording-storage-info",
   recordingEvent: "alloy:recording-event",
   selectOutputFolder: "alloy:select-output-folder",
-  selectNotificationSound: "alloy:select-notification-sound",
+  listNotificationSounds: "alloy:list-notification-sounds",
+  openNotificationSoundsFolder: "alloy:open-notification-sounds-folder",
   listGameProcesses: "alloy:list-game-processes",
   saveReplayClip: "alloy:save-replay-clip",
   stopRecording: "alloy:stop-recording",
   revealRecordingCapture: "alloy:reveal-recording-capture",
+  minimizeWindow: "alloy:minimize-window",
+  toggleMaximizeWindow: "alloy:toggle-maximize-window",
+  closeWindow: "alloy:close-window",
 } as const
 
 /** Result of probing a candidate server URL for a valid Alloy endpoint. */
@@ -85,10 +90,12 @@ export interface AlloyDesktopRecordingApi {
   saveReplayClip(): Promise<RecordingActionResult>
   stopRecording(): Promise<RecordingActionResult>
   revealCapture(filename: string): Promise<void>
-  /** Opens a native audio file picker and applies the chosen notification sound. */
-  selectNotificationSound(
+  /** Lists the audio files available in each event's notification sounds folder. */
+  listNotificationSounds(): Promise<RecordingNotificationSoundLibrary>
+  /** Opens the event's notification sounds folder so the user can add files. */
+  openNotificationSoundsFolder(
     sound: RecordingNotificationSoundEvent,
-  ): Promise<string | null>
+  ): Promise<void>
 }
 
 /**
@@ -98,6 +105,9 @@ export interface AlloyDesktopRecordingApi {
 export interface AlloyDesktopMarker {
   platform: string
   titlebarOverlay: boolean
+  minimizeWindow(): Promise<void>
+  toggleMaximizeWindow(): Promise<void>
+  closeWindow(): Promise<void>
   openSettings(): Promise<void>
   servers: AlloyDesktopServerApi
   recording: AlloyDesktopRecordingApi
