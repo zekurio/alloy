@@ -176,15 +176,9 @@ impl Recorder {
         }
 
         let settings = self.settings.clone().unwrap_or_default();
-        let game = if settings.record_desktop {
-            None
-        } else {
-            Some(
-                self.active_game
-                    .clone()
-                    .ok_or_else(|| "No detected game is available for replay buffer.".to_string())?,
-            )
-        };
+        let game = Some(self.refreshed_active_game(
+            "No detected game is available for replay buffer.",
+        )?);
         let output_folder = self.current_output_folder();
         let replay_scratch_folder = self.current_replay_scratch_folder();
         let path = saved_recording_path(
@@ -429,6 +423,16 @@ impl Recorder {
         Ok(video_config)
     }
 
+    fn refreshed_active_game(&mut self, missing_message: &str) -> Result<DetectedGame, String> {
+        let mut game = self
+            .active_game
+            .clone()
+            .ok_or_else(|| missing_message.to_string())?;
+        refresh_capture_metadata(&mut game);
+        self.active_game = Some(game.clone());
+        Ok(game)
+    }
+
     fn current_output_folder(&self) -> PathBuf {
         let output_folder = self
             .output_folder
@@ -538,6 +542,7 @@ impl Recorder {
         self.active_game = None;
         self.focused = false;
         self.missing_game_ticks = 0;
+        self.last_error = None;
         let status = self.status();
         emit_event(RecordingEvent::GameEnded {
             game: active_game.game.clone(),
@@ -551,13 +556,27 @@ impl Recorder {
             return;
         }
         let settings = self.settings.clone().unwrap_or_default();
-        let ended_game = if settings.record_desktop {
+        let ended_game = if let Some(active_game) = self
+            .active_game
+            .clone()
+            .filter(|game| !detected_game_allowed(game, &settings))
+        {
             self.active_game = None;
             self.focused = false;
-            None
+            self.missing_game_ticks = 0;
+            self.last_error = None;
+            let status = self.status();
+            emit_event(RecordingEvent::GameEnded {
+                game: active_game.game.clone(),
+                status,
+            });
+            Some(active_game.game)
         } else {
             let active_game = self.active_game.clone();
-            self.observe_game(detect_game_activity(active_game.as_ref()))
+            self.observe_game(detect_game_activity(
+                active_game.as_ref(),
+                &settings,
+            ))
         };
 
         if ended_game.is_some() && self.session.is_some() {
@@ -593,13 +612,16 @@ impl Recorder {
 
         if settings.enabled
             && self.mode == RecordingMode::Idle
-            && (settings.record_desktop || self.active_game.is_some())
+            && self.active_game.is_some()
         {
             let start = match settings.trigger_mode {
                 RecordingTriggerMode::ReplayBuffer => self.start_replay_buffer(),
                 RecordingTriggerMode::Session => self.start_session_recording(),
             };
             if let Err(error) = start {
+                if self.clear_closed_active_game().is_some() {
+                    return;
+                }
                 self.last_error = Some(error.clone());
                 let status = self.status();
                 emit_event(RecordingEvent::Error { error, status });
@@ -607,12 +629,29 @@ impl Recorder {
         }
     }
 
-    fn start_session_recording(&mut self) -> Result<(), String> {
-        let settings = self.settings.clone().unwrap_or_default();
-        let game = self
+    fn clear_closed_active_game(&mut self) -> Option<RecordingGame> {
+        let active_game = self
             .active_game
             .clone()
-            .ok_or_else(|| "No detected game is available for session recording.".to_string())?;
+            .filter(|game| !is_detected_game_alive(game))?;
+
+        self.active_game = None;
+        self.focused = false;
+        self.missing_game_ticks = 0;
+        self.last_error = None;
+        let status = self.status();
+        emit_event(RecordingEvent::GameEnded {
+            game: active_game.game.clone(),
+            status,
+        });
+        Some(active_game.game)
+    }
+
+    fn start_session_recording(&mut self) -> Result<(), String> {
+        let settings = self.settings.clone().unwrap_or_default();
+        let game = self.refreshed_active_game(
+            "No detected game is available for session recording.",
+        )?;
         let output_folder = self.current_output_folder();
         let filename = saved_recording_path(&output_folder, "Sessions", Some(&game.game));
         let capture = self.new_capture(
@@ -721,6 +760,9 @@ impl Recorder {
         let Some(current_kind) = self.session.as_ref().map(|session| session.source_kind) else {
             return Ok(());
         };
+        if current_kind == OutputSourceKind::Display {
+            return Ok(());
+        }
         if current_kind == desired {
             return Ok(());
         }

@@ -8,6 +8,11 @@ unsafe fn load_symbol<T: Copy>(library: &Library, name: &[u8]) -> Result<T, Stri
     Ok(*symbol)
 }
 
+unsafe fn load_optional_symbol<T: Copy>(library: &Library, name: &[u8]) -> Option<T> {
+    let symbol: Symbol<T> = library.get(name).ok()?;
+    Some(*symbol)
+}
+
 unsafe fn create_source(
     obs: &LibObs,
     id: &str,
@@ -106,6 +111,9 @@ unsafe fn release_video_graph(obs: &LibObs, graph: VideoGraph) {
         (obs.obs_scene_release)(graph.scene);
     }
     if !graph.source.is_null() {
+        if graph.source_kind == OutputSourceKind::Game {
+            disconnect_game_capture_signals(obs, graph.source);
+        }
         (obs.obs_source_remove)(graph.source);
         (obs.obs_source_release)(graph.source);
     }
@@ -317,6 +325,11 @@ fn gpu_adapter(settings: &RecordingSettings) -> u32 {
     adapter.parse::<u32>().unwrap_or(0)
 }
 
+static GAME_CAPTURE_HOOKED: AtomicBool = AtomicBool::new(false);
+const GAME_CAPTURE_HOOK_RETRY_INTERVAL: Duration = Duration::from_secs(2);
+const GAME_CAPTURE_HOOK_POLL_INTERVAL: Duration = Duration::from_millis(100);
+const GAME_CAPTURE_HOOK_MAX_RETRIES: u32 = 20;
+
 unsafe fn create_video_source(
     obs: &LibObs,
     game: Option<&DetectedGame>,
@@ -337,6 +350,7 @@ unsafe fn create_video_source(
 
     let source_settings = obs.create_data();
     configure_game_capture_source(obs, source_settings, game)?;
+    GAME_CAPTURE_HOOKED.store(false, Ordering::SeqCst);
     let source = create_source(
         obs,
         GAME_CAPTURE_SOURCE_ID,
@@ -344,29 +358,182 @@ unsafe fn create_video_source(
         Some(source_settings),
     );
     obs.release_data(source_settings);
-    source.map_err(|error| {
+    let source = source.map_err(|error| {
         format!(
             "{error} OBS game capture is unavailable; make sure the win-capture plugin is bundled."
         )
-    })
+    })?;
+    connect_game_capture_signals(obs, source);
+    Ok(source)
+}
+
+unsafe fn connect_game_capture_signals(obs: &LibObs, source: *mut ObsSource) {
+    let handler = (obs.obs_source_get_signal_handler)(source);
+    if handler.is_null() {
+        return;
+    }
+    let hooked = CString::new("hooked").expect("static string has no nul byte");
+    let unhooked = CString::new("unhooked").expect("static string has no nul byte");
+    (obs.signal_handler_connect)(
+        handler,
+        hooked.as_ptr(),
+        game_capture_hooked,
+        ptr::null_mut(),
+    );
+    (obs.signal_handler_connect)(
+        handler,
+        unhooked.as_ptr(),
+        game_capture_unhooked,
+        ptr::null_mut(),
+    );
+}
+
+unsafe fn disconnect_game_capture_signals(obs: &LibObs, source: *mut ObsSource) {
+    let handler = (obs.obs_source_get_signal_handler)(source);
+    if handler.is_null() {
+        return;
+    }
+    let hooked = CString::new("hooked").expect("static string has no nul byte");
+    let unhooked = CString::new("unhooked").expect("static string has no nul byte");
+    (obs.signal_handler_disconnect)(
+        handler,
+        hooked.as_ptr(),
+        game_capture_hooked,
+        ptr::null_mut(),
+    );
+    (obs.signal_handler_disconnect)(
+        handler,
+        unhooked.as_ptr(),
+        game_capture_unhooked,
+        ptr::null_mut(),
+    );
+}
+
+unsafe extern "C" fn game_capture_hooked(_data: *mut c_void, _cd: *mut CallData) {
+    GAME_CAPTURE_HOOKED.store(true, Ordering::SeqCst);
+}
+
+unsafe extern "C" fn game_capture_unhooked(_data: *mut c_void, _cd: *mut CallData) {
+    GAME_CAPTURE_HOOKED.store(false, Ordering::SeqCst);
+}
+
+unsafe fn wait_for_game_capture_hook(
+    obs: &LibObs,
+    source: *mut ObsSource,
+    game: Option<&DetectedGame>,
+) -> Result<(), String> {
+    let target = game_capture_target_name(game);
+    let target_window = game_capture_target_window(game)
+        .filter(|window| !window.trim().is_empty())
+        .unwrap_or("any fullscreen game");
+    eprintln!(
+        "[{SIDE_CAR_NAME}] waiting for OBS game capture hook for {target} [{target_window}]..."
+    );
+
+    for retry_attempt in 0..GAME_CAPTURE_HOOK_MAX_RETRIES {
+        if game_capture_source_hooked(obs, source) {
+            eprintln!(
+                "[{SIDE_CAR_NAME}] OBS game capture hook ready for {target}."
+            );
+            return Ok(());
+        }
+        if game.is_some_and(|game| !is_detected_game_alive(game)) {
+            return Err(game_capture_target_closed_message(game));
+        }
+        eprintln!(
+            "[{SIDE_CAR_NAME}] waiting for successful graphics hook for {target}... retry attempt #{}",
+            retry_attempt + 1
+        );
+        let retry_deadline = Instant::now() + GAME_CAPTURE_HOOK_RETRY_INTERVAL;
+        loop {
+            let now = Instant::now();
+            if now >= retry_deadline {
+                break;
+            }
+            let sleep_for = (retry_deadline - now).min(GAME_CAPTURE_HOOK_POLL_INTERVAL);
+            thread::sleep(sleep_for);
+            if game_capture_source_hooked(obs, source) {
+                eprintln!(
+                    "[{SIDE_CAR_NAME}] OBS game capture hook ready for {target}."
+                );
+                return Ok(());
+            }
+            if game.is_some_and(|game| !is_detected_game_alive(game)) {
+                return Err(game_capture_target_closed_message(game));
+            }
+        }
+    }
+
+    Err(game_capture_hook_timeout_message(game))
+}
+
+fn game_capture_target_closed_message(game: Option<&DetectedGame>) -> String {
+    let target = game_capture_target_name(game);
+    format!("OBS game capture stopped because {target} closed.")
+}
+
+fn game_capture_hook_timeout_message(game: Option<&DetectedGame>) -> String {
+    let target = game_capture_target_name(game);
+    format!("OBS game capture did not hook {target}. Keep the game visible and try again.")
+}
+
+fn game_capture_target_name(game: Option<&DetectedGame>) -> &str {
+    let target = game
+        .map(|game| game.game.name.as_str())
+        .filter(|name| !name.trim().is_empty())
+        .unwrap_or("the selected game");
+    target
+}
+
+fn game_capture_target_window(game: Option<&DetectedGame>) -> Option<&str> {
+    game.and_then(|game| game.obs_window.as_deref())
+}
+
+unsafe fn game_capture_source_hooked(obs: &LibObs, source: *mut ObsSource) -> bool {
+    if GAME_CAPTURE_HOOKED.load(Ordering::SeqCst) {
+        return true;
+    }
+
+    let handler = (obs.obs_source_get_proc_handler)(source);
+    if handler.is_null() {
+        return false;
+    }
+
+    let proc_name = CString::new("get_hooked").expect("static string has no nul byte");
+    let mut data = CallData::default();
+    if !(obs.proc_handler_call)(handler, proc_name.as_ptr(), &mut data) {
+        free_calldata(obs, &mut data);
+        return false;
+    }
+
+    let key = CString::new("hooked").expect("static string has no nul byte");
+    let mut hooked = false;
+    let ok = (obs.calldata_get_data)(
+        &data,
+        key.as_ptr(),
+        &mut hooked as *mut bool as *mut c_void,
+        std::mem::size_of::<bool>(),
+    );
+    free_calldata(obs, &mut data);
+    if ok && hooked {
+        GAME_CAPTURE_HOOKED.store(true, Ordering::SeqCst);
+    }
+    ok && hooked
 }
 
 unsafe fn configure_display_capture_source(
     obs: &LibObs,
     data: *mut ObsData,
 ) -> Result<(), String> {
-    #[cfg(target_os = "windows")]
-    {
-        const OBS_DISPLAY_METHOD_DXGI: i64 = 1;
+    const OBS_DISPLAY_METHOD_DXGI: i64 = 1;
 
-        if let Some(display_id) = primary_display_id() {
-            obs.set_string(data, "monitor_id", &display_id)?;
-        }
-        obs.set_int(data, "method", OBS_DISPLAY_METHOD_DXGI)?;
-        obs.set_bool(data, "force_sdr", false)?;
+    if let Some(display_id) = primary_display_id() {
+        obs.set_string(data, "monitor_id", &display_id)?;
     }
+    obs.set_int(data, "method", OBS_DISPLAY_METHOD_DXGI)?;
+    obs.set_bool(data, "force_sdr", false)?;
 
-    obs.set_bool(data, "capture_cursor", true)?;
+    obs.set_bool(data, "capture_cursor", false)?;
     Ok(())
 }
 
@@ -377,7 +544,10 @@ unsafe fn create_video_graph(
     base_dimensions: VideoDimensions,
 ) -> Result<VideoGraph, String> {
     let source = create_video_source(obs, game, source_kind)?;
-    create_scaled_video_scene(obs, source, base_dimensions).map_err(|error| {
+    create_scaled_video_scene(obs, source, source_kind, base_dimensions).map_err(|error| {
+        if source_kind == OutputSourceKind::Game {
+            disconnect_game_capture_signals(obs, source);
+        }
         (obs.obs_source_remove)(source);
         (obs.obs_source_release)(source);
         error
@@ -387,6 +557,7 @@ unsafe fn create_video_graph(
 unsafe fn create_scaled_video_scene(
     obs: &LibObs,
     source: *mut ObsSource,
+    source_kind: OutputSourceKind,
     base_dimensions: VideoDimensions,
 ) -> Result<VideoGraph, String> {
     let name = CString::new("alloy_video_scene").expect("static string has no nul byte");
@@ -420,6 +591,7 @@ unsafe fn create_scaled_video_scene(
         scene,
         source,
         output_source,
+        source_kind,
     })
 }
 
@@ -581,53 +753,59 @@ unsafe fn configure_game_capture_source(
     data: *mut ObsData,
     game: Option<&DetectedGame>,
 ) -> Result<(), String> {
-    if let Some(obs_window) = game.and_then(|game| game.obs_window.as_deref()) {
+    let obs_window = game_capture_target_window(game).unwrap_or("");
+    if game_capture_mode(game) == "window" {
         obs.set_string(data, "capture_mode", "window")?;
-        obs.set_string(data, "window", obs_window)?;
-        obs.set_string(data, "capture_window", obs_window)?;
     } else {
         obs.set_string(data, "capture_mode", "any_fullscreen")?;
-        obs.set_string(data, "window", "")?;
-        obs.set_string(data, "capture_window", "")?;
     }
-    obs.set_string(data, "rgb10a2_space", "srgb")?;
-    obs.set_bool(data, "capture_cursor", true)?;
-    // Keep overlay capture off by default: it adds another hook path that can
-    // interfere with normal Win32 window movement while Alloy is recording or
-    // keeping a replay buffer alive.
-    obs.set_bool(data, "capture_overlays", false)?;
-    obs.set_bool(data, "anti_cheat_hook", true)?;
-    obs.set_bool(data, "sli_compatibility", false)?;
+    obs.set_string(data, "window", obs_window)?;
+    obs.set_string(data, "capture_window", obs_window)?;
+    obs.set_string(data, "rgb10a2_space", game_capture_rgb10a2_space(game))?;
     Ok(())
 }
 
-fn source_kind(settings: &RecordingSettings, _game: Option<&DetectedGame>) -> OutputSourceKind {
-    if settings.record_desktop {
+fn game_capture_rgb10a2_space(game: Option<&DetectedGame>) -> &'static str {
+    if game.is_some_and(|game| game.hdr_enabled) {
+        "2100pq"
+    } else {
+        "srgb"
+    }
+}
+
+fn game_capture_mode(game: Option<&DetectedGame>) -> &'static str {
+    if game.is_some_and(|game| game.fullscreen) {
+        "any_fullscreen"
+    } else if game.and_then(|game| game.obs_window.as_deref()).is_some() {
+        "window"
+    } else {
+        "any_fullscreen"
+    }
+}
+
+fn source_kind(_settings: &RecordingSettings, game: Option<&DetectedGame>) -> OutputSourceKind {
+    if game.is_some_and(|game| game.force_display_capture) {
         OutputSourceKind::Display
     } else {
         OutputSourceKind::Game
     }
 }
 
-fn source_kind_for_focus(settings: &RecordingSettings, _focused: bool) -> OutputSourceKind {
-    if settings.record_desktop {
-        OutputSourceKind::Display
-    } else {
-        OutputSourceKind::Game
-    }
+fn source_kind_for_focus(_settings: &RecordingSettings, _focused: bool) -> OutputSourceKind {
+    OutputSourceKind::Game
 }
 
 fn should_pause_for_focus(
-    settings: &RecordingSettings,
-    game: Option<&DetectedGame>,
-    focused: bool,
+    _settings: &RecordingSettings,
+    _game: Option<&DetectedGame>,
+    _focused: bool,
 ) -> bool {
-    !settings.record_desktop && game.is_some() && !focused
+    false
 }
 
 fn recording_source_from_kind(source_kind: OutputSourceKind) -> RecordingCaptureSource {
     if source_kind == OutputSourceKind::Display {
-        RecordingCaptureSource::Desktop
+        RecordingCaptureSource::Display
     } else {
         RecordingCaptureSource::Game
     }
@@ -688,10 +866,10 @@ fn effective_quality_with_source_dimensions(
             let dimensions = source_dimensions.unwrap_or(DEFAULT_VIDEO_DIMENSIONS);
             (dimensions.width, dimensions.height)
         }
-        RecordingResolution::R720p => (1280, 720),
-        RecordingResolution::R1080p => (1920, 1080),
-        RecordingResolution::R1440p => (2560, 1440),
-        RecordingResolution::R2160p => (3840, 2160),
+        RecordingResolution::R720p => output_dimensions_for_height(source_dimensions, 1280, 720),
+        RecordingResolution::R1080p => output_dimensions_for_height(source_dimensions, 1920, 1080),
+        RecordingResolution::R1440p => output_dimensions_for_height(source_dimensions, 2560, 1440),
+        RecordingResolution::R2160p => output_dimensions_for_height(source_dimensions, 3840, 2160),
     };
     EffectiveQuality {
         width,
@@ -699,6 +877,25 @@ fn effective_quality_with_source_dimensions(
         fps: quality.fps.clamp(30, 120),
         bitrate: quality.bitrate,
     }
+}
+
+fn output_dimensions_for_height(
+    source_dimensions: Option<VideoDimensions>,
+    fallback_width: u32,
+    target_height: u32,
+) -> (u32, u32) {
+    let Some(dimensions) = source_dimensions.filter(|dimensions| dimensions.height > 0) else {
+        return (fallback_width, target_height);
+    };
+
+    let scaled_width = u64::from(target_height) * u64::from(dimensions.width)
+        / u64::from(dimensions.height);
+    (even_dimension(scaled_width), target_height)
+}
+
+fn even_dimension(value: u64) -> u32 {
+    let clamped = value.clamp(2, u64::from(u32::MAX)) as u32;
+    clamped - (clamped % 2)
 }
 
 fn obs_video_config(
@@ -715,6 +912,7 @@ fn obs_video_config(
             height: quality.height,
         },
         fps: quality.fps,
+        hdr_enabled: game.is_some_and(|game| game.hdr_enabled),
     }
 }
 
@@ -723,14 +921,23 @@ fn capture_base_dimensions(
     game: Option<&DetectedGame>,
     source_kind: OutputSourceKind,
 ) -> VideoDimensions {
+    capture_base_dimensions_with_display(settings, game, source_kind, primary_display_dimensions())
+}
+
+fn capture_base_dimensions_with_display(
+    settings: &RecordingSettings,
+    game: Option<&DetectedGame>,
+    source_kind: OutputSourceKind,
+    display_dimensions: Option<VideoDimensions>,
+) -> VideoDimensions {
     if source_kind == OutputSourceKind::Game {
         if let Some(dimensions) = game.and_then(|game| game.capture_dimensions) {
             return dimensions;
         }
     }
 
-    if source_kind == OutputSourceKind::Display {
-        if let Some(dimensions) = primary_display_dimensions() {
+    if source_kind == OutputSourceKind::Game || source_kind == OutputSourceKind::Display {
+        if let Some(dimensions) = display_dimensions {
             return dimensions;
         }
     }

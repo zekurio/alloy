@@ -1,3 +1,6 @@
+#[cfg(not(windows))]
+compile_error!("alloy-recorder is currently Windows-only.");
+
 use std::{
     collections::{HashMap, HashSet},
     env,
@@ -8,13 +11,17 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
     ptr,
-    sync::mpsc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc, Mutex, OnceLock,
+    },
     thread,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use chrono::{SecondsFormat, Utc};
 use libloading::{Library, Symbol};
+use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -22,6 +29,7 @@ const SIDE_CAR_NAME: &str = "alloy-recorder";
 const RECORDER_PROTOCOL_VERSION: u32 = 1;
 const CONTENT_TYPE_MP4: &str = "video/mp4";
 const DISK_REPLAY_PREFIX: &str = "alloy-replay-buffer-";
+const MEMORY_REPLAY_PREFIX: &str = "alloy-replay-";
 const DISK_REPLAY_SEGMENT_SECONDS: u32 = 15;
 
 const VIDEO_FORMAT_NV12: i32 = 2;
@@ -45,8 +53,11 @@ type ObsVideo = c_void;
 type ObsAudio = c_void;
 type ObsModule = c_void;
 type ProcHandler = c_void;
+type SignalHandler = c_void;
+type SignalCallback = unsafe extern "C" fn(*mut c_void, *mut CallData);
 
 include!("sidecar_types.rs");
+include!("sidecar_game_detection.rs");
 include!("sidecar_recorder.rs");
 include!("sidecar_recorder_output.rs");
 include!("sidecar_recorder_cache.rs");

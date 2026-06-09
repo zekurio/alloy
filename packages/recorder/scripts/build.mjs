@@ -78,9 +78,9 @@ function writeManifest() {
     binary: binaryName,
     capabilities: [
       "game-capture",
-      "desktop-capture",
       "audio-devices",
       "audio-applications",
+      "game-processes",
       "replay-buffer",
     ],
   }

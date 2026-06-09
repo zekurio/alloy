@@ -38,7 +38,6 @@ fn capture_identifier() -> String {
     )
 }
 
-#[cfg(windows)]
 fn random_identifier_bytes() -> Option<[u8; 16]> {
     use windows_sys::Win32::Security::Cryptography::{
         BCryptGenRandom, BCRYPT_USE_SYSTEM_PREFERRED_RNG,
@@ -54,17 +53,6 @@ fn random_identifier_bytes() -> Option<[u8; 16]> {
         )
     };
     (status >= 0).then_some(bytes)
-}
-
-#[cfg(not(windows))]
-fn random_identifier_bytes() -> Option<[u8; 16]> {
-    use std::io::Read as _;
-
-    let mut bytes = [0u8; 16];
-    fs::File::open("/dev/urandom")
-        .and_then(|mut file| file.read_exact(&mut bytes))
-        .ok()?;
-    Some(bytes)
 }
 
 fn recording_context_folder(game: Option<&RecordingGame>) -> String {
@@ -86,6 +74,64 @@ fn saved_recording_path(
 struct DiskReplaySegment {
     path: PathBuf,
     modified: SystemTime,
+}
+
+struct MemoryReplayFile {
+    path: PathBuf,
+    modified: SystemTime,
+}
+
+fn newest_memory_replay_file(
+    directory: &Path,
+    modified_after: SystemTime,
+) -> Option<MemoryReplayFile> {
+    memory_replay_files(directory)
+        .into_iter()
+        .filter(|replay| replay.modified >= modified_after)
+        .max_by_key(|replay| replay.modified)
+}
+
+fn memory_replay_files(directory: &Path) -> Vec<MemoryReplayFile> {
+    let Ok(entries) = fs::read_dir(directory) else {
+        return Vec::new();
+    };
+
+    entries
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let path = entry.path();
+            let name = path.file_name()?.to_string_lossy();
+            if !name.starts_with(MEMORY_REPLAY_PREFIX)
+                || name.starts_with(DISK_REPLAY_PREFIX)
+                || !name.ends_with(".mp4")
+            {
+                return None;
+            }
+
+            let metadata = entry.metadata().ok()?;
+            if !metadata.is_file() {
+                return None;
+            }
+
+            Some(MemoryReplayFile {
+                path,
+                modified: metadata.modified().unwrap_or(UNIX_EPOCH),
+            })
+        })
+        .collect()
+}
+
+fn replay_file_modified_at_or_after(path: &Path, modified_after: SystemTime) -> bool {
+    let Ok(metadata) = fs::metadata(path) else {
+        return false;
+    };
+    if !metadata.is_file() {
+        return false;
+    }
+    metadata
+        .modified()
+        .map(|modified| modified >= modified_after)
+        .unwrap_or(false)
 }
 
 fn newest_disk_replay_segment(directory: &Path) -> Option<DiskReplaySegment> {

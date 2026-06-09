@@ -89,7 +89,9 @@ struct SidecarVersion {
 struct RecordingSettings {
     enabled: bool,
     trigger_mode: RecordingTriggerMode,
-    record_desktop: bool,
+    allowed_games: Vec<RecordingAllowedGame>,
+    #[serde(default)]
+    denied_games: Vec<RecordingAllowedGame>,
     audio_mode: RecordingAudioMode,
     audio_devices: Vec<RecordingAudioDeviceSelection>,
     audio_applications: Vec<RecordingAudioApplicationSelection>,
@@ -105,7 +107,31 @@ struct RecordingSettings {
     buffer_storage: RecordingBufferStorage,
     output_folder: String,
     hotkeys: RecordingHotkeys,
-    auto_categorize_games: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct RecordingAllowedGame {
+    id: String,
+    name: String,
+    executable: Option<String>,
+    path: Option<String>,
+    #[serde(default)]
+    window_class: Option<String>,
+    #[serde(default)]
+    icon_url: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct RecordingGameProcess {
+    id: String,
+    name: String,
+    process_id: u32,
+    executable: Option<String>,
+    path: Option<String>,
+    window_title: Option<String>,
+    icon_url: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -168,6 +194,7 @@ struct RecordingGame {
     process_id: u32,
     executable: Option<String>,
     path: Option<String>,
+    icon_url: Option<String>,
     window_title: Option<String>,
     window_class: Option<String>,
     started_at: Option<String>,
@@ -253,7 +280,7 @@ struct RecordingCapture {
 #[allow(dead_code)]
 enum RecordingCaptureSource {
     Game,
-    Desktop,
+    Display,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -355,7 +382,11 @@ struct DetectedGame {
     game: RecordingGame,
     obs_window: Option<String>,
     window_key: String,
+    window_handle: isize,
+    fullscreen: bool,
+    force_display_capture: bool,
     capture_dimensions: Option<VideoDimensions>,
+    hdr_enabled: bool,
     detection_score: i32,
 }
 
@@ -376,6 +407,7 @@ struct ObsVideoConfig {
     base: VideoDimensions,
     output: VideoDimensions,
     fps: u32,
+    hdr_enabled: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -383,6 +415,7 @@ struct VideoGraph {
     scene: *mut ObsScene,
     source: *mut ObsSource,
     output_source: *mut ObsSource,
+    source_kind: OutputSourceKind,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -465,6 +498,7 @@ struct LibObs {
     obs_post_load_modules: unsafe extern "C" fn(),
     obs_reset_audio: unsafe extern "C" fn(*const ObsAudioInfo) -> bool,
     obs_reset_video: unsafe extern "C" fn(*mut ObsVideoInfo) -> i32,
+    obs_set_video_levels: Option<unsafe extern "C" fn(f32, f32)>,
     obs_get_video: unsafe extern "C" fn() -> *mut ObsVideo,
     obs_get_audio: unsafe extern "C" fn() -> *mut ObsAudio,
     obs_enum_encoder_types: unsafe extern "C" fn(usize, *mut *const c_char) -> bool,
@@ -483,6 +517,12 @@ struct LibObs {
     obs_source_remove: unsafe extern "C" fn(*mut ObsSource),
     obs_source_set_audio_mixers: unsafe extern "C" fn(*mut ObsSource, u32),
     obs_source_set_volume: unsafe extern "C" fn(*mut ObsSource, f32),
+    obs_source_get_signal_handler: unsafe extern "C" fn(*const ObsSource) -> *mut SignalHandler,
+    obs_source_get_proc_handler: unsafe extern "C" fn(*const ObsSource) -> *mut ProcHandler,
+    signal_handler_connect:
+        unsafe extern "C" fn(*mut SignalHandler, *const c_char, SignalCallback, *mut c_void),
+    signal_handler_disconnect:
+        unsafe extern "C" fn(*mut SignalHandler, *const c_char, SignalCallback, *mut c_void),
     obs_set_output_source: unsafe extern "C" fn(u32, *mut ObsSource),
     obs_scene_create_private: unsafe extern "C" fn(*const c_char) -> *mut ObsScene,
     obs_scene_release: unsafe extern "C" fn(*mut ObsScene),
@@ -528,6 +568,8 @@ struct LibObs {
     obs_output_set_video_encoder: unsafe extern "C" fn(*mut ObsOutput, *mut ObsEncoder),
     obs_output_set_audio_encoder: unsafe extern "C" fn(*mut ObsOutput, *mut ObsEncoder, usize),
     proc_handler_call: unsafe extern "C" fn(*mut ProcHandler, *const c_char, *mut CallData) -> bool,
+    calldata_get_data:
+        unsafe extern "C" fn(*const CallData, *const c_char, *mut c_void, usize) -> bool,
     calldata_get_string:
         unsafe extern "C" fn(*const CallData, *const c_char, *mut *const c_char) -> bool,
     bfree: unsafe extern "C" fn(*mut c_void),
@@ -538,7 +580,8 @@ impl Default for RecordingSettings {
         Self {
             enabled: false,
             trigger_mode: RecordingTriggerMode::ReplayBuffer,
-            record_desktop: false,
+            allowed_games: Vec::new(),
+            denied_games: Vec::new(),
             audio_mode: RecordingAudioMode::Devices,
             audio_devices: default_audio_devices()
                 .into_iter()
@@ -563,7 +606,6 @@ impl Default for RecordingSettings {
             hotkeys: RecordingHotkeys {
                 save_clip: "F8".to_string(),
             },
-            auto_categorize_games: true,
         }
     }
 }
@@ -600,6 +642,10 @@ impl LibObs {
                     obs_post_load_modules: load_symbol(&library, b"obs_post_load_modules\0")?,
                     obs_reset_audio: load_symbol(&library, b"obs_reset_audio\0")?,
                     obs_reset_video: load_symbol(&library, b"obs_reset_video\0")?,
+                    obs_set_video_levels: load_optional_symbol(
+                        &library,
+                        b"obs_set_video_levels\0",
+                    ),
                     obs_get_video: load_symbol(&library, b"obs_get_video\0")?,
                     obs_get_audio: load_symbol(&library, b"obs_get_audio\0")?,
                     obs_enum_encoder_types: load_symbol(&library, b"obs_enum_encoder_types\0")?,
@@ -616,6 +662,19 @@ impl LibObs {
                         b"obs_source_set_audio_mixers\0",
                     )?,
                     obs_source_set_volume: load_symbol(&library, b"obs_source_set_volume\0")?,
+                    obs_source_get_signal_handler: load_symbol(
+                        &library,
+                        b"obs_source_get_signal_handler\0",
+                    )?,
+                    obs_source_get_proc_handler: load_symbol(
+                        &library,
+                        b"obs_source_get_proc_handler\0",
+                    )?,
+                    signal_handler_connect: load_symbol(&library, b"signal_handler_connect\0")?,
+                    signal_handler_disconnect: load_symbol(
+                        &library,
+                        b"signal_handler_disconnect\0",
+                    )?,
                     obs_set_output_source: load_symbol(&library, b"obs_set_output_source\0")?,
                     obs_scene_create_private: load_symbol(
                         &library,
@@ -672,6 +731,7 @@ impl LibObs {
                         b"obs_output_set_audio_encoder\0",
                     )?,
                     proc_handler_call: load_symbol(&library, b"proc_handler_call\0")?,
+                    calldata_get_data: load_symbol(&library, b"calldata_get_data\0")?,
                     calldata_get_string: load_symbol(&library, b"calldata_get_string\0")?,
                     bfree: load_symbol(&library, b"bfree\0")?,
                     _library: library,
@@ -717,7 +777,6 @@ impl LibObs {
 
     unsafe fn add_paths(&self, runtime_dir: Option<&Path>) {
         let Some(runtime_dir) = runtime_dir else {
-            self.add_common_system_paths();
             return;
         };
 
@@ -748,32 +807,6 @@ impl LibObs {
             ),
         ] {
             self.add_module_path(&bin_path, &data_path);
-        }
-    }
-
-    unsafe fn add_common_system_paths(&self) {
-        for data_path in [
-            Path::new("/usr/share/obs/libobs"),
-            Path::new("/usr/local/share/obs/libobs"),
-        ] {
-            self.add_data_path(data_path);
-        }
-
-        for (bin_path, data_path) in [
-            (
-                Path::new("/usr/lib/obs-plugins"),
-                Path::new("/usr/share/obs/obs-plugins/%module%"),
-            ),
-            (
-                Path::new("/usr/lib64/obs-plugins"),
-                Path::new("/usr/share/obs/obs-plugins/%module%"),
-            ),
-            (
-                Path::new("/usr/local/lib/obs-plugins"),
-                Path::new("/usr/local/share/obs/obs-plugins/%module%"),
-            ),
-        ] {
-            self.add_module_path(bin_path, data_path);
         }
     }
 
@@ -882,6 +915,15 @@ impl LibObs {
             range: VIDEO_RANGE_DEFAULT,
             scale_type: OBS_SCALE_BILINEAR,
         };
+        if video_config.hdr_enabled {
+            if let Some(obs_set_video_levels) = self.obs_set_video_levels {
+                obs_set_video_levels(300.0, 1000.0);
+            } else {
+                eprintln!(
+                    "[{SIDE_CAR_NAME}] OBS HDR video levels are unavailable in this libobs build."
+                );
+            }
+        }
         let code = (self.obs_reset_video)(&mut info);
         if code != OBS_VIDEO_SUCCESS {
             return Err(format!("OBS video reset failed with code {code}."));
