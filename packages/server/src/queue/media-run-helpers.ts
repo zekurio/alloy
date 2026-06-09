@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm"
 
 import { db } from "../db"
 import { ENCODE_DIR } from "../runtime/dirs"
-import { abortEncode } from "./encode-abort"
+import { abortMediaProcessing } from "./media-abort"
 
 export async function ensureClipStillPresent(
   clipId: string,
@@ -19,7 +19,7 @@ export async function ensureClipStillPresent(
     .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
     .limit(1)
   if (row) return
-  throw abortEncode()
+  throw abortMediaProcessing()
 }
 
 export async function makeScratchDir(clipId: string): Promise<string> {

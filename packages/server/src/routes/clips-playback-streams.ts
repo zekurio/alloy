@@ -1,6 +1,4 @@
-import { createReadStream } from "node:fs"
-import { mkdir, mkdtemp, rm, stat } from "node:fs/promises"
-import { Readable } from "node:stream"
+import { mkdir, mkdtemp, rm } from "node:fs/promises"
 
 import type { ClipPlaybackQuality, ClipPrivacy } from "alloy-contracts"
 import { logger } from "alloy-logging"
@@ -8,9 +6,8 @@ import { type Context } from "hono"
 import { stream } from "hono/streaming"
 
 import { parseRequestedLiveCodecs, selectLiveCodec } from "../clips/live-codec"
-import { isOpenGraphCompatibleSource } from "../clips/opengraph"
 import { configStore } from "../config/store"
-import { codecNameFor, encode, liveTranscode, probe } from "../queue/ffmpeg"
+import { liveTranscode, probe } from "../queue/ffmpeg"
 import { ENCODE_DIR } from "../runtime/dirs"
 import { notFound } from "../runtime/http-response"
 import { join } from "../runtime/path"
@@ -25,12 +22,8 @@ type ResolvedStorageObject = NonNullable<
 
 export type OpenGraphClipRow = {
   id: string
-  sourceKey: string | null
-  sourceContentType: string | null
-  sourceVideoCodec: string | null
-  sourceAudioCodec: string | null
-  durationMs: number | null
-  height: number | null
+  openGraphKey: string | null
+  openGraphContentType: string | null
 }
 
 export function mediaCacheControl(privacy: ClipPrivacy): string {
@@ -175,17 +168,20 @@ export async function streamOpenGraphVideo(
   c: Context,
   row: OpenGraphClipRow,
 ): Promise<Response> {
-  const sourceKey = row.sourceKey
-  if (!sourceKey) return notFound(c, "OpenGraph unavailable")
-
-  const source = await clipStorage.resolve(sourceKey)
-  if (!source) return notFound(c, "OpenGraph unavailable")
-
-  if (isOpenGraphCompatibleSource(row)) {
-    return streamResolved(c, source, "video/mp4", "public, max-age=300")
+  const key = row.openGraphKey
+  if (!key || !row.openGraphContentType) {
+    return notFound(c, "OpenGraph unavailable")
   }
 
-  return await streamOnDemandOpenGraphTranscode(c, row)
+  const resolved = await clipStorage.resolve(key)
+  if (!resolved) return notFound(c, "OpenGraph unavailable")
+
+  return streamResolved(
+    c,
+    resolved,
+    row.openGraphContentType,
+    "public, max-age=300",
+  )
 }
 
 export async function streamThumbnail(
@@ -208,78 +204,4 @@ export async function streamThumbnail(
       buf.byteOffset + buf.byteLength,
     ) as ArrayBuffer,
   )
-}
-
-async function streamOnDemandOpenGraphTranscode(
-  c: Context,
-  row: OpenGraphClipRow,
-): Promise<Response> {
-  const sourceKey = row.sourceKey
-  if (!sourceKey) return notFound(c, "OpenGraph unavailable")
-
-  await mkdir(ENCODE_DIR, { recursive: true })
-  const scratchDir = await mkdtemp(`${ENCODE_DIR}/${row.id}-og-`)
-  const sourcePath = join(scratchDir, "source")
-  const outPath = join(scratchDir, "opengraph.mp4")
-
-  try {
-    await clipStorage.downloadToFile(sourceKey, sourcePath)
-    const probed = await probe(sourcePath)
-    const config = configStore.get("encoder")
-    await encode(sourcePath, outPath, {
-      config: {
-        hwaccel: config.hwaccel,
-        encoder: codecNameFor(config.hwaccel, "h264"),
-        quality: 23,
-        audioBitrateKbps: 256,
-        extraInputArgs: "",
-        extraOutputArgs: "",
-        qsvDevice: config.qsvDevice,
-        vaapiDevice: config.vaapiDevice,
-        intelLowPowerH264: config.intelLowPowerH264,
-        intelLowPowerHevc: config.intelLowPowerHevc,
-        tonemapping: config.tonemapping,
-        sourceColor: probed.color,
-      },
-      targetHeight: Math.min(probed.height, 1080),
-      durationMs: probed.durationMs,
-      onProgress: () => undefined,
-      signal: c.req.raw.signal,
-    })
-
-    const outStat = await stat(outPath)
-    c.header("Content-Type", "video/mp4")
-    c.header("Content-Length", String(outStat.size))
-    c.header("Accept-Ranges", "none")
-    c.header("Cache-Control", "public, max-age=300")
-    if (c.req.method === "HEAD") {
-      await rm(scratchDir, { recursive: true, force: true }).catch(
-        () => undefined,
-      )
-      return c.body(null)
-    }
-
-    const file = createReadStream(outPath)
-    const readable = Readable.toWeb(file) as ReadableStream<Uint8Array>
-    return stream(c, async (s) => {
-      try {
-        await pipeReadable(s, readable)
-      } finally {
-        file.destroy()
-        await rm(scratchDir, { recursive: true, force: true }).catch((err) => {
-          logger.warn(
-            `[clips] failed to remove OpenGraph transcode scratch ${scratchDir}:`,
-            err,
-          )
-        })
-      }
-    })
-  } catch (err) {
-    await rm(scratchDir, { recursive: true, force: true }).catch(
-      () => undefined,
-    )
-    if (c.req.raw.signal.aborted) throw err
-    logger.error(`[clips] OpenGraph transcode failed for ${row.id}:`, err)
-    return notFound(c, "OpenGraph unavailable")
-  }
 }

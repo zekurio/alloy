@@ -198,6 +198,43 @@ export interface AdminEncoderCapabilities {
   >
 }
 
+export type AdminScheduledTaskTrigger =
+  | { type: "startup"; delayMs?: number }
+  | { type: "cron"; expression: string }
+
+export type AdminScheduledTaskRunTrigger =
+  | AdminScheduledTaskTrigger["type"]
+  | "manual"
+
+export type AdminScheduledTaskResult = Record<
+  string,
+  boolean | number | string | null
+>
+
+export interface AdminScheduledTaskInfo {
+  id: string
+  name: string
+  description: string
+  triggers: AdminScheduledTaskTrigger[]
+  state: "idle" | "running"
+  currentTrigger: AdminScheduledTaskRunTrigger | null
+  lastStartedAt: string | null
+  lastFinishedAt: string | null
+  lastDurationMs: number | null
+  lastStatus: "success" | "failed" | "cancelled" | null
+  lastError: string | null
+  lastResult: AdminScheduledTaskResult | null
+}
+
+export interface AdminScheduledTasksResponse {
+  tasks: AdminScheduledTaskInfo[]
+}
+
+export interface AdminScheduledTaskRunResponse {
+  started: boolean
+  task: AdminScheduledTaskInfo
+}
+
 export interface AdminUserStorageRow {
   id: string
   name: string
@@ -234,6 +271,7 @@ export interface RuntimeConfig {
   passkeyEnabled: boolean
   requireAuthToBrowse: boolean
   oauthProviders: OAuthProviderConfig[]
+  scheduledTasks: Record<string, AdminScheduledTaskTrigger[]>
   encoder: EncoderConfig
   limits: LimitsConfig
   machineLearning: MachineLearningConfig

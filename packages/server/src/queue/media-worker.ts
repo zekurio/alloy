@@ -8,7 +8,7 @@ import { requiredSql } from "../db/sql"
 import { createNotification } from "../notifications"
 import { errorMessage, isAbortError } from "../runtime/error-message"
 import { deleteScratchUploads } from "../uploads/scratch"
-import { runEncodeInner } from "./encode-run"
+import { runMediaProcessingInner } from "./media-processing-run"
 
 const RETRY_LIMIT = 2
 const ENCODE_LEASE_STALE_INTERVAL = "2 minutes"
@@ -16,7 +16,7 @@ const ENCODE_LEASE_HEARTBEAT_MS = 30_000
 const RETRY_DELAY_INTERVAL = "30 seconds"
 const POLL_INTERVAL_MS = 5000
 
-const activeEncodes = new Map<
+const activeMediaJobs = new Map<
   string,
   { abort: AbortController; done: Promise<void> }
 >()
@@ -28,26 +28,26 @@ let pumpPromise: Promise<void> | null = null
 let started = false
 let stopping = false
 
-export async function cancelEncode(clipId: string): Promise<void> {
-  const entry = activeEncodes.get(clipId)
+export async function cancelClipMediaProcessing(clipId: string): Promise<void> {
+  const entry = activeMediaJobs.get(clipId)
   if (!entry) return
   entry.abort.abort()
   await entry.done
 }
 
-export function enqueueEncode(clipId: string): void {
+export function enqueueClipMediaProcessing(clipId: string): void {
   queuedClipIds.add(clipId)
   schedulePump(0)
 }
 
-export async function startEncodeWorker(): Promise<void> {
+export async function startClipMediaWorker(): Promise<void> {
   if (started) return
   started = true
   stopping = false
   schedulePump(0)
 }
 
-export async function stopEncodeWorker(): Promise<void> {
+export async function stopClipMediaWorker(): Promise<void> {
   if (!started) return
   started = false
   stopping = true
@@ -55,7 +55,7 @@ export async function stopEncodeWorker(): Promise<void> {
     clearTimeout(wakeTimer)
     wakeTimer = null
   }
-  for (const entry of activeEncodes.values()) {
+  for (const entry of activeMediaJobs.values()) {
     entry.abort.abort()
   }
   await Promise.allSettled(runningJobs)
@@ -75,7 +75,7 @@ async function pump(): Promise<void> {
   if (pumpPromise) return pumpPromise
   pumpPromise = pumpInner()
     .catch((err) => {
-      logger.error("[queue] encode worker pump failed:", err)
+      logger.error("[queue] clip media worker pump failed:", err)
       schedulePump(POLL_INTERVAL_MS)
     })
     .finally(() => {
@@ -85,8 +85,8 @@ async function pump(): Promise<void> {
 }
 
 async function pumpInner(): Promise<void> {
-  // No concurrency cap: encodes are rare (they only run when a clip needs a
-  // lower-bitrate variant), so we start every pending clip as we find it.
+  // No concurrency cap: durable media processing is expected to be rare, so we
+  // start every pending clip as we find it.
   // `processClip` adds the id to `inFlightClipIds` synchronously, so the next
   // `nextClipId()` won't hand back a clip that's already encoding.
   while (started && !stopping) {
@@ -137,16 +137,16 @@ async function nextClipId(): Promise<string | null> {
 async function processClip(clipId: string): Promise<void> {
   inFlightClipIds.add(clipId)
   try {
-    await runEncode(clipId)
+    await runClipMediaProcessing(clipId)
   } catch (err) {
     if (isAbortError(err)) return
-    logger.error(`[queue] encode job failed for ${clipId}:`, err)
+    logger.error(`[queue] clip media job failed for ${clipId}:`, err)
   } finally {
     inFlightClipIds.delete(clipId)
   }
 }
 
-async function runEncode(clipId: string): Promise<void> {
+async function runClipMediaProcessing(clipId: string): Promise<void> {
   const runId = crypto.randomUUID()
   const [row] = await db
     .update(clip)
@@ -167,22 +167,22 @@ async function runEncode(clipId: string): Promise<void> {
   const done = new Promise<void>((r) => {
     resolveDone = r
   })
-  activeEncodes.set(clipId, { abort, done })
+  activeMediaJobs.set(clipId, { abort, done })
   const stopHeartbeat = startEncodeLeaseHeartbeat(clipId, runId, abort)
 
   try {
-    await runEncodeInner(clipId, row, runId, abort.signal)
+    await runMediaProcessingInner(clipId, row, runId, abort.signal)
   } catch (err) {
     if (isAbortError(err)) {
       if (stopping) {
         await releaseEncodeLease(
           clipId,
           runId,
-          "Encode interrupted by shutdown",
+          "Clip media processing interrupted by shutdown",
         )
       }
     } else {
-      const reason = errorMessage(err, "Encode failed")
+      const reason = errorMessage(err, "Clip media processing failed")
       if (row.encodeAttempt > RETRY_LIMIT) {
         await markFailedUnlessReady(clipId, reason)
       } else {
@@ -192,7 +192,7 @@ async function runEncode(clipId: string): Promise<void> {
     throw err
   } finally {
     stopHeartbeat()
-    activeEncodes.delete(clipId)
+    activeMediaJobs.delete(clipId)
     resolveDone()
   }
 }

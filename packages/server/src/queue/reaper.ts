@@ -6,7 +6,7 @@ import { publishClipRemove } from "../clips/events"
 import { configStore } from "../config/store"
 import { db } from "../db"
 import { deleteScratchUpload, deleteScratchUploads } from "../uploads/scratch"
-import { enqueueEncode } from "./encode-worker"
+import { enqueueClipMediaProcessing } from "./media-worker"
 
 const UPLOADED_MAX_AGE_INTERVAL = "24 hours"
 const REAP_INTERVAL_MS = 10 * 60 * 1000
@@ -121,6 +121,6 @@ async function requeueStuckProcessing(): Promise<void> {
     )
 
   for (const row of stuck) {
-    enqueueEncode(row.id)
+    enqueueClipMediaProcessing(row.id)
   }
 }

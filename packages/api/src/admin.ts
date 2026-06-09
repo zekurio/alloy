@@ -5,6 +5,10 @@ import type {
   AdminMachineLearningConfig,
   AdminOAuthProvider,
   AdminRuntimeConfig,
+  AdminScheduledTaskInfo,
+  AdminScheduledTaskRunResponse,
+  AdminScheduledTasksResponse,
+  AdminScheduledTaskTrigger,
   AdminUpdateUserInput,
   AdminUsersResponse,
   AdminUserStorageRow,
@@ -17,6 +21,9 @@ import {
   validateAdminEncoderCapabilities,
   validateAdminReEncodeResponse,
   validateAdminRuntimeConfig,
+  validateAdminScheduledTaskInfo,
+  validateAdminScheduledTaskRunResponse,
+  validateAdminScheduledTasksResponse,
   validateAdminUsersResponse,
   validateAdminUserStorageRow,
   validateRuntimeConfigExport,
@@ -49,6 +56,11 @@ export type {
   AdminMachineLearningConfig,
   AdminOAuthProvider,
   AdminRuntimeConfig,
+  AdminScheduledTaskResult,
+  AdminScheduledTaskInfo,
+  AdminScheduledTaskRunResponse,
+  AdminScheduledTasksResponse,
+  AdminScheduledTaskTrigger,
   AdminUpdateUserInput,
   AdminUsersResponse,
   AdminUserStorageRow,
@@ -172,6 +184,47 @@ async function reEncodeAllClips(
   return readJsonOrThrow(res, validateAdminReEncodeResponse)
 }
 
+async function fetchScheduledTasks(
+  context: ApiContext,
+): Promise<AdminScheduledTasksResponse> {
+  const res = await context.rpc.api.admin["scheduled-tasks"].$get()
+  return readJsonOrThrow(res, validateAdminScheduledTasksResponse)
+}
+
+async function fetchScheduledTask(
+  context: ApiContext,
+  taskId: string,
+): Promise<AdminScheduledTaskInfo> {
+  const res = await context.rpc.api.admin["scheduled-tasks"][":id"].$get({
+    param: { id: taskId },
+  })
+  return readJsonOrThrow(res, validateAdminScheduledTaskInfo)
+}
+
+async function runScheduledTask(
+  context: ApiContext,
+  taskId: string,
+): Promise<AdminScheduledTaskRunResponse> {
+  const res = await context.rpc.api.admin["scheduled-tasks"][":id"].run.$post({
+    param: { id: taskId },
+  })
+  return readJsonOrThrow(res, validateAdminScheduledTaskRunResponse)
+}
+
+async function updateScheduledTaskTriggers(
+  context: ApiContext,
+  taskId: string,
+  triggers: AdminScheduledTaskTrigger[],
+): Promise<AdminScheduledTaskInfo> {
+  const res = await context.rpc.api.admin["scheduled-tasks"][
+    ":id"
+  ].triggers.$put({
+    param: { id: taskId },
+    json: { triggers },
+  })
+  return readJsonOrThrow(res, validateAdminScheduledTaskInfo)
+}
+
 async function regenerateLoginSplash(
   context: ApiContext,
 ): Promise<AdminRuntimeConfig> {
@@ -253,6 +306,15 @@ export function createAdminApi(context: ApiContext) {
     uploadLoginSplash: (file: File) => uploadLoginSplash(context, file),
     fetchEncoderCapabilities: () => fetchEncoderCapabilities(context),
     reEncodeAllClips: () => reEncodeAllClips(context),
+    fetchScheduledTasks: () => fetchScheduledTasks(context),
+    fetchScheduledTask: (taskId: string) => fetchScheduledTask(context, taskId),
+    runScheduledTask: (taskId: string) => runScheduledTask(context, taskId),
+    updateScheduledTaskTriggers: (
+      taskId: string,
+      triggers: AdminScheduledTaskTrigger[],
+    ) => updateScheduledTaskTriggers(context, taskId, triggers),
+    runClipStorageMaintenance: () =>
+      runScheduledTask(context, "clip-storage-maintenance"),
     fetchUsers: () => fetchUsers(context),
     createUser: (input: AdminCreateUserInput) => createUser(context, input),
     updateUser: (userId: string, input: AdminUpdateUserInput) =>

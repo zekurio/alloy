@@ -3,7 +3,7 @@ import { logger } from "alloy-logging"
 import { eq } from "drizzle-orm"
 
 import { db } from "../db"
-import { cancelEncode } from "../queue/encode-worker"
+import { cancelClipMediaProcessing } from "../queue/media-worker"
 import { clipStorage } from "../storage"
 import { deleteScratchUploads } from "../uploads/scratch"
 import { publishClipRemove } from "./events"
@@ -11,7 +11,7 @@ import { publishClipRemove } from "./events"
 export async function deleteClipRowAndAssets(
   row: typeof clip.$inferSelect,
 ): Promise<void> {
-  await cancelEncode(row.id)
+  await cancelClipMediaProcessing(row.id)
   const tickets = await db
     .select({ storageKey: clipUploadTicket.storageKey })
     .from(clipUploadTicket)

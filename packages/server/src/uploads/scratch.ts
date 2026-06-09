@@ -6,7 +6,7 @@ import { logger } from "alloy-logging"
 import { secretStore } from "../config/secret-store"
 import { env } from "../env"
 import { ENCODE_DIR } from "../runtime/dirs"
-import { dirname, relative, resolve } from "../runtime/path"
+import { dirname, isAbsolute, relative, resolve } from "../runtime/path"
 import { mintFsUploadTicket } from "../storage/fs-upload-token"
 
 export function clipScratchUploadKey(
@@ -20,7 +20,7 @@ export function scratchUploadPath(key: string): string {
   const root = scratchRoot()
   const target = resolve(root, key)
   const rel = relative(root, target)
-  if (rel.startsWith("..") || rel.startsWith("/") || rel === "") {
+  if (rel.startsWith("..") || isAbsolute(rel) || rel === "") {
     throw new Error("Scratch upload key escapes scratch root")
   }
   return target
@@ -92,7 +92,7 @@ async function removeEmptyScratchParents(
   let path = startPath
   while (path !== root) {
     const rel = relative(root, path)
-    if (rel.startsWith("..") || rel.startsWith("/") || rel === "") return
+    if (rel.startsWith("..") || isAbsolute(rel) || rel === "") return
     try {
       await rmdir(path)
     } catch (err) {

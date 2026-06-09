@@ -172,6 +172,13 @@ test("buildEncodeArgs rounds odd software target heights down", () => {
   ])
 })
 
+test("buildEncodeArgs maps primary video and optional audio only", () => {
+  const args = encodeArgs("libx264")
+
+  assertIncludes(args, ["-i", "source.mkv", "-map", "0:v:0", "-map", "0:a?"])
+  assertIncludes(args, ["-sn", "-dn", "-vf"])
+})
+
 test("buildLiveTranscodeArgs applies Jellyfin-style QSV rate control", () => {
   const args = liveArgs("h264_qsv", { hwaccel: "qsv" })
 

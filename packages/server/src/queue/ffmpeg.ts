@@ -19,6 +19,7 @@ export {
   codecNameFor,
   type LiveHlsOpts,
   type ResolvedEncoderConfig,
+  type SourceColorInfo,
 } from "./ffmpeg-args"
 export { probe } from "./ffmpeg-probe"
 

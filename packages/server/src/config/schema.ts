@@ -14,6 +14,7 @@ import {
 import { z } from "zod"
 
 import { randomBase64Url } from "../runtime/crypto"
+import { isValidCronExpression } from "../scheduled-tasks/cron"
 import { OAuthProvidersSchema } from "./oauth-schema"
 
 const DEFAULT_MACHINE_LEARNING_URL =
@@ -167,6 +168,34 @@ const AppearanceConfigSchema = z.object({
   ),
 })
 
+const ScheduledTaskTriggerSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("startup"),
+    delayMs: z
+      .number()
+      .int()
+      .min(0)
+      .max(24 * 60 * 60 * 1000)
+      .optional(),
+  }),
+  z.object({
+    type: z.literal("cron"),
+    expression: z
+      .string()
+      .trim()
+      .min(1)
+      .max(128)
+      .refine(isValidCronExpression, "Invalid cron expression"),
+  }),
+])
+
+const ScheduledTasksConfigSchema = z
+  .record(
+    z.string().trim().min(1).max(128),
+    z.array(ScheduledTaskTriggerSchema).max(16),
+  )
+  .default({})
+
 export const RuntimeConfigSchema = z.object({
   runtimeConfigVersion: z
     .literal(RUNTIME_CONFIG_VERSION)
@@ -176,6 +205,7 @@ export const RuntimeConfigSchema = z.object({
   passkeyEnabled: z.boolean().default(true),
   requireAuthToBrowse: z.boolean().default(true),
   oauthProviders: OAuthProvidersSchema.default([]),
+  scheduledTasks: ScheduledTasksConfigSchema,
   encoder: EncoderConfigSchema.default(EncoderConfigInnerSchema.parse({})),
   limits: LimitsConfigSchema.default(LimitsConfigSchema.parse({})),
   machineLearning: MachineLearningConfigSchema.default(
@@ -202,6 +232,9 @@ export const MachineLearningConfigPatchSchema =
     gameClassifier: GameClassifierModelConfigSchema.partial().optional(),
   })
 export const AppearanceConfigPatchSchema = AppearanceConfigSchema.partial()
+export const ScheduledTaskTriggersSchema = z
+  .array(ScheduledTaskTriggerSchema)
+  .max(16)
 
 const DEFAULT_CONFIG: RuntimeConfig = RuntimeConfigSchema.parse({})
 

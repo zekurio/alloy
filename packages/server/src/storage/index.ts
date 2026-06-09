@@ -29,4 +29,4 @@ export const dataStorage: StorageDriver = new FsStorageDriver({
 })
 
 export type { StorageDriver, UploadTicket, UserAssetRole } from "./driver"
-export { clipAssetKey, userAssetKey } from "./driver"
+export { clipAssetDir, clipAssetKey, userAssetKey } from "./driver"

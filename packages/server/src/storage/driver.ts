@@ -76,7 +76,7 @@ export interface StorageDriver {
   }): Promise<{ size: number }>
 }
 
-function clipAssetDir(clipId: string): string {
+export function clipAssetDir(clipId: string): string {
   const hex = clipId.replace(/-/g, "")
   const aa = hex.slice(0, 2)
   const bb = hex.slice(2, 4)
@@ -85,11 +85,11 @@ function clipAssetDir(clipId: string): string {
   return `${aa}/${bb}/${clipId}`
 }
 
-type ClipAssetRole = "source" | "video" | "thumb" | "thumb-small"
+type ClipAssetRole = "source" | "opengraph" | "thumb" | "thumb-small"
 
 const CLIP_ASSET_EXTENSION: Record<ClipAssetRole, string> = {
   source: "",
-  video: ".mp4",
+  opengraph: ".mp4",
   thumb: ".webp",
   "thumb-small": ".webp",
 }

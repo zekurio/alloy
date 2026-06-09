@@ -13,6 +13,7 @@ import {
   validateArray,
   validateBoolean,
   validateEnumString,
+  validateNonNegativeInteger,
   validateNullablePositiveInteger,
   validateNullableRequiredString,
   validateNumber,
@@ -47,6 +48,8 @@ const ADMIN_ENCODER_BOOLEAN_FIELDS = [
   `intel${"LowPower"}H264`,
   `intel${"LowPower"}Hevc`,
 ] as const
+const SCHEDULED_TASK_TRIGGER_TYPES = new Set(["startup", "cron"])
+
 function validateRuntimeOAuthProvider(value: unknown, label: string) {
   const provider = objectRecord(value, label)
   for (const key of ["providerId", "displayName", "clientId"] as const) {
@@ -258,6 +261,42 @@ function validateAdminAppearanceConfig(value: unknown) {
   validateBackdropTreatment(loginSplash, "admin login splash config")
 }
 
+function validateScheduledTaskTrigger(value: unknown, label: string) {
+  const trigger = objectRecord(value, label)
+  validateEnumString(
+    trigger.type,
+    SCHEDULED_TASK_TRIGGER_TYPES,
+    `Invalid ${label}: type is invalid`,
+  )
+  if (trigger.delayMs !== undefined) {
+    validateNonNegativeInteger(
+      trigger.delayMs,
+      `Invalid ${label}: delayMs must be non-negative`,
+    )
+  }
+  if (trigger.type === "cron") {
+    validateRequiredString(
+      trigger.expression,
+      `Invalid ${label}: expression is required`,
+    )
+  }
+}
+
+function validateScheduledTasksConfig(value: unknown, label: string) {
+  const scheduledTasks = objectRecord(value, `${label} scheduled tasks`)
+  for (const [taskId, triggers] of Object.entries(scheduledTasks)) {
+    if (!taskId.trim()) {
+      throw new Error(`Invalid ${label} config: scheduled task id is empty`)
+    }
+    validateArray(
+      triggers,
+      `Invalid ${label} config: scheduled task triggers must be an array`,
+    ).forEach((trigger) =>
+      validateScheduledTaskTrigger(trigger, `${label} scheduled task trigger`),
+    )
+  }
+}
+
 /**
  * Shared, secret-free fields common to the exported config and the admin
  * response. Neither shape carries secret values — secrets live server-side.
@@ -287,6 +326,7 @@ function validateRuntimeConfigFields(
   ).map((provider) =>
     validateRuntimeOAuthProvider(provider, `${label} OAuth provider`),
   )
+  validateScheduledTasksConfig(config.scheduledTasks, label)
   validateAdminEncoderConfig(config.encoder)
   validateAdminLimitsConfig(config.limits)
   validateAdminMachineLearningConfig(config.machineLearning)

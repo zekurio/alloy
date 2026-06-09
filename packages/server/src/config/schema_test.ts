@@ -49,6 +49,38 @@ test("RuntimeConfigSchema defaults Intel low-power encoder options off", () => {
     parsed.encoder.tonemapping.vpp.contrast === 1,
     "VPP tone mapping contrast should default to 1",
   )
+  assert(
+    Object.keys(parsed.scheduledTasks).length === 0,
+    "scheduled task overrides should default empty",
+  )
+})
+
+test("RuntimeConfigSchema accepts scheduled task cron triggers", () => {
+  const parsed = RuntimeConfigSchema.parse({
+    runtimeConfigVersion: 1,
+    scheduledTasks: {
+      "clip-storage-maintenance": [
+        { type: "startup", delayMs: 60_000 },
+        { type: "cron", expression: "0 3 * * *" },
+      ],
+    },
+  })
+
+  assert(
+    parsed.scheduledTasks["clip-storage-maintenance"]?.[1]?.type === "cron",
+    "cron trigger should parse",
+  )
+})
+
+test("RuntimeConfigSchema rejects invalid scheduled task cron triggers", () => {
+  const parsed = RuntimeConfigSchema.safeParse({
+    runtimeConfigVersion: 1,
+    scheduledTasks: {
+      "clip-storage-maintenance": [{ type: "cron", expression: "0 0 0 0" }],
+    },
+  })
+
+  assert(!parsed.success, "invalid cron should not parse")
 })
 
 test("EncoderConfigPatchSchema accepts Intel low-power encoder booleans", () => {

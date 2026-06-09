@@ -23,6 +23,7 @@
     "alloy-contracts": "workspace:*",
     "alloy-db": "workspace:*",
     "alloy-logging": "workspace:*",
+    "croner": "10.0.1",
     "drizzle-orm": "0.45.2",
     "hono": "4.12.23",
     "openid-client": "6.8.2",
