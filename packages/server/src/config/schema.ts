@@ -177,6 +177,12 @@ const ScheduledTaskTriggerSchema = z.discriminatedUnion("type", [
       .min(0)
       .max(24 * 60 * 60 * 1000)
       .optional(),
+    jitterMs: z
+      .number()
+      .int()
+      .min(0)
+      .max(24 * 60 * 60 * 1000)
+      .optional(),
   }),
   z.object({
     type: z.literal("cron"),
@@ -186,6 +192,12 @@ const ScheduledTaskTriggerSchema = z.discriminatedUnion("type", [
       .min(1)
       .max(128)
       .refine(isValidCronExpression, "Invalid cron expression"),
+    jitterMs: z
+      .number()
+      .int()
+      .min(0)
+      .max(24 * 60 * 60 * 1000)
+      .optional(),
   }),
 ])
 

@@ -48,6 +48,7 @@ const CRON_PRESETS = [
 ] as const
 const CUSTOM_PRESET = "custom"
 const STARTUP_DELAY_MAX_SECONDS = 24 * 60 * 60
+const JITTER_MAX_SECONDS = 24 * 60 * 60
 
 type CronPresetId = (typeof CRON_PRESETS)[number]["id"] | typeof CUSTOM_PRESET
 type Drafts = Record<string, AdminScheduledTaskTrigger[]>
@@ -111,6 +112,7 @@ function normalizeTriggers(
       next.push({
         type: "startup",
         delayMs: Math.max(0, Math.round(trigger.delayMs ?? 0)),
+        jitterMs: Math.max(0, Math.round(trigger.jitterMs ?? 0)),
       })
       continue
     }
@@ -120,7 +122,11 @@ function normalizeTriggers(
       toast.error("Cron expression is required.")
       return null
     }
-    next.push({ type: "cron", expression })
+    next.push({
+      type: "cron",
+      expression,
+      jitterMs: Math.max(0, Math.round(trigger.jitterMs ?? 0)),
+    })
   }
   return next
 }
@@ -200,13 +206,13 @@ function TriggerRow({
   const rowId = `${id}-trigger-${index}`
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <span className="text-foreground-dim w-16 shrink-0 text-xs">
         {trigger.type === "startup" ? "Startup" : "Schedule"}
       </span>
 
       {trigger.type === "startup" ? (
-        <div className="flex flex-1 items-center gap-2">
+        <div className="flex min-w-56 flex-1 items-center gap-2">
           <NumberInput
             id={`${rowId}-delay`}
             aria-label="Delay after startup (seconds)"
@@ -216,7 +222,7 @@ function TriggerRow({
             value={Math.round((trigger.delayMs ?? 0) / 1_000)}
             disabled={disabled}
             onChange={(value) =>
-              onChange({ type: "startup", delayMs: value * 1_000 })
+              onChange({ ...trigger, delayMs: value * 1_000 })
             }
           />
           <span className="text-foreground-dim text-xs">
@@ -224,12 +230,12 @@ function TriggerRow({
           </span>
         </div>
       ) : (
-        <div className="flex flex-1 items-center gap-2">
+        <div className="flex min-w-72 flex-1 items-center gap-2">
           <Select
             value={presetIdForExpression(trigger.expression)}
             onValueChange={(value) => {
               const expression = expressionForPreset(value as CronPresetId)
-              if (expression) onChange({ type: "cron", expression })
+              if (expression) onChange({ ...trigger, expression })
             }}
             disabled={disabled}
           >
@@ -254,11 +260,28 @@ function TriggerRow({
             placeholder="0 3 * * *"
             disabled={disabled}
             onChange={(e) =>
-              onChange({ type: "cron", expression: e.target.value })
+              onChange({ ...trigger, expression: e.target.value })
             }
           />
         </div>
       )}
+
+      <div className="flex items-center gap-2">
+        <span className="text-foreground-dim text-xs">Jitter</span>
+        <NumberInput
+          id={`${rowId}-jitter`}
+          aria-label="Jitter (seconds)"
+          className="w-24"
+          min={0}
+          max={JITTER_MAX_SECONDS}
+          value={Math.round((trigger.jitterMs ?? 0) / 1_000)}
+          disabled={disabled}
+          onChange={(value) =>
+            onChange({ ...trigger, jitterMs: value * 1_000 })
+          }
+        />
+        <span className="text-foreground-dim text-xs">sec</span>
+      </div>
 
       <Button
         type="button"
@@ -514,7 +537,11 @@ export function ScheduledTasksCard() {
       const response = await api.admin.runScheduledTask(task.id)
       setScheduledTaskCache(queryClient, response.task)
       toast.success(
-        response.started ? "Scheduled task started" : "Task is already running",
+        response.started
+          ? "Scheduled task started"
+          : response.queued
+            ? "Scheduled task queued"
+            : "Task is already running",
       )
     } catch (cause) {
       toast.error(errorMessage(cause, "Couldn't start scheduled task"))

@@ -1,7 +1,7 @@
 import { ACCEPTED_IMAGE_CONTENT_TYPES } from "alloy-contracts"
 import { clip } from "alloy-db/schema"
 import { inArray } from "drizzle-orm"
-import { Hono } from "hono"
+import { Hono, type Context } from "hono"
 import { z } from "zod"
 
 import { requireAdmin } from "../auth/session"
@@ -28,6 +28,7 @@ import {
 import {
   scheduledTaskInfoById,
   scheduledTaskInfos,
+  type ScheduledTaskPayload,
   triggerScheduledTask,
   updateScheduledTaskTriggers,
 } from "../scheduled-tasks"
@@ -98,6 +99,10 @@ const ScheduledTaskParam = z.object({
 
 const ScheduledTaskTriggersUpdate = z.object({
   triggers: ScheduledTaskTriggersSchema,
+})
+
+const ScheduledTaskRunBody = z.object({
+  payload: z.record(z.string(), z.unknown()).optional(),
 })
 
 export const adminRoute = new Hono()
@@ -367,21 +372,27 @@ export const adminRoute = new Hono()
   .get("/encoder/capabilities", async (c) => {
     return c.json(await getEncoderCapabilities())
   })
-  .get("/scheduled-tasks", (c) => {
-    return c.json({ tasks: scheduledTaskInfos() })
+  .get("/scheduled-tasks", async (c) => {
+    return c.json({ tasks: await scheduledTaskInfos() })
   })
-  .get("/scheduled-tasks/:id", zValidator("param", ScheduledTaskParam), (c) => {
-    const { id } = c.req.valid("param")
-    const task = scheduledTaskInfoById(id)
-    if (!task) return notFound(c, "Unknown scheduled task")
-    return c.json(task)
-  })
+  .get(
+    "/scheduled-tasks/:id",
+    zValidator("param", ScheduledTaskParam),
+    async (c) => {
+      const { id } = c.req.valid("param")
+      const task = await scheduledTaskInfoById(id)
+      if (!task) return notFound(c, "Unknown scheduled task")
+      return c.json(task)
+    },
+  )
   .post(
     "/scheduled-tasks/:id/run",
     zValidator("param", ScheduledTaskParam),
-    (c) => {
+    async (c) => {
       const { id } = c.req.valid("param")
-      const result = triggerScheduledTask(id)
+      const payload = await readScheduledTaskPayload(c)
+      if ("response" in payload) return payload.response
+      const result = await triggerScheduledTask(id, payload.payload)
       if (!result) return notFound(c, "Unknown scheduled task")
       return c.json(result, result.started ? 202 : 200)
     },
@@ -390,10 +401,10 @@ export const adminRoute = new Hono()
     "/scheduled-tasks/:id/triggers",
     zValidator("param", ScheduledTaskParam),
     zValidator("json", ScheduledTaskTriggersUpdate),
-    (c) => {
+    async (c) => {
       const { id } = c.req.valid("param")
       const { triggers } = c.req.valid("json")
-      const task = updateScheduledTaskTriggers(id, triggers)
+      const task = await updateScheduledTaskTriggers(id, triggers)
       if (!task) return notFound(c, "Unknown scheduled task")
       return c.json(task)
     },
@@ -433,3 +444,25 @@ export const adminRoute = new Hono()
       rows.length > RE_ENCODE_BATCH_LIMIT,
     )
   })
+
+async function readScheduledTaskPayload(
+  c: Context,
+): Promise<{ payload: ScheduledTaskPayload | null } | { response: Response }> {
+  const contentType = c.req.header("content-type")
+  if (!contentType?.toLowerCase().includes("application/json")) {
+    return { payload: null }
+  }
+
+  let body: unknown
+  try {
+    body = await c.req.json()
+  } catch {
+    return { response: badRequest(c, "Invalid JSON.") }
+  }
+
+  const parsed = ScheduledTaskRunBody.safeParse(body ?? {})
+  if (!parsed.success) {
+    return { response: badRequest(c, "Invalid scheduled task payload.") }
+  }
+  return { payload: parsed.data.payload ?? null }
+}

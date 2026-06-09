@@ -1,4 +1,3 @@
-import { clipMaintenanceTask } from "./clip-maintenance"
 import {
   registerScheduledTasks,
   scheduledTaskInfoById,
@@ -8,8 +7,9 @@ import {
   triggerScheduledTask,
   updateScheduledTaskTriggers,
 } from "./manager"
+import { scheduledTasks } from "./registry"
 
-registerScheduledTasks([clipMaintenanceTask])
+registerScheduledTasks(scheduledTasks)
 
 export {
   scheduledTaskInfoById,
@@ -21,6 +21,7 @@ export {
 }
 export type {
   ScheduledTaskInfo,
+  ScheduledTaskPayload,
   ScheduledTaskResult,
   ScheduledTaskRunResponse,
   ScheduledTaskTrigger,

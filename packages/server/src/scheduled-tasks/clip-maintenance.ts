@@ -19,6 +19,8 @@ import type { ScheduledTask, ScheduledTaskResult } from "./types"
 
 const CLIP_MAINTENANCE_CRON = "0 */6 * * *"
 const CLIP_MAINTENANCE_STARTUP_DELAY_MS = 60 * 1000
+const CLIP_MAINTENANCE_STARTUP_JITTER_MS = 30 * 1000
+const CLIP_MAINTENANCE_CRON_JITTER_MS = 120 * 1000
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const HEX_PAIR_RE = /^[0-9a-f]{2}$/i
@@ -37,8 +39,16 @@ export const clipMaintenanceTask: ScheduledTask = {
   name: "Clip storage maintenance",
   description: "Cleans clip folders and ensures stored OpenGraph variants.",
   triggers: [
-    { type: "startup", delayMs: CLIP_MAINTENANCE_STARTUP_DELAY_MS },
-    { type: "cron", expression: CLIP_MAINTENANCE_CRON },
+    {
+      type: "startup",
+      delayMs: CLIP_MAINTENANCE_STARTUP_DELAY_MS,
+      jitterMs: CLIP_MAINTENANCE_STARTUP_JITTER_MS,
+    },
+    {
+      type: "cron",
+      expression: CLIP_MAINTENANCE_CRON,
+      jitterMs: CLIP_MAINTENANCE_CRON_JITTER_MS,
+    },
   ],
   run: async ({ signal }): Promise<ScheduledTaskResult> => {
     const cleanup = await cleanupClipFolders(signal)

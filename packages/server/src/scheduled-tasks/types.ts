@@ -1,5 +1,6 @@
 import type {
   AdminScheduledTaskInfo,
+  AdminScheduledTaskPayload,
   AdminScheduledTaskResult,
   AdminScheduledTaskRunResponse,
   AdminScheduledTaskRunTrigger,
@@ -10,11 +11,14 @@ export type ScheduledTaskTrigger = AdminScheduledTaskTrigger
 
 export type ScheduledTaskRunTrigger = AdminScheduledTaskRunTrigger
 
+export type ScheduledTaskPayload = AdminScheduledTaskPayload
+
 export type ScheduledTaskResult = AdminScheduledTaskResult
 
 export type ScheduledTaskContext = {
   signal: AbortSignal
   trigger: ScheduledTaskRunTrigger
+  payload: ScheduledTaskPayload | null
 }
 
 export type ScheduledTask = {
@@ -22,6 +26,8 @@ export type ScheduledTask = {
   name: string
   description: string
   triggers: ScheduledTaskTrigger[]
+  timeoutMs?: number
+  overlap?: "skip" | "queue-one"
   run: (context: ScheduledTaskContext) => Promise<ScheduledTaskResult>
 }
 

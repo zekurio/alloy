@@ -199,12 +199,14 @@ export interface AdminEncoderCapabilities {
 }
 
 export type AdminScheduledTaskTrigger =
-  | { type: "startup"; delayMs?: number }
-  | { type: "cron"; expression: string }
+  | { type: "startup"; delayMs?: number; jitterMs?: number }
+  | { type: "cron"; expression: string; jitterMs?: number }
 
 export type AdminScheduledTaskRunTrigger =
   | AdminScheduledTaskTrigger["type"]
   | "manual"
+
+export type AdminScheduledTaskPayload = Record<string, unknown>
 
 export type AdminScheduledTaskResult = Record<
   string,
@@ -232,6 +234,7 @@ export interface AdminScheduledTasksResponse {
 
 export interface AdminScheduledTaskRunResponse {
   started: boolean
+  queued: boolean
   task: AdminScheduledTaskInfo
 }
 
