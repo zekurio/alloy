@@ -9,8 +9,8 @@ import {
   configureRecordingHotkeys,
   unregisterRecordingHotkeys,
 } from "./recording-hotkeys"
-import { destroyRecordingHud } from "./recording-hud"
-import { getLastServerUrl } from "./server-store"
+import { destroyRecordingNotificationSoundPlayer } from "./recording-notification-sounds"
+import { getStartupServerUrl } from "./server-store"
 import { hasValidSession } from "./session"
 import { createAlloyTray } from "./tray"
 import { Windows } from "./windows"
@@ -79,15 +79,15 @@ if (!app.requestSingleInstanceLock()) {
   app.on("before-quit", () => {
     windows.allowAppQuit()
     unregisterRecordingHotkeys()
-    destroyRecordingHud()
+    destroyRecordingNotificationSoundPlayer()
     void shutdownRecordingBackend()
   })
 }
 
 async function openInitialWindow(windows: Windows): Promise<void> {
-  const lastServerUrl = getLastServerUrl()
-  if (lastServerUrl && (await hasValidSession(lastServerUrl))) {
-    windows.connectTo(lastServerUrl)
+  const startupServerUrl = getStartupServerUrl()
+  if (startupServerUrl && (await hasValidSession(startupServerUrl))) {
+    windows.connectTo(startupServerUrl)
     return
   }
 

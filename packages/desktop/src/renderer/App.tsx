@@ -28,7 +28,7 @@ function ConnectApp() {
   // saved session. Focus here rather than via autoFocus for accessibility.
   useEffect(() => {
     inputRef.current?.focus()
-    window.alloyNative.getLastServer().then((serverUrl) => {
+    window.alloyNative.getStartupServer().then((serverUrl) => {
       if (serverUrl) setUrl(serverUrl)
     })
   }, [])

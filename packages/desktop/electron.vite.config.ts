@@ -58,10 +58,8 @@ export default defineConfig({
         input: {
           // `overlay`: privileged bridge for the connect screen.
           // `main`: desktop bridge injected into the remote web app.
-          // `recordingHud`: isolated bridge for the in-game save overlay.
           overlay: fromHere("src/preload/overlay.ts"),
           main: fromHere("src/preload/main.ts"),
-          recordingHud: fromHere("src/preload/recording-hud.ts"),
         },
         external: nodeExternals,
         // Sandboxed preloads must be CommonJS; force the format + extension so
@@ -85,7 +83,6 @@ export default defineConfig({
       rollupOptions: {
         input: {
           overlay: fromHere("src/renderer/index.html"),
-          recordingHud: fromHere("src/renderer/recording-hud.html"),
         },
       },
     },

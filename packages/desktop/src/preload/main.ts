@@ -33,6 +33,9 @@ const recording: AlloyDesktopRecordingApi = {
     return () => ipcRenderer.off(IPC.recordingEvent, handler)
   },
   selectOutputFolder: () => ipcRenderer.invoke(IPC.selectOutputFolder),
+  selectNotificationSound: (sound) =>
+    ipcRenderer.invoke(IPC.selectNotificationSound, sound),
+  listGameProcesses: () => ipcRenderer.invoke(IPC.listGameProcesses),
   saveReplayClip: () => ipcRenderer.invoke(IPC.saveReplayClip),
   stopRecording: () => ipcRenderer.invoke(IPC.stopRecording),
   revealCapture: (filename) =>

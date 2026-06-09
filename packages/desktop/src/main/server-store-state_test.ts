@@ -12,17 +12,9 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
-test("normalizeState migrates legacy lastServerUrl into saved servers", () => {
-  const state = normalizeState({ lastServerUrl: "https://alloy.example.com" })
+test("normalizeState applies recording defaults", () => {
+  const state = normalizeState({})
 
-  assert(
-    state.servers[0]?.serverUrl === "https://alloy.example.com",
-    "legacy last server should become the first saved server",
-  )
-  assert(
-    state.lastServerUrl === "https://alloy.example.com",
-    "legacy last server should remain available",
-  )
   assert(
     state.recording.codec === DEFAULT_RECORDING_SETTINGS.codec,
     "missing recording codec should use the default",
@@ -51,13 +43,29 @@ test("normalizeState migrates legacy lastServerUrl into saved servers", () => {
     "missing recording enabled toggle should use the default",
   )
   assert(
-    state.recording.recordDesktop === DEFAULT_RECORDING_SETTINGS.recordDesktop,
-    "missing desktop capture policy should use the default",
+    state.recording.allowedGames.length === 0,
+    "missing allowed games should use the default",
+  )
+  assert(
+    state.recording.deniedGames.length === 0,
+    "missing denied games should use the default",
   )
   assert(
     state.recording.hotkeys.saveClip ===
       DEFAULT_RECORDING_SETTINGS.hotkeys.saveClip,
     "missing save clip hotkey should use the default",
+  )
+  assert(
+    state.recording.notificationSounds.recordingStarted.enabled === true,
+    "missing recording start sound should be enabled by default",
+  )
+  assert(
+    state.recording.notificationSounds.clipSaved.path === "",
+    "missing clip save sound should use the bundled default",
+  )
+  assert(
+    state.recording.notificationSounds.clipSaved.volume === 100,
+    "missing clip save sound volume should use the default",
   )
 })
 
@@ -66,13 +74,38 @@ test("normalizeState sanitizes recording settings", () => {
     recording: {
       enabled: false,
       triggerMode: "session",
-      recordDesktop: true,
       encoder: "software",
       codec: "vp9",
       resolution: "1440p",
       fps: 59,
       replayBufferSeconds: 900,
-      autoCategorizeGames: false,
+      allowedGames: [
+        {
+          id: "hades",
+          name: "Hades",
+          executable: "Hades.exe",
+          path: "C:\\Games\\Hades\\Hades.exe",
+        },
+      ],
+      deniedGames: [
+        {
+          id: "launcher",
+          name: "Launcher",
+          executable: "Launcher.exe",
+        },
+      ],
+      notificationSounds: {
+        recordingStarted: {
+          enabled: false,
+          volume: -10,
+          path: "C:\\Sounds\\start.wav",
+        },
+        clipSaved: {
+          enabled: true,
+          volume: 43.6,
+          path: "C:\\Sounds\\clip.mp3",
+        },
+      },
     },
   })
 
@@ -102,65 +135,37 @@ test("normalizeState sanitizes recording settings", () => {
     "replay buffer should be capped",
   )
   assert(
-    state.recording.autoCategorizeGames === false,
-    "valid game categorization toggle should remain",
-  )
-  assert(
     state.recording.enabled === false,
     "valid enabled toggle should remain",
   )
   assert(
-    state.recording.triggerMode === "replay-buffer",
-    "desktop capture should force replay buffer mode",
+    state.recording.triggerMode === "session",
+    "valid trigger mode should remain",
   )
   assert(
-    state.recording.recordDesktop === true,
-    "valid desktop capture policy should remain",
-  )
-})
-
-test("normalizeState migrates manual recording settings to replay clips", () => {
-  const state = normalizeState({
-    recording: {
-      triggerMode: "manual",
-      hotkeys: {
-        startCapture: "Ctrl+F9",
-        stopCapture: "Ctrl+F10",
-        saveClip: "Ctrl+F8",
-      },
-    },
-  })
-
-  assert(
-    state.recording.triggerMode === "replay-buffer",
-    "legacy manual mode should become replay buffer mode",
+    state.recording.allowedGames[0]?.name === "Hades",
+    "valid allowed game should remain",
   )
   assert(
-    state.recording.hotkeys.saveClip === "Ctrl+F8",
-    "custom save clip hotkey should be preserved",
+    state.recording.deniedGames[0]?.name === "Launcher",
+    "valid denied game should remain",
   )
   assert(
-    !("startCapture" in state.recording.hotkeys),
-    "legacy start hotkey should be discarded",
+    state.recording.notificationSounds.recordingStarted.enabled === false,
+    "recording start sound mute should remain",
   )
   assert(
-    !("stopCapture" in state.recording.hotkeys),
-    "legacy stop hotkey should be discarded",
+    state.recording.notificationSounds.recordingStarted.volume === 0,
+    "recording start sound volume should be clamped",
   )
-})
-
-test("normalizeState infers preset profiles from legacy recording quality", () => {
-  const state = normalizeState({
-    recording: {
-      resolution: "1080p",
-      fps: 60,
-      bitrate: "15",
-    },
-  })
-
   assert(
-    state.recording.qualityProfile === "standard",
-    "legacy quality matching a preset should select that preset",
+    state.recording.notificationSounds.clipSaved.volume === 44,
+    "clip save sound volume should be rounded",
+  )
+  assert(
+    state.recording.notificationSounds.clipSaved.path ===
+      "C:\\Sounds\\clip.mp3",
+    "custom clip save sound should remain",
   )
 })
 

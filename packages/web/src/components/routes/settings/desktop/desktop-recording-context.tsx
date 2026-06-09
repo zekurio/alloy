@@ -1,6 +1,8 @@
 import type {
   RecordingActionResult,
   RecordingEvent,
+  RecordingGameProcess,
+  RecordingNotificationSoundEvent,
   RecordingSettings,
   RecordingStatus,
   RecordingStorageInfo,
@@ -26,6 +28,12 @@ interface DesktopRecordingContextValue {
   runAction: (action: RecordingAction) => Promise<RecordingActionResult>
   /** Open the native folder picker and apply the chosen capture folder. */
   chooseOutputFolder: () => Promise<void>
+  /** Open the native audio picker and apply the chosen notification sound. */
+  chooseNotificationSound: (
+    sound: RecordingNotificationSoundEvent,
+  ) => Promise<void>
+  /** Return running processes that can be added to the game allow list. */
+  listGameProcesses: () => Promise<RecordingGameProcess[]>
 }
 
 const DesktopRecordingContext =
@@ -48,11 +56,13 @@ export function DesktopRecordingProvider({
     React.useState<RecordingStorageInfo | null>(null)
   const [phase, setPhase] = React.useState<Phase>("loading")
   const saveSequence = React.useRef(0)
+  const lastStatusMessageToast = React.useRef<string | null>(null)
 
   React.useEffect(() => {
     let cancelled = false
     let unsubscribe: (() => void) | undefined
-    let statusInterval: ReturnType<typeof setInterval> | undefined
+    let receivedSettingsEvent = false
+    let receivedStatusEvent = false
 
     async function load() {
       if (!recording) return
@@ -60,7 +70,12 @@ export function DesktopRecordingProvider({
       try {
         unsubscribe = recording.onEvent((event: RecordingEvent) => {
           if (cancelled) return
+          if (event.type === "settings") {
+            receivedSettingsEvent = true
+            setSettings(event.settings)
+          }
           if ("status" in event) {
+            receivedStatusEvent = true
             setStatus(event.status)
           }
         })
@@ -70,25 +85,10 @@ export function DesktopRecordingProvider({
           recording.getStorageInfo(),
         ])
         if (cancelled) return
-        setSettings(nextSettings)
-        setStatus(nextStatus)
+        if (!receivedSettingsEvent) setSettings(nextSettings)
+        if (!receivedStatusEvent) setStatus(nextStatus)
         setStorageInfo(nextStorage)
         setPhase("idle")
-
-        statusInterval = setInterval(() => {
-          void recording
-            .getStatus()
-            .then((status) => {
-              if (!cancelled) setStatus(status)
-            })
-            .catch((cause) => {
-              if (!cancelled) {
-                toast.error(
-                  errorText(cause, "Couldn't refresh recording status."),
-                )
-              }
-            })
-        }, 2000)
       } catch (cause) {
         if (!cancelled) {
           toast.error(errorText(cause, "Couldn't load recording settings."))
@@ -101,10 +101,29 @@ export function DesktopRecordingProvider({
 
     return () => {
       cancelled = true
-      if (statusInterval) clearInterval(statusInterval)
       unsubscribe?.()
     }
   }, [recording])
+
+  React.useEffect(() => {
+    const message = status?.message?.trim()
+    const backend = status?.backend
+    if (!message || !backend) {
+      lastStatusMessageToast.current = null
+      return
+    }
+
+    const toastKey = `${backend}:${message}`
+    if (lastStatusMessageToast.current === toastKey) return
+    lastStatusMessageToast.current = toastKey
+
+    const options = { id: `desktop-recording-status:${toastKey}` }
+    if (backend === "missing") {
+      toast.warning(message, options)
+    } else {
+      toast.error(message, options)
+    }
+  }, [status?.backend, status?.message])
 
   const save = React.useCallback(
     async (next: RecordingSettings) => {
@@ -136,6 +155,30 @@ export function DesktopRecordingProvider({
       setStorageInfo(nextStorage)
     } catch (cause) {
       toast.error(errorText(cause, "Couldn't change the capture folder."))
+    }
+  }, [recording])
+
+  const chooseNotificationSound = React.useCallback(
+    async (sound: RecordingNotificationSoundEvent) => {
+      if (!recording) return
+      try {
+        const path = await recording.selectNotificationSound(sound)
+        if (!path) return
+        setSettings(await recording.getSettings())
+      } catch (cause) {
+        toast.error(errorText(cause, "Couldn't change the notification sound."))
+      }
+    },
+    [recording],
+  )
+
+  const listGameProcesses = React.useCallback(async () => {
+    if (!recording) return []
+    try {
+      return await recording.listGameProcesses()
+    } catch (cause) {
+      toast.error(errorText(cause, "Couldn't load running processes."))
+      return []
     }
   }, [recording])
 
@@ -173,8 +216,20 @@ export function DesktopRecordingProvider({
       save,
       runAction,
       chooseOutputFolder,
+      chooseNotificationSound,
+      listGameProcesses,
     }),
-    [settings, status, storageInfo, phase, save, runAction, chooseOutputFolder],
+    [
+      settings,
+      status,
+      storageInfo,
+      phase,
+      save,
+      runAction,
+      chooseOutputFolder,
+      chooseNotificationSound,
+      listGameProcesses,
+    ],
   )
 
   return (

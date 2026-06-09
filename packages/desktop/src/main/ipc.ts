@@ -1,4 +1,8 @@
-import { normalizeRecordingSettings } from "alloy-contracts"
+import {
+  normalizeRecordingSettings,
+  RECORDING_NOTIFICATION_SOUND_EVENTS,
+  type RecordingNotificationSoundEvent,
+} from "alloy-contracts"
 import {
   BrowserWindow,
   dialog,
@@ -13,8 +17,10 @@ import { loginViaBrowser } from "./browser-login"
 import { probeServer } from "./probe"
 import {
   configureRecordingBackend,
+  emitRecordingSettingsEvent,
   getRecordingStatus,
   getRecordingStorageInfo,
+  listGameProcesses,
   onRecordingEvent,
   resolveRevealableCapturePath,
   saveReplayClip,
@@ -22,10 +28,14 @@ import {
 } from "./recording"
 import { configureRecordingHotkeys } from "./recording-hotkeys"
 import {
+  isRecordingSoundFile,
+  RECORDING_SOUND_FILE_EXTENSIONS,
+} from "./recording-notification-sounds"
+import {
   forgetServer,
-  getLastServerUrl,
   getRecordingSettings,
   getSavedServers,
+  getStartupServerUrl,
   rememberServer,
   saveRecordingSettings,
 } from "./server-store"
@@ -98,16 +108,16 @@ function registerServerIpc(windows: Windows): void {
     },
   )
 
-  ipcMain.handle(IPC.getLastServer, (event): string | null => {
+  ipcMain.handle(IPC.getStartupServer, (event): string | null => {
     requireOverlaySender(windows, event)
-    return getLastServerUrl()
+    return getStartupServerUrl()
   })
   ipcMain.handle(IPC.getServers, (event) => {
-    requireDesktopSender(windows, event)
+    requireDesktopServerStateSender(windows, event)
     return getSavedServers()
   })
   ipcMain.handle(IPC.getCurrentServer, (event) => {
-    requireDesktopSender(windows, event)
+    requireDesktopServerStateSender(windows, event)
     return windows.currentServerUrl()
   })
   ipcMain.handle(IPC.forgetServer, (event, url: unknown) => {
@@ -129,6 +139,7 @@ function registerRecordingIpc(windows: Windows): void {
   ipcMain.handle(IPC.setRecordingSettings, async (event, settings: unknown) => {
     requireMainSender(windows, event)
     const saved = saveRecordingSettings(normalizeRecordingSettings(settings))
+    emitRecordingSettingsEvent()
     void configureRecordingBackend()
     configureRecordingHotkeys(saved)
     return saved
@@ -157,14 +168,60 @@ function registerRecordingIpc(windows: Windows): void {
       if (result.canceled || !folder) return null
 
       const current = getRecordingSettings()
-      saveRecordingSettings(
+      const saved = saveRecordingSettings(
         normalizeRecordingSettings({ ...current, outputFolder: folder }),
       )
+      emitRecordingSettingsEvent()
       void configureRecordingBackend()
-      configureRecordingHotkeys()
+      configureRecordingHotkeys(saved)
       return folder
     },
   )
+  ipcMain.handle(
+    IPC.selectNotificationSound,
+    async (event, sound: unknown): Promise<string | null> => {
+      requireMainSender(windows, event)
+      if (!isNotificationSoundEvent(sound)) return null
+
+      const parent = BrowserWindow.fromWebContents(event.sender)
+      const options: Electron.OpenDialogOptions = {
+        title: "Choose notification sound",
+        properties: ["openFile"],
+        filters: [
+          {
+            name: "Audio files",
+            extensions: [...RECORDING_SOUND_FILE_EXTENSIONS],
+          },
+        ],
+      }
+      const result = await (parent
+        ? dialog.showOpenDialog(parent, options)
+        : dialog.showOpenDialog(options))
+      const path = result.filePaths[0]
+      if (result.canceled || !path || !isRecordingSoundFile(path)) return null
+
+      const current = getRecordingSettings()
+      const saved = saveRecordingSettings(
+        normalizeRecordingSettings({
+          ...current,
+          notificationSounds: {
+            ...current.notificationSounds,
+            [sound]: {
+              ...current.notificationSounds[sound],
+              enabled: true,
+              path,
+            },
+          },
+        }),
+      )
+      emitRecordingSettingsEvent()
+      return saved.notificationSounds[sound].path
+    },
+  )
+  ipcMain.handle(IPC.listGameProcesses, async (event) => {
+    requireMainSender(windows, event)
+    return listGameProcesses()
+  })
   ipcMain.handle(IPC.saveReplayClip, (event) => {
     requireMainSender(windows, event)
     return saveReplayClip()
@@ -205,6 +262,28 @@ function requireDesktopSender(
   }
 }
 
+function requireDesktopServerStateSender(
+  windows: Windows,
+  event: IpcMainInvokeEvent,
+): void {
+  if (
+    !windows.canUseDesktopServerStateBridge(
+      event.sender,
+      event.senderFrame?.url ?? "",
+    )
+  ) {
+    throw unauthorizedIpcError()
+  }
+}
+
 function unauthorizedIpcError(): Error {
   return new Error("Unauthorized desktop IPC sender.")
+}
+
+function isNotificationSoundEvent(
+  value: unknown,
+): value is RecordingNotificationSoundEvent {
+  return RECORDING_NOTIFICATION_SOUND_EVENTS.includes(
+    value as RecordingNotificationSoundEvent,
+  )
 }

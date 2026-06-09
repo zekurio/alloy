@@ -1,18 +1,21 @@
 import {
-  RECORDING_BITRATES,
   RECORDING_AUDIO_DEVICE_KINDS,
   RECORDING_AUDIO_MODES,
+  RECORDING_BITRATES,
   RECORDING_BUFFER_STORAGE,
   RECORDING_CODECS,
   RECORDING_ENCODERS,
   RECORDING_FRAME_RATES,
-  RECORDING_QUALITY_PRESETS,
+  RECORDING_NOTIFICATION_SOUND_EVENTS,
   RECORDING_QUALITY_PROFILES,
   RECORDING_RESOLUTIONS,
   RECORDING_TRIGGER_MODES,
+  type RecordingAllowedGame,
   type RecordingAudioApplicationSelection,
   type RecordingAudioDeviceSelection,
   type RecordingHotkeys,
+  type RecordingNotificationSoundEvent,
+  type RecordingNotificationSounds,
   type RecordingQualityProfile,
   type RecordingQualitySettings,
   type RecordingSettings,
@@ -21,7 +24,8 @@ import {
 export const DEFAULT_RECORDING_SETTINGS: RecordingSettings = {
   enabled: false,
   triggerMode: "replay-buffer",
-  recordDesktop: false,
+  allowedGames: [],
+  deniedGames: [],
   audioMode: "devices",
   audioDevices: [
     {
@@ -49,7 +53,10 @@ export const DEFAULT_RECORDING_SETTINGS: RecordingSettings = {
   bufferStorage: "memory",
   outputFolder: "",
   hotkeys: { saveClip: "F8" },
-  autoCategorizeGames: true,
+  notificationSounds: {
+    recordingStarted: { enabled: true, volume: 100, path: "" },
+    clipSaved: { enabled: true, volume: 100, path: "" },
+  },
 }
 
 export function normalizeRecordingSettings(value: unknown): RecordingSettings {
@@ -60,18 +67,12 @@ export function normalizeRecordingSettings(value: unknown): RecordingSettings {
   const record = value as Record<string, unknown>
   const quality = normalizeQualitySettings(record, DEFAULT_RECORDING_SETTINGS)
   const customQuality = normalizeQualitySettings(record.customQuality, quality)
-  const qualityProfile = normalizeQualityProfile(record.qualityProfile, quality)
-  const recordDesktop =
-    typeof record.recordDesktop === "boolean"
-      ? record.recordDesktop
-      : DEFAULT_RECORDING_SETTINGS.recordDesktop
-  const triggerMode = recordDesktop
-    ? "replay-buffer"
-    : normalizeLiteral(
-        record.triggerMode,
-        RECORDING_TRIGGER_MODES,
-        DEFAULT_RECORDING_SETTINGS.triggerMode,
-      )
+  const qualityProfile = normalizeQualityProfile(record.qualityProfile)
+  const triggerMode = normalizeLiteral(
+    record.triggerMode,
+    RECORDING_TRIGGER_MODES,
+    DEFAULT_RECORDING_SETTINGS.triggerMode,
+  )
 
   return {
     enabled:
@@ -79,7 +80,8 @@ export function normalizeRecordingSettings(value: unknown): RecordingSettings {
         ? record.enabled
         : DEFAULT_RECORDING_SETTINGS.enabled,
     triggerMode,
-    recordDesktop,
+    allowedGames: normalizeAllowedGames(record.allowedGames),
+    deniedGames: normalizeAllowedGames(record.deniedGames),
     audioMode: normalizeLiteral(
       record.audioMode,
       RECORDING_AUDIO_MODES,
@@ -117,10 +119,7 @@ export function normalizeRecordingSettings(value: unknown): RecordingSettings {
     outputFolder:
       typeof record.outputFolder === "string" ? record.outputFolder : "",
     hotkeys: normalizeHotkeys(record.hotkeys),
-    autoCategorizeGames:
-      typeof record.autoCategorizeGames === "boolean"
-        ? record.autoCategorizeGames
-        : DEFAULT_RECORDING_SETTINGS.autoCategorizeGames,
+    notificationSounds: normalizeNotificationSounds(record.notificationSounds),
   }
 }
 
@@ -147,27 +146,11 @@ function normalizeQualitySettings(
   }
 }
 
-function normalizeQualityProfile(
-  value: unknown,
-  quality: RecordingQualitySettings,
-): RecordingQualityProfile {
-  if (RECORDING_QUALITY_PROFILES.includes(value as RecordingQualityProfile)) {
-    return value as RecordingQualityProfile
-  }
-
-  return (
-    RECORDING_QUALITY_PRESETS.find((preset) =>
-      qualitySettingsEqual(preset, quality),
-    )?.id ?? "custom"
-  )
-}
-
-function qualitySettingsEqual(
-  a: RecordingQualitySettings,
-  b: RecordingQualitySettings,
-): boolean {
-  return (
-    a.resolution === b.resolution && a.fps === b.fps && a.bitrate === b.bitrate
+function normalizeQualityProfile(value: unknown): RecordingQualityProfile {
+  return normalizeLiteral(
+    value,
+    RECORDING_QUALITY_PROFILES,
+    DEFAULT_RECORDING_SETTINGS.qualityProfile,
   )
 }
 
@@ -183,6 +166,40 @@ function normalizeHotkeys(value: unknown): RecordingHotkeys {
       record.saveClip,
       DEFAULT_RECORDING_SETTINGS.hotkeys.saveClip,
     ),
+  }
+}
+
+function normalizeNotificationSounds(
+  value: unknown,
+): RecordingNotificationSounds {
+  const record =
+    typeof value === "object" && value !== null
+      ? (value as Record<string, unknown>)
+      : {}
+  const sounds = {} as RecordingNotificationSounds
+
+  for (const event of RECORDING_NOTIFICATION_SOUND_EVENTS) {
+    sounds[event] = normalizeNotificationSound(record[event], event)
+  }
+
+  return sounds
+}
+
+function normalizeNotificationSound(
+  value: unknown,
+  event: RecordingNotificationSoundEvent,
+): RecordingNotificationSounds[RecordingNotificationSoundEvent] {
+  const fallback = DEFAULT_RECORDING_SETTINGS.notificationSounds[event]
+  const record =
+    typeof value === "object" && value !== null
+      ? (value as Record<string, unknown>)
+      : {}
+
+  return {
+    enabled:
+      typeof record.enabled === "boolean" ? record.enabled : fallback.enabled,
+    volume: normalizeAudioVolume(record.volume),
+    path: typeof record.path === "string" ? record.path.trim() : fallback.path,
   }
 }
 
@@ -255,6 +272,53 @@ function normalizeAudioApplications(
   return dedupeBy(applications, (application) => application.id)
 }
 
+function normalizeAllowedGames(value: unknown): RecordingAllowedGame[] {
+  if (!Array.isArray(value)) return DEFAULT_RECORDING_SETTINGS.allowedGames
+
+  const games = value.flatMap((entry): RecordingAllowedGame[] => {
+    const record =
+      typeof entry === "object" && entry !== null
+        ? (entry as Record<string, unknown>)
+        : null
+    if (!record) return []
+
+    const path = normalizeNullableString(record.path)
+    const executable =
+      normalizeNonEmptyString(record.executable) ??
+      (path ? pathFileName(path) : null)
+    const windowClass = normalizeNullableString(record.windowClass)
+    const iconUrl = normalizeNullableString(record.iconUrl)
+    if (!path && !executable && !windowClass) return []
+
+    const name =
+      normalizeNonEmptyString(record.name) ??
+      executableName(executable) ??
+      pathFileName(path ?? "") ??
+      "Game"
+
+    return [
+      {
+        id:
+          normalizeNonEmptyString(record.id) ??
+          `game:${slug([path, executable, windowClass, name].join(":"))}`,
+        name,
+        executable,
+        path,
+        windowClass,
+        iconUrl,
+      },
+    ]
+  })
+
+  return dedupeBy(games, allowedGameKey)
+}
+
+function allowedGameKey(game: RecordingAllowedGame): string {
+  return [game.path, game.executable, game.windowClass]
+    .map((value) => value?.trim().toLowerCase() ?? "")
+    .join(":")
+}
+
 function normalizeAudioVolume(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return 100
   return Math.min(100, Math.max(0, Math.round(value)))
@@ -274,6 +338,25 @@ function normalizeNullableNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value)
     ? Math.trunc(value)
     : null
+}
+
+function pathFileName(path: string): string | null {
+  const name = path.replaceAll("\\", "/").split("/").pop()?.trim()
+  return name ? name : null
+}
+
+function executableName(executable: string | null): string | null {
+  if (!executable) return null
+  const name = executable.replace(/\.[^.]+$/, "").trim()
+  return name ? name : executable
+}
+
+function slug(value: string): string {
+  const slug = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+  return slug || "allowed"
 }
 
 function dedupeBy<T>(items: T[], keyFor: (item: T) => string): T[] {

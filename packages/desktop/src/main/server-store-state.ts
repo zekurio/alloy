@@ -7,31 +7,25 @@ import {
 import type { SavedServer } from "../shared/ipc"
 
 export interface DesktopState {
-  lastServerUrl: string | null
   servers: SavedServer[]
   recording: RecordingSettings
 }
 
 export const MAX_SAVED_SERVERS = 8
 export const EMPTY_STATE: DesktopState = {
-  lastServerUrl: null,
   servers: [],
   recording: DEFAULT_RECORDING_SETTINGS,
 }
 
 export function normalizeState(parsed: Record<string, unknown>): DesktopState {
-  const legacyLast =
-    typeof parsed.lastServerUrl === "string" ? parsed.lastServerUrl : null
   const servers = Array.isArray(parsed.servers)
     ? parsed.servers
         .map(normalizeSavedServer)
         .filter((server): server is SavedServer => server !== null)
     : []
 
-  const normalized = legacyLast ? upsertServer(servers, legacyLast) : servers
   return {
-    lastServerUrl: normalized[0]?.serverUrl ?? legacyLast,
-    servers: dedupeServers(normalized).slice(0, MAX_SAVED_SERVERS),
+    servers: dedupeServers(servers).slice(0, MAX_SAVED_SERVERS),
     recording: normalizeRecordingSettings(parsed.recording),
   }
 }

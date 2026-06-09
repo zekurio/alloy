@@ -21,6 +21,7 @@ type SidecarMethod =
   | "version"
   | "configure"
   | "status"
+  | "listGameProcesses"
   | "saveReplayClip"
   | "stopRecording"
   | "shutdown"

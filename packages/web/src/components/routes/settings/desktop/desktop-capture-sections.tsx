@@ -5,15 +5,8 @@ import type {
 } from "alloy-contracts"
 import { Switch } from "alloy-ui/components/switch"
 import { cn } from "alloy-ui/lib/utils"
-import {
-  AlertTriangleIcon,
-  CheckIcon,
-  ClapperboardIcon,
-  RotateCcwIcon,
-} from "lucide-react"
+import { CheckIcon, ClapperboardIcon, RotateCcwIcon } from "lucide-react"
 import { type ReactNode } from "react"
-
-import { SettingRow } from "./setting-row"
 
 const MODE_OPTIONS: Array<{
   id: RecordingTriggerMode
@@ -30,7 +23,7 @@ const MODE_OPTIONS: Array<{
   {
     id: "session",
     label: "Save full sessions",
-    description: "Save the whole detected game session to disk.",
+    description: "Save the whole allowed game session to disk.",
     icon: <ClapperboardIcon className="size-3.5" />,
   },
 ]
@@ -46,22 +39,14 @@ export function ModeSection({
   busy: boolean
   save: (next: RecordingSettings) => Promise<void>
 }) {
-  const desktopMode = settings.recordDesktop
-
   return (
-    <Subsection title="Automatic capture">
-      {status.message ? (
-        <BackendNotice backend={status.backend} message={status.message} />
-      ) : null}
-
+    <Subsection title="Capture">
       <div className="border-border bg-background mb-3 flex flex-col rounded-md border p-3">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
             <div className="text-sm font-semibold">Record with Alloy</div>
             <p className="text-foreground-dim mt-0.5 text-xs">
-              {desktopMode
-                ? "Keep a rolling desktop replay buffer."
-                : "Capture starts automatically when a game is detected."}
+              Capture starts when Alloy detects a game.
             </p>
           </div>
           <Switch
@@ -84,15 +69,11 @@ export function ModeSection({
             )}
           />
           <span className="font-medium">
-            {desktopMode && status.mode !== "idle"
-              ? "Desktop replay buffer is running"
-              : desktopMode && settings.enabled
-                ? "Desktop replay buffer is ready"
-                : status.activeGame
-                  ? `${status.activeGame} is ${status.mode === "idle" ? "ready" : "recording"}`
-                  : settings.enabled
-                    ? "Waiting for a game"
-                    : "Recording is off"}
+            {status.activeGame
+              ? `${status.activeGame} is ${status.mode === "idle" ? "ready" : "recording"}`
+              : settings.enabled
+                ? "Waiting for a game"
+                : "Recording is off"}
           </span>
         </div>
       </div>
@@ -105,33 +86,10 @@ export function ModeSection({
             description={mode.description}
             icon={mode.icon}
             active={settings.triggerMode === mode.id}
-            disabled={busy || (desktopMode && mode.id === "session")}
+            disabled={busy}
             onSelect={() => void save({ ...settings, triggerMode: mode.id })}
           />
         ))}
-      </div>
-
-      <div className="border-border rounded-md border px-3 py-3">
-        <SettingRow
-          title="Desktop capture"
-          description="Capture the desktop with replay clips. Smart game detection is disabled."
-          htmlFor="desktop-recording-desktop-capture"
-        >
-          <Switch
-            id="desktop-recording-desktop-capture"
-            checked={settings.recordDesktop}
-            disabled={busy}
-            onCheckedChange={(recordDesktop) =>
-              void save({
-                ...settings,
-                recordDesktop,
-                triggerMode: recordDesktop
-                  ? "replay-buffer"
-                  : settings.triggerMode,
-              })
-            }
-          />
-        </SettingRow>
       </div>
     </Subsection>
   )
@@ -148,28 +106,6 @@ export function Subsection({
     <div className="flex flex-col gap-3">
       <h3 className="text-foreground text-sm font-semibold">{title}</h3>
       <div className="flex flex-col">{children}</div>
-    </div>
-  )
-}
-
-function BackendNotice({
-  backend,
-  message,
-}: {
-  backend: string
-  message: string
-}) {
-  return (
-    <div
-      className={cn(
-        "mb-3 flex items-start gap-2 rounded-md border px-3 py-2 text-xs leading-snug",
-        backend === "missing"
-          ? "border-border bg-surface-raised text-foreground-muted"
-          : "border-warning/40 bg-warning/10 text-foreground",
-      )}
-    >
-      <AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" />
-      <span>{message}</span>
     </div>
   )
 }

@@ -1,8 +1,5 @@
 export function electronAccelerator(value: string): string | null {
-  const parts = value
-    .split("+")
-    .map((part) => part.trim())
-    .filter(Boolean)
+  const parts = hotkeyParts(value)
   if (parts.length === 0) return null
 
   const key = parts.at(-1)
@@ -18,6 +15,24 @@ export function electronAccelerator(value: string): string | null {
   if (!acceleratorKey) return null
 
   return [...new Set(modifiers), acceleratorKey].join("+")
+}
+
+function hotkeyParts(value: string): string[] {
+  const trimmed = value.trim()
+  if (trimmed === "+") return ["+"]
+  if (trimmed.endsWith("+")) {
+    const modifiers = trimmed
+      .slice(0, -1)
+      .split("+")
+      .map((part) => part.trim())
+      .filter(Boolean)
+    return [...modifiers, "+"]
+  }
+
+  return trimmed
+    .split("+")
+    .map((part) => part.trim())
+    .filter(Boolean)
 }
 
 function normalizedModifier(value: string): string | null {
@@ -48,6 +63,7 @@ function normalizedKey(value: string): string | null {
   return (
     {
       "+": "Plus",
+      PLUS: "Plus",
       ",": ",",
       "-": "-",
       ".": ".",
@@ -61,6 +77,7 @@ function normalizedKey(value: string): string | null {
       BACKSPACE: "Backspace",
       DELETE: "Delete",
       DOWN: "Down",
+      ARROWDOWN: "Down",
       END: "End",
       ENTER: "Enter",
       ESC: "Esc",
@@ -68,11 +85,14 @@ function normalizedKey(value: string): string | null {
       HOME: "Home",
       INSERT: "Insert",
       LEFT: "Left",
+      ARROWLEFT: "Left",
       PAGEDOWN: "PageDown",
       PAGEUP: "PageUp",
       RIGHT: "Right",
+      ARROWRIGHT: "Right",
       TAB: "Tab",
       UP: "Up",
+      ARROWUP: "Up",
     }[upper] ?? null
   )
 }

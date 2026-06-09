@@ -1,7 +1,9 @@
 import { Spinner } from "alloy-ui/components/spinner"
 
 import { EncodingSettingsGrid } from "./desktop-capture-encoding"
+import { AllowedGamesSection } from "./desktop-capture-games"
 import { HotkeysSection } from "./desktop-capture-hotkeys"
+import { NotificationSoundsSection } from "./desktop-capture-notifications"
 import { QualitySection, ReplayBufferSection } from "./desktop-capture-quality"
 import { ModeSection, Subsection } from "./desktop-capture-sections"
 import { useDesktopRecording } from "./desktop-recording-context"
@@ -27,6 +29,12 @@ export function DesktopCaptureSettings() {
         busy={busy}
         save={save}
       />
+
+      <hr className="border-border" />
+
+      <Subsection title="Games">
+        <AllowedGamesSection settings={settings} busy={busy} save={save} />
+      </Subsection>
 
       <hr className="border-border" />
 
@@ -57,6 +65,10 @@ export function DesktopCaptureSettings() {
       ) : null}
 
       <HotkeysSection settings={settings} busy={busy} save={save} />
+
+      <hr className="border-border" />
+
+      <NotificationSoundsSection settings={settings} busy={busy} save={save} />
 
       <hr className="border-border" />
 

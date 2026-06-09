@@ -12,6 +12,12 @@ test("electronAccelerator normalizes modifiers", () => {
   strictEqual(electronAccelerator("option + space"), "Alt+Space")
 })
 
+test("electronAccelerator normalizes key names emitted by the hotkey input", () => {
+  strictEqual(electronAccelerator("Ctrl+ArrowUp"), "CommandOrControl+Up")
+  strictEqual(electronAccelerator("Ctrl++"), "CommandOrControl+Plus")
+  strictEqual(electronAccelerator("+"), "Plus")
+})
+
 test("electronAccelerator discards duplicate modifiers", () => {
   strictEqual(
     electronAccelerator("ctrl + control + shift + F8"),
