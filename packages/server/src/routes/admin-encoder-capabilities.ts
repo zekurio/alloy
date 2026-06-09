@@ -312,7 +312,8 @@ async function runProcess(
   const decoder = new TextDecoder()
   let stdout = ""
   let stderr = ""
-  await Promise.all([
+  const [code] = await Promise.all([
+    exit,
     (async () => {
       if (!child.stdout) return
       for await (const chunk of child.stdout) {
@@ -327,7 +328,7 @@ async function runProcess(
     })(),
   ])
   return {
-    code: await exit,
+    code,
     stdout,
     stderr,
   }
