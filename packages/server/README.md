@@ -13,9 +13,9 @@ packages/server/
   src/web.ts            production web asset serving
   src/routes/           HTTP routes
   src/auth/             auth, sessions, OAuth, passkeys, desktop linking
-  src/clips/            clip access, playback, HLS/live helpers
+  src/clips/            clip access, playback, direct-play HLS packaging
   src/storage/          storage drivers and upload token flow
-  src/queue/            encoding queue and ffmpeg integration
+  src/queue/            media processing queue (mediabunny probe/trim/package)
   src/config/           runtime config schema, secrets, store
   src/runtime/          path, shutdown, response, and process helpers
 ```
@@ -41,15 +41,18 @@ pnpm db:studio
 
 ## Local Development
 
-Start Postgres, then run the server:
+Start Postgres (or use a devenv shell, which runs its own on a random free
+localhost port and exports `DATABASE_URL`), then run the server:
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d postgres
 pnpm dev:server
 ```
 
-The root dev runner sets defaults for `PORT`, `PUBLIC_SERVER_URL`,
-`TRUSTED_ORIGINS`, `DATABASE_URL`, `ALLOY_DATA_DIR`, and storage/cache folders.
+`PORT`, `PUBLIC_SERVER_URL`, and friends default in `src/env.ts`; the rest
+(`DATABASE_URL`, `TRUSTED_ORIGINS`, `ALLOY_DATA_DIR`) comes from the shell
+environment or the repo-root `.env` (copy `.env.example`). Shell environment
+always wins over the file.
 
 ## Production
 
@@ -58,8 +61,6 @@ copies that output and wraps it with runtime defaults for:
 
 - `WEB_DIST_DIR`
 - `ALLOY_MIGRATIONS_DIR`
-- `FFMPEG_BIN`
-- `FFPROBE_BIN`
 - `NODE_ENV=production`
 
 ## Guidelines

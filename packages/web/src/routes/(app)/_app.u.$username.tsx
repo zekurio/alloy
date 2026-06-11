@@ -100,7 +100,7 @@ function UserProfileLayout() {
             gated && "pointer-events-none select-none",
           )}
         >
-          <div className="mx-auto mb-8 w-full max-w-[1500px] min-w-0 sm:mb-0">
+          <div className="mx-auto mb-8 w-full max-w-[1500px] min-w-0">
             {profileError ? (
               <EmptyState
                 seed={`profile-error-${username}`}

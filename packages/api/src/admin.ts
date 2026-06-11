@@ -1,6 +1,4 @@
 import type {
-  AdminEncoderCapabilities,
-  AdminEncoderConfig,
   AdminLimitsConfig,
   AdminOAuthProvider,
   AdminRuntimeConfig,
@@ -18,7 +16,6 @@ import { loginSplashImagePath } from "alloy-contracts"
 
 import type { ApiContext } from "./client"
 import {
-  validateAdminEncoderCapabilities,
   validateAdminReEncodeResponse,
   validateAdminRuntimeConfig,
   validateAdminScheduledTaskInfo,
@@ -33,13 +30,6 @@ import { readSuccessJson } from "./mutations"
 import { resolvePublicUrl } from "./paths"
 
 export {
-  ENCODER_CODECS,
-  ENCODER_HEIGHT_MAX,
-  ENCODER_HEIGHT_MIN,
-  ENCODER_HWACCELS,
-  ENCODER_TONEMAPPING_ALGORITHMS,
-  ENCODER_TONEMAPPING_MODES,
-  ENCODER_TONEMAPPING_RANGES,
   LOGIN_SPLASH_IMAGE_PATH,
   loginSplashImagePath,
   OAUTH_QUOTA_CLAIM_DEFAULT,
@@ -47,8 +37,6 @@ export {
   OAUTH_USERNAME_CLAIM_DEFAULT,
 } from "alloy-contracts"
 export type {
-  AdminEncoderCapabilities,
-  AdminEncoderConfig,
   AdminIntegrationsConfig,
   AdminLimitsConfig,
   AdminOAuthProvider,
@@ -63,11 +51,6 @@ export type {
   AdminUsersResponse,
   AdminUserStorageRow,
   AppearanceConfig,
-  EncoderCodec,
-  EncoderHwaccel,
-  EncoderTonemappingAlgorithm,
-  EncoderTonemappingMode,
-  EncoderTonemappingRange,
   RuntimeConfig,
   UsernameClaim,
 } from "alloy-contracts"
@@ -150,7 +133,7 @@ async function saveOAuthConfig(
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
-type RuntimeConfigSection = "encoder" | "limits" | "integrations" | "appearance"
+type RuntimeConfigSection = "limits" | "integrations" | "appearance"
 
 async function patchRuntimeSection<T>(
   context: ApiContext,
@@ -159,13 +142,6 @@ async function patchRuntimeSection<T>(
 ): Promise<AdminRuntimeConfig> {
   const res = await context.rpc.api.admin[section].$patch({ json: patch })
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
-}
-
-async function fetchEncoderCapabilities(
-  context: ApiContext,
-): Promise<AdminEncoderCapabilities> {
-  const res = await context.rpc.api.admin.encoder.capabilities.$get()
-  return readJsonOrThrow(res, validateAdminEncoderCapabilities)
 }
 
 async function reEncodeAllClips(
@@ -284,8 +260,6 @@ export function createAdminApi(context: ApiContext) {
       importRuntimeConfig(context, config),
     saveOAuthConfig: (input: { oauthProviders: AdminOAuthProvider[] }) =>
       saveOAuthConfig(context, input),
-    updateEncoderConfig: (patch: Partial<AdminEncoderConfig>) =>
-      patchRuntimeSection(context, "encoder", patch),
     updateLimitsConfig: (patch: Partial<AdminLimitsConfig>) =>
       patchRuntimeSection(context, "limits", patch),
     updateIntegrationsConfig: (patch: { steamgriddbApiKey?: string }) =>
@@ -298,7 +272,6 @@ export function createAdminApi(context: ApiContext) {
       patchRuntimeSection(context, "appearance", patch),
     regenerateLoginSplash: () => regenerateLoginSplash(context),
     uploadLoginSplash: (file: File) => uploadLoginSplash(context, file),
-    fetchEncoderCapabilities: () => fetchEncoderCapabilities(context),
     reEncodeAllClips: () => reEncodeAllClips(context),
     fetchScheduledTasks: () => fetchScheduledTasks(context),
     fetchScheduledTask: (taskId: string) => fetchScheduledTask(context, taskId),

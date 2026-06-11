@@ -37,8 +37,7 @@
     ".devenv/**",
     ".direnv/**",
     ".git/**",
-    "apps/web/src/routeTree.gen.ts",
-    "apps/web/dist/**",
+    "packages/web/src/routeTree.gen.ts",
     "build/**",
     "data/**",
     "dist/**",
@@ -47,6 +46,11 @@
   ],
   "rules": {
     "func-style": "off",
+    "import/no-cycle": "error",
+    "import/no-duplicates": "error",
+    "import/no-self-import": "error",
+    "react/jsx-no-useless-fragment": "error",
+    "react/jsx-pascal-case": "error",
     "import/no-unassigned-import": "off",
     "import/exports-last": "off",
     "import/no-named-export": "off",
@@ -118,7 +122,7 @@
       }
     },
     {
-      "files": ["apps/web/**/*.tsx", "packages/ui/**/*.tsx"],
+      "files": ["packages/web/**/*.tsx", "packages/ui/**/*.tsx"],
       "env": {
         "browser": true
       }

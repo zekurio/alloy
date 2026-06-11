@@ -6,45 +6,20 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
-function query(url: string): URLSearchParams {
-  return new URL(url, "https://alloy.test").searchParams
-}
-
-test("clipStreamUrl omits live codec query when support is unknown", () => {
+test("clipStreamUrl carries the requested variant", () => {
   const url = clipStreamUrl("clip-id", "source")
 
   assert(url === "/api/clips/clip-id/stream?variant=source", "unexpected URL")
-  assert(!query(url).has("codecs"), "codec query should be omitted")
 })
 
-test("clipStreamUrl sends browser live codec support in priority order", () => {
-  const url = clipStreamUrl("clip-id", "720p", undefined, [
-    "av1",
-    "hevc",
-    "h264",
-  ])
+test("clipStreamUrl omits the variant when unset", () => {
+  const url = clipStreamUrl("clip-id")
 
-  assert(
-    query(url).get("codecs") === "av1,hevc,h264",
-    "codec query should preserve browser priority",
-  )
+  assert(url === "/api/clips/clip-id/stream", "unexpected URL")
 })
 
-test("clipStreamUrl sends codecs=none for explicit empty browser support", () => {
-  const url = clipStreamUrl("clip-id", "720p", undefined, [])
+test("clipHlsMasterUrl points at the packaged master playlist", () => {
+  const url = clipHlsMasterUrl("clip-id")
 
-  assert(
-    query(url).get("codecs") === "none",
-    "empty browser support should stay explicit",
-  )
-})
-
-test("clipHlsMasterUrl sends browser live codec support", () => {
-  const url = clipHlsMasterUrl("clip-id", undefined, ["hevc", "h264"], "br-1")
-
-  assert(
-    url ===
-      "/api/clips/clip-id/hls/master.m3u8?variant=br-1&codecs=hevc%2Ch264",
-    "HLS master URL should include encoded codec support",
-  )
+  assert(url === "/api/clips/clip-id/hls/master.m3u8", "unexpected URL")
 })

@@ -80,10 +80,3 @@ export const notification = pgTable(
     ),
   ],
 )
-
-export type Follow = typeof follow.$inferSelect
-export type NewFollow = typeof follow.$inferInsert
-export type Block = typeof block.$inferSelect
-export type NewBlock = typeof block.$inferInsert
-export type Notification = typeof notification.$inferSelect
-export type NewNotification = typeof notification.$inferInsert

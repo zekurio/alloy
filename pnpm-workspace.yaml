@@ -9,6 +9,8 @@ allowBuilds:
   # Windows target is NSIS, so keep this transitive build script disabled.
   electron-winstaller: false
   esbuild: true
+  # Native image decoding for server-side BlurHash computation (game art).
+  sharp: true
 
 overrides:
   esbuild: 0.28.0

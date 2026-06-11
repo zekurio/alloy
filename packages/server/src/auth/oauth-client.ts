@@ -1,3 +1,4 @@
+import type { OAuthProviderConfig } from "alloy-contracts"
 import {
   allowInsecureRequests,
   AuthorizationResponseError,
@@ -11,7 +12,6 @@ import {
 } from "openid-client"
 
 import { secretStore } from "../config/secret-store"
-import type { OAuthProviderConfig } from "../config/store"
 import { env } from "../env"
 import { errorMessage } from "../runtime/error-message"
 import { getEnabledProviderConfig } from "./oauth-config"

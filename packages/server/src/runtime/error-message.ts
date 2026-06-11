@@ -13,17 +13,6 @@ export function errorDetail(cause: unknown, fallback: string): string {
   return message.length > 0 ? message : fallback
 }
 
-export function prefixedErrorMessage(
-  cause: unknown,
-  prefix: string,
-  fallback: string,
-): string {
-  if (!(cause instanceof Error)) return fallback
-
-  const message = cause.message.trim()
-  return message.length > 0 ? `${prefix}: ${message}` : fallback
-}
-
 export function toError(cause: unknown, fallback: string): Error {
   if (cause instanceof Error) return cause
   return new Error(errorDetail(cause, fallback))

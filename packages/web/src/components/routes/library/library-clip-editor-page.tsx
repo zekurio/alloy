@@ -12,6 +12,7 @@ import {
 } from "alloy-ui/components/alert-dialog"
 import { AppMain } from "alloy-ui/components/app-shell"
 import { Button } from "alloy-ui/components/button"
+import { LoadingState } from "alloy-ui/components/loading-state"
 import { Progress } from "alloy-ui/components/progress"
 import { Spinner } from "alloy-ui/components/spinner"
 import { toast } from "alloy-ui/lib/toast"
@@ -27,7 +28,6 @@ import {
 } from "@/lib/clip-queries"
 import { alloyDesktop } from "@/lib/desktop"
 import { apiOrigin } from "@/lib/env"
-import { browserLiveCodecs } from "@/lib/live-codecs"
 
 import { ClipEditorTabs } from "./library-clip-editor-details"
 import {
@@ -60,9 +60,7 @@ export function LibraryClipEditorPage({ clipId }: { clipId: string }) {
             <BackToLibraryButton />
           </LibraryEmpty>
         ) : (
-          <div className="flex items-center justify-center py-16">
-            <Spinner className="size-6" />
-          </div>
+          <LoadingState className="py-16" />
         )}
       </AppMain>
     )
@@ -130,10 +128,9 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
   const canSaveTrim =
     canTrim && trimmed && rangeMs >= MIN_TRIM_MS && !trimMutation.isPending
 
-  const liveCodecs = React.useMemo(() => browserLiveCodecs(), [])
   // Versioned by updatedAt so a finished server trim busts the media cache
   // and the player reloads the newly cut source.
-  const streamSrc = `${clipStreamUrl(row.id, "source", apiOrigin(), liveCodecs)}&v=${encodeURIComponent(row.updatedAt)}`
+  const streamSrc = `${clipStreamUrl(row.id, "source", apiOrigin())}&v=${encodeURIComponent(row.updatedAt)}`
   const poster = row.thumbKey
     ? clipThumbnailUrl(row.id, apiOrigin(), row.updatedAt)
     : undefined

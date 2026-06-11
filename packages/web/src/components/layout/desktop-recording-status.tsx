@@ -385,9 +385,9 @@ function AudioRow({
   const disabled = !settings || options.length === 0
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="grid grid-cols-[1rem_minmax(0,1fr)_12rem] items-center gap-3">
       <span className="text-foreground-muted">{icon}</span>
-      <span className="min-w-36 flex-1 text-sm font-semibold">{label}</span>
+      <span className="min-w-0 text-sm font-semibold">{label}</span>
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -396,7 +396,7 @@ function AudioRow({
               variant="secondary"
               size="sm"
               disabled={disabled}
-              className="h-9 w-52 justify-between gap-2 px-3"
+              className="h-9 w-full min-w-0 justify-between gap-2 px-3"
             >
               <span className="truncate">
                 {audioDeviceMultiSelectLabel(selected, settings)}

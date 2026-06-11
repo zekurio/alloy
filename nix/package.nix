@@ -6,7 +6,6 @@
   pnpm,
   pnpmConfigHook,
   makeWrapper,
-  jellyfin-ffmpeg,
   imagemagick,
   which,
   version ? (builtins.fromJSON (builtins.readFile ../package.json)).version,
@@ -75,10 +74,14 @@ stdenvNoCC.mkDerivation (finalAttrs: {
       @hono/node-server \
       @hono/zod-validator \
       @simplewebauthn/server \
+      blurhash \
+      croner \
       drizzle-orm \
       hono \
+      mediabunny \
       openid-client \
       pg \
+      sharp \
       zod
     do
       linkNodeModule "$name"
@@ -97,9 +100,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
       }" \
       --set-default NODE_ENV production \
       --set-default WEB_DIST_DIR "$out/share/alloy/web" \
-      --set-default ALLOY_MIGRATIONS_DIR "$out/share/alloy/migrations" \
-      --set-default FFMPEG_BIN "${jellyfin-ffmpeg}/bin/ffmpeg" \
-      --set-default FFPROBE_BIN "${jellyfin-ffmpeg}/bin/ffprobe"
+      --set-default ALLOY_MIGRATIONS_DIR "$out/share/alloy/migrations"
 
     runHook postInstall
   '';

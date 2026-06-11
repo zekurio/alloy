@@ -146,9 +146,16 @@ async function clipHead(pathname: string): Promise<string> {
     const poster = row.thumbKey
       ? new URL(`/api/clips/${row.id}/thumbnail`, origin).toString()
       : null
-    const videoUrl = row.sourceKey
-      ? new URL(`/api/clips/${row.id}/opengraph`, origin).toString()
-      : null
+    // Desktop uploads browser-playable MP4 sources, so og:video points
+    // straight at the stored file — no generated variant. Skip the tag for
+    // container types scrapers can't embed.
+    const embeddableSource =
+      row.sourceContentType === "video/mp4" ||
+      row.sourceContentType === "video/webm"
+    const videoUrl =
+      row.sourceKey && embeddableSource
+        ? new URL(`/api/clips/${row.id}/stream`, origin).toString()
+        : null
     const width = row.width
     const height = row.height
 
@@ -167,7 +174,7 @@ async function clipHead(pathname: string): Promise<string> {
             ...(videoUrl.startsWith("https:")
               ? [metaProperty("og:video:secure_url", videoUrl)]
               : []),
-            metaProperty("og:video:type", "video/mp4"),
+            metaProperty("og:video:type", row.sourceContentType ?? "video/mp4"),
             ...(width ? [metaProperty("og:video:width", String(width))] : []),
             ...(height
               ? [metaProperty("og:video:height", String(height))]

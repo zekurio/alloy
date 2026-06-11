@@ -30,25 +30,10 @@ import {
 export const IdParam = z.object({ id: z.uuid() })
 export const StreamQuery = z.object({
   variant: optionalTrimmedString(),
-  codecs: optionalTrimmedString(),
 })
-export const HlsStreamQuery = z.object({
-  variant: optionalTrimmedString(),
-  codecs: optionalTrimmedString(),
-})
-export const HlsSegmentQuery = HlsStreamQuery.extend({
-  runtimeTicks: z.coerce.number().int().min(0).optional(),
-})
-export const HlsVariantParam = z.object({
+export const HlsFileParam = z.object({
   id: z.uuid(),
-  variant: z.string().min(1).max(200),
-})
-export const HlsCacheParam = z.object({
-  id: z.uuid(),
-  cacheKey: z.string().regex(/^[a-f0-9]{32}$/),
-})
-export const HlsSegmentParam = HlsCacheParam.extend({
-  segment: z.string().min(1).max(128),
+  file: z.string().min(1).max(64),
 })
 export const DownloadQuery = z.object({
   variant: optionalTrimmedString(),
@@ -91,14 +76,12 @@ type ClipListPageRow = ClipListCursorRow & {
   sourceContentType: string | null
   sourceVideoCodec: string | null
   sourceAudioCodec: string | null
-  openGraphKey: string | null
   sourceSizeBytes: number | null
   durationMs: number | null
   width: number | null
   height: number | null
   thumbKey: string | null
   thumbBlurHash: string | null
-  variants: readonly { storageKey: string }[]
   steamgriddbId: number
   game: string | null
 }

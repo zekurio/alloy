@@ -1,7 +1,7 @@
 import { Hono, type Context } from "hono"
 import { z } from "zod"
 
-import { ScheduledTaskTriggersSchema } from "../config/store"
+import { ScheduledTaskTriggersSchema } from "../config/schema"
 import { badRequest, notFound } from "../runtime/http-response"
 import {
   scheduledTaskInfoById,

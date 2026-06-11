@@ -50,16 +50,6 @@ export interface ClipGameRef {
 
 export type ClipMentionRef = UserSummary
 
-export interface ClipPlaybackQuality {
-  id: string
-  label: string
-  bitrate: number
-  videoBitrate: number
-  audioBitrate: number
-  width: number | null
-  height: number
-}
-
 export interface ClipRow {
   id: string
   authorId: string
@@ -72,12 +62,9 @@ export interface ClipRow {
   sourceVideoCodec: string | null
   sourceAudioCodec: string | null
   sourceSizeBytes: number | null
-  openGraphContentType: string | null
-  openGraphSizeBytes: number | null
   durationMs: number | null
   width: number | null
   height: number | null
-  playbackQualities: ClipPlaybackQuality[]
   thumbKey: string | null
   thumbBlurHash: string | null
   viewCount: number

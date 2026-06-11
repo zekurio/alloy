@@ -18,12 +18,9 @@ export async function deleteClipRowAndAssets(
     .where(eq(clipUploadTicket.clipId, row.id))
   await db.delete(clip).where(eq(clip.id, row.id))
 
-  const keys = [
-    row.sourceKey,
-    row.openGraphKey,
-    ...row.variants.map((variant) => variant.storageKey),
-    row.thumbKey,
-  ].filter((key): key is string => Boolean(key))
+  const keys = [row.sourceKey, row.thumbKey].filter((key): key is string =>
+    Boolean(key),
+  )
   for (const key of keys) {
     try {
       await clipStorage.delete(key)

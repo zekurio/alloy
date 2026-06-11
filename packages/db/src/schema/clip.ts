@@ -13,7 +13,6 @@ import {
   foreignKey,
   index,
   integer,
-  jsonb,
   pgTable,
   primaryKey,
   text,
@@ -27,43 +26,6 @@ import { game } from "./game"
 import { sqlStringList } from "./internal"
 
 export { CLIP_PRIVACY, CLIP_STATUS, UPLOAD_TICKET_ROLE }
-
-export interface ClipVariantSettings {
-  hwaccel: string
-  codec: string
-  audioCodec: "aac" | "none"
-  quality: number
-  preset?: string
-  audioBitrateKbps: number
-  extraInputArgs: string
-  extraOutputArgs: string
-  height: number
-}
-
-export interface ClipEncodedVariant {
-  id: string
-  label: string
-  storageKey: string
-  contentType: string
-  width: number
-  height: number
-  sizeBytes: number
-  isDefault: boolean
-  /**
-   * Legacy stored rendition settings. New clips do not write variants; this is
-   * retained so old rows can be decoded and their assets can be cleaned up.
-   */
-  settings?: ClipVariantSettings
-  /**
-   * Legacy HLS streaming metadata from stored rendition experiments.
-   */
-  hls?: {
-    /** Media playlist text; references the media by bare `media.m4s`. */
-    playlist: string
-    /** EXT-X-STREAM-INF attributes for the combined master playlist. */
-    streamInf: string
-  }
-}
 
 export const clip = pgTable(
   "clip",
@@ -92,19 +54,11 @@ export const clip = pgTable(
     sourceVideoCodec: text("source_video_codec"),
     sourceAudioCodec: text("source_audio_codec"),
     sourceSizeBytes: bigint("source_size_bytes", { mode: "number" }),
-    openGraphKey: text("open_graph_key"),
-    openGraphContentType: text("open_graph_content_type"),
-    openGraphSizeBytes: bigint("open_graph_size_bytes", { mode: "number" }),
-    // Nullable: populated by the finalize step after ffprobe. Clips in
+    // Nullable: populated by the finalize step after probing. Clips in
     // 'pending' or 'failed' status may be missing some or all of these.
     durationMs: integer("duration_ms"),
     width: integer("width"),
     height: integer("height"),
-
-    variants: jsonb("variants")
-      .$type<ClipEncodedVariant[]>()
-      .notNull()
-      .default(sql`'[]'::jsonb`),
 
     // Poster image. The desktop client uploads a rendered webp + BlurHash on
     // upload; media processing publishes it as-is. A missing thumbnail leaves
@@ -163,10 +117,6 @@ export const clip = pgTable(
     check(
       "clip_source_size_bytes_safe_check",
       sql`${t.sourceSizeBytes} is null or (${t.sourceSizeBytes} >= 0 and ${t.sourceSizeBytes} <= 9007199254740991)`,
-    ),
-    check(
-      "clip_open_graph_size_bytes_safe_check",
-      sql`${t.openGraphSizeBytes} is null or (${t.openGraphSizeBytes} >= 0 and ${t.openGraphSizeBytes} <= 9007199254740991)`,
     ),
   ],
 )
@@ -329,14 +279,3 @@ export const clipView = pgTable(
 )
 
 export type Clip = typeof clip.$inferSelect
-export type NewClip = typeof clip.$inferInsert
-export type ClipUploadTicket = typeof clipUploadTicket.$inferSelect
-export type NewClipUploadTicket = typeof clipUploadTicket.$inferInsert
-export type ClipLike = typeof clipLike.$inferSelect
-export type ClipView = typeof clipView.$inferSelect
-export type NewClipView = typeof clipView.$inferInsert
-export type ClipComment = typeof clipComment.$inferSelect
-export type NewClipComment = typeof clipComment.$inferInsert
-export type ClipCommentLike = typeof clipCommentLike.$inferSelect
-export type NewClipCommentLike = typeof clipCommentLike.$inferInsert
-export type ClipMention = typeof clipMention.$inferSelect

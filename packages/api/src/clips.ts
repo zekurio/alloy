@@ -57,7 +57,6 @@ export type {
   ClipLikeState,
   ClipMentionRef,
   ClipPage,
-  ClipPlaybackQuality,
   ClipPrivacy,
   ClipRow,
   ClipStatus,
@@ -90,31 +89,20 @@ export function clipStreamUrl(
   clipId: string,
   variantId?: string,
   origin?: string,
-  liveCodecs?: readonly string[],
 ): string {
   return resolvePublicUrlWithQuery(
     publicClipPath(clipId, "/stream"),
-    { variant: variantId, codecs: liveCodecsParam(liveCodecs) },
+    { variant: variantId },
     origin,
   )
 }
 
-export function clipHlsMasterUrl(
-  clipId: string,
-  origin?: string,
-  liveCodecs?: readonly string[],
-  variantId?: string,
-): string {
+export function clipHlsMasterUrl(clipId: string, origin?: string): string {
   return resolvePublicUrlWithQuery(
     publicClipPath(clipId, "/hls/master.m3u8"),
-    { variant: variantId, codecs: liveCodecsParam(liveCodecs) },
+    {},
     origin,
   )
-}
-
-function liveCodecsParam(liveCodecs?: readonly string[]): string | undefined {
-  if (!liveCodecs) return undefined
-  return liveCodecs.length > 0 ? liveCodecs.join(",") : "none"
 }
 
 export function clipThumbnailUrl(

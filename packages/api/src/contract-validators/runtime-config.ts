@@ -1,9 +1,5 @@
 import {
   type AdminRuntimeConfig,
-  ENCODER_HWACCELS,
-  ENCODER_TONEMAPPING_ALGORITHMS,
-  ENCODER_TONEMAPPING_MODES,
-  ENCODER_TONEMAPPING_RANGES,
   RUNTIME_CONFIG_VERSION,
   type RuntimeConfig,
 } from "alloy-contracts"
@@ -15,7 +11,6 @@ import {
   validateEnumString,
   validateNonNegativeInteger,
   validateNullablePositiveInteger,
-  validateNumber,
   validateOptionalUrlString,
   validatePositiveInteger,
   validateRequiredString,
@@ -23,29 +18,11 @@ import {
   validateUrlString,
 } from "../runtime-validation"
 import { validateAuthProviderColors, validateBackdropTreatment } from "./shared"
-const ENCODER_HWACCEL_SET: ReadonlySet<string> = new Set(ENCODER_HWACCELS)
-const ENCODER_TONEMAPPING_ALGORITHM_SET: ReadonlySet<string> = new Set(
-  ENCODER_TONEMAPPING_ALGORITHMS,
-)
-const ENCODER_TONEMAPPING_MODE_SET: ReadonlySet<string> = new Set(
-  ENCODER_TONEMAPPING_MODES,
-)
-const ENCODER_TONEMAPPING_RANGE_SET: ReadonlySet<string> = new Set(
-  ENCODER_TONEMAPPING_RANGES,
-)
 const RUNTIME_CONFIG_BOOLEAN_FIELDS = [
   "openRegistrations",
   "setupComplete",
   "passkeyEnabled",
   "requireAuthToBrowse",
-] as const
-const ADMIN_ENCODER_REQUIRED_STRING_FIELDS = [
-  "qsvDevice",
-  "vaapiDevice",
-] as const
-const ADMIN_ENCODER_BOOLEAN_FIELDS = [
-  `intel${"LowPower"}H264`,
-  `intel${"LowPower"}Hevc`,
 ] as const
 const SCHEDULED_TASK_TRIGGER_TYPES = new Set(["startup", "cron"])
 
@@ -103,89 +80,6 @@ function validateRuntimeOAuthProvider(value: unknown, label: string) {
       `Invalid ${label} config: ${key} is required`,
     )
   }
-}
-
-function validateAdminEncoderConfig(value: unknown) {
-  const encoder = objectRecord(value, "admin encoder config")
-  validateBoolean(
-    encoder.enabled,
-    "Invalid admin encoder config: enabled must be boolean",
-  )
-  validateEnumString(
-    encoder.hwaccel,
-    ENCODER_HWACCEL_SET,
-    "Invalid admin encoder config: hwaccel is invalid",
-  )
-  for (const key of ADMIN_ENCODER_REQUIRED_STRING_FIELDS) {
-    validateRequiredString(
-      encoder[key],
-      `Invalid admin encoder config: ${key} is required`,
-    )
-  }
-  for (const key of ADMIN_ENCODER_BOOLEAN_FIELDS) {
-    validateBoolean(
-      encoder[key],
-      `Invalid admin encoder config: ${key} must be boolean`,
-    )
-  }
-  validateEncoderTonemappingConfig(encoder.tonemapping)
-}
-
-function validateEncoderTonemappingConfig(value: unknown) {
-  const tonemapping = objectRecord(value, "admin encoder tone mapping config")
-  validateBoolean(
-    tonemapping.enabled,
-    "Invalid admin encoder tone mapping config: enabled must be boolean",
-  )
-  validateEnumString(
-    tonemapping.algorithm,
-    ENCODER_TONEMAPPING_ALGORITHM_SET,
-    "Invalid admin encoder tone mapping config: algorithm is invalid",
-  )
-  validateEnumString(
-    tonemapping.mode,
-    ENCODER_TONEMAPPING_MODE_SET,
-    "Invalid admin encoder tone mapping config: mode is invalid",
-  )
-  validateEnumString(
-    tonemapping.range,
-    ENCODER_TONEMAPPING_RANGE_SET,
-    "Invalid admin encoder tone mapping config: range is invalid",
-  )
-  validateNumber(
-    tonemapping.desat,
-    "Invalid admin encoder tone mapping config: desat must be numeric",
-  )
-  validateNumber(
-    tonemapping.peak,
-    "Invalid admin encoder tone mapping config: peak must be numeric",
-  )
-  if (tonemapping.param !== null) {
-    validateNumber(
-      tonemapping.param,
-      "Invalid admin encoder tone mapping config: param must be numeric or null",
-    )
-  }
-  validateNumber(
-    tonemapping.threshold,
-    "Invalid admin encoder tone mapping config: threshold must be numeric",
-  )
-  const vpp = objectRecord(
-    tonemapping.vpp,
-    "admin encoder VPP tone mapping config",
-  )
-  validateBoolean(
-    vpp.enabled,
-    "Invalid admin encoder VPP tone mapping config: enabled must be boolean",
-  )
-  validateNumber(
-    vpp.brightness,
-    "Invalid admin encoder VPP tone mapping config: brightness must be numeric",
-  )
-  validateNumber(
-    vpp.contrast,
-    "Invalid admin encoder VPP tone mapping config: contrast must be numeric",
-  )
 }
 
 function validateAdminLimitsConfig(value: unknown) {
@@ -291,7 +185,6 @@ function validateRuntimeConfigFields(
     validateRuntimeOAuthProvider(provider, `${label} OAuth provider`),
   )
   validateScheduledTasksConfig(config.scheduledTasks, label)
-  validateAdminEncoderConfig(config.encoder)
   validateAdminLimitsConfig(config.limits)
   validateAdminAppearanceConfig(config.appearance)
 }

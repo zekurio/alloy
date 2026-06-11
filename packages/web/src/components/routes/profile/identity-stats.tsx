@@ -1,7 +1,4 @@
-import { Link } from "@tanstack/react-router"
-import type { ProfileCounts, UserSearchResult } from "alloy-api"
-import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
-import { Button } from "alloy-ui/components/button"
+import type { ProfileCounts } from "alloy-api"
 import {
   Dialog,
   DialogBody,
@@ -10,15 +7,11 @@ import {
   DialogTitle,
 } from "alloy-ui/components/dialog"
 import { Spinner } from "alloy-ui/components/spinner"
-import { toast } from "alloy-ui/lib/toast"
 import { cn } from "alloy-ui/lib/utils"
-import { UserPlusIcon } from "lucide-react"
 import * as React from "react"
 
-import { errorMessage } from "@/lib/error-message"
-import { userAvatar } from "@/lib/user-display"
+import { UserFollowRow } from "@/components/user/user-follow-row"
 import {
-  useToggleUserFollowMutation,
   useUserFollowersQuery,
   useUserFollowingQuery,
 } from "@/lib/user-queries"
@@ -103,7 +96,7 @@ export function IdentityStats({ handle, counts }: IdentityStatsProps) {
             ) : list && list.length > 0 ? (
               <ul className="flex flex-col">
                 {list.map((u) => (
-                  <FollowRow
+                  <UserFollowRow
                     key={u.id}
                     user={u}
                     initiallyFollowing={view === "following"}
@@ -122,76 +115,5 @@ export function IdentityStats({ handle, counts }: IdentityStatsProps) {
         </DialogContent>
       </Dialog>
     </>
-  )
-}
-
-function FollowRow({
-  user,
-  initiallyFollowing,
-  onNavigate,
-}: {
-  user: UserSearchResult
-  initiallyFollowing: boolean
-  onNavigate: () => void
-}) {
-  const [following, setFollowing] = React.useState(initiallyFollowing)
-  const followMutation = useToggleUserFollowMutation(user.username)
-  const handle = user.displayUsername || user.username
-  const displayName = `@${handle}`
-  const avatar = userAvatar(user)
-  const avatarStyle = { background: avatar.bg, color: avatar.fg }
-
-  React.useEffect(() => {
-    setFollowing(initiallyFollowing)
-  }, [initiallyFollowing, user.id])
-
-  const toggle = () => {
-    const next = !following
-    setFollowing(next)
-    followMutation.mutate(
-      { next },
-      {
-        onError: (err) => {
-          setFollowing(!next)
-          toast.error(errorMessage(err, "Something went wrong"))
-        },
-      },
-    )
-  }
-
-  return (
-    <li className="hover:bg-surface-raised flex items-center gap-3 rounded-md px-2 py-2">
-      <Link
-        to="/u/$username"
-        params={{ username: user.username }}
-        onClick={onNavigate}
-        className="flex min-w-0 flex-1 items-center gap-3"
-      >
-        <Avatar size="md" style={avatarStyle}>
-          {avatar.src ? (
-            <AvatarImage src={avatar.src} alt={displayName} />
-          ) : null}
-          <AvatarFallback style={avatarStyle}>{avatar.initials}</AvatarFallback>
-        </Avatar>
-        <span className="min-w-0 flex-1">
-          <span className="text-foreground block truncate text-sm">
-            {displayName}
-          </span>
-          <span className="text-foreground-faint block truncate text-xs">
-            @{handle}
-          </span>
-        </span>
-      </Link>
-      <Button
-        type="button"
-        size="sm"
-        variant={following ? "ghost" : "primary"}
-        disabled={followMutation.isPending}
-        onClick={toggle}
-      >
-        <UserPlusIcon className="size-3.5" />
-        {following ? "Following" : "Follow"}
-      </Button>
-    </li>
   )
 }

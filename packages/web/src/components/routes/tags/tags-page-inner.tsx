@@ -3,6 +3,7 @@ import type { ClipFeedWindow } from "alloy-api"
 import { AppMain } from "alloy-ui/components/app-shell"
 import { Chip } from "alloy-ui/components/chip"
 import { GameIcon } from "alloy-ui/components/game-icon"
+import { LoadingState } from "alloy-ui/components/loading-state"
 import { Spinner } from "alloy-ui/components/spinner"
 import { HashIcon } from "lucide-react"
 import * as React from "react"
@@ -180,11 +181,7 @@ function TagClipsSection({
   )
 
   if (isPending && rows.length === 0) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Spinner className="size-6" />
-      </div>
-    )
+    return <LoadingState />
   }
 
   if (rows.length === 0) {

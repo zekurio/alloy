@@ -6,15 +6,13 @@ import { z } from "zod"
 
 import { requireAdmin } from "../auth/session"
 import { signInConfigError } from "../auth/sign-in-config"
-import { isOAuthProviderUsable, secretStore } from "../config/secret-store"
+import { OAuthProvidersSchema } from "../config/oauth-schema"
 import {
-  configStore,
-  EncoderConfigPatchSchema,
   IntegrationsSecretPatchSchema,
   LimitsConfigPatchSchema,
-  OAuthProvidersSchema,
-  parseRuntimeConfig,
-} from "../config/store"
+} from "../config/schema"
+import { isOAuthProviderUsable, secretStore } from "../config/secret-store"
+import { configStore, parseRuntimeConfig } from "../config/store"
 import { db } from "../db"
 import { enqueueClipMediaProcessing } from "../queue"
 import {
@@ -27,10 +25,6 @@ import {
   generateLoginSplashPatch,
   storeUploadedLoginSplashImage,
 } from "./admin-appearance"
-import {
-  clearEncoderCapabilitiesCache,
-  getEncoderCapabilities,
-} from "./admin-encoder-capabilities"
 import {
   adminRuntimeConfigResponse,
   finalizeOAuthProviderSubmission,
@@ -94,7 +88,6 @@ export const adminRoute = new Hono()
     if (!(await configStore.reload())) {
       return badRequest(c, "Runtime config file failed validation.")
     }
-    clearEncoderCapabilitiesCache()
     if (configStore.get("appearance").loginSplash.enabled) {
       await ensureLoginSplashImage()
     }
@@ -127,7 +120,6 @@ export const adminRoute = new Hono()
       }
 
       configStore.replace(next)
-      clearEncoderCapabilitiesCache()
       secretStore.update({
         retainOAuth: nextProviderIds,
       })
@@ -234,30 +226,6 @@ export const adminRoute = new Hono()
     },
   )
   /**
-   * PATCH /encoder — update live transcoding settings. Partial — admins
-   * usually flip one knob at a time. Changes apply to future live transcodes;
-   * already running processes finish on the previous config.
-   */
-  .patch("/encoder", zValidator("json", EncoderConfigPatchSchema), (c) => {
-    const patch = c.req.valid("json")
-    const current = configStore.get("encoder")
-    const next = {
-      ...current,
-      ...patch,
-      tonemapping: {
-        ...current.tonemapping,
-        ...patch.tonemapping,
-        vpp: {
-          ...current.tonemapping.vpp,
-          ...patch.tonemapping?.vpp,
-        },
-      },
-    }
-    configStore.set("encoder", next)
-    clearEncoderCapabilitiesCache()
-    return c.json(adminRuntimeConfigResponse(configStore.getAll()))
-  })
-  /**
    * PATCH /limits — update upload limits. `maxUploadBytes` and `uploadTtlSec`
    * are picked up on the next `/initiate` call.
    */
@@ -330,9 +298,6 @@ export const adminRoute = new Hono()
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     },
   )
-  .get("/encoder/capabilities", async (c) => {
-    return c.json(await getEncoderCapabilities())
-  })
   .route("/scheduled-tasks", adminScheduledTasksRoute)
   .post("/clips/re-encode", async (c) => {
     const rows = await db

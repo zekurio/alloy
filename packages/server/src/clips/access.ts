@@ -44,12 +44,6 @@ const CLIP_ACCESS_POLICIES = {
     privateFailure: "auth",
     readiness: "ready-or-owner-admin",
   },
-  openGraphAsset: {
-    allowPrivate: false,
-    notReadyError: "Not found",
-    privateFailure: "not-found",
-    readiness: "ready",
-  },
 } as const satisfies Record<string, ClipAccessPolicy>
 
 type ClipAccessPolicyName = keyof typeof CLIP_ACCESS_POLICIES

@@ -1,10 +1,10 @@
 import type { AdminRuntimeConfig } from "alloy-api"
 import { Section, SectionContent } from "alloy-ui/components/section"
+import { SettingRow } from "alloy-ui/components/setting-row"
 import { Switch } from "alloy-ui/components/switch"
 import * as React from "react"
 
 import { AdminUsersCard } from "@/components/admin/admin-users-card"
-import { EncoderConfigCard } from "@/components/routes/admin-settings/encoder-config-card"
 import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integrations-config-card"
 import { LimitsConfigCard } from "@/components/routes/admin-settings/limits-config-card"
 import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-provider-card"
@@ -73,17 +73,13 @@ function ToggleRow({
   disabled?: boolean
 }) {
   return (
-    <div className="not-last:border-border flex items-start justify-between gap-4 py-3 not-last:border-b first:pt-0 last:pb-0">
-      <div className="min-w-0">
-        <div className="text-sm font-medium">{title}</div>
-        <p className="text-foreground-dim mt-0.5 text-xs">{description}</p>
-      </div>
+    <SettingRow align="start" title={title} description={description}>
       <Switch
         checked={checked}
         onCheckedChange={onCheckedChange}
         disabled={disabled}
       />
-    </div>
+    </SettingRow>
   )
 }
 
@@ -125,14 +121,6 @@ export const AdminAuthenticationPanel = withAdminConfig((config, ctx) => {
     </div>
   )
 })
-
-export const AdminTranscodingPanel = withAdminConfig((config, ctx) => (
-  <EncoderConfigCard
-    encoder={config.encoder}
-    onChange={(next) => ctx.setConfig(next)}
-    hideHeader
-  />
-))
 
 export const AdminLimitsPanel = withAdminConfig((config, ctx) => (
   <LimitsConfigCard

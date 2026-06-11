@@ -8,65 +8,14 @@ import {
 } from "node:fs"
 import { basename } from "node:path"
 
-import {
-  ENCODER_HWACCELS,
-  type EncoderHwaccel,
-  type RuntimeConfig,
-} from "alloy-contracts"
+import type { RuntimeConfig } from "alloy-contracts"
 import { logger } from "alloy-logging"
 
 import { signInConfigError } from "../auth/sign-in-config"
 import { CONFIG_PATH } from "../runtime/dirs"
 import { errorDetail } from "../runtime/error-message"
 import { dirname } from "../runtime/path"
-import {
-  OAuthProviderSchema,
-  OAuthProvidersSchema,
-  type OAuthProviderSubmission,
-  OAuthProviderSubmissionSchema,
-} from "./oauth-schema"
-import {
-  AppearanceConfigPatchSchema,
-  bootstrapDefaultConfig,
-  EncoderConfigPatchSchema,
-  IntegrationsSecretPatchSchema,
-  LimitsConfigPatchSchema,
-  RuntimeConfigSchema,
-  ScheduledTaskTriggersSchema,
-} from "./schema"
-
-export {
-  ENCODER_CODECS,
-  ENCODER_HEIGHT_MAX,
-  ENCODER_HEIGHT_MIN,
-  OAUTH_USERNAME_CLAIM_DEFAULT,
-} from "alloy-contracts"
-export const HWACCEL_KINDS = ENCODER_HWACCELS
-export type HwaccelKind = EncoderHwaccel
-export type { UsernameClaim } from "alloy-contracts"
-
-export {
-  OAuthProviderSchema,
-  OAuthProvidersSchema,
-  OAuthProviderSubmissionSchema,
-}
-export type { OAuthProviderSubmission }
-export {
-  AppearanceConfigPatchSchema,
-  EncoderConfigPatchSchema,
-  IntegrationsSecretPatchSchema,
-  LimitsConfigPatchSchema,
-  ScheduledTaskTriggersSchema,
-}
-
-export type {
-  AppearanceConfig,
-  EncoderCodec,
-  EncoderConfig,
-  LimitsConfig,
-  OAuthProviderConfig,
-  RuntimeConfig,
-} from "alloy-contracts"
+import { bootstrapDefaultConfig, RuntimeConfigSchema } from "./schema"
 
 type LoadResult =
   | {

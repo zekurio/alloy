@@ -1,5 +1,5 @@
+import { probeMedia } from "../media/probe"
 import { clipStorage } from "../storage"
-import { probe } from "./ffmpeg"
 
 export type Asset = {
   storageKey: string
@@ -23,7 +23,7 @@ export async function publishOriginalSource({
   sourceKey: string
   contentType: string
 }): Promise<SourceAsset> {
-  const rawProbe = await probe(sourcePath)
+  const rawProbe = await probeMedia(sourcePath)
   const { size } = await clipStorage.uploadFromFile(
     sourcePath,
     sourceKey,

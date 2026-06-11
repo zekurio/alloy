@@ -5,13 +5,7 @@ import {
   redirect,
   useNavigate,
 } from "@tanstack/react-router"
-import {
-  type AdminEncoderCapabilities,
-  type AdminEncoderConfig,
-  type AdminRuntimeConfig,
-  type EncoderCodec,
-  type EncoderHwaccel,
-} from "alloy-api"
+import { type AdminRuntimeConfig } from "alloy-api"
 import { AlloyLogo } from "alloy-ui/components/alloy-logo"
 import { Button } from "alloy-ui/components/button"
 import { toast } from "alloy-ui/lib/toast"
@@ -19,20 +13,14 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   CheckCircle2Icon,
-  FilmIcon,
-  InfoIcon,
   LinkIcon,
   UserKeyIcon,
 } from "lucide-react"
 import * as React from "react"
 
-import { EncoderConfigCard } from "@/components/routes/admin-settings/encoder-config-card"
 import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integrations-config-card"
 import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-provider-card"
-import {
-  adminEncoderCapabilitiesQueryOptions,
-  adminRuntimeConfigQueryOptions,
-} from "@/lib/admin-query-keys"
+import { adminRuntimeConfigQueryOptions } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 import { isDevSetupForced } from "@/lib/flags"
@@ -72,23 +60,6 @@ const PasskeySignUpForm = React.lazy(() =>
     default: m.PasskeySignUpForm,
   })),
 )
-
-const ONBOARDING_CODEC_PRIORITY: readonly EncoderCodec[] = [
-  "av1",
-  "hevc",
-  "h264",
-]
-
-const ONBOARDING_HWACCEL_PRIORITY: readonly EncoderHwaccel[] = [
-  "nvenc",
-  "qsv",
-  "amf",
-  "vaapi",
-  "videotoolbox",
-  "rkmpp",
-  "v4l2m2m",
-  "none",
-]
 
 function SetupPage() {
   return <SetupPageInner />
@@ -138,13 +109,6 @@ function AdminAccountStep() {
 
 const SETUP_STEPS = [
   {
-    icon: FilmIcon,
-    label: "Transcoding",
-    description:
-      "Configure live playback transcoding and hardware acceleration.",
-    formId: "setup-encoder",
-  },
-  {
     icon: UserKeyIcon,
     label: "OIDC",
     description: "Configure an optional OIDC/OAuth provider for sign-in.",
@@ -158,9 +122,9 @@ const SETUP_STEPS = [
   },
 ] as const
 
-type SetupStep = 0 | 1 | 2
+type SetupStep = 0 | 1
 
-const SETUP_LAST_STEP: SetupStep = 2
+const SETUP_LAST_STEP: SetupStep = 1
 
 function AdminSetupSteps() {
   const setup = useAdminSetupSteps()
@@ -266,23 +230,13 @@ function AdminSetupStepContent({
 
       <div className="flex flex-col gap-5">
         {step === 0 && (
-          <EncoderOnboardingCard
-            config={config}
-            onChange={(next) => setConfig(next)}
-            encoderFormId="setup-encoder"
-            hideEncoderActions
-            hideEncoderHeader
-            onEncoderSaved={() => advanceStep(0)}
-          />
-        )}
-        {step === 1 && (
           <OAuthProviderCard config={config} onChange={setConfig} hideHeader />
         )}
-        {step === 2 && (
+        {step === 1 && (
           <IntegrationsConfigCard
             integrations={config.integrations}
             onChange={(next) => setConfig(next)}
-            onSaved={() => advanceStep(2)}
+            onSaved={() => advanceStep(1)}
             formId="setup-integrations"
             hideActions
             hideHeader
@@ -313,10 +267,8 @@ function AdminSetupStepContent({
   )
 }
 
-function getStepDone(config: AdminRuntimeConfig): [boolean, boolean, boolean] {
+function getStepDone(config: AdminRuntimeConfig): [boolean, boolean] {
   return [
-    // Encoding is done when enabled with at least one variant
-    true,
     // OIDC is optional; it is done once a provider is configured.
     config.oauthProviders.length > 0,
     // SteamGridDB is done once a key is configured.
@@ -329,7 +281,7 @@ function StepIndicator({
   stepDone,
 }: {
   currentStep: SetupStep
-  stepDone: [boolean, boolean, boolean]
+  stepDone: [boolean, boolean]
 }) {
   return (
     <div className="grid gap-2 sm:grid-cols-4">
@@ -360,96 +312,4 @@ function StepIndicator({
       })}
     </div>
   )
-}
-
-function EncoderOnboardingCard({
-  config,
-  onChange,
-  encoderFormId,
-  hideEncoderHeader,
-  hideEncoderActions,
-  onEncoderSaved,
-}: {
-  config: AdminRuntimeConfig
-  onChange: (next: AdminRuntimeConfig) => void
-  encoderFormId?: string
-  hideEncoderHeader?: boolean
-  hideEncoderActions?: boolean
-  onEncoderSaved?: () => void
-}) {
-  const [pending, setPending] = React.useState(false)
-  const capsQuery = useQuery(adminEncoderCapabilitiesQueryOptions())
-  const caps = capsQuery.data
-  const showSuggestion = !config.encoder.enabled
-
-  async function applyDefaultProfile() {
-    if (pending) return
-    const detectedHwaccel = caps?.ffmpegOk
-      ? bestDetectedOnboardingHwaccel(caps)
-      : "none"
-    if (!detectedHwaccel) {
-      toast.error(
-        "Detected ffmpeg does not report AV1, HEVC, or H.264 support.",
-      )
-      return
-    }
-    setPending(true)
-    const nextEncoder: AdminEncoderConfig = {
-      ...config.encoder,
-      enabled: true,
-      hwaccel: detectedHwaccel,
-    }
-    try {
-      const next = await api.admin.updateEncoderConfig(nextEncoder)
-      onChange(next)
-      toast.success("Live transcoding enabled")
-    } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't update encoder"))
-    } finally {
-      setPending(false)
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-4">
-      {showSuggestion && (
-        <div className="border-accent/30 bg-accent-soft flex items-start gap-3 rounded-md border px-4 py-3">
-          <InfoIcon className="text-accent mt-0.5 size-4 shrink-0" />
-          <p className="text-foreground-muted min-w-0 text-sm">
-            Not sure where to start?{" "}
-            <button
-              type="button"
-              className="text-accent hover:text-accent-hover inline font-medium underline underline-offset-2 transition-colors disabled:opacity-50"
-              onClick={applyDefaultProfile}
-              disabled={pending}
-            >
-              {pending ? "Applying..." : "Enable live transcoding"}
-            </button>{" "}
-            with the best detected backend.
-          </p>
-        </div>
-      )}
-
-      <EncoderConfigCard
-        encoder={config.encoder}
-        onChange={(next) => onChange(next)}
-        formId={encoderFormId}
-        hideHeader={hideEncoderHeader}
-        hideActions={hideEncoderActions}
-        onSaved={onEncoderSaved}
-        toastOnSuccess={false}
-      />
-    </div>
-  )
-}
-
-function bestDetectedOnboardingHwaccel(
-  caps: AdminEncoderCapabilities,
-): EncoderHwaccel | null {
-  for (const codec of ONBOARDING_CODEC_PRIORITY) {
-    for (const hwaccel of ONBOARDING_HWACCEL_PRIORITY) {
-      if (caps.available[hwaccel][codec]) return hwaccel
-    }
-  }
-  return null
 }

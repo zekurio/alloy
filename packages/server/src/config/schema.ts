@@ -1,11 +1,4 @@
-import {
-  ENCODER_HWACCELS,
-  ENCODER_TONEMAPPING_ALGORITHMS,
-  ENCODER_TONEMAPPING_MODES,
-  ENCODER_TONEMAPPING_RANGES,
-  RUNTIME_CONFIG_VERSION,
-  type RuntimeConfig,
-} from "alloy-contracts"
+import { RUNTIME_CONFIG_VERSION, type RuntimeConfig } from "alloy-contracts"
 import { z } from "zod"
 
 import { randomBase64Url } from "../runtime/crypto"
@@ -15,43 +8,6 @@ import { OAuthProvidersSchema } from "./oauth-schema"
 function randomSecret(): string {
   return randomBase64Url(32)
 }
-
-const EncoderVppTonemappingConfigBaseSchema = z.object({
-  enabled: z.boolean().default(true),
-  brightness: z.number().min(-100).max(100).default(16),
-  contrast: z.number().min(0).max(10).default(1),
-})
-
-const EncoderTonemappingConfigBaseSchema = z.object({
-  enabled: z.boolean().default(true),
-  algorithm: z.enum(ENCODER_TONEMAPPING_ALGORITHMS).default("bt2390"),
-  mode: z.enum(ENCODER_TONEMAPPING_MODES).default("auto"),
-  range: z.enum(ENCODER_TONEMAPPING_RANGES).default("auto"),
-  desat: z.number().min(0).max(10).default(0),
-  peak: z.number().min(0).max(10_000).default(100),
-  param: z.number().min(0).max(10).nullable().default(null),
-  threshold: z.number().min(0).max(1).default(0.2),
-  vpp: EncoderVppTonemappingConfigBaseSchema.default(
-    EncoderVppTonemappingConfigBaseSchema.parse({}),
-  ),
-})
-
-const EncoderTonemappingConfigSchema =
-  EncoderTonemappingConfigBaseSchema.default(
-    EncoderTonemappingConfigBaseSchema.parse({}),
-  )
-
-const EncoderConfigInnerSchema = z.object({
-  enabled: z.boolean().default(true),
-  hwaccel: z.enum(ENCODER_HWACCELS).default("none"),
-  qsvDevice: z.string().min(1).max(128).default("/dev/dri/renderD128"),
-  vaapiDevice: z.string().min(1).max(128).default("/dev/dri/renderD128"),
-  intelLowPowerH264: z.boolean().default(false),
-  intelLowPowerHevc: z.boolean().default(false),
-  tonemapping: EncoderTonemappingConfigSchema,
-})
-
-const EncoderConfigSchema = EncoderConfigInnerSchema
 
 const LimitsConfigSchema = z.object({
   maxUploadBytes: z
@@ -140,19 +96,10 @@ export const RuntimeConfigSchema = z.object({
   requireAuthToBrowse: z.boolean().default(true),
   oauthProviders: OAuthProvidersSchema.default([]),
   scheduledTasks: ScheduledTasksConfigSchema,
-  encoder: EncoderConfigSchema.default(EncoderConfigInnerSchema.parse({})),
   limits: LimitsConfigSchema.default(LimitsConfigSchema.parse({})),
   appearance: AppearanceConfigSchema.default(AppearanceConfigSchema.parse({})),
 })
 
-export const EncoderConfigPatchSchema =
-  EncoderConfigInnerSchema.partial().extend({
-    tonemapping: EncoderTonemappingConfigBaseSchema.partial()
-      .extend({
-        vpp: EncoderVppTonemappingConfigBaseSchema.partial().optional(),
-      })
-      .optional(),
-  })
 export const LimitsConfigPatchSchema = LimitsConfigSchema.partial()
 /** Write-only patch for the (secret) SteamGridDB key. */
 export const IntegrationsSecretPatchSchema = z.object({

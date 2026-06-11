@@ -1,9 +1,7 @@
 import {
-  type AdminEncoderCapabilities,
   type AdminScheduledTaskInfo,
   type AdminScheduledTaskRunResponse,
   type AdminScheduledTasksResponse,
-  ENCODER_HWACCELS,
   type GameDetail,
   type GameListRow,
   type GameNameLookupResponse,
@@ -169,34 +167,6 @@ export function validateSteamGridDBSearchResults(
   return validateArray(value, "Invalid game search response").map(
     validateSteamGridDBSearchResult,
   )
-}
-
-export function validateAdminEncoderCapabilities(
-  value: unknown,
-): AdminEncoderCapabilities {
-  const capabilities = objectRecord(value, "encoder capabilities")
-  validateBoolean(
-    capabilities.ffmpegOk,
-    "Invalid encoder capabilities response: ffmpegOk must be boolean",
-  )
-  validateNullableString(
-    capabilities.ffmpegVersion,
-    "Invalid encoder capabilities response: ffmpegVersion must be string or null",
-  )
-  const available = objectRecord(
-    capabilities.available,
-    "encoder capabilities available",
-  )
-  for (const hwaccel of ENCODER_HWACCELS) {
-    const hw = objectRecord(available[hwaccel], "encoder capabilities hwaccel")
-    for (const codec of ["h264", "hevc", "av1"] as const) {
-      validateBoolean(
-        hw[codec],
-        `Invalid encoder capabilities response: ${hwaccel}.${codec} must be boolean`,
-      )
-    }
-  }
-  return value as AdminEncoderCapabilities
 }
 
 export function validateAdminScheduledTasksResponse(

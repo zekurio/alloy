@@ -28,8 +28,10 @@
     "croner": "10.0.1",
     "drizzle-orm": "0.45.2",
     "hono": "4.12.23",
+    "mediabunny": "^1.46.0",
     "openid-client": "6.8.2",
     "pg": "8.21.0",
+    "sharp": "^0.34.5",
     "zod": "4.3.6"
   },
   "devDependencies": {

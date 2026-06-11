@@ -8,10 +8,14 @@ const runtimePackages = [
   "@hono/node-server",
   "@hono/zod-validator",
   "@simplewebauthn/server",
+  "blurhash",
+  "croner",
   "drizzle-orm",
   "hono",
+  "mediabunny",
   "openid-client",
   "pg",
+  "sharp",
   "zod",
 ]
 

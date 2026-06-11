@@ -1,5 +1,5 @@
 import type { ClipRow } from "alloy-api"
-import { Spinner } from "alloy-ui/components/spinner"
+import { LoadingState } from "alloy-ui/components/loading-state"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
 import { EmptyState } from "@/components/feedback/empty-state"
@@ -58,9 +58,5 @@ export function ClipSectionContent({
     return <EmptyState seed={errorSeed} size={errorSize} title={errorTitle} />
   }
 
-  return (
-    <div className="flex items-center justify-center py-12">
-      <Spinner className="size-6" />
-    </div>
-  )
+  return <LoadingState />
 }

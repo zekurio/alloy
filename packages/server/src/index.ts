@@ -4,12 +4,11 @@ import { logger } from "alloy-logging"
 
 import { app } from "./app"
 import { startChallengeSweeper, stopChallengeSweeper } from "./auth/webauthn"
-import { startLiveHlsCache, stopLiveHlsCache } from "./clips/live-hls-cache"
+import { startDirectHlsCache, stopDirectHlsCache } from "./clips/direct-hls"
 import { warmDatabase } from "./db"
 import { env } from "./env"
 import { startQueue, stopQueue } from "./queue"
 import { ensureLoginSplashImage } from "./routes/admin-appearance"
-import { warmEncoderCapabilities } from "./routes/admin-encoder-capabilities"
 import { requestShutdown } from "./runtime/shutdown"
 import { startScheduledTasks, stopScheduledTasks } from "./scheduled-tasks"
 
@@ -40,15 +39,11 @@ void startQueue().catch((err) => {
   logger.error("[queue] failed to start:", err)
 })
 
-void startLiveHlsCache().catch((err) => {
-  logger.error("[clips] failed to start live HLS cache:", err)
+void startDirectHlsCache().catch((err) => {
+  logger.error("[clips] failed to start direct HLS cache:", err)
 })
 
 startScheduledTasks()
-
-// Probe encoder capabilities up front so the first stream request doesn't wait
-// on the multi-second encoder smoke tests (slowest path: live AV1 selection).
-warmEncoderCapabilities()
 
 // Background TTL cleanup for auth challenges, kept off the request path.
 startChallengeSweeper()
@@ -66,7 +61,7 @@ const shutdown = () => {
   shuttingDown = true
   requestShutdown()
   stopChallengeSweeper()
-  void stopLiveHlsCache()
+  void stopDirectHlsCache()
   const forceShutdown = setTimeout(() => {
     logger.warn("[server] forcing shutdown after graceful deadline")
     closeAllConnections(server)

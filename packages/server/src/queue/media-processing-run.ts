@@ -1,14 +1,15 @@
 import { copyFile, rm, stat } from "node:fs/promises"
 
 import type { AcceptedContentType } from "alloy-contracts"
-import { clip, clipUploadTicket } from "alloy-db/schema"
+import { type Clip, clip, clipUploadTicket } from "alloy-db/schema"
 import { logger } from "alloy-logging"
 import { and, eq } from "drizzle-orm"
 
+import { ensureDirectHlsPackage, makeDirectHlsSpec } from "../clips/direct-hls"
 import { publishClipUpsert } from "../clips/events"
-import { publishOpenGraphVariant } from "../clips/opengraph-variant"
 import { db } from "../db"
-import { imageBlurHash } from "../media/blurhash"
+import { probeMedia } from "../media/probe"
+import { trimToMp4 } from "../media/trim"
 import { notifyFollowersOfNewClip } from "../notifications"
 import { join } from "../runtime/path"
 import { clipAssetDir, clipAssetKey, clipStorage } from "../storage"
@@ -17,17 +18,14 @@ import {
   deleteScratchUploads,
   scratchUploadPath,
 } from "../uploads/scratch"
-import { probe, thumbnail, trimToMp4 } from "./ffmpeg"
 import { abortMediaProcessing } from "./media-abort"
 import { makeMediaProgressWriter } from "./media-progress"
 import { type Asset, publishOriginalSource } from "./media-publish"
 import { ensureClipStillPresent, makeScratchDir } from "./media-run-helpers"
 
-type ClipRow = typeof clip.$inferSelect
-
 export async function runMediaProcessingInner(
   clipId: string,
-  row: ClipRow,
+  row: Clip,
   runId: string,
   signal: AbortSignal,
 ): Promise<void> {
@@ -36,7 +34,6 @@ export async function runMediaProcessingInner(
   const retainedKeys = new Set<string>()
   if (row.sourceKey) retainedKeys.add(row.sourceKey)
   if (row.thumbKey) retainedKeys.add(row.thumbKey)
-  if (row.openGraphKey) retainedKeys.add(row.openGraphKey)
   let sourcePublishedForRetry = !!row.sourceKey
   try {
     await runPipelineInScratch({
@@ -79,7 +76,7 @@ async function runPipelineInScratch({
   retainPublishedKey,
 }: {
   clipId: string
-  row: ClipRow
+  row: Clip
   runId: string
   signal: AbortSignal
   scratchDir: string
@@ -128,17 +125,12 @@ async function runPipelineInScratch({
   }
   await ensureClipStillPresent(clipId, runId, signal)
 
-  const probed = await probe(mediaPath)
+  const probed = await probeMedia(mediaPath)
   const outputDurationMs = probed.durationMs
 
-  const totalWork = 4
+  const totalWork = 3
   let completedWork = 0
   const writeProgress = makeMediaProgressWriter(clipId, row.authorId, runId)
-  const writePartialProgress = (pct: number) => {
-    writeProgress(
-      Math.min(99, Math.floor(((completedWork + pct / 100) / totalWork) * 100)),
-    )
-  }
   const completeWork = () => {
     completedWork += 1
     writeProgress(Math.min(99, Math.floor((completedWork / totalWork) * 100)))
@@ -188,17 +180,15 @@ async function runPipelineInScratch({
   completeWork()
 
   await ensureClipStillPresent(clipId, runId, signal)
-  const thumbKey = clipAssetKey(clipId, "thumb")
-  const thumbBlurHash = await publishThumbnail({
+  // The desktop client is the only producer of posters: it ships a rendered
+  // webp plus a BlurHash at initiate. The server never extracts frames — when
+  // no poster was uploaded (an owner trim reprocess), the existing one is
+  // kept as-is.
+  const { thumbKey, thumbBlurHash } = await republishUploadedThumbnail(
     clipId,
     row,
-    scratchDir,
-    mediaPath,
-    outputDurationMs,
-    thumbKey,
     uploadedKeys,
-    signal,
-  })
+  )
   const [thumbPublished] = await db
     .update(clip)
     .set({
@@ -209,33 +199,7 @@ async function runPipelineInScratch({
     .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
     .returning({ id: clip.id })
   if (!thumbPublished) throw abortMediaProcessing()
-  retainPublishedKey(thumbKey)
-  void publishClipUpsert(row.authorId, clipId)
-  completeWork()
-
-  await ensureClipStillPresent(clipId, runId, signal)
-  const openGraphPath = join(scratchDir, "opengraph.mp4")
-  const openGraphAsset = await publishOpenGraphVariant({
-    clipId,
-    sourcePath: mediaPath,
-    outPath: openGraphPath,
-    source: probed,
-    signal,
-    onProgress: writePartialProgress,
-  })
-  uploadedKeys.push(openGraphAsset.storageKey)
-  const [openGraphPublished] = await db
-    .update(clip)
-    .set({
-      openGraphKey: openGraphAsset.storageKey,
-      openGraphContentType: openGraphAsset.contentType,
-      openGraphSizeBytes: openGraphAsset.sizeBytes,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
-    .returning({ id: clip.id })
-  if (!openGraphPublished) throw abortMediaProcessing()
-  retainPublishedKey(openGraphAsset.storageKey)
+  if (thumbKey) retainPublishedKey(thumbKey)
   void publishClipUpsert(row.authorId, clipId)
   completeWork()
 
@@ -256,15 +220,11 @@ async function runPipelineInScratch({
         sourceVideoCodec: sourceAsset.videoCodec,
         sourceAudioCodec: sourceAsset.audioCodec,
         sourceSizeBytes: sourceAsset.sizeBytes,
-        openGraphKey: openGraphAsset.storageKey,
-        openGraphContentType: openGraphAsset.contentType,
-        openGraphSizeBytes: openGraphAsset.sizeBytes,
         thumbKey,
         thumbBlurHash,
         durationMs: outputDurationMs,
         width: sourceAsset.width,
         height: sourceAsset.height,
-        variants: [],
         encodeProgress: 100,
         encodeRunId: null,
         encodeLockedAt: null,
@@ -280,12 +240,12 @@ async function runPipelineInScratch({
   // that was not retained is orphaned; prune it best-effort after publish.
   await pruneStaleClipAssets(row, [
     sourceAsset.storageKey,
-    openGraphAsset.storageKey,
-    thumbKey,
+    ...(thumbKey ? [thumbKey] : []),
   ])
   await cleanupCompletedScratchUploads(clipId)
   completeWork()
   void publishClipUpsert(row.authorId, clipId)
+  void prewarmDirectHls(clipId)
   if (
     publishState.previous?.status !== "ready" &&
     publishState.updated.privacy === "public"
@@ -294,8 +254,30 @@ async function runPipelineInScratch({
   }
 }
 
+/** Build the clip's HLS package ahead of the first viewer. Best-effort. */
+async function prewarmDirectHls(clipId: string): Promise<void> {
+  try {
+    const [fresh] = await db
+      .select({
+        id: clip.id,
+        sourceKey: clip.sourceKey,
+        sourceSizeBytes: clip.sourceSizeBytes,
+        updatedAt: clip.updatedAt,
+      })
+      .from(clip)
+      .where(eq(clip.id, clipId))
+      .limit(1)
+    if (!fresh?.sourceKey) return
+    await ensureDirectHlsPackage(
+      makeDirectHlsSpec({ ...fresh, sourceKey: fresh.sourceKey }),
+    )
+  } catch (err) {
+    logger.warn(`[queue] direct HLS prewarm failed for ${clipId}:`, err)
+  }
+}
+
 function pendingTrimRange(
-  row: Pick<ClipRow, "trimStartMs" | "trimEndMs">,
+  row: Pick<Clip, "trimStartMs" | "trimEndMs">,
 ): { startMs: number; endMs: number } | null {
   if (row.trimStartMs == null || row.trimEndMs == null) return null
   if (row.trimEndMs <= row.trimStartMs) return null
@@ -312,16 +294,11 @@ function trimmedSourceKey(clipId: string): string {
 }
 
 async function pruneStaleClipAssets(
-  row: Pick<ClipRow, "sourceKey" | "openGraphKey" | "thumbKey" | "variants">,
+  row: Pick<Clip, "sourceKey" | "thumbKey">,
   retainedKeys: Iterable<string>,
 ): Promise<void> {
   const retained = new Set(retainedKeys)
-  const previousKeys = new Set([
-    row.sourceKey,
-    row.openGraphKey,
-    row.thumbKey,
-    ...row.variants.map((variant) => variant.storageKey),
-  ])
+  const previousKeys = new Set([row.sourceKey, row.thumbKey])
   previousKeys.delete(null)
 
   await deleteClipAssetsBestEffort(
@@ -332,56 +309,25 @@ async function pruneStaleClipAssets(
 }
 
 /**
- * Publishes the clip's poster image and returns the BlurHash to store.
- *
- * The desktop client is the only uploader and ships a rendered webp poster
- * plus a BlurHash at initiate, so the normal upload path simply republishes
- * the uploaded image — no frame extraction or hash compute happens here.
- * The ffmpeg fallback only runs when there is no uploaded poster (an owner
- * trim reprocess, or a legacy clip), mirroring the backfill path.
+ * Republish the desktop-uploaded poster when one was staged for this run,
+ * otherwise keep whatever the row already points at (owner trim reprocess).
  */
-async function publishThumbnail({
-  clipId,
-  row,
-  scratchDir,
-  mediaPath,
-  outputDurationMs,
-  thumbKey,
-  uploadedKeys,
-  signal,
-}: {
-  clipId: string
-  row: ClipRow
-  scratchDir: string
-  mediaPath: string
-  outputDurationMs: number
-  thumbKey: string
-  uploadedKeys: string[]
-  signal: AbortSignal
-}): Promise<string | null> {
+async function republishUploadedThumbnail(
+  clipId: string,
+  row: Clip,
+  uploadedKeys: string[],
+): Promise<{ thumbKey: string | null; thumbBlurHash: string | null }> {
   const uploadedThumbKey = await selectThumbUploadKey(clipId)
   if (uploadedThumbKey) {
     const uploadedPath = scratchUploadPath(uploadedThumbKey)
     if (await scratchFileExists(uploadedPath)) {
+      const thumbKey = clipAssetKey(clipId, "thumb")
       await clipStorage.uploadFromFile(uploadedPath, thumbKey, "image/webp")
       uploadedKeys.push(thumbKey)
-      return row.thumbBlurHash
+      return { thumbKey, thumbBlurHash: row.thumbBlurHash }
     }
   }
-
-  const thumbPath = join(scratchDir, "thumb.webp")
-  const thumbAtMs = Math.min(outputDurationMs - 1, outputDurationMs / 3)
-  await thumbnail(mediaPath, thumbPath, {
-    atMs: Math.max(0, thumbAtMs),
-    signal,
-  })
-  // Prefer the freshly computed hash; keep a client-provided one when the
-  // local compute fails rather than blanking it out.
-  const thumbBlurHash =
-    (await computeThumbBlurHash(thumbPath, signal)) ?? row.thumbBlurHash
-  await clipStorage.uploadFromFile(thumbPath, thumbKey, "image/webp")
-  uploadedKeys.push(thumbKey)
-  return thumbBlurHash
+  return { thumbKey: row.thumbKey, thumbBlurHash: row.thumbBlurHash }
 }
 
 async function scratchFileExists(path: string): Promise<boolean> {
@@ -416,23 +362,6 @@ async function selectScratchUploadKey(clipId: string): Promise<string | null> {
     )
     .limit(1)
   return ticket?.storageKey ?? null
-}
-
-async function computeThumbBlurHash(
-  thumbPath: string,
-  signal: AbortSignal,
-): Promise<string | null> {
-  try {
-    return await imageBlurHash({
-      source: thumbPath,
-      label: "clip thumbnail blurhash",
-      signal,
-    })
-  } catch (err) {
-    if (signal.aborted) throw err
-    logger.warn("[queue] failed to compute thumbnail blurhash:", err)
-    return null
-  }
 }
 
 async function cleanupCompletedScratchUploads(clipId: string): Promise<void> {

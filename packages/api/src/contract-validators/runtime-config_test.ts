@@ -15,29 +15,6 @@ function adminRuntimeConfig() {
     requireAuthToBrowse: true,
     oauthProviders: [],
     scheduledTasks: {},
-    encoder: {
-      enabled: true,
-      hwaccel: "qsv",
-      qsvDevice: "/dev/dri/renderD128",
-      vaapiDevice: "/dev/dri/renderD128",
-      intelLowPowerH264: false,
-      intelLowPowerHevc: false,
-      tonemapping: {
-        enabled: true,
-        algorithm: "bt2390",
-        mode: "auto",
-        range: "auto",
-        desat: 0,
-        peak: 100,
-        param: null,
-        threshold: 0.2,
-        vpp: {
-          enabled: true,
-          brightness: 16,
-          contrast: 1,
-        },
-      },
-    },
     limits: {
       maxUploadBytes: 4_294_967_296,
       defaultStorageQuotaBytes: null,
@@ -56,49 +33,6 @@ function adminRuntimeConfig() {
     authBaseURL: "https://alloy.test",
   }
 }
-
-test("validateAdminRuntimeConfig accepts Intel low-power encoder booleans", () => {
-  const config = adminRuntimeConfig()
-  config.encoder.intelLowPowerH264 = true
-  config.encoder.intelLowPowerHevc = true
-
-  const parsed = validateAdminRuntimeConfig(config)
-
-  assert(parsed.encoder.intelLowPowerH264, "H.264 low-power should round-trip")
-  assert(parsed.encoder.intelLowPowerHevc, "HEVC low-power should round-trip")
-  assert(
-    parsed.encoder.tonemapping.algorithm === "bt2390",
-    "tone mapping config should round-trip",
-  )
-})
-
-test("validateAdminRuntimeConfig rejects missing Intel low-power encoder booleans", () => {
-  const config = adminRuntimeConfig()
-  delete (config.encoder as Partial<typeof config.encoder>).intelLowPowerH264
-
-  let failed = false
-  try {
-    validateAdminRuntimeConfig(config)
-  } catch {
-    failed = true
-  }
-
-  assert(failed, "missing H.264 low-power field should fail validation")
-})
-
-test("validateAdminRuntimeConfig rejects missing tone mapping config", () => {
-  const config = adminRuntimeConfig()
-  delete (config.encoder as Partial<typeof config.encoder>).tonemapping
-
-  let failed = false
-  try {
-    validateAdminRuntimeConfig(config)
-  } catch {
-    failed = true
-  }
-
-  assert(failed, "missing tone mapping config should fail validation")
-})
 
 test("validateAdminRuntimeConfig accepts scheduled task triggers", () => {
   const config = adminRuntimeConfig()
