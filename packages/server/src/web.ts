@@ -2,9 +2,9 @@ import { createReadStream } from "node:fs"
 import { stat, readFile } from "node:fs/promises"
 import { Readable } from "node:stream"
 
-import type { PublicAuthConfig } from "alloy-contracts"
-import { user } from "alloy-db/auth-schema"
-import { logger } from "alloy-logging"
+import type { PublicAuthConfig } from "@alloy/contracts"
+import { user } from "@alloy/db/auth-schema"
+import { logger } from "@alloy/logging"
 import { eq } from "drizzle-orm"
 import type { Context, Hono } from "hono"
 

@@ -1,5 +1,5 @@
-import { createEnv, postgresUrl } from "alloy-env"
-import { loadDotenv } from "alloy-env/node"
+import { createEnv, postgresUrl } from "@alloy/env"
+import { loadDotenv } from "@alloy/env/node"
 import { defineConfig } from "drizzle-kit"
 import { z } from "zod"
 

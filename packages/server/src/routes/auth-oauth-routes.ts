@@ -1,26 +1,29 @@
-import { authAccount } from "alloy-db/auth-schema"
-import { eq } from "drizzle-orm"
-import { type Context, Hono } from "hono"
-import { z } from "zod"
-
-import { clearOAuthStateCookie, setOAuthStateCookie } from "../auth/cookies"
-import { unlinkOAuthAccountPreservingSignIn } from "../auth/identity"
+import { authAccount } from "@alloy/db/auth-schema"
+import {
+  clearOAuthStateCookie,
+  setOAuthStateCookie,
+} from "@alloy/server/auth/cookies"
+import { unlinkOAuthAccountPreservingSignIn } from "@alloy/server/auth/identity"
 import {
   fallbackOAuthErrorRedirect,
   finishOAuthCallback,
   startOAuthLink,
   startOAuthSignIn,
-} from "../auth/oauth"
-import { publicLinkedAccountRow } from "../auth/security-responses"
-import { requireSession } from "../auth/session"
-import { db } from "../db"
+} from "@alloy/server/auth/oauth"
+import { publicLinkedAccountRow } from "@alloy/server/auth/security-responses"
+import { requireSession } from "@alloy/server/auth/session"
+import { db } from "@alloy/server/db/index"
 import {
   badRequest,
   badRequestFromCause,
   notFound,
   success,
   urlResponse,
-} from "../runtime/http-response"
+} from "@alloy/server/runtime/http-response"
+import { eq } from "drizzle-orm"
+import { type Context, Hono } from "hono"
+import { z } from "zod"
+
 import {
   optionalNullableTrimmedString,
   requiredTrimmedString,

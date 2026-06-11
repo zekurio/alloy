@@ -2,12 +2,12 @@ import {
   CLIP_DESCRIPTION_MAX_LENGTH,
   CLIP_TITLE_MAX_LENGTH,
   type ClipPrivacy,
-} from "alloy-api"
-import { normalizeTags, sanitizeTag } from "alloy-contracts"
+} from "@alloy/api"
+import { normalizeTags, sanitizeTag } from "@alloy/contracts"
 import { GlobeIcon, Link2Icon, LockIcon } from "lucide-react"
 
 // Re-exported so callers keep a single import surface for clip field helpers;
-// the canonical tag logic lives in alloy-contracts (shared with the server).
+// the canonical tag logic lives in @alloy/contracts (shared with the server).
 export { normalizeTags, sanitizeTag }
 
 export const CLIP_TITLE_MAX = CLIP_TITLE_MAX_LENGTH

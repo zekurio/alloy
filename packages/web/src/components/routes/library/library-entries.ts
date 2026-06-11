@@ -1,4 +1,4 @@
-import { clipThumbnailUrl, type ClipRow } from "alloy-api"
+import { clipThumbnailUrl, type ClipRow } from "@alloy/api"
 
 import type {
   RecordingLibraryItem,

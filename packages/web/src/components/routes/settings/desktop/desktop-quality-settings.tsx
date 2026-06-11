@@ -1,4 +1,4 @@
-import { Spinner } from "alloy-ui/components/spinner"
+import { Spinner } from "@alloy/ui/components/spinner"
 
 import { EncodingSettingsGrid } from "./desktop-capture-encoding"
 import { QualitySection, ReplayBufferSection } from "./desktop-capture-quality"

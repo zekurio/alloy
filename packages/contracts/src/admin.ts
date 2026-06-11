@@ -61,17 +61,19 @@ export interface LoginSplashConfig {
   darkenOpacity: number
 }
 
-export const LOGIN_SPLASH_IMAGE_PATH = "/api/auth-config/splashscreen.webp"
-
-export function loginSplashImagePath(): string {
-  return LOGIN_SPLASH_IMAGE_PATH
-}
-
 export interface PublicLoginSplashConfig {
   enabled: boolean
   blurPx: number
   darkenOpacity: number
-  imageUrl: string | null
+}
+
+/**
+ * Response of `GET /api/auth-config/backdrops`: a freshly-randomized set of
+ * public clip IDs the login page rotates through as full-screen backdrops. The
+ * client builds thumbnail URLs from these IDs (`/api/clips/:id/thumbnail`).
+ */
+export interface LoginBackdropsResponse {
+  clipIds: string[]
 }
 
 export interface AppearanceConfig {

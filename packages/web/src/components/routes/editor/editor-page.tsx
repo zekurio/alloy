@@ -1,4 +1,3 @@
-import { useNavigate } from "@tanstack/react-router"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -8,11 +7,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "alloy-ui/components/alert-dialog"
-import { AppMain } from "alloy-ui/components/app-shell"
-import { Button } from "alloy-ui/components/button"
-import { LoadingState } from "alloy-ui/components/loading-state"
-import { toast } from "alloy-ui/lib/toast"
+} from "@alloy/ui/components/alert-dialog"
+import { AppMain } from "@alloy/ui/components/app-shell"
+import { Button } from "@alloy/ui/components/button"
+import { LoadingState } from "@alloy/ui/components/loading-state"
+import { toast } from "@alloy/ui/lib/toast"
+import { useNavigate } from "@tanstack/react-router"
 import {
   HardDriveIcon,
   PauseIcon,
@@ -28,6 +28,7 @@ import {
 } from "lucide-react"
 import * as React from "react"
 
+import { useLibrarySnapshot } from "@/components/routes/library/library-data"
 import { LibraryEmpty } from "@/components/routes/library/library-page"
 import {
   alloyDesktop,
@@ -37,7 +38,6 @@ import {
 import { errorMessage } from "@/lib/error-message"
 import { formatTrimMs } from "@/lib/media-time"
 
-import { useLibrarySnapshot } from "../library/library-data"
 import { useEditorMedia } from "./editor-media-items"
 import { type EditorMediaItem, EditorMediaPanel } from "./editor-media-panel"
 import {

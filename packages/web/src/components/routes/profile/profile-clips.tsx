@@ -1,12 +1,12 @@
-import type { UserClip } from "alloy-api"
-import { Chip } from "alloy-ui/components/chip"
-import { GameIcon } from "alloy-ui/components/game-icon"
+import type { UserClip } from "@alloy/api"
+import { Chip } from "@alloy/ui/components/chip"
+import { GameIcon } from "@alloy/ui/components/game-icon"
 import {
   SectionActions,
   SectionHead,
   SectionMeta,
   SectionTitle,
-} from "alloy-ui/components/section-head"
+} from "@alloy/ui/components/section-head"
 import { FilmIcon } from "lucide-react"
 import * as React from "react"
 

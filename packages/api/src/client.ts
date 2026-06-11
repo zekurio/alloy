@@ -1,4 +1,4 @@
-import type { AppType } from "alloy-server/app"
+import type { AppType } from "@alloy/server/app"
 import { type ClientRequestOptions, hc } from "hono/client"
 
 import { queryParams, type QueryParamValue } from "./paths"

@@ -4,14 +4,14 @@ import { basename, dirname, join, resolve } from "node:path"
 import { app } from "electron"
 
 /**
- * Filesystem discovery for the recording sidecar: where the `alloy-recorder`
+ * Filesystem discovery for the recording sidecar: where the `@alloy/recorder`
  * binary lives and which OBS runtime it should load. Pure lookups with no
  * recording state.
  */
 
 export function sidecarExecutablePath(): string {
   const executable =
-    process.platform === "win32" ? "alloy-recorder.exe" : "alloy-recorder"
+    process.platform === "win32" ? "@alloy/recorder.exe" : "@alloy/recorder"
   if (app.isPackaged) return join(process.resourcesPath, "sidecar", executable)
   return join(app.getAppPath(), "..", "recorder", "dist", "sidecar", executable)
 }

@@ -4,16 +4,16 @@ import {
   type ClipRow,
   type GameRow,
   type UserSearchResult,
-} from "alloy-api"
-import { Button } from "alloy-ui/components/button"
+} from "@alloy/api"
+import { Button } from "@alloy/ui/components/button"
 import {
   Tabs,
   TabsContent,
   TabsCount,
   TabsList,
   TabsTrigger,
-} from "alloy-ui/components/tabs"
-import { toast } from "alloy-ui/lib/toast"
+} from "@alloy/ui/components/tabs"
+import { toast } from "@alloy/ui/lib/toast"
 import { SaveIcon, Trash2Icon } from "lucide-react"
 import * as React from "react"
 

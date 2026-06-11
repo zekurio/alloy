@@ -3,14 +3,14 @@ import type {
   GameListRow,
   TagClipsParams,
   TagGamesResponse,
-} from "alloy-contracts"
+} from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
 import { validateClipPage, validateGameListRows } from "./contract-validators"
 import { readJsonOrThrow } from "./http"
 import { queryParams } from "./paths"
 
-export type { TagClipsParams, TagGamesResponse } from "alloy-contracts"
+export type { TagClipsParams, TagGamesResponse } from "@alloy/contracts"
 
 async function fetchTagClipPage(
   context: ApiContext,

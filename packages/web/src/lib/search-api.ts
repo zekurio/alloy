@@ -1,9 +1,9 @@
+import type { SearchResults, UserListRow } from "@alloy/api"
 import {
   keepPreviousData,
   useQuery,
   type UseQueryResult,
 } from "@tanstack/react-query"
-import type { SearchResults, UserListRow } from "alloy-api"
 
 import { api } from "./api"
 

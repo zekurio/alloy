@@ -1,14 +1,14 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type {
   AdminScheduledTaskInfo,
   AdminScheduledTaskResult,
   AdminScheduledTaskTrigger,
   AdminScheduledTasksResponse,
-} from "alloy-api"
-import { Button } from "alloy-ui/components/button"
-import { List, ListItem } from "alloy-ui/components/list"
-import { Spinner } from "alloy-ui/components/spinner"
-import { toast } from "alloy-ui/lib/toast"
+} from "@alloy/api"
+import { Button } from "@alloy/ui/components/button"
+import { List, ListItem } from "@alloy/ui/components/list"
+import { Spinner } from "@alloy/ui/components/spinner"
+import { toast } from "@alloy/ui/lib/toast"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { PlayIcon } from "lucide-react"
 import * as React from "react"
 

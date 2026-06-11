@@ -137,7 +137,7 @@ jobs:
           "ALLOY_REQUIRE_OBS_RUNTIME=1" >> $env:GITHUB_ENV
 
       - name: Build Windows recorder runtime
-        run: corepack pnpm --filter alloy-recorder build:release
+        run: corepack pnpm --filter @alloy/recorder build:release
 
       - name: Package recorder runtime
         shell: pwsh

@@ -1,18 +1,15 @@
-import type { CommentRow } from "alloy-contracts"
-import { user } from "alloy-db/auth-schema"
-import { clip, clipComment, clipCommentLike } from "alloy-db/schema"
-import { and, eq, sql } from "drizzle-orm"
-import { Hono } from "hono"
-
-import { requireSession } from "../auth/require-session"
+import type { CommentRow } from "@alloy/contracts"
+import { user } from "@alloy/db/auth-schema"
+import { clip, clipComment, clipCommentLike } from "@alloy/db/schema"
+import { requireSession } from "@alloy/server/auth/require-session"
 import {
   applyClipPrivacyHeaders,
   clipAccessResponse,
   resolveClipAccess,
-} from "../clips/access"
-import { db } from "../db"
-import { createNotification } from "../notifications"
-import { isoDate, nullableIsoDate } from "../runtime/date"
+} from "@alloy/server/clips/access"
+import { db } from "@alloy/server/db/index"
+import { createNotification } from "@alloy/server/notifications/index"
+import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
 import {
   booleanFlag,
   deleted,
@@ -22,7 +19,10 @@ import {
   invalidCursor,
   likeState,
   notFound,
-} from "../runtime/http-response"
+} from "@alloy/server/runtime/http-response"
+import { and, eq, sql } from "drizzle-orm"
+import { Hono } from "hono"
+
 import {
   canModerateComment,
   pinTopLevelComment,

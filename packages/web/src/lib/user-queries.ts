@@ -1,3 +1,4 @@
+import type { ProfileViewer, UserProfile, UserProfileViewer } from "@alloy/api"
 import {
   type QueryClient,
   queryOptions,
@@ -6,7 +7,6 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import type { ProfileViewer, UserProfile, UserProfileViewer } from "alloy-api"
 
 import { api } from "./api"
 import { clipKeys } from "./clip-query-keys"
@@ -40,12 +40,16 @@ export function useUserSearchQuery(q: string) {
   })
 }
 
-export function useTaggedClipsQuery(handle: string) {
-  return useQuery({
+export function taggedClipsQueryOptions(handle: string) {
+  return queryOptions({
     queryKey: userKeys.tagged(handle),
     queryFn: () => api.users.fetchTaggedClips(handle),
     enabled: handle.length > 0,
   })
+}
+
+export function useTaggedClipsQuery(handle: string) {
+  return useQuery(taggedClipsQueryOptions(handle))
 }
 
 export function useProfileGamesInfiniteQuery(

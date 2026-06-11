@@ -1,6 +1,6 @@
-import { logger } from "alloy-logging"
+import { logger } from "@alloy/logging"
+import { configStore } from "@alloy/server/config/store"
 
-import { configStore } from "../config/store"
 import { createScheduledCronJob } from "./cron"
 import { runTask } from "./manager-runner"
 import {

@@ -38,15 +38,15 @@ importers:
 
   packages/api:
     dependencies:
+      '@alloy/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@alloy/server':
+        specifier: workspace:*
+        version: link:../server
       '@simplewebauthn/browser':
         specifier: 13.3.0
         version: 13.3.0
-      alloy-contracts:
-        specifier: workspace:*
-        version: link:../contracts
-      alloy-server:
-        specifier: workspace:*
-        version: link:../server
       hono:
         specifier: 4.12.23
         version: 4.12.23
@@ -69,13 +69,13 @@ importers:
 
   packages/db:
     dependencies:
-      alloy-contracts:
+      '@alloy/contracts':
         specifier: workspace:*
         version: link:../contracts
-      alloy-env:
+      '@alloy/env':
         specifier: workspace:*
         version: link:../env
-      alloy-logging:
+      '@alloy/logging':
         specifier: workspace:*
         version: link:../logging
       drizzle-kit:
@@ -93,6 +93,18 @@ importers:
 
   packages/desktop:
     devDependencies:
+      '@alloy/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@alloy/logging':
+        specifier: workspace:*
+        version: link:../logging
+      '@alloy/recorder':
+        specifier: workspace:*
+        version: link:../recorder
+      '@alloy/ui':
+        specifier: workspace:*
+        version: link:../ui
       '@tailwindcss/vite':
         specifier: 4.2.4
         version: 4.2.4(vite@8.0.10(@types/node@25.6.0)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4))
@@ -105,18 +117,6 @@ importers:
       '@vitejs/plugin-react':
         specifier: 5.2.0
         version: 5.2.0(vite@8.0.10(@types/node@25.6.0)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4))
-      alloy-contracts:
-        specifier: workspace:*
-        version: link:../contracts
-      alloy-logging:
-        specifier: workspace:*
-        version: link:../logging
-      alloy-recorder:
-        specifier: workspace:*
-        version: link:../recorder
-      alloy-ui:
-        specifier: workspace:*
-        version: link:../ui
       blurhash:
         specifier: ^2.0.5
         version: 2.0.5
@@ -157,6 +157,18 @@ importers:
 
   packages/server:
     dependencies:
+      '@alloy/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@alloy/db':
+        specifier: workspace:*
+        version: link:../db
+      '@alloy/env':
+        specifier: workspace:*
+        version: link:../env
+      '@alloy/logging':
+        specifier: workspace:*
+        version: link:../logging
       '@hono/node-server':
         specifier: 2.0.4
         version: 2.0.4(hono@4.12.23)
@@ -166,18 +178,6 @@ importers:
       '@simplewebauthn/server':
         specifier: 13.3.0
         version: 13.3.0
-      alloy-contracts:
-        specifier: workspace:*
-        version: link:../contracts
-      alloy-db:
-        specifier: workspace:*
-        version: link:../db
-      alloy-env:
-        specifier: workspace:*
-        version: link:../env
-      alloy-logging:
-        specifier: workspace:*
-        version: link:../logging
       blurhash:
         specifier: ^2.0.5
         version: 2.0.5
@@ -258,6 +258,21 @@ importers:
 
   packages/web:
     dependencies:
+      '@alloy/api':
+        specifier: workspace:*
+        version: link:../api
+      '@alloy/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@alloy/db':
+        specifier: workspace:*
+        version: link:../db
+      '@alloy/env':
+        specifier: workspace:*
+        version: link:../env
+      '@alloy/ui':
+        specifier: workspace:*
+        version: link:../ui
       '@base-ui/react':
         specifier: 1.4.1
         version: 1.4.1(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -288,21 +303,6 @@ importers:
       '@vitejs/plugin-react':
         specifier: 5.2.0
         version: 5.2.0(vite@8.0.10(@types/node@25.6.0)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4))
-      alloy-api:
-        specifier: workspace:*
-        version: link:../api
-      alloy-contracts:
-        specifier: workspace:*
-        version: link:../contracts
-      alloy-db:
-        specifier: workspace:*
-        version: link:../db
-      alloy-env:
-        specifier: workspace:*
-        version: link:../env
-      alloy-ui:
-        specifier: workspace:*
-        version: link:../ui
       hls.js:
         specifier: 1.6.16
         version: 1.6.16

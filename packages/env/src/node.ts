@@ -7,7 +7,7 @@ import { dirname, join } from "node:path"
  * the environment always win, so devenv/CI/production shells override the
  * file. No-op when no `.env` exists.
  *
- * Node-only (filesystem access); import via `alloy-env/node` so browser
+ * Node-only (filesystem access); import via `@alloy/env/node` so browser
  * bundles never pull this in.
  */
 export function loadDotenv(startDir = process.cwd()): void {

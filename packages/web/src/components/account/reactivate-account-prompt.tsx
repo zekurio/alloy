@@ -1,4 +1,3 @@
-import { useRouter } from "@tanstack/react-router"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -7,8 +6,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "alloy-ui/components/alert-dialog"
-import { toast } from "alloy-ui/lib/toast"
+} from "@alloy/ui/components/alert-dialog"
+import { toast } from "@alloy/ui/lib/toast"
+import { useRouter } from "@tanstack/react-router"
 import * as React from "react"
 
 import { api } from "@/lib/api"

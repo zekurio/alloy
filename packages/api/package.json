@@ -1,10 +1,11 @@
 {
-  "name": "alloy-api",
+  "name": "@alloy/api",
   "private": true,
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./auth": "./src/auth.ts"
+    "./auth": "./src/auth.ts",
+    "./*": "./src/*.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
@@ -12,9 +13,9 @@
     "test": "tsx --test \"src/**/*_test.ts\""
   },
   "dependencies": {
+    "@alloy/contracts": "workspace:*",
+    "@alloy/server": "workspace:*",
     "@simplewebauthn/browser": "13.3.0",
-    "alloy-contracts": "workspace:*",
-    "alloy-server": "workspace:*",
     "hono": "4.12.23",
     "react": "19.2.5",
     "zod": "4.3.6"

@@ -1,11 +1,11 @@
-import { type QueryClient, useQueryClient } from "@tanstack/react-query"
 import {
   parseQueueEventPayload,
   parseQueueSnapshotPayload,
   type QueueClip,
   type QueueEvent,
   uploadQueueStreamUrl,
-} from "alloy-api"
+} from "@alloy/api"
+import { type QueryClient, useQueryClient } from "@tanstack/react-query"
 import * as React from "react"
 
 import { clipKeys } from "./clip-query-keys"

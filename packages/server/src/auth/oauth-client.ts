@@ -1,4 +1,7 @@
-import type { OAuthProviderConfig } from "alloy-contracts"
+import type { OAuthProviderConfig } from "@alloy/contracts"
+import { secretStore } from "@alloy/server/config/secret-store"
+import { env } from "@alloy/server/env"
+import { errorMessage } from "@alloy/server/runtime/error-message"
 import {
   allowInsecureRequests,
   AuthorizationResponseError,
@@ -11,9 +14,6 @@ import {
   skipSubjectCheck,
 } from "openid-client"
 
-import { secretStore } from "../config/secret-store"
-import { env } from "../env"
-import { errorMessage } from "../runtime/error-message"
 import { getEnabledProviderConfig } from "./oauth-config"
 
 const oauthClientCache = new Map<string, Promise<Configuration>>()

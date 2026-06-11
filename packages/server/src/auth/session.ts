@@ -3,13 +3,13 @@ import {
   authSession,
   type User,
   user,
-} from "alloy-db/auth-schema"
+} from "@alloy/db/auth-schema"
+import { db } from "@alloy/server/db/index"
+import { forbidden, unauthorized } from "@alloy/server/runtime/http-response"
 import { and, eq, gt } from "drizzle-orm"
 import type { Context } from "hono"
 import { createMiddleware } from "hono/factory"
 
-import { db } from "../db"
-import { forbidden, unauthorized } from "../runtime/http-response"
 import { readSessionCookie } from "./cookies"
 import { generateSessionToken, hashSessionToken } from "./tokens"
 

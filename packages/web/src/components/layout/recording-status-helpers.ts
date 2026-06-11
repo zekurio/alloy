@@ -2,7 +2,7 @@ import type {
   RecordingDisplay,
   RecordingSettings,
   RecordingStatus,
-} from "alloy-contracts"
+} from "@alloy/contracts"
 
 export type SaveRecordingSettings = (next: RecordingSettings) => Promise<void>
 

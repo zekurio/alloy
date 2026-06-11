@@ -2,22 +2,22 @@ import type {
   RecordingDisplay,
   RecordingSettings,
   RecordingStatus,
-} from "alloy-contracts"
-import { Button } from "alloy-ui/components/button"
+} from "@alloy/contracts"
+import { Button } from "@alloy/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from "alloy-ui/components/dropdown-menu"
-import { GameIcon } from "alloy-ui/components/game-icon"
+} from "@alloy/ui/components/dropdown-menu"
+import { GameIcon } from "@alloy/ui/components/game-icon"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "alloy-ui/components/popover"
-import { Switch } from "alloy-ui/components/switch"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/components/popover"
+import { Switch } from "@alloy/ui/components/switch"
+import { cn } from "@alloy/ui/lib/utils"
 import {
   ArrowRightIcon,
   ChevronDownIcon,

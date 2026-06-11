@@ -1,10 +1,10 @@
 import { mkdir, mkdtemp } from "node:fs/promises"
 
-import { clip } from "alloy-db/schema"
+import { clip } from "@alloy/db/schema"
+import { db } from "@alloy/server/db/index"
+import { ENCODE_DIR } from "@alloy/server/runtime/dirs"
 import { and, eq } from "drizzle-orm"
 
-import { db } from "../db"
-import { ENCODE_DIR } from "../runtime/dirs"
 import { abortMediaProcessing } from "./media-abort"
 
 export async function ensureClipStillPresent(

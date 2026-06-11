@@ -1,9 +1,8 @@
-import { clip } from "alloy-db/schema"
-import { logger } from "alloy-logging"
+import { clip } from "@alloy/db/schema"
+import { logger } from "@alloy/logging"
+import { publishClipProgress } from "@alloy/server/clips/events"
+import { db } from "@alloy/server/db/index"
 import { and, eq, lt } from "drizzle-orm"
-
-import { publishClipProgress } from "../clips/events"
-import { db } from "../db"
 
 export function makeMediaProgressWriter(
   clipId: string,

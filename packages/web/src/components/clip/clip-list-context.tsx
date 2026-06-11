@@ -1,4 +1,4 @@
-import type { ClipRow } from "alloy-api"
+import type { ClipRow } from "@alloy/api"
 import * as React from "react"
 
 export interface ClipListEntry {

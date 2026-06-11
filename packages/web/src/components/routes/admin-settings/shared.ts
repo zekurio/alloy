@@ -3,7 +3,7 @@ import {
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_USERNAME_CLAIM_DEFAULT,
-} from "alloy-api"
+} from "@alloy/api"
 
 export function emptyProvider(): AdminOAuthProvider {
   return {

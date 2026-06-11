@@ -19,9 +19,9 @@ import type {
   RecordingSettings,
   RecordingStatus,
   RecordingStorageInfo,
-} from "alloy-contracts"
+} from "@alloy/contracts"
 
-// Recording-library contract types live in alloy-contracts (single source of
+// Recording-library contract types live in @alloy/contracts (single source of
 // truth shared with the web app); re-exported here so existing consumer
 // imports keep working.
 export type {
@@ -42,7 +42,7 @@ export type {
   RecordingLibraryImportResult,
   RecordingLibraryGroup,
   RecordingLibrarySnapshot,
-} from "alloy-contracts"
+} from "@alloy/contracts"
 
 /**
  * IPC channel names shared between the main process, the overlay preload, and

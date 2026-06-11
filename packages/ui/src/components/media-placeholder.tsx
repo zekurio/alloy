@@ -1,6 +1,6 @@
-import { BlurHashCanvas } from "alloy-ui/components/blurhash-canvas"
-import { pastelMediaGradient } from "alloy-ui/lib/pastel"
-import { cn } from "alloy-ui/lib/utils"
+import { BlurHashCanvas } from "@alloy/ui/components/blurhash-canvas"
+import { pastelMediaGradient } from "@alloy/ui/lib/pastel"
+import { cn } from "@alloy/ui/lib/utils"
 
 export function MediaPlaceholder({
   seed,

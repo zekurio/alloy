@@ -1,4 +1,4 @@
-# alloy-ui
+# @alloy/ui
 
 Shared React UI package for Alloy. It contains components, hooks, design-token
 CSS, and small UI utilities used by the web app and desktop overlay.
@@ -18,17 +18,17 @@ packages/ui/
 Use package exports:
 
 ```tsx
-import { Button } from "alloy-ui/components/button"
-import { cn } from "alloy-ui/lib/utils"
-import "alloy-ui/globals.css"
+import { Button } from "@alloy/ui/components/button"
+import { cn } from "@alloy/ui/lib/utils"
+import "@alloy/ui/globals.css"
 ```
 
 ## Commands
 
 ```bash
-pnpm --filter alloy-ui build
-pnpm --filter alloy-ui typecheck
-pnpm --filter alloy-ui test
+pnpm --filter @alloy/ui build
+pnpm --filter @alloy/ui typecheck
+pnpm --filter @alloy/ui test
 ```
 
 ## Guidelines

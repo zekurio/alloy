@@ -4,18 +4,18 @@ import type {
   RecordingNotificationSoundOption,
   RecordingNotificationSoundSettings,
   RecordingSettings,
-} from "alloy-contracts"
-import { Button } from "alloy-ui/components/button"
+} from "@alloy/contracts"
+import { Button } from "@alloy/ui/components/button"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "alloy-ui/components/select"
-import { Slider } from "alloy-ui/components/slider"
-import { Switch } from "alloy-ui/components/switch"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/components/select"
+import { Slider } from "@alloy/ui/components/slider"
+import { Switch } from "@alloy/ui/components/switch"
+import { cn } from "@alloy/ui/lib/utils"
 import { FolderOpenIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 

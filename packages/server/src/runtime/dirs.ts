@@ -1,4 +1,5 @@
-import { env } from "../env"
+import { env } from "@alloy/server/env"
+
 import { resolve } from "./path"
 
 // Resolved, absolute runtime directories. Single source of truth so the config
@@ -9,7 +10,7 @@ function dirFromEnv(value: string | undefined, fallback: string): string {
   return value && value.length > 0 ? resolve(value) : fallback
 }
 
-/** App-owned data root: config, login splash, user assets, ML cache. */
+/** App-owned data root: config, user assets, ML cache. */
 export const DATA_DIR = dirFromEnv(
   env.ALLOY_DATA_DIR,
   resolve(process.cwd(), "data"),

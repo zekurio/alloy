@@ -1,12 +1,12 @@
-import type { GameListRow, GameRow, ProfileGameRow } from "alloy-contracts"
-import { z } from "zod"
-
+import type { GameListRow, GameRow, ProfileGameRow } from "@alloy/contracts"
 import {
   SteamGridDBError,
   SteamGridDBNotConfiguredError,
-} from "../games/steamgriddb"
-import { isoDate } from "../runtime/date"
-import { errorMessage } from "../runtime/error-message"
+} from "@alloy/server/games/steamgriddb"
+import { isoDate } from "@alloy/server/runtime/date"
+import { errorMessage } from "@alloy/server/runtime/error-message"
+import { z } from "zod"
+
 import {
   limitQueryParam,
   offsetQueryParam,

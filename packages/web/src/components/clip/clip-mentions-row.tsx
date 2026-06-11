@@ -1,19 +1,19 @@
-import { Link } from "@tanstack/react-router"
-import type { ClipMentionRef } from "alloy-api"
+import type { ClipMentionRef } from "@alloy/api"
 import {
   Avatar,
   AvatarFallback,
   AvatarGroup,
   AvatarImage,
-} from "alloy-ui/components/avatar"
+} from "@alloy/ui/components/avatar"
 import {
   Dialog,
   DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "alloy-ui/components/dialog"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/components/dialog"
+import { cn } from "@alloy/ui/lib/utils"
+import { Link } from "@tanstack/react-router"
 import * as React from "react"
 
 import { UserFollowRow } from "@/components/user/user-follow-row"

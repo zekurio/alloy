@@ -1,12 +1,16 @@
-import { type ClipRow, clipThumbnailUrl, type GameListRow } from "alloy-api"
-import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
-import { MediaPlaceholder } from "alloy-ui/components/media-placeholder"
-import { Skeleton } from "alloy-ui/components/skeleton"
+import { type ClipRow, clipThumbnailUrl, type GameListRow } from "@alloy/api"
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@alloy/ui/components/avatar"
+import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
+import { Skeleton } from "@alloy/ui/components/skeleton"
 import {
   CLIP_MEDIA_CLASS,
   CLIP_MEDIA_VIEWPORT_CLASS,
-} from "alloy-ui/lib/media-frame"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/lib/media-frame"
+import { cn } from "@alloy/ui/lib/utils"
 import * as React from "react"
 
 import { clipGameLabel } from "@/lib/clip-format"

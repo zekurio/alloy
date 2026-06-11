@@ -1,8 +1,8 @@
-import { type NewUser, type User, user } from "alloy-db/auth-schema"
+import { type NewUser, type User, user } from "@alloy/db/auth-schema"
+import { configStore } from "@alloy/server/config/store"
+import { db } from "@alloy/server/db/index"
 import { and, eq, ne, sql } from "drizzle-orm"
 
-import { configStore } from "../config/store"
-import { db } from "../db"
 import {
   hasAdminSignInMethodForConfig,
   hasAdminSignInMethodWith,

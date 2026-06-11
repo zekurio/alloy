@@ -1,14 +1,13 @@
-import type { ClipMentionRef } from "alloy-contracts"
-import { user } from "alloy-db/auth-schema"
-import { clip, clipMention, clipTag, game } from "alloy-db/schema"
-import { eq, sql } from "drizzle-orm"
-
-import { db } from "../db"
+import type { ClipMentionRef } from "@alloy/contracts"
+import { user } from "@alloy/db/auth-schema"
+import { clip, clipMention, clipTag, game } from "@alloy/db/schema"
+import { db } from "@alloy/server/db/index"
 import {
   clipGameRefFromSnapshot,
   gameSelectShape,
   serialiseGameRow,
-} from "../games/ref"
+} from "@alloy/server/games/ref"
+import { eq, sql } from "drizzle-orm"
 
 export const clipSelectShape = {
   id: clip.id,

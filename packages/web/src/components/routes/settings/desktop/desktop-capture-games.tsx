@@ -2,8 +2,8 @@ import type {
   RecordingAllowedGame,
   RecordingGameProcess,
   RecordingSettings,
-} from "alloy-contracts"
-import { Button } from "alloy-ui/components/button"
+} from "@alloy/contracts"
+import { Button } from "@alloy/ui/components/button"
 import {
   Dialog,
   DialogBody,
@@ -11,9 +11,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "alloy-ui/components/dialog"
-import { Input } from "alloy-ui/components/input"
-import { Spinner } from "alloy-ui/components/spinner"
+} from "@alloy/ui/components/dialog"
+import { Input } from "@alloy/ui/components/input"
+import { Spinner } from "@alloy/ui/components/spinner"
 import {
   AppWindowIcon,
   BanIcon,

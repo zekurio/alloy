@@ -1,8 +1,7 @@
-import { authAccount, user, userPasskey } from "alloy-db/auth-schema"
+import { authAccount, user, userPasskey } from "@alloy/db/auth-schema"
+import { isOAuthProviderUsable } from "@alloy/server/config/secret-store"
+import { db } from "@alloy/server/db/index"
 import { and, eq, inArray, ne } from "drizzle-orm"
-
-import { isOAuthProviderUsable } from "../config/secret-store"
-import { db } from "../db"
 
 export type SignInMethodConfig = {
   passkeyEnabled: boolean

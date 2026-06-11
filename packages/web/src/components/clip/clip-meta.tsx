@@ -1,5 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router"
-import type { ClipGameRef, ClipMentionRef, ClipPrivacy } from "alloy-api"
+import type { ClipGameRef, ClipMentionRef, ClipPrivacy } from "@alloy/api"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -9,19 +8,24 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "alloy-ui/components/alert-dialog"
-import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
-import { Button } from "alloy-ui/components/button"
+} from "@alloy/ui/components/alert-dialog"
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@alloy/ui/components/avatar"
+import { Button } from "@alloy/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "alloy-ui/components/dropdown-menu"
-import { GameIcon } from "alloy-ui/components/game-icon"
-import { toast } from "alloy-ui/lib/toast"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/components/dropdown-menu"
+import { GameIcon } from "@alloy/ui/components/game-icon"
+import { toast } from "@alloy/ui/lib/toast"
+import { cn } from "@alloy/ui/lib/utils"
+import { Link, useNavigate } from "@tanstack/react-router"
 import {
   HeartIcon,
   MoreHorizontalIcon,

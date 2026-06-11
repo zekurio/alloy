@@ -1,17 +1,20 @@
-import { user, USER_ROLES } from "alloy-db/auth-schema"
-import { eq } from "drizzle-orm"
-import { Hono } from "hono"
-import { z } from "zod"
-
-import { assertCanRemoveAdmin, createUserIdentity } from "../auth/identity"
-import { deleteAllSessionsForUser } from "../auth/session"
-import { db } from "../db"
+import { user, USER_ROLES } from "@alloy/db/auth-schema"
+import {
+  assertCanRemoveAdmin,
+  createUserIdentity,
+} from "@alloy/server/auth/identity"
+import { deleteAllSessionsForUser } from "@alloy/server/auth/session"
+import { db } from "@alloy/server/db/index"
 import {
   badRequestFromCause,
   internalServerError,
   notFound,
   success,
-} from "../runtime/http-response"
+} from "@alloy/server/runtime/http-response"
+import { eq } from "drizzle-orm"
+import { Hono } from "hono"
+import { z } from "zod"
+
 import { selectAdminUserStorageRows } from "./admin-helpers"
 import { optionalTrimmedString, zValidator } from "./validation"
 

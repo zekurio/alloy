@@ -1,7 +1,7 @@
-import { Label } from "alloy-ui/components/label"
-import { Separator } from "alloy-ui/components/separator"
-import { messageFromUnknown } from "alloy-ui/lib/error-message"
-import { cn } from "alloy-ui/lib/utils"
+import { Label } from "@alloy/ui/components/label"
+import { Separator } from "@alloy/ui/components/separator"
+import { messageFromUnknown } from "@alloy/ui/lib/error-message"
+import { cn } from "@alloy/ui/lib/utils"
 import { cva, type VariantProps } from "class-variance-authority"
 import { useMemo } from "react"
 

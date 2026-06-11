@@ -1,12 +1,12 @@
-import { useRouterState } from "@tanstack/react-router"
 import {
   AppHeader,
   AppHeaderActions,
   AppHeaderBrand,
   AppHeaderSearch,
   AppHeaderWindowControls,
-} from "alloy-ui/components/app-header"
-import { useWindowEvent } from "alloy-ui/hooks/use-window-event"
+} from "@alloy/ui/components/app-header"
+import { useWindowEvent } from "@alloy/ui/hooks/use-window-event"
+import { useRouterState } from "@tanstack/react-router"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import * as React from "react"
 

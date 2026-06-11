@@ -1,4 +1,4 @@
-import { Button } from "alloy-ui/components/button"
+import { Button } from "@alloy/ui/components/button"
 import * as React from "react"
 import { type ExternalToast, toast as sonnerToast } from "sonner"
 

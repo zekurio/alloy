@@ -1,8 +1,7 @@
-import { authChallenge } from "alloy-db/auth-schema"
+import { authChallenge } from "@alloy/db/auth-schema"
+import { db } from "@alloy/server/db/index"
+import { randomBase64Url, sha256Base64Url } from "@alloy/server/runtime/crypto"
 import { and, eq, gt, lt } from "drizzle-orm"
-
-import { db } from "../db"
-import { randomBase64Url, sha256Base64Url } from "../runtime/crypto"
 
 /**
  * One-time codes for the desktop browser-login handshake (RFC 8252 loopback).

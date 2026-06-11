@@ -11,11 +11,11 @@
   },
   "iconLibrary": "lucide",
   "aliases": {
-    "components": "alloy-ui/components",
-    "utils": "alloy-ui/lib/utils",
-    "hooks": "alloy-ui/hooks",
-    "lib": "alloy-ui/lib",
-    "ui": "alloy-ui/components"
+    "components": "@alloy/ui/components",
+    "utils": "@alloy/ui/lib/utils",
+    "hooks": "@alloy/ui/hooks",
+    "lib": "@alloy/ui/lib",
+    "ui": "@alloy/ui/components"
   },
   "rtl": false,
   "menuColor": "default",

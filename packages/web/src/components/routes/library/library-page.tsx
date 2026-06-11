@@ -1,34 +1,34 @@
-import { useNavigate } from "@tanstack/react-router"
-import type { ClipRow } from "alloy-api"
-import { AppMain } from "alloy-ui/components/app-shell"
-import { Button } from "alloy-ui/components/button"
-import { Chip } from "alloy-ui/components/chip"
+import type { ClipRow } from "@alloy/api"
+import { AppMain } from "@alloy/ui/components/app-shell"
+import { Button } from "@alloy/ui/components/button"
+import { Chip } from "@alloy/ui/components/chip"
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "alloy-ui/components/empty"
-import { GameIcon } from "alloy-ui/components/game-icon"
+} from "@alloy/ui/components/empty"
+import { GameIcon } from "@alloy/ui/components/game-icon"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
-} from "alloy-ui/components/input-group"
-import { LoadingState } from "alloy-ui/components/loading-state"
+} from "@alloy/ui/components/input-group"
+import { LoadingState } from "@alloy/ui/components/loading-state"
 import {
   SectionActions,
   SectionHead,
   SectionTitle,
-} from "alloy-ui/components/section-head"
+} from "@alloy/ui/components/section-head"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "alloy-ui/components/select"
+} from "@alloy/ui/components/select"
+import { useNavigate } from "@tanstack/react-router"
 import {
   ClapperboardIcon,
   CloudIcon,

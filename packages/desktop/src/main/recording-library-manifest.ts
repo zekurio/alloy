@@ -4,15 +4,15 @@ import { dirname, join } from "node:path"
 import type {
   RecordingCaptureKind,
   RecordingCaptureSource,
-} from "alloy-contracts"
-import { logger } from "alloy-logging"
+} from "@alloy/contracts"
+import { logger } from "@alloy/logging"
 import { app } from "electron"
 
 import type {
   RecordingCaptureMention,
   RecordingLibraryItem,
   RecordingLibraryProjectDraft,
-} from "../shared/ipc"
+} from "@/shared/ipc"
 
 export interface CaptureManifest {
   version: 1

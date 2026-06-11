@@ -1,6 +1,6 @@
-import { AlloyLogo } from "alloy-ui/components/alloy-logo"
-import { Kbd } from "alloy-ui/components/kbd"
-import { cn } from "alloy-ui/lib/utils"
+import { AlloyLogo } from "@alloy/ui/components/alloy-logo"
+import { Kbd } from "@alloy/ui/components/kbd"
+import { cn } from "@alloy/ui/lib/utils"
 import { Maximize2Icon, MinusIcon, SearchIcon, XIcon } from "lucide-react"
 import * as React from "react"
 

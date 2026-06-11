@@ -1,6 +1,6 @@
+import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
-import { toast } from "alloy-ui/lib/toast"
 import * as React from "react"
 
 import { useClickAnchor } from "@/hooks/use-click-anchor"

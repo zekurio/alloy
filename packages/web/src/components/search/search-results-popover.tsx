@@ -1,8 +1,8 @@
+import type { ClipRow, GameListRow } from "@alloy/api"
+import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
+import { useWindowEvent } from "@alloy/ui/hooks/use-window-event"
+import { cn } from "@alloy/ui/lib/utils"
 import { useNavigate } from "@tanstack/react-router"
-import type { ClipRow, GameListRow } from "alloy-api"
-import { useDocumentEvent } from "alloy-ui/hooks/use-document-event"
-import { useWindowEvent } from "alloy-ui/hooks/use-window-event"
-import { cn } from "alloy-ui/lib/utils"
 import { FilmIcon, GamepadIcon, SearchIcon, UserIcon } from "lucide-react"
 import * as React from "react"
 

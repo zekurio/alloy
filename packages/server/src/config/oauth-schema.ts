@@ -2,7 +2,7 @@ import {
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_USERNAME_CLAIM_DEFAULT,
-} from "alloy-contracts"
+} from "@alloy/contracts"
 import { z } from "zod"
 
 const ProviderIdPattern = /^[a-z0-9-]+$/

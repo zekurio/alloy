@@ -1,11 +1,9 @@
 import {
   DESKTOP_AUTH_CAPABILITY_VERSION,
-  loginSplashImagePath,
   type PublicAuthConfig,
-} from "alloy-contracts"
+} from "@alloy/contracts"
+import { configStore } from "@alloy/server/config/store"
 
-import { configStore } from "../config/store"
-import { env } from "../env"
 import { getPublicProviders } from "./oauth-config"
 import { getSetupStatus } from "./user-bootstrap"
 
@@ -35,12 +33,6 @@ export async function buildPublicAuthConfig(): Promise<PublicAuthConfig> {
       enabled: loginSplash.enabled,
       blurPx: loginSplash.blurPx,
       darkenOpacity: loginSplash.darkenOpacity,
-      // No storage I/O on this hot path: trust the `enabled` flag and emit the
-      // image URL. The splash-serving endpoint 404s if the file is missing, and
-      // `ensureLoginSplashImage()` heals it at boot.
-      imageUrl: loginSplash.enabled
-        ? new URL(loginSplashImagePath(), env.PUBLIC_SERVER_URL).toString()
-        : null,
     },
   }
 }

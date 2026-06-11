@@ -1,7 +1,7 @@
-import type { AdminRuntimeConfig } from "alloy-api"
-import { Section, SectionContent } from "alloy-ui/components/section"
-import { SettingRow } from "alloy-ui/components/setting-row"
-import { Switch } from "alloy-ui/components/switch"
+import type { AdminRuntimeConfig } from "@alloy/api"
+import { Section, SectionContent } from "@alloy/ui/components/section"
+import { SettingRow } from "@alloy/ui/components/setting-row"
+import { Switch } from "@alloy/ui/components/switch"
 import * as React from "react"
 
 import { AdminUsersCard } from "@/components/admin/admin-users-card"

@@ -1,7 +1,7 @@
 "use client"
 
+import { cn } from "@alloy/ui/lib/utils"
 import { Drawer as DrawerPrimitive } from "@base-ui/react/drawer"
-import { cn } from "alloy-ui/lib/utils"
 import * as React from "react"
 
 type DrawerSide = "top" | "right" | "bottom" | "left"

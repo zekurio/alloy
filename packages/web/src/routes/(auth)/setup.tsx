@@ -1,3 +1,7 @@
+import { type AdminRuntimeConfig } from "@alloy/api"
+import { AlloyLogo } from "@alloy/ui/components/alloy-logo"
+import { Button } from "@alloy/ui/components/button"
+import { toast } from "@alloy/ui/lib/toast"
 import { useQuery } from "@tanstack/react-query"
 import {
   createFileRoute,
@@ -5,10 +9,6 @@ import {
   redirect,
   useNavigate,
 } from "@tanstack/react-router"
-import { type AdminRuntimeConfig } from "alloy-api"
-import { AlloyLogo } from "alloy-ui/components/alloy-logo"
-import { Button } from "alloy-ui/components/button"
-import { toast } from "alloy-ui/lib/toast"
 import {
   ArrowLeftIcon,
   ArrowRightIcon,

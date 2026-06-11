@@ -1,4 +1,4 @@
-import { logger } from "alloy-logging"
+import { logger } from "@alloy/logging"
 import { encode } from "blurhash"
 import { nativeImage } from "electron"
 

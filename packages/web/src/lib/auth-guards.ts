@@ -1,5 +1,5 @@
+import type { PublicAuthConfig } from "@alloy/api"
 import { redirect } from "@tanstack/react-router"
-import type { PublicAuthConfig } from "alloy-api"
 
 import { browseAuthTarget, isAdmin, shouldForceOnboarding } from "./auth-access"
 import { sanitizeLoginRedirect } from "./login-redirect"

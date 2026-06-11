@@ -1,11 +1,10 @@
-import { user } from "alloy-db/auth-schema"
-import { clip } from "alloy-db/schema"
+import { user } from "@alloy/db/auth-schema"
+import { clip } from "@alloy/db/schema"
+import { getSession } from "@alloy/server/auth/session"
+import { db } from "@alloy/server/db/index"
+import { errorResult } from "@alloy/server/runtime/http-response"
 import { eq } from "drizzle-orm"
 import type { Context } from "hono"
-
-import { getSession } from "../auth/session"
-import { db } from "../db"
-import { errorResult } from "../runtime/http-response"
 
 type ClipViewer = { id: string; role: string | null } | null
 

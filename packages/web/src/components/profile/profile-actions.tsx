@@ -1,7 +1,7 @@
+import type { ProfileViewer } from "@alloy/api"
+import { Button } from "@alloy/ui/components/button"
+import { toast } from "@alloy/ui/lib/toast"
 import { useNavigate } from "@tanstack/react-router"
-import type { ProfileViewer } from "alloy-api"
-import { Button } from "alloy-ui/components/button"
-import { toast } from "alloy-ui/lib/toast"
 import { ShieldOffIcon } from "lucide-react"
 import * as React from "react"
 

@@ -1,6 +1,16 @@
 import { Buffer } from "node:buffer"
 
 import {
+  authChallenge,
+  type User,
+  type UserPasskey,
+  userPasskey,
+} from "@alloy/db/auth-schema"
+import { logger } from "@alloy/logging"
+import { configStore } from "@alloy/server/config/store"
+import { db } from "@alloy/server/db/index"
+import { env } from "@alloy/server/env"
+import {
   type AuthenticationResponseJSON,
   type AuthenticatorTransportFuture,
   generateAuthenticationOptions,
@@ -10,18 +20,8 @@ import {
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
 } from "@simplewebauthn/server"
-import {
-  authChallenge,
-  type User,
-  type UserPasskey,
-  userPasskey,
-} from "alloy-db/auth-schema"
-import { logger } from "alloy-logging"
 import { and, eq, gt, lt } from "drizzle-orm"
 
-import { configStore } from "../config/store"
-import { db } from "../db"
-import { env } from "../env"
 import { base64UrlToBytes, bytesToBase64Url } from "./tokens"
 
 const RP_NAME = "alloy"

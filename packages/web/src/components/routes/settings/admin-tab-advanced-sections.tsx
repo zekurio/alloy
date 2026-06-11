@@ -1,21 +1,20 @@
-import { type AdminRuntimeConfig, loginSplashImageUrl } from "alloy-api"
-import { Button } from "alloy-ui/components/button"
+import { type AdminRuntimeConfig } from "@alloy/api"
+import { Button } from "@alloy/ui/components/button"
 import {
   Section,
   SectionContent,
   SectionFooter,
-} from "alloy-ui/components/section"
-import { Slider } from "alloy-ui/components/slider"
-import { Switch } from "alloy-ui/components/switch"
-import { toast } from "alloy-ui/lib/toast"
-import { DownloadIcon, RotateCcwIcon, SaveIcon, UploadIcon } from "lucide-react"
+} from "@alloy/ui/components/section"
+import { Slider } from "@alloy/ui/components/slider"
+import { Switch } from "@alloy/ui/components/switch"
+import { toast } from "@alloy/ui/lib/toast"
+import { DownloadIcon, SaveIcon, UploadIcon } from "lucide-react"
 import * as React from "react"
 
 import { LoginAppearancePreview } from "@/components/routes/admin-settings/login-appearance-preview"
 import { api } from "@/lib/api"
 import { startBlobDownload } from "@/lib/browser-download"
 import { isoDateStamp } from "@/lib/date-format"
-import { apiOrigin } from "@/lib/env"
 import { errorMessage } from "@/lib/error-message"
 import { publishRuntimeConfigUpdate } from "@/lib/runtime-config-events"
 
@@ -36,21 +35,13 @@ export function AppearanceSettingsContent({
   const [draftDarkenOpacity, setDraftDarkenOpacity] = React.useState(
     splash.darkenOpacity,
   )
-  const uploadInputRef = React.useRef<HTMLInputElement | null>(null)
-  const [splashRevision, setSplashRevision] = React.useState(0)
-  const previewImageUrl = React.useMemo(() => {
-    if (!splash.enabled) return null
-    const url = loginSplashImageUrl(apiOrigin())
-    return splashRevision > 0 ? `${url}?v=${splashRevision}` : url
-  }, [splash.enabled, splashRevision])
   const previewSplash = React.useMemo(
     () => ({
       ...splash,
       blurPx: draftBlurPx,
       darkenOpacity: draftDarkenOpacity,
-      imageUrl: previewImageUrl,
     }),
-    [draftBlurPx, draftDarkenOpacity, previewImageUrl, splash],
+    [draftBlurPx, draftDarkenOpacity, splash],
   )
   const treatmentChanged =
     draftBlurPx !== splash.blurPx || draftDarkenOpacity !== splash.darkenOpacity
@@ -78,39 +69,6 @@ export function AppearanceSettingsContent({
       toast.error(errorMessage(cause, "Couldn't update backdrop"))
     } finally {
       setPending(false)
-    }
-  }
-
-  async function regenerateSplash() {
-    if (pending) return
-    setPending(true)
-    try {
-      const updated = await api.admin.regenerateLoginSplash()
-      setConfig(updated)
-      setSplashRevision((revision) => revision + 1)
-      publishRuntimeConfigUpdate({ authConfigChanged: true })
-      toast.success("Login backdrop regenerated")
-    } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't regenerate backdrop"))
-    } finally {
-      setPending(false)
-    }
-  }
-
-  async function uploadSplash(file: File | null | undefined) {
-    if (!file || pending) return
-    setPending(true)
-    try {
-      const updated = await api.admin.uploadLoginSplash(file)
-      setConfig(updated)
-      setSplashRevision((revision) => revision + 1)
-      publishRuntimeConfigUpdate({ authConfigChanged: true })
-      toast.success("Login backdrop uploaded")
-    } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't upload backdrop"))
-    } finally {
-      setPending(false)
-      if (uploadInputRef.current) uploadInputRef.current.value = ""
     }
   }
 
@@ -142,19 +100,13 @@ export function AppearanceSettingsContent({
   return (
     <Section>
       <SectionContent className="flex flex-col gap-4">
-        <input
-          ref={uploadInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="hidden"
-          onChange={(event) => uploadSplash(event.currentTarget.files?.[0])}
-        />
         <LoginAppearancePreview config={config} splash={previewSplash} />
         <div className="not-last:border-border flex items-start justify-between gap-4 py-3 not-last:border-b first:pt-0">
           <div className="min-w-0">
             <div className="text-sm font-medium">Login backdrop</div>
             <p className="text-foreground-dim mt-0.5 text-xs">
-              Use a generated collage from random public clip thumbnails.
+              Show a sloped, scrolling wall of random public clip thumbnails
+              behind the login form.
             </p>
           </div>
           <Switch
@@ -162,42 +114,6 @@ export function AppearanceSettingsContent({
             onCheckedChange={updateSplashEnabled}
             disabled={pending}
           />
-        </div>
-        <div className="not-last:border-border flex items-start justify-between gap-4 py-3 not-last:border-b">
-          <div className="min-w-0">
-            <div className="text-sm font-medium">Regenerate</div>
-            <p className="text-foreground-dim mt-0.5 text-xs">
-              Pick a new random set from public clips with thumbnails.
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={regenerateSplash}
-            disabled={pending}
-          >
-            <RotateCcwIcon />
-            Regenerate
-          </Button>
-        </div>
-        <div className="not-last:border-border flex items-start justify-between gap-4 py-3 not-last:border-b">
-          <div className="min-w-0">
-            <div className="text-sm font-medium">Custom backdrop</div>
-            <p className="text-foreground-dim mt-0.5 text-xs">
-              Upload a JPEG, PNG, or WebP image.
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={pending}
-            onClick={() => uploadInputRef.current?.click()}
-          >
-            <UploadIcon />
-            Upload
-          </Button>
         </div>
         <div className="grid gap-4 py-3 last:pb-0 sm:grid-cols-2">
           <div className="min-w-0 space-y-2">

@@ -1,4 +1,4 @@
-import { createAuth } from "alloy-api/auth"
+import { createAuth } from "@alloy/api/auth"
 
 import { apiOrigin } from "./env"
 

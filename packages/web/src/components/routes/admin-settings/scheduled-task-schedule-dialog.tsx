@@ -1,8 +1,8 @@
 import type {
   AdminScheduledTaskInfo,
   AdminScheduledTaskTrigger,
-} from "alloy-api"
-import { Button } from "alloy-ui/components/button"
+} from "@alloy/api"
+import { Button } from "@alloy/ui/components/button"
 import {
   Dialog,
   DialogBody,
@@ -12,15 +12,15 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "alloy-ui/components/dialog"
-import { Input } from "alloy-ui/components/input"
+} from "@alloy/ui/components/dialog"
+import { Input } from "@alloy/ui/components/input"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "alloy-ui/components/select"
+} from "@alloy/ui/components/select"
 import {
   CalendarClockIcon,
   PlusIcon,

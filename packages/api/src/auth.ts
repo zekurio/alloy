@@ -11,7 +11,7 @@ import { createApiClient } from "./client"
 import { errorFrom, toError } from "./error"
 import { readJsonOrThrow } from "./http"
 
-export { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "alloy-contracts"
+export { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "@alloy/contracts"
 
 type AuthError = { message: string }
 type AuthResult<T> = Promise<{ data: T | null; error: AuthError | null }>

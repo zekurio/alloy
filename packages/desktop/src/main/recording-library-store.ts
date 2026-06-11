@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto"
 import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 
-import type { RecordingCapture } from "alloy-contracts"
-import { logger } from "alloy-logging"
+import type { RecordingCapture } from "@alloy/contracts"
+import { logger } from "@alloy/logging"
 import { shell } from "electron"
 
 import type {
@@ -13,7 +13,8 @@ import type {
   RecordingLibraryProject,
   RecordingLibraryProjectDraftSaveRequest,
   RecordingLibraryProjectDraftSaveResult,
-} from "../shared/ipc"
+} from "@/shared/ipc"
+
 import {
   readCaptureManifest,
   writeCaptureManifest,

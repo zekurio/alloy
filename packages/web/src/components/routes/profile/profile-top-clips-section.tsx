@@ -1,4 +1,4 @@
-import type { UserClip } from "alloy-api"
+import type { UserClip } from "@alloy/api"
 
 import { TopClipsSection } from "@/components/clip/top-clips-section"
 

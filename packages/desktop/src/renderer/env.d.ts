@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import type { AlloyNative } from "../shared/ipc"
+import type { AlloyNative } from "@/shared/ipc"
 
 declare global {
   interface Window {

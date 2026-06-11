@@ -1,14 +1,9 @@
-import type {
-  AuthenticationResponseJSON,
-  RegistrationResponseJSON,
-} from "@simplewebauthn/server"
-import { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "alloy-contracts"
-import { user, userPasskey } from "alloy-db/auth-schema"
-import { and, eq } from "drizzle-orm"
-import { Hono } from "hono"
-import { z } from "zod"
-
-import { clearSessionCookies, setSessionCookies } from "../auth/cookies"
+import { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "@alloy/contracts"
+import { user, userPasskey } from "@alloy/db/auth-schema"
+import {
+  clearSessionCookies,
+  setSessionCookies,
+} from "@alloy/server/auth/cookies"
 import {
   assertCanRemoveAdmin,
   deleteUserPasskeyPreservingSignIn,
@@ -17,14 +12,14 @@ import {
   setupRequired,
   updateUserIdentity,
   validateUsername,
-} from "../auth/identity"
-import { publicPasskeyRow } from "../auth/security-responses"
+} from "@alloy/server/auth/identity"
+import { publicPasskeyRow } from "@alloy/server/auth/security-responses"
 import {
   createSession,
   deleteCurrentSession,
   getSession,
   requireSession,
-} from "../auth/session"
+} from "@alloy/server/auth/session"
 import {
   beginPasskeyAuthentication,
   beginPasskeyRegistration,
@@ -32,15 +27,23 @@ import {
   serializeTransports,
   verifyPasskeyAuthentication,
   verifyPasskeyRegistration,
-} from "../auth/webauthn"
-import { db } from "../db"
+} from "@alloy/server/auth/webauthn"
+import { db } from "@alloy/server/db/index"
 import {
   badRequest,
   badRequestFromCause,
   internalServerError,
   notFound,
   success,
-} from "../runtime/http-response"
+} from "@alloy/server/runtime/http-response"
+import type {
+  AuthenticationResponseJSON,
+  RegistrationResponseJSON,
+} from "@simplewebauthn/server"
+import { and, eq } from "drizzle-orm"
+import { Hono } from "hono"
+import { z } from "zod"
+
 import { authDesktopRoute } from "./auth-desktop"
 import { authOAuthRoute } from "./auth-oauth-routes"
 import { completePasskeySignUp } from "./auth-passkey-signup"

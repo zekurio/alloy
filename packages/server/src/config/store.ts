@@ -8,13 +8,13 @@ import {
 } from "node:fs"
 import { basename } from "node:path"
 
-import type { RuntimeConfig } from "alloy-contracts"
-import { logger } from "alloy-logging"
+import type { RuntimeConfig } from "@alloy/contracts"
+import { logger } from "@alloy/logging"
+import { signInConfigError } from "@alloy/server/auth/sign-in-config"
+import { CONFIG_PATH } from "@alloy/server/runtime/dirs"
+import { errorDetail } from "@alloy/server/runtime/error-message"
+import { dirname } from "@alloy/server/runtime/path"
 
-import { signInConfigError } from "../auth/sign-in-config"
-import { CONFIG_PATH } from "../runtime/dirs"
-import { errorDetail } from "../runtime/error-message"
-import { dirname } from "../runtime/path"
 import { bootstrapDefaultConfig, RuntimeConfigSchema } from "./schema"
 
 type LoadResult =

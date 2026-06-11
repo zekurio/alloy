@@ -2,7 +2,7 @@ import {
   encodedPathSegment,
   resolvePublicUrl,
   resolvePublicUrlWithQuery,
-} from "alloy-api"
+} from "@alloy/api"
 
 export function userProfileHref(username: string): string {
   return `/u/${encodedPathSegment(username)}`

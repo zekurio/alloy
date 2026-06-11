@@ -1,16 +1,16 @@
-import { useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
-import { type ClipRow, clipThumbnailUrl } from "alloy-api"
-import { Button } from "alloy-ui/components/button"
+import { type ClipRow, clipThumbnailUrl } from "@alloy/api"
+import { Button } from "@alloy/ui/components/button"
 import {
   Dialog,
   DialogClose,
   DialogViewportContent,
-} from "alloy-ui/components/dialog"
-import { Spinner } from "alloy-ui/components/spinner"
-import { useMediaQuery } from "alloy-ui/hooks/use-media-query"
-import { useWindowEvent } from "alloy-ui/hooks/use-window-event"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/components/dialog"
+import { Spinner } from "@alloy/ui/components/spinner"
+import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
+import { useWindowEvent } from "@alloy/ui/hooks/use-window-event"
+import { cn } from "@alloy/ui/lib/utils"
+import { useQueryClient } from "@tanstack/react-query"
+import { useNavigate } from "@tanstack/react-router"
 import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react"
 import * as React from "react"
 

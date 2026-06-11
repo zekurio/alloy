@@ -1,4 +1,4 @@
-import { Button } from "alloy-ui/components/button"
+import { Button } from "@alloy/ui/components/button"
 import { FolderOpenIcon } from "lucide-react"
 
 import { useDesktopRecording } from "./desktop-recording-context"

@@ -11,8 +11,7 @@ import type {
   AdminUsersResponse,
   AdminUserStorageRow,
   RuntimeConfig,
-} from "alloy-contracts"
-import { loginSplashImagePath } from "alloy-contracts"
+} from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
 import {
@@ -27,15 +26,12 @@ import {
 } from "./contract-validators"
 import { readJsonOrThrow } from "./http"
 import { readSuccessJson } from "./mutations"
-import { resolvePublicUrl } from "./paths"
 
 export {
-  LOGIN_SPLASH_IMAGE_PATH,
-  loginSplashImagePath,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_USERNAME_CLAIM_DEFAULT,
-} from "alloy-contracts"
+} from "@alloy/contracts"
 export type {
   AdminIntegrationsConfig,
   AdminLimitsConfig,
@@ -53,11 +49,7 @@ export type {
   AppearanceConfig,
   RuntimeConfig,
   UsernameClaim,
-} from "alloy-contracts"
-
-export function loginSplashImageUrl(origin: string | undefined): string {
-  return resolvePublicUrl(loginSplashImagePath(), origin)
-}
+} from "@alloy/contracts"
 
 type RuntimeConfigPatch = {
   setupComplete?: boolean
@@ -197,26 +189,6 @@ async function updateScheduledTaskTriggers(
   return readJsonOrThrow(res, validateAdminScheduledTaskInfo)
 }
 
-async function regenerateLoginSplash(
-  context: ApiContext,
-): Promise<AdminRuntimeConfig> {
-  const res =
-    await context.rpc.api.admin.appearance["login-splash"].regenerate.$post()
-  return readJsonOrThrow(res, validateAdminRuntimeConfig)
-}
-
-async function uploadLoginSplash(
-  context: ApiContext,
-  file: File,
-): Promise<AdminRuntimeConfig> {
-  const res = await context.rpc.api.admin.appearance[
-    "login-splash"
-  ].upload.$post({
-    form: { file },
-  })
-  return readJsonOrThrow(res, validateAdminRuntimeConfig)
-}
-
 async function fetchUsers(context: ApiContext): Promise<AdminUsersResponse> {
   const res = await context.rpc.api.admin.users.$get()
   return readJsonOrThrow(res, validateAdminUsersResponse)
@@ -270,8 +242,6 @@ export function createAdminApi(context: ApiContext) {
       ),
     updateAppearanceConfig: (patch: AppearanceConfigPatch) =>
       patchRuntimeSection(context, "appearance", patch),
-    regenerateLoginSplash: () => regenerateLoginSplash(context),
-    uploadLoginSplash: (file: File) => uploadLoginSplash(context, file),
     reEncodeAllClips: () => reEncodeAllClips(context),
     fetchScheduledTasks: () => fetchScheduledTasks(context),
     fetchScheduledTask: (taskId: string) => fetchScheduledTask(context, taskId),

@@ -3,8 +3,8 @@ import type {
   RecordingEvent,
   RecordingSettings,
   RecordingStatus,
-} from "alloy-contracts"
-import { toast } from "alloy-ui/lib/toast"
+} from "@alloy/contracts"
+import { toast } from "@alloy/ui/lib/toast"
 import * as React from "react"
 
 import type { AlloyDesktopRecordingApi } from "@/lib/desktop"

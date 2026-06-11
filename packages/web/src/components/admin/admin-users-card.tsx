@@ -1,9 +1,4 @@
-import {
-  type QueryClient,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query"
-import type { AdminUsersResponse, AdminUserStorageRow } from "alloy-api"
+import type { AdminUsersResponse, AdminUserStorageRow } from "@alloy/api"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,13 +9,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "alloy-ui/components/alert-dialog"
-import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
-import { Badge } from "alloy-ui/components/badge"
-import { Button } from "alloy-ui/components/button"
-import { Field, FieldLabel } from "alloy-ui/components/field"
-import { Input } from "alloy-ui/components/input"
-import { List, ListItem } from "alloy-ui/components/list"
+} from "@alloy/ui/components/alert-dialog"
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@alloy/ui/components/avatar"
+import { Badge } from "@alloy/ui/components/badge"
+import { Button } from "@alloy/ui/components/button"
+import { Field, FieldLabel } from "@alloy/ui/components/field"
+import { Input } from "@alloy/ui/components/input"
+import { List, ListItem } from "@alloy/ui/components/list"
 import {
   ResponsiveDialog,
   ResponsiveDialogBody,
@@ -31,22 +30,27 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
   ResponsiveDialogTrigger,
-} from "alloy-ui/components/responsive-dialog"
+} from "@alloy/ui/components/responsive-dialog"
 import {
   Section,
   SectionContent,
   SectionHeader,
   SectionTitle,
-} from "alloy-ui/components/section"
+} from "@alloy/ui/components/section"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "alloy-ui/components/select"
-import { Spinner } from "alloy-ui/components/spinner"
-import { toast } from "alloy-ui/lib/toast"
+} from "@alloy/ui/components/select"
+import { Spinner } from "@alloy/ui/components/spinner"
+import { toast } from "@alloy/ui/lib/toast"
+import {
+  type QueryClient,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { PencilIcon, SaveIcon, Trash2Icon } from "lucide-react"
 import * as React from "react"
 

@@ -1,11 +1,11 @@
-import { clip, clipUploadTicket } from "alloy-db/schema"
-import { logger } from "alloy-logging"
+import { clip, clipUploadTicket } from "@alloy/db/schema"
+import { logger } from "@alloy/logging"
+import { db } from "@alloy/server/db/index"
+import { cancelClipMediaProcessing } from "@alloy/server/queue/media-worker"
+import { clipStorage } from "@alloy/server/storage/index"
+import { deleteScratchUploads } from "@alloy/server/uploads/scratch"
 import { eq } from "drizzle-orm"
 
-import { db } from "../db"
-import { cancelClipMediaProcessing } from "../queue/media-worker"
-import { clipStorage } from "../storage"
-import { deleteScratchUploads } from "../uploads/scratch"
 import { publishClipRemove } from "./events"
 
 export async function deleteClipRowAndAssets(

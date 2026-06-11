@@ -1,13 +1,13 @@
-import type { RecordingClipHotkey, RecordingSettings } from "alloy-contracts"
-import { Button } from "alloy-ui/components/button"
+import type { RecordingClipHotkey, RecordingSettings } from "@alloy/contracts"
+import { Button } from "@alloy/ui/components/button"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "alloy-ui/components/select"
-import { SettingRow } from "alloy-ui/components/setting-row"
+} from "@alloy/ui/components/select"
+import { SettingRow } from "@alloy/ui/components/setting-row"
 import { PlusIcon, Trash2Icon } from "lucide-react"
 
 import { Subsection } from "./desktop-capture-sections"

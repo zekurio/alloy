@@ -8,7 +8,7 @@ import {
   RECORDING_FRAME_RATES,
   RECORDING_QUALITY_PRESETS,
   RECORDING_RESOLUTIONS,
-} from "alloy-contracts"
+} from "@alloy/contracts"
 
 import {
   alloyDesktop as readAlloyDesktop,

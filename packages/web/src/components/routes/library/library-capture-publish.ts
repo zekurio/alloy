@@ -3,7 +3,7 @@ import type {
   ClipPrivacy,
   GameRow,
   UserSearchResult,
-} from "alloy-api"
+} from "@alloy/api"
 
 import {
   captureThumbnail,

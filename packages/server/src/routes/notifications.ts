@@ -1,19 +1,19 @@
 import {
   NOTIFICATIONS_DEFAULT_LIMIT,
   NOTIFICATIONS_MAX_LIMIT,
-} from "alloy-contracts"
-import { Hono } from "hono"
-import { z } from "zod"
-
-import { requireSession } from "../auth/require-session"
+} from "@alloy/contracts"
+import { requireSession } from "@alloy/server/auth/require-session"
 import {
   clearNotifications,
   deleteNotification,
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
-} from "../notifications"
-import { notFound } from "../runtime/http-response"
+} from "@alloy/server/notifications/index"
+import { notFound } from "@alloy/server/runtime/http-response"
+import { Hono } from "hono"
+import { z } from "zod"
+
 import { limitQueryParam, zValidator } from "./validation"
 
 const ListQuery = z.object({

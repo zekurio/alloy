@@ -1,4 +1,4 @@
-import { cn } from "alloy-ui/lib/utils"
+import { cn } from "@alloy/ui/lib/utils"
 
 const RULER_INTERVALS_SEC = [
   0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1800,

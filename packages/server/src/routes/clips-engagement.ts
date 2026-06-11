@@ -1,12 +1,19 @@
-import { clip, clipLike, clipView } from "alloy-db/schema"
+import { clip, clipLike, clipView } from "@alloy/db/schema"
+import { requireSession } from "@alloy/server/auth/require-session"
+import { applyViewerCookie, resolveViewer } from "@alloy/server/auth/viewer-key"
+import {
+  clipAccessResponse,
+  resolveClipAccess,
+} from "@alloy/server/clips/access"
+import { db } from "@alloy/server/db/index"
+import {
+  booleanFlag,
+  likeState,
+  noContent,
+} from "@alloy/server/runtime/http-response"
 import { and, eq, type SQL, sql } from "drizzle-orm"
 import { Hono } from "hono"
 
-import { requireSession } from "../auth/require-session"
-import { applyViewerCookie, resolveViewer } from "../auth/viewer-key"
-import { clipAccessResponse, resolveClipAccess } from "../clips/access"
-import { db } from "../db"
-import { booleanFlag, likeState, noContent } from "../runtime/http-response"
 import { IdParam } from "./clips-helpers"
 import { zValidator } from "./validation"
 

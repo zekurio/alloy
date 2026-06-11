@@ -1,6 +1,5 @@
 "use client"
 
-import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 import {
   Dialog,
   DialogBody,
@@ -11,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "alloy-ui/components/dialog"
+} from "@alloy/ui/components/dialog"
 import {
   Drawer,
   DrawerClose,
@@ -21,9 +20,10 @@ import {
   DrawerHandle,
   DrawerTitle,
   DrawerTrigger,
-} from "alloy-ui/components/drawer"
-import { useIsMobile } from "alloy-ui/hooks/use-mobile"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/components/drawer"
+import { useIsMobile } from "@alloy/ui/hooks/use-mobile"
+import { cn } from "@alloy/ui/lib/utils"
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 import * as React from "react"
 
 const ResponsiveDialogContext = React.createContext(false)

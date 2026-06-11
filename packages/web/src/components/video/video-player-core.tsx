@@ -1,5 +1,5 @@
-import { useDocumentEvent } from "alloy-ui/hooks/use-document-event"
-import { useMediaQuery } from "alloy-ui/hooks/use-media-query"
+import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
+import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
 import * as React from "react"
 
 import { errorMessage } from "@/lib/error-message"

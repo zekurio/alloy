@@ -1,4 +1,4 @@
-# alloy-db
+# @alloy/db
 
 Drizzle database schema, migrations, and database exports for Alloy.
 
@@ -10,8 +10,8 @@ packages/db/
   src/contracts.ts           DB-backed contract helpers
   src/runtime/connection.ts  Postgres pool helper
   src/runtime/migrate.ts     migration runner
-  src/schema/index.ts        application schema barrel ("alloy-db/schema")
-  src/schema/auth.ts         auth schema ("alloy-db/auth-schema")
+  src/schema/index.ts        application schema barrel ("@alloy/db/schema")
+  src/schema/auth.ts         auth schema ("@alloy/db/auth-schema")
   src/schema/game.ts         game + game-follow tables
   src/schema/clip.ts         clip and its engagement tables
   src/schema/social.ts       follow, block, notification tables
@@ -25,9 +25,9 @@ packages/db/
 From the repository root:
 
 ```bash
-pnpm --filter alloy-db build
-pnpm --filter alloy-db typecheck
-pnpm --filter alloy-db test
+pnpm --filter @alloy/db build
+pnpm --filter @alloy/db typecheck
+pnpm --filter @alloy/db test
 pnpm db:generate
 pnpm db:migrate
 pnpm db:push
@@ -52,4 +52,4 @@ shell export it automatically; local development defaults to
 
 Keep schema changes paired with migrations. If a schema type is consumed across
 packages, export it from this package or mirror the public shape in
-`alloy-contracts` rather than recreating it locally.
+`@alloy/contracts` rather than recreating it locally.

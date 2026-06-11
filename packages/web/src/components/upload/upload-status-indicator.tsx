@@ -1,4 +1,4 @@
-import { cn } from "alloy-ui/lib/utils"
+import { cn } from "@alloy/ui/lib/utils"
 import { ChevronDownIcon, Loader2Icon } from "lucide-react"
 import * as React from "react"
 

@@ -1,5 +1,9 @@
-import { base64UrlToBytes, bytesToBase64Url } from "../encoding/base64url"
-import { constantTimeEqual, hmacSha256 } from "../runtime/crypto"
+import {
+  base64UrlToBytes,
+  bytesToBase64Url,
+} from "@alloy/server/encoding/base64url"
+import { constantTimeEqual, hmacSha256 } from "@alloy/server/runtime/crypto"
+
 import type { UploadTicket } from "./driver"
 
 export interface UploadTokenPayload {

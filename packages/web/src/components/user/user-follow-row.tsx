@@ -1,8 +1,12 @@
+import type { UserSummary } from "@alloy/contracts"
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@alloy/ui/components/avatar"
+import { Button } from "@alloy/ui/components/button"
+import { toast } from "@alloy/ui/lib/toast"
 import { Link } from "@tanstack/react-router"
-import type { UserSummary } from "alloy-contracts"
-import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
-import { Button } from "alloy-ui/components/button"
-import { toast } from "alloy-ui/lib/toast"
 import { UserPlusIcon } from "lucide-react"
 import * as React from "react"
 

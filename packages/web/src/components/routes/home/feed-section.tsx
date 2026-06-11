@@ -1,7 +1,7 @@
-import type { ClipRow, FeedFilter } from "alloy-api"
-import { LoadingState } from "alloy-ui/components/loading-state"
-import { Spinner } from "alloy-ui/components/spinner"
-import { cn } from "alloy-ui/lib/utils"
+import type { ClipRow, FeedFilter } from "@alloy/api"
+import { LoadingState } from "@alloy/ui/components/loading-state"
+import { Spinner } from "@alloy/ui/components/spinner"
+import { cn } from "@alloy/ui/lib/utils"
 import * as React from "react"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"

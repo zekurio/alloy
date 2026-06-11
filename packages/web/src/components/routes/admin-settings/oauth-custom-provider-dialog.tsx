@@ -3,10 +3,10 @@ import {
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_USERNAME_CLAIM_DEFAULT,
-} from "alloy-api"
-import { Button } from "alloy-ui/components/button"
-import { Field, FieldDescription, FieldLabel } from "alloy-ui/components/field"
-import { Input } from "alloy-ui/components/input"
+} from "@alloy/api"
+import { Button } from "@alloy/ui/components/button"
+import { Field, FieldDescription, FieldLabel } from "@alloy/ui/components/field"
+import { Input } from "@alloy/ui/components/input"
 import {
   ResponsiveDialog,
   ResponsiveDialogBody,
@@ -14,8 +14,8 @@ import {
   ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
-} from "alloy-ui/components/responsive-dialog"
-import { Switch } from "alloy-ui/components/switch"
+} from "@alloy/ui/components/responsive-dialog"
+import { Switch } from "@alloy/ui/components/switch"
 import { PlusIcon, SaveIcon } from "lucide-react"
 import * as React from "react"
 

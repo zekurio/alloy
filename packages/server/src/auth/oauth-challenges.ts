@@ -1,7 +1,6 @@
-import { authChallenge } from "alloy-db/auth-schema"
+import { authChallenge } from "@alloy/db/auth-schema"
+import { db } from "@alloy/server/db/index"
 import { and, eq, gt, lt } from "drizzle-orm"
-
-import { db } from "../db"
 
 export const OAUTH_STATE_TTL_MS = 10 * 60 * 1000
 export const OAUTH_PURPOSE = "oauth-state"

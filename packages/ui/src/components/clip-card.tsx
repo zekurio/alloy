@@ -1,12 +1,16 @@
-import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
-import { GameIcon } from "alloy-ui/components/game-icon"
-import { MediaPlaceholder } from "alloy-ui/components/media-placeholder"
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@alloy/ui/components/avatar"
+import { GameIcon } from "@alloy/ui/components/game-icon"
+import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import {
   CLIP_MEDIA_CLASS,
   CLIP_MEDIA_ROUNDED_CLASS,
   CLIP_MEDIA_VIEWPORT_CLASS,
-} from "alloy-ui/lib/media-frame"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/lib/media-frame"
+import { cn } from "@alloy/ui/lib/utils"
 import { LinkIcon, LockIcon } from "lucide-react"
 import * as React from "react"
 

@@ -1,6 +1,6 @@
+import { buttonVariants } from "@alloy/ui/lib/button-variants"
+import { cn } from "@alloy/ui/lib/utils"
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
-import { buttonVariants } from "alloy-ui/lib/button-variants"
-import { cn } from "alloy-ui/lib/utils"
 import type { VariantProps } from "class-variance-authority"
 import * as React from "react"
 

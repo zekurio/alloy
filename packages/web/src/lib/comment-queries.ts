@@ -1,3 +1,4 @@
+import type { CommentPage, CommentRow, CommentSort } from "@alloy/api"
 import {
   type InfiniteData,
   infiniteQueryOptions,
@@ -8,7 +9,6 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query"
-import type { CommentPage, CommentRow, CommentSort } from "alloy-api"
 
 import { api } from "./api"
 import { adjustClipCountsInCaches } from "./clip-queries"

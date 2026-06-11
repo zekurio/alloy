@@ -1,9 +1,13 @@
+import { toast } from "@alloy/ui/lib/toast"
 import { useForm } from "@tanstack/react-form"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import { toast } from "alloy-ui/lib/toast"
 import { ArrowRightIcon, KeyRoundIcon, MailIcon, UserIcon } from "lucide-react"
 import * as React from "react"
 
+import {
+  AuthSubmitButton,
+  FormInputField,
+} from "@/components/routes/auth/auth-form-fields"
 import { authClient } from "@/lib/auth-client"
 import {
   completeAuthSessionFlow,
@@ -11,8 +15,6 @@ import {
 } from "@/lib/auth-flow"
 import { validateEmail, validateUsername } from "@/lib/form-validators"
 import { invalidateAuthConfig } from "@/lib/session-suspense"
-
-import { AuthSubmitButton, FormInputField } from "../auth/auth-form-fields"
 
 type PasskeySignUpFormState = {
   username: string

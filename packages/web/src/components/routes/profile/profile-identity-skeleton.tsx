@@ -1,5 +1,5 @@
-import { Skeleton } from "alloy-ui/components/skeleton"
-import { cn } from "alloy-ui/lib/utils"
+import { Skeleton } from "@alloy/ui/components/skeleton"
+import { cn } from "@alloy/ui/lib/utils"
 
 /**
  * Identity-bar skeleton shown inside the frosted card body while the profile

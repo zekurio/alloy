@@ -1,4 +1,4 @@
-import type { RecordingDisplay } from "alloy-contracts"
+import type { RecordingDisplay } from "@alloy/contracts"
 import {
   Dialog,
   DialogBody,
@@ -6,7 +6,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "alloy-ui/components/dialog"
+} from "@alloy/ui/components/dialog"
 import { MonitorIcon } from "lucide-react"
 
 export function DisplayPickerDialog({

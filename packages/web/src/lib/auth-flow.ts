@@ -1,4 +1,4 @@
-import { toast } from "alloy-ui/lib/toast"
+import { toast } from "@alloy/ui/lib/toast"
 
 import { authClient } from "./auth-client"
 import { clientLogger } from "./client-log"

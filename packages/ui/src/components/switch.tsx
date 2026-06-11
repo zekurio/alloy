@@ -1,5 +1,5 @@
+import { cn } from "@alloy/ui/lib/utils"
 import { Switch as SwitchPrimitive } from "@base-ui/react/switch"
-import { cn } from "alloy-ui/lib/utils"
 
 /**
  * Alloy Switch — 36×20 pill (28×16 in `sm`), tokenised so the thumb animates on

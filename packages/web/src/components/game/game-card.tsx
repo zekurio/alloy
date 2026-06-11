@@ -1,7 +1,7 @@
+import { gameGridUrl } from "@alloy/api"
+import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
+import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
-import { gameGridUrl } from "alloy-api"
-import { MediaPlaceholder } from "alloy-ui/components/media-placeholder"
-import { cn } from "alloy-ui/lib/utils"
 
 import { apiOrigin } from "@/lib/env"
 

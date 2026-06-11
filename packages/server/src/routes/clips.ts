@@ -1,20 +1,20 @@
-import { user } from "alloy-db/auth-schema"
-import { clip, game } from "alloy-db/schema"
-import { and, eq, gte, isNull, type SQL } from "drizzle-orm"
-import { Hono } from "hono"
-
+import { user } from "@alloy/db/auth-schema"
+import { clip, game } from "@alloy/db/schema"
 import {
   applyClipPrivacyHeaders,
   clipAccessResponse,
   resolveClipAccess,
-} from "../clips/access"
+} from "@alloy/server/clips/access"
 import {
   clipSelectShape,
   selectClipById,
   toPublicClipRow,
-} from "../clips/select"
-import { db } from "../db"
-import { invalidCursor, notFound } from "../runtime/http-response"
+} from "@alloy/server/clips/select"
+import { db } from "@alloy/server/db/index"
+import { invalidCursor, notFound } from "@alloy/server/runtime/http-response"
+import { and, eq, gte, isNull, type SQL } from "drizzle-orm"
+import { Hono } from "hono"
+
 import { clipCommentsRoutes } from "./clip-comments"
 import { clipsEngagementRoutes } from "./clips-engagement"
 import {

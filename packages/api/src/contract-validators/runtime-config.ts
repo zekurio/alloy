@@ -1,10 +1,4 @@
 import {
-  type AdminRuntimeConfig,
-  RUNTIME_CONFIG_VERSION,
-  type RuntimeConfig,
-} from "alloy-contracts"
-
-import {
   objectRecord,
   validateArray,
   validateBoolean,
@@ -16,7 +10,13 @@ import {
   validateRequiredString,
   validateStringArray,
   validateUrlString,
-} from "../runtime-validation"
+} from "@alloy/api/runtime-validation"
+import {
+  type AdminRuntimeConfig,
+  RUNTIME_CONFIG_VERSION,
+  type RuntimeConfig,
+} from "@alloy/contracts"
+
 import { validateAuthProviderColors, validateBackdropTreatment } from "./shared"
 const RUNTIME_CONFIG_BOOLEAN_FIELDS = [
   "openRegistrations",

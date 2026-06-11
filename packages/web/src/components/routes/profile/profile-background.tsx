@@ -1,4 +1,4 @@
-import { cn } from "alloy-ui/lib/utils"
+import { cn } from "@alloy/ui/lib/utils"
 
 import { userImageSrc } from "@/lib/user-display"
 

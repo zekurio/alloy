@@ -1,5 +1,5 @@
-import { Button } from "alloy-ui/components/button"
-import { SectionTitle } from "alloy-ui/components/section-head"
+import { Button } from "@alloy/ui/components/button"
+import { SectionTitle } from "@alloy/ui/components/section-head"
 import { ClapperboardIcon, PencilIcon } from "lucide-react"
 import * as React from "react"
 

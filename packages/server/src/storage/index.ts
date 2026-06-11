@@ -1,6 +1,7 @@
-import { secretStore } from "../config/secret-store"
-import { env } from "../env"
-import { CLIPS_DIR, DATA_DIR } from "../runtime/dirs"
+import { secretStore } from "@alloy/server/config/secret-store"
+import { env } from "@alloy/server/env"
+import { CLIPS_DIR, DATA_DIR } from "@alloy/server/runtime/dirs"
+
 import type { StorageDriver } from "./driver"
 import { FsStorageDriver } from "./fs-driver"
 
@@ -18,7 +19,7 @@ export const clipStorage: StorageDriver = new FsStorageDriver({
 })
 
 /**
- * App-owned assets: the login splash and user avatars/banners. Lives under the
+ * App-owned assets: user avatars/banners. Lives under the
  * data dir on fast local disk. Server-side writes only — it never mints upload
  * tickets, but shares the same FS driver implementation.
  */

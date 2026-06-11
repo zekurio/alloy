@@ -1,5 +1,5 @@
-import { isServerHttpError } from "alloy-api"
-import { toast } from "alloy-ui/lib/toast"
+import { isServerHttpError } from "@alloy/api"
+import { toast } from "@alloy/ui/lib/toast"
 import * as React from "react"
 
 type UseQueryErrorToastOptions = {

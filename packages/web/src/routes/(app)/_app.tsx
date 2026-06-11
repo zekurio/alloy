@@ -1,5 +1,5 @@
+import { AppMain, AppShell } from "@alloy/ui/components/app-shell"
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
-import { AppMain, AppShell } from "alloy-ui/components/app-shell"
 import * as React from "react"
 
 import { ClipViewerDialog } from "@/components/clip/clip-viewer-dialog"

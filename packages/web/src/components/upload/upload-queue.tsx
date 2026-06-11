@@ -1,11 +1,11 @@
-import { Button } from "alloy-ui/components/button"
-import { MediaPlaceholder } from "alloy-ui/components/media-placeholder"
-import { Progress } from "alloy-ui/components/progress"
+import { Button } from "@alloy/ui/components/button"
+import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
+import { Progress } from "@alloy/ui/components/progress"
 import {
   CLIP_MEDIA_CLASS,
   CLIP_MEDIA_VIEWPORT_CLASS,
-} from "alloy-ui/lib/media-frame"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/lib/media-frame"
+import { cn } from "@alloy/ui/lib/utils"
 import {
   ChevronLeftIcon,
   ChevronRightIcon,

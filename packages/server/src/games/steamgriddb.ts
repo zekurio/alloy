@@ -3,13 +3,13 @@ import type {
   SteamGridDBAsset,
   SteamGridDBGameDetail,
   SteamGridDBSearchResult,
-} from "alloy-contracts"
-import { logger } from "alloy-logging"
+} from "@alloy/contracts"
+import { logger } from "@alloy/logging"
+import { secretStore } from "@alloy/server/config/secret-store"
+import { imageBlurHash } from "@alloy/server/media/blurhash"
+import { errorMessage, isAbortError } from "@alloy/server/runtime/error-message"
 import { z } from "zod"
 
-import { secretStore } from "../config/secret-store"
-import { imageBlurHash } from "../media/blurhash"
-import { errorMessage, isAbortError } from "../runtime/error-message"
 import { gameSlugWithId } from "./slug"
 
 const STEAMGRIDDB_ORIGIN = "https://www.steamgriddb.com"

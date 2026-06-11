@@ -1,5 +1,5 @@
+import type { PublicAuthConfig } from "@alloy/api"
 import { Link } from "@tanstack/react-router"
-import type { PublicAuthConfig } from "alloy-api"
 import * as React from "react"
 
 import { AuthPageFrame } from "@/components/auth/auth-page-frame"

@@ -1,0 +1,108 @@
+name: Publish Release Image
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish the server image for
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: release-image-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.release.tag_name }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  publish:
+    name: Publish versioned server image
+    runs-on: ubuntu-latest
+    # Recorder releases use recorder-v* tags and ship no server image.
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'v')
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.release.tag_name }}
+          fetch-depth: 0
+
+      - name: Resolve release version
+        id: meta
+        shell: bash
+        run: |
+          raw="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.release.tag_name }}"
+          version="${raw#v}"
+
+          if [[ "$raw" != v* ]]; then
+            echo "Release refs must be v-prefixed tags." >&2
+            exit 1
+          fi
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            echo "Invalid release version: $raw" >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+          if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "make_latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "make_latest=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Ensure tag points at main
+        shell: bash
+        run: |
+          git fetch origin "+refs/heads/main:refs/remotes/origin/main"
+          release_commit="$(git rev-list -n 1 "${{ steps.meta.outputs.tag }}")"
+
+          if ! git merge-base --is-ancestor "$release_commit" origin/main; then
+            echo "Release tag ${{ steps.meta.outputs.tag }} must point at a commit on main." >&2
+            exit 1
+          fi
+
+      - name: Validate package version matches release
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          actual="$(node -e 'const fs = require("node:fs"); console.log(JSON.parse(fs.readFileSync("package.json", "utf8")).version);')"
+
+          if [[ "$actual" != "$RELEASE_VERSION" ]]; then
+            echo "package.json version $actual does not match release $RELEASE_VERSION." >&2
+            exit 1
+          fi
+
+      - name: Set up Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Set up Cachix for stable release cache
+        if: steps.meta.outputs.is_prerelease == 'false'
+        uses: cachix/cachix-action@v15
+        with:
+          name: zekurio
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Publish server release image
+        uses: ./.github/actions/publish-nix-image
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ steps.meta.outputs.tag }}
+            type=raw,value=latest,enable=${{ steps.meta.outputs.make_latest == 'true' }}

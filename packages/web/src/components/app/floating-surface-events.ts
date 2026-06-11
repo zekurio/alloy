@@ -1,4 +1,4 @@
-import { useWindowEvent } from "alloy-ui/hooks/use-window-event"
+import { useWindowEvent } from "@alloy/ui/hooks/use-window-event"
 
 export type FloatingSurface = "notifications" | "uploads"
 

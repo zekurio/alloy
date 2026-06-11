@@ -1,4 +1,4 @@
-import { type ClipRow, clipStreamUrl, clipThumbnailUrl } from "alloy-api"
+import { type ClipRow, clipStreamUrl, clipThumbnailUrl } from "@alloy/api"
 import * as React from "react"
 
 import { useSession } from "@/lib/auth-client"

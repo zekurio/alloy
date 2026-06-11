@@ -1,5 +1,5 @@
-import type { ClipRow, GameNameLookupResult, GameRow } from "alloy-api"
-import { toast } from "alloy-ui/lib/toast"
+import type { ClipRow, GameNameLookupResult, GameRow } from "@alloy/api"
+import { toast } from "@alloy/ui/lib/toast"
 import * as React from "react"
 
 import {

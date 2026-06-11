@@ -1,4 +1,4 @@
-# alloy-recorder
+# @alloy/recorder
 
 Rust recording sidecar used by Alloy Desktop. It talks to libobs and communicates
 with Electron over newline-delimited JSON on stdio.
@@ -37,16 +37,16 @@ runtime updates before calling `configure`.
 ## Commands
 
 ```bash
-pnpm --filter alloy-recorder build
-pnpm --filter alloy-recorder build:release
-pnpm --filter alloy-recorder test
+pnpm --filter @alloy/recorder build
+pnpm --filter @alloy/recorder build:release
+pnpm --filter @alloy/recorder test
 ```
 
 Release builds require a valid OBS runtime:
 
 ```bash
 set ALLOY_OBS_RUNTIME_DIR=C:\Path\To\obs-studio
-pnpm --filter alloy-recorder build:release
+pnpm --filter @alloy/recorder build:release
 ```
 
 The build writes:

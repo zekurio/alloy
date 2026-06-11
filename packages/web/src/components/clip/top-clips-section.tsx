@@ -1,10 +1,10 @@
-import type { ClipRow } from "alloy-api"
-import { LoadingState } from "alloy-ui/components/loading-state"
+import type { ClipRow } from "@alloy/api"
+import { LoadingState } from "@alloy/ui/components/loading-state"
 import {
   SectionActions,
   SectionHead,
   SectionTitle,
-} from "alloy-ui/components/section-head"
+} from "@alloy/ui/components/section-head"
 import { AwardIcon } from "lucide-react"
 import * as React from "react"
 

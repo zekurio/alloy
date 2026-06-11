@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron"
 
-import type { AlloyNative } from "../shared/ipc"
-import { IPC } from "../shared/ipc"
+import type { AlloyNative } from "@/shared/ipc"
+import { IPC } from "@/shared/ipc"
 
 /**
  * The single privileged bridge, exposed only in the overlay window. It forwards

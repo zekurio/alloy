@@ -2,9 +2,9 @@ import {
   LEGACY_USER_ASSET_PATH_PREFIX,
   resolvePublicUrl,
   USER_ASSET_PATH_PREFIX,
-} from "alloy-api"
-import { pastelAvatarColors, pastelBannerGradient } from "alloy-ui/lib/pastel"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/api"
+import { pastelAvatarColors, pastelBannerGradient } from "@alloy/ui/lib/pastel"
+import { cn } from "@alloy/ui/lib/utils"
 import * as React from "react"
 
 import { apiOrigin } from "./env"

@@ -1,13 +1,13 @@
-import type { ProfileCounts } from "alloy-api"
+import type { ProfileCounts } from "@alloy/api"
 import {
   Dialog,
   DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "alloy-ui/components/dialog"
-import { Spinner } from "alloy-ui/components/spinner"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/components/dialog"
+import { Spinner } from "@alloy/ui/components/spinner"
+import { cn } from "@alloy/ui/lib/utils"
 import * as React from "react"
 
 import { UserFollowRow } from "@/components/user/user-follow-row"

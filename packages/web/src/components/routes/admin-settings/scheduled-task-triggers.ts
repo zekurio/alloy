@@ -1,5 +1,5 @@
-import type { AdminScheduledTaskTrigger } from "alloy-api"
-import { toast } from "alloy-ui/lib/toast"
+import type { AdminScheduledTaskTrigger } from "@alloy/api"
+import { toast } from "@alloy/ui/lib/toast"
 
 export const CRON_PRESETS = [
   { id: "six-hours", label: "Every 6 hours", expression: "0 */6 * * *" },

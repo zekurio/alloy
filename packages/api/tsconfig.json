@@ -5,8 +5,9 @@
     "jsx": "react-jsx",
     "types": ["node"],
     "paths": {
-      "alloy-contracts": ["../contracts/src/index.ts"],
-      "alloy-contracts/*": ["../contracts/src/*"]
+      "@/*": ["./src/*"],
+      "@alloy/contracts": ["../contracts/src/index.ts"],
+      "@alloy/contracts/*": ["../contracts/src/*"]
     }
   },
   "include": ["src"],
