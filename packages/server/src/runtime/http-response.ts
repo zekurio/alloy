@@ -93,6 +93,15 @@ export function payloadTooLarge(c: Context, error: string) {
   return errorResponse(c, error, 413)
 }
 
+export function tooManyRequests(
+  c: Context,
+  retryAfterSeconds: number,
+  error = "Too many requests",
+) {
+  c.header("Retry-After", String(retryAfterSeconds))
+  return errorResponse(c, error, 429)
+}
+
 export function badGateway(c: Context, error: string) {
   return errorResponse(c, error, 502)
 }

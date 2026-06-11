@@ -36,11 +36,14 @@ import {
   notFound,
   success,
 } from "@alloy/server/runtime/http-response"
+import { rateLimiter } from "@alloy/server/runtime/rate-limit"
+import { requestIp } from "@alloy/server/runtime/request-ip"
 import type {
   AuthenticationResponseJSON,
   RegistrationResponseJSON,
 } from "@simplewebauthn/server"
 import { and, eq } from "drizzle-orm"
+import type { Context } from "hono"
 import { Hono } from "hono"
 import { z } from "zod"
 
@@ -81,8 +84,43 @@ const UuidParam = z.object({
   id: z.string().uuid(),
 })
 
+const RATE_LIMIT_WINDOW_MS = 60 * 1000
+const STRICT_AUTH_RATE_LIMIT_PATHS = new Set([
+  "/passkey/sign-up/options",
+  "/passkey/sign-in/options",
+  "/oauth/sign-in",
+  "/oauth/link",
+])
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"])
+
+function authSubpath(c: Context): string {
+  const path = c.req.path
+  return path.startsWith("/api/auth") ? path.slice("/api/auth".length) : path
+}
+
+const strictAuthRateLimit = rateLimiter({
+  windowMs: RATE_LIMIT_WINDOW_MS,
+  max: 10,
+  key: requestIp,
+})
+
+const standardAuthRateLimit = rateLimiter({
+  windowMs: RATE_LIMIT_WINDOW_MS,
+  max: 30,
+  key: (c) => {
+    if (!MUTATING_METHODS.has(c.req.method)) return null
+    if (STRICT_AUTH_RATE_LIMIT_PATHS.has(authSubpath(c))) return null
+    return requestIp(c)
+  },
+})
+
 export const authRoute = new Hono()
   .use("*", csrf)
+  .use("*", standardAuthRateLimit)
+  .use("/passkey/sign-up/options", strictAuthRateLimit)
+  .use("/passkey/sign-in/options", strictAuthRateLimit)
+  .use("/oauth/sign-in", strictAuthRateLimit)
+  .use("/oauth/link", strictAuthRateLimit)
   .get("/session", async (c) => {
     return c.json(await getSession(c))
   })
