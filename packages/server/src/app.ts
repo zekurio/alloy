@@ -1,8 +1,7 @@
-import { logger } from "@alloy/logging"
+import { getLogContext, logger, runWithLogContext } from "@alloy/logging"
 import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { createMiddleware } from "hono/factory"
-import { logger as honoLogger } from "hono/logger"
 import { secureHeaders } from "hono/secure-headers"
 
 import { getSession } from "./auth/session"
@@ -46,6 +45,12 @@ const SHAREABLE_CLIP_COMMENTS_RE =
   /^\/api\/clips\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/comments$/i
 const SHAREABLE_CLIP_VIEW_RE =
   /^\/api\/clips\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/view$/i
+const REQUEST_ID_RE = /^[\w-]{1,64}$/
+
+function requestIdForHeader(value: string | undefined): string {
+  if (value && REQUEST_ID_RE.test(value)) return value
+  return crypto.randomUUID().slice(0, 8)
+}
 
 function isShareableClipRequest(method: string, path: string): boolean {
   if (SHAREABLE_CLIP_ASSET_RE.test(path) || SHAREABLE_CLIP_HLS_RE.test(path)) {
@@ -85,13 +90,30 @@ const requireAuthToBrowse = createMiddleware(async (c, next) => {
   await next()
 })
 
+const requestCorrelation = createMiddleware(async (c, next) => {
+  const requestId = requestIdForHeader(c.req.header("X-Request-Id"))
+  const startedAt = performance.now()
+  c.header("X-Request-Id", requestId)
+
+  await runWithLogContext({ req: requestId }, async () => {
+    let didThrow = false
+    try {
+      await next()
+    } catch (err) {
+      didThrow = true
+      throw err
+    } finally {
+      const durationMs = Math.round(performance.now() - startedAt)
+      const status = didThrow ? 500 : c.res.status
+      logger.info(`${c.req.method} ${c.req.path} ${status} ${durationMs}ms`)
+    }
+  })
+})
+
 // Chain the route calls so the inferred type includes every route — the
 // @alloy/api package consumes `AppType` via hono/client for RPC.
 const apiApp = new Hono()
-  .use(
-    "*",
-    honoLogger((line) => logger.info(line)),
-  )
+  .use("*", requestCorrelation)
   .use(
     "*",
     cors({
@@ -140,9 +162,17 @@ const apiApp = new Hono()
   .route("/api/assets", storageRoute)
   .route("/api/assets/users", userAssetsRoute)
   .onError((err, c) => {
-    logger.error("[api] unhandled request error:", err)
-
-    return internalServerError(c)
+    const requestId =
+      getLogContext().req ?? c.res.headers.get("X-Request-Id") ?? undefined
+    runWithLogContext(requestId ? { req: requestId } : {}, () => {
+      logger.error("[api] unhandled request error:", err)
+    })
+    return internalServerError(
+      c,
+      requestId
+        ? `Internal Server Error (request ${requestId})`
+        : "Internal Server Error",
+    )
   })
 
 export const app = await mountWeb(apiApp)
