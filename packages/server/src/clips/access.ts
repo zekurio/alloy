@@ -1,52 +1,17 @@
 import { user } from "@alloy/db/auth-schema"
 import { clip } from "@alloy/db/schema"
 import { getSession } from "@alloy/server/auth/session"
+import {
+  denied,
+  evaluateClipAccess,
+  type ClipAccessDenied,
+  type ClipAccessPolicyName,
+  type ClipViewer,
+} from "@alloy/server/clips/access-policy"
 import { db } from "@alloy/server/db/index"
 import { errorResult } from "@alloy/server/runtime/http-response"
 import { eq } from "drizzle-orm"
 import type { Context } from "hono"
-
-type ClipViewer = { id: string; role: string | null } | null
-
-type ClipAccessReadiness = "ready" | "ready-or-owner-admin"
-type ClipPrivateFailure = "not-found" | "auth"
-
-type ClipAccessPolicy = {
-  allowPrivate: boolean
-  notReadyError: string
-  privateFailure: ClipPrivateFailure
-  readiness: ClipAccessReadiness
-}
-
-const CLIP_ACCESS_POLICIES = {
-  metadata: {
-    allowPrivate: true,
-    notReadyError: "Not found",
-    privateFailure: "not-found",
-    readiness: "ready-or-owner-admin",
-  },
-  engagement: {
-    allowPrivate: true,
-    notReadyError: "Not found",
-    privateFailure: "auth",
-    readiness: "ready",
-  },
-  stream: {
-    allowPrivate: true,
-    notReadyError: "Clip not ready",
-    privateFailure: "auth",
-    readiness: "ready",
-  },
-  ownerAsset: {
-    allowPrivate: true,
-    notReadyError: "Not found",
-    privateFailure: "auth",
-    readiness: "ready-or-owner-admin",
-  },
-} as const satisfies Record<string, ClipAccessPolicy>
-
-type ClipAccessPolicyName = keyof typeof CLIP_ACCESS_POLICIES
-type ClipAccessStatus = 401 | 403 | 404
 
 type ClipAccessAllowed = {
   accessible: true
@@ -54,13 +19,6 @@ type ClipAccessAllowed = {
   viewer: ClipViewer
   isOwner: boolean
   isAdmin: boolean
-  isPrivate: boolean
-}
-
-type ClipAccessDenied = {
-  accessible: false
-  error: string
-  status: ClipAccessStatus
   isPrivate: boolean
 }
 
@@ -99,37 +57,27 @@ export async function resolveClipAccess({
   }
 
   const { row, authorDisabledAt } = selected
-  const accessPolicy = CLIP_ACCESS_POLICIES[policy]
   const viewer = await peekClipViewer(headers)
-  const isOwner = viewer?.id === row.authorId
-  const isAdmin = viewer?.role === "admin"
-  const isPrivate = row.privacy === "private"
-  const canBypassVisibility = isOwner || isAdmin
+  const decision = evaluateClipAccess({
+    authorDisabledAt,
+    authorId: row.authorId,
+    policy,
+    privacy: row.privacy,
+    status: row.status,
+    viewer,
+  })
 
-  if (authorDisabledAt && !canBypassVisibility) {
-    return denied("Not found", 404, isPrivate)
-  }
-
-  if (isPrivate) {
-    if (!accessPolicy.allowPrivate) {
-      return denied("Not found", 404, true)
-    }
-    if (!canBypassVisibility) {
-      return privateDenied(accessPolicy.privateFailure, viewer)
-    }
-  }
-
-  if (!canReadStatus(row.status, accessPolicy.readiness, canBypassVisibility)) {
-    return denied(accessPolicy.notReadyError, 404, isPrivate)
+  if (!decision.accessible) {
+    return decision
   }
 
   return {
     accessible: true,
     row,
     viewer,
-    isOwner,
-    isAdmin,
-    isPrivate,
+    isOwner: decision.isOwner,
+    isAdmin: decision.isAdmin,
+    isPrivate: decision.isPrivate,
   }
 }
 
@@ -140,31 +88,4 @@ export function clipAccessResponse(c: Context, access: ClipAccessDenied) {
 
 export function applyClipPrivacyHeaders(c: Context, access: ClipAccessAllowed) {
   if (access.isPrivate) c.header("Cache-Control", "no-store")
-}
-
-function canReadStatus(
-  status: string,
-  readiness: ClipAccessReadiness,
-  canBypassVisibility: boolean,
-): boolean {
-  if (status === "ready") return true
-  return readiness === "ready-or-owner-admin" && canBypassVisibility
-}
-
-function privateDenied(
-  privateFailure: ClipPrivateFailure,
-  viewer: ClipViewer,
-): ClipAccessDenied {
-  if (privateFailure === "not-found") {
-    return denied("Not found", 404, true)
-  }
-  return denied(viewer ? "Forbidden" : "Unauthorized", viewer ? 403 : 401, true)
-}
-
-function denied(
-  error: string,
-  status: ClipAccessStatus,
-  isPrivate = false,
-): ClipAccessDenied {
-  return { accessible: false, error, status, isPrivate }
 }
