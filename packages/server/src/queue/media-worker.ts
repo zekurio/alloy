@@ -1,5 +1,5 @@
 import { clip, clipUploadTicket } from "@alloy/db/schema"
-import { logger } from "@alloy/logging"
+import { logger, runWithLogContext } from "@alloy/logging"
 import { publishClipUpsertById } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
 import { requiredSql } from "@alloy/server/db/sql"
@@ -168,30 +168,36 @@ async function runClipMediaProcessing(clipId: string): Promise<void> {
     resolveDone = r
   })
   activeMediaJobs.set(clipId, { abort, done })
-  const stopHeartbeat = startEncodeLeaseHeartbeat(clipId, runId, abort)
 
   try {
-    await runMediaProcessingInner(clipId, row, runId, abort.signal)
-  } catch (err) {
-    if (isAbortError(err)) {
-      if (stopping) {
-        await releaseEncodeLease(
-          clipId,
-          runId,
-          "Clip media processing interrupted by shutdown",
-        )
+    await runWithLogContext({ clip: clipId, run: runId }, async () => {
+      const stopHeartbeat = startEncodeLeaseHeartbeat(clipId, runId, abort)
+
+      try {
+        await runMediaProcessingInner(clipId, row, runId, abort.signal)
+      } catch (err) {
+        if (isAbortError(err)) {
+          if (stopping) {
+            await releaseEncodeLease(
+              clipId,
+              runId,
+              "Clip media processing interrupted by shutdown",
+            )
+          }
+        } else {
+          const reason = errorMessage(err, "Clip media processing failed")
+          if (row.encodeAttempt > RETRY_LIMIT) {
+            await markFailedUnlessReady(clipId, reason)
+          } else {
+            await releaseEncodeLease(clipId, runId, reason)
+          }
+        }
+        throw err
+      } finally {
+        stopHeartbeat()
       }
-    } else {
-      const reason = errorMessage(err, "Clip media processing failed")
-      if (row.encodeAttempt > RETRY_LIMIT) {
-        await markFailedUnlessReady(clipId, reason)
-      } else {
-        await releaseEncodeLease(clipId, runId, reason)
-      }
-    }
-    throw err
+    })
   } finally {
-    stopHeartbeat()
     activeMediaJobs.delete(clipId)
     resolveDone()
   }
