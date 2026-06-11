@@ -36,27 +36,54 @@ fn write_response(response: Response) {
     }
 }
 
+fn sidecar_version() -> SidecarVersion {
+    SidecarVersion {
+        name: SIDE_CAR_NAME,
+        version: env!("CARGO_PKG_VERSION"),
+        protocol_version: RECORDER_PROTOCOL_VERSION,
+        capabilities: &[
+            "game-capture",
+            "audio-devices",
+            "audio-applications",
+            "game-processes",
+            "display-capture",
+            "displays",
+            "long-recording",
+            "bookmarks",
+            "replay-buffer",
+        ],
+    }
+}
+
+/// Requests the stdin thread can answer immediately without the recorder.
+/// Status is served from the shared snapshot so reads stay instant even while
+/// the recorder thread is busy starting/stopping OBS outputs.
+fn handle_io_request(request: &Request, status: &Mutex<RecordingStatus>) -> Option<Response> {
+    match request.method.as_str() {
+        "version" => Some(response_ok(request.id, sidecar_version())),
+        "status" => Some(response_ok(request.id, snapshot_status(status))),
+        _ => None,
+    }
+}
+
+fn snapshot_status(status: &Mutex<RecordingStatus>) -> RecordingStatus {
+    match status.lock() {
+        Ok(guard) => guard.clone(),
+        Err(poisoned) => poisoned.into_inner().clone(),
+    }
+}
+
+fn publish_status(status: &Mutex<RecordingStatus>, recorder: &Recorder) {
+    let next = recorder.status();
+    match status.lock() {
+        Ok(mut guard) => *guard = next,
+        Err(poisoned) => *poisoned.into_inner() = next,
+    }
+}
+
 fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
     match request.method.as_str() {
-        "version" => response_ok(
-            request.id,
-            SidecarVersion {
-                name: SIDE_CAR_NAME,
-                version: env!("CARGO_PKG_VERSION"),
-                protocol_version: RECORDER_PROTOCOL_VERSION,
-                capabilities: &[
-                    "game-capture",
-                    "audio-devices",
-                    "audio-applications",
-                    "game-processes",
-                    "display-capture",
-                    "displays",
-                    "long-recording",
-                    "bookmarks",
-                    "replay-buffer",
-                ],
-            },
-        ),
+        "version" => response_ok(request.id, sidecar_version()),
         "configure" => match serde_json::from_value::<ConfigureParams>(request.params) {
             Ok(params) => match recorder.configure(params) {
                 Ok(status) => response_ok(request.id, status),
@@ -436,8 +463,13 @@ fn command_output(command: &str, args: &[&str]) -> Option<String> {
 
 include!("sidecar_runtime_windows.rs");
 include!("sidecar_runtime_tests.rs");
+const TICK_INTERVAL: Duration = Duration::from_millis(500);
+
 fn main() {
     let (tx, rx) = mpsc::channel::<Request>();
+    let status = Arc::new(Mutex::new(Recorder::default().status()));
+
+    let io_status = Arc::clone(&status);
     thread::spawn(move || {
         let stdin = io::stdin();
         for line in stdin.lock().lines() {
@@ -452,9 +484,12 @@ fn main() {
                 continue;
             }
 
-            let request = serde_json::from_str::<Request>(&line);
-            match request {
+            match serde_json::from_str::<Request>(&line) {
                 Ok(request) => {
+                    if let Some(response) = handle_io_request(&request, &io_status) {
+                        write_response(response);
+                        continue;
+                    }
                     if tx.send(request).is_err() {
                         break;
                     }
@@ -465,18 +500,29 @@ fn main() {
     });
 
     let mut recorder = Recorder::default();
+    let mut next_tick = Instant::now() + TICK_INTERVAL;
 
     loop {
-        match rx.recv_timeout(Duration::from_millis(500)) {
+        let timeout = next_tick.saturating_duration_since(Instant::now());
+        match rx.recv_timeout(timeout) {
             Ok(request) => {
                 let should_shutdown = request.method == "shutdown";
                 write_response(handle_request(&mut recorder, request));
+                publish_status(&status, &recorder);
                 if should_shutdown {
                     break;
                 }
             }
-            Err(mpsc::RecvTimeoutError::Timeout) => recorder.tick(),
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
             Err(mpsc::RecvTimeoutError::Disconnected) => break,
+        }
+
+        // Tick on a steady cadence so detection and output upkeep cannot be
+        // starved by a busy request stream.
+        if Instant::now() >= next_tick {
+            recorder.tick();
+            publish_status(&status, &recorder);
+            next_tick = Instant::now() + TICK_INTERVAL;
         }
     }
 

@@ -57,6 +57,8 @@ impl Recorder {
             self.shutdown_obs();
         }
 
+        self.refresh_discovery_caches();
+
         if !self.settings.as_ref().is_some_and(|settings| settings.enabled) {
             self.stop_all_outputs(false)?;
             self.shutdown_obs();
@@ -77,6 +79,11 @@ impl Recorder {
             return Err(error);
         }
 
+        // Re-evaluate capture targets right away so outputs stopped by this
+        // reconfigure (or enabled by it) resume without waiting for the next
+        // detection tick.
+        self.tick();
+
         let status = self.status();
         emit_event(RecordingEvent::Status {
             status: status.clone(),
@@ -84,7 +91,7 @@ impl Recorder {
         Ok(status)
     }
 
-    fn status(&mut self) -> RecordingStatus {
+    fn status(&self) -> RecordingStatus {
         let settings = self.settings.clone().unwrap_or_default();
         let backend = if self.obs.is_some() {
             RecordingBackendState::Ready
@@ -94,7 +101,7 @@ impl Recorder {
             RecordingBackendState::Missing
         };
 
-        self.refresh_mode();
+        let mode = self.current_mode();
         let paused = self
             .replay_session
             .as_ref()
@@ -103,7 +110,7 @@ impl Recorder {
                 .long_session
                 .as_ref()
                 .is_some_and(|session| session.paused);
-        let run_state = match (&backend, &self.mode, paused) {
+        let run_state = match (&backend, &mode, paused) {
             (RecordingBackendState::Error, _, _) => RecordingRunState::Error,
             (_, _, true) => RecordingRunState::Paused,
             (_, RecordingMode::Recording, _) => RecordingRunState::Recording,
@@ -111,21 +118,9 @@ impl Recorder {
             _ => RecordingRunState::Idle,
         };
 
-        let available_audio_devices = if settings.audio_mode == RecordingAudioMode::Devices {
-            self.available_audio_devices()
-        } else {
-            self.cached_audio_devices.clone()
-        };
-        let available_audio_applications =
-            if settings.audio_mode == RecordingAudioMode::Applications {
-                self.available_audio_applications()
-            } else {
-                self.cached_audio_applications.clone()
-            };
-
         RecordingStatus {
             backend,
-            mode: self.mode.clone(),
+            mode,
             capture_mode: settings.capture_mode.clone(),
             run_state,
             replay_active: self.replay_session.is_some(),
@@ -159,10 +154,10 @@ impl Recorder {
                 })
                 .or_else(|| self.last_capture.clone()),
             replay_buffer_seconds: settings.replay_buffer_seconds,
-            available_gpus: self.available_gpus(),
+            available_gpus: self.cached_gpus.clone(),
             available_codecs: self.available_codecs(&settings),
-            available_audio_devices,
-            available_audio_applications,
+            available_audio_devices: self.cached_audio_devices.clone(),
+            available_audio_applications: self.cached_audio_applications.clone(),
             message: self.last_error.clone(),
         }
     }
@@ -217,7 +212,6 @@ impl Recorder {
         )?;
 
         self.replay_session = Some(session);
-        self.refresh_mode();
         self.last_capture = None;
         self.last_error = None;
         let status = self.status();
@@ -230,7 +224,6 @@ impl Recorder {
 
     fn stop_active_replay_buffer(&mut self) -> Result<(), String> {
         let Some(mut session) = self.replay_session.take() else {
-            self.refresh_mode();
             return Err("Replay buffer state was lost.".to_string());
         };
 
@@ -239,7 +232,6 @@ impl Recorder {
         unsafe {
             self.stop_output(session)?;
         }
-        self.refresh_mode();
         self.last_error = None;
         cleanup_disk_replay_segments(&output_config, None);
         let status = self.status();
@@ -379,7 +371,6 @@ impl Recorder {
 
     fn stop_recording(&mut self) -> RecordingActionResult {
         if !self.has_active_outputs() {
-            self.refresh_mode();
             return RecordingActionResult {
                 ok: true,
                 status: self.status(),
@@ -420,7 +411,6 @@ impl Recorder {
                 let _ = self.stop_output(session);
             }
         }
-        self.mode = RecordingMode::Idle;
         self.shutdown_obs();
     }
 
@@ -621,6 +611,7 @@ impl Recorder {
     }
 
     fn tick(&mut self) {
+        self.refresh_discovery_caches();
         if self.settings.is_none() {
             return;
         }
@@ -762,7 +753,6 @@ impl Recorder {
             capture,
         )?;
         self.long_session = Some(session);
-        self.refresh_mode();
         self.last_capture = None;
         self.last_error = None;
         let status = self.status();
@@ -775,7 +765,6 @@ impl Recorder {
         embed_chapters: bool,
     ) -> Result<RecordingCapture, String> {
         let Some(mut session) = self.long_session.take() else {
-            self.refresh_mode();
             return Err("Recording state was lost.".to_string());
         };
         self.transfer_capture_ownership_from(&mut session);
@@ -786,7 +775,6 @@ impl Recorder {
         unsafe {
             self.stop_output(session)?;
         }
-        self.refresh_mode();
         capture.size_bytes = fs::metadata(&capture.filename)
             .ok()
             .map(|metadata| metadata.len());
@@ -833,7 +821,6 @@ impl Recorder {
             }
             return Ok(Some(capture));
         }
-        self.refresh_mode();
         Ok(None)
     }
 
@@ -897,16 +884,6 @@ impl Recorder {
         } else {
             game.map(|game| &game.game)
         }
-    }
-
-    fn refresh_mode(&mut self) {
-        self.mode = if self.long_session.is_some() {
-            RecordingMode::Recording
-        } else if self.replay_session.is_some() {
-            RecordingMode::ReplayBuffer
-        } else {
-            RecordingMode::Idle
-        };
     }
 
     fn transfer_capture_ownership_from(&mut self, session: &mut ActiveSession) {

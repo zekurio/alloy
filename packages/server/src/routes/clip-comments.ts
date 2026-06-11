@@ -174,7 +174,6 @@ export const clipCommentsRoutes = new Hono()
               id: viewerId,
               username: "",
               displayUsername: "",
-              name: "",
               image: null,
             },
         replies: [],

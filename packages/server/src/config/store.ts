@@ -31,7 +31,6 @@ import {
   EncoderConfigPatchSchema,
   IntegrationsSecretPatchSchema,
   LimitsConfigPatchSchema,
-  MachineLearningConfigPatchSchema,
   RuntimeConfigSchema,
   ScheduledTaskTriggersSchema,
 } from "./schema"
@@ -40,7 +39,6 @@ export {
   ENCODER_CODECS,
   ENCODER_HEIGHT_MAX,
   ENCODER_HEIGHT_MIN,
-  OAUTH_DISPLAY_NAME_CLAIM_DEFAULT,
   OAUTH_USERNAME_CLAIM_DEFAULT,
 } from "alloy-contracts"
 export const HWACCEL_KINDS = ENCODER_HWACCELS
@@ -58,7 +56,6 @@ export {
   EncoderConfigPatchSchema,
   IntegrationsSecretPatchSchema,
   LimitsConfigPatchSchema,
-  MachineLearningConfigPatchSchema,
   ScheduledTaskTriggersSchema,
 }
 
@@ -67,7 +64,6 @@ export type {
   EncoderCodec,
   EncoderConfig,
   LimitsConfig,
-  MachineLearningConfig,
   OAuthProviderConfig,
   RuntimeConfig,
 } from "alloy-contracts"

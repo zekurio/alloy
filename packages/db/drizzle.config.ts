@@ -1,12 +1,9 @@
 import { defineConfig } from "drizzle-kit"
 
-const databaseUrl = process.env.DRIZZLE_DATABASE_URL ?? process.env.DATABASE_URL
-
-if (!databaseUrl) {
-  throw new Error(
-    "DATABASE_URL or DRIZZLE_DATABASE_URL is required to run Drizzle CLI commands",
-  )
-}
+const databaseUrl =
+  process.env.DRIZZLE_DATABASE_URL ??
+  process.env.DATABASE_URL ??
+  "postgres://postgres:postgres@127.0.0.1:5432/alloy"
 
 export default defineConfig({
   dialect: "postgresql",

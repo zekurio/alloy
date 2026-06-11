@@ -11,9 +11,9 @@ import { db } from "../db"
 import { imageBlurHash } from "../media/blurhash"
 import { notifyFollowersOfNewClip } from "../notifications"
 import { join } from "../runtime/path"
-import { clipAssetKey, clipStorage } from "../storage"
+import { clipAssetDir, clipAssetKey, clipStorage } from "../storage"
 import { deleteScratchUpload, scratchUploadPath } from "../uploads/scratch"
-import { probe, thumbnail } from "./ffmpeg"
+import { probe, thumbnail, trimToMp4 } from "./ffmpeg"
 import { abortMediaProcessing } from "./media-abort"
 import { makeMediaProgressWriter } from "./media-progress"
 import { type Asset, publishOriginalSource } from "./media-publish"
@@ -109,7 +109,22 @@ async function runPipelineInScratch({
   if (!published) throw abortMediaProcessing()
   void publishClipUpsert(row.authorId, clipId)
 
-  const probed = await probe(sourcePath)
+  // A pending owner trim cuts the source before anything else is derived.
+  // The cut file is published under a fresh versioned key, so the original
+  // source stays intact until the new one is committed to the row — a retry
+  // after a mid-run failure re-trims from the untouched original.
+  const trim = pendingTrimRange(row)
+  let mediaPath = sourcePath
+  let mediaContentType = sourceContentType
+  if (trim) {
+    const trimmedPath = join(scratchDir, "trimmed.mp4")
+    await trimToMp4(sourcePath, trimmedPath, { ...trim, signal })
+    mediaPath = trimmedPath
+    mediaContentType = "video/mp4"
+  }
+  await ensureClipStillPresent(clipId, runId, signal)
+
+  const probed = await probe(mediaPath)
   const outputDurationMs = probed.durationMs
 
   const totalWork = 4
@@ -125,22 +140,24 @@ async function runPipelineInScratch({
     writeProgress(Math.min(99, Math.floor((completedWork / totalWork) * 100)))
   }
 
-  const sourceKey = row.sourceKey ?? clipAssetKey(clipId, "source")
-  const canReuseSource = row.sourceKey === sourceKey
+  const sourceKey = trim
+    ? trimmedSourceKey(clipId)
+    : (row.sourceKey ?? clipAssetKey(clipId, "source"))
+  const canReuseSource = !trim && row.sourceKey === sourceKey
   const sourceAsset = canReuseSource
     ? {
         storageKey: sourceKey,
         contentType: sourceContentType,
-        sizeBytes: row.sourceSizeBytes ?? (await stat(sourcePath)).size,
+        sizeBytes: row.sourceSizeBytes ?? (await stat(mediaPath)).size,
         width: probed.width,
         height: probed.height,
         videoCodec: probed.videoCodec,
         audioCodec: probed.audioCodec,
       }
     : await publishOriginalSource({
-        sourcePath,
+        sourcePath: mediaPath,
         sourceKey,
-        contentType: sourceContentType,
+        contentType: mediaContentType,
       })
   if (!canReuseSource) uploadedKeys.push(sourceKey)
   const [sourcePublished] = await db
@@ -154,6 +171,10 @@ async function runPipelineInScratch({
       durationMs: outputDurationMs,
       width: sourceAsset.width,
       height: sourceAsset.height,
+      // The trim is applied the moment the row points at the cut source;
+      // clearing it here keeps a retried run from cutting a second time.
+      trimStartMs: null,
+      trimEndMs: null,
       updatedAt: new Date(),
     })
     .where(and(eq(clip.id, clipId), eq(clip.encodeRunId, runId)))
@@ -166,11 +187,14 @@ async function runPipelineInScratch({
   const thumbKey = clipAssetKey(clipId, "thumb")
   const thumbPath = join(scratchDir, "thumb.webp")
   const thumbAtMs = Math.min(outputDurationMs - 1, outputDurationMs / 3)
-  await thumbnail(sourcePath, thumbPath, {
+  await thumbnail(mediaPath, thumbPath, {
     atMs: Math.max(0, thumbAtMs),
     signal,
   })
-  const thumbBlurHash = await computeThumbBlurHash(thumbPath, signal)
+  // Prefer the freshly computed hash; keep a client-provided one from
+  // initiate when the local compute fails rather than blanking it out.
+  const thumbBlurHash =
+    (await computeThumbBlurHash(thumbPath, signal)) ?? row.thumbBlurHash
   await clipStorage.uploadFromFile(thumbPath, thumbKey, "image/webp")
   uploadedKeys.push(thumbKey)
   const [thumbPublished] = await db
@@ -191,7 +215,7 @@ async function runPipelineInScratch({
   const openGraphPath = join(scratchDir, "opengraph.mp4")
   const openGraphAsset = await publishOpenGraphVariant({
     clipId,
-    sourcePath,
+    sourcePath: mediaPath,
     outPath: openGraphPath,
     source: probed,
     signal,
@@ -266,6 +290,23 @@ async function runPipelineInScratch({
   ) {
     void notifyFollowersOfNewClip({ authorId: row.authorId, clipId })
   }
+}
+
+function pendingTrimRange(
+  row: Pick<ClipRow, "trimStartMs" | "trimEndMs">,
+): { startMs: number; endMs: number } | null {
+  if (row.trimStartMs == null || row.trimEndMs == null) return null
+  if (row.trimEndMs <= row.trimStartMs) return null
+  return { startMs: row.trimStartMs, endMs: row.trimEndMs }
+}
+
+/**
+ * A fresh key per trim so the cut source never overwrites the original
+ * in place; the stale object is pruned after the run publishes.
+ */
+function trimmedSourceKey(clipId: string): string {
+  const stamp = Date.now().toString(36)
+  return `${clipAssetDir(clipId)}/source-${stamp}`
 }
 
 async function pruneStaleClipAssets(

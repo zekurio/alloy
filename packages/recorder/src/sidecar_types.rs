@@ -514,7 +514,6 @@ struct Recorder {
     cached_audio_applications: Vec<RecordingAudioApplicationSelection>,
     cached_audio_applications_at: Option<Instant>,
     cached_audio_applications_game_key: Option<String>,
-    mode: RecordingMode,
     replay_session: Option<ActiveSession>,
     long_session: Option<ActiveSession>,
     manual_long_recording: bool,
@@ -698,12 +697,6 @@ impl Default for RecordingSettings {
                 toggle_long_recording: "Alt+F7".to_string(),
             },
         }
-    }
-}
-
-impl Default for RecordingMode {
-    fn default() -> Self {
-        Self::Idle
     }
 }
 

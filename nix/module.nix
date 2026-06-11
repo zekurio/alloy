@@ -14,9 +14,6 @@ let
   packageForSystem =
     self.packages.${pkgs.stdenv.hostPlatform.system}.default
       or (throw "alloy only packages x86_64-linux for now");
-  machineLearningPackageForSystem =
-    self.packages.${pkgs.stdenv.hostPlatform.system}.alloy-machine-learning
-      or (throw "alloy machine learning only packages x86_64-linux for now");
 
   configDir = dirOf cfg.configFile;
   encodeDir = "${cfg.cacheDir}/encode";
@@ -45,19 +42,6 @@ let
     ++ lib.optionals (!(pathIsUnder cfg.stateDir configDir)) [ configDir ]
     ++ lib.optionals (!(pathIsUnder cfg.stateDir cfg.storageDir)) [ cfg.storageDir ]
   );
-  # The ML cache defaults under the data dir (stateDir); only add it as an
-  # external write path when it lives outside both managed directories, since
-  # StateDirectory/CacheDirectory already grant write access to their subtrees.
-  machineLearningCacheManaged =
-    pathIsUnder cfg.stateDir cfg.machine-learning.cacheDir
-    || pathIsUnder cfg.cacheDir cfg.machine-learning.cacheDir;
-  machineLearningExternalWritePaths = lib.unique (
-    lib.optionals (managedStateDirectory == null) [ cfg.stateDir ]
-    ++ lib.optionals (managedCacheDirectory == null) [ cfg.cacheDir ]
-    ++ lib.optionals (!machineLearningCacheManaged) [
-      cfg.machine-learning.cacheDir
-    ]
-  );
   isDatabaseUnixSocket = lib.hasPrefix "/" cfg.database.host;
   databaseConnectHost =
     if lib.hasPrefix "[" cfg.database.host then
@@ -71,27 +55,6 @@ let
       "postgresql://${cfg.database.user}@localhost/${cfg.database.name}?host=${cfg.database.host}"
     else
       "postgresql://${cfg.database.user}@${databaseConnectHost}:${toString cfg.database.port}/${cfg.database.name}";
-  machineLearningConnectHost =
-    let
-      host =
-        if cfg.machine-learning.host == "0.0.0.0" then
-          "127.0.0.1"
-        else if cfg.machine-learning.host == "::" then
-          "::1"
-        else
-          cfg.machine-learning.host;
-    in
-    if lib.hasPrefix "[" host then
-      host
-    else if lib.hasInfix ":" host then
-      "[${host}]"
-    else
-      host;
-  machineLearningBaseUrl =
-    if cfg.machine-learning.baseUrl != null then
-      cfg.machine-learning.baseUrl
-    else
-      "http://${machineLearningConnectHost}:${toString cfg.machine-learning.port}";
   bootstrapConfig =
     if cfg.initialRuntimeConfig == null then
       null
@@ -124,7 +87,24 @@ in
       Use services.alloy-clips.database.host for both PostgreSQL hostnames and
       Unix socket directories.
     '')
-  ];
+  ]
+  ++ map
+    (
+      option:
+      lib.mkRemovedOptionModule [ "services" "alloy-clips" "machine-learning" option ] ''
+        Alloy no longer ships a machine learning inference service. Game
+        tagging is fully deterministic (recorder detection + SteamGridDB).
+      ''
+    )
+    [
+      "enable"
+      "package"
+      "host"
+      "port"
+      "baseUrl"
+      "cacheDir"
+      "environment"
+    ];
 
   options.services.alloy-clips = {
     enable = lib.mkEnableOption "Alloy";
@@ -161,7 +141,7 @@ in
       example = [ "/dev/dri/renderD128" ];
       description = ''
         Device paths that Alloy services can access for hardware acceleration.
-        This is useful for hardware encoding and machine learning inference.
+        This is useful for hardware encoding.
         The special value `[ ]` disallows device access using PrivateDevices.
         Set to null to allow access to all devices.
       '';
@@ -293,63 +273,6 @@ in
       };
     };
 
-    machine-learning = {
-      enable = lib.mkEnableOption "Alloy's machine learning inference service" // {
-        default = true;
-      };
-
-      package = lib.mkOption {
-        type = lib.types.package;
-        default = machineLearningPackageForSystem;
-        defaultText =
-          lib.literalExpression
-            "inputs.alloy.packages.\${pkgs.stdenv.hostPlatform.system}.alloy-machine-learning";
-        description = "Alloy machine learning package to run.";
-      };
-
-      host = lib.mkOption {
-        type = lib.types.str;
-        default = "127.0.0.1";
-        description = "Address the Alloy machine learning service binds to.";
-      };
-
-      port = lib.mkOption {
-        type = lib.types.port;
-        default = 2662;
-        description = "TCP port the Alloy machine learning service listens on.";
-      };
-
-      baseUrl = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
-        default = null;
-        example = "http://ml.example.com:2662";
-        description = ''
-          URL the Alloy server uses to reach the machine learning service. Leave
-          null when using the local service managed by this module.
-        '';
-      };
-
-      cacheDir = lib.mkOption {
-        type = lib.types.path;
-        default = "${config.services.alloy-clips.stateDir}/ml";
-        defaultText =
-          lib.literalExpression ''"\${config.services.alloy-clips.stateDir}/ml"'';
-        description = ''
-          Directory for ML model downloads and inference cache. Lives under the
-          data dir (stateDir) by default so large model weights persist across
-          cache wipes and re-downloads are avoided.
-        '';
-      };
-
-      environment = lib.mkOption {
-        type = lib.types.attrsOf lib.types.str;
-        default = { };
-        example = {
-          MACHINE_LEARNING_GAME_CLASSIFIER_VERSION = "v1-broad-efficientnet-b2-20260530-202943";
-        };
-        description = "Additional environment variables for the Alloy machine learning service.";
-      };
-    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -402,10 +325,7 @@ in
       description = "Alloy clip sharing server";
       wantedBy = [ "multi-user.target" ];
       requires = lib.optional cfg.database.enable "postgresql.target";
-      wants =
-        [ "network-online.target" ]
-        ++ lib.optional cfg.database.enable "postgresql.target"
-        ++ lib.optional cfg.machine-learning.enable "alloy-machine-learning.service";
+      wants = [ "network-online.target" ] ++ lib.optional cfg.database.enable "postgresql.target";
       after = [ "network-online.target" ] ++ lib.optional cfg.database.enable "postgresql.target";
 
       environment = {
@@ -414,8 +334,8 @@ in
         PORT = toString cfg.port;
         PUBLIC_SERVER_URL = cfg.publicServerUrl;
         TRUSTED_ORIGINS = lib.concatStringsSep "," ([ cfg.publicServerUrl ] ++ cfg.trustedOrigins);
-        # App-owned data (config.json, splash, user assets, ML cache) lives in
-        # the persistent state dir; bulk clips live in storageDir; encode scratch
+        # App-owned data (config.json, splash, user assets) lives in the
+        # persistent state dir; bulk clips live in storageDir; encode scratch
         # is wipeable cache.
         ALLOY_DATA_DIR = cfg.stateDir;
         ALLOY_CLIPS_DIR = cfg.storageDir;
@@ -426,10 +346,6 @@ in
       }
       // lib.optionalAttrs (!isDatabaseUnixSocket) {
         PGPORT = toString cfg.database.port;
-      }
-      // lib.optionalAttrs cfg.machine-learning.enable {
-        MACHINE_LEARNING_ENABLED = "true";
-        MACHINE_LEARNING_URL = machineLearningBaseUrl;
       }
       // cfg.environment;
 
@@ -462,49 +378,5 @@ in
       };
     };
 
-    systemd.services.alloy-machine-learning = lib.mkIf cfg.machine-learning.enable {
-      description = "Alloy machine learning inference service";
-      wantedBy = [ "multi-user.target" ];
-      wants = [ "network-online.target" ];
-      after = [ "network-online.target" ];
-
-      environment = {
-        ALLOY_ML_HOST = cfg.machine-learning.host;
-        ALLOY_ML_PORT = toString cfg.machine-learning.port;
-        HF_HOME = "${cfg.machine-learning.cacheDir}/huggingface";
-        HF_HUB_CACHE = "${cfg.machine-learning.cacheDir}/huggingface/hub";
-        HF_HUB_DISABLE_PROGRESS_BARS = "1";
-        HOME = cfg.machine-learning.cacheDir;
-        MACHINE_LEARNING_CACHE_FOLDER = cfg.machine-learning.cacheDir;
-        XDG_CACHE_HOME = cfg.machine-learning.cacheDir;
-      }
-      // cfg.machine-learning.environment;
-
-      serviceConfig = {
-        ExecStart = lib.getExe cfg.machine-learning.package;
-        User = cfg.user;
-        Group = cfg.group;
-        WorkingDirectory = cfg.stateDir;
-        Restart = "on-failure";
-        RestartSec = 5;
-        UMask = "0077";
-
-        NoNewPrivileges = true;
-        PrivateDevices = cfg.accelerationDevices == [ ];
-        PrivateTmp = true;
-        ProtectSystem = "strict";
-        ProtectHome = true;
-        DeviceAllow = lib.mkIf (cfg.accelerationDevices != null) cfg.accelerationDevices;
-        StateDirectory = lib.mkIf (managedStateDirectory != null) managedStateDirectory;
-        CacheDirectory = lib.mkIf (managedCacheDirectory != null) managedCacheDirectory;
-        ReadWritePaths = machineLearningExternalWritePaths;
-      }
-      // lib.optionalAttrs (managedStateDirectory != null) {
-        StateDirectoryMode = "0750";
-      }
-      // lib.optionalAttrs (managedCacheDirectory != null) {
-        CacheDirectoryMode = "0750";
-      };
-    };
   };
 }

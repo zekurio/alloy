@@ -14,8 +14,34 @@ import { AppSearchProvider } from "@/components/search/app-search"
 import { UploadFlow } from "@/components/upload/upload-flow"
 import { UploadFlowProvider } from "@/components/upload/upload-flow-controls"
 import { type AppSearch, parseAppSearch } from "@/lib/app-search"
+import { useSession } from "@/lib/auth-client"
 import { requireBrowseAuthBeforeLoad } from "@/lib/auth-guards"
 import { useBrowseAuthGate } from "@/lib/auth-hooks"
+import { accentCssVars } from "@/lib/color"
+
+/**
+ * Retint the entire app to the signed-in user's chosen accent by writing the
+ * accent CSS variables onto the document root. Going through `:root` (instead
+ * of a wrapper element) means portaled UI — dialogs, popovers, toasts — picks
+ * it up too. Clears the overrides when no accent is set so the default lavender
+ * returns.
+ */
+function useViewerAccentTheme() {
+  const { data } = useSession()
+  const accent = data?.user.accentColor ?? null
+
+  React.useEffect(() => {
+    if (!accent) return
+    const root = document.documentElement
+    const entries = Object.entries(
+      accentCssVars(accent) as Record<string, string>,
+    )
+    for (const [key, value] of entries) root.style.setProperty(key, value)
+    return () => {
+      for (const [key] of entries) root.style.removeProperty(key)
+    }
+  }, [accent])
+}
 
 export const Route = createFileRoute("/(app)/_app")({
   beforeLoad: requireBrowseAuthBeforeLoad,
@@ -29,6 +55,7 @@ function AppLayout() {
   const { allowed } = useBrowseAuthGate()
   const { clip, comment, settings } = Route.useSearch()
   const navigate = useNavigate()
+  useViewerAccentTheme()
 
   const handleCloseClipModal = () => {
     void navigate({

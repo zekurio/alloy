@@ -1,9 +1,9 @@
 import * as React from "react"
 
-interface VideoPlayerHandle {
+export interface VideoPlayerHandle {
   play(): Promise<void>
   pause(): void
-  seek(seconds: number): void
+  seek(seconds: number, keepPlaying?: boolean): void
   getCurrentTime(): number
   getDuration(): number
   setVolume(volume: number): void

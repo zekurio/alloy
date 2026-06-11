@@ -87,7 +87,6 @@ export async function assertCanRemoveAdmin(
 export async function createUserIdentity(input: {
   email: string
   username?: string
-  name?: string
   role?: "user" | "admin"
 }): Promise<User> {
   return createUserIdentityWith(db, input)
@@ -98,20 +97,18 @@ async function createUserIdentityWith(
   input: {
     email: string
     username?: string
-    name?: string
     role?: "user" | "admin"
   },
 ): Promise<User> {
   const email = normalizeEmail(input.email)
   const username = input.username
     ? validateUsername(input.username)
-    : await generateUniqueUsername({ email, name: input.name ?? email })
+    : await generateUniqueUsername({ email, name: email })
   await assertUsernameAvailable(executor, username)
   const values: NewUser = {
     email,
     emailVerified: true,
     username,
-    name: (input.name ?? username).trim(),
     role: input.role ?? "user",
     storageQuotaBytes: configStore.get("limits").defaultStorageQuotaBytes,
   }
@@ -153,7 +150,6 @@ async function createOrClaimSetupUserWith(
         status: "active",
         disabledAt: null,
         username,
-        name: existing.name || input.username,
         updatedAt: now,
       })
       .where(eq(user.id, existing.id))
@@ -165,7 +161,6 @@ async function createOrClaimSetupUserWith(
     user: await createUserIdentityWith(executor, {
       email,
       username: input.username,
-      name: input.username,
       role: "admin",
     }),
     created: true,
@@ -214,7 +209,6 @@ export async function createRegistrationUserInTransaction(
     user: await createUserIdentityWith(tx, {
       email,
       username,
-      name: username,
       role: "user",
     }),
     created: true,
@@ -223,7 +217,7 @@ export async function createRegistrationUserInTransaction(
 
 export async function updateUserIdentity(
   userId: string,
-  input: { email?: string; name?: string; username?: string },
+  input: { email?: string; username?: string },
 ): Promise<User> {
   const patch: Partial<NewUser> = { updatedAt: new Date() }
   if (input.email !== undefined) {
@@ -235,7 +229,6 @@ export async function updateUserIdentity(
     patch.email = email
     patch.emailVerified = true
   }
-  if (input.name !== undefined) patch.name = input.name.trim()
   if (input.username !== undefined) {
     const username = validateUsername(input.username)
     await assertUsernameAvailable(db, username, userId)

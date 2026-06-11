@@ -6,10 +6,10 @@ export const clipKeys = {
   lists: () => [...clipKeys.all, "list"] as const,
   topList: (window: ClipFeedWindow, limit: number) =>
     [...clipKeys.lists(), "top", { window, limit }] as const,
-  topHashtagList: (window: ClipFeedWindow, limit: number, hashtag: string) =>
-    [...clipKeys.lists(), "top", { window, limit, hashtag }] as const,
   userList: (handle: string) =>
     [...clipKeys.lists(), "user", { handle }] as const,
+  userTopList: (handle: string, limit: number) =>
+    [...clipKeys.lists(), "user-top", { handle, limit }] as const,
   userLikedList: (handle: string) =>
     [...clipKeys.lists(), "user-liked", { handle }] as const,
   /** Infinite recent feed. Separate branch because its data shape is paged,

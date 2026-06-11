@@ -42,7 +42,6 @@ interface GameComboboxProps {
   onConfiguredChange?: (configured: boolean | null) => void
   required?: boolean
   side?: "top" | "bottom"
-  suggestion?: React.ReactNode
   /**
    * Extra classes on the wrapping element so callers can size the input
    * to match their form layout without overriding the combobox internals.
@@ -61,7 +60,6 @@ export function GameCombobox({
   onConfiguredChange,
   required = false,
   side = "bottom",
-  suggestion,
   className,
 }: GameComboboxProps) {
   const statusQuery = useSteamGridDBStatusQuery()
@@ -156,12 +154,19 @@ export function GameCombobox({
     const sgdbResults = searchQuery.data ?? []
     const localGames = gamesListQuery.data ?? []
     const q = debouncedQuery.trim().toLowerCase()
+    // The currently-picked game never belongs in the list — selecting it again
+    // is a no-op, so it would only be noise alongside real choices.
+    const pickedId = value?.steamgriddbId ?? null
 
     // Filter already-known games by the current query — zero network cost.
     const localMatches: GameComboboxItem[] =
       q.length > 0
         ? localGames
-            .filter((g) => g.name.toLowerCase().includes(q))
+            .filter(
+              (g) =>
+                g.name.toLowerCase().includes(q) &&
+                g.steamgriddbId !== pickedId,
+            )
             .map((g) => ({
               id: g.steamgriddbId,
               name: g.name,
@@ -171,34 +176,30 @@ export function GameCombobox({
         : []
 
     // Append SGDB results that aren't already covered by a local match
-    // so the list never contains duplicates.
+    // (or by the picked game) so the list never contains duplicates.
     const sgdbOnly = sgdbResults.filter(
-      (r) => !localMatches.some((l) => l.id === r.id),
+      (r) => r.id !== pickedId && !localMatches.some((l) => l.id === r.id),
     )
 
-    const merged: GameComboboxItem[] = [...localMatches, ...sgdbOnly]
-
-    // Ghost item: keeps the controlled selection visible when neither the
-    // local list nor the current SGDB page contains the picked game.
-    if (!value) return merged
-    const pickedAsItem: GameComboboxItem = {
-      id: value.steamgriddbId,
-      name: value.name,
-      iconUrl: value.iconUrl,
-      logoUrl: value.logoUrl,
-    }
-    if (merged.some((r) => r.id === value.steamgriddbId)) return merged
-    return [pickedAsItem, ...merged]
+    return [...localMatches, ...sgdbOnly]
   }, [searchQuery.data, gamesListQuery.data, debouncedQuery, value])
 
-  const committedValue: GameComboboxItem | null = value
-    ? {
-        id: value.steamgriddbId,
-        name: value.name,
-        iconUrl: value.iconUrl,
-        logoUrl: value.logoUrl,
-      }
-    : null
+  // Base UI tracks the controlled `value` by identity (useValueChanged), so
+  // this object must stay referentially stable across renders — recreating it
+  // inline re-fires Base UI's value-changed layout effect on every render and
+  // loops until React aborts with "Maximum update depth exceeded".
+  const committedValue = React.useMemo<GameComboboxItem | null>(
+    () =>
+      value
+        ? {
+            id: value.steamgriddbId,
+            name: value.name,
+            iconUrl: value.iconUrl,
+            logoUrl: value.logoUrl,
+          }
+        : null,
+    [value],
+  )
 
   const controlledValue: GameComboboxItem | null = cleared
     ? null
@@ -320,9 +321,6 @@ export function GameCombobox({
           </ComboboxList>
         </ComboboxContent>
       </Combobox>
-      {suggestion ? (
-        <div className="absolute inset-0 z-10">{suggestion}</div>
-      ) : null}
     </div>
   )
 }

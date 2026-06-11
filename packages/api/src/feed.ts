@@ -30,7 +30,6 @@ export function createFeedApi(context: ApiContext) {
             params.filter.kind === "game"
               ? params.filter.steamgriddbId
               : undefined,
-          tag: params.filter.kind === "hashtag" ? params.filter.tag : undefined,
           limit: params.limit,
           cursor: params.cursor,
         }),

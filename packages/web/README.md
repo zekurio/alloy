@@ -29,7 +29,6 @@ Root shortcuts:
 ```bash
 pnpm dev:web
 pnpm dev:desktop
-pnpm dev:ml
 ```
 
 ## Development

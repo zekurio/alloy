@@ -7,6 +7,7 @@ import type {
   InitiateClipResponse,
   QueueClip,
   QueueEvent,
+  TrimClipInput,
   UpdateClipInput,
   UploadTicket,
 } from "alloy-contracts"
@@ -64,6 +65,7 @@ export type {
   InitiateClipResponse,
   QueueClip,
   QueueEvent,
+  TrimClipInput,
   UpdateClipInput,
   UploadTicket,
 } from "alloy-contracts"
@@ -220,7 +222,6 @@ async function fetchClipPage(
       sort: params.sort,
       limit: params.limit,
       cursor: params.cursor,
-      hashtag: params.hashtag,
     }),
   })
   return readJsonOrThrow(res, validateClipPage)
@@ -292,6 +293,18 @@ async function updateClip(
   return readJsonOrThrow(res, validateClipRow)
 }
 
+async function trimClip(
+  context: ApiContext,
+  clipId: string,
+  input: TrimClipInput,
+): Promise<ClipRow> {
+  const res = await context.rpc.api.clips[":id"].trim.$post({
+    param: { id: clipId },
+    json: input,
+  })
+  return readJsonOrThrow(res, validateClipRow)
+}
+
 async function fetchLikeState(
   context: ApiContext,
   clipId: string,
@@ -345,6 +358,8 @@ export function createClipsApi(context: ApiContext) {
     delete: (clipId: string) => deleteClip(context, clipId),
     update: (clipId: string, input: UpdateClipInput) =>
       updateClip(context, clipId, input),
+    trim: (clipId: string, input: TrimClipInput) =>
+      trimClip(context, clipId, input),
     fetchLikeState: (clipId: string) => fetchLikeState(context, clipId),
     like: (clipId: string) => setClipLike(context, clipId, true),
     unlike: (clipId: string) => setClipLike(context, clipId, false),

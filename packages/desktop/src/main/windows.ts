@@ -97,6 +97,27 @@ export class Windows {
     this.overlay?.close()
   }
 
+  openConnect(): void {
+    if (this.overlay && !this.overlay.isDestroyed()) {
+      showWindow(this.overlay)
+      return
+    }
+
+    this.createOverlay()
+  }
+
+  openLibrary(): void {
+    const win = this.main
+    const origin = this.mainOrigin
+    if (!win || win.isDestroyed() || !origin) {
+      if (!this.showPrimary()) this.openConnect()
+      return
+    }
+
+    showWindow(win)
+    void openWebPath(win, origin, "/library")
+  }
+
   canUseOverlayBridge(sender: WebContents): boolean {
     return BrowserWindow.fromWebContents(sender) === this.overlay
   }
@@ -116,8 +137,7 @@ export class Windows {
 
   canUseDesktopBridge(sender: WebContents, frameUrl: string): boolean {
     return (
-      this.canUseOverlayBridge(sender) ||
-      this.canUseMainBridge(sender, frameUrl)
+      this.canUseOverlayBridge(sender) || this.canUseAppBridge(sender, frameUrl)
     )
   }
 
@@ -280,6 +300,41 @@ async function openWebSettings(
       (() => {
         const url = new URL(window.location.href);
         url.searchParams.set("settings", "desktop");
+        window.history.pushState({}, "", url);
+        window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
+      })();
+    `,
+    true,
+  )
+}
+
+async function openWebPath(
+  win: BrowserWindow,
+  origin: string,
+  path: string,
+): Promise<void> {
+  const targetUrl = new URL(path, origin)
+
+  if (win.webContents.isLoadingMainFrame()) {
+    win.webContents.once("did-finish-load", () => {
+      void openWebPath(win, origin, path)
+    })
+    return
+  }
+
+  const currentUrl = win.webContents.getURL()
+  if (!sameOrigin(currentUrl, origin)) {
+    await win.loadURL(targetUrl.toString())
+    return
+  }
+
+  await win.webContents.executeJavaScript(
+    `
+      (() => {
+        const url = new URL(window.location.href);
+        url.pathname = ${JSON.stringify(targetUrl.pathname)};
+        url.search = ${JSON.stringify(targetUrl.search)};
+        url.hash = "";
         window.history.pushState({}, "", url);
         window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
       })();

@@ -49,7 +49,6 @@ export function validateUserSummary(
     row.displayUsername,
     `Invalid ${label} response: displayUsername is required`,
   )
-  validateString(row.name, `Invalid ${label} response: name is required`)
   validateNullableString(
     row.image,
     `Invalid ${label} response: image must be string or null`,

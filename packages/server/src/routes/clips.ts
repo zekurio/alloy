@@ -1,6 +1,6 @@
 import { user } from "alloy-db/auth-schema"
 import { clip, game } from "alloy-db/schema"
-import { and, eq, gte, inArray, isNull, type SQL } from "drizzle-orm"
+import { and, eq, gte, isNull, type SQL } from "drizzle-orm"
 import { Hono } from "hono"
 
 import {
@@ -24,16 +24,17 @@ import {
   IdParam,
   ListQuery,
   parseClipListCursor,
+  publicClipPrivacyCondition,
+  shareableClipPrivacyCondition,
   WINDOW_MS,
 } from "./clips-helpers"
 import { clipsPlaybackRoutes } from "./clips-playback"
 import { clipsUploadRoutes } from "./clips-upload"
-import { hashtagTextFilter } from "./hashtag-filter"
 import { zValidator } from "./validation"
 
 export const clips = new Hono()
   .get("/", zValidator("query", ListQuery), async (c) => {
-    const { window, sort, cursor, limit, hashtag } = c.req.valid("query")
+    const { window, sort, cursor, limit } = c.req.valid("query")
     const parsedCursor = parseClipListCursor(cursor, sort)
     if (cursor && !parsedCursor) {
       return invalidCursor(c)
@@ -41,7 +42,9 @@ export const clips = new Hono()
 
     const conditions: SQL[] = [
       eq(clip.status, "ready"),
-      inArray(clip.privacy, ["public", "unlisted"]),
+      sort === "top"
+        ? publicClipPrivacyCondition()
+        : shareableClipPrivacyCondition(),
       isNull(user.disabledAt),
     ]
     if (window && window !== "all") {
@@ -51,9 +54,6 @@ export const clips = new Hono()
     }
     const cursorCondition = clipListCursorCondition(parsedCursor, sort)
     if (cursorCondition) conditions.push(cursorCondition)
-    if (hashtag) {
-      conditions.push(hashtagTextFilter(hashtag))
-    }
 
     const rows = await db
       .select(clipSelectShape)

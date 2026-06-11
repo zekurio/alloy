@@ -14,7 +14,6 @@ export type OAuthChallengePayload = {
 export type OAuthProfile = {
   email: string | null
   emailVerified: boolean
-  name: string
   providerAccountId: string
   raw: Record<string, unknown>
   role: UserRole | undefined

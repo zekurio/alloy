@@ -52,7 +52,6 @@ function serialize(row: {
   actorId: string | null
   actorUsername: string | null
   actorDisplayUsername: string | null
-  actorName: string | null
   actorImage: string | null
   clipId: string | null
   clipTitle: string | null
@@ -75,7 +74,6 @@ function serialize(row: {
       id: row.actorId,
       username: row.actorUsername,
       displayUsername: row.actorDisplayUsername,
-      name: row.actorName,
       image: row.actorImage,
     }),
     clip:
@@ -107,7 +105,6 @@ function selectNotificationFields() {
     actorId: user.id,
     actorUsername: user.username,
     actorDisplayUsername: user.displayUsername,
-    actorName: user.name,
     actorImage: user.image,
     clipId: clip.id,
     clipTitle: clip.title,

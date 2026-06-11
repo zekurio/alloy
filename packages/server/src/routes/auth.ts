@@ -2,11 +2,7 @@ import type {
   AuthenticationResponseJSON,
   RegistrationResponseJSON,
 } from "@simplewebauthn/server"
-import {
-  USER_DISPLAY_NAME_MAX_LENGTH,
-  USERNAME_MAX_LENGTH,
-  USERNAME_MIN_LENGTH,
-} from "alloy-contracts"
+import { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "alloy-contracts"
 import { user, userPasskey } from "alloy-db/auth-schema"
 import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
@@ -51,7 +47,6 @@ import { completePasskeySignUp } from "./auth-passkey-signup"
 import { canOpenPasskeyRegistration, csrf } from "./auth-route-helpers"
 import {
   optionalNullableBlankToNullTrimmedString,
-  optionalTrimmedString,
   requiredTrimmedString,
   zValidator,
 } from "./validation"
@@ -72,7 +67,6 @@ const PasskeyNameBody = z.object({
 
 const UpdateUserBody = z.object({
   email: z.string().trim().email().optional(),
-  name: optionalTrimmedString(USER_DISPLAY_NAME_MAX_LENGTH),
   username: z
     .string()
     .min(USERNAME_MIN_LENGTH)
@@ -123,10 +117,6 @@ export const authRoute = new Hono()
           user: {
             id: existing && setupFirstAdmin ? existing.id : crypto.randomUUID(),
             email,
-            name:
-              existing && setupFirstAdmin
-                ? existing.name || username
-                : username,
             username,
           },
         })

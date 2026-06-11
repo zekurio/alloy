@@ -1,5 +1,3 @@
-import { spawnSync } from "node:child_process"
-import { existsSync } from "node:fs"
 import { connect } from "node:net"
 import { dirname, join } from "node:path"
 import { setTimeout as sleep } from "node:timers/promises"
@@ -8,8 +6,7 @@ import { fileURLToPath } from "node:url"
 export const root = dirname(dirname(fileURLToPath(import.meta.url)))
 export const dataDir = join(root, "data")
 
-export function buildDevEnv(options = {}) {
-  const selected = options.selected ?? []
+export function buildDevEnv() {
   const env = {
     ...process.env,
     NODE_ENV: process.env.NODE_ENV ?? "development",
@@ -21,57 +18,13 @@ export function buildDevEnv(options = {}) {
     ALLOY_DATA_DIR: process.env.ALLOY_DATA_DIR ?? dataDir,
     ALLOY_CLIPS_DIR: process.env.ALLOY_CLIPS_DIR ?? join(dataDir, "clips"),
     ALLOY_ENCODE_DIR: process.env.ALLOY_ENCODE_DIR ?? join(dataDir, "encode"),
-    MACHINE_LEARNING_ENABLED:
-      process.env.MACHINE_LEARNING_ENABLED ??
-      (selected.includes("ml") ? "1" : "0"),
-    MACHINE_LEARNING_URL:
-      process.env.MACHINE_LEARNING_URL ?? "http://localhost:2662",
-    ALLOY_ML_HOST: process.env.ALLOY_ML_HOST ?? "0.0.0.0",
-    ALLOY_ML_PORT: process.env.ALLOY_ML_PORT ?? "2662",
-    MACHINE_LEARNING_CACHE_FOLDER:
-      process.env.MACHINE_LEARNING_CACHE_FOLDER ?? join(dataDir, "ml"),
   }
 
-  env.DATABASE_URL =
-    process.env.DATABASE_URL ?? composeDatabaseUrl() ?? localDatabaseUrl("5432")
+  env.DATABASE_URL = process.env.DATABASE_URL ?? localDatabaseUrl("5432")
   env.DRIZZLE_DATABASE_URL =
     process.env.DRIZZLE_DATABASE_URL ?? env.DATABASE_URL
 
   return env
-}
-
-export function composeDatabaseUrl() {
-  const composeFile = join(root, "docker-compose.dev.yml")
-  if (!existsSync(composeFile)) return undefined
-
-  const commands = [
-    ["docker", "compose"],
-    ["podman", "compose"],
-  ]
-
-  for (const [command, ...baseArgs] of commands) {
-    const result = spawnSync(
-      command,
-      [...baseArgs, "-f", composeFile, "port", "postgres", "5432"],
-      {
-        cwd: root,
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "ignore"],
-      },
-    )
-
-    if (result.status !== 0) continue
-
-    const endpoint = result.stdout.trim().split(/\r?\n/).at(-1)
-    if (!endpoint) continue
-
-    const port = endpoint.match(/:(\d+)$/)?.[1]
-    if (!port) continue
-
-    return localDatabaseUrl(port)
-  }
-
-  return undefined
 }
 
 export function localDatabaseUrl(port) {

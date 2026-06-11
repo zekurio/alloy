@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query"
+import { useNavigate } from "@tanstack/react-router"
 import { type ClipRow, clipThumbnailUrl } from "alloy-api"
 import { Button } from "alloy-ui/components/button"
 import {
@@ -27,7 +28,6 @@ import { formatCount } from "@/lib/number-format"
 import { userAvatar } from "@/lib/user-display"
 
 import { ClipComments } from "./clip-comments"
-import { ClipEditDialog } from "./clip-edit-dialog"
 import {
   type ClipListEntry,
   setActiveClipList,
@@ -187,13 +187,12 @@ function ClipViewerDialogBody({
   onNavigate,
   focusedCommentId = null,
 }: ClipViewerDialogBodyProps) {
-  const [editOpen, setEditOpen] = React.useState(false)
+  const navigate = useNavigate()
   const handle = row.authorUsername
-  const author = row.authorName || handle
+  const author = handle
   const avatar = userAvatar({
     id: row.authorId,
     username: handle,
-    name: author,
     image: row.authorImage,
   })
   const gameLabel = clipGameLabel(row)
@@ -326,6 +325,7 @@ function ClipViewerDialogBody({
                 privacy={row.privacy}
                 description={row.description}
                 mentions={row.mentions ?? []}
+                tags={row.tags}
                 uploader={{
                   handle,
                   name: author,
@@ -336,7 +336,14 @@ function ClipViewerDialogBody({
                     fg: avatar.fg,
                   },
                 }}
-                onEdit={() => setEditOpen(true)}
+                onEdit={() => {
+                  // The edit view lives at its own route; navigating there
+                  // drops the `clip` search param and closes this viewer.
+                  void navigate({
+                    to: "/library/c/$clipId",
+                    params: { clipId: row.id },
+                  })
+                }}
                 onDeleted={onDeleted}
               />
             </div>
@@ -350,8 +357,6 @@ function ClipViewerDialogBody({
           />
         </div>
       </DialogViewportContent>
-
-      <ClipEditDialog open={editOpen} onOpenChange={setEditOpen} row={row} />
     </>
   )
 }

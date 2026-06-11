@@ -3,7 +3,6 @@ import type {
   ErrorComponentProps,
   NotFoundRouteProps,
 } from "@tanstack/react-router"
-import { AlloyLogoMark } from "alloy-ui/components/alloy-logo"
 import { Button } from "alloy-ui/components/button"
 import { buttonVariants } from "alloy-ui/lib/button-variants"
 import { messageFromUnknown } from "alloy-ui/lib/error-message"
@@ -79,10 +78,8 @@ function RouteNotFoundState({
 
   return (
     <RouteStateFrame variant={variant}>
-      <div className="flex flex-col items-center gap-4 text-center text-balance">
-        <AlloyLogoMark size={40} />
-
-        <div className="flex flex-col gap-1.5">
+      <div className="flex w-full max-w-md flex-col items-start gap-4 text-left text-balance">
+        <div className="flex w-full flex-col gap-1.5">
           <h1 className="text-foreground text-lg font-semibold tracking-tight">
             Page not found
           </h1>
@@ -91,7 +88,7 @@ function RouteNotFoundState({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link to="/" className={buttonVariants({ variant: "outline" })}>
             <Home className="size-3.5" aria-hidden />
             Go home

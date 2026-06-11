@@ -75,6 +75,9 @@ system OBS install.
 ## Runtime Paths
 
 - Preferences: `%APPDATA%\Alloy Desktop\preferences.json`
+- Capture manifest (titles, drafts, game info): `%APPDATA%\Alloy Desktop\recording-library.json`
+- Capture thumbnails + BlurHash metadata: `%APPDATA%\Alloy Desktop\recording-thumbnails`
+- Remote asset cache (game icons etc.): `%APPDATA%\Alloy Desktop\asset-cache`
 - Browser session/cache: `%LOCALAPPDATA%\Alloy Desktop\session`
 - Logs: `%LOCALAPPDATA%\Alloy Desktop\logs`
 - Replay scratch: `%TEMP%\Alloy\replay-buffer`
@@ -91,4 +94,4 @@ and server release it is built against.
 
 The unified release workflow publishes the unsigned Windows NSIS installer,
 blockmap, updater metadata, and checksums from `packages/desktop/release`
-alongside the server and machine-learning images.
+alongside the server image.

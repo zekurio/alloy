@@ -12,7 +12,6 @@ import {
   EncoderConfigPatchSchema,
   IntegrationsSecretPatchSchema,
   LimitsConfigPatchSchema,
-  MachineLearningConfigPatchSchema,
   OAuthProvidersSchema,
   parseRuntimeConfig,
 } from "../config/store"
@@ -278,24 +277,6 @@ export const adminRoute = new Hono()
       if (patch.steamgriddbApiKey !== undefined) {
         secretStore.setSteamgriddbApiKey(patch.steamgriddbApiKey.trim())
       }
-      return c.json(adminRuntimeConfigResponse(configStore.getAll()))
-    },
-  )
-  .patch(
-    "/machine-learning",
-    zValidator("json", MachineLearningConfigPatchSchema),
-    (c) => {
-      const patch = c.req.valid("json")
-      const current = configStore.get("machineLearning")
-      const next = {
-        ...current,
-        ...patch,
-        gameClassifier: {
-          ...current.gameClassifier,
-          ...patch.gameClassifier,
-        },
-      }
-      configStore.set("machineLearning", next)
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     },
   )

@@ -148,7 +148,7 @@ async function consumeChallenge(input: {
 export async function beginPasskeyRegistration(input: {
   identifier: string
   payload: RegistrationPayload
-  user: Pick<User, "id" | "email" | "name" | "username"> & {
+  user: Pick<User, "id" | "email" | "username"> & {
     passkeys?: UserPasskey[]
   }
 }) {
@@ -162,7 +162,7 @@ export async function beginPasskeyRegistration(input: {
     rpID: rpId(),
     userID: Buffer.from(input.user.id, "utf8"),
     userName: input.user.email,
-    userDisplayName: input.user.name || input.user.username,
+    userDisplayName: input.user.username,
     attestationType: "none",
     excludeCredentials,
     authenticatorSelection: {

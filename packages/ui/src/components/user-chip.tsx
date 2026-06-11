@@ -34,7 +34,7 @@ function UserChip({
       {...props}
     >
       <span
-        className="relative inline-flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-[4px] text-[10px] leading-3 font-semibold"
+        className="relative grid size-6 shrink-0 place-items-center overflow-hidden rounded-[4px] text-[10px] leading-none font-semibold"
         style={{
           background: avatar.bg ?? "var(--neutral-200)",
           color: avatar.fg ?? "var(--foreground)",

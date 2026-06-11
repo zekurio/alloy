@@ -24,7 +24,6 @@
     "build/**",
     "data/**",
     "dist/**",
-    "machine-learning/.venv/**",
     "node_modules/**",
     "pnpm-lock.yaml"
   ]

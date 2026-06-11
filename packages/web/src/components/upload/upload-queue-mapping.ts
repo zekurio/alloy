@@ -17,6 +17,7 @@ export interface ActiveUpload {
   errorMessage?: string
   abort: AbortController
   thumbUrl: string | null
+  thumbBlurHash: string | null
 }
 
 export function localToQueueItem(
@@ -58,7 +59,7 @@ export function localToQueueItem(
     detail,
     hue: e.hue,
     thumbUrl: e.thumbUrl,
-    thumbBlurHash: null,
+    thumbBlurHash: e.thumbBlurHash,
     onCancel,
   }
 }

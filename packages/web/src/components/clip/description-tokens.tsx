@@ -20,8 +20,8 @@ export function renderHashtagTokens(
       nodes.push(
         <Link
           key={`tag-${key++}`}
-          to="/"
-          search={{ tag }}
+          to="/tags/$tag"
+          params={{ tag: tag.toLowerCase() }}
           className="text-accent hover:underline"
         >
           #{tag}

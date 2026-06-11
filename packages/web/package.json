@@ -26,6 +26,7 @@
     "alloy-ui": "workspace:*",
     "hls.js": "1.6.16",
     "lucide-react": "1.8.0",
+    "mediabunny": "^1.46.0",
     "react": "19.2.5",
     "react-dom": "19.2.5",
     "vite": "8.0.10"

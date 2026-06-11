@@ -26,6 +26,7 @@ function clipRow(overrides: Record<string, unknown> = {}) {
     height: 1080,
     playbackQualities: [],
     thumbKey: "thumbnail",
+    thumbBlurHash: null,
     viewCount: 0,
     likeCount: 0,
     commentCount: 0,
@@ -35,9 +36,9 @@ function clipRow(overrides: Record<string, unknown> = {}) {
     createdAt: "2026-06-05T00:00:00.000Z",
     updatedAt: "2026-06-05T00:00:00.000Z",
     authorUsername: "zekurio",
-    authorName: "Zekurio",
     authorImage: null,
     gameRef: null,
+    tags: [],
     ...overrides,
   }
 }

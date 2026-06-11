@@ -8,6 +8,7 @@ import type { FormEvent } from "react"
 import { useEffect, useRef, useState } from "react"
 
 type Phase = "idle" | "connecting"
+
 const CONNECT_ERROR_TOAST_ID = "desktop-connect-error"
 
 export function App() {
@@ -28,7 +29,7 @@ function ConnectApp() {
   // saved session. Focus here rather than via autoFocus for accessibility.
   useEffect(() => {
     inputRef.current?.focus()
-    window.alloyNative.getStartupServer().then((serverUrl) => {
+    window.alloyNative?.getStartupServer().then((serverUrl) => {
       if (serverUrl) setUrl(serverUrl)
     })
   }, [])
@@ -42,7 +43,14 @@ function ConnectApp() {
     toast.dismiss(CONNECT_ERROR_TOAST_ID)
     setPhase("connecting")
 
-    const result = await window.alloyNative.connect(nextUrl)
+    const result = await window.alloyNative?.connect(nextUrl)
+    if (!result) {
+      toast.error("Desktop bridge is unavailable.", {
+        id: CONNECT_ERROR_TOAST_ID,
+      })
+      setPhase("idle")
+      return
+    }
     if (!result.ok) {
       toast.error(result.error, { id: CONNECT_ERROR_TOAST_ID })
       setPhase("idle")

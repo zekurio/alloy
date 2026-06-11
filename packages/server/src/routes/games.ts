@@ -8,6 +8,7 @@ import { requireSession } from "../auth/require-session"
 import { getSession } from "../auth/session"
 import { clipSelectShape, toPublicClipRow } from "../clips/select"
 import { db } from "../db"
+import { lookupGamesByName } from "../games/lookup"
 import {
   gameSelectShape,
   getSteamGridGameRef,
@@ -32,10 +33,13 @@ import {
   clipListOrderBy,
   clipListPage,
   parseClipListCursor,
+  publicClipPrivacyCondition,
+  shareableClipPrivacyCondition,
 } from "./clips-helpers"
 import {
   ClipsQuery,
   GamesListQuery,
+  LookupBody,
   ResolveBody,
   SearchQuery,
   serialiseGame,
@@ -127,6 +131,15 @@ export const gamesRoute = new Hono()
       const resolved = await resolveSteamGridGameRef(c, steamgriddbId)
       if (resolved.response) return resolved.response
       return c.json(serialiseGame(resolved.row))
+    },
+  )
+  .post(
+    "/lookup",
+    requireSession,
+    zValidator("json", LookupBody),
+    async (c) => {
+      const { names } = c.req.valid("json")
+      return c.json(await lookupGamesByName(names, c.var.viewerId))
     },
   )
   .get("/", zValidator("query", GamesListQuery), async (c) => {
@@ -276,7 +289,9 @@ export const gamesRoute = new Hono()
       const conditions: SQL[] = [
         eq(clip.steamgriddbId, steamgriddbId),
         eq(clip.status, "ready"),
-        inArray(clip.privacy, ["public", "unlisted"]),
+        sort === "top"
+          ? publicClipPrivacyCondition()
+          : shareableClipPrivacyCondition(),
         isNull(user.disabledAt),
       ]
       const cursorCondition = clipListCursorCondition(parsedCursor, sort)
@@ -313,7 +328,7 @@ export const gamesRoute = new Hono()
           and(
             eq(clip.steamgriddbId, steamgriddbId),
             eq(clip.status, "ready"),
-            inArray(clip.privacy, ["public", "unlisted"]),
+            publicClipPrivacyCondition(),
             isNull(user.disabledAt),
           ),
         )

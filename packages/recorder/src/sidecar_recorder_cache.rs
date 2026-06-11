@@ -27,15 +27,25 @@ impl Recorder {
         codecs
     }
 
-    fn available_gpus(&mut self) -> Vec<String> {
+    /// Refresh the hardware and audio discovery caches that `status()` reads.
+    /// Called from the recorder thread (tick/configure) so `status()` stays
+    /// cheap enough to answer from a snapshot without touching the platform.
+    fn refresh_discovery_caches(&mut self) {
+        self.refresh_gpu_cache();
+        match self.settings.as_ref().map(|settings| &settings.audio_mode) {
+            Some(RecordingAudioMode::Applications) => self.refresh_audio_application_cache(),
+            Some(RecordingAudioMode::Devices) | None => self.refresh_audio_device_cache(),
+        }
+    }
+
+    fn refresh_gpu_cache(&mut self) {
         if self.should_refresh_idle_cache(self.cached_gpus_at, HARDWARE_DISCOVERY_CACHE_TTL) {
             self.cached_gpus = platform_gpus();
             self.cached_gpus_at = Some(Instant::now());
         }
-        self.cached_gpus.clone()
     }
 
-    fn available_audio_devices(&mut self) -> Vec<RecordingAudioDeviceSelection> {
+    fn refresh_audio_device_cache(&mut self) {
         if self.should_refresh_idle_cache(
             self.cached_audio_devices_at,
             HARDWARE_DISCOVERY_CACHE_TTL,
@@ -45,16 +55,16 @@ impl Recorder {
             self.cached_audio_devices = dedupe_audio_devices(devices);
             self.cached_audio_devices_at = Some(Instant::now());
         }
-        self.cached_audio_devices.clone()
     }
 
-    fn available_audio_applications(&mut self) -> Vec<RecordingAudioApplicationSelection> {
+    fn refresh_audio_application_cache(&mut self) {
         let game_key = self.active_game.as_ref().map(|game| game.window_key.clone());
         let stale = cache_expired(
             self.cached_audio_applications_at,
             AUDIO_APPLICATION_DISCOVERY_CACHE_TTL,
         ) || self.cached_audio_applications_game_key != game_key;
-        if (self.mode == RecordingMode::Idle || self.cached_audio_applications_at.is_none())
+        if (self.current_mode() == RecordingMode::Idle
+            || self.cached_audio_applications_at.is_none())
             && stale
         {
             let mut applications: Vec<_> = available_audio_applications(self.active_game.as_ref())
@@ -70,12 +80,21 @@ impl Recorder {
             self.cached_audio_applications_at = Some(Instant::now());
             self.cached_audio_applications_game_key = game_key;
         }
-        self.cached_audio_applications.clone()
     }
 
     fn should_refresh_idle_cache(&self, last_refresh: Option<Instant>, ttl: Duration) -> bool {
         last_refresh.is_none()
-            || (self.mode == RecordingMode::Idle && cache_expired(last_refresh, ttl))
+            || (self.current_mode() == RecordingMode::Idle && cache_expired(last_refresh, ttl))
+    }
+
+    fn current_mode(&self) -> RecordingMode {
+        if self.long_session.is_some() {
+            RecordingMode::Recording
+        } else if self.replay_session.is_some() {
+            RecordingMode::ReplayBuffer
+        } else {
+            RecordingMode::Idle
+        }
     }
 
     fn capture_owner_session(&self) -> Option<&ActiveSession> {
@@ -100,6 +119,10 @@ fn active_session_should_stop(session: &ActiveSession, settings: &RecordingSetti
     }
 }
 
+/// Settings whose change requires tearing down active outputs. Allow/deny game
+/// list edits are intentionally absent: the tick loop already ends sessions
+/// whose active game became disallowed, so list edits never interrupt an
+/// unrelated active recording.
 fn active_settings_require_restart(
     current: &RecordingSettings,
     next: &RecordingSettings,
@@ -112,8 +135,6 @@ fn active_settings_require_restart(
         || current.encoder != next.encoder
         || current.gpu != next.gpu
         || current.codec != next.codec
-        || current.allowed_games != next.allowed_games
-        || current.denied_games != next.denied_games
         || effective_quality(current) != effective_quality(next)
         || current.replay_buffer_seconds != next.replay_buffer_seconds
         || current.buffer_storage != next.buffer_storage

@@ -34,6 +34,7 @@ import {
   listTaggedClips,
   listUserClips,
   listUserGames,
+  listUserTopClips,
   resolveViewerState,
   SearchQuery,
   searchVisibleUsers,
@@ -41,6 +42,7 @@ import {
   toPublicUser,
   UserGamesQuery,
   UsernameParam,
+  UserTopClipsQuery,
 } from "./users-helpers"
 import {
   deleteViewerBlock,
@@ -206,6 +208,20 @@ export const usersRoute = new Hono()
 
     return c.json(await listUserClips(row, c.req.raw.headers))
   })
+  .get(
+    "/:username/top-clips",
+    zValidator("param", UsernameParam),
+    zValidator("query", UserTopClipsQuery),
+    async (c) => {
+      const { username } = c.req.valid("param")
+      const query = c.req.valid("query")
+      const result = await resolveUserTarget(c, username)
+      if ("response" in result) return result.response
+      const row = result.target
+
+      return c.json(await listUserTopClips(row, query))
+    },
+  )
   .get(
     "/:username/games",
     zValidator("param", UsernameParam),

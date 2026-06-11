@@ -10,9 +10,11 @@ import type {
 export interface PublicUser {
   id: string
   username: string
-  name: string
   image: string | null
   banner: string | null
+  background: string | null
+  /** User-chosen or background-derived accent (hex, e.g. "#d0c4eb"). */
+  accentColor: string | null
   createdAt: IsoDateString
   updatedAt: IsoDateString
 }
@@ -21,7 +23,6 @@ export interface UserSummary {
   id: string
   username: string
   displayUsername: string
-  name: string
   image: string | null
 }
 
@@ -88,10 +89,11 @@ export interface ClipRow {
   createdAt: IsoDateString
   updatedAt: IsoDateString
   authorUsername: string
-  authorName: string
   authorImage: string | null
   gameRef: ClipGameRef | null
   mentions?: ClipMentionRef[]
+  /** Bare, lowercase-canonical hashtags ("ace", "ranked"). */
+  tags: string[]
 }
 
 export type ClipFeedWindow = "today" | "week" | "month" | "year" | "all"
@@ -105,7 +107,6 @@ export interface ClipFeedParams {
   sort?: ClipFeedSort
   limit?: number
   cursor?: string | null
-  hashtag?: string
 }
 
 export interface ClipPage {
@@ -122,6 +123,14 @@ export interface InitiateClipInput {
   steamgriddbId: number
   privacy?: ClipPrivacy
   mentionedUserIds?: string[]
+  /** Bare hashtags; normalized server-side. */
+  tags?: string[]
+  /**
+   * Client-computed BlurHash of the clip's poster frame. Used as the
+   * placeholder until media processing publishes the canonical thumbnail
+   * (which recomputes the hash server-side).
+   */
+  thumbBlurHash?: string
 }
 
 export interface InitiateClipResponse {
@@ -135,6 +144,18 @@ export interface UpdateClipInput {
   steamgriddbId?: number
   privacy?: ClipPrivacy
   mentionedUserIds?: string[]
+  /** Bare hashtags; normalized server-side. Replaces the existing set. */
+  tags?: string[]
+}
+
+/**
+ * Owner-requested destructive trim of an uploaded clip's media, in source
+ * time. The server cuts the stored source to this range and reprocesses the
+ * clip's derived assets.
+ */
+export interface TrimClipInput {
+  startMs: number
+  endMs: number
 }
 
 export interface ClipLikeState {
@@ -233,7 +254,6 @@ export type FeedFilter =
   | { kind: "foryou" }
   | { kind: "following" }
   | { kind: "game"; steamgriddbId: number }
-  | { kind: "hashtag"; tag: string }
 
 export interface FeedPageParams {
   filter: FeedFilter
@@ -259,6 +279,19 @@ export interface FeedChipGame {
 
 export interface FeedChipsResponse {
   games: FeedChipGame[]
+}
+
+export interface TagClipsParams {
+  sort?: ClipFeedSort
+  window?: ClipFeedWindow
+  /** Narrow to a single game. */
+  steamgriddbId?: number
+  limit?: number
+  cursor?: string | null
+}
+
+export interface TagGamesResponse {
+  games: GameListRow[]
 }
 
 export interface SteamGridDBSearchResult {
@@ -314,6 +347,25 @@ export interface ProfileGameRow extends GameListRow {
 export interface GameDetail extends GameRow {
   viewer: { isFollowing: boolean } | null
   favouritesCount: number
+}
+
+export type GameNameLookupReason =
+  | "indexed-exact-name"
+  | "indexed-normalized-name"
+  | "steamgriddb-exact-name"
+  | "steamgriddb-normalized-name"
+  | "no-match"
+  | "ambiguous"
+
+export interface GameNameLookupResult {
+  name: string
+  game: GameRow | null
+  confidence: number
+  reason: GameNameLookupReason
+}
+
+export interface GameNameLookupResponse {
+  results: GameNameLookupResult[]
 }
 
 export interface GameClipsParams {

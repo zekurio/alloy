@@ -10,6 +10,7 @@ import { z } from "zod"
 
 import { requireSession } from "../auth/require-session"
 import { db } from "../db"
+import { deriveAccentColor } from "../media/accent"
 import { validateImageBytes } from "../media/image-validation"
 import { runImageMagick } from "../media/imagemagick"
 import { errorResult, notFound } from "../runtime/http-response"
@@ -18,19 +19,31 @@ import type { ResolvedObject } from "../storage/driver"
 import { toPublicUser, type UserRow } from "./users-helpers"
 import { zValidator } from "./validation"
 
-type UserAssetRole = "avatar" | "banner"
+type UserAssetRole = "avatar" | "banner" | "background"
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024 // 5 MB
 const MAX_BANNER_BYTES = 10 * 1024 * 1024 // 10 MB
+const MAX_BACKGROUND_BYTES = 12 * 1024 * 1024 // 12 MB
 const USER_ASSET_CONTENT_TYPE = "image/webp"
 const USER_ASSET_EXT = ".webp"
 const USER_ASSET_KEY_RE =
-  /^users\/[0-9a-f]{2}\/[0-9a-f]{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:avatar|banner)\.webp$/i
+  /^users\/[0-9a-f]{2}\/[0-9a-f]{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:avatar|banner|background)\.webp$/i
 
 const USER_ASSET_TARGETS = {
   avatar: { width: 512, height: 512 },
   banner: { width: 1500, height: 375 },
+  background: { width: 1920, height: 1080 },
 } as const
+
+// Maps each asset role to the `user` column that stores its public path.
+const USER_ASSET_COLUMN: Record<
+  UserAssetRole,
+  "image" | "banner" | "background"
+> = {
+  avatar: "image",
+  banner: "banner",
+  background: "background",
+}
 
 const USER_ASSET_LIMITS: Record<
   UserAssetRole,
@@ -38,6 +51,7 @@ const USER_ASSET_LIMITS: Record<
 > = {
   avatar: { label: "Avatar", maxBytes: MAX_AVATAR_BYTES },
   banner: { label: "Banner", maxBytes: MAX_BANNER_BYTES },
+  background: { label: "Background", maxBytes: MAX_BACKGROUND_BYTES },
 }
 
 const EXT_FOR_CONTENT_TYPE: Record<string, string> = {
@@ -48,6 +62,14 @@ const EXT_FOR_CONTENT_TYPE: Record<string, string> = {
 
 const UserAssetUploadForm = z.object({
   file: z.instanceof(File, { message: "Expected an uploaded image file" }),
+})
+
+const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i
+const AccentUpdateBody = z.object({
+  color: z
+    .string()
+    .regex(HEX_COLOR_RE, "Expected a #rrggbb hex color")
+    .nullable(),
 })
 
 function validateUserAssetFile(
@@ -181,10 +203,11 @@ async function uploadUserAsset(input: {
 
   const updatedAt = new Date()
   const patch: Partial<typeof user.$inferInsert> = { updatedAt }
-  if (input.role === "avatar") {
-    patch.image = userAssetImagePath(key, updatedAt)
-  } else {
-    patch.banner = userAssetImagePath(key, updatedAt)
+  patch[USER_ASSET_COLUMN[input.role]] = userAssetImagePath(key, updatedAt)
+  // Auto-derive the profile accent from the new wallpaper. Users can override
+  // it afterward via the color picker.
+  if (input.role === "background") {
+    patch.accentColor = await deriveAccentColor(resized)
   }
 
   await db.update(user).set(patch).where(eq(user.id, input.viewerId))
@@ -202,11 +225,10 @@ async function removeUserAsset(
 ): Promise<UserAssetUpdateResult> {
   await deleteOldAssets(viewerId, role)
   const patch: Partial<typeof user.$inferInsert> = { updatedAt: new Date() }
-  if (role === "avatar") {
-    patch.image = null
-  } else {
-    patch.banner = null
-  }
+  patch[USER_ASSET_COLUMN[role]] = null
+  // The accent is derived from the wallpaper, so removing the wallpaper clears
+  // it too — the profile falls back to the default lavender accent.
+  if (role === "background") patch.accentColor = null
   await db.update(user).set(patch).where(eq(user.id, viewerId))
 
   const updated = await fetchUpdatedPublicUser(viewerId)
@@ -214,6 +236,37 @@ async function removeUserAsset(
     return { ok: false, status: 500, error: "User update did not persist" }
   }
   return { ok: true, user: updated }
+}
+
+async function setUserAccent(
+  viewerId: string,
+  color: string | null,
+): Promise<UserAssetUpdateResult> {
+  await db
+    .update(user)
+    .set({ accentColor: color?.toLowerCase() ?? null, updatedAt: new Date() })
+    .where(eq(user.id, viewerId))
+
+  const updated = await fetchUpdatedPublicUser(viewerId)
+  if (!updated) {
+    return { ok: false, status: 500, error: "User update did not persist" }
+  }
+  return { ok: true, user: updated }
+}
+
+// Re-derive the accent from the stored wallpaper (or clear it when there is no
+// wallpaper). Powers the "Auto" button after a manual override.
+async function autoDeriveAccent(
+  viewerId: string,
+): Promise<UserAssetUpdateResult> {
+  const key = userAssetKey(viewerId, "background", USER_ASSET_EXT)
+  const resolved = await dataStorage.resolve(key)
+  let color: string | null = null
+  if (resolved) {
+    const bytes = await readAll(resolved.stream())
+    color = await deriveAccentColor(bytes)
+  }
+  return setUserAccent(viewerId, color)
 }
 
 async function uploadUserAssetResponse(
@@ -278,11 +331,39 @@ export const usersUploadRoute = new Hono<{
         c.req.valid("form").file,
       ),
   )
+  .post(
+    "/me/background/upload",
+    requireSession,
+    zValidator("form", UserAssetUploadForm),
+    (c) =>
+      respondUploadedUserAsset(
+        c,
+        c.var.viewerId,
+        "background",
+        c.req.valid("form").file,
+      ),
+  )
   .delete("/me/avatar", requireSession, (c) =>
     respondUserAsset(c, removeUserAsset(c.var.viewerId, "avatar")),
   )
   .delete("/me/banner", requireSession, (c) =>
     respondUserAsset(c, removeUserAsset(c.var.viewerId, "banner")),
+  )
+  .delete("/me/background", requireSession, (c) =>
+    respondUserAsset(c, removeUserAsset(c.var.viewerId, "background")),
+  )
+  .patch(
+    "/me/accent",
+    requireSession,
+    zValidator("json", AccentUpdateBody),
+    (c) =>
+      respondUserAsset(
+        c,
+        setUserAccent(c.var.viewerId, c.req.valid("json").color),
+      ),
+  )
+  .post("/me/accent/auto", requireSession, (c) =>
+    respondUserAsset(c, autoDeriveAccent(c.var.viewerId)),
   )
 
 export const userAssetsRoute = new Hono().get("/:key{.+}", async (c) => {

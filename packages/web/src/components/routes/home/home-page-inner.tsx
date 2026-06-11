@@ -10,7 +10,6 @@ import { FeedSection } from "./feed-section"
 import { TopClipsSection } from "./top-clips-section"
 
 function filterFromSearch(search: HomeSearch): FeedFilter {
-  if (search.tag) return { kind: "hashtag", tag: search.tag }
   if (search.game) {
     const steamgriddbId = Number.parseInt(search.game, 10)
     if (Number.isSafeInteger(steamgriddbId) && steamgriddbId > 0) {
@@ -37,7 +36,6 @@ export function HomePageInner() {
       to: "/",
       search: (prev: HomeSearch) => ({
         ...prev,
-        tag: next.kind === "hashtag" ? next.tag : undefined,
         game: next.kind === "game" ? String(next.steamgriddbId) : undefined,
         feed: next.kind === "following" ? ("following" as const) : undefined,
       }),
@@ -47,16 +45,12 @@ export function HomePageInner() {
   const viewerId = session?.user.id
 
   return (
-    <AppMain className="!pt-0">
-      <div className="flex w-full flex-col">
+    <AppMain className="!px-2 !pt-0 md:!px-4">
+      <div className="mx-auto flex w-full max-w-[1800px] flex-col">
         {/* Top padding lives here, not on AppMain, so the sticky chip bar can
             pin flush under the header instead of leaving a gap above it. */}
         <div className="pt-4 md:pt-6">
-          <TopClipsSection
-            viewerId={viewerId}
-            window={window}
-            hashtag={search.tag}
-          />
+          <TopClipsSection viewerId={viewerId} window={window} />
         </div>
         <FeedChipBar filter={filter} onChange={setFilter} />
         <FeedSection filter={filter} viewerId={viewerId} />

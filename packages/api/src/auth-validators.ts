@@ -39,7 +39,7 @@ export function validateAuthUser(value: unknown): AuthUser {
       `Invalid auth user response: ${key} is required`,
     )
   }
-  for (const key of ["displayUsername", "name"] as const) {
+  for (const key of ["displayUsername"] as const) {
     validateString(user[key], `Invalid auth user response: ${key} is required`)
   }
   validateBoolean(
@@ -53,6 +53,14 @@ export function validateAuthUser(value: unknown): AuthUser {
   validateNullableString(
     user.banner,
     "Invalid auth user response: banner must be string or null",
+  )
+  validateNullableString(
+    user.background,
+    "Invalid auth user response: background must be string or null",
+  )
+  validateNullableString(
+    user.accentColor,
+    "Invalid auth user response: accentColor must be string or null",
   )
   validateEnumString(
     user.role,

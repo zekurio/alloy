@@ -33,6 +33,7 @@ pnpm --filter alloy-server test
 Database commands are available from either root or this package:
 
 ```bash
+pnpm db:generate
 pnpm db:push
 pnpm db:migrate
 pnpm db:studio
@@ -48,8 +49,7 @@ pnpm dev:server
 ```
 
 The root dev runner sets defaults for `PORT`, `PUBLIC_SERVER_URL`,
-`TRUSTED_ORIGINS`, `ALLOY_DATA_DIR`, storage/cache folders, and optional ML
-settings.
+`TRUSTED_ORIGINS`, `DATABASE_URL`, `ALLOY_DATA_DIR`, and storage/cache folders.
 
 ## Production
 

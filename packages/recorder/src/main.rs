@@ -13,7 +13,7 @@ use std::{
     ptr,
     sync::{
         atomic::{AtomicBool, Ordering},
-        mpsc, Mutex, OnceLock,
+        mpsc, Arc, Mutex, OnceLock,
     },
     thread,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},

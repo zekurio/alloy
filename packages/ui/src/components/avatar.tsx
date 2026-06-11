@@ -3,11 +3,12 @@ import { cn } from "alloy-ui/lib/utils"
 import * as React from "react"
 
 const avatarRootSizeClasses = [
-  "data-[size=sm]:size-5 data-[size=sm]:[--avatar-size:1.25rem]",
-  "data-[size=md]:size-7 data-[size=md]:[--avatar-size:1.75rem]",
-  "data-[size=lg]:size-9 data-[size=lg]:[--avatar-size:2.25rem]",
-  "data-[size=xl]:size-12 data-[size=xl]:[--avatar-size:3rem]",
-  "data-[size=2xl]:size-24 data-[size=2xl]:[--avatar-size:6rem]",
+  "data-[size=sm]:size-5 data-[size=sm]:text-[8px]",
+  "data-[size=md]:size-7 data-[size=md]:text-[11px]",
+  "data-[size=nav]:size-8 data-[size=nav]:text-xs",
+  "data-[size=lg]:size-9 data-[size=lg]:text-[14px]",
+  "data-[size=xl]:size-12 data-[size=xl]:text-[18px]",
+  "data-[size=2xl]:size-24 data-[size=2xl]:text-4xl",
 ]
 
 const avatarBadgeSizeClasses = [
@@ -50,7 +51,7 @@ function Avatar({
   children,
   ...props
 }: AvatarPrimitive.Root.Props & {
-  size?: "sm" | "md" | "lg" | "xl" | "2xl"
+  size?: "sm" | "md" | "nav" | "lg" | "xl" | "2xl"
   ring?: boolean
 }) {
   const imageKey = getAvatarImageKey(children)
@@ -64,7 +65,7 @@ function Avatar({
       className={cn(
         "group/avatar relative inline-flex shrink-0 overflow-hidden select-none",
         "items-center justify-center rounded-full bg-neutral-200 font-semibold text-foreground",
-        "text-[calc(var(--avatar-size)*0.36)] leading-none",
+        "leading-none",
         ...avatarRootSizeClasses,
         "data-[ring=true]:shadow-[0_0_0_1.5px_var(--background),0_0_0_3px_var(--accent)]",
         className,
@@ -132,7 +133,10 @@ function AvatarFallback({
   return (
     <AvatarPrimitive.Fallback
       data-slot="avatar-fallback"
-      className={cn("flex size-full items-center justify-center", className)}
+      className={cn(
+        "grid size-full place-items-center text-center leading-none",
+        className,
+      )}
       {...props}
     />
   )

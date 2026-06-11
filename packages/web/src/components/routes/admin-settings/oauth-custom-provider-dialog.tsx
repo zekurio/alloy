@@ -1,6 +1,5 @@
 import {
   type AdminOAuthProvider,
-  OAUTH_DISPLAY_NAME_CLAIM_DEFAULT,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_USERNAME_CLAIM_DEFAULT,
@@ -215,21 +214,6 @@ export function OAuthCustomProviderDialog({
                     placeholder={OAUTH_USERNAME_CLAIM_DEFAULT}
                     disabled={pendingAction !== null}
                     onChange={(e) => onChange("usernameClaim", e.target.value)}
-                  />
-                </Field>
-
-                <Field>
-                  <FieldLabel htmlFor="oauth-display-name-claim">
-                    Display name claim
-                  </FieldLabel>
-                  <Input
-                    id="oauth-display-name-claim"
-                    value={draft.displayNameClaim ?? ""}
-                    placeholder={OAUTH_DISPLAY_NAME_CLAIM_DEFAULT}
-                    disabled={pendingAction !== null}
-                    onChange={(e) =>
-                      onChange("displayNameClaim", e.target.value)
-                    }
                   />
                 </Field>
 

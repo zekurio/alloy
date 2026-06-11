@@ -62,17 +62,27 @@ async function uploadBannerImage(
   return uploadUserImage(context, blob, "banner")
 }
 
+async function uploadBackgroundImage(
+  context: ApiContext,
+  blob: Blob,
+): Promise<PublicUser> {
+  return uploadUserImage(context, blob, "background")
+}
+
 async function uploadUserImage(
   context: ApiContext,
   blob: Blob,
-  kind: "avatar" | "banner",
+  kind: "avatar" | "banner" | "background",
 ): Promise<PublicUser> {
   const file =
     blob instanceof File ? blob : new File([blob], kind, { type: blob.type })
-  const res =
+  const endpoint =
     kind === "avatar"
-      ? await context.rpc.api.users.me.avatar.upload.$post({ form: { file } })
-      : await context.rpc.api.users.me.banner.upload.$post({ form: { file } })
+      ? context.rpc.api.users.me.avatar.upload
+      : kind === "banner"
+        ? context.rpc.api.users.me.banner.upload
+        : context.rpc.api.users.me.background.upload
+  const res = await endpoint.$post({ form: { file } })
   return readJsonOrThrow(res, validatePublicUser)
 }
 
@@ -83,6 +93,24 @@ async function deleteAvatar(context: ApiContext): Promise<PublicUser> {
 
 async function deleteBanner(context: ApiContext): Promise<PublicUser> {
   const res = await context.rpc.api.users.me.banner.$delete()
+  return readJsonOrThrow(res, validatePublicUser)
+}
+
+async function deleteBackground(context: ApiContext): Promise<PublicUser> {
+  const res = await context.rpc.api.users.me.background.$delete()
+  return readJsonOrThrow(res, validatePublicUser)
+}
+
+async function setAccentColor(
+  context: ApiContext,
+  color: string | null,
+): Promise<PublicUser> {
+  const res = await context.rpc.api.users.me.accent.$patch({ json: { color } })
+  return readJsonOrThrow(res, validatePublicUser)
+}
+
+async function autoAccentColor(context: ApiContext): Promise<PublicUser> {
+  const res = await context.rpc.api.users.me.accent.auto.$post()
   return readJsonOrThrow(res, validatePublicUser)
 }
 
@@ -115,6 +143,22 @@ async function getClips(
 ): Promise<UserClip[]> {
   const res = await context.rpc.api.users[":username"].clips.$get(
     { param: usernameParam(handle) },
+    { init },
+  )
+  return readJsonOrThrow(res, validateClipRows)
+}
+
+async function getTopClips(
+  context: ApiContext,
+  handle: string,
+  limit = 5,
+  init?: RequestInit,
+): Promise<UserClip[]> {
+  const res = await context.rpc.api.users[":username"]["top-clips"].$get(
+    {
+      param: usernameParam(handle),
+      query: { limit: String(limit) },
+    },
     { init },
   )
   return readJsonOrThrow(res, validateClipRows)
@@ -296,13 +340,19 @@ export function createUsersApi(context: ApiContext) {
   return {
     uploadAvatar: (blob: Blob) => uploadAvatarImage(context, blob),
     uploadBanner: (blob: Blob) => uploadBannerImage(context, blob),
+    uploadBackground: (blob: Blob) => uploadBackgroundImage(context, blob),
+    setAccentColor: (color: string | null) => setAccentColor(context, color),
+    autoAccentColor: () => autoAccentColor(context),
     removeAvatar: () => deleteAvatar(context),
     removeBanner: () => deleteBanner(context),
+    removeBackground: () => deleteBackground(context),
     fetchProfile: (handle: string) => getProfile(context, handle),
     fetchProfileViewer: (handle: string, init?: RequestInit) =>
       getProfileViewer(context, handle, init),
     fetchClips: (handle: string, init?: RequestInit) =>
       getClips(context, handle, init),
+    fetchTopClips: (handle: string, limit = 5, init?: RequestInit) =>
+      getTopClips(context, handle, limit, init),
     fetchProfileGames: (
       handle: string,
       params: { limit?: number; offset?: number } = {},

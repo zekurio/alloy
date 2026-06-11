@@ -53,6 +53,7 @@ import {
 } from "@/lib/user-queries"
 
 import { ClipMentionsRow } from "./clip-mentions-row"
+import { ClipTagsRow } from "./clip-tags-row"
 import { renderHashtagTokens } from "./description-tokens"
 
 interface ClipMetaProps {
@@ -81,6 +82,8 @@ interface ClipMetaProps {
   }
   likes: number
   mentions: ClipMentionRef[]
+  /** Structured hashtags, rendered as a chip row below the description. */
+  tags: string[]
   /** Fired after a successful delete — e.g. closes the player modal. */
   onDeleted?: () => void
   onEdit?: () => void
@@ -99,6 +102,7 @@ function ClipMeta({
   uploader,
   likes,
   mentions,
+  tags,
   onDeleted,
   onEdit,
 }: ClipMetaProps) {
@@ -202,7 +206,7 @@ function ClipMeta({
       {/* Title + top-right actions */}
       <div className="flex items-start justify-between gap-3">
         <h1 className="text-foreground min-w-0 text-2xl leading-none font-bold tracking-[-0.02em] sm:text-[2rem]">
-          {renderHashtagTokens(title, { linkHashtags: true })}
+          {title}
         </h1>
 
         <div className="flex shrink-0 items-center gap-1 self-start">
@@ -270,11 +274,7 @@ function ClipMeta({
               "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
             )}
           >
-            <Avatar
-              size="xl"
-              className="size-11 [--avatar-size:2.75rem]"
-              style={avatarStyle}
-            >
+            <Avatar size="lg" style={avatarStyle}>
               {uploader.avatar.src ? (
                 <AvatarImage src={uploader.avatar.src} alt={uploader.name} />
               ) : null}
@@ -345,6 +345,8 @@ function ClipMeta({
           {renderHashtagTokens(description ?? "", { linkHashtags: true })}
         </p>
       ) : null}
+
+      <ClipTagsRow tags={tags} className="pt-0.5" />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

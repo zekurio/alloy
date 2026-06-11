@@ -105,7 +105,7 @@ function userAssetDir(userId: string): string {
   return `users/${aa}/${bb}/${userId}`
 }
 
-export type UserAssetRole = "avatar" | "banner"
+export type UserAssetRole = "avatar" | "banner" | "background"
 
 export function userAssetKey(
   userId: string,

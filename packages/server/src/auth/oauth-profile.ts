@@ -1,5 +1,4 @@
 import {
-  OAUTH_DISPLAY_NAME_CLAIM_DEFAULT,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_USERNAME_CLAIM_DEFAULT,
@@ -46,25 +45,12 @@ export async function profileFromTokens(
     raw,
     provider.usernameClaim ?? OAUTH_USERNAME_CLAIM_DEFAULT,
   )
-  const displayNameClaim =
-    provider.displayNameClaim ?? OAUTH_DISPLAY_NAME_CLAIM_DEFAULT
-  const displayName = stringClaim(raw, displayNameClaim)
-  const defaultDisplayNameFallback =
-    displayNameClaim === OAUTH_DISPLAY_NAME_CLAIM_DEFAULT
-      ? (stringClaim(raw, "display_name") ?? stringClaim(raw, "nickname"))
-      : null
 
   if (!providerAccountId) throw new Error("OAuth profile is missing a subject.")
 
   return {
     email: normalizedEmail,
     emailVerified: raw.email_verified === true || raw.verified === true,
-    name:
-      displayName ??
-      defaultDisplayNameFallback ??
-      usernameHint ??
-      normalizedEmail ??
-      "Alloy user",
     providerAccountId,
     raw,
     role: roleFromProfile(raw, provider.roleClaim),

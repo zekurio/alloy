@@ -1,14 +1,26 @@
 import { mkdirSync } from "node:fs"
 import { join } from "node:path"
 
-import { app, BrowserWindow, Menu } from "electron"
+import { app, BrowserWindow, Menu, protocol } from "electron"
 
+import {
+  assetCacheProtocolScheme,
+  registerAssetCacheProtocol,
+} from "./asset-cache"
 import { registerIpc } from "./ipc"
-import { shutdownRecordingBackend, stopRecording } from "./recording"
+import {
+  configureRecordingBackend,
+  shutdownRecordingBackend,
+  stopRecording,
+} from "./recording"
 import {
   configureRecordingHotkeys,
   unregisterRecordingHotkeys,
 } from "./recording-hotkeys"
+import {
+  recordingLibraryProtocolScheme,
+  registerRecordingLibraryProtocol,
+} from "./recording-library"
 import { destroyRecordingNotificationSoundPlayer } from "./recording-notification-sounds"
 import { getStartupServerUrl } from "./server-store"
 import { hasValidSession } from "./session"
@@ -22,6 +34,11 @@ const LOGS_DIR_NAME = "logs"
 
 app.setName("Alloy")
 configureAppPaths()
+// Privileged schemes must all be declared in this single pre-ready call.
+protocol.registerSchemesAsPrivileged([
+  recordingLibraryProtocolScheme(),
+  assetCacheProtocolScheme(),
+])
 
 if (process.platform === "win32") {
   app.setAppUserModelId(WINDOWS_APP_USER_MODEL_ID)
@@ -44,11 +61,19 @@ if (!app.requestSingleInstanceLock()) {
     // app-driven chrome. (Standard editing shortcuts still work in web content
     // on Windows/Linux; revisit if macOS support needs its app menu back.)
     Menu.setApplicationMenu(null)
+    registerRecordingLibraryProtocol()
+    registerAssetCacheProtocol()
 
     registerIpc(windows)
     configureRecordingHotkeys()
+    // Push settings to the recording sidecar once at startup so background
+    // capture and hotkeys work before any window asks for recording state.
+    void configureRecordingBackend()
     createAlloyTray({
       showAlloy: () => showOrOpenInitialWindow(windows),
+      openLibrary: () => {
+        windows.openLibrary()
+      },
       openSettings: () => {
         windows.openSettings()
       },

@@ -71,6 +71,8 @@ async function performUpload(
       payload.mentionedUserIds.length > 0
         ? payload.mentionedUserIds
         : undefined,
+    tags: payload.tags.length > 0 ? payload.tags : undefined,
+    thumbBlurHash: payload.thumbBlurHash ?? undefined,
   })
   const { clipId } = initiate
 
@@ -203,6 +205,7 @@ function useRunUpload(
         status: "initiating",
         abort: new AbortController(),
         thumbUrl: createObjectUrl(payload.thumbBlob, "upload thumbnail URL"),
+        thumbBlurHash: payload.thumbBlurHash,
       }
       activeRef.current.set(localId, entry)
       bump()

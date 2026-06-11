@@ -20,19 +20,18 @@ libraries are both treated as packages so the workspace graph stays explicit.
 | `packages/db`        | Drizzle schema, migrations, database contracts, and migration helpers.                                                                  |
 | `packages/ui`        | Shared React UI components, hooks, styles, and design utilities.                                                                        |
 | `packages/logging`   | Tiny shared logging facade.                                                                                                             |
-| `machine-learning`   | Optional Python inference service for advisory game classification.                                                                     |
 | `nix`                | Nix package, NixOS module, and Nix-built OCI image definitions.                                                                         |
 
 ## Local Development
 
-Install Node 24, pnpm 11, Docker or Podman for local Postgres, and `uv` if you
-run the ML service. Then install dependencies:
+Install Node 24, pnpm 11, and Docker or Podman for local Postgres. Then
+install dependencies:
 
 ```bash
 pnpm install
 ```
 
-Start a local Postgres:
+Start a local Postgres on `127.0.0.1:5432`:
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d postgres
@@ -49,9 +48,8 @@ Useful root commands:
 ```bash
 pnpm dev:server       # server only
 pnpm dev:web          # web only
-pnpm dev:ml           # server + web + machine-learning
 pnpm dev:desktop      # server + web + desktop
-pnpm dev:all          # server + web + machine-learning + desktop
+pnpm dev:all          # server + web + desktop
 pnpm recorder:build   # build the Rust recorder sidecar
 ```
 
@@ -72,8 +70,6 @@ If another service already uses Alloy's default dev ports, add an ignored
 {
   env.PORT = lib.mkForce "2652";
   env.PUBLIC_SERVER_URL = lib.mkForce "http://localhost:2652";
-  env.MACHINE_LEARNING_URL = lib.mkForce "http://localhost:2762";
-  env.ALLOY_ML_PORT = lib.mkForce "2762";
 }
 ```
 
@@ -196,10 +192,10 @@ updates the root and desktop package versions together, commits the version
 bump, and pushes the prepared release back to `main`. Publishing happens from
 tags on `main`.
 
-The app release publishes the Nix-built server image, the machine-learning
-image, the Windows desktop installer, updater metadata, blockmap, and desktop
-checksums. Recorder-only runtime releases remain separate under
-`recorder-vX.Y.Z` for desktop runtime update artifacts.
+The app release publishes the Nix-built server image, the Windows desktop
+installer, updater metadata, blockmap, and desktop checksums. Recorder-only
+runtime releases remain separate under `recorder-vX.Y.Z` for desktop runtime
+update artifacts.
 
 ## Package READMEs
 
@@ -214,7 +210,6 @@ Each package has a README with local commands and package-specific notes:
 - `packages/server/README.md`
 - `packages/ui/README.md`
 - `packages/web/README.md`
-- `machine-learning/README.md`
 
 ## License
 

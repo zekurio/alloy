@@ -1,7 +1,7 @@
 import type { ClipMentionRef } from "alloy-contracts"
 import { user } from "alloy-db/auth-schema"
-import { clip, clipMention, game } from "alloy-db/schema"
-import { eq } from "drizzle-orm"
+import { clip, clipMention, clipTag, game } from "alloy-db/schema"
+import { eq, sql } from "drizzle-orm"
 
 import { configStore } from "../config/store"
 import { db } from "../db"
@@ -43,9 +43,13 @@ export const clipSelectShape = {
   createdAt: clip.createdAt,
   updatedAt: clip.updatedAt,
   authorUsername: user.username,
-  authorName: user.name,
   authorImage: user.image,
   gameRef: gameSelectShape,
+  // Bare, lowercase tags aggregated from the join table so every list/detail
+  // read returns them without a second round-trip.
+  tags: sql<
+    string[]
+  >`coalesce((select array_agg(${clipTag.tag} order by ${clipTag.tag}) from ${clipTag} where ${clipTag.clipId} = ${clip.id}), '{}')`,
 } as const
 
 async function selectClipMentions(clipId: string): Promise<ClipMentionRef[]> {
@@ -54,7 +58,6 @@ async function selectClipMentions(clipId: string): Promise<ClipMentionRef[]> {
       id: user.id,
       username: user.username,
       displayUsername: user.displayUsername,
-      name: user.name,
       image: user.image,
     })
     .from(clipMention)

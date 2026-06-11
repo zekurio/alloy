@@ -4,6 +4,7 @@ import { WINDOW_ICON } from "./windows"
 
 type AlloyTrayOptions = {
   showAlloy: () => void | Promise<void>
+  openLibrary: () => void | Promise<void>
   openSettings: () => void
   stopRecording: () => void | Promise<void>
   quit: () => void
@@ -30,6 +31,12 @@ function createTrayMenu(options: AlloyTrayOptions): Menu {
       label: "Show Alloy",
       click: () => {
         void options.showAlloy()
+      },
+    },
+    {
+      label: "Library",
+      click: () => {
+        void options.openLibrary()
       },
     },
     {

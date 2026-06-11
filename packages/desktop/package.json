@@ -29,6 +29,7 @@
     "alloy-logging": "workspace:*",
     "alloy-recorder": "workspace:*",
     "alloy-ui": "workspace:*",
+    "blurhash": "^2.0.5",
     "electron": "42.3.3",
     "electron-builder": "^26.15.0",
     "electron-vite": "5.0.0",
