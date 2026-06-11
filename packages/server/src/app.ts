@@ -3,6 +3,7 @@ import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { createMiddleware } from "hono/factory"
 import { logger as honoLogger } from "hono/logger"
+import { secureHeaders } from "hono/secure-headers"
 
 import { getSession } from "./auth/session"
 import { configStore } from "./config/store"
@@ -96,6 +97,17 @@ const apiApp = new Hono()
     cors({
       origin: env.TRUSTED_ORIGINS,
       credentials: true,
+    }),
+  )
+  .use(
+    "*",
+    secureHeaders({
+      // TLS/HSTS is the reverse proxy's job; COOP/CORP/OAC stay off so OAuth
+      // popups and cross-origin media embeds keep working.
+      strictTransportSecurity: false,
+      crossOriginOpenerPolicy: false,
+      crossOriginResourcePolicy: false,
+      originAgentCluster: false,
     }),
   )
   .use("/api/*", csrf)
