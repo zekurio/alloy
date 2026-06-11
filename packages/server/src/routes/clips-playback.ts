@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto"
+
 import type { ClipPrivacy } from "@alloy/contracts"
 import { logger } from "@alloy/logging"
 import {
@@ -12,6 +14,7 @@ import {
   makeDirectHlsSpec,
   readDirectHlsFile,
 } from "@alloy/server/clips/direct-hls"
+import { ifNoneMatchSatisfied } from "@alloy/server/runtime/http-conditional"
 import { notFound } from "@alloy/server/runtime/http-response"
 import { pipeReadable } from "@alloy/server/runtime/streaming"
 import { clipStorage } from "@alloy/server/storage/index"
@@ -39,6 +42,11 @@ function hlsCacheControl(privacy: ClipPrivacy): string {
     : mediaCacheControl(privacy)
 }
 
+function thumbnailEtag(key: string): string {
+  const hash = createHash("sha256").update(key).digest("hex").slice(0, 32)
+  return `"thumb1-${hash}"`
+}
+
 type HlsClipRow = {
   id: string
   sourceKey: string | null
@@ -56,12 +64,18 @@ async function serveDirectHlsFile(
     return notFound(c, "Adaptive stream unavailable")
   }
   const spec = makeDirectHlsSpec({ ...row, sourceKey: row.sourceKey })
+  const etag = `"dhls1-${spec.cacheKey}"`
+  c.header("ETag", etag)
+  c.header("Cache-Control", hlsCacheControl(row.privacy))
+  if (ifNoneMatchSatisfied(c.req.header("if-none-match"), etag)) {
+    return c.body(null, 304)
+  }
+
   try {
     const file = await readDirectHlsFile(spec, filename)
     c.header("Content-Type", directHlsContentType(filename))
     c.header("Content-Length", String(file.size))
     c.header("Accept-Ranges", "none")
-    c.header("Cache-Control", hlsCacheControl(row.privacy))
     if (c.req.method === "HEAD") return c.body(null)
     return stream(c, async (s) => {
       await pipeReadable(s, file.body)
@@ -177,6 +191,13 @@ export const clipsPlaybackRoutes = new Hono()
         : row.privacy === "private"
           ? "no-store"
           : "private, max-age=86400"
+
+    const etag = thumbnailEtag(key)
+    c.header("ETag", etag)
+    c.header("Cache-Control", thumbCacheControl)
+    if (ifNoneMatchSatisfied(c.req.header("if-none-match"), etag)) {
+      return c.body(null, 304)
+    }
 
     return await streamThumbnail(c, key, thumbCacheControl)
   })

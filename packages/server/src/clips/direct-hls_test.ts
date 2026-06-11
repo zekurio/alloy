@@ -52,7 +52,7 @@ test("direct HLS content types map playlists and media", () => {
   )
 })
 
-test("direct HLS cache keys change when the source changes", () => {
+test("direct HLS cache keys are stable and change when version inputs change", () => {
   const base = {
     id: "11111111-1111-4111-8111-111111111111",
     sourceKey: "aa/bb/clip/source",
@@ -61,9 +61,17 @@ test("direct HLS cache keys change when the source changes", () => {
   }
   const a = makeDirectHlsSpec(base)
   const sameInputs = makeDirectHlsSpec({ ...base })
+  const sameDateInput = makeDirectHlsSpec({
+    ...base,
+    updatedAt: new Date(base.updatedAt),
+  })
   const newSource = makeDirectHlsSpec({
     ...base,
     sourceKey: "aa/bb/clip/source-x1",
+  })
+  const newSourceSize = makeDirectHlsSpec({
+    ...base,
+    sourceSizeBytes: 1001,
   })
   const newVersion = makeDirectHlsSpec({
     ...base,
@@ -71,7 +79,12 @@ test("direct HLS cache keys change when the source changes", () => {
   })
 
   assert(a.cacheKey === sameInputs.cacheKey, "keys must be deterministic")
+  assert(
+    a.cacheKey === sameDateInput.cacheKey,
+    "Date and ISO string updatedAt inputs must match",
+  )
   assert(/^[0-9a-f]{32}$/.test(a.cacheKey), "keys are 32 hex chars")
   assert(a.cacheKey !== newSource.cacheKey, "source key participates")
+  assert(a.cacheKey !== newSourceSize.cacheKey, "source size participates")
   assert(a.cacheKey !== newVersion.cacheKey, "updatedAt participates")
 })
