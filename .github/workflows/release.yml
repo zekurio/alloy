@@ -100,13 +100,36 @@ jobs:
         shell: bash
         env:
           RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+          IS_PRERELEASE: ${{ steps.meta.outputs.is_prerelease }}
         run: |
           actual="$(node -e 'const fs = require("node:fs"); console.log(JSON.parse(fs.readFileSync("package.json", "utf8")).version);')"
+          expected="$RELEASE_VERSION"
 
-          if [[ "$actual" != "$RELEASE_VERSION" ]]; then
-            echo "package.json version $actual does not match release $RELEASE_VERSION." >&2
+          if [[ "$IS_PRERELEASE" == "true" ]]; then
+            expected="${RELEASE_VERSION%%-*}"
+          fi
+
+          if [[ "$actual" != "$RELEASE_VERSION" && "$actual" != "$expected" ]]; then
+            echo "package.json version $actual does not match release $RELEASE_VERSION or expected release base $expected." >&2
             exit 1
           fi
+
+      - name: Stamp prerelease package version
+        if: steps.meta.outputs.is_prerelease == 'true'
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          node <<'NODE'
+          const { readFileSync, writeFileSync } = require("node:fs");
+          const filePaths = ["package.json", "packages/desktop/package.json"];
+
+          for (const filePath of filePaths) {
+            const config = JSON.parse(readFileSync(filePath, "utf8"));
+            config.version = process.env.RELEASE_VERSION;
+            writeFileSync(filePath, `${JSON.stringify(config, null, 2)}\n`);
+          }
+          NODE
 
       - name: Install dependencies
         run: corepack pnpm install --frozen-lockfile
@@ -173,6 +196,12 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
+          if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Ensure tag points at main
         shell: bash
         run: |
@@ -199,13 +228,32 @@ jobs:
         shell: bash
         env:
           RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+          IS_PRERELEASE: ${{ steps.meta.outputs.is_prerelease }}
         run: |
           actual="$(node -e 'const fs = require("node:fs"); console.log(JSON.parse(fs.readFileSync("packages/desktop/package.json", "utf8")).version);')"
+          expected="$RELEASE_VERSION"
 
-          if [[ "$actual" != "$RELEASE_VERSION" ]]; then
-            echo "packages/desktop/package.json version $actual does not match release $RELEASE_VERSION." >&2
+          if [[ "$IS_PRERELEASE" == "true" ]]; then
+            expected="${RELEASE_VERSION%%-*}"
+          fi
+
+          if [[ "$actual" != "$RELEASE_VERSION" && "$actual" != "$expected" ]]; then
+            echo "packages/desktop/package.json version $actual does not match release $RELEASE_VERSION or expected release base $expected." >&2
             exit 1
           fi
+
+      - name: Stamp prerelease desktop package version
+        if: steps.meta.outputs.is_prerelease == 'true'
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          node <<'NODE'
+          const { readFileSync, writeFileSync } = require("node:fs");
+          const config = JSON.parse(readFileSync("packages/desktop/package.json", "utf8"));
+          config.version = process.env.RELEASE_VERSION;
+          writeFileSync("packages/desktop/package.json", `${JSON.stringify(config, null, 2)}\n`);
+          NODE
 
       - name: Install dependencies
         run: corepack pnpm install --frozen-lockfile
