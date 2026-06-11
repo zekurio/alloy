@@ -10,15 +10,12 @@ import { exportedCaptureFiles } from "./recording-library-export"
 import { findRecordingLibraryItem } from "./recording-library-scan"
 import {
   EXPORT_HOST,
-  FILMSTRIP_FRAME_COUNT,
-  FILMSTRIP_HOST,
   MEDIA_HOST,
   MEDIA_PROTOCOL,
   THUMBNAIL_HOST,
 } from "./recording-library-shared"
 import {
   ensureCaptureBlurHash,
-  ensureRecordingFilmstripFrame,
   ensureRecordingThumbnail,
 } from "./recording-library-thumbnails"
 import { mainSession } from "./session"
@@ -85,12 +82,6 @@ export function registerRecordingLibraryProtocol(): void {
       // request path so the next library snapshot can ship a placeholder.
       void ensureCaptureBlurHash(item)
       return net.fetch(pathToFileURL(thumbnail).toString())
-    }
-
-    if (route.kind === "filmstrip") {
-      const frame = await ensureRecordingFilmstripFrame(item, route.frameIndex)
-      if (!frame) return new Response("Not found", { status: 404 })
-      return net.fetch(pathToFileURL(frame).toString())
     }
 
     // Screenshots are their own thumbnail, so the first media request is the
@@ -222,29 +213,15 @@ function parseByteRange(
   return { start, end }
 }
 
-type CaptureRoute =
-  | { kind: "media" | "thumbnail" | "export"; id: string }
-  | { kind: "filmstrip"; id: string; frameIndex: number }
+interface CaptureRoute {
+  kind: "media" | "thumbnail" | "export"
+  id: string
+}
 
 function captureRouteFromUrl(rawUrl: string): CaptureRoute | null {
   try {
     const url = new URL(rawUrl)
     if (url.protocol !== `${MEDIA_PROTOCOL}:`) return null
-
-    if (url.hostname === FILMSTRIP_HOST) {
-      // Filmstrip paths carry the frame index: /{id}/{frame}.
-      const [id, frameText] = url.pathname.replace(/^\/+/, "").split("/")
-      const frameIndex = Number.parseInt(frameText ?? "", 10)
-      if (
-        !/^[A-Za-z0-9_-]{12,64}$/.test(id ?? "") ||
-        !Number.isInteger(frameIndex) ||
-        frameIndex < 0 ||
-        frameIndex >= FILMSTRIP_FRAME_COUNT
-      ) {
-        return null
-      }
-      return { kind: "filmstrip", id, frameIndex }
-    }
 
     const kind =
       url.hostname === MEDIA_HOST

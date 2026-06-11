@@ -14,12 +14,6 @@ import {
 } from "./editor-project"
 import { incomingPreRollMs, outgoingTransitionFor } from "./editor-transitions"
 
-export {
-  createCaptureSource,
-  PREVIEW_HEIGHT,
-  PREVIEW_WIDTH,
-} from "./editor-playback-source"
-
 /**
  * Mediabunny-based preview engine for the multitrack editor. The page owns
  * the master clock (timeline milliseconds); the engine turns that into

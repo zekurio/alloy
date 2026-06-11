@@ -104,9 +104,22 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
     [snapshot, gamesByName],
   )
 
+  // Captures that collapsed into their uploaded clip count toward the clip's
+  // game chip; tally them per local group so the source chips stay accurate.
+  const collapsedCounts = React.useMemo(() => {
+    const uploadedIds = new Set(uploaded.map((row) => row.id))
+    const counts = new Map<string, number>()
+    for (const item of snapshot?.items ?? []) {
+      if (item.uploadedClipId && uploadedIds.has(item.uploadedClipId)) {
+        counts.set(item.groupKey, (counts.get(item.groupKey) ?? 0) + 1)
+      }
+    }
+    return counts
+  }, [snapshot, uploaded])
+
   const groups = React.useMemo(
-    () => buildLibraryGroups(localGroups, uploaded),
-    [localGroups, uploaded],
+    () => buildLibraryGroups(localGroups, uploaded, collapsedCounts),
+    [localGroups, uploaded, collapsedCounts],
   )
 
   const entries = React.useMemo<LibraryEntry[]>(() => {
@@ -114,10 +127,22 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
       ? (groups.find((group) => group.key === groupKey) ?? null)
       : null
 
+    // A capture that finished uploading collapses into its server clip: the
+    // local card disappears and the cloud card gains a "Local" marker.
+    const uploadedIds = new Set(uploaded.map((row) => row.id))
+    const localItems = (snapshot?.items ?? []).filter(
+      (item) => !(item.uploadedClipId && uploadedIds.has(item.uploadedClipId)),
+    )
+    const localByClipId = new Map(
+      (snapshot?.items ?? [])
+        .filter((item) => item.uploadedClipId)
+        .map((item) => [item.uploadedClipId as string, item]),
+    )
+
     const local: LibraryEntry[] =
       active?.kind === "cloud"
         ? []
-        : filterLibraryItems(snapshot?.items ?? [], {
+        : filterLibraryItems(localItems, {
             localKeys: active?.localKeys ?? null,
             kind,
             query,
@@ -139,6 +164,7 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
           key: `cloud:${row.id}`,
           createdAt: row.createdAt,
           row,
+          localItem: localByClipId.get(row.id) ?? null,
         }))
       : []
     const drafts: LibraryEntry[] =
@@ -444,6 +470,7 @@ function LibraryBody({
           <UploadedClipCard
             key={entry.key}
             row={entry.row}
+            localItem={entry.localItem}
             onOpen={() => onOpenCloud(entry.row)}
           />
         ) : (

@@ -223,11 +223,6 @@ function FilmstripCells({ frames }: { frames: string[] }) {
           draggable={false}
           loading="lazy"
           className="h-full min-w-0 flex-1 object-cover"
-          // A frame the desktop can't render (no ffmpeg) just leaves the
-          // plain track background.
-          onError={(event) => {
-            event.currentTarget.style.visibility = "hidden"
-          }}
         />
       ))}
     </div>

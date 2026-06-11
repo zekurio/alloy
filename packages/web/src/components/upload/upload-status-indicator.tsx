@@ -3,11 +3,11 @@ import { ChevronDownIcon, Loader2Icon } from "lucide-react"
 import * as React from "react"
 
 /**
- * Floating indicator that surfaces in-progress uploads. Unlike a traditional
- * upload button it never *starts* an upload — clips only enter the queue from
- * the desktop app — so the parent mounts this only while `activeCount > 0`
- * (or the queue is open). Clicking it opens the queue popover to inspect
- * progress; the icon morphs to a chevron while open so it reads as "close".
+ * Floating indicator that surfaces in-flight sync activity (uploads and clip
+ * downloads). It never *starts* a transfer — those originate elsewhere — so
+ * the parent mounts this only while `activeCount > 0` (or the queue is open).
+ * Clicking it opens the sync queue popover to inspect progress; the icon
+ * morphs to a chevron while open so it reads as "close".
  */
 export function UploadStatusIndicator({
   activeCount,
@@ -25,8 +25,8 @@ export function UploadStatusIndicator({
       type="button"
       aria-label={
         activeCount > 0
-          ? `View uploads — ${activeCount} in progress`
-          : "View uploads"
+          ? `View sync activity — ${activeCount} in progress`
+          : "View sync activity"
       }
       {...props}
       aria-hidden={isOpen || undefined}

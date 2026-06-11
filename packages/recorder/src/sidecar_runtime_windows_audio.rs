@@ -88,7 +88,7 @@
             *mut *mut c_void,
         ) -> HRESULT,
         OpenPropertyStore: usize,
-        GetId: usize,
+        GetId: unsafe extern "system" fn(*mut c_void, *mut PWSTR) -> HRESULT,
         GetState: usize,
     }
 

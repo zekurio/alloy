@@ -25,6 +25,7 @@ import {
   AdminIntegrationsPanel,
   AdminLimitsPanel,
   AdminScheduledTasksPanel,
+  AdminStoragePanel,
   AdminUsersPanel,
 } from "@/components/routes/settings/admin-tab-content"
 import { DangerZoneCard } from "@/components/routes/settings/danger-zone-card"
@@ -264,6 +265,24 @@ const ALL_CATEGORIES: SettingsCategory[] = [
     icon: GaugeIcon,
     group: "admin",
     Panel: AdminLimitsPanel,
+  },
+  {
+    id: "storage-backend",
+    label: "Storage",
+    title: "Storage backend",
+    description:
+      "Configure filesystem or S3 storage paths for clips and users.",
+    keywords: [
+      "filesystem",
+      "s3",
+      "bucket",
+      "clip storage",
+      "user assets",
+      "storage path",
+    ],
+    icon: DatabaseIcon,
+    group: "admin",
+    Panel: AdminStoragePanel,
   },
   {
     id: "appearance",

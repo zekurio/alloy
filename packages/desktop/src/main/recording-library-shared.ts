@@ -7,10 +7,7 @@ import type { RecordingCaptureKind } from "@alloy/contracts"
 export const MEDIA_PROTOCOL = "alloy-capture"
 export const MEDIA_HOST = "media"
 export const THUMBNAIL_HOST = "thumbnail"
-export const FILMSTRIP_HOST = "filmstrip"
 export const EXPORT_HOST = "export"
-/** Frames sampled per capture for the editor timeline filmstrip. */
-export const FILMSTRIP_FRAME_COUNT = 16
 export const VIDEO_EXTENSIONS = new Set([".mp4", ".mkv", ".mov", ".webm"])
 export const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"])
 

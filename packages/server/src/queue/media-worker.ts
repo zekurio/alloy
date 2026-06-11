@@ -5,7 +5,7 @@ import { db } from "@alloy/server/db/index"
 import { requiredSql } from "@alloy/server/db/sql"
 import { createNotification } from "@alloy/server/notifications/index"
 import { errorMessage, isAbortError } from "@alloy/server/runtime/error-message"
-import { deleteScratchUploads } from "@alloy/server/uploads/scratch"
+import { deleteStagedUploads } from "@alloy/server/uploads/staged"
 import { and, eq, isNull, lt, ne, or, type SQL, sql } from "drizzle-orm"
 
 import { runMediaProcessingInner } from "./media-processing-run"
@@ -295,7 +295,7 @@ async function markFailedUnlessReady(
         updatedAt: new Date(),
       })
       .where(eq(clip.id, clipId))
-    await cleanupTerminalScratchUploads(clipId)
+    await cleanupTerminalStagedUploads(clipId)
     // Terminal transition — cheap path, one extra lookup for the
     // authorId is fine. Fire-and-forget; the write already landed.
     void publishClipUpsertById(clipId)
@@ -311,7 +311,7 @@ async function markFailedUnlessReady(
   }
 }
 
-async function cleanupTerminalScratchUploads(clipId: string): Promise<void> {
+async function cleanupTerminalStagedUploads(clipId: string): Promise<void> {
   const tickets = await db
     .select({
       id: clipUploadTicket.id,
@@ -319,7 +319,7 @@ async function cleanupTerminalScratchUploads(clipId: string): Promise<void> {
     })
     .from(clipUploadTicket)
     .where(eq(clipUploadTicket.clipId, clipId))
-  await deleteScratchUploads(
+  await deleteStagedUploads(
     tickets.map((ticket) => ticket.storageKey),
     `terminal clip ${clipId} upload`,
   )

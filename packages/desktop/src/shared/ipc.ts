@@ -5,6 +5,8 @@ import type {
   RecordingDisplay,
   RecordingEvent,
   RecordingGameProcess,
+  RecordingLibraryDownload,
+  RecordingLibraryDownloadRequest,
   RecordingLibraryExport,
   RecordingLibraryExportRequest,
   RecordingLibraryImportRequest,
@@ -27,6 +29,9 @@ import type {
 export type {
   RecordingCaptureMention,
   RecordingLibraryItem,
+  RecordingLibraryDownload,
+  RecordingLibraryDownloadRequest,
+  RecordingLibraryDownloadStatus,
   RecordingLibraryExportSegment,
   RecordingLibraryExportRequest,
   RecordingLibraryMetaPatch,
@@ -77,12 +82,20 @@ export const IPC = {
     "alloy:delete-recording-library-project-draft",
   deleteRecordingLibraryCapture: "alloy:delete-recording-library-capture",
   importRecordingLibraryCapture: "alloy:import-recording-library-capture",
+  downloadRecordingLibraryClip: "alloy:download-recording-library-clip",
+  cancelRecordingLibraryClipDownload:
+    "alloy:cancel-recording-library-clip-download",
+  listRecordingLibraryClipDownloads:
+    "alloy:list-recording-library-clip-downloads",
   recordingEvent: "alloy:recording-event",
   selectOutputFolder: "alloy:select-output-folder",
   listNotificationSounds: "alloy:list-notification-sounds",
   openNotificationSoundsFolder: "alloy:open-notification-sounds-folder",
+  previewNotificationSound: "alloy:preview-notification-sound",
   listGameProcesses: "alloy:list-game-processes",
   listRecordingDisplays: "alloy:list-recording-displays",
+  subscribeRecordingAudioLevels: "alloy:subscribe-recording-audio-levels",
+  stopRecordingAudioLevels: "alloy:stop-recording-audio-levels",
   saveReplayClip: "alloy:save-replay-clip",
   addRecordingBookmark: "alloy:add-recording-bookmark",
   takeRecordingScreenshot: "alloy:take-recording-screenshot",
@@ -159,6 +172,17 @@ export interface AlloyDesktopRecordingApi {
   importLibraryCapture(
     request: RecordingLibraryImportRequest,
   ): Promise<RecordingLibraryImportResult>
+  /**
+   * Persists an uploaded clip into the local capture library. Progress
+   * streams out as "library-download" recording events.
+   */
+  downloadClip(
+    request: RecordingLibraryDownloadRequest,
+  ): Promise<RecordingLibraryDownload>
+  /** Aborts an in-flight clip download, or forgets a finished one. */
+  cancelClipDownload(clipId: string): Promise<void>
+  /** Snapshot of active + finished (undismissed) clip downloads. */
+  listClipDownloads(): Promise<RecordingLibraryDownload[]>
   onEvent(listener: (event: RecordingEvent) => void): () => void
   /** Opens a native folder picker; returns the chosen path or null if cancelled. */
   selectOutputFolder(): Promise<string | null>
@@ -166,6 +190,13 @@ export interface AlloyDesktopRecordingApi {
   listGameProcesses(): Promise<RecordingGameProcess[]>
   /** Returns displays that can be selected for desktop capture. */
   listDisplays(): Promise<RecordingDisplay[]>
+  /**
+   * Keeps live "audio-levels" events flowing for a few seconds; re-send as a
+   * heartbeat while a level meter UI is visible.
+   */
+  subscribeAudioLevels(): Promise<void>
+  /** Stops audio-level events without waiting for the subscription to expire. */
+  stopAudioLevels(): Promise<void>
   saveReplayClip(request: SaveReplayClipRequest): Promise<RecordingActionResult>
   addBookmark(request: RecordingActionRequest): Promise<RecordingActionResult>
   takeScreenshot(
@@ -180,6 +211,10 @@ export interface AlloyDesktopRecordingApi {
   listNotificationSounds(): Promise<RecordingNotificationSoundLibrary>
   /** Opens the event's notification sounds folder so the user can add files. */
   openNotificationSoundsFolder(
+    sound: RecordingNotificationSoundEvent,
+  ): Promise<void>
+  /** Plays an event's configured sound once so the user can audition it. */
+  previewNotificationSound(
     sound: RecordingNotificationSoundEvent,
   ): Promise<void>
 }

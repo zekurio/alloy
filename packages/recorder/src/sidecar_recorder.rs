@@ -62,6 +62,7 @@ impl Recorder {
         if !self.settings.as_ref().is_some_and(|settings| settings.enabled) {
             self.stop_all_outputs(false)?;
             self.shutdown_obs();
+            self.refresh_codec_capabilities();
             let status = self.status();
             emit_event(RecordingEvent::Status {
                 status: status.clone(),
@@ -84,6 +85,7 @@ impl Recorder {
         // detection tick.
         self.tick();
 
+        self.refresh_codec_capabilities();
         let status = self.status();
         emit_event(RecordingEvent::Status {
             status: status.clone(),

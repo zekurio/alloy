@@ -111,6 +111,34 @@ export const secretStore = {
   setSteamgriddbApiKey(key: string): void {
     commit({ ...state, steamgriddbApiKey: key })
   },
+  setStorageS3Credentials(input: {
+    accessKeyId?: string
+    secretAccessKey?: string
+  }): void {
+    commit({
+      ...state,
+      storageS3AccessKeyId:
+        input.accessKeyId !== undefined
+          ? input.accessKeyId
+          : state.storageS3AccessKeyId,
+      storageS3SecretAccessKey:
+        input.secretAccessKey !== undefined
+          ? input.secretAccessKey
+          : state.storageS3SecretAccessKey,
+    })
+  },
+  storageS3Credentials(): {
+    accessKeyId: string
+    secretAccessKey: string
+  } | null {
+    if (!state.storageS3AccessKeyId || !state.storageS3SecretAccessKey) {
+      return null
+    }
+    return {
+      accessKeyId: state.storageS3AccessKeyId,
+      secretAccessKey: state.storageS3SecretAccessKey,
+    }
+  },
   /**
    * Apply a batch of secret changes in a single persisted write. `retainOAuth`
    * prunes client secrets to the given provider ids; `setOAuth` then overlays

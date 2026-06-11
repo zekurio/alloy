@@ -9,6 +9,7 @@ import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integ
 import { LimitsConfigCard } from "@/components/routes/admin-settings/limits-config-card"
 import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-provider-card"
 import { ScheduledTasksCard } from "@/components/routes/admin-settings/scheduled-tasks-card"
+import { StorageConfigCard } from "@/components/routes/admin-settings/storage-config-card"
 import {
   type AdminConfigContextValue,
   useAdminConfigContext,
@@ -125,6 +126,14 @@ export const AdminAuthenticationPanel = withAdminConfig((config, ctx) => {
 export const AdminLimitsPanel = withAdminConfig((config, ctx) => (
   <LimitsConfigCard
     limits={config.limits}
+    onChange={(next) => ctx.setConfig(next)}
+    hideHeader
+  />
+))
+
+export const AdminStoragePanel = withAdminConfig((config, ctx) => (
+  <StorageConfigCard
+    storage={config.storage}
     onChange={(next) => ctx.setConfig(next)}
     hideHeader
   />

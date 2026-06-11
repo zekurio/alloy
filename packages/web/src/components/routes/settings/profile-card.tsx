@@ -327,7 +327,9 @@ export function ProfileCard({
                             ) : (
                               // Transparent so the card's single frost shows
                               // through — no second blurred layer, no seam.
-                              <span className="text-foreground-faint absolute inset-0 flex items-center justify-center gap-1.5 text-xs">
+                              // Fades out on hover so it doesn't collide with
+                              // the centered pencil affordance.
+                              <span className="text-foreground-faint absolute inset-0 flex items-center justify-center gap-1.5 text-xs opacity-100 transition-opacity group-hover:opacity-0">
                                 <ImageIcon className="size-4" />
                                 Add banner
                               </span>

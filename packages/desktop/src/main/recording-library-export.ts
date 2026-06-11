@@ -20,7 +20,10 @@ import {
   MEDIA_PROTOCOL,
   thumbnailSignature,
 } from "./recording-library-shared"
-import { ensureCaptureBlurHash } from "./recording-library-thumbnails"
+import {
+  ensureCaptureBlurHash,
+  ensureRecordingThumbnail,
+} from "./recording-library-thumbnails"
 
 /**
  * Edited exports rendered to the userData export folder, keyed by export id,
@@ -75,6 +78,7 @@ export async function exportRecordingLibraryItem(
       width: item.width,
       height: item.height,
       thumbBlurHash,
+      thumbUrl: item.thumbnailUrl,
     }
   }
 
@@ -114,7 +118,28 @@ export async function exportRecordingLibraryItem(
     width: item.width,
     height: item.height,
     thumbBlurHash,
+    thumbUrl: await exportedThumbUrl(exportId, out),
   }
+}
+
+/**
+ * Renders a poster frame for an edited export and serves it through the
+ * export protocol host. Best-effort — a null poster falls back to the
+ * renderer-side capture in the web layer.
+ */
+async function exportedThumbUrl(
+  exportId: string,
+  filename: string,
+): Promise<string | null> {
+  const thumb = await ensureRecordingThumbnail({
+    id: exportId,
+    kind: "replay",
+    filename,
+  })
+  if (!thumb) return null
+  const thumbId = `${exportId}-thumb`
+  exportedCaptureFiles.set(thumbId, thumb)
+  return `${MEDIA_PROTOCOL}://${EXPORT_HOST}/${thumbId}`
 }
 
 /**

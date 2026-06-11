@@ -10,12 +10,6 @@ function randomSecret(): string {
 }
 
 const LimitsConfigSchema = z.object({
-  maxUploadBytes: z
-    .number()
-    .int()
-    .positive()
-    .max(64 * 1024 * 1024 * 1024)
-    .default(4 * 1024 * 1024 * 1024),
   defaultStorageQuotaBytes: z
     .number()
     .int()
@@ -31,6 +25,36 @@ const LimitsConfigSchema = z.object({
     .default(900),
 })
 
+const S3StorageConfigSchema = z.object({
+  bucket: z.string().trim().max(255).default(""),
+  region: z.string().trim().min(1).max(128).default("us-east-1"),
+  endpoint: z
+    .preprocess(
+      (value) =>
+        typeof value === "string" && value.trim() === "" ? null : value,
+      z.string().trim().url().nullable(),
+    )
+    .default(null),
+  forcePathStyle: z.boolean().default(false),
+})
+
+const StoragePathSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(4096)
+  .refine((value) => !hasParentTraversal(value), {
+    message: "Storage paths must not contain '..' segments",
+  })
+
+const StorageConfigSchema = z.object({
+  driver: z.enum(["fs", "s3"]).default("fs"),
+  path: StoragePathSchema.default("storage"),
+  clipsPath: StoragePathSchema.nullable().default(null),
+  usersPath: StoragePathSchema.nullable().default(null),
+  s3: S3StorageConfigSchema.default(S3StorageConfigSchema.parse({})),
+})
+
 /**
  * Server-only secret material, persisted to `secrets.json` separately from the
  * runtime config. Nothing here is ever included in an HTTP response.
@@ -41,6 +65,8 @@ export const ServerSecretsSchema = z.object({
   // restarts. (Previously lived under storage.fs.hmacSecret.)
   uploadHmacSecret: z.string().min(32).default(randomSecret),
   steamgriddbApiKey: z.string().default(""),
+  storageS3AccessKeyId: z.string().default(""),
+  storageS3SecretAccessKey: z.string().default(""),
   oauthClientSecrets: z.record(z.string(), z.string()).default({}),
 })
 
@@ -97,10 +123,33 @@ export const RuntimeConfigSchema = z.object({
   oauthProviders: OAuthProvidersSchema.default([]),
   scheduledTasks: ScheduledTasksConfigSchema,
   limits: LimitsConfigSchema.default(LimitsConfigSchema.parse({})),
+  storage: StorageConfigSchema.default(StorageConfigSchema.parse({})),
   appearance: AppearanceConfigSchema.default(AppearanceConfigSchema.parse({})),
 })
 
 export const LimitsConfigPatchSchema = LimitsConfigSchema.partial()
+export const StorageConfigPatchSchema = z.object({
+  driver: z.enum(["fs", "s3"]).optional(),
+  path: StoragePathSchema.optional(),
+  clipsPath: StoragePathSchema.nullable().optional(),
+  usersPath: StoragePathSchema.nullable().optional(),
+  s3: z
+    .object({
+      bucket: z.string().trim().max(255).optional(),
+      region: z.string().trim().min(1).max(128).optional(),
+      endpoint: z
+        .preprocess(
+          (value) =>
+            typeof value === "string" && value.trim() === "" ? null : value,
+          z.string().trim().url().nullable(),
+        )
+        .optional(),
+      forcePathStyle: z.boolean().optional(),
+    })
+    .optional(),
+  s3AccessKeyId: z.string().optional(),
+  s3SecretAccessKey: z.string().optional(),
+})
 /** Write-only patch for the (secret) SteamGridDB key. */
 export const IntegrationsSecretPatchSchema = z.object({
   steamgriddbApiKey: z.string().optional(),
@@ -115,4 +164,11 @@ const DEFAULT_CONFIG: RuntimeConfig = RuntimeConfigSchema.parse({})
 export function bootstrapDefaultConfig(): RuntimeConfig {
   const parsed = RuntimeConfigSchema.safeParse({})
   return parsed.success ? parsed.data : DEFAULT_CONFIG
+}
+
+function hasParentTraversal(value: string): boolean {
+  return value
+    .replaceAll("\\", "/")
+    .split("/")
+    .some((segment) => segment === "..")
 }

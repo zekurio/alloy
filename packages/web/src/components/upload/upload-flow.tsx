@@ -149,7 +149,7 @@ function UploadQueuePopover({
             style={queueGlassStyle}
             aria-describedby={undefined}
           >
-            <DialogTitle className="sr-only">Upload queue</DialogTitle>
+            <DialogTitle className="sr-only">Sync activity</DialogTitle>
             {content}
           </DialogContent>
         </Dialog>
@@ -233,7 +233,7 @@ function AuthedUploadFlow() {
   const publishFromExternalEditor = React.useCallback(
     async (payload: PublishPayload) => {
       setQueueOpen(true)
-      await runUpload(payload)
+      return runUpload(payload)
     },
     [runUpload, setQueueOpen],
   )

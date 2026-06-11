@@ -21,7 +21,14 @@ export type LibraryKindFilter =
 /** One row of the combined grid: a local capture or an uploaded clip. */
 export type LibraryEntry =
   | { type: "local"; key: string; createdAt: string; item: LibraryItemView }
-  | { type: "cloud"; key: string; createdAt: string; row: ClipRow }
+  | {
+      type: "cloud"
+      key: string
+      createdAt: string
+      row: ClipRow
+      /** The on-disk capture backing this clip (uploaded from / downloaded). */
+      localItem: RecordingLibraryItem | null
+    }
   | {
       type: "draft"
       key: string

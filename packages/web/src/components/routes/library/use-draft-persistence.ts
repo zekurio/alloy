@@ -1,4 +1,4 @@
-import type { ClipPrivacy, UserSearchResult } from "@alloy/api"
+import type { UserSearchResult } from "@alloy/api"
 import * as React from "react"
 
 import { normalizeClipTitle } from "@/lib/clip-fields"
@@ -6,8 +6,8 @@ import type { AlloyDesktop } from "@/lib/desktop"
 
 /**
  * Saves the editor's draft metadata to the desktop capture store, debounced,
- * so titles, descriptions, tags, mentions, and visibility survive app
- * restarts. The initial render is skipped — only actual edits write.
+ * so titles, descriptions, tags, and mentions survive app restarts. The
+ * initial render is skipped — only actual edits write.
  */
 export function useDraftPersistence(
   desktop: AlloyDesktop,
@@ -17,11 +17,10 @@ export function useDraftPersistence(
     description: string
     tags: string
     mentions: UserSearchResult[]
-    privacy: ClipPrivacy
   },
 ) {
   const firstRunRef = React.useRef(true)
-  const { title, description, tags, mentions, privacy } = draft
+  const { title, description, tags, mentions } = draft
 
   React.useEffect(() => {
     if (firstRunRef.current) {
@@ -42,12 +41,11 @@ export function useDraftPersistence(
             name: mention.displayUsername || mention.username,
             image: mention.image,
           })),
-          privacy,
         })
         .catch(() => {
           // Draft persistence is best effort; the in-memory state is intact.
         })
     }, 600)
     return () => window.clearTimeout(handle)
-  }, [desktop, captureId, title, description, tags, mentions, privacy])
+  }, [desktop, captureId, title, description, tags, mentions])
 }

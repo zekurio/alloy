@@ -6,9 +6,23 @@ import { createNotification } from "@alloy/server/notifications/index"
 import { selectSourceStorageUsedBytes } from "@alloy/server/storage/quota"
 import { and, eq, gt, inArray, sql } from "drizzle-orm"
 
-export type InitiateQuotaResult =
+export type UploadQuotaResult =
   | { ok: true }
   | { ok: false; usedBytes: number; quotaBytes: number }
+
+export function uploadWouldExceedQuota({
+  quotaBytes,
+  usedBytes,
+  incomingBytes,
+  reservedBytes = 0,
+}: {
+  quotaBytes: number
+  usedBytes: number
+  incomingBytes: number
+  reservedBytes?: number
+}): boolean {
+  return usedBytes - reservedBytes + incomingBytes > quotaBytes
+}
 
 type QuotaDb = Pick<typeof db, "execute" | "select">
 
@@ -68,7 +82,7 @@ export const THUMB_UPLOAD_CONTENT_TYPE = "image/webp"
 
 /**
  * Hard cap for the uploaded poster image. The client renders a small webp
- * (<2 MB); this leaves headroom while keeping the scratch upload bounded.
+ * (<2 MB); this leaves headroom while keeping the staged upload bounded.
  */
 export const THUMB_UPLOAD_MAX_BYTES = 4 * 1024 * 1024
 

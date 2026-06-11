@@ -1,3 +1,5 @@
+import type { UserStatus } from "./shared"
+
 export type UsernameClaim = string
 
 export const OAUTH_USERNAME_CLAIM_DEFAULT = "preferred_username"
@@ -40,7 +42,6 @@ export type AdminOAuthProvider = OAuthProviderConfig & {
 }
 
 export interface AdminLimitsConfig {
-  maxUploadBytes: number
   defaultStorageQuotaBytes: number | null
   uploadTtlSec: number
 }
@@ -53,6 +54,42 @@ export type LimitsConfig = AdminLimitsConfig
  */
 export interface AdminIntegrationsConfig {
   steamgriddbApiKeySet: boolean
+}
+
+export const STORAGE_DRIVER_TYPES = ["fs", "s3"] as const
+export type StorageDriverType = (typeof STORAGE_DRIVER_TYPES)[number]
+
+export interface S3StorageConfig {
+  bucket: string
+  region: string
+  endpoint: string | null
+  forcePathStyle: boolean
+}
+
+export interface StorageConfig {
+  /**
+   * Canonical storage root. For filesystem storage, relative paths resolve
+   * under the runtime data dir; absolute paths are used as-is. For S3, this is
+   * the object prefix inside the bucket and may be empty.
+   */
+  path: string
+  /**
+   * Optional clip root override. When unset, clips live under
+   * `${path}/clips`.
+   */
+  clipsPath: string | null
+  /**
+   * Optional user asset root override. When unset, user assets live under
+   * `${path}/users`.
+   */
+  usersPath: string | null
+  driver: StorageDriverType
+  s3: S3StorageConfig
+}
+
+export interface AdminStorageConfig extends StorageConfig {
+  s3AccessKeyIdSet: boolean
+  s3SecretAccessKeySet: boolean
 }
 
 export interface LoginSplashConfig {
@@ -126,9 +163,12 @@ export interface AdminUserStorageRow {
   email: string
   image: string | null
   role: string | null
+  status: UserStatus
+  disabledAt: string | null
   createdAt: string
   storageQuotaBytes: number | null
   storageUsedBytes: number
+  clipCount: number
 }
 
 export interface AdminUsersResponse {
@@ -137,6 +177,7 @@ export interface AdminUsersResponse {
 
 export interface AdminUpdateUserInput {
   role?: "user" | "admin"
+  status?: UserStatus
   storageQuotaBytes?: number | null
 }
 
@@ -157,6 +198,7 @@ export interface RuntimeConfig {
   oauthProviders: OAuthProviderConfig[]
   scheduledTasks: Record<string, AdminScheduledTaskTrigger[]>
   limits: LimitsConfig
+  storage: StorageConfig
   appearance: AppearanceConfig
 }
 
@@ -166,9 +208,10 @@ export interface RuntimeConfig {
  */
 export interface AdminRuntimeConfig extends Omit<
   RuntimeConfig,
-  "oauthProviders"
+  "oauthProviders" | "storage"
 > {
   oauthProviders: AdminOAuthProvider[]
+  storage: AdminStorageConfig
   integrations: AdminIntegrationsConfig
   authBaseURL: string
 }

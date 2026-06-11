@@ -13,6 +13,7 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   CheckCircle2Icon,
+  DatabaseIcon,
   LinkIcon,
   UserKeyIcon,
 } from "lucide-react"
@@ -20,10 +21,10 @@ import * as React from "react"
 
 import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integrations-config-card"
 import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-provider-card"
+import { StorageConfigCard } from "@/components/routes/admin-settings/storage-config-card"
 import { adminRuntimeConfigQueryOptions } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
-import { isDevSetupForced } from "@/lib/flags"
 import {
   invalidateAuthConfig,
   loadAuthConfig,
@@ -40,11 +41,7 @@ export const Route = createFileRoute("/(auth)/setup")({
     if (!config.adminAccountRequired && !session) {
       throw redirect({ to: "/login" })
     }
-    if (
-      !config.adminAccountRequired &&
-      !config.setupRequired &&
-      !isDevSetupForced()
-    ) {
+    if (!config.adminAccountRequired && !config.setupRequired) {
       throw redirect({ to: "/" })
     }
     if (!config.adminAccountRequired && role !== "admin") {
@@ -109,6 +106,12 @@ function AdminAccountStep() {
 
 const SETUP_STEPS = [
   {
+    icon: DatabaseIcon,
+    label: "Storage",
+    description: "Choose filesystem or S3 storage for clips and user assets.",
+    formId: "setup-storage",
+  },
+  {
     icon: UserKeyIcon,
     label: "OIDC",
     description: "Configure an optional OIDC/OAuth provider for sign-in.",
@@ -122,9 +125,9 @@ const SETUP_STEPS = [
   },
 ] as const
 
-type SetupStep = 0 | 1
+type SetupStep = 0 | 1 | 2
 
-const SETUP_LAST_STEP: SetupStep = 1
+const SETUP_LAST_STEP: SetupStep = 2
 
 function AdminSetupSteps() {
   const setup = useAdminSetupSteps()
@@ -230,13 +233,24 @@ function AdminSetupStepContent({
 
       <div className="flex flex-col gap-5">
         {step === 0 && (
-          <OAuthProviderCard config={config} onChange={setConfig} hideHeader />
+          <StorageConfigCard
+            storage={config.storage}
+            onChange={(next) => setConfig(next)}
+            onSaved={() => advanceStep(0)}
+            formId="setup-storage"
+            hideActions
+            hideHeader
+            toastOnSuccess={false}
+          />
         )}
         {step === 1 && (
+          <OAuthProviderCard config={config} onChange={setConfig} hideHeader />
+        )}
+        {step === 2 && (
           <IntegrationsConfigCard
             integrations={config.integrations}
             onChange={(next) => setConfig(next)}
-            onSaved={() => advanceStep(1)}
+            onSaved={() => advanceStep(2)}
             formId="setup-integrations"
             hideActions
             hideHeader
@@ -267,8 +281,12 @@ function AdminSetupStepContent({
   )
 }
 
-function getStepDone(config: AdminRuntimeConfig): [boolean, boolean] {
+function getStepDone(config: AdminRuntimeConfig): [boolean, boolean, boolean] {
   return [
+    config.storage.driver === "fs" ||
+      (config.storage.s3.bucket.length > 0 &&
+        config.storage.s3AccessKeyIdSet &&
+        config.storage.s3SecretAccessKeySet),
     // OIDC is optional; it is done once a provider is configured.
     config.oauthProviders.length > 0,
     // SteamGridDB is done once a key is configured.
@@ -281,10 +299,10 @@ function StepIndicator({
   stepDone,
 }: {
   currentStep: SetupStep
-  stepDone: [boolean, boolean]
+  stepDone: [boolean, boolean, boolean]
 }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-4">
+    <div className="grid gap-2 sm:grid-cols-3">
       {SETUP_STEPS.map((item, index) => {
         const isCurrent = index === currentStep
         const isDone = stepDone[index]

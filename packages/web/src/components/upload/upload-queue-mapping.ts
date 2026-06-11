@@ -1,6 +1,7 @@
 import { clipThumbnailUrl, type QueueClip } from "@alloy/api"
 import { stableHue } from "@alloy/ui/lib/stable-hash"
 
+import type { RecordingLibraryDownload } from "@/lib/desktop"
 import { apiOrigin } from "@/lib/env"
 import { formatBytes } from "@/lib/storage-format"
 
@@ -61,6 +62,60 @@ export function localToQueueItem(
     thumbUrl: e.thumbUrl,
     thumbBlurHash: e.thumbBlurHash,
     onCancel,
+  }
+}
+
+interface DownloadHandlers {
+  onCancel: () => void
+  /** Reveals the saved file in the OS file manager. */
+  onOpen?: () => void
+  onDismiss?: () => void
+}
+
+/** A clip being persisted into the local capture library (desktop only). */
+export function downloadToQueueItem(
+  download: RecordingLibraryDownload,
+  handlers: DownloadHandlers,
+): QueueItem {
+  let status: QueueItemStatus
+  let detail: string
+  let progress: number
+  switch (download.status) {
+    case "downloading":
+      status = "downloading"
+      progress =
+        download.totalBytes && download.totalBytes > 0
+          ? Math.min(
+              99,
+              Math.floor((download.receivedBytes / download.totalBytes) * 100),
+            )
+          : 0
+      detail = download.totalBytes
+        ? `${formatBytes(download.receivedBytes)} / ${formatBytes(download.totalBytes)}`
+        : formatBytes(download.receivedBytes)
+      break
+    case "completed":
+      status = "downloaded"
+      progress = 100
+      detail = "Saved to library"
+      break
+    case "failed":
+      status = "failed"
+      progress = 0
+      detail = download.error ?? "Download failed"
+      break
+  }
+  return {
+    id: `download:${download.clipId}`,
+    title: download.title,
+    status,
+    progress,
+    detail,
+    hue: stableHue(download.clipId),
+    thumbUrl: clipThumbnailUrl(download.clipId, apiOrigin()),
+    onCancel: handlers.onCancel,
+    onOpen: handlers.onOpen,
+    onDismiss: handlers.onDismiss,
   }
 }
 

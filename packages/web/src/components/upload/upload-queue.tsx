@@ -12,6 +12,7 @@ import {
   CircleAlertIcon,
   CopyIcon,
   ExternalLinkIcon,
+  FolderOpenIcon,
   Loader2Icon,
   PauseIcon,
   Trash2Icon,
@@ -24,7 +25,14 @@ export type QueueItemStatus =
   | "encoding"
   | "queued"
   | "published"
+  | "downloading"
+  | "downloaded"
   | "failed"
+
+/** Terminal, successful states — both clear out via "Clear completed". */
+export function isCompletedQueueStatus(status: QueueItemStatus): boolean {
+  return status === "published" || status === "downloaded"
+}
 
 export interface QueueItem {
   id: string
@@ -78,14 +86,16 @@ export function UploadQueueContent({
     if (page > pageCount - 1) setPage(pageCount - 1)
   }, [page, pageCount])
 
-  const completedCount = queue.filter((q) => q.status === "published").length
+  const completedCount = queue.filter((q) =>
+    isCompletedQueueStatus(q.status),
+  ).length
   const start = page * PAGE_SIZE
   const visible = queue.slice(start, start + PAGE_SIZE)
 
   return (
     <div className="flex flex-col">
       <header className="mb-2 flex items-center justify-between px-1">
-        <h2 className="text-foreground text-sm font-semibold">Uploads</h2>
+        <h2 className="text-foreground text-sm font-semibold">Sync</h2>
         <div className="flex items-center gap-2">
           <span className="text-foreground-muted text-xs font-semibold tabular-nums">
             {isUnavailable && queue.length === 0
@@ -108,10 +118,10 @@ export function UploadQueueContent({
             />
             <div className="space-y-1">
               <p className="text-foreground text-sm font-medium">
-                Upload queue unavailable
+                Sync status unavailable
               </p>
               <p className="text-foreground-muted text-xs font-semibold">
-                Reopen uploads after the connection recovers.
+                Reopen sync after the connection recovers.
               </p>
             </div>
           </div>
@@ -122,7 +132,7 @@ export function UploadQueueContent({
               className="text-foreground-muted size-4 animate-spin"
             />
             <p className="text-foreground text-sm font-medium">
-              Loading uploads
+              Loading sync activity
             </p>
           </div>
         ) : queue.length === 0 ? (
@@ -131,7 +141,7 @@ export function UploadQueueContent({
               Nothing in the queue
             </p>
             <p className="text-foreground-muted text-xs font-semibold">
-              Uploaded clips will show up here.
+              Uploads and downloads will show up here.
             </p>
           </div>
         ) : (
@@ -182,7 +192,7 @@ export function UploadQueueContent({
           <Button
             variant="ghost"
             size="sm"
-            aria-label="Close uploads"
+            aria-label="Close sync status"
             onClick={onClose}
             className="text-foreground-muted w-full"
           >
@@ -196,7 +206,10 @@ export function UploadQueueContent({
 
 function QueueRow({ item, first }: { item: QueueItem; first: boolean }) {
   const tone = STATUS_TONES[item.status]
-  const showPct = item.status === "uploading" || item.status === "encoding"
+  const showPct =
+    item.status === "uploading" ||
+    item.status === "encoding" ||
+    (item.status === "downloading" && item.progress > 0)
 
   return (
     <article
@@ -232,6 +245,9 @@ function QueueRow({ item, first }: { item: QueueItem; first: boolean }) {
               <span className={cn("font-semibold tabular-nums", tone.label)}>
                 {item.progress}%
               </span>
+            ) : null}
+            {item.status === "downloading" && item.detail ? (
+              <span className="truncate tabular-nums">{item.detail}</span>
             ) : null}
           </div>
           {item.status === "failed" && item.detail ? (
@@ -362,16 +378,46 @@ function retryableImageUrl(src: string, attempt: number): string {
 
 function RowAction({ item }: { item: QueueItem }) {
   const { status, title } = item
-  if (status === "uploading") {
+  if (status === "uploading" || status === "downloading") {
     return (
       <Button
         variant="ghost"
         size="icon-sm"
-        aria-label={`Cancel upload of ${title}`}
+        aria-label={
+          status === "downloading"
+            ? `Cancel download of ${title}`
+            : `Cancel upload of ${title}`
+        }
         onClick={item.onCancel}
       >
         <PauseIcon />
       </Button>
+    )
+  }
+  if (status === "downloaded") {
+    return (
+      <>
+        {item.onOpen ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Reveal ${title} in folder`}
+            onClick={item.onOpen}
+          >
+            <FolderOpenIcon />
+          </Button>
+        ) : null}
+        {item.onDismiss ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Dismiss ${title} from queue`}
+            onClick={item.onDismiss}
+          >
+            <XIcon />
+          </Button>
+        ) : null}
+      </>
     )
   }
   if (status === "encoding" || status === "queued" || status === "failed") {
@@ -434,6 +480,8 @@ const STATUS_LABELS: Record<QueueItemStatus, string> = {
   encoding: "Encoding",
   queued: "Queued",
   published: "Published",
+  downloading: "Download",
+  downloaded: "Saved locally",
   failed: "Failed",
 }
 
@@ -442,5 +490,7 @@ const STATUS_TONES: Record<QueueItemStatus, { label: string; bar: string }> = {
   encoding: { label: "text-warning", bar: "bg-warning" },
   queued: { label: "text-foreground-faint", bar: "" },
   published: { label: "text-success", bar: "bg-success" },
+  downloading: { label: "text-accent", bar: "bg-accent" },
+  downloaded: { label: "text-success", bar: "bg-success" },
   failed: { label: "text-destructive", bar: "bg-destructive" },
 }

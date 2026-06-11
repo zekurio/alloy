@@ -51,13 +51,23 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import { PencilIcon, SaveIcon, Trash2Icon } from "lucide-react"
+import {
+  PencilIcon,
+  SaveIcon,
+  Trash2Icon,
+  UserCheckIcon,
+  UserXIcon,
+} from "lucide-react"
 import * as React from "react"
 
 import { adminKeys, adminUsersQueryOptions } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
-import { formatQuotaGiB, parseQuotaGiB } from "@/lib/storage-format"
+import {
+  formatBytes,
+  formatQuotaGiB,
+  parseQuotaGiB,
+} from "@/lib/storage-format"
 import { displayName, userAvatar } from "@/lib/user-display"
 import { userKeys } from "@/lib/user-queries"
 
@@ -109,6 +119,34 @@ function useDeleteAdminUser({
       await queryClient.invalidateQueries({ queryKey: adminKeys.users() })
     } catch (cause) {
       toast.error(errorMessage(cause, "Couldn't remove user"))
+    } finally {
+      setBusyId(null)
+    }
+  }
+}
+
+function useToggleAdminUserStatus({
+  busyId,
+  setBusyId,
+}: {
+  busyId: string | null
+  setBusyId: React.Dispatch<React.SetStateAction<string | null>>
+}) {
+  const queryClient = useQueryClient()
+  return async (user: AdminUserRow) => {
+    if (busyId) return
+    const nextStatus = user.status === "disabled" ? "active" : "disabled"
+    setBusyId(user.id)
+    try {
+      const updated = await api.admin.updateUser(user.id, {
+        status: nextStatus,
+      })
+      setAdminUserCacheRow(queryClient, updated)
+      toast.success(
+        nextStatus === "disabled" ? "User disabled" : "User enabled",
+      )
+    } catch (cause) {
+      toast.error(errorMessage(cause, "Couldn't update user"))
     } finally {
       setBusyId(null)
     }
@@ -199,6 +237,7 @@ function useAdminUserMutations(currentUserId: string) {
   const [busyId, setBusyId] = React.useState<string | null>(null)
   const mutationState = { busyId, setBusyId }
   const onDelete = useDeleteAdminUser(mutationState)
+  const onToggleStatus = useToggleAdminUserStatus(mutationState)
   const onUpdate = useUpdateAdminUser({
     ...mutationState,
     currentUserId,
@@ -207,6 +246,7 @@ function useAdminUserMutations(currentUserId: string) {
   return {
     busyId,
     onDelete,
+    onToggleStatus,
     onUpdate,
   }
 }
@@ -222,7 +262,7 @@ export function AdminUsersCard({
   currentUserId,
   hideHeader,
 }: AdminUsersCardProps) {
-  const { users, loadError, busyId, onDelete, onUpdate } =
+  const { users, loadError, busyId, onDelete, onToggleStatus, onUpdate } =
     useAdminUsers(currentUserId)
 
   const content = loadError ? (
@@ -241,6 +281,7 @@ export function AdminUsersCard({
       currentUserId={currentUserId}
       busyId={busyId}
       onUpdate={onUpdate}
+      onToggleStatus={onToggleStatus}
       onDelete={onDelete}
     />
   )
@@ -264,6 +305,7 @@ function UsersList({
   currentUserId,
   busyId,
   onUpdate,
+  onToggleStatus,
   onDelete,
 }: {
   users: AdminUserRow[]
@@ -273,6 +315,7 @@ function UsersList({
     user: AdminUserRow,
     next: AdminUserEditableFields,
   ) => Promise<boolean>
+  onToggleStatus: (user: AdminUserRow) => void
   onDelete: (user: AdminUserRow) => void
 }) {
   return (
@@ -284,6 +327,7 @@ function UsersList({
           currentUserId={currentUserId}
           busy={busyId === user.id}
           onUpdate={onUpdate}
+          onToggleStatus={onToggleStatus}
           onDelete={onDelete}
         />
       ))}
@@ -296,6 +340,7 @@ function UserListRow({
   currentUserId,
   busy,
   onUpdate,
+  onToggleStatus,
   onDelete,
 }: {
   user: AdminUserRow
@@ -305,12 +350,15 @@ function UserListRow({
     user: AdminUserRow,
     next: AdminUserEditableFields,
   ) => Promise<boolean>
+  onToggleStatus: (user: AdminUserRow) => void
   onDelete: (user: AdminUserRow) => void
 }) {
   const isSelf = user.id === currentUserId
+  const isDisabled = user.status === "disabled"
   const name = displayName(user)
   const avatar = userAvatar(user)
   const avatarStyle = { background: avatar.bg, color: avatar.fg }
+  const clipLabel = user.clipCount === 1 ? "clip" : "clips"
 
   return (
     <ListItem>
@@ -327,13 +375,66 @@ function UserListRow({
                 You
               </Badge>
             ) : null}
+            {isDisabled ? (
+              <Badge variant="destructive" className="shrink-0 text-xs">
+                Disabled
+              </Badge>
+            ) : null}
           </div>
           <p className="text-foreground-dim truncate text-xs">{user.email}</p>
+          <p className="text-foreground-muted truncate text-xs">
+            {user.clipCount} {clipLabel} · {formatBytes(user.storageUsedBytes)}
+            {user.storageQuotaBytes !== null
+              ? ` of ${formatBytes(user.storageQuotaBytes)}`
+              : ""}
+          </p>
         </div>
       </div>
 
       <div className="flex shrink-0 items-center">
         <EditUserDialog user={user} busy={busy} onUpdate={onUpdate} />
+        <AlertDialog>
+          <AlertDialogTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={isDisabled ? "Enable user" : "Disable user"}
+                disabled={busy || isSelf}
+              >
+                {isDisabled ? (
+                  <UserCheckIcon className="size-3.5" />
+                ) : (
+                  <UserXIcon className="size-3.5" />
+                )}
+              </Button>
+            }
+          />
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {isDisabled
+                  ? `Enable ${user.email}?`
+                  : `Disable ${user.email}?`}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {isDisabled
+                  ? "They'll be able to sign in and their clips will be visible again."
+                  : "They'll be signed out and their clips hidden. Their data is kept and you can enable them again later."}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                variant={isDisabled ? "primary" : "destructive"}
+                onClick={() => onToggleStatus(user)}
+                disabled={busy}
+              >
+                {isDisabled ? "Enable" : "Disable"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         <AlertDialog>
           <AlertDialogTrigger
             render={

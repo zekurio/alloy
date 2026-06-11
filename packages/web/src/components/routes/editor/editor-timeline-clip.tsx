@@ -2,6 +2,7 @@ import { cn } from "@alloy/ui/lib/utils"
 import { CloudIcon } from "lucide-react"
 import * as React from "react"
 
+import { useMediaFilmstrip } from "@/lib/media-filmstrip"
 import { formatTrimMs } from "@/lib/media-time"
 
 import {
@@ -122,7 +123,8 @@ export function ClipBlock({
 
 /**
  * Evenly spaced filmstrip cells covering the clip's source range. Each cell
- * shows the sampled frame nearest to its center.
+ * shows the sampled frame nearest to its center. Frames decode in the
+ * renderer via mediabunny, so local captures and uploaded clips look alike.
  */
 function ClipFilmstrip({
   clip,
@@ -135,9 +137,12 @@ function ClipFilmstrip({
   spanMs: number
   zoom: number
 }) {
+  const { frames, durationMs: measuredMs } = useMediaFilmstrip(source.mediaUrl)
   const rangeMs = clipDurationMs(clip)
-  const frames = source.frames
-  if (rangeMs <= 0 || source.durationMs <= 0 || frames.length === 0) {
+  // Frames were sampled across the measured duration; map cells against the
+  // same value so they stay aligned when recorded metadata overshoots.
+  const sourceDurationMs = measuredMs ?? source.durationMs
+  if (rangeMs <= 0 || sourceDurationMs <= 0 || frames.length === 0) {
     return <div className="size-full" />
   }
   const cellCount = Math.min(
@@ -149,7 +154,7 @@ function ClipFilmstrip({
     const sourceMs = clip.sourceStartMs + ((i + 0.5) / cellCount) * rangeMs
     const frameIndex = Math.min(
       frames.length - 1,
-      Math.max(0, Math.floor((sourceMs / source.durationMs) * frames.length)),
+      Math.max(0, Math.floor((sourceMs / sourceDurationMs) * frames.length)),
     )
     cells.push(frames[frameIndex])
   }
@@ -164,11 +169,6 @@ function ClipFilmstrip({
           draggable={false}
           loading="lazy"
           className="h-full min-w-0 flex-1 object-cover"
-          // A frame the desktop can't render (no ffmpeg) just leaves the
-          // plain track background.
-          onError={(event) => {
-            event.currentTarget.style.visibility = "hidden"
-          }}
         />
       ))}
     </div>

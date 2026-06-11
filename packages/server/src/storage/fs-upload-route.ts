@@ -1,5 +1,3 @@
-import { link, mkdir, open, rm } from "node:fs/promises"
-
 import { clipUploadTicket } from "@alloy/db/schema"
 import { logger } from "@alloy/logging"
 import { secretStore } from "@alloy/server/config/secret-store"
@@ -12,14 +10,11 @@ import {
   payloadTooLarge,
   unauthorized,
 } from "@alloy/server/runtime/http-response"
-import { dirname } from "@alloy/server/runtime/path"
-import { ensureScratchParent } from "@alloy/server/uploads/scratch"
+import { clipStorage } from "@alloy/server/storage/index"
 import { and, eq, gt, isNull } from "drizzle-orm"
 import { Hono } from "hono"
 
 import { decodeUploadToken } from "./fs-driver"
-
-type FsFile = Awaited<ReturnType<typeof open>>
 
 export const storageRoute = new Hono().post("/upload/:token", async (c) => {
   const token = c.req.param("token")
@@ -64,52 +59,29 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
     return badRequest(c, "Empty upload body")
   }
 
-  const fullDst = await ensureScratchParent(key)
-  const tmpDir = `${dirname(fullDst)}/.tmp-${token.slice(-32)}`
-  await mkdir(tmpDir, { recursive: true })
-  await mkdir(dirname(fullDst), { recursive: true })
-  const tmpFile = `${tmpDir}/blob`
-
-  let bytesWritten = 0
   let limitTripped = false
-  const file = await open(tmpFile, "w")
 
-  let writeFailure: unknown = null
-  try {
-    for await (const chunk of c.req.raw.body) {
-      bytesWritten += chunk.byteLength
-      if (bytesWritten > maxBytes) {
-        limitTripped = true
-        throw new Error("upload exceeded maxBytes")
-      }
-      await writeAll(file, chunk)
-    }
-  } catch (err) {
-    writeFailure = err
-  } finally {
-    await file.close()
+  if (await clipStorage.resolve(key)) {
+    return conflict(c, "Upload ticket has already been used")
   }
 
-  if (writeFailure) {
-    await removeTempUploadDir(tmpDir, "write failure")
+  try {
+    await clipStorage.put(
+      key,
+      limitUploadBody(c.req.raw.body, maxBytes, () => {
+        limitTripped = true
+      }),
+      expectedContentType,
+    )
+  } catch (err) {
+    await deletePartialUpload(key)
     if (limitTripped) {
-      return payloadTooLarge(c, "Upload exceeded maximum size")
+      return payloadTooLarge(c, "Upload exceeded declared size")
     }
-    logger.error("[api/assets/upload] write failed:", writeFailure)
+    logger.error("[api/assets/upload] write failed:", err)
     return internalServerError(c, "Upload write failed")
   }
 
-  try {
-    await link(tmpFile, fullDst)
-  } catch (err) {
-    await removeTempUploadDir(tmpDir, "publish failure")
-    if (isNodeErrorCode(err, "EEXIST")) {
-      return conflict(c, "Upload ticket has already been used")
-    }
-    logger.error("[api/assets/upload] publish failed:", err)
-    return internalServerError(c, "Upload publish failed")
-  }
-  await removeTempUploadDir(tmpDir, "publish success")
   await db
     .update(clipUploadTicket)
     .set({ usedAt: new Date() })
@@ -118,31 +90,44 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
   return noContent(c)
 })
 
-async function removeTempUploadDir(
-  path: string,
-  reason: string,
-): Promise<void> {
+function limitUploadBody(
+  body: ReadableStream<Uint8Array>,
+  maxBytes: number,
+  onLimit: () => void,
+): ReadableStream<Uint8Array> {
+  const reader = body.getReader()
+  let bytes = 0
+
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      const { done, value } = await reader.read()
+      if (done) {
+        controller.close()
+        return
+      }
+
+      bytes += value.byteLength
+      if (bytes > maxBytes) {
+        onLimit()
+        await reader.cancel().catch(() => undefined)
+        throw new Error("upload exceeded maxBytes")
+      }
+
+      controller.enqueue(value)
+    },
+    cancel(reason) {
+      return reader.cancel(reason)
+    },
+  })
+}
+
+async function deletePartialUpload(key: string): Promise<void> {
   try {
-    await rm(path, { recursive: true, force: true })
+    await clipStorage.delete(key)
   } catch (err) {
     logger.warn(
-      `[api/assets/upload] failed to remove temporary upload directory after ${reason}:`,
+      `[api/assets/upload] failed to remove partial upload ${key}:`,
       err,
     )
   }
-}
-
-async function writeAll(file: FsFile, chunk: Uint8Array): Promise<void> {
-  let offset = 0
-  while (offset < chunk.byteLength) {
-    const { bytesWritten } = await file.write(chunk.subarray(offset))
-    if (bytesWritten <= 0) {
-      throw new Error("file write made no progress")
-    }
-    offset += bytesWritten
-  }
-}
-
-function isNodeErrorCode(err: unknown, code: string): boolean {
-  return (err as { code?: string } | null)?.code === code
 }

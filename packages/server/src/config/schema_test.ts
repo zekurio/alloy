@@ -19,7 +19,7 @@ test("RuntimeConfigSchema accepts scheduled task cron triggers", () => {
   const parsed = RuntimeConfigSchema.parse({
     runtimeConfigVersion: 1,
     scheduledTasks: {
-      "clip-storage-cleanup": [
+      "sample-maintenance": [
         { type: "startup", delayMs: 60_000 },
         { type: "cron", expression: "0 3 * * *" },
       ],
@@ -27,24 +27,45 @@ test("RuntimeConfigSchema accepts scheduled task cron triggers", () => {
   })
 
   assert(
-    parsed.scheduledTasks["clip-storage-cleanup"]?.[1]?.type === "cron",
+    parsed.scheduledTasks["sample-maintenance"]?.[1]?.type === "cron",
     "cron trigger should parse",
   )
   assert(
-    parsed.scheduledTasks["clip-storage-cleanup"]?.[0]?.type === "startup",
+    parsed.scheduledTasks["sample-maintenance"]?.[0]?.type === "startup",
     "startup trigger should parse",
   )
   assert(
-    parsed.scheduledTasks["clip-storage-cleanup"]?.[0]?.delayMs === 60_000,
+    parsed.scheduledTasks["sample-maintenance"]?.[0]?.delayMs === 60_000,
     "startup delay should parse",
   )
+})
+
+test("RuntimeConfigSchema defaults storage to filesystem canonical folders", () => {
+  const parsed = RuntimeConfigSchema.parse({ runtimeConfigVersion: 1 })
+
+  assert(parsed.storage.driver === "fs", "storage driver should default to fs")
+  assert(parsed.storage.path === "storage", "storage path should default")
+  assert(parsed.storage.clipsPath === null, "clips path should default null")
+  assert(parsed.storage.usersPath === null, "users path should default null")
+})
+
+test("RuntimeConfigSchema rejects storage paths with parent traversal", () => {
+  const parsed = RuntimeConfigSchema.safeParse({
+    runtimeConfigVersion: 1,
+    storage: {
+      driver: "fs",
+      path: "../storage",
+    },
+  })
+
+  assert(!parsed.success, "parent traversal should not parse")
 })
 
 test("RuntimeConfigSchema rejects invalid scheduled task cron triggers", () => {
   const parsed = RuntimeConfigSchema.safeParse({
     runtimeConfigVersion: 1,
     scheduledTasks: {
-      "clip-storage-cleanup": [{ type: "cron", expression: "0 0 0 0" }],
+      "sample-maintenance": [{ type: "cron", expression: "0 0 0 0" }],
     },
   })
 

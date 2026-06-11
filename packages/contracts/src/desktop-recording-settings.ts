@@ -79,7 +79,6 @@ export function normalizeRecordingSettings(value: unknown): RecordingSettings {
     customQuality,
     replayBufferSeconds: normalizeReplayBufferSeconds(
       record.replayBufferSeconds,
-      hotkeys,
     ),
     bufferStorage: normalizeLiteral(
       record.bufferStorage,

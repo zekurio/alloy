@@ -5,6 +5,7 @@ import { OAuthProvidersSchema } from "@alloy/server/config/oauth-schema"
 import {
   IntegrationsSecretPatchSchema,
   LimitsConfigPatchSchema,
+  StorageConfigPatchSchema,
 } from "@alloy/server/config/schema"
 import {
   isOAuthProviderUsable,
@@ -203,13 +204,65 @@ export const adminRoute = new Hono()
     },
   )
   /**
-   * PATCH /limits — update upload limits. `maxUploadBytes` and `uploadTtlSec`
-   * are picked up on the next `/initiate` call.
+   * PATCH /limits — update quota defaults and ticket lifetime. `uploadTtlSec`
+   * is picked up on the next `/initiate` call.
    */
   .patch("/limits", zValidator("json", LimitsConfigPatchSchema), (c) => {
     const patch = c.req.valid("json")
     const next = { ...configStore.get("limits"), ...patch }
     configStore.set("limits", next)
+    return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+  })
+  .patch("/storage", zValidator("json", StorageConfigPatchSchema), (c) => {
+    const patch = c.req.valid("json")
+    const current = configStore.get("storage")
+    const {
+      s3AccessKeyId,
+      s3SecretAccessKey,
+      s3: s3Patch,
+      ...storagePatch
+    } = patch
+
+    const next = {
+      ...current,
+      ...storagePatch,
+      s3: {
+        ...current.s3,
+        ...s3Patch,
+      },
+    }
+    const currentCredentials = secretStore.storageS3Credentials()
+    const nextAccessKeyId =
+      s3AccessKeyId !== undefined
+        ? s3AccessKeyId.trim()
+        : (currentCredentials?.accessKeyId ?? "")
+    const nextSecretAccessKey =
+      s3SecretAccessKey !== undefined
+        ? s3SecretAccessKey.trim()
+        : (currentCredentials?.secretAccessKey ?? "")
+
+    if (next.driver === "s3") {
+      if (!next.s3.bucket.trim()) return badRequest(c, "S3 bucket is required.")
+      if (!next.s3.region.trim()) return badRequest(c, "S3 region is required.")
+      if (!nextAccessKeyId) {
+        return badRequest(c, "S3 access key ID is required.")
+      }
+      if (!nextSecretAccessKey) {
+        return badRequest(c, "S3 secret access key is required.")
+      }
+    }
+
+    if (s3AccessKeyId !== undefined || s3SecretAccessKey !== undefined) {
+      secretStore.setStorageS3Credentials({
+        accessKeyId:
+          s3AccessKeyId !== undefined ? s3AccessKeyId.trim() : undefined,
+        secretAccessKey:
+          s3SecretAccessKey !== undefined
+            ? s3SecretAccessKey.trim()
+            : undefined,
+      })
+    }
+    configStore.set("storage", next)
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
   .patch(

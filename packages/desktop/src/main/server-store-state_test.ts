@@ -61,14 +61,8 @@ test("normalizeState applies recording defaults", () => {
     "missing denied games should use the default",
   )
   assert(
-    state.recording.hotkeys.clips[0]?.hotkey ===
-      DEFAULT_RECORDING_SETTINGS.hotkeys.clips[0]?.hotkey,
+    state.recording.hotkeys.clip === DEFAULT_RECORDING_SETTINGS.hotkeys.clip,
     "missing clip hotkey should use the default",
-  )
-  assert(
-    state.recording.hotkeys.clips[0]?.durationSeconds ===
-      DEFAULT_RECORDING_SETTINGS.hotkeys.clips[0]?.durationSeconds,
-    "missing clip duration should use the default",
   )
   assert(
     state.recording.hotkeys.bookmark ===
@@ -216,12 +210,8 @@ test("normalizeState sanitizes recording settings", () => {
     "valid auto long recording setting should remain",
   )
   assert(
-    state.recording.hotkeys.clips[0]?.durationSeconds === 45,
-    "valid clip duration should remain",
-  )
-  assert(
-    state.recording.hotkeys.clips[1]?.durationSeconds === 600,
-    "clip duration should be capped",
+    state.recording.hotkeys.clip === "F8",
+    "legacy clip hotkey array should migrate to the first binding",
   )
   assert(
     state.recording.hotkeys.bookmark === "F5",

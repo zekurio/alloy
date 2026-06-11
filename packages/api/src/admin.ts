@@ -7,6 +7,7 @@ import type {
   AdminScheduledTaskRunResponse,
   AdminScheduledTasksResponse,
   AdminScheduledTaskTrigger,
+  AdminStorageConfig,
   AdminUpdateUserInput,
   AdminUsersResponse,
   AdminUserStorageRow,
@@ -43,6 +44,7 @@ export type {
   AdminScheduledTaskRunResponse,
   AdminScheduledTasksResponse,
   AdminScheduledTaskTrigger,
+  AdminStorageConfig,
   AdminUpdateUserInput,
   AdminUsersResponse,
   AdminUserStorageRow,
@@ -64,6 +66,14 @@ type AppearanceConfigPatch = {
     blurPx?: number
     darkenOpacity?: number
   }
+}
+
+type StorageConfigPatch = Partial<
+  Pick<AdminStorageConfig, "clipsPath" | "driver" | "path" | "usersPath">
+> & {
+  s3?: Partial<AdminStorageConfig["s3"]>
+  s3AccessKeyId?: string
+  s3SecretAccessKey?: string
 }
 
 type AdminCreateUserInput = {
@@ -125,7 +135,7 @@ async function saveOAuthConfig(
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
-type RuntimeConfigSection = "limits" | "integrations" | "appearance"
+type RuntimeConfigSection = "limits" | "integrations" | "appearance" | "storage"
 
 async function patchRuntimeSection<T>(
   context: ApiContext,
@@ -234,6 +244,8 @@ export function createAdminApi(context: ApiContext) {
       saveOAuthConfig(context, input),
     updateLimitsConfig: (patch: Partial<AdminLimitsConfig>) =>
       patchRuntimeSection(context, "limits", patch),
+    updateStorageConfig: (patch: StorageConfigPatch) =>
+      patchRuntimeSection(context, "storage", patch),
     updateIntegrationsConfig: (patch: { steamgriddbApiKey?: string }) =>
       patchRuntimeSection<{ steamgriddbApiKey?: string }>(
         context,
@@ -251,8 +263,6 @@ export function createAdminApi(context: ApiContext) {
       taskId: string,
       triggers: AdminScheduledTaskTrigger[],
     ) => updateScheduledTaskTriggers(context, taskId, triggers),
-    runClipStorageMaintenance: () =>
-      runScheduledTask(context, "clip-storage-cleanup"),
     fetchUsers: () => fetchUsers(context),
     createUser: (input: AdminCreateUserInput) => createUser(context, input),
     updateUser: (userId: string, input: AdminUpdateUserInput) =>

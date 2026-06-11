@@ -8,7 +8,9 @@ import type {
 import {
   captureThumbnail,
   prepareSelectedClipFile,
+  thumbnailFromImageUrl,
 } from "@/components/upload/new-clip-helpers"
+import type { PublishClipResult } from "@/components/upload/upload-flow-context"
 import type { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
 import { nullableClipDescription, parseTagString } from "@/lib/clip-fields"
 import type { AlloyDesktop } from "@/lib/desktop"
@@ -57,7 +59,7 @@ export async function exportAndPublishCapture({
   privacy: ClipPrivacy
   mentions: UserSearchResult[]
   publishClip: ReturnType<typeof useUploadFlowControls>["publishClip"]
-}): Promise<void> {
+}): Promise<PublishClipResult> {
   const exported = await desktop.recording.exportLibraryCapture({
     id: item.id,
     segments: [{ startMs: trim.startMs, endMs: trim.endMs }],
@@ -72,9 +74,13 @@ export async function exportAndPublishCapture({
   })
   const selected = await prepareSelectedClipFile(file)
   const posterAtMs = Math.min(1000, Math.max(0, selected.durationMs - 100))
-  const thumbBlob = await captureThumbnail(selected.file, posterAtMs)
+  const thumbBlob = await capturePosterBlob(
+    exported.thumbUrl,
+    selected.file,
+    posterAtMs,
+  )
 
-  await publishClip({
+  return publishClip({
     file: selected.file,
     contentType: selected.contentType,
     title,
@@ -89,5 +95,26 @@ export async function exportAndPublishCapture({
     thumbBlob,
     thumbBlurHash: exported.thumbBlurHash ?? item.thumbBlurHash,
     mentionedUserIds: mentions.map((mention) => mention.id),
+    localCaptureId: item.id,
   })
+}
+
+/**
+ * Prefers the poster the desktop main process rendered with ffmpeg — the
+ * renderer cannot decode every capture codec (HEVC/AV1 draw blank canvas
+ * frames) — and only falls back to in-renderer video capture without one.
+ */
+async function capturePosterBlob(
+  thumbUrl: string | null,
+  file: File,
+  posterAtMs: number,
+): Promise<Blob> {
+  if (thumbUrl) {
+    try {
+      return await thumbnailFromImageUrl(thumbUrl)
+    } catch {
+      // Fall through to capturing from the video file.
+    }
+  }
+  return captureThumbnail(file, posterAtMs)
 }

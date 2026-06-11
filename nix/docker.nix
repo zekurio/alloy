@@ -26,15 +26,31 @@ let
     ];
     text = ''
       : "''${ALLOY_DATA_DIR:=/config}"
-      : "''${ALLOY_CLIPS_DIR:=/data/storage}"
-      : "''${ALLOY_ENCODE_DIR:=/cache/encode}"
-      export ALLOY_DATA_DIR ALLOY_CLIPS_DIR ALLOY_ENCODE_DIR
+      export ALLOY_DATA_DIR
 
-      mkdir -p "$ALLOY_DATA_DIR" "$ALLOY_CLIPS_DIR" "$ALLOY_ENCODE_DIR"
+      mkdir -p "$ALLOY_DATA_DIR" /data/storage
+
+      if [ ! -e "$ALLOY_DATA_DIR/config.json" ]; then
+        printf '%s\n' \
+          '{' \
+          '  "storage": {' \
+          '    "driver": "fs",' \
+          '    "path": "/data/storage",' \
+          '    "clipsPath": null,' \
+          '    "usersPath": null,' \
+          '    "s3": {' \
+          '      "bucket": "",' \
+          '      "region": "us-east-1",' \
+          '      "endpoint": null,' \
+          '      "forcePathStyle": false' \
+          '    }' \
+          '  }' \
+          '}' >"$ALLOY_DATA_DIR/config.json"
+      fi
 
       if [ "$(id -u)" = "0" ]; then
         chown -R ${toString uid}:${toString gid} \
-          "$ALLOY_DATA_DIR" "$ALLOY_CLIPS_DIR" "$ALLOY_ENCODE_DIR"
+          "$ALLOY_DATA_DIR" /data
         exec setpriv --reuid=${toString uid} --regid=${toString gid} \
           --clear-groups alloy
       fi
@@ -62,9 +78,9 @@ dockerTools.streamLayeredImage {
     groupadd --system --gid ${toString gid} alloy
     useradd --system --uid ${toString uid} --gid ${toString gid} \
       --home-dir /app --shell /sbin/nologin alloy
-    mkdir -p /app /config /data/storage /cache/encode /tmp
+    mkdir -p /app /config /data/storage /tmp
     chmod 1777 /tmp
-    chown -R ${toString uid}:${toString gid} /app /config /data /cache
+    chown -R ${toString uid}:${toString gid} /app /config /data
   '';
 
   config = {
@@ -74,11 +90,9 @@ dockerTools.streamLayeredImage {
     Env = [
       "PORT=2552"
       "APP_VERSION=${version}"
-      # App data incl. config.json; bulk clip media; wipeable media scratch
-      # (HLS package cache, processing working files).
+      # Bootstrap data incl. config.json and secrets.json. Storage roots live
+      # in runtime config seeded by the entrypoint on first boot.
       "ALLOY_DATA_DIR=/config"
-      "ALLOY_CLIPS_DIR=/data/storage"
-      "ALLOY_ENCODE_DIR=/cache/encode"
       "SSL_CERT_FILE=${cacert}/etc/ssl/certs/ca-bundle.crt"
     ];
     ExposedPorts = {

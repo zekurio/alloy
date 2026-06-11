@@ -9,7 +9,6 @@ import {
   type RecordingAllowedGame,
   type RecordingAudioApplicationSelection,
   type RecordingAudioDeviceSelection,
-  type RecordingClipHotkey,
   type RecordingHotkeys,
   type RecordingLongRecordingSettings,
   type RecordingNotificationSoundEvent,
@@ -59,7 +58,7 @@ export function normalizeHotkeys(value: unknown): RecordingHotkeys {
   const toHotkey = (raw: unknown, fallback: string) =>
     typeof raw === "string" ? raw : fallback
   return {
-    clips: normalizeClipHotkeys(record.clips),
+    clip: normalizeClipHotkey(record),
     bookmark: toHotkey(
       record.bookmark,
       DEFAULT_RECORDING_SETTINGS.hotkeys.bookmark,
@@ -216,21 +215,19 @@ export function normalizeAllowedGames(value: unknown): RecordingAllowedGame[] {
   return dedupeBy(games, allowedGameKey)
 }
 
-export function normalizeReplayBufferSeconds(
-  value: unknown,
-  hotkeys: RecordingHotkeys = DEFAULT_RECORDING_SETTINGS.hotkeys,
-): number {
+/**
+ * The replay buffer is both the rolling window length and the clip duration
+ * saved by the clip hotkey. Snap to the 15s slider grid so the stored value
+ * always lines up with the UI control.
+ */
+export function normalizeReplayBufferSeconds(value: unknown): number {
   const fallback = DEFAULT_RECORDING_SETTINGS.replayBufferSeconds
   const requested =
     typeof value === "number" && Number.isFinite(value)
-      ? Math.round(value)
+      ? Math.round(value / 15) * 15
       : fallback
-  const longestClip = hotkeys.clips.reduce(
-    (longest, hotkey) => Math.max(longest, hotkey.durationSeconds),
-    fallback,
-  )
 
-  return Math.min(600, Math.max(15, requested, longestClip))
+  return Math.min(600, Math.max(15, requested))
 }
 
 export function normalizeLiteral<const T extends readonly (string | number)[]>(
@@ -241,29 +238,24 @@ export function normalizeLiteral<const T extends readonly (string | number)[]>(
   return allowed.includes(value as T[number]) ? (value as T[number]) : fallback
 }
 
-function normalizeClipHotkeys(value: unknown): RecordingClipHotkey[] {
-  if (!Array.isArray(value)) return DEFAULT_RECORDING_SETTINGS.hotkeys.clips
+/**
+ * Resolves the single clip hotkey, migrating legacy configs that stored an
+ * array of `clips` (each with its own duration) down to the first binding.
+ */
+function normalizeClipHotkey(record: Record<string, unknown>): string {
+  if (typeof record.clip === "string") return record.clip
 
-  const hotkeys = value.flatMap((entry, index): RecordingClipHotkey[] => {
-    const record =
-      typeof entry === "object" && entry !== null
-        ? (entry as Record<string, unknown>)
-        : null
-    if (!record) return []
+  if (Array.isArray(record.clips)) {
+    for (const entry of record.clips) {
+      const hotkey =
+        typeof entry === "object" && entry !== null
+          ? normalizeNonEmptyString((entry as Record<string, unknown>).hotkey)
+          : null
+      if (hotkey) return hotkey
+    }
+  }
 
-    const hotkey = normalizeNonEmptyString(record.hotkey)
-    if (!hotkey) return []
-
-    return [
-      {
-        id: normalizeNonEmptyString(record.id) ?? `clip-${index + 1}`,
-        hotkey,
-        durationSeconds: normalizeClipDuration(record.durationSeconds),
-      },
-    ]
-  })
-
-  return hotkeys.length > 0 ? dedupeBy(hotkeys, (hotkey) => hotkey.id) : []
+  return DEFAULT_RECORDING_SETTINGS.hotkeys.clip
 }
 
 function normalizeNotificationSound(
@@ -338,12 +330,4 @@ function dedupeBy<T>(items: T[], keyFor: (item: T) => string): T[] {
     seen.add(key)
     return true
   })
-}
-
-function normalizeClipDuration(value: unknown): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return DEFAULT_RECORDING_SETTINGS.hotkeys.clips[0]?.durationSeconds ?? 90
-  }
-
-  return Math.min(600, Math.max(15, Math.round(value)))
 }

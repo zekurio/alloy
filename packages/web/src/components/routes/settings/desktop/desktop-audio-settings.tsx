@@ -2,6 +2,7 @@ import type {
   RecordingAudioApplicationSelection,
   RecordingAudioDeviceKind,
   RecordingAudioDeviceSelection,
+  RecordingAudioLevel,
   RecordingSettings,
 } from "@alloy/contracts"
 import { Checkbox } from "@alloy/ui/components/checkbox"
@@ -22,9 +23,9 @@ import {
   Volume2Icon,
   type LucideIcon,
 } from "lucide-react"
-import { useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 
-import { DESKTOP_RECORDING_AUDIO_MODES } from "./desktop-bridge"
+import { alloyDesktop, DESKTOP_RECORDING_AUDIO_MODES } from "./desktop-bridge"
 import { useDesktopRecording } from "./desktop-recording-context"
 import {
   asLiteral,
@@ -45,8 +46,83 @@ const AUDIO_DEVICE_ICONS: Record<RecordingAudioDeviceKind, LucideIcon> = {
   input: MicIcon,
 }
 
+const AUDIO_LEVEL_HEARTBEAT_MS = 4000
+
+/**
+ * Live peak levels keyed by `audioLevelKey` while the audio settings are
+ * mounted. The desktop backend's subscription auto-expires, so this re-sends
+ * it as a heartbeat (which also survives capture sidecar restarts). Stays null
+ * until the first sample arrives — e.g. outside the desktop app or while the
+ * sidecar is missing — so the meters can stay hidden entirely.
+ */
+function useAudioLevels(): ReadonlyMap<string, number> | null {
+  const recording = alloyDesktop()?.recording ?? null
+  const [levels, setLevels] = useState<Map<string, number> | null>(null)
+
+  useEffect(() => {
+    if (!recording) return
+
+    const subscribe = () =>
+      void recording.subscribeAudioLevels().catch(() => undefined)
+    subscribe()
+    const heartbeat = setInterval(subscribe, AUDIO_LEVEL_HEARTBEAT_MS)
+    const unsubscribe = recording.onEvent((event) => {
+      if (event.type !== "audio-levels") return
+      setLevels(
+        new Map(
+          event.levels.map((level) => [audioLevelKey(level), level.peak]),
+        ),
+      )
+    })
+
+    return () => {
+      clearInterval(heartbeat)
+      unsubscribe()
+      void recording.stopAudioLevels().catch(() => undefined)
+    }
+  }, [recording])
+
+  return levels
+}
+
+function audioLevelKey(
+  level: Pick<RecordingAudioLevel, "target" | "kind" | "id">,
+): string {
+  return level.target === "device"
+    ? `device:${level.kind ?? ""}:${level.id}`
+    : `application:${level.id}`
+}
+
+function deviceLevel(
+  levels: ReadonlyMap<string, number> | null,
+  device: RecordingAudioDeviceSelection,
+): number | null {
+  if (!levels) return null
+  return (
+    levels.get(
+      audioLevelKey({
+        target: "device",
+        kind: device.kind,
+        id: device.id.toLowerCase(),
+      }),
+    ) ?? 0
+  )
+}
+
+function applicationLevel(
+  levels: ReadonlyMap<string, number> | null,
+  application: RecordingAudioApplicationSelection,
+): number | null {
+  if (!levels) return null
+  return (
+    levels.get(audioLevelKey({ target: "application", id: application.id })) ??
+    0
+  )
+}
+
 export function DesktopAudioSettings() {
   const { settings, status, busy, save } = useDesktopRecording()
+  const levels = useAudioLevels()
 
   if (!settings || !status) {
     return (
@@ -105,14 +181,28 @@ export function DesktopAudioSettings() {
           settings={settings}
           busy={controlsDisabled}
           save={save}
+          levels={levels}
         />
       ) : (
-        <AudioApplicationList
-          applications={applications}
-          settings={settings}
-          busy={controlsDisabled}
-          save={save}
-        />
+        <>
+          <AudioApplicationList
+            applications={applications}
+            settings={settings}
+            busy={controlsDisabled}
+            save={save}
+            levels={levels}
+          />
+          {/* Microphones aren't application streams, so input devices stay
+              manageable here for voice-over alongside the app audio. */}
+          <AudioDeviceList
+            devices={devices}
+            settings={settings}
+            busy={controlsDisabled}
+            save={save}
+            levels={levels}
+            kinds={["input"]}
+          />
+        </>
       )}
     </div>
   )
@@ -123,13 +213,28 @@ function AudioDeviceList({
   settings,
   busy,
   save,
+  levels,
+  kinds,
 }: {
   devices: RecordingAudioDeviceSelection[]
   settings: RecordingSettings
   busy: boolean
   save: (next: RecordingSettings) => Promise<void>
+  levels: ReadonlyMap<string, number> | null
+  /** Restricts the rendered device groups (e.g. input-only in apps mode). */
+  kinds?: RecordingAudioDeviceKind[]
 }) {
-  if (devices.length === 0) {
+  const groups = kinds
+    ? AUDIO_DEVICE_GROUPS.filter((group) => kinds.includes(group.kind))
+    : AUDIO_DEVICE_GROUPS
+  const hasDevices = devices.some(
+    (device) => !kinds || kinds.includes(device.kind),
+  )
+
+  if (!hasDevices) {
+    // In apps mode the input section is supplementary; stay quiet when there
+    // are no microphones rather than showing a full empty state.
+    if (kinds) return null
     return (
       <p className="text-foreground-dim py-2 text-xs">
         No audio devices are available.
@@ -139,7 +244,7 @@ function AudioDeviceList({
 
   return (
     <div className="flex flex-col gap-6">
-      {AUDIO_DEVICE_GROUPS.map((group) => {
+      {groups.map((group) => {
         const groupDevices = devices.filter(
           (device) => device.kind === group.kind,
         )
@@ -162,6 +267,7 @@ function AudioDeviceList({
                   subtitle={AUDIO_DEVICE_KIND_LABELS[device.kind]}
                   enabled={device.enabled}
                   volume={device.volume}
+                  level={deviceLevel(levels, device)}
                   busy={busy}
                   onChange={(patch) =>
                     void save({
@@ -187,11 +293,13 @@ function AudioApplicationList({
   settings,
   busy,
   save,
+  levels,
 }: {
   applications: RecordingAudioApplicationSelection[]
   settings: RecordingSettings
   busy: boolean
   save: (next: RecordingSettings) => Promise<void>
+  levels: ReadonlyMap<string, number> | null
 }) {
   if (applications.length === 0) {
     return (
@@ -212,6 +320,7 @@ function AudioApplicationList({
           subtitle={application.executable ?? application.window}
           enabled={application.enabled}
           volume={application.volume}
+          level={applicationLevel(levels, application)}
           busy={busy}
           onChange={(patch) =>
             void save({
@@ -254,6 +363,8 @@ function ApplicationAudioIcon({
  * One audio source row: enable checkbox, kind icon, label, and a live volume
  * slider with a percentage readout. The slider tracks a local draft while
  * dragging and only persists on commit to avoid a save per pointer move.
+ * While live levels are available (`level` is non-null) an OBS-style meter
+ * renders below the row.
  */
 function AudioRow({
   id,
@@ -262,6 +373,7 @@ function AudioRow({
   subtitle,
   enabled,
   volume,
+  level,
   busy,
   onChange,
 }: {
@@ -271,6 +383,8 @@ function AudioRow({
   subtitle?: string | null
   enabled: boolean
   volume: number
+  /** Live linear peak 0..1 pre-volume, or null when metering is unavailable. */
+  level: number | null
   busy: boolean
   onChange: (patch: { enabled?: boolean; volume?: number }) => void
 }) {
@@ -278,58 +392,148 @@ function AudioRow({
   const displayVolume = draftVolume ?? volume
 
   return (
-    <div className="not-last:border-border flex items-center gap-3 py-2.5 not-last:border-b first:pt-0 last:pb-0">
-      <Checkbox
-        id={id}
-        checked={enabled}
-        disabled={busy}
-        onCheckedChange={(checked) => onChange({ enabled: checked === true })}
-      />
-      <span
-        className={cn(
-          "bg-surface-raised text-foreground-muted flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md transition-opacity",
-          !enabled && "opacity-50",
-        )}
-      >
-        {icon}
-      </span>
-      <label
-        htmlFor={id}
-        className={cn(
-          "min-w-0 flex-1 cursor-pointer transition-opacity",
-          !enabled && "opacity-50",
-        )}
-      >
-        <span className="block truncate text-sm font-medium">{title}</span>
-        {subtitle ? (
-          <span className="text-foreground-dim block truncate text-xs">
-            {subtitle}
-          </span>
-        ) : null}
-      </label>
-      <div className="flex w-36 items-center gap-3 sm:w-52">
-        <Slider
-          min={0}
-          max={100}
-          step={1}
-          value={[displayVolume]}
-          disabled={busy || !enabled}
-          onValueChange={(value) => setDraftVolume(sliderValue(value))}
-          onValueCommitted={(value) => {
-            setDraftVolume(null)
-            onChange({ volume: sliderValue(value) })
-          }}
-          className="min-w-0 flex-1"
+    <div className="not-last:border-border flex flex-col py-2.5 not-last:border-b first:pt-0 last:pb-0">
+      <div className="flex items-center gap-3">
+        <Checkbox
+          id={id}
+          checked={enabled}
+          disabled={busy}
+          onCheckedChange={(checked) => onChange({ enabled: checked === true })}
         />
         <span
           className={cn(
-            "w-9 shrink-0 text-right text-xs tabular-nums transition-opacity",
-            enabled ? "text-foreground-muted" : "text-foreground-faint",
+            "bg-surface-raised text-foreground-muted flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md transition-opacity",
+            !enabled && "opacity-50",
           )}
         >
-          {displayVolume}%
+          {icon}
         </span>
+        <label
+          htmlFor={id}
+          className={cn(
+            "min-w-0 flex-1 cursor-pointer transition-opacity",
+            !enabled && "opacity-50",
+          )}
+        >
+          <span className="block truncate text-sm font-medium">{title}</span>
+          {subtitle ? (
+            <span className="text-foreground-dim block truncate text-xs">
+              {subtitle}
+            </span>
+          ) : null}
+        </label>
+        <div className="flex w-36 items-center gap-3 sm:w-52">
+          <Slider
+            min={0}
+            max={100}
+            step={1}
+            value={[displayVolume]}
+            disabled={busy || !enabled}
+            onValueChange={(value) => setDraftVolume(sliderValue(value))}
+            onValueCommitted={(value) => {
+              setDraftVolume(null)
+              onChange({ volume: sliderValue(value) })
+            }}
+            className="min-w-0 flex-1"
+          />
+          <span
+            className={cn(
+              "w-9 shrink-0 text-right text-xs tabular-nums transition-opacity",
+              enabled ? "text-foreground-muted" : "text-foreground-faint",
+            )}
+          >
+            {displayVolume}%
+          </span>
+        </div>
       </div>
+      {level !== null ? (
+        <div className="mt-2 flex items-center gap-3">
+          {/* Spacers mirror the checkbox + icon columns above. */}
+          <span className="w-4 shrink-0" />
+          <span className="w-7 shrink-0" />
+          <AudioLevelMeter
+            peak={level * (displayVolume / 100)}
+            active={enabled}
+          />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * OBS mixer color zones over a -60..0 dBFS scale: green below -20 dB, yellow
+ * to -9 dB, red above. Hard gradient stops sit at those boundaries and the
+ * fill is revealed with a clip so the zones stay fixed in place.
+ */
+const METER_MIN_DB = -60
+const METER_YELLOW_DB = -20
+const METER_RED_DB = -9
+const METER_GRADIENT = `linear-gradient(to right,
+  #22c55e ${meterDbStop(METER_YELLOW_DB)},
+  #eab308 ${meterDbStop(METER_YELLOW_DB)},
+  #eab308 ${meterDbStop(METER_RED_DB)},
+  #ef4444 ${meterDbStop(METER_RED_DB)})`
+/** How long a transient's peak position stays marked on the meter. */
+const METER_PEAK_HOLD_MS = 1500
+
+function meterDbStop(db: number): string {
+  return `${(meterFraction(db) * 100).toFixed(2)}%`
+}
+
+function meterFraction(db: number): number {
+  return Math.min(Math.max(1 - db / METER_MIN_DB, 0), 1)
+}
+
+function peakMeterFraction(peak: number): number {
+  if (peak <= 0) return 0
+  return meterFraction(20 * Math.log10(peak))
+}
+
+function AudioLevelMeter({ peak, active }: { peak: number; active: boolean }) {
+  const fraction = active ? peakMeterFraction(peak) : 0
+  // Peak-hold marker: keeps the loudest recent position visible so transients
+  // between samples still register. Ref mutation during render is safe here —
+  // the computation is idempotent for a given sample.
+  const hold = useRef({ fraction: 0, at: 0 })
+  const now = Date.now()
+  if (
+    fraction >= hold.current.fraction ||
+    now - hold.current.at > METER_PEAK_HOLD_MS ||
+    !active
+  ) {
+    hold.current = { fraction, at: now }
+  }
+
+  return (
+    <div
+      className={cn(
+        "bg-surface-raised relative h-1 min-w-0 flex-1 overflow-hidden rounded-full",
+        !active && "opacity-40",
+      )}
+      role="meter"
+      aria-label="Audio level"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(fraction * 100)}
+    >
+      <div
+        className="absolute inset-0 opacity-25"
+        style={{ backgroundImage: METER_GRADIENT }}
+      />
+      <div
+        className="absolute inset-0 transition-[clip-path] duration-100 ease-linear"
+        style={{
+          backgroundImage: METER_GRADIENT,
+          clipPath: `inset(0 ${((1 - fraction) * 100).toFixed(2)}% 0 0)`,
+        }}
+      />
+      {hold.current.fraction > 0 ? (
+        <div
+          className="bg-foreground/70 absolute inset-y-0 w-px"
+          style={{ left: `${(hold.current.fraction * 100).toFixed(2)}%` }}
+        />
+      ) : null}
     </div>
   )
 }

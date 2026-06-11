@@ -1,4 +1,4 @@
-import { copyFile, rm, stat } from "node:fs/promises"
+import { rm, stat } from "node:fs/promises"
 
 import type { AcceptedContentType } from "@alloy/contracts"
 import { type Clip, clip, clipUploadTicket } from "@alloy/db/schema"
@@ -19,16 +19,17 @@ import {
   clipStorage,
 } from "@alloy/server/storage/index"
 import {
-  deleteScratchUpload,
-  deleteScratchUploads,
-  scratchUploadPath,
-} from "@alloy/server/uploads/scratch"
+  deleteStagedUpload,
+  deleteStagedUploads,
+  downloadStagedUploadToFile,
+  resolveStagedUpload,
+} from "@alloy/server/uploads/staged"
 import { and, eq } from "drizzle-orm"
 
 import { abortMediaProcessing } from "./media-abort"
 import { makeMediaProgressWriter } from "./media-progress"
 import { type Asset, publishOriginalSource } from "./media-publish"
-import { ensureClipStillPresent, makeScratchDir } from "./media-run-helpers"
+import { ensureClipStillPresent, makeMediaWorkDir } from "./media-run-helpers"
 
 export async function runMediaProcessingInner(
   clipId: string,
@@ -36,19 +37,19 @@ export async function runMediaProcessingInner(
   runId: string,
   signal: AbortSignal,
 ): Promise<void> {
-  const scratchDir = await makeScratchDir(clipId)
+  const workDir = await makeMediaWorkDir(clipId)
   const uploadedKeys: string[] = []
   const retainedKeys = new Set<string>()
   if (row.sourceKey) retainedKeys.add(row.sourceKey)
   if (row.thumbKey) retainedKeys.add(row.thumbKey)
   let sourcePublishedForRetry = !!row.sourceKey
   try {
-    await runPipelineInScratch({
+    await runPipelineInWorkDir({
       clipId,
       row,
       runId,
       signal,
-      scratchDir,
+      workDir,
       uploadedKeys,
       retainSourceAsset: (asset) => {
         retainedKeys.add(asset.storageKey)
@@ -59,25 +60,25 @@ export async function runMediaProcessingInner(
   } catch (err) {
     await cleanupFailedRun(uploadedKeys, retainedKeys)
     if (sourcePublishedForRetry) {
-      await deleteScratchUpload(await selectScratchUploadKey(clipId))
+      await deleteStagedUpload(await selectStagedUploadKey(clipId))
     }
     throw err
   } finally {
-    await rm(scratchDir, { recursive: true, force: true }).catch((err) => {
+    await rm(workDir, { recursive: true, force: true }).catch((err) => {
       logger.warn(
-        `[queue] failed to remove media processing scratch dir ${scratchDir}:`,
+        `[queue] failed to remove media processing work dir ${workDir}:`,
         err,
       )
     })
   }
 }
 
-async function runPipelineInScratch({
+async function runPipelineInWorkDir({
   clipId,
   row,
   runId,
   signal,
-  scratchDir,
+  workDir,
   uploadedKeys,
   retainSourceAsset,
   retainPublishedKey,
@@ -86,7 +87,7 @@ async function runPipelineInScratch({
   row: Clip
   runId: string
   signal: AbortSignal
-  scratchDir: string
+  workDir: string
   uploadedKeys: string[]
   retainSourceAsset: (asset: Asset) => void
   retainPublishedKey: (key: string) => void
@@ -94,13 +95,13 @@ async function runPipelineInScratch({
   const sourceContentType = row.sourceContentType as AcceptedContentType | null
   if (!sourceContentType) throw new Error("Clip is missing source content type")
 
-  const sourcePath = join(scratchDir, "source")
+  const sourcePath = join(workDir, "source")
   if (row.sourceKey) {
     await clipStorage.downloadToFile(row.sourceKey, sourcePath)
   } else {
-    const uploadKey = await selectScratchUploadKey(clipId)
+    const uploadKey = await selectStagedUploadKey(clipId)
     if (!uploadKey) throw new Error("Uploaded source is missing")
-    await copyFile(scratchUploadPath(uploadKey), sourcePath)
+    await downloadStagedUploadToFile(uploadKey, sourcePath)
   }
   await ensureClipStillPresent(clipId, runId, signal)
 
@@ -125,7 +126,7 @@ async function runPipelineInScratch({
   let mediaPath = sourcePath
   let mediaContentType = sourceContentType
   if (trim) {
-    const trimmedPath = join(scratchDir, "trimmed.mp4")
+    const trimmedPath = join(workDir, "trimmed.mp4")
     await trimToMp4(sourcePath, trimmedPath, { ...trim, signal })
     mediaPath = trimmedPath
     mediaContentType = "video/mp4"
@@ -249,7 +250,7 @@ async function runPipelineInScratch({
     sourceAsset.storageKey,
     ...(thumbKey ? [thumbKey] : []),
   ])
-  await cleanupCompletedScratchUploads(clipId)
+  await cleanupCompletedStagedUploads(clipId)
   completeWork()
   void publishClipUpsert(row.authorId, clipId)
   void prewarmDirectHls(clipId)
@@ -326,10 +327,13 @@ async function republishUploadedThumbnail(
 ): Promise<{ thumbKey: string | null; thumbBlurHash: string | null }> {
   const uploadedThumbKey = await selectThumbUploadKey(clipId)
   if (uploadedThumbKey) {
-    const uploadedPath = scratchUploadPath(uploadedThumbKey)
-    if (await scratchFileExists(uploadedPath)) {
+    if (await stagedUploadExists(uploadedThumbKey)) {
       const thumbKey = clipAssetKey(clipId, "thumb")
-      await clipStorage.uploadFromFile(uploadedPath, thumbKey, "image/webp")
+      await clipStorage.copy({
+        fromKey: uploadedThumbKey,
+        toKey: thumbKey,
+        contentType: "image/webp",
+      })
       uploadedKeys.push(thumbKey)
       return { thumbKey, thumbBlurHash: row.thumbBlurHash }
     }
@@ -337,10 +341,8 @@ async function republishUploadedThumbnail(
   return { thumbKey: row.thumbKey, thumbBlurHash: row.thumbBlurHash }
 }
 
-async function scratchFileExists(path: string): Promise<boolean> {
-  return stat(path)
-    .then((info) => info.isFile())
-    .catch(() => false)
+async function stagedUploadExists(key: string): Promise<boolean> {
+  return (await resolveStagedUpload(key)) !== null
 }
 
 async function selectThumbUploadKey(clipId: string): Promise<string | null> {
@@ -357,7 +359,7 @@ async function selectThumbUploadKey(clipId: string): Promise<string | null> {
   return ticket?.storageKey ?? null
 }
 
-async function selectScratchUploadKey(clipId: string): Promise<string | null> {
+async function selectStagedUploadKey(clipId: string): Promise<string | null> {
   const [ticket] = await db
     .select({ storageKey: clipUploadTicket.storageKey })
     .from(clipUploadTicket)
@@ -371,17 +373,17 @@ async function selectScratchUploadKey(clipId: string): Promise<string | null> {
   return ticket?.storageKey ?? null
 }
 
-async function cleanupCompletedScratchUploads(clipId: string): Promise<void> {
+async function cleanupCompletedStagedUploads(clipId: string): Promise<void> {
   // After a successful publish every staged upload (video + poster) is
-  // consumed, so drop their scratch files and ticket rows together.
+  // consumed, so drop their objects and ticket rows together.
   const tickets = await db
     .select({ storageKey: clipUploadTicket.storageKey })
     .from(clipUploadTicket)
     .where(eq(clipUploadTicket.clipId, clipId))
   if (tickets.length === 0) return
-  await deleteScratchUploads(
+  await deleteStagedUploads(
     tickets.map((ticket) => ticket.storageKey),
-    "completed scratch upload",
+    "completed staged upload",
   )
   await db.delete(clipUploadTicket).where(eq(clipUploadTicket.clipId, clipId))
 }

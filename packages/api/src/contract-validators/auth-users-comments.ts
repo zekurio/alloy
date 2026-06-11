@@ -2,6 +2,7 @@ import {
   objectRecord,
   validateArray,
   validateBoolean,
+  validateEnumString,
   validateIsoDateString,
   validateNonNegativeInteger,
   validateNullableDateString,
@@ -29,6 +30,7 @@ import {
   type PublicLoginSplashConfig,
   type PublicUser,
   USER_ROLES,
+  USER_STATUSES,
   type UserProfile,
   type UserProfileViewer,
   type UserStorageUsage,
@@ -47,6 +49,7 @@ const PUBLIC_AUTH_BOOLEAN_FIELDS = [
   "requireAuthToBrowse",
 ] as const
 const USER_ROLE_SET: ReadonlySet<string> = new Set(USER_ROLES)
+const USER_STATUS_SET: ReadonlySet<string> = new Set(USER_STATUSES)
 function validatePublicAuthProvider(value: unknown): PublicAuthProvider {
   const provider = objectRecord(value, "auth provider")
   for (const key of ["providerId", "displayName"] as const) {
@@ -143,6 +146,15 @@ export function validateAdminUserStorageRow(
     USER_ROLE_SET,
     "Invalid admin user response: role is invalid",
   )
+  validateEnumString(
+    row.status,
+    USER_STATUS_SET,
+    "Invalid admin user response: status is invalid",
+  )
+  validateNullableDateString(
+    row.disabledAt,
+    "Invalid admin user response: disabledAt must be a date string or null",
+  )
   validateNullablePositiveInteger(
     row.storageQuotaBytes,
     "Invalid admin user response: storageQuotaBytes must be a positive integer or null",
@@ -150,6 +162,10 @@ export function validateAdminUserStorageRow(
   validateNonNegativeInteger(
     row.storageUsedBytes,
     "Invalid admin user response: storageUsedBytes must be a non-negative integer",
+  )
+  validateNonNegativeInteger(
+    row.clipCount,
+    "Invalid admin user response: clipCount must be a non-negative integer",
   )
   return value as AdminUserStorageRow
 }

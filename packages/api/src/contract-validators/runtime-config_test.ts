@@ -16,9 +16,22 @@ function adminRuntimeConfig() {
     oauthProviders: [],
     scheduledTasks: {},
     limits: {
-      maxUploadBytes: 4_294_967_296,
       defaultStorageQuotaBytes: null,
       uploadTtlSec: 900,
+    },
+    storage: {
+      driver: "fs",
+      path: "storage",
+      clipsPath: null,
+      usersPath: null,
+      s3: {
+        bucket: "",
+        region: "us-east-1",
+        endpoint: null,
+        forcePathStyle: false,
+      },
+      s3AccessKeyIdSet: false,
+      s3SecretAccessKeySet: false,
     },
     appearance: {
       loginSplash: {
@@ -36,14 +49,13 @@ function adminRuntimeConfig() {
 
 test("validateAdminRuntimeConfig accepts scheduled task triggers", () => {
   const config = adminRuntimeConfig()
-  ;(config.scheduledTasks as Record<string, unknown>)["clip-storage-cleanup"] =
-    [
-      { type: "startup", delayMs: 60_000 },
-      { type: "cron", expression: "0 3 * * *" },
-    ]
+  ;(config.scheduledTasks as Record<string, unknown>)["sample-maintenance"] = [
+    { type: "startup", delayMs: 60_000 },
+    { type: "cron", expression: "0 3 * * *" },
+  ]
 
   const parsed = validateAdminRuntimeConfig(config)
-  const triggers = parsed.scheduledTasks["clip-storage-cleanup"]
+  const triggers = parsed.scheduledTasks["sample-maintenance"]
 
   assert(triggers?.[0]?.type === "startup", "startup trigger should parse")
   assert(triggers?.[1]?.type === "cron", "cron trigger should parse")

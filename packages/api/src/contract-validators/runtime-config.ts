@@ -8,12 +8,14 @@ import {
   validateOptionalUrlString,
   validatePositiveInteger,
   validateRequiredString,
+  validateString,
   validateStringArray,
   validateUrlString,
 } from "@alloy/api/runtime-validation"
 import {
   type AdminRuntimeConfig,
   RUNTIME_CONFIG_VERSION,
+  STORAGE_DRIVER_TYPES,
   type RuntimeConfig,
 } from "@alloy/contracts"
 
@@ -84,10 +86,6 @@ function validateRuntimeOAuthProvider(value: unknown, label: string) {
 
 function validateAdminLimitsConfig(value: unknown) {
   const limits = objectRecord(value, "admin limits config")
-  validatePositiveInteger(
-    limits.maxUploadBytes,
-    "Invalid admin limits config: maxUploadBytes must be a positive integer",
-  )
   validateNullablePositiveInteger(
     limits.defaultStorageQuotaBytes,
     "Invalid admin limits config: defaultStorageQuotaBytes must be a positive integer or null",
@@ -103,6 +101,71 @@ function validateAdminIntegrationsConfig(value: unknown) {
   validateBoolean(
     integrations.steamgriddbApiKeySet,
     "Invalid admin integrations config: steamgriddbApiKeySet must be boolean",
+  )
+}
+
+function validateStorageConfig(value: unknown, label: string) {
+  const storage = objectRecord(value, `${label} storage config`)
+  validateEnumString(
+    storage.driver,
+    new Set(STORAGE_DRIVER_TYPES),
+    `Invalid ${label} storage config: driver is invalid`,
+  )
+  validateRequiredString(
+    storage.path,
+    `Invalid ${label} storage config: path is required`,
+  )
+  for (const key of ["clipsPath", "usersPath"] as const) {
+    const path = storage[key]
+    if (path !== null) {
+      validateRequiredString(
+        path,
+        `Invalid ${label} storage config: ${key} must be a string or null`,
+      )
+    }
+  }
+  const s3 = objectRecord(storage.s3, `${label} S3 storage config`)
+  if (storage.driver === "s3") {
+    validateRequiredString(
+      s3.bucket,
+      `Invalid ${label} S3 storage config: bucket is required`,
+    )
+    validateRequiredString(
+      s3.region,
+      `Invalid ${label} S3 storage config: region is required`,
+    )
+  } else {
+    validateString(
+      s3.bucket,
+      `Invalid ${label} S3 storage config: bucket must be a string`,
+    )
+    validateString(
+      s3.region,
+      `Invalid ${label} S3 storage config: region must be a string`,
+    )
+  }
+  if (s3.endpoint !== null) {
+    validateUrlString(
+      s3.endpoint,
+      `Invalid ${label} S3 storage config: endpoint must be a URL or null`,
+    )
+  }
+  validateBoolean(
+    s3.forcePathStyle,
+    `Invalid ${label} S3 storage config: forcePathStyle must be boolean`,
+  )
+}
+
+function validateAdminStorageConfig(value: unknown) {
+  const storage = objectRecord(value, "admin storage config")
+  validateStorageConfig(storage, "admin")
+  validateBoolean(
+    storage.s3AccessKeyIdSet,
+    "Invalid admin storage config: s3AccessKeyIdSet must be boolean",
+  )
+  validateBoolean(
+    storage.s3SecretAccessKeySet,
+    "Invalid admin storage config: s3SecretAccessKeySet must be boolean",
   )
 }
 
@@ -186,6 +249,7 @@ function validateRuntimeConfigFields(
   )
   validateScheduledTasksConfig(config.scheduledTasks, label)
   validateAdminLimitsConfig(config.limits)
+  validateStorageConfig(config.storage, label)
   validateAdminAppearanceConfig(config.appearance)
 }
 
@@ -204,6 +268,7 @@ export function validateAdminRuntimeConfig(value: unknown): AdminRuntimeConfig {
       "Invalid admin runtime config: clientSecretSet must be boolean",
     )
   }
+  validateAdminStorageConfig(config.storage)
   validateAdminIntegrationsConfig(config.integrations)
   validateUrlString(
     config.authBaseURL,

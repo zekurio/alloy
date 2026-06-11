@@ -2,7 +2,7 @@ import { mkdir, mkdtemp } from "node:fs/promises"
 
 import { clip } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
-import { ENCODE_DIR } from "@alloy/server/runtime/dirs"
+import { MEDIA_CACHE_DIR } from "@alloy/server/runtime/dirs"
 import { and, eq } from "drizzle-orm"
 
 import { abortMediaProcessing } from "./media-abort"
@@ -22,7 +22,7 @@ export async function ensureClipStillPresent(
   throw abortMediaProcessing()
 }
 
-export async function makeScratchDir(clipId: string): Promise<string> {
-  await mkdir(ENCODE_DIR, { recursive: true })
-  return mkdtemp(`${ENCODE_DIR}/${clipId}-`)
+export async function makeMediaWorkDir(clipId: string): Promise<string> {
+  await mkdir(MEDIA_CACHE_DIR, { recursive: true })
+  return mkdtemp(`${MEDIA_CACHE_DIR}/${clipId}-`)
 }

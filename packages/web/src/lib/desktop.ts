@@ -4,6 +4,8 @@ import type {
   RecordingDisplay,
   RecordingEvent,
   RecordingGameProcess,
+  RecordingLibraryDownload,
+  RecordingLibraryDownloadRequest,
   RecordingLibraryExport,
   RecordingLibraryExportRequest,
   RecordingLibraryImportRequest,
@@ -26,6 +28,9 @@ import type {
 export type {
   RecordingCaptureMention,
   RecordingLibraryItem,
+  RecordingLibraryDownload,
+  RecordingLibraryDownloadRequest,
+  RecordingLibraryDownloadStatus,
   RecordingLibraryExportSegment,
   RecordingLibraryExportRequest,
   RecordingLibraryMetaPatch,
@@ -87,14 +92,35 @@ export interface AlloyDesktopRecordingApi {
   importLibraryCapture(
     request: RecordingLibraryImportRequest,
   ): Promise<RecordingLibraryImportResult>
+  /**
+   * Persists an uploaded clip into the local capture library. Progress
+   * streams out as "library-download" recording events.
+   */
+  downloadClip(
+    request: RecordingLibraryDownloadRequest,
+  ): Promise<RecordingLibraryDownload>
+  /** Aborts an in-flight clip download, or forgets a finished one. */
+  cancelClipDownload(clipId: string): Promise<void>
+  /** Snapshot of active + finished (undismissed) clip downloads. */
+  listClipDownloads(): Promise<RecordingLibraryDownload[]>
   onEvent(listener: (event: RecordingEvent) => void): () => void
   selectOutputFolder(): Promise<string | null>
   listNotificationSounds(): Promise<RecordingNotificationSoundLibrary>
   openNotificationSoundsFolder(
     sound: RecordingNotificationSoundEvent,
   ): Promise<void>
+  previewNotificationSound(
+    sound: RecordingNotificationSoundEvent,
+  ): Promise<void>
   listGameProcesses(): Promise<RecordingGameProcess[]>
   listDisplays(): Promise<RecordingDisplay[]>
+  /**
+   * Keeps live "audio-levels" events flowing for a few seconds; re-send as a
+   * heartbeat while a level meter UI is visible.
+   */
+  subscribeAudioLevels(): Promise<void>
+  /** Stops audio-level events without waiting for the subscription to expire. */
+  stopAudioLevels(): Promise<void>
   saveReplayClip(request: SaveReplayClipRequest): Promise<RecordingActionResult>
   addBookmark(request: RecordingActionRequest): Promise<RecordingActionResult>
   takeScreenshot(
@@ -122,6 +148,23 @@ export interface AlloyDesktop {
 
 export function alloyDesktop(): AlloyDesktop | null {
   return (globalThis as { alloyDesktop?: AlloyDesktop }).alloyDesktop ?? null
+}
+
+/**
+ * In-renderer signal that capture metadata changed outside the library page
+ * (e.g. an upload finalized and linked a capture to its server clip), so
+ * snapshot consumers re-scan without waiting for a recorder event.
+ */
+const LIBRARY_CAPTURES_CHANGED_EVENT = "alloy:library-captures-changed"
+
+export function notifyLibraryCapturesChanged(): void {
+  window.dispatchEvent(new Event(LIBRARY_CAPTURES_CHANGED_EVENT))
+}
+
+export function onLibraryCapturesChanged(listener: () => void): () => void {
+  window.addEventListener(LIBRARY_CAPTURES_CHANGED_EVENT, listener)
+  return () =>
+    window.removeEventListener(LIBRARY_CAPTURES_CHANGED_EVENT, listener)
 }
 
 /**

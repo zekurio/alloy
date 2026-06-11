@@ -1,7 +1,4 @@
-const BYTES_PER_MIB = 1024 * 1024
 const BYTES_PER_GIB = 1024 * 1024 * 1024
-const POSITIVE_MIB_ERROR =
-  "Value must be a positive MiB value within the safe integer range."
 const QUOTA_GIB_ERROR =
   "Quota must be blank or a positive GiB value within the safe integer range."
 
@@ -20,22 +17,6 @@ export function formatBytes(bytes: number): string {
 
 export function formatQuotaGiB(quotaBytes: number | null): string {
   return quotaBytes === null ? "" : String(quotaBytes / BYTES_PER_GIB)
-}
-
-export function formatMiB(bytes: number): string {
-  return String(Math.round(bytes / BYTES_PER_MIB))
-}
-
-export function parsePositiveMiB(value: string): number {
-  const mib = Number(value.trim())
-  if (!Number.isFinite(mib) || mib <= 0) {
-    throw new Error(POSITIVE_MIB_ERROR)
-  }
-  const bytes = Math.round(mib * BYTES_PER_MIB)
-  if (!Number.isSafeInteger(bytes) || bytes <= 0) {
-    throw new Error(POSITIVE_MIB_ERROR)
-  }
-  return bytes
 }
 
 export function parseQuotaGiB(value: string): number | null {

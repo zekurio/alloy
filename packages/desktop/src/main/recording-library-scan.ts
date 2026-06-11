@@ -27,8 +27,6 @@ import {
 } from "./recording-library-manifest"
 import {
   captureId,
-  FILMSTRIP_FRAME_COUNT,
-  FILMSTRIP_HOST,
   IMAGE_EXTENSIONS,
   MEDIA_HOST,
   MEDIA_PROTOCOL,
@@ -190,14 +188,6 @@ function libraryItemForFile(
       kind === "screenshot"
         ? mediaUrl
         : `${MEDIA_PROTOCOL}://${THUMBNAIL_HOST}/${id}?v=${thumbnailVersion}`,
-    filmstripFrameUrls:
-      kind === "screenshot"
-        ? []
-        : Array.from(
-            { length: FILMSTRIP_FRAME_COUNT },
-            (_, frame) =>
-              `${MEDIA_PROTOCOL}://${FILMSTRIP_HOST}/${id}/${frame}?v=${thumbnailVersion}`,
-          ),
     thumbBlurHash: getThumbnailBlurHash(`${id}-${thumbnailVersion}`),
     collection: collection.collection,
     kind,
@@ -217,6 +207,7 @@ function libraryItemForFile(
     tags: manifestEntry?.tags ?? null,
     mentions: manifestEntry?.mentions ?? [],
     privacy: manifestEntry?.privacy ?? null,
+    uploadedClipId: manifestEntry?.uploadedClipId ?? null,
     createdAt,
     modifiedAt,
   }

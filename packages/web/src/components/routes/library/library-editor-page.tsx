@@ -2,36 +2,55 @@ import type { ClipPrivacy, GameRow, UserSearchResult } from "@alloy/api"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { BlurHashCanvas } from "@alloy/ui/components/blurhash-canvas"
 import { Button } from "@alloy/ui/components/button"
+import { Chip } from "@alloy/ui/components/chip"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@alloy/ui/components/dropdown-menu"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { Kbd } from "@alloy/ui/components/kbd"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { toast } from "@alloy/ui/lib/toast"
 import { useNavigate } from "@tanstack/react-router"
 import {
+  ChevronRightIcon,
+  ChevronUpIcon,
   ClapperboardIcon,
+  GlobeIcon,
   HardDriveIcon,
   ImageIcon,
+  Link2Icon,
   MonitorIcon,
   Trash2Icon,
   UploadIcon,
 } from "lucide-react"
 import * as React from "react"
 
-import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
+import {
+  ClipMetadataEditor,
+  ClipMetadataSection,
+} from "@/components/clip/clip-metadata-editor"
 import { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
 import { VideoPlayer } from "@/components/video/video-player"
+import { absoluteClipHref } from "@/lib/app-paths"
 import {
   CLIP_DESCRIPTION_MAX,
   formatTags,
   normalizeClipTitle,
   parseTagString,
 } from "@/lib/clip-fields"
+import { copyTextToClipboard } from "@/lib/clipboard"
 import { alloyDesktop, type AlloyDesktop } from "@/lib/desktop"
+import { publicOrigin } from "@/lib/env"
 import { errorMessage } from "@/lib/error-message"
+import { useMediaFilmstrip } from "@/lib/media-filmstrip"
 
 import { exportAndPublishCapture } from "./library-capture-publish"
 import {
   enrichLibraryItem,
+  formatLibraryBytes,
   type LibraryItemView,
   useLibraryGameLookup,
   useLibrarySnapshot,
@@ -205,9 +224,6 @@ function EditorBody({
   const [mentions, setMentions] = React.useState<UserSearchResult[]>(
     item.mentions,
   )
-  const [privacy, setPrivacy] = React.useState<ClipPrivacy>(
-    item.privacy ?? "unlisted",
-  )
   const [publishAttempted, setPublishAttempted] = React.useState(false)
   const [publishing, setPublishing] = React.useState(false)
   useDraftPersistence(desktop, item.id, {
@@ -215,7 +231,6 @@ function EditorBody({
     description,
     tags,
     mentions,
-    privacy,
   })
 
   // The capture's game may resolve after mount (lookup query lands once the
@@ -226,7 +241,12 @@ function EditorBody({
     setGame((current) => current ?? resolvedGame)
   }, [resolvedGame])
 
+  const revealCapture = () => {
+    void desktop.recording.revealLibraryCapture(item.id)
+  }
+
   const isVideo = item.kind !== "screenshot"
+  const filmstrip = useMediaFilmstrip(isVideo ? item.mediaUrl : null)
   const canPublish =
     isVideo &&
     !publishing &&
@@ -283,7 +303,9 @@ function EditorBody({
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [navigate, prevId, nextId])
 
-  const handlePublish = async () => {
+  // Visibility is the publish action itself: "Post to Profile" uploads
+  // public, "Create Link" uploads unlisted and puts the URL on the clipboard.
+  const handlePublish = async (privacy: ClipPrivacy) => {
     setPublishAttempted(true)
     const pickedGame = game
     const normalizedTitle = normalizeClipTitle(title)
@@ -298,7 +320,7 @@ function EditorBody({
 
     setPublishing(true)
     try {
-      await exportAndPublishCapture({
+      const { clipId } = await exportAndPublishCapture({
         desktop,
         item,
         trim: { startMs: trim.startMs, endMs: trim.endMs },
@@ -310,6 +332,17 @@ function EditorBody({
         mentions,
         publishClip,
       })
+      if (privacy === "unlisted" && clipId) {
+        const copied = await copyTextToClipboard(
+          absoluteClipHref(pickedGame.slug, clipId, publicOrigin()),
+          { action: "copy published clip link" },
+        )
+        if (copied) {
+          toast.success("Link copied to clipboard")
+        } else {
+          toast.error("Couldn't copy the clip link")
+        }
+      }
       void navigate({ to: "/library" })
     } catch (cause) {
       toast.error(errorMessage(cause, "Couldn't prepare clip"))
@@ -374,7 +407,7 @@ function EditorBody({
               <TrimTransportControls playback={playback} />
 
               <LibraryTrimBar
-                frames={item.filmstripFrameUrls}
+                frames={filmstrip.frames}
                 durationMs={playback.durationMs}
                 startMs={trim.startMs}
                 endMs={trim.endMs}
@@ -425,25 +458,35 @@ function EditorBody({
           ) : null}
 
           {isVideo ? (
-            <ClipMetadataEditor
-              title={title}
-              onTitleChange={setTitle}
-              description={description}
-              onDescriptionChange={setDescription}
-              game={game}
-              onGameChange={setGame}
-              mentions={mentions}
-              onMentionsChange={setMentions}
-              privacy={privacy}
-              onPrivacyChange={setPrivacy}
-              tags={parseTagString(tags)}
-              onTagsChange={(next) => setTags(formatTags(next))}
-              disabled={publishing || deleting}
-              titleInvalid={
-                publishAttempted && normalizeClipTitle(title).length === 0
-              }
-              gameInvalid={publishAttempted && !game}
-            />
+            <>
+              <ClipMetadataEditor
+                title={title}
+                onTitleChange={setTitle}
+                description={description}
+                onDescriptionChange={setDescription}
+                game={game}
+                onGameChange={setGame}
+                mentions={mentions}
+                onMentionsChange={setMentions}
+                tags={parseTagString(tags)}
+                onTagsChange={(next) => setTags(formatTags(next))}
+                disabled={publishing || deleting}
+                titleInvalid={
+                  publishAttempted && normalizeClipTitle(title).length === 0
+                }
+                gameInvalid={publishAttempted && !game}
+              />
+              <ClipMetadataSection label="File Location">
+                <Chip size="xl" onClick={revealCapture}>
+                  <MonitorIcon />
+                  On Device
+                  <span className="text-foreground-faint font-normal">
+                    ({formatLibraryBytes(item.sizeBytes)})
+                  </span>
+                  <ChevronRightIcon className="text-foreground-faint" />
+                </Chip>
+              </ClipMetadataSection>
+            </>
           ) : (
             <>
               <div className="text-foreground-dim flex min-w-0 items-center gap-1.5 text-sm">
@@ -478,17 +521,54 @@ function EditorBody({
               Delete
             </Button>
             {isVideo ? (
-              <Button
-                type="button"
-                variant="primary"
-                disabled={!canPublish}
-                onClick={() => {
-                  void handlePublish()
-                }}
-              >
-                <UploadIcon />
-                {publishing ? "Preparing..." : "Upload"}
-              </Button>
+              <div className="flex items-center">
+                <Button
+                  type="button"
+                  variant="primary"
+                  disabled={!canPublish}
+                  className="rounded-r-none"
+                  onClick={() => {
+                    void handlePublish("public")
+                  }}
+                >
+                  <UploadIcon />
+                  {publishing ? "Preparing..." : "Post"}
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="icon"
+                        disabled={!canPublish}
+                        aria-label="More publish options"
+                        className="border-l-accent-hover rounded-l-none"
+                      />
+                    }
+                  >
+                    <ChevronUpIcon />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" side="top" className="w-52">
+                    <DropdownMenuItem
+                      onClick={() => {
+                        void handlePublish("public")
+                      }}
+                    >
+                      <GlobeIcon className="size-4" />
+                      Post to Profile
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        void handlePublish("unlisted")
+                      }}
+                    >
+                      <Link2Icon className="size-4" />
+                      Create Link
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             ) : null}
           </div>
         </aside>

@@ -2,7 +2,14 @@ import * as React from "react"
 
 import type { PublishPayload } from "./new-clip-helpers"
 
-export type PublishClipFn = (payload: PublishPayload) => Promise<void>
+export interface PublishClipResult {
+  /** Server clip id, or null when the upload was cancelled. */
+  clipId: string | null
+}
+
+export type PublishClipFn = (
+  payload: PublishPayload,
+) => Promise<PublishClipResult>
 
 export interface UploadFlowControls {
   queueOpen: boolean

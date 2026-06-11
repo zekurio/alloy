@@ -1,3 +1,4 @@
+import type { RecordingLibraryDownload } from "./desktop-recording-library"
 import type {
   AcceptedContentType,
   AcceptedImageContentType,
@@ -118,16 +119,11 @@ export const RECORDING_QUALITY_PRESETS: Array<
 
 /** Keyboard shortcuts for the capture controls (empty string = unbound). */
 export interface RecordingHotkeys {
-  clips: RecordingClipHotkey[]
+  /** Saves the full replay buffer (its length is `replayBufferSeconds`). */
+  clip: string
   bookmark: string
   screenshot: string
   toggleLongRecording: string
-}
-
-export interface RecordingClipHotkey {
-  id: string
-  hotkey: string
-  durationSeconds: number
 }
 
 export interface RecordingLongRecordingSettings {
@@ -179,6 +175,20 @@ export interface RecordingAudioApplicationSelection {
   processId: number | null
   enabled: boolean
   volume: number
+}
+
+/**
+ * Live loudness sample for one audio source, emitted by the capture backend
+ * while a meter UI holds an audio-levels subscription open.
+ */
+export interface RecordingAudioLevel {
+  target: "device" | "application"
+  /** Device kind for device targets; absent for application targets. */
+  kind?: RecordingAudioDeviceKind
+  /** Matches RecordingAudioDeviceSelection.id / RecordingAudioApplicationSelection.id. */
+  id: string
+  /** Linear peak amplitude 0..1, pre-volume (the UI applies the row volume). */
+  peak: number
 }
 
 export interface RecordingAllowedGame {
@@ -341,3 +351,5 @@ export type RecordingEvent =
       status: RecordingStatus
     }
   | { type: "error"; error: string; status: RecordingStatus }
+  | { type: "audio-levels"; levels: RecordingAudioLevel[] }
+  | { type: "library-download"; download: RecordingLibraryDownload }

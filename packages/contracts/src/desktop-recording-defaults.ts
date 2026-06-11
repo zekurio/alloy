@@ -36,8 +36,8 @@ export const DEFAULT_RECORDING_SETTINGS: RecordingSettings = {
   bufferStorage: "memory",
   outputFolder: "",
   hotkeys: {
-    clips: [{ id: "default", hotkey: "F8", durationSeconds: 90 }],
-    bookmark: "F8",
+    clip: "F8",
+    bookmark: "F9",
     screenshot: "F7",
     toggleLongRecording: "Alt+F7",
   },

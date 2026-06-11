@@ -16,7 +16,8 @@ import {
   type WrappedCanvas,
 } from "mediabunny"
 
-import { createCaptureSource } from "./editor-playback-source"
+import { createCaptureSource } from "@/lib/capture-source"
+
 import {
   activeTransitionAt,
   clipAtTimelineMs,

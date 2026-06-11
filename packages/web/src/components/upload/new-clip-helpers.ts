@@ -43,6 +43,11 @@ export interface PublishPayload {
   mentionedUserIds: string[]
   /** Bare, canonical hashtags for the clip. */
   tags: string[]
+  /**
+   * Desktop library capture this upload was published from; links the local
+   * capture to the server clip once the upload finalizes.
+   */
+  localCaptureId?: string
 }
 
 const CONTENT_TYPE_ALIASES: Record<string, AcceptedContentType> = {
@@ -86,5 +91,5 @@ export function stripExtension(filename: string): string {
   return idx > 0 ? filename.slice(0, idx) : filename
 }
 
-export { captureThumbnail } from "./new-clip-media"
+export { captureThumbnail, thumbnailFromImageUrl } from "./new-clip-media"
 export { type ProbedFile, probeFile }

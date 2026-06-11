@@ -1,3 +1,4 @@
+import type { ClipRow } from "@alloy/api"
 import {
   InputGroup,
   InputGroupAddon,
@@ -6,6 +7,7 @@ import {
 import { CloudIcon, LibraryIcon, PlusIcon, SearchIcon } from "lucide-react"
 import * as React from "react"
 
+import { ClipDownloadIconButton } from "@/components/clip/clip-download-button"
 import { formatMediaDurationMs } from "@/lib/media-time"
 
 /** One addable media row: a local capture or an uploaded ("cloud") clip. */
@@ -20,6 +22,8 @@ export interface EditorMediaItem {
   searchText: string
   /** True when the media streams from the server (an uploaded clip). */
   cloud: boolean
+  /** Full clip row for cloud items — powers the save-to-device action. */
+  clipRow?: ClipRow
 }
 
 /**
@@ -90,44 +94,59 @@ function MediaRow({
   item: EditorMediaItem
   onAdd: () => void
 }) {
+  // The download control is a real button, so the row click lives on its own
+  // button underneath instead of wrapping it (no nested interactive elements).
   return (
-    <button
-      type="button"
-      className="group/media hover:bg-surface-raised flex w-full cursor-pointer items-center gap-2 rounded-md p-1.5 text-left transition-colors"
-      title={`Add ${item.title} to the timeline`}
-      onClick={onAdd}
-    >
-      <div className="bg-surface-raised relative aspect-video w-16 shrink-0 overflow-hidden rounded">
-        {item.thumbnailUrl ? (
-          <img
-            src={item.thumbnailUrl}
-            alt=""
-            loading="lazy"
-            className="size-full object-cover"
-          />
-        ) : null}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-foreground truncate text-xs font-medium">
-          {item.title}
-        </p>
-        <p className="text-foreground-faint flex items-center gap-1 truncate text-xs tabular-nums">
-          {item.cloud ? (
-            <CloudIcon aria-label="Uploaded clip" className="size-3 shrink-0" />
-          ) : null}
-          <span className="truncate">
-            {item.durationMs ? formatMediaDurationMs(item.durationMs) : "—"} ·{" "}
-            {item.subtitle}
-          </span>
-        </p>
-      </div>
-      {/* The row itself is the button; this is just the hover affordance. */}
-      <span
-        aria-hidden
-        className="bg-surface-raised text-foreground-muted inline-flex size-6 shrink-0 items-center justify-center rounded-md opacity-0 transition-opacity group-hover/media:opacity-100"
+    <div className="group/media relative">
+      <button
+        type="button"
+        className="hover:bg-surface-raised flex w-full cursor-pointer items-center gap-2 rounded-md p-1.5 text-left transition-colors"
+        title={`Add ${item.title} to the timeline`}
+        onClick={onAdd}
       >
-        <PlusIcon className="size-3.5" />
-      </span>
-    </button>
+        <div className="bg-surface-raised relative aspect-video w-16 shrink-0 overflow-hidden rounded">
+          {item.thumbnailUrl ? (
+            <img
+              src={item.thumbnailUrl}
+              alt=""
+              loading="lazy"
+              className="size-full object-cover"
+            />
+          ) : null}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-foreground truncate text-xs font-medium">
+            {item.title}
+          </p>
+          <p className="text-foreground-faint flex items-center gap-1 truncate text-xs tabular-nums">
+            {item.cloud ? (
+              <CloudIcon
+                aria-label="Uploaded clip"
+                className="size-3 shrink-0"
+              />
+            ) : null}
+            <span className="truncate">
+              {item.durationMs ? formatMediaDurationMs(item.durationMs) : "—"} ·{" "}
+              {item.subtitle}
+            </span>
+          </p>
+        </div>
+        {/* The row itself is the button; this is just the hover affordance. */}
+        <span
+          aria-hidden
+          className={`bg-surface-raised text-foreground-muted inline-flex size-6 shrink-0 items-center justify-center rounded-md opacity-0 transition-opacity group-hover/media:opacity-100 ${
+            item.clipRow ? "mr-7" : ""
+          }`}
+        >
+          <PlusIcon className="size-3.5" />
+        </span>
+      </button>
+      {item.clipRow ? (
+        <ClipDownloadIconButton
+          row={item.clipRow}
+          className="absolute top-1/2 right-1.5 size-6 -translate-y-1/2 opacity-0 transition-opacity group-hover/media:opacity-100 focus-visible:opacity-100 disabled:opacity-100"
+        />
+      ) : null}
+    </div>
   )
 }

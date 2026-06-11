@@ -16,7 +16,7 @@ import {
 import { Slider } from "@alloy/ui/components/slider"
 import { Switch } from "@alloy/ui/components/switch"
 import { cn } from "@alloy/ui/lib/utils"
-import { FolderOpenIcon } from "lucide-react"
+import { FolderOpenIcon, PlayIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { Subsection } from "./desktop-capture-sections"
@@ -77,8 +77,11 @@ export function NotificationSoundsSection({
   busy: boolean
   save: (next: RecordingSettings) => Promise<void>
 }) {
-  const { listNotificationSounds, openNotificationSoundsFolder } =
-    useDesktopRecording()
+  const {
+    listNotificationSounds,
+    openNotificationSoundsFolder,
+    previewNotificationSound,
+  } = useDesktopRecording()
   const [library, setLibrary] =
     useState<RecordingNotificationSoundLibrary>(EMPTY_LIBRARY)
 
@@ -120,6 +123,7 @@ export function NotificationSoundsSection({
               void saveSound(settings, save, row.id, { volume })
             }
             onOpenFolder={() => void openNotificationSoundsFolder(row.id)}
+            onPreview={() => void previewNotificationSound(row.id)}
             onRefresh={() => void refreshLibrary()}
           />
         ))}
@@ -139,6 +143,7 @@ function SoundCard({
   onPathChange,
   onVolumeChange,
   onOpenFolder,
+  onPreview,
   onRefresh,
 }: {
   title: string
@@ -151,6 +156,7 @@ function SoundCard({
   onPathChange: (path: string) => void
   onVolumeChange: (volume: number) => void
   onOpenFolder: () => void
+  onPreview: () => void
   onRefresh: () => void
 }) {
   const [draftVolume, setDraftVolume] = useState<number | null>(null)
@@ -219,6 +225,17 @@ function SoundCard({
               ))}
             </SelectContent>
           </Select>
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon-sm"
+            disabled={busy || !selectedValue}
+            title="Test sound"
+            aria-label={`Test ${title} sound`}
+            onClick={onPreview}
+          >
+            <PlayIcon className="size-3.5" />
+          </Button>
           <Button
             type="button"
             variant="secondary"

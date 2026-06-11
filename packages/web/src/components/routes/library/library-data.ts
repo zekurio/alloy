@@ -5,6 +5,7 @@ import * as React from "react"
 import {
   type AlloyDesktop,
   desktopCachedAssetUrl,
+  onLibraryCapturesChanged,
   type RecordingLibraryGroup,
   type RecordingLibraryItem,
   type RecordingLibrarySnapshot,
@@ -67,6 +68,13 @@ export function useLibrarySnapshot(
           void refresh()
         }, 250)
       }
+    })
+  }, [desktop, refresh])
+
+  React.useEffect(() => {
+    if (!desktop) return
+    return onLibraryCapturesChanged(() => {
+      void refresh()
     })
   }, [desktop, refresh])
 
@@ -138,14 +146,21 @@ export interface LibraryGroupView {
  * are merged by game name so a server clip counts toward its actual game (e.g.
  * "Brotato") instead of a generic "Uploaded" bucket. Only uploaded clips with
  * no game fall back to the cloud chip.
+ *
+ * `collapsedCounts` holds, per local group key, how many captures collapsed
+ * into their uploaded clip — those count toward the clip's game chip instead,
+ * so they're subtracted here (a chip left at zero disappears).
  */
 export function buildLibraryGroups(
   localGroups: RecordingLibraryGroup[],
   uploaded: ClipRow[],
+  collapsedCounts?: Map<string, number>,
 ): LibraryGroupView[] {
   const map = new Map<string, LibraryGroupView>()
 
   for (const group of localGroups) {
+    const totalCount = group.totalCount - (collapsedCounts?.get(group.key) ?? 0)
+    if (totalCount <= 0) continue
     if (group.kind === "desktop") {
       map.set(group.key, {
         key: group.key,
@@ -154,7 +169,7 @@ export function buildLibraryGroups(
         iconUrl: null,
         localKeys: [group.key],
         nameKey: null,
-        totalCount: group.totalCount,
+        totalCount,
       })
       continue
     }
@@ -162,7 +177,7 @@ export function buildLibraryGroups(
     const existing = map.get(nameKey)
     if (existing) {
       existing.localKeys.push(group.key)
-      existing.totalCount += group.totalCount
+      existing.totalCount += totalCount
       existing.iconUrl ??= group.iconUrl
     } else {
       map.set(nameKey, {
@@ -172,7 +187,7 @@ export function buildLibraryGroups(
         iconUrl: group.iconUrl,
         localKeys: [group.key],
         nameKey,
-        totalCount: group.totalCount,
+        totalCount,
       })
     }
   }

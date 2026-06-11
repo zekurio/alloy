@@ -91,6 +91,8 @@ interface ClipMetaProps {
   /** Fired after a successful delete — e.g. closes the player modal. */
   onDeleted?: () => void
   onEdit?: () => void
+  /** Desktop-only "save to this device" affordance, slotted by the viewer. */
+  downloadAction?: React.ReactNode
 }
 
 function ClipMeta({
@@ -109,6 +111,7 @@ function ClipMeta({
   tags,
   onDeleted,
   onEdit,
+  downloadAction,
 }: ClipMetaProps) {
   const { data: session } = useSession()
   const viewerId = session?.user?.id ?? null
@@ -226,6 +229,7 @@ function ClipMeta({
             <HeartIcon className={cn(liked && "fill-current")} />
             <span className="tabular-nums">{formatCount(likes)}</span>
           </Button>
+          {downloadAction}
           <Button
             variant="ghost"
             size="icon-sm"

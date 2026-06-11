@@ -1,4 +1,3 @@
-import { gameBlurHashBackfillTask } from "./blurhash-backfill"
-import { clipStorageCleanupTask } from "./clip-maintenance"
+import type { ScheduledTask } from "./types"
 
-export const scheduledTasks = [clipStorageCleanupTask, gameBlurHashBackfillTask]
+export const scheduledTasks: ScheduledTask[] = []
