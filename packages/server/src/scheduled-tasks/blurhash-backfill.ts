@@ -10,29 +10,21 @@ import { imageBlurHash } from "../media/blurhash"
 import { ENCODE_DIR } from "../runtime/dirs"
 import { join } from "../runtime/path"
 import { clipStorage } from "../storage"
+import { startupAndCronTriggers } from "./triggers"
 import type { ScheduledTask, ScheduledTaskResult } from "./types"
 
-const BLURHASH_BACKFILL_CRON = "30 */6 * * *"
-const BLURHASH_BACKFILL_STARTUP_DELAY_MS = 90 * 1000
-const BLURHASH_BACKFILL_STARTUP_JITTER_MS = 30 * 1000
-const BLURHASH_BACKFILL_CRON_JITTER_MS = 120 * 1000
+const BLURHASH_BACKFILL_TRIGGERS = startupAndCronTriggers({
+  startupDelayMs: 90 * 1000,
+  startupJitterMs: 30 * 1000,
+  cronExpression: "30 */6 * * *",
+  cronJitterMs: 120 * 1000,
+})
 
 export const clipBlurHashBackfillTask: ScheduledTask = {
   id: "clip-blurhash-backfill",
   name: "Clip BlurHash backfill",
   description: "Backfills BlurHash metadata for ready clip thumbnails.",
-  triggers: [
-    {
-      type: "startup",
-      delayMs: BLURHASH_BACKFILL_STARTUP_DELAY_MS,
-      jitterMs: BLURHASH_BACKFILL_STARTUP_JITTER_MS,
-    },
-    {
-      type: "cron",
-      expression: BLURHASH_BACKFILL_CRON,
-      jitterMs: BLURHASH_BACKFILL_CRON_JITTER_MS,
-    },
-  ],
+  triggers: BLURHASH_BACKFILL_TRIGGERS,
   run: async ({ signal }): Promise<ScheduledTaskResult> => {
     return await backfillClipBlurHashes(signal)
   },
@@ -43,18 +35,7 @@ export const gameBlurHashBackfillTask: ScheduledTask = {
   name: "Game BlurHash backfill",
   description:
     "Backfills BlurHash metadata for cached game hero and grid images.",
-  triggers: [
-    {
-      type: "startup",
-      delayMs: BLURHASH_BACKFILL_STARTUP_DELAY_MS,
-      jitterMs: BLURHASH_BACKFILL_STARTUP_JITTER_MS,
-    },
-    {
-      type: "cron",
-      expression: BLURHASH_BACKFILL_CRON,
-      jitterMs: BLURHASH_BACKFILL_CRON_JITTER_MS,
-    },
-  ],
+  triggers: BLURHASH_BACKFILL_TRIGGERS,
   run: async ({ signal }): Promise<ScheduledTaskResult> => {
     return await backfillGameBlurHashes(signal)
   },

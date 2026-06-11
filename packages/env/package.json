@@ -1,0 +1,16 @@
+{
+  "name": "alloy-env",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test \"src/**/*_test.ts\""
+  },
+  "dependencies": {
+    "zod": "4.3.6"
+  }
+}

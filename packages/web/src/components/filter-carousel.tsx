@@ -21,12 +21,6 @@ type FilterCarouselProps = {
   className?: string
 }
 
-/**
- * Shared horizontally-scrolling chip rail used by every filter bar — the home
- * feed, profile clips, library sources, and the profile "all" games filter.
- * It owns the carousel wiring and the prev/next chevrons so call sites only
- * supply the chips, keeping the bars visually and behaviourally identical.
- */
 export function FilterCarousel({ children, className }: FilterCarouselProps) {
   return (
     <Carousel

@@ -1,6 +1,4 @@
 import { useForm } from "@tanstack/react-form"
-import { useQueryClient } from "@tanstack/react-query"
-import { useRouter } from "@tanstack/react-router"
 import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
 import { Button } from "alloy-ui/components/button"
 import {
@@ -18,9 +16,8 @@ import { ImageIcon, Pencil, SaveIcon } from "lucide-react"
 import * as React from "react"
 
 import { ColorPicker } from "@/components/form/color-picker"
-import { useClickAnchor } from "@/hooks/use-click-anchor"
-import { api } from "@/lib/api"
-import { authClient, useSession } from "@/lib/auth-client"
+import type { useClickAnchor } from "@/hooks/use-click-anchor"
+import { authClient } from "@/lib/auth-client"
 import { PROFILE_BANNER_ASPECT_CLASS } from "@/lib/banner-layout"
 import { errorMessage } from "@/lib/error-message"
 import { validateEmail, validateUsername } from "@/lib/form-validators"
@@ -29,22 +26,12 @@ import {
   profileIdentityChanged,
   profileIdentityPatch,
 } from "@/lib/profile-identity"
-import {
-  displayName,
-  userAvatar,
-  UserBanner,
-  userImageSrc,
-} from "@/lib/user-display"
-import { invalidateProfileIdentityCaches } from "@/lib/user-queries"
+import { displayName, userAvatar, UserBanner } from "@/lib/user-display"
 
 import { ProfileImageCropDialog } from "./profile-image-crop-dialog"
-import type { CropMode } from "./profile-image-crop-utils"
-import {
-  MediaDropdownContent,
-  MediaEditOverlay,
-  type MediaKind,
-} from "./profile-media-controls"
+import { MediaEditOverlay, type MediaKind } from "./profile-media-controls"
 import { ProfileTextField } from "./profile-text-field"
+import { useProfileMedia } from "./use-profile-media"
 
 type ProfileCardProps = {
   userId: string
@@ -97,31 +84,6 @@ function ProfileAvatarPreview({
   )
 }
 
-function renderProfileMediaMenu({
-  anchor,
-  kind,
-  onUpload,
-  onRemove,
-}: React.ComponentProps<typeof MediaDropdownContent>) {
-  return (
-    <MediaDropdownContent
-      anchor={anchor}
-      kind={kind}
-      onUpload={onUpload}
-      onRemove={onRemove}
-    />
-  )
-}
-
-function profileMediaMenuProps(
-  anchor: React.ComponentProps<typeof MediaDropdownContent>["anchor"],
-  kind: MediaKind,
-  onUpload: () => void,
-  onRemove: () => void,
-): React.ComponentProps<typeof MediaDropdownContent> {
-  return { anchor, kind, onUpload, onRemove }
-}
-
 /** Centered pencil overlay shown on hover for the banner and avatar zones. */
 const CENTER_EDIT_OVERLAY = (
   <MediaEditOverlay>
@@ -142,12 +104,6 @@ const CORNER_EDIT_OVERLAY = (
   </div>
 )
 
-const UPLOAD_SUCCESS_MESSAGE: Record<CropMode, string> = {
-  avatar: "Avatar updated",
-  banner: "Banner updated",
-  background: "Background updated",
-}
-
 export function ProfileCard({
   userId,
   initialUsername,
@@ -157,25 +113,16 @@ export function ProfileCard({
   accentColor,
   email,
 }: ProfileCardProps) {
-  const router = useRouter()
-  const queryClient = useQueryClient()
-  const { refetch: refetchSession } = useSession()
-  const [profileImage, setProfileImage] = React.useState(image)
-  const [profileBanner, setProfileBanner] = React.useState(banner)
-  const [profileBackground, setProfileBackground] = React.useState(background)
-  const [profileAccent, setProfileAccent] = React.useState(accentColor)
+  const media = useProfileMedia({ image, banner, background, accentColor })
   const bannerUser = {
     id: userId,
-    image: profileImage || null,
-    banner: profileBanner || null,
+    image: media.profileImage || null,
+    banner: media.profileBanner || null,
   }
   const initialIdentity = {
     email,
     username: initialUsername,
   }
-  const hasBanner = !!userImageSrc(profileBanner)
-  const backgroundSrc = userImageSrc(profileBackground)
-  const hasBackground = !!backgroundSrc
   const form = useForm({
     defaultValues: initialIdentity,
     onSubmit: async ({ value }) => {
@@ -192,7 +139,7 @@ export function ProfileCard({
         }
 
         toast.success("Saved")
-        await refreshProfile()
+        await media.refreshProfile()
       } catch (cause) {
         toast.error(errorMessage(cause, "Something went wrong"))
       }
@@ -205,241 +152,6 @@ export function ProfileCard({
       username: initialUsername,
     })
   }, [email, form, initialUsername])
-
-  React.useEffect(() => {
-    setProfileImage(image)
-  }, [image])
-
-  React.useEffect(() => {
-    setProfileBanner(banner)
-  }, [banner])
-
-  React.useEffect(() => {
-    setProfileBackground(background)
-  }, [background])
-
-  React.useEffect(() => {
-    setProfileAccent(accentColor)
-  }, [accentColor])
-
-  const [uploading, setUploading] = React.useState(false)
-  const [cropFile, setCropFile] = React.useState<File | null>(null)
-  const [cropMode, setCropMode] = React.useState<CropMode>("avatar")
-  const [cropApplying, setCropApplying] = React.useState(false)
-
-  const avatarInputRef = React.useRef<HTMLInputElement>(null)
-  const bannerInputRef = React.useRef<HTMLInputElement>(null)
-  const backgroundInputRef = React.useRef<HTMLInputElement>(null)
-  const bannerAnchor = useClickAnchor()
-  const avatarAnchor = useClickAnchor()
-  const backgroundAnchor = useClickAnchor()
-
-  async function refreshProfile() {
-    await refetchSession()
-    await invalidateProfileIdentityCaches(queryClient)
-    await router.invalidate()
-  }
-
-  function openFilePicker(mode: CropMode) {
-    const ref =
-      mode === "avatar"
-        ? avatarInputRef
-        : mode === "banner"
-          ? bannerInputRef
-          : backgroundInputRef
-    ref.current?.click()
-  }
-
-  function handleFileSelect(
-    e: React.ChangeEvent<HTMLInputElement>,
-    mode: CropMode,
-  ) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    // Reset the input so the same file can be re-selected.
-    e.target.value = ""
-    setCropMode(mode)
-    setCropFile(file)
-  }
-
-  async function handleImageUpload(
-    blob: Blob,
-    mode: CropMode,
-  ): Promise<boolean> {
-    setUploading(true)
-    try {
-      let nextUser: Awaited<ReturnType<typeof api.users.uploadAvatar>>
-      if (mode === "avatar") {
-        nextUser = await api.users.uploadAvatar(blob)
-        setProfileImage(nextUser.image ?? "")
-      } else if (mode === "banner") {
-        nextUser = await api.users.uploadBanner(blob)
-        setProfileBanner(nextUser.banner ?? "")
-      } else {
-        nextUser = await api.users.uploadBackground(blob)
-        setProfileBackground(nextUser.background ?? "")
-        // The server auto-derives an accent from the new wallpaper.
-        setProfileAccent(nextUser.accentColor ?? "")
-      }
-      toast.success(UPLOAD_SUCCESS_MESSAGE[mode])
-      await refreshProfile()
-      return true
-    } catch (cause) {
-      toast.error(errorMessage(cause, "Upload failed"))
-      return false
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  async function handleRemoveAvatar() {
-    setUploading(true)
-    try {
-      const nextUser = await api.users.removeAvatar()
-      setProfileImage(nextUser.image ?? "")
-      toast.success("Avatar removed")
-      await refreshProfile()
-    } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't remove avatar"))
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  async function handleRemoveBanner() {
-    setUploading(true)
-    try {
-      const nextUser = await api.users.removeBanner()
-      setProfileBanner(nextUser.banner ?? "")
-      toast.success("Banner removed")
-      await refreshProfile()
-    } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't remove banner"))
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  async function handleRemoveBackground() {
-    setUploading(true)
-    try {
-      const nextUser = await api.users.removeBackground()
-      setProfileBackground(nextUser.background ?? "")
-      // Removing the wallpaper clears its derived accent server-side too.
-      setProfileAccent(nextUser.accentColor ?? "")
-      toast.success("Background removed")
-      await refreshProfile()
-    } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't remove background"))
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  // Accent persistence is debounced because the picker fires continuously while
-  // dragging — the swatch updates instantly, the server save trails it.
-  const accentPersistRef = React.useRef<number | null>(null)
-  React.useEffect(() => {
-    return () => {
-      if (accentPersistRef.current)
-        window.clearTimeout(accentPersistRef.current)
-    }
-  }, [])
-
-  function persistAccent(color: string | null) {
-    if (accentPersistRef.current) window.clearTimeout(accentPersistRef.current)
-    accentPersistRef.current = window.setTimeout(() => {
-      void api.users
-        .setAccentColor(color)
-        .then(async (nextUser) => {
-          setProfileAccent(nextUser.accentColor ?? "")
-          await refreshProfile()
-        })
-        .catch((cause: unknown) => {
-          toast.error(errorMessage(cause, "Couldn't save accent"))
-        })
-    }, 450)
-  }
-
-  function handleAccentChange(hex: string) {
-    setProfileAccent(hex)
-    persistAccent(hex)
-  }
-
-  async function handleAutoAccent() {
-    if (accentPersistRef.current) window.clearTimeout(accentPersistRef.current)
-    setUploading(true)
-    try {
-      const nextUser = await api.users.autoAccentColor()
-      setProfileAccent(nextUser.accentColor ?? "")
-      toast.success("Accent matched to your wallpaper")
-      await refreshProfile()
-    } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't update accent"))
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  async function handleClearAccent() {
-    if (accentPersistRef.current) window.clearTimeout(accentPersistRef.current)
-    setUploading(true)
-    try {
-      const nextUser = await api.users.setAccentColor(null)
-      setProfileAccent(nextUser.accentColor ?? "")
-      toast.success("Accent reset")
-      await refreshProfile()
-    } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't reset accent"))
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  // Hidden file inputs — reused for both avatar and banner.
-  const fileInputs = (
-    <>
-      <input
-        ref={avatarInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={(e) => handleFileSelect(e, "avatar")}
-      />
-      <input
-        ref={bannerInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={(e) => handleFileSelect(e, "banner")}
-      />
-      <input
-        ref={backgroundInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={(e) => handleFileSelect(e, "background")}
-      />
-    </>
-  )
-
-  function mediaMenu(kind: MediaKind) {
-    const anchor =
-      kind === "avatar"
-        ? avatarAnchor.anchor
-        : kind === "banner"
-          ? bannerAnchor.anchor
-          : backgroundAnchor.anchor
-    const onRemove =
-      kind === "avatar"
-        ? handleRemoveAvatar
-        : kind === "banner"
-          ? handleRemoveBanner
-          : handleRemoveBackground
-    return renderProfileMediaMenu(
-      profileMediaMenuProps(anchor, kind, () => openFilePicker(kind), onRemove),
-    )
-  }
 
   // A clickable region in the live profile preview. When the element already
   // has an image, clicking opens the change/remove menu; otherwise it opens the
@@ -464,22 +176,22 @@ export function ProfileCard({
           onOpenChange={args.anchor.onOpenChange}
         >
           <DropdownMenuTrigger
-            disabled={uploading}
+            disabled={media.uploading}
             className={surface}
             onPointerDown={args.anchor.onTriggerPointerDown}
           >
             {args.children}
             {args.overlay}
           </DropdownMenuTrigger>
-          {mediaMenu(args.kind)}
+          {media.mediaMenu(args.kind)}
         </DropdownMenu>
       )
     }
     return (
       <button
         type="button"
-        disabled={uploading}
-        onClick={() => openFilePicker(args.kind)}
+        disabled={media.uploading}
+        onClick={() => media.openFilePicker(args.kind)}
         className={surface}
       >
         {args.children}
@@ -508,22 +220,22 @@ export function ProfileCard({
 
   return (
     <>
-      {fileInputs}
+      {media.fileInputs}
       <ProfileImageCropDialog
-        file={cropFile}
-        mode={cropMode}
-        open={!!cropFile}
-        applying={uploading}
-        onApplyingChange={setCropApplying}
+        file={media.cropFile}
+        mode={media.cropMode}
+        open={!!media.cropFile}
+        applying={media.uploading}
+        onApplyingChange={media.setCropApplying}
         onOpenChange={(open) => {
-          if (!open && !uploading && !cropApplying) {
-            setCropFile(null)
+          if (!open && !media.uploading && !media.cropApplying) {
+            media.setCropFile(null)
           }
         }}
         onApply={async (blob) => {
-          const uploaded = await handleImageUpload(blob, cropMode)
+          const uploaded = await media.handleImageUpload(blob, media.cropMode)
           if (uploaded) {
-            setCropFile(null)
+            media.setCropFile(null)
           }
         }}
       />
@@ -561,7 +273,7 @@ export function ProfileCard({
                     id: userId,
                     username: normalizedIdentity.username || null,
                     email: normalizedIdentity.email || email,
-                    image: profileImage || null,
+                    image: media.profileImage || null,
                   }
                   const previewName = displayName(identityUser)
                   const avatar = userAvatar(identityUser)
@@ -572,13 +284,13 @@ export function ProfileCard({
                       {/* Wallpaper (full bleed, clickable in the margins) */}
                       {editZone({
                         kind: "background",
-                        hasImage: hasBackground,
-                        anchor: backgroundAnchor,
+                        hasImage: media.hasBackground,
+                        anchor: media.backgroundAnchor,
                         className: "absolute inset-0 block",
                         overlay: CORNER_EDIT_OVERLAY,
-                        children: hasBackground ? (
+                        children: media.hasBackground ? (
                           <img
-                            src={backgroundSrc}
+                            src={media.backgroundSrc}
                             alt=""
                             aria-hidden
                             className="absolute inset-0 size-full object-cover"
@@ -599,14 +311,14 @@ export function ProfileCard({
                         <div className="bg-surface-sunken/55 ring-border/50 pointer-events-auto w-[86%] overflow-hidden rounded-lg shadow-[var(--shadow-md)] ring-1 backdrop-blur-2xl backdrop-saturate-150">
                           {editZone({
                             kind: "banner",
-                            hasImage: hasBanner,
-                            anchor: bannerAnchor,
+                            hasImage: media.hasBanner,
+                            anchor: media.bannerAnchor,
                             className: cn(
                               "relative block w-full",
                               PROFILE_BANNER_ASPECT_CLASS,
                             ),
                             overlay: CENTER_EDIT_OVERLAY,
-                            children: hasBanner ? (
+                            children: media.hasBanner ? (
                               <UserBanner user={bannerUser} />
                             ) : (
                               // Transparent so the card's single frost shows
@@ -622,7 +334,7 @@ export function ProfileCard({
                             {editZone({
                               kind: "avatar",
                               hasImage: hasAvatar,
-                              anchor: avatarAnchor,
+                              anchor: media.avatarAnchor,
                               className:
                                 "relative -mt-5 inline-flex size-12 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10",
                               overlay: CENTER_EDIT_OVERLAY,
@@ -661,21 +373,21 @@ export function ProfileCard({
               </p>
               <div className="flex items-center gap-2">
                 <ColorPicker
-                  value={profileAccent || DEFAULT_ACCENT}
-                  onChange={handleAccentChange}
-                  disabled={uploading}
+                  value={media.profileAccent || DEFAULT_ACCENT}
+                  onChange={media.handleAccentChange}
+                  disabled={media.uploading}
                   aria-label="Profile accent color"
                 />
                 <span className="text-foreground-muted font-mono text-xs uppercase">
-                  {(profileAccent || DEFAULT_ACCENT).toUpperCase()}
+                  {(media.profileAccent || DEFAULT_ACCENT).toUpperCase()}
                 </span>
                 <div className="ml-auto flex items-center gap-1">
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => void handleAutoAccent()}
-                    disabled={uploading || !hasBackground}
+                    onClick={() => void media.handleAutoAccent()}
+                    disabled={media.uploading || !media.hasBackground}
                   >
                     Auto
                   </Button>
@@ -683,8 +395,8 @@ export function ProfileCard({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => void handleClearAccent()}
-                    disabled={uploading || !profileAccent}
+                    onClick={() => void media.handleClearAccent()}
+                    disabled={media.uploading || !media.profileAccent}
                   >
                     Reset
                   </Button>

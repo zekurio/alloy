@@ -1,15 +1,19 @@
+import { createEnv, postgresUrl } from "alloy-env"
 import { defineConfig } from "drizzle-kit"
+import { z } from "zod"
 
-const databaseUrl =
-  process.env.DRIZZLE_DATABASE_URL ??
-  process.env.DATABASE_URL ??
-  "postgres://postgres:postgres@127.0.0.1:5432/alloy"
+const env = createEnv(
+  z.object({
+    DATABASE_URL: postgresUrl(),
+  }),
+  { label: "db/drizzle" },
+)
 
 export default defineConfig({
   dialect: "postgresql",
-  schema: ["./src/schema.ts", "./src/auth-schema.ts"],
+  schema: ["./src/schema/index.ts", "./src/schema/auth.ts"],
   out: "./drizzle",
   dbCredentials: {
-    url: databaseUrl,
+    url: env.DATABASE_URL,
   },
 })

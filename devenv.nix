@@ -155,7 +155,6 @@ in
 
     . "$alloy_pg_env"
     export PGHOST PGPORT DATABASE_URL
-    export DRIZZLE_DATABASE_URL="$DATABASE_URL"
 
     if [ "$alloy_had_errexit" = 0 ]; then
       set +e

@@ -1,17 +1,9 @@
 import type { PublicUser, UserListRow, UserSummary } from "alloy-contracts"
 import { user } from "alloy-db/auth-schema"
-import {
-  block,
-  clip,
-  clipLike,
-  clipMention,
-  follow,
-  game,
-} from "alloy-db/schema"
+import { block, clip, follow } from "alloy-db/schema"
 import {
   and,
   count,
-  desc,
   eq,
   ilike,
   inArray,
@@ -24,32 +16,16 @@ import {
 } from "drizzle-orm"
 import { z } from "zod"
 
-import { getSession } from "../auth/session"
-import { clipSelectShape, toPublicClipRow } from "../clips/select"
 import { db } from "../db"
 import { requiredSql } from "../db/sql"
-import { gameSelectShape, serialiseGameRow } from "../games/ref"
 import { isoDate } from "../runtime/date"
-import { serialiseProfileGameRow } from "./games-helpers"
-import {
-  limitQueryParam,
-  offsetQueryParam,
-  requiredTrimmedString,
-} from "./validation"
+import { limitQueryParam, requiredTrimmedString } from "./validation"
 
 export const UsernameParam = z.object({ username: z.string().min(1) })
-export const UserTopClipsQuery = z.object({
-  limit: limitQueryParam(24, 5),
-})
 
 export const SearchQuery = z.object({
   q: requiredTrimmedString(64),
   limit: limitQueryParam(20, 8),
-})
-
-export const UserGamesQuery = z.object({
-  limit: limitQueryParam(48, 24),
-  offset: offsetQueryParam(),
 })
 
 export function toLikePattern(raw: string): string {
@@ -180,152 +156,6 @@ export async function resolveTarget(segment: string): Promise<UserRow | null> {
     )
     .limit(1)
   return row ?? null
-}
-
-export async function listUserClips(row: UserRow, headers: Headers) {
-  const conditions = await visibleReadyClipConditions(row, headers)
-
-  const rows = await db
-    .select(clipSelectShape)
-    .from(clip)
-    .innerJoin(user, eq(clip.authorId, user.id))
-    .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
-    .where(and(...conditions))
-    .orderBy(desc(clip.createdAt))
-    .limit(50)
-  return rows.map(toPublicClipRow)
-}
-
-export async function listUserTopClips(
-  row: UserRow,
-  { limit }: z.infer<typeof UserTopClipsQuery>,
-) {
-  const rows = await db
-    .select(clipSelectShape)
-    .from(clip)
-    .innerJoin(user, eq(clip.authorId, user.id))
-    .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
-    .where(
-      and(
-        eq(clip.authorId, row.id),
-        eq(clip.status, "ready"),
-        eq(clip.privacy, "public"),
-        isNull(user.disabledAt),
-      ),
-    )
-    .orderBy(
-      desc(clip.viewCount),
-      desc(clip.likeCount),
-      desc(clip.createdAt),
-      clip.id,
-    )
-    .limit(limit)
-  return rows.map(toPublicClipRow)
-}
-
-export async function listUserGames(
-  row: UserRow,
-  headers: Headers,
-  { limit, offset }: z.infer<typeof UserGamesQuery>,
-) {
-  const conditions = await visibleReadyClipConditions(row, headers)
-
-  const lastClippedAt = sql<Date>`max(${clip.createdAt})`
-
-  const rows = await db
-    .select({
-      ...gameSelectShape,
-      clipCount: sql<number>`count(${clip.id})::int`,
-      lastClippedAt,
-    })
-    .from(clip)
-    .innerJoin(user, eq(clip.authorId, user.id))
-    .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
-    .where(and(...conditions))
-    .groupBy(game.steamgriddbId)
-    .orderBy(sql`${lastClippedAt} desc`, game.name)
-    .limit(limit)
-    .offset(offset)
-
-  const enriched = rows.map((row) => ({
-    ...serialiseGameRow(row),
-    clipCount: row.clipCount,
-    lastClippedAt: row.lastClippedAt,
-  }))
-
-  return enriched.map(serialiseProfileGameRow)
-}
-
-async function visibleReadyClipConditions(
-  row: UserRow,
-  headers: Headers,
-): Promise<SQL[]> {
-  const session = await getSession(headers)
-  const isOwner = session?.user.id === row.id
-  const isAdmin =
-    (session?.user as { role?: string | null } | undefined)?.role === "admin"
-  const conditions: SQL[] = [
-    eq(clip.authorId, row.id),
-    eq(clip.status, "ready"),
-    isNull(user.disabledAt),
-  ]
-  if (!isOwner && !isAdmin) {
-    conditions.push(inArray(clip.privacy, ["public", "unlisted"]))
-  }
-  return conditions
-}
-
-export async function listTaggedClips(row: UserRow, headers: Headers) {
-  const session = await getSession(headers)
-  const isAdmin =
-    (session?.user as { role?: string | null } | undefined)?.role === "admin"
-
-  const conditions: SQL[] = [
-    eq(clipMention.mentionedUserId, row.id),
-    eq(clip.status, "ready"),
-    isNull(user.disabledAt),
-  ]
-  if (!isAdmin) {
-    conditions.push(inArray(clip.privacy, ["public", "unlisted"]))
-  }
-
-  const rows = await db
-    .select(clipSelectShape)
-    .from(clipMention)
-    .innerJoin(clip, eq(clipMention.clipId, clip.id))
-    .innerJoin(user, eq(clip.authorId, user.id))
-    .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
-    .where(and(...conditions))
-    .orderBy(desc(clip.createdAt))
-    .limit(50)
-  return rows.map(toPublicClipRow)
-}
-
-export async function listLikedClips(row: UserRow, headers: Headers) {
-  const session = await getSession(headers)
-  const isOwner = session?.user.id === row.id
-  const isAdmin =
-    (session?.user as { role?: string | null } | undefined)?.role === "admin"
-
-  const conditions: SQL[] = [
-    eq(clipLike.userId, row.id),
-    eq(clip.status, "ready"),
-    isNull(user.disabledAt),
-  ]
-  if (!isOwner && !isAdmin) {
-    conditions.push(inArray(clip.privacy, ["public", "unlisted"]))
-  }
-
-  const rows = await db
-    .select(clipSelectShape)
-    .from(clipLike)
-    .innerJoin(clip, eq(clipLike.clipId, clip.id))
-    .innerJoin(user, eq(clip.authorId, user.id))
-    .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
-    .where(and(...conditions))
-    .orderBy(desc(clipLike.createdAt))
-    .limit(50)
-  return rows.map(toPublicClipRow)
 }
 
 export async function listFollowers(row: UserRow) {

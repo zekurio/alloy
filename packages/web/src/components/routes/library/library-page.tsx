@@ -1,9 +1,8 @@
 import { useNavigate } from "@tanstack/react-router"
-import { clipThumbnailUrl, type ClipRow } from "alloy-api"
+import type { ClipRow } from "alloy-api"
 import { AppMain } from "alloy-ui/components/app-shell"
 import { Button } from "alloy-ui/components/button"
 import { Chip } from "alloy-ui/components/chip"
-import { ClipCard } from "alloy-ui/components/clip-card"
 import {
   Empty,
   EmptyDescription,
@@ -26,7 +25,6 @@ import { Spinner } from "alloy-ui/components/spinner"
 import {
   ClapperboardIcon,
   CloudIcon,
-  FolderOpenIcon,
   HardDriveIcon,
   ImageIcon,
   LibraryIcon,
@@ -38,43 +36,36 @@ import * as React from "react"
 
 import { FilterCarousel } from "@/components/filter-carousel"
 import { useSession } from "@/lib/auth-client"
-import { toClipCardData } from "@/lib/clip-format"
 import { useUserClipsQuery } from "@/lib/clip-queries"
-import { formatRelativeTime } from "@/lib/date-format"
 import {
   alloyDesktop,
   type AlloyDesktop,
-  type RecordingLibraryItem,
   type RecordingLibraryProjectDraft,
 } from "@/lib/desktop"
-import { apiOrigin } from "@/lib/env"
 
 import {
   buildLibraryGroups,
   enrichGroupIcon,
   enrichLibraryItem,
-  formatLibraryBytes,
-  gameNameKey,
   type LibraryGroupView,
   type LibraryItemView,
   useLibraryGameLookup,
   useLibrarySnapshot,
 } from "./library-data"
-
-type LibraryKindFilter = "all" | "replay" | "long-recording" | "screenshot"
-
-/** One row of the combined grid: a local capture or an uploaded clip. */
-type LibraryEntry =
-  | { type: "local"; key: string; createdAt: string; item: LibraryItemView }
-  | { type: "cloud"; key: string; createdAt: string; row: ClipRow }
-  | {
-      type: "draft"
-      key: string
-      createdAt: string
-      draft: RecordingLibraryProjectDraft
-      thumbnailUrl: string | null
-      thumbBlurHash: string | null
-    }
+import {
+  emptyKindLabel,
+  filterLibraryItems,
+  filterProjectDrafts,
+  filterUploadedClips,
+  type LibraryEntry,
+  type LibraryKindFilter,
+  projectDraftThumbnail,
+} from "./library-entries"
+import {
+  LibraryCaptureCard,
+  ProjectDraftCard,
+  UploadedClipCard,
+} from "./library-entry-cards"
 
 export function LibraryPage() {
   return <LibraryContent desktop={alloyDesktop()} />
@@ -449,185 +440,6 @@ function LibraryBody({
   )
 }
 
-function LibraryCaptureCard({
-  item,
-  onOpen,
-  onReveal,
-}: {
-  item: LibraryItemView
-  onOpen: () => void
-  onReveal: () => void
-}) {
-  return (
-    <ClipCard
-      title={item.title}
-      titleContent={
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate">{item.title}</span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Reveal ${item.title}`}
-            title="Reveal in folder"
-            className="size-6 shrink-0 opacity-0 transition-opacity group-hover/clip-card:opacity-100 focus-visible:opacity-100"
-            onClick={(event) => {
-              event.stopPropagation()
-              onReveal()
-            }}
-          >
-            <FolderOpenIcon />
-          </Button>
-        </span>
-      }
-      author=""
-      game={item.displayGameName}
-      gameIcon={item.displayGameIconUrl}
-      gameHref={item.gameSlug ? `/g/${item.gameSlug}` : null}
-      views="0"
-      likes="0"
-      thumbnail={item.thumbnailUrl ?? undefined}
-      thumbnailBlurHash={item.thumbBlurHash}
-      fallbackSeed={`${item.groupLabel}:${item.id}`}
-      streamUrl={item.kind === "screenshot" ? undefined : item.mediaUrl}
-      thumbnailLabel={`Edit ${item.title}`}
-      onThumbnailClick={onOpen}
-      metaContent={
-        <LibraryCardMeta
-          source="local"
-          sizeBytes={item.sizeBytes}
-          createdAt={item.createdAt}
-        />
-      }
-    />
-  )
-}
-
-/** Grid card for an unfinished multitrack project saved from the editor. */
-function ProjectDraftCard({
-  draft,
-  thumbnailUrl,
-  thumbBlurHash,
-  onOpen,
-}: {
-  draft: RecordingLibraryProjectDraft
-  thumbnailUrl: string | null
-  thumbBlurHash: string | null
-  onOpen: () => void
-}) {
-  return (
-    <ClipCard
-      title={draft.title}
-      author=""
-      game=""
-      gameIcon={null}
-      gameHref={null}
-      views="0"
-      likes="0"
-      thumbnail={thumbnailUrl ?? undefined}
-      thumbnailBlurHash={thumbBlurHash}
-      fallbackSeed={`draft:${draft.id}`}
-      thumbnailLabel={`Open draft ${draft.title}`}
-      onThumbnailClick={onOpen}
-      metaContent={
-        <LibraryDraftMeta
-          durationMs={draft.durationMs}
-          updatedAt={draft.updatedAt}
-        />
-      }
-    />
-  )
-}
-
-function LibraryDraftMeta({
-  durationMs,
-  updatedAt,
-}: {
-  durationMs: number
-  updatedAt: string
-}) {
-  return (
-    <>
-      <span className="text-foreground-muted shrink-0">Draft</span>
-      {durationMs > 0 ? (
-        <>
-          <span className="shrink-0">·</span>
-          <span className="shrink-0">{formatDraftDuration(durationMs)}</span>
-        </>
-      ) : null}
-      <span className="shrink-0">·</span>
-      <span className="truncate">{formatRelativeTime(updatedAt)}</span>
-    </>
-  )
-}
-
-/** Shared meta line for library cards: source · size · age. */
-function LibraryCardMeta({
-  source,
-  sizeBytes,
-  createdAt,
-}: {
-  source: "local" | "cloud"
-  sizeBytes: number | null
-  createdAt: string
-}) {
-  const Icon = source === "local" ? MonitorIcon : CloudIcon
-  const label = source === "local" ? "Local" : "Server"
-  const hasSize = typeof sizeBytes === "number" && sizeBytes > 0
-  return (
-    <>
-      <span className="flex shrink-0 items-center gap-1">
-        <Icon className="size-3.5" />
-        {label}
-      </span>
-      {hasSize ? (
-        <>
-          <span className="shrink-0">·</span>
-          <span className="shrink-0">{formatLibraryBytes(sizeBytes)}</span>
-        </>
-      ) : null}
-      <span className="shrink-0">·</span>
-      <span className="truncate">{formatRelativeTime(createdAt)}</span>
-    </>
-  )
-}
-
-/** Grid card for a clip that already lives on the server. */
-function UploadedClipCard({
-  row,
-  onOpen,
-}: {
-  row: ClipRow
-  onOpen: () => void
-}) {
-  const card = React.useMemo(() => toClipCardData(row), [row])
-  return (
-    <ClipCard
-      title={card.title}
-      author=""
-      game={card.game}
-      gameIcon={card.gameRef?.iconUrl ?? null}
-      gameHref={card.gameSlug ? `/g/${card.gameSlug}` : null}
-      views={card.views}
-      likes={card.likes}
-      thumbnail={card.thumbnail}
-      thumbnailBlurHash={card.thumbnailBlurHash}
-      fallbackSeed={card.fallbackSeed}
-      streamUrl={card.streamUrl}
-      privacy={card.privacy}
-      thumbnailLabel={`Edit ${card.title}`}
-      onThumbnailClick={onOpen}
-      metaContent={
-        <LibraryCardMeta
-          source="cloud"
-          sizeBytes={row.sourceSizeBytes}
-          createdAt={row.createdAt}
-        />
-      }
-    />
-  )
-}
-
 export function LibraryEmpty({
   icon,
   title,
@@ -649,158 +461,4 @@ export function LibraryEmpty({
       {children}
     </Empty>
   )
-}
-
-function filterLibraryItems(
-  items: RecordingLibraryItem[],
-  filters: {
-    localKeys: string[] | null
-    kind: LibraryKindFilter
-    query: string
-  },
-): RecordingLibraryItem[] {
-  const query = filters.query.trim().toLowerCase()
-  const localKeys = filters.localKeys ? new Set(filters.localKeys) : null
-  return items.filter((item) => {
-    if (localKeys && !localKeys.has(item.groupKey)) return false
-    if (filters.kind !== "all" && item.kind !== filters.kind) return false
-    if (!query) return true
-    return [item.title, item.groupLabel, item.fileName]
-      .join(" ")
-      .toLowerCase()
-      .includes(query)
-  })
-}
-
-function filterUploadedClips(
-  rows: ClipRow[],
-  rawQuery: string,
-  active: LibraryGroupView | null,
-): ClipRow[] {
-  const query = rawQuery.trim().toLowerCase()
-  return rows.filter((row) => {
-    if (active) {
-      // A desktop source holds no uploaded clips; a game source matches by
-      // name; the cloud catch-all keeps only clips without a game.
-      if (active.kind === "desktop") return false
-      const gameName = row.gameRef?.name ?? row.game
-      if (active.kind === "cloud") {
-        if (gameName) return false
-      } else if (active.nameKey !== gameNameKey(gameName ?? "")) {
-        return false
-      }
-    }
-    if (!query) return true
-    return [
-      row.title,
-      row.gameRef?.name ?? row.game ?? "",
-      row.description ?? "",
-    ]
-      .join(" ")
-      .toLowerCase()
-      .includes(query)
-  })
-}
-
-function filterProjectDrafts(
-  drafts: RecordingLibraryProjectDraft[],
-  rawQuery: string,
-  active: LibraryGroupView | null,
-  localItems: RecordingLibraryItem[],
-  uploaded: ClipRow[],
-): RecordingLibraryProjectDraft[] {
-  const query = rawQuery.trim().toLowerCase()
-  const localById = new Map(localItems.map((item) => [item.id, item]))
-  const uploadedById = new Map(uploaded.map((row) => [row.id, row]))
-  return drafts.filter((draft) => {
-    if (active && !draftMatchesGroup(draft, active, localById, uploadedById)) {
-      return false
-    }
-    if (!query) return true
-    const sourceLabels = draft.project.clips.map((clip) => {
-      const local = localById.get(clip.sourceId)
-      const row = uploadedById.get(clip.sourceId)
-      return [
-        clip.label,
-        local?.title ?? "",
-        local?.groupLabel ?? "",
-        row?.title ?? "",
-        row?.gameRef?.name ?? row?.game ?? "",
-      ].join(" ")
-    })
-    return [draft.title, ...sourceLabels]
-      .join(" ")
-      .toLowerCase()
-      .includes(query)
-  })
-}
-
-function projectDraftThumbnail(
-  draft: RecordingLibraryProjectDraft,
-  localItems: RecordingLibraryItem[],
-  uploaded: ClipRow[],
-): { thumbnailUrl: string | null; thumbBlurHash: string | null } {
-  const sourceId =
-    draft.thumbnailSourceId ?? draft.project.clips[0]?.sourceId ?? null
-  if (!sourceId) return { thumbnailUrl: null, thumbBlurHash: null }
-
-  const local = localItems.find((item) => item.id === sourceId)
-  if (local) {
-    return {
-      thumbnailUrl: local.thumbnailUrl,
-      thumbBlurHash: local.thumbBlurHash,
-    }
-  }
-
-  const row = uploaded.find((entry) => entry.id === sourceId)
-  if (row?.thumbKey) {
-    return {
-      thumbnailUrl: clipThumbnailUrl(row.id, apiOrigin(), row.updatedAt),
-      thumbBlurHash: row.thumbBlurHash,
-    }
-  }
-  return { thumbnailUrl: null, thumbBlurHash: null }
-}
-
-function draftMatchesGroup(
-  draft: RecordingLibraryProjectDraft,
-  active: LibraryGroupView,
-  localById: Map<string, RecordingLibraryItem>,
-  uploadedById: Map<string, ClipRow>,
-): boolean {
-  return draft.project.clips.some((clip) => {
-    const local = localById.get(clip.sourceId)
-    if (local) {
-      if (active.kind === "cloud") return false
-      if (active.kind === "desktop")
-        return active.localKeys.includes(local.groupKey)
-      return active.nameKey === gameNameKey(local.gameName ?? local.groupLabel)
-    }
-
-    const row = uploadedById.get(clip.sourceId)
-    if (!row || active.kind === "desktop") return false
-    const gameName = row.gameRef?.name ?? row.game
-    if (active.kind === "cloud") return !gameName
-    return active.nameKey === gameNameKey(gameName ?? "")
-  })
-}
-
-function emptyKindLabel(kind: LibraryKindFilter) {
-  switch (kind) {
-    case "replay":
-      return "clips"
-    case "long-recording":
-      return "sessions"
-    case "screenshot":
-      return "screenshots"
-    default:
-      return "captures"
-  }
-}
-
-function formatDraftDuration(durationMs: number): string {
-  const totalSeconds = Math.max(0, Math.round(durationMs / 1000))
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`
 }

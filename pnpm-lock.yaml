@@ -72,6 +72,9 @@ importers:
       alloy-contracts:
         specifier: workspace:*
         version: link:../contracts
+      alloy-env:
+        specifier: workspace:*
+        version: link:../env
       alloy-logging:
         specifier: workspace:*
         version: link:../logging
@@ -84,6 +87,9 @@ importers:
       pg:
         specifier: 8.21.0
         version: 8.21.0
+      zod:
+        specifier: 4.3.6
+        version: 4.3.6
 
   packages/desktop:
     devDependencies:
@@ -139,6 +145,12 @@ importers:
         specifier: 8.0.10
         version: 8.0.10(@types/node@25.6.0)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)
 
+  packages/env:
+    dependencies:
+      zod:
+        specifier: 4.3.6
+        version: 4.3.6
+
   packages/logging: {}
 
   packages/recorder: {}
@@ -160,6 +172,9 @@ importers:
       alloy-db:
         specifier: workspace:*
         version: link:../db
+      alloy-env:
+        specifier: workspace:*
+        version: link:../env
       alloy-logging:
         specifier: workspace:*
         version: link:../logging
@@ -276,6 +291,9 @@ importers:
       alloy-db:
         specifier: workspace:*
         version: link:../db
+      alloy-env:
+        specifier: workspace:*
+        version: link:../env
       alloy-ui:
         specifier: workspace:*
         version: link:../ui

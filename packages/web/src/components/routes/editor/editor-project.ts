@@ -1,86 +1,56 @@
 /**
- * Project model for the multitrack editor. A project is a stack of tracks
- * (index 0 renders topmost and wins playback priority) holding clips that
- * are fully decoupled from the recorded captures: each clip references a
- * media source by id and plays one source range at one timeline position.
- * All helpers are pure so the page can keep snapshots in undo history and
- * the timeline component can stay dumb.
+ * Edit operations of the multitrack project model. All helpers are pure so
+ * the page can keep snapshots in undo history and the timeline component
+ * can stay dumb. Types and read-only helpers live in `editor-project-core`,
+ * transition logic in `editor-transitions`; both are re-exported here so
+ * consumers keep a single import path.
  *
  * Invariant: clips on the same track never overlap in timeline time —
  * placements resolve into the nearest free gap — but clips on different
  * tracks may overlap freely.
  */
 
-/** A piece of media clips can reference: a local capture or an uploaded clip. */
-export interface EditorMediaSource {
-  id: string
-  label: string
-  mediaUrl: string
-  /** Evenly spaced filmstrip frames across the whole source. */
-  frames: string[]
-  durationMs: number
-  width: number | null
-  height: number | null
-  /** True when the media streams from the server (an uploaded clip). */
-  cloud?: boolean
-}
+import {
+  clipDurationMs,
+  clipEndMs,
+  type EditorMediaSource,
+  type EditorProject,
+  findClip,
+  MIN_CLIP_MS,
+  nextId,
+  type TimelineClip,
+  type TimelineTrack,
+  trackClips,
+} from "./editor-project-core"
+import { pruneTransitions } from "./editor-transitions"
 
-export interface TimelineClip {
-  id: string
-  trackId: string
-  sourceId: string
-  /** Denormalized from the source so trim clamps don't need a lookup. */
-  sourceDurationMs: number
-  /** Source-media range this clip plays. */
-  sourceStartMs: number
-  sourceEndMs: number
-  /** Timeline position of the clip's first frame. */
-  startMs: number
-  label: string
-}
-
-export interface TimelineTrack {
-  id: string
-  label: string
-}
-
-export type TransitionType = "crossfade"
-
-/**
- * A transition bridging two adjacent clips on the same track. It lives in
- * the window `[cut - durationMs, cut]` (the tail of the left clip): the
- * right clip's first frame fades in over the left clip's ending, and the
- * left clip's audio ramps out. Without a transition, boundaries are hard
- * cuts. Transitions only stay valid while their clips remain adjacent —
- * edits that separate the pair drop them (see `pruneTransitions`).
- */
-export interface ClipTransition {
-  id: string
-  type: TransitionType
-  leftClipId: string
-  rightClipId: string
-  durationMs: number
-}
-
-export interface EditorProject {
-  /** Index 0 is the topmost track (highest playback priority). */
-  tracks: TimelineTrack[]
-  clips: TimelineClip[]
-  transitions: ClipTransition[]
-}
-
-/** Smallest clip an edit operation may produce. */
-export const MIN_CLIP_MS = 100
-export const MIN_TRANSITION_MS = 100
-export const DEFAULT_TRANSITION_MS = 500
-/** Clip edges this close in timeline time count as one junction. */
-const JUNCTION_TOLERANCE_MS = 1
-
-let idCounter = 0
-function nextId(prefix: string): string {
-  idCounter += 1
-  return `${prefix}-${Date.now().toString(36)}-${idCounter}`
-}
+export {
+  clipAtTimelineMs,
+  clipDurationMs,
+  clipEndMs,
+  type ClipTransition,
+  DEFAULT_TRANSITION_MS,
+  type EditorMediaSource,
+  type EditorProject,
+  findClip,
+  MIN_CLIP_MS,
+  MIN_TRANSITION_MS,
+  projectDurationMs,
+  type TimelineClip,
+  type TimelineTrack,
+  trackClips,
+  type TransitionType,
+} from "./editor-project-core"
+export {
+  type ActiveTransition,
+  activeTransitionAt,
+  clipsAdjacent,
+  pruneTransitions,
+  toggleTransition,
+  trackJunctions,
+  transitionBetween,
+  transitionPreRollMs,
+} from "./editor-transitions"
 
 export function newProject(): EditorProject {
   return {
@@ -92,18 +62,6 @@ export function newProject(): EditorProject {
     clips: [],
     transitions: [],
   }
-}
-
-export function clipDurationMs(clip: TimelineClip): number {
-  return Math.max(0, clip.sourceEndMs - clip.sourceStartMs)
-}
-
-export function clipEndMs(clip: TimelineClip): number {
-  return clip.startMs + clipDurationMs(clip)
-}
-
-export function projectDurationMs(project: EditorProject): number {
-  return project.clips.reduce((max, clip) => Math.max(max, clipEndMs(clip)), 0)
 }
 
 export function projectsEqual(a: EditorProject, b: EditorProject): boolean {
@@ -135,24 +93,6 @@ export function projectsEqual(a: EditorProject, b: EditorProject): boolean {
       clip.startMs === other.startMs
     )
   })
-}
-
-export function findClip(
-  project: EditorProject,
-  clipId: string,
-): TimelineClip | null {
-  return project.clips.find((clip) => clip.id === clipId) ?? null
-}
-
-/** Clips on one track in timeline order, optionally excluding one id. */
-export function trackClips(
-  project: EditorProject,
-  trackId: string,
-  excludeClipId?: string,
-): TimelineClip[] {
-  return project.clips
-    .filter((clip) => clip.trackId === trackId && clip.id !== excludeClipId)
-    .sort((a, b) => a.startMs - b.startMs)
 }
 
 /**
@@ -371,27 +311,6 @@ export function removeTrack(
   }
 }
 
-/**
- * The clip the preview should show at a timeline position: tracks are
- * scanned top (index 0) to bottom, so an overlapping clip on a higher
- * track hides the ones below.
- */
-export function clipAtTimelineMs(
-  project: EditorProject,
-  timelineMs: number,
-): TimelineClip | null {
-  for (const track of project.tracks) {
-    const clip = project.clips.find(
-      (entry) =>
-        entry.trackId === track.id &&
-        timelineMs >= entry.startMs &&
-        timelineMs < clipEndMs(entry),
-    )
-    if (clip) return clip
-  }
-  return null
-}
-
 function withClip(
   project: EditorProject,
   clipId: string,
@@ -401,177 +320,4 @@ function withClip(
     ...project,
     clips: project.clips.map((clip) => (clip.id === clipId ? next : clip)),
   }
-}
-
-/* ─── Transitions ──────────────────────────────────────────────────── */
-
-/** True when `right` starts where `left` ends, on the same track. */
-export function clipsAdjacent(
-  left: TimelineClip,
-  right: TimelineClip,
-): boolean {
-  return (
-    left.trackId === right.trackId &&
-    Math.abs(clipEndMs(left) - right.startMs) <= JUNCTION_TOLERANCE_MS
-  )
-}
-
-/** Adjacent clip pairs (junctions) on one track, in timeline order. */
-export function trackJunctions(
-  project: EditorProject,
-  trackId: string,
-): Array<{ left: TimelineClip; right: TimelineClip }> {
-  const clips = trackClips(project, trackId)
-  const junctions: Array<{ left: TimelineClip; right: TimelineClip }> = []
-  for (let i = 0; i + 1 < clips.length; i++) {
-    if (clipsAdjacent(clips[i], clips[i + 1])) {
-      junctions.push({ left: clips[i], right: clips[i + 1] })
-    }
-  }
-  return junctions
-}
-
-export function transitionBetween(
-  project: EditorProject,
-  leftClipId: string,
-  rightClipId: string,
-): ClipTransition | null {
-  return (
-    project.transitions.find(
-      (transition) =>
-        transition.leftClipId === leftClipId &&
-        transition.rightClipId === rightClipId,
-    ) ?? null
-  )
-}
-
-/** Longest transition the junction's clips can carry. */
-function maxTransitionMs(left: TimelineClip, right: TimelineClip): number {
-  return Math.min(clipDurationMs(left), clipDurationMs(right))
-}
-
-/**
- * How much lead-in the right clip can actually play during a crossfade:
- * its trimmed-away source material before the in-point. During the window
- * the right side plays `[sourceStart - preRoll, sourceStart)` and lands on
- * its in-point exactly at the cut, so playback is continuous. A clip with
- * no leading handle falls back to holding its first frame.
- */
-export function transitionPreRollMs(
-  transition: ClipTransition,
-  right: TimelineClip,
-): number {
-  return Math.max(0, Math.min(transition.durationMs, right.sourceStartMs))
-}
-
-/**
- * Adds a crossfade at the junction, or removes the existing transition.
- * No-op when the clips aren't adjacent or are too short to fade over.
- */
-export function toggleTransition(
-  project: EditorProject,
-  leftClipId: string,
-  rightClipId: string,
-): EditorProject {
-  const existing = transitionBetween(project, leftClipId, rightClipId)
-  if (existing) {
-    return {
-      ...project,
-      transitions: project.transitions.filter(
-        (transition) => transition.id !== existing.id,
-      ),
-    }
-  }
-  const left = findClip(project, leftClipId)
-  const right = findClip(project, rightClipId)
-  if (!left || !right || !clipsAdjacent(left, right)) return project
-  const durationMs = Math.min(
-    DEFAULT_TRANSITION_MS,
-    maxTransitionMs(left, right),
-  )
-  if (durationMs < MIN_TRANSITION_MS) return project
-  return {
-    ...project,
-    transitions: [
-      ...project.transitions,
-      {
-        id: nextId("transition"),
-        type: "crossfade",
-        leftClipId,
-        rightClipId,
-        durationMs,
-      },
-    ],
-  }
-}
-
-/**
- * Drops transitions whose clip pair no longer exists or stopped being
- * adjacent, and re-clamps the rest into their clips' lengths. Every edit
- * that can move or shrink clips funnels through this.
- */
-export function pruneTransitions(project: EditorProject): EditorProject {
-  let changed = false
-  const transitions: ClipTransition[] = []
-  for (const transition of project.transitions) {
-    const left = findClip(project, transition.leftClipId)
-    const right = findClip(project, transition.rightClipId)
-    if (!left || !right || !clipsAdjacent(left, right)) {
-      changed = true
-      continue
-    }
-    const durationMs = Math.min(
-      transition.durationMs,
-      maxTransitionMs(left, right),
-    )
-    if (durationMs < MIN_TRANSITION_MS) {
-      changed = true
-      continue
-    }
-    if (durationMs !== transition.durationMs) {
-      changed = true
-      transitions.push({ ...transition, durationMs })
-    } else {
-      transitions.push(transition)
-    }
-  }
-  return changed ? { ...project, transitions } : project
-}
-
-export interface ActiveTransition {
-  transition: ClipTransition
-  left: TimelineClip
-  right: TimelineClip
-  /** Timeline position of the cut (= the right clip's start). */
-  cutMs: number
-  /** 0 at the window start, 1 at the cut. */
-  progress: number
-}
-
-/**
- * The transition in effect at a timeline position, if its window
- * `[cut - duration, cut)` covers it and its left clip is actually the
- * visible clip there (a higher track overlaying the junction wins).
- */
-export function activeTransitionAt(
-  project: EditorProject,
-  timelineMs: number,
-): ActiveTransition | null {
-  for (const transition of project.transitions) {
-    const left = findClip(project, transition.leftClipId)
-    const right = findClip(project, transition.rightClipId)
-    if (!left || !right) continue
-    const cutMs = right.startMs
-    const fromMs = cutMs - transition.durationMs
-    if (timelineMs < fromMs || timelineMs >= cutMs) continue
-    if (clipAtTimelineMs(project, timelineMs) !== left) continue
-    return {
-      transition,
-      left,
-      right,
-      cutMs,
-      progress: (timelineMs - fromMs) / transition.durationMs,
-    }
-  }
-  return null
 }

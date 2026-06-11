@@ -23,6 +23,7 @@
     "alloy-api": "workspace:*",
     "alloy-contracts": "workspace:*",
     "alloy-db": "workspace:*",
+    "alloy-env": "workspace:*",
     "alloy-ui": "workspace:*",
     "hls.js": "1.6.16",
     "lucide-react": "1.8.0",

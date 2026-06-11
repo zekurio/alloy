@@ -340,6 +340,35 @@ function PersonChip({
   )
 }
 
+/**
+ * Shared scaffolding for the chip-triggered search popovers: open state, the
+ * draft text (cleared on close), a debounced copy for queries, and an input
+ * ref that grabs focus when the popover opens.
+ */
+function usePickerPopover() {
+  const [open, setOpen] = React.useState(false)
+  const [draft, setDraft] = React.useState("")
+  const inputRef = React.useRef<HTMLInputElement>(null)
+  const debouncedDraft = useDebouncedValue(draft, 200)
+
+  React.useEffect(() => {
+    if (open) inputRef.current?.focus()
+  }, [open])
+
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next)
+    if (!next) setDraft("")
+  }
+
+  return { open, draft, debouncedDraft, setDraft, inputRef, handleOpenChange }
+}
+
+const PICKER_INPUT_CLASS = cn(
+  "w-full rounded-md border border-border bg-input px-2.5 py-1.5 text-sm text-foreground",
+  "outline-none placeholder:text-foreground-faint",
+  "focus-visible:border-accent-border focus-visible:ring-2 focus-visible:ring-accent-border/20 focus-visible:ring-inset",
+)
+
 function PeopleSearchPopover({
   selectedIds,
   onPick,
@@ -351,32 +380,20 @@ function PeopleSearchPopover({
 }) {
   const { data: session } = useSession()
   const viewerId = session?.user?.id ?? null
-  const [open, setOpen] = React.useState(false)
-  const [draft, setDraft] = React.useState("")
-  const inputRef = React.useRef<HTMLInputElement>(null)
-  const debouncedQuery = useDebouncedValue(draft, 200)
-  const searchQuery = useUserSearchQuery(debouncedQuery)
-
-  React.useEffect(() => {
-    if (open) inputRef.current?.focus()
-  }, [open])
+  const { open, draft, debouncedDraft, setDraft, inputRef, handleOpenChange } =
+    usePickerPopover()
+  const searchQuery = useUserSearchQuery(debouncedDraft)
 
   const candidates = React.useMemo(() => {
     const rows = searchQuery.data ?? []
     return rows.filter((row) => !selectedIds.has(row.id) && row.id !== viewerId)
   }, [searchQuery.data, selectedIds, viewerId])
 
-  const trimmed = debouncedQuery.trim()
+  const trimmed = debouncedDraft.trim()
   const isSearching = searchQuery.isFetching && trimmed.length > 0
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-        if (!next) setDraft("")
-      }}
-    >
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger
         render={
           <Chip size="xl" disabled={disabled}>
@@ -391,11 +408,7 @@ function PeopleSearchPopover({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Search people…"
-          className={cn(
-            "w-full rounded-md border border-border bg-input px-2.5 py-1.5 text-sm text-foreground",
-            "outline-none placeholder:text-foreground-faint",
-            "focus-visible:border-accent-border focus-visible:ring-2 focus-visible:ring-accent-border/20 focus-visible:ring-inset",
-          )}
+          className={PICKER_INPUT_CLASS}
         />
         <div className="flex flex-col" role="listbox">
           {trimmed.length === 0 ? (
@@ -502,15 +515,9 @@ function HashtagInputPopover({
   onChange: (tags: string[]) => void
   disabled: boolean
 }) {
-  const [open, setOpen] = React.useState(false)
-  const [draft, setDraft] = React.useState("")
-  const inputRef = React.useRef<HTMLInputElement>(null)
-  const debouncedDraft = useDebouncedValue(draft, 200)
+  const { open, draft, debouncedDraft, setDraft, inputRef, handleOpenChange } =
+    usePickerPopover()
   const searchQuery = useTagSearchQuery(debouncedDraft)
-
-  React.useEffect(() => {
-    if (open) inputRef.current?.focus()
-  }, [open])
 
   const commit = (raw: string) => {
     const tag = sanitizeTag(raw)
@@ -531,13 +538,7 @@ function HashtagInputPopover({
   const showSuggestions = debouncedDraft.length > 0 && suggestions.length > 0
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-        if (!next) setDraft("")
-      }}
-    >
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger
         render={
           <Chip size="xl" disabled={disabled}>
@@ -564,11 +565,7 @@ function HashtagInputPopover({
             }
           }}
           placeholder="Add hashtag…"
-          className={cn(
-            "w-full rounded-md border border-border bg-input px-2.5 py-1.5 text-sm text-foreground",
-            "outline-none placeholder:text-foreground-faint",
-            "focus-visible:border-accent-border focus-visible:ring-2 focus-visible:ring-accent-border/20 focus-visible:ring-inset",
-          )}
+          className={PICKER_INPUT_CLASS}
         />
         {showSuggestions ? (
           <div className="flex flex-col" role="listbox">

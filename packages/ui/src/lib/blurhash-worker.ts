@@ -12,7 +12,11 @@ type BlurHashWorkerRequest = {
   height: number
 }
 
-const workerScope = self as unknown as BlurHashWorkerScope
+// This module only runs inside a dedicated worker, where the global scope
+// carries the worker messaging surface. The DOM lib types `self` as `Window`,
+// so widen it with a single targeted assertion instead of going via unknown.
+const workerScope: BlurHashWorkerScope = self as typeof self &
+  BlurHashWorkerScope
 
 workerScope.onmessage = ({ data }) => {
   const pixels = decode(data.hash, data.width, data.height)

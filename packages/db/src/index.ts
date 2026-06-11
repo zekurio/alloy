@@ -1,14 +1,14 @@
 import { drizzle } from "drizzle-orm/node-postgres"
 
-import { authSchema } from "./auth-schema"
-import { createPostgresPool } from "./connection.ts"
+import { createPostgresPool } from "./runtime/connection.ts"
 import { domainSchema } from "./schema"
+import { authSchema } from "./schema/auth"
 
 export { authSchema, domainSchema }
-export { createPostgresPool } from "./connection.ts"
-export { migrateDatabase } from "./migrate"
-export * from "./auth-schema"
+export { createPostgresPool } from "./runtime/connection.ts"
+export { migrateDatabase } from "./runtime/migrate"
 export * from "./schema"
+export * from "./schema/auth"
 
 export const dbSchema = {
   ...authSchema,

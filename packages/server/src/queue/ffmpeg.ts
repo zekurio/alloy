@@ -31,6 +31,18 @@ interface EncodeJob {
   signal?: AbortSignal
 }
 
+/** Run an ffmpeg invocation that does not report encode progress. */
+async function runFfmpeg(
+  args: string[],
+  label: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  await runWithProgress(env.FFMPEG_BIN, args, () => undefined, {
+    label,
+    signal,
+  })
+}
+
 /** Translate ffmpeg `-progress` output lines into a 0-99 percentage. */
 function progressHandler(
   durationMs: number,
@@ -181,44 +193,32 @@ export async function trimToMp4(
 ): Promise<void> {
   const start = msToFfmpegTimestamp(opts.startMs)
   const duration = msToFfmpegTimestamp(opts.endMs - opts.startMs)
-  const mapArgs = ["-map", "0:v:0", "-map", "0:a?"]
+  const inputArgs = [
+    "-hide_banner",
+    "-y",
+    "-ss",
+    start,
+    "-i",
+    srcPath,
+    "-t",
+    duration,
+    "-map",
+    "0:v:0",
+    "-map",
+    "0:a?",
+  ]
 
   try {
-    await runWithProgress(
-      env.FFMPEG_BIN,
-      [
-        "-hide_banner",
-        "-y",
-        "-ss",
-        start,
-        "-i",
-        srcPath,
-        "-t",
-        duration,
-        ...mapArgs,
-        "-c",
-        "copy",
-        "-movflags",
-        "+faststart",
-        outPath,
-      ],
-      () => undefined,
-      { label: "trim (stream copy)", signal: opts.signal },
+    await runFfmpeg(
+      [...inputArgs, "-c", "copy", "-movflags", "+faststart", outPath],
+      "trim (stream copy)",
+      opts.signal,
     )
   } catch (err) {
     if (opts.signal?.aborted) throw err
-    await runWithProgress(
-      env.FFMPEG_BIN,
+    await runFfmpeg(
       [
-        "-hide_banner",
-        "-y",
-        "-ss",
-        start,
-        "-i",
-        srcPath,
-        "-t",
-        duration,
-        ...mapArgs,
+        ...inputArgs,
         "-c:v",
         "libx264",
         "-preset",
@@ -233,8 +233,8 @@ export async function trimToMp4(
         "+faststart",
         outPath,
       ],
-      () => undefined,
-      { label: "trim (re-encode)", signal: opts.signal },
+      "trim (re-encode)",
+      opts.signal,
     )
   }
 }
@@ -247,8 +247,7 @@ export async function thumbnail(
     signal?: AbortSignal
   },
 ): Promise<void> {
-  await runWithProgress(
-    env.FFMPEG_BIN,
+  await runFfmpeg(
     [
       "-hide_banner",
       "-y",
@@ -266,8 +265,8 @@ export async function thumbnail(
       "80",
       outPath,
     ],
-    () => undefined,
-    { label: "thumbnail", signal: opts.signal },
+    "thumbnail",
+    opts.signal,
   )
 }
 

@@ -144,7 +144,6 @@ export interface UpdateClipInput {
   steamgriddbId?: number
   privacy?: ClipPrivacy
   mentionedUserIds?: string[]
-  /** Bare hashtags; normalized server-side. Replaces the existing set. */
   tags?: string[]
 }
 

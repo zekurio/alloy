@@ -6,13 +6,18 @@ Drizzle database schema, migrations, and database exports for Alloy.
 
 ```text
 packages/db/
-  src/schema.ts          core application schema
-  src/auth-schema.ts     auth-related schema
-  src/contracts.ts       DB-backed contract helpers
-  src/connection.ts      connection helpers
-  src/migrate.ts         migration runner
-  drizzle/               generated SQL migrations and metadata
-  drizzle.config.ts      Drizzle Kit config
+  src/index.ts               package entry: createDb, dbSchema
+  src/contracts.ts           DB-backed contract helpers
+  src/runtime/connection.ts  Postgres pool helper
+  src/runtime/migrate.ts     migration runner
+  src/schema/index.ts        application schema barrel ("alloy-db/schema")
+  src/schema/auth.ts         auth schema ("alloy-db/auth-schema")
+  src/schema/game.ts         game + game-follow tables
+  src/schema/clip.ts         clip and its engagement tables
+  src/schema/social.ts       follow, block, notification tables
+  src/schema/scheduled-tasks.ts  scheduled-task run/lock tables
+  drizzle/                   generated SQL migrations and metadata
+  drizzle.config.ts          Drizzle Kit config
 ```
 
 ## Commands
@@ -39,9 +44,9 @@ Start local Postgres before running migration or push commands:
 docker compose -f docker-compose.dev.yml up -d postgres
 ```
 
-Local development uses `postgres://postgres:postgres@127.0.0.1:5432/alloy` by
-default. Override `DATABASE_URL` or `DRIZZLE_DATABASE_URL` if you need to point
-Drizzle at a different database.
+Drizzle commands require `DATABASE_URL` to be set (the dev scripts and devenv
+shell export it automatically; local development defaults to
+`postgres://postgres:postgres@127.0.0.1:5432/alloy`).
 
 ## Guidelines
 

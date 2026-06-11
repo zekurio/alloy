@@ -15,12 +15,15 @@ import { probe } from "../queue/ffmpeg"
 import { ENCODE_DIR, CLIPS_DIR } from "../runtime/dirs"
 import { dirname, join } from "../runtime/path"
 import { clipAssetDir, clipStorage } from "../storage"
+import { startupAndCronTriggers } from "./triggers"
 import type { ScheduledTask, ScheduledTaskResult } from "./types"
 
-const CLIP_MAINTENANCE_CRON = "0 */6 * * *"
-const CLIP_MAINTENANCE_STARTUP_DELAY_MS = 60 * 1000
-const CLIP_MAINTENANCE_STARTUP_JITTER_MS = 30 * 1000
-const CLIP_MAINTENANCE_CRON_JITTER_MS = 120 * 1000
+const CLIP_MAINTENANCE_TRIGGERS = startupAndCronTriggers({
+  startupDelayMs: 60 * 1000,
+  startupJitterMs: 30 * 1000,
+  cronExpression: "0 */6 * * *",
+  cronJitterMs: 120 * 1000,
+})
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const HEX_PAIR_RE = /^[0-9a-f]{2}$/i
@@ -38,18 +41,7 @@ export const clipStorageCleanupTask: ScheduledTask = {
   id: "clip-storage-cleanup",
   name: "Clip storage cleanup",
   description: "Deletes orphaned clip folders and unreferenced clip assets.",
-  triggers: [
-    {
-      type: "startup",
-      delayMs: CLIP_MAINTENANCE_STARTUP_DELAY_MS,
-      jitterMs: CLIP_MAINTENANCE_STARTUP_JITTER_MS,
-    },
-    {
-      type: "cron",
-      expression: CLIP_MAINTENANCE_CRON,
-      jitterMs: CLIP_MAINTENANCE_CRON_JITTER_MS,
-    },
-  ],
+  triggers: CLIP_MAINTENANCE_TRIGGERS,
   run: async ({ signal }): Promise<ScheduledTaskResult> => {
     const cleanup = await cleanupClipFolders(signal)
     return {
@@ -64,18 +56,7 @@ export const clipOpenGraphMaintenanceTask: ScheduledTask = {
   id: "clip-opengraph-maintenance",
   name: "Clip OpenGraph maintenance",
   description: "Ensures ready clips have stored OpenGraph variants.",
-  triggers: [
-    {
-      type: "startup",
-      delayMs: CLIP_MAINTENANCE_STARTUP_DELAY_MS,
-      jitterMs: CLIP_MAINTENANCE_STARTUP_JITTER_MS,
-    },
-    {
-      type: "cron",
-      expression: CLIP_MAINTENANCE_CRON,
-      jitterMs: CLIP_MAINTENANCE_CRON_JITTER_MS,
-    },
-  ],
+  triggers: CLIP_MAINTENANCE_TRIGGERS,
   run: async ({ signal }): Promise<ScheduledTaskResult> => {
     const opengraph = await ensureOpenGraphVariants(signal)
     return {
