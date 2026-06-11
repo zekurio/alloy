@@ -60,7 +60,7 @@ export function ProfileTabsNav({ username }: ProfileTabsNavProps) {
     <nav
       data-slot="tabs-list"
       data-variant="profile"
-      className="border-border mb-6 flex w-full gap-6 overflow-x-auto border-b sm:mb-8 sm:gap-8"
+      className="border-border mb-6 flex w-full gap-6 overflow-x-auto overflow-y-hidden border-b sm:mb-8 sm:gap-8"
       aria-label="Profile sections"
     >
       {TABS.map((tab) => {
