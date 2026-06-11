@@ -47,3 +47,6 @@ jobs:
 
       - name: Run typecheck
         run: corepack pnpm typecheck
+
+      - name: Run tests
+        run: corepack pnpm test:node
