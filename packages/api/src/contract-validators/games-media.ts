@@ -5,19 +5,12 @@ import {
   validateBoolean,
   validateEnumString,
   validateNonNegativeInteger,
-  validateNullableDateString,
-  validateNullableEnumString,
-  validateNullableNonNegativeInteger,
-  validateNullableString,
   validateNullableUrlString,
   validatePositiveInteger,
   validateRequiredString,
   validateStringArray,
 } from "@alloy/api/runtime-validation"
 import {
-  type AdminScheduledTaskInfo,
-  type AdminScheduledTaskRunResponse,
-  type AdminScheduledTasksResponse,
   type GameDetail,
   type GameListRow,
   type GameNameLookupResponse,
@@ -36,10 +29,6 @@ const GAME_NAME_LOOKUP_REASON = new Set([
   "no-match",
   "ambiguous",
 ])
-const SCHEDULED_TASK_STATE = new Set(["idle", "running"])
-const SCHEDULED_TASK_RUN_TRIGGER = new Set(["startup", "cron", "manual"])
-const SCHEDULED_TASK_STATUS = new Set(["success", "failed", "cancelled"])
-
 export function validateGameRow(value: unknown): GameRow {
   const row = objectRecord(value, "game")
   validateGameRowFields(row, "game")
@@ -167,130 +156,6 @@ export function validateSteamGridDBSearchResults(
   return validateArray(value, "Invalid game search response").map(
     validateSteamGridDBSearchResult,
   )
-}
-
-export function validateAdminScheduledTasksResponse(
-  value: unknown,
-): AdminScheduledTasksResponse {
-  const response = objectRecord(value, "scheduled tasks")
-  response.tasks = validateArray(
-    response.tasks,
-    "Invalid scheduled tasks response: tasks must be an array",
-  ).map(validateAdminScheduledTaskInfo)
-  return value as AdminScheduledTasksResponse
-}
-
-export function validateAdminScheduledTaskInfo(
-  value: unknown,
-): AdminScheduledTaskInfo {
-  const task = objectRecord(value, "scheduled task")
-  validateRequiredString(
-    task.id,
-    "Invalid scheduled task response: id is required",
-  )
-  validateRequiredString(
-    task.name,
-    "Invalid scheduled task response: name is required",
-  )
-  validateRequiredString(
-    task.description,
-    "Invalid scheduled task response: description is required",
-  )
-  task.triggers = validateArray(
-    task.triggers,
-    "Invalid scheduled task response: triggers must be an array",
-  ).map(validateScheduledTaskTrigger)
-  validateEnumString(
-    task.state,
-    SCHEDULED_TASK_STATE,
-    "Invalid scheduled task response: state is invalid",
-  )
-  validateNullableEnumString(
-    task.currentTrigger,
-    SCHEDULED_TASK_RUN_TRIGGER,
-    "Invalid scheduled task response: currentTrigger is invalid",
-  )
-  validateNullableDateString(
-    task.lastStartedAt,
-    "Invalid scheduled task response: lastStartedAt must be an ISO date or null",
-  )
-  validateNullableDateString(
-    task.lastFinishedAt,
-    "Invalid scheduled task response: lastFinishedAt must be an ISO date or null",
-  )
-  validateNullableNonNegativeInteger(
-    task.lastDurationMs,
-    "Invalid scheduled task response: lastDurationMs must be non-negative or null",
-  )
-  validateNullableEnumString(
-    task.lastStatus,
-    SCHEDULED_TASK_STATUS,
-    "Invalid scheduled task response: lastStatus is invalid",
-  )
-  validateNullableString(
-    task.lastError,
-    "Invalid scheduled task response: lastError must be string or null",
-  )
-  validateScheduledTaskResult(task.lastResult)
-  return value as AdminScheduledTaskInfo
-}
-
-export function validateAdminScheduledTaskRunResponse(
-  value: unknown,
-): AdminScheduledTaskRunResponse {
-  const response = objectRecord(value, "scheduled task run")
-  validateBoolean(
-    response.started,
-    "Invalid scheduled task run response: started must be boolean",
-  )
-  validateBoolean(
-    response.queued,
-    "Invalid scheduled task run response: queued must be boolean",
-  )
-  response.task = validateAdminScheduledTaskInfo(response.task)
-  return value as AdminScheduledTaskRunResponse
-}
-
-function validateScheduledTaskTrigger(value: unknown) {
-  const trigger = objectRecord(value, "scheduled task trigger")
-  validateEnumString(
-    trigger.type,
-    new Set(["startup", "cron"]),
-    "Invalid scheduled task trigger response: type is invalid",
-  )
-  if (trigger.delayMs !== undefined) {
-    validateNonNegativeInteger(
-      trigger.delayMs,
-      "Invalid scheduled task trigger response: delayMs must be non-negative",
-    )
-  }
-  if (trigger.type === "cron") {
-    validateRequiredString(
-      trigger.expression,
-      "Invalid scheduled task trigger response: expression is required",
-    )
-  }
-  return value
-}
-
-function validateScheduledTaskResult(value: unknown): void {
-  if (value === null) return
-  const result = objectRecord(value, "scheduled task result")
-  for (const [key, item] of Object.entries(result)) {
-    if (!key.trim()) {
-      throw new Error("Invalid scheduled task response: result key is empty")
-    }
-    if (
-      item !== null &&
-      typeof item !== "boolean" &&
-      typeof item !== "number" &&
-      typeof item !== "string"
-    ) {
-      throw new Error(
-        "Invalid scheduled task response: result value is invalid",
-      )
-    }
-  }
 }
 
 export function validateAdminReEncodeResponse(value: unknown): {

@@ -1,6 +1,5 @@
 export * from "./clip"
 export * from "./game"
-export * from "./scheduled-tasks"
 export * from "./social"
 
 import {
@@ -14,7 +13,6 @@ import {
   clipView,
 } from "./clip"
 import { game, gameFollow } from "./game"
-import { scheduledTaskLock, scheduledTaskRun } from "./scheduled-tasks"
 import { block, follow, notification } from "./social"
 
 /**
@@ -35,6 +33,4 @@ export const domainSchema = {
   gameFollow,
   block,
   notification,
-  scheduledTaskRun,
-  scheduledTaskLock,
 } as const

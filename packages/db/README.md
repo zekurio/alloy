@@ -15,7 +15,6 @@ packages/db/
   src/schema/game.ts         game + game-follow tables
   src/schema/clip.ts         clip and its engagement tables
   src/schema/social.ts       follow, block, notification tables
-  src/schema/scheduled-tasks.ts  scheduled-task run/lock tables
   drizzle/                   generated SQL migrations and metadata
   drizzle.config.ts          Drizzle Kit config
 ```

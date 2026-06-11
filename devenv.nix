@@ -37,7 +37,6 @@ in
     # The server is ffmpeg-free (mediabunny); this is for the desktop app,
     # which resolves ffmpeg/ffprobe from PATH in dev (bundled when packaged).
     jellyfin-ffmpeg
-    imagemagick
     cargo
     rustc
     rustfmt

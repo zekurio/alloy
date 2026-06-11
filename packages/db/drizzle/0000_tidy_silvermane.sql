@@ -118,32 +118,6 @@ CREATE TABLE "game_follow" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "scheduled_task_lock" (
-	"task_id" text PRIMARY KEY NOT NULL,
-	"owner_id" text NOT NULL,
-	"run_id" uuid NOT NULL,
-	"heartbeat_at" timestamp DEFAULT now() NOT NULL,
-	"locked_until" timestamp NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "scheduled_task_run" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"task_id" text NOT NULL,
-	"trigger" text NOT NULL,
-	"status" text NOT NULL,
-	"started_at" timestamp DEFAULT now() NOT NULL,
-	"finished_at" timestamp,
-	"duration_ms" integer,
-	"payload" jsonb,
-	"result" jsonb,
-	"error" text,
-	CONSTRAINT "scheduled_task_run_trigger_check" CHECK ("scheduled_task_run"."trigger" in ('startup', 'cron', 'manual')),
-	CONSTRAINT "scheduled_task_run_status_check" CHECK ("scheduled_task_run"."status" in ('running', 'success', 'failed', 'cancelled')),
-	CONSTRAINT "scheduled_task_run_duration_ms_check" CHECK ("scheduled_task_run"."duration_ms" is null or "scheduled_task_run"."duration_ms" >= 0)
-);
---> statement-breakpoint
 CREATE TABLE "block" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"blocker_id" uuid NOT NULL,
@@ -296,8 +270,6 @@ CREATE INDEX "clip_view_user_clip_idx" ON "clip_view" USING btree ("user_id","cl
 CREATE INDEX "game_name_idx" ON "game" USING btree ("name");--> statement-breakpoint
 CREATE UNIQUE INDEX "game_follow_pair_idx" ON "game_follow" USING btree ("user_id","steamgriddb_id");--> statement-breakpoint
 CREATE INDEX "game_follow_steamgriddb_idx" ON "game_follow" USING btree ("steamgriddb_id");--> statement-breakpoint
-CREATE INDEX "scheduled_task_run_task_started_idx" ON "scheduled_task_run" USING btree ("task_id","started_at");--> statement-breakpoint
-CREATE INDEX "scheduled_task_run_status_idx" ON "scheduled_task_run" USING btree ("status");--> statement-breakpoint
 CREATE UNIQUE INDEX "block_pair_idx" ON "block" USING btree ("blocker_id","blocked_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "follow_pair_idx" ON "follow" USING btree ("follower_id","following_id");--> statement-breakpoint
 CREATE INDEX "follow_following_idx" ON "follow" USING btree ("following_id");--> statement-breakpoint

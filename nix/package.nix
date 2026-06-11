@@ -6,8 +6,6 @@
   pnpm,
   pnpmConfigHook,
   makeWrapper,
-  imagemagick,
-  which,
   version ? (builtins.fromJSON (builtins.readFile ../package.json)).version,
   source ? import ./source.nix {
     inherit lib;
@@ -75,7 +73,6 @@ stdenvNoCC.mkDerivation (finalAttrs: {
       @hono/zod-validator \
       @simplewebauthn/server \
       blurhash \
-      croner \
       drizzle-orm \
       hono \
       mediabunny \
@@ -92,12 +89,6 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
     makeWrapper "${nodejs_24}/bin/node" "$out/bin/alloy" \
       --add-flags "$out/share/alloy/server/dist/index.js" \
-      --prefix PATH : "${
-        lib.makeBinPath [
-          imagemagick
-          which
-        ]
-      }" \
       --set-default NODE_ENV production \
       --set-default WEB_DIST_DIR "$out/share/alloy/web" \
       --set-default ALLOY_MIGRATIONS_DIR "$out/share/alloy/migrations"

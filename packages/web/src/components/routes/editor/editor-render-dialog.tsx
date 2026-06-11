@@ -115,15 +115,20 @@ export function useEditorRender({
     onBeforeOpen()
     setRenderDialogOpen(true)
     if (renderCodecs === null) {
-      void encodableRenderCodecs().then((codecs) => {
-        setRenderCodecs(codecs)
-        // Drop an unencodable default (e.g. no AV1 encoder).
-        setRenderSettings((current) =>
-          codecs.length > 0 && !codecs.includes(current.codec)
-            ? { ...current, codec: codecs[0] }
-            : current,
-        )
-      })
+      void encodableRenderCodecs()
+        .then((codecs) => {
+          setRenderCodecs(codecs)
+          // Drop an unencodable default (e.g. no AV1 encoder).
+          setRenderSettings((current) =>
+            codecs.length > 0 && !codecs.includes(current.codec)
+              ? { ...current, codec: codecs[0] }
+              : current,
+          )
+        })
+        .catch((cause) => {
+          toast.error(errorMessage(cause, "Couldn't probe video encoders"))
+          setRenderCodecs([])
+        })
     }
   }
 
@@ -279,7 +284,7 @@ export function EditorRenderDialog({
                 </FieldLabel>
                 <Select
                   value={renderSettings.codec}
-                  disabled={renderCodecs === null}
+                  disabled={renderCodecs === null || renderCodecs.length === 0}
                   onValueChange={(value) => {
                     const codec = (renderCodecs ?? []).find(
                       (entry) => entry === value,
@@ -293,7 +298,9 @@ export function EditorRenderDialog({
                     <SelectValue>
                       {renderCodecs === null
                         ? "Checking encoders..."
-                        : CODEC_LABELS[renderSettings.codec]}
+                        : renderCodecs.length === 0
+                          ? "No encoders available"
+                          : CODEC_LABELS[renderSettings.codec]}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent align="start">
