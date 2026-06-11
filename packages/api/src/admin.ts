@@ -8,14 +8,13 @@ import type {
   AdminUserStorageRow,
   RuntimeConfig,
 } from "@alloy/contracts"
+import { AdminRuntimeConfigSchema, RuntimeConfigSchema } from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
 import {
   validateAdminReEncodeResponse,
-  validateAdminRuntimeConfig,
   validateAdminUsersResponse,
   validateAdminUserStorageRow,
-  validateRuntimeConfigExport,
 } from "./contract-validators"
 import { readJsonOrThrow } from "./http"
 import { readSuccessJson } from "./mutations"
@@ -66,6 +65,14 @@ type AdminCreateUserInput = {
   email: string
   username?: string
   role?: "user" | "admin"
+}
+
+function validateAdminRuntimeConfig(value: unknown): AdminRuntimeConfig {
+  return AdminRuntimeConfigSchema.parse(value)
+}
+
+function validateRuntimeConfigExport(value: unknown): RuntimeConfig {
+  return RuntimeConfigSchema.parse(value)
 }
 
 async function fetchRuntimeConfig(
