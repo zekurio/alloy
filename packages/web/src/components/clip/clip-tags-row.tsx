@@ -1,5 +1,5 @@
+import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
-import { cn } from "alloy-ui/lib/utils"
 
 /**
  * Renders a clip's structured hashtags as a row of chips, each linking to the

@@ -1,6 +1,6 @@
+import { migrateDatabase } from "@alloy/db"
+import { logger } from "@alloy/logging"
 import { serve } from "@hono/node-server"
-import { migrateDatabase } from "alloy-db"
-import { logger } from "alloy-logging"
 
 import { app } from "./app"
 import { startChallengeSweeper, stopChallengeSweeper } from "./auth/webauthn"
@@ -8,7 +8,6 @@ import { startDirectHlsCache, stopDirectHlsCache } from "./clips/direct-hls"
 import { warmDatabase } from "./db"
 import { env } from "./env"
 import { startQueue, stopQueue } from "./queue"
-import { ensureLoginSplashImage } from "./routes/admin-appearance"
 import { requestShutdown } from "./runtime/shutdown"
 import { startScheduledTasks, stopScheduledTasks } from "./scheduled-tasks"
 
@@ -47,13 +46,6 @@ startScheduledTasks()
 
 // Background TTL cleanup for auth challenges, kept off the request path.
 startChallengeSweeper()
-
-// Heal the login splash image if it is enabled but missing from storage (e.g.
-// after upgrading from the pre-v2 config that generated it on demand). Runs
-// off the request path; admins can still regenerate manually if this fails.
-void ensureLoginSplashImage().catch((err) => {
-  logger.error("[admin-appearance] failed to ensure login splash image:", err)
-})
 
 let shuttingDown = false
 const shutdown = () => {

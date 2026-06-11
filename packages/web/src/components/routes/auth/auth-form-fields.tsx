@@ -1,15 +1,15 @@
-import { Button } from "alloy-ui/components/button"
+import { Button } from "@alloy/ui/components/button"
 import {
   Field,
   FieldDescription,
   FieldError,
   FieldLabel,
-} from "alloy-ui/components/field"
+} from "@alloy/ui/components/field"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
-} from "alloy-ui/components/input-group"
+} from "@alloy/ui/components/input-group"
 import * as React from "react"
 
 type BaseFieldProps = {

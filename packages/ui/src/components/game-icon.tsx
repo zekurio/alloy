@@ -1,5 +1,5 @@
-import { pastelAvatarColors } from "alloy-ui/lib/pastel"
-import { cn } from "alloy-ui/lib/utils"
+import { pastelAvatarColors } from "@alloy/ui/lib/pastel"
+import { cn } from "@alloy/ui/lib/utils"
 import { cva, type VariantProps } from "class-variance-authority"
 import * as React from "react"
 

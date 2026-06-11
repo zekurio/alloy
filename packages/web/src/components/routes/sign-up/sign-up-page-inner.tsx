@@ -1,14 +1,14 @@
+import type { PublicAuthConfig } from "@alloy/api"
+import { Separator } from "@alloy/ui/components/separator"
 import { Link } from "@tanstack/react-router"
-import type { PublicAuthConfig } from "alloy-api"
-import { Separator } from "alloy-ui/components/separator"
 import * as React from "react"
 
 import { AuthPageFrame } from "@/components/auth/auth-page-frame"
+import { OAuthSignIn } from "@/components/routes/login/oauth-sign-in"
 import { authClient } from "@/lib/auth-client"
 import { useRedirectIfAuthed } from "@/lib/auth-hooks"
 import { usePasskeySupport } from "@/lib/passkey-support"
 
-import { OAuthSignIn } from "../login/oauth-sign-in"
 import { PasskeySignUpForm } from "./passkey-sign-up-form"
 
 type SignUpPageInnerProps = {

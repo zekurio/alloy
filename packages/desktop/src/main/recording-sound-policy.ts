@@ -3,7 +3,7 @@ import type {
   RecordingEvent,
   RecordingNotificationSoundEvent,
   RecordingStatus,
-} from "alloy-contracts"
+} from "@alloy/contracts"
 
 import { playRecordingNotificationSound } from "./recording-notification-sounds"
 import { getRecordingSettings } from "./server-store"

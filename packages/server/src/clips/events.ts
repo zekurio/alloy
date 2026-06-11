@@ -1,8 +1,8 @@
-import type { QueueEvent } from "alloy-contracts"
-import { clip } from "alloy-db/schema"
+import type { QueueEvent } from "@alloy/contracts"
+import { clip } from "@alloy/db/schema"
+import { db } from "@alloy/server/db/index"
 import { eq } from "drizzle-orm"
 
-import { db } from "../db"
 import { selectQueueRowById } from "./queue-select"
 
 const subscribers = new Map<string, Set<(event: QueueEvent) => void>>()
@@ -75,4 +75,4 @@ function publish(channelName: string, event: QueueEvent): void {
   for (const handler of subscribers.get(channelName) ?? []) handler(event)
 }
 
-export type { QueueEvent } from "alloy-contracts"
+export type { QueueEvent } from "@alloy/contracts"

@@ -1,11 +1,4 @@
 import {
-  CLIP_PRIVACY,
-  CLIP_STATUS,
-  type ClipPage,
-  type ClipRow,
-} from "alloy-contracts"
-
-import {
   objectRecord,
   validateArray,
   validateEnumString,
@@ -18,7 +11,14 @@ import {
   validateNullableString,
   validatePositiveInteger,
   validateRequiredString,
-} from "../runtime-validation"
+} from "@alloy/api/runtime-validation"
+import {
+  CLIP_PRIVACY,
+  CLIP_STATUS,
+  type ClipPage,
+  type ClipRow,
+} from "@alloy/contracts"
+
 import { validateUserSummary } from "./people-notifications"
 import { validateGameRowFields } from "./shared"
 const CLIP_PRIVACY_SET: ReadonlySet<string> = new Set(CLIP_PRIVACY)

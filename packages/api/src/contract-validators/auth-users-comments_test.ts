@@ -19,7 +19,6 @@ function publicAuthConfig() {
       enabled: false,
       blurPx: 24,
       darkenOpacity: 0.8,
-      imageUrl: null,
     },
   }
 }

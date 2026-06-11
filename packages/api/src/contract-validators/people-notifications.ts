@@ -1,13 +1,4 @@
 import {
-  NOTIFICATION_TYPES,
-  type NotificationEvent,
-  type NotificationRow,
-  type NotificationsResponse,
-  type UserListRow,
-  type UserSummary,
-} from "alloy-contracts"
-
-import {
   objectRecord,
   validateArray,
   validateBatchProgress,
@@ -19,7 +10,16 @@ import {
   validateNullableString,
   validateRequiredString,
   validateString,
-} from "../runtime-validation"
+} from "@alloy/api/runtime-validation"
+import {
+  NOTIFICATION_TYPES,
+  type NotificationEvent,
+  type NotificationRow,
+  type NotificationsResponse,
+  type UserListRow,
+  type UserSummary,
+} from "@alloy/contracts"
+
 import { validateBooleanFlag } from "./queue"
 const NOTIFICATION_TYPE_SET: ReadonlySet<string> = new Set(NOTIFICATION_TYPES)
 export function validateNotificationsResponse(

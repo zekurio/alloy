@@ -1,7 +1,7 @@
-import { scheduledTaskRun } from "alloy-db/schema"
+import { scheduledTaskRun } from "@alloy/db/schema"
+import { client, db } from "@alloy/server/db/index"
 import { and, eq } from "drizzle-orm"
 
-import { client, db } from "../db"
 import type {
   ScheduledTaskPayload,
   ScheduledTaskResult,

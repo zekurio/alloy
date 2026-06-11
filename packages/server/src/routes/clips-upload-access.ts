@@ -1,16 +1,15 @@
-import { clip } from "alloy-db/schema"
-import { eq } from "drizzle-orm"
-import type { Context } from "hono"
-
-import { getSession } from "../auth/session"
-import { selectClipById, toPublicClipRow } from "../clips/select"
-import { db } from "../db"
+import { clip } from "@alloy/db/schema"
+import { getSession } from "@alloy/server/auth/session"
+import { selectClipById, toPublicClipRow } from "@alloy/server/clips/select"
+import { db } from "@alloy/server/db/index"
 import {
   conflict,
   forbidden,
   internalServerError,
   notFound,
-} from "../runtime/http-response"
+} from "@alloy/server/runtime/http-response"
+import { eq } from "drizzle-orm"
+import type { Context } from "hono"
 
 type ClipMutationAccess =
   | { row: typeof clip.$inferSelect }

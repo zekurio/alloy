@@ -1,6 +1,6 @@
 import { join } from "node:path"
 
-import { logger } from "alloy-logging"
+import { logger } from "@alloy/logging"
 import {
   app,
   BrowserWindow,

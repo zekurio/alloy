@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 import type { Stats } from "node:fs"
 import { extname } from "node:path"
 
-import type { RecordingCaptureKind } from "alloy-contracts"
+import type { RecordingCaptureKind } from "@alloy/contracts"
 
 export const MEDIA_PROTOCOL = "alloy-capture"
 export const MEDIA_HOST = "media"

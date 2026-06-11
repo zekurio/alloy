@@ -1,6 +1,6 @@
+import { Chip } from "@alloy/ui/components/chip"
+import { GameIcon } from "@alloy/ui/components/game-icon"
 import { Link } from "@tanstack/react-router"
-import { Chip } from "alloy-ui/components/chip"
-import { GameIcon } from "alloy-ui/components/game-icon"
 
 import {
   filterLabelClass,

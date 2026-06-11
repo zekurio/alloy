@@ -1,13 +1,13 @@
-import type { RecordingSettings } from "alloy-contracts"
+import type { RecordingSettings } from "@alloy/contracts"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "alloy-ui/components/select"
-import { SettingRow } from "alloy-ui/components/setting-row"
-import { Slider } from "alloy-ui/components/slider"
+} from "@alloy/ui/components/select"
+import { SettingRow } from "@alloy/ui/components/setting-row"
+import { Slider } from "@alloy/ui/components/slider"
 import { CheckIcon } from "lucide-react"
 import { type Dispatch, type SetStateAction } from "react"
 

@@ -5,7 +5,8 @@ import {
   type OAuthProviderConfig,
   USER_ROLES,
   type UserRole,
-} from "alloy-contracts"
+} from "@alloy/contracts"
+import { configStore } from "@alloy/server/config/store"
 import {
   type Configuration,
   skipSubjectCheck,
@@ -13,7 +14,6 @@ import {
   type UserInfoResponse,
 } from "openid-client"
 
-import { configStore } from "../config/store"
 import { normalizeEmail } from "./identity"
 import { fetchOAuthUserInfo } from "./oauth-client"
 import type { OAuthProfile, StoredTokens } from "./oauth-types"

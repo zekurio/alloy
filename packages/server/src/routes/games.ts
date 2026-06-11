@@ -1,25 +1,22 @@
-import type { GameRow } from "alloy-contracts"
-import { user } from "alloy-db/auth-schema"
-import { clip, game, gameFollow } from "alloy-db/schema"
-import { and, desc, eq, inArray, isNull, type SQL, sql } from "drizzle-orm"
-import { type Context, Hono } from "hono"
-
-import { requireSession } from "../auth/require-session"
-import { getSession } from "../auth/session"
-import { clipSelectShape, toPublicClipRow } from "../clips/select"
-import { db } from "../db"
-import { lookupGamesByName } from "../games/lookup"
+import type { GameRow } from "@alloy/contracts"
+import { user } from "@alloy/db/auth-schema"
+import { clip, game, gameFollow } from "@alloy/db/schema"
+import { requireSession } from "@alloy/server/auth/require-session"
+import { getSession } from "@alloy/server/auth/session"
+import { clipSelectShape, toPublicClipRow } from "@alloy/server/clips/select"
+import { db } from "@alloy/server/db/index"
+import { lookupGamesByName } from "@alloy/server/games/lookup"
 import {
   gameSelectShape,
   getSteamGridGameRef,
   serialiseGameRow,
-} from "../games/ref"
-import { steamGridDbIdFromGameSlug } from "../games/slug"
+} from "@alloy/server/games/ref"
+import { steamGridDbIdFromGameSlug } from "@alloy/server/games/slug"
 import {
   enrichSearchResultsWithIcons,
   isConfigured,
   searchGames,
-} from "../games/steamgriddb"
+} from "@alloy/server/games/steamgriddb"
 import {
   badGateway,
   booleanFlag,
@@ -27,7 +24,10 @@ import {
   invalidCursor,
   notFound,
   steamGridDBStatus,
-} from "../runtime/http-response"
+} from "@alloy/server/runtime/http-response"
+import { and, desc, eq, inArray, isNull, type SQL, sql } from "drizzle-orm"
+import { type Context, Hono } from "hono"
+
 import {
   clipListCursorCondition,
   clipListOrderBy,

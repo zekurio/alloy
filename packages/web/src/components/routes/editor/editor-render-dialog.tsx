@@ -1,5 +1,4 @@
-import { useNavigate } from "@tanstack/react-router"
-import { Button } from "alloy-ui/components/button"
+import { Button } from "@alloy/ui/components/button"
 import {
   Dialog,
   DialogBody,
@@ -8,17 +7,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "alloy-ui/components/dialog"
-import { Field, FieldLabel } from "alloy-ui/components/field"
-import { Progress } from "alloy-ui/components/progress"
+} from "@alloy/ui/components/dialog"
+import { Field, FieldLabel } from "@alloy/ui/components/field"
+import { Progress } from "@alloy/ui/components/progress"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "alloy-ui/components/select"
-import { toast } from "alloy-ui/lib/toast"
+} from "@alloy/ui/components/select"
+import { toast } from "@alloy/ui/lib/toast"
+import { useNavigate } from "@tanstack/react-router"
 import * as React from "react"
 
 import type { AlloyDesktop } from "@/lib/desktop"

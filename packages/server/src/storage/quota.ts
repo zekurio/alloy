@@ -1,7 +1,6 @@
-import { clip } from "alloy-db/schema"
+import { clip } from "@alloy/db/schema"
+import type { db } from "@alloy/server/db/index"
 import { and, eq, inArray, ne, sql } from "drizzle-orm"
-
-import type { db } from "../db"
 
 type StorageUsageDb = Pick<typeof db, "select">
 

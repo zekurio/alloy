@@ -3,7 +3,7 @@ import { existsSync } from "node:fs"
 import { join } from "node:path"
 import { promisify } from "node:util"
 
-import { logger } from "alloy-logging"
+import { logger } from "@alloy/logging"
 
 const execFileAsync = promisify(execFile)
 

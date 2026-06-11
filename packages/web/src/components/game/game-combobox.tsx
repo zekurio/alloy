@@ -1,4 +1,4 @@
-import type { GameRow, SteamGridDBSearchResult } from "alloy-api"
+import type { GameRow, SteamGridDBSearchResult } from "@alloy/api"
 import {
   Combobox,
   ComboboxContent,
@@ -6,10 +6,10 @@ import {
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
-} from "alloy-ui/components/combobox"
-import { GameIcon } from "alloy-ui/components/game-icon"
-import { InputGroupAddon } from "alloy-ui/components/input-group"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/components/combobox"
+import { GameIcon } from "@alloy/ui/components/game-icon"
+import { InputGroupAddon } from "@alloy/ui/components/input-group"
+import { cn } from "@alloy/ui/lib/utils"
 import { AlertCircleIcon, SearchIcon } from "lucide-react"
 import * as React from "react"
 

@@ -1,4 +1,4 @@
-import type { PublicAuthProvider } from "alloy-api"
+import type { PublicAuthProvider } from "@alloy/api"
 import * as React from "react"
 
 import { OAuthButton } from "@/components/auth/oauth-button"

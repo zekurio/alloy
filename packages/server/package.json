@@ -1,9 +1,10 @@
 {
-  "name": "alloy-server",
+  "name": "@alloy/server",
   "private": true,
   "type": "module",
   "exports": {
-    "./app": "./src/app.ts"
+    "./app": "./src/app.ts",
+    "./*": "./src/*.ts"
   },
   "scripts": {
     "build": "vite build",
@@ -11,19 +12,19 @@
     "start": "NODE_ENV=production node dist/index.js",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"src/**/*_test.ts\"",
-    "db:generate": "pnpm --filter alloy-db db:generate",
-    "db:migrate": "pnpm --filter alloy-db db:migrate",
-    "db:push": "pnpm --filter alloy-db db:push",
-    "db:studio": "pnpm --filter alloy-db db:studio"
+    "db:generate": "pnpm --filter @alloy/db db:generate",
+    "db:migrate": "pnpm --filter @alloy/db db:migrate",
+    "db:push": "pnpm --filter @alloy/db db:push",
+    "db:studio": "pnpm --filter @alloy/db db:studio"
   },
   "dependencies": {
+    "@alloy/contracts": "workspace:*",
+    "@alloy/db": "workspace:*",
+    "@alloy/env": "workspace:*",
+    "@alloy/logging": "workspace:*",
     "@hono/node-server": "2.0.4",
     "@hono/zod-validator": "0.7.6",
     "@simplewebauthn/server": "13.3.0",
-    "alloy-contracts": "workspace:*",
-    "alloy-db": "workspace:*",
-    "alloy-env": "workspace:*",
-    "alloy-logging": "workspace:*",
     "blurhash": "^2.0.5",
     "croner": "10.0.1",
     "drizzle-orm": "0.45.2",

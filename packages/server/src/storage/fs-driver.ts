@@ -12,7 +12,13 @@ import {
 } from "node:fs/promises"
 import { Readable } from "node:stream"
 
-import { dirname, isAbsolute, normalize, resolve } from "../runtime/path"
+import {
+  dirname,
+  isAbsolute,
+  normalize,
+  resolve,
+} from "@alloy/server/runtime/path"
+
 import type {
   MintUploadUrlInput,
   ResolvedObject,

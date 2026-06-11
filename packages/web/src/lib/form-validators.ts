@@ -1,4 +1,4 @@
-import { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "alloy-api/auth"
+import { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "@alloy/api/auth"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u
 

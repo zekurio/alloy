@@ -1,4 +1,4 @@
-import type { ClipPrivacy, UserSearchResult } from "alloy-api"
+import type { ClipPrivacy, UserSearchResult } from "@alloy/api"
 import * as React from "react"
 
 import { normalizeClipTitle } from "@/lib/clip-fields"

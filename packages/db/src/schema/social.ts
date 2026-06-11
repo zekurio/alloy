@@ -1,4 +1,4 @@
-import { NOTIFICATION_TYPES, type NotificationType } from "alloy-contracts"
+import { NOTIFICATION_TYPES, type NotificationType } from "@alloy/contracts"
 import { sql } from "drizzle-orm"
 import {
   check,

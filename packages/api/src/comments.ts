@@ -1,4 +1,4 @@
-import type { CommentPage, CommentRow, CommentSort } from "alloy-contracts"
+import type { CommentPage, CommentRow, CommentSort } from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
 import {
@@ -17,8 +17,8 @@ export type {
   CommentPage,
   CommentRow,
   CommentSort,
-} from "alloy-contracts"
-export { COMMENT_BODY_MAX_LENGTH } from "alloy-contracts"
+} from "@alloy/contracts"
+export { COMMENT_BODY_MAX_LENGTH } from "@alloy/contracts"
 
 async function fetchComments(
   context: ApiContext,

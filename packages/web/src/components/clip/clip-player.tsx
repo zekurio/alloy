@@ -4,9 +4,9 @@ import {
   type ClipStatus,
   clipStreamUrl,
   clipThumbnailUrl,
-} from "alloy-api"
-import { MediaPlaceholder } from "alloy-ui/components/media-placeholder"
-import { toast } from "alloy-ui/lib/toast"
+} from "@alloy/api"
+import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
+import { toast } from "@alloy/ui/lib/toast"
 import * as React from "react"
 
 import { hlsPlaybackSupported } from "@/components/video/video-media-engine"

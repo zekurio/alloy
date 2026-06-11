@@ -1,5 +1,5 @@
-import { sanitizeTag } from "alloy-contracts"
-import { clip, clipTag } from "alloy-db/schema"
+import { sanitizeTag } from "@alloy/contracts"
+import { clip, clipTag } from "@alloy/db/schema"
 import { type SQL, sql } from "drizzle-orm"
 
 /**

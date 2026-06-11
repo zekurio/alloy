@@ -1,5 +1,7 @@
-import { authChallenge } from "alloy-db/auth-schema"
-import { logger } from "alloy-logging"
+import { authChallenge } from "@alloy/db/auth-schema"
+import { logger } from "@alloy/logging"
+import { db } from "@alloy/server/db/index"
+import { errorDetail } from "@alloy/server/runtime/error-message"
 import type { Context } from "hono"
 import {
   authorizationCodeGrant,
@@ -9,8 +11,6 @@ import {
   randomState,
 } from "openid-client"
 
-import { db } from "../db"
-import { errorDetail } from "../runtime/error-message"
 import {
   clearOAuthStateCookie,
   readOAuthStateCookie,

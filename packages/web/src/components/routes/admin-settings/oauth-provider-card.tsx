@@ -1,4 +1,4 @@
-import type { AdminOAuthProvider, AdminRuntimeConfig } from "alloy-api"
+import type { AdminOAuthProvider, AdminRuntimeConfig } from "@alloy/api"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -9,17 +9,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "alloy-ui/components/alert-dialog"
-import { Button } from "alloy-ui/components/button"
-import { List, ListItem } from "alloy-ui/components/list"
+} from "@alloy/ui/components/alert-dialog"
+import { Button } from "@alloy/ui/components/button"
+import { List, ListItem } from "@alloy/ui/components/list"
 import {
   Section,
   SectionContent,
   SectionHeader,
   SectionTitle,
-} from "alloy-ui/components/section"
-import { Switch } from "alloy-ui/components/switch"
-import { toast } from "alloy-ui/lib/toast"
+} from "@alloy/ui/components/section"
+import { Switch } from "@alloy/ui/components/switch"
+import { toast } from "@alloy/ui/lib/toast"
 import { PencilIcon, PlusIcon, Trash2Icon, UserKeyIcon } from "lucide-react"
 import * as React from "react"
 

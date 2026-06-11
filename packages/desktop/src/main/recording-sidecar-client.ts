@@ -7,8 +7,8 @@ import type {
   RecordingEvent,
   RecordingSettings,
   RecordingStatus,
-} from "alloy-contracts"
-import { logger } from "alloy-logging"
+} from "@alloy/contracts"
+import { logger } from "@alloy/logging"
 
 export interface SidecarConfig {
   settings: RecordingSettings

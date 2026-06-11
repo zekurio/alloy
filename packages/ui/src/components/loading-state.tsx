@@ -1,5 +1,5 @@
-import { Spinner } from "alloy-ui/components/spinner"
-import { cn } from "alloy-ui/lib/utils"
+import { Spinner } from "@alloy/ui/components/spinner"
+import { cn } from "@alloy/ui/lib/utils"
 
 /**
  * Centered spinner block for section/page loading states. Override the

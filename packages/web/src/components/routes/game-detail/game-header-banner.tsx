@@ -1,6 +1,6 @@
-import type { GameDetail } from "alloy-api"
-import { MediaPlaceholder } from "alloy-ui/components/media-placeholder"
-import { cn } from "alloy-ui/lib/utils"
+import type { GameDetail } from "@alloy/api"
+import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
+import { cn } from "@alloy/ui/lib/utils"
 import * as React from "react"
 
 import { APP_BANNER_HEIGHT_CLASS } from "@/lib/banner-layout"

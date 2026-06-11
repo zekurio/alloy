@@ -1,6 +1,6 @@
-import type { RecordingSettings, RecordingStatus } from "alloy-contracts"
-import { Switch } from "alloy-ui/components/switch"
-import { cn } from "alloy-ui/lib/utils"
+import type { RecordingSettings, RecordingStatus } from "@alloy/contracts"
+import { Switch } from "@alloy/ui/components/switch"
+import { cn } from "@alloy/ui/lib/utils"
 import { type ReactNode } from "react"
 
 export function ModeSection({

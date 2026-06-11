@@ -3,19 +3,18 @@ import type {
   AdminRuntimeConfig,
   OAuthProviderConfig,
   RuntimeConfig,
-} from "alloy-contracts"
-import { user } from "alloy-db/auth-schema"
-import { desc, inArray } from "drizzle-orm"
-
+} from "@alloy/contracts"
+import { user } from "@alloy/db/auth-schema"
 import {
   OAuthProviderSchema,
   OAuthProviderSubmissionSchema,
-} from "../config/oauth-schema"
-import { secretStore } from "../config/secret-store"
-import { db } from "../db"
-import { env } from "../env"
-import { isoDate } from "../runtime/date"
-import { selectSourceStorageUsedBytesByUserIds } from "../storage/quota"
+} from "@alloy/server/config/oauth-schema"
+import { secretStore } from "@alloy/server/config/secret-store"
+import { db } from "@alloy/server/db/index"
+import { env } from "@alloy/server/env"
+import { isoDate } from "@alloy/server/runtime/date"
+import { selectSourceStorageUsedBytesByUserIds } from "@alloy/server/storage/quota"
+import { desc, inArray } from "drizzle-orm"
 
 type OAuthProviderAdminSubmission = Record<string, unknown> & {
   providerId?: string

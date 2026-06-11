@@ -1,10 +1,10 @@
-import { LoadingState } from "alloy-ui/components/loading-state"
+import { LoadingState } from "@alloy/ui/components/loading-state"
 import {
   SectionActions,
   SectionHead,
   SectionMeta,
   SectionTitle,
-} from "alloy-ui/components/section-head"
+} from "@alloy/ui/components/section-head"
 import { GamepadIcon } from "lucide-react"
 
 import { EmptyState } from "@/components/feedback/empty-state"

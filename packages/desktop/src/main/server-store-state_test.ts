@@ -1,6 +1,6 @@
 import { test } from "node:test"
 
-import { DEFAULT_RECORDING_SETTINGS } from "alloy-contracts"
+import { DEFAULT_RECORDING_SETTINGS } from "@alloy/contracts"
 
 import {
   MAX_SAVED_SERVERS,

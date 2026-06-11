@@ -4,11 +4,12 @@ import { dirname, join } from "node:path"
 import {
   normalizeRecordingSettings,
   type RecordingSettings,
-} from "alloy-contracts"
-import { logger } from "alloy-logging"
+} from "@alloy/contracts"
+import { logger } from "@alloy/logging"
 import { app } from "electron"
 
-import type { SavedServer } from "../shared/ipc"
+import type { SavedServer } from "@/shared/ipc"
+
 import {
   EMPTY_STATE,
   type DesktopState,

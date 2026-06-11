@@ -2,15 +2,15 @@ import type {
   RecordingCodec,
   RecordingSettings,
   RecordingStatus,
-} from "alloy-contracts"
-import { Field, FieldLabel } from "alloy-ui/components/field"
+} from "@alloy/contracts"
+import { Field, FieldLabel } from "@alloy/ui/components/field"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "alloy-ui/components/select"
+} from "@alloy/ui/components/select"
 
 import {
   DESKTOP_RECORDING_BITRATES,

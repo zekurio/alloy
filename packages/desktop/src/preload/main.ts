@@ -4,8 +4,8 @@ import type {
   AlloyDesktopMarker,
   AlloyDesktopRecordingApi,
   AlloyDesktopServerApi,
-} from "../shared/ipc"
-import { IPC } from "../shared/ipc"
+} from "@/shared/ipc"
+import { IPC } from "@/shared/ipc"
 
 /**
  * Desktop bridge injected into the main window, which loads the configured

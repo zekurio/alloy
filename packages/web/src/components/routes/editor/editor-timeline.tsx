@@ -1,4 +1,4 @@
-import { cn } from "alloy-ui/lib/utils"
+import { cn } from "@alloy/ui/lib/utils"
 import { BlendIcon, XIcon } from "lucide-react"
 import * as React from "react"
 

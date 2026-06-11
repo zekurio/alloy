@@ -1,5 +1,5 @@
+import { Button } from "@alloy/ui/components/button"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import { Button } from "alloy-ui/components/button"
 import { KeyRoundIcon } from "lucide-react"
 import * as React from "react"
 

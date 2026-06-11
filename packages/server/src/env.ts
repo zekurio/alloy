@@ -4,8 +4,8 @@ import {
   normalizeOrigin,
   normalizePublicServerUrl,
   postgresUrl,
-} from "alloy-env"
-import { loadDotenv } from "alloy-env/node"
+} from "@alloy/env"
+import { loadDotenv } from "@alloy/env/node"
 import { z } from "zod"
 
 // Deploy-time env only. Anything an admin should be able to change at
@@ -51,8 +51,8 @@ const EnvSchema = z.object({
     .default(defaultPublicServerUrl)
     .transform(normalizeTrustedOrigins),
 
-  // App-owned data: config.json, login splash, user avatars/banners, and the
-  // ML model cache all live under this dir. Always local; keep it on fast disk.
+  // App-owned data: config.json, user avatars/banners, and the ML model cache
+  // all live under this dir. Always local; keep it on fast disk.
   ALLOY_DATA_DIR: z.string().optional(),
   // Bulk clip media. The only "big" location; point it at a large volume.
   // Defaults to `${ALLOY_DATA_DIR}/clips`.

@@ -2,9 +2,9 @@ import {
   DEFAULT_RECORDING_SETTINGS,
   normalizeRecordingSettings,
   type RecordingSettings,
-} from "alloy-contracts"
+} from "@alloy/contracts"
 
-import type { SavedServer } from "../shared/ipc"
+import type { SavedServer } from "@/shared/ipc"
 
 export interface DesktopState {
   servers: SavedServer[]

@@ -3,8 +3,8 @@ import type {
   GameNameLookupResult,
   GameRow,
   SteamGridDBSearchResult,
-} from "alloy-contracts"
-import { logger } from "alloy-logging"
+} from "@alloy/contracts"
+import { logger } from "@alloy/logging"
 
 import {
   exactNameKey,

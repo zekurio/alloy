@@ -1,8 +1,7 @@
-import { clip, clipComment } from "alloy-db/schema"
+import { clip, clipComment } from "@alloy/db/schema"
+import { getSession } from "@alloy/server/auth/session"
+import { db } from "@alloy/server/db/index"
 import { and, eq, sql } from "drizzle-orm"
-
-import { getSession } from "../auth/session"
-import { db } from "../db"
 
 async function selectCommentModerationTarget(commentId: string) {
   const [row] = await db

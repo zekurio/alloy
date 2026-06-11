@@ -1,10 +1,10 @@
-import { MediaPlaceholder } from "alloy-ui/components/media-placeholder"
+import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import {
   CLIP_MEDIA_BACKGROUND_CLASS,
   CLIP_MEDIA_CLASS,
   CLIP_VIDEO_MEDIA_CLASS,
-} from "alloy-ui/lib/media-frame"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/lib/media-frame"
+import { cn } from "@alloy/ui/lib/utils"
 import * as React from "react"
 
 type VideoFrameProps = {

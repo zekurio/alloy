@@ -1,5 +1,5 @@
-import type { ClipRow } from "alloy-api"
-import { LoadingState } from "alloy-ui/components/loading-state"
+import type { ClipRow } from "@alloy/api"
+import { LoadingState } from "@alloy/ui/components/loading-state"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
 import { EmptyState } from "@/components/feedback/empty-state"

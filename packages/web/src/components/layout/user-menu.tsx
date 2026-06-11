@@ -1,15 +1,15 @@
-import { Link, useRouter } from "@tanstack/react-router"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "alloy-ui/components/dropdown-menu"
-import { Spinner } from "alloy-ui/components/spinner"
-import { UserAvatarButton } from "alloy-ui/components/user-avatar-button"
-import { buttonVariants } from "alloy-ui/lib/button-variants"
-import { toast } from "alloy-ui/lib/toast"
+} from "@alloy/ui/components/dropdown-menu"
+import { Spinner } from "@alloy/ui/components/spinner"
+import { UserAvatarButton } from "@alloy/ui/components/user-avatar-button"
+import { buttonVariants } from "@alloy/ui/lib/button-variants"
+import { toast } from "@alloy/ui/lib/toast"
+import { Link, useRouter } from "@tanstack/react-router"
 import { LogInIcon, LogOutIcon, UserIcon } from "lucide-react"
 import * as React from "react"
 

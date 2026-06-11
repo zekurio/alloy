@@ -8,7 +8,7 @@ import type {
   GameRow,
   SteamGridDBSearchResult,
   SteamGridDBStatus,
-} from "alloy-contracts"
+} from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
 import {
@@ -35,7 +35,7 @@ export type {
   GameRow,
   SteamGridDBSearchResult,
   SteamGridDBStatus,
-} from "alloy-contracts"
+} from "@alloy/contracts"
 
 export function gameGridUrl(slug: string, origin?: string): string {
   return resolvePublicUrl(`/api/games/${encodedPathSegment(slug)}/grid`, origin)

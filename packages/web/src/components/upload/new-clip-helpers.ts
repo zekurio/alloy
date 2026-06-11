@@ -2,7 +2,7 @@ import {
   ACCEPTED_CLIP_CONTENT_TYPES,
   type AcceptedContentType,
   type ClipPrivacy,
-} from "alloy-api"
+} from "@alloy/api"
 
 import { type ProbedFile, probeFile } from "./new-clip-media"
 

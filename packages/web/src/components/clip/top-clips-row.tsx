@@ -1,5 +1,5 @@
-import type { ClipRow } from "alloy-api"
-import { CarouselItem } from "alloy-ui/components/carousel"
+import type { ClipRow } from "@alloy/api"
+import { CarouselItem } from "@alloy/ui/components/carousel"
 
 import { ClipCardTrigger } from "./clip-card-trigger"
 import { TopClipsCarousel } from "./top-clips-carousel"

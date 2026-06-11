@@ -1,5 +1,5 @@
-import type { PublicUser } from "alloy-api"
-import { cn } from "alloy-ui/lib/utils"
+import type { PublicUser } from "@alloy/api"
+import { cn } from "@alloy/ui/lib/utils"
 
 import { PROFILE_BANNER_ASPECT_CLASS } from "@/lib/banner-layout"
 import { UserBanner } from "@/lib/user-display"

@@ -1,4 +1,4 @@
-import { Spinner } from "alloy-ui/components/spinner"
+import { Spinner } from "@alloy/ui/components/spinner"
 
 import { AllowedGamesSection } from "./desktop-capture-games"
 import { HotkeysSection } from "./desktop-capture-hotkeys"

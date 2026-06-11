@@ -1,8 +1,8 @@
-import { RUNTIME_CONFIG_VERSION, type RuntimeConfig } from "alloy-contracts"
+import { RUNTIME_CONFIG_VERSION, type RuntimeConfig } from "@alloy/contracts"
+import { randomBase64Url } from "@alloy/server/runtime/crypto"
+import { isValidCronExpression } from "@alloy/server/scheduled-tasks/cron"
 import { z } from "zod"
 
-import { randomBase64Url } from "../runtime/crypto"
-import { isValidCronExpression } from "../scheduled-tasks/cron"
 import { OAuthProvidersSchema } from "./oauth-schema"
 
 function randomSecret(): string {

@@ -4,8 +4,8 @@ import {
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
-} from "alloy-ui/components/carousel"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/components/carousel"
+import { cn } from "@alloy/ui/lib/utils"
 import * as React from "react"
 
 const CHEVRON_CLASS =

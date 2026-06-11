@@ -1,13 +1,13 @@
 "use client"
 
-import { Button } from "alloy-ui/components/button"
+import { Button } from "@alloy/ui/components/button"
 import {
   type CarouselApi,
   CarouselContext,
   type CarouselProps,
   useCarousel,
-} from "alloy-ui/hooks/use-carousel"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/hooks/use-carousel"
+import { cn } from "@alloy/ui/lib/utils"
 import useEmblaCarousel from "embla-carousel-react"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import * as React from "react"

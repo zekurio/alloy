@@ -13,19 +13,14 @@ on:
 
 permissions:
   contents: write
-  packages: write
 
 concurrency:
   group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
 jobs:
   release:
-    name: Build and publish images
+    name: Build and validate server
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
@@ -136,20 +131,16 @@ jobs:
       - name: Build Nix package
         run: nix --extra-experimental-features "nix-command flakes" build .#alloy --no-link
 
+      - name: Build Nix container image
+        # Validation only; the versioned image is pushed by release-image.yml
+        # once the draft GitHub release is published.
+        run: nix --extra-experimental-features "nix-command flakes" build .#alloy-image --no-link
+
       - name: Resolve release target
         id: release_target
         shell: bash
         run: |
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
-      - name: Publish server release image
-        uses: ./.github/actions/publish-nix-image
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=${{ steps.meta.outputs.tag }}
-            type=raw,value=latest,enable=${{ steps.meta.outputs.make_latest == 'true' }}
 
   desktop:
     name: Build Windows desktop installer
@@ -248,7 +239,7 @@ jobs:
       - name: Build Windows desktop installer
         env:
           NODE_ENV: production
-        run: corepack pnpm --filter alloy-desktop dist:win:installer
+        run: corepack pnpm --filter @alloy/desktop dist:win:installer
 
       - name: Generate desktop checksums
         shell: pwsh
@@ -287,7 +278,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    name: Publish GitHub release
+    name: Create draft GitHub release
     runs-on: ubuntu-latest
     needs:
       - release
@@ -300,12 +291,13 @@ jobs:
           name: desktop-release-assets
           path: desktop-release-assets
 
-      - name: Publish GitHub release
+      - name: Create draft GitHub release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.release.outputs.tag }}
           target_commitish: ${{ needs.release.outputs.target_sha }}
           name: Alloy ${{ needs.release.outputs.tag }}
+          draft: true
           generate_release_notes: true
           prerelease: ${{ needs.release.outputs.is_prerelease }}
           make_latest: ${{ needs.release.outputs.make_latest }}

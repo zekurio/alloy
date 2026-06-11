@@ -7,9 +7,9 @@ import type {
   RecordingNotificationSoundLibrary,
   RecordingNotificationSoundOption,
   RecordingNotificationSoundSettings,
-} from "alloy-contracts"
-import { RECORDING_NOTIFICATION_SOUND_EVENTS } from "alloy-contracts"
-import { logger } from "alloy-logging"
+} from "@alloy/contracts"
+import { RECORDING_NOTIFICATION_SOUND_EVENTS } from "@alloy/contracts"
+import { logger } from "@alloy/logging"
 import { app, BrowserWindow } from "electron"
 
 export const RECORDING_SOUND_FILE_EXTENSIONS = [

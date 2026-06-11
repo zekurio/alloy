@@ -1,4 +1,4 @@
-import type { RecordingDisplay } from "alloy-contracts"
+import type { RecordingDisplay } from "@alloy/contracts"
 import { desktopCapturer, screen } from "electron"
 
 const DISPLAY_THUMBNAIL_WIDTH = 480

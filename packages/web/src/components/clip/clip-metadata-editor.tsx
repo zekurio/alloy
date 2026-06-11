@@ -1,20 +1,24 @@
-import type { ClipPrivacy, GameRow, UserSearchResult } from "alloy-api"
-import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
-import { Chip } from "alloy-ui/components/chip"
+import type { ClipPrivacy, GameRow, UserSearchResult } from "@alloy/api"
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@alloy/ui/components/avatar"
+import { Chip } from "@alloy/ui/components/chip"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "alloy-ui/components/dropdown-menu"
-import { GameIcon } from "alloy-ui/components/game-icon"
+} from "@alloy/ui/components/dropdown-menu"
+import { GameIcon } from "@alloy/ui/components/game-icon"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "alloy-ui/components/popover"
-import { Textarea } from "alloy-ui/components/textarea"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/components/popover"
+import { Textarea } from "@alloy/ui/components/textarea"
+import { cn } from "@alloy/ui/lib/utils"
 import {
   AtSignIcon,
   ChevronDownIcon,

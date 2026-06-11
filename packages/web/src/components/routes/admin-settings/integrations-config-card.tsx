@@ -1,16 +1,16 @@
-import { useQueryClient } from "@tanstack/react-query"
-import type { AdminIntegrationsConfig, AdminRuntimeConfig } from "alloy-api"
-import { Button } from "alloy-ui/components/button"
-import { Field, FieldLabel } from "alloy-ui/components/field"
-import { InputGroup, InputGroupInput } from "alloy-ui/components/input-group"
+import type { AdminIntegrationsConfig, AdminRuntimeConfig } from "@alloy/api"
+import { Button } from "@alloy/ui/components/button"
+import { Field, FieldLabel } from "@alloy/ui/components/field"
+import { InputGroup, InputGroupInput } from "@alloy/ui/components/input-group"
 import {
   Section,
   SectionContent,
   SectionFooter,
   SectionHeader,
   SectionTitle,
-} from "alloy-ui/components/section"
-import { toast } from "alloy-ui/lib/toast"
+} from "@alloy/ui/components/section"
+import { toast } from "@alloy/ui/lib/toast"
+import { useQueryClient } from "@tanstack/react-query"
 import { SaveIcon } from "lucide-react"
 import * as React from "react"
 

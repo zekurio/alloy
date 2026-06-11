@@ -1,4 +1,7 @@
-import { base64UrlDecodeText, base64UrlEncodeText } from "../encoding/base64url"
+import {
+  base64UrlDecodeText,
+  base64UrlEncodeText,
+} from "@alloy/server/encoding/base64url"
 
 type CursorPayload = Record<string, unknown>
 

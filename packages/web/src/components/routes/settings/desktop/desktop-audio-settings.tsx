@@ -3,19 +3,19 @@ import type {
   RecordingAudioDeviceKind,
   RecordingAudioDeviceSelection,
   RecordingSettings,
-} from "alloy-contracts"
-import { Checkbox } from "alloy-ui/components/checkbox"
+} from "@alloy/contracts"
+import { Checkbox } from "@alloy/ui/components/checkbox"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "alloy-ui/components/select"
-import { SettingRow } from "alloy-ui/components/setting-row"
-import { Slider } from "alloy-ui/components/slider"
-import { Spinner } from "alloy-ui/components/spinner"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/components/select"
+import { SettingRow } from "@alloy/ui/components/setting-row"
+import { Slider } from "@alloy/ui/components/slider"
+import { Spinner } from "@alloy/ui/components/spinner"
+import { cn } from "@alloy/ui/lib/utils"
 import {
   AppWindowIcon,
   MicIcon,

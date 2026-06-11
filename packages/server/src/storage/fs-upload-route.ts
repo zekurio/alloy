@@ -1,12 +1,9 @@
 import { link, mkdir, open, rm } from "node:fs/promises"
 
-import { clipUploadTicket } from "alloy-db/schema"
-import { logger } from "alloy-logging"
-import { and, eq, gt, isNull } from "drizzle-orm"
-import { Hono } from "hono"
-
-import { secretStore } from "../config/secret-store"
-import { db } from "../db"
+import { clipUploadTicket } from "@alloy/db/schema"
+import { logger } from "@alloy/logging"
+import { secretStore } from "@alloy/server/config/secret-store"
+import { db } from "@alloy/server/db/index"
 import {
   badRequest,
   conflict,
@@ -14,9 +11,12 @@ import {
   noContent,
   payloadTooLarge,
   unauthorized,
-} from "../runtime/http-response"
-import { dirname } from "../runtime/path"
-import { ensureScratchParent } from "../uploads/scratch"
+} from "@alloy/server/runtime/http-response"
+import { dirname } from "@alloy/server/runtime/path"
+import { ensureScratchParent } from "@alloy/server/uploads/scratch"
+import { and, eq, gt, isNull } from "drizzle-orm"
+import { Hono } from "hono"
+
 import { decodeUploadToken } from "./fs-driver"
 
 type FsFile = Awaited<ReturnType<typeof open>>

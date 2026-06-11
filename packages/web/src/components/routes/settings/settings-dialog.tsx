@@ -3,9 +3,9 @@ import {
   DialogClose,
   DialogContent,
   DialogTitle,
-} from "alloy-ui/components/dialog"
-import { Spinner } from "alloy-ui/components/spinner"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/components/dialog"
+import { Spinner } from "@alloy/ui/components/spinner"
+import { cn } from "@alloy/ui/lib/utils"
 import { SearchIcon, XIcon } from "lucide-react"
 import * as React from "react"
 
@@ -124,7 +124,7 @@ function SettingsDialogContent({
         <div className="text-foreground px-2.5 pb-2 text-lg font-semibold tracking-[var(--tracking-tight)]">
           Settings
         </div>
-        <div className="relative pb-1">
+        <div className="relative mb-1">
           <SearchIcon className="text-foreground-faint pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2" />
           <input
             type="search"

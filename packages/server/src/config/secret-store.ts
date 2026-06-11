@@ -1,11 +1,11 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs"
 
-import type { OAuthProviderConfig } from "alloy-contracts"
-import { logger } from "alloy-logging"
+import type { OAuthProviderConfig } from "@alloy/contracts"
+import { logger } from "@alloy/logging"
+import { SECRETS_PATH } from "@alloy/server/runtime/dirs"
+import { errorDetail } from "@alloy/server/runtime/error-message"
+import { dirname } from "@alloy/server/runtime/path"
 
-import { SECRETS_PATH } from "../runtime/dirs"
-import { errorDetail } from "../runtime/error-message"
-import { dirname } from "../runtime/path"
 import { type ServerSecrets, ServerSecretsSchema } from "./schema"
 
 /**

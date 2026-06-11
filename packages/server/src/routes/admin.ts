@@ -1,30 +1,27 @@
-import { ACCEPTED_IMAGE_CONTENT_TYPES } from "alloy-contracts"
-import { clip } from "alloy-db/schema"
-import { inArray } from "drizzle-orm"
-import { Hono } from "hono"
-import { z } from "zod"
-
-import { requireAdmin } from "../auth/session"
-import { signInConfigError } from "../auth/sign-in-config"
-import { OAuthProvidersSchema } from "../config/oauth-schema"
+import { clip } from "@alloy/db/schema"
+import { requireAdmin } from "@alloy/server/auth/session"
+import { signInConfigError } from "@alloy/server/auth/sign-in-config"
+import { OAuthProvidersSchema } from "@alloy/server/config/oauth-schema"
 import {
   IntegrationsSecretPatchSchema,
   LimitsConfigPatchSchema,
-} from "../config/schema"
-import { isOAuthProviderUsable, secretStore } from "../config/secret-store"
-import { configStore, parseRuntimeConfig } from "../config/store"
-import { db } from "../db"
-import { enqueueClipMediaProcessing } from "../queue"
+} from "@alloy/server/config/schema"
+import {
+  isOAuthProviderUsable,
+  secretStore,
+} from "@alloy/server/config/secret-store"
+import { configStore, parseRuntimeConfig } from "@alloy/server/config/store"
+import { db } from "@alloy/server/db/index"
+import { enqueueClipMediaProcessing } from "@alloy/server/queue/index"
 import {
   badRequest,
   badRequestFromCause,
   batchProgress,
-} from "../runtime/http-response"
-import {
-  ensureLoginSplashImage,
-  generateLoginSplashPatch,
-  storeUploadedLoginSplashImage,
-} from "./admin-appearance"
+} from "@alloy/server/runtime/http-response"
+import { inArray } from "drizzle-orm"
+import { Hono } from "hono"
+import { z } from "zod"
+
 import {
   adminRuntimeConfigResponse,
   finalizeOAuthProviderSubmission,
@@ -34,7 +31,6 @@ import { adminUsersRoute } from "./admin-users"
 import { zValidator } from "./validation"
 
 const RE_ENCODE_BATCH_LIMIT = 100
-const MAX_LOGIN_SPLASH_UPLOAD_BYTES = 12 * 1024 * 1024
 
 const RuntimeConfigPatch = z.object({
   setupComplete: z.boolean().optional(),
@@ -51,21 +47,6 @@ const AppearancePatch = z.object({
       darkenOpacity: z.number().min(0).max(1).optional(),
     })
     .optional(),
-})
-
-const LoginSplashUploadForm = z.object({
-  file: z
-    .instanceof(File, { message: "Expected an uploaded image file" })
-    .refine((file) => file.size > 0, "Image file is empty")
-    .refine(
-      (file) => file.size <= MAX_LOGIN_SPLASH_UPLOAD_BYTES,
-      "Login backdrop must be 12 MB or smaller",
-    )
-    .refine(
-      (file) =>
-        (ACCEPTED_IMAGE_CONTENT_TYPES as readonly string[]).includes(file.type),
-      "Unsupported image type",
-    ),
 })
 
 const OAuthProviderAdminSubmissionSchema = z
@@ -87,9 +68,6 @@ export const adminRoute = new Hono()
   .post("/runtime-config/reload", async (c) => {
     if (!(await configStore.reload())) {
       return badRequest(c, "Runtime config file failed validation.")
-    }
-    if (configStore.get("appearance").loginSplash.enabled) {
-      await ensureLoginSplashImage()
     }
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
@@ -123,7 +101,6 @@ export const adminRoute = new Hono()
       secretStore.update({
         retainOAuth: nextProviderIds,
       })
-      if (next.appearance.loginSplash.enabled) await ensureLoginSplashImage()
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     } catch (cause) {
       return badRequestFromCause(c, cause, "Invalid configuration.")
@@ -262,42 +239,8 @@ export const adminRoute = new Hono()
       next.loginSplash.darkenOpacity = patch.loginSplash.darkenOpacity
     }
     configStore.set("appearance", next)
-    // Enabling the backdrop only flips the flag; make sure a renderable image
-    // exists so /api/auth-config doesn't report it enabled with nothing to show.
-    // No-op when already present (and when disabled).
-    if (next.loginSplash.enabled) await ensureLoginSplashImage()
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
-  .post("/appearance/login-splash/regenerate", async (c) => {
-    const current = configStore.get("appearance")
-    configStore.set("appearance", {
-      ...current,
-      loginSplash: await generateLoginSplashPatch(
-        current.loginSplash.enabled,
-        current.loginSplash,
-      ),
-    })
-    return c.json(adminRuntimeConfigResponse(configStore.getAll()))
-  })
-  .post(
-    "/appearance/login-splash/upload",
-    zValidator("form", LoginSplashUploadForm),
-    async (c) => {
-      const { file } = c.req.valid("form")
-      const current = configStore.get("appearance")
-      try {
-        const bytes = new Uint8Array(await file.arrayBuffer())
-        await storeUploadedLoginSplashImage({ bytes, contentType: file.type })
-      } catch (cause) {
-        return badRequestFromCause(c, cause, "Couldn't upload login backdrop.")
-      }
-      configStore.set("appearance", {
-        ...current,
-        loginSplash: { ...current.loginSplash, enabled: true },
-      })
-      return c.json(adminRuntimeConfigResponse(configStore.getAll()))
-    },
-  )
   .route("/scheduled-tasks", adminScheduledTasksRoute)
   .post("/clips/re-encode", async (c) => {
     const rows = await db

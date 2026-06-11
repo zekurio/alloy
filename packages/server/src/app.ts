@@ -1,4 +1,4 @@
-import { logger } from "alloy-logging"
+import { logger } from "@alloy/logging"
 import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { createMiddleware } from "hono/factory"
@@ -85,7 +85,7 @@ const requireAuthToBrowse = createMiddleware(async (c, next) => {
 })
 
 // Chain the route calls so the inferred type includes every route — the
-// alloy-api package consumes `AppType` via hono/client for RPC.
+// @alloy/api package consumes `AppType` via hono/client for RPC.
 const apiApp = new Hono()
   .use(
     "*",

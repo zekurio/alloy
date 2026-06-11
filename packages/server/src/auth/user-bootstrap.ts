@@ -1,4 +1,5 @@
-import { configStore } from "../config/store"
+import { configStore } from "@alloy/server/config/store"
+
 import { setupRequired } from "./identity"
 
 export async function getSetupStatus(): Promise<{

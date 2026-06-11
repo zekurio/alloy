@@ -1,4 +1,4 @@
-import { Button } from "alloy-ui/components/button"
+import { Button } from "@alloy/ui/components/button"
 import {
   Dialog,
   DialogBody,
@@ -6,10 +6,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "alloy-ui/components/dialog"
-import { Slider } from "alloy-ui/components/slider"
-import { toast } from "alloy-ui/lib/toast"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/components/dialog"
+import { Slider } from "@alloy/ui/components/slider"
+import { toast } from "@alloy/ui/lib/toast"
+import { cn } from "@alloy/ui/lib/utils"
 import { ImageIcon, Minus, Plus } from "lucide-react"
 import * as React from "react"
 

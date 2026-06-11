@@ -5,7 +5,7 @@ import type {
   AdminScheduledTaskRunResponse,
   AdminScheduledTaskRunTrigger,
   AdminScheduledTaskTrigger,
-} from "alloy-contracts"
+} from "@alloy/contracts"
 
 export type ScheduledTaskTrigger = AdminScheduledTaskTrigger
 

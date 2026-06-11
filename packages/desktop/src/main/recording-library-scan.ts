@@ -10,14 +10,15 @@ import { basename, dirname, extname, join, relative, resolve } from "node:path"
 import type {
   RecordingCaptureKind,
   RecordingCaptureSource,
-} from "alloy-contracts"
-import { logger } from "alloy-logging"
+} from "@alloy/contracts"
+import { logger } from "@alloy/logging"
 
 import type {
   RecordingLibraryGroup,
   RecordingLibraryItem,
   RecordingLibrarySnapshot,
-} from "../shared/ipc"
+} from "@/shared/ipc"
+
 import { cachedAssetUrl } from "./asset-cache"
 import {
   readCaptureManifest,

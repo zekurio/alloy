@@ -10,8 +10,8 @@ import type {
   RecordingSettings,
   RecordingStatus,
   RecordingStorageInfo,
-} from "alloy-contracts"
-import { toast } from "alloy-ui/lib/toast"
+} from "@alloy/contracts"
+import { toast } from "@alloy/ui/lib/toast"
 import * as React from "react"
 
 import { alloyDesktop } from "./desktop-bridge"

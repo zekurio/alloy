@@ -1,4 +1,4 @@
-import { bytesToBase64Url } from "../encoding/base64url"
+import { bytesToBase64Url } from "@alloy/server/encoding/base64url"
 
 const textEncoder = new TextEncoder()
 

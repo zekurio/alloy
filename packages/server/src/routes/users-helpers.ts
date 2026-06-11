@@ -1,6 +1,9 @@
-import type { PublicUser, UserListRow, UserSummary } from "alloy-contracts"
-import { user } from "alloy-db/auth-schema"
-import { block, clip, follow } from "alloy-db/schema"
+import type { PublicUser, UserListRow, UserSummary } from "@alloy/contracts"
+import { user } from "@alloy/db/auth-schema"
+import { block, clip, follow } from "@alloy/db/schema"
+import { db } from "@alloy/server/db/index"
+import { requiredSql } from "@alloy/server/db/sql"
+import { isoDate } from "@alloy/server/runtime/date"
 import {
   and,
   count,
@@ -16,9 +19,6 @@ import {
 } from "drizzle-orm"
 import { z } from "zod"
 
-import { db } from "../db"
-import { requiredSql } from "../db/sql"
-import { isoDate } from "../runtime/date"
 import { limitQueryParam, requiredTrimmedString } from "./validation"
 
 export const UsernameParam = z.object({ username: z.string().min(1) })

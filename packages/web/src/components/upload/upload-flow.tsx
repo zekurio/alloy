@@ -1,13 +1,13 @@
-import { useLocation, useNavigate } from "@tanstack/react-router"
-import { type QueueClip } from "alloy-api"
-import { Dialog, DialogContent, DialogTitle } from "alloy-ui/components/dialog"
+import { type QueueClip } from "@alloy/api"
+import { Dialog, DialogContent, DialogTitle } from "@alloy/ui/components/dialog"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "alloy-ui/components/popover"
-import { useIsMobile } from "alloy-ui/hooks/use-mobile"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/components/popover"
+import { useIsMobile } from "@alloy/ui/hooks/use-mobile"
+import { cn } from "@alloy/ui/lib/utils"
+import { useLocation, useNavigate } from "@tanstack/react-router"
 import * as React from "react"
 
 import {

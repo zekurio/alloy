@@ -3,7 +3,7 @@ import {
   USER_STATUSES,
   type UserRole,
   type UserStatus,
-} from "alloy-contracts"
+} from "@alloy/contracts"
 import { sql } from "drizzle-orm"
 import {
   bigint,

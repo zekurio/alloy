@@ -1,4 +1,4 @@
-import type { ClipFeedSort, ClipFeedWindow } from "alloy-api"
+import type { ClipFeedSort, ClipFeedWindow } from "@alloy/api"
 
 import { searchEnum, searchString } from "./route-search"
 

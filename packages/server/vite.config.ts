@@ -27,7 +27,7 @@ function isRuntimeExternal(id: string): boolean {
   )
 }
 
-const workspacePackages = ["alloy-contracts", "alloy-db", "alloy-logging"]
+const workspacePackages = ["@alloy/contracts", "@alloy/db", "@alloy/logging"]
 
 const ssrExternal = [...nodeBuiltins, ...runtimePackages]
 

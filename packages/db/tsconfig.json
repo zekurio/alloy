@@ -6,8 +6,9 @@
     "types": ["node"],
     "resolveJsonModule": true,
     "paths": {
-      "alloy-contracts": ["../contracts/src/index.ts"],
-      "alloy-contracts/*": ["../contracts/src/*"]
+      "@/*": ["./src/*"],
+      "@alloy/contracts": ["../contracts/src/index.ts"],
+      "@alloy/contracts/*": ["../contracts/src/*"]
     }
   }
 }

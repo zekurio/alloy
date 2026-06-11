@@ -1,13 +1,13 @@
+import { Button } from "@alloy/ui/components/button"
+import { buttonVariants } from "@alloy/ui/lib/button-variants"
+import { messageFromUnknown } from "@alloy/ui/lib/error-message"
+import { toast } from "@alloy/ui/lib/toast"
+import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import type {
   ErrorComponentProps,
   NotFoundRouteProps,
 } from "@tanstack/react-router"
-import { Button } from "alloy-ui/components/button"
-import { buttonVariants } from "alloy-ui/lib/button-variants"
-import { messageFromUnknown } from "alloy-ui/lib/error-message"
-import { toast } from "alloy-ui/lib/toast"
-import { cn } from "alloy-ui/lib/utils"
 import { ArrowLeft, Home } from "lucide-react"
 import * as React from "react"
 

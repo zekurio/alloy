@@ -30,7 +30,7 @@ const ReactivateAccountPrompt = React.lazy(() =>
 )
 
 const Toaster = React.lazy(() =>
-  import("alloy-ui/components/sonner").then((m) => ({
+  import("@alloy/ui/components/sonner").then((m) => ({
     default: m.Toaster,
   })),
 )

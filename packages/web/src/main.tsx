@@ -2,7 +2,7 @@ import { RouterProvider } from "@tanstack/react-router"
 import * as React from "react"
 import { createRoot } from "react-dom/client"
 
-import "alloy-ui/globals.css"
+import "@alloy/ui/globals.css"
 
 import { getRouter } from "./router"
 

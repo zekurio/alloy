@@ -8,7 +8,7 @@ import {
 } from "node:fs"
 import { join } from "node:path"
 
-import { logger } from "alloy-logging"
+import { logger } from "@alloy/logging"
 import { app, net } from "electron"
 
 import { mainSession } from "./session"

@@ -1,4 +1,4 @@
-# alloy-desktop
+# @alloy/desktop
 
 Electron shell for Alloy Desktop. It connects to a self-hosted Alloy server,
 loads the live web app from that server origin, and exposes a narrow desktop
@@ -45,11 +45,11 @@ packages/desktop/
 From the repository root:
 
 ```bash
-pnpm --filter alloy-desktop dev
-pnpm --filter alloy-desktop build
-pnpm --filter alloy-desktop typecheck
-pnpm --filter alloy-desktop test
-pnpm --filter alloy-desktop preview
+pnpm --filter @alloy/desktop dev
+pnpm --filter @alloy/desktop build
+pnpm --filter @alloy/desktop typecheck
+pnpm --filter @alloy/desktop test
+pnpm --filter @alloy/desktop preview
 ```
 
 Packaging commands:
@@ -60,7 +60,7 @@ pnpm desktop:dist:win
 pnpm desktop:dist:win:installer
 ```
 
-The `dev` and `build` scripts build `alloy-recorder` first. Windows release
+The `dev` and `build` scripts build `@alloy/recorder` first. Windows release
 builds require an OBS runtime:
 
 ```bash

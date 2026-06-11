@@ -1,3 +1,11 @@
+import type {
+  ClipFeedWindow,
+  ClipPage,
+  ClipRow,
+  QueueClip,
+  UpdateClipInput,
+  UserClip,
+} from "@alloy/api"
 import {
   type InfiniteData,
   type QueryClient,
@@ -6,14 +14,6 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import type {
-  ClipFeedWindow,
-  ClipPage,
-  ClipRow,
-  QueueClip,
-  UpdateClipInput,
-  UserClip,
-} from "alloy-api"
 import * as React from "react"
 
 import { api } from "./api"
@@ -81,12 +81,16 @@ export function userClipsQueryOptions(handle: string) {
   })
 }
 
-export function useUserLikedClipsQuery(handle: string) {
-  return useQuery({
+export function userLikedClipsQueryOptions(handle: string) {
+  return queryOptions({
     queryKey: clipKeys.userLikedList(handle),
     queryFn: () => api.users.fetchLikedClips(handle),
     enabled: handle.length > 0,
   })
+}
+
+export function useUserLikedClipsQuery(handle: string) {
+  return useQuery(userLikedClipsQueryOptions(handle))
 }
 
 export function useUploadQueueQuery({ enabled }: { enabled: boolean }) {

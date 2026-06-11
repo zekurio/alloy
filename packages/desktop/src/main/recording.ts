@@ -8,8 +8,8 @@ import type {
   RecordingGameProcess,
   SaveReplayClipRequest,
   RecordingStatus,
-} from "alloy-contracts"
-import { logger } from "alloy-logging"
+} from "@alloy/contracts"
+import { logger } from "@alloy/logging"
 
 import { listRecordingDisplays as listElectronRecordingDisplays } from "./recording-displays"
 import { rememberRecordingLibraryCapture } from "./recording-library"
@@ -32,7 +32,7 @@ import {
 import { getRecordingSettings } from "./server-store"
 
 const SIDECAR_MISSING =
-  "Recording capture sidecar is not built yet. Run pnpm --filter alloy-recorder build."
+  "Recording capture sidecar is not built yet. Run pnpm --filter @alloy/recorder build."
 
 type RecordingEventListener = (event: RecordingEvent) => void
 

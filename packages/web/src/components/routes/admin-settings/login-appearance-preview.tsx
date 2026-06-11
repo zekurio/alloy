@@ -2,21 +2,21 @@ import type {
   AdminRuntimeConfig,
   PublicAuthConfig,
   PublicLoginSplashConfig,
-} from "alloy-api"
-import { DESKTOP_AUTH_CAPABILITY_VERSION } from "alloy-contracts"
-import { Button } from "alloy-ui/components/button"
+} from "@alloy/api"
+import { DESKTOP_AUTH_CAPABILITY_VERSION } from "@alloy/contracts"
+import { Button } from "@alloy/ui/components/button"
 import {
   Dialog,
   DialogClose,
   DialogContent,
   DialogTitle,
-} from "alloy-ui/components/dialog"
+} from "@alloy/ui/components/dialog"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "alloy-ui/components/tooltip"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/components/tooltip"
+import { cn } from "@alloy/ui/lib/utils"
 import { MaximizeIcon, XIcon } from "lucide-react"
 import * as React from "react"
 

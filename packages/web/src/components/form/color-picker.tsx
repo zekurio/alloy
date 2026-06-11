@@ -1,10 +1,10 @@
-import { Input } from "alloy-ui/components/input"
+import { Input } from "@alloy/ui/components/input"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "alloy-ui/components/popover"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/components/popover"
+import { cn } from "@alloy/ui/lib/utils"
 import * as React from "react"
 
 import { hexToHsv, type Hsv, hsvToHex, normalizeHex } from "@/lib/color"

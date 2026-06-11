@@ -1,4 +1,4 @@
-import type { UserRole } from "alloy-contracts"
+import type { UserRole } from "@alloy/contracts"
 
 export type OAuthMode = "sign-in" | "link"
 

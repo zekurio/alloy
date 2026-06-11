@@ -1,8 +1,8 @@
-import { Button } from "alloy-ui/components/button"
-import { Spinner } from "alloy-ui/components/spinner"
-import { useDocumentEvent } from "alloy-ui/hooks/use-document-event"
-import { useMediaQuery } from "alloy-ui/hooks/use-media-query"
-import { cn } from "alloy-ui/lib/utils"
+import { Button } from "@alloy/ui/components/button"
+import { Spinner } from "@alloy/ui/components/spinner"
+import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
+import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
+import { cn } from "@alloy/ui/lib/utils"
 import { MaximizeIcon, PauseIcon, PlayIcon } from "lucide-react"
 import * as React from "react"
 

@@ -1,6 +1,6 @@
+import { Button } from "@alloy/ui/components/button"
+import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
-import { Button } from "alloy-ui/components/button"
-import { cn } from "alloy-ui/lib/utils"
 import {
   ArrowLeftIcon,
   ChevronLeftIcon,

@@ -1,13 +1,14 @@
 import { existsSync, mkdirSync, statSync, type Stats } from "node:fs"
 import { basename, dirname, extname, join } from "node:path"
 
-import { logger } from "alloy-logging"
+import { logger } from "@alloy/logging"
 import { app } from "electron"
 
 import type {
   RecordingLibraryExportRequest,
   RecordingLibraryExportSegment,
-} from "../shared/ipc"
+} from "@/shared/ipc"
+
 import { runFfmpeg, runFfprobe } from "./ffmpeg"
 import { findRecordingLibraryItem } from "./recording-library-scan"
 import {

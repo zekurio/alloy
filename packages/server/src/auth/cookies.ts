@@ -1,7 +1,6 @@
+import { env } from "@alloy/server/env"
 import type { Context } from "hono"
 import { deleteCookie, getCookie, setCookie } from "hono/cookie"
-
-import { env } from "../env"
 
 const SESSION_COOKIE = "alloy_session"
 const AUTH_MARKER_COOKIE = "alloy_is_authenticated"

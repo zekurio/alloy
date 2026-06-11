@@ -10,8 +10,8 @@ import type {
   RecordingQualitySettings,
   RecordingResolution,
   RecordingSettings,
-} from "alloy-contracts"
-import { RECORDING_QUALITY_PRESETS as CONTRACT_RECORDING_QUALITY_PRESETS } from "alloy-contracts"
+} from "@alloy/contracts"
+import { RECORDING_QUALITY_PRESETS as CONTRACT_RECORDING_QUALITY_PRESETS } from "@alloy/contracts"
 
 export const ENCODER_LABELS: Record<RecordingEncoder, string> = {
   hardware: "GPU",

@@ -1,10 +1,3 @@
-import {
-  keepPreviousData,
-  useMutation,
-  useQuery,
-  useQueryClient,
-  type UseQueryResult,
-} from "@tanstack/react-query"
 import type {
   ClipRow,
   GameClipsParams,
@@ -14,7 +7,14 @@ import type {
   GameRow,
   SteamGridDBSearchResult,
   SteamGridDBStatus,
-} from "alloy-api"
+} from "@alloy/api"
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseQueryResult,
+} from "@tanstack/react-query"
 
 import { api } from "./api"
 import { feedKeys } from "./feed-queries"

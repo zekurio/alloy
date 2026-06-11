@@ -1,8 +1,9 @@
-import { normalizeRecordingSettings } from "alloy-contracts"
+import { normalizeRecordingSettings } from "@alloy/contracts"
 import { BrowserWindow, dialog, ipcMain, shell } from "electron"
 
-import type { ConnectResult, ProbeResult } from "../shared/ipc"
-import { IPC } from "../shared/ipc"
+import type { ConnectResult, ProbeResult } from "@/shared/ipc"
+import { IPC } from "@/shared/ipc"
+
 import { loginViaBrowser } from "./browser-login"
 import {
   requireControllableWindow,

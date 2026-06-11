@@ -1,4 +1,4 @@
-import { nonEmpty, normalizePublicServerUrl } from "alloy-env"
+import { nonEmpty, normalizePublicServerUrl } from "@alloy/env"
 
 const DEFAULT_SERVER_URL = "http://localhost:2552"
 const DEFAULT_SERVER_PORT = "2552"

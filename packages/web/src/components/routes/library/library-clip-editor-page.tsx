@@ -1,5 +1,4 @@
-import { useNavigate } from "@tanstack/react-router"
-import { type ClipRow, clipStreamUrl, clipThumbnailUrl } from "alloy-api"
+import { type ClipRow, clipStreamUrl, clipThumbnailUrl } from "@alloy/api"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -9,13 +8,14 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "alloy-ui/components/alert-dialog"
-import { AppMain } from "alloy-ui/components/app-shell"
-import { Button } from "alloy-ui/components/button"
-import { LoadingState } from "alloy-ui/components/loading-state"
-import { Progress } from "alloy-ui/components/progress"
-import { Spinner } from "alloy-ui/components/spinner"
-import { toast } from "alloy-ui/lib/toast"
+} from "@alloy/ui/components/alert-dialog"
+import { AppMain } from "@alloy/ui/components/app-shell"
+import { Button } from "@alloy/ui/components/button"
+import { LoadingState } from "@alloy/ui/components/loading-state"
+import { Progress } from "@alloy/ui/components/progress"
+import { Spinner } from "@alloy/ui/components/spinner"
+import { toast } from "@alloy/ui/lib/toast"
+import { useNavigate } from "@tanstack/react-router"
 import { ClapperboardIcon, CloudIcon, ScissorsIcon } from "lucide-react"
 import * as React from "react"
 

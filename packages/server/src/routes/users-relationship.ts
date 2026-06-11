@@ -1,14 +1,14 @@
-import { block } from "alloy-db/schema"
-import { and, eq, or } from "drizzle-orm"
-import type { Context } from "hono"
-
-import { db } from "../db"
+import { block } from "@alloy/db/schema"
+import { db } from "@alloy/server/db/index"
 import {
   badRequest,
   booleanFlag,
   forbidden,
   notFound,
-} from "../runtime/http-response"
+} from "@alloy/server/runtime/http-response"
+import { and, eq, or } from "drizzle-orm"
+import type { Context } from "hono"
+
 import { resolveTarget, type UserRow } from "./users-helpers"
 
 type UserTargetResult = { target: UserRow } | { response: Response }

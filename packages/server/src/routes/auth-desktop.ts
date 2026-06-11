@@ -1,13 +1,13 @@
-import { type Context, Hono } from "hono"
-import { z } from "zod"
-
 import {
   consumeDesktopLinkCode,
   createDesktopLinkCode,
-} from "../auth/desktop-link"
-import { createSession, getSession } from "../auth/session"
-import { getSetupStatus } from "../auth/user-bootstrap"
-import { badRequest } from "../runtime/http-response"
+} from "@alloy/server/auth/desktop-link"
+import { createSession, getSession } from "@alloy/server/auth/session"
+import { getSetupStatus } from "@alloy/server/auth/user-bootstrap"
+import { badRequest } from "@alloy/server/runtime/http-response"
+import { type Context, Hono } from "hono"
+import { z } from "zod"
+
 import { loopbackRedirect } from "./auth-desktop-helpers"
 import { zValidator } from "./validation"
 

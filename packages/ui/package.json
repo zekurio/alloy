@@ -1,5 +1,5 @@
 {
-  "name": "alloy-ui",
+  "name": "@alloy/ui",
   "private": true,
   "type": "module",
   "exports": {

@@ -1,15 +1,15 @@
-import { Hono, type Context } from "hono"
-import { z } from "zod"
-
-import { ScheduledTaskTriggersSchema } from "../config/schema"
-import { badRequest, notFound } from "../runtime/http-response"
+import { ScheduledTaskTriggersSchema } from "@alloy/server/config/schema"
+import { badRequest, notFound } from "@alloy/server/runtime/http-response"
 import {
   scheduledTaskInfoById,
   scheduledTaskInfos,
   type ScheduledTaskPayload,
   triggerScheduledTask,
   updateScheduledTaskTriggers,
-} from "../scheduled-tasks"
+} from "@alloy/server/scheduled-tasks/index"
+import { Hono, type Context } from "hono"
+import { z } from "zod"
+
 import { zValidator } from "./validation"
 
 const ScheduledTaskParam = z.object({

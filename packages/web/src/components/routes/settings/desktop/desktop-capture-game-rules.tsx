@@ -1,5 +1,5 @@
-import type { RecordingAllowedGame } from "alloy-contracts"
-import { Button } from "alloy-ui/components/button"
+import type { RecordingAllowedGame } from "@alloy/contracts"
+import { Button } from "@alloy/ui/components/button"
 import { Gamepad2Icon, Trash2Icon } from "lucide-react"
 import * as React from "react"
 

@@ -1,10 +1,11 @@
 import {
   DESKTOP_AUTH_CAPABILITY_VERSION,
   type PublicAuthConfig,
-} from "alloy-contracts"
-import { logger } from "alloy-logging"
+} from "@alloy/contracts"
+import { logger } from "@alloy/logging"
 
-import type { ProbeResult } from "../shared/ipc"
+import type { ProbeResult } from "@/shared/ipc"
+
 import { isSecureServerUrl } from "./url-policy"
 
 const PROBE_TIMEOUT_MS = 8000

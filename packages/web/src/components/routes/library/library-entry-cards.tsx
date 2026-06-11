@@ -1,6 +1,6 @@
-import type { ClipRow } from "alloy-api"
-import { Button } from "alloy-ui/components/button"
-import { ClipCard } from "alloy-ui/components/clip-card"
+import type { ClipRow } from "@alloy/api"
+import { Button } from "@alloy/ui/components/button"
+import { ClipCard } from "@alloy/ui/components/clip-card"
 import { CloudIcon, FolderOpenIcon, MonitorIcon } from "lucide-react"
 import * as React from "react"
 

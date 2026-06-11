@@ -1,5 +1,5 @@
-import { clipThumbnailUrl, type QueueClip } from "alloy-api"
-import { stableHue } from "alloy-ui/lib/stable-hash"
+import { clipThumbnailUrl, type QueueClip } from "@alloy/api"
+import { stableHue } from "@alloy/ui/lib/stable-hash"
 
 import { apiOrigin } from "@/lib/env"
 import { formatBytes } from "@/lib/storage-format"

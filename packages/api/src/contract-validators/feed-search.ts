@@ -1,11 +1,4 @@
 import {
-  type FeedChipGame,
-  type FeedChipsResponse,
-  type FeedPage,
-  type SearchResults,
-} from "alloy-contracts"
-
-import {
   objectRecord,
   validateArray,
   validateNonNegativeInteger,
@@ -14,7 +7,14 @@ import {
   validateNullableUrlString,
   validatePositiveInteger,
   validateRequiredString,
-} from "../runtime-validation"
+} from "@alloy/api/runtime-validation"
+import {
+  type FeedChipGame,
+  type FeedChipsResponse,
+  type FeedPage,
+  type SearchResults,
+} from "@alloy/contracts"
+
 import { validateClipRow } from "./clips"
 import { validateGameListRow } from "./games-media"
 import { validateUserListRow } from "./people-notifications"

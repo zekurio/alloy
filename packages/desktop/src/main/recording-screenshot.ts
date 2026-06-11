@@ -8,7 +8,7 @@ import type {
   RecordingDisplay,
   RecordingSettings,
   RecordingStatus,
-} from "alloy-contracts"
+} from "@alloy/contracts"
 import { desktopCapturer, screen } from "electron"
 
 import { defaultScreenshotFolder } from "./recording-storage"

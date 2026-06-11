@@ -1,8 +1,7 @@
-import { authAccount, user, userPasskey } from "alloy-db/auth-schema"
+import { authAccount, user, userPasskey } from "@alloy/db/auth-schema"
+import { configStore } from "@alloy/server/config/store"
+import { db } from "@alloy/server/db/index"
 import { and, count, eq, inArray, sql } from "drizzle-orm"
-
-import { configStore } from "../config/store"
-import { db } from "../db"
 
 type AuthTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 type AuthExecutor = typeof db | AuthTransaction

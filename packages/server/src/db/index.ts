@@ -1,6 +1,5 @@
-import { createDb } from "alloy-db"
-
-import { env } from "../env"
+import { createDb } from "@alloy/db"
+import { env } from "@alloy/server/env"
 
 // A single long-lived pool — Hono runs in a single Node process.
 export const { client, db } = createDb(env.DATABASE_URL)

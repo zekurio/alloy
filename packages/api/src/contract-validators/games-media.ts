@@ -1,16 +1,4 @@
 import {
-  type AdminScheduledTaskInfo,
-  type AdminScheduledTaskRunResponse,
-  type AdminScheduledTasksResponse,
-  type GameDetail,
-  type GameListRow,
-  type GameNameLookupResponse,
-  type GameRow,
-  type SteamGridDBSearchResult,
-  type SteamGridDBStatus,
-} from "alloy-contracts"
-
-import {
   objectRecord,
   validateArray,
   validateBatchProgress,
@@ -25,7 +13,19 @@ import {
   validatePositiveInteger,
   validateRequiredString,
   validateStringArray,
-} from "../runtime-validation"
+} from "@alloy/api/runtime-validation"
+import {
+  type AdminScheduledTaskInfo,
+  type AdminScheduledTaskRunResponse,
+  type AdminScheduledTasksResponse,
+  type GameDetail,
+  type GameListRow,
+  type GameNameLookupResponse,
+  type GameRow,
+  type SteamGridDBSearchResult,
+  type SteamGridDBStatus,
+} from "@alloy/contracts"
+
 import { validateGameRowFields } from "./shared"
 
 const GAME_NAME_LOOKUP_REASON = new Set([

@@ -10,7 +10,7 @@ import type {
   TrimClipInput,
   UpdateClipInput,
   UploadTicket,
-} from "alloy-contracts"
+} from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
 import {
@@ -47,7 +47,7 @@ export {
   ACCEPTED_CLIP_CONTENT_TYPES,
   CLIP_DESCRIPTION_MAX_LENGTH,
   CLIP_TITLE_MAX_LENGTH,
-} from "alloy-contracts"
+} from "@alloy/contracts"
 export type {
   AcceptedContentType,
   ClipFeedParams,
@@ -67,7 +67,7 @@ export type {
   TrimClipInput,
   UpdateClipInput,
   UploadTicket,
-} from "alloy-contracts"
+} from "@alloy/contracts"
 
 function publicClipPath(clipId: string, suffix: string): string {
   return `/api/clips/${encodedPathSegment(clipId)}${suffix}`

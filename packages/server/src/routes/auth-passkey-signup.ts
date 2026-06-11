@@ -1,9 +1,11 @@
+import { userPasskey } from "@alloy/db/auth-schema"
+import { createRegistrationUserInTransaction } from "@alloy/server/auth/identity"
+import {
+  passkeyPublicKey,
+  serializeTransports,
+} from "@alloy/server/auth/webauthn"
+import { db } from "@alloy/server/db/index"
 import type { RegistrationResponseJSON } from "@simplewebauthn/server"
-import { userPasskey } from "alloy-db/auth-schema"
-
-import { createRegistrationUserInTransaction } from "../auth/identity"
-import { passkeyPublicKey, serializeTransports } from "../auth/webauthn"
-import { db } from "../db"
 
 type PasskeyRegistrationPayload = {
   email?: unknown

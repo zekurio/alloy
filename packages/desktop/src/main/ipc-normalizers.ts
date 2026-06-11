@@ -3,7 +3,7 @@ import {
   RECORDING_NOTIFICATION_SOUND_EVENTS,
   type ClipPrivacy,
   type RecordingNotificationSoundEvent,
-} from "alloy-contracts"
+} from "@alloy/contracts"
 
 import type {
   RecordingCaptureMention,
@@ -16,7 +16,7 @@ import type {
   RecordingLibraryProjectDraftSaveRequest,
   RecordingLibraryProjectTrack,
   RecordingLibraryProjectTransition,
-} from "../shared/ipc"
+} from "@/shared/ipc"
 
 export function isNotificationSoundEvent(
   value: unknown,

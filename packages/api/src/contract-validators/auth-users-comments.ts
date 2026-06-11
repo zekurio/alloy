@@ -1,23 +1,4 @@
 import {
-  type AdminUsersResponse,
-  type AdminUserStorageRow,
-  type CommentPage,
-  type CommentRow,
-  type ProfileCounts,
-  type PublicDesktopAuthConfig,
-  type ProfileGameRow,
-  type ProfileViewer,
-  type PublicAuthConfig,
-  type PublicAuthProvider,
-  type PublicLoginSplashConfig,
-  type PublicUser,
-  USER_ROLES,
-  type UserProfile,
-  type UserProfileViewer,
-  type UserStorageUsage,
-} from "alloy-contracts"
-
-import {
   objectRecord,
   validateArray,
   validateBoolean,
@@ -31,7 +12,28 @@ import {
   validateOptionalUrlString,
   validateRequiredString,
   validateString,
-} from "../runtime-validation"
+  validateStringArray,
+} from "@alloy/api/runtime-validation"
+import {
+  type AdminUsersResponse,
+  type AdminUserStorageRow,
+  type CommentPage,
+  type CommentRow,
+  type LoginBackdropsResponse,
+  type ProfileCounts,
+  type PublicDesktopAuthConfig,
+  type ProfileGameRow,
+  type ProfileViewer,
+  type PublicAuthConfig,
+  type PublicAuthProvider,
+  type PublicLoginSplashConfig,
+  type PublicUser,
+  USER_ROLES,
+  type UserProfile,
+  type UserProfileViewer,
+  type UserStorageUsage,
+} from "@alloy/contracts"
+
 import { validateUserSummary } from "./people-notifications"
 import {
   validateAuthProviderColors,
@@ -81,11 +83,18 @@ function validatePublicLoginSplashConfig(
     "Invalid auth config response: loginSplash.enabled must be boolean",
   )
   validateBackdropTreatment(splash, "auth config response")
-  validateNullableString(
-    splash.imageUrl,
-    "Invalid auth config response: loginSplash.imageUrl must be string or null",
-  )
   return value as PublicLoginSplashConfig
+}
+
+export function validateLoginBackdropsResponse(
+  value: unknown,
+): LoginBackdropsResponse {
+  const response = objectRecord(value, "login backdrops response")
+  validateStringArray(
+    response.clipIds,
+    "Invalid login backdrops response: clipIds must be an array of strings",
+  )
+  return value as LoginBackdropsResponse
 }
 
 export function validatePublicAuthConfig(value: unknown): PublicAuthConfig {

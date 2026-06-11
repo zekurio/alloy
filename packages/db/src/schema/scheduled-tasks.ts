@@ -1,7 +1,7 @@
 import type {
   AdminScheduledTaskPayload,
   AdminScheduledTaskResult,
-} from "alloy-contracts"
+} from "@alloy/contracts"
 import { sql } from "drizzle-orm"
 import {
   check,

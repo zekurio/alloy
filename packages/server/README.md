@@ -1,4 +1,4 @@
-# alloy-server
+# @alloy/server
 
 Hono API server for Alloy. It owns auth, clips, uploads, playback, feeds, search,
 notifications, admin/runtime config, storage, encoding jobs, and production web
@@ -23,11 +23,11 @@ packages/server/
 ## Commands
 
 ```bash
-pnpm --filter alloy-server dev
-pnpm --filter alloy-server build
-pnpm --filter alloy-server start
-pnpm --filter alloy-server typecheck
-pnpm --filter alloy-server test
+pnpm --filter @alloy/server dev
+pnpm --filter @alloy/server build
+pnpm --filter @alloy/server start
+pnpm --filter @alloy/server typecheck
+pnpm --filter @alloy/server test
 ```
 
 Database commands are available from either root or this package:
@@ -56,7 +56,7 @@ always wins over the file.
 
 ## Production
 
-`pnpm --filter alloy-server build` emits `packages/server/dist`. The Nix package
+`pnpm --filter @alloy/server build` emits `packages/server/dist`. The Nix package
 copies that output and wraps it with runtime defaults for:
 
 - `WEB_DIST_DIR`
@@ -65,6 +65,6 @@ copies that output and wraps it with runtime defaults for:
 
 ## Guidelines
 
-Prefer shared validation and contracts from `alloy-contracts` and `alloy-api`.
+Prefer shared validation and contracts from `@alloy/contracts` and `@alloy/api`.
 Keep upload, playback, and queue paths defensive: failures should produce clear
 status, avoid partial state where possible, and not wedge future interactions.

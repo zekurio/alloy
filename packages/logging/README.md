@@ -1,4 +1,4 @@
-# alloy-logging
+# @alloy/logging
 
 Small shared logging facade for Alloy packages.
 
@@ -12,9 +12,9 @@ packages/logging/
 ## Commands
 
 ```bash
-pnpm --filter alloy-logging build
-pnpm --filter alloy-logging typecheck
-pnpm --filter alloy-logging test
+pnpm --filter @alloy/logging build
+pnpm --filter @alloy/logging typecheck
+pnpm --filter @alloy/logging test
 ```
 
 ## Guidelines

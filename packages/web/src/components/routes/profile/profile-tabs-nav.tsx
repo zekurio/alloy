@@ -1,5 +1,5 @@
+import { cn } from "@alloy/ui/lib/utils"
 import { Link, useLocation } from "@tanstack/react-router"
-import { cn } from "alloy-ui/lib/utils"
 
 import { parseProfilePathname } from "@/lib/profile-path"
 

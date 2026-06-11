@@ -1,10 +1,10 @@
-import type { ClipPrivacy } from "alloy-contracts"
+import type { ClipPrivacy } from "@alloy/contracts"
+import { notFound } from "@alloy/server/runtime/http-response"
+import { pipeReadable } from "@alloy/server/runtime/streaming"
+import { clipStorage } from "@alloy/server/storage/index"
 import { type Context } from "hono"
 import { stream } from "hono/streaming"
 
-import { notFound } from "../runtime/http-response"
-import { pipeReadable } from "../runtime/streaming"
-import { clipStorage } from "../storage"
 import { parseRange, readAll } from "./clips-helpers"
 
 type ResolvedStorageObject = NonNullable<

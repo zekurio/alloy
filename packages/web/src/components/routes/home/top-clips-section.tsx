@@ -1,5 +1,5 @@
+import type { ClipFeedWindow } from "@alloy/api"
 import { Link } from "@tanstack/react-router"
-import type { ClipFeedWindow } from "alloy-api"
 
 import {
   SortDropdown,

@@ -1,6 +1,6 @@
+import type { AdminRuntimeConfig } from "@alloy/api"
+import { toast } from "@alloy/ui/lib/toast"
 import { useQuery } from "@tanstack/react-query"
-import type { AdminRuntimeConfig } from "alloy-api"
-import { toast } from "alloy-ui/lib/toast"
 import * as React from "react"
 
 import { adminRuntimeConfigQueryOptions } from "@/lib/admin-query-keys"

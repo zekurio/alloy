@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 
-import { logger } from "alloy-logging"
+import { logger } from "@alloy/logging"
 import { app } from "electron"
 
 /**

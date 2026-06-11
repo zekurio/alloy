@@ -1,11 +1,10 @@
-import { user } from "alloy-db/auth-schema"
-import { clip, clipUploadTicket } from "alloy-db/schema"
+import { user } from "@alloy/db/auth-schema"
+import { clip, clipUploadTicket } from "@alloy/db/schema"
+import { publishClipUpsert } from "@alloy/server/clips/events"
+import { db } from "@alloy/server/db/index"
+import { createNotification } from "@alloy/server/notifications/index"
+import { selectSourceStorageUsedBytes } from "@alloy/server/storage/quota"
 import { and, eq, gt, inArray, sql } from "drizzle-orm"
-
-import { publishClipUpsert } from "../clips/events"
-import { db } from "../db"
-import { createNotification } from "../notifications"
-import { selectSourceStorageUsedBytes } from "../storage/quota"
 
 export type InitiateQuotaResult =
   | { ok: true }

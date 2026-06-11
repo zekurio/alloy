@@ -1,4 +1,3 @@
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
 import {
   AppBottomNav,
   AppBottomNavItem,
@@ -6,7 +5,8 @@ import {
   AppSidebarFooter,
   AppSidebarGroup,
   AppSidebarItem,
-} from "alloy-ui/components/app-sidebar"
+} from "@alloy/ui/components/app-sidebar"
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
 import { GamepadIcon, HomeIcon, LibraryIcon, SettingsIcon } from "lucide-react"
 import * as React from "react"
 

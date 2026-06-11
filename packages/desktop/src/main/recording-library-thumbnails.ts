@@ -9,11 +9,12 @@ import {
 } from "node:fs"
 import { basename, dirname, extname, join, resolve } from "node:path"
 
-import type { RecordingCapture } from "alloy-contracts"
-import { logger } from "alloy-logging"
+import type { RecordingCapture } from "@alloy/contracts"
+import { logger } from "@alloy/logging"
 import { app } from "electron"
 
-import type { RecordingLibraryItem } from "../shared/ipc"
+import type { RecordingLibraryItem } from "@/shared/ipc"
+
 import { runFfmpeg, runFfprobe } from "./ffmpeg"
 import { imageFileBlurHash } from "./image-blurhash"
 import {

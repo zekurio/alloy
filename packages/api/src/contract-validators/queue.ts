@@ -1,13 +1,4 @@
 import {
-  CLIP_STATUS,
-  type ClipLikeState,
-  type InitiateClipResponse,
-  type QueueClip,
-  type QueueEvent,
-  type UploadTicket,
-} from "alloy-contracts"
-
-import {
   objectRecord,
   validateArray,
   validateBoolean,
@@ -19,7 +10,16 @@ import {
   validateRequiredString,
   validateStringRecord,
   validateUrlString,
-} from "../runtime-validation"
+} from "@alloy/api/runtime-validation"
+import {
+  CLIP_STATUS,
+  type ClipLikeState,
+  type InitiateClipResponse,
+  type QueueClip,
+  type QueueEvent,
+  type UploadTicket,
+} from "@alloy/contracts"
+
 import { validateLikeState } from "./shared"
 const CLIP_STATUS_SET: ReadonlySet<string> = new Set(CLIP_STATUS)
 function validateQueueClip(value: unknown): QueueClip {

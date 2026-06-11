@@ -2,7 +2,7 @@ import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
-} from "alloy-ui/components/input-group"
+} from "@alloy/ui/components/input-group"
 import { CloudIcon, LibraryIcon, PlusIcon, SearchIcon } from "lucide-react"
 import * as React from "react"
 

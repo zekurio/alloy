@@ -1,5 +1,5 @@
-import { probeMedia } from "../media/probe"
-import { clipStorage } from "../storage"
+import { probeMedia } from "@alloy/server/media/probe"
+import { clipStorage } from "@alloy/server/storage/index"
 
 export type Asset = {
   storageKey: string

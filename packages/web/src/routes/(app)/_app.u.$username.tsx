@@ -1,6 +1,6 @@
+import { AppMain } from "@alloy/ui/components/app-shell"
+import { cn } from "@alloy/ui/lib/utils"
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
-import { AppMain } from "alloy-ui/components/app-shell"
-import { cn } from "alloy-ui/lib/utils"
 import * as React from "react"
 
 import { EmptyState } from "@/components/feedback/empty-state"
@@ -10,10 +10,15 @@ import { ProfileBanner } from "@/components/routes/profile/profile-banner"
 import { ProfileIdentity } from "@/components/routes/profile/profile-identity"
 import { ProfileIdentitySkeleton } from "@/components/routes/profile/profile-identity-skeleton"
 import { ProfileTabsNav } from "@/components/routes/profile/profile-tabs-nav"
-import { userClipsQueryOptions, useUserClipsQuery } from "@/lib/clip-queries"
+import {
+  userClipsQueryOptions,
+  userLikedClipsQueryOptions,
+  useUserClipsQuery,
+} from "@/lib/clip-queries"
 import { accentCssVars } from "@/lib/color"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import {
+  taggedClipsQueryOptions,
   useProfileCachePatchers,
   userProfileQueryOptions,
   userProfileViewerQueryOptions,
@@ -28,7 +33,15 @@ export const Route = createFileRoute("/(app)/_app/u/$username")({
     const viewerOptions = userProfileViewerQueryOptions(params.username)
     const profile = await context.queryClient.ensureQueryData(profileOptions)
     await context.queryClient.ensureQueryData(viewerOptions)
+    // Warm every tab's clip list so switching to Liked/Tagged shows data
+    // immediately instead of flashing a spinner then the empty state.
     void context.queryClient.prefetchQuery(clipsOptions)
+    void context.queryClient.prefetchQuery(
+      userLikedClipsQueryOptions(params.username),
+    )
+    void context.queryClient.prefetchQuery(
+      taggedClipsQueryOptions(params.username),
+    )
     return { profile }
   },
   component: UserProfileLayout,

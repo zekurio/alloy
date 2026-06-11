@@ -1,14 +1,14 @@
-import { sanitizeTag } from "alloy-contracts"
-import { user } from "alloy-db/auth-schema"
-import { clip, clipTag, game } from "alloy-db/schema"
+import { sanitizeTag } from "@alloy/contracts"
+import { user } from "@alloy/db/auth-schema"
+import { clip, clipTag, game } from "@alloy/db/schema"
+import { clipSelectShape } from "@alloy/server/clips/select"
+import { db } from "@alloy/server/db/index"
+import { gameSelectShape, serialiseGameRow } from "@alloy/server/games/ref"
+import { invalidCursor, notFound } from "@alloy/server/runtime/http-response"
 import { and, eq, gte, isNull, type SQL, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
-import { clipSelectShape } from "../clips/select"
-import { db } from "../db"
-import { gameSelectShape, serialiseGameRow } from "../games/ref"
-import { invalidCursor, notFound } from "../runtime/http-response"
 import {
   clipListCursorCondition,
   clipListOrderBy,

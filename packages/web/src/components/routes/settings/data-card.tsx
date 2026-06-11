@@ -8,11 +8,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "alloy-ui/components/alert-dialog"
-import { Button } from "alloy-ui/components/button"
-import { Section, SectionContent } from "alloy-ui/components/section"
-import { SettingRow } from "alloy-ui/components/setting-row"
-import { toast } from "alloy-ui/lib/toast"
+} from "@alloy/ui/components/alert-dialog"
+import { Button } from "@alloy/ui/components/button"
+import { Section, SectionContent } from "@alloy/ui/components/section"
+import { SettingRow } from "@alloy/ui/components/setting-row"
+import { toast } from "@alloy/ui/lib/toast"
 import { DownloadIcon, Trash2Icon } from "lucide-react"
 import * as React from "react"
 

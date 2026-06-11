@@ -5,7 +5,7 @@ import {
   type ClipStatus,
   UPLOAD_TICKET_ROLE,
   type UploadTicketRole,
-} from "alloy-contracts"
+} from "@alloy/contracts"
 import { sql } from "drizzle-orm"
 import {
   bigint,

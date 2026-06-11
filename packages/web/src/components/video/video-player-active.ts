@@ -1,4 +1,4 @@
-import { useWindowEvent } from "alloy-ui/hooks/use-window-event"
+import { useWindowEvent } from "@alloy/ui/hooks/use-window-event"
 import * as React from "react"
 
 import {

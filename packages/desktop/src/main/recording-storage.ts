@@ -1,8 +1,8 @@
 import { mkdirSync, readdirSync, statfsSync, statSync } from "node:fs"
 import { isAbsolute, join, relative, resolve } from "node:path"
 
-import type { RecordingStorageInfo } from "alloy-contracts"
-import { logger } from "alloy-logging"
+import type { RecordingStorageInfo } from "@alloy/contracts"
+import { logger } from "@alloy/logging"
 import { app } from "electron"
 
 import { getRecordingSettings } from "./server-store"

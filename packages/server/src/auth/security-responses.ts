@@ -1,4 +1,4 @@
-import { isoDate } from "../runtime/date"
+import { isoDate } from "@alloy/server/runtime/date"
 
 type PublicPasskeyRow = {
   id: string

@@ -9,7 +9,7 @@ import {
   validateOptionalString,
   validatePositiveInteger,
   validateRequiredString,
-} from "../runtime-validation"
+} from "@alloy/api/runtime-validation"
 
 export function validateAuthProviderColors(
   provider: Record<string, unknown>,

@@ -1,17 +1,21 @@
-import { useForm } from "@tanstack/react-form"
-import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
-import { Button } from "alloy-ui/components/button"
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@alloy/ui/components/avatar"
+import { Button } from "@alloy/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
-} from "alloy-ui/components/dropdown-menu"
+} from "@alloy/ui/components/dropdown-menu"
 import {
   Section,
   SectionContent,
   SectionFooter,
-} from "alloy-ui/components/section"
-import { toast } from "alloy-ui/lib/toast"
-import { cn } from "alloy-ui/lib/utils"
+} from "@alloy/ui/components/section"
+import { toast } from "@alloy/ui/lib/toast"
+import { cn } from "@alloy/ui/lib/utils"
+import { useForm } from "@tanstack/react-form"
 import { ImageIcon, Pencil, SaveIcon } from "lucide-react"
 import * as React from "react"
 

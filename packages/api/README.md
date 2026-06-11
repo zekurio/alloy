@@ -1,4 +1,4 @@
-# alloy-api
+# @alloy/api
 
 Typed client helpers for calling Alloy server endpoints from browser-facing
 code. This package keeps API path construction, request helpers, mutations, and
@@ -19,16 +19,16 @@ packages/api/
 Use the package exports rather than deep relative imports:
 
 ```ts
-import { createApi } from "alloy-api"
-import { authPaths } from "alloy-api/auth"
+import { createApi } from "@alloy/api"
+import { authPaths } from "@alloy/api/auth"
 ```
 
 ## Commands
 
 ```bash
-pnpm --filter alloy-api build
-pnpm --filter alloy-api typecheck
-pnpm --filter alloy-api test
+pnpm --filter @alloy/api build
+pnpm --filter @alloy/api typecheck
+pnpm --filter @alloy/api test
 ```
 
 The `build` command is a TypeScript no-emit build. Tests use Node's test runner
@@ -36,5 +36,5 @@ through `tsx`.
 
 ## Notes
 
-Prefer adding shared response types to `alloy-contracts` and validators here
+Prefer adding shared response types to `@alloy/contracts` and validators here
 instead of duplicating shape checks in `packages/web` or `packages/desktop`.

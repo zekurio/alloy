@@ -1,5 +1,5 @@
-import type { RecordingSettings } from "alloy-contracts"
-import { logger } from "alloy-logging"
+import type { RecordingSettings } from "@alloy/contracts"
+import { logger } from "@alloy/logging"
 import { app, globalShortcut } from "electron"
 
 import {

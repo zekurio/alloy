@@ -1,4 +1,4 @@
-import { stableHash } from "alloy-ui/lib/stable-hash"
+import { stableHash } from "@alloy/ui/lib/stable-hash"
 
 const EMPTY_STATE_KAOMOJI = [
   "(◞‸◟；)",

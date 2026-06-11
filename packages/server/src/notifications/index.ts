@@ -2,20 +2,20 @@ import type {
   NotificationRow,
   NotificationsResponse,
   NotificationType,
-} from "alloy-contracts"
+} from "@alloy/contracts"
 import {
   NOTIFICATIONS_DEFAULT_LIMIT,
   NOTIFICATIONS_MAX_LIMIT,
-} from "alloy-contracts"
-import { user } from "alloy-db/auth-schema"
-import { clip, clipComment, follow, notification } from "alloy-db/schema"
-import { logger } from "alloy-logging"
+} from "@alloy/contracts"
+import { user } from "@alloy/db/auth-schema"
+import { clip, clipComment, follow, notification } from "@alloy/db/schema"
+import { logger } from "@alloy/logging"
+import { db } from "@alloy/server/db/index"
+import { gameSlugWithId } from "@alloy/server/games/slug"
+import { serialiseNullableUserSummary } from "@alloy/server/routes/users-helpers"
+import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
 import { and, count, desc, eq, gt, isNull } from "drizzle-orm"
 
-import { db } from "../db"
-import { gameSlugWithId } from "../games/slug"
-import { serialiseNullableUserSummary } from "../routes/users-helpers"
-import { isoDate, nullableIsoDate } from "../runtime/date"
 import {
   publishNotificationRead,
   publishNotificationRemove,

@@ -1,4 +1,4 @@
-# alloy-web
+# @alloy/web
 
 React/TanStack web app for Alloy. In development it runs as a Vite app on port 5173. In production the server serves the built web assets.
 
@@ -17,11 +17,11 @@ packages/web/
 ## Commands
 
 ```bash
-pnpm --filter alloy-web dev
-pnpm --filter alloy-web build
-pnpm --filter alloy-web preview
-pnpm --filter alloy-web typecheck
-pnpm --filter alloy-web test
+pnpm --filter @alloy/web dev
+pnpm --filter @alloy/web build
+pnpm --filter @alloy/web preview
+pnpm --filter @alloy/web typecheck
+pnpm --filter @alloy/web test
 ```
 
 Root shortcuts:
@@ -42,12 +42,12 @@ pnpm dev:desktop
 
 ## Production
 
-`pnpm --filter alloy-web build` emits `packages/web/dist`. The Nix package copies
+`pnpm --filter @alloy/web build` emits `packages/web/dist`. The Nix package copies
 that into the server runtime and sets `WEB_DIST_DIR` so the Hono server can serve
 the web app.
 
 ## Guidelines
 
-Use `alloy-api` for server calls, `alloy-contracts` for shared shapes, and
-`alloy-ui` for shared components. Route-specific queries and browser-only logic
+Use `@alloy/api` for server calls, `@alloy/contracts` for shared shapes, and
+`@alloy/ui` for shared components. Route-specific queries and browser-only logic
 belong here rather than in shared packages.

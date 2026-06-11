@@ -1,10 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router"
 import {
   SectionActions,
   SectionHead,
   SectionMeta,
   SectionTitle,
-} from "alloy-ui/components/section-head"
+} from "@alloy/ui/components/section-head"
+import { createFileRoute } from "@tanstack/react-router"
 import { TagIcon } from "lucide-react"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"

@@ -1,17 +1,17 @@
 import {
-  queryOptions,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query"
-import {
   type NotificationEvent,
   type NotificationRow,
   type NotificationsResponse,
   notificationStreamUrl,
   parseNotificationEventPayload,
-} from "alloy-api"
-import { toast } from "alloy-ui/lib/toast"
+} from "@alloy/api"
+import { toast } from "@alloy/ui/lib/toast"
+import {
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import * as React from "react"
 
 import { api } from "./api"

@@ -43,8 +43,8 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     export DO_NOT_TRACK=1
     mkdir -p "$HOME"
 
-    pnpm --filter alloy-server build
-    pnpm --filter alloy-web build
+    pnpm --filter @alloy/server build
+    pnpm --filter @alloy/web build
 
     runHook postBuild
   '';

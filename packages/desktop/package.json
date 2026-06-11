@@ -1,5 +1,5 @@
 {
-  "name": "alloy-desktop",
+  "name": "@alloy/desktop",
   "version": "0.0.1",
   "private": true,
   "description": "Alloy desktop app",
@@ -8,8 +8,8 @@
   "scripts": {
     "dev": "pnpm prepare:assets && pnpm build:recorder && pnpm ensure:electron && electron-vite dev",
     "build": "pnpm prepare:assets && pnpm build:recorder && electron-vite build",
-    "build:recorder": "pnpm --filter alloy-recorder build",
-    "build:recorder:release": "pnpm --filter alloy-recorder build:release",
+    "build:recorder": "pnpm --filter @alloy/recorder build",
+    "build:recorder:release": "pnpm --filter @alloy/recorder build:release",
     "build:win:release": "pnpm prepare:assets && pnpm build:recorder:release && electron-vite build",
     "ensure:electron": "node scripts/ensure-electron.mjs",
     "prepare:assets": "node scripts/generate-windows-icon.mjs",
@@ -21,14 +21,14 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@alloy/contracts": "workspace:*",
+    "@alloy/logging": "workspace:*",
+    "@alloy/recorder": "workspace:*",
+    "@alloy/ui": "workspace:*",
     "@tailwindcss/vite": "4.2.4",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.2.0",
-    "alloy-contracts": "workspace:*",
-    "alloy-logging": "workspace:*",
-    "alloy-recorder": "workspace:*",
-    "alloy-ui": "workspace:*",
     "blurhash": "^2.0.5",
     "electron": "42.3.3",
     "electron-builder": "^26.15.0",

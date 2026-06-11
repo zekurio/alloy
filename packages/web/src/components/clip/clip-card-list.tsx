@@ -1,4 +1,4 @@
-import type { ClipRow } from "alloy-api"
+import type { ClipRow } from "@alloy/api"
 import * as React from "react"
 
 import { ClipCardTrigger } from "./clip-card-trigger"

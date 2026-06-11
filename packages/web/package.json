@@ -1,5 +1,5 @@
 {
-  "name": "alloy-web",
+  "name": "@alloy/web",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,6 +10,11 @@
     "test": "tsx --test \"src/**/*_test.ts\""
   },
   "dependencies": {
+    "@alloy/api": "workspace:*",
+    "@alloy/contracts": "workspace:*",
+    "@alloy/db": "workspace:*",
+    "@alloy/env": "workspace:*",
+    "@alloy/ui": "workspace:*",
     "@base-ui/react": "1.4.1",
     "@fontsource-variable/dm-sans": "5.2.8",
     "@fontsource/ibm-plex-mono": "5.2.7",
@@ -20,11 +25,6 @@
     "@tanstack/react-router": "1.168.23",
     "@tanstack/router-plugin": "1.167.22",
     "@vitejs/plugin-react": "5.2.0",
-    "alloy-api": "workspace:*",
-    "alloy-contracts": "workspace:*",
-    "alloy-db": "workspace:*",
-    "alloy-env": "workspace:*",
-    "alloy-ui": "workspace:*",
     "hls.js": "1.6.16",
     "lucide-react": "1.8.0",
     "mediabunny": "^1.46.0",

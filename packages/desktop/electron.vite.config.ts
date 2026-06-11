@@ -71,13 +71,13 @@ export default defineConfig({
   renderer: {
     root: fromHere("src/renderer"),
     // Serve the shared repo assets (logo.png, etc.) the overlay reuses from
-    // alloy-ui, mirroring how packages/web mounts the same public dir.
+    // @alloy/ui, mirroring how packages/web mounts the same public dir.
     publicDir: fromHere("../../public"),
     plugins: [tailwindcss(), viteReact()],
     resolve: {
       tsconfigPaths: true,
     },
-    // 5173 belongs to alloy-web; keep the overlay dev server off it.
+    // 5173 belongs to @alloy/web; keep the overlay dev server off it.
     server: { port: 5273, strictPort: true },
     build: {
       rollupOptions: {

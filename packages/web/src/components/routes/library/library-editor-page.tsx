@@ -1,12 +1,12 @@
+import type { ClipPrivacy, GameRow, UserSearchResult } from "@alloy/api"
+import { AppMain } from "@alloy/ui/components/app-shell"
+import { BlurHashCanvas } from "@alloy/ui/components/blurhash-canvas"
+import { Button } from "@alloy/ui/components/button"
+import { GameIcon } from "@alloy/ui/components/game-icon"
+import { Kbd } from "@alloy/ui/components/kbd"
+import { LoadingState } from "@alloy/ui/components/loading-state"
+import { toast } from "@alloy/ui/lib/toast"
 import { useNavigate } from "@tanstack/react-router"
-import type { ClipPrivacy, GameRow, UserSearchResult } from "alloy-api"
-import { AppMain } from "alloy-ui/components/app-shell"
-import { BlurHashCanvas } from "alloy-ui/components/blurhash-canvas"
-import { Button } from "alloy-ui/components/button"
-import { GameIcon } from "alloy-ui/components/game-icon"
-import { Kbd } from "alloy-ui/components/kbd"
-import { LoadingState } from "alloy-ui/components/loading-state"
-import { toast } from "alloy-ui/lib/toast"
 import {
   ClapperboardIcon,
   HardDriveIcon,
