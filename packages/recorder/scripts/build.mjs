@@ -29,11 +29,21 @@ const obsHelperExecutables = [
 const requireObsRuntime =
   process.argv.includes("--require-obs-runtime") ||
   process.env.ALLOY_REQUIRE_OBS_RUNTIME === "1"
+const targetTriple = process.env.CARGO_BUILD_TARGET ?? process.env.CARGO_TARGET
+
+if (process.platform !== "win32" && !requireObsRuntime && !targetTriple) {
+  console.warn("Skipping alloy-recorder build: the sidecar is Windows-only.")
+  mkdirSync(sidecarResourcesDir, { recursive: true })
+  mkdirSync(obsResourcesDir, { recursive: true })
+  writeFileSync(join(sidecarResourcesDir, ".gitkeep"), "")
+  writeFileSync(join(obsResourcesDir, ".gitkeep"), "")
+  writeManifest()
+  process.exit(0)
+}
 
 const obsRuntimeSource = resolveObsRuntimeSource()
 
 const cargoArgs = ["build", "--manifest-path", manifestPath, "--release"]
-const targetTriple = process.env.CARGO_BUILD_TARGET ?? process.env.CARGO_TARGET
 if (targetTriple) cargoArgs.push("--target", targetTriple)
 
 const cargo = spawnSync("cargo", cargoArgs, { stdio: "inherit" })
