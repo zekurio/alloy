@@ -6,6 +6,7 @@ import {
 } from "@alloy/db/auth-schema"
 import { db } from "@alloy/server/db/index"
 import { forbidden, unauthorized } from "@alloy/server/runtime/http-response"
+import { requestIp } from "@alloy/server/runtime/request-ip"
 import { and, eq, gt } from "drizzle-orm"
 import type { Context } from "hono"
 import { createMiddleware } from "hono/factory"
@@ -21,14 +22,6 @@ type AuthUser = User
 type SessionData = {
   session: AuthSession
   user: AuthUser
-}
-
-function requestIp(c: Context): string | null {
-  return (
-    c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
-    c.req.header("x-real-ip") ??
-    null
-  )
 }
 
 export async function createSession(
