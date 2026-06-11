@@ -11,7 +11,6 @@ const runtimePackages = [
   "@hono/zod-validator",
   "@simplewebauthn/server",
   "blurhash",
-  "croner",
   "drizzle-orm",
   "hono",
   "mediabunny",

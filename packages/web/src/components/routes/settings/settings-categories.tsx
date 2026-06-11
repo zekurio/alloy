@@ -1,6 +1,5 @@
 import {
   AlertTriangleIcon,
-  CalendarClockIcon,
   DatabaseIcon,
   GaugeIcon,
   HardDriveIcon,
@@ -24,7 +23,6 @@ import {
   AdminConfigTransferPanel,
   AdminIntegrationsPanel,
   AdminLimitsPanel,
-  AdminScheduledTasksPanel,
   AdminStoragePanel,
   AdminUsersPanel,
 } from "@/components/routes/settings/admin-tab-content"
@@ -326,16 +324,6 @@ const ALL_CATEGORIES: SettingsCategory[] = [
     icon: UsersIcon,
     group: "admin",
     Panel: AdminUsersPanel,
-  },
-  {
-    id: "scheduled-tasks",
-    label: "Scheduled tasks",
-    title: "Scheduled tasks",
-    description: "Run maintenance tasks and edit cron triggers.",
-    keywords: ["cron", "daily", "weekly", "maintenance", "cleanup"],
-    icon: CalendarClockIcon,
-    group: "admin",
-    Panel: AdminScheduledTasksPanel,
   },
   {
     id: "config",

@@ -14,7 +14,6 @@ function adminRuntimeConfig() {
     passkeyEnabled: true,
     requireAuthToBrowse: true,
     oauthProviders: [],
-    scheduledTasks: {},
     limits: {
       defaultStorageQuotaBytes: null,
       uploadTtlSec: 900,
@@ -47,16 +46,9 @@ function adminRuntimeConfig() {
   }
 }
 
-test("validateAdminRuntimeConfig accepts scheduled task triggers", () => {
-  const config = adminRuntimeConfig()
-  ;(config.scheduledTasks as Record<string, unknown>)["sample-maintenance"] = [
-    { type: "startup", delayMs: 60_000 },
-    { type: "cron", expression: "0 3 * * *" },
-  ]
+test("validateAdminRuntimeConfig accepts the default config shape", () => {
+  const parsed = validateAdminRuntimeConfig(adminRuntimeConfig())
 
-  const parsed = validateAdminRuntimeConfig(config)
-  const triggers = parsed.scheduledTasks["sample-maintenance"]
-
-  assert(triggers?.[0]?.type === "startup", "startup trigger should parse")
-  assert(triggers?.[1]?.type === "cron", "cron trigger should parse")
+  assert(parsed.storage.driver === "fs", "storage driver should parse")
+  assert(parsed.limits.uploadTtlSec === 900, "limits should parse")
 })

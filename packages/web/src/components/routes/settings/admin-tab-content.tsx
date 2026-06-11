@@ -8,7 +8,6 @@ import { AdminUsersCard } from "@/components/admin/admin-users-card"
 import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integrations-config-card"
 import { LimitsConfigCard } from "@/components/routes/admin-settings/limits-config-card"
 import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-provider-card"
-import { ScheduledTasksCard } from "@/components/routes/admin-settings/scheduled-tasks-card"
 import { StorageConfigCard } from "@/components/routes/admin-settings/storage-config-card"
 import {
   type AdminConfigContextValue,
@@ -153,10 +152,6 @@ export const AdminIntegrationsPanel = withAdminConfig((config, ctx) => (
 export const AdminConfigTransferPanel = withAdminConfig((_config, ctx) => (
   <ConfigTransferContent setConfig={ctx.setConfig} />
 ))
-
-export function AdminScheduledTasksPanel() {
-  return <ScheduledTasksCard />
-}
 
 export function AdminUsersPanel() {
   const session = useRequireAuthStrict()

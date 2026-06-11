@@ -9,7 +9,6 @@ import { warmDatabase } from "./db"
 import { env } from "./env"
 import { startQueue, stopQueue } from "./queue"
 import { requestShutdown } from "./runtime/shutdown"
-import { startScheduledTasks, stopScheduledTasks } from "./scheduled-tasks"
 
 if (env.NODE_ENV === "production") {
   await migrateDatabase(env.DATABASE_URL)
@@ -42,8 +41,6 @@ void startDirectHlsCache().catch((err) => {
   logger.error("[clips] failed to start direct HLS cache:", err)
 })
 
-startScheduledTasks()
-
 // Background TTL cleanup for auth challenges, kept off the request path.
 startChallengeSweeper()
 
@@ -61,19 +58,10 @@ const shutdown = () => {
   }, SHUTDOWN_GRACE_MS)
 
   // Stop background work before the HTTP server goes away so in-flight media
-  // jobs and scheduled tasks get a chance to flush state.
-  void Promise.allSettled([stopScheduledTasks(), stopQueue()])
-    .then((results) => {
-      const [scheduledResult, queueResult] = results
-      if (scheduledResult?.status === "rejected") {
-        logger.error(
-          "[scheduled-tasks] failed to stop cleanly:",
-          scheduledResult.reason,
-        )
-      }
-      if (queueResult?.status === "rejected") {
-        logger.error("[queue] failed to stop cleanly:", queueResult.reason)
-      }
+  // jobs get a chance to flush state.
+  void stopQueue()
+    .catch((err) => {
+      logger.error("[queue] failed to stop cleanly:", err)
     })
     .finally(() => {
       server.close(() => {

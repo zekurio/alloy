@@ -1,16 +1,9 @@
 import { logger } from "@alloy/logging"
-
-import { runImageMagick } from "./imagemagick"
+import sharp from "sharp"
 
 type Hsl = { h: number; s: number; l: number }
 
-function hexToHsl(hex: string): Hsl | null {
-  const match = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
-  if (!match) return null
-  const int = Number.parseInt(match[1] as string, 16)
-  const r = ((int >> 16) & 255) / 255
-  const g = ((int >> 8) & 255) / 255
-  const b = (int & 255) / 255
+function rgbToHsl(r: number, g: number, b: number): Hsl {
   const max = Math.max(r, g, b)
   const min = Math.min(r, g, b)
   const l = (max + min) / 2
@@ -69,37 +62,37 @@ function normalizeAccent({ h, s, l }: Hsl): Hsl {
 export async function deriveAccentColor(
   bytes: Uint8Array,
 ): Promise<string | null> {
-  let out: Buffer
+  let pixels: Buffer
   try {
-    out = await runImageMagick(
-      [
-        "-",
-        "-resize",
-        "120x120",
-        "-colors",
-        "16",
-        "-depth",
-        "8",
-        "-format",
-        "%c",
-        "histogram:info:-",
-      ],
-      bytes,
-    )
+    pixels = await sharp(bytes)
+      .resize(120, 120, { fit: "inside", withoutEnlargement: true })
+      .removeAlpha()
+      .raw()
+      .toBuffer()
   } catch (cause) {
     logger.warn("[accent] failed to derive accent color:", cause)
     return null
   }
 
-  const histogram = out.toString("utf8")
-  const entry = /(\d+):\s*\([^)]*\)\s*#([0-9a-f]{6})/gi
-  let match: RegExpExecArray | null
+  // Coarse palette: 3 bits per channel (512 buckets) stands in for the old
+  // ImageMagick `-colors 16` histogram pass.
+  const counts = new Map<number, number>()
+  for (let i = 0; i + 2 < pixels.length; i += 3) {
+    const key =
+      (((pixels[i] as number) >> 5) << 6) |
+      (((pixels[i + 1] as number) >> 5) << 3) |
+      ((pixels[i + 2] as number) >> 5)
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+
   let best: Hsl | null = null
   let bestScore = -1
-  while ((match = entry.exec(histogram)) !== null) {
-    const count = Number(match[1])
-    const hsl = hexToHsl(match[2] as string)
-    if (!hsl) continue
+  for (const [key, count] of counts) {
+    // Representative color: the bucket's center value per channel.
+    const r = ((((key >> 6) & 7) << 5) + 16) / 255
+    const g = ((((key >> 3) & 7) << 5) + 16) / 255
+    const b = (((key & 7) << 5) + 16) / 255
+    const hsl = rgbToHsl(r, g, b)
     // Skip near-greys and near-black/near-white — they make muddy accents.
     if (hsl.s < 0.12 || hsl.l < 0.08 || hsl.l > 0.95) continue
     const score = count * (0.35 + hsl.s) * (1 - Math.abs(hsl.l - 0.5))

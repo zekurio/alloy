@@ -102,12 +102,26 @@ if (!app.requestSingleInstanceLock()) {
     if (process.platform !== "darwin") app.quit()
   })
 
-  app.on("before-quit", () => {
+  let recorderShutdownDone = false
+  app.on("before-quit", (event) => {
     windows.allowAppQuit()
     unregisterRecordingHotkeys()
     destroyRecordingNotificationSoundPlayer()
-    void shutdownRecordingBackend()
+    if (recorderShutdownDone) return
+    event.preventDefault()
+    void shutdownWithDeadline().finally(() => {
+      recorderShutdownDone = true
+      app.quit()
+    })
   })
+}
+
+/** Never block quit on a hung sidecar; give shutdown a hard deadline. */
+async function shutdownWithDeadline(): Promise<void> {
+  await Promise.race([
+    shutdownRecordingBackend().catch(() => undefined),
+    new Promise<void>((resolve) => setTimeout(resolve, 3000)),
+  ])
 }
 
 async function openInitialWindow(windows: Windows): Promise<void> {

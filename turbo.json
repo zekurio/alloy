@@ -4,8 +4,6 @@
   "globalEnv": [
     "ALLOY_DATA_DIR",
     "DATABASE_URL",
-    "FFMPEG_BIN",
-    "FFPROBE_BIN",
     "NODE_ENV",
     "PORT",
     "PUBLIC_SERVER_URL",

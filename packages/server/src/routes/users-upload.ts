@@ -8,13 +8,13 @@ import { db } from "@alloy/server/db/index"
 import { deriveAccentColor } from "@alloy/server/media/accent"
 import { validateImageBytes } from "@alloy/server/media/image-validation"
 import { ifNoneMatchSatisfied } from "@alloy/server/runtime/http-conditional"
-import { runImageMagick } from "@alloy/server/media/imagemagick"
 import { errorResult, notFound } from "@alloy/server/runtime/http-response"
 import type { ResolvedObject } from "@alloy/server/storage/driver"
 import { userAssetKey, userStorage } from "@alloy/server/storage/index"
 import { eq } from "drizzle-orm"
 import { type Context, Hono } from "hono"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
+import sharp from "sharp"
 import { z } from "zod"
 
 import { toPublicUser, type UserRow } from "./users-helpers"
@@ -144,16 +144,13 @@ async function resizeUserAsset(
   role: UserAssetRole,
 ): Promise<Buffer> {
   const target = USER_ASSET_TARGETS[role]
-  return await runImageMagick(
-    [
-      "-",
-      "-auto-orient",
-      "-resize",
-      `${target.width}x${target.height}!`,
-      "webp:-",
-    ],
-    bytes,
-  )
+  // rotate() with no angle applies the EXIF orientation; "fill" matches the
+  // old ImageMagick `WxH!` forced-exact resize.
+  return await sharp(bytes)
+    .rotate()
+    .resize(target.width, target.height, { fit: "fill" })
+    .webp()
+    .toBuffer()
 }
 
 type UserAssetUpdateResult =

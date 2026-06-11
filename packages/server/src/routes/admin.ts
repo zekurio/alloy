@@ -27,7 +27,6 @@ import {
   adminRuntimeConfigResponse,
   finalizeOAuthProviderSubmission,
 } from "./admin-helpers"
-import { adminScheduledTasksRoute } from "./admin-scheduled-tasks"
 import { adminUsersRoute } from "./admin-users"
 import { zValidator } from "./validation"
 
@@ -294,7 +293,6 @@ export const adminRoute = new Hono()
     configStore.set("appearance", next)
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
-  .route("/scheduled-tasks", adminScheduledTasksRoute)
   .post("/clips/re-encode", async (c) => {
     const rows = await db
       .select({ id: clip.id })
