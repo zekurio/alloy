@@ -38,12 +38,9 @@ export const ACCEPTED_IMAGE_CONTENT_TYPES = [
 export type AcceptedImageContentType =
   (typeof ACCEPTED_IMAGE_CONTENT_TYPES)[number]
 
-export const ACCEPTED_CLIP_CONTENT_TYPES = [
-  "video/mp4",
-  "video/quicktime",
-  "video/x-matroska",
-  "video/webm",
-] as const
+// Uploads come from the desktop app as finished H.264/HEVC/AV1 mp4 files;
+// the server never transcodes, so nothing else is accepted.
+export const ACCEPTED_CLIP_CONTENT_TYPES = ["video/mp4"] as const
 
 export type AcceptedContentType = (typeof ACCEPTED_CLIP_CONTENT_TYPES)[number]
 

@@ -292,12 +292,6 @@ function extensionForContentType(contentType: string): string {
   switch (contentType) {
     case "video/mp4":
       return "mp4"
-    case "video/quicktime":
-      return "mov"
-    case "video/x-matroska":
-      return "mkv"
-    case "video/webm":
-      return "webm"
     default:
       return "bin"
   }

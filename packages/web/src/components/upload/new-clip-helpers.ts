@@ -52,23 +52,14 @@ export interface PublishPayload {
 
 const CONTENT_TYPE_ALIASES: Record<string, AcceptedContentType> = {
   "video/mp4": "video/mp4",
-  "video/quicktime": "video/quicktime",
-  "video/x-matroska": "video/x-matroska",
-  "video/matroska": "video/x-matroska",
-  "video/webm": "video/webm",
 }
 
 const EXTENSION_TO_CONTENT_TYPE: Record<string, AcceptedContentType> = {
   mp4: "video/mp4",
   m4v: "video/mp4",
-  mov: "video/quicktime",
-  mkv: "video/x-matroska",
-  webm: "video/webm",
 }
 
-export const ACCEPT_LIST = `${ACCEPTED_CLIP_CONTENT_TYPES.join(
-  ",",
-)},.mp4,.m4v,.mov,.mkv,.webm`
+export const ACCEPT_LIST = `${ACCEPTED_CLIP_CONTENT_TYPES.join(",")},.mp4,.m4v`
 
 function resolveContentType(file: File): AcceptedContentType | null {
   const byMime = CONTENT_TYPE_ALIASES[file.type]

@@ -17,12 +17,7 @@ import type { AlloyDesktop } from "@/lib/desktop"
 
 import type { LibraryItemView } from "./library-data"
 
-const ACCEPTED_EXPORT_TYPES = new Set<AcceptedContentType>([
-  "video/mp4",
-  "video/quicktime",
-  "video/x-matroska",
-  "video/webm",
-])
+const ACCEPTED_EXPORT_TYPES = new Set<AcceptedContentType>(["video/mp4"])
 
 function acceptedContentType(value: string): AcceptedContentType {
   if (ACCEPTED_EXPORT_TYPES.has(value as AcceptedContentType)) {
