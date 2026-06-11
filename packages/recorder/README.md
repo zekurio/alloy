@@ -63,6 +63,7 @@ On Windows, OBS helper executables such as `obs-ffmpeg-mux.exe` are copied into
 
 ## Release
 
-Recorder releases use tags named `recorder-vX.Y.Z` and publish a Windows x64
-runtime zip plus checksums. This lets sidecar fixes ship independently from the
-Electron desktop shell.
+Recorder builds ship with the main Alloy app release under `vX.Y.Z` tags. The
+release workflow stamps the recorder package and Cargo versions to the app
+release version, builds the Windows x64 runtime, and attaches the runtime zip
+alongside the desktop installer.

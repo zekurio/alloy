@@ -6,17 +6,15 @@ that makes the release public.
 
 ## App + server release (`v*` tags)
 
-1. Run the **Prepare Release** workflow. Pick a semver bump (`patch`, `minor`,
-   `major`, or one of the `pre*` bumps, which use the `rc` preid), or set an
-   explicit version override. The workflow bumps `package.json` and
-   `packages/desktop/package.json`, runs format/lint/typecheck, commits
-   `chore(release): prepare vX.Y.Z` to `main`, creates the `vX.Y.Z` tag, and
-   dispatches the **Release** workflow (tags pushed with `GITHUB_TOKEN` do not
-   trigger tag-push workflows on their own).
-2. The **Release** workflow validates the tag (must point at `main`, versions
-   must match), builds the Nix package and container image as validation,
-   builds the Windows desktop installer, and creates a **draft** GitHub
-   release with the installer, blockmap, `latest.yml`, and checksums attached.
+1. Run the **Release** workflow directly for a CI-stamped prerelease, or run
+   **Prepare Release** when you want the version bump committed back to `main`.
+   Both paths use one release version for the server, desktop app, and recorder
+   sidecar.
+2. The **Release** workflow resolves the release metadata, aligns package
+   versions in CI, builds the Nix package and container image as validation,
+   builds the Windows desktop installer and recorder runtime, and creates a
+   **draft** GitHub release with the installer, recorder zip, blockmap,
+   `latest.yml`, and checksums attached.
 3. Review the draft release notes, then **publish** it. Publishing:
    - makes the desktop installer and `latest.yml` visible to electron-updater
      (drafts are invisible to auto-update), and
@@ -24,8 +22,8 @@ that makes the release public.
      image to GHCR as `vX.Y.Z` plus `latest` for stable releases. Stable
      builds also push to the Cachix cache.
 
-Prerelease versions (`X.Y.Z-rc.N`) are marked as prereleases and never tagged
-`latest`.
+Semver prerelease versions (`X.Y.Z-rc.N`, `X.Y.Z-beta.N`, etc.) are marked as
+prereleases and never tagged `latest`.
 
 ## Nightly / main channel images
 
@@ -33,9 +31,9 @@ Prerelease versions (`X.Y.Z-rc.N`) are marked as prereleases and never tagged
 (`X.Y.Z-<channel>.<run>.<sha>`) on a schedule or manual dispatch, independent
 of releases.
 
-## Recorder release (`recorder-v*` tags)
+## Recorder runtime
 
-The recorder keeps its own flow: **Prepare Recorder Release** commits the
-version bump, then pushing the `recorder-vX.Y.Z` tag runs **Recorder Release**,
-which publishes the runtime zip directly (no draft gate). Recorder releases
-ship no server image; **Publish Release Image** ignores them.
+Recorder releases are part of the app release. The release workflow stamps
+`packages/recorder/package.json` and `packages/recorder/Cargo.toml` to the app
+release version, builds the Windows x64 runtime, and attaches the recorder zip
+to the same GitHub release as the desktop installer.

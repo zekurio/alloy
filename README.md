@@ -253,9 +253,9 @@ bump, and pushes the prepared release back to `main`. Publishing happens from
 tags on `main`.
 
 The app release publishes the Nix-built server image, the Windows desktop
-installer, updater metadata, blockmap, and desktop checksums. Recorder-only
-runtime releases remain separate under `recorder-vX.Y.Z` for desktop runtime
-update artifacts.
+installer, updater metadata, blockmap, recorder runtime zip, and checksums.
+Recorder package metadata is versioned with the app release so sidecar artifacts
+are traceable to the same `vX.Y.Z` tag.
 
 ## Package READMEs
 
