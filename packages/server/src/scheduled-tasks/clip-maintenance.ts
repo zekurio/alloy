@@ -1,18 +1,11 @@
-import { mkdir, mkdtemp, opendir, readdir, rmdir, rm } from "node:fs/promises"
+import { opendir, readdir, rmdir, rm } from "node:fs/promises"
 
-import { clip } from "alloy-db/schema"
+import { type Clip, clip } from "alloy-db/schema"
 import { logger } from "alloy-logging"
-import { and, eq, inArray } from "drizzle-orm"
+import { inArray } from "drizzle-orm"
 
-import { publishClipUpsert } from "../clips/events"
-import {
-  OPEN_GRAPH_CONTENT_TYPE,
-  publishOpenGraphVariant,
-  statOpenGraphVariant,
-} from "../clips/opengraph-variant"
 import { db } from "../db"
-import { probe } from "../queue/ffmpeg"
-import { ENCODE_DIR, CLIPS_DIR } from "../runtime/dirs"
+import { CLIPS_DIR } from "../runtime/dirs"
 import { dirname, join } from "../runtime/path"
 import { clipAssetDir, clipStorage } from "../storage"
 import { startupAndCronTriggers } from "./triggers"
@@ -26,8 +19,6 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const HEX_PAIR_RE = /^[0-9a-f]{2}$/i
 const DB_BATCH_SIZE = 500
-
-type ClipRow = typeof clip.$inferSelect
 
 type ClipFolder = {
   clipId: string
@@ -46,22 +37,6 @@ export const clipStorageCleanupTask: ScheduledTask = {
       clipFoldersScanned: cleanup.clipFoldersScanned,
       orphanClipFoldersDeleted: cleanup.orphanClipFoldersDeleted,
       orphanAssetsDeleted: cleanup.orphanAssetsDeleted,
-    }
-  },
-}
-
-export const clipOpenGraphMaintenanceTask: ScheduledTask = {
-  id: "clip-opengraph-maintenance",
-  name: "Clip OpenGraph maintenance",
-  description: "Ensures ready clips have stored OpenGraph variants.",
-  triggers: CLIP_MAINTENANCE_TRIGGERS,
-  run: async ({ signal }): Promise<ScheduledTaskResult> => {
-    const opengraph = await ensureOpenGraphVariants(signal)
-    return {
-      readyClipsScanned: opengraph.readyClipsScanned,
-      openGraphVariantsCreated: opengraph.openGraphVariantsCreated,
-      openGraphVariantMetadataFixed: opengraph.openGraphVariantMetadataFixed,
-      openGraphVariantFailures: opengraph.openGraphVariantFailures,
     }
   },
 }
@@ -112,130 +87,6 @@ async function cleanupClipFolders(signal: AbortSignal): Promise<{
   }
 }
 
-async function ensureOpenGraphVariants(signal: AbortSignal): Promise<{
-  readyClipsScanned: number
-  openGraphVariantsCreated: number
-  openGraphVariantMetadataFixed: number
-  openGraphVariantFailures: number
-}> {
-  const rows = await db
-    .select()
-    .from(clip)
-    .where(eq(clip.status, "ready"))
-    .orderBy(clip.createdAt)
-
-  let openGraphVariantsCreated = 0
-  let openGraphVariantMetadataFixed = 0
-  let openGraphVariantFailures = 0
-
-  for (const row of rows) {
-    throwIfAborted(signal)
-    if (!row.sourceKey) continue
-
-    const current = await statOpenGraphVariant(row.openGraphKey)
-    if (
-      row.openGraphContentType === OPEN_GRAPH_CONTENT_TYPE &&
-      current.exists
-    ) {
-      if (current.sizeBytes !== row.openGraphSizeBytes) {
-        await db
-          .update(clip)
-          .set({
-            openGraphSizeBytes: current.sizeBytes,
-            updatedAt: new Date(),
-          })
-          .where(eq(clip.id, row.id))
-        openGraphVariantMetadataFixed += 1
-      }
-      continue
-    }
-
-    try {
-      if (await regenerateOpenGraphVariant(row, signal)) {
-        openGraphVariantsCreated += 1
-      }
-    } catch (err) {
-      if (signal.aborted) throw err
-      openGraphVariantFailures += 1
-      logger.warn(
-        `[scheduled-tasks] failed to ensure OpenGraph variant for ${row.id}:`,
-        err,
-      )
-    }
-  }
-
-  return {
-    readyClipsScanned: rows.length,
-    openGraphVariantsCreated,
-    openGraphVariantMetadataFixed,
-    openGraphVariantFailures,
-  }
-}
-
-async function regenerateOpenGraphVariant(
-  row: ClipRow,
-  signal: AbortSignal,
-): Promise<boolean> {
-  if (!row.sourceKey) return false
-
-  await mkdir(ENCODE_DIR, { recursive: true })
-  const scratchDir = await mkdtemp(`${ENCODE_DIR}/${row.id}-og-task-`)
-  const sourcePath = join(scratchDir, "source")
-  const outPath = join(scratchDir, "opengraph.mp4")
-
-  try {
-    await clipStorage.downloadToFile(row.sourceKey, sourcePath)
-    throwIfAborted(signal)
-
-    const probed = await probe(sourcePath)
-    const asset = await publishOpenGraphVariant({
-      clipId: row.id,
-      sourcePath,
-      outPath,
-      source: probed,
-      signal,
-      onProgress: () => undefined,
-    })
-    throwIfAborted(signal)
-
-    const [updated] = await db
-      .update(clip)
-      .set({
-        openGraphKey: asset.storageKey,
-        openGraphContentType: asset.contentType,
-        openGraphSizeBytes: asset.sizeBytes,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(clip.id, row.id),
-          eq(clip.status, "ready"),
-          eq(clip.sourceKey, row.sourceKey),
-        ),
-      )
-      .returning({ id: clip.id })
-    if (!updated) return false
-
-    if (row.openGraphKey && row.openGraphKey !== asset.storageKey) {
-      await clipStorage.delete(row.openGraphKey).catch((err) => {
-        logger.warn(
-          `[scheduled-tasks] failed to delete stale OpenGraph asset ${row.openGraphKey}:`,
-          err,
-        )
-      })
-    }
-    void publishClipUpsert(row.authorId, row.id)
-    return true
-  } finally {
-    await rm(scratchDir, { recursive: true, force: true }).catch((err) => {
-      logger.warn(
-        `[scheduled-tasks] failed to remove OpenGraph scratch ${scratchDir}:`,
-        err,
-      )
-    })
-  }
-}
-
 async function listClipFolders(signal: AbortSignal): Promise<ClipFolder[]> {
   const root = await openDirectoryOrNull(CLIPS_DIR)
   if (!root) return []
@@ -268,10 +119,8 @@ async function listClipFolders(signal: AbortSignal): Promise<ClipFolder[]> {
   return folders
 }
 
-async function selectClipRowsById(
-  ids: string[],
-): Promise<Map<string, ClipRow>> {
-  const rowsById = new Map<string, ClipRow>()
+async function selectClipRowsById(ids: string[]): Promise<Map<string, Clip>> {
+  const rowsById = new Map<string, Clip>()
   for (let i = 0; i < ids.length; i += DB_BATCH_SIZE) {
     const batch = ids.slice(i, i + DB_BATCH_SIZE)
     if (batch.length === 0) continue
@@ -308,14 +157,9 @@ async function listStoredAssetKeysInner(
   return keys
 }
 
-function retainedClipAssetKeys(row: ClipRow): Set<string> {
+function retainedClipAssetKeys(row: Clip): Set<string> {
   return new Set(
-    [
-      row.sourceKey,
-      row.openGraphKey,
-      row.thumbKey,
-      ...row.variants.map((variant) => variant.storageKey),
-    ].filter((key): key is string => Boolean(key)),
+    [row.sourceKey, row.thumbKey].filter((key): key is string => Boolean(key)),
   )
 }
 

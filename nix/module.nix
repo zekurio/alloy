@@ -87,6 +87,10 @@ in
       Use services.alloy-clips.database.host for both PostgreSQL hostnames and
       Unix socket directories.
     '')
+    (lib.mkRemovedOptionModule [ "services" "alloy-clips" "accelerationDevices" ] ''
+      Alloy no longer transcodes on the server (the desktop app owns all
+      encoding), so the service needs no hardware encoder device access.
+    '')
   ]
   ++ map
     (
@@ -131,20 +135,7 @@ in
     extraGroups = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ ];
-      example = [ "render" ];
-      description = "Extra groups for hardware encoder device access.";
-    };
-
-    accelerationDevices = lib.mkOption {
-      type = lib.types.nullOr (lib.types.listOf lib.types.str);
-      default = [ ];
-      example = [ "/dev/dri/renderD128" ];
-      description = ''
-        Device paths that Alloy services can access for hardware acceleration.
-        This is useful for hardware encoding.
-        The special value `[ ]` disallows device access using PrivateDevices.
-        Set to null to allow access to all devices.
-      '';
+      description = "Extra groups for the Alloy service user.";
     };
 
     port = lib.mkOption {
@@ -186,9 +177,10 @@ in
       type = lib.types.path;
       default = "/var/cache/alloy";
       description = ''
-        Mutable Alloy cache directory for encoder scratch data. Paths below
-        /var/cache are managed with systemd CacheDirectory. Other paths must be
-        created by the operator.
+        Mutable Alloy cache directory for media scratch data (HLS package
+        cache, processing working files). Paths below /var/cache are managed
+        with systemd CacheDirectory. Other paths must be created by the
+        operator.
       '';
     };
 
@@ -335,8 +327,8 @@ in
         PUBLIC_SERVER_URL = cfg.publicServerUrl;
         TRUSTED_ORIGINS = lib.concatStringsSep "," ([ cfg.publicServerUrl ] ++ cfg.trustedOrigins);
         # App-owned data (config.json, splash, user assets) lives in the
-        # persistent state dir; bulk clips live in storageDir; encode scratch
-        # is wipeable cache.
+        # persistent state dir; bulk clips live in storageDir; media scratch
+        # (HLS package cache, processing working files) is wipeable cache.
         ALLOY_DATA_DIR = cfg.stateDir;
         ALLOY_CLIPS_DIR = cfg.storageDir;
         ALLOY_ENCODE_DIR = encodeDir;
@@ -361,11 +353,10 @@ in
         UMask = "0077";
 
         NoNewPrivileges = true;
-        PrivateDevices = cfg.accelerationDevices == [ ];
+        PrivateDevices = true;
         PrivateTmp = true;
         ProtectSystem = "strict";
         ProtectHome = true;
-        DeviceAllow = lib.mkIf (cfg.accelerationDevices != null) cfg.accelerationDevices;
         StateDirectory = lib.mkIf (managedStateDirectory != null) managedStateDirectory;
         CacheDirectory = lib.mkIf (managedCacheDirectory != null) managedCacheDirectory;
         ReadWritePaths = serverExternalWritePaths;

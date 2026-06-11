@@ -3,14 +3,12 @@ import { user } from "alloy-db/auth-schema"
 import { clip, clipMention, clipTag, game } from "alloy-db/schema"
 import { eq, sql } from "drizzle-orm"
 
-import { configStore } from "../config/store"
 import { db } from "../db"
 import {
   clipGameRefFromSnapshot,
   gameSelectShape,
   serialiseGameRow,
 } from "../games/ref"
-import { buildPlaybackQualities } from "./playback-quality"
 
 export const clipSelectShape = {
   id: clip.id,
@@ -25,13 +23,9 @@ export const clipSelectShape = {
   sourceVideoCodec: clip.sourceVideoCodec,
   sourceAudioCodec: clip.sourceAudioCodec,
   sourceSizeBytes: clip.sourceSizeBytes,
-  openGraphKey: clip.openGraphKey,
-  openGraphContentType: clip.openGraphContentType,
-  openGraphSizeBytes: clip.openGraphSizeBytes,
   durationMs: clip.durationMs,
   width: clip.width,
   height: clip.height,
-  variants: clip.variants,
   thumbKey: clip.thumbKey,
   thumbBlurHash: clip.thumbBlurHash,
   viewCount: clip.viewCount,
@@ -85,26 +79,18 @@ export function toPublicClipRow<
     sourceContentType: string | null
     sourceVideoCodec: string | null
     sourceAudioCodec: string | null
-    openGraphKey: string | null
     sourceSizeBytes: number | null
     durationMs: number | null
     width: number | null
     height: number | null
     thumbKey: string | null
     thumbBlurHash: string | null
-    variants: readonly { storageKey: string; hls?: unknown }[]
     steamgriddbId: number
     game: string | null
     gameRef?: Parameters<typeof serialiseGameRow>[0] | null
   },
 >(row: T) {
-  const {
-    sourceKey: _sourceKey,
-    openGraphKey: _openGraphKey,
-    variants: _variants,
-    gameRef,
-    ...rest
-  } = row
+  const { sourceKey: _sourceKey, gameRef, ...rest } = row
   return {
     ...rest,
     gameRef: gameRef
@@ -115,8 +101,5 @@ export function toPublicClipRow<
         }),
     thumbKey: row.thumbKey ? "thumbnail" : null,
     thumbBlurHash: row.thumbBlurHash,
-    playbackQualities: configStore.get("encoder").enabled
-      ? buildPlaybackQualities(row)
-      : [],
   }
 }

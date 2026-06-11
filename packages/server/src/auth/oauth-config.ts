@@ -1,7 +1,7 @@
-import type { PublicAuthProvider } from "alloy-contracts"
+import type { OAuthProviderConfig, PublicAuthProvider } from "alloy-contracts"
 
 import { isOAuthProviderUsable } from "../config/secret-store"
-import { configStore, type OAuthProviderConfig } from "../config/store"
+import { configStore } from "../config/store"
 
 // Only enabled providers with a stored secret are usable for sign-in (see
 // isOAuthProviderUsable). Enforcing it here means no config path (boot, reload,

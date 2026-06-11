@@ -5,10 +5,18 @@ import {
   normalizePublicServerUrl,
   postgresUrl,
 } from "alloy-env"
+import { loadDotenv } from "alloy-env/node"
 import { z } from "zod"
 
 // Deploy-time env only. Anything an admin should be able to change at
 // runtime (OAuth provider, open-registrations) lives in `config/store.ts`.
+
+// Fill in unset variables from the workspace `.env` (non-devenv local dev);
+// real shell environment always wins. Production deployments (nix/docker set
+// NODE_ENV in the wrapper) never probe the filesystem.
+if (process.env.NODE_ENV !== "production") {
+  loadDotenv()
+}
 
 function normalizeTrustedOrigins(value: string): string[] {
   const origins = new Set(
@@ -52,9 +60,6 @@ const EnvSchema = z.object({
   // Ephemeral transcode scratch. Defaults to `${ALLOY_DATA_DIR}/encode`; can be
   // pointed at system tmp (e.g. /tmp/alloy) or tmpfs.
   ALLOY_ENCODE_DIR: z.string().optional(),
-
-  FFMPEG_BIN: z.string().default("ffmpeg"),
-  FFPROBE_BIN: z.string().default("ffprobe"),
 })
 
 function readEnv(): z.infer<typeof EnvSchema> {

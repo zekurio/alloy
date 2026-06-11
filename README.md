@@ -31,13 +31,22 @@ install dependencies:
 pnpm install
 ```
 
-Start a local Postgres on `127.0.0.1:5432`:
+Copy the env template (skip this in a devenv shell, which exports everything
+itself):
+
+```bash
+cp .env.example .env
+```
+
+Start a local Postgres on `127.0.0.1:5432`, or point `DATABASE_URL` in `.env`
+at an existing system-wide instance:
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d postgres
 ```
 
-Start the default dev loop:
+Start the default dev loop (`pnpm dev` pushes the Drizzle schema and then runs
+`turbo run dev` for the selected packages):
 
 ```bash
 pnpm dev
@@ -53,7 +62,11 @@ pnpm dev:all          # server + web + desktop
 pnpm recorder:build   # build the Rust recorder sidecar
 ```
 
-Nix users can use `devenv` instead of manually installing local tooling:
+Nix users can use `devenv` instead of manually installing local tooling. The
+shell starts a repo-local Postgres on a random free localhost port (so it
+never collides with a system-wide Postgres service) and exports
+`DATABASE_URL` and the rest of the dev environment, which always takes
+precedence over `.env`:
 
 ```bash
 nix profile install nixpkgs#devenv nixpkgs#direnv

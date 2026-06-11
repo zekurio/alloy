@@ -5,15 +5,14 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts",
-    "./auth-schema": "./src/schema/auth.ts",
-    "./contracts": "./src/contracts.ts"
+    "./auth-schema": "./src/schema/auth.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
-    "db:generate": "node ../../scripts/db.mjs generate",
-    "db:migrate": "node ../../scripts/db.mjs migrate",
-    "db:push": "node ../../scripts/db.mjs push",
-    "db:studio": "node ../../scripts/db.mjs studio",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"src/**/*_test.ts\""
   },

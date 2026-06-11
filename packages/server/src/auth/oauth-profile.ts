@@ -2,6 +2,7 @@ import {
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_USERNAME_CLAIM_DEFAULT,
+  type OAuthProviderConfig,
   USER_ROLES,
   type UserRole,
 } from "alloy-contracts"
@@ -12,7 +13,7 @@ import {
   type UserInfoResponse,
 } from "openid-client"
 
-import { configStore, type OAuthProviderConfig } from "../config/store"
+import { configStore } from "../config/store"
 import { normalizeEmail } from "./identity"
 import { fetchOAuthUserInfo } from "./oauth-client"
 import type { OAuthProfile, StoredTokens } from "./oauth-types"

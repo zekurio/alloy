@@ -41,8 +41,6 @@ export interface AlloyApi extends ApiContext {
   users: ReturnType<typeof createUsersApi>
 }
 
-export function createApi(baseURL: string, init?: RequestInit): AlloyApi
-export function createApi(options: CreateApiOptions): AlloyApi
 export function createApi(
   input: string | CreateApiOptions,
   init?: RequestInit,

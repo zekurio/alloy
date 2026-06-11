@@ -1,14 +1,17 @@
-import type { AdminOAuthProvider, AdminRuntimeConfig } from "alloy-contracts"
+import type {
+  AdminOAuthProvider,
+  AdminRuntimeConfig,
+  OAuthProviderConfig,
+  RuntimeConfig,
+} from "alloy-contracts"
 import { user } from "alloy-db/auth-schema"
 import { desc, inArray } from "drizzle-orm"
 
-import { secretStore } from "../config/secret-store"
 import {
-  type OAuthProviderConfig,
   OAuthProviderSchema,
   OAuthProviderSubmissionSchema,
-  type RuntimeConfig,
-} from "../config/store"
+} from "../config/oauth-schema"
+import { secretStore } from "../config/secret-store"
 import { db } from "../db"
 import { env } from "../env"
 import { isoDate } from "../runtime/date"

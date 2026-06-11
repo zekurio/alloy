@@ -8,7 +8,7 @@ import {
   validateSuccessResponse,
 } from "./auth-validators"
 import { createApiClient } from "./client"
-import { errorMessage, toError } from "./error"
+import { errorFrom, toError } from "./error"
 import { readJsonOrThrow } from "./http"
 
 export { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "alloy-contracts"
@@ -83,12 +83,6 @@ type RequestFn = <T>(
 export type { AuthError, AuthResult, RequestFn, SessionStore }
 export type { AuthRedirect }
 
-export function errorFrom(cause: unknown, fallback: string): AuthError {
-  return {
-    message: errorMessage(cause, fallback),
-  }
-}
-
 function createSessionStore(fetchSession: () => Promise<SessionData | null>) {
   let state: StoreState = { data: null, isPending: true, error: null }
   const listeners = new Set<() => void>()
@@ -132,8 +126,6 @@ function createSessionStore(fetchSession: () => Promise<SessionData | null>) {
   }
 }
 
-export type AuthClient = ReturnType<typeof createAuth>
-
 function defaultAuthRedirect(url: string): void {
   if (typeof window === "undefined") {
     throw new Error("OAuth redirects require a browser redirect handler")
@@ -141,15 +133,7 @@ function defaultAuthRedirect(url: string): void {
   window.location.assign(url)
 }
 
-export function createAuth(baseURL: string): ReturnType<typeof createAuthClient>
-export function createAuth(
-  options: CreateAuthOptions,
-): ReturnType<typeof createAuthClient>
 export function createAuth(input: string | CreateAuthOptions) {
-  return createAuthClient(input)
-}
-
-function createAuthClient(input: string | CreateAuthOptions) {
   const baseURL = typeof input === "string" ? input : input.baseURL
   const redirect =
     typeof input === "string"

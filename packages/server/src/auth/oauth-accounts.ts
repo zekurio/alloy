@@ -1,8 +1,9 @@
+import type { OAuthProviderConfig } from "alloy-contracts"
 import { authAccount, user } from "alloy-db/auth-schema"
 import { logger } from "alloy-logging"
 import { and, eq } from "drizzle-orm"
 
-import { configStore, type OAuthProviderConfig } from "../config/store"
+import { configStore } from "../config/store"
 import { db } from "../db"
 import { assertCanRemoveAdmin, findUserByEmail } from "./identity"
 import { defaultOAuthStorageQuota } from "./oauth-profile"

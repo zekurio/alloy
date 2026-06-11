@@ -34,31 +34,6 @@ function validateClipGameRef(value: unknown) {
   validateGameRowFields(row, "clip game")
 }
 
-function validateClipPlaybackQuality(value: unknown) {
-  const quality = objectRecord(value, "clip playback quality")
-  for (const key of ["id", "label"] as const) {
-    validateRequiredString(
-      quality[key],
-      `Invalid clip playback quality response: ${key} is required`,
-    )
-  }
-  for (const key of [
-    "bitrate",
-    "videoBitrate",
-    "audioBitrate",
-    "height",
-  ] as const) {
-    validatePositiveInteger(
-      quality[key],
-      `Invalid clip playback quality response: ${key} must be a positive integer`,
-    )
-  }
-  validateNullablePositiveInteger(
-    quality.width,
-    "Invalid clip playback quality response: width must be a positive integer or null",
-  )
-}
-
 export function validateClipRow(value: unknown): ClipRow {
   const row = objectRecord(value, "clip")
   assertNoStorageKey(row, "clip")
@@ -90,7 +65,6 @@ function validateClipMetadataFields(row: Record<string, unknown>) {
     "sourceContentType",
     "sourceVideoCodec",
     "sourceAudioCodec",
-    "openGraphContentType",
     "failureReason",
     "authorImage",
   ] as const) {
@@ -112,11 +86,7 @@ function validateClipMetadataFields(row: Record<string, unknown>) {
 }
 
 function validateClipCounters(row: Record<string, unknown>) {
-  for (const key of [
-    "sourceSizeBytes",
-    "openGraphSizeBytes",
-    "durationMs",
-  ] as const) {
+  for (const key of ["sourceSizeBytes", "durationMs"] as const) {
     validateNullableNonNegativeInteger(
       row[key],
       `Invalid clip response: ${key} must be a non-negative integer or null`,
@@ -178,10 +148,6 @@ function validateClipRelationships(row: Record<string, unknown>) {
         "Invalid clip response: tag must be a string",
       ),
   )
-  validateArray(
-    row.playbackQualities,
-    "Invalid clip response: playbackQualities must be an array",
-  ).map(validateClipPlaybackQuality)
 }
 
 export function validateClipRows(value: unknown): ClipRow[] {

@@ -208,156 +208,153 @@ function ClipViewerDialogBody({
   const nextDisabled = !next
 
   return (
-    <>
-      <DialogViewportContent
-        initialFocus={initialFocusRef}
-        style={
-          {
-            "--clip-modal-margin-x": "16px",
-            "--clip-modal-margin-y": "16px",
-            "--clip-modal-nav-gutter": "72px",
-            "--clip-modal-sidebar": "400px",
-            "--clip-modal-meta": "13rem",
-          } as React.CSSProperties
+    <DialogViewportContent
+      initialFocus={initialFocusRef}
+      style={
+        {
+          "--clip-modal-margin-x": "16px",
+          "--clip-modal-margin-y": "16px",
+          "--clip-modal-nav-gutter": "72px",
+          "--clip-modal-sidebar": "400px",
+          "--clip-modal-meta": "13rem",
+        } as React.CSSProperties
+      }
+      className={cn(
+        // Below lg this branch is normally hidden by MobileClipViewerBody, but
+        // we keep a sensible fallback in case the breakpoint check disagrees.
+        "h-auto max-h-[calc(100dvh-32px)] w-[calc(100dvw-32px)] overflow-visible rounded-[20px] bg-surface transition-[filter,opacity,transform] duration-100",
+        "lg:[--clip-modal-margin-x:160px] lg:[--clip-modal-margin-y:20px] lg:[--clip-modal-nav-gutter:72px]",
+        "lg:h-[calc(min(calc(100dvh-var(--clip-modal-margin-y)*2-var(--clip-modal-meta)),calc((100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2-var(--clip-modal-sidebar))*9/16))+var(--clip-modal-meta))]",
+        "lg:max-h-[calc(100dvh-var(--clip-modal-margin-y)*2)]",
+        "lg:w-[calc(min(calc(100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2-var(--clip-modal-sidebar)),calc((100dvh-var(--clip-modal-margin-y)*2-var(--clip-modal-meta))*16/9))+var(--clip-modal-sidebar))]",
+        "lg:max-w-[calc(100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2)]",
+        // xl: wider sidebar + extra horizontal gutter, still slim vertically.
+        "xl:[--clip-modal-margin-x:200px] xl:[--clip-modal-margin-y:24px] xl:[--clip-modal-meta:14rem] xl:[--clip-modal-sidebar:448px]",
+        // 2xl: max breathing room for chevrons + meta on ultrawide.
+        "2xl:[--clip-modal-margin-x:256px] 2xl:[--clip-modal-margin-y:28px]",
+      )}
+    >
+      <DialogClose
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute top-3 right-3 z-30 hidden rounded-full border-transparent bg-transparent text-white/80 shadow-none hover:border-transparent hover:bg-transparent hover:text-white lg:inline-flex [&_svg]:!size-5"
+          />
         }
-        className={cn(
-          // Below lg this branch is normally hidden by MobileClipViewerBody, but
-          // we keep a sensible fallback in case the breakpoint check disagrees.
-          "h-auto max-h-[calc(100dvh-32px)] w-[calc(100dvw-32px)] overflow-visible rounded-[20px] bg-surface transition-[filter,opacity,transform] duration-100",
-          "lg:[--clip-modal-margin-x:160px] lg:[--clip-modal-margin-y:20px] lg:[--clip-modal-nav-gutter:72px]",
-          "lg:h-[calc(min(calc(100dvh-var(--clip-modal-margin-y)*2-var(--clip-modal-meta)),calc((100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2-var(--clip-modal-sidebar))*9/16))+var(--clip-modal-meta))]",
-          "lg:max-h-[calc(100dvh-var(--clip-modal-margin-y)*2)]",
-          "lg:w-[calc(min(calc(100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2-var(--clip-modal-sidebar)),calc((100dvh-var(--clip-modal-margin-y)*2-var(--clip-modal-meta))*16/9))+var(--clip-modal-sidebar))]",
-          "lg:max-w-[calc(100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2)]",
-          // xl: wider sidebar + extra horizontal gutter, still slim vertically.
-          "xl:[--clip-modal-margin-x:200px] xl:[--clip-modal-margin-y:24px] xl:[--clip-modal-meta:14rem] xl:[--clip-modal-sidebar:448px]",
-          // 2xl: max breathing room for chevrons + meta on ultrawide.
-          "2xl:[--clip-modal-margin-x:256px] 2xl:[--clip-modal-margin-y:28px]",
-        )}
+        aria-label="Close"
       >
-        <DialogClose
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute top-3 right-3 z-30 hidden rounded-full border-transparent bg-transparent text-white/80 shadow-none hover:border-transparent hover:bg-transparent hover:text-white lg:inline-flex [&_svg]:!size-5"
-            />
-          }
-          aria-label="Close"
-        >
-          <XIcon />
-        </DialogClose>
-        {showPrev ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => (prev && onNavigate ? onNavigate(prev) : undefined)}
-            aria-label="Previous clip"
-            disabled={prevDisabled}
-            className={cn(
-              "absolute top-1/2 left-[calc((var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))*-1)] z-40 h-12 w-[calc(var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
-              "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
-              "hidden lg:inline-flex",
-            )}
-          >
-            <ChevronLeftIcon />
-          </Button>
-        ) : null}
-        {showNext ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => (next && onNavigate ? onNavigate(next) : undefined)}
-            aria-label="Next clip"
-            disabled={nextDisabled}
-            className={cn(
-              "absolute top-1/2 right-[calc((var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))*-1)] z-40 h-12 w-[calc(var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
-              "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
-              "hidden lg:inline-flex",
-            )}
-          >
-            <ChevronRightIcon />
-          </Button>
-        ) : null}
-        <div
+        <XIcon />
+      </DialogClose>
+      {showPrev ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() => (prev && onNavigate ? onNavigate(prev) : undefined)}
+          aria-label="Previous clip"
+          disabled={prevDisabled}
           className={cn(
-            "grid h-full min-h-0 overflow-hidden rounded-[20px] bg-surface",
-            "lg:grid-cols-[minmax(0,1fr)_var(--clip-modal-sidebar)]",
+            "absolute top-1/2 left-[calc((var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))*-1)] z-40 h-12 w-[calc(var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
+            "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
+            "hidden lg:inline-flex",
           )}
         >
-          <div className="bg-surface grid min-h-0 grid-rows-[auto_auto] p-4 sm:p-6 lg:grid-rows-[auto_minmax(0,1fr)] lg:p-0">
-            <div
-              ref={initialFocusRef}
-              tabIndex={-1}
-              className="relative aspect-[16/9] w-full overflow-hidden outline-none"
-            >
-              <ClipPlayer
-                clipId={row.id}
-                sourceContentType={row.sourceContentType}
-                sourceVideoCodec={row.sourceVideoCodec}
-                sourceAudioCodec={row.sourceAudioCodec}
-                thumbnail={thumbnail}
-                thumbnailBlurHash={row.thumbBlurHash}
-                fallbackSeed={row.steamgriddbId}
-                playbackQualities={row.playbackQualities}
-                status={row.status}
-                encodeProgress={row.encodeProgress}
-                aspectRatio={16 / 9}
-                className="h-full w-full overflow-hidden rounded-[14px] shadow-[0_30px_90px_-42px_rgba(0,0,0,0.92)] ring-1 ring-white/10 ring-inset lg:rounded-none lg:shadow-none lg:ring-0"
-                onPlayThreshold={() => recordClipViewBestEffort(row.id)}
-                autoPlay
-                enableHorizontalSeekShortcuts={false}
-              />
-            </div>
-            <div className="min-h-0 overflow-y-auto px-1 pt-4 sm:pt-6 lg:px-4 lg:pt-3 lg:pb-4 xl:px-5 xl:pt-4 xl:pb-5">
-              <ClipMeta
-                clipId={row.id}
-                authorId={row.authorId}
-                title={row.title}
-                game={gameLabel}
-                gameRef={row.gameRef}
-                views={formatCount(row.viewCount)}
-                postedAt={formatRelativeTime(row.createdAt)}
-                likes={row.likeCount}
-                privacy={row.privacy}
-                description={row.description}
-                mentions={row.mentions ?? []}
-                tags={row.tags}
-                uploader={{
-                  handle,
-                  name: author,
-                  avatar: {
-                    initials: avatar.initials,
-                    src: avatar.src,
-                    bg: avatar.bg,
-                    fg: avatar.fg,
-                  },
-                }}
-                onEdit={() => {
-                  // The edit view lives at its own route; navigating there
-                  // drops the `clip` search param and closes this viewer.
-                  void navigate({
-                    to: "/library/c/$clipId",
-                    params: { clipId: row.id },
-                  })
-                }}
-                onDeleted={onDeleted}
-              />
-            </div>
+          <ChevronLeftIcon />
+        </Button>
+      ) : null}
+      {showNext ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() => (next && onNavigate ? onNavigate(next) : undefined)}
+          aria-label="Next clip"
+          disabled={nextDisabled}
+          className={cn(
+            "absolute top-1/2 right-[calc((var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))*-1)] z-40 h-12 w-[calc(var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
+            "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
+            "hidden lg:inline-flex",
+          )}
+        >
+          <ChevronRightIcon />
+        </Button>
+      ) : null}
+      <div
+        className={cn(
+          "grid h-full min-h-0 overflow-hidden rounded-[20px] bg-surface",
+          "lg:grid-cols-[minmax(0,1fr)_var(--clip-modal-sidebar)]",
+        )}
+      >
+        <div className="bg-surface grid min-h-0 grid-rows-[auto_auto] p-4 sm:p-6 lg:grid-rows-[auto_minmax(0,1fr)] lg:p-0">
+          <div
+            ref={initialFocusRef}
+            tabIndex={-1}
+            className="relative aspect-[16/9] w-full overflow-hidden outline-none"
+          >
+            <ClipPlayer
+              clipId={row.id}
+              sourceContentType={row.sourceContentType}
+              sourceVideoCodec={row.sourceVideoCodec}
+              sourceAudioCodec={row.sourceAudioCodec}
+              thumbnail={thumbnail}
+              thumbnailBlurHash={row.thumbBlurHash}
+              fallbackSeed={row.steamgriddbId}
+              status={row.status}
+              encodeProgress={row.encodeProgress}
+              aspectRatio={16 / 9}
+              className="h-full w-full overflow-hidden rounded-[14px] shadow-[0_30px_90px_-42px_rgba(0,0,0,0.92)] ring-1 ring-white/10 ring-inset lg:rounded-none lg:shadow-none lg:ring-0"
+              onPlayThreshold={() => recordClipViewBestEffort(row.id)}
+              autoPlay
+              enableHorizontalSeekShortcuts={false}
+            />
           </div>
-
-          <ClipComments
-            clipId={row.id}
-            clipAuthorId={row.authorId}
-            focusedCommentId={focusedCommentId}
-            className="bg-surface"
-          />
+          <div className="min-h-0 overflow-y-auto px-1 pt-4 sm:pt-6 lg:px-4 lg:pt-3 lg:pb-4 xl:px-5 xl:pt-4 xl:pb-5">
+            <ClipMeta
+              clipId={row.id}
+              authorId={row.authorId}
+              title={row.title}
+              game={gameLabel}
+              gameRef={row.gameRef}
+              views={formatCount(row.viewCount)}
+              postedAt={formatRelativeTime(row.createdAt)}
+              likes={row.likeCount}
+              privacy={row.privacy}
+              description={row.description}
+              mentions={row.mentions ?? []}
+              tags={row.tags}
+              uploader={{
+                handle,
+                name: author,
+                avatar: {
+                  initials: avatar.initials,
+                  src: avatar.src,
+                  bg: avatar.bg,
+                  fg: avatar.fg,
+                },
+              }}
+              onEdit={() => {
+                // The edit view lives at its own route; navigating there
+                // drops the `clip` search param and closes this viewer.
+                void navigate({
+                  to: "/library/c/$clipId",
+                  params: { clipId: row.id },
+                })
+              }}
+              onDeleted={onDeleted}
+            />
+          </div>
         </div>
-      </DialogViewportContent>
-    </>
+
+        <ClipComments
+          clipId={row.id}
+          clipAuthorId={row.authorId}
+          focusedCommentId={focusedCommentId}
+          className="bg-surface"
+        />
+      </div>
+    </DialogViewportContent>
   )
 }
 

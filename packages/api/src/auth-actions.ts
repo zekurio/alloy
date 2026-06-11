@@ -1,14 +1,13 @@
 import type { RegistrationResponseJSON } from "@simplewebauthn/browser"
 
-import {
-  type AuthRedirect,
-  type AuthResult,
-  errorFrom,
-  type LinkedAccount,
-  type Passkey,
-  type RequestFn,
-  type SessionData,
-  type SessionStore,
+import type {
+  AuthRedirect,
+  AuthResult,
+  LinkedAccount,
+  Passkey,
+  RequestFn,
+  SessionData,
+  SessionStore,
 } from "./auth"
 import { AUTH_PATHS } from "./auth-paths"
 import {
@@ -23,6 +22,7 @@ import {
   validateSuccessResponse,
   validateUserUpdateResponse,
 } from "./auth-validators"
+import { errorFrom } from "./error"
 
 type WebAuthnBrowser = typeof import("@simplewebauthn/browser")
 

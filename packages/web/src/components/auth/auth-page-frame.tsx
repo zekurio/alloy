@@ -15,7 +15,7 @@ type AuthPageFrameProps = {
   fill?: boolean
 }
 
-export function AuthBackdrop({ splash }: { splash: PublicLoginSplashConfig }) {
+function AuthBackdrop({ splash }: { splash: PublicLoginSplashConfig }) {
   const showArtwork = splash.enabled && hasLoginArtworkImage(splash.imageUrl)
   if (!showArtwork) return null
 

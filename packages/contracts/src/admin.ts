@@ -39,83 +39,6 @@ export type AdminOAuthProvider = OAuthProviderConfig & {
   clientSecret?: string
 }
 
-export const ENCODER_HWACCELS = [
-  "none",
-  "amf",
-  "nvenc",
-  "qsv",
-  "rkmpp",
-  "vaapi",
-  "videotoolbox",
-  "v4l2m2m",
-] as const
-
-export type EncoderHwaccel = (typeof ENCODER_HWACCELS)[number]
-
-export const ENCODER_CODECS = ["h264", "hevc", "av1"] as const
-
-export type EncoderCodec = (typeof ENCODER_CODECS)[number]
-
-export const ENCODER_HEIGHT_MIN = 144
-export const ENCODER_HEIGHT_MAX = 4320
-
-export const ENCODER_TONEMAPPING_ALGORITHMS = [
-  "none",
-  "linear",
-  "gamma",
-  "clip",
-  "reinhard",
-  "hable",
-  "mobius",
-  "bt2390",
-] as const
-
-export type EncoderTonemappingAlgorithm =
-  (typeof ENCODER_TONEMAPPING_ALGORITHMS)[number]
-
-export const ENCODER_TONEMAPPING_MODES = [
-  "auto",
-  "max",
-  "rgb",
-  "lum",
-  "itp",
-] as const
-
-export type EncoderTonemappingMode = (typeof ENCODER_TONEMAPPING_MODES)[number]
-
-export const ENCODER_TONEMAPPING_RANGES = ["auto", "limited", "full"] as const
-
-export type EncoderTonemappingRange =
-  (typeof ENCODER_TONEMAPPING_RANGES)[number]
-
-export interface EncoderTonemappingConfig {
-  enabled: boolean
-  algorithm: EncoderTonemappingAlgorithm
-  mode: EncoderTonemappingMode
-  range: EncoderTonemappingRange
-  desat: number
-  peak: number
-  param: number | null
-  threshold: number
-  vpp: {
-    enabled: boolean
-    brightness: number
-    contrast: number
-  }
-}
-
-export interface AdminEncoderConfig {
-  enabled: boolean
-  hwaccel: EncoderHwaccel
-  qsvDevice: string
-  vaapiDevice: string
-  intelLowPowerH264: boolean
-  intelLowPowerHevc: boolean
-  tonemapping: EncoderTonemappingConfig
-}
-
-export type EncoderConfig = AdminEncoderConfig
-
 export interface AdminLimitsConfig {
   maxUploadBytes: number
   defaultStorageQuotaBytes: number | null
@@ -130,19 +53,6 @@ export type LimitsConfig = AdminLimitsConfig
  */
 export interface AdminIntegrationsConfig {
   steamgriddbApiKeySet: boolean
-}
-
-/**
- * Server-only secret material. Persisted apart from {@link RuntimeConfig} and
- * never serialized to any HTTP response — there is no response type that
- * contains these fields.
- */
-export interface ServerSecretsConfig {
-  viewerCookieSecret: string
-  uploadHmacSecret: string
-  steamgriddbApiKey: string
-  /** OAuth client secrets keyed by `providerId`. */
-  oauthClientSecrets: Record<string, string>
 }
 
 export interface LoginSplashConfig {
@@ -166,15 +76,6 @@ export interface PublicLoginSplashConfig {
 
 export interface AppearanceConfig {
   loginSplash: LoginSplashConfig
-}
-
-export interface AdminEncoderCapabilities {
-  ffmpegOk: boolean
-  ffmpegVersion: string | null
-  available: Record<
-    EncoderHwaccel,
-    { h264: boolean; hevc: boolean; av1: boolean }
-  >
 }
 
 export type AdminScheduledTaskTrigger =
@@ -241,7 +142,7 @@ export const RUNTIME_CONFIG_VERSION = 1
 
 /**
  * Persisted, non-secret runtime configuration (the `config.json` contents).
- * Secret material lives in {@link ServerSecretsConfig}, stored separately, so
+ * Secret material lives in the server-only secret store, kept separately, so
  * this object — and anything derived from it, including `export` — is safe to
  * serialize by construction.
  */
@@ -253,7 +154,6 @@ export interface RuntimeConfig {
   requireAuthToBrowse: boolean
   oauthProviders: OAuthProviderConfig[]
   scheduledTasks: Record<string, AdminScheduledTaskTrigger[]>
-  encoder: EncoderConfig
   limits: LimitsConfig
   appearance: AppearanceConfig
 }

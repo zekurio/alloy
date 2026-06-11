@@ -26,6 +26,13 @@ export function errorMessage(cause: unknown, fallback: string): string {
   return messageFromUnknown(cause) ?? fallback
 }
 
+export function errorFrom(
+  cause: unknown,
+  fallback: string,
+): { message: string } {
+  return { message: errorMessage(cause, fallback) }
+}
+
 export function toError(cause: unknown, fallback: string): Error {
   if (cause instanceof Error && cause.message.trim().length > 0) return cause
   return new Error(errorMessage(cause, fallback))

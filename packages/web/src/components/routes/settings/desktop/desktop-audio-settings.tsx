@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "alloy-ui/components/select"
+import { SettingRow } from "alloy-ui/components/setting-row"
 import { Slider } from "alloy-ui/components/slider"
 import { Spinner } from "alloy-ui/components/spinner"
 import { cn } from "alloy-ui/lib/utils"
@@ -30,7 +31,6 @@ import {
   AUDIO_DEVICE_KIND_LABELS,
   AUDIO_MODE_LABELS,
 } from "./desktop-recording-helpers"
-import { SettingRow } from "./setting-row"
 
 const AUDIO_DEVICE_GROUPS: Array<{
   kind: RecordingAudioDeviceKind

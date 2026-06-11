@@ -1,7 +1,6 @@
 import {
   AlertTriangleIcon,
   CalendarClockIcon,
-  ClapperboardIcon,
   DatabaseIcon,
   GaugeIcon,
   HardDriveIcon,
@@ -26,7 +25,6 @@ import {
   AdminIntegrationsPanel,
   AdminLimitsPanel,
   AdminScheduledTasksPanel,
-  AdminTranscodingPanel,
   AdminUsersPanel,
 } from "@/components/routes/settings/admin-tab-content"
 import { DangerZoneCard } from "@/components/routes/settings/danger-zone-card"
@@ -259,16 +257,6 @@ const ALL_CATEGORIES: SettingsCategory[] = [
     Panel: AdminAuthenticationPanel,
   },
   {
-    id: "transcoding",
-    label: "Transcoding",
-    title: "Playback transcoding",
-    description: "Edit live transcoding and hardware acceleration.",
-    keywords: ["live transcoding", "hardware acceleration", "encoder", "gpu"],
-    icon: ClapperboardIcon,
-    group: "admin",
-    Panel: AdminTranscodingPanel,
-  },
-  {
     id: "limits",
     label: "Limits",
     description: "Edit upload caps and default storage quota.",
@@ -325,14 +313,7 @@ const ALL_CATEGORIES: SettingsCategory[] = [
     label: "Scheduled tasks",
     title: "Scheduled tasks",
     description: "Run maintenance tasks and edit cron triggers.",
-    keywords: [
-      "cron",
-      "daily",
-      "weekly",
-      "maintenance",
-      "cleanup",
-      "opengraph",
-    ],
+    keywords: ["cron", "daily", "weekly", "maintenance", "cleanup"],
     icon: CalendarClockIcon,
     group: "admin",
     Panel: AdminScheduledTasksPanel,

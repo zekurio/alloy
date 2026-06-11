@@ -11,6 +11,7 @@ import {
 } from "alloy-ui/components/alert-dialog"
 import { Button } from "alloy-ui/components/button"
 import { Section, SectionContent } from "alloy-ui/components/section"
+import { SettingRow } from "alloy-ui/components/setting-row"
 import { toast } from "alloy-ui/lib/toast"
 import { DownloadIcon, Trash2Icon } from "lucide-react"
 import * as React from "react"
@@ -20,26 +21,6 @@ import { api } from "@/lib/api"
 import { startBrowserDownload } from "@/lib/browser-download"
 import { errorMessage } from "@/lib/error-message"
 import { getQueryClient } from "@/lib/query-client"
-
-function DataActionRow({
-  title,
-  description,
-  children,
-}: {
-  title: string
-  description: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4 py-4">
-      <div className="min-w-0">
-        <div className="text-sm font-medium">{title}</div>
-        <p className="text-foreground-dim mt-0.5 text-xs">{description}</p>
-      </div>
-      {children}
-    </div>
-  )
-}
 
 function useDeleteAllClipsAction() {
   const [pending, setPending] = React.useState(false)
@@ -79,7 +60,8 @@ function DownloadClipsRow() {
   }
 
   return (
-    <DataActionRow
+    <SettingRow
+      className="py-4 first:pt-4 last:pb-4"
       title="Download clips"
       description="Download a zip archive with the original files for your clips."
     >
@@ -92,7 +74,7 @@ function DownloadClipsRow() {
         <DownloadIcon />
         Download
       </Button>
-    </DataActionRow>
+    </SettingRow>
   )
 }
 
@@ -104,7 +86,8 @@ function DeleteClipsRow({
   onDeleteAllClips: () => Promise<void>
 }) {
   return (
-    <DataActionRow
+    <SettingRow
+      className="py-4 first:pt-4 last:pb-4"
       title="Delete clips"
       description="Permanently removes every clip you uploaded. This can't be undone."
     >
@@ -136,7 +119,7 @@ function DeleteClipsRow({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </DataActionRow>
+    </SettingRow>
   )
 }
 
@@ -155,7 +138,7 @@ export function ClipDataCard() {
 
   return (
     <Section>
-      <SectionContent className="divide-border divide-y py-0">
+      <SectionContent className="py-0">
         <DownloadClipsRow />
         <DeleteClipsRow pending={pending} onDeleteAllClips={onDeleteAllClips} />
       </SectionContent>

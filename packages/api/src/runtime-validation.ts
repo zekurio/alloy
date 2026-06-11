@@ -174,19 +174,6 @@ export function validateIntegerInRange(
   }
 }
 
-export function validateEvenIntegerInRange(
-  value: unknown,
-  min: number,
-  max: number,
-  message: string,
-) {
-  validateIntegerInRange(value, min, max, message)
-  const numberValue = value as number
-  if (numberValue % 2 !== 0) {
-    throw new Error(message)
-  }
-}
-
 export function validateNonNegativeNumber(
   value: unknown,
   message: string,

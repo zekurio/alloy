@@ -12,6 +12,7 @@ import {
 } from "alloy-ui/components/alert-dialog"
 import { Button } from "alloy-ui/components/button"
 import { Section, SectionContent } from "alloy-ui/components/section"
+import { SettingRow } from "alloy-ui/components/setting-row"
 import { toast } from "alloy-ui/lib/toast"
 import { EyeOffIcon, RotateCcwIcon, Trash2Icon } from "lucide-react"
 import * as React from "react"
@@ -22,26 +23,6 @@ import { clientLogger } from "@/lib/client-log"
 import { errorMessage } from "@/lib/error-message"
 import { resetClientState } from "@/lib/query-client"
 import { useSuspenseSession } from "@/lib/session-suspense"
-
-function AccountActionRow({
-  title,
-  description,
-  children,
-}: {
-  title: string
-  description: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4 py-4">
-      <div className="min-w-0">
-        <div className="text-sm font-medium">{title}</div>
-        <p className="text-foreground-dim mt-0.5 text-xs">{description}</p>
-      </div>
-      {children}
-    </div>
-  )
-}
 
 function useAccountDangerActions() {
   const router = useRouter()
@@ -139,7 +120,8 @@ function DisableAccountRow({
   onReactivate: () => Promise<void>
 }) {
   return (
-    <AccountActionRow
+    <SettingRow
+      className="py-4 first:pt-4 last:pb-4"
       title={disabledAt ? "Reactivate account" : "Disable account"}
       description={
         disabledAt
@@ -187,7 +169,7 @@ function DisableAccountRow({
           </AlertDialogContent>
         </AlertDialog>
       )}
-    </AccountActionRow>
+    </SettingRow>
   )
 }
 
@@ -201,7 +183,8 @@ function DeleteAccountRow({
   onDelete: () => Promise<void>
 }) {
   return (
-    <AccountActionRow
+    <SettingRow
+      className="py-4 first:pt-4 last:pb-4"
       title="Delete account"
       description="Permanently removes your account and clips. Can't be undone."
     >
@@ -233,7 +216,7 @@ function DeleteAccountRow({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </AccountActionRow>
+    </SettingRow>
   )
 }
 
@@ -242,7 +225,7 @@ export function DangerZoneCard() {
 
   return (
     <Section>
-      <SectionContent className="divide-border divide-y py-0">
+      <SectionContent className="py-0">
         <DisableAccountRow {...actions} />
         <DeleteAccountRow {...actions} />
       </SectionContent>

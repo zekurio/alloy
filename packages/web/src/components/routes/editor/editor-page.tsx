@@ -1,7 +1,17 @@
 import { useNavigate } from "@tanstack/react-router"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "alloy-ui/components/alert-dialog"
 import { AppMain } from "alloy-ui/components/app-shell"
 import { Button } from "alloy-ui/components/button"
-import { Spinner } from "alloy-ui/components/spinner"
+import { LoadingState } from "alloy-ui/components/loading-state"
 import { toast } from "alloy-ui/lib/toast"
 import {
   HardDriveIcon,
@@ -133,6 +143,8 @@ function EditorContent({
   const [draftSaveStatus, setDraftSaveStatus] = React.useState<
     "idle" | "saving" | "saved"
   >("idle")
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
+  const [deleting, setDeleting] = React.useState(false)
   const currentMsRef = React.useRef(0)
   const loadedDraftIdRef = React.useRef<string | null>(null)
   const lastSavedSignatureRef = React.useRef<string | null>(null)
@@ -319,6 +331,20 @@ function EditorContent({
     savedDraftId,
   ])
 
+  const deleteDraft = React.useCallback(async () => {
+    if (!savedDraftId || deleting) return
+    setDeleting(true)
+    try {
+      await desktop.recording.deleteLibraryProjectDraft(savedDraftId)
+      toast.success("Project deleted")
+      void refresh()
+      void navigate({ to: "/library", replace: true })
+    } catch (cause) {
+      setDeleting(false)
+      toast.error(errorMessage(cause, "Couldn't delete the project"))
+    }
+  }, [desktop, deleting, navigate, refresh, savedDraftId])
+
   /* ── Keyboard shortcuts ── */
 
   useEditorShortcuts({
@@ -358,6 +384,17 @@ function EditorContent({
           {draftSaveStatus === "saved" ? (
             <span className="text-foreground-faint text-sm">Saved</span>
           ) : null}
+          {savedDraftId ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={deleting || draftSaveStatus === "saving"}
+              onClick={() => setDeleteDialogOpen(true)}
+            >
+              <Trash2Icon />
+              Delete
+            </Button>
+          ) : null}
           <Button
             variant="secondary"
             size="sm"
@@ -384,6 +421,30 @@ function EditorContent({
         {/* ── Render: settings first, then modal progress. ── */}
         <EditorRenderDialog render={render} />
 
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this project?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This removes the saved draft from your library. This can't be
+                undone. Your source captures aren't affected.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                onClick={() => {
+                  void deleteDraft()
+                }}
+                disabled={deleting}
+              >
+                {deleting ? "Deleting…" : "Delete project"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         {/* ── Stage: library panel + preview ── */}
         {snapshot ? (
           <div className="grid min-h-0 flex-1 grid-cols-[280px_minmax(0,1fr)] gap-3">
@@ -398,9 +459,7 @@ function EditorContent({
             />
           </div>
         ) : (
-          <div className="flex flex-1 items-center justify-center">
-            <Spinner className="size-6" />
-          </div>
+          <LoadingState className="flex-1 py-0" />
         )}
 
         {/* ── Transport ── */}

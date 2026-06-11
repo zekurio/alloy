@@ -6,6 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "alloy-ui/components/select"
+import { SettingRow } from "alloy-ui/components/setting-row"
 import { Slider } from "alloy-ui/components/slider"
 import { CheckIcon } from "lucide-react"
 import { type Dispatch, type SetStateAction } from "react"
@@ -25,7 +26,6 @@ import {
   selectedQualityPreset,
   type QualityPresetOption,
 } from "./desktop-recording-helpers"
-import { SettingRow } from "./setting-row"
 
 export function QualitySection({
   settings,

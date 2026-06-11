@@ -7,12 +7,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "alloy-ui/components/select"
+import { SettingRow } from "alloy-ui/components/setting-row"
 import { PlusIcon, Trash2Icon } from "lucide-react"
 
 import { Subsection } from "./desktop-capture-sections"
 import { formatDuration } from "./desktop-recording-helpers"
 import { HotkeyInput } from "./hotkey-input"
-import { SettingRow } from "./setting-row"
 
 const CLIP_DURATION_OPTIONS = [15, 30, 60, 90, 120, 180, 300, 600] as const
 

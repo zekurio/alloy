@@ -2,7 +2,6 @@ import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
-  InputGroupTextarea,
 } from "alloy-ui/components/input-group"
 import { cn } from "alloy-ui/lib/utils"
 import * as React from "react"
@@ -84,32 +83,4 @@ const LimitedInput = React.forwardRef<
   })
 })
 
-const LimitedTextarea = React.forwardRef<
-  HTMLTextAreaElement,
-  React.ComponentProps<typeof InputGroupTextarea> & { groupClassName?: string }
->(function LimitedTextarea(
-  { className, groupClassName, maxLength, value, ...props },
-  ref,
-) {
-  const max = maxFromLength(maxLength)
-  return renderLimitedField({
-    groupClassName: cn("h-auto", groupClassName),
-    value,
-    max,
-    addonProps: {
-      align: "block-end",
-      className: "pointer-events-none pt-1",
-    },
-    control: (
-      <InputGroupTextarea
-        ref={ref}
-        value={value}
-        maxLength={maxLength}
-        className={cn("px-3.5", max !== undefined && "pb-0", className)}
-        {...props}
-      />
-    ),
-  })
-})
-
-export { LimitedInput, LimitedTextarea }
+export { LimitedInput }

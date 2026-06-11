@@ -136,6 +136,9 @@ export const authChallenge = pgTable(
     // High-churn table swept by `expires_at`; without this the TTL cleanup is a
     // sequential scan on every passkey challenge create.
     index("auth_challenge_expires_at_idx").on(t.expiresAt),
+    // Consume paths (OAuth state, desktop link codes) look up by
+    // (purpose, identifier).
+    index("auth_challenge_purpose_identifier_idx").on(t.purpose, t.identifier),
   ],
 )
 
@@ -150,10 +153,4 @@ export const authSchema = {
 export type User = typeof user.$inferSelect
 export type NewUser = typeof user.$inferInsert
 export type AuthSession = typeof authSession.$inferSelect
-export type NewAuthSession = typeof authSession.$inferInsert
 export type UserPasskey = typeof userPasskey.$inferSelect
-export type NewUserPasskey = typeof userPasskey.$inferInsert
-export type AuthAccount = typeof authAccount.$inferSelect
-export type NewAuthAccount = typeof authAccount.$inferInsert
-export type AuthChallenge = typeof authChallenge.$inferSelect
-export type NewAuthChallenge = typeof authChallenge.$inferInsert

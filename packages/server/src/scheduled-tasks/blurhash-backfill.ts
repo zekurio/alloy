@@ -1,15 +1,9 @@
-import { mkdir, mkdtemp, rm } from "node:fs/promises"
-
-import { clip, game } from "alloy-db/schema"
+import { game } from "alloy-db/schema"
 import { logger } from "alloy-logging"
 import { and, eq, isNotNull, isNull, or } from "drizzle-orm"
 
-import { publishClipUpsert } from "../clips/events"
 import { db } from "../db"
 import { imageBlurHash } from "../media/blurhash"
-import { ENCODE_DIR } from "../runtime/dirs"
-import { join } from "../runtime/path"
-import { clipStorage } from "../storage"
 import { startupAndCronTriggers } from "./triggers"
 import type { ScheduledTask, ScheduledTaskResult } from "./types"
 
@@ -17,16 +11,6 @@ const BLURHASH_BACKFILL_TRIGGERS = startupAndCronTriggers({
   startupDelayMs: 90 * 1000,
   cronExpression: "30 */6 * * *",
 })
-
-export const clipBlurHashBackfillTask: ScheduledTask = {
-  id: "clip-blurhash-backfill",
-  name: "Clip BlurHash backfill",
-  description: "Backfills BlurHash metadata for ready clip thumbnails.",
-  triggers: BLURHASH_BACKFILL_TRIGGERS,
-  run: async ({ signal }): Promise<ScheduledTaskResult> => {
-    return await backfillClipBlurHashes(signal)
-  },
-}
 
 export const gameBlurHashBackfillTask: ScheduledTask = {
   id: "game-blurhash-backfill",
@@ -37,82 +21,6 @@ export const gameBlurHashBackfillTask: ScheduledTask = {
   run: async ({ signal }): Promise<ScheduledTaskResult> => {
     return await backfillGameBlurHashes(signal)
   },
-}
-
-async function backfillClipBlurHashes(
-  signal: AbortSignal,
-): Promise<ScheduledTaskResult> {
-  const rows = await db
-    .select({
-      id: clip.id,
-      authorId: clip.authorId,
-      thumbKey: clip.thumbKey,
-    })
-    .from(clip)
-    .where(
-      and(
-        eq(clip.status, "ready"),
-        isNotNull(clip.thumbKey),
-        isNull(clip.thumbBlurHash),
-      ),
-    )
-    .orderBy(clip.createdAt)
-
-  await mkdir(ENCODE_DIR, { recursive: true })
-  const scratchDir = await mkdtemp(`${ENCODE_DIR}/clip-blurhash-task-`)
-  let clipThumbsScanned = 0
-  let clipBlurHashesCreated = 0
-  let clipBlurHashFailures = 0
-
-  try {
-    for (const row of rows) {
-      throwIfAborted(signal)
-      clipThumbsScanned += 1
-      if (!row.thumbKey) continue
-
-      const thumbPath = join(scratchDir, `${row.id}.webp`)
-      try {
-        await clipStorage.downloadToFile(row.thumbKey, thumbPath)
-        const thumbBlurHash = await imageBlurHash({
-          source: thumbPath,
-          label: "clip thumbnail blurhash backfill",
-          signal,
-        })
-        const [updated] = await db
-          .update(clip)
-          .set({ thumbBlurHash })
-          .where(
-            and(
-              eq(clip.id, row.id),
-              eq(clip.status, "ready"),
-              eq(clip.thumbKey, row.thumbKey),
-              isNull(clip.thumbBlurHash),
-            ),
-          )
-          .returning({ id: clip.id })
-        if (!updated) continue
-        clipBlurHashesCreated += 1
-        void publishClipUpsert(row.authorId, row.id)
-      } catch (err) {
-        if (signal.aborted) throw err
-        clipBlurHashFailures += 1
-        logger.warn(
-          `[scheduled-tasks] failed to backfill clip blurhash for ${row.id}:`,
-          err,
-        )
-      } finally {
-        await rm(thumbPath, { force: true }).catch(() => undefined)
-      }
-    }
-  } finally {
-    await rm(scratchDir, { recursive: true, force: true })
-  }
-
-  return {
-    clipThumbsScanned,
-    clipBlurHashesCreated,
-    clipBlurHashFailures,
-  }
 }
 
 async function backfillGameBlurHashes(

@@ -6,7 +6,6 @@ import {
   AvatarGroup,
   AvatarImage,
 } from "alloy-ui/components/avatar"
-import { Button } from "alloy-ui/components/button"
 import {
   Dialog,
   DialogBody,
@@ -14,14 +13,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "alloy-ui/components/dialog"
-import { toast } from "alloy-ui/lib/toast"
 import { cn } from "alloy-ui/lib/utils"
-import { UserPlusIcon } from "lucide-react"
 import * as React from "react"
 
-import { errorMessage } from "@/lib/error-message"
+import { UserFollowRow } from "@/components/user/user-follow-row"
 import { userChipData } from "@/lib/user-display"
-import { useToggleUserFollowMutation } from "@/lib/user-queries"
 
 function UserAvatar({
   user,
@@ -123,76 +119,16 @@ function MentionsListDialog({
         <DialogBody className="max-h-[60vh] overflow-y-auto px-2 py-2">
           <ul className="flex flex-col">
             {mentions.map((u) => (
-              <MentionRow
+              <UserFollowRow
                 key={u.id}
                 user={u}
-                onOpen={() => onOpenChange(false)}
+                onNavigate={() => onOpenChange(false)}
               />
             ))}
           </ul>
         </DialogBody>
       </DialogContent>
     </Dialog>
-  )
-}
-
-function MentionRow({
-  user,
-  onOpen,
-}: {
-  user: ClipMentionRef
-  onOpen: () => void
-}) {
-  // Tracks only in-dialog toggles — we don't pre-fetch the viewer's real
-  // follow state per row, so the button always starts in "Follow" mode.
-  const [following, setFollowing] = React.useState(false)
-  const followMutation = useToggleUserFollowMutation(user.username)
-  const chip = userChipData(user)
-  const handle = user.displayUsername || user.username
-
-  const toggle = () => {
-    const nextFollowing = !following
-    setFollowing(nextFollowing)
-    followMutation.mutate(
-      { next: nextFollowing },
-      {
-        onError: (err) => {
-          setFollowing(!nextFollowing)
-          toast.error(errorMessage(err, "Something went wrong"))
-        },
-      },
-    )
-  }
-
-  return (
-    <li className="hover:bg-surface-raised flex items-center gap-3 rounded-md px-2 py-2">
-      <Link
-        to="/u/$username"
-        params={{ username: user.username }}
-        onClick={onOpen}
-        className="flex min-w-0 flex-1 items-center gap-3"
-      >
-        <UserAvatar user={user} size="md" />
-        <span className="min-w-0 flex-1">
-          <span className="text-foreground block truncate text-sm">
-            {chip.name}
-          </span>
-          <span className="text-foreground-faint block truncate text-xs">
-            @{handle}
-          </span>
-        </span>
-      </Link>
-      <Button
-        type="button"
-        size="sm"
-        variant={following ? "ghost" : "primary"}
-        disabled={followMutation.isPending}
-        onClick={toggle}
-      >
-        <UserPlusIcon className="size-3.5" />
-        {following ? "Following" : "Follow"}
-      </Button>
-    </li>
   )
 }
 

@@ -1,89 +1,9 @@
 {
-  "id": "a1207002-00e0-4e32-a5f3-a7b2af0f07af",
+  "id": "1cbcbc2f-c7c6-4223-84bc-e42190e45aec",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.block": {
-      "name": "block",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "blocker_id": {
-          "name": "blocker_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "blocked_id": {
-          "name": "blocked_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "block_pair_idx": {
-          "name": "block_pair_idx",
-          "columns": [
-            {
-              "expression": "blocker_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "blocked_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "block_blocker_id_user_id_fk": {
-          "name": "block_blocker_id_user_id_fk",
-          "tableFrom": "block",
-          "tableTo": "user",
-          "columnsFrom": ["blocker_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "block_blocked_id_user_id_fk": {
-          "name": "block_blocked_id_user_id_fk",
-          "tableFrom": "block",
-          "tableTo": "user",
-          "columnsFrom": ["blocked_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.clip": {
       "name": "clip",
       "schema": "",
@@ -162,24 +82,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "open_graph_key": {
-          "name": "open_graph_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "open_graph_content_type": {
-          "name": "open_graph_content_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "open_graph_size_bytes": {
-          "name": "open_graph_size_bytes",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": false
-        },
         "duration_ms": {
           "name": "duration_ms",
           "type": "integer",
@@ -197,13 +99,6 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": false
-        },
-        "variants": {
-          "name": "variants",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
         },
         "thumb_key": {
           "name": "thumb_key",
@@ -487,10 +382,6 @@
         "clip_source_size_bytes_safe_check": {
           "name": "clip_source_size_bytes_safe_check",
           "value": "\"clip\".\"source_size_bytes\" is null or (\"clip\".\"source_size_bytes\" >= 0 and \"clip\".\"source_size_bytes\" <= 9007199254740991)"
-        },
-        "clip_open_graph_size_bytes_safe_check": {
-          "name": "clip_open_graph_size_bytes_safe_check",
-          "value": "\"clip\".\"open_graph_size_bytes\" is null or (\"clip\".\"open_graph_size_bytes\" >= 0 and \"clip\".\"open_graph_size_bytes\" <= 9007199254740991)"
         }
       },
       "isRLSEnabled": false
@@ -1135,101 +1026,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.follow": {
-      "name": "follow",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "follower_id": {
-          "name": "follower_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "following_id": {
-          "name": "following_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "follow_pair_idx": {
-          "name": "follow_pair_idx",
-          "columns": [
-            {
-              "expression": "follower_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "following_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "follow_following_idx": {
-          "name": "follow_following_idx",
-          "columns": [
-            {
-              "expression": "following_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "follow_follower_id_user_id_fk": {
-          "name": "follow_follower_id_user_id_fk",
-          "tableFrom": "follow",
-          "tableTo": "user",
-          "columnsFrom": ["follower_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "follow_following_id_user_id_fk": {
-          "name": "follow_following_id_user_id_fk",
-          "tableFrom": "follow",
-          "tableTo": "user",
-          "columnsFrom": ["following_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.game": {
       "name": "game",
       "schema": "",
@@ -1434,155 +1230,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.notification": {
-      "name": "notification",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "recipient_id": {
-          "name": "recipient_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "actor_id": {
-          "name": "actor_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "type": {
-          "name": "type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "clip_id": {
-          "name": "clip_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "comment_id": {
-          "name": "comment_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "read_at": {
-          "name": "read_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "notification_recipient_created_idx": {
-          "name": "notification_recipient_created_idx",
-          "columns": [
-            {
-              "expression": "recipient_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "notification_recipient_unread_idx": {
-          "name": "notification_recipient_unread_idx",
-          "columns": [
-            {
-              "expression": "recipient_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"notification\".\"read_at\" IS NULL",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "notification_recipient_id_user_id_fk": {
-          "name": "notification_recipient_id_user_id_fk",
-          "tableFrom": "notification",
-          "tableTo": "user",
-          "columnsFrom": ["recipient_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "notification_actor_id_user_id_fk": {
-          "name": "notification_actor_id_user_id_fk",
-          "tableFrom": "notification",
-          "tableTo": "user",
-          "columnsFrom": ["actor_id"],
-          "columnsTo": ["id"],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "notification_clip_id_clip_id_fk": {
-          "name": "notification_clip_id_clip_id_fk",
-          "tableFrom": "notification",
-          "tableTo": "clip",
-          "columnsFrom": ["clip_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "notification_comment_id_clip_comment_id_fk": {
-          "name": "notification_comment_id_clip_comment_id_fk",
-          "tableFrom": "notification",
-          "tableTo": "clip_comment",
-          "columnsFrom": ["comment_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "notification_type_check": {
-          "name": "notification_type_check",
-          "value": "\"notification\".\"type\" in ('clip_upload_failed', 'new_follower', 'clip_comment', 'comment_reply', 'comment_pinned', 'comment_liked_by_author', 'new_video')"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.scheduled_task_lock": {
       "name": "scheduled_task_lock",
       "schema": "",
@@ -1762,6 +1409,330 @@
         "scheduled_task_run_duration_ms_check": {
           "name": "scheduled_task_run_duration_ms_check",
           "value": "\"scheduled_task_run\".\"duration_ms\" is null or \"scheduled_task_run\".\"duration_ms\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.block": {
+      "name": "block",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "blocker_id": {
+          "name": "blocker_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "blocked_id": {
+          "name": "blocked_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "block_pair_idx": {
+          "name": "block_pair_idx",
+          "columns": [
+            {
+              "expression": "blocker_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "blocked_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "block_blocker_id_user_id_fk": {
+          "name": "block_blocker_id_user_id_fk",
+          "tableFrom": "block",
+          "tableTo": "user",
+          "columnsFrom": ["blocker_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "block_blocked_id_user_id_fk": {
+          "name": "block_blocked_id_user_id_fk",
+          "tableFrom": "block",
+          "tableTo": "user",
+          "columnsFrom": ["blocked_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.follow": {
+      "name": "follow",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "follower_id": {
+          "name": "follower_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "following_id": {
+          "name": "following_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "follow_pair_idx": {
+          "name": "follow_pair_idx",
+          "columns": [
+            {
+              "expression": "follower_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "following_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "follow_following_idx": {
+          "name": "follow_following_idx",
+          "columns": [
+            {
+              "expression": "following_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "follow_follower_id_user_id_fk": {
+          "name": "follow_follower_id_user_id_fk",
+          "tableFrom": "follow",
+          "tableTo": "user",
+          "columnsFrom": ["follower_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "follow_following_id_user_id_fk": {
+          "name": "follow_following_id_user_id_fk",
+          "tableFrom": "follow",
+          "tableTo": "user",
+          "columnsFrom": ["following_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.notification": {
+      "name": "notification",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "recipient_id": {
+          "name": "recipient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "clip_id": {
+          "name": "clip_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "comment_id": {
+          "name": "comment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "read_at": {
+          "name": "read_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "notification_recipient_created_idx": {
+          "name": "notification_recipient_created_idx",
+          "columns": [
+            {
+              "expression": "recipient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "notification_recipient_unread_idx": {
+          "name": "notification_recipient_unread_idx",
+          "columns": [
+            {
+              "expression": "recipient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"notification\".\"read_at\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "notification_recipient_id_user_id_fk": {
+          "name": "notification_recipient_id_user_id_fk",
+          "tableFrom": "notification",
+          "tableTo": "user",
+          "columnsFrom": ["recipient_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "notification_actor_id_user_id_fk": {
+          "name": "notification_actor_id_user_id_fk",
+          "tableFrom": "notification",
+          "tableTo": "user",
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "notification_clip_id_clip_id_fk": {
+          "name": "notification_clip_id_clip_id_fk",
+          "tableFrom": "notification",
+          "tableTo": "clip",
+          "columnsFrom": ["clip_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "notification_comment_id_clip_comment_id_fk": {
+          "name": "notification_comment_id_clip_comment_id_fk",
+          "tableFrom": "notification",
+          "tableTo": "clip_comment",
+          "columnsFrom": ["comment_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "notification_type_check": {
+          "name": "notification_type_check",
+          "value": "\"notification\".\"type\" in ('clip_upload_failed', 'new_follower', 'clip_comment', 'comment_reply', 'comment_pinned', 'comment_liked_by_author', 'new_video')"
         }
       },
       "isRLSEnabled": false
@@ -1957,6 +1928,27 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "auth_challenge_purpose_identifier_idx": {
+          "name": "auth_challenge_purpose_identifier_idx",
+          "columns": [
+            {
+              "expression": "purpose",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "identifier",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {},
@@ -2103,6 +2095,12 @@
         },
         "background": {
           "name": "background",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "accent_color": {
+          "name": "accent_color",
           "type": "text",
           "primaryKey": false,
           "notNull": false

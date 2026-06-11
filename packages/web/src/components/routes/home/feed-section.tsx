@@ -1,4 +1,5 @@
 import type { ClipRow, FeedFilter } from "alloy-api"
+import { LoadingState } from "alloy-ui/components/loading-state"
 import { Spinner } from "alloy-ui/components/spinner"
 import { cn } from "alloy-ui/lib/utils"
 import * as React from "react"
@@ -106,11 +107,7 @@ function FeedSectionBody({
   viewerId: string | undefined
 }) {
   if (initialLoad) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Spinner className="size-6" />
-      </div>
-    )
+    return <LoadingState />
   }
 
   if (!hasData && error) {

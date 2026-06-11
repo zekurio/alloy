@@ -60,14 +60,12 @@ type FeedPageRow = {
   sourceContentType: string | null
   sourceVideoCodec: string | null
   sourceAudioCodec: string | null
-  openGraphKey: string | null
   sourceSizeBytes: number | null
   durationMs: number | null
   width: number | null
   height: number | null
   thumbKey: string | null
   thumbBlurHash: string | null
-  variants: readonly { storageKey: string }[]
   steamgriddbId: number
   game: string | null
 }

@@ -50,8 +50,3 @@ export const gameFollow = pgTable(
     index("game_follow_steamgriddb_idx").on(t.steamgriddbId),
   ],
 )
-
-export type Game = typeof game.$inferSelect
-export type NewGame = typeof game.$inferInsert
-export type GameFollow = typeof gameFollow.$inferSelect
-export type NewGameFollow = typeof gameFollow.$inferInsert

@@ -5,7 +5,7 @@ import { BlurHashCanvas } from "alloy-ui/components/blurhash-canvas"
 import { Button } from "alloy-ui/components/button"
 import { GameIcon } from "alloy-ui/components/game-icon"
 import { Kbd } from "alloy-ui/components/kbd"
-import { Spinner } from "alloy-ui/components/spinner"
+import { LoadingState } from "alloy-ui/components/loading-state"
 import { toast } from "alloy-ui/lib/toast"
 import {
   ClapperboardIcon,
@@ -130,9 +130,7 @@ function LibraryEditorContent({
   if (!snapshot) {
     return (
       <AppMain>
-        <div className="flex items-center justify-center py-16">
-          <Spinner className="size-6" />
-        </div>
+        <LoadingState className="py-16" />
       </AppMain>
     )
   }

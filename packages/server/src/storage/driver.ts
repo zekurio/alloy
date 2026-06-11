@@ -52,8 +52,8 @@ export interface StorageDriver {
   delete(key: string): Promise<void>
 
   /**
-   * Materialize a stored object as a local file — the encoder needs a
-   * filesystem path it can hand to ffmpeg. Fs driver hardlinks; remote
+   * Materialize a stored object as a local file — media processing needs a
+   * filesystem path it can read directly. Fs driver hardlinks; remote
    * drivers download. The destination's parent dir must exist.
    */
   downloadToFile(key: string, destPath: string): Promise<void>
@@ -85,11 +85,10 @@ export function clipAssetDir(clipId: string): string {
   return `${aa}/${bb}/${clipId}`
 }
 
-type ClipAssetRole = "source" | "opengraph" | "thumb" | "thumb-small"
+type ClipAssetRole = "source" | "thumb" | "thumb-small"
 
 const CLIP_ASSET_EXTENSION: Record<ClipAssetRole, string> = {
   source: "",
-  opengraph: ".mp4",
   thumb: ".webp",
   "thumb-small": ".webp",
 }

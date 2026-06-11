@@ -25,17 +25,16 @@ let
       alloy
     ];
     text = ''
-      : "''${ALLOY_CONFIG_FILE:=/config/runtime-config.json}"
-      : "''${ALLOY_STORAGE_DIR:=/data/storage}"
-      : "''${ENCODE_SCRATCH_DIR:=/cache/encode}"
-      export ALLOY_CONFIG_FILE ALLOY_STORAGE_DIR ENCODE_SCRATCH_DIR
+      : "''${ALLOY_DATA_DIR:=/config}"
+      : "''${ALLOY_CLIPS_DIR:=/data/storage}"
+      : "''${ALLOY_ENCODE_DIR:=/cache/encode}"
+      export ALLOY_DATA_DIR ALLOY_CLIPS_DIR ALLOY_ENCODE_DIR
 
-      config_dir="$(dirname "$ALLOY_CONFIG_FILE")"
-      mkdir -p "$config_dir" "$ALLOY_STORAGE_DIR" "$ENCODE_SCRATCH_DIR"
+      mkdir -p "$ALLOY_DATA_DIR" "$ALLOY_CLIPS_DIR" "$ALLOY_ENCODE_DIR"
 
       if [ "$(id -u)" = "0" ]; then
         chown -R ${toString uid}:${toString gid} \
-          "$config_dir" "$ALLOY_STORAGE_DIR" "$ENCODE_SCRATCH_DIR"
+          "$ALLOY_DATA_DIR" "$ALLOY_CLIPS_DIR" "$ALLOY_ENCODE_DIR"
         exec setpriv --reuid=${toString uid} --regid=${toString gid} \
           --clear-groups alloy
       fi
@@ -70,14 +69,16 @@ dockerTools.streamLayeredImage {
 
   config = {
     Entrypoint = [ "/bin/alloy-entrypoint" ];
-    # FFMPEG_BIN/FFPROBE_BIN/WEB_DIST_DIR/ALLOY_MIGRATIONS_DIR/NODE_ENV are
-    # baked into the alloy wrapper; only declare the deployment-facing vars.
+    # WEB_DIST_DIR/ALLOY_MIGRATIONS_DIR/NODE_ENV are baked into the alloy
+    # wrapper; only declare the deployment-facing vars.
     Env = [
       "PORT=2552"
       "APP_VERSION=${version}"
-      "ALLOY_CONFIG_FILE=/config/runtime-config.json"
-      "ALLOY_STORAGE_DIR=/data/storage"
-      "ENCODE_SCRATCH_DIR=/cache/encode"
+      # App data incl. config.json; bulk clip media; wipeable media scratch
+      # (HLS package cache, processing working files).
+      "ALLOY_DATA_DIR=/config"
+      "ALLOY_CLIPS_DIR=/data/storage"
+      "ALLOY_ENCODE_DIR=/cache/encode"
       "SSL_CERT_FILE=${cacert}/etc/ssl/certs/ca-bundle.crt"
     ];
     ExposedPorts = {

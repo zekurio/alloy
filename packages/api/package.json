@@ -4,8 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./auth": "./src/auth.ts",
-    "./*": "./src/*.ts"
+    "./auth": "./src/auth.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

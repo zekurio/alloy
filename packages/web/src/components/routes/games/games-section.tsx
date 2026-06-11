@@ -1,10 +1,10 @@
+import { LoadingState } from "alloy-ui/components/loading-state"
 import {
   SectionActions,
   SectionHead,
   SectionMeta,
   SectionTitle,
 } from "alloy-ui/components/section-head"
-import { Spinner } from "alloy-ui/components/spinner"
 import { GamepadIcon } from "lucide-react"
 
 import { EmptyState } from "@/components/feedback/empty-state"
@@ -63,9 +63,7 @@ export function GamesSection() {
       ) : error ? (
         <EmptyState seed="games-error" size="lg" title="Couldn't load games" />
       ) : isPending ? (
-        <div className="flex items-center justify-center py-12">
-          <Spinner className="size-6" />
-        </div>
+        <LoadingState />
       ) : (
         <EmptyState
           seed="games-empty"

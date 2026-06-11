@@ -11,15 +11,6 @@ function errorResponse(
   return c.json({ error }, status)
 }
 
-export function detailedErrorResponse(
-  c: Context,
-  error: string,
-  detail: string,
-  status: ContentfulStatusCode,
-) {
-  return c.json({ error, detail }, status)
-}
-
 export function errorResult(
   c: Context,
   result: { error: string; status: ContentfulStatusCode },

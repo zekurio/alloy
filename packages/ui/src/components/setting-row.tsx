@@ -10,6 +10,7 @@ export function SettingRow({
   title,
   description,
   htmlFor,
+  align = "center",
   children,
   className,
 }: {
@@ -17,6 +18,8 @@ export function SettingRow({
   description?: React.ReactNode
   /** When set, the title renders as a <label> bound to this control id. */
   htmlFor?: string
+  /** Vertical alignment of the control against the text block. */
+  align?: "center" | "start"
   /** The control rendered on the right. */
   children: React.ReactNode
   className?: string
@@ -24,7 +27,8 @@ export function SettingRow({
   return (
     <div
       className={cn(
-        "not-last:border-border flex items-center justify-between gap-4 py-3 not-last:border-b first:pt-0 last:pb-0",
+        "not-last:border-border flex justify-between gap-4 py-3 not-last:border-b first:pt-0 last:pb-0",
+        align === "center" ? "items-center" : "items-start",
         className,
       )}
     >

@@ -45,13 +45,12 @@ export function HomePageInner() {
   const viewerId = session?.user.id
 
   return (
-    <AppMain className="!p-0">
-      <div className="flex w-full flex-col px-4 pb-4 md:px-8 md:pb-6">
-        {/* Top padding lives here, not on AppMain, so the sticky chip bar can
-            pin flush under the header instead of leaving a gap above it. */}
-        <div className="pt-4 md:pt-6">
-          <TopClipsSection viewerId={viewerId} window={window} />
-        </div>
+    <AppMain>
+      <div className="flex w-full flex-col">
+        <TopClipsSection viewerId={viewerId} window={window} />
+        {/* The chip bar bleeds past AppMain's padding (-mx-8) and pins flush
+            under the header: a sticky top-0 child sticks to the scrollport's
+            padding-box top, so AppMain's py-6 leaves no gap above it. */}
         <FeedChipBar filter={filter} onChange={setFilter} />
         <FeedSection filter={filter} viewerId={viewerId} />
       </div>

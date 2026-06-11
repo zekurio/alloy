@@ -16,6 +16,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "alloy-ui/components/input-group"
+import { LoadingState } from "alloy-ui/components/loading-state"
 import {
   SectionActions,
   SectionHead,
@@ -28,7 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "alloy-ui/components/select"
-import { Spinner } from "alloy-ui/components/spinner"
 import {
   ClapperboardIcon,
   CloudIcon,
@@ -404,11 +404,7 @@ function LibraryBody({
     }
 
     if (loading) {
-      return (
-        <div className="flex items-center justify-center py-16">
-          <Spinner className="size-6" />
-        </div>
-      )
+      return <LoadingState className="py-16" />
     }
 
     if (!hasAnything) {
