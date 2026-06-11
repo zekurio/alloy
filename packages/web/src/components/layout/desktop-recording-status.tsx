@@ -1,18 +1,9 @@
 import type {
   RecordingDisplay,
-  RecordingEvent,
   RecordingSettings,
   RecordingStatus,
 } from "alloy-contracts"
 import { Button } from "alloy-ui/components/button"
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "alloy-ui/components/dialog"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -26,7 +17,6 @@ import {
   PopoverTrigger,
 } from "alloy-ui/components/popover"
 import { Switch } from "alloy-ui/components/switch"
-import { toast } from "alloy-ui/lib/toast"
 import { cn } from "alloy-ui/lib/utils"
 import {
   ArrowRightIcon,
@@ -38,10 +28,20 @@ import {
 } from "lucide-react"
 import * as React from "react"
 
-import { alloyDesktop, type AlloyDesktopRecordingApi } from "@/lib/desktop"
-import type { AlloyDesktop } from "@/lib/desktop"
+import { alloyDesktop, type AlloyDesktop } from "@/lib/desktop"
 
-type SaveRecordingSettings = (next: RecordingSettings) => Promise<void>
+import { DisplayPickerDialog } from "./recording-display-picker"
+import {
+  audioDeviceMultiSelectLabel,
+  captureTargetLabel,
+  mergeAudioDevices,
+  type SaveRecordingSettings,
+  selectedDisplay,
+  statusActive,
+  statusLabel,
+  toggleAudioDevice,
+} from "./recording-status-helpers"
+import { useDesktopRecordingState } from "./use-desktop-recording-state"
 
 export function DesktopRecordingStatus() {
   const desktop = alloyDesktop()
@@ -72,133 +72,6 @@ export function DesktopRecordingStatus() {
       />
     </>
   )
-}
-
-function useDesktopRecordingState(recording: AlloyDesktopRecordingApi | null) {
-  const [settings, setSettings] = React.useState<RecordingSettings | null>(null)
-  const [status, setStatus] = React.useState<RecordingStatus | null>(null)
-  const [displayPickerOpen, setDisplayPickerOpen] = React.useState(false)
-  const [displays, setDisplays] = React.useState<RecordingDisplay[]>([])
-  const [displayLoading, setDisplayLoading] = React.useState(false)
-  const saveSequence = React.useRef(0)
-
-  React.useEffect(() => {
-    if (!recording) return
-
-    let cancelled = false
-    let receivedSettingsEvent = false
-    let receivedStatusEvent = false
-    const unsubscribe = recording.onEvent((event: RecordingEvent) => {
-      if (cancelled) return
-      if (event.type === "settings") {
-        receivedSettingsEvent = true
-        setSettings(event.settings)
-      }
-      if ("status" in event) {
-        receivedStatusEvent = true
-        setStatus(event.status)
-      }
-    })
-
-    void Promise.all([recording.getSettings(), recording.getStatus()]).then(
-      ([nextSettings, nextStatus]) => {
-        if (cancelled) return
-        if (!receivedSettingsEvent) setSettings(nextSettings)
-        if (!receivedStatusEvent) setStatus(nextStatus)
-      },
-    )
-
-    return () => {
-      cancelled = true
-      unsubscribe()
-    }
-  }, [recording])
-
-  React.useEffect(() => {
-    if (!recording || !displayPickerOpen) return
-    let cancelled = false
-    setDisplayLoading(true)
-    void recording
-      .listDisplays()
-      .then((nextDisplays) => {
-        if (!cancelled) setDisplays(nextDisplays)
-      })
-      .catch((cause) =>
-        toast.error(errorText(cause, "Couldn't load displays.")),
-      )
-      .finally(() => {
-        if (!cancelled) setDisplayLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [displayPickerOpen, recording])
-
-  React.useEffect(() => {
-    if (!recording || settings?.captureMode !== "display") return
-    if (displays.some((display) => display.thumbnailDataUrl)) return
-
-    let cancelled = false
-    void recording
-      .listDisplays()
-      .then((nextDisplays) => {
-        if (!cancelled) setDisplays(nextDisplays)
-      })
-      .catch((cause) =>
-        toast.error(errorText(cause, "Couldn't load display preview.")),
-      )
-    return () => {
-      cancelled = true
-    }
-  }, [displays, recording, settings?.captureMode])
-
-  const save = React.useCallback(
-    async (next: RecordingSettings) => {
-      if (!recording) return
-      const previous = settings
-      const sequence = ++saveSequence.current
-      setSettings(next)
-      try {
-        const saved = await recording.setSettings(next)
-        if (sequence !== saveSequence.current) return
-        setSettings(saved)
-      } catch (cause) {
-        if (sequence !== saveSequence.current) return
-        setSettings(previous)
-        toast.error(errorText(cause, "Couldn't save recording settings."))
-      }
-    },
-    [recording, settings],
-  )
-
-  const selectDisplay = React.useCallback(
-    (display: RecordingDisplay) => {
-      if (!settings) return
-      void save({
-        ...settings,
-        enabled: true,
-        captureMode: "display",
-        selectedDisplayId: display.id,
-        longRecording: {
-          ...settings.longRecording,
-          autoRecordGames: false,
-        },
-      })
-      setDisplayPickerOpen(false)
-    },
-    [save, settings],
-  )
-
-  return {
-    displayLoading,
-    displayPickerOpen,
-    displays,
-    save,
-    selectDisplay,
-    setDisplayPickerOpen,
-    settings,
-    status,
-  }
 }
 
 function RecordingStatusPopover({
@@ -492,93 +365,6 @@ function RecordingCaptureTarget({
   )
 }
 
-function DisplayPickerDialog({
-  displays,
-  loading,
-  open,
-  onOpenChange,
-  onSelect,
-}: {
-  displays: RecordingDisplay[]
-  loading: boolean
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onSelect: (display: RecordingDisplay) => void
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent variant="secondary" className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Choose Display</DialogTitle>
-          <DialogDescription>
-            Select the display Alloy should use for desktop capture.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogBody>
-          {loading ? (
-            <div className="text-foreground-muted flex h-40 items-center justify-center text-sm">
-              Loading displays
-            </div>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {displays.map((display) => (
-                <DisplayOption
-                  key={display.id}
-                  display={display}
-                  onSelect={onSelect}
-                />
-              ))}
-            </div>
-          )}
-        </DialogBody>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function DisplayOption({
-  display,
-  onSelect,
-}: {
-  display: RecordingDisplay
-  onSelect: (display: RecordingDisplay) => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(display)}
-      className="border-border hover:border-border-strong overflow-hidden rounded-md border text-left transition-colors hover:bg-white/[0.03]"
-    >
-      <div className="bg-black">
-        {display.thumbnailDataUrl ? (
-          <img
-            src={display.thumbnailDataUrl}
-            alt=""
-            className="aspect-video w-full object-cover"
-          />
-        ) : (
-          <div className="flex aspect-video items-center justify-center">
-            <MonitorIcon className="text-foreground-dim size-8" />
-          </div>
-        )}
-      </div>
-      <div className="flex items-center justify-between gap-2 px-3 py-2">
-        <div className="min-w-0">
-          <div className="truncate text-sm font-semibold">{display.name}</div>
-          <div className="text-foreground-dim text-xs">
-            {display.width} x {display.height}
-          </div>
-        </div>
-        {display.primary ? (
-          <span className="bg-accent/10 text-accent rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase">
-            Primary
-          </span>
-        ) : null}
-      </div>
-    </button>
-  )
-}
-
 function AudioRow({
   icon,
   label,
@@ -642,100 +428,4 @@ function AudioRow({
       </DropdownMenu>
     </div>
   )
-}
-
-function mergeAudioDevices(
-  available: RecordingSettings["audioDevices"],
-  selected: RecordingSettings["audioDevices"],
-): RecordingSettings["audioDevices"] {
-  const byKey = new Map<string, RecordingSettings["audioDevices"][number]>()
-
-  for (const device of available) byKey.set(audioDeviceKey(device), device)
-  for (const device of selected) {
-    const key = audioDeviceKey(device)
-    byKey.set(key, {
-      ...(byKey.get(key) ?? device),
-      enabled: device.enabled,
-      volume: device.volume,
-    })
-  }
-
-  return [...byKey.values()]
-}
-
-function toggleAudioDevice(
-  current: RecordingSettings["audioDevices"],
-  device: RecordingSettings["audioDevices"][number],
-): RecordingSettings["audioDevices"] {
-  const key = audioDeviceKey(device)
-  const existing = current.find((item) => audioDeviceKey(item) === key)
-  return [
-    ...current.filter((item) => audioDeviceKey(item) !== key),
-    {
-      ...device,
-      volume: existing?.volume ?? device.volume,
-    },
-  ]
-}
-
-function audioDeviceMultiSelectLabel(
-  selected: RecordingSettings["audioDevices"],
-  settings: RecordingSettings | null,
-): string {
-  if (!settings) return "Loading"
-  if (selected.length === 0) return "Off"
-  if (selected.length === 1) return selected[0]?.label ?? "Off"
-  return `${selected.length} selected`
-}
-
-function audioDeviceKey(
-  device: RecordingSettings["audioDevices"][number],
-): string {
-  return `${device.kind}:${device.id}`
-}
-
-function selectedDisplay(
-  settings: RecordingSettings | null,
-  status: RecordingStatus | null,
-  displays: RecordingDisplay[],
-): RecordingDisplay | null {
-  if (settings?.captureMode !== "display") return null
-
-  return (
-    displays.find((display) => display.id === settings.selectedDisplayId) ??
-    displays.find((display) => display.id === status?.activeDisplay?.id) ??
-    status?.activeDisplay ??
-    null
-  )
-}
-
-function captureTargetLabel(
-  settings: RecordingSettings | null,
-  status: RecordingStatus | null,
-): string {
-  if (!settings) return "Loading capture"
-  if (settings.captureMode === "display") {
-    return status?.activeDisplay?.name ?? "Desktop capture"
-  }
-  return status?.activeGame
-    ? `${status.activeGame} is being captured`
-    : "Alloy will start capturing when you launch a game."
-}
-
-function statusLabel(
-  settings: RecordingSettings | null,
-  status: RecordingStatus | null,
-): string {
-  if (!settings) return "Loading Capture"
-  if (settings.captureMode === "display") return "Desktop Capture"
-  if (!settings.enabled) return "Recording Off"
-  return status?.activeGame ?? "Waiting for game"
-}
-
-function statusActive(status: RecordingStatus | null): boolean {
-  return Boolean(status?.replayActive || status?.longRecordingActive)
-}
-
-function errorText(cause: unknown, fallback: string): string {
-  return cause instanceof Error ? cause.message : fallback
 }

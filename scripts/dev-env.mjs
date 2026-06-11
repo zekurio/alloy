@@ -21,8 +21,6 @@ export function buildDevEnv() {
   }
 
   env.DATABASE_URL = process.env.DATABASE_URL ?? localDatabaseUrl("5432")
-  env.DRIZZLE_DATABASE_URL =
-    process.env.DRIZZLE_DATABASE_URL ?? env.DATABASE_URL
 
   return env
 }

@@ -8,7 +8,7 @@ import { createPostgresPool } from "./connection.ts"
 
 const migrationsFolder =
   process.env.ALLOY_MIGRATIONS_DIR ??
-  fileURLToPath(new URL("../drizzle", import.meta.url))
+  fileURLToPath(new URL("../../drizzle", import.meta.url))
 
 export async function migrateDatabase(databaseUrl: string) {
   const client = createPostgresPool(databaseUrl, { max: 1 })

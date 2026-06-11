@@ -19,11 +19,9 @@ import {
   uuid,
 } from "drizzle-orm/pg-core"
 
-export { USER_ROLES, USER_STATUSES }
+import { sqlStringList } from "./internal"
 
-function sqlStringList(values: readonly string[]): string {
-  return values.map((value) => `'${value.replaceAll("'", "''")}'`).join(", ")
-}
+export { USER_ROLES, USER_STATUSES }
 
 export const user = pgTable(
   "user",

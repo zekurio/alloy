@@ -28,21 +28,23 @@ import { clipStorage } from "../storage"
 import { selectSourceStorageUsedBytes } from "../storage/quota"
 import { contentDisposition, downloadFilename } from "./clips-helpers"
 import {
-  listFollowers,
-  listFollowing,
   listLikedClips,
   listTaggedClips,
   listUserClips,
   listUserGames,
   listUserTopClips,
+  UserGamesQuery,
+  UserTopClipsQuery,
+} from "./users-clip-listings"
+import {
+  listFollowers,
+  listFollowing,
   resolveViewerState,
   SearchQuery,
   searchVisibleUsers,
   selectProfileCounts,
   toPublicUser,
-  UserGamesQuery,
   UsernameParam,
-  UserTopClipsQuery,
 } from "./users-helpers"
 import {
   deleteViewerBlock,

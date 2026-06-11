@@ -1,18 +1,7 @@
+import { nonEmpty, normalizePublicServerUrl } from "alloy-env"
+
 const DEFAULT_SERVER_URL = "http://localhost:2552"
 const DEFAULT_SERVER_PORT = "2552"
-
-function normalizeOrigin(value: string): string {
-  const url = new URL(value)
-  url.pathname = url.pathname.replace(/\/api\/?$/, "") || "/"
-  url.search = ""
-  url.hash = ""
-  return url.toString().replace(/\/$/, "")
-}
-
-function nonEmpty(value: string | undefined): string | undefined {
-  const trimmed = value?.trim()
-  return trimmed ? trimmed : undefined
-}
 
 function isDefaultLocalServerUrl(value: string): boolean {
   const url = new URL(value)
@@ -43,12 +32,12 @@ function webServerUrl(): string {
 }
 
 export function apiOrigin(): string {
-  return normalizeOrigin(webServerUrl())
+  return normalizePublicServerUrl(webServerUrl())
 }
 
 export function publicOrigin(): string {
   if (typeof window !== "undefined") return window.location.origin
-  return normalizeOrigin(
+  return normalizePublicServerUrl(
     nonEmpty(process.env.PUBLIC_SERVER_URL) ?? webServerUrl(),
   )
 }

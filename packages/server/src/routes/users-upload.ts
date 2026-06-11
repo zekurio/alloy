@@ -298,13 +298,19 @@ async function respondUserAsset<U>(
   return result.ok ? c.json(result.user) : errorResult(c, result)
 }
 
-function respondUploadedUserAsset(
-  c: Context,
-  viewerId: string,
-  role: UserAssetRole,
-  file: File,
-) {
-  return respondUserAsset(c, uploadUserAssetResponse(viewerId, role, file))
+// All three asset upload routes share the same shape; only the role differs.
+function uploadUserAssetHandler(role: UserAssetRole) {
+  return (
+    c: Context<
+      { Variables: { viewerId: string } },
+      string,
+      { out: { form: z.infer<typeof UserAssetUploadForm> } }
+    >,
+  ) =>
+    respondUserAsset(
+      c,
+      uploadUserAssetResponse(c.var.viewerId, role, c.req.valid("form").file),
+    )
 }
 
 export const usersUploadRoute = new Hono<{
@@ -314,34 +320,19 @@ export const usersUploadRoute = new Hono<{
     "/me/avatar/upload",
     requireSession,
     zValidator("form", UserAssetUploadForm),
-    (c) => {
-      const { file } = c.req.valid("form")
-      return respondUploadedUserAsset(c, c.var.viewerId, "avatar", file)
-    },
+    uploadUserAssetHandler("avatar"),
   )
   .post(
     "/me/banner/upload",
     requireSession,
     zValidator("form", UserAssetUploadForm),
-    (c) =>
-      respondUploadedUserAsset(
-        c,
-        c.var.viewerId,
-        "banner",
-        c.req.valid("form").file,
-      ),
+    uploadUserAssetHandler("banner"),
   )
   .post(
     "/me/background/upload",
     requireSession,
     zValidator("form", UserAssetUploadForm),
-    (c) =>
-      respondUploadedUserAsset(
-        c,
-        c.var.viewerId,
-        "background",
-        c.req.valid("form").file,
-      ),
+    uploadUserAssetHandler("background"),
   )
   .delete("/me/avatar", requireSession, (c) =>
     respondUserAsset(c, removeUserAsset(c.var.viewerId, "avatar")),

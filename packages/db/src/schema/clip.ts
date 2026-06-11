@@ -3,8 +3,6 @@ import {
   CLIP_STATUS,
   type ClipPrivacy,
   type ClipStatus,
-  NOTIFICATION_TYPES,
-  type NotificationType,
   UPLOAD_TICKET_ROLE,
   type UploadTicketRole,
 } from "alloy-contracts"
@@ -24,38 +22,48 @@ import {
   uuid,
 } from "drizzle-orm/pg-core"
 
-import { user } from "./auth-schema"
-import { scheduledTaskLock, scheduledTaskRun } from "./schema-scheduled-tasks"
-import type { ClipEncodedVariant } from "./schema-types"
+import { user } from "./auth"
+import { game } from "./game"
+import { sqlStringList } from "./internal"
 
-export { CLIP_PRIVACY, CLIP_STATUS, NOTIFICATION_TYPES, UPLOAD_TICKET_ROLE }
-export { scheduledTaskLock, scheduledTaskRun } from "./schema-scheduled-tasks"
-export type * from "./schema-types"
+export { CLIP_PRIVACY, CLIP_STATUS, UPLOAD_TICKET_ROLE }
 
-function sqlStringList(values: readonly string[]): string {
-  return values.map((value) => `'${value.replaceAll("'", "''")}'`).join(", ")
+export interface ClipVariantSettings {
+  hwaccel: string
+  codec: string
+  audioCodec: "aac" | "none"
+  quality: number
+  preset?: string
+  audioBitrateKbps: number
+  extraInputArgs: string
+  extraOutputArgs: string
+  height: number
 }
 
-export const game = pgTable(
-  "game",
-  {
-    // SteamGridDB is the canonical game identity. This table is a durable
-    // metadata cache, not a second identity namespace.
-    steamgriddbId: integer("steamgriddb_id").primaryKey(),
-    name: text("name").notNull(),
-    slug: text("slug").notNull().unique(),
-    releaseDate: timestamp("release_date"),
-    heroUrl: text("hero_url"),
-    heroBlurHash: text("hero_blur_hash"),
-    gridUrl: text("grid_url"),
-    gridBlurHash: text("grid_blur_hash"),
-    logoUrl: text("logo_url"),
-    iconUrl: text("icon_url"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  },
-  (t) => [index("game_name_idx").on(t.name)],
-)
+export interface ClipEncodedVariant {
+  id: string
+  label: string
+  storageKey: string
+  contentType: string
+  width: number
+  height: number
+  sizeBytes: number
+  isDefault: boolean
+  /**
+   * Legacy stored rendition settings. New clips do not write variants; this is
+   * retained so old rows can be decoded and their assets can be cleaned up.
+   */
+  settings?: ClipVariantSettings
+  /**
+   * Legacy HLS streaming metadata from stored rendition experiments.
+   */
+  hls?: {
+    /** Media playlist text; references the media by bare `media.m4s`. */
+    playlist: string
+    /** EXT-X-STREAM-INF attributes for the combined master playlist. */
+    streamInf: string
+  }
+}
 
 export const clip = pgTable(
   "clip",
@@ -298,44 +306,6 @@ export const clipTag = pgTable(
   ],
 )
 
-export const follow = pgTable(
-  "follow",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    followerId: uuid("follower_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    followingId: uuid("following_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-  },
-  (t) => [
-    uniqueIndex("follow_pair_idx").on(t.followerId, t.followingId),
-    index("follow_following_idx").on(t.followingId),
-  ],
-)
-
-export const gameFollow = pgTable(
-  "game_follow",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    steamgriddbId: integer("steamgriddb_id")
-      .notNull()
-      .references(() => game.steamgriddbId, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-  },
-  (t) => [
-    uniqueIndex("game_follow_pair_idx").on(t.userId, t.steamgriddbId),
-    // Reverse lookup for the feed-ranking join ("is this clip's game
-    // followed by the viewer?"), and for per-game follower counts.
-    index("game_follow_steamgriddb_idx").on(t.steamgriddbId),
-  ],
-)
-
 export const clipView = pgTable(
   "clip_view",
   {
@@ -357,67 +327,15 @@ export const clipView = pgTable(
   ],
 )
 
-export const block = pgTable(
-  "block",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    blockerId: uuid("blocker_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    blockedId: uuid("blocked_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-  },
-  (t) => [uniqueIndex("block_pair_idx").on(t.blockerId, t.blockedId)],
-)
-
-export const notification = pgTable(
-  "notification",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    recipientId: uuid("recipient_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    actorId: uuid("actor_id").references(() => user.id, {
-      onDelete: "set null",
-    }),
-    type: text("type").$type<NotificationType>().notNull(),
-    clipId: uuid("clip_id").references(() => clip.id, {
-      onDelete: "cascade",
-    }),
-    commentId: uuid("comment_id").references(() => clipComment.id, {
-      onDelete: "cascade",
-    }),
-    readAt: timestamp("read_at"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-  },
-  (t) => [
-    index("notification_recipient_created_idx").on(t.recipientId, t.createdAt),
-    index("notification_recipient_unread_idx")
-      .on(t.recipientId, t.createdAt)
-      .where(sql`${t.readAt} IS NULL`),
-    check(
-      "notification_type_check",
-      sql`${t.type} in (${sql.raw(sqlStringList(NOTIFICATION_TYPES))})`,
-    ),
-  ],
-)
-
-export const domainSchema = {
-  clip,
-  clipUploadTicket,
-  clipLike,
-  clipView,
-  clipComment,
-  clipCommentLike,
-  clipMention,
-  clipTag,
-  follow,
-  game,
-  gameFollow,
-  block,
-  notification,
-  scheduledTaskRun,
-  scheduledTaskLock,
-} as const
+export type Clip = typeof clip.$inferSelect
+export type NewClip = typeof clip.$inferInsert
+export type ClipUploadTicket = typeof clipUploadTicket.$inferSelect
+export type NewClipUploadTicket = typeof clipUploadTicket.$inferInsert
+export type ClipLike = typeof clipLike.$inferSelect
+export type ClipView = typeof clipView.$inferSelect
+export type NewClipView = typeof clipView.$inferInsert
+export type ClipComment = typeof clipComment.$inferSelect
+export type NewClipComment = typeof clipComment.$inferInsert
+export type ClipCommentLike = typeof clipCommentLike.$inferSelect
+export type NewClipCommentLike = typeof clipCommentLike.$inferInsert
+export type ClipMention = typeof clipMention.$inferSelect

@@ -1,10 +1,5 @@
-import { Link, useNavigate } from "@tanstack/react-router"
-import type {
-  AcceptedContentType,
-  ClipPrivacy,
-  GameRow,
-  UserSearchResult,
-} from "alloy-api"
+import { useNavigate } from "@tanstack/react-router"
+import type { ClipPrivacy, GameRow, UserSearchResult } from "alloy-api"
 import { AppMain } from "alloy-ui/components/app-shell"
 import { BlurHashCanvas } from "alloy-ui/components/blurhash-canvas"
 import { Button } from "alloy-ui/components/button"
@@ -12,61 +7,44 @@ import { GameIcon } from "alloy-ui/components/game-icon"
 import { Kbd } from "alloy-ui/components/kbd"
 import { Spinner } from "alloy-ui/components/spinner"
 import { toast } from "alloy-ui/lib/toast"
-import { cn } from "alloy-ui/lib/utils"
 import {
-  ArrowLeftIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   ClapperboardIcon,
   HardDriveIcon,
   ImageIcon,
   MonitorIcon,
-  PauseIcon,
-  PlayIcon,
-  RotateCcwIcon,
-  SquareIcon,
   Trash2Icon,
   UploadIcon,
 } from "lucide-react"
 import * as React from "react"
 
 import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
-import {
-  captureThumbnail,
-  prepareSelectedClipFile,
-} from "@/components/upload/new-clip-helpers"
 import { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
 import { VideoPlayer } from "@/components/video/video-player"
-import type { VideoPlayerHandle } from "@/components/video/video-player-types"
 import {
   CLIP_DESCRIPTION_MAX,
   formatTags,
   normalizeClipTitle,
-  nullableClipDescription,
   parseTagString,
 } from "@/lib/clip-fields"
 import { alloyDesktop, type AlloyDesktop } from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
-import { formatTrimMs } from "@/lib/media-time"
 
+import { exportAndPublishCapture } from "./library-capture-publish"
 import {
   enrichLibraryItem,
   type LibraryItemView,
   useLibraryGameLookup,
   useLibrarySnapshot,
 } from "./library-data"
+import {
+  BackToLibraryButton,
+  CaptureNavButton,
+  TrimTransportControls,
+} from "./library-editor-shared"
 import { LibraryEmpty } from "./library-page"
 import { LibraryTrimBar } from "./library-trim-bar"
-
-const MIN_TRIM_MS = 1000
-/** Tolerance when deciding whether the trim still covers the full clip. */
-const FULL_CLIP_TOLERANCE_MS = 50
-const ACCEPTED_EXPORT_TYPES = new Set<AcceptedContentType>([
-  "video/mp4",
-  "video/quicktime",
-  "video/x-matroska",
-  "video/webm",
-])
+import { useDraftPersistence } from "./use-draft-persistence"
+import { MIN_TRIM_MS, useTrimPlayback } from "./use-trim-playback"
 
 export function LibraryEditorPage({ captureId }: { captureId: string }) {
   const desktop = alloyDesktop()
@@ -192,15 +170,6 @@ function LibraryEditorContent({
   )
 }
 
-function BackToLibraryButton() {
-  return (
-    <Button variant="secondary" render={<Link to="/library" />}>
-      <ArrowLeftIcon />
-      Back to library
-    </Button>
-  )
-}
-
 /**
  * Medal-style upload screen: the capture fills the space on the left with a
  * simple single-range trimmer underneath, and the metadata sheet sits on the
@@ -223,19 +192,11 @@ function EditorBody({
   onDelete: () => void
 }) {
   const navigate = useNavigate()
-  const playerRef = React.useRef<VideoPlayerHandle | null>(null)
   const { publishClip } = useUploadFlowControls()
-  const [playing, setPlaying] = React.useState(false)
-  const [durationMs, setDurationMs] = React.useState(item.durationMs ?? 0)
 
   // The trim: one kept source range plus the playhead in source time.
-  const [trim, setTrim] = React.useState({
-    startMs: 0,
-    endMs: item.durationMs ?? 0,
-  })
-  const [currentMs, setCurrentMs] = React.useState(0)
-  const trimRef = React.useRef(trim)
-  trimRef.current = trim
+  const playback = useTrimPlayback({ initialDurationMs: item.durationMs ?? 0 })
+  const { playerRef, trim, rangeMs } = playback
 
   // Draft fields are seeded from the capture's persisted metadata so edits
   // survive app restarts; changes flow back through updateLibraryCapture.
@@ -268,12 +229,6 @@ function EditorBody({
   }, [resolvedGame])
 
   const isVideo = item.kind !== "screenshot"
-  const rangeMs = Math.max(0, trim.endMs - trim.startMs)
-  const trimmed =
-    durationMs > 0 &&
-    (trim.startMs > FULL_CLIP_TOLERANCE_MS ||
-      trim.endMs < durationMs - FULL_CLIP_TOLERANCE_MS)
-  const elapsedMs = Math.min(rangeMs, Math.max(0, currentMs - trim.startMs))
   const canPublish =
     isVideo &&
     !publishing &&
@@ -282,121 +237,13 @@ function EditorBody({
     Boolean(game) &&
     rangeMs >= MIN_TRIM_MS
 
-  /* ── Playback over the trimmed range ── */
-
-  // While playing, an animation-frame loop follows the player and loops
-  // playback back to the trim start when it runs past the trim end.
-  React.useEffect(() => {
-    if (!playing) return
-    let raf = 0
-    const tick = () => {
-      const player = playerRef.current
-      if (player) {
-        const sourceMs = player.getCurrentTime() * 1000
-        const { startMs, endMs } = trimRef.current
-        if (endMs > startMs && sourceMs >= endMs - 10) {
-          player.seek(startMs / 1000)
-          setCurrentMs(startMs)
-        } else {
-          setCurrentMs(sourceMs)
-        }
-      }
-      raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [playing])
-
-  const handleTimeUpdate = () => {
-    // The player reports the real duration once metadata lands; adopt it and
-    // re-fit the trim into the actual media bounds.
-    const reported = Math.round((playerRef.current?.getDuration() ?? 0) * 1000)
-    if (reported > 0 && reported !== durationMs) {
-      setDurationMs(reported)
-      setTrim((current) => ({
-        startMs: Math.min(current.startMs, Math.max(0, reported - MIN_TRIM_MS)),
-        // An untouched full-range trim simply adopts the new duration.
-        endMs:
-          current.endMs <= 0 ||
-          current.endMs >= durationMs - FULL_CLIP_TOLERANCE_MS
-            ? reported
-            : Math.min(current.endMs, reported),
-      }))
-    }
-  }
-
-  const seek = (sourceMs: number) => {
-    const clamped = Math.min(Math.max(0, sourceMs), durationMs || sourceMs)
-    setCurrentMs(clamped)
-    playerRef.current?.seek(clamped / 1000)
-  }
-
-  const togglePlayback = () => {
-    const player = playerRef.current
-    if (!player) return
-    if (playing) {
-      player.pause()
-      return
-    }
-    // Restart from the trim start once the range has fully played, and pull
-    // a playhead parked before the range into it.
-    let target = currentMs
-    if (target >= trim.endMs - 10 || target < trim.startMs) {
-      target = trim.startMs
-      setCurrentMs(target)
-    }
-    if (Math.abs(player.getCurrentTime() * 1000 - target) > 80) {
-      player.seek(target / 1000)
-    }
-    void player.play()
-  }
-
-  const stopPlayback = () => {
-    const player = playerRef.current
-    if (!player) return
-    player.pause()
-    // Seek without resuming: the player still reports "playing" until the
-    // pause event lands, so a plain seek would restart playback.
-    setCurrentMs(trim.startMs)
-    player.seek(trim.startMs / 1000, false)
-  }
-
-  const handleEnded = () => {
-    // Loop the preview like the in-range wraparound does.
-    seek(trim.startMs)
-    void playerRef.current?.play()
-  }
-
-  // Trim handles update live while dragging: the edge follows the pointer
-  // and the (paused) player scrubs to the cut frame.
-  const handleTrimStartChange = (sourceMs: number) => {
-    const clamped = Math.round(
-      Math.min(Math.max(0, sourceMs), trim.endMs - MIN_TRIM_MS),
-    )
-    setTrim((current) => ({ ...current, startMs: clamped }))
-    playerRef.current?.pause()
-    setCurrentMs(clamped)
-    playerRef.current?.seek(clamped / 1000)
-  }
-
-  const handleTrimEndChange = (sourceMs: number) => {
-    const clamped = Math.round(
-      Math.max(Math.min(durationMs, sourceMs), trim.startMs + MIN_TRIM_MS),
-    )
-    setTrim((current) => ({ ...current, endMs: clamped }))
-    playerRef.current?.pause()
-    setCurrentMs(clamped)
-    playerRef.current?.seek(clamped / 1000)
-  }
-
-  const resetTrim = () => {
-    setTrim({ startMs: 0, endMs: durationMs })
-  }
-
   /* ── Hotkeys: navigate between clips, delete, toggle playback ── */
 
-  const keyActionsRef = React.useRef({ togglePlayback, onDelete })
-  keyActionsRef.current = { togglePlayback, onDelete }
+  const keyActionsRef = React.useRef({
+    togglePlayback: playback.togglePlayback,
+    onDelete,
+  })
+  keyActionsRef.current = { togglePlayback: playback.togglePlayback, onDelete }
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
@@ -453,37 +300,17 @@ function EditorBody({
 
     setPublishing(true)
     try {
-      const exported = await desktop.recording.exportLibraryCapture({
-        id: item.id,
-        segments: [{ startMs: trim.startMs, endMs: trim.endMs }],
-      })
-      const response = await fetch(exported.mediaUrl)
-      if (!response.ok) throw new Error("Could not read exported clip.")
-      const blob = await response.blob()
-      const contentType = acceptedContentType(exported.contentType)
-      const file = new File([blob], exported.fileName, {
-        type: contentType,
-        lastModified: Date.now(),
-      })
-      const selected = await prepareSelectedClipFile(file)
-      const posterAtMs = Math.min(1000, Math.max(0, selected.durationMs - 100))
-      const thumbBlob = await captureThumbnail(selected.file, posterAtMs)
-
-      await publishClip({
-        file: selected.file,
-        contentType: selected.contentType,
+      await exportAndPublishCapture({
+        desktop,
+        item,
+        trim: { startMs: trim.startMs, endMs: trim.endMs },
         title: normalizedTitle,
-        description: nullableClipDescription(description),
-        tags: parseTagString(tags),
-        steamgriddbId: pickedGame.steamgriddbId,
+        description,
+        tags,
+        game: pickedGame,
         privacy,
-        width: selected.width,
-        height: selected.height,
-        durationMs: selected.durationMs,
-        sizeBytes: selected.sizeBytes,
-        thumbBlob,
-        thumbBlurHash: exported.thumbBlurHash ?? item.thumbBlurHash,
-        mentionedUserIds: mentions.map((mention) => mention.id),
+        mentions,
+        publishClip,
       })
       void navigate({ to: "/library" })
     } catch (cause) {
@@ -520,11 +347,11 @@ function EditorBody({
                 // The player runs chrome-less: the trim bar below owns scrubbing
                 // and clicking the video toggles playback.
                 controls={false}
-                onVideoClick={() => togglePlayback()}
+                onVideoClick={() => playback.togglePlayback()}
                 playerRef={playerRef}
-                onTimeUpdate={handleTimeUpdate}
-                onPlayingChange={setPlaying}
-                onEnded={handleEnded}
+                onTimeUpdate={playback.handleTimeUpdate}
+                onPlayingChange={playback.setPlaying}
+                onEnded={playback.handleEnded}
                 className="overflow-hidden rounded-md"
               />
             ) : (
@@ -546,67 +373,20 @@ function EditorBody({
 
           {isVideo ? (
             <>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="icon-sm"
-                    aria-label={playing ? "Pause (Space)" : "Play (Space)"}
-                    title={playing ? "Pause (Space)" : "Play (Space)"}
-                    onClick={togglePlayback}
-                  >
-                    {playing ? <PauseIcon /> : <PlayIcon />}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Stop"
-                    title="Stop"
-                    onClick={stopPlayback}
-                  >
-                    <SquareIcon />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Reset trim"
-                    title="Reset trim"
-                    onClick={resetTrim}
-                    disabled={!trimmed}
-                    className={cn(
-                      "text-foreground-faint hover:text-foreground transition-opacity",
-                      !trimmed && "pointer-events-none opacity-0",
-                    )}
-                  >
-                    <RotateCcwIcon />
-                  </Button>
-                </div>
-                <span className="text-foreground-muted text-sm tabular-nums">
-                  {formatTrimMs(elapsedMs)} / {formatTrimMs(rangeMs)}
-                </span>
-                {trimmed ? (
-                  <span className="text-foreground-faint text-sm tabular-nums">
-                    Trimmed to {formatTrimMs(trim.startMs)} –{" "}
-                    {formatTrimMs(trim.endMs)}
-                  </span>
-                ) : null}
-              </div>
+              <TrimTransportControls playback={playback} />
 
               <LibraryTrimBar
                 frames={item.filmstripFrameUrls}
-                durationMs={durationMs}
+                durationMs={playback.durationMs}
                 startMs={trim.startMs}
                 endMs={trim.endMs}
-                currentMs={currentMs}
+                currentMs={playback.currentMs}
                 onSeek={(sourceMs) => {
                   playerRef.current?.pause()
-                  seek(sourceMs)
+                  playback.seek(sourceMs)
                 }}
-                onStartChange={handleTrimStartChange}
-                onEndChange={handleTrimEndChange}
+                onStartChange={playback.handleTrimStartChange}
+                onEndChange={playback.handleTrimEndChange}
               />
 
               <div className="flex flex-wrap items-center gap-3">
@@ -717,93 +497,4 @@ function EditorBody({
       </div>
     </section>
   )
-}
-
-/** Floating edge button mirroring the ←/→ hotkeys. */
-function CaptureNavButton({
-  side,
-  targetId,
-}: {
-  side: "left" | "right"
-  targetId: string | null
-}) {
-  if (!targetId) return null
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      aria-label={side === "left" ? "Previous capture (←)" : "Next capture (→)"}
-      title={side === "left" ? "Previous capture (←)" : "Next capture (→)"}
-      className={cn(
-        "absolute top-1/2 z-40 h-12 w-12 -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
-        side === "left" ? "left-2" : "right-2",
-      )}
-      render={
-        <Link
-          to="/library/$captureId"
-          params={{ captureId: targetId }}
-          // Replace history so the back arrow exits the editor rather than
-          // stepping back through previously viewed captures.
-          replace
-        />
-      }
-    >
-      {side === "left" ? <ChevronLeftIcon /> : <ChevronRightIcon />}
-    </Button>
-  )
-}
-
-/**
- * Saves the editor's draft metadata to the desktop capture store, debounced,
- * so titles, descriptions, tags, mentions, and visibility survive app
- * restarts. The initial render is skipped — only actual edits write.
- */
-function useDraftPersistence(
-  desktop: AlloyDesktop,
-  captureId: string,
-  draft: {
-    title: string
-    description: string
-    tags: string
-    mentions: UserSearchResult[]
-    privacy: ClipPrivacy
-  },
-) {
-  const firstRunRef = React.useRef(true)
-  const { title, description, tags, mentions, privacy } = draft
-
-  React.useEffect(() => {
-    if (firstRunRef.current) {
-      firstRunRef.current = false
-      return
-    }
-    const handle = window.setTimeout(() => {
-      desktop.recording
-        .updateLibraryCapture({
-          id: captureId,
-          title: normalizeClipTitle(title) || undefined,
-          description: description || null,
-          tags: tags || null,
-          mentions: mentions.map((mention) => ({
-            id: mention.id,
-            username: mention.username,
-            displayUsername: mention.displayUsername,
-            name: mention.displayUsername || mention.username,
-            image: mention.image,
-          })),
-          privacy,
-        })
-        .catch(() => {
-          // Draft persistence is best effort; the in-memory state is intact.
-        })
-    }, 600)
-    return () => window.clearTimeout(handle)
-  }, [desktop, captureId, title, description, tags, mentions, privacy])
-}
-
-function acceptedContentType(value: string): AcceptedContentType {
-  if (ACCEPTED_EXPORT_TYPES.has(value as AcceptedContentType)) {
-    return value as AcceptedContentType
-  }
-  throw new Error("Exported clip type is not supported for upload.")
 }

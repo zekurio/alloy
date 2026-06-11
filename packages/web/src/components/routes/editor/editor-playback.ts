@@ -1,14 +1,7 @@
-import {
-  ALL_FORMATS,
-  AudioBufferSink,
-  CanvasSink,
-  CustomSource,
-  Input,
-  type InputAudioTrack,
-  type InputVideoTrack,
-  type WrappedCanvas,
-} from "mediabunny"
+import type { WrappedCanvas } from "mediabunny"
 
+import { ClipPlayer, sameClipMedia } from "./editor-playback-clip"
+import { PreviewSurface, SourceReader } from "./editor-playback-source"
 import {
   type ActiveTransition,
   activeTransitionAt,
@@ -19,6 +12,13 @@ import {
   type TimelineClip,
   transitionPreRollMs,
 } from "./editor-project"
+import { incomingPreRollMs, outgoingTransitionFor } from "./editor-transitions"
+
+export {
+  createCaptureSource,
+  PREVIEW_HEIGHT,
+  PREVIEW_WIDTH,
+} from "./editor-playback-source"
 
 /**
  * Mediabunny-based preview engine for the multitrack editor. The page owns
@@ -38,375 +38,18 @@ import {
  * against an `Output` instead of a canvas + audio context.
  */
 
-/** Preview composition resolution; sources letterbox into this via the sink. */
-export const PREVIEW_WIDTH = 1280
-export const PREVIEW_HEIGHT = 720
-
 /** How far ahead upcoming clips open their pipelines, in timeline ms. */
 const PRIME_AHEAD_MS = 1500
 /** How long a finished clip's player lingers before disposal. */
 const RETIRE_AFTER_MS = 300
-/** Audio is scheduled this far ahead of the context clock, in seconds. */
-const AUDIO_LOOKAHEAD_S = 1
-/** Polling interval of the audio scheduling pump, in ms. */
-const AUDIO_PUMP_INTERVAL_MS = 200
 /** Headroom between calling play() and the first scheduled sample. */
 const PLAY_START_DELAY_S = 0.05
-
-/**
- * Reads a media source by byte range. Two transports share the shape:
- *
- * - The desktop's `alloy-capture://` protocol carries ranges as a
- *   `?range=start-end` query instead of a Range header: a custom header
- *   would force a CORS preflight on the cross-origin fetch to the custom
- *   scheme, while plain GETs work with the protocol's
- *   `Access-Control-Allow-Origin: *` alone.
- * - http(s) URLs (uploaded clips streamed from the server) use a standard
- *   `Range` header against the same-origin stream endpoint.
- *
- * Shared with the render pipeline.
- */
-export function createCaptureSource(mediaUrl: string): CustomSource {
-  const isHttp = /^https?:\/\//i.test(mediaUrl)
-  const fetchRange = async (
-    startByte: number,
-    endByte: number,
-  ): Promise<Response> => {
-    let response: Response
-    if (isHttp) {
-      response = await fetch(mediaUrl, {
-        headers: { Range: `bytes=${startByte}-${endByte}` },
-      })
-    } else {
-      const url = new URL(mediaUrl)
-      url.searchParams.set("range", `${startByte}-${endByte}`)
-      response = await fetch(url)
-    }
-    if (!response.ok) {
-      throw new Error(`Capture media request failed (HTTP ${response.status})`)
-    }
-    return response
-  }
-
-  let sizePromise: Promise<number> | null = null
-  return new CustomSource({
-    getSize: () => {
-      sizePromise ??= (async () => {
-        const response = await fetchRange(0, 0)
-        const total = Number(
-          response.headers.get("Content-Range")?.split("/")[1],
-        )
-        if (!Number.isFinite(total) || total <= 0) {
-          throw new Error("Capture size unavailable")
-        }
-        return total
-      })()
-      return sizePromise
-    },
-    // Mediabunny's `end` is exclusive; the protocol's range is inclusive.
-    read: async (start, end) => {
-      const response = await fetchRange(start, Math.max(start, end - 1))
-      return new Uint8Array(await response.arrayBuffer())
-    },
-    prefetchProfile: "network",
-  })
-}
-
-/**
- * Lazily opened demuxer + track handles for one media source. Sinks are
- * created per clip player (each needs its own decoder position); the
- * `Input` and a static-frame sink for paused scrubbing are shared.
- */
-class SourceReader {
-  private readonly input: Input
-  private readonly label: string
-  private tracksPromise: Promise<{
-    video: InputVideoTrack | null
-    audio: InputAudioTrack | null
-  }> | null = null
-  private staticSinkPromise: Promise<CanvasSink | null> | null = null
-
-  constructor(
-    source: EditorMediaSource,
-    readonly reportError: (message: string) => void,
-  ) {
-    this.label = source.label
-    this.input = new Input({
-      formats: ALL_FORMATS,
-      source: createCaptureSource(source.mediaUrl),
-    })
-  }
-
-  /** Never rejects: open failures report once and read as track-less. */
-  private tracks() {
-    this.tracksPromise ??= (async () => {
-      try {
-        const [videoTrack, audioTrack] = await Promise.all([
-          this.input.getPrimaryVideoTrack(),
-          this.input.getPrimaryAudioTrack(),
-        ])
-        let video: InputVideoTrack | null = null
-        if (!videoTrack) {
-          this.reportError(`"${this.label}" has no video track.`)
-        } else if (await videoTrack.canDecode()) {
-          video = videoTrack
-        } else {
-          this.reportError(
-            `"${this.label}": the ${videoTrack.codec ?? "unknown"} video codec can't be decoded for preview.`,
-          )
-        }
-        // A missing/undecodable audio track just plays silent.
-        const audio =
-          audioTrack && (await audioTrack.canDecode()) ? audioTrack : null
-        return { video, audio }
-      } catch (cause) {
-        this.reportError(
-          `Couldn't open "${this.label}" for preview: ${
-            cause instanceof Error ? cause.message : "unknown error"
-          }`,
-        )
-        return { video: null, audio: null }
-      }
-    })()
-    return this.tracksPromise
-  }
-
-  async createVideoSink(): Promise<CanvasSink | null> {
-    const { video } = await this.tracks()
-    if (!video) return null
-    return new CanvasSink(video, {
-      width: PREVIEW_WIDTH,
-      height: PREVIEW_HEIGHT,
-      fit: "contain",
-      // The engine holds at most a current + next frame per player, plus
-      // one in flight; the pool keeps VRAM constant without recycling a
-      // canvas that is still referenced.
-      poolSize: 4,
-    })
-  }
-
-  async createAudioSink(): Promise<AudioBufferSink | null> {
-    const { audio } = await this.tracks()
-    return audio ? new AudioBufferSink(audio) : null
-  }
-
-  /** Opens the demuxer and track handles ahead of first use. */
-  warm(): void {
-    void this.tracks()
-  }
-
-  /** One-off frame for paused scrubbing; separate sink from the players. */
-  async staticFrame(sourceTimeSec: number): Promise<WrappedCanvas | null> {
-    try {
-      this.staticSinkPromise ??= this.createVideoSink()
-      const sink = await this.staticSinkPromise
-      if (!sink) return null
-      return await sink.getCanvas(sourceTimeSec)
-    } catch {
-      return null
-    }
-  }
-
-  dispose(): void {
-    this.input.dispose()
-  }
-}
-
-/**
- * The live decode state of one timeline clip: a sequential video frame
- * iterator (current frame + one decoded ahead) and an audio pump that
- * schedules buffers on the shared context at absolute times.
- */
-class ClipPlayer {
-  current: WrappedCanvas | null = null
-  /** First frame of the clip, kept for transition freeze-in. */
-  firstFrame: WrappedCanvas | null = null
-  /** Engine play-session this player's audio was scheduled in. */
-  audioEpoch = -1
-
-  private next: WrappedCanvas | null = null
-  private videoIter: AsyncGenerator<WrappedCanvas, void, unknown> | null = null
-  private pulling = false
-  private videoDone = false
-  private disposed = false
-  private gainNode: GainNode | null = null
-  private audioAbort: AbortController | null = null
-  private readonly scheduled = new Set<AudioBufferSourceNode>()
-
-  constructor(
-    readonly clip: TimelineClip,
-    private readonly reader: SourceReader,
-  ) {}
-
-  /** Opens the video pipeline and decodes the first frame. */
-  async prepare(fromSourceMs: number): Promise<void> {
-    let sink: CanvasSink | null = null
-    try {
-      sink = await this.reader.createVideoSink()
-    } catch {
-      return
-    }
-    if (!sink || this.disposed) return
-    this.videoIter = sink.canvases(
-      fromSourceMs / 1000,
-      this.clip.sourceEndMs / 1000,
-    )
-    await this.pull()
-    if (this.next) {
-      this.current = this.next
-      this.firstFrame = this.next
-      this.next = null
-    }
-    void this.pull()
-  }
-
-  private async pull(): Promise<void> {
-    if (!this.videoIter || this.pulling || this.videoDone) return
-    this.pulling = true
-    try {
-      const result = await this.videoIter.next()
-      if (this.disposed) return
-      if (result.done) {
-        this.videoDone = true
-        return
-      }
-      this.next = result.value
-    } catch (cause) {
-      this.reader.reportError(
-        `Video decode failed in "${this.clip.label}": ${
-          cause instanceof Error ? cause.message : "unknown error"
-        }`,
-      )
-      this.videoDone = true
-    } finally {
-      this.pulling = false
-    }
-  }
-
-  /** Steps the current frame up to the given source position. */
-  advanceVideo(sourceMs: number): void {
-    if (this.next && this.next.timestamp * 1000 <= sourceMs) {
-      this.current = this.next
-      this.next = null
-    }
-    if (!this.next) void this.pull()
-  }
-
-  /**
-   * Decodes and schedules the clip's audio on the context. `ctxAtFromSource`
-   * is the absolute context time at which `fromSourceMs` should be heard;
-   * everything after is scheduled relative to it, so two players started
-   * with a consistent mapping stay sample-aligned across a cut. Optional
-   * fade windows (the two halves of a crossfade) are applied as gain
-   * automation in absolute context time.
-   */
-  async runAudio(
-    ctx: AudioContext,
-    ctxAtFromSource: number,
-    fromSourceMs: number,
-    fades: {
-      fadeIn: { fromCtxTime: number; toCtxTime: number } | null
-      fadeOut: { fromCtxTime: number; toCtxTime: number } | null
-    },
-    isCurrent: () => boolean,
-  ): Promise<void> {
-    let sink: AudioBufferSink | null = null
-    try {
-      sink = await this.reader.createAudioSink()
-    } catch {
-      return
-    }
-    // The engine may have paused or jumped while the sink was opening;
-    // scheduling now would leak sound into the new play session.
-    if (!sink || this.disposed || !isCurrent()) return
-
-    this.stopAudio()
-    const abort = new AbortController()
-    this.audioAbort = abort
-    const gain = ctx.createGain()
-    gain.connect(ctx.destination)
-    this.gainNode = gain
-    // A sandwiched clip can carry both ramps; the fade-in always ends
-    // before the fade-out begins (transitions can't overlap a whole clip).
-    if (fades.fadeIn) {
-      gain.gain.setValueAtTime(0.0001, Math.max(0, fades.fadeIn.fromCtxTime))
-      gain.gain.linearRampToValueAtTime(1, fades.fadeIn.toCtxTime)
-    }
-    if (fades.fadeOut) {
-      gain.gain.setValueAtTime(1, Math.max(0, fades.fadeOut.fromCtxTime))
-      gain.gain.linearRampToValueAtTime(0.0001, fades.fadeOut.toCtxTime)
-    }
-
-    const fromSourceSec = fromSourceMs / 1000
-    try {
-      for await (const { buffer, timestamp } of sink.buffers(
-        fromSourceSec,
-        this.clip.sourceEndMs / 1000,
-      )) {
-        if (abort.signal.aborted || this.disposed) break
-        const when = ctxAtFromSource + (timestamp - fromSourceSec)
-        const node = ctx.createBufferSource()
-        node.buffer = buffer
-        node.connect(gain)
-        const now = ctx.currentTime
-        if (when >= now) {
-          node.start(when)
-        } else if (now - when < buffer.duration) {
-          // The first buffer usually starts before the requested position;
-          // begin mid-buffer so playback is aligned, not delayed.
-          node.start(now, now - when)
-        } else {
-          continue
-        }
-        this.scheduled.add(node)
-        node.onended = () => this.scheduled.delete(node)
-
-        // Keep roughly AUDIO_LOOKAHEAD_S of audio scheduled ahead.
-        while (
-          !abort.signal.aborted &&
-          when - ctx.currentTime > AUDIO_LOOKAHEAD_S
-        ) {
-          await abortableSleep(AUDIO_PUMP_INTERVAL_MS, abort.signal)
-        }
-      }
-    } catch {
-      // Decode errors leave the clip silent; video keeps rendering.
-    }
-  }
-
-  stopAudio(): void {
-    this.audioAbort?.abort()
-    this.audioAbort = null
-    for (const node of this.scheduled) {
-      try {
-        node.stop()
-      } catch {
-        // Already stopped.
-      }
-    }
-    this.scheduled.clear()
-    this.gainNode?.disconnect()
-    this.gainNode = null
-  }
-
-  dispose(): void {
-    if (this.disposed) return
-    this.disposed = true
-    this.stopAudio()
-    void this.videoIter?.return(undefined)
-    this.videoIter = null
-    this.current = null
-    this.next = null
-    this.firstFrame = null
-  }
-}
 
 export class PreviewEngine {
   /** Surfaced source/decode failures (set by the preview component). */
   onError: ((message: string) => void) | null = null
 
-  private canvas: HTMLCanvasElement | null = null
-  private ctx2d: CanvasRenderingContext2D | null = null
+  private readonly surface = new PreviewSurface()
   private project: EditorProject = { tracks: [], clips: [], transitions: [] }
   private sources = new Map<string, EditorMediaSource>()
   private readonly readers = new Map<string, SourceReader>()
@@ -425,11 +68,7 @@ export class PreviewEngine {
   private disposed = false
 
   attach(canvas: HTMLCanvasElement): void {
-    canvas.width = PREVIEW_WIDTH
-    canvas.height = PREVIEW_HEIGHT
-    this.canvas = canvas
-    this.ctx2d = canvas.getContext("2d")
-    this.clear()
+    this.surface.attach(canvas)
   }
 
   setProject(
@@ -592,7 +231,7 @@ export class PreviewEngine {
     const transition = activeTransitionAt(this.project, timelineMs)
     if (!visible) {
       if (this.lastStaticKey !== "empty") {
-        this.clear()
+        this.surface.clear()
         this.lastStaticKey = "empty"
       }
       return
@@ -630,9 +269,9 @@ export class PreviewEngine {
     // Playback may have started while decoding; don't paint over it.
     if (this.disposed || this.playing) return
 
-    this.clear()
-    this.blit(frame, 1)
-    if (transition && overlay) this.blit(overlay, transition.progress)
+    this.surface.clear()
+    this.surface.blit(frame, 1)
+    if (transition && overlay) this.surface.blit(overlay, transition.progress)
     // A null frame (pipeline still opening, decode failure) leaves the key
     // unset so the next request at this position retries.
     if (frame) this.lastStaticKey = key
@@ -673,7 +312,7 @@ export class PreviewEngine {
    * at the cut.
    */
   private ensurePlayer(clip: TimelineClip, timelineMs: number): void {
-    const preRollMs = this.incomingPreRollMs(clip)
+    const preRollMs = incomingPreRollMs(this.project, clip)
     let player = this.players.get(clip.id)
     if (!player) {
       const reader = this.readerFor(clip.sourceId)
@@ -698,9 +337,7 @@ export class PreviewEngine {
               toCtxTime: this.ctxTimeFor(clip.startMs),
             }
           : null
-      const outgoing = this.project.transitions.find(
-        (transition) => transition.leftClipId === clip.id,
-      )
+      const outgoing = outgoingTransitionFor(this.project, clip)
       const right = outgoing
         ? this.project.clips.find((entry) => entry.id === outgoing.rightClipId)
         : undefined
@@ -722,14 +359,6 @@ export class PreviewEngine {
     }
   }
 
-  /** Crossfade lead-in available to a clip entered by a transition. */
-  private incomingPreRollMs(clip: TimelineClip): number {
-    const incoming = this.project.transitions.find(
-      (transition) => transition.rightClipId === clip.id,
-    )
-    return incoming ? transitionPreRollMs(incoming, clip) : 0
-  }
-
   private ctxTimeFor(timelineMs: number): number {
     return this.ctxAtTimelineZero + timelineMs / 1000
   }
@@ -738,62 +367,18 @@ export class PreviewEngine {
     visible: TimelineClip | null,
     transition: ActiveTransition | null,
   ): void {
-    this.clear()
+    this.surface.clear()
     if (!visible) return
     const player = this.players.get(visible.id)
-    this.blit(player?.current ?? null, 1)
+    this.surface.blit(player?.current ?? null, 1)
     if (transition) {
       const incoming = this.players.get(transition.right.id)
       // Live pre-roll frames when the clip has a leading handle; its first
       // decoded frame as the fallback while the pipeline warms up.
-      this.blit(
+      this.surface.blit(
         incoming?.current ?? incoming?.firstFrame ?? null,
         transition.progress,
       )
     }
   }
-
-  private clear(): void {
-    if (!this.ctx2d || !this.canvas) return
-    this.ctx2d.globalAlpha = 1
-    this.ctx2d.fillStyle = "#000"
-    this.ctx2d.fillRect(0, 0, this.canvas.width, this.canvas.height)
-  }
-
-  private blit(frame: WrappedCanvas | null, alpha: number): void {
-    if (!frame || !this.ctx2d || !this.canvas) return
-    this.ctx2d.globalAlpha = Math.min(1, Math.max(0, alpha))
-    this.ctx2d.drawImage(
-      frame.canvas,
-      0,
-      0,
-      this.canvas.width,
-      this.canvas.height,
-    )
-    this.ctx2d.globalAlpha = 1
-  }
-}
-
-/** Same media + same cut points: an existing player can keep running. */
-function sameClipMedia(a: TimelineClip, b: TimelineClip): boolean {
-  return (
-    a.sourceId === b.sourceId &&
-    a.sourceStartMs === b.sourceStartMs &&
-    a.sourceEndMs === b.sourceEndMs &&
-    a.startMs === b.startMs
-  )
-}
-
-function abortableSleep(ms: number, signal: AbortSignal): Promise<void> {
-  if (signal.aborted) return Promise.resolve()
-  return new Promise((resolve) => {
-    const handle = setTimeout(() => finish(), ms)
-    const finish = () => {
-      clearTimeout(handle)
-      signal.removeEventListener("abort", finish)
-      // oxlint-disable-next-line promise/no-multiple-resolved -- the timer and the abort listener tear each other down before resolving, so only one path runs.
-      resolve()
-    }
-    signal.addEventListener("abort", finish)
-  })
 }

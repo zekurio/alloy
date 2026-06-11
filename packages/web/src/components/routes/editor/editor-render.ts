@@ -13,23 +13,26 @@ import {
   Mp4OutputFormat,
   Output,
   QUALITY_HIGH,
-  QUALITY_MEDIUM,
-  QUALITY_VERY_HIGH,
   type WrappedCanvas,
 } from "mediabunny"
 
-import { createCaptureSource } from "./editor-playback"
+import { createCaptureSource } from "./editor-playback-source"
 import {
   activeTransitionAt,
   clipAtTimelineMs,
   clipEndMs,
-  type ClipTransition,
   type EditorMediaSource,
   type EditorProject,
   projectDurationMs,
   type TimelineClip,
-  transitionPreRollMs,
 } from "./editor-project"
+import {
+  HARDWARE_BY_ACCELERATION,
+  QUALITY_BY_SETTING,
+  type RenderedProject,
+  type RenderSettings,
+} from "./editor-render-settings"
+import { incomingPreRollMs, outgoingTransitionFor } from "./editor-transitions"
 
 /**
  * Offline render of an editor project into an MP4, using the same
@@ -47,75 +50,6 @@ const AUDIO_SAMPLE_RATE = 48_000
 const PROGRESS_AUDIO_START = 0.02
 const PROGRESS_VIDEO_START = 0.15
 const PROGRESS_FINALIZE = 0.98
-
-export const RENDER_CODECS = ["avc", "hevc", "vp9", "av1"] as const
-export type RenderCodec = (typeof RENDER_CODECS)[number]
-/** Output height caps; "source" renders at the largest source's size. */
-export const RENDER_RESOLUTIONS = ["source", "1440", "1080", "720"] as const
-export type RenderResolution = (typeof RENDER_RESOLUTIONS)[number]
-export const RENDER_FPS_OPTIONS = [30, 60] as const
-export type RenderFps = (typeof RENDER_FPS_OPTIONS)[number]
-export const RENDER_QUALITIES = ["medium", "high", "very-high"] as const
-export type RenderQuality = (typeof RENDER_QUALITIES)[number]
-/**
- * Encoder backend hint. WebCodecs can't target a specific GPU, only express
- * a preference: "gpu" leans on hardware encoders, "cpu" forces software.
- */
-export const RENDER_ACCELERATIONS = ["auto", "gpu", "cpu"] as const
-export type RenderAcceleration = (typeof RENDER_ACCELERATIONS)[number]
-
-export interface RenderSettings {
-  codec: RenderCodec
-  resolution: RenderResolution
-  fps: RenderFps
-  quality: RenderQuality
-  acceleration: RenderAcceleration
-}
-
-export const DEFAULT_RENDER_SETTINGS: RenderSettings = {
-  codec: "avc",
-  resolution: "1080",
-  fps: 60,
-  quality: "high",
-  acceleration: "auto",
-}
-
-const QUALITY_BY_SETTING = {
-  medium: QUALITY_MEDIUM,
-  high: QUALITY_HIGH,
-  "very-high": QUALITY_VERY_HIGH,
-} as const
-
-const HARDWARE_BY_ACCELERATION = {
-  auto: "no-preference",
-  gpu: "prefer-hardware",
-  cpu: "prefer-software",
-} as const satisfies Record<
-  RenderAcceleration,
-  "no-preference" | "prefer-hardware" | "prefer-software"
->
-
-/** Codecs this machine can actually encode (for the settings form). */
-export async function encodableRenderCodecs(): Promise<RenderCodec[]> {
-  const checks = await Promise.all(
-    RENDER_CODECS.map(async (codec) =>
-      (await getFirstEncodableVideoCodec([codec], {
-        width: 1920,
-        height: 1080,
-      }))
-        ? codec
-        : null,
-    ),
-  )
-  return checks.filter((codec): codec is RenderCodec => codec !== null)
-}
-
-export interface RenderedProject {
-  data: Uint8Array
-  durationMs: number
-  width: number
-  height: number
-}
 
 interface ClipVideoState {
   iter: AsyncGenerator<WrappedCanvas, void, unknown>
@@ -180,18 +114,8 @@ export async function renderProject(
     return promise
   }
 
-  const incomingTransitionFor = (clip: TimelineClip): ClipTransition | null =>
-    project.transitions.find(
-      (transition) => transition.rightClipId === clip.id,
-    ) ?? null
-  const outgoingTransitionFor = (clip: TimelineClip): ClipTransition | null =>
-    project.transitions.find(
-      (transition) => transition.leftClipId === clip.id,
-    ) ?? null
-  const preRollFor = (clip: TimelineClip): number => {
-    const incoming = incomingTransitionFor(clip)
-    return incoming ? transitionPreRollMs(incoming, clip) : 0
-  }
+  const preRollFor = (clip: TimelineClip): number =>
+    incomingPreRollMs(project, clip)
 
   const throwIfAborted = () => {
     if (signal.aborted) {
@@ -296,7 +220,7 @@ export async function renderProject(
           gain.gain.setValueAtTime(0.0001, Math.max(0, startTimelineSec))
           gain.gain.linearRampToValueAtTime(1, clip.startMs / 1000)
         }
-        const outgoing = outgoingTransitionFor(clip)
+        const outgoing = outgoingTransitionFor(project, clip)
         const right = outgoing
           ? project.clips.find((entry) => entry.id === outgoing.rightClipId)
           : undefined
