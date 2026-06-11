@@ -1,9 +1,4 @@
 import {
-  DEFAULT_GAME_CLASSIFIER_FILENAME,
-  DEFAULT_GAME_CLASSIFIER_MODEL_NAME,
-  DEFAULT_GAME_CLASSIFIER_MODEL_VERSION,
-  DEFAULT_GAME_CLASSIFIER_REPO_ID,
-  DEFAULT_GAME_CLASSIFIER_REVISION,
   ENCODER_HWACCELS,
   ENCODER_TONEMAPPING_ALGORITHMS,
   ENCODER_TONEMAPPING_MODES,
@@ -16,9 +11,6 @@ import { z } from "zod"
 import { randomBase64Url } from "../runtime/crypto"
 import { isValidCronExpression } from "../scheduled-tasks/cron"
 import { OAuthProvidersSchema } from "./oauth-schema"
-
-const DEFAULT_MACHINE_LEARNING_URL =
-  process.env.MACHINE_LEARNING_URL ?? "http://localhost:2662"
 
 function randomSecret(): string {
   return randomBase64Url(32)
@@ -81,64 +73,6 @@ const LimitsConfigSchema = z.object({
     .min(60)
     .max(24 * 60 * 60)
     .default(900),
-})
-
-function envFlag(name: string, fallback: boolean): boolean {
-  const raw = process.env[name]
-  if (raw === undefined) return fallback
-  return ["1", "true", "yes", "on"].includes(raw.trim().toLowerCase())
-}
-
-function normalizeBaseUrl(value: string): string {
-  return value.replace(/\/+$/, "")
-}
-
-const GameClassifierModelConfigSchema = z.object({
-  modelName: z
-    .string()
-    .trim()
-    .min(1)
-    .max(128)
-    .default(DEFAULT_GAME_CLASSIFIER_MODEL_NAME),
-  modelVersion: z
-    .string()
-    .trim()
-    .min(1)
-    .max(128)
-    .nullable()
-    .default(DEFAULT_GAME_CLASSIFIER_MODEL_VERSION),
-  repoId: z
-    .string()
-    .trim()
-    .min(1)
-    .max(256)
-    .default(DEFAULT_GAME_CLASSIFIER_REPO_ID),
-  filename: z
-    .string()
-    .trim()
-    .min(1)
-    .max(256)
-    .default(DEFAULT_GAME_CLASSIFIER_FILENAME),
-  revision: z
-    .string()
-    .trim()
-    .min(1)
-    .max(256)
-    .default(DEFAULT_GAME_CLASSIFIER_REVISION),
-  checkpointPath: z.string().trim().min(1).max(1024).nullable().default(null),
-})
-
-const MachineLearningConfigSchema = z.object({
-  enabled: z.boolean().default(envFlag("MACHINE_LEARNING_ENABLED", true)),
-  baseUrl: z
-    .string()
-    .url()
-    .default(DEFAULT_MACHINE_LEARNING_URL)
-    .transform(normalizeBaseUrl),
-  requestTimeoutMs: z.number().int().min(1_000).max(300_000).default(60_000),
-  gameClassifier: GameClassifierModelConfigSchema.default(
-    GameClassifierModelConfigSchema.parse({}),
-  ),
 })
 
 /**
@@ -220,9 +154,6 @@ export const RuntimeConfigSchema = z.object({
   scheduledTasks: ScheduledTasksConfigSchema,
   encoder: EncoderConfigSchema.default(EncoderConfigInnerSchema.parse({})),
   limits: LimitsConfigSchema.default(LimitsConfigSchema.parse({})),
-  machineLearning: MachineLearningConfigSchema.default(
-    MachineLearningConfigSchema.parse({}),
-  ),
   appearance: AppearanceConfigSchema.default(AppearanceConfigSchema.parse({})),
 })
 
@@ -239,10 +170,6 @@ export const LimitsConfigPatchSchema = LimitsConfigSchema.partial()
 export const IntegrationsSecretPatchSchema = z.object({
   steamgriddbApiKey: z.string().optional(),
 })
-export const MachineLearningConfigPatchSchema =
-  MachineLearningConfigSchema.partial().extend({
-    gameClassifier: GameClassifierModelConfigSchema.partial().optional(),
-  })
 export const AppearanceConfigPatchSchema = AppearanceConfigSchema.partial()
 export const ScheduledTaskTriggersSchema = z
   .array(ScheduledTaskTriggerSchema)

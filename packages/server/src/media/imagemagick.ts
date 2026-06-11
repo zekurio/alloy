@@ -1,19 +1,19 @@
 import { Buffer } from "node:buffer"
 import { spawn } from "node:child_process"
 
-async function which(binary: string): Promise<string | null> {
-  const output = await runProcess("which", [binary])
-  if (output.code !== 0) return null
-  const path = output.stdout.trim()
-  return path.length > 0 ? path : null
+async function hasImageMagickBinary(binary: string): Promise<boolean> {
+  try {
+    const output = await runProcess(binary, ["-version"])
+    return output.code === 0
+  } catch {
+    return false
+  }
 }
 
 async function imageMagickBinary(): Promise<string> {
-  const magick = await which("magick")
-  if (magick) return magick
+  if (await hasImageMagickBinary("magick")) return "magick"
 
-  const convert = await which("convert")
-  if (convert) return convert
+  if (await hasImageMagickBinary("convert")) return "convert"
 
   throw new Error("ImageMagick is not installed")
 }

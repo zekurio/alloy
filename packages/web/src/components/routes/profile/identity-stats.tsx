@@ -137,7 +137,7 @@ function FollowRow({
   const [following, setFollowing] = React.useState(initiallyFollowing)
   const followMutation = useToggleUserFollowMutation(user.username)
   const handle = user.displayUsername || user.username
-  const displayName = user.name || `@${handle}`
+  const displayName = `@${handle}`
   const avatar = userAvatar(user)
   const avatarStyle = { background: avatar.bg, color: avatar.fg }
 

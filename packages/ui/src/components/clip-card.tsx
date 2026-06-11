@@ -1,3 +1,4 @@
+import { Avatar, AvatarFallback, AvatarImage } from "alloy-ui/components/avatar"
 import { GameIcon } from "alloy-ui/components/game-icon"
 import { MediaPlaceholder } from "alloy-ui/components/media-placeholder"
 import {
@@ -5,7 +6,6 @@ import {
   CLIP_MEDIA_ROUNDED_CLASS,
   CLIP_MEDIA_VIEWPORT_CLASS,
 } from "alloy-ui/lib/media-frame"
-import { pastelAvatarColors } from "alloy-ui/lib/pastel"
 import { cn } from "alloy-ui/lib/utils"
 import { LinkIcon, LockIcon } from "lucide-react"
 import * as React from "react"
@@ -14,7 +14,6 @@ interface ClipCardProps extends React.ComponentProps<"article"> {
   title: string
   titleContent?: React.ReactNode
   author: string
-  authorSeed?: string
   authorImage?: string | null
   authorInitials?: string
   authorAvatarBg?: string
@@ -27,6 +26,7 @@ interface ClipCardProps extends React.ComponentProps<"article"> {
   likes: string
   comments?: string | number
   postedAt?: string
+  metaContent?: React.ReactNode
   thumbnail?: string
   thumbnailBlurHash?: string | null
   fallbackSeed?: string | number
@@ -52,7 +52,6 @@ function ClipCard({
   title,
   titleContent,
   author,
-  authorSeed,
   authorImage,
   authorInitials,
   authorAvatarBg,
@@ -67,6 +66,7 @@ function ClipCard({
   likes: _likes,
   comments: _comments,
   postedAt = "2h ago",
+  metaContent,
   thumbnail,
   thumbnailBlurHash,
   fallbackSeed,
@@ -83,6 +83,7 @@ function ClipCard({
   ...props
 }: ClipCardProps) {
   const privacyBadge = renderPrivacyBadge(privacy)
+  const showAttributionRow = Boolean(author || game)
 
   return (
     <article
@@ -106,7 +107,6 @@ function ClipCard({
         {author ? (
           <ClipCardAvatar
             author={author}
-            authorSeed={authorSeed}
             authorImage={authorImage}
             authorInitials={authorInitials}
             authorAvatarBg={authorAvatarBg}
@@ -118,24 +118,34 @@ function ClipCard({
               card width — so the meta block reads identically whether the deck
               shows 3 or 5 columns. The thumbnail above stays 16:9 and resizes
               with the column count; the metadata deliberately does not. */}
-          <div className="text-foreground truncate text-[1.0625rem] leading-snug font-semibold tracking-[-0.015em]">
+          <div className="text-foreground truncate text-[0.9375rem] leading-snug font-semibold tracking-[-0.01em]">
             {titleContent ?? title}
           </div>
 
-          <div className="text-foreground-dim flex min-w-0 items-center gap-1.5 text-[0.9375rem] leading-tight">
-            {author ? (
-              <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-                <AuthorLabel author={author} href={authorHref} />
-                <span className="text-foreground-faint shrink-0">·</span>
+          {showAttributionRow ? (
+            <div className="text-foreground-dim flex min-w-0 items-center gap-1.5 text-[0.8125rem] leading-tight">
+              {author ? (
+                <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                  <AuthorLabel author={author} href={authorHref} />
+                  {game ? (
+                    <>
+                      <span className="text-foreground-faint shrink-0">·</span>
+                      <GameLabel game={game} icon={gameIcon} href={gameHref} />
+                    </>
+                  ) : null}
+                </span>
+              ) : (
                 <GameLabel game={game} icon={gameIcon} href={gameHref} />
-              </span>
-            ) : (
-              <GameLabel game={game} icon={gameIcon} href={gameHref} />
-            )}
-          </div>
+              )}
+            </div>
+          ) : null}
 
-          {metaVariant === "showcase" ? null : (
-            <div className="text-foreground-faint flex min-w-0 items-center gap-1.5 text-sm leading-tight tabular-nums">
+          {metaVariant === "showcase" ? null : metaContent ? (
+            <div className="text-foreground-faint flex min-w-0 items-center gap-1.5 text-xs leading-tight tabular-nums">
+              {metaContent}
+            </div>
+          ) : (
+            <div className="text-foreground-faint flex min-w-0 items-center gap-1.5 text-xs leading-tight tabular-nums">
               {privacyBadge}
               <span className="shrink-0">{views} views</span>
               <span className="shrink-0">·</span>
@@ -172,6 +182,7 @@ function ClipCardThumb({
   buttonRef?: React.Ref<HTMLButtonElement>
 }) {
   const videoRef = React.useRef<HTMLVideoElement | null>(null)
+  const imageRef = React.useRef<HTMLImageElement | null>(null)
   const timerRef = React.useRef<number | null>(null)
   const hoveredRef = React.useRef(false)
   const shouldPreviewRef = React.useRef(false)
@@ -184,8 +195,14 @@ function ClipCardThumb({
   const [pointerActivated, setPointerActivated] = React.useState(false)
 
   React.useEffect(() => {
-    setThumbnailLoaded(false)
     setThumbnailFailed(false)
+    // For cached thumbnails (e.g. navigating away from the library and back)
+    // the <img> can already be `complete` by the time this mounts, so the
+    // `load` event fires before React attaches `onLoad` and that handler
+    // never runs. Seed the loaded state from the element itself so the still
+    // shows instead of being stuck on the blurhash placeholder.
+    const image = imageRef.current
+    setThumbnailLoaded(Boolean(image?.complete && image.naturalWidth > 0))
   }, [thumbnail])
 
   // Clear any pending hover timer when the component unmounts — stray
@@ -337,6 +354,7 @@ function ClipCardThumb({
 
       {thumbnail && !thumbnailFailed ? (
         <img
+          ref={imageRef}
           src={thumbnail}
           alt={title}
           className={cn(
@@ -443,59 +461,28 @@ function AuthorLabel({
 
 function ClipCardAvatar({
   author,
-  authorSeed,
   authorImage,
   authorInitials,
   authorAvatarBg,
   authorAvatarFg,
 }: {
   author: string
-  authorSeed: string | undefined
   authorImage: string | null | undefined
   authorInitials: string | undefined
   authorAvatarBg: string | undefined
   authorAvatarFg: string | undefined
 }) {
-  const [imageFailed, setImageFailed] = React.useState(false)
-
-  React.useEffect(() => {
-    setImageFailed(false)
-  }, [authorImage])
-
   const initials = authorInitials ?? (author.slice(0, 2).toUpperCase() || "?")
-  const seed = authorSeed || author || "user"
-  let fallbackBg = authorAvatarBg
-  let fallbackFg = authorAvatarFg
-  if (!fallbackBg || !fallbackFg) {
-    const colors = pastelAvatarColors(seed)
-    fallbackBg = colors.bg
-    fallbackFg = colors.fg
+  const avatarStyle = {
+    background: authorAvatarBg,
+    color: authorAvatarFg,
   }
+
   return (
-    <span
-      aria-hidden
-      className={cn(
-        "inline-flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full",
-        "text-sm leading-none font-semibold",
-      )}
-      style={{
-        background: fallbackBg,
-        color: fallbackFg,
-      }}
-    >
-      {authorImage && !imageFailed ? (
-        <img
-          src={authorImage}
-          alt=""
-          className="size-full object-cover"
-          loading="lazy"
-          decoding="async"
-          onError={() => setImageFailed(true)}
-        />
-      ) : (
-        initials
-      )}
-    </span>
+    <Avatar aria-hidden size="lg" style={avatarStyle}>
+      {authorImage ? <AvatarImage src={authorImage} alt="" /> : null}
+      <AvatarFallback style={avatarStyle}>{initials}</AvatarFallback>
+    </Avatar>
   )
 }
 

@@ -1,4 +1,5 @@
 import type {
+  GameRow,
   SteamGridDBAsset,
   SteamGridDBGameDetail,
   SteamGridDBSearchResult,
@@ -9,6 +10,7 @@ import { z } from "zod"
 import { secretStore } from "../config/secret-store"
 import { imageBlurHash } from "../media/blurhash"
 import { errorMessage, isAbortError } from "../runtime/error-message"
+import { gameSlugWithId } from "./slug"
 
 const STEAMGRIDDB_ORIGIN = "https://www.steamgriddb.com"
 const STEAMGRIDDB_API_PATH = "/api/v2"
@@ -158,6 +160,30 @@ export async function searchGames(
     SearchEnvelope,
   )
   return data ?? []
+}
+
+export async function gameRowFromSearchResult(
+  result: SteamGridDBSearchResult,
+): Promise<GameRow> {
+  const [enriched] = await enrichSearchResultsWithIcons([result], 1)
+  const releaseDate =
+    typeof result.release_date === "number"
+      ? new Date(result.release_date * 1000).toISOString()
+      : null
+
+  return {
+    id: result.id,
+    steamgriddbId: result.id,
+    name: result.name,
+    slug: gameSlugWithId(result.name, result.id),
+    releaseDate,
+    heroUrl: null,
+    heroBlurHash: null,
+    gridUrl: null,
+    gridBlurHash: null,
+    logoUrl: null,
+    iconUrl: enriched?.iconUrl ?? null,
+  }
 }
 
 const ICON_CACHE_MAX = 512

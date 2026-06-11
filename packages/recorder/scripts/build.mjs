@@ -65,7 +65,7 @@ if (!existsSync(builtBinary)) {
 }
 
 mkdirSync(sidecarResourcesDir, { recursive: true })
-cpSync(builtBinary, join(sidecarResourcesDir, binaryName))
+copyFileIfChanged(builtBinary, join(sidecarResourcesDir, binaryName))
 if (process.platform !== "win32")
   chmodSync(join(sidecarResourcesDir, binaryName), 0o755)
 writeFileSync(join(sidecarResourcesDir, ".gitkeep"), "")
@@ -160,8 +160,28 @@ function stageObsHelpers() {
   for (const helper of obsHelperExecutables) {
     const helperPath = join(obsResourcesDir, "bin", "64bit", helper)
     if (existsSync(helperPath)) {
-      cpSync(helperPath, join(sidecarResourcesDir, helper))
+      copyFileIfChanged(helperPath, join(sidecarResourcesDir, helper))
     }
+  }
+}
+
+function copyFileIfChanged(source, destination) {
+  if (existsSync(destination) && sameFileContents(source, destination)) {
+    return
+  }
+
+  cpSync(source, destination)
+}
+
+function sameFileContents(left, right) {
+  try {
+    const leftBytes = readFileSync(left)
+    const rightBytes = readFileSync(right)
+    return (
+      leftBytes.length === rightBytes.length && leftBytes.equals(rightBytes)
+    )
+  } catch {
+    return false
   }
 }
 

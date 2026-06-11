@@ -13,6 +13,7 @@ type VideoFrameProps = {
   poster?: string
   posterBlurHash?: string | null
   fallbackSeed: string | number
+  placeholderVisible: boolean
   posterVisible: boolean
   autoPlay: boolean
   loop: boolean
@@ -36,6 +37,7 @@ export function VideoFrame({
   poster,
   posterBlurHash,
   fallbackSeed,
+  placeholderVisible,
   posterVisible,
   autoPlay,
   loop,
@@ -58,7 +60,6 @@ export function VideoFrame({
         aria-hidden
         className={cn("absolute inset-0", CLIP_MEDIA_BACKGROUND_CLASS)}
       />
-      <MediaPlaceholder seed={fallbackSeed} blurHash={posterBlurHash} />
       <video
         ref={videoRef}
         src={mediaUrl ?? undefined}
@@ -72,6 +73,7 @@ export function VideoFrame({
         onClick={onClick}
         onLoadedMetadata={onLoadedMetadata}
         onLoadedData={onLoadedData}
+        onCanPlay={onLoadedData}
         onDurationChange={onDurationChange}
         onTimeUpdate={onTimeUpdate}
         onProgress={onProgress}
@@ -83,6 +85,14 @@ export function VideoFrame({
         // layers past the rounded viewport. The shared media overscan hides
         // the inset itself.
         className={cn("block", CLIP_VIDEO_MEDIA_CLASS)}
+      />
+      <MediaPlaceholder
+        seed={fallbackSeed}
+        blurHash={posterBlurHash}
+        className={cn(
+          "pointer-events-none transition-opacity duration-200 ease-out",
+          placeholderVisible ? "opacity-100" : "opacity-0",
+        )}
       />
       {/* The poster overlays the video (it must paint on top of the element's
           opaque background) and fades out once a real frame has decoded, so a

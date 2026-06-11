@@ -4,6 +4,7 @@ import type {
   GameClipsParams,
   GameDetail,
   GameListRow,
+  GameNameLookupResponse,
   GameRow,
   SteamGridDBSearchResult,
   SteamGridDBStatus,
@@ -16,6 +17,7 @@ import {
   validateClipRows,
   validateGameDetail,
   validateGameListRows,
+  validateGameNameLookupResponse,
   validateGameRow,
   validateSteamGridDBSearchResults,
   validateSteamGridDBStatus,
@@ -28,6 +30,8 @@ export type {
   GameClipsParams,
   GameDetail,
   GameListRow,
+  GameNameLookupResponse,
+  GameNameLookupResult,
   GameRow,
   SteamGridDBSearchResult,
   SteamGridDBStatus,
@@ -62,6 +66,16 @@ async function resolveGame(
     json: { steamgriddbId },
   })
   return readJsonOrThrow(res, validateGameRow)
+}
+
+async function lookupGamesByName(
+  context: ApiContext,
+  names: string[],
+): Promise<GameNameLookupResponse> {
+  const res = await context.rpc.api.games.lookup.$post({
+    json: { names },
+  })
+  return readJsonOrThrow(res, validateGameNameLookupResponse)
 }
 
 async function fetchAllGames(
@@ -153,6 +167,7 @@ export function createGamesApi(context: ApiContext) {
     fetchSteamGridDBStatus: () => fetchSteamGridDBStatus(context),
     search: (query: string) => searchGames(context, query),
     resolve: (steamgriddbId: number) => resolveGame(context, steamgriddbId),
+    lookupByNames: (names: string[]) => lookupGamesByName(context, names),
     fetchAll: (params: { limit?: number; offset?: number } = {}) =>
       fetchAllGames(context, params),
     fetchBySlug: (slug: string) => fetchGameBySlug(context, slug),

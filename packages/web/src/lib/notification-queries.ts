@@ -291,11 +291,7 @@ export function notificationText(row: NotificationRow): {
   /** Optional secondary line, used for context (e.g. comment body excerpt). */
   body: string | null
 } {
-  const actor =
-    row.actor?.name ||
-    row.actor?.displayUsername ||
-    row.actor?.username ||
-    "Someone"
+  const actor = row.actor?.displayUsername || row.actor?.username || "Someone"
   const clipTitle = row.clip?.title ?? "your clip"
 
   switch (row.type) {

@@ -23,7 +23,7 @@ interface ClipCardData {
   game: string
   gameSlug: string | null
   gameRef: ClipGameRef | null
-  /** Display label for the author — name or handle, chosen for readability. */
+  /** Display label for the author. */
   author: string
   /** Lowercase handle (`user.username`) — always use this for profile links. */
   authorUsername: string
@@ -55,7 +55,6 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
   const game = clipGameLabel(row)
   const authorAvatar = userAvatar({
     id: row.authorId,
-    name: row.authorName,
     username: row.authorUsername,
     image: row.authorImage,
   })
@@ -65,7 +64,7 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
     game,
     gameSlug: row.gameRef?.slug ?? null,
     gameRef: row.gameRef,
-    author: row.authorName || row.authorUsername,
+    author: row.authorUsername,
     authorUsername: row.authorUsername,
     authorId: row.authorId,
     authorImage: authorAvatar.src ?? null,

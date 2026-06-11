@@ -15,7 +15,6 @@ import {
   validateEnumString,
   validateNonNegativeInteger,
   validateNullablePositiveInteger,
-  validateNullableRequiredString,
   validateNumber,
   validateOptionalUrlString,
   validatePositiveInteger,
@@ -90,7 +89,7 @@ function validateRuntimeOAuthProvider(value: unknown, label: string) {
       `Invalid ${label} config: pkce must be boolean`,
     )
   }
-  for (const key of ["usernameClaim", "displayNameClaim"] as const) {
+  for (const key of ["usernameClaim"] as const) {
     if (provider[key] !== undefined) {
       validateRequiredString(
         provider[key],
@@ -213,41 +212,6 @@ function validateAdminIntegrationsConfig(value: unknown) {
   )
 }
 
-function validateAdminGameClassifierConfig(value: unknown) {
-  const gameClassifier = objectRecord(value, "admin game classifier config")
-  for (const key of ["modelName", "repoId", "filename", "revision"] as const) {
-    validateRequiredString(
-      gameClassifier[key],
-      `Invalid admin game classifier config: ${key} is required`,
-    )
-  }
-  validateNullableRequiredString(
-    gameClassifier.modelVersion,
-    "Invalid admin game classifier config: modelVersion must be non-empty or null",
-  )
-  validateNullableRequiredString(
-    gameClassifier.checkpointPath,
-    "Invalid admin game classifier config: checkpointPath must be non-empty or null",
-  )
-}
-
-function validateAdminMachineLearningConfig(value: unknown) {
-  const machineLearning = objectRecord(value, "admin machine learning config")
-  validateBoolean(
-    machineLearning.enabled,
-    "Invalid admin machine learning config: enabled must be boolean",
-  )
-  validateUrlString(
-    machineLearning.baseUrl,
-    "Invalid admin machine learning config: baseUrl must be a URL",
-  )
-  validatePositiveInteger(
-    machineLearning.requestTimeoutMs,
-    "Invalid admin machine learning config: requestTimeoutMs must be a positive integer",
-  )
-  validateAdminGameClassifierConfig(machineLearning.gameClassifier)
-}
-
 function validateAdminAppearanceConfig(value: unknown) {
   const appearance = objectRecord(value, "admin appearance config")
   const loginSplash = objectRecord(
@@ -335,7 +299,6 @@ function validateRuntimeConfigFields(
   validateScheduledTasksConfig(config.scheduledTasks, label)
   validateAdminEncoderConfig(config.encoder)
   validateAdminLimitsConfig(config.limits)
-  validateAdminMachineLearningConfig(config.machineLearning)
   validateAdminAppearanceConfig(config.appearance)
 }
 

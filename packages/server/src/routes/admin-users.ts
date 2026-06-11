@@ -28,7 +28,6 @@ const StorageQuotaValue = z
 
 const CreateUserBody = z.object({
   email: z.string().trim().email(),
-  name: optionalTrimmedString(),
   username: optionalTrimmedString(),
   role: z.enum(USER_ROLES).default("user"),
 })
@@ -76,7 +75,6 @@ export const adminUsersRoute = new Hono()
       const created = await createUserIdentity({
         email: body.email,
         username: body.username,
-        name: body.name,
         role: body.role,
       })
       const [row] = await selectAdminUserStorageRows([created.id])

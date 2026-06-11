@@ -1,19 +1,13 @@
-import { Link, useNavigate } from "@tanstack/react-router"
+import { Link } from "@tanstack/react-router"
 import { Chip } from "alloy-ui/components/chip"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "alloy-ui/components/dropdown-menu"
 import { GameIcon } from "alloy-ui/components/game-icon"
-import { ChevronDownIcon, XIcon } from "lucide-react"
 
 import {
   filterLabelClass,
   SortDropdown,
   type SortDropdownOption,
 } from "@/components/clip/sort-dropdown"
+import { FilterCarousel } from "@/components/filter-carousel"
 import {
   profileAllSearchFor,
   type ProfileAllSort,
@@ -31,7 +25,6 @@ type ClipsFilterBarProps = {
   username: string
   sort: ProfileAllSort
   gameSlug: string | null
-  selectedGame: GameOption | null
   gameOptions: GameOption[]
 }
 
@@ -46,22 +39,10 @@ export function ClipsFilterBar({
   username,
   sort,
   gameSlug,
-  selectedGame,
   gameOptions,
 }: ClipsFilterBarProps) {
-  const navigate = useNavigate()
-
-  const clearGame = () => {
-    void navigate({
-      to: "/u/$username/all",
-      params: { username },
-      search: profileAllSearchFor(sort, null),
-      replace: true,
-    })
-  }
-
   return (
-    <div className="mb-6 flex flex-wrap items-center gap-3">
+    <div className="mb-6 flex items-center gap-3">
       {/* Sort group */}
       <SortDropdown
         label="Sort"
@@ -82,61 +63,47 @@ export function ClipsFilterBar({
         <span aria-hidden className="bg-border h-5 w-px" />
       ) : null}
 
-      {/* Game filter */}
+      {/* Game filter rail */}
       {gameOptions.length > 0 ? (
-        <div className="flex items-center gap-1.5">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
           <span className={filterLabelClass}>Game</span>
-          {gameSlug && selectedGame ? (
+          <FilterCarousel className="min-w-0 flex-1">
             <Chip
               size="xl"
-              data-active="true"
-              onClick={clearGame}
-              aria-label={`Clear game filter: ${selectedGame.name}`}
-              title={selectedGame.name}
+              data-active={gameSlug === null ? "true" : undefined}
+              render={
+                <Link
+                  to="/u/$username/all"
+                  params={{ username }}
+                  search={profileAllSearchFor(sort, null)}
+                  replace
+                />
+              }
             >
-              <GameIcon
-                src={selectedGame.iconUrl ?? selectedGame.logoUrl}
-                name={selectedGame.name}
-              />
-              {selectedGame.name}
-              <XIcon />
+              All games
             </Chip>
-          ) : (
-            <DropdownMenu>
-              <DropdownMenuTrigger
+            {gameOptions.map((g) => (
+              <Chip
+                key={g.slug}
+                size="xl"
+                data-active={g.slug === gameSlug ? "true" : undefined}
+                title={g.name}
                 render={
-                  <Chip size="xl">
-                    All games
-                    <ChevronDownIcon />
-                  </Chip>
+                  <Link
+                    to="/u/$username/all"
+                    params={{ username }}
+                    search={profileAllSearchFor(sort, g.slug)}
+                  />
                 }
-              />
-              <DropdownMenuContent className="max-h-64 w-56">
-                {gameOptions.map((g) => (
-                  <DropdownMenuItem
-                    key={g.slug}
-                    render={
-                      <Link
-                        to="/u/$username/all"
-                        params={{ username }}
-                        search={profileAllSearchFor(sort, g.slug)}
-                      />
-                    }
-                  >
-                    <GameIcon
-                      src={g.iconUrl ?? g.logoUrl}
-                      name={g.name}
-                      size="sm"
-                    />
-                    <span className="truncate">{g.name}</span>
-                    <span className="text-foreground-muted ml-auto text-xs font-semibold tabular-nums">
-                      {g.count}
-                    </span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+              >
+                <GameIcon src={g.iconUrl ?? g.logoUrl} name={g.name} />
+                <span className="max-w-[10rem] truncate">{g.name}</span>
+                <span className="text-foreground-faint tabular-nums">
+                  {g.count}
+                </span>
+              </Chip>
+            ))}
+          </FilterCarousel>
         </div>
       ) : null}
     </div>

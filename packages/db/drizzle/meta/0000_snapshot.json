@@ -1,5 +1,5 @@
 {
-  "id": "a58eb89d-0533-4a80-9762-828883091c76",
+  "id": "a1207002-00e0-4e32-a5f3-a7b2af0f07af",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -211,6 +211,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "thumb_blur_hash": {
+          "name": "thumb_blur_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "view_count": {
           "name": "view_count",
           "type": "integer",
@@ -231,6 +237,18 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "trim_start_ms": {
+          "name": "trim_start_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "trim_end_ms": {
+          "name": "trim_end_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         },
         "status": {
           "name": "status",
@@ -352,7 +370,7 @@
             }
           ],
           "isUnique": false,
-          "where": "\"clip\".\"status\" = 'ready' and \"clip\".\"privacy\" in ('public', 'unlisted')",
+          "where": "\"clip\".\"status\" = 'ready' and \"clip\".\"privacy\" = 'public'",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -428,7 +446,7 @@
             }
           ],
           "isUnique": false,
-          "where": "\"clip\".\"status\" = 'ready' and \"clip\".\"privacy\" in ('public', 'unlisted')",
+          "where": "\"clip\".\"status\" = 'ready' and \"clip\".\"privacy\" = 'public'",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -837,6 +855,62 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.clip_tag": {
+      "name": "clip_tag",
+      "schema": "",
+      "columns": {
+        "clip_id": {
+          "name": "clip_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tag": {
+          "name": "tag",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "clip_tag_tag_idx": {
+          "name": "clip_tag_tag_idx",
+          "columns": [
+            {
+              "expression": "tag",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "clip_tag_clip_id_clip_id_fk": {
+          "name": "clip_tag_clip_id_clip_id_fk",
+          "tableFrom": "clip_tag",
+          "tableTo": "clip",
+          "columnsFrom": ["clip_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "clip_tag_clip_id_tag_pk": {
+          "name": "clip_tag_clip_id_tag_pk",
+          "columns": ["clip_id", "tag"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.clip_upload_ticket": {
       "name": "clip_upload_ticket",
       "schema": "",
@@ -1190,8 +1264,20 @@
           "primaryKey": false,
           "notNull": false
         },
+        "hero_blur_hash": {
+          "name": "hero_blur_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "grid_url": {
           "name": "grid_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "grid_blur_hash": {
+          "name": "grid_blur_hash",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -2003,13 +2089,6 @@
           "notNull": true,
           "default": "''"
         },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
         "image": {
           "name": "image",
           "type": "text",
@@ -2018,6 +2097,12 @@
         },
         "banner": {
           "name": "banner",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "background": {
+          "name": "background",
           "type": "text",
           "primaryKey": false,
           "notNull": false

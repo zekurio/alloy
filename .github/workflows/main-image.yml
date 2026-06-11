@@ -108,16 +108,3 @@ jobs:
           tags: |
             type=raw,value=${{ steps.meta.outputs.channel }}
             type=raw,value=${{ steps.meta.outputs.sha_tag }}
-
-      - name: Publish machine learning image
-        uses: ./.github/actions/publish-image
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-machine-learning
-          context: machine-learning
-          file: machine-learning/Dockerfile
-          build-args: |
-            DEVICE=cpu
-          tags: |
-            type=raw,value=${{ steps.meta.outputs.channel }}
-            type=raw,value=${{ steps.meta.outputs.sha_tag }}

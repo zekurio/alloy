@@ -8,196 +8,256 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as appAppRouteImport } from "./routes/(app)/_app"
-import { Route as appAppGSlugRouteImport } from "./routes/(app)/_app.g.$slug"
-import { Route as appAppGSlugCClipIdRouteImport } from "./routes/(app)/_app.g.$slug.c.$clipId"
-import { Route as appAppGamesRouteImport } from "./routes/(app)/_app.games"
-import { Route as appAppIndexRouteImport } from "./routes/(app)/_app.index"
-import { Route as appAppSettingsRouteImport } from "./routes/(app)/_app.settings"
-import { Route as appAppUUsernameRouteImport } from "./routes/(app)/_app.u.$username"
-import { Route as appAppUUsernameAllRouteImport } from "./routes/(app)/_app.u.$username.all"
-import { Route as appAppUUsernameFeedRouteImport } from "./routes/(app)/_app.u.$username.feed"
-import { Route as appAppUUsernameIndexRouteImport } from "./routes/(app)/_app.u.$username.index"
-import { Route as appAppUUsernameLikedRouteImport } from "./routes/(app)/_app.u.$username.liked"
-import { Route as appAppUUsernameTaggedRouteImport } from "./routes/(app)/_app.u.$username.tagged"
-import { Route as authLoginRouteImport } from "./routes/(auth)/login"
-import { Route as authSetupRouteImport } from "./routes/(auth)/setup"
-import { Route as authSignUpRouteImport } from "./routes/(auth)/sign-up"
-import { Route as rootRouteImport } from "./routes/__root"
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as authSignUpRouteImport } from './routes/(auth)/sign-up'
+import { Route as authSetupRouteImport } from './routes/(auth)/setup'
+import { Route as authLoginRouteImport } from './routes/(auth)/login'
+import { Route as appAppRouteImport } from './routes/(app)/_app'
+import { Route as appAppIndexRouteImport } from './routes/(app)/_app.index'
+import { Route as appAppSettingsRouteImport } from './routes/(app)/_app.settings'
+import { Route as appAppGamesRouteImport } from './routes/(app)/_app.games'
+import { Route as appAppEditorRouteImport } from './routes/(app)/_app.editor'
+import { Route as appAppLibraryIndexRouteImport } from './routes/(app)/_app.library.index'
+import { Route as appAppUUsernameRouteImport } from './routes/(app)/_app.u.$username'
+import { Route as appAppTagsTagRouteImport } from './routes/(app)/_app.tags.$tag'
+import { Route as appAppLibraryCaptureIdRouteImport } from './routes/(app)/_app.library.$captureId'
+import { Route as appAppGSlugRouteImport } from './routes/(app)/_app.g.$slug'
+import { Route as appAppUUsernameIndexRouteImport } from './routes/(app)/_app.u.$username.index'
+import { Route as appAppUUsernameTaggedRouteImport } from './routes/(app)/_app.u.$username.tagged'
+import { Route as appAppUUsernameLikedRouteImport } from './routes/(app)/_app.u.$username.liked'
+import { Route as appAppUUsernameFeedRouteImport } from './routes/(app)/_app.u.$username.feed'
+import { Route as appAppUUsernameAllRouteImport } from './routes/(app)/_app.u.$username.all'
+import { Route as appAppLibraryCClipIdRouteImport } from './routes/(app)/_app.library.c.$clipId'
+import { Route as appAppGSlugCClipIdRouteImport } from './routes/(app)/_app.g.$slug.c.$clipId'
 
 const authSignUpRoute = authSignUpRouteImport.update({
-  id: "/(auth)/sign-up",
-  path: "/sign-up",
+  id: '/(auth)/sign-up',
+  path: '/sign-up',
   getParentRoute: () => rootRouteImport,
 } as any)
 const authSetupRoute = authSetupRouteImport.update({
-  id: "/(auth)/setup",
-  path: "/setup",
+  id: '/(auth)/setup',
+  path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const authLoginRoute = authLoginRouteImport.update({
-  id: "/(auth)/login",
-  path: "/login",
+  id: '/(auth)/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const appAppRoute = appAppRouteImport.update({
-  id: "/(app)/_app",
+  id: '/(app)/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
 const appAppIndexRoute = appAppIndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => appAppRoute,
 } as any)
 const appAppSettingsRoute = appAppSettingsRouteImport.update({
-  id: "/settings",
-  path: "/settings",
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => appAppRoute,
 } as any)
 const appAppGamesRoute = appAppGamesRouteImport.update({
-  id: "/games",
-  path: "/games",
+  id: '/games',
+  path: '/games',
+  getParentRoute: () => appAppRoute,
+} as any)
+const appAppEditorRoute = appAppEditorRouteImport.update({
+  id: '/editor',
+  path: '/editor',
+  getParentRoute: () => appAppRoute,
+} as any)
+const appAppLibraryIndexRoute = appAppLibraryIndexRouteImport.update({
+  id: '/library/',
+  path: '/library/',
   getParentRoute: () => appAppRoute,
 } as any)
 const appAppUUsernameRoute = appAppUUsernameRouteImport.update({
-  id: "/u/$username",
-  path: "/u/$username",
+  id: '/u/$username',
+  path: '/u/$username',
+  getParentRoute: () => appAppRoute,
+} as any)
+const appAppTagsTagRoute = appAppTagsTagRouteImport.update({
+  id: '/tags/$tag',
+  path: '/tags/$tag',
+  getParentRoute: () => appAppRoute,
+} as any)
+const appAppLibraryCaptureIdRoute = appAppLibraryCaptureIdRouteImport.update({
+  id: '/library/$captureId',
+  path: '/library/$captureId',
   getParentRoute: () => appAppRoute,
 } as any)
 const appAppGSlugRoute = appAppGSlugRouteImport.update({
-  id: "/g/$slug",
-  path: "/g/$slug",
+  id: '/g/$slug',
+  path: '/g/$slug',
   getParentRoute: () => appAppRoute,
 } as any)
 const appAppUUsernameIndexRoute = appAppUUsernameIndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => appAppUUsernameRoute,
 } as any)
 const appAppUUsernameTaggedRoute = appAppUUsernameTaggedRouteImport.update({
-  id: "/tagged",
-  path: "/tagged",
+  id: '/tagged',
+  path: '/tagged',
   getParentRoute: () => appAppUUsernameRoute,
 } as any)
 const appAppUUsernameLikedRoute = appAppUUsernameLikedRouteImport.update({
-  id: "/liked",
-  path: "/liked",
+  id: '/liked',
+  path: '/liked',
   getParentRoute: () => appAppUUsernameRoute,
 } as any)
 const appAppUUsernameFeedRoute = appAppUUsernameFeedRouteImport.update({
-  id: "/feed",
-  path: "/feed",
+  id: '/feed',
+  path: '/feed',
   getParentRoute: () => appAppUUsernameRoute,
 } as any)
 const appAppUUsernameAllRoute = appAppUUsernameAllRouteImport.update({
-  id: "/all",
-  path: "/all",
+  id: '/all',
+  path: '/all',
   getParentRoute: () => appAppUUsernameRoute,
 } as any)
+const appAppLibraryCClipIdRoute = appAppLibraryCClipIdRouteImport.update({
+  id: '/library/c/$clipId',
+  path: '/library/c/$clipId',
+  getParentRoute: () => appAppRoute,
+} as any)
 const appAppGSlugCClipIdRoute = appAppGSlugCClipIdRouteImport.update({
-  id: "/c/$clipId",
-  path: "/c/$clipId",
+  id: '/c/$clipId',
+  path: '/c/$clipId',
   getParentRoute: () => appAppGSlugRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  "/login": typeof authLoginRoute
-  "/setup": typeof authSetupRoute
-  "/sign-up": typeof authSignUpRoute
-  "/games": typeof appAppGamesRoute
-  "/settings": typeof appAppSettingsRoute
-  "/": typeof appAppIndexRoute
-  "/g/$slug": typeof appAppGSlugRouteWithChildren
-  "/u/$username": typeof appAppUUsernameRouteWithChildren
-  "/u/$username/all": typeof appAppUUsernameAllRoute
-  "/u/$username/feed": typeof appAppUUsernameFeedRoute
-  "/u/$username/liked": typeof appAppUUsernameLikedRoute
-  "/u/$username/tagged": typeof appAppUUsernameTaggedRoute
-  "/u/$username/": typeof appAppUUsernameIndexRoute
-  "/g/$slug/c/$clipId": typeof appAppGSlugCClipIdRoute
+  '/login': typeof authLoginRoute
+  '/setup': typeof authSetupRoute
+  '/sign-up': typeof authSignUpRoute
+  '/editor': typeof appAppEditorRoute
+  '/games': typeof appAppGamesRoute
+  '/settings': typeof appAppSettingsRoute
+  '/': typeof appAppIndexRoute
+  '/g/$slug': typeof appAppGSlugRouteWithChildren
+  '/library/$captureId': typeof appAppLibraryCaptureIdRoute
+  '/tags/$tag': typeof appAppTagsTagRoute
+  '/u/$username': typeof appAppUUsernameRouteWithChildren
+  '/library/': typeof appAppLibraryIndexRoute
+  '/library/c/$clipId': typeof appAppLibraryCClipIdRoute
+  '/u/$username/all': typeof appAppUUsernameAllRoute
+  '/u/$username/feed': typeof appAppUUsernameFeedRoute
+  '/u/$username/liked': typeof appAppUUsernameLikedRoute
+  '/u/$username/tagged': typeof appAppUUsernameTaggedRoute
+  '/u/$username/': typeof appAppUUsernameIndexRoute
+  '/g/$slug/c/$clipId': typeof appAppGSlugCClipIdRoute
 }
 export interface FileRoutesByTo {
-  "/login": typeof authLoginRoute
-  "/setup": typeof authSetupRoute
-  "/sign-up": typeof authSignUpRoute
-  "/games": typeof appAppGamesRoute
-  "/settings": typeof appAppSettingsRoute
-  "/": typeof appAppIndexRoute
-  "/g/$slug": typeof appAppGSlugRouteWithChildren
-  "/u/$username/all": typeof appAppUUsernameAllRoute
-  "/u/$username/feed": typeof appAppUUsernameFeedRoute
-  "/u/$username/liked": typeof appAppUUsernameLikedRoute
-  "/u/$username/tagged": typeof appAppUUsernameTaggedRoute
-  "/u/$username": typeof appAppUUsernameIndexRoute
-  "/g/$slug/c/$clipId": typeof appAppGSlugCClipIdRoute
+  '/login': typeof authLoginRoute
+  '/setup': typeof authSetupRoute
+  '/sign-up': typeof authSignUpRoute
+  '/editor': typeof appAppEditorRoute
+  '/games': typeof appAppGamesRoute
+  '/settings': typeof appAppSettingsRoute
+  '/': typeof appAppIndexRoute
+  '/g/$slug': typeof appAppGSlugRouteWithChildren
+  '/library/$captureId': typeof appAppLibraryCaptureIdRoute
+  '/tags/$tag': typeof appAppTagsTagRoute
+  '/library': typeof appAppLibraryIndexRoute
+  '/library/c/$clipId': typeof appAppLibraryCClipIdRoute
+  '/u/$username/all': typeof appAppUUsernameAllRoute
+  '/u/$username/feed': typeof appAppUUsernameFeedRoute
+  '/u/$username/liked': typeof appAppUUsernameLikedRoute
+  '/u/$username/tagged': typeof appAppUUsernameTaggedRoute
+  '/u/$username': typeof appAppUUsernameIndexRoute
+  '/g/$slug/c/$clipId': typeof appAppGSlugCClipIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  "/(app)/_app": typeof appAppRouteWithChildren
-  "/(auth)/login": typeof authLoginRoute
-  "/(auth)/setup": typeof authSetupRoute
-  "/(auth)/sign-up": typeof authSignUpRoute
-  "/(app)/_app/games": typeof appAppGamesRoute
-  "/(app)/_app/settings": typeof appAppSettingsRoute
-  "/(app)/_app/": typeof appAppIndexRoute
-  "/(app)/_app/g/$slug": typeof appAppGSlugRouteWithChildren
-  "/(app)/_app/u/$username": typeof appAppUUsernameRouteWithChildren
-  "/(app)/_app/u/$username/all": typeof appAppUUsernameAllRoute
-  "/(app)/_app/u/$username/feed": typeof appAppUUsernameFeedRoute
-  "/(app)/_app/u/$username/liked": typeof appAppUUsernameLikedRoute
-  "/(app)/_app/u/$username/tagged": typeof appAppUUsernameTaggedRoute
-  "/(app)/_app/u/$username/": typeof appAppUUsernameIndexRoute
-  "/(app)/_app/g/$slug/c/$clipId": typeof appAppGSlugCClipIdRoute
+  '/(app)/_app': typeof appAppRouteWithChildren
+  '/(auth)/login': typeof authLoginRoute
+  '/(auth)/setup': typeof authSetupRoute
+  '/(auth)/sign-up': typeof authSignUpRoute
+  '/(app)/_app/editor': typeof appAppEditorRoute
+  '/(app)/_app/games': typeof appAppGamesRoute
+  '/(app)/_app/settings': typeof appAppSettingsRoute
+  '/(app)/_app/': typeof appAppIndexRoute
+  '/(app)/_app/g/$slug': typeof appAppGSlugRouteWithChildren
+  '/(app)/_app/library/$captureId': typeof appAppLibraryCaptureIdRoute
+  '/(app)/_app/tags/$tag': typeof appAppTagsTagRoute
+  '/(app)/_app/u/$username': typeof appAppUUsernameRouteWithChildren
+  '/(app)/_app/library/': typeof appAppLibraryIndexRoute
+  '/(app)/_app/library/c/$clipId': typeof appAppLibraryCClipIdRoute
+  '/(app)/_app/u/$username/all': typeof appAppUUsernameAllRoute
+  '/(app)/_app/u/$username/feed': typeof appAppUUsernameFeedRoute
+  '/(app)/_app/u/$username/liked': typeof appAppUUsernameLikedRoute
+  '/(app)/_app/u/$username/tagged': typeof appAppUUsernameTaggedRoute
+  '/(app)/_app/u/$username/': typeof appAppUUsernameIndexRoute
+  '/(app)/_app/g/$slug/c/$clipId': typeof appAppGSlugCClipIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | "/login"
-    | "/setup"
-    | "/sign-up"
-    | "/games"
-    | "/settings"
-    | "/"
-    | "/g/$slug"
-    | "/u/$username"
-    | "/u/$username/all"
-    | "/u/$username/feed"
-    | "/u/$username/liked"
-    | "/u/$username/tagged"
-    | "/u/$username/"
-    | "/g/$slug/c/$clipId"
+    | '/login'
+    | '/setup'
+    | '/sign-up'
+    | '/editor'
+    | '/games'
+    | '/settings'
+    | '/'
+    | '/g/$slug'
+    | '/library/$captureId'
+    | '/tags/$tag'
+    | '/u/$username'
+    | '/library/'
+    | '/library/c/$clipId'
+    | '/u/$username/all'
+    | '/u/$username/feed'
+    | '/u/$username/liked'
+    | '/u/$username/tagged'
+    | '/u/$username/'
+    | '/g/$slug/c/$clipId'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | "/login"
-    | "/setup"
-    | "/sign-up"
-    | "/games"
-    | "/settings"
-    | "/"
-    | "/g/$slug"
-    | "/u/$username/all"
-    | "/u/$username/feed"
-    | "/u/$username/liked"
-    | "/u/$username/tagged"
-    | "/u/$username"
-    | "/g/$slug/c/$clipId"
+    | '/login'
+    | '/setup'
+    | '/sign-up'
+    | '/editor'
+    | '/games'
+    | '/settings'
+    | '/'
+    | '/g/$slug'
+    | '/library/$captureId'
+    | '/tags/$tag'
+    | '/library'
+    | '/library/c/$clipId'
+    | '/u/$username/all'
+    | '/u/$username/feed'
+    | '/u/$username/liked'
+    | '/u/$username/tagged'
+    | '/u/$username'
+    | '/g/$slug/c/$clipId'
   id:
-    | "__root__"
-    | "/(app)/_app"
-    | "/(auth)/login"
-    | "/(auth)/setup"
-    | "/(auth)/sign-up"
-    | "/(app)/_app/games"
-    | "/(app)/_app/settings"
-    | "/(app)/_app/"
-    | "/(app)/_app/g/$slug"
-    | "/(app)/_app/u/$username"
-    | "/(app)/_app/u/$username/all"
-    | "/(app)/_app/u/$username/feed"
-    | "/(app)/_app/u/$username/liked"
-    | "/(app)/_app/u/$username/tagged"
-    | "/(app)/_app/u/$username/"
-    | "/(app)/_app/g/$slug/c/$clipId"
+    | '__root__'
+    | '/(app)/_app'
+    | '/(auth)/login'
+    | '/(auth)/setup'
+    | '/(auth)/sign-up'
+    | '/(app)/_app/editor'
+    | '/(app)/_app/games'
+    | '/(app)/_app/settings'
+    | '/(app)/_app/'
+    | '/(app)/_app/g/$slug'
+    | '/(app)/_app/library/$captureId'
+    | '/(app)/_app/tags/$tag'
+    | '/(app)/_app/u/$username'
+    | '/(app)/_app/library/'
+    | '/(app)/_app/library/c/$clipId'
+    | '/(app)/_app/u/$username/all'
+    | '/(app)/_app/u/$username/feed'
+    | '/(app)/_app/u/$username/liked'
+    | '/(app)/_app/u/$username/tagged'
+    | '/(app)/_app/u/$username/'
+    | '/(app)/_app/g/$slug/c/$clipId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -207,110 +267,145 @@ export interface RootRouteChildren {
   authSignUpRoute: typeof authSignUpRoute
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/(auth)/sign-up": {
-      id: "/(auth)/sign-up"
-      path: "/sign-up"
-      fullPath: "/sign-up"
+    '/(auth)/sign-up': {
+      id: '/(auth)/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
       preLoaderRoute: typeof authSignUpRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/(auth)/setup": {
-      id: "/(auth)/setup"
-      path: "/setup"
-      fullPath: "/setup"
+    '/(auth)/setup': {
+      id: '/(auth)/setup'
+      path: '/setup'
+      fullPath: '/setup'
       preLoaderRoute: typeof authSetupRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/(auth)/login": {
-      id: "/(auth)/login"
-      path: "/login"
-      fullPath: "/login"
+    '/(auth)/login': {
+      id: '/(auth)/login'
+      path: '/login'
+      fullPath: '/login'
       preLoaderRoute: typeof authLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/(app)/_app": {
-      id: "/(app)/_app"
-      path: ""
-      fullPath: ""
+    '/(app)/_app': {
+      id: '/(app)/_app'
+      path: ''
+      fullPath: ''
       preLoaderRoute: typeof appAppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/(app)/_app/": {
-      id: "/(app)/_app/"
-      path: "/"
-      fullPath: "/"
+    '/(app)/_app/': {
+      id: '/(app)/_app/'
+      path: '/'
+      fullPath: '/'
       preLoaderRoute: typeof appAppIndexRouteImport
       parentRoute: typeof appAppRoute
     }
-    "/(app)/_app/settings": {
-      id: "/(app)/_app/settings"
-      path: "/settings"
-      fullPath: "/settings"
+    '/(app)/_app/settings': {
+      id: '/(app)/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
       preLoaderRoute: typeof appAppSettingsRouteImport
       parentRoute: typeof appAppRoute
     }
-    "/(app)/_app/games": {
-      id: "/(app)/_app/games"
-      path: "/games"
-      fullPath: "/games"
+    '/(app)/_app/games': {
+      id: '/(app)/_app/games'
+      path: '/games'
+      fullPath: '/games'
       preLoaderRoute: typeof appAppGamesRouteImport
       parentRoute: typeof appAppRoute
     }
-    "/(app)/_app/u/$username": {
-      id: "/(app)/_app/u/$username"
-      path: "/u/$username"
-      fullPath: "/u/$username"
+    '/(app)/_app/editor': {
+      id: '/(app)/_app/editor'
+      path: '/editor'
+      fullPath: '/editor'
+      preLoaderRoute: typeof appAppEditorRouteImport
+      parentRoute: typeof appAppRoute
+    }
+    '/(app)/_app/library/': {
+      id: '/(app)/_app/library/'
+      path: '/library'
+      fullPath: '/library/'
+      preLoaderRoute: typeof appAppLibraryIndexRouteImport
+      parentRoute: typeof appAppRoute
+    }
+    '/(app)/_app/u/$username': {
+      id: '/(app)/_app/u/$username'
+      path: '/u/$username'
+      fullPath: '/u/$username'
       preLoaderRoute: typeof appAppUUsernameRouteImport
       parentRoute: typeof appAppRoute
     }
-    "/(app)/_app/g/$slug": {
-      id: "/(app)/_app/g/$slug"
-      path: "/g/$slug"
-      fullPath: "/g/$slug"
+    '/(app)/_app/tags/$tag': {
+      id: '/(app)/_app/tags/$tag'
+      path: '/tags/$tag'
+      fullPath: '/tags/$tag'
+      preLoaderRoute: typeof appAppTagsTagRouteImport
+      parentRoute: typeof appAppRoute
+    }
+    '/(app)/_app/library/$captureId': {
+      id: '/(app)/_app/library/$captureId'
+      path: '/library/$captureId'
+      fullPath: '/library/$captureId'
+      preLoaderRoute: typeof appAppLibraryCaptureIdRouteImport
+      parentRoute: typeof appAppRoute
+    }
+    '/(app)/_app/g/$slug': {
+      id: '/(app)/_app/g/$slug'
+      path: '/g/$slug'
+      fullPath: '/g/$slug'
       preLoaderRoute: typeof appAppGSlugRouteImport
       parentRoute: typeof appAppRoute
     }
-    "/(app)/_app/u/$username/": {
-      id: "/(app)/_app/u/$username/"
-      path: "/"
-      fullPath: "/u/$username/"
+    '/(app)/_app/u/$username/': {
+      id: '/(app)/_app/u/$username/'
+      path: '/'
+      fullPath: '/u/$username/'
       preLoaderRoute: typeof appAppUUsernameIndexRouteImport
       parentRoute: typeof appAppUUsernameRoute
     }
-    "/(app)/_app/u/$username/tagged": {
-      id: "/(app)/_app/u/$username/tagged"
-      path: "/tagged"
-      fullPath: "/u/$username/tagged"
+    '/(app)/_app/u/$username/tagged': {
+      id: '/(app)/_app/u/$username/tagged'
+      path: '/tagged'
+      fullPath: '/u/$username/tagged'
       preLoaderRoute: typeof appAppUUsernameTaggedRouteImport
       parentRoute: typeof appAppUUsernameRoute
     }
-    "/(app)/_app/u/$username/liked": {
-      id: "/(app)/_app/u/$username/liked"
-      path: "/liked"
-      fullPath: "/u/$username/liked"
+    '/(app)/_app/u/$username/liked': {
+      id: '/(app)/_app/u/$username/liked'
+      path: '/liked'
+      fullPath: '/u/$username/liked'
       preLoaderRoute: typeof appAppUUsernameLikedRouteImport
       parentRoute: typeof appAppUUsernameRoute
     }
-    "/(app)/_app/u/$username/feed": {
-      id: "/(app)/_app/u/$username/feed"
-      path: "/feed"
-      fullPath: "/u/$username/feed"
+    '/(app)/_app/u/$username/feed': {
+      id: '/(app)/_app/u/$username/feed'
+      path: '/feed'
+      fullPath: '/u/$username/feed'
       preLoaderRoute: typeof appAppUUsernameFeedRouteImport
       parentRoute: typeof appAppUUsernameRoute
     }
-    "/(app)/_app/u/$username/all": {
-      id: "/(app)/_app/u/$username/all"
-      path: "/all"
-      fullPath: "/u/$username/all"
+    '/(app)/_app/u/$username/all': {
+      id: '/(app)/_app/u/$username/all'
+      path: '/all'
+      fullPath: '/u/$username/all'
       preLoaderRoute: typeof appAppUUsernameAllRouteImport
       parentRoute: typeof appAppUUsernameRoute
     }
-    "/(app)/_app/g/$slug/c/$clipId": {
-      id: "/(app)/_app/g/$slug/c/$clipId"
-      path: "/c/$clipId"
-      fullPath: "/g/$slug/c/$clipId"
+    '/(app)/_app/library/c/$clipId': {
+      id: '/(app)/_app/library/c/$clipId'
+      path: '/library/c/$clipId'
+      fullPath: '/library/c/$clipId'
+      preLoaderRoute: typeof appAppLibraryCClipIdRouteImport
+      parentRoute: typeof appAppRoute
+    }
+    '/(app)/_app/g/$slug/c/$clipId': {
+      id: '/(app)/_app/g/$slug/c/$clipId'
+      path: '/c/$clipId'
+      fullPath: '/g/$slug/c/$clipId'
       preLoaderRoute: typeof appAppGSlugCClipIdRouteImport
       parentRoute: typeof appAppGSlugRoute
     }
@@ -350,19 +445,29 @@ const appAppUUsernameRouteWithChildren = appAppUUsernameRoute._addFileChildren(
 )
 
 interface appAppRouteChildren {
+  appAppEditorRoute: typeof appAppEditorRoute
   appAppGamesRoute: typeof appAppGamesRoute
   appAppSettingsRoute: typeof appAppSettingsRoute
   appAppIndexRoute: typeof appAppIndexRoute
   appAppGSlugRoute: typeof appAppGSlugRouteWithChildren
+  appAppLibraryCaptureIdRoute: typeof appAppLibraryCaptureIdRoute
+  appAppTagsTagRoute: typeof appAppTagsTagRoute
   appAppUUsernameRoute: typeof appAppUUsernameRouteWithChildren
+  appAppLibraryIndexRoute: typeof appAppLibraryIndexRoute
+  appAppLibraryCClipIdRoute: typeof appAppLibraryCClipIdRoute
 }
 
 const appAppRouteChildren: appAppRouteChildren = {
+  appAppEditorRoute: appAppEditorRoute,
   appAppGamesRoute: appAppGamesRoute,
   appAppSettingsRoute: appAppSettingsRoute,
   appAppIndexRoute: appAppIndexRoute,
   appAppGSlugRoute: appAppGSlugRouteWithChildren,
+  appAppLibraryCaptureIdRoute: appAppLibraryCaptureIdRoute,
+  appAppTagsTagRoute: appAppTagsTagRoute,
   appAppUUsernameRoute: appAppUUsernameRouteWithChildren,
+  appAppLibraryIndexRoute: appAppLibraryIndexRoute,
+  appAppLibraryCClipIdRoute: appAppLibraryCClipIdRoute,
 }
 
 const appAppRouteWithChildren =

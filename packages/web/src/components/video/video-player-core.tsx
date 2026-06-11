@@ -268,7 +268,8 @@ export function PlayerCore({
     () => ({
       play: () => playInternal(),
       pause: () => pauseInternal(),
-      seek: (seconds: number) => seekInternal(seconds),
+      seek: (seconds: number, keepPlaying?: boolean) =>
+        seekInternal(seconds, keepPlaying),
       getCurrentTime: () => videoRef.current?.currentTime ?? 0,
       getDuration: () => {
         const value = videoRef.current?.duration ?? 0
@@ -532,6 +533,7 @@ export function PlayerCore({
       poster={poster}
       posterBlurHash={posterBlurHash}
       fallbackSeed={fallbackSeed ?? identity}
+      placeholderVisible={!hasRenderedFrame}
       posterVisible={posterVisible}
       autoPlay={autoPlay}
       loop={loop}

@@ -43,19 +43,6 @@ function adminRuntimeConfig() {
       defaultStorageQuotaBytes: null,
       uploadTtlSec: 900,
     },
-    machineLearning: {
-      enabled: false,
-      baseUrl: "http://localhost:2662",
-      requestTimeoutMs: 60_000,
-      gameClassifier: {
-        modelName: "model",
-        modelVersion: null,
-        repoId: "repo",
-        filename: "checkpoint.onnx",
-        revision: "main",
-        checkpointPath: null,
-      },
-    },
     appearance: {
       loginSplash: {
         enabled: false,

@@ -103,7 +103,6 @@ export function AllClipsSection({
         username={username}
         sort={sort}
         gameSlug={gameSlug}
-        selectedGame={selectedGame}
         gameOptions={gameOptions}
       />
 

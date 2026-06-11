@@ -25,6 +25,26 @@ const recording: AlloyDesktopRecordingApi = {
     ipcRenderer.invoke(IPC.setRecordingSettings, settings),
   getStatus: () => ipcRenderer.invoke(IPC.getRecordingStatus),
   getStorageInfo: () => ipcRenderer.invoke(IPC.getRecordingStorageInfo),
+  getLibrary: () => ipcRenderer.invoke(IPC.getRecordingLibrary),
+  openLibraryFolder: () => ipcRenderer.invoke(IPC.openRecordingLibraryFolder),
+  openLibraryCapture: (id) =>
+    ipcRenderer.invoke(IPC.openRecordingLibraryCapture, id),
+  revealLibraryCapture: (id) =>
+    ipcRenderer.invoke(IPC.revealRecordingLibraryCapture, id),
+  exportLibraryCapture: (request) =>
+    ipcRenderer.invoke(IPC.exportRecordingLibraryCapture, request),
+  libraryCaptureKeyframes: (id) =>
+    ipcRenderer.invoke(IPC.getRecordingLibraryCaptureKeyframes, id),
+  updateLibraryCapture: (patch) =>
+    ipcRenderer.invoke(IPC.updateRecordingLibraryCapture, patch),
+  saveLibraryProjectDraft: (request) =>
+    ipcRenderer.invoke(IPC.saveRecordingLibraryProjectDraft, request),
+  deleteLibraryProjectDraft: (id) =>
+    ipcRenderer.invoke(IPC.deleteRecordingLibraryProjectDraft, id),
+  deleteLibraryCapture: (id) =>
+    ipcRenderer.invoke(IPC.deleteRecordingLibraryCapture, id),
+  importLibraryCapture: (request) =>
+    ipcRenderer.invoke(IPC.importRecordingLibraryCapture, request),
   onEvent: (listener) => {
     const handler = (_event: unknown, event: unknown) => {
       listener(event as Parameters<typeof listener>[0])
@@ -58,6 +78,8 @@ const marker: AlloyDesktopMarker = {
   minimizeWindow: () => ipcRenderer.invoke(IPC.minimizeWindow),
   toggleMaximizeWindow: () => ipcRenderer.invoke(IPC.toggleMaximizeWindow),
   closeWindow: () => ipcRenderer.invoke(IPC.closeWindow),
+  openConnect: () => ipcRenderer.invoke(IPC.openConnect),
+  openLibrary: () => ipcRenderer.invoke(IPC.openLibrary),
   openSettings: () => ipcRenderer.invoke(IPC.openSettings),
   servers,
   recording,

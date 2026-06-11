@@ -164,6 +164,81 @@ async function collectTail(
   return output
 }
 
+/**
+ * Cuts `[startMs, endMs]` out of `srcPath` into an MP4 at `outPath` (must end
+ * in `.mp4` so ffmpeg picks the muxer). Tries a fast stream copy first and
+ * falls back to a re-encode when the container or codecs refuse to copy —
+ * the same strategy the desktop capture trimmer uses.
+ */
+export async function trimToMp4(
+  srcPath: string,
+  outPath: string,
+  opts: {
+    startMs: number
+    endMs: number
+    signal?: AbortSignal
+  },
+): Promise<void> {
+  const start = msToFfmpegTimestamp(opts.startMs)
+  const duration = msToFfmpegTimestamp(opts.endMs - opts.startMs)
+  const mapArgs = ["-map", "0:v:0", "-map", "0:a?"]
+
+  try {
+    await runWithProgress(
+      env.FFMPEG_BIN,
+      [
+        "-hide_banner",
+        "-y",
+        "-ss",
+        start,
+        "-i",
+        srcPath,
+        "-t",
+        duration,
+        ...mapArgs,
+        "-c",
+        "copy",
+        "-movflags",
+        "+faststart",
+        outPath,
+      ],
+      () => undefined,
+      { label: "trim (stream copy)", signal: opts.signal },
+    )
+  } catch (err) {
+    if (opts.signal?.aborted) throw err
+    await runWithProgress(
+      env.FFMPEG_BIN,
+      [
+        "-hide_banner",
+        "-y",
+        "-ss",
+        start,
+        "-i",
+        srcPath,
+        "-t",
+        duration,
+        ...mapArgs,
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "20",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "192k",
+        "-movflags",
+        "+faststart",
+        outPath,
+      ],
+      () => undefined,
+      { label: "trim (re-encode)", signal: opts.signal },
+    )
+  }
+}
+
 export async function thumbnail(
   srcPath: string,
   outPath: string,

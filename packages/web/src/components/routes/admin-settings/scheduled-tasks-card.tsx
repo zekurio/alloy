@@ -6,14 +6,18 @@ import type {
   AdminScheduledTasksResponse,
 } from "alloy-api"
 import { Button } from "alloy-ui/components/button"
-import { Input } from "alloy-ui/components/input"
 import {
-  Section,
-  SectionContent,
-  SectionFooter,
-  SectionHeader,
-  SectionTitle,
-} from "alloy-ui/components/section"
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "alloy-ui/components/dialog"
+import { Input } from "alloy-ui/components/input"
+import { List, ListItem } from "alloy-ui/components/list"
 import {
   Select,
   SelectContent,
@@ -24,6 +28,7 @@ import {
 import { Spinner } from "alloy-ui/components/spinner"
 import { toast } from "alloy-ui/lib/toast"
 import {
+  CalendarClockIcon,
   PlayIcon,
   PlusIcon,
   RotateCcwIcon,
@@ -103,6 +108,22 @@ function humanizeResultKey(key: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
+function describeTrigger(trigger: AdminScheduledTaskTrigger): string {
+  if (trigger.type === "startup") {
+    const seconds = Math.round((trigger.delayMs ?? 0) / 1_000)
+    return seconds > 0 ? `On startup (+${seconds}s)` : "On startup"
+  }
+  const preset = CRON_PRESETS.find(
+    (entry) => entry.expression === trigger.expression,
+  )
+  return preset?.label ?? (trigger.expression.trim() || "Custom cron")
+}
+
+function summarizeTriggers(triggers: AdminScheduledTaskTrigger[]): string {
+  if (triggers.length === 0) return "Manual only"
+  return triggers.map(describeTrigger).join(" · ")
+}
+
 function normalizeTriggers(
   triggers: AdminScheduledTaskTrigger[],
 ): AdminScheduledTaskTrigger[] | null {
@@ -159,7 +180,7 @@ function StatusBadge({ task }: { task: AdminScheduledTaskInfo }) {
 
   return (
     <span
-      className={`inline-flex h-6 items-center rounded-full border px-2 text-xs font-medium ${tone}`}
+      className={`inline-flex h-5 items-center rounded-full border px-2 text-[11px] font-medium ${tone}`}
     >
       {task.state === "running" ? "Running" : (task.lastStatus ?? "Idle")}
     </span>
@@ -173,18 +194,16 @@ function TaskResult({ result }: { result: AdminScheduledTaskResult | null }) {
   const entries = Object.entries(result).filter(
     ([, value]) => typeof value !== "number" || value !== 0,
   )
-  if (entries.length === 0) {
-    return <span className="text-foreground-dim text-xs">No changes</span>
-  }
+  if (entries.length === 0) return null
   return (
-    <div className="text-foreground-muted flex flex-wrap gap-x-3 gap-y-1 text-xs">
+    <>
       {entries.map(([key, value]) => (
         <span key={key}>
           <span className="text-foreground-dim">{humanizeResultKey(key)}:</span>{" "}
           {String(value)}
         </span>
       ))}
-    </div>
+    </>
   )
 }
 
@@ -361,7 +380,113 @@ function AddTriggerButtons({
   )
 }
 
-function ScheduledTaskEditor({
+function ScheduleDialog({
+  task,
+  draft,
+  saving,
+  onDraftChange,
+  onReset,
+  onSave,
+}: {
+  task: AdminScheduledTaskInfo
+  draft: AdminScheduledTaskTrigger[]
+  saving: boolean
+  onDraftChange: (triggers: AdminScheduledTaskTrigger[]) => void
+  onReset: () => void
+  onSave: () => Promise<boolean>
+}) {
+  const [open, setOpen] = React.useState(false)
+  const isDirty = !sameTriggers(draft, task.triggers)
+
+  function handleOpenChange(next: boolean) {
+    // Start each editing session from the saved schedule so abandoned edits
+    // don't linger the next time the dialog is opened.
+    if (next) onReset()
+    setOpen(next)
+  }
+
+  function setTrigger(index: number, next: AdminScheduledTaskTrigger) {
+    onDraftChange(draft.map((trigger, i) => (i === index ? next : trigger)))
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (await onSave()) setOpen(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger
+        render={
+          <Button type="button" variant="outline" size="sm">
+            <CalendarClockIcon />
+            Schedule
+          </Button>
+        }
+      />
+      <DialogContent variant="secondary" className="max-w-[560px]">
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>{task.name}</DialogTitle>
+            <DialogDescription>
+              Choose when this task runs automatically.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogBody className="flex flex-col gap-3">
+            {draft.length === 0 ? (
+              <p className="text-foreground-dim text-sm">
+                No triggers yet. Add one below to run this task automatically.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {draft.map((trigger, index) => (
+                  <TriggerRow
+                    key={index}
+                    id={task.id}
+                    index={index}
+                    trigger={trigger}
+                    disabled={saving}
+                    onChange={(next) => setTrigger(index, next)}
+                    onRemove={() =>
+                      onDraftChange(draft.filter((_, i) => i !== index))
+                    }
+                  />
+                ))}
+              </div>
+            )}
+            <AddTriggerButtons
+              disabled={saving}
+              onAdd={(trigger) => onDraftChange([...draft, trigger])}
+            />
+          </DialogBody>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={saving || !isDirty}
+              onClick={onReset}
+            >
+              <RotateCcwIcon />
+              Reset
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={saving || !isDirty}
+            >
+              <SaveIcon />
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function ScheduledTaskRow({
   task,
   draft,
   saving,
@@ -377,117 +502,59 @@ function ScheduledTaskEditor({
   running: boolean
   onDraftChange: (triggers: AdminScheduledTaskTrigger[]) => void
   onRun: () => void
-  onSave: () => void
+  onSave: () => Promise<boolean>
   onReset: () => void
 }) {
   const busy = saving || running
-  const isDirty = !sameTriggers(draft, task.triggers)
-
-  function setTrigger(index: number, next: AdminScheduledTaskTrigger) {
-    onDraftChange(draft.map((trigger, i) => (i === index ? next : trigger)))
-  }
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        onSave()
-      }}
-    >
-      <Section>
-        <SectionHeader>
-          <div className="min-w-0">
-            <SectionTitle>{task.name}</SectionTitle>
-            <p className="text-foreground-dim mt-1 text-sm">
-              {task.description}
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <StatusBadge task={task} />
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              disabled={busy || task.state === "running"}
-              onClick={onRun}
-            >
-              <PlayIcon />
-              {running ? "Starting…" : "Run"}
-            </Button>
-          </div>
-        </SectionHeader>
+    <ListItem className="items-start">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="truncate text-sm font-medium">{task.name}</span>
+          <StatusBadge task={task} />
+        </div>
+        <p className="text-foreground-dim mt-0.5 text-xs">{task.description}</p>
+        <div className="text-foreground-muted mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
+          <span>
+            <span className="text-foreground-dim">Last run:</span>{" "}
+            {formatDateTime(task.lastFinishedAt)}
+          </span>
+          {task.lastDurationMs !== null ? (
+            <span>
+              <span className="text-foreground-dim">Duration:</span>{" "}
+              {formatDuration(task.lastDurationMs)}
+            </span>
+          ) : null}
+          <TaskResult result={task.lastResult} />
+          <span>
+            <span className="text-foreground-dim">Schedule:</span>{" "}
+            {summarizeTriggers(task.triggers)}
+          </span>
+        </div>
+      </div>
 
-        <fieldset disabled={saving} className="contents">
-          <SectionContent className="flex flex-col gap-3">
-            <div className="text-foreground-muted flex flex-wrap gap-x-4 gap-y-1 text-xs">
-              <span>
-                <span className="text-foreground-dim">Last run:</span>{" "}
-                {formatDateTime(task.lastFinishedAt)}
-              </span>
-              <span>
-                <span className="text-foreground-dim">Duration:</span>{" "}
-                {formatDuration(task.lastDurationMs)}
-              </span>
-            </div>
-
-            <TaskResult result={task.lastResult} />
-
-            <div className="border-border flex flex-col gap-2 border-t pt-3">
-              <div className="text-foreground-dim text-xs">Triggers</div>
-              {draft.length === 0 ? (
-                <p className="text-foreground-dim text-sm">
-                  No triggers yet. Add one below to run this task automatically.
-                </p>
-              ) : (
-                draft.map((trigger, index) => (
-                  <TriggerRow
-                    key={index}
-                    id={task.id}
-                    index={index}
-                    trigger={trigger}
-                    disabled={saving}
-                    onChange={(next) => setTrigger(index, next)}
-                    onRemove={() =>
-                      onDraftChange(draft.filter((_, i) => i !== index))
-                    }
-                  />
-                ))
-              )}
-              <AddTriggerButtons
-                disabled={saving}
-                onAdd={(trigger) => onDraftChange([...draft, trigger])}
-              />
-            </div>
-          </SectionContent>
-
-          <SectionFooter>
-            <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
-              <Button
-                className="flex-1 sm:flex-initial"
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={saving || !isDirty}
-                onClick={onReset}
-              >
-                <RotateCcwIcon />
-                Reset
-              </Button>
-              <Button
-                className="flex-1 sm:flex-initial"
-                type="submit"
-                variant="primary"
-                size="sm"
-                disabled={saving || !isDirty}
-              >
-                <SaveIcon />
-                {saving ? "Saving…" : "Save"}
-              </Button>
-            </div>
-          </SectionFooter>
-        </fieldset>
-      </Section>
-    </form>
+      <div className="flex shrink-0 items-center gap-2">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={busy || task.state === "running"}
+          onClick={onRun}
+        >
+          <PlayIcon />
+          {running ? "Starting…" : "Run"}
+        </Button>
+        <ScheduleDialog
+          task={task}
+          draft={draft}
+          saving={saving}
+          onDraftChange={onDraftChange}
+          onReset={onReset}
+          onSave={onSave}
+        />
+      </div>
+    </ListItem>
   )
 }
 
@@ -550,11 +617,12 @@ export function ScheduledTasksCard() {
     }
   }
 
-  async function saveTask(task: AdminScheduledTaskInfo) {
-    if (savingId) return
+  async function saveTask(task: AdminScheduledTaskInfo): Promise<boolean> {
+    if (savingId) return false
     const draft = drafts[task.id] ?? task.triggers
     const triggers = normalizeTriggers(draft)
-    if (!triggers || sameTriggers(triggers, task.triggers)) return
+    if (!triggers) return false
+    if (sameTriggers(triggers, task.triggers)) return true
 
     setSavingId(task.id)
     try {
@@ -569,8 +637,10 @@ export function ScheduledTasksCard() {
       }))
       setScheduledTaskCache(queryClient, updated)
       toast.success("Scheduled task updated")
+      return true
     } catch (cause) {
       toast.error(errorMessage(cause, "Couldn't update scheduled task"))
+      return false
     } finally {
       setSavingId(null)
     }
@@ -600,9 +670,9 @@ export function ScheduledTasksCard() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <List>
       {tasks.map((task) => (
-        <ScheduledTaskEditor
+        <ScheduledTaskRow
           key={task.id}
           task={task}
           draft={drafts[task.id] ?? task.triggers}
@@ -612,7 +682,7 @@ export function ScheduledTasksCard() {
             setDrafts((current) => ({ ...current, [task.id]: triggers }))
           }
           onRun={() => void runTask(task)}
-          onSave={() => void saveTask(task)}
+          onSave={() => saveTask(task)}
           onReset={() =>
             setDrafts((current) => ({
               ...current,
@@ -621,6 +691,6 @@ export function ScheduledTasksCard() {
           }
         />
       ))}
-    </div>
+    </List>
   )
 }

@@ -38,6 +38,9 @@ import {
 } from "./validation"
 
 export const UsernameParam = z.object({ username: z.string().min(1) })
+export const UserTopClipsQuery = z.object({
+  limit: limitQueryParam(24, 5),
+})
 
 export const SearchQuery = z.object({
   q: requiredTrimmedString(64),
@@ -61,13 +64,12 @@ export const userSummarySelectShape = {
   id: user.id,
   username: user.username,
   displayUsername: user.displayUsername,
-  name: user.name,
   image: user.image,
 }
 
 type UserSummaryFields = Pick<
   typeof user.$inferSelect,
-  "id" | "username" | "displayUsername" | "name" | "image"
+  "id" | "username" | "displayUsername" | "image"
 >
 
 export function serialiseUserSummary(row: UserSummaryFields): UserSummary {
@@ -75,7 +77,6 @@ export function serialiseUserSummary(row: UserSummaryFields): UserSummary {
     id: row.id,
     username: row.username,
     displayUsername: row.displayUsername,
-    name: row.name,
     image: row.image,
   }
 }
@@ -84,7 +85,6 @@ export function serialiseNullableUserSummary(row: {
   id: string | null
   username: string | null
   displayUsername: string | null
-  name: string | null
   image: string | null
 }): UserSummary | null {
   if (!row.id) return null
@@ -92,7 +92,6 @@ export function serialiseNullableUserSummary(row: {
     id: row.id,
     username: row.username ?? "",
     displayUsername: row.displayUsername ?? "",
-    name: row.name ?? "",
     image: row.image,
   })
 }
@@ -119,11 +118,7 @@ export async function searchVisibleUsers({
   const pattern = toLikePattern(q.trim())
   const conditions: SQL[] = [
     requiredSql(
-      or(
-        ilike(user.name, pattern),
-        ilike(user.displayUsername, pattern),
-        ilike(user.username, pattern),
-      ),
+      or(ilike(user.displayUsername, pattern), ilike(user.username, pattern)),
       "user search text filter",
     ),
   ]
@@ -164,9 +159,10 @@ export function toPublicUser(row: UserRow): PublicUser {
   return {
     id: row.id,
     username: row.username,
-    name: row.name ?? "",
     image: row.image,
     banner: row.banner,
+    background: row.background,
+    accentColor: row.accentColor,
     createdAt: isoDate(row.createdAt),
     updatedAt: isoDate(row.updatedAt),
   }
@@ -197,6 +193,33 @@ export async function listUserClips(row: UserRow, headers: Headers) {
     .where(and(...conditions))
     .orderBy(desc(clip.createdAt))
     .limit(50)
+  return rows.map(toPublicClipRow)
+}
+
+export async function listUserTopClips(
+  row: UserRow,
+  { limit }: z.infer<typeof UserTopClipsQuery>,
+) {
+  const rows = await db
+    .select(clipSelectShape)
+    .from(clip)
+    .innerJoin(user, eq(clip.authorId, user.id))
+    .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
+    .where(
+      and(
+        eq(clip.authorId, row.id),
+        eq(clip.status, "ready"),
+        eq(clip.privacy, "public"),
+        isNull(user.disabledAt),
+      ),
+    )
+    .orderBy(
+      desc(clip.viewCount),
+      desc(clip.likeCount),
+      desc(clip.createdAt),
+      clip.id,
+    )
+    .limit(limit)
   return rows.map(toPublicClipRow)
 }
 

@@ -116,7 +116,7 @@ function AppBottomNav({ className, ...props }: React.ComponentProps<"nav">) {
     <nav
       data-slot="app-bottom-nav"
       className={cn(
-        "relative z-10 grid grid-cols-5 items-stretch gap-1",
+        "relative z-10 grid grid-flow-col auto-cols-fr items-stretch gap-1",
         "h-full border-t border-border bg-surface-sunken",
         "px-2 pb-[env(safe-area-inset-bottom,0px)]",
         className,

@@ -1,29 +1,24 @@
-import { Link, useRouterState } from "@tanstack/react-router"
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
 import {
   AppBottomNav,
   AppBottomNavItem,
   AppSidebar,
+  AppSidebarFooter,
   AppSidebarGroup,
   AppSidebarItem,
 } from "alloy-ui/components/app-sidebar"
-import {
-  BellIcon,
-  GamepadIcon,
-  HomeIcon,
-  LibraryIcon,
-  PlusIcon,
-} from "lucide-react"
+import { GamepadIcon, HomeIcon, LibraryIcon, SettingsIcon } from "lucide-react"
 import * as React from "react"
 
-import { NotificationCenter } from "@/components/app/notification-center"
-import { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
-import { parseProfilePathname } from "@/lib/profile-path"
+import { DEFAULT_SETTINGS_SECTION } from "@/components/routes/settings/settings-categories"
+import type { AppSearch } from "@/lib/app-search"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
 interface NavFlags {
   isHome: boolean
   isGames: boolean
-  profileHandle: string | null
+  isLibrary: boolean
+  isSettings: boolean
 }
 
 function useNavFlags(): NavFlags {
@@ -33,22 +28,26 @@ function useNavFlags(): NavFlags {
       isGames:
         s.location.pathname === "/games" ||
         s.location.pathname.startsWith("/g/"),
-      profileHandle:
-        parseProfilePathname(s.location.pathname)?.username ?? null,
+      isLibrary:
+        s.location.pathname === "/library" ||
+        s.location.pathname.startsWith("/library/"),
+      isSettings: Boolean((s.location.search as AppSearch).settings),
     }),
     structuralSharing: true,
   })
 }
 
-function isOwnProfilePath(
-  routeProfileHandle: string | null,
-  sessionProfileHandle: string | null,
-): boolean {
-  return (
-    !!routeProfileHandle &&
-    !!sessionProfileHandle &&
-    routeProfileHandle.toLowerCase() === sessionProfileHandle.toLowerCase()
-  )
+function useOpenSettings() {
+  const navigate = useNavigate()
+  return React.useCallback(() => {
+    void navigate({
+      to: ".",
+      search: (prev: AppSearch) => ({
+        ...prev,
+        settings: DEFAULT_SETTINGS_SECTION,
+      }),
+    })
+  }, [navigate])
 }
 
 export function HomeSidebar() {
@@ -60,6 +59,11 @@ export function HomeSidebar() {
             <SidebarTop />
           </React.Suspense>
         </AppSidebarGroup>
+        <AppSidebarFooter>
+          <React.Suspense fallback={<SidebarSettingsFallback />}>
+            <SidebarSettings />
+          </React.Suspense>
+        </AppSidebarFooter>
       </AppSidebar>
 
       <AppBottomNav className="md:hidden">
@@ -72,36 +76,20 @@ export function HomeSidebar() {
 }
 
 function SidebarTop() {
-  const { isHome, isGames, profileHandle: routeProfileHandle } = useNavFlags()
-  const session = useSuspenseSession()
-  const profileHandle = session?.user.username ?? null
-  const isLibrary = isOwnProfilePath(routeProfileHandle, profileHandle)
+  const { isHome, isGames, isLibrary } = useNavFlags()
 
   return (
     <>
       <AppSidebarItem active={isHome} title="Home" render={<Link to="/" />}>
         <HomeIcon />
       </AppSidebarItem>
-      {profileHandle ? (
-        <AppSidebarItem
-          active={isLibrary}
-          title="Library"
-          render={
-            <Link to="/u/$username" params={{ username: profileHandle }} />
-          }
-        >
-          <LibraryIcon />
-        </AppSidebarItem>
-      ) : (
-        <AppSidebarItem
-          title="Library"
-          aria-disabled
-          tabIndex={-1}
-          className="pointer-events-none opacity-60"
-        >
-          <LibraryIcon />
-        </AppSidebarItem>
-      )}
+      <AppSidebarItem
+        active={isLibrary}
+        title="Library"
+        render={<Link to="/library" />}
+      >
+        <LibraryIcon />
+      </AppSidebarItem>
       <AppSidebarItem
         active={isGames}
         title="Games"
@@ -110,6 +98,39 @@ function SidebarTop() {
         <GamepadIcon />
       </AppSidebarItem>
     </>
+  )
+}
+
+function SidebarSettings() {
+  const { isSettings } = useNavFlags()
+  const session = useSuspenseSession()
+  const openSettings = useOpenSettings()
+
+  if (!session) {
+    return (
+      <AppSidebarItem
+        title="Settings"
+        aria-disabled
+        tabIndex={-1}
+        className="pointer-events-none opacity-60"
+      >
+        <SettingsIcon />
+      </AppSidebarItem>
+    )
+  }
+
+  return (
+    <AppSidebarItem active={isSettings} title="Settings" onClick={openSettings}>
+      <SettingsIcon />
+    </AppSidebarItem>
+  )
+}
+
+function SidebarSettingsFallback() {
+  return (
+    <AppSidebarItem title="Settings">
+      <SettingsIcon />
+    </AppSidebarItem>
   )
 }
 
@@ -130,63 +151,22 @@ function SidebarTopFallback() {
 }
 
 function BottomNavItems() {
-  const { isHome, isGames, profileHandle: routeProfileHandle } = useNavFlags()
+  const { isHome, isGames, isLibrary, isSettings } = useNavFlags()
   const session = useSuspenseSession()
-  const profileHandle = session?.user.username ?? null
-  const isLibrary = isOwnProfilePath(routeProfileHandle, profileHandle)
-  const { queueOpen, setQueueOpen } = useUploadFlowControls()
+  const openSettings = useOpenSettings()
 
   return (
     <>
       <AppBottomNavItem active={isHome} title="Home" render={<Link to="/" />}>
         <HomeIcon />
       </AppBottomNavItem>
-      {profileHandle ? (
-        <AppBottomNavItem
-          active={isLibrary}
-          title="Library"
-          render={
-            <Link to="/u/$username" params={{ username: profileHandle }} />
-          }
-        >
-          <LibraryIcon />
-        </AppBottomNavItem>
-      ) : (
-        <AppBottomNavItem
-          title="Library"
-          aria-disabled
-          tabIndex={-1}
-          className="pointer-events-none opacity-60"
-        >
-          <LibraryIcon />
-        </AppBottomNavItem>
-      )}
-      {session ? (
-        <AppBottomNavItem
-          active={queueOpen}
-          title="Upload"
-          data-upload-trigger=""
-          onClick={(event) => {
-            event.currentTarget.blur()
-            // Toggle: tapping while the queue is open closes it. The dialog
-            // ignores the outside-press this same tap produces (see
-            // UploadQueuePopover), so this click is the sole source of truth.
-            setQueueOpen((open) => !open)
-          }}
-          className="before:!hidden [&_svg]:!size-4"
-        >
-          <NavUploadIcon />
-        </AppBottomNavItem>
-      ) : (
-        <AppBottomNavItem
-          title="Upload"
-          aria-disabled
-          tabIndex={-1}
-          className="pointer-events-none opacity-60 before:!hidden [&_svg]:!size-4"
-        >
-          <NavUploadIcon />
-        </AppBottomNavItem>
-      )}
+      <AppBottomNavItem
+        active={isLibrary}
+        title="Library"
+        render={<Link to="/library" />}
+      >
+        <LibraryIcon />
+      </AppBottomNavItem>
       <AppBottomNavItem
         active={isGames}
         title="Games"
@@ -194,7 +174,24 @@ function BottomNavItems() {
       >
         <GamepadIcon />
       </AppBottomNavItem>
-      <NotificationCenter variant="bottom-nav" />
+      {session ? (
+        <AppBottomNavItem
+          active={isSettings}
+          title="Settings"
+          onClick={openSettings}
+        >
+          <SettingsIcon />
+        </AppBottomNavItem>
+      ) : (
+        <AppBottomNavItem
+          title="Settings"
+          aria-disabled
+          tabIndex={-1}
+          className="pointer-events-none opacity-60"
+        >
+          <SettingsIcon />
+        </AppBottomNavItem>
+      )}
     </>
   )
 }
@@ -208,26 +205,12 @@ function BottomNavFallback() {
       <AppBottomNavItem title="Library">
         <LibraryIcon />
       </AppBottomNavItem>
-      <AppBottomNavItem
-        title="Upload"
-        className="before:!hidden [&_svg]:!size-4"
-      >
-        <NavUploadIcon />
-      </AppBottomNavItem>
       <AppBottomNavItem title="Games">
         <GamepadIcon />
       </AppBottomNavItem>
-      <AppBottomNavItem title="Notifications">
-        <BellIcon />
+      <AppBottomNavItem title="Settings">
+        <SettingsIcon />
       </AppBottomNavItem>
     </>
-  )
-}
-
-function NavUploadIcon() {
-  return (
-    <span className="bg-accent text-accent-foreground border-accent flex size-10 items-center justify-center rounded-full border shadow-md shadow-black/35">
-      <PlusIcon strokeWidth={2.5} />
-    </span>
   )
 }

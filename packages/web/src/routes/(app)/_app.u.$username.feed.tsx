@@ -1,9 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { ClipsSection } from "@/components/routes/profile/clips-section"
-import { GamesSection } from "@/components/routes/profile/games-section"
+import { ProfileClips } from "@/components/routes/profile/profile-clips"
 import { ProfileTopClipsSection } from "@/components/routes/profile/profile-top-clips-section"
-import { useUserClipsQuery } from "@/lib/clip-queries"
+import { useUserClipsQuery, useUserTopClipsQuery } from "@/lib/clip-queries"
 import { useUserProfileViewerQuery } from "@/lib/user-queries"
 
 export const Route = createFileRoute("/(app)/_app/u/$username/feed")({
@@ -13,25 +12,26 @@ export const Route = createFileRoute("/(app)/_app/u/$username/feed")({
 function ProfileFeedTab() {
   const { username } = Route.useParams()
   const clipsQuery = useUserClipsQuery(username)
+  const topClipsQuery = useUserTopClipsQuery(username)
   const viewerQuery = useUserProfileViewerQuery(username)
   const clips = clipsQuery.data ?? null
   const clipsError = clipsQuery.error ?? null
+  const topClips = topClipsQuery.data ?? null
+  const topClipsError = topClipsQuery.error ?? null
   const isSelf = viewerQuery.data?.viewer?.isSelf ?? false
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       <ProfileTopClipsSection
         username={username}
-        clips={clips}
-        error={clipsError}
+        clips={topClips}
+        error={topClipsError}
         isSelf={isSelf}
       />
-      <GamesSection username={username} />
-      <ClipsSection
+      <ProfileClips
         username={username}
         clips={clips}
         error={clipsError}
-        variant="recent"
         isSelf={isSelf}
       />
     </div>

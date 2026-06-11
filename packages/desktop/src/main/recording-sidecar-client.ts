@@ -54,6 +54,11 @@ interface PendingRequest {
   timeout: ReturnType<typeof setTimeout>
 }
 
+interface PendingConfigure {
+  key: string
+  promise: Promise<RecordingStatus>
+}
+
 export interface RecordingSidecarVersion {
   name: string
   version: string
@@ -63,41 +68,56 @@ export interface RecordingSidecarVersion {
 
 interface RecordingSidecarClientOptions {
   initialStatus: RecordingStatus
-  runtimeDir: () => string | null
+  /** Source of truth for the sidecar config, owned by the desktop shell. */
+  config: () => SidecarConfig
   emitEvent: (event: RecordingEvent) => void
 }
 
 const SIDECAR_TIMEOUT_MS = 20_000
+const RESPAWN_DELAY_MS = 3_000
+const RESPAWN_STREAK_RESET_MS = 60_000
+const MAX_CONSECUTIVE_RESPAWNS = 5
 
+/**
+ * Owns the sidecar process and the configuration handshake: the desktop shell
+ * pushes config once on change, and the client re-pushes it whenever a fresh
+ * process spawns. Reads (`status`, lists) never reconfigure the sidecar.
+ */
 export class RecordingSidecarClient {
   private readonly executable: string
-  private readonly runtimeDir: () => string | null
+  private readonly config: () => SidecarConfig
   private readonly emitEvent: (event: RecordingEvent) => void
   private readonly pending = new Map<number, PendingRequest>()
   private child: ChildProcessWithoutNullStreams | null = null
   private reader: Interface | null = null
   private nextId = 1
-  private configKey: string | null = null
+  private appliedConfigKey: string | null = null
+  private pendingConfigure: PendingConfigure | null = null
   private lastStatus: RecordingStatus
   private shutdownRequested = false
+  private respawnTimer: ReturnType<typeof setTimeout> | null = null
+  private consecutiveRespawns = 0
+  private spawnedAt = 0
 
   constructor(executable: string, options: RecordingSidecarClientOptions) {
     this.executable = executable
-    this.runtimeDir = options.runtimeDir
+    this.config = options.config
     this.emitEvent = options.emitEvent
     this.lastStatus = options.initialStatus
   }
 
+  /**
+   * Push the given config to the sidecar. Duplicate pushes are coalesced, and
+   * because requests are applied in stdin order the latest call always wins.
+   */
   async configure(config: SidecarConfig): Promise<RecordingStatus> {
-    const configKey = JSON.stringify(config)
-    if (this.configKey === configKey && this.lastStatus.backend !== "missing") {
-      return this.lastStatus
+    this.ensureProcess()
+    const key = JSON.stringify(config)
+    if (this.pendingConfigure?.key === key) return this.pendingConfigure.promise
+    if (this.appliedConfigKey === key) {
+      return this.request<RecordingStatus>("status")
     }
-
-    const status = await this.request<RecordingStatus>("configure", config)
-    this.configKey = configKey
-    this.lastStatus = status
-    return status
+    return this.sendConfigure(key, config)
   }
 
   async version(): Promise<RecordingSidecarVersion> {
@@ -137,6 +157,7 @@ export class RecordingSidecarClient {
 
   async shutdown(): Promise<void> {
     this.shutdownRequested = true
+    this.cancelRespawn()
     if (!this.child) return
 
     try {
@@ -156,10 +177,34 @@ export class RecordingSidecarClient {
     this.rejectPending(new Error("Recording sidecar was shut down."))
   }
 
+  private sendConfigure(
+    key: string,
+    config: SidecarConfig,
+  ): Promise<RecordingStatus> {
+    const promise = this.request<RecordingStatus>("configure", config).then(
+      (status) => {
+        if (this.pendingConfigure?.key === key) {
+          this.pendingConfigure = null
+          this.appliedConfigKey = key
+        }
+        return status
+      },
+      (cause: unknown) => {
+        if (this.pendingConfigure?.key === key) this.pendingConfigure = null
+        throw cause instanceof Error
+          ? cause
+          : new Error("Recording sidecar configure failed.")
+      },
+    )
+    this.pendingConfigure = { key, promise }
+    return promise
+  }
+
   private ensureProcess() {
     if (this.child) return
 
-    const runtimeDir = this.runtimeDir()
+    const config = this.config()
+    const runtimeDir = config.obsRuntimeDir
     const child = spawn(this.executable, [], {
       stdio: "pipe",
       windowsHide: true,
@@ -169,6 +214,9 @@ export class RecordingSidecarClient {
 
     this.child = child
     this.shutdownRequested = false
+    this.spawnedAt = Date.now()
+    this.appliedConfigKey = null
+    this.pendingConfigure = null
     child.stdin.setDefaultEncoding("utf8")
 
     this.reader = createInterface({ input: child.stdout })
@@ -186,6 +234,17 @@ export class RecordingSidecarClient {
       if (this.shutdownRequested) return
       this.handleExit(sidecarExitMessage(code, signal))
     })
+
+    // A fresh process knows nothing: push the current config before any
+    // queued request reaches it (stdin order guarantees this runs first).
+    void this.sendConfigure(JSON.stringify(config), config).catch(
+      (cause: unknown) => {
+        logger.warn(
+          "[desktop] recording sidecar startup configure failed:",
+          cause,
+        )
+      },
+    )
   }
 
   private handleLine(line: string) {
@@ -243,11 +302,47 @@ export class RecordingSidecarClient {
     this.child = null
     this.reader?.close()
     this.reader = null
-    this.configKey = null
+    this.appliedConfigKey = null
+    this.pendingConfigure = null
     const status = { ...this.lastStatus, backend: "error" as const, message }
     this.lastStatus = status
     this.rejectPending(new Error(message))
     this.emitEvent({ type: "error", error: message, status })
+    this.scheduleRespawn()
+  }
+
+  /**
+   * Restart the sidecar after an unexpected exit so background capture keeps
+   * working without user interaction, but give up on crash loops.
+   */
+  private scheduleRespawn() {
+    if (this.shutdownRequested || this.respawnTimer) return
+    if (!this.config().settings.enabled) return
+
+    this.consecutiveRespawns =
+      Date.now() - this.spawnedAt >= RESPAWN_STREAK_RESET_MS
+        ? 1
+        : this.consecutiveRespawns + 1
+    if (this.consecutiveRespawns > MAX_CONSECUTIVE_RESPAWNS) {
+      logger.warn(
+        "[desktop] recording sidecar keeps crashing; not restarting it again",
+      )
+      return
+    }
+
+    this.respawnTimer = setTimeout(() => {
+      this.respawnTimer = null
+      if (this.shutdownRequested || this.child) return
+      logger.info("[desktop] restarting recording sidecar")
+      this.ensureProcess()
+    }, RESPAWN_DELAY_MS)
+    this.respawnTimer.unref?.()
+  }
+
+  private cancelRespawn() {
+    if (!this.respawnTimer) return
+    clearTimeout(this.respawnTimer)
+    this.respawnTimer = null
   }
 
   private rejectPending(error: Error) {

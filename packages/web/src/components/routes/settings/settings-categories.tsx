@@ -1,6 +1,5 @@
 import {
   AlertTriangleIcon,
-  BrainCircuitIcon,
   CalendarClockIcon,
   ClapperboardIcon,
   DatabaseIcon,
@@ -26,7 +25,6 @@ import {
   AdminConfigTransferPanel,
   AdminIntegrationsPanel,
   AdminLimitsPanel,
-  AdminMachineLearningPanel,
   AdminScheduledTasksPanel,
   AdminTranscodingPanel,
   AdminUsersPanel,
@@ -82,10 +80,11 @@ function ProfilePanel() {
     <ProfileCard
       key={user.id}
       userId={user.id}
-      initialName={user.name ?? ""}
       initialUsername={user.username ?? ""}
       image={user.image ?? ""}
       banner={(user as { banner?: string | null }).banner ?? ""}
+      background={(user as { background?: string | null }).background ?? ""}
+      accentColor={(user as { accentColor?: string | null }).accentColor ?? ""}
       email={user.email ?? ""}
     />
   )
@@ -106,15 +105,8 @@ const ALL_CATEGORIES: SettingsCategory[] = [
     id: "profile",
     label: "Profile",
     title: "Profile identity",
-    description: "Edit your name, username, email, avatar, and banner.",
-    keywords: [
-      "display name",
-      "username",
-      "email",
-      "avatar",
-      "profile picture",
-      "banner",
-    ],
+    description: "Edit your username, email, avatar, and banner.",
+    keywords: ["username", "email", "avatar", "profile picture", "banner"],
     icon: UserIcon,
     group: "account",
     Panel: ProfilePanel,
@@ -275,21 +267,6 @@ const ALL_CATEGORIES: SettingsCategory[] = [
     icon: ClapperboardIcon,
     group: "admin",
     Panel: AdminTranscodingPanel,
-  },
-  {
-    id: "ml",
-    label: "ML suggestions",
-    title: "ML game suggestions",
-    description: "Edit inference service settings and the classifier model.",
-    keywords: [
-      "machine learning",
-      "inference service",
-      "classifier model",
-      "game suggestions",
-    ],
-    icon: BrainCircuitIcon,
-    group: "admin",
-    Panel: AdminMachineLearningPanel,
   },
   {
     id: "limits",

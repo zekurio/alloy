@@ -16,7 +16,7 @@ import {
   validateRequiredString,
 } from "../runtime-validation"
 import { validateClipRow } from "./clips"
-import { validateGameListRow } from "./games-media-ml"
+import { validateGameListRow } from "./games-media"
 import { validateUserListRow } from "./people-notifications"
 export function validateFeedPage(value: unknown): FeedPage {
   const page = objectRecord(value, "feed")

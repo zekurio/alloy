@@ -15,7 +15,6 @@ import {
   Loader2Icon,
   PauseIcon,
   Trash2Icon,
-  UploadIcon,
   XIcon,
 } from "lucide-react"
 import * as React from "react"
@@ -55,8 +54,6 @@ interface UploadQueueContentProps {
   isLoading?: boolean
   /** True when the initial server queue stream could not hydrate the cache. */
   isUnavailable?: boolean
-  /** Opens the file picker for a new upload. */
-  onNewClip: () => void
   /** Dismisses every finished (published) row in one go. */
   onClearCompleted?: () => void
   /** Closes the surrounding queue surface. */
@@ -70,7 +67,6 @@ export function UploadQueueContent({
   queue,
   isLoading = false,
   isUnavailable = false,
-  onNewClip,
   onClearCompleted,
   onClose,
 }: UploadQueueContentProps) {
@@ -193,15 +189,6 @@ export function UploadQueueContent({
             Close
           </Button>
         ) : null}
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={onNewClip}
-          className="w-full"
-        >
-          <UploadIcon />
-          Upload
-        </Button>
       </div>
     </div>
   )

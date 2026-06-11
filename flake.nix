@@ -22,7 +22,6 @@
       let
         pkgs = import nixpkgs { inherit system; };
         alloy = pkgs.callPackage ./nix/package.nix { inherit version; };
-        alloy-machine-learning = pkgs.callPackage ./nix/machine-learning.nix { inherit version; };
         alloy-image = pkgs.callPackage ./nix/docker.nix { inherit alloy version; };
       in
       {
@@ -30,7 +29,7 @@
         # is the packaging/CI/NixOS entrypoint only.
         packages = {
           default = alloy;
-          inherit alloy alloy-machine-learning alloy-image;
+          inherit alloy alloy-image;
         };
 
         checks.default = alloy;

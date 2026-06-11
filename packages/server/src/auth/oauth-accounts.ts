@@ -189,13 +189,12 @@ async function createOAuthUser(
     email: profile.email,
     name: profile.usernameHint
       ? slugifyUsername(profile.usernameHint)
-      : profile.name,
+      : profile.email,
   })
   return insert({
     email: profile.email,
     emailVerified: profile.emailVerified,
     username,
-    name: profile.name,
     role: profile.role ?? "user",
     storageQuotaBytes:
       profile.storageQuotaBytes === undefined

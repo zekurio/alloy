@@ -1,6 +1,7 @@
 import { stat } from "node:fs/promises"
 
-import { clip, clipMention, clipUploadTicket } from "alloy-db/schema"
+import { normalizeTags } from "alloy-contracts"
+import { clip, clipMention, clipTag, clipUploadTicket } from "alloy-db/schema"
 import { logger } from "alloy-logging"
 import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
@@ -28,7 +29,13 @@ import {
   mintScratchUploadUrl,
   scratchUploadPath,
 } from "../uploads/scratch"
-import { IdParam, InitiateBody, UpdateBody } from "./clips-helpers"
+import {
+  IdParam,
+  InitiateBody,
+  TRIM_MIN_RANGE_MS,
+  TrimBody,
+  UpdateBody,
+} from "./clips-helpers"
 import {
   selectClipForMutation,
   updatedClipResponse,
@@ -66,6 +73,9 @@ async function cleanupFailedInitiate(
     )
   }
 }
+
+/** Slack when deciding whether a requested trim still covers the full clip. */
+const TRIM_FULL_RANGE_TOLERANCE_MS = 50
 
 type UploadTicketRow = {
   storageKey: string
@@ -142,6 +152,9 @@ export const clipsUploadRoutes = new Hono()
             privacy,
             sourceContentType: body.contentType,
             sourceSizeBytes: body.sizeBytes,
+            // Client-provided placeholder; media processing recomputes the
+            // canonical hash from the published thumbnail.
+            thumbBlurHash: body.thumbBlurHash ?? null,
             status: "pending",
           })
 
@@ -152,6 +165,13 @@ export const clipsUploadRoutes = new Hono()
                 mentionedUserId,
               })),
             )
+          }
+
+          const tags = body.tags ? normalizeTags(body.tags) : []
+          if (tags.length > 0) {
+            await tx
+              .insert(clipTag)
+              .values(tags.map((tag) => ({ clipId, tag })))
           }
 
           return { ok: true }
@@ -387,7 +407,82 @@ export const clipsUploadRoutes = new Hono()
         }
       }
 
+      if (body.tags !== undefined) {
+        const tags = normalizeTags(body.tags)
+        await db.delete(clipTag).where(eq(clipTag.clipId, id))
+        if (tags.length > 0) {
+          await db
+            .insert(clipTag)
+            .values(tags.map((tag) => ({ clipId: id, tag })))
+        }
+      }
+
       void publishClipUpsert(row.authorId, id)
+
+      return updatedClipResponse(c, id)
+    },
+  )
+  .post(
+    "/:id/trim",
+    requireSession,
+    zValidator("param", IdParam),
+    zValidator("json", TrimBody),
+    async (c) => {
+      const viewerId = c.var.viewerId
+      const { id } = c.req.valid("param")
+      const body = c.req.valid("json")
+
+      const access = await selectClipForMutation(c, {
+        id,
+        viewerId,
+        statuses: ["ready"],
+      })
+      if ("response" in access) return access.response
+      const row = access.row
+
+      if (!row.sourceKey) return badRequest(c, "Clip has no source media")
+      const durationMs = row.durationMs
+      if (durationMs == null || durationMs <= 0) {
+        return badRequest(c, "Clip duration is unknown")
+      }
+
+      const startMs = Math.max(0, body.startMs)
+      const endMs = Math.min(durationMs, body.endMs)
+      if (endMs - startMs < TRIM_MIN_RANGE_MS) {
+        return badRequest(c, "The trimmed range is too short")
+      }
+      if (
+        startMs <= TRIM_FULL_RANGE_TOLERANCE_MS &&
+        endMs >= durationMs - TRIM_FULL_RANGE_TOLERANCE_MS
+      ) {
+        return badRequest(c, "The trim covers the whole clip")
+      }
+
+      // The status flip doubles as the concurrency guard: a clip mid-encode
+      // is no longer "ready", so two trims can't race each other.
+      const [accepted] = await db
+        .update(clip)
+        .set({
+          trimStartMs: startMs,
+          trimEndMs: endMs,
+          status: "processing",
+          encodeProgress: 0,
+          encodeAttempt: 0,
+          failureReason: null,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(clip.id, id),
+            eq(clip.authorId, row.authorId),
+            eq(clip.status, "ready"),
+          ),
+        )
+        .returning({ id: clip.id })
+      if (!accepted) return conflict(c, "Clip is already processing")
+
+      void publishClipUpsert(row.authorId, id)
+      enqueueClipMediaProcessing(id)
 
       return updatedClipResponse(c, id)
     },

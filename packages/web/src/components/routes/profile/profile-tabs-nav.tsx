@@ -1,7 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router"
 import { cn } from "alloy-ui/lib/utils"
-import { AtSignIcon, ClapperboardIcon, HeartIcon, RssIcon } from "lucide-react"
-import type { LucideIcon } from "lucide-react"
 
 import { parseProfilePathname } from "@/lib/profile-path"
 
@@ -13,7 +11,6 @@ type TabSegment = "feed" | "all" | "liked" | "tagged"
 type Tab = {
   segment: TabSegment
   label: string
-  icon: LucideIcon
   to:
     | "/u/$username/feed"
     | "/u/$username/all"
@@ -24,26 +21,22 @@ type Tab = {
 const TABS: ReadonlyArray<Tab> = [
   {
     segment: "feed",
-    label: "Feed",
-    icon: RssIcon,
+    label: "Home",
     to: "/u/$username/feed",
   },
   {
     segment: "all",
     label: "Clips",
-    icon: ClapperboardIcon,
     to: "/u/$username/all",
   },
   {
     segment: "liked",
     label: "Liked",
-    icon: HeartIcon,
     to: "/u/$username/liked",
   },
   {
     segment: "tagged",
     label: "Tagged",
-    icon: AtSignIcon,
     to: "/u/$username/tagged",
   },
 ]
@@ -67,12 +60,11 @@ export function ProfileTabsNav({ username }: ProfileTabsNavProps) {
     <nav
       data-slot="tabs-list"
       data-variant="profile"
-      className="border-border bg-background/60 mb-5 flex w-full justify-center gap-1.5 overflow-x-auto border-b pb-2 sm:mb-8 sm:justify-start sm:gap-2"
+      className="border-border mb-6 flex w-full gap-6 overflow-x-auto border-b sm:mb-8 sm:gap-8"
       aria-label="Profile sections"
     >
       {TABS.map((tab) => {
         const isActive = tab.segment === active
-        const Icon = tab.icon
         return (
           <Link
             key={tab.segment}
@@ -80,16 +72,16 @@ export function ProfileTabsNav({ username }: ProfileTabsNavProps) {
             params={{ username }}
             data-active={isActive ? "true" : undefined}
             className={cn(
-              "inline-flex h-10 min-w-[5.5rem] shrink-0 items-center justify-center gap-2 rounded-md border px-3.5",
+              // Underline tab: plain label, accent underline when active. The
+              // -mb-px pulls the active border onto the nav's bottom rule.
+              "relative -mb-px inline-flex h-10 shrink-0 items-center border-b-2 px-0.5",
               "border-transparent text-sm font-medium whitespace-nowrap text-foreground-muted",
-              "transition-[background-color,border-color,color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-              "outline-none hover:bg-surface-raised hover:text-foreground",
-              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-              "data-active:border-accent-border data-active:bg-surface-raised data-active:text-foreground",
-              "sm:h-11 sm:min-w-28 sm:px-4",
+              "transition-[color,border-color] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+              "outline-none hover:text-foreground",
+              "focus-visible:text-foreground",
+              "data-active:border-accent data-active:text-foreground",
             )}
           >
-            <Icon className="size-[15px] shrink-0 sm:size-4" aria-hidden />
             {tab.label}
           </Link>
         )

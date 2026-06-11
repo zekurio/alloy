@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import { type ClipRow, clipThumbnailUrl } from "alloy-api"
 import {
   AlertDialog,
@@ -43,10 +43,10 @@ import { exitFullscreenBestEffort } from "@/lib/fullscreen"
 import { userAvatar } from "@/lib/user-display"
 
 import { ClipComments } from "./clip-comments"
-import { ClipEditDialog } from "./clip-edit-dialog"
 import type { ClipListEntry } from "./clip-list-context"
 import { ClipMentionsRow } from "./clip-mentions-row"
 import { ClipPlayer } from "./clip-player"
+import { ClipTagsRow } from "./clip-tags-row"
 import { ClipAuthorLink, MobileActionsRail } from "./clip-viewer-mobile-actions"
 import { renderHashtagTokens } from "./description-tokens"
 
@@ -89,11 +89,10 @@ function MobileClipViewerBody({
 
   /* ---- derived ---- */
   const handle = row.authorUsername
-  const author = row.authorName || handle
+  const author = handle
   const avatar = userAvatar({
     id: row.authorId,
     username: handle,
-    name: author,
     image: row.authorImage,
   })
   const gameLabel = clipGameLabel(row)
@@ -113,7 +112,7 @@ function MobileClipViewerBody({
   const liked = pendingLiked ?? likeQuery.data?.liked ?? false
 
   /* ---- edit / delete ---- */
-  const [editOpen, setEditOpen] = React.useState(false)
+  const navigate = useNavigate()
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const deleteMutation = useDeleteClipMutation()
   const deleting = deleteMutation.isPending
@@ -226,7 +225,14 @@ function MobileClipViewerBody({
     onLike: handleLike,
     onComments: () => setCommentsOpen(true),
     onShare: handleShare,
-    onEdit: () => setEditOpen(true),
+    onEdit: () => {
+      // The edit view lives at its own route; navigating there drops the
+      // `clip` search param and closes this viewer.
+      void navigate({
+        to: "/library/c/$clipId",
+        params: { clipId: row.id },
+      })
+    },
     onDelete: () => setDeleteDialogOpen(true),
   }
 
@@ -265,7 +271,7 @@ function MobileClipViewerBody({
                 textClassName="text-base font-semibold text-white"
               />
               <h2 className="line-clamp-1 min-w-0 flex-1 text-base font-semibold text-white/90">
-                {renderHashtagTokens(row.title, { linkHashtags: true })}
+                {row.title}
               </h2>
             </div>
           ) : null}
@@ -388,7 +394,7 @@ function MobileClipViewerBody({
 
               {/* Title */}
               <h2 className="line-clamp-2 text-base leading-tight font-semibold text-white">
-                {renderHashtagTokens(row.title, { linkHashtags: true })}
+                {row.title}
               </h2>
 
               {/* Mentions */}
@@ -402,6 +408,9 @@ function MobileClipViewerBody({
                   })}
                 </p>
               ) : null}
+
+              {/* Hashtags */}
+              <ClipTagsRow tags={row.tags} />
             </div>
 
             {/* Right: action buttons */}
@@ -434,8 +443,6 @@ function MobileClipViewerBody({
           </Drawer>
         </div>
       </DialogViewportContent>
-
-      <ClipEditDialog open={editOpen} onOpenChange={setEditOpen} row={row} />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

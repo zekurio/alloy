@@ -10,6 +10,7 @@ import type {
   GameClipsParams,
   GameDetail,
   GameListRow,
+  GameNameLookupResponse,
   GameRow,
   SteamGridDBSearchResult,
   SteamGridDBStatus,
@@ -24,10 +25,10 @@ export const gameKeys = {
   status: () => [...gameKeys.all, "status"] as const,
   /** SGDB autocomplete proxy — branches per normalised query string. */
   search: (query: string) => [...gameKeys.all, "search", query] as const,
-  previewByName: (name: string) =>
-    [...gameKeys.all, "preview-by-name", name] as const,
   /** `/games` landscape grid. One global cache entry. */
   list: () => [...gameKeys.all, "list"] as const,
+  lookupByName: (names: readonly string[]) =>
+    [...gameKeys.all, "lookup-by-name", names] as const,
   /** Per-slug detail for the banner header on `/g/:slug`. */
   detail: (slug: string) => [...gameKeys.all, "detail", slug] as const,
   clips: (slug: string, params: GameClipsParams) =>
@@ -75,30 +76,6 @@ export function useResolveGameMutation() {
   })
 }
 
-/**
- * Resolve a free-text game name (e.g. an ML suggestion label) into an SGDB
- * search preview without upserting a local game row. Accepting the suggestion
- * should call `/games/resolve`; previewing it should not mutate server state.
- */
-export function useGamePreviewByNameQuery(
-  name: string | undefined,
-  { enabled = true }: { enabled?: boolean } = {},
-): UseQueryResult<SteamGridDBSearchResult | null> {
-  const trimmed = name?.trim() ?? ""
-  return useQuery({
-    queryKey: gameKeys.previewByName(trimmed),
-    enabled: enabled && trimmed.length > 0,
-    // The label → top SGDB hit mapping is stable enough to cache per session.
-    staleTime: Infinity,
-    retry: false,
-    refetchOnWindowFocus: false,
-    queryFn: async () => {
-      const results = await api.games.search(trimmed)
-      return results[0] ?? null
-    },
-  })
-}
-
 export function useGamesListQuery(): UseQueryResult<GameListRow[]> {
   return useQuery({
     queryKey: gameKeys.list(),
@@ -109,12 +86,41 @@ export function useGamesListQuery(): UseQueryResult<GameListRow[]> {
   })
 }
 
+export function useGameNameLookupQuery(
+  names: readonly string[],
+  { enabled = true }: { enabled?: boolean } = {},
+): UseQueryResult<GameNameLookupResponse> {
+  const lookupNames = normaliseLookupNames(names)
+  return useQuery({
+    queryKey: gameKeys.lookupByName(lookupNames),
+    queryFn: () => api.games.lookupByNames([...lookupNames]),
+    enabled: enabled && lookupNames.length > 0,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
+  })
+}
+
 export function useGameQuery(slug: string): UseQueryResult<GameDetail> {
   return useQuery({
     queryKey: gameKeys.detail(slug),
     queryFn: () => api.games.fetchBySlug(slug),
     enabled: slug.length > 0,
   })
+}
+
+function normaliseLookupNames(names: readonly string[]): readonly string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const name of names) {
+    const trimmed = name.trim()
+    if (!trimmed) continue
+    const key = trimmed.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(trimmed)
+  }
+  return result.sort((a, b) => a.localeCompare(b))
 }
 
 export function useGameClipsQuery(

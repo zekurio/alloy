@@ -8,10 +8,9 @@ body,
 
 body {
   margin: 0;
-  -webkit-app-region: drag;
 }
 
-/* Inputs and buttons stay interactive inside the otherwise draggable shell. */
+/* Inputs and buttons stay interactive inside the frameless title bar. */
 input,
 button,
 a,

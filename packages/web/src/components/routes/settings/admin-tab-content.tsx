@@ -7,7 +7,6 @@ import { AdminUsersCard } from "@/components/admin/admin-users-card"
 import { EncoderConfigCard } from "@/components/routes/admin-settings/encoder-config-card"
 import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integrations-config-card"
 import { LimitsConfigCard } from "@/components/routes/admin-settings/limits-config-card"
-import { MachineLearningConfigCard } from "@/components/routes/admin-settings/machine-learning-config-card"
 import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-provider-card"
 import { ScheduledTasksCard } from "@/components/routes/admin-settings/scheduled-tasks-card"
 import {
@@ -130,14 +129,6 @@ export const AdminAuthenticationPanel = withAdminConfig((config, ctx) => {
 export const AdminTranscodingPanel = withAdminConfig((config, ctx) => (
   <EncoderConfigCard
     encoder={config.encoder}
-    onChange={(next) => ctx.setConfig(next)}
-    hideHeader
-  />
-))
-
-export const AdminMachineLearningPanel = withAdminConfig((config, ctx) => (
-  <MachineLearningConfigCard
-    machineLearning={config.machineLearning}
     onChange={(next) => ctx.setConfig(next)}
     hideHeader
   />

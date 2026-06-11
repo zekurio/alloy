@@ -1,27 +1,30 @@
 import { existsSync } from "node:fs"
-import { basename, dirname, join, resolve } from "node:path"
 
 import type {
   RecordingActionResult,
   RecordingActionRequest,
-  RecordingCapture,
   RecordingDisplay,
   RecordingEvent,
   RecordingGameProcess,
-  RecordingNotificationSoundEvent,
   SaveReplayClipRequest,
   RecordingStatus,
 } from "alloy-contracts"
 import { logger } from "alloy-logging"
-import { app } from "electron"
 
 import { listRecordingDisplays as listElectronRecordingDisplays } from "./recording-displays"
-import { playRecordingNotificationSound } from "./recording-notification-sounds"
+import { rememberRecordingLibraryCapture } from "./recording-library"
 import { takeRecordingScreenshot as takeElectronRecordingScreenshot } from "./recording-screenshot"
 import {
   RecordingSidecarClient,
   type SidecarConfig,
 } from "./recording-sidecar-client"
+import { obsRuntimeDir, sidecarExecutablePath } from "./recording-sidecar-paths"
+import {
+  handleRecordingEventSound,
+  playNotificationSound,
+  requestReplaySaveSound,
+  withRecordingStartSoundSuppressed,
+} from "./recording-sound-policy"
 import {
   currentOutputFolder,
   defaultReplayScratchFolder,
@@ -35,11 +38,7 @@ type RecordingEventListener = (event: RecordingEvent) => void
 
 const recordingEventListeners = new Set<RecordingEventListener>()
 let sidecarClient: RecordingSidecarClient | null = null
-let lastRecordingStartSoundKey: string | null = null
-let lastClipSavedSoundKey: string | null = null
 let lastRecordingStatus: RecordingStatus | null = null
-let pendingReplaySaveRequestSounds = 0
-let recordingStartSoundSuppressionDepth = 0
 
 export {
   defaultOutputFolder,
@@ -47,13 +46,13 @@ export {
   getRecordingStorageInfo,
   resolveRevealableCapturePath,
 } from "./recording-storage"
+export { cancelReplaySaveRequestedSoundSuppression } from "./recording-sound-policy"
 
 export async function getRecordingStatus(): Promise<RecordingStatus> {
   const client = getSidecarClient()
   if (!client) return unavailableRecordingStatus()
 
   try {
-    await configureSidecarClient(client)
     const status = await client.request<RecordingStatus>("status")
     rememberRecordingStatus(status)
     return status
@@ -105,6 +104,11 @@ export function emitRecordingStatusEvent(status: RecordingStatus): void {
   emitRecordingEvent({ type: "status", status })
 }
 
+/**
+ * Push the current settings to the sidecar. This is the only path that
+ * reconfigures it: call it at startup and whenever settings change. Status
+ * reads and recording actions rely on the config already being pushed.
+ */
 export async function configureRecordingBackend(): Promise<RecordingStatus> {
   const client = getSidecarClient()
   if (!client) {
@@ -113,13 +117,21 @@ export async function configureRecordingBackend(): Promise<RecordingStatus> {
     return status
   }
   try {
-    const status = await configureSidecarClient(client)
+    // Reconfiguring restarts an active replay buffer inside the sidecar;
+    // suppress the start chime so settings changes stay silent.
+    const suppressStartSound = lastRecordingStatus?.replayActive === true
+    const status = await withRecordingStartSoundSuppressed(
+      suppressStartSound,
+      () => client.configure(currentSidecarConfig()),
+    )
+    rememberRecordingStatus(status)
     emitRecordingStatusEvent(status)
     return status
   } catch (cause) {
     const status = errorRecordingStatus(
       errorText(cause, "Recording sidecar failed."),
     )
+    rememberRecordingStatus(status)
     emitRecordingStatusEvent(status)
     return status
   }
@@ -153,6 +165,7 @@ export async function takeRecordingScreenshot(
     status,
   })
   if (result.ok && result.capture?.kind === "screenshot") {
+    rememberRecordingLibraryCapture(result.capture)
     playNotificationSound("screenshotTaken")
   }
   return result
@@ -179,7 +192,64 @@ export async function shutdownRecordingBackend(): Promise<void> {
   await client?.shutdown()
 }
 
-export function unavailableRecordingStatus(
+export function playReplaySaveRequestedSound(): boolean {
+  return requestReplaySaveSound(lastRecordingStatus)
+}
+
+async function runRecordingAction(
+  method:
+    | "saveReplayClip"
+    | "addBookmark"
+    | "toggleLongRecording"
+    | "stopRecording",
+  params?: unknown,
+): Promise<RecordingActionResult> {
+  const client = getSidecarClient()
+  if (!client) return unavailableRecordingAction()
+
+  try {
+    const result = await client.request<RecordingActionResult>(method, params)
+    rememberRecordingStatus(result.status)
+    if (result.ok && result.capture)
+      rememberRecordingLibraryCapture(result.capture)
+    return result
+  } catch (cause) {
+    const message = errorText(cause, "Recording sidecar failed.")
+    const status = errorRecordingStatus(message)
+    rememberRecordingStatus(status)
+    return {
+      ok: false,
+      error: message,
+      status,
+    }
+  }
+}
+
+function currentSidecarConfig(): SidecarConfig {
+  const settings = getRecordingSettings()
+  return {
+    settings,
+    outputFolder: currentOutputFolder(),
+    replayScratchFolder: defaultReplayScratchFolder(),
+    obsRuntimeDir: obsRuntimeDir(),
+  }
+}
+
+function getSidecarClient(): RecordingSidecarClient | null {
+  if (sidecarClient) return sidecarClient
+
+  const executable = sidecarExecutablePath()
+  if (!existsSync(executable)) return null
+
+  sidecarClient = new RecordingSidecarClient(executable, {
+    initialStatus: unavailableRecordingStatus(),
+    config: currentSidecarConfig,
+    emitEvent: emitRecordingEvent,
+  })
+  return sidecarClient
+}
+
+function unavailableRecordingStatus(
   message = SIDECAR_MISSING,
   backend: RecordingStatus["backend"] = "missing",
 ): RecordingStatus {
@@ -206,7 +276,7 @@ export function unavailableRecordingStatus(
   }
 }
 
-export function unavailableRecordingAction(
+function unavailableRecordingAction(
   message = SIDECAR_MISSING,
 ): RecordingActionResult {
   const status = unavailableRecordingStatus(message)
@@ -218,258 +288,19 @@ export function unavailableRecordingAction(
   }
 }
 
-export function playReplaySaveRequestedSound(): boolean {
-  if (!canReplayBufferSaveFromStatus(lastRecordingStatus)) return false
-
-  pendingReplaySaveRequestSounds += 1
-  playClipSavedSound(
-    `requested:${Date.now()}:${pendingReplaySaveRequestSounds}`,
-  )
-  return true
-}
-
-export function cancelReplaySaveRequestedSoundSuppression(): void {
-  if (pendingReplaySaveRequestSounds > 0) pendingReplaySaveRequestSounds -= 1
-}
-
-async function runRecordingAction(
-  method:
-    | "saveReplayClip"
-    | "addBookmark"
-    | "toggleLongRecording"
-    | "stopRecording",
-  params?: unknown,
-): Promise<RecordingActionResult> {
-  const client = getSidecarClient()
-  if (!client) return unavailableRecordingAction()
-
-  try {
-    await configureSidecarClient(client)
-    const result = await client.request<RecordingActionResult>(method, params)
-    rememberRecordingStatus(result.status)
-    return result
-  } catch (cause) {
-    const message = errorText(cause, "Recording sidecar failed.")
-    const status = errorRecordingStatus(message)
-    rememberRecordingStatus(status)
-    return {
-      ok: false,
-      error: message,
-      status,
-    }
-  }
-}
-
-function currentSidecarConfig(): SidecarConfig {
-  const settings = getRecordingSettings()
-  return {
-    settings,
-    outputFolder: currentOutputFolder(),
-    replayScratchFolder: defaultReplayScratchFolder(),
-    obsRuntimeDir: obsRuntimeDir(),
-  }
-}
-
-async function configureSidecarClient(
-  client: RecordingSidecarClient,
-): Promise<RecordingStatus> {
-  const suppressStartSound = lastRecordingStatus?.replayActive === true
-  if (suppressStartSound) recordingStartSoundSuppressionDepth += 1
-  try {
-    return await client.configure(currentSidecarConfig())
-  } finally {
-    if (suppressStartSound) recordingStartSoundSuppressionDepth -= 1
-  }
-}
-
-function getSidecarClient(): RecordingSidecarClient | null {
-  if (sidecarClient) return sidecarClient
-
-  const executable = sidecarExecutablePath()
-  if (!existsSync(executable)) return null
-
-  sidecarClient = new RecordingSidecarClient(executable, {
-    initialStatus: unavailableRecordingStatus(),
-    runtimeDir: obsRuntimeDir,
-    emitEvent: emitRecordingEvent,
-  })
-  return sidecarClient
-}
-
-function sidecarExecutablePath(): string {
-  const executable =
-    process.platform === "win32" ? "alloy-recorder.exe" : "alloy-recorder"
-  if (app.isPackaged) return join(process.resourcesPath, "sidecar", executable)
-  return join(app.getAppPath(), "..", "recorder", "dist", "sidecar", executable)
-}
-
-function obsRuntimeDir(): string | null {
-  const configured = process.env.ALLOY_OBS_RUNTIME_DIR
-  const configuredRuntime = configured
-    ? normalizeObsRuntimeDir(configured)
-    : null
-  if (configuredRuntime) return configuredRuntime
-
-  const bundled = app.isPackaged
-    ? join(process.resourcesPath, "obs-runtime")
-    : join(app.getAppPath(), "..", "recorder", "dist", "obs-runtime")
-  const bundledRuntime = normalizeObsRuntimeDir(bundled)
-  if (bundledRuntime) return bundledRuntime
-
-  for (const candidate of systemObsRuntimeCandidates()) {
-    const runtime = normalizeObsRuntimeDir(candidate)
-    if (runtime) return runtime
-  }
-
-  return null
-}
-
-function normalizeObsRuntimeDir(candidate: string): string | null {
-  if (!existsSync(candidate)) return null
-
-  const resolved = resolve(candidate)
-  if (
-    basenameInsensitive(resolved) === "64bit" &&
-    basenameInsensitive(dirname(resolved)) === "bin"
-  ) {
-    const root = dirname(dirname(resolved))
-    if (hasObsLibrary(join(root, "bin", "64bit"))) return root
-  }
-
-  if (basenameInsensitive(resolved) === "bin") {
-    const root = dirname(resolved)
-    if (hasObsLibrary(join(root, "bin"))) return root
-  }
-
-  if (hasObsLibrary(resolved)) return resolved
-  if (hasObsLibrary(join(resolved, "bin", "64bit"))) return resolved
-  if (hasObsLibrary(join(resolved, "bin"))) return resolved
-
-  return null
-}
-
-function hasObsLibrary(candidate: string): boolean {
-  return existsSync(join(candidate, "obs.dll"))
-}
-
-function systemObsRuntimeCandidates(): string[] {
-  if (process.platform !== "win32") return []
-
-  return [
-    process.env.ProgramW6432,
-    process.env.ProgramFiles,
-    process.env["ProgramFiles(x86)"],
-  ]
-    .filter((path): path is string => Boolean(path))
-    .map((path) => join(path, "obs-studio"))
-}
-
-function basenameInsensitive(path: string): string {
-  return basename(path).toLowerCase()
-}
-
 function emitRecordingEvent(event: RecordingEvent) {
   if ("status" in event) rememberRecordingStatus(event.status)
-  maybePlayRecordingEventSound(event)
+  if (event.type === "capture-ready") {
+    rememberRecordingLibraryCapture(event.capture)
+  }
+  handleRecordingEventSound(event)
   for (const listener of recordingEventListeners) {
     listener(event)
   }
 }
 
-function maybePlayRecordingEventSound(event: RecordingEvent): void {
-  if (event.type === "game-ended") {
-    lastRecordingStartSoundKey = null
-  }
-  maybePlayRecordingStartedSound(event)
-  if (event.type === "capture-ready") {
-    maybePlayClipSavedSound(event.capture)
-  }
-}
-
-function maybePlayRecordingStartedSound(event: RecordingEvent): void {
-  if (event.type !== "recording-started") return
-
-  const soundKey = recordingStartSoundKey(event.status)
-  if (!soundKey) return
-  if (lastRecordingStartSoundKey === soundKey) return
-  lastRecordingStartSoundKey = soundKey
-  if (recordingStartSoundSuppressionDepth > 0) return
-
-  playNotificationSound("recordingStarted")
-}
-
-function recordingStartSoundKey(status: RecordingStatus): string | null {
-  if (status.backend !== "ready" || !status.replayActive) return null
-
-  const targetKey = recordingTargetKey(status)
-  return targetKey ? `replay:${targetKey}` : null
-}
-
-function recordingTargetKey(status: RecordingStatus): string | null {
-  if (status.captureMode === "display") {
-    return status.activeDisplay
-      ? ["display", status.activeDisplay.id].join(":")
-      : null
-  }
-
-  const game = status.activeGameDetail
-  if (!game && !status.activeGame) return null
-
-  const stableGameId =
-    game?.id ??
-    game?.executable ??
-    game?.path ??
-    game?.windowClass ??
-    status.activeGame ??
-    game?.name
-
-  return [
-    "game",
-    stableGameId,
-    game?.executable ?? "",
-    game?.path ?? "",
-    game?.windowClass ?? "",
-    game?.name ?? status.activeGame ?? "",
-  ].join(":")
-}
-
 function errorRecordingStatus(message: string): RecordingStatus {
   return unavailableRecordingStatus(message, "error")
-}
-
-function maybePlayClipSavedSound(capture: RecordingCapture): void {
-  if (capture.kind !== "replay") return
-
-  const soundKey = capture.id || capture.filename
-  if (pendingReplaySaveRequestSounds > 0) {
-    pendingReplaySaveRequestSounds -= 1
-    lastClipSavedSoundKey = soundKey
-    return
-  }
-
-  playClipSavedSound(soundKey)
-}
-
-function playClipSavedSound(soundKey: string): void {
-  if (lastClipSavedSoundKey === soundKey) return
-  lastClipSavedSoundKey = soundKey
-
-  playNotificationSound("clipSaved")
-}
-
-function playNotificationSound(sound: RecordingNotificationSoundEvent): void {
-  const sounds = getRecordingSettings().notificationSounds
-  void playRecordingNotificationSound(sound, sounds[sound])
-}
-
-function canReplayBufferSaveFromStatus(
-  status: RecordingStatus | null,
-): boolean {
-  return (
-    status?.backend === "ready" &&
-    status.replayActive &&
-    status.runState !== "error"
-  )
 }
 
 function canBookmarkFromStatus(status: RecordingStatus): boolean {

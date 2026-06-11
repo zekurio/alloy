@@ -2,7 +2,6 @@ import type {
   AdminEncoderCapabilities,
   AdminEncoderConfig,
   AdminLimitsConfig,
-  AdminMachineLearningConfig,
   AdminOAuthProvider,
   AdminRuntimeConfig,
   AdminScheduledTaskInfo,
@@ -43,7 +42,6 @@ export {
   ENCODER_TONEMAPPING_RANGES,
   LOGIN_SPLASH_IMAGE_PATH,
   loginSplashImagePath,
-  OAUTH_DISPLAY_NAME_CLAIM_DEFAULT,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_USERNAME_CLAIM_DEFAULT,
@@ -51,10 +49,8 @@ export {
 export type {
   AdminEncoderCapabilities,
   AdminEncoderConfig,
-  AdminGameClassifierModelConfig,
   AdminIntegrationsConfig,
   AdminLimitsConfig,
-  AdminMachineLearningConfig,
   AdminOAuthProvider,
   AdminRuntimeConfig,
   AdminScheduledTaskPayload,
@@ -67,7 +63,6 @@ export type {
   AdminUsersResponse,
   AdminUserStorageRow,
   AppearanceConfig,
-  DisplayNameClaim,
   EncoderCodec,
   EncoderHwaccel,
   EncoderTonemappingAlgorithm,
@@ -98,7 +93,6 @@ type AppearanceConfigPatch = {
 
 type AdminCreateUserInput = {
   email: string
-  name?: string
   username?: string
   role?: "user" | "admin"
 }
@@ -156,12 +150,7 @@ async function saveOAuthConfig(
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
-type RuntimeConfigSection =
-  | "encoder"
-  | "limits"
-  | "integrations"
-  | "machine-learning"
-  | "appearance"
+type RuntimeConfigSection = "encoder" | "limits" | "integrations" | "appearance"
 
 async function patchRuntimeSection<T>(
   context: ApiContext,
@@ -305,8 +294,6 @@ export function createAdminApi(context: ApiContext) {
         "integrations",
         patch,
       ),
-    updateMachineLearningConfig: (patch: Partial<AdminMachineLearningConfig>) =>
-      patchRuntimeSection(context, "machine-learning", patch),
     updateAppearanceConfig: (patch: AppearanceConfigPatch) =>
       patchRuntimeSection(context, "appearance", patch),
     regenerateLoginSplash: () => regenerateLoginSplash(context),

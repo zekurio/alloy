@@ -11,7 +11,6 @@ import { apiOrigin } from "./env"
 
 type DisplayUser = {
   id?: string
-  name?: string | null
   username?: string | null
   displayUsername?: string | null
   email?: string | null
@@ -83,12 +82,10 @@ function normalizeUserAssetPath(value: string, prefix: string): string {
 }
 
 /**
- * Pulls a stable display name. Prefers the free-form `name` (what the user
- * actually wants to be called), then the handle, then the email local part.
+ * Pulls a stable display label from the handle, then the email local part.
  */
 export function displayName(user: DisplayUser | null | undefined): string {
   if (!user) return "user"
-  if (user.name && user.name.trim()) return user.name.trim()
   if (user.displayUsername && user.displayUsername.trim()) {
     return displayUsername(user.displayUsername)
   }
@@ -99,9 +96,12 @@ export function displayName(user: DisplayUser | null | undefined): string {
   return "user"
 }
 
-/** Up to two uppercase letters from the display name. */
-function displayInitials(name: string): string {
-  const parts = name.split(/[\s._-]+/).filter(Boolean)
+/** Up to two uppercase letters from a stable user identity. */
+function displayInitials(value: string): string {
+  const parts = value
+    .replace(/^@+/, "")
+    .split(/[\s._-]+/)
+    .filter(Boolean)
   if (parts.length === 0) return "?"
   if (parts.length === 1) {
     return (parts[0] ?? "?").slice(0, 2).toUpperCase()
@@ -110,7 +110,16 @@ function displayInitials(name: string): string {
   return `${first[0] ?? "?"}${second[0] ?? ""}`.toUpperCase()
 }
 
-/** Avatar tint derived from user id (or name as fallback) so each user is visually distinct. */
+function avatarInitialsSource(user: DisplayUser | null | undefined): string {
+  if (user?.username && user.username.trim()) return user.username.trim()
+  if (user?.displayUsername && user.displayUsername.trim()) {
+    return user.displayUsername.trim()
+  }
+  if (user?.email && user.email.trim()) return user.email.split("@")[0] ?? ""
+  return displayName(user)
+}
+
+/** Avatar tint derived from user id (or display label as fallback) so each user is visually distinct. */
 function avatarTint(seed: string): { bg: string; fg: string } {
   return pastelAvatarColors(seed || "user")
 }
@@ -134,10 +143,11 @@ function userAvatarSrc(
  */
 export function userAvatar(user: DisplayUser | null | undefined): UserAvatar {
   const name = displayName(user)
+  const initialsSource = avatarInitialsSource(user)
   const { bg, fg } = avatarTint(user?.id ?? name)
   return {
     src: userAvatarSrc(user),
-    initials: displayInitials(name),
+    initials: displayInitials(initialsSource),
     bg,
     fg,
   }
@@ -167,15 +177,10 @@ export function UserBanner({
   user: DisplayUser | null | undefined
   className?: string
 }) {
-  const dedicatedBannerSrc = userImageSrc(user?.banner)
-  const avatarFallbackSrc = dedicatedBannerSrc ? userAvatarSrc(user) : undefined
-  const banner = {
-    src: dedicatedBannerSrc ?? userAvatarSrc(user),
-    bg: pastelBannerGradient(user?.id ?? displayName(user)),
-  }
-  // When using a dedicated banner image, render it clean. When falling back
-  // to the avatar image, zoom & desaturate it so it reads as a backdrop.
-  const hasDedicatedBanner = !!dedicatedBannerSrc
+  // Only a dedicated banner image is rendered — there is no avatar-derived
+  // fallback. Callers that want a different empty state (e.g. the frosted
+  // profile header) check `user.banner` themselves and render their own.
+  const bannerSrc = userImageSrc(user?.banner)
   return (
     <div
       aria-hidden
@@ -183,70 +188,42 @@ export function UserBanner({
         "absolute inset-0 overflow-hidden rounded-[inherit]",
         className,
       )}
-      style={{ background: banner.bg }}
+      style={{
+        background: pastelBannerGradient(user?.id ?? displayName(user)),
+      }}
     >
-      {banner.src ? (
-        <UserBannerImage
-          src={banner.src}
-          fallbackSrc={avatarFallbackSrc}
-          hasDedicatedBanner={hasDedicatedBanner}
-        />
-      ) : null}
+      {bannerSrc ? <UserBannerImage src={bannerSrc} /> : null}
     </div>
   )
 }
 
-function UserBannerImage({
-  src,
-  fallbackSrc,
-  hasDedicatedBanner,
-}: {
-  src: string
-  fallbackSrc?: string
-  hasDedicatedBanner: boolean
-}) {
-  const [activeSrc, setActiveSrc] = React.useState(src)
+function UserBannerImage({ src }: { src: string }) {
   const [status, setStatus] = React.useState<"loading" | "loaded" | "error">(
     () => (loadedUserBannerSrcs.has(src) ? "loaded" : "loading"),
   )
-  const activeHasDedicatedBanner = hasDedicatedBanner && activeSrc === src
 
   React.useEffect(() => {
-    setActiveSrc(src)
     setStatus(loadedUserBannerSrcs.has(src) ? "loaded" : "loading")
   }, [src])
-
-  function switchToFallback() {
-    if (!fallbackSrc || fallbackSrc === activeSrc) return false
-    setActiveSrc(fallbackSrc)
-    setStatus(loadedUserBannerSrcs.has(fallbackSrc) ? "loaded" : "loading")
-    return true
-  }
 
   return (
     <>
       <img
-        key={activeSrc}
-        src={activeSrc}
+        key={src}
+        src={src}
         alt=""
         aria-hidden
         decoding="async"
-        fetchPriority={activeHasDedicatedBanner ? "high" : "low"}
-        loading={activeHasDedicatedBanner ? "eager" : "lazy"}
+        fetchPriority="high"
+        loading="eager"
         onLoad={() => {
-          loadedUserBannerSrcs.add(activeSrc)
+          loadedUserBannerSrcs.add(src)
           setStatus("loaded")
         }}
-        onError={() => {
-          if (activeSrc === src && switchToFallback()) return
-          setStatus("error")
-        }}
+        onError={() => setStatus("error")}
         className={cn(
-          "absolute inset-0 size-full rounded-[inherit] object-cover transition-opacity duration-150",
+          "absolute inset-0 size-full rounded-[inherit] object-cover brightness-90 transition-opacity duration-150",
           status === "loaded" ? "opacity-100" : "opacity-0",
-          activeHasDedicatedBanner
-            ? "brightness-90"
-            : "scale-150 brightness-75 saturate-150",
         )}
       />
       {status === "loading" ? (

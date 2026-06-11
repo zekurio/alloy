@@ -1,10 +1,12 @@
 import {
   ACCEPTED_CLIP_CONTENT_TYPES,
   CLIP_DESCRIPTION_MAX_LENGTH,
+  CLIP_TAG_MAX_LENGTH,
+  CLIP_TAGS_MAX,
   CLIP_TITLE_MAX_LENGTH,
 } from "alloy-contracts"
 import { clip, CLIP_PRIVACY } from "alloy-db/schema"
-import { and, desc, eq, lt, or, type SQL, sql } from "drizzle-orm"
+import { and, desc, eq, inArray, lt, or, type SQL, sql } from "drizzle-orm"
 import { z } from "zod"
 
 import { toPublicClipRow } from "../clips/select"
@@ -57,10 +59,6 @@ export const ListQuery = z.object({
   sort: z.enum(["top", "recent"]).default("recent"),
   limit: limitQueryParam(100, 50),
   cursor: z.string().optional(),
-  hashtag: z
-    .string()
-    .regex(/^[\p{L}\p{N}_]+$/u)
-    .optional(),
 })
 
 type ClipListSort = "top" | "recent"
@@ -103,6 +101,14 @@ type ClipListPageRow = ClipListCursorRow & {
   variants: readonly { storageKey: string }[]
   steamgriddbId: number
   game: string | null
+}
+
+export function publicClipPrivacyCondition(): SQL {
+  return eq(clip.privacy, "public")
+}
+
+export function shareableClipPrivacyCondition(): SQL {
+  return inArray(clip.privacy, ["public", "unlisted"])
 }
 
 function parseLegacyClipListCursor(value: string): ParsedClipListCursor | null {
@@ -217,6 +223,17 @@ export const WINDOW_MS: Record<"today" | "week" | "month" | "year", number> = {
   year: 365 * 24 * 60 * 60 * 1000,
 }
 
+// BlurHash strings are base83: 6..~100 chars depending on component count.
+const BLURHASH_PATTERN = /^[0-9A-Za-z#$%*+,\-.:;=?@[\]^_{|}~]{6,120}$/
+
+// Raw tag input is sanitized/deduped/capped server-side via `normalizeTags`;
+// this only bounds the request so an enormous array can't be sent. Each entry
+// allows the leading `#` plus a little slack before sanitizing trims it.
+const TagsInput = z
+  .array(z.string().max(CLIP_TAG_MAX_LENGTH + 1))
+  .max(CLIP_TAGS_MAX)
+  .optional()
+
 export const InitiateBody = z
   .object({
     filename: z.string().min(1).max(255),
@@ -227,10 +244,25 @@ export const InitiateBody = z
     steamgriddbId: z.number().int().positive(),
     privacy: z.enum(CLIP_PRIVACY).default("public"),
     mentionedUserIds: z.array(z.uuid()).optional(),
+    tags: TagsInput,
+    thumbBlurHash: z.string().regex(BLURHASH_PATTERN).optional(),
   })
   .refine((b) => b.sizeBytes <= configStore.get("limits").maxUploadBytes, {
     message: "sizeBytes exceeds the configured maximum upload size",
     path: ["sizeBytes"],
+  })
+
+/** Smallest media range a trim may keep, in ms. */
+export const TRIM_MIN_RANGE_MS = 1000
+
+export const TrimBody = z
+  .object({
+    startMs: z.number().int().min(0),
+    endMs: z.number().int().positive(),
+  })
+  .refine((b) => b.endMs - b.startMs >= TRIM_MIN_RANGE_MS, {
+    message: "The trimmed range is too short",
+    path: ["endMs"],
   })
 
 export const UpdateBody = z.object({
@@ -239,6 +271,7 @@ export const UpdateBody = z.object({
   steamgriddbId: z.number().int().positive().optional(),
   privacy: z.enum(CLIP_PRIVACY).optional(),
   mentionedUserIds: z.array(z.uuid()).optional(),
+  tags: TagsInput,
 })
 
 /** Parse an HTTP `Range: bytes=A-B` header into inclusive byte offsets. */

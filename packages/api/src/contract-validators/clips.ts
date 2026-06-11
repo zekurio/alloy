@@ -71,13 +71,7 @@ export function validateClipRow(value: unknown): ClipRow {
 }
 
 function validateClipIdentityFields(row: Record<string, unknown>) {
-  for (const key of [
-    "id",
-    "authorId",
-    "title",
-    "authorUsername",
-    "authorName",
-  ] as const) {
+  for (const key of ["id", "authorId", "title", "authorUsername"] as const) {
     validateRequiredString(
       row[key],
       `Invalid clip response: ${key} is required`,
@@ -177,6 +171,13 @@ function validateClipRelationships(row: Record<string, unknown>) {
       "Invalid clip response: mentions must be an array",
     ).map((mention) => validateUserSummary(mention, "clip mention"))
   }
+  validateArray(row.tags, "Invalid clip response: tags must be an array").map(
+    (tag) =>
+      validateRequiredString(
+        tag,
+        "Invalid clip response: tag must be a string",
+      ),
+  )
   validateArray(
     row.playbackQualities,
     "Invalid clip response: playbackQualities must be an array",

@@ -25,29 +25,20 @@ import {
   decodeCursorPayload,
   encodeCursorPayload,
 } from "./cursor-codec"
-import { hashtagTextFilter } from "./hashtag-filter"
 import { limitQueryParam, zValidator } from "./validation"
 
-const FilterEnum = z.enum(["foryou", "following", "game", "hashtag"])
+const FilterEnum = z.enum(["foryou", "following", "game"])
 
 const FeedQuery = z
   .object({
     filter: FilterEnum.default("foryou"),
     steamgriddbId: z.coerce.number().int().positive().optional(),
-    tag: z
-      .string()
-      .regex(/^[\p{L}\p{N}_]+$/u)
-      .optional(),
     limit: limitQueryParam(50, 20),
     cursor: z.string().optional(),
   })
   .refine((v) => v.filter !== "game" || v.steamgriddbId !== undefined, {
     message: "steamgriddbId is required when filter=game",
     path: ["steamgriddbId"],
-  })
-  .refine((v) => v.filter !== "hashtag" || v.tag !== undefined, {
-    message: "tag is required when filter=hashtag",
-    path: ["tag"],
   })
 
 const ChipsQuery = z.object({
@@ -163,7 +154,6 @@ export const feedRoute = new Hono()
     const {
       filter,
       steamgriddbId,
-      tag,
       limit,
       cursor: rawCursor,
     } = c.req.valid("query")
@@ -195,11 +185,6 @@ export const feedRoute = new Hono()
     if (filter === "game") {
       if (!steamgriddbId) return badRequest(c, "steamgriddbId is required")
       conditions.push(eq(clip.steamgriddbId, steamgriddbId))
-    }
-
-    if (filter === "hashtag") {
-      if (!tag) return badRequest(c, "tag is required")
-      conditions.push(hashtagTextFilter(tag))
     }
 
     if (filter === "following") {

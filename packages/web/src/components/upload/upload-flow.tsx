@@ -1,4 +1,4 @@
-import { useNavigate } from "@tanstack/react-router"
+import { useLocation, useNavigate } from "@tanstack/react-router"
 import { type QueueClip } from "alloy-api"
 import { Dialog, DialogContent, DialogTitle } from "alloy-ui/components/dialog"
 import {
@@ -7,7 +7,6 @@ import {
   PopoverTrigger,
 } from "alloy-ui/components/popover"
 import { useIsMobile } from "alloy-ui/hooks/use-mobile"
-import { toast } from "alloy-ui/lib/toast"
 import { cn } from "alloy-ui/lib/utils"
 import * as React from "react"
 
@@ -17,66 +16,13 @@ import {
   useFloatingSurfaceOpenListener,
 } from "@/components/app/floating-surface-events"
 import type { AppSearch } from "@/lib/app-search"
-import { errorMessage } from "@/lib/error-message"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
-import { FloatingUploadButton } from "./floating-upload-button"
-import {
-  ACCEPT_LIST,
-  prepareSelectedClipFile,
-  type PublishPayload,
-  type SelectedFile,
-} from "./new-clip-helpers"
-import {
-  loadNewClipDialog,
-  NewClipDialog,
-  useWarmEditor,
-} from "./upload-dialog-loader"
+import type { PublishPayload } from "./new-clip-helpers"
 import { useUploadQueueState } from "./upload-flow-queue-state"
 import { type QueueItem, UploadQueueContent } from "./upload-queue"
+import { UploadStatusIndicator } from "./upload-status-indicator"
 import { useUploadFlowControls } from "./use-upload-flow-controls"
-
-function useNewClipPicker(onPicked: () => void) {
-  const [newClipOpen, setNewClipOpen] = React.useState(false)
-  const [newClipModalMounted, setNewClipModalMounted] = React.useState(false)
-  const [initialFile, setInitialFile] = React.useState<SelectedFile | null>(
-    null,
-  )
-  const inputRef = React.useRef<HTMLInputElement>(null)
-
-  const openPicker = React.useCallback(() => {
-    setNewClipModalMounted(true)
-    void loadNewClipDialog()
-    inputRef.current?.click()
-  }, [])
-
-  const onFileChange = React.useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0]
-      e.target.value = ""
-      if (!file) return
-      try {
-        setInitialFile(await prepareSelectedClipFile(file))
-        onPicked()
-        setNewClipOpen(true)
-      } catch (cause) {
-        toast.error(errorMessage(cause, "Couldn't prepare clip"))
-      }
-    },
-    [onPicked],
-  )
-
-  return {
-    newClipOpen,
-    setNewClipOpen,
-    newClipModalMounted,
-    setNewClipModalMounted,
-    initialFile,
-    inputRef,
-    openPicker,
-    onFileChange,
-  }
-}
 
 export function UploadFlow() {
   return (
@@ -93,12 +39,12 @@ function UploadFlowInner() {
   return <AuthedUploadFlow />
 }
 
-/** True when an event originated on the bottom-nav upload trigger button. */
-function pressedUploadTrigger(event: Event): boolean {
+/** True when an event originated on the floating upload status indicator. */
+function pressedUploadIndicator(event: Event): boolean {
   const target = event.target
   return (
     target instanceof Element &&
-    target.closest("[data-upload-trigger]") !== null
+    target.closest("[data-upload-indicator]") !== null
   )
 }
 
@@ -109,7 +55,6 @@ function UploadQueuePopover({
   activeCount,
   isQueueLoading,
   isQueueUnavailable,
-  onNewClip,
   onClearCompleted,
 }: {
   queueOpen: boolean
@@ -118,10 +63,18 @@ function UploadQueuePopover({
   activeCount: number
   isQueueLoading: boolean
   isQueueUnavailable: boolean
-  onNewClip: () => void
   onClearCompleted: () => void
 }) {
   const isMobile = useIsMobile()
+  // The capture editor has its own header Upload action, and the indicator
+  // would float over the trim timeline — keep it off that route. The popover
+  // content is fixed-positioned, so the queue still opens there after a publish.
+  const pathname = useLocation({ select: (location) => location.pathname })
+  const onLibraryEditor = /^\/library\/[^/]+/.test(pathname)
+  // Uploads only originate from the desktop app, so the indicator is purely a
+  // status surface — show it while something is in flight (or the queue is
+  // pinned open), never on the editor route.
+  const showIndicator = activeCount > 0 && !onLibraryEditor
   const queueGlassStyle = {
     /* Row tint is opaque (it sits inside the already-blurred surface).
        The surface fill itself is left to the default `--alloy-blur-bg`
@@ -138,7 +91,6 @@ function UploadQueuePopover({
       queue={queue}
       isLoading={isQueueLoading}
       isUnavailable={isQueueUnavailable}
-      onNewClip={onNewClip}
       onClearCompleted={onClearCompleted}
       onClose={() => setQueueOpen(false)}
     />
@@ -158,40 +110,50 @@ function UploadQueuePopover({
 
   if (isMobile) {
     return (
-      <Dialog
-        modal={false}
-        open={queueOpen}
-        onOpenChange={(open, eventDetails) => {
-          // The bottom-nav upload trigger lives outside this non-modal dialog,
-          // so a tap to dismiss reaches us as an outside-press. Ignore that one
-          // case and let the trigger's own click toggle the queue closed —
-          // otherwise this close races the click's reopen and the modal flashes.
-          if (
-            !open &&
-            eventDetails.reason === "outside-press" &&
-            pressedUploadTrigger(eventDetails.event)
-          ) {
-            return
-          }
-          setQueueOpen(open)
-        }}
-      >
-        <DialogContent
-          disableZoom
-          centered={false}
-          showOverlay={false}
-          className={cn(
-            "right-3 bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+0.75rem)] left-3 z-50 w-auto max-w-none rounded-2xl border p-3",
-            "max-h-[calc(100dvh-var(--header-h)-var(--bottomnav-h)-env(safe-area-inset-bottom)-1.5rem)]",
-            "alloy-blur",
-          )}
-          style={queueGlassStyle}
-          aria-describedby={undefined}
+      <>
+        {showIndicator ? (
+          <UploadStatusIndicator
+            activeCount={activeCount}
+            isOpen={queueOpen}
+            data-upload-indicator=""
+            onClick={() => setQueueOpen(!queueOpen)}
+          />
+        ) : null}
+        <Dialog
+          modal={false}
+          open={queueOpen}
+          onOpenChange={(open, eventDetails) => {
+            // The indicator lives outside this non-modal dialog, so a tap to
+            // dismiss reaches us as an outside-press. Ignore that one case and
+            // let the indicator's own click toggle the queue closed —
+            // otherwise this close races the click's reopen and the modal flashes.
+            if (
+              !open &&
+              eventDetails.reason === "outside-press" &&
+              pressedUploadIndicator(eventDetails.event)
+            ) {
+              return
+            }
+            setQueueOpen(open)
+          }}
         >
-          <DialogTitle className="sr-only">Upload queue</DialogTitle>
-          {content}
-        </DialogContent>
-      </Dialog>
+          <DialogContent
+            disableZoom
+            centered={false}
+            showOverlay={false}
+            className={cn(
+              "right-3 bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+0.75rem)] left-3 z-50 w-auto max-w-none rounded-2xl border p-3",
+              "max-h-[calc(100dvh-var(--header-h)-var(--bottomnav-h)-env(safe-area-inset-bottom)-1.5rem)]",
+              "alloy-blur",
+            )}
+            style={queueGlassStyle}
+            aria-describedby={undefined}
+          >
+            <DialogTitle className="sr-only">Upload queue</DialogTitle>
+            {content}
+          </DialogContent>
+        </Dialog>
+      </>
     )
   }
 
@@ -199,10 +161,10 @@ function UploadQueuePopover({
     <Popover open={queueOpen} onOpenChange={setQueueOpen}>
       <PopoverTrigger
         render={
-          <FloatingUploadButton
+          <UploadStatusIndicator
             activeCount={activeCount}
             isOpen={queueOpen}
-            className="hidden md:flex"
+            className={cn("hidden", showIndicator && "md:flex")}
           />
         }
       />
@@ -221,12 +183,10 @@ function UploadQueuePopover({
           {
             position: "fixed",
             right: "0.75rem",
-            bottom: isMobile
-              ? "calc(var(--bottomnav-h) + env(safe-area-inset-bottom) + 0.75rem)"
-              : "0.75rem",
+            bottom: "0.75rem",
             top: "auto",
-            left: isMobile ? "0.75rem" : "auto",
-            transformOrigin: isMobile ? "bottom center" : "bottom right",
+            left: "auto",
+            transformOrigin: "bottom right",
             ...queueGlassStyle,
           } as React.CSSProperties
         }
@@ -239,7 +199,8 @@ function UploadQueuePopover({
 }
 
 function AuthedUploadFlow() {
-  const { queueOpen, setQueueOpen, setActiveCount } = useUploadFlowControls()
+  const { queueOpen, setQueueOpen, setActiveCount, setPublishClip } =
+    useUploadFlowControls()
   const navigate = useNavigate()
   const handleOpenClip = React.useCallback(
     (row: QueueClip) => {
@@ -263,65 +224,36 @@ function AuthedUploadFlow() {
     isQueueLoading,
     isQueueUnavailable,
   } = useUploadQueueState(queueOpen, handleOpenClip)
-  const {
-    newClipOpen,
-    setNewClipOpen,
-    newClipModalMounted,
-    setNewClipModalMounted,
-    initialFile,
-    inputRef: newClipFileInputRef,
-    openPicker: handleNewClip,
-    onFileChange: handleNewClipFileInputChange,
-  } = useNewClipPicker(() => setQueueOpen(false))
-  useWarmEditor(queueOpen, setNewClipModalMounted)
 
   React.useEffect(() => {
     setActiveCount(activeCount)
     return () => setActiveCount(0)
   }, [activeCount, setActiveCount])
 
-  const handlePublish = React.useCallback(
+  const publishFromExternalEditor = React.useCallback(
     async (payload: PublishPayload) => {
-      setNewClipOpen(false)
       setQueueOpen(true)
-      try {
-        await runUpload(payload)
-      } catch {
-        // Error lives on the queue row's `failed` status.
-      }
+      await runUpload(payload)
     },
-    [runUpload, setNewClipOpen, setQueueOpen],
+    [runUpload, setQueueOpen],
   )
 
+  React.useEffect(() => {
+    setPublishClip(publishFromExternalEditor)
+    return () => {
+      setPublishClip(null)
+    }
+  }, [publishFromExternalEditor, setPublishClip])
+
   return (
-    <>
-      <input
-        ref={newClipFileInputRef}
-        type="file"
-        accept={ACCEPT_LIST}
-        className="hidden"
-        onChange={handleNewClipFileInputChange}
-      />
-      <UploadQueuePopover
-        queueOpen={queueOpen}
-        setQueueOpen={setQueueOpen}
-        queue={queue}
-        activeCount={activeCount}
-        isQueueLoading={isQueueLoading}
-        isQueueUnavailable={isQueueUnavailable}
-        onNewClip={handleNewClip}
-        onClearCompleted={clearCompleted}
-      />
-      {newClipModalMounted ? (
-        <React.Suspense fallback={null}>
-          <NewClipDialog
-            open={newClipOpen}
-            onOpenChange={setNewClipOpen}
-            onPublish={handlePublish}
-            initialFile={initialFile ?? undefined}
-          />
-        </React.Suspense>
-      ) : null}
-    </>
+    <UploadQueuePopover
+      queueOpen={queueOpen}
+      setQueueOpen={setQueueOpen}
+      queue={queue}
+      activeCount={activeCount}
+      isQueueLoading={isQueueLoading}
+      isQueueUnavailable={isQueueUnavailable}
+      onClearCompleted={clearCompleted}
+    />
   )
 }

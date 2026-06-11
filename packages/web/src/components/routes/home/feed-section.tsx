@@ -6,6 +6,7 @@ import * as React from "react"
 import { ClipCardList } from "@/components/clip/clip-card-list"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { useFeedInfiniteQuery } from "@/lib/feed-queries"
+import { useInfiniteScrollSentinel } from "@/lib/use-infinite-scroll-sentinel"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 type FeedSectionProps = {
@@ -15,38 +16,6 @@ type FeedSectionProps = {
 
 const FEED_PAGE_LIMIT = 20
 
-function useInfiniteScrollSentinel(
-  fetchNextPage: () => Promise<unknown>,
-  hasNextPage: boolean,
-  isFetchingNextPage: boolean,
-) {
-  const fetchNextRef = React.useRef(fetchNextPage)
-  fetchNextRef.current = fetchNextPage
-  const hasNextRef = React.useRef(hasNextPage)
-  hasNextRef.current = hasNextPage
-  const isFetchingNextRef = React.useRef(isFetchingNextPage)
-  isFetchingNextRef.current = isFetchingNextPage
-
-  const sentinelRef = React.useRef<HTMLDivElement | null>(null)
-  React.useEffect(() => {
-    const el = sentinelRef.current
-    if (!el || typeof IntersectionObserver === "undefined") return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0]
-        if (!entry?.isIntersecting) return
-        if (isFetchingNextRef.current || !hasNextRef.current) return
-        void fetchNextRef.current()
-      },
-      { rootMargin: "800px" },
-    )
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-
-  return sentinelRef
-}
-
 function emptyTitle(filter: FeedFilter): string {
   switch (filter.kind) {
     case "foryou":
@@ -55,8 +24,6 @@ function emptyTitle(filter: FeedFilter): string {
       return "Your following feed is empty"
     case "game":
       return "No clips in this game yet"
-    case "hashtag":
-      return `No clips tagged #${filter.tag}`
   }
 }
 
@@ -68,14 +35,11 @@ function emptyHint(filter: FeedFilter): string {
       return "Follow creators or favourite games to populate this tab."
     case "game":
       return "Be the first to post one."
-    case "hashtag":
-      return "Try another tag or check back later."
   }
 }
 
 function filterId(filter: FeedFilter): string {
   if (filter.kind === "game") return `game:${filter.steamgriddbId}`
-  if (filter.kind === "hashtag") return `hashtag:${filter.tag}`
   return filter.kind
 }
 

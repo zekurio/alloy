@@ -1,4 +1,4 @@
-import { Link, useNavigate, useRouter } from "@tanstack/react-router"
+import { Link, useRouter } from "@tanstack/react-router"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,12 +10,10 @@ import { Spinner } from "alloy-ui/components/spinner"
 import { UserAvatarButton } from "alloy-ui/components/user-avatar-button"
 import { buttonVariants } from "alloy-ui/lib/button-variants"
 import { toast } from "alloy-ui/lib/toast"
-import { LogInIcon, LogOutIcon, SettingsIcon } from "lucide-react"
+import { LogInIcon, LogOutIcon, UserIcon } from "lucide-react"
 import * as React from "react"
 
-import { DEFAULT_SETTINGS_SECTION } from "@/components/routes/settings/settings-categories"
 import { StorageQuotaCompact } from "@/components/storage-quota"
-import type { AppSearch } from "@/lib/app-search"
 import { completeSignOutFlow, reportAuthFlowFailure } from "@/lib/auth-flow"
 import { useSuspenseSession } from "@/lib/session-suspense"
 import { useUserChipData } from "@/lib/user-display"
@@ -31,7 +29,6 @@ export function UserMenu() {
 function UserMenuInner() {
   const session = useSuspenseSession()
   const router = useRouter()
-  const navigate = useNavigate()
   const chip = useUserChipData(session?.user)
 
   if (!session) {
@@ -50,15 +47,6 @@ function UserMenuInner() {
   const handle = user.username ?? user.displayUsername ?? null
   const email = user.email ?? null
   const primaryLabel = handle ? `@${handle}` : chip.name
-  function onOpenSettings() {
-    void navigate({
-      to: ".",
-      search: (prev: AppSearch) => ({
-        ...prev,
-        settings: DEFAULT_SETTINGS_SECTION,
-      }),
-    })
-  }
   async function onSignOut() {
     try {
       await completeSignOutFlow({
@@ -75,8 +63,7 @@ function UserMenuInner() {
           <UserAvatarButton
             avatar={chip.avatar}
             name={chip.name}
-            size="md"
-            avatarClassName="size-8 [--avatar-size:2rem]"
+            size="nav"
             aria-label={`Open account menu for ${chip.name}`}
           />
         }
@@ -97,17 +84,20 @@ function UserMenuInner() {
           ) : null}
         </div>
         <DropdownMenuSeparator />
+        {handle ? (
+          <>
+            <DropdownMenuItem
+              render={<Link to="/u/$username" params={{ username: handle }} />}
+            >
+              <UserIcon />
+              Profile
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        ) : null}
         <div className="px-3 py-2">
           <StorageQuotaCompact />
         </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={onOpenSettings}
-          className="focus:bg-white/8 data-highlighted:bg-white/8"
-        >
-          <SettingsIcon />
-          Settings
-        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onClick={onSignOut}>
           <LogOutIcon />

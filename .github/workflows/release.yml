@@ -151,19 +151,6 @@ jobs:
             type=raw,value=${{ steps.meta.outputs.tag }}
             type=raw,value=latest,enable=${{ steps.meta.outputs.make_latest == 'true' }}
 
-      - name: Publish machine learning release image
-        uses: ./.github/actions/publish-image
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-machine-learning
-          context: machine-learning
-          file: machine-learning/Dockerfile
-          build-args: |
-            DEVICE=cpu
-          tags: |
-            type=raw,value=${{ steps.meta.outputs.tag }}
-            type=raw,value=latest,enable=${{ steps.meta.outputs.make_latest == 'true' }}
-
   desktop:
     name: Build Windows desktop installer
     runs-on: windows-latest

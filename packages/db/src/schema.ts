@@ -107,6 +107,11 @@ export const clip = pgTable(
     likeCount: integer("like_count").notNull().default(0),
     commentCount: integer("comment_count").notNull().default(0),
 
+    // Pending owner-requested trim (source-time ms). The media pipeline cuts
+    // the stored source to this range on its next run and clears both.
+    trimStartMs: integer("trim_start_ms"),
+    trimEndMs: integer("trim_end_ms"),
+
     status: text("status").$type<ClipStatus>().notNull().default("pending"),
     encodeProgress: integer("encode_progress").notNull().default(0),
     encodeRunId: uuid("encode_run_id"),
@@ -122,13 +127,11 @@ export const clip = pgTable(
     // Home feed hot path: "newest public (or public+unlisted) clips".
     // Filter on privacy, sort by createdAt — composite supports both.
     index("clip_privacy_created_idx").on(t.privacy, t.createdAt),
-    // Top clips: only ready public/unlisted rows participate, so keep the
-    // ranking columns first and in route order.
+    // Top clips are the same for every viewer: only ready public rows
+    // participate, so keep the ranking columns first and in route order.
     index("clip_ready_visible_top_idx")
       .on(t.viewCount.desc(), t.likeCount.desc(), t.createdAt.desc(), t.id)
-      .where(
-        sql`${t.status} = 'ready' and ${t.privacy} in ('public', 'unlisted')`,
-      ),
+      .where(sql`${t.status} = 'ready' and ${t.privacy} = 'public'`),
     index("clip_status_idx").on(t.status),
     index("clip_steamgriddb_created_idx").on(t.steamgriddbId, t.createdAt),
     index("clip_ready_visible_steamgriddb_top_idx")
@@ -139,9 +142,7 @@ export const clip = pgTable(
         t.createdAt.desc(),
         t.id,
       )
-      .where(
-        sql`${t.status} = 'ready' and ${t.privacy} in ('public', 'unlisted')`,
-      ),
+      .where(sql`${t.status} = 'ready' and ${t.privacy} = 'public'`),
     check(
       "clip_privacy_check",
       sql`${t.privacy} in (${sql.raw(sqlStringList(CLIP_PRIVACY))})`,
@@ -281,6 +282,22 @@ export const clipMention = pgTable(
   ],
 )
 
+export const clipTag = pgTable(
+  "clip_tag",
+  {
+    clipId: uuid("clip_id")
+      .notNull()
+      .references(() => clip.id, { onDelete: "cascade" }),
+    // Bare, lowercase-canonical hashtag (no leading '#').
+    tag: text("tag").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.clipId, t.tag] }),
+    // Reverse lookup for the /tags/:tag page and the tag filter.
+    index("clip_tag_tag_idx").on(t.tag),
+  ],
+)
+
 export const follow = pgTable(
   "follow",
   {
@@ -395,6 +412,7 @@ export const domainSchema = {
   clipComment,
   clipCommentLike,
   clipMention,
+  clipTag,
   follow,
   game,
   gameFollow,

@@ -14,6 +14,7 @@ import type {
   UpdateClipInput,
   UserClip,
 } from "alloy-api"
+import * as React from "react"
 
 import { api } from "./api"
 import { clipKeys } from "./clip-query-keys"
@@ -49,18 +50,27 @@ export function seedClipDetailInCache(qc: QueryClient, row: ClipRow) {
 
 export function useTopClipsQuery(
   window: ClipFeedWindow,
-  { limit = 5, hashtag }: { limit?: number; hashtag?: string } = {},
+  { limit = 5 }: { limit?: number } = {},
 ) {
   return useQuery({
-    queryKey: hashtag
-      ? clipKeys.topHashtagList(window, limit, hashtag)
-      : clipKeys.topList(window, limit),
-    queryFn: () => api.clips.fetch({ window, sort: "top", limit, hashtag }),
+    queryKey: clipKeys.topList(window, limit),
+    queryFn: () => api.clips.fetch({ window, sort: "top", limit }),
   })
 }
 
 export function useUserClipsQuery(handle: string) {
   return useQuery(userClipsQueryOptions(handle))
+}
+
+export function useUserTopClipsQuery(
+  handle: string,
+  { limit = 5 }: { limit?: number } = {},
+) {
+  return useQuery({
+    queryKey: clipKeys.userTopList(handle, limit),
+    queryFn: () => api.users.fetchTopClips(handle, limit),
+    enabled: handle.length > 0,
+  })
 }
 
 export function userClipsQueryOptions(handle: string) {
@@ -198,6 +208,27 @@ export function useUpdateClipMutation() {
   })
 }
 
+export function useTrimClipMutation() {
+  const qc = useQueryClient()
+
+  return useMutation<
+    ClipRow,
+    Error,
+    { clipId: string; startMs: number; endMs: number }
+  >({
+    mutationFn: ({ clipId, startMs, endMs }) =>
+      api.clips.trim(clipId, { startMs, endMs }),
+    onSuccess: (row) => {
+      // The clip flips to "processing"; the detail query's refetch interval
+      // takes over polling until the trimmed media is published.
+      patchClipInCaches(qc, row.id, row)
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: clipKeys.all })
+    },
+  })
+}
+
 export function useDeleteClipMutation() {
   const qc = useQueryClient()
 
@@ -322,7 +353,12 @@ export function adjustClipCountsInCaches(
 
 export function useInvalidateClips() {
   const qc = useQueryClient()
-  return () => qc.invalidateQueries({ queryKey: clipKeys.all })
+  // Stable identity: callers put this in effect/callback dependency arrays, so
+  // a fresh function per render would cascade re-runs through their hooks.
+  return React.useCallback(
+    () => qc.invalidateQueries({ queryKey: clipKeys.all }),
+    [qc],
+  )
 }
 
 export type { ClipRow, QueueClip, UpdateClipInput, UserClip }

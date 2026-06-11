@@ -38,7 +38,11 @@ export interface PublishPayload {
   durationMs: number
   sizeBytes: number
   thumbBlob: Blob
+  /** Client-computed BlurHash for the poster frame, when available. */
+  thumbBlurHash: string | null
   mentionedUserIds: string[]
+  /** Bare, canonical hashtags for the clip. */
+  tags: string[]
 }
 
 const CONTENT_TYPE_ALIASES: Record<string, AcceptedContentType> = {
@@ -82,5 +86,5 @@ export function stripExtension(filename: string): string {
   return idx > 0 ? filename.slice(0, idx) : filename
 }
 
-export { captureFrames, captureThumbnail } from "./new-clip-media"
+export { captureThumbnail } from "./new-clip-media"
 export { type ProbedFile, probeFile }

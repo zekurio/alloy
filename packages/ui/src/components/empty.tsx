@@ -16,12 +16,12 @@ function EmptySection({
 function renderEmptySection(
   slot: string,
   defaultClassName: string,
-  props: React.ComponentProps<"div">,
+  { className, ...props }: React.ComponentProps<"div">,
 ) {
   return (
     <EmptySection
       slot={slot}
-      className={cn(defaultClassName, props.className)}
+      className={cn(defaultClassName, className)}
       {...props}
     />
   )

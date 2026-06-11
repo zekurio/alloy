@@ -1,5 +1,4 @@
 import { spawn, spawnSync } from "node:child_process"
-import { join } from "node:path"
 
 import { buildDevEnv, root, waitForDatabase } from "./dev-env.mjs"
 
@@ -20,12 +19,6 @@ const processSpecs = {
   desktop: {
     filter: "alloy-desktop",
   },
-  ml: {
-    command: "uv",
-    args: ["run", "python", "-m", "alloy_ml"],
-    cwd: join(root, "machine-learning"),
-    before: syncMachineLearning,
-  },
 }
 
 const selectedNames = process.argv.slice(2)
@@ -39,7 +32,7 @@ for (const name of selected) {
   }
 }
 
-const env = buildDevEnv({ selected })
+const env = buildDevEnv()
 
 if (selected.some((name) => processSpecs[name].needsDatabase)) {
   try {
@@ -103,19 +96,6 @@ function spawnChild(command, args, options = {}) {
     }
     process.exit(code ?? 1)
   })
-}
-
-function syncMachineLearning(env) {
-  if (env.MACHINE_LEARNING_UV_SYNC === "0") return
-
-  runChecked(
-    "uv",
-    ["sync", "--extra", env.MACHINE_LEARNING_UV_EXTRA ?? "cpu"],
-    {
-      cwd: join(root, "machine-learning"),
-      env,
-    },
-  )
 }
 
 function runChecked(command, args, options) {

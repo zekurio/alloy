@@ -64,9 +64,7 @@ export function HomeHeader() {
         <SearchResultsPopover />
       </AppHeaderSearch>
       <AppHeaderActions className="gap-2 sm:gap-3">
-        <div className="hidden sm:block">
-          <NotificationCenter />
-        </div>
+        <NotificationCenter />
         <UserMenu />
       </AppHeaderActions>
       {desktop?.titlebarOverlay ? (
@@ -110,47 +108,58 @@ function HeaderNavigation() {
 }
 
 function useHeaderNavigationHistory() {
-  const locationKey = useRouterState({
-    select: (state) => state.location.href,
+  // Drive availability from the router's real history position rather than a
+  // url-matching heuristic: matching on href misreads a fresh push to a
+  // previously-seen url (e.g. going back to /library, or the editor's many
+  // `replace` navigations) as a "back" and wrongly enables forward.
+  const entry = useRouterState({
+    select: (state) => {
+      const historyState = state.location.state as {
+        __TSR_index?: number
+        __TSR_key?: string
+      }
+      return {
+        index: historyState.__TSR_index ?? 0,
+        key: historyState.__TSR_key ?? state.location.href,
+      }
+    },
   })
-  const stackRef = React.useRef([locationKey])
-  const indexRef = React.useRef(0)
+
+  // index -> the key last seen at that position. A push/replace lands a new
+  // key (truncating everything ahead); a back/forward restores a known key.
+  const keysByIndexRef = React.useRef(new Map<number, string>())
+  const topIndexRef = React.useRef(entry.index)
   const [availability, setAvailability] = React.useState({
     canGoBack: false,
     canGoForward: false,
   })
 
   React.useEffect(() => {
-    const stack = stackRef.current
-    const index = indexRef.current
-    const previousKey = stack[index - 1]
-    const nextKey = stack[index + 1]
-
-    if (locationKey === previousKey) {
-      indexRef.current = index - 1
-    } else if (locationKey === nextKey) {
-      indexRef.current = index + 1
-    } else if (locationKey !== stack[index]) {
-      stack.splice(index + 1, stack.length - index - 1, locationKey)
-      indexRef.current = index + 1
+    const keysByIndex = keysByIndexRef.current
+    if (keysByIndex.get(entry.index) !== entry.key) {
+      // New entry here (push or replace): it discards any forward history, so
+      // this position becomes the top of the stack.
+      keysByIndex.set(entry.index, entry.key)
+      for (const seenIndex of keysByIndex.keys()) {
+        if (seenIndex > entry.index) keysByIndex.delete(seenIndex)
+      }
+      topIndexRef.current = entry.index
     }
 
     setAvailability({
-      canGoBack: indexRef.current > 0,
-      canGoForward: indexRef.current < stackRef.current.length - 1,
+      canGoBack: entry.index > 0,
+      canGoForward: entry.index < topIndexRef.current,
     })
-  }, [locationKey])
+  }, [entry.index, entry.key])
 
   return {
     ...availability,
     goBack: React.useCallback(() => {
-      if (indexRef.current > 0) window.history.back()
-    }, []),
+      if (entry.index > 0) window.history.back()
+    }, [entry.index]),
     goForward: React.useCallback(() => {
-      if (indexRef.current < stackRef.current.length - 1) {
-        window.history.forward()
-      }
-    }, []),
+      if (entry.index < topIndexRef.current) window.history.forward()
+    }, [entry.index]),
   }
 }
 

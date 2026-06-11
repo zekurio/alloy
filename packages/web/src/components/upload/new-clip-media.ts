@@ -8,7 +8,6 @@ const VIDEO_LOAD_TIMEOUT_MS = 15000
 const THUMB_MAX_BYTES = 2 * 1024 * 1024
 const THUMB_DIMENSIONS = [1280, 960, 720] as const
 const THUMB_QUALITIES = [0.85, 0.75, 0.65] as const
-const FRAME_JPEG_QUALITY = 0.72
 
 type VideoEventName = "loadedmetadata" | "loadeddata" | "seeked"
 
@@ -72,56 +71,6 @@ export async function captureThumbnail(
     throw lastError instanceof Error
       ? lastError
       : new Error("Could not capture thumbnail")
-  } finally {
-    cleanup()
-  }
-}
-
-/**
- * Grab `count` evenly-spaced frames from the video, each scaled down to
- * `maxWidth` px wide, as JPEG blobs. Feeds the advisory ML game-suggestion
- * model — cheap, best-effort, and never load-bearing, so we swallow
- * per-frame failures and return whatever we managed to capture.
- */
-export async function captureFrames(
-  file: File,
-  { count, maxWidth }: { count: number; maxWidth: number },
-): Promise<Blob[]> {
-  if (count <= 0) return []
-
-  const { video, cleanup } = createVideoSession(file, "auto")
-
-  try {
-    await loadVideoMetadata(
-      video,
-      "Could not load video metadata for frame capture",
-    )
-
-    const srcW = video.videoWidth
-    const srcH = video.videoHeight
-    if (!srcW || !srcH) return []
-
-    const duration = Number.isFinite(video.duration) ? video.duration : 0
-    const times = evenlySpacedFrameTimes(duration, count)
-
-    const { width, height } = thumbnailSize(srcW, srcH, maxWidth)
-    const canvas = document.createElement("canvas")
-    canvas.width = width
-    canvas.height = height
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return []
-
-    const frames: Blob[] = []
-    for (const targetTime of times) {
-      try {
-        await seekVideo(video, targetTime, "Seek failed during frame capture")
-        ctx.drawImage(video, 0, 0, width, height)
-        frames.push(await encodeCanvasAsJpeg(canvas, FRAME_JPEG_QUALITY))
-      } catch {
-        // Advisory feature — skip frames we can't grab and keep going.
-      }
-    }
-    return frames
   } finally {
     cleanup()
   }
@@ -326,19 +275,6 @@ async function drawThumbnail(video: HTMLVideoElement): Promise<Blob> {
 
   if (lastBlob) return lastBlob
   throw new Error("Could not encode thumbnail")
-}
-
-function evenlySpacedFrameTimes(
-  durationSeconds: number,
-  count: number,
-): number[] {
-  if (durationSeconds <= 0.1) return [0]
-  const times: number[] = []
-  for (let i = 1; i <= count; i++) {
-    const fraction = i / (count + 1)
-    times.push(Number((durationSeconds * fraction).toFixed(3)))
-  }
-  return times
 }
 
 function uniqueThumbnailTimes(

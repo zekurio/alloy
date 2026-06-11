@@ -6,6 +6,8 @@ import { cn } from "alloy-ui/lib/utils"
 import { ImageIcon, Trash2 } from "lucide-react"
 import * as React from "react"
 
+export type MediaKind = "avatar" | "banner" | "background"
+
 export function MediaEditOverlay({
   tone = "shade",
   children,
@@ -43,7 +45,7 @@ function MediaMenuItems({
   onUpload,
   onRemove,
 }: {
-  kind: "avatar" | "banner"
+  kind: MediaKind
   onUpload: () => void
   onRemove: () => void
 }) {
@@ -68,7 +70,7 @@ export function MediaDropdownContent({
   onRemove,
 }: {
   anchor: React.ComponentProps<typeof DropdownMenuContent>["anchor"] | null
-  kind: "avatar" | "banner"
+  kind: MediaKind
   onUpload: () => void
   onRemove: () => void
 }) {

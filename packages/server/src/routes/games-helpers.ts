@@ -29,6 +29,13 @@ export const ResolveBody = z.object({
   steamgriddbId: z.number().int().positive(),
 })
 
+export const LookupBody = z.object({
+  names: z
+    .array(requiredTrimmedString(120))
+    .max(50)
+    .transform((names) => [...new Set(names)]),
+})
+
 export const ClipsQuery = z.object({
   sort: z.enum(["top", "recent"]).default("recent"),
   limit: limitQueryParam(100, 50),

@@ -125,7 +125,6 @@ export function validateAdminUserStorageRow(
     row.createdAt,
     "Invalid admin user response: createdAt must be a date string",
   )
-  validateString(row.name, "Invalid admin user response: name is required")
   validateNullableString(
     row.image,
     "Invalid admin user response: image must be string or null",
@@ -244,7 +243,6 @@ export function validatePublicUser(value: unknown): PublicUser {
       `Invalid user response: ${key} is required`,
     )
   }
-  validateString(row.name, "Invalid user response: name is required")
   validateNullableString(
     row.image,
     "Invalid user response: image must be string or null",
@@ -252,6 +250,14 @@ export function validatePublicUser(value: unknown): PublicUser {
   validateNullableString(
     row.banner,
     "Invalid user response: banner must be string or null",
+  )
+  validateNullableString(
+    row.background,
+    "Invalid user response: background must be string or null",
+  )
+  validateNullableString(
+    row.accentColor,
+    "Invalid user response: accentColor must be string or null",
   )
   validateIsoDateString(
     row.createdAt,
