@@ -4,7 +4,6 @@ import { Readable, Transform } from "node:stream"
 import { pipeline } from "node:stream/promises"
 import type { ReadableStream as NodeReadableStream } from "node:stream/web"
 
-import { dirname } from "@alloy/server/runtime/path"
 import {
   CopyObjectCommand,
   DeleteObjectCommand,
@@ -16,13 +15,14 @@ import {
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 
+import { dirname } from "../runtime/path"
 import type {
   MintUploadUrlInput,
   ResolvedObject,
   StorageDriver,
   UploadTicket,
 } from "./driver"
-import { normalizeObjectPath } from "./paths"
+import { normalizeObjectPath } from "./object-path"
 
 interface S3StorageDriverOptions {
   bucket: string
