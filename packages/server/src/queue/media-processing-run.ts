@@ -13,11 +13,7 @@ import { probeMedia } from "@alloy/server/media/probe"
 import { trimToMp4 } from "@alloy/server/media/trim"
 import { notifyFollowersOfNewClip } from "@alloy/server/notifications/index"
 import { join } from "@alloy/server/runtime/path"
-import {
-  clipAssetDir,
-  clipAssetKey,
-  clipStorage,
-} from "@alloy/server/storage/index"
+import { clipStorage } from "@alloy/server/storage/index"
 import {
   deleteStagedUpload,
   deleteStagedUploads,
@@ -27,6 +23,7 @@ import {
 import { and, eq } from "drizzle-orm"
 
 import { abortMediaProcessing } from "./media-abort"
+import { runScopedSourceKey, runScopedThumbKey } from "./media-asset-keys"
 import { makeMediaProgressWriter } from "./media-progress"
 import { type Asset, publishOriginalSource } from "./media-publish"
 import { ensureClipStillPresent, makeMediaWorkDir } from "./media-run-helpers"
@@ -58,6 +55,7 @@ export async function runMediaProcessingInner(
       retainPublishedKey: (key) => retainedKeys.add(key),
     })
   } catch (err) {
+    await retainRowAssetKeys(clipId, retainedKeys)
     await cleanupFailedRun(uploadedKeys, retainedKeys)
     if (sourcePublishedForRetry) {
       await deleteStagedUpload(await selectStagedUploadKey(clipId))
@@ -145,8 +143,8 @@ async function runPipelineInWorkDir({
   }
 
   const sourceKey = trim
-    ? trimmedSourceKey(clipId)
-    : (row.sourceKey ?? clipAssetKey(clipId, "source"))
+    ? runScopedSourceKey(clipId, runId)
+    : (row.sourceKey ?? runScopedSourceKey(clipId, runId))
   const canReuseSource = !trim && row.sourceKey === sourceKey
   const sourceAsset = canReuseSource
     ? {
@@ -194,6 +192,7 @@ async function runPipelineInWorkDir({
   // kept as-is.
   const { thumbKey, thumbBlurHash } = await republishUploadedThumbnail(
     clipId,
+    runId,
     row,
     uploadedKeys,
   )
@@ -292,15 +291,6 @@ function pendingTrimRange(
   return { startMs: row.trimStartMs, endMs: row.trimEndMs }
 }
 
-/**
- * A fresh key per trim so the cut source never overwrites the original
- * in place; the stale object is pruned after the run publishes.
- */
-function trimmedSourceKey(clipId: string): string {
-  const stamp = Date.now().toString(36)
-  return `${clipAssetDir(clipId)}/source-${stamp}`
-}
-
 async function pruneStaleClipAssets(
   row: Pick<Clip, "sourceKey" | "thumbKey">,
   retainedKeys: Iterable<string>,
@@ -322,13 +312,14 @@ async function pruneStaleClipAssets(
  */
 async function republishUploadedThumbnail(
   clipId: string,
+  runId: string,
   row: Clip,
   uploadedKeys: string[],
 ): Promise<{ thumbKey: string | null; thumbBlurHash: string | null }> {
   const uploadedThumbKey = await selectThumbUploadKey(clipId)
   if (uploadedThumbKey) {
     if (await stagedUploadExists(uploadedThumbKey)) {
-      const thumbKey = clipAssetKey(clipId, "thumb")
+      const thumbKey = runScopedThumbKey(clipId, runId)
       await clipStorage.copy({
         fromKey: uploadedThumbKey,
         toKey: thumbKey,
@@ -397,6 +388,28 @@ async function cleanupFailedRun(
     retainedKeys,
     "failed media processing asset",
   )
+}
+
+/**
+ * A competing run may have published while this run was failing; never
+ * delete whatever the row currently points at. Best-effort: if the read
+ * fails, uploadedKeys are run-scoped, so deleting them is safe regardless.
+ */
+async function retainRowAssetKeys(
+  clipId: string,
+  retainedKeys: Set<string>,
+): Promise<void> {
+  try {
+    const [fresh] = await db
+      .select({ sourceKey: clip.sourceKey, thumbKey: clip.thumbKey })
+      .from(clip)
+      .where(eq(clip.id, clipId))
+      .limit(1)
+    if (fresh?.sourceKey) retainedKeys.add(fresh.sourceKey)
+    if (fresh?.thumbKey) retainedKeys.add(fresh.thumbKey)
+  } catch (err) {
+    logger.warn(`[queue] failed to retain row asset keys for ${clipId}:`, err)
+  }
 }
 
 async function deleteClipAssetsBestEffort(
