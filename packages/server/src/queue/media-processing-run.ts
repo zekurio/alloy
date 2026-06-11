@@ -12,7 +12,11 @@ import { imageBlurHash } from "../media/blurhash"
 import { notifyFollowersOfNewClip } from "../notifications"
 import { join } from "../runtime/path"
 import { clipAssetDir, clipAssetKey, clipStorage } from "../storage"
-import { deleteScratchUpload, scratchUploadPath } from "../uploads/scratch"
+import {
+  deleteScratchUpload,
+  deleteScratchUploads,
+  scratchUploadPath,
+} from "../uploads/scratch"
 import { probe, thumbnail, trimToMp4 } from "./ffmpeg"
 import { abortMediaProcessing } from "./media-abort"
 import { makeMediaProgressWriter } from "./media-progress"
@@ -185,18 +189,16 @@ async function runPipelineInScratch({
 
   await ensureClipStillPresent(clipId, runId, signal)
   const thumbKey = clipAssetKey(clipId, "thumb")
-  const thumbPath = join(scratchDir, "thumb.webp")
-  const thumbAtMs = Math.min(outputDurationMs - 1, outputDurationMs / 3)
-  await thumbnail(mediaPath, thumbPath, {
-    atMs: Math.max(0, thumbAtMs),
+  const thumbBlurHash = await publishThumbnail({
+    clipId,
+    row,
+    scratchDir,
+    mediaPath,
+    outputDurationMs,
+    thumbKey,
+    uploadedKeys,
     signal,
   })
-  // Prefer the freshly computed hash; keep a client-provided one from
-  // initiate when the local compute fails rather than blanking it out.
-  const thumbBlurHash =
-    (await computeThumbBlurHash(thumbPath, signal)) ?? row.thumbBlurHash
-  await clipStorage.uploadFromFile(thumbPath, thumbKey, "image/webp")
-  uploadedKeys.push(thumbKey)
   const [thumbPublished] = await db
     .update(clip)
     .set({
@@ -281,7 +283,7 @@ async function runPipelineInScratch({
     openGraphAsset.storageKey,
     thumbKey,
   ])
-  await cleanupCompletedScratchUpload(clipId)
+  await cleanupCompletedScratchUploads(clipId)
   completeWork()
   void publishClipUpsert(row.authorId, clipId)
   if (
@@ -329,6 +331,79 @@ async function pruneStaleClipAssets(
   )
 }
 
+/**
+ * Publishes the clip's poster image and returns the BlurHash to store.
+ *
+ * The desktop client is the only uploader and ships a rendered webp poster
+ * plus a BlurHash at initiate, so the normal upload path simply republishes
+ * the uploaded image — no frame extraction or hash compute happens here.
+ * The ffmpeg fallback only runs when there is no uploaded poster (an owner
+ * trim reprocess, or a legacy clip), mirroring the backfill path.
+ */
+async function publishThumbnail({
+  clipId,
+  row,
+  scratchDir,
+  mediaPath,
+  outputDurationMs,
+  thumbKey,
+  uploadedKeys,
+  signal,
+}: {
+  clipId: string
+  row: ClipRow
+  scratchDir: string
+  mediaPath: string
+  outputDurationMs: number
+  thumbKey: string
+  uploadedKeys: string[]
+  signal: AbortSignal
+}): Promise<string | null> {
+  const uploadedThumbKey = await selectThumbUploadKey(clipId)
+  if (uploadedThumbKey) {
+    const uploadedPath = scratchUploadPath(uploadedThumbKey)
+    if (await scratchFileExists(uploadedPath)) {
+      await clipStorage.uploadFromFile(uploadedPath, thumbKey, "image/webp")
+      uploadedKeys.push(thumbKey)
+      return row.thumbBlurHash
+    }
+  }
+
+  const thumbPath = join(scratchDir, "thumb.webp")
+  const thumbAtMs = Math.min(outputDurationMs - 1, outputDurationMs / 3)
+  await thumbnail(mediaPath, thumbPath, {
+    atMs: Math.max(0, thumbAtMs),
+    signal,
+  })
+  // Prefer the freshly computed hash; keep a client-provided one when the
+  // local compute fails rather than blanking it out.
+  const thumbBlurHash =
+    (await computeThumbBlurHash(thumbPath, signal)) ?? row.thumbBlurHash
+  await clipStorage.uploadFromFile(thumbPath, thumbKey, "image/webp")
+  uploadedKeys.push(thumbKey)
+  return thumbBlurHash
+}
+
+async function scratchFileExists(path: string): Promise<boolean> {
+  return stat(path)
+    .then((info) => info.isFile())
+    .catch(() => false)
+}
+
+async function selectThumbUploadKey(clipId: string): Promise<string | null> {
+  const [ticket] = await db
+    .select({ storageKey: clipUploadTicket.storageKey })
+    .from(clipUploadTicket)
+    .where(
+      and(
+        eq(clipUploadTicket.clipId, clipId),
+        eq(clipUploadTicket.role, "thumb"),
+      ),
+    )
+    .limit(1)
+  return ticket?.storageKey ?? null
+}
+
 async function selectScratchUploadKey(clipId: string): Promise<string | null> {
   const [ticket] = await db
     .select({ storageKey: clipUploadTicket.storageKey })
@@ -360,27 +435,19 @@ async function computeThumbBlurHash(
   }
 }
 
-async function cleanupCompletedScratchUpload(clipId: string): Promise<void> {
-  const uploadKey = await selectScratchUploadKey(clipId)
-  if (!uploadKey) return
-  try {
-    await deleteScratchUpload(uploadKey)
-  } catch (err) {
-    logger.warn(
-      `[queue] failed to delete completed scratch upload ${uploadKey}:`,
-      err,
-    )
-    return
-  }
-  await db
-    .delete(clipUploadTicket)
-    .where(
-      and(
-        eq(clipUploadTicket.clipId, clipId),
-        eq(clipUploadTicket.role, "video"),
-        eq(clipUploadTicket.storageKey, uploadKey),
-      ),
-    )
+async function cleanupCompletedScratchUploads(clipId: string): Promise<void> {
+  // After a successful publish every staged upload (video + poster) is
+  // consumed, so drop their scratch files and ticket rows together.
+  const tickets = await db
+    .select({ storageKey: clipUploadTicket.storageKey })
+    .from(clipUploadTicket)
+    .where(eq(clipUploadTicket.clipId, clipId))
+  if (tickets.length === 0) return
+  await deleteScratchUploads(
+    tickets.map((ticket) => ticket.storageKey),
+    "completed scratch upload",
+  )
+  await db.delete(clipUploadTicket).where(eq(clipUploadTicket.clipId, clipId))
 }
 
 async function cleanupFailedRun(

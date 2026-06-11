@@ -17,7 +17,7 @@ export const NOTIFICATION_TYPES = [
 ] as const
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 
-export const UPLOAD_TICKET_ROLE = ["video"] as const
+export const UPLOAD_TICKET_ROLE = ["video", "thumb"] as const
 export type UploadTicketRole = (typeof UPLOAD_TICKET_ROLE)[number]
 
 export const USER_ROLES = ["user", "admin"] as const

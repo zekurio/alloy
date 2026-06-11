@@ -91,6 +91,24 @@ async function performUpload(
     entry.abort.signal,
   )
 
+  // The poster image is small and the desktop client always renders one, so
+  // ship it alongside the video; the server publishes it as-is rather than
+  // extracting a frame. A failed poster upload must not sink the clip.
+  try {
+    await uploadToTicket(
+      initiate.thumbTicket,
+      payload.thumbBlob,
+      () => undefined,
+      entry.abort.signal,
+    )
+  } catch (cause) {
+    if ((cause as Error).name === "AbortError") throw cause
+    clientLogger.warn(
+      `[upload] Failed to upload poster for clip ${clipId}; continuing.`,
+      cause,
+    )
+  }
+
   entry.status = "finalizing"
   bump()
 

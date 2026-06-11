@@ -126,9 +126,9 @@ export interface InitiateClipInput {
   /** Bare hashtags; normalized server-side. */
   tags?: string[]
   /**
-   * Client-computed BlurHash of the clip's poster frame. Used as the
-   * placeholder until media processing publishes the canonical thumbnail
-   * (which recomputes the hash server-side).
+   * Client-computed BlurHash of the clip's poster frame. Stored as the
+   * canonical placeholder; the desktop client is the only uploader and
+   * always provides one, so media processing no longer recomputes it.
    */
   thumbBlurHash?: string
 }
@@ -136,6 +136,12 @@ export interface InitiateClipInput {
 export interface InitiateClipResponse {
   clipId: string
   ticket: UploadTicket
+  /**
+   * Upload target for the client-rendered poster image (webp). The desktop
+   * client uploads its thumbnail here so the server never has to extract a
+   * frame. Best-effort: a clip without a published thumbnail still works.
+   */
+  thumbTicket: UploadTicket
 }
 
 export interface UpdateClipInput {

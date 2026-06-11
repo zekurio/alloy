@@ -294,12 +294,6 @@ function validateScheduledTaskTrigger(value: unknown) {
       "Invalid scheduled task trigger response: delayMs must be non-negative",
     )
   }
-  if (trigger.jitterMs !== undefined) {
-    validateNonNegativeInteger(
-      trigger.jitterMs,
-      "Invalid scheduled task trigger response: jitterMs must be non-negative",
-    )
-  }
   if (trigger.type === "cron") {
     validateRequiredString(
       trigger.expression,

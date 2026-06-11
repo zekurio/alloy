@@ -708,7 +708,9 @@
 
 @media (width < 48rem) {
   [data-slot="app-header"] {
-    grid-template-columns: 2rem minmax(0, 1fr) 2.25rem;
+    grid-template-columns: 2rem minmax(0, 1fr) max-content;
+    padding-right: 1rem;
+    padding-left: 1.5rem;
   }
 
   [data-slot="app-header-brand"] {
@@ -716,7 +718,7 @@
   }
 
   [data-slot="app-header-actions"] {
-    justify-self: center;
+    justify-self: end;
   }
 
   [data-slot="app-header"]:has([data-slot="app-header-search"]:focus-within) {

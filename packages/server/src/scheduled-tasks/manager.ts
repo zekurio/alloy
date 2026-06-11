@@ -148,17 +148,13 @@ function scheduleTrigger(
   trigger: ScheduledTaskTrigger,
 ): void {
   if (trigger.type === "startup") {
-    scheduleDelayedRun(
-      task,
-      "startup",
-      delayWithJitter(trigger.delayMs ?? 0, trigger.jitterMs),
-    )
+    scheduleDelayedRun(task, "startup", trigger.delayMs ?? 0)
     return
   }
 
   const job = createScheduledCronJob(trigger.expression, () => {
     if (!started) return
-    scheduleDelayedRun(task, "cron", delayWithJitter(0, trigger.jitterMs))
+    scheduleDelayedRun(task, "cron", 0)
   })
   cronSchedules.push({ taskId: task.id, job })
 }
@@ -227,11 +223,6 @@ function scheduledTaskInfo(
 
 function isStarted(): boolean {
   return started
-}
-
-function delayWithJitter(baseMs: number, jitterMs: number | undefined): number {
-  if (!jitterMs || jitterMs <= 0) return baseMs
-  return baseMs + Math.floor(Math.random() * (jitterMs + 1))
 }
 
 function sameTriggers(

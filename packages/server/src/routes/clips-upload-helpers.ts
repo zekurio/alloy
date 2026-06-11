@@ -64,21 +64,41 @@ export async function markUploadFailed(
   })
 }
 
+/** Poster image content type the client renders and uploads. */
+export const THUMB_UPLOAD_CONTENT_TYPE = "image/webp"
+
+/**
+ * Hard cap for the uploaded poster image. The client renders a small webp
+ * (<2 MB); this leaves headroom while keeping the scratch upload bounded.
+ */
+export const THUMB_UPLOAD_MAX_BYTES = 4 * 1024 * 1024
+
 export async function createUploadTickets(input: {
   clipId: string
   videoKey: string
   videoContentType: string
   videoBytes: number
+  thumbKey: string
   expiresAt: Date
 }): Promise<void> {
-  await db.insert(clipUploadTicket).values({
-    clipId: input.clipId,
-    role: "video",
-    storageKey: input.videoKey,
-    contentType: input.videoContentType,
-    expectedBytes: input.videoBytes,
-    expiresAt: input.expiresAt,
-  })
+  await db.insert(clipUploadTicket).values([
+    {
+      clipId: input.clipId,
+      role: "video",
+      storageKey: input.videoKey,
+      contentType: input.videoContentType,
+      expectedBytes: input.videoBytes,
+      expiresAt: input.expiresAt,
+    },
+    {
+      clipId: input.clipId,
+      role: "thumb",
+      storageKey: input.thumbKey,
+      contentType: THUMB_UPLOAD_CONTENT_TYPE,
+      expectedBytes: THUMB_UPLOAD_MAX_BYTES,
+      expiresAt: input.expiresAt,
+    },
+  ])
 }
 
 export async function assertUsableUploadTicket(input: {

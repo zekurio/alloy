@@ -23,7 +23,9 @@ import {
 } from "../runtime/http-response"
 import {
   clipScratchUploadKey,
+  clipThumbScratchUploadKey,
   deleteScratchUpload,
+  deleteScratchUploads,
   mintScratchUploadUrl,
   scratchUploadPath,
 } from "../uploads/scratch"
@@ -39,6 +41,8 @@ import {
   markUploadFailed,
   resolveMentionIds,
   selectLockedQuotaState,
+  THUMB_UPLOAD_CONTENT_TYPE,
+  THUMB_UPLOAD_MAX_BYTES,
 } from "./clips-upload-helpers"
 import { sgdbErrorResponse } from "./games-helpers"
 import { zValidator } from "./validation"
@@ -103,6 +107,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
 
       const clipId = crypto.randomUUID()
       const uploadKey = clipScratchUploadKey(clipId, body.contentType)
+      const thumbUploadKey = clipThumbScratchUploadKey(clipId)
       const privacy = body.privacy === "private" ? "private" : body.privacy
 
       if (!isSteamGridDBConfigured()) {
@@ -188,6 +193,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
           videoKey: uploadKey,
           videoContentType: body.contentType,
           videoBytes: body.sizeBytes,
+          thumbKey: thumbUploadKey,
           expiresAt,
         })
         const ticket = await mintScratchUploadUrl({
@@ -198,7 +204,15 @@ export const clipsUploadLifecycleRoutes = new Hono()
           userId: viewerId,
           clipId,
         })
-        return c.json({ clipId, ticket })
+        const thumbTicket = await mintScratchUploadUrl({
+          key: thumbUploadKey,
+          contentType: THUMB_UPLOAD_CONTENT_TYPE,
+          maxBytes: THUMB_UPLOAD_MAX_BYTES,
+          expiresInSec,
+          userId: viewerId,
+          clipId,
+        })
+        return c.json({ clipId, ticket, thumbTicket })
       } catch (err) {
         await cleanupFailedInitiate(clipId, uploadKey)
         throw err
@@ -333,8 +347,12 @@ export const clipsUploadLifecycleRoutes = new Hono()
       if ("response" in access) return access.response
       const row = access.row
 
-      await deleteScratchUpload(
-        (await selectUploadTicket(id))?.storageKey ?? null,
+      await deleteScratchUploads(
+        [
+          (await selectUploadTicket(id))?.storageKey ?? null,
+          clipThumbScratchUploadKey(id),
+        ],
+        "failed upload scratch",
       )
       await markUploadFailed(row.authorId, id, "Upload failed")
       return success(c)

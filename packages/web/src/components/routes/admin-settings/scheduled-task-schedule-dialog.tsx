@@ -37,7 +37,6 @@ import {
   type CronPresetId,
   CUSTOM_PRESET,
   expressionForPreset,
-  JITTER_MAX_SECONDS,
   presetIdForExpression,
   sameTriggers,
   STARTUP_DELAY_MAX_SECONDS,
@@ -120,23 +119,6 @@ function TriggerRow({
           />
         </div>
       )}
-
-      <div className="flex items-center gap-2">
-        <span className="text-foreground-dim text-xs">Jitter</span>
-        <NumberInput
-          id={`${rowId}-jitter`}
-          aria-label="Jitter (seconds)"
-          className="w-24"
-          min={0}
-          max={JITTER_MAX_SECONDS}
-          value={Math.round((trigger.jitterMs ?? 0) / 1_000)}
-          disabled={disabled}
-          onChange={(value) =>
-            onChange({ ...trigger, jitterMs: value * 1_000 })
-          }
-        />
-        <span className="text-foreground-dim text-xs">sec</span>
-      </div>
 
       <Button
         type="button"

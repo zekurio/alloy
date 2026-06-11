@@ -106,8 +106,9 @@ export const clip = pgTable(
       .notNull()
       .default(sql`'[]'::jsonb`),
 
-    // Server-generated on finalize. A thumbnail failure leaves this null
-    // rather than failing the whole clip — the UI falls back to a placeholder.
+    // Poster image. The desktop client uploads a rendered webp + BlurHash on
+    // upload; media processing publishes it as-is. A missing thumbnail leaves
+    // this null rather than failing the clip — the UI shows a placeholder.
     thumbKey: text("thumb_key"),
     thumbBlurHash: text("thumb_blur_hash"),
 

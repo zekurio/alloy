@@ -16,6 +16,11 @@ export function clipScratchUploadKey(
   return `clip-uploads/${clipId}/source${sourceExtension(contentType)}`
 }
 
+/** Scratch target for the client-rendered poster image (always webp). */
+export function clipThumbScratchUploadKey(clipId: string): string {
+  return `clip-uploads/${clipId}/thumb.webp`
+}
+
 export function scratchUploadPath(key: string): string {
   const root = scratchRoot()
   const target = resolve(root, key)

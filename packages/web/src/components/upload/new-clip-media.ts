@@ -233,7 +233,10 @@ function thumbnailSize(
   }
 }
 
-function encodeCanvasAsJpeg(
+// The poster is uploaded as-is and served as image/webp, so encode webp here.
+// The desktop client runs on Chromium, which always supports webp canvas
+// export.
+function encodeCanvasAsWebp(
   canvas: HTMLCanvasElement,
   quality: number,
 ): Promise<Blob> {
@@ -243,7 +246,7 @@ function encodeCanvasAsJpeg(
         if (blob) resolve(blob)
         else reject(new Error("canvas.toBlob returned null"))
       },
-      "image/jpeg",
+      "image/webp",
       quality,
     )
   })
@@ -267,7 +270,7 @@ async function drawThumbnail(video: HTMLVideoElement): Promise<Blob> {
     ctx.drawImage(video, 0, 0, width, height)
 
     for (const quality of THUMB_QUALITIES) {
-      const blob = await encodeCanvasAsJpeg(canvas, quality)
+      const blob = await encodeCanvasAsWebp(canvas, quality)
       if (blob.size <= THUMB_MAX_BYTES) return blob
       lastBlob = blob
     }
