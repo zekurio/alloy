@@ -19,7 +19,7 @@ export interface MintUploadUrlInput {
   key: string
   /** MIME type; baked into the upload ticket and stored on the row. */
   contentType: string
-  /** Hard cap on the upload size, in bytes. The upload endpoint enforces. */
+  /** Expected upload size. FS enforces during upload; finalize verifies all drivers. */
   maxBytes: number
   /** Time-to-live for the ticket, in seconds. */
   expiresInSec: number
@@ -80,8 +80,8 @@ export function clipAssetDir(clipId: string): string {
   const hex = clipId.replace(/-/g, "")
   const aa = hex.slice(0, 2)
   const bb = hex.slice(2, 4)
-  // Keys are relative to the clip-store root (ALLOY_CLIPS_DIR), which already
-  // means "clips", so no `clips/` prefix here.
+  // Keys are relative to the configured clip-store root, which already means
+  // "clips", so no `clips/` prefix here.
   return `${aa}/${bb}/${clipId}`
 }
 
@@ -101,7 +101,7 @@ function userAssetDir(userId: string): string {
   const hex = userId.replace(/-/g, "")
   const aa = hex.slice(0, 2)
   const bb = hex.slice(2, 4)
-  return `users/${aa}/${bb}/${userId}`
+  return `${aa}/${bb}/${userId}`
 }
 
 export type UserAssetRole = "avatar" | "banner" | "background"

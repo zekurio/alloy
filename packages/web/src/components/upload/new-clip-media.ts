@@ -76,6 +76,25 @@ export async function captureThumbnail(
   }
 }
 
+/**
+ * Builds the upload poster from an already-rendered image (the desktop main
+ * process renders posters with ffmpeg, which decodes capture codecs the
+ * renderer cannot — drawing an HEVC/AV1 `<video>` into a canvas yields a
+ * blank frame).
+ */
+export async function thumbnailFromImageUrl(url: string): Promise<Blob> {
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error(`Could not fetch poster image (${response.status})`)
+  }
+  const bitmap = await createImageBitmap(await response.blob())
+  try {
+    return await encodeThumbnail(bitmap, bitmap.width, bitmap.height)
+  } finally {
+    bitmap.close()
+  }
+}
+
 export function probeFile(file: File): Promise<ProbedFile> {
   return new Promise<ProbedFile>((resolve, reject) => {
     const { video, cleanup: cleanupVideo } = createVideoSession(
@@ -258,6 +277,17 @@ async function drawThumbnail(video: HTMLVideoElement): Promise<Blob> {
   if (!srcW || !srcH) {
     throw new Error("Video dimensions unavailable for thumbnail")
   }
+  return encodeThumbnail(video, srcW, srcH)
+}
+
+async function encodeThumbnail(
+  source: CanvasImageSource,
+  srcW: number,
+  srcH: number,
+): Promise<Blob> {
+  if (!srcW || !srcH) {
+    throw new Error("Source dimensions unavailable for thumbnail")
+  }
 
   let lastBlob: Blob | null = null
   for (const maxDimension of THUMB_DIMENSIONS) {
@@ -267,7 +297,7 @@ async function drawThumbnail(video: HTMLVideoElement): Promise<Blob> {
     canvas.height = height
     const ctx = canvas.getContext("2d")
     if (!ctx) throw new Error("2D canvas context unavailable")
-    ctx.drawImage(video, 0, 0, width, height)
+    ctx.drawImage(source, 0, 0, width, height)
 
     for (const quality of THUMB_QUALITIES) {
       const blob = await encodeCanvasAsWebp(canvas, quality)

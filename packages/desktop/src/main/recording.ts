@@ -6,10 +6,12 @@ import type {
   RecordingDisplay,
   RecordingEvent,
   RecordingGameProcess,
+  RecordingLibraryDownload,
   SaveReplayClipRequest,
   RecordingStatus,
 } from "@alloy/contracts"
 import { logger } from "@alloy/logging"
+import { app } from "electron"
 
 import { listRecordingDisplays as listElectronRecordingDisplays } from "./recording-displays"
 import { rememberRecordingLibraryCapture } from "./recording-library"
@@ -31,8 +33,12 @@ import {
 } from "./recording-storage"
 import { getRecordingSettings } from "./server-store"
 
-const SIDECAR_MISSING =
-  "Recording capture sidecar is not built yet. Run pnpm --filter @alloy/recorder build."
+function sidecarMissingMessage(): string {
+  if (app.isPackaged) {
+    return "Recording is unavailable because the capture component is missing. Try reinstalling Alloy."
+  }
+  return "Recording capture sidecar is not built yet. Run pnpm --filter @alloy/recorder build."
+}
 
 type RecordingEventListener = (event: RecordingEvent) => void
 
@@ -102,6 +108,13 @@ export function emitRecordingSettingsEvent(): void {
 
 export function emitRecordingStatusEvent(status: RecordingStatus): void {
   emitRecordingEvent({ type: "status", status })
+}
+
+/** Progress/terminal updates from the clip download manager. */
+export function emitRecordingLibraryDownloadEvent(
+  download: RecordingLibraryDownload,
+): void {
+  emitRecordingEvent({ type: "library-download", download })
 }
 
 /**
@@ -186,6 +199,31 @@ export async function stopRecording(): Promise<RecordingActionResult> {
   return runRecordingAction("stopRecording")
 }
 
+/**
+ * Keep live audio-level events flowing from the sidecar. The subscription
+ * auto-expires after a few seconds, so the renderer re-sends this as a
+ * heartbeat while a meter UI is visible (which also survives sidecar respawns).
+ */
+export async function subscribeRecordingAudioLevels(): Promise<void> {
+  const client = getSidecarClient()
+  if (!client) return
+  try {
+    await client.request("subscribeAudioLevels")
+  } catch (cause) {
+    logger.warn("[desktop] failed to subscribe to audio levels:", cause)
+  }
+}
+
+export async function stopRecordingAudioLevels(): Promise<void> {
+  const client = getSidecarClient()
+  if (!client) return
+  try {
+    await client.request("stopAudioLevels")
+  } catch (cause) {
+    logger.warn("[desktop] failed to stop audio levels:", cause)
+  }
+}
+
 export async function shutdownRecordingBackend(): Promise<void> {
   const client = sidecarClient
   sidecarClient = null
@@ -250,7 +288,7 @@ function getSidecarClient(): RecordingSidecarClient | null {
 }
 
 function unavailableRecordingStatus(
-  message = SIDECAR_MISSING,
+  message = sidecarMissingMessage(),
   backend: RecordingStatus["backend"] = "missing",
 ): RecordingStatus {
   const settings = getRecordingSettings()
@@ -277,7 +315,7 @@ function unavailableRecordingStatus(
 }
 
 function unavailableRecordingAction(
-  message = SIDECAR_MISSING,
+  message = sidecarMissingMessage(),
 ): RecordingActionResult {
   const status = unavailableRecordingStatus(message)
   rememberRecordingStatus(status)

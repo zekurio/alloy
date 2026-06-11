@@ -1,12 +1,48 @@
 import type { ClipRow } from "@alloy/api"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@alloy/ui/components/alert-dialog"
 import { Button } from "@alloy/ui/components/button"
+import { Checkbox } from "@alloy/ui/components/checkbox"
 import { ClipCard } from "@alloy/ui/components/clip-card"
-import { CloudIcon, FolderOpenIcon, MonitorIcon } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@alloy/ui/components/dropdown-menu"
+import { toast } from "@alloy/ui/lib/toast"
+import { cn } from "@alloy/ui/lib/utils"
+import {
+  CloudCheckIcon,
+  CloudIcon,
+  DownloadIcon,
+  FolderOpenIcon,
+  MonitorIcon,
+  MoreVerticalIcon,
+  PencilIcon,
+  Trash2Icon,
+} from "lucide-react"
 import * as React from "react"
 
+import { useClipDownloadAction } from "@/components/clip/clip-download-button"
 import { toClipCardData } from "@/lib/clip-format"
+import { useDeleteClipMutation } from "@/lib/clip-queries"
 import { formatRelativeTime } from "@/lib/date-format"
-import type { RecordingLibraryProjectDraft } from "@/lib/desktop"
+import {
+  alloyDesktop,
+  notifyLibraryCapturesChanged,
+  type RecordingLibraryItem,
+  type RecordingLibraryProjectDraft,
+} from "@/lib/desktop"
 
 import { formatLibraryBytes, type LibraryItemView } from "./library-data"
 
@@ -122,23 +158,37 @@ function LibraryDraftMeta({
   )
 }
 
+const SOURCE_META: Record<
+  "local" | "cloud" | "both",
+  {
+    icon: React.ComponentType<{ className?: string }>
+    label: string
+    className?: string
+  }
+> = {
+  local: { icon: MonitorIcon, label: "On Device" },
+  cloud: { icon: CloudIcon, label: "Server" },
+  // A capture that lives on disk and on the server — surfaced as one synced
+  // entry rather than spelling out both locations.
+  both: { icon: CloudCheckIcon, label: "Synced", className: "text-success" },
+}
+
 /** Shared meta line for library cards: source · size · age. */
 function LibraryCardMeta({
   source,
   sizeBytes,
   createdAt,
 }: {
-  source: "local" | "cloud"
+  source: "local" | "cloud" | "both"
   sizeBytes: number | null
   createdAt: string
 }) {
-  const Icon = source === "local" ? MonitorIcon : CloudIcon
-  const label = source === "local" ? "Local" : "Server"
+  const { icon: SourceIcon, label, className } = SOURCE_META[source]
   const hasSize = typeof sizeBytes === "number" && sizeBytes > 0
   return (
     <>
-      <span className="flex shrink-0 items-center gap-1">
-        <Icon className="size-3.5" />
+      <span className={cn("flex shrink-0 items-center gap-1", className)}>
+        <SourceIcon className="size-3.5" />
         {label}
       </span>
       {hasSize ? (
@@ -156,12 +206,16 @@ function LibraryCardMeta({
 /** Grid card for a clip that already lives on the server. */
 export function UploadedClipCard({
   row,
+  localItem = null,
   onOpen,
 }: {
   row: ClipRow
+  /** The on-disk capture backing this clip (uploaded from / downloaded). */
+  localItem?: RecordingLibraryItem | null
   onOpen: () => void
 }) {
   const card = React.useMemo(() => toClipCardData(row), [row])
+  const alsoLocal = localItem !== null
   return (
     <ClipCard
       title={card.title}
@@ -178,14 +232,176 @@ export function UploadedClipCard({
       privacy={card.privacy}
       thumbnailLabel={`Edit ${card.title}`}
       onThumbnailClick={onOpen}
+      thumbnailOverlay={
+        <UploadedClipMenu row={row} localItem={localItem} onEdit={onOpen} />
+      }
       metaContent={
         <LibraryCardMeta
-          source="cloud"
+          source={alsoLocal ? "both" : "cloud"}
           sizeBytes={row.sourceSizeBytes}
           createdAt={row.createdAt}
         />
       }
     />
+  )
+}
+
+/**
+ * Three-dot actions menu floating over an uploaded clip's thumbnail:
+ * download to this device (desktop only), open the edit view, and delete —
+ * optionally including the local copy when one exists on disk.
+ */
+function UploadedClipMenu({
+  row,
+  localItem,
+  onEdit,
+}: {
+  row: ClipRow
+  localItem: RecordingLibraryItem | null
+  onEdit: () => void
+}) {
+  const download = useClipDownloadAction(row, localItem !== null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Actions for ${row.title}`}
+              className={cn(
+                "bg-black/55 text-white backdrop-blur-sm hover:bg-black/75 hover:text-white",
+                "opacity-0 transition-opacity group-hover/clip-card:opacity-100",
+                "focus-visible:opacity-100 aria-expanded:opacity-100",
+              )}
+            >
+              <MoreVerticalIcon />
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="end" className="min-w-[180px]">
+          {download.supported ? (
+            <DropdownMenuItem
+              disabled={download.saved || download.downloading}
+              onClick={download.start}
+            >
+              <DownloadIcon />
+              {download.saved
+                ? "On this device"
+                : download.downloading
+                  ? "Downloading…"
+                  : "Download"}
+            </DropdownMenuItem>
+          ) : null}
+          <DropdownMenuItem onClick={onEdit}>
+            <PencilIcon /> Edit
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => setDeleteDialogOpen(true)}
+          >
+            <Trash2Icon /> Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <DeleteUploadedClipDialog
+        row={row}
+        localItem={localItem}
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+      />
+    </>
+  )
+}
+
+function DeleteUploadedClipDialog({
+  row,
+  localItem,
+  open,
+  onOpenChange,
+}: {
+  row: ClipRow
+  localItem: RecordingLibraryItem | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const deleteMutation = useDeleteClipMutation()
+  const [deleteLocal, setDeleteLocal] = React.useState(false)
+  const [deletingLocal, setDeletingLocal] = React.useState(false)
+  const pending = deleteMutation.isPending || deletingLocal
+
+  // A fresh prompt shouldn't inherit the checkbox from the previous one.
+  React.useEffect(() => {
+    if (open) setDeleteLocal(false)
+  }, [open])
+
+  const handleConfirm = () => {
+    deleteMutation.mutate(
+      { clipId: row.id },
+      {
+        onSuccess: async () => {
+          if (deleteLocal && localItem) {
+            setDeletingLocal(true)
+            try {
+              await alloyDesktop()?.recording.deleteLibraryCapture(localItem.id)
+              notifyLibraryCapturesChanged()
+              toast.success("Clip deleted from server and this device")
+            } catch {
+              toast.error(
+                "Clip deleted from server, but the local copy couldn't be removed",
+              )
+            } finally {
+              setDeletingLocal(false)
+            }
+          } else {
+            toast.success("Clip deleted")
+          }
+          onOpenChange(false)
+        },
+        onError: () => toast.error("Couldn't delete clip"),
+      },
+    )
+  }
+
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete this clip?</AlertDialogTitle>
+          <AlertDialogDescription>
+            "{row.title}" will be removed from the server. This can't be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {localItem ? (
+          <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+            <Checkbox
+              checked={deleteLocal}
+              onCheckedChange={(checked) => setDeleteLocal(checked === true)}
+              disabled={pending}
+            />
+            <span className="text-foreground-muted">
+              Also delete the local copy on this device
+            </span>
+          </label>
+        ) : null}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            onClick={handleConfirm}
+            disabled={pending}
+          >
+            {pending ? "Deleting…" : "Delete clip"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
 

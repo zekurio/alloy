@@ -165,18 +165,10 @@ struct RecordingQualitySettings {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 struct RecordingHotkeys {
-    clips: Vec<RecordingClipHotkey>,
+    clip: String,
     bookmark: String,
     screenshot: String,
     toggle_long_recording: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-struct RecordingClipHotkey {
-    id: String,
-    hotkey: String,
-    duration_seconds: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -215,6 +207,25 @@ struct RecordingAudioApplicationSelection {
     process_id: Option<u32>,
     enabled: bool,
     volume: u32,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+enum RecordingAudioLevelTarget {
+    Device,
+    Application,
+}
+
+/// One live loudness sample. `peak` is the linear peak amplitude (0..1) as
+/// reported by WASAPI, pre-volume; the UI scales it by the row volume.
+#[derive(Clone, Debug, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct RecordingAudioLevel {
+    target: RecordingAudioLevelTarget,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    kind: Option<RecordingAudioDeviceKind>,
+    id: String,
+    peak: f32,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
@@ -426,6 +437,9 @@ enum RecordingEvent {
         error: String,
         status: RecordingStatus,
     },
+    AudioLevels {
+        levels: Vec<RecordingAudioLevel>,
+    },
 }
 
 #[derive(Serialize)]
@@ -497,6 +511,16 @@ enum OutputSourceKind {
     Display,
 }
 
+/// Codec support detected for the current GPU, cached so the settings UI can
+/// render supported codecs without an active recording.
+#[derive(Clone, Debug, Default)]
+struct CodecCaps {
+    /// Codecs the hardware (GPU) encoders can create.
+    hardware: Vec<RecordingCodec>,
+    /// Whether the software x264 encoder is present.
+    software_h264: bool,
+}
+
 #[derive(Default)]
 struct Recorder {
     obs: Option<LibObs>,
@@ -507,6 +531,12 @@ struct Recorder {
     obs_runtime_dir: Option<PathBuf>,
     available_encoders: Vec<String>,
     available_codecs: Vec<RecordingCodec>,
+    /// Encoder capabilities probed independently of an active recording so the
+    /// settings UI can show supported codecs while recording is disabled.
+    codec_caps: Option<CodecCaps>,
+    /// Adapter + runtime the cached `codec_caps` were probed against; a change
+    /// invalidates the cache and triggers a re-probe.
+    codec_caps_key: Option<(u32, Option<PathBuf>)>,
     cached_gpus: Vec<String>,
     cached_gpus_at: Option<Instant>,
     cached_audio_devices: Vec<RecordingAudioDeviceSelection>,
@@ -687,12 +717,8 @@ impl Default for RecordingSettings {
             buffer_storage: RecordingBufferStorage::Memory,
             output_folder: String::new(),
             hotkeys: RecordingHotkeys {
-                clips: vec![RecordingClipHotkey {
-                    id: "default".to_string(),
-                    hotkey: "F8".to_string(),
-                    duration_seconds: 90,
-                }],
-                bookmark: "F8".to_string(),
+                clip: "F8".to_string(),
+                bookmark: "F9".to_string(),
                 screenshot: "F7".to_string(),
                 toggle_long_recording: "Alt+F7".to_string(),
             },
@@ -846,10 +872,13 @@ impl LibObs {
             return Err("OBS did not finish initialization.".to_string());
         }
 
-        self.load_modules(runtime_dir)?;
-        (self.obs_post_load_modules)();
+        // Graphics must be up before modules load: win-capture probes the
+        // D3D11 device at module init to decide whether WGC is supported, and
+        // silently falls back to DXGI duplication otherwise.
         self.reset_audio()?;
         self.reset_video(video_config, adapter)?;
+        self.load_modules(runtime_dir)?;
+        (self.obs_post_load_modules)();
         Ok(())
     }
 

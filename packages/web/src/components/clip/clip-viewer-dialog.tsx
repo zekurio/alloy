@@ -28,6 +28,7 @@ import { formatCount } from "@/lib/number-format"
 import { userAvatar } from "@/lib/user-display"
 
 import { ClipComments } from "./clip-comments"
+import { ClipDownloadIconButton } from "./clip-download-button"
 import {
   type ClipListEntry,
   setActiveClipList,
@@ -324,6 +325,7 @@ function ClipViewerDialogBody({
               description={row.description}
               mentions={row.mentions ?? []}
               tags={row.tags}
+              downloadAction={<ClipDownloadIconButton row={row} />}
               uploader={{
                 handle,
                 name: author,

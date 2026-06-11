@@ -18,6 +18,7 @@ import {
   unregisterRecordingHotkeys,
 } from "./recording-hotkeys"
 import {
+  cleanupLegacyFilmstripCache,
   recordingLibraryProtocolScheme,
   registerRecordingLibraryProtocol,
 } from "./recording-library"
@@ -63,6 +64,7 @@ if (!app.requestSingleInstanceLock()) {
     Menu.setApplicationMenu(null)
     registerRecordingLibraryProtocol()
     registerAssetCacheProtocol()
+    cleanupLegacyFilmstripCache()
 
     registerIpc(windows)
     configureRecordingHotkeys()

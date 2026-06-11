@@ -4,9 +4,9 @@ import { publishClipRemove } from "@alloy/server/clips/events"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import {
-  deleteScratchUpload,
-  deleteScratchUploads,
-} from "@alloy/server/uploads/scratch"
+  deleteStagedUpload,
+  deleteStagedUploads,
+} from "@alloy/server/uploads/staged"
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm"
 
 import { enqueueClipMediaProcessing } from "./media-worker"
@@ -62,7 +62,7 @@ async function reapPending(): Promise<void> {
       .select({ storageKey: clipUploadTicket.storageKey })
       .from(clipUploadTicket)
       .where(eq(clipUploadTicket.clipId, row.id))
-    await deleteScratchUploads(
+    await deleteStagedUploads(
       tickets.map((ticket) => ticket.storageKey),
       `stale clip ${row.id} upload`,
     )
@@ -90,7 +90,7 @@ async function reapExpiredUploadTickets(): Promise<void> {
 
   for (const ticket of expiredTickets) {
     try {
-      await deleteScratchUpload(ticket.storageKey)
+      await deleteStagedUpload(ticket.storageKey)
     } catch (err) {
       logger.warn(
         `[queue/reap] could not delete expired staged object ${ticket.storageKey}:`,

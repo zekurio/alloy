@@ -45,6 +45,12 @@ const recording: AlloyDesktopRecordingApi = {
     ipcRenderer.invoke(IPC.deleteRecordingLibraryCapture, id),
   importLibraryCapture: (request) =>
     ipcRenderer.invoke(IPC.importRecordingLibraryCapture, request),
+  downloadClip: (request) =>
+    ipcRenderer.invoke(IPC.downloadRecordingLibraryClip, request),
+  cancelClipDownload: (clipId) =>
+    ipcRenderer.invoke(IPC.cancelRecordingLibraryClipDownload, clipId),
+  listClipDownloads: () =>
+    ipcRenderer.invoke(IPC.listRecordingLibraryClipDownloads),
   onEvent: (listener) => {
     const handler = (_event: unknown, event: unknown) => {
       listener(event as Parameters<typeof listener>[0])
@@ -56,8 +62,13 @@ const recording: AlloyDesktopRecordingApi = {
   listNotificationSounds: () => ipcRenderer.invoke(IPC.listNotificationSounds),
   openNotificationSoundsFolder: (sound) =>
     ipcRenderer.invoke(IPC.openNotificationSoundsFolder, sound),
+  previewNotificationSound: (sound) =>
+    ipcRenderer.invoke(IPC.previewNotificationSound, sound),
   listGameProcesses: () => ipcRenderer.invoke(IPC.listGameProcesses),
   listDisplays: () => ipcRenderer.invoke(IPC.listRecordingDisplays),
+  subscribeAudioLevels: () =>
+    ipcRenderer.invoke(IPC.subscribeRecordingAudioLevels),
+  stopAudioLevels: () => ipcRenderer.invoke(IPC.stopRecordingAudioLevels),
   saveReplayClip: (request) => ipcRenderer.invoke(IPC.saveReplayClip, request),
   addBookmark: (request) =>
     ipcRenderer.invoke(IPC.addRecordingBookmark, request),

@@ -1,5 +1,3 @@
-import { stat } from "node:fs/promises"
-
 import { normalizeTags } from "@alloy/contracts"
 import { clip, clipMention, clipTag, clipUploadTicket } from "@alloy/db/schema"
 import { logger } from "@alloy/logging"
@@ -19,13 +17,13 @@ import {
   success,
 } from "@alloy/server/runtime/http-response"
 import {
-  clipScratchUploadKey,
-  clipThumbScratchUploadKey,
-  deleteScratchUpload,
-  deleteScratchUploads,
-  mintScratchUploadUrl,
-  scratchUploadPath,
-} from "@alloy/server/uploads/scratch"
+  clipStagedUploadKey,
+  clipThumbStagedUploadKey,
+  deleteStagedUpload,
+  deleteStagedUploads,
+  mintStagedUploadUrl,
+  resolveStagedUpload,
+} from "@alloy/server/uploads/staged"
 import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
 
@@ -37,12 +35,13 @@ import {
 import {
   assertUsableUploadTicket,
   createUploadTickets,
-  type InitiateQuotaResult,
   markUploadFailed,
   resolveMentionIds,
   selectLockedQuotaState,
   THUMB_UPLOAD_CONTENT_TYPE,
   THUMB_UPLOAD_MAX_BYTES,
+  type UploadQuotaResult,
+  uploadWouldExceedQuota,
 } from "./clips-upload-helpers"
 import { sgdbErrorResponse } from "./games-helpers"
 import { zValidator } from "./validation"
@@ -61,10 +60,10 @@ async function cleanupFailedInitiate(
   }
 
   try {
-    await deleteScratchUpload(uploadKey)
+    await deleteStagedUpload(uploadKey)
   } catch (err) {
     logger.warn(
-      `[clips/upload] failed to delete scratch upload for ${clipId} after initiate failure:`,
+      `[clips/upload] failed to delete staged upload for ${clipId} after initiate failure:`,
       err,
     )
   }
@@ -106,8 +105,8 @@ export const clipsUploadLifecycleRoutes = new Hono()
       const body = c.req.valid("json")
 
       const clipId = crypto.randomUUID()
-      const uploadKey = clipScratchUploadKey(clipId, body.contentType)
-      const thumbUploadKey = clipThumbScratchUploadKey(clipId)
+      const uploadKey = clipStagedUploadKey(clipId, body.contentType)
+      const thumbUploadKey = clipThumbStagedUploadKey(clipId)
       const privacy = body.privacy === "private" ? "private" : body.privacy
 
       if (!isSteamGridDBConfigured()) {
@@ -126,13 +125,20 @@ export const clipsUploadLifecycleRoutes = new Hono()
         ? await resolveMentionIds(body.mentionedUserIds, viewerId)
         : []
 
-      const quotaResult = await db.transaction<InitiateQuotaResult>(
+      const quotaResult = await db.transaction<UploadQuotaResult>(
         async (tx) => {
           const { quotaBytes, usedBytes } = await selectLockedQuotaState(
             tx,
             viewerId,
           )
-          if (quotaBytes !== null && usedBytes + body.sizeBytes > quotaBytes) {
+          if (
+            quotaBytes !== null &&
+            uploadWouldExceedQuota({
+              quotaBytes,
+              usedBytes,
+              incomingBytes: body.sizeBytes,
+            })
+          ) {
             return { ok: false, usedBytes, quotaBytes }
           }
 
@@ -196,7 +202,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
           thumbKey: thumbUploadKey,
           expiresAt,
         })
-        const ticket = await mintScratchUploadUrl({
+        const ticket = await mintStagedUploadUrl({
           key: uploadKey,
           contentType: body.contentType,
           maxBytes: body.sizeBytes,
@@ -204,7 +210,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
           userId: viewerId,
           clipId,
         })
-        const thumbTicket = await mintScratchUploadUrl({
+        const thumbTicket = await mintStagedUploadUrl({
           key: thumbUploadKey,
           contentType: THUMB_UPLOAD_CONTENT_TYPE,
           maxBytes: THUMB_UPLOAD_MAX_BYTES,
@@ -251,34 +257,19 @@ export const clipsUploadLifecycleRoutes = new Hono()
         role: "video",
       })
       if (!videoTicketOk) {
-        await deleteScratchUpload(videoTicket.storageKey)
+        await deleteStagedUpload(videoTicket.storageKey)
         await markUploadFailed(row.authorId, id, "Upload ticket expired")
         return gone(c, "Upload ticket expired")
       }
 
-      const uploadStat = await stat(
-        scratchUploadPath(videoTicket.storageKey),
-      ).catch((err) => {
-        if (isNodeErrorCode(err, "ENOENT")) return null
-        throw err
-      })
-      if (!uploadStat?.isFile()) {
-        await deleteScratchUpload(videoTicket.storageKey)
+      const stagedUpload = await resolveStagedUpload(videoTicket.storageKey)
+      if (!stagedUpload) {
+        await deleteStagedUpload(videoTicket.storageKey)
         await markUploadFailed(row.authorId, id, "Upload bytes are missing")
         return badRequest(c, "Upload bytes are missing")
       }
 
-      if (uploadStat.size !== sourceSizeBytes) {
-        await deleteScratchUpload(videoTicket.storageKey)
-        await markUploadFailed(
-          row.authorId,
-          id,
-          "Upload size did not match declared size",
-        )
-        return badRequest(c, "Upload size did not match declared size")
-      }
-
-      const quotaResult = await db.transaction<InitiateQuotaResult>(
+      const quotaResult = await db.transaction<UploadQuotaResult>(
         async (tx) => {
           const { quotaBytes, usedBytes } = await selectLockedQuotaState(
             tx,
@@ -286,7 +277,12 @@ export const clipsUploadLifecycleRoutes = new Hono()
           )
           if (
             quotaBytes !== null &&
-            usedBytes - sourceSizeBytes + uploadStat.size > quotaBytes
+            uploadWouldExceedQuota({
+              quotaBytes,
+              usedBytes,
+              reservedBytes: sourceSizeBytes,
+              incomingBytes: stagedUpload.size,
+            })
           ) {
             return { ok: false, usedBytes, quotaBytes }
           }
@@ -294,7 +290,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
         },
       )
       if (!quotaResult.ok) {
-        await deleteScratchUpload(videoTicket.storageKey)
+        await deleteStagedUpload(videoTicket.storageKey)
         await markUploadFailed(row.authorId, id, "Storage quota exceeded")
         return c.json(
           {
@@ -306,11 +302,21 @@ export const clipsUploadLifecycleRoutes = new Hono()
         )
       }
 
+      if (stagedUpload.size !== sourceSizeBytes) {
+        await deleteStagedUpload(videoTicket.storageKey)
+        await markUploadFailed(
+          row.authorId,
+          id,
+          "Upload size did not match declared size",
+        )
+        return badRequest(c, "Upload size did not match declared size")
+      }
+
       const [transitioned] = await db
         .update(clip)
         .set({
           status: "processing",
-          sourceSizeBytes: uploadStat.size,
+          sourceSizeBytes: stagedUpload.size,
           updatedAt: new Date(),
         })
         .where(
@@ -347,18 +353,14 @@ export const clipsUploadLifecycleRoutes = new Hono()
       if ("response" in access) return access.response
       const row = access.row
 
-      await deleteScratchUploads(
+      await deleteStagedUploads(
         [
           (await selectUploadTicket(id))?.storageKey ?? null,
-          clipThumbScratchUploadKey(id),
+          clipThumbStagedUploadKey(id),
         ],
-        "failed upload scratch",
+        "failed staged upload",
       )
       await markUploadFailed(row.authorId, id, "Upload failed")
       return success(c)
     },
   )
-
-function isNodeErrorCode(err: unknown, code: string): boolean {
-  return (err as { code?: string } | null)?.code === code
-}

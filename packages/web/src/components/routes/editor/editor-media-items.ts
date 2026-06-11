@@ -44,17 +44,37 @@ export function useEditorMedia(snapshot: RecordingLibrarySnapshot | null): {
     [uploadedQuery.data],
   )
 
+  // A downloaded (or originally recorded) local copy supersedes its cloud
+  // clip: the panel hides the duplicate cloud row, and the sources map also
+  // resolves the clip id to the file on disk so existing projects that
+  // referenced the streamed source start reading locally.
+  const localClipIds = React.useMemo(
+    () =>
+      new Set(
+        localItems
+          .map((item) => item.uploadedClipId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    [localItems],
+  )
+
   const mediaItems = React.useMemo<EditorMediaItem[]>(
     () => [
       ...localItems.map(localMediaItem),
-      ...cloudClips.map(cloudMediaItem),
+      ...cloudClips
+        .filter((row) => !localClipIds.has(row.id))
+        .map(cloudMediaItem),
     ],
-    [localItems, cloudClips],
+    [localItems, cloudClips, localClipIds],
   )
   const sources = React.useMemo(() => {
     const map = new Map<string, EditorMediaSource>()
-    for (const item of localItems) map.set(item.id, mediaSourceFor(item))
     for (const row of cloudClips) map.set(row.id, cloudSourceFor(row))
+    for (const item of localItems) {
+      const source = mediaSourceFor(item)
+      map.set(item.id, source)
+      if (item.uploadedClipId) map.set(item.uploadedClipId, source)
+    }
     return map
   }, [localItems, cloudClips])
 
@@ -66,7 +86,6 @@ function mediaSourceFor(item: RecordingLibraryItem): EditorMediaSource {
     id: item.id,
     label: item.title,
     mediaUrl: item.mediaUrl,
-    frames: item.filmstripFrameUrls,
     durationMs: item.durationMs ?? 0,
     width: item.width,
     height: item.height,
@@ -78,7 +97,6 @@ function cloudSourceFor(row: ClipRow): EditorMediaSource {
     id: row.id,
     label: row.title,
     mediaUrl: clipStreamUrl(row.id, "source", apiOrigin()),
-    frames: [],
     durationMs: row.durationMs ?? 0,
     width: row.width,
     height: row.height,
@@ -109,5 +127,6 @@ function cloudMediaItem(row: ClipRow): EditorMediaItem {
       : null,
     searchText: row.description ?? "",
     cloud: true,
+    clipRow: row,
   }
 }

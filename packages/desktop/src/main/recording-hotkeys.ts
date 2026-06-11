@@ -178,12 +178,10 @@ function hotkeyActionMap(
     actions.set(accelerator, [...(actions.get(accelerator) ?? []), action])
   }
 
-  for (const clip of settings.hotkeys.clips) {
-    add(clip.hotkey, {
-      type: "clip",
-      durationSeconds: clip.durationSeconds,
-    })
-  }
+  add(settings.hotkeys.clip, {
+    type: "clip",
+    durationSeconds: settings.replayBufferSeconds,
+  })
   add(settings.hotkeys.bookmark, { type: "bookmark" })
   add(settings.hotkeys.screenshot, { type: "screenshot" })
   add(settings.hotkeys.toggleLongRecording, { type: "toggleLongRecording" })

@@ -13,18 +13,84 @@ impl Recorder {
     }
 
     fn available_codecs(&self, settings: &RecordingSettings) -> Vec<RecordingCodec> {
-        let codecs = match settings.encoder {
-            RecordingEncoder::Hardware => self.available_codecs.clone(),
+        let caps = self.codec_caps.clone().unwrap_or_default();
+        match settings.encoder {
+            RecordingEncoder::Hardware => caps.hardware,
             RecordingEncoder::Software => {
-                if self.available_encoder_set().contains("obs_x264") {
+                if caps.software_h264 {
                     vec![RecordingCodec::H264]
                 } else {
                     Vec::new()
                 }
             }
-        };
+        }
+    }
 
-        codecs
+    /// Keeps `codec_caps` current so `status()` reports supported codecs even
+    /// when recording is disabled. While OBS is up for an active recording the
+    /// capabilities are already known; otherwise OBS is spun up briefly to probe
+    /// the encoders and torn back down. The result is cached per GPU adapter +
+    /// runtime so this only re-probes when the relevant inputs change.
+    fn refresh_codec_capabilities(&mut self) {
+        let Some(settings) = self.settings.clone() else {
+            return;
+        };
+        let key = (gpu_adapter(&settings), self.obs_runtime_dir.clone());
+
+        if self.obs.is_some() {
+            self.codec_caps = Some(CodecCaps {
+                hardware: self.available_codecs.clone(),
+                software_h264: self.available_encoder_set().contains("obs_x264"),
+            });
+            self.codec_caps_key = Some(key);
+            return;
+        }
+
+        if self.codec_caps.is_some() && self.codec_caps_key.as_ref() == Some(&key) {
+            return;
+        }
+
+        match self.probe_codec_capabilities(&settings) {
+            Ok(caps) => {
+                self.codec_caps = Some(caps);
+                self.codec_caps_key = Some(key);
+            }
+            Err(error) => {
+                eprintln!("[{SIDE_CAR_NAME}] codec capability probe failed: {error}");
+            }
+        }
+    }
+
+    /// Briefly initializes OBS on a default canvas to enumerate the available
+    /// video encoders, then shuts it back down. Used only when no recording is
+    /// active; an active recording already keeps OBS (and the encoder list) up.
+    fn probe_codec_capabilities(&self, settings: &RecordingSettings) -> Result<CodecCaps, String> {
+        let video_config = ObsVideoConfig {
+            base: DEFAULT_VIDEO_DIMENSIONS,
+            output: DEFAULT_VIDEO_DIMENSIONS,
+            fps: 60,
+            hdr_enabled: false,
+        };
+        let obs = LibObs::load(self.obs_runtime_dir.as_deref())?;
+        let caps = unsafe {
+            obs.start(
+                self.obs_runtime_dir.as_deref(),
+                video_config,
+                gpu_adapter(settings),
+            )?;
+            let encoders: HashSet<String> = obs.enumerate_encoders().into_iter().collect();
+            let hardware_settings = RecordingSettings {
+                encoder: RecordingEncoder::Hardware,
+                ..settings.clone()
+            };
+            let caps = CodecCaps {
+                hardware: available_video_codecs(&obs, &hardware_settings, &encoders),
+                software_h264: encoders.contains("obs_x264"),
+            };
+            obs.shutdown();
+            caps
+        };
+        Ok(caps)
     }
 
     /// Refresh the hardware and audio discovery caches that `status()` reads.
@@ -33,7 +99,12 @@ impl Recorder {
     fn refresh_discovery_caches(&mut self) {
         self.refresh_gpu_cache();
         match self.settings.as_ref().map(|settings| &settings.audio_mode) {
-            Some(RecordingAudioMode::Applications) => self.refresh_audio_application_cache(),
+            Some(RecordingAudioMode::Applications) => {
+                self.refresh_audio_application_cache();
+                // Input devices (microphones) stay manageable in applications
+                // mode, so keep their list current alongside the app streams.
+                self.refresh_audio_device_cache();
+            }
             Some(RecordingAudioMode::Devices) | None => self.refresh_audio_device_cache(),
         }
     }

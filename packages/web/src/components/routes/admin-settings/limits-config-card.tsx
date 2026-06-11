@@ -15,12 +15,7 @@ import * as React from "react"
 
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
-import {
-  formatMiB,
-  formatQuotaGiB,
-  parsePositiveMiB,
-  parseQuotaGiB,
-} from "@/lib/storage-format"
+import { formatQuotaGiB, parseQuotaGiB } from "@/lib/storage-format"
 
 import { FormGroup } from "./form-group"
 import { NumberInput } from "./number-input"
@@ -34,60 +29,35 @@ type LimitsConfigCardProps = {
 
 function LimitsFields({
   form,
-  maxUploadMiB,
   storageQuotaGiB,
   onFieldChange,
-  onMaxUploadChange,
   onStorageQuotaChange,
 }: {
   form: AdminLimitsConfig
-  maxUploadMiB: string
   storageQuotaGiB: string
   onFieldChange: <K extends keyof AdminLimitsConfig>(
     key: K,
     value: AdminLimitsConfig[K],
   ) => void
-  onMaxUploadChange: (value: string) => void
   onStorageQuotaChange: (value: string) => void
 }) {
   return (
     <SectionContent className="flex flex-col gap-0">
-      <FormGroup
-        title="Uploads"
-        description="Per-file size and URL lifetime constraints."
-      >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field>
-            <FieldLabel htmlFor="limits-max-upload" required>
-              Max upload size (MiB)
-            </FieldLabel>
-            <Input
-              id="limits-max-upload"
-              type="number"
-              min={1}
-              max={64 * 1024}
-              step={1}
-              required
-              value={maxUploadMiB}
-              onChange={(e) => onMaxUploadChange(e.target.value)}
-            />
-          </Field>
-
-          <Field>
-            <FieldLabel htmlFor="limits-ttl" required>
-              Upload ticket TTL (seconds)
-            </FieldLabel>
-            <NumberInput
-              id="limits-ttl"
-              min={60}
-              max={86_400}
-              step={30}
-              required
-              value={form.uploadTtlSec}
-              onChange={(value) => onFieldChange("uploadTtlSec", value)}
-            />
-          </Field>
-        </div>
+      <FormGroup title="Uploads" description="URL lifetime constraints.">
+        <Field>
+          <FieldLabel htmlFor="limits-ttl" required>
+            Upload ticket TTL (seconds)
+          </FieldLabel>
+          <NumberInput
+            id="limits-ttl"
+            min={60}
+            max={86_400}
+            step={30}
+            required
+            value={form.uploadTtlSec}
+            onChange={(value) => onFieldChange("uploadTtlSec", value)}
+          />
+        </Field>
       </FormGroup>
 
       <FormGroup
@@ -152,17 +122,13 @@ function LimitsActions({
 
 function parseLimitsPatch({
   form,
-  maxUploadMiB,
   storageQuotaGiB,
 }: {
   form: AdminLimitsConfig
-  maxUploadMiB: string
   storageQuotaGiB: string
 }): Partial<AdminLimitsConfig> | null {
-  let maxUploadBytes: number
   let defaultStorageQuotaBytes: number | null
   try {
-    maxUploadBytes = parsePositiveMiB(maxUploadMiB)
     defaultStorageQuotaBytes = parseQuotaGiB(storageQuotaGiB)
   } catch (cause) {
     toast.error(errorMessage(cause, "Invalid limit."))
@@ -171,24 +137,20 @@ function parseLimitsPatch({
 
   return {
     ...form,
-    maxUploadBytes,
     defaultStorageQuotaBytes,
   }
 }
 
 function parseLimitsPatchQuiet({
   form,
-  maxUploadMiB,
   storageQuotaGiB,
 }: {
   form: AdminLimitsConfig
-  maxUploadMiB: string
   storageQuotaGiB: string
 }): Partial<AdminLimitsConfig> | null {
   try {
     return {
       ...form,
-      maxUploadBytes: parsePositiveMiB(maxUploadMiB),
       defaultStorageQuotaBytes: parseQuotaGiB(storageQuotaGiB),
     }
   } catch {
@@ -202,7 +164,6 @@ function limitsConfigEquals(
 ): boolean {
   if (!current) return false
   return (
-    current.maxUploadBytes === saved.maxUploadBytes &&
     current.defaultStorageQuotaBytes === saved.defaultStorageQuotaBytes &&
     current.uploadTtlSec === saved.uploadTtlSec
   )
@@ -211,15 +172,8 @@ function limitsConfigEquals(
 function useLimitsConfigForm({ limits, onChange }: LimitsConfigCardProps) {
   const [form, setForm] = React.useState<AdminLimitsConfig>(limits)
   const [pending, setPending] = React.useState(false)
-  const [maxUploadMiB, setMaxUploadMiB] = React.useState<string>(() =>
-    formatMiB(limits.maxUploadBytes),
-  )
   const [storageQuotaGiB, setStorageQuotaGiB] = React.useState<string>(() =>
     formatQuotaGiB(limits.defaultStorageQuotaBytes),
-  )
-  const initialMaxUploadMiB = React.useMemo(
-    () => formatMiB(limits.maxUploadBytes),
-    [limits.maxUploadBytes],
   )
   const initialStorageQuotaGiB = React.useMemo(
     () => formatQuotaGiB(limits.defaultStorageQuotaBytes),
@@ -228,9 +182,8 @@ function useLimitsConfigForm({ limits, onChange }: LimitsConfigCardProps) {
 
   React.useEffect(() => {
     setForm(limits)
-    setMaxUploadMiB(initialMaxUploadMiB)
     setStorageQuotaGiB(initialStorageQuotaGiB)
-  }, [initialMaxUploadMiB, initialStorageQuotaGiB, limits])
+  }, [initialStorageQuotaGiB, limits])
 
   function set<K extends keyof AdminLimitsConfig>(
     key: K,
@@ -241,14 +194,13 @@ function useLimitsConfigForm({ limits, onChange }: LimitsConfigCardProps) {
 
   function resetForm() {
     setForm(limits)
-    setMaxUploadMiB(initialMaxUploadMiB)
     setStorageQuotaGiB(initialStorageQuotaGiB)
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (pending) return
-    const patch = parseLimitsPatch({ form, maxUploadMiB, storageQuotaGiB })
+    const patch = parseLimitsPatch({ form, storageQuotaGiB })
     if (!patch) return
     if (limitsConfigEquals(patch, limits)) return
     setPending(true)
@@ -265,7 +217,6 @@ function useLimitsConfigForm({ limits, onChange }: LimitsConfigCardProps) {
 
   const comparablePatch = parseLimitsPatchQuiet({
     form,
-    maxUploadMiB,
     storageQuotaGiB,
   })
   const isDirty = !limitsConfigEquals(comparablePatch, limits)
@@ -273,11 +224,9 @@ function useLimitsConfigForm({ limits, onChange }: LimitsConfigCardProps) {
   return {
     form,
     pending,
-    maxUploadMiB,
     storageQuotaGiB,
     isDirty,
     set,
-    setMaxUploadMiB,
     setStorageQuotaGiB,
     resetForm,
     onSubmit,
@@ -298,10 +247,8 @@ export function LimitsConfigCard(props: LimitsConfigCardProps) {
         <fieldset disabled={state.pending} className="contents">
           <LimitsFields
             form={state.form}
-            maxUploadMiB={state.maxUploadMiB}
             storageQuotaGiB={state.storageQuotaGiB}
             onFieldChange={state.set}
-            onMaxUploadChange={state.setMaxUploadMiB}
             onStorageQuotaChange={state.setStorageQuotaGiB}
           />
           <LimitsActions

@@ -18,7 +18,7 @@ import {
   ChevronRightIcon,
   DownloadIcon,
   GaugeIcon,
-  SettingsIcon,
+  MoreVerticalIcon,
 } from "lucide-react"
 import * as React from "react"
 
@@ -109,11 +109,11 @@ export function VideoSettingsMenu({
       type="button"
       variant="ghost"
       size="icon-sm"
-      aria-label="Settings"
+      aria-label="More options"
       className={triggerClassName}
       style={triggerStyle}
     >
-      <SettingsIcon className={triggerIconClassName} />
+      <MoreVerticalIcon className={triggerIconClassName} />
     </Button>
   )
 

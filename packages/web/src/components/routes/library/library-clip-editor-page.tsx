@@ -19,6 +19,7 @@ import { useNavigate } from "@tanstack/react-router"
 import { ClapperboardIcon, CloudIcon, ScissorsIcon } from "lucide-react"
 import * as React from "react"
 
+import { ClipDownloadButton } from "@/components/clip/clip-download-button"
 import { VideoPlayer } from "@/components/video/video-player"
 import { useSession } from "@/lib/auth-client"
 import {
@@ -28,6 +29,7 @@ import {
 } from "@/lib/clip-queries"
 import { alloyDesktop } from "@/lib/desktop"
 import { apiOrigin } from "@/lib/env"
+import { useMediaFilmstrip } from "@/lib/media-filmstrip"
 
 import { ClipEditorTabs } from "./library-clip-editor-details"
 import {
@@ -131,6 +133,7 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
   // Versioned by updatedAt so a finished server trim busts the media cache
   // and the player reloads the newly cut source.
   const streamSrc = `${clipStreamUrl(row.id, "source", apiOrigin())}&v=${encodeURIComponent(row.updatedAt)}`
+  const filmstrip = useMediaFilmstrip(processing ? null : streamSrc)
   const poster = row.thumbKey
     ? clipThumbnailUrl(row.id, apiOrigin(), row.updatedAt)
     : undefined
@@ -204,7 +207,7 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
               <TrimTransportControls playback={playback} />
 
               <LibraryTrimBar
-                frames={[]}
+                frames={filmstrip.frames}
                 durationMs={playback.durationMs}
                 startMs={trim.startMs}
                 endMs={trim.endMs}
@@ -218,7 +221,7 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
               />
 
               <ClipEditorActions
-                clipId={row.id}
+                row={row}
                 isOwner={isOwner}
                 trimmed={trimmed}
                 canSaveTrim={canSaveTrim}
@@ -270,14 +273,14 @@ function ClipProcessingNotice({ progress }: { progress: number }) {
 
 /** Action row under the trimmer: editor hand-off and the destructive trim. */
 function ClipEditorActions({
-  clipId,
+  row,
   isOwner,
   trimmed,
   canSaveTrim,
   trimPending,
   onSaveTrim,
 }: {
-  clipId: string
+  row: ClipRow
   isOwner: boolean
   trimmed: boolean
   canSaveTrim: boolean
@@ -296,7 +299,7 @@ function ClipEditorActions({
           onClick={() => {
             void navigate({
               to: "/editor",
-              search: { capture: clipId },
+              search: { capture: row.id },
             })
           }}
         >
@@ -304,6 +307,7 @@ function ClipEditorActions({
           Open in Editor
         </Button>
       ) : null}
+      <ClipDownloadButton row={row} />
       {isOwner ? (
         <Button
           type="button"

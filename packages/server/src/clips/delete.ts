@@ -3,7 +3,7 @@ import { logger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { cancelClipMediaProcessing } from "@alloy/server/queue/media-worker"
 import { clipStorage } from "@alloy/server/storage/index"
-import { deleteScratchUploads } from "@alloy/server/uploads/scratch"
+import { deleteStagedUploads } from "@alloy/server/uploads/staged"
 import { eq } from "drizzle-orm"
 
 import { publishClipRemove } from "./events"
@@ -28,7 +28,7 @@ export async function deleteClipRowAndAssets(
       logger.warn(`[clips] failed to delete ${key}:`, err)
     }
   }
-  await deleteScratchUploads(
+  await deleteStagedUploads(
     tickets.map((ticket) => ticket.storageKey),
     `clip ${row.id} staged upload`,
   )

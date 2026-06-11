@@ -17,6 +17,7 @@ export {
   registerRecordingLibraryProtocol,
 } from "./recording-library-protocol"
 export { getRecordingLibrarySnapshot } from "./recording-library-scan"
+export { cleanupLegacyFilmstripCache } from "./recording-library-thumbnails"
 export {
   deleteRecordingLibraryItem,
   deleteRecordingLibraryProjectDraft,

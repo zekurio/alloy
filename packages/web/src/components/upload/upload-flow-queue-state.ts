@@ -7,6 +7,7 @@ import * as React from "react"
 import { api } from "@/lib/api"
 import { absoluteClipHref } from "@/lib/app-paths"
 import { clientLogger } from "@/lib/client-log"
+import { removeClipDownload, useClipDownloads } from "@/lib/clip-downloads"
 import {
   clipKeys,
   useInvalidateClips,
@@ -14,13 +15,15 @@ import {
 } from "@/lib/clip-queries"
 import { removeUploadQueueClip } from "@/lib/clip-queue-stream"
 import { copyTextToClipboard } from "@/lib/clipboard"
+import { alloyDesktop, notifyLibraryCapturesChanged } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
 import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 
 import type { PublishPayload } from "./new-clip-helpers"
-import type { QueueItem } from "./upload-queue"
+import { isCompletedQueueStatus, type QueueItem } from "./upload-queue"
 import {
   type ActiveUpload,
+  downloadToQueueItem,
   localToQueueItem,
   serverToQueueItem,
 } from "./upload-queue-mapping"
@@ -58,7 +61,7 @@ async function performUpload(
   entry: ActiveUpload,
   bump: () => void,
   invalidateClips: () => void,
-): Promise<void> {
+): Promise<string> {
   const initiate = await api.clips.initiate({
     filename: payload.file.name,
     contentType: payload.contentType,
@@ -114,6 +117,37 @@ async function performUpload(
 
   await api.clips.finalize(clipId)
   void invalidateClips()
+
+  if (payload.localCaptureId) {
+    void linkLocalCaptureToClip(payload.localCaptureId, clipId)
+  }
+
+  return clipId
+}
+
+/**
+ * Records the server clip id on the desktop capture it was published from,
+ * so the library can collapse the local/uploaded pair into one entry.
+ * Best-effort — a missed link only leaves a duplicate card.
+ */
+async function linkLocalCaptureToClip(
+  captureId: string,
+  clipId: string,
+): Promise<void> {
+  const desktop = alloyDesktop()
+  if (!desktop) return
+  try {
+    await desktop.recording.updateLibraryCapture({
+      id: captureId,
+      uploadedClipId: clipId,
+    })
+    notifyLibraryCapturesChanged()
+  } catch (cause) {
+    clientLogger.warn(
+      `[upload] Failed to link capture ${captureId} to clip ${clipId}.`,
+      cause,
+    )
+  }
 }
 
 function useServerQueueSync(
@@ -229,7 +263,12 @@ function useRunUpload(
       bump()
 
       try {
-        await performUpload(payload, entry, bump, invalidateClips)
+        const clipId = await performUpload(
+          payload,
+          entry,
+          bump,
+          invalidateClips,
+        )
         if (entry.clipId && entry.thumbUrl) {
           retainedThumbsRef.current.set(entry.clipId, entry.thumbUrl)
         } else {
@@ -237,6 +276,7 @@ function useRunUpload(
         }
         activeRef.current.delete(localId)
         bump()
+        return { clipId }
       } catch (err) {
         if ((err as Error).name === "AbortError") {
           revokeObjectUrl(entry.thumbUrl, "local upload thumbnail URL")
@@ -245,7 +285,7 @@ function useRunUpload(
           if (entry.clipId) {
             void deleteUploadClipBestEffort(entry.clipId, "upload abort")
           }
-          return
+          return { clipId: null }
         }
         if (entry.clipId) {
           void markUploadFailedBestEffort(entry.clipId)
@@ -295,6 +335,7 @@ export function useUploadQueueState(
   useServerQueueSync(serverQueue, activeRef, retainedThumbsRef, bump)
   const runUpload = useRunUpload(activeRef, retainedThumbsRef, bump)
   const cancelRow = useCancelRow(activeRef, retainedThumbsRef, bump)
+  const downloads = useClipDownloads()
   const releaseRetainedThumb = React.useCallback(
     (clipId: string) => {
       const retained = retainedThumbsRef.current.get(clipId)
@@ -337,9 +378,28 @@ export function useUploadQueueState(
           onThumbLoad: () => releaseRetainedThumb(row.id),
         }),
       )
-    return [...fromLocal, ...fromServer]
+    // Downloads (clips persisting back to this device) share the surface
+    // with uploads; they lead the list while active so progress stays visible.
+    const fromDownloads = downloads.map((download) =>
+      downloadToQueueItem(download, {
+        onCancel: () => removeClipDownload(download.clipId),
+        onOpen: download.libraryItemId
+          ? () => {
+              void alloyDesktop()?.recording.revealLibraryCapture(
+                download.libraryItemId as string,
+              )
+            }
+          : undefined,
+        onDismiss:
+          download.status !== "downloading"
+            ? () => removeClipDownload(download.clipId)
+            : undefined,
+      }),
+    )
+    return [...fromDownloads, ...fromLocal, ...fromServer]
   }, [
     serverQueue,
+    downloads,
     cancelRow,
     onOpenClip,
     dismissed,
@@ -348,7 +408,7 @@ export function useUploadQueueState(
   ])
 
   const activeCount = queue.filter(
-    (q) => q.status !== "published" && q.status !== "failed",
+    (q) => !isCompletedQueueStatus(q.status) && q.status !== "failed",
   ).length
 
   const clearCompleted = React.useCallback(() => {
@@ -359,7 +419,10 @@ export function useUploadQueueState(
       releaseRetainedThumb(id)
     }
     dismissMany(readyIds)
-  }, [serverQueue, dismissed, dismissMany, releaseRetainedThumb])
+    for (const download of downloads) {
+      if (download.status === "completed") removeClipDownload(download.clipId)
+    }
+  }, [serverQueue, dismissed, dismissMany, releaseRetainedThumb, downloads])
 
   return {
     runUpload,

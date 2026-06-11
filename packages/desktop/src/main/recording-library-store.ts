@@ -16,6 +16,7 @@ import type {
 } from "@/shared/ipc"
 
 import {
+  correctCaptureDurationMs,
   readCaptureManifest,
   writeCaptureManifest,
   manifestKey,
@@ -24,7 +25,7 @@ import {
 import { findRecordingLibraryItem } from "./recording-library-scan"
 import { captureId, titleForCapture } from "./recording-library-shared"
 import {
-  pruneStaleFilmstripFrames,
+  probeDurationMs,
   pruneStaleThumbnails,
   warmRecordingThumbnail,
 } from "./recording-library-thumbnails"
@@ -53,6 +54,16 @@ export function rememberRecordingLibraryCapture(
   }
   writeCaptureManifest(manifest)
   warmRecordingThumbnail(capture)
+
+  // The sidecar reports the requested duration (for replays, the configured
+  // buffer window even when the buffer held less footage). Measure the real
+  // duration off the recording path and correct the entry when they disagree.
+  void probeDurationMs(filename).then((probed) => {
+    if (probed === null) return
+    const reported = capture.durationMs
+    if (reported !== null && Math.abs(probed - reported) <= 1000) return
+    correctCaptureDurationMs(filename, probed)
+  })
 }
 
 /**
@@ -89,6 +100,9 @@ export function updateRecordingLibraryCaptureMeta(
   if (patch.tags !== undefined) entry.tags = patch.tags
   if (patch.mentions !== undefined) entry.mentions = patch.mentions
   if (patch.privacy !== undefined) entry.privacy = patch.privacy
+  if (patch.uploadedClipId !== undefined) {
+    entry.uploadedClipId = patch.uploadedClipId
+  }
   entry.updatedAt = new Date().toISOString()
 
   manifest.captures[key] = entry
@@ -180,8 +194,8 @@ export function importRecordingLibraryCapture(
 
 /**
  * Moves a capture's file to the OS trash and forgets its manifest entry and
- * cached thumbnails/filmstrip frames. Trashing (not unlinking) keeps the
- * delete hotkey recoverable.
+ * cached thumbnails. Trashing (not unlinking) keeps the delete hotkey
+ * recoverable.
  */
 export async function deleteRecordingLibraryItem(id: string): Promise<void> {
   const item = findRecordingLibraryItem(id)
@@ -196,7 +210,6 @@ export async function deleteRecordingLibraryItem(id: string): Promise<void> {
   }
   // Passing an impossible "keep" name clears every cached file for the id.
   pruneStaleThumbnails(id, "")
-  pruneStaleFilmstripFrames(id, "")
 }
 
 export function openRecordingLibraryFolder(): void {

@@ -42,6 +42,10 @@ interface DesktopRecordingContextValue {
   openNotificationSoundsFolder: (
     sound: RecordingNotificationSoundEvent,
   ) => Promise<void>
+  /** Play an event's configured sound once so the user can audition it. */
+  previewNotificationSound: (
+    sound: RecordingNotificationSoundEvent,
+  ) => Promise<void>
   /** Return running processes that can be added to the game allow list. */
   listGameProcesses: () => Promise<RecordingGameProcess[]>
   /** Return displays that can be selected for desktop capture. */
@@ -200,6 +204,18 @@ export function DesktopRecordingProvider({
     [recording],
   )
 
+  const previewNotificationSound = React.useCallback(
+    async (sound: RecordingNotificationSoundEvent) => {
+      if (!recording) return
+      try {
+        await recording.previewNotificationSound(sound)
+      } catch (cause) {
+        toast.error(errorText(cause, "Couldn't play the sound."))
+      }
+    },
+    [recording],
+  )
+
   const listGameProcesses = React.useCallback(async () => {
     if (!recording) return []
     try {
@@ -256,6 +272,7 @@ export function DesktopRecordingProvider({
       chooseOutputFolder,
       listNotificationSounds,
       openNotificationSoundsFolder,
+      previewNotificationSound,
       listGameProcesses,
       listDisplays,
     }),
@@ -269,6 +286,7 @@ export function DesktopRecordingProvider({
       chooseOutputFolder,
       listNotificationSounds,
       openNotificationSoundsFolder,
+      previewNotificationSound,
       listGameProcesses,
       listDisplays,
     ],

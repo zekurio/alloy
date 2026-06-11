@@ -2,9 +2,7 @@
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
   "globalEnv": [
-    "ALLOY_CLIPS_DIR",
     "ALLOY_DATA_DIR",
-    "ALLOY_ENCODE_DIR",
     "DATABASE_URL",
     "FFMPEG_BIN",
     "FFPROBE_BIN",

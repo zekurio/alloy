@@ -10,7 +10,7 @@ import { validateImageBytes } from "@alloy/server/media/image-validation"
 import { runImageMagick } from "@alloy/server/media/imagemagick"
 import { errorResult, notFound } from "@alloy/server/runtime/http-response"
 import type { ResolvedObject } from "@alloy/server/storage/driver"
-import { dataStorage, userAssetKey } from "@alloy/server/storage/index"
+import { userAssetKey, userStorage } from "@alloy/server/storage/index"
 import { eq } from "drizzle-orm"
 import { type Context, Hono } from "hono"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
@@ -27,7 +27,7 @@ const MAX_BACKGROUND_BYTES = 12 * 1024 * 1024 // 12 MB
 const USER_ASSET_CONTENT_TYPE = "image/webp"
 const USER_ASSET_EXT = ".webp"
 const USER_ASSET_KEY_RE =
-  /^users\/[0-9a-f]{2}\/[0-9a-f]{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:avatar|banner|background)\.webp$/i
+  /^[0-9a-f]{2}\/[0-9a-f]{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:avatar|banner|background)\.webp$/i
 
 const USER_ASSET_TARGETS = {
   avatar: { width: 512, height: 512 },
@@ -134,7 +134,7 @@ async function deleteOldAssets(
     ...new Set([...Object.values(EXT_FOR_CONTENT_TYPE), USER_ASSET_EXT]),
   ]
   await Promise.all(
-    exts.map((ext) => dataStorage.delete(userAssetKey(userId, role, ext))),
+    exts.map((ext) => userStorage.delete(userAssetKey(userId, role, ext))),
   )
 }
 
@@ -199,7 +199,7 @@ async function uploadUserAsset(input: {
 
   const key = userAssetKey(input.viewerId, input.role, USER_ASSET_EXT)
   await deleteOldAssets(input.viewerId, input.role)
-  await dataStorage.put(key, resized, USER_ASSET_CONTENT_TYPE)
+  await userStorage.put(key, resized, USER_ASSET_CONTENT_TYPE)
 
   const updatedAt = new Date()
   const patch: Partial<typeof user.$inferInsert> = { updatedAt }
@@ -260,7 +260,7 @@ async function autoDeriveAccent(
   viewerId: string,
 ): Promise<UserAssetUpdateResult> {
   const key = userAssetKey(viewerId, "background", USER_ASSET_EXT)
-  const resolved = await dataStorage.resolve(key)
+  const resolved = await userStorage.resolve(key)
   let color: string | null = null
   if (resolved) {
     const bytes = await readAll(resolved.stream())
@@ -363,7 +363,7 @@ export const userAssetsRoute = new Hono().get("/:key{.+}", async (c) => {
     return notFound(c)
   }
 
-  const resolved = await dataStorage.resolve(key)
+  const resolved = await userStorage.resolve(key)
   if (!resolved) return notFound(c)
   const etag = assetEtag(key, resolved)
 

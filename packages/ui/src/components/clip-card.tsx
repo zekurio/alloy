@@ -47,6 +47,12 @@ interface ClipCardProps extends React.ComponentProps<"article"> {
   thumbnailLabel?: string
   thumbnailRef?: React.Ref<HTMLButtonElement>
   metaVariant?: "default" | "showcase"
+  /**
+   * Floating controls over the thumbnail's top-right corner (e.g. an actions
+   * menu). Rendered as a sibling of the thumbnail button, so interactive
+   * elements stay valid HTML.
+   */
+  thumbnailOverlay?: React.ReactNode
 }
 
 const HOVER_PREVIEW_DELAY_MS = 250
@@ -84,6 +90,7 @@ function ClipCard({
   thumbnailLabel,
   thumbnailRef,
   metaVariant = "default",
+  thumbnailOverlay,
   ...props
 }: ClipCardProps) {
   const privacyBadge = renderPrivacyBadge(privacy)
@@ -95,18 +102,23 @@ function ClipCard({
       className={cn("group/clip-card flex flex-col gap-2.5", className)}
       {...props}
     >
-      <ClipCardThumb
-        title={title}
-        thumbnail={thumbnail}
-        thumbnailBlurHash={thumbnailBlurHash}
-        fallbackSeed={fallbackSeed ?? game}
-        streamUrl={streamUrl}
-        onClick={onThumbnailClick}
-        onIntent={onThumbnailIntent}
-        onPreviewError={onPreviewError}
-        label={thumbnailLabel ?? title}
-        buttonRef={thumbnailRef}
-      />
+      <div className="relative">
+        <ClipCardThumb
+          title={title}
+          thumbnail={thumbnail}
+          thumbnailBlurHash={thumbnailBlurHash}
+          fallbackSeed={fallbackSeed ?? game}
+          streamUrl={streamUrl}
+          onClick={onThumbnailClick}
+          onIntent={onThumbnailIntent}
+          onPreviewError={onPreviewError}
+          label={thumbnailLabel ?? title}
+          buttonRef={thumbnailRef}
+        />
+        {thumbnailOverlay ? (
+          <div className="absolute top-2 right-2 z-10">{thumbnailOverlay}</div>
+        ) : null}
+      </div>
       <div className="flex items-start gap-2.5">
         {author ? (
           <ClipCardAvatar

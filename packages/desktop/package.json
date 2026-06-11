@@ -46,6 +46,10 @@
       "buildResources": "assets",
       "output": "release"
     },
+    "compression": "maximum",
+    "electronLanguages": [
+      "en-US"
+    ],
     "publish": [
       {
         "provider": "github",
@@ -69,14 +73,18 @@
         "from": "../recorder/dist/sidecar",
         "to": "sidecar",
         "filter": [
-          "**/*"
+          "**/*",
+          "!.gitkeep",
+          "!**/*.pdb"
         ]
       },
       {
         "from": "../recorder/dist/obs-runtime",
         "to": "obs-runtime",
         "filter": [
-          "**/*"
+          "**/*",
+          "!.gitkeep",
+          "!**/*.pdb"
         ]
       }
     ],

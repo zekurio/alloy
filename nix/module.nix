@@ -16,7 +16,6 @@ let
       or (throw "alloy only packages x86_64-linux for now");
 
   configDir = dirOf cfg.configFile;
-  encodeDir = "${cfg.cacheDir}/encode";
   systemdDirectoryName =
     root: path:
     let
@@ -28,7 +27,6 @@ let
     else
       null;
   managedStateDirectory = systemdDirectoryName "/var/lib" cfg.stateDir;
-  managedCacheDirectory = systemdDirectoryName "/var/cache" cfg.cacheDir;
   pathIsUnder =
     parent: child:
     let
@@ -38,7 +36,6 @@ let
     childString == parentString || lib.hasPrefix "${parentString}/" childString;
   serverExternalWritePaths = lib.unique (
     lib.optionals (managedStateDirectory == null) [ cfg.stateDir ]
-    ++ lib.optionals (managedCacheDirectory == null) [ cfg.cacheDir ]
     ++ lib.optionals (!(pathIsUnder cfg.stateDir configDir)) [ configDir ]
     ++ lib.optionals (!(pathIsUnder cfg.stateDir cfg.storageDir)) [ cfg.storageDir ]
   );
@@ -55,12 +52,22 @@ let
       "postgresql://${cfg.database.user}@localhost/${cfg.database.name}?host=${cfg.database.host}"
     else
       "postgresql://${cfg.database.user}@${databaseConnectHost}:${toString cfg.database.port}/${cfg.database.name}";
-  bootstrapConfig =
-    if cfg.initialRuntimeConfig == null then
-      null
-    else
-      jsonFormat.generate "alloy-runtime-config.json" cfg.initialRuntimeConfig;
-  preStart = lib.optionalString (bootstrapConfig != null) ''
+  bootstrapRuntimeConfig = lib.recursiveUpdate {
+    storage = {
+      driver = "fs";
+      path = toString cfg.storageDir;
+      clipsPath = null;
+      usersPath = null;
+      s3 = {
+        bucket = "";
+        region = "us-east-1";
+        endpoint = null;
+        forcePathStyle = false;
+      };
+    };
+  } (if cfg.initialRuntimeConfig == null then { } else cfg.initialRuntimeConfig);
+  bootstrapConfig = jsonFormat.generate "alloy-runtime-config.json" bootstrapRuntimeConfig;
+  preStart = ''
     if [ ! -e ${lib.escapeShellArg cfg.configFile} ]; then
       install -m 0640 ${lib.escapeShellArg bootstrapConfig} ${lib.escapeShellArg cfg.configFile}
     fi
@@ -90,6 +97,12 @@ in
     (lib.mkRemovedOptionModule [ "services" "alloy-clips" "accelerationDevices" ] ''
       Alloy no longer transcodes on the server (the desktop app owns all
       encoding), so the service needs no hardware encoder device access.
+    '')
+    (lib.mkRemovedOptionModule [ "services" "alloy-clips" "cacheDir" ] ''
+      Alloy now keeps temporary media work/cache files in the OS temp area.
+      Configure durable clip and user asset storage through Alloy runtime
+      config; services.alloy-clips.storageDir only seeds that config on first
+      boot.
     '')
   ]
   ++ map
@@ -173,25 +186,15 @@ in
       '';
     };
 
-    cacheDir = lib.mkOption {
-      type = lib.types.path;
-      default = "/var/cache/alloy";
-      description = ''
-        Mutable Alloy cache directory for media scratch data (HLS package
-        cache, processing working files). Paths below /var/cache are managed
-        with systemd CacheDirectory. Other paths must be created by the
-        operator.
-      '';
-    };
-
     storageDir = lib.mkOption {
       type = lib.types.path;
       default = "${config.services.alloy-clips.stateDir}/storage";
       defaultText = lib.literalExpression ''"\${config.services.alloy-clips.stateDir}/storage"'';
       description = ''
-        Filesystem storage root used when Alloy bootstraps runtime config. If
-        this is outside stateDir, create it manually and make it writable by the
-        Alloy service user.
+        Filesystem storage root used to seed Alloy runtime config on first
+        boot. If this is outside stateDir, create it manually and make it
+        writable by the Alloy service user. Existing config.json files are not
+        rewritten.
       '';
     };
 
@@ -211,17 +214,14 @@ in
       default = null;
       description = ''
         Optional JSON runtime config copied to configFile only when it does not
-        already exist. Leave null to let Alloy generate a config with fresh
-        runtime secrets on first boot.
+        already exist. Values here override the module's storage bootstrap.
       '';
     };
 
     environment = lib.mkOption {
       type = lib.types.attrsOf lib.types.str;
       default = { };
-      example = {
-        AWS_ACCESS_KEY_ID = "alloy";
-      };
+      example = { ALLOY_DATA_DIR = "/var/lib/alloy"; };
       description = "Additional environment variables for Alloy.";
     };
 
@@ -326,12 +326,9 @@ in
         PORT = toString cfg.port;
         PUBLIC_SERVER_URL = cfg.publicServerUrl;
         TRUSTED_ORIGINS = lib.concatStringsSep "," ([ cfg.publicServerUrl ] ++ cfg.trustedOrigins);
-        # App-owned data (config.json, splash, user assets) lives in the
-        # persistent state dir; bulk clips live in storageDir; media scratch
-        # (HLS package cache, processing working files) is wipeable cache.
+        # Bootstrap data (config.json, secrets.json) lives in the persistent
+        # state dir. Durable storage roots are read from runtime config.
         ALLOY_DATA_DIR = cfg.stateDir;
-        ALLOY_CLIPS_DIR = cfg.storageDir;
-        ALLOY_ENCODE_DIR = encodeDir;
         PGHOST = cfg.database.host;
         PGUSER = cfg.database.user;
         PGDATABASE = cfg.database.name;
@@ -358,14 +355,10 @@ in
         ProtectSystem = "strict";
         ProtectHome = true;
         StateDirectory = lib.mkIf (managedStateDirectory != null) managedStateDirectory;
-        CacheDirectory = lib.mkIf (managedCacheDirectory != null) managedCacheDirectory;
         ReadWritePaths = serverExternalWritePaths;
       }
       // lib.optionalAttrs (managedStateDirectory != null) {
         StateDirectoryMode = "0750";
-      }
-      // lib.optionalAttrs (managedCacheDirectory != null) {
-        CacheDirectoryMode = "0750";
       };
     };
 

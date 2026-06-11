@@ -3,7 +3,7 @@ import { mkdir, readdir, rm, stat, utimes, writeFile } from "node:fs/promises"
 import { Readable } from "node:stream"
 
 import { logger } from "@alloy/logging"
-import { ENCODE_DIR } from "@alloy/server/runtime/dirs"
+import { MEDIA_CACHE_DIR } from "@alloy/server/runtime/dirs"
 import { isAbsolute, join, relative, resolve } from "@alloy/server/runtime/path"
 import { clipStorage } from "@alloy/server/storage/index"
 import {
@@ -33,7 +33,7 @@ export {
   makeDirectHlsSpec,
 } from "./direct-hls-spec"
 
-const DIRECT_HLS_DIR = join(ENCODE_DIR, "hls")
+const DIRECT_HLS_DIR = join(MEDIA_CACHE_DIR, "hls")
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000
 const CACHE_MAX_BYTES = 20 * 1024 * 1024 * 1024
 // Written last; a directory without it is a partial package and gets wiped.

@@ -15,6 +15,7 @@ import {
 import {
   isNotificationSoundEvent,
   normalizeActionRequest,
+  normalizeLibraryDownloadRequest,
   normalizeLibraryExportRequest,
   normalizeLibraryImportRequest,
   normalizeLibraryMetaPatch,
@@ -34,6 +35,8 @@ import {
   resolveRevealableCapturePath,
   saveReplayClip,
   stopRecording,
+  stopRecordingAudioLevels,
+  subscribeRecordingAudioLevels,
   takeRecordingScreenshot,
   toggleLongRecording,
 } from "./recording"
@@ -52,8 +55,14 @@ import {
   updateRecordingLibraryCaptureMeta,
 } from "./recording-library"
 import {
+  cancelRecordingLibraryClipDownload,
+  listRecordingLibraryClipDownloads,
+  startRecordingLibraryClipDownload,
+} from "./recording-library-download"
+import {
   ensureNotificationSoundsDir,
   listNotificationSoundLibrary,
+  playRecordingNotificationSound,
 } from "./recording-notification-sounds"
 import {
   forgetServer,
@@ -64,6 +73,7 @@ import {
   saveRecordingSettings,
 } from "./server-store"
 import { clearRemoteWebCache, hasValidSession } from "./session"
+import { sameOrigin } from "./url-policy"
 import type { Windows } from "./windows"
 
 const SETUP_REQUIRED_ERROR =
@@ -309,6 +319,34 @@ function registerRecordingLibraryIpc(windows: Windows): void {
       return importRecordingLibraryCapture(normalized)
     },
   )
+  ipcMain.handle(
+    IPC.downloadRecordingLibraryClip,
+    (event, request: unknown) => {
+      requireMainSender(windows, event)
+      const normalized = normalizeLibraryDownloadRequest(request)
+      if (!normalized) throw new Error("Invalid clip download request.")
+      // The fetch runs with the signed-in session's cookies, so only ever
+      // send it to the server this window is connected to.
+      const serverUrl = windows.currentServerUrl()
+      if (!serverUrl || !sameOrigin(normalized.mediaUrl, serverUrl)) {
+        throw new Error("Clip downloads must come from the connected server.")
+      }
+      return startRecordingLibraryClipDownload(normalized)
+    },
+  )
+  ipcMain.handle(
+    IPC.cancelRecordingLibraryClipDownload,
+    (event, clipId: unknown) => {
+      requireMainSender(windows, event)
+      if (typeof clipId === "string") {
+        cancelRecordingLibraryClipDownload(clipId)
+      }
+    },
+  )
+  ipcMain.handle(IPC.listRecordingLibraryClipDownloads, (event) => {
+    requireMainSender(windows, event)
+    return listRecordingLibraryClipDownloads()
+  })
 }
 
 function registerRecordingSoundIpc(windows: Windows): void {
@@ -325,6 +363,20 @@ function registerRecordingSoundIpc(windows: Windows): void {
       if (openError) throw new Error(openError)
     },
   )
+  ipcMain.handle(
+    IPC.previewNotificationSound,
+    async (event, sound: unknown): Promise<void> => {
+      requireMainSender(windows, event)
+      if (!isNotificationSoundEvent(sound)) return
+      // Audition the configured sound regardless of whether the event is
+      // enabled, so users can hear their pick before turning it on.
+      const settings = getRecordingSettings().notificationSounds[sound]
+      await playRecordingNotificationSound(sound, {
+        ...settings,
+        enabled: true,
+      })
+    },
+  )
 }
 
 function registerRecordingSourceIpc(windows: Windows): void {
@@ -335,6 +387,14 @@ function registerRecordingSourceIpc(windows: Windows): void {
   ipcMain.handle(IPC.listRecordingDisplays, async (event) => {
     requireMainSender(windows, event)
     return listRecordingDisplays()
+  })
+  ipcMain.handle(IPC.subscribeRecordingAudioLevels, async (event) => {
+    requireMainSender(windows, event)
+    return subscribeRecordingAudioLevels()
+  })
+  ipcMain.handle(IPC.stopRecordingAudioLevels, async (event) => {
+    requireMainSender(windows, event)
+    return stopRecordingAudioLevels()
   })
 }
 

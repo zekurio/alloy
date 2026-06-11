@@ -544,14 +544,14 @@ unsafe fn configure_display_capture_source(
     data: *mut ObsData,
     settings: &RecordingSettings,
 ) -> Result<(), String> {
-    const OBS_DISPLAY_METHOD_DXGI: i64 = 1;
+    const OBS_DISPLAY_METHOD_WGC: i64 = 2;
 
     if !settings.selected_display_id.trim().is_empty() {
         obs.set_string(data, "monitor_id", &settings.selected_display_id)?;
     } else if let Some(display_id) = primary_display_id() {
         obs.set_string(data, "monitor_id", &display_id)?;
     }
-    obs.set_int(data, "method", OBS_DISPLAY_METHOD_DXGI)?;
+    obs.set_int(data, "method", OBS_DISPLAY_METHOD_WGC)?;
     obs.set_bool(data, "force_sdr", false)?;
 
     obs.set_bool(data, "capture_cursor", false)?;
@@ -679,28 +679,43 @@ fn audio_source_configs(
             .map(audio_device_source_config)
             .collect()),
         RecordingAudioMode::Applications => {
-            let applications = selected_audio_applications(settings, game);
-            if applications.is_empty() {
-                return Ok(Vec::new());
-            }
-            let Some(source_id) = platform_application_audio_source_id() else {
-                return Err(
-                    "Application audio capture requires OBS process audio support.".to_string(),
-                );
-            };
+            let mut configs = Vec::new();
 
-            Ok(applications
-                .into_iter()
-                .filter(|application| !application.window.is_empty())
-                .map(|application| AudioSourceConfig {
-                    source_id,
-                    name: format!("alloy_application_audio_{}", file_slug(&application.name)),
-                    device_id: None,
-                    window: Some(application.window),
-                    priority: Some(OBS_WINDOW_PRIORITY_EXE),
-                    volume: audio_volume(application.volume),
-                })
-                .collect())
+            let applications = selected_audio_applications(settings, game);
+            if !applications.is_empty() {
+                let Some(source_id) = platform_application_audio_source_id() else {
+                    return Err(
+                        "Application audio capture requires OBS process audio support.".to_string(),
+                    );
+                };
+                configs.extend(
+                    applications
+                        .into_iter()
+                        .filter(|application| !application.window.is_empty())
+                        .map(|application| AudioSourceConfig {
+                            source_id,
+                            name: format!(
+                                "alloy_application_audio_{}",
+                                file_slug(&application.name)
+                            ),
+                            device_id: None,
+                            window: Some(application.window),
+                            priority: Some(OBS_WINDOW_PRIORITY_EXE),
+                            volume: audio_volume(application.volume),
+                        }),
+                );
+            }
+
+            // Microphones aren't application playback streams, so input devices
+            // stay capturable in applications mode for voice-over.
+            configs.extend(
+                selected_audio_devices(settings)
+                    .into_iter()
+                    .filter(|device| device.kind == RecordingAudioDeviceKind::Input)
+                    .map(audio_device_source_config),
+            );
+
+            Ok(configs)
         }
     }
 }

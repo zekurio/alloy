@@ -19,8 +19,6 @@ export interface RecordingLibraryItem {
   fileName: string
   mediaUrl: string
   thumbnailUrl: string | null
-  /** Evenly spaced editor-timeline filmstrip frames (empty for screenshots). */
-  filmstripFrameUrls: string[]
   thumbBlurHash: string | null
   collection: "Clips" | "Sessions" | "Screenshots"
   kind: RecordingCaptureKind
@@ -37,6 +35,8 @@ export interface RecordingLibraryItem {
   tags: string | null
   mentions: RecordingCaptureMention[]
   privacy: ClipPrivacy | null
+  /** Server clip id this capture was published as, once an upload finished. */
+  uploadedClipId: string | null
   createdAt: string
   modifiedAt: string
 }
@@ -60,6 +60,7 @@ export interface RecordingLibraryMetaPatch {
   tags?: string | null
   mentions?: RecordingCaptureMention[]
   privacy?: ClipPrivacy | null
+  uploadedClipId?: string | null
 }
 
 export interface RecordingLibraryProjectTrack {
@@ -123,6 +124,11 @@ export interface RecordingLibraryExport {
   width: number | null
   height: number | null
   thumbBlurHash: string | null
+  /**
+   * Poster image rendered by the main process (ffmpeg decodes every capture
+   * codec; the renderer cannot, so HEVC/AV1 captures draw blank canvases).
+   */
+  thumbUrl: string | null
 }
 
 /** A rendered video to add to the capture library (from the editor). */
@@ -138,6 +144,41 @@ export interface RecordingLibraryImportRequest {
 export interface RecordingLibraryImportResult {
   /** Library capture id of the imported file. */
   id: string
+}
+
+/** Ask the desktop shell to persist an uploaded clip into the local library. */
+export interface RecordingLibraryDownloadRequest {
+  /** Server clip id; doubles as the download's identity (one job per clip). */
+  clipId: string
+  title: string
+  /** Absolute URL of the clip's source media on the connected server. */
+  mediaUrl: string
+  /** MIME type of the uploaded source; picks the saved file extension. */
+  contentType: string | null
+  sizeBytes: number | null
+  durationMs: number | null
+  width: number | null
+  height: number | null
+  gameName: string | null
+}
+
+export type RecordingLibraryDownloadStatus =
+  | "downloading"
+  | "completed"
+  | "failed"
+
+/** Live state of one clip download, pushed as "library-download" events. */
+export interface RecordingLibraryDownload {
+  clipId: string
+  title: string
+  status: RecordingLibraryDownloadStatus
+  receivedBytes: number
+  /** Null while the server hasn't reported a content length. */
+  totalBytes: number | null
+  error: string | null
+  /** Library capture id of the saved file, set once completed. */
+  libraryItemId: string | null
+  startedAt: string
 }
 
 export interface RecordingLibraryGroup {

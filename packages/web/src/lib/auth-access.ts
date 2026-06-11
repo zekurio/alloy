@@ -1,6 +1,5 @@
 import type { PublicAuthConfig } from "@alloy/api"
 
-import { isDevSetupForced } from "./flags"
 import type { Session } from "./session-suspense"
 
 type AuthRouteTarget = "/setup" | "/login" | null
@@ -18,9 +17,7 @@ export function shouldForceOnboarding(
   session: Session | null,
 ): boolean {
   return (
-    (config.setupRequired || isDevSetupForced()) &&
-    !config.adminAccountRequired &&
-    isAdmin(session)
+    config.setupRequired && !config.adminAccountRequired && isAdmin(session)
   )
 }
 

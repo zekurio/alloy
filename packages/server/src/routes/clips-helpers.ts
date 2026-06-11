@@ -7,7 +7,6 @@ import {
 } from "@alloy/contracts"
 import { clip, CLIP_PRIVACY } from "@alloy/db/schema"
 import { toPublicClipRow } from "@alloy/server/clips/select"
-import { configStore } from "@alloy/server/config/store"
 import { requiredSql } from "@alloy/server/db/sql"
 import { isoDate } from "@alloy/server/runtime/date"
 import { and, desc, eq, inArray, lt, or, type SQL, sql } from "drizzle-orm"
@@ -217,23 +216,18 @@ const TagsInput = z
   .max(CLIP_TAGS_MAX)
   .optional()
 
-export const InitiateBody = z
-  .object({
-    filename: z.string().min(1).max(255),
-    contentType: z.enum(ACCEPTED_CLIP_CONTENT_TYPES),
-    sizeBytes: z.number().int().positive(),
-    title: requiredTrimmedString(CLIP_TITLE_MAX_LENGTH),
-    description: optionalBlankToNullTrimmedString(CLIP_DESCRIPTION_MAX_LENGTH),
-    steamgriddbId: z.number().int().positive(),
-    privacy: z.enum(CLIP_PRIVACY).default("public"),
-    mentionedUserIds: z.array(z.uuid()).optional(),
-    tags: TagsInput,
-    thumbBlurHash: z.string().regex(BLURHASH_PATTERN).optional(),
-  })
-  .refine((b) => b.sizeBytes <= configStore.get("limits").maxUploadBytes, {
-    message: "sizeBytes exceeds the configured maximum upload size",
-    path: ["sizeBytes"],
-  })
+export const InitiateBody = z.object({
+  filename: z.string().min(1).max(255),
+  contentType: z.enum(ACCEPTED_CLIP_CONTENT_TYPES),
+  sizeBytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+  title: requiredTrimmedString(CLIP_TITLE_MAX_LENGTH),
+  description: optionalBlankToNullTrimmedString(CLIP_DESCRIPTION_MAX_LENGTH),
+  steamgriddbId: z.number().int().positive(),
+  privacy: z.enum(CLIP_PRIVACY).default("public"),
+  mentionedUserIds: z.array(z.uuid()).optional(),
+  tags: TagsInput,
+  thumbBlurHash: z.string().regex(BLURHASH_PATTERN).optional(),
+})
 
 /** Smallest media range a trim may keep, in ms. */
 export const TRIM_MIN_RANGE_MS = 1000

@@ -5,6 +5,7 @@ import type {
   RuntimeConfig,
 } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
+import { clip } from "@alloy/db/schema"
 import {
   OAuthProviderSchema,
   OAuthProviderSubmissionSchema,
@@ -12,9 +13,9 @@ import {
 import { secretStore } from "@alloy/server/config/secret-store"
 import { db } from "@alloy/server/db/index"
 import { env } from "@alloy/server/env"
-import { isoDate } from "@alloy/server/runtime/date"
+import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
 import { selectSourceStorageUsedBytesByUserIds } from "@alloy/server/storage/quota"
-import { desc, inArray } from "drizzle-orm"
+import { and, desc, inArray, ne, sql } from "drizzle-orm"
 
 type OAuthProviderAdminSubmission = Record<string, unknown> & {
   providerId?: string
@@ -40,11 +41,34 @@ export function adminRuntimeConfigResponse(
   return {
     ...config,
     oauthProviders: config.oauthProviders.map(toAdminOAuthProvider),
+    storage: {
+      ...config.storage,
+      s3AccessKeyIdSet: secretStore.get("storageS3AccessKeyId").length > 0,
+      s3SecretAccessKeySet:
+        secretStore.get("storageS3SecretAccessKey").length > 0,
+    },
     integrations: {
       steamgriddbApiKeySet: secretStore.get("steamgriddbApiKey").length > 0,
     },
     authBaseURL: env.PUBLIC_SERVER_URL,
   }
+}
+
+async function selectClipCountsByUserIds(
+  userIds: string[],
+): Promise<Map<string, number>> {
+  if (userIds.length === 0) return new Map()
+
+  const rows = await db
+    .select({
+      userId: clip.authorId,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(clip)
+    .where(and(inArray(clip.authorId, userIds), ne(clip.status, "failed")))
+    .groupBy(clip.authorId)
+
+  return new Map(rows.map((row) => [row.userId, row.count]))
 }
 
 export async function selectAdminUserStorageRows(targetUserIds?: string[]) {
@@ -55,6 +79,8 @@ export async function selectAdminUserStorageRows(targetUserIds?: string[]) {
       email: user.email,
       image: user.image,
       role: user.role,
+      status: user.status,
+      disabledAt: user.disabledAt,
       createdAt: user.createdAt,
       storageQuotaBytes: user.storageQuotaBytes,
     })
@@ -63,15 +89,18 @@ export async function selectAdminUserStorageRows(targetUserIds?: string[]) {
     .orderBy(desc(user.createdAt))
     .limit(targetUserIds ? targetUserIds.length : 100)
 
-  const usage = await selectSourceStorageUsedBytesByUserIds(
-    db,
-    rows.map((row) => row.id),
-  )
+  const userIds = rows.map((row) => row.id)
+  const [usage, clipCounts] = await Promise.all([
+    selectSourceStorageUsedBytesByUserIds(db, userIds),
+    selectClipCountsByUserIds(userIds),
+  ])
 
   return rows.map((row) => ({
     ...row,
     createdAt: isoDate(row.createdAt),
+    disabledAt: nullableIsoDate(row.disabledAt),
     storageUsedBytes: usage.get(row.id) ?? 0,
+    clipCount: clipCounts.get(row.id) ?? 0,
   }))
 }
 

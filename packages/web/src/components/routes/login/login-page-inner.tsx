@@ -1,10 +1,14 @@
 import type { PublicAuthConfig } from "@alloy/api"
+import { Button } from "@alloy/ui/components/button"
+import { Spinner } from "@alloy/ui/components/spinner"
 import { Link } from "@tanstack/react-router"
+import { LogInIcon } from "lucide-react"
 import * as React from "react"
 
 import { AuthPageFrame } from "@/components/auth/auth-page-frame"
 import { authClient } from "@/lib/auth-client"
 import { useLoginRedirect } from "@/lib/auth-hooks"
+import { alloyDesktop } from "@/lib/desktop"
 import { usePasskeySupport } from "@/lib/passkey-support"
 
 import { OAuthSignIn } from "./oauth-sign-in"
@@ -81,14 +85,19 @@ export function LoginPageInner({ config, redirectTo }: LoginPageInnerProps) {
   const canRender = useLoginRedirect(redirectTo ?? null)
   const { ready: passkeyReady, supported: passkeySupported } =
     usePasskeySupport()
+  const desktop = alloyDesktop()
 
   React.useEffect(() => {
-    if (config.passkeyEnabled && passkeyReady && passkeySupported) {
+    if (!desktop && config.passkeyEnabled && passkeyReady && passkeySupported) {
       authClient.signIn.preloadPasskey()
     }
-  }, [config.passkeyEnabled, passkeyReady, passkeySupported])
+  }, [config.passkeyEnabled, desktop, passkeyReady, passkeySupported])
 
   if (!canRender) return null
+
+  if (desktop && !redirectTo) {
+    return <DesktopLoginPage config={config} />
+  }
 
   return (
     <AuthPageFrame splash={config.loginSplash}>
@@ -98,6 +107,86 @@ export function LoginPageInner({ config, redirectTo }: LoginPageInnerProps) {
         passkeySupported={passkeySupported}
         redirectTo={redirectTo}
       />
+    </AuthPageFrame>
+  )
+}
+
+function DesktopLoginPage({ config }: { config: PublicAuthConfig }) {
+  const desktop = alloyDesktop()
+  const [serverUrl, setServerUrl] = React.useState<string | null>(null)
+  const [loaded, setLoaded] = React.useState(false)
+  const [pending, setPending] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    let cancelled = false
+
+    async function loadServer() {
+      const currentServer = await desktop?.servers.getCurrentServer()
+      const savedServer =
+        currentServer ?? (await desktop?.servers.getServers())?.[0]?.serverUrl
+      if (cancelled) return
+      setServerUrl(savedServer ?? null)
+      setLoaded(true)
+    }
+
+    void loadServer()
+
+    return () => {
+      cancelled = true
+    }
+  }, [desktop])
+
+  async function onSignIn() {
+    if (!desktop || pending) return
+    if (!serverUrl) {
+      await desktop.openConnect()
+      return
+    }
+
+    setPending(true)
+    setError(null)
+    const result = await desktop.servers.connect(serverUrl)
+    if (!result.ok) {
+      setError(result.error)
+      setPending(false)
+    }
+  }
+
+  const serverLabel = serverUrl ? new URL(serverUrl).host : null
+
+  return (
+    <AuthPageFrame splash={config.loginSplash}>
+      <div className="mb-8 space-y-1.5">
+        <h2 className="text-foreground text-2xl font-semibold tracking-[-0.02em]">
+          Signed out
+        </h2>
+        <p className="text-foreground-muted text-sm">
+          {serverLabel
+            ? `Sign in to ${serverLabel} in your browser to continue.`
+            : loaded
+              ? "Choose an Alloy server to sign in."
+              : "Loading saved server..."}
+        </p>
+      </div>
+      {error ? (
+        <p className="text-danger mb-3 text-sm" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <Button
+        type="button"
+        variant="secondary"
+        size="lg"
+        className="w-full gap-3"
+        disabled={!loaded || pending}
+        onClick={onSignIn}
+      >
+        {pending ? <Spinner /> : <LogInIcon className="size-4" />}
+        <span className="truncate">
+          {serverUrl ? "Sign in to saved server" : "Choose server"}
+        </span>
+      </Button>
     </AuthPageFrame>
   )
 }

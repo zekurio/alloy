@@ -14,6 +14,7 @@ import { LoadingState } from "@alloy/ui/components/loading-state"
 import { toast } from "@alloy/ui/lib/toast"
 import { useNavigate } from "@tanstack/react-router"
 import {
+  ClapperboardIcon,
   HardDriveIcon,
   PauseIcon,
   PlayIcon,
@@ -414,6 +415,7 @@ function EditorContent({
             disabled={project.clips.length === 0 || render.dialogOpen}
             onClick={render.openDialog}
           >
+            <ClapperboardIcon />
             Render video
           </Button>
         </div>

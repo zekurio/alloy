@@ -59,8 +59,6 @@ in
     # origin to the trusted set on top of this.
     TRUSTED_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173";
     ALLOY_DATA_DIR = dataDir;
-    ALLOY_CLIPS_DIR = "${dataDir}/clips";
-    ALLOY_ENCODE_DIR = "${dataDir}/encode";
 
     # Desktop app: run the Nix-provided Electron (electron-vite reads
     # ELECTRON_EXEC_PATH) and skip the npm package's unusable binary download.

@@ -65,7 +65,7 @@ export function SettingsDialog({
         variant="secondary"
         disableZoom
         className={cn(
-          "flex h-[88vh] max-h-[860px] w-[calc(100vw-2rem)] max-w-4xl gap-0 overflow-hidden p-0",
+          "flex h-[94vh] max-h-[1040px] w-[calc(100vw-2rem)] max-w-7xl gap-0 overflow-hidden p-0",
           "max-sm:h-[78dvh] max-sm:max-h-[680px] max-sm:max-w-[430px]",
         )}
       >

@@ -10,8 +10,7 @@ import { app } from "electron"
  */
 
 export function sidecarExecutablePath(): string {
-  const executable =
-    process.platform === "win32" ? "@alloy/recorder.exe" : "@alloy/recorder"
+  const executable = "alloy-recorder.exe"
   if (app.isPackaged) return join(process.resourcesPath, "sidecar", executable)
   return join(app.getAppPath(), "..", "recorder", "dist", "sidecar", executable)
 }
@@ -66,8 +65,6 @@ function hasObsLibrary(candidate: string): boolean {
 }
 
 function systemObsRuntimeCandidates(): string[] {
-  if (process.platform !== "win32") return []
-
   return [
     process.env.ProgramW6432,
     process.env.ProgramFiles,

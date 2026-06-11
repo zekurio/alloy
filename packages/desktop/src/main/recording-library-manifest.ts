@@ -41,6 +41,8 @@ export interface CaptureManifestEntry {
   tags?: string | null
   mentions?: RecordingCaptureMention[]
   privacy?: RecordingLibraryItem["privacy"]
+  /** Server clip id this capture was published as, once an upload finished. */
+  uploadedClipId?: string | null
 }
 
 export function readCaptureManifest(): CaptureManifest {
@@ -71,6 +73,28 @@ export function writeCaptureManifest(manifest: CaptureManifest): void {
   } catch (cause) {
     logger.warn("[desktop] failed to write recording library manifest:", cause)
   }
+}
+
+/**
+ * Replaces a capture's recorded duration with the measured one. Replay saves
+ * report the requested buffer window, which overshoots when the buffer
+ * wasn't full yet; downstream seeks (filmstrip, editor) need the real value.
+ * Returns true when the manifest changed.
+ */
+export function correctCaptureDurationMs(
+  filename: string,
+  durationMs: number,
+): boolean {
+  const manifest = readCaptureManifest()
+  const entry = manifest.captures[manifestKey(filename)]
+  if (!entry || entry.durationMs === durationMs) return false
+  logger.info(
+    `[desktop] correcting capture duration ${entry.durationMs ?? "null"}ms → ${durationMs}ms for ${filename}`,
+  )
+  entry.durationMs = durationMs
+  entry.updatedAt = new Date().toISOString()
+  writeCaptureManifest(manifest)
+  return true
 }
 
 function manifestPath(): string {

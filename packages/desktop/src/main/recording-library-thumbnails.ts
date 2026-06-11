@@ -7,7 +7,7 @@ import {
   type Dirent,
   type Stats,
 } from "node:fs"
-import { basename, dirname, extname, join, resolve } from "node:path"
+import { dirname, extname, join, resolve } from "node:path"
 
 import type { RecordingCapture } from "@alloy/contracts"
 import { logger } from "@alloy/logging"
@@ -19,8 +19,6 @@ import { runFfmpeg, runFfprobe } from "./ffmpeg"
 import { imageFileBlurHash } from "./image-blurhash"
 import {
   captureId,
-  ffmpegSeconds,
-  FILMSTRIP_FRAME_COUNT,
   thumbnailSignature,
   VIDEO_EXTENSIONS,
 } from "./recording-library-shared"
@@ -109,96 +107,9 @@ async function generateRecordingThumbnail(
   }
 }
 
-/* ─── Editor filmstrip ─────────────────────────────────────────────── */
-
-const pendingFilmstripFrames = new Map<string, Promise<string | null>>()
-/**
- * Filmstrip frames generate sequentially through this chain so a burst of
- * 16 protocol requests doesn't spawn 16 concurrent ffmpeg decodes.
- */
-let filmstripQueue: Promise<unknown> = Promise.resolve()
-
-/**
- * Renders one evenly spaced filmstrip frame for the editor timeline via a
- * fast input seek (no full decode, so hour-long sessions stay cheap).
- * Frames are cached on disk per file signature and regenerated when the
- * capture changes.
- */
-export async function ensureRecordingFilmstripFrame(
-  item: RecordingLibraryItem,
-  frameIndex: number,
-): Promise<string | null> {
-  if (item.kind === "screenshot") return null
-
-  let stat: Stats
-  try {
-    stat = statSync(item.filename)
-  } catch {
-    return null
-  }
-
-  const out = join(
-    filmstripFolder(),
-    `${thumbnailSignature(item.id, stat)}-${frameIndex}.jpg`,
-  )
-  if (existsSync(out)) return out
-
-  const pending = pendingFilmstripFrames.get(out)
-  if (pending) return pending
-
-  const task: Promise<string | null> = filmstripQueue
-    .then(() => generateFilmstripFrame(item, frameIndex, out))
-    .finally(() => {
-      pendingFilmstripFrames.delete(out)
-    })
-  // generateFilmstripFrame never rejects, so the chain can't poison itself.
-  filmstripQueue = task
-  pendingFilmstripFrames.set(out, task)
-  return task
-}
-
-async function generateFilmstripFrame(
-  item: RecordingLibraryItem,
-  frameIndex: number,
-  out: string,
-): Promise<string | null> {
-  try {
-    if (existsSync(out)) return out
-    mkdirSync(dirname(out), { recursive: true })
-    pruneStaleFilmstripFrames(item.id, basename(out))
-
-    const durationMs = item.durationMs ?? (await probeDurationMs(item.filename))
-    if (!durationMs || durationMs <= 0) return null
-
-    const targetMs = Math.min(
-      Math.max(0, durationMs - 100),
-      ((frameIndex + 0.5) / FILMSTRIP_FRAME_COUNT) * durationMs,
-    )
-    await runFfmpeg(
-      [
-        "-y",
-        "-ss",
-        ffmpegSeconds(targetMs),
-        "-i",
-        item.filename,
-        "-frames:v",
-        "1",
-        "-vf",
-        "scale=-2:96",
-        "-q:v",
-        "5",
-        out,
-      ],
-      { timeout: 20_000 },
-    )
-    return existsSync(out) && statSync(out).size > 0 ? out : null
-  } catch (cause) {
-    logger.warn("[desktop] filmstrip frame failed:", cause)
-    return null
-  }
-}
-
-async function probeDurationMs(filename: string): Promise<number | null> {
+export async function probeDurationMs(
+  filename: string,
+): Promise<number | null> {
   try {
     const stdout = await runFfprobe(
       ["-show_entries", "format=duration", "-of", "csv=p=0", filename],
@@ -213,33 +124,19 @@ async function probeDurationMs(filename: string): Promise<number | null> {
   }
 }
 
-/** Drops filmstrip frames generated from an older version of the capture. */
-export function pruneStaleFilmstripFrames(
-  id: string,
-  keepPrefixOf: string,
-): void {
-  const folder = filmstripFolder()
-  const keepSignature = keepPrefixOf.replace(/-\d+\.jpg$/, "")
-  let entries: Dirent[]
+/**
+ * Filmstrip frames now decode in the renderer (mediabunny); drop the on-disk
+ * cache older app versions rendered with ffmpeg.
+ */
+export function cleanupLegacyFilmstripCache(): void {
   try {
-    entries = readdirSync(folder, { withFileTypes: true })
+    rmSync(join(app.getPath("userData"), "recording-filmstrips"), {
+      recursive: true,
+      force: true,
+    })
   } catch {
-    return
+    // Best effort — a locked folder just lingers.
   }
-  for (const entry of entries) {
-    if (!entry.isFile()) continue
-    if (!entry.name.startsWith(`${id}-`)) continue
-    if (entry.name.startsWith(`${keepSignature}-`)) continue
-    try {
-      rmSync(join(folder, entry.name), { force: true })
-    } catch {
-      // Best effort — a locked stale file just lingers until the next pass.
-    }
-  }
-}
-
-function filmstripFolder(): string {
-  return join(app.getPath("userData"), "recording-filmstrips")
 }
 
 /** Drops thumbnails generated from an older mtime/size of the same capture. */

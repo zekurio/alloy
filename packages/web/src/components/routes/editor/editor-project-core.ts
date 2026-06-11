@@ -14,8 +14,6 @@ export interface EditorMediaSource {
   id: string
   label: string
   mediaUrl: string
-  /** Evenly spaced filmstrip frames across the whole source. */
-  frames: string[]
   durationMs: number
   width: number | null
   height: number | null

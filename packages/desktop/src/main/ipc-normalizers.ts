@@ -7,6 +7,7 @@ import {
 
 import type {
   RecordingCaptureMention,
+  RecordingLibraryDownloadRequest,
   RecordingLibraryExportRequest,
   RecordingLibraryExportSegment,
   RecordingLibraryImportRequest,
@@ -110,6 +111,65 @@ export function normalizeLibraryImportRequest(
     width: normalizeDimension(record.width),
     height: normalizeDimension(record.height),
   }
+}
+
+const DOWNLOAD_TITLE_MAX = 200
+const DOWNLOAD_ID_MAX = 64
+const DOWNLOAD_URL_MAX = 2000
+const DOWNLOAD_GAME_NAME_MAX = 200
+const DOWNLOAD_CONTENT_TYPE_MAX = 100
+
+/**
+ * Returns a sanitized clip download request, or null when it lacks a usable
+ * clip id or media URL. The URL's origin is checked against the connected
+ * server by the IPC handler, not here.
+ */
+export function normalizeLibraryDownloadRequest(
+  value: unknown,
+): RecordingLibraryDownloadRequest | null {
+  if (typeof value !== "object" || value === null) return null
+  const record = value as Record<string, unknown>
+  if (
+    typeof record.clipId !== "string" ||
+    record.clipId.length === 0 ||
+    record.clipId.length > DOWNLOAD_ID_MAX
+  ) {
+    return null
+  }
+  if (
+    typeof record.mediaUrl !== "string" ||
+    record.mediaUrl.length === 0 ||
+    record.mediaUrl.length > DOWNLOAD_URL_MAX
+  ) {
+    return null
+  }
+  const title =
+    typeof record.title === "string"
+      ? record.title.trim().slice(0, DOWNLOAD_TITLE_MAX)
+      : ""
+  return {
+    clipId: record.clipId,
+    title: title || "Clip",
+    mediaUrl: record.mediaUrl,
+    contentType:
+      typeof record.contentType === "string"
+        ? record.contentType.slice(0, DOWNLOAD_CONTENT_TYPE_MAX)
+        : null,
+    sizeBytes: normalizePositiveInteger(record.sizeBytes),
+    durationMs: normalizePositiveInteger(record.durationMs),
+    width: normalizeDimension(record.width),
+    height: normalizeDimension(record.height),
+    gameName:
+      typeof record.gameName === "string"
+        ? record.gameName.slice(0, DOWNLOAD_GAME_NAME_MAX)
+        : null,
+  }
+}
+
+function normalizePositiveInteger(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? Math.round(value)
+    : null
 }
 
 const PROJECT_DRAFT_TITLE_MAX = 200
@@ -315,6 +375,15 @@ export function normalizeLibraryMetaPatch(
     patch.privacy = null
   } else if (CLIP_PRIVACY.includes(record.privacy as ClipPrivacy)) {
     patch.privacy = record.privacy as ClipPrivacy
+  }
+  if (record.uploadedClipId === null) {
+    patch.uploadedClipId = null
+  } else if (
+    typeof record.uploadedClipId === "string" &&
+    record.uploadedClipId.length > 0 &&
+    record.uploadedClipId.length <= 64
+  ) {
+    patch.uploadedClipId = record.uploadedClipId
   }
   return patch
 }

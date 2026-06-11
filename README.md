@@ -158,7 +158,8 @@ nix.settings = {
 ### Docker
 
 Docker support exists, but is less polished than the NixOS module. Bring your
-own PostgreSQL and persist the mutable directories.
+own PostgreSQL and persist the bootstrap config/secrets volume plus the storage
+volume seeded into runtime config on first boot.
 
 ```bash
 docker run --rm \
@@ -168,7 +169,6 @@ docker run --rm \
   -e TRUSTED_ORIGINS=https://alloy.example.com \
   -v alloy-config:/config \
   -v alloy-storage:/data \
-  -v alloy-encode:/cache/encode \
   ghcr.io/zekurio/alloy:latest
 ```
 
@@ -178,6 +178,27 @@ Image tags:
 - `vX.Y.Z`: exact app release.
 - `main`: manually published image from the main branch.
 - `nightly`: scheduled image from the main branch.
+
+### Storage
+
+Storage is configured during setup or from the admin settings. For filesystem
+storage, `path` is the canonical root and Alloy uses `clips` and `users`
+folders below it unless overrides are set. For S3-compatible storage, `path` is
+the canonical object prefix and uploads are presigned so browsers PUT directly
+to the bucket. Configure bucket CORS to allow the Alloy web origin to `PUT` with
+the `Content-Type` header.
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://alloy.example.com"],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["Content-Type"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3000
+  }
+]
+```
 
 ## Desktop Builds
 

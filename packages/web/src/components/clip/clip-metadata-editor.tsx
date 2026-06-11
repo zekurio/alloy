@@ -51,8 +51,9 @@ interface ClipMetadataEditorProps {
   onGameChange: (game: GameRow | null) => void
   mentions: UserSearchResult[]
   onMentionsChange: (mentions: UserSearchResult[]) => void
-  privacy: ClipPrivacy
-  onPrivacyChange: (privacy: ClipPrivacy) => void
+  /** Omit both to hide the Visibility row (e.g. when the publish action picks it). */
+  privacy?: ClipPrivacy
+  onPrivacyChange?: (privacy: ClipPrivacy) => void
   /** Bare hashtags ("ace", "ranked"). Omit to hide the Hashtags row. */
   tags?: string[]
   onTagsChange?: (tags: string[]) => void
@@ -80,6 +81,7 @@ export function ClipMetadataEditor({
   gameInvalid = false,
 }: ClipMetadataEditorProps) {
   const showTags = tags !== undefined && onTagsChange !== undefined
+  const showVisibility = privacy !== undefined && onPrivacyChange !== undefined
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
@@ -114,45 +116,47 @@ export function ClipMetadataEditor({
         )}
       />
 
-      <Section label="Game">
+      <ClipMetadataSection label="Game">
         <GamePickerChip
           value={game}
           onChange={onGameChange}
           disabled={disabled}
           invalid={gameInvalid}
         />
-      </Section>
+      </ClipMetadataSection>
 
-      <Section label="People">
+      <ClipMetadataSection label="People">
         <PeoplePicker
           value={mentions}
           onChange={onMentionsChange}
           disabled={disabled}
         />
-      </Section>
+      </ClipMetadataSection>
 
       {showTags ? (
-        <Section label="Hashtags">
+        <ClipMetadataSection label="Hashtags">
           <HashtagPicker
             value={tags}
             onChange={onTagsChange}
             disabled={disabled}
           />
-        </Section>
+        </ClipMetadataSection>
       ) : null}
 
-      <Section label="Visibility">
-        <VisibilityPickerChip
-          value={privacy}
-          onChange={onPrivacyChange}
-          disabled={disabled}
-        />
-      </Section>
+      {showVisibility ? (
+        <ClipMetadataSection label="Visibility">
+          <VisibilityPickerChip
+            value={privacy}
+            onChange={onPrivacyChange}
+            disabled={disabled}
+          />
+        </ClipMetadataSection>
+      ) : null}
     </div>
   )
 }
 
-function Section({
+export function ClipMetadataSection({
   label,
   children,
 }: {

@@ -1,3 +1,4 @@
+import { USER_STATUSES } from "@alloy/contracts"
 import { user, USER_ROLES } from "@alloy/db/auth-schema"
 import {
   assertCanRemoveAdmin,
@@ -38,21 +39,33 @@ const CreateUserBody = z.object({
 const UserPatch = z
   .object({
     role: z.enum(USER_ROLES).optional(),
+    status: z.enum(USER_STATUSES).optional(),
     storageQuotaBytes: StorageQuotaValue.optional(),
   })
   .refine(
     (patch) =>
-      patch.role !== undefined || patch.storageQuotaBytes !== undefined,
+      patch.role !== undefined ||
+      patch.status !== undefined ||
+      patch.storageQuotaBytes !== undefined,
     { message: "No updates provided" },
   )
 
 async function updateAdminUser(id: string, patch: z.infer<typeof UserPatch>) {
-  if (patch.role !== undefined && patch.role !== "admin") {
+  const demoting = patch.role !== undefined && patch.role !== "admin"
+  const disabling = patch.status === "disabled"
+  // Both losing admin and being disabled remove the account's admin access, so
+  // guard against locking out the last usable admin.
+  if (demoting || disabling) {
     await assertCanRemoveAdmin(id)
   }
 
-  const update: Partial<typeof user.$inferInsert> = { updatedAt: new Date() }
+  const now = new Date()
+  const update: Partial<typeof user.$inferInsert> = { updatedAt: now }
   if (patch.role !== undefined) update.role = patch.role
+  if (patch.status !== undefined) {
+    update.status = patch.status
+    update.disabledAt = patch.status === "disabled" ? now : null
+  }
   if (patch.storageQuotaBytes !== undefined) {
     update.storageQuotaBytes = patch.storageQuotaBytes
   }
@@ -63,6 +76,9 @@ async function updateAdminUser(id: string, patch: z.infer<typeof UserPatch>) {
     .where(eq(user.id, id))
     .returning({ id: user.id })
   if (!updated) return null
+
+  // A disabled account must not keep live sessions.
+  if (disabling) await deleteAllSessionsForUser(id)
 
   const [row] = await selectAdminUserStorageRows([id])
   return row ?? null

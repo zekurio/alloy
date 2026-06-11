@@ -51,17 +51,28 @@ fn sidecar_version() -> SidecarVersion {
             "long-recording",
             "bookmarks",
             "replay-buffer",
+            "audio-levels",
         ],
     }
 }
 
 /// Requests the stdin thread can answer immediately without the recorder.
 /// Status is served from the shared snapshot so reads stay instant even while
-/// the recorder thread is busy starting/stopping OBS outputs.
+/// the recorder thread is busy starting/stopping OBS outputs. Audio level
+/// metering runs on its own thread, so subscriptions also bypass the recorder
+/// (which can block for seconds while OBS outputs start).
 fn handle_io_request(request: &Request, status: &Mutex<RecordingStatus>) -> Option<Response> {
     match request.method.as_str() {
         "version" => Some(response_ok(request.id, sidecar_version())),
         "status" => Some(response_ok(request.id, snapshot_status(status))),
+        "subscribeAudioLevels" => {
+            subscribe_audio_level_events();
+            Some(response_ok(request.id, json!(null)))
+        }
+        "stopAudioLevels" => {
+            stop_audio_level_events();
+            Some(response_ok(request.id, json!(null)))
+        }
         _ => None,
     }
 }
@@ -166,6 +177,14 @@ fn application_display_name(path: &str) -> Option<String> {
 
 fn platform_audio_applications() -> Vec<RecordingAudioApplicationSelection> {
     windows_detector::audio_applications()
+}
+
+fn subscribe_audio_level_events() {
+    windows_detector::subscribe_audio_levels();
+}
+
+fn stop_audio_level_events() {
+    windows_detector::stop_audio_levels();
 }
 
 fn list_game_processes() -> Vec<RecordingGameProcess> {

@@ -27,6 +27,8 @@ type SidecarMethod =
   | "addBookmark"
   | "toggleLongRecording"
   | "stopRecording"
+  | "subscribeAudioLevels"
+  | "stopAudioLevels"
   | "shutdown"
 
 interface SidecarRequest {
