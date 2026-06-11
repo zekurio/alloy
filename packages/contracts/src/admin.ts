@@ -178,8 +178,8 @@ export interface AdminEncoderCapabilities {
 }
 
 export type AdminScheduledTaskTrigger =
-  | { type: "startup"; delayMs?: number; jitterMs?: number }
-  | { type: "cron"; expression: string; jitterMs?: number }
+  | { type: "startup"; delayMs?: number }
+  | { type: "cron"; expression: string }
 
 export type AdminScheduledTaskRunTrigger =
   | AdminScheduledTaskTrigger["type"]

@@ -21,12 +21,20 @@ import {
   SectionHead,
   SectionTitle,
 } from "alloy-ui/components/section-head"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "alloy-ui/components/select"
 import { Spinner } from "alloy-ui/components/spinner"
 import {
   ClapperboardIcon,
   CloudIcon,
   HardDriveIcon,
   ImageIcon,
+  LayersIcon,
   LibraryIcon,
   MonitorIcon,
   SearchIcon,
@@ -253,9 +261,9 @@ function LibraryToolbar({
   onGroupChange: (groupKey: string | null) => void
 }) {
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <InputGroup className="h-8 max-w-72 min-w-48 flex-1 sm:h-8">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="flex min-w-0 items-center gap-2 sm:contents">
+        <InputGroup className="h-8 min-w-0 flex-1 sm:h-8 sm:w-64 sm:flex-none">
           <InputGroupAddon align="inline-start">
             <SearchIcon />
           </InputGroupAddon>
@@ -267,37 +275,16 @@ function LibraryToolbar({
             className="text-sm"
           />
         </InputGroup>
-
-        <KindChip active={kind === "all"} onClick={() => onKindChange("all")}>
-          All
-        </KindChip>
-        <KindChip
-          active={kind === "replay"}
-          onClick={() => onKindChange("replay")}
-        >
-          <ClapperboardIcon /> Clips
-        </KindChip>
-        <KindChip
-          active={kind === "long-recording"}
-          onClick={() => onKindChange("long-recording")}
-        >
-          <VideoIcon /> Sessions
-        </KindChip>
-        <KindChip
-          active={kind === "screenshot"}
-          onClick={() => onKindChange("screenshot")}
-        >
-          <ImageIcon /> Screenshots
-        </KindChip>
+        <KindSelect kind={kind} onKindChange={onKindChange} />
       </div>
 
-      <FilterCarousel>
+      <FilterCarousel className="min-w-0 flex-1">
         <Chip
           size="xl"
           data-active={groupKey === null ? "true" : undefined}
           onClick={() => onGroupChange(null)}
         >
-          All sources
+          All games
         </Chip>
         {groups.map((group) => (
           <Chip
@@ -329,19 +316,56 @@ function LibraryToolbar({
   )
 }
 
-function KindChip({
-  active,
-  children,
-  onClick,
+const KIND_OPTIONS: ReadonlyArray<{
+  value: LibraryKindFilter
+  label: string
+  icon: React.ReactNode
+}> = [
+  { value: "all", label: "All", icon: <LayersIcon /> },
+  { value: "replay", label: "Clips", icon: <ClapperboardIcon /> },
+  { value: "long-recording", label: "Sessions", icon: <VideoIcon /> },
+  { value: "screenshot", label: "Screenshots", icon: <ImageIcon /> },
+]
+
+function KindSelect({
+  kind,
+  onKindChange,
 }: {
-  active: boolean
-  children: React.ReactNode
-  onClick: () => void
+  kind: LibraryKindFilter
+  onKindChange: (kind: LibraryKindFilter) => void
 }) {
+  const active = KIND_OPTIONS.find((option) => option.value === kind)
+
   return (
-    <Chip size="xl" data-active={active ? "true" : undefined} onClick={onClick}>
-      {children}
-    </Chip>
+    <Select
+      value={kind}
+      onValueChange={(value) => onKindChange(value as LibraryKindFilter)}
+    >
+      <SelectTrigger
+        size="sm"
+        className="w-40 shrink-0"
+        aria-label="Filter by type"
+      >
+        <SelectValue>
+          {active ? (
+            <>
+              {active.icon}
+              {active.label}
+            </>
+          ) : null}
+        </SelectValue>
+      </SelectTrigger>
+      {/* Drop straight below the trigger instead of overlaying the selected
+          item on it — the latter nudges the label sideways as it opens. */}
+      <SelectContent align="start" alignItemWithTrigger={false}>
+        {KIND_OPTIONS.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.icon}
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 

@@ -60,8 +60,8 @@ test("RuntimeConfigSchema accepts scheduled task cron triggers", () => {
     runtimeConfigVersion: 1,
     scheduledTasks: {
       "clip-storage-cleanup": [
-        { type: "startup", delayMs: 60_000, jitterMs: 30_000 },
-        { type: "cron", expression: "0 3 * * *", jitterMs: 120_000 },
+        { type: "startup", delayMs: 60_000 },
+        { type: "cron", expression: "0 3 * * *" },
       ],
     },
   })
@@ -71,12 +71,12 @@ test("RuntimeConfigSchema accepts scheduled task cron triggers", () => {
     "cron trigger should parse",
   )
   assert(
-    parsed.scheduledTasks["clip-storage-cleanup"]?.[0]?.jitterMs === 30_000,
-    "startup jitter should parse",
+    parsed.scheduledTasks["clip-storage-cleanup"]?.[0]?.type === "startup",
+    "startup trigger should parse",
   )
   assert(
-    parsed.scheduledTasks["clip-storage-cleanup"]?.[1]?.jitterMs === 120_000,
-    "cron jitter should parse",
+    parsed.scheduledTasks["clip-storage-cleanup"]?.[0]?.delayMs === 60_000,
+    "startup delay should parse",
   )
 })
 

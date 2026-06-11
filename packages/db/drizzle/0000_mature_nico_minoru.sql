@@ -95,7 +95,7 @@ CREATE TABLE "clip_upload_ticket" (
 	"used_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "clip_upload_ticket_storage_key_unique" UNIQUE("storage_key"),
-	CONSTRAINT "clip_upload_ticket_role_check" CHECK ("clip_upload_ticket"."role" in ('video')),
+	CONSTRAINT "clip_upload_ticket_role_check" CHECK ("clip_upload_ticket"."role" in ('video', 'thumb')),
 	CONSTRAINT "clip_upload_ticket_expected_bytes_safe_check" CHECK ("clip_upload_ticket"."expected_bytes" > 0 and "clip_upload_ticket"."expected_bytes" <= 9007199254740991)
 );
 --> statement-breakpoint

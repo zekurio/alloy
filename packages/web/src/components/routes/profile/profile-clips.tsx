@@ -88,7 +88,7 @@ export function ProfileClips({
   }, [clips, gameSlug])
 
   return (
-    <section>
+    <section className="min-w-0">
       <SectionHead>
         <div>
           <SectionTitle>

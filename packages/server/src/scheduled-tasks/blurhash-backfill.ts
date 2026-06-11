@@ -15,9 +15,7 @@ import type { ScheduledTask, ScheduledTaskResult } from "./types"
 
 const BLURHASH_BACKFILL_TRIGGERS = startupAndCronTriggers({
   startupDelayMs: 90 * 1000,
-  startupJitterMs: 30 * 1000,
   cronExpression: "30 */6 * * *",
-  cronJitterMs: 120 * 1000,
 })
 
 export const clipBlurHashBackfillTask: ScheduledTask = {

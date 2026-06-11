@@ -25,7 +25,12 @@ export function FeedChipBar({ filter, onChange }: FeedChipBarProps) {
   const games = data?.games ?? []
 
   return (
-    <div className={cn("sticky top-0 z-10 -mx-4 px-4 py-4", "bg-background")}>
+    <div
+      className={cn(
+        "sticky top-0 z-10 -mx-4 px-4 py-4 md:-mx-8 md:px-8",
+        "bg-background",
+      )}
+    >
       <FilterCarousel>
         <Chip
           size="xl"

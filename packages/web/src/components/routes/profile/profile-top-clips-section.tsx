@@ -25,7 +25,7 @@ export function ProfileTopClipsSection({
   isSelf,
 }: ProfileTopClipsSectionProps) {
   return (
-    <section>
+    <section className="min-w-0">
       <SectionHead>
         <div>
           <SectionTitle>

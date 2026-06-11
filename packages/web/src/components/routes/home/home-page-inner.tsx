@@ -45,8 +45,8 @@ export function HomePageInner() {
   const viewerId = session?.user.id
 
   return (
-    <AppMain className="!px-2 !pt-0 md:!px-4">
-      <div className="mx-auto flex w-full max-w-[1800px] flex-col">
+    <AppMain className="!p-0">
+      <div className="flex w-full flex-col px-4 pb-4 md:px-8 md:pb-6">
         {/* Top padding lives here, not on AppMain, so the sticky chip bar can
             pin flush under the header instead of leaving a gap above it. */}
         <div className="pt-4 md:pt-6">

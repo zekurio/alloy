@@ -81,15 +81,14 @@ function UserProfileLayout() {
           wallpaper the darker base sits behind it. */}
       <AppMain
         className={cn(
-          "relative !px-0 !py-0",
+          "relative grid !px-0 !py-0",
           hasBackground ? "bg-surface-sunken" : "bg-surface",
         )}
       >
-        {/* Custom wallpaper sized to the scroll viewport (h-full), not the
-            content, so its crop never changes when the tab's content height
-            does — and it adds no phantom scroll on short pages. */}
+        {/* Custom wallpaper sized to the scroll viewport and kept sticky inside
+            AppMain, so long mobile profiles cannot scroll past its crop. */}
         {hasBackground ? (
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-full">
+          <div className="pointer-events-none sticky top-0 z-0 h-full min-w-0 [grid-area:1/1]">
             <ProfileBackground src={profile?.user.background} />
           </div>
         ) : null}
@@ -97,11 +96,11 @@ function UserProfileLayout() {
         <div
           aria-hidden={gated ? true : undefined}
           className={cn(
-            "relative z-10 min-h-full px-3 py-3 sm:px-6 sm:py-6 lg:px-10",
+            "relative z-10 min-h-full min-w-0 px-3 py-3 [grid-area:1/1] sm:px-6 sm:py-6 lg:px-10",
             gated && "pointer-events-none select-none",
           )}
         >
-          <div className="mx-auto w-full max-w-[1500px]">
+          <div className="mx-auto mb-8 w-full max-w-[1500px] min-w-0 sm:mb-0">
             {profileError ? (
               <EmptyState
                 seed={`profile-error-${username}`}
@@ -114,7 +113,7 @@ function UserProfileLayout() {
               // wallpaper. With no banner the body itself is the rounded top.
               <div
                 style={accentStyle}
-                className="ring-border/60 overflow-hidden rounded-2xl shadow-[var(--shadow-lg)] ring-1"
+                className="ring-border/60 min-w-0 overflow-hidden rounded-2xl shadow-[var(--shadow-lg)] ring-1"
               >
                 {hasBanner && profile ? (
                   <ProfileBanner user={profile.user} />
@@ -122,7 +121,7 @@ function UserProfileLayout() {
 
                 {/* Frosted body — translucent + blurred so the wallpaper bleeds
                     through and tints everything inside. */}
-                <div className="bg-surface-sunken/55 relative px-4 pb-8 backdrop-blur-2xl backdrop-saturate-150 sm:px-6">
+                <div className="bg-surface-sunken/55 relative min-w-0 px-4 pb-8 backdrop-blur-2xl backdrop-saturate-150 sm:px-6">
                   {profile ? (
                     <ProfileIdentity
                       profile={profile}

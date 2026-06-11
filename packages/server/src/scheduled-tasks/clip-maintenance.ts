@@ -20,9 +20,7 @@ import type { ScheduledTask, ScheduledTaskResult } from "./types"
 
 const CLIP_MAINTENANCE_TRIGGERS = startupAndCronTriggers({
   startupDelayMs: 60 * 1000,
-  startupJitterMs: 30 * 1000,
   cronExpression: "0 */6 * * *",
-  cronJitterMs: 120 * 1000,
 })
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

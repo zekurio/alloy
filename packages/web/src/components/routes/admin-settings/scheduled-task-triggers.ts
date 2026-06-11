@@ -9,7 +9,6 @@ export const CRON_PRESETS = [
 ] as const
 export const CUSTOM_PRESET = "custom"
 export const STARTUP_DELAY_MAX_SECONDS = 24 * 60 * 60
-export const JITTER_MAX_SECONDS = 24 * 60 * 60
 
 export type CronPresetId =
   | (typeof CRON_PRESETS)[number]["id"]
@@ -66,7 +65,6 @@ export function normalizeTriggers(
       next.push({
         type: "startup",
         delayMs: Math.max(0, Math.round(trigger.delayMs ?? 0)),
-        jitterMs: Math.max(0, Math.round(trigger.jitterMs ?? 0)),
       })
       continue
     }
@@ -79,7 +77,6 @@ export function normalizeTriggers(
     next.push({
       type: "cron",
       expression,
-      jitterMs: Math.max(0, Math.round(trigger.jitterMs ?? 0)),
     })
   }
   return next
