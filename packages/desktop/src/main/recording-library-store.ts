@@ -15,6 +15,7 @@ import type {
   RecordingLibraryProjectDraftSaveResult,
 } from "@/shared/ipc"
 
+import { probeDurationMs } from "./media"
 import {
   correctCaptureDurationMs,
   readCaptureManifest,
@@ -25,7 +26,6 @@ import {
 import { findRecordingLibraryItem } from "./recording-library-scan"
 import { captureId, titleForCapture } from "./recording-library-shared"
 import {
-  probeDurationMs,
   pruneStaleThumbnails,
   warmRecordingThumbnail,
 } from "./recording-library-thumbnails"
@@ -47,6 +47,7 @@ export function rememberRecordingLibraryCapture(
     gameIconUrl: capture.game?.iconUrl ?? null,
     sizeBytes: capture.sizeBytes,
     durationMs: capture.durationMs,
+    bookmarksMs: capture.bookmarksMs,
     width: capture.width,
     height: capture.height,
     createdAt: capture.createdAt,
@@ -89,6 +90,7 @@ export function updateRecordingLibraryCaptureMeta(
     gameIconUrl: null,
     sizeBytes: item.sizeBytes,
     durationMs: item.durationMs,
+    bookmarksMs: item.bookmarksMs,
     width: item.width,
     height: item.height,
     createdAt: item.createdAt,
@@ -182,6 +184,7 @@ export function importRecordingLibraryCapture(
     gameIconUrl: null,
     sizeBytes: request.data.byteLength,
     durationMs: request.durationMs > 0 ? Math.round(request.durationMs) : null,
+    bookmarksMs: [],
     width: request.width,
     height: request.height,
     createdAt,

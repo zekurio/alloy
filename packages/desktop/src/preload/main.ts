@@ -33,8 +33,6 @@ const recording: AlloyDesktopRecordingApi = {
     ipcRenderer.invoke(IPC.revealRecordingLibraryCapture, id),
   exportLibraryCapture: (request) =>
     ipcRenderer.invoke(IPC.exportRecordingLibraryCapture, request),
-  libraryCaptureKeyframes: (id) =>
-    ipcRenderer.invoke(IPC.getRecordingLibraryCaptureKeyframes, id),
   updateLibraryCapture: (patch) =>
     ipcRenderer.invoke(IPC.updateRecordingLibraryCapture, patch),
   saveLibraryProjectDraft: (request) =>
@@ -45,6 +43,8 @@ const recording: AlloyDesktopRecordingApi = {
     ipcRenderer.invoke(IPC.deleteRecordingLibraryCapture, id),
   importLibraryCapture: (request) =>
     ipcRenderer.invoke(IPC.importRecordingLibraryCapture, request),
+  saveLibraryCaptureThumbnail: (id, data) =>
+    ipcRenderer.invoke(IPC.saveRecordingLibraryCaptureThumbnail, { id, data }),
   downloadClip: (request) =>
     ipcRenderer.invoke(IPC.downloadRecordingLibraryClip, request),
   cancelClipDownload: (clipId) =>

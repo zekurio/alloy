@@ -1,0 +1,300 @@
+import {
+  ALL_FORMATS,
+  EncodedAudioPacketSource,
+  EncodedPacketSink,
+  EncodedVideoPacketSource,
+  FilePathSource,
+  FilePathTarget,
+  Input,
+  Mp4OutputFormat,
+  Output,
+  type EncodedPacket,
+  type InputAudioTrack,
+  type InputVideoTrack,
+} from "mediabunny"
+
+/**
+ * Main-process media operations via mediabunny packet copy — no decoding, no
+ * external binaries. The trim pattern mirrors
+ * `packages/server/src/media/trim.ts`; like there, mediabunny's `Conversion`
+ * is unusable because Node has no WebCodecs, so any path that would decode
+ * drops tracks. Cuts therefore snap to the nearest preceding video keyframe.
+ *
+ * Outputs are fragmented MP4s so they stream progressively without a second
+ * faststart pass.
+ */
+
+/** Duration in ms, or null when the file has no parseable media. */
+export async function probeDurationMs(
+  filename: string,
+): Promise<number | null> {
+  try {
+    const input = new Input({
+      source: new FilePathSource(filename),
+      formats: ALL_FORMATS,
+    })
+    try {
+      const seconds = await input.computeDuration()
+      return Number.isFinite(seconds) && seconds > 0
+        ? Math.round(seconds * 1000)
+        : null
+    } finally {
+      input.dispose()
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Cut `[startMs, endMs]` out of `srcPath` into an MP4 at `outPath` without
+ * re-encoding. The cut start snaps to the nearest preceding video keyframe —
+ * the same behavior as the previous stream-copy path.
+ */
+export async function trimMp4(
+  srcPath: string,
+  outPath: string,
+  opts: { startMs: number; endMs: number },
+): Promise<void> {
+  const input = new Input({
+    source: new FilePathSource(srcPath),
+    formats: ALL_FORMATS,
+  })
+  try {
+    const video = await input.getPrimaryVideoTrack()
+    if (!video) throw new Error("Trim source has no video track")
+    const audio = await input.getPrimaryAudioTrack()
+
+    const requestedStartSec = Math.max(0, opts.startMs) / 1000
+    const endSec = Math.max(opts.startMs + 1, opts.endMs) / 1000
+
+    const videoSink = new EncodedPacketSink(video)
+    const startPacket =
+      (await videoSink.getKeyPacket(requestedStartSec, {
+        verifyKeyPackets: true,
+      })) ?? (await videoSink.getFirstKeyPacket({ verifyKeyPackets: true }))
+    if (!startPacket) throw new Error("Trim source has no video key packet")
+    // All output timestamps are rebased onto the keyframe the cut snaps to.
+    const baseSec = startPacket.timestamp
+
+    await withMp4Output(outPath, video, audio, async (sinks) => {
+      const videoMeta = {
+        decoderConfig: (await video.getDecoderConfig()) ?? undefined,
+      }
+      for await (const packet of videoSink.packets(startPacket, undefined, {
+        verifyKeyPackets: true,
+      })) {
+        if (packet.timestamp >= endSec) break
+        await sinks.video.add(
+          packet.clone({ timestamp: packet.timestamp - baseSec }),
+          videoMeta,
+        )
+      }
+
+      if (audio && sinks.audio) {
+        await copyAudioPackets(audio, sinks.audio, baseSec, endSec)
+      }
+    })
+  } finally {
+    input.dispose()
+  }
+}
+
+/**
+ * Keep the final `keepMs` of `srcPath` in a new MP4 at `outPath`. Returns
+ * false (writing nothing) when the source is not longer than `keepMs`, so
+ * callers can skip the swap.
+ */
+export async function trimMp4Tail(
+  srcPath: string,
+  outPath: string,
+  keepMs: number,
+): Promise<boolean> {
+  const durationMs = await probeDurationMs(srcPath)
+  if (durationMs === null) throw new Error("Could not probe trim source.")
+  if (durationMs <= keepMs) return false
+  await trimMp4(srcPath, outPath, {
+    startMs: durationMs - keepMs,
+    endMs: durationMs,
+  })
+  return true
+}
+
+/**
+ * Concatenate sequential MP4 segments from one recording session into a
+ * single MP4 at `outPath`. Pure packet copy: every segment must carry the
+ * same codecs (true for OBS split_file output, which never restarts the
+ * encoder mid-session). Each segment is rebased against its own first
+ * timestamp, so it works whether the muxer reset or continued timestamps
+ * across the split.
+ */
+export async function concatMp4Segments(
+  segmentPaths: string[],
+  outPath: string,
+): Promise<void> {
+  if (segmentPaths.length === 0) {
+    throw new Error("No segments to concatenate.")
+  }
+
+  const first = new Input({
+    source: new FilePathSource(segmentPaths[0]),
+    formats: ALL_FORMATS,
+  })
+  try {
+    const video = await first.getPrimaryVideoTrack()
+    if (!video) throw new Error("Concat source has no video track")
+    const audio = await first.getPrimaryAudioTrack()
+    const videoCodec = video.codec
+    const audioCodec = audio?.codec ?? null
+
+    await withMp4Output(outPath, video, audio, async (sinks) => {
+      let offsetSec = 0
+      for (const path of segmentPaths) {
+        const input =
+          path === segmentPaths[0]
+            ? first
+            : new Input({
+                source: new FilePathSource(path),
+                formats: ALL_FORMATS,
+              })
+        try {
+          offsetSec = await appendSegment(
+            input,
+            sinks,
+            offsetSec,
+            videoCodec,
+            audioCodec,
+          )
+        } finally {
+          if (input !== first) input.dispose()
+        }
+      }
+    })
+  } finally {
+    first.dispose()
+  }
+}
+
+interface OutputSinks {
+  video: EncodedVideoPacketSource
+  audio: EncodedAudioPacketSource | null
+}
+
+/**
+ * Runs `copy` against a fragmented-MP4 output configured for the given
+ * tracks, finalizing on success and cancelling on failure.
+ */
+async function withMp4Output(
+  outPath: string,
+  video: InputVideoTrack,
+  audio: InputAudioTrack | null,
+  copy: (sinks: OutputSinks) => Promise<void>,
+): Promise<void> {
+  const output = new Output({
+    format: new Mp4OutputFormat({ fastStart: "fragmented" }),
+    target: new FilePathTarget(outPath),
+  })
+  try {
+    const videoSource = new EncodedVideoPacketSource(
+      video.codec ?? throwUnknownCodec("video"),
+    )
+    output.addVideoTrack(videoSource)
+    const audioSource = audio
+      ? new EncodedAudioPacketSource(audio.codec ?? throwUnknownCodec("audio"))
+      : null
+    if (audioSource) output.addAudioTrack(audioSource)
+
+    await output.start()
+    await copy({ video: videoSource, audio: audioSource })
+    videoSource.close()
+    audioSource?.close()
+    await output.finalize()
+  } catch (err) {
+    await output.cancel().catch(() => undefined)
+    throw err
+  }
+}
+
+/**
+ * Copies one segment's packets to the output, rebased to start at
+ * `offsetSec`, and returns the offset where the next segment begins.
+ */
+async function appendSegment(
+  input: Input,
+  sinks: OutputSinks,
+  offsetSec: number,
+  videoCodec: InputVideoTrack["codec"],
+  audioCodec: InputAudioTrack["codec"] | null,
+): Promise<number> {
+  const video = await input.getPrimaryVideoTrack()
+  if (!video) throw new Error("Concat segment has no video track")
+  const audio = await input.getPrimaryAudioTrack()
+  if (video.codec !== videoCodec || (audio?.codec ?? null) !== audioCodec) {
+    throw new Error("Concat segments carry mismatched codecs")
+  }
+
+  const videoSink = new EncodedPacketSink(video)
+  const firstVideo = await videoSink.getFirstPacket()
+  if (!firstVideo) throw new Error("Concat segment has no video packets")
+  // One base per segment keeps the segment's own A/V sync intact.
+  const baseSec = firstVideo.timestamp
+
+  let endSec = 0
+  const trackEnd = (packet: EncodedPacket, rebased: number) => {
+    endSec = Math.max(endSec, rebased + (packet.duration || 0))
+  }
+
+  const videoMeta = {
+    decoderConfig: (await video.getDecoderConfig()) ?? undefined,
+  }
+  for await (const packet of videoSink.packets(firstVideo)) {
+    const timestamp = packet.timestamp - baseSec + offsetSec
+    await sinks.video.add(packet.clone({ timestamp }), videoMeta)
+    trackEnd(packet, timestamp)
+  }
+
+  if (audio && sinks.audio) {
+    const audioSink = new EncodedPacketSink(audio)
+    const meta = {
+      decoderConfig: (await audio.getDecoderConfig()) ?? undefined,
+    }
+    const firstAudio = await audioSink.getFirstPacket()
+    if (firstAudio) {
+      for await (const packet of audioSink.packets(firstAudio)) {
+        const timestamp = packet.timestamp - baseSec + offsetSec
+        // Audio leading the first video frame would rebase negative; trade it
+        // for the muxer's monotonic, non-negative contract.
+        if (timestamp < offsetSec) continue
+        await sinks.audio.add(packet.clone({ timestamp }), meta)
+        trackEnd(packet, timestamp)
+      }
+    }
+  }
+
+  return endSec
+}
+
+async function copyAudioPackets(
+  audio: InputAudioTrack,
+  audioSource: EncodedAudioPacketSource,
+  baseSec: number,
+  endSec: number,
+): Promise<void> {
+  const sink = new EncodedPacketSink(audio)
+  const meta = { decoderConfig: (await audio.getDecoderConfig()) ?? undefined }
+  const first = (await sink.getPacket(baseSec)) ?? (await sink.getFirstPacket())
+  if (!first) return
+  for await (const packet of sink.packets(first)) {
+    if (packet.timestamp >= endSec) break
+    const timestamp = packet.timestamp - baseSec
+    // The packet containing the cut point starts slightly before it; dropping
+    // sub-frame negatives keeps the muxer's monotonic, non-negative contract
+    // at the cost of at most one audio frame (~20ms) of leading silence.
+    if (timestamp < 0) continue
+    await audioSource.add(packet.clone({ timestamp }), meta)
+  }
+}
+
+function throwUnknownCodec(kind: string): never {
+  throw new Error(`Media source has an unrecognized ${kind} codec`)
+}

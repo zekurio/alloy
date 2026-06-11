@@ -2,9 +2,6 @@ import { createReadStream, existsSync, statSync } from "node:fs"
 import { extname } from "node:path"
 import { Readable } from "node:stream"
 import type { ReadableStream as NodeWebReadableStream } from "node:stream/web"
-import { pathToFileURL } from "node:url"
-
-import { net } from "electron"
 
 import { exportedCaptureFiles } from "./recording-library-export"
 import { findRecordingLibraryItem } from "./recording-library-scan"
@@ -15,8 +12,8 @@ import {
   THUMBNAIL_HOST,
 } from "./recording-library-shared"
 import {
+  cachedRecordingThumbnail,
   ensureCaptureBlurHash,
-  ensureRecordingThumbnail,
 } from "./recording-library-thumbnails"
 import { mainSession } from "./session"
 
@@ -76,12 +73,9 @@ export function registerRecordingLibraryProtocol(): void {
     if (!item) return new Response("Not found", { status: 404 })
 
     if (route.kind === "thumbnail") {
-      const thumbnail = await ensureRecordingThumbnail(item)
+      const thumbnail = cachedRecordingThumbnail(item)
       if (!thumbnail) return new Response("Not found", { status: 404 })
-      // The thumbnail bytes are already on disk; derive the BlurHash off the
-      // request path so the next library snapshot can ship a placeholder.
-      void ensureCaptureBlurHash(item)
-      return net.fetch(pathToFileURL(thumbnail).toString())
+      return rangedFileResponse(thumbnail, request)
     }
 
     // Screenshots are their own thumbnail, so the first media request is the

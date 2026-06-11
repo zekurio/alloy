@@ -34,6 +34,7 @@
     "electron-builder": "^26.15.0",
     "electron-vite": "5.0.0",
     "lucide-react": "1.8.0",
+    "mediabunny": "^1.46.0",
     "png-to-ico": "^3.0.1",
     "react": "19.2.5",
     "react-dom": "19.2.5",

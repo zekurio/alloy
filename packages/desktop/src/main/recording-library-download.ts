@@ -10,6 +10,7 @@ import type {
 } from "@alloy/contracts"
 import { logger } from "@alloy/logging"
 
+import { probeDurationMs } from "./media"
 import { emitRecordingLibraryDownloadEvent } from "./recording"
 import {
   correctCaptureDurationMs,
@@ -18,7 +19,6 @@ import {
   writeCaptureManifest,
 } from "./recording-library-manifest"
 import { captureId } from "./recording-library-shared"
-import { probeDurationMs } from "./recording-library-thumbnails"
 import { currentOutputFolder } from "./recording-storage"
 import { mainSession } from "./session"
 
@@ -209,6 +209,7 @@ function registerDownloadedCapture(
       request.durationMs !== null && request.durationMs > 0
         ? Math.round(request.durationMs)
         : null,
+    bookmarksMs: [],
     width: request.width,
     height: request.height,
     createdAt: now,

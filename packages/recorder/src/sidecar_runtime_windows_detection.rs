@@ -119,7 +119,7 @@
 
         candidates
             .into_iter()
-            .max_by_key(|candidate| game_candidate_sort_key(candidate))
+            .max_by_key(game_candidate_sort_key)
     }
 
     fn game_candidate_sort_key(candidate: &GameDetection) -> (u8, i32, u64) {
@@ -547,4 +547,3 @@
         );
         1
     }
-

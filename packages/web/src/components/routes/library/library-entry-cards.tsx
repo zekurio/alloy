@@ -34,6 +34,7 @@ import {
 import * as React from "react"
 
 import { useClipDownloadAction } from "@/components/clip/clip-download-button"
+import { useCapturePoster } from "@/lib/capture-poster"
 import { toClipCardData } from "@/lib/clip-format"
 import { useDeleteClipMutation } from "@/lib/clip-queries"
 import { formatRelativeTime } from "@/lib/date-format"
@@ -55,6 +56,14 @@ export function LibraryCaptureCard({
   onOpen: () => void
   onReveal: () => void
 }) {
+  const thumbnail = useCapturePoster({
+    id: item.id,
+    mediaUrl: item.kind === "screenshot" ? null : item.mediaUrl,
+    thumbnailUrl: item.thumbnailUrl,
+    durationMs: item.durationMs,
+    enabled: item.kind !== "screenshot",
+  })
+
   return (
     <ClipCard
       title={item.title}
@@ -83,7 +92,7 @@ export function LibraryCaptureCard({
       gameHref={item.gameSlug ? `/g/${item.gameSlug}` : null}
       views="0"
       likes="0"
-      thumbnail={item.thumbnailUrl ?? undefined}
+      thumbnail={thumbnail ?? undefined}
       thumbnailBlurHash={item.thumbBlurHash}
       fallbackSeed={`${item.groupLabel}:${item.id}`}
       streamUrl={item.kind === "screenshot" ? undefined : item.mediaUrl}

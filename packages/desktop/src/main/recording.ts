@@ -3,6 +3,7 @@ import { existsSync } from "node:fs"
 import type {
   RecordingActionResult,
   RecordingActionRequest,
+  RecordingCapture,
   RecordingDisplay,
   RecordingEvent,
   RecordingGameProcess,
@@ -13,6 +14,7 @@ import type {
 import { logger } from "@alloy/logging"
 import { app } from "electron"
 
+import { finalizeRecordingCapture } from "./recording-capture-finalize"
 import { listRecordingDisplays as listElectronRecordingDisplays } from "./recording-displays"
 import { rememberRecordingLibraryCapture } from "./recording-library"
 import { takeRecordingScreenshot as takeElectronRecordingScreenshot } from "./recording-screenshot"
@@ -247,10 +249,16 @@ async function runRecordingAction(
 
   try {
     const result = await client.request<RecordingActionResult>(method, params)
-    rememberRecordingStatus(result.status)
-    if (result.ok && result.capture)
-      rememberRecordingLibraryCapture(result.capture)
-    return result
+    if (!result.ok || !result.capture) {
+      rememberRecordingStatus(result.status)
+      return result
+    }
+
+    const capture = await finalizeRecordingCapture(result.capture)
+    const status = statusWithCapture(result.status, capture)
+    rememberRecordingStatus(status)
+    rememberRecordingLibraryCapture(capture)
+    return { ...result, status, capture }
   } catch (cause) {
     const message = errorText(cause, "Recording sidecar failed.")
     const status = errorRecordingStatus(message)
@@ -326,14 +334,51 @@ function unavailableRecordingAction(
   }
 }
 
-function emitRecordingEvent(event: RecordingEvent) {
-  if ("status" in event) rememberRecordingStatus(event.status)
+function emitRecordingEvent(event: RecordingEvent): void {
   if (event.type === "capture-ready") {
-    rememberRecordingLibraryCapture(event.capture)
+    handleRecordingEventSound(event)
+    void emitFinalizedCaptureReady(event)
+    return
   }
+  if ("status" in event) rememberRecordingStatus(event.status)
   handleRecordingEventSound(event)
+  sendRecordingEvent(event)
+}
+
+async function emitFinalizedCaptureReady(
+  event: Extract<RecordingEvent, { type: "capture-ready" }>,
+): Promise<void> {
+  try {
+    const capture = await finalizeRecordingCapture(event.capture)
+    const finalized = {
+      ...event,
+      capture,
+      status: statusWithCapture(event.status, capture),
+    }
+    rememberRecordingStatus(finalized.status)
+    rememberRecordingLibraryCapture(capture)
+    sendRecordingEvent(finalized)
+  } catch (cause) {
+    logger.warn("[desktop] failed to finalize recording capture:", cause)
+  }
+}
+
+function sendRecordingEvent(event: RecordingEvent): void {
   for (const listener of recordingEventListeners) {
     listener(event)
+  }
+}
+
+function statusWithCapture(
+  status: RecordingStatus,
+  capture: RecordingCapture,
+): RecordingStatus {
+  return {
+    ...status,
+    currentCapture:
+      status.currentCapture?.filename === capture.filename
+        ? capture
+        : status.currentCapture,
   }
 }
 

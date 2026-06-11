@@ -132,6 +132,9 @@ importers:
       lucide-react:
         specifier: 1.8.0
         version: 1.8.0(react@19.2.5)
+      mediabunny:
+        specifier: ^1.46.0
+        version: 1.46.0
       png-to-ico:
         specifier: ^3.0.1
         version: 3.0.1

@@ -76,8 +76,6 @@ export interface AlloyDesktopRecordingApi {
   exportLibraryCapture(
     request: RecordingLibraryExportRequest,
   ): Promise<RecordingLibraryExport>
-  /** Video keyframe (I-frame) positions in ms for the editor timeline. */
-  libraryCaptureKeyframes(id: string): Promise<number[]>
   /** Persists draft upload metadata for a capture across app restarts. */
   updateLibraryCapture(patch: RecordingLibraryMetaPatch): Promise<void>
   /** Persists an unfinished multitrack editor project as a library draft. */
@@ -92,6 +90,7 @@ export interface AlloyDesktopRecordingApi {
   importLibraryCapture(
     request: RecordingLibraryImportRequest,
   ): Promise<RecordingLibraryImportResult>
+  saveLibraryCaptureThumbnail(id: string, data: Uint8Array): Promise<void>
   /**
    * Persists an uploaded clip into the local capture library. Progress
    * streams out as "library-download" recording events.

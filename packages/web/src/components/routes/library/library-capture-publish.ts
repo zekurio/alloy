@@ -95,9 +95,8 @@ export async function exportAndPublishCapture({
 }
 
 /**
- * Prefers the poster the desktop main process rendered with ffmpeg — the
- * renderer cannot decode every capture codec (HEVC/AV1 draw blank canvas
- * frames) — and only falls back to in-renderer video capture without one.
+ * Prefers the library poster when one is available; otherwise samples the
+ * selected video file near the publish point.
  */
 async function capturePosterBlob(
   thumbUrl: string | null,

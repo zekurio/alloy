@@ -201,6 +201,7 @@ function libraryItemForFile(
     gameIconUrl: cachedAssetUrl(manifestEntry?.gameIconUrl ?? null),
     sizeBytes: manifestEntry?.sizeBytes ?? stat.size,
     durationMs: manifestEntry?.durationMs ?? null,
+    bookmarksMs: manifestEntry?.bookmarksMs ?? [],
     width: manifestEntry?.width ?? null,
     height: manifestEntry?.height ?? null,
     description: manifestEntry?.description ?? null,

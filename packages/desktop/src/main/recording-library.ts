@@ -6,12 +6,9 @@
  * - `recording-library-scan` — disk scanning, grouping, and snapshots.
  * - `recording-library-store` — manifest mutations (remember/update/import/
  *   delete) and open/reveal actions.
- * - `recording-library-export` — trim/concat exports and keyframe probing.
+ * - `recording-library-export` — trimmed exports for publishing.
  */
-export {
-  exportRecordingLibraryItem,
-  getRecordingLibraryCaptureKeyframes,
-} from "./recording-library-export"
+export { exportRecordingLibraryItem } from "./recording-library-export"
 export {
   recordingLibraryProtocolScheme,
   registerRecordingLibraryProtocol,

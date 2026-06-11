@@ -7,7 +7,7 @@ import { createCaptureSource } from "@/lib/capture-source"
  * Renderer-side filmstrip sampling: evenly spaced frames decoded with
  * mediabunny over the same byte-range transport the preview engine uses, so
  * local captures (`alloy-capture://`) and uploaded clips (http stream) get
- * identical treatment and no ffmpeg is involved.
+ * identical treatment.
  */
 
 export const FILMSTRIP_FRAME_COUNT = 16

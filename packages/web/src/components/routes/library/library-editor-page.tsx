@@ -35,6 +35,7 @@ import {
 import { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
 import { VideoPlayer } from "@/components/video/video-player"
 import { absoluteClipHref } from "@/lib/app-paths"
+import { useCapturePoster } from "@/lib/capture-poster"
 import {
   CLIP_DESCRIPTION_MAX,
   formatTags,
@@ -246,6 +247,13 @@ function EditorBody({
   }
 
   const isVideo = item.kind !== "screenshot"
+  const poster = useCapturePoster({
+    id: item.id,
+    mediaUrl: isVideo ? item.mediaUrl : null,
+    thumbnailUrl: item.thumbnailUrl,
+    durationMs: item.durationMs,
+    enabled: isVideo,
+  })
   const filmstrip = useMediaFilmstrip(isVideo ? item.mediaUrl : null)
   const canPublish =
     isVideo &&
@@ -364,7 +372,7 @@ function EditorBody({
               <VideoPlayer
                 src={item.mediaUrl}
                 sourceIdentity={item.id}
-                poster={item.thumbnailUrl ?? undefined}
+                poster={poster ?? undefined}
                 posterBlurHash={item.thumbBlurHash}
                 fallbackSeed={item.id}
                 aspectRatio={

@@ -314,8 +314,8 @@ struct RecordingCapture {
     game: Option<RecordingGame>,
     source: RecordingCaptureSource,
     kind: RecordingCaptureKind,
-    chapter_status: RecordingChapterStatus,
-    chapter_error: Option<String>,
+    bookmarks_ms: Vec<u64>,
+    post_process: Option<RecordingCapturePostProcess>,
     created_at: String,
 }
 
@@ -337,11 +337,16 @@ enum RecordingCaptureKind {
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "kebab-case")]
-enum RecordingChapterStatus {
-    None,
-    Ok,
-    Failed,
+#[serde(tag = "kind", rename_all = "kebab-case")]
+enum RecordingCapturePostProcess {
+    TrimTail {
+        #[serde(rename = "keepMs")]
+        keep_ms: u64,
+    },
+    ConcatSegments {
+        #[serde(rename = "segmentPaths")]
+        segment_paths: Vec<String>,
+    },
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -577,7 +582,6 @@ struct ActiveSession {
 
 #[derive(Clone, Debug)]
 struct RecordingBookmark {
-    requested_at: SystemTime,
     position_ms: u64,
 }
 
