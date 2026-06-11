@@ -7,6 +7,7 @@ import { requireSession } from "@alloy/server/auth/require-session"
 import { db } from "@alloy/server/db/index"
 import { deriveAccentColor } from "@alloy/server/media/accent"
 import { validateImageBytes } from "@alloy/server/media/image-validation"
+import { ifNoneMatchSatisfied } from "@alloy/server/runtime/http-conditional"
 import { runImageMagick } from "@alloy/server/media/imagemagick"
 import { errorResult, notFound } from "@alloy/server/runtime/http-response"
 import type { ResolvedObject } from "@alloy/server/storage/driver"
@@ -373,13 +374,7 @@ export const userAssetsRoute = new Hono().get("/:key{.+}", async (c) => {
   }
   c.header("Cache-Control", "public, max-age=86400, immutable")
 
-  if (
-    c.req
-      .header("if-none-match")
-      ?.split(",")
-      .map((v) => v.trim())
-      .includes(etag)
-  ) {
+  if (ifNoneMatchSatisfied(c.req.header("if-none-match"), etag)) {
     return c.body(null, 304)
   }
 
