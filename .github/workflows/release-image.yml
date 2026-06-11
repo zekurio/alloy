@@ -27,7 +27,6 @@ jobs:
   publish:
     name: Publish versioned server image
     runs-on: ubuntu-latest
-    # Recorder releases use recorder-v* tags and ship no server image.
     if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'v')
 
     steps:
@@ -76,36 +75,12 @@ jobs:
             exit 1
           fi
 
-      - name: Validate package version matches release
-        shell: bash
-        env:
-          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
-          IS_PRERELEASE: ${{ steps.meta.outputs.is_prerelease }}
-        run: |
-          actual="$(node -e 'const fs = require("node:fs"); console.log(JSON.parse(fs.readFileSync("package.json", "utf8")).version);')"
-          expected="$RELEASE_VERSION"
-
-          if [[ "$IS_PRERELEASE" == "true" ]]; then
-            expected="${RELEASE_VERSION%%-*}"
-          fi
-
-          if [[ "$actual" != "$RELEASE_VERSION" && "$actual" != "$expected" ]]; then
-            echo "package.json version $actual does not match release $RELEASE_VERSION or expected release base $expected." >&2
-            exit 1
-          fi
-
-      - name: Stamp prerelease package version
-        if: steps.meta.outputs.is_prerelease == 'true'
+      - name: Align package versions to release version
         shell: bash
         env:
           RELEASE_VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          node <<'NODE'
-          const { readFileSync, writeFileSync } = require("node:fs");
-          const config = JSON.parse(readFileSync("package.json", "utf8"));
-          config.version = process.env.RELEASE_VERSION;
-          writeFileSync("package.json", `${JSON.stringify(config, null, 2)}\n`);
-          NODE
+          node scripts/update-release-package-versions.mjs "$RELEASE_VERSION"
 
       - name: Set up Nix
         uses: cachix/install-nix-action@v31

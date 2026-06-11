@@ -92,22 +92,7 @@ jobs:
         env:
           RELEASE_VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          node <<'NODE'
-          const { readFileSync, writeFileSync } = require("node:fs");
-          const filePaths = ["package.json", "packages/desktop/package.json"];
-
-          for (const filePath of filePaths) {
-            const config = JSON.parse(readFileSync(filePath, "utf8"));
-
-            if (config.version === process.env.RELEASE_VERSION) {
-              console.log(`${filePath} is already at version ${config.version}.`);
-              continue;
-            }
-
-            config.version = process.env.RELEASE_VERSION;
-            writeFileSync(filePath, `${JSON.stringify(config, null, 2)}\n`);
-          }
-          NODE
+          node scripts/update-release-package-versions.mjs "$RELEASE_VERSION"
 
       - name: Install dependencies
         run: corepack pnpm install --frozen-lockfile
@@ -131,8 +116,8 @@ jobs:
         env:
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
         run: |
-          if ! git diff --quiet -- package.json packages/desktop/package.json pnpm-lock.yaml; then
-            git add package.json packages/desktop/package.json pnpm-lock.yaml
+          if ! git diff --quiet -- package.json packages/desktop/package.json packages/recorder/package.json packages/recorder/Cargo.toml pnpm-lock.yaml; then
+            git add package.json packages/desktop/package.json packages/recorder/package.json packages/recorder/Cargo.toml pnpm-lock.yaml
             git commit -m "chore(release): prepare $RELEASE_TAG"
           fi
 
@@ -153,4 +138,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
         run: |
-          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref main -f tag="$RELEASE_TAG"
+          version="${RELEASE_TAG#v}"
+
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref main -f version="$version"

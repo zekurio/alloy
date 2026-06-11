@@ -6,8 +6,8 @@ on:
       - "v*.*.*"
   workflow_dispatch:
     inputs:
-      tag:
-        description: Release tag to publish
+      version:
+        description: Release version to publish, for example 0.0.1 or v0.0.1-rc.0
         required: true
         type: string
 
@@ -15,7 +15,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -30,20 +30,26 @@ jobs:
       target_sha: ${{ steps.release_target.outputs.sha }}
 
     steps:
-      - name: Checkout release tag
+      - name: Checkout release source
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || github.ref }}
           fetch-depth: 0
 
       - name: Resolve release version
         id: meta
         shell: bash
+        env:
+          DISPATCH_VERSION: ${{ inputs.version }}
         run: |
-          raw="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            raw="$DISPATCH_VERSION"
+          else
+            raw="${GITHUB_REF_NAME}"
+          fi
           version="${raw#v}"
 
-          if [[ "$raw" != v* ]]; then
+          if [[ "${GITHUB_EVENT_NAME}" != "workflow_dispatch" && "$raw" != v* ]]; then
             echo "Release refs must be v-prefixed tags." >&2
             exit 1
           fi
@@ -65,6 +71,7 @@ jobs:
           fi
 
       - name: Ensure tag points at main
+        if: github.event_name != 'workflow_dispatch'
         shell: bash
         run: |
           git fetch origin "+refs/heads/main:refs/remotes/origin/main"
@@ -96,40 +103,12 @@ jobs:
           name: zekurio
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
-      - name: Validate package version matches release
-        shell: bash
-        env:
-          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
-          IS_PRERELEASE: ${{ steps.meta.outputs.is_prerelease }}
-        run: |
-          actual="$(node -e 'const fs = require("node:fs"); console.log(JSON.parse(fs.readFileSync("package.json", "utf8")).version);')"
-          expected="$RELEASE_VERSION"
-
-          if [[ "$IS_PRERELEASE" == "true" ]]; then
-            expected="${RELEASE_VERSION%%-*}"
-          fi
-
-          if [[ "$actual" != "$RELEASE_VERSION" && "$actual" != "$expected" ]]; then
-            echo "package.json version $actual does not match release $RELEASE_VERSION or expected release base $expected." >&2
-            exit 1
-          fi
-
-      - name: Stamp prerelease package version
-        if: steps.meta.outputs.is_prerelease == 'true'
+      - name: Align package versions to release version
         shell: bash
         env:
           RELEASE_VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          node <<'NODE'
-          const { readFileSync, writeFileSync } = require("node:fs");
-          const filePaths = ["package.json", "packages/desktop/package.json"];
-
-          for (const filePath of filePaths) {
-            const config = JSON.parse(readFileSync(filePath, "utf8"));
-            config.version = process.env.RELEASE_VERSION;
-            writeFileSync(filePath, `${JSON.stringify(config, null, 2)}\n`);
-          }
-          NODE
+          node scripts/update-release-package-versions.mjs "$RELEASE_VERSION"
 
       - name: Install dependencies
         run: corepack pnpm install --frozen-lockfile
@@ -170,20 +149,26 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout release tag
+      - name: Checkout release source
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || github.ref }}
           fetch-depth: 0
 
       - name: Resolve release version
         id: meta
         shell: bash
+        env:
+          DISPATCH_VERSION: ${{ inputs.version }}
         run: |
-          raw="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            raw="$DISPATCH_VERSION"
+          else
+            raw="${GITHUB_REF_NAME}"
+          fi
           version="${raw#v}"
 
-          if [[ "$raw" != v* ]]; then
+          if [[ "${GITHUB_EVENT_NAME}" != "workflow_dispatch" && "$raw" != v* ]]; then
             echo "Release refs must be v-prefixed tags." >&2
             exit 1
           fi
@@ -203,6 +188,7 @@ jobs:
           fi
 
       - name: Ensure tag points at main
+        if: github.event_name != 'workflow_dispatch'
         shell: bash
         run: |
           git fetch origin "+refs/heads/main:refs/remotes/origin/main"
@@ -224,36 +210,12 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      - name: Validate desktop package version matches release
-        shell: bash
-        env:
-          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
-          IS_PRERELEASE: ${{ steps.meta.outputs.is_prerelease }}
-        run: |
-          actual="$(node -e 'const fs = require("node:fs"); console.log(JSON.parse(fs.readFileSync("packages/desktop/package.json", "utf8")).version);')"
-          expected="$RELEASE_VERSION"
-
-          if [[ "$IS_PRERELEASE" == "true" ]]; then
-            expected="${RELEASE_VERSION%%-*}"
-          fi
-
-          if [[ "$actual" != "$RELEASE_VERSION" && "$actual" != "$expected" ]]; then
-            echo "packages/desktop/package.json version $actual does not match release $RELEASE_VERSION or expected release base $expected." >&2
-            exit 1
-          fi
-
-      - name: Stamp prerelease desktop package version
-        if: steps.meta.outputs.is_prerelease == 'true'
+      - name: Align package versions to release version
         shell: bash
         env:
           RELEASE_VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          node <<'NODE'
-          const { readFileSync, writeFileSync } = require("node:fs");
-          const config = JSON.parse(readFileSync("packages/desktop/package.json", "utf8"));
-          config.version = process.env.RELEASE_VERSION;
-          writeFileSync("packages/desktop/package.json", `${JSON.stringify(config, null, 2)}\n`);
-          NODE
+          node scripts/update-release-package-versions.mjs "$RELEASE_VERSION"
 
       - name: Install dependencies
         run: corepack pnpm install --frozen-lockfile
@@ -289,12 +251,25 @@ jobs:
           NODE_ENV: production
         run: corepack pnpm --filter @alloy/desktop dist:win:installer
 
-      - name: Generate desktop checksums
+      - name: Package recorder runtime
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $releaseDir = "packages/desktop/release"
+          $artifactName = "alloy-recorder-v$env:RELEASE_VERSION-windows-x64.zip"
+          $artifactPath = Join-Path $releaseDir $artifactName
+
+          New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
+          Compress-Archive -Path "packages/recorder/dist/*" -DestinationPath $artifactPath -Force
+
+      - name: Generate release checksums
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
           $releaseDir = "packages/desktop/release"
-          $patterns = @("*.exe", "*.blockmap", "latest.yml")
+          $patterns = @("*.exe", "*.zip", "*.blockmap", "latest.yml")
           $files = foreach ($pattern in $patterns) {
             Get-ChildItem -LiteralPath $releaseDir -Filter $pattern -File
           }
@@ -320,6 +295,7 @@ jobs:
           name: desktop-release-assets
           path: |
             packages/desktop/release/*.exe
+            packages/desktop/release/*.zip
             packages/desktop/release/*.blockmap
             packages/desktop/release/latest.yml
             packages/desktop/release/checksums.txt
@@ -351,6 +327,7 @@ jobs:
           make_latest: ${{ needs.release.outputs.make_latest }}
           files: |
             desktop-release-assets/*.exe
+            desktop-release-assets/*.zip
             desktop-release-assets/*.blockmap
             desktop-release-assets/latest.yml
             desktop-release-assets/checksums.txt
