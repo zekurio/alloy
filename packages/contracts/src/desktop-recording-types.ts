@@ -1,9 +1,5 @@
 import type { RecordingLibraryDownload } from "./desktop-recording-library"
-import type {
-  AcceptedContentType,
-  AcceptedImageContentType,
-  IsoDateString,
-} from "./shared"
+import type { AcceptedImageContentType, IsoDateString } from "./shared"
 
 export const RECORDING_ENCODERS = ["hardware", "software"] as const
 export const RECORDING_CODECS = ["h264", "hevc", "av1"] as const
@@ -82,8 +78,20 @@ export type RecordingAudioDeviceKind =
 export type RecordingChapterStatus = (typeof RECORDING_CHAPTER_STATUSES)[number]
 export type RecordingNotificationSoundEvent =
   (typeof RECORDING_NOTIFICATION_SOUND_EVENTS)[number]
+/**
+ * Content types the desktop library handles locally. Wider than the server's
+ * upload accept list (mp4 only): local recordings and screenshots can sit in
+ * the library in any of these containers — they just can't all be published.
+ */
+export const RECORDING_VIDEO_CONTENT_TYPES = [
+  "video/mp4",
+  "video/quicktime",
+  "video/x-matroska",
+  "video/webm",
+] as const
+
 export type RecordingCaptureContentType =
-  | AcceptedContentType
+  | (typeof RECORDING_VIDEO_CONTENT_TYPES)[number]
   | AcceptedImageContentType
 
 export interface RecordingQualitySettings {
