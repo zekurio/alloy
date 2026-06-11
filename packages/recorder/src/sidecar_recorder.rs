@@ -270,8 +270,8 @@ impl Recorder {
             .duration_seconds
             .clamp(15, settings.replay_buffer_seconds.max(15));
         let save = unsafe { self.save_replay(session, duration_seconds) };
-        let path = match save {
-            Ok(path) => path,
+        let saved = match save {
+            Ok(saved) => saved,
             Err(error) => {
                 self.last_error = Some(error.clone());
                 let result = self.action_error(&error);
@@ -282,6 +282,7 @@ impl Recorder {
                 return result;
             }
         };
+        let path = saved.path;
 
         let output_dimensions = session.video_config.output;
         let capture = RecordingCapture {
@@ -295,8 +296,8 @@ impl Recorder {
             game: session.capture.game.clone(),
             source: session.capture.source.clone(),
             kind: RecordingCaptureKind::Replay,
-            chapter_status: RecordingChapterStatus::None,
-            chapter_error: None,
+            bookmarks_ms: Vec::new(),
+            post_process: saved.post_process,
             created_at: system_time_iso(requested_at),
         };
         self.last_capture = Some(capture.clone());
@@ -326,10 +327,7 @@ impl Recorder {
 
         let requested_at = unix_millis_to_system_time(params.requested_at_unix_ms);
         let position_ms = bookmark_position_ms(session, requested_at);
-        session.bookmarks.push(RecordingBookmark {
-            requested_at,
-            position_ms,
-        });
+        session.bookmarks.push(RecordingBookmark { position_ms });
         RecordingActionResult {
             ok: true,
             status: self.status(),
@@ -341,7 +339,7 @@ impl Recorder {
     fn toggle_long_recording(&mut self, _params: RecordingActionRequest) -> RecordingActionResult {
         if self.long_session.is_some() {
             self.manual_long_recording = false;
-            return match self.stop_active_long_recording(true) {
+            return match self.stop_active_long_recording() {
                 Ok(capture) => {
                     let status = self.status();
                     emit_event(RecordingEvent::CaptureReady {
@@ -529,8 +527,8 @@ impl Recorder {
             game: game.map(|game| game.game.clone()),
             source: recording_source_from_kind(source_kind),
             kind,
-            chapter_status: RecordingChapterStatus::None,
-            chapter_error: None,
+            bookmarks_ms: Vec::new(),
+            post_process: None,
             created_at: now_iso(),
         }
     }
@@ -762,10 +760,7 @@ impl Recorder {
         Ok(())
     }
 
-    fn stop_active_long_recording(
-        &mut self,
-        embed_chapters: bool,
-    ) -> Result<RecordingCapture, String> {
+    fn stop_active_long_recording(&mut self) -> Result<RecordingCapture, String> {
         let Some(mut session) = self.long_session.take() else {
             return Err("Recording state was lost.".to_string());
         };
@@ -781,21 +776,11 @@ impl Recorder {
             .ok()
             .map(|metadata| metadata.len());
         capture.duration_ms = session_duration_ms(started_at, total_paused);
-        if embed_chapters && !bookmarks.is_empty() {
-            match embed_bookmarks_as_chapters(&capture.filename, &bookmarks, capture.duration_ms) {
-                Ok(()) => {
-                    capture.chapter_status = RecordingChapterStatus::Ok;
-                    capture.chapter_error = None;
-                    capture.size_bytes = fs::metadata(&capture.filename)
-                        .ok()
-                        .map(|metadata| metadata.len());
-                }
-                Err(error) => {
-                    capture.chapter_status = RecordingChapterStatus::Failed;
-                    capture.chapter_error = Some(error);
-                }
-            }
-        }
+        capture.bookmarks_ms = bookmarks
+            .iter()
+            .map(|bookmark| bookmark.position_ms)
+            .collect();
+        capture.bookmarks_ms.sort_unstable();
         self.last_capture = Some(capture.clone());
         self.last_error = None;
         Ok(capture)
@@ -810,7 +795,7 @@ impl Recorder {
         }
 
         if self.long_session.is_some() {
-            let capture = self.stop_active_long_recording(true)?;
+            let capture = self.stop_active_long_recording()?;
             if emit_file_capture {
                 let status = self.status();
                 emit_event(RecordingEvent::CaptureReady {
@@ -837,7 +822,7 @@ impl Recorder {
             self.stop_active_replay_buffer()?;
         }
         if self.long_session.is_some() {
-            let capture = self.stop_active_long_recording(true)?;
+            let capture = self.stop_active_long_recording()?;
             let status = self.status();
             emit_event(RecordingEvent::CaptureReady { capture, status });
         }

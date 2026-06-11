@@ -62,8 +62,8 @@ export async function takeRecordingScreenshot({
     game: settings.captureMode === "display" ? null : status.activeGameDetail,
     source: settings.captureMode,
     kind: "screenshot" as const,
-    chapterStatus: "none" as const,
-    chapterError: null,
+    bookmarksMs: [],
+    postProcess: null,
     createdAt: new Date(request.requestedAtUnixMs).toISOString(),
   }
 

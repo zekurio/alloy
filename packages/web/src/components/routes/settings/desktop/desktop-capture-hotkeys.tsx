@@ -33,7 +33,7 @@ export function HotkeysSection({
       </SettingRow>
       <SettingRow
         title="Bookmark"
-        description="Adds a numbered chapter to an active long recording."
+        description="Adds a marker to an active long recording."
       >
         <HotkeyInput
           value={settings.hotkeys.bookmark}

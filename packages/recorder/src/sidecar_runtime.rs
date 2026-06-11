@@ -10,7 +10,7 @@ fn response_ok<T: Serialize>(id: u64, result: T) -> Response {
     Response {
         id,
         ok: true,
-        result: Some(serde_json::to_value(result).unwrap_or_else(|_| json!(null))),
+        result: Some(serde_json::to_value(result).unwrap_or(json!(null))),
         error: None,
         status: None,
     }
@@ -228,6 +228,7 @@ fn platform_primary_display_id() -> Option<String> {
     windows_detector::primary_display_id()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn detected_game_from_parts(
     process_id: u32,
     path: Option<String>,

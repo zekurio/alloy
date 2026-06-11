@@ -566,13 +566,12 @@ unsafe fn create_video_graph(
     base_dimensions: VideoDimensions,
 ) -> Result<VideoGraph, String> {
     let source = create_video_source(obs, settings, game, source_kind)?;
-    create_scaled_video_scene(obs, source, source_kind, base_dimensions).map_err(|error| {
+    create_scaled_video_scene(obs, source, source_kind, base_dimensions).inspect_err(|_| {
         if source_kind == OutputSourceKind::Game {
             disconnect_game_capture_signals(obs, source);
         }
         (obs.obs_source_remove)(source);
         (obs.obs_source_release)(source);
-        error
     })
 }
 

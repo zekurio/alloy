@@ -86,6 +86,7 @@ export function normalizeLibraryExportRequest(
 /** Hard cap on imported render size (a structured-clone copy in memory). */
 const IMPORT_MAX_BYTES = 4 * 1024 * 1024 * 1024
 const IMPORT_FILE_NAME_MAX = 120
+const THUMBNAIL_MAX_BYTES = 10 * 1024 * 1024
 
 export function normalizeLibraryImportRequest(
   value: unknown,
@@ -111,6 +112,22 @@ export function normalizeLibraryImportRequest(
     width: normalizeDimension(record.width),
     height: normalizeDimension(record.height),
   }
+}
+
+export function normalizeLibraryThumbnailSaveRequest(
+  value: unknown,
+): { id: string; data: Uint8Array } | null {
+  if (typeof value !== "object" || value === null) return null
+  const record = value as Record<string, unknown>
+  if (typeof record.id !== "string" || record.id.length === 0) return null
+  if (!(record.data instanceof Uint8Array)) return null
+  if (
+    record.data.byteLength === 0 ||
+    record.data.byteLength > THUMBNAIL_MAX_BYTES
+  ) {
+    return null
+  }
+  return { id: record.id, data: record.data }
 }
 
 const DOWNLOAD_TITLE_MAX = 200

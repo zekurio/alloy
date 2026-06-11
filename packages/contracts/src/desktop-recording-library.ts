@@ -29,6 +29,7 @@ export interface RecordingLibraryItem {
   gameIconUrl: string | null
   sizeBytes: number
   durationMs: number | null
+  bookmarksMs: number[]
   width: number | null
   height: number | null
   description: string | null
@@ -49,7 +50,11 @@ export interface RecordingLibraryExportSegment {
 
 export interface RecordingLibraryExportRequest {
   id: string
-  /** Ordered segments to keep; multiple segments concatenate on export. */
+  /**
+   * The single range to keep. Multi-segment sequences are rejected — cut and
+   * reorder in the editor, whose render pipeline imports back into the
+   * library for publishing.
+   */
   segments: RecordingLibraryExportSegment[]
 }
 
@@ -125,8 +130,8 @@ export interface RecordingLibraryExport {
   height: number | null
   thumbBlurHash: string | null
   /**
-   * Poster image rendered by the main process (ffmpeg decodes every capture
-   * codec; the renderer cannot, so HEVC/AV1 captures draw blank canvases).
+   * The source capture's cached poster, when one exists; the web layer falls
+   * back to capturing a frame from the exported file itself.
    */
   thumbUrl: string | null
 }

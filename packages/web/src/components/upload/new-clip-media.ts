@@ -77,10 +77,8 @@ export async function captureThumbnail(
 }
 
 /**
- * Builds the upload poster from an already-rendered image (the desktop main
- * process renders posters with ffmpeg, which decodes capture codecs the
- * renderer cannot — drawing an HEVC/AV1 `<video>` into a canvas yields a
- * blank frame).
+ * Builds the upload poster from an already-rendered image, preserving the
+ * cached capture poster when one is available.
  */
 export async function thumbnailFromImageUrl(url: string): Promise<Blob> {
   const response = await fetch(url)

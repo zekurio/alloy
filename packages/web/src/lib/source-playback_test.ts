@@ -42,7 +42,7 @@ test("sourceMimeCandidates probes container and codec combo first", () => {
   )
 })
 
-test("sourceMimeCandidates normalizes common ffprobe codec names", () => {
+test("sourceMimeCandidates normalizes common probe codec names", () => {
   const candidates = sourceMimeCandidates("video/mp4", {
     videoCodec: "h265",
     audioCodec: "mpeg4aac",
@@ -50,7 +50,7 @@ test("sourceMimeCandidates normalizes common ffprobe codec names", () => {
 
   assert(
     candidates[0] === 'video/mp4; codecs="hvc1.1.L120,mp4a.40.2"',
-    "ffprobe aliases should map to browser codec strings",
+    "probe aliases should map to browser codec strings",
   )
 })
 

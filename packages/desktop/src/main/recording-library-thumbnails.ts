@@ -4,6 +4,7 @@ import {
   readdirSync,
   rmSync,
   statSync,
+  writeFileSync,
   type Dirent,
   type Stats,
 } from "node:fs"
@@ -15,8 +16,8 @@ import { app } from "electron"
 
 import type { RecordingLibraryItem } from "@/shared/ipc"
 
-import { runFfmpeg, runFfprobe } from "./ffmpeg"
 import { imageFileBlurHash } from "./image-blurhash"
+import { findRecordingLibraryItem } from "./recording-library-scan"
 import {
   captureId,
   thumbnailSignature,
@@ -28,16 +29,12 @@ import {
   rememberThumbnailBlurHash,
 } from "./recording-thumbnail-meta"
 
-const pendingThumbnails = new Map<string, Promise<string | null>>()
-
 export type ThumbnailSource = Pick<
   RecordingLibraryItem,
   "id" | "kind" | "filename"
 >
 
-export async function ensureRecordingThumbnail(
-  item: ThumbnailSource,
-): Promise<string | null> {
+export function cachedRecordingThumbnail(item: ThumbnailSource): string | null {
   if (item.kind === "screenshot") return item.filename
   if (!VIDEO_EXTENSIONS.has(extname(item.filename).toLowerCase())) return null
 
@@ -50,83 +47,44 @@ export async function ensureRecordingThumbnail(
 
   const out = thumbnailPath(item.id, stat)
   if (existsSync(out)) return out
-
-  // Concurrent protocol requests for the same capture (grid + editor poster)
-  // must share one ffmpeg run instead of racing on the output file.
-  const pending = pendingThumbnails.get(out)
-  if (pending) return pending
-
-  const task = generateRecordingThumbnail(item, out).finally(() => {
-    pendingThumbnails.delete(out)
-  })
-  pendingThumbnails.set(out, task)
-  return task
+  return null
 }
 
-async function generateRecordingThumbnail(
-  item: ThumbnailSource,
-  out: string,
-): Promise<string | null> {
+export function storeRecordingThumbnail(
+  id: string,
+  jpegBytes: Uint8Array,
+): void {
+  const item = findRecordingLibraryItem(id)
+  if (!item || item.kind === "screenshot") return
+  if (!VIDEO_EXTENSIONS.has(extname(item.filename).toLowerCase())) return
+
+  let stat: Stats
+  try {
+    stat = statSync(item.filename)
+  } catch {
+    return
+  }
+
+  const out = thumbnailPath(item.id, stat)
   try {
     mkdirSync(dirname(out), { recursive: true })
+    writeFileSync(out, jpegBytes)
     pruneStaleThumbnails(item.id, out)
 
-    // `thumbnail=n=…` scans a window of decoded frames and keeps the most
-    // representative one, so fade-ins and black lead frames don't become the
-    // poster. Seek past the first second when the clip is long enough.
-    const attempts: string[][] = [
-      ["-ss", "1", "-i", item.filename],
-      ["-i", item.filename],
-    ]
-    for (const input of attempts) {
-      try {
-        await runFfmpeg(
-          [
-            "-y",
-            ...input,
-            "-frames:v",
-            "1",
-            "-vf",
-            "thumbnail=n=24,scale=640:-2",
-            "-q:v",
-            "4",
-            out,
-          ],
-          { timeout: 20_000 },
-        )
-      } catch (cause) {
-        logger.warn("[desktop] recording thumbnail pass failed:", cause)
-        continue
-      }
-      if (existsSync(out) && statSync(out).size > 0) return out
+    const signature = thumbnailSignature(item.id, stat)
+    const blurHash = imageFileBlurHash(out)
+    if (blurHash) {
+      rememberThumbnailBlurHash(signature, blurHash)
+      pruneThumbnailBlurHashes(item.id, signature)
     }
-    return null
   } catch (cause) {
-    logger.warn("[desktop] failed to generate recording thumbnail:", cause)
-    return null
-  }
-}
-
-export async function probeDurationMs(
-  filename: string,
-): Promise<number | null> {
-  try {
-    const stdout = await runFfprobe(
-      ["-show_entries", "format=duration", "-of", "csv=p=0", filename],
-      { timeout: 30_000 },
-    )
-    const seconds = Number.parseFloat(stdout.trim())
-    return Number.isFinite(seconds) && seconds > 0
-      ? Math.round(seconds * 1000)
-      : null
-  } catch {
-    return null
+    logger.warn("[desktop] failed to store recording thumbnail:", cause)
   }
 }
 
 /**
- * Filmstrip frames now decode in the renderer (mediabunny); drop the on-disk
- * cache older app versions rendered with ffmpeg.
+ * Filmstrip frames now decode in the renderer (mediabunny); drop the legacy
+ * on-disk cache.
  */
 export function cleanupLegacyFilmstripCache(): void {
   try {
@@ -162,11 +120,11 @@ export function pruneStaleThumbnails(id: string, keep: string): void {
 }
 
 /**
- * Generates the thumbnail and BlurHash in the background as soon as a capture
- * lands, so the library grid shows real frames (or at least a blurred
- * placeholder) on first paint.
+ * Screenshots can be hashed immediately from their image bytes. Video posters
+ * are decoded in the renderer and saved back through IPC.
  */
 export function warmRecordingThumbnail(capture: RecordingCapture): void {
+  if (capture.kind !== "screenshot") return
   const filename = resolve(capture.filename)
   void ensureCaptureBlurHash({
     id: captureId(filename),
@@ -196,9 +154,7 @@ export async function ensureCaptureBlurHash(
   if (existing) return existing
 
   const imagePath =
-    item.kind === "screenshot"
-      ? item.filename
-      : await ensureRecordingThumbnail(item)
+    item.kind === "screenshot" ? item.filename : cachedRecordingThumbnail(item)
   if (!imagePath) return null
 
   const blurHash = imageFileBlurHash(imagePath)

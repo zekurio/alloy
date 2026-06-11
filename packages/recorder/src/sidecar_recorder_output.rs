@@ -377,7 +377,7 @@ impl Recorder {
         &self,
         session: &ActiveSession,
         duration_seconds: u32,
-    ) -> Result<String, String> {
+    ) -> Result<SavedReplayClip, String> {
         if session.kind != ActiveOutputKind::ReplayBuffer {
             return Err("Current OBS output is not a replay buffer.".to_string());
         }
@@ -471,7 +471,7 @@ impl Recorder {
         scratch_directory: &Path,
         output_directory: &Path,
         replay_seconds: u32,
-    ) -> Result<String, String> {
+    ) -> Result<SavedReplayClip, String> {
         let segment = newest_disk_replay_segment(scratch_directory)
             .ok_or_else(|| "Disk replay buffer has not created a segment yet.".to_string())?;
         let obs = self
@@ -491,15 +491,15 @@ impl Recorder {
         }
         free_calldata(obs, &mut data);
 
-        let path = save_disk_replay_clip(
+        let saved = save_disk_replay_clip(
             scratch_directory,
             output_directory,
             session.capture.game.as_ref(),
             replay_seconds,
             &segment.path,
         )?;
-        cleanup_disk_replay_segments(&session.output_config, Some(&path));
-        Ok(path)
+        cleanup_disk_replay_segments(&session.output_config, Some(&saved.path));
+        Ok(saved)
     }
 }
 

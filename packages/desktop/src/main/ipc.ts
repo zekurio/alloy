@@ -19,6 +19,7 @@ import {
   normalizeLibraryExportRequest,
   normalizeLibraryImportRequest,
   normalizeLibraryMetaPatch,
+  normalizeLibraryThumbnailSaveRequest,
   normalizeProjectDraftSaveRequest,
   normalizeSaveReplayClipRequest,
 } from "./ipc-normalizers"
@@ -44,7 +45,6 @@ import { configureRecordingHotkeys } from "./recording-hotkeys"
 import {
   deleteRecordingLibraryItem,
   getRecordingLibrarySnapshot,
-  getRecordingLibraryCaptureKeyframes,
   exportRecordingLibraryItem,
   importRecordingLibraryCapture,
   openRecordingLibraryFolder,
@@ -59,6 +59,7 @@ import {
   listRecordingLibraryClipDownloads,
   startRecordingLibraryClipDownload,
 } from "./recording-library-download"
+import { storeRecordingThumbnail } from "./recording-library-thumbnails"
 import {
   ensureNotificationSoundsDir,
   listNotificationSoundLibrary,
@@ -274,15 +275,6 @@ function registerRecordingLibraryIpc(windows: Windows): void {
     },
   )
   ipcMain.handle(
-    IPC.getRecordingLibraryCaptureKeyframes,
-    (event, id: unknown) => {
-      requireMainSender(windows, event)
-      return typeof id === "string"
-        ? getRecordingLibraryCaptureKeyframes(id)
-        : []
-    },
-  )
-  ipcMain.handle(
     IPC.updateRecordingLibraryCapture,
     (event, request: unknown) => {
       requireMainSender(windows, event)
@@ -317,6 +309,15 @@ function registerRecordingLibraryIpc(windows: Windows): void {
       const normalized = normalizeLibraryImportRequest(request)
       if (!normalized) throw new Error("Invalid render import request.")
       return importRecordingLibraryCapture(normalized)
+    },
+  )
+  ipcMain.handle(
+    IPC.saveRecordingLibraryCaptureThumbnail,
+    (event, request: unknown) => {
+      requireMainSender(windows, event)
+      const normalized = normalizeLibraryThumbnailSaveRequest(request)
+      if (!normalized) throw new Error("Invalid thumbnail save request.")
+      storeRecordingThumbnail(normalized.id, normalized.data)
     },
   )
   ipcMain.handle(

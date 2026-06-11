@@ -51,7 +51,6 @@ export const RECORDING_RUN_STATES = [
 export const RECORDING_CAPTURE_SOURCES = ["game", "display"] as const
 export const RECORDING_AUDIO_MODES = ["devices", "applications"] as const
 export const RECORDING_AUDIO_DEVICE_KINDS = ["output", "input"] as const
-export const RECORDING_CHAPTER_STATUSES = ["none", "ok", "failed"] as const
 export const RECORDING_NOTIFICATION_SOUND_EVENTS = [
   "recordingStarted",
   "manualRecordingStarted",
@@ -75,7 +74,6 @@ export type RecordingCaptureSource = (typeof RECORDING_CAPTURE_SOURCES)[number]
 export type RecordingAudioMode = (typeof RECORDING_AUDIO_MODES)[number]
 export type RecordingAudioDeviceKind =
   (typeof RECORDING_AUDIO_DEVICE_KINDS)[number]
-export type RecordingChapterStatus = (typeof RECORDING_CHAPTER_STATUSES)[number]
 export type RecordingNotificationSoundEvent =
   (typeof RECORDING_NOTIFICATION_SOUND_EVENTS)[number]
 /**
@@ -273,6 +271,10 @@ export interface RecordingGame {
   startedAt: IsoDateString | null
 }
 
+export type RecordingCapturePostProcess =
+  | { kind: "trim-tail"; keepMs: number }
+  | { kind: "concat-segments"; segmentPaths: string[] }
+
 export interface RecordingCapture {
   id: string
   filename: string
@@ -284,8 +286,8 @@ export interface RecordingCapture {
   game: RecordingGame | null
   source: RecordingCaptureSource
   kind: RecordingCaptureKind
-  chapterStatus: RecordingChapterStatus
-  chapterError: string | null
+  bookmarksMs: number[]
+  postProcess: RecordingCapturePostProcess | null
   createdAt: IsoDateString
 }
 

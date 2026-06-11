@@ -43,10 +43,6 @@ export function clampMs(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, Math.round(value)))
 }
 
-export function ffmpegSeconds(ms: number): string {
-  return (Math.max(0, ms) / 1000).toFixed(3)
-}
-
 export function contentTypeForFile(fileName: string): string {
   switch (extname(fileName).toLowerCase()) {
     case ".mp4":

@@ -85,6 +85,11 @@ struct MemoryReplayFile {
     modified: SystemTime,
 }
 
+struct SavedReplayClip {
+    path: String,
+    post_process: Option<RecordingCapturePostProcess>,
+}
+
 fn newest_memory_replay_file(
     directory: &Path,
     modified_after: SystemTime,
@@ -198,7 +203,7 @@ fn save_disk_replay_clip(
     game: Option<&RecordingGame>,
     replay_seconds: u32,
     closed_segment: &Path,
-) -> Result<String, String> {
+) -> Result<SavedReplayClip, String> {
     wait_for_stable_file(closed_segment)?;
     let closed_modified = fs::metadata(closed_segment)
         .and_then(|metadata| metadata.modified())
@@ -228,17 +233,20 @@ fn save_disk_replay_clip(
         .ok_or_else(|| "Could not determine replay output folder.".to_string())?;
     fs::create_dir_all(output_parent)
         .map_err(|error| format!("Could not create replay output folder: {error}"))?;
-    let copied = || {
-        fs::copy(closed_segment, &output)
-            .map(|_| output.to_string_lossy().into_owned())
-            .map_err(|error| format!("Could not save disk replay clip: {error}"))
-    };
-
     if selected.len() == 1 {
-        return copied();
+        fs::copy(closed_segment, &output)
+            .map_err(|error| format!("Could not save disk replay clip: {error}"))?;
+        return Ok(SavedReplayClip {
+            path: output.to_string_lossy().into_owned(),
+            post_process: None,
+        });
     }
 
-    concat_disk_replay_segments(&selected, &output).or_else(|_| copied())
+    let segment_paths = copy_disk_replay_segment_parts(&selected, &output)?;
+    Ok(SavedReplayClip {
+        path: output.to_string_lossy().into_owned(),
+        post_process: Some(RecordingCapturePostProcess::ConcatSegments { segment_paths }),
+    })
 }
 
 fn move_saved_replay_to_output(
@@ -247,7 +255,7 @@ fn move_saved_replay_to_output(
     game: Option<&RecordingGame>,
     duration_seconds: u32,
     replay_seconds: u32,
-) -> Result<String, String> {
+) -> Result<SavedReplayClip, String> {
     let source = PathBuf::from(path);
     wait_for_stable_file(&source)?;
     let mut output = saved_recording_path(output_directory, "Clips", game);
@@ -258,92 +266,63 @@ fn move_saved_replay_to_output(
         .map_err(|error| format!("Could not create replay output folder: {error}"))?;
 
     if source == output {
-        return Ok(source.to_string_lossy().into_owned());
+        return Ok(SavedReplayClip {
+            path: source.to_string_lossy().into_owned(),
+            post_process: replay_trim_post_process(duration_seconds, replay_seconds),
+        });
     }
 
     if output.exists() {
         output = saved_recording_path(output_directory, "Clips", game);
     }
 
-    if duration_seconds < replay_seconds {
-        trim_replay_to_duration(&source, &output, duration_seconds)?;
-        let _ = fs::remove_file(&source);
-        return Ok(output.to_string_lossy().into_owned());
+    if source != output {
+        match fs::rename(&source, &output) {
+            Ok(()) => {}
+            Err(_) => fs::copy(&source, &output)
+                .and_then(|_| fs::remove_file(&source))
+                .map(|_| ())
+                .map_err(|error| format!("Could not move replay clip out of scratch: {error}"))?,
+        }
     }
 
-    match fs::rename(&source, &output) {
-        Ok(()) => Ok(output.to_string_lossy().into_owned()),
-        Err(_) => fs::copy(&source, &output)
-            .and_then(|_| fs::remove_file(&source))
-            .map(|_| output.to_string_lossy().into_owned())
-            .map_err(|error| format!("Could not move replay clip out of scratch: {error}")),
-    }
+    Ok(SavedReplayClip {
+        path: output.to_string_lossy().into_owned(),
+        post_process: replay_trim_post_process(duration_seconds, replay_seconds),
+    })
 }
 
-fn trim_replay_to_duration(
-    source: &Path,
-    output: &Path,
+fn replay_trim_post_process(
     duration_seconds: u32,
-) -> Result<(), String> {
-    let status = Command::new("ffmpeg")
-        .args(["-hide_banner", "-loglevel", "error", "-y", "-sseof"])
-        .arg(format!("-{}", duration_seconds.max(1)))
-        .arg("-i")
-        .arg(source)
-        .args(["-c", "copy"])
-        .arg(output)
-        .status()
-        .map_err(|error| format!("Could not run ffmpeg to trim replay clip: {error}"))?;
-
-    if status.success() {
-        wait_for_stable_file(output)
-    } else {
-        Err(format!("ffmpeg replay trim exited with status {status}."))
-    }
+    replay_seconds: u32,
+) -> Option<RecordingCapturePostProcess> {
+    (duration_seconds < replay_seconds).then_some(RecordingCapturePostProcess::TrimTail {
+        keep_ms: u64::from(duration_seconds.max(1)) * 1000,
+    })
 }
 
-fn concat_disk_replay_segments(
+fn copy_disk_replay_segment_parts(
     segments: &[DiskReplaySegment],
     output: &Path,
-) -> Result<String, String> {
-    let manifest = output.with_extension("concat.txt");
-    let manifest_contents = segments
+) -> Result<Vec<String>, String> {
+    let parent = output
+        .parent()
+        .ok_or_else(|| "Could not determine replay output folder.".to_string())?;
+    let stem = output
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .ok_or_else(|| "Could not determine replay output name.".to_string())?;
+
+    segments
         .iter()
-        .map(|segment| format!("file '{}'\n", ffmpeg_concat_path(&segment.path)))
-        .collect::<String>();
-    fs::write(&manifest, manifest_contents)
-        .map_err(|error| format!("Could not prepare disk replay concat: {error}"))?;
-
-    let result = Command::new("ffmpeg")
-        .args([
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-y",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-        ])
-        .arg(&manifest)
-        .args(["-c", "copy"])
-        .arg(output)
-        .status()
-        .map_err(|error| format!("Could not run ffmpeg for disk replay concat: {error}"))
-        .and_then(|status| {
-            if status.success() {
-                Ok(output.to_string_lossy().into_owned())
-            } else {
-                Err(format!("ffmpeg concat exited with status {status}."))
-            }
-        });
-    let _ = fs::remove_file(manifest);
-    result
-}
-
-fn ffmpeg_concat_path(path: &Path) -> String {
-    path.to_string_lossy().replace('\\', "/").replace('\'', "'\\''")
+        .enumerate()
+        .map(|(index, segment)| {
+            let part = parent.join(format!("{stem}.part{index:02}.tmp"));
+            fs::copy(&segment.path, &part)
+                .map(|_| part.to_string_lossy().into_owned())
+                .map_err(|error| format!("Could not stage disk replay segment: {error}"))
+        })
+        .collect()
 }
 
 fn disk_replay_segment_seconds(replay_seconds: u32) -> u32 {
@@ -419,82 +398,4 @@ fn bookmark_position_ms(session: &ActiveSession, requested_at: SystemTime) -> u6
         .unwrap_or_default()
         .saturating_sub(session_total_paused(session));
     u64::try_from(elapsed.as_millis()).unwrap_or(u64::MAX)
-}
-
-fn embed_bookmarks_as_chapters(
-    filename: &str,
-    bookmarks: &[RecordingBookmark],
-    duration_ms: Option<u64>,
-) -> Result<(), String> {
-    if bookmarks.is_empty() {
-        return Ok(());
-    }
-
-    let input = PathBuf::from(filename);
-    let metadata = input.with_extension("ffmetadata.txt");
-    let output = input.with_extension("chapters.mp4");
-    fs::write(
-        &metadata,
-        chapter_metadata(bookmarks, duration_ms.unwrap_or_else(|| {
-            bookmarks
-                .iter()
-                .map(|bookmark| bookmark.position_ms)
-                .max()
-                .unwrap_or_default()
-                .saturating_add(1)
-        })),
-    )
-    .map_err(|error| format!("Could not prepare bookmark metadata: {error}"))?;
-
-    let result = Command::new("ffmpeg")
-        .args(["-hide_banner", "-loglevel", "error", "-y", "-i"])
-        .arg(&input)
-        .arg("-i")
-        .arg(&metadata)
-        .args(["-map_metadata", "1", "-codec", "copy"])
-        .arg(&output)
-        .status()
-        .map_err(|error| format!("Could not run ffmpeg to embed chapters: {error}"))
-        .and_then(|status| {
-            if status.success() {
-                replace_file(&output, &input)
-            } else {
-                Err(format!("ffmpeg chapter embedding exited with status {status}."))
-            }
-        });
-    let _ = fs::remove_file(metadata);
-    if result.is_err() {
-        let _ = fs::remove_file(output);
-    }
-    result
-}
-
-fn chapter_metadata(bookmarks: &[RecordingBookmark], duration_ms: u64) -> String {
-    let mut sorted = bookmarks.to_vec();
-    sorted.sort_by_key(|bookmark| (bookmark.position_ms, bookmark.requested_at));
-    let mut metadata = String::from(";FFMETADATA1\n");
-
-    for (index, bookmark) in sorted.iter().enumerate() {
-        let start = bookmark.position_ms.min(duration_ms.saturating_sub(1));
-        let next = sorted
-            .get(index + 1)
-            .map(|next| next.position_ms)
-            .unwrap_or(duration_ms);
-        let end = next.max(start.saturating_add(1)).min(duration_ms.max(1));
-        metadata.push_str("[CHAPTER]\nTIMEBASE=1/1000\n");
-        metadata.push_str(&format!("START={start}\nEND={end}\n"));
-        metadata.push_str(&format!("title=Bookmark {}\n", index + 1));
-    }
-
-    metadata
-}
-
-fn replace_file(source: &Path, destination: &Path) -> Result<(), String> {
-    match fs::rename(source, destination) {
-        Ok(()) => Ok(()),
-        Err(_) => fs::copy(source, destination)
-            .and_then(|_| fs::remove_file(source))
-            .map(|_| ())
-            .map_err(|error| format!("Could not replace recording with chaptered MP4: {error}")),
-    }
 }

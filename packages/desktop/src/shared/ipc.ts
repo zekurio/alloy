@@ -73,8 +73,6 @@ export const IPC = {
   openRecordingLibraryCapture: "alloy:open-recording-library-capture",
   revealRecordingLibraryCapture: "alloy:reveal-recording-library-capture",
   exportRecordingLibraryCapture: "alloy:export-recording-library-capture",
-  getRecordingLibraryCaptureKeyframes:
-    "alloy:get-recording-library-capture-keyframes",
   updateRecordingLibraryCapture: "alloy:update-recording-library-capture",
   saveRecordingLibraryProjectDraft:
     "alloy:save-recording-library-project-draft",
@@ -82,6 +80,8 @@ export const IPC = {
     "alloy:delete-recording-library-project-draft",
   deleteRecordingLibraryCapture: "alloy:delete-recording-library-capture",
   importRecordingLibraryCapture: "alloy:import-recording-library-capture",
+  saveRecordingLibraryCaptureThumbnail:
+    "alloy:save-recording-library-capture-thumbnail",
   downloadRecordingLibraryClip: "alloy:download-recording-library-clip",
   cancelRecordingLibraryClipDownload:
     "alloy:cancel-recording-library-clip-download",
@@ -156,8 +156,6 @@ export interface AlloyDesktopRecordingApi {
   exportLibraryCapture(
     request: RecordingLibraryExportRequest,
   ): Promise<RecordingLibraryExport>
-  /** Video keyframe (I-frame) positions in ms for the editor timeline. */
-  libraryCaptureKeyframes(id: string): Promise<number[]>
   /** Persists draft upload metadata for a capture across app restarts. */
   updateLibraryCapture(patch: RecordingLibraryMetaPatch): Promise<void>
   /** Persists an unfinished multitrack editor project as a library draft. */
@@ -172,6 +170,8 @@ export interface AlloyDesktopRecordingApi {
   importLibraryCapture(
     request: RecordingLibraryImportRequest,
   ): Promise<RecordingLibraryImportResult>
+  /** Persists a renderer-decoded JPEG poster for a local video capture. */
+  saveLibraryCaptureThumbnail(id: string, data: Uint8Array): Promise<void>
   /**
    * Persists an uploaded clip into the local capture library. Progress
    * streams out as "library-download" recording events.
