@@ -9,9 +9,11 @@ import {
 } from "@alloy/server/clips/direct-hls"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
+import * as imageValidation from "@alloy/server/media/image-validation"
 import { probeMedia } from "@alloy/server/media/probe"
 import { trimToMp4 } from "@alloy/server/media/trim"
 import { notifyFollowersOfNewClip } from "@alloy/server/notifications/index"
+import { THUMB_UPLOAD_MAX_BYTES } from "@alloy/server/routes/clips-upload-helpers"
 import { join } from "@alloy/server/runtime/path"
 import { clipStorage } from "@alloy/server/storage/index"
 import {
@@ -318,22 +320,33 @@ async function republishUploadedThumbnail(
 ): Promise<{ thumbKey: string | null; thumbBlurHash: string | null }> {
   const uploadedThumbKey = await selectThumbUploadKey(clipId)
   if (uploadedThumbKey) {
-    if (await stagedUploadExists(uploadedThumbKey)) {
+    const stagedThumb = await resolveStagedUpload(uploadedThumbKey)
+    if (stagedThumb) {
+      if (stagedThumb.size > THUMB_UPLOAD_MAX_BYTES) {
+        logger.warn(
+          `[queue] rejected oversized staged poster for ${clipId}: ${stagedThumb.size} bytes`,
+        )
+        return { thumbKey: row.thumbKey, thumbBlurHash: row.thumbBlurHash }
+      }
+
+      const buf = Buffer.from(
+        await new Response(stagedThumb.stream()).arrayBuffer(),
+      )
+      const validation = imageValidation.validateImageBytes(buf, "image/webp")
+      if (!validation.ok) {
+        logger.warn(
+          `[queue] rejected staged poster for ${clipId}: ${validation.error}`,
+        )
+        return { thumbKey: row.thumbKey, thumbBlurHash: row.thumbBlurHash }
+      }
+
       const thumbKey = runScopedThumbKey(clipId, runId)
-      await clipStorage.copy({
-        fromKey: uploadedThumbKey,
-        toKey: thumbKey,
-        contentType: "image/webp",
-      })
+      await clipStorage.put(thumbKey, buf, "image/webp")
       uploadedKeys.push(thumbKey)
       return { thumbKey, thumbBlurHash: row.thumbBlurHash }
     }
   }
   return { thumbKey: row.thumbKey, thumbBlurHash: row.thumbBlurHash }
-}
-
-async function stagedUploadExists(key: string): Promise<boolean> {
-  return (await resolveStagedUpload(key)) !== null
 }
 
 async function selectThumbUploadKey(clipId: string): Promise<string | null> {
