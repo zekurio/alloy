@@ -160,7 +160,13 @@ unsafe fn configure_video_encoder(
 ) -> Result<(), String> {
     let bitrate = target_bitrate_kbps(quality);
     obs.set_string(data, "rate_control", "CBR")?;
-    obs.set_string(data, "profile", "high")?;
+    // Profile names are codec-specific: "high" only exists for H.264, and
+    // HEVC/AV1 encoders (notably AMF) can reject it at creation time.
+    let profile = match settings.codec {
+        RecordingCodec::H264 => "high",
+        RecordingCodec::Hevc | RecordingCodec::Av1 => "main",
+    };
+    obs.set_string(data, "profile", profile)?;
     obs.set_string(
         data,
         "preset",
@@ -176,11 +182,26 @@ unsafe fn configure_video_encoder(
     Ok(())
 }
 
-fn choose_video_encoder(settings: &RecordingSettings, available: &HashSet<String>) -> Option<String> {
-    video_encoder_candidates(&settings.encoder, &settings.codec)
-        .into_iter()
-        .find(|candidate| available.contains(*candidate))
-        .map(str::to_string)
+/// Picks the OBS encoder for the selected codec, falling back to HEVC then
+/// H.264 when this OBS instance has no encoder for it. Encoder registration
+/// can transiently fail (AMD's AMF helper probe under GPU load), and recording
+/// in a fallback codec beats losing the session.
+fn choose_video_encoder(
+    settings: &RecordingSettings,
+    available: &HashSet<String>,
+) -> Option<(String, RecordingCodec)> {
+    let mut codecs = vec![settings.codec.clone()];
+    for fallback in [RecordingCodec::Hevc, RecordingCodec::H264] {
+        if !codecs.contains(&fallback) {
+            codecs.push(fallback);
+        }
+    }
+    codecs.into_iter().find_map(|codec| {
+        video_encoder_candidates(&settings.encoder, &codec)
+            .into_iter()
+            .find(|candidate| available.contains(*candidate))
+            .map(|candidate| (candidate.to_string(), codec))
+    })
 }
 
 fn available_video_codecs(
