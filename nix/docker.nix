@@ -28,16 +28,17 @@ let
       : "''${ALLOY_DATA_DIR:=/config}"
       export ALLOY_DATA_DIR
 
-      mkdir -p "$ALLOY_DATA_DIR" /data/storage
+      mkdir -p "$ALLOY_DATA_DIR" /data/storage/clips /data/storage/users
 
       if [ ! -e "$ALLOY_DATA_DIR/config.json" ]; then
         printf '%s\n' \
           '{' \
           '  "storage": {' \
           '    "driver": "fs",' \
-          '    "path": "/data/storage",' \
-          '    "clipsPath": null,' \
-          '    "usersPath": null,' \
+          '    "fs": {' \
+          '      "clipsPath": "/data/storage/clips",' \
+          '      "usersPath": "/data/storage/users"' \
+          '    },' \
           '    "s3": {' \
           '      "bucket": "",' \
           '      "region": "us-east-1",' \
@@ -78,7 +79,7 @@ dockerTools.streamLayeredImage {
     groupadd --system --gid ${toString gid} alloy
     useradd --system --uid ${toString uid} --gid ${toString gid} \
       --home-dir /app --shell /sbin/nologin alloy
-    mkdir -p /app /config /data/storage /tmp
+    mkdir -p /app /config /data/storage/clips /data/storage/users /tmp
     chmod 1777 /tmp
     chown -R ${toString uid}:${toString gid} /app /config /data
   '';

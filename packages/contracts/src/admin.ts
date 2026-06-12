@@ -113,24 +113,27 @@ export const S3StorageConfigSchema = z.looseObject({
 
 export type S3StorageConfig = z.infer<typeof S3StorageConfigSchema>
 
+export const FilesystemStorageConfigSchema = z.looseObject({
+  /**
+   * Filesystem root for clip sources, thumbnails, and derived media. Relative
+   * paths resolve under the runtime data dir; absolute paths are used as-is.
+   */
+  clipsPath: NonEmptyStringSchema,
+  /**
+   * Filesystem root for user-owned assets such as avatars, banners, and
+   * profile backgrounds. Relative paths resolve under the runtime data dir;
+   * absolute paths are used as-is.
+   */
+  usersPath: NonEmptyStringSchema,
+})
+
+export type FilesystemStorageConfig = z.infer<
+  typeof FilesystemStorageConfigSchema
+>
+
 const StorageConfigFields = {
-  /**
-   * Canonical storage root. For filesystem storage, relative paths resolve
-   * under the runtime data dir; absolute paths are used as-is. For S3, this is
-   * the object prefix inside the bucket and may be empty.
-   */
-  path: NonEmptyStringSchema,
-  /**
-   * Optional clip root override. When unset, clips live under
-   * `${path}/clips`.
-   */
-  clipsPath: NonEmptyStringSchema.nullable(),
-  /**
-   * Optional user asset root override. When unset, user assets live under
-   * `${path}/users`.
-   */
-  usersPath: NonEmptyStringSchema.nullable(),
   driver: z.enum(STORAGE_DRIVER_TYPES),
+  fs: FilesystemStorageConfigSchema,
   s3: S3StorageConfigSchema,
 }
 
@@ -149,9 +152,46 @@ function requireS3FieldsWhenEnabled(
   }
 }
 
-export const StorageConfigSchema = z
+function migrateLegacyStorageConfig(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return value
+  }
+  const record = value as Record<string, unknown>
+  if (record.fs !== undefined) return value
+
+  return {
+    driver: record.driver,
+    fs: {
+      clipsPath: legacyStoragePath(record, "clips"),
+      usersPath: legacyStoragePath(record, "users"),
+    },
+    s3: record.s3,
+  }
+}
+
+function legacyStoragePath(
+  record: Record<string, unknown>,
+  namespace: "clips" | "users",
+): string {
+  const override = record[namespace === "clips" ? "clipsPath" : "usersPath"]
+  if (typeof override === "string" && override.trim().length > 0) {
+    return override
+  }
+  const root =
+    typeof record.path === "string" && record.path.trim().length > 0
+      ? record.path
+      : "storage"
+  return `${root.trim().replace(/[\\/]+$/, "")}/${namespace}`
+}
+
+const StorageConfigObjectSchema = z
   .looseObject(StorageConfigFields)
   .superRefine(requireS3FieldsWhenEnabled)
+
+export const StorageConfigSchema = z.preprocess(
+  migrateLegacyStorageConfig,
+  StorageConfigObjectSchema,
+)
 
 export type StorageConfig = z.infer<typeof StorageConfigSchema>
 

@@ -17,9 +17,10 @@ function adminRuntimeConfig() {
     },
     storage: {
       driver: "fs",
-      path: "storage",
-      clipsPath: null,
-      usersPath: null,
+      fs: {
+        clipsPath: "storage/clips",
+        usersPath: "storage/users",
+      },
       s3: {
         bucket: "",
         region: "us-east-1",
@@ -97,4 +98,27 @@ test("RuntimeConfigSchema accepts exported runtime config without admin fields",
   const parsed = RuntimeConfigSchema.parse(config)
 
   assert.equal(parsed.storage.driver, "fs")
+})
+
+test("RuntimeConfigSchema migrates the legacy storage path shape", () => {
+  const config = adminRuntimeConfig() as Record<string, unknown>
+  Reflect.deleteProperty(config, "authBaseURL")
+  Reflect.deleteProperty(config, "integrations")
+  config.storage = {
+    driver: "fs",
+    path: "media",
+    clipsPath: null,
+    usersPath: "ssd/users",
+    s3: {
+      bucket: "",
+      region: "us-east-1",
+      endpoint: null,
+      forcePathStyle: false,
+    },
+  }
+
+  const parsed = RuntimeConfigSchema.parse(config)
+
+  assert.equal(parsed.storage.fs.clipsPath, "media/clips")
+  assert.equal(parsed.storage.fs.usersPath, "ssd/users")
 })

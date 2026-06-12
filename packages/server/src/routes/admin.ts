@@ -218,6 +218,7 @@ export const adminRoute = new Hono()
     const {
       s3AccessKeyId,
       s3SecretAccessKey,
+      fs: fsPatch,
       s3: s3Patch,
       ...storagePatch
     } = patch
@@ -225,6 +226,10 @@ export const adminRoute = new Hono()
     const next = {
       ...current,
       ...storagePatch,
+      fs: {
+        ...current.fs,
+        ...fsPatch,
+      },
       s3: {
         ...current.s3,
         ...s3Patch,

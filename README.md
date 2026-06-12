@@ -207,11 +207,12 @@ Image tags:
 ### Storage
 
 Storage is configured during setup or from the admin settings. For filesystem
-storage, `path` is the canonical root and Alloy uses `clips` and `users`
-folders below it unless overrides are set. For S3-compatible storage, `path` is
-the canonical object prefix and uploads are presigned so browsers PUT directly
-to the bucket. Configure bucket CORS to allow the Alloy web origin to `PUT` with
-the `Content-Type` header.
+storage, Alloy keeps separate clip and user asset roots so operators can place
+large clip media and small profile assets on different disks. For S3-compatible
+storage, Alloy stores clip objects under the `clips/` prefix and user assets
+under the `users/` prefix in the configured bucket. Uploads are presigned so
+browsers PUT directly to the bucket. Configure bucket CORS to allow the Alloy
+web origin to `PUT` with the `Content-Type` header.
 
 ```json
 [

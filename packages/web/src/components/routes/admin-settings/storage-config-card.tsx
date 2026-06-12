@@ -28,9 +28,7 @@ import { FormGroup } from "./form-group"
 
 type StorageForm = {
   driver: AdminStorageConfig["driver"]
-  path: string
-  clipsPath: string
-  usersPath: string
+  fs: AdminStorageConfig["fs"]
   s3: AdminStorageConfig["s3"]
   s3AccessKeyId: string
   s3SecretAccessKey: string
@@ -49,16 +47,14 @@ type StorageConfigCardProps = {
 function formFromStorage(storage: AdminStorageConfig): StorageForm {
   return {
     driver: storage.driver,
-    path: storage.path,
-    clipsPath: storage.clipsPath ?? "",
-    usersPath: storage.usersPath ?? "",
+    fs: { ...storage.fs },
     s3: { ...storage.s3 },
     s3AccessKeyId: "",
     s3SecretAccessKey: "",
   }
 }
 
-function normalizeOptionalPath(value: string): string | null {
+function normalizeOptionalString(value: string): string | null {
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : null
 }
@@ -66,12 +62,11 @@ function normalizeOptionalPath(value: string): string | null {
 function isDirty(form: StorageForm, storage: AdminStorageConfig): boolean {
   return (
     form.driver !== storage.driver ||
-    form.path.trim() !== storage.path ||
-    normalizeOptionalPath(form.clipsPath) !== storage.clipsPath ||
-    normalizeOptionalPath(form.usersPath) !== storage.usersPath ||
+    form.fs.clipsPath.trim() !== storage.fs.clipsPath ||
+    form.fs.usersPath.trim() !== storage.fs.usersPath ||
     form.s3.bucket.trim() !== storage.s3.bucket ||
     form.s3.region.trim() !== storage.s3.region ||
-    normalizeOptionalPath(form.s3.endpoint ?? "") !== storage.s3.endpoint ||
+    normalizeOptionalString(form.s3.endpoint ?? "") !== storage.s3.endpoint ||
     form.s3.forcePathStyle !== storage.s3.forcePathStyle ||
     form.s3AccessKeyId.trim().length > 0 ||
     form.s3SecretAccessKey.trim().length > 0
@@ -82,13 +77,17 @@ function validateForm(
   form: StorageForm,
   storage: AdminStorageConfig,
 ): string | null {
-  if (!form.path.trim()) return "Storage path is required"
+  if (form.driver === "fs") {
+    if (!form.fs.clipsPath.trim()) return "Clips path is required"
+    if (!form.fs.usersPath.trim()) return "User assets path is required"
+    return null
+  }
   if (form.driver !== "s3") return null
   if (!form.s3.bucket.trim()) return "S3 bucket is required"
   if (!form.s3.region.trim()) return "S3 region is required"
-  if (form.s3.endpoint) {
+  if (form.s3.endpoint?.trim()) {
     try {
-      new URL(form.s3.endpoint)
+      new URL(form.s3.endpoint.trim())
     } catch {
       return "S3 endpoint must be a valid URL"
     }
@@ -134,6 +133,16 @@ export function StorageConfigCard({
     }))
   }
 
+  function setFs<K extends keyof AdminStorageConfig["fs"]>(
+    key: K,
+    value: AdminStorageConfig["fs"][K],
+  ) {
+    setForm((current) => ({
+      ...current,
+      fs: { ...current.fs, [key]: value },
+    }))
+  }
+
   function resetForm() {
     setForm(formFromStorage(storage))
   }
@@ -151,13 +160,14 @@ export function StorageConfigCard({
     try {
       const updated = await api.admin.updateStorageConfig({
         driver: form.driver,
-        path: form.path.trim(),
-        clipsPath: normalizeOptionalPath(form.clipsPath),
-        usersPath: normalizeOptionalPath(form.usersPath),
+        fs: {
+          clipsPath: form.fs.clipsPath.trim(),
+          usersPath: form.fs.usersPath.trim(),
+        },
         s3: {
           bucket: form.s3.bucket.trim(),
           region: form.s3.region.trim(),
-          endpoint: normalizeOptionalPath(form.s3.endpoint ?? ""),
+          endpoint: normalizeOptionalString(form.s3.endpoint ?? ""),
           forcePathStyle: form.s3.forcePathStyle,
         },
         ...(form.s3AccessKeyId.trim()
@@ -214,55 +224,42 @@ export function StorageConfigCard({
               </Field>
             </FormGroup>
 
-            <FormGroup
-              title="Canonical paths"
-              description={
-                form.driver === "s3"
-                  ? "Clips and users default to key prefixes under the storage prefix unless an override is set."
-                  : "Clips and users default to folders under the storage path unless an override is set."
-              }
-            >
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field>
-                  <FieldLabel htmlFor="storage-path" required>
-                    {form.driver === "s3" ? "Storage prefix" : "Storage path"}
-                  </FieldLabel>
-                  <Input
-                    id="storage-path"
-                    value={form.path}
-                    placeholder="storage"
-                    onChange={(e) => set("path", e.target.value)}
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="storage-clips-path">
-                    Clips path override
-                  </FieldLabel>
-                  <Input
-                    id="storage-clips-path"
-                    value={form.clipsPath}
-                    placeholder={`${form.path || "storage"}/clips`}
-                    onChange={(e) => set("clipsPath", e.target.value)}
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="storage-users-path">
-                    Users path override
-                  </FieldLabel>
-                  <Input
-                    id="storage-users-path"
-                    value={form.usersPath}
-                    placeholder={`${form.path || "storage"}/users`}
-                    onChange={(e) => set("usersPath", e.target.value)}
-                  />
-                </Field>
-              </div>
-            </FormGroup>
+            {form.driver === "fs" ? (
+              <FormGroup
+                title="Filesystem"
+                description="Clip media and user assets can live on separate disks."
+              >
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="storage-clips-path" required>
+                      Clips path
+                    </FieldLabel>
+                    <Input
+                      id="storage-clips-path"
+                      value={form.fs.clipsPath}
+                      placeholder="storage/clips"
+                      onChange={(e) => setFs("clipsPath", e.target.value)}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="storage-users-path" required>
+                      User assets path
+                    </FieldLabel>
+                    <Input
+                      id="storage-users-path"
+                      value={form.fs.usersPath}
+                      placeholder="storage/users"
+                      onChange={(e) => setFs("usersPath", e.target.value)}
+                    />
+                  </Field>
+                </div>
+              </FormGroup>
+            ) : null}
 
             {form.driver === "s3" ? (
               <FormGroup
                 title="S3"
-                description="Credentials are stored in server secrets and are not exported with runtime config."
+                description="Objects use clips/ and users/ prefixes. Credentials are stored in server secrets and are not exported with runtime config."
               >
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field>
