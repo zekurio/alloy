@@ -9,7 +9,6 @@ import {
   count,
   eq,
   ilike,
-  inArray,
   isNull,
   ne,
   notInArray,
@@ -19,6 +18,7 @@ import {
 } from "drizzle-orm"
 import { z } from "zod"
 
+import { publicClipPrivacyCondition } from "./clips-helpers"
 import { limitQueryParam, requiredTrimmedString } from "./validation"
 
 export const UsernameParam = z.object({ username: z.string().min(1) })
@@ -244,7 +244,7 @@ export async function selectProfileCounts(
     eq(clip.status, "ready"),
   ]
   if (!includeRestrictedClips) {
-    clipConditions.push(inArray(clip.privacy, ["public", "unlisted"]))
+    clipConditions.push(publicClipPrivacyCondition())
   }
 
   const [

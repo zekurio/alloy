@@ -25,7 +25,7 @@ import {
   notFound,
   steamGridDBStatus,
 } from "@alloy/server/runtime/http-response"
-import { and, desc, eq, inArray, isNull, type SQL, sql } from "drizzle-orm"
+import { and, desc, eq, isNull, type SQL, sql } from "drizzle-orm"
 import { type Context, Hono } from "hono"
 
 import {
@@ -34,7 +34,6 @@ import {
   clipListPage,
   parseClipListCursor,
   publicClipPrivacyCondition,
-  shareableClipPrivacyCondition,
 } from "./clips-helpers"
 import {
   ClipsQuery,
@@ -155,7 +154,7 @@ export const gamesRoute = new Hono()
       .where(
         and(
           eq(clip.status, "ready"),
-          inArray(clip.privacy, ["public", "unlisted"]),
+          publicClipPrivacyCondition(),
           isNull(user.disabledAt),
         ),
       )
@@ -289,9 +288,7 @@ export const gamesRoute = new Hono()
       const conditions: SQL[] = [
         eq(clip.steamgriddbId, steamgriddbId),
         eq(clip.status, "ready"),
-        sort === "top"
-          ? publicClipPrivacyCondition()
-          : shareableClipPrivacyCondition(),
+        publicClipPrivacyCondition(),
         isNull(user.disabledAt),
       ]
       const cursorCondition = clipListCursorCondition(parsedCursor, sort)

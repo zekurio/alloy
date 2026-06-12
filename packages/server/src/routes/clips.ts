@@ -25,7 +25,6 @@ import {
   ListQuery,
   parseClipListCursor,
   publicClipPrivacyCondition,
-  shareableClipPrivacyCondition,
   WINDOW_MS,
 } from "./clips-helpers"
 import { clipsPlaybackRoutes } from "./clips-playback"
@@ -42,9 +41,7 @@ export const clips = new Hono()
 
     const conditions: SQL[] = [
       eq(clip.status, "ready"),
-      sort === "top"
-        ? publicClipPrivacyCondition()
-        : shareableClipPrivacyCondition(),
+      publicClipPrivacyCondition(),
       isNull(user.disabledAt),
     ]
     if (window && window !== "all") {

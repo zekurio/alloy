@@ -9,7 +9,7 @@ import { clip, CLIP_PRIVACY } from "@alloy/db/schema"
 import { toPublicClipRow } from "@alloy/server/clips/select"
 import { requiredSql } from "@alloy/server/db/sql"
 import { isoDate } from "@alloy/server/runtime/date"
-import { and, desc, eq, inArray, lt, or, type SQL, sql } from "drizzle-orm"
+import { and, desc, eq, lt, or, type SQL, sql } from "drizzle-orm"
 import { z } from "zod"
 
 import {
@@ -85,12 +85,9 @@ type ClipListPageRow = ClipListCursorRow & {
   game: string | null
 }
 
+// "unlisted" is link-only: it must never satisfy a listing/discovery filter.
 export function publicClipPrivacyCondition(): SQL {
   return eq(clip.privacy, "public")
-}
-
-export function shareableClipPrivacyCondition(): SQL {
-  return inArray(clip.privacy, ["public", "unlisted"])
 }
 
 function parseLegacyClipListCursor(value: string): ParsedClipListCursor | null {
