@@ -229,7 +229,6 @@ function ClipMeta({
             <HeartIcon className={cn(liked && "fill-current")} />
             <span className="tabular-nums">{formatCount(likes)}</span>
           </Button>
-          {downloadAction}
           <Button
             variant="ghost"
             size="icon-sm"
@@ -238,7 +237,7 @@ function ClipMeta({
           >
             <Share2Icon />
           </Button>
-          {canManage ? (
+          {canManage || !!downloadAction ? (
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
@@ -252,17 +251,23 @@ function ClipMeta({
                 }
               />
               <DropdownMenuContent align="end" className="min-w-[150px]">
-                <DropdownMenuItem onClick={onEdit}>
-                  <PencilIcon /> Edit
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  variant="destructive"
-                  disabled={deleting}
-                  onClick={() => setDeleteDialogOpen(true)}
-                >
-                  <Trash2Icon /> Delete
-                </DropdownMenuItem>
+                {downloadAction}
+                {canManage && downloadAction ? <DropdownMenuSeparator /> : null}
+                {canManage ? (
+                  <>
+                    <DropdownMenuItem onClick={onEdit}>
+                      <PencilIcon /> Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      disabled={deleting}
+                      onClick={() => setDeleteDialogOpen(true)}
+                    >
+                      <Trash2Icon /> Delete
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null}

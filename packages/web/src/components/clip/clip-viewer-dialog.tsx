@@ -28,7 +28,10 @@ import { formatCount } from "@/lib/number-format"
 import { userAvatar } from "@/lib/user-display"
 
 import { ClipComments } from "./clip-comments"
-import { ClipDownloadIconButton } from "./clip-download-button"
+import {
+  clipDownloadActionSupported,
+  ClipDownloadMenuItem,
+} from "./clip-download-button"
 import {
   type ClipListEntry,
   setActiveClipList,
@@ -325,7 +328,14 @@ function ClipViewerDialogBody({
               description={row.description}
               mentions={row.mentions ?? []}
               tags={row.tags}
-              downloadAction={<ClipDownloadIconButton row={row} />}
+              downloadAction={
+                // Gate on support here: ClipMeta shows its "…" menu whenever
+                // a download action exists, and an always-truthy element
+                // would leave non-owners on the web with an empty menu.
+                clipDownloadActionSupported(row) ? (
+                  <ClipDownloadMenuItem row={row} />
+                ) : undefined
+              }
               uploader={{
                 handle,
                 name: author,

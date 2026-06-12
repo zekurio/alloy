@@ -7,6 +7,12 @@ import {
 } from "@alloy/api"
 import { Button } from "@alloy/ui/components/button"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@alloy/ui/components/dropdown-menu"
+import {
   Tabs,
   TabsContent,
   TabsCount,
@@ -14,13 +20,23 @@ import {
   TabsTrigger,
 } from "@alloy/ui/components/tabs"
 import { toast } from "@alloy/ui/lib/toast"
-import { SaveIcon, Trash2Icon } from "lucide-react"
+import {
+  ChevronUpIcon,
+  GlobeIcon,
+  Link2Icon,
+  SaveIcon,
+  Trash2Icon,
+  UndoIcon,
+} from "lucide-react"
 import * as React from "react"
 
 import { ClipComments } from "@/components/clip/clip-comments"
 import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
+import { absoluteClipHref } from "@/lib/app-paths"
 import { normalizeClipDescription, normalizeClipTitle } from "@/lib/clip-fields"
 import { useUpdateClipMutation } from "@/lib/clip-queries"
+import { copyTextToClipboard } from "@/lib/clipboard"
+import { publicOrigin } from "@/lib/env"
 
 /** Shared by the tabs container and the details form it hosts. */
 interface ClipDetailsProps {
@@ -111,7 +127,6 @@ function ClipDetailsForm({
 }: ClipDetailsProps) {
   const [title, setTitle] = React.useState(row.title)
   const [description, setDescription] = React.useState(row.description ?? "")
-  const [privacy, setPrivacy] = React.useState<ClipPrivacy>(row.privacy)
   const [game, setGame] = React.useState<GameRow | null>(() =>
     gameRowFromRef(row),
   )
@@ -130,7 +145,6 @@ function ClipDetailsForm({
 
   const titleChanged = trimmedTitle !== row.title && trimmedTitle.length > 0
   const descriptionChanged = trimmedDescription !== currentDescription.trim()
-  const privacyChanged = privacy !== row.privacy
   const gameChanged = (game?.id ?? null) !== (row.gameRef?.id ?? null)
   const mentionsChanged = !sameIdSet(mentionIds, originalMentionIds)
   const tagsChanged = !sameIdSet(tags, row.tags)
@@ -138,18 +152,51 @@ function ClipDetailsForm({
   const dirty =
     titleChanged ||
     descriptionChanged ||
-    privacyChanged ||
     gameChanged ||
     mentionsChanged ||
     tagsChanged
   const titleInvalid = trimmedTitle.length === 0
+
+  // Visibility changes save immediately from the publish dropdown — they're
+  // an action ("Post" / "Unpost"), not a draft field like the rest of the form.
+  const setClipPrivacy = (privacy: ClipPrivacy) => {
+    if (saving || privacy === row.privacy) return
+    mutation.mutate(
+      { clipId: row.id, input: { privacy } },
+      {
+        onSuccess: () =>
+          toast.success(
+            privacy === "public"
+              ? "Posted to your profile"
+              : "Removed from your profile",
+          ),
+        onError: () => toast.error("Couldn't update visibility"),
+      },
+    )
+  }
+
+  const copyLink = async () => {
+    const slug = row.gameRef?.slug
+    if (!slug) {
+      toast.error("Couldn't copy the clip link")
+      return
+    }
+    const copied = await copyTextToClipboard(
+      absoluteClipHref(slug, row.id, publicOrigin()),
+      { action: "copy clip link" },
+    )
+    if (copied) {
+      toast.success("Link copied to clipboard")
+    } else {
+      toast.error("Couldn't copy the clip link")
+    }
+  }
 
   const handleSave = () => {
     if (!dirty || titleInvalid || saving) return
     const input: Parameters<typeof mutation.mutate>[0]["input"] = {}
     if (titleChanged) input.title = trimmedTitle
     if (descriptionChanged) input.description = trimmedDescription
-    if (privacyChanged) input.privacy = privacy
     if (gameChanged && game) input.steamgriddbId = game.steamgriddbId
     if (mentionsChanged) input.mentionedUserIds = mentionIds
     if (tagsChanged) input.tags = tags
@@ -173,8 +220,6 @@ function ClipDetailsForm({
         onGameChange={setGame}
         mentions={mentions}
         onMentionsChange={setMentions}
-        privacy={privacy}
-        onPrivacyChange={setPrivacy}
         tags={tags}
         onTagsChange={setTags}
         disabled={saving || !canManage}
@@ -192,15 +237,63 @@ function ClipDetailsForm({
             <Trash2Icon />
             Delete
           </Button>
-          <Button
-            type="button"
-            variant="primary"
-            disabled={!dirty || titleInvalid || saving}
-            onClick={handleSave}
-          >
-            <SaveIcon />
-            {saving ? "Saving…" : "Save"}
-          </Button>
+          <div className="flex items-center">
+            <Button
+              type="button"
+              variant="primary"
+              disabled={!dirty || titleInvalid || saving}
+              className="rounded-r-none"
+              onClick={handleSave}
+            >
+              <SaveIcon />
+              {saving ? "Saving…" : "Save"}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="icon"
+                    disabled={saving || deleting}
+                    aria-label="More clip options"
+                    className="border-l-accent-hover rounded-l-none"
+                  />
+                }
+              >
+                <ChevronUpIcon />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" side="top" className="w-52">
+                {row.privacy === "public" ? (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setClipPrivacy("unlisted")
+                    }}
+                  >
+                    <UndoIcon className="size-4" />
+                    Unpost from Profile
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setClipPrivacy("public")
+                    }}
+                  >
+                    <GlobeIcon className="size-4" />
+                    Post to Profile
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem
+                  onClick={() => {
+                    void copyLink()
+                  }}
+                >
+                  <Link2Icon className="size-4" />
+                  Copy Link
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       ) : null}
     </>
