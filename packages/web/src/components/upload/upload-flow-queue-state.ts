@@ -14,6 +14,14 @@ import {
   useUploadQueueQuery,
 } from "@/lib/clip-queries"
 import { removeUploadQueueClip } from "@/lib/clip-queue-stream"
+import {
+  cancelClipSyncItem,
+  clipSyncSupported,
+  pauseClipSync,
+  resumeClipSync,
+  retryClipSyncItem,
+  useClipSync,
+} from "@/lib/clip-sync"
 import { copyTextToClipboard } from "@/lib/clipboard"
 import { alloyDesktop, notifyLibraryCapturesChanged } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
@@ -26,6 +34,7 @@ import {
   downloadToQueueItem,
   localToQueueItem,
   serverToQueueItem,
+  syncToQueueItem,
 } from "./upload-queue-mapping"
 import { useDismissedClips } from "./use-dismissed-clips"
 
@@ -336,6 +345,7 @@ export function useUploadQueueState(
   const runUpload = useRunUpload(activeRef, retainedThumbsRef, bump)
   const cancelRow = useCancelRow(activeRef, retainedThumbsRef, bump)
   const downloads = useClipDownloads()
+  const sync = useClipSync()
   const releaseRetainedThumb = React.useCallback(
     (clipId: string) => {
       const retained = retainedThumbsRef.current.get(clipId)
@@ -359,6 +369,21 @@ export function useUploadQueueState(
     const fromLocal = localEntries.map((e) =>
       localToQueueItem(e, () => cancelRow(e.localId, e.clipId ?? null)),
     )
+    // Desktop sync queue (auto-sync after gaming). Once an item finalizes,
+    // its server queue row tells the rest of the story — drop the sync row.
+    const serverIds = new Set(serverQueue.map((row) => row.id))
+    const fromSync = sync.items
+      .filter(
+        (item) =>
+          !(item.clipId && serverIds.has(item.clipId)) &&
+          item.status !== "completed",
+      )
+      .map((item) =>
+        syncToQueueItem(item, sync.paused, sync.blockedReason, {
+          onCancel: () => cancelClipSyncItem(item.captureId),
+          onRetry: () => retryClipSyncItem(item.captureId),
+        }),
+      )
     const fromServer = serverQueue
       .filter((row) => !localClipIds.has(row.id) && !dismissed.has(row.id))
       .map((row) =>
@@ -396,10 +421,11 @@ export function useUploadQueueState(
             : undefined,
       }),
     )
-    return [...fromDownloads, ...fromLocal, ...fromServer]
+    return [...fromDownloads, ...fromSync, ...fromLocal, ...fromServer]
   }, [
     serverQueue,
     downloads,
+    sync,
     cancelRow,
     onOpenClip,
     dismissed,
@@ -408,8 +434,26 @@ export function useUploadQueueState(
   ])
 
   const activeCount = queue.filter(
-    (q) => !isCompletedQueueStatus(q.status) && q.status !== "failed",
+    (q) =>
+      !isCompletedQueueStatus(q.status) &&
+      q.status !== "failed" &&
+      q.status !== "paused",
   ).length
+
+  const onToggleSyncPause = React.useCallback(() => {
+    if (sync.paused) {
+      resumeClipSync()
+    } else {
+      pauseClipSync()
+    }
+  }, [sync.paused])
+
+  // Show the pause control whenever the desktop sync queue is in play: it
+  // has items, or it's paused (so it can be resumed even when drained).
+  const syncPaused =
+    clipSyncSupported() && (sync.items.length > 0 || sync.paused)
+      ? sync.paused
+      : null
 
   const clearCompleted = React.useCallback(() => {
     const readyIds = serverQueue
@@ -429,6 +473,8 @@ export function useUploadQueueState(
     queue,
     activeCount,
     clearCompleted,
+    syncPaused,
+    onToggleSyncPause,
     isQueueLoading: queueOpen && !serverQueueHydrated && !queueStreamFailed,
     isQueueUnavailable: queueOpen && !serverQueueHydrated && queueStreamFailed,
   }

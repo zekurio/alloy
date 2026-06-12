@@ -2,6 +2,7 @@ import type { RecordingSettings } from "./desktop-recording-types"
 
 export const DEFAULT_RECORDING_SETTINGS: RecordingSettings = {
   enabled: false,
+  autoSyncAfterGaming: true,
   captureMode: "game",
   selectedDisplayId: "",
   longRecording: {

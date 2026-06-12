@@ -8,7 +8,11 @@ export const CLIP_MEDIA_CLASS =
 // Rounds a media frame and everything stacked inside it (still + video) in one
 // pass. A plain border-radius + overflow-hidden lets Chromium paint promoted
 // video layers past the rounded corners; clipping the frame itself holds them in.
+// The clip-path alone rasterizes without antialiasing, so promoted layers
+// (blurhash canvas, preview video) show stepped corner pixels — `isolate` +
+// rounded overflow on the same element gives them the antialiased clip, with
+// the clip-path kept as the hard backstop.
 export const CLIP_MEDIA_ROUNDED_CLASS =
-  "[clip-path:inset(0_round_var(--radius-md))]"
+  "isolate overflow-hidden rounded-md [clip-path:inset(0_round_var(--radius-md))]"
 
 export const CLIP_VIDEO_MEDIA_CLASS = `${CLIP_MEDIA_CLASS} [clip-path:inset(1px)]`

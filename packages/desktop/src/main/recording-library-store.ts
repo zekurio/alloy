@@ -29,6 +29,7 @@ import {
   pruneStaleThumbnails,
   warmRecordingThumbnail,
 } from "./recording-library-thumbnails"
+import { activeSessionIdForGame } from "./recording-session-tracker"
 import { currentOutputFolder } from "./recording-storage"
 
 export function rememberRecordingLibraryCapture(
@@ -52,6 +53,8 @@ export function rememberRecordingLibraryCapture(
     height: capture.height,
     createdAt: capture.createdAt,
     updatedAt: new Date().toISOString(),
+    gameSessionId:
+      existing?.gameSessionId ?? activeSessionIdForGame(capture.game),
   }
   writeCaptureManifest(manifest)
   warmRecordingThumbnail(capture)

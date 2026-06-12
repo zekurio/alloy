@@ -22,10 +22,13 @@ import {
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import {
+  CloudAlertIcon,
   CloudCheckIcon,
-  CloudIcon,
+  CloudUploadIcon,
   DownloadIcon,
   FolderOpenIcon,
+  GlobeIcon,
+  Link2Icon,
   MonitorIcon,
   MoreVerticalIcon,
   PencilIcon,
@@ -37,6 +40,7 @@ import { useClipDownloadAction } from "@/components/clip/clip-download-button"
 import { useCapturePoster } from "@/lib/capture-poster"
 import { toClipCardData } from "@/lib/clip-format"
 import { useDeleteClipMutation } from "@/lib/clip-queries"
+import { useClipSync } from "@/lib/clip-sync"
 import { formatRelativeTime } from "@/lib/date-format"
 import {
   alloyDesktop,
@@ -63,6 +67,7 @@ export function LibraryCaptureCard({
     durationMs: item.durationMs,
     enabled: item.kind !== "screenshot",
   })
+  const { source, progressPct } = useCaptureSyncSource(item)
 
   return (
     <ClipCard
@@ -100,13 +105,60 @@ export function LibraryCaptureCard({
       onThumbnailClick={onOpen}
       metaContent={
         <LibraryCardMeta
-          source="local"
+          source={source}
+          progressPct={progressPct}
           sizeBytes={item.sizeBytes}
           createdAt={item.createdAt}
         />
       }
     />
   )
+}
+
+/**
+ * Sync badge for a local capture card. The snapshot's syncState covers the
+ * resting states; the live sync queue overrides it between library re-scans
+ * and supplies the in-flight percentage.
+ */
+function useCaptureSyncSource(item: LibraryItemView): {
+  source: LibrarySource
+  progressPct: number | null
+} {
+  const sync = useClipSync()
+  const live = sync.items.find((entry) => entry.captureId === item.id)
+  if (live) {
+    switch (live.status) {
+      case "queued":
+        return { source: "queued", progressPct: null }
+      case "failed":
+        return { source: "sync-failed", progressPct: null }
+      case "completed":
+        return { source: "synced", progressPct: null }
+      default:
+        return {
+          source: "syncing",
+          progressPct:
+            live.status === "uploading" && live.totalBytes > 0
+              ? Math.min(
+                  99,
+                  Math.floor((live.bytesSent / live.totalBytes) * 100),
+                )
+              : null,
+        }
+    }
+  }
+  switch (item.syncState) {
+    case "queued":
+      return { source: "queued", progressPct: null }
+    case "syncing":
+      return { source: "syncing", progressPct: null }
+    case "failed":
+      return { source: "sync-failed", progressPct: null }
+    case "synced":
+      return { source: "synced", progressPct: null }
+    default:
+      return { source: "local", progressPct: null }
+  }
 }
 
 /** Grid card for an unfinished multitrack project saved from the editor. */
@@ -167,8 +219,26 @@ function LibraryDraftMeta({
   )
 }
 
+type LibrarySource =
+  | "local"
+  | "synced"
+  | "link-only"
+  | "on-profile"
+  | "queued"
+  | "syncing"
+  | "sync-failed"
+
+/** How visible a server-backed clip is, mirroring the privacy picker icons. */
+export function librarySourceForPrivacy(
+  privacy: "public" | "unlisted" | "private",
+): LibrarySource {
+  if (privacy === "public") return "on-profile"
+  if (privacy === "unlisted") return "link-only"
+  return "synced"
+}
+
 const SOURCE_META: Record<
-  "local" | "cloud" | "both",
+  LibrarySource,
   {
     icon: React.ComponentType<{ className?: string }>
     label: string
@@ -176,19 +246,39 @@ const SOURCE_META: Record<
   }
 > = {
   local: { icon: MonitorIcon, label: "On Device" },
-  cloud: { icon: CloudIcon, label: "Server" },
-  // A capture that lives on disk and on the server — surfaced as one synced
-  // entry rather than spelling out both locations.
-  both: { icon: CloudCheckIcon, label: "Synced", className: "text-success" },
+  // Server-backed clips badge by visibility, not location: a private clip is
+  // just a backup, an unlisted one is shared via its link, a public one is
+  // live on the profile/feeds.
+  synced: { icon: CloudCheckIcon, label: "Synced" },
+  "link-only": { icon: Link2Icon, label: "Link only" },
+  "on-profile": { icon: GlobeIcon, label: "On profile" },
+  // Positions in the desktop sync queue (auto-sync after gaming).
+  queued: { icon: CloudUploadIcon, label: "Queued" },
+  syncing: {
+    icon: CloudUploadIcon,
+    label: "Syncing",
+    className: "text-accent",
+  },
+  "sync-failed": {
+    icon: CloudAlertIcon,
+    label: "Sync failed",
+    className: "text-destructive",
+  },
 }
 
 /** Shared meta line for library cards: source · size · age. */
 function LibraryCardMeta({
   source,
+  progressPct = null,
+  originDeviceName = null,
   sizeBytes,
   createdAt,
 }: {
-  source: "local" | "cloud" | "both"
+  source: LibrarySource
+  /** In-flight sync percentage shown next to the "Syncing" label. */
+  progressPct?: number | null
+  /** Device that uploaded the clip, shown on cloud rows ("From X"). */
+  originDeviceName?: string | null
   sizeBytes: number | null
   createdAt: string
 }) {
@@ -199,7 +289,16 @@ function LibraryCardMeta({
       <span className={cn("flex shrink-0 items-center gap-1", className)}>
         <SourceIcon className="size-3.5" />
         {label}
+        {progressPct !== null ? (
+          <span className="tabular-nums">{progressPct}%</span>
+        ) : null}
       </span>
+      {originDeviceName ? (
+        <>
+          <span className="shrink-0">·</span>
+          <span className="truncate">From {originDeviceName}</span>
+        </>
+      ) : null}
       {hasSize ? (
         <>
           <span className="shrink-0">·</span>
@@ -246,7 +345,8 @@ export function UploadedClipCard({
       }
       metaContent={
         <LibraryCardMeta
-          source={alsoLocal ? "both" : "cloud"}
+          source={librarySourceForPrivacy(row.privacy)}
+          originDeviceName={alsoLocal ? null : row.originDeviceName}
           sizeBytes={row.sourceSizeBytes}
           createdAt={row.createdAt}
         />

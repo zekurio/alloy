@@ -44,6 +44,16 @@ export const ACCEPTED_CLIP_CONTENT_TYPES = ["video/mp4"] as const
 
 export type AcceptedContentType = (typeof ACCEPTED_CLIP_CONTENT_TYPES)[number]
 
+// Poster uploads. The renderer ships webp; the desktop sync engine ships the
+// JPEG poster it already has cached. The server republishes both as webp.
+export const ACCEPTED_THUMB_CONTENT_TYPES = [
+  "image/webp",
+  "image/jpeg",
+] as const
+
+export type AcceptedThumbContentType =
+  (typeof ACCEPTED_THUMB_CONTENT_TYPES)[number]
+
 export interface UploadTicket {
   uploadUrl: string
   method: "PUT" | "POST"

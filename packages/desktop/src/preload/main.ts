@@ -51,6 +51,15 @@ const recording: AlloyDesktopRecordingApi = {
     ipcRenderer.invoke(IPC.cancelRecordingLibraryClipDownload, clipId),
   listClipDownloads: () =>
     ipcRenderer.invoke(IPC.listRecordingLibraryClipDownloads),
+  getSync: () => ipcRenderer.invoke(IPC.getRecordingLibrarySync),
+  pauseSync: () => ipcRenderer.invoke(IPC.pauseRecordingLibrarySync),
+  resumeSync: () => ipcRenderer.invoke(IPC.resumeRecordingLibrarySync),
+  cancelSyncItem: (captureId) =>
+    ipcRenderer.invoke(IPC.cancelRecordingLibrarySyncItem, captureId),
+  retrySyncItem: (captureId) =>
+    ipcRenderer.invoke(IPC.retryRecordingLibrarySyncItem, captureId),
+  queueSyncItem: (captureId) =>
+    ipcRenderer.invoke(IPC.queueRecordingLibrarySyncItem, captureId),
   onEvent: (listener) => {
     const handler = (_event: unknown, event: unknown) => {
       listener(event as Parameters<typeof listener>[0])

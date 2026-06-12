@@ -7,9 +7,11 @@ import {
   assetCacheProtocolScheme,
   registerAssetCacheProtocol,
 } from "./asset-cache"
+import { ensureDeviceRegistered } from "./device-identity"
 import { registerIpc } from "./ipc"
 import {
   configureRecordingBackend,
+  onRecordingEvent,
   shutdownRecordingBackend,
   stopRecording,
 } from "./recording"
@@ -22,7 +24,12 @@ import {
   recordingLibraryProtocolScheme,
   registerRecordingLibraryProtocol,
 } from "./recording-library"
+import {
+  kickRecordingLibrarySync,
+  registerRecordingLibrarySync,
+} from "./recording-library-sync"
 import { destroyRecordingNotificationSoundPlayer } from "./recording-notification-sounds"
+import { registerRecordingSessionTracking } from "./recording-session-tracker"
 import { getStartupServerUrl } from "./server-store"
 import { hasValidSession } from "./session"
 import { createAlloyTray } from "./tray"
@@ -67,6 +74,10 @@ if (!app.requestSingleInstanceLock()) {
     cleanupLegacyFilmstripCache()
 
     registerIpc(windows)
+    // Session tracking and the sync queue must be listening before the
+    // sidecar starts emitting game events.
+    registerRecordingSessionTracking(onRecordingEvent)
+    registerRecordingLibrarySync()
     configureRecordingHotkeys()
     // Push settings to the recording sidecar once at startup so background
     // capture and hotkeys work before any window asks for recording state.
@@ -128,6 +139,10 @@ async function openInitialWindow(windows: Windows): Promise<void> {
   const startupServerUrl = getStartupServerUrl()
   if (startupServerUrl && (await hasValidSession(startupServerUrl))) {
     windows.connectTo(startupServerUrl)
+    // Signed in: refresh this device's registration and drain any sync
+    // items left over from the previous run.
+    void ensureDeviceRegistered(startupServerUrl).catch(() => undefined)
+    kickRecordingLibrarySync()
     return
   }
 

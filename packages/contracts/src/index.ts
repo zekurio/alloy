@@ -1,5 +1,6 @@
 export * from "./admin"
 export * from "./content"
 export * from "./desktop-recording"
+export * from "./devices"
 export * from "./shared"
 export * from "./tags"
