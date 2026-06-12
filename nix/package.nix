@@ -3,6 +3,7 @@
   stdenvNoCC,
   fetchPnpmDeps,
   nodejs_24,
+  nodejs-slim_24,
   pnpm,
   pnpmConfigHook,
   makeWrapper,
@@ -33,6 +34,12 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     makeWrapper
   ];
 
+  # Nothing in the shipped node_modules is executed via shebang (node only
+  # requires the libraries), and patching would re-point #!/usr/bin/env node
+  # CLI scripts at the full build-time nodejs, dragging its -dev closure
+  # into the runtime image.
+  dontPatchShebangs = true;
+
   buildPhase = ''
     runHook preBuild
 
@@ -50,44 +57,29 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   installPhase = ''
     runHook preInstall
 
-    mkdir -p "$out/bin" "$out/share/alloy/server/node_modules" "$out/share/alloy/web"
-    cp -R packages/server/dist packages/server/package.json "$out/share/alloy/server/"
-    cp -R node_modules/.pnpm "$out/share/alloy/server/node_modules/.pnpm"
-    rm -rf "$out/share/alloy/server/node_modules/.pnpm/node_modules/@alloy"
+    mkdir -p "$out/share/alloy/server"
+    cp -R packages/server/dist "$out/share/alloy/server/dist"
+    cp packages/server/package.json "$out/share/alloy/server/"
 
-    linkNodeModule() {
-      local name="$1"
-      local src="packages/server/node_modules/$name"
-      local dest="$out/share/alloy/server/node_modules/$name"
-      local target
-      target="$(readlink "$src")"
-      target="$out/share/alloy/server/node_modules/.pnpm/''${target#*node_modules/.pnpm/}"
-      mkdir -p "$(dirname "$dest")"
-      ln -s "$target" "$dest"
-    }
+    # Ship only the runtime closure of the server's external dependencies
+    # instead of the whole workspace store (which would include
+    # devDependencies like electron and vite). pnpm deploy cannot do this
+    # offline in the build sandbox, so the closure is walked directly.
+    node scripts/prune-server-node-modules.mjs . "$out/share/alloy/server"
 
-    for name in \
-      @aws-sdk/client-s3 \
-      @aws-sdk/s3-request-presigner \
-      @hono/node-server \
-      @hono/zod-validator \
-      @simplewebauthn/server \
-      blurhash \
-      drizzle-orm \
-      hono \
-      mediabunny \
-      openid-client \
-      pg \
-      sharp \
-      zod
-    do
-      linkNodeModule "$name"
+    # pnpmConfigHook patches node_modules shebangs to the build-time nodejs;
+    # re-point them at the slim runtime so the full nodejs (and its -dev
+    # closure) stays out of the runtime closure.
+    grep -IRl "${nodejs_24}" "$out/share/alloy/server/node_modules" | while IFS= read -r file; do
+      sed -i "s|${nodejs_24}|${nodejs-slim_24}|g" "$file"
     done
 
-    cp -R packages/web/dist/* "$out/share/alloy/web/"
+    cp -R packages/web/dist "$out/share/alloy/web"
     cp -R packages/db/drizzle "$out/share/alloy/migrations"
 
-    makeWrapper "${nodejs_24}/bin/node" "$out/bin/alloy" \
+    # Run on nodejs-slim: the full nodejs package retains node-gyp headers
+    # and their -dev closures, which the server never needs at runtime.
+    makeWrapper "${nodejs-slim_24}/bin/node" "$out/bin/alloy" \
       --add-flags "$out/share/alloy/server/dist/index.js" \
       --set-default NODE_ENV production \
       --set-default WEB_DIST_DIR "$out/share/alloy/web" \
