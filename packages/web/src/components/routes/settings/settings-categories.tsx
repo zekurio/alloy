@@ -268,15 +268,14 @@ const ALL_CATEGORIES: SettingsCategory[] = [
     id: "storage-backend",
     label: "Storage",
     title: "Storage backend",
-    description:
-      "Configure filesystem or S3 storage paths for clips and users.",
+    description: "Configure filesystem roots or an S3 bucket for assets.",
     keywords: [
       "filesystem",
       "s3",
       "bucket",
       "clip storage",
       "user assets",
-      "storage path",
+      "storage paths",
     ],
     icon: DatabaseIcon,
     group: "admin",

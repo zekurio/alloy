@@ -37,7 +37,10 @@ let
   serverExternalWritePaths = lib.unique (
     lib.optionals (managedStateDirectory == null) [ cfg.stateDir ]
     ++ lib.optionals (!(pathIsUnder cfg.stateDir configDir)) [ configDir ]
-    ++ lib.optionals (!(pathIsUnder cfg.stateDir cfg.storageDir)) [ cfg.storageDir ]
+    ++ lib.optionals (!(pathIsUnder cfg.stateDir cfg.clipsStorageDir)) [ cfg.clipsStorageDir ]
+    ++ lib.optionals (!(pathIsUnder cfg.stateDir cfg.userAssetsStorageDir)) [
+      cfg.userAssetsStorageDir
+    ]
   );
   isDatabaseUnixSocket = lib.hasPrefix "/" cfg.database.host;
   databaseConnectHost =
@@ -55,9 +58,10 @@ let
   bootstrapRuntimeConfig = lib.recursiveUpdate {
     storage = {
       driver = "fs";
-      path = toString cfg.storageDir;
-      clipsPath = null;
-      usersPath = null;
+      fs = {
+        clipsPath = toString cfg.clipsStorageDir;
+        usersPath = toString cfg.userAssetsStorageDir;
+      };
       s3 = {
         bucket = "";
         region = "us-east-1";
@@ -101,7 +105,8 @@ in
     (lib.mkRemovedOptionModule [ "services" "alloy-clips" "cacheDir" ] ''
       Alloy now keeps temporary media work/cache files in the OS temp area.
       Configure durable clip and user asset storage through Alloy runtime
-      config; services.alloy-clips.storageDir only seeds that config on first
+      config; services.alloy-clips.clipsStorageDir and
+      services.alloy-clips.userAssetsStorageDir only seed that config on first
       boot.
     '')
   ]
@@ -191,8 +196,30 @@ in
       default = "${config.services.alloy-clips.stateDir}/storage";
       defaultText = lib.literalExpression ''"\${config.services.alloy-clips.stateDir}/storage"'';
       description = ''
-        Filesystem storage root used to seed Alloy runtime config on first
+        Parent directory used by default for clipsStorageDir and
+        userAssetsStorageDir. Existing config.json files are not rewritten.
+      '';
+    };
+
+    clipsStorageDir = lib.mkOption {
+      type = lib.types.path;
+      default = "${config.services.alloy-clips.storageDir}/clips";
+      defaultText = lib.literalExpression ''"\${config.services.alloy-clips.storageDir}/clips"'';
+      description = ''
+        Filesystem clip storage root used to seed Alloy runtime config on first
         boot. If this is outside stateDir, create it manually and make it
+        writable by the Alloy service user. Existing config.json files are not
+        rewritten.
+      '';
+    };
+
+    userAssetsStorageDir = lib.mkOption {
+      type = lib.types.path;
+      default = "${config.services.alloy-clips.storageDir}/users";
+      defaultText = lib.literalExpression ''"\${config.services.alloy-clips.storageDir}/users"'';
+      description = ''
+        Filesystem user asset storage root used to seed Alloy runtime config on
+        first boot. If this is outside stateDir, create it manually and make it
         writable by the Alloy service user. Existing config.json files are not
         rewritten.
       '';
@@ -310,8 +337,11 @@ in
 
     networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [ cfg.port ];
 
-    systemd.tmpfiles.rules = lib.optional (!(pathIsUnder cfg.stateDir cfg.storageDir))
-      "e ${cfg.storageDir} 0750 ${cfg.user} ${cfg.group} - -";
+    systemd.tmpfiles.rules =
+      lib.optional (!(pathIsUnder cfg.stateDir cfg.clipsStorageDir))
+        "e ${cfg.clipsStorageDir} 0750 ${cfg.user} ${cfg.group} - -"
+      ++ lib.optional (!(pathIsUnder cfg.stateDir cfg.userAssetsStorageDir))
+        "e ${cfg.userAssetsStorageDir} 0750 ${cfg.user} ${cfg.group} - -";
 
     systemd.services.alloy-clips = {
       description = "Alloy clip sharing server";

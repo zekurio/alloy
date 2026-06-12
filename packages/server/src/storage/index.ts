@@ -5,7 +5,7 @@ import { env } from "@alloy/server/env"
 import type { StorageDriver } from "./driver"
 import { FsStorageDriver } from "./fs-driver"
 import {
-  configuredStoragePath,
+  configuredFilesystemStoragePath,
   filesystemStorageRoot,
   objectStoragePrefix,
   type StorageNamespace,
@@ -34,12 +34,14 @@ class ConfiguredStorageDriver implements StorageDriver {
 
   private driver(): StorageDriver {
     const storage = configStore.get("storage")
-    const path = configuredStoragePath(storage, this.namespace)
+    const fsPath = configuredFilesystemStoragePath(storage.fs, this.namespace)
+    const prefix = objectStoragePrefix(this.namespace)
     const credentials = secretStore.storageS3Credentials()
     const cacheKey = JSON.stringify({
       namespace: this.namespace,
       driver: storage.driver,
-      path,
+      fsPath,
+      prefix,
       s3: storage.s3,
       credentials,
     })
@@ -52,13 +54,13 @@ class ConfiguredStorageDriver implements StorageDriver {
       storage.driver === "s3"
         ? new S3StorageDriver({
             ...storage.s3,
-            prefix: objectStoragePrefix(path),
+            prefix,
             credentials:
               credentials ??
               missingS3Credentials(this.namespace, storage.s3.bucket),
           })
         : new FsStorageDriver({
-            root: filesystemStorageRoot(path),
+            root: filesystemStorageRoot(fsPath),
             publicBaseUrl: env.PUBLIC_SERVER_URL,
             hmacSecret: uploadHmacSecret,
           })

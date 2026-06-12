@@ -53,9 +53,8 @@ type AppearanceConfigPatch = {
   }
 }
 
-type StorageConfigPatch = Partial<
-  Pick<AdminStorageConfig, "clipsPath" | "driver" | "path" | "usersPath">
-> & {
+type StorageConfigPatch = Partial<Pick<AdminStorageConfig, "driver">> & {
+  fs?: Partial<AdminStorageConfig["fs"]>
   s3?: Partial<AdminStorageConfig["s3"]>
   s3AccessKeyId?: string
   s3SecretAccessKey?: string

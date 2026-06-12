@@ -46,13 +46,21 @@ const StoragePathSchema = z
     message: "Storage paths must not contain '..' segments",
   })
 
-const StorageConfigSchema = z.object({
+const FsStorageConfigSchema = z.object({
+  clipsPath: StoragePathSchema.default("storage/clips"),
+  usersPath: StoragePathSchema.default("storage/users"),
+})
+
+const StorageConfigObjectSchema = z.object({
   driver: z.enum(["fs", "s3"]).default("fs"),
-  path: StoragePathSchema.default("storage"),
-  clipsPath: StoragePathSchema.nullable().default(null),
-  usersPath: StoragePathSchema.nullable().default(null),
+  fs: FsStorageConfigSchema.default(FsStorageConfigSchema.parse({})),
   s3: S3StorageConfigSchema.default(S3StorageConfigSchema.parse({})),
 })
+
+const StorageConfigSchema = z.preprocess(
+  migrateLegacyStorageConfig,
+  StorageConfigObjectSchema,
+)
 
 /**
  * Server-only secret material, persisted to `secrets.json` separately from the
@@ -100,9 +108,12 @@ export const RuntimeConfigSchema = z.object({
 export const LimitsConfigPatchSchema = LimitsConfigSchema.partial()
 export const StorageConfigPatchSchema = z.object({
   driver: z.enum(["fs", "s3"]).optional(),
-  path: StoragePathSchema.optional(),
-  clipsPath: StoragePathSchema.nullable().optional(),
-  usersPath: StoragePathSchema.nullable().optional(),
+  fs: z
+    .object({
+      clipsPath: StoragePathSchema.optional(),
+      usersPath: StoragePathSchema.optional(),
+    })
+    .optional(),
   s3: z
     .object({
       bucket: z.string().trim().max(255).optional(),
@@ -138,4 +149,36 @@ function hasParentTraversal(value: string): boolean {
     .replaceAll("\\", "/")
     .split("/")
     .some((segment) => segment === "..")
+}
+
+function migrateLegacyStorageConfig(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return value
+  }
+  const record = value as Record<string, unknown>
+  if (record.fs !== undefined) return value
+
+  return {
+    driver: record.driver,
+    fs: {
+      clipsPath: legacyStoragePath(record, "clips"),
+      usersPath: legacyStoragePath(record, "users"),
+    },
+    s3: record.s3,
+  }
+}
+
+function legacyStoragePath(
+  record: Record<string, unknown>,
+  namespace: "clips" | "users",
+): string {
+  const override = record[namespace === "clips" ? "clipsPath" : "usersPath"]
+  if (typeof override === "string" && override.trim().length > 0) {
+    return override
+  }
+  const root =
+    typeof record.path === "string" && record.path.trim().length > 0
+      ? record.path
+      : "storage"
+  return `${root.trim().replace(/[\\/]+$/, "")}/${namespace}`
 }
