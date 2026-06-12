@@ -130,6 +130,12 @@ const apiApp = new Hono()
       crossOriginOpenerPolicy: false,
       crossOriginResourcePolicy: false,
       originAgentCluster: false,
+      // Not the hono default ("no-referrer"): the Fetch spec applies the
+      // referrer policy to the Origin header too, so under no-referrer
+      // browsers send `Origin: null` even on same-origin POSTs — which the
+      // csrf middleware would reject. "same-origin" keeps Origin intact for
+      // same-origin requests while still hiding the referrer cross-origin.
+      referrerPolicy: "same-origin",
     }),
   )
   .use("/api/*", csrf)
