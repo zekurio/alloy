@@ -1,0 +1,124 @@
+name: Docker
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  release:
+    types:
+      - published
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-${{ github.event_name == 'release' && github.event.release.tag_name || github.sha }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  publish:
+    name: Build and push server image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.sha }}
+
+      - name: Set up Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Set up Cachix substituter
+        uses: cachix/cachix-action@v15
+        with:
+          name: zekurio
+          skipPush: true
+
+      - name: Resolve image metadata
+        id: meta
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
+        run: |
+          if [[ "$EVENT_NAME" == "release" ]]; then
+            version="${RELEASE_TAG#v}"
+
+            if [[ "$RELEASE_TAG" != v* || ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+              echo "Release tags must be v-prefixed semver, got: $RELEASE_TAG" >&2
+              exit 1
+            fi
+
+            if [[ "$RELEASE_PRERELEASE" == "true" ]]; then
+              # Prereleases ship only their pinned version tag.
+              channel_tag=""
+            else
+              channel_tag="latest"
+            fi
+
+            {
+              echo "version=$version"
+              echo "primary_tag=$RELEASE_TAG"
+              echo "channel_tag=$channel_tag"
+            } >> "$GITHUB_OUTPUT"
+          else
+            short_sha="$(git rev-parse --short=12 HEAD)"
+
+            export SHORT_SHA="$short_sha"
+
+            version="$(node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const config = JSON.parse(readFileSync("package.json", "utf8"));
+          const stableCore = String(config.version).replace(/[-+].*$/, "");
+          const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(stableCore);
+
+          if (!match) {
+            console.error(`Invalid package.json version: ${config.version}`);
+            process.exit(1);
+          }
+
+          const [, major, minor, patch] = match;
+          const runNumber = process.env.GITHUB_RUN_NUMBER;
+          const shortSha = process.env.SHORT_SHA;
+          console.log(`${major}.${minor}.${patch}-main.${runNumber}.${shortSha}`);
+          NODE
+            )"
+
+            {
+              echo "version=$version"
+              echo "primary_tag=main-$short_sha"
+              echo "channel_tag=main"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Stamp image version into package.json
+        if: github.event_name != 'release'
+        shell: bash
+        env:
+          IMAGE_VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          # Ephemeral (never committed): the flake reads version from
+          # package.json, so the image reports the generated build version.
+          node <<'NODE'
+          const { readFileSync, writeFileSync } = require("node:fs");
+          const config = JSON.parse(readFileSync("package.json", "utf8"));
+          config.version = process.env.IMAGE_VERSION;
+          writeFileSync("package.json", `${JSON.stringify(config, null, 2)}\n`);
+          NODE
+
+      - name: Publish server image
+        uses: ./.github/actions/publish-nix-image
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ steps.meta.outputs.primary_tag }}
+            type=raw,value=${{ steps.meta.outputs.channel_tag }},enable=${{ steps.meta.outputs.channel_tag != '' }}
