@@ -121,6 +121,12 @@ export class FsStorageDriver implements StorageDriver {
     })
   }
 
+  /** Local files have no browser-reachable URL of their own — the server
+   * stays the byte source, so callers fall back to resolve(). */
+  async mintDownloadUrl(): Promise<string | null> {
+    return null
+  }
+
   async downloadToFile(key: string, destPath: string): Promise<void> {
     const src = this.fullPath(key)
     await mkdir(dirname(destPath), { recursive: true })

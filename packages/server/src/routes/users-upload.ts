@@ -17,6 +17,10 @@ import type { ContentfulStatusCode } from "hono/utils/http-status"
 import sharp from "sharp"
 import { z } from "zod"
 
+import {
+  DIRECT_MEDIA_REDIRECT_MAX_AGE_SEC,
+  redirectToStorageUrl,
+} from "./media-redirect"
 import { toPublicUser, type UserRow } from "./users-helpers"
 import { zValidator } from "./validation"
 
@@ -360,6 +364,16 @@ export const userAssetsRoute = new Hono().get("/:key{.+}", async (c) => {
   if (!key || !USER_ASSET_KEY_RE.test(key)) {
     return notFound(c)
   }
+
+  // Asset URLs carry a `?v=` version, so a shorter-lived redirect (capped
+  // below the signed URL's TTL) still busts correctly on re-upload.
+  const direct = await redirectToStorageUrl(
+    c,
+    userStorage,
+    { key },
+    `public, max-age=${DIRECT_MEDIA_REDIRECT_MAX_AGE_SEC}`,
+  )
+  if (direct) return direct
 
   const resolved = await userStorage.resolve(key)
   if (!resolved) return notFound(c)

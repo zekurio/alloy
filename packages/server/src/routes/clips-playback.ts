@@ -34,6 +34,10 @@ import {
   streamResolved,
   streamThumbnail,
 } from "./clips-playback-streams"
+import {
+  DIRECT_MEDIA_REDIRECT_MAX_AGE_SEC,
+  redirectToStorageUrl,
+} from "./media-redirect"
 import { zValidator } from "./validation"
 
 function hlsCacheControl(privacy: ClipPrivacy): string {
@@ -148,6 +152,17 @@ export const clipsPlaybackRoutes = new Hono()
 
       const cacheControl = mediaCacheControl(row.privacy)
 
+      const direct = await redirectToStorageUrl(
+        c,
+        clipStorage,
+        {
+          key: selected.key,
+          contentType: selected.contentType || undefined,
+        },
+        cacheControl,
+      )
+      if (direct) return direct
+
       const resolved = await clipStorage.resolve(selected.key)
       if (!resolved) {
         logger.error(
@@ -191,6 +206,23 @@ export const clipsPlaybackRoutes = new Hono()
         : row.privacy === "private"
           ? "no-store"
           : "private, max-age=86400"
+
+    // Redirect responses cache for less than the signed URL lives; the
+    // 24h proxy caching (and its constant ETag) would keep serving a
+    // Location whose signature has expired.
+    const directCacheControl =
+      row.privacy === "public" && row.status === "ready"
+        ? `public, max-age=${DIRECT_MEDIA_REDIRECT_MAX_AGE_SEC}`
+        : row.privacy === "private"
+          ? "no-store"
+          : `private, max-age=${DIRECT_MEDIA_REDIRECT_MAX_AGE_SEC}`
+    const direct = await redirectToStorageUrl(
+      c,
+      clipStorage,
+      { key },
+      directCacheControl,
+    )
+    if (direct) return direct
 
     const etag = thumbnailEtag(key)
     c.header("ETag", etag)
@@ -239,6 +271,18 @@ export const clipsPlaybackRoutes = new Hono()
           : row.privacy === "private"
             ? "no-store"
             : "private, max-age=300"
+
+      const direct = await redirectToStorageUrl(
+        c,
+        clipStorage,
+        {
+          key: selected.key,
+          contentType: selected.contentType || undefined,
+          contentDisposition: contentDisposition(selected.filename),
+        },
+        dlCacheControl,
+      )
+      if (direct) return direct
 
       const resolved = await clipStorage.resolve(selected.key)
       if (!resolved) {

@@ -259,7 +259,7 @@ export function StorageConfigCard({
             {form.driver === "s3" ? (
               <FormGroup
                 title="S3"
-                description="Objects use clips/ and users/ prefixes. Credentials are stored in server secrets and are not exported with runtime config."
+                description="Objects use clips/ and users/ prefixes. Credentials are stored in server secrets and are not exported with runtime config. Browsers upload and stream directly against the bucket, so its CORS policy must allow GET and PUT from this app's origin and expose Content-Range."
               >
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field>
