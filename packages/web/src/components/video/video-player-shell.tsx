@@ -13,9 +13,7 @@ import {
   shouldHandleVideoShortcut,
   type VideoKeyCommand,
 } from "./video-keyboard"
-import type { QualityOption } from "./video-player-types"
 import { VideoScrubber } from "./video-scrubber"
-import { VideoSettingsMenu } from "./video-settings-menu"
 import { VolumeControl } from "./video-volume-control"
 
 export {
@@ -289,9 +287,6 @@ export function ChromeBar({
   onToggleMute,
   onVolumeChange,
   onSeek,
-  qualityOptions,
-  selectedQualityId,
-  onSelectQuality,
   onToggleFullscreen,
 }: {
   size?: "default" | "compact"
@@ -307,21 +302,14 @@ export function ChromeBar({
   onToggleMute: () => void
   onVolumeChange: (v: number) => void
   onSeek: (sec: number) => void
-  qualityOptions?: QualityOption[]
-  selectedQualityId?: string
-  onSelectQuality?: (qualityId: string) => void
   onToggleFullscreen: () => void
 }) {
   const [fullscreenSupported, setFullscreenSupported] = React.useState(false)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
-  const [settingsOpen, setSettingsOpen] = React.useState(false)
   const isCoarsePointer = useMediaQuery("(pointer: coarse)")
-  const settingsPortalContainer = isFullscreen
-    ? (containerRef.current ?? undefined)
-    : undefined
-  const chromeInteractive = visible || settingsOpen
+  const chromeInteractive = visible
   const showEdgeScrubber = isCoarsePointer
-  const edgeScrubberInteractive = !visible && !settingsOpen
+  const edgeScrubberInteractive = !visible
 
   React.useEffect(() => {
     if (typeof document === "undefined") return
@@ -360,7 +348,7 @@ export function ChromeBar({
 
       <div
         aria-hidden={false}
-        data-pinned={settingsOpen ? "true" : undefined}
+        data-pinned={undefined}
         className={cn(
           "pointer-events-none absolute inset-x-0 bottom-0 isolate z-20 flex items-center gap-1 px-1 pt-2 pb-[env(safe-area-inset-bottom)] transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
           "bg-gradient-to-t from-black via-black/30 to-transparent pt-10",
@@ -417,19 +405,6 @@ export function ChromeBar({
               variant="translucent"
             />
           </div>
-
-          <VideoSettingsMenu
-            qualityOptions={qualityOptions}
-            selectedQualityId={selectedQualityId}
-            onSelectQuality={onSelectQuality}
-            onOpenChange={setSettingsOpen}
-            triggerClassName={cn(
-              videoChromeIconClass,
-              size === "compact" && "size-[56px]",
-            )}
-            triggerIconClassName={videoChromeGlyphClass}
-            portalContainer={settingsPortalContainer}
-          />
 
           {fullscreenSupported ? (
             <Button

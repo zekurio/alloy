@@ -46,9 +46,6 @@ export function PlayerCore({
   onEnded,
   chromeSize = "default",
   shortcutBounds,
-  qualityOptions,
-  selectedQualityId,
-  onSelectQuality,
   enableHorizontalSeekShortcuts = true,
   playbackRate,
   hlsLevelHeight = "auto",
@@ -600,9 +597,6 @@ export function PlayerCore({
           onToggleMute={toggleMute}
           onVolumeChange={setVolume}
           onSeek={(seconds) => seekInternal(seconds)}
-          qualityOptions={qualityOptions}
-          selectedQualityId={selectedQualityId}
-          onSelectQuality={onSelectQuality}
           onToggleFullscreen={toggleFullscreen}
         />
       }
