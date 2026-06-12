@@ -28,10 +28,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@alloy/ui/components/select"
+import { toast } from "@alloy/ui/lib/toast"
 import { useNavigate } from "@tanstack/react-router"
 import {
   ClapperboardIcon,
   CloudIcon,
+  FolderInputIcon,
   HardDriveIcon,
   ImageIcon,
   LayersIcon,
@@ -47,6 +49,7 @@ import { useSession } from "@/lib/auth-client"
 import { useUserClipsQuery } from "@/lib/clip-queries"
 import {
   alloyDesktop,
+  notifyLibraryCapturesChanged,
   type AlloyDesktop,
   type RecordingLibraryProjectDraft,
 } from "@/lib/desktop"
@@ -188,6 +191,39 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
     )
   }, [snapshot, gamesByName, uploaded, groups, groupKey, kind, query])
 
+  const [importing, setImporting] = React.useState(false)
+  const importFiles = async () => {
+    const pick = desktop?.recording.importLibraryFiles
+    if (!pick) return
+    setImporting(true)
+    try {
+      const result = await pick()
+      if (result.canceled) return
+      if (result.failed.length > 0) {
+        const [first] = result.failed
+        toast.error(
+          result.failed.length === 1
+            ? `${first.fileName}: ${first.error}`
+            : `${result.failed.length} files couldn't be imported.`,
+        )
+      }
+      if (result.importedIds.length > 0) {
+        toast.success(
+          result.importedIds.length === 1
+            ? "Clip imported into your library"
+            : `${result.importedIds.length} clips imported into your library`,
+        )
+        notifyLibraryCapturesChanged()
+      }
+    } catch (cause) {
+      toast.error(
+        cause instanceof Error ? cause.message : "Could not import clips.",
+      )
+    } finally {
+      setImporting(false)
+    }
+  }
+
   const loading =
     (desktop !== null && !snapshot && !error) ||
     (handle.length > 0 && uploadedQuery.isLoading)
@@ -209,6 +245,20 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
             </div>
             {desktop ? (
               <SectionActions>
+                {desktop.recording.importLibraryFiles ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={importing}
+                    onClick={() => {
+                      void importFiles()
+                    }}
+                  >
+                    <FolderInputIcon />
+                    {importing ? "Importing..." : "Import clips"}
+                  </Button>
+                ) : null}
                 <Button
                   type="button"
                   variant="primary"

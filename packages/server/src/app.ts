@@ -1,4 +1,4 @@
-import { getLogContext, logger, runWithLogContext } from "@alloy/logging"
+import { createLogger, getLogContext, runWithLogContext } from "@alloy/logging"
 import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { createMiddleware } from "hono/factory"
@@ -26,6 +26,9 @@ import { userAssetsRoute, usersUploadRoute } from "./routes/users-upload"
 import { internalServerError, unauthorized } from "./runtime/http-response"
 import { storageRoute } from "./storage/fs-upload-route"
 import { mountWeb } from "./web"
+
+const requestLogger = createLogger("http")
+const logger = createLogger("api")
 
 const BROWSE_API_PREFIXES = [
   "/api/clips",
@@ -107,7 +110,9 @@ const requestCorrelation = createMiddleware(async (c, next) => {
     } finally {
       const durationMs = Math.round(performance.now() - startedAt)
       const status = didThrow ? 500 : c.res.status
-      logger.info(`${c.req.method} ${c.req.path} ${status} ${durationMs}ms`)
+      requestLogger.info(
+        `${c.req.method} ${c.req.path} ${status} ${durationMs}ms`,
+      )
     }
   })
 })
@@ -175,7 +180,7 @@ const apiApp = new Hono()
     const requestId =
       getLogContext().req ?? c.res.headers.get("X-Request-Id") ?? undefined
     runWithLogContext(requestId ? { req: requestId } : {}, () => {
-      logger.error("[api] unhandled request error:", err)
+      logger.error("unhandled request error:", err)
     })
     return internalServerError(
       c,

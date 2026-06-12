@@ -1,8 +1,10 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { app } from "electron"
+
+const logger = createLogger("library")
 
 /**
  * Persistent metadata derived from capture thumbnails — today just the
@@ -88,7 +90,7 @@ function writeMeta(meta: ThumbnailMetaFile): void {
     mkdirSync(dirname(path), { recursive: true })
     writeFileSync(path, JSON.stringify(meta))
   } catch (cause) {
-    logger.warn("[desktop] failed to persist thumbnail metadata:", cause)
+    logger.warn("failed to persist thumbnail metadata:", cause)
   }
 }
 

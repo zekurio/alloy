@@ -4,7 +4,7 @@ import type {
   GameRow,
   SteamGridDBSearchResult,
 } from "@alloy/contracts"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 
 import {
   exactNameKey,
@@ -16,6 +16,8 @@ import {
   lookupIndexedGamesByName,
 } from "./ref"
 import { gameRowFromSearchResult, searchGames } from "./steamgriddb"
+
+const logger = createLogger("games")
 
 const GAME_NAME_LOOKUP_MAX = 50
 
@@ -50,7 +52,7 @@ async function lookupGameByName(
   try {
     steamGridResults = uniqueSearchResults(await searchGames(name))
   } catch (err) {
-    logger.warn(`[games] SteamGridDB lookup failed for "${name}":`, err)
+    logger.warn(`SteamGridDB lookup failed for "${name}":`, err)
     return fallbackIndexedOrNoMatch(name, indexed)
   }
 

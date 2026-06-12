@@ -1,5 +1,5 @@
 import { migrateDatabase } from "@alloy/db"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { serve } from "@hono/node-server"
 
 import { app } from "./app"
@@ -10,6 +10,8 @@ import { env } from "./env"
 import { startQueue, stopQueue } from "./queue"
 import { requestShutdown } from "./runtime/shutdown"
 
+const logger = createLogger("server")
+
 if (env.NODE_ENV === "production") {
   await migrateDatabase(env.DATABASE_URL)
 }
@@ -17,7 +19,7 @@ if (env.NODE_ENV === "production") {
 try {
   await warmDatabase()
 } catch (err) {
-  logger.error("[db] failed to warm database connection:", err)
+  logger.error("failed to warm database connection:", err)
   process.exit(1)
 }
 
@@ -27,18 +29,18 @@ const server = serve(
     port: env.PORT,
   },
   ({ address, port }) => {
-    logger.info(`[server] listening on ${address}:${port}`)
+    logger.info(`listening on ${address}:${port}`)
   },
 )
 
 const SHUTDOWN_GRACE_MS = 5000
 
 void startQueue().catch((err) => {
-  logger.error("[queue] failed to start:", err)
+  logger.error("failed to start queue:", err)
 })
 
 void startDirectHlsCache().catch((err) => {
-  logger.error("[clips] failed to start direct HLS cache:", err)
+  logger.error("failed to start direct HLS cache:", err)
 })
 
 // Background TTL cleanup for auth challenges, kept off the request path.
@@ -52,7 +54,7 @@ const shutdown = () => {
   stopChallengeSweeper()
   void stopDirectHlsCache()
   const forceShutdown = setTimeout(() => {
-    logger.warn("[server] forcing shutdown after graceful deadline")
+    logger.warn("forcing shutdown after graceful deadline")
     closeAllConnections(server)
     process.exit(0)
   }, SHUTDOWN_GRACE_MS)
@@ -61,7 +63,7 @@ const shutdown = () => {
   // jobs get a chance to flush state.
   void stopQueue()
     .catch((err) => {
-      logger.error("[queue] failed to stop cleanly:", err)
+      logger.error("failed to stop queue cleanly:", err)
     })
     .finally(() => {
       server.close(() => {

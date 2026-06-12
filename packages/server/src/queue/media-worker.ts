@@ -1,5 +1,5 @@
 import { clip, clipUploadTicket } from "@alloy/db/schema"
-import { logger, runWithLogContext } from "@alloy/logging"
+import { createLogger, runWithLogContext } from "@alloy/logging"
 import { publishClipUpsertById } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
 import { requiredSql } from "@alloy/server/db/sql"
@@ -9,6 +9,8 @@ import { deleteStagedUploads } from "@alloy/server/uploads/staged"
 import { and, eq, isNull, lt, ne, or, type SQL, sql } from "drizzle-orm"
 
 import { runMediaProcessingInner } from "./media-processing-run"
+
+const logger = createLogger("queue")
 
 const RETRY_LIMIT = 2
 const ENCODE_LEASE_STALE_INTERVAL = "2 minutes"
@@ -75,7 +77,7 @@ async function pump(): Promise<void> {
   if (pumpPromise) return pumpPromise
   pumpPromise = pumpInner()
     .catch((err) => {
-      logger.error("[queue] clip media worker pump failed:", err)
+      logger.error("clip media worker pump failed:", err)
       schedulePump(POLL_INTERVAL_MS)
     })
     .finally(() => {
@@ -140,7 +142,7 @@ async function processClip(clipId: string): Promise<void> {
     await runClipMediaProcessing(clipId)
   } catch (err) {
     if (isAbortError(err)) return
-    logger.error(`[queue] clip media job failed for ${clipId}:`, err)
+    logger.error(`clip media job failed for ${clipId}:`, err)
   } finally {
     inFlightClipIds.delete(clipId)
   }
@@ -220,10 +222,7 @@ function startEncodeLeaseHeartbeat(
         if (rows.length === 0) abort.abort()
       })
       .catch((err: unknown) => {
-        logger.error(
-          `[queue] encode lease heartbeat failed for ${clipId}:`,
-          err,
-        )
+        logger.error(`encode lease heartbeat failed for ${clipId}:`, err)
       })
       .finally(() => {
         pending = false
@@ -313,7 +312,7 @@ async function markFailedUnlessReady(
       })
     }
   } catch (err) {
-    logger.error(`[queue] failed to mark clip ${clipId} as failed:`, err)
+    logger.error(`failed to mark clip ${clipId} as failed:`, err)
   }
 }
 
@@ -345,6 +344,6 @@ async function recordFailureReason(
       })
       .where(eq(clip.id, clipId))
   } catch (err) {
-    logger.warn(`[queue] failed to record failure reason for ${clipId}:`, err)
+    logger.warn(`failed to record failure reason for ${clipId}:`, err)
   }
 }

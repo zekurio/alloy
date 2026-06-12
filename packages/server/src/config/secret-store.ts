@@ -1,12 +1,14 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs"
 
 import type { OAuthProviderConfig } from "@alloy/contracts"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { SECRETS_PATH } from "@alloy/server/runtime/dirs"
 import { errorDetail } from "@alloy/server/runtime/error-message"
 import { dirname } from "@alloy/server/runtime/path"
 
 import { type ServerSecrets, ServerSecretsSchema } from "./schema"
+
+const logger = createLogger("secret-store")
 
 /**
  * Server-only secret store. Holds all secret material (cookie/HMAC keys, the
@@ -44,7 +46,7 @@ function loadInitialSecrets(): { secrets: ServerSecrets; persist: boolean } {
   } catch (err) {
     if (!isNodeErrorCode(err, "ENOENT")) {
       // Unreadable (permissions, I/O): don't fall through to regeneration.
-      logger.error(`[secret-store] cannot read ${SECRETS_PATH}:`, err)
+      logger.error(`cannot read ${SECRETS_PATH}:`, err)
       process.exit(1)
     }
   }
@@ -58,7 +60,7 @@ function loadInitialSecrets(): { secrets: ServerSecrets; persist: boolean } {
       // rotate the cookie/upload secrets (invalidating every session and
       // in-flight upload ticket) and drop all OAuth client secrets.
       logger.error(
-        `[secret-store] ${SECRETS_PATH} is not valid JSON; refusing to start ` +
+        `${SECRETS_PATH} is not valid JSON; refusing to start ` +
           `to avoid destroying existing secrets:`,
         errorDetail(err, ""),
       )
@@ -67,7 +69,7 @@ function loadInitialSecrets(): { secrets: ServerSecrets; persist: boolean } {
     const result = ServerSecretsSchema.safeParse(parsed)
     if (!result.success) {
       logger.error(
-        `[secret-store] ${SECRETS_PATH} failed validation:`,
+        `${SECRETS_PATH} failed validation:`,
         JSON.stringify(result.error.flatten()),
       )
       process.exit(1)

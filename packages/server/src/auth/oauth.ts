@@ -1,5 +1,5 @@
 import { authChallenge } from "@alloy/db/auth-schema"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { errorDetail } from "@alloy/server/runtime/error-message"
 import type { Context } from "hono"
@@ -35,6 +35,8 @@ import {
 import { profileFromTokens, storedTokens } from "./oauth-profile"
 import type { OAuthChallengePayload, OAuthMode } from "./oauth-types"
 import { createSession, getSession } from "./session"
+
+const logger = createLogger("oauth")
 
 export { fallbackOAuthErrorRedirect } from "./oauth-client"
 
@@ -160,7 +162,7 @@ export async function finishOAuthCallback(
     return { redirectTo: payload.callbackURL }
   } catch (cause) {
     logger.warn(
-      `[oauth] ${payload.mode} callback failed for ${provider.providerId}:`,
+      `${payload.mode} callback failed for ${provider.providerId}:`,
       errorDetail(cause, "Unknown OAuth callback error"),
     )
     // A failed link keeps the user signed in, so send them back to where they

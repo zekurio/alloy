@@ -19,6 +19,7 @@ export {
   deleteRecordingLibraryItem,
   deleteRecordingLibraryProjectDraft,
   importRecordingLibraryCapture,
+  importRecordingLibraryVideoFiles,
   openRecordingLibraryFolder,
   openRecordingLibraryItem,
   rememberRecordingLibraryCapture,

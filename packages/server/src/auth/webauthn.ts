@@ -6,7 +6,7 @@ import {
   type UserPasskey,
   userPasskey,
 } from "@alloy/db/auth-schema"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { env } from "@alloy/server/env"
@@ -23,6 +23,8 @@ import {
 import { and, eq, gt, lt } from "drizzle-orm"
 
 import { base64UrlToBytes, bytesToBase64Url } from "./tokens"
+
+const logger = createLogger("webauthn")
 
 const RP_NAME = "alloy"
 const REGISTRATION_TTL_MS = 15 * 60 * 1000
@@ -79,7 +81,7 @@ let sweepTimer: ReturnType<typeof setInterval> | null = null
 
 function sweepExpiredChallenges(): void {
   void deleteExpiredChallenges().catch((err) =>
-    logger.error("[webauthn] expired challenge sweep failed:", err),
+    logger.error("expired challenge sweep failed:", err),
   )
 }
 

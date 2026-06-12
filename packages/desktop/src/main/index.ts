@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs"
 import { join } from "node:path"
 
+import { createLogger } from "@alloy/logging"
 import { app, BrowserWindow, Menu, protocol } from "electron"
 
 import {
@@ -9,6 +10,7 @@ import {
 } from "./asset-cache"
 import { ensureDeviceRegistered } from "./device-identity"
 import { registerIpc } from "./ipc"
+import { installCrashLogging, installFileLogSink } from "./logging"
 import {
   configureRecordingBackend,
   onRecordingEvent,
@@ -33,6 +35,7 @@ import { registerRecordingSessionTracking } from "./recording-session-tracker"
 import { getStartupServerUrl } from "./server-store"
 import { hasValidSession } from "./session"
 import { createAlloyTray } from "./tray"
+import { initAutoUpdater } from "./updater"
 import { Windows } from "./windows"
 
 const WINDOWS_APP_USER_MODEL_ID = "dev.zekurio.alloy.desktop"
@@ -40,8 +43,13 @@ const USER_DATA_DIR_NAME = "Alloy Desktop"
 const SESSION_DATA_DIR_NAME = "session"
 const LOGS_DIR_NAME = "logs"
 
+const logger = createLogger("main")
+
 app.setName("Alloy")
 configureAppPaths()
+installFileLogSink()
+installCrashLogging()
+logger.info(`Alloy Desktop ${app.getVersion()} starting`)
 // Privileged schemes must all be declared in this single pre-ready call.
 protocol.registerSchemesAsPrivileged([
   recordingLibraryProtocolScheme(),
@@ -74,6 +82,7 @@ if (!app.requestSingleInstanceLock()) {
     cleanupLegacyFilmstripCache()
 
     registerIpc(windows)
+    initAutoUpdater()
     // Session tracking and the sync queue must be listening before the
     // sidecar starts emitting game events.
     registerRecordingSessionTracking(onRecordingEvent)

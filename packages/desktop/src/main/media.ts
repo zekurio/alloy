@@ -24,6 +24,44 @@ import {
  * faststart pass.
  */
 
+export interface VideoFileMeta {
+  durationMs: number | null
+  width: number | null
+  height: number | null
+}
+
+/**
+ * Duration and display dimensions of a video file, or null when the file has
+ * no parseable video track.
+ */
+export async function probeVideoFileMeta(
+  filename: string,
+): Promise<VideoFileMeta | null> {
+  try {
+    const input = new Input({
+      source: new FilePathSource(filename),
+      formats: ALL_FORMATS,
+    })
+    try {
+      const video = await input.getPrimaryVideoTrack()
+      if (!video) return null
+      const seconds = await input.computeDuration()
+      return {
+        durationMs:
+          Number.isFinite(seconds) && seconds > 0
+            ? Math.round(seconds * 1000)
+            : null,
+        width: video.displayWidth > 0 ? video.displayWidth : null,
+        height: video.displayHeight > 0 ? video.displayHeight : null,
+      }
+    } finally {
+      input.dispose()
+    }
+  } catch {
+    return null
+  }
+}
+
 /** Duration in ms, or null when the file has no parseable media. */
 export async function probeDurationMs(
   filename: string,

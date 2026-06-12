@@ -1,9 +1,11 @@
 import { hostname } from "node:os"
 
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 
 import { MainApiError, registerDevice } from "./main-api"
 import { getOrCreateDeviceId, replaceDeviceId } from "./server-store"
+
+const logger = createLogger("device")
 
 /**
  * Registers this install as a device on the connected server so synced clips
@@ -38,7 +40,7 @@ export async function ensureDeviceRegistered(
     // preferences file, reinstall under a new user). Mint a fresh identity.
     if (cause instanceof MainApiError && cause.status === 409) {
       const fresh = replaceDeviceId()
-      logger.warn("[desktop] device id collided on server; regenerated")
+      logger.warn("device id collided on server; regenerated")
       await registerDevice(serverUrl, fresh, input)
       registeredServers.add(serverUrl)
       return fresh

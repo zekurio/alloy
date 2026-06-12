@@ -5,7 +5,7 @@ import {
   normalizeRecordingSettings,
   type RecordingSettings,
 } from "@alloy/contracts"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
 import type { SavedServer } from "@/shared/ipc"
@@ -16,6 +16,8 @@ import {
   normalizeState,
   upsertServer,
 } from "./server-store-state"
+
+const logger = createLogger("store")
 
 /**
  * Tiny JSON store for desktop-local preferences that must survive restarts.
@@ -50,7 +52,7 @@ function writeState(state: DesktopState): void {
     mkdirSync(dirname(path), { recursive: true })
     writeFileSync(path, JSON.stringify(state, null, 2), "utf8")
   } catch (error) {
-    logger.error("[desktop] failed to persist state:", error)
+    logger.error("failed to persist state:", error)
   }
 }
 

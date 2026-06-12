@@ -11,7 +11,7 @@ import {
 import { dirname, extname, join, resolve } from "node:path"
 
 import type { RecordingCapture } from "@alloy/contracts"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
 import type { RecordingLibraryItem } from "@/shared/ipc"
@@ -28,6 +28,8 @@ import {
   pruneThumbnailBlurHashes,
   rememberThumbnailBlurHash,
 } from "./recording-thumbnail-meta"
+
+const logger = createLogger("library")
 
 export type ThumbnailSource = Pick<
   RecordingLibraryItem,
@@ -78,7 +80,7 @@ export function storeRecordingThumbnail(
       pruneThumbnailBlurHashes(item.id, signature)
     }
   } catch (cause) {
-    logger.warn("[desktop] failed to store recording thumbnail:", cause)
+    logger.warn("failed to store recording thumbnail:", cause)
   }
 }
 

@@ -2,7 +2,7 @@ import { createReadStream } from "node:fs"
 import { mkdir, readdir, rm, stat, utimes, writeFile } from "node:fs/promises"
 import { Readable } from "node:stream"
 
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { MEDIA_CACHE_DIR } from "@alloy/server/runtime/dirs"
 import { isAbsolute, join, relative, resolve } from "@alloy/server/runtime/path"
 import { clipStorage } from "@alloy/server/storage/index"
@@ -32,6 +32,8 @@ export {
   isServableDirectHlsFile,
   makeDirectHlsSpec,
 } from "./direct-hls-spec"
+
+const logger = createLogger("clips")
 
 const DIRECT_HLS_DIR = join(MEDIA_CACHE_DIR, "hls")
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000
@@ -155,7 +157,7 @@ async function packageClip(spec: DirectHlsSpec): Promise<void> {
   }
 
   void cleanupDirectHlsCache({ deleteAllPartial: false }).catch((err) => {
-    logger.warn("[clips] direct HLS cache cleanup failed:", err)
+    logger.warn("direct HLS cache cleanup failed:", err)
   })
 }
 

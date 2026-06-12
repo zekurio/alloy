@@ -47,6 +47,7 @@ import {
   getRecordingLibrarySnapshot,
   exportRecordingLibraryItem,
   importRecordingLibraryCapture,
+  importRecordingLibraryVideoFiles,
   openRecordingLibraryFolder,
   openRecordingLibraryItem,
   revealRecordingLibraryItem,
@@ -59,6 +60,7 @@ import {
   listRecordingLibraryClipDownloads,
   startRecordingLibraryClipDownload,
 } from "./recording-library-download"
+import { VIDEO_EXTENSIONS } from "./recording-library-shared"
 import {
   cancelRecordingLibrarySyncItem,
   getRecordingLibrarySyncSnapshot,
@@ -83,6 +85,11 @@ import {
   saveRecordingSettings,
 } from "./server-store"
 import { clearRemoteWebCache, hasValidSession } from "./session"
+import {
+  getUpdateState,
+  onUpdateStateChange,
+  restartToInstallUpdate,
+} from "./updater"
 import { sameOrigin } from "./url-policy"
 import type { Windows } from "./windows"
 
@@ -98,6 +105,7 @@ export function registerIpc(windows: Windows): void {
   registerRecordingEvents()
   registerServerIpc(windows)
   registerRecordingIpc(windows)
+  registerUpdateIpc(windows)
 }
 
 function registerRecordingEvents(): void {
@@ -107,6 +115,24 @@ function registerRecordingEvents(): void {
         window.webContents.send(IPC.recordingEvent, recordingEvent)
       }
     }
+  })
+}
+
+function registerUpdateIpc(windows: Windows): void {
+  onUpdateStateChange((state) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) {
+        window.webContents.send(IPC.updateEvent, state)
+      }
+    }
+  })
+  ipcMain.handle(IPC.getUpdateState, (event) => {
+    requireDesktopSender(windows, event)
+    return getUpdateState()
+  })
+  ipcMain.handle(IPC.restartToInstallUpdate, (event) => {
+    requireDesktopSender(windows, event)
+    restartToInstallUpdate()
   })
 }
 
@@ -322,6 +348,27 @@ function registerRecordingLibraryIpc(windows: Windows): void {
       return importRecordingLibraryCapture(normalized)
     },
   )
+  ipcMain.handle(IPC.importRecordingLibraryFiles, async (event) => {
+    requireMainSender(windows, event)
+    const parent = BrowserWindow.fromWebContents(event.sender)
+    const options: Electron.OpenDialogOptions = {
+      title: "Import clips",
+      filters: [
+        {
+          name: "Videos",
+          extensions: [...VIDEO_EXTENSIONS].map((ext) => ext.slice(1)),
+        },
+      ],
+      properties: ["openFile", "multiSelections"],
+    }
+    const result = await (parent
+      ? dialog.showOpenDialog(parent, options)
+      : dialog.showOpenDialog(options))
+    if (result.canceled || result.filePaths.length === 0) {
+      return { importedIds: [], failed: [], canceled: true }
+    }
+    return importRecordingLibraryVideoFiles(result.filePaths)
+  })
   ipcMain.handle(
     IPC.saveRecordingLibraryCaptureThumbnail,
     (event, request: unknown) => {

@@ -1,4 +1,5 @@
 import { clipThumbnailUrl, type NotificationRow } from "@alloy/api"
+import type { DesktopUpdateState } from "@alloy/contracts"
 import {
   Avatar,
   AvatarFallback,
@@ -32,6 +33,7 @@ import {
   HeartIcon,
   MessageSquareIcon,
   PinIcon,
+  RefreshCwIcon,
   Trash2Icon,
   UserPlusIcon,
 } from "lucide-react"
@@ -44,6 +46,8 @@ import {
 } from "@/components/app/floating-surface-events"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { formatRelativeTime } from "@/lib/date-format"
+import { alloyDesktop } from "@/lib/desktop"
+import { useDesktopUpdateState } from "@/lib/desktop-updates"
 import { apiOrigin } from "@/lib/env"
 import {
   notificationHref,
@@ -77,6 +81,7 @@ export function NotificationCenter() {
   const [open, setOpen] = React.useState(false)
   const query = useNotificationsQuery({ enabled: false })
   useNotificationStream({ enabled })
+  const updateState = useDesktopUpdateState()
 
   const handleFloatingSurfaceOpen = React.useCallback(
     (surface: FloatingSurface) => {
@@ -95,10 +100,11 @@ export function NotificationCenter() {
   }
 
   const unreadCount = query.data?.unreadCount ?? 0
+  const updateReady = updateState.status === "downloaded"
 
   const trigger = (
     <Button variant="ghost" size="icon" aria-label="Notifications">
-      <NotificationBell unreadCount={unreadCount} />
+      <NotificationBell showDot={unreadCount > 0 || updateReady} />
     </Button>
   )
 
@@ -106,6 +112,7 @@ export function NotificationCenter() {
     <NotificationCenterContent
       data={query.data}
       isLoading={query.data === undefined}
+      updateState={updateState}
       onClose={() => setOpen(false)}
     />
   )
@@ -153,11 +160,11 @@ export function NotificationCenter() {
   )
 }
 
-function NotificationBell({ unreadCount }: { unreadCount: number }) {
+function NotificationBell({ showDot }: { showDot: boolean }) {
   return (
     <span className="relative inline-flex">
       <BellIcon className="size-5" />
-      {unreadCount > 0 ? (
+      {showDot ? (
         <span
           aria-hidden
           className="bg-accent absolute -top-0.5 -right-0.5 size-2 rounded-full"
@@ -170,16 +177,19 @@ function NotificationBell({ unreadCount }: { unreadCount: number }) {
 function NotificationCenterContent({
   data,
   isLoading,
+  updateState,
   onClose,
 }: {
   data: { items: NotificationRow[]; unreadCount: number } | undefined
   isLoading: boolean
+  updateState: DesktopUpdateState
   onClose: () => void
 }) {
   const markAllRead = useMarkAllNotificationsReadMutation()
   const clearNotifications = useClearNotificationsMutation()
   const unreadCount = data?.unreadCount ?? 0
   const items = data?.items ?? []
+  const updateReady = updateState.status === "downloaded"
 
   return (
     <section className="flex flex-col">
@@ -191,16 +201,21 @@ function NotificationCenterContent({
       </header>
 
       <div className="-mx-1 flex max-h-[min(520px,calc(100dvh-14rem))] flex-col overflow-y-auto">
+        {updateReady ? (
+          <DesktopUpdateRow version={updateState.version} />
+        ) : null}
         {isLoading ? (
           <NotificationLoadingState />
         ) : items.length === 0 ? (
-          <NotificationEmptyState />
+          updateReady ? null : (
+            <NotificationEmptyState />
+          )
         ) : (
           items.map((item, index) => (
             <NotificationRow
               key={item.id}
               item={item}
-              first={index === 0}
+              first={index === 0 && !updateReady}
               onClose={onClose}
             />
           ))
@@ -243,6 +258,54 @@ function NotificationCenterContent({
         </div>
       </div>
     </section>
+  )
+}
+
+/**
+ * Device-local "update ready" entry, pinned above the server notifications.
+ * Only rendered inside the desktop shell once an update has been downloaded;
+ * restarting hands off to the installer and relaunches the new version.
+ */
+function DesktopUpdateRow({ version }: { version: string | null }) {
+  const [pending, setPending] = React.useState(false)
+
+  const restart = () => {
+    const updates = alloyDesktop()?.updates
+    if (!updates) return
+    setPending(true)
+    void updates.restartToInstall().catch(() => {
+      setPending(false)
+    })
+  }
+
+  return (
+    <article className="group/notification relative flex items-start gap-2.5 rounded-md px-2 py-2.5">
+      <div className="relative mt-0.5 shrink-0">
+        <div className="border-border bg-surface-raised text-foreground-muted flex size-7 shrink-0 items-center justify-center rounded-md border">
+          <RefreshCwIcon className="size-3.5" />
+        </div>
+        <span
+          aria-hidden
+          className="bg-accent absolute -top-0.5 -right-0.5 size-2 rounded-full"
+        />
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="text-foreground line-clamp-2 text-sm leading-snug font-semibold tracking-[-0.01em]">
+          Update ready
+        </span>
+        <span className="text-foreground-muted text-xs">
+          {version
+            ? `Alloy ${version} has been downloaded.`
+            : "A new version has been downloaded."}
+        </span>
+        <div className="mt-1">
+          <Button size="sm" disabled={pending} onClick={restart}>
+            {pending ? "Restarting…" : "Restart to update"}
+          </Button>
+        </div>
+      </div>
+    </article>
   )
 }
 

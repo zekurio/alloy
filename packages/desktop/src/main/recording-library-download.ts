@@ -8,7 +8,7 @@ import type {
   RecordingLibraryDownload,
   RecordingLibraryDownloadRequest,
 } from "@alloy/contracts"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 
 import { probeDurationMs } from "./media"
 import { emitRecordingLibraryDownloadEvent } from "./recording"
@@ -21,6 +21,8 @@ import {
 import { captureId } from "./recording-library-shared"
 import { currentOutputFolder } from "./recording-storage"
 import { mainSession } from "./session"
+
+const logger = createLogger("library")
 
 /**
  * Downloads of uploaded clips back into the local capture library. One job
@@ -90,7 +92,7 @@ export function startRecordingLibraryClipDownload(
   emitRecordingLibraryDownloadEvent({ ...download })
 
   void runDownload(request, job).catch((cause) => {
-    logger.warn(`[desktop] clip download crashed for ${request.clipId}:`, cause)
+    logger.warn(`clip download crashed for ${request.clipId}:`, cause)
   })
 
   return { ...download }

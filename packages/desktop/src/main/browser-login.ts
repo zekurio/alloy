@@ -2,10 +2,12 @@ import { createHash, randomBytes, randomUUID } from "node:crypto"
 import { createServer, type Server } from "node:http"
 import { type AddressInfo } from "node:net"
 
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { shell } from "electron"
 
 import { injectSessionCookie } from "./session"
+
+const logger = createLogger("login")
 
 // Electron can't run WebAuthn/passkeys (and providers block embedded OAuth), so
 // login happens in the user's real browser. This implements the RFC 8252
@@ -70,7 +72,7 @@ export async function loginViaBrowser(serverUrl: string): Promise<LoginResult> {
     await injectSessionCookie(serverUrl, session.token, session.expiresAt)
     return { ok: true }
   } catch (cause) {
-    logger.error("[desktop] browser login failed:", cause)
+    logger.error("browser login failed:", cause)
     const timedOut = cause instanceof Error && cause.message === "timeout"
     return {
       ok: false,

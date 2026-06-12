@@ -1,5 +1,5 @@
 import { gameSession, userDevice } from "@alloy/db/schema"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { requireSession } from "@alloy/server/auth/require-session"
 import { db } from "@alloy/server/db/index"
 import { lookupGamesByName } from "@alloy/server/games/lookup"
@@ -10,6 +10,8 @@ import { Hono } from "hono"
 import { z } from "zod"
 
 import { zValidator } from "./validation"
+
+const logger = createLogger("sessions")
 
 const SessionIdParam = z.object({ id: z.uuid() })
 
@@ -43,7 +45,7 @@ async function resolveSessionGame(
     const { results } = await lookupGamesByName([gameName], viewerId)
     return results[0]?.game?.steamgriddbId ?? null
   } catch (err) {
-    logger.warn(`[sessions] game lookup failed for "${gameName}":`, err)
+    logger.warn(`game lookup failed for "${gameName}":`, err)
     return null
   }
 }

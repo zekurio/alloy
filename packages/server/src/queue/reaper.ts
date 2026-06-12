@@ -1,5 +1,5 @@
 import { clip, clipUploadTicket } from "@alloy/db/schema"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { publishClipRemove } from "@alloy/server/clips/events"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
@@ -10,6 +10,8 @@ import {
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm"
 
 import { enqueueClipMediaProcessing } from "./media-worker"
+
+const logger = createLogger("queue")
 
 const UPLOADED_MAX_AGE_INTERVAL = "24 hours"
 const REAP_INTERVAL_MS = 10 * 60 * 1000
@@ -39,7 +41,7 @@ async function runReaper(): Promise<void> {
     await reapExpiredUploadTickets()
     await requeueStuckProcessing()
   } catch (err) {
-    logger.error("[queue/reap] failed:", err)
+    logger.error("reap pass failed:", err)
   } finally {
     reaperRunning = false
   }
@@ -93,7 +95,7 @@ async function reapExpiredUploadTickets(): Promise<void> {
       await deleteStagedUpload(ticket.storageKey)
     } catch (err) {
       logger.warn(
-        `[queue/reap] could not delete expired staged object ${ticket.storageKey}:`,
+        `could not delete expired staged object ${ticket.storageKey}:`,
         err,
       )
       continue

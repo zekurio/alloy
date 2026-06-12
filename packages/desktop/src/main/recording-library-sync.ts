@@ -7,7 +7,7 @@ import type {
   RecordingLibrarySyncItem,
   RecordingLibrarySyncSnapshot,
 } from "@alloy/contracts"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
 import { ensureDeviceRegistered } from "./device-identity"
@@ -37,6 +37,8 @@ import {
   type LocalGameSession,
 } from "./recording-session-tracker"
 import { getRecordingSettings, getStartupServerUrl } from "./server-store"
+
+const logger = createLogger("sync")
 
 /**
  * The upload half of library sync: a persistent, pausable queue of local
@@ -356,10 +358,7 @@ async function runSyncJob(serverUrl: string, job: SyncJob): Promise<void> {
         )
       } catch (cause) {
         if (job.abort.signal.aborted) throw cause
-        logger.warn(
-          `[desktop] poster upload failed for ${item.captureId}:`,
-          cause,
-        )
+        logger.warn(`poster upload failed for ${item.captureId}:`, cause)
       }
     }
 
@@ -579,7 +578,7 @@ function persistQueue(): void {
     mkdirSync(dirname(path), { recursive: true })
     writeFileSync(path, `${JSON.stringify(file, null, 2)}\n`)
   } catch (cause) {
-    logger.warn("[desktop] failed to persist sync queue:", cause)
+    logger.warn("failed to persist sync queue:", cause)
   }
 }
 

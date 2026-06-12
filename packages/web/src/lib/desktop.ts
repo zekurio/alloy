@@ -1,4 +1,5 @@
 import type {
+  DesktopUpdateState,
   RecordingActionResult,
   RecordingActionRequest,
   RecordingDisplay,
@@ -8,6 +9,7 @@ import type {
   RecordingLibraryDownloadRequest,
   RecordingLibraryExport,
   RecordingLibraryExportRequest,
+  RecordingLibraryFilesImportResult,
   RecordingLibraryImportRequest,
   RecordingLibraryImportResult,
   RecordingLibraryMetaPatch,
@@ -43,6 +45,7 @@ export type {
   RecordingLibraryProjectDraftSaveRequest,
   RecordingLibraryProjectDraftSaveResult,
   RecordingLibraryExport,
+  RecordingLibraryFilesImportResult,
   RecordingLibraryImportRequest,
   RecordingLibraryImportResult,
   RecordingLibraryGroup,
@@ -95,6 +98,8 @@ export interface AlloyDesktopRecordingApi {
   importLibraryCapture(
     request: RecordingLibraryImportRequest,
   ): Promise<RecordingLibraryImportResult>
+  /** Opens a native picker and copies the chosen video files into the library. */
+  importLibraryFiles?(): Promise<RecordingLibraryFilesImportResult>
   saveLibraryCaptureThumbnail(id: string, data: Uint8Array): Promise<void>
   /**
    * Persists an uploaded clip into the local capture library. Progress
@@ -147,6 +152,14 @@ export interface AlloyDesktopRecordingApi {
   revealCapture(filename: string): Promise<void>
 }
 
+/** Desktop auto-update state and controls (absent on older desktop shells). */
+export interface AlloyDesktopUpdatesApi {
+  getState(): Promise<DesktopUpdateState>
+  /** Quits and installs the downloaded update; no-op when none is ready. */
+  restartToInstall(): Promise<void>
+  onState(listener: (state: DesktopUpdateState) => void): () => void
+}
+
 export interface AlloyDesktop {
   platform: string
   titlebarOverlay: boolean
@@ -158,6 +171,7 @@ export interface AlloyDesktop {
   openSettings(): Promise<void>
   servers: AlloyDesktopServerApi
   recording: AlloyDesktopRecordingApi
+  updates?: AlloyDesktopUpdatesApi
 }
 
 export function alloyDesktop(): AlloyDesktop | null {

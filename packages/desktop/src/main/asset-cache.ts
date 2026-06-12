@@ -8,10 +8,12 @@ import {
 } from "node:fs"
 import { join } from "node:path"
 
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { app, net } from "electron"
 
 import { mainSession } from "./session"
+
+const logger = createLogger("assets")
 
 /**
  * Disk-backed cache for remote images the desktop shell renders repeatedly:
@@ -121,14 +123,11 @@ async function fetchAndStoreAsset(
     return assetResponse(body, contentType)
   } catch (cause) {
     if (stale) {
-      logger.warn(
-        "[desktop] asset refresh failed; serving stale cache entry:",
-        cause,
-      )
+      logger.warn("asset refresh failed; serving stale cache entry:", cause)
       touchAssetMeta(key, stale.meta)
       return assetResponse(stale.body, stale.meta.contentType)
     }
-    logger.warn("[desktop] failed to fetch remote asset:", cause)
+    logger.warn("failed to fetch remote asset:", cause)
     return new Response("Bad gateway", { status: 502 })
   }
 }
@@ -175,7 +174,7 @@ function writeCachedAsset(
     writeFileSync(assetMetaPath(key), JSON.stringify(meta))
     pruneAssetCache()
   } catch (cause) {
-    logger.warn("[desktop] failed to persist cached asset:", cause)
+    logger.warn("failed to persist cached asset:", cause)
   }
 }
 

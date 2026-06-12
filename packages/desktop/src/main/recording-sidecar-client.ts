@@ -8,7 +8,9 @@ import type {
   RecordingSettings,
   RecordingStatus,
 } from "@alloy/contracts"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
+
+const logger = createLogger("sidecar")
 
 export interface SidecarConfig {
   settings: RecordingSettings
@@ -227,7 +229,7 @@ export class RecordingSidecarClient {
     child.stderr.on("data", (chunk: string) => {
       const message = chunk.trim()
       if (message.length > 0)
-        logger.warn(`[desktop] ${basename(this.executable)}: ${message}`)
+        logger.warn(`${basename(this.executable)}: ${message}`)
     })
     child.on("error", (cause) =>
       this.handleExit(errorText(cause, "Recording sidecar failed.")),
@@ -241,17 +243,14 @@ export class RecordingSidecarClient {
     // queued request reaches it (stdin order guarantees this runs first).
     void this.sendConfigure(JSON.stringify(config), config).catch(
       (cause: unknown) => {
-        logger.warn(
-          "[desktop] recording sidecar startup configure failed:",
-          cause,
-        )
+        logger.warn("recording sidecar startup configure failed:", cause)
       },
     )
   }
 
   private handleLine(line: string) {
     if (!line.trimStart().startsWith("{")) {
-      logger.warn(`[desktop] ${basename(this.executable)}: ${line}`)
+      logger.warn(`${basename(this.executable)}: ${line}`)
       return
     }
 
@@ -259,7 +258,7 @@ export class RecordingSidecarClient {
     try {
       parsed = JSON.parse(line)
     } catch (cause) {
-      logger.warn("[desktop] invalid recording sidecar JSON:", cause)
+      logger.warn("invalid recording sidecar JSON:", cause)
       return
     }
 
@@ -270,7 +269,7 @@ export class RecordingSidecarClient {
     }
 
     if (!isSidecarResponse(parsed)) {
-      logger.warn("[desktop] unknown recording sidecar message:", parsed)
+      logger.warn("unknown recording sidecar message:", parsed)
       return
     }
 
@@ -300,7 +299,7 @@ export class RecordingSidecarClient {
   }
 
   private handleExit(message: string) {
-    logger.warn("[desktop] recording sidecar stopped:", message)
+    logger.warn("recording sidecar stopped:", message)
     this.child = null
     this.reader?.close()
     this.reader = null
@@ -326,16 +325,14 @@ export class RecordingSidecarClient {
         ? 1
         : this.consecutiveRespawns + 1
     if (this.consecutiveRespawns > MAX_CONSECUTIVE_RESPAWNS) {
-      logger.warn(
-        "[desktop] recording sidecar keeps crashing; not restarting it again",
-      )
+      logger.warn("recording sidecar keeps crashing; not restarting it again")
       return
     }
 
     this.respawnTimer = setTimeout(() => {
       this.respawnTimer = null
       if (this.shutdownRequested || this.child) return
-      logger.info("[desktop] restarting recording sidecar")
+      logger.info("restarting recording sidecar")
       this.ensureProcess()
     }, RESPAWN_DELAY_MS)
     this.respawnTimer.unref?.()

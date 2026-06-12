@@ -9,13 +9,15 @@ import {
 import { basename } from "node:path"
 
 import type { RuntimeConfig } from "@alloy/contracts"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { signInConfigError } from "@alloy/server/auth/sign-in-config"
 import { CONFIG_PATH } from "@alloy/server/runtime/dirs"
 import { errorDetail } from "@alloy/server/runtime/error-message"
 import { dirname } from "@alloy/server/runtime/path"
 
 import { bootstrapDefaultConfig, RuntimeConfigSchema } from "./schema"
+
+const logger = createLogger("config-store")
 
 type LoadResult =
   | {
@@ -105,10 +107,7 @@ function writeToDisk(next: RuntimeConfig): void {
 
 const initialLoad = loadFromDisk()
 if (!initialLoad.ok) {
-  logger.error(
-    `[config-store] ${CONFIG_PATH} failed validation:`,
-    initialLoad.error,
-  )
+  logger.error(`${CONFIG_PATH} failed validation:`, initialLoad.error)
   process.exit(1)
 }
 
@@ -147,7 +146,7 @@ function apply(next: RuntimeConfig, persist: boolean): void {
     try {
       listener(state, prev)
     } catch (err) {
-      logger.error("[config-store] listener threw:", err)
+      logger.error("listener threw:", err)
     }
   }
 }
@@ -159,12 +158,12 @@ function commit(next: RuntimeConfig): void {
 async function reloadFromDisk(): Promise<boolean> {
   const result = loadFromDisk()
   if (!result.ok) {
-    logger.warn(`[config-store] ignoring invalid ${CONFIG_PATH}:`, result.error)
+    logger.warn(`ignoring invalid ${CONFIG_PATH}:`, result.error)
     return false
   }
   const authError = await signInConfigError(result.config)
   if (authError) {
-    logger.warn(`[config-store] ignoring unsafe ${CONFIG_PATH}:`, authError)
+    logger.warn(`ignoring unsafe ${CONFIG_PATH}:`, authError)
     return false
   }
   apply(result.config, false)
@@ -184,10 +183,10 @@ function startConfigFileWatcher(): void {
       }, 50)
     })
     watcher.on("error", (err) => {
-      logger.warn("[config-store] config watcher stopped:", err)
+      logger.warn("config watcher stopped:", err)
     })
   } catch (err) {
-    logger.warn("[config-store] config watcher could not start:", err)
+    logger.warn("config watcher could not start:", err)
   }
 }
 

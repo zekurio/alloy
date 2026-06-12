@@ -1,7 +1,7 @@
 import type { GameListRow } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import { clip, game } from "@alloy/db/schema"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { clipSelectShape, toPublicClipRow } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
 import {
@@ -26,6 +26,8 @@ import {
   requiredTrimmedString,
   zValidator,
 } from "./validation"
+
+const logger = createLogger("search")
 
 const SearchQuery = z.object({
   q: requiredTrimmedString(120),
@@ -88,7 +90,7 @@ async function searchSteamGridGames(
 
     return rows
   } catch (err) {
-    logger.warn("[search] SteamGridDB game search failed:", err)
+    logger.warn("SteamGridDB game search failed:", err)
     return []
   }
 }

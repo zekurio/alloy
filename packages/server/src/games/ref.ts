@@ -1,6 +1,6 @@
 import type { ClipGameRef, GameRow } from "@alloy/contracts"
 import { clip, clipView, game, gameFollow } from "@alloy/db/schema"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { nullableIsoDate } from "@alloy/server/runtime/date"
 import { and, eq, ilike, inArray, or, type SQL, sql } from "drizzle-orm"
@@ -8,6 +8,8 @@ import { and, eq, ilike, inArray, or, type SQL, sql } from "drizzle-orm"
 import { exactNameKey, normalizedNameKey } from "./name-match"
 import { gameSlugWithId } from "./slug"
 import { getGameAssets, getGameById } from "./steamgriddb"
+
+const logger = createLogger("steamgriddb")
 
 const GAME_REF_REFRESH_MS = 7 * 24 * 60 * 60 * 1000
 
@@ -187,7 +189,7 @@ function loadSteamGridGameRefOnce(
 
 function refreshCachedGameRef(steamgriddbId: number): void {
   void loadSteamGridGameRefOnce(steamgriddbId).catch((err) => {
-    logger.warn(`[steamgriddb] failed to refresh game ${steamgriddbId}:`, err)
+    logger.warn(`failed to refresh game ${steamgriddbId}:`, err)
   })
 }
 
@@ -211,10 +213,7 @@ export async function getSteamGridGameRefOrSnapshot(input: {
     const row = await getSteamGridGameRef(input.steamgriddbId)
     if (row) return row
   } catch (err) {
-    logger.warn(
-      `[steamgriddb] using cached game snapshot for ${input.steamgriddbId}:`,
-      err,
-    )
+    logger.warn(`using cached game snapshot for ${input.steamgriddbId}:`, err)
   }
   return gameRowFromSnapshot(input.steamgriddbId, input.name)
 }

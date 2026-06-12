@@ -7,7 +7,7 @@ import {
   gameSession,
   userDevice,
 } from "@alloy/db/schema"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { requireSession } from "@alloy/server/auth/require-session"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { configStore } from "@alloy/server/config/store"
@@ -53,6 +53,8 @@ import {
 import { sgdbErrorResponse } from "./games-helpers"
 import { zValidator } from "./validation"
 
+const logger = createLogger("clips")
+
 async function cleanupFailedInitiate(
   clipId: string,
   uploadKey: string,
@@ -60,17 +62,14 @@ async function cleanupFailedInitiate(
   try {
     await db.delete(clip).where(eq(clip.id, clipId))
   } catch (err) {
-    logger.warn(
-      `[clips/upload] failed to delete clip ${clipId} after initiate failure:`,
-      err,
-    )
+    logger.warn(`failed to delete clip ${clipId} after initiate failure:`, err)
   }
 
   try {
     await deleteStagedUpload(uploadKey)
   } catch (err) {
     logger.warn(
-      `[clips/upload] failed to delete staged upload for ${clipId} after initiate failure:`,
+      `failed to delete staged upload for ${clipId} after initiate failure:`,
       err,
     )
   }

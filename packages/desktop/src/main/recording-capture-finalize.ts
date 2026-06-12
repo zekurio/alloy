@@ -1,9 +1,11 @@
 import { copyFileSync, renameSync, rmSync, statSync } from "node:fs"
 
 import type { RecordingCapture } from "@alloy/contracts"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 
 import { concatMp4Segments, trimMp4Tail } from "./media"
+
+const logger = createLogger("recording")
 
 const pendingFinalizes = new Map<string, Promise<RecordingCapture>>()
 
@@ -55,7 +57,7 @@ async function finalizeTrimTail(
     else removeFile(tmp)
   } catch (cause) {
     removeFile(tmp)
-    logger.warn("[desktop] failed to trim replay tail:", cause)
+    logger.warn("failed to trim replay tail:", cause)
   }
 }
 
@@ -71,7 +73,7 @@ async function finalizeConcatSegments(
     renameSync(tmp, filename)
   } catch (cause) {
     removeFile(tmp)
-    logger.warn("[desktop] failed to concatenate disk replay segments:", cause)
+    logger.warn("failed to concatenate disk replay segments:", cause)
     restoreLastSegment(filename, segmentPaths)
   } finally {
     for (const path of segmentPaths) removeFile(path)
@@ -87,7 +89,7 @@ function restoreLastSegment(filename: string, segmentPaths: string[]): void {
     try {
       copyFileSync(last, filename)
     } catch (cause) {
-      logger.warn("[desktop] failed to keep final replay segment:", cause)
+      logger.warn("failed to keep final replay segment:", cause)
     }
   }
 }
