@@ -1,16 +1,10 @@
-import type { ClipPrivacy, GameRow, UserSearchResult } from "@alloy/api"
+import type { GameRow, UserSearchResult } from "@alloy/api"
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
 } from "@alloy/ui/components/avatar"
 import { Chip } from "@alloy/ui/components/chip"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@alloy/ui/components/dropdown-menu"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import {
   Popover,
@@ -33,8 +27,6 @@ import { useSession } from "@/lib/auth-client"
 import {
   CLIP_DESCRIPTION_MAX,
   CLIP_TITLE_MAX,
-  PRIVACY_BY_VALUE,
-  PRIVACY_OPTIONS,
   sanitizeTag,
 } from "@/lib/clip-fields"
 import { useTagSearchQuery } from "@/lib/tag-queries"
@@ -51,9 +43,6 @@ interface ClipMetadataEditorProps {
   onGameChange: (game: GameRow | null) => void
   mentions: UserSearchResult[]
   onMentionsChange: (mentions: UserSearchResult[]) => void
-  /** Omit both to hide the Visibility row (e.g. when the publish action picks it). */
-  privacy?: ClipPrivacy
-  onPrivacyChange?: (privacy: ClipPrivacy) => void
   /** Bare hashtags ("ace", "ranked"). Omit to hide the Hashtags row. */
   tags?: string[]
   onTagsChange?: (tags: string[]) => void
@@ -72,8 +61,6 @@ export function ClipMetadataEditor({
   onGameChange,
   mentions,
   onMentionsChange,
-  privacy,
-  onPrivacyChange,
   tags,
   onTagsChange,
   disabled = false,
@@ -81,7 +68,6 @@ export function ClipMetadataEditor({
   gameInvalid = false,
 }: ClipMetadataEditorProps) {
   const showTags = tags !== undefined && onTagsChange !== undefined
-  const showVisibility = privacy !== undefined && onPrivacyChange !== undefined
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
@@ -138,16 +124,6 @@ export function ClipMetadataEditor({
           <HashtagPicker
             value={tags}
             onChange={onTagsChange}
-            disabled={disabled}
-          />
-        </ClipMetadataSection>
-      ) : null}
-
-      {showVisibility ? (
-        <ClipMetadataSection label="Visibility">
-          <VisibilityPickerChip
-            value={privacy}
-            onChange={onPrivacyChange}
             disabled={disabled}
           />
         </ClipMetadataSection>
@@ -227,47 +203,6 @@ function GamePickerChip({
         />
       </PopoverContent>
     </Popover>
-  )
-}
-
-function VisibilityPickerChip({
-  value,
-  onChange,
-  disabled,
-}: {
-  value: ClipPrivacy
-  onChange: (value: ClipPrivacy) => void
-  disabled: boolean
-}) {
-  const active = PRIVACY_BY_VALUE[value]
-  const ActiveIcon = active.icon
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Chip size="xl" data-active="true" disabled={disabled}>
-            <ActiveIcon />
-            {active.label}
-            <ChevronDownIcon className="text-foreground-faint" />
-          </Chip>
-        }
-      />
-      <DropdownMenuContent align="start" className="w-44">
-        {PRIVACY_OPTIONS.map((option) => {
-          const Icon = option.icon
-          return (
-            <DropdownMenuItem
-              key={option.value}
-              onClick={() => onChange(option.value)}
-            >
-              <Icon className="size-4" />
-              {option.label}
-            </DropdownMenuItem>
-          )
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
   )
 }
 

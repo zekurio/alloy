@@ -1,5 +1,6 @@
 import type { ClipRow } from "@alloy/api"
 import { Button } from "@alloy/ui/components/button"
+import { DropdownMenuItem } from "@alloy/ui/components/dropdown-menu"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { CheckIcon, DownloadIcon, Loader2Icon } from "lucide-react"
@@ -17,6 +18,18 @@ import {
  * while a download runs, every instance reflects the same progress from the
  * shared store, and the sync tracker carries the detailed status.
  */
+/**
+ * Non-hook variant of the support check, for call sites that decide whether
+ * to render a download action at all (e.g. menu gating).
+ */
+export function clipDownloadActionSupported(row: ClipRow): boolean {
+  return (
+    clipDownloadsSupported() &&
+    row.status === "ready" &&
+    Boolean(row.sourceContentType)
+  )
+}
+
 export function useClipDownloadAction(
   row: ClipRow,
   alreadyLocal = false,
@@ -29,10 +42,7 @@ export function useClipDownloadAction(
   start: () => void
 } {
   const download = useClipDownload(row.id)
-  const supported =
-    clipDownloadsSupported() &&
-    row.status === "ready" &&
-    Boolean(row.sourceContentType)
+  const supported = clipDownloadActionSupported(row)
   const downloading = download?.status === "downloading"
   const saved = alreadyLocal || download?.status === "completed"
   const progress =
@@ -94,6 +104,43 @@ export function ClipDownloadIconButton({
         <DownloadIcon />
       )}
     </Button>
+  )
+}
+
+/** Dropdown menu item variant for clip action menus. */
+export function ClipDownloadMenuItem({
+  row,
+  alreadyLocal = false,
+}: {
+  row: ClipRow
+  alreadyLocal?: boolean
+}) {
+  const action = useClipDownloadAction(row, alreadyLocal)
+  if (!action.supported) return null
+
+  return (
+    <DropdownMenuItem
+      disabled={action.saved || action.downloading}
+      onClick={(event) => {
+        event.stopPropagation()
+        action.start()
+      }}
+    >
+      {action.saved ? (
+        <CheckIcon className="text-success" />
+      ) : action.downloading ? (
+        <Loader2Icon className="animate-spin" />
+      ) : (
+        <DownloadIcon />
+      )}
+      {action.saved
+        ? "Saved on this device"
+        : action.downloading
+          ? action.progress > 0
+            ? `Downloading ${action.progress}%`
+            : "Downloading…"
+          : "Download"}
+    </DropdownMenuItem>
   )
 }
 
