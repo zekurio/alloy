@@ -14,7 +14,6 @@ packages/logging/
 ```bash
 pnpm --filter @alloy/logging build
 pnpm --filter @alloy/logging typecheck
-pnpm --filter @alloy/logging test
 ```
 
 ## Guidelines

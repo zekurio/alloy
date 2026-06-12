@@ -20,7 +20,6 @@ packages/contracts/
 ```bash
 pnpm --filter @alloy/contracts build
 pnpm --filter @alloy/contracts typecheck
-pnpm --filter @alloy/contracts test
 ```
 
 ## Guidelines

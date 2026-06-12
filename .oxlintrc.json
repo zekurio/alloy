@@ -116,7 +116,7 @@
   },
   "overrides": [
     {
-      "files": ["**/*_test.ts", "**/*.test.ts", "**/*.config.ts"],
+      "files": ["**/*.config.ts"],
       "rules": {
         "no-console": "off"
       }

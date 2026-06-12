@@ -21,7 +21,6 @@ pnpm --filter @alloy/web dev
 pnpm --filter @alloy/web build
 pnpm --filter @alloy/web preview
 pnpm --filter @alloy/web typecheck
-pnpm --filter @alloy/web test
 ```
 
 Root shortcuts:

@@ -28,7 +28,6 @@ import "@alloy/ui/globals.css"
 ```bash
 pnpm --filter @alloy/ui build
 pnpm --filter @alloy/ui typecheck
-pnpm --filter @alloy/ui test
 ```
 
 ## Guidelines

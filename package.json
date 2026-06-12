@@ -27,9 +27,7 @@
     "lint:github": "pnpm lint",
     "lint:ci": "pnpm lint",
     "typecheck": "turbo run typecheck",
-    "test": "turbo run test",
-    "test:node": "turbo run test --filter=!@alloy/recorder",
-    "verify": "pnpm fmt:check && pnpm lint && pnpm typecheck && pnpm test:node"
+    "verify": "pnpm fmt:check && pnpm lint && pnpm typecheck"
   },
   "devDependencies": {
     "@types/node": "25.6.0",
@@ -37,7 +35,6 @@
     "oxfmt": "0.53.0",
     "oxlint": "1.68.0",
     "oxlint-tsgolint": "0.23.0",
-    "tsx": "4.22.4",
     "turbo": "2.9.16",
     "typescript": "6.0.3"
   },

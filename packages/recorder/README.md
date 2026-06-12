@@ -39,7 +39,6 @@ runtime updates before calling `configure`.
 ```bash
 pnpm --filter @alloy/recorder build
 pnpm --filter @alloy/recorder build:release
-pnpm --filter @alloy/recorder test
 ```
 
 Release builds require a valid OBS runtime:

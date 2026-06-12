@@ -26,7 +26,6 @@ From the repository root:
 ```bash
 pnpm --filter @alloy/db build
 pnpm --filter @alloy/db typecheck
-pnpm --filter @alloy/db test
 pnpm db:generate
 pnpm db:migrate
 pnpm db:push

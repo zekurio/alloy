@@ -48,7 +48,6 @@ From the repository root:
 pnpm --filter @alloy/desktop dev
 pnpm --filter @alloy/desktop build
 pnpm --filter @alloy/desktop typecheck
-pnpm --filter @alloy/desktop test
 pnpm --filter @alloy/desktop preview
 ```
 

@@ -28,11 +28,9 @@ import { authPaths } from "@alloy/api/auth"
 ```bash
 pnpm --filter @alloy/api build
 pnpm --filter @alloy/api typecheck
-pnpm --filter @alloy/api test
 ```
 
-The `build` command is a TypeScript no-emit build. Tests use Node's test runner
-through `tsx`.
+The `build` command is a TypeScript no-emit build.
 
 ## Notes
 

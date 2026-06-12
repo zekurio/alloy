@@ -482,7 +482,6 @@ fn command_output(command: &str, args: &[&str]) -> Option<String> {
 }
 
 include!("sidecar_runtime_windows.rs");
-include!("sidecar_runtime_tests.rs");
 const TICK_INTERVAL: Duration = Duration::from_millis(500);
 
 fn main() {

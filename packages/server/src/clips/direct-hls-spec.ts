@@ -2,8 +2,8 @@ import { createHash } from "node:crypto"
 
 /**
  * Pure helpers for the direct-play HLS package: cache-key derivation and the
- * servable-filename allowlist. Kept free of env/storage imports so they are
- * unit-testable without a configured server.
+ * servable-filename allowlist. Kept free of env/storage imports so the helpers
+ * stay deterministic and easy to reuse without a configured server.
  */
 
 export const DIRECT_HLS_MASTER = "master.m3u8"
