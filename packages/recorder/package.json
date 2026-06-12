@@ -1,6 +1,6 @@
 {
   "name": "@alloy/recorder",
-  "version": "0.0.1-rc.0",
+  "version": "0.0.1-rc.1",
   "private": true,
   "description": "Alloy desktop recording sidecar",
   "type": "module",
