@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto"
 
 import type { ClipPrivacy } from "@alloy/contracts"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import {
   applyClipPrivacyHeaders,
   clipAccessResponse,
@@ -39,6 +39,8 @@ import {
   redirectToStorageUrl,
 } from "./media-redirect"
 import { zValidator } from "./validation"
+
+const logger = createLogger("clips")
 
 function hlsCacheControl(privacy: ClipPrivacy): string {
   return privacy === "public"
@@ -86,10 +88,7 @@ async function serveDirectHlsFile(
     })
   } catch (err) {
     if (c.req.raw.signal.aborted) throw err
-    logger.error(
-      `[clips] failed to serve direct HLS file ${row.id}/${filename}:`,
-      err,
-    )
+    logger.error(`failed to serve direct HLS file ${row.id}/${filename}:`, err)
     return notFound(c, "Adaptive stream unavailable")
   }
 }
@@ -165,9 +164,7 @@ export const clipsPlaybackRoutes = new Hono()
 
       const resolved = await clipStorage.resolve(selected.key)
       if (!resolved) {
-        logger.error(
-          `[clips] bytes missing for ready clip ${id} (${selected.id})`,
-        )
+        logger.error(`bytes missing for ready clip ${id} (${selected.id})`)
         return notFound(c, "Stream unavailable")
       }
 

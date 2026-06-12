@@ -4,13 +4,15 @@ import type {
   SteamGridDBGameDetail,
   SteamGridDBSearchResult,
 } from "@alloy/contracts"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { secretStore } from "@alloy/server/config/secret-store"
 import { imageBlurHash } from "@alloy/server/media/blurhash"
 import { errorMessage, isAbortError } from "@alloy/server/runtime/error-message"
 import { z } from "zod"
 
 import { gameSlugWithId } from "./slug"
+
+const logger = createLogger("steamgriddb")
 
 const STEAMGRIDDB_ORIGIN = "https://www.steamgriddb.com"
 const STEAMGRIDDB_API_PATH = "/api/v2"
@@ -226,10 +228,7 @@ async function optionalSteamGridDBAsset<T>(
   try {
     return await load()
   } catch (err) {
-    logger.warn(
-      `[steamgriddb] failed to fetch ${label} for ${steamgriddbId}:`,
-      err,
-    )
+    logger.warn(`failed to fetch ${label} for ${steamgriddbId}:`, err)
     return null
   }
 }
@@ -344,7 +343,7 @@ async function computeGameAssetBlurHash(
     })
   } catch (err) {
     logger.warn(
-      `[steamgriddb] failed to compute ${label} blurhash for ${steamgriddbId}:`,
+      `failed to compute ${label} blurhash for ${steamgriddbId}:`,
       err,
     )
     return null

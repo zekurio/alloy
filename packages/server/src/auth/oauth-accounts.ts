@@ -1,6 +1,6 @@
 import type { OAuthProviderConfig } from "@alloy/contracts"
 import { authAccount, user } from "@alloy/db/auth-schema"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { and, eq } from "drizzle-orm"
@@ -9,6 +9,8 @@ import { assertCanRemoveAdmin, findUserByEmail } from "./identity"
 import { defaultOAuthStorageQuota } from "./oauth-profile"
 import type { OAuthProfile, StoredTokens } from "./oauth-types"
 import { generateUniqueUsername, slugifyUsername } from "./username"
+
+const logger = createLogger("oauth")
 
 export async function resolveSignInUser(input: {
   profile: OAuthProfile
@@ -166,7 +168,7 @@ async function syncOAuthUserRole(
     try {
       await assertCanRemoveAdmin(userId)
     } catch (cause) {
-      logger.warn("[auth/oauth] skipped OAuth role demotion:", cause)
+      logger.warn("skipped OAuth role demotion:", cause)
       return
     }
   }

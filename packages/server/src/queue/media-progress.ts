@@ -1,8 +1,10 @@
 import { clip } from "@alloy/db/schema"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { publishClipProgress } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
 import { and, eq, lt } from "drizzle-orm"
+
+const logger = createLogger("queue")
 
 export function makeMediaProgressWriter(
   clipId: string,
@@ -31,10 +33,7 @@ export function makeMediaProgressWriter(
         if (rows.length > 0) publishClipProgress(authorId, clipId, pct)
       })
       .catch((err: unknown) => {
-        logger.error(
-          `[media-worker] progress update failed for ${clipId}:`,
-          err,
-        )
+        logger.error(`progress update failed for ${clipId}:`, err)
       })
   }
 }

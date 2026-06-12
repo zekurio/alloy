@@ -1,6 +1,8 @@
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { encode } from "blurhash"
 import { nativeImage } from "electron"
+
+const logger = createLogger("media")
 
 const MAX_SAMPLE_DIMENSION = 128
 
@@ -49,7 +51,7 @@ export function imageFileBlurHash(path: string): string | null {
     const { x, y } = blurHashComponents(width, height)
     return encode(pixels, width, height, x, y)
   } catch (cause) {
-    logger.warn("[desktop] failed to compute image blurhash:", cause)
+    logger.warn("failed to compute image blurhash:", cause)
     return null
   }
 }

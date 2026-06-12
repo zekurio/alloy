@@ -1,12 +1,27 @@
 import { randomUUID } from "node:crypto"
-import { existsSync, mkdirSync, writeFileSync } from "node:fs"
-import { join, resolve } from "node:path"
+import {
+  constants,
+  existsSync,
+  mkdirSync,
+  statSync,
+  writeFileSync,
+} from "node:fs"
+import { copyFile } from "node:fs/promises"
+import {
+  basename,
+  extname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+} from "node:path"
 
 import type { RecordingCapture } from "@alloy/contracts"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { shell } from "electron"
 
 import type {
+  RecordingLibraryFilesImportResult,
   RecordingLibraryImportRequest,
   RecordingLibraryImportResult,
   RecordingLibraryMetaPatch,
@@ -15,7 +30,7 @@ import type {
   RecordingLibraryProjectDraftSaveResult,
 } from "@/shared/ipc"
 
-import { probeDurationMs } from "./media"
+import { probeDurationMs, probeVideoFileMeta } from "./media"
 import {
   correctCaptureDurationMs,
   readCaptureManifest,
@@ -24,13 +39,19 @@ import {
   type CaptureManifestEntry,
 } from "./recording-library-manifest"
 import { findRecordingLibraryItem } from "./recording-library-scan"
-import { captureId, titleForCapture } from "./recording-library-shared"
+import {
+  captureId,
+  titleForCapture,
+  VIDEO_EXTENSIONS,
+} from "./recording-library-shared"
 import {
   pruneStaleThumbnails,
   warmRecordingThumbnail,
 } from "./recording-library-thumbnails"
 import { activeSessionIdForGame } from "./recording-session-tracker"
 import { currentOutputFolder } from "./recording-storage"
+
+const logger = createLogger("library")
 
 export function rememberRecordingLibraryCapture(
   capture: RecordingCapture,
@@ -164,10 +185,7 @@ export function importRecordingLibraryCapture(
       .replace(/\.mp4$/i, "")
       .replace(/[^A-Za-z0-9 ._-]/g, "_")
       .trim() || "render"
-  let filename = join(root, `${safeBase}.mp4`)
-  for (let counter = 2; existsSync(filename); counter++) {
-    filename = join(root, `${safeBase}-${counter}.mp4`)
-  }
+  const filename = uniqueCaptureFilename(root, safeBase, ".mp4")
   writeFileSync(filename, Buffer.from(request.data))
 
   const absolute = resolve(filename)
@@ -199,6 +217,104 @@ export function importRecordingLibraryCapture(
 }
 
 /**
+ * Copies user-picked video files into the Clips collection and registers them
+ * in the manifest, so footage from other recorders (or downloads) shows up in
+ * the library like any recorded capture. Files that fail are reported back
+ * per-file instead of aborting the batch.
+ */
+export async function importRecordingLibraryVideoFiles(
+  paths: string[],
+): Promise<RecordingLibraryFilesImportResult> {
+  const importedIds: string[] = []
+  const failed: { fileName: string; error: string }[] = []
+
+  for (const path of paths) {
+    try {
+      importedIds.push(await importVideoFile(path))
+    } catch (cause) {
+      logger.warn("failed to import library file:", cause)
+      failed.push({
+        fileName: basename(path),
+        error: cause instanceof Error ? cause.message : "Import failed.",
+      })
+    }
+  }
+
+  return { importedIds, failed, canceled: false }
+}
+
+async function importVideoFile(sourcePath: string): Promise<string> {
+  const source = resolve(sourcePath)
+  const extension = extname(source).toLowerCase()
+  if (!VIDEO_EXTENSIONS.has(extension)) {
+    throw new Error("Not a supported video format.")
+  }
+
+  // Files already inside a scanned collection are in the library as-is;
+  // copying them again would only create a duplicate card.
+  if (isInsideVideoCollection(source)) return captureId(source)
+
+  const sourceStat = statSync(source)
+  const meta = await probeVideoFileMeta(source)
+  if (!meta) throw new Error("Couldn't read this file as a video.")
+
+  const root = join(currentOutputFolder(), "Clips")
+  mkdirSync(root, { recursive: true })
+  const base = basename(source, extension)
+  const safeBase = base.replace(/[^A-Za-z0-9 ._-]/g, "_").trim() || "import"
+  const destination = uniqueCaptureFilename(root, safeBase, extension)
+  await copyFile(source, destination, constants.COPYFILE_EXCL)
+
+  const absolute = resolve(destination)
+  // The source's modified time survives copies and downloads, so it's the
+  // closest thing to "when this was actually recorded".
+  const createdAt = new Date(
+    sourceStat.mtimeMs > 0 ? sourceStat.mtimeMs : Date.now(),
+  ).toISOString()
+  const manifest = readCaptureManifest()
+  manifest.captures[manifestKey(absolute)] = {
+    filename: absolute,
+    title: base.trim() || titleForCapture("replay", createdAt),
+    kind: "replay",
+    source: "display",
+    gameName: null,
+    gameIconUrl: null,
+    sizeBytes: sourceStat.size,
+    durationMs: meta.durationMs,
+    bookmarksMs: [],
+    width: meta.width,
+    height: meta.height,
+    createdAt,
+    updatedAt: new Date().toISOString(),
+  }
+  writeCaptureManifest(manifest)
+
+  return captureId(absolute)
+}
+
+/** Whether a file already lives under a scanned video collection root. */
+function isInsideVideoCollection(filename: string): boolean {
+  const outputFolder = currentOutputFolder()
+  return ["Clips", "Sessions"].some((collection) => {
+    const rel = relative(join(outputFolder, collection), filename)
+    return rel.length > 0 && !rel.startsWith("..") && !isAbsolute(rel)
+  })
+}
+
+/** Returns a collision-free path in `root` for an already-sanitized base. */
+function uniqueCaptureFilename(
+  root: string,
+  base: string,
+  extension: string,
+): string {
+  let filename = join(root, `${base}${extension}`)
+  for (let counter = 2; existsSync(filename); counter++) {
+    filename = join(root, `${base}-${counter}${extension}`)
+  }
+  return filename
+}
+
+/**
  * Moves a capture's file to the OS trash and forgets its manifest entry and
  * cached thumbnails. Trashing (not unlinking) keeps the delete hotkey
  * recoverable.
@@ -222,8 +338,7 @@ export function openRecordingLibraryFolder(): void {
   const folder = currentOutputFolder()
   const openError = shell.openPath(folder)
   void openError.then((message) => {
-    if (message)
-      logger.warn("[desktop] failed to open library folder:", message)
+    if (message) logger.warn("failed to open library folder:", message)
   })
 }
 
@@ -233,8 +348,7 @@ export function openRecordingLibraryItem(id: string): void {
 
   const openError = shell.openPath(item.filename)
   void openError.then((message) => {
-    if (message)
-      logger.warn("[desktop] failed to open library capture:", message)
+    if (message) logger.warn("failed to open library capture:", message)
   })
 }
 

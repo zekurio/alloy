@@ -1,6 +1,6 @@
 import { join } from "node:path"
 
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import {
   app,
   BrowserWindow,
@@ -9,8 +9,11 @@ import {
   type WebContents,
 } from "electron"
 
+import { forwardRendererConsole } from "./logging"
 import { hardenMainSessionPermissions, MAIN_PARTITION } from "./session"
 import { canOpenExternally, sameOrigin } from "./url-policy"
+
+const logger = createLogger("windows")
 
 /** Resolved at runtime from the built output layout (see electron.vite.config). */
 const OVERLAY_PRELOAD = join(import.meta.dirname, "../preload/overlay.cjs")
@@ -69,6 +72,7 @@ export class Windows {
       this.overlay = null
     })
 
+    forwardRendererConsole(win.webContents)
     loadRenderer(win)
     this.overlay = win
     return win
@@ -96,7 +100,7 @@ export class Windows {
     void win
       .loadURL(serverUrl)
       .catch((error: unknown) => {
-        logger.warn("[desktop] failed to load server URL:", error)
+        logger.warn("failed to load server URL:", error)
       })
       .finally(() => {
         if (previousOrigin) this.clearStaleMainOrigin(previousOrigin)
@@ -219,6 +223,7 @@ export class Windows {
       return { action: "deny" }
     })
 
+    forwardRendererConsole(win.webContents)
     win.webContents.on("will-navigate", (event, url) => {
       this.handleNavigation(event, url)
     })
@@ -374,7 +379,7 @@ async function openWebPath(
 
 function openExternal(url: string): void {
   void shell.openExternal(url).catch((error: unknown) => {
-    logger.warn("[desktop] failed to open external URL:", error)
+    logger.warn("failed to open external URL:", error)
   })
 }
 

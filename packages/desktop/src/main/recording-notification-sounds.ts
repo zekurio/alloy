@@ -9,8 +9,10 @@ import type {
   RecordingNotificationSoundSettings,
 } from "@alloy/contracts"
 import { RECORDING_NOTIFICATION_SOUND_EVENTS } from "@alloy/contracts"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { app, BrowserWindow } from "electron"
+
+const logger = createLogger("sounds")
 
 export const RECORDING_SOUND_FILE_EXTENSIONS = [
   "wav",
@@ -83,10 +85,7 @@ export function ensureNotificationSoundsDir(
       if (existsSync(source)) copyFileSync(source, seeded)
     }
   } catch (cause) {
-    logger.warn(
-      `[desktop] failed to prepare notification sounds folder: ${sound}`,
-      cause,
-    )
+    logger.warn(`failed to prepare notification sounds folder: ${sound}`, cause)
   }
   return dir
 }
@@ -102,7 +101,7 @@ export function listNotificationSoundFiles(
       .map((entry) => ({ name: entry.name, path: join(dir, entry.name) }))
       .sort((a, b) => a.name.localeCompare(b.name))
   } catch (cause) {
-    logger.warn(`[desktop] failed to list notification sounds: ${sound}`, cause)
+    logger.warn(`failed to list notification sounds: ${sound}`, cause)
     return []
   }
 }
@@ -130,15 +129,10 @@ export async function playRecordingNotificationSound(
       true,
     )
     if (played !== true) {
-      logger.warn(
-        `[desktop] recording notification sound did not play: ${sound}`,
-      )
+      logger.warn(`recording notification sound did not play: ${sound}`)
     }
   } catch (cause) {
-    logger.warn(
-      `[desktop] failed to play recording notification sound: ${sound}`,
-      cause,
-    )
+    logger.warn(`failed to play recording notification sound: ${sound}`, cause)
   }
 }
 

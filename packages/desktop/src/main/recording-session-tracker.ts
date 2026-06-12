@@ -3,8 +3,10 @@ import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 
 import type { RecordingEvent, RecordingGame } from "@alloy/contracts"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { app } from "electron"
+
+const logger = createLogger("sessions")
 
 /**
  * Tracks one local "play session" per detected game run (game-started →
@@ -186,7 +188,7 @@ function persistSessions(): void {
     mkdirSync(dirname(path), { recursive: true })
     writeFileSync(path, `${JSON.stringify(file, null, 2)}\n`)
   } catch (cause) {
-    logger.warn("[desktop] failed to persist game sessions:", cause)
+    logger.warn("failed to persist game sessions:", cause)
   }
 }
 

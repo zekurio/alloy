@@ -2,7 +2,7 @@ import { Buffer } from "node:buffer"
 
 import { userAssetImagePath } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { requireSession } from "@alloy/server/auth/require-session"
 import { db } from "@alloy/server/db/index"
 import { deriveAccentColor } from "@alloy/server/media/accent"
@@ -23,6 +23,8 @@ import {
 } from "./media-redirect"
 import { toPublicUser, type UserRow } from "./users-helpers"
 import { zValidator } from "./validation"
+
+const logger = createLogger("users")
 
 type UserAssetRole = "avatar" | "banner" | "background"
 
@@ -192,10 +194,7 @@ async function uploadUserAsset(input: {
   try {
     resized = await resizeUserAsset(buf, input.role)
   } catch (cause) {
-    logger.error(
-      `[users/upload] failed to process ${input.role} upload:`,
-      cause,
-    )
+    logger.error(`failed to process ${input.role} upload:`, cause)
     return { ok: false, status: 400, error: "Could not process image" }
   }
 

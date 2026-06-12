@@ -1,5 +1,7 @@
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import sharp from "sharp"
+
+const logger = createLogger("media")
 
 type Hsl = { h: number; s: number; l: number }
 
@@ -70,7 +72,7 @@ export async function deriveAccentColor(
       .raw()
       .toBuffer()
   } catch (cause) {
-    logger.warn("[accent] failed to derive accent color:", cause)
+    logger.warn("failed to derive accent color:", cause)
     return null
   }
 

@@ -5,7 +5,7 @@ import type {
   RecordingCaptureKind,
   RecordingCaptureSource,
 } from "@alloy/contracts"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
 import type {
@@ -13,6 +13,8 @@ import type {
   RecordingLibraryItem,
   RecordingLibraryProjectDraft,
 } from "@/shared/ipc"
+
+const logger = createLogger("library")
 
 export interface CaptureManifest {
   version: 1
@@ -74,7 +76,7 @@ export function writeCaptureManifest(manifest: CaptureManifest): void {
     mkdirSync(dirname(path), { recursive: true })
     writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`)
   } catch (cause) {
-    logger.warn("[desktop] failed to write recording library manifest:", cause)
+    logger.warn("failed to write recording library manifest:", cause)
   }
 }
 
@@ -92,7 +94,7 @@ export function correctCaptureDurationMs(
   const entry = manifest.captures[manifestKey(filename)]
   if (!entry || entry.durationMs === durationMs) return false
   logger.info(
-    `[desktop] correcting capture duration ${entry.durationMs ?? "null"}ms → ${durationMs}ms for ${filename}`,
+    `correcting capture duration ${entry.durationMs ?? "null"}ms → ${durationMs}ms for ${filename}`,
   )
   entry.durationMs = durationMs
   entry.updatedAt = new Date().toISOString()

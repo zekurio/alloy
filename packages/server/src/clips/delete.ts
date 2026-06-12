@@ -1,5 +1,5 @@
 import { clip, clipUploadTicket } from "@alloy/db/schema"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { cancelClipMediaProcessing } from "@alloy/server/queue/media-worker"
 import { clipStorage } from "@alloy/server/storage/index"
@@ -7,6 +7,8 @@ import { deleteStagedUploads } from "@alloy/server/uploads/staged"
 import { eq } from "drizzle-orm"
 
 import { publishClipRemove } from "./events"
+
+const logger = createLogger("clips")
 
 export async function deleteClipRowAndAssets(
   row: typeof clip.$inferSelect,
@@ -25,7 +27,7 @@ export async function deleteClipRowAndAssets(
     try {
       await clipStorage.delete(key)
     } catch (err) {
-      logger.warn(`[clips] failed to delete ${key}:`, err)
+      logger.warn(`failed to delete ${key}:`, err)
     }
   }
   await deleteStagedUploads(

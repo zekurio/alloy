@@ -1,6 +1,8 @@
 import type { AcceptedContentType, UploadTicket } from "@alloy/contracts"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { clipStorage } from "@alloy/server/storage/index"
+
+const logger = createLogger("uploads")
 
 export function clipStagedUploadKey(
   clipId: string,
@@ -51,7 +53,7 @@ export async function deleteStagedUploads(
       try {
         await deleteStagedUpload(key)
       } catch (err) {
-        logger.warn(`[uploads] failed to delete ${label} ${key}:`, err)
+        logger.warn(`failed to delete ${label} ${key}:`, err)
       }
     }),
   )

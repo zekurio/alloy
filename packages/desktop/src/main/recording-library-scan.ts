@@ -11,7 +11,7 @@ import type {
   RecordingCaptureKind,
   RecordingCaptureSource,
 } from "@alloy/contracts"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 
 import type {
   RecordingLibraryGroup,
@@ -40,6 +40,8 @@ import {
   defaultScreenshotFolder,
 } from "./recording-storage"
 import { getThumbnailBlurHash } from "./recording-thumbnail-meta"
+
+const logger = createLogger("library")
 
 type LibraryCollection = RecordingLibraryItem["collection"]
 
@@ -135,7 +137,7 @@ function walkFiles(root: string, visit: (filename: string) => void): void {
   try {
     entries = readdirSync(root, { withFileTypes: true })
   } catch (cause) {
-    logger.warn("[desktop] failed to scan recording library:", cause)
+    logger.warn("failed to scan recording library:", cause)
     return
   }
 

@@ -2,7 +2,7 @@ import { rm, stat } from "node:fs/promises"
 
 import type { AcceptedContentType } from "@alloy/contracts"
 import { type Clip, clip, clipUploadTicket } from "@alloy/db/schema"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import {
   ensureDirectHlsPackage,
   makeDirectHlsSpec,
@@ -30,6 +30,8 @@ import { runScopedSourceKey, runScopedThumbKey } from "./media-asset-keys"
 import { makeMediaProgressWriter } from "./media-progress"
 import { type Asset, publishOriginalSource } from "./media-publish"
 import { ensureClipStillPresent, makeMediaWorkDir } from "./media-run-helpers"
+
+const logger = createLogger("queue")
 
 export async function runMediaProcessingInner(
   clipId: string,
@@ -66,10 +68,7 @@ export async function runMediaProcessingInner(
     throw err
   } finally {
     await rm(workDir, { recursive: true, force: true }).catch((err) => {
-      logger.warn(
-        `[queue] failed to remove media processing work dir ${workDir}:`,
-        err,
-      )
+      logger.warn(`failed to remove media processing work dir ${workDir}:`, err)
     })
   }
 }
@@ -282,7 +281,7 @@ async function prewarmDirectHls(clipId: string): Promise<void> {
       makeDirectHlsSpec({ ...fresh, sourceKey: fresh.sourceKey }),
     )
   } catch (err) {
-    logger.warn(`[queue] direct HLS prewarm failed for ${clipId}:`, err)
+    logger.warn(`direct HLS prewarm failed for ${clipId}:`, err)
   }
 }
 
@@ -325,7 +324,7 @@ async function republishUploadedThumbnail(
     if (stagedThumb) {
       if (stagedThumb.size > THUMB_UPLOAD_MAX_BYTES) {
         logger.warn(
-          `[queue] rejected oversized staged poster for ${clipId}: ${stagedThumb.size} bytes`,
+          `rejected oversized staged poster for ${clipId}: ${stagedThumb.size} bytes`,
         )
         return { thumbKey: row.thumbKey, thumbBlurHash: row.thumbBlurHash }
       }
@@ -360,13 +359,13 @@ async function normalizeStagedPosterToWebp(
 
   const asJpeg = imageValidation.validateImageBytes(buf, "image/jpeg")
   if (!asJpeg.ok) {
-    logger.warn(`[queue] rejected staged poster for ${clipId}: ${asJpeg.error}`)
+    logger.warn(`rejected staged poster for ${clipId}: ${asJpeg.error}`)
     return null
   }
   try {
     return await sharp(buf).webp({ quality: 82 }).toBuffer()
   } catch (err) {
-    logger.warn(`[queue] failed to convert staged poster for ${clipId}:`, err)
+    logger.warn(`failed to convert staged poster for ${clipId}:`, err)
     return null
   }
 }
@@ -443,7 +442,7 @@ async function retainRowAssetKeys(
     if (fresh?.sourceKey) retainedKeys.add(fresh.sourceKey)
     if (fresh?.thumbKey) retainedKeys.add(fresh.thumbKey)
   } catch (err) {
-    logger.warn(`[queue] failed to retain row asset keys for ${clipId}:`, err)
+    logger.warn(`failed to retain row asset keys for ${clipId}:`, err)
   }
 }
 
@@ -459,7 +458,7 @@ async function deleteClipAssetsBestEffort(
         try {
           await clipStorage.delete(key)
         } catch (err) {
-          logger.warn(`[queue] failed to delete ${label} ${key}:`, err)
+          logger.warn(`failed to delete ${label} ${key}:`, err)
         }
       }),
   )

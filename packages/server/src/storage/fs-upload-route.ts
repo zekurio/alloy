@@ -1,5 +1,5 @@
 import { clipUploadTicket } from "@alloy/db/schema"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { secretStore } from "@alloy/server/config/secret-store"
 import { db } from "@alloy/server/db/index"
 import {
@@ -15,6 +15,8 @@ import { and, eq, gt, isNull } from "drizzle-orm"
 import { Hono } from "hono"
 
 import { decodeUploadToken } from "./fs-driver"
+
+const logger = createLogger("assets")
 
 export const storageRoute = new Hono().post("/upload/:token", async (c) => {
   const token = c.req.param("token")
@@ -78,7 +80,7 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
     if (limitTripped) {
       return payloadTooLarge(c, "Upload exceeded declared size")
     }
-    logger.error("[api/assets/upload] write failed:", err)
+    logger.error("upload write failed:", err)
     return internalServerError(c, "Upload write failed")
   }
 
@@ -125,9 +127,6 @@ async function deletePartialUpload(key: string): Promise<void> {
   try {
     await clipStorage.delete(key)
   } catch (err) {
-    logger.warn(
-      `[api/assets/upload] failed to remove partial upload ${key}:`,
-      err,
-    )
+    logger.warn(`failed to remove partial upload ${key}:`, err)
   }
 }

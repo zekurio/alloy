@@ -1,5 +1,5 @@
 import type { RecordingSettings } from "@alloy/contracts"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { app, globalShortcut } from "electron"
 
 import {
@@ -12,6 +12,8 @@ import {
 } from "./recording"
 import { electronAccelerator } from "./recording-hotkey-accelerator"
 import { getRecordingSettings } from "./server-store"
+
+const logger = createLogger("hotkeys")
 
 type HotkeyAction =
   | { type: "clip"; durationSeconds: number }
@@ -49,7 +51,7 @@ export function configureRecordingHotkeys(
 
   for (const accelerator of activeActions.keys()) {
     if (!registerAccelerator(accelerator)) {
-      logger.warn(`[desktop] failed to register hotkey: ${accelerator}`)
+      logger.warn(`failed to register hotkey: ${accelerator}`)
     }
   }
 
@@ -112,7 +114,7 @@ async function runAction(
       })
       if (!result.ok) {
         if (playedRequestSound) cancelReplaySaveRequestedSoundSuppression()
-        logger.warn(`[desktop] recording clip hotkey failed: ${result.error}`)
+        logger.warn(`recording clip hotkey failed: ${result.error}`)
       } else if (!result.capture && playedRequestSound) {
         cancelReplaySaveRequestedSoundSuppression()
       }
@@ -121,25 +123,21 @@ async function runAction(
     case "bookmark": {
       const result = await addRecordingBookmark({ requestedAtUnixMs })
       if (!result.ok) {
-        logger.warn(
-          `[desktop] recording bookmark hotkey failed: ${result.error}`,
-        )
+        logger.warn(`recording bookmark hotkey failed: ${result.error}`)
       }
       return
     }
     case "screenshot": {
       const result = await takeRecordingScreenshot({ requestedAtUnixMs })
       if (!result.ok) {
-        logger.warn(
-          `[desktop] recording screenshot hotkey failed: ${result.error}`,
-        )
+        logger.warn(`recording screenshot hotkey failed: ${result.error}`)
       }
       return
     }
     case "toggleLongRecording": {
       const result = await toggleLongRecording({ requestedAtUnixMs })
       if (!result.ok) {
-        logger.warn(`[desktop] long recording hotkey failed: ${result.error}`)
+        logger.warn(`long recording hotkey failed: ${result.error}`)
       }
       return
     }
@@ -154,12 +152,12 @@ function registerAccelerator(accelerator: string): boolean {
       () => void runHotkeyActions(accelerator),
     )
   } catch (cause) {
-    logger.warn(`[desktop] failed to register hotkey: ${accelerator}`, cause)
+    logger.warn(`failed to register hotkey: ${accelerator}`, cause)
   }
 
   if (!registered || !globalShortcut.isRegistered(accelerator)) return false
   registeredAccelerators.add(accelerator)
-  logger.info(`[desktop] recording hotkey registered: ${accelerator}`)
+  logger.info(`recording hotkey registered: ${accelerator}`)
   return true
 }
 
@@ -171,7 +169,7 @@ function hotkeyActionMap(
     const accelerator = electronAccelerator(hotkey)
     if (!accelerator) {
       if (hotkey.trim().length > 0) {
-        logger.warn(`[desktop] invalid recording hotkey: ${hotkey}`)
+        logger.warn(`invalid recording hotkey: ${hotkey}`)
       }
       return
     }
@@ -221,11 +219,11 @@ function checkHotkeyRegistration(): void {
 
     registeredAccelerators.delete(accelerator)
     logger.warn(
-      `[desktop] recording hotkey was no longer registered; retrying: ${accelerator}`,
+      `recording hotkey was no longer registered; retrying: ${accelerator}`,
     )
     if (registerAccelerator(accelerator)) continue
 
-    logger.warn(`[desktop] recording hotkey recovery failed: ${accelerator}`)
+    logger.warn(`recording hotkey recovery failed: ${accelerator}`)
   }
 }
 

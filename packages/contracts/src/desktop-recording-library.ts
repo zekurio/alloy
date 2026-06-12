@@ -161,6 +161,16 @@ export interface RecordingLibraryImportResult {
   id: string
 }
 
+/** Outcome of importing user-picked video files into the capture library. */
+export interface RecordingLibraryFilesImportResult {
+  /** Library capture ids of the files that were imported. */
+  importedIds: string[]
+  /** Files that could not be imported, with a human-readable reason. */
+  failed: { fileName: string; error: string }[]
+  /** True when the user dismissed the file picker without choosing files. */
+  canceled: boolean
+}
+
 /** Ask the desktop shell to persist an uploaded clip into the local library. */
 export interface RecordingLibraryDownloadRequest {
   /** Server clip id; doubles as the download's identity (one job per clip). */

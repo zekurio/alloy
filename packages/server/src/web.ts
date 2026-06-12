@@ -4,7 +4,7 @@ import { Readable } from "node:stream"
 
 import type { PublicAuthConfig } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { eq } from "drizzle-orm"
 import type { Context, Hono } from "hono"
 
@@ -16,6 +16,8 @@ import { db } from "./db"
 import { env } from "./env"
 import { clipGameRefFromSnapshot } from "./games/ref"
 import { isAbsolute, join, relative, resolve } from "./runtime/path"
+
+const logger = createLogger("web")
 
 const HEAD_MARKER = "<!-- alloy:head -->"
 const BOOTSTRAP_MARKER = "<!-- alloy:bootstrap -->"
@@ -187,7 +189,7 @@ async function clipHead(pathname: string): Promise<string> {
       ...(poster ? [metaName("twitter:image", poster)] : []),
     ].join("\n    ")
   } catch (error) {
-    logger.error("[web] failed to build clip metadata:", error)
+    logger.error("failed to build clip metadata:", error)
     return ""
   }
 }

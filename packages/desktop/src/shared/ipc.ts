@@ -1,4 +1,5 @@
 import type {
+  DesktopUpdateState,
   PublicAuthConfig,
   RecordingActionResult,
   RecordingActionRequest,
@@ -9,6 +10,7 @@ import type {
   RecordingLibraryDownloadRequest,
   RecordingLibraryExport,
   RecordingLibraryExportRequest,
+  RecordingLibraryFilesImportResult,
   RecordingLibraryImportRequest,
   RecordingLibraryImportResult,
   RecordingLibraryMetaPatch,
@@ -48,6 +50,7 @@ export type {
   RecordingLibraryProjectDraftSaveRequest,
   RecordingLibraryProjectDraftSaveResult,
   RecordingLibraryExport,
+  RecordingLibraryFilesImportResult,
   RecordingLibraryImportRequest,
   RecordingLibraryImportResult,
   RecordingLibraryGroup,
@@ -85,6 +88,7 @@ export const IPC = {
     "alloy:delete-recording-library-project-draft",
   deleteRecordingLibraryCapture: "alloy:delete-recording-library-capture",
   importRecordingLibraryCapture: "alloy:import-recording-library-capture",
+  importRecordingLibraryFiles: "alloy:import-recording-library-files",
   saveRecordingLibraryCaptureThumbnail:
     "alloy:save-recording-library-capture-thumbnail",
   downloadRecordingLibraryClip: "alloy:download-recording-library-clip",
@@ -116,6 +120,9 @@ export const IPC = {
   minimizeWindow: "alloy:minimize-window",
   toggleMaximizeWindow: "alloy:toggle-maximize-window",
   closeWindow: "alloy:close-window",
+  getUpdateState: "alloy:get-update-state",
+  restartToInstallUpdate: "alloy:restart-to-install-update",
+  updateEvent: "alloy:update-event",
 } as const
 
 /** Result of probing a candidate server URL for a valid Alloy endpoint. */
@@ -181,6 +188,8 @@ export interface AlloyDesktopRecordingApi {
   importLibraryCapture(
     request: RecordingLibraryImportRequest,
   ): Promise<RecordingLibraryImportResult>
+  /** Opens a native picker and copies the chosen video files into the library. */
+  importLibraryFiles(): Promise<RecordingLibraryFilesImportResult>
   /** Persists a renderer-decoded JPEG poster for a local video capture. */
   saveLibraryCaptureThumbnail(id: string, data: Uint8Array): Promise<void>
   /**
@@ -240,6 +249,14 @@ export interface AlloyDesktopRecordingApi {
   ): Promise<void>
 }
 
+/** Desktop auto-update state and controls bridged into the web app. */
+export interface AlloyDesktopUpdatesApi {
+  getState(): Promise<DesktopUpdateState>
+  /** Quits and installs the downloaded update; no-op when none is ready. */
+  restartToInstall(): Promise<void>
+  onState(listener: (state: DesktopUpdateState) => void): () => void
+}
+
 /**
  * Desktop bridge exposed to the configured Alloy web app. Native side effects
  * stay behind explicit IPC handlers; no raw Electron APIs reach the renderer.
@@ -255,4 +272,5 @@ export interface AlloyDesktopMarker {
   openSettings(): Promise<void>
   servers: AlloyDesktopServerApi
   recording: AlloyDesktopRecordingApi
+  updates: AlloyDesktopUpdatesApi
 }

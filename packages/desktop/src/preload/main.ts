@@ -4,6 +4,7 @@ import type {
   AlloyDesktopMarker,
   AlloyDesktopRecordingApi,
   AlloyDesktopServerApi,
+  AlloyDesktopUpdatesApi,
 } from "@/shared/ipc"
 import { IPC } from "@/shared/ipc"
 
@@ -43,6 +44,7 @@ const recording: AlloyDesktopRecordingApi = {
     ipcRenderer.invoke(IPC.deleteRecordingLibraryCapture, id),
   importLibraryCapture: (request) =>
     ipcRenderer.invoke(IPC.importRecordingLibraryCapture, request),
+  importLibraryFiles: () => ipcRenderer.invoke(IPC.importRecordingLibraryFiles),
   saveLibraryCaptureThumbnail: (id, data) =>
     ipcRenderer.invoke(IPC.saveRecordingLibraryCaptureThumbnail, { id, data }),
   downloadClip: (request) =>
@@ -90,6 +92,18 @@ const recording: AlloyDesktopRecordingApi = {
     ipcRenderer.invoke(IPC.revealRecordingCapture, filename),
 }
 
+const updates: AlloyDesktopUpdatesApi = {
+  getState: () => ipcRenderer.invoke(IPC.getUpdateState),
+  restartToInstall: () => ipcRenderer.invoke(IPC.restartToInstallUpdate),
+  onState: (listener) => {
+    const handler = (_event: unknown, state: unknown) => {
+      listener(state as Parameters<typeof listener>[0])
+    }
+    ipcRenderer.on(IPC.updateEvent, handler)
+    return () => ipcRenderer.off(IPC.updateEvent, handler)
+  },
+}
+
 const marker: AlloyDesktopMarker = {
   platform: process.platform,
   // The main window is frameless; the web app header provides the draggable
@@ -103,6 +117,7 @@ const marker: AlloyDesktopMarker = {
   openSettings: () => ipcRenderer.invoke(IPC.openSettings),
   servers,
   recording,
+  updates,
 }
 
 contextBridge.exposeInMainWorld("alloyDesktop", marker)

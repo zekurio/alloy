@@ -2,10 +2,12 @@ import { mkdirSync, readdirSync, statfsSync, statSync } from "node:fs"
 import { isAbsolute, join, relative, resolve } from "node:path"
 
 import type { RecordingStorageInfo } from "@alloy/contracts"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
 import { getRecordingSettings } from "./server-store"
+
+const logger = createLogger("recording")
 
 const GB = 1_000_000_000
 
@@ -62,7 +64,7 @@ function ensureFolder(path: string) {
   try {
     mkdirSync(path, { recursive: true })
   } catch (cause) {
-    logger.warn("[desktop] failed to create capture folder:", cause)
+    logger.warn("failed to create capture folder:", cause)
   }
 }
 

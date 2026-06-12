@@ -12,7 +12,7 @@ import type {
   SaveReplayClipRequest,
   RecordingStatus,
 } from "@alloy/contracts"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
 import { finalizeRecordingCapture } from "./recording-capture-finalize"
@@ -55,6 +55,8 @@ export {
   getRecordingStorageInfo,
   resolveRevealableCapturePath,
 } from "./recording-storage"
+
+const logger = createLogger("recording")
 export { cancelReplaySaveRequestedSoundSuppression } from "./recording-sound-policy"
 
 export async function getRecordingStatus(): Promise<RecordingStatus> {
@@ -81,7 +83,7 @@ export async function listGameProcesses(): Promise<RecordingGameProcess[]> {
   try {
     return await client.request<RecordingGameProcess[]>("listGameProcesses")
   } catch (cause) {
-    logger.warn("[desktop] failed to list game processes:", cause)
+    logger.warn("failed to list game processes:", cause)
     return []
   }
 }
@@ -92,7 +94,7 @@ export async function listRecordingDisplays(): Promise<RecordingDisplay[]> {
     ? await client
         .request<RecordingDisplay[]>("listDisplays")
         .catch((cause) => {
-          logger.warn("[desktop] failed to list OBS displays:", cause)
+          logger.warn("failed to list OBS displays:", cause)
           return []
         })
     : []
@@ -220,7 +222,7 @@ export async function subscribeRecordingAudioLevels(): Promise<void> {
   try {
     await client.request("subscribeAudioLevels")
   } catch (cause) {
-    logger.warn("[desktop] failed to subscribe to audio levels:", cause)
+    logger.warn("failed to subscribe to audio levels:", cause)
   }
 }
 
@@ -230,7 +232,7 @@ export async function stopRecordingAudioLevels(): Promise<void> {
   try {
     await client.request("stopAudioLevels")
   } catch (cause) {
-    logger.warn("[desktop] failed to stop audio levels:", cause)
+    logger.warn("failed to stop audio levels:", cause)
   }
 }
 
@@ -367,7 +369,7 @@ async function emitFinalizedCaptureReady(
     rememberRecordingLibraryCapture(capture)
     sendRecordingEvent(finalized)
   } catch (cause) {
-    logger.warn("[desktop] failed to finalize recording capture:", cause)
+    logger.warn("failed to finalize recording capture:", cause)
   }
 }
 

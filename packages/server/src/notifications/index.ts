@@ -9,7 +9,7 @@ import {
 } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import { clip, clipComment, follow, notification } from "@alloy/db/schema"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { gameSlugWithId } from "@alloy/server/games/slug"
 import { serialiseNullableUserSummary } from "@alloy/server/routes/users-helpers"
@@ -23,6 +23,8 @@ import {
   publishNotificationsReadAll,
   publishNotificationUpsert,
 } from "./events"
+
+const logger = createLogger("notifications")
 
 const NEW_VIDEO_FANOUT_BATCH_SIZE = 10
 const NEW_VIDEO_FANOUT_PAGE_SIZE = 100
@@ -197,7 +199,7 @@ export async function createNotification(
   } catch (err) {
     if (input.suppressErrors === false) throw err
     // Notification writes should not make the primary user action fail.
-    logger.warn("[notifications] failed to create notification:", err)
+    logger.warn("failed to create notification:", err)
     return null
   }
 }
@@ -298,7 +300,7 @@ export async function notifyFollowersOfNewClip(input: {
       if (followers.length < NEW_VIDEO_FANOUT_PAGE_SIZE) return
     }
   } catch (err) {
-    logger.warn("[notifications] new-video fanout failed:", err)
+    logger.warn("new-video fanout failed:", err)
   }
 }
 

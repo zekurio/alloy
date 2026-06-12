@@ -2,11 +2,13 @@ import {
   DESKTOP_AUTH_CAPABILITY_VERSION,
   type PublicAuthConfig,
 } from "@alloy/contracts"
-import { logger } from "@alloy/logging"
+import { createLogger } from "@alloy/logging"
 
 import type { ProbeResult } from "@/shared/ipc"
 
 import { isSecureServerUrl } from "./url-policy"
+
+const logger = createLogger("probe")
 
 const PROBE_TIMEOUT_MS = 8000
 const AUTH_CONFIG_PATH = "/api/auth-config"
@@ -119,7 +121,7 @@ export async function probeServer(input: string): Promise<ProbeResult> {
     const result = await probeOne(candidate)
     if (result.ok) return result
     lastError = result.error
-    logger.warn(`[desktop] probe failed for ${candidate}: ${result.error}`)
+    logger.warn(`probe failed for ${candidate}: ${result.error}`)
   }
   return { ok: false, error: lastError }
 }
