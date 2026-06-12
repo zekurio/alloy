@@ -203,7 +203,6 @@ Image tags:
 - `latest`: latest stable app release.
 - `vX.Y.Z`: exact app release.
 - `main`: manually published image from the main branch.
-- `nightly`: scheduled image from the main branch.
 
 ### Storage
 

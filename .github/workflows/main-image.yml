@@ -1,8 +1,6 @@
-name: Publish Main/Nightly Container Image
+name: Publish Main Container Image
 
 on:
-  schedule:
-    - cron: "23 3 * * *"
   workflow_dispatch:
     inputs:
       ref:
@@ -16,7 +14,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: main-image-${{ github.event_name == 'workflow_dispatch' && inputs.ref || 'nightly' }}
+  group: main-image-${{ inputs.ref }}
   cancel-in-progress: true
 
 env:
@@ -32,7 +30,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || 'main' }}
+          ref: ${{ inputs.ref }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
@@ -54,10 +52,6 @@ jobs:
         run: |
           short_sha="$(git rev-parse --short=12 HEAD)"
           channel="main"
-
-          if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
-            channel="nightly"
-          fi
 
           export SHORT_SHA="$short_sha"
           export CHANNEL="$channel"

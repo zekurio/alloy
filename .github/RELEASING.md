@@ -25,11 +25,10 @@ that makes the release public.
 Semver prerelease versions (`X.Y.Z-rc.N`, `X.Y.Z-beta.N`, etc.) are marked as
 prereleases and never tagged `latest`.
 
-## Nightly / main channel images
+## Main channel images
 
-`main-image.yml` publishes `main` and `nightly` channel server images
-(`X.Y.Z-<channel>.<run>.<sha>`) on a schedule or manual dispatch, independent
-of releases.
+`main-image.yml` publishes `main` channel server images
+(`X.Y.Z-main.<run>.<sha>`) on manual dispatch, independent of releases.
 
 ## Recorder runtime
 
