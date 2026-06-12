@@ -1,4 +1,7 @@
-import type { RecordingLibraryDownload } from "./desktop-recording-library"
+import type {
+  RecordingLibraryDownload,
+  RecordingLibrarySyncSnapshot,
+} from "./desktop-recording-library"
 import type { AcceptedImageContentType, IsoDateString } from "./shared"
 
 export const RECORDING_ENCODERS = ["hardware", "software"] as const
@@ -230,6 +233,8 @@ export interface RecordingDisplay {
 
 export interface RecordingSettings {
   enabled: boolean
+  /** Upload new replay clips to the server once their game exits. */
+  autoSyncAfterGaming: boolean
   captureMode: RecordingCaptureMode
   /** OBS monitor id for desktop capture; empty string = backend default. */
   selectedDisplayId: string
@@ -363,3 +368,4 @@ export type RecordingEvent =
   | { type: "error"; error: string; status: RecordingStatus }
   | { type: "audio-levels"; levels: RecordingAudioLevel[] }
   | { type: "library-download"; download: RecordingLibraryDownload }
+  | { type: "library-sync"; sync: RecordingLibrarySyncSnapshot }

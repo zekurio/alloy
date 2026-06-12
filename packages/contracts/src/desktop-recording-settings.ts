@@ -39,6 +39,10 @@ export function normalizeRecordingSettings(value: unknown): RecordingSettings {
       typeof record.enabled === "boolean"
         ? record.enabled
         : DEFAULT_RECORDING_SETTINGS.enabled,
+    autoSyncAfterGaming:
+      typeof record.autoSyncAfterGaming === "boolean"
+        ? record.autoSyncAfterGaming
+        : DEFAULT_RECORDING_SETTINGS.autoSyncAfterGaming,
     captureMode: normalizeLiteral(
       record.captureMode,
       RECORDING_CAPTURE_MODES,

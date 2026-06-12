@@ -15,6 +15,7 @@ import type {
   RecordingLibraryProjectDraftSaveRequest,
   RecordingLibraryProjectDraftSaveResult,
   RecordingLibrarySnapshot,
+  RecordingLibrarySyncSnapshot,
   RecordingNotificationSoundEvent,
   RecordingNotificationSoundLibrary,
   SaveReplayClipRequest,
@@ -32,6 +33,10 @@ export type {
   RecordingLibraryDownload,
   RecordingLibraryDownloadRequest,
   RecordingLibraryDownloadStatus,
+  RecordingLibrarySyncItem,
+  RecordingLibrarySyncItemStatus,
+  RecordingLibrarySyncSnapshot,
+  RecordingLibrarySyncState,
   RecordingLibraryExportSegment,
   RecordingLibraryExportRequest,
   RecordingLibraryMetaPatch,
@@ -87,6 +92,12 @@ export const IPC = {
     "alloy:cancel-recording-library-clip-download",
   listRecordingLibraryClipDownloads:
     "alloy:list-recording-library-clip-downloads",
+  getRecordingLibrarySync: "alloy:get-recording-library-sync",
+  pauseRecordingLibrarySync: "alloy:pause-recording-library-sync",
+  resumeRecordingLibrarySync: "alloy:resume-recording-library-sync",
+  cancelRecordingLibrarySyncItem: "alloy:cancel-recording-library-sync-item",
+  retryRecordingLibrarySyncItem: "alloy:retry-recording-library-sync-item",
+  queueRecordingLibrarySyncItem: "alloy:queue-recording-library-sync-item",
   recordingEvent: "alloy:recording-event",
   selectOutputFolder: "alloy:select-output-folder",
   listNotificationSounds: "alloy:list-notification-sounds",
@@ -183,6 +194,16 @@ export interface AlloyDesktopRecordingApi {
   cancelClipDownload(clipId: string): Promise<void>
   /** Snapshot of active + finished (undismissed) clip downloads. */
   listClipDownloads(): Promise<RecordingLibraryDownload[]>
+  /** Snapshot of the upload sync queue (auto-sync after gaming). */
+  getSync(): Promise<RecordingLibrarySyncSnapshot>
+  /** Pauses the sync queue; aborts the in-flight upload back to queued. */
+  pauseSync(): Promise<RecordingLibrarySyncSnapshot>
+  resumeSync(): Promise<RecordingLibrarySyncSnapshot>
+  /** Removes a queued/failed/in-flight item; deletes its pending server clip. */
+  cancelSyncItem(captureId: string): Promise<void>
+  retrySyncItem(captureId: string): Promise<void>
+  /** Manually queues a local capture for upload ("Sync now"). */
+  queueSyncItem(captureId: string): Promise<void>
   onEvent(listener: (event: RecordingEvent) => void): () => void
   /** Opens a native folder picker; returns the chosen path or null if cancelled. */
   selectOutputFolder(): Promise<string | null>

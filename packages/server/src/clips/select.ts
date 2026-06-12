@@ -1,6 +1,6 @@
 import type { ClipMentionRef } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
-import { clip, clipMention, clipTag, game } from "@alloy/db/schema"
+import { clip, clipMention, clipTag, game, userDevice } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import {
   clipGameRefFromSnapshot,
@@ -43,6 +43,11 @@ export const clipSelectShape = {
   tags: sql<
     string[]
   >`coalesce((select array_agg(${clipTag.tag} order by ${clipTag.tag}) from ${clipTag} where ${clipTag.clipId} = ${clip.id}), '{}')`,
+  // Scalar subselect (like tags) so the many list call sites don't all need
+  // a new join. Null for web uploads, which have no origin device.
+  originDeviceName: sql<
+    string | null
+  >`(select ${userDevice.name} from ${userDevice} where ${userDevice.id} = ${clip.originDeviceId})`,
 } as const
 
 async function selectClipMentions(clipId: string): Promise<ClipMentionRef[]> {

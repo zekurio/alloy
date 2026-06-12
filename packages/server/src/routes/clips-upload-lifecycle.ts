@@ -1,10 +1,18 @@
 import { normalizeTags } from "@alloy/contracts"
-import { clip, clipMention, clipTag, clipUploadTicket } from "@alloy/db/schema"
+import {
+  clip,
+  clipMention,
+  clipTag,
+  clipUploadTicket,
+  gameSession,
+  userDevice,
+} from "@alloy/db/schema"
 import { logger } from "@alloy/logging"
 import { requireSession } from "@alloy/server/auth/require-session"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
+import { lookupGamesByName } from "@alloy/server/games/lookup"
 import { getSteamGridGameRef } from "@alloy/server/games/ref"
 import { isConfigured as isSteamGridDBConfigured } from "@alloy/server/games/steamgriddb"
 import { enqueueClipMediaProcessing } from "@alloy/server/queue/index"
@@ -38,7 +46,6 @@ import {
   markUploadFailed,
   resolveMentionIds,
   selectLockedQuotaState,
-  THUMB_UPLOAD_CONTENT_TYPE,
   THUMB_UPLOAD_MAX_BYTES,
   type UploadQuotaResult,
   uploadWouldExceedQuota,
@@ -109,17 +116,57 @@ export const clipsUploadLifecycleRoutes = new Hono()
       const thumbUploadKey = clipThumbStagedUploadKey(clipId)
       const privacy = body.privacy === "private" ? "private" : body.privacy
 
-      if (!isSteamGridDBConfigured()) {
-        return serviceUnavailable(c, "SteamGridDB is not configured")
+      let steamgriddbId: number
+      let gameName: string
+      if (body.steamgriddbId != null) {
+        if (!isSteamGridDBConfigured()) {
+          return serviceUnavailable(c, "SteamGridDB is not configured")
+        }
+        let gameRef: Awaited<ReturnType<typeof getSteamGridGameRef>>
+        try {
+          gameRef = await getSteamGridGameRef(body.steamgriddbId)
+        } catch (err) {
+          return errorResult(c, sgdbErrorResponse(err))
+        }
+        if (!gameRef) return badRequest(c, "Unknown game")
+        steamgriddbId = body.steamgriddbId
+        gameName = gameRef.name
+      } else {
+        // Sync uploads only know the detected process name. The lookup
+        // degrades to indexed-DB matches when SteamGridDB is unavailable.
+        const lookup = await lookupGamesByName([body.gameName ?? ""], viewerId)
+        const match = lookup.results[0]?.game
+        if (!match) return c.json({ error: "game-unresolved" }, 422)
+        steamgriddbId = match.steamgriddbId
+        gameName = match.name
       }
 
-      let gameRef: Awaited<ReturnType<typeof getSteamGridGameRef>>
-      try {
-        gameRef = await getSteamGridGameRef(body.steamgriddbId)
-      } catch (err) {
-        return errorResult(c, sgdbErrorResponse(err))
+      if (body.originDeviceId) {
+        const [device] = await db
+          .select({ id: userDevice.id })
+          .from(userDevice)
+          .where(
+            and(
+              eq(userDevice.id, body.originDeviceId),
+              eq(userDevice.userId, viewerId),
+            ),
+          )
+          .limit(1)
+        if (!device) return badRequest(c, "Unknown device")
       }
-      if (!gameRef) return badRequest(c, "Unknown game")
+      if (body.gameSessionId) {
+        const [session] = await db
+          .select({ id: gameSession.id })
+          .from(gameSession)
+          .where(
+            and(
+              eq(gameSession.id, body.gameSessionId),
+              eq(gameSession.userId, viewerId),
+            ),
+          )
+          .limit(1)
+        if (!session) return badRequest(c, "Unknown play session")
+      }
 
       const mentionedIds = body.mentionedUserIds
         ? await resolveMentionIds(body.mentionedUserIds, viewerId)
@@ -147,9 +194,11 @@ export const clipsUploadLifecycleRoutes = new Hono()
             authorId: viewerId,
             title: body.title,
             description: body.description ?? null,
-            game: gameRef.name,
-            steamgriddbId: body.steamgriddbId,
+            game: gameName,
+            steamgriddbId,
             privacy,
+            originDeviceId: body.originDeviceId ?? null,
+            gameSessionId: body.gameSessionId ?? null,
             sourceContentType: body.contentType,
             sourceSizeBytes: body.sizeBytes,
             // Client-provided placeholder; media processing recomputes the
@@ -200,6 +249,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
           videoContentType: body.contentType,
           videoBytes: body.sizeBytes,
           thumbKey: thumbUploadKey,
+          thumbContentType: body.thumbContentType,
           expiresAt,
         })
         const ticket = await mintStagedUploadUrl({
@@ -212,7 +262,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
         })
         const thumbTicket = await mintStagedUploadUrl({
           key: thumbUploadKey,
-          contentType: THUMB_UPLOAD_CONTENT_TYPE,
+          contentType: body.thumbContentType,
           maxBytes: THUMB_UPLOAD_MAX_BYTES,
           expiresInSec,
           userId: viewerId,

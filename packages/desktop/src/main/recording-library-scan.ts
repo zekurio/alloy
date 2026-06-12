@@ -34,6 +34,7 @@ import {
   titleForCapture,
   VIDEO_EXTENSIONS,
 } from "./recording-library-shared"
+import { syncStateForCapture } from "./recording-library-sync-registry"
 import {
   currentOutputFolder,
   defaultScreenshotFolder,
@@ -209,6 +210,7 @@ function libraryItemForFile(
     mentions: manifestEntry?.mentions ?? [],
     privacy: manifestEntry?.privacy ?? null,
     uploadedClipId: manifestEntry?.uploadedClipId ?? null,
+    syncState: syncStateForCapture(id, manifestEntry?.uploadedClipId ?? null),
     createdAt,
     modifiedAt,
   }

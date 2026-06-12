@@ -55,6 +55,8 @@ function UploadQueuePopover({
   activeCount,
   isQueueLoading,
   isQueueUnavailable,
+  syncPaused,
+  onToggleSyncPause,
   onClearCompleted,
 }: {
   queueOpen: boolean
@@ -63,6 +65,8 @@ function UploadQueuePopover({
   activeCount: number
   isQueueLoading: boolean
   isQueueUnavailable: boolean
+  syncPaused: boolean | null
+  onToggleSyncPause: () => void
   onClearCompleted: () => void
 }) {
   const isMobile = useIsMobile()
@@ -91,6 +95,8 @@ function UploadQueuePopover({
       queue={queue}
       isLoading={isQueueLoading}
       isUnavailable={isQueueUnavailable}
+      syncPaused={syncPaused}
+      onToggleSyncPause={onToggleSyncPause}
       onClearCompleted={onClearCompleted}
       onClose={() => setQueueOpen(false)}
     />
@@ -221,6 +227,8 @@ function AuthedUploadFlow() {
     queue,
     activeCount,
     clearCompleted,
+    syncPaused,
+    onToggleSyncPause,
     isQueueLoading,
     isQueueUnavailable,
   } = useUploadQueueState(queueOpen, handleOpenClip)
@@ -253,6 +261,8 @@ function AuthedUploadFlow() {
       activeCount={activeCount}
       isQueueLoading={isQueueLoading}
       isQueueUnavailable={isQueueUnavailable}
+      syncPaused={syncPaused}
+      onToggleSyncPause={onToggleSyncPause}
       onClearCompleted={clearCompleted}
     />
   )

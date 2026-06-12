@@ -8,6 +8,7 @@ import type {
   RecordingEvent,
   RecordingGameProcess,
   RecordingLibraryDownload,
+  RecordingLibrarySyncSnapshot,
   SaveReplayClipRequest,
   RecordingStatus,
 } from "@alloy/contracts"
@@ -117,6 +118,13 @@ export function emitRecordingLibraryDownloadEvent(
   download: RecordingLibraryDownload,
 ): void {
   emitRecordingEvent({ type: "library-download", download })
+}
+
+/** Full queue snapshots from the library sync engine. */
+export function emitRecordingLibrarySyncEvent(
+  sync: RecordingLibrarySyncSnapshot,
+): void {
+  emitRecordingEvent({ type: "library-sync", sync })
 }
 
 /**

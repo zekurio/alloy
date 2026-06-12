@@ -15,6 +15,8 @@ import {
   FolderOpenIcon,
   Loader2Icon,
   PauseIcon,
+  PlayIcon,
+  RotateCcwIcon,
   Trash2Icon,
   XIcon,
 } from "lucide-react"
@@ -24,6 +26,7 @@ export type QueueItemStatus =
   | "uploading"
   | "encoding"
   | "queued"
+  | "paused"
   | "published"
   | "downloading"
   | "downloaded"
@@ -52,6 +55,8 @@ export interface QueueItem {
   onCancel?: () => void
   onOpen?: () => void
   onCopyLink?: () => void
+  /** Re-queues a failed desktop sync item. */
+  onRetry?: () => void
   /** Removes a finished (published) row from the local view only. */
   onDismiss?: () => void
 }
@@ -62,6 +67,10 @@ interface UploadQueueContentProps {
   isLoading?: boolean
   /** True when the initial server queue stream could not hydrate the cache. */
   isUnavailable?: boolean
+  /** Whether the desktop sync queue is paused; null hides the control. */
+  syncPaused?: boolean | null
+  /** Pauses/resumes the desktop sync queue. */
+  onToggleSyncPause?: () => void
   /** Dismisses every finished (published) row in one go. */
   onClearCompleted?: () => void
   /** Closes the surrounding queue surface. */
@@ -75,6 +84,8 @@ export function UploadQueueContent({
   queue,
   isLoading = false,
   isUnavailable = false,
+  syncPaused = null,
+  onToggleSyncPause,
   onClearCompleted,
   onClose,
 }: UploadQueueContentProps) {
@@ -106,6 +117,16 @@ export function UploadQueueContent({
                   ? "empty"
                   : `${queue.length} ${queue.length === 1 ? "item" : "items"}`}
           </span>
+          {syncPaused !== null && onToggleSyncPause ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={syncPaused ? "Resume sync" : "Pause sync"}
+              onClick={onToggleSyncPause}
+            >
+              {syncPaused ? <PlayIcon /> : <PauseIcon />}
+            </Button>
+          ) : null}
         </div>
       </header>
 
@@ -322,6 +343,9 @@ function QueueThumb({
       className={cn(
         CLIP_MEDIA_VIEWPORT_CLASS,
         "h-10 w-[calc(2.5rem*16/9)] shrink-0 rounded-sm",
+        // Same antialiased-clip guarantee as CLIP_MEDIA_ROUNDED_CLASS: keep
+        // the composited blurhash canvas inside the rounded corners.
+        "isolate",
       )}
     >
       <MediaPlaceholder seed={hue} blurHash={thumbBlurHash} />
@@ -420,20 +444,37 @@ function RowAction({ item }: { item: QueueItem }) {
       </>
     )
   }
-  if (status === "encoding" || status === "queued" || status === "failed") {
+  if (
+    status === "encoding" ||
+    status === "queued" ||
+    status === "paused" ||
+    status === "failed"
+  ) {
     const label =
       status === "failed"
         ? `Remove failed clip ${title}`
         : `Remove ${title} from queue`
     return (
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label={label}
-        onClick={item.onCancel}
-      >
-        <Trash2Icon />
-      </Button>
+      <>
+        {item.onRetry ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Retry sync of ${title}`}
+            onClick={item.onRetry}
+          >
+            <RotateCcwIcon />
+          </Button>
+        ) : null}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={label}
+          onClick={item.onCancel}
+        >
+          <Trash2Icon />
+        </Button>
+      </>
     )
   }
   if (status === "published") {
@@ -477,8 +518,9 @@ function RowAction({ item }: { item: QueueItem }) {
 
 const STATUS_LABELS: Record<QueueItemStatus, string> = {
   uploading: "Upload",
-  encoding: "Encoding",
+  encoding: "Processing",
   queued: "Queued",
+  paused: "Paused",
   published: "Published",
   downloading: "Download",
   downloaded: "Saved locally",
@@ -489,6 +531,7 @@ const STATUS_TONES: Record<QueueItemStatus, { label: string; bar: string }> = {
   uploading: { label: "text-accent", bar: "bg-accent" },
   encoding: { label: "text-warning", bar: "bg-warning" },
   queued: { label: "text-foreground-faint", bar: "" },
+  paused: { label: "text-foreground-faint", bar: "" },
   published: { label: "text-success", bar: "bg-success" },
   downloading: { label: "text-accent", bar: "bg-accent" },
   downloaded: { label: "text-success", bar: "bg-success" },

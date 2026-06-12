@@ -1,5 +1,6 @@
 import {
   ACCEPTED_CLIP_CONTENT_TYPES,
+  ACCEPTED_THUMB_CONTENT_TYPES,
   CLIP_DESCRIPTION_MAX_LENGTH,
   CLIP_TAG_MAX_LENGTH,
   CLIP_TAGS_MAX,
@@ -213,18 +214,32 @@ const TagsInput = z
   .max(CLIP_TAGS_MAX)
   .optional()
 
-export const InitiateBody = z.object({
-  filename: z.string().min(1).max(255),
-  contentType: z.enum(ACCEPTED_CLIP_CONTENT_TYPES),
-  sizeBytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
-  title: requiredTrimmedString(CLIP_TITLE_MAX_LENGTH),
-  description: optionalBlankToNullTrimmedString(CLIP_DESCRIPTION_MAX_LENGTH),
-  steamgriddbId: z.number().int().positive(),
-  privacy: z.enum(CLIP_PRIVACY).default("public"),
-  mentionedUserIds: z.array(z.uuid()).optional(),
-  tags: TagsInput,
-  thumbBlurHash: z.string().regex(BLURHASH_PATTERN).optional(),
-})
+export const InitiateBody = z
+  .object({
+    filename: z.string().min(1).max(255),
+    contentType: z.enum(ACCEPTED_CLIP_CONTENT_TYPES),
+    sizeBytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    title: requiredTrimmedString(CLIP_TITLE_MAX_LENGTH),
+    description: optionalBlankToNullTrimmedString(CLIP_DESCRIPTION_MAX_LENGTH),
+    // The picker flow sends a steamgriddbId; the desktop sync engine only
+    // knows the detected name and lets the server resolve it. At least one
+    // is required; steamgriddbId wins when both are present.
+    steamgriddbId: z.number().int().positive().optional(),
+    gameName: z.string().trim().min(1).max(200).optional(),
+    privacy: z.enum(CLIP_PRIVACY).default("public"),
+    mentionedUserIds: z.array(z.uuid()).optional(),
+    tags: TagsInput,
+    thumbBlurHash: z.string().regex(BLURHASH_PATTERN).optional(),
+    thumbContentType: z
+      .enum(ACCEPTED_THUMB_CONTENT_TYPES)
+      .default("image/webp"),
+    originDeviceId: z.uuid().optional(),
+    gameSessionId: z.uuid().optional(),
+  })
+  .refine((b) => b.steamgriddbId != null || b.gameName != null, {
+    message: "Either steamgriddbId or gameName is required",
+    path: ["steamgriddbId"],
+  })
 
 /** Smallest media range a trim may keep, in ms. */
 export const TRIM_MIN_RANGE_MS = 1000

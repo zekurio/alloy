@@ -22,6 +22,7 @@ import {
 } from "drizzle-orm/pg-core"
 
 import { user } from "./auth"
+import { gameSession, userDevice } from "./device"
 import { game } from "./game"
 import { sqlStringList } from "./internal"
 
@@ -48,6 +49,15 @@ export const clip = pgTable(
 
     // One of `CLIP_PRIVACY`, validated via zod on write paths.
     privacy: text("privacy").$type<ClipPrivacy>().notNull().default("public"),
+
+    // Where the clip came from. Null for web uploads; set by the desktop
+    // sync engine so the library can show which machine holds the original.
+    originDeviceId: uuid("origin_device_id").references(() => userDevice.id, {
+      onDelete: "set null",
+    }),
+    gameSessionId: uuid("game_session_id").references(() => gameSession.id, {
+      onDelete: "set null",
+    }),
 
     sourceKey: text("source_key"),
     sourceContentType: text("source_content_type"),
@@ -97,6 +107,7 @@ export const clip = pgTable(
       .where(sql`${t.status} = 'ready' and ${t.privacy} = 'public'`),
     index("clip_status_idx").on(t.status),
     index("clip_steamgriddb_created_idx").on(t.steamgriddbId, t.createdAt),
+    index("clip_game_session_idx").on(t.gameSessionId),
     index("clip_ready_visible_steamgriddb_top_idx")
       .on(
         t.steamgriddbId,

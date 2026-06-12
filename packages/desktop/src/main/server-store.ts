@@ -79,6 +79,26 @@ export function forgetServer(serverUrl: string): SavedServer[] {
   return servers
 }
 
+/**
+ * Stable per-install device id used for server-side clip ownership. Created
+ * lazily on first use; `replaceDeviceId` handles the (unlikely) server-side
+ * id collision by minting a fresh identity.
+ */
+export function getOrCreateDeviceId(): string {
+  const state = readState()
+  if (state.deviceId) return state.deviceId
+  const deviceId = crypto.randomUUID()
+  writeState({ ...state, deviceId })
+  return deviceId
+}
+
+export function replaceDeviceId(): string {
+  const state = readState()
+  const deviceId = crypto.randomUUID()
+  writeState({ ...state, deviceId })
+  return deviceId
+}
+
 export function getRecordingSettings(): RecordingSettings {
   return readState().recording
 }

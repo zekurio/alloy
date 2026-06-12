@@ -23,6 +23,7 @@ import {
   resolveStagedUpload,
 } from "@alloy/server/uploads/staged"
 import { and, eq } from "drizzle-orm"
+import sharp from "sharp"
 
 import { abortMediaProcessing } from "./media-abort"
 import { runScopedSourceKey, runScopedThumbKey } from "./media-asset-keys"
@@ -332,21 +333,42 @@ async function republishUploadedThumbnail(
       const buf = Buffer.from(
         await new Response(stagedThumb.stream()).arrayBuffer(),
       )
-      const validation = imageValidation.validateImageBytes(buf, "image/webp")
-      if (!validation.ok) {
-        logger.warn(
-          `[queue] rejected staged poster for ${clipId}: ${validation.error}`,
-        )
+      const webp = await normalizeStagedPosterToWebp(buf, clipId)
+      if (!webp) {
         return { thumbKey: row.thumbKey, thumbBlurHash: row.thumbBlurHash }
       }
 
       const thumbKey = runScopedThumbKey(clipId, runId)
-      await clipStorage.put(thumbKey, buf, "image/webp")
+      await clipStorage.put(thumbKey, webp, "image/webp")
       uploadedKeys.push(thumbKey)
       return { thumbKey, thumbBlurHash: row.thumbBlurHash }
     }
   }
   return { thumbKey: row.thumbKey, thumbBlurHash: row.thumbBlurHash }
+}
+
+/**
+ * The published poster is always webp. The renderer uploads webp directly;
+ * the desktop sync engine ships its cached JPEG poster, converted here.
+ */
+async function normalizeStagedPosterToWebp(
+  buf: Buffer,
+  clipId: string,
+): Promise<Buffer | null> {
+  const asWebp = imageValidation.validateImageBytes(buf, "image/webp")
+  if (asWebp.ok) return buf
+
+  const asJpeg = imageValidation.validateImageBytes(buf, "image/jpeg")
+  if (!asJpeg.ok) {
+    logger.warn(`[queue] rejected staged poster for ${clipId}: ${asJpeg.error}`)
+    return null
+  }
+  try {
+    return await sharp(buf).webp({ quality: 82 }).toBuffer()
+  } catch (err) {
+    logger.warn(`[queue] failed to convert staged poster for ${clipId}:`, err)
+    return null
+  }
 }
 
 async function selectThumbUploadKey(clipId: string): Promise<string | null> {

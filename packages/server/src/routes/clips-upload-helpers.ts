@@ -77,7 +77,7 @@ export async function markUploadFailed(
   })
 }
 
-/** Poster image content type the client renders and uploads. */
+/** Default poster image content type when the client doesn't pick one. */
 export const THUMB_UPLOAD_CONTENT_TYPE = "image/webp"
 
 /**
@@ -92,6 +92,7 @@ export async function createUploadTickets(input: {
   videoContentType: string
   videoBytes: number
   thumbKey: string
+  thumbContentType?: string
   expiresAt: Date
 }): Promise<void> {
   await db.insert(clipUploadTicket).values([
@@ -107,7 +108,7 @@ export async function createUploadTickets(input: {
       clipId: input.clipId,
       role: "thumb",
       storageKey: input.thumbKey,
-      contentType: THUMB_UPLOAD_CONTENT_TYPE,
+      contentType: input.thumbContentType ?? THUMB_UPLOAD_CONTENT_TYPE,
       expectedBytes: THUMB_UPLOAD_MAX_BYTES,
       expiresAt: input.expiresAt,
     },
