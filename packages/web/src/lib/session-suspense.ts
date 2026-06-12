@@ -21,6 +21,7 @@ type RouteAuthConfigState = {
 }
 
 let sessionInitialPromise: Promise<void> | null = null
+let sessionRetryPromise: Promise<SessionData> | null = null
 let configPromiseCache: Promise<PublicAuthConfig> | null = null
 let sessionLoadWarningLogged = false
 
@@ -88,21 +89,39 @@ function sessionInitializedPromise(): Promise<void> {
   return sessionInitialPromise
 }
 
+/**
+ * Resolve the current session without forcing a network round trip. The auth
+ * client store fetches once at boot, and every auth action (sign-in, sign-out,
+ * profile update) writes back into it — so route guards, which run on every
+ * navigation *and* hover-preload, can reuse the settled snapshot. Only a
+ * failed fetch triggers a refetch, shared across concurrent callers.
+ */
 export async function loadSession(): Promise<SessionData> {
   if (typeof window === "undefined") return null
-  try {
-    const { data } = await authClient.getSession()
-    return data
-  } catch (cause) {
-    if (!sessionLoadWarningLogged) {
-      sessionLoadWarningLogged = true
-      clientLogger.warn(
-        "[auth] Failed to load session; using anonymous state.",
-        cause,
-      )
-    }
-    return null
+
+  await sessionInitializedPromise()
+  const snapshot = authClient.$store.getSnapshot()
+  if (!snapshot.error) return snapshot.data
+
+  if (!sessionRetryPromise) {
+    sessionRetryPromise = authClient.$store
+      .refetch()
+      .then(({ data }) => data)
+      .catch((cause: unknown) => {
+        if (!sessionLoadWarningLogged) {
+          sessionLoadWarningLogged = true
+          clientLogger.warn(
+            "[auth] Failed to load session; using anonymous state.",
+            cause,
+          )
+        }
+        return null
+      })
+      .finally(() => {
+        sessionRetryPromise = null
+      })
   }
+  return sessionRetryPromise
 }
 
 /**

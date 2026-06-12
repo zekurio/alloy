@@ -59,12 +59,10 @@ function contentType(path: string): string {
   return "application/octet-stream"
 }
 
-function webAssetCacheControl(path: string): string {
-  if (path.endsWith(".js") || path.endsWith(".mjs") || path.endsWith(".css")) {
-    return "public, no-cache"
-  }
-  return "public, max-age=31536000, immutable"
-}
+// Everything under /assets/ carries a content hash in its filename, so it can
+// be cached forever. Deploys ship new hashes via index.html, which stays
+// no-cache.
+const WEB_ASSET_CACHE_CONTROL = "public, max-age=31536000, immutable"
 
 function safeJoin(root: string, requestPath: string): string | null {
   let decoded: string
@@ -253,11 +251,9 @@ export async function mountWeb(app: Hono): Promise<Hono> {
     return c.body(stream as ReadableStream<Uint8Array>)
   }
 
-  app.on(["GET", "HEAD"], "/assets/*", (c) => {
-    const rel = c.req.path.slice("/assets/".length)
-    const path = `/assets/${rel}`
-    return serveFile(c, path, webAssetCacheControl(path))
-  })
+  app.on(["GET", "HEAD"], "/assets/*", (c) =>
+    serveFile(c, c.req.path, WEB_ASSET_CACHE_CONTROL),
+  )
 
   app.on(["GET", "HEAD"], "/logo.png", (c) =>
     serveFile(c, "/logo.png", "public, max-age=86400"),
