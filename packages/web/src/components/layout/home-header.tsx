@@ -123,8 +123,11 @@ function useHeaderNavigationHistory() {
         __TSR_index?: number
         __TSR_key?: string
       }
+      // An entry whose state was written outside the router (missing or NaN
+      // index) counts as the bottom of the stack.
+      const index = historyState.__TSR_index
       return {
-        index: historyState.__TSR_index ?? 0,
+        index: typeof index === "number" && Number.isInteger(index) ? index : 0,
         key: historyState.__TSR_key ?? state.location.href,
       }
     },
