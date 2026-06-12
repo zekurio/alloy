@@ -28,6 +28,18 @@ export interface MintUploadUrlInput {
   clipId: string
 }
 
+export interface MintDownloadUrlInput {
+  /** Storage key of the object the URL will serve. */
+  key: string
+  /** Time-to-live for the signed URL, in seconds. */
+  expiresInSec: number
+  /** Response Content-Type baked into the signed URL. */
+  contentType?: string
+  /** Full `Content-Disposition` header value baked into the signed URL —
+   * lets attachment downloads keep their filename without proxying. */
+  contentDisposition?: string
+}
+
 export interface StorageDriver {
   /**
    * Server-side write. Returns the byte length actually written so the
@@ -47,6 +59,13 @@ export interface StorageDriver {
 
   /** Issue a browser-bound upload URL. */
   mintUploadUrl(input: MintUploadUrlInput): Promise<UploadTicket>
+
+  /**
+   * Issue a short-lived browser-bound GET URL so clients pull bytes
+   * straight from the backing store. Returns `null` when the driver can
+   * only serve through the server (fs) — callers fall back to resolve().
+   */
+  mintDownloadUrl(input: MintDownloadUrlInput): Promise<string | null>
 
   /** Best-effort delete; missing keys must not throw. */
   delete(key: string): Promise<void>

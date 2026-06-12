@@ -17,6 +17,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 
 import { dirname } from "../runtime/path"
 import type {
+  MintDownloadUrlInput,
   MintUploadUrlInput,
   ResolvedObject,
   StorageDriver,
@@ -126,6 +127,18 @@ export class S3StorageDriver implements StorageDriver {
       headers: { "Content-Type": input.contentType },
       expiresAt,
     }
+  }
+
+  async mintDownloadUrl(input: MintDownloadUrlInput): Promise<string | null> {
+    const command = new GetObjectCommand({
+      Bucket: this.opts.bucket,
+      Key: this.fullKey(input.key),
+      ResponseContentType: input.contentType,
+      ResponseContentDisposition: input.contentDisposition,
+    })
+    return getSignedUrl(this.client, command, {
+      expiresIn: input.expiresInSec,
+    })
   }
 
   async delete(key: string): Promise<void> {
