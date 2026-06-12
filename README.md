@@ -174,7 +174,7 @@ Optional Cachix cache:
 nix.settings = {
   substituters = [ "https://zekurio.cachix.org" ];
   trusted-public-keys = [
-    "zekurio.cachix.org-1:QfL4gb2uCVEmSOOx4fLGDpygY1ycH5oUS1nteYTAgHc="
+    "zekurio.cachix.org-1:esutyOTeL/aict5fKEf0Zm4fHazmwGapCLfjekfEv9o="
   ];
 };
 ```
@@ -201,8 +201,8 @@ docker run --rm \
 Image tags:
 
 - `latest`: latest stable app release.
-- `vX.Y.Z`: exact app release.
-- `main`: manually published image from the main branch.
+- `vX.Y.Z`: exact app release; prereleases only get their pinned version tag.
+- `main`: continuously published from the main branch.
 
 ### Storage
 
