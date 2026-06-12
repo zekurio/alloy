@@ -38,7 +38,10 @@
                 Ok as GDIP_OK,
             },
         },
-        Media::Audio::{AudioSessionStateActive, DEVICE_STATE_ACTIVE, MMDeviceEnumerator, eRender},
+        Media::Audio::{
+            AudioSessionStateActive, AudioSessionStateInactive, DEVICE_STATE_ACTIVE,
+            MMDeviceEnumerator, eRender,
+        },
         Security::Cryptography::{
             CryptBinaryToStringW, CRYPT_STRING_BASE64, CRYPT_STRING_NOCRLF,
         },

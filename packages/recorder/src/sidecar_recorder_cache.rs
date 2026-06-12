@@ -36,17 +36,38 @@ impl Recorder {
             return;
         };
         let key = (gpu_adapter(&settings), self.obs_runtime_dir.clone());
+        let cached = self
+            .codec_caps
+            .take()
+            .filter(|_| self.codec_caps_key.as_ref() == Some(&key));
 
         if self.obs.is_some() {
-            self.codec_caps = Some(CodecCaps {
+            let live = CodecCaps {
                 hardware: self.available_codecs.clone(),
                 software_h264: self.available_encoder_set().contains("obs_x264"),
+            };
+            // Encoder registration can transiently fail while the GPU is busy
+            // (AMD's AMF helper probe under gaming load), so a codec that ever
+            // probed fine on this adapter stays supported instead of flapping
+            // to unsupported in the settings UI.
+            self.codec_caps = Some(match cached {
+                Some(cached) => merge_codec_caps(cached, live),
+                None => live,
             });
             self.codec_caps_key = Some(key);
             return;
         }
 
-        if self.codec_caps.is_some() && self.codec_caps_key.as_ref() == Some(&key) {
+        if cached.is_some() {
+            self.codec_caps = cached;
+            return;
+        }
+
+        if self.codec_caps_failed_probe.as_ref().is_some_and(
+            |(failed_key, failed_at)| {
+                failed_key == &key && failed_at.elapsed() < CODEC_PROBE_RETRY_COOLDOWN
+            },
+        ) {
             return;
         }
 
@@ -54,11 +75,27 @@ impl Recorder {
             Ok(caps) => {
                 self.codec_caps = Some(caps);
                 self.codec_caps_key = Some(key);
+                self.codec_caps_failed_probe = None;
             }
             Err(error) => {
                 eprintln!("[{SIDE_CAR_NAME}] codec capability probe failed: {error}");
+                self.codec_caps_failed_probe = Some((key, Instant::now()));
             }
         }
+    }
+
+    /// Whether `codec_caps` already reflect the current adapter + runtime.
+    fn codec_caps_current(&self) -> bool {
+        let Some(settings) = self.settings.as_ref() else {
+            return true;
+        };
+        self.codec_caps.is_some()
+            && self
+                .codec_caps_key
+                .as_ref()
+                .is_some_and(|(adapter, runtime)| {
+                    *adapter == gpu_adapter(settings) && runtime == &self.obs_runtime_dir
+                })
     }
 
     /// Briefly initializes OBS on a default canvas to enumerate the available
@@ -134,10 +171,10 @@ impl Recorder {
             self.cached_audio_applications_at,
             AUDIO_APPLICATION_DISCOVERY_CACHE_TTL,
         ) || self.cached_audio_applications_game_key != game_key;
-        if (self.current_mode() == RecordingMode::Idle
-            || self.cached_audio_applications_at.is_none())
-            && stale
-        {
+        // Refreshed even while recording: the settings UI must list apps that
+        // started (or joined a voice call) mid-session, and the enumeration is
+        // cheap next to the detection work each tick already does.
+        if stale {
             let mut applications: Vec<_> = available_audio_applications(self.active_game.as_ref())
                 .into_values()
                 .collect();
@@ -213,4 +250,24 @@ fn active_settings_require_restart(
 
 fn cache_expired(last_refresh: Option<Instant>, ttl: Duration) -> bool {
     last_refresh.is_none_or(|last_refresh| last_refresh.elapsed() >= ttl)
+}
+
+/// Union of cached and freshly observed codec capabilities, in canonical
+/// codec order.
+fn merge_codec_caps(cached: CodecCaps, live: CodecCaps) -> CodecCaps {
+    let mut hardware = live.hardware;
+    for codec in cached.hardware {
+        if !hardware.contains(&codec) {
+            hardware.push(codec);
+        }
+    }
+    hardware.sort_by_key(|codec| match codec {
+        RecordingCodec::H264 => 0,
+        RecordingCodec::Hevc => 1,
+        RecordingCodec::Av1 => 2,
+    });
+    CodecCaps {
+        hardware,
+        software_h264: cached.software_h264 || live.software_h264,
+    }
 }

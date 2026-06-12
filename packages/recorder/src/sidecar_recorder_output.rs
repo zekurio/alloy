@@ -40,8 +40,19 @@ impl Recorder {
             .as_ref()
             .ok_or_else(|| "OBS is not initialized.".to_string())?;
         let encoder_ids = self.available_encoder_set();
-        let video_encoder_id = choose_video_encoder(settings, &encoder_ids)
+        let (video_encoder_id, video_codec) = choose_video_encoder(settings, &encoder_ids)
             .ok_or_else(|| unavailable_video_encoder_message(settings))?;
+        if video_codec != settings.codec {
+            eprintln!(
+                "[{SIDE_CAR_NAME}] no {} encoder is available in this OBS instance; recording with {} instead.",
+                codec_label(&settings.codec),
+                codec_label(&video_codec),
+            );
+        }
+        let encoder_settings = RecordingSettings {
+            codec: video_codec,
+            ..settings.clone()
+        };
         let audio_encoder_id = choose_audio_encoder(&encoder_ids)
             .ok_or_else(|| "No OBS audio encoder is available.".to_string())?;
 
@@ -82,9 +93,9 @@ impl Recorder {
         let video_settings = unsafe { obs.create_data() };
         let video_encoder = unsafe {
             let result = (|| {
-                configure_video_encoder(obs, video_settings, settings, &output_quality)?;
+                configure_video_encoder(obs, video_settings, &encoder_settings, &output_quality)?;
                 create_video_encoder(obs, &video_encoder_id, video_settings)
-                    .map_err(|_| unavailable_video_encoder_message(settings))
+                    .map_err(|_| unavailable_video_encoder_message(&encoder_settings))
             })();
             obs.release_data(video_settings);
             result

@@ -290,7 +290,7 @@
             let Some(control) = ComPtr::new(control_ptr) else {
                 continue;
             };
-            if !audio_session_is_active(control.as_ptr()) {
+            if !audio_session_is_capturable(control.as_ptr()) {
                 continue;
             }
 
@@ -326,11 +326,15 @@
         Some(())
     }
 
-    unsafe fn audio_session_is_active(control: *mut c_void) -> bool {
+    /// Active sessions are rendering right now; inactive ones hold an open
+    /// render stream that is momentarily silent — e.g. a voice call where
+    /// nobody is talking. Both belong in the capturable application list;
+    /// only expired sessions are gone for good.
+    unsafe fn audio_session_is_capturable(control: *mut c_void) -> bool {
         let mut state = 0i32;
         let control_vtbl = com_vtbl::<IAudioSessionControlVtbl>(control);
         succeeded(((*control_vtbl).GetState)(control, &mut state))
-            && state == AudioSessionStateActive
+            && (state == AudioSessionStateActive || state == AudioSessionStateInactive)
     }
 
     unsafe fn session_display_name(control: *mut c_void) -> Option<String> {

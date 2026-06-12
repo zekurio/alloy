@@ -542,6 +542,10 @@ struct Recorder {
     /// Adapter + runtime the cached `codec_caps` were probed against; a change
     /// invalidates the cache and triggers a re-probe.
     codec_caps_key: Option<(u32, Option<PathBuf>)>,
+    /// Adapter + runtime and time of the last failed capability probe, so
+    /// retries from the tick loop back off instead of spinning OBS up twice a
+    /// second.
+    codec_caps_failed_probe: Option<((u32, Option<PathBuf>), Instant)>,
     cached_gpus: Vec<String>,
     cached_gpus_at: Option<Instant>,
     cached_audio_devices: Vec<RecordingAudioDeviceSelection>,

@@ -6,6 +6,9 @@ impl Drop for Recorder {
 
 const HARDWARE_DISCOVERY_CACHE_TTL: Duration = Duration::from_secs(60);
 const AUDIO_APPLICATION_DISCOVERY_CACHE_TTL: Duration = Duration::from_secs(10);
+/// How long to wait before retrying a failed codec capability probe; each
+/// attempt spins a full OBS instance up and back down.
+const CODEC_PROBE_RETRY_COOLDOWN: Duration = Duration::from_secs(30);
 
 impl Recorder {
     fn configure(&mut self, params: ConfigureParams) -> Result<RecordingStatus, String> {
@@ -614,6 +617,12 @@ impl Recorder {
         self.refresh_discovery_caches();
         if self.settings.is_none() {
             return;
+        }
+        // Codec caps can still be missing when the startup probe failed (OBS
+        // was not ready to start yet); retry here so the settings UI fills in
+        // without waiting for another configure call. No-op once cached.
+        if !self.codec_caps_current() {
+            self.refresh_codec_capabilities();
         }
         let settings = self.settings.clone().unwrap_or_default();
         let previous_game_key = self.active_game.as_ref().map(|game| game.window_key.clone());
