@@ -119,12 +119,6 @@ pnpm lint
 pnpm typecheck
 ```
 
-For Rust recorder changes, also run:
-
-```bash
-pnpm --filter @alloy/recorder test
-```
-
 For Nix package or container changes, run the relevant Nix checks:
 
 ```bash
