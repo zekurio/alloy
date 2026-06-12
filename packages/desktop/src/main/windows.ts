@@ -25,6 +25,14 @@ const MAIN_WINDOW_MIN_WIDTH = 1024
 const MAIN_WINDOW_MIN_HEIGHT = 700
 
 /**
+ * The app theme's `--background` (oklch(0.19 0 0)). Without an explicit
+ * window background Electron paints white, so any compositor gap — initial
+ * load, resize, video surfaces being created or torn down in the editor —
+ * flashes bright through the dark UI.
+ */
+const WINDOW_BACKGROUND_COLOR = "#171717"
+
+/**
  * Owns the two window surfaces:
  *  - `overlay`: trusted, bundled connect screen; the only window granted the
  *    privileged `window.alloyNative` bridge via its preload.
@@ -47,6 +55,7 @@ export class Windows {
       resizable: false,
       show: false,
       title: "Alloy",
+      backgroundColor: WINDOW_BACKGROUND_COLOR,
       webPreferences: {
         preload: OVERLAY_PRELOAD,
         contextIsolation: true,
@@ -192,6 +201,7 @@ export class Windows {
       icon: WINDOW_ICON,
       show: false,
       title: "Alloy",
+      backgroundColor: WINDOW_BACKGROUND_COLOR,
       webPreferences: {
         partition: MAIN_PARTITION,
         preload: MAIN_PRELOAD,
@@ -275,6 +285,35 @@ function showWindow(win: BrowserWindow): void {
   win.focus()
 }
 
+/**
+ * Script for a same-document navigation inside the remote app. The pushed
+ * state must carry TanStack Router's history bookkeeping: the router derives
+ * back/forward availability from the `__TSR_index` it stores on every entry,
+ * and a plain `pushState({})` breaks that chain — each later in-app push then
+ * computes `undefined + 1 = NaN`, leaving the header nav arrows disabled for
+ * the rest of the session.
+ */
+function sameDocumentNavigationScript(mutateUrl: string): string {
+  return `
+    (() => {
+      const url = new URL(window.location.href);
+      ${mutateUrl}
+      const prevIndex = window.history.state?.__TSR_index;
+      const key = Math.random().toString(36).slice(2, 10);
+      window.history.pushState(
+        {
+          key,
+          __TSR_key: key,
+          __TSR_index: Number.isInteger(prevIndex) ? prevIndex + 1 : 0,
+        },
+        "",
+        url,
+      );
+      window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
+    })();
+  `
+}
+
 async function openWebSettings(
   win: BrowserWindow,
   origin: string,
@@ -296,14 +335,9 @@ async function openWebSettings(
   }
 
   await win.webContents.executeJavaScript(
-    `
-      (() => {
-        const url = new URL(window.location.href);
-        url.searchParams.set("settings", "desktop");
-        window.history.pushState({}, "", url);
-        window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
-      })();
-    `,
+    sameDocumentNavigationScript(
+      `url.searchParams.set("settings", "desktop");`,
+    ),
     true,
   )
 }
@@ -329,16 +363,11 @@ async function openWebPath(
   }
 
   await win.webContents.executeJavaScript(
-    `
-      (() => {
-        const url = new URL(window.location.href);
-        url.pathname = ${JSON.stringify(targetUrl.pathname)};
-        url.search = ${JSON.stringify(targetUrl.search)};
-        url.hash = "";
-        window.history.pushState({}, "", url);
-        window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
-      })();
-    `,
+    sameDocumentNavigationScript(`
+      url.pathname = ${JSON.stringify(targetUrl.pathname)};
+      url.search = ${JSON.stringify(targetUrl.search)};
+      url.hash = "";
+    `),
     true,
   )
 }
