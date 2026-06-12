@@ -11,7 +11,7 @@
     inherit lib;
     root = ../.;
   },
-  pnpmDepsHash ? "sha256-aO/jqN6ouHaCQVh61EbmCGZcDYuD2NdPS1CsokG4cSc=",
+  pnpmDepsHash ? "sha256-t1+H7fX6JRj9FgPTbRjmQYDSM/F9amReFYmylnuBeXM=",
 }:
 
 stdenvNoCC.mkDerivation (finalAttrs: {
@@ -53,9 +53,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     mkdir -p "$out/bin" "$out/share/alloy/server/node_modules" "$out/share/alloy/web"
     cp -R packages/server/dist packages/server/package.json "$out/share/alloy/server/"
     cp -R node_modules/.pnpm "$out/share/alloy/server/node_modules/.pnpm"
-    rm -rf \
-      "$out/share/alloy/server/node_modules/.pnpm/node_modules/@workspace" \
-      "$out/share/alloy/server/node_modules/.pnpm/node_modules"/alloy-*
+    rm -rf "$out/share/alloy/server/node_modules/.pnpm/node_modules/@alloy"
 
     linkNodeModule() {
       local name="$1"
