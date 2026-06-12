@@ -28,7 +28,7 @@ jobs:
         uses: cachix/install-nix-action@v31
 
       - name: Set up Cachix
-        uses: cachix/cachix-action@v15
+        uses: cachix/cachix-action@v17
         with:
           name: zekurio
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}

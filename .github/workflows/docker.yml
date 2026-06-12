@@ -36,7 +36,7 @@ jobs:
         uses: cachix/install-nix-action@v31
 
       - name: Set up Cachix substituter
-        uses: cachix/cachix-action@v15
+        uses: cachix/cachix-action@v17
         with:
           name: zekurio
           skipPush: true
