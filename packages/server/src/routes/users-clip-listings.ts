@@ -3,10 +3,12 @@ import { clip, clipLike, clipMention, game } from "@alloy/db/schema"
 import { getSession } from "@alloy/server/auth/session"
 import { clipSelectShape, toPublicClipRow } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
+import { requiredSql } from "@alloy/server/db/sql"
 import { gameSelectShape, serialiseGameRow } from "@alloy/server/games/ref"
-import { and, desc, eq, inArray, isNull, type SQL, sql } from "drizzle-orm"
+import { and, desc, eq, isNull, ne, or, type SQL, sql } from "drizzle-orm"
 import { z } from "zod"
 
+import { publicClipPrivacyCondition } from "./clips-helpers"
 import { serialiseProfileGameRow } from "./games-helpers"
 import type { UserRow } from "./users-helpers"
 import { limitQueryParam, offsetQueryParam } from "./validation"
@@ -108,7 +110,7 @@ async function visibleReadyClipConditions(
     isNull(user.disabledAt),
   ]
   if (!isOwner && !isAdmin) {
-    conditions.push(inArray(clip.privacy, ["public", "unlisted"]))
+    conditions.push(publicClipPrivacyCondition())
   }
   return conditions
 }
@@ -124,7 +126,7 @@ export async function listTaggedClips(row: UserRow, headers: Headers) {
     isNull(user.disabledAt),
   ]
   if (!isAdmin) {
-    conditions.push(inArray(clip.privacy, ["public", "unlisted"]))
+    conditions.push(publicClipPrivacyCondition())
   }
 
   const rows = await db
@@ -150,8 +152,17 @@ export async function listLikedClips(row: UserRow, headers: Headers) {
     eq(clip.status, "ready"),
     isNull(user.disabledAt),
   ]
-  if (!isOwner && !isAdmin) {
-    conditions.push(inArray(clip.privacy, ["public", "unlisted"]))
+  if (!isAdmin) {
+    // Liking required link access, so owners keep unlisted clips in their
+    // own list, but other authors' private clips must not surface here.
+    conditions.push(
+      isOwner
+        ? requiredSql(
+            or(ne(clip.privacy, "private"), eq(clip.authorId, row.id)),
+            "liked clips privacy filter",
+          )
+        : publicClipPrivacyCondition(),
+    )
   }
 
   const rows = await db

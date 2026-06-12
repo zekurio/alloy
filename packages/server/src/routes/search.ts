@@ -14,6 +14,7 @@ import { and, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
+import { publicClipPrivacyCondition } from "./clips-helpers"
 import { serialiseGameListRow } from "./games-helpers"
 import {
   serialiseUserListRow,
@@ -34,7 +35,7 @@ const SearchQuery = z.object({
 function visibleGameClipConditions() {
   return [
     eq(clip.status, "ready"),
-    inArray(clip.privacy, ["public", "unlisted"]),
+    publicClipPrivacyCondition(),
     isNull(user.disabledAt),
   ]
 }
@@ -168,7 +169,7 @@ export const searchRoute = new Hono().get(
         .where(
           and(
             eq(clip.status, "ready"),
-            inArray(clip.privacy, ["public", "unlisted"]),
+            publicClipPrivacyCondition(),
             isNull(user.disabledAt),
             or(
               ilike(clip.title, pattern),
@@ -198,7 +199,7 @@ export const searchRoute = new Hono().get(
           and(
             eq(clip.authorId, user.id),
             eq(clip.status, "ready"),
-            inArray(clip.privacy, ["public", "unlisted"]),
+            publicClipPrivacyCondition(),
           ),
         )
         .where(
