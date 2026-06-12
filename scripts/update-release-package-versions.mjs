@@ -12,6 +12,7 @@ const releasePackageFiles = [
   "packages/recorder/package.json",
 ]
 const cargoPackageFiles = ["packages/recorder/Cargo.toml"]
+const cargoLockPackageFiles = ["packages/recorder/Cargo.lock"]
 
 if (!version) {
   console.error(
@@ -45,6 +46,22 @@ for (const filePath of cargoPackageFiles) {
   const updated = original.replace(
     /^version = ".*"$/m,
     `version = "${version}"`,
+  )
+
+  if (updated === original) {
+    console.log(`${filePath} is already at version ${version}.`)
+    continue
+  }
+
+  writeFileSync(filePath, updated)
+  changed = true
+}
+
+for (const filePath of cargoLockPackageFiles) {
+  const original = readFileSync(filePath, "utf8")
+  const updated = original.replace(
+    /(\[\[package\]\]\nname = "alloy-recorder"\nversion = ")[^"]+(")/,
+    `$1${version}$2`,
   )
 
   if (updated === original) {

@@ -1,34 +1,54 @@
 # Releasing
 
 The release flow is modeled on immich's: one manual dispatch prepares
-everything, and publishing the draft GitHub release is the final, human gate
-that makes the release public.
+everything into a draft GitHub release, and publishing that draft is the
+final, human gate that makes the release public. Publishing fires the native
+`release: published` event, which fans out to the Docker and Nix cache
+workflows — no cross-workflow dispatching and no extra tokens.
 
 ## App + server release (`v*` tags)
 
-1. Run the **Release** workflow directly for a CI-stamped prerelease, or run
-   **Prepare Release** when you want the version bump committed back to `main`.
-   Both paths use one release version for the server, desktop app, and recorder
-   sidecar.
-2. The **Release** workflow resolves the release metadata, aligns package
-   versions in CI, builds the Nix package and container image as validation,
-   builds the Windows desktop installer and recorder runtime, and creates a
-   **draft** GitHub release with the installer, recorder zip, blockmap,
-   `latest.yml`, and checksums attached.
-3. Review the draft release notes, then **publish** it. Publishing:
-   - makes the desktop installer and `latest.yml` visible to electron-updater
-     (drafts are invisible to auto-update), and
-   - triggers the **Publish Release Image** workflow, which pushes the server
-     image to GHCR as `vX.Y.Z` plus `latest` for stable releases. Stable
-     builds also push to the Cachix cache.
+1. Run the **Release** workflow and pick a semver `bump` (`prerelease`,
+   `prepatch`, `preminor`, `premajor` continue an rc cycle; `patch`, `minor`,
+   `major` finish one). The workflow computes the next version from
+   `package.json` (rc preid), stamps the root, desktop, and recorder package
+   metadata, runs formatting, lint, and typecheck, then commits the bump to
+   `main` and pushes the commit and `vX.Y.Z` tag atomically.
+2. From that exact commit it builds:
+   - the linux-x64 server bundle
+     (`alloy-server-vX.Y.Z-linux-x64.tar.gz` with `server/`, `web/`, and
+     `migrations/`),
+   - the Nix flake package and OCI image (validation; publishing happens on
+     the publish event), and
+   - the Windows desktop installer, updater metadata (`latest.yml`), and
+     recorder runtime zip.
+3. It then creates a **draft** GitHub release with all binaries and combined
+   checksums attached. The prerelease flag is derived from the version (any
+   `-rc.N` suffix marks a prerelease); the draft's prerelease checkbox is the
+   manual override if you ever need one.
+4. Review the draft notes, then **publish**. Publishing:
+   - makes the installer and `latest.yml` visible to electron-updater (drafts
+     are invisible to auto-update),
+   - triggers **Docker**, which builds the Nix-based image
+     (`.#alloy-image`, the same store closure as the Nix package) from the
+     release tag and pushes the `ghcr.io` image tagged `vX.Y.Z`, plus
+     `latest` for full releases; prereleases ship only their pinned version
+     tag (the channel comes from the published release's prerelease flag),
+     and
+   - triggers **Nix Cache**, which builds the flake package and pushes it to
+     Cachix for full releases.
 
-Semver prerelease versions (`X.Y.Z-rc.N`, `X.Y.Z-beta.N`, etc.) are marked as
-prereleases and never tagged `latest`.
+If a build job fails after the tag was pushed, no draft is created; fix the
+issue and use **Re-run failed jobs** on the same run.
 
 ## Main channel images
 
-`main-image.yml` publishes `main` channel server images
-(`X.Y.Z-main.<run>.<sha>`) on manual dispatch, independent of releases.
+The **Docker** workflow also runs on every push to `main`, publishing
+`main` and `main-<sha>` images (`X.Y.Z-main.<run>.<sha>` build version), so
+the latest mainline server is always pullable without cutting a release.
+Note: the release version-bump commit itself is pushed with `GITHUB_TOKEN`,
+which never triggers other workflows, so that one commit does not produce a
+`main` image — its image ships via the release path instead.
 
 ## Recorder runtime
 
