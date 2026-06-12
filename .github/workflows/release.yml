@@ -83,7 +83,7 @@ jobs:
           fi
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 11.4.0
 
@@ -200,7 +200,7 @@ jobs:
           fi
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 11.4.0
 
@@ -290,7 +290,7 @@ jobs:
             Set-Content -LiteralPath (Join-Path $releaseDir "checksums.txt") -Encoding ascii
 
       - name: Upload desktop release assets
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: desktop-release-assets
           path: |
@@ -310,7 +310,7 @@ jobs:
 
     steps:
       - name: Download desktop release assets
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: desktop-release-assets
           path: desktop-release-assets
