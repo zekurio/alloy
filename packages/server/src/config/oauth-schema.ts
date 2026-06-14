@@ -6,7 +6,12 @@ import {
 import { z } from "zod"
 
 const ProviderIdPattern = /^[a-z0-9-]+$/
-const HexColorPattern = /^#[0-9a-fA-F]{6}$/
+const HexColorPattern = /^#?[0-9a-fA-F]{6}$/
+const HexColorSchema = z
+  .string()
+  .trim()
+  .regex(HexColorPattern, "Expected a six-digit hex color, with or without #")
+  .transform((value) => (value.startsWith("#") ? value : `#${value}`))
 
 const OAuthProviderBaseSchema = z.object({
   providerId: z
@@ -18,8 +23,8 @@ const OAuthProviderBaseSchema = z.object({
   clientId: z.string().min(1),
   scopes: z.array(z.string().min(1)).optional(),
   enabled: z.boolean().default(true),
-  buttonColor: z.string().regex(HexColorPattern).optional(),
-  buttonTextColor: z.string().regex(HexColorPattern).optional(),
+  buttonColor: HexColorSchema.optional(),
+  buttonTextColor: HexColorSchema.optional(),
   iconUrl: z.string().url().optional(),
   discoveryUrl: z.string().url().optional(),
   authorizationUrl: z.string().url().optional(),
