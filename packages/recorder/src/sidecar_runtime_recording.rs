@@ -17,51 +17,17 @@ fn timestamp_file_slug() -> String {
     Utc::now().format("%Y%m%d-%H%M%S%.3f").to_string()
 }
 
-fn capture_identifier() -> String {
-    let mut bytes = random_identifier_bytes().unwrap_or_else(|| timestamp_millis().to_be_bytes());
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    format!(
-        "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
-        bytes[0],
-        bytes[1],
-        bytes[2],
-        bytes[3],
-        bytes[4],
-        bytes[5],
-        bytes[6],
-        bytes[7],
-        bytes[8],
-        bytes[9],
-        bytes[10],
-        bytes[11],
-        bytes[12],
-        bytes[13],
-        bytes[14],
-        bytes[15],
-    )
-}
-
-fn random_identifier_bytes() -> Option<[u8; 16]> {
-    use windows_sys::Win32::Security::Cryptography::{
-        BCryptGenRandom, BCRYPT_USE_SYSTEM_PREFERRED_RNG,
-    };
-
-    let mut bytes = [0u8; 16];
-    let status = unsafe {
-        BCryptGenRandom(
-            std::ptr::null_mut(),
-            bytes.as_mut_ptr(),
-            u32::try_from(bytes.len()).ok()?,
-            BCRYPT_USE_SYSTEM_PREFERRED_RNG,
-        )
-    };
-    (status >= 0).then_some(bytes)
-}
-
 fn recording_context_folder(game: Option<&RecordingGame>) -> String {
     game.map(|game| file_component(&game.name, "Desktop"))
         .unwrap_or_else(|| "Desktop".to_string())
+}
+
+fn recording_file_prefix(collection: &str) -> &str {
+    match collection {
+        "Clips" => "clip",
+        "Sessions" => "session",
+        _ => "capture",
+    }
 }
 
 fn saved_recording_path(
@@ -69,10 +35,21 @@ fn saved_recording_path(
     collection: &str,
     game: Option<&RecordingGame>,
 ) -> PathBuf {
-    output_folder
+    let directory = output_folder
         .join(collection)
-        .join(recording_context_folder(game))
-        .join(format!("{}.mp4", capture_identifier()))
+        .join(recording_context_folder(game));
+    unique_recording_path(&directory, recording_file_prefix(collection))
+}
+
+fn unique_recording_path(directory: &Path, prefix: &str) -> PathBuf {
+    let slug = timestamp_file_slug();
+    let mut path = directory.join(format!("{prefix}-{slug}.mp4"));
+    let mut counter = 2;
+    while path.exists() {
+        path = directory.join(format!("{prefix}-{slug}-{counter}.mp4"));
+        counter += 1;
+    }
+    path
 }
 
 struct DiskReplaySegment {

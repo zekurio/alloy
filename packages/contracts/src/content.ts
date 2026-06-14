@@ -308,6 +308,7 @@ export interface SteamGridDBSearchResult {
   types?: string[]
   verified?: boolean
   iconUrl?: string | null
+  logoUrl?: string | null
 }
 
 export interface SteamGridDBGameDetail {

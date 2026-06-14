@@ -1,5 +1,6 @@
 import type { WrappedCanvas } from "mediabunny"
 
+import { editorFilterCss } from "./editor-filters"
 import { ClipPlayer, sameClipMedia } from "./editor-playback-clip"
 import { PreviewSurface, SourceReader } from "./editor-playback-source"
 import {
@@ -9,6 +10,7 @@ import {
   clipEndMs,
   type EditorMediaSource,
   type EditorProject,
+  projectFilterId,
   type TimelineClip,
   transitionPreRollMs,
 } from "./editor-project"
@@ -71,6 +73,7 @@ export class PreviewEngine {
   ): void {
     this.project = project
     this.sources = sources
+    this.surface.setFilter(editorFilterCss(projectFilterId(project)))
     // Players bound to clips that changed or vanished restart on demand.
     for (const [clipId, player] of this.players) {
       const clip = project.clips.find((entry) => entry.id === clipId)

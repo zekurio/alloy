@@ -1,4 +1,4 @@
-import type { ClipRow } from "@alloy/api"
+import type { ClipRow, StagingRecordingRow } from "@alloy/api"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { Button } from "@alloy/ui/components/button"
 import { Chip } from "@alloy/ui/components/chip"
@@ -53,28 +53,27 @@ import {
   type AlloyDesktop,
   type RecordingLibraryProjectDraft,
 } from "@/lib/desktop"
+import { useStagingListQuery } from "@/lib/staging-queries"
 
 import {
   buildLibraryGroups,
   enrichGroupIcon,
-  enrichLibraryItem,
   type LibraryGroupView,
   type LibraryItemView,
   useLibraryGameLookup,
   useLibrarySnapshot,
 } from "./library-data"
 import {
+  buildLibraryEntries,
+  collapsedServerCounts,
   emptyKindLabel,
-  filterLibraryItems,
-  filterProjectDrafts,
-  filterUploadedClips,
   type LibraryEntry,
   type LibraryKindFilter,
-  projectDraftThumbnail,
 } from "./library-entries"
 import {
   LibraryCaptureCard,
   ProjectDraftCard,
+  StagingClipCard,
   UploadedClipCard,
 } from "./library-entry-cards"
 
@@ -96,6 +95,11 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
     () => uploadedQuery.data ?? [],
     [uploadedQuery.data],
   )
+  const stagingQuery = useStagingListQuery()
+  const staging = React.useMemo(
+    () => stagingQuery.data ?? [],
+    [stagingQuery.data],
+  )
 
   const gamesByName = useLibraryGameLookup(snapshot)
 
@@ -107,89 +111,35 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
     [snapshot, gamesByName],
   )
 
-  // Captures that collapsed into their uploaded clip count toward the clip's
-  // game chip; tally them per local group so the source chips stay accurate.
+  // Captures that collapsed into a server row count toward that row's source
+  // chip; tally them per local group so the filter chips stay accurate.
   const collapsedCounts = React.useMemo(() => {
-    const uploadedIds = new Set(uploaded.map((row) => row.id))
-    const counts = new Map<string, number>()
-    for (const item of snapshot?.items ?? []) {
-      if (item.uploadedClipId && uploadedIds.has(item.uploadedClipId)) {
-        counts.set(item.groupKey, (counts.get(item.groupKey) ?? 0) + 1)
-      }
-    }
-    return counts
-  }, [snapshot, uploaded])
+    const serverIds = new Set([
+      ...uploaded.map((row) => row.id),
+      ...staging.map((row) => row.id),
+    ])
+    return collapsedServerCounts(snapshot?.items ?? [], serverIds)
+  }, [snapshot, uploaded, staging])
 
   const groups = React.useMemo(
-    () => buildLibraryGroups(localGroups, uploaded, collapsedCounts),
-    [localGroups, uploaded, collapsedCounts],
+    () => buildLibraryGroups(localGroups, uploaded, collapsedCounts, staging),
+    [localGroups, uploaded, collapsedCounts, staging],
   )
 
   const entries = React.useMemo<LibraryEntry[]>(() => {
     const active = groupKey
       ? (groups.find((group) => group.key === groupKey) ?? null)
       : null
-
-    // A capture that finished uploading collapses into its server clip: the
-    // local card disappears and the cloud card gains a "Local" marker.
-    const uploadedIds = new Set(uploaded.map((row) => row.id))
-    const localItems = (snapshot?.items ?? []).filter(
-      (item) => !(item.uploadedClipId && uploadedIds.has(item.uploadedClipId)),
-    )
-    const localByClipId = new Map(
-      (snapshot?.items ?? [])
-        .filter((item) => item.uploadedClipId)
-        .map((item) => [item.uploadedClipId as string, item]),
-    )
-
-    const local: LibraryEntry[] =
-      active?.kind === "cloud"
-        ? []
-        : filterLibraryItems(localItems, {
-            localKeys: active?.localKeys ?? null,
-            kind,
-            query,
-          }).map((item) => {
-            const view = enrichLibraryItem(item, gamesByName)
-            return {
-              type: "local",
-              key: `local:${view.id}`,
-              createdAt: view.createdAt,
-              item: view,
-            }
-          })
-    // Uploaded clips behave like the "Clips" kind; a selected source filters
-    // them down to the matching game (or the cloud catch-all).
-    const cloudVisible = kind === "all" || kind === "replay"
-    const cloud: LibraryEntry[] = cloudVisible
-      ? filterUploadedClips(uploaded, query, active).map((row) => ({
-          type: "cloud",
-          key: `cloud:${row.id}`,
-          createdAt: row.createdAt,
-          row,
-          localItem: localByClipId.get(row.id) ?? null,
-        }))
-      : []
-    const drafts: LibraryEntry[] =
-      kind === "all" || kind === "replay"
-        ? filterProjectDrafts(
-            snapshot?.projectDrafts ?? [],
-            query,
-            active,
-            snapshot?.items ?? [],
-            uploaded,
-          ).map((draft) => ({
-            type: "draft",
-            key: `draft:${draft.id}`,
-            createdAt: draft.updatedAt,
-            draft,
-            ...projectDraftThumbnail(draft, snapshot?.items ?? [], uploaded),
-          }))
-        : []
-    return [...local, ...cloud, ...drafts].sort(
-      (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
-    )
-  }, [snapshot, gamesByName, uploaded, groups, groupKey, kind, query])
+    return buildLibraryEntries({
+      snapshot,
+      gamesByName,
+      uploaded,
+      staging,
+      active,
+      kind,
+      query,
+    })
+  }, [snapshot, gamesByName, uploaded, staging, groups, groupKey, kind, query])
 
   const [importing, setImporting] = React.useState(false)
   const importFiles = async () => {
@@ -214,6 +164,13 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
             : `${result.importedIds.length} clips imported into your library`,
         )
         notifyLibraryCapturesChanged()
+        if (result.importedIds.length === 1) {
+          void navigate({
+            to: "/library/$captureId",
+            params: { captureId: result.importedIds[0] },
+            search: { prompt: "game" },
+          })
+        }
       }
     } catch (cause) {
       toast.error(
@@ -226,11 +183,12 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
 
   const loading =
     (desktop !== null && !snapshot && !error) ||
-    (handle.length > 0 && uploadedQuery.isLoading)
+    (handle.length > 0 && (uploadedQuery.isLoading || stagingQuery.isLoading))
   const hasAnything =
     (snapshot?.totalCount ?? 0) > 0 ||
     (snapshot?.projectDrafts.length ?? 0) > 0 ||
-    uploaded.length > 0
+    uploaded.length > 0 ||
+    staging.length > 0
 
   return (
     <AppMain>
@@ -304,6 +262,12 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
               params: { clipId: row.id },
             })
           }}
+          onOpenStaging={(row) => {
+            void navigate({
+              to: "/library/r/$recordingId",
+              params: { recordingId: row.id },
+            })
+          }}
           onOpenDraft={(draft) => {
             void navigate({
               to: "/editor",
@@ -339,14 +303,14 @@ function LibraryToolbar({
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
       <div className="flex min-w-0 items-center gap-2 sm:contents">
-        <InputGroup className="h-8 min-w-0 flex-1 sm:h-8 sm:w-64 sm:flex-none">
+        <InputGroup className="h-10 min-w-0 flex-1 sm:h-8 sm:w-64 sm:flex-none">
           <InputGroupAddon align="inline-start">
             <SearchIcon />
           </InputGroupAddon>
           <InputGroupInput
             value={query}
             placeholder="Search media..."
-            aria-label="Search clips"
+            aria-label="Search media"
             onChange={(event) => onQueryChange(event.target.value)}
             className="text-sm"
           />
@@ -419,7 +383,7 @@ function KindSelect({
     >
       <SelectTrigger
         size="sm"
-        className="w-40 shrink-0"
+        className="w-40 shrink-0 max-sm:h-10"
         aria-label="Filter by type"
       >
         <SelectValue>
@@ -454,6 +418,7 @@ function LibraryBody({
   kind,
   onOpenLocal,
   onOpenCloud,
+  onOpenStaging,
   onOpenDraft,
   onReveal,
 }: {
@@ -465,6 +430,7 @@ function LibraryBody({
   kind: LibraryKindFilter
   onOpenLocal: (item: LibraryItemView) => void
   onOpenCloud: (row: ClipRow) => void
+  onOpenStaging: (row: StagingRecordingRow) => void
   onOpenDraft: (draft: RecordingLibraryProjectDraft) => void
   onReveal: (id: string) => void
 }) {
@@ -487,8 +453,8 @@ function LibraryBody({
       return (
         <LibraryEmpty
           icon={<LibraryIcon />}
-          title="No clips yet"
-          description="Captures saved by Alloy and clips you upload will appear here."
+          title="Your library is empty"
+          description="Captures saved by Alloy and anything you upload will appear here."
         />
       )
     }
@@ -496,7 +462,7 @@ function LibraryBody({
     return (
       <LibraryEmpty
         icon={<LibraryIcon />}
-        title="No clips match"
+        title="Nothing matches"
         description={
           query.trim()
             ? "Try a different search or source filter."
@@ -522,6 +488,13 @@ function LibraryBody({
             row={entry.row}
             localItem={entry.localItem}
             onOpen={() => onOpenCloud(entry.row)}
+          />
+        ) : entry.type === "staging" ? (
+          <StagingClipCard
+            key={entry.key}
+            row={entry.row}
+            localItem={entry.localItem}
+            onOpen={() => onOpenStaging(entry.row)}
           />
         ) : (
           <ProjectDraftCard

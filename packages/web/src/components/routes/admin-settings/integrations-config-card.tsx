@@ -14,6 +14,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { SaveIcon } from "lucide-react"
 import * as React from "react"
 
+import { useSettingsSaveBar } from "@/components/routes/settings/settings-save-context"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 import { gameKeys } from "@/lib/game-queries"
@@ -68,8 +69,7 @@ export function IntegrationsConfigCard({
     setApiKey("")
   }
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
+  async function submit() {
     if (pending) return
     if (!isDirty) {
       onSaved?.()
@@ -90,6 +90,18 @@ export function IntegrationsConfigCard({
       setPending(false)
     }
   }
+
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    void submit()
+  }
+
+  const inSettingsDialog = useSettingsSaveBar({
+    dirty: isDirty,
+    saving: pending,
+    save: submit,
+    discard: resetForm,
+  })
 
   return (
     <form id={formId} onSubmit={onSubmit}>
@@ -120,7 +132,7 @@ export function IntegrationsConfigCard({
             </Field>
           </SectionContent>
 
-          {!hideActions && (
+          {!hideActions && !inSettingsDialog && (
             <SectionFooter className="justify-end">
               <div className="flex w-full items-center gap-2 sm:w-auto">
                 <Button

@@ -12,11 +12,7 @@ type ResolvedStorageObject = NonNullable<
 >
 
 export function mediaCacheControl(privacy: ClipPrivacy): string {
-  return privacy === "public"
-    ? "public, max-age=300"
-    : privacy === "private"
-      ? "no-store"
-      : "private, max-age=300"
+  return privacy === "public" ? "public, max-age=300" : "private, max-age=300"
 }
 
 export function streamResolved(

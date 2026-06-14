@@ -1,8 +1,17 @@
 import type { ClipPrivacy, GameRow, UserSearchResult } from "@alloy/api"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@alloy/ui/components/alert-dialog"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { BlurHashCanvas } from "@alloy/ui/components/blurhash-canvas"
 import { Button } from "@alloy/ui/components/button"
-import { Chip } from "@alloy/ui/components/chip"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,12 +19,10 @@ import {
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
 import { GameIcon } from "@alloy/ui/components/game-icon"
-import { Kbd } from "@alloy/ui/components/kbd"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { toast } from "@alloy/ui/lib/toast"
 import { useNavigate } from "@tanstack/react-router"
 import {
-  ChevronRightIcon,
   ChevronUpIcon,
   ClapperboardIcon,
   GlobeIcon,
@@ -28,10 +35,7 @@ import {
 } from "lucide-react"
 import * as React from "react"
 
-import {
-  ClipMetadataEditor,
-  ClipMetadataSection,
-} from "@/components/clip/clip-metadata-editor"
+import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
 import { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
 import { VideoPlayer } from "@/components/video/video-player"
 import { absoluteClipHref } from "@/lib/app-paths"
@@ -43,30 +47,41 @@ import {
   parseTagString,
 } from "@/lib/clip-fields"
 import { copyTextToClipboard } from "@/lib/clipboard"
-import { alloyDesktop, type AlloyDesktop } from "@/lib/desktop"
+import {
+  alloyDesktop,
+  notifyLibraryCapturesChanged,
+  type AlloyDesktop,
+} from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
 import { errorMessage } from "@/lib/error-message"
 import { useMediaFilmstrip } from "@/lib/media-filmstrip"
 
 import { exportAndPublishCapture } from "./library-capture-publish"
-import {
-  enrichLibraryItem,
-  formatLibraryBytes,
-  type LibraryItemView,
-  useLibraryGameLookup,
-  useLibrarySnapshot,
-} from "./library-data"
+import { type LibraryItemView } from "./library-data"
 import {
   BackToLibraryButton,
-  CaptureNavButton,
   TrimTransportControls,
 } from "./library-editor-shared"
+import {
+  LibraryEntryNavButton,
+  useLibraryEditorShortcuts,
+  useLibraryEntryNavigation,
+  useNavigateToLibraryEntry,
+} from "./library-entry-navigation"
+import { LocalFileLocation } from "./library-file-location"
+import { LibraryMediaStage, mediaAspectRatio } from "./library-media-stage"
 import { LibraryEmpty } from "./library-page"
 import { LibraryTrimBar } from "./library-trim-bar"
 import { useDraftPersistence } from "./use-draft-persistence"
 import { MIN_TRIM_MS, useTrimPlayback } from "./use-trim-playback"
 
-export function LibraryEditorPage({ captureId }: { captureId: string }) {
+export function LibraryEditorPage({
+  captureId,
+  promptGame = false,
+}: {
+  captureId: string
+  promptGame?: boolean
+}) {
   const desktop = alloyDesktop()
 
   if (!desktop) {
@@ -81,56 +96,72 @@ export function LibraryEditorPage({ captureId }: { captureId: string }) {
     )
   }
 
-  return <LibraryEditorContent desktop={desktop} captureId={captureId} />
+  return (
+    <LibraryEditorContent
+      desktop={desktop}
+      captureId={captureId}
+      promptGame={promptGame}
+    />
+  )
 }
 
 function LibraryEditorContent({
   desktop,
   captureId,
+  promptGame,
 }: {
   desktop: AlloyDesktop
   captureId: string
+  promptGame: boolean
 }) {
-  const navigate = useNavigate()
-  const { snapshot, error, refresh } = useLibrarySnapshot(desktop)
-  const gamesByName = useLibraryGameLookup(snapshot)
+  const navigateToEntry = useNavigateToLibraryEntry()
+  const navigation = useLibraryEntryNavigation({ type: "local", id: captureId })
+  const { snapshot, error, refresh, prevEntry, nextEntry } = navigation
   const [deleting, setDeleting] = React.useState(false)
+  const [deletedLast, setDeletedLast] = React.useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
 
   const item = React.useMemo(() => {
-    const raw = snapshot?.items.find((entry) => entry.id === captureId)
-    return raw ? enrichLibraryItem(raw, gamesByName) : null
-  }, [snapshot, gamesByName, captureId])
-
-  // Hotkey navigation walks the library in its snapshot order (newest
-  // first), the same order the grid shows.
-  const items = snapshot?.items ?? []
-  const index = items.findIndex((entry) => entry.id === captureId)
-  const prevId = index > 0 ? items[index - 1].id : null
-  const nextId =
-    index >= 0 && index < items.length - 1 ? items[index + 1].id : null
+    const entry = navigation.currentEntry
+    return entry?.type === "local" ? entry.item : null
+  }, [navigation.currentEntry])
 
   const deleteCapture = async () => {
     if (deleting || !item) return
     setDeleting(true)
-    // Land on the neighbor the user was heading toward; fall back to the grid.
-    const fallbackId = nextId ?? prevId
+    // Land on the neighbor the user was heading toward; deleting the last
+    // capture stays here and shows the "library is empty" state instead.
+    const fallback = nextEntry ?? prevEntry
     try {
       await desktop.recording.deleteLibraryCapture(item.id)
       toast.success("Capture moved to the system trash")
       void refresh()
-      if (fallbackId) {
-        void navigate({
-          to: "/library/$captureId",
-          params: { captureId: fallbackId },
-          replace: true,
-        })
+      setDeleteDialogOpen(false)
+      if (fallback) {
+        navigateToEntry(fallback)
       } else {
-        void navigate({ to: "/library", replace: true })
+        setDeletedLast(true)
       }
     } catch (cause) {
       toast.error(errorMessage(cause, "Couldn't delete capture"))
       setDeleting(false)
     }
+  }
+
+  // Checked before "not found": once the last capture is deleted the missing
+  // item is expected, not an error.
+  if (deletedLast) {
+    return (
+      <AppMain>
+        <LibraryEmpty
+          icon={<Trash2Icon />}
+          title="That was the last one"
+          description="Your library is empty now."
+        >
+          <BackToLibraryButton />
+        </LibraryEmpty>
+      </AppMain>
+    )
   }
 
   if (error) {
@@ -170,17 +201,24 @@ function LibraryEditorContent({
   }
 
   return (
-    <AppMain>
+    <AppMain className="p-4 md:p-6">
       {/* Keyed by capture id: edits reset when navigating between captures,
           but survive background snapshot refreshes (new item identities). */}
       <EditorBody
         key={item.id}
         desktop={desktop}
         item={item}
-        prevId={prevId}
-        nextId={nextId}
+        promptGame={promptGame}
+        prevEntry={prevEntry}
+        nextEntry={nextEntry}
         deleting={deleting}
-        onDelete={() => {
+        onRequestDelete={() => setDeleteDialogOpen(true)}
+      />
+      <DeleteLocalCaptureDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        pending={deleting}
+        onConfirm={() => {
           void deleteCapture()
         }}
       />
@@ -197,17 +235,19 @@ function LibraryEditorContent({
 function EditorBody({
   desktop,
   item,
-  prevId,
-  nextId,
+  promptGame,
+  prevEntry,
+  nextEntry,
   deleting,
-  onDelete,
+  onRequestDelete,
 }: {
   desktop: AlloyDesktop
   item: LibraryItemView
-  prevId: string | null
-  nextId: string | null
+  promptGame: boolean
+  prevEntry: ReturnType<typeof useLibraryEntryNavigation>["prevEntry"]
+  nextEntry: ReturnType<typeof useLibraryEntryNavigation>["nextEntry"]
   deleting: boolean
-  onDelete: () => void
+  onRequestDelete: () => void
 }) {
   const navigate = useNavigate()
   const { publishClip } = useUploadFlowControls()
@@ -242,8 +282,27 @@ function EditorBody({
     setGame((current) => current ?? resolvedGame)
   }, [resolvedGame])
 
-  const revealCapture = () => {
-    void desktop.recording.revealLibraryCapture(item.id)
+  const handleGameChange = (next: GameRow | null) => {
+    setGame(next)
+    void desktop.recording
+      .updateLibraryCapture({
+        id: item.id,
+        gameName: next?.name ?? null,
+        gameIconUrl: next ? (next.iconUrl ?? next.logoUrl) : null,
+      })
+      .then((result) => {
+        notifyLibraryCapturesChanged()
+        if (result.id !== item.id) {
+          void navigate({
+            to: "/library/$captureId",
+            params: { captureId: result.id },
+            replace: true,
+          })
+        }
+      })
+      .catch((cause) => {
+        toast.error(errorMessage(cause, "Couldn't save game"))
+      })
   }
 
   const isVideo = item.kind !== "screenshot"
@@ -255,6 +314,7 @@ function EditorBody({
     enabled: isVideo,
   })
   const filmstrip = useMediaFilmstrip(isVideo ? item.mediaUrl : null)
+  const aspectRatio = mediaAspectRatio(item.width, item.height)
   const canPublish =
     isVideo &&
     !publishing &&
@@ -263,53 +323,12 @@ function EditorBody({
     Boolean(game) &&
     rangeMs >= MIN_TRIM_MS
 
-  /* ── Hotkeys: navigate between clips, delete, toggle playback ── */
-
-  const keyActionsRef = React.useRef({
+  useLibraryEditorShortcuts({
+    prevEntry,
+    nextEntry,
+    onDelete: onRequestDelete,
     togglePlayback: playback.togglePlayback,
-    onDelete,
   })
-  keyActionsRef.current = { togglePlayback: playback.togglePlayback, onDelete }
-  React.useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null
-      if (
-        target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable ||
-          target.closest('[role="slider"]') ||
-          target.closest('[role="dialog"]'))
-      ) {
-        return
-      }
-      if (event.key === "ArrowLeft" && prevId) {
-        event.preventDefault()
-        void navigate({
-          to: "/library/$captureId",
-          params: { captureId: prevId },
-          // Replace rather than push so the browser back arrow leaves the
-          // editor instead of walking capture-by-capture through history.
-          replace: true,
-        })
-      } else if (event.key === "ArrowRight" && nextId) {
-        event.preventDefault()
-        void navigate({
-          to: "/library/$captureId",
-          params: { captureId: nextId },
-          replace: true,
-        })
-      } else if (event.key === "Delete") {
-        event.preventDefault()
-        keyActionsRef.current.onDelete()
-      } else if (event.key === " ") {
-        event.preventDefault()
-        keyActionsRef.current.togglePlayback()
-      }
-    }
-    window.addEventListener("keydown", onKeyDown)
-    return () => window.removeEventListener("keydown", onKeyDown)
-  }, [navigate, prevId, nextId])
 
   // Visibility is the publish action itself: "Post to Profile" uploads
   // public, "Create Link" uploads unlisted and puts the URL on the clipboard.
@@ -361,13 +380,13 @@ function EditorBody({
 
   return (
     <section className="flex w-full flex-col lg:h-full lg:min-h-0">
-      <div className="grid w-full grid-cols-1 items-start gap-6 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_360px] lg:grid-rows-1 lg:items-stretch">
+      <div className="grid w-full grid-cols-1 items-start gap-6 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-1 lg:items-stretch">
         {/* ── Stage: the capture, the trimmer, and the editor entry. ── */}
         <section className="relative flex min-w-0 flex-col gap-3 lg:min-h-0">
           {/* The media fills the stage; on wide layouts it flexes to the
               height left over by the transport, trim bar, and editor row, so
               it grows and shrinks with the window instead of a fixed cap. */}
-          <div className="relative flex aspect-video w-full items-center justify-center lg:aspect-auto lg:min-h-0 lg:flex-1">
+          <LibraryMediaStage aspectRatio={aspectRatio}>
             {isVideo ? (
               <VideoPlayer
                 src={item.mediaUrl}
@@ -375,13 +394,9 @@ function EditorBody({
                 poster={poster ?? undefined}
                 posterBlurHash={item.thumbBlurHash}
                 fallbackSeed={item.id}
-                aspectRatio={
-                  item.width && item.height
-                    ? item.width / item.height
-                    : undefined
-                }
-                // Fill the stage box; the sizing helper caps width to the
-                // media ratio so the video stays centered as the box resizes.
+                aspectRatio={aspectRatio}
+                // Fill the stage box; the media viewport stays centered as the
+                // editor area resizes.
                 maxDisplayHeight="100%"
                 // The player runs chrome-less: the trim bar below owns scrubbing
                 // and clicking the video toggles playback.
@@ -406,9 +421,9 @@ function EditorBody({
               </div>
             )}
 
-            <CaptureNavButton side="left" targetId={prevId} />
-            <CaptureNavButton side="right" targetId={nextId} />
-          </div>
+            <LibraryEntryNavButton side="left" target={prevEntry} />
+            <LibraryEntryNavButton side="right" target={nextEntry} />
+          </LibraryMediaStage>
 
           {isVideo ? (
             <>
@@ -416,6 +431,7 @@ function EditorBody({
 
               <LibraryTrimBar
                 frames={filmstrip.frames}
+                frameAspect={filmstrip.aspect}
                 durationMs={playback.durationMs}
                 startMs={trim.startMs}
                 endMs={trim.endMs}
@@ -426,35 +442,10 @@ function EditorBody({
                 }}
                 onStartChange={playback.handleTrimStartChange}
                 onEndChange={playback.handleTrimEndChange}
+                onMove={playback.handleTrimMove}
               />
-
-              <div className="flex flex-wrap items-center gap-3">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={publishing || deleting}
-                  onClick={() => {
-                    void navigate({
-                      to: "/editor",
-                      search: { capture: item.id },
-                    })
-                  }}
-                >
-                  <ClapperboardIcon />
-                  Open in Editor
-                </Button>
-                <p className="text-foreground-faint flex flex-1 items-center justify-center gap-1.5 text-sm">
-                  Use <Kbd>←</Kbd> and <Kbd>→</Kbd> to navigate between clips.
-                  <Kbd>Del</Kbd> to delete.
-                </p>
-              </div>
             </>
-          ) : (
-            <p className="text-foreground-faint flex items-center justify-center gap-1.5 text-sm">
-              Use <Kbd>←</Kbd> and <Kbd>→</Kbd> to navigate between captures.
-              <Kbd>Del</Kbd> to delete.
-            </p>
-          )}
+          ) : null}
         </section>
 
         {/* ── Sheet: metadata on top, destructive/publish actions pinned. ── */}
@@ -473,7 +464,7 @@ function EditorBody({
                 description={description}
                 onDescriptionChange={setDescription}
                 game={game}
-                onGameChange={setGame}
+                onGameChange={handleGameChange}
                 mentions={mentions}
                 onMentionsChange={setMentions}
                 tags={parseTagString(tags)}
@@ -483,17 +474,9 @@ function EditorBody({
                   publishAttempted && normalizeClipTitle(title).length === 0
                 }
                 gameInvalid={publishAttempted && !game}
+                autoFocusGame={promptGame}
               />
-              <ClipMetadataSection label="File Location">
-                <Chip size="xl" onClick={revealCapture}>
-                  <MonitorIcon />
-                  On Device
-                  <span className="text-foreground-faint font-normal">
-                    ({formatLibraryBytes(item.sizeBytes)})
-                  </span>
-                  <ChevronRightIcon className="text-foreground-faint" />
-                </Chip>
-              </ClipMetadataSection>
+              <LocalFileLocation item={item} />
             </>
           ) : (
             <>
@@ -523,7 +506,7 @@ function EditorBody({
               type="button"
               variant="ghost"
               disabled={deleting || publishing}
-              onClick={onDelete}
+              onClick={onRequestDelete}
             >
               <Trash2Icon />
               Delete
@@ -549,7 +532,7 @@ function EditorBody({
                         type="button"
                         variant="primary"
                         size="icon"
-                        disabled={!canPublish}
+                        disabled={publishing || deleting}
                         aria-label="More publish options"
                         className="border-l-accent-hover rounded-l-none"
                       />
@@ -560,6 +543,18 @@ function EditorBody({
                   <DropdownMenuContent align="end" side="top" className="w-52">
                     <DropdownMenuItem
                       onClick={() => {
+                        void navigate({
+                          to: "/editor",
+                          search: { capture: item.id },
+                        })
+                      }}
+                    >
+                      <ClapperboardIcon className="size-4" />
+                      Open in Editor
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={!canPublish}
+                      onClick={() => {
                         void handlePublish("public")
                       }}
                     >
@@ -567,6 +562,7 @@ function EditorBody({
                       Post to Profile
                     </DropdownMenuItem>
                     <DropdownMenuItem
+                      disabled={!canPublish}
                       onClick={() => {
                         void handlePublish("unlisted")
                       }}
@@ -582,5 +578,40 @@ function EditorBody({
         </aside>
       </div>
     </section>
+  )
+}
+
+function DeleteLocalCaptureDialog({
+  open,
+  onOpenChange,
+  pending,
+  onConfirm,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  pending: boolean
+  onConfirm: () => void
+}) {
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete this capture?</AlertDialogTitle>
+          <AlertDialogDescription>
+            The file will be moved to your system trash.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            onClick={onConfirm}
+            disabled={pending}
+          >
+            {pending ? "Deleting..." : "Delete capture"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }

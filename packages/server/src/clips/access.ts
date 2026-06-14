@@ -19,7 +19,6 @@ type ClipAccessAllowed = {
   viewer: ClipViewer
   isOwner: boolean
   isAdmin: boolean
-  isPrivate: boolean
 }
 
 type ClipAccessResult = ClipAccessAllowed | ClipAccessDenied
@@ -62,7 +61,6 @@ export async function resolveClipAccess({
     authorDisabledAt,
     authorId: row.authorId,
     policy,
-    privacy: row.privacy,
     status: row.status,
     viewer,
   })
@@ -77,15 +75,9 @@ export async function resolveClipAccess({
     viewer,
     isOwner: decision.isOwner,
     isAdmin: decision.isAdmin,
-    isPrivate: decision.isPrivate,
   }
 }
 
 export function clipAccessResponse(c: Context, access: ClipAccessDenied) {
-  if (access.isPrivate) c.header("Cache-Control", "no-store")
   return errorResult(c, access)
-}
-
-export function applyClipPrivacyHeaders(c: Context, access: ClipAccessAllowed) {
-  if (access.isPrivate) c.header("Cache-Control", "no-store")
 }

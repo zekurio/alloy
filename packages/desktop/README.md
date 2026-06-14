@@ -86,11 +86,10 @@ system OBS install.
 
 ## Release
 
-Desktop ships with the primary Alloy app release under tags named `vX.Y.Z`.
-The release preparation workflow updates `packages/desktop/package.json`
-together with the root package version so the Electron installer matches the web
-and server release it is built against.
+Desktop ships on the stable `vX.Y.Z` channel and the nightly
+`vX.Y.Z-nightly.YYYYMMDD.<run>` channel. The release workflow stamps the desktop
+package version and Electron updater channel before building, so stable builds
+publish `latest.yml` and nightly builds publish `nightly.yml`.
 
-The unified release workflow publishes the unsigned Windows NSIS installer,
-blockmap, updater metadata, and checksums from `packages/desktop/release`
-alongside the server image.
+GitHub Release assets are desktop-only: the unsigned Windows NSIS installer,
+blockmap, updater metadata, and checksums from `packages/desktop/release`.

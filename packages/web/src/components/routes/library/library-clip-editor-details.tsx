@@ -20,13 +20,14 @@ import {
   TabsTrigger,
 } from "@alloy/ui/components/tabs"
 import { toast } from "@alloy/ui/lib/toast"
+import { useNavigate } from "@tanstack/react-router"
 import {
+  ClapperboardIcon,
   ChevronUpIcon,
   GlobeIcon,
   Link2Icon,
   SaveIcon,
   Trash2Icon,
-  UndoIcon,
 } from "lucide-react"
 import * as React from "react"
 
@@ -36,14 +37,24 @@ import { absoluteClipHref } from "@/lib/app-paths"
 import { normalizeClipDescription, normalizeClipTitle } from "@/lib/clip-fields"
 import { useUpdateClipMutation } from "@/lib/clip-queries"
 import { copyTextToClipboard } from "@/lib/clipboard"
+import { alloyDesktop, type RecordingLibraryItem } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
+
+import { ClipFileLocation } from "./library-file-location"
 
 /** Shared by the tabs container and the details form it hosts. */
 interface ClipDetailsProps {
   row: ClipRow
+  localItem: RecordingLibraryItem | null
   canManage: boolean
   onRequestDelete: () => void
   deleting: boolean
+  /** True while the stage holds a valid, uncommitted trim. */
+  canSaveTrim: boolean
+  /** True while a saved trim is being applied on the server. */
+  trimPending: boolean
+  /** Commits the stage's pending trim — Save runs it with the fields. */
+  onSaveTrim: () => void
 }
 
 function gameRowFromRef(row: ClipRow): GameRow | null {
@@ -121,10 +132,16 @@ export function ClipEditorTabs(props: ClipDetailsProps) {
 /** Metadata sheet: the dialog editor's fields and dirty tracking, inline. */
 function ClipDetailsForm({
   row,
+  localItem,
   canManage,
   onRequestDelete,
   deleting,
+  canSaveTrim,
+  trimPending,
+  onSaveTrim,
 }: ClipDetailsProps) {
+  const navigate = useNavigate()
+  const desktop = alloyDesktop()
   const [title, setTitle] = React.useState(row.title)
   const [description, setDescription] = React.useState(row.description ?? "")
   const [game, setGame] = React.useState<GameRow | null>(() =>
@@ -134,8 +151,10 @@ function ClipDetailsForm({
     (row.mentions ?? []).map(mentionToSearchResult),
   )
   const [tags, setTags] = React.useState<string[]>(row.tags)
-  const mutation = useUpdateClipMutation()
-  const saving = mutation.isPending
+  const saveMutation = useUpdateClipMutation()
+  const visibilityMutation = useUpdateClipMutation()
+  const saving = saveMutation.isPending
+  const visibilityPending = visibilityMutation.isPending
 
   const trimmedTitle = normalizeClipTitle(title)
   const trimmedDescription = normalizeClipDescription(description)
@@ -157,50 +176,58 @@ function ClipDetailsForm({
     tagsChanged
   const titleInvalid = trimmedTitle.length === 0
 
-  // Visibility changes save immediately from the publish dropdown — they're
-  // an action ("Post" / "Unpost"), not a draft field like the rest of the form.
-  const setClipPrivacy = (privacy: ClipPrivacy) => {
-    if (saving || privacy === row.privacy) return
-    mutation.mutate(
+  const copyClipLink = async (clip: ClipRow = row) => {
+    const slug = clip.gameRef?.slug
+    if (!slug) return false
+    return copyTextToClipboard(
+      absoluteClipHref(slug, clip.id, publicOrigin()),
+      {
+        action: "copy clip link",
+      },
+    )
+  }
+
+  // Visibility changes save immediately from the publish controls — they're
+  // publish actions, not draft fields like the rest of the form.
+  const publishClip = (privacy: ClipPrivacy) => {
+    if (visibilityPending || privacy === row.privacy) return
+    visibilityMutation.mutate(
       { clipId: row.id, input: { privacy } },
       {
-        onSuccess: () =>
-          toast.success(
-            privacy === "public"
-              ? "Posted to your profile"
-              : "Removed from your profile",
-          ),
+        onSuccess: async (updated) => {
+          const copied = await copyClipLink(updated)
+          if (privacy === "public") {
+            toast[copied ? "success" : "error"](
+              copied
+                ? "Posted and link copied"
+                : "Posted, but couldn't copy the link",
+            )
+          } else {
+            toast[copied ? "success" : "error"](
+              copied
+                ? "Link created and copied"
+                : "Link created, but couldn't copy it",
+            )
+          }
+        },
         onError: () => toast.error("Couldn't update visibility"),
       },
     )
   }
 
-  const copyLink = async () => {
-    const slug = row.gameRef?.slug
-    if (!slug) {
-      toast.error("Couldn't copy the clip link")
-      return
-    }
-    const copied = await copyTextToClipboard(
-      absoluteClipHref(slug, row.id, publicOrigin()),
-      { action: "copy clip link" },
-    )
-    if (copied) {
-      toast.success("Link copied to clipboard")
-    } else {
-      toast.error("Couldn't copy the clip link")
-    }
-  }
-
+  // Save commits everything outstanding at once: the field edits and any
+  // pending trim from the stage. The two server calls are independent.
   const handleSave = () => {
-    if (!dirty || titleInvalid || saving) return
-    const input: Parameters<typeof mutation.mutate>[0]["input"] = {}
+    if (saving || trimPending || titleInvalid) return
+    if (canSaveTrim) onSaveTrim()
+    if (!dirty) return
+    const input: Parameters<typeof saveMutation.mutate>[0]["input"] = {}
     if (titleChanged) input.title = trimmedTitle
     if (descriptionChanged) input.description = trimmedDescription
     if (gameChanged && game) input.steamgriddbId = game.steamgriddbId
     if (mentionsChanged) input.mentionedUserIds = mentionIds
     if (tagsChanged) input.tags = tags
-    mutation.mutate(
+    saveMutation.mutate(
       { clipId: row.id, input },
       {
         onSuccess: () => toast.success("Clip updated"),
@@ -208,6 +235,17 @@ function ClipDetailsForm({
       },
     )
   }
+  const primaryPublishes = !dirty && !canSaveTrim
+  const primaryDisabled = primaryPublishes
+    ? row.privacy === "public" || visibilityPending || deleting
+    : (!dirty && !canSaveTrim) || titleInvalid || saving || trimPending
+  const primaryLabel = primaryPublishes
+    ? visibilityPending
+      ? "Posting…"
+      : "Post"
+    : saving || trimPending
+      ? "Saving…"
+      : "Save"
 
   return (
     <>
@@ -226,12 +264,14 @@ function ClipDetailsForm({
         titleInvalid={titleInvalid}
       />
 
+      <ClipFileLocation row={row} localItem={localItem} />
+
       {canManage ? (
         <div className="border-border mt-auto flex items-center justify-between gap-2 border-t pt-4">
           <Button
             type="button"
             variant="ghost"
-            disabled={deleting || saving}
+            disabled={deleting || saving || visibilityPending}
             onClick={onRequestDelete}
           >
             <Trash2Icon />
@@ -241,12 +281,15 @@ function ClipDetailsForm({
             <Button
               type="button"
               variant="primary"
-              disabled={!dirty || titleInvalid || saving}
+              disabled={primaryDisabled}
               className="rounded-r-none"
-              onClick={handleSave}
+              onClick={() => {
+                if (primaryPublishes) publishClip("public")
+                else handleSave()
+              }}
             >
-              <SaveIcon />
-              {saving ? "Saving…" : "Save"}
+              {primaryPublishes ? <GlobeIcon /> : <SaveIcon />}
+              {primaryLabel}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -255,7 +298,7 @@ function ClipDetailsForm({
                     type="button"
                     variant="primary"
                     size="icon"
-                    disabled={saving || deleting}
+                    disabled={saving || deleting || visibilityPending}
                     aria-label="More clip options"
                     className="border-l-accent-hover rounded-l-none"
                   />
@@ -264,32 +307,35 @@ function ClipDetailsForm({
                 <ChevronUpIcon />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" side="top" className="w-52">
-                {row.privacy === "public" ? (
+                {desktop ? (
                   <DropdownMenuItem
                     onClick={() => {
-                      setClipPrivacy("unlisted")
+                      void navigate({
+                        to: "/editor",
+                        search: { capture: row.id },
+                      })
                     }}
                   >
-                    <UndoIcon className="size-4" />
-                    Unpost from Profile
+                    <ClapperboardIcon className="size-4" />
+                    Open in Editor
                   </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setClipPrivacy("public")
-                    }}
-                  >
-                    <GlobeIcon className="size-4" />
-                    Post to Profile
-                  </DropdownMenuItem>
-                )}
+                ) : null}
+                <DropdownMenuItem
+                  disabled={row.privacy === "public"}
+                  onClick={() => {
+                    publishClip("public")
+                  }}
+                >
+                  <GlobeIcon className="size-4" />
+                  Post
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => {
-                    void copyLink()
+                    publishClip("unlisted")
                   }}
                 >
                   <Link2Icon className="size-4" />
-                  Copy Link
+                  Create Link
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

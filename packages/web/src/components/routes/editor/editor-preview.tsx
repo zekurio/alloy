@@ -83,10 +83,7 @@ export function EditorPreview({
     >
       <canvas
         ref={canvasRef}
-        className={cn(
-          "max-h-full max-w-full object-contain",
-          empty && "opacity-0",
-        )}
+        className={cn("size-full object-contain", empty && "opacity-0")}
       />
       {empty ? (
         <div className="text-foreground-faint pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm">

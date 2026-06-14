@@ -4,8 +4,8 @@ import { request as httpsRequest } from "node:https"
 
 import type {
   GameSessionRow,
-  InitiateClipInput,
-  InitiateClipResponse,
+  InitiateStagingInput,
+  InitiateStagingResponse,
   RegisterDeviceInput,
   UploadTicket,
   UpsertGameSessionInput,
@@ -80,23 +80,32 @@ async function apiRequest<T>(
   return (await response.json()) as T
 }
 
-export function initiateClip(
+export function initiateStaging(
   serverUrl: string,
-  input: InitiateClipInput,
-): Promise<InitiateClipResponse> {
-  return apiRequest(serverUrl, "POST", "/api/clips/initiate", input)
+  input: InitiateStagingInput,
+): Promise<InitiateStagingResponse> {
+  return apiRequest(serverUrl, "POST", "/api/staging/initiate", input)
 }
 
-export function finalizeClip(serverUrl: string, clipId: string): Promise<void> {
-  return apiRequest(serverUrl, "POST", `/api/clips/${clipId}/finalize`)
+export function finalizeStaging(
+  serverUrl: string,
+  recordingId: string,
+): Promise<void> {
+  return apiRequest(serverUrl, "POST", `/api/staging/${recordingId}/finalize`)
 }
 
-export function failClip(serverUrl: string, clipId: string): Promise<void> {
-  return apiRequest(serverUrl, "POST", `/api/clips/${clipId}/fail`)
+export function failStaging(
+  serverUrl: string,
+  recordingId: string,
+): Promise<void> {
+  return apiRequest(serverUrl, "POST", `/api/staging/${recordingId}/fail`)
 }
 
-export function deleteClip(serverUrl: string, clipId: string): Promise<void> {
-  return apiRequest(serverUrl, "DELETE", `/api/clips/${clipId}`)
+export function deleteStaging(
+  serverUrl: string,
+  recordingId: string,
+): Promise<void> {
+  return apiRequest(serverUrl, "DELETE", `/api/staging/${recordingId}`)
 }
 
 export function registerDevice(

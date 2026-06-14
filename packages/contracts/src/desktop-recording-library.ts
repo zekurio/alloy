@@ -38,6 +38,16 @@ export interface RecordingLibraryItem {
   privacy: ClipPrivacy | null
   /** Server clip id this capture was published as, once an upload finished. */
   uploadedClipId: string | null
+  /**
+   * Server staging-recording id this capture was synced to (an owner-only
+   * draft). Set by the desktop sync engine; cleared until a sync completes.
+   */
+  syncedRecordingId: string | null
+  /**
+   * User explicitly removed the server copy while keeping this local file.
+   * Auto-sync skips it until the user manually syncs it again.
+   */
+  syncExcluded: boolean
   /** Where this capture stands in the server sync pipeline. */
   syncState: RecordingLibrarySyncState
   createdAt: string
@@ -71,11 +81,20 @@ export interface RecordingLibraryExportRequest {
 export interface RecordingLibraryMetaPatch {
   id: string
   title?: string
+  gameName?: string | null
+  gameIconUrl?: string | null
   description?: string | null
   tags?: string | null
   mentions?: RecordingCaptureMention[]
   privacy?: ClipPrivacy | null
   uploadedClipId?: string | null
+  syncedRecordingId?: string | null
+  syncExcluded?: boolean
+}
+
+export interface RecordingLibraryMetaUpdateResult {
+  /** Current capture id after any filesystem move caused by the metadata edit. */
+  id: string
 }
 
 export interface RecordingLibraryProjectTrack {
@@ -102,10 +121,24 @@ export interface RecordingLibraryProjectTransition {
   durationMs: number
 }
 
+export const RECORDING_LIBRARY_PROJECT_FILTER_IDS = [
+  "none",
+  "clean",
+  "warm",
+  "crisp",
+  "punch",
+  "mono",
+] as const
+
+export type RecordingLibraryProjectFilterId =
+  (typeof RECORDING_LIBRARY_PROJECT_FILTER_IDS)[number]
+
 export interface RecordingLibraryProject {
   tracks: RecordingLibraryProjectTrack[]
   clips: RecordingLibraryProjectClip[]
   transitions: RecordingLibraryProjectTransition[]
+  /** Global visual filter applied to preview and rendered exports. */
+  filterId?: RecordingLibraryProjectFilterId
 }
 
 export interface RecordingLibraryProjectDraft {

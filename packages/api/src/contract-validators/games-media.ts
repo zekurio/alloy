@@ -147,6 +147,12 @@ function validateSteamGridDBSearchResult(
       "Invalid game search response: iconUrl must be a URL or null",
     )
   }
+  if (row.logoUrl !== undefined) {
+    validateNullableUrlString(
+      row.logoUrl,
+      "Invalid game search response: logoUrl must be a URL or null",
+    )
+  }
   return value as SteamGridDBSearchResult
 }
 

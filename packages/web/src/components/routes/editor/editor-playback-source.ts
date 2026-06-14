@@ -135,6 +135,10 @@ export class PreviewSurface {
     this.clear()
   }
 
+  setFilter(filter: string): void {
+    if (this.canvas) this.canvas.style.filter = filter
+  }
+
   clear(): void {
     if (!this.ctx2d || !this.canvas) return
     this.ctx2d.globalAlpha = 1

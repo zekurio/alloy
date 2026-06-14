@@ -55,7 +55,8 @@
       {
         "provider": "github",
         "owner": "zekurio",
-        "repo": "alloy"
+        "repo": "alloy",
+        "channel": "latest"
       }
     ],
     "files": [

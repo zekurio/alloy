@@ -1,15 +1,16 @@
-import { clip, clipUploadTicket } from "@alloy/db/schema"
+import { clip, stagingRecording, uploadTicket } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { publishClipRemove } from "@alloy/server/clips/events"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
-import {
-  deleteStagedUpload,
-  deleteStagedUploads,
-} from "@alloy/server/uploads/staged"
+import { deleteStagedUpload } from "@alloy/server/uploads/staged"
+import { cleanupTickets } from "@alloy/server/uploads/tickets"
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm"
 
-import { enqueueClipMediaProcessing } from "./media-worker"
+import {
+  enqueueClipMediaProcessing,
+  enqueueStagingMediaProcessing,
+} from "./media-worker"
 
 const logger = createLogger("queue")
 
@@ -37,7 +38,8 @@ async function runReaper(): Promise<void> {
   if (reaperRunning) return
   reaperRunning = true
   try {
-    await reapPending()
+    await reapPendingClips()
+    await reapPendingStaging()
     await reapExpiredUploadTickets()
     await requeueStuckProcessing()
   } catch (err) {
@@ -47,25 +49,19 @@ async function runReaper(): Promise<void> {
   }
 }
 
-async function reapPending(): Promise<void> {
-  const pendingCutoff = new Date(
-    Date.now() - configStore.get("limits").uploadTtlSec * 1000,
-  )
+function pendingCutoff(): Date {
+  return new Date(Date.now() - configStore.get("limits").uploadTtlSec * 1000)
+}
+
+async function reapPendingClips(): Promise<void> {
   const stale = await db
-    .select({
-      id: clip.id,
-      authorId: clip.authorId,
-    })
+    .select({ id: clip.id, authorId: clip.authorId })
     .from(clip)
-    .where(and(eq(clip.status, "pending"), lt(clip.createdAt, pendingCutoff)))
+    .where(and(eq(clip.status, "pending"), lt(clip.createdAt, pendingCutoff())))
 
   for (const row of stale) {
-    const tickets = await db
-      .select({ storageKey: clipUploadTicket.storageKey })
-      .from(clipUploadTicket)
-      .where(eq(clipUploadTicket.clipId, row.id))
-    await deleteStagedUploads(
-      tickets.map((ticket) => ticket.storageKey),
+    await cleanupTickets(
+      { type: "clip", id: row.id },
       `stale clip ${row.id} upload`,
     )
     await db.delete(clip).where(eq(clip.id, row.id))
@@ -73,21 +69,34 @@ async function reapPending(): Promise<void> {
   }
 }
 
-async function reapExpiredUploadTickets(): Promise<void> {
-  const expiredTickets = await db
-    .select({
-      id: clipUploadTicket.id,
-      clipId: clipUploadTicket.clipId,
-      storageKey: clipUploadTicket.storageKey,
-    })
-    .from(clipUploadTicket)
-    .innerJoin(clip, eq(clip.id, clipUploadTicket.clipId))
+async function reapPendingStaging(): Promise<void> {
+  const stale = await db
+    .select({ id: stagingRecording.id })
+    .from(stagingRecording)
     .where(
       and(
-        isNull(clipUploadTicket.usedAt),
-        eq(clip.status, "pending"),
-        lt(clipUploadTicket.expiresAt, new Date()),
+        eq(stagingRecording.status, "pending"),
+        lt(stagingRecording.createdAt, pendingCutoff()),
       ),
+    )
+
+  for (const row of stale) {
+    await cleanupTickets(
+      { type: "staging", id: row.id },
+      `stale staging ${row.id} upload`,
+    )
+    await db.delete(stagingRecording).where(eq(stagingRecording.id, row.id))
+  }
+}
+
+async function reapExpiredUploadTickets(): Promise<void> {
+  // A ticket that expired without being consumed belongs to an upload that
+  // never completed; finalize would reject it anyway, so drop object + row.
+  const expiredTickets = await db
+    .select({ id: uploadTicket.id, storageKey: uploadTicket.storageKey })
+    .from(uploadTicket)
+    .where(
+      and(isNull(uploadTicket.usedAt), lt(uploadTicket.expiresAt, new Date())),
     )
 
   for (const ticket of expiredTickets) {
@@ -100,12 +109,12 @@ async function reapExpiredUploadTickets(): Promise<void> {
       )
       continue
     }
-    await db.delete(clipUploadTicket).where(eq(clipUploadTicket.id, ticket.id))
+    await db.delete(uploadTicket).where(eq(uploadTicket.id, ticket.id))
   }
 }
 
 async function requeueStuckProcessing(): Promise<void> {
-  const stuck = await db
+  const stuckClips = await db
     .select({ id: clip.id })
     .from(clip)
     .where(
@@ -124,8 +133,30 @@ async function requeueStuckProcessing(): Promise<void> {
         ),
       ),
     )
-
-  for (const row of stuck) {
+  for (const row of stuckClips) {
     enqueueClipMediaProcessing(row.id)
+  }
+
+  const stuckStaging = await db
+    .select({ id: stagingRecording.id })
+    .from(stagingRecording)
+    .where(
+      and(
+        or(
+          eq(stagingRecording.status, "processing"),
+          and(
+            eq(stagingRecording.status, "ready"),
+            lt(stagingRecording.encodeProgress, 100),
+            isNull(stagingRecording.failureReason),
+          ),
+        ),
+        lt(
+          stagingRecording.updatedAt,
+          sql`now() - interval '${sql.raw(UPLOADED_MAX_AGE_INTERVAL)}'`,
+        ),
+      ),
+    )
+  for (const row of stuckStaging) {
+    enqueueStagingMediaProcessing(row.id)
   }
 }

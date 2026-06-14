@@ -1,58 +1,86 @@
 # Releasing
 
-The release flow is modeled on immich's: one manual dispatch prepares
-everything into a draft GitHub release, and publishing that draft is the
-final, human gate that makes the release public. Publishing fires the native
-`release: published` event, which fans out to the Docker and Nix cache
-workflows — no cross-workflow dispatching and no extra tokens.
+Alloy has two release channels:
 
-## App + server release (`v*` tags)
+- **Stable**: tagged `vX.Y.Z`, marked as the latest GitHub Release, and paired
+  with the `ghcr.io/zekurio/alloy:latest` Docker tag.
+- **Nightly**: tagged `vX.Y.Z-nightly.YYYYMMDD.<run>`, marked as a prerelease,
+  and paired with the `ghcr.io/zekurio/alloy:nightly` Docker tag.
 
-1. Run the **Release** workflow and pick a semver `bump` (`prerelease`,
-   `prepatch`, `preminor`, `premajor` continue an rc cycle; `patch`, `minor`,
-   `major` finish one). The workflow computes the next version from
-   `package.json` (rc preid), stamps the root, desktop, and recorder package
-   metadata, runs formatting, lint, and typecheck, then commits the bump to
-   `main` and pushes the commit and `vX.Y.Z` tag atomically.
-2. From that exact commit it builds:
-   - the linux-x64 server bundle
-     (`alloy-server-vX.Y.Z-linux-x64.tar.gz` with `server/`, `web/`, and
-     `migrations/`),
-   - the Nix flake package and OCI image (validation; publishing happens on
-     the publish event), and
-   - the Windows desktop installer, updater metadata (`latest.yml`), and
-     recorder runtime zip.
-3. It then creates a **draft** GitHub release with all binaries and combined
-   checksums attached. The prerelease flag is derived from the version (any
-   `-rc.N` suffix marks a prerelease); the draft's prerelease checkbox is the
-   manual override if you ever need one.
-4. Review the draft notes, then **publish**. Publishing:
-   - makes the installer and `latest.yml` visible to electron-updater (drafts
-     are invisible to auto-update),
-   - triggers **Docker**, which builds the Nix-based image
-     (`.#alloy-image`, the same store closure as the Nix package) from the
-     release tag and pushes the `ghcr.io` image tagged `vX.Y.Z`, plus
-     `latest` for full releases; prereleases ship only their pinned version
-     tag (the channel comes from the published release's prerelease flag),
-     and
-   - triggers **Nix Cache**, which builds the flake package and pushes it to
-     Cachix for full releases.
+GitHub Release assets are intentionally limited to the desktop app and
+auto-update files:
 
-If a build job fails after the tag was pushed, no draft is created; fix the
-issue and use **Re-run failed jobs** on the same run.
+- `Alloy-Desktop-...exe`
+- the installer `.blockmap`
+- `latest.yml` for stable releases or `nightly.yml` for nightly releases
+- `checksums.txt`
 
-## Main channel images
+Server distribution is handled by the Docker workflow. Release notes include
+the matching pinned image tag and the channel tag to use.
 
-The **Docker** workflow also runs on every push to `main`, publishing
-`main` and `main-<sha>` images (`X.Y.Z-main.<run>.<sha>` build version), so
-the latest mainline server is always pullable without cutting a release.
-Note: the release version-bump commit itself is pushed with `GITHUB_TOKEN`,
-which never triggers other workflows, so that one commit does not produce a
-`main` image — its image ships via the release path instead.
+## Stable Releases
 
-## Recorder runtime
+1. Update the release version in a normal PR if it is not already correct:
 
-Recorder releases are part of the app release. The release workflow stamps
-`packages/recorder/package.json` and `packages/recorder/Cargo.toml` to the app
-release version, builds the Windows x64 runtime, and attaches the recorder zip
-to the same GitHub release as the desktop installer.
+   ```bash
+   node scripts/update-release-package-versions.mjs X.Y.Z
+   pnpm install --lockfile-only
+   pnpm fmt
+   pnpm lint
+   pnpm typecheck
+   ```
+
+2. After `main` is green, create and push a stable tag:
+
+   ```bash
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
+   ```
+
+3. The **Release** workflow runs formatting, lint, and typecheck, builds the
+   Windows desktop installer, attaches only desktop/update assets, and publishes
+   the GitHub Release.
+
+4. Publishing the release triggers **Docker**, which publishes:
+   - `ghcr.io/zekurio/alloy:vX.Y.Z`
+   - `ghcr.io/zekurio/alloy:latest`
+
+5. Publishing a stable release also triggers **Nix Cache** for the flake package.
+
+## Nightly Releases
+
+Nightlies run automatically every day at `03:00 UTC`. The workflow skips the
+scheduled run when `main` has not changed since the last nightly tag.
+
+To cut a nightly manually, run **Release** with:
+
+- `channel`: `nightly`
+- `version`: empty
+
+The workflow derives the nightly version from the current root package version,
+the UTC date, and the GitHub run number. Nightly releases publish:
+
+- the Windows desktop installer
+- `nightly.yml`
+- blockmaps and checksums
+
+The **Docker** workflow publishes:
+
+- `ghcr.io/zekurio/alloy:vX.Y.Z-nightly.YYYYMMDD.<run>`
+- `ghcr.io/zekurio/alloy:nightly`
+
+## Custom Release Notes
+
+No custom bot is required. The release workflow uses the built-in
+`GITHUB_TOKEN`, asks GitHub to generate the changelog for the matching channel,
+and prepends Alloy-specific deployment notes:
+
+- which desktop updater manifest is attached (`latest.yml` or `nightly.yml`)
+- which Docker image to use for the channel
+- which pinned Docker image reproduces the exact release
+
+## Recovery
+
+If a build fails before the GitHub Release is created, fix the issue and rerun
+the failed workflow jobs. If a release was already published with bad assets,
+delete the release and tag, then rerun from the corrected commit.

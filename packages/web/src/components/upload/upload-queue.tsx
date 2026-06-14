@@ -24,7 +24,6 @@ import * as React from "react"
 
 export type QueueItemStatus =
   | "uploading"
-  | "encoding"
   | "queued"
   | "paused"
   | "published"
@@ -40,6 +39,8 @@ export function isCompletedQueueStatus(status: QueueItemStatus): boolean {
 export interface QueueItem {
   id: string
   title: string
+  /** Which transport this row belongs to — drives the Uploads/Downloads split. */
+  kind: "upload" | "download"
   status: QueueItemStatus
   /** 0–100. `queued` items should pass 0. */
   progress: number
@@ -100,34 +101,33 @@ export function UploadQueueContent({
   const completedCount = queue.filter((q) =>
     isCompletedQueueStatus(q.status),
   ).length
+  // Uploads first, then downloads, so the two transports read as distinct
+  // sections regardless of how the merge hub interleaved them.
+  const ordered = React.useMemo(
+    () => [
+      ...queue.filter((q) => q.kind === "upload"),
+      ...queue.filter((q) => q.kind === "download"),
+    ],
+    [queue],
+  )
+  const uploadCount = ordered.filter((q) => q.kind === "upload").length
+  const downloadCount = ordered.length - uploadCount
   const start = page * PAGE_SIZE
-  const visible = queue.slice(start, start + PAGE_SIZE)
+  const visible = ordered.slice(start, start + PAGE_SIZE)
 
   return (
     <div className="flex flex-col">
       <header className="mb-2 flex items-center justify-between px-1">
         <h2 className="text-foreground text-sm font-semibold">Sync</h2>
-        <div className="flex items-center gap-2">
-          <span className="text-foreground-muted text-xs font-semibold tabular-nums">
-            {isUnavailable && queue.length === 0
-              ? "unavailable"
-              : isLoading && queue.length === 0
-                ? "loading"
-                : queue.length === 0
-                  ? "empty"
-                  : `${queue.length} ${queue.length === 1 ? "item" : "items"}`}
-          </span>
-          {syncPaused !== null && onToggleSyncPause ? (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={syncPaused ? "Resume sync" : "Pause sync"}
-              onClick={onToggleSyncPause}
-            >
-              {syncPaused ? <PlayIcon /> : <PauseIcon />}
-            </Button>
-          ) : null}
-        </div>
+        <span className="text-foreground-muted text-xs font-semibold tabular-nums">
+          {isUnavailable && queue.length === 0
+            ? "unavailable"
+            : isLoading && queue.length === 0
+              ? "loading"
+              : queue.length === 0
+                ? "empty"
+                : `${queue.length} ${queue.length === 1 ? "item" : "items"}`}
+        </span>
       </header>
 
       <div className="-mx-1 flex flex-col">
@@ -166,9 +166,25 @@ export function UploadQueueContent({
             </p>
           </div>
         ) : (
-          visible.map((item, index) => (
-            <QueueRow key={item.id} item={item} first={index === 0} />
-          ))
+          visible.map((item, index) => {
+            const prev = visible[index - 1]
+            const showHeader = !prev || prev.kind !== item.kind
+            return (
+              <React.Fragment key={item.id}>
+                {showHeader ? (
+                  <QueueSectionHeader
+                    kind={item.kind}
+                    count={item.kind === "upload" ? uploadCount : downloadCount}
+                    syncPaused={item.kind === "upload" ? syncPaused : null}
+                    onToggleSyncPause={
+                      item.kind === "upload" ? onToggleSyncPause : undefined
+                    }
+                  />
+                ) : null}
+                <QueueRow item={item} first={index === 0 || showHeader} />
+              </React.Fragment>
+            )
+          })
         )}
       </div>
 
@@ -225,11 +241,41 @@ export function UploadQueueContent({
   )
 }
 
+function QueueSectionHeader({
+  kind,
+  count,
+  syncPaused,
+  onToggleSyncPause,
+}: {
+  kind: "upload" | "download"
+  count: number
+  syncPaused?: boolean | null
+  onToggleSyncPause?: () => void
+}) {
+  return (
+    <div className="mt-2 flex items-center justify-between px-2 pb-0.5 first:mt-0">
+      <span className="text-foreground-faint flex items-center gap-1.5 text-[0.6875rem] font-semibold tracking-wide uppercase">
+        {kind === "upload" ? "Uploads" : "Downloads"}
+        <span className="tabular-nums">{count}</span>
+      </span>
+      {kind === "upload" && syncPaused != null && onToggleSyncPause ? (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={syncPaused ? "Resume sync" : "Pause sync"}
+          onClick={onToggleSyncPause}
+        >
+          {syncPaused ? <PlayIcon /> : <PauseIcon />}
+        </Button>
+      ) : null}
+    </div>
+  )
+}
+
 function QueueRow({ item, first }: { item: QueueItem; first: boolean }) {
   const tone = STATUS_TONES[item.status]
   const showPct =
     item.status === "uploading" ||
-    item.status === "encoding" ||
     (item.status === "downloading" && item.progress > 0)
 
   return (
@@ -444,12 +490,7 @@ function RowAction({ item }: { item: QueueItem }) {
       </>
     )
   }
-  if (
-    status === "encoding" ||
-    status === "queued" ||
-    status === "paused" ||
-    status === "failed"
-  ) {
+  if (status === "queued" || status === "paused" || status === "failed") {
     const label =
       status === "failed"
         ? `Remove failed clip ${title}`
@@ -518,7 +559,6 @@ function RowAction({ item }: { item: QueueItem }) {
 
 const STATUS_LABELS: Record<QueueItemStatus, string> = {
   uploading: "Upload",
-  encoding: "Processing",
   queued: "Queued",
   paused: "Paused",
   published: "Published",
@@ -529,7 +569,6 @@ const STATUS_LABELS: Record<QueueItemStatus, string> = {
 
 const STATUS_TONES: Record<QueueItemStatus, { label: string; bar: string }> = {
   uploading: { label: "text-accent", bar: "bg-accent" },
-  encoding: { label: "text-warning", bar: "bg-warning" },
   queued: { label: "text-foreground-faint", bar: "" },
   paused: { label: "text-foreground-faint", bar: "" },
   published: { label: "text-success", bar: "bg-success" },

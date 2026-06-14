@@ -3,7 +3,6 @@ import { user } from "@alloy/db/auth-schema"
 import { clip, clipComment, clipCommentLike } from "@alloy/db/schema"
 import { requireSession } from "@alloy/server/auth/require-session"
 import {
-  applyClipPrivacyHeaders,
   clipAccessResponse,
   resolveClipAccess,
 } from "@alloy/server/clips/access"
@@ -57,7 +56,6 @@ export const clipCommentsRoutes = new Hono()
         policy: "metadata",
       })
       if (!access.accessible) return clipAccessResponse(c, access)
-      applyClipPrivacyHeaders(c, access)
 
       try {
         return c.json(

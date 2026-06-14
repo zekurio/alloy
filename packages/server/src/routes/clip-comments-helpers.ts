@@ -64,7 +64,6 @@ export async function resolveCommentEngagementTarget(
       accessible: false as const,
       error: "Not found",
       status: 404 as const,
-      isPrivate: false,
     }
   }
   const target = await resolveClipAccess({

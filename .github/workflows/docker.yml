@@ -57,8 +57,10 @@ jobs:
               exit 1
             fi
 
-            if [[ "$RELEASE_PRERELEASE" == "true" ]]; then
-              # Prereleases ship only their pinned version tag.
+            if [[ "$version" == *-nightly.* ]]; then
+              channel_tag="nightly"
+            elif [[ "$RELEASE_PRERELEASE" == "true" ]]; then
+              # Non-nightly prereleases ship only their pinned version tag.
               channel_tag=""
             else
               channel_tag="latest"

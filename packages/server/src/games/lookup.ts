@@ -12,6 +12,7 @@ import {
   uniqueLookupNames,
 } from "./name-match"
 import {
+  getSteamGridGameRef,
   type IndexedGameNameLookupCandidate,
   lookupIndexedGamesByName,
 } from "./ref"
@@ -36,6 +37,32 @@ export async function lookupGamesByName(
         lookupGameByName(name, indexedByName.get(exactNameKey(name)) ?? []),
       ),
     ),
+  }
+}
+
+/**
+ * Resolve a detected game name to a game row that is GUARANTEED to be persisted
+ * in the local `game` table (inserted on first use), so the id is safe to use
+ * in a foreign key (clips, staging recordings, game sessions). Returns null
+ * when there's no confident match or the game can't be persisted.
+ *
+ * The desktop only knows a process name, never a SteamGridDB id, so the server
+ * owns this name->game resolution. `lookupGamesByName` alone can return a match
+ * built from a SteamGridDB search result that was never stored; routing through
+ * `getSteamGridGameRef` is what actually writes the row.
+ */
+export async function resolvePersistedGameByName(
+  name: string,
+  viewerId: string | null,
+): Promise<GameRow | null> {
+  try {
+    const { results } = await lookupGamesByName([name], viewerId)
+    const match = results[0]?.game
+    if (!match) return null
+    return await getSteamGridGameRef(match.steamgriddbId)
+  } catch (err) {
+    logger.warn(`game name resolution failed for "${name}":`, err)
+    return null
   }
 }
 

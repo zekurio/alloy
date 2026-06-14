@@ -1,4 +1,4 @@
-import { clipUploadTicket } from "@alloy/db/schema"
+import { uploadTicket } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { secretStore } from "@alloy/server/config/secret-store"
 import { db } from "@alloy/server/db/index"
@@ -31,20 +31,20 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
     k: key,
     ct: expectedContentType,
     mb: maxBytes,
-    cid: clipId,
+    cid: recordingId,
   } = decoded.payload
 
   const [ticket] = await db
-    .select({ id: clipUploadTicket.id })
-    .from(clipUploadTicket)
+    .select({ id: uploadTicket.id })
+    .from(uploadTicket)
     .where(
       and(
-        eq(clipUploadTicket.clipId, clipId),
-        eq(clipUploadTicket.storageKey, key),
-        eq(clipUploadTicket.contentType, expectedContentType),
-        eq(clipUploadTicket.expectedBytes, maxBytes),
-        isNull(clipUploadTicket.usedAt),
-        gt(clipUploadTicket.expiresAt, new Date()),
+        eq(uploadTicket.targetId, recordingId),
+        eq(uploadTicket.storageKey, key),
+        eq(uploadTicket.contentType, expectedContentType),
+        eq(uploadTicket.expectedBytes, maxBytes),
+        isNull(uploadTicket.usedAt),
+        gt(uploadTicket.expiresAt, new Date()),
       ),
     )
     .limit(1)
@@ -85,9 +85,9 @@ export const storageRoute = new Hono().post("/upload/:token", async (c) => {
   }
 
   await db
-    .update(clipUploadTicket)
+    .update(uploadTicket)
     .set({ usedAt: new Date() })
-    .where(eq(clipUploadTicket.id, ticket.id))
+    .where(eq(uploadTicket.id, ticket.id))
 
   return noContent(c)
 })

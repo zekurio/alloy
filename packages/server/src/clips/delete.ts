@@ -1,9 +1,9 @@
-import { clip, clipUploadTicket } from "@alloy/db/schema"
+import { clip } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { cancelClipMediaProcessing } from "@alloy/server/queue/media-worker"
 import { clipStorage } from "@alloy/server/storage/index"
-import { deleteStagedUploads } from "@alloy/server/uploads/staged"
+import { cleanupTickets } from "@alloy/server/uploads/tickets"
 import { eq } from "drizzle-orm"
 
 import { publishClipRemove } from "./events"
@@ -14,10 +14,6 @@ export async function deleteClipRowAndAssets(
   row: typeof clip.$inferSelect,
 ): Promise<void> {
   await cancelClipMediaProcessing(row.id)
-  const tickets = await db
-    .select({ storageKey: clipUploadTicket.storageKey })
-    .from(clipUploadTicket)
-    .where(eq(clipUploadTicket.clipId, row.id))
   await db.delete(clip).where(eq(clip.id, row.id))
 
   const keys = [row.sourceKey, row.thumbKey].filter((key): key is string =>
@@ -30,8 +26,8 @@ export async function deleteClipRowAndAssets(
       logger.warn(`failed to delete ${key}:`, err)
     }
   }
-  await deleteStagedUploads(
-    tickets.map((ticket) => ticket.storageKey),
+  await cleanupTickets(
+    { type: "clip", id: row.id },
     `clip ${row.id} staged upload`,
   )
 

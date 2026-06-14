@@ -1,16 +1,17 @@
-import { clip } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
-import { publishClipProgress } from "@alloy/server/clips/events"
-import { db } from "@alloy/server/db/index"
-import { and, eq, lt } from "drizzle-orm"
 
 const logger = createLogger("queue")
 
-export function makeMediaProgressWriter(
-  clipId: string,
-  authorId: string,
-  runId: string,
-): (pct: number) => void {
+/**
+ * Throttled progress writer shared by every media store. `commit` persists the
+ * percent (returning whether the row actually advanced) and `onCommitted` fires
+ * the side-channel notification only when it did.
+ */
+export function makeMediaProgressWriter(opts: {
+  id: string
+  commit: (pct: number) => Promise<boolean>
+  onCommitted: (pct: number) => void
+}): (pct: number) => void {
   let lastWrittenPct = 0
   let lastWriteAt = 0
   return (pct: number) => {
@@ -19,21 +20,13 @@ export function makeMediaProgressWriter(
     if (now - lastWriteAt < 2000 && pct < 99) return
     lastWrittenPct = pct
     lastWriteAt = now
-    db.update(clip)
-      .set({ encodeProgress: pct, updatedAt: new Date() })
-      .where(
-        and(
-          eq(clip.id, clipId),
-          eq(clip.encodeRunId, runId),
-          lt(clip.encodeProgress, pct),
-        ),
-      )
-      .returning({ id: clip.id })
-      .then((rows) => {
-        if (rows.length > 0) publishClipProgress(authorId, clipId, pct)
+    opts
+      .commit(pct)
+      .then((advanced) => {
+        if (advanced) opts.onCommitted(pct)
       })
       .catch((err: unknown) => {
-        logger.error(`progress update failed for ${clipId}:`, err)
+        logger.error(`progress update failed for ${opts.id}:`, err)
       })
   }
 }

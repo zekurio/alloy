@@ -3,8 +3,6 @@ import {
   CLIP_STATUS,
   type ClipPrivacy,
   type ClipStatus,
-  UPLOAD_TICKET_ROLE,
-  type UploadTicketRole,
 } from "@alloy/contracts"
 import { sql } from "drizzle-orm"
 import {
@@ -26,7 +24,7 @@ import { gameSession, userDevice } from "./device"
 import { game } from "./game"
 import { sqlStringList } from "./internal"
 
-export { CLIP_PRIVACY, CLIP_STATUS, UPLOAD_TICKET_ROLE }
+export { CLIP_PRIVACY, CLIP_STATUS }
 
 export const clip = pgTable(
   "clip",
@@ -128,36 +126,6 @@ export const clip = pgTable(
     check(
       "clip_source_size_bytes_safe_check",
       sql`${t.sourceSizeBytes} is null or (${t.sourceSizeBytes} >= 0 and ${t.sourceSizeBytes} <= 9007199254740991)`,
-    ),
-  ],
-)
-
-export const clipUploadTicket = pgTable(
-  "clip_upload_ticket",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    clipId: uuid("clip_id")
-      .notNull()
-      .references(() => clip.id, { onDelete: "cascade" }),
-    role: text("role").$type<UploadTicketRole>().notNull(),
-    storageKey: text("storage_key").notNull().unique(),
-    contentType: text("content_type").notNull(),
-    expectedBytes: bigint("expected_bytes", { mode: "number" }).notNull(),
-    expiresAt: timestamp("expires_at").notNull(),
-    usedAt: timestamp("used_at"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-  },
-  (t) => [
-    index("clip_upload_ticket_clip_idx").on(t.clipId),
-    index("clip_upload_ticket_expires_idx").on(t.expiresAt),
-    index("clip_upload_ticket_used_idx").on(t.usedAt),
-    check(
-      "clip_upload_ticket_role_check",
-      sql`${t.role} in (${sql.raw(sqlStringList(UPLOAD_TICKET_ROLE))})`,
-    ),
-    check(
-      "clip_upload_ticket_expected_bytes_safe_check",
-      sql`${t.expectedBytes} > 0 and ${t.expectedBytes} <= 9007199254740991`,
     ),
   ],
 )

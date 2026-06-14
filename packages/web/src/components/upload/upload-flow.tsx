@@ -75,10 +75,9 @@ function UploadQueuePopover({
   // content is fixed-positioned, so the queue still opens there after a publish.
   const pathname = useLocation({ select: (location) => location.pathname })
   const onLibraryEditor = /^\/library\/[^/]+/.test(pathname)
-  // Uploads only originate from the desktop app, so the indicator is purely a
-  // status surface — show it while something is in flight (or the queue is
-  // pinned open), never on the editor route.
-  const showIndicator = activeCount > 0 && !onLibraryEditor
+  // The indicator is a permanent entry point to the sync queue — visible even
+  // when idle, hidden only on the editor route where it overlaps the timeline.
+  const showIndicator = !onLibraryEditor
   const queueGlassStyle = {
     /* Row tint is opaque (it sits inside the already-blurred surface).
        The surface fill itself is left to the default `--alloy-blur-bg`

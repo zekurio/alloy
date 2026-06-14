@@ -1,10 +1,10 @@
 import { user } from "@alloy/db/auth-schema"
-import { clip, clipUploadTicket } from "@alloy/db/schema"
+import { clip } from "@alloy/db/schema"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
 import { createNotification } from "@alloy/server/notifications/index"
 import { selectSourceStorageUsedBytes } from "@alloy/server/storage/quota"
-import { and, eq, gt, inArray, sql } from "drizzle-orm"
+import { eq, inArray, sql } from "drizzle-orm"
 
 export type UploadQuotaResult =
   | { ok: true }
@@ -75,66 +75,4 @@ export async function markUploadFailed(
     type: "clip_upload_failed",
     clipId,
   })
-}
-
-/** Default poster image content type when the client doesn't pick one. */
-export const THUMB_UPLOAD_CONTENT_TYPE = "image/webp"
-
-/**
- * Hard cap for the uploaded poster image. The client renders a small webp
- * (<2 MB); this leaves headroom while keeping the staged upload bounded.
- */
-export const THUMB_UPLOAD_MAX_BYTES = 4 * 1024 * 1024
-
-export async function createUploadTickets(input: {
-  clipId: string
-  videoKey: string
-  videoContentType: string
-  videoBytes: number
-  thumbKey: string
-  thumbContentType?: string
-  expiresAt: Date
-}): Promise<void> {
-  await db.insert(clipUploadTicket).values([
-    {
-      clipId: input.clipId,
-      role: "video",
-      storageKey: input.videoKey,
-      contentType: input.videoContentType,
-      expectedBytes: input.videoBytes,
-      expiresAt: input.expiresAt,
-    },
-    {
-      clipId: input.clipId,
-      role: "thumb",
-      storageKey: input.thumbKey,
-      contentType: input.thumbContentType ?? THUMB_UPLOAD_CONTENT_TYPE,
-      expectedBytes: THUMB_UPLOAD_MAX_BYTES,
-      expiresAt: input.expiresAt,
-    },
-  ])
-}
-
-export async function assertUsableUploadTicket(input: {
-  clipId: string
-  storageKey: string
-  contentType: string
-  expectedBytes: number
-  role: "video"
-}): Promise<boolean> {
-  const [ticket] = await db
-    .select({ id: clipUploadTicket.id })
-    .from(clipUploadTicket)
-    .where(
-      and(
-        eq(clipUploadTicket.clipId, input.clipId),
-        eq(clipUploadTicket.storageKey, input.storageKey),
-        eq(clipUploadTicket.contentType, input.contentType),
-        eq(clipUploadTicket.expectedBytes, input.expectedBytes),
-        eq(clipUploadTicket.role, input.role),
-        gt(clipUploadTicket.expiresAt, new Date()),
-      ),
-    )
-    .limit(1)
-  return Boolean(ticket)
 }

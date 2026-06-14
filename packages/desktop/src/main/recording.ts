@@ -31,6 +31,10 @@ import {
   withRecordingStartSoundSuppressed,
 } from "./recording-sound-policy"
 import {
+  getLastRecordingStatus,
+  rememberRecordingStatus,
+} from "./recording-status-state"
+import {
   currentOutputFolder,
   defaultReplayScratchFolder,
 } from "./recording-storage"
@@ -47,7 +51,6 @@ type RecordingEventListener = (event: RecordingEvent) => void
 
 const recordingEventListeners = new Set<RecordingEventListener>()
 let sidecarClient: RecordingSidecarClient | null = null
-let lastRecordingStatus: RecordingStatus | null = null
 
 export {
   defaultOutputFolder,
@@ -144,7 +147,7 @@ export async function configureRecordingBackend(): Promise<RecordingStatus> {
   try {
     // Reconfiguring restarts an active replay buffer inside the sidecar;
     // suppress the start chime so settings changes stay silent.
-    const suppressStartSound = lastRecordingStatus?.replayActive === true
+    const suppressStartSound = getLastRecordingStatus()?.replayActive === true
     const status = await withRecordingStartSoundSuppressed(
       suppressStartSound,
       () => client.configure(currentSidecarConfig()),
@@ -199,7 +202,8 @@ export async function takeRecordingScreenshot(
 export async function toggleLongRecording(
   request: RecordingActionRequest,
 ): Promise<RecordingActionResult> {
-  const wasLongRecording = lastRecordingStatus?.longRecordingActive === true
+  const wasLongRecording =
+    getLastRecordingStatus()?.longRecordingActive === true
   const result = await runRecordingAction("toggleLongRecording", request)
   if (result.ok && !wasLongRecording && result.status.longRecordingActive) {
     playNotificationSound("manualRecordingStarted")
@@ -243,7 +247,7 @@ export async function shutdownRecordingBackend(): Promise<void> {
 }
 
 export function playReplaySaveRequestedSound(): boolean {
-  return requestReplaySaveSound(lastRecordingStatus)
+  return requestReplaySaveSound(getLastRecordingStatus())
 }
 
 async function runRecordingAction(
@@ -402,10 +406,6 @@ function canBookmarkFromStatus(status: RecordingStatus): boolean {
     status.longRecordingActive &&
     status.runState !== "error"
   )
-}
-
-function rememberRecordingStatus(status: RecordingStatus): void {
-  lastRecordingStatus = status
 }
 
 function errorText(cause: unknown, fallback: string): string {

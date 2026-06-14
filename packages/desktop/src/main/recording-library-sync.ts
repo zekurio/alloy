@@ -2,7 +2,9 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { extname, dirname, join } from "node:path"
 
 import type {
-  InitiateClipInput,
+  InitiateStagingInput,
+  RecordingCaptureKind,
+  RecordingKind,
   RecordingLibraryItem,
   RecordingLibrarySyncItem,
   RecordingLibrarySyncSnapshot,
@@ -12,11 +14,11 @@ import { app } from "electron"
 
 import { ensureDeviceRegistered } from "./device-identity"
 import {
-  deleteClip,
-  failClip,
-  finalizeClip,
+  deleteStaging,
+  failStaging,
+  finalizeStaging,
   hasSessionCookie,
-  initiateClip,
+  initiateStaging,
   MainApiError,
   uploadFileToTicket,
   upsertGameSession,
@@ -42,11 +44,20 @@ const logger = createLogger("sync")
 
 /**
  * The upload half of library sync: a persistent, pausable queue of local
- * replay captures heading to the server as private clips. Mirrors the clip
- * download manager (jobs map, abort, 200ms progress throttle) but survives
- * restarts via {userData}/sync-queue.json. One transfer at a time — these are
- * large files on a gaming machine.
+ * captures heading to the server as owner-only staging recordings (game
+ * optional). Mirrors the clip download manager (jobs map, abort, 200ms
+ * progress throttle) but survives restarts via {userData}/sync-queue.json.
+ * One transfer at a time — these are large files on a gaming machine.
  */
+
+/** Map a desktop capture kind to its server staging-recording kind. */
+function stagingKindForCapture(
+  kind: RecordingCaptureKind,
+): RecordingKind | null {
+  if (kind === "replay") return "clip"
+  if (kind === "long-recording") return "session"
+  return null
+}
 
 interface SyncJob {
   item: RecordingLibrarySyncItem
@@ -94,7 +105,7 @@ export function registerRecordingLibrarySync(): void {
     const manifest = readCaptureManifest()
     const entry = manifest.captures[manifestKey(event.capture.filename)]
     const sessionId = entry?.gameSessionId ?? null
-    if (!sessionId || entry?.uploadedClipId) return
+    if (!sessionId || entry?.syncedRecordingId || entry?.syncExcluded) return
     const session = getLocalGameSession(sessionId)
     if (!session || session.endedAt === null) return
     const item = findRecordingLibraryItem(event.capture.id)
@@ -143,14 +154,14 @@ export function resumeRecordingLibrarySync(): RecordingLibrarySyncSnapshot {
 export function cancelRecordingLibrarySyncItem(captureId: string): void {
   const job = jobs.get(captureId)
   if (!job) return
-  const clipId = job.item.clipId
+  const recordingId = job.item.clipId
   jobs.delete(captureId)
   job.abort?.abort()
   // A pending server row would sit as a phantom in the user's queue.
-  if (clipId) {
+  if (recordingId) {
     const serverUrl = getStartupServerUrl()
     if (serverUrl) {
-      void deleteClip(serverUrl, clipId).catch(() => undefined)
+      void deleteStaging(serverUrl, recordingId).catch(() => undefined)
     }
   }
   persistQueue()
@@ -170,17 +181,19 @@ export function retryRecordingLibrarySyncItem(captureId: string): void {
 
 /** Manual "Sync now" for a single library capture. */
 export function queueRecordingLibrarySyncItem(captureId: string): void {
-  const item = findRecordingLibraryItem(captureId)
+  let item = findRecordingLibraryItem(captureId)
   if (!item) throw new Error("Capture not found.")
-  if (item.uploadedClipId) throw new Error("Capture is already synced.")
-  if (item.kind !== "replay") {
-    throw new Error("Only clips can sync to the server.")
+  if (item.syncedRecordingId) throw new Error("Capture is already synced.")
+  if (stagingKindForCapture(item.kind) === null) {
+    throw new Error("Only clips and sessions can sync to the server.")
   }
   if (extname(item.filename).toLowerCase() !== ".mp4") {
-    throw new Error("Only mp4 clips can sync to the server.")
+    throw new Error("Only mp4 recordings can sync to the server.")
   }
-  if (!item.gameName) {
-    throw new Error("No game detected for this clip — publish it manually.")
+  if (item.syncExcluded) {
+    updateRecordingLibraryCaptureMeta({ id: item.id, syncExcluded: false })
+    item = findRecordingLibraryItem(captureId)
+    if (!item) throw new Error("Capture not found.")
   }
   if (enqueueItem(item)) {
     persistQueue()
@@ -214,9 +227,11 @@ async function handleSessionEnded(session: LocalGameSession): Promise<void> {
   let mutated = false
   for (const item of getRecordingLibrarySnapshot().items) {
     if (item.kind !== "replay") continue
-    if (item.uploadedClipId) continue
+    if (item.syncedRecordingId) continue
+    if (item.syncExcluded) continue
     if (extname(item.filename).toLowerCase() !== ".mp4") continue
     const entry = manifest.captures[manifestKey(item.filename)]
+    if (entry?.syncExcluded) continue
     if (entry?.gameSessionId !== session.id) continue
     if (enqueueItem(item)) mutated = true
   }
@@ -298,7 +313,13 @@ async function runSyncJob(serverUrl: string, job: SyncJob): Promise<void> {
     publishSnapshot()
     return
   }
-  if (capture.uploadedClipId) {
+  if (capture.syncedRecordingId) {
+    jobs.delete(item.captureId)
+    persistQueue()
+    publishSnapshot()
+    return
+  }
+  if (capture.syncExcluded) {
     jobs.delete(item.captureId)
     persistQueue()
     publishSnapshot()
@@ -306,7 +327,7 @@ async function runSyncJob(serverUrl: string, job: SyncJob): Promise<void> {
   }
 
   job.abort = new AbortController()
-  let clipId: string | null = null
+  let recordingId: string | null = null
   try {
     item.status = "initiating"
     publishSnapshot()
@@ -318,12 +339,12 @@ async function runSyncJob(serverUrl: string, job: SyncJob): Promise<void> {
       item.gameSessionId,
     )
 
-    const initiate = await initiateClip(
+    const initiate = await initiateStaging(
       serverUrl,
-      buildInitiateInput(capture, deviceId, sessionId),
+      buildStagingInput(capture, deviceId, sessionId),
     )
-    clipId = initiate.clipId
-    item.clipId = clipId
+    recordingId = initiate.stagingId
+    item.clipId = recordingId
     item.status = "uploading"
     item.bytesSent = 0
     item.totalBytes = capture.sizeBytes
@@ -364,11 +385,12 @@ async function runSyncJob(serverUrl: string, job: SyncJob): Promise<void> {
 
     item.status = "finalizing"
     publishSnapshot()
-    await finalizeClip(serverUrl, clipId)
+    await finalizeStaging(serverUrl, recordingId)
 
     updateRecordingLibraryCaptureMeta({
       id: item.captureId,
-      uploadedClipId: clipId,
+      syncedRecordingId: recordingId,
+      syncExcluded: false,
     })
     item.status = "completed"
     publishSnapshot()
@@ -387,7 +409,9 @@ async function runSyncJob(serverUrl: string, job: SyncJob): Promise<void> {
       item.status = "queued"
       item.bytesSent = 0
       item.clipId = null
-      if (clipId) void failClip(serverUrl, clipId).catch(() => undefined)
+      if (recordingId) {
+        void failStaging(serverUrl, recordingId).catch(() => undefined)
+      }
       persistQueue()
       publishSnapshot()
       return
@@ -398,7 +422,9 @@ async function runSyncJob(serverUrl: string, job: SyncJob): Promise<void> {
     item.error = syncErrorMessage(cause)
     item.bytesSent = 0
     item.clipId = null
-    if (clipId) void failClip(serverUrl, clipId).catch(() => undefined)
+    if (recordingId) {
+      void failStaging(serverUrl, recordingId).catch(() => undefined)
+    }
     persistQueue()
     publishSnapshot()
   } finally {
@@ -431,22 +457,21 @@ async function ensureSessionSynced(
   return sessionId
 }
 
-function buildInitiateInput(
+function buildStagingInput(
   capture: RecordingLibraryItem,
   deviceId: string,
   sessionId: string | null,
-): InitiateClipInput {
+): InitiateStagingInput {
   return {
     filename: capture.fileName,
     contentType: "video/mp4",
     sizeBytes: capture.sizeBytes,
+    // Owner-only draft; the game is best-effort (may be unresolved) and the
+    // user picks visibility later when publishing.
+    kind: stagingKindForCapture(capture.kind) ?? "clip",
     title: capture.title,
     description: capture.description ?? undefined,
     gameName: capture.gameName ?? undefined,
-    // Auto-synced clips are a private cloud backup; publishing is a
-    // deliberate later step through the regular edit flow.
-    privacy: "private",
-    mentionedUserIds: capture.mentions.map((mention) => mention.id),
     tags: parseDraftTags(capture.tags),
     thumbBlurHash: capture.thumbBlurHash ?? undefined,
     thumbContentType: "image/jpeg",
@@ -467,12 +492,7 @@ function parseDraftTags(tags: string | null): string[] | undefined {
 }
 
 function syncErrorMessage(cause: unknown): string {
-  if (cause instanceof MainApiError) {
-    if (cause.message === "game-unresolved") {
-      return "Couldn't match the game — publish this clip manually to pick one."
-    }
-    return cause.message
-  }
+  if (cause instanceof MainApiError) return cause.message
   return cause instanceof Error ? cause.message : "Sync failed."
 }
 
@@ -521,7 +541,7 @@ function loadQueue(): void {
       if (persisted.clipId) {
         const serverUrl = getStartupServerUrl()
         if (serverUrl) {
-          void failClip(serverUrl, persisted.clipId).catch(() => undefined)
+          void failStaging(serverUrl, persisted.clipId).catch(() => undefined)
         }
       }
     }
@@ -540,7 +560,11 @@ function rehydrateItems(): void {
       jobs.delete(job.item.captureId)
       continue
     }
-    if (item.uploadedClipId) {
+    if (item.syncedRecordingId) {
+      jobs.delete(job.item.captureId)
+      continue
+    }
+    if (item.syncExcluded) {
       jobs.delete(job.item.captureId)
       continue
     }

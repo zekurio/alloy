@@ -1,13 +1,20 @@
-import { clipThumbnailUrl, type ClipRow } from "@alloy/api"
+import {
+  clipThumbnailUrl,
+  type ClipRow,
+  type GameNameLookupResult,
+  type StagingRecordingRow,
+} from "@alloy/api"
 
 import type {
   RecordingLibraryItem,
   RecordingLibraryProjectDraft,
+  RecordingLibrarySnapshot,
 } from "@/lib/desktop"
 import { apiOrigin } from "@/lib/env"
 
 import {
   gameNameKey,
+  enrichLibraryItem,
   type LibraryGroupView,
   type LibraryItemView,
 } from "./library-data"
@@ -27,6 +34,14 @@ export type LibraryEntry =
       createdAt: string
       row: ClipRow
       /** The on-disk capture backing this clip (uploaded from / downloaded). */
+      localItem: RecordingLibraryItem | null
+    }
+  | {
+      type: "staging"
+      key: string
+      createdAt: string
+      row: StagingRecordingRow
+      /** The on-disk capture backing this synced draft, when it still exists. */
       localItem: RecordingLibraryItem | null
     }
   | {
@@ -89,6 +104,40 @@ export function filterUploadedClips(
   })
 }
 
+export function filterStagingRecordings(
+  rows: StagingRecordingRow[],
+  rawQuery: string,
+  active: LibraryGroupView | null,
+  kind: LibraryKindFilter,
+): StagingRecordingRow[] {
+  if (kind === "screenshot") return []
+  const query = rawQuery.trim().toLowerCase()
+  return rows.filter((row) => {
+    if (kind === "replay" && row.kind !== "clip") return false
+    if (kind === "long-recording" && row.kind !== "session") return false
+    if (active) {
+      // Staging recordings live on the server, not the desktop; match the
+      // cloud catch-all (no game) or a specific game like uploaded clips do.
+      if (active.kind === "desktop") return false
+      const gameName = row.gameRef?.name ?? row.game
+      if (active.kind === "cloud") {
+        if (gameName) return false
+      } else if (active.nameKey !== gameNameKey(gameName ?? "")) {
+        return false
+      }
+    }
+    if (!query) return true
+    return [
+      row.title,
+      row.gameRef?.name ?? row.game ?? "",
+      row.description ?? "",
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(query)
+  })
+}
+
 export function filterProjectDrafts(
   drafts: RecordingLibraryProjectDraft[],
   rawQuery: string,
@@ -120,6 +169,124 @@ export function filterProjectDrafts(
       .toLowerCase()
       .includes(query)
   })
+}
+
+export function libraryServerIdForItem(
+  item: RecordingLibraryItem,
+): string | null {
+  return item.uploadedClipId ?? item.syncedRecordingId
+}
+
+export function collapsedServerCounts(
+  items: RecordingLibraryItem[],
+  serverIds: Set<string>,
+): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const item of items) {
+    const serverId = libraryServerIdForItem(item)
+    if (serverId && serverIds.has(serverId)) {
+      counts.set(item.groupKey, (counts.get(item.groupKey) ?? 0) + 1)
+    }
+  }
+  return counts
+}
+
+export function buildLibraryEntries({
+  snapshot,
+  gamesByName,
+  uploaded,
+  staging,
+  active,
+  kind,
+  query,
+  includeDrafts = true,
+}: {
+  snapshot: RecordingLibrarySnapshot | null
+  gamesByName: Map<string, GameNameLookupResult>
+  uploaded: ClipRow[]
+  staging: StagingRecordingRow[]
+  active: LibraryGroupView | null
+  kind: LibraryKindFilter
+  query: string
+  includeDrafts?: boolean
+}): LibraryEntry[] {
+  const cloudIds = new Set(uploaded.map((row) => row.id))
+  const stagingIds = new Set(staging.map((row) => row.id))
+  const localItems = (snapshot?.items ?? []).filter((item) => {
+    const serverId = libraryServerIdForItem(item)
+    return !(serverId && (cloudIds.has(serverId) || stagingIds.has(serverId)))
+  })
+  const localByClipId = new Map<string, RecordingLibraryItem>()
+  const localByStagingId = new Map<string, RecordingLibraryItem>()
+  for (const item of snapshot?.items ?? []) {
+    const serverId = libraryServerIdForItem(item)
+    if (serverId && cloudIds.has(serverId)) localByClipId.set(serverId, item)
+    if (serverId && stagingIds.has(serverId)) {
+      localByStagingId.set(serverId, item)
+    }
+  }
+
+  const local: LibraryEntry[] =
+    active?.kind === "cloud"
+      ? []
+      : filterLibraryItems(localItems, {
+          localKeys: active?.localKeys ?? null,
+          kind,
+          query,
+        }).map((item) => {
+          const view = enrichLibraryItem(item, gamesByName)
+          return {
+            type: "local",
+            key: `local:${view.id}`,
+            createdAt: view.createdAt,
+            item: view,
+          }
+        })
+
+  const cloudVisible = kind === "all" || kind === "replay"
+  const cloud: LibraryEntry[] = cloudVisible
+    ? filterUploadedClips(uploaded, query, active).map((row) => ({
+        type: "cloud",
+        key: `cloud:${row.id}`,
+        createdAt: row.createdAt,
+        row,
+        localItem: localByClipId.get(row.id) ?? null,
+      }))
+    : []
+
+  const stagingEntries: LibraryEntry[] = filterStagingRecordings(
+    staging,
+    query,
+    active,
+    kind,
+  ).map((row) => ({
+    type: "staging",
+    key: `staging:${row.id}`,
+    createdAt: row.createdAt,
+    row,
+    localItem: localByStagingId.get(row.id) ?? null,
+  }))
+
+  const drafts: LibraryEntry[] =
+    includeDrafts && (kind === "all" || kind === "replay")
+      ? filterProjectDrafts(
+          snapshot?.projectDrafts ?? [],
+          query,
+          active,
+          snapshot?.items ?? [],
+          uploaded,
+        ).map((draft) => ({
+          type: "draft",
+          key: `draft:${draft.id}`,
+          createdAt: draft.updatedAt,
+          draft,
+          ...projectDraftThumbnail(draft, snapshot?.items ?? [], uploaded),
+        }))
+      : []
+
+  return [...local, ...cloud, ...stagingEntries, ...drafts].sort(
+    (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
+  )
 }
 
 export function projectDraftThumbnail(

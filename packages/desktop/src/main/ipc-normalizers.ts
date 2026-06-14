@@ -1,7 +1,9 @@
 import {
   CLIP_PRIVACY,
+  RECORDING_LIBRARY_PROJECT_FILTER_IDS,
   RECORDING_NOTIFICATION_SOUND_EVENTS,
   type ClipPrivacy,
+  type RecordingLibraryProjectFilterId,
   type RecordingNotificationSoundEvent,
 } from "@alloy/contracts"
 
@@ -242,7 +244,12 @@ function normalizeProjectDraftProject(
       (transition): transition is RecordingLibraryProjectTransition =>
         transition !== null,
     )
-  return { tracks, clips, transitions }
+  return {
+    tracks,
+    clips,
+    transitions,
+    filterId: normalizeProjectDraftFilterId(record.filterId),
+  }
 }
 
 function normalizeProjectDraftTrack(
@@ -334,6 +341,16 @@ function normalizeProjectDraftTransition(
   }
 }
 
+function normalizeProjectDraftFilterId(
+  value: unknown,
+): RecordingLibraryProjectFilterId {
+  return RECORDING_LIBRARY_PROJECT_FILTER_IDS.includes(
+    value as RecordingLibraryProjectFilterId,
+  )
+    ? (value as RecordingLibraryProjectFilterId)
+    : "none"
+}
+
 function normalizeProjectDraftString(
   value: unknown,
   maxLength: number,
@@ -354,6 +371,8 @@ function normalizeDimension(value: unknown): number | null {
 }
 
 const META_TITLE_MAX = 200
+const META_GAME_NAME_MAX = 200
+const META_GAME_ICON_URL_MAX = 2000
 const META_DESCRIPTION_MAX = 4000
 const META_TAGS_MAX = 500
 const META_MENTIONS_MAX = 50
@@ -374,6 +393,15 @@ export function normalizeLibraryMetaPatch(
   if (typeof record.title === "string") {
     const title = record.title.trim().slice(0, META_TITLE_MAX)
     if (title.length > 0) patch.title = title
+  }
+  if (typeof record.gameName === "string" || record.gameName === null) {
+    const gameName =
+      record.gameName?.trim().slice(0, META_GAME_NAME_MAX) ?? null
+    patch.gameName = gameName && gameName.length > 0 ? gameName : null
+  }
+  if (typeof record.gameIconUrl === "string" || record.gameIconUrl === null) {
+    patch.gameIconUrl =
+      record.gameIconUrl?.slice(0, META_GAME_ICON_URL_MAX) ?? null
   }
   if (typeof record.description === "string" || record.description === null) {
     patch.description =
@@ -401,6 +429,18 @@ export function normalizeLibraryMetaPatch(
     record.uploadedClipId.length <= 64
   ) {
     patch.uploadedClipId = record.uploadedClipId
+  }
+  if (record.syncedRecordingId === null) {
+    patch.syncedRecordingId = null
+  } else if (
+    typeof record.syncedRecordingId === "string" &&
+    record.syncedRecordingId.length > 0 &&
+    record.syncedRecordingId.length <= 64
+  ) {
+    patch.syncedRecordingId = record.syncedRecordingId
+  }
+  if (typeof record.syncExcluded === "boolean") {
+    patch.syncExcluded = record.syncExcluded
   }
   return patch
 }

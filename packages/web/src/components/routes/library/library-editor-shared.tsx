@@ -3,8 +3,6 @@ import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import {
   ArrowLeftIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   PauseIcon,
   PlayIcon,
   RotateCcwIcon,
@@ -79,39 +77,5 @@ export function TrimTransportControls({
         </span>
       ) : null}
     </div>
-  )
-}
-
-/** Floating edge button mirroring the ←/→ hotkeys. */
-export function CaptureNavButton({
-  side,
-  targetId,
-}: {
-  side: "left" | "right"
-  targetId: string | null
-}) {
-  if (!targetId) return null
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      aria-label={side === "left" ? "Previous capture (←)" : "Next capture (→)"}
-      title={side === "left" ? "Previous capture (←)" : "Next capture (→)"}
-      className={cn(
-        "absolute top-1/2 z-40 h-12 w-12 -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
-        side === "left" ? "left-2" : "right-2",
-      )}
-      render={
-        <Link
-          to="/library/$captureId"
-          params={{ captureId: targetId }}
-          // Replace history so the back arrow exits the editor rather than
-          // stepping back through previously viewed captures.
-          replace
-        />
-      }
-    >
-      {side === "left" ? <ChevronLeftIcon /> : <ChevronRightIcon />}
-    </Button>
   )
 }
