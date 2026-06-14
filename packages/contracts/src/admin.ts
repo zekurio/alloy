@@ -37,6 +37,12 @@ const OAuthProviderConfigFields = {
   tokenUrl: OptionalUrlStringSchema,
   userInfoUrl: OptionalUrlStringSchema,
   pkce: z.boolean().optional(),
+  tokenAuthMethod: z
+    .enum(["client_secret_post", "client_secret_basic"])
+    .optional(),
+  uidClaim: NonEmptyStringSchema.optional(),
+  fetchUserInfo: z.boolean().optional(),
+  authParams: z.record(z.string(), z.string()).optional(),
   usernameClaim: NonEmptyStringSchema.optional(),
   quotaClaim: NonEmptyStringSchema.optional(),
   roleClaim: NonEmptyStringSchema.optional(),
@@ -261,10 +267,9 @@ export interface AdminUpdateUserInput {
 export const RUNTIME_CONFIG_VERSION = 1
 
 /**
- * Persisted, non-secret runtime configuration (the `config.json` contents).
- * Secret material lives in the server-only secret store, kept separately, so
- * this object — and anything derived from it, including `export` — is safe to
- * serialize by construction.
+ * Secret-free server configuration as exposed through admin responses. Most
+ * fields are deploy-time env/Nix config; DB-backed instance settings currently
+ * cover setup completion and login appearance.
  */
 export const RuntimeConfigSchema = z.looseObject({
   runtimeConfigVersion: PositiveIntegerSchema.refine(

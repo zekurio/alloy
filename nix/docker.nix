@@ -26,28 +26,15 @@ let
     ];
     text = ''
       : "''${ALLOY_DATA_DIR:=/config}"
+      : "''${ALLOY_STORAGE_DRIVER:=fs}"
+      : "''${ALLOY_STORAGE_FS_CLIPS_PATH:=/data/storage/clips}"
+      : "''${ALLOY_STORAGE_FS_USERS_PATH:=/data/storage/users}"
       export ALLOY_DATA_DIR
+      export ALLOY_STORAGE_DRIVER
+      export ALLOY_STORAGE_FS_CLIPS_PATH
+      export ALLOY_STORAGE_FS_USERS_PATH
 
       mkdir -p "$ALLOY_DATA_DIR" /data/storage/clips /data/storage/users
-
-      if [ ! -e "$ALLOY_DATA_DIR/config.json" ]; then
-        printf '%s\n' \
-          '{' \
-          '  "storage": {' \
-          '    "driver": "fs",' \
-          '    "fs": {' \
-          '      "clipsPath": "/data/storage/clips",' \
-          '      "usersPath": "/data/storage/users"' \
-          '    },' \
-          '    "s3": {' \
-          '      "bucket": "",' \
-          '      "region": "us-east-1",' \
-          '      "endpoint": null,' \
-          '      "forcePathStyle": false' \
-          '    }' \
-          '  }' \
-          '}' >"$ALLOY_DATA_DIR/config.json"
-      fi
 
       if [ "$(id -u)" = "0" ]; then
         chown -R ${toString uid}:${toString gid} \
@@ -91,9 +78,10 @@ dockerTools.streamLayeredImage {
     Env = [
       "PORT=2552"
       "APP_VERSION=${version}"
-      # Bootstrap data incl. config.json and secrets.json. Storage roots live
-      # in runtime config seeded by the entrypoint on first boot.
       "ALLOY_DATA_DIR=/config"
+      "ALLOY_STORAGE_DRIVER=fs"
+      "ALLOY_STORAGE_FS_CLIPS_PATH=/data/storage/clips"
+      "ALLOY_STORAGE_FS_USERS_PATH=/data/storage/users"
       "SSL_CERT_FILE=${cacert}/etc/ssl/certs/ca-bundle.crt"
     ];
     ExposedPorts = {

@@ -8,14 +8,12 @@ import {
 import { Slider } from "@alloy/ui/components/slider"
 import { Switch } from "@alloy/ui/components/switch"
 import { toast } from "@alloy/ui/lib/toast"
-import { DownloadIcon, SaveIcon, UploadIcon } from "lucide-react"
+import { SaveIcon } from "lucide-react"
 import * as React from "react"
 
 import { LoginAppearancePreview } from "@/components/routes/admin-settings/login-appearance-preview"
 import { useSettingsSaveBar } from "@/components/routes/settings/settings-save-context"
 import { api } from "@/lib/api"
-import { startBlobDownload } from "@/lib/browser-download"
-import { isoDateStamp } from "@/lib/date-format"
 import { errorMessage } from "@/lib/error-message"
 import { publishRuntimeConfigUpdate } from "@/lib/runtime-config-events"
 
@@ -190,107 +188,5 @@ export function AppearanceSettingsContent({
         </SectionFooter>
       )}
     </Section>
-  )
-}
-
-export function ConfigTransferContent({
-  setConfig,
-}: {
-  setConfig: AdminConfigSetter
-}) {
-  const fileInputRef = React.useRef<HTMLInputElement>(null)
-  const [exporting, setExporting] = React.useState(false)
-  const [importing, setImporting] = React.useState(false)
-
-  async function onExport() {
-    setExporting(true)
-    try {
-      const data = await api.admin.exportRuntimeConfig()
-      const json = JSON.stringify(data, null, 2)
-      const blob = new Blob([json], { type: "application/json" })
-      const started = startBlobDownload(
-        blob,
-        `alloy-config-${isoDateStamp()}.json`,
-      )
-      if (!started) throw new Error("Export download failed")
-      toast.success("Configuration exported")
-    } catch (cause) {
-      toast.error(errorMessage(cause, "Export failed"))
-    } finally {
-      setExporting(false)
-    }
-  }
-
-  async function onFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    e.target.value = ""
-    setImporting(true)
-    try {
-      const text = await file.text()
-      let parsed: unknown
-      try {
-        parsed = JSON.parse(text)
-      } catch {
-        throw new Error("Selected file is not valid JSON")
-      }
-      const updated = await api.admin.importRuntimeConfig(parsed)
-      publishRuntimeConfigUpdate({ authConfigChanged: true })
-      setConfig(updated)
-      toast.success("Configuration imported")
-    } catch (cause) {
-      toast.error(errorMessage(cause, "Import failed"))
-    } finally {
-      setImporting(false)
-    }
-  }
-
-  return (
-    <div className="flex flex-col">
-      <div className="border-border flex items-start justify-between gap-4 border-b py-3 first:pt-0">
-        <div className="min-w-0">
-          <div className="text-sm font-medium">Export</div>
-          <p className="text-foreground-dim mt-0.5 text-xs">
-            Download the current server configuration. Secrets are not included.
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onExport}
-          disabled={exporting}
-        >
-          <DownloadIcon />
-          {exporting ? "Exporting..." : "Export"}
-        </Button>
-      </div>
-      <div className="flex items-start justify-between gap-4 py-3 last:pb-0">
-        <div className="min-w-0">
-          <div className="text-sm font-medium">Import</div>
-          <p className="text-foreground-dim mt-0.5 text-xs">
-            Replace the current configuration from a previously exported JSON
-            file.
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={importing}
-        >
-          <UploadIcon />
-          {importing ? "Importing..." : "Import"}
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json,application/json"
-          className="hidden"
-          onChange={onFileSelected}
-        />
-      </div>
-    </div>
   )
 }

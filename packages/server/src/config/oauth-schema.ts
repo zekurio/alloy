@@ -26,6 +26,12 @@ const OAuthProviderBaseSchema = z.object({
   tokenUrl: z.string().url().optional(),
   userInfoUrl: z.string().url().optional(),
   pkce: z.boolean().default(true),
+  tokenAuthMethod: z
+    .enum(["client_secret_post", "client_secret_basic"])
+    .optional(),
+  uidClaim: z.string().min(1).max(128).default("sub"),
+  fetchUserInfo: z.boolean().default(true),
+  authParams: z.record(z.string(), z.string()).optional(),
   usernameClaim: z
     .string()
     .min(1)
@@ -36,10 +42,13 @@ const OAuthProviderBaseSchema = z.object({
 })
 
 const hasEndpoints = (p: z.infer<typeof OAuthProviderBaseSchema>) =>
-  Boolean(p.discoveryUrl) || (p.authorizationUrl && p.tokenUrl && p.userInfoUrl)
+  Boolean(p.discoveryUrl) ||
+  (p.authorizationUrl &&
+    p.tokenUrl &&
+    (p.userInfoUrl || p.fetchUserInfo === false))
 
 const endpointsMessage =
-  "Provide discoveryUrl, or all three of authorizationUrl, tokenUrl, userInfoUrl."
+  "Provide discoveryUrl, or authorizationUrl and tokenUrl plus userInfoUrl unless fetchUserInfo is false."
 
 function validateOAuthProvider(
   provider: z.infer<typeof OAuthProviderBaseSchema>,

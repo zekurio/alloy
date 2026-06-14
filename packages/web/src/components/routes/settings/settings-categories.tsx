@@ -1,11 +1,9 @@
 import {
   AlertTriangleIcon,
   DatabaseIcon,
-  GaugeIcon,
   HardDriveIcon,
   type LucideIcon,
   PaletteIcon,
-  PlugIcon,
   ServerIcon,
   ShieldIcon,
   SlidersHorizontalIcon,
@@ -13,17 +11,11 @@ import {
   UsersIcon,
   VideoIcon,
   Volume2Icon,
-  WrenchIcon,
 } from "lucide-react"
 import * as React from "react"
 
 import {
   AdminAppearancePanel,
-  AdminAuthenticationPanel,
-  AdminConfigTransferPanel,
-  AdminIntegrationsPanel,
-  AdminLimitsPanel,
-  AdminStoragePanel,
   AdminUsersPanel,
 } from "@/components/routes/settings/admin-tab-content"
 import { DangerZoneCard } from "@/components/routes/settings/danger-zone-card"
@@ -240,48 +232,6 @@ const ALL_CATEGORIES: SettingsCategory[] = [
     Panel: DesktopServerSettings,
   },
   {
-    id: "authentication",
-    label: "Authentication",
-    description:
-      "Control sign-in providers, registrations, passkeys, and public browsing.",
-    keywords: [
-      "passkeys",
-      "open registrations",
-      "require sign-in to browse",
-      "oauth providers",
-      "public browsing",
-    ],
-    icon: ShieldIcon,
-    group: "admin",
-    Panel: AdminAuthenticationPanel,
-  },
-  {
-    id: "limits",
-    label: "Limits",
-    description: "Edit upload caps and default storage quota.",
-    keywords: ["upload cap", "upload limit", "max file size", "storage quota"],
-    icon: GaugeIcon,
-    group: "admin",
-    Panel: AdminLimitsPanel,
-  },
-  {
-    id: "storage-backend",
-    label: "Storage",
-    title: "Storage backend",
-    description: "Configure filesystem roots or an S3 bucket for assets.",
-    keywords: [
-      "filesystem",
-      "s3",
-      "bucket",
-      "clip storage",
-      "user assets",
-      "storage paths",
-    ],
-    icon: DatabaseIcon,
-    group: "admin",
-    Panel: AdminStoragePanel,
-  },
-  {
     id: "appearance",
     label: "Appearance",
     title: "Login appearance",
@@ -299,23 +249,6 @@ const ALL_CATEGORIES: SettingsCategory[] = [
     Panel: AdminAppearancePanel,
   },
   {
-    id: "integrations",
-    label: "Integrations",
-    description:
-      "Connect external services used by Alloy features and metadata.",
-    keywords: [
-      "steamgriddb",
-      "api key",
-      "cover art",
-      "game metadata",
-      "external services",
-      "integrations",
-    ],
-    icon: PlugIcon,
-    group: "admin",
-    Panel: AdminIntegrationsPanel,
-  },
-  {
     id: "users",
     label: "Users",
     description: "Edit user accounts, roles, and moderation state.",
@@ -323,20 +256,6 @@ const ALL_CATEGORIES: SettingsCategory[] = [
     icon: UsersIcon,
     group: "admin",
     Panel: AdminUsersPanel,
-  },
-  {
-    id: "config",
-    label: "Config transfer",
-    description: "Export or replace server runtime configuration as JSON.",
-    keywords: [
-      "export config",
-      "import config",
-      "runtime configuration",
-      "json",
-    ],
-    icon: WrenchIcon,
-    group: "admin",
-    Panel: AdminConfigTransferPanel,
   },
 ]
 

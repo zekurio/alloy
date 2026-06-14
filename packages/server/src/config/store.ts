@@ -1,119 +1,57 @@
 import {
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  statSync,
-  watch,
-  writeFileSync,
-} from "node:fs"
-import { basename } from "node:path"
-
-import type { RuntimeConfig } from "@alloy/contracts"
+  AppearanceConfigSchema,
+  RUNTIME_CONFIG_VERSION,
+  type AppearanceConfig,
+  type RuntimeConfig,
+} from "@alloy/contracts"
+import { instanceSetting } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
-import { signInConfigError } from "@alloy/server/auth/sign-in-config"
-import { CONFIG_PATH } from "@alloy/server/runtime/dirs"
-import { errorDetail } from "@alloy/server/runtime/error-message"
-import { dirname } from "@alloy/server/runtime/path"
-
-import { bootstrapDefaultConfig, RuntimeConfigSchema } from "./schema"
+import { db } from "@alloy/server/db/index"
+import { env } from "@alloy/server/env"
+import { eq } from "drizzle-orm"
+import { z } from "zod"
 
 const logger = createLogger("config-store")
 
-type LoadResult =
-  | {
-      ok: true
-      config: RuntimeConfig
-      created: boolean
-      /** Raw parsed JSON as read from disk (null when the file didn't exist). */
-      raw: unknown
-    }
-  | { ok: false; error: string }
+const SetupSettingSchema = z.object({
+  setupComplete: z.boolean().default(false),
+})
 
-type ParseResult =
-  | { ok: true; config: RuntimeConfig }
-  | { ok: false; error: string }
+type SetupSetting = z.infer<typeof SetupSettingSchema>
 
-function parseRuntimeConfigInput(raw: unknown): ParseResult {
-  const result = RuntimeConfigSchema.safeParse(raw)
-  if (!result.success) {
-    return {
-      ok: false,
-      error: JSON.stringify(result.error.flatten()),
-    }
-  }
+const DEFAULT_SETUP: SetupSetting = { setupComplete: false }
+const DEFAULT_APPEARANCE: AppearanceConfig = AppearanceConfigSchema.parse({
+  loginSplash: {
+    enabled: false,
+    blurPx: 24,
+    darkenOpacity: 0.8,
+  },
+})
+
+type DbOwnedConfigKey = "setupComplete" | "appearance"
+
+let setupSetting = deepFreeze(DEFAULT_SETUP)
+let appearanceSetting = deepFreeze(DEFAULT_APPEARANCE)
+let state = freezeRuntimeConfig(buildRuntimeConfig())
+
+type Listener = (
+  next: Readonly<RuntimeConfig>,
+  prev: Readonly<RuntimeConfig>,
+) => void
+const listeners = new Set<Listener>()
+
+function buildRuntimeConfig(): RuntimeConfig {
   return {
-    ok: true,
-    config: result.data,
+    runtimeConfigVersion: RUNTIME_CONFIG_VERSION,
+    openRegistrations: env.openRegistrations,
+    setupComplete: setupSetting.setupComplete,
+    passkeyEnabled: env.passkeyEnabled,
+    requireAuthToBrowse: env.requireAuthToBrowse,
+    oauthProviders: env.oauthProviders,
+    limits: env.limits,
+    storage: env.storage,
+    appearance: appearanceSetting,
   }
-}
-
-export function parseRuntimeConfig(value: unknown): RuntimeConfig {
-  const result = parseRuntimeConfigInput(value)
-  if (!result.ok) throw new Error(result.error)
-  return result.config
-}
-
-function loadFromDisk(): LoadResult {
-  try {
-    if (!statSync(CONFIG_PATH).isFile()) {
-      return {
-        ok: true,
-        config: bootstrapDefaultConfig(),
-        created: true,
-        raw: null,
-      }
-    }
-  } catch (err) {
-    if (isNodeErrorCode(err, "ENOENT")) {
-      return {
-        ok: true,
-        config: bootstrapDefaultConfig(),
-        created: true,
-        raw: null,
-      }
-    }
-    return {
-      ok: false,
-      error: errorDetail(err, "Could not inspect runtime config"),
-    }
-  }
-
-  try {
-    const raw = readFileSync(CONFIG_PATH, "utf8")
-    const json = JSON.parse(raw)
-    const result = parseRuntimeConfigInput(json)
-    if (!result.ok) return result
-    return {
-      ok: true,
-      config: result.config,
-      created: false,
-      raw: json,
-    }
-  } catch (err) {
-    return {
-      ok: false,
-      error: errorDetail(err, "Could not load runtime config"),
-    }
-  }
-}
-
-function writeToDisk(next: RuntimeConfig): void {
-  mkdirSync(dirname(CONFIG_PATH), { recursive: true })
-  // Atomic: tmp + rename survives process death mid-write.
-  const tmpPath = `${CONFIG_PATH}.tmp`
-  writeFileSync(tmpPath, `${JSON.stringify(next, null, 2)}\n`)
-  renameSync(tmpPath, CONFIG_PATH)
-}
-
-const initialLoad = loadFromDisk()
-if (!initialLoad.ok) {
-  logger.error(`${CONFIG_PATH} failed validation:`, initialLoad.error)
-  process.exit(1)
-}
-
-let state: RuntimeConfig = initialLoad.config
-if (initialLoad.created) {
-  writeToDisk(state)
 }
 
 function freezeRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
@@ -130,77 +68,72 @@ function deepFreeze<T>(value: T): T {
   return Object.freeze(value)
 }
 
-state = freezeRuntimeConfig(state)
-
-type Listener = (
-  next: Readonly<RuntimeConfig>,
-  prev: Readonly<RuntimeConfig>,
-) => void
-const listeners = new Set<Listener>()
-
-function apply(next: RuntimeConfig, persist: boolean): void {
-  const prev = state
-  if (persist) writeToDisk(next)
-  state = freezeRuntimeConfig(next)
+function notify(next: RuntimeConfig, prev: RuntimeConfig): void {
   for (const listener of listeners) {
     try {
-      listener(state, prev)
+      listener(next, prev)
     } catch (err) {
       logger.error("listener threw:", err)
     }
   }
 }
 
-function commit(next: RuntimeConfig): void {
-  apply(next, true)
+function refreshState(): void {
+  const prev = state
+  state = freezeRuntimeConfig(buildRuntimeConfig())
+  notify(state, prev)
 }
 
-async function reloadFromDisk(): Promise<boolean> {
-  const result = loadFromDisk()
-  if (!result.ok) {
-    logger.warn(`ignoring invalid ${CONFIG_PATH}:`, result.error)
-    return false
-  }
-  const authError = await signInConfigError(result.config)
-  if (authError) {
-    logger.warn(`ignoring unsafe ${CONFIG_PATH}:`, authError)
-    return false
-  }
-  apply(result.config, false)
-  return true
+async function readSetting(key: string): Promise<unknown | undefined> {
+  const [row] = await db
+    .select({ value: instanceSetting.value })
+    .from(instanceSetting)
+    .where(eq(instanceSetting.key, key))
+    .limit(1)
+  return row?.value
 }
 
-let reloadTimer: ReturnType<typeof setTimeout> | null = null
-function startConfigFileWatcher(): void {
-  try {
-    const fileName = basename(CONFIG_PATH)
-    const watcher = watch(dirname(CONFIG_PATH), (_event, changedFileName) => {
-      if (changedFileName && changedFileName !== fileName) return
-      if (reloadTimer) clearTimeout(reloadTimer)
-      reloadTimer = setTimeout(() => {
-        reloadTimer = null
-        void reloadFromDisk()
-      }, 50)
+async function writeSetting(key: string, value: unknown): Promise<void> {
+  await db
+    .insert(instanceSetting)
+    .values({ key, value, updatedAt: new Date() })
+    .onConflictDoUpdate({
+      target: instanceSetting.key,
+      set: { value, updatedAt: new Date() },
     })
-    watcher.on("error", (err) => {
-      logger.warn("config watcher stopped:", err)
-    })
-  } catch (err) {
-    logger.warn("config watcher could not start:", err)
-  }
 }
 
-startConfigFileWatcher()
+export async function initializeConfigStore(): Promise<void> {
+  const [setupValue, appearanceValue] = await Promise.all([
+    readSetting("setup"),
+    readSetting("appearance"),
+  ])
+
+  setupSetting = deepFreeze(SetupSettingSchema.parse(setupValue ?? {}))
+  appearanceSetting = deepFreeze(
+    AppearanceConfigSchema.parse(appearanceValue ?? DEFAULT_APPEARANCE),
+  )
+  refreshState()
+}
+
+function assertDbOwnedKey(
+  key: keyof RuntimeConfig,
+): asserts key is DbOwnedConfigKey {
+  if (key !== "setupComplete" && key !== "appearance") {
+    throw new Error(
+      `Runtime config key "${String(key)}" is declarative and must be set with environment variables or Nix options.`,
+    )
+  }
+}
 
 interface ConfigStore {
   get<K extends keyof RuntimeConfig>(key: K): RuntimeConfig[K]
   getAll(): Readonly<RuntimeConfig>
-  set<K extends keyof RuntimeConfig>(key: K, value: RuntimeConfig[K]): void
-  patch(patch: Partial<RuntimeConfig>): void
-  replace(value: unknown): void
-  reload(): Promise<boolean>
+  set<K extends keyof RuntimeConfig>(
+    key: K,
+    value: RuntimeConfig[K],
+  ): Promise<void>
   subscribe(fn: Listener): () => void
-  readonly filePath: string
 }
 
 export const configStore: ConfigStore = {
@@ -210,27 +143,23 @@ export const configStore: ConfigStore = {
   getAll() {
     return structuredClone(state)
   },
-  set(key, value) {
-    commit(RuntimeConfigSchema.parse({ ...state, [key]: value }))
-  },
-  patch(patch) {
-    commit(RuntimeConfigSchema.parse({ ...state, ...patch }))
-  },
-  replace(value) {
-    commit(parseRuntimeConfig(value))
-  },
-  reload() {
-    return reloadFromDisk()
+  async set(key, value) {
+    assertDbOwnedKey(key)
+    if (key === "setupComplete") {
+      const nextSetup = SetupSettingSchema.parse({ setupComplete: value })
+      await writeSetting("setup", nextSetup)
+      setupSetting = deepFreeze(nextSetup)
+      refreshState()
+      return
+    }
+
+    const nextAppearance = AppearanceConfigSchema.parse(value)
+    await writeSetting("appearance", nextAppearance)
+    appearanceSetting = deepFreeze(nextAppearance)
+    refreshState()
   },
   subscribe(fn) {
     listeners.add(fn)
     return () => listeners.delete(fn)
   },
-  get filePath() {
-    return CONFIG_PATH
-  },
-}
-
-function isNodeErrorCode(err: unknown, code: string): boolean {
-  return (err as { code?: string } | null)?.code === code
 }
