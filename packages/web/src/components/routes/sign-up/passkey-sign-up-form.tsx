@@ -165,7 +165,7 @@ function UsernameField(props: {
       autoComplete="username"
       autoCorrect="off"
       spellCheck={false}
-      placeholder="Alice"
+      placeholder="alloy"
       field={props.field}
       invalid={invalid}
       errors={errors}
