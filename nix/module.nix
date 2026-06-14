@@ -9,13 +9,11 @@
 
 let
   cfg = config.services.alloy-clips;
-  jsonFormat = pkgs.formats.json { };
 
   packageForSystem =
     self.packages.${pkgs.stdenv.hostPlatform.system}.default
       or (throw "alloy only packages x86_64-linux for now");
 
-  configDir = dirOf cfg.configFile;
   systemdDirectoryName =
     root: path:
     let
@@ -34,13 +32,15 @@ let
       childString = toString child;
     in
     childString == parentString || lib.hasPrefix "${parentString}/" childString;
+  fsStoragePaths = [
+    cfg.storage.fs.clipsPath
+    cfg.storage.fs.usersPath
+  ];
   serverExternalWritePaths = lib.unique (
     lib.optionals (managedStateDirectory == null) [ cfg.stateDir ]
-    ++ lib.optionals (!(pathIsUnder cfg.stateDir configDir)) [ configDir ]
-    ++ lib.optionals (!(pathIsUnder cfg.stateDir cfg.clipsStorageDir)) [ cfg.clipsStorageDir ]
-    ++ lib.optionals (!(pathIsUnder cfg.stateDir cfg.userAssetsStorageDir)) [
-      cfg.userAssetsStorageDir
-    ]
+    ++ lib.optionals (cfg.storage.driver == "fs") (
+      lib.filter (path: !(pathIsUnder cfg.stateDir path)) fsStoragePaths
+    )
   );
   isDatabaseUnixSocket = lib.hasPrefix "/" cfg.database.host;
   databaseConnectHost =
@@ -55,27 +55,80 @@ let
       "postgresql://${cfg.database.user}@localhost/${cfg.database.name}?host=${cfg.database.host}"
     else
       "postgresql://${cfg.database.user}@${databaseConnectHost}:${toString cfg.database.port}/${cfg.database.name}";
-  bootstrapRuntimeConfig = lib.recursiveUpdate {
-    storage = {
-      driver = "fs";
-      fs = {
-        clipsPath = toString cfg.clipsStorageDir;
-        usersPath = toString cfg.userAssetsStorageDir;
-      };
-      s3 = {
-        bucket = "";
-        region = "us-east-1";
-        endpoint = null;
-        forcePathStyle = false;
-      };
+  hasEnv = name: builtins.hasAttr name cfg.environment;
+  hasEnvSecret =
+    name:
+    hasEnv name || hasEnv "${name}_FILE";
+  credentialSpecs =
+    lib.optional
+      (
+        cfg.secrets.viewerCookieSecretFile != null
+        && !(hasEnvSecret "ALLOY_VIEWER_COOKIE_SECRET")
+      )
+      {
+      name = "viewer-cookie-secret";
+      path = cfg.secrets.viewerCookieSecretFile;
+      env = "ALLOY_VIEWER_COOKIE_SECRET_FILE";
+    }
+    ++ lib.optional
+      (
+        cfg.secrets.uploadHmacSecretFile != null
+        && !(hasEnvSecret "ALLOY_UPLOAD_HMAC_SECRET")
+      )
+      {
+      name = "upload-hmac-secret";
+      path = cfg.secrets.uploadHmacSecretFile;
+      env = "ALLOY_UPLOAD_HMAC_SECRET_FILE";
+    }
+    ++ lib.optional
+      (
+        cfg.integrations.steamgriddb.apiKeyFile != null
+        && !(hasEnvSecret "ALLOY_STEAMGRIDDB_API_KEY")
+      )
+      {
+      name = "steamgriddb-api-key";
+      path = cfg.integrations.steamgriddb.apiKeyFile;
+      env = "ALLOY_STEAMGRIDDB_API_KEY_FILE";
+    }
+    ++ lib.optional
+      (
+        cfg.storage.s3.accessKeyIdFile != null
+        && !(hasEnvSecret "ALLOY_STORAGE_S3_ACCESS_KEY_ID")
+      )
+      {
+      name = "s3-access-key-id";
+      path = cfg.storage.s3.accessKeyIdFile;
+      env = "ALLOY_STORAGE_S3_ACCESS_KEY_ID_FILE";
+    }
+    ++ lib.optional
+      (
+        cfg.storage.s3.secretAccessKeyFile != null
+        && !(hasEnvSecret "ALLOY_STORAGE_S3_SECRET_ACCESS_KEY")
+      )
+      {
+      name = "s3-secret-access-key";
+      path = cfg.storage.s3.secretAccessKeyFile;
+      env = "ALLOY_STORAGE_S3_SECRET_ACCESS_KEY_FILE";
+    }
+    ++ lib.optional
+      (
+        cfg.oauth.socialAccountProvidersFile != null
+        && !(hasEnvSecret "ALLOY_SOCIALACCOUNT_PROVIDERS")
+      )
+      {
+      name = "socialaccount-providers";
+      path = cfg.oauth.socialAccountProvidersFile;
+      env = "ALLOY_SOCIALACCOUNT_PROVIDERS_FILE";
     };
-  } (if cfg.initialRuntimeConfig == null then { } else cfg.initialRuntimeConfig);
-  bootstrapConfig = jsonFormat.generate "alloy-runtime-config.json" bootstrapRuntimeConfig;
-  preStart = ''
-    if [ ! -e ${lib.escapeShellArg cfg.configFile} ]; then
-      install -m 0640 ${lib.escapeShellArg bootstrapConfig} ${lib.escapeShellArg cfg.configFile}
-    fi
-  '';
+  credentialEnvironment = builtins.listToAttrs (
+    map (credential: {
+      name = credential.env;
+      value = "%d/${credential.name}";
+    }) credentialSpecs
+  );
+  loadCredentials = map (
+    credential: "${credential.name}:${toString credential.path}"
+  ) credentialSpecs;
 in
 {
   imports = [
@@ -83,9 +136,29 @@ in
       [ "services" "alloy-clips" "database" "createLocally" ]
       [ "services" "alloy-clips" "database" "enable" ]
     )
+    (lib.mkRenamedOptionModule
+      [ "services" "alloy-clips" "clipsStorageDir" ]
+      [ "services" "alloy-clips" "storage" "fs" "clipsPath" ]
+    )
+    (lib.mkRenamedOptionModule
+      [ "services" "alloy-clips" "userAssetsStorageDir" ]
+      [ "services" "alloy-clips" "storage" "fs" "usersPath" ]
+    )
+    (lib.mkRemovedOptionModule [ "services" "alloy-clips" "storageDir" ] ''
+      Configure services.alloy-clips.storage.fs.clipsPath and
+      services.alloy-clips.storage.fs.usersPath directly.
+    '')
+    (lib.mkRemovedOptionModule [ "services" "alloy-clips" "configFile" ] ''
+      Alloy no longer reads mutable config.json. Use typed NixOS options under
+      services.alloy-clips or services.alloy-clips.environment.
+    '')
+    (lib.mkRemovedOptionModule [ "services" "alloy-clips" "initialRuntimeConfig" ] ''
+      Alloy no longer bootstraps mutable runtime config. Use typed NixOS
+      options under services.alloy-clips or services.alloy-clips.environment.
+    '')
     (lib.mkRemovedOptionModule [ "services" "alloy-clips" "database" "url" ] ''
       Configure services.alloy-clips.database.host, port, name, and user instead.
-      The module now derives DATABASE_URL like the Immich module. For unusual
+      The module derives DATABASE_URL like the Immich module. For unusual
       setups, override DATABASE_URL through services.alloy-clips.environment or
       a systemd service override.
     '')
@@ -104,10 +177,7 @@ in
     '')
     (lib.mkRemovedOptionModule [ "services" "alloy-clips" "cacheDir" ] ''
       Alloy now keeps temporary media work/cache files in the OS temp area.
-      Configure durable clip and user asset storage through Alloy runtime
-      config; services.alloy-clips.clipsStorageDir and
-      services.alloy-clips.userAssetsStorageDir only seed that config on first
-      boot.
+      Configure durable storage through services.alloy-clips.storage.
     '')
   ]
   ++ map
@@ -191,65 +261,148 @@ in
       '';
     };
 
-    storageDir = lib.mkOption {
-      type = lib.types.path;
-      default = "${config.services.alloy-clips.stateDir}/storage";
-      defaultText = lib.literalExpression ''"\${config.services.alloy-clips.stateDir}/storage"'';
-      description = ''
-        Parent directory used by default for clipsStorageDir and
-        userAssetsStorageDir. Existing config.json files are not rewritten.
-      '';
-    };
-
-    clipsStorageDir = lib.mkOption {
-      type = lib.types.path;
-      default = "${config.services.alloy-clips.storageDir}/clips";
-      defaultText = lib.literalExpression ''"\${config.services.alloy-clips.storageDir}/clips"'';
-      description = ''
-        Filesystem clip storage root used to seed Alloy runtime config on first
-        boot. If this is outside stateDir, create it manually and make it
-        writable by the Alloy service user. Existing config.json files are not
-        rewritten.
-      '';
-    };
-
-    userAssetsStorageDir = lib.mkOption {
-      type = lib.types.path;
-      default = "${config.services.alloy-clips.storageDir}/users";
-      defaultText = lib.literalExpression ''"\${config.services.alloy-clips.storageDir}/users"'';
-      description = ''
-        Filesystem user asset storage root used to seed Alloy runtime config on
-        first boot. If this is outside stateDir, create it manually and make it
-        writable by the Alloy service user. Existing config.json files are not
-        rewritten.
-      '';
-    };
-
-    configFile = lib.mkOption {
-      type = lib.types.path;
-      default = "${config.services.alloy-clips.stateDir}/config.json";
-      defaultText = lib.literalExpression ''"\${config.services.alloy-clips.stateDir}/config.json"'';
-      description = ''
-        Mutable JSON runtime config file used by Alloy and the admin UI. Alloy
-        always reads `config.json` from the data dir (stateDir); keep this in
-        sync if you override it.
-      '';
-    };
-
-    initialRuntimeConfig = lib.mkOption {
-      type = lib.types.nullOr jsonFormat.type;
-      default = null;
-      description = ''
-        Optional JSON runtime config copied to configFile only when it does not
-        already exist. Values here override the module's storage bootstrap.
-      '';
-    };
-
     environment = lib.mkOption {
       type = lib.types.attrsOf lib.types.str;
       default = { };
       example = { ALLOY_DATA_DIR = "/var/lib/alloy"; };
-      description = "Additional environment variables for Alloy.";
+      description = "Additional environment variables for Alloy. Values here override typed module defaults.";
+    };
+
+    secrets = {
+      viewerCookieSecretFile = lib.mkOption {
+        type = lib.types.nullOr lib.types.path;
+        default = null;
+        example = "/run/secrets/alloy-viewer-cookie-secret";
+        description = "File containing the viewer cookie signing secret.";
+      };
+
+      uploadHmacSecretFile = lib.mkOption {
+        type = lib.types.nullOr lib.types.path;
+        default = null;
+        example = "/run/secrets/alloy-upload-hmac-secret";
+        description = "File containing the upload ticket HMAC signing secret.";
+      };
+    };
+
+    auth = {
+      openRegistrations = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Allow sign-up through enabled registration methods.";
+      };
+
+      passkeyEnabled = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Enable passkey sign-in and account bootstrap.";
+      };
+
+      requireAuthToBrowse = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Require sign-in before browsing clips, games, and profiles.";
+      };
+    };
+
+    limits = {
+      defaultStorageQuotaBytes = lib.mkOption {
+        type = lib.types.nullOr lib.types.ints.positive;
+        default = null;
+        example = 107374182400;
+        description = "Default per-user storage quota in bytes. Null means unlimited.";
+      };
+
+      uploadTtlSec = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 900;
+        description = "Upload ticket lifetime in seconds.";
+      };
+    };
+
+    storage = {
+      driver = lib.mkOption {
+        type = lib.types.enum [
+          "fs"
+          "s3"
+        ];
+        default = "fs";
+        description = "Storage backend for clips and user assets.";
+      };
+
+      fs = {
+        clipsPath = lib.mkOption {
+          type = lib.types.path;
+          default = "${cfg.stateDir}/storage/clips";
+          defaultText = lib.literalExpression ''"\${config.services.alloy-clips.stateDir}/storage/clips"'';
+          description = "Filesystem root for clip sources, thumbnails, and derived media.";
+        };
+
+        usersPath = lib.mkOption {
+          type = lib.types.path;
+          default = "${cfg.stateDir}/storage/users";
+          defaultText = lib.literalExpression ''"\${config.services.alloy-clips.stateDir}/storage/users"'';
+          description = "Filesystem root for user assets such as avatars and banners.";
+        };
+      };
+
+      s3 = {
+        bucket = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = "S3 bucket name.";
+        };
+
+        region = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = "S3 region.";
+        };
+
+        endpoint = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          example = "https://s3.example.com";
+          description = "Optional S3-compatible endpoint URL.";
+        };
+
+        forcePathStyle = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Use path-style S3 URLs.";
+        };
+
+        accessKeyIdFile = lib.mkOption {
+          type = lib.types.nullOr lib.types.path;
+          default = null;
+          example = "/run/secrets/alloy-s3-access-key-id";
+          description = "File containing the S3 access key ID.";
+        };
+
+        secretAccessKeyFile = lib.mkOption {
+          type = lib.types.nullOr lib.types.path;
+          default = null;
+          example = "/run/secrets/alloy-s3-secret-access-key";
+          description = "File containing the S3 secret access key.";
+        };
+      };
+    };
+
+    integrations.steamgriddb.apiKeyFile = lib.mkOption {
+      type = lib.types.nullOr lib.types.path;
+      default = null;
+      example = "/run/secrets/alloy-steamgriddb-api-key";
+      description = "Optional file containing the SteamGridDB API key.";
+    };
+
+    oauth.socialAccountProvidersFile = lib.mkOption {
+      type = lib.types.nullOr lib.types.path;
+      default = null;
+      example = "/run/secrets/alloy-socialaccount-providers.json";
+      description = ''
+        Optional Paperless/allauth-style JSON file for OpenID Connect providers.
+        The file may contain client secrets and is passed through a systemd
+        credential, not copied into the Nix store by the module.
+      '';
     };
 
     database = {
@@ -291,7 +444,6 @@ in
         description = "Port of the PostgreSQL server.";
       };
     };
-
   };
 
   config = lib.mkIf cfg.enable {
@@ -303,6 +455,44 @@ in
       {
         assertion = cfg.publicServerUrl != null;
         message = "services.alloy-clips.publicServerUrl must be set for production deployments.";
+      }
+      {
+        assertion =
+          cfg.secrets.viewerCookieSecretFile != null
+          || hasEnvSecret "ALLOY_VIEWER_COOKIE_SECRET";
+        message = "Set services.alloy-clips.secrets.viewerCookieSecretFile or ALLOY_VIEWER_COOKIE_SECRET(_FILE).";
+      }
+      {
+        assertion =
+          cfg.secrets.uploadHmacSecretFile != null
+          || hasEnvSecret "ALLOY_UPLOAD_HMAC_SECRET";
+        message = "Set services.alloy-clips.secrets.uploadHmacSecretFile or ALLOY_UPLOAD_HMAC_SECRET(_FILE).";
+      }
+      {
+        assertion =
+          cfg.storage.driver != "s3"
+          || cfg.storage.s3.bucket != "";
+        message = "services.alloy-clips.storage.s3.bucket is required when storage.driver is s3.";
+      }
+      {
+        assertion =
+          cfg.storage.driver != "s3"
+          || cfg.storage.s3.region != "";
+        message = "services.alloy-clips.storage.s3.region is required when storage.driver is s3.";
+      }
+      {
+        assertion =
+          cfg.storage.driver != "s3"
+          || cfg.storage.s3.accessKeyIdFile != null
+          || hasEnvSecret "ALLOY_STORAGE_S3_ACCESS_KEY_ID";
+        message = "Set services.alloy-clips.storage.s3.accessKeyIdFile or ALLOY_STORAGE_S3_ACCESS_KEY_ID(_FILE) for S3.";
+      }
+      {
+        assertion =
+          cfg.storage.driver != "s3"
+          || cfg.storage.s3.secretAccessKeyFile != null
+          || hasEnvSecret "ALLOY_STORAGE_S3_SECRET_ACCESS_KEY";
+        message = "Set services.alloy-clips.storage.s3.secretAccessKeyFile or ALLOY_STORAGE_S3_SECRET_ACCESS_KEY(_FILE) for S3.";
       }
       {
         assertion =
@@ -337,11 +527,11 @@ in
 
     networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [ cfg.port ];
 
-    systemd.tmpfiles.rules =
-      lib.optional (!(pathIsUnder cfg.stateDir cfg.clipsStorageDir))
-        "e ${cfg.clipsStorageDir} 0750 ${cfg.user} ${cfg.group} - -"
-      ++ lib.optional (!(pathIsUnder cfg.stateDir cfg.userAssetsStorageDir))
-        "e ${cfg.userAssetsStorageDir} 0750 ${cfg.user} ${cfg.group} - -";
+    systemd.tmpfiles.rules = lib.optionals (cfg.storage.driver == "fs") (
+      map (path: "e ${path} 0750 ${cfg.user} ${cfg.group} - -") (
+        lib.filter (path: !(pathIsUnder cfg.stateDir path)) fsStoragePaths
+      )
+    );
 
     systemd.services.alloy-clips = {
       description = "Alloy clip sharing server";
@@ -350,47 +540,62 @@ in
       wants = [ "network-online.target" ] ++ lib.optional cfg.database.enable "postgresql.target";
       after = [ "network-online.target" ] ++ lib.optional cfg.database.enable "postgresql.target";
 
-      environment = {
-        NODE_ENV = "production";
-        DATABASE_URL = databaseUrl;
-        PORT = toString cfg.port;
-        PUBLIC_SERVER_URL = cfg.publicServerUrl;
-        TRUSTED_ORIGINS = lib.concatStringsSep "," ([ cfg.publicServerUrl ] ++ cfg.trustedOrigins);
-        # Bootstrap data (config.json, secrets.json) lives in the persistent
-        # state dir. Durable storage roots are read from runtime config.
-        ALLOY_DATA_DIR = cfg.stateDir;
-        PGHOST = cfg.database.host;
-        PGUSER = cfg.database.user;
-        PGDATABASE = cfg.database.name;
-      }
-      // lib.optionalAttrs (!isDatabaseUnixSocket) {
-        PGPORT = toString cfg.database.port;
-      }
-      // cfg.environment;
+      environment =
+        {
+          NODE_ENV = "production";
+          DATABASE_URL = databaseUrl;
+          PORT = toString cfg.port;
+          PUBLIC_SERVER_URL = cfg.publicServerUrl;
+          TRUSTED_ORIGINS = lib.concatStringsSep "," ([ cfg.publicServerUrl ] ++ cfg.trustedOrigins);
+          ALLOY_DATA_DIR = cfg.stateDir;
+          ALLOY_OPEN_REGISTRATIONS = lib.boolToString cfg.auth.openRegistrations;
+          ALLOY_PASSKEY_ENABLED = lib.boolToString cfg.auth.passkeyEnabled;
+          ALLOY_REQUIRE_AUTH_TO_BROWSE = lib.boolToString cfg.auth.requireAuthToBrowse;
+          ALLOY_UPLOAD_TTL_SEC = toString cfg.limits.uploadTtlSec;
+          ALLOY_STORAGE_DRIVER = cfg.storage.driver;
+          ALLOY_STORAGE_FS_CLIPS_PATH = toString cfg.storage.fs.clipsPath;
+          ALLOY_STORAGE_FS_USERS_PATH = toString cfg.storage.fs.usersPath;
+          ALLOY_STORAGE_S3_BUCKET = cfg.storage.s3.bucket;
+          ALLOY_STORAGE_S3_REGION = cfg.storage.s3.region;
+          ALLOY_STORAGE_S3_FORCE_PATH_STYLE = lib.boolToString cfg.storage.s3.forcePathStyle;
+          PGHOST = cfg.database.host;
+          PGUSER = cfg.database.user;
+          PGDATABASE = cfg.database.name;
+        }
+        // lib.optionalAttrs (cfg.limits.defaultStorageQuotaBytes != null) {
+          ALLOY_DEFAULT_STORAGE_QUOTA_BYTES = toString cfg.limits.defaultStorageQuotaBytes;
+        }
+        // lib.optionalAttrs (cfg.storage.s3.endpoint != null) {
+          ALLOY_STORAGE_S3_ENDPOINT = cfg.storage.s3.endpoint;
+        }
+        // lib.optionalAttrs (!isDatabaseUnixSocket) {
+          PGPORT = toString cfg.database.port;
+        }
+        // credentialEnvironment
+        // cfg.environment;
 
-      inherit preStart;
+      serviceConfig =
+        {
+          ExecStart = lib.getExe cfg.package;
+          User = cfg.user;
+          Group = cfg.group;
+          WorkingDirectory = cfg.stateDir;
+          Restart = "on-failure";
+          RestartSec = 5;
+          UMask = "0077";
 
-      serviceConfig = {
-        ExecStart = lib.getExe cfg.package;
-        User = cfg.user;
-        Group = cfg.group;
-        WorkingDirectory = cfg.stateDir;
-        Restart = "on-failure";
-        RestartSec = 5;
-        UMask = "0077";
-
-        NoNewPrivileges = true;
-        PrivateDevices = true;
-        PrivateTmp = true;
-        ProtectSystem = "strict";
-        ProtectHome = true;
-        StateDirectory = lib.mkIf (managedStateDirectory != null) managedStateDirectory;
-        ReadWritePaths = serverExternalWritePaths;
-      }
-      // lib.optionalAttrs (managedStateDirectory != null) {
-        StateDirectoryMode = "0750";
-      };
+          NoNewPrivileges = true;
+          PrivateDevices = true;
+          PrivateTmp = true;
+          ProtectSystem = "strict";
+          ProtectHome = true;
+          StateDirectory = lib.mkIf (managedStateDirectory != null) managedStateDirectory;
+          ReadWritePaths = serverExternalWritePaths;
+          LoadCredential = loadCredentials;
+        }
+        // lib.optionalAttrs (managedStateDirectory != null) {
+          StateDirectoryMode = "0750";
+        };
     };
-
   };
 }

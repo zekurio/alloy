@@ -5,8 +5,10 @@ import { errorMessage } from "@alloy/server/runtime/error-message"
 import {
   allowInsecureRequests,
   AuthorizationResponseError,
+  ClientSecretBasic,
   ClientSecretPost,
   Configuration,
+  type ClientAuth,
   discovery,
   fetchUserInfo,
   ResponseBodyError,
@@ -50,21 +52,18 @@ async function createOAuthClient(
   const metadata = {
     client_secret: clientSecret,
   }
+  const clientAuth = clientAuthForProvider(provider, clientSecret)
   if (provider.discoveryUrl) {
     return discovery(
       new URL(provider.discoveryUrl),
       provider.clientId,
       metadata,
-      ClientSecretPost(clientSecret),
+      clientAuth,
       insecureOptions(provider.discoveryUrl),
     )
   }
 
-  if (
-    !provider.authorizationUrl ||
-    !provider.tokenUrl ||
-    !provider.userInfoUrl
-  ) {
+  if (!provider.authorizationUrl || !provider.tokenUrl) {
     throw new Error("OAuth provider endpoints are incomplete.")
   }
 
@@ -78,7 +77,7 @@ async function createOAuthClient(
     server,
     provider.clientId,
     metadata,
-    ClientSecretPost(clientSecret),
+    clientAuth,
   )
   if (usesInsecureEndpoint(provider)) allowInsecureRequests(config)
   return config
@@ -119,9 +118,20 @@ function oauthClientCacheKey(provider: OAuthProviderConfig): string {
     clientSecret: secretStore.oauthClientSecret(provider.providerId),
     discoveryUrl: provider.discoveryUrl,
     providerId: provider.providerId,
+    tokenAuthMethod: provider.tokenAuthMethod,
     tokenUrl: provider.tokenUrl,
     userInfoUrl: provider.userInfoUrl,
   })
+}
+
+function clientAuthForProvider(
+  provider: OAuthProviderConfig,
+  clientSecret: string,
+): ClientAuth {
+  if (provider.tokenAuthMethod === "client_secret_basic") {
+    return ClientSecretBasic(clientSecret)
+  }
+  return ClientSecretPost(clientSecret)
 }
 
 function insecureOptions(url: string) {

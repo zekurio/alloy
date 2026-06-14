@@ -73,6 +73,7 @@ async function startOAuthFlow(input: {
   const scope = scopesForProvider(provider)
 
   const params: Record<string, string> = {
+    ...provider.authParams,
     redirect_uri: callbackURLForProvider(provider.providerId),
     scope,
     state,

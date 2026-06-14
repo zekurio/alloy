@@ -1,8 +1,8 @@
 # @alloy/server
 
 Hono API server for Alloy. It owns auth, clips, uploads, playback, feeds, search,
-notifications, admin/runtime config, storage, encoding jobs, and production web
-asset serving.
+notifications, admin instance settings, storage, encoding jobs, and production
+web asset serving.
 
 ## Layout
 
@@ -16,7 +16,7 @@ packages/server/
   src/clips/            clip access, playback, direct-play HLS packaging
   src/storage/          storage drivers and upload token flow
   src/queue/            media processing queue (mediabunny probe/trim/package)
-  src/config/           runtime config schema, secrets, store
+  src/config/           env-backed config and DB-backed instance settings
   src/runtime/          path, shutdown, response, and process helpers
 ```
 
@@ -48,10 +48,10 @@ docker compose -f docker-compose.dev.yml up -d postgres
 pnpm dev:server
 ```
 
-`PORT`, `PUBLIC_SERVER_URL`, and friends default in `src/env.ts`; the rest
-(`DATABASE_URL`, `TRUSTED_ORIGINS`, `ALLOY_DATA_DIR`) comes from the shell
-environment or the repo-root `.env` (copy `.env.example`). Shell environment
-always wins over the file.
+`PORT`, `PUBLIC_SERVER_URL`, storage, auth policy, OAuth, and integration
+settings are parsed in `src/env.ts`; `DATABASE_URL`,
+`ALLOY_VIEWER_COOKIE_SECRET`, and `ALLOY_UPLOAD_HMAC_SECRET` are required.
+Shell environment always wins over the repo-root `.env` file.
 
 ## Production
 

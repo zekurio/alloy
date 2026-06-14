@@ -30,16 +30,20 @@ export async function profileFromTokens(
   const claims = tokens.claims() ?? {}
   const expectedSubject =
     typeof claims.sub === "string" ? claims.sub : skipSubjectCheck
-  const userInfo = tokens.access_token
-    ? await fetchOAuthUserInfo(
-        config,
-        provider,
-        tokens.access_token,
-        expectedSubject,
-      )
-    : ({} as UserInfoResponse)
+  const userInfo =
+    provider.fetchUserInfo !== false && tokens.access_token
+      ? await fetchOAuthUserInfo(
+          config,
+          provider,
+          tokens.access_token,
+          expectedSubject,
+        )
+      : ({} as UserInfoResponse)
   const raw = { ...claims, ...userInfo }
-  const providerAccountId = stringClaim(raw, "sub") ?? stringClaim(raw, "id")
+  const uidClaim = provider.uidClaim ?? "sub"
+  const providerAccountId =
+    stringClaim(raw, uidClaim) ??
+    (uidClaim === "sub" ? stringClaim(raw, "id") : null)
   const email = stringClaim(raw, "email")
   const normalizedEmail = email ? normalizeEmail(email) : null
   const usernameHint = stringClaim(

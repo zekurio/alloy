@@ -1,22 +1,12 @@
 import type { AdminRuntimeConfig } from "@alloy/api"
-import { Section, SectionContent } from "@alloy/ui/components/section"
-import { SettingRow } from "@alloy/ui/components/setting-row"
-import { Switch } from "@alloy/ui/components/switch"
 import * as React from "react"
 
 import { AdminUsersCard } from "@/components/admin/admin-users-card"
-import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integrations-config-card"
-import { LimitsConfigCard } from "@/components/routes/admin-settings/limits-config-card"
-import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-provider-card"
-import { StorageConfigCard } from "@/components/routes/admin-settings/storage-config-card"
 import {
   type AdminConfigContextValue,
   useAdminConfigContext,
 } from "@/components/routes/settings/admin-config-context"
-import {
-  AppearanceSettingsContent,
-  ConfigTransferContent,
-} from "@/components/routes/settings/admin-tab-advanced-sections"
+import { AppearanceSettingsContent } from "@/components/routes/settings/admin-tab-advanced-sections"
 import { useRequireAuthStrict } from "@/lib/auth-hooks"
 
 function AdminLoadError({ message }: { message: string }) {
@@ -45,112 +35,8 @@ function withAdminConfig(
   }
 }
 
-function hasEnabledOAuthProvider(config: AdminRuntimeConfig): boolean {
-  return config.oauthProviders.some((provider) => provider.enabled)
-}
-
-function hasAnotherSignInMethod(
-  config: AdminRuntimeConfig,
-  excluding: "passkey" | "oauth",
-): boolean {
-  return (
-    (excluding !== "passkey" && config.passkeyEnabled) ||
-    (excluding !== "oauth" && hasEnabledOAuthProvider(config))
-  )
-}
-
-function ToggleRow({
-  title,
-  description,
-  checked,
-  onCheckedChange,
-  disabled,
-}: {
-  title: string
-  description: string
-  checked: boolean
-  onCheckedChange: (next: boolean) => void
-  disabled?: boolean
-}) {
-  return (
-    <SettingRow align="start" title={title} description={description}>
-      <Switch
-        checked={checked}
-        onCheckedChange={onCheckedChange}
-        disabled={disabled}
-      />
-    </SettingRow>
-  )
-}
-
-export const AdminAuthenticationPanel = withAdminConfig((config, ctx) => {
-  const togglePending = ctx.pendingToggleKey !== null
-  return (
-    <div className="flex flex-col gap-4">
-      <Section>
-        <SectionContent className="flex flex-col py-0">
-          <ToggleRow
-            title="Passkeys"
-            description="Allow passkey sign-in and passkey-based account creation on supported browsers."
-            checked={config.passkeyEnabled}
-            onCheckedChange={ctx.onTogglePasskey}
-            disabled={
-              togglePending ||
-              (config.passkeyEnabled &&
-                !hasAnotherSignInMethod(config, "passkey"))
-            }
-          />
-          <ToggleRow
-            title="Open registrations"
-            description="Allow new accounts through enabled sign-up methods. OAuth uses this to auto-create accounts on first sign-in."
-            checked={config.openRegistrations}
-            onCheckedChange={ctx.onToggleOpenRegistrations}
-            disabled={togglePending}
-          />
-          <ToggleRow
-            title="Require sign-in to browse"
-            description="Off lets anyone view clips, games, and profiles. Uploads still need an account."
-            checked={config.requireAuthToBrowse}
-            onCheckedChange={ctx.onToggleRequireAuthToBrowse}
-            disabled={togglePending}
-          />
-        </SectionContent>
-      </Section>
-      <hr className="border-border" />
-      <OAuthProviderCard config={config} onChange={ctx.setConfig} hideHeader />
-    </div>
-  )
-})
-
-export const AdminLimitsPanel = withAdminConfig((config, ctx) => (
-  <LimitsConfigCard
-    limits={config.limits}
-    onChange={(next) => ctx.setConfig(next)}
-    hideHeader
-  />
-))
-
-export const AdminStoragePanel = withAdminConfig((config, ctx) => (
-  <StorageConfigCard
-    storage={config.storage}
-    onChange={(next) => ctx.setConfig(next)}
-    hideHeader
-  />
-))
-
 export const AdminAppearancePanel = withAdminConfig((config, ctx) => (
   <AppearanceSettingsContent config={config} setConfig={ctx.setConfig} />
-))
-
-export const AdminIntegrationsPanel = withAdminConfig((config, ctx) => (
-  <IntegrationsConfigCard
-    integrations={config.integrations}
-    onChange={(next) => ctx.setConfig(next)}
-  />
-))
-
-export const AdminConfigTransferPanel = withAdminConfig((_config, ctx) => (
-  <ConfigTransferContent setConfig={ctx.setConfig} />
 ))
 
 export function AdminUsersPanel() {

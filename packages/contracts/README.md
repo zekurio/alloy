@@ -1,8 +1,8 @@
 # @alloy/contracts
 
 Shared TypeScript contracts for Alloy. This package is the source of truth for
-types that cross package or process boundaries: API payloads, admin/runtime
-config shapes, and desktop recording types.
+types that cross package or process boundaries: API payloads, admin config
+responses, and desktop recording types.
 
 ## Layout
 
@@ -10,7 +10,7 @@ config shapes, and desktop recording types.
 packages/contracts/
   src/index.ts                       public barrel
   src/shared.ts                      shared primitives
-  src/admin.ts                       admin/runtime config contracts
+  src/admin.ts                       admin config and auth contracts
   src/content.ts                     clip/content contracts
   src/desktop-recording*.ts          desktop recorder contracts
 ```

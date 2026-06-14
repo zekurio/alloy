@@ -39,10 +39,10 @@ cp .env.example .env
 ```
 
 `.env.example` points `DATABASE_URL` at the dev Postgres from
-`docker-compose.dev.yml`, stores bootstrap config/secrets under the repo-root
-`data/` directory, and allows the Vite dev origin to call the API. Shell
-environment variables always win over `.env`, so you can point `DATABASE_URL` at
-any `postgres://` or `postgresql://` instance.
+`docker-compose.dev.yml`, sets local-only signing secrets, uses filesystem
+storage under the server data dir, and allows the Vite dev origin to call the
+API. Shell environment variables always win over `.env`, so you can point
+`DATABASE_URL` at any `postgres://` or `postgresql://` instance.
 
 Start the local Postgres on `127.0.0.1:5432` before running server or database
 commands:
@@ -114,6 +114,7 @@ alloy-postgres-stop
 Before considering a code change complete:
 
 ```bash
+pnpm --filter @alloy/server test:config
 pnpm fmt
 pnpm lint
 pnpm typecheck
@@ -145,16 +146,20 @@ inputs.alloy.url = "github:zekurio/alloy";
     enable = true;
     publicServerUrl = "https://alloy.example.com";
     openFirewall = true;
+    secrets.viewerCookieSecretFile = "/run/secrets/alloy-viewer-cookie-secret";
+    secrets.uploadHmacSecretFile = "/run/secrets/alloy-upload-hmac-secret";
   };
 }
 ```
 
 By default the module creates and manages a local PostgreSQL database named
 `alloy`, derives `DATABASE_URL`, stores mutable state in `/var/lib/alloy`, and
-seeds filesystem storage under `/var/lib/alloy/storage` on first boot. For an
-external database, set `services.alloy-clips.database.host`, `port`, `name`, and
-`user`; for unusual authenticated setups, override environment through
-`services.alloy-clips.environment` or a systemd service override.
+uses filesystem storage under `/var/lib/alloy/storage`. Server config is
+declarative: auth policy, limits, storage, SteamGridDB, and OAuth are Nix
+options or environment variables. `config.json` and `secrets.json` are ignored.
+For an external database, set `services.alloy-clips.database.host`, `port`,
+`name`, and `user`; for unusual authenticated setups, override environment
+through `services.alloy-clips.environment` or a systemd service override.
 
 For reproducible deployments, pin a release tag:
 
@@ -178,8 +183,8 @@ nix.settings = {
 Docker support exists, but is less polished than the NixOS module. Bring your
 own PostgreSQL. The server runs migrations automatically in production, but the
 database must already exist and be reachable through `DATABASE_URL`. Persist the
-bootstrap config/secrets volume plus the storage volume seeded into runtime
-config on first boot.
+app data volume and the storage volume; provide required secrets through env
+vars or `_FILE` paths.
 
 ```bash
 docker run --rm \
@@ -187,6 +192,9 @@ docker run --rm \
   -e DATABASE_URL=postgres://alloy:password@postgres:5432/alloy \
   -e PUBLIC_SERVER_URL=https://alloy.example.com \
   -e TRUSTED_ORIGINS=https://alloy.example.com \
+  -e ALLOY_VIEWER_COOKIE_SECRET_FILE=/run/secrets/viewer-cookie-secret \
+  -e ALLOY_UPLOAD_HMAC_SECRET_FILE=/run/secrets/upload-hmac-secret \
+  -v /run/secrets/alloy:/run/secrets:ro \
   -v alloy-config:/config \
   -v alloy-storage:/data \
   ghcr.io/zekurio/alloy:latest
@@ -201,13 +209,15 @@ Image tags:
 
 ### Storage
 
-Storage is configured during setup or from the admin settings. For filesystem
-storage, Alloy keeps separate clip and user asset roots so operators can place
-large clip media and small profile assets on different disks. For S3-compatible
-storage, Alloy stores clip objects under the `clips/` prefix and user assets
-under the `users/` prefix in the configured bucket. Uploads are presigned so
-browsers PUT directly to the bucket. Configure bucket CORS to allow the Alloy
-web origin to `PUT` with the `Content-Type` header.
+Storage is configured declaratively. For filesystem storage, set
+`ALLOY_STORAGE_DRIVER=fs`, `ALLOY_STORAGE_FS_CLIPS_PATH`, and
+`ALLOY_STORAGE_FS_USERS_PATH`; the Docker image defaults these to
+`/data/storage/clips` and `/data/storage/users`. For S3-compatible storage, set
+`ALLOY_STORAGE_DRIVER=s3` plus bucket, region, and access key files. Alloy
+stores clip objects under the `clips/` prefix and user assets under the `users/`
+prefix in the configured bucket. Uploads are presigned so browsers PUT directly
+to the bucket. Configure bucket CORS to allow the Alloy web origin to `PUT` with
+the `Content-Type` header.
 
 ```json
 [
@@ -219,6 +229,35 @@ web origin to `PUT` with the `Content-Type` header.
     "MaxAgeSeconds": 3000
   }
 ]
+```
+
+### OAuth
+
+OAuth/OIDC providers are configured with `ALLOY_SOCIALACCOUNT_PROVIDERS_FILE`
+or `ALLOY_SOCIALACCOUNT_PROVIDERS`. The JSON follows the Paperless/allauth
+OpenID Connect shape; only `openid_connect` is supported for now.
+
+```json
+{
+  "openid_connect": {
+    "SCOPE": ["openid", "profile", "email"],
+    "OAUTH_PKCE_ENABLED": true,
+    "APPS": [
+      {
+        "provider_id": "authentik",
+        "name": "Authentik",
+        "client_id": "alloy",
+        "secret": "replace-me",
+        "settings": {
+          "server_url": "https://auth.example.com/application/o/alloy/",
+          "token_auth_method": "client_secret_basic",
+          "username_claim": "preferred_username",
+          "role_claim": "groups"
+        }
+      }
+    ]
+  }
+}
 ```
 
 ## Desktop Builds

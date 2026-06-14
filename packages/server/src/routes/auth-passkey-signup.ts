@@ -4,6 +4,7 @@ import {
   passkeyPublicKey,
   serializeTransports,
 } from "@alloy/server/auth/webauthn"
+import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import type { RegistrationResponseJSON } from "@simplewebauthn/server"
 
@@ -24,7 +25,7 @@ type PasskeyRegistrationInfo = {
   aaguid: string
 }
 
-export function completePasskeySignUp({
+export async function completePasskeySignUp({
   payload,
   registrationInfo,
   response,
@@ -33,7 +34,7 @@ export function completePasskeySignUp({
   registrationInfo: PasskeyRegistrationInfo
   response: RegistrationResponseJSON
 }) {
-  return db.transaction(async (tx) => {
+  const row = await db.transaction(async (tx) => {
     const { user: row } = await createRegistrationUserInTransaction(tx, {
       email: String(payload.email ?? ""),
       username: String(payload.username ?? ""),
@@ -54,4 +55,10 @@ export function completePasskeySignUp({
 
     return row
   })
+
+  if (payload.setupFirstAdmin === true) {
+    await configStore.set("setupComplete", true)
+  }
+
+  return row
 }

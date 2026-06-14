@@ -1,14 +1,10 @@
 import type {
-  AdminLimitsConfig,
-  AdminOAuthProvider,
   AdminRuntimeConfig,
-  AdminStorageConfig,
   AdminUpdateUserInput,
   AdminUsersResponse,
   AdminUserStorageRow,
-  RuntimeConfig,
 } from "@alloy/contracts"
-import { AdminRuntimeConfigSchema, RuntimeConfigSchema } from "@alloy/contracts"
+import { AdminRuntimeConfigSchema } from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
 import {
@@ -40,9 +36,6 @@ export type {
 
 type RuntimeConfigPatch = {
   setupComplete?: boolean
-  openRegistrations?: boolean
-  passkeyEnabled?: boolean
-  requireAuthToBrowse?: boolean
 }
 
 type AppearanceConfigPatch = {
@@ -53,13 +46,6 @@ type AppearanceConfigPatch = {
   }
 }
 
-type StorageConfigPatch = Partial<Pick<AdminStorageConfig, "driver">> & {
-  fs?: Partial<AdminStorageConfig["fs"]>
-  s3?: Partial<AdminStorageConfig["s3"]>
-  s3AccessKeyId?: string
-  s3SecretAccessKey?: string
-}
-
 type AdminCreateUserInput = {
   email: string
   username?: string
@@ -68,10 +54,6 @@ type AdminCreateUserInput = {
 
 function validateAdminRuntimeConfig(value: unknown): AdminRuntimeConfig {
   return AdminRuntimeConfigSchema.parse(value)
-}
-
-function validateRuntimeConfigExport(value: unknown): RuntimeConfig {
-  return RuntimeConfigSchema.parse(value)
 }
 
 async function fetchRuntimeConfig(
@@ -91,50 +73,11 @@ async function updateRuntimeConfig(
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
-async function reloadRuntimeConfig(
+async function updateAppearanceConfig(
   context: ApiContext,
+  patch: AppearanceConfigPatch,
 ): Promise<AdminRuntimeConfig> {
-  const res = await context.rpc.api.admin["runtime-config"].reload.$post()
-  return readJsonOrThrow(res, validateAdminRuntimeConfig)
-}
-
-async function exportRuntimeConfig(
-  context: ApiContext,
-): Promise<RuntimeConfig> {
-  const res = await context.rpc.api.admin["runtime-config"].export.$get()
-  return readJsonOrThrow(res, validateRuntimeConfigExport)
-}
-
-async function importRuntimeConfig(
-  context: ApiContext,
-  config: unknown,
-): Promise<AdminRuntimeConfig> {
-  const res = await context.rpc.api.admin["runtime-config"].import.$put({
-    json: config,
-  })
-  return readJsonOrThrow(res, validateAdminRuntimeConfig)
-}
-
-async function saveOAuthConfig(
-  context: ApiContext,
-  input: { oauthProviders: AdminOAuthProvider[] },
-): Promise<AdminRuntimeConfig> {
-  const res = await context.rpc.api.admin["oauth-config"].$put({
-    json: {
-      oauthProviders: input.oauthProviders.map((provider) => ({ ...provider })),
-    },
-  })
-  return readJsonOrThrow(res, validateAdminRuntimeConfig)
-}
-
-type RuntimeConfigSection = "limits" | "integrations" | "appearance" | "storage"
-
-async function patchRuntimeSection<T>(
-  context: ApiContext,
-  section: RuntimeConfigSection,
-  patch: Partial<T>,
-): Promise<AdminRuntimeConfig> {
-  const res = await context.rpc.api.admin[section].$patch({ json: patch })
+  const res = await context.rpc.api.admin.appearance.$patch({ json: patch })
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
@@ -182,24 +125,8 @@ export function createAdminApi(context: ApiContext) {
     fetchRuntimeConfig: () => fetchRuntimeConfig(context),
     updateRuntimeConfig: (input: RuntimeConfigPatch) =>
       updateRuntimeConfig(context, input),
-    reloadRuntimeConfig: () => reloadRuntimeConfig(context),
-    exportRuntimeConfig: () => exportRuntimeConfig(context),
-    importRuntimeConfig: (config: unknown) =>
-      importRuntimeConfig(context, config),
-    saveOAuthConfig: (input: { oauthProviders: AdminOAuthProvider[] }) =>
-      saveOAuthConfig(context, input),
-    updateLimitsConfig: (patch: Partial<AdminLimitsConfig>) =>
-      patchRuntimeSection(context, "limits", patch),
-    updateStorageConfig: (patch: StorageConfigPatch) =>
-      patchRuntimeSection(context, "storage", patch),
-    updateIntegrationsConfig: (patch: { steamgriddbApiKey?: string }) =>
-      patchRuntimeSection<{ steamgriddbApiKey?: string }>(
-        context,
-        "integrations",
-        patch,
-      ),
     updateAppearanceConfig: (patch: AppearanceConfigPatch) =>
-      patchRuntimeSection(context, "appearance", patch),
+      updateAppearanceConfig(context, patch),
     reEncodeAllClips: () => reEncodeAllClips(context),
     fetchUsers: () => fetchUsers(context),
     createUser: (input: AdminCreateUserInput) => createUser(context, input),

@@ -2,9 +2,10 @@ import { migrateDatabase } from "@alloy/db"
 import { createLogger } from "@alloy/logging"
 import { serve } from "@hono/node-server"
 
-import { app } from "./app"
+import { signInConfigError } from "./auth/sign-in-config"
 import { startChallengeSweeper, stopChallengeSweeper } from "./auth/webauthn"
 import { startDirectHlsCache, stopDirectHlsCache } from "./clips/direct-hls"
+import { configStore, initializeConfigStore } from "./config/store"
 import { warmDatabase } from "./db"
 import { env } from "./env"
 import { startQueue, stopQueue } from "./queue"
@@ -18,10 +19,21 @@ if (env.NODE_ENV === "production") {
 
 try {
   await warmDatabase()
+  await initializeConfigStore()
 } catch (err) {
   logger.error("failed to warm database connection:", err)
   process.exit(1)
 }
+
+if (configStore.get("setupComplete")) {
+  const authError = await signInConfigError(configStore.getAll())
+  if (authError) {
+    logger.error(`unsafe sign-in configuration: ${authError}`)
+    process.exit(1)
+  }
+}
+
+const { app } = await import("./app")
 
 const server = serve(
   {

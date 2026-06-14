@@ -1,28 +1,13 @@
-import { type AdminRuntimeConfig } from "@alloy/api"
 import { AlloyLogo } from "@alloy/ui/components/alloy-logo"
-import { Button } from "@alloy/ui/components/button"
 import { toast } from "@alloy/ui/lib/toast"
-import { useQuery } from "@tanstack/react-query"
 import {
   createFileRoute,
   Link,
   redirect,
   useNavigate,
 } from "@tanstack/react-router"
-import {
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  CheckCircle2Icon,
-  DatabaseIcon,
-  LinkIcon,
-  UserKeyIcon,
-} from "lucide-react"
 import * as React from "react"
 
-import { IntegrationsConfigCard } from "@/components/routes/admin-settings/integrations-config-card"
-import { OAuthProviderCard } from "@/components/routes/admin-settings/oauth-provider-card"
-import { StorageConfigCard } from "@/components/routes/admin-settings/storage-config-card"
-import { adminRuntimeConfigQueryOptions } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 import {
@@ -47,7 +32,7 @@ export const Route = createFileRoute("/(auth)/setup")({
     if (!config.adminAccountRequired && role !== "admin") {
       throw redirect({ to: "/" })
     }
-    return { config, session }
+    return { config }
   },
   component: SetupPage,
 })
@@ -59,12 +44,7 @@ const PasskeySignUpForm = React.lazy(() =>
 )
 
 function SetupPage() {
-  return <SetupPageInner />
-}
-
-function SetupPageInner() {
   const { config } = Route.useLoaderData()
-  const mode = config.adminAccountRequired ? "account" : "onboarding"
 
   return (
     <div className="bg-background text-foreground relative min-h-screen w-full">
@@ -75,7 +55,11 @@ function SetupPageInner() {
       </header>
 
       <main className="relative flex min-h-screen items-center justify-center px-6 py-24 sm:px-10">
-        {mode === "account" ? <AdminAccountStep /> : <AdminSetupSteps />}
+        {config.adminAccountRequired ? (
+          <AdminAccountStep />
+        ) : (
+          <CompleteSetupStep />
+        )}
       </main>
     </div>
   )
@@ -85,12 +69,11 @@ function AdminAccountStep() {
   return (
     <div className="w-full max-w-sm">
       <div className="mb-8 space-y-1.5">
-        <h2 className="text-foreground text-2xl font-semibold tracking-[-0.02em]">
+        <h2 className="text-foreground text-2xl font-semibold">
           Create the admin account
         </h2>
         <p className="text-foreground-muted text-sm">
-          Since you are the first user, this account is assigned the admin role.
-          After the passkey is created, you can finish the instance setup.
+          This first account will be assigned the admin role.
         </p>
       </div>
 
@@ -104,230 +87,44 @@ function AdminAccountStep() {
   )
 }
 
-const SETUP_STEPS = [
-  {
-    icon: DatabaseIcon,
-    label: "Storage",
-    description: "Choose filesystem or S3 storage for clips and user assets.",
-    formId: "setup-storage",
-  },
-  {
-    icon: UserKeyIcon,
-    label: "OIDC",
-    description: "Configure an optional OIDC/OAuth provider for sign-in.",
-    formId: "setup-oidc",
-  },
-  {
-    icon: LinkIcon,
-    label: "SteamGridDB",
-    description: "Game artwork and metadata from SteamGridDB.",
-    formId: "setup-integrations",
-  },
-] as const
-
-type SetupStep = 0 | 1 | 2
-
-const SETUP_LAST_STEP: SetupStep = 2
-
-function AdminSetupSteps() {
-  const setup = useAdminSetupSteps()
-
-  if (setup.loadError) {
-    return (
-      <div className="border-destructive/40 bg-destructive/5 text-destructive w-full rounded-md border p-3 text-sm">
-        {setup.loadError}
-      </div>
-    )
-  }
-
-  if (!setup.config) return null
-
-  return (
-    <AdminSetupStepContent
-      config={setup.config}
-      step={setup.step}
-      setStep={setup.setStep}
-      setConfig={setup.setConfig}
-      advanceStep={setup.advanceStep}
-    />
-  )
-}
-
-function useAdminSetupSteps() {
+function CompleteSetupStep() {
   const navigate = useNavigate()
-  const [step, setStep] = React.useState<SetupStep>(0)
-  const [config, setConfig] = React.useState<AdminRuntimeConfig | null>(null)
-  const configQuery = useQuery(adminRuntimeConfigQueryOptions())
+  const [message, setMessage] = React.useState<string | null>(null)
 
   React.useEffect(() => {
-    if (configQuery.data) setConfig(configQuery.data)
-  }, [configQuery.data])
-
-  const loadError = configQuery.error
-    ? errorMessage(configQuery.error, "Couldn't load setup")
-    : null
-
-  async function completeSetup() {
-    try {
-      await api.admin.updateRuntimeConfig({ setupComplete: true })
-      invalidateAuthConfig()
-      toast.success("Setup complete")
-      void navigate({ to: "/" })
-    } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't complete setup"))
+    let cancelled = false
+    async function completeSetup() {
+      try {
+        await api.admin.updateRuntimeConfig({ setupComplete: true })
+        invalidateAuthConfig()
+        toast.success("Setup complete")
+        if (!cancelled) void navigate({ to: "/" })
+      } catch (cause) {
+        if (!cancelled) {
+          setMessage(errorMessage(cause, "Couldn't complete setup"))
+        }
+      }
     }
-  }
-
-  function advanceStep(savedStep: SetupStep) {
-    setStep((currentStep) => {
-      if (currentStep !== savedStep) return currentStep
-      if (currentStep < SETUP_LAST_STEP) return (currentStep + 1) as SetupStep
-      queueMicrotask(() => void completeSetup())
-      return currentStep
-    })
-  }
-
-  return { advanceStep, config, loadError, setConfig, setStep, step }
-}
-
-function AdminSetupStepContent({
-  config,
-  step,
-  setStep,
-  setConfig,
-  advanceStep,
-}: {
-  config: AdminRuntimeConfig
-  step: SetupStep
-  setStep: React.Dispatch<React.SetStateAction<SetupStep>>
-  setConfig: React.Dispatch<React.SetStateAction<AdminRuntimeConfig | null>>
-  advanceStep: (savedStep: SetupStep) => void
-}) {
-  const stepDone = getStepDone(config)
-  const isLastStep = step === SETUP_LAST_STEP
-
-  function handleNext() {
-    const formEl = document.getElementById(
-      SETUP_STEPS[step].formId,
-    ) as HTMLFormElement | null
-    if (formEl) {
-      formEl.requestSubmit()
-    } else {
-      advanceStep(step)
+    void completeSetup()
+    return () => {
+      cancelled = true
     }
-  }
+  }, [navigate])
 
-  const currentStep = SETUP_STEPS[step]
   return (
-    <div className="w-full max-w-2xl space-y-6">
-      <div className="space-y-1.5">
-        <h2 className="text-foreground text-2xl font-semibold tracking-[-0.02em]">
-          Finish instance setup
+    <div className="w-full max-w-sm">
+      <div className="mb-8 space-y-1.5">
+        <h2 className="text-foreground text-2xl font-semibold">
+          Finishing setup
         </h2>
-        <p className="text-foreground-muted text-sm">
-          {currentStep.description}
-        </p>
-      </div>
-
-      <StepIndicator currentStep={step} stepDone={stepDone} />
-
-      <div className="flex flex-col gap-5">
-        {step === 0 && (
-          <StorageConfigCard
-            storage={config.storage}
-            onChange={(next) => setConfig(next)}
-            onSaved={() => advanceStep(0)}
-            formId="setup-storage"
-            hideActions
-            hideHeader
-            toastOnSuccess={false}
-          />
-        )}
-        {step === 1 && (
-          <OAuthProviderCard config={config} onChange={setConfig} hideHeader />
-        )}
-        {step === 2 && (
-          <IntegrationsConfigCard
-            integrations={config.integrations}
-            onChange={(next) => setConfig(next)}
-            onSaved={() => advanceStep(2)}
-            formId="setup-integrations"
-            hideActions
-            hideHeader
-            toastOnSuccess={false}
-          />
+        {message ? (
+          <p className="text-destructive text-sm">{message}</p>
+        ) : (
+          <p className="text-foreground-muted text-sm">
+            Finalizing the instance state.
+          </p>
         )}
       </div>
-
-      <div className="flex items-center justify-between">
-        <div>
-          {step > 0 && (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setStep((step - 1) as SetupStep)}
-            >
-              <ArrowLeftIcon />
-              Back
-            </Button>
-          )}
-        </div>
-        <Button type="button" variant="primary" onClick={handleNext}>
-          {isLastStep ? "Complete setup" : "Next"}
-          <ArrowRightIcon />
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-function getStepDone(config: AdminRuntimeConfig): [boolean, boolean, boolean] {
-  return [
-    config.storage.driver === "fs" ||
-      (config.storage.s3.bucket.length > 0 &&
-        config.storage.s3AccessKeyIdSet &&
-        config.storage.s3SecretAccessKeySet),
-    // OIDC is optional; it is done once a provider is configured.
-    config.oauthProviders.length > 0,
-    // SteamGridDB is done once a key is configured.
-    config.integrations.steamgriddbApiKeySet,
-  ]
-}
-
-function StepIndicator({
-  currentStep,
-  stepDone,
-}: {
-  currentStep: SetupStep
-  stepDone: [boolean, boolean, boolean]
-}) {
-  return (
-    <div className="grid gap-2 sm:grid-cols-3">
-      {SETUP_STEPS.map((item, index) => {
-        const isCurrent = index === currentStep
-        const isDone = stepDone[index]
-
-        return (
-          <div
-            key={item.label}
-            className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${
-              isCurrent
-                ? "border-accent bg-accent-soft text-accent"
-                : "border-border bg-surface-raised text-foreground"
-            }`}
-          >
-            <item.icon
-              className={`size-4 ${
-                isCurrent ? "text-accent" : "text-foreground-muted"
-              }`}
-            />
-            <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {isDone ? (
-              <CheckCircle2Icon className="text-success size-4" />
-            ) : null}
-          </div>
-        )
-      })}
     </div>
   )
 }
