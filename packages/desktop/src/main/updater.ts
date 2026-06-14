@@ -3,6 +3,11 @@ import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 import electronUpdater from "electron-updater"
 
+import {
+  isDesktopUpdateForChannel,
+  resolveDesktopUpdateChannel,
+} from "./update-channel"
+
 // electron-updater is CommonJS with a lazy `autoUpdater` getter; destructuring
 // the default import keeps that laziness intact in the rollup bundle, where a
 // named import could capture an undefined binding at build time.
@@ -11,7 +16,6 @@ const { autoUpdater } = electronUpdater
 const logger = createLogger("updater")
 
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000
-const NIGHTLY_VERSION_PATTERN = /-nightly(?:\.|$)/
 
 let state: DesktopUpdateState = { status: "idle", version: null }
 const stateListeners = new Set<(state: DesktopUpdateState) => void>()
@@ -60,18 +64,14 @@ function setState(next: DesktopUpdateState): void {
   }
 }
 
-function getUpdateChannel(version: string): "latest" | "nightly" {
-  return NIGHTLY_VERSION_PATTERN.test(version) ? "nightly" : "latest"
-}
-
 /**
  * Background auto-update from the GitHub releases feed. electron-builder
  * embeds `app-update.yml` (from the `publish` config) into packaged builds,
  * which is where the updater finds the repo; published releases expose
- * `latest.yml` or `nightly.yml` plus the installer. Downloads happen in the
- * background and install on quit; `checkForUpdatesAndNotify` shows a native
- * toast once a download is ready, and the web app surfaces a "restart to
- * update" entry in its notification center via the bridge state above.
+ * `latest.yml` or `nightly.yml` plus the installer. The app derives the
+ * selected channel from its packaged version, accepts only matching update
+ * versions, downloads in the background, and surfaces a "restart to update"
+ * entry in the web app notification center via the bridge state above.
  */
 export function initAutoUpdater(): void {
   if (!app.isPackaged) {
@@ -80,8 +80,16 @@ export function initAutoUpdater(): void {
   }
 
   autoUpdater.logger = logger
-  autoUpdater.channel = getUpdateChannel(app.getVersion())
-  autoUpdater.allowPrerelease = autoUpdater.channel === "nightly"
+  const updateChannel = resolveDesktopUpdateChannel(app.getVersion())
+  const allowsPrerelease = updateChannel === "nightly"
+  autoUpdater.channel = updateChannel
+  autoUpdater.allowPrerelease = allowsPrerelease
+  autoUpdater.allowDowngrade = allowsPrerelease
+  autoUpdater.autoDownload = false
+  autoUpdater.autoInstallOnAppQuit = false
+  logger.info(
+    `using ${updateChannel} update channel (allowPrerelease=${allowsPrerelease}, allowDowngrade=${allowsPrerelease})`,
+  )
 
   let timer: ReturnType<typeof setInterval> | null = null
 
@@ -94,12 +102,33 @@ export function initAutoUpdater(): void {
     setState({ status: "idle", version: null })
   })
   autoUpdater.on("update-available", (info) => {
+    if (!isDesktopUpdateForChannel(info.version, updateChannel)) {
+      logger.warn(
+        `ignoring ${info.version} update from non-${updateChannel} channel`,
+      )
+      setState({ status: "idle", version: null })
+      return
+    }
+
     logger.info(`update available: ${info.version}`)
-    // autoDownload is on, so "available" means the download is starting.
     setState({ status: "downloading", version: info.version })
+    void autoUpdater.downloadUpdate().catch((cause) => {
+      logger.warn("update download failed:", cause)
+      if (state.status !== "downloaded") {
+        setState({ status: "idle", version: null })
+      }
+    })
   })
   autoUpdater.on("update-downloaded", (info) => {
-    logger.info(`update ${info.version} downloaded; it installs on quit`)
+    if (!isDesktopUpdateForChannel(info.version, updateChannel)) {
+      logger.warn(
+        `downloaded ${info.version} update from non-${updateChannel} channel; ignoring`,
+      )
+      setState({ status: "idle", version: null })
+      return
+    }
+
+    logger.info(`update ${info.version} downloaded; waiting for restart`)
     setState({ status: "downloaded", version: info.version })
     // Nothing left to look for until the user restarts into the new version.
     if (timer) clearInterval(timer)
@@ -114,7 +143,7 @@ export function initAutoUpdater(): void {
   })
 
   const check = () => {
-    void autoUpdater.checkForUpdatesAndNotify().catch(() => {
+    void autoUpdater.checkForUpdates().catch(() => {
       // Failures already surface through the "error" event.
     })
   }
