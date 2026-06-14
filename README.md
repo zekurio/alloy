@@ -236,6 +236,9 @@ the `Content-Type` header.
 OAuth/OIDC providers are configured with `ALLOY_SOCIALACCOUNT_PROVIDERS_FILE`
 or `ALLOY_SOCIALACCOUNT_PROVIDERS`. The JSON follows the Paperless/allauth
 OpenID Connect shape; only `openid_connect` is supported for now.
+When setting `ALLOY_SOCIALACCOUNT_PROVIDERS` in `.env` syntax or Railway's RAW
+editor, quote the whole JSON value so `#` color values are not parsed as
+comments.
 
 ```json
 {
