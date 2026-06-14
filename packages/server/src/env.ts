@@ -267,7 +267,6 @@ export function parseServerEnv(
         .transform((value) =>
           normalizeTrustedOrigins(value, defaultPublicServerUrl),
         ),
-      ALLOY_DATA_DIR: z.string().optional(),
       ALLOY_OPEN_REGISTRATIONS: envBool(false),
       ALLOY_PASSKEY_ENABLED: envBool(true),
       ALLOY_REQUIRE_AUTH_TO_BROWSE: envBool(true),
@@ -374,7 +373,6 @@ export function parseServerEnv(
     PORT: raw.PORT,
     WEB_DIST_DIR: raw.WEB_DIST_DIR,
     TRUSTED_ORIGINS: raw.TRUSTED_ORIGINS,
-    ALLOY_DATA_DIR: raw.ALLOY_DATA_DIR,
     openRegistrations: raw.ALLOY_OPEN_REGISTRATIONS,
     passkeyEnabled: raw.ALLOY_PASSKEY_ENABLED,
     requireAuthToBrowse: raw.ALLOY_REQUIRE_AUTH_TO_BROWSE,

@@ -122,13 +122,13 @@ export type S3StorageConfig = z.infer<typeof S3StorageConfigSchema>
 export const FilesystemStorageConfigSchema = z.looseObject({
   /**
    * Filesystem root for clip sources, thumbnails, and derived media. Relative
-   * paths resolve under the runtime data dir; absolute paths are used as-is.
+   * paths resolve from the server working directory; absolute paths are used as-is.
    */
   clipsPath: NonEmptyStringSchema,
   /**
    * Filesystem root for user-owned assets such as avatars, banners, and
-   * profile backgrounds. Relative paths resolve under the runtime data dir;
-   * absolute paths are used as-is.
+   * profile backgrounds. Relative paths resolve from the server working
+   * directory; absolute paths are used as-is.
    */
   usersPath: NonEmptyStringSchema,
 })
