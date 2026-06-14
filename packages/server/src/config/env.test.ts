@@ -152,6 +152,63 @@ test("maps Paperless-style OIDC JSON to Alloy provider config", () => {
   })
 })
 
+test("maps Discord OIDC JSON to subject-claim config", () => {
+  const providers = {
+    openid_connect: {
+      SCOPE: ["openid", "identify", "email"],
+      OAUTH_PKCE_ENABLED: true,
+      APPS: [
+        {
+          provider_id: "discord",
+          name: "Discord",
+          client_id: "discord-client-id",
+          secret: "discord-client-secret",
+          settings: {
+            discovery_url:
+              "https://discord.com/.well-known/openid-configuration",
+            username_claim: "preferred_username",
+            button_color: "5865F2",
+            button_text_color: "ffffff",
+            icon_url: "https://cdn.simpleicons.org/discord/white",
+          },
+        },
+      ],
+    },
+  }
+
+  const parsed = parseServerEnv(
+    baseEnv({
+      ALLOY_SOCIALACCOUNT_PROVIDERS: JSON.stringify(providers),
+    }),
+  )
+
+  assert.deepEqual(parsed.oauthClientSecrets, {
+    discord: "discord-client-secret",
+  })
+  assert.deepEqual(parsed.oauthProviders[0], {
+    providerId: "discord",
+    displayName: "Discord",
+    clientId: "discord-client-id",
+    scopes: ["openid", "identify", "email"],
+    enabled: true,
+    buttonColor: "#5865F2",
+    buttonTextColor: "#ffffff",
+    iconUrl: "https://cdn.simpleicons.org/discord/white",
+    discoveryUrl: "https://discord.com/.well-known/openid-configuration",
+    authorizationUrl: undefined,
+    tokenUrl: undefined,
+    userInfoUrl: undefined,
+    pkce: true,
+    tokenAuthMethod: undefined,
+    uidClaim: "sub",
+    fetchUserInfo: true,
+    authParams: undefined,
+    usernameClaim: "preferred_username",
+    quotaClaim: "alloy_quota",
+    roleClaim: "alloy_role",
+  })
+})
+
 test("rejects unsupported social account providers", () => {
   assert.throws(
     () =>

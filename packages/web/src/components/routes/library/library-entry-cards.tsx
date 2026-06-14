@@ -405,7 +405,6 @@ function StagingClipMenu({
               await detachLocalServerLink({
                 item: localItem,
                 serverId: row.id,
-                excludeFromAutoSync: true,
               }).catch(() => undefined)
               toast.error(
                 "Recording deleted from server, but the local copy couldn't be removed",
@@ -418,7 +417,6 @@ function StagingClipMenu({
               await detachLocalServerLink({
                 item: localItem,
                 serverId: row.id,
-                excludeFromAutoSync: true,
               })
               toast.success("Recording deleted from server")
             } catch {
@@ -550,7 +548,7 @@ const SOURCE_META: Record<
   synced: { icon: CloudCheckIcon, label: "Synced" },
   "link-only": { icon: Link2Icon, label: "Link only" },
   "on-profile": { icon: GlobeIcon, label: "On profile" },
-  // Positions in the desktop sync queue (auto-sync after gaming).
+  // Positions in the desktop sync queue.
   queued: { icon: CloudUploadIcon, label: "Queued" },
   syncing: {
     icon: CloudUploadIcon,
@@ -756,7 +754,6 @@ function DeleteUploadedClipDialog({
               await detachLocalServerLink({
                 item: localItem,
                 serverId: row.id,
-                excludeFromAutoSync: true,
               }).catch(() => undefined)
               toast.error(
                 "Clip deleted from server, but the local copy couldn't be removed",
@@ -769,7 +766,6 @@ function DeleteUploadedClipDialog({
               await detachLocalServerLink({
                 item: localItem,
                 serverId: row.id,
-                excludeFromAutoSync: true,
               })
               toast.success("Clip deleted from server")
             } catch {

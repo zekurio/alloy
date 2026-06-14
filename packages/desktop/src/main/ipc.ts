@@ -316,7 +316,8 @@ function registerRecordingLibraryIpc(windows: Windows): void {
     (event, request: unknown) => {
       requireMainSender(windows, event)
       const patch = normalizeLibraryMetaPatch(request)
-      if (patch) updateRecordingLibraryCaptureMeta(patch)
+      if (!patch) throw new Error("Invalid capture metadata request.")
+      return updateRecordingLibraryCaptureMeta(patch)
     },
   )
   ipcMain.handle(

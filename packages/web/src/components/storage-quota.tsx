@@ -6,11 +6,14 @@ import { api } from "@/lib/api"
 import { formatBytes, storageUsagePercent } from "@/lib/storage-format"
 import { userKeys } from "@/lib/user-queries"
 
-function useStorageUsage() {
+function useStorageUsage({
+  refetchOnMount,
+}: { refetchOnMount?: boolean | "always" } = {}) {
   return useQuery({
     queryKey: userKeys.storage(),
     queryFn: () => api.users.fetchStorageUsage(),
     staleTime: 30_000,
+    refetchOnMount,
   })
 }
 
@@ -45,7 +48,7 @@ export function StorageQuota({ className }: { className?: string }) {
 }
 
 export function StorageQuotaCompact({ className }: { className?: string }) {
-  const { data } = useStorageUsage()
+  const { data } = useStorageUsage({ refetchOnMount: "always" })
   const usedBytes = data?.usedBytes ?? 0
   const quotaBytes = data?.quotaBytes ?? null
   const pct = storageUsagePercent(usedBytes, quotaBytes)

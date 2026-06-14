@@ -161,7 +161,6 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
                 await detachLocalServerLink({
                   item: localItem,
                   serverId: row.id,
-                  excludeFromAutoSync: true,
                 }).catch(() => undefined)
                 toast.error(
                   "Clip deleted from server, but the local copy couldn't be removed",
@@ -174,7 +173,6 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
                 await detachLocalServerLink({
                   item: localItem,
                   serverId: row.id,
-                  excludeFromAutoSync: true,
                 })
                 toast.success("Clip deleted from server")
               } catch {

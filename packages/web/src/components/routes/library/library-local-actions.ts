@@ -14,18 +14,15 @@ export async function deleteLocalLibraryCopy(
 export async function detachLocalServerLink({
   item,
   serverId,
-  excludeFromAutoSync,
 }: {
   item: RecordingLibraryItem
   serverId: string
-  excludeFromAutoSync: boolean
 }): Promise<void> {
   const desktop = alloyDesktop()
   if (!desktop) return
 
   const patch: RecordingLibraryMetaPatch = {
     id: item.id,
-    syncExcluded: excludeFromAutoSync,
   }
   if (item.uploadedClipId === serverId) patch.uploadedClipId = null
   if (item.syncedRecordingId === serverId) patch.syncedRecordingId = null
@@ -47,7 +44,6 @@ export async function normalizeLocalPublishedStagingLink({
     id: item.id,
     uploadedClipId: clipId,
     syncedRecordingId: null,
-    syncExcluded: false,
   })
   notifyLibraryCapturesChanged()
 }

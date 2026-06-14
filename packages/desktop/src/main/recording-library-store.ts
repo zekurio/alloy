@@ -137,9 +137,6 @@ export function updateRecordingLibraryCaptureMeta(
   if (patch.syncedRecordingId !== undefined) {
     entry.syncedRecordingId = patch.syncedRecordingId
   }
-  if (patch.syncExcluded !== undefined) {
-    entry.syncExcluded = patch.syncExcluded
-  }
   entry.updatedAt = new Date().toISOString()
 
   if (patch.gameName !== undefined) {

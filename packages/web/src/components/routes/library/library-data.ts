@@ -119,9 +119,15 @@ export function enrichLibraryItem(
   gamesByName: Map<string, GameNameLookupResult>,
 ): LibraryItemView {
   const lookupName = item.gameName ?? item.groupLabel
-  const match = gamesByName.get(gameNameKey(lookupName))
+  const match =
+    item.source === "display" && !item.gameName
+      ? null
+      : gamesByName.get(gameNameKey(lookupName))
   const game = match?.confidence === 1 ? match.game : null
-  const displayGameName = item.gameName ?? game?.name ?? item.groupLabel
+  const displayGameName =
+    item.gameName ??
+    game?.name ??
+    (item.source === "display" ? "" : item.groupLabel)
   const sgdbIconUrl = desktopCachedAssetUrl(
     game?.iconUrl ?? game?.logoUrl ?? null,
   )
@@ -137,18 +143,18 @@ export function enrichLibraryItem(
   }
 }
 
-/** Sentinel filter key for uploaded clips that carry no game. */
-export const LIBRARY_CLOUD_GROUP_KEY = "::cloud"
+/** Sentinel filter key for captures and server rows that carry no game. */
+export const LIBRARY_NO_GAME_GROUP_KEY = "::no-game"
 
 /** A source chip in the library filter bar, merging local and uploaded clips. */
 export interface LibraryGroupView {
   key: string
   label: string
-  kind: "game" | "desktop" | "cloud"
+  kind: "game" | "no-game"
   iconUrl: string | null
   /** Local capture group keys this chip covers (for filtering snapshot items). */
   localKeys: string[]
-  /** Normalised game name for matching uploaded clips; null for desktop/cloud. */
+  /** Normalised game name for matching server rows; null for no-game rows. */
   nameKey: string | null
   totalCount: number
 }
@@ -156,8 +162,9 @@ export interface LibraryGroupView {
 /**
  * Builds the filter-bar source chips. Local capture groups and uploaded clips
  * are merged by game name so a server clip counts toward its actual game (e.g.
- * "Brotato") instead of a generic "Uploaded" bucket. Only uploaded clips with
- * no game fall back to the cloud chip.
+ * "Brotato") instead of a generic uploaded bucket. Local desktop captures and
+ * server rows with no game share the no-game chip, so syncing does not move a
+ * capture between different source categories.
  *
  * `collapsedCounts` holds, per local group key, how many captures collapsed
  * into their uploaded clip — those count toward the clip's game chip instead,
@@ -175,15 +182,7 @@ export function buildLibraryGroups(
     const totalCount = group.totalCount - (collapsedCounts?.get(group.key) ?? 0)
     if (totalCount <= 0) continue
     if (group.kind === "desktop") {
-      map.set(group.key, {
-        key: group.key,
-        label: group.label,
-        kind: "desktop",
-        iconUrl: null,
-        localKeys: [group.key],
-        nameKey: null,
-        totalCount,
-      })
+      addNoGameGroup(map, totalCount, group.key)
       continue
     }
     const nameKey = gameNameKey(group.label)
@@ -208,20 +207,7 @@ export function buildLibraryGroups(
   for (const row of [...uploaded, ...staging]) {
     const gameName = row.gameRef?.name ?? row.game
     if (!gameName) {
-      const cloud = map.get(LIBRARY_CLOUD_GROUP_KEY)
-      if (cloud) {
-        cloud.totalCount += 1
-      } else {
-        map.set(LIBRARY_CLOUD_GROUP_KEY, {
-          key: LIBRARY_CLOUD_GROUP_KEY,
-          label: "Uploaded",
-          kind: "cloud",
-          iconUrl: null,
-          localKeys: [],
-          nameKey: null,
-          totalCount: 1,
-        })
-      }
+      addNoGameGroup(map, 1)
       continue
     }
     const nameKey = gameNameKey(gameName)
@@ -246,10 +232,33 @@ export function buildLibraryGroups(
   }
 
   return [...map.values()].sort((a, b) => {
-    // The catch-all uploaded chip sinks to the end; the rest rank by volume.
-    if (a.kind === "cloud") return 1
-    if (b.kind === "cloud") return -1
+    // The catch-all no-game chip sinks to the end; the rest rank by volume.
+    if (a.kind === "no-game") return 1
+    if (b.kind === "no-game") return -1
     return b.totalCount - a.totalCount
+  })
+}
+
+function addNoGameGroup(
+  map: Map<string, LibraryGroupView>,
+  totalCount: number,
+  localKey?: string,
+): void {
+  const existing = map.get(LIBRARY_NO_GAME_GROUP_KEY)
+  if (existing) {
+    existing.totalCount += totalCount
+    if (localKey) existing.localKeys.push(localKey)
+    return
+  }
+
+  map.set(LIBRARY_NO_GAME_GROUP_KEY, {
+    key: LIBRARY_NO_GAME_GROUP_KEY,
+    label: "No game",
+    kind: "no-game",
+    iconUrl: null,
+    localKeys: localKey ? [localKey] : [],
+    nameKey: null,
+    totalCount,
   })
 }
 

@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query"
 import * as React from "react"
 
 import { clientLogger } from "@/lib/client-log"
@@ -6,6 +7,8 @@ import {
   notifyLibraryCapturesChanged,
   type RecordingLibrarySyncSnapshot,
 } from "@/lib/desktop"
+import { stagingKeys } from "@/lib/staging-query-keys"
+import { invalidateStorageUsage } from "@/lib/user-queries"
 
 /**
  * Shared renderer-side view of the desktop shell's upload sync queue (local
@@ -23,6 +26,7 @@ const EMPTY_SNAPSHOT: RecordingLibrarySyncSnapshot = {
 
 let snapshot: RecordingLibrarySyncSnapshot = EMPTY_SNAPSHOT
 const listeners = new Set<() => void>()
+const storageListeners = new Set<() => void>()
 let started = false
 
 /** True when the desktop shell is new enough to run the sync queue. */
@@ -32,6 +36,7 @@ export function clipSyncSupported(): boolean {
 }
 
 function applySnapshot(next: RecordingLibrarySyncSnapshot): void {
+  const previous = snapshot
   const hadIncomplete = snapshot.items.some(
     (item) => item.status !== "completed",
   )
@@ -43,7 +48,35 @@ function applySnapshot(next: RecordingLibrarySyncSnapshot): void {
   ) {
     notifyLibraryCapturesChanged()
   }
+  if (syncSnapshotAffectsServerStorage(previous, next)) {
+    for (const listener of storageListeners) listener()
+  }
   for (const listener of listeners) listener()
+}
+
+function syncSnapshotAffectsServerStorage(
+  previous: RecordingLibrarySyncSnapshot,
+  next: RecordingLibrarySyncSnapshot,
+): boolean {
+  const previousItems = new Map(
+    previous.items.map((item) => [item.captureId, item]),
+  )
+  const nextItems = new Map(next.items.map((item) => [item.captureId, item]))
+
+  for (const item of next.items) {
+    const before = previousItems.get(item.captureId)
+    if ((before?.clipId ?? null) !== item.clipId) {
+      return true
+    }
+    if (item.status === "completed" && before?.status !== "completed") {
+      return true
+    }
+  }
+
+  for (const item of previous.items) {
+    if (item.clipId && !nextItems.has(item.captureId)) return true
+  }
+  return false
 }
 
 function ensureStarted(): void {
@@ -72,9 +105,38 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener)
 }
 
+function subscribeStorage(listener: () => void): () => void {
+  ensureStarted()
+  storageListeners.add(listener)
+  return () => storageListeners.delete(listener)
+}
+
 /** Live snapshot of the desktop sync queue (empty outside the desktop app). */
 export function useClipSync(): RecordingLibrarySyncSnapshot {
   return React.useSyncExternalStore(subscribe, () => snapshot)
+}
+
+export function useInvalidateStorageOnClipSync(): void {
+  const qc = useQueryClient()
+
+  React.useEffect(() => {
+    let delayedRefresh: number | null = null
+    const refresh = () => {
+      void qc.invalidateQueries({ queryKey: stagingKeys.lists() })
+      void invalidateStorageUsage(qc)
+      if (delayedRefresh !== null) window.clearTimeout(delayedRefresh)
+      delayedRefresh = window.setTimeout(() => {
+        void qc.invalidateQueries({ queryKey: stagingKeys.lists() })
+        void invalidateStorageUsage(qc)
+        delayedRefresh = null
+      }, 1500)
+    }
+    const unsubscribe = subscribeStorage(refresh)
+    return () => {
+      unsubscribe()
+      if (delayedRefresh !== null) window.clearTimeout(delayedRefresh)
+    }
+  }, [qc])
 }
 
 export function pauseClipSync(): void {

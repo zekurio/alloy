@@ -3,11 +3,9 @@ import { ChevronDownIcon, CloudUploadIcon, Loader2Icon } from "lucide-react"
 import * as React from "react"
 
 /**
- * Floating button that opens the sync queue (uploads and clip downloads).
- * It never *starts* a transfer — those originate elsewhere — it's a permanent
- * entry point: idle it shows a cloud, while transfers run it spins with a
- * count badge, and while the queue is open it morphs to a chevron so it
- * reads as "close".
+ * Floating button that opens current upload and clip download activity.
+ * It never *starts* a transfer — those originate elsewhere — and while the
+ * queue is open it morphs to a chevron so it reads as "close".
  */
 export function UploadStatusIndicator({
   activeCount,
@@ -25,8 +23,8 @@ export function UploadStatusIndicator({
       type="button"
       aria-label={
         activeCount > 0
-          ? `View sync activity — ${activeCount} in progress`
-          : "View sync activity"
+          ? `View transfer activity — ${activeCount} in progress`
+          : "View transfer activity"
       }
       {...props}
       aria-hidden={isOpen || undefined}

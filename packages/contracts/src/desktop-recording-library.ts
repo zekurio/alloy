@@ -43,11 +43,6 @@ export interface RecordingLibraryItem {
    * draft). Set by the desktop sync engine; cleared until a sync completes.
    */
   syncedRecordingId: string | null
-  /**
-   * User explicitly removed the server copy while keeping this local file.
-   * Auto-sync skips it until the user manually syncs it again.
-   */
-  syncExcluded: boolean
   /** Where this capture stands in the server sync pipeline. */
   syncState: RecordingLibrarySyncState
   createdAt: string
@@ -89,7 +84,6 @@ export interface RecordingLibraryMetaPatch {
   privacy?: ClipPrivacy | null
   uploadedClipId?: string | null
   syncedRecordingId?: string | null
-  syncExcluded?: boolean
 }
 
 export interface RecordingLibraryMetaUpdateResult {

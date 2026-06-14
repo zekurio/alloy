@@ -76,8 +76,8 @@ interface SyncHandlers {
 
 /**
  * A local capture heading to the server through the desktop sync queue
- * (auto-sync after gaming). Completed items vanish from the sync snapshot and
- * the server queue row takes over the story.
+ * after the user opts in. Completed items vanish from the sync snapshot and the
+ * server queue row takes over the story.
  */
 export function syncToQueueItem(
   sync: RecordingLibrarySyncItem,

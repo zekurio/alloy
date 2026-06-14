@@ -227,7 +227,6 @@ function libraryItemForFile(
     privacy: manifestEntry?.privacy ?? null,
     uploadedClipId: manifestEntry?.uploadedClipId ?? null,
     syncedRecordingId: manifestEntry?.syncedRecordingId ?? null,
-    syncExcluded: manifestEntry?.syncExcluded === true,
     syncState: syncStateForCapture(
       id,
       manifestEntry?.uploadedClipId ?? manifestEntry?.syncedRecordingId ?? null,

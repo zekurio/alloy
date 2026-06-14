@@ -22,7 +22,11 @@ import {
   type VideoKeyCommand,
 } from "./video-player-shell"
 import { VideoFrame } from "./video-player-video"
-import { mediaErrorMessage, sourceSpecKey } from "./video-source"
+import {
+  isInterruptedPlayRequest,
+  mediaErrorMessage,
+  sourceSpecKey,
+} from "./video-source"
 
 export function PlayerCore({
   spec,
@@ -64,6 +68,7 @@ export function PlayerCore({
   const mutedRef = React.useRef(initialMuted)
   const chromeHideTimerRef = React.useRef<number | null>(null)
   const lastTimeRef = React.useRef(0)
+  const playRequestIdRef = React.useRef(0)
   const resumeRef = React.useRef<{ time: number; play: boolean } | null>(null)
   const prevSourceRef = React.useRef<{
     identity: string
@@ -157,6 +162,7 @@ export function PlayerCore({
 
     if (!isSourceChange) return
 
+    playRequestIdRef.current += 1
     setStatus({ kind: "loading" })
     setBufferedEnd(0)
     setHasRenderedFrame(false)
@@ -203,9 +209,17 @@ export function PlayerCore({
   const playInternal = React.useCallback(async (reportBlocked = true) => {
     const video = videoRef.current
     if (!video) return
+    const requestId = playRequestIdRef.current + 1
+    playRequestIdRef.current = requestId
     try {
       await video.play()
     } catch (err) {
+      if (
+        requestId !== playRequestIdRef.current ||
+        isInterruptedPlayRequest(err)
+      ) {
+        return
+      }
       if (!reportBlocked) return
       const message = errorMessage(err, "Playback failed")
       if (onPlaybackErrorRef.current) {
@@ -218,6 +232,7 @@ export function PlayerCore({
   }, [])
 
   const pauseInternal = React.useCallback(() => {
+    playRequestIdRef.current += 1
     videoRef.current?.pause()
   }, [])
 

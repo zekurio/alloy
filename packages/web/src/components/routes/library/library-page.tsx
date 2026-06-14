@@ -31,14 +31,13 @@ import {
 import { toast } from "@alloy/ui/lib/toast"
 import { useNavigate } from "@tanstack/react-router"
 import {
+  BanIcon,
   ClapperboardIcon,
-  CloudIcon,
   FolderInputIcon,
   HardDriveIcon,
   ImageIcon,
   LayersIcon,
   LibraryIcon,
-  MonitorIcon,
   SearchIcon,
   VideoIcon,
 } from "lucide-react"
@@ -331,17 +330,15 @@ function LibraryToolbar({
             key={group.key}
             size="xl"
             title={
-              group.kind === "cloud"
-                ? "Clips uploaded to the server"
+              group.kind === "no-game"
+                ? "Captures without a selected game"
                 : group.label
             }
             data-active={groupKey === group.key ? "true" : undefined}
             onClick={() => onGroupChange(group.key)}
           >
-            {group.kind === "desktop" ? (
-              <MonitorIcon />
-            ) : group.kind === "cloud" ? (
-              <CloudIcon />
+            {group.kind === "no-game" ? (
+              <BanIcon />
             ) : (
               <GameIcon src={group.iconUrl} name={group.label} />
             )}

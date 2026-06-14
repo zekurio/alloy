@@ -31,6 +31,8 @@ impl Recorder {
                 params.obs_runtime_dir.as_ref(),
             );
 
+        self.refresh_active_capture_metadata(&settings);
+        let active_video_config_changed = self.active_video_config_changed(&settings);
         let next_quality = effective_quality(&settings);
         let next_adapter = gpu_adapter(&settings);
         let needs_reinit = self
@@ -44,7 +46,10 @@ impl Recorder {
             .as_ref()
             .is_some_and(|current| active_settings_require_restart(current, &settings))
             || active_paths_changed
-            || needs_reinit;
+            || needs_reinit
+            || active_video_config_changed;
+        let restart_manual_long_recording =
+            active_output_should_stop && self.manual_long_recording && self.long_session.is_some();
 
         self.settings = Some(settings);
         self.output_folder = Some(output_folder);
@@ -56,7 +61,7 @@ impl Recorder {
             self.stop_all_outputs(true)?;
         }
 
-        if needs_reinit {
+        if needs_reinit || active_video_config_changed {
             self.shutdown_obs();
         }
 
@@ -83,6 +88,9 @@ impl Recorder {
             return Err(error);
         }
 
+        if restart_manual_long_recording {
+            self.restart_manual_long_recording();
+        }
         // Re-evaluate capture targets right away so outputs stopped by this
         // reconfigure (or enabled by it) resume without waiting for the next
         // detection tick.
@@ -903,6 +911,51 @@ impl Recorder {
         }
     }
 
+    fn refresh_active_capture_metadata(&mut self, settings: &RecordingSettings) {
+        if settings.capture_mode != RecordingCaptureMode::Game {
+            return;
+        }
+        if let Some(game) = self.active_game.as_mut() {
+            refresh_capture_metadata(game);
+        }
+    }
+
+    fn active_video_config_changed(&self, settings: &RecordingSettings) -> bool {
+        let Some(session) = self.capture_owner_session() else {
+            return false;
+        };
+        let game = if settings.capture_mode == RecordingCaptureMode::Display {
+            None
+        } else {
+            self.active_game.as_ref()
+        };
+        let source_kind = source_kind(settings, game);
+        let video_config = obs_video_config(settings, game, source_kind);
+        session.video_config != video_config
+    }
+
+    fn restart_manual_long_recording(&mut self) {
+        if self.long_session.is_some() || !self.settings_enabled() {
+            return;
+        }
+        let settings = self.settings.clone().unwrap_or_default();
+        if !self.capture_target_available(&settings) {
+            return;
+        }
+        self.manual_long_recording = true;
+        if let Err(error) = self.start_long_recording() {
+            self.last_error = Some(error.clone());
+            let status = self.status();
+            emit_event(RecordingEvent::Error { error, status });
+        }
+    }
+
+    fn settings_enabled(&self) -> bool {
+        self.settings
+            .as_ref()
+            .is_some_and(|settings| settings.enabled)
+    }
+
     fn refresh_active_output_for_focus(&mut self) -> Result<(), String> {
         self.refresh_active_pause()?;
         self.refresh_active_source()
@@ -942,6 +995,19 @@ impl Recorder {
     }
 
     fn refresh_active_source(&mut self) -> Result<(), String> {
+        let settings = self.settings.clone().unwrap_or_default();
+        self.refresh_active_capture_metadata(&settings);
+        if !self.active_video_config_changed(&settings) {
+            return Ok(());
+        }
+
+        let restart_manual_long_recording = self.manual_long_recording && self.long_session.is_some();
+        self.stop_all_outputs(true)?;
+        self.shutdown_obs();
+        if restart_manual_long_recording {
+            self.restart_manual_long_recording();
+        }
+        self.tick();
         Ok(())
     }
 

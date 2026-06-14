@@ -1,10 +1,8 @@
 import { cn } from "@alloy/ui/lib/utils"
 import * as React from "react"
 
-import {
-  filmstripCellsForRange,
-  useFilmstripCellCount,
-} from "@/lib/media-filmstrip"
+import { FilmstripCanvas } from "@/components/media/filmstrip-canvas"
+import { useFilmstripCellCount } from "@/lib/media-filmstrip"
 import { formatTrimMs } from "@/lib/media-time"
 
 /**
@@ -337,19 +335,13 @@ function FilmstripCells({
     MAX_FILMSTRIP_CELLS,
     frames.length,
   )
-  const cells = filmstripCellsForRange({ frames, cellCount, durationMs })
   return (
-    <div ref={stripRef} className="flex size-full">
-      {cells.map((cell, i) => (
-        <img
-          key={i}
-          src={cell}
-          alt=""
-          draggable={false}
-          loading="lazy"
-          className="h-full min-w-0 flex-1 object-cover"
-        />
-      ))}
+    <div ref={stripRef} className="size-full">
+      <FilmstripCanvas
+        frames={frames}
+        cellCount={cellCount}
+        durationMs={durationMs}
+      />
     </div>
   )
 }

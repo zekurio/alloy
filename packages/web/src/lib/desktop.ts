@@ -116,7 +116,7 @@ export interface AlloyDesktopRecordingApi {
   cancelClipDownload(clipId: string): Promise<void>
   /** Snapshot of active + finished (undismissed) clip downloads. */
   listClipDownloads(): Promise<RecordingLibraryDownload[]>
-  /** Snapshot of the upload sync queue (auto-sync after gaming). */
+  /** Snapshot of the manual upload sync queue. */
   getSync?(): Promise<RecordingLibrarySyncSnapshot>
   /** Pauses the sync queue; aborts the in-flight upload back to queued. */
   pauseSync?(): Promise<RecordingLibrarySyncSnapshot>

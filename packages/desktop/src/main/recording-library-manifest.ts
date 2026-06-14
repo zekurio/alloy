@@ -48,8 +48,6 @@ export interface CaptureManifestEntry {
   uploadedClipId?: string | null
   /** Server staging-recording id this capture was synced to (owner-only draft). */
   syncedRecordingId?: string | null
-  /** User kept the local file after removing the server copy; skip auto-sync. */
-  syncExcluded?: boolean
   /** Local play session the capture was recorded in, stamped at save time. */
   gameSessionId?: string | null
 }

@@ -29,7 +29,6 @@ import {
   HardDriveIcon,
   ImageIcon,
   Link2Icon,
-  MonitorIcon,
   Trash2Icon,
   UploadIcon,
 } from "lucide-react"
@@ -121,10 +120,16 @@ function LibraryEditorContent({
   const [deletedLast, setDeletedLast] = React.useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
 
+  const currentEntry = navigation.currentEntry
   const item = React.useMemo(() => {
-    const entry = navigation.currentEntry
-    return entry?.type === "local" ? entry.item : null
-  }, [navigation.currentEntry])
+    return currentEntry?.type === "local" ? currentEntry.item : null
+  }, [currentEntry])
+
+  React.useEffect(() => {
+    if (currentEntry && currentEntry.type !== "local") {
+      navigateToEntry(currentEntry)
+    }
+  }, [currentEntry, navigateToEntry])
 
   const deleteCapture = async () => {
     if (deleting || !item) return
@@ -179,6 +184,14 @@ function LibraryEditorContent({
   }
 
   if (!snapshot) {
+    return (
+      <AppMain>
+        <LoadingState className="py-16" />
+      </AppMain>
+    )
+  }
+
+  if (currentEntry && currentEntry.type !== "local") {
     return (
       <AppMain>
         <LoadingState className="py-16" />
@@ -480,18 +493,16 @@ function EditorBody({
             </>
           ) : (
             <>
-              <div className="text-foreground-dim flex min-w-0 items-center gap-1.5 text-sm">
-                {item.source === "display" ? (
-                  <MonitorIcon className="size-3.5" />
-                ) : (
+              {item.displayGameName ? (
+                <div className="text-foreground-dim flex min-w-0 items-center gap-1.5 text-sm">
                   <GameIcon
                     src={item.displayGameIconUrl}
                     name={item.displayGameName}
                     size="sm"
                   />
-                )}
-                <span className="truncate">{item.displayGameName}</span>
-              </div>
+                  <span className="truncate">{item.displayGameName}</span>
+                </div>
+              ) : null}
               <div className="border-border bg-surface-raised/40 flex min-h-40 flex-col items-center justify-center gap-3 rounded-md border border-dashed text-center">
                 <ImageIcon className="text-foreground-faint size-8" />
                 <p className="text-foreground-muted text-sm">

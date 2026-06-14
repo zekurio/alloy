@@ -29,7 +29,7 @@ function SectionTitle({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="section-title"
       className={cn(
-        "flex items-center gap-2 text-xl leading-7 font-semibold tracking-[-0.02em] text-foreground",
+        "flex min-h-8 items-center gap-2 text-xl leading-7 font-semibold tracking-[-0.02em] text-foreground",
         "[&_svg]:size-5 [&_svg]:shrink-0",
         className,
       )}

@@ -201,7 +201,6 @@ function StagingEditorBody({ row }: { row: StagingRecordingRow }) {
                 await detachLocalServerLink({
                   item: localItem,
                   serverId: row.id,
-                  excludeFromAutoSync: true,
                 }).catch(() => undefined)
                 toast.error(
                   "Recording deleted from server, but the local copy couldn't be removed",
@@ -214,7 +213,6 @@ function StagingEditorBody({ row }: { row: StagingRecordingRow }) {
                 await detachLocalServerLink({
                   item: localItem,
                   serverId: row.id,
-                  excludeFromAutoSync: true,
                 })
                 toast.success("Recording deleted from server")
               } catch {

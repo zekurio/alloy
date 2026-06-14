@@ -86,23 +86,6 @@ export function ModeSection({
           </p>
         ) : null}
       </div>
-
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <div className="text-sm font-semibold">Auto-sync after gaming</div>
-          <p className="text-foreground-dim mt-0.5 text-xs">
-            Upload new clips to your server as private backups when the game
-            closes.
-          </p>
-        </div>
-        <Switch
-          checked={settings.autoSyncAfterGaming}
-          disabled={busy}
-          onCheckedChange={(autoSyncAfterGaming) =>
-            void save({ ...settings, autoSyncAfterGaming })
-          }
-        />
-      </div>
     </div>
   )
 }
