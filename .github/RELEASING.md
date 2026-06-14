@@ -15,8 +15,14 @@ auto-update files:
 - `latest.yml` for stable releases or `nightly.yml` for nightly releases
 - `checksums.txt`
 
-Server distribution is handled by the Docker workflow. Release notes include
-the matching pinned image tag and the channel tag to use.
+Server distribution for releases is handled by the **Release** workflow's
+server image job. The standalone **Docker** workflow is only for `main` and
+manual image builds. Release notes include the matching pinned image tag and
+the channel tag to use.
+
+Desktop auto-update follows the installed app's version channel. Stable builds
+look at `latest.yml` and reject nightly versions; nightly builds look at
+`nightly.yml` and reject stable versions.
 
 ## Stable Releases
 
@@ -38,10 +44,10 @@ the matching pinned image tag and the channel tag to use.
    ```
 
 3. The **Release** workflow runs formatting, lint, and typecheck, builds the
-   Windows desktop installer, attaches only desktop/update assets, and publishes
-   the GitHub Release.
+   Windows desktop installer, publishes the server image, attaches only
+   desktop/update assets, and publishes the GitHub Release.
 
-4. Publishing the release triggers **Docker**, which publishes:
+4. The server image job publishes:
    - `ghcr.io/zekurio/alloy:vX.Y.Z`
    - `ghcr.io/zekurio/alloy:latest`
 
@@ -57,14 +63,15 @@ To cut a nightly manually, run **Release** with:
 - `channel`: `nightly`
 - `version`: empty
 
-The workflow derives the nightly version from the current root package version,
-the UTC date, and the GitHub run number. Nightly releases publish:
+The workflow derives the nightly version from the next patch after the current
+root package version, the UTC date, and the GitHub run number. For example,
+`0.0.1` produces `0.0.2-nightly.YYYYMMDD.<run>`. Nightly releases publish:
 
 - the Windows desktop installer
 - `nightly.yml`
 - blockmaps and checksums
 
-The **Docker** workflow publishes:
+The server image job publishes:
 
 - `ghcr.io/zekurio/alloy:vX.Y.Z-nightly.YYYYMMDD.<run>`
 - `ghcr.io/zekurio/alloy:nightly`

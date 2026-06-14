@@ -51,7 +51,14 @@ if (!version) {
   process.exit(1)
 }
 
-if (!/^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$/.test(version)) {
+const stableVersionPattern = /^[0-9]+\.[0-9]+\.[0-9]+$/
+const nightlyVersionPattern =
+  /^[0-9]+\.[0-9]+\.[0-9]+-nightly\.[0-9]{8}\.[0-9]+$/
+
+if (
+  !stableVersionPattern.test(version) &&
+  !nightlyVersionPattern.test(version)
+) {
   console.error(`Invalid release version: ${version}`)
   process.exit(1)
 }
@@ -83,6 +90,13 @@ for (const filePath of releasePackageFiles) {
 
     if (publishConfig.channel !== desktopChannel) {
       publishConfig.channel = desktopChannel
+      fileChanged = true
+    }
+
+    const releaseType = desktopChannel === "nightly" ? "prerelease" : "release"
+
+    if (publishConfig.releaseType !== releaseType) {
+      publishConfig.releaseType = releaseType
       fileChanged = true
     }
   }

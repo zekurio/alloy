@@ -5,16 +5,13 @@ on:
   push:
     branches:
       - main
-  release:
-    types:
-      - published
 
 permissions:
   contents: read
   packages: write
 
 concurrency:
-  group: docker-${{ github.event_name == 'release' && github.event.release.tag_name || github.sha }}
+  group: docker-${{ github.sha }}
   cancel-in-progress: false
 
 env:
@@ -29,8 +26,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.sha }}
 
       - name: Set up Nix
         uses: cachix/install-nix-action@v31
@@ -44,39 +39,12 @@ jobs:
       - name: Resolve image metadata
         id: meta
         shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-          RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
-          if [[ "$EVENT_NAME" == "release" ]]; then
-            version="${RELEASE_TAG#v}"
+          short_sha="$(git rev-parse --short=12 HEAD)"
 
-            if [[ "$RELEASE_TAG" != v* || ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
-              echo "Release tags must be v-prefixed semver, got: $RELEASE_TAG" >&2
-              exit 1
-            fi
+          export SHORT_SHA="$short_sha"
 
-            if [[ "$version" == *-nightly.* ]]; then
-              channel_tag="nightly"
-            elif [[ "$RELEASE_PRERELEASE" == "true" ]]; then
-              # Non-nightly prereleases ship only their pinned version tag.
-              channel_tag=""
-            else
-              channel_tag="latest"
-            fi
-
-            {
-              echo "version=$version"
-              echo "primary_tag=$RELEASE_TAG"
-              echo "channel_tag=$channel_tag"
-            } >> "$GITHUB_OUTPUT"
-          else
-            short_sha="$(git rev-parse --short=12 HEAD)"
-
-            export SHORT_SHA="$short_sha"
-
-            version="$(node <<'NODE'
+          version="$(node <<'NODE'
           const { readFileSync } = require("node:fs");
           const config = JSON.parse(readFileSync("package.json", "utf8"));
           const stableCore = String(config.version).replace(/[-+].*$/, "");
@@ -92,17 +60,15 @@ jobs:
           const shortSha = process.env.SHORT_SHA;
           console.log(`${major}.${minor}.${patch}-main.${runNumber}.${shortSha}`);
           NODE
-            )"
+          )"
 
-            {
-              echo "version=$version"
-              echo "primary_tag=main-$short_sha"
-              echo "channel_tag=main"
-            } >> "$GITHUB_OUTPUT"
-          fi
+          {
+            echo "version=$version"
+            echo "primary_tag=main-$short_sha"
+            echo "channel_tag=main"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Stamp image version into package.json
-        if: github.event_name != 'release'
         shell: bash
         env:
           IMAGE_VERSION: ${{ steps.meta.outputs.version }}

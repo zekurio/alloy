@@ -243,10 +243,11 @@ Alloy has stable and nightly release channels. Stable releases use tags named
 `vX.Y.Z`; nightly releases use tags named `vX.Y.Z-nightly.YYYYMMDD.<run>`.
 
 GitHub Release assets are desktop-only: the Windows installer, Electron updater
-metadata (`latest.yml` or `nightly.yml`), blockmaps, and checksums. Server
-distribution is via GHCR Docker images published from the same release event:
-use `ghcr.io/zekurio/alloy:latest` for stable, `ghcr.io/zekurio/alloy:nightly`
-for nightly, or pin the exact `:vX.Y.Z` / `:vX.Y.Z-nightly...` tag.
+metadata (`latest.yml` or `nightly.yml`), blockmaps, and checksums. The same
+release workflow publishes GHCR server images: use
+`ghcr.io/zekurio/alloy:latest` for stable,
+`ghcr.io/zekurio/alloy:nightly` for nightly, or pin the exact `:vX.Y.Z` /
+`:vX.Y.Z-nightly...` tag.
 
 ## Package READMEs
 

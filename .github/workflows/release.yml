@@ -24,6 +24,11 @@ on:
 
 permissions:
   contents: write
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 concurrency:
   group: release-${{ github.workflow }}-${{ github.ref }}
@@ -119,18 +124,19 @@ jobs:
           short_sha="$(git rev-parse --short=12 HEAD)"
 
           if [[ "${GITHUB_EVENT_NAME}" == "schedule" || ( "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${DISPATCH_CHANNEL}" == "nightly" ) ]]; then
-            base_version="$(node -e '
+            target_version="$(node -e '
               const { readFileSync } = require("node:fs");
               const version = JSON.parse(readFileSync("package.json", "utf8")).version;
-              const base = String(version).replace(/[-+].*$/, "");
-              if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(base)) {
+              const match = /^([0-9]+)\.([0-9]+)\.([0-9]+)$/.exec(String(version));
+              if (!match) {
                 console.error(`Invalid package.json version: ${version}`);
                 process.exit(1);
               }
-              console.log(base);
+              const [, major, minor, patch] = match;
+              console.log(`${major}.${minor}.${Number(patch) + 1}`);
             ')"
             nightly_date="$(date -u -d "$RUN_STARTED_AT" +%Y%m%d)"
-            version="$base_version-nightly.$nightly_date.${GITHUB_RUN_NUMBER}"
+            version="$target_version-nightly.$nightly_date.${GITHUB_RUN_NUMBER}"
             tag="v$version"
 
             {
@@ -322,12 +328,55 @@ jobs:
             packages/desktop/release/${{ needs.preflight.outputs.update_manifest }}
           if-no-files-found: error
 
+  server_image:
+    name: Publish server image
+    needs: [preflight]
+    if: ${{ !failure() && !cancelled() && needs.preflight.result == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.preflight.outputs.ref }}
+
+      - name: Set up Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Set up Cachix substituter
+        uses: cachix/cachix-action@v17
+        with:
+          name: zekurio
+          skipPush: true
+
+      - name: Stamp image version
+        shell: bash
+        env:
+          IMAGE_VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          node <<'NODE'
+          const { readFileSync, writeFileSync } = require("node:fs");
+          const config = JSON.parse(readFileSync("package.json", "utf8"));
+          config.version = process.env.IMAGE_VERSION;
+          writeFileSync("package.json", `${JSON.stringify(config, null, 2)}\n`);
+          NODE
+
+      - name: Publish server image
+        uses: ./.github/actions/publish-nix-image
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ needs.preflight.outputs.tag }}
+            type=raw,value=${{ needs.preflight.outputs.update_channel }}
+
   publish:
     name: Publish GitHub release
     needs:
       - preflight
       - desktop
-    if: ${{ !failure() && !cancelled() && needs.preflight.result == 'success' && needs.desktop.result == 'success' }}
+      - server_image
+    if: ${{ !failure() && !cancelled() && needs.preflight.result == 'success' && needs.desktop.result == 'success' && needs.server_image.result == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
