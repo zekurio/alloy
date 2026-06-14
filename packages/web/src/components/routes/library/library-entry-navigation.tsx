@@ -98,9 +98,16 @@ function entryMatchesCurrent(
   entry: NavigableLibraryEntry,
   current: CurrentLibraryEntry,
 ): boolean {
-  if (entry.type !== current.type) return false
-  if (entry.type === "local") return entry.item.id === current.id
-  return entry.row.id === current.id
+  switch (current.type) {
+    case "local":
+      if (entry.type === "local") return entry.item.id === current.id
+      return entry.localItem?.id === current.id
+    case "cloud":
+      return entry.type === "cloud" && entry.row.id === current.id
+    case "staging":
+      return entry.type === "staging" && entry.row.id === current.id
+  }
+  return false
 }
 
 export function useNavigateToLibraryEntry() {

@@ -73,7 +73,7 @@ export function useTrimPlayback({
   const seek = (sourceMs: number) => {
     const clamped = Math.min(Math.max(0, sourceMs), durationMs || sourceMs)
     setCurrentMs(clamped)
-    playerRef.current?.seek(clamped / 1000)
+    playerRef.current?.seek(clamped / 1000, false)
   }
 
   const togglePlayback = () => {
@@ -121,7 +121,7 @@ export function useTrimPlayback({
     setTrim((current) => ({ ...current, startMs: clamped }))
     playerRef.current?.pause()
     setCurrentMs(clamped)
-    playerRef.current?.seek(clamped / 1000)
+    playerRef.current?.seek(clamped / 1000, false)
   }
 
   const handleTrimEndChange = (sourceMs: number) => {
@@ -132,7 +132,7 @@ export function useTrimPlayback({
     setTrim((current) => ({ ...current, endMs: clamped }))
     playerRef.current?.pause()
     setCurrentMs(clamped)
-    playerRef.current?.seek(clamped / 1000)
+    playerRef.current?.seek(clamped / 1000, false)
   }
 
   // Dragging the grab bar slides the whole kept range: length is preserved,
@@ -147,7 +147,7 @@ export function useTrimPlayback({
     setTrim({ startMs: clamped, endMs: clamped + lengthMs })
     playerRef.current?.pause()
     setCurrentMs(clamped)
-    playerRef.current?.seek(clamped / 1000)
+    playerRef.current?.seek(clamped / 1000, false)
   }
 
   const resetTrim = () => {

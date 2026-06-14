@@ -16,6 +16,7 @@ import {
   useFloatingSurfaceOpenListener,
 } from "@/components/app/floating-surface-events"
 import type { AppSearch } from "@/lib/app-search"
+import { useInvalidateStorageOnClipSync } from "@/lib/clip-sync"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
 import type { PublishPayload } from "./new-clip-helpers"
@@ -66,7 +67,7 @@ function UploadQueuePopover({
   isQueueLoading: boolean
   isQueueUnavailable: boolean
   syncPaused: boolean | null
-  onToggleSyncPause: () => void
+  onToggleSyncPause?: () => void
   onClearCompleted: () => void
 }) {
   const isMobile = useIsMobile()
@@ -75,9 +76,7 @@ function UploadQueuePopover({
   // content is fixed-positioned, so the queue still opens there after a publish.
   const pathname = useLocation({ select: (location) => location.pathname })
   const onLibraryEditor = /^\/library\/[^/]+/.test(pathname)
-  // The indicator is a permanent entry point to the sync queue — visible even
-  // when idle, hidden only on the editor route where it overlaps the timeline.
-  const showIndicator = !onLibraryEditor
+  const showIndicator = !onLibraryEditor && (activeCount > 0 || queueOpen)
   const queueGlassStyle = {
     /* Row tint is opaque (it sits inside the already-blurred surface).
        The surface fill itself is left to the default `--alloy-blur-bg`
@@ -154,7 +153,7 @@ function UploadQueuePopover({
             style={queueGlassStyle}
             aria-describedby={undefined}
           >
-            <DialogTitle className="sr-only">Sync activity</DialogTitle>
+            <DialogTitle className="sr-only">Transfer activity</DialogTitle>
             {content}
           </DialogContent>
         </Dialog>
@@ -204,6 +203,7 @@ function UploadQueuePopover({
 }
 
 function AuthedUploadFlow() {
+  useInvalidateStorageOnClipSync()
   const { queueOpen, setQueueOpen, setActiveCount, setPublishClip } =
     useUploadFlowControls()
   const navigate = useNavigate()

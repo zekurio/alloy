@@ -224,7 +224,10 @@ impl Recorder {
                         obs.set_int(
                             output_settings,
                             "max_size_mb",
-                            i64::from(estimated_replay_buffer_mb(settings)),
+                            i64::from(estimated_replay_buffer_mb(
+                                settings,
+                                &output_quality,
+                            )),
                         )
                     };
                     result.map(|_| "replay_buffer")

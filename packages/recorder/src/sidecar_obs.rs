@@ -340,9 +340,8 @@ fn target_bitrate_kbps(quality: &EffectiveQuality) -> u32 {
     }
 }
 
-fn estimated_replay_buffer_mb(settings: &RecordingSettings) -> u32 {
-    let quality = effective_quality(settings);
-    let video_kbps = target_bitrate_kbps(&quality);
+fn estimated_replay_buffer_mb(settings: &RecordingSettings, quality: &EffectiveQuality) -> u32 {
+    let video_kbps = target_bitrate_kbps(quality);
     let audio_kbps = 320;
     let megabytes = u64::from(video_kbps.saturating_add(audio_kbps))
         .saturating_mul(u64::from(settings.replay_buffer_seconds))

@@ -233,8 +233,6 @@ export interface RecordingDisplay {
 
 export interface RecordingSettings {
   enabled: boolean
-  /** Upload new replay clips to the server once their game exits. */
-  autoSyncAfterGaming: boolean
   captureMode: RecordingCaptureMode
   /** OBS monitor id for desktop capture; empty string = backend default. */
   selectedDisplayId: string

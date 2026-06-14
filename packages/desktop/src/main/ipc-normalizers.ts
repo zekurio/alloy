@@ -439,9 +439,6 @@ export function normalizeLibraryMetaPatch(
   ) {
     patch.syncedRecordingId = record.syncedRecordingId
   }
-  if (typeof record.syncExcluded === "boolean") {
-    patch.syncExcluded = record.syncExcluded
-  }
   return patch
 }
 

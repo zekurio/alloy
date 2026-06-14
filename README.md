@@ -216,19 +216,31 @@ Storage is configured declaratively. For filesystem storage, set
 `ALLOY_STORAGE_DRIVER=s3` plus bucket, region, and access key files. Alloy
 stores clip objects under the `clips/` prefix and user assets under the `users/`
 prefix in the configured bucket. Uploads are presigned so browsers PUT directly
-to the bucket. Configure bucket CORS to allow the Alloy web origin to `PUT` with
-the `Content-Type` header.
+to the bucket, and direct playback may redirect browsers to presigned GET URLs.
+Configure bucket CORS to allow the Alloy web origin to `GET` and `PUT`.
 
 ```json
 [
   {
     "AllowedOrigins": ["https://alloy.example.com"],
-    "AllowedMethods": ["PUT"],
-    "AllowedHeaders": ["Content-Type"],
-    "ExposeHeaders": ["ETag"],
-    "MaxAgeSeconds": 3000
+    "AllowedMethods": ["GET", "PUT"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": [
+      "Content-Range",
+      "Content-Length",
+      "ETag",
+      "Accept-Ranges"
+    ],
+    "MaxAgeSeconds": 3600
   }
 ]
+```
+
+With Wrangler, use the equivalent wrapped policy shape:
+
+```sh
+npx wrangler r2 bucket cors set alloy-bucket --file infra/cloudflare/r2-cors.clips-zekurio-me.json
+npx wrangler r2 bucket cors list alloy-bucket
 ```
 
 ### OAuth

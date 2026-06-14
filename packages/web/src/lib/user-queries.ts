@@ -30,6 +30,10 @@ export const userKeys = {
     [...userKeys.all, "following", handle] as const,
 }
 
+export function invalidateStorageUsage(qc: QueryClient): Promise<void> {
+  return qc.invalidateQueries({ queryKey: userKeys.storage() })
+}
+
 export function useUserSearchQuery(q: string) {
   const trimmed = q.trim()
   return useQuery({

@@ -15,6 +15,7 @@ import {
 import { api } from "./api"
 import { clipKeys } from "./clip-query-keys"
 import { stagingKeys } from "./staging-query-keys"
+import { invalidateStorageUsage } from "./user-queries"
 
 export { stagingKeys }
 
@@ -76,6 +77,7 @@ export function useTrimStagingMutation() {
     onSuccess: (row) => patchStagingDetail(qc, row),
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: stagingKeys.all })
+      void invalidateStorageUsage(qc)
     },
   })
 }
@@ -98,6 +100,7 @@ export function useDeleteStagingMutation() {
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: stagingKeys.lists() })
+      void invalidateStorageUsage(qc)
     },
   })
 }
@@ -118,6 +121,7 @@ export function usePublishStagingMutation() {
       removeStagingFromLists(qc, id)
       void qc.invalidateQueries({ queryKey: stagingKeys.lists() })
       void qc.invalidateQueries({ queryKey: clipKeys.all })
+      void invalidateStorageUsage(qc)
     },
   })
 }

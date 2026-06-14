@@ -82,11 +82,8 @@ export function filterUploadedClips(
   const query = rawQuery.trim().toLowerCase()
   return rows.filter((row) => {
     if (active) {
-      // A desktop source holds no uploaded clips; a game source matches by
-      // name; the cloud catch-all keeps only clips without a game.
-      if (active.kind === "desktop") return false
       const gameName = row.gameRef?.name ?? row.game
-      if (active.kind === "cloud") {
+      if (active.kind === "no-game") {
         if (gameName) return false
       } else if (active.nameKey !== gameNameKey(gameName ?? "")) {
         return false
@@ -116,11 +113,8 @@ export function filterStagingRecordings(
     if (kind === "replay" && row.kind !== "clip") return false
     if (kind === "long-recording" && row.kind !== "session") return false
     if (active) {
-      // Staging recordings live on the server, not the desktop; match the
-      // cloud catch-all (no game) or a specific game like uploaded clips do.
-      if (active.kind === "desktop") return false
       const gameName = row.gameRef?.name ?? row.game
-      if (active.kind === "cloud") {
+      if (active.kind === "no-game") {
         if (gameName) return false
       } else if (active.nameKey !== gameNameKey(gameName ?? "")) {
         return false
@@ -226,22 +220,19 @@ export function buildLibraryEntries({
     }
   }
 
-  const local: LibraryEntry[] =
-    active?.kind === "cloud"
-      ? []
-      : filterLibraryItems(localItems, {
-          localKeys: active?.localKeys ?? null,
-          kind,
-          query,
-        }).map((item) => {
-          const view = enrichLibraryItem(item, gamesByName)
-          return {
-            type: "local",
-            key: `local:${view.id}`,
-            createdAt: view.createdAt,
-            item: view,
-          }
-        })
+  const local: LibraryEntry[] = filterLibraryItems(localItems, {
+    localKeys: active?.localKeys ?? null,
+    kind,
+    query,
+  }).map((item) => {
+    const view = enrichLibraryItem(item, gamesByName)
+    return {
+      type: "local",
+      key: `local:${view.id}`,
+      createdAt: view.createdAt,
+      item: view,
+    }
+  })
 
   const cloudVisible = kind === "all" || kind === "replay"
   const cloud: LibraryEntry[] = cloudVisible
@@ -325,16 +316,15 @@ function draftMatchesGroup(
   return draft.project.clips.some((clip) => {
     const local = localById.get(clip.sourceId)
     if (local) {
-      if (active.kind === "cloud") return false
-      if (active.kind === "desktop")
+      if (active.kind === "no-game")
         return active.localKeys.includes(local.groupKey)
       return active.nameKey === gameNameKey(local.gameName ?? local.groupLabel)
     }
 
     const row = uploadedById.get(clip.sourceId)
-    if (!row || active.kind === "desktop") return false
+    if (!row) return false
     const gameName = row.gameRef?.name ?? row.game
-    if (active.kind === "cloud") return !gameName
+    if (active.kind === "no-game") return !gameName
     return active.nameKey === gameNameKey(gameName ?? "")
   })
 }

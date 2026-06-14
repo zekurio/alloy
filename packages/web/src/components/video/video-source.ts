@@ -35,3 +35,12 @@ export function mediaErrorMessage(video: HTMLVideoElement | null): string {
       return "Video playback failed."
   }
 }
+
+export function isInterruptedPlayRequest(cause: unknown): boolean {
+  return (
+    typeof cause === "object" &&
+    cause !== null &&
+    "name" in cause &&
+    cause.name === "AbortError"
+  )
+}

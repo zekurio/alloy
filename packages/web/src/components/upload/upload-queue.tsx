@@ -68,9 +68,9 @@ interface UploadQueueContentProps {
   isLoading?: boolean
   /** True when the initial server queue stream could not hydrate the cache. */
   isUnavailable?: boolean
-  /** Whether the desktop sync queue is paused; null hides the control. */
+  /** Whether upload activity is paused; null hides the control. */
   syncPaused?: boolean | null
-  /** Pauses/resumes the desktop sync queue. */
+  /** Pauses/resumes upload activity. */
   onToggleSyncPause?: () => void
   /** Dismisses every finished (published) row in one go. */
   onClearCompleted?: () => void
@@ -118,7 +118,7 @@ export function UploadQueueContent({
   return (
     <div className="flex flex-col">
       <header className="mb-2 flex items-center justify-between px-1">
-        <h2 className="text-foreground text-sm font-semibold">Sync</h2>
+        <h2 className="text-foreground text-sm font-semibold">Transfers</h2>
         <span className="text-foreground-muted text-xs font-semibold tabular-nums">
           {isUnavailable && queue.length === 0
             ? "unavailable"
@@ -139,10 +139,10 @@ export function UploadQueueContent({
             />
             <div className="space-y-1">
               <p className="text-foreground text-sm font-medium">
-                Sync status unavailable
+                Transfer status unavailable
               </p>
               <p className="text-foreground-muted text-xs font-semibold">
-                Reopen sync after the connection recovers.
+                Reopen transfers after the connection recovers.
               </p>
             </div>
           </div>
@@ -153,7 +153,7 @@ export function UploadQueueContent({
               className="text-foreground-muted size-4 animate-spin"
             />
             <p className="text-foreground text-sm font-medium">
-              Loading sync activity
+              Loading transfer activity
             </p>
           </div>
         ) : queue.length === 0 ? (
@@ -229,7 +229,7 @@ export function UploadQueueContent({
           <Button
             variant="ghost"
             size="sm"
-            aria-label="Close sync status"
+            aria-label="Close transfer status"
             onClick={onClose}
             className="text-foreground-muted w-full"
           >

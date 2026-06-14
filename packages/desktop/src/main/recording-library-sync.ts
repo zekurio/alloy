@@ -23,22 +23,17 @@ import {
   uploadFileToTicket,
   upsertGameSession,
 } from "./main-api"
-import { emitRecordingLibrarySyncEvent, onRecordingEvent } from "./recording"
+import { emitRecordingLibrarySyncEvent } from "./recording"
 import { readCaptureManifest, manifestKey } from "./recording-library-manifest"
-import {
-  findRecordingLibraryItem,
-  getRecordingLibrarySnapshot,
-} from "./recording-library-scan"
+import { findRecordingLibraryItem } from "./recording-library-scan"
 import { updateRecordingLibraryCaptureMeta } from "./recording-library-store"
 import { setSyncRegistryStatuses } from "./recording-library-sync-registry"
 import { cachedRecordingThumbnail } from "./recording-library-thumbnails"
 import {
   getLocalGameSession,
   markGameSessionSynced,
-  onGameSessionEnded,
-  type LocalGameSession,
 } from "./recording-session-tracker"
-import { getRecordingSettings, getStartupServerUrl } from "./server-store"
+import { getStartupServerUrl } from "./server-store"
 
 const logger = createLogger("sync")
 
@@ -65,7 +60,7 @@ interface SyncJob {
 }
 
 interface SyncQueueFile {
-  version: 1
+  version: 2
   paused: boolean
   items: Record<
     string,
@@ -89,32 +84,9 @@ let paused = false
 let blockedReason: RecordingLibrarySyncSnapshot["blockedReason"] = null
 let pumping = false
 
-/** Load persisted queue state and hook the session/capture triggers. */
+/** Load persisted queue state. Sync is opt-in, so items enter via "Sync now". */
 export function registerRecordingLibrarySync(): void {
   loadQueue()
-
-  onGameSessionEnded((session) => {
-    void handleSessionEnded(session)
-  })
-
-  // Replay saves can finalize after their game (and its session) already
-  // ended — pick those up as their manifest entry lands.
-  onRecordingEvent((event) => {
-    if (event.type !== "capture-ready") return
-    if (!getRecordingSettings().autoSyncAfterGaming) return
-    const manifest = readCaptureManifest()
-    const entry = manifest.captures[manifestKey(event.capture.filename)]
-    const sessionId = entry?.gameSessionId ?? null
-    if (!sessionId || entry?.syncedRecordingId || entry?.syncExcluded) return
-    const session = getLocalGameSession(sessionId)
-    if (!session || session.endedAt === null) return
-    const item = findRecordingLibraryItem(event.capture.id)
-    if (item && enqueueItem(item)) {
-      persistQueue()
-      publishSnapshot()
-      void pumpRecordingLibrarySync()
-    }
-  })
 }
 
 export function getRecordingLibrarySyncSnapshot(): RecordingLibrarySyncSnapshot {
@@ -181,19 +153,16 @@ export function retryRecordingLibrarySyncItem(captureId: string): void {
 
 /** Manual "Sync now" for a single library capture. */
 export function queueRecordingLibrarySyncItem(captureId: string): void {
-  let item = findRecordingLibraryItem(captureId)
+  const item = findRecordingLibraryItem(captureId)
   if (!item) throw new Error("Capture not found.")
-  if (item.syncedRecordingId) throw new Error("Capture is already synced.")
+  if (item.uploadedClipId || item.syncedRecordingId) {
+    throw new Error("Capture is already synced.")
+  }
   if (stagingKindForCapture(item.kind) === null) {
     throw new Error("Only clips and sessions can sync to the server.")
   }
   if (extname(item.filename).toLowerCase() !== ".mp4") {
     throw new Error("Only mp4 recordings can sync to the server.")
-  }
-  if (item.syncExcluded) {
-    updateRecordingLibraryCaptureMeta({ id: item.id, syncExcluded: false })
-    item = findRecordingLibraryItem(captureId)
-    if (!item) throw new Error("Capture not found.")
   }
   if (enqueueItem(item)) {
     persistQueue()
@@ -218,28 +187,6 @@ export function kickRecordingLibrarySync(): void {
     publishSnapshot()
   }
   void pumpRecordingLibrarySync()
-}
-
-async function handleSessionEnded(session: LocalGameSession): Promise<void> {
-  if (!getRecordingSettings().autoSyncAfterGaming) return
-
-  const manifest = readCaptureManifest()
-  let mutated = false
-  for (const item of getRecordingLibrarySnapshot().items) {
-    if (item.kind !== "replay") continue
-    if (item.syncedRecordingId) continue
-    if (item.syncExcluded) continue
-    if (extname(item.filename).toLowerCase() !== ".mp4") continue
-    const entry = manifest.captures[manifestKey(item.filename)]
-    if (entry?.syncExcluded) continue
-    if (entry?.gameSessionId !== session.id) continue
-    if (enqueueItem(item)) mutated = true
-  }
-  if (mutated) {
-    persistQueue()
-    publishSnapshot()
-  }
-  kickRecordingLibrarySync()
 }
 
 function enqueueItem(item: RecordingLibraryItem): boolean {
@@ -319,12 +266,6 @@ async function runSyncJob(serverUrl: string, job: SyncJob): Promise<void> {
     publishSnapshot()
     return
   }
-  if (capture.syncExcluded) {
-    jobs.delete(item.captureId)
-    persistQueue()
-    publishSnapshot()
-    return
-  }
 
   job.abort = new AbortController()
   let recordingId: string | null = null
@@ -390,7 +331,6 @@ async function runSyncJob(serverUrl: string, job: SyncJob): Promise<void> {
     updateRecordingLibraryCaptureMeta({
       id: item.captureId,
       syncedRecordingId: recordingId,
-      syncExcluded: false,
     })
     item.status = "completed"
     publishSnapshot()
@@ -515,7 +455,7 @@ function loadQueue(): void {
   try {
     const parsed: unknown = JSON.parse(readFileSync(queuePath(), "utf8"))
     const record = parsed as SyncQueueFile | null
-    if (record?.version !== 1 || typeof record.items !== "object") return
+    if (record?.version !== 2 || typeof record.items !== "object") return
     paused = record.paused === true
     for (const persisted of Object.values(record.items)) {
       if (typeof persisted?.captureId !== "string") continue
@@ -564,10 +504,6 @@ function rehydrateItems(): void {
       jobs.delete(job.item.captureId)
       continue
     }
-    if (item.syncExcluded) {
-      jobs.delete(job.item.captureId)
-      continue
-    }
     job.item.title = item.title
     job.item.gameName = item.gameName
     job.item.totalBytes = item.sizeBytes
@@ -578,7 +514,7 @@ function rehydrateItems(): void {
 
 function persistQueue(): void {
   const file: SyncQueueFile = {
-    version: 1,
+    version: 2,
     paused,
     items: Object.fromEntries(
       [...jobs.values()].map((job) => [

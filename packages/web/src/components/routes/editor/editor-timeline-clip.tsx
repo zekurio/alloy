@@ -2,11 +2,8 @@ import { cn } from "@alloy/ui/lib/utils"
 import { CloudIcon } from "lucide-react"
 import * as React from "react"
 
-import {
-  filmstripCellsForRange,
-  useFilmstripCellCount,
-  useMediaFilmstrip,
-} from "@/lib/media-filmstrip"
+import { FilmstripCanvas } from "@/components/media/filmstrip-canvas"
+import { useFilmstripCellCount, useMediaFilmstrip } from "@/lib/media-filmstrip"
 import { formatTrimMs } from "@/lib/media-time"
 
 import {
@@ -151,26 +148,16 @@ function ClipFilmstrip({
   if (rangeMs <= 0 || sourceDurationMs <= 0 || frames.length === 0) {
     return <div ref={stripRef} className="size-full" />
   }
-  const cells = filmstripCellsForRange({
-    frames,
-    cellCount,
-    durationMs: sourceDurationMs,
-    startMs: clip.sourceStartMs,
-    endMs: clip.sourceEndMs,
-  })
 
   return (
-    <div ref={stripRef} className="flex size-full">
-      {cells.map((cell, i) => (
-        <img
-          key={i}
-          src={cell}
-          alt=""
-          draggable={false}
-          loading="lazy"
-          className="h-full min-w-0 flex-1 object-cover"
-        />
-      ))}
+    <div ref={stripRef} className="size-full">
+      <FilmstripCanvas
+        frames={frames}
+        cellCount={cellCount}
+        durationMs={sourceDurationMs}
+        startMs={clip.sourceStartMs}
+        endMs={clip.sourceEndMs}
+      />
     </div>
   )
 }

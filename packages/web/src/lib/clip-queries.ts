@@ -19,6 +19,7 @@ import * as React from "react"
 import { api } from "./api"
 import { clipKeys } from "./clip-query-keys"
 import { useUploadQueueStream } from "./clip-queue-stream"
+import { invalidateStorageUsage } from "./user-queries"
 
 export { clipKeys }
 
@@ -229,6 +230,7 @@ export function useTrimClipMutation() {
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: clipKeys.all })
+      void invalidateStorageUsage(qc)
     },
   })
 }
@@ -249,6 +251,7 @@ export function useDeleteClipMutation() {
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: clipKeys.all })
+      void invalidateStorageUsage(qc)
     },
   })
 }
@@ -359,10 +362,10 @@ export function useInvalidateClips() {
   const qc = useQueryClient()
   // Stable identity: callers put this in effect/callback dependency arrays, so
   // a fresh function per render would cascade re-runs through their hooks.
-  return React.useCallback(
-    () => qc.invalidateQueries({ queryKey: clipKeys.all }),
-    [qc],
-  )
+  return React.useCallback(() => {
+    void qc.invalidateQueries({ queryKey: clipKeys.all })
+    void invalidateStorageUsage(qc)
+  }, [qc])
 }
 
 export type { ClipRow, QueueClip, UpdateClipInput, UserClip }
