@@ -264,7 +264,7 @@ in
     environment = lib.mkOption {
       type = lib.types.attrsOf lib.types.str;
       default = { };
-      example = { ALLOY_DATA_DIR = "/var/lib/alloy"; };
+      example = { ALLOY_STORAGE_FS_CLIPS_PATH = "/srv/alloy/clips"; };
       description = "Additional environment variables for Alloy. Values here override typed module defaults.";
     };
 
@@ -355,7 +355,7 @@ in
         region = lib.mkOption {
           type = lib.types.str;
           default = "";
-          description = "S3 region.";
+          description = "S3 region. Use \"auto\" for Cloudflare R2.";
         };
 
         endpoint = lib.mkOption {
@@ -547,7 +547,6 @@ in
           PORT = toString cfg.port;
           PUBLIC_SERVER_URL = cfg.publicServerUrl;
           TRUSTED_ORIGINS = lib.concatStringsSep "," ([ cfg.publicServerUrl ] ++ cfg.trustedOrigins);
-          ALLOY_DATA_DIR = cfg.stateDir;
           ALLOY_OPEN_REGISTRATIONS = lib.boolToString cfg.auth.openRegistrations;
           ALLOY_PASSKEY_ENABLED = lib.boolToString cfg.auth.passkeyEnabled;
           ALLOY_REQUIRE_AUTH_TO_BROWSE = lib.boolToString cfg.auth.requireAuthToBrowse;

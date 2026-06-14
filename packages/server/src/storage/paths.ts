@@ -1,5 +1,4 @@
 import type { StorageConfig } from "@alloy/contracts"
-import { DATA_DIR } from "@alloy/server/runtime/dirs"
 import { isAbsolute, resolve } from "@alloy/server/runtime/path"
 
 import { normalizeObjectPath } from "./object-path"
@@ -14,7 +13,7 @@ export function configuredFilesystemStoragePath(
 }
 
 export function filesystemStorageRoot(path: string): string {
-  return isAbsolute(path) ? resolve(path) : resolve(DATA_DIR, path)
+  return isAbsolute(path) ? resolve(path) : resolve(path)
 }
 
 export function objectStoragePrefix(namespace: StorageNamespace): string {

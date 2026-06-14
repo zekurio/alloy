@@ -12,7 +12,6 @@ let
     zlib
     zstd
   ];
-  dataDir = "${config.devenv.root}/data";
 in
 {
   imports = lib.optional (builtins.pathExists ./devenv.local.nix) ./devenv.local.nix;
@@ -54,7 +53,6 @@ in
     # Dev serves the web app from Vite (5173); the server adds its own public
     # origin to the trusted set on top of this.
     TRUSTED_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173";
-    ALLOY_DATA_DIR = dataDir;
     ALLOY_VIEWER_COOKIE_SECRET = "dev-viewer-cookie-secret-32-bytes-min";
     ALLOY_UPLOAD_HMAC_SECRET = "dev-upload-hmac-secret-32-bytes-min";
     ALLOY_OPEN_REGISTRATIONS = "false";
@@ -62,8 +60,8 @@ in
     ALLOY_REQUIRE_AUTH_TO_BROWSE = "true";
     ALLOY_UPLOAD_TTL_SEC = "900";
     ALLOY_STORAGE_DRIVER = "fs";
-    ALLOY_STORAGE_FS_CLIPS_PATH = "storage/clips";
-    ALLOY_STORAGE_FS_USERS_PATH = "storage/users";
+    ALLOY_STORAGE_FS_CLIPS_PATH = "${config.devenv.root}/data/storage/clips";
+    ALLOY_STORAGE_FS_USERS_PATH = "${config.devenv.root}/data/storage/users";
 
     # Desktop app: run the Nix-provided Electron (electron-vite reads
     # ELECTRON_EXEC_PATH) and skip the npm package's unusable binary download.

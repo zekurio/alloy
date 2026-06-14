@@ -25,20 +25,17 @@ let
       alloy
     ];
     text = ''
-      : "''${ALLOY_DATA_DIR:=/config}"
       : "''${ALLOY_STORAGE_DRIVER:=fs}"
       : "''${ALLOY_STORAGE_FS_CLIPS_PATH:=/data/storage/clips}"
       : "''${ALLOY_STORAGE_FS_USERS_PATH:=/data/storage/users}"
-      export ALLOY_DATA_DIR
       export ALLOY_STORAGE_DRIVER
       export ALLOY_STORAGE_FS_CLIPS_PATH
       export ALLOY_STORAGE_FS_USERS_PATH
 
-      mkdir -p "$ALLOY_DATA_DIR" /data/storage/clips /data/storage/users
+      mkdir -p /data/storage/clips /data/storage/users
 
       if [ "$(id -u)" = "0" ]; then
-        chown -R ${toString uid}:${toString gid} \
-          "$ALLOY_DATA_DIR" /data
+        chown -R ${toString uid}:${toString gid} /data
         exec setpriv --reuid=${toString uid} --regid=${toString gid} \
           --clear-groups alloy
       fi
@@ -66,9 +63,9 @@ dockerTools.streamLayeredImage {
     groupadd --system --gid ${toString gid} alloy
     useradd --system --uid ${toString uid} --gid ${toString gid} \
       --home-dir /app --shell /sbin/nologin alloy
-    mkdir -p /app /config /data/storage/clips /data/storage/users /tmp
+    mkdir -p /app /data/storage/clips /data/storage/users /tmp
     chmod 1777 /tmp
-    chown -R ${toString uid}:${toString gid} /app /config /data
+    chown -R ${toString uid}:${toString gid} /app /data
   '';
 
   config = {
@@ -78,7 +75,6 @@ dockerTools.streamLayeredImage {
     Env = [
       "PORT=2552"
       "APP_VERSION=${version}"
-      "ALLOY_DATA_DIR=/config"
       "ALLOY_STORAGE_DRIVER=fs"
       "ALLOY_STORAGE_FS_CLIPS_PATH=/data/storage/clips"
       "ALLOY_STORAGE_FS_USERS_PATH=/data/storage/users"
