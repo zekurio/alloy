@@ -4,7 +4,6 @@ import {
   passkeyPublicKey,
   serializeTransports,
 } from "@alloy/server/auth/webauthn"
-import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import type { RegistrationResponseJSON } from "@simplewebauthn/server"
 
@@ -55,10 +54,6 @@ export async function completePasskeySignUp({
 
     return row
   })
-
-  if (payload.setupFirstAdmin === true) {
-    await configStore.set("setupComplete", true)
-  }
 
   return row
 }
