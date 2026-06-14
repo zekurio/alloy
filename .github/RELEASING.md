@@ -15,10 +15,8 @@ auto-update files:
 - `latest.yml` for stable releases or `nightly.yml` for nightly releases
 - `checksums.txt`
 
-Server distribution for releases is handled by the **Release** workflow's
-server image job. The standalone **Docker** workflow is only for `main` and
-manual image builds. Release notes include the matching pinned image tag and
-the channel tag to use.
+Server distribution is handled by the **Release** workflow's server image job.
+Release notes include the matching pinned image tag and the channel tag to use.
 
 Desktop auto-update follows the installed app's version channel. Stable builds
 look at `latest.yml` and reject nightly versions; nightly builds look at
