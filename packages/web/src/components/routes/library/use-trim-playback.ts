@@ -135,6 +135,21 @@ export function useTrimPlayback({
     playerRef.current?.seek(clamped / 1000)
   }
 
+  // Dragging the grab bar slides the whole kept range: length is preserved,
+  // both edges clamp to the media bounds, and the (paused) player scrubs to
+  // the new cut-in frame.
+  const handleTrimMove = (sourceStartMs: number) => {
+    if (!canTrim) return
+    const lengthMs = trim.endMs - trim.startMs
+    if (lengthMs <= 0) return
+    const maxStartMs = Math.max(0, durationMs - lengthMs)
+    const clamped = Math.round(Math.min(Math.max(0, sourceStartMs), maxStartMs))
+    setTrim({ startMs: clamped, endMs: clamped + lengthMs })
+    playerRef.current?.pause()
+    setCurrentMs(clamped)
+    playerRef.current?.seek(clamped / 1000)
+  }
+
   const resetTrim = () => {
     setTrim({ startMs: 0, endMs: durationMs })
   }
@@ -165,6 +180,7 @@ export function useTrimPlayback({
     handleEnded,
     handleTrimStartChange,
     handleTrimEndChange,
+    handleTrimMove,
     resetTrim,
   }
 }

@@ -15,7 +15,7 @@ import {
 } from "@alloy/ui/components/section"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
-import { useForm } from "@tanstack/react-form"
+import { useForm, useStore } from "@tanstack/react-form"
 import { ImageIcon, Pencil, SaveIcon } from "lucide-react"
 import * as React from "react"
 
@@ -35,6 +35,7 @@ import { displayName, userAvatar, UserBanner } from "@/lib/user-display"
 import { ProfileImageCropDialog } from "./profile-image-crop-dialog"
 import { MediaEditOverlay, type MediaKind } from "./profile-media-controls"
 import { ProfileTextField } from "./profile-text-field"
+import { useSettingsSaveBar } from "./settings-save-context"
 import { useProfileMedia } from "./use-profile-media"
 
 type ProfileCardProps = {
@@ -156,6 +157,19 @@ export function ProfileCard({
       username: initialUsername,
     })
   }, [email, form, initialUsername])
+
+  // Media (avatar, banner, wallpaper, accent) applies as soon as it uploads;
+  // only the identity fields go through the dialog's unified save bar.
+  const identityDirty = useStore(form.store, (state) =>
+    profileIdentityChanged(state.values, initialIdentity),
+  )
+  const identitySaving = useStore(form.store, (state) => state.isSubmitting)
+  const inSettingsDialog = useSettingsSaveBar({
+    dirty: identityDirty,
+    saving: identitySaving,
+    save: () => form.handleSubmit(),
+    discard: () => form.reset(),
+  })
 
   // A clickable region in the live profile preview. When the element already
   // has an image, clicking opens the change/remove menu; otherwise it opens the
@@ -434,40 +448,27 @@ export function ProfileCard({
             ))}
           </SectionContent>
 
-          <SectionFooter>
-            <form.Subscribe
-              selector={(state) =>
-                [
-                  state.values.username,
-                  state.values.email,
-                  state.canSubmit,
-                  state.isSubmitting,
-                ] as const
-              }
-            >
-              {([currentUsername, currentEmail, canSubmit, isSubmitting]) => {
-                const dirty = profileIdentityChanged(
-                  {
-                    email: currentEmail,
-                    username: currentUsername,
-                  },
-                  initialIdentity,
-                )
-
-                return (
+          {!inSettingsDialog && (
+            <SectionFooter>
+              <form.Subscribe
+                selector={(state) =>
+                  [state.canSubmit, state.isSubmitting] as const
+                }
+              >
+                {([canSubmit, isSubmitting]) => (
                   <Button
                     type="submit"
                     variant="primary"
                     size="sm"
-                    disabled={!dirty || !canSubmit}
+                    disabled={!identityDirty || !canSubmit}
                   >
                     <SaveIcon />
                     {isSubmitting ? "Saving…" : "Save"}
                   </Button>
-                )
-              }}
-            </form.Subscribe>
-          </SectionFooter>
+                )}
+              </form.Subscribe>
+            </SectionFooter>
+          )}
         </Section>
       </form>
     </>

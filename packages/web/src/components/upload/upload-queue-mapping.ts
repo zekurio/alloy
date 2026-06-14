@@ -58,6 +58,7 @@ export function localToQueueItem(
   return {
     id: e.localId,
     title: e.title,
+    kind: "upload",
     status,
     progress: status === "uploading" ? pct : 0,
     detail,
@@ -126,6 +127,7 @@ export function syncToQueueItem(
   return {
     id: `sync:${sync.captureId}`,
     title: sync.title,
+    kind: "upload",
     status,
     progress,
     detail,
@@ -179,6 +181,7 @@ export function downloadToQueueItem(
   return {
     id: `download:${download.clipId}`,
     title: download.title,
+    kind: "download",
     status,
     progress,
     detail,
@@ -210,34 +213,35 @@ export function serverToQueueItem(
 ): QueueItem {
   let status: QueueItemStatus
   let detail: string
+  let progress = 0
   switch (row.status) {
     case "pending":
       status = "queued"
       detail = "Awaiting upload"
       break
+    // Packaging is a quick stream-copy, not a transcode — show it as the
+    // tail end of the upload rather than a separate "Processing" stage.
     case "processing":
-      status = "encoding"
-      detail = "Processing clip"
+      status = "uploading"
+      progress = 99
+      detail = "Finalizing…"
       break
     case "ready":
-      status = row.encodeProgress < 100 ? "encoding" : "published"
-      detail = row.encodeProgress < 100 ? "Processing playback assets" : "Ready"
+      status = "published"
+      progress = 100
+      detail = "Ready"
       break
     case "failed":
       status = "failed"
-      detail = row.failureReason ?? "Processing failed"
+      detail = row.failureReason ?? "Upload failed"
       break
   }
   return {
     id: row.id,
     title: row.title,
+    kind: "upload",
     status,
-    progress:
-      status === "encoding"
-        ? row.encodeProgress
-        : status === "published"
-          ? 100
-          : 0,
+    progress,
     detail,
     hue: stableHue(row.steamgriddbId),
     thumbUrl: queueThumbnailUrl(row),

@@ -6,16 +6,11 @@ import {
 } from "@alloy/ui/components/avatar"
 import { Chip } from "@alloy/ui/components/chip"
 import { GameIcon } from "@alloy/ui/components/game-icon"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@alloy/ui/components/popover"
 import { Textarea } from "@alloy/ui/components/textarea"
 import { cn } from "@alloy/ui/lib/utils"
 import {
   AtSignIcon,
-  ChevronDownIcon,
+  ChevronRightIcon,
   Gamepad2Icon,
   HashIcon,
   XIcon,
@@ -34,6 +29,19 @@ import { useDebouncedValue } from "@/lib/use-debounced-value"
 import { userChipData } from "@/lib/user-display"
 import { useUserSearchQuery } from "@/lib/user-queries"
 
+const INLINE_PICKER_INPUT_CLASS = cn(
+  "h-8! rounded-lg bg-surface-raised text-sm leading-4 font-semibold sm:h-8!",
+  "[&_[data-slot=input-group-addon]]:py-0",
+  "[&_[data-slot=input-group-addon][data-align=inline-start]]:pl-2.5",
+  "[&_[data-slot=input-group-control]]:text-sm",
+  "[&_[data-slot=input-group-control]]:font-semibold",
+  "[&_[data-slot=input-group-control]]:pl-2!",
+  "[&_[data-slot=input-group-control]]:-translate-y-px",
+  "[&_[data-slot=input-group-control]]:placeholder:font-semibold",
+  "[&_[data-slot=input-group-control]]:placeholder:text-foreground-muted",
+  "[&_svg:not([class*='size-'])]:size-4",
+)
+
 interface ClipMetadataEditorProps {
   title: string
   onTitleChange: (value: string) => void
@@ -50,6 +58,7 @@ interface ClipMetadataEditorProps {
   /** Surface validation after a submit attempt. */
   titleInvalid?: boolean
   gameInvalid?: boolean
+  autoFocusGame?: boolean
 }
 
 export function ClipMetadataEditor({
@@ -66,6 +75,7 @@ export function ClipMetadataEditor({
   disabled = false,
   titleInvalid = false,
   gameInvalid = false,
+  autoFocusGame = false,
 }: ClipMetadataEditorProps) {
   const showTags = tags !== undefined && onTagsChange !== undefined
 
@@ -108,6 +118,7 @@ export function ClipMetadataEditor({
           onChange={onGameChange}
           disabled={disabled}
           invalid={gameInvalid}
+          promptOnMount={autoFocusGame}
         />
       </ClipMetadataSection>
 
@@ -154,56 +165,243 @@ function GamePickerChip({
   onChange,
   disabled,
   invalid,
+  promptOnMount,
 }: {
   value: GameRow | null
   onChange: (game: GameRow | null) => void
   disabled: boolean
   invalid: boolean
+  promptOnMount: boolean
 }) {
-  const [open, setOpen] = React.useState(false)
+  const [editing, setEditing] = React.useState(false)
+  const autoFocusUsedRef = React.useRef(false)
+  const rootRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    if (autoFocusUsedRef.current || disabled || !promptOnMount || value) return
+    autoFocusUsedRef.current = true
+    setEditing(true)
+  }, [disabled, promptOnMount, value])
+
+  useOutsideDismiss(
+    rootRef,
+    editing,
+    () => setEditing(false),
+    (target) => target.closest("[data-slot=combobox-content]") !== null,
+  )
+
+  if (editing) {
+    return (
+      <div ref={rootRef} className="w-56 max-w-full">
+        <GameCombobox
+          value={value}
+          onChange={(next) => {
+            if (!next) return
+            onChange(next)
+            setEditing(false)
+          }}
+          disabled={disabled}
+          invalid={invalid && !value}
+          placeholder="Search game..."
+          allowClear={false}
+          focusOnMount
+          className="w-full"
+          inputClassName={INLINE_PICKER_INPUT_CLASS}
+        />
+      </div>
+    )
+  }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <Chip
-            size="xl"
-            disabled={disabled}
-            data-active={value ? "true" : undefined}
-            className={cn(
-              "max-w-full",
-              invalid &&
-                !value &&
-                "border-destructive text-destructive hover:border-destructive hover:text-destructive",
-            )}
-          />
-        }
+    <div ref={rootRef} className="w-56 max-w-full">
+      <Chip
+        size="xl"
+        disabled={disabled}
+        data-active={value ? "true" : undefined}
+        onClick={() => {
+          setEditing(true)
+        }}
+        className={cn(
+          "w-full max-w-full justify-start",
+          invalid &&
+            !value &&
+            "border-destructive text-destructive hover:border-destructive hover:text-destructive",
+        )}
       >
         {value ? (
           <>
             <GameIcon src={value.iconUrl ?? value.logoUrl} name={value.name} />
-            <span className="min-w-0 truncate">{value.name}</span>
+            <span className="min-w-0 flex-1 truncate text-left">
+              {value.name}
+            </span>
           </>
         ) : (
           <>
             <Gamepad2Icon />
-            Add game
+            <span className="min-w-0 flex-1 truncate text-left">Add game</span>
           </>
         )}
-        <ChevronDownIcon className="text-foreground-faint" />
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-80 p-2">
-        <GameCombobox
-          value={value}
-          onChange={(next) => {
-            onChange(next)
-            if (next) setOpen(false)
-          }}
-          disabled={disabled}
-        />
-      </PopoverContent>
-    </Popover>
+        <ChevronRightIcon className="text-foreground-faint" />
+      </Chip>
+    </div>
   )
+}
+
+function useOutsideDismiss<T extends HTMLElement>(
+  ref: React.RefObject<T | null>,
+  enabled: boolean,
+  onDismiss: () => void,
+  ignoreTarget?: (target: Element) => boolean,
+) {
+  React.useEffect(() => {
+    if (!enabled) return
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (!(target instanceof Element)) return
+      if (ref.current?.contains(target)) return
+      if (ignoreTarget?.(target)) return
+      onDismiss()
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown)
+    return () => document.removeEventListener("pointerdown", handlePointerDown)
+  }, [enabled, ignoreTarget, onDismiss, ref])
+}
+
+/**
+ * Shared scaffolding for inline picker fields: draft text, debounced query,
+ * focus on open, and restoration to the original chip when focus leaves.
+ */
+function useInlinePicker() {
+  const [open, setOpen] = React.useState(false)
+  const [draft, setDraft] = React.useState("")
+  const inputRef = React.useRef<HTMLInputElement>(null)
+  const rootRef = React.useRef<HTMLDivElement>(null)
+  const debouncedDraft = useDebouncedValue(draft, 200)
+
+  const close = React.useCallback(() => {
+    setOpen(false)
+    setDraft("")
+  }, [])
+
+  useOutsideDismiss(rootRef, open, close)
+
+  React.useEffect(() => {
+    if (open) inputRef.current?.focus()
+  }, [open])
+
+  return {
+    open,
+    draft,
+    debouncedDraft,
+    setDraft,
+    setOpen,
+    inputRef,
+    rootRef,
+  }
+}
+
+function PickerChipTrigger({
+  icon,
+  label,
+  disabled,
+  onClick,
+}: {
+  icon: React.ReactNode
+  label: string
+  disabled: boolean
+  onClick: () => void
+}) {
+  return (
+    <Chip
+      size="xl"
+      disabled={disabled}
+      onClick={onClick}
+      className="w-full justify-start"
+    >
+      {icon}
+      <span className="min-w-0 flex-1 truncate text-left">{label}</span>
+      <ChevronRightIcon className="text-foreground-faint" />
+    </Chip>
+  )
+}
+
+type PickerInputShellProps = {
+  icon: React.ReactNode
+  value: string
+  onChange: (value: string) => void
+  onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>
+  inputRef: React.Ref<HTMLInputElement>
+  placeholder: string
+  disabled: boolean
+  label: string
+  completion?: string | null
+} & Omit<React.ComponentPropsWithoutRef<"span">, "onChange" | "onKeyDown">
+
+const PickerInputShell = React.forwardRef<
+  HTMLSpanElement,
+  PickerInputShellProps
+>(function PickerInputShell(
+  {
+    icon,
+    value,
+    onChange,
+    onKeyDown,
+    inputRef,
+    placeholder,
+    disabled,
+    label,
+    completion,
+    className,
+    ...props
+  },
+  ref,
+) {
+  return (
+    <span
+      ref={ref}
+      className={cn(
+        "flex h-8 w-full items-center gap-2 rounded-lg border border-border bg-surface-raised px-2.5 text-sm leading-4 font-semibold text-foreground",
+        "focus-within:border-accent-border focus-within:ring-2 focus-within:ring-accent-border/20",
+        "[&_svg:not([class*='size-'])]:size-4",
+        disabled && "opacity-60",
+        className,
+      )}
+      {...props}
+    >
+      {icon}
+      <span className="relative min-w-0 flex-1">
+        {completion ? (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 flex items-center overflow-hidden font-semibold whitespace-pre"
+          >
+            <span className="invisible">{value}</span>
+            <span className="text-foreground-faint">
+              {completionTail(value, completion)}
+            </span>
+          </span>
+        ) : null}
+        <input
+          ref={inputRef}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={onKeyDown}
+          disabled={disabled}
+          placeholder={placeholder}
+          aria-label={label}
+          className="placeholder:text-foreground-muted relative z-10 w-full bg-transparent text-sm leading-4 font-semibold outline-none placeholder:font-semibold"
+        />
+      </span>
+    </span>
+  )
+})
+
+function completionTail(value: string, completion: string): string {
+  if (!value) return completion
+  if (!completion.toLowerCase().startsWith(value.toLowerCase())) return ""
+  return completion.slice(value.length)
 }
 
 function PeoplePicker({
@@ -283,35 +481,6 @@ function PersonChip({
   )
 }
 
-/**
- * Shared scaffolding for the chip-triggered search popovers: open state, the
- * draft text (cleared on close), a debounced copy for queries, and an input
- * ref that grabs focus when the popover opens.
- */
-function usePickerPopover() {
-  const [open, setOpen] = React.useState(false)
-  const [draft, setDraft] = React.useState("")
-  const inputRef = React.useRef<HTMLInputElement>(null)
-  const debouncedDraft = useDebouncedValue(draft, 200)
-
-  React.useEffect(() => {
-    if (open) inputRef.current?.focus()
-  }, [open])
-
-  const handleOpenChange = (next: boolean) => {
-    setOpen(next)
-    if (!next) setDraft("")
-  }
-
-  return { open, draft, debouncedDraft, setDraft, inputRef, handleOpenChange }
-}
-
-const PICKER_INPUT_CLASS = cn(
-  "w-full rounded-md border border-border bg-input px-2.5 py-1.5 text-sm text-foreground",
-  "outline-none placeholder:text-foreground-faint",
-  "focus-visible:border-accent-border focus-visible:ring-2 focus-visible:ring-accent-border/20 focus-visible:ring-inset",
-)
-
 function PeopleSearchPopover({
   selectedIds,
   onPick,
@@ -323,8 +492,8 @@ function PeopleSearchPopover({
 }) {
   const { data: session } = useSession()
   const viewerId = session?.user?.id ?? null
-  const { open, draft, debouncedDraft, setDraft, inputRef, handleOpenChange } =
-    usePickerPopover()
+  const { open, draft, debouncedDraft, setDraft, setOpen, inputRef, rootRef } =
+    useInlinePicker()
   const searchQuery = useUserSearchQuery(debouncedDraft)
 
   const candidates = React.useMemo(() => {
@@ -334,78 +503,61 @@ function PeopleSearchPopover({
 
   const trimmed = debouncedDraft.trim()
   const isSearching = searchQuery.isFetching && trimmed.length > 0
+  const suggestion = candidates[0] ?? null
+  const suggestionChip = suggestion ? userChipData(suggestion) : null
+
+  const acceptSuggestion = () => {
+    if (!suggestion) return
+    onPick(suggestion)
+    setDraft("")
+    inputRef.current?.focus()
+  }
 
   return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger
-        render={
-          <Chip size="xl" disabled={disabled}>
-            <AtSignIcon />
-            Tag people
-          </Chip>
-        }
-      />
-      <PopoverContent align="start" className="w-72 gap-2 p-2">
-        <input
-          ref={inputRef}
+    <div ref={rootRef} className="relative w-36">
+      {open ? (
+        <PickerInputShell
+          icon={<AtSignIcon className="text-foreground-muted size-4" />}
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Search people…"
-          className={PICKER_INPUT_CLASS}
+          onChange={setDraft}
+          onKeyDown={(event) => {
+            if (
+              event.key === "Enter" ||
+              event.key === "Tab" ||
+              event.key === "ArrowRight"
+            ) {
+              if (suggestion) {
+                event.preventDefault()
+                acceptSuggestion()
+              }
+            } else if (event.key === "Escape") {
+              event.preventDefault()
+              setOpen(false)
+              setDraft("")
+            }
+          }}
+          inputRef={inputRef}
+          placeholder="Search people..."
+          disabled={disabled}
+          label="Search people"
+          completion={suggestionChip?.name ?? null}
+          title={
+            suggestionChip
+              ? `Press Enter to add ${suggestionChip.name}`
+              : isSearching || trimmed.length > 0
+                ? "No inline match"
+                : undefined
+          }
         />
-        <div className="flex flex-col" role="listbox">
-          {trimmed.length === 0 ? (
-            <p className="text-foreground-faint px-1 py-1.5 text-xs">
-              Type a name to search.
-            </p>
-          ) : candidates.length === 0 ? (
-            <p className="text-foreground-faint px-1 py-1.5 text-xs">
-              {isSearching ? "Searching…" : "No matches"}
-            </p>
-          ) : (
-            candidates.map((user) => {
-              const chip = userChipData(user)
-              const handle = user.displayUsername || user.username
-              return (
-                <button
-                  key={user.id}
-                  type="button"
-                  role="option"
-                  aria-selected={false}
-                  onClick={() => onPick(user)}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left",
-                    "text-foreground transition-colors hover:bg-surface-sunken",
-                  )}
-                >
-                  <Avatar size="sm">
-                    {chip.avatar.src ? (
-                      <AvatarImage src={chip.avatar.src} alt={chip.name} />
-                    ) : null}
-                    <AvatarFallback
-                      style={{
-                        backgroundColor: chip.avatar.bg,
-                        color: chip.avatar.fg,
-                      }}
-                    >
-                      {chip.avatar.initials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">
-                      {chip.name}
-                    </span>
-                    <span className="text-foreground-faint block truncate text-xs">
-                      @{handle}
-                    </span>
-                  </span>
-                </button>
-              )
-            })
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
+      ) : (
+        <PickerChipTrigger
+          icon={<AtSignIcon />}
+          label="Tag people"
+          disabled={disabled}
+          onClick={() => setOpen(true)}
+        />
+      )}
+    </div>
   )
 }
 
@@ -458,8 +610,8 @@ function HashtagInputPopover({
   onChange: (tags: string[]) => void
   disabled: boolean
 }) {
-  const { open, draft, debouncedDraft, setDraft, inputRef, handleOpenChange } =
-    usePickerPopover()
+  const { open, draft, debouncedDraft, setDraft, setOpen, inputRef, rootRef } =
+    useInlinePicker()
   const searchQuery = useTagSearchQuery(debouncedDraft)
 
   const commit = (raw: string) => {
@@ -478,25 +630,24 @@ function HashtagInputPopover({
     () => (searchQuery.data ?? []).filter((tag) => !selected.has(tag)),
     [searchQuery.data, selected],
   )
-  const showSuggestions = debouncedDraft.length > 0 && suggestions.length > 0
+  const suggestion = suggestions[0] ?? null
 
   return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger
-        render={
-          <Chip size="xl" disabled={disabled}>
-            <HashIcon />
-            Add hashtag
-          </Chip>
-        }
-      />
-      <PopoverContent align="start" className="w-72 gap-2 p-2">
-        <input
-          ref={inputRef}
+    <div ref={rootRef} className="relative w-40">
+      {open ? (
+        <PickerInputShell
+          icon={<HashIcon className="text-foreground-muted size-4" />}
           value={draft}
-          onChange={(e) => setDraft(sanitizeTag(e.target.value))}
+          onChange={(next) => setDraft(sanitizeTag(next))}
           onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " " || e.key === ",") {
+            if (
+              e.key === "Tab" ||
+              e.key === "ArrowRight" ||
+              (e.key === "Enter" && suggestion)
+            ) {
+              e.preventDefault()
+              if (suggestion) commit(suggestion)
+            } else if (e.key === "Enter" || e.key === " " || e.key === ",") {
               e.preventDefault()
               commit(draft)
             } else if (
@@ -505,36 +656,31 @@ function HashtagInputPopover({
               value.length > 0
             ) {
               onChange(value.slice(0, -1))
+            } else if (e.key === "Escape") {
+              e.preventDefault()
+              setOpen(false)
+              setDraft("")
             }
           }}
-          placeholder="Add hashtag…"
-          className={PICKER_INPUT_CLASS}
+          inputRef={inputRef}
+          placeholder="Add hashtag..."
+          disabled={disabled}
+          label="Add hashtag"
+          completion={suggestion}
+          title={
+            suggestion
+              ? `Press Enter to add #${suggestion}`
+              : "Type a tag and press Enter"
+          }
         />
-        {showSuggestions ? (
-          <div className="flex flex-col" role="listbox">
-            {suggestions.map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                role="option"
-                aria-selected={false}
-                onClick={() => commit(tag)}
-                className={cn(
-                  "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-sm",
-                  "text-foreground transition-colors hover:bg-surface-sunken",
-                )}
-              >
-                <HashIcon className="text-foreground-faint size-3.5" />
-                {tag}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <p className="text-foreground-faint px-1 py-1.5 text-xs">
-            Type a tag and press Enter.
-          </p>
-        )}
-      </PopoverContent>
-    </Popover>
+      ) : (
+        <PickerChipTrigger
+          icon={<HashIcon />}
+          label="Add hashtag"
+          disabled={disabled}
+          onClick={() => setOpen(true)}
+        />
+      )}
+    </div>
   )
 }

@@ -1,4 +1,9 @@
-import type { ClipRow, GameNameLookupResult, GameRow } from "@alloy/api"
+import type {
+  ClipRow,
+  GameNameLookupResult,
+  GameRow,
+  StagingRecordingRow,
+} from "@alloy/api"
 import { toast } from "@alloy/ui/lib/toast"
 import * as React from "react"
 
@@ -82,20 +87,24 @@ export function useLibrarySnapshot(
 }
 
 /**
- * Resolves the snapshot's game-source labels against the server's indexed
- * games. Only fully confident matches (confidence === 1) are surfaced — an
- * ambiguous name renders as the raw folder label instead of a wrong game.
+ * Resolves the snapshot's game labels against the server's indexed games. Only
+ * fully confident matches (confidence === 1) are surfaced — an ambiguous name
+ * renders as the raw label instead of a wrong game.
  */
 export function useLibraryGameLookup(
   snapshot: RecordingLibrarySnapshot | null,
 ): Map<string, GameNameLookupResult> {
-  const sourceNames = React.useMemo(
-    () =>
-      snapshot?.groups
-        .filter((group) => group.kind === "game")
-        .map((group) => group.label) ?? [],
-    [snapshot],
-  )
+  const sourceNames = React.useMemo(() => {
+    if (!snapshot) return []
+    const names = new Set<string>()
+    for (const group of snapshot.groups) {
+      if (group.kind === "game") names.add(group.label)
+    }
+    for (const item of snapshot.items) {
+      if (item.gameName) names.add(item.gameName)
+    }
+    return [...names]
+  }, [snapshot])
   const gameLookup = useGameNameLookupQuery(sourceNames, {
     enabled: sourceNames.length > 0,
   })
@@ -109,17 +118,20 @@ export function enrichLibraryItem(
   item: RecordingLibraryItem,
   gamesByName: Map<string, GameNameLookupResult>,
 ): LibraryItemView {
-  const match = gamesByName.get(gameNameKey(item.groupLabel))
+  const lookupName = item.gameName ?? item.groupLabel
+  const match = gamesByName.get(gameNameKey(lookupName))
   const game = match?.confidence === 1 ? match.game : null
   const displayGameName = item.gameName ?? game?.name ?? item.groupLabel
+  const sgdbIconUrl = desktopCachedAssetUrl(
+    game?.iconUrl ?? game?.logoUrl ?? null,
+  )
   return {
     ...item,
     displayGame: game,
-    // Lookup-resolved icons go through the desktop asset cache; the
-    // capture-provided icon URL is already cache-routed by the main process.
-    displayGameIconUrl:
-      item.gameIconUrl ??
-      desktopCachedAssetUrl(game?.iconUrl ?? game?.logoUrl ?? null),
+    // When a local game label resolves cleanly, use the server's canonical
+    // SGDB art so local and uploaded library rows stay visually consistent.
+    // The capture-provided icon remains the fallback for unresolved games.
+    displayGameIconUrl: sgdbIconUrl ?? item.gameIconUrl,
     displayGameName,
     gameSlug: game?.slug ?? null,
   }
@@ -155,6 +167,7 @@ export function buildLibraryGroups(
   localGroups: RecordingLibraryGroup[],
   uploaded: ClipRow[],
   collapsedCounts?: Map<string, number>,
+  staging: StagingRecordingRow[] = [],
 ): LibraryGroupView[] {
   const map = new Map<string, LibraryGroupView>()
 
@@ -192,7 +205,7 @@ export function buildLibraryGroups(
     }
   }
 
-  for (const row of uploaded) {
+  for (const row of [...uploaded, ...staging]) {
     const gameName = row.gameRef?.name ?? row.game
     if (!gameName) {
       const cloud = map.get(LIBRARY_CLOUD_GROUP_KEY)
@@ -244,12 +257,15 @@ export function enrichGroupIcon(
   group: RecordingLibraryGroup,
   gamesByName: Map<string, GameNameLookupResult>,
 ): RecordingLibraryGroup {
-  if (group.kind !== "game" || group.iconUrl) return group
+  if (group.kind !== "game") return group
   const match = gamesByName.get(gameNameKey(group.label))
   const game = match?.confidence === 1 ? match.game : null
+  const sgdbIconUrl = desktopCachedAssetUrl(
+    game?.iconUrl ?? game?.logoUrl ?? null,
+  )
   return {
     ...group,
-    iconUrl: desktopCachedAssetUrl(game?.iconUrl ?? game?.logoUrl ?? null),
+    iconUrl: sgdbIconUrl ?? group.iconUrl,
   }
 }
 

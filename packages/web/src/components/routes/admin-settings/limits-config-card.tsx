@@ -13,6 +13,7 @@ import { toast } from "@alloy/ui/lib/toast"
 import { SaveIcon } from "lucide-react"
 import * as React from "react"
 
+import { useSettingsSaveBar } from "@/components/routes/settings/settings-save-context"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 import { formatQuotaGiB, parseQuotaGiB } from "@/lib/storage-format"
@@ -197,8 +198,7 @@ function useLimitsConfigForm({ limits, onChange }: LimitsConfigCardProps) {
     setStorageQuotaGiB(initialStorageQuotaGiB)
   }
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
+  async function submit() {
     if (pending) return
     const patch = parseLimitsPatch({ form, storageQuotaGiB })
     if (!patch) return
@@ -215,6 +215,11 @@ function useLimitsConfigForm({ limits, onChange }: LimitsConfigCardProps) {
     }
   }
 
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    void submit()
+  }
+
   const comparablePatch = parseLimitsPatchQuiet({
     form,
     storageQuotaGiB,
@@ -229,12 +234,19 @@ function useLimitsConfigForm({ limits, onChange }: LimitsConfigCardProps) {
     set,
     setStorageQuotaGiB,
     resetForm,
+    submit,
     onSubmit,
   }
 }
 
 export function LimitsConfigCard(props: LimitsConfigCardProps) {
   const state = useLimitsConfigForm(props)
+  const inSettingsDialog = useSettingsSaveBar({
+    dirty: state.isDirty,
+    saving: state.pending,
+    save: state.submit,
+    discard: state.resetForm,
+  })
 
   return (
     <form onSubmit={state.onSubmit}>
@@ -251,11 +263,13 @@ export function LimitsConfigCard(props: LimitsConfigCardProps) {
             onFieldChange={state.set}
             onStorageQuotaChange={state.setStorageQuotaGiB}
           />
-          <LimitsActions
-            pending={state.pending}
-            isDirty={state.isDirty}
-            onReset={state.resetForm}
-          />
+          {!inSettingsDialog && (
+            <LimitsActions
+              pending={state.pending}
+              isDirty={state.isDirty}
+              onReset={state.resetForm}
+            />
+          )}
         </fieldset>
       </Section>
     </form>

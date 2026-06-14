@@ -13,11 +13,13 @@
 import {
   clipDurationMs,
   clipEndMs,
+  DEFAULT_PROJECT_FILTER_ID,
   type EditorMediaSource,
   type EditorProject,
   findClip,
   MIN_CLIP_MS,
   nextId,
+  projectFilterId,
   type TimelineClip,
   type TimelineTrack,
   trackClips,
@@ -30,11 +32,13 @@ export {
   clipEndMs,
   type ClipTransition,
   DEFAULT_TRANSITION_MS,
+  DEFAULT_PROJECT_FILTER_ID,
   type EditorMediaSource,
   type EditorProject,
   findClip,
   MIN_CLIP_MS,
   MIN_TRANSITION_MS,
+  projectFilterId,
   projectDurationMs,
   type TimelineClip,
   type TimelineTrack,
@@ -61,10 +65,12 @@ export function newProject(): EditorProject {
     ],
     clips: [],
     transitions: [],
+    filterId: DEFAULT_PROJECT_FILTER_ID,
   }
 }
 
 export function projectsEqual(a: EditorProject, b: EditorProject): boolean {
+  if (projectFilterId(a) !== projectFilterId(b)) return false
   if (a.tracks.length !== b.tracks.length) return false
   if (a.clips.length !== b.clips.length) return false
   if (a.transitions.length !== b.transitions.length) return false
@@ -287,6 +293,15 @@ export function removeClip(
     ...project,
     clips: project.clips.filter((clip) => clip.id !== clipId),
   })
+}
+
+export function setProjectFilter(
+  project: EditorProject,
+  filterId: EditorProject["filterId"],
+): EditorProject {
+  const nextFilterId = filterId ?? DEFAULT_PROJECT_FILTER_ID
+  if (projectFilterId(project) === nextFilterId) return project
+  return { ...project, filterId: nextFilterId }
 }
 
 /** Adds an empty track above the existing ones (new material overlays). */

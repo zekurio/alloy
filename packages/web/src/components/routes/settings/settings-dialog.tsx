@@ -17,6 +17,11 @@ import {
   useSettingsCategories,
 } from "@/components/routes/settings/settings-categories"
 import { SettingsPanel } from "@/components/routes/settings/settings-panel"
+import { SettingsSaveBar } from "@/components/routes/settings/settings-save-bar"
+import {
+  SettingsSaveProvider,
+  useSettingsSaveState,
+} from "@/components/routes/settings/settings-save-context"
 
 interface SettingsDialogProps {
   section: string | null
@@ -24,7 +29,15 @@ interface SettingsDialogProps {
   onClose: () => void
 }
 
-export function SettingsDialog({
+export function SettingsDialog(props: SettingsDialogProps) {
+  return (
+    <SettingsSaveProvider>
+      <SettingsDialogRoot {...props} />
+    </SettingsSaveProvider>
+  )
+}
+
+function SettingsDialogRoot({
   section,
   onNavigate,
   onClose,
@@ -35,6 +48,8 @@ export function SettingsDialog({
   React.useEffect(() => {
     if (section !== null) setVisibleSection(section)
   }, [section])
+
+  const { dirty, requestAttention } = useSettingsSaveState()
 
   const activeSection = section ?? visibleSection
   const active =
@@ -58,7 +73,14 @@ export function SettingsDialog({
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) onClose()
+        if (next) return
+        // Closing with unsaved edits (Escape, outside click, the X) is
+        // blocked; the save bar shakes to point at Save/Cancel instead.
+        if (dirty) {
+          requestAttention()
+          return
+        }
+        onClose()
       }}
     >
       <DialogContent
@@ -92,6 +114,17 @@ function SettingsDialogContent({
   onNavigate: (section: string) => void
 }) {
   const ActivePanel = active.Panel
+  const { dirty, requestAttention } = useSettingsSaveState()
+  // Switching tabs unmounts the active panel and would silently drop its
+  // edits, so it gets the same unsaved-changes guard as closing.
+  const navigateTo = (sectionId: string) => {
+    if (sectionId === active.id) return
+    if (dirty) {
+      requestAttention()
+      return
+    }
+    onNavigate(sectionId)
+  }
   const [query, setQuery] = React.useState("")
   const normalized = query.trim().toLowerCase()
   const matches = React.useMemo<
@@ -154,7 +187,7 @@ function SettingsDialogContent({
                   <button
                     key={category.id}
                     type="button"
-                    onClick={() => onNavigate(category.id)}
+                    onClick={() => navigateTo(category.id)}
                     className={cn(
                       "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors",
                       isActive
@@ -202,7 +235,7 @@ function SettingsDialogContent({
                   type="button"
                   role="tab"
                   aria-selected={isActive}
-                  onClick={() => onNavigate(category.id)}
+                  onClick={() => navigateTo(category.id)}
                   className={cn(
                     "inline-flex h-8 shrink-0 items-center rounded-full px-3 text-sm",
                     "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
@@ -229,6 +262,8 @@ function SettingsDialogContent({
             </React.Suspense>
           </SettingsPanel>
         </div>
+
+        <SettingsSaveBar />
       </div>
     </>
   )

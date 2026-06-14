@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import {
   constants,
+  renameSync,
   existsSync,
   mkdirSync,
   statSync,
@@ -24,7 +25,9 @@ import type {
   RecordingLibraryFilesImportResult,
   RecordingLibraryImportRequest,
   RecordingLibraryImportResult,
+  RecordingLibraryItem,
   RecordingLibraryMetaPatch,
+  RecordingLibraryMetaUpdateResult,
   RecordingLibraryProject,
   RecordingLibraryProjectDraftSaveRequest,
   RecordingLibraryProjectDraftSaveResult,
@@ -99,12 +102,12 @@ export function rememberRecordingLibraryCapture(
  */
 export function updateRecordingLibraryCaptureMeta(
   patch: RecordingLibraryMetaPatch,
-): void {
+): RecordingLibraryMetaUpdateResult {
   const item = findRecordingLibraryItem(patch.id)
   if (!item) throw new Error("Capture not found.")
 
   const manifest = readCaptureManifest()
-  const key = manifestKey(item.filename)
+  let key = manifestKey(item.filename)
   const entry: CaptureManifestEntry = manifest.captures[key] ?? {
     filename: item.filename,
     title: item.title,
@@ -122,6 +125,8 @@ export function updateRecordingLibraryCaptureMeta(
   }
 
   if (patch.title !== undefined) entry.title = patch.title
+  if (patch.gameName !== undefined) entry.gameName = patch.gameName
+  if (patch.gameIconUrl !== undefined) entry.gameIconUrl = patch.gameIconUrl
   if (patch.description !== undefined) entry.description = patch.description
   if (patch.tags !== undefined) entry.tags = patch.tags
   if (patch.mentions !== undefined) entry.mentions = patch.mentions
@@ -129,10 +134,25 @@ export function updateRecordingLibraryCaptureMeta(
   if (patch.uploadedClipId !== undefined) {
     entry.uploadedClipId = patch.uploadedClipId
   }
+  if (patch.syncedRecordingId !== undefined) {
+    entry.syncedRecordingId = patch.syncedRecordingId
+  }
+  if (patch.syncExcluded !== undefined) {
+    entry.syncExcluded = patch.syncExcluded
+  }
   entry.updatedAt = new Date().toISOString()
+
+  if (patch.gameName !== undefined) {
+    const moved = moveDisplayCaptureToGameFolder(item, entry)
+    if (moved) {
+      delete manifest.captures[key]
+      key = manifestKey(moved)
+    }
+  }
 
   manifest.captures[key] = entry
   writeCaptureManifest(manifest)
+  return { id: captureId(entry.filename) }
 }
 
 export function saveRecordingLibraryProjectDraft(
@@ -177,7 +197,7 @@ export function deleteRecordingLibraryProjectDraft(id: string): void {
 export function importRecordingLibraryCapture(
   request: RecordingLibraryImportRequest,
 ): RecordingLibraryImportResult {
-  const root = join(currentOutputFolder(), "Clips")
+  const root = captureCollectionFolder("Clips", null)
   mkdirSync(root, { recursive: true })
 
   const safeBase =
@@ -258,7 +278,7 @@ async function importVideoFile(sourcePath: string): Promise<string> {
   const meta = await probeVideoFileMeta(source)
   if (!meta) throw new Error("Couldn't read this file as a video.")
 
-  const root = join(currentOutputFolder(), "Clips")
+  const root = captureCollectionFolder("Clips", null)
   mkdirSync(root, { recursive: true })
   const base = basename(source, extension)
   const safeBase = base.replace(/[^A-Za-z0-9 ._-]/g, "_").trim() || "import"
@@ -299,6 +319,93 @@ function isInsideVideoCollection(filename: string): boolean {
     const rel = relative(join(outputFolder, collection), filename)
     return rel.length > 0 && !rel.startsWith("..") && !isAbsolute(rel)
   })
+}
+
+function moveDisplayCaptureToGameFolder(
+  item: RecordingLibraryItem,
+  entry: CaptureManifestEntry,
+): string | null {
+  if (item.source !== "display") return null
+  if (item.collection !== "Clips" && item.collection !== "Sessions") {
+    return null
+  }
+
+  const root = captureCollectionFolder(item.collection, entry.gameName)
+  const current = resolve(entry.filename)
+  if (resolve(current, "..") === resolve(root)) return null
+
+  mkdirSync(root, { recursive: true })
+  const extension = extname(current)
+  const base = basename(current, extension)
+  const destination = uniqueCaptureFilename(root, base, extension)
+  renameSync(current, destination)
+  entry.filename = resolve(destination)
+  return entry.filename
+}
+
+function captureCollectionFolder(
+  collection: "Clips" | "Sessions",
+  gameName: string | null,
+): string {
+  return join(
+    currentOutputFolder(),
+    collection,
+    fileComponent(gameName, "Desktop"),
+  )
+}
+
+function fileComponent(value: string | null, fallback: string): string {
+  let component = ""
+  let previousWasSeparator = false
+
+  for (const char of value?.trim() ?? "") {
+    const replacement = isUnsafePathCharacter(char) ? "-" : char
+    const isWhitespace = /\s/.test(replacement)
+    if (replacement === "-" || isWhitespace) {
+      if (!previousWasSeparator && component.length > 0) {
+        component += isWhitespace ? " " : "-"
+        previousWasSeparator = true
+      }
+      continue
+    }
+
+    component += replacement
+    previousWasSeparator = false
+  }
+
+  component = component.replace(/^[ .-]+|[ .-]+$/g, "")
+  return component.length > 0 && !isReservedWindowsName(component)
+    ? component
+    : fallback
+}
+
+function isUnsafePathCharacter(value: string): boolean {
+  const code = value.charCodeAt(0)
+  return (
+    code < 32 ||
+    code === 127 ||
+    value === "<" ||
+    value === ">" ||
+    value === ":" ||
+    value === '"' ||
+    value === "/" ||
+    value === "\\" ||
+    value === "|" ||
+    value === "?" ||
+    value === "*"
+  )
+}
+
+function isReservedWindowsName(value: string): boolean {
+  const base = value.split(".")[0]?.toUpperCase()
+  return (
+    base === "CON" ||
+    base === "PRN" ||
+    base === "AUX" ||
+    base === "NUL" ||
+    /^COM[1-9]$/.test(base ?? "") ||
+    /^LPT[1-9]$/.test(base ?? "")
+  )
 }
 
 /** Returns a collision-free path in `root` for an already-sanitized base. */

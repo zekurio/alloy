@@ -5,6 +5,9 @@ import { LibraryEditorPage } from "@/components/routes/library/library-editor-pa
 import { alloyDesktop } from "@/lib/desktop"
 
 export const Route = createFileRoute("/(app)/_app/library/$captureId")({
+  validateSearch: (search: Record<string, unknown>): { prompt?: "game" } => ({
+    prompt: search.prompt === "game" ? "game" : undefined,
+  }),
   beforeLoad: () => {
     if (!alloyDesktop()) throw redirect({ to: "/" })
   },
@@ -13,9 +16,10 @@ export const Route = createFileRoute("/(app)/_app/library/$captureId")({
 
 function LibraryCaptureRoute() {
   const { captureId } = Route.useParams()
+  const { prompt } = Route.useSearch()
   return (
     <React.Suspense fallback={null}>
-      <LibraryEditorPage captureId={captureId} />
+      <LibraryEditorPage captureId={captureId} promptGame={prompt === "game"} />
     </React.Suspense>
   )
 }

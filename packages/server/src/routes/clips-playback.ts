@@ -3,7 +3,6 @@ import { createHash } from "node:crypto"
 import type { ClipPrivacy } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import {
-  applyClipPrivacyHeaders,
   clipAccessResponse,
   resolveClipAccess,
 } from "@alloy/server/clips/access"
@@ -102,7 +101,6 @@ export const clipsPlaybackRoutes = new Hono()
       policy: "stream",
     })
     if (!access.accessible) return clipAccessResponse(c, access)
-    applyClipPrivacyHeaders(c, access)
     return serveDirectHlsFile(c, access.row, DIRECT_HLS_MASTER)
   })
   .get("/:id/hls/:file", zValidator("param", HlsFileParam), async (c) => {
@@ -113,7 +111,6 @@ export const clipsPlaybackRoutes = new Hono()
       policy: "stream",
     })
     if (!access.accessible) return clipAccessResponse(c, access)
-    applyClipPrivacyHeaders(c, access)
     return serveDirectHlsFile(c, access.row, file)
   })
   .get(
@@ -129,7 +126,6 @@ export const clipsPlaybackRoutes = new Hono()
         policy: "stream",
       })
       if (!access.accessible) return clipAccessResponse(c, access)
-      applyClipPrivacyHeaders(c, access)
       const row = access.row
 
       const wantsSource =
@@ -191,7 +187,6 @@ export const clipsPlaybackRoutes = new Hono()
       policy: "ownerAsset",
     })
     if (!access.accessible) return clipAccessResponse(c, access)
-    applyClipPrivacyHeaders(c, access)
     const row = access.row
 
     const key = row.thumbKey
@@ -200,9 +195,7 @@ export const clipsPlaybackRoutes = new Hono()
     const thumbCacheControl =
       row.privacy === "public" && row.status === "ready"
         ? "public, max-age=86400"
-        : row.privacy === "private"
-          ? "no-store"
-          : "private, max-age=86400"
+        : "private, max-age=86400"
 
     // Redirect responses cache for less than the signed URL lives; the
     // 24h proxy caching (and its constant ETag) would keep serving a
@@ -210,9 +203,7 @@ export const clipsPlaybackRoutes = new Hono()
     const directCacheControl =
       row.privacy === "public" && row.status === "ready"
         ? `public, max-age=${DIRECT_MEDIA_REDIRECT_MAX_AGE_SEC}`
-        : row.privacy === "private"
-          ? "no-store"
-          : `private, max-age=${DIRECT_MEDIA_REDIRECT_MAX_AGE_SEC}`
+        : `private, max-age=${DIRECT_MEDIA_REDIRECT_MAX_AGE_SEC}`
     const direct = await redirectToStorageUrl(
       c,
       clipStorage,
@@ -244,7 +235,6 @@ export const clipsPlaybackRoutes = new Hono()
         policy: "ownerAsset",
       })
       if (!access.accessible) return clipAccessResponse(c, access)
-      applyClipPrivacyHeaders(c, access)
       const row = access.row
 
       const selected =
@@ -265,9 +255,7 @@ export const clipsPlaybackRoutes = new Hono()
       const dlCacheControl =
         row.privacy === "public"
           ? "public, max-age=300"
-          : row.privacy === "private"
-            ? "no-store"
-            : "private, max-age=300"
+          : "private, max-age=300"
 
       const direct = await redirectToStorageUrl(
         c,

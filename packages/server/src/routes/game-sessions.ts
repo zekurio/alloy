@@ -1,8 +1,7 @@
 import { gameSession, userDevice } from "@alloy/db/schema"
-import { createLogger } from "@alloy/logging"
 import { requireSession } from "@alloy/server/auth/require-session"
 import { db } from "@alloy/server/db/index"
-import { lookupGamesByName } from "@alloy/server/games/lookup"
+import { resolvePersistedGameByName } from "@alloy/server/games/lookup"
 import { isoDate } from "@alloy/server/runtime/date"
 import { badRequest, conflict } from "@alloy/server/runtime/http-response"
 import { and, eq, sql } from "drizzle-orm"
@@ -10,8 +9,6 @@ import { Hono } from "hono"
 import { z } from "zod"
 
 import { zValidator } from "./validation"
-
-const logger = createLogger("sessions")
 
 const SessionIdParam = z.object({ id: z.uuid() })
 
@@ -35,19 +32,15 @@ function serialiseGameSession(row: typeof gameSession.$inferSelect) {
 
 /**
  * Best-effort resolution of the detected game name to a known game. A play
- * session is valid without one — never fail the upsert over metadata.
+ * session is valid without one — never fail the upsert over metadata. The game
+ * is persisted on resolve so the steamgriddb_id FK holds.
  */
 async function resolveSessionGame(
   gameName: string,
   viewerId: string,
 ): Promise<number | null> {
-  try {
-    const { results } = await lookupGamesByName([gameName], viewerId)
-    return results[0]?.game?.steamgriddbId ?? null
-  } catch (err) {
-    logger.warn(`game lookup failed for "${gameName}":`, err)
-    return null
-  }
+  const game = await resolvePersistedGameByName(gameName, viewerId)
+  return game?.steamgriddbId ?? null
 }
 
 export const gameSessionsRoute = new Hono()

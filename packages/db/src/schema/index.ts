@@ -1,6 +1,7 @@
 export * from "./clip"
 export * from "./device"
 export * from "./game"
+export * from "./recording"
 export * from "./social"
 
 import {
@@ -10,11 +11,11 @@ import {
   clipLike,
   clipMention,
   clipTag,
-  clipUploadTicket,
   clipView,
 } from "./clip"
 import { gameSession, userDevice } from "./device"
 import { game, gameFollow } from "./game"
+import { stagingRecording, uploadTicket } from "./recording"
 import { block, follow, notification } from "./social"
 
 /**
@@ -23,7 +24,8 @@ import { block, follow, notification } from "./social"
  */
 export const domainSchema = {
   clip,
-  clipUploadTicket,
+  uploadTicket,
+  stagingRecording,
   clipLike,
   clipView,
   clipComment,

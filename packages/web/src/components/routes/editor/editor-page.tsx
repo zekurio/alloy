@@ -56,10 +56,12 @@ import {
   findClip,
   moveClip,
   newProject,
+  projectFilterId,
   projectDurationMs,
   projectsEqual,
   removeClip,
   removeTrack,
+  setProjectFilter,
   splitClipAt,
   toggleTransition,
   trimClipEnd,
@@ -176,12 +178,18 @@ function EditorContent({
 
   const seek = React.useCallback(
     (timelineMs: number) => {
-      const clamped = Math.min(Math.max(0, timelineMs), spanMs)
+      const maxSeekMs = totalMs > 0 ? totalMs : spanMs
+      const clamped = Math.min(Math.max(0, timelineMs), maxSeekMs)
       currentMsRef.current = clamped
       setCurrentMs(clamped)
     },
-    [spanMs],
+    [spanMs, totalMs],
   )
+
+  React.useEffect(() => {
+    const maxSeekMs = totalMs > 0 ? totalMs : spanMs
+    if (currentMsRef.current > maxSeekMs) seek(maxSeekMs)
+  }, [seek, spanMs, totalMs])
 
   /* ── Master clock: timeline time advances on wall clock while playing. ── */
   React.useEffect(() => {
@@ -450,15 +458,24 @@ function EditorContent({
         {/* ── Stage: library panel + preview ── */}
         {snapshot ? (
           <div className="grid min-h-0 flex-1 grid-cols-[280px_minmax(0,1fr)] gap-3">
-            <EditorMediaPanel items={mediaItems} onAdd={addFromLibrary} />
-            <EditorPreview
-              project={project}
-              sources={sources}
-              currentMs={currentMs}
-              playing={playing}
-              onTogglePlay={togglePlayback}
-              className="h-full"
+            <EditorMediaPanel
+              filterId={projectFilterId(project)}
+              items={mediaItems}
+              onAdd={addFromLibrary}
+              onFilterChange={(filterId) =>
+                history.apply(setProjectFilter(project, filterId))
+              }
             />
+            <div className="flex min-h-0 items-center justify-center overflow-hidden">
+              <EditorPreview
+                project={project}
+                sources={sources}
+                currentMs={currentMs}
+                playing={playing}
+                onTogglePlay={togglePlayback}
+                className="aspect-video w-full max-w-full lg:h-full lg:max-h-full lg:w-auto"
+              />
+            </div>
           </div>
         ) : (
           <LoadingState className="flex-1 py-0" />

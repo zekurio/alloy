@@ -23,9 +23,9 @@ export function setSyncRegistryStatuses(
 /** Card-level sync state for a capture; "synced" is derived from the manifest. */
 export function syncStateForCapture(
   captureId: string,
-  uploadedClipId: string | null,
+  syncedServerId: string | null,
 ): RecordingLibrarySyncState {
-  if (uploadedClipId) return "synced"
+  if (syncedServerId) return "synced"
   const status = statusByCaptureId.get(captureId)
   if (!status) return "none"
   if (status === "queued") return "queued"

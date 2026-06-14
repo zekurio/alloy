@@ -114,7 +114,7 @@ export function validateInitiateClipResponse(
   return value as InitiateClipResponse
 }
 
-function validateUploadTicket(value: unknown): UploadTicket {
+export function validateUploadTicket(value: unknown): UploadTicket {
   const ticket = objectRecord(value, "upload ticket")
   validateUrlString(
     ticket.uploadUrl,

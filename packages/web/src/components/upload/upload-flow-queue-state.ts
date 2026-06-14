@@ -149,6 +149,8 @@ async function linkLocalCaptureToClip(
     await desktop.recording.updateLibraryCapture({
       id: captureId,
       uploadedClipId: clipId,
+      syncedRecordingId: null,
+      syncExcluded: false,
     })
     notifyLibraryCapturesChanged()
   } catch (cause) {

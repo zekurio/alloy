@@ -35,6 +35,7 @@ import {
   VIDEO_EXTENSIONS,
 } from "./recording-library-shared"
 import { syncStateForCapture } from "./recording-library-sync-registry"
+import { getLastRecordingStatus } from "./recording-status-state"
 import {
   currentOutputFolder,
   defaultScreenshotFolder,
@@ -59,6 +60,7 @@ export function getRecordingLibrarySnapshot(): RecordingLibrarySnapshot {
     outputFolder,
     screenshotFolder,
     manifest,
+    activeLongRecordingFileKeys(),
   ).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
   const groups = groupLibraryItems(items)
   return {
@@ -82,6 +84,7 @@ export function findRecordingLibraryItem(
     currentOutputFolder(),
     defaultScreenshotFolder(),
     readCaptureManifest(),
+    activeLongRecordingFileKeys(),
   )) {
     if (item.id === id) return item
   }
@@ -93,6 +96,7 @@ function scanRecordingLibraryItems(
   outputFolder: string,
   screenshotFolder: string,
   manifest: CaptureManifest,
+  hiddenFileKeys: Set<string>,
 ): RecordingLibraryItem[] {
   const collections: CollectionScan[] = [
     {
@@ -113,20 +117,27 @@ function scanRecordingLibraryItems(
   ]
 
   return collections.flatMap((collection) =>
-    scanCollection(collection, manifest),
+    scanCollection(collection, manifest, hiddenFileKeys),
   )
 }
 
 function scanCollection(
   collection: CollectionScan,
   manifest: CaptureManifest,
+  hiddenFileKeys: Set<string>,
 ): RecordingLibraryItem[] {
   const root = resolve(collection.root)
   if (!existsSync(root)) return []
 
   const items: RecordingLibraryItem[] = []
   walkFiles(root, (filename) => {
-    const item = libraryItemForFile(collection, root, filename, manifest)
+    const item = libraryItemForFile(
+      collection,
+      root,
+      filename,
+      manifest,
+      hiddenFileKeys,
+    )
     if (item) items.push(item)
   })
   return items
@@ -156,9 +167,13 @@ function libraryItemForFile(
   collectionRoot: string,
   filename: string,
   manifest: CaptureManifest,
+  hiddenFileKeys: Set<string>,
 ): RecordingLibraryItem | null {
   const extension = extname(filename).toLowerCase()
   if (!extensionMatchesKind(extension, collection.kind)) return null
+
+  const absoluteFilename = resolve(filename)
+  if (hiddenFileKeys.has(manifestKey(absoluteFilename))) return null
 
   let stat: Stats
   try {
@@ -167,7 +182,6 @@ function libraryItemForFile(
     return null
   }
 
-  const absoluteFilename = resolve(filename)
   const id = captureId(absoluteFilename)
   const manifestEntry = manifest.captures[manifestKey(absoluteFilename)]
   const groupLabel = groupLabelForFile(collectionRoot, absoluteFilename)
@@ -212,10 +226,29 @@ function libraryItemForFile(
     mentions: manifestEntry?.mentions ?? [],
     privacy: manifestEntry?.privacy ?? null,
     uploadedClipId: manifestEntry?.uploadedClipId ?? null,
-    syncState: syncStateForCapture(id, manifestEntry?.uploadedClipId ?? null),
+    syncedRecordingId: manifestEntry?.syncedRecordingId ?? null,
+    syncExcluded: manifestEntry?.syncExcluded === true,
+    syncState: syncStateForCapture(
+      id,
+      manifestEntry?.uploadedClipId ?? manifestEntry?.syncedRecordingId ?? null,
+    ),
     createdAt,
     modifiedAt,
   }
+}
+
+function activeLongRecordingFileKeys(): Set<string> {
+  const status = getLastRecordingStatus()
+  const capture = status?.currentCapture
+  if (
+    status?.backend !== "ready" ||
+    status?.longRecordingActive !== true ||
+    capture?.kind !== "long-recording"
+  ) {
+    return new Set()
+  }
+
+  return new Set([manifestKey(resolve(capture.filename))])
 }
 
 function sourceFromLabel(groupLabel: string): RecordingCaptureSource {

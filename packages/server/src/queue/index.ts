@@ -1,14 +1,18 @@
-import { startClipMediaWorker, stopClipMediaWorker } from "./media-worker"
+import { startMediaWorkers, stopMediaWorkers } from "./media-worker"
 import { startReaperWorker, stopReaperWorker } from "./reaper"
 
 export async function startQueue(): Promise<void> {
-  await startClipMediaWorker()
+  startMediaWorkers()
   await startReaperWorker()
 }
 
 export async function stopQueue(): Promise<void> {
   stopReaperWorker()
-  await stopClipMediaWorker()
+  await stopMediaWorkers()
 }
 
-export { enqueueClipMediaProcessing } from "./media-worker"
+export {
+  cancelStagingMediaProcessing,
+  enqueueClipMediaProcessing,
+  enqueueStagingMediaProcessing,
+} from "./media-worker"

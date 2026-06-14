@@ -4,16 +4,16 @@ import { clipStorage } from "@alloy/server/storage/index"
 
 const logger = createLogger("uploads")
 
-export function clipStagedUploadKey(
-  clipId: string,
+export function stagedSourceKey(
+  recordingId: string,
   contentType: AcceptedContentType,
 ): string {
-  return `uploads/${clipId}/source${sourceExtension(contentType)}`
+  return `uploads/${recordingId}/source${sourceExtension(contentType)}`
 }
 
 /** Staged target for the client-rendered poster image (always webp). */
-export function clipThumbStagedUploadKey(clipId: string): string {
-  return `uploads/${clipId}/thumb.webp`
+export function stagedThumbKey(recordingId: string): string {
+  return `uploads/${recordingId}/thumb.webp`
 }
 
 export async function mintStagedUploadUrl(input: {

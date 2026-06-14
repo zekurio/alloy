@@ -11,6 +11,7 @@ const { autoUpdater } = electronUpdater
 const logger = createLogger("updater")
 
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000
+const NIGHTLY_VERSION_PATTERN = /-nightly(?:\.|$)/
 
 let state: DesktopUpdateState = { status: "idle", version: null }
 const stateListeners = new Set<(state: DesktopUpdateState) => void>()
@@ -59,15 +60,18 @@ function setState(next: DesktopUpdateState): void {
   }
 }
 
+function getUpdateChannel(version: string): "latest" | "nightly" {
+  return NIGHTLY_VERSION_PATTERN.test(version) ? "nightly" : "latest"
+}
+
 /**
  * Background auto-update from the GitHub releases feed. electron-builder
  * embeds `app-update.yml` (from the `publish` config) into packaged builds,
  * which is where the updater finds the repo; published releases expose
- * `latest.yml` plus the installer. Downloads happen in the background and
- * install on quit; `checkForUpdatesAndNotify` shows a native toast once a
- * download is ready, and the web app surfaces a "restart to update" entry in
- * its notification center via the bridge state above. Users on an `-rc.N`
- * build keep receiving prereleases, stable builds only see full releases.
+ * `latest.yml` or `nightly.yml` plus the installer. Downloads happen in the
+ * background and install on quit; `checkForUpdatesAndNotify` shows a native
+ * toast once a download is ready, and the web app surfaces a "restart to
+ * update" entry in its notification center via the bridge state above.
  */
 export function initAutoUpdater(): void {
   if (!app.isPackaged) {
@@ -76,6 +80,9 @@ export function initAutoUpdater(): void {
   }
 
   autoUpdater.logger = logger
+  autoUpdater.channel = getUpdateChannel(app.getVersion())
+  autoUpdater.allowPrerelease = autoUpdater.channel === "nightly"
+
   let timer: ReturnType<typeof setInterval> | null = null
 
   autoUpdater.on("checking-for-update", () => {

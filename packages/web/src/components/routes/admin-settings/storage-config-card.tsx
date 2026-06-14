@@ -21,6 +21,7 @@ import { toast } from "@alloy/ui/lib/toast"
 import { SaveIcon } from "lucide-react"
 import * as React from "react"
 
+import { useSettingsSaveBar } from "@/components/routes/settings/settings-save-context"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 
@@ -147,8 +148,7 @@ export function StorageConfigCard({
     setForm(formFromStorage(storage))
   }
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
+  async function submit() {
     if (pending) return
     const invalid = validateForm(form, storage)
     if (invalid) {
@@ -187,7 +187,18 @@ export function StorageConfigCard({
     }
   }
 
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    void submit()
+  }
+
   const dirty = isDirty(form, storage)
+  const inSettingsDialog = useSettingsSaveBar({
+    dirty,
+    saving: pending,
+    save: submit,
+    discard: resetForm,
+  })
 
   return (
     <form id={formId} onSubmit={onSubmit}>
@@ -354,7 +365,7 @@ export function StorageConfigCard({
             ) : null}
           </SectionContent>
 
-          {!hideActions && (
+          {!hideActions && !inSettingsDialog && (
             <SectionFooter>
               <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
                 <Button

@@ -22,10 +22,6 @@ export function HomeHeader() {
   const { query, setQuery, clear, setOpen } = useAppSearch()
   const inputRef = React.useRef<HTMLInputElement>(null)
   const desktop = alloyDesktop()
-  const pathname = useRouterState({
-    select: (state) => state.location.pathname,
-  })
-  const hideMobileSearch = pathname === "/library" || pathname === "/library/"
 
   const onKeyDown = React.useCallback((event: KeyboardEvent) => {
     if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") {
@@ -50,7 +46,6 @@ export function HomeHeader() {
         value={query}
         placeholder="Search..."
         aria-label="Search"
-        containerClassName={hideMobileSearch ? "max-sm:hidden" : undefined}
         autoComplete="off"
         spellCheck={false}
         onFocus={() => {

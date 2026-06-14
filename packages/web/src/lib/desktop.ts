@@ -13,6 +13,7 @@ import type {
   RecordingLibraryImportRequest,
   RecordingLibraryImportResult,
   RecordingLibraryMetaPatch,
+  RecordingLibraryMetaUpdateResult,
   RecordingLibraryProjectDraftSaveRequest,
   RecordingLibraryProjectDraftSaveResult,
   RecordingLibrarySnapshot,
@@ -37,6 +38,7 @@ export type {
   RecordingLibraryExportSegment,
   RecordingLibraryExportRequest,
   RecordingLibraryMetaPatch,
+  RecordingLibraryMetaUpdateResult,
   RecordingLibraryProjectTrack,
   RecordingLibraryProjectClip,
   RecordingLibraryProjectTransition,
@@ -85,7 +87,9 @@ export interface AlloyDesktopRecordingApi {
     request: RecordingLibraryExportRequest,
   ): Promise<RecordingLibraryExport>
   /** Persists draft upload metadata for a capture across app restarts. */
-  updateLibraryCapture(patch: RecordingLibraryMetaPatch): Promise<void>
+  updateLibraryCapture(
+    patch: RecordingLibraryMetaPatch,
+  ): Promise<RecordingLibraryMetaUpdateResult>
   /** Persists an unfinished multitrack editor project as a library draft. */
   saveLibraryProjectDraft(
     request: RecordingLibraryProjectDraftSaveRequest,

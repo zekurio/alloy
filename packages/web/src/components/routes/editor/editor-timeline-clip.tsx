@@ -2,7 +2,11 @@ import { cn } from "@alloy/ui/lib/utils"
 import { CloudIcon } from "lucide-react"
 import * as React from "react"
 
-import { useMediaFilmstrip } from "@/lib/media-filmstrip"
+import {
+  filmstripCellsForRange,
+  useFilmstripCellCount,
+  useMediaFilmstrip,
+} from "@/lib/media-filmstrip"
 import { formatTrimMs } from "@/lib/media-time"
 
 import {
@@ -12,8 +16,6 @@ import {
   type TimelineClip,
 } from "./editor-project"
 
-/** Filmstrip cells rendered across the full span at zoom 1. */
-const BASE_FILMSTRIP_CELLS = 24
 /** Hard cap on filmstrip cells per clip (DOM size guard). */
 const MAX_FILMSTRIP_CELLS = 240
 
@@ -26,14 +28,12 @@ export function ClipBlock({
   clip,
   source,
   spanMs,
-  zoom,
   selected,
   onTrimKeyDown,
 }: {
   clip: TimelineClip
   source: EditorMediaSource | null
   spanMs: number
-  zoom: number
   selected: boolean
   onTrimKeyDown: (
     clip: TimelineClip,
@@ -59,7 +59,7 @@ export function ClipBlock({
       >
         <div
           className={cn(
-            "flex h-4 items-center gap-1 px-1.5 text-[10px] leading-none font-semibold",
+            "flex h-4 items-center gap-1 px-4 text-[10px] leading-none font-semibold",
             selected
               ? "bg-accent/80 text-accent-foreground"
               : "bg-surface-raised text-foreground-faint",
@@ -78,14 +78,7 @@ export function ClipBlock({
         </div>
 
         <div className="bg-surface-raised relative h-[calc(100%-1rem)]">
-          {source ? (
-            <ClipFilmstrip
-              clip={clip}
-              source={source}
-              zoom={zoom}
-              spanMs={spanMs}
-            />
-          ) : null}
+          {source ? <ClipFilmstrip clip={clip} source={source} /> : null}
         </div>
       </div>
 
@@ -129,38 +122,45 @@ export function ClipBlock({
 function ClipFilmstrip({
   clip,
   source,
-  spanMs,
-  zoom,
 }: {
   clip: TimelineClip
   source: EditorMediaSource
-  spanMs: number
-  zoom: number
 }) {
-  const { frames, durationMs: measuredMs } = useMediaFilmstrip(source.mediaUrl)
+  const {
+    frames,
+    aspect,
+    durationMs: measuredMs,
+  } = useMediaFilmstrip(source.mediaUrl)
+  // The cell count tracks the block's on-screen box (which already factors
+  // in zoom and window size), keeping every cell at the frame aspect ratio.
+  const stripRef = React.useRef<HTMLDivElement | null>(null)
   const rangeMs = clipDurationMs(clip)
   // Frames were sampled across the measured duration; map cells against the
   // same value so they stay aligned when recorded metadata overshoots.
   const sourceDurationMs = measuredMs ?? source.durationMs
-  if (rangeMs <= 0 || sourceDurationMs <= 0 || frames.length === 0) {
-    return <div className="size-full" />
-  }
-  const cellCount = Math.min(
+  const minCells =
+    rangeMs > 0 && sourceDurationMs > 0 && frames.length > 0
+      ? Math.ceil((rangeMs / sourceDurationMs) * frames.length)
+      : 1
+  const cellCount = useFilmstripCellCount(
+    stripRef,
+    aspect,
     MAX_FILMSTRIP_CELLS,
-    Math.max(1, Math.round((rangeMs / spanMs) * BASE_FILMSTRIP_CELLS * zoom)),
+    minCells,
   )
-  const cells: string[] = []
-  for (let i = 0; i < cellCount; i++) {
-    const sourceMs = clip.sourceStartMs + ((i + 0.5) / cellCount) * rangeMs
-    const frameIndex = Math.min(
-      frames.length - 1,
-      Math.max(0, Math.floor((sourceMs / sourceDurationMs) * frames.length)),
-    )
-    cells.push(frames[frameIndex])
+  if (rangeMs <= 0 || sourceDurationMs <= 0 || frames.length === 0) {
+    return <div ref={stripRef} className="size-full" />
   }
+  const cells = filmstripCellsForRange({
+    frames,
+    cellCount,
+    durationMs: sourceDurationMs,
+    startMs: clip.sourceStartMs,
+    endMs: clip.sourceEndMs,
+  })
 
   return (
-    <div className="flex size-full">
+    <div ref={stripRef} className="flex size-full">
       {cells.map((cell, i) => (
         <img
           key={i}

@@ -1,4 +1,9 @@
-import type { ClipRow } from "@alloy/api"
+import {
+  type ClipRow,
+  type StagingRecordingRow,
+  stagingStreamUrl,
+  stagingThumbnailUrl,
+} from "@alloy/api"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,7 +15,6 @@ import {
   AlertDialogTitle,
 } from "@alloy/ui/components/alert-dialog"
 import { Button } from "@alloy/ui/components/button"
-import { Checkbox } from "@alloy/ui/components/checkbox"
 import { ClipCard } from "@alloy/ui/components/clip-card"
 import {
   DropdownMenu,
@@ -40,7 +44,11 @@ import { useClipDownloadAction } from "@/components/clip/clip-download-button"
 import { useCapturePoster } from "@/lib/capture-poster"
 import { toClipCardData } from "@/lib/clip-format"
 import { useDeleteClipMutation } from "@/lib/clip-queries"
-import { useClipSync } from "@/lib/clip-sync"
+import {
+  clipSyncSupported,
+  queueClipSyncItem,
+  useClipSync,
+} from "@/lib/clip-sync"
 import { formatRelativeTime } from "@/lib/date-format"
 import {
   alloyDesktop,
@@ -48,8 +56,15 @@ import {
   type RecordingLibraryItem,
   type RecordingLibraryProjectDraft,
 } from "@/lib/desktop"
+import { apiOrigin } from "@/lib/env"
+import { useDeleteStagingMutation } from "@/lib/staging-queries"
 
 import { formatLibraryBytes, type LibraryItemView } from "./library-data"
+import { DeleteServerBackedDialog } from "./library-delete-dialog"
+import {
+  deleteLocalLibraryCopy,
+  detachLocalServerLink,
+} from "./library-local-actions"
 
 export function LibraryCaptureCard({
   item,
@@ -72,25 +87,6 @@ export function LibraryCaptureCard({
   return (
     <ClipCard
       title={item.title}
-      titleContent={
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate">{item.title}</span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Reveal ${item.title}`}
-            title="Reveal in folder"
-            className="size-6 shrink-0 opacity-0 transition-opacity group-hover/clip-card:opacity-100 focus-visible:opacity-100"
-            onClick={(event) => {
-              event.stopPropagation()
-              onReveal()
-            }}
-          >
-            <FolderOpenIcon />
-          </Button>
-        </span>
-      }
       author=""
       game={item.displayGameName}
       gameIcon={item.displayGameIconUrl}
@@ -103,6 +99,9 @@ export function LibraryCaptureCard({
       streamUrl={item.kind === "screenshot" ? undefined : item.mediaUrl}
       thumbnailLabel={`Edit ${item.title}`}
       onThumbnailClick={onOpen}
+      thumbnailOverlay={
+        <LibraryCaptureMenu item={item} source={source} onReveal={onReveal} />
+      }
       metaContent={
         <LibraryCardMeta
           source={source}
@@ -112,6 +111,112 @@ export function LibraryCaptureCard({
         />
       }
     />
+  )
+}
+
+/** Three-dot actions for a local capture: sync, reveal, delete. */
+function LibraryCaptureMenu({
+  item,
+  source,
+  onReveal,
+}: {
+  item: LibraryItemView
+  source: LibrarySource
+  onReveal: () => void
+}) {
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
+  const [busy, setBusy] = React.useState(false)
+  const canSync =
+    source === "local" && item.kind !== "screenshot" && clipSyncSupported()
+
+  const sync = async () => {
+    setBusy(true)
+    try {
+      await queueClipSyncItem(item.id)
+      toast.success("Syncing to your library")
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "Couldn't sync")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const remove = async () => {
+    setBusy(true)
+    try {
+      await alloyDesktop()?.recording.deleteLibraryCapture(item.id)
+      toast.success("Moved to trash")
+      notifyLibraryCapturesChanged()
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "Couldn't delete")
+    } finally {
+      setBusy(false)
+      setDeleteDialogOpen(false)
+    }
+  }
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Actions for ${item.title}`}
+              className={cn(
+                "bg-black/55 text-white backdrop-blur-sm hover:bg-black/75 hover:text-white",
+                "opacity-0 transition-opacity group-hover/clip-card:opacity-100",
+                "focus-visible:opacity-100 aria-expanded:opacity-100",
+              )}
+            >
+              <MoreVerticalIcon />
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="end">
+          {canSync ? (
+            <DropdownMenuItem onClick={sync} disabled={busy}>
+              <CloudUploadIcon className="size-4" />
+              Sync to server
+            </DropdownMenuItem>
+          ) : null}
+          <DropdownMenuItem onClick={onReveal}>
+            <FolderOpenIcon className="size-4" />
+            Reveal in folder
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => setDeleteDialogOpen(true)}
+          >
+            <Trash2Icon className="size-4" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this recording?</AlertDialogTitle>
+            <AlertDialogDescription>
+              It will be moved to your system trash.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={busy}
+              onClick={remove}
+            >
+              {busy ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
 
@@ -219,6 +324,201 @@ function LibraryDraftMeta({
   )
 }
 
+/** Grid card for an owner-only staging recording (a synced draft). */
+export function StagingClipCard({
+  row,
+  localItem = null,
+  onOpen,
+}: {
+  row: StagingRecordingRow
+  localItem?: RecordingLibraryItem | null
+  onOpen: () => void
+}) {
+  const processing = row.status !== "ready" || row.encodeProgress < 100
+  const thumbnail = row.thumbKey
+    ? stagingThumbnailUrl(row.id, apiOrigin(), row.updatedAt)
+    : undefined
+  return (
+    <ClipCard
+      title={row.title}
+      author=""
+      game={row.gameRef?.name ?? row.game ?? ""}
+      gameIcon={row.gameRef?.iconUrl ?? null}
+      gameHref={row.gameRef?.slug ? `/g/${row.gameRef.slug}` : null}
+      views="0"
+      likes="0"
+      thumbnail={thumbnail}
+      thumbnailBlurHash={row.thumbBlurHash}
+      fallbackSeed={`staging:${row.id}`}
+      streamUrl={
+        processing ? undefined : stagingStreamUrl(row.id, "source", apiOrigin())
+      }
+      thumbnailLabel={`Edit ${row.title}`}
+      onThumbnailClick={onOpen}
+      thumbnailOverlay={
+        <StagingClipMenu row={row} localItem={localItem} onEdit={onOpen} />
+      }
+      metaContent={
+        <LibraryStagingMeta
+          kind={row.kind}
+          sizeBytes={row.sourceSizeBytes}
+          createdAt={row.createdAt}
+          processing={processing}
+          progress={row.encodeProgress}
+        />
+      }
+    />
+  )
+}
+
+/** Three-dot actions for a staging recording: edit or delete the draft. */
+function StagingClipMenu({
+  row,
+  localItem,
+  onEdit,
+}: {
+  row: StagingRecordingRow
+  localItem: RecordingLibraryItem | null
+  onEdit: () => void
+}) {
+  const deleteMutation = useDeleteStagingMutation()
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
+  const [deletingLocal, setDeletingLocal] = React.useState(false)
+  const pending = deleteMutation.isPending || deletingLocal
+
+  const handleConfirm = (deleteLocal: boolean) => {
+    deleteMutation.mutate(
+      { id: row.id },
+      {
+        onSuccess: async () => {
+          if (!localItem) {
+            toast.success("Recording deleted")
+            setDeleteDialogOpen(false)
+            return
+          }
+          if (deleteLocal) {
+            setDeletingLocal(true)
+            try {
+              await deleteLocalLibraryCopy(localItem)
+              toast.success("Recording deleted from server and this device")
+            } catch {
+              await detachLocalServerLink({
+                item: localItem,
+                serverId: row.id,
+                excludeFromAutoSync: true,
+              }).catch(() => undefined)
+              toast.error(
+                "Recording deleted from server, but the local copy couldn't be removed",
+              )
+            } finally {
+              setDeletingLocal(false)
+            }
+          } else {
+            try {
+              await detachLocalServerLink({
+                item: localItem,
+                serverId: row.id,
+                excludeFromAutoSync: true,
+              })
+              toast.success("Recording deleted from server")
+            } catch {
+              toast.error(
+                "Recording deleted from server, but the local sync link couldn't be cleared",
+              )
+            }
+          }
+          setDeleteDialogOpen(false)
+        },
+        onError: () => toast.error("Couldn't delete recording"),
+      },
+    )
+  }
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Actions for ${row.title}`}
+              className={cn(
+                "bg-black/55 text-white backdrop-blur-sm hover:bg-black/75 hover:text-white",
+                "opacity-0 transition-opacity group-hover/clip-card:opacity-100",
+                "focus-visible:opacity-100 aria-expanded:opacity-100",
+              )}
+            >
+              <MoreVerticalIcon />
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={onEdit}>
+            <PencilIcon className="size-4" />
+            Edit
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => setDeleteDialogOpen(true)}
+          >
+            <Trash2Icon className="size-4" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <DeleteServerBackedDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        pending={pending}
+        title={row.title}
+        noun="recording"
+        localItem={localItem}
+        onConfirm={handleConfirm}
+      />
+    </>
+  )
+}
+
+function LibraryStagingMeta({
+  kind,
+  sizeBytes,
+  createdAt,
+  processing,
+  progress,
+}: {
+  kind: "clip" | "session"
+  sizeBytes: number | null
+  createdAt: string
+  processing: boolean
+  progress: number
+}) {
+  const hasSize = typeof sizeBytes === "number" && sizeBytes > 0
+  const clamped = Math.max(0, Math.min(100, progress))
+  return (
+    <>
+      <span className="text-foreground-muted flex shrink-0 items-center gap-1">
+        <CloudCheckIcon className="size-3.5" />
+        {processing ? `Processing ${clamped}%` : "Synced"}
+      </span>
+      <span className="shrink-0">·</span>
+      <span className="shrink-0">
+        {kind === "session" ? "Session" : "Clip"}
+      </span>
+      {hasSize ? (
+        <>
+          <span className="shrink-0">·</span>
+          <span className="shrink-0">{formatLibraryBytes(sizeBytes)}</span>
+        </>
+      ) : null}
+      <span className="shrink-0">·</span>
+      <span className="truncate">{formatRelativeTime(createdAt)}</span>
+    </>
+  )
+}
+
 type LibrarySource =
   | "local"
   | "synced"
@@ -228,13 +528,11 @@ type LibrarySource =
   | "syncing"
   | "sync-failed"
 
-/** How visible a server-backed clip is, mirroring the privacy picker icons. */
+/** How visible a published clip is, mirroring the privacy picker icons. */
 export function librarySourceForPrivacy(
-  privacy: "public" | "unlisted" | "private",
+  privacy: "public" | "unlisted",
 ): LibrarySource {
-  if (privacy === "public") return "on-profile"
-  if (privacy === "unlisted") return "link-only"
-  return "synced"
+  return privacy === "public" ? "on-profile" : "link-only"
 }
 
 const SOURCE_META: Record<
@@ -441,16 +739,10 @@ function DeleteUploadedClipDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const deleteMutation = useDeleteClipMutation()
-  const [deleteLocal, setDeleteLocal] = React.useState(false)
   const [deletingLocal, setDeletingLocal] = React.useState(false)
   const pending = deleteMutation.isPending || deletingLocal
 
-  // A fresh prompt shouldn't inherit the checkbox from the previous one.
-  React.useEffect(() => {
-    if (open) setDeleteLocal(false)
-  }, [open])
-
-  const handleConfirm = () => {
+  const handleConfirm = (deleteLocal: boolean) => {
     deleteMutation.mutate(
       { clipId: row.id },
       {
@@ -458,15 +750,32 @@ function DeleteUploadedClipDialog({
           if (deleteLocal && localItem) {
             setDeletingLocal(true)
             try {
-              await alloyDesktop()?.recording.deleteLibraryCapture(localItem.id)
-              notifyLibraryCapturesChanged()
+              await deleteLocalLibraryCopy(localItem)
               toast.success("Clip deleted from server and this device")
             } catch {
+              await detachLocalServerLink({
+                item: localItem,
+                serverId: row.id,
+                excludeFromAutoSync: true,
+              }).catch(() => undefined)
               toast.error(
                 "Clip deleted from server, but the local copy couldn't be removed",
               )
             } finally {
               setDeletingLocal(false)
+            }
+          } else if (localItem) {
+            try {
+              await detachLocalServerLink({
+                item: localItem,
+                serverId: row.id,
+                excludeFromAutoSync: true,
+              })
+              toast.success("Clip deleted from server")
+            } catch {
+              toast.error(
+                "Clip deleted from server, but the local sync link couldn't be cleared",
+              )
             }
           } else {
             toast.success("Clip deleted")
@@ -479,38 +788,15 @@ function DeleteUploadedClipDialog({
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete this clip?</AlertDialogTitle>
-          <AlertDialogDescription>
-            "{row.title}" will be removed from the server. This can't be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        {localItem ? (
-          <label className="flex cursor-pointer items-center gap-2.5 text-sm">
-            <Checkbox
-              checked={deleteLocal}
-              onCheckedChange={(checked) => setDeleteLocal(checked === true)}
-              disabled={pending}
-            />
-            <span className="text-foreground-muted">
-              Also delete the local copy on this device
-            </span>
-          </label>
-        ) : null}
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            onClick={handleConfirm}
-            disabled={pending}
-          >
-            {pending ? "Deleting…" : "Delete clip"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <DeleteServerBackedDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      pending={pending}
+      title={row.title}
+      noun="clip"
+      localItem={localItem}
+      onConfirm={handleConfirm}
+    />
   )
 }
 

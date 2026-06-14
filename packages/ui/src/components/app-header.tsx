@@ -93,7 +93,7 @@ const AppHeaderSearch = React.forwardRef<
         containerClassName,
       )}
     >
-      <div className="group/search relative flex h-8 w-full items-center">
+      <div className="group/search relative flex h-10 w-full items-center sm:h-9">
         <span
           aria-hidden
           className={cn(

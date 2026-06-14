@@ -1,13 +1,13 @@
 import { cn } from "@alloy/ui/lib/utils"
-import { ChevronDownIcon, Loader2Icon } from "lucide-react"
+import { ChevronDownIcon, CloudUploadIcon, Loader2Icon } from "lucide-react"
 import * as React from "react"
 
 /**
- * Floating indicator that surfaces in-flight sync activity (uploads and clip
- * downloads). It never *starts* a transfer — those originate elsewhere — so
- * the parent mounts this only while `activeCount > 0` (or the queue is open).
- * Clicking it opens the sync queue popover to inspect progress; the icon
- * morphs to a chevron while open so it reads as "close".
+ * Floating button that opens the sync queue (uploads and clip downloads).
+ * It never *starts* a transfer — those originate elsewhere — it's a permanent
+ * entry point: idle it shows a cloud, while transfers run it spins with a
+ * count badge, and while the queue is open it morphs to a chevron so it
+ * reads as "close".
  */
 export function UploadStatusIndicator({
   activeCount,
@@ -50,21 +50,33 @@ export function UploadStatusIndicator({
       )}
     >
       {/*
-       * Cross-rotate morph: the activity spinner rotates out + fades as
+       * Cross-rotate morph: the activity icon rotates out + fades as
        * ChevronDownIcon rotates in. Both icons share the same 5×5 slot
        * (absolute + inset-0) so the button geometry doesn't jitter.
        */}
       <span className="relative inline-flex size-5 items-center justify-center">
-        <Loader2Icon
-          aria-hidden
-          className={cn(
-            "absolute size-5 transition-[transform,opacity] duration-[var(--duration-base)] ease-[var(--ease-out)]",
-            !isOpen && "animate-spin",
-            isOpen
-              ? "scale-50 rotate-90 opacity-0"
-              : "scale-100 rotate-0 opacity-100",
-          )}
-        />
+        {activeCount > 0 ? (
+          <Loader2Icon
+            aria-hidden
+            className={cn(
+              "absolute size-5 transition-[transform,opacity] duration-[var(--duration-base)] ease-[var(--ease-out)]",
+              !isOpen && "animate-spin",
+              isOpen
+                ? "scale-50 rotate-90 opacity-0"
+                : "scale-100 rotate-0 opacity-100",
+            )}
+          />
+        ) : (
+          <CloudUploadIcon
+            aria-hidden
+            className={cn(
+              "absolute size-5 transition-[transform,opacity] duration-[var(--duration-base)] ease-[var(--ease-out)]",
+              isOpen
+                ? "scale-50 rotate-90 opacity-0"
+                : "scale-100 rotate-0 opacity-100",
+            )}
+          />
+        )}
         <ChevronDownIcon
           aria-hidden
           className={cn(

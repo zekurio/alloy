@@ -9,6 +9,12 @@
  * `editor-transitions`; everything here is pure and side-effect free.
  */
 
+import {
+  DEFAULT_EDITOR_FILTER_ID,
+  type EditorFilterId,
+  normalizeEditorFilterId,
+} from "./editor-filters"
+
 /** A piece of media clips can reference: a local capture or an uploaded clip. */
 export interface EditorMediaSource {
   id: string
@@ -63,12 +69,15 @@ export interface EditorProject {
   tracks: TimelineTrack[]
   clips: TimelineClip[]
   transitions: ClipTransition[]
+  /** Global visual filter applied to preview and rendered exports. */
+  filterId?: EditorFilterId
 }
 
 /** Smallest clip an edit operation may produce. */
 export const MIN_CLIP_MS = 100
 export const MIN_TRANSITION_MS = 100
 export const DEFAULT_TRANSITION_MS = 500
+export const DEFAULT_PROJECT_FILTER_ID = DEFAULT_EDITOR_FILTER_ID
 
 let idCounter = 0
 export function nextId(prefix: string): string {
@@ -86,6 +95,10 @@ export function clipEndMs(clip: TimelineClip): number {
 
 export function projectDurationMs(project: EditorProject): number {
   return project.clips.reduce((max, clip) => Math.max(max, clipEndMs(clip)), 0)
+}
+
+export function projectFilterId(project: EditorProject): EditorFilterId {
+  return normalizeEditorFilterId(project.filterId)
 }
 
 export function findClip(

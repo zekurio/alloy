@@ -18,12 +18,14 @@ import {
 
 import { createCaptureSource } from "@/lib/capture-source"
 
+import { editorFilterCss } from "./editor-filters"
 import {
   activeTransitionAt,
   clipAtTimelineMs,
   clipEndMs,
   type EditorMediaSource,
   type EditorProject,
+  projectFilterId,
   projectDurationMs,
   type TimelineClip,
 } from "./editor-project"
@@ -176,10 +178,17 @@ export async function renderProject(
       target: new BufferTarget(),
     })
     cancelOutput = () => output.cancel()
+    const filter = editorFilterCss(projectFilterId(project))
     const composite = new OffscreenCanvas(width, height)
     const ctx = composite.getContext("2d")
     if (!ctx) throw new Error("Couldn't create the compositing canvas.")
-    const videoSource = new CanvasSource(composite, {
+    const encoded =
+      filter === "none" ? composite : new OffscreenCanvas(width, height)
+    const encodedCtx = filter === "none" ? null : encoded.getContext("2d")
+    if (filter !== "none" && !encodedCtx) {
+      throw new Error("Couldn't create the filtered output canvas.")
+    }
+    const videoSource = new CanvasSource(encoded, {
       codec: videoCodec,
       bitrate: quality,
       keyFrameInterval: 2,
@@ -351,6 +360,15 @@ export async function renderProject(
         }
       }
 
+      if (encodedCtx) {
+        encodedCtx.globalAlpha = 1
+        encodedCtx.filter = "none"
+        encodedCtx.fillStyle = "#000"
+        encodedCtx.fillRect(0, 0, width, height)
+        encodedCtx.filter = filter
+        encodedCtx.drawImage(composite, 0, 0, width, height)
+        encodedCtx.filter = "none"
+      }
       await videoSource.add(frame / fps, 1 / fps)
 
       // Release decoders for clips that have fully passed.

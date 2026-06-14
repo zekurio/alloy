@@ -542,6 +542,35 @@
     }
   }
 
+  /* Side-to-side nudge — the settings save bar replays this when closing is
+     blocked by unsaved edits, pointing the eye at the Save/Cancel buttons. */
+  @keyframes alloy-attention-shake {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    20% {
+      transform: translateX(-6px);
+    }
+    40% {
+      transform: translateX(5px);
+    }
+    60% {
+      transform: translateX(-3px);
+    }
+    80% {
+      transform: translateX(2px);
+    }
+  }
+  .animate-attention-shake {
+    animation: alloy-attention-shake 0.45s var(--ease-out);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-attention-shake {
+      animation: none;
+    }
+  }
+
   /* Sweep a soft accent highlight across the game-suggestion "thinking" verb
      text so it reads as alive rather than a frozen label. */
   @keyframes alloy-text-shimmer {

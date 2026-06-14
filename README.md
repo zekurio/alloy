@@ -14,7 +14,7 @@ libraries are both treated as packages so the workspace graph stays explicit.
 | `packages/server`    | Hono API server for auth, clips, uploads, playback, feeds, search, notifications, admin, storage, encoding jobs, and web asset serving. |
 | `packages/web`       | React/TanStack web app served by the server in production and by Vite during local development.                                         |
 | `packages/desktop`   | Electron desktop shell that connects to a self-hosted Alloy server and controls local recording.                                        |
-| `packages/recorder`  | Rust recording sidecar built as `alloy-recorder`; bundled by desktop and also available as a recorder-only runtime release.             |
+| `packages/recorder`  | Rust recording sidecar built as `alloy-recorder`; bundled by desktop release builds.                                                    |
 | `packages/api`       | Typed client helpers and runtime validators for browser and desktop clients calling the server API.                                     |
 | `packages/contracts` | Shared TypeScript contracts used across the server, web app, desktop app, and recorder-facing flows.                                    |
 | `packages/db`        | Drizzle schema, migrations, database contracts, and migration helpers.                                                                  |
@@ -195,7 +195,9 @@ docker run --rm \
 Image tags:
 
 - `latest`: latest stable app release.
-- `vX.Y.Z`: exact app release; prereleases only get their pinned version tag.
+- `vX.Y.Z`: exact stable app release.
+- `nightly`: latest nightly app release.
+- `vX.Y.Z-nightly.YYYYMMDD.<run>`: exact nightly app release.
 - `main`: continuously published from the main branch.
 
 ### Storage
@@ -237,19 +239,14 @@ unless the staged runtime contains `obs.dll`.
 
 ## Releases
 
-The primary Alloy app release is unified under tags named `vX.Y.Z`. The web app
-is served by the server and used heavily by the Electron shell, so the server,
-web, and desktop installer ship from the same release tag and version.
+Alloy has stable and nightly release channels. Stable releases use tags named
+`vX.Y.Z`; nightly releases use tags named `vX.Y.Z-nightly.YYYYMMDD.<run>`.
 
-Feature and fix PRs target `main`. The release preparation workflow runs checks,
-updates the root and desktop package versions together, commits the version
-bump, and pushes the prepared release back to `main`. Publishing happens from
-tags on `main`.
-
-The app release publishes the Nix-built server image, the Windows desktop
-installer, updater metadata, blockmap, recorder runtime zip, and checksums.
-Recorder package metadata is versioned with the app release so sidecar artifacts
-are traceable to the same `vX.Y.Z` tag.
+GitHub Release assets are desktop-only: the Windows installer, Electron updater
+metadata (`latest.yml` or `nightly.yml`), blockmaps, and checksums. Server
+distribution is via GHCR Docker images published from the same release event:
+use `ghcr.io/zekurio/alloy:latest` for stable, `ghcr.io/zekurio/alloy:nightly`
+for nightly, or pin the exact `:vX.Y.Z` / `:vX.Y.Z-nightly...` tag.
 
 ## Package READMEs
 

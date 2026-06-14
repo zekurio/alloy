@@ -24,6 +24,7 @@ import { useDebouncedValue } from "@/lib/use-debounced-value"
 type GameComboboxItem = SteamGridDBSearchResult & {
   iconUrl?: string | null
   logoUrl?: string | null
+  clipCount?: number
 }
 
 const PAGE_SIZE = 6
@@ -42,11 +43,13 @@ interface GameComboboxProps {
   onConfiguredChange?: (configured: boolean | null) => void
   required?: boolean
   side?: "top" | "bottom"
+  focusOnMount?: boolean
   /**
    * Extra classes on the wrapping element so callers can size the input
    * to match their form layout without overriding the combobox internals.
    */
   className?: string
+  inputClassName?: string
 }
 
 export function GameCombobox({
@@ -60,7 +63,9 @@ export function GameCombobox({
   onConfiguredChange,
   required = false,
   side = "bottom",
+  focusOnMount = false,
   className,
+  inputClassName,
 }: GameComboboxProps) {
   const statusQuery = useSteamGridDBStatusQuery()
   const configured = statusQuery.data?.steamgriddbConfigured ?? null
@@ -107,6 +112,11 @@ export function GameCombobox({
   const anchorRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
+    if (!focusOnMount) return
+    anchorRef.current?.querySelector("input")?.focus()
+  }, [focusOnMount])
+
+  React.useEffect(() => {
     if (value) setCleared(false)
   }, [value])
 
@@ -151,38 +161,52 @@ export function GameCombobox({
   const noopFilter = React.useCallback(() => true, [])
 
   const effectiveItems = React.useMemo<GameComboboxItem[]>(() => {
-    const sgdbResults = searchQuery.data ?? []
+    const q = normalizeGameSearchText(debouncedQuery)
+    const inputQuery = normalizeGameSearchText(inputValue)
+    const sgdbResults = inputQuery === q ? (searchQuery.data ?? []) : []
     const localGames = gamesListQuery.data ?? []
-    const q = debouncedQuery.trim().toLowerCase()
-    // The currently-picked game never belongs in the list — selecting it again
-    // is a no-op, so it would only be noise alongside real choices.
-    const pickedId = value?.steamgriddbId ?? null
+    const currentMatch: GameComboboxItem[] =
+      q.length > 0 &&
+      value !== null &&
+      normalizeGameSearchText(value.name).includes(q)
+        ? [
+            {
+              id: value.steamgriddbId,
+              name: value.name,
+              iconUrl: value.iconUrl,
+              logoUrl: value.logoUrl,
+            },
+          ]
+        : []
 
     // Filter already-known games by the current query — zero network cost.
     const localMatches: GameComboboxItem[] =
       q.length > 0
         ? localGames
-            .filter(
-              (g) =>
-                g.name.toLowerCase().includes(q) &&
-                g.steamgriddbId !== pickedId,
-            )
+            .filter((g) => normalizeGameSearchText(g.name).includes(q))
             .map((g) => ({
               id: g.steamgriddbId,
               name: g.name,
               iconUrl: g.iconUrl,
               logoUrl: g.logoUrl,
+              clipCount: g.clipCount,
             }))
         : []
 
-    // Append SGDB results that aren't already covered by a local match
-    // (or by the picked game) so the list never contains duplicates.
+    // Append SGDB results that aren't already covered by a local match so the
+    // list never contains duplicates, then rank the combined set locally. The
+    // server ranks remote rows, but local rows join here and need the same
+    // treatment.
+    const knownMatches = [...currentMatch, ...localMatches].filter(
+      (item, index, items) =>
+        items.findIndex((candidate) => candidate.id === item.id) === index,
+    )
     const sgdbOnly = sgdbResults.filter(
-      (r) => r.id !== pickedId && !localMatches.some((l) => l.id === r.id),
+      (r) => !knownMatches.some((l) => l.id === r.id),
     )
 
-    return [...localMatches, ...sgdbOnly]
-  }, [searchQuery.data, gamesListQuery.data, debouncedQuery, value])
+    return rankGameComboboxItems([...knownMatches, ...sgdbOnly], q)
+  }, [searchQuery.data, gamesListQuery.data, debouncedQuery, inputValue, value])
 
   // Base UI tracks the controlled `value` by identity (useValueChanged), so
   // this object must stay referentially stable across renders — recreating it
@@ -201,9 +225,12 @@ export function GameCombobox({
     [value],
   )
 
-  const controlledValue: GameComboboxItem | null = cleared
-    ? null
-    : (pendingItem ?? committedValue)
+  const selectedName = pendingItem?.name ?? committedValue?.name ?? ""
+  const editingSelectedName =
+    selectedName.length > 0 &&
+    inputValue.trim().toLowerCase() !== selectedName.trim().toLowerCase()
+  const controlledValue: GameComboboxItem | null =
+    cleared || editingSelectedName ? null : (pendingItem ?? committedValue)
 
   if (configured === false) {
     return (
@@ -243,6 +270,7 @@ export function GameCombobox({
       >
         <ComboboxInput
           id={id}
+          className={inputClassName}
           placeholder={placeholder}
           showTrigger={false}
           showClear={allowClear && controlledValue !== null}
@@ -267,7 +295,7 @@ export function GameCombobox({
         <ComboboxContent
           side={side}
           anchor={anchorRef}
-          className="min-w-[320px]"
+          className="min-w-[360px]"
         >
           <ComboboxList>
             {effectiveItems.length === 0
@@ -277,14 +305,18 @@ export function GameCombobox({
                     <ComboboxItem
                       key={item.id}
                       value={item}
-                      className="gap-1.5 py-2 pl-1"
+                      className="h-8 items-center gap-2 py-0 pr-9 pl-2.5"
                     >
                       <GameIcon
                         src={item.iconUrl ?? item.logoUrl}
                         name={item.name}
+                        className="size-4 rounded-sm [&_img]:object-contain"
                       />
-                      <span className="text-foreground min-w-0 truncate text-sm">
-                        {item.name}
+                      <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                        <span className="text-foreground min-w-0 truncate text-sm leading-4 font-semibold">
+                          {item.name}
+                        </span>
+                        <GameSearchResultYear item={item} />
                       </span>
                     </ComboboxItem>
                   )
@@ -323,4 +355,60 @@ export function GameCombobox({
       </Combobox>
     </div>
   )
+}
+
+function GameSearchResultYear({ item }: { item: GameComboboxItem }) {
+  const releaseYear = releaseYearFromTimestamp(item.release_date)
+  if (!releaseYear) return null
+
+  return (
+    <span className="text-foreground-faint min-w-0 truncate text-xs">
+      - {releaseYear}
+    </span>
+  )
+}
+
+function normalizeGameSearchText(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[™®©]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, " ")
+    .trim()
+    .toLowerCase()
+}
+
+function rankGameComboboxItems(
+  items: GameComboboxItem[],
+  normalizedQuery: string,
+): GameComboboxItem[] {
+  if (!normalizedQuery) return items
+
+  return items
+    .map((item, index) => {
+      const name = normalizeGameSearchText(item.name)
+      const types = item.types?.map((type) => type.toLowerCase()) ?? []
+      let score = 0
+
+      if (name === normalizedQuery) score += 1000
+      else if (name.startsWith(normalizedQuery)) score += 600
+      else if (name.includes(normalizedQuery)) score += 250
+
+      if (item.clipCount !== undefined) score += 140
+      if (item.verified) score += 80
+      if (types.includes("game")) score += 40
+      if (types.some((type) => ["dlc", "demo", "mod"].includes(type))) {
+        score -= 160
+      }
+
+      return { item, index, score }
+    })
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map(({ item }) => item)
+}
+
+function releaseYearFromTimestamp(value: number | undefined): string | null {
+  if (value === undefined) return null
+  const year = new Date(value * 1000).getUTCFullYear()
+  return Number.isFinite(year) ? String(year) : null
 }

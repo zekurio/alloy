@@ -1,7 +1,6 @@
 import { user } from "@alloy/db/auth-schema"
 import { clip, game } from "@alloy/db/schema"
 import {
-  applyClipPrivacyHeaders,
   clipAccessResponse,
   resolveClipAccess,
 } from "@alloy/server/clips/access"
@@ -71,7 +70,6 @@ export const clips = new Hono()
       policy: "metadata",
     })
     if (!access.accessible) return clipAccessResponse(c, access)
-    applyClipPrivacyHeaders(c, access)
 
     const row = await selectClipById(id)
     if (!row) return notFound(c)

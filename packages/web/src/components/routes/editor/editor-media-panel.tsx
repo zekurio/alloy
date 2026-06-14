@@ -4,11 +4,28 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@alloy/ui/components/input-group"
-import { CloudIcon, LibraryIcon, PlusIcon, SearchIcon } from "lucide-react"
+import { cn } from "@alloy/ui/lib/utils"
+import {
+  ArrowLeftIcon,
+  ChevronRightIcon,
+  CheckIcon,
+  CloudIcon,
+  LibraryIcon,
+  PaletteIcon,
+  PlusIcon,
+  SearchIcon,
+} from "lucide-react"
 import * as React from "react"
 
 import { ClipDownloadIconButton } from "@/components/clip/clip-download-button"
 import { formatMediaDurationMs } from "@/lib/media-time"
+
+import {
+  EDITOR_FILTER_PRESETS,
+  editorFilterPreset,
+  type EditorFilterId,
+  type EditorFilterPreset,
+} from "./editor-filters"
 
 /** One addable media row: a local capture or an uploaded ("cloud") clip. */
 export interface EditorMediaItem {
@@ -26,19 +43,24 @@ export interface EditorMediaItem {
   clipRow?: ClipRow
 }
 
+type EditorElementsPanelView = "elements" | "media" | "filters"
+
 /**
- * Library panel of the editor: every local video capture plus the user's
- * uploaded clips, addable to the timeline at the playhead. The project's
- * clips are decoupled from these items — adding the same media twice just
- * creates two clips.
+ * Multifunction add panel of the editor. Media adds timeline clips; filters
+ * select the project's global look for preview and render.
  */
 export function EditorMediaPanel({
+  filterId,
   items,
   onAdd,
+  onFilterChange,
 }: {
+  filterId: EditorFilterId
   items: EditorMediaItem[]
   onAdd: (item: EditorMediaItem) => void
+  onFilterChange: (filterId: EditorFilterId) => void
 }) {
+  const [view, setView] = React.useState<EditorElementsPanelView>("elements")
   const [query, setQuery] = React.useState("")
   const visible = React.useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -52,11 +74,165 @@ export function EditorMediaPanel({
   }, [items, query])
 
   return (
-    <aside className="border-border bg-surface/60 flex min-h-0 flex-col gap-3 rounded-md border p-3">
+    <aside className="border-border bg-surface/60 flex min-h-0 flex-col overflow-hidden rounded-md border">
+      {view === "elements" ? (
+        <ElementsHome
+          filterTitle={editorFilterPreset(filterId).title}
+          itemCount={items.length}
+          onSelectView={setView}
+        />
+      ) : null}
+      {view === "media" ? (
+        <MediaLibraryView
+          items={items}
+          visible={visible}
+          query={query}
+          onQueryChange={setQuery}
+          onAdd={onAdd}
+          onBack={() => setView("elements")}
+        />
+      ) : null}
+      {view === "filters" ? (
+        <FiltersView
+          selectedId={filterId}
+          onSelect={onFilterChange}
+          onBack={() => setView("elements")}
+        />
+      ) : null}
+    </aside>
+  )
+}
+
+function ElementsHome({
+  filterTitle,
+  itemCount,
+  onSelectView,
+}: {
+  filterTitle: string
+  itemCount: number
+  onSelectView: (view: EditorElementsPanelView) => void
+}) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col p-3">
       <div className="text-foreground flex items-center gap-2 text-sm font-semibold">
-        <LibraryIcon className="text-accent size-4" />
-        Library
+        <PlusIcon className="text-accent size-4" />
+        Add elements
       </div>
+      <div className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+        <ElementPickerRow
+          icon={<LibraryIcon />}
+          title="Media"
+          subtitle={`${itemCount} ${itemCount === 1 ? "clip" : "clips"}`}
+          onClick={() => onSelectView("media")}
+        >
+          <div className="bg-surface-raised border-border flex -space-x-1 rounded-md border px-1.5 py-1">
+            <span className="bg-accent/80 block size-3 rounded-sm" />
+            <span className="block size-3 rounded-sm bg-cyan-500" />
+            <span className="block size-3 rounded-sm bg-amber-400" />
+          </div>
+        </ElementPickerRow>
+        <ElementPickerRow
+          icon={<PaletteIcon />}
+          title="Filters"
+          subtitle={filterTitle}
+          onClick={() => onSelectView("filters")}
+        >
+          <div className="grid grid-cols-2 gap-0.5">
+            {EDITOR_FILTER_PRESETS.slice(1, 5).map((preset) => (
+              <span
+                key={preset.id}
+                className={cn("block size-3 rounded-sm", preset.swatches[1])}
+              />
+            ))}
+          </div>
+        </ElementPickerRow>
+      </div>
+    </div>
+  )
+}
+
+function ElementPickerRow({
+  icon,
+  title,
+  subtitle,
+  children,
+  onClick,
+}: {
+  icon: React.ReactNode
+  title: string
+  subtitle: string
+  children: React.ReactNode
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className="border-border bg-surface/50 hover:border-border-strong hover:bg-surface-raised focus-visible:ring-ring flex w-full cursor-pointer items-center gap-3 rounded-md border p-2 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none"
+      onClick={onClick}
+    >
+      <span className="border-border bg-surface-raised text-foreground-muted flex size-8 shrink-0 items-center justify-center rounded-md border [&>svg]:size-4">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="text-foreground block truncate text-sm font-semibold">
+          {title}
+        </span>
+        <span className="text-foreground-faint block truncate text-xs">
+          {subtitle}
+        </span>
+      </span>
+      <span className="shrink-0">{children}</span>
+      <ChevronRightIcon className="text-foreground-faint size-4 shrink-0" />
+    </button>
+  )
+}
+
+function PanelHeader({
+  icon,
+  title,
+}: {
+  icon: React.ReactNode
+  title: string
+}) {
+  return (
+    <div className="text-foreground flex items-center gap-2 text-sm font-semibold">
+      <span className="text-accent [&>svg]:size-4">{icon}</span>
+      {title}
+    </div>
+  )
+}
+
+function BackToElementsButton({ onBack }: { onBack: () => void }) {
+  return (
+    <button
+      type="button"
+      className="border-border text-foreground-muted hover:bg-surface-raised hover:text-foreground focus-visible:ring-ring flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none"
+      onClick={onBack}
+    >
+      <ArrowLeftIcon className="size-3.5" />
+      Back to elements
+    </button>
+  )
+}
+
+function MediaLibraryView({
+  items,
+  visible,
+  query,
+  onQueryChange,
+  onAdd,
+  onBack,
+}: {
+  items: EditorMediaItem[]
+  visible: EditorMediaItem[]
+  query: string
+  onQueryChange: (query: string) => void
+  onAdd: (item: EditorMediaItem) => void
+  onBack: () => void
+}) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
+      <PanelHeader icon={<LibraryIcon />} title="Media" />
       <InputGroup className="h-8 sm:h-8">
         <InputGroupAddon align="inline-start">
           <SearchIcon />
@@ -65,7 +241,7 @@ export function EditorMediaPanel({
           value={query}
           placeholder="Search media..."
           aria-label="Search media"
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => onQueryChange(event.target.value)}
           className="text-sm"
         />
       </InputGroup>
@@ -83,7 +259,75 @@ export function EditorMediaPanel({
           ))
         )}
       </div>
-    </aside>
+      <BackToElementsButton onBack={onBack} />
+    </div>
+  )
+}
+
+function FiltersView({
+  selectedId,
+  onSelect,
+  onBack,
+}: {
+  selectedId: EditorFilterId
+  onSelect: (id: EditorFilterId) => void
+  onBack: () => void
+}) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
+      <PanelHeader icon={<PaletteIcon />} title="Filters" />
+      <div className="-mr-1 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
+        {EDITOR_FILTER_PRESETS.map((preset) => (
+          <FilterPresetRow
+            key={preset.id}
+            preset={preset}
+            selected={selectedId === preset.id}
+            onSelect={() => onSelect(preset.id)}
+          />
+        ))}
+      </div>
+      <BackToElementsButton onBack={onBack} />
+    </div>
+  )
+}
+
+function FilterPresetRow({
+  preset,
+  selected,
+  onSelect,
+}: {
+  preset: EditorFilterPreset
+  selected: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      className={cn(
+        "border-border bg-surface/50 hover:border-border-strong hover:bg-surface-raised focus-visible:ring-ring flex w-full cursor-pointer items-center gap-3 rounded-md border p-2 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none",
+        selected &&
+          "border-accent-border bg-accent-soft/60 text-accent hover:border-accent-border hover:bg-accent-soft",
+      )}
+      onClick={onSelect}
+    >
+      <span className="border-border bg-surface-raised flex h-9 w-12 shrink-0 overflow-hidden rounded-md border">
+        {preset.swatches.map((swatch) => (
+          <span key={swatch} className={cn("h-full flex-1", swatch)} />
+        ))}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="text-foreground block truncate text-sm font-semibold">
+          {preset.title}
+        </span>
+        <span className="text-foreground-faint block truncate text-xs">
+          {preset.subtitle}
+        </span>
+      </span>
+      <span className="flex size-4 shrink-0 items-center justify-center">
+        {selected ? <CheckIcon className="text-accent size-4" /> : null}
+      </span>
+    </button>
   )
 }
 
@@ -100,7 +344,7 @@ function MediaRow({
     <div className="group/media relative">
       <button
         type="button"
-        className="hover:bg-surface-raised flex w-full cursor-pointer items-center gap-2 rounded-md p-1.5 text-left transition-colors"
+        className="hover:bg-surface-raised focus-visible:ring-ring flex w-full cursor-pointer items-center gap-2 rounded-md p-1.5 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none"
         title={`Add ${item.title} to the timeline`}
         onClick={onAdd}
       >

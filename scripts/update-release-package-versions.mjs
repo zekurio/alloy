@@ -4,8 +4,38 @@
 
 import { readFileSync, writeFileSync } from "node:fs"
 
-const version = process.argv[2]
-const writeGithubOutput = process.argv.includes("--github-output")
+const args = process.argv.slice(2)
+let version = null
+let desktopChannel = null
+let writeGithubOutput = false
+
+for (let index = 0; index < args.length; index += 1) {
+  const arg = args[index]
+
+  if (arg === "--github-output") {
+    writeGithubOutput = true
+    continue
+  }
+
+  if (arg === "--desktop-channel") {
+    desktopChannel = args[index + 1] ?? null
+    index += 1
+    continue
+  }
+
+  if (arg.startsWith("--")) {
+    console.error(`Unknown option: ${arg}`)
+    process.exit(1)
+  }
+
+  if (version) {
+    console.error(`Unexpected argument: ${arg}`)
+    process.exit(1)
+  }
+
+  version = arg
+}
+
 const releasePackageFiles = [
   "package.json",
   "packages/desktop/package.json",
@@ -16,7 +46,7 @@ const cargoLockPackageFiles = ["packages/recorder/Cargo.lock"]
 
 if (!version) {
   console.error(
-    "Usage: node scripts/update-release-package-versions.mjs <version>",
+    "Usage: node scripts/update-release-package-versions.mjs <version> [--desktop-channel latest|nightly]",
   )
   process.exit(1)
 }
@@ -26,19 +56,49 @@ if (!/^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$/.test(version)) {
   process.exit(1)
 }
 
+if (desktopChannel && !/^(latest|nightly)$/.test(desktopChannel)) {
+  console.error(`Invalid desktop release channel: ${desktopChannel}`)
+  process.exit(1)
+}
+
 let changed = false
 
 for (const filePath of releasePackageFiles) {
   const config = JSON.parse(readFileSync(filePath, "utf8"))
 
-  if (config.version === version) {
-    console.log(`${filePath} is already at version ${version}.`)
-    continue
+  let fileChanged = false
+
+  if (config.version !== version) {
+    config.version = version
+    fileChanged = true
   }
 
-  config.version = version
-  writeFileSync(filePath, `${JSON.stringify(config, null, 2)}\n`)
-  changed = true
+  if (desktopChannel && filePath === "packages/desktop/package.json") {
+    const publishConfig = config.build?.publish?.[0]
+
+    if (!publishConfig || typeof publishConfig !== "object") {
+      console.error(`${filePath} is missing build.publish[0].`)
+      process.exit(1)
+    }
+
+    if (publishConfig.channel !== desktopChannel) {
+      publishConfig.channel = desktopChannel
+      fileChanged = true
+    }
+  }
+
+  if (fileChanged) {
+    writeFileSync(filePath, `${JSON.stringify(config, null, 2)}\n`)
+    changed = true
+  } else {
+    console.log(
+      `${filePath} is already at version ${version}${
+        desktopChannel && filePath === "packages/desktop/package.json"
+          ? ` for ${desktopChannel}`
+          : ""
+      }.`,
+    )
+  }
 }
 
 for (const filePath of cargoPackageFiles) {

@@ -18,13 +18,15 @@ import { TimelineRuler } from "./editor-timeline-ruler"
 /**
  * Multitrack editing timeline: tracks render as stacked rows over a shared
  * ruler, clips sit at their timeline positions and can be dragged along the
- * time axis, across tracks, and trimmed at both edges. Clicking or dragging
- * empty space scrubs the playhead. The component is fully controlled — all
+ * time axis, across tracks, and trimmed at both edges. Clicking the timeline
+ * seeks the playhead, while dragging edits clips. The component is fully
+ * controlled — all
  * edits flow out through callbacks against the pure project model.
  */
 
 export const MIN_TIMELINE_ZOOM = 1
 export const MAX_TIMELINE_ZOOM = 16
+const EDIT_DRAG_THRESHOLD_PX = 4
 
 export function clampTimelineZoom(zoom: number): number {
   if (!Number.isFinite(zoom)) return MIN_TIMELINE_ZOOM
@@ -33,7 +35,24 @@ export function clampTimelineZoom(zoom: number): number {
 
 type DragState =
   | { pointerId: number; mode: "seek" }
+  | {
+      pointerId: number
+      mode: "pending-move"
+      clipId: string
+      grabOffsetMs: number
+      seekMs: number
+      startClientX: number
+      startClientY: number
+    }
   | { pointerId: number; mode: "move"; clipId: string; grabOffsetMs: number }
+  | {
+      pointerId: number
+      mode: "pending-trim-start" | "pending-trim-end"
+      clipId: string
+      seekMs: number
+      startClientX: number
+      startClientY: number
+    }
   | { pointerId: number; mode: "trim-start" | "trim-end"; clipId: string }
   | {
       pointerId: number
@@ -41,6 +60,32 @@ type DragState =
       startClientX: number
       startScrollLeft: number
     }
+
+type PendingEditDrag = Extract<
+  DragState,
+  {
+    mode: "pending-move" | "pending-trim-start" | "pending-trim-end"
+  }
+>
+
+function isPendingEditDrag(drag: DragState): drag is PendingEditDrag {
+  return (
+    drag.mode === "pending-move" ||
+    drag.mode === "pending-trim-start" ||
+    drag.mode === "pending-trim-end"
+  )
+}
+
+function movedPastEditThreshold(
+  drag: PendingEditDrag,
+  clientX: number,
+  clientY: number,
+): boolean {
+  return (
+    Math.hypot(clientX - drag.startClientX, clientY - drag.startClientY) >=
+    EDIT_DRAG_THRESHOLD_PX
+  )
+}
 
 export function MultitrackTimeline({
   project,
@@ -209,6 +254,27 @@ export function MultitrackTimeline({
       onSeek(timelineMs)
       return
     }
+    if (isPendingEditDrag(drag)) {
+      if (!movedPastEditThreshold(drag, clientX, clientY)) return
+      const activeDrag =
+        drag.mode === "pending-move"
+          ? ({
+              pointerId: drag.pointerId,
+              mode: "move",
+              clipId: drag.clipId,
+              grabOffsetMs: drag.grabOffsetMs,
+            } satisfies DragState)
+          : ({
+              pointerId: drag.pointerId,
+              mode:
+                drag.mode === "pending-trim-start" ? "trim-start" : "trim-end",
+              clipId: drag.clipId,
+            } satisfies DragState)
+      dragRef.current = activeDrag
+      onEditBegin()
+      applyDrag(activeDrag, clientX, clientY)
+      return
+    }
     if (drag.mode === "move") {
       const trackId = trackIdFromClientY(clientY)
       if (trackId) {
@@ -251,23 +317,30 @@ export function MultitrackTimeline({
       drag = { pointerId: e.pointerId, mode: "seek" }
       applyNow = false
     } else if (handleEl && clipId) {
-      const mode =
-        handleEl.dataset.clipHandle === "start" ? "trim-start" : "trim-end"
-      drag = { pointerId: e.pointerId, mode, clipId }
-      onSelectClip(clipId)
-      onEditBegin()
-    } else if (clipId) {
       const clip = project.clips.find((entry) => entry.id === clipId)
+      const startHandle = handleEl.dataset.clipHandle === "start"
       drag = {
         pointerId: e.pointerId,
-        mode: "move",
+        mode: startHandle ? "pending-trim-start" : "pending-trim-end",
         clipId,
-        grabOffsetMs: clip
-          ? timelineMsFromClientX(e.clientX) - clip.startMs
-          : 0,
+        seekMs: clip ? (startHandle ? clip.startMs : clipEndMs(clip)) : 0,
+        startClientX: e.clientX,
+        startClientY: e.clientY,
       }
       onSelectClip(clipId)
-      onEditBegin()
+    } else if (clipId) {
+      const clip = project.clips.find((entry) => entry.id === clipId)
+      const timelineMs = timelineMsFromClientX(e.clientX)
+      drag = {
+        pointerId: e.pointerId,
+        mode: "pending-move",
+        clipId,
+        grabOffsetMs: clip ? timelineMs - clip.startMs : 0,
+        seekMs: timelineMs,
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+      }
+      onSelectClip(clipId)
     } else {
       // Ruler, empty track space, and gaps all scrub.
       drag = { pointerId: e.pointerId, mode: "seek" }
@@ -288,13 +361,24 @@ export function MultitrackTimeline({
     applyDrag(drag, e.clientX, e.clientY)
   }
 
-  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+  const finishPointer = (
+    e: React.PointerEvent<HTMLDivElement>,
+    cancelled = false,
+  ) => {
     const drag = dragRef.current
     if (!drag || drag.pointerId !== e.pointerId) return
     e.currentTarget.releasePointerCapture(e.pointerId)
     dragRef.current = null
     setDragging(false)
-    if (drag.mode !== "seek" && drag.mode !== "pan") onEditCommit()
+    if (!cancelled && isPendingEditDrag(drag)) {
+      onSeek(drag.seekMs)
+    } else if (
+      drag.mode !== "seek" &&
+      drag.mode !== "pan" &&
+      !isPendingEditDrag(drag)
+    ) {
+      onEditCommit()
+    }
   }
 
   const handleTrimKeyDown =
@@ -329,8 +413,8 @@ export function MultitrackTimeline({
         style={{ width: `${innerPct}%` }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
+        onPointerUp={(e) => finishPointer(e)}
+        onPointerCancel={(e) => finishPointer(e, true)}
       >
         {/* Sticky inside the page's vertical scroller, so the scrub strip
             and time reference survive scrolling a tall track list. */}
@@ -380,7 +464,6 @@ export function MultitrackTimeline({
                     clip={clip}
                     source={sources.get(clip.sourceId) ?? null}
                     spanMs={spanMs}
-                    zoom={zoom}
                     selected={selectedClipId === clip.id}
                     onTrimKeyDown={handleTrimKeyDown}
                   />

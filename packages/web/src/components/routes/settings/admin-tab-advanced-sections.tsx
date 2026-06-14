@@ -12,6 +12,7 @@ import { DownloadIcon, SaveIcon, UploadIcon } from "lucide-react"
 import * as React from "react"
 
 import { LoginAppearancePreview } from "@/components/routes/admin-settings/login-appearance-preview"
+import { useSettingsSaveBar } from "@/components/routes/settings/settings-save-context"
 import { api } from "@/lib/api"
 import { startBlobDownload } from "@/lib/browser-download"
 import { isoDateStamp } from "@/lib/date-format"
@@ -97,6 +98,15 @@ export function AppearanceSettingsContent({
     }
   }
 
+  // The enabled switch applies immediately; only the blur/darkening treatment
+  // is deferred, so that's what goes through the unified save bar.
+  const inSettingsDialog = useSettingsSaveBar({
+    dirty: treatmentChanged,
+    saving: pending,
+    save: saveTreatment,
+    discard: cancelTreatment,
+  })
+
   return (
     <Section>
       <SectionContent className="flex flex-col gap-4">
@@ -152,31 +162,33 @@ export function AppearanceSettingsContent({
           </div>
         </div>
       </SectionContent>
-      <SectionFooter>
-        <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
-          <Button
-            className="flex-1 sm:flex-initial"
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={cancelTreatment}
-            disabled={pending || !treatmentChanged}
-          >
-            Cancel
-          </Button>
-          <Button
-            className="flex-1 sm:flex-initial"
-            type="button"
-            variant="primary"
-            size="sm"
-            onClick={saveTreatment}
-            disabled={pending || !treatmentChanged}
-          >
-            <SaveIcon />
-            {pending ? "Saving..." : "Save"}
-          </Button>
-        </div>
-      </SectionFooter>
+      {!inSettingsDialog && (
+        <SectionFooter>
+          <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
+            <Button
+              className="flex-1 sm:flex-initial"
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={cancelTreatment}
+              disabled={pending || !treatmentChanged}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1 sm:flex-initial"
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={saveTreatment}
+              disabled={pending || !treatmentChanged}
+            >
+              <SaveIcon />
+              {pending ? "Saving..." : "Save"}
+            </Button>
+          </div>
+        </SectionFooter>
+      )}
     </Section>
   )
 }

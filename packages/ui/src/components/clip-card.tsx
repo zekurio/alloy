@@ -11,7 +11,7 @@ import {
   CLIP_MEDIA_VIEWPORT_CLASS,
 } from "@alloy/ui/lib/media-frame"
 import { cn } from "@alloy/ui/lib/utils"
-import { LinkIcon, LockIcon } from "lucide-react"
+import { LinkIcon } from "lucide-react"
 import * as React from "react"
 
 interface ClipCardProps extends React.ComponentProps<"article"> {
@@ -36,7 +36,7 @@ interface ClipCardProps extends React.ComponentProps<"article"> {
   fallbackSeed?: string | number
   accentHue?: number
   streamUrl?: string
-  privacy?: "public" | "unlisted" | "private"
+  privacy?: "public" | "unlisted"
   /** When set, the thumbnail becomes a button that fires this handler. */
   onThumbnailClick?: () => void
   /** Fires on hover/focus/press so callers can warm data before open. */
@@ -156,12 +156,15 @@ function ClipCard({
             </div>
           ) : null}
 
+          {/* Default text-xs leading (16px) keeps the 14px source icons on
+              whole-pixel flex centering; leading-tight (15px) left them
+              straddling a half pixel. */}
           {metaVariant === "showcase" ? null : metaContent ? (
-            <div className="text-foreground-faint flex min-w-0 items-center gap-1.5 text-xs leading-tight tabular-nums">
+            <div className="text-foreground-faint flex min-w-0 items-center gap-1.5 text-xs tabular-nums">
               {metaContent}
             </div>
           ) : (
-            <div className="text-foreground-faint flex min-w-0 items-center gap-1.5 text-xs leading-tight tabular-nums">
+            <div className="text-foreground-faint flex min-w-0 items-center gap-1.5 text-xs tabular-nums">
               {privacyBadge}
               <span className="shrink-0">{views} views</span>
               <span className="shrink-0">·</span>
@@ -376,11 +379,12 @@ function ClipCardThumb({
           className={cn(
             CLIP_MEDIA_CLASS,
             "transition-opacity duration-200 ease-out",
-            // Hide the still while the preview plays. The video sits on a 1px
-            // clip-path inset (to mask encoder edge lines); leaving the thumb
-            // visible underneath makes that inset read as a fringe around the
-            // playing clip.
-            thumbnailLoaded && !previewing ? "opacity-100" : "opacity-0",
+            // Keep the still fully opaque UNDER the preview video rather than
+            // crossfading it out: fading both the still (out) and the video
+            // (in) at once briefly exposes the blurhash placeholder beneath
+            // them (1-(1-a)(1-b) reveal). The video, layered on top, simply
+            // covers the still as it fades in.
+            thumbnailLoaded ? "opacity-100" : "opacity-0",
           )}
           // Cards load in a scrolling grid — let the browser lazy-load
           // anything outside the initial viewport.
@@ -536,16 +540,14 @@ function renderPrivacyBadge(
   privacy: ClipCardProps["privacy"],
 ): React.ReactNode {
   if (!privacy || privacy === "public") return null
-  const Icon = privacy === "private" ? LockIcon : LinkIcon
-  const label =
-    privacy === "private" ? "Private — only you" : "Unlisted — only via link"
+  const label = "Unlisted — only via link"
   return (
     <span
       className="text-foreground-faint inline-flex items-center"
       title={label}
       aria-label={label}
     >
-      <Icon className="size-4" aria-hidden />
+      <LinkIcon className="size-4" aria-hidden />
     </span>
   )
 }
