@@ -198,7 +198,6 @@ Image tags:
 - `vX.Y.Z`: exact stable app release.
 - `nightly`: latest nightly app release.
 - `vX.Y.Z-nightly.YYYYMMDD.<run>`: exact nightly app release.
-- `main`: continuously published from the main branch.
 
 ### Storage
 
