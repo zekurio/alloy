@@ -3,7 +3,7 @@ import { db } from "@alloy/server/db/index"
 import { deleteStagedUploads } from "@alloy/server/uploads/staged"
 import { and, eq, gt } from "drizzle-orm"
 
-/** Identifies the recording an upload ticket belongs to (clip or staging). */
+/** Identifies the clip an upload ticket belongs to. */
 export interface UploadTarget {
   type: UploadTicketTarget
   id: string
@@ -122,8 +122,8 @@ export async function deleteTicketRows(target: UploadTarget): Promise<void> {
 }
 
 /**
- * Delete a recording's staged upload objects AND their ticket rows. Used after
- * a successful publish/finalize and on terminal failure.
+ * Delete a clip's staged upload objects AND their ticket rows. Used after a
+ * successful publish/finalize and on terminal failure.
  */
 export async function cleanupTickets(
   target: UploadTarget,

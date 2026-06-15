@@ -11,8 +11,4 @@ export async function stopQueue(): Promise<void> {
   await stopMediaWorkers()
 }
 
-export {
-  cancelStagingMediaProcessing,
-  enqueueClipMediaProcessing,
-  enqueueStagingMediaProcessing,
-} from "./media-worker"
+export { enqueueClipMediaProcessing } from "./media-worker"

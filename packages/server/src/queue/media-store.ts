@@ -40,9 +40,8 @@ export interface MediaPrewarmInput {
 /**
  * Table-specific glue for the media pipeline. The lease loop
  * ({@link createMediaWorker}) and the processing run ({@link runMediaProcessing})
- * are written once against this interface; `clip` and `staging_recording` each
- * supply a concrete implementation. Every write is guarded by the encode runId
- * and returns false/null once the lease has moved on (stale-takeover safe).
+ * are written once against this interface. Every write is guarded by the encode
+ * runId and returns false/null once the lease has moved on (stale-takeover safe).
  */
 export interface MediaStore {
   /** Distinguishes the worker instances and scopes upload tickets. */
@@ -67,7 +66,7 @@ export interface MediaStore {
   beginProcessing(id: string, runId: string): Promise<boolean>
   /** Persist a progress %, guarded by runId; true if the row advanced. */
   commitProgress(id: string, runId: string, pct: number): Promise<boolean>
-  /** Side-channel progress notification (SSE for clips; no-op for staging). */
+  /** Side-channel progress notification (SSE for clips). */
   publishProgress(authorId: string, id: string, pct: number): void
   /** Commit the (possibly trimmed) source asset; false if lease lost. */
   commitSource(

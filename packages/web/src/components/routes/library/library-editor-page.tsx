@@ -528,7 +528,7 @@ function EditorBody({
                   type="button"
                   variant="primary"
                   disabled={!canPublish}
-                  className="rounded-r-none"
+                  className="h-10 rounded-r-none sm:h-8"
                   onClick={() => {
                     void handlePublish("public")
                   }}
@@ -545,7 +545,7 @@ function EditorBody({
                         size="icon"
                         disabled={publishing || deleting}
                         aria-label="More post options"
-                        className="border-l-accent-hover rounded-l-none"
+                        className="border-l-accent-hover size-10 rounded-l-none sm:size-8"
                       />
                     }
                   >

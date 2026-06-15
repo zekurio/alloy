@@ -11,7 +11,6 @@ import {
   CLIP_MEDIA_VIEWPORT_CLASS,
 } from "@alloy/ui/lib/media-frame"
 import { cn } from "@alloy/ui/lib/utils"
-import { LinkIcon } from "lucide-react"
 import * as React from "react"
 
 interface ClipCardProps extends React.ComponentProps<"article"> {
@@ -36,7 +35,6 @@ interface ClipCardProps extends React.ComponentProps<"article"> {
   fallbackSeed?: string | number
   accentHue?: number
   streamUrl?: string
-  privacy?: "public" | "unlisted"
   /** When set, the thumbnail becomes a button that fires this handler. */
   onThumbnailClick?: () => void
   /** Fires on hover/focus/press so callers can warm data before open. */
@@ -83,7 +81,6 @@ function ClipCard({
   // Retained on the contract for callers; fallback color is now seed-driven.
   accentHue: _accentHue,
   streamUrl,
-  privacy,
   onThumbnailClick,
   onThumbnailIntent,
   onPreviewError,
@@ -93,13 +90,12 @@ function ClipCard({
   thumbnailOverlay,
   ...props
 }: ClipCardProps) {
-  const privacyBadge = renderPrivacyBadge(privacy)
   const showAttributionRow = Boolean(author || game)
 
   return (
     <article
       data-slot="clip-card"
-      className={cn("group/clip-card flex flex-col gap-2.5", className)}
+      className={cn("group/clip-card flex flex-col gap-2", className)}
       {...props}
     >
       <div className="relative">
@@ -119,7 +115,14 @@ function ClipCard({
           <div className="absolute top-2 right-2 z-10">{thumbnailOverlay}</div>
         ) : null}
       </div>
-      <div className="flex items-start gap-2.5">
+      <div
+        className={cn(
+          "grid grid-rows-[auto_auto] gap-x-3",
+          author
+            ? "grid-cols-[auto_minmax(0,1fr)_auto]"
+            : "grid-cols-[minmax(0,1fr)_auto]",
+        )}
+      >
         {author ? (
           <ClipCardAvatar
             author={author}
@@ -127,51 +130,40 @@ function ClipCard({
             authorInitials={authorInitials}
             authorAvatarBg={authorAvatarBg}
             authorAvatarFg={authorAvatarFg}
+            className="row-span-2 mt-0.5 size-11"
           />
         ) : null}
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          {/* Title owns its own row. Type is a fixed size — not scaled to the
-              card width — so the meta block reads identically whether the deck
-              shows 3 or 5 columns. The thumbnail above stays 16:9 and resizes
-              with the column count; the metadata deliberately does not. */}
-          <div className="text-foreground truncate text-[0.9375rem] leading-snug font-semibold tracking-[-0.01em]">
-            {titleContent ?? title}
-          </div>
-
-          {showAttributionRow ? (
-            <div className="text-foreground-dim flex min-w-0 items-center gap-1.5 text-[0.8125rem] leading-tight">
-              {author ? (
-                <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-                  <AuthorLabel author={author} href={authorHref} />
-                  {game ? (
-                    <>
-                      <span className="text-foreground-faint shrink-0">·</span>
-                      <GameLabel game={game} icon={gameIcon} href={gameHref} />
-                    </>
-                  ) : null}
-                </span>
-              ) : (
-                <GameLabel game={game} icon={gameIcon} href={gameHref} />
-              )}
-            </div>
-          ) : null}
-
-          {/* Default text-xs leading (16px) keeps the 14px source icons on
-              whole-pixel flex centering; leading-tight (15px) left them
-              straddling a half pixel. */}
-          {metaVariant === "showcase" ? null : metaContent ? (
-            <div className="text-foreground-faint flex min-w-0 items-center gap-1.5 text-xs tabular-nums">
-              {metaContent}
-            </div>
-          ) : (
-            <div className="text-foreground-faint flex min-w-0 items-center gap-1.5 text-xs tabular-nums">
-              {privacyBadge}
-              <span className="shrink-0">{views} views</span>
-              <span className="shrink-0">·</span>
-              <span className="truncate">{postedAt}</span>
-            </div>
-          )}
+        <div className="text-foreground col-span-2 truncate text-lg leading-6 font-semibold">
+          {titleContent ?? title}
         </div>
+        {showAttributionRow ? (
+          <div className="text-foreground-dim flex min-w-0 items-center gap-1.5 text-base leading-5">
+            {author ? (
+              <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                <AuthorLabel author={author} href={authorHref} />
+                {game ? (
+                  <>
+                    <span className="text-foreground-faint shrink-0">·</span>
+                    <GameLabel game={game} icon={gameIcon} href={gameHref} />
+                  </>
+                ) : null}
+              </span>
+            ) : (
+              <GameLabel game={game} icon={gameIcon} href={gameHref} />
+            )}
+          </div>
+        ) : null}
+        {metaVariant === "showcase" ? null : metaContent ? (
+          <div className="text-foreground-faint flex min-w-0 items-center justify-end gap-1.5 text-sm leading-5 tabular-nums">
+            {metaContent}
+          </div>
+        ) : (
+          <div className="text-foreground-faint flex shrink-0 items-center justify-end gap-1.5 text-sm leading-5 tabular-nums">
+            <span className="shrink-0">{views} views</span>
+            <span className="shrink-0">·</span>
+            <span className="shrink-0">{postedAt}</span>
+          </div>
+        )}
       </div>
     </article>
   )
@@ -465,7 +457,7 @@ function AuthorLabel({
   href: string | null | undefined
 }) {
   const className = cn(
-    "max-w-[65%] shrink truncate leading-tight font-medium text-foreground-muted",
+    "min-w-0 shrink truncate leading-5 font-medium text-foreground-muted",
     href &&
       "hover:underline focus-visible:underline focus-visible:outline-none",
   )
@@ -485,12 +477,14 @@ function ClipCardAvatar({
   authorInitials,
   authorAvatarBg,
   authorAvatarFg,
+  className,
 }: {
   author: string
   authorImage: string | null | undefined
   authorInitials: string | undefined
   authorAvatarBg: string | undefined
   authorAvatarFg: string | undefined
+  className?: string
 }) {
   const initials = authorInitials ?? (author.slice(0, 2).toUpperCase() || "?")
   const avatarStyle = {
@@ -499,7 +493,7 @@ function ClipCardAvatar({
   }
 
   return (
-    <Avatar aria-hidden size="lg" style={avatarStyle}>
+    <Avatar aria-hidden size="lg" className={className} style={avatarStyle}>
       {authorImage ? <AvatarImage src={authorImage} alt="" /> : null}
       <AvatarFallback style={avatarStyle}>{initials}</AvatarFallback>
     </Avatar>
@@ -516,7 +510,7 @@ function GameLabel({
   href: string | null | undefined
 }) {
   const className = cn(
-    "inline-flex min-w-0 items-center gap-1.5 truncate leading-tight text-accent",
+    "inline-flex min-w-0 items-center gap-1.5 truncate leading-5 text-accent",
     href &&
       "hover:underline focus-visible:underline focus-visible:outline-none",
   )
@@ -534,22 +528,6 @@ function GameLabel({
     )
   }
   return <span className={className}>{content}</span>
-}
-
-function renderPrivacyBadge(
-  privacy: ClipCardProps["privacy"],
-): React.ReactNode {
-  if (!privacy || privacy === "public") return null
-  const label = "Unlisted — only via link"
-  return (
-    <span
-      className="text-foreground-faint inline-flex items-center"
-      title={label}
-      aria-label={label}
-    >
-      <LinkIcon className="size-4" aria-hidden />
-    </span>
-  )
 }
 
 export { ClipCard, type ClipCardProps }

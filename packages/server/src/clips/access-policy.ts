@@ -53,9 +53,8 @@ export type ClipAccessDecision =
 
 /**
  * Clips are either public (discoverable) or unlisted (reachable by anyone with
- * the id). Owner-only material lives in staging recordings, not here — so the
- * only gate at this layer is readiness (and a disabled author hiding the clip
- * from everyone but the owner/admin).
+ * the id). The only gate at this layer is readiness (and a disabled author
+ * hiding the clip from everyone but the owner/admin).
  */
 export function evaluateClipAccess(input: ClipAccessInput): ClipAccessDecision {
   const accessPolicy = CLIP_ACCESS_POLICIES[input.policy]

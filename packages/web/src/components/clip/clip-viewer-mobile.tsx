@@ -45,6 +45,7 @@ import { userAvatar } from "@/lib/user-display"
 import { ClipComments } from "./clip-comments"
 import type { ClipListEntry } from "./clip-list-context"
 import { ClipMentionsRow } from "./clip-mentions-row"
+import { ClipUnlistedBadge } from "./clip-meta"
 import { ClipPlayer } from "./clip-player"
 import { ClipTagsRow } from "./clip-tags-row"
 import { ClipAuthorLink, MobileActionsRail } from "./clip-viewer-mobile-actions"
@@ -270,9 +271,14 @@ function MobileClipViewerBody({
                 className="pointer-events-auto inline-flex shrink-0 items-center gap-2"
                 textClassName="text-base font-semibold text-white"
               />
-              <h2 className="line-clamp-1 min-w-0 flex-1 text-base font-semibold text-white/90">
-                {row.title}
-              </h2>
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <h2 className="line-clamp-1 min-w-0 text-base font-semibold text-white/90">
+                  {row.title}
+                </h2>
+                {row.privacy === "unlisted" ? (
+                  <ClipUnlistedBadge className="bg-white/10 text-white/75" />
+                ) : null}
+              </div>
             </div>
           ) : null}
 
@@ -392,9 +398,14 @@ function MobileClipViewerBody({
               />
 
               {/* Title */}
-              <h2 className="line-clamp-2 text-base leading-tight font-semibold text-white">
-                {row.title}
-              </h2>
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                <h2 className="line-clamp-2 min-w-0 text-base leading-tight font-semibold text-white">
+                  {row.title}
+                </h2>
+                {row.privacy === "unlisted" ? (
+                  <ClipUnlistedBadge className="bg-white/10 text-white/75" />
+                ) : null}
+              </div>
 
               {/* Mentions */}
               <ClipMentionsRow mentions={row.mentions ?? []} />

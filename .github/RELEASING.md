@@ -24,22 +24,14 @@ look at `latest.yml` and reject nightly versions; nightly builds look at
 
 ## Stable Releases
 
-1. Update the release version in a normal PR if it is not already correct:
+1. Run **Release** manually with:
+   - `channel`: `stable`
+   - `version`: `X.Y.Z`
 
-   ```bash
-   node scripts/update-release-package-versions.mjs X.Y.Z
-   pnpm install --lockfile-only
-   pnpm fmt
-   pnpm lint
-   pnpm typecheck
-   ```
-
-2. After `main` is green, create and push a stable tag:
-
-   ```bash
-   git tag vX.Y.Z
-   git push origin vX.Y.Z
-   ```
+2. The workflow validates the version, updates all release version files with
+   the built-in GitHub Actions bot, commits the bump as
+   `github-actions[bot]`, pushes it to the selected branch, and creates the
+   matching `vX.Y.Z` tag from that commit.
 
 3. The **Release** workflow runs formatting, lint, and typecheck, builds the
    Windows desktop installer, publishes the server image, attaches only
@@ -50,6 +42,9 @@ look at `latest.yml` and reject nightly versions; nightly builds look at
    - `ghcr.io/zekurio/alloy:latest`
 
 5. Publishing a stable release also triggers **Nix Cache** for the flake package.
+
+Pushing an existing `vX.Y.Z` tag still works, but tag-triggered stable releases
+require the checked-in package versions to already match the tag.
 
 ## Nightly Releases
 

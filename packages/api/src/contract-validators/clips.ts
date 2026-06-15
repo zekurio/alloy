@@ -67,7 +67,6 @@ function validateClipMetadataFields(row: Record<string, unknown>) {
     "sourceAudioCodec",
     "failureReason",
     "authorImage",
-    "originDeviceName",
   ] as const) {
     validateNullableString(
       row[key],

@@ -28,7 +28,8 @@ export function AppearanceSettingsContent({
   config: AdminRuntimeConfig
   setConfig: AdminConfigSetter
 }) {
-  const [pending, setPending] = React.useState(false)
+  const [enabledPending, setEnabledPending] = React.useState(false)
+  const [treatmentPending, setTreatmentPending] = React.useState(false)
   const splash = config.appearance.loginSplash
   const [draftBlurPx, setDraftBlurPx] = React.useState(splash.blurPx)
   const [draftDarkenOpacity, setDraftDarkenOpacity] = React.useState(
@@ -55,8 +56,8 @@ export function AppearanceSettingsContent({
   }, [splash.blurPx, splash.darkenOpacity])
 
   async function updateSplashEnabled(next: boolean) {
-    if (pending) return
-    setPending(true)
+    if (enabledPending) return
+    setEnabledPending(true)
     try {
       const updated = await api.admin.updateAppearanceConfig({
         loginSplash: { enabled: next },
@@ -67,7 +68,7 @@ export function AppearanceSettingsContent({
     } catch (cause) {
       toast.error(errorMessage(cause, "Couldn't update backdrop"))
     } finally {
-      setPending(false)
+      setEnabledPending(false)
     }
   }
 
@@ -77,8 +78,8 @@ export function AppearanceSettingsContent({
   }
 
   async function saveTreatment() {
-    if (pending || !treatmentChanged) return
-    setPending(true)
+    if (treatmentPending || !treatmentChanged) return
+    setTreatmentPending(true)
     try {
       const updated = await api.admin.updateAppearanceConfig({
         loginSplash: {
@@ -92,7 +93,7 @@ export function AppearanceSettingsContent({
     } catch (cause) {
       toast.error(errorMessage(cause, "Couldn't save backdrop appearance"))
     } finally {
-      setPending(false)
+      setTreatmentPending(false)
     }
   }
 
@@ -100,7 +101,7 @@ export function AppearanceSettingsContent({
   // is deferred, so that's what goes through the unified save bar.
   const inSettingsDialog = useSettingsSaveBar({
     dirty: treatmentChanged,
-    saving: pending,
+    saving: treatmentPending,
     save: saveTreatment,
     discard: cancelTreatment,
   })
@@ -120,7 +121,7 @@ export function AppearanceSettingsContent({
           <Switch
             checked={splash.enabled}
             onCheckedChange={updateSplashEnabled}
-            disabled={pending}
+            disabled={enabledPending}
           />
         </div>
         <div className="grid gap-4 py-3 last:pb-0 sm:grid-cols-2">
@@ -136,7 +137,7 @@ export function AppearanceSettingsContent({
               min={0}
               max={48}
               step={1}
-              disabled={pending}
+              disabled={treatmentPending}
               onValueChange={(value) => setDraftBlurPx(sliderValue(value))}
             />
           </div>
@@ -152,7 +153,7 @@ export function AppearanceSettingsContent({
               min={0}
               max={1}
               step={0.01}
-              disabled={pending}
+              disabled={treatmentPending}
               onValueChange={(value) =>
                 setDraftDarkenOpacity(sliderValue(value))
               }
@@ -169,7 +170,7 @@ export function AppearanceSettingsContent({
               variant="ghost"
               size="sm"
               onClick={cancelTreatment}
-              disabled={pending || !treatmentChanged}
+              disabled={treatmentPending || !treatmentChanged}
             >
               Cancel
             </Button>
@@ -179,10 +180,10 @@ export function AppearanceSettingsContent({
               variant="primary"
               size="sm"
               onClick={saveTreatment}
-              disabled={pending || !treatmentChanged}
+              disabled={treatmentPending || !treatmentChanged}
             >
               <SaveIcon />
-              {pending ? "Saving..." : "Save"}
+              {treatmentPending ? "Saving..." : "Save"}
             </Button>
           </div>
         </SectionFooter>

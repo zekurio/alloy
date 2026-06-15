@@ -430,15 +430,6 @@ export function normalizeLibraryMetaPatch(
   ) {
     patch.uploadedClipId = record.uploadedClipId
   }
-  if (record.syncedRecordingId === null) {
-    patch.syncedRecordingId = null
-  } else if (
-    typeof record.syncedRecordingId === "string" &&
-    record.syncedRecordingId.length > 0 &&
-    record.syncedRecordingId.length <= 64
-  ) {
-    patch.syncedRecordingId = record.syncedRecordingId
-  }
   return patch
 }
 

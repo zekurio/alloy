@@ -1,4 +1,3 @@
-import { toast } from "@alloy/ui/lib/toast"
 import { useForm } from "@tanstack/react-form"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { ArrowRightIcon, KeyRoundIcon, MailIcon, UserIcon } from "lucide-react"
@@ -39,13 +38,9 @@ type StringFieldController = {
 
 type PasskeySignUpFormProps = {
   redirectTo?: "/" | "/setup" | "/settings"
-  successMessage?: string
 }
 
-function usePasskeySignUpSubmit({
-  redirectTo = "/",
-  successMessage,
-}: PasskeySignUpFormProps) {
+function usePasskeySignUpSubmit({ redirectTo = "/" }: PasskeySignUpFormProps) {
   const router = useRouter()
   const navigate = useNavigate()
 
@@ -64,7 +59,6 @@ function usePasskeySignUpSubmit({
           )
           return
         }
-        if (successMessage) toast.success(successMessage)
         invalidateAuthConfig()
         await completeAuthSessionFlow({
           invalidateRouter: () => router.invalidate(),
@@ -78,7 +72,7 @@ function usePasskeySignUpSubmit({
         )
       }
     },
-    [navigate, redirectTo, router, successMessage],
+    [navigate, redirectTo, router],
   )
 }
 

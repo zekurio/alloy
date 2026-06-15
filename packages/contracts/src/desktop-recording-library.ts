@@ -38,24 +38,9 @@ export interface RecordingLibraryItem {
   privacy: ClipPrivacy | null
   /** Server clip id this capture was published as, once an upload finished. */
   uploadedClipId: string | null
-  /**
-   * Server staging-recording id this capture was synced to (an owner-only
-   * draft). Set by the desktop sync engine; cleared until a sync completes.
-   */
-  syncedRecordingId: string | null
-  /** Where this capture stands in the server sync pipeline. */
-  syncState: RecordingLibrarySyncState
   createdAt: string
   modifiedAt: string
 }
-
-/** Library-card level summary of a capture's server sync position. */
-export type RecordingLibrarySyncState =
-  | "none"
-  | "queued"
-  | "syncing"
-  | "synced"
-  | "failed"
 
 /** One source range of an edited sequence, in playback order. */
 export interface RecordingLibraryExportSegment {
@@ -83,7 +68,6 @@ export interface RecordingLibraryMetaPatch {
   mentions?: RecordingCaptureMention[]
   privacy?: ClipPrivacy | null
   uploadedClipId?: string | null
-  syncedRecordingId?: string | null
 }
 
 export interface RecordingLibraryMetaUpdateResult {
@@ -231,41 +215,6 @@ export interface RecordingLibraryDownload {
   /** Library capture id of the saved file, set once completed. */
   libraryItemId: string | null
   startedAt: string
-}
-
-export type RecordingLibrarySyncItemStatus =
-  | "queued"
-  | "initiating"
-  | "uploading"
-  | "finalizing"
-  | "completed"
-  | "failed"
-
-/** Live state of one queued capture upload, pushed as "library-sync" events. */
-export interface RecordingLibrarySyncItem {
-  /** Library capture id; doubles as the item's identity (one job per capture). */
-  captureId: string
-  title: string
-  gameName: string | null
-  status: RecordingLibrarySyncItemStatus
-  bytesSent: number
-  totalBytes: number
-  /** Server clip id once initiate succeeded; cleared again on failure. */
-  clipId: string | null
-  error: string | null
-  attempts: number
-  queuedAt: string
-  gameSessionId: string | null
-  /** alloy-capture thumbnail URL for the queue row, when one is cached. */
-  thumbnailUrl: string | null
-}
-
-/** Full snapshot of the desktop sync queue, pushed as "library-sync" events. */
-export interface RecordingLibrarySyncSnapshot {
-  paused: boolean
-  /** Why queued items aren't moving (beyond pause), e.g. signed out. */
-  blockedReason: "signed-out" | null
-  items: RecordingLibrarySyncItem[]
 }
 
 export interface RecordingLibraryGroup {

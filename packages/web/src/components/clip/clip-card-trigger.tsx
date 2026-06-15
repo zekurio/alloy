@@ -17,15 +17,12 @@ import { setActiveClipList, useClipList } from "./clip-list-context"
 
 interface ClipCardTriggerProps {
   row: ClipRow
-  /** True only when the viewer owns the clip — surfaces the privacy pill. */
-  owned?: boolean
   className?: string
   metaVariant?: "default" | "showcase"
 }
 
 export const ClipCardTrigger = React.memo(function ClipCardTrigger({
   row,
-  owned = false,
   className,
   metaVariant = "default",
 }: ClipCardTriggerProps) {
@@ -85,7 +82,6 @@ export const ClipCardTrigger = React.memo(function ClipCardTrigger({
       fallbackSeed={card.fallbackSeed}
       accentHue={card.accentHue}
       streamUrl={card.streamUrl}
-      privacy={owned ? card.privacy : undefined}
       metaVariant={metaVariant}
       onThumbnailClick={handleThumbnailClick}
       onThumbnailIntent={preloadClip}

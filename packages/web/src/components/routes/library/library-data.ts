@@ -1,9 +1,4 @@
-import type {
-  ClipRow,
-  GameNameLookupResult,
-  GameRow,
-  StagingRecordingRow,
-} from "@alloy/api"
+import type { ClipRow, GameNameLookupResult, GameRow } from "@alloy/api"
 import { toast } from "@alloy/ui/lib/toast"
 import * as React from "react"
 
@@ -174,7 +169,6 @@ export function buildLibraryGroups(
   localGroups: RecordingLibraryGroup[],
   uploaded: ClipRow[],
   collapsedCounts?: Map<string, number>,
-  staging: StagingRecordingRow[] = [],
 ): LibraryGroupView[] {
   const map = new Map<string, LibraryGroupView>()
 
@@ -204,7 +198,7 @@ export function buildLibraryGroups(
     }
   }
 
-  for (const row of [...uploaded, ...staging]) {
+  for (const row of uploaded) {
     const gameName = row.gameRef?.name ?? row.game
     if (!gameName) {
       addNoGameGroup(map, 1)

@@ -17,7 +17,6 @@ import type {
   RecordingLibraryProjectDraftSaveRequest,
   RecordingLibraryProjectDraftSaveResult,
   RecordingLibrarySnapshot,
-  RecordingLibrarySyncSnapshot,
   RecordingNotificationSoundEvent,
   RecordingNotificationSoundLibrary,
   SaveReplayClipRequest,
@@ -52,10 +51,6 @@ export type {
   RecordingLibraryImportResult,
   RecordingLibraryGroup,
   RecordingLibrarySnapshot,
-  RecordingLibrarySyncItem,
-  RecordingLibrarySyncItemStatus,
-  RecordingLibrarySyncSnapshot,
-  RecordingLibrarySyncState,
 } from "@alloy/contracts"
 
 export type DesktopConnectResult =
@@ -116,16 +111,6 @@ export interface AlloyDesktopRecordingApi {
   cancelClipDownload(clipId: string): Promise<void>
   /** Snapshot of active + finished (undismissed) clip downloads. */
   listClipDownloads(): Promise<RecordingLibraryDownload[]>
-  /** Snapshot of the manual upload sync queue. */
-  getSync?(): Promise<RecordingLibrarySyncSnapshot>
-  /** Pauses the sync queue; aborts the in-flight upload back to queued. */
-  pauseSync?(): Promise<RecordingLibrarySyncSnapshot>
-  resumeSync?(): Promise<RecordingLibrarySyncSnapshot>
-  /** Removes a queued/failed/in-flight item; deletes its pending server clip. */
-  cancelSyncItem?(captureId: string): Promise<void>
-  retrySyncItem?(captureId: string): Promise<void>
-  /** Manually queues a local capture for upload ("Sync now"). */
-  queueSyncItem?(captureId: string): Promise<void>
   onEvent(listener: (event: RecordingEvent) => void): () => void
   selectOutputFolder(): Promise<string | null>
   listNotificationSounds(): Promise<RecordingNotificationSoundLibrary>

@@ -45,10 +45,9 @@ async function ensureStillPresent(
 }
 
 /**
- * Run the media pipeline for one leased recording (clip or staging). Downloads
- * the source, applies a pending owner trim, probes, publishes the source +
- * poster under run-scoped keys, and transitions the row to ready. Every write
- * goes through the {@link MediaStore} so the same pipeline serves both tables.
+ * Run the media pipeline for one leased clip. Downloads the source, applies a
+ * pending owner trim, probes, publishes the source + poster under run-scoped
+ * keys, and transitions the row to ready.
  */
 export async function runMediaProcessing(
   store: MediaStore,

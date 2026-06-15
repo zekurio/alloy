@@ -7,16 +7,11 @@ import { type ClipListEntry, ClipListProvider } from "./clip-list-context"
 
 type ClipCardListProps = {
   rows: readonly ClipRow[]
-  /** Returns true for rows the viewer owns — controls the privacy pill. */
-  isOwnedByViewer: (row: ClipRow) => boolean
+  isOwnedByViewer?: (row: ClipRow) => boolean
   listKey?: string
 }
 
-export function ClipCardList({
-  rows,
-  isOwnedByViewer,
-  listKey,
-}: ClipCardListProps) {
+export function ClipCardList({ rows, listKey }: ClipCardListProps) {
   const entries = React.useMemo<ClipListEntry[]>(
     () =>
       rows.map((row) => ({
@@ -29,7 +24,7 @@ export function ClipCardList({
   const grid = (
     <ClipGrid>
       {rows.map((row) => (
-        <ClipCardTrigger key={row.id} row={row} owned={isOwnedByViewer(row)} />
+        <ClipCardTrigger key={row.id} row={row} />
       ))}
     </ClipGrid>
   )

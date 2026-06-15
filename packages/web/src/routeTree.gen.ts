@@ -27,7 +27,6 @@ import { Route as appAppUUsernameTaggedRouteImport } from './routes/(app)/_app.u
 import { Route as appAppUUsernameLikedRouteImport } from './routes/(app)/_app.u.$username.liked'
 import { Route as appAppUUsernameFeedRouteImport } from './routes/(app)/_app.u.$username.feed'
 import { Route as appAppUUsernameAllRouteImport } from './routes/(app)/_app.u.$username.all'
-import { Route as appAppLibraryRRecordingIdRouteImport } from './routes/(app)/_app.library.r.$recordingId'
 import { Route as appAppLibraryCClipIdRouteImport } from './routes/(app)/_app.library.c.$clipId'
 import { Route as appAppGSlugCClipIdRouteImport } from './routes/(app)/_app.g.$slug.c.$clipId'
 
@@ -120,12 +119,6 @@ const appAppUUsernameAllRoute = appAppUUsernameAllRouteImport.update({
   path: '/all',
   getParentRoute: () => appAppUUsernameRoute,
 } as any)
-const appAppLibraryRRecordingIdRoute =
-  appAppLibraryRRecordingIdRouteImport.update({
-    id: '/library/r/$recordingId',
-    path: '/library/r/$recordingId',
-    getParentRoute: () => appAppRoute,
-  } as any)
 const appAppLibraryCClipIdRoute = appAppLibraryCClipIdRouteImport.update({
   id: '/library/c/$clipId',
   path: '/library/c/$clipId',
@@ -151,7 +144,6 @@ export interface FileRoutesByFullPath {
   '/u/$username': typeof appAppUUsernameRouteWithChildren
   '/library/': typeof appAppLibraryIndexRoute
   '/library/c/$clipId': typeof appAppLibraryCClipIdRoute
-  '/library/r/$recordingId': typeof appAppLibraryRRecordingIdRoute
   '/u/$username/all': typeof appAppUUsernameAllRoute
   '/u/$username/feed': typeof appAppUUsernameFeedRoute
   '/u/$username/liked': typeof appAppUUsernameLikedRoute
@@ -172,7 +164,6 @@ export interface FileRoutesByTo {
   '/tags/$tag': typeof appAppTagsTagRoute
   '/library': typeof appAppLibraryIndexRoute
   '/library/c/$clipId': typeof appAppLibraryCClipIdRoute
-  '/library/r/$recordingId': typeof appAppLibraryRRecordingIdRoute
   '/u/$username/all': typeof appAppUUsernameAllRoute
   '/u/$username/feed': typeof appAppUUsernameFeedRoute
   '/u/$username/liked': typeof appAppUUsernameLikedRoute
@@ -196,7 +187,6 @@ export interface FileRoutesById {
   '/(app)/_app/u/$username': typeof appAppUUsernameRouteWithChildren
   '/(app)/_app/library/': typeof appAppLibraryIndexRoute
   '/(app)/_app/library/c/$clipId': typeof appAppLibraryCClipIdRoute
-  '/(app)/_app/library/r/$recordingId': typeof appAppLibraryRRecordingIdRoute
   '/(app)/_app/u/$username/all': typeof appAppUUsernameAllRoute
   '/(app)/_app/u/$username/feed': typeof appAppUUsernameFeedRoute
   '/(app)/_app/u/$username/liked': typeof appAppUUsernameLikedRoute
@@ -220,7 +210,6 @@ export interface FileRouteTypes {
     | '/u/$username'
     | '/library/'
     | '/library/c/$clipId'
-    | '/library/r/$recordingId'
     | '/u/$username/all'
     | '/u/$username/feed'
     | '/u/$username/liked'
@@ -241,7 +230,6 @@ export interface FileRouteTypes {
     | '/tags/$tag'
     | '/library'
     | '/library/c/$clipId'
-    | '/library/r/$recordingId'
     | '/u/$username/all'
     | '/u/$username/feed'
     | '/u/$username/liked'
@@ -264,7 +252,6 @@ export interface FileRouteTypes {
     | '/(app)/_app/u/$username'
     | '/(app)/_app/library/'
     | '/(app)/_app/library/c/$clipId'
-    | '/(app)/_app/library/r/$recordingId'
     | '/(app)/_app/u/$username/all'
     | '/(app)/_app/u/$username/feed'
     | '/(app)/_app/u/$username/liked'
@@ -408,13 +395,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof appAppUUsernameAllRouteImport
       parentRoute: typeof appAppUUsernameRoute
     }
-    '/(app)/_app/library/r/$recordingId': {
-      id: '/(app)/_app/library/r/$recordingId'
-      path: '/library/r/$recordingId'
-      fullPath: '/library/r/$recordingId'
-      preLoaderRoute: typeof appAppLibraryRRecordingIdRouteImport
-      parentRoute: typeof appAppRoute
-    }
     '/(app)/_app/library/c/$clipId': {
       id: '/(app)/_app/library/c/$clipId'
       path: '/library/c/$clipId'
@@ -475,7 +455,6 @@ interface appAppRouteChildren {
   appAppUUsernameRoute: typeof appAppUUsernameRouteWithChildren
   appAppLibraryIndexRoute: typeof appAppLibraryIndexRoute
   appAppLibraryCClipIdRoute: typeof appAppLibraryCClipIdRoute
-  appAppLibraryRRecordingIdRoute: typeof appAppLibraryRRecordingIdRoute
 }
 
 const appAppRouteChildren: appAppRouteChildren = {
@@ -489,7 +468,6 @@ const appAppRouteChildren: appAppRouteChildren = {
   appAppUUsernameRoute: appAppUUsernameRouteWithChildren,
   appAppLibraryIndexRoute: appAppLibraryIndexRoute,
   appAppLibraryCClipIdRoute: appAppLibraryCClipIdRoute,
-  appAppLibraryRRecordingIdRoute: appAppLibraryRRecordingIdRoute,
 }
 
 const appAppRouteWithChildren =

@@ -1,4 +1,4 @@
-import { clip, stagingRecording, uploadTicket } from "@alloy/db/schema"
+import { clip, uploadTicket } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { publishClipRemove } from "@alloy/server/clips/events"
 import { configStore } from "@alloy/server/config/store"
@@ -7,10 +7,7 @@ import { deleteStagedUpload } from "@alloy/server/uploads/staged"
 import { cleanupTickets } from "@alloy/server/uploads/tickets"
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm"
 
-import {
-  enqueueClipMediaProcessing,
-  enqueueStagingMediaProcessing,
-} from "./media-worker"
+import { enqueueClipMediaProcessing } from "./media-worker"
 
 const logger = createLogger("queue")
 
@@ -39,7 +36,6 @@ async function runReaper(): Promise<void> {
   reaperRunning = true
   try {
     await reapPendingClips()
-    await reapPendingStaging()
     await reapExpiredUploadTickets()
     await requeueStuckProcessing()
   } catch (err) {
@@ -66,26 +62,6 @@ async function reapPendingClips(): Promise<void> {
     )
     await db.delete(clip).where(eq(clip.id, row.id))
     publishClipRemove(row.authorId, row.id)
-  }
-}
-
-async function reapPendingStaging(): Promise<void> {
-  const stale = await db
-    .select({ id: stagingRecording.id })
-    .from(stagingRecording)
-    .where(
-      and(
-        eq(stagingRecording.status, "pending"),
-        lt(stagingRecording.createdAt, pendingCutoff()),
-      ),
-    )
-
-  for (const row of stale) {
-    await cleanupTickets(
-      { type: "staging", id: row.id },
-      `stale staging ${row.id} upload`,
-    )
-    await db.delete(stagingRecording).where(eq(stagingRecording.id, row.id))
   }
 }
 
@@ -135,28 +111,5 @@ async function requeueStuckProcessing(): Promise<void> {
     )
   for (const row of stuckClips) {
     enqueueClipMediaProcessing(row.id)
-  }
-
-  const stuckStaging = await db
-    .select({ id: stagingRecording.id })
-    .from(stagingRecording)
-    .where(
-      and(
-        or(
-          eq(stagingRecording.status, "processing"),
-          and(
-            eq(stagingRecording.status, "ready"),
-            lt(stagingRecording.encodeProgress, 100),
-            isNull(stagingRecording.failureReason),
-          ),
-        ),
-        lt(
-          stagingRecording.updatedAt,
-          sql`now() - interval '${sql.raw(UPLOADED_MAX_AGE_INTERVAL)}'`,
-        ),
-      ),
-    )
-  for (const row of stuckStaging) {
-    enqueueStagingMediaProcessing(row.id)
   }
 }

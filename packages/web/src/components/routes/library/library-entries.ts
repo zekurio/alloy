@@ -2,7 +2,6 @@ import {
   clipThumbnailUrl,
   type ClipRow,
   type GameNameLookupResult,
-  type StagingRecordingRow,
 } from "@alloy/api"
 
 import type {
@@ -34,14 +33,6 @@ export type LibraryEntry =
       createdAt: string
       row: ClipRow
       /** The on-disk capture backing this clip (uploaded from / downloaded). */
-      localItem: RecordingLibraryItem | null
-    }
-  | {
-      type: "staging"
-      key: string
-      createdAt: string
-      row: StagingRecordingRow
-      /** The on-disk capture backing this synced draft, when it still exists. */
       localItem: RecordingLibraryItem | null
     }
   | {
@@ -101,37 +92,6 @@ export function filterUploadedClips(
   })
 }
 
-export function filterStagingRecordings(
-  rows: StagingRecordingRow[],
-  rawQuery: string,
-  active: LibraryGroupView | null,
-  kind: LibraryKindFilter,
-): StagingRecordingRow[] {
-  if (kind === "screenshot") return []
-  const query = rawQuery.trim().toLowerCase()
-  return rows.filter((row) => {
-    if (kind === "replay" && row.kind !== "clip") return false
-    if (kind === "long-recording" && row.kind !== "session") return false
-    if (active) {
-      const gameName = row.gameRef?.name ?? row.game
-      if (active.kind === "no-game") {
-        if (gameName) return false
-      } else if (active.nameKey !== gameNameKey(gameName ?? "")) {
-        return false
-      }
-    }
-    if (!query) return true
-    return [
-      row.title,
-      row.gameRef?.name ?? row.game ?? "",
-      row.description ?? "",
-    ]
-      .join(" ")
-      .toLowerCase()
-      .includes(query)
-  })
-}
-
 export function filterProjectDrafts(
   drafts: RecordingLibraryProjectDraft[],
   rawQuery: string,
@@ -168,7 +128,7 @@ export function filterProjectDrafts(
 export function libraryServerIdForItem(
   item: RecordingLibraryItem,
 ): string | null {
-  return item.uploadedClipId ?? item.syncedRecordingId
+  return item.uploadedClipId
 }
 
 export function collapsedServerCounts(
@@ -189,7 +149,6 @@ export function buildLibraryEntries({
   snapshot,
   gamesByName,
   uploaded,
-  staging,
   active,
   kind,
   query,
@@ -198,26 +157,20 @@ export function buildLibraryEntries({
   snapshot: RecordingLibrarySnapshot | null
   gamesByName: Map<string, GameNameLookupResult>
   uploaded: ClipRow[]
-  staging: StagingRecordingRow[]
   active: LibraryGroupView | null
   kind: LibraryKindFilter
   query: string
   includeDrafts?: boolean
 }): LibraryEntry[] {
   const cloudIds = new Set(uploaded.map((row) => row.id))
-  const stagingIds = new Set(staging.map((row) => row.id))
   const localItems = (snapshot?.items ?? []).filter((item) => {
     const serverId = libraryServerIdForItem(item)
-    return !(serverId && (cloudIds.has(serverId) || stagingIds.has(serverId)))
+    return !(serverId && cloudIds.has(serverId))
   })
   const localByClipId = new Map<string, RecordingLibraryItem>()
-  const localByStagingId = new Map<string, RecordingLibraryItem>()
   for (const item of snapshot?.items ?? []) {
     const serverId = libraryServerIdForItem(item)
     if (serverId && cloudIds.has(serverId)) localByClipId.set(serverId, item)
-    if (serverId && stagingIds.has(serverId)) {
-      localByStagingId.set(serverId, item)
-    }
   }
 
   const local: LibraryEntry[] = filterLibraryItems(localItems, {
@@ -245,19 +198,6 @@ export function buildLibraryEntries({
       }))
     : []
 
-  const stagingEntries: LibraryEntry[] = filterStagingRecordings(
-    staging,
-    query,
-    active,
-    kind,
-  ).map((row) => ({
-    type: "staging",
-    key: `staging:${row.id}`,
-    createdAt: row.createdAt,
-    row,
-    localItem: localByStagingId.get(row.id) ?? null,
-  }))
-
   const drafts: LibraryEntry[] =
     includeDrafts && (kind === "all" || kind === "replay")
       ? filterProjectDrafts(
@@ -275,7 +215,7 @@ export function buildLibraryEntries({
         }))
       : []
 
-  return [...local, ...cloud, ...stagingEntries, ...drafts].sort(
+  return [...local, ...cloud, ...drafts].sort(
     (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
   )
 }
